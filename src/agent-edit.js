@@ -474,6 +474,14 @@ const ANIMATIONS_MAX = 30;
 
 let animationLibrary = null;        // [{ name, url, label, icon, loop }]
 let selectedAnimNames = new Set();
+// Animation state machine UI state — see src/animation-state-machine.js
+const ANIM_STATES = ['idle', 'talk', 'walk', 'react', 'emote'];
+const ANIM_STATE_DEFAULT_CLIP = {
+  idle: 'idle', talk: 'idle', walk: 'walk', react: 'reaction', emote: 'wave',
+};
+let animGraphState = {};            // { idle: 'idle', talk: 'idle', ... } (clip names, "" = unset/use default)
+let originalAnimGraphState = {};
+
 let originalAnimNames = new Set();
 
 async function renderAnimationsPicker() {
@@ -534,6 +542,125 @@ async function renderAnimationsPicker() {
     saveBtn.addEventListener('click', saveAnimations);
   }
   updateAnimSaveButton();
+
+  renderAnimGraphPicker();
+}
+
+function renderAnimGraphPicker() {
+  const rows = $('anim-graph-rows');
+  const saveBtn = $('anim-graph-save');
+  if (!rows) return;
+
+  const graph = agentData.meta?.animationGraph || {};
+  animGraphState = {};
+  for (const state of ANIM_STATES) {
+    animGraphState[state] = graph.states?.[state]?.clip ?? '';
+  }
+  originalAnimGraphState = { ...animGraphState };
+
+  rows.innerHTML = ANIM_STATES.map((state) => {
+    const def = ANIM_STATE_DEFAULT_CLIP[state];
+    const options = ['<option value="">— default —</option>']
+      .concat(
+        animationLibrary.map((a) => {
+          const sel = animGraphState[state] === a.name ? ' selected' : '';
+          return `<option value="${escapeHtml(a.name)}"${sel}>${escapeHtml(a.label || a.name)}</option>`;
+        }),
+      )
+      .join('');
+    return `
+      <div class="anim-graph-row" data-state="${state}">
+        <span class="anim-graph-row-label">${state}</span>
+        <select aria-label="Clip for ${state} state">${options}</select>
+        <span class="anim-graph-row-meta">default: ${def}</span>
+      </div>
+    `;
+  }).join('');
+
+  rows.querySelectorAll('.anim-graph-row').forEach((row) => {
+    const state = row.dataset.state;
+    const select = row.querySelector('select');
+    select.addEventListener('change', () => {
+      animGraphState[state] = select.value;
+      updateAnimGraphSaveButton();
+    });
+  });
+
+  if (saveBtn && !saveBtn.dataset.wired) {
+    saveBtn.dataset.wired = '1';
+    saveBtn.addEventListener('click', saveAnimationGraph);
+  }
+  updateAnimGraphSaveButton();
+}
+
+function updateAnimGraphSaveButton() {
+  const saveBtn = $('anim-graph-save');
+  if (!saveBtn) return;
+  const dirty = ANIM_STATES.some((s) => animGraphState[s] !== originalAnimGraphState[s]);
+  saveBtn.disabled = !dirty;
+}
+
+// Build the API-shaped graph object from the current picker selections.
+// Empty (default) selections are omitted so the API receives only overrides.
+function buildAnimGraphPayload() {
+  const states = {};
+  for (const state of ANIM_STATES) {
+    const clip = animGraphState[state];
+    if (clip && clip !== '' && clip !== ANIM_STATE_DEFAULT_CLIP[state]) {
+      states[state] = { clip };
+    }
+  }
+  return Object.keys(states).length > 0 ? { states } : null;
+}
+
+async function saveAnimationGraph() {
+  const status = $('anim-graph-status');
+  const saveBtn = $('anim-graph-save');
+  if (!status || !saveBtn) return;
+
+  // PUT /api/agents/:id/animations requires animations[] alongside the graph,
+  // so we re-send the current selection unchanged.
+  const animations = animationLibrary
+    .filter((a) => selectedAnimNames.has(a.name))
+    .map((a) => ({
+      name: a.name,
+      url: a.url,
+      loop: a.loop !== false,
+      source: 'mixamo',
+      addedAt: new Date().toISOString(),
+    }));
+  const animationGraph = buildAnimGraphPayload();
+
+  saveBtn.disabled = true;
+  status.textContent = 'Saving…';
+  status.className = 'form-status';
+
+  try {
+    const r = await fetch(`${API_BASE}/agents/${agentId}/animations`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ animations, animationGraph }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
+    }
+    const j = await r.json();
+    if (!agentData.meta) agentData.meta = {};
+    agentData.meta.animations = j.animations;
+    agentData.meta.animationGraph = j.animationGraph;
+    originalAnimGraphState = { ...animGraphState };
+    status.textContent = 'Saved animation states.';
+    status.className = 'form-status ok';
+    reloadOutfitPreview();
+    setTimeout(() => { status.textContent = ''; status.className = 'form-status'; }, 2500);
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.className = 'form-status err';
+  } finally {
+    updateAnimGraphSaveButton();
+  }
 }
 
 function updateAnimSaveButton() {

@@ -25,6 +25,7 @@ import { resolveSlot, DEFAULT_ANIMATION_MAP } from './runtime/animation-slots.js
 import { ElevenLabsTTS } from './runtime/speech.js';
 import { LipSyncAnalyser, VISEMES as LIPSYNC_VISEMES } from './lip-sync-analyser.js';
 import { resolveMorphTargets, MORPH_ALIASES, ARKIT_VISEMES } from './runtime/arkit52.js';
+import { AnimationStateMachine } from './animation-state-machine.js';
 // BEGIN:IDLE_LOOP_IMPORT
 import { IdleAnimation } from './idle-animation.js';
 // END:IDLE_LOOP_IMPORT
@@ -210,6 +211,10 @@ export class AgentAvatar {
 		this._tts = null;
 		this._positionalAudio = null;
 
+		// Animation state machine — lazy: created in attach() once the viewer's
+		// animation manager is reachable.
+		this._sm = null;
+
 		this._tickBound = this._tickEmotion.bind(this);
 		this._onMouseMove = this._handleMouseMove.bind(this);
 		this._onKeyFollowDown = this._handleKeyPress.bind(this);
@@ -268,6 +273,27 @@ export class AgentAvatar {
 			getMorphCurrent: () => this._morphCurrent,
 		});
 		// END:IDLE_LOOP_INIT
+
+		// Animation state machine. The graph comes from agent meta and falls back
+		// to the canonical defaults (idle / talk / walk / react / emote). onTransition
+		// is wired straight to the AnimationManager so state transitions become
+		// real crossfades; non-existent clips degrade to a no-op warning from AM.
+		this._sm = new AnimationStateMachine(
+			this.identity?.animationGraph || {},
+			({ clip, def, crossfade }) => {
+				const am = this.viewer?.animationManager;
+				if (!am) return;
+				if (def.loop) {
+					am.crossfadeTo(clip, crossfade);
+				} else {
+					// One-shots can't crossFadeTo because the action stops on completion;
+					// play() handles the hard cut + lazy load. The clip's own end will
+					// be observed by callers who fire('<state>-end') manually, mirroring
+					// today's _playSlot timer-driven model.
+					am.play(clip);
+				}
+			},
+		);
 	}
 
 	/** Remove all hooks and listeners */
@@ -293,9 +319,27 @@ export class AgentAvatar {
 			this._positionalAudio.parent?.remove(this._positionalAudio);
 			this._positionalAudio = null;
 		}
+		this._sm = null;
 	}
 
 	// ── Public API ────────────────────────────────────────────────────────────
+
+	/**
+	 * Fire a transition on the animation state machine. Used by callers outside
+	 * AgentAvatar — element.js fires `walk` / `walk-end` from stream/chat hooks,
+	 * for instance. No-op when no state machine is attached.
+	 *
+	 * @param {string} event
+	 * @returns {string|null} new state name (null if no transition matched)
+	 */
+	fireAnimationEvent(event) {
+		return this._sm?.fire(event) ?? null;
+	}
+
+	/** Current animation state name from the state machine, or null. */
+	getAnimationState() {
+		return this._sm?.getCurrent() ?? null;
+	}
 
 	/** Play a named gesture animation */
 	playGesture(name) {
@@ -339,6 +383,9 @@ export class AgentAvatar {
 		}
 		this._morphTarget['mouthOpen'] = 0;
 		this._morphTarget['jawOpen']   = 0;
+		// Drop out of the talk state. If the avatar was in walk before speaking,
+		// the state machine's return-stack restores it (see AnimationStateMachine).
+		this._sm?.fire('speak-end');
 	}
 
 	/**
@@ -474,6 +521,11 @@ export class AgentAvatar {
 		// Trigger mouth/talk animation hint
 		const duration = Math.max(1.5, text.split(' ').length * 0.3);
 		this._triggerOneShot('talk', duration);
+
+		// Drive the state machine into the talk state so the body-loop swaps
+		// (idle → talk) when the agent has a configured talk clip. Default
+		// talk-clip-equals-idle is a no-op visually; lip-sync handles the mouth.
+		this._sm?.fire('speak');
 	}
 
 	_onThink(_action) {

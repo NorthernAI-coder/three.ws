@@ -19,6 +19,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { computeFraming, CAMERA_PRESETS } from './camera-presets.js';
+import { TalkEmotes } from './talk-emotes.js';
 
 export class TalkScene {
 	constructor() {
@@ -37,14 +39,25 @@ export class TalkScene {
 		this._running = false;
 		this._resizeObserver = null;
 		this._mouthTarget = null;
+		this._cameraPreset = 'full';
+		this._emotes = null;
 	}
 
-	async mount({ container, glbUrl }) {
+	async mount({ container, glbUrl, cameraPreset = 'full' }) {
+		this._cameraPreset = CAMERA_PRESETS.includes(cameraPreset) ? cameraPreset : 'full';
 		if (!container) throw new Error('TalkScene.mount: container required');
 		if (!glbUrl) throw new Error('TalkScene.mount: glbUrl required');
 		this.container = container;
 
-		this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+		// preserveDrawingBuffer keeps the WebGL framebuffer readable via
+		// `canvas.toBlob` — required for the snapshot pipeline (see
+		// avatar-snapshot.js) to capture a valid JPEG after a render. The perf
+		// cost is small for avatar-scale scenes; large at fullscreen-game scale.
+		this.renderer = new THREE.WebGLRenderer({
+			antialias: true,
+			alpha: true,
+			preserveDrawingBuffer: true,
+		});
 		this.renderer.setPixelRatio(window.devicePixelRatio);
 		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 		this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -106,9 +119,30 @@ export class TalkScene {
 			if (idle) this.playAnimation(idle.name);
 		}
 
+		// External emote library — loads /animations/manifest.json so callers
+		// can play any baked clip (wave, dance, celebrate, …) on this avatar.
+		// Tracks are filtered per-bone so unmatched rigs cleanly no-op rather
+		// than throwing.
+		this._emotes = new TalkEmotes();
+		this._emotes.attach(this.root);
+		// Manifest fetch is async — fire it but don't block mount on it. The
+		// caller can `await scene.getEmoteController().loadManifest()` if it
+		// needs the bar populated before showing UI.
+		this._emotes.loadManifest().catch(() => {});
+
 		this._installResizeObserver();
 		this._start();
 		return this.root;
+	}
+
+	/** Access the emote controller (for UI integration). */
+	getEmoteController() {
+		return this._emotes;
+	}
+
+	/** Convenience: play an external emote by name. */
+	playEmote(name) {
+		return this._emotes?.play(name) ?? Promise.resolve(false);
 	}
 
 	attachMouthTarget(target) {
@@ -138,6 +172,11 @@ export class TalkScene {
 		this._running = false;
 		if (this._rafId) cancelAnimationFrame(this._rafId);
 		this._rafId = 0;
+
+		if (this._emotes) {
+			this._emotes.detach();
+			this._emotes = null;
+		}
 
 		if (this._resizeObserver) {
 			this._resizeObserver.disconnect();
@@ -185,18 +224,36 @@ export class TalkScene {
 
 	// ── internals ────────────────────────────────────────────────────────
 
+	/**
+	 * Switch to a different camera framing preset and reframe immediately.
+	 * No-op if the avatar hasn't loaded yet — the next _frameAvatar() picks up
+	 * the new preset.
+	 */
+	setCameraPreset(preset) {
+		if (!CAMERA_PRESETS.includes(preset)) return;
+		this._cameraPreset = preset;
+		this._frameAvatar();
+	}
+
+	getCameraPreset() {
+		return this._cameraPreset;
+	}
+
 	_frameAvatar() {
 		if (!this.root || !this.camera || !this.controls) return;
-		const box = new THREE.Box3().setFromObject(this.root);
-		const size = box.getSize(new THREE.Vector3());
-		const center = box.getCenter(new THREE.Vector3());
-		// Aim slightly above the model center — closer to the face on a humanoid.
-		const headY = center.y + size.y * 0.32;
-		this.controls.target.set(center.x, headY, center.z);
-		// Pull the camera back proportionally to the model height; keep a
-		// portrait-friendly framing (slightly above the head, slightly forward).
-		const dist = Math.max(0.7, size.y * 1.05);
-		this.camera.position.set(center.x, headY + size.y * 0.05, center.z + dist);
+		const b = new THREE.Box3().setFromObject(this.root);
+		const aspect = this.camera.aspect || 1;
+		const framing = computeFraming({
+			box: { min: { x: b.min.x, y: b.min.y, z: b.min.z }, max: { x: b.max.x, y: b.max.y, z: b.max.z } },
+			preset: this._cameraPreset,
+			aspectRatio: aspect,
+		});
+		this.controls.target.set(framing.target.x, framing.target.y, framing.target.z);
+		this.camera.position.set(framing.position.x, framing.position.y, framing.position.z);
+		if (this.camera.fov !== framing.fov) {
+			this.camera.fov = framing.fov;
+			this.camera.updateProjectionMatrix();
+		}
 		this.controls.update();
 	}
 
@@ -221,6 +278,7 @@ export class TalkScene {
 			const dt = this._clock.getDelta();
 			this.controls?.update();
 			this.mixer?.update(dt);
+			this._emotes?.update(dt);
 			this.renderer?.render(this.scene, this.camera);
 			this._rafId = requestAnimationFrame(tick);
 		};

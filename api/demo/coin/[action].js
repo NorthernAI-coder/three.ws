@@ -18,6 +18,7 @@
 
 import { sql } from '../../_lib/db.js';
 import { cors, error, json, method, wrap } from '../../_lib/http.js';
+import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { listActiveCoins, loadCoinByMint } from '../../_lib/coin/index.js';
 
 function bigStr(v) {
@@ -353,6 +354,21 @@ const HANDLERS = {
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
+
+	// Rate-limit every public read endpoint by client IP. Re-uses the existing
+	// `publicIp` bucket (60 req/min, Upstash-backed in prod, in-memory in dev)
+	// so /api/demo/coin/* shares a single budget per IP across all actions —
+	// preventing a hot dashboard tab from burning through the quota that a
+	// share-bot calling /og also needs.
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) {
+		res.setHeader('retry-after', Math.ceil((rl.reset - Date.now()) / 1000));
+		return error(res, 429, 'rate_limited', 'too many requests', {
+			limit: rl.limit,
+			remaining: rl.remaining,
+			reset: rl.reset,
+		});
+	}
 
 	const action = req.query?.action;
 	const handler = typeof action === 'string' ? HANDLERS[action] : null;

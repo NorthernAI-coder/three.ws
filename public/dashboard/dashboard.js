@@ -1509,17 +1509,38 @@ async function doReplaceUpload(a, file, warnEl, cardEl) {
 	}
 
 	say('Checking skeleton compatibility\u2026');
-	const glbBuf = await file.arrayBuffer();
-	const boneMatch = checkMixamoSkeleton(glbBuf);
+	const originalBuf = await file.arrayBuffer();
+	let uploadBytes = originalBuf;
+	let uploadSize  = file.size;
+	let uploadBlob  = file;
+	let retargetReport = null;
+
+	try {
+		const { canonicalizeGLBBones } = await import('/src/glb-canonicalize.js');
+		const result = canonicalizeGLBBones(originalBuf);
+		if (result.renamed > 0) {
+			uploadBytes = result.buffer;
+			uploadSize  = result.buffer.byteLength;
+			uploadBlob  = new Blob([result.buffer], { type: 'model/gltf-binary' });
+			retargetReport = { renamed: result.renamed, samples: result.samples };
+		}
+	} catch (err) {
+		// Canonicalization is non-fatal \u2014 fall back to the original buffer and
+		// let the boneMatch warning surface the issue. A malformed GLB will
+		// also fail at the R2 upload step with a clearer error.
+		console.warn('[upload] canonicalize failed; uploading original', err);
+	}
+
+	const boneMatch = checkMixamoSkeleton(uploadBytes);
 
 	say('Requesting upload URL\u2026');
 	try {
 		const { upload_url, storage_key } = await api.presign({
-			size_bytes: file.size,
+			size_bytes: uploadSize,
 			content_type: 'model/gltf-binary',
 		});
-		say(`Uploading ${fmtSize(file.size)}\u2026`);
-		await uploadToR2(upload_url, file, (pct) => say(`Uploading ${pct}%\u2026`));
+		say(`Uploading ${fmtSize(uploadSize)}\u2026`);
+		await uploadToR2(upload_url, uploadBlob, (pct) => say(`Uploading ${pct}%\u2026`));
 		say('Registering\u2026');
 		const { avatar } = await api.createAvatar({
 			storage_key,
@@ -1528,10 +1549,12 @@ async function doReplaceUpload(a, file, warnEl, cardEl) {
 			description: a.description || undefined,
 			visibility: a.visibility,
 			tags: a.tags,
-			size_bytes: file.size,
+			size_bytes: uploadSize,
 			content_type: 'model/gltf-binary',
 			source: 'direct-upload',
-			source_meta: { replaced_from: a.id },
+			source_meta: retargetReport
+				? { replaced_from: a.id, retargeted_bones: retargetReport.renamed }
+				: { replaced_from: a.id },
 		});
 
 		// Refresh model-viewer preview if the new avatar is public/unlisted
@@ -1540,7 +1563,11 @@ async function doReplaceUpload(a, file, warnEl, cardEl) {
 			if (mv) mv.src = avatar.model_url;
 		}
 
-		if (boneMatch !== null && boneMatch < 0.5) {
+		if (retargetReport) {
+			say(
+				`Replaced. Retargeted ${retargetReport.renamed} bones to the three.ws humanoid skeleton so animations play out of the box.`,
+			);
+		} else if (boneMatch !== null && boneMatch < 0.5) {
 			say(
 				`Uploaded. \u26a0 Animations may not play \u2014 skeleton mismatch (${Math.round(boneMatch * 100)}% three.ws humanoid bone match).`,
 			);
@@ -1616,16 +1643,36 @@ function renderUpload(root) {
 		e.preventDefault();
 		const file = root.querySelector('#file').files[0];
 		if (!file) return;
+
+		progress.textContent = 'Checking skeleton compatibility…';
+		let uploadBlob = file;
+		let uploadSize = file.size;
+		let retargetReport = null;
+		try {
+			const originalBuf = await file.arrayBuffer();
+			const { canonicalizeGLBBones } = await import('/src/glb-canonicalize.js');
+			const result = canonicalizeGLBBones(originalBuf);
+			if (result.renamed > 0) {
+				uploadBlob = new Blob([result.buffer], { type: 'model/gltf-binary' });
+				uploadSize = result.buffer.byteLength;
+				retargetReport = { renamed: result.renamed, samples: result.samples };
+				progress.textContent = `Retargeted ${result.renamed} bones to the three.ws humanoid skeleton.`;
+			}
+		} catch (err) {
+			// Canonicalization is non-fatal; let upload proceed with the original.
+			console.warn('[upload] canonicalize failed; uploading original', err);
+		}
+
 		progress.textContent = 'Requesting upload URL…';
 		try {
 			const { upload_url, storage_key } = await api.presign({
-				size_bytes: file.size,
-				content_type: file.type || 'model/gltf-binary',
+				size_bytes: uploadSize,
+				content_type: 'model/gltf-binary',
 			});
-			progress.textContent = `Uploading ${fmtSize(file.size)}…`;
+			progress.textContent = `Uploading ${fmtSize(uploadSize)}…`;
 			await uploadToR2(
 				upload_url,
-				file,
+				uploadBlob,
 				(pct) => (progress.textContent = `Uploading ${pct}%…`),
 			);
 			progress.textContent = 'Finalizing…';
@@ -1639,10 +1686,12 @@ function renderUpload(root) {
 				description: root.querySelector('#desc').value || undefined,
 				visibility: root.querySelector('#vis').value,
 				tags,
-				size_bytes: file.size,
-				content_type: file.type || 'model/gltf-binary',
+				size_bytes: uploadSize,
+				content_type: 'model/gltf-binary',
 				source: 'upload',
-				source_meta: {},
+				source_meta: retargetReport
+					? { retargeted_bones: retargetReport.renamed }
+					: {},
 			});
 			progress.innerHTML = `Uploaded! <a href="/dashboard/avatars">View</a>`;
 			goto('avatars');

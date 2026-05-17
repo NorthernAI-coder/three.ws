@@ -13,6 +13,7 @@
 
 import { TalkScene } from './voice/talk-scene.js';
 import { AccessoryManager } from './agent-accessories.js';
+import { uploadAvatarSnapshot } from './voice/avatar-snapshot.js';
 
 // ── Routing ────────────────────────────────────────────────────────────
 
@@ -154,6 +155,18 @@ async function saveAppearance() {
 		setStatus('ok', 'Saved');
 	}
 	updateDirtyState();
+
+	// Best-effort: snapshot the current frame and upload as the avatar's
+	// thumbnail. Auto-tagging runs server-side as part of the call. We don't
+	// await this on the critical Save path — if it fails the user already sees
+	// "Saved" and the existing OG fallback still serves a card.
+	queueMicrotask(async () => {
+		try {
+			await uploadAvatarSnapshot({ avatarId: avatar.id, scene });
+		} catch (err) {
+			console.warn('[avatar-edit] snapshot upload failed:', err?.message);
+		}
+	});
 }
 
 // ── Rendering ──────────────────────────────────────────────────────────

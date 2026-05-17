@@ -2199,6 +2199,17 @@ body.deploy-page {
 	align-items: end;
 	padding: var(--space-lg) 0 var(--space-md);
 	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	/* Reset global <header> styles so the deploy hero sizes to its content
+	   instead of being clipped to the nav-bar height. */
+	height: auto;
+	line-height: normal;
+	overflow: visible;
+	white-space: normal;
+	background: transparent;
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	-webkit-app-region: no-drag;
+	z-index: auto;
 }
 
 .deploy-hero-text {
@@ -2365,6 +2376,14 @@ body.deploy-page {
 	height: 100%;
 	object-fit: cover;
 	display: block;
+}
+
+.deploy-preview-mv {
+	width: 100%;
+	height: 100%;
+	display: block;
+	background: transparent;
+	--poster-color: transparent;
 }
 
 .deploy-preview-ph {

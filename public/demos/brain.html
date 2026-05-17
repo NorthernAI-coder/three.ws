@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Multi-LLM brain · three.ws lab</title>
+		<meta name="description" content="Send the same prompt to Claude, GPT, Qwen on Alibaba DashScope, Qwen3-Coder on ModelScope, and Llama on Groq. Compare streaming responses, latency, and token usage side-by-side." />
+		<meta name="robots" content="noindex" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<style>
+			:root { color-scheme: dark; }
+			body { background: #05060a; color: #eee; font: 15px/1.5 -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+			.stage { max-width: 1080px; margin: 0 auto; padding: 48px 24px 80px; }
+			.crumb a { color: #8a8d98; text-decoration: none; }
+			.crumb a:hover { color: #d6ff3d; }
+			h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.015em; margin: 14px 0 8px; }
+			.sub { color: #8a8d98; max-width: 64ch; margin: 0 0 26px; }
+			.composer { display: flex; flex-direction: column; gap: 12px; background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px; padding: 18px; margin-bottom: 22px; }
+			.composer textarea { width: 100%; min-height: 92px; resize: vertical; padding: 12px 14px; background: #07080d; border: 1px solid #1e1f2b; border-radius: 10px; color: #eee; font: inherit; line-height: 1.5; }
+			.composer-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+			.composer-row select, .composer-row input[type="text"] { background: #07080d; border: 1px solid #1e1f2b; color: #eee; padding: 8px 10px; border-radius: 9px; font: inherit; }
+			.composer-row label { font-size: 12px; color: #8a8d98; text-transform: uppercase; letter-spacing: 0.08em; }
+			button { background: #d6ff3d; color: #0a0a0a; border: 0; border-radius: 9px; padding: 10px 16px; font-weight: 600; cursor: pointer; font: inherit; }
+			button.secondary { background: rgba(255,255,255,0.06); color: #eee; }
+			button:disabled { opacity: 0.4; cursor: not-allowed; }
+			.providers { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+			.provider-pill { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px; cursor: pointer; user-select: none; }
+			.provider-pill input { accent-color: #d6ff3d; }
+			.provider-pill .net { font-size: 10.5px; color: #8a8d98; text-transform: uppercase; letter-spacing: 0.05em; }
+			.provider-pill .name { font-size: 13px; font-weight: 600; }
+			.provider-pill .meta { display: flex; flex-direction: column; line-height: 1.2; }
+			.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+			.card { background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; min-height: 280px; }
+			.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+			.card-title { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; margin: 0; }
+			.card-net { font-size: 10.5px; color: #8a8d98; text-transform: uppercase; letter-spacing: 0.06em; }
+			.card-body { flex: 1; margin-top: 10px; padding: 12px; background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px; font-size: 13.5px; line-height: 1.55; color: #ddd; white-space: pre-wrap; min-height: 130px; max-height: 320px; overflow-y: auto; }
+			.card-body.empty { color: #565762; font-style: italic; }
+			.card-body.error { color: #ff8a8a; }
+			.card-footer { margin-top: 10px; display: flex; gap: 14px; font-size: 11.5px; color: #8a8d98; font-family: ui-monospace, monospace; flex-wrap: wrap; }
+			.card-footer span strong { color: #d6ff3d; font-weight: 600; }
+			.spinner { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #d6ff3d; animation: pulse 1s ease-in-out infinite; vertical-align: middle; margin-left: 8px; }
+			@keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+			.notice { padding: 10px 14px; border-radius: 10px; background: rgba(255,184,77,0.08); border: 1px solid rgba(255,184,77,0.25); color: #ffb84d; font-size: 13px; margin-top: 16px; }
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+
+		<main class="stage">
+			<p class="crumb"><a href="/demos/">← lab</a></p>
+			<h1>Multi-LLM brain</h1>
+			<p class="sub">
+				Send the same prompt to multiple providers at once. Side-by-side streaming
+				answers, real latency, real token counts. Brain layer built on the Vercel AI
+				SDK; routes to <strong>Claude</strong>, <strong>GPT</strong>,
+				<strong>Qwen on Alibaba DashScope</strong>, <strong>Qwen3-Coder on ModelScope</strong>,
+				and <strong>Llama 3.3 on Groq</strong>.
+			</p>
+
+			<section class="composer">
+				<div>
+					<label for="system" class="card-net">System (optional)</label>
+					<textarea id="system" placeholder="You are a terse, helpful assistant…" style="min-height: 56px; margin-top: 6px;"></textarea>
+				</div>
+				<div>
+					<label for="prompt" class="card-net">Prompt</label>
+					<textarea id="prompt" placeholder="What ships when a developer drops &lt;agent-3d&gt; on a page?">Explain HTTP 402 in two sentences. No filler.</textarea>
+				</div>
+
+				<div>
+					<label class="card-net">Providers to compare</label>
+					<div class="providers" id="providers"></div>
+				</div>
+
+				<div class="composer-row">
+					<label>Max tokens</label>
+					<input type="text" id="maxTokens" value="512" inputmode="numeric" style="width: 80px;" />
+					<div style="flex: 1"></div>
+					<button class="secondary" id="clear">Clear</button>
+					<button id="run">Run</button>
+				</div>
+			</section>
+
+			<div class="grid" id="grid"></div>
+			<div class="notice" id="notice" style="display:none"></div>
+		</main>
+
+		<script src="/nav.js"></script>
+		<script type="module">
+			const ALL_PROVIDERS = [
+				{ key: 'anthropic', label: 'Claude Sonnet 4.6', network: 'Anthropic', defaultOn: true },
+				{ key: 'openai', label: 'GPT-4o-mini', network: 'OpenAI', defaultOn: true },
+				{ key: 'qwen-plus', label: 'Qwen Plus', network: 'Alibaba DashScope', defaultOn: true },
+				{ key: 'qwen-vl-max', label: 'Qwen VL Max', network: 'Alibaba DashScope', defaultOn: false },
+				{ key: 'modelscope-qwen', label: 'Qwen3-Coder-480B', network: 'ModelScope', defaultOn: true },
+				{ key: 'groq-llama', label: 'Llama 3.3 70B', network: 'Groq', defaultOn: false },
+			];
+
+			const providersEl = document.getElementById('providers');
+			const gridEl = document.getElementById('grid');
+			const promptEl = document.getElementById('prompt');
+			const systemEl = document.getElementById('system');
+			const maxTokensEl = document.getElementById('maxTokens');
+			const runBtn = document.getElementById('run');
+			const clearBtn = document.getElementById('clear');
+			const noticeEl = document.getElementById('notice');
+
+			for (const p of ALL_PROVIDERS) {
+				const pill = document.createElement('label');
+				pill.className = 'provider-pill';
+				pill.innerHTML = `
+					<input type="checkbox" data-key="${p.key}" ${p.defaultOn ? 'checked' : ''}/>
+					<span class="meta">
+						<span class="name">${p.label}</span>
+						<span class="net">${p.network}</span>
+					</span>`;
+				providersEl.appendChild(pill);
+			}
+
+			function renderCards(selected) {
+				gridEl.innerHTML = '';
+				for (const p of selected) {
+					const card = document.createElement('div');
+					card.className = 'card';
+					card.dataset.key = p.key;
+					card.innerHTML = `
+						<div class="card-head">
+							<h3 class="card-title">${p.label} <span class="spinner" data-spinner></span></h3>
+							<span class="card-net">${p.network}</span>
+						</div>
+						<div class="card-body empty" data-body>Waiting…</div>
+						<div class="card-footer" data-footer>
+							<span><strong data-elapsed>—</strong> ms</span>
+							<span><strong data-tokens>—</strong> tokens out</span>
+							<span><strong data-tps>—</strong> tok/s</span>
+						</div>`;
+					gridEl.appendChild(card);
+				}
+			}
+
+			function selectedProviders() {
+				const keys = [...providersEl.querySelectorAll('input:checked')].map((el) => el.dataset.key);
+				return ALL_PROVIDERS.filter((p) => keys.includes(p.key));
+			}
+
+			async function streamProvider(p, body, card) {
+				const bodyEl = card.querySelector('[data-body]');
+				const elapsedEl = card.querySelector('[data-elapsed]');
+				const tokensEl = card.querySelector('[data-tokens]');
+				const tpsEl = card.querySelector('[data-tps]');
+				const spinner = card.querySelector('[data-spinner]');
+				bodyEl.textContent = '';
+				bodyEl.classList.remove('empty', 'error');
+
+				const t0 = performance.now();
+				let res;
+				try {
+					res = await fetch('/api/brain/chat', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ ...body, provider: p.key }),
+					});
+				} catch (err) {
+					bodyEl.classList.add('error');
+					bodyEl.textContent = `Network error: ${err.message}`;
+					spinner.style.display = 'none';
+					return;
+				}
+
+				if (!res.ok || !res.body) {
+					const txt = await res.text().catch(() => '');
+					bodyEl.classList.add('error');
+					bodyEl.textContent = `HTTP ${res.status}: ${txt || res.statusText}`;
+					spinner.style.display = 'none';
+					return;
+				}
+
+				const reader = res.body.getReader();
+				const decoder = new TextDecoder();
+				let buf = '';
+				let textLen = 0;
+
+				try {
+					for (;;) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						buf += decoder.decode(value, { stream: true });
+
+						let idx;
+						while ((idx = buf.indexOf('\n\n')) !== -1) {
+							const event = buf.slice(0, idx);
+							buf = buf.slice(idx + 2);
+							const lines = event.split('\n');
+							let evType = 'message';
+							let data = '';
+							for (const line of lines) {
+								if (line.startsWith('event:')) evType = line.slice(6).trim();
+								else if (line.startsWith('data:')) data += line.slice(5).trim();
+							}
+
+							if (evType === 'message' && data) {
+								if (data === '[DONE]') continue;
+								try {
+									const chunk = JSON.parse(data);
+									bodyEl.textContent += chunk;
+									textLen += chunk.length;
+								} catch {}
+							} else if (evType === 'done') {
+								try {
+									const info = JSON.parse(data);
+									elapsedEl.textContent = info.elapsedMs;
+									if (info.usage?.outputTokens) {
+										tokensEl.textContent = info.usage.outputTokens;
+										const sec = info.elapsedMs / 1000;
+										if (sec > 0) tpsEl.textContent = (info.usage.outputTokens / sec).toFixed(1);
+									}
+								} catch {}
+							} else if (evType === 'error') {
+								try {
+									const info = JSON.parse(data);
+									bodyEl.classList.add('error');
+									bodyEl.textContent += `\n\n[error: ${info.message}]`;
+									elapsedEl.textContent = info.elapsedMs;
+								} catch {}
+							}
+						}
+					}
+				} finally {
+					spinner.style.display = 'none';
+					if (!elapsedEl.textContent || elapsedEl.textContent === '—') {
+						elapsedEl.textContent = Math.round(performance.now() - t0);
+					}
+				}
+			}
+
+			async function run() {
+				const prompt = promptEl.value.trim();
+				if (!prompt) {
+					noticeEl.style.display = 'block';
+					noticeEl.textContent = 'Enter a prompt first.';
+					return;
+				}
+				noticeEl.style.display = 'none';
+
+				const selected = selectedProviders();
+				if (!selected.length) {
+					noticeEl.style.display = 'block';
+					noticeEl.textContent = 'Select at least one provider.';
+					return;
+				}
+
+				renderCards(selected);
+				runBtn.disabled = true;
+				const body = {
+					messages: [{ role: 'user', content: prompt }],
+					system: systemEl.value.trim() || undefined,
+					maxTokens: Math.min(Math.max(Number(maxTokensEl.value) || 512, 32), 4096),
+				};
+				try {
+					await Promise.all(selected.map((p) => {
+						const card = gridEl.querySelector(`[data-key="${p.key}"]`);
+						return streamProvider(p, body, card);
+					}));
+				} finally {
+					runBtn.disabled = false;
+				}
+			}
+
+			runBtn.addEventListener('click', run);
+			clearBtn.addEventListener('click', () => {
+				gridEl.innerHTML = '';
+				noticeEl.style.display = 'none';
+			});
+			promptEl.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run();
+			});
+		</script>
+	</body>
+</html>

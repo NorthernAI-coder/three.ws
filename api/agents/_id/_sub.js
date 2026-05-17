@@ -72,7 +72,27 @@ const animationEntrySchema = z.object({
 	addedAt: z.string().optional(),
 });
 
-const animationsBodySchema = z.object({ animations: z.array(animationEntrySchema).max(30) });
+// Animation state machine — optional graph stored alongside the flat clip
+// list. The runtime AnimationStateMachine fills in defaults for any state
+// not explicitly mapped here; the editor only persists overrides.
+const animationStateSchema = z.object({
+	clip:      z.string().trim().min(1).max(60).optional(),
+	loop:      z.boolean().optional(),
+	crossfade: z.number().min(0).max(5).optional(),
+	oneShot:   z.boolean().optional(),
+	returnTo:  z.string().trim().min(1).max(40).nullable().optional(),
+}).strict();
+
+const animationGraphSchema = z.object({
+	states:      z.record(animationStateSchema).optional(),
+	transitions: z.record(z.string().trim().min(1).max(40)).optional(),
+	initial:     z.string().trim().min(1).max(40).optional(),
+}).strict();
+
+const animationsBodySchema = z.object({
+	animations: z.array(animationEntrySchema).max(30),
+	animationGraph: animationGraphSchema.optional(),
+});
 
 export const handleAnimations = wrap(async (req, res, id) => {
 	if (cors(req, res, { methods: 'PUT,OPTIONS', credentials: true })) return;
@@ -85,12 +105,40 @@ export const handleAnimations = wrap(async (req, res, id) => {
 	if (!existing) return error(res, 404, 'not_found', 'agent not found');
 	if (existing.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
 
+	const rawBody = await readJson(req);
 	let parsed;
-	try { parsed = animationsBodySchema.parse(await readJson(req)); }
+	try { parsed = animationsBodySchema.parse(rawBody); }
 	catch (err) { if (err.name === 'ZodError') return error(res, 400, 'validation_error', err.errors[0]?.message || 'invalid body', { fields: err.errors }); throw err; }
 
-	await sql`UPDATE agent_identities SET meta = jsonb_set(COALESCE(meta, '{}'::jsonb), '{animations}', ${JSON.stringify(parsed.animations)}::jsonb, true) WHERE id = ${id}`;
-	return json(res, 200, { animations: parsed.animations });
+	// Only touch meta.animationGraph when the request actually carries the
+	// field, so saving the clip-array on its own doesn't clobber an existing
+	// graph. `null` is a valid explicit "remove the graph" signal.
+	const hasGraph = Object.prototype.hasOwnProperty.call(rawBody || {}, 'animationGraph');
+	if (hasGraph) {
+		await sql`
+			UPDATE agent_identities
+			SET meta = jsonb_set(
+				jsonb_set(COALESCE(meta, '{}'::jsonb), '{animations}', ${JSON.stringify(parsed.animations)}::jsonb, true),
+				'{animationGraph}',
+				${parsed.animationGraph ? JSON.stringify(parsed.animationGraph) : 'null'}::jsonb,
+				true
+			)
+			WHERE id = ${id}
+		`;
+	} else {
+		await sql`
+			UPDATE agent_identities
+			SET meta = jsonb_set(COALESCE(meta, '{}'::jsonb), '{animations}', ${JSON.stringify(parsed.animations)}::jsonb, true)
+			WHERE id = ${id}
+		`;
+	}
+
+	// Read back the persisted graph so the response reflects what's actually stored.
+	const [row] = await sql`SELECT meta->'animationGraph' AS graph FROM agent_identities WHERE id = ${id}`;
+	return json(res, 200, {
+		animations: parsed.animations,
+		animationGraph: row?.graph ?? null,
+	});
 });
 
 // ── embed-policy ──────────────────────────────────────────────────────────────

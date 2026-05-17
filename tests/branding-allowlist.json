@@ -1,0 +1,37 @@
+[
+	{
+		"pattern": "source: 'avaturn'",
+		"file": "*",
+		"reason": "Internal postMessage source value — required to match Avaturn iframe protocol, never shown to end users."
+	},
+	{
+		"pattern": "source: 'characterstudio'",
+		"file": "*",
+		"reason": "Internal postMessage source value — required to match Character Studio iframe protocol, never shown to end users."
+	},
+	{
+		"pattern": "source !== 'avaturn'",
+		"file": "*",
+		"reason": "Internal postMessage source guard — same protocol concern as above."
+	},
+	{
+		"pattern": "from '@avaturn/sdk'",
+		"file": "*",
+		"reason": "Vendor npm package import — three.ws renames the public symbol but the dependency identifier is fixed by npm."
+	},
+	{
+		"pattern": "'@avaturn/sdk'",
+		"file": "*",
+		"reason": "Vendor npm package identifier in import or require statement."
+	},
+	{
+		"pattern": "'/avaturn-",
+		"file": "*",
+		"reason": "Internal API route path (e.g. /avaturn-session) — server-side only, not surfaced in UI copy."
+	},
+	{
+		"pattern": "/avaturn-session",
+		"file": "*",
+		"reason": "Internal API route path — server-side only."
+	}
+]

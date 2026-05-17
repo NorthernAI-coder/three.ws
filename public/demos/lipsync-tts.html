@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>TTS-driven lipsync · three.ws lab</title>
+		<meta name="description" content="Type text, stream it through OpenAI TTS, and watch a 3D avatar's mouth animate in real time via wawa-lipsync viseme detection. No server-side audio processing." />
+		<meta name="robots" content="noindex" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<style>
+			:root { color-scheme: dark; }
+			body { background: #05060a; color: #eee; font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; }
+			.stage { max-width: 1080px; margin: 0 auto; padding: 48px 24px 80px; }
+			.crumb a { color: #8a8d98; text-decoration: none; }
+			.crumb a:hover { color: #d6ff3d; }
+			h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.015em; margin: 14px 0 8px; }
+			.sub { color: #8a8d98; max-width: 64ch; margin: 0 0 26px; }
+			.row { display: grid; grid-template-columns: 1fr 320px; gap: 22px; }
+			@media (max-width: 880px) { .row { grid-template-columns: 1fr; } }
+			.viewer-host { background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px; min-height: 480px; position: relative; overflow: hidden; }
+			.viewer-host canvas { display: block; width: 100%; height: 100%; }
+			.viewer-label { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.55); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; color: #d6ff3d; font-weight: 600; }
+			.panel { background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+			.panel textarea { background: #07080d; border: 1px solid #1e1f2b; color: #eee; padding: 11px 12px; border-radius: 9px; font: inherit; min-height: 92px; resize: vertical; }
+			.panel select { background: #07080d; border: 1px solid #1e1f2b; color: #eee; padding: 8px 10px; border-radius: 9px; font: inherit; }
+			.panel label { font-size: 11px; color: #8a8d98; text-transform: uppercase; letter-spacing: 0.08em; }
+			.panel button { background: #d6ff3d; color: #0a0a0a; border: 0; border-radius: 9px; padding: 11px 14px; font-weight: 600; cursor: pointer; font: inherit; }
+			.panel button.secondary { background: rgba(255,255,255,0.06); color: #eee; }
+			.panel button:disabled { opacity: 0.4; cursor: not-allowed; }
+			.viseme-row { display: flex; justify-content: space-between; font-size: 12px; color: #8a8d98; font-family: ui-monospace, monospace; }
+			.viseme-row code { color: #d6ff3d; font-weight: 600; }
+			.bar { display: inline-block; height: 6px; vertical-align: middle; border-radius: 3px; background: rgba(214,255,61,0.18); margin-left: 8px; }
+			.bar > span { display: block; height: 100%; background: #d6ff3d; border-radius: 3px; transition: width 0.04s linear; }
+			.log { background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px; padding: 12px; font-family: ui-monospace, monospace; font-size: 11.5px; color: #8a8d98; line-height: 1.55; min-height: 60px; max-height: 140px; overflow-y: auto; }
+			.log .ok { color: #d6ff3d; }
+			.log .err { color: #ff8a8a; }
+			.log .info { color: #9ad4ff; }
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+
+		<main class="stage">
+			<p class="crumb"><a href="/demos/">← lab</a></p>
+			<h1>TTS-driven lipsync</h1>
+			<p class="sub">
+				Type any text, stream it through OpenAI TTS, and the avatar's mouth animates in
+				real time. Visemes are extracted in-browser via <code>wawa-lipsync</code>
+				analysing the audio's frequency bands — no server-side audio processing, no
+				per-word timing data, no plugins.
+			</p>
+
+			<div class="row">
+				<div class="viewer-host" id="viewer-host">
+					<div class="viewer-label">live · TTS → viseme → morph</div>
+				</div>
+				<div class="panel">
+					<div>
+						<label for="text">Text to speak</label>
+						<textarea id="text">Welcome to three dot ws. This avatar is talking through real-time viseme detection, powered entirely in the browser.</textarea>
+					</div>
+
+					<div style="display:flex;gap:8px">
+						<div style="flex:1">
+							<label for="voice">Voice</label>
+							<select id="voice" style="width:100%">
+								<option value="nova" selected>Nova</option>
+								<option value="alloy">Alloy</option>
+								<option value="echo">Echo</option>
+								<option value="fable">Fable</option>
+								<option value="onyx">Onyx</option>
+								<option value="shimmer">Shimmer</option>
+								<option value="ash">Ash</option>
+								<option value="coral">Coral</option>
+								<option value="sage">Sage</option>
+							</select>
+						</div>
+						<div style="flex:1">
+							<label for="speed">Speed</label>
+							<select id="speed" style="width:100%">
+								<option value="0.8">0.8×</option>
+								<option value="1.0" selected>1.0×</option>
+								<option value="1.2">1.2×</option>
+								<option value="1.5">1.5×</option>
+							</select>
+						</div>
+					</div>
+
+					<div style="display:flex;gap:8px">
+						<button id="speak" style="flex:1">Speak</button>
+						<button id="stop" class="secondary" disabled>Stop</button>
+					</div>
+
+					<div>
+						<label>Visemes (live)</label>
+						<div id="visemes" style="display:flex;flex-direction:column;gap:5px;margin-top:6px"></div>
+					</div>
+
+					<div class="log" id="log"></div>
+				</div>
+			</div>
+		</main>
+
+		<script src="/nav.js" defer></script>
+		<script type="module">
+			import * as THREE from 'three';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { Lipsync } from 'wawa-lipsync';
+
+			const $ = (id) => document.getElementById(id);
+			const host = $('viewer-host');
+			const logEl = $('log');
+
+			function log(cls, msg) {
+				const div = document.createElement('div');
+				div.className = cls;
+				div.textContent = msg;
+				logEl.appendChild(div);
+				logEl.scrollTop = logEl.scrollHeight;
+			}
+
+			const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(host.clientWidth, host.clientHeight);
+			renderer.outputColorSpace = THREE.SRGBColorSpace;
+			host.appendChild(renderer.domElement);
+
+			const scene = new THREE.Scene();
+			const camera = new THREE.PerspectiveCamera(28, host.clientWidth / host.clientHeight, 0.01, 100);
+			camera.position.set(0, 1.55, 0.85);
+			const controls = new OrbitControls(camera, renderer.domElement);
+			controls.target.set(0, 1.55, 0);
+			controls.enableDamping = true;
+			controls.minDistance = 0.4;
+			controls.maxDistance = 3.0;
+
+			scene.add(new THREE.HemisphereLight(0xffffff, 0x404060, 1.1));
+			const dir = new THREE.DirectionalLight(0xffffff, 1.4);
+			dir.position.set(2, 4, 3);
+			scene.add(dir);
+
+			window.addEventListener('resize', () => {
+				const w = host.clientWidth, h = host.clientHeight;
+				renderer.setSize(w, h);
+				camera.aspect = w / h;
+				camera.updateProjectionMatrix();
+			});
+
+			// wawa-lipsync produces visemes: sil, aa, PP, FF, TH, DD, kk, CH, SS, nn, RR, ou
+			// Our default avatar's morph targets follow the Oculus naming:
+			// viseme_aa, viseme_O, viseme_E, viseme_I, viseme_nn, viseme_SS, viseme_FF, viseme_CH, viseme_PP
+			const VISEME_MAP = {
+				aa: 'viseme_aa',
+				PP: 'viseme_PP',
+				FF: 'viseme_FF',
+				TH: 'viseme_E',
+				DD: 'viseme_E',
+				kk: 'viseme_E',
+				CH: 'viseme_CH',
+				SS: 'viseme_SS',
+				nn: 'viseme_nn',
+				RR: 'viseme_O',
+				ou: 'viseme_O',
+				sil: null,
+			};
+			const MORPH_NAMES = [...new Set(Object.values(VISEME_MAP).filter(Boolean))];
+
+			const morphRefs = new Map();
+			const targetWeights = new Map();
+			for (const m of MORPH_NAMES) targetWeights.set(m, 0);
+
+			const visemesEl = $('visemes');
+			const bars = new Map();
+			for (const code of Object.keys(VISEME_MAP)) {
+				if (code === 'sil') continue;
+				const row = document.createElement('div');
+				row.className = 'viseme-row';
+				row.innerHTML = `<span>${code} → ${VISEME_MAP[code]}</span><span class="bar" style="width:120px"><span data-v="${code}" style="width:0%"></span></span>`;
+				visemesEl.appendChild(row);
+				bars.set(code, row.querySelector(`[data-v="${code}"]`));
+			}
+
+			let avatarReady = false;
+			new GLTFLoader().load('/avatars/default.glb', (gltf) => {
+				scene.add(gltf.scene);
+				gltf.scene.traverse((node) => {
+					if (!node.isMesh || !node.morphTargetDictionary || !node.morphTargetInfluences) return;
+					for (const m of MORPH_NAMES) {
+						const idx = node.morphTargetDictionary[m];
+						if (idx === undefined) continue;
+						if (!morphRefs.has(m)) morphRefs.set(m, []);
+						morphRefs.get(m).push({ mesh: node, index: idx });
+					}
+				});
+				avatarReady = true;
+				log('ok', `Avatar loaded · ${morphRefs.size}/${MORPH_NAMES.length} viseme morphs wired`);
+			}, undefined, (err) => log('err', `Avatar load failed: ${err.message}`));
+
+			const lipsync = new Lipsync();
+			let audioEl = null;
+			let isPlaying = false;
+			let currentURL = null;
+
+			function tick() {
+				requestAnimationFrame(tick);
+				controls.update();
+
+				if (isPlaying && audioEl) {
+					lipsync.processAudio();
+					const v = lipsync.viseme || 'sil';
+					for (const m of MORPH_NAMES) targetWeights.set(m, 0);
+					const morph = VISEME_MAP[v];
+					if (morph) targetWeights.set(morph, 1.0);
+					for (const code of bars.keys()) {
+						bars.get(code).style.width = (code === v ? 100 : 0) + '%';
+					}
+				} else {
+					for (const m of MORPH_NAMES) targetWeights.set(m, 0);
+					for (const bar of bars.values()) bar.style.width = '0%';
+				}
+
+				if (avatarReady) {
+					for (const [m, w] of targetWeights.entries()) {
+						const refs = morphRefs.get(m);
+						if (!refs) continue;
+						for (const { mesh, index } of refs) {
+							const prev = mesh.morphTargetInfluences[index];
+							mesh.morphTargetInfluences[index] = prev + (w - prev) * 0.5;
+						}
+					}
+				}
+
+				renderer.render(scene, camera);
+			}
+			tick();
+
+			const speakBtn = $('speak');
+			const stopBtn = $('stop');
+
+			async function speak() {
+				const text = $('text').value.trim();
+				if (!text) { log('err', 'Enter text first.'); return; }
+
+				speakBtn.disabled = true;
+				stopBtn.disabled = false;
+				log('info', `Requesting TTS · voice=${$('voice').value} speed=${$('speed').value}`);
+
+				let res;
+				try {
+					res = await fetch('/api/tts/speak', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({
+							text,
+							voice: $('voice').value,
+							speed: parseFloat($('speed').value),
+							format: 'mp3',
+						}),
+					});
+				} catch (err) {
+					log('err', `TTS request failed: ${err.message}`);
+					speakBtn.disabled = false;
+					stopBtn.disabled = true;
+					return;
+				}
+
+				if (!res.ok) {
+					const txt = await res.text().catch(() => '');
+					log('err', `TTS error · HTTP ${res.status} · ${txt.slice(0, 200)}`);
+					speakBtn.disabled = false;
+					stopBtn.disabled = true;
+					return;
+				}
+
+				const blob = await res.blob();
+				if (currentURL) URL.revokeObjectURL(currentURL);
+				currentURL = URL.createObjectURL(blob);
+
+				if (audioEl) {
+					audioEl.pause();
+					audioEl.src = '';
+				}
+				audioEl = new Audio();
+				audioEl.crossOrigin = 'anonymous';
+				audioEl.src = currentURL;
+
+				audioEl.addEventListener('play', () => {
+					isPlaying = true;
+					log('ok', `Playing · ${Math.round(blob.size / 1024)} KB · audio/mpeg`);
+				});
+				audioEl.addEventListener('ended', () => {
+					isPlaying = false;
+					speakBtn.disabled = false;
+					stopBtn.disabled = true;
+				});
+				audioEl.addEventListener('error', () => {
+					isPlaying = false;
+					speakBtn.disabled = false;
+					stopBtn.disabled = true;
+					log('err', 'Audio playback error.');
+				});
+
+				lipsync.connectAudio(audioEl);
+
+				try {
+					await audioEl.play();
+				} catch (err) {
+					log('err', `Playback blocked: ${err.message}`);
+					speakBtn.disabled = false;
+					stopBtn.disabled = true;
+				}
+			}
+
+			function stop() {
+				if (audioEl) {
+					audioEl.pause();
+					audioEl.currentTime = 0;
+				}
+				isPlaying = false;
+				speakBtn.disabled = false;
+				stopBtn.disabled = true;
+				log('info', 'Stopped.');
+			}
+
+			speakBtn.addEventListener('click', speak);
+			stopBtn.addEventListener('click', stop);
+		</script>
+	</body>
+</html>

@@ -1,14 +1,16 @@
-// Holder snapshot via Helius RPC.
+// Holder snapshot via Helius's DAS API (helius-sdk).
 //
-// Pump.fun tokens are issued on Token-2022 (createV2). We poll both the
-// legacy SPL Token program (TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA) and
-// Token-2022 (TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb) so we never miss a
-// holder regardless of which program the mint targets.
+// Pump.fun tokens are issued on Token-2022 (createV2). Helius's `getTokenAccounts`
+// indexes both the legacy SPL Token program and Token-2022 transparently, so a
+// single mint filter returns every holder regardless of token program. This
+// replaces the previous direct-RPC `getProgramAccounts` walk, which:
+//   • returned thousands of accounts in a single un-paginated response (OOM risk)
+//   • required two separate calls (one per token program)
+//   • was slower for popular mints (Helius's DAS-indexed path is purpose-built)
 //
-// getProgramAccounts with a mint memcmp filter returns every token account
-// holding that mint. Each token account belongs to an owner wallet (the
-// "holder"). We aggregate balances by owner — a single owner can have multiple
-// token accounts (rare for retail wallets but does happen with multisigs).
+// Each token account belongs to an owner wallet (the "holder"). We aggregate
+// balances by owner — a single owner can have multiple token accounts (rare
+// for retail wallets but does happen with multisigs).
 //
 // Snapshots are persisted into coin_holders via upsert; balances of zero
 // (i.e. holders that fully exited) are KEPT in the table at balance=0 because
@@ -16,86 +18,65 @@
 // payout flow filters by balance > min_holder_balance at distribution time.
 
 import { sql } from '../db.js';
+import { createHelius } from 'helius-sdk';
 
-const TOKEN_PROGRAM_LEGACY = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-const TOKEN_PROGRAM_2022 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const PAGE_LIMIT = 1000;
+const MAX_PAGES = 200; // hard ceiling — 200k holders before we abort, matches Helius limits
 
-// SPL Token account layout: 32-byte mint at offset 0.
-// Token-2022 has the same first 165 bytes for plain token accounts (extensions
-// are appended after byte 165), so dataSize-greater-than filter works.
+let _heliusMainnet = null;
+let _heliusDevnet = null;
 
-function heliusRpcUrl(network) {
-	const key = process.env.HELIUS_API_KEY;
-	if (!key) throw new Error('HELIUS_API_KEY not set');
-	const host = network === 'devnet' ? 'devnet.helius-rpc.com' : 'mainnet.helius-rpc.com';
-	return `https://${host}/?api-key=${key}`;
-}
-
-async function rpc(network, method, params) {
-	const url = heliusRpcUrl(network);
-	const resp = await fetch(url, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-	});
-	if (!resp.ok) throw new Error(`helius_rpc_${method}_${resp.status}`);
-	const data = await resp.json();
-	if (data.error) throw new Error(`helius_rpc_${method}: ${data.error.message}`);
-	return data.result;
+function helius(network) {
+	const apiKey = process.env.HELIUS_API_KEY;
+	if (!apiKey) throw new Error('HELIUS_API_KEY not set');
+	if (network === 'devnet') {
+		if (!_heliusDevnet) _heliusDevnet = createHelius({ apiKey, cluster: 'devnet' });
+		return _heliusDevnet;
+	}
+	if (!_heliusMainnet) _heliusMainnet = createHelius({ apiKey, cluster: 'mainnet' });
+	return _heliusMainnet;
 }
 
 /**
- * Fetch all holders of a given mint by walking SPL token accounts under both
- * the legacy Token program and Token-2022. Aggregates by owner wallet.
+ * Fetch all holders of a given mint via Helius's DAS-indexed `getTokenAccounts`.
+ * Aggregates per-owner balances across multiple token accounts.
  *
  * @param {object} opts
  * @param {string} opts.mint
  * @param {'mainnet'|'devnet'} [opts.network]
- * @returns {Promise<Map<string, bigint>>}  owner → token-units
+ * @returns {Promise<Map<string, bigint>>}  owner → token-units (BigInt)
  */
 export async function fetchHolderBalances({ mint, network = 'mainnet' }) {
+	const client = helius(network);
 	const balances = new Map();
 
-	for (const programId of [TOKEN_PROGRAM_LEGACY, TOKEN_PROGRAM_2022]) {
-		// jsonParsed gives us owner + tokenAmount.amount as a string directly,
-		// avoiding any need to decode account data ourselves.
-		const accounts = await rpc(network, 'getProgramAccounts', [
-			programId,
-			{
-				encoding: 'jsonParsed',
-				commitment: 'confirmed',
-				filters: [
-					{ dataSize: programId === TOKEN_PROGRAM_LEGACY ? 165 : 170 },
-					{ memcmp: { offset: 0, bytes: mint } },
-				],
-			},
-		]).catch(async (err) => {
-			// Token-2022 accounts may not match exact dataSize 170 — try without
-			// the dataSize filter as a fallback. This is slower but correct.
-			if (programId === TOKEN_PROGRAM_2022) {
-				return rpc(network, 'getProgramAccounts', [
-					programId,
-					{
-						encoding: 'jsonParsed',
-						commitment: 'confirmed',
-						filters: [{ memcmp: { offset: 0, bytes: mint } }],
-					},
-				]);
-			}
-			throw err;
+	let cursor;
+	for (let page = 0; page < MAX_PAGES; page++) {
+		const resp = await client.getTokenAccounts({
+			mint,
+			limit: PAGE_LIMIT,
+			...(cursor ? { cursor } : {}),
+			options: { showZeroBalance: false },
 		});
 
-		if (!Array.isArray(accounts)) continue;
+		const accounts = resp?.token_accounts || [];
 		for (const acc of accounts) {
-			const parsed = acc?.account?.data?.parsed?.info;
-			if (!parsed) continue;
-			const owner = parsed.owner;
-			const amount = parsed.tokenAmount?.amount;
-			if (!owner || amount == null) continue;
-			const n = BigInt(amount);
+			const owner = acc.owner;
+			if (!owner) continue;
+			// Helius types `amount` as `number`, but its underlying value comes
+			// from a string in the JSON response. Coerce through String() so
+			// BigInt() never sees scientific notation for huge supplies.
+			const amountStr = acc.amount == null ? null : String(acc.amount);
+			if (!amountStr || amountStr === '0') continue;
+			const n = BigInt(amountStr);
 			if (n === 0n) continue;
 			balances.set(owner, (balances.get(owner) || 0n) + n);
 		}
+
+		// Helius returns a cursor when more pages remain. Empty/missing cursor
+		// or short page → we're done.
+		if (!resp?.cursor || accounts.length < PAGE_LIMIT) break;
+		cursor = resp.cursor;
 	}
 
 	return balances;

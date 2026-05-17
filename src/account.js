@@ -100,6 +100,22 @@ export async function saveRemoteGlbToAccount(source, meta = {}) {
 		blob = await resp.blob();
 	}
 
+	// Canonicalize humanoid bone names before upload so the pre-baked Mixamo
+	// animation library plays out of the box. Non-fatal — if the buffer isn't
+	// a valid GLB or the rig isn't humanoid, fall through with the original.
+	let retargetedBoneCount = 0;
+	try {
+		const { canonicalizeGLBBones } = await import('./glb-canonicalize.js');
+		const buf = await blob.arrayBuffer();
+		const result = canonicalizeGLBBones(buf);
+		if (result.renamed > 0) {
+			blob = new Blob([result.buffer], { type: 'model/gltf-binary' });
+			retargetedBoneCount = result.renamed;
+		}
+	} catch (err) {
+		console.warn('[account] canonicalize failed; uploading original', err);
+	}
+
 	const size = blob.size;
 	const contentType = blob.type || 'model/gltf-binary';
 	const checksum = await sha256Hex(blob);
@@ -117,9 +133,11 @@ export async function saveRemoteGlbToAccount(source, meta = {}) {
 	});
 	if (!putRes.ok) throw new Error(`R2 upload failed: ${putRes.status}`);
 
-	const sourceMeta =
-		meta.source_meta ||
-		(typeof source === 'string' ? { source_url: source } : { generator: 'characterstudio' });
+	const sourceMeta = {
+		...(meta.source_meta ||
+			(typeof source === 'string' ? { source_url: source } : { generator: 'characterstudio' })),
+		...(retargetedBoneCount > 0 ? { retargeted_bones: retargetedBoneCount } : {}),
+	};
 
 	const created = await postJson('/api/avatars', {
 		storage_key: presign.storage_key,

@@ -295,9 +295,121 @@ function bindWallet() {
 		localStorage.removeItem(LS_KEY);
 		refreshWallet();
 		refreshActiveTab();
+		// Disconnect any active wallet provider session so the next "Connect"
+		// re-prompts the user instead of silently reusing the cached approval.
+		walletAdapter.disconnect().catch(() => {});
+		renderConnectButton();
 	});
 	input.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter') $('#wallet-check').click();
+	});
+}
+
+// ─── three.ws Phantom adapter ───────────────────────────────────────────────
+//
+// API shape mirrors @solana/wallet-adapter-phantom (PhantomWalletAdapter) so
+// if/when the dashboard graduates to a bundled build we can swap in the
+// upstream class without touching call sites. The wire-level work is identical:
+// both forms ultimately call `window.phantom.solana.connect()`.
+//
+// Supports Phantom + Backpack + Solflare via the same browser-injected
+// `isPhantom`-style interface (the de-facto Solana wallet provider standard
+// that @solana/wallet-adapter-base codifies).
+
+const walletAdapter = (() => {
+	let connected = null; // { publicKey: string, provider }
+
+	function getProvider() {
+		if (typeof window === 'undefined') return null;
+		if (window.phantom?.solana?.isPhantom) return { name: 'Phantom', api: window.phantom.solana };
+		if (window.solana?.isPhantom) return { name: 'Phantom', api: window.solana };
+		if (window.backpack?.solana) return { name: 'Backpack', api: window.backpack.solana };
+		if (window.solflare?.isSolflare) return { name: 'Solflare', api: window.solflare };
+		return null;
+	}
+
+	async function connect() {
+		const p = getProvider();
+		if (!p) throw new Error('no_wallet');
+		const res = await p.api.connect();
+		const pk = (res?.publicKey ?? p.api.publicKey)?.toString?.() ?? null;
+		if (!pk) throw new Error('no_pubkey');
+		connected = { publicKey: pk, provider: p.name };
+		return connected;
+	}
+
+	async function disconnect() {
+		const p = getProvider();
+		if (p?.api?.disconnect) {
+			try { await p.api.disconnect(); } catch { /* idempotent */ }
+		}
+		connected = null;
+	}
+
+	function get() { return connected; }
+	function available() { return !!getProvider(); }
+	function providerName() { return getProvider()?.name || null; }
+
+	return { connect, disconnect, get, available, providerName };
+})();
+
+async function connectWallet() {
+	if (!walletAdapter.available()) {
+		alert(
+			'No Solana wallet detected. Install Phantom (phantom.app), Backpack (backpack.app), or Solflare.',
+		);
+		return;
+	}
+	try {
+		const conn = await walletAdapter.connect();
+		state.wallet = conn.publicKey;
+		localStorage.setItem(LS_KEY, conn.publicKey);
+		$('#wallet-input').value = conn.publicKey;
+		renderConnectButton();
+		await refreshWallet();
+		await refreshActiveTab();
+	} catch (err) {
+		// User rejected the request, or no provider returned a key.
+		if (err.message !== 'no_wallet' && err.message !== 'no_pubkey') {
+			console.error('[coin-dashboard] wallet connect failed', err);
+		}
+	}
+}
+
+function renderConnectButton() {
+	const btn = $('#wallet-connect');
+	if (!btn) return;
+	const conn = walletAdapter.get();
+	if (conn) {
+		btn.textContent = `${conn.provider} · ${conn.publicKey.slice(0, 4)}…${conn.publicKey.slice(-4)}`;
+		btn.setAttribute('aria-pressed', 'true');
+		btn.title = `Connected as ${conn.publicKey}. Click to disconnect.`;
+	} else if (walletAdapter.available()) {
+		btn.textContent = `Connect ${walletAdapter.providerName() || 'wallet'}`;
+		btn.setAttribute('aria-pressed', 'false');
+		btn.title = `Connect ${walletAdapter.providerName() || 'a Solana wallet'} to auto-fill your address.`;
+	} else {
+		btn.textContent = 'Install Phantom';
+		btn.setAttribute('aria-pressed', 'false');
+		btn.title = 'No Solana wallet detected — install Phantom, Backpack, or Solflare.';
+	}
+}
+
+function bindConnect() {
+	const btn = $('#wallet-connect');
+	if (!btn) return;
+	renderConnectButton();
+	btn.addEventListener('click', async () => {
+		if (!walletAdapter.available()) {
+			window.open('https://phantom.app/download', '_blank', 'noopener');
+			return;
+		}
+		if (walletAdapter.get()) {
+			await walletAdapter.disconnect();
+			renderConnectButton();
+			return;
+		}
+		await connectWallet();
 	});
 }
 
@@ -337,6 +449,7 @@ async function tick() {
 	state.mint = pickMintFromUrl();
 	bindTabs();
 	bindWallet();
+	bindConnect();
 	bindCopy();
 	await tick();
 	setInterval(tick, POLL_MS);

@@ -19,6 +19,7 @@ import { TalkScene } from './talk-scene.js';
 import { AvatarMouthTarget } from './avatar-morph-target.js';
 import { TalkController } from './talk-controller.js';
 import { openVoiceCloneModal } from './voice-clone-modal.js';
+import { nextPreset, PRESET_LABELS } from './camera-presets.js';
 
 let activeSession = null;
 
@@ -55,6 +56,9 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 	const errEl = overlay.querySelector('.tws-talk-error');
 	const nameEl = overlay.querySelector('.tws-talk-name');
 	const cloneBtn = overlay.querySelector('.tws-talk-clone');
+	const frameBtn = overlay.querySelector('.tws-talk-frame');
+	const frameLabel = frameBtn?.querySelector('.tws-talk-frame-label');
+	const emoteBar = overlay.querySelector('.tws-talk-emotes');
 	nameEl.textContent = avatar.name || 'Avatar';
 
 	// Owner-only affordance: `owner_id` is stripped from the API response for
@@ -72,8 +76,8 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 	let unloading = false;
 
 	scene
-		.mount({ container: stage, glbUrl })
-		.then((root) => {
+		.mount({ container: stage, glbUrl, cameraPreset: 'half' })
+		.then(async (root) => {
 			scene.attachMouthTarget(mouthTarget);
 			// Log what we found so debugging mismatched rigs in the field is easy.
 			const diag = mouthTarget.describe();
@@ -83,6 +87,13 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 				console.info('[talk] mouth binding:', diag);
 			}
 			setStatus(statusEl, 'idle');
+
+			// Render the emote bar once the animation manifest is available.
+			const emotes = scene.getEmoteController();
+			if (emotes) {
+				await emotes.loadManifest();
+				renderEmoteBar(emoteBar, emotes, errEl);
+			}
 		})
 		.catch((err) => {
 			showError(errEl, `Could not load avatar: ${err.message}`);
@@ -134,6 +145,14 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 
 	closeBtn.addEventListener('click', () => close());
 
+	if (frameBtn) {
+		frameBtn.addEventListener('click', () => {
+			const next = nextPreset(scene.getCameraPreset?.() || 'half');
+			scene.setCameraPreset?.(next);
+			if (frameLabel) frameLabel.textContent = PRESET_LABELS[next] || next;
+		});
+	}
+
 	if (cloneBtn) {
 		cloneBtn.addEventListener('click', () => {
 			openVoiceCloneModal({
@@ -182,11 +201,18 @@ const TEMPLATE = `
 			<span class="tws-talk-eyebrow">Talking to</span>
 			<span class="tws-talk-name"></span>
 		</div>
-		<button class="tws-talk-clone" type="button" hidden aria-label="Clone your voice for this avatar">
-			<span aria-hidden="true">🎙️</span> Use my voice
-		</button>
+		<div class="tws-talk-header-actions">
+			<button class="tws-talk-frame" type="button" title="Cycle framing: half → headshot → full" aria-label="Cycle camera framing">
+				<span aria-hidden="true">⛶</span>
+				<span class="tws-talk-frame-label">Half body</span>
+			</button>
+			<button class="tws-talk-clone" type="button" hidden aria-label="Clone your voice for this avatar">
+				<span aria-hidden="true">🎙️</span> Use my voice
+			</button>
+		</div>
 	</div>
 	<div class="tws-talk-stage"></div>
+	<div class="tws-talk-emotes" hidden role="toolbar" aria-label="Emote shortcuts"></div>
 	<div class="tws-talk-transcript" aria-live="polite"></div>
 	<div class="tws-talk-controls">
 		<button class="tws-talk-hold" type="button" aria-label="Hold to talk">
@@ -209,6 +235,28 @@ function setStatus(el, state) {
 	if (!el) return;
 	el.dataset.state = state;
 	el.textContent = STATUS_LABEL[state] || state;
+}
+
+function renderEmoteBar(barEl, emotes, errEl) {
+	if (!barEl || !emotes) return;
+	const defs = emotes.getBarDefs();
+	if (!defs.length) return; // manifest didn't load or none of the curated set is shipped — keep hidden
+	barEl.innerHTML = defs
+		.map(
+			(d) => `
+		<button class="tws-talk-emote" type="button" data-name="${d.name}" title="${d.label}" aria-label="${d.label}">
+			<span class="tws-talk-emote-icon" aria-hidden="true">${d.icon}</span>
+		</button>
+	`,
+		)
+		.join('');
+	barEl.hidden = false;
+	barEl.querySelectorAll('.tws-talk-emote').forEach((btn) => {
+		btn.addEventListener('click', async () => {
+			const ok = await emotes.play(btn.dataset.name);
+			if (!ok && errEl) showError(errEl, `Emote "${btn.dataset.name}" could not play.`);
+		});
+	});
 }
 
 function appendTranscript(el, msg) {
@@ -274,7 +322,13 @@ const TALK_CSS = `
 	gap: 12px;
 }
 .tws-talk-header > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.tws-talk-clone {
+.tws-talk-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-shrink: 0;
+}
+.tws-talk-clone, .tws-talk-frame {
 	background: rgba(255,255,255,0.06);
 	border: 1px solid rgba(255,255,255,0.14);
 	color: #fafafa;
@@ -285,9 +339,12 @@ const TALK_CSS = `
 	border-radius: 999px;
 	cursor: pointer;
 	transition: background 0.15s, border-color 0.15s, transform 0.1s;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	flex-shrink: 0;
 }
-.tws-talk-clone:hover {
+.tws-talk-clone:hover, .tws-talk-frame:hover {
 	background: rgba(255,255,255,0.10);
 	border-color: rgba(255,255,255,0.25);
 	transform: translateY(-1px);
@@ -308,6 +365,36 @@ const TALK_CSS = `
 }
 .tws-talk-stage canvas {
 	width: 100% !important; height: 100% !important; display: block;
+}
+.tws-talk-emotes {
+	display: flex;
+	gap: 6px;
+	padding: 8px 24px;
+	overflow-x: auto;
+	border-top: 1px solid rgba(255,255,255,0.06);
+	background: rgba(255,255,255,0.02);
+}
+.tws-talk-emote {
+	background: rgba(255,255,255,0.06);
+	border: 1px solid rgba(255,255,255,0.12);
+	color: #fafafa;
+	font-family: inherit;
+	font-size: 18px;
+	line-height: 1;
+	width: 38px;
+	height: 38px;
+	border-radius: 999px;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.15s, border-color 0.15s, transform 0.1s;
+	flex-shrink: 0;
+}
+.tws-talk-emote:hover {
+	background: rgba(255,255,255,0.12);
+	border-color: rgba(255,255,255,0.25);
+	transform: translateY(-1px);
 }
 .tws-talk-transcript {
 	max-height: 160px;

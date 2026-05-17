@@ -291,6 +291,19 @@ export const env = {
 		return opt('OPENROUTER_API_KEY');
 	},
 
+	// Alibaba Cloud DashScope (international) — direct Qwen access. Used by
+	// /api/brain/chat when the user selects a Qwen provider. Falls back to
+	// OPENROUTER_API_KEY when unset.
+	get DASHSCOPE_API_KEY() {
+		return opt('DASHSCOPE_API_KEY');
+	},
+
+	// ModelScope inference token — for Qwen3-Coder-480B on ModelScope's
+	// OpenAI-compatible endpoint. Optional companion to DASHSCOPE_API_KEY.
+	get MODELSCOPE_API_KEY() {
+		return opt('MODELSCOPE_API_KEY');
+	},
+
 	// Rider payment gate — Solana wallet that receives $THREE, and Helius webhook secret.
 	get RIDER_VAULT_ADDRESS() {
 		return opt('RIDER_VAULT_ADDRESS');

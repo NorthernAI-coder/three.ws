@@ -15,7 +15,16 @@
 
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { mergeDocuments, prune, dedup, unpartition } from '@gltf-transform/functions';
+import {
+	mergeDocuments,
+	prune,
+	dedup,
+	unpartition,
+	weld,
+	quantize,
+	textureCompress,
+} from '@gltf-transform/functions';
+import sharp from 'sharp';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -151,11 +160,51 @@ export async function bakeAppearance(baseGlbBytes, appearance) {
 		appearance: appearance ?? null,
 	};
 
-	// unpartition() collapses multiple buffers (one from base + one per merged
-	// accessory) into a single buffer — required by the GLB container, which
-	// allows at most one buffer. prune/dedup happen after so they see the final
-	// canonical accessor → buffer layout.
-	await doc.transform(unpartition(), prune(), dedup());
+	// Compression pipeline:
+	//
+	//   unpartition  →  collapse base+accessory buffers into one (GLB requires it)
+	//   prune        →  drop unreachable nodes/materials/textures
+	//   dedup        →  merge identical accessors, materials, samplers
+	//   weld         →  fold duplicate vertices (typically -15..30% mesh bytes)
+	//   quantize     →  reduce attribute precision: int16 positions / int8 normals
+	//                   / int16 UVs. Visually lossless for human-scale meshes.
+	//   textureCompress → re-encode base-color / normal / roughness textures via
+	//                   sharp to WebP at a 1024px cap. WebP is supported by every
+	//                   browser model-viewer ships in and by three.js since r136.
+	//
+	// All operations are conservative: defaults chosen so the same bake works on
+	// arbitrary user-uploaded GLBs without visible artifacts. If a transform
+	// throws on a pathological input we still want a baked GLB to land, so each
+	// transform group is wrapped — a failure in compression is logged and we
+	// fall back to the unoptimized but correct output.
+	try {
+		await doc.transform(
+			unpartition(),
+			prune(),
+			dedup(),
+			weld(),
+			quantize({
+				quantizePosition: 14,
+				quantizeNormal: 10,
+				quantizeTexcoord: 12,
+				quantizeColor: 8,
+				quantizeWeight: 8,
+				quantizeGeneric: 12,
+			}),
+			textureCompress({
+				encoder: sharp,
+				targetFormat: 'webp',
+				resize: [1024, 1024],
+				quality: 85,
+			}),
+		);
+	} catch (err) {
+		console.warn(
+			`[bake] compression pass failed (${err?.message}); falling back to minimal transform`,
+		);
+		// Keep the basics so the GLB at least validates and is small-ish.
+		await doc.transform(unpartition(), prune(), dedup());
+	}
 
 	return io.writeBinary(doc);
 }

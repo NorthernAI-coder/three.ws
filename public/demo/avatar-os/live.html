@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Live · OSS Avatar Pipeline</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/demo/avatar-os/shared.css" />
+	</head>
+	<body>
+		<header class="os-header">
+			<div class="brand">
+				three.ws<span class="tag">avatar-os · live</span>
+			</div>
+			<nav>
+				<a href="/demo/avatar-os/">overview</a>
+				<a href="/demo/avatar-os/studio.html">studio</a>
+				<a href="/demo/avatar-os/selfie.html">selfie</a>
+				<a href="/demo/avatar-os/combined.html">combined</a>
+				<a href="/demo/avatar-os/live.html" class="active">live</a>
+			</nav>
+		</header>
+		<main class="os-main">
+			<div class="banner">
+				<strong>Webcam → MediaPipe → VRM.</strong> Face Landmarker streams 52 ARKit
+				blendshape coefficients + head pose into a @pixiv/three-vrm avatar with
+				spring-bone physics. No mocks, no server inference — everything runs in
+				the browser.
+			</div>
+
+			<div class="os-grid">
+				<aside>
+					<div class="os-card">
+						<h2>1 · Avatar</h2>
+						<p>
+							Default loads a CharacterStudio Anata VRM from the M3-org public
+							mirror. Paste any VRM URL to swap. If a VRM exposes no
+							ARKit-style expressions or morphs, head rotation still drives.
+						</p>
+						<div class="btn-row">
+							<button id="btn-load-default" class="btn btn-primary">
+								Load default VRM
+							</button>
+							<button id="btn-load-glb" class="btn">Load /avatars/default.glb</button>
+						</div>
+						<div style="margin-top: 8px; display: flex; gap: 6px">
+							<input
+								id="vrm-url-input"
+								type="text"
+								placeholder="https://…/avatar.vrm"
+								style="
+									flex: 1;
+									padding: 8px 10px;
+									border-radius: 8px;
+									border: 1px solid var(--border-2);
+									background: var(--panel-2);
+									color: var(--text);
+									font-size: 12px;
+									font-family: ui-monospace, monospace;
+								"
+							/>
+							<button id="btn-load-url" class="btn">Load URL</button>
+						</div>
+						<div class="status" id="vrm-status">no avatar loaded</div>
+					</div>
+
+					<div class="os-card" style="margin-top: 16px">
+						<h2>2 · Webcam tracking</h2>
+						<p>
+							Start the front-facing camera. MediaPipe Face Landmarker (VIDEO
+							mode) emits blendshapes + a head transformation matrix at the
+							display's refresh rate.
+						</p>
+						<div class="btn-row">
+							<button id="btn-start-cam" class="btn btn-primary" disabled>
+								Start tracking
+							</button>
+							<button id="btn-stop-cam" class="btn" disabled>Stop</button>
+						</div>
+						<div class="status" id="track-status">load avatar first</div>
+					</div>
+
+					<div class="os-card" style="margin-top: 16px">
+						<h2>3 · Physics</h2>
+						<p>
+							Spring-bone physics for hair / cloth are driven by
+							<code>vrm.springBoneManager.update(dt)</code> each frame. No
+							effect on avatars without spring-bone metadata.
+						</p>
+						<label
+							style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px"
+						>
+							<input type="checkbox" id="toggle-spring" checked />
+							<span>spring-bone update enabled</span>
+						</label>
+						<div class="status" id="spring-status">—</div>
+					</div>
+
+					<div class="os-card" style="margin-top: 16px">
+						<h2>Diagnostics</h2>
+						<div class="status" id="diag-fps">fps —</div>
+						<div class="status" id="diag-blend">blendshapes —</div>
+						<div class="status" id="diag-head">head —</div>
+					</div>
+				</aside>
+
+				<section>
+					<div class="viewer" id="viewer-host" style="min-height: 600px">
+						<div class="badge" id="viewer-badge">three.js · idle</div>
+						<div class="overlay" id="viewer-overlay">
+							Load an avatar, then click <span class="kbd">Start tracking</span>
+						</div>
+					</div>
+					<video
+						id="cam-video"
+						autoplay
+						playsinline
+						muted
+						style="
+							margin-top: 12px;
+							width: 240px;
+							max-height: 180px;
+							border-radius: 12px;
+							background: #000;
+							display: none;
+							border: 1px solid var(--border-2);
+						"
+					></video>
+				</section>
+			</div>
+		</main>
+		<script type="module" src="/src/demo/os-live.js"></script>
+	</body>
+</html>

@@ -1966,6 +1966,9 @@ class Agent3DElement extends HTMLElement {
 			clearTimeout(this._gestureDoneIdle);
 			// fade_ms: 300ms idle→walk, 500ms walk→idle, 600ms debounce after last chunk
 			this._scene.playClipByName('walk', { loop: true, fade_ms: 300 });
+			// Keep the state-machine bookkeeping in sync — react/emote fired
+			// while walking will then correctly return to walk afterwards.
+			this._avatar?.fireAnimationEvent('walk');
 		}
 		clearTimeout(this._walkStopDebounce);
 		this._walkStopDebounce = setTimeout(() => this._stopWalkAnimation(), 600);
@@ -1985,11 +1988,15 @@ class Agent3DElement extends HTMLElement {
 		const isGesture = currentClip && currentClip !== 'walk' && currentClip !== 'idle';
 		if (!isGesture) {
 			this._scene?.playClipByName('idle', { loop: true, fade_ms: 500 });
+			this._avatar?.fireAnimationEvent('walk-end');
 		} else {
 			// Let the one-shot gesture finish; idle transition fires after gesture + fade-back (~2.5s)
 			clearTimeout(this._gestureDoneIdle);
 			this._gestureDoneIdle = setTimeout(() => {
-				if (!this._isWalking) this._scene?.playClipByName('idle', { loop: true, fade_ms: 500 });
+				if (!this._isWalking) {
+					this._scene?.playClipByName('idle', { loop: true, fade_ms: 500 });
+					this._avatar?.fireAnimationEvent('walk-end');
+				}
 			}, 2500);
 		}
 	}

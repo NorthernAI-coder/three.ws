@@ -169,6 +169,10 @@ const appConfig = {
 				'avatar-os-studio': resolve(__dirname, 'public/demo/avatar-os/studio.html'),
 				'avatar-os-selfie': resolve(__dirname, 'public/demo/avatar-os/selfie.html'),
 				'avatar-os-combined': resolve(__dirname, 'public/demo/avatar-os/combined.html'),
+				'demos-brain': resolve(__dirname, 'public/demos/brain.html'),
+				'demos-lipsync-tts': resolve(__dirname, 'public/demos/lipsync-tts.html'),
+				'demos-walkaround': resolve(__dirname, 'public/demos/walkaround.html'),
+				'demos-erc8004': resolve(__dirname, 'public/demos/erc8004.html'),
 			},
 		},
 	},
@@ -250,6 +254,8 @@ const appConfig = {
 					'/sitemap/': resolve(root, 'public/sitemap/index.html'),
 					'/blog': resolve(root, 'blog/index.html'),
 					'/blog/': resolve(root, 'blog/index.html'),
+					'/demos': resolve(root, 'public/demos/index.html'),
+					'/demos/': resolve(root, 'public/demos/index.html'),
 					'/demo/avatar-os': resolve(root, 'public/demo/avatar-os/index.html'),
 					'/demo/avatar-os/': resolve(root, 'public/demo/avatar-os/index.html'),
 					'/': resolve(root, 'home.html'),
@@ -311,6 +317,11 @@ const appConfig = {
 					if (!filePath && /^\/blog\/[a-z0-9-]+\/?$/.test(path)) {
 						const slug = path.replace(/^\/blog\//, '').replace(/\/$/, '');
 						filePath = resolve(root, `blog/${slug}.html`);
+					}
+					// /demos/<slug>  → resolves to public/demos/<slug>.html on disk
+					else if (!filePath && /^\/demos\/[a-z0-9-]+\/?$/.test(path)) {
+						const slug = path.replace(/^\/demos\//, '').replace(/\/$/, '');
+						filePath = resolve(root, `public/demos/${slug}.html`);
 					}
 					// /tutorials/<slug>  → dedicated tutorial viewer template
 					else if (!filePath && /^\/tutorials\/[a-z0-9-]+\/?$/.test(path))
@@ -506,6 +517,10 @@ const appConfig = {
 			closeBundle() {
 				const pairs = [
 					['dist/public/agent/index.html', 'dist/agent/index.html'],
+					['dist/public/demos/brain.html', 'dist/demos/brain.html'],
+					['dist/public/demos/lipsync-tts.html', 'dist/demos/lipsync-tts.html'],
+					['dist/public/demos/walkaround.html', 'dist/demos/walkaround.html'],
+					['dist/public/demos/erc8004.html', 'dist/demos/erc8004.html'],
 				];
 				for (const [from, to] of pairs) {
 					const src = resolve(__dirname, from);
@@ -544,7 +559,7 @@ const appConfig = {
 				],
 			},
 			workbox: {
-				maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
+				maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
 				globPatterns: ['**/*.{js,css,html,ico,woff2}'],
 				globIgnores: [
 					'**/animations/**',

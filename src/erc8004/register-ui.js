@@ -840,35 +840,116 @@ export class RegisterUI {
 			: (CHAIN_META[this.selectedChainId]?.name || `Chain ${this.selectedChainId}`);
 		const standard = solana ? 'Metaplex Core NFT' : 'ERC-8004 (ERC-721)';
 		const costLabel = solana ? '~0.003 SOL' : `gas on ${esc(chainLabel)}`;
-		const img = f.imageUrl?.trim();
 		const avatarLine = this._avatarSummary();
 		const services = (f.services || []).filter((s) => s.endpoint?.trim());
-		rail.innerHTML = `
-			<div class="deploy-preview-card">
-				<div class="deploy-preview-eyebrow">Live preview</div>
-				<div class="deploy-preview-thumb">
-					${img
-						? `<img src="${esc(img)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
-						   <div class="deploy-preview-ph" style="display:none">No image</div>`
-						: `<div class="deploy-preview-ph">No image yet</div>`}
-				</div>
-				<div class="deploy-preview-name">${esc(f.name) || '<span class="deploy-preview-dim">Untitled agent</span>'}</div>
-				<div class="deploy-preview-desc">${esc(f.description) || '<span class="deploy-preview-dim">Add a description in Step 1.</span>'}</div>
-				<dl class="deploy-preview-meta">
-					<dt>Chain</dt><dd>${esc(chainLabel)}</dd>
-					<dt>Standard</dt><dd>${standard}</dd>
-					<dt>Avatar</dt><dd>${avatarLine}</dd>
-					<dt>Services</dt><dd>${services.length ? services.map((s) => `<span class="deploy-svc-pill">${esc(s.type)}</span>`).join(' ') : '<span class="deploy-preview-dim">none</span>'}</dd>
-					<dt>Cost</dt><dd>${esc(costLabel)}</dd>
-				</dl>
-				<div class="deploy-preview-checklist">
-					<div class="deploy-check ${f.name?.trim() ? 'is-ok' : ''}">${f.name?.trim() ? '✓' : '○'} Name</div>
-					<div class="deploy-check ${f.description?.trim() ? 'is-ok' : ''}">${f.description?.trim() ? '✓' : '○'} Description</div>
-					<div class="deploy-check ${this._hasAvatar() ? 'is-ok' : ''}">${this._hasAvatar() ? '✓' : '○'} Avatar</div>
-					<div class="deploy-check ${this._walletReady() ? 'is-ok' : ''}">${this._walletReady() ? '✓' : '○'} Wallet</div>
-				</div>
+
+		const thumb = this._previewThumbSource();
+		const thumbKey = `${thumb.kind}|${thumb.src || ''}`;
+		const needsRebuild =
+			this._lastPreviewThumbKey !== thumbKey || !rail.querySelector('.deploy-preview-card');
+
+		const infoHtml = `
+			<div class="deploy-preview-name">${esc(f.name) || '<span class="deploy-preview-dim">Untitled agent</span>'}</div>
+			<div class="deploy-preview-desc">${esc(f.description) || '<span class="deploy-preview-dim">Add a description in Step 1.</span>'}</div>
+			<dl class="deploy-preview-meta">
+				<dt>Chain</dt><dd>${esc(chainLabel)}</dd>
+				<dt>Standard</dt><dd>${standard}</dd>
+				<dt>Avatar</dt><dd>${avatarLine}</dd>
+				<dt>Services</dt><dd>${services.length ? services.map((s) => `<span class="deploy-svc-pill">${esc(s.type)}</span>`).join(' ') : '<span class="deploy-preview-dim">none</span>'}</dd>
+				<dt>Cost</dt><dd>${esc(costLabel)}</dd>
+			</dl>
+			<div class="deploy-preview-checklist">
+				<div class="deploy-check ${f.name?.trim() ? 'is-ok' : ''}">${f.name?.trim() ? '✓' : '○'} Name</div>
+				<div class="deploy-check ${f.description?.trim() ? 'is-ok' : ''}">${f.description?.trim() ? '✓' : '○'} Description</div>
+				<div class="deploy-check ${this._hasAvatar() ? 'is-ok' : ''}">${this._hasAvatar() ? '✓' : '○'} Avatar</div>
+				<div class="deploy-check ${this._walletReady() ? 'is-ok' : ''}">${this._walletReady() ? '✓' : '○'} Wallet</div>
 			</div>
 		`;
+
+		if (needsRebuild) {
+			rail.innerHTML = `
+				<div class="deploy-preview-card">
+					<div class="deploy-preview-eyebrow">Live preview</div>
+					<div class="deploy-preview-thumb" data-role="thumb">${this._previewThumbHtml(thumb)}</div>
+					<div data-role="info">${infoHtml}</div>
+				</div>
+			`;
+			this._lastPreviewThumbKey = thumbKey;
+			if (thumb.kind === 'glb') this._ensureModelViewer();
+		} else {
+			const info = rail.querySelector('[data-role="info"]');
+			if (info) info.innerHTML = infoHtml;
+		}
+	}
+
+	_previewThumbSource() {
+		const f = this.form;
+		const url = f.imageUrl?.trim();
+		if (url) return { kind: 'img', src: url };
+		const glb = this._currentGlbUrl();
+		if (glb) return { kind: 'glb', src: glb };
+		return { kind: 'none' };
+	}
+
+	_previewThumbHtml(thumb) {
+		if (thumb.kind === 'img') {
+			return `<img src="${esc(thumb.src)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+				<div class="deploy-preview-ph" style="display:none">Image failed to load</div>`;
+		}
+		if (thumb.kind === 'glb') {
+			return `<model-viewer
+				class="deploy-preview-mv"
+				src="${esc(thumb.src)}"
+				alt="Agent avatar preview"
+				camera-controls
+				auto-rotate
+				rotation-per-second="14deg"
+				interaction-prompt="none"
+				exposure="1.05"
+				shadow-intensity="0.6"
+				environment-image="neutral"
+				reveal="auto"
+			></model-viewer>`;
+		}
+		return `<div class="deploy-preview-ph">No image yet</div>`;
+	}
+
+	_currentGlbUrl() {
+		const f = this.form;
+		const s = f.avatarSource;
+		if (s === 'current' && f.glbUrl) return f.glbUrl;
+		if (s === 'saved' && f.savedAvatar?.url) return f.savedAvatar.url;
+		if (s === 'upload' && f.glbFile) {
+			if (this._uploadedGlbFile !== f.glbFile) {
+				if (this._uploadedGlbObjectUrl) URL.revokeObjectURL(this._uploadedGlbObjectUrl);
+				this._uploadedGlbObjectUrl = URL.createObjectURL(f.glbFile);
+				this._uploadedGlbFile = f.glbFile;
+			}
+			return this._uploadedGlbObjectUrl;
+		}
+		if (s === 'url' && f.pastedGlbUrl?.trim()) return f.pastedGlbUrl.trim();
+		if (s === 'default' && f.defaultAvatarId) {
+			const def = getDefaultAvatar(f.defaultAvatarId);
+			return def?.url || null;
+		}
+		// Fall back to viewer's current model even when avatarSource isn't 'current'
+		// — so the user always sees something during early form editing.
+		if (f.glbUrl) return f.glbUrl;
+		return null;
+	}
+
+	_ensureModelViewer() {
+		if (customElements.get('model-viewer')) return Promise.resolve();
+		if (this._mvLoading) return this._mvLoading;
+		this._mvLoading = new Promise((resolve, reject) => {
+			const s = document.createElement('script');
+			s.type = 'module';
+			s.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
+			s.onload = () => resolve();
+			s.onerror = () => reject(new Error('model-viewer failed to load'));
+			document.head.appendChild(s);
+		});
+		return this._mvLoading;
 	}
 
 	_hasAvatar() {

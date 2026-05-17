@@ -44,6 +44,21 @@
 			"import": "./dist/index.mjs",
 			"default": "./dist/index.mjs"
 		},
+		"./viewer": {
+			"types": "./types/viewer.d.ts",
+			"import": "./src/viewer.js",
+			"default": "./src/viewer.js"
+		},
+		"./agent": {
+			"types": "./types/element.d.ts",
+			"import": "./src/agent.js",
+			"default": "./src/agent.js"
+		},
+		"./react": {
+			"types": "./types/react.d.ts",
+			"import": "./src/react.jsx",
+			"default": "./src/react.jsx"
+		},
 		"./style.css": "./dist/style.css"
 	},
 	"files": [
@@ -58,11 +73,15 @@
 		"prepublishOnly": "npm run build"
 	},
 	"peerDependencies": {
-		"three": ">=0.150.0"
+		"three": ">=0.150.0",
+		"react": ">=18.0.0"
 	},
 	"peerDependenciesMeta": {
 		"three": {
 			"optional": false
+		},
+		"react": {
+			"optional": true
 		}
 	},
 	"engines": {
