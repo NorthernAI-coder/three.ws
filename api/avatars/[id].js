@@ -42,6 +42,7 @@ const ACTION_ENDPOINTS = new Set([
 	'presign-halfbody',
 	'auto-tag',
 	'public',
+	'reconstruct',
 	'regenerate',
 	'regenerate-status',
 ]);

@@ -883,7 +883,7 @@
 					//    unconfigured) — that lets us ship the new path safely
 					//    even before REPLICATE_RECONSTRUCT_MODEL is populated.
 					submitBtn.textContent = 'Generating 3D model…';
-					const nativeRes = await fetch('/api/avatars/_actions?action=reconstruct', {
+					const nativeRes = await fetch('/api/avatars/reconstruct', {
 						method: 'POST',
 						credentials: 'include',
 						headers: { 'content-type': 'application/json' },
@@ -901,9 +901,12 @@
 						const job = await nativeRes.json();
 						log(`✓ reconstruction job queued: ${job.jobId}`, 'ok');
 						const avatarId = await pollReconstructJob(job.jobId);
-						const createHref = `/create?avatarId=${encodeURIComponent(avatarId)}`;
-						log(`✓ avatar materialized → /create?avatarId=${avatarId}`, 'ok');
-						showResult(createHref, { native: true, avatarId });
+						// Send to /creating (new isolated route) until the native
+						// pipeline is proven 100% end-to-end. /create is reserved
+						// for the shipped editor flow.
+						const creatingHref = `/creating?avatarId=${encodeURIComponent(avatarId)}`;
+						log(`✓ avatar materialized → /creating?avatarId=${avatarId}`, 'ok');
+						showResult(creatingHref, { native: true, avatarId });
 						submitBtn.textContent = 'Done ✓';
 						return;
 					} else {
@@ -954,7 +957,7 @@
 						throw new Error('reconstruct job timed out after 5 min');
 					}
 					const r = await fetch(
-						`/api/avatars/_actions?action=regenerate-status&jobId=${encodeURIComponent(jobId)}`,
+						`/api/avatars/regenerate-status?jobId=${encodeURIComponent(jobId)}`,
 						{ credentials: 'include' },
 					);
 					if (!r.ok) {

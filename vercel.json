@@ -847,6 +847,10 @@
 			"dest": "/api/avatars/[id]"
 		},
 		{
+			"src": "/api/avatars/reconstruct",
+			"dest": "/api/avatars/[id]"
+		},
+		{
 			"src": "/api/agents/([^/]+)/memory-seed",
 			"dest": "/api/agents/[id]"
 		},
@@ -1429,6 +1433,14 @@
 		{
 			"src": "/create/",
 			"dest": "/create.html"
+		},
+		{
+			"src": "/creating",
+			"dest": "/creating.html"
+		},
+		{
+			"src": "/creating/",
+			"dest": "/creating.html"
 		},
 		{
 			"src": "/features",

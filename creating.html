@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Your three.ws avatar is ready</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" content="#05060a" />
+		<meta name="description" content="Preview the avatar three.ws generated from your selfies, then mint it on-chain." />
+		<meta name="robots" content="noindex" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+		></script>
+		<style>
+			:root { color-scheme: dark; }
+			html, body { height: 100%; }
+			body {
+				background: #05060a; color: #eee;
+				font: 15px/1.5 -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+				margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+			}
+			.crumb { padding: 14px 22px; font-size: 13px; color: #8a8d98; }
+			.crumb a { color: #8a8d98; text-decoration: none; }
+			.crumb a:hover { color: #d6ff3d; }
+			h1 {
+				font-size: 28px; font-weight: 600; letter-spacing: -0.015em;
+				margin: 0 0 6px;
+			}
+			.sub { color: #8a8d98; margin: 0 0 24px; max-width: 64ch; }
+			.stage {
+				flex: 1; max-width: 1100px; width: 100%; margin: 0 auto;
+				padding: 16px 22px 80px; box-sizing: border-box;
+			}
+			.grid {
+				display: grid; grid-template-columns: minmax(0, 1fr) 380px;
+				gap: 28px; align-items: start;
+			}
+			@media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+			.viewer {
+				background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px;
+				aspect-ratio: 4 / 5; min-height: 480px; position: relative; overflow: hidden;
+			}
+			.viewer model-viewer {
+				width: 100%; height: 100%; background: transparent;
+				--poster-color: transparent;
+			}
+			.viewer .skel {
+				position: absolute; inset: 0; display: flex; align-items: center;
+				justify-content: center; color: #6a6d7c; font-size: 13px;
+			}
+			.panel {
+				background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px;
+				padding: 22px; display: flex; flex-direction: column; gap: 14px;
+			}
+			.panel h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.005em; }
+			.panel .label {
+				display: block; font-size: 12px; color: #8a8d98;
+				text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+			}
+			.panel input, .panel textarea, .panel select {
+				width: 100%; box-sizing: border-box;
+				background: #07080d; color: #eee;
+				border: 1.5px solid #1e1f2b; border-radius: 9px;
+				padding: 10px 12px; font: inherit;
+			}
+			.panel input:focus, .panel textarea:focus, .panel select:focus {
+				outline: none; border-color: #d6ff3d;
+			}
+			.panel textarea { resize: vertical; min-height: 64px; }
+			.cta {
+				background: #d6ff3d; color: #0a0a0a; border: none; border-radius: 10px;
+				padding: 11px 16px; font: inherit; font-weight: 600; cursor: pointer;
+				transition: filter 0.15s;
+			}
+			.cta:hover { filter: brightness(1.04); }
+			.cta:disabled { opacity: 0.35; cursor: not-allowed; }
+			.secondary {
+				background: transparent; color: #eee;
+				border: 1.5px solid #1e1f2b; border-radius: 10px;
+				padding: 10px 14px; font: inherit; cursor: pointer;
+				text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+			}
+			.secondary:hover { border-color: #2c2d3d; }
+			.row { display: flex; gap: 10px; flex-wrap: wrap; }
+			.row > * { flex: 1; min-width: 0; }
+			.log {
+				background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px;
+				padding: 10px 12px; font-family: ui-monospace, monospace;
+				font-size: 11.5px; color: #8a8d98; max-height: 140px;
+				overflow: auto; line-height: 1.5;
+			}
+			.log .ok  { color: #d6ff3d; }
+			.log .err { color: #ff6b6b; }
+			.empty {
+				background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px;
+				padding: 32px; text-align: center; color: #8a8d98;
+			}
+			.empty a { color: #d6ff3d; }
+			.meta-tag {
+				display: inline-block; background: #1e1f2b; color: #8a8d98;
+				padding: 2px 8px; border-radius: 6px; font-size: 11px;
+				margin-right: 6px;
+			}
+			.banner {
+				background: rgba(214, 255, 61, 0.08);
+				border: 1px solid rgba(214, 255, 61, 0.25);
+				color: #d6ff3d; border-radius: 9px;
+				padding: 8px 12px; font-size: 12px; margin-bottom: 16px;
+			}
+		</style>
+	</head>
+	<body>
+		<nav class="crumb">
+			<a href="/">three.ws</a> &middot;
+			<a href="/demos/selfie-fit">Selfie pipeline</a> &middot;
+			<span>Review &amp; mint</span>
+		</nav>
+
+		<main class="stage">
+			<div class="banner">
+				Sandbox flow at <code>/creating</code> — once this path is proven end-to-end
+				it will graduate to the main <code>/create</code> editor.
+			</div>
+
+			<h1 id="heading">Your three.ws avatar is ready</h1>
+			<p class="sub" id="subhead">
+				Reconstructed from your three selfies. Preview below, then mint it as a
+				draft ERC-8004 agent or refine it in the editor.
+			</p>
+
+			<div id="error-card" class="empty" style="display:none">
+				<p id="error-msg">Something went wrong.</p>
+				<p><a href="/demos/selfie-fit">← Try again with new selfies</a></p>
+			</div>
+
+			<div id="content" class="grid" style="display:none">
+				<div class="viewer">
+					<div class="skel" id="viewer-skel">Loading 3D model…</div>
+					<model-viewer
+						id="mv"
+						camera-controls
+						auto-rotate
+						auto-rotate-delay="0"
+						rotation-per-second="20deg"
+						exposure="1"
+						environment-image="neutral"
+						style="display:none"
+					></model-viewer>
+				</div>
+
+				<div class="panel">
+					<h2 id="avatar-name">Untitled avatar</h2>
+					<div>
+						<span class="meta-tag" id="tag-source">reconstruct</span>
+						<span class="meta-tag" id="tag-vis">private</span>
+						<span class="meta-tag" id="tag-size">— KB</span>
+					</div>
+
+					<div>
+						<label class="label" for="f-name">Name</label>
+						<input id="f-name" maxlength="120" placeholder="e.g. Studio agent" />
+					</div>
+					<div>
+						<label class="label" for="f-desc">Description (optional)</label>
+						<textarea id="f-desc" maxlength="500" placeholder="Short bio for the agent"></textarea>
+					</div>
+					<div>
+						<label class="label" for="f-vis">Visibility</label>
+						<select id="f-vis">
+							<option value="private">Private — only you can see it</option>
+							<option value="unlisted">Unlisted — anyone with the link</option>
+							<option value="public">Public — listed in /discover</option>
+						</select>
+					</div>
+
+					<button class="cta" id="save-btn">Save details</button>
+					<button class="cta" id="mint-btn">Mint as agent →</button>
+					<div class="row">
+						<a class="secondary" href="/demos/selfie-fit">↺ Retake selfies</a>
+						<a class="secondary" id="edit-link" href="#">✎ Open in editor</a>
+					</div>
+					<div class="log" id="log">ready.</div>
+				</div>
+			</div>
+		</main>
+
+		<script type="module">
+			const $ = (s) => document.querySelector(s);
+			const logEl = $('#log');
+			function log(msg, cls = '') {
+				const line = document.createElement('div');
+				if (cls) line.className = cls;
+				line.textContent = msg;
+				logEl.appendChild(line);
+				logEl.scrollTop = logEl.scrollHeight;
+			}
+			function showError(msg) {
+				$('#error-card').style.display = '';
+				$('#error-msg').textContent = msg;
+			}
+
+			const params = new URLSearchParams(location.search);
+			const avatarId = params.get('avatarId');
+			if (!avatarId) {
+				showError('Missing avatarId. Start at /demos/selfie-fit to capture a selfie set.');
+			} else {
+				boot(avatarId).catch((err) => {
+					console.error(err);
+					showError(`Could not load avatar: ${err.message}`);
+				});
+			}
+
+			async function boot(id) {
+				log(`loading avatar ${id}…`);
+				const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`, {
+					credentials: 'include',
+				});
+				if (!res.ok) {
+					throw new Error(`HTTP ${res.status} from /api/avatars/${id}`);
+				}
+				const data = await res.json();
+				const a = data.avatar || data;
+				if (!a || !a.id) throw new Error('avatar payload missing id');
+
+				$('#content').style.display = '';
+
+				$('#f-name').value = a.name || '';
+				$('#f-desc').value = a.description || '';
+				$('#f-vis').value = a.visibility || 'private';
+				$('#avatar-name').textContent = a.name || 'Untitled avatar';
+				$('#tag-source').textContent = a.source || 'unknown';
+				$('#tag-vis').textContent = a.visibility || 'private';
+				$('#tag-size').textContent = a.size_bytes
+					? `${Math.round(a.size_bytes / 1024)} KB`
+					: '—';
+				$('#edit-link').href = `/create?avatarId=${encodeURIComponent(a.id)}`;
+
+				const glbUrl = a.url || a.signed_url || (a.storage_key ? `/api/avatars/${a.id}/glb` : null);
+				if (!glbUrl) throw new Error('no GLB URL in avatar payload');
+				log(`✓ metadata loaded`, 'ok');
+
+				const mv = $('#mv');
+				mv.src = glbUrl;
+				mv.addEventListener('load', () => {
+					$('#viewer-skel').style.display = 'none';
+					mv.style.display = '';
+					log('✓ 3D model loaded', 'ok');
+				}, { once: true });
+				mv.addEventListener('error', (e) => {
+					log(`model-viewer error: ${e.detail?.sourceError?.message || 'unknown'}`, 'err');
+				}, { once: true });
+
+				$('#save-btn').addEventListener('click', () => savePatch(a.id));
+				$('#mint-btn').addEventListener('click', () => mint(a.id));
+			}
+
+			async function savePatch(id) {
+				const btn = $('#save-btn');
+				btn.disabled = true;
+				const original = btn.textContent;
+				btn.textContent = 'Saving…';
+				try {
+					const body = {
+						name: $('#f-name').value.trim(),
+						description: $('#f-desc').value.trim() || undefined,
+						visibility: $('#f-vis').value,
+					};
+					const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`, {
+						method: 'PATCH',
+						credentials: 'include',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(body),
+					});
+					if (!res.ok) {
+						const text = await res.text();
+						throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+					}
+					log('✓ details saved', 'ok');
+					btn.textContent = 'Saved ✓';
+					$('#avatar-name').textContent = body.name || 'Untitled avatar';
+					$('#tag-vis').textContent = body.visibility;
+				} catch (err) {
+					log(`save failed: ${err.message}`, 'err');
+					btn.textContent = original;
+				} finally {
+					setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+				}
+			}
+
+			async function mint(id) {
+				// Persist current edits first so the on-chain manifest reflects them.
+				const btn = $('#mint-btn');
+				btn.disabled = true;
+				const original = btn.textContent;
+				btn.textContent = 'Saving + minting…';
+				try {
+					await savePatchSilent(id);
+					// Hand off to the existing register-onchain flow. It lives in
+					// the main /create editor today; passing avatarId puts the
+					// user one click away from signing. When /creating proves out
+					// end-to-end we'll inline the DeployButton here directly.
+					location.href = `/create?avatarId=${encodeURIComponent(id)}&autoMint=1`;
+				} catch (err) {
+					log(`mint failed: ${err.message}`, 'err');
+					btn.disabled = false;
+					btn.textContent = original;
+				}
+			}
+
+			async function savePatchSilent(id) {
+				const body = {
+					name: $('#f-name').value.trim(),
+					description: $('#f-desc').value.trim() || undefined,
+					visibility: $('#f-vis').value,
+				};
+				const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`, {
+					method: 'PATCH',
+					credentials: 'include',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(body),
+				});
+				if (!res.ok) {
+					const text = await res.text();
+					throw new Error(`patch HTTP ${res.status}: ${text.slice(0, 200)}`);
+				}
+			}
+		</script>
+	</body>
+</html>
