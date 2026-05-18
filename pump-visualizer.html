@@ -194,6 +194,19 @@
 		.vz-mode button[data-mode="feed"].is-active .live-dot {
 			animation: vzPulse 1.2s ease-in-out infinite;
 		}
+		.vz-mode button[data-mode="migrations"] .live-dot {
+			width: 6px; height: 6px; border-radius: 50%;
+			background: var(--vz-green);
+			box-shadow: 0 0 6px rgba(52, 211, 153, 0.85);
+		}
+		.vz-mode button[data-mode="migrations"].is-active {
+			background: rgba(52, 211, 153, 0.18);
+			color: var(--vz-text);
+			border-color: rgba(52, 211, 153, 0.45);
+		}
+		.vz-mode button[data-mode="migrations"].is-active .live-dot {
+			animation: vzPulse 1.2s ease-in-out infinite;
+		}
 		.vz-sort {
 			display: flex;
 			gap: 2px;
@@ -202,9 +215,13 @@
 			margin-left: 2px;
 		}
 		.vz-controls[data-mode="feed"] .vz-sort { display: none; }
+		.vz-controls[data-mode="migrations"] .vz-sort { display: none; }
 		.vz-status[data-mode="feed"] #vz-refresh { display: none; }
+		.vz-status[data-mode="migrations"] #vz-refresh { display: none; }
 		.vz-status[data-mode="feed"][data-state="ready"] .dot { background: var(--vz-red); box-shadow: 0 0 10px rgba(248,113,113,0.7); animation: vzPulse 1.2s ease-in-out infinite; }
+		.vz-status[data-mode="migrations"][data-state="ready"] .dot { background: var(--vz-green); box-shadow: 0 0 10px rgba(52,211,153,0.7); animation: vzPulse 1.2s ease-in-out infinite; }
 		.vz-status[data-mode="feed"] #vz-stat-mcap-wrap { display: none !important; }
+		.vz-status[data-mode="migrations"] #vz-stat-mcap-wrap { display: none !important; }
 		.vz-status[data-mode="trending"] #vz-stat-rate-wrap { display: none !important; }
 		.vz-sort button {
 			background: transparent;
@@ -377,6 +394,12 @@
 			content: ''; width: 6px; height: 6px; border-radius: 50%;
 			background: var(--vz-red); animation: vzPulse 1.2s ease-in-out infinite;
 		}
+		.vz-detail .live-badge.is-grad {
+			background: rgba(52, 211, 153, 0.15);
+			color: var(--vz-green);
+			border-color: rgba(52, 211, 153, 0.4);
+		}
+		.vz-detail .live-badge.is-grad::before { background: var(--vz-green); }
 
 		/* ── Legend (bottom-left rank list) ───────────── */
 		.vz-legend {
@@ -585,7 +608,7 @@
 			<span class="sep"></span>
 			<span class="stat"><b id="vz-stat-count">0</b> tokens</span>
 			<span class="sep"></span>
-			<span class="stat" id="vz-stat-rate-wrap"><b id="vz-stat-rate">—</b> /min</span>
+			<span class="stat" id="vz-stat-rate-wrap"><b id="vz-stat-rate">—</b> <span id="vz-stat-rate-unit">/min</span></span>
 			<span class="stat" id="vz-stat-mcap-wrap">total <b id="vz-stat-mcap">—</b></span>
 			<button id="vz-refresh" type="button" title="Refresh data (R)" disabled>↻ <span class="countdown" id="vz-countdown">●</span></button>
 		</div>
@@ -593,6 +616,7 @@
 		<div class="vz-overlay vz-controls" id="vz-controls" data-mode="feed" hidden>
 			<div class="vz-mode" role="tablist" aria-label="View mode">
 				<button type="button" data-mode="feed" class="is-active"><span class="live-dot"></span>Live Feed</button>
+				<button type="button" data-mode="migrations"><span class="live-dot"></span>Migrations</button>
 				<button type="button" data-mode="trending">Trending</button>
 			</div>
 			<label class="vz-search">
@@ -630,7 +654,7 @@
 					<span class="symbol" id="vz-detail-symbol"></span>
 				</div>
 			</div>
-			<div class="live-badge" id="vz-detail-live" hidden>Live now</div>
+			<div class="live-badge" id="vz-detail-live" hidden></div>
 			<div class="stats">
 				<div class="stat"><div class="label">Market cap</div><div class="value green" id="vz-detail-mcap"></div></div>
 				<div class="stat"><div class="label">ATH market cap</div><div class="value" id="vz-detail-ath"></div></div>
@@ -664,6 +688,8 @@
 
 		const TRENDING_API = '/api/pump/trending?limit=50';
 		const LIVE_FEED_API = '/api/agents/pumpfun-feed?kind=mint';
+		const MIGRATIONS_FEED_API = '/api/agents/pumpfun-feed?kind=graduation';
+		const MIGRATIONS_BACKFILL_API = '/api/pump/recent-graduations?limit=20';
 		const STATS_API    = '/api/pump/helius-stats';
 		const SPHERE_RADIUS = 28;
 		const MIN_TOKEN_R = 0.7;
@@ -685,6 +711,7 @@
 		const statCountEl = document.getElementById('vz-stat-count');
 		const statMcapEl = document.getElementById('vz-stat-mcap');
 		const statRateEl = document.getElementById('vz-stat-rate');
+		const statRateUnitEl = document.getElementById('vz-stat-rate-unit');
 		const controlsEl = document.getElementById('vz-controls');
 		const searchInput = document.getElementById('vz-search-input');
 		const sortBtns = controlsEl.querySelectorAll('.vz-sort button');
@@ -875,14 +902,21 @@
 			return sprite;
 		}
 
+		// Live-glow color: green for "just migrated" tokens, red for everything
+		// else (fresh mints and pump.fun livestream-active trending tokens).
+		function liveGlowHex(token) {
+			return token?.is_migration ? 0x34d399 : 0xf87171;
+		}
+
 		function buildTokenMesh(token, position, radius) {
 			const fallback = fallbackTexture(token.symbol, token.mint);
 			const isLive = !!token.is_currently_live;
+			const glow = liveGlowHex(token);
 			const material = new THREE.MeshStandardMaterial({
 				map: fallback,
 				roughness: 0.45,
 				metalness: 0.25,
-				emissive: isLive ? new THREE.Color(0xf87171) : new THREE.Color(0x000000),
+				emissive: isLive ? new THREE.Color(glow) : new THREE.Color(0x000000),
 				emissiveIntensity: isLive ? 0.25 : 0,
 			});
 			const geometry = new THREE.SphereGeometry(radius, 28, 28);
@@ -893,7 +927,7 @@
 			// Selection / hover ring (hidden by default)
 			const ringGeo = new THREE.RingGeometry(radius * 1.18, radius * 1.32, 48);
 			const ringMat = new THREE.MeshBasicMaterial({
-				color: isLive ? 0xf87171 : 0x8b5cf6,
+				color: isLive ? glow : 0x8b5cf6,
 				transparent: true,
 				opacity: isLive ? 0.45 : 0,
 				side: THREE.DoubleSide,
@@ -991,7 +1025,7 @@
 		function seedSonarRing(entry) {
 			const ringGeo = new THREE.RingGeometry(entry.radius * 1.05, entry.radius * 1.18, 48);
 			const ringMat = new THREE.MeshBasicMaterial({
-				color: 0xf87171,
+				color: liveGlowHex(entry.data),
 				transparent: true,
 				opacity: 0.7,
 				side: THREE.DoubleSide,
@@ -1118,7 +1152,7 @@
 			if (!entry) return;
 			if (selected && selected !== entry) {
 				selected.ring.material.opacity = selected.isLive ? 0.45 : 0;
-				selected.ring.material.color.set(selected.isLive ? 0xf87171 : 0x8b5cf6);
+				selected.ring.material.color.set(selected.isLive ? liveGlowHex(selected.data) : 0x8b5cf6);
 			}
 			selected = entry;
 			selected.ring.material.color.set(0x34d399);
@@ -1131,7 +1165,7 @@
 		function clearSelection() {
 			if (selected) {
 				selected.ring.material.opacity = selected.isLive ? 0.45 : 0;
-				selected.ring.material.color.set(selected.isLive ? 0xf87171 : 0x8b5cf6);
+				selected.ring.material.color.set(selected.isLive ? liveGlowHex(selected.data) : 0x8b5cf6);
 				selected = null;
 			}
 			detailEl.classList.remove('is-open');
@@ -1182,7 +1216,15 @@
 			descEl.textContent = desc.length > 800 ? desc.slice(0, 800) + '…' : desc;
 
 			document.getElementById('vz-detail-mint').textContent = token.mint || '';
-			document.getElementById('vz-detail-live').hidden = !token.is_currently_live;
+			const liveBadge = document.getElementById('vz-detail-live');
+			liveBadge.hidden = !token.is_currently_live;
+			if (token.is_migration) {
+				liveBadge.classList.add('is-grad');
+				liveBadge.textContent = 'Just migrated';
+			} else {
+				liveBadge.classList.remove('is-grad');
+				liveBadge.textContent = 'Live now';
+			}
 
 			const linksEl = document.getElementById('vz-detail-links');
 			linksEl.innerHTML = '';
@@ -1233,7 +1275,7 @@
 		function renderLegend(tokens) {
 			legendList.innerHTML = '';
 			legendEl.classList.toggle('is-empty', tokens.length === 0);
-			const isFeed = state.mode === 'feed';
+			const isFeed = state.mode === 'feed' || state.mode === 'migrations';
 			tokens.slice(0, 20).forEach((token, i) => {
 				const li = document.createElement('li');
 				li.dataset.mint = token.mint || '';
@@ -1282,7 +1324,7 @@
 					eq.innerHTML = '<span></span><span></span><span></span><span></span>';
 					const pill = document.createElement('span');
 					pill.className = 'vz-live-pill';
-					pill.textContent = isFeed ? 'New' : 'Live';
+					pill.textContent = state.mode === 'migrations' ? 'Grad' : (isFeed ? 'New' : 'Live');
 					li.appendChild(eq);
 					li.appendChild(pill);
 				}
@@ -1426,7 +1468,7 @@
 						entry.mesh.material.emissiveIntensity = burst;
 					} else {
 						entry.flashAt = 0;
-						entry.mesh.material.emissive.copy(entry.isLive ? new THREE.Color(0xf87171) : new THREE.Color(0x000000));
+						entry.mesh.material.emissive.copy(entry.isLive ? new THREE.Color(liveGlowHex(entry.data)) : new THREE.Color(0x000000));
 						entry.mesh.material.emissiveIntensity = entry.isLive ? 0.25 : 0;
 					}
 				}
@@ -1536,15 +1578,17 @@
 
 		// ── state, filtering, sorting ────────────────────────────────
 		const state = {
-			mode: 'feed',     // 'feed' (live firehose) | 'trending' (cached top-50)
-			all: [],          // raw tokens; in feed mode = recent mints, newest first
+			mode: 'feed',     // 'feed' (live mints) | 'migrations' (live graduations) | 'trending' (top-50 snapshot)
+			all: [],          // raw tokens; in stream modes = recent events, newest first
 			sortMode: 'mcap', // 'mcap' | 'live' | 'replies' | 'recent' — trending only
 			query: '',
 			feed: {
 				es: null,
+				kind: 'mint',   // 'mint' | 'graduation' — which SSE event stream is open
 				retryTimer: null,
 				statsTimer: null,
 				mintsPerMin: 0,
+				gradsPerHour: 0,
 				seen: new Set(),
 			},
 		};
@@ -1579,8 +1623,8 @@
 		}
 
 		function applyFilterAndRender() {
-			if (state.mode === 'feed') {
-				// In feed mode `state.all` is already newest-first; no re-sort.
+			if (state.mode === 'feed' || state.mode === 'migrations') {
+				// In stream modes `state.all` is already newest-first; no re-sort.
 				const filtered = filterTokens(state.all, state.query);
 				applyVisibility(filtered.map((t) => t.mint));
 				renderLegend(filtered.slice(0, 20));
@@ -1596,7 +1640,15 @@
 			if (state.mode === 'feed') {
 				statCountEl.textContent = tokenMeshes.length;
 				statRateEl.textContent = state.feed.mintsPerMin || '—';
+				statRateUnitEl.textContent = '/min';
 				statusText.textContent = 'pump.fun firehose · live mints';
+				return;
+			}
+			if (state.mode === 'migrations') {
+				statCountEl.textContent = tokenMeshes.length;
+				statRateEl.textContent = state.feed.gradsPerHour || '—';
+				statRateUnitEl.textContent = '/hr';
+				statusText.textContent = 'pump.fun firehose · live migrations';
 				return;
 			}
 			const liveTokens = state.all.filter((t) => t.is_currently_live).length;
@@ -1654,6 +1706,50 @@
 				creator_graduated: d.creator_graduated ?? null,
 				is_currently_live: true,          // visual: red glow + sonar = fresh mint
 				signature: d.signature || null,
+				replay: !!d.replay,
+			};
+		}
+
+		// Normalize a PumpPortal migration event (graduation to Raydium/PumpSwap).
+		// Re-uses the same token shape; visually distinguished by `is_migration`
+		// → green glow + green sonar.
+		function normalizeFeedGraduation(d) {
+			const mc = Number(d.usd_market_cap) > 0 ? Number(d.usd_market_cap)
+				: Number(d.market_cap) > 0 ? Number(d.market_cap)
+				: null;
+			const ath = Number(d.ath_market_cap) > 0 ? Number(d.ath_market_cap) : mc;
+			// Prefer the token's own creation timestamp for the Age stat — it tells
+			// the viewer how long this token lived on the bonding curve before
+			// graduating. Falls back to the migration timestamp if unavailable.
+			const createdMs = d.created_at ? Number(d.created_at) * 1000
+				: d.timestamp ? Number(d.timestamp) * 1000
+				: Date.now();
+			return {
+				mint: d.mint,
+				name: d.name,
+				symbol: d.symbol,
+				usd_market_cap: mc,
+				market_cap: mc,
+				ath_market_cap: ath,
+				reply_count: typeof d.reply_count === 'number' ? d.reply_count : null,
+				created_timestamp: createdMs,
+				image_uri: d.image_uri || null,
+				description: d.description || null,
+				twitter: d.twitter || null,
+				telegram: d.telegram || null,
+				website: d.website || null,
+				creator: d.creator || null,
+				creator_launches: d.creator_launches ?? null,
+				creator_graduated: d.creator_graduated ?? null,
+				is_currently_live: true,          // visual: green glow + sonar
+				is_migration: true,
+				pool: d.pool || null,
+				raydium_pool: d.raydium_pool || null,
+				pump_swap_pool: d.pump_swap_pool || null,
+				amount_sol: d.amount_sol ?? null,
+				amount_usd: d.amount_usd ?? null,
+				migration_at: d.timestamp ? Number(d.timestamp) * 1000 : Date.now(),
+				signature: d.signature || d.tx_signature || null,
 				replay: !!d.replay,
 			};
 		}
@@ -1745,7 +1841,11 @@
 
 		function connectFeed() {
 			disconnectFeed();
-			const es = new EventSource(LIVE_FEED_API);
+			const kind = state.feed.kind;
+			const url = kind === 'graduation' ? MIGRATIONS_FEED_API : LIVE_FEED_API;
+			const eventName = kind === 'graduation' ? 'graduation' : 'mint';
+			const normalize = kind === 'graduation' ? normalizeFeedGraduation : normalizeFeedMint;
+			const es = new EventSource(url);
 			state.feed.es = es;
 			es.addEventListener('open', () => {
 				state.feed.everOpened = true;
@@ -1753,10 +1853,12 @@
 				statusEl.dataset.state = 'ready';
 				updateStats();
 			});
-			es.addEventListener('mint', (msg) => {
+			es.addEventListener(eventName, (msg) => {
+				// Bail if the user has switched modes since this listener was wired.
+				if (state.feed.kind !== kind) return;
 				let raw;
 				try { raw = JSON.parse(msg.data); } catch { return; }
-				const token = normalizeFeedMint(raw);
+				const token = normalize(raw);
 				appendFeedToken(token);
 				applyFilterAndRender();
 				updateStats();
@@ -1783,18 +1885,19 @@
 		}
 
 		function scheduleFeedReconnect() {
-			if (state.mode !== 'feed') return;
+			if (state.mode !== 'feed' && state.mode !== 'migrations') return;
 			clearTimeout(state.feed.retryTimer);
 			state.feed.retryTimer = setTimeout(connectFeed, 1200);
 		}
 
 		async function tickFeedStats() {
-			if (state.mode !== 'feed') return;
+			if (state.mode !== 'feed' && state.mode !== 'migrations') return;
 			try {
 				const r = await fetch(STATS_API, { headers: { accept: 'application/json' } });
 				if (!r.ok) return;
 				const d = await r.json();
 				state.feed.mintsPerMin = Number(d?.feed?.mints_per_min) || 0;
+				state.feed.gradsPerHour = Number(d?.feed?.graduations_per_hour) || 0;
 				updateStats();
 			} catch {}
 		}
@@ -1810,6 +1913,7 @@
 
 		function enterFeedMode() {
 			state.mode = 'feed';
+			state.feed.kind = 'mint';
 			controlsEl.dataset.mode = 'feed';
 			statusEl.dataset.mode = 'feed';
 			modeBtns.forEach((b) => b.classList.toggle('is-active', b.dataset.mode === 'feed'));
@@ -1821,6 +1925,47 @@
 			statusEl.dataset.state = firstLoad ? 'loading' : 'ready';
 			statusText.textContent = firstLoad ? 'Connecting to pump.fun firehose…' : 'pump.fun firehose · live mints';
 			updateStats();
+			connectFeed();
+			clearInterval(state.feed.statsTimer);
+			tickFeedStats();
+			state.feed.statsTimer = setInterval(tickFeedStats, STATS_INTERVAL_MS);
+		}
+
+		// Backfill the migrations feed with the most-recent enriched graduations
+		// from Postgres (or the WS feed's ring buffer) so the canvas never opens
+		// blank — graduations can be minutes apart on a slow stretch.
+		async function backfillMigrations() {
+			try {
+				const r = await fetch(MIGRATIONS_BACKFILL_API, { headers: { accept: 'application/json' } });
+				if (!r.ok) return;
+				const d = await r.json();
+				const items = Array.isArray(d?.items) ? d.items : [];
+				// Oldest first so each unshift puts the newest on top.
+				for (let i = items.length - 1; i >= 0; i--) {
+					if (state.mode !== 'migrations') return; // user switched away mid-fetch
+					const token = normalizeFeedGraduation({ ...items[i], replay: true });
+					appendFeedToken(token);
+				}
+				applyFilterAndRender();
+				updateStats();
+			} catch {}
+		}
+
+		function enterMigrationsMode() {
+			state.mode = 'migrations';
+			state.feed.kind = 'graduation';
+			controlsEl.dataset.mode = 'migrations';
+			statusEl.dataset.mode = 'migrations';
+			modeBtns.forEach((b) => b.classList.toggle('is-active', b.dataset.mode === 'migrations'));
+			clearInterval(refreshTimer);
+			refreshBtn.disabled = true;
+			errorEl.hidden = true;
+			clearAllTokens();
+			legendHeadEl.textContent = 'Latest migrations';
+			statusEl.dataset.state = firstLoad ? 'loading' : 'ready';
+			statusText.textContent = firstLoad ? 'Connecting to pump.fun firehose…' : 'pump.fun firehose · live migrations';
+			updateStats();
+			backfillMigrations();
 			connectFeed();
 			clearInterval(state.feed.statsTimer);
 			tickFeedStats();
@@ -1846,6 +1991,7 @@
 				const m = btn.dataset.mode;
 				if (state.mode === m) return;
 				if (m === 'feed') enterFeedMode();
+				else if (m === 'migrations') enterMigrationsMode();
 				else enterTrendingMode();
 			});
 		});
@@ -1955,14 +2101,15 @@
 
 		// Pause auto-refresh / live feed when tab is hidden; resume on focus.
 		document.addEventListener('visibilitychange', () => {
+			const isStream = state.mode === 'feed' || state.mode === 'migrations';
 			if (document.hidden) {
 				clearInterval(refreshTimer);
-				if (state.mode === 'feed') {
+				if (isStream) {
 					disconnectFeed();
 					clearInterval(state.feed.statsTimer);
 					state.feed.statsTimer = null;
 				}
-			} else if (state.mode === 'feed') {
+			} else if (isStream) {
 				connectFeed();
 				clearInterval(state.feed.statsTimer);
 				tickFeedStats();

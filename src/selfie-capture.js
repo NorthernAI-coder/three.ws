@@ -7,7 +7,7 @@
  *
  * On submit, dispatches a `selfie:submit` CustomEvent on document with
  *   detail = { files: { frontal, left, right }, bodyType, avatarType, method }
- * which the Avaturn pipeline (task 3) will pick up.
+ * which the selfie pipeline picks up to drive avatar reconstruction.
  */
 
 const SLOT_KEYS = /** @type {const} */ (['frontal', 'left', 'right']);

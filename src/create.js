@@ -42,9 +42,9 @@ async function boot() {
 	});
 	wireCard('card-selfie', async () => {
 		if (await isAtAvatarLimit()) return;
-		// Real 3-photo flow lives at /create/selfie. Pulls camera or upload,
-		// posts to /api/onboarding/avaturn-session, then redirects back to /
-		// with #avatarSession so the main viewer's AvatarCreator picks it up.
+		// Real 3-photo flow lives at /create/selfie. Captures via camera or
+		// upload, submits to /api/avatars/reconstruct, polls the job, then
+		// redirects to /avatars/<id> when the GLB has been materialized.
 		window.location.href = '/create/selfie';
 	});
 	wireCard('card-upload-glb', (e) => {

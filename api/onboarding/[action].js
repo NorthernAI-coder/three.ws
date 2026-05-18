@@ -34,7 +34,7 @@ async function handleAvaturnSession(req, res) {
 	if (!rlUser.success) return error(res, 429, 'rate_limited', 'too many avatar attempts, try again later');
 	const rlIp = await limits.authIp(clientIp(req));
 	if (!rlIp.success) return error(res, 429, 'rate_limited', 'too many requests from this network');
-	if (!env.AVATURN_API_KEY) return error(res, 501, 'not_configured', 'Avaturn is not configured on this deployment. Set AVATURN_API_KEY.');
+	if (!env.AVATURN_API_KEY) return error(res, 501, 'not_configured', 'Avatar editor is not available right now. Please try again later.');
 	const body = parse(avaturnSchema, await readJson(req, 8_000_000));
 	try {
 		const url = `${env.AVATURN_API_URL}/api/v1/sessions`;

@@ -1,23 +1,29 @@
 /**
- * Selfie pipeline — bridges the 3-photo capture UI on /create to the Avaturn
- * session endpoint, then hands off to the main app's AvatarCreator modal.
+ * Selfie pipeline — bridges the 3-photo capture UI on /create/selfie to the
+ * native avatar reconstruction backend.
  *
  * Flow:
- *   [selfie:submit] → downscale photos → POST /api/onboarding/avaturn-session
- *     → on 200 { session_url } → navigate to /#avatarSession=<encoded url>
- *     → app.js reads hash, opens AvatarCreator with the session URL
- *     → Avaturn iframe runs the editor, fires 'export' with GLB URL
- *     → app.js loads the GLB + saves it to the user's account
+ *   [selfie:submit] → downscale photos → POST /api/avatars/reconstruct
+ *     → on 202 { jobId } → poll /api/avatars/regenerate-status?jobId=…
+ *     → on { status: 'done', resultAvatarId } → navigate to /avatars/<id>
+ *     → on { status: 'failed' } or timeout → surface a three.ws-branded error
  */
 
-const ENDPOINT = '/api/onboarding/avaturn-session';
-const MAX_DIM = 1024; // downscale so each base64 photo stays well under 2.5MB
+const SUBMIT_ENDPOINT = '/api/avatars/reconstruct';
+const STATUS_ENDPOINT = '/api/avatars/regenerate-status';
+const MAX_DIM = 1024; // downscale so each base64 photo stays well under the 8MB string cap
 const JPEG_QUALITY = 0.88;
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — image-to-3D models take 30-180s
 
 document.addEventListener('selfie:submit', (event) => {
 	const ev = /** @type {CustomEvent} */ (event);
 	run(ev.detail).catch((err) => {
 		console.error('[selfie-pipeline]', err);
+		if (err?.redirect) {
+			window.location.assign(err.redirect);
+			return;
+		}
 		setStatus(err.userMessage || 'Something went wrong. Try again.', { error: true });
 		resetSubmit();
 	});
@@ -37,38 +43,121 @@ async function run(detail) {
 	}
 
 	setStatus('Preparing photos…');
-	const photos = {
-		frontal: await fileToDataUrl(detail.files.frontal),
-		left: await fileToDataUrl(detail.files.left),
-		right: await fileToDataUrl(detail.files.right),
-	};
+	const photos = [
+		await fileToDataUrl(detail.files.frontal),
+		await fileToDataUrl(detail.files.left),
+		await fileToDataUrl(detail.files.right),
+	];
 
-	setStatus('Sending to avatar pipeline…');
-	const res = await fetch(ENDPOINT, {
+	setStatus('Submitting to avatar engine…');
+	const submitRes = await fetch(SUBMIT_ENDPOINT, {
 		method: 'POST',
 		credentials: 'include',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({
+			name: defaultAvatarName(),
 			photos,
-			body_type: detail.bodyType,
-			avatar_type: detail.avatarType,
+			visibility: 'private',
+			params: { bodyType: detail.bodyType, style: detail.avatarType },
 		}),
 	});
 
-	if (!res.ok) {
-		const payload = await res.json().catch(() => ({}));
-		throw mapApiError(res.status, payload);
+	if (!submitRes.ok) {
+		const payload = await submitRes.json().catch(() => ({}));
+		throw mapApiError(submitRes.status, payload);
 	}
 
-	const data = await res.json();
-	if (!data.session_url) {
-		throw withMessage(new Error('no session_url'), 'The pipeline did not return a session.');
+	const submitData = await submitRes.json();
+	if (!submitData.jobId) {
+		throw withMessage(new Error('no jobId'), 'The avatar engine did not return a job.');
 	}
 
-	setStatus('Opening editor…');
-	// Hand off to the main viewer, which owns the AvatarCreator modal + GLB loader.
-	const target = `/#avatarSession=${encodeURIComponent(data.session_url)}`;
-	window.location.assign(target);
+	const finalJob = await pollUntilDone(submitData.jobId);
+
+	if (!finalJob.resultAvatarId) {
+		throw withMessage(
+			new Error('done without resultAvatarId'),
+			'Avatar finished but could not be saved. Try again.',
+		);
+	}
+
+	setStatus('Opening your avatar…');
+	window.location.assign(`/avatars/${encodeURIComponent(finalJob.resultAvatarId)}`);
+}
+
+/**
+ * Poll the status endpoint until the job reaches a terminal state, throwing
+ * with a user-facing message on failure or timeout.
+ * @param {string} jobId
+ */
+async function pollUntilDone(jobId) {
+	const deadline = Date.now() + POLL_TIMEOUT_MS;
+	let attempt = 0;
+	const url = `${STATUS_ENDPOINT}?jobId=${encodeURIComponent(jobId)}`;
+
+	while (Date.now() < deadline) {
+		await sleep(attempt === 0 ? 1500 : POLL_INTERVAL_MS);
+		attempt += 1;
+
+		let res;
+		try {
+			res = await fetch(url, { credentials: 'include' });
+		} catch (err) {
+			console.warn('[selfie-pipeline] poll fetch failed:', err);
+			continue;
+		}
+
+		if (!res.ok) {
+			if (res.status === 404) {
+				throw withMessage(new Error('job vanished'), 'Job disappeared. Try again.');
+			}
+			// transient — keep polling
+			continue;
+		}
+
+		const job = await res.json().catch(() => ({}));
+		setStatus(statusLabel(job.status, attempt));
+
+		if (job.status === 'done') return job;
+		if (job.status === 'failed') {
+			throw withMessage(
+				new Error(job.error || 'reconstruct failed'),
+				friendlyJobError(job.error),
+			);
+		}
+	}
+
+	throw withMessage(
+		new Error('poll timeout'),
+		'Avatar is taking longer than expected. Check your dashboard in a few minutes.',
+	);
+}
+
+/**
+ * @param {'queued'|'running'|'done'|'failed'|undefined} status
+ * @param {number} attempt
+ */
+function statusLabel(status, attempt) {
+	if (status === 'queued') return 'Queued…';
+	if (status === 'running') return `Reconstructing your avatar… (${attempt}s)`;
+	if (status === 'done') return 'Done — loading…';
+	return `Working… (${attempt}s)`;
+}
+
+/** @param {string | null | undefined} raw */
+function friendlyJobError(raw) {
+	if (!raw) return 'Avatar reconstruction failed. Try clearer photos in better light.';
+	const lower = raw.toLowerCase();
+	if (lower.includes('face') && lower.includes('detect'))
+		return 'We could not find a face in one of the photos. Try again with clearer shots.';
+	if (lower.includes('nsfw')) return 'Photos were flagged. Try different shots.';
+	return 'Avatar reconstruction failed. Try again with clearer photos.';
+}
+
+function defaultAvatarName() {
+	const d = new Date();
+	const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	return `Selfie avatar · ${stamp}`;
 }
 
 /**
@@ -127,10 +216,19 @@ function fit(w, h, max) {
  */
 function mapApiError(status, payload) {
 	const code = payload.error;
-	if (status === 401)
-		return withMessage(
+	if (status === 401) {
+		const next = encodeURIComponent('/create/selfie');
+		const e = withMessage(
 			new Error(code || 'unauthorized'),
 			'Please sign in to create an avatar.',
+		);
+		/** @type {any} */ (e).redirect = `/login?next=${next}`;
+		return e;
+	}
+	if (status === 402)
+		return withMessage(
+			new Error(code || 'plan_limit'),
+			payload.error_description || 'Avatar quota reached. Upgrade your plan to create more.',
 		);
 	if (status === 413)
 		return withMessage(new Error(code || 'too_large'), 'Photos are too large. Try again.');
@@ -142,12 +240,12 @@ function mapApiError(status, payload) {
 	if (status === 501)
 		return withMessage(
 			new Error(code || 'not_configured'),
-			'Avatar pipeline is not set up on this deployment.',
+			'Avatar engine is not available right now. Please try again later.',
 		);
 	if (status === 502)
 		return withMessage(
 			new Error(code || 'upstream_error'),
-			'Avatar provider is having trouble. Try again shortly.',
+			'Avatar engine is having trouble. Try again shortly.',
 		);
 	return withMessage(
 		new Error(code || `http_${status}`),
@@ -162,6 +260,11 @@ function mapApiError(status, payload) {
 function withMessage(err, userMessage) {
 	/** @type {any} */ (err).userMessage = userMessage;
 	return err;
+}
+
+/** @param {number} ms */
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ── UI helpers ─────────────────────────────────────────────────────────────
@@ -194,7 +297,6 @@ function setStatus(text, opts = {}) {
 
 function resetSubmit() {
 	if (!submitBtn) return;
-	// Re-enable submit for another attempt if photos are still present.
 	submitBtn.disabled = false;
 	submitBtn.textContent = 'Submit';
 	submitBtn.classList.add('ready');
