@@ -447,6 +447,42 @@ body.market-page {
 	letter-spacing: 0.04em;
 }
 
+/* Empty / not-found state inside stage. Replaces the fake-loading bar when
+ * the avatar can't be loaded, so the user gets a real CTA instead of a
+ * spinner that never resolves. */
+.avatar-detail-empty {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 24px;
+	text-align: center;
+}
+.market-avatar-detail-stage.is-empty .avatar-detail-load-wrap { display: none; }
+.avatar-detail-empty-glyph {
+	font-size: 40px;
+	color: var(--mk-text-3);
+	line-height: 1;
+}
+.avatar-detail-empty-title {
+	margin: 4px 0 0;
+	font-family: 'Space Grotesk', sans-serif;
+	font-size: 18px;
+	font-weight: 600;
+	color: var(--mk-text);
+}
+.avatar-detail-empty-msg {
+	margin: 0;
+	font-size: 13px;
+	color: var(--mk-text-2);
+	max-width: 320px;
+	line-height: 1.5;
+}
+.avatar-detail-empty-cta { margin-top: 6px; min-width: 160px; }
+
 /* Right column meta */
 .market-avatar-detail-meta {
 	display: flex;

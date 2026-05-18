@@ -69,7 +69,7 @@ export const ExportMenu = ({currentPrice, onPurchaseClick}) => {
         [arrayBuffer],
       );
     } catch (err) {
-      console.error('[CharacterStudio] saveToAccount failed:', err);
+      console.error('[three.ws Avatar Studio] saveToAccount failed:', err);
     } finally {
       setSaving(false);
     }

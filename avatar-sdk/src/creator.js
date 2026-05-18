@@ -1,5 +1,5 @@
 // Programmatic Avatar Creator — opens an iframe modal where the user builds
-// or photographs an avatar via Character Studio or Avaturn, listens for the
+// or photographs an avatar in the three.ws Avatar Studio, listens for the
 // `export` postMessage, and resolves with the GLB Blob.
 //
 // This is the thin client-only wrapper. Apps that already have their own
@@ -12,7 +12,7 @@
 // the `saveBlob()` helper instead, which posts to three.ws's /api/avatars
 // pipeline using a bearer token.
 
-const DEFAULT_STUDIO_URL = 'https://studio.three.ws';
+const DEFAULT_STUDIO_URL = 'https://three.ws/avatar-studio/';
 const DEFAULT_THREE_WS_ORIGIN = 'https://three.ws';
 
 export class AvatarCreator {

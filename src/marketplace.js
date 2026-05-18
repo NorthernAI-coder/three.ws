@@ -340,8 +340,9 @@ async function loadList(reset = false) {
 		const r = await fetch(url);
 		const j = await r.json();
 		// Real endpoint wraps as { data: { items, next_cursor } }; legacy mock returns a bare array.
-		const items = Array.isArray(j) ? j : (j?.data?.items ?? []);
+		const rawItems = Array.isArray(j) ? j : (j?.data?.items ?? []);
 		const nextCursor = Array.isArray(j) ? null : (j?.data?.next_cursor ?? null);
+		const items = rawItems.filter((a) => !isAutoNamedAgent(a.name));
 		state.items = reset ? items : [...state.items, ...items];
 		state.cursor = nextCursor;
 		renderGrid();
@@ -369,6 +370,18 @@ function isAutoNamedAvatar(name) {
 	const n = String(name || '').trim();
 	if (!n) return true;
 	return AVATAR_AUTONAMED_RE.test(n);
+}
+
+// Mirrors server-side AGENT_AUTONAMED_RE_SQL in api/marketplace/[action].js.
+// Defense-in-depth: even if a stale CDN cache or partial rollout serves
+// unfiltered rows, the marketplace UI still hides obvious stubs.
+const AGENT_AUTONAMED_RE =
+	/^(Agent|My Agent|My First Agent|Demo Agent|Untitled.*|TEST|Test|test|mo[a-z0-9]{4,}|draft-[a-z0-9]+|new_project_\d+|Avatar\s*#[0-9a-f]{4,}(\s*agent)?|https?:\/\/.+)$/i;
+
+function isAutoNamedAgent(name) {
+	const n = String(name || '').trim();
+	if (!n) return true;
+	return AGENT_AUTONAMED_RE.test(n);
 }
 
 async function loadPublicAvatars() {
@@ -1384,6 +1397,8 @@ function renderAvatarCard(a, spotlight = false) {
 	// allocates a WebGL context, so we also stash the URL in `data-src` and
 	// the observer promotes it to `src` on intersect — no GLB download, no
 	// scene parse, no animation loop until the card is actually on screen.
+	// reveal="auto" (default) means model-viewer un-veils the model on load;
+	// no explicit dismissPoster() call needed.
 	const preview = a.image
 		? `<img src="${escapeHtml(a.image)}" alt="${name}" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'card-img-fallback'}))" />`
 		: a.glbUrl
@@ -1399,7 +1414,6 @@ function renderAvatarCard(a, spotlight = false) {
 					shadow-intensity="0.4"
 					tone-mapping="aces"
 					loading="lazy"
-					reveal="manual"
 				></model-viewer>`
 			: `<div class="thumb-fallback">◉</div>`;
 	const isSpotlight = spotlight || a.featured;
@@ -1579,22 +1593,79 @@ function _normaliseAvatar(a) {
 let _avatarDetailId = null;
 let _avatarDetailMv = null;
 
-async function loadAvatarDetail(id) {
-	if (_avatarDetailId === id) return;  // already loaded for this ID
-	_avatarDetailId = id;
+// Defaults for restoring social meta when leaving an avatar detail view.
+const _socialMetaDefaults = {
+	title:       'Agent Marketplace · three.ws',
+	description: 'Discover, fork, and chat with community-published AI agents.',
+	url:         'https://three.ws/marketplace',
+	image:       'https://three.ws/og-image.png',
+};
 
-	// Reset stage.
+// Update <title>, meta[name=description], and the og:* / twitter:* tags so the
+// avatar detail page previews correctly when pasted into chats and crawlers.
+function setSocialMeta({ title, description, url, image }) {
+	if (title) document.title = title;
+	const set = (selector, value) => {
+		if (value == null) return;
+		const el = document.querySelector(selector);
+		if (el) el.setAttribute('content', value);
+	};
+	set('meta[name="description"]',         description);
+	set('meta[property="og:title"]',        title);
+	set('meta[property="og:description"]',  description);
+	set('meta[property="og:url"]',          url);
+	set('meta[property="og:image"]',        image);
+	set('meta[name="twitter:title"]',       title);
+	set('meta[name="twitter:description"]', description);
+	set('meta[name="twitter:image"]',       image);
+}
+
+function resetSocialMeta() { setSocialMeta(_socialMetaDefaults); }
+
+function _renderAvatarDetailEmpty() {
+	const stage    = $('avatar-detail-stage');
+	const emptyEl  = $('avatar-detail-empty');
+	const loadWrap = $('avatar-detail-load-wrap');
+	if (stage)    stage.classList.add('is-empty');
+	if (loadWrap) loadWrap.hidden = true;
+	if (emptyEl)  emptyEl.hidden = false;
+	$('avatar-detail-name').textContent = 'Avatar not found';
+	$('avatar-detail-desc').textContent = '';
+	$('avatar-detail-author').innerHTML = '';
+	$('avatar-detail-pills').innerHTML  = '';
+	// Hide the action column entirely — no fake CTAs pointing at "#".
+	const actions = document.querySelector('.market-avatar-detail-actions');
+	if (actions) actions.hidden = true;
+	const similarWrap = $('avatar-detail-similar-wrap');
+	if (similarWrap) similarWrap.hidden = true;
+	setSocialMeta({
+		title:       'Avatar not found · three.ws',
+		description: 'This avatar may have been removed or the link is wrong.',
+		url:         location.origin + location.pathname,
+		image:       _socialMetaDefaults.image,
+	});
+}
+
+async function loadAvatarDetail(id) {
+	if (_avatarDetailId === id) return;  // already rendered for this ID
+
+	// Reset stage. Note: we intentionally do NOT set `_avatarDetailId = id`
+	// here — only after a successful render, so a transient fetch failure
+	// doesn't cache an empty state and block retries.
 	const stage = $('avatar-detail-stage');
 	const bar   = $('avatar-detail-load-bar');
 	const wrap  = $('avatar-detail-load-wrap');
+	const empty = $('avatar-detail-empty');
+	const actions = document.querySelector('.market-avatar-detail-actions');
 	if (stage) {
 		if (_avatarDetailMv) { try { _avatarDetailMv.src = ''; } catch {} }
-		// Remove previous model-viewer but keep the load-wrap.
 		stage.querySelectorAll('model-viewer').forEach((el) => el.remove());
-		stage.classList.remove('mv-ready');
+		stage.classList.remove('mv-ready', 'is-empty');
 		if (bar)  bar.style.width = '0%';
-		if (wrap) wrap.style.opacity = '1';
+		if (wrap) { wrap.hidden = false; wrap.style.opacity = '1'; }
+		if (empty) empty.hidden = true;
 	}
+	if (actions) actions.hidden = false;
 
 	$('avatar-detail-name').textContent  = 'Loading…';
 	$('avatar-detail-desc').textContent  = '';
@@ -1618,8 +1689,8 @@ async function loadAvatarDetail(id) {
 	}
 
 	if (!avatar?.glbUrl) {
-		$('avatar-detail-name').textContent = 'Avatar not found';
-		return;
+		_renderAvatarDetailEmpty();
+		return;  // don't cache id — let the user retry by navigating again
 	}
 
 	// Populate meta.
@@ -1633,36 +1704,62 @@ async function loadAvatarDetail(id) {
 			: `by ${escapeHtml(avatar.author.displayName || avatar.author.handle)}`;
 	}
 
+	// Tag chips lead so the user reads what the avatar is *about* first; the
+	// "3D · GLB" technical chip and view/recency stats follow.
 	const pillsEl = $('avatar-detail-pills');
 	const pills = [];
-	if (Number(avatar.viewCount) > 0) pills.push(`<span class="stat-pill">⊙ ${fmtNumber(avatar.viewCount)} views</span>`);
-	if (avatar.createdAt) pills.push(`<span class="stat-pill">${escapeHtml(liveTime(avatar.createdAt))}</span>`);
-	pills.push('<span class="stat-pill">3D · GLB</span>');
 	(avatar.tags || []).forEach((t) => {
 		pills.push(`<button type="button" class="stat-pill tag-pill" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</button>`);
 	});
+	pills.push('<span class="stat-pill">3D · GLB</span>');
+	if (Number(avatar.viewCount) > 0) pills.push(`<span class="stat-pill">⊙ ${fmtNumber(avatar.viewCount)} views</span>`);
+	if (avatar.createdAt) pills.push(`<span class="stat-pill">${escapeHtml(liveTime(avatar.createdAt))}</span>`);
 	pillsEl.innerHTML = pills.join('');
 	pillsEl.querySelectorAll('[data-tag]').forEach((btn) => {
 		btn.addEventListener('click', () => navTo(`/marketplace?tag=${encodeURIComponent(btn.dataset.tag)}`));
 	});
 
 	// CTAs.
-	const useBtn  = $('avatar-detail-use');
-	const viewBtn = $('avatar-detail-view');
-	const dlBtn   = $('avatar-detail-download');
+	const useBtn   = $('avatar-detail-use');
+	const viewBtn  = $('avatar-detail-view');
+	const dlBtn    = $('avatar-detail-download');
+	const shareBtn = $('avatar-detail-share');
 	if (useBtn) useBtn.onclick = () => {
 		const p = new URLSearchParams();
 		if (avatar.glbUrl) p.set('avatar_glb', avatar.glbUrl);
 		if (avatar.name)   p.set('avatar_name', avatar.name);
 		location.href = `/create?${p}`;
 	};
-	if (viewBtn) viewBtn.href = avatar.viewerUrl || (avatar.glbUrl ? `/app#model=${encodeURIComponent(avatar.glbUrl)}` : '#');
-	if (dlBtn)   { dlBtn.href = avatar.glbUrl || '#'; dlBtn.setAttribute('download', (avatar.slug || avatar.avatarId || 'avatar') + '.glb'); }
+	if (viewBtn) viewBtn.href = avatar.viewerUrl || `/app#model=${encodeURIComponent(avatar.glbUrl)}`;
+	if (dlBtn)   { dlBtn.href = avatar.glbUrl; dlBtn.setAttribute('download', (avatar.slug || avatar.avatarId || 'avatar') + '.glb'); }
+	if (shareBtn) {
+		shareBtn.onclick = async () => {
+			const shareUrl = location.href;
+			const shareTitle = `${avatar.name || 'Avatar'} — three.ws`;
+			const shareText = avatar.description || 'Check out this 3D avatar on three.ws';
+			if (navigator.share) {
+				try { await navigator.share({ title: shareTitle, text: shareText, url: shareUrl }); return; }
+				catch { /* user cancelled or share unsupported — fall through to copy */ }
+			}
+			try {
+				await navigator.clipboard.writeText(shareUrl);
+				const original = shareBtn.textContent;
+				shareBtn.textContent = 'Link copied ✓';
+				shareBtn.classList.add('copied');
+				setTimeout(() => { shareBtn.textContent = original; shareBtn.classList.remove('copied'); }, 1800);
+			} catch (err) {
+				console.error('[marketplace] share copy', err);
+			}
+		};
+	}
 
-	// Update page title + meta for social sharing.
-	document.title = `${avatar.name} — Community Avatar · three.ws`;
-	const descMeta = document.querySelector('meta[name="description"]');
-	if (descMeta) descMeta.content = avatar.description || `A 3D avatar on three.ws — use it as the face of an AI agent.`;
+	// Social meta — make the avatar's own thumbnail/glb show up in link unfurls.
+	setSocialMeta({
+		title:       `${avatar.name} — Community Avatar · three.ws`,
+		description: avatar.description || 'A 3D avatar on three.ws — use it as the face of an AI agent.',
+		url:         location.origin + location.pathname,
+		image:       avatar.image || _socialMetaDefaults.image,
+	});
 
 	// Inject model-viewer into stage.
 	if (stage) {
@@ -1690,7 +1787,17 @@ async function loadAvatarDetail(id) {
 		_avatarDetailMv = mv;
 	}
 
-	// Similar avatars — show others from the loaded list (same tags).
+	// Mark this id as the active render so re-entries are no-ops, but only
+	// now that the render succeeded — a failed fetch above leaves the id null
+	// so the user's next click can retry.
+	_avatarDetailId = id;
+
+	// Similar avatars — show others with overlapping tags. Deep links land
+	// here with state.publicAvatars empty (no list ever fetched); pull the
+	// list now so the "Similar avatars" block isn't permanently empty.
+	if (!state.publicAvatarsLoaded) {
+		await loadPublicAvatars();
+	}
 	const similar = state.publicAvatars
 		.filter((a) => a.avatarId !== id && (a.tags || []).some((t) => (avatar.tags || []).includes(t)))
 		.slice(0, 8);
@@ -2648,6 +2755,12 @@ function render() {
 	const setHidden = (el, hidden) => { if (el) el.hidden = hidden; };
 
 	const avatarDetailSec = $('market-avatar-detail');
+	// Leaving the avatar-detail view: clear the cached id so re-entry reloads
+	// cleanly, and restore the page's default social meta.
+	if (r.view !== 'avatar-detail' && _avatarDetailId !== null) {
+		_avatarDetailId = null;
+		resetSocialMeta();
+	}
 	if (r.view === 'avatar-detail') {
 		loadAvatarDetail(r.id);
 		setHidden(discovery, true);
@@ -2673,6 +2786,7 @@ function render() {
 		setHidden(skillsSec, true);
 		setHidden(mineSec, true);
 		setHidden(purchasesSec, true);
+		setHidden(avatarDetailSec, true);
 		setHidden(tools, false);
 		if (!pluginState.loaded) loadPlugins(true);
 	} else if (r.view === 'skills') {
@@ -2681,6 +2795,7 @@ function render() {
 		setHidden(tools, true);
 		setHidden(mineSec, true);
 		setHidden(purchasesSec, true);
+		setHidden(avatarDetailSec, true);
 		setHidden(skillsSec, false);
 		loadSkillsTab();
 	} else if (r.view === 'mine') {
@@ -2689,6 +2804,7 @@ function render() {
 		setHidden(tools, true);
 		setHidden(skillsSec, true);
 		setHidden(purchasesSec, true);
+		setHidden(avatarDetailSec, true);
 		setHidden(mineSec, false);
 		loadMine();
 	} else if (r.view === 'purchases') {
@@ -2697,6 +2813,7 @@ function render() {
 		setHidden(tools, true);
 		setHidden(skillsSec, true);
 		setHidden(mineSec, true);
+		setHidden(avatarDetailSec, true);
 		setHidden(purchasesSec, false);
 		loadPurchases();
 	} else {

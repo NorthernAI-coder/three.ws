@@ -120,6 +120,10 @@ creator.open();</pre>
 					const mod = await import('/avatar-sdk/src/creator.js');
 					line(creatorLog, 'opening three.ws Avatar Creator iframe modal…', 'info');
 					const creator = new mod.AvatarCreator({
+						// Same-origin so dev (codespace) and production (three.ws)
+						// both load the local Avatar Studio build instead of the
+						// hard-coded https://three.ws/avatar-studio/ default.
+						studioUrl: new URL('/avatar-studio/', location.origin).toString(),
 						onExport: (glbBlob) => {
 							line(creatorLog, `✓ export received (${glbBlob.size} bytes)`, 'ok');
 						},

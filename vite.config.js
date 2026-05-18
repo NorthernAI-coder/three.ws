@@ -393,6 +393,30 @@ const appConfig = {
 						res.setHeader('Content-Type', 'text/html; charset=utf-8');
 						return res.end(html);
 					}
+					// Avatar Studio (rebranded Character Studio fork) — serve the
+					// production build out of character-studio/build/ at /avatar-studio/*
+					// so the demo iframe works in dev. Run `npm run build --prefix
+					// character-studio` first to populate the build dir.
+					if (path === '/avatar-studio' || path === '/avatar-studio/') {
+						const indexPath = resolve(root, 'character-studio/build/index.html');
+						if (existsSync(indexPath)) {
+							res.setHeader('Content-Type', 'text/html; charset=utf-8');
+							return createReadStream(indexPath).pipe(res);
+						}
+						res.statusCode = 503;
+						return res.end('Avatar Studio build missing — run `npm run build --prefix character-studio`');
+					}
+					if (path.startsWith('/avatar-studio/')) {
+						const ext = path.split('.').pop().toLowerCase();
+						const mimes = { js: 'application/javascript', map: 'application/json', css: 'text/css', json: 'application/json', html: 'text/html', ogg: 'audio/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', glb: 'model/gltf-binary', gltf: 'model/gltf+json', vrm: 'application/octet-stream', obj: 'text/plain', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon', woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', wasm: 'application/wasm' };
+						const rel = path.slice('/avatar-studio/'.length);
+						const fileDisk = resolve(root, 'character-studio/build', rel);
+						if (existsSync(fileDisk) && statSync(fileDisk).isFile()) {
+							res.setHeader('Content-Type', mimes[ext] || 'application/octet-stream');
+							return createReadStream(fileDisk).pipe(res);
+						}
+						return next();
+					}
 					if (path.startsWith('/rider/')) {
 						const ext = path.split('.').pop().toLowerCase();
 						const mimes = { js: 'application/javascript', map: 'application/json', css: 'text/css', json: 'application/json', html: 'text/html', ogg: 'audio/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', glb: 'model/gltf-binary', gltf: 'model/gltf+json', obj: 'text/plain', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf' };
@@ -509,6 +533,22 @@ const appConfig = {
 				cpSync(resolve(__dirname, 'pump-fun-skills'), resolve(__dirname, 'dist/pump-fun-skills'), {
 					recursive: true,
 				});
+			},
+		},
+		{
+			// Mirror the rebranded Character Studio build (the @m3-org fork in
+			// character-studio/, served as "Avatar Studio" under three.ws) into
+			// dist/avatar-studio/. The avatar-sdk Creator iframe loads this URL.
+			// The fork must be built (`npm run build --prefix character-studio`)
+			// before the main build runs — wired into npm run build:vercel.
+			name: 'copy-avatar-studio',
+			closeBundle() {
+				const src = resolve(__dirname, 'character-studio/build');
+				if (!existsSync(src)) {
+					console.warn('[copy-avatar-studio] character-studio/build/ missing — run `npm run build --prefix character-studio` first');
+					return;
+				}
+				cpSync(src, resolve(__dirname, 'dist/avatar-studio'), { recursive: true });
 			},
 		},
 		{

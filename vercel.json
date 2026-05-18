@@ -325,6 +325,18 @@
 			"dest": "/studio/$1"
 		},
 		{
+			"src": "/avatar-studio",
+			"dest": "/avatar-studio/index.html"
+		},
+		{
+			"src": "/avatar-studio/",
+			"dest": "/avatar-studio/index.html"
+		},
+		{
+			"src": "/avatar-studio/(.*)",
+			"dest": "/avatar-studio/$1"
+		},
+		{
 			"src": "/demos",
 			"dest": "/demos/index.html"
 		},

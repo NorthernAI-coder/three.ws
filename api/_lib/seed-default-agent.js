@@ -1,5 +1,8 @@
-// Seeds a default published agent for a brand-new user so they have something
-// reachable, forkable, and ready to attach an avatar to as soon as they sign in.
+// Seeds a default DRAFT agent for a brand-new user so they have something
+// reachable in their "Mine" list and ready to attach an avatar to as soon as
+// they sign in. Kept unpublished so the public marketplace doesn't fill up
+// with stub "My First Agent" rows — users opt into publishing when they've
+// actually customised the agent.
 //
 // Idempotent: if the user already has any agent (published or draft), the
 // function is a no-op. Safe to call from any signup path (email, SIWE, SIWS).
@@ -38,8 +41,8 @@ export async function seedDefaultAgent(userId) {
 				'general',
 				ARRAY['starter']::text[],
 				'{"bullets": ["Answers questions","Helps with writing","Suggests next steps"], "skills": [], "library": []}'::jsonb,
-				true,
-				now()
+				false,
+				null
 			)
 			RETURNING id
 		`;

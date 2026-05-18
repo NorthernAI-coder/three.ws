@@ -159,9 +159,7 @@ export default function App() {
     [ViewMode.BATCHDOWNLOAD]: <BatchDownload />,
     [ViewMode.LOAD]: <Load />,
     [ViewMode.MINT]: <Mint />,
-        [ViewMode.SAVE]: <Save />,
-    [ViewMode.STUDIO]: <Studio />,
-  }
+    [ViewMode.SAVE]: <Save />,
     [ViewMode.STUDIO]: <Studio />,
   }
 

@@ -45,6 +45,14 @@ const CATEGORIES = [
 
 const SORTS = new Set(['recommended', 'recent', 'popular']);
 
+// Auto-named / stub agent names that should never appear in the public
+// marketplace. Sources: api/agents.js default ('Agent'), seed-default-agent.js
+// ('My First Agent'), src/create.js + src/app.js ('My Agent'), avatar imports
+// ('Avatar #abcdef' or '<avatar> agent'), and obvious test/placeholder strings.
+// Postgres POSIX regex — anchored explicitly because `~*` is unanchored.
+const AGENT_AUTONAMED_RE_SQL =
+	'^(Agent|My Agent|My First Agent|Demo Agent|Untitled.*|TEST|Test|test|mo[a-z0-9]{4,}|draft-[a-z0-9]+|new_project_[0-9]+|Avatar[ ]*#[0-9a-f]{4,}([ ]*agent)?|https?://.+)$';
+
 const createAgentSchema = z.object({
 	name: z.string().trim().min(1, 'name required').max(100),
 	description: z.string().trim().min(1, 'description required').max(500),
@@ -298,6 +306,7 @@ async function handleList(req, res, url) {
 		LEFT JOIN users u ON u.id = ai.user_id
 		WHERE ai.is_published = true
 		  AND ai.deleted_at IS NULL
+		  AND ai.name !~* ${AGENT_AUTONAMED_RE_SQL}
 		  AND (${cat}::text IS NULL OR ai.category = ${cat})
 		  AND (
 		    ${qLike}::text IS NULL

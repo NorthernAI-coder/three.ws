@@ -1,6 +1,10 @@
 // Library entry — imported by the CDN bundle <script type="module" src="agent-3d.js">.
 // Registers the custom element and exposes public API classes for programmatic use.
 
+// Buffer polyfill MUST be the very first import so its body runs before any
+// transitive Solana/Anchor/Metaplex dep that touches `Buffer` at module init.
+import './buffer-polyfill.js';
+
 import { Agent3DElement } from './element.js';
 import { AgentStageElement } from './stage-element.js';
 
