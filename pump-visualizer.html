@@ -150,6 +150,50 @@
 			transform: translateY(2px) rotate(45deg);
 			pointer-events: none;
 		}
+		.vz-mode {
+			display: flex;
+			gap: 0;
+			padding: 2px;
+			border-radius: 8px;
+			background: rgba(0,0,0,0.35);
+			border: 1px solid rgba(255,255,255,0.06);
+			margin-right: 2px;
+		}
+		.vz-mode button {
+			background: transparent;
+			border: 1px solid transparent;
+			color: var(--vz-muted);
+			border-radius: 6px;
+			padding: 5px 11px;
+			font: inherit;
+			cursor: pointer;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			font-size: 10px;
+			font-weight: 600;
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+		}
+		.vz-mode button:hover { color: var(--vz-text); }
+		.vz-mode button.is-active {
+			background: rgba(139, 92, 246, 0.22);
+			color: var(--vz-text);
+			border-color: var(--vz-border);
+		}
+		.vz-mode button[data-mode="feed"] .live-dot {
+			width: 6px; height: 6px; border-radius: 50%;
+			background: var(--vz-red);
+			box-shadow: 0 0 6px rgba(248, 113, 113, 0.85);
+		}
+		.vz-mode button[data-mode="feed"].is-active {
+			background: rgba(248, 113, 113, 0.18);
+			color: var(--vz-text);
+			border-color: rgba(248, 113, 113, 0.45);
+		}
+		.vz-mode button[data-mode="feed"].is-active .live-dot {
+			animation: vzPulse 1.2s ease-in-out infinite;
+		}
 		.vz-sort {
 			display: flex;
 			gap: 2px;
@@ -157,6 +201,11 @@
 			padding-left: 8px;
 			margin-left: 2px;
 		}
+		.vz-controls[data-mode="feed"] .vz-sort { display: none; }
+		.vz-status[data-mode="feed"] #vz-refresh { display: none; }
+		.vz-status[data-mode="feed"][data-state="ready"] .dot { background: var(--vz-red); box-shadow: 0 0 10px rgba(248,113,113,0.7); animation: vzPulse 1.2s ease-in-out infinite; }
+		.vz-status[data-mode="feed"] #vz-stat-mcap-wrap { display: none !important; }
+		.vz-status[data-mode="trending"] #vz-stat-rate-wrap { display: none !important; }
 		.vz-sort button {
 			background: transparent;
 			border: 1px solid transparent;
@@ -359,7 +408,8 @@
 		}
 		.vz-legend li:hover { background: rgba(255,255,255,0.04); }
 		.vz-legend li.is-selected { background: var(--accent-soft); }
-		.vz-legend li .rank { color: var(--vz-muted); width: 22px; font-size: 10px; }
+		.vz-legend li .rank { color: var(--vz-muted); width: 26px; font-size: 10px; font-variant-numeric: tabular-nums; }
+		.vz-legend li .rank.age { color: var(--vz-red); font-weight: 600; }
 		.vz-legend li .sym { color: var(--vz-accent); font-size: 11px; }
 		.vz-legend li .name {
 			flex: 1; min-width: 0;
@@ -379,16 +429,48 @@
 			margin-left: auto;
 			padding-left: 6px;
 		}
-		.vz-legend li.is-live::after {
-			content: '';
-			width: 6px; height: 6px;
-			border-radius: 50%;
-			background: var(--vz-red);
-			box-shadow: 0 0 6px rgba(248, 113, 113, 0.8);
-			animation: vzPulse 1.2s ease-in-out infinite;
+		/* Live equalizer — three bouncing bars + LIVE pill */
+		.vz-eq {
+			display: inline-flex;
+			align-items: flex-end;
+			gap: 2px;
+			height: 12px;
 			margin-left: 4px;
 			flex-shrink: 0;
 		}
+		.vz-eq span {
+			display: block;
+			width: 2px;
+			background: var(--vz-red);
+			border-radius: 1px;
+			box-shadow: 0 0 4px rgba(248, 113, 113, 0.75);
+			animation: vzEqBounce 0.9s ease-in-out infinite;
+			transform-origin: bottom;
+		}
+		.vz-eq span:nth-child(1) { height: 60%; animation-delay: -0.10s; }
+		.vz-eq span:nth-child(2) { height: 100%; animation-delay: -0.45s; }
+		.vz-eq span:nth-child(3) { height: 75%; animation-delay: -0.25s; }
+		.vz-eq span:nth-child(4) { height: 45%; animation-delay: -0.60s; }
+		@keyframes vzEqBounce {
+			0%, 100% { transform: scaleY(0.30); }
+			50%      { transform: scaleY(1.00); }
+		}
+		.vz-live-pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			font-size: 9px;
+			letter-spacing: 0.08em;
+			color: var(--vz-red);
+			text-transform: uppercase;
+			padding: 1px 5px;
+			border: 1px solid rgba(248, 113, 113, 0.45);
+			background: rgba(248, 113, 113, 0.12);
+			border-radius: 999px;
+			margin-left: 4px;
+			flex-shrink: 0;
+		}
+		.vz-legend li.is-live .mc { color: var(--vz-red); }
 		.vz-legend.is-empty::after {
 			content: 'No matches';
 			display: block;
@@ -497,23 +579,28 @@
 	<div id="vz-stage">
 		<div id="vz-canvas-host"></div>
 
-		<div class="vz-overlay vz-status" id="vz-status" data-state="loading" role="status" aria-live="polite">
+		<div class="vz-overlay vz-status" id="vz-status" data-state="loading" data-mode="feed" role="status" aria-live="polite">
 			<span class="dot"></span>
-			<span id="vz-status-text">Loading trending tokens…</span>
+			<span id="vz-status-text">Connecting to pump.fun firehose…</span>
 			<span class="sep"></span>
 			<span class="stat"><b id="vz-stat-count">0</b> tokens</span>
 			<span class="sep"></span>
-			<span class="stat">total <b id="vz-stat-mcap">—</b></span>
-			<button id="vz-refresh" type="button" title="Refresh data (R)" disabled>↻ <span class="countdown" id="vz-countdown">60s</span></button>
+			<span class="stat" id="vz-stat-rate-wrap"><b id="vz-stat-rate">—</b> /min</span>
+			<span class="stat" id="vz-stat-mcap-wrap">total <b id="vz-stat-mcap">—</b></span>
+			<button id="vz-refresh" type="button" title="Refresh data (R)" disabled>↻ <span class="countdown" id="vz-countdown">●</span></button>
 		</div>
 
-		<div class="vz-overlay vz-controls" id="vz-controls" hidden>
+		<div class="vz-overlay vz-controls" id="vz-controls" data-mode="feed" hidden>
+			<div class="vz-mode" role="tablist" aria-label="View mode">
+				<button type="button" data-mode="feed" class="is-active"><span class="live-dot"></span>Live Feed</button>
+				<button type="button" data-mode="trending">Trending</button>
+			</div>
 			<label class="vz-search">
 				<input type="search" id="vz-search-input" placeholder="Search name, symbol, mint…" autocomplete="off" spellcheck="false" />
 			</label>
 			<div class="vz-sort" role="tablist" aria-label="Sort tokens">
 				<button type="button" data-sort="mcap" class="is-active">Mcap</button>
-				<button type="button" data-sort="live">Live</button>
+				<button type="button" data-sort="live">Streams</button>
 				<button type="button" data-sort="replies">Replies</button>
 				<button type="button" data-sort="recent">New</button>
 			</div>
@@ -570,12 +657,25 @@
 	<script type="module">
 		import * as THREE from 'three';
 		import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+		import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+		import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+		import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+		import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 		const TRENDING_API = '/api/pump/trending?limit=50';
+		const LIVE_FEED_API = '/api/agents/pumpfun-feed?kind=mint';
+		const STATS_API    = '/api/pump/helius-stats';
 		const SPHERE_RADIUS = 28;
-		const MIN_TOKEN_R = 0.9;
-		const MAX_TOKEN_R = 3.2;
+		const MIN_TOKEN_R = 0.7;
+		const MAX_TOKEN_R = 6.0;
 		const REFRESH_INTERVAL_MS = 60_000;
+		const STATS_INTERVAL_MS = 5_000;
+		const LABEL_COUNT = 3;            // always-on 3D labels for top-N
+		const FLASH_DURATION_MS = 1800;   // diff-flash on refresh (trending mode)
+		const FEED_CAP = 60;              // max simultaneous spheres in feed mode
+		const FEED_FADE_OUT_MS = 520;     // eviction fade (ms)
+		const FEED_LIVE_MIN_LOG = Math.log10(4_000);    // $4k → smallest sphere
+		const FEED_LIVE_MAX_LOG = Math.log10(500_000);  // $500k+ → biggest sphere
 
 		const host = document.getElementById('vz-canvas-host');
 		const statusEl = document.getElementById('vz-status');
@@ -584,9 +684,12 @@
 		const countdownEl = document.getElementById('vz-countdown');
 		const statCountEl = document.getElementById('vz-stat-count');
 		const statMcapEl = document.getElementById('vz-stat-mcap');
+		const statRateEl = document.getElementById('vz-stat-rate');
 		const controlsEl = document.getElementById('vz-controls');
 		const searchInput = document.getElementById('vz-search-input');
 		const sortBtns = controlsEl.querySelectorAll('.vz-sort button');
+		const modeBtns = controlsEl.querySelectorAll('.vz-mode button');
+		const legendHeadEl = document.querySelector('#vz-legend .head');
 		const hintEl = document.getElementById('vz-hint');
 		const hintDismiss = document.getElementById('vz-hint-dismiss');
 		const introEl = document.getElementById('vz-intro');
@@ -613,7 +716,16 @@
 		const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		renderer.outputColorSpace = THREE.SRGBColorSpace;
+		renderer.toneMapping = THREE.ACESFilmicToneMapping;
+		renderer.toneMappingExposure = 1.05;
 		host.appendChild(renderer.domElement);
+
+		// Post-processing — bloom gives emissive (live red, accent purple) cinematic glow.
+		const composer = new EffectComposer(renderer);
+		composer.addPass(new RenderPass(scene, camera));
+		const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.55, 0.18);
+		composer.addPass(bloomPass);
+		composer.addPass(new OutputPass());
 
 		const controls = new OrbitControls(camera, renderer.domElement);
 		controls.enableDamping = true;
@@ -668,7 +780,8 @@
 		const tokensGroup = new THREE.Group();
 		scene.add(tokensGroup);
 
-		const tokenMeshes = []; // { mesh, ring, data, baseScale }
+		const tokenMeshes = []; // { mesh, ring, data, baseScale, label, sonarRings, deltaPct, flashAt }
+		const previousMcaps = new Map(); // mint → last refresh's usd_market_cap, for diff flash
 		const textureLoader = new THREE.TextureLoader();
 		textureLoader.crossOrigin = 'anonymous';
 
@@ -731,6 +844,37 @@
 			});
 		}
 
+		// Sprite label — only built for the top-N spheres so the scene stays clean.
+		function buildLabelSprite(symbol, mcap) {
+			const w = 384, h = 128;
+			const c = document.createElement('canvas');
+			c.width = w; c.height = h;
+			const ctx = c.getContext('2d');
+			ctx.clearRect(0, 0, w, h);
+			// Symbol — large, bright
+			ctx.font = 'bold 64px "Space Grotesk", system-ui, sans-serif';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+			ctx.shadowBlur = 8;
+			ctx.fillStyle = '#ffffff';
+			ctx.fillText('$' + (symbol || '?').toUpperCase().slice(0, 8), w / 2, h / 2 - 18);
+			// Mcap — accent green
+			ctx.font = '600 38px "JetBrains Mono", ui-monospace, monospace';
+			ctx.fillStyle = '#34d399';
+			ctx.fillText(mcap, w / 2, h / 2 + 30);
+			const tex = new THREE.CanvasTexture(c);
+			tex.colorSpace = THREE.SRGBColorSpace;
+			tex.anisotropy = 8;
+			tex.minFilter = THREE.LinearMipmapLinearFilter;
+			tex.needsUpdate = true;
+			const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+			const sprite = new THREE.Sprite(mat);
+			sprite.scale.set(7.5, 2.5, 1);
+			sprite.renderOrder = 999;
+			return sprite;
+		}
+
 		function buildTokenMesh(token, position, radius) {
 			const fallback = fallbackTexture(token.symbol, token.mint);
 			const isLive = !!token.is_currently_live;
@@ -776,11 +920,18 @@
 		}
 
 		function placeTokens(tokens) {
+			// Snapshot previous mcaps so the new entries can compute a delta.
+			tokenMeshes.forEach((entry) => {
+				const m = Number(entry.data?.usd_market_cap) || 0;
+				if (entry.data?.mint && m > 0) previousMcaps.set(entry.data.mint, m);
+			});
 			// Wipe previous run so refresh swaps cleanly.
 			while (tokensGroup.children.length) {
 				const child = tokensGroup.children[0];
 				tokensGroup.remove(child);
-				if (child.geometry) child.geometry.dispose();
+				const isSprite = child.isSprite;
+				// Sprites share a single geometry across instances — don't dispose it.
+				if (!isSprite && child.geometry) child.geometry.dispose();
 				if (child.material) {
 					if (child.material.map) child.material.map.dispose();
 					child.material.dispose();
@@ -809,7 +960,13 @@
 				const { mesh, ring, isLive } = buildTokenMesh(token, position, radius);
 				tokensGroup.add(mesh);
 				tokensGroup.add(ring);
-				tokenMeshes.push({
+				const prevMcap = previousMcaps.get(token.mint);
+				const currMcap = Number(token.usd_market_cap) || 0;
+				let deltaPct = 0;
+				if (prevMcap && prevMcap > 0 && currMcap > 0) {
+					deltaPct = (currMcap - prevMcap) / prevMcap;
+				}
+				const entry = {
 					mesh, ring, data: token,
 					baseScale: 1,
 					radius,
@@ -818,7 +975,54 @@
 					spawned: false,
 					hoverScale: 1,
 					visible: true,
-				});
+					label: null,            // sprite, attached lazily for top-N
+					labelOffset: radius + 1.6,
+					sonarRings: [],         // expanding "broadcasting" rings for live tokens
+					nextSonarAt: 0,
+					deltaPct,               // refresh-to-refresh change
+					flashAt: deltaPct !== 0 ? performance.now() + 50 + i * 30 : 0,
+				};
+				tokenMeshes.push(entry);
+				if (isLive) seedSonarRing(entry);
+			});
+		}
+
+		// ── live "broadcasting" rings — sonar pings out of live spheres ──
+		function seedSonarRing(entry) {
+			const ringGeo = new THREE.RingGeometry(entry.radius * 1.05, entry.radius * 1.18, 48);
+			const ringMat = new THREE.MeshBasicMaterial({
+				color: 0xf87171,
+				transparent: true,
+				opacity: 0.7,
+				side: THREE.DoubleSide,
+				depthWrite: false,
+			});
+			const ring = new THREE.Mesh(ringGeo, ringMat);
+			ring.position.copy(entry.mesh.position);
+			ring.lookAt(0, 0, 0);
+			ring.userData = { bornAt: performance.now(), life: 1600, baseR: entry.radius };
+			tokensGroup.add(ring);
+			entry.sonarRings.push(ring);
+		}
+
+		// ── always-on labels for top-N (recomputed on filter/sort) ──
+		function syncLabels() {
+			// Find the top-N visible entries by current sort.
+			const visible = tokenMeshes
+				.filter((e) => e.visible)
+				.slice(0, LABEL_COUNT);
+			const winners = new Set(visible);
+			tokenMeshes.forEach((entry) => {
+				const wants = winners.has(entry);
+				if (wants && !entry.label) {
+					entry.label = buildLabelSprite(entry.data.symbol, formatMcap(entry.data.usd_market_cap));
+					tokensGroup.add(entry.label);
+				} else if (!wants && entry.label) {
+					tokensGroup.remove(entry.label);
+					if (entry.label.material.map) entry.label.material.map.dispose();
+					entry.label.material.dispose();
+					entry.label = null;
+				}
 			});
 		}
 
@@ -831,7 +1035,21 @@
 				// Ring stays hidden when filtered out, regardless of live state.
 				if (!show) entry.ring.visible = false;
 				else entry.ring.visible = true;
+				// Sonar rings only meaningful for visible live tokens.
+				entry.sonarRings.forEach((sr) => { sr.visible = show; });
+				if (entry.label) entry.label.visible = show;
 			});
+			// Reorder tokenMeshes to match the filtered/sorted rank so syncLabels
+			// can pluck the top-N straight off the front of the array.
+			if (filteredMints) {
+				const rank = new Map(filteredMints.map((m, i) => [m, i]));
+				tokenMeshes.sort((a, b) => {
+					const ra = rank.has(a.data.mint) ? rank.get(a.data.mint) : Number.POSITIVE_INFINITY;
+					const rb = rank.has(b.data.mint) ? rank.get(b.data.mint) : Number.POSITIVE_INFINITY;
+					return ra - rb;
+				});
+			}
+			syncLabels();
 		}
 
 		// ── interactivity ────────────────────────────────────────────
@@ -1015,6 +1233,7 @@
 		function renderLegend(tokens) {
 			legendList.innerHTML = '';
 			legendEl.classList.toggle('is-empty', tokens.length === 0);
+			const isFeed = state.mode === 'feed';
 			tokens.slice(0, 20).forEach((token, i) => {
 				const li = document.createElement('li');
 				li.dataset.mint = token.mint || '';
@@ -1022,7 +1241,13 @@
 
 				const rank = document.createElement('span');
 				rank.className = 'rank';
-				rank.textContent = '#' + (i + 1);
+				if (isFeed) {
+					rank.classList.add('age');
+					rank.dataset.ts = String(token.created_timestamp || 0);
+					rank.textContent = formatAgeShort(token.created_timestamp);
+				} else {
+					rank.textContent = '#' + (i + 1);
+				}
 
 				const thumb = document.createElement('img');
 				thumb.className = 'thumb';
@@ -1049,11 +1274,44 @@
 				li.appendChild(name);
 				li.appendChild(sym);
 				li.appendChild(mc);
+
+				if (token.is_currently_live) {
+					const eq = document.createElement('span');
+					eq.className = 'vz-eq';
+					eq.setAttribute('aria-hidden', 'true');
+					eq.innerHTML = '<span></span><span></span><span></span><span></span>';
+					const pill = document.createElement('span');
+					pill.className = 'vz-live-pill';
+					pill.textContent = isFeed ? 'New' : 'Live';
+					li.appendChild(eq);
+					li.appendChild(pill);
+				}
+
 				li.addEventListener('click', () => focusToken(token));
 				legendList.appendChild(li);
 			});
 			legendEl.hidden = false;
 		}
+
+		function formatAgeShort(ts) {
+			const n = Number(ts);
+			if (!Number.isFinite(n) || n <= 0) return 'now';
+			const ms = Date.now() - n;
+			if (ms < 5_000) return 'now';
+			if (ms < 60_000) return Math.floor(ms / 1000) + 's';
+			if (ms < 3_600_000) return Math.floor(ms / 60_000) + 'm';
+			if (ms < 86_400_000) return Math.floor(ms / 3_600_000) + 'h';
+			return Math.floor(ms / 86_400_000) + 'd';
+		}
+
+		// Refresh the "5s / 2m / …" age cells in the legend so they tick up live.
+		setInterval(() => {
+			if (state.mode !== 'feed') return;
+			legendList.querySelectorAll('.rank.age').forEach((el) => {
+				const ts = Number(el.dataset.ts);
+				if (ts) el.textContent = formatAgeShort(ts);
+			});
+		}, 1000);
 		function highlightLegend(mint) {
 			legendList.querySelectorAll('li').forEach((li) => {
 				li.classList.toggle('is-selected', !!mint && li.dataset.mint === mint);
@@ -1111,8 +1369,23 @@
 				if (t >= 1) tween.active = false;
 			}
 
-			// Per-token: spawn animation, hover scale lerp, live pulse.
+			// Per-token: spawn animation, hover scale lerp, live pulse, flash, sonar.
+			const evictedThisFrame = [];
 			tokenMeshes.forEach((entry) => {
+				// Fade-out (feed eviction): shrink + drop opacity then remove.
+				if (entry.fadeOutAt) {
+					const t = Math.min(1, (time - entry.fadeOutAt) / FEED_FADE_OUT_MS);
+					const k = 1 - t;
+					entry.mesh.scale.setScalar(Math.max(0.001, k));
+					entry.ring.scale.setScalar(Math.max(0.001, k));
+					if (entry.mesh.material) {
+						entry.mesh.material.transparent = true;
+						entry.mesh.material.opacity = k;
+					}
+					if (entry.ring.material) entry.ring.material.opacity *= k;
+					if (t >= 1) evictedThisFrame.push(entry);
+					return;
+				}
 				if (!entry.visible) return;
 				// Spawn pop-in (stagger).
 				if (!entry.spawned) {
@@ -1131,8 +1404,35 @@
 				entry.hoverScale += (wantHover - entry.hoverScale) * 0.18;
 				entry.mesh.scale.setScalar(entry.hoverScale);
 
+				// Persistent tint by refresh-to-refresh delta — subtle wash on top of texture.
+				if (entry.deltaPct !== 0 && entry.mesh.material) {
+					const mag = Math.min(1, Math.abs(entry.deltaPct) * 4); // ±25% saturates
+					if (entry.deltaPct > 0) {
+						entry.mesh.material.color.setRGB(1 - mag * 0.45, 1, 1 - mag * 0.45);
+					} else {
+						entry.mesh.material.color.setRGB(1, 1 - mag * 0.55, 1 - mag * 0.55);
+					}
+				}
+
+				// Diff-flash: brief emissive burst right after refresh shows movement.
+				if (entry.flashAt && time >= entry.flashAt) {
+					const fdt = time - entry.flashAt;
+					if (fdt < FLASH_DURATION_MS) {
+						const k = 1 - (fdt / FLASH_DURATION_MS);
+						const burst = k * k * 1.4;
+						const positive = entry.deltaPct > 0;
+						const flashColor = positive ? new THREE.Color(0x34d399) : new THREE.Color(0xf87171);
+						entry.mesh.material.emissive.copy(flashColor);
+						entry.mesh.material.emissiveIntensity = burst;
+					} else {
+						entry.flashAt = 0;
+						entry.mesh.material.emissive.copy(entry.isLive ? new THREE.Color(0xf87171) : new THREE.Color(0x000000));
+						entry.mesh.material.emissiveIntensity = entry.isLive ? 0.25 : 0;
+					}
+				}
+
 				// Live pulse on emissive + ring.
-				if (entry.isLive) {
+				if (entry.isLive && !entry.flashAt) {
 					const pulse = 0.5 + 0.5 * Math.sin(time * 0.006 + entry.spawnAt * 0.001);
 					entry.mesh.material.emissiveIntensity = 0.18 + pulse * 0.35;
 					if (entry !== selected && entry !== hovered) {
@@ -1142,7 +1442,58 @@
 				} else if (entry !== selected) {
 					entry.ring.scale.setScalar(entry.hoverScale);
 				}
+
+				// Sonar rings — emit a new one every ~1.4s while live; expand & fade existing.
+				if (entry.isLive) {
+					if (time >= entry.nextSonarAt) {
+						seedSonarRing(entry);
+						entry.nextSonarAt = time + 1400;
+					}
+				}
+				for (let i = entry.sonarRings.length - 1; i >= 0; i--) {
+					const sr = entry.sonarRings[i];
+					const age = time - sr.userData.bornAt;
+					const t = age / sr.userData.life;
+					if (t >= 1) {
+						tokensGroup.remove(sr);
+						sr.geometry.dispose();
+						sr.material.dispose();
+						entry.sonarRings.splice(i, 1);
+						continue;
+					}
+					const scale = 1 + t * 2.6;
+					sr.scale.setScalar(scale);
+					sr.material.opacity = 0.55 * (1 - t);
+					sr.position.copy(entry.mesh.position);
+					sr.lookAt(camera.position);
+				}
+
+				// Position the always-on label just above the sphere, facing camera.
+				if (entry.label) {
+					const r = entry.radius * entry.hoverScale;
+					entry.label.position.set(
+						entry.mesh.position.x,
+						entry.mesh.position.y + r + 1.4,
+						entry.mesh.position.z
+					);
+				}
 			});
+
+			// Finalize feed-mode evictions whose fade just completed.
+			if (evictedThisFrame.length) {
+				for (const e of evictedThisFrame) {
+					const mint = e.data?.mint;
+					removeEntry(e);
+					if (mint) {
+						const idx = state.all.findIndex((t) => t.mint === mint);
+						if (idx >= 0) state.all.splice(idx, 1);
+					}
+				}
+				if (state.mode === 'feed') {
+					applyFilterAndRender();
+					updateStats();
+				}
+			}
 
 			// Hover raycast — every 2nd frame, only against visible & spawned meshes.
 			if (frameCount % 2 === 0) {
@@ -1165,7 +1516,7 @@
 			}
 
 			controls.update();
-			renderer.render(scene, camera);
+			composer.render();
 		}
 
 		// ── resize ───────────────────────────────────────────────────
@@ -1173,6 +1524,9 @@
 			const w = host.clientWidth || window.innerWidth;
 			const h = host.clientHeight || window.innerHeight;
 			renderer.setSize(w, h, false);
+			composer.setSize(w, h);
+			composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+			bloomPass.setSize(w, h);
 			camera.aspect = w / h;
 			camera.updateProjectionMatrix();
 		}
@@ -1182,9 +1536,17 @@
 
 		// ── state, filtering, sorting ────────────────────────────────
 		const state = {
-			all: [],          // raw tokens from API
-			sortMode: 'mcap', // 'mcap' | 'live' | 'replies' | 'recent'
+			mode: 'feed',     // 'feed' (live firehose) | 'trending' (cached top-50)
+			all: [],          // raw tokens; in feed mode = recent mints, newest first
+			sortMode: 'mcap', // 'mcap' | 'live' | 'replies' | 'recent' — trending only
 			query: '',
+			feed: {
+				es: null,
+				retryTimer: null,
+				statsTimer: null,
+				mintsPerMin: 0,
+				seen: new Set(),
+			},
 		};
 
 		function sortTokens(tokens, mode) {
@@ -1217,22 +1579,276 @@
 		}
 
 		function applyFilterAndRender() {
+			if (state.mode === 'feed') {
+				// In feed mode `state.all` is already newest-first; no re-sort.
+				const filtered = filterTokens(state.all, state.query);
+				applyVisibility(filtered.map((t) => t.mint));
+				renderLegend(filtered.slice(0, 20));
+				return;
+			}
 			const sorted = sortTokens(state.all, state.sortMode);
 			const filtered = filterTokens(sorted, state.query);
-			const mints = filtered.map((t) => t.mint);
-			applyVisibility(mints);
+			applyVisibility(filtered.map((t) => t.mint));
 			renderLegend(filtered);
 		}
 
 		function updateStats() {
+			if (state.mode === 'feed') {
+				statCountEl.textContent = tokenMeshes.length;
+				statRateEl.textContent = state.feed.mintsPerMin || '—';
+				statusText.textContent = 'pump.fun firehose · live mints';
+				return;
+			}
 			const liveTokens = state.all.filter((t) => t.is_currently_live).length;
 			statCountEl.textContent = state.all.length;
 			const total = state.all.reduce((s, t) => s + (Number(t.usd_market_cap) || 0), 0);
 			statMcapEl.textContent = formatMcap(total);
 			statusText.textContent = liveTokens > 0
-				? `${liveTokens} live · pump.fun`
-				: `live from pump.fun`;
+				? `${liveTokens} streaming · pump.fun`
+				: `top 50 by market cap · pump.fun`;
 		}
+
+		// ── live feed (SSE firehose) ─────────────────────────────────
+		// Streams new mints from /api/agents/pumpfun-feed (PumpPortal WS bridge).
+		// Each mint → one sphere appended; oldest fades out at FEED_CAP. The mode
+		// is the page default — "Trending" is the alt cached snapshot view.
+
+		function feedRadius(mcUsd) {
+			const n = Math.max(1, Number(mcUsd) || 0);
+			const t = Math.max(0, Math.min(1, (Math.log10(n) - FEED_LIVE_MIN_LOG) / (FEED_LIVE_MAX_LOG - FEED_LIVE_MIN_LOG)));
+			return MIN_TOKEN_R + t * (MAX_TOKEN_R - MIN_TOKEN_R);
+		}
+
+		function randomShellPoint() {
+			// Uniform random point on the unit sphere (Marsaglia).
+			const theta = Math.random() * Math.PI * 2;
+			const z = Math.random() * 2 - 1;
+			const r = Math.sqrt(1 - z * z);
+			return { x: Math.cos(theta) * r, y: z, z: Math.sin(theta) * r };
+		}
+
+		// Normalize a PumpPortal mint event into the same token shape the rest of
+		// the viewer (renderDetail, renderLegend, tooltip) already speaks.
+		function normalizeFeedMint(d) {
+			const mc = Number(d.market_cap_usd) > 0
+				? Number(d.market_cap_usd)
+				: (Number(d.market_cap_sol) > 0 && Number(d.sol_price) > 0)
+					? Number(d.market_cap_sol) * Number(d.sol_price)
+					: null;
+			return {
+				mint: d.mint,
+				name: d.name,
+				symbol: d.symbol,
+				usd_market_cap: mc,
+				market_cap: mc,
+				ath_market_cap: mc,
+				reply_count: null,
+				created_timestamp: d.created_at ? Number(d.created_at) * 1000 : Date.now(),
+				image_uri: d.image_uri || null,
+				description: d.description || null,
+				twitter: d.twitter || null,
+				telegram: d.telegram || null,
+				website: d.website || null,
+				creator: d.creator || null,
+				creator_launches: d.creator_launches ?? null,
+				creator_graduated: d.creator_graduated ?? null,
+				is_currently_live: true,          // visual: red glow + sonar = fresh mint
+				signature: d.signature || null,
+				replay: !!d.replay,
+			};
+		}
+
+		function appendFeedToken(token) {
+			if (!token.mint || state.feed.seen.has(token.mint)) return;
+			state.feed.seen.add(token.mint);
+			if (state.feed.seen.size > 4096) {
+				// Bound the dedupe set; oldest forgotten mints can re-enter the scene,
+				// which is acceptable for a firehose visualizer.
+				const it = state.feed.seen.values();
+				for (let i = 0; i < 1024; i++) state.feed.seen.delete(it.next().value);
+			}
+			const p = randomShellPoint();
+			const shellR = SPHERE_RADIUS * (0.80 + Math.random() * 0.22);
+			const position = new THREE.Vector3(p.x * shellR, p.y * shellR, p.z * shellR);
+			const radius = feedRadius(token.usd_market_cap);
+			const { mesh, ring } = buildTokenMesh(token, position, radius);
+			tokensGroup.add(mesh);
+			tokensGroup.add(ring);
+			const entry = {
+				mesh, ring, data: token,
+				baseScale: 1, radius,
+				isLive: true,
+				spawnAt: performance.now(),
+				spawned: false,
+				hoverScale: 1,
+				visible: true,
+				label: null,
+				labelOffset: radius + 1.6,
+				sonarRings: [],
+				nextSonarAt: 0,
+				deltaPct: 0,
+				flashAt: 0,
+				fadeOutAt: 0,
+			};
+			tokenMeshes.push(entry);
+			seedSonarRing(entry);
+			state.all.unshift(token);
+			if (state.all.length > FEED_CAP * 2) state.all.length = FEED_CAP * 2;
+			evictExcessFeedTokens();
+		}
+
+		function evictExcessFeedTokens() {
+			// Pick the oldest tokens (by spawnAt) that aren't already fading and
+			// flag them — the animation loop handles the fade + final removal.
+			const active = tokenMeshes.filter((e) => !e.fadeOutAt);
+			if (active.length <= FEED_CAP) return;
+			active.sort((a, b) => a.spawnAt - b.spawnAt);
+			const drop = active.slice(0, active.length - FEED_CAP);
+			const now = performance.now();
+			for (const e of drop) e.fadeOutAt = now;
+		}
+
+		function removeEntry(entry) {
+			const idx = tokenMeshes.indexOf(entry);
+			if (idx >= 0) tokenMeshes.splice(idx, 1);
+			if (selected === entry) clearSelection();
+			if (hovered === entry) setHovered(null);
+			tokensGroup.remove(entry.mesh);
+			tokensGroup.remove(entry.ring);
+			if (entry.label) {
+				tokensGroup.remove(entry.label);
+				if (entry.label.material.map) entry.label.material.map.dispose();
+				entry.label.material.dispose();
+				entry.label = null;
+			}
+			for (const sr of entry.sonarRings) {
+				tokensGroup.remove(sr);
+				sr.geometry.dispose();
+				sr.material.dispose();
+			}
+			entry.sonarRings.length = 0;
+			if (entry.mesh.geometry) entry.mesh.geometry.dispose();
+			if (entry.mesh.material) {
+				if (entry.mesh.material.map) entry.mesh.material.map.dispose();
+				entry.mesh.material.dispose();
+			}
+			if (entry.ring.geometry) entry.ring.geometry.dispose();
+			if (entry.ring.material) entry.ring.material.dispose();
+		}
+
+		function clearAllTokens() {
+			// Iterate a copy because removeEntry mutates tokenMeshes.
+			for (const e of tokenMeshes.slice()) removeEntry(e);
+			state.feed.seen.clear();
+			state.all = [];
+		}
+
+		function connectFeed() {
+			disconnectFeed();
+			const es = new EventSource(LIVE_FEED_API);
+			state.feed.es = es;
+			es.addEventListener('open', () => {
+				state.feed.everOpened = true;
+				if (firstLoad) revealVisualizer();
+				statusEl.dataset.state = 'ready';
+				updateStats();
+			});
+			es.addEventListener('mint', (msg) => {
+				let raw;
+				try { raw = JSON.parse(msg.data); } catch { return; }
+				const token = normalizeFeedMint(raw);
+				appendFeedToken(token);
+				applyFilterAndRender();
+				updateStats();
+				state.feed.everOpened = true;
+				if (firstLoad) revealVisualizer();
+			});
+			// Server keeps SSE open for 90s then sends `close` — we reconnect.
+			es.addEventListener('close', () => scheduleFeedReconnect());
+			es.addEventListener('error', () => {
+				if (es.readyState === EventSource.CLOSED) scheduleFeedReconnect();
+				// Don't surface "unreachable" once we've had a working connection —
+				// transient reconnects are normal (server cycles every 90s).
+				else if (!state.feed.everOpened) {
+					statusEl.dataset.state = 'error';
+					statusText.textContent = 'Feed unreachable, retrying…';
+				}
+			});
+		}
+
+		function disconnectFeed() {
+			if (state.feed.es) { try { state.feed.es.close(); } catch {} state.feed.es = null; }
+			clearTimeout(state.feed.retryTimer);
+			state.feed.retryTimer = null;
+		}
+
+		function scheduleFeedReconnect() {
+			if (state.mode !== 'feed') return;
+			clearTimeout(state.feed.retryTimer);
+			state.feed.retryTimer = setTimeout(connectFeed, 1200);
+		}
+
+		async function tickFeedStats() {
+			if (state.mode !== 'feed') return;
+			try {
+				const r = await fetch(STATS_API, { headers: { accept: 'application/json' } });
+				if (!r.ok) return;
+				const d = await r.json();
+				state.feed.mintsPerMin = Number(d?.feed?.mints_per_min) || 0;
+				updateStats();
+			} catch {}
+		}
+
+		function revealVisualizer() {
+			if (!firstLoad) return;
+			firstLoad = false;
+			controlsEl.hidden = false;
+			introEl.classList.add('is-hidden');
+			setTimeout(() => { try { introEl.remove(); } catch {} }, 900);
+			startIntroFlyIn();
+		}
+
+		function enterFeedMode() {
+			state.mode = 'feed';
+			controlsEl.dataset.mode = 'feed';
+			statusEl.dataset.mode = 'feed';
+			modeBtns.forEach((b) => b.classList.toggle('is-active', b.dataset.mode === 'feed'));
+			clearInterval(refreshTimer);
+			refreshBtn.disabled = true;
+			errorEl.hidden = true;
+			clearAllTokens();
+			legendHeadEl.textContent = 'Latest mints';
+			statusEl.dataset.state = firstLoad ? 'loading' : 'ready';
+			statusText.textContent = firstLoad ? 'Connecting to pump.fun firehose…' : 'pump.fun firehose · live mints';
+			updateStats();
+			connectFeed();
+			clearInterval(state.feed.statsTimer);
+			tickFeedStats();
+			state.feed.statsTimer = setInterval(tickFeedStats, STATS_INTERVAL_MS);
+		}
+
+		function enterTrendingMode() {
+			state.mode = 'trending';
+			controlsEl.dataset.mode = 'trending';
+			statusEl.dataset.mode = 'trending';
+			modeBtns.forEach((b) => b.classList.toggle('is-active', b.dataset.mode === 'trending'));
+			disconnectFeed();
+			clearInterval(state.feed.statsTimer);
+			state.feed.statsTimer = null;
+			clearAllTokens();
+			legendHeadEl.textContent = 'Top 20 by Market Cap';
+			loadData();
+		}
+
+		// Mode toggle wiring.
+		modeBtns.forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const m = btn.dataset.mode;
+				if (state.mode === m) return;
+				if (m === 'feed') enterFeedMode();
+				else enterTrendingMode();
+			});
+		});
 
 		// Search wiring (debounced).
 		let searchDebounce = null;
@@ -1337,17 +1953,28 @@
 		});
 		errorRetry.addEventListener('click', () => loadData());
 
-		// Pause auto-refresh when tab is hidden, resume when visible.
+		// Pause auto-refresh / live feed when tab is hidden; resume on focus.
 		document.addEventListener('visibilitychange', () => {
 			if (document.hidden) {
 				clearInterval(refreshTimer);
+				if (state.mode === 'feed') {
+					disconnectFeed();
+					clearInterval(state.feed.statsTimer);
+					state.feed.statsTimer = null;
+				}
+			} else if (state.mode === 'feed') {
+				connectFeed();
+				clearInterval(state.feed.statsTimer);
+				tickFeedStats();
+				state.feed.statsTimer = setInterval(tickFeedStats, STATS_INTERVAL_MS);
 			} else if (nextRefreshAt && !firstLoad) {
 				if (Date.now() >= nextRefreshAt) loadData(true);
 				else scheduleNextRefresh();
 			}
 		});
 
-		loadData();
+		// Boot in live-firehose mode.
+		enterFeedMode();
 	</script>
 
 </body>

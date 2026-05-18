@@ -21,7 +21,18 @@ const API = '/api';
 
 let purchasedSkills = new Set();
 
+function isLikelyAuthed() {
+	try {
+		const raw = localStorage.getItem('3dagent:auth-hint');
+		if (!raw) return false;
+		return JSON.parse(raw)?.authed === true;
+	} catch (_) {
+		return false;
+	}
+}
+
 async function fetchUserPurchases() {
+	if (!isLikelyAuthed()) return;
 	try {
 		const r = await fetch(`${API}/users/me/purchased-skills`, { credentials: 'include' });
 		if (!r.ok) return;
@@ -1499,39 +1510,6 @@ function renderOnchainCard(a) {
 // ── Detail view ───────────────────────────────────────────────────────────
 
 let detailState = null;
-let unlockedSkills = new Set(); // In a real app, this would be populated from an API call on load
-
-// --- New function, refactored from renderDetail ---
-function renderSkillList(agent) {
-    const skillsContainer = $('d-skills');
-    if (!skillsContainer) return;
-
-    const skillsArr = Array.isArray(agent.capabilities.skills) ? agent.capabilities.skills : agent.skills || [];
-    const skillPrices = agent.skill_prices || {};
-    
-    skillsContainer.innerHTML = skillsArr.length
-        ? skillsArr.map((s) => {
-            const name = typeof s === 'string' ? s : (s.name || '');
-            const price = skillPrices[name];
-            
-            let actionButton;
-            if (unlockedSkills.has(name)) {
-                actionButton = `<button class="skill-btn" disabled>Unlocked</button>`;
-            } else if (price) {
-                actionButton = `<button class="skill-btn purchase" data-skill-name="${escapeHtml(name)}">Purchase</button>`;
-            } else {
-                actionButton = `<button class="skill-btn" disabled>Free</button>`;
-            }
-
-            const priceDisplay = price ? `<span class="price-paid">${(price.amount / 1e6).toFixed(2)} USDC</span>` : ``;
-
-            return `<div class="skill-row">
-                        <span class="skill-name">${escapeHtml(name)} ${priceDisplay}</span>
-                        ${actionButton}
-                    </div>`;
-        }).join('')
-        : '<div>This Agent has no skills defined.</div>';
-}
 
 async function loadDetail(id) {
 	els.discovery.hidden = true;
@@ -1561,19 +1539,6 @@ async function loadDetail(id) {
 		}
 		detailState = { agent, bookmarked: !!agent.bookmarked };
 		renderDetail(agent, !!agent.bookmarked);
-
-		try {
-			const res = await fetch(`/api/users/me/agent-skills/${id}`, { credentials: 'include' });
-			if (res.ok) {
-				const { skills: agentSkills } = await res.json();
-				unlockedSkills = new Set(agentSkills || []);
-			} else {
-				unlockedSkills = new Set();
-			}
-		} catch {
-			unlockedSkills = new Set();
-		}
-		renderSkillList(agent);
 
 		// Versions + similar (best-effort).
 		Promise.all([
@@ -1930,11 +1895,42 @@ function bindTabs() {
 
 // ── Actions ───────────────────────────────────────────────────────────────
 
+function exportAgentJson() {
+	if (!detailState?.agent) return;
+	const a = detailState.agent;
+	// Strip server-side internal fields and offer the agent as a portable JSON
+	// snapshot the user can keep, share, or re-import via the submit modal.
+	const exportable = {
+		id: a.id,
+		name: a.name,
+		description: a.description,
+		category: a.category,
+		tags: a.tags || [],
+		greeting: a.greeting || '',
+		system_prompt: a.system_prompt || a.prompt || '',
+		capabilities: a.capabilities || {},
+		skills: a.skills || a.capabilities?.skills || [],
+		fork_of: a.fork_of || null,
+		exported_at: new Date().toISOString(),
+		source: `https://three.ws/marketplace?id=${encodeURIComponent(a.id)}`,
+	};
+	const blob = new Blob([JSON.stringify(exportable, null, 2)], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = url;
+	const slug = (a.name || a.id || 'agent').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+	link.download = `${slug || 'agent'}.three-ws.json`;
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 async function fork() {
 	if (!detailState) return;
 	const id = detailState.agent.id;
 	try {
-		const r = await fetch(`${API}/agents/${id}/fork`, {
+		const r = await fetch(`${API}/marketplace/agents/${id}/fork`, {
 			method: 'POST',
 			credentials: 'include',
 		});
@@ -1957,7 +1953,7 @@ async function toggleBookmark() {
 	const id = detailState.agent.id;
 	const cur = detailState.bookmarked;
 	try {
-		const r = await fetch(`${API}/agents/${id}/bookmark`, {
+		const r = await fetch(`${API}/marketplace/agents/${id}/bookmark`, {
 			method: cur ? 'DELETE' : 'POST',
 			credentials: 'include',
 		});
@@ -2005,6 +2001,7 @@ function bindEvents() {
 	if (avatarDetailBack) avatarDetailBack.addEventListener('click', () => { _avatarDetailId = null; navTo('/marketplace'); });
 	$('d-fork').addEventListener('click', fork);
 	$('d-bookmark').addEventListener('click', toggleBookmark);
+	$('d-export-json')?.addEventListener('click', exportAgentJson);
 	bindTabs();
 	bindSubmit();
 	bindFilterChips();

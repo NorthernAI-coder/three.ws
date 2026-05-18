@@ -1,6 +1,18 @@
 /* Marketplace v2 — chat preview, creator modal, detail 3D avatar, mobile.
  * Loaded as a separate file so inline-style linting doesn't compete with edits. */
 
+/* ── Body grid layout ─────────────────────────────────────────────────────
+ * body.market-page is a 2-col CSS grid (240px sidebar + 1fr main). Direct
+ * children with no grid-column rule auto-place into individual cells, which
+ * shoved .site-header into the 240px col and .market-sidebar into the wide
+ * col, with .market-main wrapping to a second row. Force the page chrome
+ * (top header, bottom footer) to span both columns so the sidebar/main row
+ * lays out correctly. */
+body.market-page > .site-header,
+body.market-page > #footer-container {
+	grid-column: 1 / -1;
+}
+
 /* ── Detail header 3D avatar ──────────────────────────────────────────── */
 .market-detail-avatar {
 	position: relative;
