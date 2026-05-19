@@ -85,7 +85,7 @@
 		"pump:refresh-idls": "node scripts/refresh-pump-idls.mjs",
 		"seed:skills": "node scripts/seed-skills.js",
 		"install:sdk": "npm install --prefix agent-payments-sdk && npm run build --prefix agent-payments-sdk && npm install ./agent-payments-sdk",
-		"claude": "./claude.sh"
+		"claude": "./scripts/claude.sh"
 	},
 	"dependencies": {
 		"@0xsplits/splits-sdk": "^6.5.0",

@@ -71,7 +71,7 @@ The project is deployed on Vercel. The `package.json` file contains several scri
 
 ## Claude CLI
 
-The `claude.sh` script is a command-line interface (CLI) to help manage the agent and SDKs. You can run it directly or via `npm run claude`.
+The `scripts/claude.sh` script is a command-line interface (CLI) to help manage the agent and SDKs. You can run it directly or via `npm run claude`.
 
 **Usage:**
 ```bash
@@ -79,7 +79,7 @@ The `claude.sh` script is a command-line interface (CLI) to help manage the agen
 npm run claude -- [COMMAND]
 
 # Direct execution
-./claude.sh [COMMAND]
+./scripts/claude.sh [COMMAND]
 ```
 
 **Commands:**
