@@ -329,7 +329,7 @@ function agentCard(a, onRemoved) {
 		<div class="footer">
 			<div class="actions">
 				<a class="btn sec" href="/agent/${agentIdEnc}" title="Open public agent page">Open</a>
-				<a class="btn sec" href="/agent-edit.html?id=${agentIdEnc}" title="Edit name, persona, avatar, skills">Edit</a>
+				<a class="btn sec" href="/agent/${agentIdEnc}/edit" title="Edit name, persona, avatar, skills">Edit</a>
 				<button class="btn sec" data-share type="button" title="Copy public agent link">Share</button>
 				<button class="btn sec" data-embed type="button" ${embedDisabledAttr}>Embed</button>
 				${token?.mint
@@ -788,7 +788,7 @@ async function makeAgentFromAvatar(a, btn) {
 		// calls makeAgentFromAvatar can't fire again and race a second create.
 		const link = document.createElement('a');
 		link.className = 'btn sec';
-		link.href = `/agent-edit.html?id=${encodeURIComponent(agent.id)}`;
+		link.href = `/agent/${encodeURIComponent(agent.id)}/edit`;
 		link.textContent = 'Open agent →';
 		link.title = 'Open the newly-created agent';
 		btn.replaceWith(link);

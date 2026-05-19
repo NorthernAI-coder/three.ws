@@ -477,7 +477,7 @@ async function startAgentWithAvatar() {
 		if (!r.ok) throw new Error(j.error_description || j.error || 'Failed to create agent');
 		const newId = j?.data?.agent?.id;
 		if (!newId) throw new Error('Server did not return new agent id');
-		location.href = `/agent-edit.html?id=${encodeURIComponent(newId)}`;
+		location.href = `/agent/${encodeURIComponent(newId)}/edit`;
 	} catch (err) {
 		console.error('[avatar] start agent', err);
 		btn.textContent = original;

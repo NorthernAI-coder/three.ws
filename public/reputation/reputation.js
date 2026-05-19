@@ -176,7 +176,7 @@ function showSkeleton(appEl) {
 		</div>`;
 	appEl.innerHTML = `
 		<div class="rep-breadcrumb">
-			<a href="/marketplace.html">Marketplace</a>
+			<a href="/marketplace">Marketplace</a>
 			<span class="rep-breadcrumb-sep">/</span>
 			<span>Reputation</span>
 		</div>
@@ -290,7 +290,7 @@ async function main() {
 
 		const html = `
 			<div class="rep-breadcrumb">
-				<a href="/marketplace.html">Marketplace</a>
+				<a href="/marketplace">Marketplace</a>
 				<span class="rep-breadcrumb-sep">/</span>
 				<span>Reputation</span>
 			</div>

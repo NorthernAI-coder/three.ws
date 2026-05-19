@@ -169,13 +169,13 @@ async function handleCallback(req, res) {
 
 	const { codeVerifier, userId, agentId: stateAgentId } = stateData;
 	const successRedirect = stateAgentId
-		? `/agent-edit.html?id=${encodeURIComponent(stateAgentId)}&tab=social&x=connected`
+		? `/agent/${encodeURIComponent(stateAgentId)}/edit?tab=social&x=connected`
 		: `/settings?tab=connected-accounts&x=connected`;
 	const errorRedirect = stateAgentId
-		? `/agent-edit.html?id=${encodeURIComponent(stateAgentId)}&tab=social&x=error`
+		? `/agent/${encodeURIComponent(stateAgentId)}/edit?tab=social&x=error`
 		: `/settings?tab=connected-accounts&x=error`;
 	const deniedRedirect = stateAgentId
-		? `/agent-edit.html?id=${encodeURIComponent(stateAgentId)}&tab=social&x=denied`
+		? `/agent/${encodeURIComponent(stateAgentId)}/edit?tab=social&x=denied`
 		: `/settings?tab=connected-accounts&x=denied`;
 
 	if (url.searchParams.get('error')) return redirect(res, deniedRedirect);

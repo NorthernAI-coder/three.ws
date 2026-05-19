@@ -30,7 +30,7 @@ function _mount() {
 				// Token launched, show dashboard button
 				btn.textContent = 'View Token Dashboard';
 				btn.addEventListener('click', () => {
-					window.open(`/pump-dashboard.html?agent=${agentId}`, '_blank');
+					window.open(`/pump-dashboard?agent=${agentId}`, '_blank');
 				});
 			} else {
 				const imageUrl =

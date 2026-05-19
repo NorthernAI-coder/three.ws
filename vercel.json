@@ -249,6 +249,14 @@
 			"dest": "/launchpad.html"
 		},
 		{
+			"src": "/playground",
+			"dest": "/playground.html"
+		},
+		{
+			"src": "/playground/",
+			"dest": "/playground.html"
+		},
+		{
 			"src": "/p/([a-z0-9-]+)/?",
 			"dest": "/p/index.html"
 		},
@@ -981,6 +989,10 @@
 		{
 			"src": "/a/(\\d+)/(\\d+)/edit",
 			"dest": "/a-edit.html"
+		},
+		{
+			"src": "/agent/new",
+			"dest": "/agent-edit.html"
 		},
 		{
 			"src": "/agent/([^/]+)/edit",

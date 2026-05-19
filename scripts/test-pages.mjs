@@ -66,8 +66,8 @@ const ROUTES = [
 	'/settings',
 	'/admin',
 	'/pumpfun',
-	'/pump-live.html',
-	'/pump-dashboard.html',
+	'/pump-live',
+	'/pump-dashboard',
 	'/strategy-lab',
 
 	// Legal
@@ -79,7 +79,7 @@ const ROUTES = [
 	'/embed-test.html',
 	'/avatar-page.html',
 	`/avatars/${SAMPLE_AGENT}`,
-	'/avatar-artifact.html',
+	'/avatar-artifact',
 	'/agent-embed.html',
 	'/a-edit.html',
 	'/a-embed.html',

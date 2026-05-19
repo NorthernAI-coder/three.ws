@@ -1080,7 +1080,7 @@ async function startAgentFromAvatar() {
 	const params = new URLSearchParams({ avatar_id: activeAvatar.avatarId || '' });
 	if (activeAvatar.name) params.set('avatar_name', activeAvatar.name);
 	if (activeAvatar.glbUrl) params.set('avatar_glb', activeAvatar.glbUrl);
-	location.href = `/agent-edit.html?${params.toString()}`;
+	location.href = `/agent/new?${params.toString()}`;
 }
 
 // ── Skills marketplace tab ───────────────────────────────────────────────
@@ -1361,7 +1361,7 @@ function renderMineGrid() {
 				<button id="mine-empty-new">+ New Agent</button>
 			</div>`;
 		$('mine-empty-new')?.addEventListener('click', () => {
-			location.href = '/agent-edit.html';
+			location.href = '/agent/new';
 		});
 		return;
 	}
@@ -2049,7 +2049,7 @@ async function fork() {
 		if (!r.ok) throw new Error(j?.error_description || 'Fork failed');
 		// Send the user to chat with their new fork.
 		const newId = j?.data?.agent?.id;
-		if (newId) location.href = `/agent-detail.html?id=${newId}`;
+		if (newId) location.href = `/agents/${newId}`;
 	} catch (err) {
 		alert(err.message || 'Fork failed');
 	}
@@ -2195,7 +2195,7 @@ function bindEvents() {
 
 	// New Agent CTA on Mine tab
 	$('market-new-agent-btn')?.addEventListener('click', () => {
-		location.href = '/agent-edit.html';
+		location.href = '/agent/new';
 	});
 
 	// Sidebar nav: intercept marketplace links so we route via SPA

@@ -1,7 +1,7 @@
 /*
  * Tutorial manifest — single source of truth for the tutorial library.
  *
- * Loaded as a classic script by /tutorials.html (the 3-tier index) and
+ * Loaded as a classic script by /tutorials (the 3-tier index) and
  * /tutorials/<slug> (the viewer template) — exposes window.TUTORIALS.
  *
  * Each entry maps to a long-form markdown file at /docs/tutorials/<slug>.md

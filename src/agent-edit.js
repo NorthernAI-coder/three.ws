@@ -78,7 +78,7 @@ async function createAgentFromAvatar() {
       }
     }
 
-    history.replaceState({}, '', `/agent-edit.html?id=${agent.id}`);
+    history.replaceState({}, '', `/agent/${agent.id}/edit`);
     agentData = agent;
     if (initAvatarName) {
       agentData.name = name;
@@ -116,7 +116,7 @@ function render() {
   $('panel-persona').hidden = false;
   $('panel-persona').classList.add('active');
   $('agent-title').textContent = `Edit Agent: ${agentData.name || 'Untitled'}`;
-  $('back-link').href = `/agent-detail.html?id=${agentId}`;
+  $('back-link').href = `/agents/${agentId}`;
 
   // Persona
   $('f-name').value = agentData.name || '';
@@ -848,7 +848,7 @@ $('publish-save').addEventListener('click', async () => {
     status.className = 'form-status ok';
     const view = $('publish-view');
     if (view) {
-      view.href = `/marketplace.html#${agentId}`;
+      view.href = `/marketplace#${agentId}`;
       view.hidden = false;
     }
   } catch (err) {
@@ -2041,8 +2041,8 @@ function ensureStudioTab() {
   if (studioTabMounted) return;
   studioTabMounted = true;
   const origin = embedOrigin();
-  $('studio-playground').href = `/playground.html?agent_id=${encodeURIComponent(agentId)}`;
-  $('studio-avatar').href = agentData.avatar_id ? `/avatar-page.html?id=${encodeURIComponent(agentData.avatar_id)}` : '/dashboard/#avatars';
+  $('studio-playground').href = `/playground?agent_id=${encodeURIComponent(agentId)}`;
+  $('studio-avatar').href = agentData.avatar_id ? `/avatars/${encodeURIComponent(agentData.avatar_id)}` : '/dashboard/#avatars';
   $('studio-public').href = `/agent/${agentId}`;
   $('studio-manifest').href = `${origin}/api/agents/${agentId}/manifest`;
 
