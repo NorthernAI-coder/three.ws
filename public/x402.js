@@ -814,9 +814,18 @@ async function discoverChallenge(opts) {
 		const txt = await res.text();
 		throw new Error(`Endpoint did not return 402 (got ${res.status}). Body: ${txt.slice(0, 120)}`);
 	}
-	const body = await res.json().catch(() => null);
+	let body = await res.json().catch(() => null);
 	if (!body || !Array.isArray(body.accepts) || !body.accepts.length) {
-		throw new Error('Endpoint returned 402 but no `accepts` array');
+		// Try to read from the PAYMENT-REQUIRED header per v2 spec
+		const prHeader = res.headers.get('payment-required');
+		if (prHeader) {
+			try {
+				body = JSON.parse(b64decode(prHeader));
+			} catch (err) {}
+		}
+	}
+	if (!body || !Array.isArray(body.accepts) || !body.accepts.length) {
+		throw new Error('Endpoint returned 402 but no `accepts` array could be found in body or header');
 	}
 	return body;
 }

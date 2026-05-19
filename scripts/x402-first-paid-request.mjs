@@ -16,7 +16,8 @@
 // Coinbase. Same private key works on both Base and Arbitrum.
 
 import { wrapFetchWithPayment } from '@x402/fetch';
-import { createWalletClient, http } from 'viem';
+import { x402Client } from '@x402/core/client';
+import { registerExactEvmScheme } from '@x402/evm/exact/client/index.js';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, arbitrum } from 'viem/chains';
 
@@ -39,16 +40,19 @@ if (NETWORK !== 'base' && NETWORK !== 'arbitrum') {
 }
 
 const account = privateKeyToAccount(PRIVATE_KEY);
-const walletClient = createWalletClient({
-	account,
-	chain: CHAIN,
-	transport: http(process.env.X402_RPC_URL || undefined),
+
+const client = new x402Client();
+registerExactEvmScheme(client, {
+	signer: account,
+	schemeOptions: {
+		[CHAIN.id]: { rpcUrl: process.env.X402_RPC_URL || (CHAIN.id === 8453 ? 'https://mainnet.base.org' : undefined) }
+	}
 });
 
 console.log(`[x402] buyer ${account.address} on ${CHAIN.name}`);
 console.log(`[x402] GET ${TARGET}`);
 
-const fetchWithPayment = wrapFetchWithPayment(fetch, walletClient);
+const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 
 const t0 = Date.now();
 const res = await fetchWithPayment(TARGET, { method: 'GET' });

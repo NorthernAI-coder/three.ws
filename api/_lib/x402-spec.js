@@ -570,11 +570,11 @@ export function send402(res, opts = {}) {
 	res.statusCode = 402;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
-	// Also expose the envelope as the `payment-required` header (base64-JSON),
+	// Also expose the envelope as the `PAYMENT-REQUIRED` header (base64-JSON),
 	// matching the v2 wire format that agentic.market's validator inspects.
 	const body = build402Body(opts);
-	res.setHeader('payment-required', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
-	res.end(JSON.stringify(body));
+	res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
+	res.end(JSON.stringify({ error: body.error }));
 }
 
 // Resolve the canonical resource URL the client hit, so the facilitator can

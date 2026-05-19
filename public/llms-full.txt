@@ -101,6 +101,52 @@ URL: https://three.ws/hydrate
 
 Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.
 
+### Features
+
+URL: https://three.ws/features
+
+Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.
+
+## Labs
+
+Experimental features actively shipping. Expect fast iteration.
+
+### Launchpad Studio
+
+URL: https://three.ws/launchpad
+
+Build a hosted 3D launchpad, token page, concierge, or showroom on a three.ws subdomain.
+
+### 3D Walkaround
+
+URL: https://three.ws/walkaround
+
+WASD + mobile joystick navigation with Rapier physics and Recast navmesh. Click the ground to autopilot.
+
+### Multi-LLM Brain
+
+URL: https://three.ws/brain
+
+Send one prompt to Claude, GPT, Qwen, ModelScope, and Groq simultaneously. Side-by-side streaming with latency and token stats.
+
+### Lipsync (TTS)
+
+URL: https://three.ws/lipsync
+
+Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.
+
+### Lipsync (Mic)
+
+URL: https://three.ws/lipsync/mic
+
+Feed live mic audio through the viseme analyser and watch the avatar's mouth track your voice in real time.
+
+### Avatar Artifact
+
+URL: https://three.ws/avatar-artifact
+
+Standalone Three.js viewer for avatar artifacts — embeddable and shareable without any wrapper page.
+
 ## Crypto
 
 On-chain features: pay-per-call, token launches, vanity wallets.
@@ -146,6 +192,12 @@ Grind a Solana address with a custom prefix using your browser's GPU.
 URL: https://three.ws/eth-vanity
 
 Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.
+
+### Pump Visualizer
+
+URL: https://three.ws/pump-visualizer
+
+3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
 
 ## Agent Tools
 

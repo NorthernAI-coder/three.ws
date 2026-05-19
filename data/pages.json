@@ -34,7 +34,21 @@
 				{ "path": "/studio", "title": "Widget Studio", "description": "Pick an avatar, configure embed options, copy a one-line snippet for your site.", "priority": 0.8, "changefreq": "weekly" },
 				{ "path": "/artifact", "title": "Artifact Viewer", "description": "Renders Claude artifact bundles as standalone embeddable apps.", "priority": 0.5, "changefreq": "monthly" },
 				{ "path": "/widgets", "title": "Widgets Gallery", "description": "Pre-built chat, voice, and 3D-avatar widgets you can drop into any page.", "priority": 0.7, "changefreq": "weekly" },
-				{ "path": "/hydrate", "title": "Hydrate", "description": "Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.", "priority": 0.7, "changefreq": "weekly" }
+				{ "path": "/hydrate", "title": "Hydrate", "description": "Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.", "priority": 0.7, "changefreq": "weekly" },
+				{ "path": "/features", "title": "Features", "description": "Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.", "priority": 0.8, "changefreq": "weekly" }
+			]
+		},
+		{
+			"id": "labs",
+			"title": "Labs",
+			"description": "Experimental features actively shipping. Expect fast iteration.",
+			"pages": [
+				{ "path": "/launchpad", "title": "Launchpad Studio", "description": "Build a hosted 3D launchpad, token page, concierge, or showroom on a three.ws subdomain.", "priority": 0.7, "changefreq": "weekly" },
+				{ "path": "/walkaround", "title": "3D Walkaround", "description": "WASD + mobile joystick navigation with Rapier physics and Recast navmesh. Click the ground to autopilot.", "priority": 0.7, "changefreq": "weekly" },
+				{ "path": "/brain", "title": "Multi-LLM Brain", "description": "Send one prompt to Claude, GPT, Qwen, ModelScope, and Groq simultaneously. Side-by-side streaming with latency and token stats.", "priority": 0.7, "changefreq": "weekly" },
+				{ "path": "/lipsync", "title": "Lipsync (TTS)", "description": "Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.", "priority": 0.6, "changefreq": "weekly" },
+				{ "path": "/lipsync/mic", "title": "Lipsync (Mic)", "description": "Feed live mic audio through the viseme analyser and watch the avatar's mouth track your voice in real time.", "priority": 0.6, "changefreq": "weekly" },
+				{ "path": "/avatar-artifact", "title": "Avatar Artifact", "description": "Standalone Three.js viewer for avatar artifacts — embeddable and shareable without any wrapper page.", "priority": 0.5, "changefreq": "monthly" }
 			]
 		},
 		{
@@ -48,7 +62,8 @@
 				{ "path": "/pump-dashboard", "title": "Pump Dashboard", "description": "Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.", "priority": 0.8, "changefreq": "daily" },
 				{ "path": "/strategy-lab", "title": "Strategy Lab", "description": "Build DCA and subscription strategies that trade on-chain on your behalf.", "priority": 0.7, "changefreq": "weekly" },
 				{ "path": "/vanity-wallet", "title": "Solana Vanity Wallet", "description": "Grind a Solana address with a custom prefix using your browser's GPU.", "priority": 0.6, "changefreq": "monthly" },
-				{ "path": "/eth-vanity", "title": "ETH Vanity (CREATE2)", "description": "Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.", "priority": 0.6, "changefreq": "monthly" }
+				{ "path": "/eth-vanity", "title": "ETH Vanity (CREATE2)", "description": "Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.", "priority": 0.6, "changefreq": "monthly" },
+				{ "path": "/pump-visualizer", "title": "Pump Visualizer", "description": "3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.", "priority": 0.7, "changefreq": "weekly" }
 			]
 		},
 		{

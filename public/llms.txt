@@ -30,6 +30,18 @@ Create and customize an agent.
 - [Artifact Viewer](https://three.ws/artifact): Renders Claude artifact bundles as standalone embeddable apps.
 - [Widgets Gallery](https://three.ws/widgets): Pre-built chat, voice, and 3D-avatar widgets you can drop into any page.
 - [Hydrate](https://three.ws/hydrate): Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.
+- [Features](https://three.ws/features): Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.
+
+## Labs
+
+Experimental features actively shipping. Expect fast iteration.
+
+- [Launchpad Studio](https://three.ws/launchpad): Build a hosted 3D launchpad, token page, concierge, or showroom on a three.ws subdomain.
+- [3D Walkaround](https://three.ws/walkaround): WASD + mobile joystick navigation with Rapier physics and Recast navmesh. Click the ground to autopilot.
+- [Multi-LLM Brain](https://three.ws/brain): Send one prompt to Claude, GPT, Qwen, ModelScope, and Groq simultaneously. Side-by-side streaming with latency and token stats.
+- [Lipsync (TTS)](https://three.ws/lipsync): Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.
+- [Lipsync (Mic)](https://three.ws/lipsync/mic): Feed live mic audio through the viseme analyser and watch the avatar's mouth track your voice in real time.
+- [Avatar Artifact](https://three.ws/avatar-artifact): Standalone Three.js viewer for avatar artifacts — embeddable and shareable without any wrapper page.
 
 ## Crypto
 
@@ -42,6 +54,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Strategy Lab](https://three.ws/strategy-lab): Build DCA and subscription strategies that trade on-chain on your behalf.
 - [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix using your browser's GPU.
 - [ETH Vanity (CREATE2)](https://three.ws/eth-vanity): Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.
+- [Pump Visualizer](https://three.ws/pump-visualizer): 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
 
 ## Agent Tools
 
