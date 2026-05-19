@@ -92,7 +92,7 @@ function* walk(absDir, match) {
 /**
  * Collect all in-scope files for the branding scan.
  * Scope (per spec):
- *   - *.html at repo root
+ *   - pages/**\/*.html  (bundled top-level pages, formerly at repo root)
  *   - public/**\/*.html
  *   - docs/**\/*.md
  *   - public/docs/**\/*.md
@@ -104,14 +104,12 @@ function* walk(absDir, match) {
 function collectScopedFiles() {
 	const files = [];
 
-	// 1. Repo-root HTML
-	for (const ent of readdirSync(REPO_ROOT, { withFileTypes: true })) {
-		if (ent.isFile() && ent.name.endsWith('.html')) {
-			files.push({
-				abs: join(REPO_ROOT, ent.name),
-				kind: 'html',
-			});
-		}
+	// 1. pages/**/*.html — bundled top-level pages
+	for (const abs of walk(
+		join(REPO_ROOT, 'pages'),
+		(_a, rel) => rel.endsWith('.html'),
+	)) {
+		files.push({ abs, kind: 'html' });
 	}
 
 	// 2. public/**/*.html

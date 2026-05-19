@@ -388,11 +388,13 @@ function openGovernance({ mint, currentBps }) {
 // ── Launch wizard ──────────────────────────────────────────────────────────
 // formData: { name, symbol, description, initialBuy, feeTier, image (File|null) }
 // Steps: 1 = token details (pre-filled) + metadata generation
-//        2 = buyback share + initial buy
+//        2 = quote pair (SOL/USDC) + buyback share + initial buy
 //        3 = review + sign
 function openLaunch({ identity, agentId, avatarId, formData }) {
 	const { inner, close } = openModal();
 	let step = 1;
+	// USDC mainnet mint — pump.fun v2 quote when the user picks USDC pair.
+	const USDC_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 	async function buildMetadata(name, symbol, description) {
 		let imageDataUrl = null;

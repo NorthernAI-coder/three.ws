@@ -28,9 +28,13 @@
 //   strategy-run             -> handleStrategyRun (SSE; bypasses wrap())
 //   strategy-validate        -> handleStrategyValidate
 //   live-stream              -> handleLiveStream  (SSE; bypasses wrap())
-//   collect-creator-fee-prep -> handleCollectCreatorFeePrep
-//   distribute-creator-fees-prep -> handleDistributeCreatorFeesPrep
-//   create-fee-sharing-prep  -> handleCreateFeeSharingPrep
+//   collect-creator-fee-prep      -> handleCollectCreatorFeePrep
+//   distribute-creator-fees-prep  -> handleDistributeCreatorFeesPrep
+//                                    (auto-prepends transfer_creator_fees_to_pump_v2
+//                                     for graduated coins; ATA-init for non-native
+//                                     quotes is handled internally by the SDK)
+//   create-fee-sharing-prep       -> handleCreateFeeSharingPrep   (step 1)
+//   update-fee-shares-prep        -> handleUpdateFeeSharesPrep    (step 2)
 
 import { z } from 'zod';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -116,6 +120,7 @@ const wrapped = wrap(async (req, res) => {
 		case 'collect-creator-fee-prep':      return handleCollectCreatorFeePrep(req, res);
 		case 'distribute-creator-fees-prep':  return handleDistributeCreatorFeesPrep(req, res);
 		case 'create-fee-sharing-prep':       return handleCreateFeeSharingPrep(req, res);
+		case 'update-fee-shares-prep':        return handleUpdateFeeSharesPrep(req, res);
 		default:
 			return error(res, 404, 'not_found', 'unknown pump action');
 	}
@@ -2699,13 +2704,23 @@ async function handleCollectCreatorFeePrep(req, res) {
 }
 
 // ── distribute-creator-fees-prep ──────────────────────────────────────────
-// Builds the tx that distributes accumulated AMM creator fees to shareholders
-// defined in the coin's fee-sharing config.
+// Builds the tx that distributes accumulated creator fees to shareholders
+// defined in the coin's fee-sharing config. For graduated coins the SDK
+// automatically prepends a `transfer_creator_fees_to_pump_v2` instruction so
+// AMM-side fees are consolidated into the bonding-curve vault first — no
+// separate transfer call is needed at this layer.
+//
+// ATA initialization for non-native quotes (e.g. USDC) is handled internally
+// by `buildDistributeCreatorFeesInstructions`: the SDK reads the coin's
+// quote_mint and emits `initialize_ata: true` for the underlying
+// `distribute_creator_fees_v2` instruction so each shareholder's USDC ATA is
+// idempotently created before the program transfers their share.
+//
 // Docs: https://github.com/pump-fun/pump-public-docs/blob/main/docs/instructions/CREATOR_FEE_SHARING.md
 
 const distributeCreatorFeesPrepSchema = z.object({
 	mint: z.string().min(32).max(44),
-	wallet_address: z.string().min(32).max(44), // fee payer / signer
+	wallet_address: z.string().min(32).max(44), // fee payer / signer (permissionless)
 	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 });
 
@@ -2728,19 +2743,107 @@ async function handleDistributeCreatorFeesPrep(req, res) {
 		const { connection } = await getPumpSdk({ network: body.network });
 		const { OnlinePumpSdk } = await import('@pump-fun/pump-sdk');
 		const onlineSdk = new OnlinePumpSdk(connection);
-		const ixs = await onlineSdk.buildDistributeCreatorFeesInstructions(mintPk);
+		const { instructions, isGraduated } = await onlineSdk.buildDistributeCreatorFeesInstructions(mintPk);
 		const tx_base64 = await buildUnsignedTxBase64({
 			network: body.network,
 			payer: payerPk,
-			instructions: Array.isArray(ixs) ? ixs : [ixs],
+			instructions,
 		});
 		return json(res, 201, {
 			mint: body.mint,
 			network: body.network,
+			is_graduated: !!isGraduated,
 			tx_base64,
 		});
 	} catch (e) {
 		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build distribute-creator-fees tx');
+	}
+}
+
+// ── update-fee-shares-prep ────────────────────────────────────────────────
+// Step 2 of the fee-sharing lifecycle. The current sharing_config admin
+// finalises the shareholder list (1–10 entries, share_bps must sum to 10_000).
+// This sweeps any pending AMM + bonding-curve fees, applies the new
+// distribution, and (in version-1 configs) permanently revokes further
+// updates — so for v1 callers should call it exactly once after
+// create-fee-sharing-prep.
+// Docs: https://github.com/pump-fun/pump-public-docs/blob/main/docs/instructions/CREATOR_FEE_SHARING.md
+
+const updateFeeSharesSchema = z.object({
+	mint: z.string().min(32).max(44),
+	wallet_address: z.string().min(32).max(44), // sharing_config admin (signer + fee payer)
+	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+	// The set of shareholder addresses currently encoded in the on-chain
+	// sharing_config. Right after create-fee-sharing-prep this is `[creator]`
+	// at 10_000 bps; after a prior update it's whatever was last set. The SDK
+	// uses these to derive the existing PDA accounts that must be passed in.
+	current_shareholders: z.array(z.string().min(32).max(44)).min(1).max(10),
+	new_shareholders: z
+		.array(
+			z.object({
+				address: z.string().min(32).max(44),
+				share_bps: z.number().int().min(1).max(10_000),
+			}),
+		)
+		.min(1)
+		.max(10)
+		.refine(
+			(arr) => arr.reduce((s, x) => s + x.share_bps, 0) === 10_000,
+			{ message: 'share_bps must sum to 10000' },
+		)
+		.refine(
+			(arr) => new Set(arr.map((x) => x.address)).size === arr.length,
+			{ message: 'duplicate shareholder addresses' },
+		),
+});
+
+async function handleUpdateFeeSharesPrep(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const body = parse(updateFeeSharesSchema, await readJson(req));
+	const mintPk    = solanaPubkey(body.mint);
+	const payerPk   = solanaPubkey(body.wallet_address);
+	if (!mintPk || !payerPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
+
+	const currentShareholders = body.current_shareholders.map((s) => {
+		const pk = solanaPubkey(s);
+		if (!pk) throw Object.assign(new Error(`invalid current shareholder ${s}`), { status: 400, code: 'validation_error' });
+		return pk;
+	});
+	const newShareholders = body.new_shareholders.map((s) => {
+		const addr = solanaPubkey(s.address);
+		if (!addr) throw Object.assign(new Error(`invalid shareholder ${s.address}`), { status: 400, code: 'validation_error' });
+		return { address: addr, shareBps: s.share_bps };
+	});
+
+	try {
+		const { sdk } = await getPumpSdk({ network: body.network });
+		const ix = await sdk.updateFeeShares({
+			authority: payerPk,
+			mint: mintPk,
+			currentShareholders,
+			newShareholders,
+		});
+		const tx_base64 = await buildUnsignedTxBase64({
+			network: body.network,
+			payer: payerPk,
+			instructions: [ix],
+		});
+		return json(res, 201, {
+			mint: body.mint,
+			network: body.network,
+			shareholder_count: newShareholders.length,
+			tx_base64,
+		});
+	} catch (e) {
+		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build update-fee-shares tx');
 	}
 }
 

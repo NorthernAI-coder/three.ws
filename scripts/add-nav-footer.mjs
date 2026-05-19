@@ -95,7 +95,7 @@ function injectBeforeBodyClose(html, snippet) {
 
 let changed = 0;
 for (const file of PAGES) {
-	const path = resolve(ROOT, file);
+	const path = resolve(ROOT, 'pages', file);
 	let html;
 	try {
 		html = readFileSync(path, 'utf8');

@@ -324,10 +324,16 @@ export function registerPumpFunSkills(skills) {
 	});
 
 	// ── pumpfun-buy ───────────────────────────────────────────────────────────
+	// Bonding-curve buy. Supports both SOL-paired (legacy `buyInstructions`)
+	// and USDC-paired v2 coins (`buyV2Instructions`). The route is auto-detected
+	// from the on-chain bonding curve's `quoteMint` field — callers can pass
+	// either `solAmount` (SOL coins) or `usdcAmount` (USDC coins); for legacy
+	// agents that only know about `solAmount`, the server-flow path falls back
+	// to inferring the correct field server-side.
 	skills.register({
 		name: 'pumpfun-buy',
-		description: 'Buy a pump.fun token with SOL on the bonding curve.',
-		instruction: 'Bonding-curve buy. Reverts if the token has graduated — use pumpfun-amm-buy.',
+		description: 'Buy a pump.fun token on the bonding curve (SOL- or USDC-paired).',
+		instruction: 'Bonding-curve buy. Reverts if the token has graduated — use pumpfun-amm-buy. For USDC-paired v2 coins, pass usdcAmount instead of solAmount.',
 		animationHint: 'gesture',
 		voicePattern: 'Buying {{solAmount}} SOL of {{mint}}…',
 		mcpExposed: true,
@@ -335,52 +341,64 @@ export function registerPumpFunSkills(skills) {
 			type: 'object',
 			properties: {
 				mint: { type: 'string' },
-				solAmount: { type: 'number' },
+				solAmount: { type: 'number', description: 'SOL to spend (SOL-paired coins).' },
+				usdcAmount: { type: 'number', description: 'USDC to spend (USDC-paired v2 coins).' },
+				quoteMint: { type: 'string', description: 'Optional explicit quote mint. Auto-detected from the on-chain bonding curve when omitted.' },
 				slippageBps: { type: 'number' },
 				network: { type: 'string', enum: ['mainnet', 'devnet'] },
 			},
-			required: ['mint', 'solAmount'],
+			required: ['mint'],
 		},
 		handler: async (args, _ctx) => {
 			const network = args.network || DEFAULT_NETWORK;
 			const slippageBps = args.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
+			const usdcAmount = typeof args.usdcAmount === 'number' ? args.usdcAmount : null;
+			const solAmount  = typeof args.solAmount  === 'number' ? args.solAmount  : null;
+			if (usdcAmount == null && solAmount == null) {
+				return { success: false, output: 'pumpfun-buy requires either solAmount or usdcAmount.', sentiment: -0.2 };
+			}
 
 			if (args.serverFlow) {
 				const { pubkey: pk } = await requireWallet();
+				const body = {
+					mint: args.mint,
+					network,
+					slippage_bps: slippageBps,
+					wallet_address: pk.toBase58(),
+					...(args.quoteMint ? { quote_mint: args.quoteMint } : {}),
+					...(usdcAmount != null ? { usdc_amount: usdcAmount } : { sol: solAmount }),
+				};
 				const r = await runServerFlow({
 					prepPath: '/api/pump/buy-prep',
-					body: {
-						mint: args.mint,
-						network,
-						sol: args.solAmount,
-						slippage_bps: slippageBps,
-						wallet_address: pk.toBase58(),
-					},
+					body,
 					confirmPath: '/api/pump/buy-confirm',
 					confirmExtra: (prep) => ({
 						mint: args.mint,
 						network,
 						wallet_address: pk.toBase58(),
-						sol: args.solAmount,
+						sol: solAmount ?? 0,
 						slippage_bps: slippageBps,
 						route: prep.route,
 					}),
 				});
 				const route = r.prep.route;
+				const denom = usdcAmount != null ? `${usdcAmount} USDC` : `${solAmount} SOL`;
 				return {
 					success: true,
-					output: `Bought ~${args.solAmount} SOL of ${args.mint.slice(0, 8)}… via ${route}.`,
+					output: `Bought ~${denom} of ${args.mint.slice(0, 8)}… via ${route}.`,
 					sentiment: 0.6,
 					data: {
 						signature: r.signature,
 						route,
 						mint: args.mint,
+						quote_mint: r.prep.quote_mint || null,
 						network,
 						tracked: r.confirm?.tracked,
 					},
 				};
 			}
 
+			// In-browser path: build, sign, and send the instructions directly.
 			const { pump, web3, BN } = await loadCore();
 			const { wallet, pubkey } = await requireWallet();
 			const connection = getConnection(web3, network);
@@ -391,28 +409,58 @@ export function registerPumpFunSkills(skills) {
 
 			const global = await onlineSdk.fetchGlobal();
 			const state = await onlineSdk.fetchBuyState(mint, pubkey);
-			const solLamports = new BN(Math.floor(args.solAmount * web3.LAMPORTS_PER_SOL));
-			const expected = pump.getBuyTokenAmountFromSolAmount({
-				global,
-				feeConfig: null,
-				mintSupply: state.bondingCurve.tokenTotalSupply,
-				bondingCurve: state.bondingCurve,
-				amount: solLamports,
-			});
 
-			const buyIxs = await offline.buyInstructions({
-				global,
-				bondingCurveAccountInfo: state.bondingCurveAccountInfo,
-				bondingCurve: state.bondingCurve,
-				associatedUserAccountInfo: state.associatedUserAccountInfo,
-				mint,
-				user: pubkey,
-				amount: expected,
-				solAmount: solLamports,
-				slippage: slippageBps / 10_000,
-				tokenProgram:
-					web3.TOKEN_PROGRAM_ID || (await import('@solana/spl-token')).TOKEN_PROGRAM_ID,
-			});
+			// Resolve quoteMint: explicit override > on-chain curve > WSOL fallback.
+			const WSOL = new web3.PublicKey('So11111111111111111111111111111111111111112');
+			const quoteMintPk = args.quoteMint
+				? new web3.PublicKey(args.quoteMint)
+				: (state.bondingCurve?.quoteMint || WSOL);
+			const isUsdcQuote = !pump.isLegacyQuoteMint(quoteMintPk);
+
+			let buyIxs;
+			if (isUsdcQuote) {
+				if (usdcAmount == null) {
+					return { success: false, output: 'USDC-paired coin: pass usdcAmount.', sentiment: -0.2 };
+				}
+				const quoteAtomics = new BN(Math.round(usdcAmount * 1_000_000));
+				buyIxs = await offline.buyV2Instructions({
+					global,
+					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
+					bondingCurve: state.bondingCurve,
+					associatedUserAccountInfo: state.associatedUserAccountInfo,
+					mint,
+					user: pubkey,
+					amount: new BN(0),
+					quoteAmount: quoteAtomics,
+					slippage: slippageBps / 10_000,
+					quoteMint: quoteMintPk,
+				});
+			} else {
+				if (solAmount == null) {
+					return { success: false, output: 'SOL-paired coin: pass solAmount.', sentiment: -0.2 };
+				}
+				const solLamports = new BN(Math.floor(solAmount * web3.LAMPORTS_PER_SOL));
+				const expected = pump.getBuyTokenAmountFromSolAmount({
+					global,
+					feeConfig: null,
+					mintSupply: state.bondingCurve.tokenTotalSupply,
+					bondingCurve: state.bondingCurve,
+					amount: solLamports,
+				});
+				buyIxs = await offline.buyInstructions({
+					global,
+					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
+					bondingCurve: state.bondingCurve,
+					associatedUserAccountInfo: state.associatedUserAccountInfo,
+					mint,
+					user: pubkey,
+					amount: expected,
+					solAmount: solLamports,
+					slippage: slippageBps / 10_000,
+					tokenProgram:
+						web3.TOKEN_PROGRAM_ID || (await import('@solana/spl-token')).TOKEN_PROGRAM_ID,
+				});
+			}
 
 			const sig = await sendIxs({
 				web3,
@@ -421,20 +469,24 @@ export function registerPumpFunSkills(skills) {
 				payer: pubkey,
 				instructions: buyIxs,
 			});
+			const denom = isUsdcQuote ? `${usdcAmount} USDC` : `${solAmount} SOL`;
 			return {
 				success: true,
-				output: `Bought ~${expected.toString()} units of ${args.mint.slice(0, 8)}… for ${args.solAmount} SOL.`,
+				output: `Bought ${args.mint.slice(0, 8)}… for ${denom}.`,
 				sentiment: 0.6,
-				data: { signature: sig, mint: args.mint, solAmount: args.solAmount, network },
+				data: { signature: sig, mint: args.mint, quote_mint: quoteMintPk.toBase58(), network },
 			};
 		},
 	});
 
 	// ── pumpfun-sell ──────────────────────────────────────────────────────────
+	// Bonding-curve sell. Auto-detects the quote mint from the on-chain
+	// bonding-curve state and routes through `sellV2Instructions` for USDC-paired
+	// v2 coins or the legacy `sellInstructions` for SOL-paired coins.
 	skills.register({
 		name: 'pumpfun-sell',
-		description: 'Sell a pump.fun token back to the bonding curve for SOL.',
-		instruction: 'Bonding-curve sell. Reverts if graduated — use pumpfun-amm-sell.',
+		description: 'Sell a pump.fun token back to the bonding curve (SOL- or USDC-paired).',
+		instruction: 'Bonding-curve sell. Reverts if graduated — use pumpfun-amm-sell. Quote currency (SOL or USDC) is auto-detected from the coin.',
 		animationHint: 'gesture',
 		voicePattern: 'Selling {{tokenAmount}} of {{mint}}…',
 		mcpExposed: true,
@@ -443,6 +495,7 @@ export function registerPumpFunSkills(skills) {
 			properties: {
 				mint: { type: 'string' },
 				tokenAmount: { type: 'string', description: 'Base-unit integer string' },
+				quoteMint: { type: 'string', description: 'Optional explicit quote mint. Auto-detected from the on-chain bonding curve when omitted.' },
 				slippageBps: { type: 'number' },
 				network: { type: 'string', enum: ['mainnet', 'devnet'] },
 			},
@@ -462,6 +515,7 @@ export function registerPumpFunSkills(skills) {
 						tokens: String(args.tokenAmount),
 						slippage_bps: slippageBps,
 						wallet_address: pk.toBase58(),
+						...(args.quoteMint ? { quote_mint: args.quoteMint } : {}),
 					},
 					confirmPath: '/api/pump/sell-confirm',
 					confirmExtra: (prep) => ({
@@ -507,18 +561,41 @@ export function registerPumpFunSkills(skills) {
 				amount: tokenAmount,
 			});
 
-			const sellIxs = await offline.sellInstructions({
-				global,
-				bondingCurveAccountInfo: state.bondingCurveAccountInfo,
-				bondingCurve: state.bondingCurve,
-				mint,
-				user: pubkey,
-				amount: tokenAmount,
-				solAmount: expectedSol,
-				slippage: slippageBps / 10_000,
-				tokenProgram: (await import('@solana/spl-token')).TOKEN_PROGRAM_ID,
-				mayhemMode: false,
-			});
+			// Route based on the on-chain quote mint. USDC-paired v2 coins go
+			// through sellV2Instructions; SOL-paired stays on the legacy path.
+			const WSOL = new web3.PublicKey('So11111111111111111111111111111111111111112');
+			const quoteMintPk = args.quoteMint
+				? new web3.PublicKey(args.quoteMint)
+				: (state.bondingCurve?.quoteMint || WSOL);
+			const isUsdcQuote = !pump.isLegacyQuoteMint(quoteMintPk);
+
+			let sellIxs;
+			if (isUsdcQuote) {
+				sellIxs = await offline.sellV2Instructions({
+					global,
+					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
+					bondingCurve: state.bondingCurve,
+					mint,
+					user: pubkey,
+					amount: tokenAmount,
+					quoteAmount: new BN(0),
+					slippage: slippageBps / 10_000,
+					quoteMint: quoteMintPk,
+				});
+			} else {
+				sellIxs = await offline.sellInstructions({
+					global,
+					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
+					bondingCurve: state.bondingCurve,
+					mint,
+					user: pubkey,
+					amount: tokenAmount,
+					solAmount: expectedSol,
+					slippage: slippageBps / 10_000,
+					tokenProgram: (await import('@solana/spl-token')).TOKEN_PROGRAM_ID,
+					mayhemMode: false,
+				});
+			}
 
 			const sig = await sendIxs({
 				web3,
@@ -531,7 +608,7 @@ export function registerPumpFunSkills(skills) {
 				success: true,
 				output: `Sold ${args.tokenAmount} of ${args.mint.slice(0, 8)}…`,
 				sentiment: 0.4,
-				data: { signature: sig, mint: args.mint, network },
+				data: { signature: sig, mint: args.mint, quote_mint: quoteMintPk.toBase58(), network },
 			};
 		},
 	});

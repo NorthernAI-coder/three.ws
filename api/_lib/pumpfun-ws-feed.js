@@ -177,8 +177,30 @@ async function enrichMint(d) {
 	return base;
 }
 
+// USDC mint on Solana mainnet — used to flag USDC-paired pump.fun v2 coins
+// when the upstream feed reports a non-WSOL quote_mint. We don't bother with a
+// devnet branch here: PumpPortal only streams mainnet events.
+const WSOL_MINT_STR = 'So11111111111111111111111111111111111111112';
+const USDC_MINT_STR = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
+// Classify the quote mint reported by PumpPortal. PumpPortal exposes the
+// quote_mint field on v2 coins (post-May-21-2026 USDC launch); for legacy
+// SOL-paired coins the field is absent or echoes WSOL. Returning a stable
+// symbol lets the UI label trades/cards without each consumer reimplementing
+// the same comparison.
+function classifyQuote(quoteMintStr) {
+	if (!quoteMintStr || quoteMintStr === WSOL_MINT_STR) {
+		return { quote_mint: WSOL_MINT_STR, quote_symbol: 'SOL', is_usdc_pair: false };
+	}
+	if (quoteMintStr === USDC_MINT_STR) {
+		return { quote_mint: USDC_MINT_STR, quote_symbol: 'USDC', is_usdc_pair: true };
+	}
+	return { quote_mint: quoteMintStr, quote_symbol: 'OTHER', is_usdc_pair: false };
+}
+
 function normalizeMint(d, meta, solPrice) {
 	const mcSol = d.marketCapSol ?? 0;
+	const quote = classifyQuote(d.quoteMint || d.quote_mint);
 	return {
 		mint: d.mint,
 		name: d.name,
@@ -189,6 +211,14 @@ function normalizeMint(d, meta, solPrice) {
 		market_cap_usd: solPrice > 0 ? mcSol * solPrice : null,
 		initial_buy_sol: d.solAmount ?? null,
 		initial_buy_usd: solPrice > 0 && d.solAmount ? d.solAmount * solPrice : null,
+		// USDC-paired v2 coins report initial_buy in USDC base units (6-dec) on
+		// the upstream `quoteAmount` / `usdcAmount` field. We surface both raw
+		// quote in/out and a USD figure so downstream renderers can show "Y
+		// USDC initial buy" without re-parsing the event.
+		initial_buy_quote: d.quoteAmount ?? d.usdcAmount ?? null,
+		initial_buy_usd_quote: quote.is_usdc_pair && (d.quoteAmount || d.usdcAmount)
+			? Number(d.quoteAmount ?? d.usdcAmount)
+			: null,
 		sol_price: solPrice,
 		bonding_curve: d.bondingCurveKey,
 		image_uri: d.uri,
@@ -197,10 +227,12 @@ function normalizeMint(d, meta, solPrice) {
 		telegram: meta?.telegram || null,
 		website: meta?.website || null,
 		created_at: Math.floor(Date.now() / 1000),
+		...quote,
 	};
 }
 
 function normalizeGrad(d) {
+	const quote = classifyQuote(d.quoteMint || d.quote_mint);
 	return {
 		tx_signature: d.signature,
 		signature: d.signature,
@@ -209,6 +241,7 @@ function normalizeGrad(d) {
 		symbol: d.symbol,
 		pool: d.pool,
 		timestamp: Math.floor(Date.now() / 1000),
+		...quote,
 	};
 }
 
@@ -344,8 +377,16 @@ async function enrichGrad(d) {
 	const raydiumPool = coin.raydium_pool || null;
 	const pumpSwapPool = coin.pump_swap_pool || null;
 
+	// Pump.fun's v3 frontend API surfaces `quote_mint` on coins launched after
+	// the v2 / USDC rollout. When present it's the authoritative on-chain
+	// quote — override what we guessed from the WS event so AMM-paired
+	// USDC coins render correctly even if PumpPortal omits the field on the
+	// migrate event.
+	const coinQuote = classifyQuote(coin.quote_mint || coin.quoteMint || base.quote_mint);
+
 	return {
 		...base,
+		...coinQuote,
 		name: coin.name || base.name,
 		symbol: coin.symbol || base.symbol,
 		description: coin.description || null,

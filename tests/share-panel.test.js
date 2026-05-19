@@ -203,7 +203,7 @@ describe('agent-3d web component — attribute surface', () => {
 });
 
 describe('agent-embed.html — consolidated embed page', () => {
-	const html = readFileSync(p('agent-embed.html'), 'utf8');
+	const html = readFileSync(p('pages/agent-embed.html'), 'utf8');
 
 	it('defaults to a transparent background', () => {
 		expect(html).toContain("const bg = params.get('bg') || 'transparent'");

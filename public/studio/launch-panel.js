@@ -71,6 +71,9 @@ function friendlyError(msg) {
 }
 
 const PUMP_BASE_COST = 0.022; // pump.fun fee + mint rent (estimate)
+// USDC mainnet mint — pump.fun v2 quote when the user picks the USDC coin type.
+// Pump.fun v2 launched USDC as a quote mint on 2026-05-21.
+const USDC_MAINNET_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 // Absolute URL — @solana/web3.js's Connection constructor calls
 // `new URL(endpoint)` to derive a WebSocket URL, which throws on a
 // relative path. We don't use subscriptions, but constructor must not throw.
@@ -926,7 +929,6 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 	async function launch() {
 		if (!formValid() || s.phase !== 'idle') return;
 		if (!av || av.id === DEMO_ID) return;
-		if (s.coinType === 'usdc') return; // gated — USDC denomination not yet live
 		if (s.walletSource === 'connected' && !s.walletAddr) return;
 		if (s.walletSource === 'agent' && !s.agentWallet?.address) return;
 		s.errorMsg = '';
@@ -1021,6 +1023,12 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		const payer = w.publicKey?.toBase58?.() || w.publicKey?.toString?.();
 		if (!payer) throw new Error('Could not read wallet public key.');
 
+		const isUsdc = s.coinType === 'usdc';
+		const buyIn  = Math.max(0, parseFloat(s.initialBuy) || 0);
+		// Server schema treats 'usdc' as an unknown coin_type. Map it to 'agent'
+		// (the buyback-bound variant) so the launch wires up an agent identity,
+		// but flip the quote mint to USDC and route the initial buy through
+		// usdc_buy_in so the backend builds createV2AndBuyV2Instructions.
 		const pr = await fetch('/api/pump/launch-prep', {
 			method: 'POST', credentials: 'include',
 			headers: { 'content-type': 'application/json' },
@@ -1028,9 +1036,11 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 				...(av.agent_id ? { agent_id: av.agent_id } : { avatar_id: av.id }),
 				wallet_address: payer,
 				name: nameTrim, symbol: symTrim, uri: s._metaUrl,
-				coin_type: s.coinType,
-				buyback_bps: s.coinType === 'agent' ? s.buybackBps : 0,
-				sol_buy_in: Math.max(0, parseFloat(s.initialBuy) || 0),
+				coin_type: isUsdc ? 'agent' : s.coinType,
+				buyback_bps: (isUsdc || s.coinType === 'agent') ? s.buybackBps : 0,
+				...(isUsdc
+					? { usdc_buy_in: buyIn, quote_mint: USDC_MAINNET_MINT }
+					: { sol_buy_in: buyIn }),
 				network: 'mainnet',
 			}),
 		});
@@ -1073,12 +1083,16 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 	async function launchViaAgentWallet(nameTrim, symTrim) {
 		s.phase = 'signing'; s.phaseLabel = 'Agent wallet signing…'; render();
 
+		const isUsdc = s.coinType === 'usdc';
+		const buyIn  = Math.max(0, parseFloat(s.initialBuy) || 0);
 		const body = {
 			...(av.agent_id ? { agent_id: av.agent_id } : { avatar_id: av.id }),
 			name: nameTrim, symbol: symTrim, uri: s._metaUrl,
-			coin_type: s.coinType,
-			buyback_bps: s.coinType === 'agent' ? s.buybackBps : 0,
-			sol_buy_in: Math.max(0, parseFloat(s.initialBuy) || 0),
+			coin_type: isUsdc ? 'agent' : s.coinType,
+			buyback_bps: (isUsdc || s.coinType === 'agent') ? s.buybackBps : 0,
+			...(isUsdc
+				? { usdc_buy_in: buyIn, quote_mint: USDC_MAINNET_MINT }
+				: { sol_buy_in: buyIn }),
 			network: 'mainnet',
 		};
 		s.phase = 'confirming'; s.phaseLabel = 'Launching on-chain (may take ~10s)…'; render();
@@ -1121,7 +1135,13 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 
 	// ── Helpers ────────────────────────────────────────────────────────────
 
-	const estimatedCost = () => PUMP_BASE_COST + Math.max(0, parseFloat(s.initialBuy) || 0);
+	// SOL out-of-pocket for the launch tx. For SOL-paired coins this is the
+	// fixed mint/rent + the initial buy. For USDC-paired coins only the SOL
+	// rent/fee applies — the buy itself is debited from the wallet's USDC ATA.
+	const estimatedCost = () => {
+		const buy = Math.max(0, parseFloat(s.initialBuy) || 0);
+		return PUMP_BASE_COST + (s.coinType === 'usdc' ? 0 : buy);
+	};
 	const formValid     = () => s.name.trim() && s.symbol.trim() && s.description.trim();
 
 	// ── Render ─────────────────────────────────────────────────────────────
@@ -1431,20 +1451,22 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 			<button type="button" role="tab" data-coin="agent" class="agent ${ct === 'agent' ? 'on' : ''}" ${busy ? 'disabled' : ''}>
 				<span class="lp-coin-emoji">🤖</span>Agent<span class="lp-coin-sub">SOL buyback</span>
 			</button>
-			<button type="button" role="tab" data-coin="usdc" class="usdc ${ct === 'usdc' ? 'on' : ''}" ${busy ? 'disabled' : ''} title="USDC-denominated agent payments — coming soon">
-				<span class="lp-coin-emoji">💵</span>USDC<span class="lp-coin-sub">Soon</span>
+			<button type="button" role="tab" data-coin="usdc" class="usdc ${ct === 'usdc' ? 'on' : ''}" ${busy ? 'disabled' : ''} title="USDC-paired agent coin — trades and pays out in USDC instead of SOL.">
+				<span class="lp-coin-emoji">💵</span>USDC<span class="lp-coin-sub">Stablecoin pair</span>
 			</button>
 		</div>`;
 
 		const coinNoteHtml = ct === 'mayhem'
 			? `<div class="lp-coin-note mayhem">Mayhem coins launch on pump.fun's high-volatility mode. No agent buyback or payments — pure speculation.</div>`
 			: ct === 'usdc'
-				? `<div class="lp-coin-note usdc">USDC-denominated agent coins are coming soon. Powered by <a href="https://github.com/nirholas/agent-payments-sdk" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">agent-payments-sdk</a> — accept USDC payments, auto-buyback, x402 pay-gating.</div>`
+				? `<div class="lp-coin-note usdc">USDC-paired agent coin. Bonding curve quotes in USDC instead of SOL — your initial buy and all subsequent trades settle through the wallet's USDC ATA. Buyback share still applies, denominated in USDC.</div>`
 				: ct === 'regular'
 					? `<div class="lp-coin-note">Standard pump.fun launch — no on-chain buyback. Initial buy still funds bonding curve.</div>`
 					: '';
 
-		const showBuyback = ct === 'agent';
+		// USDC coins are agent-buyback-bound (same on-chain agent identity flow
+		// as 'agent'), so surface the buyback slider for both variants.
+		const showBuyback = ct === 'agent' || ct === 'usdc';
 
 		let walletHtml;
 		if (s.walletSource === 'agent') {
@@ -1458,9 +1480,6 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		let btnText, btnDis, btnAction = 'launch', btnTitle = '';
 		if (busy) {
 			btnText = s.phaseLabel || 'Working…'; btnDis = true;
-		} else if (ct === 'usdc') {
-			btnText = 'USDC coin — coming soon'; btnDis = true;
-			btnTitle = 'USDC-denominated agent coins are launching soon. Pick Regular, Mayhem, or Agent for now.';
 		} else if (!signedIn) {
 			btnText = 'Sign in to launch'; btnDis = false; btnAction = 'sign-in';
 			btnTitle = 'You need an account to launch — click to sign in, then come right back.';
@@ -1514,29 +1533,38 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 			</div>
 			${coinTypeHtml}
 			${coinNoteHtml}
-			${showBuyback ? `<div class="lp-2col">
-				<div>
-					<label for="lp-buy" title="Optional SOL spent on the bonding curve at launch. You receive the resulting coins. Leave at 0 for a launch-only mint.">Initial buy (SOL)</label>
-					<input class="lp-number" id="lp-buy" type="number" min="0" max="50" step="0.001"
+			${(() => {
+				const isUsdcCoin = ct === 'usdc';
+				const unit       = isUsdcCoin ? 'USDC' : 'SOL';
+				// pump.fun launch caps: 50 SOL or 1,000,000 USDC (matches server schema).
+				const maxBuy     = isUsdcCoin ? 1_000_000 : 50;
+				const stepBuy    = isUsdcCoin ? 1 : 0.001;
+				const buyTitle   = isUsdcCoin
+					? 'Optional USDC spent on the bonding curve at launch. Requires a USDC ATA on the signing wallet.'
+					: 'Optional SOL spent on the bonding curve at launch. You receive the resulting coins. Leave at 0 for a launch-only mint.';
+				const buybackUnit = isUsdcCoin ? 'USDC' : 'SOL';
+				const buyField = `
+					<label for="lp-buy" title="${esc(buyTitle)}">Initial buy (${unit})</label>
+					<input class="lp-number" id="lp-buy" type="number" min="0" max="${maxBuy}" step="${stepBuy}"
 						value="${esc(s.initialBuy)}" ${dis}
-						title="Optional SOL spent on the bonding curve at launch. You receive the resulting coins. Leave at 0 for a launch-only mint." />
-				</div>
-				<div>
-					<div class="lp-slider-head">
-						<label title="Share of your agent's paid-endpoint revenue (in SOL) that automatically buys back and burns this token on-chain.">Buyback share</label>
-						<span class="lp-bps-val" id="lp-bps-val">${(s.buybackBps / 100).toFixed(1)}%</span>
-					</div>
-					<input type="range" class="lp-slider" id="lp-bps"
-						min="0" max="5000" step="50" value="${s.buybackBps}" ${dis}
-						title="Share of agent revenue (in SOL) that buys back and burns this token on-chain. 0% means no buyback, 50% is the max." />
-					<div class="lp-slider-hint">Of agent revenue burned back</div>
-				</div>
-			</div>` : `<div>
-				<label for="lp-buy" title="Optional SOL spent on the bonding curve at launch. You receive the resulting coins. Leave at 0 for a launch-only mint.">Initial buy (SOL)</label>
-				<input class="lp-number" id="lp-buy" type="number" min="0" max="50" step="0.001"
-					value="${esc(s.initialBuy)}" ${dis}
-					title="Optional SOL spent on the bonding curve at launch. You receive the resulting coins. Leave at 0 for a launch-only mint." />
-			</div>`}
+						title="${esc(buyTitle)}" />`;
+				if (showBuyback) {
+					return `<div class="lp-2col">
+						<div>${buyField}</div>
+						<div>
+							<div class="lp-slider-head">
+								<label title="Share of your agent's paid-endpoint revenue (in ${buybackUnit}) that automatically buys back and burns this token on-chain.">Buyback share</label>
+								<span class="lp-bps-val" id="lp-bps-val">${(s.buybackBps / 100).toFixed(1)}%</span>
+							</div>
+							<input type="range" class="lp-slider" id="lp-bps"
+								min="0" max="5000" step="50" value="${s.buybackBps}" ${dis}
+								title="Share of agent revenue (in ${buybackUnit}) that buys back and burns this token on-chain. 0% means no buyback, 50% is the max." />
+							<div class="lp-slider-hint">Of agent revenue burned back</div>
+						</div>
+					</div>`;
+				}
+				return `<div>${buyField}</div>`;
+			})()}
 			${sourceToggleHtml}
 			${walletHtml}
 			${s.phase === 'error' ? `<div class="lp-err">${esc(s.errorMsg)}<div class="lp-err-sub">Adjust the details above and try again — nothing has been minted yet.</div></div>` : ''}
