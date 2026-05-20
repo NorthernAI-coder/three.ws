@@ -8,6 +8,7 @@
  * accept image/svg+xml for OG images, so we avoid canvas/sharp at edge.
  */
 
+import { env } from './_lib/env.js';
 import { cors, wrap, error } from './_lib/http.js';
 import { resolveOnChainAgent, shortenAddr } from './_lib/onchain.js';
 
@@ -29,7 +30,11 @@ export default wrap(async (req, res) => {
 	const agent = await resolveOnChainAgent({ chainId, agentId });
 
 	if (format === 'json') {
-		const origin = url.searchParams.get('origin') || 'https://three.ws/';
+		// Anchor on env.APP_ORIGIN. A previous version honored an `origin` query
+		// param, which let a caller inject arbitrary URLs into `url` and `image`
+		// in the returned JSON. Consumers of this oEmbed-style endpoint trust
+		// those fields, so we never echo a caller-supplied origin.
+		const origin = env.APP_ORIGIN;
 		const pageUrl = `${origin}/a/${chainId}/${agentId}`;
 		const imageUrl = `${origin}/api/a-og?chain=${chainId}&id=${encodeURIComponent(agentId)}`;
 		const status = agent.error && !agent.name ? 404 : 200;

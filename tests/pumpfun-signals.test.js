@@ -74,7 +74,9 @@ describe('pumpfun-signals cron', () => {
 		// Subsequent sql calls: insert returning [{id}] for each insert.
 		sqlMock.mockResolvedValue([{ id: 1 }]);
 
-		const req = { headers: {}, method: 'POST' };
+		// Real Vercel cron requests carry `x-vercel-cron: 1`; without it the
+		// handler now fails closed when CRON_SECRET is unset.
+		const req = { headers: { 'x-vercel-cron': '1' }, method: 'POST' };
 		const res = mockRes();
 		await handler(req, res);
 

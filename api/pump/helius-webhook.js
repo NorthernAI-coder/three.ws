@@ -15,9 +15,15 @@
 //     webhookURL: `${env.APP_ORIGIN}/api/pump/helius-webhook`,
 //   });
 
+import { timingSafeEqual } from 'node:crypto';
 import { sql } from '../_lib/db.js';
 import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
 import { parsePumpTrades } from '../_lib/helius.js';
+
+function safeEqual(a, b) {
+	if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+	return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
@@ -25,7 +31,7 @@ export default wrap(async (req, res) => {
 
 	const expected = process.env.HELIUS_WEBHOOK_AUTH;
 	if (!expected) return error(res, 503, 'not_configured', 'helius webhook auth not set');
-	if (req.headers.authorization !== expected) {
+	if (!safeEqual(String(req.headers.authorization || ''), expected)) {
 		return error(res, 401, 'unauthorized', 'bad auth header');
 	}
 

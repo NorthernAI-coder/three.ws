@@ -80,8 +80,11 @@ async function handleConfirm(req, res) {
 	if (!tx) return error(res, 422, 'tx_not_found', 'transaction not found');
 	if (tx.meta?.err) return error(res, 422, 'tx_failed', 'transaction failed on-chain');
 	const memoIx = tx.transaction.message.instructions.find((ix) => ix.programId?.toString() === 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
-	const memo = memoIx?.parsed;
-	if (memo && memo !== intent.nonce) return error(res, 422, 'memo_mismatch', 'transaction memo does not match intent nonce');
+	// Memo carries the per-intent nonce. Require it: a tx without a memo (or
+	// with a memo of any non-string type) is a replay or wrong-intent attempt
+	// even if the on-chain transfer numbers happen to line up.
+	const memo = typeof memoIx?.parsed === 'string' ? memoIx.parsed : null;
+	if (!memo || memo !== intent.nonce) return error(res, 422, 'memo_mismatch', 'transaction memo does not match intent nonce');
 	const expectedRecipient = intent.recipient;
 	const expectedAtomics = BigInt(Math.round(Number(intent.amount_usdc) * 1_000_000));
 	const tokenBalances = tx.meta?.postTokenBalances || [];

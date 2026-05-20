@@ -1,10 +1,16 @@
 import { sql } from '../_lib/db.js';
 import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
 import { requireAdmin } from '../_lib/admin.js';
+import { requireCsrf } from '../_lib/csrf.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', credentials: true })) return;
-	if (!(await requireAdmin(req, res))) return;
+	const admin = await requireAdmin(req, res);
+	if (!admin) return;
+
+	if (req.method === 'POST' || req.method === 'DELETE') {
+		if (!(await requireCsrf(req, res, admin.id))) return;
+	}
 
 	if (req.method === 'GET') {
 		const passes = await sql`

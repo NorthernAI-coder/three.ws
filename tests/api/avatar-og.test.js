@@ -263,7 +263,11 @@ describe('GET /api/avatar/:id/og — server render path', () => {
 		expect(res2.statusCode).toBe(200);
 	});
 
-	it('uses forwarded host + proto for the fallback redirect origin', async () => {
+	it('ignores forwarded host and anchors the fallback redirect on APP_ORIGIN', async () => {
+		// Previously this endpoint built the redirect from `x-forwarded-host`,
+		// which let a caller redirect OG crawlers (or end users) to an
+		// attacker-controlled host by spoofing the header. The handler now
+		// always uses env.APP_ORIGIN.
 		getAvatarMock.mockResolvedValueOnce({
 			id: 'a7',
 			name: 'X',
@@ -283,6 +287,6 @@ describe('GET /api/avatar/:id/og — server render path', () => {
 		const res = mkRes();
 		await handler(req, res);
 		expect(res.statusCode).toBe(302);
-		expect(res._h.location).toBe('https://staging.three.ws/assets/og-image.png');
+		expect(res._h.location).toBe('http://localhost:3000/assets/og-image.png');
 	});
 });

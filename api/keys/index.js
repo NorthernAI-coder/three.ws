@@ -6,6 +6,7 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { randomToken, sha256 } from '../_lib/crypto.js';
 import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 import { z } from 'zod';
@@ -40,6 +41,8 @@ export default wrap(async (req, res) => {
 		`;
 		return json(res, 200, { keys: rows });
 	}
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const body = parse(createSchema, await readJson(req));
 

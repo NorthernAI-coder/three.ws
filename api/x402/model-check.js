@@ -24,6 +24,7 @@ import {
 } from '../_lib/x402-spec.js';
 import { env } from '../_lib/env.js';
 import { inspectModel, suggestOptimizations } from '../_lib/model-inspect.js';
+import { assertSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
 
 const ROUTE = '/api/x402/model-check';
 const MAX_FETCH_BYTES = 16 * 1024 * 1024;
@@ -170,17 +171,14 @@ function buildRequirements(resourceUrl) {
 async function fetchAndInspect(targetUrl) {
 	let parsed;
 	try {
-		parsed = new URL(targetUrl);
-	} catch {
-		const err = new Error('url is not a valid URL');
-		err.code = 'invalid_url';
-		err.status = 400;
-		throw err;
-	}
-	if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-		const err = new Error('url must be http(s)');
-		err.code = 'invalid_url';
-		err.status = 400;
+		parsed = await assertSafePublicUrl(targetUrl, { allowHttp: true });
+	} catch (err) {
+		if (err instanceof SsrfBlockedError) {
+			const e = new Error(err.message);
+			e.code = 'invalid_url';
+			e.status = 400;
+			throw e;
+		}
 		throw err;
 	}
 	let upstream;

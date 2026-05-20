@@ -124,9 +124,42 @@
 </div>
 
 <script>
+// Single-use CSRF token: server burns it on every state-changing call. The
+// cache is invalidated immediately after we read it so the next mutation pulls
+// a fresh one.
+let _csrfToken = null;
+async function getCsrfToken() {
+	if (_csrfToken) return _csrfToken;
+	const r = await fetch('/api/csrf-token', { credentials: 'include' });
+	if (!r.ok) return null;
+	const j = await r.json();
+	_csrfToken = j?.data?.token || null;
+	return _csrfToken;
+}
+
 const api = {
 	get: (url) => fetch(url, { credentials: 'include' }).then((r) => r.json()),
-	patch: (url, body) => fetch(url, { method: 'PATCH', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json()),
+	patch: async (url, body) => {
+		const csrf = await getCsrfToken();
+		_csrfToken = null;
+		const headers = { 'content-type': 'application/json' };
+		if (csrf) headers['x-csrf-token'] = csrf;
+		return fetch(url, { method: 'PATCH', credentials: 'include', headers, body: JSON.stringify(body) }).then((r) => r.json());
+	},
+	post: async (url, body) => {
+		const csrf = await getCsrfToken();
+		_csrfToken = null;
+		const headers = { 'content-type': 'application/json' };
+		if (csrf) headers['x-csrf-token'] = csrf;
+		return fetch(url, { method: 'POST', credentials: 'include', headers, body: body == null ? undefined : JSON.stringify(body) }).then((r) => r.json());
+	},
+	delete: async (url, body) => {
+		const csrf = await getCsrfToken();
+		_csrfToken = null;
+		const headers = body ? { 'content-type': 'application/json' } : {};
+		if (csrf) headers['x-csrf-token'] = csrf;
+		return fetch(url, { method: 'DELETE', credentials: 'include', headers, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json());
+	},
 };
 
 let state = { tab: 'overview', usersPage: 1, usersQ: '', usersPlan: '', statsData: null };

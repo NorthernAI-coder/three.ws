@@ -58,11 +58,30 @@ export const api = {
 	},
 };
 
+// Single-use CSRF token: fetched lazily, invalidated on consumption. Re-issued
+// on the next mutating call.
+let _csrfToken = null;
+async function getCsrfToken() {
+	if (_csrfToken) return _csrfToken;
+	const r = await fetch('/api/csrf-token', { credentials: 'include' });
+	if (!r.ok) return null;
+	const j = await r.json();
+	_csrfToken = j?.data?.token || null;
+	return _csrfToken;
+}
+
 async function j(method, path, body) {
+	const headers = body ? { 'content-type': 'application/json' } : {};
+	// State-changing methods: attach CSRF token (single-use, server burns it).
+	if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+		const csrf = await getCsrfToken();
+		if (csrf) headers['x-csrf-token'] = csrf;
+		_csrfToken = null;
+	}
 	const res = await fetch(path, {
 		method,
 		credentials: 'include',
-		headers: body ? { 'content-type': 'application/json' } : {},
+		headers,
 		body: body ? JSON.stringify(body) : undefined,
 	});
 	const data = res.headers.get('content-type')?.includes('application/json')

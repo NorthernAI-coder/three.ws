@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
 import { requireAdmin } from '../../_lib/admin.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { parse } from '../../_lib/validate.js';
 
 const patchSchema = z.object({
@@ -16,10 +17,15 @@ const patchSchema = z.object({
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,PATCH,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'PATCH'])) return;
-	if (!await requireAdmin(req, res)) return;
+	const admin = await requireAdmin(req, res);
+	if (!admin) return;
 
 	const id = req.url.split('/').pop().split('?')[0];
 	if (!id) return error(res, 400, 'bad_request', 'missing user id');
+
+	if (req.method === 'PATCH') {
+		if (!(await requireCsrf(req, res, admin.id))) return;
+	}
 
 	if (req.method === 'GET') {
 		const [user] = await sql`

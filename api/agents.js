@@ -11,9 +11,10 @@
  * DELETE /api/agents/:id/wallet — unlink wallet
  */
 
-import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
+import { getSessionUser, authenticateBearer, extractBearer, hasScope } from './_lib/auth.js';
 import { sql } from './_lib/db.js';
 import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { generateAgentWallet, generateSolanaAgentWallet } from './_lib/agent-wallet.js';
 import { publicUrl } from './_lib/r2.js';
@@ -165,6 +166,8 @@ async function handleGetOrCreateMe(req, res, auth) {
 async function handleCreate(req, res) {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in or provide a bearer token');
+	const scopeErr = requireScopeForMutation(auth, res, 'avatars:write');
+	if (scopeErr) return scopeErr;
 
 	const body = await readJson(req);
 	const name = String(body.name || 'Agent')
@@ -267,18 +270,21 @@ export async function handleGetOne(req, res, id) {
 	if (req.method === 'PUT') {
 		const auth = await resolveAuth(req);
 		if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+		if (!(await requireCsrf(req, res, auth.userId))) return;
 		return handleUpdate(req, res, id, auth);
 	}
 
 	if (req.method === 'PATCH') {
 		const auth = await resolveAuth(req);
 		if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+		if (!(await requireCsrf(req, res, auth.userId))) return;
 		return handlePatchEdits(req, res, id, auth);
 	}
 
 	if (req.method === 'DELETE') {
 		const auth = await resolveAuth(req);
 		if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+		if (!(await requireCsrf(req, res, auth.userId))) return;
 		return handleDelete(req, res, id, auth);
 	}
 }
@@ -286,6 +292,8 @@ export async function handleGetOne(req, res, id) {
 // ── Update ────────────────────────────────────────────────────────────────
 
 async function handleUpdate(req, res, id, auth) {
+	const scopeErr = requireScopeForMutation(auth, res, 'avatars:write');
+	if (scopeErr) return scopeErr;
 	const [existing] = await sql`
 		SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
 	`;
@@ -316,6 +324,8 @@ async function handlePatchEdits(req, res, id, auth) {
 // ── Delete ────────────────────────────────────────────────────────────────
 
 async function handleDelete(req, res, id, auth) {
+	const scopeErr = requireScopeForMutation(auth, res, 'avatars:delete');
+	if (scopeErr) return scopeErr;
 	const [existing] = await sql`
 		SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
 	`;
@@ -340,6 +350,7 @@ export async function handleWallet(req, res, id) {
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const [existing] = await sql`
 		SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
@@ -394,9 +405,20 @@ async function healStaleAvatarId(row) {
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
-	if (session) return { userId: session.id, source: 'session' };
+	if (session) return { userId: session.id, source: 'session', scope: null };
 	const bearer = await authenticateBearer(extractBearer(req));
-	if (bearer) return { userId: bearer.userId, source: 'bearer' };
+	if (bearer) return { userId: bearer.userId, source: 'bearer', scope: bearer.scope || '' };
+	return null;
+}
+
+// Bearer-token callers must hold the matching avatars:* scope before they can
+// mutate an agent. Session callers (browser cookies) are not constrained by
+// scope. Returns null when authorized, or an error response otherwise.
+function requireScopeForMutation(auth, res, requiredScope) {
+	if (!auth || auth.source !== 'bearer') return null;
+	if (!hasScope(auth.scope, requiredScope)) {
+		return error(res, 403, 'insufficient_scope', `${requiredScope} required`);
+	}
 	return null;
 }
 

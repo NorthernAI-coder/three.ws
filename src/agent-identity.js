@@ -13,6 +13,28 @@ import { AgentMemory } from './agent-memory.js';
 
 const STORAGE_KEY = 'agent_identity';
 
+// Single-use CSRF token cache. Required by /api/agents PUT/PATCH/DELETE +
+// /api/agents/:id/wallet on the server. Token is burned on consumption.
+let _csrfToken = null;
+async function getCsrfToken() {
+	if (_csrfToken) return _csrfToken;
+	try {
+		const r = await fetch('/api/csrf-token', { credentials: 'include' });
+		if (!r.ok) return null;
+		const j = await r.json();
+		_csrfToken = j?.data?.token || null;
+		return _csrfToken;
+	} catch {
+		return null;
+	}
+}
+
+async function csrfHeaders() {
+	const csrf = await getCsrfToken();
+	_csrfToken = null;
+	return csrf ? { 'x-csrf-token': csrf } : {};
+}
+
 /**
  * @typedef {Object} AgentRecord
  * @property {string}   id
@@ -95,9 +117,10 @@ export class AgentIdentity {
 		if (!this._record) return;
 		this._persist();
 		try {
+			const csrf = await csrfHeaders();
 			const resp = await fetch(`/api/agents/${this._record.id}`, {
 				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
+				headers: { 'content-type': 'application/json', ...csrf },
 				credentials: 'include',
 				body: JSON.stringify({
 					name: this._record.name,
@@ -132,9 +155,10 @@ export class AgentIdentity {
 	async linkWallet(address, chainId) {
 		await this.update({ walletAddress: address, chainId });
 		try {
+			const csrf = await csrfHeaders();
 			await fetch(`/api/agents/${this.id}/wallet`, {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
+				headers: { 'content-type': 'application/json', ...csrf },
 				credentials: 'include',
 				body: JSON.stringify({ wallet_address: address, chain_id: chainId }),
 			});
@@ -144,8 +168,10 @@ export class AgentIdentity {
 	async unlinkWallet() {
 		await this.update({ walletAddress: null, chainId: null });
 		try {
+			const csrf = await csrfHeaders();
 			await fetch(`/api/agents/${this.id}/wallet`, {
 				method: 'DELETE',
+				headers: csrf,
 				credentials: 'include',
 			});
 		} catch {}

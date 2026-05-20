@@ -111,7 +111,7 @@ async function handleErc8004Crawl(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -400,7 +400,7 @@ async function handleIndexDelegations(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -835,7 +835,7 @@ async function handlePumpfunMonitor(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -984,7 +984,7 @@ async function handlePumpfunSignals(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -2187,7 +2187,7 @@ async function handleSolanaAttestEventCleanup(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -2217,7 +2217,7 @@ async function handleSolanaAttestationsCrawl(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -2578,7 +2578,7 @@ async function handleRunXScheduledPosts(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -2646,7 +2646,7 @@ async function handleRunXTriggers(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -2864,7 +2864,7 @@ async function handleFetchXMetrics(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -2951,7 +2951,7 @@ async function handleRunCoinCycle(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 
@@ -3054,7 +3054,7 @@ async function handleRunCoinPayouts(req, res) {
 	const auth = req.headers['authorization'] || '';
 	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
 	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && expected && auth !== expected) {
+	if (!fromCron && (!expected || auth !== expected)) {
 		return error(res, 401, 'unauthorized', 'cron secret required');
 	}
 

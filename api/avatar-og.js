@@ -22,6 +22,7 @@
 import { sql } from './_lib/db.js';
 import { getAvatar } from './_lib/avatars.js';
 import { DEMO_AVATARS } from './_lib/demo-avatars.js';
+import { env } from './_lib/env.js';
 import { cors, wrap } from './_lib/http.js';
 import { publicUrl, putObject } from './_lib/r2.js';
 import { renderGlbToPng } from './_lib/render-glb.js';
@@ -182,13 +183,11 @@ function extractIdFromPath(pathname) {
 	return m ? m[1] : null;
 }
 
-function sendFallbackLogo(req, res) {
-	// 302 to the static brand logo. The crawler then fetches
-	// /assets/og-image.png directly from Vercel's edge.
-	const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
-	const host = req.headers['x-forwarded-host'] || req.headers.host || 'three.ws';
+function sendFallbackLogo(_req, res) {
+	// 302 to the static brand logo. Anchor on env.APP_ORIGIN so a caller can't
+	// craft an `x-forwarded-host` that redirects this 302 to an attacker site.
 	res.statusCode = 302;
-	res.setHeader('location', `${proto}://${host}/assets/og-image.png`);
+	res.setHeader('location', `${env.APP_ORIGIN}/assets/og-image.png`);
 	res.setHeader('cache-control', CACHE_FALLBACK);
 	res.end();
 }

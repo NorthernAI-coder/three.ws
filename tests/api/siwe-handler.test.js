@@ -111,6 +111,8 @@ async function invoke(opts) {
 // verifyMessage mock returns the same address so signer === claimed.
 const WALLET_ADDR = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
 const TEST_NONCE = 'testNonce1234567890ab';
+// Use a fresh issuedAt so the handler's anti-stale freshness check accepts it.
+const ISSUED_AT = new Date().toISOString();
 const SIWE_MESSAGE = [
 	'localhost wants you to sign in with your Ethereum account:',
 	WALLET_ADDR,
@@ -119,7 +121,7 @@ const SIWE_MESSAGE = [
 	'Version: 1',
 	'Chain ID: 1',
 	`Nonce: ${TEST_NONCE}`,
-	'Issued At: 2024-01-01T00:00:00.000Z',
+	`Issued At: ${ISSUED_AT}`,
 ].join('\n');
 
 const FUTURE = new Date(Date.now() + 300_000).toISOString();

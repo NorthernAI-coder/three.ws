@@ -4,6 +4,7 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { logAudit } from '../_lib/audit.js';
 import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits } from '../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
@@ -12,6 +13,8 @@ export default wrap(async (req, res) => {
 
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in to manage API keys');
+
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const rl = await limits.apiKeyManage(user.id);
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');

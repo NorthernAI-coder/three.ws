@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { requireAdmin } from '../../_lib/admin.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
 import { parse } from '../../_lib/validate.js';
 import { insertNotification } from '../../_lib/notify.js';
@@ -21,7 +22,9 @@ const patchBody = z.object({
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'PATCH,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['PATCH'])) return;
-	if (!(await requireAdmin(req, res))) return;
+	const admin = await requireAdmin(req, res);
+	if (!admin) return;
+	if (!(await requireCsrf(req, res, admin.id))) return;
 
 	const id = req.query?.id;
 	const body = parse(patchBody, await readJson(req));

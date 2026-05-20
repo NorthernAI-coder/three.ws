@@ -637,9 +637,11 @@ export function send402(res, opts = {}) {
 
 // Resolve the canonical resource URL the client hit, so the facilitator can
 // match the payer's signed payload against the same string we advertise.
-export function resolveResourceUrl(req, path) {
-	const proto = (req.headers['x-forwarded-proto'] || 'https').toString().split(',')[0].trim();
-	const host = (req.headers['x-forwarded-host'] || req.headers.host || '').toString();
-	if (host) return `${proto}://${host}${path}`;
+//
+// We always anchor on env.APP_ORIGIN (set via PUBLIC_APP_ORIGIN) rather than
+// trusting `x-forwarded-host` / `host`. Trusting those headers lets a caller
+// craft a 402 challenge that advertises an attacker-controlled `resource.url`,
+// which agents may then call or display.
+export function resolveResourceUrl(_req, path) {
 	return `${env.APP_ORIGIN}${path}`;
 }

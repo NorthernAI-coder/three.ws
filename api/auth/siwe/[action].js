@@ -137,6 +137,18 @@ async function handleVerify(req, res) {
 	if (fields.notBefore && Date.parse(fields.notBefore) > now) {
 		return error(res, 400, 'not_yet_valid', 'message not yet valid');
 	}
+	// Defense-in-depth: reject messages whose `issuedAt` is far in the past or
+	// future. The nonce table caps replay too, but a stale signature paired
+	// with a long-lived nonce should still fail closed. 10 min window matches
+	// the EIP-4361 spec recommendation.
+	if (fields.issuedAt) {
+		const issued = Date.parse(fields.issuedAt);
+		if (Number.isFinite(issued)) {
+			const skew = 10 * 60 * 1000;
+			if (issued < now - skew) return error(res, 400, 'stale_message', 'issuedAt too old');
+			if (issued > now + skew) return error(res, 400, 'future_message', 'issuedAt in the future');
+		}
+	}
 
 	// 4. Nonce must exist, be unconsumed, and not expired. Burn on success.
 	const [nonceRow] = await sql`

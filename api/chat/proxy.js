@@ -1,5 +1,6 @@
 import { env } from '../_lib/env.js';
 import { cors, error, json, method, wrap, readJson } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const UPGRADE_URL = `${env.APP_ORIGIN}/pricing`;
 
@@ -9,6 +10,16 @@ export default wrap(async (req, res) => {
 
 	if (!env.OPENROUTER_API_KEY)
 		return error(res, 503, 'not_configured', 'Built-in model not available');
+
+	// Anonymous proxy — only :free models pass the gate below, but the upstream
+	// free-tier quota is shared across our OpenRouter key. Cap per-IP to prevent
+	// a single client from draining the free quota and rate-limiting everyone.
+	const ip = clientIp(req);
+	const rl = await limits.chatIp(ip);
+	if (!rl.success) {
+		res.setHeader('retry-after', '60');
+		return error(res, 429, 'rate_limited', 'too many requests');
+	}
 
 	let body;
 	try {
