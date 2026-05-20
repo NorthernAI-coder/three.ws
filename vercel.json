@@ -7,13 +7,13 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
-		"api/**/*.js": {
-			"includeFiles": "node_modules/@zauthx402/sdk/dist/**,examples/skills/pump-fun-strategy/**,data/archives/**,data/rss/**"
-		},
 		"api/avatar-og.js": {
 			"includeFiles": "node_modules/@zauthx402/sdk/dist/**,examples/skills/pump-fun-strategy/**,data/archives/**,data/rss/**",
 			"maxDuration": 30,
 			"memory": 2048
+		},
+		"api/**/*.js": {
+			"includeFiles": "node_modules/@zauthx402/sdk/dist/**,examples/skills/pump-fun-strategy/**,data/archives/**,data/rss/**"
 		}
 	},
 	"routes": [
