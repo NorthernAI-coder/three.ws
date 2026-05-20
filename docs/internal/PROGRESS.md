@@ -26,9 +26,15 @@ Rails:
 **Build:** `npx vite build` → ✓ 20.29s, no new warnings.
 
 **Caveats:**
-- `meshoptimizer` and `draco3d` peer deps are NOT installed, so the more aggressive `meshopt()` and `draco()` transforms are not in the pipeline. Adding them is `npm i meshoptimizer draco3d` (~5 MB combined) — left to the user since it's a dep decision.
-- Compression-vs-baseline size delta isn't unit-tested. Could add a regression test against a fixed GLB if size becomes flaky.
+- Compression-vs-baseline size delta isn't unit-tested. `scripts/measure-bake-size.mjs` runs the diff on demand. Could add a regression test against a fixed GLB if size becomes flaky.
 - `textureCompress` converts everything to WebP. Every browser model-viewer ships in supports WebP natively, but pre-r136 three.js loaders won't — three.ws ships current three so this is safe.
+
+**Follow-up — meshopt() added on top of the baseline pipeline:**
+`meshoptimizer` is now installed; `meshopt({ encoder, level: 'medium' })` runs between `quantize()` and `textureCompress()` in the same try/fallback. Browser-side, every viewer that loads baked GLBs (`marketplace-lobby`, `voice/talk-scene` and therefore `avatar-edit`) calls `getMeshoptDecoder()` from `src/viewer/internal.js` and wires it on the GLTFLoader. The main `viewer.js` already wires it via the full `getDecoders()`. Measured deltas on top of the baseline (`scripts/measure-bake-size.mjs`):
+- `public/avatars/default.glb`: 1.95 MB → 737 KB (**63% smaller** on top of baseline; 2.74 MB source → 737 KB end-to-end ≈ 3.7×).
+- `public/avatars/cz.glb`: 766 KB → 556 KB (**27% smaller** on top of baseline). Smaller meshes get less from meshopt; the full-body avatar is the realistic case.
+
+`draco3d` was uninstalled — `npm ls draco3d` showed only the direct dep with nothing referencing it (`api/avatar/optimize.js` declares the `KHRDracoMeshCompression` extension on primitives but never registers the encoder via `io.registerDependencies`, so that codepath would fail at write time regardless of whether `draco3d` is installed). `draco()` is **not** wired into the bake pipeline because EXT_meshopt decodes faster in the browser at avatar scale.
 
 
 ## Item 2 — ARKit blendshape vocabulary + cross-format resolver ✅
@@ -90,3 +96,28 @@ Rails:
 - `preserveDrawingBuffer: true` carries a small perf cost. Acceptable at avatar scale; would be wrong at fullscreen-game scale.
 - Auto-tag uses `ANTHROPIC_API_KEY`. If unset on the server, the auto-tag call returns `{ ok: false, reason: 'vision_api_error' }` and the thumbnail is still written by the next call. Manual `PATCH /api/avatars/:id { thumbnail_key }` would also work as a fallback.
 - Server-side rendering for OG crawl-time generation is deferred (see NEXT.md).
+
+## Item 5 — Server-side GLB → PNG renderer for OG cards ✅
+
+**What:** Headless-chromium renderer that turns any avatar's GLB into a 1200×630 PNG at crawl time, with R2 caching + DB write-back so the chromium cost is paid once per avatar. `api/_lib/render-glb.js` exports `renderGlbToPng({ glbUrl, width, height, background })`; `api/avatar-og.js` now serves (a) the cached thumbnail if present, (b) a freshly-rendered PNG if not, (c) the site logo at `/assets/og-image.png` only if the GLB is too large or rendering fails. Replaces the prior SVG fallback for accounts/avatars that never opened the customizer.
+
+**Why this completes the OG flow:** The Item-4 client-side capture only fires when the user opens the customizer + saves. Avatars created via API, by other users, or that pre-date customizer-save shipping had no `thumbnail_key`, so OG crawlers landed on the SVG card. Twitter/Slack/Discord renders that card fine, but the GLB itself is the actual content — the server renderer makes the OG preview faithful to what the user gets in-app, with no client interaction required.
+
+**Files touched:**
+- `api/_lib/render-glb.js` — new module. Bundles a tiny inlined HTML viewer that loads three.js + GLTFLoader from `unpkg.com/three@0.176.0/...`, renders one frame at the target resolution with deterministic three-light rig + auto-framed camera, signals `window.__renderDone = true`, then `page.screenshot({ type: 'png', clip })`. Caches the puppeteer Browser per warm container to amortize launch cost.
+- `api/avatar-og.js` — wired the renderer in: thumbnail-cache check first (302 redirect), then GLB size precheck (HEAD, 10 MB cap), then `renderGlbToPng()`, then `putObject({ key: '<storage_key>_og.png' })`, then `UPDATE avatars SET thumbnail_key` guarded by `WHERE thumbnail_key IS NULL` so a concurrent customizer-save snapshot isn't clobbered. Per-avatar in-memory `Promise` lock (Map) so two simultaneous crawls share one render. Any failure → 302 to `/assets/og-image.png` (the real site logo, per CLAUDE.md rule on no placeholder data).
+- `api/_lib/env.js` — `CHROMIUM_PACK_URL` getter for overriding the chromium-min binary download URL when upgrading the package.
+- `vercel.json` — `api/avatar-og.js` function config bumped to `maxDuration: 30`, `memory: 2048` (chromium needs RAM; render budget is 15s + overhead).
+- `package.json` — added `puppeteer-core@^25.0.4` and `@sparticuz/chromium-min@^148.0.0` to runtime dependencies.
+
+**Tests added:**
+- `tests/render-glb.test.js` — input-validation suite (always runs) + headful render path gated on `RUN_HEADFUL_TESTS=1` that generates a triangle GLB via `@gltf-transform/core`, serves it from a localhost HTTP server, calls the real renderer, and asserts the returned buffer starts with the PNG magic header. Skipped in CI because chromium download is large.
+- `tests/api/avatar-og.test.js` — 11 tests with `renderGlbToPng` stubbed at the module boundary: cached-thumbnail redirect, 404 paths, demo SVG, private-avatar SVG fallback, full server-render path (with R2 + DB write-back assertions), GLB-too-large precheck, render-error fallback to the brand logo, in-memory concurrency lock (verifies two simultaneous crawls share one render), forwarded-host handling for the fallback redirect.
+
+**Tests:** `npx vitest run tests/api/avatar-og.test.js tests/render-glb.test.js tests/api/all-modules-load.test.js` → 257 passed, 1 skipped (headful test). Existing unrelated failures (branding, email templates, validate visibility default) are pre-existing on `main`.
+
+**Caveats:**
+- The chromium binary (`@sparticuz/chromium-min`) is downloaded from GitHub at first cold start in each Vercel container and cached in `/tmp`. The default URL in `render-glb.js` points at the v148.0.0 Sparticuz release that matches the npm version pinned in `package.json`. When bumping the npm package, also bump `DEFAULT_CHROMIUM_PACK` (or set `CHROMIUM_PACK_URL` in env) — otherwise puppeteer.launch() will fail to find the matching binary.
+- three.js is loaded into the viewer page from `unpkg.com/three@0.176.0/build/three.module.js` via importmap. If the in-app three.js version bumps, also bump `THREE_VERSION` in `render-glb.js` so the server-rendered preview stays faithful to what the customizer shows.
+- The in-memory render lock is per-lambda-container. Two Vercel containers seeing the same first-crawl request will each render once, then both write `thumbnail_key`. The `WHERE thumbnail_key IS NULL` guard makes the second write a no-op; the redundant R2 object is overwritten in place. Acceptable redundancy for the cold-start case.
+- Private avatars (visibility=`private`) have no public `model_url`, so the renderer is skipped and the SVG card is served instead — the public OG endpoint never holds a presigned URL.

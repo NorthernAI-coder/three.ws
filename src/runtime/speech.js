@@ -497,19 +497,37 @@ export class ElevenLabsTTS {
 	}
 }
 
+const TTS_FACTORIES = {
+	none: () => null,
+	browser: (cfg) => new BrowserTTS(cfg),
+	elevenlabs: (cfg) => new ElevenLabsTTS(cfg),
+};
+
+const STT_FACTORIES = {
+	none: () => null,
+	browser: (cfg) => new BrowserSTT(cfg),
+};
+
 export function createTTS(config = {}) {
 	const provider = config.provider || 'browser';
-	if (provider === 'none') return null;
-	if (provider === 'browser') return new BrowserTTS(config);
-	if (provider === 'elevenlabs') return new ElevenLabsTTS(config);
-	throw new Error(`TTS provider "${provider}" not implemented yet`);
+	const factory = TTS_FACTORIES[provider];
+	if (!factory) {
+		throw new Error(
+			`Unknown TTS provider "${provider}". Supported: ${Object.keys(TTS_FACTORIES).join(', ')}.`,
+		);
+	}
+	return factory(config);
 }
 
 export function createSTT(config = {}) {
 	const provider = config.provider || 'browser';
-	if (provider === 'none') return null;
-	if (provider === 'browser') return new BrowserSTT(config);
-	throw new Error(`STT provider "${provider}" not implemented yet`);
+	const factory = STT_FACTORIES[provider];
+	if (!factory) {
+		throw new Error(
+			`Unknown STT provider "${provider}". Supported: ${Object.keys(STT_FACTORIES).join(', ')}.`,
+		);
+	}
+	return factory(config);
 }
 
 export async function createVoice(config = {}) {

@@ -114,7 +114,7 @@ async function handleConfirm(req, res) {
 	const activeUntil = new Date(Date.now() + planConfig.duration_days * 86400 * 1000);
 	await sql`insert into subscriptions (user_id, plan, chain_type, token_address, tx_hash, amount_usd, status, active_until) values (${user.id}, ${intent.plan}, 'solana', ${usdcMint}, ${tx_signature}, ${intent.amount_usdc}, 'active', ${activeUntil}) on conflict (user_id) where status='active' do update set plan=excluded.plan, chain_type=excluded.chain_type, token_address=excluded.token_address, tx_hash=excluded.tx_hash, amount_usd=excluded.amount_usd, active_until=excluded.active_until, updated_at=now()`;
 	await sql`update users set plan=${intent.plan} where id=${user.id}`;
-	queueMicrotask(() => sendSubscriptionConfirmEmail({ to: user.email, plan: intent.plan, chain: `Solana ${network}`, txId: tx_signature }));
+	queueMicrotask(() => sendSubscriptionConfirmEmail({ to: user.email, plan: intent.plan, chain: `Solana ${network}`, txId: tx_signature }).catch(() => {}));
 	return json(res, 200, { ok: true, plan: intent.plan, active_until: activeUntil.toISOString(), tx_signature });
 }
 

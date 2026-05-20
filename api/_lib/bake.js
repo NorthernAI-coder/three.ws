@@ -208,7 +208,9 @@ export async function bakeAppearance(baseGlbBytes, appearance) {
 				quantizeWeight: 8,
 				quantizeGeneric: 12,
 			}),
-			meshopt({ encoder: MeshoptEncoder }),
+			// level: 'medium' — keeps bake time bounded. 'high' adds a small
+			// extra reduction at substantial encoder-time cost.
+			meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
 			textureCompress({
 				encoder: sharp,
 				targetFormat: 'webp',

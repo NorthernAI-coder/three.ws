@@ -21,6 +21,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { computeFraming, CAMERA_PRESETS } from './camera-presets.js';
 import { TalkEmotes } from './talk-emotes.js';
+import { getMeshoptDecoder } from '../viewer/internal.js';
 
 export class TalkScene {
 	constructor() {
@@ -96,8 +97,10 @@ export class TalkScene {
 		this.controls.maxDistance = 6;
 		this.controls.update();
 
-		// Load the GLB.
+		// Load the GLB. Baked avatars carry EXT_meshopt_compression; the
+		// loader can only decode them once the meshopt decoder is wired.
 		const loader = new GLTFLoader();
+		loader.setMeshoptDecoder(await getMeshoptDecoder());
 		const gltf = await new Promise((resolve, reject) => {
 			loader.load(glbUrl, resolve, undefined, reject);
 		});

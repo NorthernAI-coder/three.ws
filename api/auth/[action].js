@@ -72,6 +72,32 @@ async function handleLogoutEverywhere(req, res) {
 
 // ── register ──────────────────────────────────────────────────────────────────
 
+// Bounded retry to ride out the rare collision against the unique index on
+// users.referral_code. The index is the authoritative guard; this loop is the
+// UX shield so simultaneous signups don't surface a 500. The generator is a
+// CSPRNG over a 32-char alphabet at length 8, so the chance of MAX_TRIES
+// consecutive collisions is astronomically low — if we ever exhaust, something
+// upstream is wrong (truncated alphabet, broken RNG) and we want to surface it.
+const MAX_REFERRAL_CODE_TRIES = 8;
+
+async function insertUserWithUniqueReferralCode({ email, passwordHash, displayName, referredById }) {
+	for (let i = 0; i < MAX_REFERRAL_CODE_TRIES; i += 1) {
+		const code = generateReferralCode();
+		try {
+			const [row] = await sql`
+				insert into users (email, password_hash, display_name, referred_by_id, referral_code)
+				values (${email}, ${passwordHash}, ${displayName}, ${referredById}, ${code})
+				returning id, display_name, plan, created_at, referral_code
+			`;
+			return row;
+		} catch (err) {
+			if (err && err.code === '23505' && /referral_code/.test(err.message || '')) continue;
+			throw err;
+		}
+	}
+	throw new Error('referral_code_generation_exhausted');
+}
+
 async function handleRegister(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
@@ -106,9 +132,12 @@ async function handleRegister(req, res) {
 	}
 
 	const hash = await hashPassword(passwordVal);
-	// TODO: loop until referral code is unique
-	const newReferralCode = generateReferralCode();
-	const [user] = await sql`insert into users (email, password_hash, display_name, referred_by_id, referral_code) values (${email_val}, ${hash}, ${displayName_val}, ${referred_by_id}, ${newReferralCode}) returning id, display_name, plan, created_at, referral_code`;
+	const user = await insertUserWithUniqueReferralCode({
+		email: email_val,
+		passwordHash: hash,
+		displayName: displayName_val,
+		referredById: referred_by_id,
+	});
 	// Fire-and-forget: every new account gets a starter draft agent so the
 	// marketplace's "My Agents" tab and onboarding flow have something to show.
 	queueMicrotask(() => seedDefaultAgent(user.id));

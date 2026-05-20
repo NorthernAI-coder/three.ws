@@ -15,7 +15,7 @@
  *   plus the `none` no-op path and the disconnect/zero-out behaviour.
  */
 
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 
 // ARKit canonical viseme morph names (LipSyncAnalyser writes these).
 const VISEMES = [
@@ -257,6 +257,126 @@ describe('AgentAvatar × LipSyncAnalyser — integration', () => {
 			// Lipsync stage no-ops; viseme + jaw targets stay untouched.
 			for (const v of VISEMES) expect(avatar._morphTarget[v] ?? 0).toBe(0);
 			expect(avatar._morphTarget.jawOpen ?? 0).toBe(0);
+		});
+	});
+
+	// ── Edge cases ─────────────────────────────────────────────────────────────
+	// The following four describes cover production scenarios the happy-path
+	// tests above don't reach: very short audio bursts, true silence (FFT floor),
+	// back-to-back utterances (state isolation across reconnect), and browsers
+	// without AnalyserNode (graceful no-op). See tests/agent-avatar-lipsync —
+	// each block targets one of those four behaviours.
+
+	describe('very short audio (< 200 ms)', () => {
+		it('after only ~5 frames, every viseme weight is a finite number in [0, 1]', () => {
+			const mesh = makeMesh([...VISEMES, 'jawOpen', 'mouthSmileLeft', 'browInnerUp']);
+			const { avatar, runStage5 } = makeAvatar({ meshes: [mesh] });
+
+			const analyser = new FakeAnalyserNode({ spectrum: makeBand(220, 0, 500) });
+			avatar.connectLipSync(analyser);
+			for (let i = 0; i < 5; i++) runStage5();
+
+			for (const v of VISEMES) {
+				const w = avatar._morphTarget[v] ?? 0;
+				expect(Number.isFinite(w)).toBe(true);
+				expect(w).toBeGreaterThanOrEqual(0);
+				expect(w).toBeLessThanOrEqual(1);
+			}
+			// Amplitude tracking should also be bounded and finite this early.
+			const amp = avatar._lipSync.getAmplitude();
+			expect(Number.isFinite(amp)).toBe(true);
+			expect(amp).toBeGreaterThanOrEqual(0);
+			expect(amp).toBeLessThanOrEqual(1);
+		});
+	});
+
+	describe('silence — all FFT bins read 0 from the start', () => {
+		it('every band-driven viseme stays ≤ 0.05 (no FFT-floor leakage to the mouth)', () => {
+			const mesh = makeMesh([...VISEMES, 'jawOpen', 'mouthSmileLeft', 'browInnerUp']);
+			const { avatar, runStage5 } = makeAvatar({ meshes: [mesh] });
+
+			const analyser = new FakeAnalyserNode({ spectrum: () => 0 });
+			avatar.connectLipSync(analyser);
+			for (let i = 0; i < 20; i++) runStage5();
+
+			// All three band groups (low → aa/O, mid → E/I/nn, high → SS/FF/CH)
+			// plus the bilabial PP must stay near zero — the small epsilon allows
+			// for the silence-branch lerp residual without permitting real motion.
+			for (const v of VISEMES) {
+				expect(avatar._morphTarget[v] ?? 0).toBeLessThanOrEqual(0.05);
+			}
+			expect(avatar._lipSync.getAmplitude()).toBeLessThanOrEqual(0.05);
+		});
+	});
+
+	describe('back-to-back utterances — no state bleed across reconnect', () => {
+		it('detach after utterance A, attach for utterance B → output reflects only B', () => {
+			const mesh = makeMesh([...VISEMES, 'jawOpen', 'mouthSmileLeft', 'browInnerUp']);
+			const { avatar, runStage5 } = makeAvatar({ meshes: [mesh] });
+
+			// Utterance A: low-frequency energy → drives viseme_aa up, viseme_SS stays cold.
+			const sourceA = new FakeAnalyserNode({ spectrum: makeBand(220, 0, 500) });
+			avatar.connectLipSync(sourceA);
+			for (let i = 0; i < 40; i++) runStage5();
+			expect(avatar._morphTarget.viseme_aa).toBeGreaterThan(avatar._morphTarget.viseme_SS);
+
+			// Tear down. AgentAvatar.disconnectLipSync() drops the analyser and zeros
+			// every viseme target — confirms detach side of the contract.
+			avatar.disconnectLipSync();
+			expect(avatar._lipSync).toBeNull();
+			for (const v of VISEMES) expect(avatar._morphTarget[v]).toBe(0);
+
+			// Re-attach with utterance B: high-frequency sibilant energy. The new
+			// LipSyncAnalyser instance must start with clean smoothing buffers —
+			// otherwise residual viseme_aa weight from A would survive the swap.
+			const sourceB = new FakeAnalyserNode({ spectrum: makeBand(220, 2000, 8000) });
+			avatar.connectLipSync(sourceB);
+			expect(avatar._lipSync._prevAmplitude).toBe(0);
+			for (const v of VISEMES) expect(avatar._lipSync._prev[v]).toBe(0);
+
+			for (let i = 0; i < 40; i++) runStage5();
+
+			// B's signal is sibilant, so viseme_SS must now dominate viseme_aa —
+			// the opposite ordering from utterance A. If A's state had bled through,
+			// viseme_aa would still carry weight from the first 40 frames.
+			expect(avatar._morphTarget.viseme_SS).toBeGreaterThan(avatar._morphTarget.viseme_aa);
+		});
+	});
+
+	describe('browser without AnalyserNode — graceful no-op', () => {
+		let savedAnalyserNode;
+		beforeEach(() => {
+			savedAnalyserNode = globalThis.AnalyserNode;
+			// Older Safari iOS lock-screen contexts and some embedded WebViews
+			// don't expose AnalyserNode. Simulate that here.
+			globalThis.AnalyserNode = undefined;
+		});
+		afterEach(() => {
+			globalThis.AnalyserNode = savedAnalyserNode;
+		});
+
+		it('connectLipSync + Stage 5 do not throw; mouth sits at rest (all zeros)', () => {
+			const mesh = makeMesh([...VISEMES, 'jawOpen', 'mouthSmileLeft', 'browInnerUp']);
+			const { avatar, runStage5 } = makeAvatar({ meshes: [mesh] });
+
+			// Even a structurally-valid analyser object can't pass `instanceof
+			// AnalyserNode` once the constructor is gone, so connect() returns
+			// early and the driver stays inactive — exactly the production fallback.
+			const source = new FakeAnalyserNode({ spectrum: makeBand(220, 0, 500) });
+
+			expect(() => avatar.connectLipSync(source)).not.toThrow();
+			expect(avatar._lipSync).not.toBeNull();
+			expect(avatar._lipSync._active).toBe(false);
+
+			expect(() => {
+				for (let i = 0; i < 5; i++) runStage5();
+			}).not.toThrow();
+
+			// Driver inactive → sample() returns null → Stage 5 writes nothing →
+			// mouth sits at rest at all the targets the lipsync path touches.
+			for (const v of VISEMES) expect(avatar._morphTarget[v] ?? 0).toBe(0);
+			expect(avatar._morphTarget.jawOpen ?? 0).toBe(0);
+			expect(avatar._morphTarget.mouthOpen ?? 0).toBe(0);
 		});
 	});
 });

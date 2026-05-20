@@ -20,6 +20,7 @@ import {
 	settlePayment,
 	encodePaymentResponseHeader,
 	resolveResourceUrl,
+	buildBazaarSchema,
 } from '../_lib/x402-spec.js';
 import { env } from '../_lib/env.js';
 import { inspectModel, suggestOptimizations } from '../_lib/model-inspect.js';
@@ -141,11 +142,14 @@ const ROUTE_BAZAAR = {
 			type: 'http',
 			method: 'GET',
 			queryParams: DISCOVERY_INPUT_EXAMPLE,
-			queryParamsSchema: DISCOVERY_INPUT_SCHEMA,
 		},
 		output: { type: 'json', example: DISCOVERY_OUTPUT_EXAMPLE },
 	},
-	schema: DISCOVERY_OUTPUT_SCHEMA,
+	schema: buildBazaarSchema({
+		method: 'GET',
+		queryParamsSchema: DISCOVERY_INPUT_SCHEMA,
+		outputSchema: DISCOVERY_OUTPUT_SCHEMA,
+	}),
 };
 
 function buildRequirements(resourceUrl) {

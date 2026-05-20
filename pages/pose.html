@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Pose Studio · three.ws</title>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+		/>
+		<meta name="author" content="nirholas" />
+		<meta
+			name="description"
+			content="Free 3D pose-reference studio. Click body parts to pose them, pick from preset poses, add floor props, export PNG."
+		/>
+		<meta name="theme-color" content="#0b0b10" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Pose Studio · three.ws" />
+		<meta
+			property="og:description"
+			content="Free 3D pose-reference studio. Click body parts to pose them, pick from preset poses, export PNG."
+		/>
+		<meta property="og:url" content="https://three.ws/pose" />
+
+		<style>
+			:root {
+				--bg: #07070b;
+				--panel: rgba(17, 17, 22, 0.78);
+				--panel-solid: #14141a;
+				--border: rgba(255, 255, 255, 0.08);
+				--border-strong: rgba(255, 255, 255, 0.16);
+				--text: #fafafa;
+				--text-2: #a1a1aa;
+				--text-3: #71717a;
+				--accent: #a78bfa;
+				--accent-2: #7dd3fc;
+				--danger: #f87171;
+				--ok: #34d399;
+			}
+			html, body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				background: var(--bg);
+				color: var(--text);
+				font-family: 'Inter', system-ui, -apple-system, sans-serif;
+				-webkit-font-smoothing: antialiased;
+				overflow: hidden;
+			}
+
+			#pose-app {
+				position: fixed;
+				inset: 0;
+				display: grid;
+				grid-template-columns: 280px 1fr 320px;
+				grid-template-rows: 52px 1fr;
+				grid-template-areas:
+					"top top top"
+					"left stage right";
+				gap: 0;
+			}
+
+			/* ── Top bar ─────────────────────────────────────────── */
+			#pose-top {
+				grid-area: top;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				padding: 0 14px;
+				border-bottom: 1px solid var(--border);
+				background: rgba(7, 7, 11, 0.85);
+				backdrop-filter: blur(10px);
+				-webkit-backdrop-filter: blur(10px);
+				z-index: 10;
+			}
+			#pose-top .brand {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-weight: 600;
+				font-size: 14px;
+				letter-spacing: 0.01em;
+				color: var(--text);
+			}
+			#pose-top .brand a {
+				color: var(--text-2);
+				text-decoration: none;
+				font-weight: 500;
+				font-size: 13px;
+			}
+			#pose-top .brand a:hover { color: var(--text); }
+			#pose-top .sep {
+				width: 1px;
+				height: 22px;
+				background: var(--border);
+				margin: 0 4px;
+			}
+			.mode-group {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				padding: 3px;
+				background: rgba(255, 255, 255, 0.04);
+				border: 1px solid var(--border);
+				border-radius: 999px;
+			}
+			.mode-btn {
+				appearance: none;
+				border: none;
+				background: transparent;
+				color: var(--text-2);
+				font: inherit;
+				font-size: 12.5px;
+				padding: 5px 11px;
+				border-radius: 999px;
+				cursor: pointer;
+				transition: background 0.12s ease, color 0.12s ease;
+			}
+			.mode-btn:hover { color: var(--text); }
+			.mode-btn[aria-pressed="true"] {
+				background: rgba(167, 139, 250, 0.18);
+				color: #e9d5ff;
+			}
+			.spacer { flex: 1; }
+			.pose-btn {
+				appearance: none;
+				border: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.04);
+				color: var(--text);
+				font: inherit;
+				font-size: 12.5px;
+				font-weight: 500;
+				padding: 6px 12px;
+				border-radius: 999px;
+				cursor: pointer;
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				transition: background 0.12s ease, border-color 0.12s ease;
+			}
+			.pose-btn:hover {
+				background: rgba(255, 255, 255, 0.08);
+				border-color: var(--border-strong);
+			}
+			.pose-btn-primary {
+				background: rgba(167, 139, 250, 0.22);
+				border-color: rgba(167, 139, 250, 0.45);
+				color: #ede9fe;
+			}
+			.pose-btn-primary:hover { background: rgba(167, 139, 250, 0.32); }
+			.pose-btn-ghost {
+				background: transparent;
+				border-style: dashed;
+				color: var(--text-2);
+				width: 100%;
+				justify-content: center;
+				margin-top: 8px;
+			}
+
+			.file-label {
+				cursor: pointer;
+			}
+			.file-label input[type="file"] {
+				display: none;
+			}
+
+			/* ── Left panel: joint picker + controls ──────────────── */
+			#pose-left {
+				grid-area: left;
+				border-right: 1px solid var(--border);
+				background: var(--panel-solid);
+				overflow-y: auto;
+				display: flex;
+				flex-direction: column;
+			}
+			.pose-section {
+				border-bottom: 1px solid var(--border);
+				padding: 14px;
+			}
+			.pose-section h2 {
+				margin: 0 0 10px 0;
+				font-size: 11px;
+				font-weight: 600;
+				color: var(--text-3);
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
+			.pose-section h3 {
+				margin: 6px 0;
+				font-size: 12px;
+				font-weight: 500;
+				color: var(--text-2);
+			}
+			#pose-selection-label {
+				font-size: 14px;
+				font-weight: 600;
+				color: var(--accent);
+				margin-bottom: 10px;
+			}
+			.pose-hint {
+				color: var(--text-3);
+				font-size: 12px;
+				line-height: 1.5;
+				margin: 4px 0;
+			}
+			.pose-joint-group {
+				font-size: 11px;
+				font-weight: 600;
+				color: var(--text-3);
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				margin-top: 12px;
+				margin-bottom: 6px;
+			}
+			.pose-joint-group:first-child { margin-top: 0; }
+			.pose-joint-row {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 6px;
+			}
+			.pose-joint-btn {
+				appearance: none;
+				border: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.02);
+				color: var(--text-2);
+				font: inherit;
+				font-size: 11.5px;
+				padding: 6px 8px;
+				border-radius: 8px;
+				cursor: pointer;
+				text-align: left;
+				transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+			}
+			.pose-joint-btn:hover {
+				background: rgba(255, 255, 255, 0.06);
+				color: var(--text);
+				border-color: var(--border-strong);
+			}
+
+			.pose-slider-row {
+				display: grid;
+				grid-template-columns: 1fr auto;
+				align-items: center;
+				gap: 6px;
+				margin-bottom: 8px;
+			}
+			.pose-slider-row label {
+				font-size: 12px;
+				color: var(--text-2);
+				grid-column: 1;
+			}
+			.pose-slider-value {
+				grid-column: 2;
+				font-size: 11.5px;
+				color: var(--text-3);
+				font-variant-numeric: tabular-nums;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			}
+			.pose-slider-row input[type="range"] {
+				grid-column: 1 / -1;
+				width: 100%;
+				margin: 0;
+				appearance: none;
+				background: transparent;
+			}
+			.pose-slider-row input[type="range"]::-webkit-slider-runnable-track {
+				height: 4px;
+				background: rgba(255, 255, 255, 0.08);
+				border-radius: 999px;
+			}
+			.pose-slider-row input[type="range"]::-webkit-slider-thumb {
+				appearance: none;
+				width: 14px;
+				height: 14px;
+				margin-top: -5px;
+				background: var(--accent);
+				border-radius: 50%;
+				cursor: pointer;
+				box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.18);
+			}
+			.pose-slider-row input[type="range"]::-moz-range-track {
+				height: 4px;
+				background: rgba(255, 255, 255, 0.08);
+				border-radius: 999px;
+			}
+			.pose-slider-row input[type="range"]::-moz-range-thumb {
+				width: 14px;
+				height: 14px;
+				background: var(--accent);
+				border-radius: 50%;
+				border: none;
+				cursor: pointer;
+			}
+
+			.pose-form-row {
+				display: grid;
+				grid-template-columns: 1fr auto;
+				align-items: center;
+				gap: 8px;
+				margin-bottom: 8px;
+				font-size: 12px;
+				color: var(--text-2);
+			}
+			.pose-form-row select,
+			.pose-form-row input[type="color"],
+			.pose-form-row input[type="range"] {
+				background: rgba(255, 255, 255, 0.04);
+				color: var(--text);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 4px 6px;
+				font: inherit;
+				font-size: 12px;
+			}
+			.pose-form-row input[type="color"] {
+				padding: 0;
+				width: 32px;
+				height: 22px;
+				cursor: pointer;
+			}
+			.pose-form-row input[type="checkbox"] {
+				accent-color: var(--accent);
+			}
+
+			/* ── Stage (3D canvas) ─────────────────────────────── */
+			#pose-stage {
+				grid-area: stage;
+				position: relative;
+				background: #0b0b10;
+				overflow: hidden;
+			}
+			#pose-canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+				cursor: grab;
+				touch-action: none;
+			}
+			#pose-canvas:active { cursor: grabbing; }
+			#pose-status {
+				position: absolute;
+				left: 50%;
+				bottom: 14px;
+				transform: translateX(-50%);
+				background: rgba(7, 7, 11, 0.86);
+				border: 1px solid var(--border);
+				border-radius: 999px;
+				padding: 6px 14px;
+				font-size: 11.5px;
+				color: var(--text-2);
+				pointer-events: none;
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				transition: opacity 0.2s ease;
+			}
+			#pose-status[data-kind="error"] { color: var(--danger); border-color: rgba(248, 113, 113, 0.4); }
+
+			/* ── Right panel: presets + props ──────────────────── */
+			#pose-right {
+				grid-area: right;
+				border-left: 1px solid var(--border);
+				background: var(--panel-solid);
+				overflow-y: auto;
+			}
+			.pose-preset-group {
+				font-size: 11px;
+				font-weight: 600;
+				color: var(--text-3);
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				margin-top: 14px;
+				margin-bottom: 8px;
+			}
+			.pose-preset-group:first-child { margin-top: 0; }
+			.pose-preset-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 6px;
+			}
+			.pose-preset-btn {
+				appearance: none;
+				border: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.02);
+				color: var(--text);
+				font: inherit;
+				font-size: 12px;
+				padding: 8px 10px;
+				border-radius: 8px;
+				cursor: pointer;
+				text-align: left;
+				transition: background 0.12s ease, border-color 0.12s ease;
+			}
+			.pose-preset-btn:hover {
+				background: rgba(125, 211, 252, 0.10);
+				border-color: rgba(125, 211, 252, 0.35);
+			}
+			.pose-prop-btn {
+				appearance: none;
+				border: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.02);
+				color: var(--text-2);
+				font: inherit;
+				font-size: 12px;
+				padding: 6px 10px;
+				border-radius: 8px;
+				cursor: pointer;
+				transition: background 0.12s ease;
+			}
+			.pose-prop-btn:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+			.pose-prop-btn[aria-pressed="true"] {
+				background: rgba(167, 139, 250, 0.18);
+				border-color: rgba(167, 139, 250, 0.45);
+				color: #ede9fe;
+			}
+			.pose-prop-grid {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+			}
+
+			/* ── Responsive ─────────────────────────────────────── */
+			@media (max-width: 1100px) {
+				#pose-app {
+					grid-template-columns: 240px 1fr 260px;
+				}
+			}
+			@media (max-width: 900px) {
+				#pose-app {
+					grid-template-columns: 1fr;
+					grid-template-rows: 52px 1fr auto;
+					grid-template-areas:
+						"top"
+						"stage"
+						"left";
+				}
+				#pose-right { display: none; }
+				#pose-left {
+					border-right: none;
+					border-top: 1px solid var(--border);
+					max-height: 40vh;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="pose-app">
+			<!-- TOP BAR -->
+			<header id="pose-top">
+				<div class="brand">
+					<a href="/" title="three.ws home">three.ws</a>
+					<span>/</span>
+					<span>Pose Studio</span>
+				</div>
+				<span class="sep"></span>
+
+				<div class="mode-group" role="group" aria-label="Drag mode">
+					<button type="button" class="mode-btn" data-mode="bend" aria-pressed="true" title="Bend — drag to flex forwards/back">Bend</button>
+					<button type="button" class="mode-btn" data-mode="tilt" aria-pressed="false" title="Tilt — drag to swing sideways">Tilt</button>
+					<button type="button" class="mode-btn" data-mode="twist" aria-pressed="false" title="Twist — drag to rotate around the limb axis">Twist</button>
+					<button type="button" class="mode-btn" data-mode="move" aria-pressed="false" title="Move — disables drag-to-rotate so you can orbit the camera">Camera</button>
+				</div>
+
+				<span class="spacer"></span>
+
+				<button type="button" id="pose-reset" class="pose-btn" title="Reset the pose to standing">Reset pose</button>
+
+				<label class="pose-btn file-label" title="Load a pose from JSON">
+					Import
+					<input type="file" id="pose-import-json" accept="application/json,.json" />
+				</label>
+				<button type="button" id="pose-export-json" class="pose-btn" title="Save pose as JSON">Export JSON</button>
+				<button type="button" id="pose-screenshot" class="pose-btn pose-btn-primary" title="Download a PNG of the current view">PNG screenshot</button>
+			</header>
+
+			<!-- LEFT PANEL -->
+			<aside id="pose-left">
+				<section class="pose-section">
+					<h2>Selection</h2>
+					<div id="pose-selection-label">Click a body part</div>
+					<div id="pose-controls-host"></div>
+				</section>
+
+				<section class="pose-section">
+					<h2>Joints</h2>
+					<div id="pose-joint-picker"></div>
+				</section>
+
+				<section class="pose-section">
+					<h2>Model</h2>
+					<div class="pose-form-row">
+						<label for="pose-build">Body type</label>
+						<select id="pose-build">
+							<option value="male" selected>Male</option>
+							<option value="female">Female</option>
+						</select>
+					</div>
+					<div class="pose-form-row">
+						<label for="pose-skin">Skin tone</label>
+						<input id="pose-skin" type="color" value="#d4d4d8" />
+					</div>
+					<div class="pose-form-row">
+						<label for="pose-constraints">Biological constraints</label>
+						<input id="pose-constraints" type="checkbox" checked />
+					</div>
+				</section>
+
+				<section class="pose-section">
+					<h2>Camera &amp; environment</h2>
+					<div class="pose-form-row">
+						<label for="pose-bg">Background</label>
+						<input id="pose-bg" type="color" value="#0b0b10" />
+					</div>
+					<div class="pose-form-row">
+						<label for="pose-fov">FOV</label>
+						<input id="pose-fov" type="range" min="20" max="100" step="1" value="45" />
+					</div>
+					<div class="pose-form-row">
+						<label for="pose-grid">Show floor grid</label>
+						<input id="pose-grid" type="checkbox" checked />
+					</div>
+					<h3>Key light</h3>
+					<div class="pose-form-row">
+						<label for="pose-light-azimuth">Direction</label>
+						<input id="pose-light-azimuth" type="range" min="-180" max="180" step="1" value="52" />
+					</div>
+					<div class="pose-form-row">
+						<label for="pose-light-elevation">Height</label>
+						<input id="pose-light-elevation" type="range" min="-10" max="89" step="1" value="55" />
+					</div>
+					<div class="pose-form-row">
+						<label for="pose-light-intensity">Intensity</label>
+						<input id="pose-light-intensity" type="range" min="0" max="3" step="0.05" value="1.4" />
+					</div>
+				</section>
+			</aside>
+
+			<!-- STAGE -->
+			<main id="pose-stage">
+				<canvas id="pose-canvas"></canvas>
+				<div id="pose-status">Loading…</div>
+			</main>
+
+			<!-- RIGHT PANEL -->
+			<aside id="pose-right">
+				<section class="pose-section">
+					<h2>Pose presets</h2>
+					<div id="pose-presets-host"></div>
+				</section>
+				<section class="pose-section">
+					<h2>Floor props</h2>
+					<div class="pose-prop-grid" id="pose-prop-host"></div>
+				</section>
+			</aside>
+		</div>
+
+		<script type="module" src="/src/pose-studio.js"></script>
+	</body>
+</html>

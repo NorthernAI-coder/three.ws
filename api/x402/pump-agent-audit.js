@@ -13,6 +13,7 @@
 // trusting a pump-agent token; otherwise they're flying blind on op risk.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
+import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { sql } from '../_lib/db.js';
 
 const ROUTE = '/api/x402/pump-agent-audit';
@@ -98,11 +99,14 @@ const BAZAAR = {
 			type: 'http',
 			method: 'GET',
 			queryParams: INPUT_EXAMPLE,
-			queryParamsSchema: INPUT_SCHEMA,
 		},
 		output: { type: 'json', example: OUTPUT_EXAMPLE },
 	},
-	schema: OUTPUT_SCHEMA,
+	schema: buildBazaarSchema({
+		method: 'GET',
+		queryParamsSchema: INPUT_SCHEMA,
+		outputSchema: OUTPUT_SCHEMA,
+	}),
 };
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;

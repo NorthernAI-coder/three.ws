@@ -89,7 +89,12 @@ export class Viewer {
 			toneMapping: LinearToneMapping,
 			ambientIntensity: 0.3,
 			ambientColor: '#FFFFFF',
-			directIntensity: 0.8 * Math.PI, // TODO(#116)
+			// The 0.8 * π factor compensates for three.js's historical
+			// `irradiance *= PI` step on punctual lights and keeps direct
+			// lighting visually matched to the upstream three-gltf-viewer
+			// baseline. See donmccurdy/three-gltf-viewer#116 — closed as a
+			// question; removing π would require a shader-side adjustment.
+			directIntensity: 0.8 * Math.PI,
 			directColor: '#FFFFFF',
 			bgColor: '#000000',
 			transparentBg: false,
@@ -1184,7 +1189,8 @@ export class Viewer {
 			lightFolder.add(this.state, 'punctualLights').listen(),
 			lightFolder.add(this.state, 'ambientIntensity', 0, 2),
 			lightFolder.addColor(this.state, 'ambientColor'),
-			lightFolder.add(this.state, 'directIntensity', 0, 4), // TODO(#116)
+			// Slider range tracks the π-scaled default above (see #116 note).
+			lightFolder.add(this.state, 'directIntensity', 0, 4),
 			lightFolder.addColor(this.state, 'directColor'),
 		].forEach((ctrl) => ctrl.onChange(() => this.updateLights()));
 

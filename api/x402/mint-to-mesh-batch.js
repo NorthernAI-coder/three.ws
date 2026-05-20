@@ -13,6 +13,7 @@
 // so the buyer always gets a useful response after paying.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
+import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { readJson } from '../_lib/http.js';
 import { createThemedGLB, colorFromMint } from '../_lib/glb-themer.js';
 import { fetchTokenMeta } from '../_lib/solana-token-meta.js';
@@ -80,11 +81,15 @@ const BAZAAR = {
 			method: 'POST',
 			body: INPUT_EXAMPLE,
 			bodyType: 'json',
-			bodySchema: INPUT_SCHEMA,
 		},
 		output: { type: 'json', example: OUTPUT_EXAMPLE },
 	},
-	schema: OUTPUT_SCHEMA,
+	schema: buildBazaarSchema({
+		method: 'POST',
+		bodyType: 'json',
+		bodySchema: INPUT_SCHEMA,
+		outputSchema: OUTPUT_SCHEMA,
+	}),
 };
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;

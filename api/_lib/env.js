@@ -386,6 +386,16 @@ export const env = {
 		return opt('MEDIUM_AUTHOR_ID');
 	},
 
+	// Override URL for the @sparticuz/chromium-min binary pack. The "-min"
+	// build excludes the chromium tarball from the npm package to keep the
+	// function bundle small; this URL is downloaded once per warm container
+	// and cached in /tmp. Default in render-glb.js tracks the version pinned
+	// in package.json — set this only when upgrading chromium-min and the
+	// upstream Sparticuz release tag drifts.
+	get CHROMIUM_PACK_URL() {
+		return opt('CHROMIUM_PACK_URL');
+	},
+
 	getRpcUrl(chainId) {
 		return (
 			opt(`RPC_URL_${chainId}`) ||

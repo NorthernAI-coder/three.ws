@@ -11,7 +11,6 @@ import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { randomToken, hmacSha256, constantTimeEquals } from '../../_lib/crypto.js';
 import { env } from '../../_lib/env.js';
 import { parse } from '../../_lib/validate.js';
-import { sendWelcomeEmail } from '../../_lib/email.js';
 import { seedDefaultAgent } from '../../_lib/seed-default-agent.js';
 
 const NONCE_TTL_SEC = 5 * 60;
@@ -245,9 +244,8 @@ async function handleVerify(req, res) {
 						chain_id = coalesce(${chainId}, user_wallets.chain_id)
 			`;
 			if (user.inserted) {
-				queueMicrotask(() =>
-					sendWelcomeEmail({ to: placeholderEmail, displayName: shortAddr(claimed) }),
-				);
+				// No welcome email here — placeholderEmail is a synthetic
+				// @wallet.local address and is not deliverable.
 				queueMicrotask(() => seedDefaultAgent(userId));
 			}
 		}

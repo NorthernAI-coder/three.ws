@@ -15,8 +15,9 @@
  * The returned `secretKey` is a Uint8Array(64) — Solana's standard
  * Ed25519 keypair format, compatible with `Keypair.fromSecretKey()`.
  *
- * Algorithm parity with nirholas/solana-wallet-toolkit. WASM backend
- * (~10× faster) is a future optimization — see TODO at bottom.
+ * Each worker drives a WASM grinder (Rust + ed25519-dalek + bs58) built
+ * from `/crates/vanity-grinder`. Run `npm run build:wasm` after any Rust
+ * change to refresh `src/solana/vanity/wasm/`.
  */
 
 import { validatePattern, estimateAttempts, formatTimeEstimate } from './validation.js';
@@ -134,8 +135,3 @@ export function grindVanity(opts = {}) {
 		}
 	});
 }
-
-// TODO(perf): drop in a WASM grinder backed by the toolkit's Rust crate
-// (nirholas/solana-wallet-toolkit/rust). Expected ~10× over JS Keypair.generate().
-// Public API of grindVanity() is intentionally backend-agnostic so the swap is
-// transparent to callers.

@@ -34,6 +34,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 
 const SLOT_SPACING = 1.6; // metres between avatar centres
 const PODIUM_RADIUS = 0.55;
@@ -103,23 +104,28 @@ export async function mountLobby(canvas, avatars, options = {}) {
 	});
 
 	// Lazy-load GLBs in parallel; if one fails, the other slots still render.
+	// Baked avatars use EXT_meshopt_compression, so the loader needs the
+	// matching decoder before it can parse them.
 	const loader = new GLTFLoader();
+	const decoderReady = getMeshoptDecoder().then((dec) => loader.setMeshoptDecoder(dec));
 	slots.forEach((avatar, i) => {
 		const url = avatar?.glbUrl;
 		if (!url) return;
-		loader.load(
-			url,
-			(gltf) => {
-				const root = gltf.scene || gltf.scenes?.[0];
-				if (!root) return;
-				fitToHeight(root, TARGET_HEIGHT);
-				slotMeta[i].group.add(root);
-				slotMeta[i].model = root;
-				slotMeta[i].avatar = avatar;
-			},
-			undefined,
-			(err) => console.warn('[lobby] failed to load', url, err?.message),
-		);
+		decoderReady.then(() => {
+			loader.load(
+				url,
+				(gltf) => {
+					const root = gltf.scene || gltf.scenes?.[0];
+					if (!root) return;
+					fitToHeight(root, TARGET_HEIGHT);
+					slotMeta[i].group.add(root);
+					slotMeta[i].model = root;
+					slotMeta[i].avatar = avatar;
+				},
+				undefined,
+				(err) => console.warn('[lobby] failed to load', url, err?.message),
+			);
+		});
 	});
 
 	// Mouse-parallax: camera drifts a little toward the cursor.

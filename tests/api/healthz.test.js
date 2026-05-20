@@ -1,13 +1,13 @@
-// Smoke test for /api/healthz. Stays free of any DB/RPC dependencies — this
-// endpoint is the canary that uptime probes will hit, so it must stay green
-// even when downstream systems are degraded.
+// Smoke + Resend-probe tests for /api/healthz. The handler dispatches its
+// Resend check against the real API in production; here we stub fetch and
+// assert the dispatch logic. No network calls leave the test.
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => {}, drain: async () => {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
 
-import healthz from '../../api/healthz.js';
+import healthz, { _resetResendCache } from '../../api/healthz.js';
 
 function makeReq({ method = 'GET' } = {}) { return { url: '/api/healthz', method, headers: {} }; }
 function makeRes() {
@@ -20,12 +20,30 @@ function makeRes() {
 	};
 }
 
+async function callHealthz() {
+	const res = makeRes();
+	await healthz(makeReq(), res);
+	return { res, body: JSON.parse(res._body) };
+}
+
+const ORIGINAL_FETCH = globalThis.fetch;
+const ORIGINAL_KEY = process.env.RESEND_API_KEY;
+
+beforeEach(() => {
+	_resetResendCache();
+	delete process.env.RESEND_API_KEY;
+});
+
+afterEach(() => {
+	globalThis.fetch = ORIGINAL_FETCH;
+	if (ORIGINAL_KEY === undefined) delete process.env.RESEND_API_KEY;
+	else process.env.RESEND_API_KEY = ORIGINAL_KEY;
+});
+
 describe('GET /api/healthz', () => {
 	it('returns 200 with status=ok and uptime fields', async () => {
-		const res = makeRes();
-		await healthz(makeReq(), res);
+		const { res, body } = await callHealthz();
 		expect(res.statusCode).toBe(200);
-		const body = JSON.parse(res._body);
 		expect(body.status).toBe('ok');
 		expect(body.service).toBe('3d-agent');
 		expect(typeof body.uptime).toBe('number');
@@ -40,8 +58,83 @@ describe('GET /api/healthz', () => {
 	});
 
 	it('cache-control allows brief edge caching', async () => {
-		const res = makeRes();
-		await healthz(makeReq(), res);
+		const { res } = await callHealthz();
 		expect(res.getHeader('cache-control')).toMatch(/max-age=/);
+	});
+});
+
+describe('GET /api/healthz — resend probe', () => {
+	it('reports "missing" when RESEND_API_KEY is unset', async () => {
+		globalThis.fetch = vi.fn(); // must not be called
+		const { body } = await callHealthz();
+		expect(body.resend).toBe('missing');
+		expect(globalThis.fetch).not.toHaveBeenCalled();
+	});
+
+	it('reports "configured" when Resend returns 200', async () => {
+		process.env.RESEND_API_KEY = 're_test_key';
+		globalThis.fetch = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			text: async () => '',
+		}));
+		const { body } = await callHealthz();
+		expect(body.resend).toBe('configured');
+		expect(globalThis.fetch).toHaveBeenCalledOnce();
+		const [url, opts] = globalThis.fetch.mock.calls[0];
+		expect(url).toBe('https://api.resend.com/domains');
+		expect(opts.headers.Authorization).toBe('Bearer re_test_key');
+	});
+
+	it('reports "configured" on 401 with restricted_api_key body (send-only key)', async () => {
+		process.env.RESEND_API_KEY = 're_restricted_key';
+		globalThis.fetch = vi.fn(async () => ({
+			ok: false,
+			status: 401,
+			text: async () => '{"name":"restricted_api_key","message":"send only"}',
+		}));
+		const { body } = await callHealthz();
+		expect(body.resend).toBe('configured');
+	});
+
+	it('reports "key_invalid" on 401 without restricted_api_key body', async () => {
+		process.env.RESEND_API_KEY = 're_bad_key';
+		globalThis.fetch = vi.fn(async () => ({
+			ok: false,
+			status: 401,
+			text: async () => '{"name":"invalid_api_key","message":"nope"}',
+		}));
+		const { body } = await callHealthz();
+		expect(body.resend).toBe('key_invalid');
+	});
+
+	it('reports "key_invalid" on a 500 from Resend', async () => {
+		process.env.RESEND_API_KEY = 're_test_key';
+		globalThis.fetch = vi.fn(async () => ({
+			ok: false,
+			status: 500,
+			text: async () => 'server error',
+		}));
+		const { body } = await callHealthz();
+		expect(body.resend).toBe('key_invalid');
+	});
+
+	it('reports "key_invalid" when the fetch rejects (timeout / network error)', async () => {
+		process.env.RESEND_API_KEY = 're_test_key';
+		globalThis.fetch = vi.fn(async () => {
+			throw new Error('timeout');
+		});
+		const { body } = await callHealthz();
+		expect(body.resend).toBe('key_invalid');
+	});
+
+	it('caches the probe result for 5 minutes (no second fetch within the window)', async () => {
+		process.env.RESEND_API_KEY = 're_test_key';
+		globalThis.fetch = vi.fn(async () => ({ ok: true, status: 200, text: async () => '' }));
+		const first = await callHealthz();
+		const second = await callHealthz();
+		expect(first.body.resend).toBe('configured');
+		expect(second.body.resend).toBe('configured');
+		expect(globalThis.fetch).toHaveBeenCalledOnce();
 	});
 });

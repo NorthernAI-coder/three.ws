@@ -32,6 +32,19 @@ export function getDecoders() {
 	return _decodersPromise;
 }
 
+// Focused helper for viewers that only load avatars baked through the
+// server-side pipeline. The bake emits EXT_meshopt_compression but never
+// KHR_draco_mesh_compression or KTX2 textures (textureCompress targets WebP),
+// so loading the heavier draco / ktx2 decoders would be wasted bytes.
+let _meshoptDecoderPromise = null;
+export function getMeshoptDecoder() {
+	if (_meshoptDecoderPromise) return _meshoptDecoderPromise;
+	_meshoptDecoderPromise = import('three/addons/libs/meshopt_decoder.module.js').then(
+		(m) => m.MeshoptDecoder,
+	);
+	return _meshoptDecoderPromise;
+}
+
 export function traverseMaterials(object, callback) {
 	const seen = new Set();
 	object.traverse((node) => {

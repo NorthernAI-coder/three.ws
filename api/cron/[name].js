@@ -1134,17 +1134,17 @@ async function handleRunBuyback(req, res) {
 		return error(res, 401, 'unauthorized', 'cron auth required');
 	}
 
-	const fullSwap = process.env.PUMP_BUYBACK_FULL_SWAP === 'true';
 	const relayer = await buybackLoadRelayer();
 
 	const mints = await sql`
-		select id, mint, network from pump_agent_mints limit 200
+		select id, mint, network, full_swap, slippage_bps from pump_agent_mints limit 200
 	`;
 
 	const results = [];
 	for (const m of mints) {
 		const currencyStr = m.network === 'devnet' ? SOLANA_USDC_MINT_DEVNET : SOLANA_USDC_MINT;
 		const currency = solanaPubkey(currencyStr);
+		const fullSwap = m.full_swap === true;
 
 		try {
 			const { agent } = await getPumpAgent({ network: m.network, mint: m.mint });
@@ -1169,14 +1169,22 @@ async function handleRunBuyback(req, res) {
 			const params = {
 				globalBuybackAuthority: payerPk,                  // gated by globalConfig — for skipped-swap form, can be relayer
 				currencyMint: currency,
-				swapProgramToInvoke: PUMP_PROGRAM_ID || payerPk, // sentinel program for skip-swap path
+				swapProgramToInvoke: PUMP_PROGRAM_ID,             // pump bonding-curve program (same for burn-only and full-swap)
 				swapInstructionData: Buffer.alloc(0),             // empty = skip swap, just burn
 				remainingAccounts: [],
 			};
 
 			if (fullSwap) {
-				// TODO(Phase 3.1): build pump-swap inner ix here. Skipping for safety;
-				// keepers should supply this off-chain until tested on devnet.
+				const { buildPumpSwapInnerIx } = await import('../_lib/pump-swap-ix.js');
+				const inner = await buildPumpSwapInnerIx({
+					mint: m.mint,
+					currency,
+					amountIn: buyback,
+					slippageBps: m.slippage_bps ?? 500,
+					cluster: m.network,
+				});
+				params.swapInstructionData = inner.data;
+				params.remainingAccounts = inner.accounts;
 			}
 
 			let ix;
@@ -1184,8 +1192,8 @@ async function handleRunBuyback(req, res) {
 				ix = await offline.buybackTrigger(params);
 			} catch (e) {
 				const [run] = await sql`
-					insert into pump_buyback_runs (mint_id, currency_mint, status, error)
-					values (${m.id}, ${currencyStr}, 'failed', ${'buybackTrigger build failed: ' + e.message})
+					insert into pump_buyback_runs (mint_id, currency_mint, swap_program, status, error)
+					values (${m.id}, ${currencyStr}, ${PUMP_PROGRAM_ID.toBase58()}, 'failed', ${'buybackTrigger build failed: ' + e.message})
 					returning id
 				`;
 				results.push({ mint: m.mint, status: 'failed', error: e.message, run_id: run.id });
@@ -1199,8 +1207,8 @@ async function handleRunBuyback(req, res) {
 					instructions: [ix],
 				});
 				const [run] = await sql`
-					insert into pump_buyback_runs (mint_id, currency_mint, status, burn_amount)
-					values (${m.id}, ${currencyStr}, 'pending', ${buyback.toString()})
+					insert into pump_buyback_runs (mint_id, currency_mint, swap_program, status, burn_amount)
+					values (${m.id}, ${currencyStr}, ${PUMP_PROGRAM_ID.toBase58()}, 'pending', ${buyback.toString()})
 					returning id
 				`;
 				results.push({ mint: m.mint, status: 'pending', run_id: run.id, tx_base64: txBase64 });
@@ -1220,9 +1228,9 @@ async function handleRunBuyback(req, res) {
 
 			const [run] = await sql`
 				insert into pump_buyback_runs
-					(mint_id, currency_mint, tx_signature, status, burn_amount)
+					(mint_id, currency_mint, swap_program, tx_signature, status, burn_amount)
 				values
-					(${m.id}, ${currencyStr}, ${sig}, 'confirmed', ${buyback.toString()})
+					(${m.id}, ${currencyStr}, ${PUMP_PROGRAM_ID.toBase58()}, ${sig}, 'confirmed', ${buyback.toString()})
 				returning id
 			`;
 			results.push({ mint: m.mint, status: 'confirmed', tx_signature: sig, run_id: run.id });

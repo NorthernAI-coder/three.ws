@@ -450,10 +450,62 @@ export function encodePaymentResponseHeader(settleResult) {
 export const RESOURCE_DESCRIPTION =
 	'three.ws MCP — Streamable HTTP transport (MCP 2025-06-18) exposing 3D avatar viewer, glTF/GLB model validation/inspection/optimization, and Solana agent data as JSON-RPC 2.0 tool calls. Pay-per-call in USDC on Base mainnet (eip155:8453) or Solana mainnet. ≤256 tools/call output, ≤32-message JSON-RPC batches. Operated by three.ws.';
 
+// Build the bazaar.schema *meta-schema* — the JSON Schema that validates the
+// `{input, output}` shape of the extension itself, NOT the endpoint's response
+// body. The user's response-body schema gets nested at
+// `schema.properties.output.properties.example`. Matches the reference
+// @x402/extensions/bazaar createDiscoveryExtension output exactly; deviating
+// from it causes agentic.market's parser to reject the endpoint with
+// "v2 discovery extension validation failed" even when all surface-level
+// checks (Transport, Payment Requirements, Bazaar Extension) pass.
+export function buildBazaarSchema({ method, queryParamsSchema, bodyType, bodySchema, outputSchema }) {
+	const upperMethod = String(method || 'GET').toUpperCase();
+	const isBodyMethod = ['POST', 'PUT', 'PATCH'].includes(upperMethod);
+	const inputProperties = {
+		type: { type: 'string', const: 'http' },
+		method: {
+			type: 'string',
+			enum: isBodyMethod ? ['POST', 'PUT', 'PATCH'] : ['GET', 'HEAD', 'DELETE'],
+		},
+	};
+	const inputRequired = ['type', 'method'];
+	if (isBodyMethod) {
+		inputProperties.bodyType = { type: 'string', enum: ['json', 'form-data', 'text'] };
+		inputProperties.body = bodySchema && typeof bodySchema === 'object' ? bodySchema : { type: 'object' };
+		inputRequired.push('bodyType', 'body');
+	} else if (queryParamsSchema && typeof queryParamsSchema === 'object') {
+		inputProperties.queryParams = { type: 'object', ...queryParamsSchema };
+	}
+	const schema = {
+		$schema: 'https://json-schema.org/draft/2020-12/schema',
+		type: 'object',
+		properties: {
+			input: {
+				type: 'object',
+				properties: inputProperties,
+				required: inputRequired,
+				additionalProperties: false,
+			},
+		},
+		required: ['input'],
+	};
+	if (outputSchema && typeof outputSchema === 'object') {
+		schema.properties.output = {
+			type: 'object',
+			properties: {
+				type: { type: 'string' },
+				example: { type: 'object', ...outputSchema },
+			},
+			required: ['type'],
+		};
+	}
+	return schema;
+}
+
 // Bazaar discovery extension — shape required by agentic.market's validator.
 // `info.input.{type,method,body|queryParams|pathParams}` describes how to call
 // the resource; `info.output.{type,example}` shows what comes back; top-level
-// `schema` is the JSON Schema for the response body.
+// `schema` is the meta-schema built by `buildBazaarSchema` above.
 //
 // This is the v2 `declareDiscoveryExtension` shape. The flat
 // `{method,input,inputSchema,output:{example,schema}}` shape v1 used is no
@@ -477,6 +529,56 @@ export function bazaarExtension() {
 			],
 		},
 	};
+	const requestBodySchema = {
+		$schema: 'https://json-schema.org/draft/2020-12/schema',
+		type: 'object',
+		required: ['jsonrpc', 'method'],
+		properties: {
+			jsonrpc: { type: 'string', const: '2.0' },
+			id: { type: ['string', 'number'] },
+			method: {
+				type: 'string',
+				enum: ['initialize', 'tools/list', 'tools/call', 'ping'],
+				description: 'MCP JSON-RPC method.',
+			},
+			params: {
+				type: 'object',
+				description:
+					'For tools/call: { name, arguments }. Tool names include validate_model, inspect_model, optimize_model, search_public_avatars, solana_register, solana_reputation, and others — see tools/list.',
+			},
+		},
+	};
+	const responseBodySchema = {
+		$schema: 'https://json-schema.org/draft/2020-12/schema',
+		type: 'object',
+		properties: {
+			jsonrpc: { type: 'string', const: '2.0' },
+			id: { type: ['string', 'number'] },
+			result: {
+				type: 'object',
+				properties: {
+					content: {
+						type: 'array',
+						items: {
+							type: 'object',
+							required: ['type', 'text'],
+							properties: {
+								type: { type: 'string', enum: ['text'] },
+								text: { type: 'string' },
+							},
+						},
+					},
+				},
+			},
+			error: {
+				type: 'object',
+				properties: {
+					code: { type: 'number' },
+					message: { type: 'string' },
+				},
+			},
+		},
+	};
 	return {
 		discoverable: true,
 		info: {
@@ -485,62 +587,18 @@ export function bazaarExtension() {
 				method: 'POST',
 				body: exampleBody,
 				bodyType: 'json',
-				bodySchema: {
-					$schema: 'https://json-schema.org/draft/2020-12/schema',
-					type: 'object',
-					required: ['jsonrpc', 'method'],
-					properties: {
-						jsonrpc: { type: 'string', const: '2.0' },
-						id: { type: ['string', 'number'] },
-						method: {
-							type: 'string',
-							enum: ['initialize', 'tools/list', 'tools/call', 'ping'],
-							description: 'MCP JSON-RPC method.',
-						},
-						params: {
-							type: 'object',
-							description:
-								'For tools/call: { name, arguments }. Tool names include validate_model, inspect_model, optimize_model, search_public_avatars, solana_register, solana_reputation, and others — see tools/list.',
-						},
-					},
-				},
 			},
 			output: {
 				type: 'json',
 				example: exampleResponse,
 			},
 		},
-		schema: {
-			$schema: 'https://json-schema.org/draft/2020-12/schema',
-			type: 'object',
-			properties: {
-				jsonrpc: { type: 'string', const: '2.0' },
-				id: { type: ['string', 'number'] },
-				result: {
-					type: 'object',
-					properties: {
-						content: {
-							type: 'array',
-							items: {
-								type: 'object',
-								required: ['type', 'text'],
-								properties: {
-									type: { type: 'string', enum: ['text'] },
-									text: { type: 'string' },
-								},
-							},
-						},
-					},
-				},
-				error: {
-					type: 'object',
-					properties: {
-						code: { type: 'number' },
-						message: { type: 'string' },
-					},
-				},
-			},
-		},
+		schema: buildBazaarSchema({
+			method: 'POST',
+			bodyType: 'json',
+			bodySchema: requestBodySchema,
+			outputSchema: responseBodySchema,
+		}),
 	};
 }
 

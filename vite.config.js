@@ -143,6 +143,7 @@ const appConfig = {
 				'avatar-page': resolve(__dirname, 'pages/avatar-page.html'),
 				'widget-studio': resolve(__dirname, 'pages/widget-studio.html'),
 				walk: resolve(__dirname, 'pages/walk.html'),
+				pose: resolve(__dirname, 'pages/pose.html'),
 				studio: resolve(__dirname, 'public/studio/index.html'),
 				reputation: resolve(__dirname, 'public/reputation/index.html'),
 				hydrate: resolve(__dirname, 'public/hydrate/index.html'),
@@ -241,6 +242,8 @@ const appConfig = {
 					'/avatar-artifact/': resolve(root, 'pages/avatar-artifact.html'),
 					'/walk': resolve(root, 'pages/walk.html'),
 					'/walk/': resolve(root, 'pages/walk.html'),
+					'/pose': resolve(root, 'pages/pose.html'),
+					'/pose/': resolve(root, 'pages/pose.html'),
 					'/walkaround': resolve(root, 'public/demos/walkaround.html'),
 					'/walkaround/': resolve(root, 'public/demos/walkaround.html'),
 					'/brain': resolve(root, 'public/demos/brain.html'),
@@ -269,6 +272,8 @@ const appConfig = {
 					'/demos/': resolve(root, 'public/demos/index.html'),
 					'/demo/avatar-os': resolve(root, 'public/demo/avatar-os/index.html'),
 					'/demo/avatar-os/': resolve(root, 'public/demo/avatar-os/index.html'),
+					'/demo/coin': resolve(root, 'public/demo/coin/index.html'),
+					'/demo/coin/': resolve(root, 'public/demo/coin/index.html'),
 					'/': resolve(root, 'pages/home.html'),
 					'/home': resolve(root, 'pages/home.html'),
 					'/features': resolve(root, 'pages/features.html'),
@@ -294,6 +299,7 @@ const appConfig = {
 					'/gallery',
 					'/docs',
 					'/demo/avatar-os',
+					'/demo/coin',
 				]);
 				server.middlewares.use(async (req, res, next) => {
 					const url = req.url || '/';
@@ -315,6 +321,13 @@ const appConfig = {
 						res.setHeader('Location', '/discover/');
 						return res.end();
 					}
+					// /coin is the legacy URL for /demo/coin (the lottery+reflection
+					// demo). Kept as a 301 so old links and shares keep working.
+					if (path === '/coin' || path === '/coin/') {
+						res.statusCode = 301;
+						res.setHeader('Location', '/demo/coin');
+						return res.end();
+					}
 					// Chat sub-app is proxied to its own Vite dev server at :5174
 					// which serves under /chat/. Redirect /chat → /chat/ so the
 					// proxy can forward the trailing-slash form upstream.
@@ -333,6 +346,11 @@ const appConfig = {
 					else if (!filePath && /^\/demos\/[a-z0-9-]+(\.html)?\/?$/.test(path)) {
 						const slug = path.replace(/^\/demos\//, '').replace(/\.html$/, '').replace(/\/$/, '');
 						filePath = resolve(root, `public/demos/${slug}.html`);
+					}
+					// /demo/coin/<base58 mint> → demo/coin index hydrates from the
+					// mint address in the URL path. Mirrors vercel.json.
+					else if (!filePath && /^\/demo\/coin\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path)) {
+						filePath = resolve(root, 'public/demo/coin/index.html');
 					}
 					// /tutorials/<slug>  → dedicated tutorial viewer template
 					else if (!filePath && /^\/tutorials\/[a-z0-9-]+\/?$/.test(path))

@@ -11,7 +11,6 @@ import { env } from '../../_lib/env.js';
 import { parse } from '../../_lib/validate.js';
 import { randomToken, hmacSha256, constantTimeEquals } from '../../_lib/crypto.js';
 import { parseSiwsMessage, verifySiwsSignature } from '../../_lib/siws.js';
-import { sendWelcomeEmail } from '../../_lib/email.js';
 import { seedDefaultAgent } from '../../_lib/seed-default-agent.js';
 
 const NONCE_TTL_SEC = 5 * 60;
@@ -224,9 +223,8 @@ async function handleVerify(req, res) {
 					set last_used_at = now()
 			`;
 			if (user.inserted) {
-				queueMicrotask(() =>
-					sendWelcomeEmail({ to: placeholderEmail, displayName: shortAddr(addr) }),
-				);
+				// No welcome email here — placeholderEmail is a synthetic
+				// @wallet.local address and is not deliverable.
 				queueMicrotask(() => seedDefaultAgent(userId));
 			}
 		}

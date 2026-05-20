@@ -245,4 +245,56 @@ describe('POST /api/auth/register', () => {
 		expect(status).toBe(429);
 		expect(body.error).toBe('rate_limited');
 	});
+
+	it('retries when the first generated referral_code collides with the unique index', async () => {
+		// SELECT existing-user check → empty
+		sqlState.queue.push([]);
+		// First INSERT collides with the users_referral_code unique index.
+		const uniqueViolation = Object.assign(new Error(
+			'duplicate key value violates unique constraint "users_referral_code_key"',
+		), { code: '23505' });
+		sqlState.queue.push(uniqueViolation);
+		// Second INSERT succeeds.
+		sqlState.queue.push([{
+			id: 'user-new',
+			display_name: 'Carol',
+			plan: 'free',
+			created_at: '2024-01-01',
+			referral_code: 'SECONDOK',
+		}]);
+
+		const { status, body } = await invoke({
+			action: 'register',
+			body: { email: 'carol@example.com', password: 'supersecret123', display_name: 'Carol' },
+		});
+
+		expect(status).toBe(201);
+		expect(body.user.id).toBe('user-new');
+		expect(body.user.referral_code).toBe('SECONDOK');
+
+		// Two INSERTs attempted, each with a distinct referral_code (last value
+		// in the bound-parameters array). The CSPRNG should not repeat — and if
+		// it did, the handler would have surfaced the unique violation instead.
+		const inserts = sqlState.calls.filter((c) => /insert into users/.test(c.query));
+		expect(inserts).toHaveLength(2);
+		const firstCode = inserts[0].values.at(-1);
+		const secondCode = inserts[1].values.at(-1);
+		expect(typeof firstCode).toBe('string');
+		expect(firstCode).not.toBe(secondCode);
+	});
+
+	it('propagates non-collision insert errors instead of looping', async () => {
+		sqlState.queue.push([]); // no existing user
+		const fatal = Object.assign(new Error('connection terminated'), { code: '57P01' });
+		sqlState.queue.push(fatal);
+
+		const { status, body } = await invoke({
+			action: 'register',
+			body: { email: 'dora@example.com', password: 'supersecret123', display_name: 'Dora' },
+		});
+
+		expect(status).toBe(500);
+		const inserts = sqlState.calls.filter((c) => /insert into users/.test(c.query));
+		expect(inserts).toHaveLength(1);
+	});
 });

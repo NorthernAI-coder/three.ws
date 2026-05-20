@@ -3,22 +3,44 @@
  * ------------------------
  * GET /api/avatar/:id/og
  *
- * Strategy: prefer a real PNG (avatar's R2-hosted thumbnail) when one exists,
- * fall back to a rich SVG card otherwise. Slack/X/Discord all accept
- * image/svg+xml for OG images, so the fallback never reaches a renderer.
+ * Strategy, in order:
+ *   1. If the avatar has a cached thumbnail in R2 (set by the customizer-save
+ *      snapshot flow or by a previous server render), 302 to its public URL.
+ *   2. Otherwise, if the avatar's GLB is publicly reachable, render a PNG
+ *      preview via headless chromium, cache it in R2, write back the
+ *      thumbnail_key, and stream the PNG response.
+ *   3. Demo avatars (avatar_demo_*) and not-found IDs get the SVG card.
+ *   4. Any failure of the renderer (timeout, too-large GLB, private avatar,
+ *      unreachable model URL) falls through to the site OG logo. CLAUDE.md
+ *      forbids placeholder data — the logo is a real, branded image, not a
+ *      synthetic "no preview" SVG.
  *
- * Demo avatars (avatar_demo_*) are seeded fixtures and have no thumbnails —
- * they always get the SVG card, which still includes the avatar name,
- * description, attribution, and a 3D-themed gradient backdrop.
+ * The renderer is amortized: only the first crawl of an avatar pays the
+ * chromium cost. Every subsequent crawl hits step (1) and 302s out.
  */
 
+import { sql } from './_lib/db.js';
 import { getAvatar } from './_lib/avatars.js';
 import { DEMO_AVATARS } from './_lib/demo-avatars.js';
 import { cors, wrap } from './_lib/http.js';
+import { publicUrl, putObject } from './_lib/r2.js';
+import { renderGlbToPng } from './_lib/render-glb.js';
 
 const CACHE_CARD_OK = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
 const CACHE_CARD_404 = 'public, max-age=60';
 const CACHE_REDIR = 'public, max-age=3600';
+const CACHE_RENDERED = 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800';
+const CACHE_FALLBACK = 'public, max-age=300';
+
+// Anything bigger than this would dominate the 15s render budget — and
+// Vercel's 30s function ceiling means a single oversized GLB risks killing
+// the request. Falls back to the site logo instead.
+const MAX_GLB_BYTES = 10 * 1024 * 1024;
+
+// Per-avatar lock so two simultaneous crawls don't both spin up chromium.
+// In-memory only — multiple lambda containers may each render once, but
+// they settle to the same cached R2 object via the DB write-back.
+const _renderLocks = new Map();
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -58,6 +80,8 @@ export default wrap(async (req, res) => {
 		});
 	}
 
+	// Cached thumbnail — either client-uploaded (customizer save) or a
+	// previous server render. Either way it's a real R2 object; redirect.
 	if (avatar.thumbnail_url) {
 		res.statusCode = 302;
 		res.setHeader('location', avatar.thumbnail_url);
@@ -66,18 +90,107 @@ export default wrap(async (req, res) => {
 		return;
 	}
 
-	return sendCardSvg(res, 200, CACHE_CARD_OK, {
-		name: avatar.name || 'Avatar',
-		description: avatar.description || 'A 3D avatar on three.ws',
-		tags: avatar.tags || [],
-	});
+	// Private avatars have no public model_url, so headless chromium can't
+	// fetch the GLB. Serve the SVG card with whatever name/desc/tags exist.
+	if (!avatar.model_url) {
+		return sendCardSvg(res, 200, CACHE_CARD_OK, {
+			name: avatar.name || 'Avatar',
+			description: avatar.description || 'A 3D avatar on three.ws',
+			tags: avatar.tags || [],
+		});
+	}
+
+	// Server render path. Anything that goes wrong falls back to the site
+	// logo — a 200/302 with the brand logo is strictly better than a 500
+	// to a Twitter/Slack/Discord crawler, which would cache the failure.
+	try {
+		const png = await renderAndCache({ avatar });
+		res.statusCode = 200;
+		res.setHeader('content-type', 'image/png');
+		res.setHeader('cache-control', CACHE_RENDERED);
+		res.end(png);
+		return;
+	} catch (err) {
+		console.warn('[avatar-og] render fallback', { avatarId, err: err?.message });
+		return sendFallbackLogo(req, res);
+	}
 });
+
+// Render + upload + DB write-back, sharing in-flight work across concurrent
+// crawls. The returned PNG buffer is what every caller receives.
+async function renderAndCache({ avatar }) {
+	const existing = _renderLocks.get(avatar.id);
+	if (existing) return existing;
+
+	const promise = (async () => {
+		// Size precheck. A 50 MB GLB would blow the render budget and risk
+		// OOM; kick those out to the fallback before launching chromium.
+		const head = await fetch(avatar.model_url, { method: 'HEAD' }).catch(() => null);
+		const contentLength = Number(head?.headers?.get('content-length') || 0);
+		if (head?.ok && contentLength > MAX_GLB_BYTES) {
+			throw Object.assign(new Error(`glb too large: ${contentLength} bytes`), {
+				code: 'glb_too_large',
+			});
+		}
+		// Don't blow up on a missing content-length — some R2 deployments
+		// omit it; we lose the precheck and rely on the render timeout.
+
+		const png = await renderGlbToPng({
+			glbUrl: avatar.model_url,
+			width: 1200,
+			height: 630,
+			background: '#0a0a0a',
+		});
+
+		const ogKey = ogKeyFor(avatar);
+		await putObject({
+			key: ogKey,
+			body: png,
+			contentType: 'image/png',
+			metadata: { source: 'server-render', avatar_id: avatar.id },
+		});
+		// Single UPDATE — bypasses ownership/visibility checks in
+		// updateAvatar() because this is an internal cache write, not a
+		// user-initiated edit. Guarded by `thumbnail_key is null` so a
+		// concurrent customizer-save snapshot isn't clobbered.
+		await sql`
+			update avatars set thumbnail_key = ${ogKey}, updated_at = now()
+			where id = ${avatar.id} and deleted_at is null and thumbnail_key is null
+		`;
+		return png;
+	})();
+
+	_renderLocks.set(avatar.id, promise);
+	try {
+		return await promise;
+	} finally {
+		_renderLocks.delete(avatar.id);
+	}
+}
+
+// OG cache key: lives alongside the GLB in the user's namespace so it
+// shares lifetime + deletion semantics. _og.png distinguishes from
+// _thumb.jpg (the client-uploaded customizer snapshot).
+function ogKeyFor(avatar) {
+	return avatar.storage_key.replace(/\.glb$/i, '') + '_og.png';
+}
 
 // Vercel routes /api/avatar/:id/og → here. Read the id from the URL path
 // when the rewrite leaves it as a path segment instead of a query param.
 function extractIdFromPath(pathname) {
 	const m = pathname.match(/\/api\/avatar(?:s)?\/([^/]+)\/og$/);
 	return m ? m[1] : null;
+}
+
+function sendFallbackLogo(req, res) {
+	// 302 to the static brand logo. The crawler then fetches
+	// /assets/og-image.png directly from Vercel's edge.
+	const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+	const host = req.headers['x-forwarded-host'] || req.headers.host || 'three.ws';
+	res.statusCode = 302;
+	res.setHeader('location', `${proto}://${host}/assets/og-image.png`);
+	res.setHeader('cache-control', CACHE_FALLBACK);
+	res.end();
 }
 
 function sendCardSvg(res, status, cacheControl, payload) {
@@ -140,3 +253,6 @@ function escapeXml(s) {
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&apos;');
 }
+
+// Test seam — let suites assert against the in-memory render lock map.
+export const __testInternals = { renderAndCache, ogKeyFor, _renderLocks };
