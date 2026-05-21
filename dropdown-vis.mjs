@@ -5,18 +5,26 @@ await page.goto('http://localhost:3000/marketplace', { waitUntil: 'networkidle' 
 await page.waitForSelector('.home-nav .nav-root', { timeout: 5000 });
 await page.waitForTimeout(700);
 
-// Hover then click the Build trigger
-const build = await page.locator('.home-nav .nav-trigger:has-text("Build")').first();
-await build.click();
-await page.waitForTimeout(400);
-await page.screenshot({ path: '/tmp/dropdown-build.png', clip: { x: 0, y: 0, width: 800, height: 280 } });
-
-// Close, then open Labs
-await page.mouse.click(5, 700);
-await page.waitForTimeout(200);
-const labs = await page.locator('.home-nav .nav-trigger:has-text("Labs")').first();
-await labs.click();
-await page.waitForTimeout(400);
-await page.screenshot({ path: '/tmp/dropdown-labs.png', clip: { x: 500, y: 0, width: 940, height: 700 } });
-
+const data = await page.evaluate(() => {
+  const h1 = document.querySelector('.site-header-brand');
+  const header = document.querySelector('.site-header');
+  const rect = (el) => el ? el.getBoundingClientRect() : null;
+  const cs = (el) => el ? getComputedStyle(el) : null;
+  const h1cs = cs(h1);
+  return {
+    h1: rect(h1),
+    h1cs: {
+      lineHeight: h1cs.lineHeight,
+      height: h1cs.height,
+      fontSize: h1cs.fontSize,
+      display: h1cs.display,
+      alignSelf: h1cs.alignSelf,
+      verticalAlign: h1cs.verticalAlign,
+      margin: h1cs.margin,
+    },
+    header: rect(header),
+    headerScroll: { scrollHeight: header.scrollHeight, clientHeight: header.clientHeight, scrollTop: header.scrollTop },
+  };
+});
+console.log(JSON.stringify(data, null, 2));
 await browser.close();
