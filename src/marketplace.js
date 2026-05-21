@@ -616,17 +616,54 @@ function renderHero() {
 	dots.innerHTML = state.featured
 		.map(
 			(_, i) =>
-				`<button class="market-hero-dot${i === state.heroIndex ? ' active' : ''}" data-dot="${i}" aria-label="Slide ${i + 1}"></button>`,
+				`<button class="market-hero-dot${i === state.heroIndex ? ' active' : ''}" data-dot="${i}" aria-label="Slide ${i + 1} of ${state.featured.length}"${i === state.heroIndex ? ' aria-current="true"' : ''}></button>`,
 		)
 		.join('');
-	dots.querySelectorAll('[data-dot]').forEach((btn) => {
+	const dotButtons = dots.querySelectorAll('[data-dot]');
+	dotButtons.forEach((btn) => {
 		btn.addEventListener('click', () => {
 			state.heroIndex = Number(btn.dataset.dot);
 			renderHero();
 			startHeroAutoplay();
 		});
+		// ArrowLeft/ArrowRight cycle focus + slide. Home/End jump to first/last.
+		btn.addEventListener('keydown', (e) => {
+			const last = state.featured.length - 1;
+			let next = null;
+			if (e.key === 'ArrowRight') next = Math.min(state.heroIndex + 1, last);
+			else if (e.key === 'ArrowLeft') next = Math.max(state.heroIndex - 1, 0);
+			else if (e.key === 'Home') next = 0;
+			else if (e.key === 'End') next = last;
+			if (next === null || next === state.heroIndex) return;
+			e.preventDefault();
+			state.heroIndex = next;
+			renderHero();
+			dots.querySelector(`[data-dot="${next}"]`)?.focus();
+			startHeroAutoplay();
+		});
 	});
+	bindHeroInteractions();
 	updateHeroMeta();
+}
+
+let heroInteractionsBound = false;
+function bindHeroInteractions() {
+	if (heroInteractionsBound) return;
+	const hero = $('market-hero');
+	if (!hero) return;
+	heroInteractionsBound = true;
+	// Pause autoplay when the user is engaging with the hero (mouse over,
+	// or keyboard focus inside) — resume on leave / blur.
+	const pause = () => stopHeroAutoplay();
+	const resume = () => {
+		if (state.featured.length >= 2 && !document.hidden) startHeroAutoplay();
+	};
+	hero.addEventListener('mouseenter', pause);
+	hero.addEventListener('mouseleave', resume);
+	hero.addEventListener('focusin', pause);
+	hero.addEventListener('focusout', (e) => {
+		if (!hero.contains(e.relatedTarget)) resume();
+	});
 }
 
 function updateHeroMeta() {
@@ -697,6 +734,11 @@ function updateNavCounts() {
 function startHeroAutoplay() {
 	if (state.heroTimer) clearInterval(state.heroTimer);
 	if (state.featured.length < 2) return;
+	// Honor the OS-level reduced-motion preference — users on that setting
+	// shouldn't see content silently rotating under them.
+	if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		return;
+	}
 	state.heroTimer = setInterval(() => {
 		state.heroIndex = (state.heroIndex + 1) % state.featured.length;
 		// Cheap update — just toggle active classes + meta, don't re-render model-viewers.
@@ -704,7 +746,10 @@ function startHeroAutoplay() {
 			el.classList.toggle('active', Number(el.dataset.slot) === state.heroIndex);
 		});
 		document.querySelectorAll('.market-hero-dot').forEach((el) => {
-			el.classList.toggle('active', Number(el.dataset.dot) === state.heroIndex);
+			const isActive = Number(el.dataset.dot) === state.heroIndex;
+			el.classList.toggle('active', isActive);
+			if (isActive) el.setAttribute('aria-current', 'true');
+			else el.removeAttribute('aria-current');
 		});
 		updateHeroMeta();
 	}, 6500);
@@ -812,22 +857,14 @@ function renderGrid() {
 	const totalCards = agentItems.length + avatars.length + onchain.length;
 
 	if (!totalCards) {
-		let msg;
 		const stillLoading =
 			(!state.publicAvatarsLoaded && state.filter !== 'agents' && state.filter !== 'onchain') ||
 			(!state.onchainLoaded && state.filter === 'onchain');
 		if (stillLoading) {
-			msg = renderSkeletons(8);
-		} else if (state.filter === 'agents') {
-			msg = '<div class="market-empty">No agents published yet. Be the first.</div>';
-		} else if (state.filter === 'avatars') {
-			msg = '<div class="market-empty">No public avatars match your search.</div>';
-		} else if (state.filter === 'onchain') {
-			msg = '<div class="market-empty">No onchain agents match your search.</div>';
+			els.grid.innerHTML = renderSkeletons(8);
 		} else {
-			msg = '<div class="market-empty">Nothing here yet — try a different search.</div>';
+			els.grid.innerHTML = renderEmptyState();
 		}
-		els.grid.innerHTML = msg;
 		els.loadMore.hidden = true;
 		return;
 	}

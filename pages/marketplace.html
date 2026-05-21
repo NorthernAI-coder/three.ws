@@ -28,11 +28,13 @@
 				display: flex;
 				align-items: center;
 				gap: 10px;
-				padding: 10px 24px;
-				background: linear-gradient(90deg, rgba(253, 224, 71, 0.08), rgba(253, 224, 71, 0.02));
-				border-bottom: 1px solid rgba(253, 224, 71, 0.2);
+				margin: 12px 24px 0;
+				padding: 8px 14px;
+				background: linear-gradient(90deg, rgba(253, 224, 71, 0.07), rgba(253, 224, 71, 0.02));
+				border: 1px solid rgba(253, 224, 71, 0.18);
+				border-radius: 10px;
 				color: #fde68a;
-				font-size: 13px;
+				font-size: 12px;
 				line-height: 1.4;
 			}
 			.market-wip-banner .market-wip-icon {
@@ -249,6 +251,20 @@
 				text-transform: uppercase;
 				color: #7dd3fc;
 				font-weight: 600;
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.market-hero-beta-pill {
+				font-family: 'Space Grotesk', sans-serif;
+				font-size: 9px;
+				font-weight: 700;
+				letter-spacing: 0.18em;
+				padding: 2px 7px;
+				border-radius: 999px;
+				background: rgba(253, 224, 71, 0.12);
+				color: #fde047;
+				border: 1px solid rgba(253, 224, 71, 0.25);
 			}
 			.market-hero-title {
 				font-family: 'Space Grotesk', sans-serif;
@@ -333,6 +349,10 @@
 			}
 			.market-hero-dots button.active {
 				background: #fafafa;
+			}
+			.market-hero-dots button:focus-visible {
+				outline: 2px solid #7dd3fc;
+				outline-offset: 3px;
 			}
 			@media (max-width: 880px) {
 				.market-hero {
@@ -1133,15 +1153,6 @@
 		</aside>
 
 		<main class="market-main" id="market-main">
-			<div class="market-wip-banner" id="market-wip-banner" role="status" hidden>
-				<span class="market-wip-icon" aria-hidden="true">!</span>
-				<div class="market-wip-text">
-					<strong>Marketplace is in beta.</strong>
-					Avatars, chat, and forking are stable. <em>Paid skills, on-chain agent listings, and submission moderation are still landing</em> — expect rough edges.
-				</div>
-				<button class="market-wip-dismiss" id="market-wip-dismiss" aria-label="Dismiss">×</button>
-			</div>
-
 			<!-- Discovery view -->
 			<section class="market-discovery" id="market-discovery">
 				<!-- Weekly curated theme strip (loads from /api/marketplace/theme) -->
@@ -1155,7 +1166,10 @@
 				<section class="market-hero" id="market-hero" hidden aria-label="Featured 3D avatars">
 					<div class="market-hero-stage" id="market-hero-stage"></div>
 					<div class="market-hero-meta">
-						<div class="market-hero-eyebrow">Featured · Community Avatars</div>
+						<div class="market-hero-eyebrow">
+							Featured · Community Avatars
+							<span class="market-hero-beta-pill" aria-label="Marketplace is in beta">BETA</span>
+						</div>
 						<h1 class="market-hero-title" id="market-hero-title">—</h1>
 						<p class="market-hero-desc" id="market-hero-desc">—</p>
 						<div class="market-hero-stats" id="market-hero-stats"></div>
@@ -1195,6 +1209,15 @@
 					</select>
 					<a class="market-submit-avatar-btn" href="/create" id="market-submit-avatar-btn">+ Create Avatar</a>
 				</header>
+
+				<div class="market-wip-banner" id="market-wip-banner" role="status" hidden>
+					<span class="market-wip-icon" aria-hidden="true">!</span>
+					<div class="market-wip-text">
+						<strong>Marketplace is in beta.</strong>
+						Avatars, chat, and forking are stable. <em>Paid skills, on-chain agent listings, and submission moderation are still landing</em> — expect rough edges.
+					</div>
+					<button class="market-wip-dismiss" id="market-wip-dismiss" aria-label="Dismiss">×</button>
+				</div>
 
 				<div class="market-cat-chips" id="market-cat-chips" role="navigation" aria-label="Categories"></div>
 

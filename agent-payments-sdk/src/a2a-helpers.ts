@@ -179,7 +179,14 @@ export async function createPrivateKeySigner(privateKey: string): Promise<A2ASig
           ],
         },
         primaryType: "TransferWithAuthorization",
-        message,
+        message: {
+          from: message.from,
+          to: message.to,
+          value: BigInt(message.value),
+          validAfter: BigInt(message.validAfter),
+          validBefore: BigInt(message.validBefore),
+          nonce: message.nonce,
+        },
       }),
   };
 }
