@@ -38,6 +38,7 @@ import { AnimationManager } from './animation-manager.js';
 import { ClubCamera } from './club-camera.js';
 import { ClubAudio, styleAudioFor, TRACK_LABELS } from './club-audio.js';
 import { playSequence, ticketSteps } from './club-sequence.js';
+import { detectProfile, PROFILES, createFrameWatchdog } from './club-perf.js';
 
 const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
@@ -270,12 +271,21 @@ function subscribeTipStream() {
 	};
 }
 
+// ── Perf profile (boot-time pick from real capability signals) ───────────
+// One profile picked once, then applied to the renderer, lights, and any
+// future scene additions (mirror ball, volumetric cones, crowd, postFX).
+// Mid-session, the animate-loop watchdog can swap us down one tier if a
+// phone starts throttling; profile is exposed on window so prompts 01–04
+// can read it without an explicit import cycle.
+let activeProfile = PROFILES[detectProfile()];
+if (typeof window !== 'undefined') window.__clubProfile = activeProfile;
+
 // ── Renderer / scene ──────────────────────────────────────────────────────
-const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const renderer = new WebGLRenderer({ canvas, antialias: activeProfile.tier !== 'low', alpha: false });
+renderer.setPixelRatio(activeProfile.pixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.outputColorSpace = SRGBColorSpace;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = activeProfile.shadows;
 
 const scene = new Scene();
 scene.background = new Color(0x07050b);
@@ -387,8 +397,10 @@ class PoleStation {
 		const spot = new SpotLight(POLE_COLORS[idx % POLE_COLORS.length], 0, 12, Math.PI / 7, 0.4, 1.6);
 		spot.position.set(layout.x, 6.0, layout.z + 0.5);
 		spot.target.position.set(layout.x, 0.0, layout.z);
-		spot.castShadow = true;
-		spot.shadow.mapSize.set(512, 512);
+		spot.castShadow = activeProfile.shadows;
+		if (activeProfile.shadowMapSize > 0) {
+			spot.shadow.mapSize.set(activeProfile.shadowMapSize, activeProfile.shadowMapSize);
+		}
 		spot.shadow.bias = -0.0008;
 		scene.add(spot);
 		scene.add(spot.target);
@@ -678,9 +690,10 @@ const stations = POLES.map((layout, i) => new PoleStation(i, layout));
 const disco = new Group();
 scene.add(disco);
 const discoColors = [0xff2bd6, 0x4ad6ff, 0xff8a3b, 0x6c4dff];
-for (let i = 0; i < 4; i++) {
-	const p = new PointLight(discoColors[i], 0.6, 12, 1.4);
-	const angle = (i / 4) * Math.PI * 2;
+const discoCount = Math.max(1, Math.min(activeProfile.discoLights, discoColors.length));
+for (let i = 0; i < discoCount; i++) {
+	const p = new PointLight(discoColors[i % discoColors.length], 0.6, 12, 1.4);
+	const angle = (i / discoCount) * Math.PI * 2;
 	p.position.set(Math.sin(angle) * 5.5, 4.6, Math.cos(angle) * 5.5 - 1);
 	disco.add(p);
 }
