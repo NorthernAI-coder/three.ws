@@ -3,37 +3,16 @@
 /* ── Site header: refined glass bar with a soft gradient hairline ───── */
 
 .site-header {
-	position: relative;
 	background:
 		radial-gradient(120% 180% at 50% -40%, rgba(139, 92, 246, 0.18), transparent 55%),
 		linear-gradient(180deg, rgba(10, 8, 18, 0.78) 0%, rgba(6, 6, 12, 0.82) 100%);
 	backdrop-filter: blur(22px) saturate(160%);
 	-webkit-backdrop-filter: blur(22px) saturate(160%);
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	border-bottom: 1px solid rgba(167, 139, 250, 0.18);
 	box-shadow:
 		0 1px 0 rgba(255, 255, 255, 0.04) inset,
-		0 8px 28px -16px rgba(0, 0, 0, 0.7);
-}
-
-/* Soft gradient hairline that lives on top of the header's border —
-   adds a tiny bit of color without screaming. */
-.site-header::after {
-	content: '';
-	position: absolute;
-	left: 0;
-	right: 0;
-	bottom: -1px;
-	height: 1px;
-	background: linear-gradient(
-		90deg,
-		transparent 0%,
-		rgba(167, 139, 250, 0.45) 30%,
-		rgba(99, 102, 241, 0.4) 55%,
-		rgba(34, 211, 238, 0.35) 78%,
-		transparent 100%
-	);
-	pointer-events: none;
-	opacity: 0.55;
+		0 8px 28px -16px rgba(0, 0, 0, 0.7),
+		0 0 12px -2px rgba(139, 92, 246, 0.15);
 }
 
 /* ── Brand ──────────────────────────────────────────────────────────── */
@@ -46,14 +25,8 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 0.6rem;
-	padding: 4px 8px 4px 4px;
 	border-radius: 10px;
-	transition: background 0.18s ease, transform 0.18s ease;
-}
-
-.site-header-brand > a:hover {
-	background: rgba(255, 255, 255, 0.035);
-	transform: translateY(-0.5px);
+	transition: filter 0.2s ease;
 }
 
 .site-header-brand .wordmark-logo {

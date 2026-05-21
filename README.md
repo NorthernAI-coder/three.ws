@@ -405,7 +405,7 @@ The backend is stateless serverless functions. All persistent state lives in Pos
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20+
+- Node.js 24+ (the project pins `"engines.node": "24.x"` in `package.json`; earlier majors are not tested)
 - npm 10+
 - A Neon Postgres database
 - A Cloudflare R2 bucket
@@ -1573,14 +1573,18 @@ Access tokens are short-lived JWTs (1 hour). Refresh tokens are opaque strings s
 
 ## MCP Server
 
-`api/mcp.js` (759 lines) implements the [Model Context Protocol](https://modelcontextprotocol.io) 2025-06-18 specification over HTTP with JSON-RPC 2.0. It enables external AI systems (including Claude Desktop, other agents, or custom integrations) to drive avatars programmatically.
+[`api/mcp.js`](api/mcp.js) is a thin HTTP entrypoint (POST / GET-SSE / DELETE) that implements the [Model Context Protocol](https://modelcontextprotocol.io) 2025-06-18 specification over JSON-RPC 2.0. The protocol logic is split across [`api/_mcp/`](api/_mcp/) — `auth.js` (Bearer/OAuth + x402 paywall), `dispatch.js` (JSON-RPC routing), `catalog.js` (dynamic tool catalog), `payments.js` (x402 paid-tool settlement), `render.js`, and `embed-policy.js`. Tools are registered per category under [`api/_mcp/tools/`](api/_mcp/tools/) (`avatars.js`, `models.js`, `solana.js`, `pumpfun.js`). External AI systems (including Claude Desktop, other agents, or custom integrations) can drive avatars programmatically through this surface.
 
-**Endpoint:** `POST /api/mcp`
-**Auth:** OAuth 2.1 Bearer token with `mcp` scope
+**Endpoint:** `POST /api/mcp` (tools), `GET /api/mcp` (SSE), `DELETE /api/mcp` (session terminate)
+**Auth:** OAuth 2.1 Bearer token with `mcp` scope; some tools additionally require x402 USDC payment
 **Registry:** Listed on the [official MCP Registry](https://registry.modelcontextprotocol.io/?q=three.ws) as `io.github.nirholas/three.ws`
 **x402scan:** [view on x402scan](https://www.x402scan.com/server/17cbd874-52ac-4920-a020-b22ff2489a07) — paid MCP tool calls and revenue
 
 **Available tools:**
+
+The catalog is assembled dynamically at request time from the per-category tool modules. Current tools:
+
+*Avatars* ([`api/_mcp/tools/avatars.js`](api/_mcp/tools/avatars.js))
 
 | Tool | Description |
 |---|---|
@@ -1589,9 +1593,31 @@ Access tokens are short-lived JWTs (1 hour). Refresh tokens are opaque strings s
 | `search_public_avatars` | Search the public avatar library by name, tag, or description |
 | `render_avatar` | Generate a preview render of an avatar (returns image URL) |
 | `delete_avatar` | Permanently delete an avatar |
+
+*Models* ([`api/_mcp/tools/models.js`](api/_mcp/tools/models.js))
+
+| Tool | Description |
+|---|---|
 | `validate_model` | Run Khronos glTF validation and return error report |
 | `inspect_model` | Inspect model internals (mesh count, material list, animation names, texture sizes) |
 | `optimize_model` | Optimize a model (Draco compression, texture downscale, mesh simplification) |
+
+*Solana* ([`api/_mcp/tools/solana.js`](api/_mcp/tools/solana.js))
+
+| Tool | Description |
+|---|---|
+| `solana_agent_reputation` | Fetch the reputation score and signals for a Solana agent asset |
+| `solana_agent_attestations` | List feedback and validation attestations for an agent asset |
+| `solana_agent_passport` | Return the agent's public passport card (name, owner, reputation, badges) |
+
+*Pump.fun* ([`api/_mcp/tools/pumpfun.js`](api/_mcp/tools/pumpfun.js))
+
+| Tool | Description |
+|---|---|
+| `pumpfun_recent_claims` | Recent GitHub social-fee claims on pump.fun creators |
+| `pumpfun_recent_graduations` | Tokens that have recently graduated to AMM pools |
+| `pumpfun_token_intel` | Holders, trades, and metadata for a single pump.fun token |
+| `pumpfun_creator_intel` | Tokens, fees, and reputation signals for a pump.fun creator |
 
 **MCP discovery:** configured in `.mcp.json` at the repo root for Claude Desktop integration.
 

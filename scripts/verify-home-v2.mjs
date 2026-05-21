@@ -11,9 +11,8 @@ page.on('console', (msg) => {
 
 await page.goto('http://localhost:3000/home-v2', { waitUntil: 'domcontentloaded' });
 
-// Wait for the chip strip + tryme cue
-await page.waitForSelector('#hv2-chips .hv2-chip[data-anim="dance"]', { timeout: 6000 });
-await page.waitForSelector('#hv2-tryme', { timeout: 6000 });
+await page.locator('#hv2-chips .hv2-chip[data-anim="dance"]').waitFor({ state: 'attached', timeout: 6000 });
+await page.locator('#hv2-tryme').waitFor({ state: 'attached', timeout: 6000 });
 
 // Wait for the viewer to actually load the model + animations.
 // Act2Viewer plays "falling" on first load; once viewer.currentAction is set we can poke it.

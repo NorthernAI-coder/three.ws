@@ -672,7 +672,10 @@ function updateNavCounts() {
 	const avatarEl = $('nav-count-avatar');
 	const totals = state.stats || {};
 	if (agentEl) {
-		const n = Number(totals.onchain ?? state.items.length);
+		// Show curated agent count, not totals.onchain — the Onchain filter chip
+		// already surfaces the ERC-8004 count, and showing "109k" next to a label
+		// that reads just "Agent" conflicts with the visible "Agents N" section.
+		const n = Number(state.items.length);
 		if (Number.isFinite(n) && n > 0) {
 			agentEl.textContent = fmtNumber(n);
 			agentEl.hidden = false;
