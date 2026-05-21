@@ -34,20 +34,20 @@ function makeSyntheticVenue(omit = new Set()) {
 	root.name = 'venue';
 
 	const positions = {
-		'truss_mirrorball': [0, 6.0, 0],
-		'bar_backsplash_neon': [0, 1.6, -7.5],
-		'stage_01': [-3.5, 0, -3.0],
-		'stage_02': [-1.2, 0, -4.4],
-		'stage_03': [1.2, 0, -4.4],
-		'stage_04': [3.5, 0, -3.0],
-		'backstage_door_01': [-3.5, 0, -6.8],
-		'backstage_door_02': [-1.2, 0, -7.2],
-		'backstage_door_03': [1.2, 0, -7.2],
-		'backstage_door_04': [3.5, 0, -6.8],
-		'truss_spot_01': [-3.5, 6.0, -2.5],
-		'truss_spot_02': [-1.2, 6.0, -4.0],
-		'truss_spot_03': [1.2, 6.0, -4.0],
-		'truss_spot_04': [3.5, 6.0, -2.5],
+		truss_mirrorball: [0, 6.0, 0],
+		bar_backsplash_neon: [0, 1.6, -7.5],
+		stage_01: [-3.5, 0, -3.0],
+		stage_02: [-1.2, 0, -4.4],
+		stage_03: [1.2, 0, -4.4],
+		stage_04: [3.5, 0, -3.0],
+		backstage_door_01: [-3.5, 0, -6.8],
+		backstage_door_02: [-1.2, 0, -7.2],
+		backstage_door_03: [1.2, 0, -7.2],
+		backstage_door_04: [3.5, 0, -6.8],
+		truss_spot_01: [-3.5, 6.0, -2.5],
+		truss_spot_02: [-1.2, 6.0, -4.0],
+		truss_spot_03: [1.2, 6.0, -4.0],
+		truss_spot_04: [3.5, 6.0, -2.5],
 	};
 
 	for (const [name, [x, y, z]] of Object.entries(positions)) {
@@ -74,13 +74,11 @@ describe('collectVenueEmpties', () => {
 	});
 
 	it('throws naming every missing empty when the venue is incomplete', () => {
-		const { root } = makeSyntheticVenue(
-			new Set(['backstage_door_03', 'truss_mirrorball']),
+		const { root } = makeSyntheticVenue(new Set(['backstage_door_03', 'truss_mirrorball']));
+		expect(() => collectVenueEmpties(root, REQUIRED_VENUE_EMPTIES)).toThrow(
+			/backstage_door_03/,
 		);
-		expect(() => collectVenueEmpties(root, REQUIRED_VENUE_EMPTIES))
-			.toThrow(/backstage_door_03/);
-		expect(() => collectVenueEmpties(root, REQUIRED_VENUE_EMPTIES))
-			.toThrow(/truss_mirrorball/);
+		expect(() => collectVenueEmpties(root, REQUIRED_VENUE_EMPTIES)).toThrow(/truss_mirrorball/);
 	});
 
 	it('rejects a non-Object3D root with a clear error', () => {

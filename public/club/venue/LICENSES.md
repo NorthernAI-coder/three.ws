@@ -14,10 +14,10 @@ holds full copyright and dedicates them to the public domain under
 (https://creativecommons.org/publicdomain/zero/1.0/). Use, modify, and
 redistribute freely; attribution is appreciated but not required.
 
-| File | Source | License | Notes |
-|---|---|---|---|
-| `club-venue.glb` | Authored — primitive geometry assembled via `@gltf-transform/core` | CC0 1.0 | Floor disc, cylinder wall, ceiling, bar + neon backsplash, truss beams, per-slot backstage doors. All 14 named empties from the `src/club-venue.js` contract are present. |
-| `club-hdri.hdr` | Authored — radiance functions sampled into Radiance RGBE | CC0 1.0 | 128×64 equirectangular. Dark purple wash + four warm/coloured spot bumps + mirrorball ring + bar back-glow. Tuned for PBR reflections (`scene.environment`) only — background stays the dark fog colour. |
+| File             | Source                                                             | License | Notes                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `club-venue.glb` | Authored — primitive geometry assembled via `@gltf-transform/core` | CC0 1.0 | Floor disc, cylinder wall, ceiling, bar + neon backsplash, truss beams, per-slot backstage doors. All 14 named empties from the `src/club-venue.js` contract are present.                                |
+| `club-hdri.hdr`  | Authored — radiance functions sampled into Radiance RGBE           | CC0 1.0 | 128×64 equirectangular. Dark purple wash + four warm/coloured spot bumps + mirrorball ring + bar back-glow. Tuned for PBR reflections (`scene.environment`) only — background stays the dark fog colour. |
 
 ## Upgrading to artist-authored assets
 
@@ -30,6 +30,7 @@ before committing:
 
 ```markdown
 ### `club-venue.glb`
+
 - **Source**: https://example.com/asset-page
 - **Author**: Studio name
 - **License**: CC0 1.0 (or SPDX identifier)

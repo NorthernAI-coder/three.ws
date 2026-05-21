@@ -89,20 +89,70 @@ function cylinderGeom(radiusTop, radiusBottom, height, segments = 24) {
 }
 
 function boxGeom(sx, sy, sz) {
-	const x = sx / 2, y = sy / 2, z = sz / 2;
+	const x = sx / 2,
+		y = sy / 2,
+		z = sz / 2;
 	const faces = [
 		// +X
-		{ n: [1, 0, 0], v: [[x, -y, -z], [x, y, -z], [x, y, z], [x, -y, z]] },
+		{
+			n: [1, 0, 0],
+			v: [
+				[x, -y, -z],
+				[x, y, -z],
+				[x, y, z],
+				[x, -y, z],
+			],
+		},
 		// -X
-		{ n: [-1, 0, 0], v: [[-x, -y, z], [-x, y, z], [-x, y, -z], [-x, -y, -z]] },
+		{
+			n: [-1, 0, 0],
+			v: [
+				[-x, -y, z],
+				[-x, y, z],
+				[-x, y, -z],
+				[-x, -y, -z],
+			],
+		},
 		// +Y
-		{ n: [0, 1, 0], v: [[-x, y, -z], [-x, y, z], [x, y, z], [x, y, -z]] },
+		{
+			n: [0, 1, 0],
+			v: [
+				[-x, y, -z],
+				[-x, y, z],
+				[x, y, z],
+				[x, y, -z],
+			],
+		},
 		// -Y
-		{ n: [0, -1, 0], v: [[-x, -y, z], [-x, -y, -z], [x, -y, -z], [x, -y, z]] },
+		{
+			n: [0, -1, 0],
+			v: [
+				[-x, -y, z],
+				[-x, -y, -z],
+				[x, -y, -z],
+				[x, -y, z],
+			],
+		},
 		// +Z
-		{ n: [0, 0, 1], v: [[-x, -y, z], [x, -y, z], [x, y, z], [-x, y, z]] },
+		{
+			n: [0, 0, 1],
+			v: [
+				[-x, -y, z],
+				[x, -y, z],
+				[x, y, z],
+				[-x, y, z],
+			],
+		},
 		// -Z
-		{ n: [0, 0, -1], v: [[x, -y, -z], [-x, -y, -z], [-x, y, -z], [x, y, -z]] },
+		{
+			n: [0, 0, -1],
+			v: [
+				[x, -y, -z],
+				[-x, -y, -z],
+				[-x, y, -z],
+				[x, y, -z],
+			],
+		},
 	];
 	const positions = [];
 	const normals = [];
@@ -130,8 +180,10 @@ function torusGeom(radius, tube, radialSegments = 8, tubularSegments = 64) {
 		for (let i = 0; i <= tubularSegments; i++) {
 			const u = (i / tubularSegments) * Math.PI * 2;
 			const v = (j / radialSegments) * Math.PI * 2;
-			const cosU = Math.cos(u), sinU = Math.sin(u);
-			const cosV = Math.cos(v), sinV = Math.sin(v);
+			const cosU = Math.cos(u),
+				sinU = Math.sin(u);
+			const cosV = Math.cos(v),
+				sinV = Math.sin(v);
 			positions.push(
 				(radius + tube * cosV) * cosU,
 				tube * sinV,
@@ -200,7 +252,7 @@ function addEmpty(doc, scene, name, translation) {
 function chromeMat(doc) {
 	return doc
 		.createMaterial('PoleChrome')
-		.setBaseColorFactor([0.902, 0.910, 0.941, 1])
+		.setBaseColorFactor([0.902, 0.91, 0.941, 1])
 		.setMetallicFactor(1.0)
 		.setRoughnessFactor(0.14);
 }
@@ -208,7 +260,7 @@ function chromeMat(doc) {
 function brushedMat(doc) {
 	return doc
 		.createMaterial('PoleBrushed')
-		.setBaseColorFactor([0.784, 0.800, 0.847, 1])
+		.setBaseColorFactor([0.784, 0.8, 0.847, 1])
 		.setMetallicFactor(0.95)
 		.setRoughnessFactor(0.32);
 }
@@ -216,7 +268,7 @@ function brushedMat(doc) {
 function darkMetalMat(doc) {
 	return doc
 		.createMaterial('DarkMetal')
-		.setBaseColorFactor([0.102, 0.110, 0.126, 1])
+		.setBaseColorFactor([0.102, 0.11, 0.126, 1])
 		.setMetallicFactor(0.9)
 		.setRoughnessFactor(0.45);
 }
@@ -224,7 +276,7 @@ function darkMetalMat(doc) {
 function stageBodyMat(doc) {
 	return doc
 		.createMaterial('StageBody')
-		.setBaseColorFactor([0.039, 0.020, 0.051, 1])
+		.setBaseColorFactor([0.039, 0.02, 0.051, 1])
 		.setMetallicFactor(0.55)
 		.setRoughnessFactor(0.55);
 }
@@ -259,24 +311,48 @@ function buildPoleDoc() {
 	const dark = darkMetalMat(doc);
 
 	// Flared base disc.
-	addMesh(doc, scene, buffer, brushed, 'pole.base',
-		cylinderGeom(0.42, 0.46, 0.04, 40), [0, 0.02, 0]);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		brushed,
+		'pole.base',
+		cylinderGeom(0.42, 0.46, 0.04, 40),
+		[0, 0.02, 0],
+	);
 
 	// Transition collar between base and shaft.
-	addMesh(doc, scene, buffer, brushed, 'pole.collar',
-		cylinderGeom(POLE_RADIUS * 2.1, 0.13, 0.09, 32), [0, 0.04 + 0.045, 0]);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		brushed,
+		'pole.collar',
+		cylinderGeom(POLE_RADIUS * 2.1, 0.13, 0.09, 32),
+		[0, 0.04 + 0.045, 0],
+	);
 
 	// Main shaft.
-	addMesh(doc, scene, buffer, chrome, 'pole.shaft',
-		cylinderGeom(POLE_RADIUS, POLE_RADIUS, POLE_HEIGHT, 24), [0, POLE_HEIGHT / 2, 0]);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		chrome,
+		'pole.shaft',
+		cylinderGeom(POLE_RADIUS, POLE_RADIUS, POLE_HEIGHT, 24),
+		[0, POLE_HEIGHT / 2, 0],
+	);
 
 	// Ceiling mount plate.
-	addMesh(doc, scene, buffer, brushed, 'pole.mount.plate',
-		boxGeom(0.26, 0.014, 0.26), [0, POLE_HEIGHT + 0.007, 0]);
+	addMesh(doc, scene, buffer, brushed, 'pole.mount.plate', boxGeom(0.26, 0.014, 0.26), [
+		0,
+		POLE_HEIGHT + 0.007,
+		0,
+	]);
 
 	// Four bolts on the mount plate.
 	const boltGeom = cylinderGeom(0.012, 0.012, 0.022, 8);
-	const boltInset = 0.10;
+	const boltInset = 0.1;
 	const boltOffsets = [
 		[+boltInset, +boltInset],
 		[+boltInset, -boltInset],
@@ -285,18 +361,32 @@ function buildPoleDoc() {
 	];
 	for (let i = 0; i < boltOffsets.length; i++) {
 		const [bx, bz] = boltOffsets[i];
-		addMesh(doc, scene, buffer, dark, `pole.bolt.${i}`,
-			boltGeom, [bx, POLE_HEIGHT + 0.024, bz]);
+		addMesh(doc, scene, buffer, dark, `pole.bolt.${i}`, boltGeom, [
+			bx,
+			POLE_HEIGHT + 0.024,
+			bz,
+		]);
 	}
 
 	// Spotlight bracket.
-	addMesh(doc, scene, buffer, dark, 'pole.bracket.arm',
-		boxGeom(0.04, 0.02, 0.18), [0, POLE_HEIGHT + 0.024, 0.13]);
+	addMesh(doc, scene, buffer, dark, 'pole.bracket.arm', boxGeom(0.04, 0.02, 0.18), [
+		0,
+		POLE_HEIGHT + 0.024,
+		0.13,
+	]);
 	// Rotate +90° about X so the cylinder's Y axis points along Z (head pointing forward).
 	// Quaternion for 90° X-rotation: (sin(45°), 0, 0, cos(45°)).
 	const xQuat = [Math.SQRT1_2, 0, 0, Math.SQRT1_2];
-	addMesh(doc, scene, buffer, dark, 'pole.bracket.head',
-		cylinderGeom(0.025, 0.025, 0.04, 16), [0, POLE_HEIGHT + 0.024, 0.22], xQuat);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		dark,
+		'pole.bracket.head',
+		cylinderGeom(0.025, 0.025, 0.04, 16),
+		[0, POLE_HEIGHT + 0.024, 0.22],
+		xQuat,
+	);
 
 	// Spotlight attach empty (consumed by prompt 04).
 	// Underscored — three.js's PropertyBinding.sanitizeNodeName strips `.`
@@ -320,17 +410,39 @@ function buildStageDoc() {
 	const led = ledMat(doc);
 
 	// Main disc (slight outward flare at the base).
-	addMesh(doc, scene, buffer, body, 'stage.body',
-		cylinderGeom(STAGE_RADIUS, STAGE_RADIUS + 0.04, STAGE_HEIGHT, 64), [0, STAGE_HEIGHT / 2, 0]);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		body,
+		'stage.body',
+		cylinderGeom(STAGE_RADIUS, STAGE_RADIUS + 0.04, STAGE_HEIGHT, 64),
+		[0, STAGE_HEIGHT / 2, 0],
+	);
 
 	// Anti-slip top face — recessed slightly inside the disc rim.
-	addMesh(doc, scene, buffer, top, 'stage.top',
-		cylinderGeom(STAGE_RADIUS - 0.01, STAGE_RADIUS - 0.01, 0.004, 64), [0, STAGE_HEIGHT + 0.002, 0]);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		top,
+		'stage.top',
+		cylinderGeom(STAGE_RADIUS - 0.01, STAGE_RADIUS - 0.01, 0.004, 64),
+		[0, STAGE_HEIGHT + 0.002, 0],
+	);
 
 	// LED strip — horizontal torus around the top edge.
 	const xQuat = [Math.SQRT1_2, 0, 0, Math.SQRT1_2];
-	addMesh(doc, scene, buffer, led, 'stage.led.ring',
-		torusGeom(STAGE_RADIUS + 0.005, 0.012, 8, 96), [0, STAGE_HEIGHT - 0.014, 0], xQuat);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		led,
+		'stage.led.ring',
+		torusGeom(STAGE_RADIUS + 0.005, 0.012, 8, 96),
+		[0, STAGE_HEIGHT - 0.014, 0],
+		xQuat,
+	);
 
 	// LED control empty (consumed by prompt 04).
 	addEmpty(doc, scene, 'stage_led_strip', [0, STAGE_HEIGHT - 0.014, 0]);

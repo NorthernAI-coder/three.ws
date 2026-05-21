@@ -17,6 +17,7 @@ import {
 	verifyPayment,
 	settlePayment,
 	encodePaymentResponseHeader,
+	permit2VariantOf,
 	resolveResourceUrl,
 } from '../_lib/x402-spec.js';
 import { env } from '../_lib/env.js';
@@ -111,18 +112,20 @@ const ROUTE_BAZAAR = {
 };
 
 function buildRequirements(resourceUrl) {
-	return [
-		{
-			scheme: 'exact',
-			network: NETWORK_BASE_MAINNET,
-			amount: env.X402_MAX_AMOUNT_REQUIRED,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: env.X402_ASSET_ADDRESS_BASE,
-			maxTimeoutSeconds: 60,
-			resource: resourceUrl,
-			extra: { name: 'USD Coin', version: '2', decimals: 6 },
-		},
-	];
+	const eip3009 = {
+		scheme: 'exact',
+		network: NETWORK_BASE_MAINNET,
+		amount: env.X402_MAX_AMOUNT_REQUIRED,
+		payTo: env.X402_PAY_TO_BASE,
+		asset: env.X402_ASSET_ADDRESS_BASE,
+		maxTimeoutSeconds: 60,
+		resource: resourceUrl,
+		extra: { name: 'USD Coin', version: '2', decimals: 6 },
+	};
+	const out = [eip3009];
+	const permit2 = permit2VariantOf(eip3009);
+	if (permit2) out.push(permit2);
+	return out;
 }
 
 const SYSTEM_PROMPT =

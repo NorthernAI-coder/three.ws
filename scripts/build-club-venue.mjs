@@ -51,12 +51,60 @@ function boxGeom(sx, sy, sz) {
 	const y = sy / 2;
 	const z = sz / 2;
 	const faces = [
-		{ n: [1, 0, 0], v: [[x, -y, -z], [x, y, -z], [x, y, z], [x, -y, z]] },
-		{ n: [-1, 0, 0], v: [[-x, -y, z], [-x, y, z], [-x, y, -z], [-x, -y, -z]] },
-		{ n: [0, 1, 0], v: [[-x, y, -z], [-x, y, z], [x, y, z], [x, y, -z]] },
-		{ n: [0, -1, 0], v: [[-x, -y, z], [-x, -y, -z], [x, -y, -z], [x, -y, z]] },
-		{ n: [0, 0, 1], v: [[-x, -y, z], [x, -y, z], [x, y, z], [-x, y, z]] },
-		{ n: [0, 0, -1], v: [[x, -y, -z], [-x, -y, -z], [-x, y, -z], [x, y, -z]] },
+		{
+			n: [1, 0, 0],
+			v: [
+				[x, -y, -z],
+				[x, y, -z],
+				[x, y, z],
+				[x, -y, z],
+			],
+		},
+		{
+			n: [-1, 0, 0],
+			v: [
+				[-x, -y, z],
+				[-x, y, z],
+				[-x, y, -z],
+				[-x, -y, -z],
+			],
+		},
+		{
+			n: [0, 1, 0],
+			v: [
+				[-x, y, -z],
+				[-x, y, z],
+				[x, y, z],
+				[x, y, -z],
+			],
+		},
+		{
+			n: [0, -1, 0],
+			v: [
+				[-x, -y, z],
+				[-x, -y, -z],
+				[x, -y, -z],
+				[x, -y, z],
+			],
+		},
+		{
+			n: [0, 0, 1],
+			v: [
+				[-x, -y, z],
+				[x, -y, z],
+				[x, y, z],
+				[-x, y, z],
+			],
+		},
+		{
+			n: [0, 0, -1],
+			v: [
+				[x, -y, -z],
+				[-x, -y, -z],
+				[-x, y, -z],
+				[x, y, -z],
+			],
+		},
 	];
 	const positions = [];
 	const normals = [];
@@ -177,7 +225,7 @@ function floorMat(doc) {
 function wallMat(doc) {
 	return doc
 		.createMaterial('VenueWall')
-		.setBaseColorFactor([0.039, 0.020, 0.051, 1])
+		.setBaseColorFactor([0.039, 0.02, 0.051, 1])
 		.setMetallicFactor(0.2)
 		.setRoughnessFactor(0.7);
 }
@@ -193,7 +241,7 @@ function ceilingMat(doc) {
 function trussMat(doc) {
 	return doc
 		.createMaterial('VenueTruss')
-		.setBaseColorFactor([0.110, 0.118, 0.130, 1])
+		.setBaseColorFactor([0.11, 0.118, 0.13, 1])
 		.setMetallicFactor(0.92)
 		.setRoughnessFactor(0.45);
 }
@@ -204,7 +252,7 @@ function barMat(doc) {
 		.setBaseColorFactor([0.153, 0.078, 0.145, 1])
 		.setMetallicFactor(0.7)
 		.setRoughnessFactor(0.4)
-		.setEmissiveFactor([0.063, 0.020, 0.059]);
+		.setEmissiveFactor([0.063, 0.02, 0.059]);
 }
 
 function neonMat(doc) {
@@ -273,11 +321,23 @@ function buildVenueDoc() {
 	// Dance-floor inlay — slightly emissive checker so the room reads as a
 	// club, not an empty plane. Sits 1 mm above the main floor to avoid
 	// z-fighting under bloom.
-	addMesh(doc, scene, buffer, dance, 'venue_dancefloor', discGeom(STAGE_RADIUS + 1.4, 64, 1), [0, 0.001, 0]);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		dance,
+		'venue_dancefloor',
+		discGeom(STAGE_RADIUS + 1.4, 64, 1),
+		[0, 0.001, 0],
+	);
 
 	// Inverse disc as the ceiling — receives no shadows but seals the room
 	// against the fog so we don't see fog "leaking" up to infinity.
-	addMesh(doc, scene, buffer, ceiling, 'venue_ceiling', discGeom(FLOOR_RADIUS, 48, -1), [0, ROOM_HEIGHT, 0]);
+	addMesh(doc, scene, buffer, ceiling, 'venue_ceiling', discGeom(FLOOR_RADIUS, 48, -1), [
+		0,
+		ROOM_HEIGHT,
+		0,
+	]);
 
 	// Cylinder side wall — interior of the room. Negative scale on Y would
 	// flip the inward normal; we use the inward normal directly to keep the
@@ -299,29 +359,69 @@ function buildVenueDoc() {
 	addMesh(doc, scene, buffer, bar, 'venue_bar', boxGeom(9.0, 1.1, 0.9), [0, 0.55, BAR_Z]);
 
 	// Bar back-splash neon — emissive plane just above the counter top.
-	addMesh(doc, scene, buffer, neon, 'venue_bar_backsplash', boxGeom(8.0, 0.18, 0.04), [0, 1.55, BAR_Z - 0.45]);
+	addMesh(doc, scene, buffer, neon, 'venue_bar_backsplash', boxGeom(8.0, 0.18, 0.04), [
+		0,
+		1.55,
+		BAR_Z - 0.45,
+	]);
 
 	// Truss — four cross-room beams. Heavy enough to read as metal under
 	// the spotlights but kept low-poly: each beam is a single box.
 	const beamThickness = 0.16;
-	addMesh(doc, scene, buffer, truss, 'venue_truss_front', boxGeom(FLOOR_RADIUS * 1.6, beamThickness, beamThickness), [0, TRUSS_Y, 1.4]);
-	addMesh(doc, scene, buffer, truss, 'venue_truss_mid', boxGeom(FLOOR_RADIUS * 1.6, beamThickness, beamThickness), [0, TRUSS_Y, -2.6]);
-	addMesh(doc, scene, buffer, truss, 'venue_truss_back', boxGeom(FLOOR_RADIUS * 1.6, beamThickness, beamThickness), [0, TRUSS_Y, BAR_Z + 1.0]);
-	addMesh(doc, scene, buffer, truss, 'venue_truss_left', boxGeom(beamThickness, beamThickness, 12), [-7.5, TRUSS_Y, -2.4]);
-	addMesh(doc, scene, buffer, truss, 'venue_truss_right', boxGeom(beamThickness, beamThickness, 12), [7.5, TRUSS_Y, -2.4]);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		truss,
+		'venue_truss_front',
+		boxGeom(FLOOR_RADIUS * 1.6, beamThickness, beamThickness),
+		[0, TRUSS_Y, 1.4],
+	);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		truss,
+		'venue_truss_mid',
+		boxGeom(FLOOR_RADIUS * 1.6, beamThickness, beamThickness),
+		[0, TRUSS_Y, -2.6],
+	);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		truss,
+		'venue_truss_back',
+		boxGeom(FLOOR_RADIUS * 1.6, beamThickness, beamThickness),
+		[0, TRUSS_Y, BAR_Z + 1.0],
+	);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		truss,
+		'venue_truss_left',
+		boxGeom(beamThickness, beamThickness, 12),
+		[-7.5, TRUSS_Y, -2.4],
+	);
+	addMesh(
+		doc,
+		scene,
+		buffer,
+		truss,
+		'venue_truss_right',
+		boxGeom(beamThickness, beamThickness, 12),
+		[7.5, TRUSS_Y, -2.4],
+	);
 
 	// Per-pole backstage doors — narrow vertical boxes against the back wall.
 	const poles = poleLayouts();
 	for (const p of poles) {
-		addMesh(
-			doc,
-			scene,
-			buffer,
-			door,
-			`venue_door_${p.id}`,
-			boxGeom(0.9, 2.2, 0.08),
-			[p.backstageX, 1.1, p.backstageZ - 0.05],
-		);
+		addMesh(doc, scene, buffer, door, `venue_door_${p.id}`, boxGeom(0.9, 2.2, 0.08), [
+			p.backstageX,
+			1.1,
+			p.backstageZ - 0.05,
+		]);
 	}
 
 	// ─── Named empties (the contract enforced in src/club-venue.js) ──────────

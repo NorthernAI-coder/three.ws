@@ -75,12 +75,12 @@ function sampleRadiance(u, v) {
 	// Base ambient — very low purple wash.
 	let r = 0.012;
 	let g = 0.006;
-	let b = 0.020;
+	let b = 0.02;
 
 	// Soft hemisphere — purple ceiling, deep-blue floor — gives PBR
 	// chrome a faint tint even where no spotlight points.
 	const hemi = 0.5 + 0.5 * Math.sin(phi);
-	r += hemi * 0.030;
+	r += hemi * 0.03;
 	g += hemi * 0.014;
 	b += hemi * 0.064;
 
@@ -88,10 +88,10 @@ function sampleRadiance(u, v) {
 	// roughly above the head height (phi ≈ +0.9 rad). Bright enough that
 	// chrome / metallic dancer accessories pick up a clear highlight.
 	const SPOTS = [
-		{ theta: -1.05, hue: [3.4, 1.8, 0.8] },  // warm tungsten
-		{ theta: -0.32, hue: [2.2, 0.9, 3.2] },  // magenta
-		{ theta: 0.32, hue: [0.9, 2.4, 3.6] },   // cyan
-		{ theta: 1.05, hue: [3.4, 1.8, 0.8] },   // warm tungsten
+		{ theta: -1.05, hue: [3.4, 1.8, 0.8] }, // warm tungsten
+		{ theta: -0.32, hue: [2.2, 0.9, 3.2] }, // magenta
+		{ theta: 0.32, hue: [0.9, 2.4, 3.6] }, // cyan
+		{ theta: 1.05, hue: [3.4, 1.8, 0.8] }, // warm tungsten
 	];
 	for (const spot of SPOTS) {
 		const w = bump(theta, phi, spot.theta, 0.95, 0.32);
@@ -155,7 +155,9 @@ function main() {
 	const buf = buildHdr();
 	const outPath = resolve(OUT_DIR, 'club-hdri.hdr');
 	writeFileSync(outPath, buf);
-	console.log(`[club-hdri] wrote club-hdri.hdr ${(buf.length / 1024).toFixed(1)} kB (${WIDTH}x${HEIGHT})`);
+	console.log(
+		`[club-hdri] wrote club-hdri.hdr ${(buf.length / 1024).toFixed(1)} kB (${WIDTH}x${HEIGHT})`,
+	);
 }
 
 main();

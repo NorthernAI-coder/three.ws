@@ -19,6 +19,7 @@ import {
 	verifyPayment,
 	settlePayment,
 	encodePaymentResponseHeader,
+	permit2VariantOf,
 	resolveResourceUrl,
 	buildBazaarSchema,
 } from '../_lib/x402-spec.js';
@@ -170,18 +171,24 @@ const ROUTE_BAZAAR = {
 };
 
 function buildRequirements(resourceUrl) {
-	return [
-		{
-			scheme: 'exact',
-			network: NETWORK_BASE_MAINNET,
-			amount: env.X402_MAX_AMOUNT_REQUIRED,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: env.X402_ASSET_ADDRESS_BASE,
-			maxTimeoutSeconds: 60,
-			resource: resourceUrl,
-			extra: { name: 'USD Coin', version: '2', decimals: 6 },
-		},
-	];
+	const eip3009 = {
+		scheme: 'exact',
+		network: NETWORK_BASE_MAINNET,
+		amount: env.X402_MAX_AMOUNT_REQUIRED,
+		payTo: env.X402_PAY_TO_BASE,
+		asset: env.X402_ASSET_ADDRESS_BASE,
+		maxTimeoutSeconds: 60,
+		resource: resourceUrl,
+		extra: { name: 'USD Coin', version: '2', decimals: 6 },
+	};
+	const out = [eip3009];
+	// permit2VariantOf returns null without CDP credentials (PayAI doesn't
+	// settle Permit2). When CDP is configured, append a sibling so SDK clients
+	// can take the gasless EIP-2612 path; build402Body will auto-declare the
+	// matching gas-sponsoring extensions in response.extensions.
+	const permit2 = permit2VariantOf(eip3009);
+	if (permit2) out.push(permit2);
+	return out;
 }
 
 async function fetchAndInspect(targetUrl) {

@@ -20,9 +20,18 @@ import { Vector3 } from 'three';
 export const REQUIRED_VENUE_EMPTIES = [
 	'truss_mirrorball',
 	'bar_backsplash_neon',
-	'stage_01', 'stage_02', 'stage_03', 'stage_04',
-	'backstage_door_01', 'backstage_door_02', 'backstage_door_03', 'backstage_door_04',
-	'truss_spot_01', 'truss_spot_02', 'truss_spot_03', 'truss_spot_04',
+	'stage_01',
+	'stage_02',
+	'stage_03',
+	'stage_04',
+	'backstage_door_01',
+	'backstage_door_02',
+	'backstage_door_03',
+	'backstage_door_04',
+	'truss_spot_01',
+	'truss_spot_02',
+	'truss_spot_03',
+	'truss_spot_04',
 ];
 
 /**
