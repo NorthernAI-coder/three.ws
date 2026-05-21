@@ -149,11 +149,88 @@
 			.ae-tab:hover { color: var(--text-2); }
 			.ae-tab.active { color: var(--text); border-color: var(--text); }
 
+			.ae-chips {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				padding: 10px 16px;
+				border-bottom: 1px solid var(--border);
+				background: var(--panel);
+				min-height: 44px;
+				overflow-x: auto;
+				white-space: nowrap;
+			}
+			.ae-chips:empty::before {
+				content: 'Nothing on. Pick something below.';
+				color: var(--text-3);
+				font-size: 12px;
+			}
+			.ae-chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				background: var(--panel-2);
+				border: 1px solid var(--border-2);
+				border-radius: 999px;
+				padding: 4px 6px 4px 10px;
+				font-size: 12px;
+				color: var(--text);
+				white-space: nowrap;
+				font-family: inherit;
+			}
+			.ae-chip .ae-chip-kind {
+				color: var(--text-3);
+				font-size: 10px;
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+			}
+			.ae-chip button {
+				background: transparent;
+				border: 0;
+				color: var(--text-3);
+				cursor: pointer;
+				font-size: 14px;
+				line-height: 1;
+				padding: 2px 6px;
+				border-radius: 999px;
+				font-family: inherit;
+			}
+			.ae-chip button:hover { color: var(--danger); background: rgba(244, 63, 94, 0.08); }
+
 			.ae-panel {
 				flex: 1;
 				min-height: 0;
 				overflow-y: auto;
 				padding: 16px;
+			}
+			.ae-search-wrap {
+				position: sticky;
+				top: -16px;
+				margin: -16px -16px 12px;
+				padding: 12px 16px;
+				background: var(--bg);
+				border-bottom: 1px solid var(--border);
+				z-index: 2;
+			}
+			.ae-search {
+				width: 100%;
+				background: var(--panel-2);
+				border: 1px solid var(--border-2);
+				border-radius: 8px;
+				color: var(--text);
+				padding: 8px 12px;
+				font-size: 13px;
+				font-family: inherit;
+				outline: none;
+				transition: border-color 0.15s;
+			}
+			.ae-search:focus { border-color: var(--accent); }
+			.ae-search::placeholder { color: var(--text-3); }
+			.ae-empty {
+				color: var(--text-3);
+				font-size: 13px;
+				padding: 24px 4px;
+				text-align: center;
 			}
 			.ae-grid {
 				display: grid;
@@ -172,12 +249,17 @@
 				font-family: inherit;
 			}
 			.ae-tile:hover {
-				border-color: var(--border-2);
+				border-color: var(--accent);
 				transform: translateY(-1px);
+				background: rgba(125, 211, 252, 0.04);
 			}
 			.ae-tile.selected {
 				border-color: var(--accent);
 				background: rgba(125, 211, 252, 0.06);
+			}
+			.ae-tile.previewing {
+				border-color: var(--accent-2);
+				box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.35);
 			}
 			.ae-tile-preview {
 				aspect-ratio: 1 / 1;
@@ -190,6 +272,14 @@
 				align-items: center;
 				justify-content: center;
 				font-size: 36px;
+				overflow: hidden;
+				position: relative;
+			}
+			.ae-tile-preview img {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				display: block;
 			}
 			.ae-tile-name {
 				font-size: 12px;
@@ -263,8 +353,9 @@
 			</div>
 			<aside class="ae-side">
 				<nav class="ae-tabs" id="ae-tabs" role="tablist"></nav>
+				<div class="ae-chips" id="ae-chips" aria-label="Current outfit"></div>
 				<div class="ae-panel" id="ae-panel"></div>
-				<div class="ae-status" id="ae-status">Pick a preset to preview it live.</div>
+				<div class="ae-status" id="ae-status">Hover any item to try it on. Click to keep.</div>
 			</aside>
 		</main>
 		<script src="/src/avatar-edit.js" type="module"></script>

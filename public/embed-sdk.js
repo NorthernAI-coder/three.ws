@@ -8,7 +8,7 @@
  *     onAction,   // (action) => void   — every protocol action the iframe emits
  *     onResize,   // (height) => void   — auto-applied to iframe unless autoResize:false
  *     onError,    // (err)    => void   — handshake timeout, blocked embed, etc.
- *     helloTimeoutMs:  2000,
+ *     helloTimeoutMs:  8000,
  *     autoResize:      true,
  *     origin:          'https://three.ws',  // override iframe-origin detection
  *   });
@@ -19,6 +19,10 @@
  * Origin lockdown: connect() requires a resolvable iframe origin. Wildcard
  * targets ('*') are rejected, and inbound messages from any other origin or
  * window are dropped.
+ *
+ * Pre-ready queue: send() calls made before the handshake completes are
+ * buffered and flushed automatically once agent:ready is received — no
+ * messages are silently dropped.
  */
 (function (root) {
 	'use strict';
@@ -29,7 +33,7 @@
 		if (!opts || !opts.agentId) throw new Error('Agent3D.connect: opts.agentId required');
 
 		var agentId        = String(opts.agentId);
-		var helloTimeoutMs = opts.helloTimeoutMs == null ? 2000 : opts.helloTimeoutMs;
+		var helloTimeoutMs = opts.helloTimeoutMs == null ? 8000 : opts.helloTimeoutMs;
 		var autoResize     = opts.autoResize !== false;
 		var iframeOrigin   = opts.origin || originOf(iframeEl.src);
 		if (!iframeOrigin || iframeOrigin === 'null') {
@@ -42,6 +46,7 @@
 		var nextPingId     = 1;
 		var ready          = false;
 		var destroyed      = false;
+		var sendQueue      = [];
 		var readyResolve, readyReject;
 		var readyPromise   = new Promise(function (resolve, reject) { readyResolve = resolve; readyReject = reject; });
 
@@ -66,6 +71,8 @@
 							try { opts.onReady({ version: msg.version, capabilities: msg.capabilities || [], name: msg.name }); }
 							catch (e) { console.error('[Agent3D] onReady threw', e); }
 						}
+						// Drain pre-ready queue — messages sent before handshake completed.
+						while (sendQueue.length) post(sendQueue.shift());
 					}
 					return;
 				case 'agent:action':
@@ -119,7 +126,11 @@
 		return {
 			ready: readyPromise,
 			origin: iframeOrigin,
-			send: function (action) { post({ type: 'agent:action', agentId: agentId, action: action }); },
+			send: function (action) {
+				var msg = { type: 'agent:action', agentId: agentId, action: action };
+				if (!ready) { sendQueue.push(msg); return; }
+				post(msg);
+			},
 			ping: function (timeoutMs) {
 				var id = String(nextPingId++);
 				return new Promise(function (resolve, reject) {
@@ -132,6 +143,7 @@
 			},
 			destroy: function () {
 				destroyed = true;
+				sendQueue = [];
 				window.removeEventListener('message', onMessage);
 				iframeEl.removeEventListener('load', sendHello);
 				if (helloTimer) clearTimeout(helloTimer);

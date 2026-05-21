@@ -30,11 +30,16 @@ body.market-page {
    full-bleed) sets `html, body { height: 100%; overflow: hidden }`. That
    pins the marketplace to the viewport and kills page scroll. This file
    is only linked from marketplace.html, so unscoping html/body here just
-   restores normal document scrolling on marketplace routes. */
+   restores normal document scrolling on marketplace routes.
+
+   `overflow-x: clip` (not `visible`) keeps the site-header's wide nav from
+   widening the body on narrow viewports — without it, the page gains a
+   horizontal scrollbar on mobile and hero content pushes off the right edge. */
 html,
 body.market-page {
 	height: auto;
-	overflow: visible;
+	overflow-x: clip;
+	overflow-y: visible;
 }
 
 body.market-page {

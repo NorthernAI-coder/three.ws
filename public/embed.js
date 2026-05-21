@@ -20,8 +20,28 @@
 
 	var ORIGIN = (function () {
 		try { return new URL(document.currentScript.src).origin; }
-		catch (e) { return 'https://three.ws/'; }
+		catch (e) { return 'https://three.ws'; }
 	})();
+
+	// Single module-level registry: widgetId → iframe element.
+	// One delegated message listener handles all embeds on the page — no
+	// per-mount listeners that multiply with each <script data-widget>.
+	var registry = Object.create(null);
+
+	function onResize(e) {
+		if (e.origin !== ORIGIN) return;
+		if (!e.data || e.data.type !== 'widget:resize') return;
+		var id = e.data.id;
+		var iframe = id ? registry[id] : null;
+		// If no id given, apply to every registered iframe (legacy broadcast).
+		var targets = iframe ? [iframe] : Object.keys(registry).map(function (k) { return registry[k]; });
+		targets.forEach(function (f) {
+			if (e.data.width)  f.setAttribute('width',  String(e.data.width));
+			if (e.data.height) f.setAttribute('height', String(e.data.height));
+		});
+	}
+
+	window.addEventListener('message', onResize);
 
 	function attr(el, name, fallback) {
 		var v = el && el.getAttribute && el.getAttribute(name);
@@ -46,8 +66,8 @@
 		var iframe = document.createElement('iframe');
 		iframe.src = src;
 		iframe.title = 'three.ws widget ' + widgetId;
-		iframe.loading = 'lazy';
-		iframe.allow = 'autoplay; clipboard-write';
+		iframe.allow = 'autoplay; clipboard-write; xr-spatial-tracking';
+		iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
 		iframe.setAttribute('width',  width);
 		iframe.setAttribute('height', height);
 		iframe.style.border       = border + 'px solid transparent';
@@ -55,18 +75,65 @@
 		iframe.style.maxWidth     = '100%';
 		iframe.style.display      = 'block';
 
+		// Wrap in a positioned container that holds the skeleton placeholder.
+		var wrapper = document.createElement('div');
+		wrapper.style.cssText =
+			'position:relative;display:inline-block;max-width:100%;' +
+			'width:' + width + 'px;height:' + height + 'px;' +
+			'border-radius:' + radius + 'px;overflow:hidden;' +
+			'background:#0c0c12;';
+
+		var skeleton = document.createElement('div');
+		skeleton.setAttribute('aria-hidden', 'true');
+		skeleton.style.cssText =
+			'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+			'pointer-events:none;transition:opacity 0.3s;';
+		skeleton.innerHTML =
+			'<div style="width:32px;height:32px;border:2px solid rgba(255,255,255,0.08);' +
+			'border-top-color:rgba(255,255,255,0.35);border-radius:50%;' +
+			'animation:_3dws_spin 0.8s linear infinite"></div>';
+
+		// Inject the keyframe only once per page.
+		if (!document.getElementById('_3dws_embed_css')) {
+			var style = document.createElement('style');
+			style.id = '_3dws_embed_css';
+			style.textContent = '@keyframes _3dws_spin{to{transform:rotate(360deg)}}';
+			document.head.appendChild(style);
+		}
+
+		iframe.style.position = 'relative';
+		iframe.style.zIndex = '1';
+		iframe.addEventListener('load', function () {
+			skeleton.style.opacity = '0';
+			setTimeout(function () { if (skeleton.parentNode) skeleton.parentNode.removeChild(skeleton); }, 350);
+		});
+
+		wrapper.appendChild(skeleton);
+		wrapper.appendChild(iframe);
+
 		var anchor = scriptEl.parentNode;
 		if (!anchor) return;
-		anchor.insertBefore(iframe, scriptEl);
+		anchor.insertBefore(wrapper, scriptEl);
 
-		// Optional: auto-resize when the widget reports a preferred size.
-		window.addEventListener('message', function (e) {
-			if (e.origin !== ORIGIN) return;
-			if (!e.data || e.data.type !== 'widget:resize') return;
-			if (e.data.id && e.data.id !== widgetId) return;
-			if (e.data.width)  iframe.setAttribute('width',  String(e.data.width));
-			if (e.data.height) iframe.setAttribute('height', String(e.data.height));
-		});
+		// Register for the delegated resize listener.
+		registry[widgetId] = iframe;
+
+		// Lazy-load via IntersectionObserver when available (Firefox compat).
+		// Falls back to immediate load when IO is absent.
+		if (typeof IntersectionObserver !== 'undefined') {
+			iframe.src = '';
+			var io = new IntersectionObserver(function (entries, obs) {
+				entries.forEach(function (entry) {
+					if (entry.isIntersecting) {
+						iframe.src = src;
+						obs.disconnect();
+					}
+				});
+			}, { rootMargin: '200px' });
+			io.observe(wrapper);
+		} else {
+			iframe.src = src;
+		}
 	}
 
 	// Mount every <script data-widget="..."> on the page (allows multiple embeds).

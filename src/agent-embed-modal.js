@@ -1,6 +1,7 @@
 /**
  * Embed modal for the agent hub page.
- * Shows iframe + web-component snippets with copy-to-clipboard.
+ * Shows iframe, web-component, and SDK snippets with copy-to-clipboard.
+ * Size controls let the developer customise width × height before copying.
  */
 export class AgentEmbedModal {
 	/**
@@ -10,6 +11,8 @@ export class AgentEmbedModal {
 		this._id = agentId;
 		this._modal = null;
 		this._onKey = this._onKey.bind(this);
+		this._w = 420;
+		this._h = 520;
 	}
 
 	open() {
@@ -31,16 +34,17 @@ export class AgentEmbedModal {
 		if (e.key === 'Escape') this.close();
 	}
 
-	_build() {
-		const origin = location.origin;
-		const id = this._id;
-		const snippets = {
+	_snippets(origin, id, w, h) {
+		return {
 			iframe:
 				`<iframe\n` +
 				`  src="${origin}/agent/${id}/embed"\n` +
-				`  width="420" height="520"\n` +
+				`  width="${w}" height="${h}"\n` +
+				`  title="three.ws agent"\n` +
 				`  style="border:0;border-radius:12px"\n` +
 				`  allow="autoplay; xr-spatial-tracking"\n` +
+				`  sandbox="allow-scripts allow-same-origin allow-popups"\n` +
+				`  loading="lazy"\n` +
 				`></iframe>`,
 			webcomponent:
 				`<script type="module"\n` +
@@ -48,9 +52,40 @@ export class AgentEmbedModal {
 				`><\/script>\n` +
 				`<agent-3d\n` +
 				`  agent-id="${id}"\n` +
-				`  style="width:420px;height:520px"\n` +
+				`  style="width:${w}px;height:${h}px"\n` +
 				`></agent-3d>`,
+			sdk:
+				`<script src="${origin}/embed-sdk.js"><\/script>\n` +
+				`<iframe\n` +
+				`  id="agent-frame"\n` +
+				`  src="${origin}/agent/${id}/embed"\n` +
+				`  width="${w}" height="${h}"\n` +
+				`  title="three.ws agent"\n` +
+				`  style="border:0;border-radius:12px"\n` +
+				`  allow="autoplay; xr-spatial-tracking"\n` +
+				`  sandbox="allow-scripts allow-same-origin allow-popups"\n` +
+				`  loading="lazy"\n` +
+				`></iframe>\n` +
+				`<script>\n` +
+				`const bridge = Agent3D.connect(\n` +
+				`  document.getElementById('agent-frame'),\n` +
+				`  {\n` +
+				`    agentId: '${id}',\n` +
+				`    onReady: (info) => console.log('ready', info),\n` +
+				`    onAction: (action) => console.log('action', action),\n` +
+				`  }\n` +
+				`);\n\n` +
+				`// Send a message once the agent is ready\n` +
+				`bridge.ready.then(() => {\n` +
+				`  bridge.send({ type: 'speak', payload: { text: 'Hello!' } });\n` +
+				`});\n` +
+				`<\/script>`,
 		};
+	}
+
+	_build() {
+		const origin = location.origin;
+		const id = this._id;
 
 		const overlay = document.createElement('div');
 		overlay.className = 'aem-overlay';
@@ -61,9 +96,22 @@ export class AgentEmbedModal {
 					<button class="aem-close" aria-label="Close">&times;</button>
 				</div>
 				<div class="aem-body">
+					<div class="aem-size-row">
+						<label class="aem-size-label">
+							Width
+							<input class="aem-size-input" id="aem-width" type="number" min="100" max="2000" step="10" value="${this._w}" />
+						</label>
+						<span class="aem-size-sep">&times;</span>
+						<label class="aem-size-label">
+							Height
+							<input class="aem-size-input" id="aem-height" type="number" min="100" max="2000" step="10" value="${this._h}" />
+						</label>
+						<span class="aem-size-unit">px</span>
+					</div>
 					<div class="aem-tabs" role="tablist">
 						<button class="aem-tab active" data-tab="iframe">iframe</button>
 						<button class="aem-tab" data-tab="webcomponent">&lt;agent-3d&gt;</button>
+						<button class="aem-tab" data-tab="sdk">SDK</button>
 					</div>
 					<div class="aem-snippet-wrap">
 						<pre class="aem-snippet" id="aem-snippet-text"></pre>
@@ -77,11 +125,23 @@ export class AgentEmbedModal {
 		let current = 'iframe';
 		const snippetEl = overlay.querySelector('#aem-snippet-text');
 		const copyBtn = overlay.querySelector('#aem-copy-btn');
+		const widthInput = overlay.querySelector('#aem-width');
+		const heightInput = overlay.querySelector('#aem-height');
 
 		const renderSnippet = () => {
-			snippetEl.textContent = snippets[current];
+			snippetEl.textContent = this._snippets(origin, id, this._w, this._h)[current];
 		};
 		renderSnippet();
+
+		const onSizeChange = () => {
+			const w = parseInt(widthInput.value, 10);
+			const h = parseInt(heightInput.value, 10);
+			if (w >= 100 && w <= 2000) this._w = w;
+			if (h >= 100 && h <= 2000) this._h = h;
+			renderSnippet();
+		};
+		widthInput.addEventListener('input', onSizeChange);
+		heightInput.addEventListener('input', onSizeChange);
 
 		overlay.querySelectorAll('.aem-tab').forEach((btn) => {
 			btn.addEventListener('click', () => {
@@ -95,7 +155,7 @@ export class AgentEmbedModal {
 
 		copyBtn.addEventListener('click', async () => {
 			try {
-				await navigator.clipboard.writeText(snippets[current]);
+				await navigator.clipboard.writeText(this._snippets(origin, id, this._w, this._h)[current]);
 				copyBtn.textContent = 'copied!';
 				copyBtn.classList.add('aem-copied');
 				setTimeout(() => {

@@ -2253,7 +2253,15 @@ function bindEvents() {
 		clearTimeout(searchTimer);
 		searchTimer = setTimeout(() => {
 			state.q = e.target.value.trim();
+			// All three feeds (agents, avatars, onchain) accept ?q= on the server.
+			// If we only re-fetch agents on search, the grid keeps stale avatar +
+			// onchain cards from the previous query — and the empty state never
+			// fires when the query genuinely matches nothing.
+			state.publicAvatarsLoaded = false;
+			state.onchainLoaded = false;
 			loadList(true);
+			loadPublicAvatars();
+			loadOnchainAgents(true);
 		}, 200);
 	});
 	els.sortSel.addEventListener('change', (e) => {

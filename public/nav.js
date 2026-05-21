@@ -39,7 +39,7 @@ function initDropdowns(root) {
 			trigger.setAttribute('aria-expanded', open ? 'false' : 'true');
 			if (!open) {
 				const first = trigger.nextElementSibling?.querySelector('a');
-				first?.focus();
+				first?.focus({ preventScroll: true });
 			}
 		});
 
@@ -50,13 +50,13 @@ function initDropdowns(root) {
 			const idx = items.indexOf(document.activeElement);
 			if (e.key === 'ArrowDown') {
 				e.preventDefault();
-				items[(idx + 1) % items.length]?.focus();
+				items[(idx + 1) % items.length]?.focus({ preventScroll: true });
 			} else if (e.key === 'ArrowUp') {
 				e.preventDefault();
-				items[(idx - 1 + items.length) % items.length]?.focus();
+				items[(idx - 1 + items.length) % items.length]?.focus({ preventScroll: true });
 			} else if (e.key === 'Escape') {
 				trigger.setAttribute('aria-expanded', 'false');
-				trigger.focus();
+				trigger.focus({ preventScroll: true });
 			}
 		});
 	});

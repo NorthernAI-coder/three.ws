@@ -11,6 +11,11 @@
 body.market-page > .site-header,
 body.market-page > #footer-container {
 	grid-column: 1 / -1;
+	/* Grid items default to min-width: auto (= min-content), so the global
+	   header's `white-space: nowrap` (set in style.css for the 3D-viewer
+	   pages) can blow the column past the viewport on mobile. Pin to 0 so
+	   the grid actually constrains the header to the column width. */
+	min-width: 0;
 }
 
 /* ── Detail header 3D avatar ──────────────────────────────────────────── */

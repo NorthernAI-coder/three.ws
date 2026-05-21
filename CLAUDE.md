@@ -55,6 +55,12 @@ Run both in the same step. If one fails, surface the error — do not silently l
 - Solana/agent SDKs in `sdk/`, `solana-agent-sdk/`, `agent-payments-sdk/`.
 - Real APIs in use: Pump.fun feed, Solana RPC, OpenAI/Anthropic via worker proxies. Never mock these.
 
+## Repo hygiene
+
+- **Keep the repo root clean.** Only config files (`.env`, `vite.config.js`, `package.json`, etc.) and top-level index/entry points belong there.
+- **No throwaway scripts in the root.** Debug scripts, one-off inspection tools, and Playwright/Puppeteer snippets go in `scripts/` — or are deleted when no longer needed. Never commit them to the root.
+- **No scratch files, logs, or screenshots committed.** If a tool produces output files, add them to `.gitignore` or delete them before committing.
+
 ## Tone
 
 Professional. No filler. No "great question!" No emojis unless the user asks. Short sentences. Ship work.
