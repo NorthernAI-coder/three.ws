@@ -26,6 +26,17 @@ body.market-page {
 	-webkit-font-smoothing: antialiased;
 }
 
+/* The global /style.css (loaded for every page so the 3D viewer renders
+   full-bleed) sets `html, body { height: 100%; overflow: hidden }`. That
+   pins the marketplace to the viewport and kills page scroll. This file
+   is only linked from marketplace.html, so unscoping html/body here just
+   restores normal document scrolling on marketplace routes. */
+html,
+body.market-page {
+	height: auto;
+	overflow: visible;
+}
+
 body.market-page {
 	display: grid;
 	grid-template-columns: 240px 1fr;

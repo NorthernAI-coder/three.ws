@@ -31,102 +31,16 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
   - [Memory](#memory)
 - [Web Component & Embedding](#web-component--embedding)
 - [Widget System](#widget-system)
-## API Reference
-
-The backend API is composed of Vercel serverless functions located in the `api/` directory. Key endpoints include:
--   `api/agents.js`: CRUD operations for agents.
--   `api/chat.js`: Handles LLM chat interactions.
--   `api/mcp.js`: The Model Context Protocol (MCP) endpoint.
--   `api/auth/`: User authentication and session management.
--   `api/payments/`: Payment processing.
--   `api/agent-actions.js`: Records agent actions.
--   `api/agent-memory.js`: Manages agent memory.
-
-An OpenAPI 3.1 specification is available at `/openapi.json`.
-
----
-
-## Authentication & OAuth 2.1
-
-The platform includes a full OAuth 2.1 server for secure authentication and authorization. Key features include:
--   **Email & Wallet Sign-in**: Users can register and sign in with email or a crypto wallet (SIWE).
--   **OAuth 2.1 Flow**: Standard authorization code flow with PKCE.
--   **API Keys**: Developers can generate API keys with specific scopes and expiry dates.
-
----
-
-## Build & Deployment
-
-The project is deployed on Vercel. The `package.json` file contains several scripts for building and deploying the application:
--   `npm run dev`: Starts the local development server.
--   `npm run build`: Builds the main application.
--   `npm run build:lib`: Builds the distributable library.
--   `npm run build:chat`: Builds the Svelte-based chat component.
--   `npm run build:rider`: Builds the `rider` sub-project.
--   `npm run build:all`: Runs all build scripts in parallel.
--   `npm run install:sdk`: Installs and builds the `agent-payments-sdk`.
--   `npm run deploy`: Deploys the project to Vercel.
-
----
-
-## Claude CLI
-
-The `scripts/claude.sh` script is a command-line interface (CLI) to help manage the agent and SDKs. You can run it directly or via `npm run claude`.
-
-**Usage:**
-```bash
-# Using npm
-npm run claude -- [COMMAND]
-
-# Direct execution
-./scripts/claude.sh [COMMAND]
-```
-
-**Commands:**
-
-| Command | Description |
-| --- | --- |
-| `install-sdk` | Installs and builds the `@pump-fun/agent-payments-sdk`. |
-| `validate-cards` | Validates the agent definition cards in `src/agents/`. |
-| `db-migrate` | Applies database migrations from `scripts/migrations/`. |
-| `db-status` | Checks the status of database migrations. |
-| `pump-smoke-test` | Runs a smoke test for the pump.fun integration. |
-| `seed-skills` | Seeds the skills from the `skills-manifest.js` file. |
-| `test` | Runs the full test suite. |
-| `format` | Formats the codebase using Prettier. |
-| `clean` | Cleans up all build artifacts and `dist/` folders. |
-| `deploy` | Deploys the project to Vercel (requires confirmation). |
-| `deploy-agent <name>` | Packages a specified agent into a distributable zip file. |
-| `help` | Shows this help message, listing all available commands. |
-
----
-
-## Environment Variables
-
-The following environment variables are required. Copy `.env.example` to `.env.local` and provide the values.
-
-| Variable | Description |
-| --- | --- |
-| `PUBLIC_APP_ORIGIN` | Public URL of the application. |
-| `DATABASE_URL` | Connection string for the Neon Postgres database. |
-| `S3_ENDPOINT` | Endpoint for the S3-compatible storage bucket. |
-| `S3_ACCESS_KEY_ID` | Access key ID for the S3 bucket. |
-| `S3_SECRET_ACCESS_KEY` | Secret access key for the S3 bucket. |
-| `S3_BUCKET` | Name of the S3 bucket. |
-| `S3_PUBLIC_DOMAIN` | Public CDN base URL for the S3 bucket. |
-| `UPSTASH_REDIS_REST_URL` | URL for the Upstash Redis instance. |
-| `UPSTASH_REDIS_REST_TOKEN` | Token for the Upstash Redis instance. |
-| `JWT_SECRET` | Secret key for signing JWTs. |
-| `ANTHROPIC_API_KEY` | API key for the Anthropic (Claude) LLM. |
-| `OPENROUTER_API_KEY` | API key for the OpenRouter free model proxy. |
-| `VITE_CHARACTER_STUDIO_URL` | Origin where the Character Studio avatar builder iframe is hosted. Defaults to `http://localhost:5173` in dev. |
-| `VITE_PRIVY_APP_ID` | Privy app ID for client-side wallet authentication. |
-| `PRIVY_APP_ID` | Privy app ID for server-side token verification. |
-| `AVATURN_API_KEY` | API key for the Avaturn photo-to-avatar pipeline. |
-| `AGENT_RELAYER_KEY` | Private key for the ERC-7710 delegation relayer. |
-| `AGENT_RELAYER_ADDRESS` | Public address of the relayer. |
-| `RPC_URL_<CHAINID>` | RPC URLs for different blockchain networks. |
+- [API Reference](#api-reference)
+- [Authentication & OAuth 2.1](#authentication--oauth-21)
+- [MCP Server](#mcp-server)
+- [On-Chain Identity (ERC-8004)](#on-chain-identity-erc-8004)
+- [Pump.fun Integration](#pumpfun-integration)
+- [Database Schema](#database-schema)
+- [Build & Deployment](#build--deployment)
+- [Environment Variables](#environment-variables)
 - [Cloud Marketplaces](#cloud-marketplaces)
+- [Ecosystem Directories](#ecosystem-directories)
 - [Testing](#testing)
 - [Contributing](#contributing)
 - [Contributors](#contributors)
@@ -293,6 +207,21 @@ If you want to support the project — compute credits, grants, partnerships, or
 - Composable skill system — install skills from IPFS, Arweave, or HTTP; each skill is a self-contained bundle with a description, tool definitions, and async handlers
 - Weighted emotion blending (celebration, concern, curiosity, empathy, patience) driven by protocol events, not a finite-state machine
 - Web Speech API for STT/TTS out of the box; ElevenLabs integration for production-quality voice
+- **Talk mode** with audio-driven ARKit-52 lip-sync — TTS audio is analysed in real time and drives 52 standard blendshapes on the avatar
+- Anonymous Groq-powered chat for unauthenticated visitors; owner-card gating when an agent has a paying author
+
+**x402 Payments & Bazaar**
+- Native [x402](https://x402.org) paid endpoints on Base, BSC, and Solana — agents pay other agents in USDC for API calls, asset downloads, and skill royalties
+- Coinbase CDP facilitator on Base mainnet; direct-scheme payments on BSC
+- Permit2 gas-sponsoring siblings on every CDP-settled endpoint (buyer signs, relayer pays gas)
+- SKU catalog + Stripe-style checkout at `/dashboard/x402`; receipts ledger with admin tooling
+- Subscriptions, idempotency tokens, offer receipts, paid asset download, and a bazaar listing/search API
+- SIWX (Sign-In with X-chain) server for auth-gated paid endpoints
+- Listed on [x402scan](https://www.x402scan.com/server/17cbd874-52ac-4920-a020-b22ff2489a07) and the [MCP Registry](https://registry.modelcontextprotocol.io/?q=three.ws)
+
+**A2A — Agent-to-Agent Protocol**
+- A2A client + server, MCP bridge, DID resolution, spending ledger, receipts storage
+- Agents transact autonomously via their delegated signer wallets and EIP-7710 permissions
 
 **Identity & On-Chain**
 - ERC-8004 smart contracts (IdentityRegistry, ReputationRegistry, ValidationRegistry) deployable on any EVM chain
@@ -304,16 +233,27 @@ If you want to support the project — compute credits, grants, partnerships, or
 **Embedding & Distribution**
 - `<agent-3d>` custom element — drop it anywhere with no framework dependency
 - Five widget variants: turntable, animation gallery, talking agent, ERC-8004 passport card, hotspot tour
-- Widget Studio — point-and-click embed code generator
+- Widget Studio + WYSIWYG **Embed Editor** at `/embed-editor` — pick an avatar, animation, framing, and background, copy the snippet
+- **Launchpad** at `/launchpad` — hosted public launch pages at `/p/[slug]` for tokens, agents, and drops
 - Open Graph metadata and oEmbed support for rich social previews when links are shared
 - Versioned CDN bundles at `/agent-3d/x.y.z/agent-3d.js`
+
+**Multi-User 3D**
+- **The Club** at `/club` — multiplayer venue with rigged dancers, audio tracks, tips, leaderboard, payouts cron, perf-aware renderer that auto-downgrades on slow frames
+- **Walk** at `/walk` — authoritative multiplayer walk scene backed by a Colyseus server in `multiplayer/` (deployable on Fly.io)
+- **Pose Studio** at `/pose-studio` — author and export reusable avatar poses
 
 **Backend & Integrations**
 - OAuth 2.1 server (RFC 6749 + PKCE, RFC 7591 dynamic registration, RFC 7009 revocation, RFC 7662 introspection, RFC 8414 discovery)
 - Developer API keys with scope and expiry
-- MCP (Model Context Protocol) over HTTP with JSON-RPC 2.0 for tool-calling from external AI systems
-- Avaturn (photo-to-avatar), Character Studio (in-browser builder), and Privy (embedded wallet) integrations
+- MCP (Model Context Protocol) over HTTP with JSON-RPC 2.0 for tool-calling from external AI systems; A2A bridge exposes paid tools as x402 endpoints
+- Avaturn (photo-to-avatar), Character Studio (in-browser builder), Avatar Studio (rebranded marketplace), and Privy (embedded wallet) integrations
+- Replicate-backed avatar regeneration provider for photo-to-avatar workflows
+- Native selfie reconstruction pipeline (Phase 1) + Livepeer inference network (Phase 4) wired into the agent runtime
 - DCA strategy execution and on-chain subscription scheduling via cron jobs
+- News CMS at `/admin/news` with multi-destination syndication (WebSub, Dev.to, Medium, HackerNoon, CMC handoff)
+- Solana Mobile (Seeker) MWA wallet wired into the web app + Solana Mobile dApp Store release pipeline
+- Hardened API surface: SSRF guard, CSRF gates, header-origin pinning, fail-closed crons
 - OpenAPI 3.1 spec generated at `/openapi.json`
 
 ---
@@ -335,11 +275,17 @@ A map of every user-facing route. Full detail (source files, feature description
 | **Agent (Platform)** | `/agent/[id]`, `/agent/[id]/embed`, `/agent/[id]/edit` | Agent chat, chromeless embed, manifest editor |
 | **Agent (On-Chain)** | `/a/[chain]/[id]`, `/a/sol/[asset]` | ERC-8004 and Metaplex Core passports |
 | **Profile** | `/profile`, `/u/[username]`, `/avatars/[id]` | User and avatar public pages |
-| **Dashboard** | `/dashboard`, `/dashboard/actions`, `/dashboard/wallets`, `/dashboard/usage`, … | Account management and settings |
-| **Studio / Tools** | `/studio`, `/hydrate`, `/validation`, `/strategy-lab` | Widget Studio, on-chain import, glTF validator, DCA |
+| **Dashboard** | `/dashboard`, `/dashboard/actions`, `/dashboard/wallets`, `/dashboard/usage`, `/dashboard/x402` | Account management, settings, and x402 receipts/payouts |
+| **Studio / Tools** | `/studio`, `/embed-editor`, `/pose-studio`, `/hydrate`, `/validation`, `/strategy-lab` | Widget Studio, WYSIWYG embed editor, pose authoring, on-chain import, glTF validator, DCA |
 | **Widgets** | `/widgets`, `/w/[id]` | Widget gallery and public widget pages (OG + oEmbed) |
+| **Launchpad** | `/launchpad`, `/p/[slug]` | Launchpad Studio + hosted launch pages (token, agent, drop campaigns) |
+| **Club** | `/club` | Multiplayer 3D venue — tips, leaderboard, audio tracks, perf-aware renderer |
+| **Walk** | `/walk` | Authoritative multiplayer walk scene (Colyseus on Fly.io) |
+| **Bazaar (x402)** | `/x402`, `/x402-discover`, `/x402-pay` | Paid-API marketplace, discovery, Stripe-style checkout |
 | **Artifacts** | `/artifact`, `/artifact/snippet`, `/artifact-example` | Claude Artifact viewer |
-| **Solana / DeFi** | `/pumpfun`, `/vanity-wallet` | Token launcher, vanity address grinder |
+| **Solana / DeFi** | `/pumpfun`, `/pump-visualizer`, `/vanity-wallet` | pump.fun launcher, live token visualizer, WASM vanity grinder |
+| **Mobile (Seeker)** | Solana Mobile dApp Store | MWA wallet wired into the web app + Seeker release pipeline |
+| **News / Blog** | `/news`, `/admin/news` | News feed + local-only CMS, syndicated via WebSub / Dev.to / Medium / HackerNoon |
 | **Admin / Rep** | `/admin`, `/reputation` | Staff admin, reputation registry |
 | **Experiments** | `/rider` | A-Frame WebVR music visualization |
 | **Integrations** | `/cz`, `/lobehub/iframe` | CZ demo, LobeHub plugin |
@@ -470,12 +416,6 @@ The backend is stateless serverless functions. All persistent state lives in Pos
     npm run dev
     ```
 The application will be available at `http://localhost:3000`.
-
----
-
-## Contributing
-
-We welcome contributions from the community! Please read our [contributing guidelines](CONTRIBUTING.md) to get started.
 
 ---
 
@@ -672,7 +612,7 @@ For anything beyond a quick one-liner, define the agent in a manifest file and r
   "skills": [
     { "uri": "https://cdn.three.ws/skills/wave/" }
   ]
-} The script automatically initializes widgets, even those added dynamically after the page loads.
+}
 ```
 
 ```html
@@ -744,42 +684,6 @@ For sandboxed iframes use the widget embed path instead — it runs in its own b
 -   `pump-fun-skills/`: Skills related to the pump.fun integration.
 -   `scripts/`: Node.js scripts for development, build, and deployment tasks.
 -   `workers/`: Code for background workers.
-
----
-
-## Pump.fun Integration
-
-This project includes a significant integration with [pump.fun](https://pump.fun), a platform for launching tokens on Solana. Key features include:
--   **Token Launcher**: A UI for creating and launching new tokens on pump.fun, available at `public/pumpfun.html`.
--   **Live Dashboard**: Real-time tracking of pump.fun tokens can be found in `pump-live.html`.
--   **Skills**: The `pump-fun-skills/` directory contains agent skills for interacting with pump.fun.
-
----
-
-## SDKs
-
-The project contains several SDKs to interact with various services:
--   **`agent-payments-sdk/`**: Manages payments for agent-related services.
--   **`solana-agent-sdk/`**: Provides tools for interacting with the Solana blockchain.
--   **`sdk/`**: A general-purpose SDK with shared utilities.
-
----
-
-## Workers
-
-The `workers/` directory contains code for background workers that handle tasks such as scheduled jobs and data processing.
-
----
-
-## Scripts and Tooling
-
-The `scripts/` directory includes various utility scripts:
--   `seed-skills.js`: Seeds the database with an initial set of agent skills.
--   `apply-migrations.mjs`: Manages and applies database migrations.
--   `publish-lib.mjs`: Publishes the library to npm.
--   `download-animations.mjs`: Fetches and updates animation files.
--   `build-animations.mjs`: Builds animation assets.
-```
 
 ---
 
@@ -1292,6 +1196,16 @@ Full design and configuration in [docs/solana-pumpfun.md](docs/solana-pumpfun.md
 
 ---
 
+## Pump.fun Integration
+
+Beyond the Solana reputation signals described above, the platform also ships consumer-facing pump.fun tooling:
+
+- **Token Launcher** — UI for creating and launching new tokens, at [public/pumpfun.html](public/pumpfun.html).
+- **Live Dashboard** — real-time tracker for new tokens, at [pump-live.html](pump-live.html).
+- **Skills** — the [pump-fun-skills/](pump-fun-skills/) directory contains agent skills for reading and acting on pump.fun.
+
+---
+
 ## Database Schema
 
 The Postgres schema (`api/_lib/schema.sql`) is fully idempotent — all migrations use `CREATE TABLE IF NOT EXISTS` patterns. Safe to re-run on any environment.
@@ -1360,15 +1274,47 @@ plan_quotas  (plan, max_avatars, max_bytes_per_avatar, max_total_bytes)
 | `npm run build` | Production build to `dist/` |
 | `npm run build:lib` | Build `<agent-3d>` web component library to `dist-lib/` |
 | `npm run build:artifact` | Build standalone Claude artifact viewer bundle |
-| `npm run build:all` | build + build:lib + publish:lib |
+| `npm run build:all` | Chat build, then `build` + `build:lib` + `build:rider` in parallel |
 | `npm run publish:lib` | Publish versioned CDN bundles to `/agent-3d/` |
-| `npm run test` | Run Vitest suite |
+| `npm run test` | Vitest unit suite + Playwright end-to-end suite |
+| `npm run test:e2e` | Playwright end-to-end suite only |
 | `npm run verify` | Prettier check + Vite build (pre-deploy gate) |
 | `npm run format` | Prettier write (entire repo) |
-| `npm run deploy` | build:all + vercel --prod |
-| `npm run clean` | Remove dist/ and dist-lib/ |
+| `npm run deploy` | `build:all` → `check:dist` → `vercel --prod` |
+| `npm run clean` | Remove `dist/` and `dist-lib/` |
 | `npm run fetch-animations` | Download animation clip assets |
 | `npm run generate-icons` | Generate PWA icon set |
+| `npm run db:migrate` | Apply Postgres migrations from `scripts/migrations/` |
+| `npm run db:status` | Show pending Postgres migrations |
+| `npm run seed:skills` | Seed the skills registry from `skills-manifest.js` |
+| `npm run install:sdk` | Install + build `agent-payments-sdk` and link it locally |
+| `npm run validate:cards` | Validate agent definition cards in `src/agents/` |
+| `npm run pump:smoke` | Run the pump.fun lifecycle smoke test |
+
+### Claude CLI
+
+`scripts/claude.sh` (aliased as `npm run claude`) wraps the npm scripts above with confirmation prompts on destructive commands (`deploy`, `db-migrate`). Useful when you want guard-rails or a single entry point for an agent to drive.
+
+```bash
+npm run claude -- <command>
+# or
+./scripts/claude.sh <command>
+```
+
+| Command | Wraps |
+|---|---|
+| `install-sdk` | `npm run install:sdk` |
+| `validate-cards` | `npm run validate:cards` |
+| `db-migrate` | `npm run db:migrate` (with confirmation) |
+| `db-status` | `npm run db:status` |
+| `pump-smoke-test` | `npm run pump:smoke` |
+| `seed-skills` | `npm run seed:skills` |
+| `test` | `npm run test` |
+| `format` | `npm run format` |
+| `clean` | `npm run clean` |
+| `deploy` | `npm run deploy` (with confirmation) |
+| `deploy-agent <name>` | Packages an agent into a distributable zip |
+| `help` | List all commands |
 
 ### Vercel Deployment
 
@@ -1563,4 +1509,4 @@ The three.js library (`node_modules/three`) is MIT licensed. The gltf-validator 
 
 ---
 
-*Built with [three.js](https://three.ws), [Claude](https://claude.ai), and a belief that AI deserves a body.*
+*Built with [three.js](https://threejs.org), [Claude](https://claude.ai), and a belief that AI deserves a body.*
