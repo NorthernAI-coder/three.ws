@@ -61,6 +61,147 @@
 		></script>
 		<script src="/fluid-particles.js" defer></script>
 		<script type="module" src="/src/home-act2-viewer.js"></script>
+		<style>
+			/* ── v2 demo: visible hero interactivity ────────────────────── */
+			.hv2-tryme {
+				position: absolute;
+				top: 6%;
+				left: 50%;
+				transform: translateX(-50%);
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				padding: 8px 16px;
+				border-radius: 999px;
+				background: rgba(20, 22, 32, 0.78);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				color: #fff;
+				font: 600 12px/1 'Space Grotesk', 'Inter', system-ui, sans-serif;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				pointer-events: none;
+				z-index: 30;
+				box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+				animation: hv2-tryme-pulse 2.2s ease-in-out infinite;
+				transition: opacity 0.35s ease, transform 0.35s ease;
+			}
+			.hv2-tryme.is-hidden {
+				opacity: 0;
+				transform: translateX(-50%) translateY(-12px);
+			}
+			.hv2-tryme-dot {
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: #6ee7b7;
+				box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.7);
+				animation: hv2-tryme-dot 1.4s ease-out infinite;
+			}
+			@keyframes hv2-tryme-dot {
+				0% { box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.7); }
+				70% { box-shadow: 0 0 0 10px rgba(110, 231, 183, 0); }
+				100% { box-shadow: 0 0 0 0 rgba(110, 231, 183, 0); }
+			}
+			@keyframes hv2-tryme-pulse {
+				0%, 100% { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(120, 200, 255, 0.45); }
+				50% { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 14px rgba(120, 200, 255, 0); }
+			}
+
+			/* Chip strip — anchored below the avatar in the hero */
+			.hv2-chips-wrap {
+				position: absolute;
+				left: 50%;
+				bottom: 5%;
+				transform: translateX(-50%);
+				z-index: 25;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 10px;
+				pointer-events: auto;
+				max-width: min(720px, 92vw);
+			}
+			.hv2-chips-label {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				font: 500 11px/1 'Space Grotesk', 'Inter', system-ui, sans-serif;
+				letter-spacing: 0.18em;
+				text-transform: uppercase;
+				color: rgba(255, 255, 255, 0.6);
+			}
+			.hv2-chips {
+				display: flex;
+				flex-wrap: wrap;
+				justify-content: center;
+				gap: 8px;
+			}
+			.hv2-chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 7px;
+				padding: 9px 14px;
+				border-radius: 999px;
+				background: rgba(18, 20, 28, 0.72);
+				backdrop-filter: blur(10px);
+				-webkit-backdrop-filter: blur(10px);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				color: #f3f4f6;
+				font: 600 13px/1 'Space Grotesk', 'Inter', system-ui, sans-serif;
+				cursor: pointer;
+				transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+				user-select: none;
+			}
+			.hv2-chip:hover {
+				transform: translateY(-2px);
+				background: rgba(28, 32, 44, 0.92);
+				border-color: rgba(255, 255, 255, 0.28);
+				box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+			}
+			.hv2-chip:active { transform: translateY(0); }
+			.hv2-chip[data-active="true"] {
+				background: linear-gradient(135deg, rgba(110, 231, 183, 0.22), rgba(120, 200, 255, 0.22));
+				border-color: rgba(110, 231, 183, 0.6);
+				color: #fff;
+				box-shadow: 0 0 0 1px rgba(110, 231, 183, 0.35), 0 6px 18px rgba(110, 231, 183, 0.18);
+			}
+			.hv2-chip-icon { font-size: 14px; line-height: 1; }
+			.hv2-chip--rand {
+				background: linear-gradient(135deg, rgba(120, 200, 255, 0.18), rgba(180, 140, 255, 0.18));
+				border-color: rgba(180, 200, 255, 0.4);
+			}
+
+			/* Live click-count pill — only counts real interactions */
+			.hv2-counter {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				padding: 4px 10px;
+				border-radius: 999px;
+				background: rgba(10, 12, 18, 0.6);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				color: rgba(255, 255, 255, 0.7);
+				font: 500 11px/1 'JetBrains Mono', ui-monospace, monospace;
+				letter-spacing: 0.04em;
+			}
+			.hv2-counter-num { color: #6ee7b7; font-weight: 700; }
+
+			.hv2-subtitle-tight { max-width: 38ch; }
+
+			#hero-avatar { cursor: pointer; }
+
+			@media (max-width: 720px) {
+				.hv2-tryme { top: 4%; font-size: 10px; padding: 6px 12px; }
+				.hv2-chip { padding: 7px 11px; font-size: 12px; }
+				.hv2-chips-wrap { bottom: 2%; }
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.hv2-tryme, .hv2-tryme-dot { animation: none !important; }
+			}
+		</style>
 	</head>
 	<body class="home-page">
 		<div class="cursor" id="cursor" aria-hidden="true"></div>
@@ -135,6 +276,49 @@
 					<div class="h-vignette"></div>
 				</div>
 
+				<!-- v2: TRY ME badge over the avatar -->
+				<div class="hv2-tryme" id="hv2-tryme" aria-hidden="true">
+					<span class="hv2-tryme-dot"></span>
+					<span>Try me — pick a move ↓</span>
+				</div>
+
+				<!-- v2: visible chip strip — wires to the hero viewer -->
+				<div class="hv2-chips-wrap" id="hv2-chips-wrap">
+					<div class="hv2-chips-label">
+						<span>Live · click to animate</span>
+						<span class="hv2-counter" id="hv2-counter">
+							<span class="hv2-counter-num" id="hv2-counter-num">0</span>
+							<span>moves played</span>
+						</span>
+					</div>
+					<div class="hv2-chips" id="hv2-chips" role="group" aria-label="Trigger an animation on the hero avatar">
+						<button type="button" class="hv2-chip hv2-chip--rand" data-anim="__random">
+							<span class="hv2-chip-icon">🎲</span><span>Random</span>
+						</button>
+						<button type="button" class="hv2-chip" data-anim="wave">
+							<span class="hv2-chip-icon">👋</span><span>Wave</span>
+						</button>
+						<button type="button" class="hv2-chip" data-anim="dance">
+							<span class="hv2-chip-icon">💃</span><span>Dance</span>
+						</button>
+						<button type="button" class="hv2-chip" data-anim="capoeira">
+							<span class="hv2-chip-icon">🤸</span><span>Capoeira</span>
+						</button>
+						<button type="button" class="hv2-chip" data-anim="jump">
+							<span class="hv2-chip-icon">🦘</span><span>Jump</span>
+						</button>
+						<button type="button" class="hv2-chip" data-anim="thriller">
+							<span class="hv2-chip-icon">🧟</span><span>Thriller</span>
+						</button>
+						<button type="button" class="hv2-chip" data-anim="falling">
+							<span class="hv2-chip-icon">🪂</span><span>Falling</span>
+						</button>
+						<button type="button" class="hv2-chip" data-anim="pray">
+							<span class="hv2-chip-icon">🙏</span><span>Pray</span>
+						</button>
+					</div>
+				</div>
+
 				<!-- Sticky text pinned to bottom-left — same pattern as features page -->
 				<div class="h-hero-text">
 					<div class="h-eyebrow h-reveal">
@@ -142,10 +326,10 @@
 						<span>The 3D layer for onchain AI agents</span>
 					</div>
 					<h2 class="h-title h-reveal">Give your AI<br />a <em>body</em>.</h2>
-					<p class="h-subtitle h-reveal">
-						Born in 3D. Raised on-chain. Yours forever. Your AI has been a chatbox long
-						enough — give it a body, a personality, and a permanent home open to every
-						human, app, and agent that comes looking.
+					<p class="h-subtitle h-reveal hv2-subtitle-tight">
+						That avatar above is real — click any move and watch it react. Drop any GLB,
+						embed it anywhere, mint it on Solana as a portable agentId discoverable by
+						any A2A or MCP client.
 					</p>
 					<div class="h-cta-row h-reveal">
 						<a href="/create" class="h-btn-primary">
@@ -908,9 +1092,9 @@
 					];
 					let lastAnim = null;
 					canvas.style.cursor = 'pointer';
-					canvas.addEventListener('click', async () => {
-						const pool = FUN.filter((a) => a !== lastAnim);
-						const name = pool[Math.floor(Math.random() * pool.length)];
+
+					// v2: shared play function so canvas-click AND chip-click both flow through here
+					async function playMove(name) {
 						lastAnim = name;
 						if (name === 'falling') {
 							doFalling();
@@ -918,12 +1102,51 @@
 						}
 						try {
 							await viewer.playClip(name);
-							const def = viewer._manifest.find((d) => d.name === name);
+							const def = viewer._manifest && viewer._manifest.find((d) => d.name === name);
 							if (def && !def.loop) {
 								setTimeout(() => viewer.playClip('dance').catch(() => {}), 2600);
 							}
 						} catch (_) {}
+					}
+
+					canvas.addEventListener('click', async () => {
+						const pool = FUN.filter((a) => a !== lastAnim);
+						const name = pool[Math.floor(Math.random() * pool.length)];
+						hv2OnInteract();
+						playMove(name);
 					});
+
+					// v2: chip strip wiring + tryme dismissal + counter
+					const chipsWrap = document.getElementById('hv2-chips');
+					const tryme = document.getElementById('hv2-tryme');
+					const counterNum = document.getElementById('hv2-counter-num');
+					let interactionCount = 0;
+
+					function hv2OnInteract() {
+						if (tryme && !tryme.classList.contains('is-hidden')) {
+							tryme.classList.add('is-hidden');
+						}
+						interactionCount += 1;
+						if (counterNum) counterNum.textContent = String(interactionCount);
+					}
+
+					if (chipsWrap) {
+						chipsWrap.addEventListener('click', (e) => {
+							const btn = e.target.closest('.hv2-chip');
+							if (!btn) return;
+							const anim = btn.dataset.anim;
+							if (!anim) return;
+							chipsWrap.querySelectorAll('.hv2-chip').forEach((c) => delete c.dataset.active);
+							btn.dataset.active = 'true';
+							hv2OnInteract();
+							if (anim === '__random') {
+								const pool = FUN.filter((a) => a !== lastAnim);
+								playMove(pool[Math.floor(Math.random() * pool.length)]);
+							} else {
+								playMove(anim);
+							}
+						});
+					}
 				});
 			})();
 

@@ -1566,6 +1566,14 @@
 			"dest": "/home.html"
 		},
 		{
+			"src": "/home-v2",
+			"dest": "/home-v2.html"
+		},
+		{
+			"src": "/home-v2/",
+			"dest": "/home-v2.html"
+		},
+		{
 			"src": "/home",
 			"status": 301,
 			"headers": {

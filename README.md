@@ -33,6 +33,7 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 - [Web Component & Embedding](#web-component--embedding)
 - [Widget System](#widget-system)
 - [Embed Editor](#embed-editor)
+- [Pose Studio](#pose-studio)
 - [Launchpad](#launchpad)
 - [The Club](#the-club)
 - [Walk & Multiplayer](#walk--multiplayer)
@@ -40,6 +41,13 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 - [A2A — Agent-to-Agent Protocol](#a2a--agent-to-agent-protocol)
 - [Talk Mode & Lip-Sync](#talk-mode--lip-sync)
 - [Solana Mobile (Seeker)](#solana-mobile-seeker)
+- [Selfie Reconstruction Pipeline (Phase 1)](#selfie-reconstruction-pipeline-phase-1)
+- [Livepeer Inference Network (Phase 4)](#livepeer-inference-network-phase-4)
+- [Voice & Persona Hub (Phase 2)](#voice--persona-hub-phase-2)
+- [WASM Vanity Grinder](#wasm-vanity-grinder)
+- [News CMS & Syndication](#news-cms--syndication)
+- [Security Hardening](#security-hardening)
+- [Developer SDKs](#developer-sdks)
 - [API Reference](#api-reference)
 - [Authentication & OAuth 2.1](#authentication--oauth-21)
 - [MCP Server](#mcp-server)
@@ -679,18 +687,24 @@ For sandboxed iframes use the widget embed path instead — it runs in its own b
 
 ## Project Structure
 
--   `src/`: The core frontend JavaScript for the main application, including the 3D viewer, agent protocol, and custom element.
--   `api/`: Vercel serverless functions that form the backend API.
--   `public/`: Static assets and various sub-applications.
+-   `src/`: The core frontend JavaScript for the main application, including the 3D viewer, agent protocol, custom element, and feature modules (`club-*.js`, `walk*.js`, `pose-*.js`, `voice/`, `selfie-*.js`).
+-   `api/`: Vercel serverless functions that form the backend API. Subdirectories include `x402/`, `a2a/`, `club/`, `pump/`, `persona/`, `news/`, `admin/`, `agents/`, `auth/`, `oauth/`, `cron/`.
+-   `public/`: Static assets and various sub-applications (`club/`, `seeker/`, `news/`, `persona/`, `vanity-wallet.html`, `pumpfun.html`).
 -   `chat/`: A standalone Svelte application for the chat interface.
--   `character-studio/`: A sub-project for character creation.
+-   `character-studio/`: A sub-project for in-browser character creation; also serves the rebranded **Avatar Studio** marketplace.
 -   `rider/`: A-Frame WebVR music visualization experiment.
--   `contracts/`: Solidity smart contracts for on-chain identity (ERC-8004).
--   `agent-payments-sdk/`: SDK for agent-related payments.
--   `solana-agent-sdk/`: SDK for Solana blockchain interactions.
+-   `contracts/`: Solidity smart contracts for on-chain identity (ERC-8004) and the multichain payment factory.
+-   `multiplayer/`: Colyseus WebSocket server for `/walk` and other realtime rooms; deployable on Fly.io.
+-   `sdk/`: `@nirholas/agent-kit` and the Avatar SDK (`sdk/agent-sdk/`).
+-   `agent-payments-sdk/`: EVM agent payments SDK.
+-   `solana-agent-sdk/`: SDK for Solana blockchain interactions (Metaplex Core mints, SIWS, attestations).
 -   `pump-fun-skills/`: Skills related to the pump.fun integration.
--   `scripts/`: Node.js scripts for development, build, and deployment tasks.
--   `workers/`: Code for background workers.
+-   `scripts/`: Node.js scripts for development, build, deployment, and pump.fun launch automation.
+-   `workers/`: Code for background workers — includes the Cloudflare Worker mirror of the pump.fun MCP read API in [`workers/pump-fun-mcp/`](workers/pump-fun-mcp/).
+-   `docs/`: Public-facing developer docs.
+-   `docs/internal/`: Working docs (PLAN, STATUS, TODO, NEXT, PROGRESS, RELEASE_CHECKLIST) — not part of the published docs surface.
+-   `docs/club/`: Pole-club venue design, performance notes, and release checklist.
+-   `tests/`: Vitest unit tests (`tests/api/`, `tests/src/`, `tests/workers/`) and Playwright end-to-end smokes (`tests/e2e/`).
 
 ---
 
@@ -1364,14 +1378,25 @@ The full OpenAPI 3.1 spec is available at `/openapi.json`. The key API surface i
 
 ### Cron Jobs
 
-Scheduled via `vercel.json`, these run automatically in production:
+Scheduled via `vercel.json`, these run automatically in production. All cron endpoints are fail-closed — a missing auth token aborts with an error rather than silently skipping (see [Security Hardening](#security-hardening)).
 
 | Schedule | Endpoint | Purpose |
 |---|---|---|
-| Every 15 min | `/api/cron/erc8004-crawl` | Index new agents from blockchain |
+| Every minute | `/api/cron/run-x-scheduled-posts` | Publish queued X (Twitter) posts |
+| Every 3 min | `/api/cron/pumpfun-monitor` | Watch new pump.fun token creates |
+| Every 5 min | `/api/cron/expire-pending-purchases` | Clear stale x402 pending purchases |
+| Every 5 min | `/api/cron/solana-attestations-crawl` | Index new Solana feedback / validation memos |
 | Every 5 min | `/api/cron/index-delegations` | Index EIP-7710 delegations |
+| Every 5 min | `/api/cron/run-x-triggers` | Trigger-based X posts (mentions, milestones) |
+| Every 10 min | `/api/cron/pump-agent-stats` | Refresh pump-agent dashboard stats |
+| Every 15 min | `/api/cron/erc8004-crawl` | Index new agents from blockchain |
+| Every 15 min | `/api/cron/pumpfun-signals` | Sweep pump.fun signals into `pumpfun_signals` table |
+| Hourly | `/api/cron/cleanup-csrf-tokens` | Expire used / stale CSRF tokens |
+| Hourly | `/api/cron/process-withdrawals` | Sweep creator withdrawals (pump.fun, club tips) |
 | Hourly | `/api/cron/run-dca` | Execute DCA strategy orders |
-| Hourly | `/api/cron/run-subscriptions` | Execute recurring subscriptions |
+| Hourly | `/api/cron/run-subscriptions` | Execute recurring subscriptions (x402 + other) |
+| Every 6h | `/api/cron/fetch-x-metrics` | Pull X engagement metrics for owned accounts |
+| Daily | `/api/cron/audit-log-cleanup` | Rotate audit logs past retention window |
 
 ---
 
