@@ -122,12 +122,15 @@
 
 .home-nav .nav-cta {
 	position: relative;
+	display: inline-flex;
+	align-items: center;
 	padding: 0.5rem 1.15rem;
 	background: linear-gradient(135deg, #ffd76a 0%, #ff8f4d 60%, #ec4899 130%);
 	color: #1a0f08;
 	border-radius: 999px;
 	font-weight: 600;
 	font-size: 0.88rem;
+	line-height: 1.2;
 	letter-spacing: 0.01em;
 	box-shadow:
 		0 1px 0 rgba(255, 255, 255, 0.35) inset,
@@ -178,12 +181,13 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 4px 12px;
+	padding: 5px 12px;
 	border-radius: 999px;
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	background:
 		linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
 	font-size: 0.85rem;
+	line-height: 1.2;
 	color: rgba(255, 255, 255, 0.7);
 	max-width: 140px;
 	overflow: hidden;
@@ -341,8 +345,9 @@
 	padding: 0;
 }
 
-/* Top-level nav links — pill-shape on hover, animated underline glow */
-.home-nav .nav-item > a,
+/* Top-level nav links — pill-shape on hover, animated underline glow.
+   Excludes .nav-cta and .nav-user so their pill styling survives. */
+.home-nav .nav-item > a:not(.nav-cta):not(.nav-user),
 .home-nav .nav-trigger {
 	position: relative;
 	display: inline-flex;
@@ -357,12 +362,13 @@
 	font: inherit;
 	font-size: 0.92rem;
 	font-weight: 500;
+	line-height: 1.2;
 	letter-spacing: 0.005em;
 	font-family: 'Space Grotesk', 'Inter', sans-serif;
 	transition: color 0.18s ease, background 0.18s ease;
 }
 
-.home-nav .nav-item > a:hover,
+.home-nav .nav-item > a:not(.nav-cta):not(.nav-user):hover,
 .home-nav .nav-trigger:hover,
 .home-nav .nav-trigger[aria-expanded='true'] {
 	color: #fff;
