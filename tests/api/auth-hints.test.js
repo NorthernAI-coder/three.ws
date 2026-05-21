@@ -3,7 +3,6 @@
 // db and rate-limit modules to keep the tests offline.
 
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { Wallet } from 'ethers';
 
 process.env.PUBLIC_APP_ORIGIN ||= 'https://app.test';
 process.env.JWT_SECRET ||= 'test-auth-hints-secret-at-least-32-chars-long';
@@ -185,17 +184,24 @@ describe('authenticateAuthHintsRequest — OAuth Bearer', () => {
 
 describe('authenticateAuthHintsRequest — SIWX (EOA)', () => {
 	let header;
-	let wallet;
+	let walletAddress;
 	beforeAll(async () => {
 		const { createSIWxPayload, encodeSIWxHeader } = await import(
 			'@x402/extensions/sign-in-with-x'
 		);
-		wallet = Wallet.createRandom();
+		const { privateKeyToAccount, generatePrivateKey } = await import('viem/accounts');
+		const account = privateKeyToAccount(generatePrivateKey());
+		walletAddress = account.address;
+		// @x402/extensions signEVMMessage calls signer.signMessage({ message }).
+		// Wrap the viem account so the call shape matches.
+		const signer = {
+			address: account.address,
+			signMessage: ({ message }) => account.signMessage({ message }),
+		};
 		const serverExtension = {
-			type: 'caip-122',
+			type: 'eip191',
 			version: '1',
-			schema: 'eip-4361',
-			signatureScheme: 'eip-191',
+			signatureScheme: 'eip191',
 			domain: 'app.test',
 			uri: 'https://app.test/api/x402/agent-reputation',
 			chainId: 'eip155:8453',
@@ -204,7 +210,7 @@ describe('authenticateAuthHintsRequest — SIWX (EOA)', () => {
 			issuedAt: new Date().toISOString(),
 			expirationTime: new Date(Date.now() + 5 * 60_000).toISOString(),
 		};
-		const payload = await createSIWxPayload(serverExtension, wallet);
+		const payload = await createSIWxPayload(serverExtension, signer);
 		header = encodeSIWxHeader(payload);
 	});
 
@@ -216,7 +222,7 @@ describe('authenticateAuthHintsRequest — SIWX (EOA)', () => {
 		expect(out).not.toBeNull();
 		expect(out.ok).toBe(true);
 		expect(out.principal.method).toBe('sign-in-with-x');
-		expect(out.principal.address).toBe(wallet.address.toLowerCase());
+		expect(out.principal.address).toBe(walletAddress.toLowerCase());
 		expect(out.principal.network).toBe('eip155:8453');
 	});
 
@@ -234,5 +240,184 @@ describe('authenticateAuthHintsRequest — SIWX (EOA)', () => {
 			resourceUrl: 'https://app.test/api/x402/agent-reputation',
 		});
 		expect(out).toEqual(expect.objectContaining({ ok: false }));
+	});
+});
+
+// ── paidEndpoint end-to-end ───────────────────────────────────────────────────
+//
+// Builds a paidEndpoint(spec) with authHints enabled, then drives it through
+// fake req/res objects to confirm:
+//   1) The 402 challenge carries the `auth-hints` extension AND zero-amount
+//      free entries mapping to each declared method.
+//   2) An OAuth Bearer with the required scope bypasses payment.
+//   3) A request without auth + without payment header returns the 402 again.
+
+describe('paidEndpoint authHints integration', () => {
+	let paidEndpoint;
+	let mintAccessTokenFn;
+	beforeAll(async () => {
+		process.env.X402_PAY_TO_BASE = '0x209693Bc6afc0C5328bA36FaF03C514EF312287C';
+		process.env.X402_ASSET_ADDRESS_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+		process.env.X402_MAX_AMOUNT_REQUIRED = '10000';
+		({ paidEndpoint } = await import('../../api/_lib/x402-paid-endpoint.js'));
+		({ mintAccessToken: mintAccessTokenFn } = await import('../../api/_lib/auth.js'));
+	});
+
+	function makeReqRes({ method = 'GET', headers = {}, url = '/api/x402/test' } = {}) {
+		const res = {
+			statusCode: 200,
+			headers: {},
+			body: undefined,
+			writableEnded: false,
+			setHeader(name, value) {
+				this.headers[name.toLowerCase()] = value;
+			},
+			getHeader(name) {
+				return this.headers[name.toLowerCase()];
+			},
+			end(body) {
+				this.body = body;
+				this.writableEnded = true;
+			},
+		};
+		const req = { method, url, headers, query: {} };
+		return { req, res };
+	}
+
+	const BAZAAR = {
+		discoverable: true,
+		info: {
+			input: { type: 'http', method: 'GET', queryParams: {} },
+			output: { type: 'json', example: { ok: true } },
+		},
+		schema: {
+			$schema: 'https://json-schema.org/draft/2020-12/schema',
+			type: 'object',
+			properties: {
+				input: {
+					type: 'object',
+					properties: {
+						type: { type: 'string', const: 'http' },
+						method: { type: 'string', enum: ['GET', 'HEAD', 'DELETE'] },
+					},
+					required: ['type', 'method'],
+					additionalProperties: false,
+				},
+			},
+			required: ['input'],
+		},
+	};
+
+	it('declares auth-hints + free entries in the 402 challenge', async () => {
+		const handler = paidEndpoint({
+			route: '/api/x402/test',
+			method: 'GET',
+			priceAtomics: '10000',
+			networks: ['base'],
+			description: 'test endpoint',
+			bazaar: BAZAAR,
+			offerReceipt: false,
+			authHints: {
+				oauth2: { requiredScope: 'read:agent-reputation' },
+				siwx: true,
+			},
+			async handler() {
+				return { ok: true };
+			},
+		});
+
+		const { req, res } = makeReqRes();
+		await handler(req, res);
+
+		expect(res.statusCode).toBe(402);
+		const body = JSON.parse(
+			Buffer.from(String(res.headers['payment-required']), 'base64').toString('utf8'),
+		);
+		const hints = body.extensions['auth-hints'];
+		expect(hints).toBeDefined();
+		expect(hints.info.authRequirements).toHaveLength(2);
+		const [oauthReq, siwxReq] = hints.info.authRequirements;
+		expect(oauthReq.methods[0].type).toBe('oauth2');
+		expect(siwxReq.methods[0].type).toBe('sign-in-with-x');
+		const oauthIdx = oauthReq.acceptIndexes[0];
+		const siwxIdx = siwxReq.acceptIndexes[0];
+		expect(body.accepts[oauthIdx].amount).toBe('0');
+		expect(body.accepts[siwxIdx].amount).toBe('0');
+		expect(body.accepts[oauthIdx].extra.authRequired).toBe('oauth2');
+		expect(body.accepts[siwxIdx].extra.authRequired).toBe('sign-in-with-x');
+	});
+
+	it('bypasses payment when a valid OAuth Bearer is presented', async () => {
+		const handler = paidEndpoint({
+			route: '/api/x402/test',
+			method: 'GET',
+			priceAtomics: '10000',
+			networks: ['base'],
+			description: 'test endpoint',
+			bazaar: BAZAAR,
+			offerReceipt: false,
+			authHints: { oauth2: { requiredScope: 'read:agent-reputation' } },
+			async handler({ auth, bypass }) {
+				return { ok: true, method: auth?.method, bypass: bypass?.reason };
+			},
+		});
+
+		const token = await mintAccessTokenFn({
+			userId: 'user-99',
+			clientId: 'mcp_test',
+			scope: 'read:agent-reputation profile',
+		});
+		const { req, res } = makeReqRes({
+			headers: { authorization: `Bearer ${token}` },
+		});
+		await handler(req, res);
+
+		expect(res.statusCode).toBe(200);
+		const body = JSON.parse(res.body);
+		expect(body.ok).toBe(true);
+		expect(body.method).toBe('oauth2');
+		expect(res.headers['x-payment-bypass']).toBe('auth-hints:oauth2');
+	});
+
+	it('still emits 402 when no auth and no payment are sent', async () => {
+		const handler = paidEndpoint({
+			route: '/api/x402/test',
+			method: 'GET',
+			priceAtomics: '10000',
+			networks: ['base'],
+			description: 'test endpoint',
+			bazaar: BAZAAR,
+			offerReceipt: false,
+			authHints: { oauth2: { requiredScope: 'read:agent-reputation' } },
+			async handler() {
+				return { ok: true };
+			},
+		});
+
+		const { req, res } = makeReqRes();
+		await handler(req, res);
+		expect(res.statusCode).toBe(402);
+	});
+
+	it('rejects an invalid Bearer instead of falling through to 402', async () => {
+		const handler = paidEndpoint({
+			route: '/api/x402/test',
+			method: 'GET',
+			priceAtomics: '10000',
+			networks: ['base'],
+			description: 'test endpoint',
+			bazaar: BAZAAR,
+			offerReceipt: false,
+			authHints: { oauth2: { requiredScope: 'read:agent-reputation' } },
+			async handler() {
+				return { ok: true };
+			},
+		});
+
+		const { req, res } = makeReqRes({
+			headers: { authorization: 'Bearer not-a-jwt' },
+		});
+		await handler(req, res);
+		expect(res.statusCode).toBe(401);
 	});
 });

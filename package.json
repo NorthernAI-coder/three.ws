@@ -187,6 +187,7 @@
 	},
 	"devDependencies": {
 		"@gltf-transform/functions": "^4.3.0",
+		"@playwright/test": "^1.60.0",
 		"@x402/fetch": "^2.12.0",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
