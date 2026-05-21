@@ -20,6 +20,7 @@ import {
 const API = '/api';
 
 let purchasedSkills = new Set();
+let bookmarkedAgents = new Set();
 
 function isLikelyAuthed() {
 	try {
@@ -41,6 +42,48 @@ async function fetchUserPurchases() {
 		purchasedSkills = new Set(list.map((p) => `${p.agent_id}:${p.skill}`));
 	} catch (err) {
 		console.error('[marketplace] purchases', err);
+	}
+}
+
+async function fetchUserBookmarks() {
+	if (!isLikelyAuthed()) return;
+	try {
+		const r = await fetch(`${API}/users/me/bookmarks`, { credentials: 'include' });
+		if (!r.ok) return;
+		const j = await r.json();
+		bookmarkedAgents = new Set(j.data?.agent_ids || []);
+	} catch (err) {
+		console.error('[marketplace] bookmarks', err);
+	}
+}
+
+async function toggleAgentBookmarkFromCard(agentId, btn) {
+	if (!isLikelyAuthed()) {
+		location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+		return;
+	}
+	const wasOn = bookmarkedAgents.has(agentId);
+	btn.classList.toggle('on', !wasOn);
+	btn.setAttribute('aria-pressed', String(!wasOn));
+	btn.textContent = !wasOn ? '★' : '☆';
+	try {
+		const r = await fetch(`${API}/marketplace/agents/${agentId}/bookmark`, {
+			method: wasOn ? 'DELETE' : 'POST',
+			credentials: 'include',
+		});
+		if (!r.ok) throw new Error(`bookmark failed ${r.status}`);
+		const j = await r.json().catch(() => ({}));
+		const nowOn = !!j?.data?.bookmarked;
+		if (nowOn) bookmarkedAgents.add(agentId);
+		else bookmarkedAgents.delete(agentId);
+		btn.classList.toggle('on', nowOn);
+		btn.setAttribute('aria-pressed', String(nowOn));
+		btn.textContent = nowOn ? '★' : '☆';
+	} catch (err) {
+		btn.classList.toggle('on', wasOn);
+		btn.setAttribute('aria-pressed', String(wasOn));
+		btn.textContent = wasOn ? '★' : '☆';
+		console.error('[marketplace] toggle bookmark', err);
 	}
 }
 
@@ -102,6 +145,11 @@ const els = {
 
 // ── Routing ───────────────────────────────────────────────────────────────
 
+// Filter values that round-trip through ?tab= on the list view. Kept here so
+// readRoute and syncFilterToUrl agree on which strings are valid.
+const LIST_FILTER_TABS = new Set(['agents', 'avatars', 'onchain']);
+const SORT_VALUES = new Set(['recommended', 'recent', 'popular']);
+
 function readRoute() {
 	const m = location.pathname.match(/^\/marketplace\/agents\/([^/]+)/);
 	if (m) return { view: 'detail', id: m[1] };
@@ -110,12 +158,37 @@ function readRoute() {
 	const params = new URLSearchParams(location.search);
 	const tab = params.get('tab');
 	const tag = (params.get('tag') || '').trim().toLowerCase().slice(0, 40) || null;
+	const q = (params.get('q') || '').trim().slice(0, 200);
+	const sort = SORT_VALUES.has(params.get('sort')) ? params.get('sort') : null;
 	if (tab === 'tools') return { view: 'tools', tag };
 	if (tab === 'skills') return { view: 'skills', tag };
 	if (tab === 'mine') return { view: 'mine', tag };
 	if (tab === 'purchases') return { view: 'purchases', tag };
-	if (tab === 'avatars') return { view: 'list', filter: 'avatars', tag };
-	return { view: 'list', tag };
+	const filter = LIST_FILTER_TABS.has(tab) ? tab : 'all';
+	return { view: 'list', filter, tag, q, sort };
+}
+
+// Push the current list-view filter/search/sort into the URL so back/forward
+// and page refresh both restore the same view. Uses replaceState by default
+// to avoid flooding history with every keystroke; pass push=true when the
+// change is user-meaningful (filter chip click, sort change).
+function syncFilterToUrl({ push = false } = {}) {
+	if (!location.pathname.startsWith('/marketplace')) return;
+	// Only sync from the discovery list view — detail / tools / mine views
+	// own their own URLs and we shouldn't trample them.
+	const path = location.pathname;
+	if (path !== '/marketplace') return;
+	const url = new URL(location.href);
+	const set = (key, val) => {
+		if (val) url.searchParams.set(key, val);
+		else url.searchParams.delete(key);
+	};
+	set('tab', LIST_FILTER_TABS.has(state.filter) ? state.filter : null);
+	set('q', state.q || null);
+	set('sort', state.sort && state.sort !== 'recommended' ? state.sort : null);
+	if (url.href === location.href) return;
+	if (push) history.pushState({}, '', url);
+	else history.replaceState({}, '', url);
 }
 
 function navTo(path, replace = false) {
@@ -361,7 +434,7 @@ async function loadList(reset = false) {
 		renderGrid();
 	} catch (err) {
 		console.error('[marketplace] list', err);
-		els.grid.innerHTML = '<div class="market-empty">Failed to load agents.</div>';
+		els.grid.innerHTML = renderErrorState('agents');
 	} finally {
 		state.loading = false;
 	}
@@ -799,9 +872,13 @@ function bindFilterChips() {
 	const chips = document.querySelectorAll('#market-filter-chips .market-chip');
 	chips.forEach((chip) => {
 		chip.addEventListener('click', () => {
-			chips.forEach((c) => c.classList.remove('active'));
-			chip.classList.add('active');
+			chips.forEach((c) => {
+				const isActive = c === chip;
+				c.classList.toggle('active', isActive);
+				c.setAttribute('aria-selected', isActive ? 'true' : 'false');
+			});
 			state.filter = chip.dataset.filter || 'all';
+			syncFilterToUrl({ push: true });
 			// Hero showcases community avatars; hide it for non-avatar filters.
 			const hero = $('market-hero');
 			if (hero) {
@@ -1498,6 +1575,20 @@ function renderEmptyState() {
 		</div>`;
 }
 
+// Error state with a retry CTA. Shown when an API call rejects so the user
+// can recover without manually refreshing the page.
+function renderErrorState(scope = 'agents') {
+	const label = scope === 'avatars' ? 'avatars' : scope === 'onchain' ? 'onchain agents' : 'agents';
+	return `
+		<div class="market-empty-cta" role="alert">
+			<h3>Couldn't load ${escapeHtml(label)}</h3>
+			<p>The marketplace server didn't respond. Check your connection and try again.</p>
+			<div class="market-empty-cta-actions">
+				<button type="button" class="market-empty-cta-btn primary" data-empty-action="empty-retry" data-retry-scope="${escapeHtml(scope)}">Retry</button>
+			</div>
+		</div>`;
+}
+
 // Single delegated click handler so empty-state buttons keep working across
 // re-renders (els.grid is innerHTML-replaced on every renderGrid).
 function bindEmptyStateActions() {
@@ -1515,20 +1606,41 @@ function bindEmptyStateActions() {
 			const search = $('market-search');
 			if (search) search.value = '';
 			document.querySelectorAll('.market-chip[data-filter]').forEach((c) => {
-				c.classList.toggle('active', c.dataset.filter === 'all');
+				const isActive = c.dataset.filter === 'all';
+				c.classList.toggle('active', isActive);
+				c.setAttribute('aria-selected', isActive ? 'true' : 'false');
 			});
 			const hero = $('market-hero');
 			if (hero && state.featured.length) {
 				hero.hidden = false;
 				startHeroAutoplay();
 			}
+			// Drop ?tab=, ?q=, ?tag= from the URL so the cleared state survives
+			// refresh and the back button restores whatever the user came from.
+			navTo('/marketplace');
+			state.publicAvatarsLoaded = false;
+			state.onchainLoaded = false;
 			loadList(true);
+			loadPublicAvatars();
+			loadOnchainAgents(true);
 		} else if (action === 'empty-submit-agent') {
 			openSubmitModal();
 		} else if (action === 'empty-create-avatar') {
 			// /create is a separate page, not an SPA route on marketplace — use a
 			// real navigation so the browser actually loads the avatar builder.
 			location.href = '/create';
+		} else if (action === 'empty-retry') {
+			const scope = btn.dataset.retryScope || 'agents';
+			els.grid.innerHTML = '<div class="market-empty">Retrying…</div>';
+			if (scope === 'avatars') {
+				state.publicAvatarsLoaded = false;
+				loadPublicAvatars();
+			} else if (scope === 'onchain') {
+				state.onchainLoaded = false;
+				loadOnchainAgents(true);
+			} else {
+				loadList(true);
+			}
 		}
 	});
 }
@@ -1621,8 +1733,11 @@ function renderCard(a) {
 	const previewStrip = a.thumbnail_url
 		? `<div class="thumb" style="background-image:url('${escapeHtml(a.thumbnail_url)}')"></div>`
 		: `<div class="thumb">${placeholderHtml(a.name)}</div>`;
+	const bmOn = bookmarkedAgents.has(a.id);
+	const starBtn = `<button type="button" class="card-star${bmOn ? ' on' : ''}" data-agent-bm="${escapeHtml(a.id)}" aria-label="Bookmark agent" aria-pressed="${bmOn}" title="${bmOn ? 'Remove bookmark' : 'Bookmark agent'}">${bmOn ? '★' : '☆'}</button>`;
 	return `<div class="market-card-agent" data-id="${a.id}">
 		${previewStrip}
+		${starBtn}
 		<div class="head">
 			${avatarBlock}
 			<div style="min-width:0;flex:1">
@@ -2253,6 +2368,7 @@ function bindEvents() {
 		clearTimeout(searchTimer);
 		searchTimer = setTimeout(() => {
 			state.q = e.target.value.trim();
+			syncFilterToUrl();
 			// All three feeds (agents, avatars, onchain) accept ?q= on the server.
 			// If we only re-fetch agents on search, the grid keeps stale avatar +
 			// onchain cards from the previous query — and the empty state never
@@ -2266,6 +2382,7 @@ function bindEvents() {
 	});
 	els.sortSel.addEventListener('change', (e) => {
 		state.sort = e.target.value;
+		syncFilterToUrl({ push: true });
 		loadList(true);
 	});
 	els.loadMore.addEventListener('click', () => {
@@ -2908,10 +3025,33 @@ function render() {
 	if (r.view === 'list' && r.filter && r.filter !== state.filter) {
 		state.filter = r.filter;
 		document.querySelectorAll('#market-filter-chips .market-chip').forEach((c) => {
-			c.classList.toggle('active', c.dataset.filter === r.filter);
+			const isActive = c.dataset.filter === r.filter;
+			c.classList.toggle('active', isActive);
+			c.setAttribute('aria-selected', isActive ? 'true' : 'false');
 		});
 		// Re-render so the grid reflects the new filter without a refetch.
 		if (state.publicAvatarsLoaded) renderGrid();
+	}
+
+	// Route-driven search + sort restore — refresh / back / forward all need
+	// the controls to match the URL so the UI doesn't lie about what's loaded.
+	if (r.view === 'list') {
+		const routeQ = r.q || '';
+		if (routeQ !== state.q) {
+			state.q = routeQ;
+			if (els.search && els.search.value !== routeQ) els.search.value = routeQ;
+			state.publicAvatarsLoaded = false;
+			state.onchainLoaded = false;
+			loadList(true);
+			loadPublicAvatars();
+			loadOnchainAgents(true);
+		}
+		const routeSort = r.sort || 'recommended';
+		if (routeSort !== state.sort) {
+			state.sort = routeSort;
+			if (els.sortSel && els.sortSel.value !== routeSort) els.sortSel.value = routeSort;
+			loadList(true);
+		}
 	}
 
 	// Route-driven tag filter — re-render whenever ?tag= changes.

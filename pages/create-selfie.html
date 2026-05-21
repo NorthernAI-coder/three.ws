@@ -209,6 +209,224 @@
 		.toggle button:hover { color: var(--text); }
 		.opt-hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 
+		/* ── Step 3: Building ─────────────────────────────────────────────── */
+		.build-progress {
+			display: flex;
+			flex-direction: column;
+			gap: 0;
+			margin: 0 0 28px;
+		}
+		.build-step {
+			display: flex;
+			align-items: flex-start;
+			gap: 12px;
+			padding: 10px 0;
+			position: relative;
+		}
+		.build-step:not(:last-child)::after {
+			content: '';
+			position: absolute;
+			left: 9px;
+			top: 30px;
+			bottom: -10px;
+			width: 2px;
+			background: var(--border);
+		}
+		.build-step.completed::after { background: rgba(214, 255, 61, 0.3); }
+		.bstep-dot {
+			width: 20px;
+			height: 20px;
+			border-radius: 50%;
+			border: 2px solid var(--border-strong);
+			background: var(--panel);
+			flex-shrink: 0;
+			margin-top: 1px;
+			position: relative;
+			z-index: 1;
+		}
+		.build-step.completed .bstep-dot {
+			background: var(--accent);
+			border-color: var(--accent);
+		}
+		.build-step.completed .bstep-dot::after {
+			content: '';
+			display: block;
+			width: 5px;
+			height: 9px;
+			border: 2px solid var(--accent-ink);
+			border-top: none;
+			border-left: none;
+			transform: rotate(45deg) translate(-1px, -1px);
+			position: absolute;
+			top: 2px;
+			left: 5px;
+		}
+		.build-step.active .bstep-dot {
+			border-color: var(--accent);
+			animation: bstep-pulse 1.4s ease-in-out infinite;
+		}
+		@keyframes bstep-pulse {
+			0%, 100% { box-shadow: 0 0 0 0 rgba(214, 255, 61, 0.4); }
+			50%       { box-shadow: 0 0 0 6px rgba(214, 255, 61, 0); }
+		}
+		.bstep-label {
+			font-size: 14px;
+			color: var(--muted);
+			line-height: 1.4;
+			padding-top: 1px;
+		}
+		.build-step.active .bstep-label { color: var(--text); font-weight: 500; }
+		.build-step.completed .bstep-label { color: var(--muted); }
+
+		.build-viewer {
+			position: relative;
+			width: 100%;
+			max-width: 320px;
+			margin: 0 auto 24px;
+			aspect-ratio: 3 / 4;
+			border-radius: 16px;
+			overflow: hidden;
+			background: var(--panel);
+			border: 1px solid var(--border);
+		}
+		.build-viewer model-viewer {
+			width: 100%;
+			height: 100%;
+			--poster-color: transparent;
+		}
+		.build-veil {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: rgba(5, 6, 10, 0.55);
+			backdrop-filter: blur(2px);
+			-webkit-backdrop-filter: blur(2px);
+			pointer-events: none;
+		}
+		.build-ring {
+			width: 72px;
+			height: 72px;
+			border-radius: 50%;
+			border: 3px solid rgba(214, 255, 61, 0.15);
+			border-top-color: var(--accent);
+			animation: build-spin 1s linear infinite;
+		}
+		@keyframes build-spin { to { transform: rotate(360deg); } }
+
+		.build-error {
+			display: none;
+			padding: 12px 14px;
+			background: rgba(239, 77, 77, 0.08);
+			border: 1px solid var(--danger-dim);
+			border-radius: 9px;
+			color: #f4b5b5;
+			font-size: 13.5px;
+			margin: 0 0 16px;
+		}
+		.build-error.show { display: block; }
+		.build-retry {
+			width: 100%;
+			max-width: 320px;
+			margin: 0 auto;
+			display: none;
+			padding: 12px 18px;
+			background: var(--panel);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			color: var(--text);
+			font: 600 14px/1 inherit;
+			cursor: pointer;
+			text-align: center;
+		}
+		.build-retry.show { display: block; }
+		.build-retry:hover { border-color: var(--border-strong); }
+
+		/* ── Step 4: Done ─────────────────────────────────────────────────── */
+		.done-viewer {
+			width: 100%;
+			max-width: 320px;
+			margin: 0 auto 24px;
+			aspect-ratio: 3 / 4;
+			border-radius: 16px;
+			overflow: hidden;
+			background: var(--panel);
+			border: 1px solid var(--border);
+		}
+		.done-viewer model-viewer {
+			width: 100%;
+			height: 100%;
+			--poster-color: transparent;
+		}
+		.name-row {
+			margin: 0 0 20px;
+		}
+		.name-input {
+			width: 100%;
+			padding: 12px 14px;
+			background: var(--panel);
+			border: 1px solid var(--border-strong);
+			border-radius: 10px;
+			color: var(--text);
+			font: 15px/1 inherit;
+			outline: none;
+			transition: border-color 120ms;
+		}
+		.name-input:focus { border-color: var(--accent); }
+		.name-input::placeholder { color: var(--muted); }
+		.done-actions {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+		.btn-save {
+			width: 100%;
+			padding: 14px 18px;
+			background: var(--accent);
+			color: var(--accent-ink);
+			border: none;
+			border-radius: 10px;
+			font: 600 15px/1 inherit;
+			cursor: pointer;
+			transition: filter 120ms;
+		}
+		.btn-save:hover { filter: brightness(1.06); }
+		.btn-save:disabled { opacity: 0.55; cursor: not-allowed; filter: none; }
+		.btn-ghost {
+			width: 100%;
+			padding: 12px 18px;
+			background: var(--panel);
+			color: var(--muted);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			font: 500 14px/1 inherit;
+			cursor: pointer;
+			transition: color 120ms, border-color 120ms;
+		}
+		.btn-ghost:hover { color: var(--text); border-color: var(--border-strong); }
+		.portability-note {
+			margin-top: 24px;
+			padding: 14px 16px;
+			background: rgba(214, 255, 61, 0.04);
+			border: 1px solid rgba(214, 255, 61, 0.12);
+			border-radius: 10px;
+			font-size: 13px;
+			color: var(--muted);
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			flex-wrap: wrap;
+		}
+		.portability-note a {
+			color: var(--accent);
+			text-decoration: none;
+			white-space: nowrap;
+			font-weight: 500;
+		}
+		.portability-note a:hover { text-decoration: underline; }
+
 		.submit-bar {
 			margin-top: 6px;
 		}
@@ -321,6 +539,10 @@
 		.cam-bar .spacer { flex: 1; }
 	</style>
 	<link rel="stylesheet" href="/mobile.css" />
+	<script
+		type="module"
+		src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+	></script>
 </head>
 <body>
 	<main class="stage">
@@ -403,6 +625,94 @@
 				<button id="submit-btn" type="button" disabled>Add 3 photos to continue</button>
 			</div>
 		</section>
+
+		<!-- Step 3: Building your avatar -->
+		<section class="step" data-step="building">
+		<h1>Building your avatar…</h1>
+		<p class="sub">This usually takes 30–90 seconds. Don't close this tab.</p>
+
+		<div class="build-progress" role="list" aria-label="Build progress">
+			<div class="build-step completed" data-bstep="upload" role="listitem">
+				<span class="bstep-dot" aria-hidden="true"></span>
+				<span class="bstep-label">Photos uploaded</span>
+			</div>
+			<div class="build-step active" data-bstep="process" role="listitem">
+				<span class="bstep-dot" aria-hidden="true"></span>
+				<span class="bstep-label" id="build-status-text" aria-live="polite">Processing your face…</span>
+			</div>
+			<div class="build-step" data-bstep="finish" role="listitem">
+				<span class="bstep-dot" aria-hidden="true"></span>
+				<span class="bstep-label">Finishing rig</span>
+			</div>
+		</div>
+
+		<div class="build-viewer" aria-hidden="true">
+			<model-viewer
+				src="/avatars/default.glb"
+				auto-rotate
+				rotation-per-second="12deg"
+				interaction-prompt="none"
+				disable-zoom
+				disable-pan
+				shadow-intensity="0.5"
+				environment-image="neutral"
+				exposure="0.9"
+				camera-orbit="0deg 78deg auto"
+				loading="eager"
+			></model-viewer>
+			<div class="build-veil">
+				<div class="build-ring"></div>
+			</div>
+		</div>
+
+		<p id="build-error-msg" class="build-error" role="alert"></p>
+		<button id="build-retry-btn" class="build-retry" type="button">← Try again</button>
+	</section>
+
+	<!-- Step 4: Done -->
+	<section class="step" data-step="done">
+		<h1>Your avatar is ready</h1>
+		<p class="sub">Name it and open it in your workspace.</p>
+
+		<div class="done-viewer">
+			<model-viewer
+				id="done-model"
+				auto-rotate
+				rotation-per-second="10deg"
+				interaction-prompt="none"
+				camera-controls
+				shadow-intensity="0.7"
+				shadow-softness="0.8"
+				environment-image="neutral"
+				exposure="0.95"
+				camera-orbit="0deg 78deg auto"
+				loading="eager"
+				alt="Your new avatar"
+			></model-viewer>
+		</div>
+
+		<div class="name-row">
+			<input
+				type="text"
+				id="done-name"
+				class="name-input"
+				placeholder="Name your avatar"
+				maxlength="60"
+				autocomplete="off"
+				aria-label="Avatar name"
+			/>
+		</div>
+
+		<div class="done-actions">
+			<button id="done-save-btn" class="btn-save" type="button">Open my avatar →</button>
+			<button id="done-editor-btn" class="btn-ghost" type="button">Customize in editor</button>
+		</div>
+
+		<div class="portability-note">
+			<span>This avatar works in any three.ws-powered app.</span>
+			<a href="/docs/embed" target="_blank" rel="noopener">Learn how to embed →</a>
+		</div>
+	</section>
 	</main>
 
 	<!-- Camera overlay (driven by selfie-capture.js) -->
@@ -430,6 +740,102 @@
 	<script type="module">
 		import '/src/selfie-capture.js';
 		import '/src/selfie-pipeline.js';
+
+		function showStep(name) {
+			document.querySelectorAll('.step[data-step]').forEach((s) => {
+				s.classList.toggle('active', s.dataset.step === name);
+			});
+		}
+
+		let _avatarId = null;
+
+		document.addEventListener('selfie:building', () => {
+			showStep('building');
+		});
+
+		document.addEventListener('selfie:progress', (e) => {
+			const label = /** @type {CustomEvent} */ (e).detail?.label;
+			if (!label) return;
+			const el = document.getElementById('build-status-text');
+			if (el) el.textContent = label;
+
+			// Advance the step indicator to "finish" on later attempts
+			const processStep = document.querySelector('.build-step[data-bstep="process"]');
+			const finishStep = document.querySelector('.build-step[data-bstep="finish"]');
+			if (label.toLowerCase().includes('finish') || label.toLowerCase().includes('rig')) {
+				processStep?.classList.replace('active', 'completed');
+				finishStep?.classList.add('active');
+			}
+		});
+
+		document.addEventListener('selfie:done', async (e) => {
+			_avatarId = /** @type {CustomEvent} */ (e).detail?.avatarId;
+			if (!_avatarId) return;
+
+			// Mark all build steps complete
+			document.querySelectorAll('.build-step').forEach((s) => {
+				s.className = 'build-step completed';
+			});
+
+			// Fetch avatar to get model URL and name
+			try {
+				const res = await fetch(`/api/avatars/${encodeURIComponent(_avatarId)}`, {
+					credentials: 'include',
+				});
+				if (res.ok) {
+					const avatar = await res.json();
+					const modelEl = document.getElementById('done-model');
+					if (modelEl && avatar.model_url) modelEl.setAttribute('src', avatar.model_url);
+					const nameEl = /** @type {HTMLInputElement|null} */ (document.getElementById('done-name'));
+					if (nameEl && avatar.name) nameEl.value = avatar.name;
+				}
+			} catch (_) {}
+
+			showStep('done');
+		});
+
+		document.addEventListener('selfie:build-error', (e) => {
+			const msg = /** @type {CustomEvent} */ (e).detail?.message || 'Something went wrong. Try again.';
+			const errEl = document.getElementById('build-error-msg');
+			const retryBtn = document.getElementById('build-retry-btn');
+			if (errEl) { errEl.textContent = msg; errEl.classList.add('show'); }
+			if (retryBtn) retryBtn.classList.add('show');
+		});
+
+		document.getElementById('build-retry-btn')?.addEventListener('click', () => {
+			const errEl = document.getElementById('build-error-msg');
+			const retryBtn = document.getElementById('build-retry-btn');
+			errEl?.classList.remove('show');
+			retryBtn?.classList.remove('show');
+			showStep('capture');
+		});
+
+		document.getElementById('done-save-btn')?.addEventListener('click', async () => {
+			if (!_avatarId) return;
+			const btn = /** @type {HTMLButtonElement} */ (document.getElementById('done-save-btn'));
+			btn.disabled = true;
+			btn.textContent = 'Saving…';
+
+			const nameEl = /** @type {HTMLInputElement|null} */ (document.getElementById('done-name'));
+			const name = nameEl?.value?.trim();
+			if (name) {
+				try {
+					await fetch(`/api/avatars/${encodeURIComponent(_avatarId)}`, {
+						method: 'PATCH',
+						credentials: 'include',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ name }),
+					});
+				} catch (_) {}
+			}
+
+			window.location.assign(`/avatars/${encodeURIComponent(_avatarId)}`);
+		});
+
+		document.getElementById('done-editor-btn')?.addEventListener('click', () => {
+			if (!_avatarId) return;
+			window.location.assign(`/avatars/${encodeURIComponent(_avatarId)}/edit`);
+		});
 	</script>
 </body>
 </html>

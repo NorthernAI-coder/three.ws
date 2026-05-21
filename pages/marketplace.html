@@ -24,6 +24,20 @@
 			   blocking page scroll. Force display:none whenever hidden is set. */
 			[hidden] { display: none !important; }
 
+			/* Screen-reader-only utility: visible to assistive tech, hidden visually.
+			   Used to label search/sort controls without changing the topbar layout. */
+			.market-visually-hidden {
+				position: absolute !important;
+				width: 1px;
+				height: 1px;
+				padding: 0;
+				margin: -1px;
+				overflow: hidden;
+				clip: rect(0, 0, 0, 0);
+				white-space: nowrap;
+				border: 0;
+			}
+
 			.market-wip-banner {
 				display: flex;
 				align-items: center;
@@ -907,6 +921,147 @@
 			.market-skills-tab {
 				padding: 0 24px 32px;
 			}
+			#skills-cat-chips {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+				margin: 0 0 14px;
+			}
+			#skills-cat-chips .market-chip {
+				font-size: 11px;
+				padding: 4px 10px;
+			}
+			#skills-cat-chips .market-chip .chip-count {
+				background: rgba(255, 255, 255, 0.08);
+				color: inherit;
+				padding: 1px 6px;
+				margin-left: 4px;
+				border-radius: 999px;
+				font-size: 10px;
+				font-weight: 600;
+			}
+			#skills-cat-chips .market-chip.active .chip-count {
+				background: rgba(0, 0, 0, 0.15);
+			}
+			.market-skill-card .skill-desc {
+				font-size: 12px;
+				color: #a1a1aa;
+				line-height: 1.45;
+				display: -webkit-box;
+				-webkit-line-clamp: 3;
+				-webkit-box-orient: vertical;
+				overflow: hidden;
+				min-height: 32px;
+			}
+			.market-skill-card .skill-meta {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex-wrap: wrap;
+				font-size: 11px;
+				color: #71717a;
+			}
+			.market-skill-card .skill-meta .cat-pill {
+				background: rgba(125, 211, 252, 0.1);
+				color: #7dd3fc;
+				padding: 2px 8px;
+				border-radius: 999px;
+				font-size: 10px;
+				font-weight: 600;
+				letter-spacing: 0.02em;
+				text-transform: capitalize;
+			}
+			.market-skill-card .skill-meta .installs,
+			.market-skill-card .skill-meta .rating {
+				font-family: 'Space Grotesk', sans-serif;
+				font-weight: 500;
+			}
+			.market-skill-card.installed {
+				border-color: rgba(52, 211, 153, 0.35);
+				box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.08);
+			}
+			.market-skill-card .skill-installed-tag {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				color: #34d399;
+				font-size: 11px;
+				font-weight: 600;
+			}
+			.market-skill-rating {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				margin-top: 4px;
+			}
+			.market-skill-rating button {
+				background: transparent;
+				border: 0;
+				color: #71717a;
+				font-size: 20px;
+				cursor: pointer;
+				padding: 0;
+				line-height: 1;
+				font-family: inherit;
+			}
+			.market-skill-rating button.active,
+			.market-skill-rating button:hover {
+				color: #fde047;
+			}
+			.market-skill-rating .rating-count {
+				font-size: 11px;
+				color: #71717a;
+				margin-left: 8px;
+			}
+			.market-skill-tools {
+				background: rgba(125, 211, 252, 0.04);
+				border: 1px solid rgba(125, 211, 252, 0.12);
+				border-radius: 10px;
+				padding: 10px 12px;
+				margin-top: 6px;
+			}
+			.market-skill-tools h4 {
+				margin: 0 0 6px;
+				font-size: 11px;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+				color: #7dd3fc;
+				font-weight: 600;
+			}
+			.market-skill-tools ul {
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+			}
+			.market-skill-tools li {
+				font-family: 'Space Grotesk', sans-serif;
+				font-size: 12px;
+				color: #e4e4e7;
+			}
+			.market-skill-tools li small {
+				display: block;
+				color: #71717a;
+				font-family: inherit;
+				font-size: 11px;
+			}
+			.market-skill-content {
+				background: #050505;
+				border: 1px solid #1f1f1f;
+				border-radius: 10px;
+				padding: 12px 14px;
+				margin-top: 6px;
+				max-height: 280px;
+				overflow-y: auto;
+				font-family: 'Space Grotesk', sans-serif;
+				font-size: 12px;
+				line-height: 1.55;
+				color: #d4d4d8;
+				white-space: pre-wrap;
+				word-break: break-word;
+			}
 			.market-skill-card {
 				background: var(--mk-panel, #111);
 				border: 1px solid var(--mk-border, #1f1f1f);
@@ -1130,6 +1285,47 @@
 				text-align: center;
 				min-height: 1.2em;
 			}
+			.payment-status.ok { color: #86efac; }
+			.payment-status.err { color: #fca5a5; }
+
+			.payment-qr {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+				margin-top: 14px;
+			}
+			.payment-qr:empty { display: none; }
+			.payment-qr canvas {
+				background: #fff;
+				border-radius: 8px;
+				padding: 8px;
+			}
+			.payment-qr .muted { color: #9ca3af; }
+			.payment-qr .small { font-size: 11px; text-align: center; }
+
+			.payment-chain-picker {
+				display: flex;
+				gap: 6px;
+				margin-bottom: 12px;
+				flex-wrap: wrap;
+			}
+			.payment-chain-pill {
+				background: #1a1a1a;
+				border: 1px solid #2a2a2a;
+				color: #cbd5e1;
+				padding: 6px 12px;
+				border-radius: 999px;
+				font-size: 12px;
+				cursor: pointer;
+				transition: all 0.15s;
+			}
+			.payment-chain-pill:hover { border-color: #404040; }
+			.payment-chain-pill.active {
+				background: #6366f1;
+				border-color: #6366f1;
+				color: #fff;
+			}
 		</style>
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content="Agent Marketplace · three.ws" />
@@ -1180,6 +1376,11 @@
 		<main class="market-main" id="market-main">
 			<!-- Discovery view -->
 			<section class="market-discovery" id="market-discovery">
+				<!-- Stable, screen-reader-only page heading. The hero title below
+				     is announced as the slide rotates, which is useful but isn't
+				     a stable document landmark. This gives assistive tech a single
+				     anchor for the page identity. -->
+				<h1 class="market-visually-hidden">Agent Marketplace</h1>
 				<!-- Weekly curated theme strip (loads from /api/marketplace/theme) -->
 				<aside class="market-theme-strip" id="market-theme-strip" hidden>
 					<span class="market-theme-eyebrow">This week</span>
@@ -1195,7 +1396,7 @@
 							Featured · Community Avatars
 							<span class="market-hero-beta-pill" aria-label="Marketplace is in beta">BETA</span>
 						</div>
-						<h1 class="market-hero-title" id="market-hero-title">—</h1>
+						<h2 class="market-hero-title" id="market-hero-title">—</h2>
 						<p class="market-hero-desc" id="market-hero-desc">—</p>
 						<div class="market-hero-stats" id="market-hero-stats"></div>
 						<div class="market-hero-actions">
@@ -1215,19 +1416,22 @@
 				</div>
 
 				<header class="market-topbar">
+					<label class="market-visually-hidden" for="market-search">Search agents and avatars</label>
 					<input
 						id="market-search"
 						type="search"
 						placeholder="Search agents and avatars…"
 						autocomplete="off"
+						aria-label="Search agents and avatars"
 					/>
-					<div class="market-filter-chips" id="market-filter-chips" role="tablist" aria-label="Filter">
-						<button class="market-chip active" data-filter="all" role="tab">All</button>
-						<button class="market-chip" data-filter="agents" role="tab">Agents</button>
-						<button class="market-chip" data-filter="avatars" role="tab">Avatars</button>
-						<button class="market-chip" data-filter="onchain" role="tab" title="ERC-8004 agents indexed onchain across Base, Polygon, and Solana" aria-label="Onchain — ERC-8004 agents indexed across all supported chains">Onchain <span class="chip-count" id="chip-count-onchain"></span></button>
+					<div class="market-filter-chips" id="market-filter-chips" role="tablist" aria-label="Filter agents and avatars">
+						<button class="market-chip active" data-filter="all" role="tab" aria-selected="true">All</button>
+						<button class="market-chip" data-filter="agents" role="tab" aria-selected="false">Agents</button>
+						<button class="market-chip" data-filter="avatars" role="tab" aria-selected="false">Avatars</button>
+						<button class="market-chip" data-filter="onchain" role="tab" aria-selected="false" title="ERC-8004 agents indexed onchain across Base, Polygon, and Solana" aria-label="Onchain — ERC-8004 agents indexed across all supported chains">Onchain <span class="chip-count" id="chip-count-onchain"></span></button>
 					</div>
-					<select id="market-sort" class="market-sort">
+					<label class="market-visually-hidden" for="market-sort">Sort marketplace results</label>
+					<select id="market-sort" class="market-sort" aria-label="Sort marketplace results">
 						<option value="recommended">Recommended</option>
 						<option value="recent">Recent</option>
 						<option value="popular">Popular</option>
@@ -1390,13 +1594,42 @@
 						<button class="market-chip" data-skill-filter="free" role="tab">Free</button>
 						<button class="market-chip" data-skill-filter="paid" role="tab">Paid</button>
 					</div>
+					<select id="skills-sort" class="market-sort" aria-label="Sort skills">
+						<option value="popular">Popular</option>
+						<option value="new">New</option>
+						<option value="az">A–Z</option>
+					</select>
 				</header>
 				<div class="market-skills-tab">
+					<div class="market-cat-chips" id="skills-cat-chips" role="navigation" aria-label="Skill categories"></div>
 					<div class="market-grid" id="skills-grid">
 						<div class="market-empty">Loading skills…</div>
 					</div>
+					<div class="market-loadmore" id="skills-loadmore-row" hidden>
+						<button id="skills-loadmore">Load more</button>
+					</div>
 				</div>
 			</section>
+
+			<!-- Skill detail modal -->
+			<div class="avatar-modal-overlay" id="skill-modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="skill-modal-title">
+				<div class="avatar-modal" role="document" style="grid-template-columns: 1fr;">
+					<button class="avatar-modal-close" id="skill-modal-close" aria-label="Close">×</button>
+					<div class="avatar-modal-side">
+						<div class="avatar-modal-eyebrow" id="skill-modal-eyebrow">Skill</div>
+						<h2 class="avatar-modal-title" id="skill-modal-title">—</h2>
+						<p class="avatar-modal-desc" id="skill-modal-desc"></p>
+						<div class="avatar-modal-meta" id="skill-modal-meta"></div>
+						<div id="skill-modal-rating" class="market-skill-rating" hidden></div>
+						<div id="skill-modal-tools" class="market-skill-tools" hidden></div>
+						<div id="skill-modal-content" class="market-skill-content" hidden></div>
+						<div class="avatar-modal-actions">
+							<button class="btn-primary" id="skill-modal-install">Install</button>
+							<button class="btn-secondary" id="skill-modal-author" hidden></button>
+						</div>
+					</div>
+				</div>
+			</div>
 
 			<!-- Plugins tab -->
 			<section class="market-tools" id="market-tools" hidden>
@@ -1655,6 +1888,8 @@
 							</div>
 							
 							<button class="btn-primary payment-confirm-btn" id="payment-confirm-btn" disabled>Confirm Purchase</button>
+
+							<div class="payment-qr" id="payment-qr" aria-live="polite"></div>
 
 							<div class="payment-status" id="payment-status" role="status" aria-live="polite"></div>
 					</div>

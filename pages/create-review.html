@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Preview your avatar · three.ws</title>
+		<link rel="icon" href="/favicon.ico" />
+		<meta
+			name="description"
+			content="Preview the 3D avatar you just generated, then save it to your three.ws account."
+		/>
+		<meta name="robots" content="noindex" />
+
+		<style>
+			:root {
+				color-scheme: dark;
+				--accent: #d6ff3d;
+				--accent-ink: #0a0a0a;
+				--bg: #05060a;
+				--panel: #0f1018;
+				--border: #1e1f2b;
+				--text: #eee;
+				--muted: #8a8d98;
+			}
+			* { box-sizing: border-box; }
+			html, body { height: 100%; margin: 0; padding: 0; }
+			body {
+				font: 15px/1.55 -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+				color: var(--text);
+				background: var(--bg);
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
+				overflow-x: hidden;
+			}
+			body::before {
+				content: '';
+				position: fixed;
+				inset: 0;
+				z-index: -1;
+				pointer-events: none;
+				background:
+					radial-gradient(800px 500px at 50% -100px, rgba(106, 92, 255, 0.12) 0, transparent 70%),
+					radial-gradient(600px 400px at 50% 110%, rgba(214, 255, 61, 0.05) 0, transparent 70%),
+					#05060a;
+			}
+
+			.crumb {
+				padding: 14px 22px;
+				font-size: 13px;
+				color: var(--muted);
+			}
+			.crumb a { color: var(--muted); text-decoration: none; }
+			.crumb a:hover { color: var(--accent); }
+
+			main.stage {
+				flex: 1;
+				max-width: 1100px;
+				width: 100%;
+				margin: 0 auto;
+				padding: 16px 22px 80px;
+			}
+			h1 {
+				font-size: 28px;
+				font-weight: 600;
+				letter-spacing: -0.015em;
+				margin: 0 0 6px;
+			}
+			.sub {
+				color: var(--muted);
+				margin: 0 0 28px;
+				max-width: 64ch;
+			}
+
+			.grid {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) 380px;
+				gap: 28px;
+				align-items: start;
+			}
+			@media (max-width: 880px) {
+				.grid { grid-template-columns: 1fr; }
+			}
+
+			.viewer {
+				background: var(--panel);
+				border: 1.5px solid var(--border);
+				border-radius: 14px;
+				aspect-ratio: 4 / 5;
+				min-height: 480px;
+				position: relative;
+				overflow: hidden;
+			}
+			.viewer model-viewer {
+				width: 100%;
+				height: 100%;
+				background: transparent;
+				--poster-color: transparent;
+			}
+			.viewer-loading {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: var(--muted);
+				font-size: 13px;
+				gap: 8px;
+			}
+			.spinner-sm {
+				width: 16px;
+				height: 16px;
+				border: 2px solid rgba(255, 255, 255, 0.1);
+				border-top-color: rgba(255, 255, 255, 0.55);
+				border-radius: 50%;
+				animation: spin 0.75s linear infinite;
+			}
+			@keyframes spin { to { transform: rotate(360deg); } }
+
+			.panel {
+				background: var(--panel);
+				border: 1.5px solid var(--border);
+				border-radius: 14px;
+				padding: 22px;
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+			}
+			.panel h2 {
+				margin: 0;
+				font-size: 18px;
+				font-weight: 600;
+				letter-spacing: -0.005em;
+			}
+			.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+			.meta-tag {
+				display: inline-block;
+				background: var(--border);
+				color: var(--muted);
+				padding: 2px 9px;
+				border-radius: 6px;
+				font-size: 11px;
+				letter-spacing: 0.02em;
+			}
+			.label {
+				display: block;
+				font-size: 12px;
+				color: var(--muted);
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				margin-bottom: 6px;
+			}
+			.panel input {
+				width: 100%;
+				background: #07080d;
+				color: var(--text);
+				border: 1.5px solid var(--border);
+				border-radius: 9px;
+				padding: 10px 12px;
+				font: inherit;
+			}
+			.panel input:focus {
+				outline: none;
+				border-color: var(--accent);
+			}
+
+			.cta {
+				background: var(--accent);
+				color: var(--accent-ink);
+				border: none;
+				border-radius: 10px;
+				padding: 12px 16px;
+				font: inherit;
+				font-weight: 600;
+				cursor: pointer;
+				transition: filter 0.15s, opacity 0.15s;
+			}
+			.cta:hover { filter: brightness(1.04); }
+			.cta:disabled { opacity: 0.45; cursor: not-allowed; }
+
+			.secondary {
+				background: transparent;
+				color: var(--text);
+				border: 1.5px solid var(--border);
+				border-radius: 10px;
+				padding: 10px 14px;
+				font: inherit;
+				cursor: pointer;
+				text-decoration: none;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				transition: border-color 0.15s, color 0.15s;
+			}
+			.secondary:hover { border-color: #2c2d3d; color: var(--text); }
+
+			.guest-note {
+				font-size: 12.5px;
+				color: var(--muted);
+				line-height: 1.5;
+			}
+			.guest-note strong { color: var(--text); font-weight: 600; }
+
+			.empty {
+				text-align: center;
+				background: var(--panel);
+				border: 1.5px solid var(--border);
+				border-radius: 14px;
+				padding: 48px 24px;
+				color: var(--muted);
+				max-width: 520px;
+				margin: 32px auto 0;
+			}
+			.empty a { color: var(--accent); }
+
+			#save-loading {
+				position: fixed;
+				inset: 0;
+				z-index: 9999;
+				background: #000;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 16px;
+			}
+			#save-loading img { width: 56px; height: 56px; animation: pulse 1.6s ease-in-out infinite; }
+			#save-loading .label { color: rgba(255, 255, 255, 0.82); font-size: 15px; font-weight: 500; }
+			#save-loading .sublabel { color: rgba(255, 255, 255, 0.42); font-size: 12.5px; }
+			@keyframes pulse {
+				0%, 100% { opacity: 0.55; transform: scale(1); }
+				50% { opacity: 1; transform: scale(1.06); }
+			}
+
+			.status-toast {
+				position: fixed;
+				bottom: 32px;
+				left: 50%;
+				transform: translateX(-50%);
+				padding: 11px 20px;
+				border-radius: 12px;
+				font-size: 13px;
+				font-weight: 500;
+				border: 1px solid var(--border);
+				background: var(--panel);
+				z-index: 50;
+				box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+			}
+			.status-toast.error { border-color: rgba(255, 92, 92, 0.4); color: #ffb3b3; background: #140a0a; }
+			.status-toast.success { border-color: rgba(214, 255, 61, 0.3); color: var(--accent); }
+		</style>
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+		></script>
+		<script>
+			// Optimistic auth check so the page can decide whether to show
+			// "Save to my account" vs. "Sign in to save". Authoritative answer
+			// arrives via the /api/auth/me round-trip below.
+			window.__authed = null;
+			fetch('/api/auth/me', { credentials: 'include' })
+				.then((r) => (r.ok ? r.json() : null))
+				.then((data) => {
+					window.__authed = !!(data && data.user);
+					document.dispatchEvent(new CustomEvent('three-ws:auth-resolved', {
+						detail: { authed: window.__authed, user: data?.user || null },
+					}));
+				})
+				.catch(() => {
+					window.__authed = false;
+					document.dispatchEvent(new CustomEvent('three-ws:auth-resolved', {
+						detail: { authed: false, user: null },
+					}));
+				});
+		</script>
+	</head>
+	<body>
+		<header>
+			<div id="nav-container"></div>
+		</header>
+		<script src="/nav.js"></script>
+
+		<nav class="crumb">
+			<a href="/">three.ws</a> &middot;
+			<a href="/create">Create</a> &middot;
+			<span>Preview</span>
+		</nav>
+
+		<main class="stage" id="main">
+			<h1 id="heading">Preview your avatar</h1>
+			<p class="sub" id="subhead">
+				This is what we just built. Save it to your account to use it across
+				three.ws, or start over with a different look.
+			</p>
+
+			<div id="empty-card" class="empty" hidden>
+				<p style="margin: 0 0 12px">No avatar in progress.</p>
+				<p style="margin: 0"><a href="/create">← Start a new avatar</a></p>
+			</div>
+
+			<div id="content" class="grid" hidden>
+				<div class="viewer">
+					<div class="viewer-loading" id="viewer-loading">
+						<div class="spinner-sm" aria-hidden="true"></div>
+						<span>Loading 3D preview…</span>
+					</div>
+					<model-viewer
+						id="mv"
+						camera-controls
+						touch-action="pan-y"
+						auto-rotate
+						auto-rotate-delay="0"
+						rotation-per-second="18deg"
+						interaction-prompt="none"
+						shadow-intensity="0.6"
+						shadow-softness="0.8"
+						exposure="1"
+						environment-image="neutral"
+						camera-orbit="0deg 80deg auto"
+						style="visibility: hidden"
+					></model-viewer>
+				</div>
+
+				<div class="panel">
+					<h2 id="avatar-name">Your avatar</h2>
+					<div class="tags">
+						<span class="meta-tag" id="tag-source">—</span>
+						<span class="meta-tag" id="tag-size">— KB</span>
+					</div>
+
+					<div>
+						<label class="label" for="f-name">Name</label>
+						<input
+							id="f-name"
+							maxlength="120"
+							placeholder="e.g. My agent"
+							autocomplete="off"
+						/>
+					</div>
+
+					<button class="cta" id="save-btn" type="button" disabled>
+						Save to my account
+					</button>
+					<button class="secondary" id="start-over-btn" type="button">
+						Start over
+					</button>
+
+					<p class="guest-note" id="guest-note" hidden>
+						<strong>Not signed in.</strong> Your preview lives in this browser
+						only. Sign in to save it permanently and use it as an agent.
+					</p>
+				</div>
+			</div>
+		</main>
+
+		<footer class="h-footer-horizon">
+			<div class="h-footer-glow-line" aria-hidden="true"></div>
+			<div class="h-footer-floor" aria-hidden="true"></div>
+			<div class="h-footer-haze" aria-hidden="true"></div>
+			<div class="h-footer-watermark" aria-hidden="true">three.ws</div>
+			<div class="h-footer-inner">
+				<div class="h-footer-brand-col">
+					<div class="h-footer-brand">
+						<img class="wordmark-logo" src="/three.svg" alt="" aria-hidden="true" />
+						<span class="wordmark-dot" aria-hidden="true"></span>
+						<span>three.ws</span>
+					</div>
+					<p class="h-footer-tagline">Give your AI a body.</p>
+				</div>
+				<nav class="h-footer-links" aria-label="Footer">
+					<div class="h-footer-link-col">
+						<h4 class="h-footer-link-heading">Product</h4>
+						<a href="/create">Create</a>
+						<a href="/studio">Studio</a>
+						<a href="/widgets">Widgets</a>
+						<a href="/discover">Discover</a>
+					</div>
+					<div class="h-footer-link-col">
+						<h4 class="h-footer-link-heading">Resources</h4>
+						<a href="/blog">Blog</a>
+						<a href="/dashboard">Dashboard</a>
+					</div>
+				</nav>
+			</div>
+			<div class="h-footer-bottom">
+				<p class="h-footer-legal">© 2026 three.ws — All rights reserved.</p>
+				<div class="h-footer-legal-links">
+					<a href="/legal/privacy">Privacy Policy</a>
+					<a href="/legal/tos">Terms of Use</a>
+				</div>
+			</div>
+		</footer>
+
+		<div
+			class="status-toast"
+			id="status-toast"
+			role="status"
+			aria-live="polite"
+			aria-atomic="true"
+			hidden
+		></div>
+
+		<script type="module" src="/src/create-review.js"></script>
+	</body>
+</html>

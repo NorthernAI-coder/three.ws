@@ -13,8 +13,8 @@ import { env } from './_lib/env.js';
 import { cors, wrap, error } from './_lib/http.js';
 import { resolveOnChainAgent, SERVER_CHAIN_META } from './_lib/onchain.js';
 
-const WIDTH = 420;
-const HEIGHT = 520;
+const DEFAULT_WIDTH = 420;
+const DEFAULT_HEIGHT = 520;
 const THUMB_WIDTH = 1200;
 const THUMB_HEIGHT = 630;
 
@@ -24,6 +24,9 @@ export default wrap(async (req, res) => {
 	const url = new URL(req.url, 'http://x');
 	const target = url.searchParams.get('url');
 	const format = (url.searchParams.get('format') || 'json').toLowerCase();
+
+	const WIDTH  = clampDim(url.searchParams.get('maxwidth'),  DEFAULT_WIDTH,  100, 2000);
+	const HEIGHT = clampDim(url.searchParams.get('maxheight'), DEFAULT_HEIGHT, 100, 2000);
 
 	if (!target) return error(res, 400, 'invalid_request', 'url parameter required');
 
@@ -180,4 +183,10 @@ function escapeAttr(s) {
 		.replace(/"/g, '&quot;')
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;');
+}
+
+function clampDim(raw, def, min, max) {
+	const n = raw != null ? parseInt(raw, 10) : NaN;
+	if (!Number.isFinite(n) || n <= 0) return def;
+	return Math.max(min, Math.min(max, n));
 }

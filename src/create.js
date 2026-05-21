@@ -1,5 +1,6 @@
-import { apiFetch, saveRemoteGlbToAccount } from './account.js';
+import { apiFetch } from './account.js';
 import { AvatarCreator } from './avatar-creator.js';
+import { stage as stageGuestAvatar } from './guest-avatar.js';
 
 // GLB magic bytes: ASCII "glTF"
 const GLB_MAGIC = [0x67, 0x6c, 0x54, 0x46];
@@ -19,6 +20,20 @@ document.addEventListener('three-ws:arkit-report', (event) => {
 	);
 });
 
+// The selfie pipeline (/create/selfie) hits a server-side reconstruction job
+// that requires auth + counts against plan quota — we keep that gate. The
+// default editor, Studio iframe and direct GLB upload all stay anonymous;
+// we stash the resulting blob in IndexedDB and let /create/review handle the
+// "sign in to save" step after the user has seen their avatar.
+function requireAuthForSelfie() {
+	if (window.__authed === false) {
+		const next = encodeURIComponent('/create/selfie');
+		window.location.replace(`/login?next=${next}`);
+		return false;
+	}
+	return true;
+}
+
 async function boot() {
 	const creator = new AvatarCreator(document.body, (blob, meta = {}) => {
 		const provider = meta.provider || 'avaturn';
@@ -28,7 +43,7 @@ async function boot() {
 		//     with the canonical provider stored in source_meta so server-side auto-link still triggers
 		const source = provider === 'avaturn' ? 'avaturn' : 'import';
 		const source_meta = { provider, ...(meta.sourceUrl ? { source_url: meta.sourceUrl } : {}) };
-		return saveAndRedirect(blob, { source, source_meta });
+		return stageAndReview(blob, { source, source_meta, provider });
 	});
 
 	document.getElementById('back-btn')?.addEventListener('click', () => {
@@ -37,14 +52,12 @@ async function boot() {
 	});
 
 	wireCard('card-default-editor', async () => {
-		if (await isAtAvatarLimit()) return;
+		if (window.__authed && (await isAtAvatarLimit())) return;
 		creator.openDefaultEditor();
 	});
 	wireCard('card-selfie', async () => {
+		if (!requireAuthForSelfie()) return;
 		if (await isAtAvatarLimit()) return;
-		// Real 3-photo flow lives at /create/selfie. Captures via camera or
-		// upload, submits to /api/avatars/reconstruct, polls the job, then
-		// redirects to /avatars/<id> when the GLB has been materialized.
 		window.location.href = '/create/selfie';
 	});
 	wireCard('card-upload-glb', (e) => {
@@ -92,7 +105,7 @@ async function handleGlbFile(file) {
 	}
 
 	const name = file.name.replace(/\.glb$/i, '').trim() || 'My Avatar';
-	await saveAndRedirect(file, { source: 'upload', name });
+	await stageAndReview(file, { source: 'upload', name });
 }
 
 async function isAtAvatarLimit() {
@@ -113,30 +126,22 @@ async function isAtAvatarLimit() {
 	return false;
 }
 
-async function saveAndRedirect(blob, meta = {}) {
-	showSaveOverlay('Saving your avatar…', 'This usually takes a few seconds.');
+// Stash the freshly generated GLB locally and send the user to /create/review,
+// where they preview the avatar before deciding whether to sign in and save.
+// Anonymous users get to see what they built before the auth wall; signed-in
+// users still go through the same review step so the flow is consistent.
+async function stageAndReview(blob, meta = {}) {
+	showSaveOverlay('Preparing preview…');
 	try {
-		const avatar = await saveRemoteGlbToAccount(blob, meta);
-		updateSaveOverlay('Preparing your agent…');
-		const agent = await attachAvatarToAgent(avatar.id, meta.name);
-		updateSaveOverlay('Opening your avatar…');
-		window.location.href = '/app?agent=' + agent.id;
+		await stageGuestAvatar(blob, meta);
 	} catch (err) {
 		hideSaveOverlay();
-		if (err.code === 'not_signed_in') {
-			sessionStorage.setItem('login_redirect', '/create');
-			window.location.replace('/login');
-			return;
-		}
-		if (err.data?.error === 'plan_limit_count') {
-			showStatus(
-				"You've reached your avatar limit. Delete an avatar to create a new one.",
-				'error',
-			);
-			return;
-		}
-		if (!err.redirected) showStatus(err.message || 'Upload failed.', 'error');
+		console.error('[create] failed to stage guest avatar:', err);
+		showStatus('Could not save your avatar locally. Check browser storage settings.', 'error');
+		return;
 	}
+	updateSaveOverlay('Opening preview…');
+	window.location.href = '/create/review';
 }
 
 function showSaveOverlay(label, sublabel) {
@@ -174,36 +179,6 @@ function hideSaveOverlay() {
 	el.remove();
 	document.documentElement.style.overflow = '';
 	document.body.style.overflow = '';
-}
-
-// Associates the uploaded avatar with the caller's default agent. POST /api/agents
-// doesn't accept avatar_id, so we get-or-create via /me and then PUT to attach.
-async function attachAvatarToAgent(avatarId, name) {
-	const meRes = await apiFetch('/api/agents/me');
-	const meData = await meRes.json();
-	if (!meRes.ok) throw new Error(meData.error_description || 'Failed to load agent.');
-
-	let agent = meData.agent;
-	if (!agent) {
-		const createRes = await apiFetch('/api/agents', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ name: name || 'My Agent' }),
-		});
-		const createData = await createRes.json();
-		if (!createRes.ok)
-			throw new Error(createData.error_description || 'Failed to create agent.');
-		agent = createData.agent;
-	}
-
-	const putRes = await apiFetch('/api/agents/' + agent.id, {
-		method: 'PUT',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ avatar_id: avatarId }),
-	});
-	const putData = await putRes.json();
-	if (!putRes.ok) throw new Error(putData.error_description || 'Failed to attach avatar.');
-	return putData.agent;
 }
 
 function showStatus(msg, type = 'info') {

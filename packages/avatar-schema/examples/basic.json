@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "nicholas.eth",
+  "name": "Nicholas",
+  "mesh": {
+    "uri": "ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/avatar.glb",
+    "sha256": "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",
+    "format": "glb",
+    "kBytes": 1840
+  },
+  "skeleton": "avaturn",
+  "animations": {
+    "uri": "https://three.ws/animations/manifest.json",
+    "sha256": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+  },
+  "accessories": [
+    {
+      "slot": "head",
+      "uri": "https://three.ws/accessories/hat-cowboy.glb",
+      "sha256": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+    }
+  ],
+  "traits": {
+    "rarity": "rare",
+    "tier": 3,
+    "verified": true
+  },
+  "owner": {
+    "chain": "eip155:1",
+    "address": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+  },
+  "createdAt": "2026-05-21T09:30:00.000Z"
+}

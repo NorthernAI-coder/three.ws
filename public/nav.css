@@ -109,6 +109,20 @@
 	line-height: 1.2;
 }
 
+/* The header is a flex row of <h1> + <div id="nav-container">. Default flex
+   items shrink to content width, so on mobile the nav-container collapses to
+   just the burger and clings to the h1 — making the burger appear mid-header
+   and shoving the mobile menu's `right: 0` anchor off-screen to the left.
+   Force the wrapper to absorb the remaining width so the burger sits at the
+   right edge and the menu opens flush right. */
+#nav-container {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	min-width: 0;
+}
+
 .home-nav {
 	margin-left: auto;
 	display: flex;

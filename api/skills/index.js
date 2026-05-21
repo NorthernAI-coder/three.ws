@@ -191,7 +191,7 @@ function runListQuery(p) {
 	const limitPlus = limit + 1;
 
 	if (sort === 'new') {
-		const cursorActive = cursor && cursorCreatedAt != null;
+		const cursorActive = Boolean(cursor && cursorCreatedAt != null);
 		return sql`
 			SELECT
 				ms.id, ms.name, ms.slug, ms.description, ms.category, ms.tags,
@@ -235,7 +235,7 @@ function runListQuery(p) {
 	}
 
 	if (sort === 'az') {
-		const cursorActive = cursor && cursorName != null;
+		const cursorActive = Boolean(cursor && cursorName != null);
 		return sql`
 			SELECT
 				ms.id, ms.name, ms.slug, ms.description, ms.category, ms.tags,
@@ -279,7 +279,7 @@ function runListQuery(p) {
 	}
 
 	// popular (default)
-	const cursorActive = cursor && cursorInstallCount != null;
+	const cursorActive = Boolean(cursor && cursorInstallCount != null);
 	return sql`
 		SELECT
 			ms.id, ms.name, ms.slug, ms.description, ms.category, ms.tags,

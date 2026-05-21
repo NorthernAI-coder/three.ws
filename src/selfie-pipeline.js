@@ -4,9 +4,11 @@
  *
  * Flow:
  *   [selfie:submit] → downscale photos → POST /api/avatars/reconstruct
- *     → on 202 { jobId } → poll /api/avatars/regenerate-status?jobId=…
- *     → on { status: 'done', resultAvatarId } → navigate to /avatars/<id>
- *     → on { status: 'failed' } or timeout → surface a three.ws-branded error
+ *     → dispatches selfie:building { jobId }
+ *     → poll /api/avatars/regenerate-status?jobId=…
+ *     → dispatches selfie:progress { label } on each poll tick
+ *     → on { status: 'done', resultAvatarId } → dispatches selfie:done { avatarId }
+ *     → on { status: 'failed' } or timeout → dispatches selfie:build-error { message }
  */
 
 const SUBMIT_ENDPOINT = '/api/avatars/reconstruct';
@@ -16,16 +18,25 @@ const JPEG_QUALITY = 0.88;
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes — image-to-3D models take 30-180s
 
+let _building = false;
+
 document.addEventListener('selfie:submit', (event) => {
 	const ev = /** @type {CustomEvent} */ (event);
+	_building = false;
 	run(ev.detail).catch((err) => {
 		console.error('[selfie-pipeline]', err);
 		if (err?.redirect) {
 			window.location.assign(err.redirect);
 			return;
 		}
-		setStatus(err.userMessage || 'Something went wrong. Try again.', { error: true });
-		resetSubmit();
+		if (_building) {
+			document.dispatchEvent(new CustomEvent('selfie:build-error', {
+				detail: { message: err.userMessage || 'Something went wrong. Try again.' },
+			}));
+		} else {
+			setStatus(err.userMessage || 'Something went wrong. Try again.', { error: true });
+			resetSubmit();
+		}
 	});
 });
 
@@ -38,6 +49,7 @@ document.addEventListener('selfie:submit', (event) => {
  * }} detail
  */
 async function run(detail) {
+	_building = false;
 	if (!detail?.files?.frontal || !detail.files.left || !detail.files.right) {
 		throw withMessage(new Error('missing photos'), 'Please add all 3 photos.');
 	}
@@ -72,6 +84,9 @@ async function run(detail) {
 		throw withMessage(new Error('no jobId'), 'The avatar engine did not return a job.');
 	}
 
+	_building = true;
+	document.dispatchEvent(new CustomEvent('selfie:building', { detail: { jobId: submitData.jobId } }));
+
 	const finalJob = await pollUntilDone(submitData.jobId);
 
 	if (!finalJob.resultAvatarId) {
@@ -81,8 +96,9 @@ async function run(detail) {
 		);
 	}
 
-	setStatus('Opening your avatar…');
-	window.location.assign(`/avatars/${encodeURIComponent(finalJob.resultAvatarId)}`);
+	document.dispatchEvent(new CustomEvent('selfie:done', {
+		detail: { avatarId: finalJob.resultAvatarId },
+	}));
 }
 
 /**
@@ -116,7 +132,9 @@ async function pollUntilDone(jobId) {
 		}
 
 		const job = await res.json().catch(() => ({}));
-		setStatus(statusLabel(job.status, attempt));
+		document.dispatchEvent(new CustomEvent('selfie:progress', {
+			detail: { label: statusLabel(job.status, attempt), attempt },
+		}));
 
 		if (job.status === 'done') return job;
 		if (job.status === 'failed') {
@@ -138,10 +156,14 @@ async function pollUntilDone(jobId) {
  * @param {number} attempt
  */
 function statusLabel(status, attempt) {
-	if (status === 'queued') return 'Queued…';
-	if (status === 'running') return `Reconstructing your avatar… (${attempt}s)`;
-	if (status === 'done') return 'Done — loading…';
-	return `Working… (${attempt}s)`;
+	if (status === 'queued') return 'Queued — waiting for a reconstruction slot…';
+	if (status === 'running') {
+		if (attempt <= 6) return 'Analyzing face geometry…';
+		if (attempt <= 14) return 'Building mesh…';
+		return 'Finishing rig…';
+	}
+	if (status === 'done') return 'Done!';
+	return `Processing… (${attempt}s)`;
 }
 
 /** @param {string | null | undefined} raw */
