@@ -36,6 +36,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 
 import { AnimationManager } from './animation-manager.js';
+import { ClubCamera } from './club-camera.js';
+import { ClubAudio, styleAudioFor, TRACK_LABELS } from './club-audio.js';
 
 const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
@@ -134,6 +136,10 @@ scene.add(hemi);
 const camera = new PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.05, 80);
 camera.position.set(0, 1.8, 6.0);
 camera.lookAt(0, 1.4, -1.5);
+
+const clubCam = new ClubCamera(camera, {
+	onModeChange: (mode) => updateFreeCamChip(mode),
+});
 
 // ── Club floor + walls ───────────────────────────────────────────────────
 const floor = new Mesh(
@@ -333,6 +339,16 @@ class PoleStation {
 		this._spotTarget = this.spotActiveIntensity;
 		this._accentTarget = 2.4;
 
+		// Auto-cam: if the user opted in and no manual VIP/house shot is active,
+		// switch to this pole's VIP cam for the duration. We remember that the
+		// auto-cam started this transition so we can release it on end.
+		if (autoFollow && clubCam.getMode() === 'free') {
+			this._autoCammed = true;
+			clubCam.setVip(this.layout);
+		} else {
+			this._autoCammed = false;
+		}
+
 		// Crossfade idle → walking → dance once the dancer reaches the pole.
 		await this.anim?.crossfadeTo(WALK_CLIP, PERFORMANCE_FADE);
 	}
@@ -349,6 +365,19 @@ class PoleStation {
 		this._phaseTarget = this.backstagePos;
 		this._spotTarget = this.spotIdleIntensity;
 		this._accentTarget = 0.4;
+		// Release auto-cam back to free if we were the ones who took it.
+		if (this._autoCammed && clubCam.getMode() === 'vip') {
+			clubCam.setFree();
+		}
+		this._autoCammed = false;
+		// Signal the audio mixer (and anyone else listening) to fade the
+		// style loop back to ambience. Dispatched on window so the page-
+		// level audio binding can stay decoupled from this class.
+		try {
+			window.dispatchEvent(new CustomEvent('club:performance-end', {
+				detail: { dancer: this.id, ticket: this.activeTicket },
+			}));
+		} catch {}
 		await this.anim?.crossfadeTo(WALK_CLIP, PERFORMANCE_FADE);
 	}
 
@@ -507,6 +536,36 @@ async function tipDancer({ dancer, dance, button }) {
 	}
 }
 
+// ── Free cam chip (shown while in VIP / house) ───────────────────────────
+let freeCamChip = null;
+function ensureFreeCamChip() {
+	if (freeCamChip) return freeCamChip;
+	const chip = document.createElement('button');
+	chip.type = 'button';
+	chip.id = 'club-free-cam';
+	chip.textContent = '↩ Free cam';
+	chip.hidden = true;
+	chip.addEventListener('click', () => clubCam.setFree());
+	const stage = document.getElementById('club-stage');
+	(stage || document.body).appendChild(chip);
+	freeCamChip = chip;
+	return chip;
+}
+function updateFreeCamChip(mode) {
+	const chip = ensureFreeCamChip();
+	chip.hidden = (mode === 'free');
+}
+
+// ── Auto-follow tips toggle (persisted) ──────────────────────────────────
+const AUTO_FOLLOW_KEY = 'club:autoFollowTips';
+let autoFollow = (() => {
+	try { return localStorage.getItem(AUTO_FOLLOW_KEY) === '1'; } catch { return false; }
+})();
+function setAutoFollow(on) {
+	autoFollow = !!on;
+	try { localStorage.setItem(AUTO_FOLLOW_KEY, autoFollow ? '1' : '0'); } catch {}
+}
+
 // ── Side panel — render pole controls ────────────────────────────────────
 const DANCES = [
 	{ key: 'rumba',    label: 'Rumba' },
@@ -525,7 +584,10 @@ function renderPoles() {
 		card.innerHTML = `
 			<div class="club-pole-head">
 				<span class="club-pole-id">Pole ${pole.id}</span>
-				<span class="club-pole-price">$0.001 USDC</span>
+				<span class="club-pole-row-right">
+					<span class="club-pole-price">$0.001 USDC</span>
+					<button type="button" class="club-cam-btn" data-pole="${pole.id}" title="VIP cam">🎬</button>
+				</span>
 			</div>
 			<label class="club-pole-style">
 				Style
@@ -540,6 +602,12 @@ function renderPoles() {
 		polesPanel.appendChild(card);
 	}
 	polesPanel.addEventListener('click', (e) => {
+		const camBtn = e.target.closest('.club-cam-btn');
+		if (camBtn) {
+			const layout = POLES.find((p) => p.id === camBtn.dataset.pole);
+			if (layout) clubCam.setVip(layout);
+			return;
+		}
 		const btn = e.target.closest('.club-tip-btn');
 		if (!btn) return;
 		const dancer = btn.dataset.dancer;
@@ -549,33 +617,54 @@ function renderPoles() {
 	});
 }
 
-// ── Camera orbit on drag ─────────────────────────────────────────────────
-let camYaw = 0;
-let camPitch = 0.05;
+// ── Pointer + pinch handling ─────────────────────────────────────────────
+// One pointer → orbit (ClubCamera.applyDrag, free mode only). Two pointers →
+// pinch zoom (ClubCamera.applyZoom). Wheel also zooms. The camera state
+// machine owns yaw/pitch — this block is just input plumbing.
 {
-	let dragging = false;
-	let lastX = 0, lastY = 0, downId = -1;
+	const pointers = new Map(); // pointerId → {x, y}
+	let pinchPrevDist = 0;
+
+	const pinchDistance = () => {
+		const [a, b] = [...pointers.values()];
+		return Math.hypot(a.x - b.x, a.y - b.y);
+	};
+
 	canvas.addEventListener('pointerdown', (e) => {
-		dragging = true;
-		downId = e.pointerId;
-		lastX = e.clientX; lastY = e.clientY;
+		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 		canvas.setPointerCapture?.(e.pointerId);
+		if (pointers.size === 2) pinchPrevDist = pinchDistance();
 	});
 	canvas.addEventListener('pointermove', (e) => {
-		if (!dragging || e.pointerId !== downId) return;
-		const dx = e.clientX - lastX;
-		const dy = e.clientY - lastY;
-		lastX = e.clientX; lastY = e.clientY;
-		camYaw -= dx * 0.004;
-		camPitch = Math.max(-0.3, Math.min(0.5, camPitch - dy * 0.003));
+		const prev = pointers.get(e.pointerId);
+		if (!prev) return;
+		const dx = e.clientX - prev.x;
+		const dy = e.clientY - prev.y;
+		prev.x = e.clientX; prev.y = e.clientY;
+
+		if (pointers.size === 1) {
+			clubCam.applyDrag(dx, dy);
+		} else if (pointers.size === 2) {
+			const next = pinchDistance();
+			// Pinch-in (fingers closer) → zoom in (negative deltaY); pinch-out → zoom out.
+			const delta = (pinchPrevDist - next) * 4; // scale to wheel-ish units
+			clubCam.applyZoom(delta);
+			pinchPrevDist = next;
+		}
 	});
 	const onUp = (e) => {
-		if (e.pointerId !== downId) return;
-		dragging = false; downId = -1;
+		if (!pointers.has(e.pointerId)) return;
+		pointers.delete(e.pointerId);
 		try { canvas.releasePointerCapture?.(e.pointerId); } catch {}
+		if (pointers.size < 2) pinchPrevDist = 0;
 	};
 	canvas.addEventListener('pointerup', onUp);
 	canvas.addEventListener('pointercancel', onUp);
+
+	canvas.addEventListener('wheel', (e) => {
+		e.preventDefault();
+		clubCam.applyZoom(e.deltaY);
+	}, { passive: false });
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────
@@ -583,6 +672,23 @@ window.addEventListener('resize', () => {
 	renderer.setSize(window.innerWidth, window.innerHeight, false);
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
+});
+
+// ── Keyboard shortcuts ───────────────────────────────────────────────────
+// 0     → overhead house cam
+// 1-4   → per-pole VIP cam
+// Esc   → back to free orbit
+// Inputs / selects in the side panel are excluded so typing doesn't move
+// the camera.
+window.addEventListener('keydown', (e) => {
+	const tag = e.target?.tagName;
+	if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+	if (e.key === '0') return clubCam.setHouse();
+	if (e.key === 'Escape') return clubCam.setFree();
+	if (['1', '2', '3', '4'].includes(e.key)) {
+		const layout = POLES.find((p) => p.id === e.key);
+		if (layout) clubCam.setVip(layout);
+	}
 });
 
 // ── Render loop ──────────────────────────────────────────────────────────
@@ -596,19 +702,24 @@ function animate() {
 	// Disco light slow swirl.
 	disco.rotation.y = t * 0.25;
 
-	// Camera dolly — gentle orbit around the dance floor center.
-	const focus = new Vector3(0, 1.2, -1.8);
-	const offsetBase = new Vector3(0, 2.2 + camPitch * 2.5, 7.2);
-	offsetBase.applyAxisAngle(new Vector3(0, 1, 0), camYaw);
-	const target = focus.clone().add(offsetBase);
-	camera.position.lerp(target, Math.min(1, dt * 2));
-	camera.lookAt(focus);
+	// Camera state machine — orbit / VIP / house.
+	clubCam.tick(dt);
 
 	renderer.render(scene, camera);
 	requestAnimationFrame(animate);
 }
 
 renderPoles();
+
+// Bind the auto-follow checkbox to persisted state.
+{
+	const cb = document.getElementById('club-auto-follow');
+	if (cb) {
+		cb.checked = autoFollow;
+		cb.addEventListener('change', () => setAutoFollow(cb.checked));
+	}
+}
+
 bootstrap()
 	.catch((err) => {
 		console.error('[club] bootstrap failed', err);

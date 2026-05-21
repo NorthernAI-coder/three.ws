@@ -275,6 +275,25 @@ export const env = {
 	// Alternative: store the base64 in coin_launches.metadata.creator_secret_b64
 	// at register time (less secure than env; v2 should move to a KMS).
 
+	// ── Pole Club tip sweep (api/_lib/club/*) ─────────────────────────────
+	// Solana treasury keypair (base64-encoded 64-byte secret) that holds the
+	// USDC received from /api/x402/dance-tip on Solana. Used by the
+	// club-payouts cron to send accumulated tips to each dancer's wallet.
+	get CLUB_SOLANA_TREASURY_SECRET_KEY_B64() {
+		return opt('CLUB_SOLANA_TREASURY_SECRET_KEY_B64');
+	},
+	// EVM (Base mainnet) treasury private key (0x-prefixed hex). Holds the
+	// USDC received from /api/x402/dance-tip on Base. Used by the club-payouts
+	// cron to send accumulated tips to each dancer's EVM wallet.
+	get CLUB_EVM_TREASURY_PRIVATE_KEY() {
+		return opt('CLUB_EVM_TREASURY_PRIVATE_KEY');
+	},
+	// Base mainnet RPC URL. Falls back to the public node, but rate limits
+	// will bite at >5 sweeps/minute — set this in production.
+	get CLUB_BASE_RPC_URL() {
+		return opt('CLUB_BASE_RPC_URL', 'https://mainnet.base.org');
+	},
+
 	// NFT.Storage API token — required for MintScene tool (uploads GLB + thumbnail + metadata to IPFS).
 	// Obtain at https://nft.storage. When unset, /api/nft/mint-scene returns 503 not_configured.
 	get NFT_STORAGE_TOKEN() {

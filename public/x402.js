@@ -558,9 +558,11 @@ class CheckoutModal {
 		try {
 			const challenge = await discoverChallenge(this.opts);
 			this.challenge = challenge;
-			// Prefer Solana when Phantom is present, else first EVM, else first accept.
+			// Prefer Solana when Phantom is present, else first EIP-3009 EVM
+			// entry (skipping Permit2 siblings the modal can't sign for), else
+			// first accept.
 			const solana = challenge.accepts.find((a) => isSolanaNetwork(a.network));
-			const evm = challenge.accepts.find((a) => isEvmNetwork(a.network));
+			const evm = challenge.accepts.find(isEip3009Accept);
 			const phantomDetected = typeof window !== 'undefined' && (window.solana?.isPhantom || window.phantom?.solana);
 			this.accept = (phantomDetected && solana) || evm || challenge.accepts[0];
 			this.setPrice(this.accept);

@@ -19,12 +19,15 @@ const DESCRIPTION =
 	'returns a performance ticket the /club page consumes to spawn the dancer ' +
 	'and play the routine for ~12 seconds.';
 
+// `track` names map to /public/club/audio/<track>.{ogg,mp3} loops the /club
+// page crossfades to when the dance starts. The client picks whichever format
+// the browser supports — see src/club-audio.js loadBuffer().
 const STYLES = Object.freeze({
-	hiphop:   { clip: 'dance',    label: 'Hip Hop', loop: true,  durationSec: 12 },
-	rumba:    { clip: 'rumba',    label: 'Rumba',   loop: true,  durationSec: 14 },
-	silly:    { clip: 'silly',    label: 'Silly',   loop: true,  durationSec: 10 },
-	thriller: { clip: 'thriller', label: 'Thriller',loop: true,  durationSec: 14 },
-	capoeira: { clip: 'capoeira', label: 'Capoeira',loop: true,  durationSec: 12 },
+	hiphop:   { clip: 'dance',    label: 'Hip Hop', loop: true,  durationSec: 12, track: 'hiphop' },
+	rumba:    { clip: 'rumba',    label: 'Rumba',   loop: true,  durationSec: 14, track: 'rumba' },
+	silly:    { clip: 'silly',    label: 'Silly',   loop: true,  durationSec: 10, track: 'silly' },
+	thriller: { clip: 'thriller', label: 'Thriller',loop: true,  durationSec: 14, track: 'thriller' },
+	capoeira: { clip: 'capoeira', label: 'Capoeira',loop: true,  durationSec: 12, track: 'capoeira' },
 });
 
 const VALID_DANCERS = new Set(['1', '2', '3', '4']);
@@ -58,6 +61,7 @@ const OUTPUT_EXAMPLE = {
 	label: 'Rumba',
 	loop: true,
 	durationSec: 14,
+	track: 'rumba',
 	startsAt: '2026-05-21T18:42:09.000Z',
 	endsAt: '2026-05-21T18:42:23.000Z',
 	payer: 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV',
@@ -69,7 +73,7 @@ const OUTPUT_EXAMPLE = {
 const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['ok', 'ticketId', 'dancer', 'dance', 'clip', 'durationSec', 'startsAt', 'endsAt'],
+	required: ['ok', 'ticketId', 'dancer', 'dance', 'clip', 'durationSec', 'startsAt', 'endsAt', 'track'],
 	properties: {
 		ok: { type: 'boolean', const: true },
 		ticketId: { type: 'string', format: 'uuid' },
@@ -79,6 +83,11 @@ const OUTPUT_SCHEMA = {
 		label: { type: 'string' },
 		loop: { type: 'boolean' },
 		durationSec: { type: 'integer', minimum: 1, maximum: 60 },
+		track: {
+			type: 'string',
+			enum: ['rumba', 'silly', 'thriller', 'capoeira', 'hiphop', 'pole'],
+			description: 'Audio loop name — /public/club/audio/<track>.{ogg,mp3}.',
+		},
 		startsAt: { type: 'string', format: 'date-time' },
 		endsAt:   { type: 'string', format: 'date-time' },
 		payer:    { type: ['string', 'null'] },
@@ -144,6 +153,7 @@ export default paidEndpoint({
 			label: style.label,
 			loop: style.loop,
 			durationSec: style.durationSec,
+			track: style.track,
 			startsAt: now.toISOString(),
 			endsAt:   ends.toISOString(),
 			payer:    payer ?? null,
