@@ -1588,36 +1588,36 @@ The catalog is assembled dynamically at request time from the per-category tool 
 
 | Tool | Description |
 |---|---|
-| `list_my_avatars` | List all avatars owned by the authenticated user |
-| `get_avatar` | Fetch metadata and download URL for a specific avatar |
-| `search_public_avatars` | Search the public avatar library by name, tag, or description |
-| `render_avatar` | Generate a preview render of an avatar (returns image URL) |
-| `delete_avatar` | Permanently delete an avatar |
+| `list_my_avatars` | List the authenticated user's avatars with id, name, slug, size, visibility, and (when permitted) direct `model_url`. |
+| `get_avatar` | Fetch a single avatar by id or owner+slug; returns metadata plus a public `model_url` or short-lived signed URL for private avatars. |
+| `search_public_avatars` | Free-text + tag search across the public avatar gallery; useful for finding characters to render without prior knowledge of an id. |
+| `render_avatar` | Produce an HTML `<model-viewer>` snippet that renders the given avatar, with configurable background, camera orbit, poster, and AR button. |
+| `delete_avatar` | Soft-delete an avatar you own. Requires the `avatars:delete` scope. |
 
 *Models* ([`api/_mcp/tools/models.js`](api/_mcp/tools/models.js))
 
 | Tool | Description |
 |---|---|
-| `validate_model` | Run Khronos glTF validation and return error report |
-| `inspect_model` | Inspect model internals (mesh count, material list, animation names, texture sizes) |
-| `optimize_model` | Optimize a model (Draco compression, texture downscale, mesh simplification) |
+| `validate_model` | Run the Khronos glTF-Validator against a public https GLB/glTF URL; returns a structured report of errors, warnings, infos, and hints. SSRF-hardened. |
+| `inspect_model` | Parse a GLB/glTF and return structural stats: scene/node/mesh counts, vertex and triangle totals, material and texture summaries, and extensions used. Pure inspection — no advice. |
+| `optimize_model` | Inspect the model and return actionable suggestions for reducing size and draw-call overhead: triangle budget, Draco/Meshopt, oversized textures, KTX2 transcoding, non-indexed primitives, redundant materials, and more. |
 
-*Solana* ([`api/_mcp/tools/solana.js`](api/_mcp/tools/solana.js))
+*Solana* ([`api/_mcp/tools/solana.js`](api/_mcp/tools/solana.js)) — all public, no auth required
 
 | Tool | Description |
 |---|---|
-| `solana_agent_reputation` | Fetch the reputation score and signals for a Solana agent asset |
-| `solana_agent_attestations` | List feedback and validation attestations for an agent asset |
-| `solana_agent_passport` | Return the agent's public passport card (name, owner, reputation, badges) |
+| `solana_agent_reputation` | Computed reputation summary for a Solana-registered agent: total/verified feedback counts, raw + verified-only score averages, validation pass/fail, task-acceptance, and dispute counts. |
+| `solana_agent_attestations` | List recent on-chain attestations (feedback, validation, task offers, acceptances, disputes) about a Solana agent; each row includes verified/disputed/revoked flags. |
+| `solana_agent_passport` | Full discovery card for a Solana agent: identity, owner wallet, reputation summary, latest validation result, and attestation schema endpoint — the Solana equivalent of an ERC-8004 passport. |
 
 *Pump.fun* ([`api/_mcp/tools/pumpfun.js`](api/_mcp/tools/pumpfun.js))
 
 | Tool | Description |
 |---|---|
-| `pumpfun_recent_claims` | Recent GitHub social-fee claims on pump.fun creators |
-| `pumpfun_recent_graduations` | Tokens that have recently graduated to AMM pools |
-| `pumpfun_token_intel` | Holders, trades, and metadata for a single pump.fun token |
-| `pumpfun_creator_intel` | Tokens, fees, and reputation signals for a pump.fun creator |
+| `pumpfun_recent_claims` | Most recent pump.fun GitHub social-fee claim events with full enrichment: GitHub profile, X/Twitter follower data, influencer tier, first-time-claim flag, fake-claim detection, and AI summary. |
+| `pumpfun_recent_graduations` | Tokens that recently graduated from the bonding curve to PumpAMM, with creator and holder analysis. |
+| `pumpfun_token_intel` | Full intel on a pump.fun token: graduation status, bonding-curve progress, creator profile, top holders, volume, bundle detection, and trust signals. |
+| `pumpfun_creator_intel` | Reputation profile for a pump.fun creator wallet: prior launches, graduation rate, claim activity, and behavioural trust signals. |
 
 **MCP discovery:** configured in `.mcp.json` at the repo root for Claude Desktop integration.
 

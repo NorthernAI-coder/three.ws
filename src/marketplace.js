@@ -1436,6 +1436,94 @@ function renderSkeletons(n) {
 	return cards;
 }
 
+// Empty-state block with a recovery action — when the grid is empty we want
+// the user to be able to escape the dead-end with one click (clear the search,
+// drop the filter, or submit/create their own content).
+function renderEmptyState() {
+	const hasSearch = !!state.q;
+	const hasTag = !!state.tag;
+	const hasCategory = !!state.category;
+	const hasFilter = state.filter && state.filter !== 'all';
+
+	let title;
+	let body;
+	const actions = [];
+
+	if (hasSearch || hasTag || hasCategory) {
+		title = 'No matches';
+		const bits = [];
+		if (hasSearch) bits.push(`"${escapeHtml(state.q)}"`);
+		if (hasTag) bits.push(`tag ${escapeHtml(state.tag)}`);
+		if (hasCategory) bits.push(`category ${escapeHtml(state.category)}`);
+		body = `Nothing matched ${bits.join(' · ')}. Try a different term or clear the filters.`;
+		actions.push({ id: 'empty-clear-filters', label: 'Clear filters', primary: true });
+	} else if (state.filter === 'agents') {
+		title = 'No agents published yet';
+		body = 'Be the first to share an agent with the community.';
+		actions.push({ id: 'empty-submit-agent', label: '+ Submit Agent', primary: true });
+	} else if (state.filter === 'avatars') {
+		title = 'No public avatars';
+		body = 'Create a 3D avatar and publish it for others to use.';
+		actions.push({ id: 'empty-create-avatar', label: '+ Create Avatar', primary: true });
+	} else if (state.filter === 'onchain') {
+		title = 'No onchain agents';
+		body = 'No ERC-8004 agents match your current filters.';
+		actions.push({ id: 'empty-clear-filters', label: 'Clear filters', primary: true });
+	} else {
+		title = 'Nothing here yet';
+		body = 'Publish an agent or upload an avatar to start the catalog.';
+		actions.push({ id: 'empty-submit-agent', label: '+ Submit Agent', primary: true });
+		actions.push({ id: 'empty-create-avatar', label: '+ Create Avatar', primary: false });
+	}
+
+	const buttons = actions
+		.map(
+			(a) =>
+				`<button type="button" class="market-empty-cta-btn${a.primary ? ' primary' : ''}" data-empty-action="${a.id}">${escapeHtml(a.label)}</button>`,
+		)
+		.join('');
+
+	return `
+		<div class="market-empty-cta" role="status">
+			<h3>${escapeHtml(title)}</h3>
+			<p>${body}</p>
+			<div class="market-empty-cta-actions">${buttons}</div>
+		</div>`;
+}
+
+// Single delegated click handler so empty-state buttons keep working across
+// re-renders (els.grid is innerHTML-replaced on every renderGrid).
+function bindEmptyStateActions() {
+	if (!els.grid || els.grid.dataset.emptyBound) return;
+	els.grid.dataset.emptyBound = '1';
+	els.grid.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-empty-action]');
+		if (!btn) return;
+		const action = btn.dataset.emptyAction;
+		if (action === 'empty-clear-filters') {
+			state.q = '';
+			state.tag = null;
+			state.category = null;
+			state.filter = 'all';
+			const search = $('market-search');
+			if (search) search.value = '';
+			document.querySelectorAll('.market-chip[data-filter]').forEach((c) => {
+				c.classList.toggle('active', c.dataset.filter === 'all');
+			});
+			const hero = $('market-hero');
+			if (hero && state.featured.length) {
+				hero.hidden = false;
+				startHeroAutoplay();
+			}
+			loadFeed(true);
+		} else if (action === 'empty-submit-agent') {
+			openSubmitModal();
+		} else if (action === 'empty-create-avatar') {
+			navTo('/create');
+		}
+	});
+}
+
 // Name-initial placeholder rendered behind every model-viewer preview. Stays
 // visible until model-viewer loads (then faded out via .mv-loaded), so cards
 // and the hero never show a blank black void while GLBs stream in.
