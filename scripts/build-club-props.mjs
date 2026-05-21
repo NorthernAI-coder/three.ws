@@ -299,7 +299,10 @@ function buildPoleDoc() {
 		cylinderGeom(0.025, 0.025, 0.04, 16), [0, POLE_HEIGHT + 0.024, 0.22], xQuat);
 
 	// Spotlight attach empty (consumed by prompt 04).
-	addEmpty(doc, scene, 'pole.light.attach', [0, POLE_HEIGHT + 0.024, 0.24]);
+	// Underscored — three.js's PropertyBinding.sanitizeNodeName strips `.`
+	// from glTF node names, so `pole.light.attach` would arrive at runtime as
+	// `polelightattach`. Match the convention used by club-venue.glb.
+	addEmpty(doc, scene, 'pole_light_attach', [0, POLE_HEIGHT + 0.024, 0.24]);
 
 	return doc;
 }
@@ -330,7 +333,7 @@ function buildStageDoc() {
 		torusGeom(STAGE_RADIUS + 0.005, 0.012, 8, 96), [0, STAGE_HEIGHT - 0.014, 0], xQuat);
 
 	// LED control empty (consumed by prompt 04).
-	addEmpty(doc, scene, 'stage.led.strip', [0, STAGE_HEIGHT - 0.014, 0]);
+	addEmpty(doc, scene, 'stage_led_strip', [0, STAGE_HEIGHT - 0.014, 0]);
 
 	return doc;
 }

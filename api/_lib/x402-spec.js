@@ -839,11 +839,15 @@ export function send402(res, opts = {}) {
 	res.statusCode = 402;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
-	// Also expose the envelope as the `PAYMENT-REQUIRED` header (base64-JSON),
-	// matching the v2 wire format that agentic.market's validator inspects.
+	// v2 spec: the full envelope ({x402Version, error, resource, accepts,
+	// extensions}) ships in the response body. `@x402/fetch` and other SDK
+	// clients read it from there. We ALSO base64-encode the same envelope as
+	// the `PAYMENT-REQUIRED` HTTP header — agentic.market's Bazaar validator
+	// pulls discovery off the header during its probe and rejects entries
+	// where the two differ.
 	const body = build402Body(opts);
 	res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
-	res.end(JSON.stringify({ error: body.error }));
+	res.end(JSON.stringify(body));
 }
 
 // Resolve the canonical resource URL the client hit, so the facilitator can
