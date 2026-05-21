@@ -459,6 +459,13 @@ function updateOnchainChipCount() {
 		return;
 	}
 	el.textContent = fmtNumber(total);
+	const chip = el.closest('.market-chip');
+	if (chip) {
+		chip.setAttribute(
+			'aria-label',
+			`Onchain — ${fmtNumber(total)} ERC-8004 agents indexed across all supported chains`,
+		);
+	}
 }
 
 // ── 3D Lobby (Three.js multi-avatar scene, opt-in) ──────────────────────
@@ -1995,7 +2002,6 @@ function renderDetailError(msg) {
 	$('d-author').textContent = '';
 	$('d-published').textContent = '';
 	$('d-overview').textContent = '';
-	$('d-overview-side').textContent = '';
 	const thread = $('d-preview-thread');
 	if (thread) thread.innerHTML = '';
 }
@@ -2025,7 +2031,6 @@ function renderDetail(a, bookmarked) {
 	$('d-category').textContent = CATEGORY_LABELS[a.category] || a.category || 'General';
 	$('d-views').textContent = `⊙ ${fmtNumber(views)}`;
 	$('d-overview').textContent = a.description || '';
-	$('d-overview-side').textContent = a.description || '';
 	$('d-profile').textContent = a.system_prompt || a.prompt || '(No profile yet.)';
 	startPreviewSession(a);
 	$('d-bookmark').classList.toggle('on', bookmarked);

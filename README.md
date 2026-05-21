@@ -1504,23 +1504,32 @@ The full OpenAPI 3.1 spec is available at `/openapi.json`. The key API surface i
 
 Scheduled via `vercel.json`, these run automatically in production. All cron endpoints are fail-closed — a missing auth token aborts with an error rather than silently skipping (see [Security Hardening](#security-hardening)).
 
+All 22 crons in `vercel.json` are routed through a single dynamic handler at [`api/cron/[name].js`](api/cron/[name].js); the `name` segment selects the handler function. Schedules below match `vercel.json` verbatim.
+
 | Schedule | Endpoint | Purpose |
 |---|---|---|
 | Every minute | `/api/cron/run-x-scheduled-posts` | Publish queued X (Twitter) posts |
-| Every 3 min | `/api/cron/pumpfun-monitor` | Watch new pump.fun token creates |
+| Every 3 min | `/api/cron/pumpfun-monitor` | Watch for new pump.fun token creates |
 | Every 5 min | `/api/cron/expire-pending-purchases` | Clear stale x402 pending purchases |
 | Every 5 min | `/api/cron/solana-attestations-crawl` | Index new Solana feedback / validation memos |
 | Every 5 min | `/api/cron/index-delegations` | Index EIP-7710 delegations |
 | Every 5 min | `/api/cron/run-x-triggers` | Trigger-based X posts (mentions, milestones) |
+| Every 5 min | `/api/cron/run-coin-cycle` | Unified coin-launch tick: holder snapshots, vault claims, lottery draws, reflections |
+| Every 5 min (offset) | `/api/cron/run-coin-payouts` | Drain the coin-payouts queue; runs on a different minute from `run-coin-cycle` so a stuck payout never blocks the next cycle |
+| Every 5 min (offset) | `/api/cron/club-payouts` | Sweep unpaid Pole Club tips to each dancer's wallet |
 | Every 10 min | `/api/cron/pump-agent-stats` | Refresh pump-agent dashboard stats |
-| Every 15 min | `/api/cron/erc8004-crawl` | Index new agents from blockchain |
-| Every 15 min | `/api/cron/pumpfun-signals` | Sweep pump.fun signals into `pumpfun_signals` table |
+| Every 10 min | `/api/cron/solana-attest-event-cleanup` | Prune Solana attestation events older than ~1 hour |
+| Every 15 min | `/api/cron/erc8004-crawl` | Index new ERC-8004 mints on indexed chains |
+| Every 15 min | `/api/cron/pumpfun-signals` | Sweep pump.fun signals into the `pumpfun_signals` table |
 | Hourly | `/api/cron/cleanup-csrf-tokens` | Expire used / stale CSRF tokens |
 | Hourly | `/api/cron/process-withdrawals` | Sweep creator withdrawals (pump.fun, club tips) |
 | Hourly | `/api/cron/run-dca` | Execute DCA strategy orders |
-| Hourly | `/api/cron/run-subscriptions` | Execute recurring subscriptions (x402 + other) |
+| Hourly | `/api/cron/run-subscriptions` | Execute recurring x402 subscriptions |
+| Hourly | `/api/cron/siwx-gc` | Prune SIWX nonces (10-min replay window) and expired payment grants |
 | Every 6h | `/api/cron/fetch-x-metrics` | Pull X engagement metrics for owned accounts |
-| Daily | `/api/cron/audit-log-cleanup` | Rotate audit logs past retention window |
+| Every 6h | `/api/cron/process-subscriptions` | Charge creator subscriptions whose period is about to end |
+| Daily 03:00 UTC | `/api/cron/settle-royalties` | Settle creator and skill royalties owed |
+| Daily 04:00 UTC | `/api/cron/audit-log-cleanup` | Rotate audit logs past the retention window |
 
 ---
 
@@ -1718,13 +1727,13 @@ Solana agents can ingest live pump.fun activity (GitHub social-fee claims, token
 | Surface | Path | Purpose |
 |---|---|---|
 | MCP client | [api/_lib/pumpfun-mcp.js](api/_lib/pumpfun-mcp.js) | Cached JSON-RPC client to upstream `pumpfun-claims-bot` |
-| Read API | [api/agents/pumpfun.js](api/agents/pumpfun.js) | `?op=claims\|graduations\|token\|creator` |
-| SSE feed | [api/agents/pumpfun-feed.js](api/agents/pumpfun-feed.js) | Live event stream, 90s window, auto-reconnects |
-| Cron crawler | [api/cron/pumpfun-signals.js](api/cron/pumpfun-signals.js) | 15-min sweep → `pumpfun_signals` table |
+| Read API | [api/agents/pumpfun.js](api/agents/pumpfun.js) | `GET ?op=claims\|graduations\|token\|creator`, plus `?_handler=feed` for the SSE event stream and `?_handler=metadata` for token metadata. Auth: session or bearer (`mcp`/`profile` scope). |
+| Write actions | [api/agents/pumpfun/[action].js](api/agents/pumpfun/[action].js) | Dynamic dispatcher for `buy`, `sell`, `swap`, `launch`, `pay`, `portfolio`, `balances`, and buyback lifecycle (`create`, `accept`, `withdraw`, `distribute`, `extend_account`, `update_authority`, `update_buyback`). |
+| Cron crawler | [api/cron/[name].js](api/cron/[name].js) (`name=pumpfun-signals`) | 15-min sweep that writes the `pumpfun_signals` table; routed through the dynamic cron handler. |
 | Skills | [src/agent-skills-pumpfun-watch.js](src/agent-skills-pumpfun-watch.js) | `recent-claims`, `token-intel`, `watch-start`, `watch-stop` |
 | Widget | [src/widgets/pumpfun-feed.js](src/widgets/pumpfun-feed.js) | Live cards overlay |
-| Reputation | [api/agents/solana-reputation.js](api/agents/solana-reputation.js) | `pumpfun_signals` block in response |
-| Passport | [api/agents/solana-card.js](api/agents/solana-card.js) | `pumpfun` block on the agent card |
+| Reputation | [api/agents/solana/[action].js](api/agents/solana/[action].js) (`action=reputation`) | Reputation summary with the `pumpfun_signals` block included in the response |
+| Passport | [api/agents/solana/[action].js](api/agents/solana/[action].js) (`action=card`) | Public passport card with the `pumpfun` block on the agent card |
 
 The crawler runs on a `*/15 * * * *` schedule (see [vercel.json](vercel.json)) and writes into the `pumpfun_signals` table. Agents subscribed via `watch-start` react to incoming events through the existing protocol bus — no new event types required.
 

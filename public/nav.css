@@ -75,6 +75,17 @@
 	align-items: center;
 	gap: var(--space-lg, 1.5rem);
 	-webkit-app-region: no-drag;
+	/* Header sets line-height: var(--header-h) (56px), which leaks into
+	   every descendant text node — empty whitespace expands flex items to
+	   56px tall, distorting absolute-positioned dropdown anchors. Reset
+	   it here so the nav lays out at its content's natural height. */
+	line-height: 1.2;
+}
+
+#nav-container {
+	display: flex;
+	align-items: center;
+	line-height: 1.2;
 }
 
 .home-nav a {

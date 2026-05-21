@@ -1006,15 +1006,40 @@
 				margin: 0 0 16px;
 				font-size: 14px;
 			}
-			.market-empty-cta button {
-				background: #fafafa;
-				color: #0a0a0a;
-				border: 0;
+			.market-empty-cta-actions {
+				display: inline-flex;
+				gap: 10px;
+				flex-wrap: wrap;
+				justify-content: center;
+			}
+			.market-empty-cta-btn {
+				background: rgba(255, 255, 255, 0.04);
+				color: #fafafa;
+				border: 1px solid #2a2a2a;
 				padding: 10px 18px;
 				border-radius: 10px;
-				font-weight: 600;
+				font-weight: 500;
 				font-size: 13px;
 				cursor: pointer;
+				transition: background 0.15s ease, border-color 0.15s ease;
+				font-family: inherit;
+			}
+			.market-empty-cta-btn:hover {
+				background: rgba(255, 255, 255, 0.08);
+				border-color: #3a3a3a;
+			}
+			.market-empty-cta-btn.primary {
+				background: #fafafa;
+				color: #0a0a0a;
+				border-color: #fafafa;
+				font-weight: 600;
+			}
+			.market-empty-cta-btn.primary:hover {
+				background: #ffffff;
+			}
+			.market-empty-cta-btn:focus-visible {
+				outline: 2px solid #7dd3fc;
+				outline-offset: 2px;
 			}
 
 			.price-badge {
@@ -1200,7 +1225,7 @@
 						<button class="market-chip active" data-filter="all" role="tab">All</button>
 						<button class="market-chip" data-filter="agents" role="tab">Agents</button>
 						<button class="market-chip" data-filter="avatars" role="tab">Avatars</button>
-						<button class="market-chip" data-filter="onchain" role="tab">Onchain <span class="chip-count" id="chip-count-onchain"></span></button>
+						<button class="market-chip" data-filter="onchain" role="tab" title="ERC-8004 agents indexed onchain across Base, Polygon, and Solana" aria-label="Onchain — ERC-8004 agents indexed across all supported chains">Onchain <span class="chip-count" id="chip-count-onchain"></span></button>
 					</div>
 					<select id="market-sort" class="market-sort">
 						<option value="recommended">Recommended</option>
@@ -1314,12 +1339,6 @@
 					<aside class="market-detail-side">
 						<button class="market-fork" id="d-fork">Fork &amp; Chat</button>
 						<button class="market-export-btn" id="d-export-json">↓ Export JSON</button>
-						<div class="market-card market-overview-card">
-							<div class="row">
-								<span>What can you do with this Agent?</span>
-							</div>
-							<p id="d-overview-side">—</p>
-						</div>
 						<div class="market-related-side" id="d-related-side"></div>
 					</aside>
 				</div>
