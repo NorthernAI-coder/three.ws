@@ -1,0 +1,165 @@
+// Queries the Coinbase x402 Bazaar (and any other configured catalog) for
+// discoverable resources and returns a normalized list of MCP tool specs.
+//
+// The Bazaar `/discovery/resources` endpoint returns items shaped roughly:
+//   {
+//     resource: "https://...",
+//     type: "http" | "mcp",
+//     description: "...",
+//     accepts: [{ scheme, network, amount, asset, payTo, extra, maxTimeoutSeconds }, ...],
+//     extensions: { bazaar: { info: { input: {...}, output: {...} }, schema: {...} } },
+//     quality: { l30DaysTotalCalls, ... },
+//   }
+//
+// We use `extensions.bazaar.info.input` to know HOW to call the resource
+// (HTTP method, body/queryParams shape) and `extensions.bazaar.schema` to
+// surface a concrete JSON Schema for the tool's input parameters in the
+// tool description.
+//
+// Tools whose accepts entries are ALL above the configured spending cap are
+// filtered out at discovery time so the LLM doesn't see tools it can't afford.
+
+import axios from 'axios';
+
+const DEFAULT_LIMIT = 20;
+const DEFAULT_BAZAAR_URL = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources';
+
+function bazaarUrl() {
+	const override = process.env.MCP_BRIDGE_BAZAAR_URL;
+	return override && override.trim() ? override.trim() : DEFAULT_BAZAAR_URL;
+}
+
+function discoverLimit() {
+	const raw = process.env.MCP_BRIDGE_DISCOVER_LIMIT;
+	if (!raw) return DEFAULT_LIMIT;
+	const v = Number(raw);
+	if (!Number.isFinite(v) || v < 0) {
+		throw new Error('MCP_BRIDGE_DISCOVER_LIMIT must be a non-negative number');
+	}
+	return Math.floor(v);
+}
+
+function maxPriceAtomic() {
+	const raw = process.env.MCP_BRIDGE_MAX_PRICE_PER_CALL_ATOMIC;
+	if (!raw) return null;
+	return BigInt(raw);
+}
+
+// Derive a stable MCP tool name from a Bazaar item.
+//
+// MCP tool names must be unique and conventionally are snake_case identifiers.
+// We start from the description's first segment (everything before "—" or "·")
+// and fall back to the URL path. Sanitize to [a-z0-9_], cap length, and
+// disambiguate collisions with a numeric suffix in the caller.
+const NAME_PREFIX = 'paid_';
+
+export function deriveToolName(item) {
+	const desc = String(item.description || '').trim();
+	const first = desc.split(/[—·:|]/)[0]?.trim() || '';
+	let base = first || new URL(item.resource).pathname.split('/').filter(Boolean).pop() || 'tool';
+	base = base
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '')
+		.slice(0, 48);
+	if (!base) base = 'tool';
+	return `${NAME_PREFIX}${base}`;
+}
+
+function pickInputJsonSchema(item) {
+	const schema = item?.extensions?.bazaar?.schema;
+	if (schema && typeof schema === 'object' && schema.properties?.input) {
+		return schema.properties.input;
+	}
+	// Some entries publish inputSchema at the top level (legacy v1 shape).
+	const legacy = item?.extensions?.bazaar?.inputSchema || item?.inputSchema;
+	return legacy && typeof legacy === 'object' ? legacy : undefined;
+}
+
+function summarizeAccepts(accepts) {
+	return accepts
+		.map((a) => `${a.scheme}@${a.network} ${a.amount} ${a.asset}`)
+		.join(' | ');
+}
+
+function affordable(accepts) {
+	const cap = maxPriceAtomic();
+	if (cap === null) return true;
+	return accepts.some((a) => {
+		try {
+			return BigInt(a.amount) <= cap;
+		} catch {
+			return false;
+		}
+	});
+}
+
+export async function fetchBazaarResources({ url = bazaarUrl(), limit = discoverLimit() } = {}) {
+	if (limit === 0) return [];
+	const res = await axios.get(url, {
+		params: { limit },
+		timeout: 15_000,
+		validateStatus: (s) => s >= 200 && s < 300,
+	});
+	const items = Array.isArray(res.data?.items) ? res.data.items : [];
+	return items;
+}
+
+export function buildToolSpec(item) {
+	const accepts = Array.isArray(item.accepts) ? item.accepts : [];
+	if (accepts.length === 0) return null;
+	if (!affordable(accepts)) return null;
+
+	const info = item?.extensions?.bazaar?.info;
+	const input = info?.input || {};
+	const method = (input.method || 'GET').toUpperCase();
+	const type = info?.type || item.type || 'http';
+	const inputJsonSchema = pickInputJsonSchema(item);
+
+	const acceptSummary = summarizeAccepts(accepts);
+	const descriptionLines = [
+		item.description?.trim() || `Paid endpoint at ${item.resource}`,
+		'',
+		`Auto-paid via x402 (${acceptSummary}).`,
+		`Method: ${method}. Resource: ${item.resource}`,
+	];
+	if (inputJsonSchema) {
+		descriptionLines.push('', 'Input JSON Schema:', JSON.stringify(inputJsonSchema));
+	}
+	if (info?.output?.example) {
+		descriptionLines.push('', 'Output example:', JSON.stringify(info.output.example).slice(0, 1500));
+	}
+
+	return {
+		name: deriveToolName(item),
+		description: descriptionLines.join('\n'),
+		resource: item.resource,
+		method,
+		type,
+		bodyType: input.bodyType || 'json',
+		inputJsonSchema,
+		acceptSummary,
+	};
+}
+
+export async function discoverBazaarTools(opts = {}) {
+	const items = await fetchBazaarResources(opts);
+	const specs = [];
+	const seen = new Set();
+	for (const item of items) {
+		try {
+			const spec = buildToolSpec(item);
+			if (!spec) continue;
+			let name = spec.name;
+			let i = 1;
+			while (seen.has(name)) {
+				name = `${spec.name}_${i++}`;
+			}
+			seen.add(name);
+			specs.push({ ...spec, name });
+		} catch {
+			// Malformed entry — skip so one bad item doesn't take the whole bridge down.
+		}
+	}
+	return specs;
+}

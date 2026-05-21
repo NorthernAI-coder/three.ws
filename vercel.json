@@ -50,6 +50,10 @@
 			"dest": "/api/auth/persona/[action]?action=jwks"
 		},
 		{
+			"src": "/\\.well-known/did\\.json",
+			"dest": "/api/x402/did"
+		},
+		{
 			"src": "/\\.well-known/oauth-authorization-server",
 			"dest": "/api/wk?name=oauth-authorization-server"
 		},

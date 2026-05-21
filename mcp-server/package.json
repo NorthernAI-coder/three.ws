@@ -1,0 +1,33 @@
+{
+	"name": "@3d-agent/mcp-server",
+	"version": "1.0.0",
+	"description": "Paid MCP tools for the 3d-agent stack — pose generation, pump.fun snapshots, ERC-8004 agent reputation, Solana vanity grinder. Settled in USDC via x402.",
+	"type": "module",
+	"private": true,
+	"bin": {
+		"3d-agent-mcp": "./src/index.js"
+	},
+	"main": "./src/index.js",
+	"exports": {
+		".": "./src/index.js"
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"start": "node src/index.js",
+		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@solana/web3.js": "latest",
+		"@x402/core": "^2.12.0",
+		"@x402/evm": "^2.12.0",
+		"@x402/extensions": "^2.12.0",
+		"@x402/mcp": "^2.12.0",
+		"@x402/svm": "^2.12.0",
+		"@coinbase/x402": "^2.1.0",
+		"ethers": "^6.16.0",
+		"zod": "^3.23.8"
+	}
+}

@@ -21,6 +21,10 @@
 //   * BUYER_PRIVATE_KEY — hex EVM private key (0x...). Wallet must hold USDC on
 //     Base mainnet (or Arbitrum One — script auto-selects whichever the endpoint
 //     accepts that's listed first). $0.001 USDC + a tiny amount of ETH for gas.
+//   * X402_PAYMENT_ID (optional) — pin a stable payment-identifier across
+//     retries; otherwise a fresh id is generated per call. Use this when
+//     scripting against an endpoint that may be flaky so the second run
+//     replays the cached response instead of paying again.
 //   * Node 20+ (uses native fetch).
 //
 // BAZAAR INDEXING
@@ -28,9 +32,11 @@
 //   agentic.market to index your endpoint. Run this script once with a real
 //   buyer wallet and you're listed.
 
-import { wrapFetchWithPaymentFromConfig, decodePaymentResponseHeader } from '@x402/fetch';
+import { wrapFetchWithPayment, decodePaymentResponseHeader } from '@x402/fetch';
+import { x402Client } from '@x402/core/client';
 import { ExactEvmScheme } from '@x402/evm/exact/client';
 import { privateKeyToAccount } from 'viem/accounts';
+import { installIdempotency } from '../api/_lib/x402/payment-identifier-client.js';
 
 const BUYER_PRIVATE_KEY = process.env.BUYER_PRIVATE_KEY;
 if (!BUYER_PRIVATE_KEY) {
@@ -73,9 +79,17 @@ console.log();
 
 // `eip155:*` registers the same scheme for any EVM chain — the facilitator's
 // first-listed accepts entry decides which one we actually pay on.
-const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
-	schemes: [{ network: 'eip155:*', client: new ExactEvmScheme(account) }],
-});
+const client = new x402Client();
+client.register('eip155:*', new ExactEvmScheme(account));
+
+// USE-15: idempotency. When the server advertises payment-identifier, the
+// hook appends an id to the payload so retries with the same id return the
+// cached response without re-charging. Set X402_PAYMENT_ID to pin one across
+// runs; otherwise a fresh id is generated per request.
+installIdempotency(client, { paymentId: process.env.X402_PAYMENT_ID || undefined });
+if (process.env.X402_PAYMENT_ID) console.log(`payment-id:  ${process.env.X402_PAYMENT_ID}`);
+
+const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 
 const t0 = Date.now();
 let res;

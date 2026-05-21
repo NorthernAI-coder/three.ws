@@ -43,11 +43,19 @@ const text = await readFile(
 );
 
 // Neon HTTP API runs one statement per call. Split on top-level semicolons —
-// the SIWX migration uses no DO blocks / dollar-quoted strings.
+// the SIWX migration uses no DO blocks / dollar-quoted strings. Strip leading
+// `--` comment lines per chunk so the migration's header block doesn't cause
+// the first CREATE statement to be filtered out as a comment-only chunk.
 const statements = text
 	.split(/;\s*$/m)
-	.map((s) => s.trim())
-	.filter((s) => s && !/^--/.test(s));
+	.map((s) =>
+		s
+			.split('\n')
+			.filter((line) => !/^\s*--/.test(line))
+			.join('\n')
+			.trim(),
+	)
+	.filter((s) => s.length > 0);
 
 for (const s of statements) {
 	await sql(s, [], {});

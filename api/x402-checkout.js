@@ -67,10 +67,19 @@ const prepareSchema = z.object({
 	buyer: z.string().min(32).max(44),
 });
 
+const builderCodeBlockSchema = z
+	.object({
+		a: z.string().regex(/^[a-z0-9_]{1,32}$/),
+		w: z.string().regex(/^[a-z0-9_]{1,32}$/).optional(),
+		s: z.array(z.string().regex(/^[a-z0-9_]{1,32}$/)).max(32).optional(),
+	})
+	.optional();
+
 const encodeSchema = z.object({
 	accept: acceptSchema,
 	signed_tx_base64: z.string().min(40).max(20_000),
 	resource_url: z.string().url(),
+	builder_code: builderCodeBlockSchema,
 });
 
 export default wrap(async (req, res) => {
@@ -181,7 +190,7 @@ async function handlePrepare(req, res) {
 
 async function handleEncode(req, res) {
 	const body = parse(encodeSchema, await readJson(req));
-	const { accept, signed_tx_base64, resource_url } = body;
+	const { accept, signed_tx_base64, resource_url, builder_code } = body;
 	const payload = {
 		x402Version: 2,
 		scheme: 'exact',
@@ -190,6 +199,9 @@ async function handleEncode(req, res) {
 		accepted: accept,
 		payload: { transaction: signed_tx_base64 },
 	};
+	if (builder_code) {
+		payload.extensions = { 'builder-code': builder_code };
+	}
 	const xPayment = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
 	return json(res, 200, { x_payment: xPayment });
 }

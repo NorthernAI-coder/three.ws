@@ -503,14 +503,24 @@ function selectRequirement(paymentPayload, allRequirements) {
 // resource server enforces the echo invariant the spec normally puts on the
 // facilitator — important because not every facilitator implements it yet,
 // and the on-chain calldata suffix needs trustworthy `a` to be useful.
+//
+// When the caller doesn't pass `builderCode`, we derive it from
+// X402_BUILDER_CODE_APP so the raw-verifyPayment routes (model-check,
+// mint-to-mesh, revenue-vision, mcp/auth) get echo enforcement symmetric
+// with build402Body's auto-declaration. Pass `builderCode: null`
+// explicitly to opt out (e.g. test harnesses).
 export async function verifyPayment({ paymentHeader, requirements, builderCode }) {
 	const all = Array.isArray(requirements) ? requirements : [requirements];
 	const paymentPayload = decodePaymentHeader(paymentHeader);
 	const requirement = selectRequirement(paymentPayload, all);
-	if (builderCode) {
+	const effectiveBuilderCode =
+		builderCode === undefined && env.X402_BUILDER_CODE_APP
+			? declareBuilderCodeExtension({ a: env.X402_BUILDER_CODE_APP })
+			: builderCode;
+	if (effectiveBuilderCode) {
 		const payloadBuilder = paymentPayload?.extensions?.[BUILDER_CODE];
 		const echo = verifyBuilderCodeEcho({
-			required: builderCode,
+			required: effectiveBuilderCode,
 			payload: payloadBuilder,
 		});
 		if (!echo.ok) {
@@ -572,13 +582,20 @@ export async function settlePayment({ paymentPayload, requirement, directVerifie
 	return result;
 }
 
-export function encodePaymentResponseHeader(settleResult) {
+// `extensions` is the extension envelope returned with the success body
+// (e.g. `{ "offer-receipt": { info: { receipt: ... }, schema: ... } }` per the
+// Offer & Receipt extension §5.1). Callers leave it undefined when no
+// extensions are configured for the route.
+export function encodePaymentResponseHeader(settleResult, extensions) {
 	const body = {
 		success: true,
 		transaction: settleResult.transaction,
 		network: settleResult.network,
 		payer: settleResult.payer,
 	};
+	if (extensions && Object.keys(extensions).length > 0) {
+		body.extensions = extensions;
+	}
 	return Buffer.from(JSON.stringify(body), 'utf8').toString('base64');
 }
 

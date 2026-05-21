@@ -35,13 +35,21 @@ function injectLink(html) {
 	let lastMatch = null;
 	let m;
 	while ((m = stylesheetTag.exec(html)) !== null) lastMatch = m;
-	if (!lastMatch) return { html, changed: false };
-	const end = lastMatch.index + lastMatch[0].length;
-	// Preserve the indentation of the matched tag for the new line.
-	const lineStart = html.lastIndexOf('\n', lastMatch.index) + 1;
-	const indent = html.slice(lineStart, lastMatch.index).match(/^[\t ]*/)[0];
-	const insertion = `\n${indent}${LINK}`;
-	return { html: html.slice(0, end) + insertion + html.slice(end), changed: true };
+	if (lastMatch) {
+		const end = lastMatch.index + lastMatch[0].length;
+		const lineStart = html.lastIndexOf('\n', lastMatch.index) + 1;
+		const indent = html.slice(lineStart, lastMatch.index).match(/^[\t ]*/)[0];
+		const insertion = `\n${indent}${LINK}`;
+		return { html: html.slice(0, end) + insertion + html.slice(end), changed: true };
+	}
+	// Fallback for pages that use only inline <style> blocks: insert just
+	// before </head> so the file stays a valid HTML document.
+	const headClose = html.search(/<\/head\s*>/i);
+	if (headClose === -1) return { html, changed: false };
+	const lineStart = html.lastIndexOf('\n', headClose) + 1;
+	const indent = html.slice(lineStart, headClose).match(/^[\t ]*/)[0] + '\t';
+	const insertion = `${indent}${LINK}\n`;
+	return { html: html.slice(0, headClose) + insertion + html.slice(headClose), changed: true };
 }
 
 const files = readdirSync(PAGES_DIR).filter((f) => f.endsWith('.html'));

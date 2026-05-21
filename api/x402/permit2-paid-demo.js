@@ -34,8 +34,12 @@ import {
 	verifyPayment,
 } from '../_lib/x402-spec.js';
 import { env } from '../_lib/env.js';
+import { installAccessControl } from '../_lib/x402/access-control.js';
 
 const ROUTE = '/api/x402/permit2-paid-demo';
+const REQUIRED_SCOPE = 'x402:bypass';
+const accessControl = installAccessControl({ requiredScope: REQUIRED_SCOPE });
+const routeConfig = { path: ROUTE, method: 'GET', requiredScope: REQUIRED_SCOPE };
 const PRICE_ATOMICS = '1000'; // $0.001 USDC (6 decimals)
 
 const ROUTE_DESCRIPTION =
@@ -209,6 +213,47 @@ export default wrap(async (req, res) => {
 		description: ROUTE_DESCRIPTION,
 		bazaar: ROUTE_BAZAAR,
 	};
+
+	// USE-23: bypass payment for internal / subscription / OAuth callers.
+	// The Permit2 demo skips its payload-shape check on bypass — the bypass
+	// caller never signed a payment, so there's nothing to validate.
+	const acResult = await accessControl(req, routeConfig);
+	if (acResult?.abort) {
+		if (acResult.headers) {
+			for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
+		}
+		return error(
+			res,
+			acResult.status || 403,
+			acResult.code || 'access_denied',
+			acResult.reason || 'access denied',
+		);
+	}
+	if (acResult?.grantAccess) {
+		const result = {
+			ok: true,
+			demo: 'permit2-eip2612-gas-sponsoring',
+			method: 'permit2',
+			supportsEip2612: true,
+			bypass: acResult.reason,
+			payer: null,
+			network: requirements[0]?.network || null,
+			asset: requirements[0]?.asset || null,
+			amountAtomics: requirements[0]?.amount || null,
+			transaction: null,
+			explorer: null,
+			settledAt: null,
+			proxy: X402_EXACT_PERMIT2_PROXY,
+		};
+		if (acResult.headers) {
+			for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
+		}
+		res.setHeader('x-payment-bypass', acResult.reason || 'granted');
+		res.setHeader('cache-control', 'no-store');
+		res.setHeader('content-type', 'application/json; charset=utf-8');
+		res.end(JSON.stringify(result));
+		return;
+	}
 
 	const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];
 	if (!paymentHeader) return send402(res, challenge);

@@ -17,6 +17,35 @@ import {
 	probeFacilitators,
 	X402_VERSION,
 } from './_lib/x402-spec.js';
+import { sql } from './_lib/db.js';
+import { hasEvmVerifier } from './_lib/siwx-server.js';
+
+// Read SIWX table counts so operators can confirm at-a-glance whether the
+// SIWX rails are wired and active. The tables may not exist on a brand-new
+// database (migrations not yet run) — surface that explicitly via
+// `configured: false` instead of failing the whole status endpoint.
+async function probeSiwx() {
+	try {
+		const [{ n: paymentsRowCount }] = await sql`
+			select count(*)::int as n from siwx_payments
+		`;
+		const [{ n: noncesRowCount }] = await sql`
+			select count(*)::int as n from siwx_nonces
+		`;
+		return {
+			configured: true,
+			paymentsRowCount,
+			noncesRowCount,
+			evmVerifierConfigured: hasEvmVerifier(),
+		};
+	} catch (err) {
+		return {
+			configured: false,
+			error: err.message,
+			evmVerifierConfigured: hasEvmVerifier(),
+		};
+	}
+}
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -24,6 +53,7 @@ export default wrap(async (req, res) => {
 
 	const accepts = paymentRequirements();
 	const facilitators = await probeFacilitators();
+	const siwx = await probeSiwx();
 	const ok = facilitators.every((f) => f.ok);
 
 	// Surface what we advertise in 402 challenges so operators can confirm at a
@@ -75,6 +105,7 @@ export default wrap(async (req, res) => {
 				X402_FEE_PAYER_SOLANA: env.X402_FEE_PAYER_SOLANA || null,
 				X402_MAX_AMOUNT_REQUIRED: env.X402_MAX_AMOUNT_REQUIRED || null,
 			},
+			siwx,
 		},
 		{ 'cache-control': 'no-store' },
 	);

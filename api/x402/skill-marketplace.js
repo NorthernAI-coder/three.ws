@@ -12,6 +12,7 @@
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
+import { installAccessControl } from '../_lib/x402/access-control.js';
 import { sql } from '../_lib/db.js';
 
 const ROUTE = '/api/x402/skill-marketplace';
@@ -187,6 +188,8 @@ export default paidEndpoint({
 		ttlSeconds: 24 * 3600,
 		expirationSeconds: 300,
 	},
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	async handler({ req }) {
 		const skill = req.query?.skill ? String(req.query.skill).trim() : null;
 		const limitRaw = parseInt(req.query?.limit, 10);

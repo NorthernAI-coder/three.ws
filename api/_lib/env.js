@@ -175,6 +175,14 @@ export const env = {
 	get X402_MAX_AMOUNT_REQUIRED() {
 		return opt('X402_MAX_AMOUNT_REQUIRED', '1000');
 	},
+	// USE-15 — TTL (seconds) for the payment-identifier idempotency cache.
+	// Keyed by ${route}|${paymentId}; a second hit with the same id within the
+	// window replays the cached response without re-charging. 1h default matches
+	// the x402 docs' "long TTL" guidance for infrequently changing resources.
+	// Per-route override via paidEndpoint({ paymentIdentifier: { ttlSeconds } }).
+	get X402_IDEMPOTENCY_TTL_SECONDS() {
+		return opt('X402_IDEMPOTENCY_TTL_SECONDS', '3600');
+	},
 	// Per-network facilitators. PayAI supports both Solana and Base mainnet;
 	// x402.org's reference facilitator only supports base-sepolia, so it cannot
 	// be the default for Base mainnet payments.
@@ -221,6 +229,24 @@ export const env = {
 	// returns at /supported for `network:"solana"`.
 	get X402_FEE_PAYER_SOLANA() {
 		return opt('X402_FEE_PAYER_SOLANA', '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4');
+	},
+
+	// ERC-8021 builder-code app identifier. When set, every 402 challenge
+	// advertises the `builder-code` extension declaring this as `info.a`,
+	// every paid request must echo it (anti-tamper), and the facilitator
+	// appends a CBOR suffix to settlement-tx calldata so off-chain parsers
+	// can attribute payment volume to this app. Pattern: `^[a-z0-9_]{1,32}$`.
+	// Leave unset to disable on-chain attribution.
+	get X402_BUILDER_CODE_APP() {
+		return opt('X402_BUILDER_CODE_APP');
+	},
+
+	// USE-23: shared secret that lets internal Vercel functions skip the 402
+	// challenge on our own paid endpoints by sending X-API-Key: <this value>.
+	// Compared with constant-time equality in api/_lib/x402/access-control.js.
+	// Generate with: openssl rand -base64 32
+	get INTERNAL_API_KEY() {
+		return opt('INTERNAL_API_KEY');
 	},
 
 	// EVM mainnet chains accepted by /api/x402/* paid endpoints — defaults to

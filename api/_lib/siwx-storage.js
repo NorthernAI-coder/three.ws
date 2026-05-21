@@ -14,8 +14,11 @@
 // addresses in their canonical-per-chain form, which differs by namespace:
 //   eip155:*  → lowercase hex (NOT EIP-55 checksummed)
 //   solana:*  → Base58 (case-sensitive, leave as-is)
-// Every read + write goes through normalizeAddress() so lookups are
-// case-insensitive on EVM while staying byte-for-byte exact on Solana.
+//
+// Every WRITE normalizes via normalizeAddress(network, address) — the network
+// is known at recordPayment time. READS go through a chain-aware OR query
+// because the SIWxStorage contract only passes (resource, address) to
+// hasPaid: we lower-case the EVM branch and leave the Solana branch exact.
 
 import { sql } from './db.js';
 
@@ -28,45 +31,58 @@ function namespaceOf(chainId) {
 	return colon === -1 ? chainId.toLowerCase() : chainId.slice(0, colon).toLowerCase();
 }
 
+// Public — also used by siwx-server.js after verifying the signature.
 export function normalizeAddress(chainId, address) {
-	if (!address) return address;
+	if (!chainId || !address) throw new Error('siwx-storage: network+address required');
 	const ns = namespaceOf(chainId);
 	if (ns === 'eip155') return String(address).toLowerCase();
-	return String(address);
+	if (ns === 'solana') return String(address);
+	throw new Error(`siwx-storage: unsupported CAIP-2 namespace "${chainId}"`);
 }
 
 async function hasPaid(resource, address) {
 	if (!resource || !address) return false;
+	const evm = String(address).toLowerCase();
+	const sol = String(address);
 	const rows = await sql`
-		select expires_at
+		select expires_at, network
 		  from siwx_payments
 		 where resource = ${resource}
-		   and address  = ${address}
+		   and (
+		     (network like 'eip155:%' and address = ${evm})
+		     or
+		     (network like 'solana:%' and address = ${sol})
+		   )
 		 limit 1
 	`;
 	if (!rows.length) return false;
 	const exp = rows[0].expires_at;
 	if (exp && new Date(exp).getTime() <= Date.now()) return false;
+	const matched = String(rows[0].network).startsWith('eip155:') ? evm : sol;
 	await sql`
 		update siwx_payments
 		   set last_used_at = now(),
 		       use_count    = use_count + 1
 		 where resource = ${resource}
-		   and address  = ${address}
+		   and address  = ${matched}
 	`;
 	return true;
 }
 
 async function recordPayment(resource, address, opts = {}) {
 	if (!resource || !address) return;
-	const network = opts.network || null;
+	if (!opts.network) {
+		throw new Error('siwx-storage.recordPayment: opts.network is required');
+	}
+	const normalized = normalizeAddress(opts.network, address);
 	const ttlSeconds = Number.isFinite(opts.ttlSeconds) ? Number(opts.ttlSeconds) : null;
-	const expiresAt = ttlSeconds && ttlSeconds > 0
-		? new Date(Date.now() + ttlSeconds * 1000).toISOString()
-		: null;
+	const expiresAt =
+		ttlSeconds && ttlSeconds > 0
+			? new Date(Date.now() + ttlSeconds * 1000).toISOString()
+			: null;
 	await sql`
 		insert into siwx_payments (resource, address, network, paid_at, expires_at)
-		values (${resource}, ${address}, ${network}, now(), ${expiresAt})
+		values (${resource}, ${normalized}, ${opts.network}, now(), ${expiresAt})
 		on conflict (resource, address) do update
 		   set network    = excluded.network,
 		       paid_at    = excluded.paid_at,
@@ -87,6 +103,39 @@ async function recordNonce(nonce, ctx = {}) {
 		values (${nonce}, ${ctx.resource || ''}, ${ctx.address || ''}, now())
 		on conflict (nonce) do nothing
 	`;
+}
+
+// Cron helpers exported for api/cron/siwx-gc.js + tests. Both return the
+// number of rows deleted so the cron can emit a sensible summary log.
+
+// Compute the cutoff inside Postgres so the comparison uses the same clock
+// as the now()-defaulted columns above — JS Date.now() can drift seconds
+// from the Neon primary, and at the 0-grace boundary (cron-driven cleanup)
+// the difference manifests as rows that should be deleted but aren't.
+
+export async function pruneExpiredPayments(graceSeconds = 7 * 24 * 3600) {
+	const rows = await sql`
+		with deleted as (
+			delete from siwx_payments
+			 where expires_at is not null
+			   and expires_at < now() - make_interval(secs => ${Number(graceSeconds)})
+			 returning 1
+		)
+		select count(*)::int as n from deleted
+	`;
+	return rows[0]?.n ?? 0;
+}
+
+export async function pruneOldNonces(maxAgeSeconds = 600) {
+	const rows = await sql`
+		with deleted as (
+			delete from siwx_nonces
+			 where used_at < now() - make_interval(secs => ${Number(maxAgeSeconds)})
+			 returning 1
+		)
+		select count(*)::int as n from deleted
+	`;
+	return rows[0]?.n ?? 0;
 }
 
 export const siwxStorage = {

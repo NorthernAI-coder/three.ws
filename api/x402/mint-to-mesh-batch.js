@@ -14,6 +14,7 @@
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
+import { installAccessControl } from '../_lib/x402/access-control.js';
 import { readJson } from '../_lib/http.js';
 import { createThemedGLB, colorFromMint } from '../_lib/glb-themer.js';
 import { fetchTokenMeta } from '../_lib/solana-token-meta.js';
@@ -159,6 +160,8 @@ export default paidEndpoint({
 	networks: ['base', 'solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	async handler({ req }) {
 		let body;
 		try {

@@ -389,8 +389,50 @@
 		</div>
 	</section>
 
+	<section id="siwx">
+		<h2><span class="num">04</span>Sign in with wallet (re-entry)</h2>
+		<p class="sub">
+			For re-downloadable content — GLBs, avatars, agent skills, lobby
+			characters — buyers shouldn't pay again every time they fetch the same
+			asset. When an endpoint opts into <a href="https://github.com/x402/x402/blob/main/typescript/site/CHANGELOG-v2.md" target="_blank">SIWX (Sign-In-With-X, CAIP-122)</a>,
+			the modal grows a second option:
+		</p>
+		<pre style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:12px;color:var(--text);line-height:1.5;overflow:auto;"><code>┌──────────────────────────────────────────┐
+│  three.ws                              ✕ │
+│  Download pole-dancer-rumba.glb          │
+├──────────────────────────────────────────┤
+│  0.05 USDC          [Base · live ●]      │
+├──────────────────────────────────────────┤
+│  ┌────────────────────────────────────┐  │
+│  │       Sign in with wallet          │  │   ← primary
+│  └────────────────────────────────────┘  │
+│  ┌────────────────────────────────────┐  │
+│  │     Pay 0.05 USDC instead          │  │   ← secondary
+│  └────────────────────────────────────┘  │
+│  Already paid for this once? Sign in to  │
+│  re-enter without paying again.          │
+└──────────────────────────────────────────┘</code></pre>
+		<p class="sub" style="margin-top:18px;">
+			Click <strong>Sign in with wallet</strong> → wallet pops with a CAIP-122
+			message naming the resource, the connected address, and a fresh nonce →
+			modal posts the signed payload as a <code style="font-family:var(--mono);">SIGN-IN-WITH-X</code>
+			header → endpoint looks the wallet up in its payment ledger → returns
+			200 without charging. If the wallet hasn't actually paid for this
+			resource (or the signature is rejected), the modal falls back to the
+			normal pay flow with a one-line notice.
+		</p>
+		<p class="sub" style="margin-top:8px;">
+			Programmatic callers see the same flow: <code style="font-family:var(--mono);">await window.X402.pay(...)</code>
+			resolves with <code style="font-family:var(--mono);">{ result, siwx: { address, network } }</code>
+			(instead of <code style="font-family:var(--mono);">payment</code>) when SIWX was used. The element-bound API also
+			dispatches an <code style="font-family:var(--mono);">x402:siwx-signed</code> event right before
+			<code style="font-family:var(--mono);">x402:result</code> so analytics can distinguish a sign-in from a paid
+			call. A manual test surface lives at <a href="/siwx-test.html">/siwx-test.html</a>.
+		</p>
+	</section>
+
 	<section id="programmatic" class="alt">
-		<h2><span class="num">04</span>Or call it programmatically</h2>
+		<h2><span class="num">05</span>Or call it programmatically</h2>
 		<p class="sub">Same modal, called from JavaScript. The promise resolves with the API result and a settlement receipt.</p>
 		<div class="snippet" id="progSnippet"><button class="copy-btn" data-copy="progSnippetCode">Copy</button><span id="progSnippetCode"><span class="k">const</span> { result, payment } = <span class="k">await</span> window.X402.<span class="a">pay</span>({
   <span class="a">endpoint</span>: <span class="s">'/api/x402/symbol-availability'</span>,

@@ -125,6 +125,10 @@ function handleOauthAuthServer(req, res) {
 				'avatars:delete',
 				'profile',
 				'offline_access',
+				// USE-21 auth-hints: paid endpoints advertise these scopes for
+				// Bearer-token bypass via the auth-hints extension.
+				'read:agent-reputation',
+				'x402:bypass',
 			],
 			service_documentation: `${base}/docs/mcp`,
 			ui_locales_supported: ['en'],
@@ -353,6 +357,10 @@ function handleX402Discovery(req, res) {
 				environment: 'apex',
 				origin,
 			},
+			// `.filter(Boolean)` drops any resource whose IIFE returned null —
+			// e.g. permit2-paid-demo is omitted when CDP creds are missing,
+			// matching the runtime 402 behavior so we don't catalog a route that
+			// would fail at first paid call.
 			resources: [
 				{
 					path: '/api/x402/model-check',
@@ -577,6 +585,50 @@ function handleX402Discovery(req, res) {
 					};
 				})(),
 				(() => {
+					// Permit2-only demo: skip the EIP-3009 entry that acceptsForPrice
+					// would push first, so SDK clients are forced through the gasless
+					// EIP-2612 → settleWithPermit path the endpoint is meant to prove.
+					// permit2VariantOf returns null without CDP creds, in which case we
+					// omit the resource from discovery (matches the runtime 402 behavior).
+					const price = RAW_AMOUNT_TO_USDC('1000');
+					const baseAccept = env.X402_PAY_TO_BASE
+						? {
+								scheme: 'exact',
+								network: NETWORK_BASE_MAINNET,
+								network_label: 'base-mainnet',
+								amount: '1000',
+								price,
+								payTo: env.X402_PAY_TO_BASE,
+								asset: env.X402_ASSET_ADDRESS_BASE,
+								asset_symbol: 'USDC',
+								maxTimeoutSeconds: 60,
+								extra: { name: 'USD Coin', version: '2', decimals: 6 },
+							}
+						: null;
+					const permit2 = baseAccept ? permit2VariantOf(baseAccept) : null;
+					if (!permit2) return null;
+					const accepts = [permit2];
+					return {
+						path: '/api/x402/permit2-paid-demo',
+						url: `${origin}/api/x402/permit2-paid-demo`,
+						method: 'GET',
+						description:
+							'Permit2 + EIP-2612 Gas Sponsoring Demo — forces the gasless Permit2 path so a fresh wallet holding USDC but ZERO ETH can complete the flow. CDP\'s x402ExactPermit2Proxy submits the EIP-2612 permit + Permit2 transfer atomically via settleWithPermit. Response surfaces the on-chain tx hash and a Basescan link.',
+						mimeType: 'application/json',
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: {},
+							inputSchema: {
+								type: 'object',
+								properties: {},
+								additionalProperties: false,
+							},
+						}),
+					};
+				})(),
+				(() => {
 					const accepts = acceptsForPrice('50000');
 					return {
 						path: '/api/x402/mint-to-mesh-batch',
@@ -610,7 +662,7 @@ function handleX402Discovery(req, res) {
 						}),
 					};
 				})(),
-			],
+			].filter(Boolean),
 		},
 		{ 'cache-control': 'public, max-age=300' },
 	);

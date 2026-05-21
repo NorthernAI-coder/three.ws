@@ -114,6 +114,27 @@ function b64decode(str) {
 	}
 }
 
+// ──────────────────────────────────────────── ERC-8021 builder-code echo ────
+// The server-side x402-spec.js enforces that any client-echoed builder-code
+// `a` matches what the 402 challenge declared (anti-tamper). Builders/wallets
+// can append their own service code in `s` and set their wallet code `w`
+// — for our own demo modal we self-attribute `w: "3d_agent"` and `s: ["3d_agent_modal"]`.
+
+const BUILDER_CODE_KEY = 'builder-code';
+const BUILDER_CODE_PATTERN = /^[a-z0-9_]{1,32}$/;
+const OUR_WALLET_CODE = '3d_agent';
+const OUR_SERVICE_CODE = '3d_agent_modal';
+
+function buildBuilderCodeEcho(challenge) {
+	const ext = challenge?.extensions?.[BUILDER_CODE_KEY];
+	const declaredA = ext?.info?.a;
+	if (!declaredA || !BUILDER_CODE_PATTERN.test(declaredA)) return null;
+	const out = { a: declaredA };
+	if (BUILDER_CODE_PATTERN.test(OUR_SERVICE_CODE)) out.s = [OUR_SERVICE_CODE];
+	if (BUILDER_CODE_PATTERN.test(OUR_WALLET_CODE)) out.w = OUR_WALLET_CODE;
+	return out;
+}
+
 // ─────────────────────────────────────────────────────────── SIWX helpers ────
 
 function extractSiwxExtension(body) {
@@ -615,17 +636,10 @@ class CheckoutModal {
 		// button, or after a 401/402 siwx_not_paid retry told us this wallet
 		// hasn't actually paid for this resource yet).
 		if (this.siwx && !this.payFlowOverride) {
-			const siwxSolana = phantomDetected && solanaAccept ? pickSiwxChain(this.siwx, 'solana') : null;
-			const siwxEvm = evmDetected && evmAccept ? pickSiwxChain(this.siwx, 'evm') : null;
+			const siwxSolana = phantomDetected ? pickSiwxChain(this.siwx, 'solana') : null;
+			const siwxEvm = evmDetected ? pickSiwxChain(this.siwx, 'evm') : null;
 			if (siwxSolana || siwxEvm) {
-				this.renderSiwxChoice({
-					siwxSolana,
-					siwxEvm,
-					solanaAccept,
-					evmAccept,
-					phantomDetected,
-					evmDetected,
-				});
+				this.renderSiwxChoice({ siwxSolana, siwxEvm });
 				return;
 			}
 		}
@@ -667,14 +681,14 @@ class CheckoutModal {
 		this.bodyEl.querySelectorAll('[data-wallet]').forEach((b) => b.addEventListener('click', onClick));
 	}
 
-	renderSiwxChoice({ siwxSolana, siwxEvm, solanaAccept, evmAccept }) {
+	renderSiwxChoice({ siwxSolana, siwxEvm }) {
 		const priceText = formatAmount(this.accept.amount, this.accept.extra?.decimals ?? 6);
 		// One primary button — internally we pick the wallet kind that matches
 		// the supported SIWX chains AND the detected wallets. Phantom wins ties
 		// to match the existing modal's default preference.
 		const siwxTarget = siwxSolana
-			? { kind: 'solana', chain: siwxSolana.chain, payAccept: solanaAccept }
-			: { kind: 'evm', chain: siwxEvm.chain, payAccept: evmAccept };
+			? { kind: 'solana', chain: siwxSolana.chain }
+			: { kind: 'evm', chain: siwxEvm.chain };
 		const siwxLabel = siwxTarget.kind === 'solana' ? 'Sign in with Phantom' : 'Sign in with wallet';
 		this.bodyEl.innerHTML = `
 			${this.renderSteps('connect', { discover: 'done' })}
@@ -683,8 +697,8 @@ class CheckoutModal {
 			<div class="x402-siwx-hint">Already paid for this once? Sign in to re-enter without paying again.</div>
 		`;
 		this.bodyEl.querySelector('[data-action="siwx"]').addEventListener('click', () => {
-			if (siwxTarget.kind === 'solana') this.runSiwxSolana(siwxTarget.chain, siwxTarget.payAccept);
-			else this.runSiwxEvm(siwxTarget.chain, siwxTarget.payAccept);
+			if (siwxTarget.kind === 'solana') this.runSiwxSolana(siwxTarget.chain);
+			else this.runSiwxEvm(siwxTarget.chain);
 		});
 		this.bodyEl.querySelector('[data-action="pay"]').addEventListener('click', () => {
 			this.payFlowOverride = true;
@@ -717,29 +731,54 @@ class CheckoutModal {
 		this.bodyEl.querySelector('[data-retry]').addEventListener('click', () => this.start());
 	}
 
-	renderDone({ result, payment }) {
-		const explorer = explorerUrl(payment?.network, payment?.transaction);
-		const txShort = payment?.transaction ? `${payment.transaction.slice(0, 8)}…${payment.transaction.slice(-6)}` : '—';
+	renderDone({ result, payment, siwx }) {
 		const resultStr = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+		let receiptHtml;
+		if (siwx) {
+			const addrShort = siwx.address ? `${siwx.address.slice(0, 8)}…${siwx.address.slice(-6)}` : '—';
+			receiptHtml = `
+				<div class="x402-receipt">
+					<div class="x402-receipt-title">Signed in</div>
+					<div class="x402-receipt-row">
+						<span class="x402-k">network</span>
+						<span class="x402-v">${escapeHtml(networkLabel(siwx.network) || siwx.network || '—')}</span>
+					</div>
+					<div class="x402-receipt-row">
+						<span class="x402-k">wallet</span>
+						<span class="x402-v">${escapeHtml(addrShort)}</span>
+					</div>
+					<div class="x402-receipt-row">
+						<span class="x402-k">paid</span>
+						<span class="x402-v">previously · re-entered free</span>
+					</div>
+				</div>
+			`;
+		} else {
+			const explorer = explorerUrl(payment?.network, payment?.transaction);
+			const txShort = payment?.transaction ? `${payment.transaction.slice(0, 8)}…${payment.transaction.slice(-6)}` : '—';
+			receiptHtml = `
+				<div class="x402-receipt">
+					<div class="x402-receipt-title">Paid</div>
+					<div class="x402-receipt-row">
+						<span class="x402-k">network</span>
+						<span class="x402-v">${escapeHtml(networkLabel(payment?.network) || '—')}</span>
+					</div>
+					<div class="x402-receipt-row">
+						<span class="x402-k">payer</span>
+						<span class="x402-v">${escapeHtml(payment?.payer ? `${payment.payer.slice(0, 8)}…${payment.payer.slice(-6)}` : '—')}</span>
+					</div>
+					${
+						payment?.transaction
+							? `<div class="x402-receipt-row"><span class="x402-k">tx</span><span class="x402-v">${
+									explorer ? `<a href="${explorer}" target="_blank" rel="noopener">${txShort} ↗</a>` : txShort
+								}</span></div>`
+							: ''
+					}
+				</div>
+			`;
+		}
 		this.bodyEl.innerHTML = `
-			<div class="x402-receipt">
-				<div class="x402-receipt-title">Paid</div>
-				<div class="x402-receipt-row">
-					<span class="x402-k">network</span>
-					<span class="x402-v">${escapeHtml(networkLabel(payment?.network) || '—')}</span>
-				</div>
-				<div class="x402-receipt-row">
-					<span class="x402-k">payer</span>
-					<span class="x402-v">${escapeHtml(payment?.payer ? `${payment.payer.slice(0, 8)}…${payment.payer.slice(-6)}` : '—')}</span>
-				</div>
-				${
-					payment?.transaction
-						? `<div class="x402-receipt-row"><span class="x402-k">tx</span><span class="x402-v">${
-								explorer ? `<a href="${explorer}" target="_blank" rel="noopener">${txShort} ↗</a>` : txShort
-							}</span></div>`
-						: ''
-				}
-			</div>
+			${receiptHtml}
 			<div class="x402-result">${escapeHtml(resultStr).slice(0, 4000)}</div>
 			<button class="x402-pay-btn" data-done>Done</button>
 		`;
@@ -800,10 +839,12 @@ class CheckoutModal {
 			const signed = await provider.signTransaction(tx);
 			const signedB64 = uint8ArrayToBase64(signed.serialize());
 
+			const builderCodeBlock = buildBuilderCodeEcho(this.challenge);
 			const enc = await postJson(`${ORIGIN}/api/x402-checkout?action=encode`, {
 				accept,
 				signed_tx_base64: signedB64,
 				resource_url: this.opts.endpoint,
+				...(builderCodeBlock ? { builder_code: builderCodeBlock } : {}),
 			});
 
 			await this.executePaid(enc.x_payment);
@@ -897,6 +938,10 @@ class CheckoutModal {
 					authorization: { from: payerAddress, to: accept.payTo, value: accept.amount, validAfter, validBefore, nonce },
 				},
 			};
+			const builderCodeBlock = buildBuilderCodeEcho(this.challenge);
+			if (builderCodeBlock) {
+				paymentPayload.extensions = { 'builder-code': builderCodeBlock };
+			}
 			const xPayment = b64encode(paymentPayload);
 			await this.executePaid(xPayment);
 		} catch (err) {
@@ -941,7 +986,7 @@ class CheckoutModal {
 		}
 	}
 
-	async runSiwxEvm(chain, payAccept) {
+	async runSiwxEvm(chain) {
 		this.renderProgress('connect', { text: 'Opening browser wallet…' });
 		try {
 			const eth = window.ethereum;
@@ -978,13 +1023,13 @@ class CheckoutModal {
 				signatureScheme: 'eip191',
 				signature,
 			};
-			await this.executeSiwx(payload, payAccept, chain.chainId);
+			await this.executeSiwx(payload, chain.chainId);
 		} catch (err) {
 			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
 		}
 	}
 
-	async runSiwxSolana(chain, payAccept) {
+	async runSiwxSolana(chain) {
 		this.renderProgress('connect', { text: 'Opening Phantom…' });
 		try {
 			const provider = window.phantom?.solana || window.solana;
@@ -1021,13 +1066,13 @@ class CheckoutModal {
 				signatureScheme: 'siws',
 				signature,
 			};
-			await this.executeSiwx(payload, payAccept, chain.chainId);
+			await this.executeSiwx(payload, chain.chainId);
 		} catch (err) {
 			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
 		}
 	}
 
-	async executeSiwx(payload, payAccept, chainId) {
+	async executeSiwx(payload, chainId) {
 		this.renderProgress('verify', { text: 'Verifying sign-in…' });
 		const headerValue = encodeSiwxHeaderValue(payload);
 		let res;
@@ -1090,7 +1135,7 @@ class CheckoutModal {
 		}
 
 		const text = await res.text().catch(() => '');
-		throw new Error(`SIWX retry failed: HTTP ${res.status}${text ? ` · ${text.slice(0, 120)}` : ''}`);
+		this.renderError('verify', `SIWX retry failed: HTTP ${res.status}${text ? ` · ${text.slice(0, 120)}` : ''}`);
 	}
 }
 
@@ -1182,12 +1227,14 @@ async function discoverChallenge(opts) {
 	}
 	let body = await res.json().catch(() => null);
 	if (!body || !Array.isArray(body.accepts) || !body.accepts.length) {
-		// Try to read from the PAYMENT-REQUIRED header per v2 spec
+		// send402 (api/_lib/x402-spec.js) only emits `{error}` in the body and
+		// puts the full v2 PaymentRequired envelope (accepts + extensions) in
+		// the base64-JSON PAYMENT-REQUIRED header. b64decode returns already-
+		// parsed JSON, so use its result directly.
 		const prHeader = res.headers.get('payment-required');
-		if (prHeader) {
-			try {
-				body = JSON.parse(b64decode(prHeader));
-			} catch (err) {}
+		const decoded = b64decode(prHeader);
+		if (decoded && Array.isArray(decoded.accepts) && decoded.accepts.length) {
+			body = decoded;
 		}
 	}
 	if (!body || !Array.isArray(body.accepts) || !body.accepts.length) {
@@ -1215,6 +1262,9 @@ function bindElement(el) {
 		const opts = readOptsFrom(el);
 		try {
 			const out = await pay(opts);
+			if (out?.siwx) {
+				el.dispatchEvent(new CustomEvent('x402:siwx-signed', { detail: out.siwx, bubbles: true }));
+			}
 			el.dispatchEvent(new CustomEvent('x402:result', { detail: out, bubbles: true }));
 		} catch (err) {
 			if (err?.code === 'cancelled') return;

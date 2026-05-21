@@ -14,6 +14,7 @@
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
+import { installAccessControl } from '../_lib/x402/access-control.js';
 import { sql } from '../_lib/db.js';
 
 const ROUTE = '/api/x402/symbol-availability';
@@ -155,6 +156,8 @@ export default paidEndpoint({
 	networks: ['base', 'solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	async handler({ req }) {
 		const ticker = String(req.query?.ticker || '').trim();
 		const network = String(req.query?.network || 'mainnet').trim();

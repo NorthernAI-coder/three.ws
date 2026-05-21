@@ -111,6 +111,41 @@ export interface PaymentRequired {
   error?: string;
   resource: ResourceInfo;
   accepts: PaymentRequirements[];
+  /** Per-spec extension envelope keyed by extension name. */
+  extensions?: Record<string, unknown>;
+}
+
+// ─── auth-hints extension (server → client) ─────────────────────────────────
+//
+// Spec: /tmp/x402-docs/specs/extensions/extension-auth-hints.md
+//
+// When a 402 response contains an `auth-hints` extension, certain accepts[]
+// entries are gated by authentication rather than (or in addition to)
+// payment. The client picks an auth method it can satisfy, attaches the
+// matching header on the retry, and skips the X-PAYMENT dance entirely.
+
+export type AuthHintsMethod =
+  | { type: "oauth2"; tokenType?: "Bearer" | "DPoP"; authorizationServer?: string; tokenEndpoint?: string; registrationEndpoint?: string }
+  | { type: "sign-in-with-x" };
+
+export interface AuthHintsRequirement {
+  acceptIndexes: number[];
+  methods: AuthHintsMethod[];
+}
+
+export interface AuthHintsExtension {
+  info: { authRequirements: AuthHintsRequirement[] };
+  schema?: Record<string, unknown>;
+}
+
+/** Headers a buyer can attach to satisfy an `auth-hints` requirement. */
+export interface AuthHintsCredentials {
+  /** Pre-fetched OAuth 2.0 access token. Sent as `Authorization: Bearer …`. */
+  oauth2AccessToken?: string;
+  /** Base64-encoded SIGN-IN-WITH-X header value. The client must produce a
+   *  CAIP-122 message + signature itself (or via the sign-in-with-x extension)
+   *  before invoking the request. */
+  siwxHeader?: string;
 }
 
 // ─── Payment Payload (client → server proof in X-PAYMENT header) ───────────
@@ -212,4 +247,23 @@ export interface X402ClientConfig {
   network?: string;
   /** Max time to wait for tx confirmation in ms (default: 30_000) */
   confirmationTimeoutMs?: number;
+  /**
+   * auth-hints handler. When the server's 402 includes an `auth-hints`
+   * extension, the client invokes this callback with the offered methods so
+   * the caller can attach OAuth2 / SIWX credentials and bypass payment.
+   *
+   * Return value semantics:
+   *   • `AuthHintsCredentials` with at least one filled field → the wrapper
+   *     retries with the matching header and returns the response.
+   *   • `null` / `undefined`                                  → fall through
+   *     to the regular payment flow (sign + pay).
+   *
+   * If the callback throws or returns nothing, the wrapper proceeds with
+   * payment instead — auth-hints are advisory, not mandatory.
+   */
+  onAuthRequired?: (ctx: {
+    extension: AuthHintsExtension;
+    accepts: PaymentRequirements[];
+    resource: ResourceInfo;
+  }) => Promise<AuthHintsCredentials | null | undefined> | AuthHintsCredentials | null | undefined;
 }

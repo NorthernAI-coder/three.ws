@@ -20,6 +20,16 @@ import {
 	resolveResourceUrl,
 } from '../_lib/x402-spec.js';
 import { env } from '../_lib/env.js';
+import {
+	PAYMENT_IDENTIFIER,
+	checkCache,
+	extractIdFromHeader,
+	hashRequestPayload,
+	paymentIdentifierExtension,
+	storeResponse,
+	writeCachedResponse,
+	writeConflict,
+} from '../_lib/x402/payment-identifier-server.js';
 
 const ROUTE = '/api/insights/revenue-vision';
 
@@ -175,10 +185,30 @@ export default wrap(async (req, res) => {
 		accepts: requirements,
 		description: ROUTE_DESCRIPTION,
 		bazaar: ROUTE_BAZAAR,
+		extensions: { [PAYMENT_IDENTIFIER]: paymentIdentifierExtension(false) },
 	};
 
 	const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];
 	if (!paymentHeader) return send402(res, challenge);
+
+	// USE-15: idempotency cache lookup before paying for /verify.
+	const paymentId = extractIdFromHeader(paymentHeader);
+	const payloadHash = hashRequestPayload({
+		method: req.method,
+		url: req.url,
+		body: null,
+	});
+	if (paymentId) {
+		const lookup = await checkCache({ route: ROUTE, paymentId, payloadHash });
+		if (lookup.kind === 'hit') return writeCachedResponse(res, lookup.entry);
+		if (lookup.kind === 'conflict') {
+			return writeConflict(res, {
+				route: ROUTE,
+				attemptedHash: lookup.attemptedHash,
+				existingHash: lookup.existingHash,
+			});
+		}
+	}
 
 	let verified;
 	try {
@@ -216,8 +246,24 @@ export default wrap(async (req, res) => {
 		return error(res, err.status || 502, err.code || 'settle_failed', err.message);
 	}
 
-	res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+	const paymentResponseHeader = encodePaymentResponseHeader(settled);
+	const contentType = 'application/json; charset=utf-8';
+	const body = JSON.stringify(result);
+
+	res.setHeader('x-payment-response', paymentResponseHeader);
 	res.setHeader('cache-control', 'no-store');
-	res.setHeader('content-type', 'application/json; charset=utf-8');
-	res.end(JSON.stringify(result));
+	res.setHeader('content-type', contentType);
+	res.end(body);
+
+	if (paymentId) {
+		await storeResponse({
+			route: ROUTE,
+			paymentId,
+			payloadHash,
+			status: 200,
+			body,
+			contentType,
+			paymentResponseHeader,
+		});
+	}
 });

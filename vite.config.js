@@ -284,6 +284,8 @@ const appConfig = {
 					'/agent': resolve(root, 'pages/agent-home.html'),
 					'/docs': resolve(root, 'docs/index.html'),
 					'/docs/': resolve(root, 'docs/index.html'),
+					'/bazaar': resolve(root, 'public/bazaar.html'),
+					'/bazaar/': resolve(root, 'public/bazaar.html'),
 				};
 				// Routes that resolve to public/<dir>/index.html — these need a
 				// trailing slash so relative imports (./foo.js) inside the HTML

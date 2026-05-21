@@ -17,6 +17,7 @@
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
+import { installAccessControl } from '../_lib/x402/access-control.js';
 import { sql } from '../_lib/db.js';
 
 const ROUTE = '/api/x402/dance-tip';
@@ -259,19 +260,33 @@ export default paidEndpoint({
 	networks: ['base', 'solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
-	async handler({ req, requirement, payer }) {
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
+	siwx: {
+		statement: 'Sign in to retrigger a dance you already tipped for.',
+		// Permanent grant — once a wallet has tipped on this endpoint, it can
+		// retrigger any (dancer, dance) combo for free. The ticket itself is
+		// still per-performance (new ticketId each call); SIWX only skips the
+		// payment step, the handler still issues a fresh ticket each call.
+		ttlSeconds: null,
+		expirationSeconds: 300,
+	},
+	async handler({ req, requirement, payer, bypass }) {
 		const dancer = pickDancer(req.query?.dancer);
 		const style = pickStyle(req.query?.dance);
 		const ticketId = crypto.randomUUID();
 		const now = new Date();
+		// Bypass callers don't carry a paid `requirement`; mark the ticket so the
+		// club_tips ledger + live feed can distinguish free passes from real tips.
 		const ticket = buildTicket({
 			dancer,
 			style,
 			now,
 			ticketId,
-			payer: payer ?? null,
+			payer: payer ?? (bypass ? bypass.callerId : null),
 			requirement,
 		});
+		if (bypass) ticket.bypass = bypass.reason;
 
 		// Fire-and-forget: the caller has already paid + the payment is settled
 		// by the time we reach this handler. A Neon hiccup must not surface as

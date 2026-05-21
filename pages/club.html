@@ -571,13 +571,20 @@
 					border-top: 1px solid var(--border-strong);
 					border-top-left-radius: 16px;
 					border-top-right-radius: 16px;
+					/* dvh (dynamic viewport height) tracks the real visible
+					   area on iOS Safari — vh alone uses the largest possible
+					   viewport, so the sheet pops up by ~80px when the URL
+					   bar collapses on scroll. vh fallback for very old
+					   browsers that don't recognise dvh. */
 					max-height: 85vh;
+					max-height: 85dvh;
 					height: 85vh;
+					height: 85dvh;
 					/* Slide the bulk of the panel below the fold; only the
 					   handle + the "Poles" section peek above. Bumped to
 					   include both the safe-area inset and the iOS bottom
 					   bar so the tip buttons stay reachable. */
-					transform: translateY(calc(85vh - 240px));
+					transform: translateY(calc(85dvh - 240px));
 					transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
 					box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.55);
 					z-index: 12;
@@ -673,7 +680,8 @@
 				}
 			}
 		</style>
-	</head>
+			<link rel="stylesheet" href="/mobile.css" />
+</head>
 	<body>
 		<div id="club-app">
 			<!-- TOP BAR -->

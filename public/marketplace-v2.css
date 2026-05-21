@@ -390,10 +390,16 @@ body.market-sidebar-open .market-sidebar-backdrop {
 		top: 0;
 		left: -260px;
 		width: 240px;
+		/* dvh (dynamic viewport height) tracks the actual visible viewport on
+		   iOS Safari as the URL bar collapses, so the sidebar drawer no longer
+		   spills below the home indicator. vh kept as a fallback for older UAs. */
 		height: 100vh;
+		height: 100dvh;
 		background: #0a0a0a;
 		z-index: 45;
 		transition: left 0.2s ease;
+		overflow-y: auto;
+		padding-bottom: env(safe-area-inset-bottom, 0);
 	}
 	body.market-sidebar-open .market-sidebar {
 		left: 0;

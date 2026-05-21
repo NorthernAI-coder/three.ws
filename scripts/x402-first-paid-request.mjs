@@ -9,6 +9,7 @@
 //   X402_BUYER_PRIVATE_KEY=0x...        # funded wallet, USDC + gas on the chosen network
 //   X402_TARGET=https://three.ws/api/x402/model-check
 //   X402_NETWORK=base                   # "base" or "arbitrum"
+//   X402_PAYMENT_ID=pay_xyz...          # optional: pin a stable idempotency id
 //   node scripts/x402-first-paid-request.mjs
 //
 // Pre-flight: needs ≥0.001 USDC of the target network's native USDC and a
@@ -20,6 +21,7 @@ import { x402Client } from '@x402/core/client';
 import { registerExactEvmScheme } from '@x402/evm/exact/client/index.js';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, arbitrum } from 'viem/chains';
+import { installIdempotency } from '../api/_lib/x402/payment-identifier-client.js';
 
 const PRIVATE_KEY = process.env.X402_BUYER_PRIVATE_KEY;
 if (!PRIVATE_KEY) {
@@ -49,8 +51,15 @@ registerExactEvmScheme(client, {
 	}
 });
 
+// USE-15: idempotency. When the server advertises payment-identifier, the
+// hook appends an id to the payload so retries with the same id return the
+// cached response without re-charging. Set X402_PAYMENT_ID to pin one across
+// runs; otherwise a fresh id is generated per request.
+installIdempotency(client, { paymentId: process.env.X402_PAYMENT_ID || undefined });
+
 console.log(`[x402] buyer ${account.address} on ${CHAIN.name}`);
 console.log(`[x402] GET ${TARGET}`);
+if (process.env.X402_PAYMENT_ID) console.log(`[x402] payment-id: ${process.env.X402_PAYMENT_ID}`);
 
 const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 

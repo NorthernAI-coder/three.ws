@@ -86,7 +86,8 @@ export function normalizeItem(item, facilitator) {
 	const accepts = Array.isArray(item.accepts) ? item.accepts : [];
 	const primary = accepts[0] || {};
 
-	const bazaarInfo = item?.extensions?.bazaar?.info || item?.inputSchema || null;
+	const bazaarExt = item?.extensions?.bazaar || null;
+	const bazaarInfo = bazaarExt?.info || item?.inputSchema || null;
 	const input = bazaarInfo?.input || bazaarInfo || null;
 	const isMcp = input?.type === 'mcp';
 	const toolName = isMcp ? input?.toolName || '' : '';
@@ -97,15 +98,31 @@ export function normalizeItem(item, facilitator) {
 			: item.resource?.url || primary?.resource || '';
 
 	const resourceMeta = typeof item.resource === 'object' ? item.resource : {};
+	const serviceMeta = bazaarInfo?.service || {};
 	const description =
-		item.description || resourceMeta.description || primary?.description || '';
-	const serviceName = resourceMeta.serviceName || resourceMeta.name || '';
-	const iconUrl = resourceMeta.iconUrl || resourceMeta.icon || '';
-	const tags = Array.isArray(resourceMeta.tags)
-		? resourceMeta.tags
-		: Array.isArray(item.tags)
-			? item.tags
-			: [];
+		item.description || resourceMeta.description || serviceMeta.description || bazaarExt?.description || primary?.description || '';
+	const serviceName =
+		resourceMeta.serviceName ||
+		resourceMeta.name ||
+		serviceMeta.name ||
+		bazaarExt?.name ||
+		'';
+	const iconUrl =
+		resourceMeta.iconUrl ||
+		resourceMeta.icon ||
+		serviceMeta.icon ||
+		serviceMeta.iconUrl ||
+		bazaarExt?.icon ||
+		bazaarExt?.iconUrl ||
+		'';
+	const rawTags =
+		(Array.isArray(resourceMeta.tags) && resourceMeta.tags) ||
+		(Array.isArray(item.tags) && item.tags) ||
+		(Array.isArray(serviceMeta.tags) && serviceMeta.tags) ||
+		(Array.isArray(bazaarExt?.tags) && bazaarExt.tags) ||
+		[];
+	const category = bazaarExt?.category || serviceMeta.category || resourceMeta.category;
+	const tags = category && !rawTags.includes(category) ? [category, ...rawTags] : rawTags;
 
 	const normalizedAccepts = accepts.map((a) => {
 		const net = normalizeNetwork(a.network);
@@ -219,7 +236,11 @@ export class Bazaar {
 		const settled = await Promise.allSettled(
 			this.facilitators.map(async (f) => {
 				const items = await listOneFacilitator(f, { type, limit, maxItems });
-				return items.map((it) => normalizeItem(it, f)).filter(Boolean);
+				const normalized = items.map((it) => normalizeItem(it, f)).filter(Boolean);
+				// Some facilitators (PayAI) ignore the `type` query param and return
+				// HTTP items regardless. Apply the filter ourselves so callers get a
+				// consistent catalog.
+				return normalized.filter((it) => it.type === type);
 			}),
 		);
 		const items = [];
