@@ -1539,6 +1539,54 @@ Beyond the Solana reputation signals described above, the platform also ships co
 - **Live Dashboard** — real-time tracker for new tokens, at [pump-live.html](pump-live.html).
 - **Skills** — the [pump-fun-skills/](pump-fun-skills/) directory contains agent skills for reading and acting on pump.fun.
 
+### Token launcher (USDC v2)
+
+The launcher uses pump.fun's v2 USDC quote payload and supports a creator-signer split — the agent's owner can authorize a delegated signer to publish the token without exposing the root key.
+
+| Surface | Path | Purpose |
+|---|---|---|
+| Web UI | `/pumpfun` | One-page launcher (avatar, ticker, supply, fee shares) |
+| Prep | `POST /api/pump/launch-prep` | Build the launch transaction with creator + signer split |
+| Quote | `POST /api/pump/quote-sdk` | v2 USDC quote (replaces deprecated v1 path) |
+| Curve | `GET /api/pump/curve` | Bonding-curve sim for pre-launch pricing preview |
+| Dashboard | `GET /api/pump/dashboard` | Per-creator launch history + cumulative revenue |
+| Stats | `GET /api/pump/helius-stats` | Helius-backed per-token holder + trade counts |
+| Trades stream | `GET /api/pump/trades-stream` | SSE feed of trades for a token |
+| Inaugural launch | `scripts/pump-launch-usdc.mjs` | First-USDC launch flow used to mint platform tokens |
+
+### Pump-swap buyback
+
+A buyback flow lets an agent route revenue from x402 paid endpoints into pump-swap purchases of its own token — closing the loop between paid usage and tokenholder value. See [scripts/pump-launch-usdc.mjs](scripts/pump-launch-usdc.mjs) and the inaugural-launch self-contained prompts in [docs/internal/](docs/internal/).
+
+### Pump visualizer
+
+`/pump-visualizer` is a live view of pump.fun activity with three modes:
+
+| Mode | What it shows |
+|---|---|
+| **Feed** | Newest launches as they happen, with cover images and creator history |
+| **Migrations** | Tokens graduating from the curve to pump-swap pools |
+| **Pulses** | Real-time trade pulses overlaid on a graph |
+
+The visualizer supports search, sort, live pulses, and auto-refresh. Backed by the same Helius webhooks and JSON-RPC client as the cron crawler.
+
+### Pump.fun MCP edge worker
+
+For external agents that need pump.fun data with strict latency, a Cloudflare Worker mirror of the read API lives in [workers/pump-fun-mcp/](workers/pump-fun-mcp/). Deploy with `wrangler deploy` — the worker proxies the upstream `pumpfun-claims-bot` and answers MCP `tools/call` requests at the edge.
+
+### Channel & Telegram bridge
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/pump/channel-feed` | Per-creator activity feed for any agent's channel page |
+| `POST /api/pump/deliver-telegram` | Optional Telegram bridge for trade and migration alerts |
+| `POST /api/pump/accept-payment-prep` / `accept-payment-confirm` | Two-step USDC handoff for buyback flow |
+| `POST /api/pump/withdraw-prep` / `withdraw-confirm` | Creator fee withdrawal with signature verification |
+
+### Vanity mint addresses
+
+The platform's pump.fun launches pre-grind vanity mint addresses with the WASM grinder so token addresses end in a brand-relevant suffix (`…pump`, `…ws`, etc.). See [WASM Vanity Grinder](#wasm-vanity-grinder).
+
 ---
 
 ## Database Schema
@@ -1795,11 +1843,41 @@ npm run verify                         # prettier check + vite build
 | Embed CORS policy | `tests/api/embed-policy.test.js` |
 | Animation slots | `tests/src/animation-slots.test.js` |
 | Widget types | `tests/src/widget-types.test.js` |
+| ARKit-52 morphs | `tests/src/arkit-morphs.test.js` |
+| Talk controller | `tests/src/talk-controller.test.js` |
+| Pose mannequin | `tests/src/pose-mannequin.test.js` |
+| x402 paid endpoint helper | `tests/api/x402-paid-endpoint.test.js` |
+| x402 buyer fetch | `tests/api/x402-buyer-fetch.test.js` |
+| Permit2 sibling | `tests/api/x402-permit2.test.js` |
+| Persona extraction | `tests/api/persona-extract.test.js` |
+| Pump.fun MCP edge | `tests/workers/pump-fun-mcp.test.js` |
+| News CMS | `tests/api/news.test.js` |
+| Selfie pipeline | `tests/src/selfie-pipeline.test.js` |
+| Deploy-page inspect | `scripts/deploy-page-inspect.mjs` |
+
+### Playwright end-to-end smokes
+
+Browser-driven smokes live in `tests/e2e/` and run against a local Vite + Vercel dev stack. They cover the user-visible flows that don't fit in Vitest.
+
+| Smoke | What it exercises |
+|---|---|
+| `walk-scene.spec.ts` | `/walk` cold start, Colyseus connection, gesture broadcast |
+| `club-cold-start.spec.ts` | `/club` venue + HDRI load within 180s on a cold cache |
+| `pump-launch.spec.ts` | `/pumpfun` form → prep → quote → sign flow on devnet |
+| `embed-editor.spec.ts` | `/embed-editor` avatar picker → snippet copy |
+| `x402-paid.spec.ts` | Buyer-side 402 challenge → settlement → receipt write |
+| `permit2-sibling.spec.ts` | Permit2 gasless sibling end-to-end on Base sepolia |
+
+Run with `npx playwright test`. Configuration in `playwright.config.js`; results in `test-results/` (gitignored).
+
+### Smart contracts
 
 Smart contract tests are in `contracts/test/` and run via Foundry:
 ```bash
 cd contracts && forge test
 ```
+
+CREATE2 vanity grinds for the multichain factory and payment contracts are recorded in [contracts/DEPLOYMENTS.md](contracts/DEPLOYMENTS.md).
 
 ---
 
