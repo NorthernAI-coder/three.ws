@@ -90,3 +90,6 @@ scripts/pump-usdc-status.mjs
 
 # Scratch screenshot output (see scratch/walk-*.tmp.mjs)
 scratch/screenshots/
+
+# Playwright run artifacts
+test-results/
