@@ -173,37 +173,50 @@ async function _posterSet(key, blob) {
 }
 
 /**
- * After renderGrid() sets innerHTML, run this to:
- *  1. Apply cached poster blobs (instant thumbnails on repeat visits).
- *  2. Attach load-listener to capture + cache poster on first visit.
- *  3. Add .mv-loaded class when model loads (triggers CSS shimmer-off + fade-in).
+ * Apply lightweight preview behavior to every <model-viewer> inside `root`:
+ *  1. Apply cached poster blob (instant thumbnails on repeat visits).
+ *  2. Capture + cache poster on first load for next time.
+ *  3. Mark the enclosing card/slide .mv-loaded once the GLB renders, so the
+ *     placeholder gradient behind it fades out.
+ *
+ * Use `data-src` OR `src` as the cache key — avatar cards lazy-load via
+ * data-src and only get src promoted on intersect, but the poster should be
+ * visible immediately on render, before the GLB ever starts downloading.
  */
-async function attachModelViewerBehavior() {
-	const cards = els.grid.querySelectorAll('.market-card-avatar');
-	for (const card of cards) {
-		const mv = card.querySelector('model-viewer');
-		if (!mv) continue;
-		const src = mv.getAttribute('src');
-		if (!src) continue;
+async function attachModelViewerBehavior(root = els.grid) {
+	if (!root) return;
+	const viewers = root.querySelectorAll('model-viewer');
+	for (const mv of viewers) {
+		if (mv.dataset.posterWired === '1') continue;
+		mv.dataset.posterWired = '1';
 
-		// Apply cached poster immediately (sync path via already-resolved db).
-		const cached = await _posterGet(src);
+		const key = mv.dataset.src || mv.getAttribute('src');
+		if (!key) continue;
+
+		// The placeholder is the closest ancestor we want to fade once loaded.
+		// Cards use .market-card-avatar; hero uses .market-hero-slide; fall back
+		// to the model-viewer itself so the .mv-loaded class always lands somewhere.
+		const host =
+			mv.closest('.market-card-avatar, .market-hero-slide') || mv;
+
+		const cached = await _posterGet(key);
 		if (cached) {
 			mv.setAttribute('poster', URL.createObjectURL(cached));
+			host.classList.add('mv-poster-ready');
 		}
 
 		const onLoad = async () => {
-			card.classList.add('mv-loaded');
+			host.classList.add('mv-loaded');
 			if (!cached) {
 				try {
 					const blob = await mv.generatePosterBlob({ idealAspect: true });
-					if (blob) await _posterSet(src, blob);
+					if (blob) await _posterSet(key, blob);
 				} catch {}
 			}
 		};
 		mv.addEventListener('load', onLoad, { once: true });
 		// model-viewer fires 'poster-dismissed' when it transitions from poster → 3D.
-		mv.addEventListener('poster-dismissed', () => card.classList.add('mv-loaded'), { once: true });
+		mv.addEventListener('poster-dismissed', () => host.classList.add('mv-loaded'), { once: true });
 	}
 }
 
@@ -567,6 +580,10 @@ function renderHero() {
 		.map(
 			(a, i) => `
 				<div class="market-hero-slide${i === state.heroIndex ? ' active' : ''}" data-slot="${i}">
+					<div class="market-hero-placeholder" aria-hidden="true">
+						<span class="market-hero-placeholder-initial">${escapeHtml(initial(a.name || 'A'))}</span>
+						<span class="market-hero-placeholder-name">${escapeHtml(a.name || 'Avatar')}</span>
+					</div>
 					<model-viewer
 						src="${escapeHtml(a.glbUrl)}"
 						alt="${escapeHtml(a.name || 'Avatar')}"
@@ -583,6 +600,7 @@ function renderHero() {
 				</div>`,
 		)
 		.join('');
+	attachModelViewerBehavior(stage);
 	// If a hero GLB upstream blocks CORS or 404s, model-viewer logs to console
 	// and shows nothing. Listen for that and remove the broken slide so we
 	// don't show empty stages or pollute the console.
@@ -1378,6 +1396,14 @@ function renderSkeletons(n) {
 	return cards;
 }
 
+// Name-initial placeholder rendered behind every model-viewer preview. Stays
+// visible until model-viewer loads (then faded out via .mv-loaded), so cards
+// and the hero never show a blank black void while GLBs stream in.
+function placeholderHtml(name) {
+	const i = escapeHtml(initial(name || 'A'));
+	return `<div class="mv-placeholder" aria-hidden="true"><span class="mv-placeholder-initial">${i}</span></div>`;
+}
+
 function renderAvatarCard(a, spotlight = false) {
 	const name = escapeHtml(a.name || 'Untitled avatar');
 	const desc = escapeHtml(a.description || '');
@@ -1402,7 +1428,7 @@ function renderAvatarCard(a, spotlight = false) {
 	const preview = a.image
 		? `<img src="${escapeHtml(a.image)}" alt="${name}" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'card-img-fallback'}))" />`
 		: a.glbUrl
-			? `<model-viewer
+			? `${placeholderHtml(a.name)}<model-viewer
 					data-src="${escapeHtml(a.glbUrl)}"
 					alt="${name}"
 					rotation-per-second="14deg"
@@ -1415,7 +1441,7 @@ function renderAvatarCard(a, spotlight = false) {
 					tone-mapping="aces"
 					loading="lazy"
 				></model-viewer>`
-			: `<div class="thumb-fallback">◉</div>`;
+			: `<div class="thumb-fallback">${escapeHtml(initial(a.name))}</div>`;
 	const isSpotlight = spotlight || a.featured;
 	const spotlightBadge = isSpotlight ? '<span class="card-featured-badge" title="Featured">⭐</span>' : '';
 	const bmActive = getAvatarBookmarks().has(a.avatarId || '');
@@ -1452,7 +1478,14 @@ function renderCard(a) {
 	const avatarBlock = a.thumbnail_url
 		? `<div class="avatar avatar-img" style="background-image:url('${escapeHtml(a.thumbnail_url)}')"></div>`
 		: `<div class="avatar">${escapeHtml(initial(a.name))}</div>`;
+	// Lightweight preview strip at the top of the card: uses the linked
+	// avatar's thumbnail if there is one, otherwise a styled name-initial
+	// gradient so the card never looks visually empty.
+	const previewStrip = a.thumbnail_url
+		? `<div class="thumb" style="background-image:url('${escapeHtml(a.thumbnail_url)}')"></div>`
+		: `<div class="thumb">${placeholderHtml(a.name)}</div>`;
 	return `<div class="market-card-agent" data-id="${a.id}">
+		${previewStrip}
 		<div class="head">
 			${avatarBlock}
 			<div style="min-width:0;flex:1">
@@ -1487,10 +1520,9 @@ function renderOnchainCard(a) {
 	const preview = a.image
 		? `<img src="${escapeHtml(a.image)}" alt="${name}" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'card-img-fallback'}))" />`
 		: a.glbUrl
-			? `<model-viewer
-					src="${escapeHtml(a.glbUrl)}"
+			? `${placeholderHtml(a.name)}<model-viewer
+					data-src="${escapeHtml(a.glbUrl)}"
 					alt="${name}"
-					auto-rotate
 					rotation-per-second="14deg"
 					interaction-prompt="none"
 					disable-zoom
@@ -1502,7 +1534,7 @@ function renderOnchainCard(a) {
 					loading="lazy"
 					reveal="auto"
 				></model-viewer>`
-			: `<div class="thumb-fallback">⬡</div>`;
+			: `<div class="thumb-fallback">${escapeHtml(initial(a.name))}</div>`;
 	return `<div class="market-card-avatar onchain" data-onchain-href="${escapeHtml(href)}">
 		<div class="thumb">${preview}</div>
 		<div class="body">

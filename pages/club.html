@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Pole Club · three.ws</title>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+		/>
+		<meta name="author" content="nirholas" />
+		<meta
+			name="description"
+			content="A 3D pole-dancing club where dancers only come out when you send an x402 USDC micro-tip. Pay $0.001 per routine, settled on-chain on Base or Solana."
+		/>
+		<meta name="theme-color" content="#07050b" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Pole Club · three.ws" />
+		<meta
+			property="og:description"
+			content="Tip a dancer in USDC via x402 — she walks out, takes the pole, performs, returns backstage."
+		/>
+		<meta property="og:url" content="https://three.ws/club" />
+
+		<style>
+			:root {
+				--bg: #07050b;
+				--panel: rgba(16, 8, 22, 0.86);
+				--panel-solid: #11071a;
+				--border: rgba(255, 80, 200, 0.18);
+				--border-strong: rgba(255, 80, 200, 0.34);
+				--text: #f4eef8;
+				--text-2: #c2a8d8;
+				--text-3: #7c5d92;
+				--accent: #ff3bd6;
+				--accent-2: #4ad6ff;
+				--accent-3: #ff8a3b;
+				--ok: #4ade80;
+				--warn: #fbbf24;
+				--danger: #f87171;
+			}
+			* { box-sizing: border-box; }
+			html, body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				background: var(--bg);
+				color: var(--text);
+				font-family: 'Inter', system-ui, -apple-system, sans-serif;
+				-webkit-font-smoothing: antialiased;
+				overflow: hidden;
+			}
+
+			#club-app {
+				position: fixed;
+				inset: 0;
+				display: grid;
+				grid-template-columns: 1fr 320px;
+				grid-template-rows: 56px 1fr;
+				grid-template-areas:
+					"top top"
+					"stage right";
+			}
+
+			/* ── Top bar ─────────────────────────────────────────── */
+			#club-top {
+				grid-area: top;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 0 18px;
+				border-bottom: 1px solid var(--border);
+				background:
+					linear-gradient(180deg, rgba(255, 80, 200, 0.06), transparent 60%),
+					rgba(7, 5, 11, 0.92);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				z-index: 10;
+			}
+			#club-top .brand {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				font-weight: 700;
+				font-size: 14.5px;
+				letter-spacing: 0.01em;
+				color: var(--text);
+			}
+			#club-top .brand a {
+				color: var(--text-2);
+				text-decoration: none;
+				font-weight: 500;
+				font-size: 13px;
+			}
+			#club-top .brand a:hover { color: var(--text); }
+			#club-top .dot {
+				width: 9px;
+				height: 9px;
+				border-radius: 50%;
+				background: var(--accent);
+				box-shadow:
+					0 0 6px var(--accent),
+					0 0 14px rgba(255, 59, 214, 0.4);
+				animation: pulse 1.7s ease-in-out infinite;
+			}
+			@keyframes pulse {
+				0%, 100% { opacity: 1; transform: scale(1); }
+				50%      { opacity: 0.55; transform: scale(0.78); }
+			}
+			#club-top .sep {
+				width: 1px;
+				height: 22px;
+				background: var(--border);
+				margin: 0 2px;
+			}
+			#club-top .tagline {
+				font-size: 12.5px;
+				color: var(--text-2);
+			}
+			#club-top .spacer { flex: 1; }
+			.club-pill {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				padding: 5px 11px;
+				border-radius: 999px;
+				font-size: 11.5px;
+				font-weight: 600;
+				color: var(--text);
+				background: rgba(255, 59, 214, 0.12);
+				border: 1px solid rgba(255, 59, 214, 0.32);
+			}
+			.club-pill-blue {
+				background: rgba(74, 214, 255, 0.10);
+				border-color: rgba(74, 214, 255, 0.32);
+				color: #cdeefe;
+			}
+
+			/* ── Stage (3D canvas) ─────────────────────────────── */
+			#club-stage {
+				grid-area: stage;
+				position: relative;
+				background: #050308;
+				overflow: hidden;
+			}
+			#club-canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+				cursor: grab;
+				touch-action: none;
+			}
+			#club-canvas:active { cursor: grabbing; }
+			#club-status {
+				position: absolute;
+				left: 50%;
+				bottom: 18px;
+				transform: translateX(-50%);
+				background: rgba(7, 5, 11, 0.86);
+				border: 1px solid var(--border);
+				border-radius: 999px;
+				padding: 7px 16px;
+				font-size: 12px;
+				font-weight: 500;
+				color: var(--text);
+				pointer-events: none;
+				backdrop-filter: blur(10px);
+				-webkit-backdrop-filter: blur(10px);
+			}
+			#club-status[data-kind="error"] { border-color: rgba(248, 113, 113, 0.45); color: #ffd5d5; }
+			#club-status[data-kind="warn"]  { border-color: rgba(251, 191, 36, 0.45);  color: #ffeec2; }
+			#club-status[data-kind="ok"]    { border-color: rgba(74, 222, 128, 0.45);  color: #c7f5d6; }
+			#club-status[hidden] { display: none; }
+
+			/* ── Right panel: poles + tip feed ────────────────── */
+			#club-right {
+				grid-area: right;
+				border-left: 1px solid var(--border);
+				background: var(--panel-solid);
+				overflow-y: auto;
+				display: flex;
+				flex-direction: column;
+				gap: 0;
+			}
+			.club-section {
+				padding: 16px 16px 14px;
+				border-bottom: 1px solid var(--border);
+			}
+			.club-section h2 {
+				margin: 0 0 12px;
+				font-size: 11px;
+				font-weight: 700;
+				color: var(--text-3);
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+			}
+			.club-intro {
+				font-size: 12.5px;
+				line-height: 1.55;
+				color: var(--text-2);
+				margin: 0 0 10px;
+			}
+			.club-intro b { color: var(--text); }
+
+			#club-poles {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 8px;
+			}
+			.club-pole-card {
+				border: 1px solid var(--border);
+				background: rgba(255, 59, 214, 0.04);
+				border-radius: 10px;
+				padding: 10px 11px;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+			.club-pole-head {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 12px;
+				font-weight: 600;
+			}
+			.club-pole-id { color: var(--accent); letter-spacing: 0.02em; }
+			.club-pole-price {
+				color: var(--text-3);
+				font-size: 10.5px;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			}
+			.club-pole-style {
+				display: flex;
+				flex-direction: column;
+				gap: 3px;
+				font-size: 10.5px;
+				color: var(--text-3);
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+			}
+			.club-pole-select {
+				appearance: none;
+				background: rgba(0, 0, 0, 0.4);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 5px 8px;
+				color: var(--text);
+				font: inherit;
+				font-size: 12px;
+				cursor: pointer;
+			}
+			.club-pole-select:focus {
+				outline: none;
+				border-color: var(--accent);
+			}
+			.club-tip-btn {
+				appearance: none;
+				border: none;
+				border-radius: 8px;
+				padding: 8px 10px;
+				font: inherit;
+				font-size: 12px;
+				font-weight: 700;
+				color: #fff;
+				cursor: pointer;
+				background: linear-gradient(135deg, var(--accent) 0%, #ff5fda 100%);
+				box-shadow:
+					0 4px 12px rgba(255, 59, 214, 0.32),
+					inset 0 1px 0 rgba(255, 255, 255, 0.2);
+				transition: transform 0.08s ease, filter 0.12s ease;
+			}
+			.club-tip-btn:hover { filter: brightness(1.08); }
+			.club-tip-btn:active { transform: translateY(1px); }
+			.club-tip-btn.is-pending {
+				background: linear-gradient(135deg, #5a3a78 0%, #6b4d8c 100%);
+				box-shadow: none;
+				cursor: progress;
+			}
+
+			#club-tip-feed {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				min-height: 32px;
+			}
+			.club-tip-row {
+				display: grid;
+				grid-template-columns: 70px 1fr auto;
+				gap: 8px;
+				align-items: center;
+				font-size: 11.5px;
+				padding: 6px 8px;
+				border-radius: 7px;
+				background: rgba(255, 255, 255, 0.02);
+				animation: tipIn 0.32s ease;
+			}
+			@keyframes tipIn {
+				from { transform: translateY(-6px); opacity: 0; }
+				to   { transform: none; opacity: 1; }
+			}
+			.club-tip-who {
+				color: var(--accent-2);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 11px;
+			}
+			.club-tip-mid { color: var(--text); }
+			.club-tip-amt {
+				color: var(--text-3);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10.5px;
+				text-align: right;
+			}
+			.club-feed-empty {
+				font-size: 12px;
+				color: var(--text-3);
+				font-style: italic;
+				text-align: center;
+				padding: 12px 0;
+			}
+
+			/* ── Responsive ─────────────────────────────────────── */
+			@media (max-width: 800px) {
+				#club-app {
+					grid-template-columns: 1fr;
+					grid-template-rows: 52px 1fr auto;
+					grid-template-areas:
+						"top"
+						"stage"
+						"right";
+				}
+				#club-right {
+					border-left: none;
+					border-top: 1px solid var(--border);
+					max-height: 45vh;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="club-app">
+			<!-- TOP BAR -->
+			<header id="club-top">
+				<div class="brand">
+					<a href="/" title="three.ws home">three.ws</a>
+					<span>/</span>
+					<span class="dot" aria-hidden="true"></span>
+					<span>Pole Club</span>
+				</div>
+				<span class="sep"></span>
+				<span class="tagline">tip in USDC · she dances</span>
+				<span class="spacer"></span>
+				<span class="club-pill">$0.001 / dance</span>
+				<span class="club-pill club-pill-blue">x402 · Base &amp; Solana</span>
+			</header>
+
+			<!-- STAGE -->
+			<main id="club-stage">
+				<canvas id="club-canvas"></canvas>
+				<div id="club-status" hidden>Loading…</div>
+			</main>
+
+			<!-- RIGHT PANEL -->
+			<aside id="club-right">
+				<section class="club-section">
+					<h2>How it works</h2>
+					<p class="club-intro">
+						Four poles, four dancers backstage. Pick a pole, pick a style, hit
+						<b>Tip</b>. Your wallet signs a <b>$0.001 USDC</b> x402 payment, the
+						server settles it on-chain, the dancer walks out and performs her
+						routine. No tip, no dance.
+					</p>
+				</section>
+
+				<section class="club-section">
+					<h2>Poles</h2>
+					<div id="club-poles"></div>
+				</section>
+
+				<section class="club-section">
+					<h2>Live tips</h2>
+					<div id="club-tip-feed">
+						<div class="club-feed-empty">No tips yet. Be the first.</div>
+					</div>
+				</section>
+			</aside>
+		</div>
+
+		<!-- x402 drop-in modal (Phantom/MetaMask wallet flow + 402 retry) -->
+		<script type="module" src="/x402.js"></script>
+		<script type="module" src="/src/club.js"></script>
+	</body>
+</html>

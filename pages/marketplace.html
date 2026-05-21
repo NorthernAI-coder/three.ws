@@ -182,6 +182,51 @@
 				height: 100%;
 				--poster-color: transparent;
 				background: transparent;
+				opacity: 0;
+				transition: opacity 0.4s ease;
+			}
+			.market-hero-slide.mv-loaded model-viewer,
+			.market-hero-slide.mv-poster-ready model-viewer {
+				opacity: 1;
+			}
+			/* Always-visible placeholder behind each hero slide so the stage
+			   shows the avatar's name + initial instead of a black void while
+			   the GLB streams in (or if it never loads). */
+			.market-hero-placeholder {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 14px;
+				background:
+					radial-gradient(circle at 50% 40%, rgba(125, 211, 252, 0.18), transparent 65%),
+					radial-gradient(circle at 50% 90%, rgba(168, 85, 247, 0.12), transparent 70%),
+					linear-gradient(180deg, #0b0b10, #050507);
+				color: rgba(244, 244, 245, 0.85);
+				font-family: 'Space Grotesk', sans-serif;
+				pointer-events: none;
+				transition: opacity 0.5s ease;
+			}
+			.market-hero-slide.mv-loaded .market-hero-placeholder {
+				opacity: 0;
+			}
+			.market-hero-placeholder-initial {
+				font-size: 96px;
+				font-weight: 700;
+				line-height: 1;
+				background: linear-gradient(180deg, #f4f4f5, #a1a1aa);
+				-webkit-background-clip: text;
+				background-clip: text;
+				color: transparent;
+				letter-spacing: -0.04em;
+			}
+			.market-hero-placeholder-name {
+				font-size: 13px;
+				letter-spacing: 0.22em;
+				text-transform: uppercase;
+				color: rgba(161, 161, 170, 0.7);
 			}
 			.market-hero-stage::after {
 				content: '';
@@ -331,26 +376,45 @@
 				height: 100%;
 				--poster-color: transparent;
 				background: transparent;
+				opacity: 0;
+				transition: opacity 0.35s ease;
+			}
+			.market-card-avatar.mv-loaded .thumb model-viewer,
+			.market-card-avatar.mv-poster-ready .thumb model-viewer {
+				opacity: 1;
 			}
 			.market-card-avatar .thumb {
 				position: relative;
 			}
-			.market-card-avatar .thumb-loader {
+			/* Name-initial placeholder behind every model-viewer. Visible until
+			   the GLB renders, so cards never show a blank square while their
+			   models stream in. */
+			.market-card-avatar .thumb .mv-placeholder {
 				position: absolute;
 				inset: 0;
 				display: flex;
 				align-items: center;
 				justify-content: center;
 				background:
-					radial-gradient(circle at 50% 50%, rgba(125, 211, 252, 0.04), transparent 60%),
-					linear-gradient(180deg, #050505, #0d0d0d);
-				color: rgba(255, 255, 255, 0.2);
-				font-size: 32px;
-				transition: opacity 0.3s ease;
+					radial-gradient(circle at 50% 40%, rgba(125, 211, 252, 0.12), transparent 65%),
+					radial-gradient(circle at 50% 95%, rgba(168, 85, 247, 0.08), transparent 70%),
+					linear-gradient(180deg, #0a0a0d, #050507);
 				pointer-events: none;
+				transition: opacity 0.4s ease;
 			}
-			.market-card-avatar.loaded .thumb-loader {
+			.market-card-avatar.mv-loaded .thumb .mv-placeholder {
 				opacity: 0;
+			}
+			.market-card-avatar .thumb .mv-placeholder-initial {
+				font-family: 'Space Grotesk', sans-serif;
+				font-size: 56px;
+				font-weight: 700;
+				line-height: 1;
+				background: linear-gradient(180deg, #f4f4f5, #71717a);
+				-webkit-background-clip: text;
+				background-clip: text;
+				color: transparent;
+				letter-spacing: -0.04em;
 			}
 
 			/* ── Skeleton loading ─────────────────────────────────────────── */

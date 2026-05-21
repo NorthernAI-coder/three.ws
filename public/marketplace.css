@@ -273,6 +273,39 @@ body.market-page {
 	min-height: 200px;
 }
 
+.market-card-agent .thumb {
+	margin: -16px -16px 4px;
+	aspect-ratio: 16 / 9;
+	background:
+		radial-gradient(circle at 50% 40%, rgba(125, 211, 252, 0.12), transparent 65%),
+		radial-gradient(circle at 50% 95%, rgba(168, 85, 247, 0.08), transparent 70%),
+		linear-gradient(180deg, #0a0a0d, #050507) center/cover no-repeat;
+	border-bottom: 1px solid var(--mk-border);
+	border-top-left-radius: var(--mk-radius);
+	border-top-right-radius: var(--mk-radius);
+	position: relative;
+	overflow: hidden;
+}
+.market-card-agent .thumb .mv-placeholder {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+.market-card-agent .thumb .mv-placeholder-initial {
+	font-family: 'Space Grotesk', sans-serif;
+	font-size: 48px;
+	font-weight: 700;
+	line-height: 1;
+	background: linear-gradient(180deg, #f4f4f5, #71717a);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	letter-spacing: -0.04em;
+}
+
 .market-card-agent:hover {
 	border-color: var(--mk-border-2);
 }

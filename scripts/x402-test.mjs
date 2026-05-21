@@ -50,7 +50,11 @@ console.log('Step 2 — signed payload, sig length:', signature.length);
 const payment = {
 	x402Version: 2,
 	payload: { authorization, signature },
-	extensions: {},
+	// CDP's bazaar indexer reads the discovery extension from
+	// paymentPayload.extensions.bazaar — if the client strips it, the
+	// facilitator settles the payment but never catalogs the endpoint.
+	// Mirror the challenge's extensions verbatim so indexing fires.
+	extensions: required.extensions || {},
 	resource: required.resource,
 	accepted: accept,
 };

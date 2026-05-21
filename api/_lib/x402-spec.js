@@ -32,6 +32,10 @@
 //      Server attaches a base64 settlement object as `X-PAYMENT-RESPONSE` on the success reply.
 
 import { createCdpAuthHeaders } from '@coinbase/x402';
+import {
+	EIP2612_GAS_SPONSORING,
+	declareEip2612GasSponsoringExtension,
+} from '@x402/extensions';
 
 import { env } from './env.js';
 import { X402Error } from './x402-errors.js';
@@ -44,6 +48,14 @@ import {
 export { X402Error };
 
 export const X402_VERSION = 2;
+
+// Extension keys we advertise alongside the bazaar discovery entry. The
+// eip2612 gas-sponsoring extension is a non-binding hint to clients: when a
+// requirement opts into the Permit2 asset-transfer method, the facilitator
+// (CDP's x402ExactPermit2Proxy) accepts an off-chain EIP-2612 permit so the
+// payer never broadcasts the Permit2-approval tx themselves. Legacy clients
+// stay on the EIP-3009 accept entry (offered first below) and ignore this.
+export const EIP2612_EXTENSION_KEY = EIP2612_GAS_SPONSORING.key;
 
 // CAIP-2 network IDs as advertised by Coinbase x402 facilitators (PayAI, CDP).
 // Solana mainnet's CAIP-2 namespace uses the truncated genesis-block hash.
@@ -68,6 +80,36 @@ const CDP_EVM_NETWORKS = new Set([
 // and the client is responsible for broadcasting the tx + paying gas.
 const DIRECT_NETWORKS = new Set([NETWORK_BSC_MAINNET]);
 
+// Take a Base/Arbitrum/etc. EIP-3009 accept entry and return a sibling that
+// asks the client to use the Permit2 asset-transfer method instead. The
+// `assetTransferMethod` field is what @x402/evm's ExactEvmScheme keys on; with
+// `supportsEip2612: true` set, the scheme will sign an EIP-2612 permit when
+// its Permit2 allowance is insufficient and stuff it into the payment payload
+// extensions for the facilitator to submit. Returns null when the source
+// accept is not an EVM `exact` entry (BSC direct + Solana fall through to null).
+export function permit2VariantOf(accept) {
+	if (!accept || accept.scheme !== 'exact') return null;
+	if (typeof accept.network !== 'string' || !accept.network.startsWith('eip155:')) return null;
+	return {
+		...accept,
+		extra: {
+			...(accept.extra || {}),
+			assetTransferMethod: 'permit2',
+			supportsEip2612: true,
+		},
+	};
+}
+
+// Emit an EIP-3009 accept followed by its Permit2 sibling. EIP-3009 stays
+// first so the browser modal in public/x402.js (which only implements
+// transferWithAuthorization) keeps selecting it; @x402/* SDK clients can pick
+// the Permit2 entry to get gasless Permit2 onboarding via EIP-2612 sponsorship.
+function pushEvmAccepts(out, accept) {
+	out.push(accept);
+	const sibling = permit2VariantOf(accept);
+	if (sibling) out.push(sibling);
+}
+
 // One v2 PaymentRequirements entry per supported network. Base mainnet first
 // — agentic.market's validator inspects the first entry for its supported-network
 // check, and Base is the most broadly recognized option in the Bazaar.
@@ -83,7 +125,7 @@ export function paymentRequirements(resourceUrl) {
 	};
 	const out = [];
 	if (env.X402_PAY_TO_BASE) {
-		out.push({
+		pushEvmAccepts(out, {
 			...common,
 			network: NETWORK_BASE_MAINNET,
 			payTo: env.X402_PAY_TO_BASE,
@@ -352,19 +394,48 @@ export async function probeFacilitators() {
 	return results;
 }
 
-// Match the decoded payload to one of the offered requirements (by network).
-// Falls back to the first requirement when the payload omits an explicit network field.
+// Inspect the payload to determine which asset-transfer method the client
+// signed with. EIP-3009 transferWithAuthorization payloads carry
+// `payload.authorization`; Permit2 PermitWitnessTransferFrom payloads carry
+// `payload.permit2Authorization`. Returns null if the structure is unknown
+// (e.g. Solana SPL transfer, BSC direct), in which case the caller falls back
+// to the first matching network entry.
+function detectAssetTransferMethod(paymentPayload) {
+	const inner = paymentPayload?.payload;
+	if (!inner || typeof inner !== 'object') return null;
+	if (inner.permit2Authorization) return 'permit2';
+	if (inner.authorization) return 'eip3009';
+	return null;
+}
+
+// Match the decoded payload to one of the offered requirements. The match is
+// by (network, assetTransferMethod) when we can detect the method from the
+// payload shape — needed because we now publish two accept entries per EVM
+// network (EIP-3009 first, Permit2 sibling second), and the facilitator's
+// /verify call has to receive the same `extra` block the client signed
+// against. Falls back to first-match-by-network for non-EVM payloads (Solana
+// SPL, BSC direct).
 function selectRequirement(paymentPayload, allRequirements) {
 	const network = paymentPayload?.network || paymentPayload?.paymentRequirements?.network;
+	const method = detectAssetTransferMethod(paymentPayload);
+	const matchesMethod = (r) => {
+		if (!method) return true;
+		const reqMethod = r.extra?.assetTransferMethod || 'eip3009';
+		return reqMethod === method;
+	};
 	if (network) {
-		const found = allRequirements.find((r) => r.network === network);
+		const found = allRequirements.find((r) => r.network === network && matchesMethod(r));
 		if (!found)
 			throw new X402Error(
 				'unsupported_network',
-				`payment network "${network}" is not offered`,
+				`payment network "${network}" (assetTransferMethod="${method || 'unknown'}") is not offered`,
 				402,
 			);
 		return found;
+	}
+	if (method) {
+		const found = allRequirements.find(matchesMethod);
+		if (found) return found;
 	}
 	return allRequirements[0];
 }
