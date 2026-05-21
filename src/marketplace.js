@@ -1519,7 +1519,9 @@ function bindEmptyStateActions() {
 		} else if (action === 'empty-submit-agent') {
 			openSubmitModal();
 		} else if (action === 'empty-create-avatar') {
-			navTo('/create');
+			// /create is a separate page, not an SPA route on marketplace — use a
+			// real navigation so the browser actually loads the avatar builder.
+			location.href = '/create';
 		}
 	});
 }
