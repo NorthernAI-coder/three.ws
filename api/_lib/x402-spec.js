@@ -46,6 +46,11 @@ import {
 	settleDirectPayment,
 	verifyDirectPayment,
 } from './x402-bsc-direct.js';
+import {
+	BUILDER_CODE,
+	declareBuilderCodeExtension,
+	verifyClientEcho as verifyBuilderCodeEcho,
+} from './x402-builder-code.js';
 
 export { X402Error };
 // Re-export both gas-sponsoring declarators together so callers building 402
@@ -53,6 +58,7 @@ export { X402Error };
 // build402Body advertises both extensions as a pair when a Permit2 accept is
 // present, and the public surface should match.
 export { declareEip2612GasSponsoringExtension, declareErc20ApprovalGasSponsoringExtension };
+export { BUILDER_CODE, declareBuilderCodeExtension };
 
 export const X402_VERSION = 2;
 
@@ -490,10 +496,27 @@ function selectRequirement(paymentPayload, allRequirements) {
 // For direct-scheme networks (BSC), the on-chain verification result is stashed
 // on `directVerified` so settlePayment can synthesise a response without
 // re-hitting the RPC.
-export async function verifyPayment({ paymentHeader, requirements }) {
+//
+// `builderCode` is the extension block we declared on the 402 challenge —
+// when present, we reject any payment whose `extensions[BUILDER_CODE].a`
+// does not exactly echo the declared app code (anti-tamper). Built so the
+// resource server enforces the echo invariant the spec normally puts on the
+// facilitator — important because not every facilitator implements it yet,
+// and the on-chain calldata suffix needs trustworthy `a` to be useful.
+export async function verifyPayment({ paymentHeader, requirements, builderCode }) {
 	const all = Array.isArray(requirements) ? requirements : [requirements];
 	const paymentPayload = decodePaymentHeader(paymentHeader);
 	const requirement = selectRequirement(paymentPayload, all);
+	if (builderCode) {
+		const payloadBuilder = paymentPayload?.extensions?.[BUILDER_CODE];
+		const echo = verifyBuilderCodeEcho({
+			required: builderCode,
+			payload: payloadBuilder,
+		});
+		if (!echo.ok) {
+			throw new X402Error('builder_code_tampered', echo.reason, 402);
+		}
+	}
 	const config = facilitatorFor(requirement.network);
 	if (config.direct) {
 		const directVerified = await verifyDirectPayment({ paymentPayload, requirement });
@@ -741,6 +764,9 @@ function hasPermit2Accept(accepts) {
 // Callers may pass an `extensions` object to add or override entries (e.g. an
 // endpoint that wants to declare a custom extension); when omitted we still
 // emit `bazaar` plus, when any accept opts into Permit2, `eip2612GasSponsoring`.
+// We also auto-declare the ERC-8021 `builder-code` extension when
+// X402_BUILDER_CODE_APP is configured, so every paid endpoint contributes to
+// on-chain attribution without having to opt in per-route.
 export function build402Body({
 	resourceUrl,
 	accepts,
@@ -757,6 +783,11 @@ export function build402Body({
 			declareEip2612GasSponsoringExtension(),
 			declareErc20ApprovalGasSponsoringExtension(),
 		);
+	}
+	if (env.X402_BUILDER_CODE_APP && !extraExtensions?.[BUILDER_CODE]) {
+		extensions[BUILDER_CODE] = declareBuilderCodeExtension({
+			a: env.X402_BUILDER_CODE_APP,
+		});
 	}
 	if (extraExtensions && typeof extraExtensions === 'object') {
 		Object.assign(extensions, extraExtensions);

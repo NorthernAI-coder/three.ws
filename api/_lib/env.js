@@ -98,6 +98,16 @@ export const env = {
 		return opt('MAINNET_RPC_URL');
 	},
 
+	// Base mainnet RPC URL — used by the SIWX server-side verifier (see
+	// api/_lib/siwx-server.js) to validate EIP-1271 / EIP-6492 smart-contract
+	// wallet signatures via viem's publicClient.verifyMessage. Without this,
+	// SIWX falls back to EOA-only verification (still works for MetaMask /
+	// Phantom EOAs; rejects Coinbase Smart Wallet, Safe, etc.). Defaults to
+	// the same RPC the club-payouts cron uses so a single env var works.
+	get BASE_RPC_URL() {
+		return opt('BASE_RPC_URL', opt('CLUB_BASE_RPC_URL'));
+	},
+
 	// ── ERC-7710 Delegation Relayer ──────────────────────────────────────────
 	// Private key of the server-held EOA that pays gas for redeemDelegations.
 	// NEVER log this value. Rotate via Vercel env; derive AGENT_RELAYER_ADDRESS

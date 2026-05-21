@@ -1,0 +1,131 @@
+import { test, expect } from '@playwright/test';
+
+// /club end-to-end smoke. Drives real Chromium against `npm run dev`, stubs
+// the on-chain settle endpoint (signing a real mainnet tx in CI is unsafe)
+// plus the auxiliary side-panel routes, and asserts visible behavior — not
+// pixel diffs.
+test.describe('/club', () => {
+	test('venue loads + tip settles + dancer performs', async ({ page }) => {
+		const consoleErrors = [];
+		page.on('console', (m) => {
+			if (m.type() === 'error') consoleErrors.push(m.text());
+		});
+
+		// Replace the public x402 widget with a no-modal stub. Doing this via
+		// route() instead of addInitScript() guarantees our stub wins the
+		// race against the real `window.X402 = Object.freeze(...)` in
+		// /public/x402.js, since the real script is never delivered.
+		await page.route('**/x402.js', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/javascript',
+				body: `window.X402 = {
+					pay: async ({ endpoint }) => {
+						const r = await fetch(endpoint);
+						return { result: await r.json() };
+					},
+					init: () => {},
+					version: 'e2e-stub',
+				};`,
+			}),
+		);
+
+		// Stub the settle endpoint. Returns the same JSON shape the real
+		// /api/x402/dance-tip endpoint produces on success.
+		await page.route('**/api/x402/dance-tip*', (route) => {
+			const u = new URL(route.request().url());
+			const dancer = u.searchParams.get('dancer') ?? '1';
+			const dance = u.searchParams.get('dance') ?? 'rumba';
+			return route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					ok: true,
+					ticketId: 'e2e-ticket-1',
+					dancer,
+					dance,
+					clip: dance,
+					label: dance.charAt(0).toUpperCase() + dance.slice(1),
+					loop: true,
+					durationSec: 6,
+					startsAt: new Date().toISOString(),
+					endsAt: new Date(Date.now() + 6000).toISOString(),
+					payer: 'e2e-test-payer',
+					network: 'solana',
+					amountAtomics: '1000',
+					asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+				}),
+			});
+		});
+
+		// Stub the side endpoints so a missing dev DB / SSE channel doesn't
+		// pollute the console-error count this test asserts on.
+		await page.route('**/api/club/leaderboard*', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ window: 'day', rows: [] }),
+			}),
+		);
+		await page.route('**/api/club/tips?**', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ tips: [] }),
+			}),
+		);
+		await page.route('**/api/club/tips/stream', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'text/event-stream',
+				body: 'event: hello\ndata: ok\n\n',
+			}),
+		);
+
+		await page.goto('/club');
+
+		// Venue must finish loading (status pill flips to 'ok'). The pill
+		// auto-hides on a timer but the data-kind attribute persists.
+		await expect(page.locator('#club-status')).toHaveAttribute('data-kind', 'ok', { timeout: 30_000 });
+
+		await page.locator('.club-tip-btn[data-dancer="1"]').click();
+
+		// Tip-feed row appears for dancer 1 (rendered as "tipped dancer 1 → …").
+		await expect(page.locator('.club-tip-row').first()).toContainText('dancer 1');
+
+		expect(consoleErrors, consoleErrors.join('\n')).toHaveLength(0);
+	});
+
+	test('keyboard VIP cam shortcuts work', async ({ page }) => {
+		await page.goto('/club');
+
+		// data-cam-mode is written by the ClubCamera onModeChange callback in
+		// src/club.js. The state machine only emits on transitions, so we
+		// assert after a key press (free → vip) and after Escape (vip → free).
+		await page.keyboard.press('2');
+		await expect(page.locator('#club-stage')).toHaveAttribute('data-cam-mode', 'vip');
+
+		await page.keyboard.press('Escape');
+		await expect(page.locator('#club-stage')).toHaveAttribute('data-cam-mode', 'free');
+	});
+
+	test('leaderboard renders + tab switching', async ({ page }) => {
+		await page.route('**/api/club/leaderboard*', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					window: 'day',
+					rows: [
+						{ dancer: '1', display_name: 'Nyx',    total_atomics: '4000', tip_count: 4, unpaid_atomics: '4000' },
+						{ dancer: '2', display_name: 'Ari',    total_atomics: '3000', tip_count: 3, unpaid_atomics: '0'    },
+						{ dancer: '3', display_name: 'Sable',  total_atomics: '1000', tip_count: 1, unpaid_atomics: '0'    },
+						{ dancer: '4', display_name: 'Vesper', total_atomics: '0',    tip_count: 0, unpaid_atomics: '0'    },
+					],
+				}),
+			}),
+		);
+		await page.goto('/club');
+		await expect(page.locator('#club-lb-rows .club-lb-row').first()).toContainText('Nyx');
+	});
+});

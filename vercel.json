@@ -1252,6 +1252,22 @@
 			"dest": "/x402-stripe.html"
 		},
 		{
+			"src": "/bazaar",
+			"dest": "/bazaar.html"
+		},
+		{
+			"src": "/bazaar/",
+			"dest": "/bazaar.html"
+		},
+		{
+			"src": "/api/bazaar/list",
+			"dest": "/api/bazaar/list.js"
+		},
+		{
+			"src": "/api/bazaar/search",
+			"dest": "/api/bazaar/search.js"
+		},
+		{
 			"src": "/settings",
 			"dest": "/settings/index.html"
 		},

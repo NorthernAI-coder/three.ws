@@ -306,8 +306,12 @@ camera.position.set(0, 1.8, 6.0);
 camera.lookAt(0, 1.4, -1.5);
 
 const clubCam = new ClubCamera(camera, {
-	onModeChange: (mode) => updateFreeCamChip(mode),
+	onModeChange: (mode) => {
+		updateFreeCamChip(mode);
+		document.querySelector('#club-stage')?.setAttribute('data-cam-mode', mode);
+	},
 });
+document.querySelector('#club-stage')?.setAttribute('data-cam-mode', clubCam.getMode());
 
 // ── Club floor + walls ───────────────────────────────────────────────────
 const floor = new Mesh(
