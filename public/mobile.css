@@ -1,0 +1,65 @@
+/* ── Site-wide mobile polish ─────────────────────────────────────────────
+ * Loaded after every page-specific stylesheet so the rules below win on
+ * equal specificity. Scope is intentionally narrow: cross-cutting iOS
+ * Safari / mobile-Chrome platform quirks that bite every page. Per-page
+ * mobile layout still lives in each page's own stylesheet.
+ */
+
+/* Tap-highlight + 300ms delay. Coarse-pointer media query keeps these off
+ * desktop, where tap-highlight is irrelevant and touch-action would
+ * suppress double-click-to-zoom in some contexts. */
+@media (hover: none) and (pointer: coarse) {
+	a,
+	button,
+	[role='button'],
+	summary,
+	input[type='submit'],
+	input[type='button'],
+	input[type='reset'] {
+		-webkit-tap-highlight-color: transparent;
+		touch-action: manipulation;
+	}
+	label,
+	select,
+	input[type='checkbox'],
+	input[type='radio'] {
+		-webkit-tap-highlight-color: transparent;
+	}
+}
+
+/* Horizontal-scroll guard. A few px of off-by-one overflow on one child
+ * shouldn't give the whole page a horizontal scrollbar on a phone.
+ * overflow-x: clip is safer than overflow: hidden because it does not
+ * also clamp vertical scrolling — and unlike hidden it cannot create a
+ * new scroll container that breaks position: sticky higher in the tree. */
+@media (max-width: 768px) {
+	html,
+	body {
+		overflow-x: clip;
+	}
+}
+
+/* iOS Safari zooms the viewport on focus when an input's computed
+ * font-size is < 16px. Bump unstyled inputs/textareas/selects so that
+ * tapping a search/email field doesn't punt the layout sideways. Pages
+ * that intentionally use small inputs use class selectors with higher
+ * specificity, so designed sizes still win where they matter. */
+@media (max-width: 768px) {
+	input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+	textarea,
+	select {
+		font-size: max(16px, 1em);
+	}
+}
+
+/* Reusable safe-area utility for any fixed-bottom UI that doesn't already
+ * handle the iPhone home indicator. Apply via class — no automatic
+ * targeting, so existing layouts are untouched. */
+@supports (padding: env(safe-area-inset-bottom)) {
+	.mobile-safe-bottom {
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+	.mobile-safe-top {
+		padding-top: env(safe-area-inset-top);
+	}
+}

@@ -180,6 +180,13 @@ export default paidEndpoint({
 	networks: ['base', 'solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
+	siwx: {
+		statement: 'Sign in to refresh the three.ws skill marketplace without re-paying.',
+		// 24h grant so a returning agent can re-poll without paying; after the
+		// window expires they pay once more to keep the catalog "paid-fresh".
+		ttlSeconds: 24 * 3600,
+		expirationSeconds: 300,
+	},
 	async handler({ req }) {
 		const skill = req.query?.skill ? String(req.query.skill).trim() : null;
 		const limitRaw = parseInt(req.query?.limit, 10);

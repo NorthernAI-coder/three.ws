@@ -31,6 +31,15 @@
 // result. Vanilla JS, no bundler required.
 
 const VERSION = '0.1.0';
+
+// SIWX ("Sign-In-With-X" / CAIP-122) lets a wallet that has already paid for
+// an endpoint re-enter it by signing a challenge instead of paying again. The
+// server advertises support by including `extensions['sign-in-with-x']` in the
+// 402 body; clients submit signed proofs via the `SIGN-IN-WITH-X` header. See
+// prompts/siwx/PLAN.md for the full architecture.
+const SIWX_HEADER = 'SIGN-IN-WITH-X';
+const SIWX_EXTENSION_KEY = 'sign-in-with-x';
+
 const ORIGIN = (() => {
 	// Resolve the origin that hosts this script — used as the API origin for
 	// the prepare/encode helpers. Falls back to the merchant origin in same-
@@ -103,6 +112,116 @@ function b64decode(str) {
 	} catch (_) {
 		return null;
 	}
+}
+
+// ─────────────────────────────────────────────────────────── SIWX helpers ────
+
+function extractSiwxExtension(body) {
+	const ext = body?.extensions?.[SIWX_EXTENSION_KEY];
+	if (!ext || !ext.info || !Array.isArray(ext.supportedChains) || !ext.supportedChains.length) return null;
+	return ext;
+}
+
+// Returns { chain, kind: 'evm' | 'solana' } or null. `chain` is the matching
+// entry from `ext.supportedChains` whose signature type matches the wallet kind.
+function pickSiwxChain(ext, walletKind) {
+	for (const chain of ext.supportedChains) {
+		if (walletKind === 'evm' && chain.type === 'eip191') return { chain, kind: 'evm' };
+		if (walletKind === 'solana' && chain.type === 'ed25519') return { chain, kind: 'solana' };
+	}
+	return null;
+}
+
+// Build the CAIP-122 message string. The server rebuilds the same string from
+// payload fields when verifying — any line-by-line drift makes the recovered
+// signer mismatch payload.address and the signature is rejected.
+//
+// EVM path mirrors EIP-4361 / siwe library's prepareMessage (chain ref =
+// numeric chainId extracted from "eip155:<n>"). Solana path mirrors SIWS
+// (chain ref = genesis hash extracted from "solana:<ref>"). Optional fields
+// are omitted entirely when absent from server info.
+function buildSiwxMessage(info, chain, address) {
+	const isEvm = chain.type === 'eip191';
+	const accountHeader = isEvm
+		? `${info.domain} wants you to sign in with your Ethereum account:`
+		: `${info.domain} wants you to sign in with your Solana account:`;
+	const [, chainTail = ''] = String(chain.chainId).split(':');
+	const chainRef = isEvm ? String(parseInt(chainTail, 10)) : chainTail;
+
+	const lines = [accountHeader, address, ''];
+	if (info.statement) lines.push(info.statement, '');
+	lines.push(`URI: ${info.uri}`);
+	lines.push(`Version: ${info.version || '1'}`);
+	lines.push(`Chain ID: ${chainRef}`);
+	lines.push(`Nonce: ${info.nonce}`);
+	lines.push(`Issued At: ${info.issuedAt}`);
+	if (info.expirationTime) lines.push(`Expiration Time: ${info.expirationTime}`);
+	if (info.notBefore) lines.push(`Not Before: ${info.notBefore}`);
+	if (info.requestId !== undefined && info.requestId !== null) lines.push(`Request ID: ${info.requestId}`);
+	if (Array.isArray(info.resources) && info.resources.length) {
+		lines.push('Resources:');
+		for (const r of info.resources) lines.push(`- ${r}`);
+	}
+	return lines.join('\n');
+}
+
+// Base64-encoded JSON per x402 v2 spec (CHANGELOG-v2.md line 335). CAIP-122
+// fields are all ASCII/Latin-1, so the unescape+encodeURIComponent dance
+// matches what btoa expects without garbling unicode (none is sent anyway).
+function encodeSiwxHeaderValue(payload) {
+	const json = JSON.stringify(payload);
+	if (typeof Buffer !== 'undefined') return Buffer.from(json, 'utf8').toString('base64');
+	return btoa(unescape(encodeURIComponent(json)));
+}
+
+// Base58 (Bitcoin alphabet) — Solana's encoding for both addresses and
+// signatures. Inlined here to avoid pulling in a bundler dependency; this
+// matches what `bs58` does on the server side (api/_lib/siws.js).
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58encode(bytes) {
+	if (!bytes || bytes.length === 0) return '';
+	let leadingZeros = 0;
+	while (leadingZeros < bytes.length && bytes[leadingZeros] === 0) leadingZeros++;
+	let n = 0n;
+	for (let i = 0; i < bytes.length; i++) n = (n << 8n) | BigInt(bytes[i]);
+	let out = '';
+	while (n > 0n) {
+		out = BASE58_ALPHABET[Number(n % 58n)] + out;
+		n /= 58n;
+	}
+	for (let i = 0; i < leadingZeros; i++) out = BASE58_ALPHABET[0] + out;
+	return out;
+}
+
+// EIP-55 checksum the address before signing. MetaMask returns addresses in
+// lowercase via eth_requestAccounts, but the server rebuilds the SIWE message
+// with a checksummed address (siwe library's prepareMessage always upgrades
+// case via getAddress). If we sign a lowercase-address message and send the
+// lowercase address in the payload, the server's recovered signer (from the
+// checksummed-address message it builds) differs from payload.address and
+// verification fails. So checksum here, then use the same string everywhere.
+//
+// Keccak-256 lives in @noble/hashes which the server already uses
+// (api/_lib/siws.js → @noble/curves). Pulled in dynamically via esm.sh only
+// when SIWX EVM sign-in is actually attempted, mirroring loadSolanaWeb3.
+let _evmChecksum = null;
+async function loadEvmChecksum() {
+	if (_evmChecksum) return _evmChecksum;
+	const sha3 = await import('https://esm.sh/@noble/hashes@1.4.0/sha3?bundle');
+	const keccak = sha3.keccak_256;
+	_evmChecksum = (addr) => {
+		const a = String(addr).toLowerCase().replace(/^0x/, '');
+		if (!/^[0-9a-f]{40}$/.test(a)) throw new Error(`invalid EVM address: ${addr}`);
+		const hashBytes = keccak(new TextEncoder().encode(a));
+		let hex = '';
+		for (let i = 0; i < hashBytes.length; i++) hex += hashBytes[i].toString(16).padStart(2, '0');
+		let out = '0x';
+		for (let i = 0; i < 40; i++) {
+			out += parseInt(hex[i], 16) >= 8 ? a[i].toUpperCase() : a[i];
+		}
+		return out;
+	};
+	return _evmChecksum;
 }
 
 // ───────────────────────────────────────────────────────────────── styles ────
@@ -262,6 +381,29 @@ const STYLES = `
 .x402-pay-btn:active:not(:disabled) { transform: translateY(1px); }
 .x402-pay-btn:disabled { background: #c8ccd4; cursor: not-allowed; }
 
+.x402-pay-secondary {
+	width: 100%; padding: 12px 14px;
+	background: #ffffff; color: #0d0f15;
+	border: 1.5px solid #e2e5ec; border-radius: 11px;
+	font-size: 14px; font-weight: 600; font-family: inherit;
+	cursor: pointer; letter-spacing: -0.005em;
+	margin-top: 6px;
+	transition: border-color 0.12s, background 0.12s, transform 0.05s;
+}
+.x402-pay-secondary:hover:not(:disabled) { border-color: #0a84ff; background: #f7faff; }
+.x402-pay-secondary:active:not(:disabled) { transform: translateY(1px); }
+
+.x402-siwx-hint {
+	font-size: 11px; color: #5a6378; text-align: center;
+	margin-top: 8px; line-height: 1.4;
+}
+.x402-siwx-fallback {
+	font-size: 12px; color: #b45309; line-height: 1.45;
+	padding: 8px 10px; border-radius: 8px;
+	background: #fffbeb; border: 1px solid #fde68a;
+	margin-bottom: 6px;
+}
+
 .x402-error-box {
 	padding: 12px 14px; border-radius: 10px;
 	background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
@@ -337,6 +479,10 @@ const STYLES = `
 	.x402-pay-btn { background: #ffffff; color: #0d0f15; }
 	.x402-pay-btn:hover:not(:disabled) { background: #e7e9ee; }
 	.x402-pay-btn:disabled { background: #2a2e3d; color: #5a6378; }
+	.x402-pay-secondary { background: #1a1d29; border-color: #2a2e3d; color: #e6e8f0; }
+	.x402-pay-secondary:hover:not(:disabled) { background: #20243a; border-color: #0a84ff; }
+	.x402-siwx-hint { color: #8a90a8; }
+	.x402-siwx-fallback { background: #2a1d10; border-color: #78350f; color: #fcd34d; }
 	.x402-step-num { background: #14161f; border-color: #2a2e3d; color: #8a90a8; }
 	.x402-result { background: #1a1d29; border-color: #2a2e3d; color: #e6e8f0; }
 	.x402-receipt { background: linear-gradient(180deg, #0b1f17 0%, #14161f 100%); border-color: #14532d; }
@@ -461,6 +607,29 @@ class CheckoutModal {
 		const evmDetected = typeof window !== 'undefined' && window.ethereum;
 		const solanaAccept = this.challenge?.accepts.find((a) => isSolanaNetwork(a.network));
 		const evmAccept = this.challenge?.accepts.find(isEip3009Accept);
+
+		// SIWX-first path: when the 402 advertises sign-in-with-x AND we have a
+		// compatible wallet, lead with "Sign in with wallet" (primary) and
+		// demote pay to a secondary action. payFlowOverride is set true when
+		// the user explicitly chooses to pay (either by clicking the secondary
+		// button, or after a 401/402 siwx_not_paid retry told us this wallet
+		// hasn't actually paid for this resource yet).
+		if (this.siwx && !this.payFlowOverride) {
+			const siwxSolana = phantomDetected && solanaAccept ? pickSiwxChain(this.siwx, 'solana') : null;
+			const siwxEvm = evmDetected && evmAccept ? pickSiwxChain(this.siwx, 'evm') : null;
+			if (siwxSolana || siwxEvm) {
+				this.renderSiwxChoice({
+					siwxSolana,
+					siwxEvm,
+					solanaAccept,
+					evmAccept,
+					phantomDetected,
+					evmDetected,
+				});
+				return;
+			}
+		}
+
 		const buttons = [];
 		if (solanaAccept) {
 			buttons.push(`
@@ -480,8 +649,12 @@ class CheckoutModal {
 				</button>
 			`);
 		}
+		const fallbackBox = this.siwxFallbackNotice
+			? `<div class="x402-siwx-fallback">${escapeHtml(this.siwxFallbackNotice)}</div>`
+			: '';
 		this.bodyEl.innerHTML = `
 			${this.renderSteps('connect', { discover: 'done' })}
+			${fallbackBox}
 			<div class="x402-wallet-buttons">${buttons.join('')}</div>
 		`;
 		const onClick = (e) => {
@@ -492,6 +665,31 @@ class CheckoutModal {
 			else if (wallet === 'evm') this.runEvm(evmAccept);
 		};
 		this.bodyEl.querySelectorAll('[data-wallet]').forEach((b) => b.addEventListener('click', onClick));
+	}
+
+	renderSiwxChoice({ siwxSolana, siwxEvm, solanaAccept, evmAccept }) {
+		const priceText = formatAmount(this.accept.amount, this.accept.extra?.decimals ?? 6);
+		// One primary button — internally we pick the wallet kind that matches
+		// the supported SIWX chains AND the detected wallets. Phantom wins ties
+		// to match the existing modal's default preference.
+		const siwxTarget = siwxSolana
+			? { kind: 'solana', chain: siwxSolana.chain, payAccept: solanaAccept }
+			: { kind: 'evm', chain: siwxEvm.chain, payAccept: evmAccept };
+		const siwxLabel = siwxTarget.kind === 'solana' ? 'Sign in with Phantom' : 'Sign in with wallet';
+		this.bodyEl.innerHTML = `
+			${this.renderSteps('connect', { discover: 'done' })}
+			<button class="x402-pay-btn" data-action="siwx">${siwxLabel}</button>
+			<button class="x402-pay-secondary" data-action="pay">Pay ${priceText} USDC instead</button>
+			<div class="x402-siwx-hint">Already paid for this once? Sign in to re-enter without paying again.</div>
+		`;
+		this.bodyEl.querySelector('[data-action="siwx"]').addEventListener('click', () => {
+			if (siwxTarget.kind === 'solana') this.runSiwxSolana(siwxTarget.chain, siwxTarget.payAccept);
+			else this.runSiwxEvm(siwxTarget.chain, siwxTarget.payAccept);
+		});
+		this.bodyEl.querySelector('[data-action="pay"]').addEventListener('click', () => {
+			this.payFlowOverride = true;
+			this.renderConnect();
+		});
 	}
 
 	renderProgress(activeId, meta = {}) {
@@ -558,6 +756,9 @@ class CheckoutModal {
 		try {
 			const challenge = await discoverChallenge(this.opts);
 			this.challenge = challenge;
+			this.siwx = extractSiwxExtension(challenge);
+			this.payFlowOverride = false;
+			this.siwxFallbackNotice = null;
 			// Prefer Solana when Phantom is present, else first EIP-3009 EVM
 			// entry (skipping Permit2 siblings the modal can't sign for), else
 			// first accept.
@@ -738,6 +939,158 @@ class CheckoutModal {
 		} catch (err) {
 			this.renderError('verify', friendlyError(err));
 		}
+	}
+
+	async runSiwxEvm(chain, payAccept) {
+		this.renderProgress('connect', { text: 'Opening browser wallet…' });
+		try {
+			const eth = window.ethereum;
+			if (!eth) throw new Error('No EVM wallet detected');
+			const accounts = await eth.request({ method: 'eth_requestAccounts' });
+			const rawAddress = accounts?.[0];
+			if (!rawAddress) throw new Error('Wallet did not return an account');
+			const checksum = await loadEvmChecksum();
+			const address = checksum(rawAddress);
+			this.payerAddress = address;
+			this.renderProgress('authorize', { text: `Sign sign-in message as ${address.slice(0, 6)}…${address.slice(-4)}` });
+
+			const message = buildSiwxMessage(this.siwx.info, chain, address);
+			const signature = await eth.request({
+				method: 'personal_sign',
+				params: [message, address],
+			});
+
+			const info = this.siwx.info;
+			const payload = {
+				domain: info.domain,
+				address,
+				...(info.statement ? { statement: info.statement } : {}),
+				uri: info.uri,
+				version: info.version || '1',
+				chainId: chain.chainId,
+				type: 'eip191',
+				nonce: info.nonce,
+				issuedAt: info.issuedAt,
+				...(info.expirationTime ? { expirationTime: info.expirationTime } : {}),
+				...(info.notBefore ? { notBefore: info.notBefore } : {}),
+				...(info.requestId !== undefined && info.requestId !== null ? { requestId: info.requestId } : {}),
+				...(Array.isArray(info.resources) ? { resources: info.resources } : {}),
+				signatureScheme: 'eip191',
+				signature,
+			};
+			await this.executeSiwx(payload, payAccept, chain.chainId);
+		} catch (err) {
+			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
+		}
+	}
+
+	async runSiwxSolana(chain, payAccept) {
+		this.renderProgress('connect', { text: 'Opening Phantom…' });
+		try {
+			const provider = window.phantom?.solana || window.solana;
+			if (!provider) throw new Error('Phantom wallet not detected');
+			const conn = await provider.connect();
+			const pubkey = conn?.publicKey || provider.publicKey;
+			const address = pubkey?.toString();
+			if (!address) throw new Error('Phantom did not return a public key');
+			this.payerAddress = address;
+			this.renderProgress('authorize', { text: `Sign sign-in message as ${address.slice(0, 6)}…${address.slice(-4)}` });
+
+			const message = buildSiwxMessage(this.siwx.info, chain, address);
+			const encoded = new TextEncoder().encode(message);
+			const signed = await provider.signMessage(encoded, 'utf8');
+			const sigBytes = signed?.signature instanceof Uint8Array ? signed.signature : new Uint8Array(signed?.signature || signed);
+			if (!sigBytes || !sigBytes.length) throw new Error('Phantom did not return a signature');
+			const signature = base58encode(sigBytes);
+
+			const info = this.siwx.info;
+			const payload = {
+				domain: info.domain,
+				address,
+				...(info.statement ? { statement: info.statement } : {}),
+				uri: info.uri,
+				version: info.version || '1',
+				chainId: chain.chainId,
+				type: 'ed25519',
+				nonce: info.nonce,
+				issuedAt: info.issuedAt,
+				...(info.expirationTime ? { expirationTime: info.expirationTime } : {}),
+				...(info.notBefore ? { notBefore: info.notBefore } : {}),
+				...(info.requestId !== undefined && info.requestId !== null ? { requestId: info.requestId } : {}),
+				...(Array.isArray(info.resources) ? { resources: info.resources } : {}),
+				signatureScheme: 'siws',
+				signature,
+			};
+			await this.executeSiwx(payload, payAccept, chain.chainId);
+		} catch (err) {
+			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
+		}
+	}
+
+	async executeSiwx(payload, payAccept, chainId) {
+		this.renderProgress('verify', { text: 'Verifying sign-in…' });
+		const headerValue = encodeSiwxHeaderValue(payload);
+		let res;
+		try {
+			res = await fetch(this.opts.endpoint, {
+				method: this.opts.method || 'GET',
+				headers: {
+					...(this.opts.headers || {}),
+					...(this.opts.body && !this.opts.headers?.['content-type'] ? { 'content-type': 'application/json' } : {}),
+					[SIWX_HEADER]: headerValue,
+				},
+				body: this.opts.body ? (typeof this.opts.body === 'string' ? this.opts.body : JSON.stringify(this.opts.body)) : undefined,
+			});
+		} catch (err) {
+			this.renderError('verify', friendlyError(err));
+			return;
+		}
+
+		if (res.status === 200) {
+			const ct = res.headers.get('content-type') || '';
+			const text = await res.text();
+			let result;
+			if (ct.includes('json')) {
+				try { result = JSON.parse(text); } catch { result = text; }
+			} else {
+				result = text;
+			}
+			const siwx = { address: payload.address, network: chainId };
+			this.renderDone({ result, siwx });
+			this.resolve?.({
+				ok: true,
+				result,
+				siwx,
+				response: { status: res.status, headers: headersToObject(res.headers) },
+			});
+			return;
+		}
+
+		if (res.status === 401 || res.status === 402) {
+			// Most likely: signature verified but this wallet hasn't actually
+			// paid for the resource yet. Drop the SIWX offering and fall back
+			// to the normal payment flow with a one-line notice.
+			let parsed = null;
+			try { parsed = await res.clone().json(); } catch (_) {}
+			const code = parsed?.code || parsed?.error;
+			this.siwx = null;
+			this.payerAddress = null;
+			this.payFlowOverride = false;
+			this.siwxFallbackNotice = code === 'siwx_not_paid' || res.status === 402
+				? "You haven't paid for this yet — pay now to unlock re-entry."
+				: 'Sign-in not accepted — please pay to continue.';
+			// Re-render the wallet picker. If we had collected the 402 challenge
+			// already, this just re-runs renderConnect; otherwise we re-discover.
+			if (!this.challenge || !Array.isArray(this.challenge.accepts) || !this.challenge.accepts.length) {
+				this.start();
+			} else {
+				this.renderConnect();
+			}
+			return;
+		}
+
+		const text = await res.text().catch(() => '');
+		throw new Error(`SIWX retry failed: HTTP ${res.status}${text ? ` · ${text.slice(0, 120)}` : ''}`);
 	}
 }
 

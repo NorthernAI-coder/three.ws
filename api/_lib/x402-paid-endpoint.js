@@ -16,6 +16,7 @@ import { cors, error } from './http.js';
 import { env } from './env.js';
 import { PAYMENT_EVENT_TOPIC as BSC_PAYMENT_EVENT_TOPIC } from './x402-bsc-direct.js';
 import {
+	BUILDER_CODE,
 	NETWORK_BASE_MAINNET,
 	NETWORK_BSC_MAINNET,
 	NETWORK_SOLANA_MAINNET,
@@ -27,6 +28,18 @@ import {
 	settlePayment,
 	verifyPayment,
 } from './x402-spec.js';
+import { declareBuilderCodeExtension } from './x402-builder-code.js';
+import {
+	PAYMENT_IDENTIFIER,
+	checkCache,
+	enforceRequired,
+	extractIdFromHeader,
+	hashRequestPayload,
+	paymentIdentifierExtension,
+	storeResponse,
+	writeCachedResponse,
+	writeConflict,
+} from './x402/payment-identifier-server.js';
 
 const NETWORK_ALIASES = {
 	base: NETWORK_BASE_MAINNET,
@@ -124,6 +137,19 @@ function buildRequirements({ priceAtomics, networks, resourceUrl }) {
 // payment verifies. It should return a JSON-serializable result; throwing an
 // Error with .status + .code maps to a clean error response. Throwing an
 // X402Error with status=402 re-emits the 402 challenge (e.g. wrong network).
+//
+// `spec.accessControl` (optional) — async (req, routeConfig) => result hook
+// matching the v2 SDK onProtectedRequest contract. Built via
+// installAccessControl() from api/_lib/x402/access-control.js. Returns:
+//   • { grantAccess: true, reason, callerId, headers? } → bypass payment,
+//     invoke the handler with `bypass = { reason, callerId, subscription?,
+//     oauth? }` instead of `requirement`/`payer`, and skip settlement.
+//   • { abort: true, status, reason, headers? } → reject the request with the
+//     given status (default 403) and message.
+//   • null / undefined → continue to the normal 402 flow.
+//
+// `spec.requiredScope` (optional) — OAuth scope the route declares for
+// bypass-via-Bearer. Passed to the hook in routeConfig.requiredScope.
 export function paidEndpoint(spec) {
 	const {
 		route,
@@ -134,14 +160,36 @@ export function paidEndpoint(spec) {
 		mimeType = 'application/json',
 		bazaar,
 		handler,
+		// ERC-8021 builder-code attribution. Optional per-route service codes
+		// — e.g. a multi-service route declares ["pose-studio", "openai-proxy"]
+		// so the on-chain CBOR suffix records every internal service that
+		// participated. The app code (`a`) is pulled from env so every route
+		// attributes to the same X402_BUILDER_CODE_APP. When env is unset, no
+		// builder-code extension is declared and echo verification is skipped.
+		services,
+		accessControl,
+		requiredScope = null,
+		// USE-15: payment-identifier idempotency. Defaults to optional so any
+		// caller can opt in. Set `{ required: true }` for routes where a
+		// duplicate call is materially expensive or observable (oracle
+		// submissions, fact-check writes, on-chain mints). `ttlSeconds`
+		// overrides the env default (X402_IDEMPOTENCY_TTL_SECONDS).
+		paymentIdentifier = {},
 	} = spec;
 
 	if (!route) throw new Error('paidEndpoint: route is required');
 	if (!description) throw new Error('paidEndpoint: description is required');
 	if (!bazaar) throw new Error('paidEndpoint: bazaar discovery extension is required');
 	if (typeof handler !== 'function') throw new Error('paidEndpoint: handler must be a function');
+	if (accessControl != null && typeof accessControl !== 'function') {
+		throw new Error('paidEndpoint: accessControl must be a function when provided');
+	}
 
+	const routeConfig = { path: route, method: method.toUpperCase(), requiredScope };
 	const allowMethods = `${method.toUpperCase()},OPTIONS`;
+	const pidRequired = Boolean(paymentIdentifier.required);
+	const pidTtlSeconds = paymentIdentifier.ttlSeconds;
+	const pidExtension = paymentIdentifierExtension(pidRequired);
 
 	return async function paidHandler(req, res) {
 		if (cors(req, res, { methods: allowMethods, origins: '*' })) return;
@@ -163,14 +211,137 @@ export function paidEndpoint(spec) {
 			);
 		}
 
-		const challenge = { resourceUrl, accepts: requirements, description, mimeType, bazaar };
+		// Build the builder-code extension once per challenge so the same block
+		// is advertised in the 402 body AND passed to verifyPayment for echo
+		// validation. If a route declares services, override the auto-declared
+		// block from build402Body.
+		const appCode = env.X402_BUILDER_CODE_APP;
+		const builderCode =
+			appCode && Array.isArray(services) && services.length
+				? declareBuilderCodeExtension({ a: appCode, s: services })
+				: appCode
+					? declareBuilderCodeExtension({ a: appCode })
+					: null;
+
+		const extraExtensions = {
+			[PAYMENT_IDENTIFIER]: pidExtension,
+			...(builderCode ? { [BUILDER_CODE]: builderCode } : {}),
+		};
+		const challenge = {
+			resourceUrl,
+			accepts: requirements,
+			description,
+			mimeType,
+			bazaar,
+			extensions: extraExtensions,
+		};
+
+		// Access-control hook (USE-23). Runs before the 402 so internal /
+		// subscription / OAuth callers can bypass payment entirely. Headers
+		// from `acResult.headers` are applied in both grant + abort paths.
+		if (accessControl) {
+			let acResult;
+			try {
+				acResult = await accessControl(req, routeConfig);
+			} catch (err) {
+				return error(
+					res,
+					err.status || 500,
+					err.code || 'access_control_failed',
+					err.message || 'access control failed',
+				);
+			}
+			if (acResult?.abort) {
+				if (acResult.headers) {
+					for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
+				}
+				return error(
+					res,
+					acResult.status || 403,
+					acResult.code || 'access_denied',
+					acResult.reason || 'access denied',
+				);
+			}
+			if (acResult?.grantAccess) {
+				let bypassResult;
+				try {
+					bypassResult = await handler({
+						req,
+						res,
+						bypass: {
+							reason: acResult.reason,
+							callerId: acResult.callerId,
+							subscription: acResult.subscription || null,
+							oauth: acResult.oauth || null,
+						},
+						requirement: null,
+						payer: null,
+					});
+				} catch (err) {
+					if (err instanceof X402Error && err.status === 402) {
+						return send402(res, { ...challenge, error: err.message });
+					}
+					return error(
+						res,
+						err.status || 500,
+						err.code || 'internal_error',
+						err.message,
+					);
+				}
+				if (res.writableEnded) return;
+				if (acResult.headers) {
+					for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
+				}
+				res.setHeader('x-payment-bypass', acResult.reason || 'granted');
+				res.setHeader('cache-control', 'no-store');
+				res.setHeader('content-type', `${mimeType}; charset=utf-8`);
+				res.end(
+					typeof bypassResult === 'string' ? bypassResult : JSON.stringify(bypassResult),
+				);
+				return;
+			}
+		}
 
 		const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];
 		if (!paymentHeader) return send402(res, challenge);
 
+		// USE-15: required-mode rejects the call before we burn an RPC round-trip.
+		try {
+			enforceRequired({ paymentHeader, required: pidRequired });
+		} catch (err) {
+			if (err instanceof X402Error && err.status >= 400 && err.status < 500) {
+				return error(res, err.status, err.code, err.message);
+			}
+			throw err;
+		}
+
+		// USE-15: deduplicate before /verify. Hashing the request URL is enough
+		// for our GET-only paid endpoints — none of them read request bodies.
+		// When/if a POST endpoint joins the family, the handler can buffer
+		// `req.body` and pass it in here.
+		const paymentId = extractIdFromHeader(paymentHeader);
+		const payloadHash = hashRequestPayload({
+			method: req.method,
+			url: req.url,
+			body: null,
+		});
+		if (paymentId) {
+			const lookup = await checkCache({ route, paymentId, payloadHash });
+			if (lookup.kind === 'hit') {
+				return writeCachedResponse(res, lookup.entry);
+			}
+			if (lookup.kind === 'conflict') {
+				return writeConflict(res, {
+					route,
+					attemptedHash: lookup.attemptedHash,
+					existingHash: lookup.existingHash,
+				});
+			}
+		}
+
 		let verified;
 		try {
-			verified = await verifyPayment({ paymentHeader, requirements });
+			verified = await verifyPayment({ paymentHeader, requirements, builderCode });
 		} catch (err) {
 			if (err.status === 402) return send402(res, { ...challenge, error: err.message });
 			return error(res, err.status || 502, err.code || 'verify_failed', err.message);
@@ -206,9 +377,26 @@ export function paidEndpoint(spec) {
 			return error(res, err.status || 502, err.code || 'settle_failed', err.message);
 		}
 
-		res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+		const paymentResponseHeader = encodePaymentResponseHeader(settled);
+		const contentType = `${mimeType}; charset=utf-8`;
+		const body = typeof result === 'string' ? result : JSON.stringify(result);
+
+		res.setHeader('x-payment-response', paymentResponseHeader);
 		res.setHeader('cache-control', 'no-store');
-		res.setHeader('content-type', `${mimeType}; charset=utf-8`);
-		res.end(typeof result === 'string' ? result : JSON.stringify(result));
+		res.setHeader('content-type', contentType);
+		res.end(body);
+
+		if (paymentId) {
+			await storeResponse({
+				route,
+				paymentId,
+				payloadHash,
+				status: 200,
+				body,
+				contentType,
+				paymentResponseHeader,
+				ttlSeconds: pidTtlSeconds,
+			});
+		}
 	};
 }
