@@ -6,6 +6,11 @@ import { test, expect } from '@playwright/test';
 // pixel diffs.
 test.describe('/club', () => {
 	test('venue loads + tip settles + dancer performs', async ({ page }) => {
+		// First /club hit through a cold Vite dev server transforms the whole
+		// three.js module graph (~30–60s on a CI box). The actual test work
+		// after that is sub-second.
+		test.setTimeout(180_000);
+
 		const consoleErrors = [];
 		page.on('console', (m) => {
 			if (m.type() === 'error') consoleErrors.push(m.text());
