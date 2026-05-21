@@ -16,6 +16,7 @@
 import {
 	declareSIWxExtension,
 	parseSIWxHeader,
+	siwxResourceServerExtension,
 	validateSIWxMessage,
 	verifySIWxSignature,
 	SIGN_IN_WITH_X,
@@ -49,20 +50,37 @@ export function hasEvmVerifier() {
 	return Boolean(env.BASE_RPC_URL);
 }
 
-// Build the extensions block that goes into the 402 body when SIWX is
-// enabled for an endpoint. `network` accepts the same CAIP-2 strings the
-// rest of paidEndpoint() uses (e.g. 'eip155:8453', 'solana:5eykt...').
-export function declareSiwxExtensionFor({ networks, statement, expirationSeconds = 300 }) {
+// Build the SIWX extension block for the 402 body. `declareSIWxExtension`
+// alone returns a stub: the SDK pipeline normally calls
+// `siwxResourceServerExtension.enrichPaymentRequiredResponse` to fill in
+// nonce, issuedAt, domain, uri, and the supportedChains list. paidEndpoint()
+// doesn't run that pipeline, so we invoke enrich() ourselves with the
+// context (resourceUrl + requirements) the helper already has.
+export async function declareSiwxExtensionFor({
+	networks,
+	resourceUrl,
+	statement,
+	expirationSeconds = 300,
+}) {
 	const list = Array.isArray(networks) ? networks : [networks];
 	const unique = [...new Set(list.filter(Boolean))];
 	if (!unique.length) {
 		throw new Error('declareSiwxExtensionFor: at least one network required');
 	}
-	return declareSIWxExtension({
+	if (!resourceUrl) {
+		throw new Error('declareSiwxExtensionFor: resourceUrl required');
+	}
+	const stub = declareSIWxExtension({
 		network: unique.length === 1 ? unique[0] : unique,
 		statement,
 		expirationSeconds,
 	});
+	const declaration = stub[SIGN_IN_WITH_X];
+	const enriched = await siwxResourceServerExtension.enrichPaymentRequiredResponse(declaration, {
+		resourceInfo: { url: resourceUrl },
+		requirements: unique.map((network) => ({ network })),
+	});
+	return { [SIGN_IN_WITH_X]: enriched };
 }
 
 // Given an incoming Vercel request, attempt to authenticate via

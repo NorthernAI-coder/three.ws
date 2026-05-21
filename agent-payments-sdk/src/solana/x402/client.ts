@@ -32,6 +32,8 @@ import {
   getPaymentRequiredFromResponse,
 } from "./headers";
 import type {
+  AuthHintsCredentials,
+  AuthHintsExtension,
   X402ClientConfig,
   PaymentPayload,
   PaymentRequired,
@@ -44,6 +46,9 @@ import {
   X402_VERSION,
   SOLANA_MAINNET,
 } from "./types";
+
+const AUTH_HINTS_KEY = "auth-hints";
+const SIWX_HEADER = "SIGN-IN-WITH-X";
 
 // ─── Client-side x402 fetch wrapper ─────────────────────────────────────────
 
@@ -87,6 +92,7 @@ export function createX402Fetch(
     connection,
     network = SOLANA_MAINNET,
     confirmationTimeoutMs = 30_000,
+    onAuthRequired,
   } = config;
 
   return async (
@@ -99,6 +105,36 @@ export function createX402Fetch(
 
     const paymentRequired = await getPaymentRequiredFromResponse(response);
     if (!paymentRequired) return response;
+
+    // USE-21: if the 402 advertises `auth-hints` and the caller wired up an
+    // onAuthRequired callback, let them attach OAuth/SIWX credentials and
+    // bypass payment entirely. Falls through to the payment flow when the
+    // callback returns null or no credentials match the offered methods.
+    const authExt = extractAuthHints(paymentRequired);
+    if (authExt && typeof onAuthRequired === "function") {
+      let creds: AuthHintsCredentials | null | undefined;
+      try {
+        creds = await onAuthRequired({
+          extension: authExt,
+          accepts: paymentRequired.accepts,
+          resource: paymentRequired.resource,
+        });
+      } catch {
+        creds = null;
+      }
+      if (creds && (creds.oauth2AccessToken || creds.siwxHeader)) {
+        const retryInit: RequestInit = { ...init };
+        const headers = new Headers(retryInit.headers);
+        if (creds.oauth2AccessToken) {
+          headers.set("Authorization", `Bearer ${creds.oauth2AccessToken}`);
+        }
+        if (creds.siwxHeader) {
+          headers.set(SIWX_HEADER, creds.siwxHeader);
+        }
+        retryInit.headers = headers;
+        return fetch(input, retryInit);
+      }
+    }
 
     // Find a compatible requirement
     const accepted = selectRequirement(paymentRequired, network);
@@ -154,16 +190,32 @@ function selectRequirement(
   paymentRequired: PaymentRequired,
   network: string,
 ): PaymentRequirements | null {
+  // USE-21 auth-hints: skip free-tier accepts entries (amount === "0") that
+  // require authentication. The auth-hints code path handles them; the
+  // payment path must not try to settle a zero-amount transfer because the
+  // facilitator will reject it as invalid_payload.
+  const payable = paymentRequired.accepts.filter(
+    (r) => String(r.amount ?? "") !== "0",
+  );
   // Prefer pump-agent scheme on the matching network, then fall back to exact
   return (
-    paymentRequired.accepts.find(
-      (r) => r.scheme === "pump-agent" && r.network === network,
-    ) ??
-    paymentRequired.accepts.find(
-      (r) => r.scheme === "exact" && r.network === network,
-    ) ??
+    payable.find((r) => r.scheme === "pump-agent" && r.network === network) ??
+    payable.find((r) => r.scheme === "exact" && r.network === network) ??
     null
   );
+}
+
+// ─── auth-hints extraction ──────────────────────────────────────────────────
+
+function extractAuthHints(
+  paymentRequired: PaymentRequired,
+): AuthHintsExtension | null {
+  const ext = paymentRequired.extensions?.[AUTH_HINTS_KEY] as
+    | AuthHintsExtension
+    | undefined;
+  if (!ext || typeof ext !== "object") return null;
+  if (!ext.info || !Array.isArray(ext.info.authRequirements)) return null;
+  return ext;
 }
 
 // ─── Payment Proof Builder ──────────────────────────────────────────────────

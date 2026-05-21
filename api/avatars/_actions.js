@@ -73,25 +73,39 @@ const handlePresign = wrap(async (req, res) => {
 
 // ── public ────────────────────────────────────────────────────────────────────
 
+// Public discovery surface — must always return 200 with a stable JSON shape so
+// agent crawlers, OpenAPI probes, and the Bazaar validator see a clean response
+// even when the DB is unreachable or the query parameters are malformed. Any
+// internal failure degrades to an empty result set rather than a 5xx.
 const handlePublic = wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const url = new URL(req.url, 'http://x');
+	const parsedLimit = Number(url.searchParams.get('limit'));
+	const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 24;
 	let result;
 	try {
 		result = await searchPublicAvatars({
 			q: url.searchParams.get('q') || undefined,
 			tag: url.searchParams.get('tag') || undefined,
-			limit: Number(url.searchParams.get('limit')) || 24,
+			limit,
 			cursor: url.searchParams.get('cursor') || undefined,
 			withTotals: url.searchParams.get('totals') === '1',
 		});
 	} catch {
 		result = { avatars: [], next_cursor: null };
 	}
-	result.avatars = result.avatars.map((a) => stripOwnerFor(a, null));
+	const avatars = Array.isArray(result?.avatars) ? result.avatars : [];
+	const payload = {
+		avatars: avatars.map((a) => stripOwnerFor(a, null)),
+		next_cursor: result?.next_cursor ?? null,
+	};
+	if (Object.prototype.hasOwnProperty.call(result || {}, 'total')) {
+		payload.total = result.total;
+		payload.total_views = result.total_views;
+	}
 	res.setHeader('cache-control', 'public, max-age=60, s-maxage=60');
-	return json(res, 200, result);
+	return json(res, 200, payload);
 });
 
 // ── regenerate ────────────────────────────────────────────────────────────────

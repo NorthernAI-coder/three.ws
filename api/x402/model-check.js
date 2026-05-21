@@ -36,6 +36,7 @@ import {
 	writeConflict,
 } from '../_lib/x402/payment-identifier-server.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
+import { withService } from '../_lib/x402/bazaar-helpers.js';
 
 const REQUIRED_SCOPE = 'x402:bypass';
 const accessControl = installAccessControl({ requiredScope: REQUIRED_SCOPE });
@@ -255,12 +256,19 @@ export default wrap(async (req, res) => {
 
 	const resourceUrl = resolveResourceUrl(req, ROUTE);
 	const requirements = buildRequirements(resourceUrl);
+	const service = withService({
+		serviceName: 'three.ws Model Check',
+		tags: ['3d', 'gltf', 'glb', 'inspection', 'validation'],
+	});
 	const challenge = {
 		resourceUrl,
 		accepts: requirements,
 		description: ROUTE_DESCRIPTION,
 		bazaar: ROUTE_BAZAAR,
 		extensions: { [PAYMENT_IDENTIFIER]: paymentIdentifierExtension(false) },
+		serviceName: service.serviceName,
+		tags: service.tags,
+		iconUrl: service.iconUrl,
 	};
 
 	// USE-23: access-control hook short-circuits payment for internal /

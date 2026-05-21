@@ -35,6 +35,7 @@ import {
 } from '../_lib/x402-spec.js';
 import { env } from '../_lib/env.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
+import { withService } from '../_lib/x402/bazaar-helpers.js';
 
 const ROUTE = '/api/x402/permit2-paid-demo';
 const REQUIRED_SCOPE = 'x402:bypass';
@@ -186,6 +187,10 @@ export default wrap(async (req, res) => {
 	}
 
 	const resourceUrl = resolveResourceUrl(req, ROUTE);
+	const service = withService({
+		serviceName: 'three.ws Permit2 Demo',
+		tags: ['x402', 'permit2', 'eip2612', 'gasless', 'demo'],
+	});
 	let requirements;
 	try {
 		requirements = buildRequirements(resourceUrl);
@@ -197,6 +202,9 @@ export default wrap(async (req, res) => {
 				description: ROUTE_DESCRIPTION,
 				bazaar: ROUTE_BAZAAR,
 				error: err.message,
+				serviceName: service.serviceName,
+				tags: service.tags,
+				iconUrl: service.iconUrl,
 			});
 		}
 		return error(
@@ -212,6 +220,9 @@ export default wrap(async (req, res) => {
 		accepts: requirements,
 		description: ROUTE_DESCRIPTION,
 		bazaar: ROUTE_BAZAAR,
+		serviceName: service.serviceName,
+		tags: service.tags,
+		iconUrl: service.iconUrl,
 	};
 
 	// USE-23: bypass payment for internal / subscription / OAuth callers.

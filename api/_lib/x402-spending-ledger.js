@@ -148,10 +148,7 @@ export async function rollback({ address, microUsd, timestamp = now() }) {
 		memoryIncr(dKey, -delta, DAY_TTL_SECONDS);
 		return;
 	}
-	await Promise.all([
-		redis.incrby(hKey, -Number(delta)),
-		redis.incrby(dKey, -Number(delta)),
-	]);
+	await Promise.all([redis.incrby(hKey, -Number(delta)), redis.incrby(dKey, -Number(delta))]);
 }
 
 // Snapshot of the current hour + day spend without modifying. Used by

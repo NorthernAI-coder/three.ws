@@ -41,6 +41,11 @@
       "types": "./dist/x402/index.d.ts",
       "import": "./dist/x402/index.js",
       "require": "./dist/x402/index.cjs"
+    },
+    "./a2a": {
+      "types": "./dist/a2a-helpers.d.ts",
+      "import": "./dist/a2a-helpers.js",
+      "require": "./dist/a2a-helpers.cjs"
     }
   },
   "files": [

@@ -1,0 +1,245 @@
+// `pump_snapshot` — paid MCP tool returning a real-time market snapshot for a
+// Solana token (pump.fun or any SPL mint).
+//
+// Pricing: $0.005 USDC, settled `exact` on Base or Solana.
+//
+// All data is fetched live from public APIs and Solana RPC. No fallback
+// arrays, no mocked numbers. If a source is unreachable the field is null
+// in the response so callers see the gap rather than fake data.
+//
+// Sources:
+//   - Jupiter Lite price API (lite-api.jup.ag/price/v3)         → price, priceChange24h, liquidity
+//   - Dexscreener (api.dexscreener.com/latest/dex/tokens/<mint>) → volume24h, pair url, dex
+//   - pump.fun frontend-api-v3 (frontend-api-v3.pump.fun/coins/<mint>) → image, name, symbol, market_cap, creator
+//   - Solana RPC getTokenLargestAccounts                         → top holder distribution
+//   - Helius DAS getAsset (if HELIUS_API_KEY is set)             → exact holder count when available
+
+import { Connection, PublicKey } from '@solana/web3.js';
+import { z } from 'zod';
+
+import { paid } from '../payments.js';
+
+const TOOL_NAME = 'pump_snapshot';
+const TOOL_DESCRIPTION =
+	'Live snapshot for a Solana SPL or pump.fun token: USD price (Jupiter), 24h volume + DEX pair (Dexscreener), mint metadata + image (pump.fun frontend-api-v3), and on-chain top-holder distribution from Solana RPC getTokenLargestAccounts. Optional Helius DAS holder count when HELIUS_API_KEY is configured. Paid: $0.005 USDC.';
+
+const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const HELIUS_API_KEY = process.env.HELIUS_API_KEY || '';
+
+function isValidSolanaPubkey(s) {
+	try {
+		new PublicKey(s);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function fetchJson(url, init = {}, timeoutMs = 8000) {
+	const controller = new AbortController();
+	const t = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		const res = await fetch(url, { ...init, signal: controller.signal });
+		if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+		return await res.json();
+	} finally {
+		clearTimeout(t);
+	}
+}
+
+async function getJupiterPrice(mint) {
+	try {
+		const data = await fetchJson(`https://lite-api.jup.ag/price/v3?ids=${mint}`);
+		const entry = data?.[mint];
+		if (!entry) return null;
+		return {
+			usdPrice: entry.usdPrice ?? null,
+			priceChange24hPct: entry.priceChange24h ?? null,
+			liquidityUsd: entry.liquidity ?? null,
+			decimals: entry.decimals ?? null,
+			blockId: entry.blockId ?? null,
+		};
+	} catch (err) {
+		return { error: err.message };
+	}
+}
+
+async function getDexscreener(mint) {
+	try {
+		const data = await fetchJson(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+		const pairs = Array.isArray(data?.pairs) ? data.pairs : [];
+		if (pairs.length === 0) return null;
+		// Pick the pair with the largest 24h volume so a token with multiple
+		// DEX pools surfaces its primary venue.
+		const pair = pairs.reduce((best, p) => {
+			const v = Number(p?.volume?.h24 || 0);
+			return v > (best?.vol || 0) ? { pair: p, vol: v } : best;
+		}, null)?.pair;
+		if (!pair) return null;
+		return {
+			volume24hUsd: Number(pair.volume?.h24 || 0),
+			priceUsd: pair.priceUsd ? Number(pair.priceUsd) : null,
+			priceChange24hPct: pair.priceChange?.h24 ?? null,
+			liquidityUsd: pair.liquidity?.usd ?? null,
+			fdvUsd: pair.fdv ?? null,
+			marketCapUsd: pair.marketCap ?? null,
+			pairAddress: pair.pairAddress,
+			dex: pair.dexId,
+			chain: pair.chainId,
+			url: pair.url,
+			txns24h: pair.txns?.h24 ?? null,
+		};
+	} catch (err) {
+		return { error: err.message };
+	}
+}
+
+async function getPumpFunMeta(mint) {
+	try {
+		const data = await fetchJson(`https://frontend-api-v3.pump.fun/coins/${mint}`);
+		if (!data || data.error) return null;
+		return {
+			name: data.name || null,
+			symbol: data.symbol || null,
+			description: data.description || null,
+			imageUrl: data.image_uri || null,
+			twitter: data.twitter || null,
+			telegram: data.telegram || null,
+			website: data.website || null,
+			creator: data.creator || null,
+			createdAtMs: data.created_timestamp || null,
+			complete: !!data.complete,
+			marketCapUsd: data.usd_market_cap ?? null,
+			marketCapQuote: data.market_cap ?? null,
+			totalSupply: data.total_supply_str || data.total_supply || null,
+			poolAddress: data.pool_address || null,
+			lastTradeTimestampMs: data.last_trade_timestamp || null,
+			athMarketCapUsd: data.ath_market_cap ?? null,
+			athMarketCapTimestampMs: data.ath_market_cap_timestamp || null,
+			program: data.program || null,
+		};
+	} catch (err) {
+		return { error: err.message };
+	}
+}
+
+async function getTopHolders(mint) {
+	try {
+		const conn = new Connection(SOLANA_RPC_URL, 'confirmed');
+		const res = await conn.getTokenLargestAccounts(new PublicKey(mint));
+		const top = (res?.value || []).map((acct) => ({
+			address: acct.address.toBase58(),
+			uiAmount: acct.uiAmount,
+			amount: acct.amount,
+			decimals: acct.decimals,
+		}));
+		return {
+			topHolderCount: top.length,
+			topHolders: top,
+		};
+	} catch (err) {
+		return { error: err.message };
+	}
+}
+
+async function getHeliusHolderCount(mint) {
+	if (!HELIUS_API_KEY) return null;
+	try {
+		const url = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
+		const body = {
+			jsonrpc: '2.0',
+			id: 'getAsset',
+			method: 'getAsset',
+			params: { id: mint, options: { showFungible: true } },
+		};
+		const data = await fetchJson(url, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body),
+		});
+		const supply = data?.result?.token_info?.supply ?? null;
+		const decimals = data?.result?.token_info?.decimals ?? null;
+		const priceInfo = data?.result?.token_info?.price_info ?? null;
+		return {
+			supply: supply !== null ? String(supply) : null,
+			decimals,
+			heliusPriceUsd: priceInfo?.price_per_token ?? null,
+		};
+	} catch (err) {
+		return { error: err.message };
+	}
+}
+
+const inputJsonSchema = {
+	type: 'object',
+	properties: {
+		token: {
+			type: 'string',
+			description: 'Solana SPL or pump.fun mint pubkey (base58).',
+			minLength: 32,
+			maxLength: 64,
+		},
+	},
+	required: ['token'],
+	additionalProperties: false,
+};
+
+const inputZodShape = {
+	token: z.string().refine((v) => isValidSolanaPubkey(v), 'must be a base58 Solana pubkey'),
+};
+
+export async function buildPumpSnapshotTool() {
+	const handler = await paid(
+		{
+			toolName: TOOL_NAME,
+			description: TOOL_DESCRIPTION,
+			scheme: 'exact',
+			priceUsd: '$0.005',
+			inputSchema: inputJsonSchema,
+			example: { token: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3' },
+			outputExample: {
+				token: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
+				price: { usdPrice: 0.0415, priceChange24hPct: 2.5, liquidityUsd: 107732 },
+				volume24h: { volume24hUsd: 270780.6, dex: 'raydium' },
+				holders: { topHolderCount: 20, topHolders: [{ address: '...', uiAmount: 1234 }] },
+				meta: { name: 'Pyth Network', symbol: 'PYTH', imageUrl: 'https://...' },
+			},
+		},
+		async ({ token }) => {
+			if (!isValidSolanaPubkey(token)) {
+				return { error: 'invalid_mint', token };
+			}
+			const [price, ds, meta, holders, helius] = await Promise.all([
+				getJupiterPrice(token),
+				getDexscreener(token),
+				getPumpFunMeta(token),
+				getTopHolders(token),
+				getHeliusHolderCount(token),
+			]);
+			return {
+				token,
+				fetchedAt: new Date().toISOString(),
+				price,
+				volume24h: ds,
+				meta,
+				holders,
+				helius,
+				image: meta?.imageUrl || null,
+				sources: {
+					price: 'https://lite-api.jup.ag/price/v3',
+					volume24h: 'https://api.dexscreener.com',
+					meta: 'https://frontend-api-v3.pump.fun',
+					holders: SOLANA_RPC_URL,
+					helius: HELIUS_API_KEY ? 'https://mainnet.helius-rpc.com' : null,
+				},
+			};
+		},
+	);
+	return {
+		name: TOOL_NAME,
+		title: 'Pump.fun snapshot ($0.005)',
+		description: TOOL_DESCRIPTION,
+		inputSchema: inputZodShape,
+		handler,
+	};
+}

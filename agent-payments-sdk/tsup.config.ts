@@ -12,6 +12,7 @@ export default defineConfig({
     "solana/legacy-agent-payments/index": "src/solana/legacy-agent-payments/index.ts",
     "solana/solana-agent-kit/index": "src/solana/solana-agent-kit/index.ts",
     "x402/index": "src/x402/index.ts",
+    "a2a-helpers": "src/a2a-helpers.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

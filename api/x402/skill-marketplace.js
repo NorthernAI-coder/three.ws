@@ -13,6 +13,7 @@
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
+import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 
 const ROUTE = '/api/x402/skill-marketplace';
@@ -181,6 +182,10 @@ export default paidEndpoint({
 	networks: ['base', 'solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
+	service: withService({
+		serviceName: 'three.ws Skill Market',
+		tags: ['marketplace', 'agent', 'skills', 'pricing', 'discovery'],
+	}),
 	siwx: {
 		statement: 'Sign in to refresh the three.ws skill marketplace without re-paying.',
 		// 24h grant so a returning agent can re-poll without paying; after the

@@ -48,21 +48,44 @@ function maxPriceAtomic() {
 // Derive a stable MCP tool name from a Bazaar item.
 //
 // MCP tool names must be unique and conventionally are snake_case identifiers.
-// We start from the description's first segment (everything before "—" or "·")
-// and fall back to the URL path. Sanitize to [a-z0-9_], cap length, and
-// disambiguate collisions with a numeric suffix in the caller.
+// Strategy: prefer the URL's last path segment (operation name), then fall
+// through to the description with the publisher prefix stripped, then to a
+// generic 'tool'. Sanitize to [a-z0-9_], cap length. Caller disambiguates
+// collisions with a numeric suffix.
 const NAME_PREFIX = 'paid_';
 
-export function deriveToolName(item) {
-	const desc = String(item.description || '').trim();
-	const first = desc.split(/[—·:|]/)[0]?.trim() || '';
-	let base = first || new URL(item.resource).pathname.split('/').filter(Boolean).pop() || 'tool';
-	base = base
+function sanitize(s) {
+	return String(s || '')
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '_')
 		.replace(/^_+|_+$/g, '')
 		.slice(0, 48);
-	if (!base) base = 'tool';
+}
+
+export function deriveToolName(item) {
+	let candidate = '';
+	try {
+		const path = new URL(item.resource).pathname;
+		const segs = path.split('/').filter(Boolean);
+		// Skip generic segments like "api", "tools", "v1", "v2", numeric IDs.
+		for (let i = segs.length - 1; i >= 0; i--) {
+			const seg = segs[i];
+			if (/^(api|tools|v\d+|public|x402|paid)$/i.test(seg)) continue;
+			candidate = seg;
+			break;
+		}
+	} catch {
+		// resource wasn't a valid URL — fall through to description
+	}
+
+	if (!candidate) {
+		const desc = String(item.description || '').trim();
+		// Take the segment AFTER a publisher prefix like "Provider · operation".
+		const parts = desc.split(/[—·:|]/).map((s) => s.trim()).filter(Boolean);
+		candidate = parts[1] || parts[0] || '';
+	}
+
+	const base = sanitize(candidate) || 'tool';
 	return `${NAME_PREFIX}${base}`;
 }
 

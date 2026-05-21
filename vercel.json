@@ -670,6 +670,10 @@
 			"dest": "/api/agents/check-name"
 		},
 		{
+			"src": "/api/agents/a2a-paid",
+			"dest": "/api/agents/a2a-paid"
+		},
+		{
 			"src": "/api/auth/github/connect",
 			"dest": "/api/auth/github/[action]?action=connect"
 		},

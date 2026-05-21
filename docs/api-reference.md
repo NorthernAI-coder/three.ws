@@ -865,6 +865,59 @@ See MCP documentation for full tool schemas and response shapes.
 
 ---
 
+## x402 Paid Endpoints — Sign-In-With-X (SIWX)
+
+Every paid endpoint under `/api/x402/*` is built on the shared `paidEndpoint()` helper. Endpoints can opt into **Sign-In-With-X** (SIWX, CAIP-122) so a wallet that has already paid for a resource can re-access it by signing a message — no second on-chain payment.
+
+### How it works
+
+1. **First call.** The client has no payment header. The server returns a `402 Payment Required` whose body declares both the `accepts[]` payment requirements and a `sign-in-with-x` extension (chain list, signing statement, fresh nonce, `expirationTime`).
+2. **Settle.** The client retries with `X-PAYMENT: <base64>`. The facilitator verifies and settles the USDC transfer. The server records a row in `siwx_payments` keyed by `(resource, address)`.
+3. **Re-access.** Later, the same wallet sends the `SIGN-IN-WITH-X: <base64>` header instead of `X-PAYMENT`. The server parses the CAIP-122 payload, verifies the signature (EIP-191/EIP-1271/EIP-6492 for EVM via viem's `publicClient.verifyMessage`, ed25519 for Solana), checks the nonce against `siwx_nonces` for replay protection, and looks up the grant in `siwx_payments`. On match, the handler runs and the response carries `x-siwx-address: <recovered wallet>` (no `x-payment-response`).
+
+### Opt-in for a new endpoint
+
+Add a single `siwx:` block to `paidEndpoint(spec)`:
+
+```js
+paidEndpoint({
+  route: '/api/x402/my-endpoint',
+  // …other fields…
+  siwx: {
+    statement: 'Sign in to refresh the catalog without re-paying.',
+    ttlSeconds: 24 * 3600,    // grant lifetime; null = permanent
+    expirationSeconds: 300,    // SIWX message validity window
+  },
+});
+```
+
+That single declaration adds the `sign-in-with-x` extension to every 402 body, accepts the `SIGN-IN-WITH-X` header on incoming requests, and records a grant when a fresh settlement completes.
+
+### Canonical example: `/api/x402/asset-download`
+
+The marquee SIWX endpoint. The catalog lives in the Neon `paid_assets` table — each row carries `slug`, `r2_key`, `price_atomics`, `mime_type`, and optional per-creator payout overrides (`creator_payto_base`, `creator_payto_solana`, `creator_payto_bsc`). Buyers pay once per slug; subsequent re-downloads from the same wallet only require a signature. The response is JSON containing a short-lived presigned R2 URL — large GLBs stream directly from R2 instead of through the function.
+
+Each asset has its own SIWX grant key: the endpoint passes a `resourceUrlBuilder` to `paidEndpoint()` that embeds the slug in the resource URI, so paying for one asset does not unlock the others.
+
+### Operator status
+
+`GET /api/x402-status` reports SIWX wiring under `.siwx`:
+
+```json
+{
+  "siwx": {
+    "configured": true,
+    "paymentsRowCount": 42,
+    "noncesRowCount": 17,
+    "evmVerifierConfigured": true
+  }
+}
+```
+
+`evmVerifierConfigured: true` means `BASE_RPC_URL` is set and smart-contract wallet signatures (Coinbase Smart Wallet, Safe) will verify. Without it, only EOA signatures are accepted.
+
+---
+
 ## Config API
 
 ```

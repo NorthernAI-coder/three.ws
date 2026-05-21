@@ -30,6 +30,7 @@ import {
 	writeCachedResponse,
 	writeConflict,
 } from '../_lib/x402/payment-identifier-server.js';
+import { withService } from '../_lib/x402/bazaar-helpers.js';
 
 const ROUTE = '/api/insights/revenue-vision';
 
@@ -109,7 +110,7 @@ const ROUTE_BAZAAR = {
 	schema: DISCOVERY_OUTPUT_SCHEMA,
 };
 
-function buildRequirements() {
+function buildRequirements(resourceUrl) {
 	return [
 		{
 			scheme: 'exact',
@@ -118,6 +119,7 @@ function buildRequirements() {
 			payTo: env.X402_PAY_TO_BASE,
 			asset: env.X402_ASSET_ADDRESS_BASE,
 			maxTimeoutSeconds: 60,
+			resource: resourceUrl,
 			extra: { name: 'USD Coin', version: '2', decimals: 6 },
 		},
 	];
@@ -172,20 +174,27 @@ async function callClaude(missionBrief, agentCodename) {
 }
 
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (req.method !== 'GET') {
 		res.setHeader('allow', 'GET');
 		return error(res, 405, 'method_not_allowed', 'use GET');
 	}
 
 	const resourceUrl = resolveResourceUrl(req, ROUTE);
-	const requirements = buildRequirements();
+	const requirements = buildRequirements(resourceUrl);
+	const service = withService({
+		serviceName: 'three.ws Revenue Vision',
+		tags: ['ai', 'analysis', 'growth', 'insight', 'claude'],
+	});
 	const challenge = {
 		resourceUrl,
 		accepts: requirements,
 		description: ROUTE_DESCRIPTION,
 		bazaar: ROUTE_BAZAAR,
 		extensions: { [PAYMENT_IDENTIFIER]: paymentIdentifierExtension(false) },
+		serviceName: service.serviceName,
+		tags: service.tags,
+		iconUrl: service.iconUrl,
 	};
 
 	const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];

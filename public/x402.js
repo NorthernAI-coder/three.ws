@@ -114,6 +114,102 @@ function b64decode(str) {
 	}
 }
 
+// ──────────────────────────────────────────── Spending caps (USE-22) ────────
+// Persists per-wallet spend in localStorage so reload-survivable caps work
+// in a pure-browser context. Keys are bucketed by UTC hour and UTC day so
+// the sliding windows reset cleanly at midnight UTC for the daily case.
+// All amounts are stored as base-10 BigInt strings of micro-USD; stablecoin
+// payments (USDC, USDT, DAI) flow through as-is since their atomics are
+// already 6-decimal USD-pegged.
+
+const SPEND_LS_PREFIX = 'x402.spend.';
+const STABLE_NAMES = new Set([
+	'usdc', 'usd coin', 'usdt', 'tether', 'binance-peg usd coin', 'dai',
+]);
+
+function spendBuckets(timestamp = Date.now()) {
+	const hour = Math.floor(timestamp / 3_600_000);
+	const day = Math.floor(timestamp / 86_400_000);
+	return { hour, day };
+}
+
+function spendKey(address, kind, bucket) {
+	return `${SPEND_LS_PREFIX}${kind}.${address.toLowerCase()}.${bucket}`;
+}
+
+function readSpend(address, kind, bucket) {
+	try {
+		const raw = localStorage.getItem(spendKey(address, kind, bucket));
+		if (!raw) return 0n;
+		return BigInt(raw);
+	} catch {
+		return 0n;
+	}
+}
+
+function writeSpend(address, kind, bucket, value) {
+	try {
+		localStorage.setItem(spendKey(address, kind, bucket), value.toString());
+	} catch {
+		// localStorage full / disabled — caps degrade to per-call only.
+	}
+}
+
+function toMicroUsdBrowser(amount, accept) {
+	const atomic = BigInt(amount);
+	const decimals = Number(accept?.extra?.decimals ?? 6);
+	const name = String(accept?.extra?.name || '').toLowerCase();
+	if (STABLE_NAMES.has(name)) {
+		if (decimals === 6) return atomic;
+		if (decimals > 6) return atomic / 10n ** BigInt(decimals - 6);
+		return atomic * 10n ** BigInt(6 - decimals);
+	}
+	// Non-stable in the browser modal: we don't fetch live prices to keep the
+	// drop-in script dependency-free. Cap enforcement for non-stable assets
+	// must be done server-side via x402-spending-cap.js.
+	return atomic;
+}
+
+// Check the configured caps and, if admitted, reserve the spend in
+// localStorage. Returns { abort: boolean, reason?, reservation? }.
+// Reservation has { address, microUsd, buckets } so rollback can undo.
+function browserEnforceCap({ accept, caps, address }) {
+	if (!caps || !address) return { abort: false };
+	const microUsd = toMicroUsdBrowser(accept.amount, accept);
+	const maxPerCall = caps.maxPerCall != null ? BigInt(caps.maxPerCall) : null;
+	const maxPerHour = caps.maxPerHour != null ? BigInt(caps.maxPerHour) : null;
+	const maxPerDay = caps.maxPerDay != null ? BigInt(caps.maxPerDay) : null;
+	if (maxPerCall != null && microUsd > maxPerCall) {
+		return {
+			abort: true,
+			reason: `Per-call cap exceeded (${microUsd} > ${maxPerCall} µUSD)`,
+		};
+	}
+	const buckets = spendBuckets();
+	const hourTotal = readSpend(address, 'hr', buckets.hour) + microUsd;
+	const dayTotal = readSpend(address, 'day', buckets.day) + microUsd;
+	if (maxPerHour != null && hourTotal > maxPerHour) {
+		return { abort: true, reason: `Hourly cap exceeded (${hourTotal} > ${maxPerHour} µUSD)` };
+	}
+	if (maxPerDay != null && dayTotal > maxPerDay) {
+		return { abort: true, reason: `Daily cap exceeded (${dayTotal} > ${maxPerDay} µUSD)` };
+	}
+	writeSpend(address, 'hr', buckets.hour, hourTotal);
+	writeSpend(address, 'day', buckets.day, dayTotal);
+	return { abort: false, reservation: { address, microUsd, buckets } };
+}
+
+function browserRollbackReservation(reservation) {
+	if (!reservation) return;
+	const { address, microUsd, buckets } = reservation;
+	const hourCurrent = readSpend(address, 'hr', buckets.hour);
+	const dayCurrent = readSpend(address, 'day', buckets.day);
+	const hourNext = hourCurrent - microUsd;
+	const dayNext = dayCurrent - microUsd;
+	writeSpend(address, 'hr', buckets.hour, hourNext < 0n ? 0n : hourNext);
+	writeSpend(address, 'day', buckets.day, dayNext < 0n ? 0n : dayNext);
+}
+
 // ──────────────────────────────────────────── ERC-8021 builder-code echo ────
 // The server-side x402-spec.js enforces that any client-echoed builder-code
 // `a` matches what the 402 challenge declared (anti-tamper). Builders/wallets
@@ -823,6 +919,16 @@ class CheckoutModal {
 			const payerAddress = (conn?.publicKey || provider.publicKey)?.toString();
 			if (!payerAddress) throw new Error('Phantom did not return a public key');
 			this.payerAddress = payerAddress;
+			const capCheck = browserEnforceCap({
+				accept,
+				caps: this.opts.caps,
+				address: payerAddress,
+			});
+			if (capCheck.abort) {
+				this.renderError('authorize', capCheck.reason);
+				return;
+			}
+			this.spendReservation = capCheck.reservation || null;
 			this.renderProgress('authorize', { text: `Building Solana payment for ${payerAddress.slice(0, 6)}…${payerAddress.slice(-4)}` });
 
 			const prep = await postJson(`${ORIGIN}/api/x402-checkout?action=prepare`, {
@@ -849,6 +955,10 @@ class CheckoutModal {
 
 			await this.executePaid(enc.x_payment);
 		} catch (err) {
+			if (this.spendReservation) {
+				browserRollbackReservation(this.spendReservation);
+				this.spendReservation = null;
+			}
 			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
 		}
 	}
@@ -864,6 +974,16 @@ class CheckoutModal {
 			const payerAddress = accounts?.[0];
 			if (!payerAddress) throw new Error('Wallet did not return an account');
 			this.payerAddress = payerAddress;
+			const capCheck = browserEnforceCap({
+				accept,
+				caps: this.opts.caps,
+				address: payerAddress,
+			});
+			if (capCheck.abort) {
+				this.renderError('authorize', capCheck.reason);
+				return;
+			}
+			this.spendReservation = capCheck.reservation || null;
 
 			const meta = EVM_NETWORKS[accept.network];
 			if (!meta) throw new Error(`Unknown EVM network ${accept.network}`);
@@ -945,6 +1065,10 @@ class CheckoutModal {
 			const xPayment = b64encode(paymentPayload);
 			await this.executePaid(xPayment);
 		} catch (err) {
+			if (this.spendReservation) {
+				browserRollbackReservation(this.spendReservation);
+				this.spendReservation = null;
+			}
 			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
 		}
 	}
@@ -979,9 +1103,14 @@ class CheckoutModal {
 			}
 			const settleHeader = res.headers.get('x-payment-response');
 			const payment = b64decode(settleHeader) || {};
+			this.spendReservation = null;
 			this.renderDone({ result, payment });
 			this.resolve?.({ ok: true, result, payment, response: { status: res.status, headers: headersToObject(res.headers) } });
 		} catch (err) {
+			if (this.spendReservation) {
+				browserRollbackReservation(this.spendReservation);
+				this.spendReservation = null;
+			}
 			this.renderError('verify', friendlyError(err));
 		}
 	}

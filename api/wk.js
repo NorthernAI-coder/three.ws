@@ -13,6 +13,9 @@ import {
 	NETWORK_BASE_MAINNET,
 	NETWORK_SOLANA_MAINNET,
 } from './_lib/x402-spec.js';
+import { declareMcpDiscovery, withService } from './_lib/x402/bazaar-helpers.js';
+import { TOOL_CATALOG } from './_mcp/catalog.js';
+import { priceFor } from './_lib/pump-pricing.js';
 
 // ── agent-attestation-schemas ─────────────────────────────────────────────────
 
@@ -158,7 +161,17 @@ function handleOauthProtectedResource(req, res) {
 
 function handleX402(req, res) {
 	const mcpResource = `${env.APP_ORIGIN}/api/mcp`;
-	const body = build402Body({ resourceUrl: mcpResource, accepts: paymentRequirements(mcpResource) });
+	const mcpService = withService({
+		serviceName: 'three.ws MCP',
+		tags: ['mcp', '3d', 'gltf', 'solana', 'agent'],
+	});
+	const body = build402Body({
+		resourceUrl: mcpResource,
+		accepts: paymentRequirements(mcpResource),
+		serviceName: mcpService.serviceName,
+		tags: mcpService.tags,
+		iconUrl: mcpService.iconUrl,
+	});
 	return json(
 		res,
 		200,
@@ -218,7 +231,11 @@ function extensionsForAccepts(accepts, bazaar) {
 	return exts;
 }
 
-function acceptsForPrice(amountAtomics) {
+// Build the accepts[] block for a discovery-catalog entry. `resourceUrl` is
+// echoed on every accept so reviewers + wallet/facilitator spend logs can
+// reconcile each accept entry against the resource it gates, without having
+// to walk back to the parent resource[] entry.
+function acceptsForPrice(amountAtomics, resourceUrl) {
 	const out = [];
 	const price = RAW_AMOUNT_TO_USDC(amountAtomics);
 	if (env.X402_PAY_TO_BASE) {
@@ -232,6 +249,7 @@ function acceptsForPrice(amountAtomics) {
 			asset: env.X402_ASSET_ADDRESS_BASE,
 			asset_symbol: 'USDC',
 			maxTimeoutSeconds: 60,
+			resource: resourceUrl,
 			extra: { name: 'USD Coin', version: '2', decimals: 6 },
 		});
 	}
@@ -246,8 +264,73 @@ function acceptsForPrice(amountAtomics) {
 			asset: env.X402_ASSET_MINT_SOLANA,
 			asset_symbol: 'USDC',
 			maxTimeoutSeconds: 60,
+			resource: resourceUrl,
 			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
 		});
+	}
+	return out;
+}
+
+// USE-13: one Bazaar catalog row per priced MCP tool. Facilitators key MCP
+// rows on (resource, toolName) so each priced tool needs its own row; the
+// shared `/api/mcp` resource alone would collapse them into one entry. We
+// only emit rows for priced tools (otherwise the row would advertise a paid
+// catalog entry for a free tool and confuse buyers about what's actually
+// gated). Falls back to the canonical `mcp://tool/<name>` identifier when
+// the spec wants a logical resource that distinguishes tools at the URL
+// level, while the actual call still goes to `/api/mcp`.
+function buildMcpToolItems({ mcpUrl, mcpAccepts, mcpService }) {
+	const items = [];
+	for (const tool of TOOL_CATALOG) {
+		const pricing = priceFor(tool.name);
+		if (!pricing) continue;
+		const exampleArgs = exampleArgsForTool(tool);
+		const discovery = declareMcpDiscovery({
+			toolName: tool.name,
+			description: tool.description,
+			// MCP 2025-06-18 transport: Streamable HTTP is the default for
+			// /api/mcp; SSE clients still work through the same path.
+			transport: 'streamable-http',
+			inputSchema: tool.inputSchema,
+			example: exampleArgs,
+		});
+		items.push({
+			type: 'mcp',
+			path: '/api/mcp',
+			url: mcpUrl,
+			toolName: tool.name,
+			method: 'POST',
+			description: tool.description,
+			mimeType: 'application/json',
+			serviceName: mcpService.serviceName,
+			tags: mcpService.tags,
+			iconUrl: mcpService.iconUrl,
+			pricing: {
+				amount_usdc: pricing.amount_usdc,
+				currency: 'USDC',
+				description: pricing.description,
+			},
+			accepts: mcpAccepts,
+			extensions: extensionsForAccepts(mcpAccepts, discovery),
+		});
+	}
+	return items;
+}
+
+// Synthesize a minimal example arguments object that satisfies the tool's
+// inputSchema.required fields. We use type-appropriate placeholders rather
+// than the full schema so the example stays short — facilitators index it
+// for search relevance, not exact matching.
+function exampleArgsForTool(tool) {
+	const props = tool.inputSchema?.properties || {};
+	const required = tool.inputSchema?.required || [];
+	const out = {};
+	for (const key of required) {
+		const def = props[key] || {};
+		if (def.type === 'integer' || def.type === 'number') out[key] = def.default ?? 1;
+		else if (def.type === 'boolean') out[key] = def.default ?? true;
+		else if (def.type === 'array') out[key] = [];
+		else out[key] = def.default ?? `example-${key}`;
 	}
 	return out;
 }
@@ -260,9 +343,53 @@ function handleX402Discovery(req, res) {
 	const revenueVisionUrl = `${origin}/api/insights/revenue-vision`;
 	const price = RAW_AMOUNT_TO_USDC(env.X402_MAX_AMOUNT_REQUIRED);
 
-	const mcpAccepts = [];
-	if (env.X402_PAY_TO_BASE) {
-		pushAcceptWithPermit2Sibling(mcpAccepts, {
+	// Build the MCP accept list (Base + Solana). `resource` is echoed on every
+	// accept so reviewers + spend logs can reconcile the entry against the
+	// resource it gates without walking back to the parent resource[] entry.
+	function buildMcpAccepts(resourceUrl) {
+		const out = [];
+		if (env.X402_PAY_TO_BASE) {
+			pushAcceptWithPermit2Sibling(out, {
+				scheme: 'exact',
+				network: NETWORK_BASE_MAINNET,
+				network_label: 'base-mainnet',
+				amount: env.X402_MAX_AMOUNT_REQUIRED,
+				price,
+				payTo: env.X402_PAY_TO_BASE,
+				asset: env.X402_ASSET_ADDRESS_BASE,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				extra: { name: 'USDC', version: '2', decimals: 6 },
+			});
+		}
+		if (env.X402_PAY_TO_SOLANA) {
+			out.push({
+				scheme: 'exact',
+				network: NETWORK_SOLANA_MAINNET,
+				network_label: 'solana-mainnet',
+				amount: env.X402_MAX_AMOUNT_REQUIRED,
+				price,
+				payTo: env.X402_PAY_TO_SOLANA,
+				asset: env.X402_ASSET_MINT_SOLANA,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
+			});
+		}
+		return out;
+	}
+
+	// model-check / mint-to-mesh / revenue-vision are CDP-Bazaar-cataloged.
+	// CDP supports Base mainnet + Arbitrum One; advertise both here so
+	// agentic.market shows the same network options buyers will see in the
+	// live 402 challenge. Each EVM entry gets a Permit2 sibling so
+	// EIP-2612-aware clients can pick the gasless Permit2-via-EIP-2612 path.
+	const ARB_USDC = env.X402_ASSET_ADDRESS_ARBITRUM;
+	function buildBazaarAccepts(resourceUrl) {
+		const out = [];
+		pushAcceptWithPermit2Sibling(out, {
 			scheme: 'exact',
 			network: NETWORK_BASE_MAINNET,
 			network_label: 'base-mainnet',
@@ -272,55 +399,88 @@ function handleX402Discovery(req, res) {
 			asset: env.X402_ASSET_ADDRESS_BASE,
 			asset_symbol: 'USDC',
 			maxTimeoutSeconds: 60,
+			resource: resourceUrl,
 			extra: { name: 'USDC', version: '2', decimals: 6 },
 		});
-	}
-	if (env.X402_PAY_TO_SOLANA) {
-		mcpAccepts.push({
+		pushAcceptWithPermit2Sibling(out, {
 			scheme: 'exact',
-			network: NETWORK_SOLANA_MAINNET,
-			network_label: 'solana-mainnet',
+			network: 'eip155:42161',
+			network_label: 'arbitrum-one',
 			amount: env.X402_MAX_AMOUNT_REQUIRED,
 			price,
-			payTo: env.X402_PAY_TO_SOLANA,
-			asset: env.X402_ASSET_MINT_SOLANA,
+			payTo: env.X402_PAY_TO_BASE,
+			asset: ARB_USDC,
 			asset_symbol: 'USDC',
 			maxTimeoutSeconds: 60,
-			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
+			resource: resourceUrl,
+			extra: { name: 'USDC', version: '2', decimals: 6 },
 		});
+		return out;
 	}
 
-	// /api/x402/model-check is the CDP-Bazaar-cataloged endpoint. CDP supports
-	// Base mainnet + Arbitrum One; advertise both here so agentic.market shows
-	// the same network options buyers will see in the live 402 challenge.
-	// Each EVM entry gets a Permit2 sibling so EIP-2612-aware clients can pick
-	// the gasless Permit2-via-EIP-2612 path.
-	const ARB_USDC = env.X402_ASSET_ADDRESS_ARBITRUM;
-	const modelCheckAccepts = [];
-	pushAcceptWithPermit2Sibling(modelCheckAccepts, {
-		scheme: 'exact',
-		network: NETWORK_BASE_MAINNET,
-		network_label: 'base-mainnet',
-		amount: env.X402_MAX_AMOUNT_REQUIRED,
-		price,
-		payTo: env.X402_PAY_TO_BASE,
-		asset: env.X402_ASSET_ADDRESS_BASE,
-		asset_symbol: 'USDC',
-		maxTimeoutSeconds: 60,
-		extra: { name: 'USDC', version: '2', decimals: 6 },
-	});
-	pushAcceptWithPermit2Sibling(modelCheckAccepts, {
-		scheme: 'exact',
-		network: 'eip155:42161',
-		network_label: 'arbitrum-one',
-		amount: env.X402_MAX_AMOUNT_REQUIRED,
-		price,
-		payTo: env.X402_PAY_TO_BASE,
-		asset: ARB_USDC,
-		asset_symbol: 'USDC',
-		maxTimeoutSeconds: 60,
-		extra: { name: 'USDC', version: '2', decimals: 6 },
-	});
+	const mcpAccepts = buildMcpAccepts(mcpUrl);
+	const modelCheckAccepts = buildBazaarAccepts(modelCheckUrl);
+	const mintToMeshAccepts = buildBazaarAccepts(mintToMeshUrl);
+	const revenueVisionAccepts = buildBazaarAccepts(revenueVisionUrl);
+
+	// USE-13: per-route Bazaar service metadata. Echoed on each resource[]
+	// entry so facilitators crawling /.well-known/x402-discovery surface a
+	// human-readable serviceName + topical tags + icon in their search UI.
+	// Tags are deliberately short (≤32 chars each) and ≤5 entries per the
+	// spec; iconUrl falls back to THREEWS_SERVICE.iconUrl when unset.
+	const routeMeta = {
+		modelCheck: withService({
+			serviceName: 'three.ws Model Check',
+			tags: ['3d', 'gltf', 'glb', 'inspection', 'validation'],
+		}),
+		mintToMesh: withService({
+			serviceName: 'three.ws Mint to Mesh',
+			tags: ['3d', 'gltf', 'solana', 'token', 'render'],
+		}),
+		mintToMeshBatch: withService({
+			serviceName: 'three.ws Mint Mesh Batch',
+			tags: ['3d', 'gltf', 'solana', 'batch', 'render'],
+		}),
+		revenueVision: withService({
+			serviceName: 'three.ws Revenue Vision',
+			tags: ['ai', 'analysis', 'growth', 'insight', 'claude'],
+		}),
+		mcp: withService({
+			serviceName: 'three.ws MCP',
+			tags: ['mcp', '3d', 'gltf', 'solana', 'agent'],
+		}),
+		agentReputation: withService({
+			serviceName: 'three.ws Agent Reputation',
+			tags: ['reputation', 'agent', 'solana', 'attestation', 'trust'],
+		}),
+		onchainIdentity: withService({
+			serviceName: 'three.ws Identity Verify',
+			tags: ['identity', 'verification', 'agent', 'trust', 'onchain'],
+		}),
+		pumpAudit: withService({
+			serviceName: 'three.ws Pump Audit',
+			tags: ['pump.fun', 'audit', 'agent', 'risk', 'solana'],
+		}),
+		skillMarket: withService({
+			serviceName: 'three.ws Skill Market',
+			tags: ['marketplace', 'agent', 'skills', 'pricing', 'discovery'],
+		}),
+		symbolCheck: withService({
+			serviceName: 'three.ws Symbol Check',
+			tags: ['ticker', 'pump.fun', 'collision', 'launch', 'solana'],
+		}),
+		permit2Demo: withService({
+			serviceName: 'three.ws Permit2 Demo',
+			tags: ['x402', 'permit2', 'eip2612', 'gasless', 'demo'],
+		}),
+	};
+
+	// USE-13: per-tool MCP catalog entries. Each priced tool is its own
+	// catalog row keyed on (resource, toolName) so search can find them
+	// individually instead of all hiding behind the parent /api/mcp resource.
+	// Built from the live TOOL_CATALOG so adding a new priced tool only
+	// requires a pricing entry; the discovery shape follows automatically.
+	const mcpToolItems = buildMcpToolItems({ mcpUrl, mcpAccepts, mcpService: routeMeta.mcp });
 
 	return json(
 		res,
@@ -369,6 +529,9 @@ function handleX402Discovery(req, res) {
 					description:
 						'Fetches a glTF/GLB model from a URL and returns structural stats (vertex/triangle counts, materials, textures, animations, extensions) plus a prioritized list of optimization recommendations. Single GET, ?url=…. CDP-Bazaar-cataloged.',
 					mimeType: 'application/json',
+					serviceName: routeMeta.modelCheck.serviceName,
+					tags: routeMeta.modelCheck.tags,
+					iconUrl: routeMeta.modelCheck.iconUrl,
 					accepts: modelCheckAccepts,
 					extensions: extensionsForAccepts(modelCheckAccepts, {
 						method: 'GET',
@@ -394,8 +557,11 @@ function handleX402Discovery(req, res) {
 					description:
 						'Mint to Mesh — pass a Solana fungible-token mint, get back a binary glTF (GLB) cube themed for that token. Color is derived from a stable hash of the mint; when the off-chain Metaplex JSON exposes a PNG/JPEG, that image is embedded as a baseColor texture on every face. Asset.extras carry mint, name, symbol, and timestamp. Useful for any agent that needs an instantly renderable 3D representation of a token. CDP-Bazaar-cataloged.',
 					mimeType: 'application/json',
-					accepts: modelCheckAccepts,
-					extensions: extensionsForAccepts(modelCheckAccepts, {
+					serviceName: routeMeta.mintToMesh.serviceName,
+					tags: routeMeta.mintToMesh.tags,
+					iconUrl: routeMeta.mintToMesh.iconUrl,
+					accepts: mintToMeshAccepts,
+					extensions: extensionsForAccepts(mintToMeshAccepts, {
 						method: 'GET',
 						discoverable: true,
 						input: { mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
@@ -420,8 +586,11 @@ function handleX402Discovery(req, res) {
 					description:
 						'Revenue Vision — agentic growth analysis powered by Claude. Hand over a mission_brief and get back a single prioritized next-best move, a data-grounded insight, and an honestly-calibrated confidence rating. CDP-Bazaar-cataloged.',
 					mimeType: 'application/json',
-					accepts: modelCheckAccepts,
-					extensions: extensionsForAccepts(modelCheckAccepts, {
+					serviceName: routeMeta.revenueVision.serviceName,
+					tags: routeMeta.revenueVision.tags,
+					iconUrl: routeMeta.revenueVision.iconUrl,
+					accepts: revenueVisionAccepts,
+					extensions: extensionsForAccepts(revenueVisionAccepts, {
 						method: 'GET',
 						discoverable: true,
 						input: {
@@ -452,6 +621,9 @@ function handleX402Discovery(req, res) {
 					description:
 						'MCP 2025-06-18 Streamable HTTP transport — 3D avatar viewer, glTF model validation/inspection/optimization, and Solana agent data exposed as MCP tools. JSON-RPC 2.0 batch-aware. Currency: USDC.',
 					mimeType: 'application/json',
+					serviceName: routeMeta.mcp.serviceName,
+					tags: routeMeta.mcp.tags,
+					iconUrl: routeMeta.mcp.iconUrl,
 					accepts: mcpAccepts,
 					extensions: extensionsForAccepts(mcpAccepts, bazaarExtension()),
 					links: {
@@ -462,14 +634,18 @@ function handleX402Discovery(req, res) {
 					},
 				},
 				(() => {
-					const accepts = acceptsForPrice('10000');
+					const url = `${origin}/api/x402/agent-reputation`;
+					const accepts = acceptsForPrice('10000', url);
 					return {
 						path: '/api/x402/agent-reputation',
-						url: `${origin}/api/x402/agent-reputation`,
+						url,
 						method: 'GET',
 						description:
 							'Agent Reputation — return a reputation snapshot for a three.ws agent (USDC paid in to its pump-agent tokens, distinct payers, deployed mints, distribution success rate, Solana attestation counts). Built from three.ws\'s proprietary index of pump_agent_payments, pump_distribute_runs, and solana_attestations.',
 						mimeType: 'application/json',
+						serviceName: routeMeta.agentReputation.serviceName,
+						tags: routeMeta.agentReputation.tags,
+						iconUrl: routeMeta.agentReputation.iconUrl,
 						accepts,
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
@@ -484,14 +660,18 @@ function handleX402Discovery(req, res) {
 					};
 				})(),
 				(() => {
-					const accepts = acceptsForPrice('5000');
+					const url = `${origin}/api/x402/onchain-identity-verify`;
+					const accepts = acceptsForPrice('5000', url);
 					return {
 						path: '/api/x402/onchain-identity-verify',
-						url: `${origin}/api/x402/onchain-identity-verify`,
+						url,
 						method: 'GET',
 						description:
 							'On-Chain Identity Verifier — given a three.ws agent_id + CAIP-2 chain + contract/mint, verify ownership from the canonical meta.onchain index and return tx_hash/wallet/deploy time evidence when verified. Trust primitive before paying counterparty agents.',
 						mimeType: 'application/json',
+						serviceName: routeMeta.onchainIdentity.serviceName,
+						tags: routeMeta.onchainIdentity.tags,
+						iconUrl: routeMeta.onchainIdentity.iconUrl,
 						accepts,
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
@@ -514,14 +694,18 @@ function handleX402Discovery(req, res) {
 					};
 				})(),
 				(() => {
-					const accepts = acceptsForPrice('20000');
+					const url = `${origin}/api/x402/pump-agent-audit`;
+					const accepts = acceptsForPrice('20000', url);
 					return {
 						path: '/api/x402/pump-agent-audit',
-						url: `${origin}/api/x402/pump-agent-audit`,
+						url,
 						method: 'GET',
 						description:
 							'Pump-Agent Audit — full operational audit of a pump.fun agent-payments token: total USDC in, unique payers, distribute/buyback success history, latest error reasons, and risk flags (never_distributed, high_distribute_failure_rate, no_buybacks_run). Backed by three.ws\'s indexed pump_distribute_runs and pump_buyback_runs tables.',
 						mimeType: 'application/json',
+						serviceName: routeMeta.pumpAudit.serviceName,
+						tags: routeMeta.pumpAudit.tags,
+						iconUrl: routeMeta.pumpAudit.iconUrl,
 						accepts,
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
@@ -536,14 +720,18 @@ function handleX402Discovery(req, res) {
 					};
 				})(),
 				(() => {
-					const accepts = acceptsForPrice('1000');
+					const url = `${origin}/api/x402/skill-marketplace`;
+					const accepts = acceptsForPrice('1000', url);
 					return {
 						path: '/api/x402/skill-marketplace',
-						url: `${origin}/api/x402/skill-marketplace`,
+						url,
 						method: 'GET',
 						description:
 							'Skill Marketplace — list active skill listings with prices across all three.ws agents. Filter by skill name to find the cheapest provider for a given capability. Returns price atomics, chain, currency, trial offer, and time-pass terms.',
 						mimeType: 'application/json',
+						serviceName: routeMeta.skillMarket.serviceName,
+						tags: routeMeta.skillMarket.tags,
+						iconUrl: routeMeta.skillMarket.iconUrl,
 						accepts,
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
@@ -560,14 +748,18 @@ function handleX402Discovery(req, res) {
 					};
 				})(),
 				(() => {
-					const accepts = acceptsForPrice('1000');
+					const url = `${origin}/api/x402/symbol-availability`;
+					const accepts = acceptsForPrice('1000', url);
 					return {
 						path: '/api/x402/symbol-availability',
-						url: `${origin}/api/x402/symbol-availability`,
+						url,
 						method: 'GET',
 						description:
 							'Symbol Availability — pre-launch ticker collision check against three.ws\'s pump.fun mint index. Returns exact-symbol collisions plus trigram-similar tickers so launch agents can avoid name confusion and aggregator-search dilution.',
 						mimeType: 'application/json',
+						serviceName: routeMeta.symbolCheck.serviceName,
+						tags: routeMeta.symbolCheck.tags,
+						iconUrl: routeMeta.symbolCheck.iconUrl,
 						accepts,
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
@@ -590,6 +782,7 @@ function handleX402Discovery(req, res) {
 					// EIP-2612 → settleWithPermit path the endpoint is meant to prove.
 					// permit2VariantOf returns null without CDP creds, in which case we
 					// omit the resource from discovery (matches the runtime 402 behavior).
+					const url = `${origin}/api/x402/permit2-paid-demo`;
 					const price = RAW_AMOUNT_TO_USDC('1000');
 					const baseAccept = env.X402_PAY_TO_BASE
 						? {
@@ -602,6 +795,7 @@ function handleX402Discovery(req, res) {
 								asset: env.X402_ASSET_ADDRESS_BASE,
 								asset_symbol: 'USDC',
 								maxTimeoutSeconds: 60,
+								resource: url,
 								extra: { name: 'USD Coin', version: '2', decimals: 6 },
 							}
 						: null;
@@ -610,11 +804,14 @@ function handleX402Discovery(req, res) {
 					const accepts = [permit2];
 					return {
 						path: '/api/x402/permit2-paid-demo',
-						url: `${origin}/api/x402/permit2-paid-demo`,
+						url,
 						method: 'GET',
 						description:
 							'Permit2 + EIP-2612 Gas Sponsoring Demo — forces the gasless Permit2 path so a fresh wallet holding USDC but ZERO ETH can complete the flow. CDP\'s x402ExactPermit2Proxy submits the EIP-2612 permit + Permit2 transfer atomically via settleWithPermit. Response surfaces the on-chain tx hash and a Basescan link.',
 						mimeType: 'application/json',
+						serviceName: routeMeta.permit2Demo.serviceName,
+						tags: routeMeta.permit2Demo.tags,
+						iconUrl: routeMeta.permit2Demo.iconUrl,
 						accepts,
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
@@ -629,14 +826,18 @@ function handleX402Discovery(req, res) {
 					};
 				})(),
 				(() => {
-					const accepts = acceptsForPrice('50000');
+					const url = `${origin}/api/x402/mint-to-mesh-batch`;
+					const accepts = acceptsForPrice('50000', url);
 					return {
 						path: '/api/x402/mint-to-mesh-batch',
-						url: `${origin}/api/x402/mint-to-mesh-batch`,
+						url,
 						method: 'POST',
 						description:
 							'Mint-to-Mesh (Batch) — resolve 1–10 Solana SPL mints to themed binary glTF cubes in a single paid call. Per-mint failures report ok:false individually instead of failing the whole batch. Output is base64 GLB bytes for Three.js / Babylon.js / model-viewer.',
 						mimeType: 'application/json',
+						serviceName: routeMeta.mintToMeshBatch.serviceName,
+						tags: routeMeta.mintToMeshBatch.tags,
+						iconUrl: routeMeta.mintToMeshBatch.iconUrl,
 						accepts,
 						extensions: extensionsForAccepts(accepts, {
 							method: 'POST',
@@ -662,6 +863,10 @@ function handleX402Discovery(req, res) {
 						}),
 					};
 				})(),
+				// USE-13: one Bazaar catalog row per priced MCP tool. The shared
+				// `/api/mcp` resource above is the transport entry; these are
+				// the individual paid tools facilitators index by toolName.
+				...mcpToolItems,
 			].filter(Boolean),
 		},
 		{ 'cache-control': 'public, max-age=300' },

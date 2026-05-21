@@ -1,6 +1,7 @@
 import { hasScope } from '../_lib/auth.js';
 import { recordEvent, logger } from '../_lib/usage.js';
 import { priceFor, findActiveSubscription, resolveBillingMint } from '../_lib/pump-pricing.js';
+import { declareMcpDiscovery } from '../_lib/x402/bazaar-helpers.js';
 import { TOOL_CATALOG, TOOLS } from './catalog.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
@@ -34,20 +35,32 @@ export async function dispatch(msg, auth, _req) {
 			return ok(id, {
 				tools: TOOL_CATALOG.map((t) => {
 					const price = priceFor(t.name);
-					return price
-						? {
-								...t,
-								pricing: {
-									amount_usdc: price.amount_usdc,
-									currency: 'USDC',
-									description: price.description,
-									scheme: 'pump-agent-payments',
-									prep_endpoint: '/api/pump/accept-payment-prep',
-									confirm_endpoint: '/api/pump/accept-payment-confirm',
-									recipient_mint: resolveBillingMint(),
-								},
-							}
-						: t;
+					if (!price) return t;
+					// USE-13: priced tools also surface a Bazaar discovery
+					// extension so MCP clients reading tools/list see the same
+					// catalog metadata facilitators index via
+					// /discovery/resources. The extension carries the canonical
+					// shape (transport, inputSchema, example) clients need to
+					// pay-and-call without re-reading the tool description.
+					const discovery = declareMcpDiscovery({
+						toolName: t.name,
+						description: t.description,
+						transport: 'streamable-http',
+						inputSchema: t.inputSchema,
+					});
+					return {
+						...t,
+						pricing: {
+							amount_usdc: price.amount_usdc,
+							currency: 'USDC',
+							description: price.description,
+							scheme: 'pump-agent-payments',
+							prep_endpoint: '/api/pump/accept-payment-prep',
+							confirm_endpoint: '/api/pump/accept-payment-confirm',
+							recipient_mint: resolveBillingMint(),
+						},
+						extensions: { bazaar: discovery },
+					};
 				}),
 			});
 		if (method === 'tools/call') return ok(id, await onToolCall(msg.params, auth, started));

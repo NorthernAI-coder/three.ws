@@ -240,6 +240,25 @@ export const env = {
 	get X402_BUILDER_CODE_APP() {
 		return opt('X402_BUILDER_CODE_APP');
 	},
+	// Wallet builder code our outbound buyer clients self-attribute with.
+	// Populates PaymentPayload.extensions["builder-code"].w so settlement
+	// CBOR records the wallet that paid alongside the app that exposed.
+	get X402_BUILDER_CODE_WALLET() {
+		return opt('X402_BUILDER_CODE_WALLET');
+	},
+
+	// Spending caps for buyer clients (USE-22). Atomic micro-USD; leave
+	// unset to disable that cap. Read by x402-spending-cap.js when callers
+	// don't pass an explicit per-route override.
+	get X402_MAX_PER_CALL_ATOMIC() {
+		return opt('X402_MAX_PER_CALL_ATOMIC');
+	},
+	get X402_MAX_PER_HOUR_ATOMIC() {
+		return opt('X402_MAX_PER_HOUR_ATOMIC');
+	},
+	get X402_MAX_PER_DAY_ATOMIC() {
+		return opt('X402_MAX_PER_DAY_ATOMIC');
+	},
 
 	// USE-23: shared secret that lets internal Vercel functions skip the 402
 	// challenge on our own paid endpoints by sending X-API-Key: <this value>.

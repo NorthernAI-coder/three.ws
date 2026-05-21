@@ -43,23 +43,45 @@ import { env } from '../env.js';
 let _issuerCache = null;
 let _issuerError = null;
 
+// Each callable reads an env value and returns the address to compare against,
+// or null when the env is unset / the key itself is malformed. Wrapped in
+// try/catch because some envs (AGENT_RELAYER_KEY) are declared `req()` and
+// throw when unset — that throw must not stop us from running the safeguard.
+function deriveAddressIfPossible(envFn) {
+	let raw;
+	try {
+		raw = envFn();
+	} catch {
+		return null;
+	}
+	if (!raw) return null;
+	const trimmed = String(raw).trim();
+	if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) return trimmed.toLowerCase();
+	try {
+		const norm = trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`;
+		return privateKeyToAccount(norm).address.toLowerCase();
+	} catch {
+		return null;
+	}
+}
+
 function safeguardAgainstReusingPaymentKey(signingPrivKey) {
-	const norm = String(signingPrivKey).trim().toLowerCase().replace(/^0x/, '');
-	const collisions = [
-		['X402_PAY_TO_BASE', env.X402_PAY_TO_BASE],
-		['X402_PAY_TO_BSC', env.X402_PAY_TO_BSC],
-		['CLUB_EVM_TREASURY_PRIVATE_KEY', env.CLUB_EVM_TREASURY_PRIVATE_KEY],
-		['AGENT_RELAYER_KEY', env.AGENT_RELAYER_KEY ? '<set>' : undefined],
-	];
+	const norm = signingPrivKey.startsWith('0x') ? signingPrivKey : `0x${signingPrivKey}`;
 	let derivedAddress;
 	try {
-		derivedAddress = privateKeyToAccount(`0x${norm}`).address.toLowerCase();
+		derivedAddress = privateKeyToAccount(norm).address.toLowerCase();
 	} catch {
 		throw new Error('OFFER_RECEIPT_SIGNING_PRIVATE_KEY is not a valid 0x-hex EVM private key');
 	}
-	for (const [name, value] of collisions) {
-		if (!value) continue;
-		if (String(value).toLowerCase() === derivedAddress) {
+	const collisions = [
+		['X402_PAY_TO_BASE', deriveAddressIfPossible(() => env.X402_PAY_TO_BASE)],
+		['X402_PAY_TO_BSC', deriveAddressIfPossible(() => env.X402_PAY_TO_BSC)],
+		['CLUB_EVM_TREASURY_PRIVATE_KEY', deriveAddressIfPossible(() => env.CLUB_EVM_TREASURY_PRIVATE_KEY)],
+		['AGENT_RELAYER_KEY', deriveAddressIfPossible(() => env.AGENT_RELAYER_KEY)],
+	];
+	for (const [name, addr] of collisions) {
+		if (!addr) continue;
+		if (addr === derivedAddress) {
 			throw new Error(
 				`OFFER_RECEIPT_SIGNING_PRIVATE_KEY derives to ${derivedAddress}, which is also ${name}. ` +
 				'Receipts MUST be signed with a dedicated key separate from payment-receiving wallets.',

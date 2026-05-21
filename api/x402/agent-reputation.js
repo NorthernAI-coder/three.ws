@@ -15,6 +15,7 @@
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
+import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 
 const ROUTE = '/api/x402/agent-reputation';
@@ -291,6 +292,10 @@ export default paidEndpoint({
 	networks: ['base', 'solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
+	service: withService({
+		serviceName: 'three.ws Agent Reputation',
+		tags: ['reputation', 'agent', 'solana', 'attestation', 'trust'],
+	}),
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	// USE-21: declare auth-hints. Buyers with an OAuth2 access token granted

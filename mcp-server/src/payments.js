@@ -30,7 +30,11 @@ import { HTTPFacilitatorClient, x402ResourceServer } from '@x402/core/server';
 import { registerExactEvmScheme } from '@x402/evm/exact/server';
 import { UptoEvmScheme as UptoEvmServerScheme } from '@x402/evm/upto/server';
 import { registerExactSvmScheme } from '@x402/svm/exact/server';
-import { createPaymentWrapper, createToolResourceUrl } from '@x402/mcp';
+import {
+	createPaymentWrapper,
+	createToolResourceUrl,
+	extractPaymentFromMeta,
+} from '@x402/mcp';
 import { declareDiscoveryExtension } from '@x402/extensions/bazaar';
 
 // CAIP-2 IDs we care about (mirrors api/_lib/x402-spec.js).
@@ -272,6 +276,109 @@ export async function paid(cfg, handler) {
 			content: [{ type: 'text', text }],
 		};
 	});
+}
+
+/**
+ * Wrap an `upto`-scheme tool whose handler decides the actual settlement
+ * amount based on resource consumption. The `priceUsd` becomes the
+ * authorized maximum; the handler returns `{ result, settleAmount }` where
+ * `settleAmount` is a percent string ("50%"), atomic units ("250000"), or a
+ * USD price ("$0.25"). The wrapper settles via x402ResourceServer's
+ * settlementOverrides — facilitator enforces settle <= max.
+ *
+ * Unlike `paid()` (which uses `createPaymentWrapper`), this wrapper
+ * implements the MCP transport flow manually so it can plumb
+ * `settlementOverrides.amount` through `settlePayment`. The 402 response
+ * shape (structuredContent + content[0].text + isError:true) matches the
+ * v2 MCP transport spec.
+ */
+export async function paidUpto(cfg, handler) {
+	const {
+		toolName,
+		description,
+		priceUsd,
+		networks = [NETWORK_BASE_MAINNET],
+		inputSchema,
+		example,
+		outputExample,
+		extra,
+	} = cfg;
+
+	if (!toolName) throw new Error('paidUpto(): toolName is required');
+	if (!priceUsd) throw new Error('paidUpto(): priceUsd is required (max)');
+	if (!inputSchema) throw new Error('paidUpto(): inputSchema is required');
+
+	const resourceServer = await getResourceServer();
+	const resourceUrl = createToolResourceUrl(toolName);
+	const accepts = await buildAcceptsForTool({
+		resourceServer,
+		scheme: 'upto',
+		priceUsd,
+		networks,
+		resourceUrl,
+		extra,
+	});
+	const resourceInfo = { url: resourceUrl, description, mimeType: 'application/json' };
+	const bazaar = declareDiscoveryExtension({
+		toolName,
+		description,
+		transport: 'stdio',
+		inputSchema,
+		example,
+		output: outputExample ? { example: outputExample } : undefined,
+	});
+
+	const paymentRequiredResult = async (errorMessage) => {
+		const paymentRequired = await resourceServer.createPaymentRequiredResponse(
+			accepts,
+			resourceInfo,
+			errorMessage,
+			bazaar,
+		);
+		return {
+			structuredContent: paymentRequired,
+			content: [{ type: 'text', text: JSON.stringify(paymentRequired) }],
+			isError: true,
+		};
+	};
+
+	return async (args, extra) => {
+		const _meta = extra?._meta;
+		const paymentPayload = extractPaymentFromMeta({ name: toolName, arguments: args, _meta });
+		if (!paymentPayload) {
+			return paymentRequiredResult('Payment required to access this tool');
+		}
+		const matched = resourceServer.findMatchingRequirements(accepts, paymentPayload);
+		if (!matched) {
+			return paymentRequiredResult('No matching payment requirements for this payload');
+		}
+		const verify = await resourceServer.verifyPayment(paymentPayload, matched, bazaar);
+		if (!verify.isValid) {
+			return paymentRequiredResult(verify.invalidReason || 'Payment verification failed');
+		}
+		let handlerOutput;
+		try {
+			handlerOutput = await handler(args, { context: extra, requirement: matched });
+		} catch (err) {
+			return paymentRequiredResult(`Tool failed before settlement: ${err.message}`);
+		}
+		const { result, settleAmount } = handlerOutput;
+		if (!result) {
+			return paymentRequiredResult('Tool handler returned no result');
+		}
+		const overrides = settleAmount ? { amount: String(settleAmount) } : undefined;
+		let settle;
+		try {
+			settle = await resourceServer.settlePayment(paymentPayload, matched, bazaar, undefined, overrides);
+		} catch (err) {
+			return paymentRequiredResult(`Settlement failed: ${err.message}`);
+		}
+		const text = typeof result === 'string' ? result : JSON.stringify(result);
+		return {
+			content: [{ type: 'text', text }],
+			_meta: { 'x402/payment-response': settle },
+		};
+	};
 }
 
 export { NETWORK_BASE_MAINNET, NETWORK_SOLANA_MAINNET };

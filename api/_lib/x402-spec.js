@@ -784,6 +784,10 @@ function hasPermit2Accept(accepts) {
 // We also auto-declare the ERC-8021 `builder-code` extension when
 // X402_BUILDER_CODE_APP is configured, so every paid endpoint contributes to
 // on-chain attribution without having to opt in per-route.
+// USE-13: `serviceName`, `tags`, `iconUrl` belong on the `resource` object
+// per the Bazaar spec. Facilitators apply soft-drop validation so silently
+// invalid fields are skipped, but we keep them within limits here too —
+// printable-ASCII, ≤32 chars (serviceName/tag), ≤5 tags, absolute https URL.
 export function build402Body({
 	resourceUrl,
 	accepts,
@@ -792,6 +796,9 @@ export function build402Body({
 	mimeType = 'application/json',
 	bazaar = bazaarExtension(),
 	extensions: extraExtensions,
+	serviceName,
+	tags,
+	iconUrl,
 }) {
 	const extensions = { bazaar };
 	if (hasPermit2Accept(accepts)) {
@@ -809,10 +816,20 @@ export function build402Body({
 	if (extraExtensions && typeof extraExtensions === 'object') {
 		Object.assign(extensions, extraExtensions);
 	}
+	const resource = { url: resourceUrl, description, mimeType };
+	if (typeof serviceName === 'string' && serviceName.length) {
+		resource.serviceName = serviceName;
+	}
+	if (Array.isArray(tags) && tags.length) {
+		resource.tags = tags.slice(0, 5);
+	}
+	if (typeof iconUrl === 'string' && iconUrl.length) {
+		resource.iconUrl = iconUrl;
+	}
 	return {
 		x402Version: X402_VERSION,
 		error,
-		resource: { url: resourceUrl, description, mimeType },
+		resource,
 		accepts: Array.isArray(accepts) ? accepts : [accepts],
 		extensions,
 	};

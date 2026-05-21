@@ -250,6 +250,13 @@ export function paidEndpoint(spec) {
 		// important than payer privacy. `offerValiditySeconds` overrides the
 		// 300-second default for how long signed offers stay valid.
 		offerReceipt = {},
+		// USE-13: Bazaar resource-level service metadata. Set per route so the
+		// facilitator can group / search / icon-ify the catalog entry. Pass
+		// `service: { serviceName, tags, iconUrl }` or use withService() from
+		// api/_lib/x402/bazaar-helpers.js to merge with three.ws defaults.
+		// Fields fall through to build402Body which gates each on the spec
+		// validation rules (printable ASCII, length caps, https URL).
+		service,
 	} = spec;
 
 	if (!route) throw new Error('paidEndpoint: route is required');
@@ -355,10 +362,12 @@ export function paidEndpoint(spec) {
 
 		// SIWX extension advertised on every 402 when the endpoint opts in.
 		// `requirements[].network` lists every CAIP-2 chain we'll accept a
-		// signature for — the upstream helper turns it into supportedChains.
+		// signature for — the upstream helper turns it into supportedChains
+		// and enriches the info block (domain/uri/nonce/issuedAt) per request.
 		const siwxExtensions = siwx
-			? declareSiwxExtensionFor({
+			? await declareSiwxExtensionFor({
 					networks: requirements.map((r) => r.network),
+					resourceUrl,
 					statement: siwx.statement,
 					expirationSeconds: siwx.expirationSeconds,
 				})
@@ -391,6 +400,9 @@ export function paidEndpoint(spec) {
 			mimeType,
 			bazaar,
 			extensions: extraExtensions,
+			...(service?.serviceName ? { serviceName: service.serviceName } : {}),
+			...(Array.isArray(service?.tags) && service.tags.length ? { tags: service.tags } : {}),
+			...(service?.iconUrl ? { iconUrl: service.iconUrl } : {}),
 		};
 
 		// USE-21: auth-hints fast path. If the endpoint declared OAuth/SIWX as

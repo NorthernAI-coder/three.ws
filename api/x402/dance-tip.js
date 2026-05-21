@@ -18,6 +18,7 @@
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
+import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 
 const ROUTE = '/api/x402/dance-tip';
@@ -260,6 +261,10 @@ export default paidEndpoint({
 	networks: ['base', 'solana'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
+	service: withService({
+		serviceName: 'three.ws Pole Club',
+		tags: ['3d', 'dance', 'club', 'tip', 'entertainment'],
+	}),
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	siwx: {

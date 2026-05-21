@@ -11,6 +11,7 @@
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
+import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 import { presignGet } from '../_lib/r2.js';
 import { error } from '../_lib/http.js';
@@ -134,6 +135,10 @@ export default async function handler(req, res) {
 		description: `${DESCRIPTION} — currently delivering: ${asset.title}.`,
 		mimeType: 'application/json',
 		bazaar: BAZAAR,
+		service: withService({
+			serviceName: 'three.ws Asset Bazaar',
+			tags: ['3d', 'asset', 'glb', 'avatar', 'download'],
+		}),
 		payTo: buildPayToOverride(asset),
 		// Make the SIWX grant key per-asset by baking the slug into the
 		// resource URL. Without this, paying for any one asset would unlock

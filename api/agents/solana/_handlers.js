@@ -215,6 +215,15 @@ export const handleCard = wrap(async (req, res) => {
 		schema_version: '1.0',
 		name: a.name,
 		description: a.description,
+		capabilities: {
+			extensions: [
+				{
+					uri: 'https://github.com/google-a2a/a2a-x402/v0.1',
+					description: 'Supports payments using the x402 protocol for on-chain settlement.',
+					required: true,
+				},
+			],
+		},
 		identity: {
 			chain: 'solana', network, asset_pubkey: asset, owner: a.owner,
 			passport_url: `${origin}/agent-passport.html?asset=${asset}&network=${network}`,
@@ -224,6 +233,7 @@ export const handleCard = wrap(async (req, res) => {
 		skills: a.skills || [],
 		endpoints: {
 			chat: `${origin}/api/agents/${a.id}/chat`,
+			a2a_paid: `${origin}/api/agents/a2a-paid`,
 			attestations: `${origin}/api/agents/solana-attestations?asset=${asset}&network=${network}`,
 			reputation: `${origin}/api/agents/solana-reputation?asset=${asset}&network=${network}`,
 			...(token_stats ? { quote: `${origin}/api/pump/quote?mint=${asset}&network=${network}`, price_history: `${origin}/api/agents/solana-price-history?asset=${asset}&network=${network}` } : {}),

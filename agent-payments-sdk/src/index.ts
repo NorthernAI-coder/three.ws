@@ -12,3 +12,4 @@ export * from "./evm/index.js";
 export * as solana from "./solana/index.js";
 export * as evm from "./evm/index.js";
 export * as x402Evm from "./x402/index.js";
+export * as a2a from "./a2a-helpers.js";
