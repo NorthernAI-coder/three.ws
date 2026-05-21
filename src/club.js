@@ -9,31 +9,26 @@
 import {
 	AmbientLight,
 	Box3,
-	CircleGeometry,
 	Clock,
 	Color,
-	DoubleSide,
+	EquirectangularReflectionMapping,
 	Fog,
 	Group,
 	HemisphereLight,
-	Mesh,
-	MeshBasicMaterial,
-	MeshStandardMaterial,
 	PerspectiveCamera,
-	PlaneGeometry,
 	PMREMGenerator,
 	PointLight,
-	RingGeometry,
 	Scene,
 	SpotLight,
 	SRGBColorSpace,
 	Vector3,
 	WebGLRenderer,
 } from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 
+import { gltfLoader } from './loaders/gltf.js';
+import { REQUIRED_VENUE_EMPTIES, collectVenueEmpties, resolveVenueAnchors } from './club-venue.js';
 import { AnimationManager } from './animation-manager.js';
 import { ClubCamera } from './club-camera.js';
 import { ClubAudio, styleAudioFor, TRACK_LABELS } from './club-audio.js';
@@ -44,6 +39,13 @@ const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
 const POLE_GLB_URL = '/club/props/pole.glb';
 const STAGE_GLB_URL = '/club/props/stage.glb';
+// Authored nightclub interior + equirectangular HDRI for PBR reflections.
+// Both are required — a 404 surfaces an error in the UI; the page does NOT
+// fall back to a procedural scene. See public/club/assets/LICENSES.md for
+// the named-empty contract these files must satisfy (the contract itself
+// lives in src/club-venue.js so it can be unit-tested in isolation).
+const VENUE_GLB_URL = '/club/venue/club-venue.glb';
+const VENUE_HDRI_URL = '/club/venue/club-hdri.hdr';
 
 // Clips we actually use — keeps the manifest pre-fetch small. Pole-specific
 // clips (pole-spin, pole-climb, etc.) are added here once their source FBX
@@ -290,9 +292,12 @@ renderer.shadowMap.enabled = activeProfile.shadows;
 const scene = new Scene();
 scene.background = new Color(0x07050b);
 scene.fog = new Fog(0x07050b, 9, 28);
-
-const pmrem = new PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
+// scene.environment is set inside bootstrap() once the equirectangular HDRI
+// (public/club/venue/club-hdri.hdr) has been pre-filtered through
+// PMREMGenerator.fromEquirectangular. We intentionally do NOT seed the env
+// with a RoomEnvironment lightprobe — PBR materials read straight from the
+// loaded HDRI so reflections match the authored interior, not a generic
+// neutral sphere.
 
 // Soft room light so the avatars aren't pitch black — but kept low so the
 // spotlights do the talking.
@@ -313,75 +318,12 @@ const clubCam = new ClubCamera(camera, {
 });
 document.querySelector('#club-stage')?.setAttribute('data-cam-mode', clubCam.getMode());
 
-// ── Club floor + walls ───────────────────────────────────────────────────
-const floor = new Mesh(
-	new CircleGeometry(14, 80),
-	new MeshStandardMaterial({
-		color: 0x12080f,
-		roughness: 0.4,
-		metalness: 0.65,
-	}),
-);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-// Dance-floor inlay — slightly emissive checker so the room reads as a club,
-// not an empty plane.
-const danceFloor = new Mesh(
-	new CircleGeometry(STAGE_RADIUS + 1.4, 64),
-	new MeshStandardMaterial({
-		color: 0x1a0a1f,
-		roughness: 0.25,
-		metalness: 0.85,
-		emissive: 0x220a36,
-		emissiveIntensity: 0.45,
-	}),
-);
-danceFloor.rotation.x = -Math.PI / 2;
-danceFloor.position.y = 0.001;
-danceFloor.receiveShadow = true;
-scene.add(danceFloor);
-
-// Back wall — gives the room some depth instead of fog going on forever.
-const wallMat = new MeshStandardMaterial({
-	color: 0x0a050d, roughness: 0.7, metalness: 0.2, side: DoubleSide,
-});
-const wallBack = new Mesh(new PlaneGeometry(30, 8), wallMat);
-wallBack.position.set(0, 4, -10);
-scene.add(wallBack);
-const wallLeft = new Mesh(new PlaneGeometry(20, 8), wallMat);
-wallLeft.position.set(-10, 4, 0);
-wallLeft.rotation.y = Math.PI / 2;
-scene.add(wallLeft);
-const wallRight = new Mesh(new PlaneGeometry(20, 8), wallMat);
-wallRight.position.set(10, 4, 0);
-wallRight.rotation.y = -Math.PI / 2;
-scene.add(wallRight);
-
-// Bar counter behind the dance floor — a long box hint, nothing fancy.
-const bar = new Mesh(
-	new PlaneGeometry(9, 0.9),
-	new MeshStandardMaterial({ color: 0x271425, roughness: 0.4, metalness: 0.7, emissive: 0x10050f, emissiveIntensity: 0.3 }),
-);
-bar.position.set(0, 0.45, -7.5);
-scene.add(bar);
-
-// ── Neon ring around dance floor ─────────────────────────────────────────
-const neonRing = new Mesh(
-	new RingGeometry(STAGE_RADIUS + 1.35, STAGE_RADIUS + 1.55, 96),
-	new MeshBasicMaterial({ color: 0xff2bd6, side: DoubleSide, transparent: true, opacity: 0.85 }),
-);
-neonRing.rotation.x = -Math.PI / 2;
-neonRing.position.y = 0.01;
-scene.add(neonRing);
-const neonRingOuter = new Mesh(
-	new RingGeometry(STAGE_RADIUS + 1.7, STAGE_RADIUS + 1.82, 96),
-	new MeshBasicMaterial({ color: 0x4ad6ff, side: DoubleSide, transparent: true, opacity: 0.7 }),
-);
-neonRingOuter.rotation.x = -Math.PI / 2;
-neonRingOuter.position.y = 0.012;
-scene.add(neonRingOuter);
+// ── Authored venue ───────────────────────────────────────────────────────
+// The floor, walls, ceiling, bar, neon strips, and crowd silhouettes all
+// live inside public/club/venue/club-venue.glb. They're added to the scene
+// in bootstrap() once GLTFLoader resolves; the named empties inside that
+// GLB (stage.NN, backstage.door.NN, truss.spot.NN, truss.mirrorball,
+// bar.backsplash.neon) are what drive pole + spotlight placement below.
 
 // ── Poles + spotlights ───────────────────────────────────────────────────
 const POLE_COLORS = [0xff3bd6, 0x4ad6ff, 0xff8a3b, 0x9b5dff];
@@ -442,6 +384,41 @@ class PoleStation {
 		// driving sleep off the render clock keeps choreography frame-aligned.
 		this._clockSec = 0;
 		this._sleepers = [];
+	}
+
+	/**
+	 * Snap this station's stage / backstage / spotlight positions onto the
+	 * world-space anchors harvested from the venue GLB. Called from
+	 * bootstrap() AFTER the venue loads but BEFORE attachProps so the cloned
+	 * stage disc / pole geo land on the authored stage.NN empties rather
+	 * than the analytical fallback baked into the POLES array.
+	 *
+	 * Mutates `this.layout` in place — downstream code (attachProps,
+	 * startPerformance, tick) reads layout each frame, so a single override
+	 * pass at boot is enough.
+	 *
+	 * @param {object} anchors
+	 * @param {import('three').Vector3} [anchors.stagePos]
+	 * @param {import('three').Vector3} [anchors.backstagePos]
+	 * @param {import('three').Vector3} [anchors.spotPos]
+	 */
+	applyVenueOverrides({ stagePos, backstagePos, spotPos } = {}) {
+		if (stagePos) {
+			this.layout.x = stagePos.x;
+			this.layout.z = stagePos.z;
+			this.accent.position.set(stagePos.x, 0.6, stagePos.z);
+		}
+		if (backstagePos) {
+			this.layout.backstageX = backstagePos.x;
+			this.layout.backstageZ = backstagePos.z;
+			this.rig.position.set(backstagePos.x, 0, backstagePos.z);
+			this._phaseTarget = this.rig.position.clone();
+		}
+		if (spotPos) {
+			this.spot.position.set(spotPos.x, spotPos.y, spotPos.z);
+		}
+		// Spotlight always re-aims at the (possibly new) stage center.
+		this.spot.target.position.set(this.layout.x, 0.0, this.layout.z);
 	}
 
 	/**
@@ -704,11 +681,52 @@ for (let i = 0; i < discoCount; i++) {
 
 // ── Avatar template + manifest load ──────────────────────────────────────
 let animationDefs = null;
+
+/**
+ * Wrap a three.js loader's callback-form `.load()` in a promise that
+ * forwards every progress event into `setStatus`. `loadAsync` would be
+ * shorter but it swallows the progress callback, leaving the user staring
+ * at "Loading club…" for the full duration of a multi-megabyte venue.
+ *
+ * @template T
+ * @param {{ load: (url: string, onLoad: (asset: T) => void, onProgress: (e: ProgressEvent) => void, onError: (err: unknown) => void) => void }} loader
+ * @param {string} url
+ * @param {string} label
+ * @returns {Promise<T>}
+ */
+function loadWithProgress(loader, url, label) {
+	return new Promise((resolve, reject) => {
+		loader.load(
+			url,
+			resolve,
+			(e) => {
+				if (e && e.total > 0) {
+					const pct = Math.round((e.loaded / e.total) * 100);
+					setStatus(`${label} ${pct}%`);
+				}
+			},
+			(err) => {
+				const message = err?.message || err?.statusText || String(err);
+				reject(new Error(`Failed to load ${url}: ${message}`));
+			},
+		);
+	});
+}
+
 async function bootstrap() {
 	setStatus('Loading club…');
 
-	const loader = new GLTFLoader();
-	const [gltf, manifest, poleGltf, stageGltf] = await Promise.all([
+	const loader = gltfLoader(renderer);
+	const rgbe = new RGBELoader();
+
+	// Load everything in parallel — the venue + HDRI are the heaviest
+	// payloads but the avatar + animation manifest + pole/stage props can
+	// fetch in the same window. Any rejection bubbles up to the .catch in
+	// the call site below, which paints an error status and stops; no
+	// primitive fallback ever gets attached.
+	const [venueGltf, hdrTexture, gltf, manifest, poleGltf, stageGltf] = await Promise.all([
+		loadWithProgress(loader, VENUE_GLB_URL, 'Loading club…'),
+		loadWithProgress(rgbe, VENUE_HDRI_URL, 'Loading lighting…'),
 		loader.loadAsync(AVATAR_URL),
 		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => {
 			if (!r.ok) throw new Error(`HTTP ${r.status} loading animation manifest`);
@@ -717,6 +735,53 @@ async function bootstrap() {
 		loader.loadAsync(POLE_GLB_URL),
 		loader.loadAsync(STAGE_GLB_URL),
 	]);
+
+	// HDRI → pre-filtered cubemap for PBR reflections. Background stays
+	// the dark fog color so the HDRI only affects materials, not the
+	// visible sky.
+	hdrTexture.mapping = EquirectangularReflectionMapping;
+	const pmrem = new PMREMGenerator(renderer);
+	pmrem.compileEquirectangularShader();
+	const envRT = pmrem.fromEquirectangular(hdrTexture);
+	scene.environment = envRT.texture;
+	hdrTexture.dispose();
+	pmrem.dispose();
+
+	// Venue geometry — receiveShadow on everything, castShadow only on
+	// meshes the artist explicitly opted in via userData (set in Blender's
+	// custom-property panel). Keeping the cast set small protects the
+	// shadow-budget for the per-pole spotlights.
+	venueGltf.scene.traverse((n) => {
+		if (n.isMesh) {
+			n.receiveShadow = true;
+			n.castShadow = n.userData?.castShadow === true;
+		}
+	});
+	scene.add(venueGltf.scene);
+
+	// Resolve every required named empty. Throws if any are missing so the
+	// outer catch surfaces a precise error to the user instead of
+	// silently placing dancers at the origin.
+	const empties = collectVenueEmpties(venueGltf.scene, REQUIRED_VENUE_EMPTIES);
+	const anchors = resolveVenueAnchors(empties, stations.length);
+	for (let i = 0; i < stations.length; i += 1) {
+		stations[i].applyVenueOverrides({
+			stagePos: anchors.stages[i],
+			backstagePos: anchors.backstages[i],
+			spotPos: anchors.spots[i],
+		});
+	}
+
+	// Expose the mirrorball + bar-neon anchors for prompt 04 (lighting).
+	// Both are Object3D nodes — the consumer reads world position / parent
+	// frame as needed; we don't pre-resolve to a Vector3 here so prompt 04
+	// can also attach children directly to the empty.
+	if (typeof window !== 'undefined') {
+		window.__clubVenueAnchors = {
+			mirrorball: anchors.mirrorball,
+			barBacksplashNeon: anchors.barBacksplashNeon,
+		};
+	}
 
 	const template = gltf.scene;
 	// Mark all materials as cloneable up front so per-dancer tinting works.

@@ -473,6 +473,14 @@ function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Permit2 Demo',
 			tags: ['x402', 'permit2', 'eip2612', 'gasless', 'demo'],
 		}),
+		danceTip: withService({
+			serviceName: 'three.ws Pole Club',
+			tags: ['3d', 'avatar', 'club', 'tip', 'dance'],
+		}),
+		assetDownload: withService({
+			serviceName: 'three.ws Asset Bazaar',
+			tags: ['3d', 'asset', 'glb', 'avatar', 'download'],
+		}),
 	};
 
 	// USE-13: per-tool MCP catalog entries. Each priced tool is its own
@@ -857,6 +865,83 @@ function handleX402Discovery(req, res) {
 										minItems: 1,
 										maxItems: 10,
 										items: { type: 'string', minLength: 32, maxLength: 44 },
+									},
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/dance-tip`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/dance-tip',
+						url,
+						method: 'GET',
+						description:
+							'three.ws Pole Club — tip a dancer to perform one routine on the 3D pole stage. Pay $0.001 USDC per performance. Pick a dancer slot (1-4) and a dance style. The settled call returns a performance ticket the /club page consumes to spawn the dancer and play the routine for ~12 seconds.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.danceTip.serviceName,
+						tags: routeMeta.danceTip.tags,
+						iconUrl: routeMeta.danceTip.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { dancer: '1', dance: 'rumba' },
+							inputSchema: {
+								type: 'object',
+								required: ['dancer', 'dance'],
+								properties: {
+									dancer: {
+										type: 'string',
+										enum: ['1', '2', '3', '4'],
+										description: 'Stage slot 1-4 — which dancer should take the pole.',
+									},
+									dance: {
+										type: 'string',
+										enum: ['rumba', 'silly', 'thriller', 'capoeira', 'hiphop'],
+										description: 'Performance style — a clip in /animations/manifest.json.',
+									},
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					// Asset Bazaar advertises a representative price ($0.10 USDC =
+					// 100_000 atomics); the live 402 challenge always reflects the
+					// per-asset row from the paid_assets table. The discovery entry
+					// is a placeholder so the Bazaar indexer can find the route;
+					// per-asset listings would explode the catalog and aren't worth
+					// the noise here. The `?slug=<slug>` query param is documented
+					// in the input schema so crawlers know how to drive it.
+					const url = `${origin}/api/x402/asset-download`;
+					const accepts = acceptsForPrice('100000', url);
+					return {
+						path: '/api/x402/asset-download',
+						url,
+						method: 'GET',
+						description:
+							'three.ws Asset Bazaar — pay once in USDC to unlock a 3D asset (GLB, avatar, or accessory) hosted on R2. Wallets that have already paid can re-download for free by signing in with SIWX (CAIP-122). Each asset has its own price and creator payout address; the response carries a short-lived presigned R2 URL the client uses to fetch the file directly.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.assetDownload.serviceName,
+						tags: routeMeta.assetDownload.tags,
+						iconUrl: routeMeta.assetDownload.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { slug: 'pole-dancer-rumba' },
+							inputSchema: {
+								type: 'object',
+								required: ['slug'],
+								properties: {
+									slug: {
+										type: 'string',
+										minLength: 1,
+										maxLength: 128,
+										description: 'Unique asset slug from the paid_assets catalog.',
 									},
 								},
 							},

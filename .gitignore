@@ -40,6 +40,11 @@ data/_generated/
 
 # Animation build cache
 public/animations/clips/.input-hashes.json
+
+# Draco + KTX2 decoder binaries — copied from node_modules/three by
+# scripts/copy-three-decoders.mjs (postinstall). Recreated every install;
+# do not commit so the lockfile-pinned three.js version stays authoritative.
+public/three/
 Handshake
 
 # Sandbox clones — see experiments/README.md

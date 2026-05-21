@@ -1,4 +1,35 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { test, expect } from '@playwright/test';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const VENUE_GLB_FIXTURE = resolve(__dirname, '../_fixtures/club-venue.glb');
+const VENUE_HDR_FIXTURE = resolve(__dirname, '../_fixtures/club-hdri.hdr');
+
+// Route the authored club venue + HDRI to deterministic fixture files
+// (built by scripts/build-club-venue-fixture.mjs). The production assets
+// are 10+ MB Blender-authored / Polyhaven-sourced binaries that don't
+// live in git — the fixtures are node-only GLB / 4×4 HDR stand-ins with
+// every named empty the runtime contract requires.
+function stubVenueAssets(page) {
+	return Promise.all([
+		page.route('**/club/venue/club-venue.glb', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'model/gltf-binary',
+				path: VENUE_GLB_FIXTURE,
+			}),
+		),
+		page.route('**/club/venue/club-hdri.hdr', (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: 'image/vnd.radiance',
+				path: VENUE_HDR_FIXTURE,
+			}),
+		),
+	]);
+}
 
 // /club end-to-end smoke. Drives real Chromium against `npm run dev`, stubs
 // the on-chain settle endpoint (signing a real mainnet tx in CI is unsafe)
@@ -15,6 +46,8 @@ test.describe('/club', () => {
 		page.on('console', (m) => {
 			if (m.type() === 'error') consoleErrors.push(m.text());
 		});
+
+		await stubVenueAssets(page);
 
 		// Replace the public x402 widget with a no-modal stub. Doing this via
 		// route() instead of addInitScript() guarantees our stub wins the
@@ -102,6 +135,7 @@ test.describe('/club', () => {
 	});
 
 	test('keyboard VIP cam shortcuts work', async ({ page }) => {
+		await stubVenueAssets(page);
 		await page.goto('/club');
 
 		// data-cam-mode is written by the ClubCamera onModeChange callback in
@@ -115,6 +149,7 @@ test.describe('/club', () => {
 	});
 
 	test('leaderboard renders + tab switching', async ({ page }) => {
+		await stubVenueAssets(page);
 		await page.route('**/api/club/leaderboard*', (route) =>
 			route.fulfill({
 				status: 200,
