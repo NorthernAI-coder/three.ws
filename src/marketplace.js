@@ -1515,7 +1515,7 @@ function bindEmptyStateActions() {
 				hero.hidden = false;
 				startHeroAutoplay();
 			}
-			loadFeed(true);
+			loadList(true);
 		} else if (action === 'empty-submit-agent') {
 			openSubmitModal();
 		} else if (action === 'empty-create-avatar') {
@@ -2242,6 +2242,7 @@ async function toggleBookmark() {
 // ── Wiring ────────────────────────────────────────────────────────────────
 
 function bindEvents() {
+	bindEmptyStateActions();
 	let searchTimer;
 	els.search.addEventListener('input', (e) => {
 		clearTimeout(searchTimer);
