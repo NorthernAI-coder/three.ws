@@ -1,177 +1,281 @@
 #!/usr/bin/env node
 /**
  * Authors the static props used by /club — pole.glb and stage.glb — and writes
- * them to public/club/props/. Composed at build time from Three.js primitives,
- * not at runtime, so the browser ships a real .glb file with named empties for
- * the spotlight + LED strip attach points (consumed by src/club.js).
+ * them to public/club/props/. Composed at build time from procedural cylinder,
+ * box, torus and disc geometry via @gltf-transform/core, so the browser ships
+ * a real .glb file with named empties for the spotlight + LED strip attach
+ * points consumed by src/club.js.
  *
  * Run via: npm run build:club-props
  */
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { Blob } from 'node:buffer';
 
-// Three's GLTFExporter touches DOM globals; mirror the shim from build-animations.mjs.
-globalThis.self = globalThis;
-globalThis.window = globalThis;
-globalThis.document = { createElementNS: () => ({}) };
-globalThis.Blob = Blob;
-
-class NodeFileReader extends EventTarget {
-	readAsDataURL(blob) {
-		blob.arrayBuffer().then((buf) => {
-			const b64 = Buffer.from(buf).toString('base64');
-			this.result = `data:${blob.type || 'application/octet-stream'};base64,${b64}`;
-			this.onload?.({ target: this });
-			this.dispatchEvent(new Event('load'));
-		});
-	}
-	readAsArrayBuffer(blob) {
-		blob.arrayBuffer().then((buf) => {
-			this.result = buf;
-			this.onload?.({ target: this });
-			this.dispatchEvent(new Event('load'));
-		});
-	}
-}
-globalThis.FileReader = NodeFileReader;
+import { Document, NodeIO } from '@gltf-transform/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const OUT_DIR = resolve(ROOT, 'public/club/props');
-
-const {
-	Scene,
-	Group,
-	Mesh,
-	Object3D,
-	CylinderGeometry,
-	BoxGeometry,
-	TorusGeometry,
-	MeshStandardMaterial,
-} = await import('three');
-const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
 
 const POLE_HEIGHT = 3.6;
 const POLE_RADIUS = 0.035;
 const STAGE_RADIUS = 1.1;
 const STAGE_HEIGHT = 0.18;
 
-function chromeMat(name = 'PoleChrome') {
-	const m = new MeshStandardMaterial({
-		color: 0xe6e8f0,
-		roughness: 0.14,
-		metalness: 1.0,
-	});
-	m.name = name;
-	return m;
-}
-
-function brushedMat(name = 'PoleBaseBrushed') {
-	const m = new MeshStandardMaterial({
-		color: 0xc8ccd8,
-		roughness: 0.32,
-		metalness: 0.95,
-	});
-	m.name = name;
-	return m;
-}
-
-function darkMetalMat(name = 'BoltDark') {
-	const m = new MeshStandardMaterial({
-		color: 0x1a1c20,
-		roughness: 0.45,
-		metalness: 0.9,
-	});
-	m.name = name;
-	return m;
-}
-
-function stageTopMat(name = 'StageTop') {
-	const m = new MeshStandardMaterial({
-		color: 0x18091a,
-		roughness: 0.35,
-		metalness: 0.7,
-	});
-	m.name = name;
-	return m;
-}
-
-function stageSideMat(name = 'StageSide') {
-	const m = new MeshStandardMaterial({
-		color: 0x0a050d,
-		roughness: 0.55,
-		metalness: 0.55,
-	});
-	m.name = name;
-	return m;
-}
-
-function ledMat(name = 'StageLED') {
-	const m = new MeshStandardMaterial({
-		color: 0xffffff,
-		emissive: 0xff4dd6,
-		emissiveIntensity: 1.0,
-		roughness: 0.4,
-		metalness: 0.1,
-	});
-	m.name = name;
-	return m;
-}
+// ─── Geometry builders (positions / normals / indices, no UVs) ───────────────
 
 /**
- * Build pole.glb scene. Origin = (0, 0, 0) at pole base footprint center; the
- * shaft extends upward to y = POLE_HEIGHT. Includes a flared base, ceiling
- * mount plate with four bolts, a spotlight bracket, and a named empty
- * `pole.light.attach` at the bracket tip.
+ * Open-top cylinder side wall + two end caps. radiusTop/radiusBottom support
+ * the flared base; segments controls smoothness.
  */
-function buildPoleScene() {
-	const scene = new Scene();
-	scene.name = 'PoleScene';
+function cylinderGeom(radiusTop, radiusBottom, height, segments = 24) {
+	const positions = [];
+	const normals = [];
+	const indices = [];
+	const halfH = height / 2;
 
-	const root = new Group();
-	root.name = 'PoleRoot';
-	scene.add(root);
+	// Side ring vertices, duplicated per ring (top + bottom).
+	for (let i = 0; i <= segments; i++) {
+		const u = i / segments;
+		const theta = u * Math.PI * 2;
+		const sin = Math.sin(theta);
+		const cos = Math.cos(theta);
+		// Slope of the side normal so the lighting reads smoothly on a flared cone.
+		const slope = (radiusBottom - radiusTop) / height;
+		const nLen = Math.hypot(1, slope);
+		const nx = cos / nLen;
+		const nz = sin / nLen;
+		const ny = slope / nLen;
 
-	// Flared base — wide bottom disc tapered to a narrow collar.
-	const baseDisc = new Mesh(
-		new CylinderGeometry(0.42, 0.46, 0.04, 40),
-		brushedMat('PoleBase'),
-	);
-	baseDisc.name = 'pole.base';
-	baseDisc.position.y = 0.02;
-	root.add(baseDisc);
+		positions.push(radiusTop * cos, halfH, radiusTop * sin);
+		normals.push(nx, ny, nz);
+		positions.push(radiusBottom * cos, -halfH, radiusBottom * sin);
+		normals.push(nx, ny, nz);
+	}
+	for (let i = 0; i < segments; i++) {
+		const a = i * 2;
+		indices.push(a, a + 1, a + 2);
+		indices.push(a + 1, a + 3, a + 2);
+	}
 
-	const baseCollar = new Mesh(
-		new CylinderGeometry(POLE_RADIUS * 2.1, 0.13, 0.09, 32),
-		brushedMat('PoleCollar'),
-	);
-	baseCollar.name = 'pole.collar';
-	baseCollar.position.y = 0.04 + 0.045;
-	root.add(baseCollar);
+	// Top + bottom caps as triangle fans.
+	const addCap = (y, radius, normalY) => {
+		const centerIdx = positions.length / 3;
+		positions.push(0, y, 0);
+		normals.push(0, normalY, 0);
+		const ringStart = positions.length / 3;
+		for (let i = 0; i <= segments; i++) {
+			const theta = (i / segments) * Math.PI * 2;
+			positions.push(radius * Math.cos(theta), y, radius * Math.sin(theta));
+			normals.push(0, normalY, 0);
+		}
+		for (let i = 0; i < segments; i++) {
+			if (normalY > 0) {
+				indices.push(centerIdx, ringStart + i, ringStart + i + 1);
+			} else {
+				indices.push(centerIdx, ringStart + i + 1, ringStart + i);
+			}
+		}
+	};
+	addCap(halfH, radiusTop, 1);
+	addCap(-halfH, radiusBottom, -1);
+
+	return {
+		positions: new Float32Array(positions),
+		normals: new Float32Array(normals),
+		indices: new Uint32Array(indices),
+	};
+}
+
+function boxGeom(sx, sy, sz) {
+	const x = sx / 2, y = sy / 2, z = sz / 2;
+	const faces = [
+		// +X
+		{ n: [1, 0, 0], v: [[x, -y, -z], [x, y, -z], [x, y, z], [x, -y, z]] },
+		// -X
+		{ n: [-1, 0, 0], v: [[-x, -y, z], [-x, y, z], [-x, y, -z], [-x, -y, -z]] },
+		// +Y
+		{ n: [0, 1, 0], v: [[-x, y, -z], [-x, y, z], [x, y, z], [x, y, -z]] },
+		// -Y
+		{ n: [0, -1, 0], v: [[-x, -y, z], [-x, -y, -z], [x, -y, -z], [x, -y, z]] },
+		// +Z
+		{ n: [0, 0, 1], v: [[-x, -y, z], [x, -y, z], [x, y, z], [-x, y, z]] },
+		// -Z
+		{ n: [0, 0, -1], v: [[x, -y, -z], [-x, -y, -z], [-x, y, -z], [x, y, -z]] },
+	];
+	const positions = [];
+	const normals = [];
+	const indices = [];
+	for (const face of faces) {
+		const start = positions.length / 3;
+		for (const p of face.v) {
+			positions.push(...p);
+			normals.push(...face.n);
+		}
+		indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
+	}
+	return {
+		positions: new Float32Array(positions),
+		normals: new Float32Array(normals),
+		indices: new Uint32Array(indices),
+	};
+}
+
+function torusGeom(radius, tube, radialSegments = 8, tubularSegments = 64) {
+	const positions = [];
+	const normals = [];
+	const indices = [];
+	for (let j = 0; j <= radialSegments; j++) {
+		for (let i = 0; i <= tubularSegments; i++) {
+			const u = (i / tubularSegments) * Math.PI * 2;
+			const v = (j / radialSegments) * Math.PI * 2;
+			const cosU = Math.cos(u), sinU = Math.sin(u);
+			const cosV = Math.cos(v), sinV = Math.sin(v);
+			positions.push(
+				(radius + tube * cosV) * cosU,
+				tube * sinV,
+				(radius + tube * cosV) * sinU,
+			);
+			normals.push(cosV * cosU, sinV, cosV * sinU);
+		}
+	}
+	const stride = tubularSegments + 1;
+	for (let j = 0; j < radialSegments; j++) {
+		for (let i = 0; i < tubularSegments; i++) {
+			const a = j * stride + i;
+			const b = a + stride;
+			indices.push(a, b, a + 1);
+			indices.push(b, b + 1, a + 1);
+		}
+	}
+	return {
+		positions: new Float32Array(positions),
+		normals: new Float32Array(normals),
+		indices: new Uint32Array(indices),
+	};
+}
+
+// ─── glTF assembly helpers ───────────────────────────────────────────────────
+
+function addPrim(doc, buffer, mat, name, { positions, normals, indices }) {
+	const posAcc = doc
+		.createAccessor(`${name}.pos`)
+		.setType('VEC3')
+		.setArray(positions)
+		.setBuffer(buffer);
+	const normAcc = doc
+		.createAccessor(`${name}.norm`)
+		.setType('VEC3')
+		.setArray(normals)
+		.setBuffer(buffer);
+	const idxAcc = doc
+		.createAccessor(`${name}.idx`)
+		.setType('SCALAR')
+		.setArray(indices)
+		.setBuffer(buffer);
+	const prim = doc
+		.createPrimitive()
+		.setAttribute('POSITION', posAcc)
+		.setAttribute('NORMAL', normAcc)
+		.setIndices(idxAcc)
+		.setMaterial(mat);
+	return doc.createMesh(name).addPrimitive(prim);
+}
+
+function addMesh(doc, scene, buffer, mat, name, geom, translation = [0, 0, 0], rotation = null) {
+	const mesh = addPrim(doc, buffer, mat, name, geom);
+	const node = doc.createNode(name).setMesh(mesh).setTranslation(translation);
+	if (rotation) node.setRotation(rotation);
+	scene.addChild(node);
+	return node;
+}
+
+function addEmpty(doc, scene, name, translation) {
+	const node = doc.createNode(name).setTranslation(translation);
+	scene.addChild(node);
+	return node;
+}
+
+function chromeMat(doc) {
+	return doc
+		.createMaterial('PoleChrome')
+		.setBaseColorFactor([0.902, 0.910, 0.941, 1])
+		.setMetallicFactor(1.0)
+		.setRoughnessFactor(0.14);
+}
+
+function brushedMat(doc) {
+	return doc
+		.createMaterial('PoleBrushed')
+		.setBaseColorFactor([0.784, 0.800, 0.847, 1])
+		.setMetallicFactor(0.95)
+		.setRoughnessFactor(0.32);
+}
+
+function darkMetalMat(doc) {
+	return doc
+		.createMaterial('DarkMetal')
+		.setBaseColorFactor([0.102, 0.110, 0.126, 1])
+		.setMetallicFactor(0.9)
+		.setRoughnessFactor(0.45);
+}
+
+function stageBodyMat(doc) {
+	return doc
+		.createMaterial('StageBody')
+		.setBaseColorFactor([0.039, 0.020, 0.051, 1])
+		.setMetallicFactor(0.55)
+		.setRoughnessFactor(0.55);
+}
+
+function stageTopMat(doc) {
+	return doc
+		.createMaterial('StageTop')
+		.setBaseColorFactor([0.094, 0.035, 0.102, 1])
+		.setMetallicFactor(0.7)
+		.setRoughnessFactor(0.35);
+}
+
+function ledMat(doc) {
+	return doc
+		.createMaterial('StageLED')
+		.setBaseColorFactor([1, 1, 1, 1])
+		.setEmissiveFactor([1.0, 0.3, 0.84])
+		.setMetallicFactor(0.1)
+		.setRoughnessFactor(0.4);
+}
+
+// ─── Pole ────────────────────────────────────────────────────────────────────
+
+function buildPoleDoc() {
+	const doc = new Document();
+	doc.createBuffer();
+	const buffer = doc.getRoot().listBuffers()[0];
+	const scene = doc.createScene('PoleScene');
+
+	const chrome = chromeMat(doc);
+	const brushed = brushedMat(doc);
+	const dark = darkMetalMat(doc);
+
+	// Flared base disc.
+	addMesh(doc, scene, buffer, brushed, 'pole.base',
+		cylinderGeom(0.42, 0.46, 0.04, 40), [0, 0.02, 0]);
+
+	// Transition collar between base and shaft.
+	addMesh(doc, scene, buffer, brushed, 'pole.collar',
+		cylinderGeom(POLE_RADIUS * 2.1, 0.13, 0.09, 32), [0, 0.04 + 0.045, 0]);
 
 	// Main shaft.
-	const shaft = new Mesh(
-		new CylinderGeometry(POLE_RADIUS, POLE_RADIUS, POLE_HEIGHT, 24, 1),
-		chromeMat('PoleShaft'),
-	);
-	shaft.name = 'pole.shaft';
-	shaft.position.y = POLE_HEIGHT / 2;
-	root.add(shaft);
+	addMesh(doc, scene, buffer, chrome, 'pole.shaft',
+		cylinderGeom(POLE_RADIUS, POLE_RADIUS, POLE_HEIGHT, 24), [0, POLE_HEIGHT / 2, 0]);
 
-	// Ceiling mount plate at the top.
-	const mountPlate = new Mesh(
-		new BoxGeometry(0.26, 0.014, 0.26),
-		brushedMat('PoleMountPlate'),
-	);
-	mountPlate.name = 'pole.mount.plate';
-	mountPlate.position.y = POLE_HEIGHT + 0.007;
-	root.add(mountPlate);
+	// Ceiling mount plate.
+	addMesh(doc, scene, buffer, brushed, 'pole.mount.plate',
+		boxGeom(0.26, 0.014, 0.26), [0, POLE_HEIGHT + 0.007, 0]);
 
-	// Four bolts at corners of the plate.
-	const boltMat = darkMetalMat('PoleBolt');
-	const boltGeom = new CylinderGeometry(0.012, 0.012, 0.022, 8);
+	// Four bolts on the mount plate.
+	const boltGeom = cylinderGeom(0.012, 0.012, 0.022, 8);
 	const boltInset = 0.10;
 	const boltOffsets = [
 		[+boltInset, +boltInset],
@@ -181,114 +285,69 @@ function buildPoleScene() {
 	];
 	for (let i = 0; i < boltOffsets.length; i++) {
 		const [bx, bz] = boltOffsets[i];
-		const bolt = new Mesh(boltGeom.clone(), boltMat);
-		bolt.name = `pole.bolt.${i}`;
-		bolt.position.set(bx, POLE_HEIGHT + 0.024, bz);
-		root.add(bolt);
+		addMesh(doc, scene, buffer, dark, `pole.bolt.${i}`,
+			boltGeom, [bx, POLE_HEIGHT + 0.024, bz]);
 	}
 
-	// Spotlight bracket — extends in +z from the mount plate.
-	const bracketArm = new Mesh(
-		new BoxGeometry(0.04, 0.02, 0.18),
-		darkMetalMat('PoleBracketArm'),
-	);
-	bracketArm.name = 'pole.bracket.arm';
-	bracketArm.position.set(0, POLE_HEIGHT + 0.024, 0.13);
-	root.add(bracketArm);
+	// Spotlight bracket.
+	addMesh(doc, scene, buffer, dark, 'pole.bracket.arm',
+		boxGeom(0.04, 0.02, 0.18), [0, POLE_HEIGHT + 0.024, 0.13]);
+	// Rotate +90° about X so the cylinder's Y axis points along Z (head pointing forward).
+	// Quaternion for 90° X-rotation: (sin(45°), 0, 0, cos(45°)).
+	const xQuat = [Math.SQRT1_2, 0, 0, Math.SQRT1_2];
+	addMesh(doc, scene, buffer, dark, 'pole.bracket.head',
+		cylinderGeom(0.025, 0.025, 0.04, 16), [0, POLE_HEIGHT + 0.024, 0.22], xQuat);
 
-	const bracketHead = new Mesh(
-		new CylinderGeometry(0.025, 0.025, 0.04, 16),
-		darkMetalMat('PoleBracketHead'),
-	);
-	bracketHead.name = 'pole.bracket.head';
-	bracketHead.rotation.x = Math.PI / 2;
-	bracketHead.position.set(0, POLE_HEIGHT + 0.024, 0.22);
-	root.add(bracketHead);
+	// Spotlight attach empty (consumed by prompt 04).
+	addEmpty(doc, scene, 'pole.light.attach', [0, POLE_HEIGHT + 0.024, 0.24]);
 
-	// Named empty for prompt-04 SpotLight anchoring.
-	const attach = new Object3D();
-	attach.name = 'pole.light.attach';
-	attach.position.set(0, POLE_HEIGHT + 0.024, 0.24);
-	root.add(attach);
-
-	return scene;
+	return doc;
 }
 
-/**
- * Build stage.glb scene. Origin = (0, 0, 0) at floor level under disc center;
- * the disc top is at y = STAGE_HEIGHT. Includes an LED strip ring around the
- * top edge with a named empty `stage.led.strip` at its center.
- */
-function buildStageScene() {
-	const scene = new Scene();
-	scene.name = 'StageScene';
+// ─── Stage ───────────────────────────────────────────────────────────────────
 
-	const root = new Group();
-	root.name = 'StageRoot';
-	scene.add(root);
+function buildStageDoc() {
+	const doc = new Document();
+	doc.createBuffer();
+	const buffer = doc.getRoot().listBuffers()[0];
+	const scene = doc.createScene('StageScene');
 
-	// Main disc.
-	const disc = new Mesh(
-		new CylinderGeometry(STAGE_RADIUS, STAGE_RADIUS + 0.04, STAGE_HEIGHT, 64, 1),
-		stageSideMat('StageBody'),
-	);
-	disc.name = 'stage.body';
-	disc.position.y = STAGE_HEIGHT / 2;
-	root.add(disc);
+	const body = stageBodyMat(doc);
+	const top = stageTopMat(doc);
+	const led = ledMat(doc);
 
-	// Slightly raised non-slip top so the dancer's feet have a defined surface.
-	const top = new Mesh(
-		new CylinderGeometry(STAGE_RADIUS - 0.01, STAGE_RADIUS - 0.01, 0.004, 64, 1),
-		stageTopMat('StageTopFace'),
-	);
-	top.name = 'stage.top';
-	top.position.y = STAGE_HEIGHT + 0.002;
-	root.add(top);
+	// Main disc (slight outward flare at the base).
+	addMesh(doc, scene, buffer, body, 'stage.body',
+		cylinderGeom(STAGE_RADIUS, STAGE_RADIUS + 0.04, STAGE_HEIGHT, 64), [0, STAGE_HEIGHT / 2, 0]);
 
-	// LED strip — thin torus around the upper edge.
-	const led = new Mesh(
-		new TorusGeometry(STAGE_RADIUS + 0.005, 0.012, 8, 96),
-		ledMat('StageLEDStrip'),
-	);
-	led.name = 'stage.led.ring';
-	led.rotation.x = Math.PI / 2;
-	led.position.y = STAGE_HEIGHT - 0.014;
-	root.add(led);
+	// Anti-slip top face — recessed slightly inside the disc rim.
+	addMesh(doc, scene, buffer, top, 'stage.top',
+		cylinderGeom(STAGE_RADIUS - 0.01, STAGE_RADIUS - 0.01, 0.004, 64), [0, STAGE_HEIGHT + 0.002, 0]);
 
-	// Named empty for prompt-04 LED pulse driver.
-	const ledAttach = new Object3D();
-	ledAttach.name = 'stage.led.strip';
-	ledAttach.position.set(0, STAGE_HEIGHT - 0.014, 0);
-	root.add(ledAttach);
+	// LED strip — horizontal torus around the top edge.
+	const xQuat = [Math.SQRT1_2, 0, 0, Math.SQRT1_2];
+	addMesh(doc, scene, buffer, led, 'stage.led.ring',
+		torusGeom(STAGE_RADIUS + 0.005, 0.012, 8, 96), [0, STAGE_HEIGHT - 0.014, 0], xQuat);
 
-	return scene;
-}
+	// LED control empty (consumed by prompt 04).
+	addEmpty(doc, scene, 'stage.led.strip', [0, STAGE_HEIGHT - 0.014, 0]);
 
-async function exportGLB(scene) {
-	const exporter = new GLTFExporter();
-	return new Promise((resolve, reject) => {
-		exporter.parse(
-			scene,
-			(buf) => resolve(buf),
-			(err) => reject(err),
-			{ binary: true, embedImages: true, onlyVisible: true },
-		);
-	});
+	return doc;
 }
 
 async function main() {
 	mkdirSync(OUT_DIR, { recursive: true });
+	const io = new NodeIO();
 
 	const targets = [
-		{ name: 'pole.glb', scene: buildPoleScene() },
-		{ name: 'stage.glb', scene: buildStageScene() },
+		{ name: 'pole.glb', doc: buildPoleDoc() },
+		{ name: 'stage.glb', doc: buildStageDoc() },
 	];
 
-	for (const { name, scene } of targets) {
-		const buf = await exportGLB(scene);
-		const bytes = Buffer.from(buf);
+	for (const { name, doc } of targets) {
+		const bytes = await io.writeBinary(doc);
 		const outPath = resolve(OUT_DIR, name);
-		writeFileSync(outPath, bytes);
+		writeFileSync(outPath, Buffer.from(bytes));
 		console.log(`[club-props] wrote ${name.padEnd(10)} ${(bytes.length / 1024).toFixed(1)} kB`);
 	}
 }

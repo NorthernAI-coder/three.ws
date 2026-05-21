@@ -7,6 +7,10 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
+		"api/club/tips-stream.js": {
+			"includeFiles": "node_modules/@zauthx402/sdk/dist/**,examples/skills/pump-fun-strategy/**,data/archives/**,data/rss/**",
+			"maxDuration": 300
+		},
 		"api/**/*.js": {
 			"includeFiles": "node_modules/@zauthx402/sdk/dist/**,examples/skills/pump-fun-strategy/**,data/archives/**,data/rss/**",
 			"maxDuration": 30
@@ -1388,6 +1392,10 @@
 			"dest": "/api/tool_schema"
 		},
 		{
+			"src": "/api/club/tips/stream",
+			"dest": "/api/club/tips-stream"
+		},
+		{
 			"src": "/api/(.*)",
 			"dest": "/api/$1"
 		},
@@ -1692,6 +1700,10 @@
 		{
 			"path": "/api/cron/run-coin-payouts",
 			"schedule": "1-59/5 * * * *"
+		},
+		{
+			"path": "/api/cron/club-payouts",
+			"schedule": "2-59/5 * * * *"
 		}
 	]
 }

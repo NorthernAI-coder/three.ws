@@ -27,14 +27,14 @@ export class ClubAudio {
 	constructor() {
 		this.ctx = null;
 		this.master = null;
-		this.ambience = null;       // { source, gain }
-		this.style = null;          // { name, source, gain }
+		this.ambience = null; // { source, gain }
+		this.style = null; // { name, source, gain }
 		this.analyser = null;
-		this._buffers = new Map();  // styleName → AudioBuffer
-		this._loading = new Map();  // styleName → Promise<AudioBuffer>
-		this._peakBuf = null;       // Uint8Array reused for getByteFrequencyData
+		this._buffers = new Map(); // styleName → AudioBuffer
+		this._loading = new Map(); // styleName → Promise<AudioBuffer>
+		this._peakBuf = null; // Uint8Array reused for getByteFrequencyData
 		this.muted = this._readMutedPref();
-		this._onStatus = null;      // optional callback(name, label)
+		this._onStatus = null; // optional callback(name, label)
 	}
 
 	onStatus(cb) {
@@ -46,13 +46,14 @@ export class ClubAudio {
 			// On Safari the context can flip to "suspended" after a tab switch;
 			// re-resume on every tip gesture is cheap and safe.
 			if (this.ctx.state === 'suspended') {
-				try { await this.ctx.resume(); } catch {}
+				try {
+					await this.ctx.resume();
+				} catch {}
 			}
 			return;
 		}
-		const Ctor = typeof window !== 'undefined'
-			? (window.AudioContext || window.webkitAudioContext)
-			: null;
+		const Ctor =
+			typeof window !== 'undefined' ? window.AudioContext || window.webkitAudioContext : null;
 		if (!Ctor) {
 			throw new Error('Web Audio API unavailable');
 		}
@@ -68,7 +69,9 @@ export class ClubAudio {
 		this._peakBuf = new Uint8Array(this.analyser.frequencyBinCount);
 
 		if (this.ctx.state === 'suspended') {
-			try { await this.ctx.resume(); } catch {}
+			try {
+				await this.ctx.resume();
+			} catch {}
 		}
 	}
 
@@ -130,7 +133,9 @@ export class ClubAudio {
 		if (!name) return;
 		await this.ensureContext();
 		if (this.ctx.state === 'suspended') {
-			try { await this.ctx.resume(); } catch {}
+			try {
+				await this.ctx.resume();
+			} catch {}
 		}
 		const buf = await this.loadBuffer(name);
 
@@ -156,7 +161,9 @@ export class ClubAudio {
 		}
 
 		if (this._onStatus) {
-			try { this._onStatus(name); } catch {}
+			try {
+				this._onStatus(name);
+			} catch {}
 		}
 		return this.style;
 	}
@@ -199,7 +206,7 @@ export class ClubAudio {
 		const n = this._peakBuf.length >> 1;
 		let sum = 0;
 		for (let i = 0; i < n; i++) sum += this._peakBuf[i];
-		return n > 0 ? (sum / n) / 255 : 0;
+		return n > 0 ? sum / n / 255 : 0;
 	}
 
 	setMuted(v) {

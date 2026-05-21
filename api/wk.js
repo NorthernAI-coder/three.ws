@@ -8,11 +8,11 @@ import {
 	bazaarExtension,
 	build402Body,
 	declareEip2612GasSponsoringExtension,
+	declareErc20ApprovalGasSponsoringExtension,
 	permit2VariantOf,
 	NETWORK_BASE_MAINNET,
 	NETWORK_SOLANA_MAINNET,
 } from './_lib/x402-spec.js';
-import { declareErc20ApprovalGasSponsoringExtension } from '@x402/extensions';
 
 // ── agent-attestation-schemas ─────────────────────────────────────────────────
 

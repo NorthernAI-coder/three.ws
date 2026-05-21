@@ -12,11 +12,11 @@ import {
 	EIP2612_EXTENSION_KEY,
 	ERC20_APPROVAL_EXTENSION_KEY,
 	declareEip2612GasSponsoringExtension,
+	declareErc20ApprovalGasSponsoringExtension,
 	paymentRequirements,
 	probeFacilitators,
 	X402_VERSION,
 } from './_lib/x402-spec.js';
-import { declareErc20ApprovalGasSponsoringExtension } from '@x402/extensions';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;

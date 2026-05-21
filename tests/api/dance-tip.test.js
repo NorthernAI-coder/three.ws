@@ -1,0 +1,262 @@
+// Tests for /api/x402/dance-tip — the Pole Club tip endpoint.
+//
+// Pure-logic only — we exercise the exported helpers (STYLES, pickStyle,
+// pickDancer, buildTicket, BAZAAR_SCHEMA) rather than the paidEndpoint HTTP
+// wrapper. That keeps tests off the network and off the database while still
+// covering everything the wire format depends on.
+//
+// Coverage:
+//   • STYLES keys + shape (free-floor single-clip vs. pole sequence styles)
+//   • pickStyle resolves both shapes and rejects unknown styles
+//   • pickDancer enforces the slot allowlist
+//   • buildTicket emits `sequence` for sequence styles and omits it otherwise
+//   • The bazaar schema advertises the new `dance` enum values + sequence shape
+
+import { describe, it, expect } from 'vitest';
+import {
+	STYLES,
+	pickStyle,
+	pickDancer,
+	buildTicket,
+	BAZAAR_SCHEMA,
+} from '../../api/x402/dance-tip.js';
+
+const FREE_FLOOR_KEYS = ['hiphop', 'rumba', 'silly', 'thriller', 'capoeira'];
+const POLE_KEYS = ['spin', 'climb', 'combo'];
+
+describe('STYLES — registry', () => {
+	it('keeps the existing free-floor single-clip styles', () => {
+		for (const key of FREE_FLOOR_KEYS) {
+			const style = STYLES[key];
+			expect(style, `${key} missing from STYLES`).toBeTruthy();
+			expect(typeof style.clip).toBe('string');
+			expect(style.loop).toBe(true);
+			expect(typeof style.durationSec).toBe('number');
+			expect(style.sequence).toBeUndefined();
+		}
+	});
+
+	it('declares the three pole choreography sequence styles', () => {
+		for (const key of POLE_KEYS) {
+			const style = STYLES[key];
+			expect(style, `${key} missing from STYLES`).toBeTruthy();
+			expect(Array.isArray(style.sequence)).toBe(true);
+			expect(style.sequence.length).toBeGreaterThan(0);
+			expect(style.track).toBe('pole');
+			expect(typeof style.label).toBe('string');
+			// Each step must name a clip + a positive duration so playSequence
+			// has something to crossfade to and a non-zero sleep between steps.
+			for (const step of style.sequence) {
+				expect(typeof step.clip).toBe('string');
+				expect(step.clip.length).toBeGreaterThan(0);
+				expect(step.durationSec).toBeGreaterThan(0);
+			}
+		}
+	});
+
+	it('spin sequence matches the documented (pole-spin, pole-bow) chain', () => {
+		expect(STYLES.spin.sequence).toEqual([
+			{ clip: 'pole-spin', durationSec: 8 },
+			{ clip: 'pole-bow',  durationSec: 2 },
+		]);
+		expect(STYLES.spin.durationSec).toBe(10);
+	});
+
+	it('climb sequence matches (pole-climb, pole-invert, pole-bow)', () => {
+		expect(STYLES.climb.sequence).toEqual([
+			{ clip: 'pole-climb',  durationSec: 5 },
+			{ clip: 'pole-invert', durationSec: 6 },
+			{ clip: 'pole-bow',    durationSec: 2 },
+		]);
+		expect(STYLES.climb.durationSec).toBe(13);
+	});
+
+	it('combo sequence chains spin → climb → invert → floorwork → bow', () => {
+		expect(STYLES.combo.sequence.map((s) => s.clip)).toEqual([
+			'pole-spin',
+			'pole-climb',
+			'pole-invert',
+			'pole-floorwork',
+			'pole-bow',
+		]);
+		expect(STYLES.combo.durationSec).toBe(18);
+		// Sum of step durations matches the advertised total.
+		const total = STYLES.combo.sequence.reduce((acc, s) => acc + s.durationSec, 0);
+		expect(total).toBe(18);
+	});
+
+	it('STYLES is frozen so the bazaar enum cannot drift at runtime', () => {
+		expect(Object.isFrozen(STYLES)).toBe(true);
+	});
+});
+
+describe('pickStyle', () => {
+	it('returns a normalized descriptor for a free-floor style', () => {
+		const s = pickStyle('rumba');
+		expect(s.key).toBe('rumba');
+		expect(s.clip).toBe('rumba');
+		expect(s.loop).toBe(true);
+		expect(s.durationSec).toBe(14);
+		expect(s.track).toBe('rumba');
+		expect(s.sequence).toBeUndefined();
+	});
+
+	it('returns sequence + first-step clip for a pole sequence style', () => {
+		const s = pickStyle('spin');
+		expect(s.key).toBe('spin');
+		expect(s.clip).toBe('pole-spin'); // first step lifted as legacy `clip`
+		expect(s.loop).toBe(false);
+		expect(s.track).toBe('pole');
+		expect(s.sequence).toEqual([
+			{ clip: 'pole-spin', durationSec: 8 },
+			{ clip: 'pole-bow',  durationSec: 2 },
+		]);
+	});
+
+	it('lowercases + trims user input before lookup', () => {
+		expect(pickStyle('  SPIN  ').key).toBe('spin');
+		expect(pickStyle('Rumba').key).toBe('rumba');
+	});
+
+	it('throws unknown_dance with status=400 for unregistered names', () => {
+		const calls = [
+			() => pickStyle('breakdance'),
+			() => pickStyle(''),
+			() => pickStyle(null),
+			() => pickStyle(undefined),
+		];
+		for (const fn of calls) {
+			let caught;
+			try { fn(); } catch (e) { caught = e; }
+			expect(caught).toBeInstanceOf(Error);
+			expect(caught.status).toBe(400);
+			expect(caught.code).toBe('unknown_dance');
+			// The error message enumerates valid styles so the caller can recover.
+			expect(caught.message).toMatch(/spin/);
+			expect(caught.message).toMatch(/rumba/);
+		}
+	});
+});
+
+describe('pickDancer', () => {
+	it('accepts the four stage slot ids', () => {
+		for (const id of ['1', '2', '3', '4']) {
+			expect(pickDancer(id)).toBe(id);
+		}
+	});
+
+	it('rejects anything outside the allowlist with status=400', () => {
+		const bad = ['0', '5', 'one', '', null, undefined, '  '];
+		for (const v of bad) {
+			let caught;
+			try { pickDancer(v); } catch (e) { caught = e; }
+			expect(caught, `expected throw for ${JSON.stringify(v)}`).toBeInstanceOf(Error);
+			expect(caught.status).toBe(400);
+			expect(caught.code).toBe('unknown_dancer');
+		}
+	});
+
+	it('trims numeric strings before validation', () => {
+		expect(pickDancer(' 2 ')).toBe('2');
+	});
+});
+
+describe('buildTicket', () => {
+	const REQUIREMENT = {
+		network: 'solana',
+		amount: '1000',
+		asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+	};
+
+	it('emits a single-clip ticket without a sequence field for free-floor styles', () => {
+		const style = pickStyle('rumba');
+		const now = new Date('2026-05-21T00:00:00.000Z');
+		const ticket = buildTicket({
+			dancer: '2',
+			style,
+			now,
+			payer: 'wwwPqsM4',
+			requirement: REQUIREMENT,
+			ticketId: 'tkt-1',
+		});
+		expect(ticket.ok).toBe(true);
+		expect(ticket.ticketId).toBe('tkt-1');
+		expect(ticket.dance).toBe('rumba');
+		expect(ticket.clip).toBe('rumba');
+		expect(ticket.loop).toBe(true);
+		expect(ticket.durationSec).toBe(14);
+		expect(ticket.track).toBe('rumba');
+		expect(ticket.sequence).toBeUndefined();
+		expect(ticket.startsAt).toBe('2026-05-21T00:00:00.000Z');
+		expect(ticket.endsAt).toBe('2026-05-21T00:00:14.000Z');
+		expect(ticket.network).toBe('solana');
+		expect(ticket.amountAtomics).toBe('1000');
+	});
+
+	it('emits a sequence ticket for pole styles with the chain attached', () => {
+		const style = pickStyle('climb');
+		const ticket = buildTicket({
+			dancer: '3',
+			style,
+			now: new Date('2026-05-21T00:00:00.000Z'),
+			payer: 'wwwPqsM4',
+			requirement: REQUIREMENT,
+			ticketId: 'tkt-2',
+		});
+		expect(ticket.dance).toBe('climb');
+		// `clip` carries the first step's clip for legacy consumers + the
+		// club_tips ledger row.
+		expect(ticket.clip).toBe('pole-climb');
+		expect(ticket.loop).toBe(false);
+		expect(ticket.durationSec).toBe(13);
+		expect(ticket.track).toBe('pole');
+		expect(ticket.sequence).toEqual([
+			{ clip: 'pole-climb',  durationSec: 5 },
+			{ clip: 'pole-invert', durationSec: 6 },
+			{ clip: 'pole-bow',    durationSec: 2 },
+		]);
+		expect(ticket.endsAt).toBe('2026-05-21T00:00:13.000Z');
+	});
+
+	it('defaults payer + requirement fields to null when absent', () => {
+		const ticket = buildTicket({
+			dancer: '1',
+			style: pickStyle('hiphop'),
+			ticketId: 'tkt-3',
+		});
+		expect(ticket.payer).toBe(null);
+		expect(ticket.network).toBe(null);
+		expect(ticket.amountAtomics).toBe(null);
+		expect(ticket.asset).toBe(null);
+	});
+});
+
+describe('Bazaar discovery schema', () => {
+	it('marks the endpoint discoverable', () => {
+		expect(BAZAAR_SCHEMA.discoverable).toBe(true);
+	});
+
+	it("advertises every STYLES key in the input `dance` enum", () => {
+		// The bazaar schema wraps the inner queryParams JSON Schema — locate
+		// the `dance` property however the wrapper nests it.
+		const wireSchema = JSON.stringify(BAZAAR_SCHEMA.schema);
+		for (const key of [...FREE_FLOOR_KEYS, ...POLE_KEYS]) {
+			expect(wireSchema, `dance enum missing "${key}"`).toContain(`"${key}"`);
+		}
+	});
+
+	it('advertises the sequence ticket shape (clip + durationSec items)', () => {
+		const wireSchema = JSON.stringify(BAZAAR_SCHEMA.schema);
+		// The output schema lists a `sequence` array of {clip, durationSec}.
+		expect(wireSchema).toContain('"sequence"');
+		expect(wireSchema).toContain('"clip"');
+		expect(wireSchema).toContain('"durationSec"');
+	});
+
+	it('exposes a sequence-style OUTPUT_EXAMPLE so bazaar clients see the shape', () => {
+		const example = BAZAAR_SCHEMA.info.output.example;
+		expect(example.ok).toBe(true);
+		expect(Array.isArray(example.sequence)).toBe(true);
+		expect(example.sequence.length).toBeGreaterThan(0);
+	});
+});

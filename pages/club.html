@@ -139,6 +139,22 @@
 				border-color: rgba(74, 214, 255, 0.32);
 				color: #cdeefe;
 			}
+			.club-pill-toggle {
+				appearance: none;
+				cursor: pointer;
+				font: inherit;
+				font-weight: 600;
+				color: var(--text);
+				background: rgba(255, 138, 59, 0.12);
+				border: 1px solid rgba(255, 138, 59, 0.32);
+				transition: filter 0.12s ease, background 0.12s ease;
+			}
+			.club-pill-toggle:hover { filter: brightness(1.1); }
+			.club-pill-toggle[aria-pressed="true"] {
+				background: rgba(124, 93, 146, 0.18);
+				border-color: rgba(124, 93, 146, 0.38);
+				color: var(--text-3);
+			}
 
 			/* ── Stage (3D canvas) ─────────────────────────────── */
 			#club-stage {
@@ -397,6 +413,117 @@
 				text-align: center;
 				padding: 12px 0;
 			}
+			.club-feed-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+			}
+			.club-feed-status {
+				font-size: 10.5px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				padding: 2px 7px;
+				border-radius: 999px;
+				border: 1px solid var(--border);
+				color: var(--text-3);
+				background: rgba(255, 255, 255, 0.03);
+			}
+			.club-feed-status[data-kind="paused"] {
+				color: #ffb74a;
+				border-color: rgba(255, 183, 74, 0.5);
+				background: rgba(255, 183, 74, 0.08);
+			}
+			.club-feed-status[data-kind="error"] {
+				color: #ff6b81;
+				border-color: rgba(255, 107, 129, 0.5);
+				background: rgba(255, 107, 129, 0.08);
+			}
+
+			/* ── Leaderboard ──────────────────────────────────── */
+			.club-lb-tabs {
+				display: flex;
+				gap: 4px;
+				margin-bottom: 10px;
+			}
+			.club-lb-tab {
+				appearance: none;
+				border: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.02);
+				color: var(--text-2);
+				font: inherit;
+				font-size: 11px;
+				font-weight: 600;
+				padding: 5px 10px;
+				border-radius: 999px;
+				cursor: pointer;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				transition: filter 0.12s ease, color 0.12s ease;
+			}
+			.club-lb-tab:hover { color: var(--text); }
+			.club-lb-tab.is-active {
+				background: rgba(255, 59, 214, 0.16);
+				border-color: var(--border-strong);
+				color: var(--text);
+			}
+			#club-lb-rows {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				min-height: 32px;
+			}
+			.club-lb-row {
+				display: grid;
+				grid-template-columns: 22px 1fr auto auto;
+				gap: 8px;
+				align-items: center;
+				font-size: 12px;
+				padding: 7px 8px;
+				border-radius: 7px;
+				background: rgba(255, 255, 255, 0.02);
+			}
+			.club-lb-row.has-unpaid {
+				background: rgba(255, 59, 214, 0.06);
+			}
+			.club-lb-rank {
+				color: var(--text-3);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 11px;
+				text-align: right;
+			}
+			.club-lb-name {
+				color: var(--text);
+				font-weight: 600;
+			}
+			.club-lb-name small {
+				display: block;
+				font-size: 10.5px;
+				color: var(--text-3);
+				font-weight: 500;
+				letter-spacing: 0.02em;
+			}
+			.club-lb-amt {
+				color: var(--accent);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 11.5px;
+				font-weight: 600;
+				text-align: right;
+			}
+			.club-lb-tips {
+				color: var(--text-3);
+				font-size: 10.5px;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				text-align: right;
+			}
+			.club-lb-empty {
+				font-size: 12px;
+				color: var(--text-3);
+				font-style: italic;
+				text-align: center;
+				padding: 12px 0;
+			}
 
 			/* ── Responsive ─────────────────────────────────────── */
 			@media (max-width: 800px) {
@@ -431,12 +558,19 @@
 				<span class="spacer"></span>
 				<span class="club-pill">$0.001 / dance</span>
 				<span class="club-pill club-pill-blue">x402 · Base &amp; Solana</span>
+				<button
+					id="club-audio-toggle"
+					type="button"
+					class="club-pill club-pill-toggle"
+					aria-pressed="false"
+					title="Toggle club audio (mute)"
+				>🔊 Audio on</button>
 			</header>
 
 			<!-- STAGE -->
 			<main id="club-stage">
 				<canvas id="club-canvas"></canvas>
-				<div id="club-status" hidden>Loading…</div>
+				<div id="club-status" role="status" aria-live="polite" hidden>Loading…</div>
 			</main>
 
 			<!-- RIGHT PANEL -->
@@ -464,7 +598,22 @@
 				</section>
 
 				<section class="club-section">
-					<h2>Live tips</h2>
+					<h2>Leaderboard</h2>
+					<div class="club-lb-tabs" role="tablist">
+						<button type="button" class="club-lb-tab is-active" data-window="day" role="tab">24h</button>
+						<button type="button" class="club-lb-tab" data-window="hour" role="tab">1h</button>
+						<button type="button" class="club-lb-tab" data-window="all" role="tab">All</button>
+					</div>
+					<div id="club-lb-rows">
+						<div class="club-lb-empty">Loading…</div>
+					</div>
+				</section>
+
+				<section class="club-section">
+					<div class="club-feed-head">
+						<h2>Live tips</h2>
+						<span id="club-feed-status" class="club-feed-status" hidden></span>
+					</div>
 					<div id="club-tip-feed">
 						<div class="club-feed-empty">No tips yet. Be the first.</div>
 					</div>

@@ -48,7 +48,11 @@ import {
 } from './x402-bsc-direct.js';
 
 export { X402Error };
-export { declareEip2612GasSponsoringExtension };
+// Re-export both gas-sponsoring declarators together so callers building 402
+// bodies don't have to mix imports between this module and @x402/extensions.
+// build402Body advertises both extensions as a pair when a Permit2 accept is
+// present, and the public surface should match.
+export { declareEip2612GasSponsoringExtension, declareErc20ApprovalGasSponsoringExtension };
 
 export const X402_VERSION = 2;
 
@@ -344,9 +348,18 @@ async function callFacilitator(network, path, body) {
 // Probe `/supported` on each configured facilitator and report whether the
 // scheme/network pairs we advertise are actually supported. Used by
 // /api/x402-status to surface misconfigurations before a paying client hits them.
+//
+// When CDP credentials are configured we probe every CDP-supported EVM network,
+// not just Base — `wk.js` advertises Arbitrum acceptance for /api/x402/model-check
+// and `permit2VariantOf` emits Permit2 siblings on any EVM `exact` accept, so
+// the status surface needs to confirm the facilitator supports each of those
+// networks. Without CDP creds, Base is the only EVM we can actually settle.
 export async function probeFacilitators() {
+	const evmNetworks = env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET
+		? [...CDP_EVM_NETWORKS].filter((n) => n !== NETWORK_BASE_SEPOLIA)
+		: [NETWORK_BASE_MAINNET];
 	const targets = [
-		{ network: NETWORK_BASE_MAINNET, ...facilitatorFor(NETWORK_BASE_MAINNET) },
+		...evmNetworks.map((network) => ({ network, ...facilitatorFor(network) })),
 		{ network: NETWORK_SOLANA_MAINNET, ...facilitatorFor(NETWORK_SOLANA_MAINNET) },
 	];
 	const seen = new Map();

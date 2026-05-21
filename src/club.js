@@ -12,7 +12,6 @@ import {
 	CircleGeometry,
 	Clock,
 	Color,
-	CylinderGeometry,
 	DoubleSide,
 	Fog,
 	Group,
@@ -38,17 +37,26 @@ import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js'
 import { AnimationManager } from './animation-manager.js';
 import { ClubCamera } from './club-camera.js';
 import { ClubAudio, styleAudioFor, TRACK_LABELS } from './club-audio.js';
+import { playSequence, ticketSteps } from './club-sequence.js';
 
 const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
+const POLE_GLB_URL = '/club/props/pole.glb';
+const STAGE_GLB_URL = '/club/props/stage.glb';
 
-// Clips we actually use — keeps the manifest pre-fetch small.
+// Clips we actually use — keeps the manifest pre-fetch small. Pole-specific
+// clips (pole-spin, pole-climb, etc.) are added here once their source FBX
+// files land in /public/animations/ and re-run of `npm run build:animations`
+// registers them in /animations/manifest.json.
 const REQUIRED_CLIPS = new Set([
 	'idle', 'dance', 'rumba', 'silly', 'thriller', 'capoeira', 'walk',
+	'pole-walk-on', 'pole-spin', 'pole-climb', 'pole-invert', 'pole-floorwork', 'pole-bow',
 ]);
 const WALK_CLIP = 'walk';
 
 const TIP_ENDPOINT = '/api/x402/dance-tip';
+const TIPS_HISTORY_URL = '/api/club/tips?limit=20';
+const TIPS_STREAM_URL = '/api/club/tips/stream';
 
 // ── Stage layout ─────────────────────────────────────────────────────────
 // Four poles in a half-arc facing the camera. Backstage is behind the bar at
@@ -56,8 +64,10 @@ const TIP_ENDPOINT = '/api/x402/dance-tip';
 const STAGE_RADIUS = 4.2;
 const POLE_COUNT = 4;
 const POLE_HEIGHT = 3.6;
-const POLE_RADIUS = 0.05;
 const PERFORMANCE_FADE = 0.45; // seconds for clip crossfade
+// Top of the stage GLB. Authored in scripts/build-club-props.mjs at y=0.18.
+// Mirrored here so the dancer rig + pole base sit on the disc face.
+const STAGE_TOP_Y = 0.18;
 
 const POLES = Array.from({ length: POLE_COUNT }, (_, i) => {
 	// Spread across an arc from -55° to +55° at the front of the room.
@@ -79,6 +89,9 @@ const canvas = document.getElementById('club-canvas');
 const polesPanel = document.getElementById('club-poles');
 const statusEl = document.getElementById('club-status');
 const tipFeedEl = document.getElementById('club-tip-feed');
+const feedStatusEl = document.getElementById('club-feed-status');
+const lbRowsEl = document.getElementById('club-lb-rows');
+const lbTabsEls = document.querySelectorAll('.club-lb-tab');
 
 function setStatus(text, { kind = 'info' } = {}) {
 	if (!statusEl) return;
@@ -96,20 +109,165 @@ function fmtUsd(atomics, decimals = 6) {
 	return `$${n.toFixed(2)}`;
 }
 
-function pushFeed({ dancer, label, payer, amountAtomics, network }) {
-	if (!tipFeedEl) return;
+// Dedupe ring: the local x402 echo and the SSE channel both deliver the same
+// settled tip. Whichever wins the race renders the row; the loser is dropped
+// by ticket_id. Capped so it doesn't grow without bound on a long session.
+const DEDUPE_MAX = 50;
+const renderedTicketIds = new Set();
+const renderedOrder = [];
+
+function rememberTicketId(id) {
+	if (!id || renderedTicketIds.has(id)) return false;
+	renderedTicketIds.add(id);
+	renderedOrder.push(id);
+	while (renderedOrder.length > DEDUPE_MAX) {
+		renderedTicketIds.delete(renderedOrder.shift());
+	}
+	return true;
+}
+
+// Render one tip into the feed. Accepts both the server row shape
+// (snake_case from /api/club/tips and SSE `tip` events) and the local
+// x402 ticket shape (camelCase from window.X402.pay).
+function renderTipRow(rowLike, { live = false, prepend = true } = {}) {
+	if (!tipFeedEl || !rowLike) return;
+	const ticketId = rowLike.ticket_id ?? rowLike.ticketId ?? null;
+	if (ticketId && !rememberTicketId(ticketId)) return;
+
+	const dancer = rowLike.dancer ?? '?';
+	const label = rowLike.label ?? rowLike.dance ?? 'dance';
+	const payer = rowLike.payer ?? null;
+	const amountAtomics = rowLike.amount_atomics ?? rowLike.amountAtomics ?? null;
+	const network = rowLike.network ?? '';
+
 	tipFeedEl.querySelector('.club-feed-empty')?.remove();
 	const row = document.createElement('div');
 	row.className = 'club-tip-row';
+	if (live) row.classList.add('is-live');
 	const who = payer ? `${payer.slice(0, 4)}…${payer.slice(-4)}` : 'someone';
-	const safeLabel = String(label || 'dance').replace(/[<>&]/g, '');
+	const safeLabel = String(label).replace(/[<>&]/g, '');
 	row.innerHTML = `
 		<span class="club-tip-who">${who}</span>
 		<span class="club-tip-mid">tipped dancer ${dancer} → ${safeLabel}</span>
 		<span class="club-tip-amt">${fmtUsd(amountAtomics)} · ${network || ''}</span>
 	`;
-	tipFeedEl.prepend(row);
-	while (tipFeedEl.children.length > 10) tipFeedEl.lastChild.remove();
+	if (prepend) {
+		tipFeedEl.prepend(row);
+	} else {
+		tipFeedEl.appendChild(row);
+	}
+	while (tipFeedEl.children.length > 20) tipFeedEl.lastChild.remove();
+}
+
+function setFeedStatus(text, kind) {
+	if (!feedStatusEl) return;
+	if (!text) {
+		feedStatusEl.hidden = true;
+		feedStatusEl.textContent = '';
+		delete feedStatusEl.dataset.kind;
+		return;
+	}
+	feedStatusEl.textContent = text;
+	feedStatusEl.dataset.kind = kind || 'info';
+	feedStatusEl.hidden = false;
+}
+
+// Load the most-recent tips for a fresh page load. Tries twice (one retry
+// after 4 s) so a transient network blip doesn't leave the feed empty.
+async function loadInitialTips({ attempt = 0 } = {}) {
+	try {
+		const r = await fetch(TIPS_HISTORY_URL, { cache: 'no-store' });
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		const data = await r.json();
+		const tips = Array.isArray(data?.tips) ? data.tips : [];
+		// Server returns newest-first; reverse so the newest ends up at the
+		// top after sequential prepend.
+		for (const t of tips.slice().reverse()) {
+			renderTipRow(t, { live: false });
+		}
+		setFeedStatus(null);
+	} catch (err) {
+		console.warn('[club] tip history failed', err);
+		if (attempt === 0) {
+			setFeedStatus("Couldn't load tip history — retrying", 'error');
+			setTimeout(() => loadInitialTips({ attempt: 1 }), 4000);
+		} else {
+			setFeedStatus("Couldn't load tip history", 'error');
+		}
+	}
+}
+
+// Subscribe to the SSE channel. Reconnects with linear backoff after an
+// error; after 3 consecutive failures shows a "live updates paused" badge.
+// The badge clears as soon as the next connection succeeds.
+function subscribeTipStream() {
+	if (typeof window.EventSource !== 'function') {
+		setFeedStatus('Live updates paused', 'paused');
+		return null;
+	}
+	let es = null;
+	let consecutiveFailures = 0;
+	let reconnectTimer = 0;
+	let closedByUser = false;
+
+	const open = () => {
+		if (closedByUser) return;
+		try {
+			es = new EventSource(TIPS_STREAM_URL);
+		} catch (err) {
+			console.warn('[club] EventSource init failed', err);
+			scheduleReconnect();
+			return;
+		}
+		es.addEventListener('hello', () => {
+			consecutiveFailures = 0;
+			setFeedStatus(null);
+		});
+		es.addEventListener('tip', (e) => {
+			try {
+				const row = JSON.parse(e.data);
+				renderTipRow(row, { live: true });
+			} catch (err) {
+				console.warn('[club] tip event parse failed', err);
+			}
+		});
+		es.onerror = () => {
+			// EventSource auto-reconnects in some browsers but keeps the
+			// closed socket in CONNECTING state and re-fires onerror in a
+			// spin. Explicitly close + schedule so the failure counter
+			// advances predictably and the badge timing is honest.
+			try { es?.close(); } catch {}
+			es = null;
+			consecutiveFailures += 1;
+			if (consecutiveFailures >= 3) {
+				setFeedStatus('Live updates paused', 'paused');
+			}
+			scheduleReconnect();
+		};
+	};
+
+	const scheduleReconnect = () => {
+		if (closedByUser) return;
+		clearTimeout(reconnectTimer);
+		// 1.5 s, 3 s, 6 s, capped — fast enough to recover from a momentary
+		// blip without hammering the endpoint during a longer outage.
+		const delay = Math.min(1500 * Math.max(1, consecutiveFailures), 6000);
+		reconnectTimer = setTimeout(open, delay);
+	};
+
+	open();
+	window.addEventListener('beforeunload', () => {
+		closedByUser = true;
+		clearTimeout(reconnectTimer);
+		try { es?.close(); } catch {}
+	});
+	return {
+		close() {
+			closedByUser = true;
+			clearTimeout(reconnectTimer);
+			try { es?.close(); } catch {}
+		},
+	};
 }
 
 // ── Renderer / scene ──────────────────────────────────────────────────────
@@ -219,38 +377,11 @@ class PoleStation {
 		this.idx = idx;
 		this.layout = layout;
 		this.id = layout.id;
+		this.stageTopY = STAGE_TOP_Y;
 
-		// Stage disc — slightly raised so dancer's feet sit on top.
-		const stage = new Mesh(
-			new CylinderGeometry(0.9, 1.0, 0.18, 48),
-			new MeshStandardMaterial({
-				color: 0x140511,
-				roughness: 0.35,
-				metalness: 0.85,
-				emissive: POLE_COLORS[idx % POLE_COLORS.length],
-				emissiveIntensity: 0.18,
-			}),
-		);
-		stage.position.set(layout.x, 0.09, layout.z);
-		stage.receiveShadow = true;
-		scene.add(stage);
-		this.stage = stage;
-		this.stageTopY = 0.18;
-
-		// The pole — a brushed chrome cylinder.
-		const pole = new Mesh(
-			new CylinderGeometry(POLE_RADIUS, POLE_RADIUS, POLE_HEIGHT, 16),
-			new MeshStandardMaterial({
-				color: 0xe6e8f0,
-				roughness: 0.12,
-				metalness: 1.0,
-				emissive: 0x1a1c25,
-				emissiveIntensity: 0.4,
-			}),
-		);
-		pole.position.set(layout.x, this.stageTopY + POLE_HEIGHT / 2, layout.z);
-		pole.castShadow = true;
-		scene.add(pole);
+		// Stage + pole GLBs are attached later in attachProps(); construct only
+		// the lights, the rig holder, and lifecycle state here so the station
+		// exists before async assets finish loading.
 
 		// Spotlight — colored, focused on the pole base.
 		const spot = new SpotLight(POLE_COLORS[idx % POLE_COLORS.length], 0, 12, Math.PI / 7, 0.4, 1.6);
@@ -280,13 +411,66 @@ class PoleStation {
 
 		this.anim = null;
 		this.skinned = null;
+		this.stage = null;          // root group from stage.glb
+		this.pole = null;           // root group from pole.glb
 
 		// Current performance lifecycle.
 		this.activeTicket = null;     // backend ticket id
-		this.activeUntil = 0;         // ms epoch — when to release the stage
+		this.activeUntil = 0;         // ms epoch — informational; sequence loop drives end
 		this.performing = false;
 		this.walkPhase = 'idle';      // 'idle' | 'to-pole' | 'dancing' | 'returning'
 		this._phaseTarget = this.rig.position.clone();
+
+		// Render-loop coupled sleepers (sleep() resolves them in tick()).
+		// Wall-clock setTimeout would drift if the tab is throttled or paused;
+		// driving sleep off the render clock keeps choreography frame-aligned.
+		this._clockSec = 0;
+		this._sleepers = [];
+	}
+
+	/**
+	 * Clone the pole + stage GLB templates into this station. Called from
+	 * bootstrap() once both .glb files have finished loading. Each station gets
+	 * its own clone so material tints (per-pole accent emissive) don't leak.
+	 */
+	attachProps({ poleTemplate, stageTemplate }) {
+		const accent = new Color(POLE_COLORS[this.idx % POLE_COLORS.length]);
+
+		const stage = stageTemplate.clone(true);
+		stage.position.set(this.layout.x, 0, this.layout.z);
+		stage.traverse((n) => {
+			if (!n.isMesh) return;
+			n.receiveShadow = true;
+			if (n.material) {
+				n.material = n.material.clone();
+				if (n.material.emissive) {
+					if (n.name === 'stage.led.ring') {
+						n.material.emissive = accent.clone();
+						n.material.emissiveIntensity = 1.2;
+					} else {
+						n.material.emissive.lerp(accent, 0.4);
+					}
+				}
+			}
+		});
+		scene.add(stage);
+		this.stage = stage;
+
+		const pole = poleTemplate.clone(true);
+		pole.position.set(this.layout.x, this.stageTopY, this.layout.z);
+		pole.traverse((n) => {
+			if (!n.isMesh) return;
+			n.castShadow = true;
+			n.receiveShadow = false;
+			if (n.material && n.material.metalness >= 0.9) {
+				// Subtle per-pole tint on the chrome only (skip dark brackets / bolts).
+				n.material = n.material.clone();
+				if (!n.material.emissive) n.material.emissive = new Color(0x000000);
+				n.material.emissive = accent.clone().multiplyScalar(0.04);
+			}
+		});
+		scene.add(pole);
+		this.pole = pole;
 	}
 
 	attachAvatar(template, animationDefs) {
@@ -353,10 +537,41 @@ class PoleStation {
 		await this.anim?.crossfadeTo(WALK_CLIP, PERFORMANCE_FADE);
 	}
 
+	/**
+	 * Render-loop coupled sleep. Resolves when `_clockSec` has advanced past
+	 * the requested duration. Used by playSequence between crossfades so
+	 * choreography stays aligned with the mixer's frame clock even when the
+	 * tab is throttled (where setTimeout would still fire on its own schedule
+	 * and desync from the visible animation).
+	 *
+	 * @param {number} ms
+	 * @returns {Promise<void>}
+	 */
+	sleep(ms) {
+		if (!Number.isFinite(ms) || ms <= 0) return Promise.resolve();
+		return new Promise((resolve) => {
+			this._sleepers.push({ wakeAt: this._clockSec + ms / 1000, resolve });
+		});
+	}
+
 	async _arriveAtPole() {
 		this.walkPhase = 'dancing';
-		const clipName = this.activeTicket?.clip || 'dance';
-		await this.anim?.crossfadeTo(clipName, PERFORMANCE_FADE);
+		const steps = ticketSteps(this.activeTicket).length
+			? ticketSteps(this.activeTicket)
+			: [{ clip: this.activeTicket?.clip || 'dance', durationSec: this.activeTicket?.durationSec || 12 }];
+
+		await playSequence({
+			anim: this.anim,
+			steps,
+			fadeSec: PERFORMANCE_FADE,
+			isCancelled: () => !this.performing,
+			sleep: (ms) => this.sleep(ms),
+		});
+
+		// Sequence finished (or was cancelled) — return the dancer to backstage.
+		// Cancellation is a fast-path: performing is already false, so _endPerformance
+		// won't toggle it back, but the walking + audio cleanup still runs.
+		if (this.walkPhase === 'dancing') await this._endPerformance();
 	}
 
 	async _endPerformance() {
@@ -389,6 +604,22 @@ class PoleStation {
 	}
 
 	tick(dt) {
+		// Advance the station clock and wake any sleepers due this frame.
+		// Driving sleep off the render clock (not setTimeout) keeps choreography
+		// aligned with the mixer when the tab is backgrounded or paused.
+		this._clockSec += dt;
+		if (this._sleepers.length) {
+			let i = 0;
+			while (i < this._sleepers.length) {
+				if (this._sleepers[i].wakeAt <= this._clockSec) {
+					const { resolve } = this._sleepers.splice(i, 1)[0];
+					resolve();
+				} else {
+					i += 1;
+				}
+			}
+		}
+
 		// Lerp spotlight intensity.
 		if (this._spotTarget != null) {
 			this.spot.intensity += (this._spotTarget - this.spot.intensity) * Math.min(1, dt * 4);
@@ -417,11 +648,11 @@ class PoleStation {
 			}
 		} else if (this.walkPhase === 'dancing') {
 			// Keep dancer facing the camera (yaw lerp to original pole yaw).
+			// End-of-dance is driven by the playSequence loop in _arriveAtPole,
+			// not a wall-clock deadline — that way each sequence step lasts
+			// exactly its declared duration in render-loop time.
 			const targetYaw = this.layout.yaw;
 			this.rig.rotation.y += angleDelta(this.rig.rotation.y, targetYaw) * Math.min(1, dt * 3);
-			if (this.performing && Date.now() >= this.activeUntil) {
-				this._endPerformance();
-			}
 		} else {
 			// idle backstage — face into the room.
 			const targetYaw = this.layout.yaw;
@@ -460,12 +691,14 @@ async function bootstrap() {
 	setStatus('Loading club…');
 
 	const loader = new GLTFLoader();
-	const [gltf, manifest] = await Promise.all([
+	const [gltf, manifest, poleGltf, stageGltf] = await Promise.all([
 		loader.loadAsync(AVATAR_URL),
 		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => {
 			if (!r.ok) throw new Error(`HTTP ${r.status} loading animation manifest`);
 			return r.json();
 		}),
+		loader.loadAsync(POLE_GLB_URL),
+		loader.loadAsync(STAGE_GLB_URL),
 	]);
 
 	const template = gltf.scene;
@@ -474,14 +707,36 @@ async function bootstrap() {
 		if (n.isMesh) n.castShadow = true;
 	});
 
+	const poleTemplate = poleGltf.scene;
+	const stageTemplate = stageGltf.scene;
+
 	animationDefs = manifest.filter((d) => REQUIRED_CLIPS.has(d.name));
 
 	for (const station of stations) {
+		station.attachProps({ poleTemplate, stageTemplate });
 		station.attachAvatar(template, animationDefs);
 	}
 
+	// Backfill history + open the SSE channel so this tab sees other tabs'
+	// tips. Both run side-effect-only and don't block the stage being ready.
+	loadInitialTips();
+	subscribeTipStream();
+
 	setStatus('Tip a pole to make her dance.', { kind: 'ok' });
 }
+
+// ── Audio mixer (Web Audio API, lazy-created on first user gesture) ──────
+const audio = new ClubAudio();
+// Other modules (rim-light pulse from prompt 04) read getPeak() each frame
+// via this handle. They handle the no-context case themselves.
+if (typeof window !== 'undefined') window.__clubAudio = audio;
+
+// When a performance ends (PoleStation._endPerformance), fade the style
+// loop back to ambience. Decoupled via custom event so the station class
+// stays focused on motion.
+window.addEventListener('club:performance-end', () => {
+	audio.fadeOutStyle().catch((err) => console.warn('[club] fadeOutStyle', err));
+});
 
 // ── Tip flow (x402 drop-in) ──────────────────────────────────────────────
 async function tipDancer({ dancer, dance, button }) {
@@ -498,6 +753,17 @@ async function tipDancer({ dancer, dance, button }) {
 	if (station.performing) {
 		setStatus(`Dancer ${dancer} is already performing — tip another pole.`, { kind: 'warn' });
 		return;
+	}
+
+	// First click on a Tip button is the user gesture browsers require to
+	// unlock AudioContext. Do this BEFORE opening the wallet modal so the
+	// gesture isn't lost by the time we settle. Failures here are
+	// non-fatal — the rest of the tip flow still works without audio.
+	try {
+		await audio.ensureContext();
+		audio.startAmbience().catch((err) => console.warn('[club] startAmbience', err));
+	} catch (err) {
+		console.warn('[club] audio unavailable', err);
 	}
 
 	const url = `${TIP_ENDPOINT}?dancer=${encodeURIComponent(dancer)}&dance=${encodeURIComponent(dance)}`;
@@ -518,14 +784,32 @@ async function tipDancer({ dancer, dance, button }) {
 			throw new Error(ticket?.error || 'tip did not settle');
 		}
 		station.startPerformance(ticket);
-		pushFeed({
+
+		// Crossfade ambience → style loop in sync with the dancer walking
+		// out. Prefer the explicit `track` from the ticket; fall back to a
+		// dance-key lookup for older tickets/agents that don't send it yet.
+		const trackName = ticket.track || styleAudioFor(ticket.dance);
+		if (trackName) {
+			audio.fadeToStyle(trackName).then(() => {
+				const label = TRACK_LABELS[trackName] || trackName;
+				setStatus(`Now playing: ${label}`, { kind: 'ok' });
+			}).catch((err) => console.warn('[club] fadeToStyle', err));
+		}
+
+		// Local echo — renderTipRow's dedupe ring (keyed on ticket_id) drops
+		// the SSE copy if it arrives later; if the SSE copy wins the race the
+		// local echo here is the one that gets dropped instead.
+		renderTipRow({
+			ticket_id: ticket.ticketId,
 			dancer: ticket.dancer,
 			label: ticket.label || ticket.dance,
 			payer: ticket.payer,
-			amountAtomics: ticket.amountAtomics,
+			amount_atomics: ticket.amountAtomics,
 			network: ticket.network,
-		});
+		}, { live: true });
 		setStatus(`Dancer ${ticket.dancer} → ${ticket.label}`, { kind: 'ok' });
+		// Fire-and-forget refresh — keep the leaderboard in sync with the tip.
+		if (typeof fetchLeaderboard === 'function') fetchLeaderboard();
 	} catch (err) {
 		if (err?.code !== 'cancelled') {
 			setStatus(err?.message || 'tip failed', { kind: 'error' });
@@ -535,6 +819,23 @@ async function tipDancer({ dancer, dance, button }) {
 		if (button && originalLabel) button.textContent = originalLabel;
 	}
 }
+
+// ── Mute pill in top bar ─────────────────────────────────────────────────
+function bindMutePill() {
+	const btn = document.getElementById('club-audio-toggle');
+	if (!btn) return;
+	const render = () => {
+		btn.textContent = audio.muted ? '🔇 Audio off' : '🔊 Audio on';
+		btn.setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
+	};
+	render();
+	btn.addEventListener('click', async () => {
+		try { await audio.ensureContext(); } catch {}
+		audio.setMuted(!audio.muted);
+		render();
+	});
+}
+bindMutePill();
 
 // ── Free cam chip (shown while in VIP / house) ───────────────────────────
 let freeCamChip = null;
@@ -719,6 +1020,104 @@ renderPoles();
 		cb.addEventListener('change', () => setAutoFollow(cb.checked));
 	}
 }
+
+// ── Leaderboard — fetch + tabs + 30s refresh ─────────────────────────────
+// Rank dancers by USDC tipped over the selected window. We also surface
+// unpaid_atomics so the user can watch the value drain as the payout cron
+// sweeps. Polling pauses when the tab is hidden to spare RPC budget.
+const LB_REFRESH_MS = 30_000;
+let lbWindow = 'day';
+let lbTimer = null;
+let lbInflight = false;
+
+async function fetchLeaderboard() {
+	if (!lbRowsEl || lbInflight) return;
+	lbInflight = true;
+	try {
+		const res = await fetch(`/api/club/leaderboard?window=${encodeURIComponent(lbWindow)}`, {
+			headers: { accept: 'application/json' },
+			cache: 'no-store',
+		});
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const body = await res.json();
+		renderLeaderboard(body.rows || []);
+	} catch (err) {
+		console.error('[club] leaderboard fetch failed', err);
+		// Don't blow away an already-rendered table on a transient hiccup.
+		if (!lbRowsEl.querySelector('.club-lb-row')) {
+			lbRowsEl.innerHTML = '<div class="club-lb-empty">Leaderboard unavailable.</div>';
+		}
+	} finally {
+		lbInflight = false;
+	}
+}
+
+function renderLeaderboard(rows) {
+	if (!lbRowsEl) return;
+	if (!rows.length) {
+		lbRowsEl.innerHTML = '<div class="club-lb-empty">No dancers registered yet.</div>';
+		return;
+	}
+	const frag = document.createDocumentFragment();
+	rows.forEach((row, i) => {
+		const total = Number(row.total_atomics || 0);
+		const unpaid = Number(row.unpaid_atomics || 0);
+		const div = document.createElement('div');
+		div.className = 'club-lb-row' + (unpaid > 0 ? ' has-unpaid' : '');
+		const dancer = String(row.dancer || '').replace(/[<>&]/g, '');
+		const name = String(row.display_name || `Dancer ${dancer}`).replace(/[<>&]/g, '');
+		const unpaidLabel = unpaid > 0
+			? `<small>${fmtUsd(unpaid)} unpaid</small>`
+			: '';
+		div.innerHTML = `
+			<span class="club-lb-rank">${i + 1}</span>
+			<span class="club-lb-name">${name}${unpaidLabel}</span>
+			<span class="club-lb-amt">${total > 0 ? fmtUsd(total) : '—'}</span>
+			<span class="club-lb-tips">${row.tip_count || 0}×</span>
+		`;
+		frag.appendChild(div);
+	});
+	lbRowsEl.innerHTML = '';
+	lbRowsEl.appendChild(frag);
+}
+
+function setLeaderboardWindow(next) {
+	if (next === lbWindow) return;
+	lbWindow = next;
+	for (const tab of lbTabsEls) {
+		tab.classList.toggle('is-active', tab.dataset.window === next);
+	}
+	fetchLeaderboard();
+}
+
+for (const tab of lbTabsEls) {
+	tab.addEventListener('click', () => {
+		const w = tab.dataset.window;
+		if (w) setLeaderboardWindow(w);
+	});
+}
+
+function startLeaderboardPolling() {
+	stopLeaderboardPolling();
+	lbTimer = setInterval(fetchLeaderboard, LB_REFRESH_MS);
+}
+function stopLeaderboardPolling() {
+	if (lbTimer) {
+		clearInterval(lbTimer);
+		lbTimer = null;
+	}
+}
+document.addEventListener('visibilitychange', () => {
+	if (document.hidden) {
+		stopLeaderboardPolling();
+	} else {
+		fetchLeaderboard();
+		startLeaderboardPolling();
+	}
+});
+
+fetchLeaderboard();
+startLeaderboardPolling();
 
 bootstrap()
 	.catch((err) => {

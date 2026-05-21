@@ -72,6 +72,7 @@ const HANDLERS = {
 	'fetch-x-metrics': handleFetchXMetrics,
 	'run-coin-cycle': handleRunCoinCycle,
 	'run-coin-payouts': handleRunCoinPayouts,
+	'club-payouts': handleClubPayouts,
 };
 
 export default wrap(async (req, res) => {
@@ -3078,4 +3079,33 @@ async function handleRunCoinPayouts(req, res) {
 	}
 
 	return json(res, 200, { ok: true, processed: report.coins.length, report });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// club-payouts — sweep unpaid Pole Club tips to each dancer's wallet
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleClubPayouts(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
+
+	const auth = req.headers['authorization'] || '';
+	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
+	const fromCron = req.headers['x-vercel-cron'] === '1';
+	if (!fromCron && (!expected || auth !== expected)) {
+		return error(res, 401, 'unauthorized', 'cron secret required');
+	}
+
+	const { runClubPayoutSweep, expireStaleClaims } = await import('../_lib/club/sweep.js');
+
+	// Pre-pass: any PENDING-* claim older than 10min came from a crashed
+	// earlier invocation. Release them so this cycle can retry.
+	try {
+		await expireStaleClaims();
+	} catch (err) {
+		console.error('[club-payouts] expireStaleClaims failed', err);
+	}
+
+	const summary = await runClubPayoutSweep();
+	return json(res, 200, { ok: true, ...summary });
 }

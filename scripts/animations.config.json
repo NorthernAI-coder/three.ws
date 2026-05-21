@@ -181,5 +181,47 @@
 		"label": "Downward Dog",
 		"icon": "🧘",
 		"loop": true
+	},
+	{
+		"name": "pole-walk-on",
+		"source": "Strut Walking.fbx",
+		"label": "Pole Walk On",
+		"icon": "🚶‍♀️",
+		"loop": false
+	},
+	{
+		"name": "pole-spin",
+		"source": "Pole Spin.fbx",
+		"label": "Pole Spin",
+		"icon": "🌀",
+		"loop": true
+	},
+	{
+		"name": "pole-climb",
+		"source": "Pole Climb.fbx",
+		"label": "Pole Climb",
+		"icon": "🧗‍♀️",
+		"loop": false
+	},
+	{
+		"name": "pole-invert",
+		"source": "Pole Invert.fbx",
+		"label": "Pole Invert",
+		"icon": "🙃",
+		"loop": true
+	},
+	{
+		"name": "pole-floorwork",
+		"source": "Floor Work.fbx",
+		"label": "Pole Floor Work",
+		"icon": "🩰",
+		"loop": true
+	},
+	{
+		"name": "pole-bow",
+		"source": "Bow.fbx",
+		"label": "Pole Bow",
+		"icon": "🪩",
+		"loop": false
 	}
 ]
