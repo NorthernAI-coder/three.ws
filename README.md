@@ -48,6 +48,11 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 - [News CMS & Syndication](#news-cms--syndication)
 - [Security Hardening](#security-hardening)
 - [Developer SDKs](#developer-sdks)
+- [Demos Hub](#demos-hub)
+- [Skill Library](#skill-library)
+- [Animation System](#animation-system)
+- [Avatar Accessories & Coin Launchpad](#avatar-accessories--coin-launchpad)
+- [Brain Proxy & LLM Routing](#brain-proxy--llm-routing)
 - [API Reference](#api-reference)
 - [Authentication & OAuth 2.1](#authentication--oauth-21)
 - [MCP Server](#mcp-server)
@@ -1310,6 +1315,125 @@ The agent-kit also exposes `attestFeedback`, `attestValidation`, and `listAttest
 
 ---
 
+## Demos Hub
+
+`/demos` is a curated index of sandbox pages that exercise individual platform capabilities in isolation. Each demo is a single HTML file in [`public/demos/`](public/demos/) — perfect for screen recordings, bug reproductions, or showing off one feature without the rest of the app.
+
+| Demo | Path | What it shows |
+|---|---|---|
+| **USDZ & AR Quick Look** | `/demos/usdz-ar.html` | iOS USDZ export + AR Quick Look on a real device |
+| **Half-body XR** | `/demos/halfbody-xr.html` | Upper-body avatar in WebXR (Meta Quest, Vision Pro) |
+| **Avatar SDK** | `/demos/avatar-sdk.html` | `@three-ws/avatar` SDK loading + animating an avatar |
+| **React SDK** | `/demos/react-sdk.html` | React wrapper around the `<agent-3d>` element |
+| **Audio-driven lipsync (mic)** | `/lipsync/mic` | Live microphone → ARKit-52 lip-sync |
+| **Audio-driven lipsync (TTS)** | `/lipsync` | ElevenLabs TTS → ARKit-52 lip-sync |
+| **Multi-LLM brain** | `/brain` | Side-by-side comparison of Claude / GPT / Groq / Gemini |
+| **3D walkaround** | `/walkaround` | Single-player walking + camera controls |
+| **ERC-8004 registry browser** | `/demos/erc8004.html` | Browse all registered agents across chains |
+| **Button jump** | `/demos/button-jump.html` | Avatar reacts to a 2D button press |
+| **Tactile button (Gemini concept)** | `/demos/gemini-jump.html` | Tactile button demo with avatar |
+| **Create v2** | `/demos/create-v2.html` | Next-generation agent creation flow |
+| **3D home** | `/demos/3d-home.html` | Home page with overlay canvas + transparent-bg viewer |
+| **Selfie fit** | `/demos/selfie-fit.html` | Selfie reconstruction pipeline (Phase 1) |
+| **Persona extract** | `/demos/persona-extract.html` | Voice & Persona Hub onboarding interview |
+| **Memory seed** | `/demos/memory-seed.html` | Memory seeding from X/GitHub/Farcaster |
+| **Voice clone** | `/demos/voice-clone.html` | 3–10s recording → ElevenLabs custom voice |
+| **Livepeer inference** | `/demos/livepeer-inference.html` | Decentralized GPU inference end-to-end |
+| **Skill royalty** | `/demos/skill-royalty.html` | Per-call royalty payouts to skill authors |
+| **EAS reputation** | `/demos/eas-reputation.html` | EAS-attested reputation viewer |
+| **Bonding curve** | `/demos/bonding-curve.html` | Pre-launch bonding-curve pricing simulator |
+| **Gallery picker** | `/demos/gallery-picker.html` | Lazy 3D-thumbnail avatar picker (Embed Editor primitive) |
+| **Button** | `/demos/button.html` | Minimal `<agent-3d>` embed reaction test |
+
+The demos are intentionally separate from production routes (`/create`, `/avatars/[id]`, etc.) so the production flow keeps working while we test new ideas.
+
+---
+
+## Skill Library
+
+The platform ships with a set of built-in agent skills, packaged in `src/agent-skills-*.js` and registered via [`public/skills-index.json`](public/skills-index.json).
+
+| Skill | Module | What it does |
+|---|---|---|
+| **Wave / scene** | `src/agent-skills-scene.js` | Built-in wave, lookAt, play_clip, setExpression handlers |
+| **Sentiment** | `src/agent-skills-sentiment.js` | Score incoming text 0–1, drive Empathy Layer spikes |
+| **Agent payments** | `src/agent-skills-agent-payments.js` | EVM A2A payments, EIP-7710 delegated signing |
+| **Solana Blinks** | `src/agent-skills-blinks.js` | Compose and broadcast Solana Action / Blink links |
+| **Jupiter** | `src/agent-skills-jupiter.js` | Quote + swap any SPL token via Jupiter v6 |
+| **NFTs** | `src/agent-skills-nfts.js` | Mint, transfer, and look up Metaplex Core / SPL-22 NFTs |
+| **Pumpfun watch** | `src/agent-skills-pumpfun-watch.js` | Subscribe to pump.fun events (`recent-claims`, `token-intel`, `watch-start`, `watch-stop`) |
+| **Pumpfun compose** | `src/agent-skills-pumpfun-compose.js` | Build a pump.fun launch transaction with creator-signer split |
+| **Pumpfun hooks** | `src/agent-skills-pumpfun-hooks.js` | React-style hooks for in-app pump.fun integrations |
+| **Pumpfun autonomous** | `src/agent-skills-pumpfun-autonomous.js` | Autonomous trade execution against signals + sentiment |
+| **Pumpfun core** | `src/agent-skills-pumpfun.js` | Shared pump.fun client utilities |
+| **Accessories** | `src/agent-accessories.js` | Hat / glasses / prop slot attachment to a rigged avatar |
+| **Memory** | `src/agent-memory.js` | File-based memory CRUD (see [Memory](#memory)) |
+| **Reputation** | `src/agent-reputation.js` | Read on-chain reputation, surface in the chat UI |
+
+Third-party skills are distributed over IPFS / Arweave / HTTP. See [docs/skills.md](docs/skills.md) for the full skill manifest spec and authoring guide.
+
+---
+
+## Animation System
+
+The avatar runtime ships with a slot-based animation manager that decouples animation clips from rigs — a clip authored for one body can be retargeted to any other rig at load time.
+
+| Module | Path | Role |
+|---|---|---|
+| Manager | [src/animation-manager.js](src/animation-manager.js) | Load, blend, and crossfade clips per slot (idle, gesture, locomotion) |
+| State machine | [src/animation-state-machine.js](src/animation-state-machine.js) | Drives slot transitions from protocol events |
+| Idle library | [src/idle-animation.js](src/idle-animation.js) | Subtle breath / weight-shift loops that play under everything else |
+| Fetcher | `npm run fetch-animations` | Downloads the canonical clip library from R2 |
+| Builder | `scripts/build-animations.mjs` | Re-packs clip bundles into Meshopt + Draco-compressed GLB |
+
+A new clip can be authored against any rig in Blender, exported as a GLB, and dropped into the animation library — the manager picks it up automatically and the agent runtime can invoke it via the `play_clip` tool.
+
+The **`sitidle` clip** is shipped as the default seated idle for chat-mode avatars; the **gemini-jump clip** drives the hero on `/`.
+
+---
+
+## Avatar Accessories & Coin Launchpad
+
+Avatars are not just GLB files — they're composable rigs that the runtime can decorate with onchain accessories.
+
+### Accessories
+
+- Hats, glasses, props attached to named bone slots via [src/agent-accessories.js](src/agent-accessories.js)
+- Accessories are themselves ERC-1155 tokens, ownable and tradeable independently of the avatar
+- Equipping is non-destructive — the agent's base manifest stays unchanged, the accessory is layered at runtime
+
+### Coin Launchpad
+
+Every agent can mint a coin alongside its avatar — turning the agent into a tradeable economic object.
+
+| Surface | Path | Purpose |
+|---|---|---|
+| Launchpad Studio | `/launchpad` | Configure coin name, ticker, supply, fee shares |
+| Hosted page | `/p/[slug]` | Public launch page with `<agent-3d>` widget + buy button |
+| Avatar coin drop | `public/demo/coin/` | Demo flow — connect wallet → mint avatar + coin in one transaction |
+| Pump.fun bridge | `POST /api/pump/launch-prep` | Route the launch through pump.fun's bonding curve |
+| Direct mint | `contracts/script/` | Deploy a standalone ERC-20 / SPL-22 alongside the agent |
+
+The coin's metadata points back at the agent's ERC-8004 token, and the agent's manifest references the coin — a two-way binding that the bazaar, marketplace, and reputation registry all read from.
+
+---
+
+## Brain Proxy & LLM Routing
+
+three.ws supports multiple LLM providers behind a single `brain` interface. The runtime is provider-agnostic — switch from Claude to GPT to Gemini to a local model with a one-line change.
+
+| Provider | Path | Use case |
+|---|---|---|
+| **Anthropic (Claude)** | `POST /api/llm/anthropic` | Default — tool-loop, streaming, sentiment-tagged speak |
+| **Groq** | (anonymous) | Free fast-mode chat for unauthenticated visitors on `/chat` |
+| **Multi-LLM brain** | `/brain`, `POST /api/brain/chat` | Side-by-side compare Claude / GPT / Gemini / Groq for the same prompt |
+| **OpenRouter** | proxied via brain | Fallback when the primary provider is rate-limited |
+| **Null provider** | `src/runtime/providers.js` | No-op for tests and offline mode |
+
+**Owner-card gating** — when an agent has a paying owner (paid by ERC-8004 mint or x402 subscription), the embed shows an owner-attribution card and unlocks longer context windows + higher-tier models. Anonymous visitors get Groq-powered chat with a smaller window.
+
+---
+
 ## API Reference
 
 The full OpenAPI 3.1 spec is available at `/openapi.json`. The key API surface is organized below.
@@ -1494,7 +1618,33 @@ ERC-8004 is a draft standard for verifiable 3D agent identity. The `contracts/` 
 
 ### Deployment Addresses
 
-See `contracts/DEPLOYMENTS.md` for current mainnet and testnet addresses.
+See [`contracts/DEPLOYMENTS.md`](contracts/DEPLOYMENTS.md) for current mainnet and testnet addresses. All three registries are deployed via **CREATE2** against a custom vanity-prefixed factory, so the **same address is used on every supported EVM chain** within an environment class — mainnet contracts have one address, testnet contracts another.
+
+**Mainnet (across Ethereum, Optimism, BSC, Gnosis, Polygon, Fantom, zkSync Era, Moonbeam, Mantle, Base, Arbitrum One, Celo, Avalanche, Linea, Scroll):**
+
+| Contract | Address |
+|---|---|
+| IdentityRegistry | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
+| ReputationRegistry | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` |
+| ValidationRegistry | *(same address on all chains)* |
+
+**Testnet (BSC Testnet, Ethereum Sepolia, Base Sepolia, Arbitrum Sepolia, Optimism Sepolia, Polygon Amoy, Avalanche Fuji):**
+
+| Contract | Address |
+|---|---|
+| IdentityRegistry | `0x8004A818BFB912233c491871b3d84c89A494BD9e` |
+| ReputationRegistry | `0x8004B663056A597Dffe9eCcC1965A193B7388713` |
+| ValidationRegistry | `0x8004Cb1BF31DAf7788923b405b754f57acEB4272` |
+
+### CREATE2 Factory (ThreeWSFactory)
+
+A custom vanity-prefixed CREATE2 deployer at `0x00000000D49195AE81759cd247cFeDD9D0B479df` (7 leading zeros) is used to mint matching addresses across chains. The factory init code hash is `0x30f9d9020bf9622bbe7f8a1625d447efe350dfafd0a91e6dbd62d56547db835f`; bytecode is byte-identical on every deployed chain. Source is verified on each chain's explorer.
+
+### Audits & EAS
+
+- Smart contract audits are scheduled for the reputation, royalty, and delegation contracts as part of Phase 3
+- **EAS** (Ethereum Attestation Service) integration ships as a sibling reputation surface — see `/demos/eas-reputation.html` for the viewer
+- **0xsplits** SDK is wired for splitting skill royalties across multiple authors
 
 ### Registration Flow (EVM)
 
