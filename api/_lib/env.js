@@ -246,6 +246,44 @@ export const env = {
 		return opt('BSC_OPERATOR_KEY');
 	},
 
+	// ── x402 Offer & Receipt extension (USE-17) ─────────────────────────────
+	// DEDICATED signing key for the offer-receipt extension. MUST NOT be any
+	// X402_PAY_TO_* key — those receive funds; this one only signs commitments.
+	// Generate with: node -e "console.log(require('viem/accounts').generatePrivateKey())"
+	// When unset, the extension is silently disabled (no signed offers/receipts
+	// are emitted; 402/200 bodies stay protocol-compatible without them).
+	get OFFER_RECEIPT_SIGNING_PRIVATE_KEY() {
+		return opt('OFFER_RECEIPT_SIGNING_PRIVATE_KEY');
+	},
+	// "eip712" (default — uses the dedicated EOA above as a did:pkh signer) or
+	// "jws" (uses a JWK private key from OFFER_RECEIPT_JWK to sign Ed25519 /
+	// ES256K with a did:web kid resolved at /.well-known/did.json).
+	get OFFER_RECEIPT_FORMAT() {
+		return opt('OFFER_RECEIPT_FORMAT', 'eip712');
+	},
+	// JWK private key (JSON string) used when OFFER_RECEIPT_FORMAT=jws. The
+	// public components are published in /.well-known/did.json so verifiers can
+	// resolve the kid back to a key. Generate with `jose newkey -s 256 -t OKP -c EdDSA`.
+	get OFFER_RECEIPT_JWK() {
+		return opt('OFFER_RECEIPT_JWK');
+	},
+	// JWS algorithm (default EdDSA — Ed25519). Other supported: ES256K (secp256k1).
+	get OFFER_RECEIPT_JWS_ALG() {
+		return opt('OFFER_RECEIPT_JWS_ALG', 'EdDSA');
+	},
+	// Bare hostname for did:web identifiers (omit scheme + path). Used to build
+	// kid = `did:web:<SERVER_DOMAIN>#key-1` and the matching `id` field in
+	// /.well-known/did.json. Defaults to the host parsed from APP_ORIGIN.
+	get SERVER_DOMAIN() {
+		const explicit = opt('SERVER_DOMAIN');
+		if (explicit) return explicit;
+		try {
+			return new URL(this.APP_ORIGIN).host;
+		} catch {
+			return 'three.ws';
+		}
+	},
+
 	// zauthx402 SDK — optional telemetry for x402 endpoints. When unset,
 	// the SDK is not initialized and request monitoring is skipped.
 	get ZAUTH_API_KEY() {

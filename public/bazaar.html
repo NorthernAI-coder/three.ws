@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>x402 Bazaar — discover paid APIs and MCP tools</title>
+<meta name="description" content="Search and browse the x402 facilitator catalog. Filter by network, price, extensions. Pay any service in one click." />
+<meta name="theme-color" content="#0a0b10" />
+<meta property="og:title" content="x402 Bazaar — discover paid APIs and MCP tools" />
+<meta property="og:description" content="Search and browse the x402 facilitator catalog. Filter by network, price, extensions. Pay any service in one click." />
+<meta property="og:type" content="website" />
+<style>
+	:root {
+		--bg: #0a0b10;
+		--bg-2: #0f1119;
+		--panel: #14161f;
+		--panel-2: #1a1d29;
+		--border: #232636;
+		--border-strong: #2e3447;
+		--text: #f0f2f8;
+		--muted: #8a90a8;
+		--muted-2: #6b7088;
+		--accent: #ffffff;
+		--accent-blue: #60a5fa;
+		--accent-green: #4ade80;
+		--accent-red: #f87171;
+		--mono: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
+	}
+	* { box-sizing: border-box; }
+	html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+	body {
+		font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+		-webkit-font-smoothing: antialiased;
+		line-height: 1.5;
+		min-height: 100vh;
+	}
+	a { color: var(--accent-blue); text-decoration: none; }
+	a:hover { color: #93c5fd; }
+
+	.wrap { max-width: 1280px; margin: 0 auto; padding: 0 28px; }
+	@media (max-width: 720px) { .wrap { padding: 0 16px; } }
+
+	nav {
+		padding: 22px 0;
+		display: flex; align-items: center; justify-content: space-between;
+		border-bottom: 1px solid var(--border);
+	}
+	nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+	nav .brand .dot {
+		width: 22px; height: 22px;
+		background: conic-gradient(from 200deg, #ffffff, #60a5fa, #ffffff);
+		border-radius: 6px;
+	}
+	nav .links { display: flex; gap: 18px; font-size: 13.5px; color: var(--muted); }
+	nav .links a { color: var(--muted); }
+	nav .links a:hover { color: var(--text); }
+
+	header.hero { padding: 44px 0 18px; }
+	header.hero h1 { font-size: 36px; line-height: 1.1; margin: 0 0 8px; letter-spacing: -0.02em; }
+	header.hero p { color: var(--muted); margin: 0; font-size: 15px; max-width: 680px; }
+
+	.search-bar {
+		margin: 22px 0 6px;
+		display: flex; gap: 10px; flex-wrap: wrap;
+	}
+	.search-bar input[type=search] {
+		flex: 1 1 360px;
+		min-width: 200px;
+		background: var(--panel);
+		border: 1px solid var(--border-strong);
+		color: var(--text);
+		font-size: 15px;
+		padding: 12px 14px;
+		border-radius: 10px;
+		outline: none;
+	}
+	.search-bar input[type=search]:focus { border-color: var(--accent-blue); }
+	.search-bar button {
+		background: var(--accent-blue);
+		color: #0a0b10;
+		border: none;
+		font-weight: 600;
+		padding: 0 20px;
+		border-radius: 10px;
+		cursor: pointer;
+		font-size: 14px;
+	}
+	.search-bar button.ghost {
+		background: var(--panel);
+		color: var(--text);
+		border: 1px solid var(--border-strong);
+	}
+	.search-bar button:hover { filter: brightness(1.08); }
+
+	.layout {
+		display: grid;
+		grid-template-columns: 260px 1fr;
+		gap: 28px;
+		padding: 24px 0 56px;
+	}
+	@media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+	aside.filters {
+		background: var(--panel);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		padding: 18px;
+		height: max-content;
+		position: sticky;
+		top: 16px;
+	}
+	aside.filters h3 {
+		margin: 0 0 12px;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--muted);
+		font-weight: 600;
+	}
+	aside.filters .group { margin-bottom: 18px; }
+	aside.filters label {
+		display: block;
+		font-size: 13px;
+		color: var(--muted);
+		margin-bottom: 6px;
+	}
+	aside.filters select, aside.filters input[type=number], aside.filters input[type=text] {
+		width: 100%;
+		background: var(--panel-2);
+		border: 1px solid var(--border);
+		color: var(--text);
+		padding: 8px 10px;
+		border-radius: 8px;
+		font-size: 13.5px;
+		outline: none;
+	}
+	aside.filters select:focus, aside.filters input:focus { border-color: var(--accent-blue); }
+	aside.filters .row { display: flex; gap: 8px; }
+	aside.filters .row > * { flex: 1; }
+	aside.filters .reset {
+		width: 100%;
+		background: transparent;
+		border: 1px solid var(--border-strong);
+		color: var(--muted);
+		padding: 8px;
+		border-radius: 8px;
+		cursor: pointer;
+		font-size: 13px;
+	}
+	aside.filters .reset:hover { color: var(--text); border-color: var(--accent-blue); }
+
+	.results-meta {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 14px;
+		color: var(--muted);
+		font-size: 13px;
+	}
+	.results-meta strong { color: var(--text); font-weight: 600; }
+	.results-meta select {
+		background: var(--panel);
+		color: var(--text);
+		border: 1px solid var(--border);
+		padding: 6px 10px;
+		border-radius: 8px;
+		font-size: 13px;
+	}
+
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+		gap: 14px;
+	}
+	.card {
+		background: var(--panel);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		padding: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		min-height: 200px;
+	}
+	.card:hover { border-color: var(--border-strong); }
+	.card .head { display: flex; align-items: center; gap: 10px; }
+	.card .icon {
+		width: 36px; height: 36px;
+		border-radius: 8px;
+		background: var(--panel-2);
+		border: 1px solid var(--border);
+		display: flex; align-items: center; justify-content: center;
+		flex-shrink: 0;
+		font-size: 14px;
+		color: var(--muted);
+		overflow: hidden;
+	}
+	.card .icon img { width: 100%; height: 100%; object-fit: cover; }
+	.card .title { font-weight: 600; font-size: 14px; line-height: 1.3; word-break: break-word; }
+	.card .subtitle { color: var(--muted); font-size: 12px; word-break: break-all; }
+	.card .desc { color: var(--muted); font-size: 13px; flex-grow: 1; }
+	.card .meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11px; }
+	.tag {
+		background: var(--panel-2);
+		border: 1px solid var(--border);
+		color: var(--muted);
+		padding: 3px 8px;
+		border-radius: 999px;
+		font-family: var(--mono);
+		font-size: 11px;
+	}
+	.tag.price { color: var(--accent-green); border-color: rgba(74,222,128,0.3); }
+	.tag.net { color: var(--accent-blue); border-color: rgba(96,165,250,0.3); }
+	.tag.method { color: var(--text); }
+	.tag.ext { color: #c084fc; border-color: rgba(192,132,252,0.3); }
+	.card .actions { display: flex; gap: 8px; margin-top: 4px; }
+	.btn-pay {
+		background: var(--accent-blue);
+		color: #0a0b10;
+		border: none;
+		padding: 9px 14px;
+		font-size: 13px;
+		border-radius: 8px;
+		cursor: pointer;
+		font-weight: 600;
+	}
+	.btn-pay:hover { filter: brightness(1.1); }
+	.btn-pay:disabled { opacity: 0.55; cursor: progress; }
+	.btn-details {
+		background: transparent;
+		border: 1px solid var(--border-strong);
+		color: var(--text);
+		padding: 9px 12px;
+		font-size: 13px;
+		border-radius: 8px;
+		cursor: pointer;
+	}
+	.btn-details:hover { border-color: var(--accent-blue); }
+
+	.receipt {
+		margin-top: 8px;
+		padding: 10px 12px;
+		background: var(--bg-2);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		font-family: var(--mono);
+		font-size: 12px;
+		color: var(--muted);
+		max-height: 260px;
+		overflow: auto;
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
+	.receipt.ok { border-color: rgba(74,222,128,0.4); color: #d1fae5; }
+	.receipt.err { border-color: rgba(248,113,113,0.4); color: #fecaca; }
+	.receipt a { color: var(--accent-blue); }
+
+	.empty {
+		padding: 60px 20px;
+		text-align: center;
+		color: var(--muted);
+		border: 1px dashed var(--border-strong);
+		border-radius: 12px;
+	}
+	.spinner {
+		display: inline-block;
+		width: 14px; height: 14px;
+		border: 2px solid var(--border-strong);
+		border-top-color: var(--accent-blue);
+		border-radius: 50%;
+		animation: spin 0.7s linear infinite;
+		vertical-align: -2px;
+	}
+	@keyframes spin { to { transform: rotate(360deg); } }
+
+	.sources {
+		font-size: 11px;
+		color: var(--muted-2);
+		font-family: var(--mono);
+		margin-top: 6px;
+	}
+	.sources .ok { color: #4ade80; }
+	.sources .err { color: var(--accent-red); }
+
+	dialog.modal {
+		background: var(--panel);
+		color: var(--text);
+		border: 1px solid var(--border-strong);
+		border-radius: 14px;
+		max-width: 720px;
+		width: calc(100% - 32px);
+		padding: 0;
+	}
+	dialog.modal::backdrop { background: rgba(0,0,0,0.65); }
+	dialog.modal header { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+	dialog.modal header h2 { margin: 0; font-size: 15px; font-weight: 600; }
+	dialog.modal header button { background: transparent; color: var(--muted); border: none; cursor: pointer; font-size: 22px; line-height: 1; }
+	dialog.modal section { padding: 16px 20px; }
+	dialog.modal pre {
+		background: var(--bg-2);
+		border: 1px solid var(--border);
+		padding: 12px;
+		border-radius: 8px;
+		overflow: auto;
+		font-family: var(--mono);
+		font-size: 12px;
+		color: var(--muted);
+		max-height: 360px;
+	}
+</style>
+</head>
+<body>
+<div class="wrap">
+	<nav>
+		<div class="brand"><span class="dot"></span><span>x402 bazaar</span></div>
+		<div class="links">
+			<a href="/">Home</a>
+			<a href="https://www.x402.org/docs/extensions/bazaar" target="_blank" rel="noopener">Spec</a>
+			<a href="/.well-known/x402.json">Our listing</a>
+		</div>
+	</nav>
+	<header class="hero">
+		<h1>Discover paid APIs and MCP tools</h1>
+		<p>Live catalog merged across x402 facilitators. Search, filter, and pay any endpoint with a single click — settlement is on-chain via the x402 protocol.</p>
+	</header>
+
+	<form class="search-bar" id="search-form" autocomplete="off">
+		<input type="search" id="q" name="q" placeholder="Search: weather, sanctions, mcp tools, address…" />
+		<button type="submit">Search</button>
+		<button type="button" class="ghost" id="clear-btn">Clear</button>
+	</form>
+
+	<div class="layout">
+		<aside class="filters">
+			<h3>Filters</h3>
+			<div class="group">
+				<label for="f-type">Type</label>
+				<select id="f-type">
+					<option value="http">HTTP endpoints</option>
+					<option value="mcp">MCP tools</option>
+				</select>
+			</div>
+			<div class="group">
+				<label for="f-network">Network</label>
+				<select id="f-network">
+					<option value="">All networks</option>
+					<option value="eip155:*">EVM (any)</option>
+					<option value="eip155:8453">Base</option>
+					<option value="eip155:42161">Arbitrum</option>
+					<option value="eip155:10">Optimism</option>
+					<option value="eip155:137">Polygon</option>
+					<option value="solana:*">Solana (any)</option>
+				</select>
+			</div>
+			<div class="group">
+				<label for="f-max">Max price (USDC)</label>
+				<div class="row">
+					<input type="number" id="f-max" placeholder="0.10" step="0.001" min="0" />
+				</div>
+			</div>
+			<div class="group">
+				<label for="f-ext">Extension</label>
+				<select id="f-ext">
+					<option value="">Any</option>
+					<option value="bazaar">bazaar</option>
+					<option value="sign-in-with-x">sign-in-with-x</option>
+					<option value="payment-identifier">payment-identifier</option>
+					<option value="offer-receipt">offer-receipt</option>
+				</select>
+			</div>
+			<div class="group">
+				<label for="f-sort">Sort by</label>
+				<select id="f-sort">
+					<option value="">Default (rank or facilitator order)</option>
+					<option value="price">Price (lowest first)</option>
+				</select>
+			</div>
+			<button type="button" class="reset" id="reset-btn">Reset filters</button>
+		</aside>
+
+		<main>
+			<div class="results-meta">
+				<div>
+					<strong id="count">…</strong>
+					<span> results <span id="qlabel"></span></span>
+					<div class="sources" id="sources"></div>
+				</div>
+			</div>
+			<div id="results" class="cards"></div>
+			<div id="empty" class="empty" hidden>No matching services. Try fewer filters or a different query.</div>
+		</main>
+	</div>
+</div>
+
+<dialog class="modal" id="details-modal">
+	<header>
+		<h2 id="dm-title">Resource details</h2>
+		<button type="button" id="dm-close" aria-label="Close">×</button>
+	</header>
+	<section>
+		<div id="dm-body"></div>
+	</section>
+</dialog>
+
+<!-- The drop-in x402 modal, which we use for the "Try it" pay flow. -->
+<script type="module" src="/x402.js"></script>
+<script type="module" src="/bazaar.js"></script>
+</body>
+</html>

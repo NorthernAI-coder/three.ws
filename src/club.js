@@ -833,6 +833,34 @@ async function tipDancer({ dancer, dance, button }) {
 	}
 }
 
+// ── Mobile bottom-sheet handle + leaderboard auto-collapse ───────────────
+// The right panel becomes a bottom sheet on mobile. The drag handle at the
+// top of the sheet toggles `.is-expanded` (CSS transform handles the
+// slide). The leaderboard <details> is force-open on desktop and starts
+// collapsed on mobile to keep the viewport canvas-first.
+{
+	const handle = document.getElementById('club-sheet-handle');
+	const sheet = document.getElementById('club-right');
+	if (handle && sheet) {
+		handle.addEventListener('click', () => {
+			const expanded = sheet.classList.toggle('is-expanded');
+			handle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+		});
+	}
+
+	const lbDetails = document.getElementById('club-lb-details');
+	if (lbDetails && typeof window.matchMedia === 'function') {
+		const mq = window.matchMedia('(max-width: 800px)');
+		const apply = () => {
+			if (mq.matches) lbDetails.removeAttribute('open');
+			else lbDetails.setAttribute('open', '');
+		};
+		apply();
+		if (typeof mq.addEventListener === 'function') mq.addEventListener('change', apply);
+		else if (typeof mq.addListener === 'function') mq.addListener(apply);
+	}
+}
+
 // ── Mute pill in top bar ─────────────────────────────────────────────────
 function bindMutePill() {
 	const btn = document.getElementById('club-audio-toggle');
@@ -1005,11 +1033,43 @@ window.addEventListener('keydown', (e) => {
 	}
 });
 
+// ── Frame-budget watchdog ────────────────────────────────────────────────
+// Even with the boot-time profile, a phone can throttle mid-session (thermal,
+// background sync, etc.). The watchdog drops us one tier on sustained slow
+// frames and we never auto-upgrade. Downgrade re-applies cheap render-state
+// flags (pixelRatio, shadowMap, antialias-already-baked); features built
+// once (mirror ball, volumetric cones) stay as constructed — turning them
+// off mid-flight would mean destroying GPU resources which itself spikes
+// frame time. Halting their per-frame work is enough.
+const watchdog = createFrameWatchdog({
+	initialTier: activeProfile.tier,
+	onDowngrade: (nextTier) => {
+		const next = PROFILES[nextTier];
+		if (!next) return;
+		activeProfile = next;
+		if (typeof window !== 'undefined') window.__clubProfile = next;
+		renderer.setPixelRatio(next.pixelRatio);
+		renderer.shadowMap.enabled = next.shadows;
+		for (const station of stations) {
+			if (station.spot) station.spot.castShadow = next.shadows;
+		}
+		// Trim disco lights to the new cap so we render fewer point lights.
+		while (disco.children.length > next.discoLights) {
+			const dropped = disco.children[disco.children.length - 1];
+			disco.remove(dropped);
+		}
+		console.info('[club] downgrading profile to', nextTier);
+	},
+});
+
 // ── Render loop ──────────────────────────────────────────────────────────
 const clock = new Clock();
+let rafId = null;
 function animate() {
 	const dt = Math.min(clock.getDelta(), 0.066);
 	const t = clock.getElapsedTime();
+
+	watchdog.tick(dt);
 
 	for (const station of stations) station.tick(dt);
 
@@ -1020,7 +1080,7 @@ function animate() {
 	clubCam.tick(dt);
 
 	renderer.render(scene, camera);
-	requestAnimationFrame(animate);
+	rafId = requestAnimationFrame(animate);
 }
 
 renderPoles();
@@ -1123,9 +1183,20 @@ function stopLeaderboardPolling() {
 document.addEventListener('visibilitychange', () => {
 	if (document.hidden) {
 		stopLeaderboardPolling();
+		// Stop the rAF loop entirely on hidden tabs — on mobile, leaving it
+		// running heats the phone and drains battery for a tab the user
+		// isn't even looking at.
+		if (rafId != null) {
+			cancelAnimationFrame(rafId);
+			rafId = null;
+		}
 	} else {
 		fetchLeaderboard();
 		startLeaderboardPolling();
+		// Discard the gap delta so the watchdog doesn't see one huge frame
+		// (which would immediately count as "slow") on resume.
+		clock.getDelta();
+		if (rafId == null) animate();
 	}
 });
 

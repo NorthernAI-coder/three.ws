@@ -73,6 +73,7 @@ const HANDLERS = {
 	'run-coin-cycle': handleRunCoinCycle,
 	'run-coin-payouts': handleRunCoinPayouts,
 	'club-payouts': handleClubPayouts,
+	'siwx-gc': handleSiwxGc,
 };
 
 export default wrap(async (req, res) => {
@@ -2422,6 +2423,35 @@ async function handleCleanupCsrfTokens(req, res) {
 	if (!method(req, res, ['GET'])) return;
 	const result = await sql`DELETE FROM csrf_tokens WHERE expires_at < now() RETURNING token`;
 	return json(res, 200, { deleted: result.length });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// siwx-gc — prune SIWX nonces (replay window) and expired payment grants.
+// Hourly. Nonce window of 10 min is well above the 5-min SIWX maxAge;
+// payments grace of 7 days avoids cutting off slow clients at the boundary.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleSiwxGc(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+
+	const auth = req.headers['authorization'] || '';
+	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
+	const fromCron = req.headers['x-vercel-cron'] === '1';
+	if (!fromCron && (!expected || auth !== expected)) {
+		return error(res, 401, 'unauthorized', 'cron secret required');
+	}
+
+	const { pruneOldNonces, pruneExpiredPayments } = await import('../_lib/siwx-storage.js');
+
+	const noncesDeleted = await pruneOldNonces(10 * 60);
+	const paymentsDeleted = await pruneExpiredPayments(7 * 24 * 3600);
+
+	return json(res, 200, {
+		ok: true,
+		noncesDeleted,
+		paymentsDeleted,
+		ranAt: new Date().toISOString(),
+	});
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
