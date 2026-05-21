@@ -21,6 +21,7 @@ import {
 	NETWORK_SOLANA_MAINNET,
 	X402Error,
 	encodePaymentResponseHeader,
+	permit2VariantOf,
 	resolveResourceUrl,
 	send402,
 	settlePayment,
@@ -96,7 +97,16 @@ function buildRequirements({ priceAtomics, networks, resourceUrl }) {
 		if (net === NETWORK_BASE_MAINNET && !env.X402_PAY_TO_BASE) continue;
 		if (net === NETWORK_SOLANA_MAINNET && !env.X402_PAY_TO_SOLANA) continue;
 		if (net === NETWORK_BSC_MAINNET && !env.X402_PAY_TO_BSC) continue;
-		out.push(buildAccept(net, priceAtomics, resourceUrl));
+		const accept = buildAccept(net, priceAtomics, resourceUrl);
+		out.push(accept);
+		// For EVM `exact` networks, advertise a Permit2 sibling so @x402/* SDK
+		// clients can pick the gasless Permit2-via-EIP-2612 path. The EIP-3009
+		// entry stays first so the browser modal (which only signs
+		// transferWithAuthorization) keeps selecting it. send402/build402Body
+		// auto-declares the eip2612GasSponsoring extension when this sibling
+		// is present — no per-endpoint opt-in needed.
+		const sibling = permit2VariantOf(accept);
+		if (sibling) out.push(sibling);
 	}
 	if (!out.length) {
 		throw new X402Error(

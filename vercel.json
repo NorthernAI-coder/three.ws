@@ -226,6 +226,10 @@
 			"dest": "/pose.html"
 		},
 		{
+			"src": "/club/?",
+			"dest": "/club.html"
+		},
+		{
 			"src": "/walkaround/?",
 			"dest": "/demos/walkaround.html"
 		},

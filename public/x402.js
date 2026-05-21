@@ -60,6 +60,17 @@ function isSolanaNetwork(net) {
 function isEvmNetwork(net) {
 	return typeof net === 'string' && net.startsWith('eip155:');
 }
+// The modal only signs EIP-3009 transferWithAuthorization for EVM. When the
+// server publishes both an EIP-3009 entry and a Permit2 sibling (the
+// gas-sponsoring path used by @x402/evm SDK clients), we must pick the
+// EIP-3009 one — signing typed-data against the Permit2 entry would build a
+// payload the facilitator rejects. The sibling carries
+// `extra.assetTransferMethod === 'permit2'`; the legacy entry omits it.
+function isEip3009Accept(accept) {
+	if (!isEvmNetwork(accept?.network)) return false;
+	const method = accept?.extra?.assetTransferMethod;
+	return !method || method === 'eip3009';
+}
 function networkLabel(net, accept) {
 	if (isSolanaNetwork(net)) return 'Solana';
 	const meta = EVM_NETWORKS[net];
@@ -449,7 +460,7 @@ class CheckoutModal {
 		const phantomDetected = typeof window !== 'undefined' && (window.solana?.isPhantom || window.phantom?.solana);
 		const evmDetected = typeof window !== 'undefined' && window.ethereum;
 		const solanaAccept = this.challenge?.accepts.find((a) => isSolanaNetwork(a.network));
-		const evmAccept = this.challenge?.accepts.find((a) => isEvmNetwork(a.network));
+		const evmAccept = this.challenge?.accepts.find(isEip3009Accept);
 		const buttons = [];
 		if (solanaAccept) {
 			buttons.push(`

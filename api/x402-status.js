@@ -8,7 +8,15 @@
 
 import { cors, json, method, wrap } from './_lib/http.js';
 import { env } from './_lib/env.js';
-import { paymentRequirements, probeFacilitators, X402_VERSION } from './_lib/x402-spec.js';
+import {
+	EIP2612_EXTENSION_KEY,
+	ERC20_APPROVAL_EXTENSION_KEY,
+	declareEip2612GasSponsoringExtension,
+	paymentRequirements,
+	probeFacilitators,
+	X402_VERSION,
+} from './_lib/x402-spec.js';
+import { declareErc20ApprovalGasSponsoringExtension } from '@x402/extensions';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -18,6 +26,21 @@ export default wrap(async (req, res) => {
 	const facilitators = await probeFacilitators();
 	const ok = facilitators.every((f) => f.ok);
 
+	// Surface what we advertise in 402 challenges so operators can confirm at a
+	// glance: which accept entries opt into the Permit2 transfer method, and
+	// whether each facilitator's /supported probe actually advertises the
+	// `eip2612GasSponsoring` extension we declare. A green `ok` here plus
+	// `extensions.eip2612GasSponsoring.facilitatorsSupporting` matching the
+	// EVM facilitator set means the gasless Permit2 onboarding path is live.
+	const permit2Accepts = accepts.filter((a) => a?.extra?.assetTransferMethod === 'permit2');
+	const sponsorshipDeclared = permit2Accepts.length > 0;
+	const eip2612FacilitatorsSupporting = facilitators
+		.filter((f) => f.supportsEip2612GasSponsoring)
+		.map((f) => f.network);
+	const erc20FacilitatorsSupporting = facilitators
+		.filter((f) => f.supportsErc20ApprovalGasSponsoring)
+		.map((f) => f.network);
+
 	return json(
 		res,
 		ok ? 200 : 503,
@@ -26,6 +49,24 @@ export default wrap(async (req, res) => {
 			x402Version: X402_VERSION,
 			accepts,
 			facilitators,
+			extensions: {
+				[EIP2612_EXTENSION_KEY]: {
+					declared: sponsorshipDeclared,
+					declaration: sponsorshipDeclared
+						? declareEip2612GasSponsoringExtension()[EIP2612_EXTENSION_KEY]
+						: null,
+					appliesTo: permit2Accepts.map((a) => a.network),
+					facilitatorsSupporting: eip2612FacilitatorsSupporting,
+				},
+				[ERC20_APPROVAL_EXTENSION_KEY]: {
+					declared: sponsorshipDeclared,
+					declaration: sponsorshipDeclared
+						? declareErc20ApprovalGasSponsoringExtension()[ERC20_APPROVAL_EXTENSION_KEY]
+						: null,
+					appliesTo: permit2Accepts.map((a) => a.network),
+					facilitatorsSupporting: erc20FacilitatorsSupporting,
+				},
+			},
 			env: {
 				X402_PAY_TO_SOLANA: env.X402_PAY_TO_SOLANA || null,
 				X402_PAY_TO_BASE: env.X402_PAY_TO_BASE || null,

@@ -7,9 +7,12 @@ import {
 	paymentRequirements,
 	bazaarExtension,
 	build402Body,
+	declareEip2612GasSponsoringExtension,
+	permit2VariantOf,
 	NETWORK_BASE_MAINNET,
 	NETWORK_SOLANA_MAINNET,
 } from './_lib/x402-spec.js';
+import { declareErc20ApprovalGasSponsoringExtension } from '@x402/extensions';
 
 // ── agent-attestation-schemas ─────────────────────────────────────────────────
 
@@ -184,11 +187,38 @@ const RAW_AMOUNT_TO_USDC = (raw) => {
 // Each new /api/x402/* endpoint has its own price set in its handler via
 // paidEndpoint(priceAtomics); the discovery doc has to mirror that or
 // agentic.market shows the wrong price to potential buyers.
+// Push an EVM accept entry followed by its Permit2 sibling so the Bazaar
+// discovery doc mirrors the live 402 response exactly (EIP-3009 first,
+// Permit2 second). Non-EVM entries get no sibling.
+function pushAcceptWithPermit2Sibling(out, accept) {
+	out.push(accept);
+	const sibling = permit2VariantOf(accept);
+	if (sibling) out.push(sibling);
+}
+
+// Per-resource extensions for the discovery catalog. The bazaar entry is
+// always present; the two gasless-Permit2-onboarding extensions are added
+// whenever any accept in the list opts into the Permit2 transfer method.
+// EIP-2612 covers tokens that implement `permit()` (USDC, DAI, ...); the
+// ERC-20 approval variant covers tokens that don't. Both let the facilitator
+// sponsor the approve() so the payer never broadcasts the approval tx.
+function extensionsForAccepts(accepts, bazaar) {
+	const exts = { bazaar };
+	if (accepts.some((a) => a?.extra?.assetTransferMethod === 'permit2')) {
+		Object.assign(
+			exts,
+			declareEip2612GasSponsoringExtension(),
+			declareErc20ApprovalGasSponsoringExtension(),
+		);
+	}
+	return exts;
+}
+
 function acceptsForPrice(amountAtomics) {
 	const out = [];
 	const price = RAW_AMOUNT_TO_USDC(amountAtomics);
 	if (env.X402_PAY_TO_BASE) {
-		out.push({
+		pushAcceptWithPermit2Sibling(out, {
 			scheme: 'exact',
 			network: NETWORK_BASE_MAINNET,
 			network_label: 'base-mainnet',
@@ -228,7 +258,7 @@ function handleX402Discovery(req, res) {
 
 	const mcpAccepts = [];
 	if (env.X402_PAY_TO_BASE) {
-		mcpAccepts.push({
+		pushAcceptWithPermit2Sibling(mcpAccepts, {
 			scheme: 'exact',
 			network: NETWORK_BASE_MAINNET,
 			network_label: 'base-mainnet',
@@ -259,33 +289,34 @@ function handleX402Discovery(req, res) {
 	// /api/x402/model-check is the CDP-Bazaar-cataloged endpoint. CDP supports
 	// Base mainnet + Arbitrum One; advertise both here so agentic.market shows
 	// the same network options buyers will see in the live 402 challenge.
+	// Each EVM entry gets a Permit2 sibling so EIP-2612-aware clients can pick
+	// the gasless Permit2-via-EIP-2612 path.
 	const ARB_USDC = env.X402_ASSET_ADDRESS_ARBITRUM;
-	const modelCheckAccepts = [
-		{
-			scheme: 'exact',
-			network: NETWORK_BASE_MAINNET,
-			network_label: 'base-mainnet',
-			amount: env.X402_MAX_AMOUNT_REQUIRED,
-			price,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: env.X402_ASSET_ADDRESS_BASE,
-			asset_symbol: 'USDC',
-			maxTimeoutSeconds: 60,
-			extra: { name: 'USDC', version: '2', decimals: 6 },
-		},
-		{
-			scheme: 'exact',
-			network: 'eip155:42161',
-			network_label: 'arbitrum-one',
-			amount: env.X402_MAX_AMOUNT_REQUIRED,
-			price,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: ARB_USDC,
-			asset_symbol: 'USDC',
-			maxTimeoutSeconds: 60,
-			extra: { name: 'USDC', version: '2', decimals: 6 },
-		},
-	];
+	const modelCheckAccepts = [];
+	pushAcceptWithPermit2Sibling(modelCheckAccepts, {
+		scheme: 'exact',
+		network: NETWORK_BASE_MAINNET,
+		network_label: 'base-mainnet',
+		amount: env.X402_MAX_AMOUNT_REQUIRED,
+		price,
+		payTo: env.X402_PAY_TO_BASE,
+		asset: env.X402_ASSET_ADDRESS_BASE,
+		asset_symbol: 'USDC',
+		maxTimeoutSeconds: 60,
+		extra: { name: 'USDC', version: '2', decimals: 6 },
+	});
+	pushAcceptWithPermit2Sibling(modelCheckAccepts, {
+		scheme: 'exact',
+		network: 'eip155:42161',
+		network_label: 'arbitrum-one',
+		amount: env.X402_MAX_AMOUNT_REQUIRED,
+		price,
+		payTo: env.X402_PAY_TO_BASE,
+		asset: ARB_USDC,
+		asset_symbol: 'USDC',
+		maxTimeoutSeconds: 60,
+		extra: { name: 'USDC', version: '2', decimals: 6 },
+	});
 
 	return json(
 		res,
@@ -331,24 +362,22 @@ function handleX402Discovery(req, res) {
 						'Fetches a glTF/GLB model from a URL and returns structural stats (vertex/triangle counts, materials, textures, animations, extensions) plus a prioritized list of optimization recommendations. Single GET, ?url=…. CDP-Bazaar-cataloged.',
 					mimeType: 'application/json',
 					accepts: modelCheckAccepts,
-					extensions: {
-						bazaar: {
-							method: 'GET',
-							discoverable: true,
-							input: { url: 'https://three.ws/avatar/character-studio/sample.glb' },
-							inputSchema: {
-								type: 'object',
-								required: ['url'],
-								properties: {
-									url: {
-										type: 'string',
-										format: 'uri',
-										description: 'Public HTTPS URL of a glTF/GLB model.',
-									},
+					extensions: extensionsForAccepts(modelCheckAccepts, {
+						method: 'GET',
+						discoverable: true,
+						input: { url: 'https://three.ws/avatar/character-studio/sample.glb' },
+						inputSchema: {
+							type: 'object',
+							required: ['url'],
+							properties: {
+								url: {
+									type: 'string',
+									format: 'uri',
+									description: 'Public HTTPS URL of a glTF/GLB model.',
 								},
 							},
 						},
-					},
+					}),
 				},
 				{
 					path: '/api/x402/mint-to-mesh',
@@ -358,25 +387,23 @@ function handleX402Discovery(req, res) {
 						'Mint to Mesh — pass a Solana fungible-token mint, get back a binary glTF (GLB) cube themed for that token. Color is derived from a stable hash of the mint; when the off-chain Metaplex JSON exposes a PNG/JPEG, that image is embedded as a baseColor texture on every face. Asset.extras carry mint, name, symbol, and timestamp. Useful for any agent that needs an instantly renderable 3D representation of a token. CDP-Bazaar-cataloged.',
 					mimeType: 'application/json',
 					accepts: modelCheckAccepts,
-					extensions: {
-						bazaar: {
-							method: 'GET',
-							discoverable: true,
-							input: { mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
-							inputSchema: {
-								type: 'object',
-								required: ['mint'],
-								properties: {
-									mint: {
-										type: 'string',
-										minLength: 32,
-										maxLength: 64,
-										description: 'Base58 SPL mint address on Solana mainnet.',
-									},
+					extensions: extensionsForAccepts(modelCheckAccepts, {
+						method: 'GET',
+						discoverable: true,
+						input: { mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
+						inputSchema: {
+							type: 'object',
+							required: ['mint'],
+							properties: {
+								mint: {
+									type: 'string',
+									minLength: 32,
+									maxLength: 64,
+									description: 'Base58 SPL mint address on Solana mainnet.',
 								},
 							},
 						},
-					},
+					}),
 				},
 				{
 					path: '/api/insights/revenue-vision',
@@ -386,31 +413,29 @@ function handleX402Discovery(req, res) {
 						'Revenue Vision — agentic growth analysis powered by Claude. Hand over a mission_brief and get back a single prioritized next-best move, a data-grounded insight, and an honestly-calibrated confidence rating. CDP-Bazaar-cataloged.',
 					mimeType: 'application/json',
 					accepts: modelCheckAccepts,
-					extensions: {
-						bazaar: {
-							method: 'GET',
-							discoverable: true,
-							input: {
-								agent_codename: 'ledger-bot',
-								power_request: 'revenue-vision',
-								mission_brief:
-									'Find the highest-converting buyer segment this week.',
-							},
-							inputSchema: {
-								type: 'object',
-								required: ['agent_codename', 'power_request', 'mission_brief'],
-								properties: {
-									agent_codename: { type: 'string' },
-									power_request: { type: 'string', enum: ['revenue-vision'] },
-									mission_brief: {
-										type: 'string',
-										minLength: 4,
-										maxLength: 4000,
-									},
+					extensions: extensionsForAccepts(modelCheckAccepts, {
+						method: 'GET',
+						discoverable: true,
+						input: {
+							agent_codename: 'ledger-bot',
+							power_request: 'revenue-vision',
+							mission_brief:
+								'Find the highest-converting buyer segment this week.',
+						},
+						inputSchema: {
+							type: 'object',
+							required: ['agent_codename', 'power_request', 'mission_brief'],
+							properties: {
+								agent_codename: { type: 'string' },
+								power_request: { type: 'string', enum: ['revenue-vision'] },
+								mission_brief: {
+									type: 'string',
+									minLength: 4,
+									maxLength: 4000,
 								},
 							},
 						},
-					},
+					}),
 				},
 				{
 					path: '/api/mcp',
@@ -420,7 +445,7 @@ function handleX402Discovery(req, res) {
 						'MCP 2025-06-18 Streamable HTTP transport — 3D avatar viewer, glTF model validation/inspection/optimization, and Solana agent data exposed as MCP tools. JSON-RPC 2.0 batch-aware. Currency: USDC.',
 					mimeType: 'application/json',
 					accepts: mcpAccepts,
-					extensions: { bazaar: bazaarExtension() },
+					extensions: extensionsForAccepts(mcpAccepts, bazaarExtension()),
 					links: {
 						openapi: `${origin}/openapi.json`,
 						docs: `${origin}/docs/mcp`,
@@ -428,16 +453,17 @@ function handleX402Discovery(req, res) {
 						payment_config: `${origin}/.well-known/x402`,
 					},
 				},
-				{
-					path: '/api/x402/agent-reputation',
-					url: `${origin}/api/x402/agent-reputation`,
-					method: 'GET',
-					description:
-						'Agent Reputation — return a reputation snapshot for a three.ws agent (USDC paid in to its pump-agent tokens, distinct payers, deployed mints, distribution success rate, Solana attestation counts). Built from three.ws\'s proprietary index of pump_agent_payments, pump_distribute_runs, and solana_attestations.',
-					mimeType: 'application/json',
-					accepts: acceptsForPrice('10000'),
-					extensions: {
-						bazaar: {
+				(() => {
+					const accepts = acceptsForPrice('10000');
+					return {
+						path: '/api/x402/agent-reputation',
+						url: `${origin}/api/x402/agent-reputation`,
+						method: 'GET',
+						description:
+							'Agent Reputation — return a reputation snapshot for a three.ws agent (USDC paid in to its pump-agent tokens, distinct payers, deployed mints, distribution success rate, Solana attestation counts). Built from three.ws\'s proprietary index of pump_agent_payments, pump_distribute_runs, and solana_attestations.',
+						mimeType: 'application/json',
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
 							input: { agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55' },
@@ -446,19 +472,20 @@ function handleX402Discovery(req, res) {
 								required: ['agent_id'],
 								properties: { agent_id: { type: 'string', format: 'uuid' } },
 							},
-						},
-					},
-				},
-				{
-					path: '/api/x402/onchain-identity-verify',
-					url: `${origin}/api/x402/onchain-identity-verify`,
-					method: 'GET',
-					description:
-						'On-Chain Identity Verifier — given a three.ws agent_id + CAIP-2 chain + contract/mint, verify ownership from the canonical meta.onchain index and return tx_hash/wallet/deploy time evidence when verified. Trust primitive before paying counterparty agents.',
-					mimeType: 'application/json',
-					accepts: acceptsForPrice('5000'),
-					extensions: {
-						bazaar: {
+						}),
+					};
+				})(),
+				(() => {
+					const accepts = acceptsForPrice('5000');
+					return {
+						path: '/api/x402/onchain-identity-verify',
+						url: `${origin}/api/x402/onchain-identity-verify`,
+						method: 'GET',
+						description:
+							'On-Chain Identity Verifier — given a three.ws agent_id + CAIP-2 chain + contract/mint, verify ownership from the canonical meta.onchain index and return tx_hash/wallet/deploy time evidence when verified. Trust primitive before paying counterparty agents.',
+						mimeType: 'application/json',
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
 							input: {
@@ -475,19 +502,20 @@ function handleX402Discovery(req, res) {
 									contract_or_mint: { type: 'string' },
 								},
 							},
-						},
-					},
-				},
-				{
-					path: '/api/x402/pump-agent-audit',
-					url: `${origin}/api/x402/pump-agent-audit`,
-					method: 'GET',
-					description:
-						'Pump-Agent Audit — full operational audit of a pump.fun agent-payments token: total USDC in, unique payers, distribute/buyback success history, latest error reasons, and risk flags (never_distributed, high_distribute_failure_rate, no_buybacks_run). Backed by three.ws\'s indexed pump_distribute_runs and pump_buyback_runs tables.',
-					mimeType: 'application/json',
-					accepts: acceptsForPrice('20000'),
-					extensions: {
-						bazaar: {
+						}),
+					};
+				})(),
+				(() => {
+					const accepts = acceptsForPrice('20000');
+					return {
+						path: '/api/x402/pump-agent-audit',
+						url: `${origin}/api/x402/pump-agent-audit`,
+						method: 'GET',
+						description:
+							'Pump-Agent Audit — full operational audit of a pump.fun agent-payments token: total USDC in, unique payers, distribute/buyback success history, latest error reasons, and risk flags (never_distributed, high_distribute_failure_rate, no_buybacks_run). Backed by three.ws\'s indexed pump_distribute_runs and pump_buyback_runs tables.',
+						mimeType: 'application/json',
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
 							input: { mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi' },
@@ -496,19 +524,20 @@ function handleX402Discovery(req, res) {
 								required: ['mint'],
 								properties: { mint: { type: 'string', minLength: 32, maxLength: 44 } },
 							},
-						},
-					},
-				},
-				{
-					path: '/api/x402/skill-marketplace',
-					url: `${origin}/api/x402/skill-marketplace`,
-					method: 'GET',
-					description:
-						'Skill Marketplace — list active skill listings with prices across all three.ws agents. Filter by skill name to find the cheapest provider for a given capability. Returns price atomics, chain, currency, trial offer, and time-pass terms.',
-					mimeType: 'application/json',
-					accepts: acceptsForPrice('1000'),
-					extensions: {
-						bazaar: {
+						}),
+					};
+				})(),
+				(() => {
+					const accepts = acceptsForPrice('1000');
+					return {
+						path: '/api/x402/skill-marketplace',
+						url: `${origin}/api/x402/skill-marketplace`,
+						method: 'GET',
+						description:
+							'Skill Marketplace — list active skill listings with prices across all three.ws agents. Filter by skill name to find the cheapest provider for a given capability. Returns price atomics, chain, currency, trial offer, and time-pass terms.',
+						mimeType: 'application/json',
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
 							input: { skill: 'inspect_model', limit: 20 },
@@ -519,19 +548,20 @@ function handleX402Discovery(req, res) {
 									limit: { type: 'integer', minimum: 1, maximum: 200 },
 								},
 							},
-						},
-					},
-				},
-				{
-					path: '/api/x402/symbol-availability',
-					url: `${origin}/api/x402/symbol-availability`,
-					method: 'GET',
-					description:
-						'Symbol Availability — pre-launch ticker collision check against three.ws\'s pump.fun mint index. Returns exact-symbol collisions plus trigram-similar tickers so launch agents can avoid name confusion and aggregator-search dilution.',
-					mimeType: 'application/json',
-					accepts: acceptsForPrice('1000'),
-					extensions: {
-						bazaar: {
+						}),
+					};
+				})(),
+				(() => {
+					const accepts = acceptsForPrice('1000');
+					return {
+						path: '/api/x402/symbol-availability',
+						url: `${origin}/api/x402/symbol-availability`,
+						method: 'GET',
+						description:
+							'Symbol Availability — pre-launch ticker collision check against three.ws\'s pump.fun mint index. Returns exact-symbol collisions plus trigram-similar tickers so launch agents can avoid name confusion and aggregator-search dilution.',
+						mimeType: 'application/json',
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
 							input: { ticker: 'HELIO', network: 'mainnet' },
@@ -543,19 +573,20 @@ function handleX402Discovery(req, res) {
 									network: { type: 'string', enum: ['mainnet', 'devnet'] },
 								},
 							},
-						},
-					},
-				},
-				{
-					path: '/api/x402/mint-to-mesh-batch',
-					url: `${origin}/api/x402/mint-to-mesh-batch`,
-					method: 'POST',
-					description:
-						'Mint-to-Mesh (Batch) — resolve 1–10 Solana SPL mints to themed binary glTF cubes in a single paid call. Per-mint failures report ok:false individually instead of failing the whole batch. Output is base64 GLB bytes for Three.js / Babylon.js / model-viewer.',
-					mimeType: 'application/json',
-					accepts: acceptsForPrice('50000'),
-					extensions: {
-						bazaar: {
+						}),
+					};
+				})(),
+				(() => {
+					const accepts = acceptsForPrice('50000');
+					return {
+						path: '/api/x402/mint-to-mesh-batch',
+						url: `${origin}/api/x402/mint-to-mesh-batch`,
+						method: 'POST',
+						description:
+							'Mint-to-Mesh (Batch) — resolve 1–10 Solana SPL mints to themed binary glTF cubes in a single paid call. Per-mint failures report ok:false individually instead of failing the whole batch. Output is base64 GLB bytes for Three.js / Babylon.js / model-viewer.',
+						mimeType: 'application/json',
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
 							method: 'POST',
 							discoverable: true,
 							input: {
@@ -576,9 +607,9 @@ function handleX402Discovery(req, res) {
 									},
 								},
 							},
-						},
-					},
-				},
+						}),
+					};
+				})(),
 			],
 		},
 		{ 'cache-control': 'public, max-age=300' },

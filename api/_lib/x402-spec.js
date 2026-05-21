@@ -34,7 +34,9 @@
 import { createCdpAuthHeaders } from '@coinbase/x402';
 import {
 	EIP2612_GAS_SPONSORING,
+	ERC20_APPROVAL_GAS_SPONSORING,
 	declareEip2612GasSponsoringExtension,
+	declareErc20ApprovalGasSponsoringExtension,
 } from '@x402/extensions';
 
 import { env } from './env.js';
@@ -46,16 +48,23 @@ import {
 } from './x402-bsc-direct.js';
 
 export { X402Error };
+export { declareEip2612GasSponsoringExtension };
 
 export const X402_VERSION = 2;
 
-// Extension keys we advertise alongside the bazaar discovery entry. The
-// eip2612 gas-sponsoring extension is a non-binding hint to clients: when a
+// Extension keys we advertise alongside the bazaar discovery entry. Both
+// gas-sponsoring extensions are non-binding hints to clients: when a
 // requirement opts into the Permit2 asset-transfer method, the facilitator
-// (CDP's x402ExactPermit2Proxy) accepts an off-chain EIP-2612 permit so the
-// payer never broadcasts the Permit2-approval tx themselves. Legacy clients
-// stay on the EIP-3009 accept entry (offered first below) and ignore this.
+// (CDP's x402ExactPermit2Proxy) lets the payer skip broadcasting the Permit2
+// approval themselves. EIP-2612 sponsorship is the preferred path for tokens
+// that implement EIP-2612 (Base USDC v2 does — the facilitator submits the
+// off-chain permit via settleWithPermit). ERC-20 approval sponsorship is the
+// universal fallback for any other ERC-20: the client signs (but does not
+// broadcast) a raw approve(Permit2, MaxUint256) tx and the facilitator
+// broadcasts it atomically before settling. Legacy clients stay on the
+// EIP-3009 accept entry (offered first) and ignore both extensions.
 export const EIP2612_EXTENSION_KEY = EIP2612_GAS_SPONSORING.key;
+export const ERC20_APPROVAL_EXTENSION_KEY = ERC20_APPROVAL_GAS_SPONSORING.key;
 
 // CAIP-2 network IDs as advertised by Coinbase x402 facilitators (PayAI, CDP).
 // Solana mainnet's CAIP-2 namespace uses the truncated genesis-block hash.
@@ -85,11 +94,18 @@ const DIRECT_NETWORKS = new Set([NETWORK_BSC_MAINNET]);
 // `assetTransferMethod` field is what @x402/evm's ExactEvmScheme keys on; with
 // `supportsEip2612: true` set, the scheme will sign an EIP-2612 permit when
 // its Permit2 allowance is insufficient and stuff it into the payment payload
-// extensions for the facilitator to submit. Returns null when the source
-// accept is not an EVM `exact` entry (BSC direct + Solana fall through to null).
+// extensions for the facilitator to submit.
+//
+// Returns null when:
+//   1. The source accept is not an EVM `exact` entry (BSC direct + Solana).
+//   2. CDP credentials are missing — Permit2 settlement is a CDP-only path
+//      (PayAI's facilitator only advertises `exact` with EIP-3009). Emitting
+//      a Permit2 sibling we can't actually settle would mislead clients into
+//      signing a typed-data we'd then reject at /verify time.
 export function permit2VariantOf(accept) {
 	if (!accept || accept.scheme !== 'exact') return null;
 	if (typeof accept.network !== 'string' || !accept.network.startsWith('eip155:')) return null;
+	if (!env.CDP_API_KEY_ID || !env.CDP_API_KEY_SECRET) return null;
 	return {
 		...accept,
 		extra: {
@@ -376,12 +392,25 @@ export async function probeFacilitators() {
 			});
 			continue;
 		}
-		const supports = data.kinds.some(
+		const matching = data.kinds.filter(
 			(k) =>
 				k.scheme === 'exact' &&
 				k.network === t.network &&
 				(k.x402Version ?? 1) === X402_VERSION,
 		);
+		const supports = matching.length > 0;
+		// Aggregate the extension keys the facilitator advertises for this
+		// scheme/network. Each /supported `kind` carries an `extensions: string[]`
+		// list (see @x402/core server schema). We surface whether each gas-
+		// sponsoring extension is present so /api/x402-status can flag silently-
+		// degraded setups where we advertise an extension but the facilitator
+		// won't actually settle it.
+		const advertisedExtensions = new Set();
+		for (const k of matching) {
+			if (Array.isArray(k.extensions)) {
+				for (const ext of k.extensions) advertisedExtensions.add(ext);
+			}
+		}
 		results.push({
 			network: t.network,
 			url: t.url,
@@ -389,6 +418,9 @@ export async function probeFacilitators() {
 			reason: supports
 				? `facilitator advertises exact/${t.network}`
 				: `facilitator does NOT advertise scheme=exact network=${t.network} (configure X402_FACILITATOR_URL_${t.network.toUpperCase()} to a facilitator that does)`,
+			extensions: [...advertisedExtensions],
+			supportsEip2612GasSponsoring: advertisedExtensions.has(EIP2612_EXTENSION_KEY),
+			supportsErc20ApprovalGasSponsoring: advertisedExtensions.has(ERC20_APPROVAL_EXTENSION_KEY),
 		});
 	}
 	return results;
@@ -673,11 +705,29 @@ export function bazaarExtension() {
 	};
 }
 
+// True when any offered requirement asks the client to use the Permit2
+// asset-transfer method. When so, we automatically advertise BOTH gas-
+// sponsoring extensions at the top level — the facilitator (CDP's
+// x402ExactPermit2Proxy) submits the approval atomically with settlement so
+// the payer never broadcasts the approval tx themselves. EIP-2612 is the
+// preferred path for tokens that implement it (Base USDC v2 does);
+// ERC-20 approval is the universal fallback that works with any ERC-20.
+// permit2VariantOf already gates Permit2 emission on CDP creds being
+// present, so by the time any accept reaches this check, the facilitator
+// can honor both extensions.
+function hasPermit2Accept(accepts) {
+	const list = Array.isArray(accepts) ? accepts : [accepts];
+	return list.some((a) => a?.extra?.assetTransferMethod === 'permit2');
+}
+
 // Build the v2 PaymentRequired body. Top-level `resource` carries url/description/
 // mimeType (per v2 spec); per-accept entries no longer repeat them.
 //
 // `description`, `mimeType`, and `bazaar` are per-route — each paid endpoint
 // wants its own catalog entry on agentic.market, not the MCP boilerplate.
+// Callers may pass an `extensions` object to add or override entries (e.g. an
+// endpoint that wants to declare a custom extension); when omitted we still
+// emit `bazaar` plus, when any accept opts into Permit2, `eip2612GasSponsoring`.
 export function build402Body({
 	resourceUrl,
 	accepts,
@@ -685,13 +735,25 @@ export function build402Body({
 	description = RESOURCE_DESCRIPTION,
 	mimeType = 'application/json',
 	bazaar = bazaarExtension(),
+	extensions: extraExtensions,
 }) {
+	const extensions = { bazaar };
+	if (hasPermit2Accept(accepts)) {
+		Object.assign(
+			extensions,
+			declareEip2612GasSponsoringExtension(),
+			declareErc20ApprovalGasSponsoringExtension(),
+		);
+	}
+	if (extraExtensions && typeof extraExtensions === 'object') {
+		Object.assign(extensions, extraExtensions);
+	}
 	return {
 		x402Version: X402_VERSION,
 		error,
 		resource: { url: resourceUrl, description, mimeType },
 		accepts: Array.isArray(accepts) ? accepts : [accepts],
-		extensions: { bazaar },
+		extensions,
 	};
 }
 
