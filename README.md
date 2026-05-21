@@ -32,6 +32,14 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
   - [Memory](#memory)
 - [Web Component & Embedding](#web-component--embedding)
 - [Widget System](#widget-system)
+- [Embed Editor](#embed-editor)
+- [Launchpad](#launchpad)
+- [The Club](#the-club)
+- [Walk & Multiplayer](#walk--multiplayer)
+- [x402 Payments](#x402-payments)
+- [A2A — Agent-to-Agent Protocol](#a2a--agent-to-agent-protocol)
+- [Talk Mode & Lip-Sync](#talk-mode--lip-sync)
+- [Solana Mobile (Seeker)](#solana-mobile-seeker)
 - [API Reference](#api-reference)
 - [Authentication & OAuth 2.1](#authentication--oauth-21)
 - [MCP Server](#mcp-server)
@@ -957,6 +965,334 @@ Each widget has:
 - A duplicate API at `/api/widgets/<id>/duplicate`
 
 Widgets are stored as JSON config in Postgres, pointing at an avatar in R2.
+
+---
+
+## Embed Editor
+
+The **Embed Editor** at `/embed-editor` is a WYSIWYG configurator for the `<agent-3d>` element. Pick an avatar from a modal grid with lazy-loaded 3D thumbnails, choose an animation from the dock, frame the camera with face-camera mode, set a background (transparent, glow, solid), and copy a ready-to-paste snippet.
+
+| Feature | Description |
+|---|---|
+| **Avatar picker** | Modal with lazy 3D thumbnails — no full page rerender on selection |
+| **Animation dock** | All clips visible at once; click to preview live on the model |
+| **Kiosk default** | Chrome-free preview surface — what you see is what gets embedded |
+| **Face-camera** | One-click camera framing aligned to the avatar's face |
+| **Lock toggle** | Freezes the wrap and avatar motion so you can author screenshots / video |
+| **Device frame** | Preview the embed inside phone / tablet / desktop chrome |
+| **Backdrop glow** | Optional radial glow behind the avatar (opt-in, off by default) |
+| **Snippet UX** | One-click copy of `<agent-3d>` HTML or the iframe URL — versioned CDN reference |
+
+The editor produces video-ready output for marketing assets and a copy-paste snippet for production use. Built as a single Vite-compiled bundle, no separate framework runtime.
+
+---
+
+## Pose Studio
+
+`/pose-studio` is a 3D pose-reference tool inspired by setpose.com. It builds a Three.js scene with an articulated mannequin, orbit camera, ground + grid, and a control panel that lets you pick presets, drag joints to pose them, fine-tune with sliders, swap body type, add floor props, change lighting and FOV, and export a PNG screenshot.
+
+| Module | Path | Role |
+|---|---|---|
+| Mannequin | [src/pose-mannequin.js](src/pose-mannequin.js) | Articulated rig with named joints + IK |
+| Preset library | [src/pose-presets.js](src/pose-presets.js) | Standing, sitting, action, idle, expressive |
+| Studio shell | [src/pose-studio.js](src/pose-studio.js) | Scene, controls, export, props, lighting |
+
+Poses author cleanly into the avatar runtime via the `play_clip` tool — the agent can adopt any saved pose on demand. Exported PNGs are useful as marketing renders or as reference frames for downstream image/video pipelines.
+
+---
+
+## Launchpad
+
+The **Launchpad** at `/launchpad` is a hosted-page builder for token launches, agent debuts, and drop campaigns. Each published page lives at a public URL like `/p/<slug>` with full Open Graph metadata for sharing.
+
+| Surface | Path | Purpose |
+|---|---|---|
+| Studio | `/launchpad` | Authoring UI — pick a template, configure copy, avatar, mint targets |
+| Public page | `/p/[slug]` | Hosted landing page rendered server-side with OG card |
+| Publish API | `POST /api/launchpad/...` | Versioned publish + revert for the page bundle |
+
+Launchpad templates are JSON-configured and can embed any combination of `<agent-3d>` widget, x402 paid endpoint, or pump.fun launch button. Pages are stored in Postgres and served as static HTML with hydration for interactive elements.
+
+---
+
+## The Club
+
+`/club` is a multiplayer 3D venue — a pole-club scene with rigged dancers, audio tracks, spotlights, mirror-ball cube cam, and on-chain tips.
+
+**Stack:**
+- Venue GLB + HDRI lit by four spotlights; bloom + chromatic aberration on the high tier
+- Audio tracks streamed from R2 with synchronized playback across clients
+- Camera state machine — DJ booth, overhead, dance-floor, follow-cam — sequenced per track
+- Performance profile detector picks `high` / `medium` / `low` from `navigator.deviceMemory`, `hardwareConcurrency`, `pointer: coarse`, and the UA string
+- Frame-budget watchdog auto-downgrades the profile if sustained slow frames are detected
+
+**Economics:**
+- Tips API at `/api/club/tips` — viewers tip dancers in USDC via x402 (CDP-settled, Permit2-gasless sibling available)
+- Leaderboard at `/api/club/leaderboard` with windowed top-tipper rankings
+- Hourly payouts cron sweeps the tips ledger into the dancers' treasury wallets
+
+**Detail:** see [docs/club/PERF_NOTES.md](docs/club/PERF_NOTES.md), [docs/club/PLAN.md](docs/club/PLAN.md), and [docs/club/RELEASE_CHECKLIST.md](docs/club/RELEASE_CHECKLIST.md).
+
+---
+
+## Walk & Multiplayer
+
+`/walk` is an authoritative multiplayer walk scene. Players join a shared 3D space, see each other's avatars in real time, and emit gestures over a WebSocket connection.
+
+Vercel doesn't host long-lived WebSockets, so the multiplayer server lives in its own workspace at [`multiplayer/`](multiplayer/) — a [Colyseus](https://colyseus.io) server packaged with a Fly.io `fly.toml` and Dockerfile. The Vite client at `/walk` autodiscovers the server (`ws://localhost:2567` in dev, your deployed host in prod).
+
+```bash
+# Run both servers together
+npm run dev:walk-all     # Vite (:3000) + Colyseus (:2567)
+```
+
+**WalkRoom** (`multiplayer/src/rooms/WalkRoom.js`) is the authoritative state container — position, rotation, gesture, presence. Origin allow-listing is enforced at the WS upgrade (`ALLOWED_ORIGINS` env, with `*.vercel.app` and `*.three.ws` always permitted for preview deploys). The same Colyseus server can host additional rooms (DJ-set sync, group dance, drop-events) without redeploying the static site.
+
+---
+
+## x402 Payments
+
+three.ws is a first-class [x402](https://x402.org) host. Agents can both **pay for** and **expose** paid endpoints. Settlement runs on Base, BSC, and Solana; the bazaar at `/x402` is the discovery surface.
+
+### Payment rails
+
+| Chain | Settlement | Permit2 sibling | Status |
+|---|---|---|---|
+| **Base mainnet** | Coinbase CDP facilitator | Gasless via relayer | Live |
+| **Base sepolia** | CDP facilitator | Yes | Live |
+| **BSC** | Direct-scheme (no facilitator) | — | Live |
+| **Solana (devnet)** | x402-solana direct | — | Live |
+
+Every CDP-settled endpoint ships a Permit2 sibling that accepts an EIP-2612 permit instead of an upfront approval — the buyer signs once, and the relayer pays gas. Wire-level checks live in `tests/e2e/` and exercise the buyer/seller flow end-to-end.
+
+### Paid endpoints
+
+| Route | What you get |
+|---|---|
+| `POST /api/x402/mint-to-mesh` | Mint an avatar's mesh as an NFT |
+| `POST /api/x402/mint-to-mesh-batch` | Batch mint up to N meshes |
+| `POST /api/x402/dance-tip` | Tip a club dancer in USDC |
+| `POST /api/x402/model-check` | Run Khronos glTF validation as a paid service |
+| `POST /api/x402/pump-agent-audit` | Audit a pump.fun token's creator history |
+| `POST /api/x402/agent-reputation` | Compute on-chain reputation snapshot |
+| `POST /api/x402/onchain-identity-verify` | Verify ERC-8004 identity for a wallet |
+| `POST /api/x402/symbol-availability` | Check token symbol availability across chains |
+| `POST /api/x402/skill-marketplace` | Paid skill marketplace listing |
+| `POST /api/x402/asset-download` | Pay-per-download for gated R2 assets |
+| `POST /api/x402/did` | DID resolution as a service |
+| `GET /api/x402/my-receipts` | Buyer-side receipts ledger |
+
+### Bazaar, SKUs, and subscriptions
+
+| Surface | Path | Purpose |
+|---|---|---|
+| Bazaar | `/x402` | Browsable marketplace of paid endpoints |
+| Discovery | `/x402-discover` | Search by tag, price, chain |
+| Checkout | `/x402-pay`, `/api/x402-checkout` | Stripe-style one-shot purchase |
+| SKU catalog | `/api/x402-skus` | Server-defined SKUs with per-row pricing |
+| Dashboard | `/dashboard/x402` | Seller + buyer dashboard, receipts, payouts |
+| Subscriptions | `/api/x402/subscriptions` | Recurring x402 charges on cron |
+| Status | `/api/x402-status` | Health and chain reachability checks |
+
+### How to expose a paid endpoint
+
+```js
+import { paidEndpoint } from './_lib/x402-paid-endpoint.js';
+
+export default paidEndpoint({
+  price: '0.10',                     // USDC
+  chain: 'base',                     // base | bsc | solana
+  network: 'mainnet',
+  resource: 'https://three.ws/api/your-endpoint',
+  description: 'What the buyer is paying for',
+  handler: async (req, res, { payer }) => {
+    // payer is verified — settle the request
+    res.json({ ok: true, payer });
+  },
+});
+```
+
+The helper handles the 402 challenge, Permit2 sibling, receipt write-back, idempotency-token enforcement, and CSRF/SSRF guards. See [api/_lib/x402-paid-endpoint.js](api/_lib/x402-paid-endpoint.js).
+
+### Wire checks
+
+- Wire-level CORS, CDP, and Permit2 sibling checks: `tests/e2e/`
+- Offer receipts schema + buyer fetch: [api/_lib/x402-buyer-fetch.js](api/_lib/x402-buyer-fetch.js)
+- Error envelope: full 402 body returned in the `PAYMENT-REQUIRED` header
+
+---
+
+## A2A — Agent-to-Agent Protocol
+
+Agents transact with each other directly through an A2A bridge that sits on top of the MCP server and x402 payments.
+
+| Surface | Path | Purpose |
+|---|---|---|
+| A2A client | `sdk/a2a/` | Outbound calls — pay another agent, settle the response |
+| A2A server | `api/a2a/` | Inbound paid tools, exposed via MCP bridge |
+| MCP bridge | `api/mcp.js` | Wraps paid tools as MCP `tools/call` with auto-402 retry |
+| Spending ledger | `api/a2a/spending` | Per-agent spend caps and authorization gates |
+| Receipts store | `api/a2a/receipts` | Signed receipts written on every paid call |
+| DID resolution | `POST /api/x402/did` | Resolve a counterparty DID to wallet + endpoints |
+
+**SIWX (Sign-In with X-chain)** brokers cross-chain identity for paid sessions: an agent on Base proves ownership of a Solana wallet (or vice versa) to unlock chain-specific paid endpoints.
+
+---
+
+## Talk Mode & Lip-Sync
+
+The `talk` interaction mode wires together the LLM runtime, ElevenLabs TTS, and an **audio-driven ARKit-52 lip-sync driver** that maps live audio amplitude + formant analysis onto the 52 standard ARKit blendshapes.
+
+When the agent speaks, the driver runs at ~60fps and drives `mouthClose`, `jawOpen`, `mouthSmileLeft/Right`, and the rest of the ARKit-52 set — the Empathy Layer's emotional morphs continue to blend on top, so the avatar simultaneously emotes and articulates. Unit tests for the ARKit-52 mapping live in `tests/src/arkit-morphs.test.js`.
+
+---
+
+## Solana Mobile (Seeker)
+
+three.ws ships with Mobile Wallet Adapter (MWA) wired into the web app and a release pipeline for the Solana Mobile dApp Store.
+
+- MWA detection prefers seed-vault-backed signing on Seeker / Saga devices, falls back to WalletConnect elsewhere
+- dApp Store listing assets, icons, and staging copy live under `public/seeker/`
+- Release pipeline scripts handle build → sign → submit for the dApp Store update
+- On Seeker hardware, users sign x402 payments and ERC-8004 registrations from the seed vault — no browser extension required
+
+---
+
+## Selfie Reconstruction Pipeline (Phase 1)
+
+Anyone takes 3 selfies (left, center, right) and receives a rigged, animatable 3D avatar in under a minute. The pipeline ships native — no third-party black box.
+
+| Module | Path | Role |
+|---|---|---|
+| Capture UX | [src/selfie-capture.js](src/selfie-capture.js) | Mobile-first 3-shot capture with real-time quality gates (lighting, framing, blur) |
+| Pipeline | [src/selfie-pipeline.js](src/selfie-pipeline.js) | Multi-view fit → FLAME / 3DMM face → base body mesh → rigged GLB |
+| Sandbox route | `/creating` | Isolated reconstruction test bench, decoupled from the main flow |
+| Output | Cloudflare R2 | Meshopt-compressed GLB pinned to IPFS and minted as a draft ERC-8004 token |
+
+Reconstruction inference runs against the same Anthropic-token-billed Vercel function pool as the agent runtime, with optional offload to the **Livepeer Inference Network** (see below) for GPU-heavy steps.
+
+---
+
+## Livepeer Inference Network (Phase 4)
+
+three.ws is wiring the **Livepeer** decentralized GPU network as an alternative inference backend for avatar reconstruction and agent conversations.
+
+- Open protocol: model weights, GPU runtime, signed responses
+- Onchain settlement: pay-per-token with cryptographic receipts, mediated by the same x402 rails described above
+- Node operator client (Docker + GPU drivers) with onchain registration
+- Federation with existing decentralized compute networks where appropriate
+
+The Livepeer dependency landed early so the Phase 1 selfie pipeline can switch its heaviest step (multi-view face fitting) onto external GPU nodes without touching the rest of the system. The goal: ≥50% of production agent traffic served by independent node operators with latency parity to centralized inference.
+
+---
+
+## Voice & Persona Hub (Phase 2)
+
+The avatar isn't just *you* — the agent *acts* like you. The Voice & Persona Hub captures the inputs that turn a body into a personality.
+
+| Surface | Path | Purpose |
+|---|---|---|
+| Persona extraction | [api/persona/extract.js](api/persona/extract.js) | Short onboarding interview → tone, vocabulary, interests profile |
+| Persona preview | [api/persona/preview.js](api/persona/preview.js) | Try the extracted persona against test prompts before saving |
+| Persona keys | `scripts/generate-persona-key.mjs` | Per-agent signing key + persona SSO setup |
+| Voice clone modal | [src/voice/voice-clone-modal.js](src/voice/voice-clone-modal.js) | 3–10s recording → ElevenLabs custom voice bound to the agent |
+| Talk controller | [src/voice/talk-controller.js](src/voice/talk-controller.js) | Push-to-talk and continuous talk modes |
+| ARKit blendshapes | [src/voice/arkit-blendshapes.js](src/voice/arkit-blendshapes.js) | Standard ARKit-52 morph table |
+| Lip-sync driver | [src/voice/lipsync-driver.js](src/voice/lipsync-driver.js) | Web Audio analyser → blendshape weights per frame |
+| Avatar morph target | [src/voice/avatar-morph-target.js](src/voice/avatar-morph-target.js) | Per-rig binding of ARKit blendshapes to the loaded GLB |
+| Avatar snapshot | [src/voice/avatar-snapshot.js](src/voice/avatar-snapshot.js) | Render-time pose capture for thumbnails and OG cards |
+| Persona docs | [docs/persona-hub.md](docs/persona-hub.md) | Full design + onboarding flow |
+
+Memory seed extensions (X, GitHub, Farcaster) feed the agent's memory store at creation time with explicit user consent — see [docs/persona-hub.md](docs/persona-hub.md).
+
+The per-agent fine-tuned system prompt is stored in the manifest, signed, and pinned to IPFS — the persona becomes a verifiable part of the agent's onchain identity.
+
+---
+
+## WASM Vanity Grinder
+
+`/vanity-wallet` is a browser-based vanity-address grinder compiled to WebAssembly. Generate EVM addresses with a prefix (`0xBEEF…`) or pattern in seconds, fully client-side, without leaking the private key to any server.
+
+| Module | Path | Role |
+|---|---|---|
+| WASM grinder | `public/vanity-wallet.html` | Multi-threaded secp256k1 keygen via WebWorkers |
+| Solana variant | `scripts/pump-vanity-grind.mjs` | Server-side grinder for pump.fun mint vanity addresses |
+
+Common use cases on the platform: branded agent wallet addresses (e.g. an agent named `agent.eth` getting an address starting with `0xA6EF…`), or pump.fun token mint vanity (e.g. ending in `pump`).
+
+The Solana grinder backs the platform's pump.fun launches — the inaugural USDC token launches use a vanity mint pre-grind to produce shareable token addresses.
+
+---
+
+## News CMS & Syndication
+
+A local-only news/blog CMS at `/admin/news` produces signed posts that auto-syndicate to multiple destinations.
+
+| Surface | Path | Purpose |
+|---|---|---|
+| CMS | `/admin/news` | Local-only editor — drafts, images, scheduled posts |
+| Public listing | `/news` | Cover-image grid with permalinks |
+| Article | `/news/<slug>` | Server-rendered article with OG card |
+| RSS / Atom | `/api/news/rss` | Standards-compliant feed for HackerNoon auto-import |
+| WebSub hub | `/api/news/websub` | Push notifications to subscribed hubs on publish |
+| Dev.to | syndication adapter | Cross-posts with canonical URL pointing back |
+| Medium | syndication adapter | Same, with format-aware re-render |
+| CMC handoff | syndication adapter | Coinmarketcap article + announcement listing |
+| Newsletter | [api/newsletter-subscribe.js](api/newsletter-subscribe.js) | Resend-backed double-opt-in newsletter |
+
+Each article is a static HTML file in `public/news/` with metadata in Postgres. The CMS supports a cover-image convention for listing thumbnails and OG previews. Articles can be published once and reach HackerNoon, Dev.to, and Medium readers without manual cross-posting.
+
+---
+
+## Security Hardening
+
+The platform has been hardened against the OWASP top-10 plus a set of issues specific to agent payments and cross-chain identity.
+
+| Control | Where |
+|---|---|
+| **SSRF guard** | All outbound `fetch()` from agent runtime + skills goes through an SSRF allow-list filter (`api/_lib/safe-fetch.js`) |
+| **CSRF gates** | State-changing endpoints require an Origin + Sec-Fetch-Site check; bearer-only paths exempt |
+| **Header-origin pinning** | The iframe bridge locks onto the parent's origin from the first authenticated message and ignores later messages from a different origin |
+| **Fail-closed crons** | Cron endpoints fail closed if their auth token is missing — no silent skips |
+| **Idempotency tokens** | x402 paid endpoints require an idempotency key to prevent double-charge on retry |
+| **Embed policy** | Per-agent iframe origin allow-list (`/api/agents/:id/embed-policy`) gates the chromeless embed |
+| **Rate limiting** | Upstash Redis per-user + per-API-key + per-IP buckets at every public endpoint |
+| **JWT key rotation** | `JWT_KID` lets you rotate signing keys without invalidating in-flight sessions |
+| **Bcrypt cost** | Tunable via `PASSWORD_ROUNDS` (default 11) |
+| **Audit signing** | Every agent action is signed with the delegated signer key and chained into a per-agent action log |
+
+---
+
+## Developer SDKs
+
+Three npm-publishable SDKs ship from this repo. They share types and helpers but target different surfaces.
+
+| SDK | Path | What it does |
+|---|---|---|
+| **`@nirholas/agent-kit`** | [sdk/](sdk/) | One-line agent embed for any site — chat panel, voice I/O, ERC-8004 register, Solana attestations |
+| **`@pump-fun/agent-payments-sdk`** | [agent-payments-sdk/](agent-payments-sdk/) | EVM agent payments — wallet, signing, EIP-7710 delegation |
+| **`solana-agent-sdk`** | [solana-agent-sdk/](solana-agent-sdk/) | Solana-native agent ops — Metaplex Core mints, SIWS, attestations, transfer hooks |
+| **Avatar SDK** | [sdk/agent-sdk/](sdk/agent-sdk/) | Avatar load + manipulation helpers — pose, animation, snapshot |
+
+**`@nirholas/agent-kit` quickstart:**
+
+```js
+import { AgentKit, loadAvatar } from '@nirholas/agent-kit';
+import '@nirholas/agent-kit/styles';
+
+const agent = new AgentKit({
+  name: 'My Agent',
+  description: 'Does cool stuff',
+  endpoint: 'https://myapp.com',
+  onMessage: async (text) => `You said: ${text}`,
+});
+agent.mount(document.body);
+
+// Drop a three.ws agent's avatar onto the page
+loadAvatar('a_abc123', document.getElementById('avatar-slot'));
+```
+
+The agent-kit also exposes `attestFeedback`, `attestValidation`, and `listAttestations` for Solana reputation flows. See [sdk/README.md](sdk/README.md).
 
 ---
 
