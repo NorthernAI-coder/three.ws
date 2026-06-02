@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>three.ws — Avatar Wallet</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="An embeddable 3D AI avatar that holds a Solana wallet, chats, and can autonomously send SOL." />
+		<meta name="robots" content="noindex" />
+		<style>
+			:root {
+				--accent: #7c5cff;
+				--accent-soft: rgba(124, 92, 255, 0.16);
+				--bg-0: #0a0a12;
+				--bg-1: #12101f;
+				--panel: rgba(255, 255, 255, 0.04);
+				--panel-border: rgba(255, 255, 255, 0.09);
+				--text: #f3f2fb;
+				--text-dim: #a4a2bd;
+				--text-faint: #6f6d86;
+				--ok: #3ad08a;
+				--err: #ff6b6b;
+				--radius: 16px;
+				--shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+			}
+			* { box-sizing: border-box; }
+			html, body {
+				margin: 0;
+				height: 100%;
+				width: 100%;
+				overflow: hidden;
+				font-family: 'Inter', system-ui, -apple-system, sans-serif;
+				color: var(--text);
+				background:
+					radial-gradient(120% 90% at 50% -10%, rgba(124, 92, 255, 0.22), transparent 60%),
+					linear-gradient(180deg, var(--bg-1), var(--bg-0));
+				-webkit-font-smoothing: antialiased;
+			}
+			#app {
+				display: flex;
+				flex-direction: column;
+				height: 100%;
+				width: 100%;
+				position: relative;
+			}
+
+			/* ── Stage (avatar) ─────────────────────────────────────────── */
+			#stage {
+				position: relative;
+				flex: 1 1 auto;
+				min-height: 0;
+			}
+			#avatar-frame {
+				position: absolute;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+				border: 0;
+				display: block;
+			}
+			#stage-fade {
+				position: absolute;
+				left: 0; right: 0; bottom: 0;
+				height: 110px;
+				background: linear-gradient(180deg, transparent, var(--bg-0));
+				pointer-events: none;
+			}
+
+			/* ── Wallet chip ────────────────────────────────────────────── */
+			#wallet {
+				position: absolute;
+				top: 14px;
+				left: 14px;
+				right: 14px;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 10px 12px;
+				background: rgba(12, 11, 22, 0.62);
+				backdrop-filter: blur(14px);
+				-webkit-backdrop-filter: blur(14px);
+				border: 1px solid var(--panel-border);
+				border-radius: 14px;
+				box-shadow: var(--shadow);
+				z-index: 3;
+			}
+			#wallet .net {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				color: var(--text-dim);
+				padding: 4px 8px;
+				border-radius: 999px;
+				background: var(--accent-soft);
+				white-space: nowrap;
+			}
+			#wallet .net .dot {
+				width: 7px; height: 7px; border-radius: 50%;
+				background: var(--accent);
+				box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.25);
+			}
+			#wallet .net.mainnet .dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(58, 208, 138, 0.22); }
+			#wallet .bal { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+			#wallet .bal .amt { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+			#wallet .bal .usd { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+			#wallet .skel {
+				display: inline-block; height: 14px; width: 96px; border-radius: 6px;
+				background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+				background-size: 200% 100%;
+				animation: shimmer 1.2s linear infinite;
+			}
+			@keyframes shimmer { to { background-position: -200% 0; } }
+			#wallet .addr {
+				margin-left: auto;
+				display: inline-flex; align-items: center; gap: 6px;
+				font-size: 12px; color: var(--text-dim);
+				font-variant-numeric: tabular-nums;
+				text-decoration: none;
+			}
+			#wallet .addr:hover { color: var(--text); }
+			#wallet .copy {
+				border: 1px solid var(--panel-border);
+				background: transparent;
+				color: var(--text-dim);
+				border-radius: 8px;
+				padding: 5px 7px;
+				cursor: pointer;
+				line-height: 0;
+				transition: background 0.15s, color 0.15s, border-color 0.15s;
+			}
+			#wallet .copy:hover { background: var(--panel); color: var(--text); border-color: var(--accent); }
+			#wallet .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			#wallet .copy.done { color: var(--ok); border-color: var(--ok); }
+
+			/* ── Chat ───────────────────────────────────────────────────── */
+			#chat {
+				flex: 0 0 46%;
+				min-height: 220px;
+				display: flex;
+				flex-direction: column;
+				border-top: 1px solid var(--panel-border);
+				background: rgba(8, 8, 14, 0.72);
+				backdrop-filter: blur(8px);
+			}
+			#log {
+				flex: 1 1 auto;
+				overflow-y: auto;
+				padding: 16px;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				scrollbar-width: thin;
+				scrollbar-color: rgba(255,255,255,0.16) transparent;
+			}
+			#log::-webkit-scrollbar { width: 8px; }
+			#log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 8px; }
+			.msg {
+				max-width: 84%;
+				padding: 10px 13px;
+				border-radius: 14px;
+				font-size: 14px;
+				line-height: 1.5;
+				white-space: pre-wrap;
+				word-wrap: break-word;
+				animation: rise 0.25s ease both;
+			}
+			@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+			.msg.user {
+				align-self: flex-end;
+				background: var(--accent);
+				color: #fff;
+				border-bottom-right-radius: 4px;
+			}
+			.msg.bot {
+				align-self: flex-start;
+				background: var(--panel);
+				border: 1px solid var(--panel-border);
+				border-bottom-left-radius: 4px;
+			}
+			.msg.bot .cursor { display: inline-block; width: 7px; animation: blink 1s steps(2) infinite; }
+			@keyframes blink { 50% { opacity: 0; } }
+
+			/* Empty state */
+			#empty {
+				margin: auto;
+				text-align: center;
+				color: var(--text-dim);
+				max-width: 320px;
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+				align-items: center;
+			}
+			#empty h2 { font-size: 16px; margin: 0; color: var(--text); font-weight: 700; }
+			#empty p { margin: 0; font-size: 13px; line-height: 1.5; }
+			.chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+			.chip {
+				border: 1px solid var(--panel-border);
+				background: var(--panel);
+				color: var(--text);
+				border-radius: 999px;
+				padding: 8px 13px;
+				font-size: 13px;
+				cursor: pointer;
+				transition: background 0.15s, border-color 0.15s, transform 0.1s;
+			}
+			.chip:hover { background: var(--accent-soft); border-color: var(--accent); }
+			.chip:active { transform: scale(0.97); }
+			.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+			/* Payment card */
+			.pay {
+				align-self: flex-start;
+				width: 84%;
+				max-width: 360px;
+				border-radius: 14px;
+				border: 1px solid var(--panel-border);
+				background: linear-gradient(160deg, rgba(124,92,255,0.14), rgba(255,255,255,0.03));
+				padding: 14px;
+				animation: rise 0.25s ease both;
+			}
+			.pay .head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+			.pay .head .ic { font-size: 16px; }
+			.pay .amt { font-size: 26px; font-weight: 800; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+			.pay .sub { font-size: 12px; color: var(--text-dim); }
+			.pay .status {
+				margin-top: 10px; display: flex; align-items: center; gap: 7px;
+				font-size: 12px; font-weight: 600;
+			}
+			.pay .status .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+			.pay.pending .pip { animation: pulse 1s ease-in-out infinite; }
+			@keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
+			.pay.ok .pip { background: var(--ok); animation: none; }
+			.pay.ok .status { color: var(--ok); }
+			.pay.fail .pip { background: var(--err); animation: none; }
+			.pay.fail .status { color: var(--err); }
+			.pay a.sig {
+				display: inline-flex; align-items: center; gap: 5px;
+				margin-top: 10px; font-size: 12px; color: var(--accent);
+				text-decoration: none; font-variant-numeric: tabular-nums;
+			}
+			.pay a.sig:hover { text-decoration: underline; }
+
+			/* Composer */
+			#composer {
+				display: flex;
+				gap: 8px;
+				padding: 12px;
+				border-top: 1px solid var(--panel-border);
+			}
+			#input {
+				flex: 1 1 auto;
+				background: var(--panel);
+				border: 1px solid var(--panel-border);
+				color: var(--text);
+				padding: 11px 14px;
+				border-radius: 12px;
+				font-size: 14px;
+				font-family: inherit;
+				outline: none;
+				transition: border-color 0.15s, background 0.15s;
+			}
+			#input::placeholder { color: var(--text-faint); }
+			#input:focus { border-color: var(--accent); background: rgba(124,92,255,0.07); }
+			#send {
+				flex: 0 0 auto;
+				background: var(--accent);
+				color: #fff;
+				border: none;
+				width: 44px;
+				border-radius: 12px;
+				cursor: pointer;
+				display: grid;
+				place-items: center;
+				transition: filter 0.15s, transform 0.1s;
+			}
+			#send:hover { filter: brightness(1.12); }
+			#send:active { transform: scale(0.94); }
+			#send:disabled { opacity: 0.45; cursor: not-allowed; }
+			#send:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+			/* Toast */
+			#toast {
+				position: absolute;
+				bottom: 84px;
+				left: 50%;
+				transform: translateX(-50%) translateY(12px);
+				background: var(--err);
+				color: #fff;
+				padding: 10px 16px;
+				border-radius: 12px;
+				font-size: 13px;
+				font-weight: 600;
+				box-shadow: var(--shadow);
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.25s, transform 0.25s;
+				z-index: 5;
+				max-width: 86%;
+				text-align: center;
+			}
+			#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+			@media (max-width: 520px) {
+				#chat { flex-basis: 52%; }
+				.msg { max-width: 90%; }
+			}
+		</style>
+	</head>
+	<body>
+		<div id="app">
+			<div id="stage">
+				<iframe id="avatar-frame" title="3D avatar" allow="autoplay; microphone; camera"></iframe>
+				<div id="stage-fade"></div>
+				<div id="wallet" aria-live="polite">
+					<span class="net" id="net"><span class="dot"></span><span id="net-label">…</span></span>
+					<span class="bal">
+						<span class="amt" id="bal-amt"><span class="skel"></span></span>
+						<span class="usd" id="bal-usd"></span>
+					</span>
+					<a class="addr" id="addr-link" href="#" target="_blank" rel="noopener" title="View on Solscan">
+						<span id="addr-short">—</span>
+					</a>
+					<button class="copy" id="copy-btn" title="Copy address" aria-label="Copy wallet address">
+						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+					</button>
+				</div>
+			</div>
+
+			<section id="chat" aria-label="Chat with the avatar">
+				<div id="log">
+					<div id="empty">
+						<h2 id="empty-title">Talk to your avatar</h2>
+						<p id="empty-sub">It holds a Solana wallet and can send SOL when you ask.</p>
+						<div class="chips" id="chips"></div>
+					</div>
+				</div>
+				<form id="composer" autocomplete="off">
+					<input id="input" type="text" placeholder="Ask me anything…" aria-label="Message" />
+					<button id="send" type="submit" aria-label="Send message">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+					</button>
+				</form>
+			</section>
+
+			<div id="toast" role="alert"></div>
+		</div>
+
+		<script type="module">
+			const params = new URL(location.href).searchParams;
+			const accent = params.get('accent');
+			if (accent && /^#?[0-9a-fA-F]{3,8}$/.test(accent)) {
+				const hex = accent.startsWith('#') ? accent : '#' + accent;
+				document.documentElement.style.setProperty('--accent', hex);
+			}
+
+			// Optional shared-secret for the send endpoint (only needed if the
+			// deployment sets AVATAR_DEMO_TOKEN). Passed through as a header.
+			const sendToken = params.get('token') || '';
+
+			// ── Avatar iframe (reuses the embed's lipsync / idle / gestures) ──
+			const avatarFrame = document.getElementById('avatar-frame');
+			const avatarOrigin = location.origin;
+			const aq = new URLSearchParams();
+			if (params.get('id')) aq.set('id', params.get('id'));
+			else if (params.get('handle')) aq.set('handle', params.get('handle'));
+			else aq.set('model', params.get('model') || '/avatars/default.glb');
+			aq.set('bg', 'transparent');
+			aq.set('idle', 'on');
+			aq.set('name', '0');
+			aq.set('animPicker', '0');
+			aq.set('overlayMode', '1');
+			avatarFrame.src = `/avatar-embed.html?${aq.toString()}`;
+
+			let avatarReady = false;
+			const avatarQueue = [];
+			function toAvatar(msg) {
+				if (avatarReady) avatarFrame.contentWindow?.postMessage(msg, avatarOrigin);
+				else avatarQueue.push(msg);
+			}
+			function avatarSpeak(text) { if (text) toAvatar({ type: 'v1.avatar.speak', text: String(text).slice(0, 600) }); }
+			function avatarGesture(name) { toAvatar({ type: 'v1.avatar.animation', name }); }
+
+			window.addEventListener('message', (e) => {
+				if (e.source !== avatarFrame.contentWindow) return;
+				const t = e.data?.type;
+				if (t === 'v1.avatar.ready') {
+					avatarReady = true;
+					while (avatarQueue.length) avatarFrame.contentWindow?.postMessage(avatarQueue.shift(), avatarOrigin);
+				}
+			});
+			avatarFrame.addEventListener('load', () => {
+				avatarFrame.contentWindow?.postMessage({ type: 'v1.avatar.hello' }, avatarOrigin);
+			});
+
+			// ── Wallet chip ───────────────────────────────────────────────
+			const el = (id) => document.getElementById(id);
+			let wallet = null;
+			const fmtSol = (n) => (n >= 1 ? n.toFixed(3) : n.toFixed(5));
+			const short = (a) => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—');
+
+			async function refreshWallet() {
+				try {
+					const r = await fetch('/api/agent/wallet', { headers: { accept: 'application/json' } });
+					if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error_description || `wallet ${r.status}`);
+					wallet = await r.json();
+					renderWallet();
+				} catch (err) {
+					el('bal-amt').innerHTML = '<span style="font-size:13px;color:var(--text-dim)">wallet offline</span>';
+					el('bal-usd').textContent = '';
+					console.warn('[wallet]', err.message);
+				}
+			}
+			function renderWallet() {
+				if (!wallet) return;
+				const net = el('net');
+				net.classList.toggle('mainnet', wallet.network === 'mainnet');
+				el('net-label').textContent = wallet.network;
+				el('bal-amt').textContent = `${fmtSol(wallet.sol)} SOL`;
+				el('bal-usd').textContent = wallet.usd != null ? `$${wallet.usd.toFixed(2)}` : '';
+				el('addr-short').textContent = short(wallet.address);
+				el('addr-link').href = wallet.explorer;
+			}
+			el('copy-btn').addEventListener('click', async () => {
+				if (!wallet?.address) return;
+				try {
+					await navigator.clipboard.writeText(wallet.address);
+					const b = el('copy-btn');
+					b.classList.add('done');
+					setTimeout(() => b.classList.remove('done'), 1200);
+				} catch { /* clipboard blocked */ }
+			});
+
+			// ── Toast ─────────────────────────────────────────────────────
+			let toastTimer = null;
+			function toast(msg) {
+				const t = el('toast');
+				t.textContent = msg;
+				t.classList.add('show');
+				clearTimeout(toastTimer);
+				toastTimer = setTimeout(() => t.classList.remove('show'), 4200);
+			}
+
+			// ── Chat ──────────────────────────────────────────────────────
+			const log = el('log');
+			const input = el('input');
+			const sendBtn = el('send');
+			const history = [];
+			let busy = false;
+
+			function clearEmpty() { const e = el('empty'); if (e) e.remove(); }
+			function addMsg(text, who) {
+				clearEmpty();
+				const d = document.createElement('div');
+				d.className = `msg ${who}`;
+				d.textContent = text;
+				log.appendChild(d);
+				log.scrollTop = log.scrollHeight;
+				return d;
+			}
+
+			function paymentCard(usd, to) {
+				clearEmpty();
+				const card = document.createElement('div');
+				card.className = 'pay pending';
+				card.innerHTML = `
+					<div class="head"><span class="ic">◎</span> Sending SOL</div>
+					<div class="amt">$${Number(usd).toFixed(2)}</div>
+					<div class="sub">to ${to ? short(to) : 'you'}</div>
+					<div class="status"><span class="pip"></span><span class="label">Signing & broadcasting…</span></div>`;
+				log.appendChild(card);
+				log.scrollTop = log.scrollHeight;
+				return {
+					ok(res) {
+						card.className = 'pay ok';
+						card.querySelector('.amt').textContent = `${fmtSol(res.sol)} SOL`;
+						card.querySelector('.sub').textContent = `≈ $${res.usd.toFixed(2)} · to ${short(res.to)}`;
+						card.querySelector('.label').textContent = 'Confirmed on-chain';
+						const a = document.createElement('a');
+						a.className = 'sig';
+						a.href = res.explorer; a.target = '_blank'; a.rel = 'noopener';
+						a.textContent = `↗ ${short(res.signature)}`;
+						card.appendChild(a);
+						log.scrollTop = log.scrollHeight;
+					},
+					fail(message) {
+						card.className = 'pay fail';
+						card.querySelector('.label').textContent = message || 'Payment failed';
+						log.scrollTop = log.scrollHeight;
+					},
+				};
+			}
+
+			async function executeSendSol(action) {
+				const card = paymentCard(action.usd, action.to);
+				try {
+					const headers = { 'content-type': 'application/json' };
+					if (sendToken) headers['x-avatar-token'] = sendToken;
+					const r = await fetch('/api/agent/send-sol', {
+						method: 'POST',
+						headers,
+						body: JSON.stringify({ usd: Number(action.usd), to: action.to || undefined }),
+					});
+					const data = await r.json().catch(() => ({}));
+					if (!r.ok || !data.ok) throw new Error(data.error_description || data.message || `send failed (${r.status})`);
+					card.ok(data);
+					avatarSpeak(`Done — I just sent ${fmtSol(data.sol)} SOL, about a dollar, to your wallet.`);
+					avatarGesture('celebrate');
+					refreshWallet();
+				} catch (err) {
+					card.fail(err.message);
+					toast(err.message);
+					avatarSpeak('Hmm, that payment didn’t go through.');
+				}
+			}
+
+			async function runActions(actions) {
+				for (const a of actions || []) {
+					if (a?.type === 'sendSol' && a.usd != null) await executeSendSol(a);
+					else if (a?.type === 'playAnimation' && a.name) avatarGesture(a.name);
+				}
+			}
+
+			async function ask(message) {
+				if (busy || !message.trim()) return;
+				busy = true;
+				sendBtn.disabled = true;
+				input.value = '';
+				addMsg(message, 'user');
+				history.push({ role: 'user', content: message });
+
+				const bot = addMsg('', 'bot');
+				bot.innerHTML = '<span class="cursor">▋</span>';
+				let reply = '';
+				try {
+					const body = { message, context: {}, history: history.slice(-18) };
+					if (params.get('provider')) body.provider = params.get('provider');
+					if (params.get('model')) body.model = params.get('model');
+					if (params.get('agentId')) body.agentId = params.get('agentId');
+
+					const r = await fetch('/api/chat', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(body),
+					});
+					if (!r.ok || !r.body) throw new Error(`chat ${r.status}`);
+
+					const reader = r.body.getReader();
+					const dec = new TextDecoder();
+					let buf = '';
+					let actions = [];
+					while (true) {
+						const { value, done } = await reader.read();
+						if (done) break;
+						buf += dec.decode(value, { stream: true });
+						const lines = buf.split('\n');
+						buf = lines.pop();
+						for (const line of lines) {
+							if (!line.startsWith('data: ')) continue;
+							let evt;
+							try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+							if (evt.type === 'chunk') {
+								reply += evt.text;
+								bot.textContent = reply;
+								log.scrollTop = log.scrollHeight;
+							} else if (evt.type === 'done') {
+								reply = (evt.reply || reply).trim();
+								bot.textContent = reply || '…';
+								actions = evt.actions || [];
+							} else if (evt.type === 'error') {
+								throw new Error(evt.message || 'chat error');
+							}
+						}
+					}
+					if (reply) {
+						history.push({ role: 'assistant', content: reply });
+						avatarSpeak(reply);
+					}
+					await runActions(actions);
+				} catch (err) {
+					bot.textContent = 'I had trouble reaching my brain. Try again in a moment.';
+					toast(err.message || 'chat failed');
+				} finally {
+					busy = false;
+					sendBtn.disabled = false;
+					input.focus();
+				}
+			}
+
+			el('composer').addEventListener('submit', (e) => { e.preventDefault(); ask(input.value); });
+
+			// Suggestion chips (the middle one is the autonomous-payment demo).
+			const chips = [
+				{ label: 'What can you do?', send: 'What can you do?' },
+				{ label: '💸 Send me $1 of SOL', send: 'Send me $1 of SOL' },
+				{ label: 'Wave 👋', send: 'wave at me' },
+			];
+			const chipsBox = el('chips');
+			for (const c of chips) {
+				const b = document.createElement('button');
+				b.type = 'button';
+				b.className = 'chip';
+				b.textContent = c.label;
+				b.addEventListener('click', () => ask(c.send));
+				chipsBox.appendChild(b);
+			}
+
+			// ── Boot ──────────────────────────────────────────────────────
+			refreshWallet();
+			setInterval(refreshWallet, 20000);
+			input.focus();
+		</script>
+	</body>
+</html>

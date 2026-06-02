@@ -258,6 +258,29 @@ const ACTION_TOOLS = [
 			required: ['name'],
 		},
 	},
+	{
+		name: 'sendSol',
+		description:
+			'Send a small amount of SOL from the avatar\'s own Solana wallet to a recipient, denominated in US dollars. ' +
+			'Call this ONLY when the user explicitly asks the avatar to send, pay, or transfer SOL. ' +
+			'If the user says "send me" (or gives no address), omit `to` — the configured default recipient is used. ' +
+			'The host enforces a per-send dollar cap, so request the amount the user named.',
+		input_schema: {
+			type: 'object',
+			properties: {
+				usd: {
+					type: 'number',
+					description: 'US-dollar value of SOL to send, e.g. 1 for "$1 of SOL".',
+				},
+				to: {
+					type: 'string',
+					description:
+						'Recipient Solana address (base58). Omit to send to the configured default recipient ("me").',
+				},
+			},
+			required: ['usd'],
+		},
+	},
 ];
 
 const ACTION_NAMES = new Set(ACTION_TOOLS.map((t) => t.name));
@@ -843,6 +866,7 @@ function buildSystemPrompt(ctx = {}, personaPrompt = null) {
 		'You can control animations and the scene. When the user asks you to dance, wave, jump, celebrate, etc — call the playAnimation tool IMMEDIATELY. When asked to change the background, call setBgColor with a CSS hex. When asked to change lighting, call setEnvironment.',
 		'Available animations: wave, dance, capoeira, jump, thriller, pray, idle, celebrate, rumba, falling, kiss, taunt.',
 		'You can also show the latest trades from pump.fun by calling the getPumpFunTrades tool.',
+		'You hold your own Solana wallet. When — and only when — the user explicitly asks you to send, pay, or transfer SOL, call the sendSol tool with the dollar amount they named (omit `to` for "send me"). Never offer or send SOL unprompted. After a send, react with a short, delighted confirmation.',
 		'When the user asks to change the viewer ("enable wireframe", "make the background dark blue", "turn on auto rotate", "load this model"), CALL the matching tool — do not just describe what would happen.',
 		'When asked about the loaded model, use the context below as ground truth. Do not invent stats.',
 		'Keep replies tight: 2–3 sentences. Plain text, no markdown headers, no emoji.',
