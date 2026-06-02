@@ -95,6 +95,16 @@ vi.mock('../../api/_lib/x402-spec.js', () => ({
 			}),
 		);
 	}),
+	build402Body: vi.fn(({ resourceUrl, accepts, error } = {}) => {
+		const list = Array.isArray(accepts) ? accepts : [accepts];
+		return {
+			x402Version: 2,
+			error: error || 'X-PAYMENT header is required',
+			resource: { url: resourceUrl, description: 'MCP', mimeType: 'application/json' },
+			accepts: list,
+			extensions: { bazaar: { method: 'POST', bodyType: 'json' } },
+		};
+	}),
 	resolveResourceUrl: vi.fn((req, path) => `https://app.test${path}`),
 }));
 
@@ -353,12 +363,15 @@ describe('Protocol layer', () => {
 		expect(status).toBe(204);
 	});
 
-	it('GET without bearer returns 402 (x402 payment challenge)', async () => {
-		const { status, body } = await invoke({ method: 'GET' });
+	it('GET without bearer returns 401 + WWW-Authenticate (OAuth discovery) with x402 envelope attached', async () => {
+		const { status, body, res } = await invoke({ method: 'GET' });
 
-		expect(status).toBe(402);
+		expect(status).toBe(401);
+		expect(res.headers['www-authenticate']).toMatch(/resource_metadata=/);
+		// x402 price discovery still rides along in the body + PAYMENT-REQUIRED header.
 		expect(body.x402Version).toBe(2);
 		expect(Array.isArray(body.accepts)).toBe(true);
+		expect(res.headers['payment-required']).toBeTruthy();
 	});
 
 	it('GET with valid bearer returns 405 (SSE not yet implemented)', async () => {
@@ -378,13 +391,14 @@ describe('Protocol layer', () => {
 // ── Authentication ────────────────────────────────────────────────────────
 
 describe('Authentication', () => {
-	it('POST with no bearer and no X-PAYMENT returns 402', async () => {
-		// authState.extracted stays null → extractBearer returns null → send402
-		const { status, body } = await invoke({
+	it('POST with no bearer and no X-PAYMENT returns 401 (OAuth challenge)', async () => {
+		// no bearer, no payment → sendAuthChallenge → 401 + WWW-Authenticate
+		const { status, body, res } = await invoke({
 			body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_public_avatars' } },
 		});
 
-		expect(status).toBe(402);
+		expect(status).toBe(401);
+		expect(res.headers['www-authenticate']).toMatch(/resource_metadata=/);
 		expect(body.x402Version).toBe(2);
 	});
 
@@ -526,12 +540,12 @@ describe('Tool: render_avatar', () => {
 // ── x402 payment flow ─────────────────────────────────────────────────────
 
 describe('x402 payment flow', () => {
-	it('request with no auth and no X-PAYMENT returns 402 with x402 payment body', async () => {
+	it('request with no auth and no X-PAYMENT returns 401 carrying the x402 payment body', async () => {
 		const { status, body } = await invoke({
 			body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_public_avatars' } },
 		});
 
-		expect(status).toBe(402);
+		expect(status).toBe(401);
 		expect(body.x402Version).toBe(2);
 		expect(body.resource.url).toMatch(/\/api\/mcp$/);
 		expect(body.resource.mimeType).toBe('application/json');

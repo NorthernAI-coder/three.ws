@@ -4,6 +4,7 @@ import {
 	paymentRequirements,
 	verifyPayment,
 	send402,
+	build402Body,
 	resolveResourceUrl,
 } from '../_lib/x402-spec.js';
 import { sendX402Error } from './payments.js';
@@ -21,6 +22,29 @@ export function send401(res, msg) {
 	);
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.end(JSON.stringify({ error: 'unauthorized', error_description: msg }));
+}
+
+// Challenge for an unauthenticated request with no payment. Returns 401 with a
+// WWW-Authenticate header so MCP/OAuth clients (claude.ai connectors, the MCP
+// TS SDK) can discover the protected-resource metadata and start the OAuth
+// flow — they require status 401 per the MCP authorization spec (RFC 9728).
+//
+// We ALSO ship the x402 payment envelope in the body + PAYMENT-REQUIRED header,
+// so x402-aware clients and Bazaar validators can still read the price/accepts
+// from this same response. (Previously this path returned a bare 402, which
+// OAuth clients couldn't interpret — the connector probe just spun.)
+export function sendAuthChallenge(res, { resourceUrl, requirements }) {
+	const resource = env.MCP_RESOURCE;
+	res.statusCode = 401;
+	res.setHeader(
+		'www-authenticate',
+		`Bearer resource_metadata=${quoteString(`${env.APP_ORIGIN}/.well-known/oauth-protected-resource`)}, resource=${quoteString(resource)}`,
+	);
+	const body = build402Body({ resourceUrl, accepts: requirements });
+	res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
+	res.setHeader('content-type', 'application/json; charset=utf-8');
+	res.setHeader('cache-control', 'no-store');
+	res.end(JSON.stringify(body));
 }
 
 export function sendJsonRpcError(res, id, code, message, data) {
@@ -82,21 +106,22 @@ export async function authenticateRequest(req, res) {
 		}
 	}
 
-	send402(res, { resourceUrl, accepts: requirements });
+	sendAuthChallenge(res, { resourceUrl, requirements });
 	return null;
 }
 
 export async function handleSse(req, res) {
 	// We don't hold long-lived server→client subscriptions yet; respond politely.
 	const bearer = extractBearer(req);
-	// Unauthenticated callers without an X-PAYMENT header get an x402 challenge
-	// so x402scan / x402 clients can discover the price. Invalid bearers still
-	// get 401 with WWW-Authenticate so OAuth clients can re-auth correctly.
+	// Unauthenticated callers without an X-PAYMENT header get a 401 +
+	// WWW-Authenticate so OAuth clients (claude.ai) can discover the auth
+	// server, with the x402 envelope still attached for x402 clients. Invalid
+	// bearers also get 401 with WWW-Authenticate so they can re-auth correctly.
 	if (!bearer && !req.headers['x-payment']) {
 		const sseResourceUrl = resolveResourceUrl(req, '/api/mcp');
-		return send402(res, {
+		return sendAuthChallenge(res, {
 			resourceUrl: sseResourceUrl,
-			accepts: paymentRequirements(sseResourceUrl),
+			requirements: paymentRequirements(sseResourceUrl),
 		});
 	}
 	const auth = await authenticateBearer(bearer, { audience: env.MCP_RESOURCE });
