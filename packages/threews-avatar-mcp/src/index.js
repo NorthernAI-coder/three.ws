@@ -18,13 +18,16 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
 	ListToolsRequestSchema,
 	CallToolRequestSchema,
+	ListResourcesRequestSchema,
+	ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { buildTools } from './tools.js';
 import { baseUrl, ThreewsError } from './threews.js';
+import { UI_RESOURCE_URI, UI_MIME_TYPE, UI_RESOURCE_META, loadAppHtml } from './ui.js';
 
 const SERVER_NAME = 'three.ws-avatar-mcp';
-const SERVER_VERSION = '0.1.0';
+const SERVER_VERSION = '0.2.0';
 
 async function main() {
 	const tools = buildTools();
@@ -33,7 +36,7 @@ async function main() {
 	const server = new Server(
 		{ name: SERVER_NAME, version: SERVER_VERSION },
 		{
-			capabilities: { tools: { listChanged: false } },
+			capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
 			instructions:
 				'three.ws 3D avatar tools. render_avatar shows a live, rotatable avatar inline ' +
 				'(preview image + interactive model + embed URL); avatar_embed_code returns a ' +
@@ -45,6 +48,37 @@ async function main() {
 	server.setRequestHandler(ListToolsRequestSchema, async () => ({
 		tools: tools.map((t) => t.definition),
 	}));
+
+	// MCP Apps UI resource: the interactive model-viewer iframe that render_avatar
+	// declares via _meta.ui.resourceUri. _meta.ui.csp grants the sandbox the
+	// origins it needs (model-viewer CDN + GLB hosts).
+	server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+		resources: [
+			{
+				uri: UI_RESOURCE_URI,
+				name: 'three.ws avatar viewer',
+				description: 'Interactive 3D avatar viewer rendered inline by render_avatar.',
+				mimeType: UI_MIME_TYPE,
+				_meta: UI_RESOURCE_META,
+			},
+		],
+	}));
+
+	server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+		if (request.params.uri !== UI_RESOURCE_URI) {
+			throw new Error(`Unknown resource: ${request.params.uri}`);
+		}
+		return {
+			contents: [
+				{
+					uri: UI_RESOURCE_URI,
+					mimeType: UI_MIME_TYPE,
+					text: loadAppHtml(),
+					_meta: UI_RESOURCE_META,
+				},
+			],
+		};
+	});
 
 	server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		const { name, arguments: args } = request.params;

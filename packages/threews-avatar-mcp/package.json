@@ -1,7 +1,7 @@
 {
 	"name": "@three-ws/avatar-mcp",
-	"version": "0.1.0",
-	"description": "MCP server for three.ws 3D avatars by three.ws — render a live, rotatable on-chain avatar inline, get a paste-anywhere embed iframe, or fetch avatar metadata. Free, no API key.",
+	"version": "0.2.0",
+	"description": "MCP server for three.ws 3D avatars by three.ws — render a live, rotatable on-chain avatar inline (interactive MCP App), get a paste-anywhere embed iframe, or fetch avatar metadata. Free, no API key.",
 	"type": "module",
 	"author": "nirholas",
 	"license": "Apache-2.0",
@@ -47,10 +47,15 @@
 		"node": ">=20"
 	},
 	"scripts": {
+		"build": "node app/build.mjs",
 		"start": "node src/index.js",
 		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.29.0"
+	},
+	"devDependencies": {
+		"@modelcontextprotocol/ext-apps": "^1.7.3",
+		"esbuild": "^0.25.0"
 	}
 }

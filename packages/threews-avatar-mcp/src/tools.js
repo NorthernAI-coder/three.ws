@@ -17,6 +17,7 @@ import {
 	iframeSnippet,
 	modelViewerHtml,
 } from './threews.js';
+import { UI_TOOL_META } from './ui.js';
 
 // One of these three selectors identifies an avatar across every tool.
 const selectorProps = {
@@ -35,9 +36,13 @@ export function buildTools() {
 			definition: {
 				name: 'render_avatar',
 				description:
-					'Render a three.ws 3D avatar inline: returns a preview image, an interactive ' +
-					'(rotatable) model-viewer artifact, and a ready-to-embed live URL. Identify the ' +
+					'Render a three.ws 3D avatar inline: shows an interactive (rotatable) 3D model ' +
+					'in the chat, plus a preview image and a ready-to-embed live URL. Identify the ' +
 					'avatar by id, @handle, or a raw GLB url.',
+				// MCP Apps (SEP-1865): links this tool to its interactive UI resource so
+				// supporting hosts (Claude, etc.) render the live model-viewer in a
+				// sandboxed iframe. Hosts without app support use the content blocks below.
+				_meta: UI_TOOL_META,
 				inputSchema: {
 					type: 'object',
 					properties: {
@@ -118,6 +123,7 @@ export function buildTools() {
 						id: avatar.id,
 						name: avatar.name,
 						model_url: avatar.model_url,
+						background,
 						embed_url: embed,
 						viewer_url: viewer,
 						iframe,

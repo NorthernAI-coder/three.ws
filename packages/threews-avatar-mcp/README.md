@@ -10,9 +10,13 @@ It's a thin, **zero-config, read-only** bridge to the real three.ws endpoints. P
 
 | Tool | What it does |
 | --- | --- |
-| `render_avatar` | Renders an avatar inline: a preview image, an **interactive (rotatable) model-viewer artifact**, and a live embed URL. |
+| `render_avatar` | Renders an avatar inline. On [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview)-capable hosts (Claude, VS Code Copilot, Goose…) it shows a **live, rotatable 3D model right in the chat**; on other clients it falls back to a preview image + embed URL. |
 | `avatar_embed_code` | A ready-to-paste `<iframe>` that embeds the live avatar anywhere — as easy as a YouTube embed. |
 | `get_avatar` | Avatar metadata: name, GLB model url, owner, visibility. |
+
+### Interactive 3D in the chat (MCP Apps)
+
+`render_avatar` is an [MCP App](https://modelcontextprotocol.io/extensions/apps/overview) (SEP-1865): it declares a `ui://` resource that supporting hosts render in a sandboxed iframe — a real, orbit-and-zoom `<model-viewer>`, not a static image. Hosts without MCP Apps support still get a rendered preview image and a one-tap live embed, so the tool degrades gracefully everywhere.
 
 Identify an avatar three ways: by **`id`** (UUID), by **`@handle`** (username), or by a raw **`model`** GLB url.
 
