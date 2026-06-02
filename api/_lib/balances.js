@@ -20,6 +20,7 @@ import { getMetadataForMints } from './token-metadata.js';
 const BALANCES_TTL_S = 60;
 
 const PUBLIC_SOL_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const PUMP_FRONTEND_BASE = process.env.PUMP_FRONTEND_BASE || 'https://frontend-api-v3.pump.fun';
 function heliusRpc() {
 	const key = process.env.HELIUS_API_KEY;
 	return key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : null;
@@ -90,6 +91,67 @@ async function solNativePrice() {
 			return 0;
 		}
 	}
+}
+
+/**
+ * Pick a token's USD price, preferring a positive on-chain price (Helius
+ * `price_info`) and otherwise falling back to Jupiter.
+ *
+ * A Helius price of exactly 0 means "Helius couldn't price this", NOT "free" —
+ * so it must never suppress the Jupiter fallback. The previous `helius ?? jup`
+ * did exactly that: `0 ?? jup` is `0` (nullish coalescing keeps the 0), which
+ * zeroed out every coin Helius returned a 0 for (common for low-liquidity
+ * pump.fun coins that Jupiter prices fine). That silently mis-valued holdings
+ * to $0 — and broke the /play holder gate, which reads these USD values.
+ */
+export function pickTokenPrice(heliusPrice, jupiterPrice) {
+	const helius = Number(heliusPrice) || 0;
+	if (helius > 0) return helius;
+	return Number(jupiterPrice) || 0;
+}
+
+/**
+ * USD price for one pump.fun coin straight from its bonding curve / market cap.
+ * price = usd_market_cap / circulating supply. Covers coins Jupiter can't route
+ * yet (pre-graduation, very fresh) — exactly the long tail the holder gate must
+ * price correctly. Returns 0 when pump.fun has no data for the mint (not a pump
+ * coin, or no price yet).
+ */
+async function pumpFunMintUsd(mint) {
+	const c = await fetchJson(new URL(`/coins/${mint}`, PUMP_FRONTEND_BASE).toString(), {
+		headers: { accept: 'application/json' },
+	});
+	const mcap = Number(c?.usd_market_cap) || 0;
+	const decimals = Number(c?.base_decimals ?? 6);
+	const supply = Number(c?.total_supply_str || c?.total_supply) || 0;
+	if (mcap > 0 && supply > 0) {
+		const circulating = supply / Math.pow(10, decimals);
+		if (circulating > 0) return mcap / circulating;
+	}
+	return 0;
+}
+
+/**
+ * Authoritative USD price for a single Solana mint, independent of any wallet.
+ * Jupiter Lite first (routable tokens, incl. graduated pump.fun coins), then the
+ * pump.fun bonding curve (pre-graduation coins Jupiter doesn't price yet).
+ * Returns 0 only when neither source can price the mint.
+ */
+export async function solanaMintUsdPrice(mint) {
+	try {
+		const data = await fetchJson(`https://lite-api.jup.ag/price/v3?ids=${mint}`);
+		const p = Number(data?.[mint]?.usdPrice ?? data?.[mint]?.price) || 0;
+		if (p > 0) return p;
+	} catch (err) {
+		console.warn('[balances] jupiter single-mint price failed:', err?.message);
+	}
+	try {
+		const p = await pumpFunMintUsd(mint);
+		if (p > 0) return p;
+	} catch (err) {
+		console.warn('[balances] pump.fun price fallback failed:', err?.message);
+	}
+	return 0;
 }
 
 // -- Solana balance path: Helius DAS getAssetsByOwner --
@@ -197,10 +259,10 @@ async function getSolanaBalancesViaDas(address) {
 
 	const tokens = fungible
 		.map((t) => {
-			const price =
-				t.priceFromHelius ??
-				Number(jupPrices?.[t.mint]?.usdPrice ?? jupPrices?.[t.mint]?.price ?? 0) ??
-				0;
+			const price = pickTokenPrice(
+				t.priceFromHelius,
+				jupPrices?.[t.mint]?.usdPrice ?? jupPrices?.[t.mint]?.price,
+			);
 			return {
 				symbol: t.symbol,
 				name: t.name,

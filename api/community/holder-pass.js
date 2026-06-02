@@ -20,10 +20,15 @@
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { cc, userAuthHeaders, isValidToken, UnconfiguredError } from '../_lib/coin-communities.js';
-import { getBalances } from '../_lib/balances.js';
+import { getBalances, solanaMintUsdPrice } from '../_lib/balances.js';
 import { HOLDER_MIN_USD, signHolderPass } from '../_lib/holder-pass.js';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
+
+// A user may have linked more than one Solana wallet over time and hold the coin
+// in any of them. Read each (bounded) and gate on the combined holding so we
+// never reject a real holder for linking a second, empty wallet first.
+const MAX_WALLETS_CHECKED = 5;
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -53,7 +58,7 @@ export default wrap(async (req, res) => {
 		throw err;
 	}
 
-	// The wallet is taken from the authenticated session — never the request body.
+	// The wallets are taken from the authenticated session — never the request body.
 	const w = await api.getWallets({ headers });
 	if (w.error) {
 		if (w.error.statusCode === 401) {
@@ -61,26 +66,59 @@ export default wrap(async (req, res) => {
 		}
 		return error(res, 502, 'upstream_error', w.error.message || 'failed to read wallets');
 	}
-	const wallet = (w.data?.wallets ?? []).find((x) => x.chainType === 'svm')?.address || null;
-	if (!wallet) {
+	const svmWallets = (w.data?.wallets ?? [])
+		.filter((x) => x.chainType === 'svm')
+		.map((x) => x.address)
+		.filter(Boolean);
+	if (svmWallets.length === 0) {
 		return error(res, 403, 'wallet_required', 'link a Solana wallet to verify your holdings');
 	}
 
-	// Price the wallet's on-chain holding of this exact coin.
-	let balances;
-	try {
-		balances = await getBalances({ chain: 'solana', address: wallet });
-	} catch (err) {
-		const status = err?.status === 503 ? 503 : 502;
-		return error(res, status, 'balance_unavailable', err?.message || 'could not read on-chain balance');
+	// Sum this exact coin's holding across the user's linked Solana wallets, and
+	// keep the best on-chain price any of them resolved. We report the wallet
+	// holding the most of the coin.
+	let amount = 0;
+	let priceFromBalances = 0;
+	let primaryWallet = svmWallets[0];
+	let largestHolding = -1;
+	let balanceError = null;
+	for (const address of svmWallets.slice(0, MAX_WALLETS_CHECKED)) {
+		let balances;
+		try {
+			balances = await getBalances({ chain: 'solana', address });
+		} catch (err) {
+			balanceError = err;
+			continue;
+		}
+		const holding =
+			token === SOL_MINT
+				? balances?.native
+				: (balances?.tokens ?? []).find((t) => t.mint === token);
+		const held = holding?.amount || 0;
+		amount += held;
+		if (holding?.price > 0) priceFromBalances = holding.price;
+		if (held > largestHolding) {
+			largestHolding = held;
+			primaryWallet = address;
+		}
+	}
+	// Only surface an upstream error if we couldn't read *any* wallet — a partial
+	// failure still gates correctly on whatever we did read.
+	if (amount === 0 && balanceError) {
+		const status = balanceError?.status === 503 ? 503 : 502;
+		return error(res, status, 'balance_unavailable', balanceError?.message || 'could not read on-chain balance');
 	}
 
-	const holding =
-		token === SOL_MINT
-			? balances?.native
-			: (balances?.tokens ?? []).find((t) => t.mint === token);
-	const usd = Math.round((holding?.usd || 0) * 100) / 100;
-	const amount = holding?.amount || 0;
+	// Price the holding. The generic balance read prices via Helius/Jupiter, which
+	// leaves a 0 for coins neither source routes yet (fresh bonding-curve pump.fun
+	// coins). When we hold some but it came back unpriced, fetch a real price
+	// (Jupiter → pump.fun curve) so a genuine holder is never gated at $0.
+	let price = priceFromBalances;
+	if (amount > 0 && price <= 0 && token !== SOL_MINT) {
+		price = await solanaMintUsdPrice(token);
+	}
+	const usd = Math.round(amount * price * 100) / 100;
+	const wallet = primaryWallet;
 	const minUsd = HOLDER_MIN_USD;
 
 	if (usd >= minUsd) {
