@@ -9,10 +9,16 @@
 //   3. OPENROUTER_API_KEY → OpenRouter free tier.
 //   4. OPENAI_API_KEY → OpenAI.
 //   5. ANTHROPIC_API_KEY → Anthropic (BYOK only — never set as a server key).
-// Anthropic and the OpenAI-compatible providers (OpenRouter / Groq / OpenAI)
-// use different request shapes, tool-call wire formats, and SSE event names —
-// this file translates both directions so the client only sees the same
-// { chunk → done } event stream regardless of upstream.
+//   6. WATSONX_API_KEY (+ project) → IBM Granite on watsonx.ai (server key only;
+//      explicit `provider: "watsonx"` from the client, never the silent default).
+// Anthropic, the OpenAI-compatible providers (OpenRouter / Groq / OpenAI), and
+// watsonx.ai use different request shapes, auth, tool-call wire formats, and SSE
+// event names — this file translates all of them so the client only ever sees
+// the same { chunk → done } event stream regardless of upstream. watsonx adds
+// one wrinkle: its bearer token is minted from an IAM exchange, so its request
+// headers are resolved asynchronously (route.resolveHeaders) inside the loop
+// rather than baked in up front; its SSE deltas are OpenAI-shaped, so the
+// OpenAI stream reader handles them verbatim.
 
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
@@ -22,6 +28,7 @@ import { captureException } from './_lib/sentry.js';
 import { sql } from './_lib/db.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { loadUserProviderKeys } from './_lib/provider-keys.js';
+import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
 import { z } from 'zod';
 
 // Providers anonymous (unauthenticated) callers may use. Groq and OpenRouter
@@ -64,6 +71,14 @@ const PROVIDERS = {
 		url: 'https://api.openai.com/v1/chat/completions',
 		style: 'openai',
 	},
+	// IBM watsonx.ai (Granite). URL + headers are derived in makeRoute from the
+	// shared watsonx client (region host, version param, IAM bearer token), so
+	// no static `url` here. Requires WATSONX_API_KEY + a project/space id.
+	watsonx: {
+		envKey: 'WATSONX_API_KEY',
+		defaultModel: 'ibm/granite-3-8b-instruct',
+		style: 'watsonx',
+	},
 };
 
 const contextSchema = z
@@ -91,7 +106,7 @@ const chatBody = z.object({
 	context: contextSchema,
 	system_prompt: z.string().trim().min(1).max(2000).optional(),
 	agentId: z.string().uuid().optional(),
-	provider: z.enum(['anthropic', 'openrouter', 'groq', 'openai']).optional(),
+	provider: z.enum(['anthropic', 'openrouter', 'groq', 'openai', 'watsonx']).optional(),
 	model: z.string().min(1).max(120).optional(),
 	history: z
 		.array(
@@ -323,9 +338,12 @@ export default wrap(async (req, res) => {
 	let retriedTransient = false;
 	while (true) {
 		try {
+			// Most routes carry static headers; watsonx resolves a fresh IAM
+			// bearer token (cached between requests) just before the fetch.
+			const reqHeaders = route.headers || (await route.resolveHeaders());
 			upstream = await fetch(route.url, {
 				method: 'POST',
-				headers: route.headers,
+				headers: reqHeaders,
 				body: JSON.stringify(route.buildPayload({ systemPrompt, history, maxTokens, includeTools })),
 			});
 		} catch (err) {
@@ -446,6 +464,8 @@ export default wrap(async (req, res) => {
 		res.write(`data: ${JSON.stringify(obj)}\n\n`);
 	}
 
+	// watsonx streams OpenAI-shaped chat completion chunks, so the OpenAI reader
+	// parses its deltas and usage verbatim; only Anthropic needs its own reader.
 	const result =
 		route.style === 'anthropic'
 			? await streamAnthropic(upstream, sendSSE)
@@ -497,7 +517,14 @@ function pickProvider(requested, model, userKeys = {}) {
 		const cfg = PROVIDERS[name];
 		const apiKey = userKeys[name] || process.env[cfg.envKey];
 		if (!apiKey) continue;
-		const chosenModel = (requested === name && model) || process.env.CHAT_MODEL || cfg.defaultModel;
+		// watsonx needs both a key and a project/space scope to serve a model.
+		if (name === 'watsonx' && !watsonxConfig().configured) continue;
+		// CHAT_MODEL is an Anthropic-style id; it must not leak into a watsonx
+		// request (which expects an `ibm/…` model id). watsonx uses the
+		// client-named model or its own Granite default.
+		const chosenModel =
+			(requested === name && model) ||
+			(name === 'watsonx' ? cfg.defaultModel : process.env.CHAT_MODEL || cfg.defaultModel);
 		return makeRoute(name, cfg, apiKey, chosenModel);
 	}
 	return null;
@@ -546,6 +573,7 @@ function buildFallbackChain(primary, userKeys = {}) {
 		const cfg = PROVIDERS[name];
 		const apiKey = userKeys[name] || process.env[cfg.envKey];
 		if (!apiKey) continue;
+		if (name === 'watsonx' && !watsonxConfig().configured) continue;
 		const key = `${name}:${cfg.defaultModel}`;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -574,6 +602,27 @@ function makeRoute(name, cfg, apiKey, model) {
 				messages: history,
 				...(includeTools ? { tools: ACTION_TOOLS } : {}),
 				stream: true,
+			}),
+		};
+	}
+	if (cfg.style === 'watsonx') {
+		const wx = watsonxConfig();
+		const scope = wx.projectId ? { project_id: wx.projectId } : { space_id: wx.spaceId };
+		return {
+			name,
+			model,
+			url: `${wx.url}/ml/v1/text/chat_stream?version=${wx.apiVersion}`,
+			style: 'watsonx',
+			// No static headers: the IAM bearer token is minted (and cached) on
+			// demand. The request loop awaits resolveHeaders() before each fetch.
+			resolveHeaders: () => watsonxAuthHeaders(wx),
+			// watsonx has no action-tool wiring here; Granite chats and animates
+			// via text, but scene tool-calls are owned by the other providers.
+			buildPayload: ({ systemPrompt, history, maxTokens }) => ({
+				model_id: model,
+				...scope,
+				messages: [{ role: 'system', content: systemPrompt }, ...history],
+				max_tokens: maxTokens,
 			}),
 		};
 	}

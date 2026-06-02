@@ -78,6 +78,7 @@ const MODEL_OPTIONS = [
 	},
 	{ id: 'groq:llama-70b', label: 'Groq Llama 3.3 70B', provider: 'groq', model: 'llama-3.3-70b-versatile' },
 	{ id: 'openai:gpt-4o-mini', label: 'GPT-4o mini', provider: 'openai', model: 'gpt-4o-mini' },
+	{ id: 'watsonx:granite', label: 'IBM Granite 3 (watsonx)', provider: 'watsonx', model: 'ibm/granite-3-8b-instruct' },
 ];
 const MODEL_STORAGE_KEY = 'avatar_chat_model_v1';
 

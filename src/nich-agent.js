@@ -832,4 +832,10 @@ const MODEL_OPTIONS = [
 		model: 'llama-3.3-70b-versatile',
 	},
 	{ id: 'openai:gpt-4o-mini', label: 'GPT-4o mini', provider: 'openai', model: 'gpt-4o-mini' },
+	{
+		id: 'watsonx:granite',
+		label: 'IBM Granite 3 (watsonx)',
+		provider: 'watsonx',
+		model: 'ibm/granite-3-8b-instruct',
+	},
 ];

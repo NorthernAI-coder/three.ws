@@ -16,6 +16,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createQwen } from 'qwen-ai-provider';
 import { env } from '../_lib/env.js';
 import { cors, method, readJson, error, wrap } from '../_lib/http.js';
+import { watsonxConfig, watsonxChatRequest } from '../_lib/watsonx.js';
 
 export const maxDuration = 120;
 
@@ -155,6 +156,19 @@ const PROVIDERS = {
 			return null;
 		},
 	},
+	// IBM watsonx.ai Granite. watsonx is not OpenAI-compatible at the API layer
+	// (IAM bearer token, project scoping, version param), so it can't be a
+	// Vercel AI SDK model object. The `watsonx` flag routes it to a dedicated
+	// streaming path; build() only reports availability.
+	'ibm-granite': {
+		label: 'IBM Granite 3.8B',
+		network: 'IBM watsonx.ai',
+		tier: 'balanced',
+		maxOutput: 4096,
+		description: 'IBM’s open, enterprise-governed foundation model on watsonx.ai.',
+		watsonx: true,
+		build: () => (watsonxConfig().configured ? { watsonx: true } : null),
+	},
 };
 
 function openrouter() {
@@ -163,6 +177,73 @@ function openrouter() {
 		baseURL: 'https://openrouter.ai/api/v1',
 		headers: { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws brain' },
 	});
+}
+
+// Stream IBM Granite (watsonx.ai) to the page using the same SSE protocol as
+// the AI SDK path. watsonx returns OpenAI-shaped chat completion chunks
+// (choices[].delta.content) plus a usage block on the final chunk.
+async function streamWatsonx(res, { messages, system, maxTokens, t0 }) {
+	const cfg = watsonxConfig();
+	const wxMessages = system ? [{ role: 'system', content: system }, ...messages] : messages;
+	const { url, headers, body } = await watsonxChatRequest(cfg, {
+		messages: wxMessages,
+		maxTokens,
+	});
+
+	const upstream = await fetch(url, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify(body),
+	});
+	if (!upstream.ok || !upstream.body) {
+		const detail = await upstream.text().catch(() => '');
+		throw new Error(`watsonx ${upstream.status}: ${detail.slice(0, 200)}`);
+	}
+
+	const reader = upstream.body.getReader();
+	const decoder = new TextDecoder();
+	let buf = '';
+	let firstTokenMs = null;
+	let usage = null;
+
+	while (true) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		buf += decoder.decode(value, { stream: true });
+		const lines = buf.split('\n');
+		buf = lines.pop();
+		for (const line of lines) {
+			if (!line.startsWith('data:')) continue;
+			const raw = line.slice(5).trim();
+			if (!raw || raw === '[DONE]') continue;
+			let evt;
+			try {
+				evt = JSON.parse(raw);
+			} catch {
+				continue;
+			}
+			const delta = evt.choices?.[0]?.delta?.content;
+			if (delta) {
+				if (firstTokenMs === null) {
+					firstTokenMs = Date.now() - t0;
+					res.write(`event: first\ndata: ${JSON.stringify({ firstTokenMs })}\n\n`);
+				}
+				res.write(`data: ${JSON.stringify(delta)}\n\n`);
+			}
+			if (evt.usage) {
+				usage = {
+					inputTokens: evt.usage.prompt_tokens,
+					outputTokens: evt.usage.completion_tokens,
+					totalTokens: evt.usage.total_tokens,
+				};
+			}
+		}
+	}
+
+	const elapsedMs = Date.now() - t0;
+	res.write(`event: done\ndata: ${JSON.stringify({ elapsedMs, firstTokenMs, usage })}\n\n`);
+	res.write('data: [DONE]\n\n');
+	res.end();
 }
 
 function validateMessages(input) {
@@ -262,6 +343,13 @@ export default wrap(async function handler(req, res) {
 	let firstTokenMs = null;
 
 	try {
+		// watsonx.ai isn't an AI SDK model — stream it through the shared client,
+		// emitting the same first/chunk/done event protocol the page expects.
+		if (spec.watsonx) {
+			await streamWatsonx(res, { messages, system, maxTokens, t0 });
+			return;
+		}
+
 		const result = streamText({
 			model,
 			system,

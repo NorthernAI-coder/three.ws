@@ -89,6 +89,30 @@ export const env = {
 		return opt('GROQ_API_KEY');
 	},
 
+	// IBM watsonx.ai (Granite foundation models) — selectable brain in
+	// /api/chat and /api/brain/chat. Requires the API key AND a project (or
+	// space) id; the shared client in _lib/watsonx.js exchanges the key for an
+	// IAM bearer token and scopes every call. Optional — when unset, Granite is
+	// reported as unavailable and other providers are used.
+	get WATSONX_API_KEY() {
+		return opt('WATSONX_API_KEY');
+	},
+	get WATSONX_PROJECT_ID() {
+		return opt('WATSONX_PROJECT_ID');
+	},
+	get WATSONX_SPACE_ID() {
+		return opt('WATSONX_SPACE_ID');
+	},
+	get WATSONX_URL() {
+		return opt('WATSONX_URL');
+	},
+	get WATSONX_MODEL_ID() {
+		return opt('WATSONX_MODEL_ID');
+	},
+	get WATSONX_API_VERSION() {
+		return opt('WATSONX_API_VERSION');
+	},
+
 	// Etherscan V2 — unified multichain explorer API (one key, all chains).
 	// Used by api/cron/erc8004-crawl.js to index ERC-8004 Registered events.
 	get ETHERSCAN_API_KEY() {
