@@ -50,7 +50,15 @@ function renderConsent(res, { client, user, params, csrf }) {
 	res.statusCode = 200;
 	res.setHeader('content-type', 'text/html; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
-	res.setHeader('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+	// form-action governs the WHOLE submission redirect chain, not just the POST
+	// target. The form posts to /api/oauth/authorize ('self'), which then 302s to
+	// the client's redirect_uri (e.g. https://claude.ai/...). Without the client
+	// origin here, that cross-origin hop is blocked and the OAuth code never
+	// reaches the client. redirect_uri is already validated against the client's
+	// registered URIs before we render, so trusting its origin is safe.
+	let redirectOrigin = '';
+	try { redirectOrigin = ` ${new URL(params.redirect_uri).origin}`; } catch { /* validated upstream */ }
+	res.setHeader('content-security-policy', `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'${redirectOrigin}; frame-ancestors 'none'; base-uri 'none'`);
 	res.setHeader('x-frame-options', 'DENY');
 	res.setHeader('x-content-type-options', 'nosniff');
 	res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');

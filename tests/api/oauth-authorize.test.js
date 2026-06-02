@@ -270,6 +270,10 @@ describe('GET /api/oauth/authorize — consent page render', () => {
 		// Frame protections present.
 		expect(res.headers['x-frame-options']).toBe('DENY');
 		expect(res.headers['content-security-policy']).toMatch(/frame-ancestors 'none'/);
+		// form-action must allow the validated client origin so the post-consent
+		// 302 to the client's redirect_uri isn't blocked by CSP (the bug that
+		// stopped claude.ai connecting). 'self' alone breaks the cross-origin hop.
+		expect(res.headers['content-security-policy']).toMatch(/form-action 'self' https:\/\/client\.test/);
 	});
 });
 
