@@ -29,6 +29,7 @@ import { sql } from './_lib/db.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
+import { orchestrateConfig } from './_lib/orchestrate.js';
 import { z } from 'zod';
 
 // Providers anonymous (unauthenticated) callers may use. Groq and OpenRouter
@@ -79,6 +80,15 @@ const PROVIDERS = {
 		defaultModel: 'ibm/granite-3-8b-instruct',
 		style: 'watsonx',
 	},
+	// IBM watsonx Orchestrate agent (Agent Connect). OpenAI-compatible
+	// chat-completions endpoint, so it streams through the OpenAI reader; the
+	// endpoint URL + agent id are resolved in makeRoute. This makes a three.ws
+	// 3D avatar the embodied front-end of an enterprise Orchestrate agent.
+	orchestrate: {
+		envKey: 'WATSONX_ORCHESTRATE_API_KEY',
+		defaultModel: 'orchestrate-agent',
+		style: 'orchestrate',
+	},
 };
 
 const contextSchema = z
@@ -106,7 +116,7 @@ const chatBody = z.object({
 	context: contextSchema,
 	system_prompt: z.string().trim().min(1).max(2000).optional(),
 	agentId: z.string().uuid().optional(),
-	provider: z.enum(['anthropic', 'openrouter', 'groq', 'openai', 'watsonx']).optional(),
+	provider: z.enum(['anthropic', 'openrouter', 'groq', 'openai', 'watsonx', 'orchestrate']).optional(),
 	model: z.string().min(1).max(120).optional(),
 	history: z
 		.array(
@@ -517,14 +527,18 @@ function pickProvider(requested, model, userKeys = {}) {
 		const cfg = PROVIDERS[name];
 		const apiKey = userKeys[name] || process.env[cfg.envKey];
 		if (!apiKey) continue;
-		// watsonx needs both a key and a project/space scope to serve a model.
+		// watsonx needs both a key and a project/space scope to serve a model;
+		// Orchestrate needs both a key and its endpoint URL.
 		if (name === 'watsonx' && !watsonxConfig().configured) continue;
-		// CHAT_MODEL is an Anthropic-style id; it must not leak into a watsonx
-		// request (which expects an `ibm/…` model id). watsonx uses the
-		// client-named model or its own Granite default.
+		if (name === 'orchestrate' && !orchestrateConfig().configured) continue;
+		// CHAT_MODEL is an Anthropic-style id; it must not leak into a watsonx or
+		// Orchestrate request (which expect their own model/agent ids). Those
+		// providers use the client-named value or their own default.
 		const chosenModel =
 			(requested === name && model) ||
-			(name === 'watsonx' ? cfg.defaultModel : process.env.CHAT_MODEL || cfg.defaultModel);
+			(name === 'watsonx' || name === 'orchestrate'
+				? cfg.defaultModel
+				: process.env.CHAT_MODEL || cfg.defaultModel);
 		return makeRoute(name, cfg, apiKey, chosenModel);
 	}
 	return null;
@@ -574,6 +588,7 @@ function buildFallbackChain(primary, userKeys = {}) {
 		const apiKey = userKeys[name] || process.env[cfg.envKey];
 		if (!apiKey) continue;
 		if (name === 'watsonx' && !watsonxConfig().configured) continue;
+		if (name === 'orchestrate' && !orchestrateConfig().configured) continue;
 		const key = `${name}:${cfg.defaultModel}`;
 		if (seen.has(key)) continue;
 		seen.add(key);
@@ -601,6 +616,28 @@ function makeRoute(name, cfg, apiKey, model) {
 				system: systemPrompt,
 				messages: history,
 				...(includeTools ? { tools: ACTION_TOOLS } : {}),
+				stream: true,
+			}),
+		};
+	}
+	if (cfg.style === 'orchestrate') {
+		const wxo = orchestrateConfig();
+		return {
+			name,
+			model: wxo.agent,
+			url: wxo.chatUrl,
+			style: 'orchestrate',
+			headers: {
+				Authorization: `Bearer ${wxo.apiKey}`,
+				'Content-Type': 'application/json',
+			},
+			// The Orchestrate agent owns its own tools/skills, so the viewer's
+			// scene tools are not forwarded. System prompt is passed as the
+			// leading system message; OpenAI-shaped streaming handles the reply.
+			buildPayload: ({ systemPrompt, history, maxTokens }) => ({
+				model: wxo.agent,
+				messages: [{ role: 'system', content: systemPrompt }, ...history],
+				max_tokens: maxTokens,
 				stream: true,
 			}),
 		};

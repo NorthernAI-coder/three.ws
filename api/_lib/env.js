@@ -113,6 +113,20 @@ export const env = {
 		return opt('WATSONX_API_VERSION');
 	},
 
+	// IBM watsonx Orchestrate agent (Agent Connect) — adds a "watsonx
+	// Orchestrate" brain to /api/chat so a 3D avatar fronts an enterprise
+	// Orchestrate agent. URL is the agent's chat-completions endpoint (instance
+	// Test URL); the key is the bearer token. Optional — unset = unavailable.
+	get WATSONX_ORCHESTRATE_URL() {
+		return opt('WATSONX_ORCHESTRATE_URL');
+	},
+	get WATSONX_ORCHESTRATE_API_KEY() {
+		return opt('WATSONX_ORCHESTRATE_API_KEY');
+	},
+	get WATSONX_ORCHESTRATE_AGENT() {
+		return opt('WATSONX_ORCHESTRATE_AGENT');
+	},
+
 	// Etherscan V2 — unified multichain explorer API (one key, all chains).
 	// Used by api/cron/erc8004-crawl.js to index ERC-8004 Registered events.
 	get ETHERSCAN_API_KEY() {

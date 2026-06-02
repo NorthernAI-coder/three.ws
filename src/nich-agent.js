@@ -838,4 +838,10 @@ const MODEL_OPTIONS = [
 		provider: 'watsonx',
 		model: 'ibm/granite-3-8b-instruct',
 	},
+	{
+		id: 'orchestrate:agent',
+		label: 'watsonx Orchestrate',
+		provider: 'orchestrate',
+		model: 'orchestrate-agent',
+	},
 ];
