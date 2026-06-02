@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 import { getSolBalance, getSplBalance, isValidPubkey, loadSigner } from '../lib/solana.js';
-import { fetchTokenConfig } from '../lib/token.js';
+import { resolveMint } from '../lib/token.js';
 
 export const def = {
 	name: 'three_balance',
@@ -27,20 +27,20 @@ export const def = {
 		if (!isValidPubkey(owner)) {
 			return { ok: false, error: 'invalid_pubkey' };
 		}
-		const config = await fetchTokenConfig();
+		const token = await resolveMint();
 		const [sol, three] = await Promise.all([
 			getSolBalance(owner),
-			getSplBalance(owner, config.mint),
+			getSplBalance(owner, token.mint),
 		]);
 		return {
 			ok: true,
 			pubkey: owner,
-			symbol: config.symbol,
+			symbol: token.symbol,
 			three: {
-				mint: config.mint,
+				mint: token.mint,
 				amount: three.uiAmount,
 				atomics: three.atomics,
-				decimals: three.decimals || config.decimals,
+				decimals: three.decimals || token.decimals,
 			},
 			sol: sol.sol,
 			lamports: sol.lamports,

@@ -55,6 +55,23 @@ export function fetchTokenPrice(usd) {
 const fmt = (atomics, decimals) => Number(BigInt(atomics)) / 10 ** decimals;
 
 /**
+ * Resolve just the $THREE mint (+ symbol/decimals if available). Prefers the
+ * full config, but falls back to the price endpoint's `mint` so read-only tools
+ * keep working even when /api/token/config is unavailable (e.g. the treasury
+ * env isn't set yet) — burns still require the full config.
+ */
+export async function resolveMint() {
+	try {
+		const c = await fetchTokenConfig();
+		if (c?.mint) return { mint: c.mint, symbol: c.symbol || '$THREE', decimals: c.decimals };
+	} catch {
+		/* fall through to price */
+	}
+	const p = await fetchTokenPrice();
+	return { mint: p.mint, symbol: '$THREE', decimals: undefined };
+}
+
+/**
  * Split `totalAtomics` of $THREE into burn + treasury legs.
  * @param {bigint} totalAtomics
  * @param {number} burnBps    — share to the incinerator in basis points (0–10000)
