@@ -394,6 +394,15 @@
 			});
 			avatarFrame.addEventListener('load', () => {
 				avatarFrame.contentWindow?.postMessage({ type: 'v1.avatar.hello' }, avatarOrigin);
+				// Resilience: if the avatar never signals ready (e.g. a slow rig),
+				// flush queued speech/gestures best-effort after a grace period so
+				// the avatar still reacts instead of going silent forever.
+				setTimeout(() => {
+					if (!avatarReady) {
+						avatarReady = true;
+						while (avatarQueue.length) avatarFrame.contentWindow?.postMessage(avatarQueue.shift(), avatarOrigin);
+					}
+				}, 5000);
 			});
 
 			// ── Wallet chip ───────────────────────────────────────────────

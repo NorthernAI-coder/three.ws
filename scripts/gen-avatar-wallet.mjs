@@ -61,6 +61,7 @@ console.log('    1. Send ~$3 of SOL to the address above (mainnet).');
 console.log('    2. Set the SAME env vars on your deployment:');
 console.log('         AVATAR_WALLET_SECRET, AVATAR_NETWORK=mainnet, AVATAR_MAX_SEND_USD=2');
 console.log('         Optional: AVATAR_DEFAULT_RECIPIENT=<your address>  (the "send me" target)');
+console.log('         Optional: AVATAR_LOCK_RECIPIENT=1  (drain-proof: always pays your default, ignores client addresses)');
 console.log('         Optional: AVATAR_DEMO_TOKEN=<secret>  (then load the widget with ?token=<secret>)');
 console.log('    3. Open /avatar-wallet-chat and say: "send me $1 of SOL".');
 console.log('');

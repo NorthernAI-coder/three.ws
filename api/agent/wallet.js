@@ -45,6 +45,7 @@ export default wrap(async (req, res) => {
 			solPriceUsd: solPriceUsd || null,
 			maxSendUsd: cfg.maxSendUsd,
 			defaultRecipient: cfg.defaultRecipient,
+			recipientLocked: cfg.lockRecipient,
 			explorer: explorerAccountUrl(cfg.address, cfg.network),
 		},
 		// Short cache so the chip feels live without hammering the RPC.

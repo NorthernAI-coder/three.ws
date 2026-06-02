@@ -71,7 +71,17 @@ export default wrap(async (req, res) => {
 
 	const body = parse(bodySchema, await readJson(req));
 
-	const recipient = body.to || cfg.defaultRecipient;
+	// When the recipient is locked, the wallet can only ever pay the configured
+	// default — any client-supplied `to` is ignored.
+	let recipient;
+	if (cfg.lockRecipient) {
+		if (!cfg.defaultRecipient) {
+			return error(res, 503, 'recipient_locked', 'AVATAR_LOCK_RECIPIENT is set but AVATAR_DEFAULT_RECIPIENT is missing');
+		}
+		recipient = cfg.defaultRecipient;
+	} else {
+		recipient = body.to || cfg.defaultRecipient;
+	}
 	if (!recipient) {
 		return error(res, 400, 'no_recipient', 'no recipient — pass `to` or set AVATAR_DEFAULT_RECIPIENT');
 	}

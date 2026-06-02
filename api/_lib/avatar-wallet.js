@@ -85,6 +85,10 @@ export function avatarWalletConfig() {
 	const maxSendUsd = clampNumber(parseFloat(process.env.AVATAR_MAX_SEND_USD || '2'), 0.01, 100);
 	const defaultRecipient = (process.env.AVATAR_DEFAULT_RECIPIENT || '').trim() || null;
 	const demoToken = (process.env.AVATAR_DEMO_TOKEN || '').trim() || null;
+	// When set, every send is forced to AVATAR_DEFAULT_RECIPIENT and any
+	// client-supplied `to` is ignored — makes the wallet drain-proof (it can
+	// only ever pay you, regardless of who hits the endpoint).
+	const lockRecipient = ['1', 'true', 'yes'].includes((process.env.AVATAR_LOCK_RECIPIENT || '').trim().toLowerCase());
 
 	let address = null;
 	let configured = false;
@@ -97,7 +101,7 @@ export function avatarWalletConfig() {
 		}
 	}
 
-	return { configured, address, network, rpcUrl, maxSendUsd, defaultRecipient, demoToken };
+	return { configured, address, network, rpcUrl, maxSendUsd, defaultRecipient, demoToken, lockRecipient };
 }
 
 /** True when `s` is a parseable Solana public key. */
