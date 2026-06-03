@@ -67,7 +67,14 @@ export default wrap(async (req, res) => {
 
 		if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
-		const allowedHosts = ['chat.lobehub.com', 'lobechat.ai'];
+		const allowedHosts = [
+			'chat.lobehub.com',
+			'lobechat.ai',
+			'chat.sperax.io',
+			'sperax.io',
+			'sperax-iota.vercel.app',
+			'sperax-jam2emun9-moomsi.vercel.app',
+		];
 		if (hostOrigin) {
 			try {
 				allowedHosts.push(new URL(hostOrigin).hostname);

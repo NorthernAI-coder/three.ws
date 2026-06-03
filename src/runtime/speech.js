@@ -15,7 +15,7 @@ export class BrowserTTS {
 		this._lipsync = null;
 		// Global hooks — set by callers that manage lipsync externally (e.g. AgentAvatar).
 		this.onStart = null;
-		this.onEnd   = null;
+		this.onEnd = null;
 	}
 
 	async speak(text, { onStart, onEnd, scene } = {}) {
@@ -162,7 +162,7 @@ export class BrowserSTT {
  *
  * voice_settings mapping:
  *   `rate`  is mapped onto `style` (0..1) — ElevenLabs has no true playback-
- *           rate control on the Turbo models, but `style` shifts delivery
+ *           rate control on the Turbo/Flash models, but `style` shifts delivery
  *           pacing, so a higher rate translates to a more emphatic/faster
  *           feel. `rate` 0.5..1.5 → `style` 0..1, clamped.
  *   `pitch` has no analogue in ElevenLabs voice_settings, so it is dropped
@@ -174,7 +174,7 @@ export class BrowserSTT {
 export class ElevenLabsTTS {
 	constructor({
 		voiceId,
-		modelId = 'eleven_turbo_v2_5',
+		modelId = 'eleven_flash_v2_5',
 		apiKey = null,
 		proxyURL = null,
 		rate = 1,
@@ -204,12 +204,12 @@ export class ElevenLabsTTS {
 		this._lipsync = null;
 		this._positionalAudio = null; // THREE.PositionalAudio, optional
 		// Web Audio nodes for LipSyncAnalyser integration
-		this._audioCtx      = null;
-		this._analyserNode  = null;
-		this._mediaSource   = null;
+		this._audioCtx = null;
+		this._analyserNode = null;
+		this._mediaSource = null;
 		// Global hooks — set by callers that manage lipsync externally (e.g. AgentAvatar).
 		this.onStart = null;
-		this.onEnd   = null;
+		this.onEnd = null;
 	}
 
 	/** Expose the shared AnalyserNode so LipSyncAnalyser can read frequency data. */
@@ -345,9 +345,9 @@ export class ElevenLabsTTS {
 		if (!AC) return;
 		try {
 			if (!this._audioCtx || this._audioCtx.state === 'closed') {
-				this._audioCtx     = new AC();
+				this._audioCtx = new AC();
 				this._analyserNode = this._audioCtx.createAnalyser();
-				this._analyserNode.fftSize               = 256;
+				this._analyserNode.fftSize = 256;
 				this._analyserNode.smoothingTimeConstant = 0.7;
 				this._analyserNode.connect(this._audioCtx.destination);
 			}
@@ -366,7 +366,9 @@ export class ElevenLabsTTS {
 		const pa = this._positionalAudio;
 		if (!pa) return;
 		// Disconnect any previous MediaElementSource from this PositionalAudio
-		try { pa.source?.disconnect(); } catch {}
+		try {
+			pa.source?.disconnect();
+		} catch {}
 		// Wire the new element through the spatial panner already set up by Three.js:
 		// MediaElementSource → panner → audio.gain → listener.gain → context.destination
 		pa.source = pa.context.createMediaElementSource(audioEl);
@@ -473,11 +475,15 @@ export class ElevenLabsTTS {
 	_cleanupAudio() {
 		// Disconnect the per-speak MediaElementSourceNode (analyser + ctx are reused).
 		if (this._mediaSource) {
-			try { this._mediaSource.disconnect(); } catch {}
+			try {
+				this._mediaSource.disconnect();
+			} catch {}
 			this._mediaSource = null;
 		}
 		if (this._positionalAudio?.source) {
-			try { this._positionalAudio.source.disconnect(); } catch {}
+			try {
+				this._positionalAudio.source.disconnect();
+			} catch {}
 			this._positionalAudio.source = null;
 		}
 		if (this._audio) {

@@ -74,6 +74,14 @@
 			"dest": "/aws/index.html"
 		},
 		{
+			"src": "/ibm",
+			"dest": "/ibm/index.html"
+		},
+		{
+			"src": "/ibm/",
+			"dest": "/ibm/index.html"
+		},
+		{
 			"src": "/rss/announcements\\.xml",
 			"dest": "/api/rss/announcements"
 		},
@@ -104,6 +112,10 @@
 		{
 			"src": "/\\.well-known/chat-plugin\\.json",
 			"dest": "/api/wk?name=chat-plugin"
+		},
+		{
+			"src": "/\\.well-known/sperax-plugin\\.json",
+			"dest": "/api/wk?name=sperax-plugin"
 		},
 		{
 			"src": "/\\.well-known/x402\\.json",
@@ -1801,6 +1813,18 @@
 		},
 		{
 			"src": "/lobehub/iframe/(.*)",
+			"dest": "/lobehub/iframe/$1"
+		},
+		{
+			"src": "/sperax/iframe",
+			"dest": "/lobehub/iframe/index.html"
+		},
+		{
+			"src": "/sperax/iframe/",
+			"dest": "/lobehub/iframe/index.html"
+		},
+		{
+			"src": "/sperax/iframe/(.*)",
 			"dest": "/lobehub/iframe/$1"
 		},
 		{

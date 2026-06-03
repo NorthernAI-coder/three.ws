@@ -33,6 +33,37 @@ describe('createTTS', () => {
 	});
 });
 
+describe('ElevenLabsTTS defaults', () => {
+	it('requires a voiceId', () => {
+		expect(() => new ElevenLabsTTS({})).toThrowError(/requires voiceId/);
+	});
+
+	it('defaults to the low-latency flash model', () => {
+		expect(new ElevenLabsTTS({ voiceId: 'v' }).modelId).toBe('eleven_flash_v2_5');
+	});
+
+	it('uses ElevenLabs recommended voice-setting defaults', () => {
+		const tts = new ElevenLabsTTS({ voiceId: 'v' });
+		expect(tts.stability).toBe(0.5);
+		expect(tts.similarityBoost).toBe(0.75);
+		expect(tts.useSpeakerBoost).toBe(true);
+	});
+
+	it('lets callers override model and settings per instance', () => {
+		const tts = new ElevenLabsTTS({
+			voiceId: 'v',
+			modelId: 'eleven_multilingual_v2',
+			stability: 0.2,
+			similarityBoost: 0.9,
+			useSpeakerBoost: false,
+		});
+		expect(tts.modelId).toBe('eleven_multilingual_v2');
+		expect(tts.stability).toBe(0.2);
+		expect(tts.similarityBoost).toBe(0.9);
+		expect(tts.useSpeakerBoost).toBe(false);
+	});
+});
+
 describe('createSTT', () => {
 	it('returns a BrowserSTT for provider "browser"', () => {
 		expect(createSTT({ provider: 'browser' })).toBeInstanceOf(BrowserSTT);

@@ -2,7 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<title>three.ws — LobeHub Embed</title>
+		<title>three.ws — Chat Embed</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="robots" content="noindex" />
 		<style>
@@ -36,7 +36,8 @@
 		<!--
 			Loads the <agent-3d> web component. In production loads from CDN; in dev
 			loads from the local Vite dev server so local changes are reflected immediately.
-			LobeChat's sandbox CSP must allow module scripts from this origin.
+			The host's sandbox CSP (LobeChat / SperaxOS) must allow module scripts from
+			this origin. boot.js speaks the LobeChat + SperaxOS standalone-plugin protocol.
 		-->
 		<script type="module">
 			const CDN = 'https://three.ws/agent-3d/latest/agent-3d.js';

@@ -1,0 +1,129 @@
+// Shared ElevenLabs client + helpers.
+//
+// Centralizes the base URL, the API-key gate, the cached voice catalog, voice
+// cloning (via the official SDK), and best-effort voice deletion so the TTS
+// proxy (api/tts/*) and the agent-voice endpoints (api/agents/:id/voice) don't
+// each reimplement them. Lazy: nothing here touches the network at import time.
+
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
+import { env } from './env.js';
+
+export const ELEVEN_BASE = 'https://api.elevenlabs.io/v1';
+
+// Default real-time synthesis model. Flash v2.5 has roughly half the latency
+// (and cost) of Turbo v2.5, which matters for a talking avatar; callers can
+// still override per request with `modelId`.
+export const DEFAULT_TTS_MODEL = 'eleven_flash_v2_5';
+
+export function elevenApiKey() {
+	return env.ELEVENLABS_API_KEY || null;
+}
+
+export function isConfigured() {
+	return !!env.ELEVENLABS_API_KEY;
+}
+
+/** Build an Error tagged with an HTTP status (and optional upstream detail). */
+function upstreamError(message, status, extra = {}) {
+	return Object.assign(new Error(message), { status, ...extra });
+}
+
+// ── Voice catalog ────────────────────────────────────────────────────────────
+// The catalog changes only when an account adds/clones/removes a voice, but the
+// agent editor and the PUT validator both read it. Cache the filtered list per
+// warm serverless instance; a short TTL keeps freshly cloned voices visible.
+
+const VOICE_TTL_MS = 5 * 60 * 1000;
+let voiceCache = null; // { at: epochMs, voices: [...] }
+
+export function invalidateVoiceCache() {
+	voiceCache = null;
+}
+
+/**
+ * Fetch the account's voices, filtered to safe public fields.
+ * @returns {Promise<{ voices: Array, cached: boolean }>}
+ * @throws  {Error & { status:number }} 503 when unconfigured, 502 on upstream failure.
+ */
+export async function listVoices({ force = false } = {}) {
+	const apiKey = elevenApiKey();
+	if (!apiKey) throw upstreamError('ElevenLabs is not configured', 503);
+
+	if (!force && voiceCache && Date.now() - voiceCache.at < VOICE_TTL_MS) {
+		return { voices: voiceCache.voices, cached: true };
+	}
+
+	let resp;
+	try {
+		resp = await fetch(`${ELEVEN_BASE}/voices`, { headers: { 'xi-api-key': apiKey } });
+	} catch (e) {
+		throw upstreamError('Could not reach ElevenLabs', 502, { cause: e });
+	}
+	if (!resp.ok) {
+		console.error('[elevenlabs] listVoices error', resp.status);
+		throw upstreamError(`ElevenLabs returned ${resp.status}`, 502);
+	}
+
+	const data = await resp.json();
+	const voices = (data.voices || []).map((v) => ({
+		voice_id: v.voice_id,
+		name: v.name,
+		category: v.category,
+		labels: v.labels || {},
+		preview_url: v.preview_url || null,
+	}));
+
+	voiceCache = { at: Date.now(), voices };
+	return { voices, cached: false };
+}
+
+// ── Cloning ──────────────────────────────────────────────────────────────────
+
+/**
+ * Instant Voice Cloning via the official SDK.
+ * @param {{ name:string, description?:string, files:File[] }} input
+ * @returns {Promise<{ voiceId:string, requiresVerification:boolean }>}
+ * @throws  {Error & { status:number, upstreamBody?:string }} on failure. IVC is
+ *          a paid-tier feature; the free tier surfaces `can_not_use_instant_
+ *          voice_cloning` here, which callers can pass through verbatim.
+ */
+export async function createClonedVoice({ name, description, files }) {
+	const apiKey = elevenApiKey();
+	if (!apiKey) throw upstreamError('ElevenLabs is not configured', 503);
+
+	const client = new ElevenLabsClient({ apiKey });
+	let result;
+	try {
+		result = await client.voices.ivc.create({ name, description, files });
+	} catch (err) {
+		const status = err?.statusCode || err?.status || 502;
+		const upstreamBody =
+			(err?.body && typeof err.body === 'object' ? JSON.stringify(err.body) : err?.body) ||
+			err?.message ||
+			'upstream error';
+		throw upstreamError(`ElevenLabs returned ${status}`, status, { upstreamBody });
+	}
+
+	if (!result?.voice_id) throw upstreamError('ElevenLabs response missing voice_id', 502);
+
+	invalidateVoiceCache();
+	return { voiceId: result.voice_id, requiresVerification: !!result.requires_verification };
+}
+
+/**
+ * Best-effort deletion to free a quota slot. Never throws — a failed cleanup is
+ * logged and swallowed so it can't break the caller's primary flow.
+ */
+export async function deleteVoice(voiceId) {
+	const apiKey = elevenApiKey();
+	if (!apiKey || !voiceId) return;
+	try {
+		await fetch(`${ELEVEN_BASE}/voices/${encodeURIComponent(voiceId)}`, {
+			method: 'DELETE',
+			headers: { 'xi-api-key': apiKey },
+		});
+		invalidateVoiceCache();
+	} catch (e) {
+		console.warn('[elevenlabs] deleteVoice failed', voiceId, e?.message);
+	}
+}

@@ -1,12 +1,30 @@
 # @3dagent/chat-plugin
 
-Render an embodied 3D avatar in the LobeChat sidebar. The avatar reacts to the LLM's tool calls — speaking, gesturing, and emoting — in real time.
+Render an embodied 3D avatar in the **LobeChat** or **SperaxOS** sidebar. The avatar reacts to the LLM's tool calls — speaking, gesturing, and emoting — in real time.
 
-> **Icon/screenshot note:** `assets/icon-256.svg` is a placeholder. Replace with a designed 256×256 PNG before submitting to the LobeHub plugin registry.
+SperaxOS is a LobeChat-lineage host: both platforms speak an identical plugin
+protocol, differing only in the channel prefix (`lobe-chat:` vs `speraxos:`). This
+package targets both. The primary, no-bundle integration is the **standalone
+manifest** (a hosted iframe the host frames directly); this React component is for
+hosts that mount a plugin via a bundled SDK component.
+
+> **Designed icon:** [`/sperax/icon-256.svg`](../public/sperax/icon-256.svg) is the production avatar referenced by the manifests. `assets/icon-256.svg` remains as a local fallback.
 
 ---
 
-## One-click install (LobeChat ≥ 1.x)
+## One-click install
+
+### SperaxOS
+
+1. Open **Plugins → Add Plugin → Custom Plugin** (or submit to the marketplace at `plugin.delivery`).
+2. Paste the manifest URL:
+    ```
+    https://three.ws/.well-known/sperax-plugin.json
+    ```
+3. Click **Install**, then set your **Agent ID** (from `https://three.ws/dashboard`).
+4. The avatar appears in the chat panel and reacts to the agent's tool calls.
+
+### LobeChat (≥ 1.x)
 
 1. In LobeChat, open **Plugins → Plugin Store → Custom plugins**.
 2. Paste the manifest URL:
@@ -21,9 +39,9 @@ Render an embodied 3D avatar in the LobeChat sidebar. The avatar reacts to the L
 
 ## Configuration
 
-| Setting     | Type     | Required | Default                      | Description                            |
-| ----------- | -------- | -------- | ---------------------------- | -------------------------------------- |
-| `agentId`   | `string` | Yes      | —                            | Agent UUID from the three.ws dashboard |
+| Setting     | Type     | Required | Default             | Description                            |
+| ----------- | -------- | -------- | ------------------- | -------------------------------------- |
+| `agentId`   | `string` | Yes      | —                   | Agent UUID from the three.ws dashboard |
 | `apiOrigin` | `string` | No       | `https://three.ws/` | Override for self-hosted instances     |
 
 ---
@@ -31,36 +49,47 @@ Render an embodied 3D avatar in the LobeChat sidebar. The avatar reacts to the L
 ## How it works
 
 ```
-LobeChat host
-  │  postMessage({ type: 'LobePlugin.renderPlugin', payload: { apiName, arguments } })
+Host (LobeChat / SperaxOS)
+  │  postMessage({ type: '<ns>:init-standalone-plugin',
+  │               payload: { apiName, arguments }, settings })
   ▼
-AgentPane (React sidebar component)
-  │  v1 bridge request: { v:1, source:'agent-host', kind:'request', op:'speak', payload }
+Standalone iframe — /sperax/iframe/  (boot.js)        ← primary path (no bundle)
+  │  parses apiName + JSON.parse(arguments)
   ▼
-/lobehub/iframe/ (boot.js)
-  │  el.say(text, { sentiment })
-  ▼
-<agent-3d> web component — avatar speaks
+<agent-3d> web component — avatar speaks / gestures / emotes
 ```
 
-When the LLM calls one of the plugin's tools (`speak`, `gesture`, `emote`, `render_agent`), LobeChat sends the tool args as a postMessage to the plugin iframe. `AgentPane` receives it, translates it into a bridge request, and the iframe's `boot.js` dispatches it to the `<agent-3d>` element.
+`<ns>` is `lobe-chat` or `speraxos`. When the LLM calls one of the plugin's tools
+(`speak`, `gesture`, `emote`, `render_agent`), the host renders the manifest's
+`ui.url` iframe and delivers the triggering function call to it by postMessage. The
+iframe's `boot.js` parses the call and drives the `<agent-3d>` element. The host's
+plugin gateway also POSTs the arguments to the function's `api[].url`
+(`/api/chat-plugin/<tool>`) to obtain the concise tool result the model reads back.
 
-### LobeChat message format
+The React `AgentPane` component (this package) follows the same contract for hosts
+that mount a bundled sidebar component instead of framing the manifest iframe.
 
-LobeChat (and `@lobehub/chat-plugin-sdk` internally) sends:
+### Message format (verified)
+
+Channel names are verified against `@lobehub/chat-plugin-sdk@1.32.x` and the Sperax
+`AI-Plugin-Marketplace-SDK`. The host posts:
 
 ```json
 {
-	"type": "LobePlugin.renderPlugin",
+	"type": "speraxos:init-standalone-plugin",
 	"payload": {
+		"identifier": "three-ws",
 		"apiName": "speak",
-		"arguments": "{\"text\":\"Hello!\",\"sentiment\":0.5}",
-		"identifier": "3d-agent"
-	}
+		"arguments": "{\"text\":\"Hello!\",\"sentiment\":0.5}"
+	},
+	"settings": { "agentId": "<uuid>" }
 }
 ```
 
-`AgentPane` listens for this on `window.addEventListener('message', ...)`. When `@lobehub/chat-plugin-sdk` ships a stable `usePluginStore` / `useWatchPluginMessage` hook that is directly callable for sidebar plugins, replace the listener with that hook so the React render cycle drives the effect.
+`arguments` is a JSON **string**; `settings.agentId` binds the avatar. The same
+shape applies with the `lobe-chat:` prefix on LobeChat. The iframe announces
+readiness with `{ type: '<ns>:plugin-ready-for-render' }` so the host knows to
+deliver the payload.
 
 ### Wire protocol (v1)
 
@@ -95,22 +124,25 @@ Full spec: [`01-embed-bridges.md`](../prompts/final-integration/01-embed-bridges
 
 ## Dev harness
 
-To test the plugin without running LobeChat:
+Two harnesses live in `chat-plugin/dev/`:
+
+- **`sperax.html`** — drives `boot.js` with the **exact** standalone-plugin wire
+  protocol (`<ns>:plugin-ready-for-render` → `<ns>:init-standalone-plugin` tool
+  calls). Toggle the namespace between `speraxos:` and `lobe-chat:`. This is the
+  one to use when verifying the SperaxOS / LobeChat integration.
+- **`index.html`** — drives the lower-level v1 bridge directly.
 
 ```bash
-# From repo root:
-npm run build:lib   # produces dist-lib/agent-3d.js (the <agent-3d> web component)
-npm --prefix chat-plugin install
-npm --prefix chat-plugin run build
+# From repo root, run the dev server (serves /lobehub/iframe/ + /api proxy):
+npm run dev   # http://localhost:3000
 
-# Serve the repo root:
-python3 -m http.server 8080
-
-# Open in browser:
-open http://localhost:8080/chat-plugin/dev/?agent=<your-agent-id>
+# Open the protocol harness against it:
+open http://localhost:3000/chat-plugin/dev/sperax.html?origin=http://localhost:3000&agent=<your-agent-id>
 ```
 
-The harness shows the agent iframe on the left and a control panel on the right. Click **Inject speak** to fire a fake assistant message and verify the avatar reacts.
+Click **Load iframe**, wait for the green **plugin-ready ✓** dot, then **Inject
+speak / gesture / emote** and watch the avatar react. Every postMessage is logged
+in both directions.
 
 ---
 

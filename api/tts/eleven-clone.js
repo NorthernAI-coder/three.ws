@@ -17,10 +17,9 @@
  * with the upstream body included so the demo log surfaces it verbatim.
  */
 
-import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, method, wrap, error, json } from '../_lib/http.js';
-import { env } from '../_lib/env.js';
+import { createClonedVoice, isConfigured } from '../_lib/elevenlabs.js';
 
 export const config = {
 	api: { bodyParser: false },
@@ -34,8 +33,7 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	const apiKey = env.ELEVENLABS_API_KEY;
-	if (!apiKey)
+	if (!isConfigured())
 		return error(res, 503, 'not_configured', 'ElevenLabs is not configured on this server');
 
 	const session = await getSessionUser(req);
@@ -44,7 +42,12 @@ export default wrap(async (req, res) => {
 
 	const ct = req.headers['content-type'] || '';
 	if (!ct.toLowerCase().startsWith('multipart/form-data'))
-		return error(res, 415, 'unsupported_media_type', 'content-type must be multipart/form-data');
+		return error(
+			res,
+			415,
+			'unsupported_media_type',
+			'content-type must be multipart/form-data',
+		);
 
 	const boundaryMatch = ct.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
 	const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]).trim() : null;
@@ -55,7 +58,12 @@ export default wrap(async (req, res) => {
 		raw = await readBody(req, MAX_REQUEST_BYTES);
 	} catch (err) {
 		const status = err.status || 400;
-		return error(res, status, status === 413 ? 'payload_too_large' : 'bad_request', err.message);
+		return error(
+			res,
+			status,
+			status === 413 ? 'payload_too_large' : 'bad_request',
+			err.message,
+		);
 	}
 
 	let parts;
@@ -84,53 +92,47 @@ export default wrap(async (req, res) => {
 	if (!name) return error(res, 400, 'validation_error', 'name field is required');
 	if (name.length > 64) return error(res, 400, 'validation_error', 'name exceeds 64 chars');
 
-	const description = String(fields.description || '').trim().slice(0, 500) || undefined;
+	const description =
+		String(fields.description || '')
+			.trim()
+			.slice(0, 500) || undefined;
 
 	const filename = audio.filename || 'sample.webm';
 	const fileType = audio.contentType || guessAudioMime(filename);
 	const audioFile = new File([audio.data], filename, { type: fileType });
 
-	const client = new ElevenLabsClient({ apiKey });
-
 	let result;
 	try {
-		result = await client.voices.ivc.create({
-			name,
-			description,
-			files: [audioFile],
-		});
+		result = await createClonedVoice({ name, description, files: [audioFile] });
 	} catch (err) {
-		const status = err?.statusCode || err?.status || 502;
-		const body =
-			(err?.body && typeof err.body === 'object' ? JSON.stringify(err.body) : err?.body) ||
-			err?.message ||
-			'upstream error';
-		console.error('[tts/eleven-clone] ElevenLabs voices.ivc.create failed', status, body);
+		const status = err.status || 502;
+		console.error(
+			'[tts/eleven-clone] createClonedVoice failed',
+			status,
+			err.upstreamBody || err.message,
+		);
 		// Pass the upstream body through so the demo surface can show the exact
 		// quota / verification message — IVC is a paid-tier feature.
 		return json(res, 502, {
 			error: 'upstream_error',
 			error_description: `ElevenLabs returned ${status}`,
 			upstream_status: status,
-			upstream_body: body,
+			upstream_body: err.upstreamBody || err.message || 'upstream error',
 		});
 	}
-
-	if (!result?.voice_id)
-		return error(res, 502, 'upstream_error', 'ElevenLabs response missing voice_id');
 
 	const userId = session?.id ?? bearer.userId;
 	if (process.env.TTS_DEBUG === '1') {
 		console.log(
-			`[tts/eleven-clone] user=${userId} cloned voice "${name}" -> ${result.voice_id} (audio=${audio.data.length}B)`,
+			`[tts/eleven-clone] user=${userId} cloned voice "${name}" -> ${result.voiceId} (audio=${audio.data.length}B)`,
 		);
 	}
 
 	return json(res, 200, {
-		voice_id: result.voice_id,
+		voice_id: result.voiceId,
 		name,
-		status: result.requires_verification ? 'pending_verification' : 'ready',
-		requires_verification: !!result.requires_verification,
+		status: result.requiresVerification ? 'pending_verification' : 'ready',
+		requires_verification: result.requiresVerification,
 	});
 });
 
@@ -179,7 +181,10 @@ function parseMultipart(buf, boundary) {
 		const headerStr = buf.slice(pos, headersEnd).toString('utf8');
 		const dataStart = headersEnd + 4;
 
-		const nextBoundary = buf.indexOf(crlf.length ? Buffer.concat([crlf, delim]) : delim, dataStart);
+		const nextBoundary = buf.indexOf(
+			crlf.length ? Buffer.concat([crlf, delim]) : delim,
+			dataStart,
+		);
 		if (nextBoundary < 0) throw new Error('no closing boundary for part');
 
 		const data = buf.slice(dataStart, nextBoundary);

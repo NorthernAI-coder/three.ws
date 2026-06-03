@@ -10,8 +10,16 @@
 const EMBED_VERSION = '1.0.0';
 const CAPABILITIES = ['speak', 'gesture', 'emote', 'look', 'setAgent', 'subscribe', 'ping'];
 
-// Origins unconditionally trusted.
-const KNOWN_ORIGINS = new Set(['https://chat.lobehub.com', 'https://lobechat.ai']);
+// Hosts that may frame this iframe as a chat plugin, unconditionally trusted.
+// LobeChat and SperaxOS (a LobeChat-lineage host) both embed standalone plugins.
+const KNOWN_ORIGINS = new Set([
+	'https://chat.lobehub.com',
+	'https://lobechat.ai',
+	'https://chat.sperax.io',
+	'https://sperax.io',
+	'https://sperax-iota.vercel.app',
+	'https://sperax-jam2emun9-moomsi.vercel.app',
+]);
 
 function isDev(origin) {
 	try {
@@ -100,12 +108,27 @@ function setStatus(text) {
 	if (statusEl) statusEl.textContent = text;
 }
 
+// The agent can be specified three ways, in priority order:
+//   1. ?src=<glb-url> or ?agent=<id> on the iframe URL (direct embeds, dev harness)
+//   2. the host plugin's `settings.agentId` (LobeChat / SperaxOS)
+//   3. a `render_agent` tool call from the LLM
+// (2) and (3) arrive over postMessage after boot, so an empty start is normal.
+let boundAgentId = agentId;
+function bindAgent(id) {
+	if (!id || typeof id !== 'string') return;
+	if (id === boundAgentId && el.getAttribute('agent-id')) return;
+	boundAgentId = id;
+	el.removeAttribute('src');
+	el.setAttribute('agent-id', id);
+	setStatus('Loading…');
+}
+
 if (srcParam) {
 	el.setAttribute('src', decodeURIComponent(srcParam));
 } else if (agentId) {
 	el.setAttribute('agent-id', agentId);
 } else {
-	setStatus('No agent specified — add ?agent=<id> or ?src=<glb-url> to the URL.');
+	setStatus('Waiting for an agent…');
 }
 
 el.addEventListener('agent:ready', (ev) => {
@@ -193,6 +216,85 @@ async function dispatchAction(op, payload, replyId) {
 	}
 }
 
+// ── LobeChat / SperaxOS standalone-plugin protocol ────────────────────────────
+// Both platforms are LobeChat-lineage and speak an identical message contract,
+// differing only in the channel prefix: 'lobe-chat:' vs 'speraxos:'. We announce
+// readiness on both and accept tool calls from either.
+//   host → iframe: { type:'<ns>:init-standalone-plugin', payload:{ apiName, arguments }, settings, state }
+//   iframe → host: { type:'<ns>:plugin-ready-for-render' }
+const CHAT_PLUGIN_PREFIXES = ['lobe-chat:', 'speraxos:'];
+
+function chatPluginChannel(type) {
+	if (typeof type !== 'string') return null;
+	for (const prefix of CHAT_PLUGIN_PREFIXES) {
+		if (type.startsWith(prefix)) return type.slice(prefix.length);
+	}
+	return null;
+}
+
+// Normalise the function-call payload. The wire carries `payload.apiName` and a
+// JSON-string `payload.arguments`; older builds nest it under `props`. We also
+// accept an already-parsed arguments object for robustness across host versions.
+function readChatPluginCall(data) {
+	const p = data.payload || data.props || {};
+	const apiName = p.apiName || p.name || data.apiName || data.name || '';
+	const raw = p.arguments ?? data.arguments;
+	let args = {};
+	if (typeof raw === 'string') {
+		try {
+			args = JSON.parse(raw || '{}');
+		} catch {
+			args = {};
+		}
+	} else if (raw && typeof raw === 'object') {
+		args = raw;
+	}
+	const settings = data.settings || p.settings || {};
+	return { apiName, args, settings };
+}
+
+function handleChatPluginMessage(channel, data) {
+	const { apiName, args, settings } = readChatPluginCall(data);
+
+	// Bind the avatar to the configured agent whenever the host sends settings.
+	if (settings && typeof settings.agentId === 'string') bindAgent(settings.agentId);
+
+	// Only the render/init channels carry a function call; the state/settings
+	// channels are not used by this plugin.
+	if (channel !== 'init-standalone-plugin' && channel !== 'render-plugin') return;
+	if (!apiName) return;
+
+	switch (apiName) {
+		case 'render_agent':
+		case 'render-agent':
+			if (typeof args.agentId === 'string') bindAgent(args.agentId);
+			break;
+		case 'speak':
+			dispatchAction(
+				'speak',
+				{
+					text: typeof args.text === 'string' ? args.text : '',
+					sentiment: typeof args.sentiment === 'number' ? args.sentiment : 0,
+				},
+				null,
+			);
+			break;
+		case 'gesture':
+			dispatchAction('gesture', { name: args.name, duration: args.duration }, null);
+			break;
+		case 'emote':
+			dispatchAction(
+				'emote',
+				{
+					trigger: args.trigger,
+					weight: typeof args.weight === 'number' ? args.weight : 1,
+				},
+				null,
+			);
+			break;
+	}
+}
+
 // ── postMessage handler ───────────────────────────────────────────────────────
 
 function onMessage(ev) {
@@ -213,6 +315,13 @@ function onMessage(ev) {
 
 	if (!isAllowedOrigin(origin)) return;
 	if (!lockedOrigin) lockedOrigin = origin;
+
+	// ── LobeChat / SperaxOS standalone-plugin channels ──────────────────────────
+	const chatChannel = chatPluginChannel(data.type);
+	if (chatChannel) {
+		handleChatPluginMessage(chatChannel, data);
+		return;
+	}
 
 	// ── v1 spec envelope ──────────────────────────────────────────────────────
 	if (data.v === 1 && data.source === 'agent-host' && data.kind && data.op) {
@@ -294,3 +403,13 @@ post('ready', {
 	embedVersion: EMBED_VERSION,
 	capabilities: CAPABILITIES,
 });
+
+// Announce readiness on the LobeChat / SperaxOS channels so those hosts deliver
+// the standalone-plugin init payload (settings + the triggering tool call). The
+// ready signal carries no sensitive data, so we broadcast it to the parent
+// regardless of which host framed us; all subsequent exchange is origin-locked.
+for (const prefix of CHAT_PLUGIN_PREFIXES) {
+	try {
+		window.parent.postMessage({ type: `${prefix}plugin-ready-for-render` }, '*');
+	} catch (_) {}
+}

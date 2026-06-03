@@ -1,6 +1,8 @@
 // Consolidated /.well-known/* handler.
 // Dispatches on ?name= query param set by vercel.json rewrites.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { cors, json, method, wrap, error } from './_lib/http.js';
 import { env } from './_lib/env.js';
 import {
@@ -1241,9 +1243,28 @@ function handleChatPlugin(req, res) {
 	);
 }
 
+// SperaxOS / plugin.delivery manifest. Single source of truth is the static
+// file at public/sperax/manifest.json (also served verbatim at /sperax/manifest.json);
+// this alias adds cross-origin headers so the marketplace + browser validators
+// can fetch it from /.well-known/sperax-plugin.json.
+let speraxManifest;
+try {
+	speraxManifest = JSON.parse(
+		readFileSync(join(process.cwd(), 'public/sperax/manifest.json'), 'utf8'),
+	);
+} catch (err) {
+	console.error('[wk/sperax-plugin] failed to load manifest', err);
+}
+
+function handleSperaxPlugin(req, res) {
+	if (!speraxManifest) return error(res, 500, 'internal_error', 'manifest unavailable');
+	return json(res, 200, speraxManifest, { 'cache-control': 'public, max-age=3600' });
+}
+
 const DISPATCH = {
 	'agent-attestation-schemas': handleAttestationSchemas,
 	'chat-plugin': handleChatPlugin,
+	'sperax-plugin': handleSperaxPlugin,
 	'oauth-authorization-server': handleOauthAuthServer,
 	'oauth-protected-resource': handleOauthProtectedResource,
 	x402: handleX402,
@@ -1257,6 +1278,7 @@ const PUBLIC_DISCOVERY = new Set([
 	'x402',
 	'x402-discovery',
 	'chat-plugin',
+	'sperax-plugin',
 	'agent-attestation-schemas',
 ]);
 

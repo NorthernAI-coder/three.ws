@@ -7,15 +7,15 @@ export interface AgentPaneProps {
 }
 
 /**
- * Sidebar plugin component that renders a three.ws avatar and
- * forwards LobeChat tool-call payloads to the agent via the bridge.
+ * Sidebar plugin component that renders a three.ws avatar and forwards
+ * host tool-call payloads to the agent via the bridge.
  *
- * LobeChat delivers tool calls by postMessage into the plugin iframe:
- *   { type: 'LobePlugin.renderPlugin', payload: { apiName, arguments } }
- *
- * When @lobehub/chat-plugin-sdk ships a stable usePluginStore hook,
- * replace the window message listener below with that hook so the
- * React render cycle drives the effect instead of a raw event.
+ * The host (LobeChat or SperaxOS — a LobeChat-lineage platform) delivers a
+ * standalone plugin's triggering function call by postMessage:
+ *   { type: '<ns>:init-standalone-plugin', payload: { apiName, arguments }, settings }
+ * where `<ns>` is 'lobe-chat' or 'speraxos' and `arguments` is a JSON string.
+ * Channel names are verified against @lobehub/chat-plugin-sdk and the Sperax
+ * AI-Plugin-Marketplace-SDK.
  */
 export const AgentPane: React.FC<AgentPaneProps> = ({ settings }) => {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -44,33 +44,47 @@ export const AgentPane: React.FC<AgentPaneProps> = ({ settings }) => {
 		};
 	}, [settings.agentId]);
 
-	// Observe LobeChat tool calls delivered as postMessage to this plugin iframe.
+	// Observe tool calls the host (LobeChat / SperaxOS) delivers by postMessage.
 	//
-	// LobeChat sends: { type: 'LobePlugin.renderPlugin', payload: { apiName, arguments } }
-	// where `arguments` is a JSON string of the tool's input object.
-	//
-	// Fallback path: if LobeChat changes its message contract or a host-level fork
-	// dispatches { type: 'lobe:assistantMessage', detail: { content } } as a custom
-	// event, the second listener below handles that case.
+	// Both platforms share an identical contract, differing only in the channel
+	// prefix: 'lobe-chat:' vs 'speraxos:'. A standalone plugin receives its
+	// triggering function call on the init-standalone-plugin (or render-plugin)
+	// channel: { type, payload: { apiName, arguments }, settings }. `arguments` is
+	// a JSON string; older builds nest the payload under `props`. We accept both.
 	useEffect(() => {
-		const handleMessage = (ev: MessageEvent) => {
-			if (!ev.data || typeof ev.data !== 'object') return;
-			const { type, payload } = ev.data as {
-				type?: string;
-				payload?: Record<string, unknown>;
-			};
-			if (type !== 'LobePlugin.renderPlugin' || !payload) return;
+		const isPluginCall = (type?: string) =>
+			!!type &&
+			(type.startsWith('lobe-chat:') || type.startsWith('speraxos:')) &&
+			(type.endsWith('init-standalone-plugin') || type.endsWith('render-plugin'));
 
-			const apiName = payload['apiName'] as string | undefined;
+		const handleMessage = (ev: MessageEvent) => {
+			const data = ev.data as Record<string, unknown> | null;
+			if (!data || typeof data !== 'object') return;
+			if (!isPluginCall(data['type'] as string)) return;
+
+			const payload = (data['payload'] || data['props'] || {}) as Record<string, unknown>;
+			const apiName = (payload['apiName'] || payload['name']) as string | undefined;
+
 			let args: Record<string, unknown> = {};
-			try {
-				args = JSON.parse((payload['arguments'] as string) || '{}');
-			} catch {
-				return;
+			const raw = payload['arguments'];
+			if (typeof raw === 'string') {
+				try {
+					args = JSON.parse(raw || '{}');
+				} catch {
+					args = {};
+				}
+			} else if (raw && typeof raw === 'object') {
+				args = raw as Record<string, unknown>;
 			}
 
 			const bridge = bridgeRef.current;
 			if (!bridge) return;
+
+			// Re-bind if the host pushed an updated agentId in settings.
+			const settings = data['settings'] as Record<string, unknown> | undefined;
+			if (settings && typeof settings['agentId'] === 'string') {
+				bridge.setAgent(settings['agentId']).catch(() => undefined);
+			}
 
 			switch (apiName) {
 				case 'speak':
@@ -99,6 +113,7 @@ export const AgentPane: React.FC<AgentPaneProps> = ({ settings }) => {
 					}
 					break;
 				case 'render_agent':
+				case 'render-agent':
 					if (typeof args['agentId'] === 'string') {
 						bridge.setAgent(args['agentId']).catch(() => undefined);
 					}

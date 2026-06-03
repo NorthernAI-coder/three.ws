@@ -7,7 +7,7 @@
 	"meta": {
 		"title": "three.ws",
 		"description": "Embodied 3D avatar agent with continuous emotion blending. Renders a rigged glTF avatar inside chat, responds with gestures, speech, and on-chain ERC-8004 identity.",
-		"avatar": "https://three.ws/icon.svg",
+		"avatar": "https://three.ws/pwa-icon.svg",
 		"tags": ["3d", "avatar", "agent", "embodied", "empathy", "erc-8004"]
 	},
 	"ui": {
@@ -16,7 +16,7 @@
 	},
 	"api": [
 		{
-			"url": "https://three.ws/api/mcp",
+			"url": "https://three.ws/api/chat-plugin/render-agent",
 			"name": "render_agent",
 			"description": "Mount the 3D avatar for a given agent id. Call this first to bind the iframe to a specific agent before using speak/gesture/emote.",
 			"parameters": {
@@ -31,7 +31,7 @@
 			}
 		},
 		{
-			"url": "https://three.ws/api/mcp",
+			"url": "https://three.ws/api/chat-plugin/speak",
 			"name": "speak",
 			"description": "Make the avatar speak with optional emotional valence.",
 			"parameters": {
@@ -52,7 +52,7 @@
 			}
 		},
 		{
-			"url": "https://three.ws/api/mcp",
+			"url": "https://three.ws/api/chat-plugin/gesture",
 			"name": "gesture",
 			"description": "Trigger a named gesture on the avatar.",
 			"parameters": {
@@ -72,7 +72,7 @@
 			}
 		},
 		{
-			"url": "https://three.ws/api/mcp",
+			"url": "https://three.ws/api/chat-plugin/emote",
 			"name": "emote",
 			"description": "Inject an emotion into the avatar's continuous Empathy Layer blend.",
 			"parameters": {

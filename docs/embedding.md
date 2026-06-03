@@ -12,6 +12,7 @@
 | [iframe embed](#iframe-embed) | Very low | Limited (postMessage) | Third-party pages, CMS platforms, sandboxed contexts |
 | [oEmbed (paste URL)](#oembed) | None | None | Notion, Ghost, Substack, WordPress |
 | [Claude Artifact](#claude-artifact) | None | None | AI-generated interactive demos in Claude.ai |
+| [Chat plugin](#chat-plugins-speraxos--lobechat) | None | Tool-driven | SperaxOS / LobeChat — the agent gets a body in the chat |
 
 If you control the page, use the web component. If you're pasting into a CMS or embedding in a third-party context, use the iframe. If you just want to share a link and let the platform render it, paste the widget URL and let oEmbed do the rest.
 
@@ -393,6 +394,48 @@ By default, any origin can embed any agent. To restrict which domains can embed 
 Wildcard patterns (`*.example.com`) match all subdomains. When the iframe is blocked, it posts `{ type: 'agent:blocked', agentId }` to the parent and shows a link to open the agent directly on `three.ws`.
 
 You can also configure embed policy via Dashboard → Agent Settings → Embed Policy, or via `PUT /api/agents/{id}/embed-policy`.
+
+---
+
+## Chat plugins (SperaxOS / LobeChat)
+
+Give an agent a body inside an AI chat host. SperaxOS and LobeChat are the same plugin lineage, so three.ws ships one **standalone plugin** that targets both — a hosted iframe the platform frames in its chat panel, plus four LLM-callable tools. When the model calls a tool, the avatar speaks, gestures, or shifts its body language in real time.
+
+### Install
+
+Paste the manifest URL into the host's custom-plugin dialog:
+
+| Host | Manifest URL |
+|------|--------------|
+| SperaxOS | `https://three.ws/.well-known/sperax-plugin.json` |
+| LobeChat | `https://three.ws/.well-known/chat-plugin.json` |
+
+Then set the one setting — your **Agent ID** (a UUID or `@handle` from the dashboard). No API key, no bundle to install.
+
+### Tools the model can call
+
+| Tool | Arguments | Effect |
+|------|-----------|--------|
+| `render_agent` | `{ agentId }` | Bind / swap the avatar to an agent |
+| `speak` | `{ text, sentiment? }` | Speak aloud with emotional valence (`-1`…`1`) |
+| `gesture` | `{ name: wave\|nod\|point\|shrug }` | Play a physical gesture |
+| `emote` | `{ trigger, weight? }` | Blend an emotion into the Empathy Layer |
+
+### Protocol
+
+The host renders the manifest's `ui.url` iframe and delivers the triggering call over postMessage. Channel names differ only by prefix — `speraxos:` on SperaxOS, `lobe-chat:` on LobeChat — and are otherwise identical:
+
+```json
+{
+  "type": "speraxos:init-standalone-plugin",
+  "payload": { "apiName": "speak", "arguments": "{\"text\":\"Hi\",\"sentiment\":0.4}" },
+  "settings": { "agentId": "<uuid>" }
+}
+```
+
+The iframe announces itself with `{ type: '<ns>:plugin-ready-for-render' }`, then parses `payload.apiName` + the JSON-string `payload.arguments` and drives the `<agent-3d>` element. In parallel, the host's gateway POSTs the arguments to the tool's endpoint (`/api/chat-plugin/{tool}`, with the user's settings in the `Sperax-Plugin-Settings` header) to get the concise result the model reads back.
+
+Full setup, submission, and chain notes: [`/sperax/README.md`](https://three.ws/sperax/README.md).
 
 ---
 

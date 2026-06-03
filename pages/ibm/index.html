@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>three.ws on IBM watsonx — 3D AI Agent Platform · IBM Business Partner</title>
+	<meta name="description" content="three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity — embed anywhere with one tag." />
+	<link rel="canonical" href="https://three.ws/ibm" />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="three.ws on IBM watsonx — 3D AI Agent Platform" />
+	<meta property="og:description" content="Open-source 3D AI agents on IBM watsonx.ai and Granite. IBM Business Partner. Give watsonx Orchestrate a 3D body, voice, and on-chain identity." />
+	<meta property="og:url" content="https://three.ws/ibm" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="three.ws on IBM watsonx" />
+	<meta name="twitter:description" content="Open-source 3D AI agents on IBM watsonx.ai and Granite. IBM Business Partner." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+	<link rel="icon" href="/favicon.ico" />
+	<style>
+		:root { color-scheme: dark; --accent:#ffffff; --accent2:#cccccc; --border:#222222; --bg:#000000; --panel:#141414; --panel2:#1a1a1a; --text:#e8e8f0; --muted:#888888; --green:#22c55e; --ibm:#0f62fe; --ibm-light:#78a9ff; }
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body { font: 16px/1.6 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); min-height: 100vh; }
+
+		header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; max-width: 1100px; margin: 0 auto; }
+		header a.home { color: var(--text); text-decoration: none; font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+		header nav { display: flex; gap: 22px; align-items: center; }
+		header nav a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color 0.15s; }
+		header nav a:hover { color: var(--text); }
+
+		main { max-width: 880px; margin: 0 auto; padding: 80px 24px 120px; }
+
+		.partner-badge { display: inline-flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 99px; padding: 7px 16px 7px 12px; font-size: 13px; color: var(--muted); margin-bottom: 32px; }
+		.partner-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 12px var(--ibm); }
+		.partner-badge strong { color: var(--text); font-weight: 500; }
+
+		h1 { font-size: clamp(36px, 6vw, 56px); letter-spacing: -0.03em; line-height: 1.05; font-weight: 600; margin-bottom: 20px; }
+		h1 .gradient { background: linear-gradient(110deg, var(--ibm-light) 25%, var(--ibm) 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+		.lede { font-size: clamp(17px, 2vw, 19px); color: var(--muted); line-height: 1.55; max-width: 640px; margin-bottom: 40px; }
+		.lede strong { color: var(--text); font-weight: 500; }
+
+		.cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 80px; }
+		.btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 11px; border: 0; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; transition: filter 0.15s, transform 0.15s; }
+		.btn-primary { background: var(--ibm); color: #fff; }
+		.btn-primary:hover { filter: brightness(1.12); }
+		.btn-sec { background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+		.btn-sec:hover { background: var(--panel2); }
+		.btn svg { width: 16px; height: 16px; }
+
+		section { margin-bottom: 80px; }
+		section h2 { font-size: clamp(24px, 3.5vw, 32px); letter-spacing: -0.02em; line-height: 1.15; font-weight: 600; margin-bottom: 16px; }
+		section .sub { color: var(--muted); font-size: 16px; margin-bottom: 32px; max-width: 620px; }
+
+		.benefit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+		.benefit { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+		.benefit .icon { width: 36px; height: 36px; border-radius: 9px; background: rgba(15,98,254,0.10); border: 1px solid rgba(120,169,255,0.25); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+		.benefit h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.01em; }
+		.benefit p { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+		.platform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+		.platform { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+		.platform .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+		.platform .name { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+		.platform .desc { font-size: 13px; color: var(--muted); }
+
+		.endpoints { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+		.endpoint { padding: 16px 22px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: baseline; }
+		.endpoint:last-child { border-bottom: none; }
+		.endpoint code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; color: var(--ibm-light); white-space: nowrap; }
+		.endpoint .desc { font-size: 14px; color: var(--muted); }
+		.endpoint .desc code { white-space: normal; }
+
+		.code-block { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.7; color: var(--text); overflow-x: auto; }
+		.code-block .c { color: var(--muted); }
+		.code-block .k { color: var(--ibm-light); }
+
+		.note { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; font-size: 14px; color: var(--muted); margin-top: 12px; }
+		.note strong { color: var(--text); }
+		.note a { color: var(--ibm-light); text-decoration: none; }
+		.note a:hover { text-decoration: underline; }
+
+		.footer { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 24px 60px; border-top: 1px solid var(--border); }
+		.footer a { color: var(--muted); text-decoration: none; }
+		.footer a:hover { color: var(--text); }
+
+		.disclaimer { font-size: 12px; color: var(--muted); margin-top: 60px; line-height: 1.55; max-width: 700px; }
+
+		@media (max-width: 720px) {
+			.platform-grid { grid-template-columns: 1fr; }
+			main { padding: 56px 20px 96px; }
+			.endpoint { grid-template-columns: 1fr; gap: 4px; }
+			.endpoint code { white-space: normal; }
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<a href="/" class="home">three.ws</a>
+		<nav>
+			<a href="/discover">Discover</a>
+			<a href="/docs">Docs</a>
+			<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener">GitHub</a>
+		</nav>
+	</header>
+
+	<main>
+		<div class="partner-badge">
+			<span class="dot"></span>
+			<strong>IBM Business Partner</strong>
+			<span>·</span>
+			<span>watsonx.ai + Orchestrate</span>
+		</div>
+
+		<h1>three.ws on <span class="gradient">IBM watsonx</span>.</h1>
+		<p class="lede">
+			three.ws is an open-source 3D AI agent platform — WebGL viewer, LLM-driven runtime, on-chain identity, embed anywhere with one tag. <strong>An IBM Business Partner.</strong> Agents think on IBM Granite through watsonx.ai, and a watsonx Orchestrate agent gets a face, a voice, and a body that lives in the browser.
+		</p>
+
+		<div class="cta-row">
+			<a href="https://three.ws" class="btn btn-primary">
+				Try three.ws
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+			</a>
+			<a href="https://github.com/nirholas/three.ws" class="btn btn-sec" target="_blank" rel="noopener">
+				<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3C5.4.3 0 5.7 0 12.3c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.8 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.8-1.6 8.2-6.1 8.2-11.4C24 5.7 18.6.3 12 .3z"/></svg>
+				View source
+			</a>
+			<a href="/blog/three-ws-ibm-collaboration" class="btn btn-sec">
+				Read the announcement
+			</a>
+		</div>
+
+		<section>
+			<h2>Built on IBM watsonx.</h2>
+			<p class="sub">The agent brain runs on your own IBM Cloud account. Real inference, real IAM auth, no mock path.</p>
+
+			<div class="benefit-grid">
+				<div class="benefit">
+					<div class="icon">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+					</div>
+					<h3>Granite-powered brain</h3>
+					<p>Agents reason on <code>ibm/granite-3-8b-instruct</code> by default — or any foundation model in your watsonx.ai account. Streaming chat over the watsonx text endpoint.</p>
+				</div>
+				<div class="benefit">
+					<div class="icon">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+					</div>
+					<h3>Your IBM Cloud, your keys</h3>
+					<p>An IBM Cloud API key is exchanged for a short-lived IAM bearer token and every call is scoped to your project. No three.ws intermediary sits between your agent and IBM.</p>
+				</div>
+				<div class="benefit">
+					<div class="icon">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12a4 4 0 0 1 8 0M12 8v8"/></svg>
+					</div>
+					<h3>watsonx Orchestrate, embodied</h3>
+					<p>Point three.ws at a watsonx Orchestrate (Agent Connect) endpoint and your enterprise agent gets a 3D front-end — gestures, emotion, voice, and lip-sync.</p>
+				</div>
+				<div class="benefit">
+					<div class="icon">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l8-4 8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4"/></svg>
+					</div>
+					<h3>Open-source MCP server</h3>
+					<p><code>@three-ws/ibm-watsonx-mcp</code> exposes watsonx.ai to Claude Desktop, Claude Code, Cursor, and any MCP host as five tools: chat, generate, embed, tokenize, and model discovery.</p>
+				</div>
+				<div class="benefit">
+					<div class="icon">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/></svg>
+					</div>
+					<h3>Every watsonx region</h3>
+					<p>Route to <code>us-south</code>, <code>eu-de</code>, <code>eu-gb</code>, <code>jp-tok</code>, <code>au-syd</code>, or <code>ca-tor</code> with one environment variable — data stays in the region you choose.</p>
+				</div>
+				<div class="benefit">
+					<div class="icon">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78a9ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+					</div>
+					<h3>No mock path</h3>
+					<p>When credentials are present the agent thinks on Granite; when they're absent the provider reports unavailable. Auth and upstream errors surface as the real cause.</p>
+				</div>
+			</div>
+		</section>
+
+		<section>
+			<h2>What you get.</h2>
+			<p class="sub">Everything in three.ws — open source, production-ready, runs in any modern browser.</p>
+
+			<div class="platform-grid">
+				<div class="platform">
+					<div class="label">Viewer</div>
+					<div class="name">WebGL 3D Engine</div>
+					<div class="desc">three.js r176, glTF 2.0 / GLB with Draco + KTX2, PBR materials, animations, morph targets.</div>
+				</div>
+				<div class="platform">
+					<div class="label">Runtime</div>
+					<div class="name">watsonx-Powered Brain</div>
+					<div class="desc">Tool-loop runtime with gestures, emotion blending, memory, voice, and lip-sync — driven by IBM Granite on watsonx.ai or a watsonx Orchestrate agent.</div>
+				</div>
+				<div class="platform">
+					<div class="label">Identity</div>
+					<div class="name">On-Chain Registration</div>
+					<div class="desc">ERC-8004 tokens on EVM chains and Metaplex Core assets on Solana. Signed action history, reputation scores.</div>
+				</div>
+				<div class="platform">
+					<div class="label">Distribution</div>
+					<div class="name">&lt;agent-3d&gt; Web Component</div>
+					<div class="desc">One element, no framework dependency. Drop into any page. Embed an agent as easily as a YouTube video.</div>
+				</div>
+				<div class="platform">
+					<div class="label">Protocols</div>
+					<div class="name">MCP + OAuth 2.1 + x402</div>
+					<div class="desc">Native Model Context Protocol endpoint, full OAuth 2.1 authorization server, x402 paid endpoints on Base + Solana.</div>
+				</div>
+				<div class="platform">
+					<div class="label">License</div>
+					<div class="name">Apache 2.0</div>
+					<div class="desc">Entire stack — viewer, runtime, contracts, backend, web component, watsonx integration — open source. No lock-in.</div>
+				</div>
+			</div>
+		</section>
+
+		<section>
+			<h2>The integration.</h2>
+			<p class="sub">watsonx.ai and watsonx Orchestrate are first-class providers in the three.ws chat runtime, alongside an open-source MCP server. All grounded in real REST contracts.</p>
+
+			<div class="endpoints">
+				<div class="endpoint">
+					<code>POST /api/chat</code>
+					<div class="desc"><code>{ "provider": "watsonx" }</code> streams from watsonx.ai's <code>/ml/v1/text/chat_stream</code> on IBM Granite. IAM bearer minted from <code>WATSONX_API_KEY</code>, scoped to <code>WATSONX_PROJECT_ID</code>.</div>
+				</div>
+				<div class="endpoint">
+					<code>POST /api/chat</code>
+					<div class="desc"><code>{ "provider": "orchestrate" }</code> calls a watsonx Orchestrate (Agent Connect) OpenAI-compatible <code>/chat/completions</code> endpoint — the 3D avatar becomes the front-end of your enterprise agent.</div>
+				</div>
+				<div class="endpoint">
+					<code>npx @three-ws/ibm-watsonx-mcp</code>
+					<div class="desc">Standalone MCP server for watsonx.ai — five tools against IBM Granite and any model in your account. Works with any MCP host.</div>
+				</div>
+			</div>
+
+			<div class="code-block">
+<span class="c"># Run a three.ws agent on IBM Granite, in your own watsonx.ai project</span>
+<span class="k">curl</span> https://three.ws/api/chat \
+  -H 'content-type: application/json' \
+  -d '{ <span class="k">"provider"</span>: <span class="k">"watsonx"</span>, <span class="k">"message"</span>: <span class="k">"Introduce yourself."</span> }'
+
+<span class="c"># Or expose watsonx.ai to any MCP client with your IBM Cloud credentials</span>
+<span class="k">WATSONX_API_KEY</span>=... <span class="k">WATSONX_PROJECT_ID</span>=... npx @three-ws/ibm-watsonx-mcp
+			</div>
+
+			<div class="note">
+				<strong>Open source.</strong> The watsonx.ai client is at <a href="https://github.com/nirholas/three.ws/blob/main/api/_lib/watsonx.js" target="_blank" rel="noopener">api/_lib/watsonx.js</a>, the Orchestrate provider at <a href="https://github.com/nirholas/three.ws/blob/main/api/_lib/orchestrate.js" target="_blank" rel="noopener">api/_lib/orchestrate.js</a>, and the MCP server at <a href="https://github.com/nirholas/three.ws/tree/main/packages/ibm-watsonx-mcp" target="_blank" rel="noopener">packages/ibm-watsonx-mcp/</a>. Review it, fork it, run your own.
+			</div>
+		</section>
+
+		<section>
+			<h2>Give your IBM watsonx agent a body.</h2>
+			<p class="sub">Bring an embodied 3D front-end to your watsonx.ai or watsonx Orchestrate deployment — in the browser, with no install.</p>
+
+			<div class="cta-row">
+				<a href="https://three.ws" class="btn btn-primary">
+					Use three.ws now
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+				</a>
+				<a href="https://github.com/nirholas/three.ws" class="btn btn-sec" target="_blank" rel="noopener">Star on GitHub</a>
+				<a href="mailto:support@three.ws?subject=IBM%20watsonx%20%2B%20three.ws" class="btn btn-sec">Contact us</a>
+			</div>
+		</section>
+
+		<p class="disclaimer">
+			three.ws is an independent IBM Business Partner. The <code>@three-ws/ibm-watsonx-mcp</code> package is community-built and is not an IBM product. IBM, watsonx, watsonx.ai, watsonx Orchestrate, IBM Cloud, and Granite are trademarks of International Business Machines Corporation, registered in many jurisdictions worldwide. Use of watsonx requires your own IBM Cloud account, subject to IBM's terms.
+		</p>
+	</main>
+
+	<div class="footer">
+		<a href="/">three.ws</a> · <a href="/blog/three-ws-ibm-collaboration">IBM partnership</a> · <a href="/docs">Docs</a> · <a href="/legal/privacy">Privacy</a> · <a href="/legal/tos">Terms</a>
+	</div>
+	<script src="/brand.js" defer></script>
+</body>
+</html>

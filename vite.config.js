@@ -349,6 +349,7 @@ const appConfig = {
 				'agents-auto-rig':         resolve(__dirname, 'public/demos/agents/auto-rig.html'),
 				'aws-marketplace-welcome': resolve(__dirname, 'pages/aws-marketplace/welcome.html'),
 				'aws':                     resolve(__dirname, 'pages/aws/index.html'),
+				'ibm':                     resolve(__dirname, 'pages/ibm/index.html'),
 				// dashboard-next prototype — sub-pages auto-discovered so the parallel
 				// agents that land new pages/dashboard-next/*.html files don't have to
 				// touch this config to register them as Rollup inputs.
@@ -555,6 +556,8 @@ const appConfig = {
 					'/aws-marketplace/error/': resolve(root, 'pages/aws-marketplace/welcome.html'),
 					'/aws': resolve(root, 'pages/aws/index.html'),
 					'/aws/': resolve(root, 'pages/aws/index.html'),
+					'/ibm': resolve(root, 'pages/ibm/index.html'),
+					'/ibm/': resolve(root, 'pages/ibm/index.html'),
 					'/voice': resolve(root, 'pages/voice.html'),
 					'/voice/': resolve(root, 'pages/voice.html'),
 					'/brain': resolve(root, 'pages/brain.html'),

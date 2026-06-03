@@ -9,12 +9,11 @@
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
-import { limits, clientIp } from '../../_lib/rate-limit.js';
-import { env } from '../../_lib/env.js';
+import { limits } from '../../_lib/rate-limit.js';
+import { isConfigured, listVoices, createClonedVoice, deleteVoice } from '../../_lib/elevenlabs.js';
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
 const MIN_DURATION_SEC = 30;
-const ELEVEN_BASE = 'https://api.elevenlabs.io/v1';
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -78,13 +77,20 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 	// not a clone owned by this user).
 
 	if (req.method === 'PUT') {
-		const apiKey = env.ELEVENLABS_API_KEY;
-		if (!apiKey)
-			return error(res, 503, 'not_configured', 'voice library is not configured on this server');
+		if (!isConfigured())
+			return error(
+				res,
+				503,
+				'not_configured',
+				'voice library is not configured on this server',
+			);
 
 		let body;
-		try { body = await readJson(req); }
-		catch { return error(res, 400, 'validation_error', 'invalid JSON body'); }
+		try {
+			body = await readJson(req);
+		} catch {
+			return error(res, 400, 'validation_error', 'invalid JSON body');
+		}
 
 		const nextVoiceId = body?.voice_id == null ? null : String(body.voice_id).trim() || null;
 
@@ -97,31 +103,25 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 		if (nextVoiceId) {
 			let voices;
 			try {
-				const resp = await fetch(`${ELEVEN_BASE}/voices`, {
-					headers: { 'xi-api-key': apiKey },
-				});
-				if (!resp.ok) {
-					console.error('[voice/put] elevenlabs voices fetch failed', resp.status);
-					return error(res, 502, 'upstream_error', 'voice library is unavailable');
-				}
-				const data = await resp.json();
-				voices = data?.voices || [];
+				({ voices } = await listVoices());
 			} catch (err) {
-				console.error('[voice/put] elevenlabs fetch threw', err);
+				console.error('[voice/put] listVoices failed', err);
 				return error(res, 502, 'upstream_error', 'voice library is unavailable');
 			}
 			if (!voices.some((v) => v.voice_id === nextVoiceId)) {
-				return error(res, 400, 'validation_error', 'voice_id is not in the available library');
+				return error(
+					res,
+					400,
+					'validation_error',
+					'voice_id is not in the available library',
+				);
 			}
 		}
 
 		// Free the prior cloned voice on ElevenLabs (best-effort) only when
 		// we're actually replacing a clone with something else.
 		if (wasCloned && oldVoiceId && oldVoiceId !== nextVoiceId) {
-			fetch(`${ELEVEN_BASE}/voices/${encodeURIComponent(oldVoiceId)}`, {
-				method: 'DELETE',
-				headers: { 'xi-api-key': apiKey },
-			}).catch(() => {});
+			deleteVoice(oldVoiceId);
 		}
 
 		if (nextVoiceId) {
@@ -130,7 +130,11 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 				SET voice_provider = 'elevenlabs', voice_id = ${nextVoiceId}, voice_cloned_at = NULL
 				WHERE id = ${id}
 			`;
-			return json(res, 200, { voice_provider: 'elevenlabs', voice_id: nextVoiceId, voice_cloned_at: null });
+			return json(res, 200, {
+				voice_provider: 'elevenlabs',
+				voice_id: nextVoiceId,
+				voice_cloned_at: null,
+			});
 		}
 
 		await sql`
@@ -144,17 +148,11 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 	// ── DELETE — remove cloned voice ─────────────────────────────────────────
 
 	if (req.method === 'DELETE') {
-		const [row] = await sql`SELECT voice_id FROM agent_identities WHERE id = ${id}`;
-		if (row?.voice_id) {
-			// Best-effort: free the quota slot on ElevenLabs.
-			const apiKey = env.ELEVENLABS_API_KEY;
-			if (apiKey) {
-				fetch(`${ELEVEN_BASE}/voices/${encodeURIComponent(row.voice_id)}`, {
-					method: 'DELETE',
-					headers: { 'xi-api-key': apiKey },
-				}).catch(() => {});
-			}
-		}
+		const [row] =
+			await sql`SELECT voice_id, voice_cloned_at FROM agent_identities WHERE id = ${id}`;
+		// Only free *cloned* voices on ElevenLabs — library voices are shared
+		// across the account and must never be deleted here.
+		if (row?.voice_id && row?.voice_cloned_at) deleteVoice(row.voice_id);
 		await sql`
 			UPDATE agent_identities
 			SET voice_provider = 'browser', voice_id = NULL, voice_cloned_at = NULL
@@ -166,9 +164,13 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 	// ── POST /clone ──────────────────────────────────────────────────────────
 
 	if (req.method === 'POST' && action === 'clone') {
-		const apiKey = env.ELEVENLABS_API_KEY;
-		if (!apiKey)
-			return error(res, 503, 'not_configured', 'voice cloning is not configured on this server');
+		if (!isConfigured())
+			return error(
+				res,
+				503,
+				'not_configured',
+				'voice cloning is not configured on this server',
+			);
 
 		// Rate limit: 3 clones per user per day.
 		const rl = await limits.voiceClone(auth.userId);
@@ -201,7 +203,8 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 			throw err;
 		}
 
-		if (audioBuf.length === 0) return error(res, 400, 'validation_error', 'audio body is empty');
+		if (audioBuf.length === 0)
+			return error(res, 400, 'validation_error', 'audio body is empty');
 
 		// Fallback size check when no duration header. WebM/Opus at 64 kbps:
 		//   3 s ≈ 24 KB, 30 s ≈ 240 KB. 50 KB catches sub-6-second clips.
@@ -224,41 +227,47 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 						? 'audio.m4a'
 						: 'audio.webm';
 
-		const form = new FormData();
-		form.append('name', voiceName);
-		if (voiceDescription) form.append('description', voiceDescription);
-		form.append('files', new Blob([audioBuf], { type: ct }), ext);
+		const audioFile = new File([audioBuf], ext, { type: ct });
 
-		let elevenResp;
+		let voiceId;
 		try {
-			elevenResp = await fetch(`${ELEVEN_BASE}/voices/add`, {
-				method: 'POST',
-				headers: { 'xi-api-key': apiKey },
-				body: form,
-			});
+			({ voiceId } = await createClonedVoice({
+				name: voiceName,
+				description: voiceDescription || undefined,
+				files: [audioFile],
+			}));
 		} catch (err) {
-			console.error('[voice/clone] elevenlabs fetch failed', err);
-			return error(res, 502, 'upstream_error', 'voice cloning service unavailable');
-		}
-
-		if (!elevenResp.ok) {
-			const body = await elevenResp.text().catch(() => '');
-			console.error('[voice/clone] elevenlabs error', elevenResp.status, body);
-			if (elevenResp.status === 422)
-				return error(res, 400, 'audio_too_short', 'audio is too short or low quality for cloning');
+			console.error(
+				'[voice/clone] createClonedVoice failed',
+				err.status,
+				err.upstreamBody || err.message,
+			);
+			if (err.status === 422)
+				return error(
+					res,
+					400,
+					'audio_too_short',
+					'audio is too short or low quality for cloning',
+				);
 			return error(res, 502, 'upstream_error', 'voice cloning failed');
 		}
 
-		const { voice_id } = await elevenResp.json();
-		if (!voice_id) return error(res, 502, 'upstream_error', 'unexpected response from voice service');
+		// Persist the clone. If the DB write fails the voice we just created would
+		// leak in ElevenLabs (counting against the account quota with no DB
+		// reference), so delete it before surfacing the error.
+		try {
+			await sql`
+				UPDATE agent_identities
+				SET voice_provider = 'elevenlabs', voice_id = ${voiceId}, voice_cloned_at = now()
+				WHERE id = ${id}
+			`;
+		} catch (dbErr) {
+			console.error('[voice/clone] DB persist failed, rolling back clone', dbErr);
+			await deleteVoice(voiceId);
+			return error(res, 500, 'internal_error', 'failed to save cloned voice');
+		}
 
-		await sql`
-			UPDATE agent_identities
-			SET voice_provider = 'elevenlabs', voice_id = ${voice_id}, voice_cloned_at = now()
-			WHERE id = ${id}
-		`;
-
-		return json(res, 201, { voice_id, name: voiceName });
+		return json(res, 201, { voice_id: voiceId, name: voiceName });
 	}
 
 	return error(res, 404, 'not_found', 'unknown voice action');
