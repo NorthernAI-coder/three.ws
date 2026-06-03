@@ -1106,7 +1106,9 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		const body = {
 			...(av.agent_id ? { agent_id: av.agent_id } : { avatar_id: av.id }),
 			name: nameTrim, symbol: symTrim, uri: s._metaUrl,
-			coin_type: isUsdc ? 'agent' : s.coinType,
+			// 'reward' launches as a plain pump.fun coin; the delegated fee split is
+			// configured after graduation in the Fees & rewards panel.
+			coin_type: isUsdc ? 'agent' : s.coinType === 'reward' ? 'regular' : s.coinType,
 			buyback_bps: (isUsdc || s.coinType === 'agent') ? s.buybackBps : 0,
 			...(isUsdc
 				? { usdc_buy_in: buyIn, quote_mint: USDC_MAINNET_MINT }
