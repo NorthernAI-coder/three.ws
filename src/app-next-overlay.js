@@ -216,8 +216,18 @@ function startChatChipRotation(viewer) {
 	let cursor = Math.floor(Math.random() * pool.length);
 
 	const render = () => {
-		const available = new Set((viewer.animationManager?.getAnimationDefs?.() || []).map((d) => d.name));
-		const filtered = pool.filter((p) => !p.clip || available.size === 0 || available.has(p.clip));
+		const mgr = viewer.animationManager;
+		// Clip-bearing chips ("Show me a dance") only make sense when the loaded
+		// model can actually perform the pre-baked library. A user's own GLB with
+		// no compatible skeleton retargets every clip to nothing, so for those we
+		// drop the animation chips and keep only the conversational prompts.
+		const canPerform = mgr?.supportsCanonicalClips?.() !== false;
+		const available = new Set((mgr?.getAnimationDefs?.() || []).map((d) => d.name));
+		const filtered = pool.filter((p) => {
+			if (!p.clip) return true;
+			if (!canPerform) return false;
+			return available.size === 0 || available.has(p.clip);
+		});
 		const showPool = filtered.length >= VISIBLE_CHIPS ? filtered : pool;
 		chipsEl.innerHTML = '';
 		for (let i = 0; i < VISIBLE_CHIPS; i++) {
@@ -241,6 +251,10 @@ function startChatChipRotation(viewer) {
 		cursor = (cursor + VISIBLE_CHIPS) % pool.length;
 		render();
 	}, CHIP_ROTATE_MS);
+
+	// A new model can change which clips are performable — re-filter the chips
+	// the moment it loads instead of waiting for the next rotation tick.
+	window.addEventListener('viewer:model-loaded', () => render());
 
 	// Pause rotation when the chat dock is focused/hovered
 	const dock = document.getElementById('nxt-chat-dock');
@@ -464,6 +478,13 @@ function wireAnimationSheet() {
 		btn.setAttribute('aria-expanded', 'false');
 	};
 
+	// A new model can have a different set of (or no) usable animations — drop the
+	// cached grid so the next open rebuilds it, and rebuild live if it's open now.
+	window.addEventListener('viewer:model-loaded', () => {
+		rendered = false;
+		if (!sheet.hidden) renderGrid().then(() => { rendered = true; });
+	});
+
 	btn.addEventListener('click', () => {
 		if (sheet.hidden) open();
 		else close();
@@ -493,6 +514,14 @@ function wireAnimationSheet() {
 		const defs = viewer.animationManager.getAnimationDefs();
 		if (!defs || defs.length === 0) {
 			grid.innerHTML = '<div class="nxt-anim-empty">This avatar has no animations.</div>';
+			return;
+		}
+		// The built-in library only retargets onto a compatible humanoid rig. For a
+		// custom upload with no matching skeleton, every clip would play to no
+		// effect — say so instead of listing actions that do nothing.
+		if (viewer.animationManager.supportsCanonicalClips?.() === false) {
+			grid.innerHTML =
+				'<div class="nxt-anim-empty">This model’s rig isn’t compatible with the built-in animations. Upload a humanoid avatar (Mixamo, Ready Player Me, Avaturn) to use them.</div>';
 			return;
 		}
 

@@ -2,19 +2,21 @@
  * Avatar Studio — /create/studio
  *
  * Build a custom 3D avatar from a base template without needing a selfie.
- * Loads the base GLB, lets the user sculpt face/body morphs, pick outfits
- * and accessories, then saves the result to their account (upload base GLB +
- * create avatar record + PATCH appearance for server-side bake).
+ * Two modes:
+ *   - Create:  /create/studio          → start from default.glb
+ *   - Edit:    /create/studio?edit=ID  → reload a previously-saved avatar
+ *
+ * On Save, the live Three.js scene is exported via GLTFExporter (colours,
+ * morphs, and accessories are already applied to the scene graph), so the
+ * resulting GLB is exactly what the user saw.  No server-side bake required
+ * for the model to look right — the appearance JSON is still PATCHed as
+ * metadata so the avatar is re-editable later.
  *
  * Reuses the same building blocks as avatar-edit.js:
  *   - TalkScene for the 3D viewport
  *   - AccessoryManager for outfit/accessory application
  *   - renderSculptPanel from avatar-sculpt.js for face/body morphs
  *   - IdleAnimation for ambient breathing/blinking
- *
- * The save flow mirrors create.js → create-review.js: upload the base GLB
- * via presign + direct R2 PUT, create the avatar record, then PATCH it with
- * the appearance JSON so the server bakes a canonical GLB.
  */
 
 import { TalkScene } from './voice/talk-scene.js';
@@ -23,8 +25,20 @@ import { IdleAnimation } from './idle-animation.js';
 import { renderSculptPanel, applyMorphsToRoot } from './avatar-sculpt.js';
 import { saveRemoteGlbToAccount, apiFetch } from './account.js';
 import { uploadAvatarSnapshot } from './voice/avatar-snapshot.js';
+import {
+	collapseAppearance,
+	hydrateAppearance,
+	cloneAppearance,
+	appearanceEqual,
+	parseEditId,
+	readDraft,
+	writeDraft as writeDraftStorage,
+	clearDraft as clearDraftStorage,
+	DRAFT_KEY,
+} from './avatar-studio-utils.js';
 
 const BASE_GLB_URL = '/avatars/default.glb';
+const MAX_HISTORY = 50;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) =>
@@ -42,6 +56,12 @@ let presets = [];
 let presetsById = new Map();
 
 let workingAppearance = { accessories: [], morphs: {}, colors: {}, hidden: [] };
+let savedAppearance = null; // null = unsaved / the appearance at last save
+let editAvatarId = null;   // non-null when in edit mode (?edit=ID)
+
+let history = [];
+let historyIndex = -1;
+
 let previewedId = null;
 let previewToken = 0;
 let opQueue = Promise.resolve();
@@ -67,11 +87,6 @@ const KIND_LABEL = { hat: 'Hat', glasses: 'Glasses', earrings: 'Earrings' };
 let activeTab = 'color';
 
 // ── Color customization ──────────────────────────────────────────────
-// The base avatar is a ReadyPlayerMe (Wolf3D) mesh with named, texture-backed
-// materials. We tint a slot by multiplying every material in that slot by a
-// chosen color (white = original texture, untinted). The same slot→material
-// map and tint semantics are mirrored server-side in api/_lib/bake.js so the
-// saved/baked GLB looks identical to the live preview.
 const COLOR_SLOTS = [
 	{
 		id: 'skin',
@@ -94,15 +109,9 @@ const COLOR_SLOTS = [
 ];
 const COLOR_SLOT_BY_ID = new Map(COLOR_SLOTS.map((s) => [s.id, s]));
 const HEX_RE = /^#[0-9a-f]{6}$/i;
-const BODY_TYPE = 'feminine'; // the single shipped base mesh is feminine-presenting
+const BODY_TYPE = 'feminine';
 
 // ── Garment layers (show/hide) ───────────────────────────────────────
-// The base avatar ships its garments as separate skinned meshes, so we can
-// strip it back toward the base body and build the look up again. Hiding a
-// layer toggles its meshes' `visible`; the hidden slot ids persist in
-// appearance.hidden, bake out server-side (api/_lib/bake.js applyHidden), and
-// re-apply on the editor via AccessoryManager.applyLayers. `strip` marks the
-// layers the "Start minimal" shortcut removes — hair is kept.
 const LAYER_SLOTS = [
 	{ id: 'outfit', label: 'Outfit', materials: ['Wolf3D_Outfit_Top', 'Wolf3D_Outfit_Bottom', 'Wolf3D_Outfit_Footwear'], strip: true },
 	{ id: 'glasses', label: 'Glasses', materials: ['Wolf3D_Glasses'], strip: true },
@@ -121,7 +130,40 @@ init().catch((err) => {
 });
 
 async function init() {
-	const scenePromise = bootScene();
+	const params = new URLSearchParams(location.search);
+	editAvatarId = parseEditId(params);
+
+	let editAvatar = null;
+	if (editAvatarId) {
+		try {
+			editAvatar = await fetchEditAvatar(editAvatarId);
+		} catch (err) {
+			setStatus('err', `Could not load avatar: ${err.message}`);
+		}
+	}
+
+	if (editAvatar) {
+		workingAppearance = hydrateAppearance(editAvatar.appearance);
+		savedAppearance = cloneAppearance(workingAppearance);
+		const nameEl = $('as-name');
+		if (nameEl) nameEl.value = editAvatar.name || '';
+		const titleEl = document.querySelector('.as-bar-title');
+		if (titleEl) titleEl.textContent = 'Edit Avatar';
+		const backEl = $('as-back');
+		if (backEl) backEl.href = `/avatars/${encodeURIComponent(editAvatarId)}`;
+	} else {
+		// Offer to restore a saved draft (only in create mode, not edit)
+		maybeSuggestDraft();
+	}
+
+	// History starts at the hydrated initial state
+	pushHistory();
+
+	const glbUrl = editAvatar
+		? (editAvatar.base_model_url || editAvatar.model_url || BASE_GLB_URL)
+		: BASE_GLB_URL;
+
+	const scenePromise = bootScene(glbUrl, editAvatar);
 
 	presets = await fetchPresets();
 	presetsById = new Map(presets.map((p) => [p.id, p]));
@@ -130,24 +172,187 @@ async function init() {
 	renderChips();
 	renderActivePanel();
 	bindHeader();
+	bindKeyboard();
 
 	await scenePromise;
-	// Re-render once the mesh is live so the active panel (sculpt morphs, color
-	// preview) reflects the loaded avatar instead of the "waiting" placeholder,
-	// and replay any colours/hidden layers chosen before the GLB finished loading.
 	if (scene?.root) {
 		applyAllColors();
 		applyAllLayers();
 	}
 	renderActivePanel();
+	updateDirtyState();
 }
 
-async function bootScene() {
+async function fetchEditAvatar(id) {
+	const res = await apiFetch(`/api/avatars/${encodeURIComponent(id)}`);
+	if (!res.ok) {
+		const body = await res.json().catch(() => ({}));
+		throw new Error(body.message || `Failed to load avatar (${res.status})`);
+	}
+	const { avatar } = await res.json();
+	return avatar;
+}
+
+// ── Draft autosave ───────────────────────────────────────────────────
+
+let _draftTimer = null;
+function scheduleDraftSave() {
+	clearTimeout(_draftTimer);
+	_draftTimer = setTimeout(() => {
+		if (editAvatarId) return;
+		writeDraftStorage(localStorage, collapseAppearance(workingAppearance), ($('as-name')?.value || '').trim());
+	}, 2000);
+}
+
+function clearDraft() {
+	clearDraftStorage(localStorage);
+}
+
+function maybeSuggestDraft() {
+	const draft = readDraft(localStorage);
+	if (!draft?.appearance) return;
+	const ageMins = (Date.now() - draft.ts) / 60000;
+
+	const bar = document.createElement('div');
+	bar.id = 'as-draft-bar';
+	bar.innerHTML = `
+		<span>You have unsaved work from ${ageMins < 60 ? `${Math.round(ageMins)}m ago` : `${Math.round(ageMins/60)}h ago`}.</span>
+		<button class="as-draft-btn" id="as-draft-restore">Restore</button>
+		<button class="as-draft-btn as-draft-dismiss" id="as-draft-dismiss">Dismiss</button>
+	`;
+	$('as-shell').prepend(bar);
+
+	$('as-draft-restore').addEventListener('click', () => {
+		bar.remove();
+		workingAppearance = hydrateAppearance(draft.appearance);
+		const nameEl = $('as-name');
+		if (nameEl && draft.name) nameEl.value = draft.name;
+		if (scene?.root) {
+			applyAllColors();
+			applyAllLayers();
+			applyMorphsToRoot(scene.root, workingAppearance.morphs);
+			if (accessoryManager) accessoryManager.hydrateFromAppearance(workingAppearance);
+		}
+		pushHistory();
+		renderChips();
+		renderActivePanel();
+		updateDirtyState();
+		setStatus('ok', 'Draft restored.');
+	});
+	$('as-draft-dismiss').addEventListener('click', () => { bar.remove(); clearDraft(); });
+}
+
+// ── History (undo / redo) ────────────────────────────────────────────
+
+function pushHistory() {
+	// drop any "future" when a new action is taken
+	history = history.slice(0, historyIndex + 1);
+	history.push(cloneAppearance(workingAppearance));
+	if (history.length > MAX_HISTORY) history.shift();
+	historyIndex = history.length - 1;
+	updateUndoRedoBtns();
+}
+
+function undoAppearance() {
+	if (historyIndex <= 0) return;
+	historyIndex--;
+	applyHistoryState(history[historyIndex]);
+}
+
+function redoAppearance() {
+	if (historyIndex >= history.length - 1) return;
+	historyIndex++;
+	applyHistoryState(history[historyIndex]);
+}
+
+async function applyHistoryState(state) {
+	workingAppearance = cloneAppearance(state);
+	if (accessoryManager) {
+		await queueOp(() => accessoryManager.hydrateFromAppearance(workingAppearance));
+	}
+	if (scene?.root) {
+		applyAllColors();
+		applyAllLayers();
+		applyMorphsToRoot(scene.root, workingAppearance.morphs);
+	}
+	renderChips();
+	renderActivePanel();
+	updateUndoRedoBtns();
+	updateDirtyState();
+	scheduleDraftSave();
+}
+
+function updateUndoRedoBtns() {
+	const u = $('as-undo');
+	const r = $('as-redo');
+	if (u) u.disabled = historyIndex <= 0;
+	if (r) r.disabled = historyIndex >= history.length - 1;
+}
+
+// ── Dirty state ──────────────────────────────────────────────────────
+
+function updateDirtyState() {
+	const isDirty = savedAppearance !== null
+		? !appearanceEqual(workingAppearance, savedAppearance)
+		: collapseAppearance(workingAppearance) !== null;
+
+	const titleEl = document.querySelector('.as-bar-title');
+	if (titleEl) {
+		const base = editAvatarId ? 'Edit Avatar' : 'Avatar Studio';
+		titleEl.textContent = isDirty ? `${base} ·` : base;
+	}
+
+	const saveBtn = $('as-save');
+	if (saveBtn && !saveBtn.disabled) {
+		// keep save always enabled — just mark with dirty dot
+	}
+}
+
+// ── Randomise ────────────────────────────────────────────────────────
+
+function randomizeAppearance() {
+	// Pick one random swatch per color slot
+	for (const slot of COLOR_SLOTS) {
+		const swatch = slot.swatches[Math.floor(Math.random() * slot.swatches.length)];
+		workingAppearance.colors[slot.id] = swatch.toLowerCase();
+		applySlotColor(slot, swatch);
+	}
+
+	// Clear existing accessories, add one hat + one glasses from presets
+	const hats = presets.filter((p) => p.kind === 'hat');
+	const glasses = presets.filter((p) => p.kind === 'glasses');
+	if (accessoryManager) {
+		for (const id of [...workingAppearance.accessories]) accessoryManager.removePreset(id);
+	}
+	workingAppearance.accessories = [];
+
+	const pick = (arr) => arr.length ? arr[Math.floor(Math.random() * arr.length)] : null;
+	const hat = pick(hats);
+	const glass = pick(glasses);
+	const toApply = [hat, glass].filter(Boolean);
+	for (const p of toApply) workingAppearance.accessories.push(p.id);
+	if (accessoryManager) {
+		queueOp(async () => {
+			for (const p of toApply) await accessoryManager.applyPreset(p);
+		});
+	}
+
+	pushHistory();
+	renderChips();
+	renderActivePanel();
+	updateDirtyState();
+	scheduleDraftSave();
+	setStatus('ok', 'Randomised! Click Save when happy.');
+}
+
+// ── Boot scene ────────────────────────────────────────────────────────
+
+async function bootScene(glbUrl, editAvatar) {
 	scene = new TalkScene();
 	try {
 		await scene.mount({
 			container: $('as-stage'),
-			glbUrl: BASE_GLB_URL,
+			glbUrl,
 		});
 		$('as-loading')?.remove();
 		accessoryManager = new AccessoryManager({
@@ -155,20 +360,27 @@ async function bootScene() {
 			invalidate: () => {},
 		});
 
+		// In edit mode, replay accessories from saved appearance
+		if (editAvatar?.appearance) {
+			await accessoryManager.hydrateFromAppearance(workingAppearance);
+		}
+
 		idle = new IdleAnimation({
 			getRoot: () => scene.root,
 			seed: 'avatar-studio',
 		});
 		scene.addOnTick((dt) => idle.update(dt));
 
-		setStatus('', 'Choose a style below to get started.');
+		setStatus('', editAvatar
+			? 'Loaded your saved avatar. Make changes and save to update it.'
+			: 'Choose a style below to get started.');
 	} catch (err) {
 		const loadingEl = $('as-loading');
 		if (loadingEl) loadingEl.textContent = `Could not load base avatar: ${err.message}`;
 	}
 }
 
-// ── API ──────────────────────────────────────────────────────────────
+// ── Fetch presets ────────────────────────────────────────────────────
 
 async function fetchPresets() {
 	const r = await fetch('/accessories/presets.json');
@@ -186,7 +398,7 @@ function renderTabs() {
 			<button class="as-tab${active ? ' active' : ''}" data-tab="${t.id}" role="tab"
 			        id="as-tab-${t.id}" aria-selected="${active ? 'true' : 'false'}"
 			        aria-controls="as-panel" tabindex="${active ? '0' : '-1'}">
-				${t.label}
+				<span class="as-tab-label">${t.label}</span>
 			</button>`;
 	}).join('');
 
@@ -210,7 +422,6 @@ function renderTabs() {
 
 	tabs.forEach((btn, i) => {
 		btn.addEventListener('click', () => selectTab(btn));
-		// Roving-tabindex keyboard nav per WAI-ARIA tablist pattern.
 		btn.addEventListener('keydown', (e) => {
 			let target = null;
 			if (e.key === 'ArrowRight' || e.key === 'ArrowDown') target = tabs[(i + 1) % tabs.length];
@@ -244,7 +455,10 @@ function renderActivePanel() {
 			root: scene.root,
 			working: workingAppearance,
 			onDirty: () => {
+				pushHistory();
 				renderChips();
+				updateDirtyState();
+				scheduleDraftSave();
 			},
 		});
 		return;
@@ -262,9 +476,19 @@ function renderActivePanel() {
 			       value="${esc(searchQuery)}" autocomplete="off" />
 		</div>`;
 
-	if (items.length === 0 && q) {
-		panel.innerHTML = searchHtml + `<div class="as-empty">No matches for "${esc(searchQuery)}".</div>`;
+	if (items.length === 0) {
+		const emptyMsg = q
+			? `No matches for "${esc(searchQuery)}".`
+			: `No ${esc(tab.label.toLowerCase())} available yet.`;
+		const clearBtn = q
+			? `<button class="as-empty-action" id="as-clear-search">Clear search</button>`
+			: '';
+		panel.innerHTML = searchHtml + `<div class="as-empty">${emptyMsg}${clearBtn}</div>`;
 		bindSearch();
+		$('as-clear-search')?.addEventListener('click', () => {
+			searchQuery = '';
+			renderActivePanel();
+		});
 		return;
 	}
 
@@ -327,7 +551,6 @@ function renderColorPanel(panel) {
 			})
 			.join('');
 		const noneSel = !current;
-		// A custom (non-palette) color counts as the custom swatch being active.
 		const customSel = current && !presetMatch;
 		return `
 			<div class="as-color-group" data-group="${slot.id}">
@@ -394,7 +617,7 @@ function layersBlockHtml() {
 function bindLayersBlock(panel) {
 	panel.querySelectorAll('.as-layer[data-layer]').forEach((btn) => {
 		btn.addEventListener('click', () => {
-			const nowHidden = btn.getAttribute('aria-checked') === 'true'; // visible → hide
+			const nowHidden = btn.getAttribute('aria-checked') === 'true';
 			setLayerHidden(btn.dataset.layer, nowHidden);
 		});
 	});
@@ -410,7 +633,10 @@ function setLayerHidden(slotId, hidden) {
 	else if (!hidden && i >= 0) workingAppearance.hidden.splice(i, 1);
 	applyLayerVisibility(slot, hidden);
 	if (activeTab === 'color') renderActivePanel();
+	pushHistory();
 	renderChips();
+	updateDirtyState();
+	scheduleDraftSave();
 	setStatus('', `${slot.label} ${hidden ? 'hidden' : 'shown'}.`);
 }
 
@@ -421,7 +647,10 @@ function stripToBase() {
 		applyLayerVisibility(slot, true);
 	}
 	if (activeTab === 'color') renderActivePanel();
+	pushHistory();
 	renderChips();
+	updateDirtyState();
+	scheduleDraftSave();
 	setStatus('', 'Stripped to the base body. Add layers back to dress it up.');
 }
 
@@ -429,11 +658,13 @@ function dressFully() {
 	for (const slot of LAYER_SLOTS) applyLayerVisibility(slot, false);
 	workingAppearance.hidden = [];
 	if (activeTab === 'color') renderActivePanel();
+	pushHistory();
 	renderChips();
+	updateDirtyState();
+	scheduleDraftSave();
 	setStatus('', 'All layers shown.');
 }
 
-// Toggle visibility of every mesh whose material belongs to the slot.
 function applyLayerVisibility(slot, hidden) {
 	if (!scene?.root) return;
 	const names = new Set(slot.materials);
@@ -494,14 +725,14 @@ function setSlotColor(slotId, hex) {
 	}
 	applySlotColor(slot, workingAppearance.colors[slotId] || null);
 	if (activeTab === 'color') renderActivePanel();
+	pushHistory();
 	renderChips();
+	updateDirtyState();
+	scheduleDraftSave();
 	const c = workingAppearance.colors[slotId];
 	setStatus('', c ? `${slot.label} → ${c.toUpperCase()}` : `${slot.label} reset to default.`);
 }
 
-// Live (uncommitted) preview while dragging the native color picker — applies
-// to the mesh and updates the slot's readout without a full re-render so the
-// picker stays open.
 function liveSlotColor(slotId, hex) {
 	const slot = COLOR_SLOT_BY_ID.get(slotId);
 	if (!slot || !HEX_RE.test(hex)) return;
@@ -514,7 +745,6 @@ function liveSlotColor(slotId, hex) {
 	if (label) label.textContent = hex.toUpperCase();
 }
 
-// Multiply every material in the slot by `hex` (null → white = original texture).
 function applySlotColor(slot, hex) {
 	if (!scene?.root) return;
 	const color = hex || '#ffffff';
@@ -716,8 +946,11 @@ async function onTileClick(tab, presetId) {
 	await queueOp(async () => {
 		await applyAccessory(tab, presetId || null);
 	});
+	pushHistory();
 	renderActivePanel();
 	renderChips();
+	updateDirtyState();
+	scheduleDraftSave();
 }
 
 async function removeCommitted(id) {
@@ -729,8 +962,11 @@ async function removeCommitted(id) {
 		accessoryManager?.removePreset(id);
 	});
 	workingAppearance.accessories = workingAppearance.accessories.filter((a) => a !== id);
+	pushHistory();
 	renderActivePanel();
 	renderChips();
+	updateDirtyState();
+	scheduleDraftSave();
 }
 
 async function applyAccessory(tab, presetId) {
@@ -773,11 +1009,24 @@ async function applyAccessory(tab, presetId) {
 	}
 }
 
-// ── Header / body type / status ──────────────────────────────────────
+// ── Header / keyboard ────────────────────────────────────────────────
 
 function bindHeader() {
 	$('as-save').addEventListener('click', () => saveAvatar());
 	$('as-reset').addEventListener('click', () => resetAll());
+	$('as-randomize')?.addEventListener('click', () => randomizeAppearance());
+	$('as-undo')?.addEventListener('click', () => undoAppearance());
+	$('as-redo')?.addEventListener('click', () => redoAppearance());
+}
+
+function bindKeyboard() {
+	document.addEventListener('keydown', (e) => {
+		const mod = e.metaKey || e.ctrlKey;
+		if (!mod) return;
+		if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoAppearance(); }
+		else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redoAppearance(); }
+		else if (e.key === 's') { e.preventDefault(); saveAvatar(); }
+	});
 }
 
 async function resetAll() {
@@ -796,8 +1045,11 @@ async function resetAll() {
 		}
 		if (accessoryManager) await accessoryManager.hydrateFromAppearance(workingAppearance);
 	});
+	pushHistory();
 	renderChips();
 	renderActivePanel();
+	updateDirtyState();
+	scheduleDraftSave();
 	setStatus('', 'Reset to default.');
 }
 
@@ -811,15 +1063,29 @@ function setStatus(kind, text) {
 	el.innerHTML = kind === 'spin' ? `<span class="spin"></span>${esc(text)}` : esc(text);
 }
 
-// ── Save flow ────────────────────────────────────────────────────────
+// ── Save flow ─────────────────────────────────────────────────────────
 
-function collapseAppearance(a) {
-	const out = {};
-	if (a.accessories?.length) out.accessories = [...a.accessories];
-	if (a.morphs && Object.keys(a.morphs).length) out.morphs = { ...a.morphs };
-	if (a.colors && Object.keys(a.colors).length) out.colors = { ...a.colors };
-	if (a.hidden?.length) out.hidden = [...a.hidden];
-	return Object.keys(out).length ? out : null;
+// Export the live Three.js scene as a GLB blob using GLTFExporter.
+// This captures colours (applied to material.color), morph weights, and
+// bone-attached accessories — all already in the scene graph. No server
+// bake required; what the user sees is what gets uploaded.
+async function exportSceneGlb() {
+	if (!scene?.root) throw new Error('Scene not ready — cannot export.');
+	const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+	const exporter = new GLTFExporter();
+	const buf = await new Promise((resolve, reject) => {
+		exporter.parse(
+			scene.root,
+			resolve,
+			reject,
+			{
+				binary: true,
+				embedImages: true,
+				animations: scene._clips || [],
+			},
+		);
+	});
+	return new Blob([buf], { type: 'model/gltf-binary' });
 }
 
 function showSaveOverlay(label, sublabel) {
@@ -863,47 +1129,73 @@ async function saveAvatar() {
 	const resetBtn = $('as-reset');
 	saveBtn.disabled = true;
 	resetBtn.disabled = true;
-	showSaveOverlay('Uploading avatar...', 'This may take a moment');
+
+	// For edit mode, nudge the user if nothing changed
+	if (editAvatarId && !collapseAppearance(workingAppearance) &&
+	    JSON.stringify(collapseAppearance(workingAppearance)) === JSON.stringify(collapseAppearance(savedAppearance))) {
+		setStatus('', 'No changes to save.');
+		saveBtn.disabled = false;
+		resetBtn.disabled = false;
+		return;
+	}
+
+	showSaveOverlay(editAvatarId ? 'Updating avatar...' : 'Exporting avatar...', 'Building your customised model');
+	updateProgress(5);
 
 	try {
-		const glbRes = await fetch(BASE_GLB_URL);
-		if (!glbRes.ok) throw new Error(`Failed to fetch base GLB: ${glbRes.status}`);
-		const glbBlob = await glbRes.blob();
+		// ── Step 1: Export the live scene as a GLB ──────────────────
+		// This captures all colours, morphs, and accessories already applied
+		// to the Three.js scene — no server-side bake needed.
+		updateSaveOverlay('Exporting model...', 'Capturing colours and accessories');
+		const glbBlob = await exportSceneGlb();
+		updateProgress(20);
 
-		updateSaveOverlay('Uploading base model...');
+		// ── Step 2: Upload the GLB + create/update the DB record ────
+		updateSaveOverlay('Uploading...', 'Sending to your library');
 
-		const avatar = await saveRemoteGlbToAccount(
-			glbBlob,
-			{
-				name,
-				source: 'direct-upload',
-				source_meta: { generator: 'avatar-studio', body_type: BODY_TYPE },
-				visibility: 'public',
-			},
-			{
-				onProgress: (pct) => updateProgress(pct * 0.7),
-			},
-		);
+		let avatar;
+		if (editAvatarId) {
+			// Edit mode: upload new GLB version, PATCH it onto the existing record
+			avatar = await uploadEditedAvatar(editAvatarId, name, glbBlob);
+		} else {
+			avatar = await saveRemoteGlbToAccount(
+				glbBlob,
+				{
+					name,
+					source: 'direct-upload',
+					source_meta: { generator: 'avatar-studio', body_type: BODY_TYPE },
+					visibility: 'public',
+				},
+				{
+					onProgress: (pct) => updateProgress(20 + pct * 0.6),
+				},
+			);
+		}
+		updateProgress(82);
 
+		// ── Step 3: PATCH appearance for re-editability ─────────────
+		// The exported GLB already has everything baked; this PATCH only stores
+		// the appearance JSON as metadata so /create/studio?edit= can reload it.
 		const appearance = collapseAppearance(workingAppearance);
 		if (appearance) {
-			updateSaveOverlay('Applying customizations...', 'Baking appearance into GLB');
-			updateProgress(75);
-
+			updateSaveOverlay('Saving customisation data...');
 			const patchRes = await apiFetch(`/api/avatars/${encodeURIComponent(avatar.id)}`, {
 				method: 'PATCH',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ appearance }),
 			});
 			if (!patchRes.ok) {
-				const err = await patchRes.json().catch(() => ({}));
-				console.warn('[avatar-studio] appearance PATCH failed:', err);
+				// Appearance metadata failed, but the GLB is already uploaded and correct.
+				// Log for debugging but don't block the save — the avatar will look right,
+				// it just won't be re-editable via ?edit= until this is retried.
+				const body = await patchRes.json().catch(() => ({}));
+				console.warn('[avatar-studio] appearance PATCH failed (non-fatal):', body);
 			}
 		}
+		updateProgress(92);
 
-		updateProgress(90);
+		// ── Step 4: Thumbnail snapshot ──────────────────────────────
 		updateSaveOverlay('Capturing thumbnail...');
-
 		try {
 			await uploadAvatarSnapshot({ avatarId: avatar.id, scene });
 		} catch (err) {
@@ -911,17 +1203,27 @@ async function saveAvatar() {
 		}
 
 		updateProgress(100);
-		updateSaveOverlay('Done! Redirecting...');
+		updateSaveOverlay('Done!', editAvatarId ? 'Avatar updated.' : 'Avatar saved to your library.');
 
-		await new Promise((r) => setTimeout(r, 600));
+		// Mark saved state, clear draft
+		savedAppearance = cloneAppearance(workingAppearance);
+		clearDraft();
+		updateDirtyState();
 
+		await new Promise((r) => setTimeout(r, 700));
+		hideSaveOverlay();
+
+		// Show a save-success toast briefly before redirecting
+		showSaveToast(avatar.id);
+
+		await new Promise((r) => setTimeout(r, 1400));
 		window.location.href = `/avatars/${encodeURIComponent(avatar.id)}`;
 	} catch (err) {
 		hideSaveOverlay();
 		console.error('[avatar-studio] save failed:', err);
 
 		if (err.code === 'not_signed_in' || err.stage === 'auth') {
-			const next = encodeURIComponent('/create/studio');
+			const next = encodeURIComponent(location.pathname + location.search);
 			window.location.replace(`/login?next=${next}`);
 			return;
 		}
@@ -930,4 +1232,47 @@ async function saveAvatar() {
 		saveBtn.disabled = false;
 		resetBtn.disabled = false;
 	}
+}
+
+// Upload a new GLB version for an existing avatar in edit mode.
+// Reuses saveRemoteGlbToAccount to presign + upload the blob, then PATCHes
+// the existing avatar record with the new storage key and updated name.
+async function uploadEditedAvatar(avatarId, name, glbBlob, onProgress) {
+	// Upload the new GLB to a fresh R2 key under the user's namespace
+	const tmp = await saveRemoteGlbToAccount(
+		glbBlob,
+		{
+			name,
+			source: 'direct-upload',
+			source_meta: { generator: 'avatar-studio', body_type: BODY_TYPE },
+			visibility: 'public',
+		},
+		{ onProgress },
+	);
+
+	// Replace the target avatar's GLB with the freshly uploaded key
+	const patchRes = await apiFetch(`/api/avatars/${encodeURIComponent(avatarId)}`, {
+		method: 'PATCH',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ glbUrl: tmp.storage_key, name }),
+	});
+	if (!patchRes.ok) {
+		const body = await patchRes.json().catch(() => ({}));
+		throw new Error(body.message || `Avatar update failed (${patchRes.status})`);
+	}
+	const { avatar } = await patchRes.json();
+	return avatar;
+}
+
+function showSaveToast(avatarId) {
+	const el = document.createElement('div');
+	el.className = 'as-toast';
+	el.innerHTML = `
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="as-toast-icon" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+		<span>Saved! Opening your avatar…</span>
+		<a href="/avatars/${esc(avatarId)}" class="as-toast-link">View now</a>
+	`;
+	document.body.appendChild(el);
+	// Animate in
+	requestAnimationFrame(() => el.classList.add('visible'));
 }

@@ -1,4 +1,12 @@
 import { AnimationClip, AnimationMixer, LoopRepeat, LoopOnce } from 'three';
+import { canonicalizeBoneName } from './glb-canonicalize.js';
+
+// Minimum number of canonical bones a skinned model must expose before the
+// pre-baked clip library can drive it meaningfully. The clips address tracks by
+// canonical Avaturn bone names; a model sharing only a stray bone or two would
+// twitch a single joint rather than perform the motion. Eight covers the torso
+// + a limb, which is enough to read as a real humanoid performance.
+const MIN_CANONICAL_BONES = 8;
 
 /**
  * Manages pre-baked animation clips for skinned agents.
@@ -39,6 +47,8 @@ export class AnimationManager {
 		this._failed = new Set();
 		/** @type {Set<string>|null} Bone/node names of the currently attached model. */
 		this._boneNames = null;
+		/** @type {boolean} Whether the attached model's rig can play the canonical clip library. */
+		this._canonicalClipsSupported = false;
 	}
 
 	// ── Model binding ──────────────────────────────────────────────────────────
@@ -56,6 +66,7 @@ export class AnimationManager {
 		this.currentAction = null;
 		this.currentName = null;
 		this._boneNames = _collectBoneNames(model);
+		this._canonicalClipsSupported = _modelSupportsCanonicalClips(model);
 
 		for (const [name, clip] of this.clips) {
 			const filtered = _filterClip(clip, this._boneNames);
@@ -74,6 +85,7 @@ export class AnimationManager {
 		}
 		this.model = null;
 		this._boneNames = null;
+		this._canonicalClipsSupported = false;
 		this.actions.clear();
 		this.currentAction = null;
 		this.currentName = null;
@@ -97,6 +109,19 @@ export class AnimationManager {
 	/** @param {string} name @returns {boolean} */
 	isFailed(name) {
 		return this._failed.has(name);
+	}
+
+	/**
+	 * Whether the currently attached model can be driven by the pre-baked
+	 * canonical clip library. True only for a skinned humanoid whose skeleton
+	 * shares enough bones with the canonical Avaturn rig that a retargeted clip
+	 * actually moves it. A static mesh (no skeleton) or a non-humanoid rig
+	 * returns false, so callers can hide animation affordances that would
+	 * otherwise play to no visible effect.
+	 * @returns {boolean}
+	 */
+	supportsCanonicalClips() {
+		return this._canonicalClipsSupported;
 	}
 
 	// ── Loading ────────────────────────────────────────────────────────────────
@@ -282,6 +307,23 @@ function _collectBoneNames(model) {
 	const names = new Set();
 	model.traverse((n) => { if (n.name) names.add(n.name); });
 	return names;
+}
+
+// A pre-baked clip only deforms the mesh when its tracks address real skeleton
+// bones. Require both a SkinnedMesh and enough canonically-named bones so we
+// don't mistake a static prop (whose node happens to be named "Head") for a
+// rig the library can animate.
+function _modelSupportsCanonicalClips(model) {
+	let hasSkinnedMesh = false;
+	const canonical = new Set();
+	model.traverse((node) => {
+		if (node.isSkinnedMesh) hasSkinnedMesh = true;
+		if (node.name) {
+			const c = canonicalizeBoneName(node.name);
+			if (c) canonical.add(c);
+		}
+	});
+	return hasSkinnedMesh && canonical.size >= MIN_CANONICAL_BONES;
 }
 
 function _filterClip(clip, boneNames) {

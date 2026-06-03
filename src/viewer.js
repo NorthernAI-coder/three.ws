@@ -1054,6 +1054,12 @@ export class Viewer {
 			this._pendingReveal = null;
 			this._tweenCamera(framedPos, target, 1500);
 		}
+
+		// Announce the swap so overlays can react to the new rig (e.g. re-filter
+		// animation suggestions against what this model can actually perform).
+		try {
+			window.dispatchEvent(new CustomEvent('viewer:model-loaded', { detail: { viewer: this } }));
+		} catch {}
 	}
 
 	setClips(clips) {

@@ -781,6 +781,101 @@
 				justify-content: flex-end;
 			}
 
+			/* ── Icon-only buttons ────────────────────────────────── */
+			.as-icon-btn {
+				padding: 7px 9px;
+			}
+
+			/* ── Draft restore bar ─────────────────────────────────── */
+			#as-draft-bar {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				padding: 9px 20px;
+				background: rgba(234, 179, 8, 0.08);
+				border-bottom: 1px solid rgba(234, 179, 8, 0.25);
+				font-size: 12px;
+				color: #eab308;
+				flex-wrap: wrap;
+			}
+			#as-draft-bar span { flex: 1; min-width: 0; }
+			.as-draft-btn {
+				background: transparent;
+				border: 1px solid rgba(234, 179, 8, 0.4);
+				color: #eab308;
+				padding: 4px 10px;
+				border-radius: 6px;
+				cursor: pointer;
+				font-size: 12px;
+				font-family: inherit;
+				font-weight: 600;
+				transition: background 0.15s;
+			}
+			.as-draft-btn:hover { background: rgba(234, 179, 8, 0.12); }
+			.as-draft-dismiss { border-color: transparent; color: var(--text-3); }
+			.as-draft-dismiss:hover { background: rgba(255,255,255,0.05); color: var(--text-2); border-color: var(--border-2); }
+
+			/* ── Empty-state action button ─────────────────────────── */
+			.as-empty-action {
+				display: inline-block;
+				margin-top: 10px;
+				background: transparent;
+				border: 1px solid var(--border-2);
+				color: var(--text-2);
+				padding: 6px 14px;
+				border-radius: 8px;
+				cursor: pointer;
+				font: 500 12px/1 inherit;
+				transition: border-color 0.15s, color 0.15s;
+			}
+			.as-empty-action:hover { border-color: var(--text-3); color: var(--text); }
+
+			/* ── Save-success toast ────────────────────────────────── */
+			.as-toast {
+				position: fixed;
+				bottom: 24px;
+				left: 50%;
+				transform: translateX(-50%) translateY(24px);
+				opacity: 0;
+				transition: opacity 0.25s, transform 0.25s;
+				background: #1a2e1a;
+				border: 1px solid rgba(34, 197, 94, 0.35);
+				color: #86efac;
+				padding: 10px 18px;
+				border-radius: 10px;
+				font-size: 13px;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				z-index: 400;
+				box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+				pointer-events: none;
+				white-space: nowrap;
+			}
+			.as-toast.visible {
+				opacity: 1;
+				transform: translateX(-50%) translateY(0);
+				pointer-events: auto;
+			}
+			.as-toast-icon { flex-shrink: 0; color: #4ade80; }
+			.as-toast-link {
+				color: #4ade80;
+				text-decoration: none;
+				font-weight: 600;
+				margin-left: 4px;
+			}
+			.as-toast-link:hover { text-decoration: underline; }
+
+			/* ── Mobile: icon tabs ─────────────────────────────────── */
+			@media (max-width: 480px) {
+				.as-tab-label { display: none; }
+				.as-tab::before {
+					font-size: 16px;
+					line-height: 1;
+				}
+				.as-btn-label { display: none; }
+			}
+
 			/* ── Save overlay ─────────────────────────────────────── */
 			.as-save-overlay {
 				position: fixed;
@@ -835,6 +930,16 @@
 			</a>
 			<div class="as-bar-title">Avatar Studio</div>
 			<div class="as-actions">
+				<button class="as-btn as-icon-btn" id="as-undo" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3 13C5.5 7.5 12 5 17 8s6 9 3 13"/></svg>
+				</button>
+				<button class="as-btn as-icon-btn" id="as-redo" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+					<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M21 13C18.5 7.5 12 5 7 8S1 17 4 21"/></svg>
+				</button>
+				<button class="as-btn" id="as-randomize" type="button" title="Randomise look">
+					<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px" aria-hidden="true"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+					<span class="as-btn-label">Randomise</span>
+				</button>
 				<button class="as-btn" id="as-reset" type="button">Reset</button>
 				<button class="as-btn primary" id="as-save" type="button">Save avatar</button>
 			</div>
