@@ -93,6 +93,7 @@
 		"test": "vitest run && playwright test",
 		"test:e2e": "playwright test",
 		"test:pages": "node scripts/test-pages.mjs",
+		"verify:ibm": "node scripts/verify-ibm-pages.mjs",
 		"test:all": "npm run test && npm run test:pages",
 		"verify": "prettier --check . && vite build",
 		"format": "prettier --write .",

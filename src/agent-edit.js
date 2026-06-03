@@ -1042,13 +1042,38 @@ function renderVoiceStatus() {
   }
 }
 
+// null  = not yet fetched
+// false = fetched, ElevenLabs not configured
+// []    = fetched, configured, no voices (edge case)
+// [...]  = fetched, configured, voices available
+let voiceEnabledFetched = false;
+
 async function loadVoiceList(filter = '') {
   const container = $('voice-list');
-  if (!voicesCache) {
+  if (!voiceEnabledFetched) {
+    voiceEnabledFetched = true;
     try {
       const r = await apiFetch(`${API_BASE}/tts/eleven/voices`, { credentials: 'include' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
+      if (j.enabled === false) {
+        voicesCache = false;
+        const filterGroup = $('voice-filter')?.closest('.form-group');
+        if (filterGroup) filterGroup.hidden = true;
+        container.innerHTML = `
+          <div class="voice-unconfigured">
+            <div class="voice-unconfigured-icon">🎙</div>
+            <div class="voice-unconfigured-title">ElevenLabs not configured</div>
+            <p class="voice-unconfigured-body">
+              Add <code>ELEVENLABS_API_KEY</code> to your environment variables to unlock
+              AI voice selection, voice cloning, and fine-tuned delivery controls.
+            </p>
+            <a class="btn-ghost" href="https://elevenlabs.io" target="_blank" rel="noopener">
+              Get an API key ›
+            </a>
+          </div>`;
+        return;
+      }
       voicesCache = j.voices || [];
       if (j.models?.length) {
         voiceModelsCache = j.models;
@@ -1059,6 +1084,7 @@ async function loadVoiceList(filter = '') {
       return;
     }
   }
+  if (voicesCache === false) return;
   renderVoiceList(filter);
 }
 
@@ -1077,13 +1103,13 @@ function renderVoiceList(filter = '') {
         <span>${escapeHtml(v.name || v.voice_id)}</span>
         <span class="voice-tile-meta">${escapeHtml(v.category || '')}</span>
       </div>
-      ${v.preview_url ? '<button type="button" class="voice-tile-play" title="Preview">▶</button>' : ''}
+      ${v.preview_url ? '<button type="button" class="voice-tile-play" aria-label="Preview voice" title="Preview">▶</button>' : ''}
     </div>
   `).join('');
   container.querySelectorAll('.voice-tile').forEach((tile) => {
     tile.addEventListener('click', (e) => {
       if (e.target.classList.contains('voice-tile-play')) {
-        playVoicePreview(tile.dataset.preview);
+        playVoicePreview(tile.dataset.preview, e.target);
         return;
       }
       selectVoice(tile.dataset.voiceId);
@@ -1091,11 +1117,33 @@ function renderVoiceList(filter = '') {
   });
 }
 
-function playVoicePreview(url) {
+let voicePreviewBtn = null;
+
+function playVoicePreview(url, btn) {
   if (!url) return;
+  // Stop current preview and reset its button
+  if (voicePreviewBtn && voicePreviewBtn !== btn) {
+    voicePreviewBtn.textContent = '▶';
+    voicePreviewBtn.classList.remove('playing');
+  }
+  // Toggle: clicking the playing button stops it
+  if (voicePreviewAudio && !voicePreviewAudio.paused && voicePreviewBtn === btn) {
+    voicePreviewAudio.pause();
+    if (btn) { btn.textContent = '▶'; btn.classList.remove('playing'); }
+    voicePreviewBtn = null;
+    return;
+  }
   try { voicePreviewAudio?.pause(); } catch {}
   voicePreviewAudio = new Audio(url);
-  voicePreviewAudio.play().catch(() => {});
+  voicePreviewBtn = btn || null;
+  if (btn) { btn.textContent = '■'; btn.classList.add('playing'); }
+  voicePreviewAudio.addEventListener('ended', () => {
+    if (btn) { btn.textContent = '▶'; btn.classList.remove('playing'); }
+    if (voicePreviewBtn === btn) voicePreviewBtn = null;
+  });
+  voicePreviewAudio.play().catch(() => {
+    if (btn) { btn.textContent = '▶'; btn.classList.remove('playing'); }
+  });
 }
 
 async function selectVoice(voiceId) {

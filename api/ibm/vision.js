@@ -130,6 +130,9 @@ async function handleSubjects(req, res) {
 		thumbnail: publicUrl(r.thumbnail_key),
 		model_url: publicUrl(r.storage_key),
 	}));
+	// Subjects list changes at most once an hour; cache aggressively so the demo
+	// loads instantly for repeat visitors while keeping CDN cost negligible.
+	res.setHeader('cache-control', 's-maxage=3600, stale-while-revalidate=86400');
 	return json(res, 200, { subjects, visionModel: VISION_MODEL });
 }
 
@@ -173,10 +176,12 @@ async function handleVision(req, res) {
 			messages: buildVisionMessages(subject, hint, dataUrl),
 		});
 	} catch (e) {
-		// Surface the real upstream cause (auth, unsupported model in region, quota).
+		// Surface the real upstream cause (auth, quota, model not deployed in region).
+		// model_unavailable gives the operator a clear signal to check WATSONX_VISION_MODEL_ID
+		// or the regional model catalogue; vision_failed covers everything else.
 		const msg = String(e?.message || 'watsonx vision request failed');
-		const status = /404|not.*found|unsupported|not.*deployed/i.test(msg) ? 502 : 502;
-		return error(res, status, 'vision_failed', msg);
+		const code = /not.*found|not.*deployed|unsupported.*model/i.test(msg) ? 'model_unavailable' : 'vision_failed';
+		return error(res, 502, code, msg);
 	}
 
 	const vision = parseVision(reply.text);

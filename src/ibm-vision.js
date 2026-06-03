@@ -4,7 +4,8 @@
 // looking at, and sends it to a Granite Vision model on watsonx.ai (via
 // /api/ibm/vision). Granite returns a complete identity inferred purely from how
 // the avatar looks — appearance, vibe, persona, a name, a bio, a fitting voice —
-// which we render as an identity card. You can also upload any image.
+// which we render as an identity card. You can also upload any image or drag one
+// anywhere onto the page.
 //
 // Every read is a real multimodal inference. When watsonx isn't configured the
 // panel says so honestly rather than inventing a description.
@@ -26,19 +27,25 @@ const BUILTINS = [
 	{ id: 'builtin-cz', name: 'CZ', model_url: '/avatars/cz.glb', builtin: true },
 ];
 
+// Loading steps — shown sequentially so the wait feels transparent, not opaque.
+const LOAD_STEPS = ['Capturing frame…', 'Sending to Granite…', 'Reading identity…'];
+
 const els = {};
 const state = {
 	subjects: [],
-	current: null, // { ...subject } or { upload:true, dataUrl, name }
+	current: null, // { ...subject } | { upload:true, dataUrl, name, subject }
 	busy: false,
 };
 
 // Three.js
-let renderer, scene, camera, controls, env, clock;
+let renderer, scene, camera, controls, env;
 let modelRoot = null;
 let loadToken = 0;
 
-const dbg = (window.__vision = {
+// Step-progress timer handle
+let stepTimer = null;
+
+export const dbg = (window.__vision = {
 	ready: false,
 	status: 'init',
 	subjects: 0,
@@ -59,10 +66,12 @@ function boot() {
 function cacheEls() {
 	for (const id of [
 		'vision-stage', 'v-photo', 'v-photo-img', 'v-model', 'v-stage-hint',
-		'v-idle', 'v-loading', 'v-result', 'v-rawstate', 'v-error', 'v-error-title', 'v-error-sub', 'v-error-retry',
+		'v-idle', 'v-loading', 'v-loading-step',
+		'v-result', 'v-usage-badge',
+		'v-rawstate', 'v-error', 'v-error-title', 'v-error-sub', 'v-error-retry',
 		'v-name', 'v-bio', 'v-appearance', 'v-appearance-wrap', 'v-persona', 'v-persona-wrap',
 		'v-vibe', 'v-vibe-wrap', 'v-tags', 'v-tags-wrap', 'v-voice', 'v-voice-wrap', 'v-raw',
-		'v-copy', 'v-create', 'v-subjects', 'v-upload', 'v-file', 'v-show',
+		'v-copy', 'v-read-again', 'v-read-again-raw', 'v-create', 'v-subjects', 'v-upload', 'v-file', 'v-show',
 	]) {
 		els[id] = $(id);
 	}
@@ -80,7 +89,7 @@ async function loadSubjects() {
 			if (body.visionModel) model = body.visionModel.replace(/^ibm\//, '');
 		}
 	} catch {
-		/* dev proxy / not-deployed: fall back to built-ins only */
+		/* dev / not-yet-deployed: fall back to built-ins */
 	}
 	els['v-model'].textContent = model;
 	state.subjects = [...BUILTINS, ...fetched];
@@ -117,14 +126,17 @@ function selectSubject(i) {
 	for (const b of els['v-subjects'].querySelectorAll('.subject')) {
 		b.classList.toggle('sel', Number(b.dataset.index) === i);
 	}
-	// Switch to 3D view.
-	els['v-photo'].style.display = 'none';
-	els['vision-stage'].style.display = 'block';
-	if (els['v-stage-hint']) els['v-stage-hint'].style.opacity = '1';
+	showStage();
 	loadModel(s.model_url);
 }
 
-// ── Upload ───────────────────────────────────────────────────────────────────
+function showStage() {
+	els['v-photo'].style.display = 'none';
+	els['vision-stage'].style.display = 'block';
+	if (els['v-stage-hint']) els['v-stage-hint'].style.opacity = '1';
+}
+
+// ── Upload / Drag-and-drop ────────────────────────────────────────────────────
 function handleUpload(file) {
 	if (!file || !file.type.startsWith('image/')) return;
 	const reader = new FileReader();
@@ -148,6 +160,7 @@ async function showGranite() {
 	const prevLabel = els['v-show'].textContent;
 	els['v-show'].textContent = 'Looking…';
 	setState('loading');
+	startLoadingSteps();
 
 	try {
 		const payload = await buildPayload(state.current);
@@ -160,18 +173,26 @@ async function showGranite() {
 
 		if (!res.ok) {
 			if (res.status === 503 && body.error === 'watsonx_unavailable') {
-				return showError('IBM Granite Vision isn’t connected', body.error_description ||
-					'Granite Vision runs on watsonx.ai. Once credentials are configured, it can see your avatar.');
+				return showError(
+					'IBM Granite Vision isn’t connected',
+					body.error_description ||
+						'Granite Vision runs on watsonx.ai. Once credentials are configured, it can see your avatar.',
+					false,
+				);
 			}
-			return showError('Granite couldn’t look', body.error_description || `Request failed (${res.status}).`);
+			return showError(
+				body.error === 'model_unavailable' ? 'Model not available in this region' : 'Granite couldn’t look',
+				body.error_description || `Request failed (${res.status}).`,
+			);
 		}
 
 		dbg.lastResult = body;
-		if (body.vision && body.vision.structured) renderResult(body.vision);
+		if (body.vision && body.vision.structured) renderResult(body.vision, body);
 		else renderRaw(body.raw || (body.vision && body.vision.persona) || 'Granite returned no readable description.');
 	} catch (err) {
 		showError('Granite couldn’t look', err?.message || 'Network error.');
 	} finally {
+		stopLoadingSteps();
 		state.busy = false;
 		els['v-show'].disabled = false;
 		els['v-show'].textContent = prevLabel;
@@ -179,8 +200,8 @@ async function showGranite() {
 }
 
 // Decide what image to send: an uploaded data URL, a clean live capture of the 3D
-// frame, or the avatar's thumbnail URL for the server to fetch (when the captured
-// canvas is cross-origin-tainted).
+// frame, or the avatar's thumbnail URL for the server to fetch (when the canvas
+// is cross-origin-tainted, e.g. headless or public CDN textures).
 async function buildPayload(subject) {
 	if (subject.upload) return { image: subject.dataUrl, subject: 'image' };
 
@@ -194,8 +215,8 @@ async function buildPayload(subject) {
 	throw new Error('Could not capture this avatar — try another or upload an image.');
 }
 
-// Capture the current 3D frame as a JPEG data URL. Renders once against a readable
-// background first. Returns null if the canvas is tainted (cross-origin textures).
+// Capture the current 3D frame as a JPEG data URL against a solid background so
+// Granite sees the avatar clearly. Returns null if the canvas is tainted.
 function captureFrame() {
 	if (!renderer || !modelRoot) return null;
 	const prevBg = scene.background;
@@ -205,14 +226,28 @@ function captureFrame() {
 		const url = renderer.domElement.toDataURL('image/jpeg', 0.9);
 		return url && url.length > 1000 ? url : null;
 	} catch {
-		return null; // SecurityError → tainted canvas
+		return null; // SecurityError: tainted canvas from cross-origin textures
 	} finally {
 		scene.background = prevBg;
 	}
 }
 
+// ── Step progress ─────────────────────────────────────────────────────────────
+function startLoadingSteps() {
+	let i = 0;
+	if (els['v-loading-step']) els['v-loading-step'].textContent = LOAD_STEPS[0];
+	stopLoadingSteps(); // clear any prior timer
+	stepTimer = setInterval(() => {
+		i = Math.min(i + 1, LOAD_STEPS.length - 1);
+		if (els['v-loading-step']) els['v-loading-step'].textContent = LOAD_STEPS[i];
+	}, 1300);
+}
+function stopLoadingSteps() {
+	if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
+}
+
 // ── Result rendering ─────────────────────────────────────────────────────────
-function renderResult(v) {
+function renderResult(v, response) {
 	els['v-name'].textContent = v.suggested_name || 'Unnamed';
 	setText(els['v-bio'], v.bio);
 	setField('v-appearance', 'v-appearance-wrap', v.appearance);
@@ -221,22 +256,24 @@ function renderResult(v) {
 	renderChips('v-tags', 'v-tags-wrap', v.tone_tags || []);
 	setField('v-voice', 'v-voice-wrap', v.voice);
 
-	// Stash the identity for the agent creator + copy.
+	// Token usage badge: makes the demo feel transparent and shows it's real AI.
+	const u = response?.usage;
+	if (u && els['v-usage-badge']) {
+		const total = u.total_tokens || ((u.prompt_tokens || 0) + (u.completion_tokens || 0));
+		els['v-usage-badge'].textContent = `${total} tokens · ${(response.model || '').replace('ibm/', '')}`;
+		els['v-usage-badge'].hidden = false;
+	}
+
+	// Stash for agent creator deep-link + copy.
 	const identity = {
-		name: v.suggested_name,
-		bio: v.bio,
-		appearance: v.appearance,
-		persona: v.persona,
-		vibe: v.vibe,
-		tone_tags: v.tone_tags,
-		voice: v.voice,
+		name: v.suggested_name, bio: v.bio, appearance: v.appearance,
+		persona: v.persona, vibe: v.vibe, tone_tags: v.tone_tags, voice: v.voice,
 	};
 	els['v-copy'].onclick = () => copyJson(identity, els['v-copy']);
-	try {
-		localStorage.setItem('gv:identity', JSON.stringify(identity));
-	} catch {
-		/* storage may be unavailable; the create link still works */
-	}
+	if (els['v-read-again']) els['v-read-again'].onclick = showGranite;
+	if (els['v-read-again-raw']) els['v-read-again-raw'].onclick = showGranite;
+	try { localStorage.setItem('gv:identity', JSON.stringify(identity)); } catch { /* ok */ }
+
 	const q = new URLSearchParams();
 	if (v.suggested_name) q.set('name', v.suggested_name);
 	if (v.bio) q.set('bio', v.bio);
@@ -250,16 +287,20 @@ function renderRaw(text) {
 	setState('rawstate');
 }
 
-function showError(title, sub) {
+function showError(title, sub, retryable = true) {
 	dbg.status = 'error';
 	dbg.error = sub;
 	els['v-error-title'].textContent = title;
 	els['v-error-sub'].textContent = sub;
+	els['v-error-retry'].hidden = !retryable;
 	setState('error');
 }
 
 function setState(name) {
-	const map = { idle: 'v-idle', loading: 'v-loading', result: 'v-result', rawstate: 'v-rawstate', error: 'v-error' };
+	const map = {
+		idle: 'v-idle', loading: 'v-loading', result: 'v-result',
+		rawstate: 'v-rawstate', error: 'v-error',
+	};
 	for (const [key, id] of Object.entries(map)) {
 		els[id].classList.toggle('on', key === name);
 	}
@@ -281,7 +322,6 @@ function setupThree() {
 	stage.appendChild(renderer.domElement);
 
 	scene = new THREE.Scene();
-
 	const pmrem = new THREE.PMREMGenerator(renderer);
 	env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 	scene.environment = env;
@@ -308,7 +348,6 @@ function setupThree() {
 	controls.autoRotateSpeed = 0.9;
 	controls.addEventListener('start', () => (controls.autoRotate = false));
 
-	clock = new THREE.Clock();
 	const ro = new ResizeObserver(resize);
 	ro.observe(stage);
 	resize();
@@ -322,7 +361,7 @@ function setupThree() {
 let _draco = null;
 function gltfLoader() {
 	const loader = new GLTFLoader();
-	loader.setCrossOrigin('anonymous'); // request CORS-clean textures so captures aren't tainted
+	loader.setCrossOrigin('anonymous');
 	if (!_draco) {
 		_draco = new DRACOLoader();
 		_draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
@@ -341,10 +380,7 @@ function loadModel(url) {
 	gltfLoader().load(
 		url,
 		(gltf) => {
-			if (token !== loadToken) {
-				disposeObject(gltf.scene);
-				return; // a newer selection superseded this load
-			}
+			if (token !== loadToken) { disposeObject(gltf.scene); return; }
 			modelRoot = gltf.scene;
 			frameModel(modelRoot);
 			scene.add(modelRoot);
@@ -356,26 +392,25 @@ function loadModel(url) {
 		(err) => {
 			if (token !== loadToken) return;
 			console.warn('[granite-vision] model load failed', url, err);
-			// Don't blank the UI — if a thumbnail exists we can still show Granite that.
 			if (!state.current?.thumbnail) {
-				showError('Couldn’t load this avatar', 'The 3D model failed to load. Pick another, or upload an image.');
+				showError(
+					'Couldn’t load this avatar',
+					'The 3D model failed to load. Pick another, or upload an image.',
+				);
 			}
 		},
 	);
 }
 
-// Center the model on the origin and frame the camera to it.
 function frameModel(root) {
 	const box = new THREE.Box3().setFromObject(root);
 	const size = box.getSize(new THREE.Vector3());
 	const center = box.getCenter(new THREE.Vector3());
 	root.position.x -= center.x;
 	root.position.z -= center.z;
-	root.position.y -= box.min.y; // feet on the ground plane
+	root.position.y -= box.min.y; // feet on the ground
 
 	const height = size.y || 1.7;
-	// Feet now sit at y=0, so aim at the upper body (where the face/identity lives)
-	// and stand back far enough to frame the whole figure with headroom.
 	controls.target.set(0, height * 0.62, 0);
 	const dist = height * 1.5 + 0.6;
 	camera.position.set(0, height * 0.7, dist);
@@ -400,21 +435,61 @@ function bindUI() {
 	els['v-upload'].addEventListener('click', () => els['v-file'].click());
 	els['v-file'].addEventListener('change', (e) => handleUpload(e.target.files?.[0]));
 	els['v-error-retry'].addEventListener('click', () => setState('idle'));
-	// Fade the stage hint once the user starts interacting.
-	const fade = () => {
+
+	// Fade the stage hint once the user first touches it.
+	els['vision-stage'].addEventListener('pointerdown', () => {
 		if (els['v-stage-hint']) els['v-stage-hint'].style.opacity = '0';
-	};
-	els['vision-stage'].addEventListener('pointerdown', fade, { once: true });
+	}, { once: true });
+
+	// ── Drag-and-drop anywhere on the page ───────────────────────────────────
+	// Users can drag an image from desktop/Finder/browser onto the stage or the
+	// photo area without having to click Upload first.
+	let dragDepth = 0;
+	document.addEventListener('dragenter', (e) => {
+		if (!hasDragFile(e)) return;
+		dragDepth++;
+		document.body.classList.add('drag-active');
+	});
+	document.addEventListener('dragleave', () => {
+		dragDepth = Math.max(0, dragDepth - 1);
+		if (dragDepth === 0) document.body.classList.remove('drag-active');
+	});
+	document.addEventListener('dragover', (e) => {
+		if (hasDragFile(e)) e.preventDefault();
+	});
+	document.addEventListener('drop', (e) => {
+		dragDepth = 0;
+		document.body.classList.remove('drag-active');
+		const file = e.dataTransfer?.files?.[0];
+		if (file?.type.startsWith('image/')) {
+			e.preventDefault();
+			handleUpload(file);
+		}
+	});
+
+	// ── Keyboard shortcuts ────────────────────────────────────────────────────
+	document.addEventListener('keydown', (e) => {
+		// Enter triggers Show Granite when not in a text input.
+		if (e.key === 'Enter' && !isInput(e.target) && !state.busy) showGranite();
+		// Escape → back to idle (dismiss result/error, clear focus).
+		if (e.key === 'Escape') {
+			const active = ['v-result', 'v-rawstate', 'v-error'].find((id) => els[id]?.classList.contains('on'));
+			if (active) setState('idle');
+		}
+	});
+}
+
+function hasDragFile(e) {
+	return Array.from(e.dataTransfer?.items || []).some((i) => i.kind === 'file');
+}
+function isInput(el) {
+	return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function setText(el, text) {
-	if (text) {
-		el.textContent = text;
-		el.style.display = '';
-	} else {
-		el.style.display = 'none';
-	}
+	if (text) { el.textContent = text; el.style.display = ''; }
+	else el.style.display = 'none';
 }
 function setField(textId, wrapId, value) {
 	els[textId].textContent = value || '';
@@ -422,10 +497,7 @@ function setField(textId, wrapId, value) {
 }
 function renderChips(listId, wrapId, items) {
 	els[listId].innerHTML = '';
-	if (!items || !items.length) {
-		els[wrapId].style.display = 'none';
-		return;
-	}
+	if (!items?.length) { els[wrapId].style.display = 'none'; return; }
 	els[wrapId].style.display = '';
 	for (const t of items) {
 		const c = document.createElement('span');
@@ -435,26 +507,17 @@ function renderChips(listId, wrapId, items) {
 	}
 }
 function splitList(s) {
-	return String(s || '')
-		.split(/[,/]/)
-		.map((x) => x.trim())
-		.filter(Boolean)
-		.slice(0, 8);
+	return String(s || '').split(/[,/]/).map((x) => x.trim()).filter(Boolean).slice(0, 8);
 }
 async function copyJson(obj, btn) {
 	const text = JSON.stringify(obj, null, 2);
-	try {
-		await navigator.clipboard.writeText(text);
-	} catch {
+	try { await navigator.clipboard.writeText(text); }
+	catch {
 		const ta = document.createElement('textarea');
 		ta.value = text;
 		document.body.appendChild(ta);
 		ta.select();
-		try {
-			document.execCommand('copy');
-		} catch {
-			/* clipboard unavailable */
-		}
+		try { document.execCommand('copy'); } catch { /* not available */ }
 		ta.remove();
 	}
 	const prev = btn.textContent;
@@ -465,11 +528,8 @@ function disposeObject(obj) {
 	obj.traverse((c) => {
 		if (c.geometry) c.geometry.dispose();
 		if (c.material) {
-			const mats = Array.isArray(c.material) ? c.material : [c.material];
-			for (const m of mats) {
-				for (const k in m) {
-					if (m[k] && m[k].isTexture) m[k].dispose();
-				}
+			for (const m of [].concat(c.material)) {
+				for (const k in m) if (m[k]?.isTexture) m[k].dispose();
 				m.dispose();
 			}
 		}
@@ -477,13 +537,12 @@ function disposeObject(obj) {
 }
 function dispose() {
 	try {
+		stopLoadingSteps();
 		renderer?.setAnimationLoop(null);
 		if (modelRoot) disposeObject(modelRoot);
 		env?.dispose?.();
 		renderer?.dispose();
-	} catch {
-		/* unloading */
-	}
+	} catch { /* unloading */ }
 }
 
 // ── Start ────────────────────────────────────────────────────────────────────
