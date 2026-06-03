@@ -17,6 +17,7 @@ import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
 import { requireCsrf } from './_lib/csrf.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { generateAgentWallet, generateSolanaAgentWallet } from './_lib/agent-wallet.js';
+import { checkIdentityIntegrity } from './_lib/identity-integrity.js';
 import { publicUrl } from './_lib/r2.js';
 import { pingIndexNow } from './_lib/indexnow.js';
 import { env } from './_lib/env.js';
@@ -191,6 +192,30 @@ async function handleCreate(req, res) {
 		avatarId = av.id;
 	}
 
+	// Granite identity-integrity gate. Refuse to mint an identity that impersonates
+	// an existing public agent (Granite embedding look-alike) or fails Granite
+	// Guardian content screening. Best-effort: any failure — or watsonx being
+	// unconfigured — lets creation proceed rather than failing closed.
+	let integrity = null;
+	try {
+		integrity = await checkIdentityIntegrity(
+			{ name, description: body.description, persona_tone_tags: body.persona_tone_tags },
+			{ userId: auth.userId },
+		);
+		if (integrity.status === 'block') {
+			return error(
+				res,
+				409,
+				'identity_conflict',
+				integrity.reasons[0] || 'this identity conflicts with an existing agent',
+				{ integrity },
+			);
+		}
+	} catch (err) {
+		console.error('[agents] identity_integrity_check_failed', err);
+		integrity = null;
+	}
+
 	const wallet = await generateAgentWallet();
 	const sol = await generateSolanaAgentWallet();
 	const meta = {
@@ -199,6 +224,17 @@ async function handleCreate(req, res) {
 		solana_address: sol.address,
 		encrypted_solana_secret: sol.encrypted_secret,
 	};
+	// Stamp the integrity verdict onto the identity so the profile/editor can show
+	// a "distinct identity" signal and reviewers can see what was checked at birth.
+	if (integrity && integrity.configured) {
+		meta.identity_integrity = {
+			status: integrity.status,
+			uniqueness: integrity.uniqueness,
+			guardian: integrity.guardian ? integrity.guardian.decision : null,
+			closest: integrity.similar[0] ? { name: integrity.similar[0].name, score: integrity.similar[0].score } : null,
+			checked_at: new Date().toISOString(),
+		};
+	}
 
 	const [agent] = await sql`
 		INSERT INTO agent_identities (user_id, name, description, skills, wallet_address, meta, avatar_id)

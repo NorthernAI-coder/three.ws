@@ -169,7 +169,8 @@ function clampScenario(raw = {}) {
 }
 function scenarioLabel(s) {
 	const parts = [];
-	if (s.priceShockPct) parts.push(`${s.priceShockPct > 0 ? '+' : ''}${s.priceShockPct}% demand shock`);
+	if (s.priceShockPct)
+		parts.push(`${s.priceShockPct > 0 ? '+' : ''}${s.priceShockPct}% demand shock`);
 	if (s.volatilityScale !== 1) parts.push(`${s.volatilityScale}× volatility`);
 	if (s.momentumFlip) parts.push('momentum reversal');
 	return parts.length ? parts.join(' · ') : 'baseline (no perturbation)';
@@ -233,7 +234,11 @@ async function loadSeries(params) {
 	let pool = (params.pool || '').trim();
 	const token = (params.token || '').trim();
 	if (!pool && token) {
-		if (!isBase58(token)) throw Object.assign(new Error('token must be a base58 mint'), { status: 400, code: 'bad_token' });
+		if (!isBase58(token))
+			throw Object.assign(new Error('token must be a base58 mint'), {
+				status: 400,
+				code: 'bad_token',
+			});
 		pool = await topPoolForToken(token, network);
 	}
 	if (!pool || !isBase58(pool)) {
@@ -242,9 +247,17 @@ async function loadSeries(params) {
 			code: 'bad_request',
 		});
 	}
-	const timeframe = ['minute', 'hour', 'day'].includes(params.timeframe) ? params.timeframe : 'hour';
+	const timeframe = ['minute', 'hour', 'day'].includes(params.timeframe)
+		? params.timeframe
+		: 'hour';
 	const aggregate = clamp(parseInt(params.aggregate || '1', 10) || 1, 1, 60);
-	const { candles, base, quote, freq } = await fetchOhlcv({ pool, network, timeframe, aggregate, limit: 1000 });
+	const { candles, base, quote, freq } = await fetchOhlcv({
+		pool,
+		network,
+		timeframe,
+		aggregate,
+		limit: 1000,
+	});
 	if (candles.length < 64) {
 		throw Object.assign(new Error('not enough candle history to model this pool'), {
 			status: 422,
@@ -294,7 +307,10 @@ async function handleGet(req, res) {
 		return json(res, 200, out, { 'cache-control': 'public, max-age=20, s-maxage=30' });
 	}
 	if (candles.length < 512) {
-		out.ibm = { configured: true, error: `need ≥512 candles for Granite TimeSeries, have ${candles.length}` };
+		out.ibm = {
+			configured: true,
+			error: `need ≥512 candles for Granite TimeSeries, have ${candles.length}`,
+		};
 		return json(res, 200, out, { 'cache-control': 'public, max-age=20' });
 	}
 
@@ -331,7 +347,11 @@ async function handleGet(req, res) {
 		const points = pointsFrom(projFc);
 		const stats = forecastStats(vitals.currentPrice, points, timeframe, aggregate);
 		out.projection = { points, stats, model: projFc.model };
-		out.ibm = { configured: true, forecastModel: projFc.model, inputWindow: projFc.inputWindow };
+		out.ibm = {
+			configured: true,
+			forecastModel: projFc.model,
+			inputWindow: projFc.inputWindow,
+		};
 
 		if (btFc && realized) {
 			const predicted = pointsFrom(btFc);
@@ -400,7 +420,10 @@ async function handlePost(req, res) {
 		return json(res, 200, out);
 	}
 	if (candles.length < 512) {
-		out.ibm = { configured: true, error: `need ≥512 candles for Granite TimeSeries, have ${candles.length}` };
+		out.ibm = {
+			configured: true,
+			error: `need ≥512 candles for Granite TimeSeries, have ${candles.length}`,
+		};
 		return json(res, 200, out);
 	}
 
@@ -413,14 +436,36 @@ async function handlePost(req, res) {
 
 	try {
 		const [baseFc, simFc] = await Promise.all([
-			watsonxForecast(cfg, { model, timestamps, values: baseValues, freq, targetColumn: 'price' }),
-			watsonxForecast(cfg, { model, timestamps, values: simValues, freq, targetColumn: 'price' }),
+			watsonxForecast(cfg, {
+				model,
+				timestamps,
+				values: baseValues,
+				freq,
+				targetColumn: 'price',
+			}),
+			watsonxForecast(cfg, {
+				model,
+				timestamps,
+				values: simValues,
+				freq,
+				targetColumn: 'price',
+			}),
 		]);
 
 		const basePoints = pointsFrom(baseFc);
 		const simPoints = pointsFrom(simFc);
-		const baseStats = forecastStats(baseValues[baseValues.length - 1], basePoints, timeframe, aggregate);
-		const simStats = forecastStats(simValues[simValues.length - 1], simPoints, timeframe, aggregate);
+		const baseStats = forecastStats(
+			baseValues[baseValues.length - 1],
+			basePoints,
+			timeframe,
+			aggregate,
+		);
+		const simStats = forecastStats(
+			simValues[simValues.length - 1],
+			simPoints,
+			timeframe,
+			aggregate,
+		);
 
 		out.baseline = { points: basePoints, stats: baseStats };
 		out.simulated = { points: simPoints, stats: simStats };
@@ -428,7 +473,11 @@ async function handlePost(req, res) {
 			changePctDelta: simStats.changePct - baseStats.changePct,
 			endDeltaPct: pctChange(baseStats.end, simStats.end),
 		};
-		out.ibm = { configured: true, forecastModel: baseFc.model, inputWindow: baseFc.inputWindow };
+		out.ibm = {
+			configured: true,
+			forecastModel: baseFc.model,
+			inputWindow: baseFc.inputWindow,
+		};
 
 		try {
 			const user =

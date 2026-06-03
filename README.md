@@ -15,6 +15,7 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 - [Platform Pages](#platform-pages)
 - [Cloud Marketplaces](#cloud-marketplaces)
 - [Ecosystem Directories](#ecosystem-directories)
+- [IBM watsonx & Granite](#ibm-watsonx--granite)
 - [Screenshots](#screenshots)
 - [Architecture](#architecture)
     - [Design Docs & Specs](#design-docs--specs)
@@ -349,6 +350,7 @@ A map of every user-facing route. Full detail (source files, feature description
 | **Admin / Rep**      | `/admin`, `/reputation`                                                                         | Staff admin, reputation registry                                                                                |
 | **Experiments**      | `/rider`                                                                                        | A-Frame WebVR music visualization                                                                               |
 | **Integrations**     | `/cz`, `/lobehub/iframe`                                                                        | CZ demo, LobeHub plugin                                                                                         |
+| **IBM Showcase**     | `/ibm`, `/ibm/galaxy`, `/ibm/oracle`, `/ibm/twin`, `/ibm/trust-layer`, `/ibm/proof`, `/ibm/vision` | Granite on watsonx.ai — semantic galaxy, TimeSeries oracle, digital twin, Guardian trust layer, on-chain proof, vision |
 | **Docs**             | `/docs`, `/docs/widgets`                                                                        | Developer documentation                                                                                         |
 | **Legal**            | `/legal/privacy`, `/legal/tos`                                                                  | Privacy policy and terms                                                                                        |
 
@@ -371,6 +373,22 @@ three.ws is indexed in chain-ecosystem dApp directories so the community can dis
 | Directory               | Status                                                                                                                                       |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **BNB Chain · Dappbay** | Live: [dappbay.bnbchain.org/detail/three →](https://dappbay.bnbchain.org/detail/three) — categories: AI Agent Launchpad · AI Data · AI Infra |
+
+---
+
+## IBM watsonx & Granite
+
+three.ws is an **IBM Business Partner**, and the agent runtime runs on **IBM Granite** foundation models served through **IBM watsonx.ai**. One IBM Cloud API key + project unlocks the whole suite; every call is real inference (no mock path — endpoints return `503` when unconfigured). Full docs: **[docs/ibm.md](docs/ibm.md)**. Live showcase: **[three.ws/ibm](https://three.ws/ibm)**.
+
+| Granite model | Where it runs |
+| ------------- | ------------- |
+| `granite-3-8b-instruct` | Selectable avatar **brain** + all narration |
+| `granite-guardian-3-8b` | **Trust Layer** — allow/review/block governance gate, inline in `/api/chat` before an avatar moves value |
+| `granite-ttm-512/1024/1536-96-r2` | **TimeSeries** forecasting (Oracle, Twin, Proof) |
+| `granite-embedding-278m-multilingual` | **Semantic** agent map + `/api/watsonx/embed` |
+| `granite-vision-3-2-2b` | **Vision** — reads an avatar into a full agent identity |
+
+Six showcase surfaces put it on screen, linked from the [hub](https://three.ws/ibm): the [Agent Galaxy](https://three.ws/ibm/galaxy) (semantic 3D star-map), the [Granite Oracle](https://three.ws/ibm/oracle) (narrated forecast), the [Digital Twin](https://three.ws/ibm/twin) (back-test + what-if), the [Trust Layer](https://three.ws/ibm/trust-layer) (Guardian + hash-chained audit ledger), [Granite Proof](https://three.ws/ibm/proof) (a Guardian-governed forecast notarized on Solana), and [Granite Vision](https://three.ws/ibm/vision). The standalone connector [`@three-ws/ibm-watsonx-mcp`](packages/ibm-watsonx-mcp/) exposes watsonx.ai to any MCP host — it is community-built and not an IBM product; the hosted platform integration is what runs on IBM watsonx.ai.
 
 ---
 

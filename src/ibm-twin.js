@@ -134,11 +134,21 @@ const core = (() => {
 	const shellGeo = new THREE.IcosahedronGeometry(1.28, 2);
 	const shell = new THREE.Mesh(
 		shellGeo,
-		new THREE.MeshBasicMaterial({ color: IBM.white, wireframe: true, transparent: true, opacity: 0.18 }),
+		new THREE.MeshBasicMaterial({
+			color: IBM.white,
+			wireframe: true,
+			transparent: true,
+			opacity: 0.18,
+		}),
 	);
 	const halo = new THREE.Mesh(
 		new THREE.SphereGeometry(1.7, 28, 28),
-		new THREE.MeshBasicMaterial({ color: STATE_COLOR.calm, transparent: true, opacity: 0.07, depthWrite: false }),
+		new THREE.MeshBasicMaterial({
+			color: STATE_COLOR.calm,
+			transparent: true,
+			opacity: 0.07,
+			depthWrite: false,
+		}),
 	);
 	const group = new THREE.Group();
 	group.add(halo, solid, shell);
@@ -147,8 +157,20 @@ const core = (() => {
 })();
 
 // Target vitals the core eases toward (so live updates are smooth, not jumpy).
-const vitalsTarget = { color: new THREE.Color(STATE_COLOR.calm), turbulence: 0.04, pulseHz: 1, activity: 0.4, scale: 1 };
-const vitalsNow = { color: new THREE.Color(STATE_COLOR.calm), turbulence: 0.04, pulseHz: 1, activity: 0.4, scale: 1 };
+const vitalsTarget = {
+	color: new THREE.Color(STATE_COLOR.calm),
+	turbulence: 0.04,
+	pulseHz: 1,
+	activity: 0.4,
+	scale: 1,
+};
+const vitalsNow = {
+	color: new THREE.Color(STATE_COLOR.calm),
+	turbulence: 0.04,
+	pulseHz: 1,
+	activity: 0.4,
+	scale: 1,
+};
 
 function setVitals(v) {
 	if (!v) return;
@@ -175,7 +197,8 @@ scene.add(histGroup, projGroup, fidGroup, simGroup);
 function disposeGroup(g) {
 	g.traverse((o) => {
 		if (o.geometry) o.geometry.dispose();
-		if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+		if (o.material)
+			(Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
 	});
 	scene.remove(g);
 }
@@ -203,14 +226,23 @@ function glowTube(points, color, radius, opacity = 1, clip = null) {
 	);
 	const halo = new THREE.Mesh(
 		new THREE.TubeGeometry(curve, seg, radius * 2.6, 8, false),
-		new THREE.MeshBasicMaterial({ color, transparent: true, opacity: opacity * 0.16, depthWrite: false, clippingPlanes: clip }),
+		new THREE.MeshBasicMaterial({
+			color,
+			transparent: true,
+			opacity: opacity * 0.16,
+			depthWrite: false,
+			clippingPlanes: clip,
+		}),
 	);
 	const g = new THREE.Group();
 	g.add(core_, halo);
 	return g;
 }
 function marker(pos, color, r = 0.13) {
-	const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 18), new THREE.MeshBasicMaterial({ color }));
+	const m = new THREE.Mesh(
+		new THREE.SphereGeometry(r, 18, 18),
+		new THREE.MeshBasicMaterial({ color }),
+	);
 	m.position.copy(pos);
 	const halo = new THREE.Mesh(
 		new THREE.SphereGeometry(r * 2.4, 18, 18),
@@ -221,7 +253,13 @@ function marker(pos, color, r = 0.13) {
 }
 function dashedLine(points, color, opacity) {
 	const geo = new THREE.BufferGeometry().setFromPoints(points);
-	const mat = new THREE.LineDashedMaterial({ color, transparent: true, opacity, dashSize: 0.18, gapSize: 0.12 });
+	const mat = new THREE.LineDashedMaterial({
+		color,
+		transparent: true,
+		opacity,
+		dashSize: 0.18,
+		gapSize: 0.12,
+	});
 	const line = new THREE.Line(geo, mat);
 	line.computeLineDistances();
 	return line;
@@ -260,7 +298,12 @@ function renderSnapshot(data) {
 	// "Now" seam at the core.
 	const seamLine = new THREE.Mesh(
 		new THREE.PlaneGeometry(0.012, HEIGHT * 1.1),
-		new THREE.MeshBasicMaterial({ color: IBM.white, transparent: true, opacity: 0.22, side: THREE.DoubleSide }),
+		new THREE.MeshBasicMaterial({
+			color: IBM.white,
+			transparent: true,
+			opacity: 0.22,
+			side: THREE.DoubleSide,
+		}),
 	);
 	seamLine.position.set(0, 0, 0);
 	histGroup.add(seamLine);
@@ -272,9 +315,18 @@ function renderSnapshot(data) {
 		const dir = data.projection.stats.direction;
 		const col = dir === 'up' ? IBM.up : dir === 'down' ? IBM.down : IBM.flat;
 		const seam = new THREE.Vector3(0, 0, 0);
-		const fPts = [seam, ...projection.map((p) => new THREE.Vector3(mapXProj(p.t), mapY(p.c), 0))];
+		const fPts = [
+			seam,
+			...projection.map((p) => new THREE.Vector3(mapXProj(p.t), mapY(p.c), 0)),
+		];
 		projGroup.add(glowTube(fPts, col, 0.04, 0.95));
-		projGroup.add(uncertaintyRibbon(fPts, mapY(data.projection.stats.high) - mapY(data.projection.stats.low), col));
+		projGroup.add(
+			uncertaintyRibbon(
+				fPts,
+				mapY(data.projection.stats.high) - mapY(data.projection.stats.low),
+				col,
+			),
+		);
 		projGroup.add(marker(fPts[fPts.length - 1], col, 0.15));
 	}
 
@@ -283,7 +335,9 @@ function renderSnapshot(data) {
 	fidGroup = replace(fidGroup);
 	if (fid && fid.realized?.length && fid.predicted?.length) {
 		const rPts = fid.realized.map((p) => new THREE.Vector3(mapXHist(p.t), mapY(p.c), 0.02));
-		const pPts = fid.predicted.map((p, i) => new THREE.Vector3(mapXHist(fid.realized[i]?.t ?? p.t), mapY(p.c), 0.02));
+		const pPts = fid.predicted.map(
+			(p, i) => new THREE.Vector3(mapXHist(fid.realized[i]?.t ?? p.t), mapY(p.c), 0.02),
+		);
 		fidGroup.add(dashedLine(rPts, IBM.white, 0.35));
 		fidGroup.add(dashedLine(pPts, 0x33b1ff, 0.5));
 	}
@@ -309,7 +363,13 @@ function uncertaintyRibbon(pts, fullBand, color) {
 	geo.setIndex(idx);
 	return new THREE.Mesh(
 		geo,
-		new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false }),
+		new THREE.MeshBasicMaterial({
+			color,
+			transparent: true,
+			opacity: 0.14,
+			side: THREE.DoubleSide,
+			depthWrite: false,
+		}),
 	);
 }
 
@@ -318,8 +378,14 @@ function renderScenario(data) {
 	simGroup = replace(simGroup);
 	if (!data.baseline?.points?.length || !data.simulated?.points?.length) return;
 	const seam = new THREE.Vector3(0, 0, 0);
-	const basePts = [seam, ...data.baseline.points.map((p) => new THREE.Vector3(mapXProj(p.t), mapY(p.c), 0.04))];
-	const simPts = [seam, ...data.simulated.points.map((p) => new THREE.Vector3(mapXProj(p.t), mapY(p.c), 0.04))];
+	const basePts = [
+		seam,
+		...data.baseline.points.map((p) => new THREE.Vector3(mapXProj(p.t), mapY(p.c), 0.04)),
+	];
+	const simPts = [
+		seam,
+		...data.simulated.points.map((p) => new THREE.Vector3(mapXProj(p.t), mapY(p.c), 0.04)),
+	];
 	simGroup.add(dashedLine(basePts, IBM.flat, 0.45));
 	const simDir = data.simulated.stats.direction;
 	const simCol = simDir === 'up' ? IBM.up : simDir === 'down' ? IBM.down : IBM.warn;
@@ -329,7 +395,10 @@ function renderScenario(data) {
 	// runs don't compound. renderSnapshot() rebuilds projGroup and clears the flag.
 	if (!projDimmed) {
 		projGroup.traverse((o) => {
-			if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => (m.opacity *= 0.35));
+			if (o.material)
+				(Array.isArray(o.material) ? o.material : [o.material]).forEach(
+					(m) => (m.opacity *= 0.35),
+				);
 		});
 		projDimmed = true;
 	}
@@ -418,7 +487,9 @@ function narrate(text, emotion, sentiment) {
 		}
 		if (emotion) {
 			avatar.dispatchEvent(
-				new CustomEvent('agent:action', { detail: { type: 'emote', payload: { trigger: emotion, weight: 1 } } }),
+				new CustomEvent('agent:action', {
+					detail: { type: 'emote', payload: { trigger: emotion, weight: 1 } },
+				}),
 			);
 		}
 	} else {
@@ -495,9 +566,12 @@ async function spawn(target, { silent = false } = {}) {
 	activeTarget = target;
 	clearScenario();
 	hud.sim.out.classList.remove('show');
-	if (!silent) setStatus(`Mirroring ${target.label || target.token || 'market'} on IBM Granite…`, true);
+	if (!silent)
+		setStatus(`Mirroring ${target.label || target.token || 'market'} on IBM Granite…`, true);
 	try {
-		const q = target.pool ? `pool=${encodeURIComponent(target.pool)}` : `token=${encodeURIComponent(target.token)}`;
+		const q = target.pool
+			? `pool=${encodeURIComponent(target.pool)}`
+			: `token=${encodeURIComponent(target.token)}`;
 		const r = await fetch(`/api/ibm/twin?${q}`);
 		const data = await r.json();
 		if (!r.ok) throw new Error(data.error_description || data.error || `HTTP ${r.status}`);
@@ -530,7 +604,9 @@ function applySnapshot(data, { silent } = {}) {
 	hud.vol.textContent = Number.isFinite(v.volatilityPct) ? `${v.volatilityPct.toFixed(2)}%` : '—';
 	hud.bpm.textContent = v.heartbeatBpm ? `${v.heartbeatBpm} bpm` : '—';
 	if (v.heartbeatBpm) hud.heart.style.animationDuration = `${(60 / v.heartbeatBpm).toFixed(2)}s`;
-	hud.activity.textContent = Number.isFinite(v.activityRatio) ? `${v.activityRatio.toFixed(2)}×` : '—';
+	hud.activity.textContent = Number.isFinite(v.activityRatio)
+		? `${v.activityRatio.toFixed(2)}×`
+		: '—';
 	hud.liq.textContent = fmtUsd(v.liquidityUsd);
 	signed(hud.voltrend, v.volumeTrendPct, 0);
 
@@ -654,7 +730,8 @@ function applyScenarioResult(data) {
 		hud.sim.sim.textContent = fmtPct(data.simulated.stats.changePct, 1);
 		const d = data.divergence?.changePctDelta;
 		hud.sim.delta.textContent = fmtPct(d, 1);
-		hud.sim.delta.style.color = d > 0 ? STATE_INK.ascending : d < 0 ? STATE_INK.stressed : STATE_INK.dormant;
+		hud.sim.delta.style.color =
+			d > 0 ? STATE_INK.ascending : d < 0 ? STATE_INK.stressed : STATE_INK.dormant;
 		hud.sim.out.classList.add('show');
 	}
 	const text = data.persona?.text;

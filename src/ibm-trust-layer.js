@@ -512,6 +512,7 @@ function wire() {
 	buildScenarios();
 	els.runBtn.addEventListener('click', assess);
 	els.verifyBtn.addEventListener('click', verifyChain);
+	els.exportBtn.addEventListener('click', exportLedger);
 	els.sendToggle.addEventListener('change', syncSendUI);
 	els.retryBtn.addEventListener('click', () => hideOverlay(els.error));
 	els.msg.addEventListener('keydown', (e) => {

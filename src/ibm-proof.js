@@ -343,12 +343,58 @@ function renderFeed() {
 	el.innerHTML = items.map((it) => {
 		const cls = it.dir === 'up' ? 'up' : it.dir === 'down' ? 'down' : '';
 		const arrow = it.dir === 'up' ? '▲' : it.dir === 'down' ? '▼' : '—';
+		const right = it.explorer
+			? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><a class="tx" href="${it.explorer}" target="_blank" rel="noopener">Solscan ↗</a><button class="copy verify-item" data-sig="${it.signature}">verify on-chain ↻</button></div>`
+			: '<span class="l2">pending</span>';
 		return `<div class="attestation">
 			<div class="badge2 ${cls}">${arrow}</div>
 			<div class="meta"><div class="l1">${it.symbol} · ${fmtPct(it.changePct)}</div><div class="l2">${it.digest.slice(0, 40)}…</div></div>
-			${it.explorer ? `<a class="tx" href="${it.explorer}" target="_blank" rel="noopener">Solscan ↗</a>` : '<span class="l2">pending</span>'}
+			${right}
 		</div>`;
 	}).join('');
+}
+
+// ── verify a proof off-chain ──────────────────────────────────────────────────
+// Reads the memo back from the Solana transaction — the permissionless half of
+// "auditable AI": anyone can confirm a proof exists on-chain, no credentials.
+async function verifyProof(sig) {
+	const out = $('verify-result');
+	out.innerHTML = `<div class="notice">Reading transaction off-chain…</div>`;
+	try {
+		const r = await fetch(attestUrl(`?verify=${encodeURIComponent(sig)}`));
+		const v = await r.json();
+		if (v.error) { out.innerHTML = `<div class="notice warn">${v.message || v.error}</div>`; return; }
+		if (!v.found) { out.innerHTML = `<div class="notice warn">Not found on ${v.network || 'chain'}: ${v.reason || 'no such transaction'}.</div>`; return; }
+		if (!v.isGraniteProof) {
+			out.innerHTML = `<div class="notice warn">Transaction found, but its memo is not a Granite Proof.${v.memo ? ` Memo: <span style="font-family:var(--mono)">${escapeHtml(v.memo)}</span>` : ''}</div>`;
+			return;
+		}
+		const when = v.blockTime ? new Date(v.blockTime * 1000).toLocaleString() : `slot ${v.slot}`;
+		out.innerHTML = `<div class="notice ok">
+			<b>✓ Verified on-chain.</b> A Granite Proof signed by
+			<span style="font-family:var(--mono)">${(v.signer || '').slice(0, 8)}…</span> at ${when}.<br />
+			<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">${escapeHtml(v.memo)}</span><br />
+			<a href="${v.explorer}" target="_blank" rel="noopener">View on Solscan ↗</a>
+		</div>`;
+	} catch (e) {
+		out.innerHTML = `<div class="notice warn">Verification failed: ${e?.message || e}</div>`;
+	}
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function setupVerifyBar() {
+	const sub = document.querySelector('.feed .sub');
+	if (!sub || document.getElementById('verify-bar')) return;
+	sub.insertAdjacentHTML('afterend', `
+		<div id="verify-bar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+			<input id="verify-input" placeholder="Paste any Solana tx signature to verify a proof off-chain…" autocomplete="off" spellcheck="false"
+				style="flex:1;min-width:240px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:var(--mono);font-size:12.5px" />
+			<button id="verify-btn" class="btn btn-primary" style="width:auto;padding:11px 18px">Verify on-chain</button>
+		</div>
+		<div id="verify-result" aria-live="polite"></div>`);
+	const run = () => { const s = $('verify-input').value.trim(); if (s) verifyProof(s); };
+	$('verify-btn').addEventListener('click', run);
+	$('verify-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
 }
 
 // ── token picker ──────────────────────────────────────────────────────────────
@@ -400,9 +446,18 @@ async function select(pool) {
 
 // ── copy buttons ──────────────────────────────────────────────────────────────
 document.addEventListener('click', (e) => {
+	const vbtn = e.target.closest('.verify-item');
+	if (vbtn) {
+		const input = $('verify-input');
+		if (input) input.value = vbtn.dataset.sig;
+		document.getElementById('verify-bar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		verifyProof(vbtn.dataset.sig);
+		return;
+	}
 	const btn = e.target.closest('.copy');
 	if (!btn) return;
 	const which = btn.dataset.copy;
+	if (!which) return;
 	const val = which === 'digest' ? state.current?.proof?.digest : state.current?.proof?.memo;
 	if (val) navigator.clipboard?.writeText(val).then(() => { const o = btn.textContent; btn.textContent = 'copied'; setTimeout(() => (btn.textContent = o), 1200); });
 });
@@ -412,6 +467,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTi
 
 // ── boot ──────────────────────────────────────────────────────────────────────
 (async function boot() {
+	setupVerifyBar();
 	renderFeed();
 	try {
 		const r = await fetch(attestUrl('?list=trending'));

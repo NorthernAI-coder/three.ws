@@ -122,6 +122,14 @@
 			"dest": "/ibm/proof.html"
 		},
 		{
+			"src": "/ibm/identity",
+			"dest": "/ibm/identity.html"
+		},
+		{
+			"src": "/ibm/identity/",
+			"dest": "/ibm/identity.html"
+		},
+		{
 			"src": "/ibm",
 			"dest": "/ibm/index.html"
 		},
@@ -1242,6 +1250,10 @@
 		{
 			"src": "/api/agents/check-name",
 			"dest": "/api/agents/check-name"
+		},
+		{
+			"src": "/api/agents/identity-check",
+			"dest": "/api/agents/identity-check"
 		},
 		{
 			"src": "/api/agents/a2a-paid",

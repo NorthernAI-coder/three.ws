@@ -9,7 +9,10 @@
 			content="A living digital twin of a real Solana market: it mirrors its on-chain vitals in real time, IBM Granite TimeSeries projects its future, it back-tests itself against reality, and you can run what-if simulations. Real watsonx.ai, real on-chain data."
 		/>
 		<meta name="theme-color" content="#0b0e17" />
-		<meta property="og:title" content="Digital Twin — a living market replica, powered by IBM watsonx" />
+		<meta
+			property="og:title"
+			content="Digital Twin — a living market replica, powered by IBM watsonx"
+		/>
 		<meta
 			property="og:description"
 			content="Mirror a live token's vitals, project its future with IBM Granite TimeSeries, validate the model against reality, and simulate what-if scenarios — all in 3D."
@@ -622,7 +625,12 @@
 		<div class="controls">
 			<div id="t-chips" class="chips"></div>
 			<div class="search-wrap">
-				<input id="t-search" type="text" placeholder="Solana token mint…" spellcheck="false" />
+				<input
+					id="t-search"
+					type="text"
+					placeholder="Solana token mint…"
+					spellcheck="false"
+				/>
 				<button id="t-spawn" class="btn">Spawn twin</button>
 			</div>
 		</div>
@@ -665,7 +673,7 @@
 					<span class="track"></span>
 					<span>Live sync</span>
 				</label>
-				<span id="t-synced" style="margin-left:auto"></span>
+				<span id="t-synced" style="margin-left: auto"></span>
 			</div>
 		</section>
 
@@ -716,15 +724,23 @@
 				<button id="s-reset" class="btn ghost" title="Clear scenario">Reset</button>
 			</div>
 			<div id="s-out" class="sim-out">
-				<div class="cmp"><span class="lab">Baseline path</span><span id="s-base">—</span></div>
-				<div class="cmp"><span class="lab">Scenario path</span><span id="s-sim">—</span></div>
-				<div class="cmp"><span class="lab">Divergence</span><span id="s-delta" class="delta">—</span></div>
+				<div class="cmp">
+					<span class="lab">Baseline path</span><span id="s-base">—</span>
+				</div>
+				<div class="cmp">
+					<span class="lab">Scenario path</span><span id="s-sim">—</span>
+				</div>
+				<div class="cmp">
+					<span class="lab">Divergence</span><span id="s-delta" class="delta">—</span>
+				</div>
 			</div>
 		</aside>
 
 		<div class="persona-bar">
 			<div class="label">The twin says</div>
-			<div id="t-persona" class="muted">Mirroring live on-chain vitals and asking IBM Granite to project the future…</div>
+			<div id="t-persona" class="muted">
+				Mirroring live on-chain vitals and asking IBM Granite to project the future…
+			</div>
 			<div id="t-status"></div>
 		</div>
 
@@ -744,7 +760,10 @@
 					await import('https://three.ws/agent-3d/latest/agent-3d.js');
 				}
 			} catch (e) {
-				console.warn('[digital-twin] avatar runtime unavailable, persona falls back to speech', e);
+				console.warn(
+					'[digital-twin] avatar runtime unavailable, persona falls back to speech',
+					e,
+				);
 			}
 		</script>
 		<script type="module" src="/src/ibm-twin.js"></script>

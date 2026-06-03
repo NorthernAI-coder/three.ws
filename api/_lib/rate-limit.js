@@ -119,6 +119,12 @@ export const limits = {
 	// key, so cap the per-IP burst and keep a global hourly ceiling as a cost cap.
 	guardianIp: (ip) => getLimiter('guardian:ip', { limit: 30, window: '1 m' }).limit(ip),
 	guardianGlobal: () => getLimiter('guardian:global', { limit: 1200, window: '1 h' }).limit('global'),
+	// Granite identity-integrity check (api/agents/identity-check). Each call does
+	// one Granite embedding + a fan-out of Guardian passes against the server key,
+	// so keep the per-IP burst tight and add a global hourly ceiling as a cost cap.
+	identityCheckIp: (ip) => getLimiter('identity-check:ip', { limit: 20, window: '1 m' }).limit(ip),
+	identityCheckGlobal: () =>
+		getLimiter('identity-check:global', { limit: 600, window: '1 h' }).limit('global'),
 	// Skills marketplace browse — isolated bucket so traffic on other public endpoints
 	// can't starve the skills list. 60/min per IP.
 	skillsBrowse: (ip) => getLimiter('skills:browse', { limit: 60, window: '1 m' }).limit(ip),

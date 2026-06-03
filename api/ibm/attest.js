@@ -59,6 +59,47 @@ function canonical(value) {
 }
 const sha256hex = (s) => createHash('sha256').update(s).digest('hex');
 
+const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+
+// Read a notarized proof back OFF-CHAIN: fetch the transaction, pull the SPL
+// memo, and confirm it is a granite-proof stamp. This is the permissionless
+// "anyone can verify" path — it needs no credentials, only a public RPC.
+async function verifyOnChain(signature, wallet) {
+	const conn = getConnection(wallet.rpcUrl);
+	let tx;
+	try {
+		tx = await conn.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 });
+	} catch (e) {
+		return { signature, found: false, network: wallet.network, reason: String(e?.message || e) };
+	}
+	if (!tx) return { signature, found: false, network: wallet.network, reason: 'transaction not found on this network' };
+
+	const instructions = tx.transaction?.message?.instructions || [];
+	let memo = null;
+	for (const ix of instructions) {
+		const pid = ix.programId?.toString?.() || ix.programId;
+		if (ix.program === 'spl-memo' || pid === MEMO_PROGRAM_ID) {
+			memo = typeof ix.parsed === 'string' ? ix.parsed : ix.parsed?.toString?.() || null;
+			if (memo) break;
+		}
+	}
+	const isGraniteProof = Boolean(memo && memo.startsWith('three.ws granite-proof/'));
+	const digest = isGraniteProof ? memo.match(/([0-9a-f]{16})\s*$/)?.[1] || null : null;
+	const signer = tx.transaction?.message?.accountKeys?.[0];
+	return {
+		signature,
+		found: true,
+		isGraniteProof,
+		memo,
+		digest,
+		slot: tx.slot || null,
+		blockTime: tx.blockTime || null,
+		signer: (signer?.pubkey?.toString?.() || signer?.toString?.()) ?? null,
+		network: wallet.network,
+		explorer: explorerTxUrl(signature, wallet.network),
+	};
+}
+
 // Map a forecast %-change to an avatar emotion + sentiment in [-1, 1].
 function moodFor(changePct) {
 	const sentiment = Math.max(-1, Math.min(1, changePct / 15));
@@ -297,6 +338,16 @@ export default wrap(async (req, res) => {
 	if (req.method === 'GET' && url.searchParams.get('list') === 'trending') {
 		const pools = await trendingPools('solana', 8);
 		return json(res, 200, { pools }, { 'cache-control': 'public, max-age=30, s-maxage=60' });
+	}
+
+	// ── Verify: read a proof's memo back off-chain (permissionless) ──────────
+	if (req.method === 'GET' && url.searchParams.get('verify')) {
+		const sig = url.searchParams.get('verify').trim();
+		if (!/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(sig)) {
+			return error(res, 400, 'bad_signature', 'verify expects a base58 transaction signature');
+		}
+		const result = await verifyOnChain(sig, wallet);
+		return json(res, 200, result, { 'cache-control': 'public, max-age=60' });
 	}
 
 	// Gather params from query (GET) or JSON body (POST).

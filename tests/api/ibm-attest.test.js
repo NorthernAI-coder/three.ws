@@ -19,6 +19,7 @@ const state = {
 	walletConfigured: false,
 	walletFunded: true,
 	sendSolArgs: null,
+	verifyTx: null,
 };
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
@@ -72,7 +73,7 @@ vi.mock('../../api/_lib/avatar-wallet.js', () => ({
 			: { configured: false, address: null, network: 'mainnet' },
 	),
 	loadAvatarKeypair: vi.fn(() => ({ publicKey: { toBase58: () => ADDR } })),
-	getConnection: vi.fn(() => ({})),
+	getConnection: vi.fn(() => ({ getParsedTransaction: vi.fn(async () => state.verifyTx) })),
 	getSolBalance: vi.fn(async () => ({ lamports: state.walletFunded ? 1e7 : 0, sol: state.walletFunded ? 0.01 : 0 })),
 	sendSol: vi.fn(async (args) => { state.sendSolArgs = args; return 'SIG123'; }),
 	explorerTxUrl: vi.fn((s) => `https://solscan.io/tx/${s}`),
@@ -108,6 +109,52 @@ beforeEach(() => {
 	state.walletConfigured = false;
 	state.walletFunded = true;
 	state.sendSolArgs = null;
+	state.verifyTx = null;
+});
+
+const SIG = '5'.repeat(88); // base58, valid length for a Solana signature
+const makeTx = (memo) => ({
+	slot: 123,
+	blockTime: 1_700_000_000,
+	transaction: {
+		message: {
+			instructions: [{ program: 'spl-memo', programId: { toString: () => 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' }, parsed: memo }],
+			accountKeys: [{ pubkey: { toString: () => ADDR } }],
+		},
+	},
+});
+
+describe('GET /api/ibm/attest?verify (off-chain read-back)', () => {
+	it('rejects a malformed signature', async () => {
+		const { status, body } = await invoke({ url: '/api/ibm/attest?verify=not-a-sig' });
+		expect(status).toBe(400);
+		expect(body.error).toBe('bad_signature');
+	});
+
+	it('confirms a real granite-proof memo and extracts the digest', async () => {
+		state.verifyTx = makeTx('three.ws granite-proof/1 MOCK +31.0% 96h ttm-512-96 gd:ok abcdef0123456789');
+		const { status, body } = await invoke({ url: `/api/ibm/attest?verify=${SIG}` });
+		expect(status).toBe(200);
+		expect(body.found).toBe(true);
+		expect(body.isGraniteProof).toBe(true);
+		expect(body.digest).toBe('abcdef0123456789');
+		expect(body.signer).toBe(ADDR);
+		expect(body.explorer).toContain(SIG);
+	});
+
+	it('flags a transaction whose memo is not a granite proof', async () => {
+		state.verifyTx = makeTx('gm');
+		const { body } = await invoke({ url: `/api/ibm/attest?verify=${SIG}` });
+		expect(body.found).toBe(true);
+		expect(body.isGraniteProof).toBe(false);
+		expect(body.digest).toBeNull();
+	});
+
+	it('reports not-found when the transaction is missing', async () => {
+		state.verifyTx = null;
+		const { body } = await invoke({ url: `/api/ibm/attest?verify=${SIG}` });
+		expect(body.found).toBe(false);
+	});
 });
 
 describe('GET /api/ibm/attest', () => {

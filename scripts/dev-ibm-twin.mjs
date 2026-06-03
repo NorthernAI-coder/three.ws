@@ -59,5 +59,7 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
 	console.log(`Digital Twin dev API → http://localhost:${PORT}/api/ibm/twin`);
-	console.log(`  run:  DEV_API_PROXY=http://localhost:${PORT} npm run dev   → http://localhost:3000/ibm/twin`);
+	console.log(
+		`  run:  DEV_API_PROXY=http://localhost:${PORT} npm run dev   → http://localhost:3000/ibm/twin`,
+	);
 });

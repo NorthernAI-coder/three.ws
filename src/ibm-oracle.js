@@ -241,12 +241,18 @@ function renderSeries(data) {
 		});
 		seriesGroup.add(fGroup);
 
-		// Kick off the reveal sweep from the seam.
-		revealPlane.constant = -seam.x; // x ≤ seam.x visible
-		revealStart = performance.now();
-		revealing = true;
+		// Kick off the reveal sweep from the seam — unless the user prefers
+		// reduced motion, in which case the forecast is shown fully, immediately.
 		seriesGroup.userData.revealTo = SPAN / 2 + 0.5;
 		seriesGroup.userData.seamX = seam.x;
+		if (reduceMotion) {
+			revealPlane.constant = seriesGroup.userData.revealTo;
+			revealing = false;
+		} else {
+			revealPlane.constant = -seam.x; // x ≤ seam.x visible
+			revealStart = performance.now();
+			revealing = true;
+		}
 	}
 
 	// Frame the camera target on the curve midpoint height.
@@ -290,12 +296,32 @@ animate();
 // ── Embodied narrator (optional, graceful) ──────────────────────────────────
 const avatar = document.querySelector('agent-3d');
 let avatarReady = false;
+
+// Pulse the narration bar while the avatar is actually speaking. Driven by the
+// avatar's real voice events when available, with a length-based safety net so
+// the indicator never sticks on if no end event fires.
+const narrationBar = document.querySelector('.narration-bar');
+let speakingTimer = null;
+function setSpeaking(on, text = '') {
+	narrationBar?.classList.toggle('speaking', on);
+	clearTimeout(speakingTimer);
+	if (on) {
+		speakingTimer = setTimeout(
+			() => narrationBar?.classList.remove('speaking'),
+			Math.min(14000, 2200 + text.length * 55),
+		);
+	}
+}
+
 if (avatar) {
 	avatar.addEventListener('agent:ready', () => (avatarReady = true));
 	avatar.addEventListener('agent:error', () => (avatarReady = false));
+	avatar.addEventListener('voice:speech-start', () => setSpeaking(true));
+	avatar.addEventListener('voice:speech-end', () => setSpeaking(false));
 }
 function narrate(text, emotion, sentiment) {
 	if (!text) return;
+	setSpeaking(true, text);
 	if (avatarReady && typeof avatar.say === 'function') {
 		try {
 			avatar.say(text, { sentiment });
@@ -320,9 +346,11 @@ function speak(text) {
 		const u = new SpeechSynthesisUtterance(text);
 		u.rate = 1;
 		u.pitch = 1;
+		u.onend = () => setSpeaking(false);
+		u.onerror = () => setSpeaking(false);
 		window.speechSynthesis.speak(u);
 	} catch {
-		/* no speech available */
+		setSpeaking(false);
 	}
 }
 
@@ -383,6 +411,13 @@ function applyData(data) {
 	const tk = data.token || {};
 	hud.name.textContent = tk.symbol ? `${tk.name} · ${tk.symbol}` : tk.name || 'Token';
 
+	// Deep-link the "Notarize on-chain" CTA to Granite Proof for this same pool,
+	// so a forecast you like can be stamped on-chain in one hop.
+	const notarize = document.getElementById('o-notarize');
+	if (notarize && tk.pool) {
+		notarize.href = `/ibm/proof?pool=${encodeURIComponent(tk.pool)}`;
+	}
+
 	const current = data.stats?.currentPrice ?? data.history?.[data.history.length - 1]?.c;
 	hud.price.textContent = fmtPrice(current);
 
@@ -436,7 +471,7 @@ function applyData(data) {
 		narrate(text, data.mood?.emotion, data.mood?.sentiment);
 	} else if (data.ibm && !data.ibm.configured) {
 		hud.narration.textContent =
-			'IBM watsonx is not configured on this deployment — the live forecast, narration, and Granite Guardian governance run in production. The chart above shows real on-chain history.';
+			'Live Granite forecasting activates once IBM watsonx credentials (WATSONX_API_KEY + WATSONX_PROJECT_ID) are set on this deployment. The chart above is real on-chain price history.';
 		hud.narration.classList.add('muted');
 	} else {
 		hud.narration.textContent =
