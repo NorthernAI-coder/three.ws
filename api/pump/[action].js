@@ -37,6 +37,13 @@
 //   update-fee-shares-prep        -> handleUpdateFeeSharesPrep    (step 2)
 //   fee-info                      -> handleFeeInfo (read-only: claimable creator
 //                                    fees, graduation, sharing-config shareholders)
+//   resolve-github-shareholder    -> handleResolveGithubShareholder (read-only:
+//                                    GitHub @login/id -> the recipient's linked
+//                                    Solana payout wallet, or a pump.fun social-fee
+//                                    escrow PDA when they haven't joined yet)
+//   create-social-fee-pda-prep    -> handleCreateSocialFeePdaPrep (user-signed:
+//                                    initialise the pump.fun social-fee escrow that
+//                                    a fee-share update then routes a slice into)
 //   collect-creator-fee-agent     -> handleCollectCreatorFeeAgent (server-signs
 //                                    with the agent custodial wallet)
 //   distribute-creator-fees-agent -> handleDistributeCreatorFeesAgent (server-signs)
@@ -132,6 +139,10 @@ const wrapped = wrap(async (req, res) => {
 		case 'create-fee-sharing-prep':       return handleCreateFeeSharingPrep(req, res);
 		case 'update-fee-shares-prep':        return handleUpdateFeeSharesPrep(req, res);
 		case 'fee-info':                      return handleFeeInfo(req, res);
+		case 'resolve-github-shareholder':    return handleResolveGithubShareholder(req, res);
+		case 'create-social-fee-pda-prep':    return handleCreateSocialFeePdaPrep(req, res);
+		case 'github-resolve':                return handleGithubResolve(req, res);
+		case 'social-fee-claim-status':       return handleSocialFeeClaimStatus(req, res);
 		case 'collect-creator-fee-agent':     return handleCollectCreatorFeeAgent(req, res);
 		case 'distribute-creator-fees-agent': return handleDistributeCreatorFeesAgent(req, res);
 		case 'fee-sharing-agent':             return handleFeeSharingAgent(req, res);
@@ -1037,7 +1048,7 @@ async function handleLaunchConfirm(req, res) {
 	const body = parse(launchConfirmSchema, await readJson(req));
 
 	const [pending] = await sql`
-		select id, payload from agent_registrations_pending
+		select id, payload, metadata_uri from agent_registrations_pending
 		where user_id=${user.id} and payload->>'prep_id'=${body.prep_id}
 		  and expires_at > now()
 		order by created_at desc limit 1
@@ -1045,6 +1056,10 @@ async function handleLaunchConfirm(req, res) {
 	if (!pending) return error(res, 404, 'not_found', 'prep not found or expired');
 	const p = pending.payload;
 	if (p.kind !== 'pump_launch') return error(res, 400, 'wrong_kind', 'prep is not a pump launch');
+	// metadata_uri lives as a top-level column on the pending row (= launch-prep
+	// `uri`), not inside the payload JSON. Thread it through so client-signed
+	// launches persist their metadata like the launch-agent path does.
+	const metadataUri = pending.metadata_uri || p.metadata_uri || null;
 
 	let tx;
 	try {
@@ -1070,10 +1085,10 @@ async function handleLaunchConfirm(req, res) {
 	const agentAuthority = p.creator_address || p.wallet_address;
 	const [row] = await sql`
 		insert into pump_agent_mints
-			(agent_id, user_id, network, mint, name, symbol, agent_authority, buyback_bps)
+			(agent_id, user_id, network, mint, name, symbol, metadata_uri, agent_authority, buyback_bps)
 		values
 			(${p.agent_id}, ${user.id}, ${p.network}, ${p.mint},
-			 ${p.name}, ${p.symbol}, ${agentAuthority}, ${p.buyback_bps})
+			 ${p.name}, ${p.symbol}, ${metadataUri}, ${agentAuthority}, ${p.buyback_bps})
 		returning id, mint, network, buyback_bps, created_at
 	`;
 
@@ -2892,7 +2907,9 @@ const updateFeeSharesSchema = z.object({
 	// sharing_config. Right after create-fee-sharing-prep this is `[creator]`
 	// at 10_000 bps; after a prior update it's whatever was last set. The SDK
 	// uses these to derive the existing PDA accounts that must be passed in.
-	current_shareholders: z.array(z.string().min(32).max(44)).min(1).max(10),
+	// Optional — when omitted the handler decodes the current set from the
+	// on-chain sharing_config so the client never has to track it.
+	current_shareholders: z.array(z.string().min(32).max(44)).min(1).max(10).optional(),
 	new_shareholders: z
 		.array(
 			z.object({
@@ -2927,11 +2944,9 @@ async function handleUpdateFeeSharesPrep(req, res) {
 	const payerPk   = solanaPubkey(body.wallet_address);
 	if (!mintPk || !payerPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
-	const currentShareholders = body.current_shareholders.map((s) => {
-		const pk = solanaPubkey(s);
-		if (!pk) throw Object.assign(new Error(`invalid current shareholder ${s}`), { status: 400, code: 'validation_error' });
-		return pk;
-	});
+	const guard = await assertCoinNotOwnedByOther({ userId: user.id, mint: body.mint, network: body.network, res });
+	if (guard.blocked) return;
+
 	const newShareholders = body.new_shareholders.map((s) => {
 		const addr = solanaPubkey(s.address);
 		if (!addr) throw Object.assign(new Error(`invalid shareholder ${s.address}`), { status: 400, code: 'validation_error' });
@@ -2939,7 +2954,28 @@ async function handleUpdateFeeSharesPrep(req, res) {
 	});
 
 	try {
-		const { sdk } = await getPumpSdk({ network: body.network });
+		const { sdk, connection } = await getPumpSdk({ network: body.network });
+
+		// Current shareholders: trust the client list when supplied, otherwise
+		// decode them from the on-chain sharing_config so callers don't have to
+		// track on-chain state themselves.
+		let currentShareholders;
+		if (body.current_shareholders?.length) {
+			currentShareholders = body.current_shareholders.map((s) => {
+				const pk = solanaPubkey(s);
+				if (!pk) throw Object.assign(new Error(`invalid current shareholder ${s}`), { status: 400, code: 'validation_error' });
+				return pk;
+			});
+		} else {
+			const { feeSharingConfigPda } = await import('@pump-fun/pump-sdk');
+			const cfgInfo = await connection.getAccountInfo(feeSharingConfigPda(mintPk));
+			if (!cfgInfo) {
+				return error(res, 409, 'no_sharing_config', 'no fee-sharing config for this coin — create one first via create-fee-sharing-prep');
+			}
+			const cfg = sdk.decodeSharingConfig(cfgInfo);
+			currentShareholders = cfg.shareholders.map((s) => new PublicKey(s.address));
+		}
+
 		const ix = await sdk.updateFeeShares({
 			authority: payerPk,
 			mint: mintPk,
@@ -2990,6 +3026,9 @@ async function handleCreateFeeSharingPrep(req, res) {
 	const payerPk   = solanaPubkey(body.wallet_address);
 	if (!mintPk || !creatorPk || !payerPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
+	const guard = await assertCoinNotOwnedByOther({ userId: user.id, mint: body.mint, network: body.network, res });
+	if (guard.blocked) return;
+
 	try {
 		const { canonicalPumpPoolPda } = await import('@pump-fun/pump-swap-sdk');
 		const { bondingCurvePda } = await import('@pump-fun/pump-sdk');
@@ -3022,6 +3061,184 @@ async function handleCreateFeeSharingPrep(req, res) {
 		});
 	} catch (e) {
 		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build create-fee-sharing tx');
+	}
+}
+
+// Soft ownership guard for connected-wallet fee/delegation actions. If this mint
+// was launched through three.ws (a pump_agent_mints row exists), it must belong
+// to the session user — this stops one account building fee txs against another
+// account's coin. Coins launched outside three.ws have no row and are allowed
+// (the on-chain sharing-config admin signature is the real gate either way).
+async function assertCoinNotOwnedByOther({ userId, mint, network, res }) {
+	const [row] = await sql`
+		select id, user_id from pump_agent_mints
+		where mint=${mint} and network=${network}
+		limit 1
+	`;
+	if (row && row.user_id !== userId) {
+		error(res, 403, 'forbidden', 'this coin belongs to another account');
+		return { blocked: true };
+	}
+	return { blocked: false, row: row || null };
+}
+
+// pump.fun social platform ids (matches the SDK's Platform enum):
+//   Pump = 0, X = 1, GitHub = 2
+const SOCIAL_PLATFORM_ID = { pump: 0, x: 1, github: 2 };
+
+// ── resolve-github-shareholder ─────────────────────────────────────────────
+// Turns a GitHub identity into a concrete fee-share recipient address so the
+// delegation UI never has to know the mapping. If the GitHub user is on
+// three.ws (linked via the existing GitHub OAuth) and has a linked Solana
+// wallet, we return that wallet — a fully-claimable shareholder paid by the
+// permissionless distribute crank. Otherwise we return the pump.fun social-fee
+// escrow PDA for their numeric id; fees can be routed into it, but the final
+// claim is brokered by pump.fun's own app (we don't hold the social-claim
+// authority), so we flag claimable_now:false and explain.
+
+const resolveGithubShareholderSchema = z
+	.object({
+		github_username: z.string().trim().min(1).max(40).optional(),
+		github_user_id: z.string().trim().regex(/^\d{1,20}$/).optional(),
+		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+	})
+	.refine((b) => b.github_username || b.github_user_id, {
+		message: 'github_username or github_user_id required',
+	});
+
+async function handleResolveGithubShareholder(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const body = parse(resolveGithubShareholderSchema, await readJson(req));
+	const login = body.github_username ? body.github_username.replace(/^@/, '') : null;
+
+	// Look up the GitHub identity in social_connections (written by the existing
+	// /api/auth/github OAuth flow — provider_uid is the numeric GitHub user id).
+	const [conn] = await sql`
+		select user_id, provider_uid, username
+		from social_connections
+		where provider='github' and disconnected_at is null
+		  and (${login}::text is not null and lower(username)=lower(${login})
+		       or ${body.github_user_id}::text is not null and provider_uid=${body.github_user_id})
+		order by connected_at desc
+		limit 1
+	`;
+
+	const { socialFeePda } = await import('@pump-fun/pump-sdk');
+	const platform = SOCIAL_PLATFORM_ID.github;
+
+	if (conn) {
+		// Prefer the recipient's primary linked Solana wallet — fully claimable.
+		const [wallet] = await sql`
+			select address from user_wallets
+			where user_id=${conn.user_id} and chain_type='solana'
+			order by is_primary desc, created_at asc
+			limit 1
+		`;
+		if (wallet) {
+			return json(res, 200, {
+				mode: 'wallet',
+				address: wallet.address,
+				github_username: conn.username,
+				github_user_id: conn.provider_uid,
+				claimable_now: true,
+				note: 'Linked Solana payout wallet — pays out via the permissionless distribute crank.',
+			});
+		}
+		// On three.ws but no Solana wallet linked yet → escrow PDA, claim deferred.
+		return json(res, 200, {
+			mode: 'social_pda',
+			address: socialFeePda(String(conn.provider_uid), platform).toBase58(),
+			github_username: conn.username,
+			github_user_id: conn.provider_uid,
+			claimable_now: false,
+			note: 'This GitHub user has no Solana payout wallet linked yet. Fees accrue in a pump.fun social-fee escrow; ask them to link a Solana wallet on three.ws to claim directly.',
+		});
+	}
+
+	// Not on three.ws. We can only derive the escrow PDA from a numeric id —
+	// pump.fun keys social-fee PDAs by the numeric GitHub user id, not the login.
+	if (body.github_user_id) {
+		return json(res, 200, {
+			mode: 'social_pda',
+			address: socialFeePda(String(body.github_user_id), platform).toBase58(),
+			github_user_id: body.github_user_id,
+			claimable_now: false,
+			note: 'This GitHub user is not on three.ws. Fees accrue in a pump.fun social-fee escrow they can claim once they connect GitHub and link a Solana wallet.',
+		});
+	}
+	return json(res, 200, {
+		mode: 'unresolved',
+		github_username: login,
+		claimable_now: false,
+		note: 'No three.ws account found for that GitHub username. Provide the numeric GitHub user id to route into a pump.fun social-fee escrow, or ask them to sign in with GitHub and link a Solana wallet.',
+	});
+}
+
+// ── create-social-fee-pda-prep ─────────────────────────────────────────────
+// Initialises the pump.fun social-fee escrow PDA for a (social_user_id,
+// platform) pair so a subsequent update-fee-shares-prep can name it as a
+// shareholder address. Idempotent on-chain (no-op if it already exists). The
+// returned tx is signed by the connected wallet (the coin admin/payer).
+
+const createSocialFeePdaPrepSchema = z.object({
+	wallet_address: z.string().min(32).max(44), // payer / signer
+	social_user_id: z.string().trim().min(1).max(20), // numeric social id (SDK caps at 20 chars)
+	platform: z.enum(['github', 'x', 'pump']).default('github'),
+	mint: z.string().min(32).max(44).optional(), // when set, enforces coin ownership
+	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+});
+
+async function handleCreateSocialFeePdaPrep(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const body = parse(createSocialFeePdaPrepSchema, await readJson(req));
+	const payerPk = solanaPubkey(body.wallet_address);
+	if (!payerPk) return error(res, 400, 'validation_error', 'invalid wallet_address');
+
+	if (body.mint) {
+		const guard = await assertCoinNotOwnedByOther({ userId: user.id, mint: body.mint, network: body.network, res });
+		if (guard.blocked) return;
+	}
+
+	const platform = SOCIAL_PLATFORM_ID[body.platform];
+
+	try {
+		const { sdk } = await getPumpSdk({ network: body.network });
+		const { socialFeePda } = await import('@pump-fun/pump-sdk');
+		const ix = await sdk.createSocialFeePda({
+			payer: payerPk,
+			userId: body.social_user_id,
+			platform,
+		});
+		const tx_base64 = await buildUnsignedTxBase64({
+			network: body.network,
+			payer: payerPk,
+			instructions: Array.isArray(ix) ? ix : [ix],
+		});
+		return json(res, 201, {
+			social_fee_pda: socialFeePda(body.social_user_id, platform).toBase58(),
+			platform: body.platform,
+			social_user_id: body.social_user_id,
+			network: body.network,
+			tx_base64,
+		});
+	} catch (e) {
+		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build create-social-fee-pda tx');
 	}
 }
 // ── fee-info ───────────────────────────────────────────────────────────────
@@ -3415,6 +3632,129 @@ async function handleFeeSharingAgent(req, res) {
 		});
 	} catch (e) {
 		return error(res, e.status || 502, e.code || 'rpc_error', e.message || 'fee sharing failed');
+	}
+}
+
+// ── github-resolve ─────────────────────────────────────────────────────────
+// Validate a GitHub handle and return its public profile + numeric id. The
+// numeric id is what pump.fun's social-fee program keys on (platform=2), and
+// the avatar/profile let the launch UI confirm "rewards → @handle" before the
+// user delegates fees. Read-only; best-effort (GitHub rate-limits unauthed IPs
+// at 60/hr — set GITHUB_TOKEN to raise that).
+
+async function handleGithubResolve(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const handle = (url.searchParams.get('handle') || '').replace(/^@/, '').trim();
+	if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(handle)) {
+		return error(res, 400, 'validation_error', 'invalid github handle');
+	}
+
+	try {
+		const headers = { 'user-agent': 'three.ws', accept: 'application/vnd.github+json' };
+		if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+		const gh = await fetch(`https://api.github.com/users/${encodeURIComponent(handle)}`, { headers });
+		if (gh.status === 404) return error(res, 404, 'github_user_not_found', `@${handle} not found on GitHub`);
+		if (gh.status === 403) return error(res, 429, 'github_rate_limited', 'GitHub rate limit — try again shortly');
+		if (!gh.ok) return error(res, 502, 'github_error', `github responded ${gh.status}`);
+		const j = await gh.json();
+		if (!j?.id) return error(res, 502, 'github_error', 'github id missing');
+		return json(res, 200, {
+			ok: true,
+			login: j.login,
+			id: String(j.id),          // social-fee user_id (≤20 chars, fits u64)
+			name: j.name || null,
+			avatar_url: j.avatar_url || null,
+			html_url: j.html_url || `https://github.com/${j.login}`,
+			type: j.type || 'User',
+		});
+	} catch (e) {
+		return error(res, 502, 'github_error', e.message || 'github lookup failed');
+	}
+}
+
+// Read pump.fun's global FeeProgramGlobal account and decode the single field we
+// need — `social_claim_authority` — the only signer allowed to release social
+// (GitHub/X) fee claims. We surface it so the UI can be honest that claiming
+// native social rewards is gated by pump.fun, not self-custodial. No exported
+// decoder exists for FeeProgramGlobal, so we slice the known layout:
+//   [8 disc][1 bump][32 authority][1 disable_flags][32 social_claim_authority]…
+async function readSocialClaimAuthority(connection) {
+	try {
+		const { FEE_PROGRAM_GLOBAL_PDA } = await import('@pump-fun/pump-sdk');
+		const info = await connection.getAccountInfo(FEE_PROGRAM_GLOBAL_PDA);
+		if (!info?.data || info.data.length < 8 + 1 + 32 + 1 + 32) return null;
+		const off = 8 + 1 + 32 + 1;
+		return new PublicKey(info.data.subarray(off, off + 32)).toBase58();
+	} catch { return null; }
+}
+
+// ── social-fee-claim-status ────────────────────────────────────────────────
+// Read-only view of a GitHub/X identity's pump.fun social-fee PDA: how much has
+// accrued and been claimed, and the gated deep-link to claim it. We CANNOT build
+// a claim tx ourselves — claim_social_fee_pda requires pump.fun's global
+// `social_claim_authority` to co-sign — so this endpoint is read + deep-link.
+// Self-custodial "reward" delegation is the fee-sharing split (see
+// fee-sharing-agent / update-fee-shares-prep), which IS claimable directly.
+
+async function handleSocialFeeClaimStatus(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const userId = (url.searchParams.get('user_id') || '').trim();
+	const platform = Number(url.searchParams.get('platform') ?? '2'); // 0=pump 1=X 2=GitHub
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	if (!/^\d{1,20}$/.test(userId)) return error(res, 400, 'validation_error', 'numeric user_id required');
+	if (![0, 1, 2].includes(platform)) return error(res, 400, 'validation_error', 'platform must be 0,1,2');
+
+	try {
+		const connection = getConnection({ network });
+		const { socialFeePda, PUMP_SDK } = await import('@pump-fun/pump-sdk');
+		const pda = socialFeePda(userId, platform);
+		const info = await connection.getAccountInfo(pda);
+
+		let decoded = null;
+		let claimableLamports = 0n;
+		if (info) {
+			claimableLamports = BigInt(info.lamports) - MIN_RENT_EXEMPTION_LAMPORTS;
+			if (claimableLamports < 0n) claimableLamports = 0n;
+			try {
+				const d = PUMP_SDK.decodeSocialFeePda(info);
+				decoded = {
+					user_id: d.userId,
+					platform: Number(d.platform),
+					total_claimed_lamports: d.totalClaimed?.toString?.() ?? '0',
+					last_claimed: d.lastClaimed?.toString?.() ?? '0',
+				};
+			} catch { /* layout drift — still return the balance */ }
+		}
+
+		const social_claim_authority = await readSocialClaimAuthority(connection);
+		return json(res, 200, {
+			user_id: userId,
+			platform,
+			network,
+			social_fee_pda: pda.toBase58(),
+			exists: !!info,
+			claimable_lamports: claimableLamports.toString(),
+			claimable_sol: Number(claimableLamports) / LAMPORTS_PER_SOL,
+			decoded,
+			// Claiming is gated: only pump.fun's social_claim_authority can sign.
+			gated: true,
+			social_claim_authority,
+			claim_url: 'https://pump.fun/profile',
+		});
+	} catch (e) {
+		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to read social fee status');
 	}
 }
 

@@ -470,14 +470,47 @@ export function mountFeesPanel(container, opts = {}) {
 			const bps = weightsToBps(contributors.map((c) => c.contributions || 1));
 			s.rows = contributors.map((c, i) => ({
 				address: '', bps: bps[i],
-				gh: { login: c.login, avatar: c.avatar_url, url: c.html_url },
+				gh: { login: c.login, avatar: c.avatar_url, url: c.html_url, resolving: true },
 			}));
 			s.editing = true;
+			render();
+			// Auto-resolve each contributor to their three.ws-linked Solana payout
+			// wallet so the reward split pays real people without manual address
+			// entry. Best-effort and in parallel — anyone we can't resolve is left
+			// for manual entry (or removal).
+			resolveContributorWallets();
 		} catch (e) {
 			s.githubError = friendlyError(e.message || String(e));
+			s.githubBusy = false;
+			render();
 		}
 		s.githubBusy = false;
 		render();
+	}
+
+	// Fill in each GitHub contributor's linked Solana wallet via the
+	// resolve-github-shareholder bridge. Only auto-fills a real linked wallet
+	// ('wallet' mode) so the split always pays a claimable address; contributors
+	// with no three.ws wallet are flagged so the creator can add one or drop them.
+	async function resolveContributorWallets() {
+		await Promise.all(s.rows.map(async (row) => {
+			if (!row.gh?.login || row.address) { if (row.gh) row.gh.resolving = false; return; }
+			try {
+				const r = await fetch('/api/pump/resolve-github-shareholder', {
+					method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ github_username: row.gh.login, network }),
+				});
+				const d = await r.json();
+				if (r.ok && d.mode === 'wallet' && d.address) {
+					row.address = d.address;
+					row.gh.linked = true;
+				} else {
+					row.gh.unlinked = true;
+				}
+			} catch { row.gh.unlinked = true; }
+			row.gh.resolving = false;
+		}));
+		if (_alive) render();
 	}
 
 	// ── Delegation editor row helpers ─────────────────────────────────────────────
@@ -615,7 +648,12 @@ export function mountFeesPanel(container, opts = {}) {
 			<div class="fp-share-row" data-i="${i}">
 				<div class="fp-sh-meta">
 					<input class="fp-share-addr" data-i="${i}" placeholder="Recipient Solana wallet" value="${esc(r.address)}" spellcheck="false" />
-					${r.gh ? `<span class="fp-share-gh"><img src="${esc(r.gh.avatar)}" alt="" />@${esc(r.gh.login)}</span>` : ''}
+					${r.gh ? `<span class="fp-share-gh"><img src="${esc(r.gh.avatar)}" alt="" />@${esc(r.gh.login)}${
+						r.gh.resolving ? ` · <span style="color:rgba(255,255,255,.4)">resolving…</span>`
+						: r.gh.linked ? ` · <span style="color:#a4f0bc">linked ✓</span>`
+						: r.gh.unlinked ? ` · <span style="color:rgba(246,200,114,.9)" title="No three.ws-linked Solana wallet — paste theirs, or ask them to connect GitHub + link a wallet on three.ws">add wallet</span>`
+						: ''
+					}</span>` : ''}
 				</div>
 				<input class="fp-share-pct" data-i="${i}" type="number" min="0" max="100" step="0.1" value="${(r.bps / 100).toFixed(1)}" />
 				<button class="fp-share-x" data-i="${i}" title="Remove">✕</button>

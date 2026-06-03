@@ -1214,10 +1214,11 @@ async function saveAvatar() {
 		await new Promise((r) => setTimeout(r, 700));
 		hideSaveOverlay();
 
-		// Show a save-success toast briefly before redirecting
+		// Show a save-success toast with next-step CTAs (launch a coin / view).
+		// Give the user time to choose; fall back to the avatar page if they don't.
 		showSaveToast(avatar.id);
 
-		await new Promise((r) => setTimeout(r, 1400));
+		await new Promise((r) => setTimeout(r, 5000));
 		window.location.href = `/avatars/${encodeURIComponent(avatar.id)}`;
 	} catch (err) {
 		hideSaveOverlay();
@@ -1268,10 +1269,14 @@ async function uploadEditedAvatar(avatarId, name, glbBlob, onProgress) {
 function showSaveToast(avatarId) {
 	const el = document.createElement('div');
 	el.className = 'as-toast';
+	// Saved avatars are real, on-chain-launchable assets — surface the coin
+	// path as a first-class next step, not just "view". The ?launch=1 deep-link
+	// auto-opens the launch panel on the avatar page.
 	el.innerHTML = `
 		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="as-toast-icon" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-		<span>Saved! Opening your avatar…</span>
-		<a href="/avatars/${esc(avatarId)}" class="as-toast-link">View now</a>
+		<span>Saved to your library.</span>
+		<a href="/avatars/${esc(avatarId)}?launch=1" class="as-toast-link" style="font-weight:600">🪙 Launch a coin →</a>
+		<a href="/avatars/${esc(avatarId)}" class="as-toast-link">View avatar</a>
 	`;
 	document.body.appendChild(el);
 	// Animate in

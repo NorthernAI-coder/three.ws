@@ -83,9 +83,10 @@ function toast(msg) {
 				const fromDash = dashTokens.find((t) => t.mint === mint || t.address === mint);
 				return {
 					agent: a,
-					mint,
+					mint: mint || byAgent?.data?.mint || null,
 					token: byAgent?.token || fromDash || null,
 					stats: byAgent?.stats || fromDash?.stats || null,
+					coin: byAgent?.data || null, // { agent_authority, network, symbol, name, sharing_config }
 				};
 			}),
 		);
@@ -165,7 +166,7 @@ function renderSummaryStrip(tokenData) {
 
 // ── Token card ─────────────────────────────────────────────────────────────
 
-function renderTokenCard({ agent, mint, token, stats }) {
+function renderTokenCard({ agent, mint, token, stats, coin }) {
 	const panel = document.createElement('div');
 	panel.className = 'dn-panel';
 
@@ -226,6 +227,7 @@ function renderTokenCard({ agent, mint, token, stats }) {
 
 		${mint ? `
 			<div style="display:flex;gap:8px;flex-wrap:wrap">
+				<button class="dn-btn primary" data-action="fees" style="font-size:12.5px">Fees &amp; rewards</button>
 				<a class="dn-btn" href="/pump-3d-agent?mint=${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">3D Agent view ↗</a>
 				<a class="dn-btn" href="https://solscan.io/token/${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">Solscan ↗</a>
 				${mint ? `<button class="dn-btn" data-action="copy-mint" data-mint="${esc(mint)}" style="font-size:12.5px">Copy CA</button>` : ''}
@@ -244,7 +246,61 @@ function renderTokenCard({ agent, mint, token, stats }) {
 		});
 	});
 
+	panel.querySelector('[data-action="fees"]')?.addEventListener('click', () => {
+		openFeesModal({
+			mint,
+			network: coin?.network || 'mainnet',
+			creator: coin?.agent_authority || null,
+			agentId: agent.id,
+			symbol: ticker,
+			name: coin?.name || agent.name || '',
+		});
+	});
+
 	return panel;
+}
+
+// ── Fees & rewards modal ────────────────────────────────────────────────────
+// Mounts the shared studio fees panel against a token so creators get full
+// claim / split / delegate / distribute control without leaving the dashboard.
+
+let _meCache;
+async function getMe() {
+	if (_meCache !== undefined) return _meCache;
+	try { _meCache = (await get('/api/auth/me'))?.user || null; }
+	catch { _meCache = null; }
+	return _meCache;
+}
+
+async function openFeesModal({ mint, network, creator, agentId, symbol, name }) {
+	const backdrop = document.createElement('div');
+	backdrop.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.62);backdrop-filter:blur(4px);display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow:auto';
+	const panel = document.createElement('div');
+	panel.style.cssText = 'background:var(--nxt-bg,#0d0d12);border:1px solid var(--nxt-stroke,rgba(255,255,255,.1));border-radius:14px;max-width:560px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.5)';
+	const head = document.createElement('div');
+	head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--nxt-stroke,rgba(255,255,255,.08))';
+	head.innerHTML = `<strong style="font-size:15px">Fees &amp; rewards · ${esc(symbol || 'Coin')}</strong><button type="button" aria-label="Close" style="background:none;border:none;color:inherit;font-size:22px;line-height:1;cursor:pointer">×</button>`;
+	const inner = document.createElement('div');
+	inner.style.cssText = 'padding:8px';
+	panel.append(head, inner);
+	backdrop.appendChild(panel);
+	document.body.appendChild(backdrop);
+	const onEsc = (e) => { if (e.key === 'Escape') close(); };
+	const close = () => { backdrop.remove(); document.removeEventListener('keydown', onEsc); };
+	head.querySelector('button').addEventListener('click', close);
+	backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+	document.addEventListener('keydown', onEsc);
+	try {
+		const user = await getMe();
+		const { mountFeesPanel } = await import(/* @vite-ignore */ '/studio/fees-panel.js');
+		mountFeesPanel(inner, {
+			mint, network: network || 'mainnet', creator: creator || null,
+			agentId: agentId || null, symbol: symbol || '', name: name || '',
+			getUser: () => user,
+		});
+	} catch (err) {
+		inner.innerHTML = `<div style="padding:24px;color:var(--nxt-ink-fade,#999)">Couldn't load the fees panel: ${esc(err.message || 'error')}</div>`;
+	}
 }
 
 function statCell(label, value) {

@@ -276,6 +276,10 @@ function renderShell(glbUrl) {
 					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
 					Launch Pump.fun
 				</button>
+				<button class="av-owner-btn" id="av-fees-rewards" type="button" hidden>
+					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.3a2.6 2.6 0 0 0-4.9.9c0 2.7 4.9 1.4 4.9 4.1a2.6 2.6 0 0 1-4.9.9M12 6.5v11"/></svg>
+					Fees &amp; rewards
+				</button>
 			</div>
 			` : ''}
 			<nav class="av-tabs" role="tablist">
@@ -615,6 +619,28 @@ function bindShareButtons() {
 function bindOwnerActions() {
 	$('av-deploy-onchain')?.addEventListener('click', openDeployOnchain);
 	$('av-launch-pumpfun')?.addEventListener('click', openLaunchPumpFun);
+	$('av-fees-rewards')?.addEventListener('click', openFeesPanel);
+	checkAvatarCoin();
+}
+
+// Resolve whether this avatar already has a launched coin. If so, reveal the
+// "Fees & rewards" control so the owner gets full claim/split/delegation
+// control. Also honors ?launch=1 (deep-link from the avatar-studio save flow)
+// by opening the launch modal immediately.
+let avatarCoin = null;
+async function checkAvatarCoin() {
+	if (new URLSearchParams(location.search).get('launch') === '1') openLaunchPumpFun();
+	const id = avatar?.id || avatarId;
+	if (!id) return;
+	try {
+		const r = await fetch(`/api/pump/by-agent?avatar_id=${encodeURIComponent(id)}`, { credentials: 'include' });
+		if (!r.ok) return;
+		const { data } = await r.json();
+		if (!data?.mint) return;
+		avatarCoin = data;
+		const feesBtn = $('av-fees-rewards');
+		if (feesBtn) feesBtn.hidden = false;
+	} catch { /* best-effort — no coin means no button, which is correct */ }
 }
 
 async function openDeployOnchain() {
@@ -643,43 +669,49 @@ async function openDeployOnchain() {
 	}
 }
 
+// Shared modal chrome for the pump.fun launch + fees panels. Returns the inner
+// mount node plus a close() handle; closes on ×, backdrop click, and Escape.
+function openPumpModal(title) {
+	const backdrop = document.createElement('div');
+	backdrop.className = 'av-pump-backdrop';
+	const modal = document.createElement('div');
+	modal.className = 'av-pump-modal';
+	const header = document.createElement('div');
+	header.className = 'av-pump-header';
+	header.innerHTML = `
+		<span class="av-pump-title">${esc(title)}</span>
+		<button class="av-pump-close" type="button" aria-label="Close">×</button>
+	`;
+	const inner = document.createElement('div');
+	inner.className = 'av-pump-inner';
+	modal.appendChild(header);
+	modal.appendChild(inner);
+	backdrop.appendChild(modal);
+	document.body.appendChild(backdrop);
+	const onEsc = (e) => { if (e.key === 'Escape') close(); };
+	const close = () => { backdrop.remove(); document.removeEventListener('keydown', onEsc); };
+	header.querySelector('.av-pump-close').addEventListener('click', close);
+	backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+	document.addEventListener('keydown', onEsc);
+	return { inner, close };
+}
+
+async function fetchCurrentUser() {
+	try {
+		const r = await fetch('/api/auth/me', { credentials: 'include' });
+		if (r.ok) return (await r.json()).user || null;
+	} catch { /* best-effort */ }
+	return null;
+}
+
 async function openLaunchPumpFun() {
 	const btn = $('av-launch-pumpfun');
-	if (!btn || btn.disabled) return;
-	btn.disabled = true;
+	if (btn?.disabled) return;
+	if (btn) btn.disabled = true;
 	try {
-		let user = null;
-		try {
-			const r = await fetch('/api/auth/me', { credentials: 'include' });
-			if (r.ok) user = (await r.json()).user || null;
-		} catch { /* best-effort */ }
-
-		const backdrop = document.createElement('div');
-		backdrop.className = 'av-pump-backdrop';
-
-		const modal = document.createElement('div');
-		modal.className = 'av-pump-modal';
-
-		const header = document.createElement('div');
-		header.className = 'av-pump-header';
-		header.innerHTML = `
-			<span class="av-pump-title">Launch on Pump.fun</span>
-			<button class="av-pump-close" type="button" aria-label="Close">×</button>
-		`;
-		const inner = document.createElement('div');
-		inner.className = 'av-pump-inner';
-
-		modal.appendChild(header);
-		modal.appendChild(inner);
-		backdrop.appendChild(modal);
-		document.body.appendChild(backdrop);
-
-		const closeModal = () => backdrop.remove();
-		header.querySelector('.av-pump-close').addEventListener('click', closeModal);
-		backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(); });
-
-		const launchPanelUrl = '/studio/launch-panel.js';
-		const { mountLaunchPanel } = await import(/* @vite-ignore */ launchPanelUrl);
+		const user = await fetchCurrentUser();
+		const { inner } = openPumpModal('Launch on Pump.fun');
+		const { mountLaunchPanel } = await import(/* @vite-ignore */ '/studio/launch-panel.js');
 		mountLaunchPanel(inner, {
 			getAvatar: () => ({ ...avatar, id: avatar.id || avatarId }),
 			getUser: () => user,
@@ -688,7 +720,42 @@ async function openLaunchPumpFun() {
 	} catch (err) {
 		console.error('[avatar] launch pump.fun failed', err);
 	} finally {
-		btn.disabled = false;
+		if (btn) btn.disabled = false;
+	}
+}
+
+// Full creator-fee control for the avatar's coin: claim, split/delegate to
+// contributors, distribute, and view recent claims. Mounts the shared fees
+// panel against the coin resolved from /api/pump/by-agent.
+async function openFeesPanel() {
+	const btn = $('av-fees-rewards');
+	if (btn?.disabled) return;
+	if (btn) btn.disabled = true;
+	try {
+		if (!avatarCoin?.mint) {
+			const id = avatar?.id || avatarId;
+			const r = await fetch(`/api/pump/by-agent?avatar_id=${encodeURIComponent(id)}`, { credentials: 'include' });
+			const { data } = r.ok ? await r.json() : { data: null };
+			avatarCoin = data;
+		}
+		if (!avatarCoin?.mint) { alert('No coin launched for this avatar yet — launch one first.'); return; }
+		const user = await fetchCurrentUser();
+		const { inner } = openPumpModal('Fees & rewards');
+		const { mountFeesPanel } = await import(/* @vite-ignore */ '/studio/fees-panel.js');
+		mountFeesPanel(inner, {
+			mint: avatarCoin.mint,
+			network: avatarCoin.network || 'mainnet',
+			creator: avatarCoin.agent_authority || null,
+			avatarId: avatar.id || avatarId,
+			agentId: avatar.agent_id || null,
+			symbol: avatarCoin.symbol || '',
+			name: avatarCoin.name || '',
+			getUser: () => user,
+		});
+	} catch (err) {
+		console.error('[avatar] open fees panel failed', err);
+	} finally {
+		if (btn) btn.disabled = false;
 	}
 }
 
