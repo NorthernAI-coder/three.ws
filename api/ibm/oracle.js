@@ -11,7 +11,8 @@
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
-import { watsonxForecast, watsonxGuardian, forecastModelFor } from '../_lib/watsonx-forecast.js';
+import { watsonxForecast, forecastModelFor } from '../_lib/watsonx-forecast.js';
+import { assessRisk } from '../_lib/guardian.js';
 import { fetchOhlcv, topPoolForToken, trendingPools } from '../_lib/market/ohlcv.js';
 
 const isBase58 = (s) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
@@ -194,12 +195,13 @@ export default wrap(async (req, res) => {
 			});
 			out.narration = { text: n.text, model: n.model };
 			try {
-				const g = await watsonxGuardian(cfg, { text: n.text, risk: 'harm' });
+				const g = await assessRisk(cfg, { risk: 'harm', assistant: n.text });
 				out.governance = {
 					passed: !g.flagged,
 					risk: g.risk,
 					label: g.label,
-					model: g.model,
+					verdict: g.verdict,
+						confidence: g.confidence ?? null,
 				};
 			} catch (gErr) {
 				out.governance = { passed: null, error: String(gErr.message || gErr) };

@@ -1,9 +1,10 @@
-// IBM watsonx.ai Granite TimeSeries forecasting + Granite Guardian governance.
+// IBM watsonx.ai Granite TimeSeries forecasting for the Granite Oracle.
 //
-// These sit alongside the shared chat/embed client in ./watsonx.js but live in
-// their own module so the Granite Oracle feature can evolve without touching the
-// hot chat path. They reuse the stable IAM-token cache from ./watsonx.js and
-// speak the same version-stamped, project-scoped REST contract.
+// Sits alongside the shared chat/embed client in ./watsonx.js but lives in its
+// own module (with model-context helpers the Oracle and its tests depend on). It
+// reuses the stable IAM-token cache from ./watsonx.js and speaks the same
+// version-stamped, project-scoped REST contract. Governance is handled by the
+// canonical Granite Guardian helper in ./guardian.js.
 //
 // There is no mock path: any IAM or upstream failure throws with the real
 // upstream status + message so the caller reports the true cause.
@@ -95,26 +96,4 @@ export async function watsonxForecast(
 		values: r[targetColumn] || [],
 		inputWindow: values.length,
 	};
-}
-
-// Granite Guardian risk check. The risk definition is carried as the system role
-// and the model answers Yes/No. Returns { risk, label, flagged, model }.
-export async function watsonxGuardian(cfg, { text, model, risk = 'harm' } = {}) {
-	const modelId = model || cfg.guardianModel || 'ibm/granite-guardian-3-8b';
-	const data = await post(
-		cfg,
-		'/ml/v1/text/chat',
-		{
-			model_id: modelId,
-			messages: [
-				{ role: 'system', content: risk },
-				{ role: 'user', content: text },
-			],
-			max_tokens: 16,
-			temperature: 0,
-		},
-		cfg.apiVersion,
-	);
-	const out = (data.choices?.[0]?.message?.content || '').trim().toLowerCase();
-	return { risk, label: out || 'unknown', flagged: out.startsWith('yes'), model: modelId };
 }

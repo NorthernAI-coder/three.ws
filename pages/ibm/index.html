@@ -178,6 +178,21 @@
 			</div>
 		</a>
 
+		<a href="/ibm/proof" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(880px 360px at 82% -20%, rgba(120,169,255,0.18), transparent 60%), radial-gradient(700px 320px at 8% 120%, rgba(66,190,101,0.14), transparent 60%), linear-gradient(180deg,#0a0e18,#0b1222);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
+			<div style="padding:30px 30px 32px;">
+				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
+					<span style="width:7px;height:7px;border-radius:50%;background:#0f62fe;box-shadow:0 0 10px #0f62fe;"></span>
+					Live demo · Granite TimeSeries + Guardian + Solana
+				</div>
+				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">Auditable AI on a public ledger — Granite&nbsp;Proof</h2>
+				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">A 3D agent forecasts a live market with <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite TimeSeries</strong>, <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite&nbsp;Guardian</strong> governs every word it says, and each governed forecast is <em>notarized on Solana</em> — a SHA-256 proof signed by the agent's own wallet, timestamped forever. If Guardian flags the statement, the agent refuses to sign. Trust you can verify on-chain.</p>
+				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
+					Open Granite Proof
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+				</span>
+			</div>
+		</a>
+
 		<section>
 			<h2>Built on IBM watsonx.</h2>
 			<p class="sub">The agent brain runs on your own IBM Cloud account. Real inference, real IAM auth, no mock path.</p>
@@ -280,6 +295,10 @@
 					<div class="desc"><code>{ "provider": "orchestrate" }</code> calls a watsonx Orchestrate (Agent Connect) OpenAI-compatible <code>/chat/completions</code> endpoint — the 3D avatar becomes the front-end of your enterprise agent.</div>
 				</div>
 				<div class="endpoint">
+					<code>POST /api/guardian/assess</code>
+					<div class="desc">The <a href="/ibm/trust-layer" style="color:var(--ibm-light);text-decoration:none;">Trust Layer</a> — IBM Granite Guardian classifies a message or a proposed autonomous action across jailbreak, harm, bias and more on watsonx.ai, returning an allow / review / block verdict plus a tamper-evident, hash-chained audit record. The same gate runs inline in <code>/api/chat</code> before an avatar sends SOL.</div>
+				</div>
+				<div class="endpoint">
 					<code>npx @three-ws/ibm-watsonx-mcp</code>
 					<div class="desc">Standalone MCP server for watsonx.ai — five tools against IBM Granite and any model in your account. Works with any MCP host.</div>
 				</div>
@@ -296,7 +315,7 @@
 			</div>
 
 			<div class="note">
-				<strong>Open source.</strong> The watsonx.ai client is at <a href="https://github.com/nirholas/three.ws/blob/main/api/_lib/watsonx.js" target="_blank" rel="noopener">api/_lib/watsonx.js</a>, the Orchestrate provider at <a href="https://github.com/nirholas/three.ws/blob/main/api/_lib/orchestrate.js" target="_blank" rel="noopener">api/_lib/orchestrate.js</a>, and the MCP server at <a href="https://github.com/nirholas/three.ws/tree/main/packages/ibm-watsonx-mcp" target="_blank" rel="noopener">packages/ibm-watsonx-mcp/</a>. Review it, fork it, run your own.
+				<strong>Open source.</strong> The watsonx.ai client is at <a href="https://github.com/nirholas/three.ws/blob/main/api/_lib/watsonx.js" target="_blank" rel="noopener">api/_lib/watsonx.js</a>, the Orchestrate provider at <a href="https://github.com/nirholas/three.ws/blob/main/api/_lib/orchestrate.js" target="_blank" rel="noopener">api/_lib/orchestrate.js</a>, the Granite Guardian Trust Layer at <a href="https://github.com/nirholas/three.ws/blob/main/api/_lib/granite-guardian.js" target="_blank" rel="noopener">api/_lib/granite-guardian.js</a>, and the MCP server at <a href="https://github.com/nirholas/three.ws/tree/main/packages/ibm-watsonx-mcp" target="_blank" rel="noopener">packages/ibm-watsonx-mcp/</a>. Review it, fork it, run your own.
 			</div>
 		</section>
 
