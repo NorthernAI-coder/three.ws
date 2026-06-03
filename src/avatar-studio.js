@@ -1156,7 +1156,8 @@ async function saveAvatar() {
 		let avatar;
 		if (editAvatarId) {
 			// Edit mode: upload new GLB version, PATCH it onto the existing record
-			avatar = await uploadEditedAvatar(editAvatarId, name, glbBlob);
+			avatar = await uploadEditedAvatar(editAvatarId, name, glbBlob,
+				(pct) => updateProgress(20 + pct * 0.6));
 		} else {
 			avatar = await saveRemoteGlbToAccount(
 				glbBlob,
