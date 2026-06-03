@@ -105,7 +105,7 @@ function drawChart(data) {
 	chart.height = Math.round(cssH * dpr);
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 	ctx.clearRect(0, 0, cssW, cssH);
-	if (!data) return;
+	if (!data) { state.chartGeo = null; return; }
 
 	const pad = { l: 12, r: 12, t: 16, b: 14 };
 	const W = cssW - pad.l - pad.r;
@@ -116,7 +116,7 @@ function drawChart(data) {
 	const histTail = hist.slice(-160);
 	const fc = (data.forecast || []).map((p) => ({ t: p.t, c: Number(p.c) })).filter((p) => Number.isFinite(p.c));
 	const all = histTail.concat(fc);
-	if (all.length < 2) return;
+	if (all.length < 2) { state.chartGeo = null; return; }
 
 	const ys = all.map((p) => p.c);
 	let trueLo = Math.min(...ys), trueHi = Math.max(...ys);
@@ -136,6 +136,14 @@ function drawChart(data) {
 	}
 
 	const splitX = histTail.length ? x(histTail.length - 1) : pad.l;
+
+	// record point geometry (CSS px) so the hover layer can map cursor → price
+	state.chartGeo = {
+		points: [
+			...histTail.map((p, i) => ({ px: x(i), py: y(p.c), c: p.c, t: p.t, kind: 'history' })),
+			...fc.map((p, i) => ({ px: x(histTail.length + i), py: y(p.c), c: p.c, t: p.t, kind: 'forecast' })),
+		],
+	};
 
 	// forecast range band
 	if (fc.length && data.stats) {
@@ -189,6 +197,48 @@ function drawChart(data) {
 		if (hz) { ctx.textAlign = 'right'; ctx.fillText(`+${hz}h`, pad.l + W - 3, pad.t + 2); }
 		ctx.textAlign = 'left';
 	}
+}
+
+// Hover layer: a crosshair + price tooltip mapped to the nearest data point.
+function setupChartHover() {
+	const wrap = chart.parentElement;
+	const cross = document.createElement('div');
+	cross.style.cssText = 'position:absolute;top:0;width:1px;background:rgba(120,169,255,0.5);pointer-events:none;display:none;z-index:4';
+	const tip = document.createElement('div');
+	tip.style.cssText = 'position:absolute;pointer-events:none;display:none;background:rgba(5,7,13,0.96);border:1px solid var(--border2);border-radius:8px;padding:6px 9px;font-size:11.5px;font-family:var(--mono);color:var(--text);white-space:nowrap;transform:translate(-50%,-135%);z-index:5';
+	wrap.appendChild(cross);
+	wrap.appendChild(tip);
+	const hide = () => { cross.style.display = 'none'; tip.style.display = 'none'; };
+	chart.addEventListener('mouseleave', hide);
+	chart.addEventListener('mousemove', (e) => {
+		const geo = state.chartGeo;
+		if (!geo || !geo.points.length) return hide();
+		const rect = chart.getBoundingClientRect();
+		const mx = e.clientX - rect.left;
+		let best = geo.points[0], bd = Infinity;
+		for (const p of geo.points) { const d = Math.abs(p.px - mx); if (d < bd) { bd = d; best = p; } }
+		cross.style.display = 'block'; cross.style.left = best.px + 'px'; cross.style.height = rect.height + 'px';
+		tip.style.display = 'block'; tip.style.left = best.px + 'px'; tip.style.top = best.py + 'px';
+		const when = new Date(best.t * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' });
+		const tag = best.kind === 'forecast' ? '<span style="color:var(--ibm-light)">· forecast</span>' : `<span style="color:var(--faint)">· ${when}</span>`;
+		tip.innerHTML = `${fmtPrice(best.c)} ${tag}`;
+	});
+}
+
+// Reset the right-hand panels to a loading state while a new token is fetched,
+// so stale numbers never linger between selections.
+function clearPanels() {
+	['s-cur', 's-fc', 's-chg', 's-hz'].forEach((id) => { $(id).textContent = '—'; $(id).className = 'v'; });
+	$('proof').hidden = true;
+	$('action').innerHTML = '';
+	hideNotice();
+	const govEl = $('gov');
+	govEl.classList.remove('passed', 'flagged');
+	const svgStroke = $('gov-shield')?.querySelector('svg');
+	if (svgStroke) svgStroke.setAttribute('stroke', 'var(--ibm-light)');
+	$('gov-title').textContent = 'Running Granite…';
+	$('gov-sub').textContent = 'Forecasting and screening the narration.';
+	$('gov-model').textContent = '';
 }
 
 // ── render: stats / governance / proof / action ──────────────────────────────
@@ -422,6 +472,7 @@ async function select(pool) {
 	if (!pool) return;
 	$('token-tag').textContent = 'loading…';
 	setCaption(''); setMood(null);
+	clearPanels();
 	try {
 		const r = await fetch(attestUrl(`?pool=${encodeURIComponent(pool)}&timeframe=hour`));
 		if (!r.ok) throw new Error(`endpoint ${r.status}`);
@@ -462,6 +513,7 @@ document.addEventListener('click', (e) => {
 	if (val) navigator.clipboard?.writeText(val).then(() => { const o = btn.textContent; btn.textContent = 'copied'; setTimeout(() => (btn.textContent = o), 1200); });
 });
 
+setupChartHover();
 let resizeT;
 window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => state.current && drawChart(state.current), 120); });
 
