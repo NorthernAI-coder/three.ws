@@ -132,7 +132,7 @@ describe("BrowserWalletClient", () => {
 
     expect(
       (globalThis as Record<string, unknown>)["fetch"] as ReturnType<typeof jest.fn>,
-    ).toHaveBeenCalledWith(`${baseUrl}/reject/${pending.id}`, { method: "POST" });
+    ).toHaveBeenCalledWith(`${baseUrl}/reject/${pending.id}`, { method: "POST", headers: {} });
     expect(signerMock).not.toHaveBeenCalled();
   });
 

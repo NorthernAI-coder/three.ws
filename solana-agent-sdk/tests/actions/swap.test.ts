@@ -5,24 +5,53 @@ let mockFetch = jest.fn<(url: RequestInfo | URL, init?: RequestInit) => Promise<
 
 const { jupiterSwap, getSwapQuote, SOL_MINT } = await import("../../src/actions/swap.js");
 const { SwapError } = await import("../../src/errors.js");
-const { Keypair, TransactionMessage, VersionedTransaction } =
+const { Keypair, PublicKey, TransactionMessage, VersionedTransaction } =
   await import("@solana/web3.js") as typeof import("@solana/web3.js");
+const {
+  getAssociatedTokenAddressSync,
+  createTransferCheckedInstruction,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+} = await import("@solana/spl-token") as typeof import("@solana/spl-token");
 
 const WALLET_PUBKEY = Keypair.fromSeed(new Uint8Array(32).fill(1)).publicKey;
 
-// Minimal valid VersionedTransaction for mock Jupiter swap response
-const MOCK_TX_BASE64 = (() => {
+const INPUT_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC
+const OUTPUT_MINT = "FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"; // $THREE
+const COUNTERPARTY = Keypair.fromSeed(new Uint8Array(32).fill(2)).publicKey;
+
+function ata(mint: string, owner = WALLET_PUBKEY) {
+  return getAssociatedTokenAddressSync(
+    new PublicKey(mint), owner, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+  );
+}
+
+// A realistic Jupiter swap tx: spend INPUT from the wallet's ATA, credit OUTPUT
+// back to the wallet's ATA. The new swap-guard validates exactly this shape.
+function buildSwapTx(inAmount: bigint): string {
+  const counterpartyOut = ata(OUTPUT_MINT, COUNTERPARTY);
   const msg = new TransactionMessage({
     payerKey: WALLET_PUBKEY,
     recentBlockhash: "11111111111111111111111111111111",
-    instructions: [],
+    instructions: [
+      createTransferCheckedInstruction(
+        ata(INPUT_MINT), new PublicKey(INPUT_MINT), ata(INPUT_MINT, COUNTERPARTY),
+        WALLET_PUBKEY, inAmount, 6, [], TOKEN_PROGRAM_ID,
+      ),
+      createTransferCheckedInstruction(
+        counterpartyOut, new PublicKey(OUTPUT_MINT), ata(OUTPUT_MINT),
+        COUNTERPARTY, 990_000_000n, 6, [], TOKEN_PROGRAM_ID,
+      ),
+    ],
   }).compileToV0Message();
   return Buffer.from(new VersionedTransaction(msg).serialize()).toString("base64");
-})();
+}
+
+const MOCK_TX_BASE64 = buildSwapTx(1_000_000_000n);
 
 const MOCK_QUOTE = {
-  inputMint: SOL_MINT,
-  outputMint: SOL_MINT,
+  inputMint: INPUT_MINT,
+  outputMint: OUTPUT_MINT,
   inAmount: "1000000000",
   outAmount: "990000000",
   priceImpactPct: "0.01",
@@ -96,7 +125,7 @@ describe("jupiterSwap", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ swapTransaction: MOCK_TX_BASE64 }) } as unknown as Response);
 
     await jupiterSwap(makeWallet(), connection, {
-      inputMint: SOL_MINT, outputMint: SOL_MINT, amount: 1_000_000_000n,
+      inputMint: INPUT_MINT, outputMint: OUTPUT_MINT, amount: 1_000_000_000n,
     });
 
     const swapCall = mockFetch.mock.calls[1]!;
@@ -129,7 +158,7 @@ describe("jupiterSwap", () => {
 
     const w = makeMetaWallet();
     await jupiterSwap(w, connection, {
-      inputMint: SOL_MINT, outputMint: SOL_MINT, amount: 1_000_000_000n,
+      inputMint: INPUT_MINT, outputMint: OUTPUT_MINT, amount: 1_000_000_000n,
     });
 
     expect(w.setNextMeta).toHaveBeenCalledTimes(1);
@@ -146,7 +175,7 @@ describe("jupiterSwap", () => {
 
     await expect(
       jupiterSwap(makeWallet(), connection, {
-        inputMint: SOL_MINT, outputMint: SOL_MINT, amount: 1n,
+        inputMint: INPUT_MINT, outputMint: OUTPUT_MINT, amount: 1n,
       }),
     ).resolves.toBeDefined();
   });

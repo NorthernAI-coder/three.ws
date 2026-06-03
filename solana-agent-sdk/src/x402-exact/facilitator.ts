@@ -293,12 +293,20 @@ function collectInstructions(
   return [...top, ...inner];
 }
 
+interface TransferMatch {
+  found: boolean;
+  payer: string;
+  reason: string;
+}
+
 function findTransferChecked(
   tx: Awaited<ReturnType<Connection["getParsedTransaction"]>>,
   req: ExactPaymentRequirements,
-): { found: true; payer: string } | { found: false; reason: string } {
+): TransferMatch {
   const instructions = collectInstructions(tx);
-  if (!instructions.length) return { found: false, reason: "No instructions in transaction" };
+  if (!instructions.length) {
+    return { found: false, payer: "", reason: "No instructions in transaction" };
+  }
 
   const receiverAta = deriveAta(new PublicKey(req.payTo), new PublicKey(req.asset));
 
@@ -312,11 +320,12 @@ function findTransferChecked(
     if (info.destination !== receiverAta.toBase58()) continue;
     if (info.tokenAmount?.amount !== req.amount) continue;
 
-    return { found: true, payer: info.authority ?? info.source ?? "" };
+    return { found: true, payer: info.authority ?? info.source ?? "", reason: "" };
   }
 
   return {
     found: false,
+    payer: "",
     reason: `No matching transferChecked to ${req.payTo} for ${req.amount} of ${req.asset}`,
   };
 }

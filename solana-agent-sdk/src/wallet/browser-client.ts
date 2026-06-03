@@ -34,6 +34,12 @@ export type ApprovalHandler = (
 
 export interface BrowserWalletClientOptions {
   /**
+   * Session id issued by the server-side BrowserWalletProvider. Required to
+   * authorize /stream, /sign and /reject — the server rejects requests without
+   * it. Pass the provider's `sessionId` through to the browser at page load.
+   */
+  sessionId?: string;
+  /**
    * Called with each pending tx before the wallet prompt.
    * Must call approve() or reject() — whichever the user chooses.
    * If omitted, all transactions are auto-approved (no confirmation UI).
@@ -90,8 +96,18 @@ export class BrowserWalletClient {
     }
   }
 
+  private sessionQuery(): string {
+    const sid = this.opts.sessionId;
+    return sid ? `?session=${encodeURIComponent(sid)}` : "";
+  }
+
+  private authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+    const sid = this.opts.sessionId;
+    return sid ? { ...extra, "x-wallet-session": sid } : extra;
+  }
+
   private openStream(): void {
-    const es = new EventSource(`${this.baseUrl}/stream`);
+    const es = new EventSource(`${this.baseUrl}/stream${this.sessionQuery()}`);
     this.eventSource = es;
 
     es.onmessage = (event: MessageEvent<string>) => {
@@ -144,7 +160,7 @@ export class BrowserWalletClient {
     const serialized = uint8ArrayToBase64(signed.serialize());
     const res = await fetch(`${this.baseUrl}/sign/${pending.id}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ signedTransaction: serialized }),
     });
 
@@ -155,7 +171,10 @@ export class BrowserWalletClient {
   }
 
   private async reject(pending: PendingTx, reason: string): Promise<void> {
-    await fetch(`${this.baseUrl}/reject/${pending.id}`, { method: "POST" }).catch(() => undefined);
+    await fetch(`${this.baseUrl}/reject/${pending.id}`, {
+      method: "POST",
+      headers: this.authHeaders(),
+    }).catch(() => undefined);
     this.opts.onRejected?.(pending, reason);
   }
 }

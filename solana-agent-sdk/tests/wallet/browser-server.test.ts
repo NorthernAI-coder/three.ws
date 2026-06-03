@@ -5,18 +5,23 @@ import { BrowserWalletProvider } from "../../src/wallet/browser-server.js";
 describe("BrowserWalletProvider", () => {
   const keypair = Keypair.generate();
 
-  function makeSerializedTx(feePayer = keypair.publicKey): string {
-    const tx = new Transaction();
-    tx.recentBlockhash = "11111111111111111111111111111111";
-    tx.feePayer = feePayer;
-    return Buffer.from(tx.serialize({ requireAllSignatures: false })).toString("base64");
-  }
-
   function makeTx(feePayer = keypair.publicKey): Transaction {
     const tx = new Transaction();
     tx.recentBlockhash = "11111111111111111111111111111111";
     tx.feePayer = feePayer;
     return tx;
+  }
+
+  // The provider now validates that the returned, signed transaction matches the
+  // requested one and is validly signed by the wallet. Tests must therefore sign
+  // the exact tx they submitted back.
+  function signSerialized(tx: Transaction): string {
+    tx.sign(keypair);
+    return Buffer.from(tx.serialize({ requireAllSignatures: false })).toString("base64");
+  }
+
+  function makeSerializedTx(feePayer = keypair.publicKey): string {
+    return signSerialized(makeTx(feePayer));
   }
 
   afterEach(() => {

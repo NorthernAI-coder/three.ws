@@ -225,10 +225,28 @@ export interface PaymentResponse {
 export interface ResourceServerConfig {
   /** Facilitator client to use for verify + settle */
   facilitator: FacilitatorClient;
-  /** Default payment requirements for this resource */
+  /**
+   * Default payment requirements for this resource.
+   *
+   * For the `pump-agent` scheme the resource server mints a FRESH invoice
+   * (new memo + validity window) per 402 response so each payment is bound to
+   * a single, single-use invoice — these entries act as the template for amount
+   * / asset / agentMint / payTo, not as a reusable static invoice. Provide
+   * {@link mintRequirements} to fully control per-request invoice generation.
+   */
   requirements: PaymentRequirements[];
   /** Resource info describing what's for sale */
   resource: ResourceInfo;
+  /**
+   * Optional factory invoked on every 402 to mint fresh, per-request payment
+   * requirements (e.g. via `buildPumpAgentRequirements`). When omitted, the
+   * server regenerates the invoice fields (memo/startTime/endTime) of any
+   * `pump-agent` entry in {@link requirements} for each 402. Supplying this lets
+   * you vary price/asset per request or add per-caller invoice metadata.
+   */
+  mintRequirements?: (
+    request: Request,
+  ) => PaymentRequirements[] | Promise<PaymentRequirements[]>;
 }
 
 // ─── Client Configuration ───────────────────────────────────────────────────

@@ -38,6 +38,32 @@ import {
   type ParsedAgentEvent,
 } from "./events";
 
+/**
+ * Bounded-concurrency map: runs `fn` over `items` in chunks of at most `size`
+ * so we parallelise RPC round-trips without firing an unbounded fan-out that
+ * would trip RPC provider rate limits. Order of results matches input order.
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  size: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  for (let start = 0; start < items.length; start += size) {
+    const slice = items.slice(start, start + size);
+    const settled = await Promise.all(
+      slice.map((item, offset) => fn(item, start + offset)),
+    );
+    // settled[i] is in-bounds by construction; the `!` satisfies
+    // noUncheckedIndexedAccess (Awaited<R> | undefined → R).
+    for (let i = 0; i < settled.length; i++) results[start + i] = settled[i]!;
+  }
+  return results;
+}
+
+/** Max concurrent getTransaction round-trips per chunk (RPC-friendly). */
+const TX_FETCH_CONCURRENCY = 10;
+
 export class PumpAgent extends PumpAgentOffline {
   private connection?: Connection;
   private environment: PumpEnvironment;
@@ -318,15 +344,21 @@ export class PumpAgent extends PumpAgentOffline {
       { limit },
     );
 
+    // Fetch transactions concurrently (chunked) rather than one serial
+    // round-trip per signature — up to `limit` (default 50) RPC calls.
+    const okSignatures = signatures.filter((sig) => !sig.err);
+    const txs = await mapWithConcurrency(
+      okSignatures,
+      TX_FETCH_CONCURRENCY,
+      (sig) =>
+        connection.getTransaction(sig.signature, {
+          maxSupportedTransactionVersion: 0,
+        }),
+    );
+
     const payments: AgentAcceptPaymentEvent[] = [];
-
-    for (const sig of signatures) {
-      if (sig.err) continue;
-      const tx = await connection.getTransaction(sig.signature, {
-        maxSupportedTransactionVersion: 0,
-      });
+    for (const tx of txs) {
       if (!tx?.meta?.logMessages) continue;
-
       const events = parseAgentEvents(tx.meta.logMessages, connection);
       for (const event of events) {
         if (event.name === "agentAcceptPaymentEvent") {
@@ -356,15 +388,20 @@ export class PumpAgent extends PumpAgentOffline {
       { limit },
     );
 
+    // Fetch transactions concurrently (chunked) instead of serially.
+    const okSignatures = signatures.filter((sig) => !sig.err);
+    const txs = await mapWithConcurrency(
+      okSignatures,
+      TX_FETCH_CONCURRENCY,
+      (sig) =>
+        connection.getTransaction(sig.signature, {
+          maxSupportedTransactionVersion: 0,
+        }),
+    );
+
     const allEvents: ParsedAgentEvent[] = [];
-
-    for (const sig of signatures) {
-      if (sig.err) continue;
-      const tx = await connection.getTransaction(sig.signature, {
-        maxSupportedTransactionVersion: 0,
-      });
+    for (const tx of txs) {
       if (!tx?.meta?.logMessages) continue;
-
       const events = parseAgentEvents(tx.meta.logMessages, connection);
       allEvents.push(...events);
     }
@@ -460,20 +497,12 @@ export class PumpAgent extends PumpAgentOffline {
 
     const signatures = await connection.getSignaturesForAddress(invoiceId);
 
-    for (const sig of signatures) {
-      const tx = await connection.getTransaction(sig.signature, {
-        maxSupportedTransactionVersion: 0,
-      });
-      if (!tx || tx.meta?.err) continue;
+    const parser = new EventParser(
+      this.program.programId,
+      this.program.coder,
+    );
 
-      const logs = tx.meta?.logMessages;
-      if (!logs) continue;
-
-      const parser = new EventParser(
-        this.program.programId,
-        this.program.coder,
-      );
-
+    const matchesInvoice = (logs: string[]): boolean => {
       for (const event of parser.parseLogs(logs)) {
         if (event.name !== "agentAcceptPaymentEvent") continue;
 
@@ -498,6 +527,27 @@ export class PumpAgent extends PumpAgentOffline {
         ) {
           return true;
         }
+      }
+      return false;
+    };
+
+    // Fetch the invoice PDA's transactions concurrently (chunked) and
+    // short-circuit as soon as a chunk yields a matching payment event.
+    for (let start = 0; start < signatures.length; start += TX_FETCH_CONCURRENCY) {
+      const slice = signatures.slice(start, start + TX_FETCH_CONCURRENCY);
+      const txs = await Promise.all(
+        slice.map((sig) =>
+          connection.getTransaction(sig.signature, {
+            maxSupportedTransactionVersion: 0,
+          }),
+        ),
+      );
+
+      for (const tx of txs) {
+        if (!tx || tx.meta?.err) continue;
+        const logs = tx.meta?.logMessages;
+        if (!logs) continue;
+        if (matchesInvoice(logs)) return true;
       }
     }
 

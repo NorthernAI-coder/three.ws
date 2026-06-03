@@ -63,12 +63,21 @@ export interface ReplayStore {
 
 // ─── Settlement Cache ───────────────────────────────────────────────────────
 
+/**
+ * Default in-process replay-cache TTL. MUST be >= the maximum invoice window
+ * (buildPumpAgentRequirements defaults to a 300s window) plus a clock-skew
+ * margin, otherwise a proof can age out of the cache while its on-chain invoice
+ * is still valid and be replayed for free access (audit #14). 300s window +
+ * 120s skew margin = 420s.
+ */
+const DEFAULT_SETTLEMENT_TTL_MS = 420_000;
+
 class SettlementCache {
   private cache = new Map<string, number>();
   private maxSize: number;
   private ttlMs: number;
 
-  constructor(maxSize = 10_000, ttlMs = 120_000) {
+  constructor(maxSize = 10_000, ttlMs = DEFAULT_SETTLEMENT_TTL_MS) {
     this.maxSize = maxSize;
     this.ttlMs = ttlMs;
   }
@@ -109,6 +118,24 @@ function generateMemo(): string {
   const ts = Date.now();
   memoCounter = (memoCounter + 1) % 1_000_000;
   return `${ts}${String(memoCounter).padStart(6, "0")}`;
+}
+
+/**
+ * Stable logical key for an invoice, mirroring the on-chain invoice-id seeds:
+ * (agentMint, currencyMint/asset, amount, memo, startTime, endTime). Used as
+ * the replay-store key so a given invoice is single-use regardless of which
+ * transaction signature settled it — the memo is freshly minted per 402, so an
+ * attacker who pays one invoice cannot redeem it twice (audit #1).
+ */
+function invoiceKey(req: PumpAgentPaymentRequirements): string {
+  return [
+    req.extra.agentMint,
+    req.asset,
+    req.amount,
+    String(req.extra.memo),
+    String(req.extra.startTime),
+    String(req.extra.endTime),
+  ].join(":");
 }
 
 // ─── Pump Agent Facilitator ─────────────────────────────────────────────────
@@ -221,11 +248,15 @@ export class PumpAgentFacilitator implements FacilitatorClient {
     const proof = payload.payload as Record<string, unknown>;
     const signature = proof.signature as string;
     const payer = proof.payer as string;
+    const req = requirements as PumpAgentPaymentRequirements;
 
-    // Atomically consume the signature — true exactly once. With a durable
+    // Atomically consume the per-request INVOICE (memo + window), not just the
+    // signature. The memo is freshly minted per 402, so this makes each invoice
+    // single-use: once redeemed it can never be settled again, regardless of
+    // the cache TTL or which signature paid it (audit #1, #14). With a durable
     // ReplayStore this is the cross-instance double-spend guard; with the
     // in-memory default it only protects within a single process.
-    const claimed = await this.replayStore.claim(signature);
+    const claimed = await this.replayStore.claim(invoiceKey(req));
     if (!claimed) {
       return { success: false, errorReason: "Duplicate payment", payer };
     }
@@ -295,6 +326,87 @@ export function buildPumpAgentRequirements(
   };
 }
 
+/**
+ * Re-mint the per-request invoice fields of a `pump-agent` requirement: a new
+ * unique memo and a fresh validity window starting now. Non-invoice fields
+ * (amount, asset, payTo, agentMint, network) are preserved from the template.
+ * Non-pump-agent requirements are returned unchanged.
+ */
+function refreshRequirement(req: PaymentRequirements): PaymentRequirements {
+  if (req.scheme !== "pump-agent") return req;
+  const pump = req as PumpAgentPaymentRequirements;
+  const now = Math.floor(Date.now() / 1000);
+  const windowSec = Math.max(1, pump.extra.endTime - pump.extra.startTime || 300);
+  return {
+    ...pump,
+    extra: {
+      ...pump.extra,
+      memo: generateMemo(),
+      startTime: now,
+      endTime: now + windowSec,
+    },
+  };
+}
+
+/**
+ * Produce the `accepts[]` for a 402 response: a caller-supplied
+ * {@link ResourceServerConfig.mintRequirements} factory takes precedence;
+ * otherwise each configured requirement has its invoice fields refreshed so the
+ * memo/window are unique per request (audit #1).
+ */
+async function mintRequirements(
+  config: ResourceServerConfig,
+  request: Request,
+): Promise<PaymentRequirements[]> {
+  if (config.mintRequirements) {
+    return config.mintRequirements(request);
+  }
+  return config.requirements.map(refreshRequirement);
+}
+
+/**
+ * Guard the client-echoed `accepted` requirement against the configured
+ * template: the immutable, server-owned fields (scheme, network, asset, amount,
+ * payTo, agentMint) must match exactly so a client cannot downgrade the price,
+ * swap the asset, or redirect the recipient by editing the requirement it
+ * echoes back. The invoice fields (memo/startTime/endTime) are intentionally
+ * NOT compared — they are minted per request and validated on-chain.
+ */
+function acceptedMatchesTemplate(
+  accepted: PaymentRequirements,
+  template: PaymentRequirements,
+): boolean {
+  if (
+    accepted.scheme !== template.scheme ||
+    accepted.network !== template.network ||
+    accepted.asset !== template.asset ||
+    accepted.amount !== template.amount ||
+    accepted.payTo !== template.payTo
+  ) {
+    return false;
+  }
+  if (accepted.scheme === "pump-agent" && template.scheme === "pump-agent") {
+    const a = accepted as PumpAgentPaymentRequirements;
+    const t = template as PumpAgentPaymentRequirements;
+    if (a.extra.agentMint !== t.extra.agentMint) return false;
+    // Reject an invoice window outside the configured maximum so a client
+    // can't claim an arbitrarily long-lived invoice.
+    if (
+      !Number.isFinite(a.extra.startTime) ||
+      !Number.isFinite(a.extra.endTime) ||
+      a.extra.endTime <= a.extra.startTime
+    ) {
+      return false;
+    }
+    const templateWindow = Math.max(
+      1,
+      t.extra.endTime - t.extra.startTime || 300,
+    );
+    if (a.extra.endTime - a.extra.startTime > templateWindow) return false;
+  }
+  return true;
+}
+
 // ─── Resource Server Middleware ──────────────────────────────────────────────
 
 /**
@@ -340,11 +452,16 @@ export function createResourceServer(
     const paymentHeader = request.headers.get(X402_HEADER_PAYMENT);
 
     if (!paymentHeader) {
-      // Build fresh requirements (with new invoice memos)
+      // Mint a FRESH invoice per 402: each pump-agent requirement gets a new
+      // memo + validity window so the payment the client makes is bound to a
+      // single, single-use invoice (audit #1). A static, reused memo/window
+      // would let one on-chain payment be replayed across requests.
+      const accepts = await mintRequirements(config, request);
+
       const body: PaymentRequired = {
         x402Version: X402_VERSION,
         resource,
-        accepts: config.requirements,
+        accepts,
       };
 
       return new Response(JSON.stringify(body), {
@@ -365,15 +482,27 @@ export function createResourceServer(
       return new Response("Invalid X-PAYMENT header", { status: 400 });
     }
 
-    // Find the matching requirement
+    // The authoritative requirement for verification is the per-request invoice
+    // the CLIENT echoes back in `accepted` (it carries the fresh memo/window we
+    // issued in the matching 402). We do NOT trust a static server template
+    // here, because the invoice fields (memo/startTime/endTime) are now unique
+    // per request. We still pin the immutable, server-owned fields (scheme,
+    // network, asset, amount, payTo, agentMint) to a configured template so a
+    // client can't downgrade the price or redirect the recipient.
     const accepted = paymentPayload.accepted;
-    const matchedReq = config.requirements.find(
+    const template = config.requirements.find(
       (r) => r.scheme === accepted.scheme && r.network === accepted.network,
     );
 
-    if (!matchedReq) {
+    if (!template) {
       return new Response("No matching payment requirement", { status: 400 });
     }
+
+    if (!acceptedMatchesTemplate(accepted, template)) {
+      return new Response("Payment requirement mismatch", { status: 400 });
+    }
+
+    const matchedReq = accepted;
 
     // Verify
     const verifyResult = await facilitator.verify(paymentPayload, matchedReq);

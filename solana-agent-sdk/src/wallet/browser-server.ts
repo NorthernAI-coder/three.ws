@@ -182,7 +182,7 @@ export class BrowserWalletProvider implements MetaAwareWallet {
   }
 
   getPending(): PendingTx[] {
-    return Array.from(this.pending.values());
+    return Array.from(this.pending.values(), toPublic);
   }
 
   submitSigned(txId: string, signedBase64: string): void {
@@ -203,18 +203,39 @@ export class BrowserWalletProvider implements MetaAwareWallet {
   }
 
   /**
+   * Validate that a request carries this provider's session id. The session id
+   * is the shared secret that binds these endpoints to the legitimate wallet
+   * owner — without it, anyone who learns a (guessable) tx id could sign/reject.
+   * The id is read from the `x-wallet-session` header or, for EventSource which
+   * cannot set headers, the `session` query parameter.
+   */
+  private isAuthorized(req: Request, url: URL): boolean {
+    const provided =
+      req.headers.get("x-wallet-session") ?? url.searchParams.get("session") ?? "";
+    return constantTimeEquals(provided, this.sessionId);
+  }
+
+  /**
    * Returns a fetch-API Request handler. Mount it in your server:
    *
    *   GET  {base}/pending          → list all current pending txs
    *   GET  {base}/stream           → SSE stream of new pending txs
    *   POST {base}/sign/:id         → body: { signedTransaction: base64 }
    *   POST {base}/reject/:id       → user rejected
+   *
+   * Every request must carry the provider's `sessionId` (header
+   * `x-wallet-session`, or `?session=` for the SSE stream). Requests without it
+   * are rejected with 401 so only the legitimate wallet owner can drive signing.
    */
   createHandler(base = ""): (req: Request) => Promise<Response> {
     return async (req: Request) => {
       const url = new URL(req.url);
       const path = url.pathname.replace(base, "").replace(/^\//, "");
       const [action, id] = path.split("/");
+
+      if (!this.isAuthorized(req, url)) {
+        return new Response("Unauthorized", { status: 401 });
+      }
 
       // GET /pending — snapshot of current queue
       if (req.method === "GET" && !action) {
@@ -259,6 +280,9 @@ export class BrowserWalletProvider implements MetaAwareWallet {
 
       // POST /sign/:id
       if (req.method === "POST" && action === "sign" && id) {
+        if (!this.pending.has(id)) {
+          return new Response("Unknown transaction", { status: 404 });
+        }
         const body = (await req.json()) as { signedTransaction: string };
         const sigPromise = new Promise<string | null>((resolve) => {
           const t = setTimeout(() => resolve(null), 60_000);
@@ -274,6 +298,9 @@ export class BrowserWalletProvider implements MetaAwareWallet {
 
       // POST /reject/:id
       if (req.method === "POST" && action === "reject" && id) {
+        if (!this.pending.has(id)) {
+          return new Response("Unknown transaction", { status: 404 });
+        }
         this.submitRejected(id);
         return Response.json({ ok: true });
       }
@@ -281,4 +308,39 @@ export class BrowserWalletProvider implements MetaAwareWallet {
       return new Response("Not found", { status: 404 });
     };
   }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** DER SPKI prefix for an Ed25519 public key (RFC 8410). */
+const ED25519_SPKI_PREFIX = Buffer.from([
+  0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
+]);
+
+/** Compiled message bytes used to detect tampering between request and response. */
+function compiledMessageBytes(tx: Transaction | VersionedTransaction): Uint8Array {
+  return tx instanceof Transaction
+    ? Uint8Array.from(tx.serializeMessage())
+    : tx.message.serialize();
+}
+
+function buffersEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
+  return diff === 0;
+}
+
+/** Constant-time string comparison for session-id checks. */
+function constantTimeEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Strip internal fields, returning the public PendingTx shape. */
+function toPublic(entry: PendingEntry): PendingTx {
+  const { messageBytes: _messageBytes, ...rest } = entry;
+  return rest;
 }
