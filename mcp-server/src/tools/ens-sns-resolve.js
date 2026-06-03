@@ -17,7 +17,8 @@
 import { ethers } from 'ethers';
 import { z } from 'zod';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'ens_sns_resolve';
 const TOOL_DESCRIPTION =
@@ -100,23 +101,16 @@ async function resolveSns(name) {
 	};
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		name: {
-			type: 'string',
-			description: 'Name to resolve (e.g. "vitalik.eth", "bonfida.sol", or bare "vitalik" which is tried in both).',
-			minLength: 1,
-			maxLength: 253,
-		},
-	},
-	required: ['name'],
-	additionalProperties: false,
+// Single source of truth: Zod shape with description + bounds; JSON Schema derived.
+const inputZodShape = {
+	name: z
+		.string()
+		.min(1)
+		.max(253)
+		.describe('Name to resolve (e.g. "vitalik.eth", "bonfida.sol", or bare "vitalik" which is tried in both).'),
 };
 
-const inputZodShape = {
-	name: z.string().min(1).max(253),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildEnsSnsResolveTool() {
 	const handler = await paid(
@@ -143,7 +137,7 @@ export async function buildEnsSnsResolveTool() {
 			if (isEns) tasks.push(['ens', resolveEns(trimmed).catch((e) => ({ error: e?.message || 'ens failed' }))]);
 			if (isSol) tasks.push(['sns', resolveSns(trimmed).catch((e) => ({ error: e?.message || 'sns failed' }))]);
 			if (!isEns && !isSol) {
-				return { ok: false, error: 'invalid_name', message: 'name does not look like a .eth, .sol, or bare label' };
+				return toolError('invalid_name', 'name does not look like a .eth, .sol, or bare label');
 			}
 			const results = await Promise.all(tasks.map((t) => t[1]));
 			const out = { ok: false, input: trimmed, ens: null, sns: null };

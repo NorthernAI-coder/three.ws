@@ -79,11 +79,10 @@ export async function buildSentimentPulseTool() {
 			}
 			const data = await res.json().catch(() => null);
 			if (!res.ok || !data || data.ok === false) {
-				return {
-					ok: false,
-					error: data?.code || data?.error || 'sentiment_failed',
-					message: data?.message || `endpoint returned ${res.status}`,
-				};
+				return toolError(
+					data?.code || data?.error || 'sentiment_failed',
+					data?.message || `endpoint returned ${res.status}`,
+				);
 			}
 			return data;
 		},

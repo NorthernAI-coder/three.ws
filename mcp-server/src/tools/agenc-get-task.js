@@ -13,7 +13,8 @@ import {
 	getTaskLifecycleSummary,
 } from '@tetsuo-ai/sdk';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 import {
 	getAgenCClient,
 	parsePubkey,
@@ -38,47 +39,36 @@ function resolveTaskId(input) {
 	return Uint8Array.from(createHash('sha256').update(s, 'utf8').digest());
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		taskPda: {
-			type: 'string',
-			description: 'Base58 task account PDA. If omitted, supply creator + taskId.',
-			minLength: 32,
-			maxLength: 44,
-		},
-		creator: {
-			type: 'string',
-			description: 'Base58 task creator wallet (required if taskPda is omitted).',
-			minLength: 32,
-			maxLength: 44,
-		},
-		taskId: {
-			type: 'string',
-			description: '32-byte task id as 64-char hex, "0x"-prefixed hex, or any UTF-8 label (hashed via SHA-256).',
-			minLength: 1,
-			maxLength: 256,
-		},
-		cluster: {
-			type: 'string',
-			enum: ['mainnet', 'devnet'],
-			description: 'Solana cluster. Defaults to mainnet.',
-		},
-		includeLifecycle: {
-			type: 'boolean',
-			description: 'When true (default), include the lifecycle event timeline. Set false for a cheaper read.',
-		},
-	},
-	additionalProperties: false,
+// Single source of truth: Zod shape carries descriptions + bounds + cluster
+// enum; JSON Schema derived. (No required fields — the handler enforces
+// "taskPda OR {creator, taskId}".)
+const inputZodShape = {
+	taskPda: z
+		.string()
+		.min(32)
+		.max(44)
+		.describe('Base58 task account PDA. If omitted, supply creator + taskId.')
+		.optional(),
+	creator: z
+		.string()
+		.min(32)
+		.max(44)
+		.describe('Base58 task creator wallet (required if taskPda is omitted).')
+		.optional(),
+	taskId: z
+		.string()
+		.min(1)
+		.max(256)
+		.describe('32-byte task id as 64-char hex, "0x"-prefixed hex, or any UTF-8 label (hashed via SHA-256).')
+		.optional(),
+	cluster: z.enum(['mainnet', 'devnet']).describe('Solana cluster. Defaults to mainnet.').optional(),
+	includeLifecycle: z
+		.boolean()
+		.describe('When true (default), include the lifecycle event timeline. Set false for a cheaper read.')
+		.optional(),
 };
 
-const inputZodShape = {
-	taskPda: z.string().min(32).max(44).optional(),
-	creator: z.string().min(32).max(44).optional(),
-	taskId: z.string().min(1).max(256).optional(),
-	cluster: z.enum(['mainnet', 'devnet']).optional(),
-	includeLifecycle: z.boolean().optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildAgenCGetTaskTool() {
 	const handler = await paid(
@@ -112,11 +102,7 @@ export async function buildAgenCGetTaskTool() {
 				pda = parsePubkey(taskPda, 'taskPda');
 			} else {
 				if (!creator || !taskId) {
-					return {
-						ok: false,
-						error: 'missing_input',
-						message: 'Provide either taskPda OR both creator and taskId.',
-					};
+					return toolError('missing_input', 'Provide either taskPda OR both creator and taskId.');
 				}
 				pda = deriveTaskPda(
 					parsePubkey(creator, 'creator'),

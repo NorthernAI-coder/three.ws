@@ -24,6 +24,29 @@ import { cors, error, json, wrap } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { publicUrl } from '../_lib/r2.js';
 import { getSessionUser } from '../_lib/auth.js';
+import { env } from '../_lib/env.js';
+
+// Mirror of trustedOrigin() in api/avatar/optimize.js: image_url/audio_url are
+// forwarded to the LongCat worker, which fetches them server-side. Restrict them
+// to https on a three.ws-controlled host (APP_ORIGIN / R2 public domain) so a
+// caller can't drive the worker into an SSRF against internal/metadata hosts.
+function trustedMediaUrl(url) {
+	let u;
+	try {
+		u = new URL(url);
+	} catch {
+		return false;
+	}
+	if (u.protocol !== 'https:') return false;
+	const allowed = new Set();
+	try {
+		if (env.APP_ORIGIN) allowed.add(new URL(env.APP_ORIGIN).host);
+	} catch { /* ignore malformed env */ }
+	try {
+		if (env.S3_PUBLIC_DOMAIN) allowed.add(new URL(env.S3_PUBLIC_DOMAIN).host);
+	} catch { /* ignore malformed env */ }
+	return allowed.has(u.host);
+}
 
 function workerUrl() {
 	const u = process.env.LONGCAT_WORKER_URL;
@@ -91,6 +114,17 @@ export default wrap(async (req, res) => {
 	}
 
 	if (!imageUrl) return error(res, 400, 'invalid_request', 'image_url or avatar_id is required');
+
+	// The worker fetches these URLs server-side, so they must be https on a
+	// three.ws-controlled host. A server-resolved avatar render (publicUrl →
+	// R2 domain) already satisfies this; an arbitrary caller-supplied URL must
+	// pass the same allowlist or we'd hand the worker an SSRF primitive.
+	if (!trustedMediaUrl(imageUrl)) {
+		return error(res, 400, 'invalid_request', 'image_url must be an https three.ws-hosted URL');
+	}
+	if (!trustedMediaUrl(audioUrl)) {
+		return error(res, 400, 'invalid_request', 'audio_url must be an https three.ws-hosted URL');
+	}
 
 	let workerRes;
 	try {

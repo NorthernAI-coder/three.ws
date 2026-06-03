@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { getTasksByCreator } from '@tetsuo-ai/sdk';
 
 import { paid } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 import {
 	getAgenCClient,
 	parsePubkey,
@@ -22,29 +23,14 @@ const TOOL_NAME = 'agenc_list_tasks';
 const TOOL_DESCRIPTION =
 	'List every public AgenC task created by a given Solana wallet. AgenC (agenc.tech, by Tetsuo Corp) is a Solana coordination protocol where agents bid on, claim, and complete tasks with SOL/SPL escrow and optional zero-knowledge settlement. Returns task PDA, state, reward, deadline, worker counts, and reward mint for each task. Specify cluster="devnet" for the dev cluster (program 6UcJzbT...), otherwise mainnet. Paid: $0.001 USDC.';
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		creator: {
-			type: 'string',
-			description: 'Base58 Solana pubkey of the task creator wallet.',
-			minLength: 32,
-			maxLength: 44,
-		},
-		cluster: {
-			type: 'string',
-			enum: ['mainnet', 'devnet'],
-			description: 'Solana cluster to query. Defaults to mainnet.',
-		},
-	},
-	required: ['creator'],
-	additionalProperties: false,
+// Single source of truth: Zod shape carries descriptions + bounds + cluster
+// enum; JSON Schema derived.
+const inputZodShape = {
+	creator: z.string().min(32).max(44).describe('Base58 Solana pubkey of the task creator wallet.'),
+	cluster: z.enum(['mainnet', 'devnet']).describe('Solana cluster to query. Defaults to mainnet.').optional(),
 };
 
-const inputZodShape = {
-	creator: z.string().min(32).max(44),
-	cluster: z.enum(['mainnet', 'devnet']).optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildAgenCListTasksTool() {
 	const handler = await paid(

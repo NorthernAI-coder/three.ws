@@ -38,6 +38,7 @@ import {
 } from '@solana/spl-token';
 import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
 import { parse } from './_lib/validate.js';
+import { limits, clientIp } from './_lib/rate-limit.js';
 import {
 	NETWORK_SOLANA_MAINNET,
 	NETWORK_SOLANA_DEVNET,
@@ -45,6 +46,32 @@ import {
 
 const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const SOLANA_DEVNET_RPC = process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com';
+
+// Short-lived caches so repeated prepare calls don't re-issue identical RPC
+// round-trips. Mint decimals are effectively immutable; a blockhash is valid for
+// ~60-90s on Solana, so a few seconds of reuse cuts redundant traffic without
+// handing out a stale-enough blockhash for the buyer's signed tx to fail.
+const MINT_DECIMALS_TTL_MS = 5 * 60 * 1000;
+const BLOCKHASH_TTL_MS = 8 * 1000;
+const mintDecimalsCache = new Map(); // `${rpc}:${mint}` -> { decimals, at }
+const blockhashCache = new Map(); // rpc -> { blockhash, at }
+
+async function getMintDecimals(conn, rpc, mint) {
+	const key = `${rpc}:${mint.toBase58()}`;
+	const hit = mintDecimalsCache.get(key);
+	if (hit && Date.now() - hit.at < MINT_DECIMALS_TTL_MS) return hit.decimals;
+	const info = await getMint(conn, mint);
+	mintDecimalsCache.set(key, { decimals: info.decimals, at: Date.now() });
+	return info.decimals;
+}
+
+async function getRecentBlockhash(conn, rpc) {
+	const hit = blockhashCache.get(rpc);
+	if (hit && Date.now() - hit.at < BLOCKHASH_TTL_MS) return hit.blockhash;
+	const { blockhash } = await conn.getLatestBlockhash('confirmed');
+	blockhashCache.set(rpc, { blockhash, at: Date.now() });
+	return blockhash;
+}
 
 const acceptSchema = z.object({
 	scheme: z.literal('exact'),
@@ -108,6 +135,12 @@ function rpcFor(network) {
 }
 
 async function handlePrepare(req, res) {
+	// Per-IP rate limit: prepare fans out to multiple Solana RPC round-trips, so
+	// throttle anonymous callers to stop quota-drain / cost amplification against
+	// the (potentially paid) upstream RPC.
+	const rl = await limits.x402PayIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many prepare requests');
+
 	const body = parse(prepareSchema, await readJson(req));
 	const { accept, buyer } = body;
 	if (!isSolanaNetwork(accept.network)) {
@@ -119,7 +152,8 @@ async function handlePrepare(req, res) {
 		);
 	}
 
-	const conn = new Connection(rpcFor(accept.network), 'confirmed');
+	const rpc = rpcFor(accept.network);
+	const conn = new Connection(rpc, 'confirmed');
 	const mint = new PublicKey(accept.asset);
 	const payTo = new PublicKey(accept.payTo);
 	const feePayer = new PublicKey(accept.extra.feePayer);
@@ -140,7 +174,7 @@ async function handlePrepare(req, res) {
 		TOKEN_PROGRAM_ID,
 		ASSOCIATED_TOKEN_PROGRAM_ID,
 	);
-	const mintInfo = await getMint(conn, mint);
+	const mintDecimals = await getMintDecimals(conn, rpc, mint);
 
 	const ixs = [
 		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 }),
@@ -166,13 +200,13 @@ async function handlePrepare(req, res) {
 			receiverAta,
 			buyerPubkey,
 			amount,
-			mintInfo.decimals,
+			mintDecimals,
 			[],
 			TOKEN_PROGRAM_ID,
 		),
 	);
 
-	const { blockhash } = await conn.getLatestBlockhash('confirmed');
+	const blockhash = await getRecentBlockhash(conn, rpc);
 	const message = new TransactionMessage({
 		payerKey: feePayer,
 		recentBlockhash: blockhash,

@@ -2,22 +2,39 @@
 // Generates a text embedding via Voyage AI (voyage-3-lite, 1024-dim).
 // Used by AgentMemory.recall() for semantic similarity search.
 
-import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
+import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../../_lib/auth.js';
 import { cors, json, method, readJson, error } from '../../_lib/http.js';
-import { limits, clientIp } from '../../_lib/rate-limit.js';
+import { limits } from '../../_lib/rate-limit.js';
+import { sql } from '../../_lib/db.js';
 import { env } from '../../_lib/env.js';
 
 const VOYAGE_URL = 'https://api.voyageai.com/v1/embeddings';
 
-export async function handleEmbed(req, res) {
+export async function handleEmbed(req, res, id) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 
 	const session = await getSessionUser(req);
 	const bearer = session ? null : await authenticateBearer(extractBearer(req));
 	if (!session && !bearer) return error(res, 401, 'unauthorized', 'sign in required');
+	// Match the sibling per-agent sub-resources (nfts.js / pumpfun.js): a bearer
+	// token must carry an appropriate scope to drive the paid embeddings API.
+	if (bearer && !hasScope(bearer.scope, 'mcp') && !hasScope(bearer.scope, 'profile')) {
+		return error(res, 403, 'insufficient_scope', 'requires mcp or profile scope');
+	}
+	const userId = session?.id || bearer?.userId;
 
-	const rl = await limits.authIp(clientIp(req));
+	// This route is namespaced per-agent and burns the shared platform Voyage key,
+	// so it must enforce ownership of :id exactly like every other /api/agents/:id
+	// sub-resource — never embed against an agent the caller doesn't own.
+	const [agent] = await sql`
+		select id from agent_identities
+		where id = ${id} and user_id = ${userId} and deleted_at is null
+		limit 1
+	`;
+	if (!agent) return error(res, 404, 'not_found', 'agent not found');
+
+	const rl = await limits.embedUser(userId);
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
 	const body = await readJson(req);

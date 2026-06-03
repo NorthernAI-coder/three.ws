@@ -24,6 +24,7 @@
 import { cors, error, json, wrap } from '../_lib/http.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { presignUpload, publicUrl } from '../_lib/r2.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { randomUUID } from 'crypto';
 
 // 16 MB — generous for a single-mesh avatar, tight enough to keep the scene's
@@ -45,14 +46,31 @@ export default wrap(async (req, res) => {
 		if (session) userId = session.id ?? session.userId ?? 'anon';
 	} catch { /* anonymous player — allowed */ }
 
+	// Anonymous /play uploaders share the `anon` namespace, so rate-limit them
+	// per-IP to stop a single client minting unlimited presigned PUT URLs and
+	// using the bucket as free hosting. Authenticated users get the upload bucket
+	// keyed to their own id.
+	const rl = userId === 'anon'
+		? await limits.publicIp(clientIp(req))
+		: await limits.upload(userId);
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many upload requests');
+
 	const body = req.body || {};
 	const contentType = (body.content_type || 'model/gltf-binary').toLowerCase().trim();
 	if (!ALLOWED_TYPES.has(contentType)) {
 		return error(res, 415, 'unsupported_media_type', `content_type must be model/gltf-binary, got: ${contentType}`);
 	}
 
+	// Require a declared size and enforce the cap up front. The presigned PUT
+	// can't carry a content-length policy (R2 rejects the CORS preflight when
+	// content-length is a signed header — see api/_lib/r2.js), so the declared
+	// `bytes` is the binding pre-check; omitting it would otherwise sidestep the
+	// 16 MB cap entirely.
 	const bytes = Number(body.bytes);
-	if (Number.isFinite(bytes) && bytes > MAX_GLB_BYTES) {
+	if (!Number.isFinite(bytes) || bytes <= 0) {
+		return error(res, 400, 'invalid_request', 'bytes (declared file size) is required');
+	}
+	if (bytes > MAX_GLB_BYTES) {
 		return error(res, 413, 'payload_too_large', `glb is ${bytes} bytes; max is ${MAX_GLB_BYTES}`);
 	}
 

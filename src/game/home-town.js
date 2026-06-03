@@ -17,9 +17,11 @@ export const HOME_TOWN = {
 	name: 'three.ws',
 	symbol: 'three',
 	image: 'https://ipfs.io/ipfs/bafybeihe22b5sxr3ihnxt7pregfieyteqvubqhik3j3y4bbx243xlqjw3q',
-	// The signature look for the home town: the Neon Expanse, whose cyan/magenta
-	// neon over deep indigo matches the platform's monochrome-with-accent brand.
-	biome: 'alien',
+	// The signature look for the home town: Dust Gulch, an old-west frontier town —
+	// a packed-dirt square ringed by false-front storefronts (saloon, bank,
+	// sheriff…) under a low golden-hour sun, with a water tower on the skyline and
+	// tumbleweeds drifting the mesa. See the `frontier` biome in world-env.js.
+	biome: 'frontier',
 	official: true,
 };
 

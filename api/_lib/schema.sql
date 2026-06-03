@@ -444,6 +444,21 @@ do $$ begin
         for each row execute function set_updated_at();
 exception when duplicate_object then null; end $$;
 
+-- ── agent_memory_pins — IPFS CIDs an agent has pinned ────────────────────────
+-- Lets the read proxy (GET /api/agents/:id/memory/:cid) confirm the requested
+-- CID belongs to this agent instead of proxying any caller-supplied CID.
+create table if not exists agent_memory_pins (
+    agent_id    uuid not null references agent_identities(id) on delete cascade,
+    cid         text not null,
+    filename    text not null,
+    bytes       integer not null default 0,
+    created_at  timestamptz not null default now(),
+    primary key (agent_id, cid)
+);
+
+create index if not exists agent_memory_pins_agent
+    on agent_memory_pins(agent_id, created_at desc);
+
 -- ── agent_actions — append-only signed history ───────────────────────────────
 create table if not exists agent_actions (
     id             bigserial primary key,

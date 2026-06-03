@@ -686,10 +686,23 @@ const handleAutoTag = wrap(async (req, res) => {
 	`;
 	if (!rows[0]) return error(res, 404, 'not_found', 'avatar not found');
 
+	// Never trust thumb_key blindly: it is used for a server-side vision fetch and
+	// written into avatars.thumbnail_key (which decorate() exposes as a public
+	// URL). Restrict it to keys the caller can legitimately own — either their own
+	// u/<userId>/ namespace, or the canonical thumb/<avatarId>.png slot for THIS
+	// avatar (the shape thumbnail.js writes). Anything else would let one user
+	// point the fetch at, and publicly disclose, another user's private object.
+	const thumbKey = body.thumb_key;
+	const ownsKey =
+		thumbKey.startsWith(`u/${userId}/`) || thumbKey === `thumb/${body.avatar_id}.png`;
+	if (!ownsKey) {
+		return error(res, 400, 'invalid_storage_key', 'thumb_key must live under your namespace');
+	}
+
 	// Fetch the thumbnail from R2 for vision.
 	const { publicUrl } = await import('../_lib/r2.js');
 	const { env } = await import('../_lib/env.js');
-	const thumbUrl = publicUrl(body.thumb_key);
+	const thumbUrl = publicUrl(thumbKey);
 
 	// Image classification needs a vision-capable model. Per platform policy
 	// the free providers come first (OpenRouter hosts open vision models);
@@ -721,8 +734,8 @@ const handleAutoTag = wrap(async (req, res) => {
 	const patch = {};
 	if (!currentTags.length && newTags.length) patch.tags = newTags;
 	if (!currentDesc && desc) patch.description = desc;
-	// Always write thumbnail_key if not set yet.
-	if (!rows[0].thumbnail_key) patch.thumbnail_key = body.thumb_key;
+	// Always write thumbnail_key if not set yet — using the validated key only.
+	if (!rows[0].thumbnail_key) patch.thumbnail_key = thumbKey;
 
 	if (Object.keys(patch).length) {
 		await sql`

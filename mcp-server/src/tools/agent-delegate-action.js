@@ -12,7 +12,8 @@
 
 import { z } from 'zod';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'agent_delegate_action';
 const TOOL_DESCRIPTION =
@@ -23,25 +24,22 @@ function env(k, def) {
 	return v && String(v).trim() ? String(v).trim() : def;
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		agentId: { type: 'string', description: 'three.ws agent id (UUID).', minLength: 1, maxLength: 120 },
-		message: { type: 'string', minLength: 1, maxLength: 4000 },
-		model: {
-			type: 'string',
-			description: 'Optional Claude model override (e.g. claude-sonnet-4-6). Must be in the allowlist.',
-		},
-	},
-	required: ['agentId', 'message'],
-	additionalProperties: false,
+// Single source of truth: Zod shape carries descriptions + bounds; JSON Schema
+// derived. The prior hand-written JSON Schema left `model` with no bounds; the
+// Zod (min 1, max 100) is stricter and now wins, surfacing those bounds in the
+// advertised schema too.
+const inputZodShape = {
+	agentId: z.string().min(1).max(120).describe('three.ws agent id (UUID).'),
+	message: z.string().min(1).max(4000),
+	model: z
+		.string()
+		.min(1)
+		.max(100)
+		.describe('Optional Claude model override (e.g. claude-sonnet-4-6). Must be in the allowlist.')
+		.optional(),
 };
 
-const inputZodShape = {
-	agentId: z.string().min(1).max(120),
-	message: z.string().min(1).max(4000),
-	model: z.string().min(1).max(100).optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildAgentDelegateActionTool() {
 	const handler = await paid(
@@ -74,15 +72,14 @@ export async function buildAgentDelegateActionTool() {
 					body: JSON.stringify({ agentId, message, model }),
 				});
 			} catch (err) {
-				return { ok: false, error: 'upstream_unreachable', message: err?.message || 'fetch failed' };
+				return toolError('upstream_unreachable', err?.message || 'fetch failed');
 			}
 			const data = await res.json().catch(() => null);
 			if (!res.ok || !data || data.ok === false) {
-				return {
-					ok: false,
-					error: data?.code || data?.error || 'agent_delegate_failed',
-					message: data?.message || `endpoint returned ${res.status}`,
-				};
+				return toolError(
+					data?.code || data?.error || 'agent_delegate_failed',
+					data?.message || `endpoint returned ${res.status}`,
+				);
 			}
 			return data;
 		},

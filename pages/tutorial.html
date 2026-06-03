@@ -35,6 +35,7 @@
 		<link rel="stylesheet" href="/mobile.css" />
 		<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+		<script defer src="/nav.js"></script>
 		<script defer src="/footer-newsletter.js"></script>
 		<script defer src="/tutorials-manifest.js"></script>
 		<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
@@ -567,69 +568,7 @@
 		<div class="cursor" id="cursor" aria-hidden="true"></div>
 		<a href="#main-content" class="h-skip-link">Skip to main content</a>
 
-		<header>
-			<h1>
-				<a href="/" aria-label="three.ws home"
-					><img class="wordmark-logo" src="/three.svg" alt="" aria-hidden="true" /><span
-						class="wordmark-dot"
-						aria-hidden="true"
-					></span
-					>three.ws</a
-				>
-			</h1>
-			<nav class="home-nav" aria-label="Primary">
-				<ul class="nav-root" role="menubar">
-					<li class="nav-item nav-has-menu" role="none">
-						<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false" role="menuitem">
-							Build<span class="nav-caret" aria-hidden="true">▾</span>
-						</button>
-						<ul class="nav-menu" role="menu" aria-label="Build">
-							<li role="none"><a href="/create" role="menuitem"><span class="nav-mi-title">Create agent</span><span class="nav-mi-sub">Avatar + brain wizard</span></a></li>
-							<li role="none"><a href="/app" role="menuitem"><span class="nav-mi-title">Viewer</span><span class="nav-mi-sub">Drag-and-drop GLB</span></a></li>
-							<li role="none"><a href="/validation" role="menuitem"><span class="nav-mi-title">glTF Validator</span><span class="nav-mi-sub">Khronos spec check</span></a></li>
-						</ul>
-					</li>
-					<li role="none"><a href="/discover" role="menuitem">Discover</a></li>
-					<li class="nav-item nav-has-menu" role="none">
-						<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false" role="menuitem">
-							Solana<span class="nav-caret" aria-hidden="true">▾</span>
-						</button>
-						<ul class="nav-menu" role="menu" aria-label="Solana">
-							<li role="none"><a href="/pumpfun" role="menuitem"><span class="nav-mi-title">Pump.fun stream</span><span class="nav-mi-sub">Mint agent tokens</span></a></li>
-							<li role="none"><a href="/vanity-wallet" role="menuitem"><span class="nav-mi-title">Vanity wallet</span><span class="nav-mi-sub">Grind a Solana address</span></a></li>
-							<li role="none"><a href="/eth-vanity" role="menuitem"><span class="nav-mi-title">ETH vanity (CREATE2)</span><span class="nav-mi-sub">Grind a smart-contract address</span></a></li>
-							<li role="none"><a href="/strategy-lab" role="menuitem"><span class="nav-mi-title">Strategy Lab</span><span class="nav-mi-sub">DCA + subscriptions</span></a></li>
-							<li role="none"><a href="/pump-live" role="menuitem"><span class="nav-mi-title">Live launches</span><span class="nav-mi-sub">Real-time mint feed</span></a></li>
-							<li role="none"><a href="/pump-dashboard" role="menuitem"><span class="nav-mi-title">Pump Dashboard</span><span class="nav-mi-sub">Watches · scanner · quotes</span></a></li>
-							<li role="none"><a href="/docs#solana" role="menuitem"><span class="nav-mi-title">Solana SDK</span><span class="nav-mi-sub">Attestations + agent-kit</span></a></li>
-						</ul>
-					</li>
-					<li class="nav-item nav-has-menu" role="none">
-						<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false" role="menuitem">
-							Embed<span class="nav-caret" aria-hidden="true">▾</span>
-						</button>
-						<ul class="nav-menu" role="menu" aria-label="Embed">
-							<li role="none"><a href="/studio" role="menuitem"><span class="nav-mi-title">Widget Studio</span><span class="nav-mi-sub">Pick avatar → copy snippet</span></a></li>
-							<li role="none"><a href="/artifact" role="menuitem"><span class="nav-mi-title">Artifact viewer</span><span class="nav-mi-sub">Claude artifact bundle</span></a></li>
-							<li role="none"><a href="/docs#embedding" role="menuitem"><span class="nav-mi-title">Embed docs</span><span class="nav-mi-sub">iframe + oEmbed</span></a></li>
-							<li role="none"><a href="/docs#web-component" role="menuitem"><span class="nav-mi-title">&lt;agent-3d&gt;</span><span class="nav-mi-sub">Web component reference</span></a></li>
-						</ul>
-					</li>
-					<li class="nav-item" role="none"><a href="/marketplace" role="menuitem">Marketplace</a></li>
-					<li class="nav-item" role="none"><a href="/chat" role="menuitem">Chat</a></li>
-					<li class="nav-item" role="none"><a href="/tutorials" role="menuitem" aria-current="page">Tutorials</a></li>
-					<li class="nav-item" id="home-nav-my-agents-li" role="none" hidden>
-						<a href="/my-agents" id="home-nav-my-agents" role="menuitem">My Agents</a>
-					</li>
-					<li class="nav-item" id="home-nav-user-li" role="none" hidden>
-						<a href="/dashboard" id="home-nav-user" class="nav-user" role="menuitem"></a>
-					</li>
-					<li class="nav-item" role="none">
-						<a href="/login" class="nav-cta" id="home-nav-cta" role="menuitem">Get started</a>
-					</li>
-				</ul>
-			</nav>
-		</header>
+		<header><div id="nav-container"></div></header>
 
 		<main id="main-content">
 			<div class="tdoc-hero" id="tdoc-hero" hidden>
@@ -786,52 +725,6 @@
 					el.addEventListener('mouseenter', () => cursor.classList.add('cursor--hover'));
 					el.addEventListener('mouseleave', () => cursor.classList.remove('cursor--hover'));
 				});
-			})();
-
-			// Auth-aware nav CTA
-			(function () {
-				try {
-					const raw = localStorage.getItem('3dagent:auth-hint');
-					if (!raw) return;
-					const { authed, name } = JSON.parse(raw);
-					if (!authed) return;
-					const cta = document.getElementById('home-nav-cta');
-					if (cta) { cta.textContent = 'Dashboard'; cta.href = '/dashboard'; }
-					const myAgentsLi = document.getElementById('home-nav-my-agents-li');
-					if (myAgentsLi) myAgentsLi.hidden = false;
-					const userLi = document.getElementById('home-nav-user-li');
-					const userEl = document.getElementById('home-nav-user');
-					if (userEl && userLi && name) { userEl.textContent = name; userLi.hidden = false; }
-				} catch (_) {}
-			})();
-
-			// Dropdown nav
-			(function () {
-				const triggers = document.querySelectorAll('.home-nav .nav-trigger');
-				if (!triggers.length) return;
-				function closeAll(except) {
-					triggers.forEach((t) => { if (t !== except) t.setAttribute('aria-expanded', 'false'); });
-				}
-				triggers.forEach((trigger) => {
-					trigger.addEventListener('click', (e) => {
-						e.stopPropagation();
-						const open = trigger.getAttribute('aria-expanded') === 'true';
-						closeAll(open ? null : trigger);
-						trigger.setAttribute('aria-expanded', open ? 'false' : 'true');
-						if (!open) trigger.nextElementSibling?.querySelector('a')?.focus();
-					});
-					const menu = trigger.nextElementSibling;
-					if (!menu) return;
-					menu.addEventListener('keydown', (e) => {
-						const items = Array.from(menu.querySelectorAll('a'));
-						const idx = items.indexOf(document.activeElement);
-						if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus(); }
-						else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length]?.focus(); }
-						else if (e.key === 'Escape') { trigger.setAttribute('aria-expanded', 'false'); trigger.focus(); }
-					});
-				});
-				document.addEventListener('click', (e) => { if (!e.target.closest('.home-nav')) closeAll(null); });
-				document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(null); });
 			})();
 
 			// ── Tutorial viewer ──────────────────────────────────────────

@@ -9,7 +9,8 @@ import { PublicKey } from '@solana/web3.js';
 import { createHash } from 'node:crypto';
 import { deriveAgentPda, getAgent } from '@tetsuo-ai/sdk';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 import {
 	getAgenCClient,
 	parsePubkey,
@@ -34,35 +35,26 @@ function resolveAgentId(input) {
 	return Uint8Array.from(createHash('sha256').update(s, 'utf8').digest());
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		agentPda: {
-			type: 'string',
-			description: 'Base58 agent account PDA. Mutually exclusive with agentId.',
-			minLength: 32,
-			maxLength: 44,
-		},
-		agentId: {
-			type: 'string',
-			description: '32-byte agent id as 64-char hex, "0x"-prefixed hex, or any UTF-8 label (SHA-256 hashed).',
-			minLength: 1,
-			maxLength: 256,
-		},
-		cluster: {
-			type: 'string',
-			enum: ['mainnet', 'devnet'],
-			description: 'Solana cluster. Defaults to mainnet.',
-		},
-	},
-	additionalProperties: false,
+// Single source of truth: Zod shape carries descriptions + bounds + cluster
+// enum; JSON Schema derived. (No required fields — the handler enforces
+// "agentPda OR agentId".)
+const inputZodShape = {
+	agentPda: z
+		.string()
+		.min(32)
+		.max(44)
+		.describe('Base58 agent account PDA. Mutually exclusive with agentId.')
+		.optional(),
+	agentId: z
+		.string()
+		.min(1)
+		.max(256)
+		.describe('32-byte agent id as 64-char hex, "0x"-prefixed hex, or any UTF-8 label (SHA-256 hashed).')
+		.optional(),
+	cluster: z.enum(['mainnet', 'devnet']).describe('Solana cluster. Defaults to mainnet.').optional(),
 };
 
-const inputZodShape = {
-	agentPda: z.string().min(32).max(44).optional(),
-	agentId: z.string().min(1).max(256).optional(),
-	cluster: z.enum(['mainnet', 'devnet']).optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildAgenCGetAgentTool() {
 	const handler = await paid(
@@ -98,11 +90,7 @@ export async function buildAgenCGetAgentTool() {
 			} else if (agentId) {
 				pda = deriveAgentPda(resolveAgentId(agentId), client.programId);
 			} else {
-				return {
-					ok: false,
-					error: 'missing_input',
-					message: 'Provide either agentPda or agentId.',
-				};
+				return toolError('missing_input', 'Provide either agentPda or agentId.');
 			}
 
 			const agent = await getAgent(client.program, pda);
