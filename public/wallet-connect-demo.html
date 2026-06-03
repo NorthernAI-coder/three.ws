@@ -111,7 +111,25 @@
 			});
 
 			wire('mount-link', 'log-link', {
-				verifyUrl: '/api/auth/wallet/link',
+				// Linking uses the per-user link-nonce flow (separate from the login
+				// nonce pool), so a login signature can't be replayed to attach a
+				// wallet to another account.
+				nonceUrl: '/api/auth/wallets/nonce',
+				verifyUrl: '/api/auth/wallets',
+				messageBuilder: (address, chainId, nonce, { domain, uri, issuedAt, expirationTime }) =>
+					[
+						`${domain} wants you to sign in with your Ethereum account:`,
+						address,
+						'',
+						'Link this wallet to your three.ws account.',
+						'',
+						`URI: ${uri}`,
+						'Version: 1',
+						`Chain ID: ${chainId}`,
+						`Nonce: ${nonce}`,
+						`Issued At: ${issuedAt}`,
+						`Expiration Time: ${expirationTime}`,
+					].join('\n'),
 				labels: { idle: 'Link wallet', signing: 'Sign to link…', success: 'Wallet linked' },
 				onSuccess: () => {
 					document.getElementById('log-link').textContent = 'Wallet linked successfully.';

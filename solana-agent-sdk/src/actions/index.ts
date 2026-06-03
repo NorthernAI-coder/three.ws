@@ -6,6 +6,8 @@ export type { TransferSplParams } from "./transfer-spl.js";
 
 export { jupiterSwap, getSwapQuote, SOL_MINT } from "./swap.js";
 export type { SwapParams, JupiterQuote } from "./swap.js";
+export { assertSwapMatchesQuote } from "./swap-guard.js";
+export type { SwapGuardParams } from "./swap-guard.js";
 
 export { getOrCreateAta } from "./ata.js";
 export type { GetOrCreateAtaParams, GetOrCreateAtaResult } from "./ata.js";

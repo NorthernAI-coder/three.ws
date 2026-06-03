@@ -7,6 +7,7 @@ import { getMint, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { isMetaAware, type WalletProvider } from "../wallet/types.js";
 import { SwapError } from "../errors.js";
 import { toUiAmount } from "../utils/format.js";
+import { assertSwapMatchesQuote } from "./swap-guard.js";
 
 const JUPITER_QUOTE_API = "https://quote-api.jup.ag/v6";
 
@@ -92,6 +93,16 @@ export async function jupiterSwap(
   const tx = VersionedTransaction.deserialize(
     Buffer.from(swapTransaction, "base64"),
   );
+
+  // The quote is what the user approved; the returned tx is what actually gets
+  // broadcast. Verify the tx spends no more than the quoted input from the
+  // wallet and credits the output mint back to the wallet before signing.
+  await assertSwapMatchesQuote(connection, tx, {
+    inputMint,
+    outputMint,
+    maxInAmount: BigInt(quote.inAmount),
+    owner: wallet.publicKey,
+  });
 
   return wallet.signAndSendTransaction(tx, connection);
 }

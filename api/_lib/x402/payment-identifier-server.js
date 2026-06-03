@@ -90,12 +90,31 @@ export function enforceRequired({ paymentHeader, required }) {
 //   { kind: 'hit', entry }                          — replay entry; skip settle.
 //   { kind: 'conflict', existingHash, attemptedHash } — same id, different payload.
 //
-// When `payloadHash` is omitted we treat a cache entry with a non-null
-// stored hash as a conflict — pass the hash whenever you can compute it.
-export async function checkCache({ route, paymentId, payloadHash }) {
+// Security: a cache hit MUST be bound to the signed payment proof, not just the
+// client-chosen id. We require `paymentHash` (sha256 of the X-PAYMENT header)
+// to match the hash stored when the entry was written — only the original
+// payer can reproduce that exact signed proof. A caller who knows the id but
+// presents a different payment hashes differently and gets a `conflict`, never
+// the cached body. `payloadHash` (request method+url) is an additional binding.
+//
+// When `payloadHash`/`paymentHash` is omitted we treat a cache entry with a
+// non-null stored hash as a conflict — pass both whenever you can compute them.
+export async function checkCache({ route, paymentId, payloadHash, paymentHash }) {
 	if (!paymentId) return { kind: 'miss' };
 	const entry = await cache.get(route, paymentId);
 	if (!entry) return { kind: 'miss' };
+	// Payment-proof binding: a stored entry written with a paymentHash only
+	// replays to a caller presenting the same signed proof. A mismatch (or a
+	// caller that omits the proof against a proof-bound entry) is a conflict —
+	// this is the guard against a stolen/guessed id being redeemed for free.
+	if (entry.paymentHash && entry.paymentHash !== (paymentHash || null)) {
+		return {
+			kind: 'conflict',
+			existingHash: entry.payloadHash || null,
+			attemptedHash: payloadHash || null,
+			reason: 'payment_proof_mismatch',
+		};
+	}
 	// Stored hash may be null on legacy/unknown-payload entries; treat
 	// "no stored hash" as compatible with any incoming request so older
 	// cached entries don't suddenly start 409ing.
@@ -116,6 +135,7 @@ export async function storeResponse({
 	route,
 	paymentId,
 	payloadHash,
+	paymentHash,
 	status,
 	body,
 	contentType,
@@ -133,6 +153,9 @@ export async function storeResponse({
 			contentType,
 			paymentResponseHeader,
 			payloadHash: payloadHash || null,
+			// Bind the entry to the signed payment proof so only the original
+			// payer (who can reproduce the exact X-PAYMENT) can replay it.
+			paymentHash: paymentHash || null,
 			storedAt: new Date().toISOString(),
 		},
 		ttl,
@@ -154,18 +177,25 @@ export function writeCachedResponse(res, entry) {
 	res.end(entry.body ?? '');
 }
 
-// Write a 409 Conflict explaining the payload mismatch.
-export function writeConflict(res, { route, attemptedHash, existingHash }) {
+// Write a 409 Conflict explaining the mismatch. `reason` distinguishes a
+// request-payload mismatch (same id reused for a different call) from a
+// payment-proof mismatch (a stolen/guessed id presented with a different
+// payment) — the latter is the security-relevant denial.
+export function writeConflict(res, { route, attemptedHash, existingHash, reason }) {
 	res.statusCode = 409;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
 	res.setHeader('x-x402-idempotent', 'conflict');
+	const description =
+		reason === 'payment_proof_mismatch'
+			? 'this payment-identifier was already used by a different payment; ' +
+				'generate a fresh id and pay again'
+			: 'a different request body was already processed under this payment-identifier; ' +
+				'either retry the original payload or generate a new id';
 	res.end(
 		JSON.stringify({
 			error: 'payment_identifier_conflict',
-			error_description:
-				'a different request body was already processed under this payment-identifier; ' +
-				'either retry the original payload or generate a new id',
+			error_description: description,
 			route,
 			attemptedPayloadHash: attemptedHash,
 			existingPayloadHash: existingHash,
@@ -173,5 +203,5 @@ export function writeConflict(res, { route, attemptedHash, existingHash }) {
 	);
 }
 
-export { hashRequestPayload } from './idempotency-cache.js';
+export { hashRequestPayload, hashPaymentProof } from './idempotency-cache.js';
 export const ttlSeconds = envTtl;

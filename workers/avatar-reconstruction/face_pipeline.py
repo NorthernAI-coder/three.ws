@@ -28,12 +28,12 @@ from typing import Optional
 import cv2
 import mediapipe as mp
 import numpy as np
-import requests
 from PIL import Image, ImageFilter
 from scipy.interpolate import RBFInterpolator
 
 import glb_ops
 import pygltflib
+from worker_security import UnsafeUrlError, fetch_remote_bytes
 
 log = logging.getLogger("face_pipeline")
 
@@ -81,10 +81,14 @@ def _decode_image(src: str) -> Image.Image:
     if src.startswith("data:image"):
         b64 = src.split(",", 1)[1]
         return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
-    if src.startswith("http://") or src.startswith("https://"):
-        resp = requests.get(src, timeout=30)
-        resp.raise_for_status()
-        return Image.open(io.BytesIO(resp.content)).convert("RGB")
+    if src.startswith("https://"):
+        # SSRF-hardened: https-only, private/loopback/link-local/metadata IPs
+        # rejected after DNS resolution, redirects re-validated per hop, bounded.
+        try:
+            data = fetch_remote_bytes(src, timeout=30)
+        except UnsafeUrlError as exc:
+            raise ValueError(f"refused to fetch image source: {exc}") from exc
+        return Image.open(io.BytesIO(data)).convert("RGB")
     raise ValueError(f"unsupported image source: {src[:60]}")
 
 

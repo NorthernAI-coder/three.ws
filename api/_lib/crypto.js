@@ -25,10 +25,21 @@ export async function sha256Base64Url(input) {
 	return base64url(new Uint8Array(hash));
 }
 
+// Length-independent constant-time string compare. We deliberately do NOT
+// early-return on a length mismatch — that branch is a timing oracle that
+// leaks the secret's length. Instead we fold the length difference into the
+// accumulator and iterate over the longer string, reading 0 past the end of
+// either operand so the loop count never reveals which side is the secret.
 export function constantTimeEquals(a, b) {
-	if (a.length !== b.length) return false;
-	let r = 0;
-	for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	const aStr = String(a);
+	const bStr = String(b);
+	let r = aStr.length ^ bStr.length;
+	const len = aStr.length > bStr.length ? aStr.length : bStr.length;
+	for (let i = 0; i < len; i++) {
+		const ca = i < aStr.length ? aStr.charCodeAt(i) : 0;
+		const cb = i < bStr.length ? bStr.charCodeAt(i) : 0;
+		r |= ca ^ cb;
+	}
 	return r === 0;
 }
 

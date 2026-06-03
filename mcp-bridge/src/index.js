@@ -21,6 +21,7 @@ import { z } from 'zod';
 
 import { buildBuyerAxios, extractReceipt } from './x402-axios-client.js';
 import { discoverBazaarTools } from './bazaar-discover.js';
+import { assertPayableUrl } from './url-guard.js';
 
 const BRIDGE_NAME = '3d-agent-x402-bridge';
 const BRIDGE_VERSION = '1.0.0';
@@ -56,10 +57,13 @@ function decodePaymentResponseFromHeaders(headers) {
 
 async function callPaidEndpoint({ api, httpClient }, args) {
 	const { url, method = 'GET', body, params, headers } = args;
+	// SSRF chokepoint: validate scheme + resolve host before any payment-wrapped
+	// request leaves the process. Throws on private/blocked targets.
+	const safeUrl = await assertPayableUrl(url);
 	const normalizedMethod = String(method).toUpperCase();
 	const hasBody = body !== undefined && body !== null;
 	const res = await api.request({
-		url,
+		url: safeUrl,
 		method: normalizedMethod,
 		data: hasBody ? body : undefined,
 		params,

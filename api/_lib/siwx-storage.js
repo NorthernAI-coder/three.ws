@@ -96,13 +96,23 @@ async function hasUsedNonce(nonce) {
 	return rows.length > 0;
 }
 
+// Atomically claim a nonce. Returns true when this call inserted the row (the
+// nonce was unused), false when it was already present (replay / lost race).
+//
+// The `RETURNING` on an `ON CONFLICT DO NOTHING` yields zero rows for the
+// loser of a concurrent insert, so callers can gate access on the boolean and
+// reject replays without a separate read — the SELECT-then-INSERT pattern has
+// a race window (two requests both see "unused", both proceed) that this
+// closes. `hasUsedNonce` stays as a cheap pre-check; this is the authority.
 async function recordNonce(nonce, ctx = {}) {
-	if (!nonce) return;
-	await sql`
+	if (!nonce) return false;
+	const rows = await sql`
 		insert into siwx_nonces (nonce, resource, address, used_at)
 		values (${nonce}, ${ctx.resource || ''}, ${ctx.address || ''}, now())
 		on conflict (nonce) do nothing
+		returning nonce
 	`;
+	return rows.length > 0;
 }
 
 // Cron helpers exported for api/cron/siwx-gc.js + tests. Both return the

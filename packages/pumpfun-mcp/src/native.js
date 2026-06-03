@@ -86,7 +86,7 @@ async function token3dHandler(args, { call, siteBase }) {
 	}
 
 	const name = d.name || d.metadata?.name || null;
-	const symbol = d.symbol || d.metadata?.symbol || '' || null;
+	const symbol = d.symbol || d.metadata?.symbol || null;
 	const image = await resolveImage(d);
 
 	const q = new URLSearchParams({ mint });

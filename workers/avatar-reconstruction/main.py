@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import traceback
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -34,6 +33,7 @@ from google.cloud import firestore, storage
 from pydantic import BaseModel, Field
 
 import face_pipeline
+from worker_security import require_api_key, safe_error
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,10 +80,10 @@ app = FastAPI(title="avatar-reconstruction", lifespan=lifespan)
 # ── auth ───────────────────────────────────────────────────────────────────────
 
 def _require_api_key(authorization: str) -> None:
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-    if authorization[len("Bearer "):].strip() != API_KEY:
-        raise HTTPException(status_code=401, detail="invalid api key")
+    try:
+        require_api_key(authorization, API_KEY)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 # ── Firestore helpers ──────────────────────────────────────────────────────────
@@ -126,10 +126,11 @@ async def _process_job(job_id: str, image_sources: list[str], body_type: str) ->
             _set_job(job_id, {"status": "done", "glb_url": glb_url})
             log.info("[%s] done → %s", job_id, glb_url)
 
-        except Exception:
-            err = traceback.format_exc()
-            log.exception("[%s] pipeline failed", job_id)
-            _set_job(job_id, {"status": "failed", "error": err})
+        except Exception as exc:
+            _set_job(job_id, {
+                "status": "failed",
+                "error": safe_error(exc, context=f"[{job_id}] pipeline"),
+            })
 
 
 # ── routes ─────────────────────────────────────────────────────────────────────

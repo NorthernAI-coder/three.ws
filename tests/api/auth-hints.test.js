@@ -22,8 +22,12 @@ const siwxNonceState = new Set();
 vi.mock('../../api/_lib/siwx-storage.js', () => ({
 	siwxStorage: {
 		hasUsedNonce: vi.fn(async (n) => siwxNonceState.has(n)),
+		// Mirror the real atomic claim: returns true only when this call inserted
+		// the nonce (it was unused), false on a replay/lost race.
 		recordNonce: vi.fn(async (n) => {
+			if (siwxNonceState.has(n)) return false;
 			siwxNonceState.add(n);
+			return true;
 		}),
 		hasPaid: vi.fn(async () => false),
 		recordPayment: vi.fn(async () => {}),
@@ -243,6 +247,51 @@ describe('authenticateAuthHintsRequest — SIWX (EOA)', () => {
 			resourceUrl: 'https://app.test/api/x402/agent-reputation',
 		});
 		expect(out).toEqual(expect.objectContaining({ ok: false }));
+	});
+
+	it('grants exactly once under a concurrent replay of the same proof', async () => {
+		// Build a fresh proof with its own nonce so this test is order-independent.
+		const { createSIWxPayload, encodeSIWxHeader } = await import(
+			'@x402/extensions/sign-in-with-x'
+		);
+		const { privateKeyToAccount, generatePrivateKey } = await import('viem/accounts');
+		const account = privateKeyToAccount(generatePrivateKey());
+		const signer = {
+			address: account.address,
+			signMessage: ({ message }) => account.signMessage({ message }),
+		};
+		const payload = await createSIWxPayload(
+			{
+				type: 'eip191',
+				version: '1',
+				signatureScheme: 'eip191',
+				domain: 'app.test',
+				uri: 'https://app.test/api/x402/agent-reputation',
+				chainId: 'eip155:8453',
+				statement: 'auth-hints replay test',
+				nonce: 'replayTestNonce0987654321zzzz0',
+				issuedAt: new Date().toISOString(),
+				expirationTime: new Date(Date.now() + 5 * 60_000).toISOString(),
+			},
+			signer,
+		);
+		const replayHeader = encodeSIWxHeader(payload);
+		const req = { headers: { 'sign-in-with-x': replayHeader } };
+		const opts = { resourceUrl: 'https://app.test/api/x402/agent-reputation' };
+
+		// Two requests bearing the SAME proof race through validation together;
+		// both clear the (pre-claim) hasUsedNonce read, but the atomic
+		// recordNonce claim must let only ONE win. Without the atomic gate both
+		// would be granted — that's the bug this guards.
+		const [a, b] = await Promise.all([
+			authenticateAuthHintsRequest(req, opts),
+			authenticateAuthHintsRequest(req, opts),
+		]);
+		const granted = [a, b].filter((r) => r?.ok === true);
+		const denied = [a, b].filter((r) => r?.ok === false);
+		expect(granted).toHaveLength(1);
+		expect(denied).toHaveLength(1);
+		expect(denied[0].reason).toBe('siwx_nonce_replayed');
 	});
 });
 

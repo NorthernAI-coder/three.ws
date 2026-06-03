@@ -22,6 +22,36 @@ export function baseUrl(env = process.env) {
 	return (env.THREEWS_BASE_URL?.trim() || DEFAULT_BASE).replace(/\/$/, '');
 }
 
+// Only https model URLs are safe to hand to <model-viewer src> / embeds.
+// A raw `model` arg flows verbatim into HTML and into the browser, so a
+// `javascript:` / `data:` / `blob:` / `file:` scheme is an XSS/SSRF surface.
+// http is allowed only for localhost (dev convenience). Anything else is
+// rejected so it can never reach an attribute or a fetch.
+export function isSafeModelUrl(url) {
+	if (typeof url !== 'string' || url.trim() === '') return false;
+	let parsed;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return false;
+	}
+	if (parsed.protocol === 'https:') return true;
+	if (parsed.protocol === 'http:') {
+		const host = parsed.hostname;
+		return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+	}
+	return false;
+}
+
+function assertSafeModelUrl(url) {
+	if (!isSafeModelUrl(url)) {
+		throw new ThreewsError(
+			`Unsafe model URL "${url}": only https:// (or http://localhost for dev) GLB/GLTF URLs are allowed.`,
+		);
+	}
+	return url;
+}
+
 function timeoutMs(env = process.env) {
 	return Number(env.THREEWS_TIMEOUT_MS) || 30_000;
 }
@@ -75,6 +105,7 @@ export async function resolveAvatar({ id, handle, model }, env = process.env) {
 	const base = baseUrl(env);
 
 	if (model) {
+		assertSafeModelUrl(model);
 		return { id: null, name: 'Avatar', slug: null, model_url: model, thumbnail: null, visibility: 'external' };
 	}
 	if (id) {
@@ -124,7 +155,7 @@ export function embedUrl({ id, handle, model, background = 'transparent', idle =
 	const params = new URLSearchParams();
 	if (id) params.set('id', id);
 	else if (handle) params.set('handle', handle.replace(/^@/, ''));
-	else if (model) params.set('model', model);
+	else if (model) params.set('model', assertSafeModelUrl(model));
 	params.set('bg', background);
 	params.set('idle', idle ? 'on' : 'off');
 	if (overlay) params.set('overlay', '1');
@@ -134,6 +165,7 @@ export function embedUrl({ id, handle, model, background = 'transparent', idle =
 
 // Build the standalone viewer URL (full-page interactive viewer).
 export function viewerUrl({ model_url, camera = 'three-quarter', background = 'transparent', autoRotate = true }, env = process.env) {
+	assertSafeModelUrl(model_url);
 	const base = baseUrl(env);
 	const params = new URLSearchParams({
 		src: model_url,
@@ -160,6 +192,7 @@ export function iframeSnippet(embed, { width = '100%', height = 480 } = {}) {
 // Returned as an MCP text/html resource so capable clients show a live,
 // rotatable 3D avatar inline.
 export function modelViewerHtml({ model_url, name = 'Avatar', background = 'transparent', height = 480, cameraOrbit = '0deg 80deg 2m', autoRotate = true }) {
+	assertSafeModelUrl(model_url);
 	const bg = background === 'transparent' ? 'transparent' : background;
 	return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" />

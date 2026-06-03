@@ -225,6 +225,61 @@ describe('tools/call indexer-required tools', () => {
 	});
 });
 
+describe('auth gate on expensive/sensitive tools', () => {
+	it('pumpfun_vanity_mint without a bearer or X-PAYMENT is rejected (does NOT return a secret key)', async () => {
+		const { res, json } = await call({
+			jsonrpc: '2.0',
+			id: 1,
+			method: 'tools/call',
+			params: { name: 'pumpfun_vanity_mint', arguments: { suffix: 'aa' } },
+		});
+		expect(res.statusCode).toBe(401);
+		expect(json.error).toBeDefined();
+		expect(json.error.code).toBe(-32001);
+		expect(json.error.message).toMatch(/authentication required/i);
+		// Critically: no secret key (or any result) is produced for an anon caller.
+		expect(json.result).toBeUndefined();
+	});
+
+	it('pumpfun_watch_whales without auth is rejected', async () => {
+		const { res, json } = await call({
+			jsonrpc: '2.0',
+			id: 2,
+			method: 'tools/call',
+			params: { name: 'pumpfun_watch_whales', arguments: { mint: 'M' } },
+		});
+		expect(res.statusCode).toBe(401);
+		expect(json.error.code).toBe(-32001);
+	});
+
+	it('pumpfun_watch_claims without auth is rejected', async () => {
+		const { res, json } = await call({
+			jsonrpc: '2.0',
+			id: 3,
+			method: 'tools/call',
+			params: { name: 'pumpfun_watch_claims', arguments: { creator: 'C' } },
+		});
+		expect(res.statusCode).toBe(401);
+		expect(json.error.code).toBe(-32001);
+	});
+
+	it('free read-only tools stay open (no auth needed)', async () => {
+		// getTokenHolders is a cheap on-chain read — must not be gated.
+		connectionMock.getTokenLargestAccounts.mockResolvedValueOnce({
+			value: [{ address: { toString: () => 'A' }, amount: '1', uiAmount: 1 }],
+		});
+		const { res, json } = await call({
+			jsonrpc: '2.0',
+			id: 4,
+			method: 'tools/call',
+			params: { name: 'getTokenHolders', arguments: { mint: 'M', limit: 1 } },
+		});
+		expect(res.statusCode).toBe(200);
+		expect(json.error).toBeUndefined();
+		expect(json.result.structuredContent.count).toBe(1);
+	});
+});
+
 describe('unknown methods/tools', () => {
 	it('returns -32601 for unknown method', async () => {
 		const { json } = await call({ jsonrpc: '2.0', id: 1, method: 'tools/eat' });

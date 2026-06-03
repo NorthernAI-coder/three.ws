@@ -2,6 +2,7 @@ import { hasScope } from '../_lib/auth.js';
 import { recordEvent, logger } from '../_lib/usage.js';
 import { priceFor, findActiveSubscription, resolveBillingMint } from '../_lib/pump-pricing.js';
 import { declareMcpDiscovery } from '../_lib/x402/bazaar-helpers.js';
+import { sanitizeToolError } from '../_lib/mcp-error-sanitize.js';
 import { TOOL_CATALOG, TOOLS } from './catalog.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
@@ -130,12 +131,18 @@ async function onToolCall(params, auth, started) {
 		throw rpcError(-32602, `invalid params for ${name}: ${detail}`);
 	}
 
-	// Pump-agent-payments gate. Free tools and paid-bearer-authenticated users
-	// (existing subscription plans) bypass. x402 callers and anonymous payers
-	// must either supply X-PAYMENT (handled at the HTTP layer above) or have
-	// an active pump-agent-payments subscription window for this tool.
+	// Payment gate for priced tools called by anonymous x402 principals.
+	//
+	// An x402 principal reaches here only after the HTTP layer verified an
+	// X-PAYMENT against this tool's per-tool price (auth.x402Paid). That single
+	// pay-per-call payment satisfies the charge — we do NOT additionally demand a
+	// pump-agent-payments subscription, which would double-bill a caller who just
+	// paid. The subscription path stays as an ALTERNATIVE for x402 principals who
+	// did not pay per-call (auth.x402Paid falsy): if they hold an active
+	// pump-agent-payments window for this tool we honor it, otherwise we 402 with
+	// the subscription challenge. This keeps advertised price == charged price.
 	const price = priceFor(name);
-	if (price && auth.source === 'x402') {
+	if (price && auth.source === 'x402' && !auth.x402Paid) {
 		const billingMint = resolveBillingMint();
 		const payerWallet = args.payer_wallet || auth.payer || null;
 		if (billingMint && payerWallet) {
@@ -157,6 +164,16 @@ async function onToolCall(params, auth, started) {
 				});
 			}
 			auth.subscription = sub;
+		} else if (billingMint) {
+			// A price is advertised and billing is configured, but the caller gave
+			// no wallet to match a subscription against and did not pay per-call.
+			throw rpcError(-32402, 'payment required for this tool', {
+				scheme: 'pump-agent-payments',
+				tool: name,
+				amount_usdc: price.amount_usdc,
+				recipient_mint: billingMint,
+				prep_endpoint: '/api/pump/accept-payment-prep',
+			});
 		}
 	}
 
@@ -187,13 +204,12 @@ async function onToolCall(params, auth, started) {
 		// postgres SQL states (e.g. '42P01') — sanitize those rather than leaking them.
 		if (err.code && typeof err.code === 'number') throw err;
 		// Framework convention: tool errors go in result.isError, not rpc error.
-		// Detect postgres driver errors by their severity field and suppress internals.
-		if (err.severity !== undefined || err.schema !== undefined) {
-			log.error('tool_db_error', { tool: name, pg_code: err.code });
-			return { content: [{ type: 'text', text: 'Error: internal error' }], isError: true };
-		}
+		// Shared sanitizer suppresses pg/driver internals + internal hostnames,
+		// logs full detail to stderr with a log id, and passes safe
+		// handler-authored messages through unchanged.
+		const { message } = sanitizeToolError(err, { tool: name, server: 'mcp', log });
 		return {
-			content: [{ type: 'text', text: `Error: ${err.message || 'tool call failed'}` }],
+			content: [{ type: 'text', text: `Error: ${message}` }],
 			isError: true,
 		};
 	}

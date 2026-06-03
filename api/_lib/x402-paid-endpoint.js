@@ -28,7 +28,7 @@
 // helper. Missing keys fall back to env (so a single override doesn't
 // disable the other networks).
 
-import { cors, error } from './http.js';
+import { cors, error, respondError } from './http.js';
 import { env } from './env.js';
 import { clientIp } from './rate-limit.js';
 import { logPaymentEvent } from './x402/audit-log.js';
@@ -52,6 +52,7 @@ import {
 	checkCache,
 	enforceRequired,
 	extractIdFromHeader,
+	hashPaymentProof,
 	hashRequestPayload,
 	paymentIdentifierExtension,
 	storeResponse,
@@ -146,7 +147,9 @@ function buildRequirements({ priceAtomics, networks, resourceUrl, payToOverride 
 		const solTo = payToOverride?.solana || env.X402_PAY_TO_SOLANA;
 		const bscTo = payToOverride?.bsc || env.X402_PAY_TO_BSC;
 		if (net === NETWORK_BASE_MAINNET && !baseTo) continue;
-		if (net === NETWORK_SOLANA_MAINNET && !solTo) continue;
+		// Solana also needs a fee payer to be co-signable — skip the network
+		// rather than advertise an accept the facilitator will reject.
+		if (net === NETWORK_SOLANA_MAINNET && (!solTo || !env.X402_FEE_PAYER_SOLANA)) continue;
 		if (net === NETWORK_BSC_MAINNET && !bscTo) continue;
 		const accept = buildAccept(net, priceAtomics, resourceUrl, payToOverride);
 		out.push(accept);
@@ -476,11 +479,11 @@ export function paidEndpoint(spec) {
 					if (err instanceof X402Error && err.status === 402) {
 						return send402(res, { ...challenge, error: err.message });
 					}
-					return error(
+					return respondError(
 						res,
 						err.status || 500,
 						err.code || 'internal_error',
-						err.message,
+						err,
 					);
 				}
 				if (res.writableEnded) return;
@@ -549,11 +552,11 @@ export function paidEndpoint(spec) {
 					if (err instanceof X402Error && err.status === 402) {
 						return send402(res, { ...challenge, error: err.message });
 					}
-					return error(
+					return respondError(
 						res,
 						err.status || 500,
 						err.code || 'internal_error',
-						err.message,
+						err,
 					);
 				}
 				if (res.writableEnded) return;
@@ -602,11 +605,11 @@ export function paidEndpoint(spec) {
 					if (err instanceof X402Error && err.status === 402) {
 						return send402(res, { ...challenge, error: err.message });
 					}
-					return error(
+					return respondError(
 						res,
 						err.status || 500,
 						err.code || 'internal_error',
-						err.message,
+						err,
 					);
 				}
 				if (res.writableEnded) return;
@@ -660,8 +663,11 @@ export function paidEndpoint(spec) {
 			url: req.url,
 			body: null,
 		});
+		// Bind the idempotency cache to the signed payment proof so a stolen or
+		// guessed payment-identifier can't redeem a prior paid response for free.
+		const paymentHash = hashPaymentProof(paymentHeader);
 		if (paymentId) {
-			const lookup = await checkCache({ route, paymentId, payloadHash });
+			const lookup = await checkCache({ route, paymentId, payloadHash, paymentHash });
 			if (lookup.kind === 'hit') {
 				return writeCachedResponse(res, lookup.entry);
 			}
@@ -670,6 +676,7 @@ export function paidEndpoint(spec) {
 					route,
 					attemptedHash: lookup.attemptedHash,
 					existingHash: lookup.existingHash,
+					reason: lookup.reason,
 				});
 			}
 		}
@@ -679,7 +686,7 @@ export function paidEndpoint(spec) {
 			verified = await verifyPayment({ paymentHeader, requirements, builderCode });
 		} catch (err) {
 			if (err.status === 402) return send402(res, { ...challenge, error: err.message });
-			return error(res, err.status || 502, err.code || 'verify_failed', err.message);
+			return respondError(res, err.status || 502, err.code || 'verify_failed', err);
 		}
 
 		let result;
@@ -694,7 +701,7 @@ export function paidEndpoint(spec) {
 			if (err instanceof X402Error && err.status === 402) {
 				return send402(res, { ...challenge, error: err.message });
 			}
-			return error(res, err.status || 500, err.code || 'internal_error', err.message);
+			return respondError(res, err.status || 500, err.code || 'internal_error', err);
 		}
 
 		// Handler may end the response itself (e.g. binary body); only settle +
@@ -719,7 +726,7 @@ export function paidEndpoint(spec) {
 				userAgent: req.headers?.['user-agent']?.slice(0, 512) || null,
 				metadata: { error: err.message, code: err.code },
 			});
-			return error(res, err.status || 502, err.code || 'settle_failed', err.message);
+			return respondError(res, err.status || 502, err.code || 'settle_failed', err);
 		}
 
 		// Record the SIWX grant so the wallet can re-access via signature next
@@ -745,7 +752,7 @@ export function paidEndpoint(spec) {
 					metadata: { ttlSeconds: siwx.ttlSeconds ?? null },
 				});
 			} catch (err) {
-				return error(res, 502, 'siwx_record_failed', err.message);
+				return respondError(res, 502, 'siwx_record_failed', err);
 			}
 		}
 
@@ -801,6 +808,7 @@ export function paidEndpoint(spec) {
 				route,
 				paymentId,
 				payloadHash,
+				paymentHash,
 				status: 200,
 				body,
 				contentType,

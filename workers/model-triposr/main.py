@@ -32,7 +32,6 @@ import io
 import logging
 import os
 import time
-import traceback
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -42,6 +41,13 @@ from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from google.cloud import storage
 from PIL import Image
 from pydantic import BaseModel, Field
+
+from worker_security import (
+    UnsafeUrlError,
+    fetch_remote_bytes,
+    require_api_key,
+    safe_error,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,21 +95,24 @@ app = FastAPI(title="model-triposr", lifespan=lifespan)
 
 
 def _require_api_key(authorization: str) -> None:
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-    if authorization[len("Bearer "):].strip() != API_KEY:
-        raise HTTPException(status_code=401, detail="invalid api key")
+    try:
+        require_api_key(authorization, API_KEY)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 def _decode_image(src: str) -> Image.Image:
     if src.startswith("data:image"):
         b64 = src.split(",", 1)[1]
         return Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
-    if src.startswith("http://") or src.startswith("https://"):
-        import httpx
-        resp = httpx.get(src, timeout=30)
-        resp.raise_for_status()
-        return Image.open(io.BytesIO(resp.content)).convert("RGB")
+    if src.startswith("https://"):
+        # SSRF-hardened: https-only, private/loopback/link-local/metadata IPs
+        # rejected after DNS resolution, redirects re-validated per hop, bounded.
+        try:
+            data = fetch_remote_bytes(src, timeout=30)
+        except UnsafeUrlError as exc:
+            raise ValueError(f"refused to fetch image source: {exc}") from exc
+        return Image.open(io.BytesIO(data)).convert("RGB")
     raise ValueError(f"unsupported image source: {src[:60]}")
 
 
@@ -154,13 +163,12 @@ async def _run_inference(task_id: str, images: list[str], body_type: str) -> Non
             })
             log.info("[%s] done in %.1fs — %d bytes → %s", task_id, elapsed, len(glb_bytes), gcs_url)
 
-        except Exception:
+        except Exception as exc:
             _tasks[task_id].update({
                 "status": "failed",
-                "error": traceback.format_exc(),
+                "error": safe_error(exc, context=f"[{task_id}] inference"),
                 "elapsed_ms": int((time.time() - t0) * 1000),
             })
-            log.exception("[%s] inference failed", task_id)
 
 
 class InferRequest(BaseModel):

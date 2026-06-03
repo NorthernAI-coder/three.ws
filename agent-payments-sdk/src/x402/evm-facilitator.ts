@@ -15,6 +15,17 @@ export interface EvmPaymentProof {
   memo: string;
 }
 
+/**
+ * Durable replay guard for cross-chain deposits. `claim()` returns true exactly
+ * once per key (the `chainId:txHash` pair) — true = first redemption (proceed),
+ * false = already redeemed (reject). Back it with Redis `SET NX` or a Postgres
+ * `INSERT … ON CONFLICT` in production; without it the same EVM deposit txHash
+ * can be replayed to unlock the paid resource repeatedly.
+ */
+export interface EvmReplayStore {
+  claim(key: string): boolean | Promise<boolean>;
+}
+
 export interface VerifyEvmPaymentParams {
   /** Decoded proof from the X-Payment header */
   proof: EvmPaymentProof;
@@ -30,6 +41,17 @@ export interface VerifyEvmPaymentParams {
    * Solana arrival asynchronously (webhook / queue).
    */
   waitForSolana?: boolean;
+  /**
+   * Durable consumed-txHash store. STRONGLY recommended in production: without
+   * it a confirmed deposit `txHash` can be presented repeatedly to unlock the
+   * resource for free. See {@link EvmReplayStore}.
+   *
+   * Note: this facilitator trusts the Pump.fun cross-chain deposit API as its
+   * oracle for the deposit's amount + agent binding; it does not independently
+   * re-verify the EVM transaction on-chain. Consumers needing a trustless path
+   * should additionally confirm the tx `to`/value against an EVM RPC.
+   */
+  replayStore?: EvmReplayStore;
 }
 
 export interface EvmPaymentVerificationResult {
@@ -105,6 +127,20 @@ export async function verifyEvmPayment(
         depositId,
         error: `Insufficient amount: got ${confirmedAmount}, need ${minAmountUsdc}`,
       };
+    }
+
+    // Atomically consume the deposit txHash so it can't be redeemed twice.
+    if (params.replayStore) {
+      const claimed = await params.replayStore.claim(
+        `${proof.chainId}:${proof.txHash}`,
+      );
+      if (!claimed) {
+        return {
+          valid: false,
+          depositId,
+          error: "Duplicate payment: this EVM deposit was already redeemed",
+        };
+      }
     }
   } catch (err) {
     return {

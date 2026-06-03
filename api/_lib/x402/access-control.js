@@ -105,7 +105,11 @@ export function installAccessControl({ requiredScope, resolveCaller } = {}) {
 					route,
 					reason: 'Invalid API key',
 					granted: false,
-					meta: { ...meta, key_prefix: apiKey.slice(0, 16) },
+					// Log only the non-secret namespace prefix on a FAILED attempt
+					// — a valid key's `x402_live_` prefix is fine, but logging 16
+					// chars of an arbitrary probed key persists secret bytes. The
+					// `x402_live_` / `x402_test_` namespace is 10 chars.
+					meta: { ...meta, key_namespace: apiKey.slice(0, 10) },
 				});
 				return { abort: true, status: 403, reason: 'Invalid API key' };
 			}

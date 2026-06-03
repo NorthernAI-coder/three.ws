@@ -5,20 +5,22 @@
 // + admin plan, OR `Bearer $CRON_SECRET` for monitoring scrapers.
 
 import { sql } from '../_lib/db.js';
-import { getSessionUser } from '../_lib/auth.js';
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { requireAdmin } from '../_lib/admin.js';
+import { cors, json, method, wrap } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET'])) return;
 
+	// Monitoring scrapers authenticate with the cron secret; everyone else must
+	// be a real admin. The previous `user.plan === 'admin'` check was dead — there
+	// is no 'admin' plan (free|pro|team|enterprise) — so it rejected every admin.
 	const auth = req.headers.authorization || '';
 	const isCron = env.CRON_SECRET && auth === `Bearer ${env.CRON_SECRET}`;
-	const user = isCron ? null : await getSessionUser(req);
 	if (!isCron) {
-		if (!user) return error(res, 401, 'unauthorized', 'sign in required');
-		if (user.plan !== 'admin') return error(res, 403, 'forbidden', 'admin only');
+		const admin = await requireAdmin(req, res);
+		if (!admin) return;
 	}
 
 	const [distribute, buyback, stats, trades] = await Promise.all([

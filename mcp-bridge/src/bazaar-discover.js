@@ -21,6 +21,8 @@
 
 import axios from 'axios';
 
+import { assertPayableUrl, maxPriceAtomic } from './url-guard.js';
+
 const DEFAULT_LIMIT = 20;
 const DEFAULT_BAZAAR_URL = 'https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources';
 
@@ -37,12 +39,6 @@ function discoverLimit() {
 		throw new Error('MCP_BRIDGE_DISCOVER_LIMIT must be a non-negative number');
 	}
 	return Math.floor(v);
-}
-
-function maxPriceAtomic() {
-	const raw = process.env.MCP_BRIDGE_MAX_PRICE_PER_CALL_ATOMIC;
-	if (!raw) return null;
-	return BigInt(raw);
 }
 
 // Derive a stable MCP tool name from a Bazaar item.
@@ -106,7 +102,7 @@ function summarizeAccepts(accepts) {
 }
 
 function affordable(accepts) {
-	const cap = maxPriceAtomic();
+	const cap = maxPriceAtomic({ strict: false });
 	if (cap === null) return true;
 	return accepts.some((a) => {
 		try {
@@ -119,10 +115,15 @@ function affordable(accepts) {
 
 export async function fetchBazaarResources({ url = bazaarUrl(), limit = discoverLimit() } = {}) {
 	if (limit === 0) return [];
-	const res = await axios.get(url, {
+	// The bazaar response drives payable-tool registration, so a malicious
+	// MCP_BRIDGE_BAZAAR_URL override is an SSRF + supply-chain vector. Validate
+	// scheme + host before fetching, same as any payable URL.
+	const safeUrl = await assertPayableUrl(url);
+	const res = await axios.get(safeUrl, {
 		params: { limit },
 		timeout: 15_000,
 		validateStatus: (s) => s >= 200 && s < 300,
+		maxRedirects: 0,
 	});
 	const items = Array.isArray(res.data?.items) ? res.data.items : [];
 	return items;

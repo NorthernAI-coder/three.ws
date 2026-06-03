@@ -64,9 +64,8 @@ Generated reference of every HTTP endpoint under `/api/`. Paths reflect the exte
 | `/api/auth/siwe/nonce`        | GET         | public (rate-limited) | EIP-4361 nonce + CSRF cookie                          | —                                         | `{nonce}`                         |
 | `/api/auth/siwe/verify`       | POST        | CSRF + signature      | Verify SIWE; create/link user + session               | `{message,signature}`                     | `{user}` + Set-Cookie             |
 | `/api/auth/privy/verify`      | POST        | public (rate-limited) | Exchange Privy idToken for session                    | `{idToken}`                               | `{user,wallet}` + Set-Cookie      |
-| `/api/auth/wallet/link`       | POST        | session               | Link wallet via SIWE to logged-in account             | `{message,signature}`                     | `{wallet}`                        |
-| `/api/auth/wallet/unlink`     | POST        | session               | Unlink one wallet                                     | `{address}`                               | `{ok}`                            |
-| `/api/auth/wallets`           | GET, POST   | session               | List linked wallets / link new (nonce-based)          | POST: `{address,message,signature,nonce}` | `{wallets[]}` / `{wallet}`        |
+| `/api/auth/wallets/nonce`     | GET, POST   | session               | Per-user link nonce (separate from login pool)        | GET: — / POST: `{address,chainId}`        | `{nonce,domain,uri}` / `{message}`|
+| `/api/auth/wallets`           | GET, POST   | session               | List linked wallets / link new (link-nonce-based)     | POST: `{message,signature}`               | `{wallets[]}` / `{wallet}`        |
 | `/api/auth/wallets/:address`  | DELETE      | session               | Unlink by address (blocks last wallet if no password) | —                                         | `{ok}`                            |
 | `/api/auth/wallets/nonce`     | POST        | session               | Issue SIWE-like nonce for wallet link                 | —                                         | `{nonce,message}`                 |
 

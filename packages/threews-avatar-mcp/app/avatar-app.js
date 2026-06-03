@@ -15,11 +15,36 @@ const viewer = document.getElementById('viewer');
 const nameEl = document.getElementById('name');
 const statusEl = document.getElementById('status');
 
+// Defense in depth: only point model-viewer at an https GLB/GLTF URL (http
+// allowed solely for localhost dev). Blocks javascript:/data:/blob:/file:
+// schemes from ever reaching the src attribute even if a malicious tool
+// result slips through the server-side validation.
+function isSafeModelUrl(url) {
+	if (typeof url !== 'string' || url.trim() === '') return false;
+	let parsed;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return false;
+	}
+	if (parsed.protocol === 'https:') return true;
+	if (parsed.protocol === 'http:') {
+		const host = parsed.hostname;
+		return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+	}
+	return false;
+}
+
 function applyResult(result) {
 	const sc = (result && result.structuredContent) || {};
-	if (sc.model_url) {
+	if (sc.model_url && isSafeModelUrl(sc.model_url)) {
 		viewer.setAttribute('src', sc.model_url);
 		statusEl.hidden = true;
+	} else if (sc.model_url) {
+		viewer.removeAttribute('src');
+		statusEl.hidden = false;
+		statusEl.textContent = 'Blocked an unsafe model URL.';
+		console.warn('[avatar-app] ignored unsafe model_url:', sc.model_url);
 	}
 	if (sc.name) {
 		nameEl.textContent = sc.name;

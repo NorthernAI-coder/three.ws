@@ -256,11 +256,18 @@ export async function verifyAuthHintsSiwx({ req, resourceUrl }) {
 
 	const address = normalizeAddress(payload.chainId, verification.address);
 
-	// Burn the nonce so the proof can't be replayed against this endpoint.
-	await siwxStorage.recordNonce(payload.nonce, {
+	// Atomically claim the nonce so the proof can't be replayed against this
+	// endpoint. The claim is the authoritative gate, not the earlier
+	// checkNonce read: under concurrency two requests bearing the same proof
+	// both pass validation, but only one wins the INSERT — the loser is a
+	// replay and must be rejected here rather than granted free access.
+	const claimed = await siwxStorage.recordNonce(payload.nonce, {
 		resource: resourceUrl,
 		address,
 	});
+	if (!claimed) {
+		return { ok: false, reason: 'siwx_nonce_replayed' };
+	}
 
 	return {
 		ok: true,

@@ -21,10 +21,13 @@ import {
 
 import { bs58encode, getConnection, keypairFromSecret } from './solana.js';
 import { randomTipAccount, submitBundle, waitForSignatures } from './jito.js';
-
-// Rent-exempt minimum for a bare system account. Leaving exactly this in
-// the creator keeps the account alive without locking up unnecessary SOL.
-const RENT_EXEMPT_LAMPORTS = 890_880;
+import {
+	assertLamportsWithinCap,
+	clampJitoTipSol,
+	clampPriorityMicroLamports,
+	enforceMinBuffer,
+	RENT_EXEMPT_LAMPORTS,
+} from './spend-policy.js';
 
 export async function atomicCollect({
 	funderSecret,
@@ -36,6 +39,11 @@ export async function atomicCollect({
 	minVaultSol = 0.001,
 }) {
 	if (!destination) throw new Error('atomicCollect: destination is required');
+	// Clamp the tip + priority to policy ceilings and floor the buffer to the
+	// rent-exempt minimum so a typo can't burn SOL on a tip or close the creator.
+	jitoTipSol = clampJitoTipSol(jitoTipSol);
+	priorityMicroLamports = clampPriorityMicroLamports(priorityMicroLamports);
+	bufferLamports = enforceMinBuffer(bufferLamports);
 	const destinationPk = new PublicKey(destination);
 	const funder = keypairFromSecret(funderSecret);
 	const creator = keypairFromSecret(creatorSecret);
@@ -69,6 +77,8 @@ export async function atomicCollect({
 			creatorPreBalSol: creatorPreBal / LAMPORTS_PER_SOL,
 		};
 	}
+	// Spend cap — the drain moves real SOL to the destination; bound it.
+	assertLamportsWithinCap(transferAmount, 'pump_collect_fees drain');
 
 	const funderBal = await conn.getBalance(funder.publicKey, 'confirmed');
 	const needed = (jitoTipSol + 0.002) * LAMPORTS_PER_SOL;
@@ -123,8 +133,13 @@ export async function atomicCollect({
 	const sig = bs58encode(tx.signatures[0]);
 	const wait = await waitForSignatures(conn, [sig], { timeoutMs: 60_000, intervalMs: 2_000 });
 
+	const status = wait.err === 'timeout' ? 'pending' : wait.ok ? 'confirmed' : 'failed';
 	return {
 		ok: wait.ok,
+		status,
+		...(status === 'pending'
+			? { note: `Collect bundle ${bundleId} did not confirm within the timeout. The drain MAY still land — do NOT resubmit without checking ${sig} on Solscan first (risk of double-collect).` }
+			: {}),
 		bundleId,
 		bundleExplorer: explorer,
 		signature: sig,

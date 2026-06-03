@@ -114,6 +114,12 @@ vi.mock('../../api/_lib/pump-pricing.js', () => ({
 	priceFor: vi.fn(() => pricingState.price),
 	findActiveSubscription: vi.fn(async () => null),
 	resolveBillingMint: vi.fn(() => null),
+	// Per-tool x402 amount (atomic-unit string) derived from the advertised
+	// price. mcp.js peeks the called tool and passes this into the 402 challenge
+	// so advertised price == charged price. null = free tool (flat default).
+	x402AmountForTool: vi.fn(() =>
+		pricingState.price ? String(Math.round(pricingState.price.amount_usdc * 1e6)) : null,
+	),
 }));
 
 // ── Avatars ────────────────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 import { isValidPubkey } from '../lib/solana.js';
 import { jupiterBuyBundled, jupiterBuyDirect } from '../lib/jupiter-buy.js';
+import { confirmationGate } from '../lib/spend-policy.js';
 import { THREE_MINT } from '../config.js';
 
 export const def = {
@@ -30,8 +31,11 @@ export const def = {
 		jitoTipSol: z.number().min(0).optional().describe('Jito tip in SOL (default 0.005). Only used when jitoBundle=true.'),
 		priorityMicroLamports: z.number().int().min(0).max(20_000_000).optional()
 			.describe('Compute-unit price (default 2_000_000).'),
+		confirm: z.boolean().optional().describe('Must be true to execute this irreversible swap (when REQUIRE_CONFIRM is on).'),
 	},
 	async handler(args) {
+		const gate = confirmationGate(args.confirm, 'pump_buy (token swap)');
+		if (gate) return gate;
 		let target = args.target;
 		if (target === 'three' || target === '$three') {
 			if (!THREE_MINT) return { ok: false, error: 'three_mint_not_configured' };

@@ -17,12 +17,13 @@ import {
 	isValidPubkey,
 	explorerAccountUrl,
 } from '../_lib/avatar-wallet.js';
-import { cors, wrap } from '../_lib/http.js';
+import { cors, method, wrap } from '../_lib/http.js';
 
 const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
 
 	const cfgA = avatarWalletConfig();
 	const conn = getConnection(RPC_URL);

@@ -13,7 +13,7 @@
  */
 
 import { sql } from './_lib/db.js';
-import { cors, wrap } from './_lib/http.js';
+import { cors, method, wrap } from './_lib/http.js';
 import { CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
 import { publicUrl } from './_lib/r2.js';
 import { DEMO_AVATARS } from './_lib/demo-avatars.js';
@@ -21,6 +21,7 @@ import { env } from './_lib/env.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
+	if (!method(req, res, ['GET'])) return;
 
 	const url = new URL(req.url, 'http://x');
 	const kind = url.searchParams.get('kind');

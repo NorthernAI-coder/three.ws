@@ -21,6 +21,17 @@ export const env = {
 		return trimSlash(opt('PUBLIC_APP_ORIGIN', 'https://three.ws/'));
 	},
 
+	// Runtime environment signals. NODE_ENV is set to 'production' by Vercel's
+	// build/runtime; VERCEL_ENV is 'production' | 'preview' | 'development' on
+	// Vercel deployments. Tests and local dev leave both unset, so prod-only
+	// behavior (e.g. fail-closed rate limiting) never trips in CI or dev.
+	get NODE_ENV() {
+		return opt('NODE_ENV');
+	},
+	get VERCEL_ENV() {
+		return opt('VERCEL_ENV');
+	},
+
 	get DATABASE_URL() {
 		return req('DATABASE_URL');
 	},
@@ -245,14 +256,16 @@ export const env = {
 	// Falls back to public RPC nodes when unset; set Alchemy/Infura URLs for production.
 	// ── x402 (HTTP 402 micropayments) ───────────────────────────────────────
 	// Per-network payTo wallets that receive USDC for paid /api/mcp calls.
+	// NO hardcoded default: an unset receiver fails closed — buildRequirements()
+	// stops advertising that network — rather than silently routing real USDC to
+	// a baked-in address if a fork or misconfigured deploy forgets to set it.
+	// Asset/mint addresses below keep their public-constant defaults; only the
+	// money-routing receivers (payTo + feePayer) are required-by-config.
 	get X402_PAY_TO_SOLANA() {
-		return opt(
-			'X402_PAY_TO_SOLANA',
-			opt('X402_PAY_TO', 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV'),
-		);
+		return opt('X402_PAY_TO_SOLANA', opt('X402_PAY_TO'));
 	},
 	get X402_PAY_TO_BASE() {
-		return opt('X402_PAY_TO_BASE', '0x4022de2d36c334e73c7a108805cea11c0564f402');
+		return opt('X402_PAY_TO_BASE');
 	},
 	// USDC asset addresses per network.
 	get X402_ASSET_MINT_SOLANA() {
@@ -321,7 +334,9 @@ export const env = {
 	// facilitator co-signs on /settle. Must match whatever facilitator.payai.network
 	// returns at /supported for `network:"solana"`.
 	get X402_FEE_PAYER_SOLANA() {
-		return opt('X402_FEE_PAYER_SOLANA', '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4');
+		// No hardcoded default — see X402_PAY_TO_SOLANA. Without a fee payer the
+		// Solana accept can't be co-signed, so it must come from config.
+		return opt('X402_FEE_PAYER_SOLANA');
 	},
 
 	// ERC-8021 builder-code app identifier. When set, every 402 challenge
@@ -385,7 +400,9 @@ export const env = {
 	// (1000 base units = $0.001) and emits Payment(payer, amount, ref).
 	// Source + deploy tx: contracts/DEPLOYMENTS.md
 	get X402_PAY_TO_BSC() {
-		return opt('X402_PAY_TO_BSC', '0x00000000381f09742a30a5a49975514AeC1B72Cc');
+		// No hardcoded default — see X402_PAY_TO_SOLANA. The ThreeWSPayments
+		// receiver contract address must be set explicitly per deploy.
+		return opt('X402_PAY_TO_BSC');
 	},
 	// ── AWS Marketplace ──────────────────────────────────────────────────────
 	// IAM credentials with marketplaceMetering:ResolveCustomer,

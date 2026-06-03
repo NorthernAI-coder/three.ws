@@ -19,8 +19,11 @@ rembg[gpu]==2.0.56
 # ── Mesh operations (UV pre-computation, runs once at build time) ─────────────
 trimesh==4.4.0
 
-# ── HTTP (image downloads) ────────────────────────────────────────────────────
+# ── HTTP ──────────────────────────────────────────────────────────────────────
+# requests: build-time UV-map download (precompute_uv.py) from a fixed GitHub URL.
+# httpx: runtime SSRF-hardened image fetches via worker_security.fetch_remote_bytes.
 requests==2.32.3
+httpx==0.28.1
 
 # ── Server ────────────────────────────────────────────────────────────────────
 fastapi==0.115.0

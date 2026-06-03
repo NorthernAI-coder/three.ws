@@ -14,6 +14,8 @@
 import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
 import { renderClip } from '../_lib/render-clip.js';
 import { PRESETS } from '../../src/pose-presets.js';
+import { assertSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
+import { clientIp } from '../_lib/rate-limit.js';
 
 export const maxDuration = 30;
 
@@ -35,20 +37,6 @@ function rateCheck(ip) {
 	arr.push(now);
 	rateMap.set(ip, arr);
 	return true;
-}
-
-function isPublicHttpUrl(u) {
-	try {
-		const url = new URL(u);
-		if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
-		const host = url.hostname;
-		if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return false;
-		if (host.startsWith('169.254.') || host.startsWith('10.') || host.startsWith('192.168.')) return false;
-		if (host.endsWith('.internal') || host.endsWith('.local')) return false;
-		return true;
-	} catch {
-		return false;
-	}
 }
 
 async function preflightSize(url) {
@@ -81,7 +69,7 @@ export default wrap(async function handler(req, res) {
 
 	if (!method(req, res, ['POST'])) return;
 
-	const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress;
+	const ip = clientIp(req);
 	if (!rateCheck(ip)) {
 		return error(res, 429, 'rate_limited', `Too many render requests. Limit: ${RATE_LIMIT_MAX} per ${RATE_LIMIT_WINDOW_MS / 60000}m.`);
 	}
@@ -95,8 +83,13 @@ export default wrap(async function handler(req, res) {
 
 	const glbUrl = typeof body.glbUrl === 'string' ? body.glbUrl.trim() : '';
 	if (!glbUrl) return error(res, 400, 'bad_request', 'glbUrl is required');
-	if (!isPublicHttpUrl(glbUrl)) {
-		return error(res, 400, 'bad_request', 'glbUrl must be a public http(s) URL');
+	// DNS-resolving SSRF guard (see render/glb.js) — headless chromium loads this
+	// URL inside the function, so a prefix denylist was bypassable.
+	try {
+		await assertSafePublicUrl(glbUrl, { allowHttp: true });
+	} catch (e) {
+		if (e instanceof SsrfBlockedError) return error(res, 400, 'bad_request', 'glbUrl must be a public http(s) URL');
+		throw e;
 	}
 
 	const width = Math.max(MIN_DIM, Math.min(MAX_DIM, Number(body.width) || 1024));

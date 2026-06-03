@@ -3,6 +3,7 @@ import { sql } from './_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from './_lib/auth.js';
 import { cors, json, error, wrap, method, readJson } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { parse } from './_lib/validate.js';
 import { z } from 'zod';
 
@@ -42,7 +43,11 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { data: rows });
 	}
 
-	// POST — create
+	// POST — create. CSRF-guard the cookie-authenticated path so a logged-in
+	// user can't be tricked into minting a key cross-site. requireCsrf is a
+	// no-op for Bearer callers (the token itself is proof of intent).
+	if (!(await requireCsrf(req, res, userId))) return;
+
 	const body = parse(createSchema, await readJson(req));
 
 	// Validate requested scopes are all known

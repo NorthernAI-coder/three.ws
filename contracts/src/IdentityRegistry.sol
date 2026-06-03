@@ -36,6 +36,11 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
     // Max spend per on-chain agent ID per authorized spender (set by agent NFT owner)
     mapping(uint256 => mapping(address => uint256)) public spendAllowance;
 
+    // Per-agent deposited ETH balance held by this contract. The sum of all
+    // agentBalance entries equals the contract's spendable ETH; spend() may only
+    // draw against the calling agent's own balance, never a shared pool.
+    mapping(uint256 => uint256) public agentBalance;
+
     // EIP-712 typehash for delegated wallet binding.
     bytes32 private constant _SET_WALLET_TYPEHASH = keccak256(
         "SetAgentWallet(uint256 agentId,address newWallet,uint256 nonce,uint256 deadline)"
@@ -50,6 +55,8 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
     event WalletSet(uint256 indexed agentId, address indexed wallet);
     event WalletUnset(uint256 indexed agentId);
     event SpendAllowanceSet(uint256 indexed agentId, address indexed spender, uint256 maxWei);
+    event AgentDeposit(uint256 indexed agentId, address indexed from, uint256 amountWei);
+    event AgentWithdrawal(uint256 indexed agentId, address indexed to, uint256 amountWei);
     event AgentPayment(
         uint256 indexed agentId,
         address indexed spender,
@@ -72,6 +79,9 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
     error SignatureExpired();
     error InvalidSignature();
     error UnknownAgent();
+    error ZeroDeposit();
+    error InsufficientAgentBalance();
+    error DirectTransferRejected();
 
     // ---------------------------------------------------------------------
     // Constructor
@@ -201,7 +211,41 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
     // Agent spend delegation
     // ---------------------------------------------------------------------
 
-    receive() external payable {}
+    /// @notice Reject bare ETH transfers. ETH must always be attributed to a
+    ///         specific agent via deposit(agentId); a blanket receive() would
+    ///         pool funds with no per-agent ownership, letting one agent's
+    ///         spender drain another agent's ETH.
+    receive() external payable {
+        revert DirectTransferRejected();
+    }
+
+    fallback() external payable {
+        revert DirectTransferRejected();
+    }
+
+    /// @notice Deposit ETH credited to a specific agent's balance. Anyone may
+    ///         fund an agent (e.g. the agent's operator topping up its budget),
+    ///         but the funds become spendable only against that agent's own
+    ///         balance, never a shared pool.
+    function deposit(uint256 agentId) external payable {
+        if (_ownerOf(agentId) == address(0)) revert UnknownAgent();
+        if (msg.value == 0) revert ZeroDeposit();
+        agentBalance[agentId] += msg.value;
+        emit AgentDeposit(agentId, msg.sender, msg.value);
+    }
+
+    /// @notice Withdraw ETH from an agent's balance back to its NFT owner.
+    ///         Only the agent owner can reclaim its unspent deposits.
+    function withdraw(uint256 agentId, address payable recipient, uint256 amountWei)
+        external
+        nonReentrant
+    {
+        if (ownerOf(agentId) != msg.sender) revert NotAgentOwner();
+        if (agentBalance[agentId] < amountWei) revert InsufficientAgentBalance();
+        agentBalance[agentId] -= amountWei;
+        recipient.transfer(amountWei);
+        emit AgentWithdrawal(agentId, recipient, amountWei);
+    }
 
     /// @notice Agent NFT owner authorizes a spender (e.g. delegated server key) to
     ///         spend up to maxWei from this contract on behalf of the agent.
@@ -214,7 +258,9 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
     }
 
     /// @notice Spend ETH held by this contract on behalf of an agent.
-    ///         Caller must have been granted allowance via setSpendAllowance.
+    ///         Caller must have been granted allowance via setSpendAllowance,
+    ///         AND the spend is capped by the agent's own deposited balance so
+    ///         funds belonging to other agents can never be drained.
     function spend(
         uint256 agentId,
         address payable recipient,
@@ -222,8 +268,9 @@ contract IdentityRegistry is ERC721Enumerable, EIP712, ReentrancyGuard {
         string calldata memo
     ) external nonReentrant {
         require(spendAllowance[agentId][msg.sender] >= amountWei, "allowance exceeded");
-        require(address(this).balance >= amountWei, "contract balance insufficient");
+        if (agentBalance[agentId] < amountWei) revert InsufficientAgentBalance();
         spendAllowance[agentId][msg.sender] -= amountWei;
+        agentBalance[agentId] -= amountWei;
         recipient.transfer(amountWei);
         emit AgentPayment(agentId, msg.sender, recipient, amountWei, memo);
     }

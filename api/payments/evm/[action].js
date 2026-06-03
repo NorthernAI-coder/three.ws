@@ -76,13 +76,50 @@ async function handleConfirm(req, res) {
 	try { receipt = await client.getTransactionReceipt({ hash: tx_hash }); }
 	catch { return error(res, 422, 'tx_not_found', 'transaction not found on chain — may need more confirmations'); }
 	if (receipt.status !== 'success') return error(res, 422, 'tx_failed', 'transaction reverted');
+	// Require a confirmation depth before granting the (irreversible, 30-day)
+	// plan — a single-receipt check accepts a tx that a short reorg could revert.
+	const MIN_CONFIRMATIONS = 12n;
+	try {
+		const head = await client.getBlockNumber();
+		if (head - receipt.blockNumber < MIN_CONFIRMATIONS) {
+			return error(res, 422, 'insufficient_confirmations', 'transaction needs more confirmations — retry shortly');
+		}
+	} catch {
+		return error(res, 422, 'tx_not_found', 'unable to read chain head for confirmation depth');
+	}
 	const usdcAddress = EVM_USDC[chainId]?.toLowerCase();
 	const logs = await client.getLogs({ address: usdcAddress, event: ERC20_ABI[0], fromBlock: receipt.blockNumber, toBlock: receipt.blockNumber });
 	const expectedRecipient = intent.recipient.toLowerCase();
 	const expectedAtomics = BigInt(Math.round(Number(intent.amount_usdc) * 1_000_000));
 	const matchingLog = logs.find((log) => log.transactionHash?.toLowerCase() === tx_hash.toLowerCase() && log.args.to?.toLowerCase() === expectedRecipient && BigInt(log.args.value ?? 0) >= expectedAtomics);
 	if (!matchingLog) return error(res, 422, 'transfer_not_found', `No USDC transfer of ${intent.amount_usdc} USDC to ${expectedRecipient} found in tx`);
-	await sql`update plan_payment_intents set status='confirmed', tx_hash=${tx_hash}, confirmed_at=now() where id=${intent_id}`;
+
+	// Bind the on-chain payment to this account. The treasury recipient is shared
+	// across all users, so "a transfer of the right amount to the treasury exists"
+	// is not proof THIS user paid — without binding, anyone could confirm any
+	// public transfer against their own intent. EVM USDC transfers carry no memo
+	// (unlike the Solana path's nonce memo), so we bind on the payer address: the
+	// funds must originate from a wallet linked to this account.
+	const payer = matchingLog.args.from?.toLowerCase();
+	if (!payer) return error(res, 422, 'transfer_not_found', 'could not determine payer address from transaction');
+	const [linked] = await sql`select 1 from user_wallets where user_id = ${user.id} and lower(address) = ${payer} limit 1`;
+	if (!linked) {
+		return error(res, 422, 'payer_not_linked', 'payment must be sent from a wallet linked to your account — link the paying wallet, then retry', { payer });
+	}
+
+	// Reject a tx_hash already consumed by another confirmed intent (replay).
+	// The partial unique index payment_intents_tx_hash_unique is the hard backstop;
+	// this pre-check turns the race-loser into a clean 409 instead of a 500.
+	const [dupe] = await sql`select id from plan_payment_intents where chain_type = 'evm' and tx_hash = ${tx_hash} and status = 'confirmed' limit 1`;
+	if (dupe) return error(res, 409, 'tx_already_used', 'this transaction has already been used to confirm a payment');
+
+	try {
+		await sql`update plan_payment_intents set status='confirmed', tx_hash=${tx_hash}, confirmed_at=now() where id=${intent_id} and status != 'confirmed'`;
+	} catch (e) {
+		// Unique-index violation: a concurrent confirm claimed this tx first.
+		if (e?.code === '23505') return error(res, 409, 'tx_already_used', 'this transaction has already been used to confirm a payment');
+		throw e;
+	}
 	const planConfig = PLANS[intent.plan];
 	const activeUntil = new Date(Date.now() + planConfig.duration_days * 86400 * 1000);
 	await sql`insert into subscriptions (user_id, plan, chain_type, chain_id, token_address, tx_hash, amount_usd, status, active_until) values (${user.id}, ${intent.plan}, 'evm', ${chainId}, ${usdcAddress}, ${tx_hash}, ${intent.amount_usdc}, 'active', ${activeUntil}) on conflict (user_id) where status='active' do update set plan=excluded.plan, chain_type=excluded.chain_type, chain_id=excluded.chain_id, token_address=excluded.token_address, tx_hash=excluded.tx_hash, amount_usd=excluded.amount_usd, active_until=excluded.active_until, updated_at=now()`;

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 interface IIdentityRegistry {
     function isAgent(uint256 agentId) external view returns (bool);
     function ownerOf(uint256 agentId) external view returns (address);
@@ -10,7 +12,7 @@ interface IIdentityRegistry {
 /// @notice Stores signed-by-tx-sender reputation feedback about registered
 ///         agents. Scores are clamped to [-100, 100]. Aggregates are updated
 ///         in-place so reads are O(1).
-contract ReputationRegistry {
+contract ReputationRegistry is ReentrancyGuard {
     // ---------------------------------------------------------------------
     // Storage
     // ---------------------------------------------------------------------
@@ -33,7 +35,12 @@ contract ReputationRegistry {
     mapping(uint256 => Aggregate) private _aggregate;
     // agentId => reviewer => hasSubmitted (one review per address per agent)
     mapping(uint256 => mapping(address => bool)) public hasReviewed;
+    // agentId => aggregate ETH currently staked across all stakers
     mapping(uint256 => uint256) private _totalStake;
+    // agentId => staker => their refundable staked ETH. Attributing stake per
+    // staker is what makes withdrawStake() access-correct: each staker can only
+    // ever reclaim what they personally locked, never another staker's ETH.
+    mapping(uint256 => mapping(address => uint256)) public stakeOf;
 
     // ---------------------------------------------------------------------
     // Events
@@ -53,6 +60,12 @@ contract ReputationRegistry {
         uint256 value
     );
 
+    event StakeWithdrawn(
+        uint256 indexed agentId,
+        address indexed staker,
+        uint256 value
+    );
+
     // ---------------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------------
@@ -61,6 +74,8 @@ contract ReputationRegistry {
     error AlreadyReviewed();
     error ScoreOutOfRange();
     error SelfReviewForbidden();
+    error NoStakeToWithdraw();
+    error RefundFailed();
 
     // ---------------------------------------------------------------------
     // Constructor
@@ -165,12 +180,35 @@ contract ReputationRegistry {
         }
 
         _totalStake[agentId] += msg.value;
+        stakeOf[agentId][msg.sender] += msg.value;
 
         emit FeedbackSubmitted(agentId, msg.sender, int8(uint8(score)), comment);
         emit ReputationStaked(agentId, msg.sender, score, msg.value);
     }
 
+    /// @notice Reclaim the ETH you personally staked on an agent. The review you
+    ///         submitted (score + comment) remains on-chain; only your escrowed
+    ///         stake is refunded. A staker may withdraw at any time and can only
+    ///         ever recover their own deposit.
+    function withdrawStake(uint256 agentId) external nonReentrant {
+        uint256 amount = stakeOf[agentId][msg.sender];
+        if (amount == 0) revert NoStakeToWithdraw();
+
+        stakeOf[agentId][msg.sender] = 0;
+        _totalStake[agentId] -= amount;
+
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        if (!ok) revert RefundFailed();
+
+        emit StakeWithdrawn(agentId, msg.sender, amount);
+    }
+
     function getTotalStake(uint256 agentId) external view returns (uint256) {
         return _totalStake[agentId];
+    }
+
+    /// @notice The refundable stake a specific staker holds on an agent.
+    function getStake(uint256 agentId, address staker) external view returns (uint256) {
+        return stakeOf[agentId][staker];
     }
 }

@@ -33,6 +33,7 @@ import {
 } from './avatar-rig.js';
 import { GUEST_SENTINEL, uploadPendingGuestAvatar } from './play-handoff.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
+import { AgentCommerce } from './agent-commerce.js';
 import { VoiceChat, voiceSupported } from './voice-chat.js';
 import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet, getSession } from '../community/town-auth.js';
 import { ensurePlayAccess } from './play-gate.js';
@@ -773,6 +774,17 @@ export class CoinCommunities {
 		this.phase = 'world';
 		this._initJoystick();
 		this._onboardBuild();
+		// The flagship town hosts the live Agent Exchange: two NPC agents who pay
+		// each other on-chain via x402. Built only here, torn down in leave().
+		if (isHomeTown(coin.mint)) {
+			this.agentCommerce = new AgentCommerce({
+				scene: this.scene,
+				camera: this.camera,
+				renderer: this.renderer,
+				getPlayer: () => this.localPos,
+				ui: this.ui,
+			});
+		}
 		// Start the silent pass-refresh cycle. The play pass has a 10-min server
 		// TTL; the server sweeps expired passes every minute. We refresh 2 min early
 		// so a player in a long session is never evicted mid-build. The refresh
@@ -979,6 +991,7 @@ export class CoinCommunities {
 		if (this.voice) { this.voice.dispose(); this.voice = null; }
 		if (this.net) { this.net.destroy(); this.net = null; }
 		if (this.playSystems) { this.playSystems.dispose(); this.playSystems = null; }
+		if (this.agentCommerce) { this.agentCommerce.dispose(); this.agentCommerce = null; }
 		for (const [, r] of this.remotes) r.dispose();
 		this.remotes.clear();
 		if (this._totem) { this.world.remove(this._totem); this._totem = null; this._coinSpin = null; }
@@ -1110,6 +1123,13 @@ export class CoinCommunities {
 					this.buildHud.select(k === '0' ? 9 : Number(k) - 1);
 					return;
 				}
+				// E watches the Agent Exchange round when standing near the agents in
+				// the home town (no-op elsewhere). Not while building.
+				if (k === 'e' && !this.buildHud.active && this.agentCommerce) {
+					e.preventDefault();
+					this.agentCommerce.interact();
+					return;
+				}
 				// F casts a line when standing by a pond (no-op elsewhere). Not while
 				// building, where keys drive the block palette.
 				if (k === 'f' && !this.buildHud.active) {
@@ -1152,6 +1172,9 @@ export class CoinCommunities {
 			if (consumed) return; // a hold already broke a block — don't also place
 			if (moved >= 6 || e.button === 2) return; // a look-drag, or a right-click (handled by contextmenu)
 			if (this.phase === 'world' && this.buildHud.active) { this._buildAt(e.clientX, e.clientY, false); return; }
+			// Tap the agents (or their exchange ring) to watch a live payment — the
+			// touch-native equivalent of pressing E. Checked before the chart screen.
+			if (this.agentCommerce?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			if (this._raycastScreen(e.clientX, e.clientY)) this._chartScreen.openExternal();
 		});
 		// Right-click always breaks the targeted block while building.
@@ -1431,6 +1454,7 @@ export class CoinCommunities {
 			this._updateLabels();
 			this._updateVoice();
 			this.playSystems?.tick(dt);
+			this.agentCommerce?.tick(dt);
 			if (this.net) this.net.sendMove({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, motion: this.motion });
 		}
 		this._tickEnv(dt);

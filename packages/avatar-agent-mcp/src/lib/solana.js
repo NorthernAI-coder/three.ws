@@ -17,6 +17,7 @@ import {
 import bs58 from 'bs58';
 
 import { SOLANA_RPC_URL, SOLANA_DEFAULT_SECRET } from '../config.js';
+import { assertSolWithinCap, clampPriorityMicroLamports } from './spend-policy.js';
 
 const bs58encode = bs58.default ? bs58.default.encode : bs58.encode;
 const bs58decode = bs58.default ? bs58.default.decode : bs58.decode;
@@ -103,6 +104,9 @@ export async function sendSol({ secret, to, sol, priorityMicroLamports = 100000 
 		err.code = 'invalid_destination';
 		throw err;
 	}
+	// Spend cap — enforced here in the signing lib so EVERY caller is covered,
+	// not just the wallet_send schema.
+	assertSolWithinCap(sol, 'wallet_send');
 	const signer = loadSigner(secret);
 	const conn = getConnection();
 	const lamports = Math.floor(Number(sol) * LAMPORTS_PER_SOL);
@@ -111,12 +115,13 @@ export async function sendSol({ secret, to, sol, priorityMicroLamports = 100000 
 		err.code = 'invalid_amount';
 		throw err;
 	}
+	const microLamports = clampPriorityMicroLamports(priorityMicroLamports);
 	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
 	const msg = new TransactionMessage({
 		payerKey: signer.publicKey,
 		recentBlockhash: blockhash,
 		instructions: [
-			ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityMicroLamports }),
+			ComputeBudgetProgram.setComputeUnitPrice({ microLamports }),
 			ComputeBudgetProgram.setComputeUnitLimit({ units: 1000 }),
 			SystemProgram.transfer({
 				fromPubkey: signer.publicKey,
@@ -128,17 +133,35 @@ export async function sendSol({ secret, to, sol, priorityMicroLamports = 100000 
 	const tx = new VersionedTransaction(msg);
 	tx.sign([signer]);
 	const sig = await conn.sendTransaction(tx, { maxRetries: 5 });
-	const conf = await conn.confirmTransaction(
-		{ signature: sig, blockhash, lastValidBlockHeight },
-		'confirmed',
-	);
+
+	// Confirmation can throw (e.g. block-height-exceeded timeout) even though
+	// the tx may still land. Distinguish "confirmed failure" from "unknown" so
+	// the caller does NOT blindly retry and risk a double-spend.
+	let conf;
+	try {
+		conf = await conn.confirmTransaction(
+			{ signature: sig, blockhash, lastValidBlockHeight },
+			'confirmed',
+		);
+	} catch (waitErr) {
+		const err = new Error(
+			`Transaction ${sig} was submitted but confirmation timed out (${waitErr?.message || waitErr}). ` +
+				'It MAY still land. Do NOT resend — check the signature on Solscan first to avoid a double-spend.',
+		);
+		err.code = 'tx_unconfirmed';
+		err.status = 'pending';
+		err.signature = sig;
+		throw err;
+	}
 	if (conf?.value?.err) {
 		const err = new Error(`Transaction failed: ${JSON.stringify(conf.value.err)}`);
 		err.code = 'tx_failed';
+		err.status = 'failed';
 		err.signature = sig;
 		throw err;
 	}
 	return {
+		status: 'confirmed',
 		signature: sig,
 		from: signer.publicKey.toBase58(),
 		to,

@@ -32,6 +32,29 @@ export function isFreeTool(toolName) {
 	return !TOOL_PRICING[toolName];
 }
 
+// USDC (and our other supported stables) are 6-decimal. The x402 wire `amount`
+// is an atomic-unit string; convert a human `amount_usdc` to that. Rounds to the
+// nearest atomic unit so fractional-cent prices (e.g. 0.005) map exactly.
+const USDC_DECIMALS = 6;
+export function usdcToAtomicString(amountUsdc) {
+	const atomic = Math.round(Number(amountUsdc) * 10 ** USDC_DECIMALS);
+	return String(atomic);
+}
+
+/**
+ * The x402 `amount` (atomic-unit string) to charge for a given MCP tools/call.
+ * Derived from the advertised per-tool price so the 402 challenge and the
+ * settled charge agree. Returns null for free tools (no charge).
+ *
+ * @param {string} toolName
+ * @returns {string|null}
+ */
+export function x402AmountForTool(toolName) {
+	const price = priceFor(toolName);
+	if (!price || !(price.amount_usdc > 0)) return null;
+	return usdcToAtomicString(price.amount_usdc);
+}
+
 /**
  * Returns the active subscription row for (mint, payerWallet, toolName) if one
  * exists and has not expired. `toolName=null` matches any unrestricted

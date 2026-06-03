@@ -39,7 +39,6 @@ import logging
 import os
 import random
 import time
-import traceback
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -49,6 +48,8 @@ import httpx
 from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from google.cloud import firestore, storage
 from pydantic import BaseModel, Field
+
+from worker_security import require_api_key, safe_error
 
 logging.basicConfig(
     level=logging.INFO,
@@ -127,10 +128,10 @@ app = FastAPI(title="avatar-pipeline-controller", lifespan=lifespan)
 # ── auth ──────────────────────────────────────────────────────────────────────
 
 def _require_api_key(authorization: str) -> None:
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-    if authorization[len("Bearer "):].strip() != API_KEY:
-        raise HTTPException(status_code=401, detail="invalid api key")
+    try:
+        require_api_key(authorization, API_KEY)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 # ── Firestore helpers ─────────────────────────────────────────────────────────
@@ -239,13 +240,11 @@ async def _run_pipeline(
         })
         log.info("[%s] pipeline done in %.1fs — %s", job_id, total_time, final_url)
 
-    except Exception:
-        err = traceback.format_exc()
-        log.exception("[%s] pipeline failed", job_id)
+    except Exception as exc:
         _set_job(job_id, {
             "status": "failed",
             "stage": "failed",
-            "error": err,
+            "error": safe_error(exc, context=f"[{job_id}] pipeline"),
             "total_time_ms": int((time.time() - t0) * 1000),
         })
 

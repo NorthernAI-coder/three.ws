@@ -35,7 +35,6 @@ import io
 import logging
 import os
 import time
-import traceback
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -46,6 +45,13 @@ import trimesh
 from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from google.cloud import storage
 from pydantic import BaseModel, Field
+
+from worker_security import (
+    UnsafeUrlError,
+    fetch_remote_bytes_async,
+    require_api_key,
+    safe_error,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -91,10 +97,10 @@ app = FastAPI(title="unirig", lifespan=lifespan)
 
 
 def _require_api_key(authorization: str) -> None:
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-    if authorization[len("Bearer "):].strip() != API_KEY:
-        raise HTTPException(status_code=401, detail="invalid api key")
+    try:
+        require_api_key(authorization, API_KEY)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 # Wolf3D / ARKit-52 skeleton joint names. UniRig predicts joint placement; we
@@ -137,12 +143,15 @@ async def _run_rigging(
         loop = asyncio.get_event_loop()
         t0 = time.time()
         try:
-            # Download the raw mesh from GCS.
+            # Download the raw mesh from GCS. SSRF-hardened: https-only,
+            # private/loopback/link-local/metadata IPs rejected after DNS
+            # resolution, redirects re-validated per hop, response size bounded.
             import httpx
-            async with httpx.AsyncClient(timeout=60) as client:
-                resp = await client.get(mesh_gcs_url)
-                resp.raise_for_status()
-                mesh_bytes = resp.content
+            async with httpx.AsyncClient(timeout=60, follow_redirects=False) as client:
+                try:
+                    mesh_bytes = await fetch_remote_bytes_async(client, mesh_gcs_url)
+                except UnsafeUrlError as exc:
+                    raise RuntimeError(f"refused to fetch mesh url: {exc}") from exc
 
             def _rig():
                 mesh = trimesh.load(io.BytesIO(mesh_bytes), file_type="glb", force="mesh")
@@ -189,13 +198,12 @@ async def _run_rigging(
             })
             log.info("[%s] rigging done in %.1fs — %d bytes → %s", task_id, elapsed, len(rigged_bytes), gcs_url)
 
-        except Exception:
+        except Exception as exc:
             _tasks[task_id].update({
                 "status": "failed",
-                "error": traceback.format_exc(),
+                "error": safe_error(exc, context=f"[{task_id}] rigging"),
                 "elapsed_ms": int((time.time() - t0) * 1000),
             })
-            log.exception("[%s] rigging failed", task_id)
 
 
 def _inject_skeleton(glb, mesh, joints, parents, weights):

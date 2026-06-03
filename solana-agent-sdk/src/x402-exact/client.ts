@@ -21,7 +21,9 @@ import {
 } from "@solana/spl-token";
 import type { WalletProvider } from "../wallet/types.js";
 import { buildAndSend } from "../tx/build.js";
+import { memoInstruction } from "../utils/memo.js";
 import type { ExactPaymentRequirements } from "./types.js";
+import { x402NonceMemo } from "./types.js";
 
 export interface ExactPaymentProof {
   signature: string;
@@ -73,6 +75,15 @@ export async function payExact(
       TOKEN_PROGRAM_ID,
     ),
   );
+
+  // Bind the payment to the server-issued single-use challenge nonce by carrying
+  // it as a memo. The facilitator matches this exact memo before settling, so
+  // the payment cannot be replayed against any other request.
+  const nonce = requirements.extra?.nonce;
+  if (!nonce) {
+    throw new Error("Exact payment requirements are missing the server-issued challenge nonce");
+  }
+  ixs.push(memoInstruction(x402NonceMemo(nonce)));
 
   const signature = await buildAndSend(wallet, connection, ixs);
 

@@ -28,6 +28,7 @@ RUN pip install -r /app/requirements.txt
 
 # ── App code ──────────────────────────────────────────────────────────────────
 WORKDIR /app
+COPY worker_security.py /app/worker_security.py
 COPY main.py          /app/main.py
 COPY face_pipeline.py /app/face_pipeline.py
 COPY glb_ops.py       /app/glb_ops.py

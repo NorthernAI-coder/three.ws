@@ -4,7 +4,8 @@
 	"description": "3D AI Agent Avatar — render any GLB, give it a Solana wallet, a voice, and pump.fun powers.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
-		"source": "github"
+		"source": "github",
+		"subfolder": "packages/avatar-agent-mcp"
 	},
 	"version": "1.0.3",
 	"packages": [

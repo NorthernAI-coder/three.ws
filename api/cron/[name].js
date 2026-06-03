@@ -2708,6 +2708,12 @@ async function handleAuditLogCleanup(req, res) {
 
 async function handleExpirePendingPurchases(req, res) {
 	if (!method(req, res, ['GET'])) return;
+	const auth = req.headers['authorization'] || '';
+	const cronSecret = env.CRON_SECRET;
+	const fromCron = req.headers['x-vercel-cron'] === '1';
+	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
+		return error(res, 401, 'unauthorized', 'cron secret required');
+	}
 	const result = await sql`
 		UPDATE skill_purchases
 		SET status = 'expired', updated_at = now()
@@ -2723,6 +2729,12 @@ async function handleExpirePendingPurchases(req, res) {
 
 async function handleCleanupCsrfTokens(req, res) {
 	if (!method(req, res, ['GET'])) return;
+	const auth = req.headers['authorization'] || '';
+	const cronSecret = env.CRON_SECRET;
+	const fromCron = req.headers['x-vercel-cron'] === '1';
+	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
+		return error(res, 401, 'unauthorized', 'cron secret required');
+	}
 	const result = await sql`DELETE FROM csrf_tokens WHERE expires_at < now() RETURNING token`;
 	return json(res, 200, { deleted: result.length });
 }

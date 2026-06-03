@@ -12,6 +12,7 @@
 //   5. Timeout — total request + streaming is bounded.
 
 import { lookup } from 'node:dns/promises';
+import { Agent } from 'undici';
 import { env } from './env.js';
 
 const DEFAULT_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -58,7 +59,19 @@ function isPrivateIPv6(ip) {
 	return false;
 }
 
-async function assertPublicHost(host) {
+function isPrivateAddress(address, family) {
+	if (family === 4) return isPrivateIPv4(address);
+	if (family === 6) return isPrivateIPv6(address);
+	// Unknown family — treat as unsafe.
+	return true;
+}
+
+// Resolve `host` once, reject if ANY resolved address is private, and return the
+// validated address list. The caller pins the connection to exactly these
+// addresses (via a custom undici `lookup`) so a DNS-rebinding attacker who
+// returns a public IP at validation time and a private IP at connect time
+// cannot reach internal services — we never re-resolve through the OS.
+async function resolvePublicHost(host) {
 	if (!host) throw new FetchModelError('missing host', 'invalid_url');
 	let resolved;
 	try {
@@ -67,20 +80,42 @@ async function assertPublicHost(host) {
 		throw new FetchModelError(`DNS lookup failed for ${host}`, 'dns_failed');
 	}
 	const addrs = Array.isArray(resolved) ? resolved : [resolved];
+	if (!addrs.length) throw new FetchModelError(`DNS lookup failed for ${host}`, 'dns_failed');
 	for (const { address, family } of addrs) {
-		if (family === 4 && isPrivateIPv4(address)) {
-			throw new FetchModelError(
-				`host resolves to private address: ${address}`,
-				'private_address',
-			);
-		}
-		if (family === 6 && isPrivateIPv6(address)) {
+		if (isPrivateAddress(address, family)) {
 			throw new FetchModelError(
 				`host resolves to private address: ${address}`,
 				'private_address',
 			);
 		}
 	}
+	return addrs;
+}
+
+// Build an undici Agent whose DNS `lookup` only ever yields the pre-validated
+// addresses for `expectedHost`. Any connect attempt to a different host (e.g.
+// after an internal redirect we didn't re-pin) or with no validated address is
+// refused. This closes the check-then-connect TOCTOU: the address the socket
+// connects to is byte-for-byte one we already asserted is public.
+function pinnedAgent(expectedHost, addrs) {
+	return new Agent({
+		connect: {
+			lookup(hostname, _opts, cb) {
+				if (hostname !== expectedHost) {
+					cb(new FetchModelError(`unexpected connect host: ${hostname}`, 'host_pin_mismatch'));
+					return;
+				}
+				// undici accepts an array of { address, family } entries. Re-assert
+				// here as defense-in-depth in case a resolver returned mixed records.
+				const safe = addrs.filter((a) => !isPrivateAddress(a.address, a.family));
+				if (!safe.length) {
+					cb(new FetchModelError('no public address to connect to', 'private_address'));
+					return;
+				}
+				cb(null, safe.map((a) => ({ address: a.address, family: a.family })));
+			},
+		},
+	});
 }
 
 function validateUrl(rawUrl) {
@@ -112,14 +147,21 @@ export async function fetchModel(rawUrl, opts = {}) {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+	let agent = null;
 	try {
 		while (true) {
-			await assertPublicHost(currentUrl.hostname);
+			// Resolve + validate on THIS hop, then pin the connection to exactly
+			// those addresses. Re-done every redirect so a redirect target that
+			// rebinds to a private IP is caught and refused.
+			const addrs = await resolvePublicHost(currentUrl.hostname);
+			if (agent) await agent.close().catch(() => {});
+			agent = pinnedAgent(currentUrl.hostname, addrs);
 
 			const res = await fetch(currentUrl, {
 				method: 'GET',
 				redirect: 'manual',
 				signal: controller.signal,
+				dispatcher: agent,
 				headers: {
 					'user-agent': '3d-agent-mcp/1.0 (+https://three.ws/)',
 					accept: 'model/gltf-binary, model/gltf+json, application/octet-stream, */*;q=0.5',
@@ -187,5 +229,6 @@ export async function fetchModel(rawUrl, opts = {}) {
 		}
 	} finally {
 		clearTimeout(timer);
+		if (agent) await agent.close().catch(() => {});
 	}
 }

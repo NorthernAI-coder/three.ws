@@ -43,6 +43,7 @@ import {
 
 import { env } from './env.js';
 import { X402Error } from './x402-errors.js';
+import { confirmSolanaPayment, isSolanaNetwork } from './x402-solana-confirm.js';
 import {
 	PAYMENT_EVENT_TOPIC as BSC_PAYMENT_EVENT_TOPIC,
 	settleDirectPayment,
@@ -144,10 +145,15 @@ function pushEvmAccepts(out, accept) {
 //
 // In v2, `resource` / `description` / `mimeType` are top-level on the 402 body
 // (not per-accepts), and the price field is `amount` (not `maxAmountRequired`).
-export function paymentRequirements(resourceUrl) {
+// `amount` (optional) overrides the per-call price advertised in every accept
+// entry. The MCP server passes the per-tool price derived from priceFor() so the
+// 402 challenge advertises exactly what the settle path will charge for the
+// called tool, instead of a single flat X402_MAX_AMOUNT_REQUIRED. Falls back to
+// the flat env default when omitted (non-MCP paid endpoints, free-tool probes).
+export function paymentRequirements(resourceUrl, { amount } = {}) {
 	const common = {
 		scheme: 'exact',
-		amount: env.X402_MAX_AMOUNT_REQUIRED,
+		amount: amount != null ? String(amount) : env.X402_MAX_AMOUNT_REQUIRED,
 		maxTimeoutSeconds: 60,
 		...(resourceUrl ? { resource: resourceUrl } : {}),
 	};
@@ -595,6 +601,38 @@ function decodeSignedAmount(paymentPayload) {
 	return null;
 }
 
+// Extract the recipient the payer actually signed over, so we can confirm the
+// funds are bound to OUR `requirement.payTo` and not an attacker address the
+// facilitator might (if compromised/buggy) accept. Returns a lowercase hex
+// string, or null when the recipient can't be located without trusting the
+// facilitator (e.g. Solana SPL transfers).
+//
+// Defense-in-depth: the EIP-712 signature commits to `to`, so a payment whose
+// signed recipient differs from the offered payTo is invalid regardless of
+// what /verify returns.
+function decodeSignedRecipient(paymentPayload) {
+	const inner = paymentPayload?.payload;
+	if (!inner || typeof inner !== 'object') return null;
+	// EIP-3009 transferWithAuthorization — `authorization.to` is signed.
+	if (inner.authorization && typeof inner.authorization === 'object') {
+		const to = inner.authorization.to;
+		if (typeof to === 'string' && to) return to.toLowerCase();
+	}
+	// Permit2 — the spend recipient travels in the witness/transfer details.
+	// Clients shape this a few ways; check the known locations and bail out
+	// (null = facilitator-trusted) rather than guess when none are present.
+	if (inner.permit2Authorization && typeof inner.permit2Authorization === 'object') {
+		const p2 = inner.permit2Authorization;
+		const candidate =
+			p2.transferDetails?.to ??
+			p2.witness?.to ??
+			p2.spender ??
+			p2.to;
+		if (typeof candidate === 'string' && candidate) return candidate.toLowerCase();
+	}
+	return null;
+}
+
 // Build a deterministic idempotency key per (verified-payment-payload, requirement).
 // Idempotent retries of /settle (timeouts, transient 5xx) will hash to the same
 // key and let the facilitator de-duplicate, preventing double-settlement. Hashing
@@ -670,6 +708,20 @@ export async function verifyPayment({ paymentHeader, requirements, builderCode }
 			);
 		}
 	}
+	// Defense-in-depth recipient check. The EIP-712 signature commits to the
+	// recipient, so confirm the payer signed funds to OUR payTo — a compromised
+	// facilitator can't redirect a wrong-recipient authorization past us. Null
+	// (Solana SPL / unknown shape) falls through to facilitator trust.
+	const signedRecipient = decodeSignedRecipient(paymentPayload);
+	if (signedRecipient !== null && requirement.payTo) {
+		if (signedRecipient !== String(requirement.payTo).toLowerCase()) {
+			throw new X402Error(
+				'invalid_payment',
+				`signed payment recipient ${signedRecipient} does not match required payTo ${requirement.payTo}`,
+				402,
+			);
+		}
+	}
 	const config = facilitatorFor(requirement.network);
 	if (config.direct) {
 		const directVerified = await verifyDirectPayment({ paymentPayload, requirement });
@@ -709,6 +761,19 @@ export async function verifyPayment({ paymentHeader, requirements, builderCode }
 			`facilitator /verify asset mismatch: requested ${requirement.asset}, got ${result.asset}`,
 			502,
 		);
+	}
+	// Solana defense-in-depth: the amount/recipient live inside the opaque
+	// serialized transaction, so the facilitator was historically the only
+	// guard. Statically decode the signed SPL transfer and reject if it pays
+	// us less than required (or to the wrong ATA/mint) — symmetric with the
+	// EVM signed-amount/recipient checks above. Undecodable payloads stay
+	// facilitator-trusted (inconclusive) so a parsing quirk never blocks a
+	// valid payment.
+	if (isSolanaNetwork(requirement.network)) {
+		const confirm = confirmSolanaPayment({ paymentPayload, requirement });
+		if (confirm.confirmed === false) {
+			throw new X402Error('invalid_payment', confirm.reason, 402);
+		}
 	}
 	return { paymentPayload, requirement, payer: result.payer || null };
 }

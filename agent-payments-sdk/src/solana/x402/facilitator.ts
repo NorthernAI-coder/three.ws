@@ -43,6 +43,24 @@ import {
   USDC_MAINNET,
 } from "./types";
 
+// ─── Replay protection ──────────────────────────────────────────────────────
+
+/**
+ * Pluggable consumed-signature store for replay protection.
+ *
+ * The default {@link SettlementCache} is an in-process Map and therefore only
+ * deduplicates within a single process — it does NOT survive a restart or
+ * coordinate across replicas/serverless instances. A production resource server
+ * that runs more than one instance MUST pass a durable, atomically-claiming
+ * store (Redis `SET NX`, a Postgres `INSERT … ON CONFLICT`, etc.) so the same
+ * signature can't be redeemed twice across instances. `claim()` returns true
+ * exactly once per key: true = this caller won the claim (proceed), false =
+ * already consumed (reject as duplicate).
+ */
+export interface ReplayStore {
+  claim(key: string): boolean | Promise<boolean>;
+}
+
 // ─── Settlement Cache ───────────────────────────────────────────────────────
 
 class SettlementCache {
@@ -74,6 +92,13 @@ class SettlementCache {
       }
     }
   }
+
+  // Atomic check-and-set: true exactly once per key (single-process only).
+  claim(key: string): boolean {
+    if (this.has(key)) return false;
+    this.set(key);
+    return true;
+  }
 }
 
 // ─── Invoice Memo Generation ────────────────────────────────────────────────
@@ -93,6 +118,13 @@ export interface PumpAgentFacilitatorConfig {
   connection: Connection;
   /** CAIP-2 network (default: SOLANA_MAINNET) */
   network?: string;
+  /**
+   * Durable replay store. Defaults to an in-process cache that only
+   * deduplicates within a single process — pass a Redis/Postgres-backed
+   * {@link ReplayStore} in any multi-instance / serverless deployment so a
+   * signature can't be settled twice across instances. See {@link ReplayStore}.
+   */
+  replayStore?: ReplayStore;
 }
 
 /**
@@ -104,11 +136,12 @@ export interface PumpAgentFacilitatorConfig {
 export class PumpAgentFacilitator implements FacilitatorClient {
   private connection: Connection;
   private network: string;
-  private settlementCache = new SettlementCache();
+  private replayStore: ReplayStore;
 
   constructor(config: PumpAgentFacilitatorConfig) {
     this.connection = config.connection;
     this.network = config.network ?? SOLANA_MAINNET;
+    this.replayStore = config.replayStore ?? new SettlementCache();
   }
 
   async verify(
@@ -132,19 +165,14 @@ export class PumpAgentFacilitator implements FacilitatorClient {
       return { isValid: false, invalidReason: "Missing signature or payer" };
     }
 
-    // Duplicate check
-    if (this.settlementCache.has(signature)) {
-      return { isValid: false, invalidReason: "Duplicate payment" };
-    }
-
-    // Verify amount matches
-    if (
-      payload.accepted.amount !== requirements.amount ||
-      payload.accepted.asset !== requirements.asset
-    ) {
-      return { isValid: false, invalidReason: "Amount or asset mismatch" };
-    }
-
+    // NOTE: we deliberately do NOT compare the client-supplied
+    // `payload.accepted` against `requirements` — that block is attacker-
+    // controlled and proves nothing. The authoritative amount/asset/recipient
+    // binding is the on-chain invoice check below, which is driven entirely by
+    // the trusted `req` (server-issued requirements): the invoice PDA is derived
+    // from (agentMint, currencyMint=req.asset, amount=req.amount, memo, window),
+    // and the program only emits the matched payment event when funds reach the
+    // agent's canonical vault — so agentMint binds the recipient.
     try {
       const agent = new PumpAgent(
         new PublicKey(req.extra.agentMint),
@@ -155,8 +183,10 @@ export class PumpAgentFacilitator implements FacilitatorClient {
       const valid = await agent.validateInvoicePayment({
         user: new PublicKey(payer),
         currencyMint: new PublicKey(req.asset),
-        amount: Number(req.amount),
-        memo: Number(req.extra.memo),
+        // Pass the raw decimal strings — Number() would lose precision on
+        // atomic USDC amounts and the timestamp-derived memo (both > 2^53).
+        amount: req.amount,
+        memo: String(req.extra.memo),
         startTime: req.extra.startTime,
         endTime: req.extra.endTime,
       });
@@ -192,7 +222,13 @@ export class PumpAgentFacilitator implements FacilitatorClient {
     const signature = proof.signature as string;
     const payer = proof.payer as string;
 
-    this.settlementCache.set(signature);
+    // Atomically consume the signature — true exactly once. With a durable
+    // ReplayStore this is the cross-instance double-spend guard; with the
+    // in-memory default it only protects within a single process.
+    const claimed = await this.replayStore.claim(signature);
+    if (!claimed) {
+      return { success: false, errorReason: "Duplicate payment", payer };
+    }
 
     return {
       success: true,

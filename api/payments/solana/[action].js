@@ -72,10 +72,13 @@ async function handleConfirm(req, res) {
 		return error(res, 410, 'intent_expired', 'payment session expired');
 	}
 	const rpcUrl = network === 'devnet' ? SOLANA_RPC_DEVNET : SOLANA_RPC_MAINNET;
-	const connection = new Connection(rpcUrl, 'confirmed');
+	// A confirmed plan payment grants 30 days of paid plan — an irreversible,
+	// latency-tolerant, one-time grant. Require 'finalized' so a short reorg
+	// can't roll back the tx after we've already upgraded the account.
+	const connection = new Connection(rpcUrl, 'finalized');
 	const usdcMint = network === 'devnet' ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' : SOLANA_USDC_MINT;
 	let tx;
-	try { tx = await connection.getParsedTransaction(tx_signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' }); }
+	try { tx = await connection.getParsedTransaction(tx_signature, { maxSupportedTransactionVersion: 0, commitment: 'finalized' }); }
 	catch { return error(res, 422, 'tx_not_found', 'transaction not found — may need more confirmations'); }
 	if (!tx) return error(res, 422, 'tx_not_found', 'transaction not found');
 	if (tx.meta?.err) return error(res, 422, 'tx_failed', 'transaction failed on-chain');

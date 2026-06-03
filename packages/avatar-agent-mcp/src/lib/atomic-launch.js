@@ -26,6 +26,11 @@ import FormData from 'form-data';
 
 import { bs58encode, bs58decode, getConnection, keypairFromSecret } from './solana.js';
 import { JITO_TIP_ACCOUNTS, randomTipAccount, submitBundle, waitForSignatures } from './jito.js';
+import {
+	assertSolWithinCap,
+	clampJitoTipSol,
+	clampPriorityMicroLamports,
+} from './spend-policy.js';
 
 const PUMP_IPFS_URL = 'https://pump.fun/api/ipfs';
 
@@ -96,6 +101,13 @@ export async function atomicLaunch({
 	if (!symbol) throw new Error('atomicLaunch: symbol is required');
 	if (!uri) throw new Error('atomicLaunch: uri is required (call uploadPumpMetadata first or pass an existing one)');
 
+	// Spend cap + tip/priority clamps. The funder's outlay is rent + tip; bound
+	// each so an injected arg can't drain the funder.
+	jitoTipSol = clampJitoTipSol(jitoTipSol);
+	priorityMicroLamports = clampPriorityMicroLamports(priorityMicroLamports);
+	assertSolWithinCap(rentSol, 'pump_launch (creator rent transfer)');
+	assertSolWithinCap(rentSol + jitoTipSol, 'pump_launch (funder total outlay)');
+
 	const funder = keypairFromSecret(funderSecret);
 	const creator = keypairFromSecret(creatorSecret);
 	const mint = mintSecret
@@ -165,8 +177,13 @@ export async function atomicLaunch({
 	const sig2 = bs58encode(tx2.signatures[0]);
 	const wait = await waitForSignatures(conn, [sig1, sig2], { timeoutMs: 60_000, intervalMs: 2_000 });
 
+	const status = wait.err === 'timeout' ? 'pending' : wait.ok ? 'confirmed' : 'failed';
 	return {
 		ok: wait.ok,
+		status,
+		...(status === 'pending'
+			? { note: `Launch bundle ${bundleId} did not confirm within the timeout. The mint MAY still have been created — do NOT relaunch without checking ${mint.publicKey.toBase58()} on Solscan/pump.fun first.` }
+			: {}),
 		bundleId,
 		bundleExplorer: explorer,
 		mint: mint.publicKey.toBase58(),

@@ -9,14 +9,59 @@ if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
 	redis = new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
 }
 
+// Prod signal: real deployments set NODE_ENV=production (Vercel does). Tests and
+// local dev never do, so the in-memory fallback stays fully permissive there.
+const IS_PRODUCTION = env.NODE_ENV === 'production' || env.VERCEL_ENV === 'production';
+const REDIS_CONFIGURED = Boolean(redis);
+
+// Loud, one-time startup warning when Redis is unconfigured in production. Without
+// Redis every limiter falls back to a PER-INSTANCE in-memory map, which is
+// effectively unbounded across serverless fan-out — fine for dev, dangerous for
+// the money/cost limiters in prod (see failClosedLimiter below).
+if (IS_PRODUCTION && !REDIS_CONFIGURED) {
+	console.error(
+		'[rate-limit] FATAL CONFIG: UPSTASH_REDIS_REST_URL/TOKEN are unset in production. ' +
+			'Cost/money-moving limiters will FAIL CLOSED (deny) until Redis is configured; ' +
+			'cheap per-IP limiters fall back to a non-distributed in-memory map.',
+	);
+}
+
 const limiters = new Map();
 const memoryBuckets = new Map();
 
+// A limiter that always denies. Used in production for cost/money-moving buckets
+// when Redis is absent: better to 503 a paid action than to silently allow
+// unbounded spend across serverless instances.
+function failClosedLimiter({ limit, window }) {
+	const ms = parseWindowMs(window);
+	return {
+		async limit() {
+			return {
+				success: false,
+				limit,
+				remaining: 0,
+				reset: Date.now() + ms,
+				reason: 'rate_limiter_unavailable',
+			};
+		},
+	};
+}
+
+/**
+ * @param {string} name
+ * @param {{ limit: number, window: string, critical?: boolean }} opts
+ *   `critical: true` marks a cost/money-moving bucket. When Redis is absent in
+ *   production these fail closed (deny) instead of using the unbounded in-memory
+ *   fallback. Non-critical buckets keep the permissive in-memory fallback so a
+ *   missing-Redis misconfig degrades read endpoints gracefully rather than
+ *   taking the whole site down.
+ */
 function getLimiter(name, opts) {
 	const key = `${name}:${opts.limit}:${opts.window}`;
 	if (limiters.has(key)) return limiters.get(key);
 	if (!redis) {
-		const lim = memoryLimiter(opts);
+		const lim =
+			opts.critical && IS_PRODUCTION ? failClosedLimiter(opts) : memoryLimiter(opts);
 		limiters.set(key, lim);
 		return lim;
 	}
@@ -70,21 +115,24 @@ export const limits = {
 		getLimiter('oauth:register:ip', { limit: 10, window: '1 h' }).limit(ip),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
-	mcpValidate: (key) => getLimiter('mcp:validate', { limit: 10, window: '1 m' }).limit(key),
-	mcpInspect: (key) => getLimiter('mcp:inspect', { limit: 30, window: '1 m' }).limit(key),
-	mcpOptimize: (key) => getLimiter('mcp:optimize', { limit: 10, window: '1 m' }).limit(key),
+	// Paid MCP tools — each call runs real compute (glTF validation / inspection
+	// / optimization on a fetched model). Marked critical so they fail closed in
+	// prod without Redis rather than allowing unbounded paid work per instance.
+	mcpValidate: (key) => getLimiter('mcp:validate', { limit: 10, window: '1 m', critical: true }).limit(key),
+	mcpInspect: (key) => getLimiter('mcp:inspect', { limit: 30, window: '1 m', critical: true }).limit(key),
+	mcpOptimize: (key) => getLimiter('mcp:optimize', { limit: 10, window: '1 m', critical: true }).limit(key),
 	// 3D Studio MCP. Generation submits a real GPU job on Replicate (text→image
 	// and/or image→3D reconstruction) that costs real money, so it gets a hard
 	// hourly ceiling per principal. Status polling is cheap and frequent.
-	mcp3dGenerate: (key) => getLimiter('mcp3d:generate', { limit: 12, window: '1 h' }).limit(key),
+	mcp3dGenerate: (key) => getLimiter('mcp3d:generate', { limit: 12, window: '1 h', critical: true }).limit(key),
 	mcp3dStatus: (key) => getLimiter('mcp3d:status', { limit: 240, window: '1 m' }).limit(key),
 	// x402 Bazaar MCP. Discovery calls fan out to external facilitators, so cap
 	// per principal to keep that egress bounded without throttling normal use.
-	mcpBazaar: (key) => getLimiter('mcp:bazaar', { limit: 60, window: '1 m' }).limit(key),
+	mcpBazaar: (key) => getLimiter('mcp:bazaar', { limit: 60, window: '1 m', critical: true }).limit(key),
 	// threews-agent MCP. Read/discovery calls are cheap; pay_and_call moves real
 	// money, so it gets a much tighter ceiling on top of the per-spend caps.
-	mcpAgent: (key) => getLimiter('mcp:agent', { limit: 60, window: '1 m' }).limit(key),
-	mcpAgentPay: (key) => getLimiter('mcp:agent:pay', { limit: 20, window: '1 m' }).limit(key),
+	mcpAgent: (key) => getLimiter('mcp:agent', { limit: 60, window: '1 m', critical: true }).limit(key),
+	mcpAgentPay: (key) => getLimiter('mcp:agent:pay', { limit: 20, window: '1 m', critical: true }).limit(key),
 	oauthToken: (clientId) =>
 		getLimiter('oauth:token', { limit: 120, window: '1 m' }).limit(clientId),
 	upload: (userId) => getLimiter('upload', { limit: 60, window: '1 h' }).limit(userId),
@@ -102,12 +150,26 @@ export const limits = {
 	// balance as the global ceiling.
 	x402PayIp: (ip) => getLimiter('x402:pay:ip', { limit: 6, window: '1 m' }).limit(ip),
 	x402PayGlobal: () =>
-		getLimiter('x402:pay:global', { limit: 600, window: '1 h' }).limit('global'),
+		getLimiter('x402:pay:global', { limit: 600, window: '1 h', critical: true }).limit('global'),
 	checkName: (ip) => getLimiter('check-name:ip', { limit: 60, window: '1 m' }).limit(ip),
 	ensResolve: (ip) => getLimiter('ens:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	// Generic public read endpoints (explore, showcase, public agent fetch). 60/min per IP.
 	publicIp: (ip) => getLimiter('public:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// Browser Solana JSON-RPC proxy (api/solana-rpc). Forwards to the keyed
+	// upstream (Helius), so cap per-IP burst to keep the studio launch panel
+	// responsive while preventing anonymous quota drain, plus a global hourly
+	// ceiling as a hard cost cap independent of any one client.
+	solanaRpcIp: (ip) => getLimiter('solana-rpc:ip', { limit: 120, window: '1 m' }).limit(ip),
+	solanaRpcGlobal: () =>
+		getLimiter('solana-rpc:global', { limit: 12000, window: '1 h' }).limit('global'),
+	// Agent-to-agent economy demo (api/agent-economy/transact). Each call can send
+	// a tiny real SOL payment from the server wallet, so cap per-IP and add a
+	// global daily ceiling as a hard spend cap independent of wallet balance.
+	// The global bucket is only consumed when a payment actually fires.
+	agentEconomyIp: (ip) => getLimiter('agent-economy:ip', { limit: 10, window: '1 h' }).limit(ip),
+	agentEconomyGlobal: () =>
+		getLimiter('agent-economy:global', { limit: 500, window: '1 d' }).limit('global'),
 	// IBM watsonx.ai Granite embeddings (api/watsonx/embed). Each call bills real
 	// watsonx inference against the server key, so keep the per-IP burst small and
 	// add a global hourly ceiling as a hard cost cap independent of any one client.
@@ -150,7 +212,8 @@ export const limits = {
 			window: '1 m',
 		}).limit(agentId),
 	// Autonomous agent skill purchases: 10 per hour per buyer agent to prevent runaway spending.
-	agentBuy: (agentId) => getLimiter('agent:buy', { limit: 10, window: '1 h' }).limit(agentId),
+	// Critical (moves real money) — fail closed in prod without Redis.
+	agentBuy: (agentId) => getLimiter('agent:buy', { limit: 10, window: '1 h', critical: true }).limit(agentId),
 	// Gas-spending endpoints: 10 redeems per 5 minutes per IP
 	strict: (key) =>
 		getLimiter('permissions:redeem:strict', { limit: 10, window: '5 m' }).limit(key),
@@ -177,7 +240,8 @@ export const limits = {
 		getLimiter('resend-verify:user', { limit: 2, window: '10 m' }).limit(userId),
 	newsletterIp: (ip) => getLimiter('newsletter:ip', { limit: 5, window: '1 h' }).limit(ip),
 	// Voice cloning: expensive ElevenLabs API call — 3 per user per day.
-	voiceClone: (userId) => getLimiter('voice:clone', { limit: 3, window: '1 d' }).limit(userId),
+	// Critical (real per-call cost) — fail closed in prod without Redis.
+	voiceClone: (userId) => getLimiter('voice:clone', { limit: 3, window: '1 d', critical: true }).limit(userId),
 	// Persona extraction: Claude API call — 5 per user per day.
 	personaExtract: (userId) =>
 		getLimiter('persona:extract', { limit: 5, window: '1 d' }).limit(userId),

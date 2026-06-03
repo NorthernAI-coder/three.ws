@@ -5,6 +5,7 @@
 // usage accounting, and the MCP error conventions.
 import { hasScope } from './auth.js';
 import { recordEvent, logger } from './usage.js';
+import { sanitizeToolError } from './mcp-error-sanitize.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 
@@ -74,8 +75,12 @@ export function makeDispatcher({ serverInfo, instructions, catalog, tools, logNa
 				meta: { error: err.message, server: logName },
 			});
 			if (err.code && typeof err.code === 'number') throw err;
+			// Shared sanitizer: suppress pg/driver internals + internal
+			// hostnames, log full detail to stderr with a log id, and pass
+			// safe handler-authored messages through unchanged.
+			const { message } = sanitizeToolError(err, { tool: name, server: logName, log });
 			return {
-				content: [{ type: 'text', text: `Error: ${err.message || 'tool call failed'}` }],
+				content: [{ type: 'text', text: `Error: ${message}` }],
 				isError: true,
 			};
 		}

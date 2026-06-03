@@ -54,6 +54,7 @@ RUN pip install -r /app/requirements.txt
 
 # ── App code ───────────────────────────────────────────────────────────────────
 WORKDIR /app
+COPY worker_security.py /app/worker_security.py
 COPY main.py /app/main.py
 
 # Model weights are NOT baked into the image (13.6 B params = ~27 GB bf16 /

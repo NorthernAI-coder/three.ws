@@ -29,7 +29,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import traceback
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -39,6 +38,13 @@ import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Header
 from google.cloud import firestore, storage
 from pydantic import BaseModel
+
+from worker_security import (
+    UnsafeUrlError,
+    fetch_remote_bytes_async,
+    require_api_key,
+    safe_error,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -102,7 +108,9 @@ async def lifespan(app: FastAPI):
     global _db, _bucket, _job_sem, _http
 
     _job_sem = asyncio.Semaphore(MAX_CONCURRENT)
-    _http    = httpx.AsyncClient(follow_redirects=True, timeout=300)
+    # follow_redirects MUST stay False: redirect hops are re-validated against
+    # the SSRF allow-rules by fetch_remote_bytes_async, not by httpx.
+    _http    = httpx.AsyncClient(follow_redirects=False, timeout=300)
 
     _db     = firestore.Client(project=FIRESTORE_PROJECT)
     _bucket = storage.Client().bucket(GCS_BUCKET)
@@ -150,10 +158,10 @@ app = FastAPI(title="longcat-video-avatar", lifespan=lifespan)
 # ── auth ───────────────────────────────────────────────────────────────────────
 
 def _require_api_key(authorization: str) -> None:
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-    if authorization[len("Bearer "):].strip() != API_KEY:
-        raise HTTPException(status_code=401, detail="invalid api key")
+    try:
+        require_api_key(authorization, API_KEY)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 # ── Firestore helpers ──────────────────────────────────────────────────────────
@@ -226,10 +234,11 @@ async def _process_job(
             _set_job(job_id, {"status": "done", "progress": 1.0, "video_url": video_url})
             log.info("[%s] done → %s", job_id, video_url)
 
-        except Exception:
-            err = traceback.format_exc()
-            log.exception("[%s] pipeline failed", job_id)
-            _set_job(job_id, {"status": "failed", "error": err})
+        except Exception as exc:
+            _set_job(job_id, {
+                "status": "failed",
+                "error": safe_error(exc, context=f"[{job_id}] pipeline"),
+            })
 
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -291,11 +300,14 @@ async def _download_file(url: str, dest: Path) -> None:
         except Exception as exc:
             raise RuntimeError(f"failed to decode data URI: {exc}") from exc
         return
-    async with _http.stream("GET", url) as r:
-        r.raise_for_status()
-        with dest.open("wb") as f:
-            async for chunk in r.aiter_bytes(65536):
-                f.write(chunk)
+    # SSRF-hardened: https-only, private/loopback/link-local/metadata IPs are
+    # rejected after DNS resolution, redirects are re-validated per hop, and the
+    # response is size-bounded.
+    try:
+        data = await fetch_remote_bytes_async(_http, url)
+    except UnsafeUrlError as exc:
+        raise RuntimeError(f"refused to fetch url: {exc}") from exc
+    dest.write_bytes(data)
 
 
 # ── routes ─────────────────────────────────────────────────────────────────────

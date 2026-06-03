@@ -1166,7 +1166,9 @@ async function handleVerify(req, res) {
 		res.statusCode = 502;
 		res.setHeader('content-type', 'application/json; charset=utf-8');
 		res.setHeader('cache-control', 'no-store');
-		res.end(JSON.stringify({ ok: false, error: 'rpc_error', message: err.message }));
+		// Don't leak the upstream error string to the client — log it (above) and
+		// return a stable code. The internal message goes to server logs only.
+		res.end(JSON.stringify({ ok: false, error: 'rpc_error', error_description: 'on-chain verification failed' }));
 		return;
 	}
 

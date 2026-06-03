@@ -13,6 +13,7 @@
  * Point BrowserWalletClient (browser-client.ts) at the same base URL.
  */
 import { EventEmitter } from "events";
+import { createPublicKey, verify as cryptoVerify } from "crypto";
 import {
   PublicKey,
   Transaction,
@@ -30,6 +31,12 @@ export interface PendingTx {
   meta?: TxMetadata;
 }
 
+/** Internal record: the public PendingTx plus the original message bytes we issued. */
+interface PendingEntry extends PendingTx {
+  /** Compiled message bytes of the requested tx, for tamper detection. */
+  messageBytes: Uint8Array;
+}
+
 export interface BrowserWalletOptions {
   publicKey: PublicKey | string;
   sessionId?: string;
@@ -40,7 +47,7 @@ export class BrowserWalletProvider implements MetaAwareWallet {
   readonly publicKey: PublicKey;
   readonly sessionId: string;
   private readonly timeoutMs: number;
-  private readonly pending = new Map<string, PendingTx>();
+  private readonly pending = new Map<string, PendingEntry>();
   private readonly emitter = new EventEmitter();
   private nextMeta: TxMetadata | null = null;
 
@@ -67,6 +74,7 @@ export class BrowserWalletProvider implements MetaAwareWallet {
 
   private async _sign<T extends Transaction | VersionedTransaction>(tx: T, id: string): Promise<T> {
     const versioned = !(tx instanceof Transaction);
+    const messageBytes = compiledMessageBytes(tx);
     const serialized = Buffer.from(
       tx instanceof Transaction
         ? tx.serialize({ requireAllSignatures: false })
@@ -76,8 +84,15 @@ export class BrowserWalletProvider implements MetaAwareWallet {
     const meta = this.nextMeta ?? undefined;
     this.nextMeta = null;
 
-    this.pending.set(id, { id, transaction: serialized, versioned, createdAt: Date.now(), meta });
-    this.emitter.emit("pending", this.pending.get(id));
+    this.pending.set(id, {
+      id,
+      transaction: serialized,
+      versioned,
+      createdAt: Date.now(),
+      meta,
+      messageBytes,
+    });
+    this.emitter.emit("pending", toPublic(this.pending.get(id)!));
 
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -88,10 +103,31 @@ export class BrowserWalletProvider implements MetaAwareWallet {
       this.emitter.once(`signed:${id}`, (signedBase64: string) => {
         clearTimeout(timer);
         this.pending.delete(id);
-        const buf = Buffer.from(signedBase64, "base64");
-        const signed = versioned
-          ? VersionedTransaction.deserialize(buf)
-          : Transaction.from(buf);
+
+        let signed: Transaction | VersionedTransaction;
+        try {
+          const buf = Buffer.from(signedBase64, "base64");
+          signed = versioned
+            ? VersionedTransaction.deserialize(buf)
+            : Transaction.from(buf);
+        } catch {
+          reject(new TransactionRejectedError("Returned transaction could not be decoded"));
+          return;
+        }
+
+        // The browser must return a signature over the EXACT transaction we
+        // asked it to sign — not a substituted one. Compare compiled message
+        // bytes and verify the expected signer's signature over them.
+        const returnedBytes = compiledMessageBytes(signed);
+        if (!buffersEqual(returnedBytes, messageBytes)) {
+          reject(new TransactionRejectedError("Returned transaction does not match the requested transaction"));
+          return;
+        }
+        if (!this.verifyOwnerSignature(signed, returnedBytes)) {
+          reject(new TransactionRejectedError("Returned transaction is not validly signed by the wallet"));
+          return;
+        }
+
         resolve(signed as T);
       });
 
@@ -101,6 +137,35 @@ export class BrowserWalletProvider implements MetaAwareWallet {
         reject(new TransactionRejectedError("User rejected"));
       });
     });
+  }
+
+  /** Verify the expected wallet pubkey has a valid ed25519 signature over the message. */
+  private verifyOwnerSignature(
+    tx: Transaction | VersionedTransaction,
+    messageBytes: Uint8Array,
+  ): boolean {
+    const expected = this.publicKey.toBase58();
+    let signature: Uint8Array | null = null;
+
+    if (tx instanceof Transaction) {
+      const sig = tx.signatures.find((s) => s.publicKey.toBase58() === expected);
+      signature = sig?.signature ?? null;
+    } else {
+      const idx = tx.message.staticAccountKeys.findIndex((k) => k.toBase58() === expected);
+      const raw = idx >= 0 ? tx.signatures[idx] : undefined;
+      // An all-zero signature slot means "not signed".
+      if (raw && raw.some((b) => b !== 0)) signature = raw;
+    }
+
+    if (!signature || signature.length !== 64) return false;
+
+    try {
+      const keyDer = Buffer.concat([ED25519_SPKI_PREFIX, this.publicKey.toBuffer()]);
+      const keyObject = createPublicKey({ key: keyDer, format: "der", type: "spki" });
+      return cryptoVerify(null, Buffer.from(messageBytes), keyObject, Buffer.from(signature));
+    } catch {
+      return false;
+    }
   }
 
   async signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T> {

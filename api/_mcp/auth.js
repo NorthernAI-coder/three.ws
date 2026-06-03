@@ -54,7 +54,13 @@ export function sendJsonRpcError(res, id, code, message, data) {
 }
 
 // Returns { auth, x402Ctx } on success, or null if a response was already sent.
-export async function authenticateRequest(req, res) {
+//
+// `opts.x402Amount` (atomic-unit string | null) is the per-tool price for the
+// tools/call being made. When provided it overrides the flat env price in the
+// 402 challenge AND in the requirements used to verify the X-PAYMENT, so the
+// advertised price and the charged price agree. null = use the flat default
+// (initialize / tools/list / free tools / mixed batches).
+export async function authenticateRequest(req, res, { x402Amount } = {}) {
 	const bearer = extractBearer(req);
 	const paymentHeader = req.headers['x-payment'];
 
@@ -68,7 +74,10 @@ export async function authenticateRequest(req, res) {
 	}
 
 	const resourceUrl = resolveResourceUrl(req, '/api/mcp');
-	const requirements = paymentRequirements(resourceUrl);
+	const requirements = paymentRequirements(
+		resourceUrl,
+		x402Amount != null ? { amount: x402Amount } : {},
+	);
 
 	if (paymentHeader) {
 		try {
@@ -97,6 +106,11 @@ export async function authenticateRequest(req, res) {
 					scope: '',
 					source: 'x402',
 					payer: x402Ctx.payer,
+					// The HTTP layer verified this X-PAYMENT against the per-tool
+					// price (paymentRequirements amount === x402AmountForTool). The
+					// dispatcher reads this to avoid double-billing the caller with a
+					// redundant pump-agent-payments subscription demand.
+					x402Paid: true,
 				},
 				x402Ctx,
 			};

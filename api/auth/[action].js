@@ -21,6 +21,11 @@ import { z } from 'zod';
 
 const APP_ORIGIN = process.env.APP_ORIGIN || 'https://three.ws';
 
+// Fixed bcrypt hash (cost 11) of a throwaway string — NOT a real credential.
+// Compared against when a login targets a non-existent account so the bcrypt
+// cost is paid either way and login timing can't be used to enumerate users.
+const DUMMY_PASSWORD_HASH = '$2a$11$lbeuSxk2uZlrn87LKkZBq.2zXLxDFb6PSJ525DddtFq7wVLzVCK0W';
+
 // ── login ─────────────────────────────────────────────────────────────────────
 
 async function handleLogin(req, res) {
@@ -35,7 +40,13 @@ async function handleLogin(req, res) {
 		? await sql`select id, email, password_hash, display_name, plan, avatar_url, referral_code from users where email = ${body.email} and deleted_at is null limit 1`
 		: await sql`select id, email, password_hash, display_name, plan, avatar_url, referral_code from users where display_name ilike ${body.email} and deleted_at is null limit 1`;
 	const user = rows[0];
-	const ok = user && (await verifyPassword(body.password, user.password_hash));
+	// Always run a bcrypt compare, even when the account doesn't exist, so the
+	// response time doesn't reveal whether the email/username is registered.
+	// The dummy hash is a fixed cost-11 hash of a throwaway string (never a
+	// real credential); comparing against it for unknown users equalizes timing.
+	const hashToCheck = user?.password_hash || DUMMY_PASSWORD_HASH;
+	const passwordOk = await verifyPassword(body.password, hashToCheck);
+	const ok = Boolean(user) && passwordOk;
 	if (!ok) return error(res, 401, 'invalid_credentials', 'invalid username/email or password');
 	await destroySession(req);
 	const token = await createSession({ userId: user.id, userAgent: req.headers['user-agent'], ip });

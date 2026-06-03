@@ -288,6 +288,11 @@ export async function authenticateBearer(token, { audience } = {}) {
 	// Otherwise treat as JWT access token.
 	try {
 		const payload = await verifyAccessToken(token, { audience });
+		// Only ACCESS tokens authorize API calls. Refresh tokens are opaque (never
+		// JWTs) so this is belt-and-suspenders, but rejecting any non-'access'
+		// token_use prevents a future token type (e.g. an id/refresh JWT) from
+		// being replayed against resource endpoints.
+		if (payload.token_use !== 'access') return null;
 		return {
 			userId: payload.sub,
 			scope: payload.scope || '',

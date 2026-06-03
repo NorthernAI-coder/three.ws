@@ -1352,14 +1352,6 @@
 			"dest": "/api/auth/sessions/[action]?action=$1"
 		},
 		{
-			"src": "/api/auth/wallet/link",
-			"dest": "/api/auth/wallet/[action]?action=link"
-		},
-		{
-			"src": "/api/auth/wallet/unlink",
-			"dest": "/api/auth/wallet/[action]?action=unlink"
-		},
-		{
 			"src": "/api/onboarding/avaturn-session",
 			"dest": "/api/onboarding/[action]?action=avaturn-session"
 		},

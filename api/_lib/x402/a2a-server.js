@@ -43,6 +43,17 @@ import {
 } from '../x402-spec.js';
 import { declareBuilderCodeExtension } from '../x402-builder-code.js';
 import { PAYMENT_EVENT_TOPIC as BSC_PAYMENT_EVENT_TOPIC } from '../x402-bsc-direct.js';
+import {
+	get as idemGet,
+	set as idemSet,
+	hashPaymentProof,
+} from './idempotency-cache.js';
+
+// Idempotency TTL for the A2A leg, mirroring the HTTP payment-identifier cache.
+function a2aIdempotencyTtl() {
+	const n = Number.parseInt(env.X402_IDEMPOTENCY_TTL_SECONDS, 10);
+	return Number.isFinite(n) && n > 0 ? n : 3600;
+}
 
 export const A2A_X402_EXTENSION_URI = 'https://github.com/google-a2a/a2a-x402/v0.1';
 export const A2A_EXTENSIONS_HEADER = 'X-A2A-Extensions';
@@ -113,7 +124,9 @@ function buildAccepts({ priceAtomics, networks, resourceUrl, payToOverride }) {
 		const solTo = payToOverride?.solana || env.X402_PAY_TO_SOLANA;
 		const bscTo = payToOverride?.bsc || env.X402_PAY_TO_BSC;
 		if (net === NETWORK_BASE_MAINNET && !baseTo) continue;
-		if (net === NETWORK_SOLANA_MAINNET && !solTo) continue;
+		// Solana also needs a fee payer to be co-signable — skip the network
+		// rather than advertise an accept the facilitator will reject.
+		if (net === NETWORK_SOLANA_MAINNET && (!solTo || !env.X402_FEE_PAYER_SOLANA)) continue;
 		if (net === NETWORK_BSC_MAINNET && !bscTo) continue;
 		const accept = buildAccept(net, priceAtomics, resourceUrl, payToOverride);
 		out.push(accept);
@@ -334,6 +347,22 @@ export async function handleA2ARequest({
 	const builderCode = builderCodeForServices(services);
 	const paymentHeader = encodePaymentHeaderFromPayload(payload);
 
+	// Proof-bound idempotency. The A2A leg has no payment-identifier header, so
+	// we key on a hash of the signed payment proof itself: a resubmission of the
+	// SAME payment (network blip, client retry, or a deliberate replay) returns
+	// the cached completed task instead of re-verifying, re-settling, and
+	// re-running the handler. Only the original payer can reproduce the exact
+	// proof, so this can't be abused to replay someone else's payment.
+	const paymentHash = hashPaymentProof(paymentHeader);
+	if (paymentHash) {
+		try {
+			const cached = await idemGet(resourceUrl, paymentHash);
+			if (cached?.task) return jsonrpcResult(reqId, cached.task);
+		} catch {
+			/* cache read is best-effort — fall through to the live path */
+		}
+	}
+
 	// Reconstruct the same accepts list we advertised on the first leg so the
 	// facilitator sees the resource/network/payTo trio it expects.
 	let requirements;
@@ -515,10 +544,24 @@ export async function handleA2ARequest({
 		},
 	});
 
-	return jsonrpcResult(
-		reqId,
-		task({ id: taskId, state: 'completed', message: completedMessage, artifacts }),
-	);
+	const completedTask = task({
+		id: taskId,
+		state: 'completed',
+		message: completedMessage,
+		artifacts,
+	});
+
+	// Cache the completed task against the payment proof so a resubmission of
+	// the same proof replays this result instead of double-charging / re-running.
+	if (paymentHash) {
+		try {
+			await idemSet(resourceUrl, paymentHash, { task: completedTask }, a2aIdempotencyTtl());
+		} catch {
+			/* cache write is best-effort — the payment already settled on-chain */
+		}
+	}
+
+	return jsonrpcResult(reqId, completedTask);
 }
 
 // Compose a Vercel-style HTTP handler around `handleA2ARequest`. POSTs are

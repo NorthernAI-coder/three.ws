@@ -55,7 +55,7 @@ const SIWX_HEADER = "SIGN-IN-WITH-X";
 /**
  * Create a fetch function that automatically handles HTTP 402 responses
  * by building a payment transaction, signing, sending, and retrying
- * the original request with payment proof in the PAYMENT-SIGNATURE header.
+ * the original request with payment proof in the X-PAYMENT header.
  *
  * @example
  * ```ts

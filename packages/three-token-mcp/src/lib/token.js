@@ -18,7 +18,13 @@ import {
 	getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 
-import { THREE_WS_BASE, MEMO_PROGRAM_ID } from '../config.js';
+import {
+	THREE_WS_BASE,
+	MEMO_PROGRAM_ID,
+	THREE_MINT,
+	EXPECTED_BURN_ADDRESS,
+	MAX_BURN_USD,
+} from '../config.js';
 import {
 	PublicKey,
 	getConnection,
@@ -53,6 +59,35 @@ export function fetchTokenPrice(usd) {
 }
 
 const fmt = (atomics, decimals) => Number(BigInt(atomics)) / 10 ** decimals;
+
+/**
+ * Assert the HTTP-resolved token config actually describes canonical $THREE and
+ * routes the burn to the expected incinerator. The config endpoint is UNTRUSTED:
+ * a compromised or misconfigured server must not be able to redirect a burn to a
+ * different token or sink. This is the H1 invariant — call it before signing.
+ * @param {object} config — output of fetchTokenConfig()
+ */
+export function assertCanonicalThree(config) {
+	if (!config || config.mint !== THREE_MINT) {
+		throw Object.assign(
+			new Error(
+				`refusing to burn: resolved mint does not match canonical $THREE. ` +
+					`expected ${THREE_MINT}, got ${config?.mint ?? '(none)'}.`,
+			),
+			{ code: 'mint_mismatch' },
+		);
+	}
+	if (!config.burn_address || config.burn_address !== EXPECTED_BURN_ADDRESS) {
+		throw Object.assign(
+			new Error(
+				`refusing to burn: burn_address does not match the expected incinerator. ` +
+					`expected ${EXPECTED_BURN_ADDRESS}, got ${config?.burn_address ?? '(none)'}. ` +
+					'Set THREE_BURN_ADDRESS only if you intentionally run a non-default burn sink.',
+			),
+			{ code: 'burn_address_mismatch' },
+		);
+	}
+}
 
 /**
  * Resolve just the $THREE mint (+ symbol/decimals if available). Prefers the
@@ -111,6 +146,15 @@ export async function burnThree({ usd, burnBps = 5000, secret, memo }) {
 	if (!(Number(usd) > 0)) {
 		throw Object.assign(new Error('usd must be a positive number'), { code: 'bad_amount' });
 	}
+	if (Number(usd) > MAX_BURN_USD) {
+		throw Object.assign(
+			new Error(
+				`burn of $${usd} exceeds the per-burn cap of $${MAX_BURN_USD}. ` +
+					'Raise MAX_BURN_USD in the MCP server environment to allow larger burns.',
+			),
+			{ code: 'over_burn_cap' },
+		);
+	}
 
 	const signer = loadSigner(secret);
 	const payer = signer.publicKey;
@@ -119,6 +163,8 @@ export async function burnThree({ usd, burnBps = 5000, secret, memo }) {
 	if (!config.mint || !config.burn_address) {
 		throw Object.assign(new Error('token config missing mint/burn_address'), { code: 'config_incomplete' });
 	}
+	// H1 invariant: never trust the HTTP config blindly for the mint or sink.
+	assertCanonicalThree(config);
 	if (!price.quote?.atomics) {
 		throw Object.assign(new Error('price endpoint returned no quote for the requested usd'), { code: 'no_quote' });
 	}
@@ -166,16 +212,32 @@ export async function burnThree({ usd, burnBps = 5000, secret, memo }) {
 	tx.sign(signer);
 
 	const signature = await conn.sendRawTransaction(tx.serialize(), { maxRetries: 5 });
-	const conf = await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+
+	// Confirmation can throw on timeout even though the burn may still land.
+	// Surface 'pending' so the caller does NOT blindly re-burn (double-burn).
+	let conf;
+	try {
+		conf = await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+	} catch (waitErr) {
+		throw Object.assign(
+			new Error(
+				`burn ${signature} was submitted but confirmation timed out (${waitErr?.message || waitErr}). ` +
+					'It MAY still land — do NOT re-burn; check the signature on Solscan first to avoid a double-burn.',
+			),
+			{ code: 'tx_unconfirmed', status: 'pending', signature },
+		);
+	}
 	if (conf.value?.err) {
 		throw Object.assign(new Error(`transaction failed to confirm: ${JSON.stringify(conf.value.err)}`), {
 			code: 'tx_failed',
+			status: 'failed',
 			signature,
 		});
 	}
 
 	return {
 		ok: true,
+		status: 'confirmed',
 		signature,
 		explorer: `https://solscan.io/tx/${signature}`,
 		mint: config.mint,

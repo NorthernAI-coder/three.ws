@@ -1495,6 +1495,15 @@ async function handleAcceptPaymentConfirm(req, res) {
 	if (payment.status === 'confirmed')
 		return error(res, 409, 'already_confirmed', 'payment already confirmed');
 
+	// One signature confirms one invoice. Reject a signature already consumed by
+	// another payment before doing any on-chain work (the partial unique index
+	// pump_agent_payments_tx_signature_unique is the hard backstop).
+	const [sigDupe] = await sql`
+		select id from pump_agent_payments
+		where tx_signature=${body.tx_signature} and status='confirmed' and id != ${payment.id} limit 1
+	`;
+	if (sigDupe) return error(res, 409, 'tx_already_used', 'this transaction already confirmed another payment');
+
 	let tx;
 	try {
 		tx = await verifySignature({ network: payment.network, signature: body.tx_signature });
@@ -1510,11 +1519,48 @@ async function handleAcceptPaymentConfirm(req, res) {
 		return error(res, 422, 'mint_not_in_tx', 'agent mint not in tx accounts');
 	}
 
-	await sql`
-		update pump_agent_payments
-		set status='confirmed', tx_signature=${body.tx_signature}, confirmed_at=now()
-		where id=${payment.id}
-	`;
+	// The declared payer must have signed the tx — a signature that didn't
+	// involve this payer can't satisfy this invoice.
+	const signed = tx.transaction.message.accountKeys.some(
+		(k) => (k.pubkey || k).toString() === payment.payer_wallet && k.signer === true,
+	);
+	if (!signed) return error(res, 422, 'payer_not_signer', 'declared payer did not sign the transaction');
+
+	// Verify the agent's payment vault was actually credited the invoiced amount
+	// of the invoiced currency. Without this, "the mint pubkey appears in the tx"
+	// is not proof of payment — any cheap unrelated tx referencing the mint would
+	// pass. The vault is the ATA owned by the TokenAgentPayments PDA for this mint.
+	const { agentPda } = await getPumpAgentOffline({ network: payment.network, mint: payment.mint });
+	if (!agentPda) {
+		return error(res, 503, 'verification_unavailable', 'unable to derive agent payment vault for verification');
+	}
+	const vaultOwner = agentPda.toString();
+	const expectedAtomics = BigInt(payment.amount_atomics);
+	const post = tx.meta?.postTokenBalances || [];
+	const pre = tx.meta?.preTokenBalances || [];
+	let credited = 0n;
+	for (const p of post) {
+		if (p.mint !== payment.currency_mint) continue;
+		if (p.owner !== vaultOwner) continue;
+		const before = pre.find((b) => b.accountIndex === p.accountIndex);
+		const delta = BigInt(p.uiTokenAmount?.amount ?? '0') - BigInt(before?.uiTokenAmount?.amount ?? '0');
+		if (delta > credited) credited = delta;
+	}
+	if (credited < expectedAtomics) {
+		await sql`update pump_agent_payments set status='failed' where id=${payment.id}`;
+		return error(res, 422, 'amount_not_credited', 'transaction did not credit the invoiced amount to the agent payment vault');
+	}
+
+	try {
+		await sql`
+			update pump_agent_payments
+			set status='confirmed', tx_signature=${body.tx_signature}, confirmed_at=now()
+			where id=${payment.id} and status != 'confirmed'
+		`;
+	} catch (e) {
+		if (e?.code === '23505') return error(res, 409, 'tx_already_used', 'this transaction already confirmed another payment');
+		throw e;
+	}
 
 	return json(res, 200, {
 		ok: true,

@@ -16,6 +16,7 @@
 import { z } from 'zod';
 
 import { atomicLaunch, uploadPumpMetadata } from '../lib/atomic-launch.js';
+import { confirmationGate } from '../lib/spend-policy.js';
 
 export const def = {
 	name: 'pump_launch',
@@ -38,8 +39,11 @@ export const def = {
 		jitoTipSol: z.number().min(0).optional().describe('Jito tip in SOL (default 0.005).'),
 		priorityMicroLamports: z.number().int().min(0).max(20_000_000).optional()
 			.describe('Compute-unit priority price (default 2_000_000).'),
+		confirm: z.boolean().optional().describe('Must be true to execute this irreversible mint launch (when REQUIRE_CONFIRM is on).'),
 	},
 	async handler(args) {
+		const gate = confirmationGate(args.confirm, 'pump_launch (token mint)');
+		if (gate) return gate;
 		try {
 			let uri = args.uri;
 			let uploadedMeta = null;

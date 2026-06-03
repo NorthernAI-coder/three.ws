@@ -1,5 +1,6 @@
 // HTTP helpers for Vercel Node handlers. Keeps handlers small + consistent.
 
+import { webcrypto } from 'node:crypto';
 import { env } from './env.js';
 import { captureException } from './sentry.js';
 import { instrument as zauthInstrument, drain as zauthDrain } from './zauth.js';
@@ -28,6 +29,45 @@ export function redirect(res, location, status = 302) {
 
 export function error(res, status, code, message, extra = {}) {
 	return json(res, status, { error: code, error_description: message, ...extra });
+}
+
+// Short, URL-safe correlation id for tying a sanitized 5xx response back to the
+// full server-side log line. Not security-sensitive — just needs to be unique.
+function correlationId() {
+	const b = new Uint8Array(8);
+	(globalThis.crypto || webcrypto).getRandomValues(b);
+	return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+// Emit a 5xx WITHOUT leaking internal error detail to the client. The real
+// message (which may carry RPC URLs, wallet addresses, or stack-derived text)
+// is logged + captured server-side under a correlation id the caller can quote
+// to support; the client only sees a generic description + the ref.
+export function serverError(res, status, code, err, extra = {}) {
+	const ref = correlationId();
+	const detail = err?.message || String(err ?? 'unknown error');
+	console.error(`[server-error ${ref}] ${code} (${status}): ${detail}`);
+	try {
+		captureException(err instanceof Error ? err : new Error(detail), { ref, code, status });
+	} catch {
+		/* sentry best-effort; never mask the original failure */
+	}
+	return json(res, status, {
+		error: code,
+		error_description: `internal error — quote ref ${ref} to support`,
+		ref,
+		...extra,
+	});
+}
+
+// Dispatch: client-fault (4xx) keep their descriptive message; server-fault
+// (5xx) are sanitized via serverError. Use this in catch blocks where the
+// status is derived from `err.status` and may be either class.
+export function respondError(res, status, code, err, extra = {}) {
+	if (status < 500) {
+		return error(res, status, code, err?.message || code, extra);
+	}
+	return serverError(res, status, code, err, extra);
 }
 
 // Response shape used for zod validation errors so clients can render

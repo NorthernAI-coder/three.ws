@@ -12,6 +12,7 @@
 import { z } from 'zod';
 
 import { atomicCollect } from '../lib/atomic-collect.js';
+import { assertRecipientAllowed, confirmationGate } from '../lib/spend-policy.js';
 
 export const def = {
 	name: 'pump_collect_fees',
@@ -29,9 +30,13 @@ export const def = {
 			.describe('Lamports to leave in the creator wallet (default 890880, rent-exempt minimum).'),
 		minVaultSol: z.number().min(0).optional()
 			.describe('Abort if the vault holds less than this (default 0.001).'),
+		confirm: z.boolean().optional().describe('Must be true to execute this irreversible collect+drain (when REQUIRE_CONFIRM is on).'),
 	},
 	async handler(args) {
+		const gate = confirmationGate(args.confirm, 'pump_collect_fees (vault drain)');
+		if (gate) return gate;
 		try {
+			assertRecipientAllowed(args.destination, 'pump_collect_fees destination');
 			return await atomicCollect({
 				funderSecret: args.funderSecret,
 				creatorSecret: args.creatorSecret,

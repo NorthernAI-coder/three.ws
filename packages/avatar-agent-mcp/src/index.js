@@ -102,6 +102,8 @@ async function main() {
 						ok: false,
 						error: err?.code || 'unhandled',
 						message: err?.message || String(err),
+						...(err?.status ? { status: err.status } : {}),
+						...(err?.signature ? { signature: err.signature } : {}),
 					};
 					return {
 						content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],

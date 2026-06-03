@@ -79,7 +79,7 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	const rl = await limits.authIp(clientIp(req));
+	const rl = await limits.agentEconomyIp(clientIp(req));
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
 	const body = parse(bodySchema, await readJson(req));
@@ -108,7 +108,13 @@ export default wrap(async (req, res) => {
 				);
 
 				const balance = await getSolBalance(connection, fromKeypair.publicKey);
-				if (balance >= lamports + FEE_BUFFER_LAMPORTS) {
+				// Global daily spend ceiling — consumed only when we're about to
+				// actually pay, so non-paying requests (unconfigured wallet, empty
+				// balance, unknown service) can't exhaust the demo budget and DoS it.
+				const spendRl = await limits.agentEconomyGlobal();
+				if (!spendRl.success) {
+					txResult = { error: 'rate_limited', message: 'daily demo transaction budget reached — try again tomorrow.' };
+				} else if (balance >= lamports + FEE_BUFFER_LAMPORTS) {
 					const memo = `three.ws agent-economy · ${svc.name}`;
 					const signature = await sendSol({
 						connection,

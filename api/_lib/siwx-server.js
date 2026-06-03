@@ -130,10 +130,22 @@ export async function authenticateSiwx({ req, resourceUrl }) {
 		};
 	}
 
-	await siwxStorage.recordNonce(payload.nonce, {
+	// Atomically claim the nonce. The earlier checkNonce read is only a fast
+	// pre-filter; this INSERT is the authority. Two concurrent requests with
+	// the same captured proof both clear validation, but only the winner of
+	// the insert is granted — the loser is a replay and re-issues a 402.
+	const claimed = await siwxStorage.recordNonce(payload.nonce, {
 		resource: resourceUrl,
 		address: normalizedAddress,
 	});
+	if (!claimed) {
+		return {
+			ok: false,
+			status: 402,
+			code: 'siwx_nonce_replayed',
+			error: 'sign-in proof already used; sign a fresh challenge',
+		};
+	}
 
 	return { ok: true, address: normalizedAddress, network: payload.chainId };
 }

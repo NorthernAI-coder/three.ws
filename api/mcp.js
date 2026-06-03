@@ -3,9 +3,24 @@
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
+import { x402AmountForTool } from './_lib/pump-pricing.js';
 import { PROTOCOL_VERSION, dispatch } from './_mcp/dispatch.js';
 import { send401, sendJsonRpcError, authenticateRequest, handleSse, handleTerminate } from './_mcp/auth.js';
 import { sendX402Error } from './_mcp/payments.js';
+
+// Peek the single called tool name from a (possibly batched) JSON-RPC body so
+// the x402 challenge can advertise — and the settle path charge — exactly the
+// per-tool price. We only special-case a request that calls ONE tool; mixed
+// batches keep the flat default. Returns { toolName } | { toolName: null }.
+function peekCalledTool(body) {
+	const batch = Array.isArray(body) ? body : [body];
+	const calls = batch.filter((m) => m && m.method === 'tools/call');
+	if (calls.length === 1) {
+		const name = calls[0]?.params?.name;
+		return { toolName: typeof name === 'string' ? name : null };
+	}
+	return { toolName: null };
+}
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
@@ -14,7 +29,18 @@ export default wrap(async (req, res) => {
 	if (req.method === 'DELETE') return handleTerminate(req, res);
 	if (req.method !== 'POST') return send401(res, 'method not supported');
 
-	const result = await authenticateRequest(req, res);
+	// Read + parse the body BEFORE the x402 challenge so we can price the 402 by
+	// the tool actually being called. Malformed JSON throws with status 400,
+	// handled by wrap() — identical to the previous post-auth read.
+	const body = await readJson(req, 2_000_000);
+
+	// Derive the per-tool x402 price. The advertised 402 amount and the settled
+	// charge are both keyed off this, so we never advertise a price the flow
+	// won't honor. A free tool yields null → no per-call charge is required.
+	const { toolName } = peekCalledTool(body);
+	const x402Amount = toolName ? x402AmountForTool(toolName) : null;
+
+	const result = await authenticateRequest(req, res, { x402Amount });
 	if (!result) return;
 	const { auth, x402Ctx } = result;
 
@@ -29,7 +55,6 @@ export default wrap(async (req, res) => {
 			retry_after: Math.ceil((userRl.reset - Date.now()) / 1000),
 		});
 
-	const body = await readJson(req, 2_000_000);
 	const batch = Array.isArray(body) ? body : [body];
 	// Per-request batch cap — each message can trigger DB queries, so an
 	// unbounded batch multiplies rate-limited work by N against the user's budget.

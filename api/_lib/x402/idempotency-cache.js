@@ -83,6 +83,18 @@ export function hashRequestPayload({ method, url, body }) {
 	return h.digest('hex');
 }
 
+// Hash of the signed X-PAYMENT proof. The idempotency id is a client-chosen
+// label and proves nothing on its own — binding the cache entry to this hash
+// means a replay only serves the cached response to a caller presenting the
+// SAME signed payment (which only the original payer can produce). A caller who
+// merely learned or guessed the id, but holds a different/forged payment,
+// hashes differently and is denied the cached body. Returns null when there's
+// no header to hash.
+export function hashPaymentProof(paymentHeader) {
+	if (!paymentHeader) return null;
+	return createHash('sha256').update(String(paymentHeader)).digest('hex');
+}
+
 // Read a cached response by route + paymentId. Returns null if the key is
 // missing or expired. The returned shape is whatever `set()` was given.
 export async function get(route, paymentId) {

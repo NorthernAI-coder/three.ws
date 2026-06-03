@@ -18,6 +18,20 @@ import {
 
 import { bs58encode, getConnection, keypairFromSecret } from './solana.js';
 import { randomTipAccount, submitBundle, waitForSignatures } from './jito.js';
+import {
+	assertSolWithinCap,
+	clampJitoTipSol,
+	clampPriorityMicroLamports,
+} from './spend-policy.js';
+
+// Map a waitForSignatures result onto an unambiguous status. A timeout is
+// 'pending' (tx MAY have landed — caller must NOT blindly retry); a confirmed
+// error is 'failed'; otherwise 'confirmed'.
+function settleStatus(wait) {
+	if (wait.err === 'timeout') return 'pending';
+	if (!wait.ok) return 'failed';
+	return 'confirmed';
+}
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -50,6 +64,8 @@ async function fetchJupiterSwapTx({ quoteResponse, userPublicKey, priorityMicroL
 }
 
 export async function jupiterBuyDirect({ buyerSecret, targetMint, buySol = 0.01, slippageBps = 500, priorityMicroLamports = 2_000_000 }) {
+	assertSolWithinCap(buySol, 'pump_buy');
+	const microLamports = clampPriorityMicroLamports(priorityMicroLamports);
 	const buyer = keypairFromSecret(buyerSecret);
 	const conn = getConnection();
 
@@ -58,7 +74,7 @@ export async function jupiterBuyDirect({ buyerSecret, targetMint, buySol = 0.01,
 	const { swapTransaction } = await fetchJupiterSwapTx({
 		quoteResponse: quote,
 		userPublicKey: buyer.publicKey.toBase58(),
-		priorityMicroLamports,
+		priorityMicroLamports: microLamports,
 	});
 	const swapTx = VersionedTransaction.deserialize(Buffer.from(swapTransaction, 'base64'));
 	swapTx.sign([buyer]);
@@ -66,8 +82,13 @@ export async function jupiterBuyDirect({ buyerSecret, targetMint, buySol = 0.01,
 	const sig = await conn.sendTransaction(swapTx, { maxRetries: 5 });
 	const wait = await waitForSignatures(conn, [sig], { timeoutMs: 60_000, intervalMs: 2_000 });
 
+	const status = settleStatus(wait);
 	return {
 		ok: wait.ok,
+		status,
+		...(status === 'pending'
+			? { note: `Swap ${sig} did not confirm within the timeout. It MAY still land — do NOT resend without checking Solscan first.` }
+			: {}),
 		signature: sig,
 		buyer: buyer.publicKey.toBase58(),
 		target: targetMint,
@@ -90,6 +111,9 @@ export async function jupiterBuyBundled({
 	jitoTipSol = 0.005,
 	priorityMicroLamports = 2_000_000,
 }) {
+	assertSolWithinCap(buySol, 'pump_buy (bundled)');
+	jitoTipSol = clampJitoTipSol(jitoTipSol);
+	const microLamports = clampPriorityMicroLamports(priorityMicroLamports);
 	const funder = keypairFromSecret(funderSecret);
 	const buyer = keypairFromSecret(buyerSecret);
 	const conn = getConnection();
@@ -109,7 +133,7 @@ export async function jupiterBuyBundled({
 	const { swapTransaction } = await fetchJupiterSwapTx({
 		quoteResponse: quote,
 		userPublicKey: buyer.publicKey.toBase58(),
-		priorityMicroLamports,
+		priorityMicroLamports: microLamports,
 	});
 	const swapTx = VersionedTransaction.deserialize(Buffer.from(swapTransaction, 'base64'));
 	swapTx.sign([buyer]);
@@ -122,7 +146,7 @@ export async function jupiterBuyBundled({
 		payerKey: funder.publicKey,
 		recentBlockhash: blockhash,
 		instructions: [
-			ComputeBudgetProgram.setComputeUnitPrice({ microLamports: priorityMicroLamports }),
+			ComputeBudgetProgram.setComputeUnitPrice({ microLamports }),
 			ComputeBudgetProgram.setComputeUnitLimit({ units: 1000 }),
 			SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: buyer.publicKey, lamports: transferToBuyer }),
 			SystemProgram.transfer({ fromPubkey: funder.publicKey, toPubkey: tipAccount, lamports: Math.floor(jitoTipSol * LAMPORTS_PER_SOL) }),
@@ -137,8 +161,13 @@ export async function jupiterBuyBundled({
 	const sig2 = bs58encode(swapTx.signatures[0]);
 	const wait = await waitForSignatures(conn, [sig1, sig2], { timeoutMs: 60_000, intervalMs: 2_000 });
 
+	const status = settleStatus(wait);
 	return {
 		ok: wait.ok,
+		status,
+		...(status === 'pending'
+			? { note: `Bundle ${bundleId} did not confirm within the timeout. The swap MAY still land — do NOT resubmit without checking the signatures on Solscan first.` }
+			: {}),
 		bundleId,
 		bundleExplorer: explorer,
 		fundTxSignature: sig1,

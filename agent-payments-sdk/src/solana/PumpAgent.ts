@@ -377,8 +377,12 @@ export class PumpAgent extends PumpAgentOffline {
   async validateInvoicePayment(params: {
     user: PublicKey;
     currencyMint: PublicKey;
-    amount: number;
-    memo: number;
+    // Accept string/BN as well as number: USDC atomic amounts and the
+    // timestamp-derived memo both routinely exceed 2^53, so a `number` here
+    // silently loses precision and the invoice PDA fails to match. BN() takes
+    // a decimal string losslessly — pass the raw requirement string through.
+    amount: number | string | BN;
+    memo: number | string | BN;
     startTime: number;
     endTime: number;
   }): Promise<boolean> {

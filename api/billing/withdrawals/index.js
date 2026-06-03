@@ -93,35 +93,47 @@ export default wrap(async (req, res) => {
 		if (!agent) return error(res, 404, 'not_found', 'agent not found');
 	}
 
-	// Check available balance (earned minus in-flight withdrawals)
-	const [balance] = await sql`
-		select
-			coalesce(sum(re.net_amount), 0)::bigint as earned,
-			(
-				select coalesce(sum(w2.amount), 0)::bigint
-				from agent_withdrawals w2
-				where w2.user_id = ${user.id}
-				  and w2.status in ('pending', 'processing')
-				  and w2.currency_mint = ${currency_mint}
-			) as pending_amount
-		from agent_revenue_events re
-		join agent_identities ai on ai.id = re.agent_id
-		where ai.user_id = ${user.id}
-		  and re.currency_mint = ${currency_mint}
-	`;
+	// Reserve the withdrawal atomically. The available balance (earned minus
+	// in-flight withdrawals) must be re-derived and compared *inside* the same
+	// statement that inserts the new pending row — a read-then-insert pair is a
+	// TOCTOU hole: N concurrent requests all read pending=0 and all insert,
+	// over-withdrawing past the real balance (the per-user rate limit admits up
+	// to 5 before any pending row exists, so it can't be relied on for integrity).
+	//
+	// pg_advisory_xact_lock serializes concurrent requests for the same
+	// (user, mint) so the loser sees the winner's committed pending row in its
+	// balance subquery; the conditional INSERT…SELECT then refuses to insert
+	// when the amount exceeds what's actually available.
+	const lockKey = `withdrawal:${user.id}:${currency_mint}`;
+	const [, inserted] = await sql.transaction([
+		sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+		sql`
+			insert into agent_withdrawals
+				(user_id, agent_id, amount, currency_mint, chain, to_address, status)
+			select ${user.id}, ${agent_id}, ${amount}, ${currency_mint}, ${chain}, ${to_address}, 'pending'
+			where ${amount} <= (
+				(
+					select coalesce(sum(re.net_amount), 0)::bigint
+					from agent_revenue_events re
+					join agent_identities ai on ai.id = re.agent_id
+					where ai.user_id = ${user.id}
+					  and re.currency_mint = ${currency_mint}
+				) - (
+					select coalesce(sum(w2.amount), 0)::bigint
+					from agent_withdrawals w2
+					where w2.user_id = ${user.id}
+					  and w2.status in ('pending', 'processing')
+					  and w2.currency_mint = ${currency_mint}
+				)
+			)
+			returning id, agent_id, amount, currency_mint, chain, to_address, status, tx_signature, created_at, updated_at
+		`,
+	]);
 
-	const available = Number(balance.earned) - Number(balance.pending_amount);
-	if (amount > available) {
+	const withdrawal = inserted?.[0];
+	if (!withdrawal) {
 		return error(res, 422, 'insufficient_balance', 'requested amount exceeds available balance');
 	}
-
-	const [withdrawal] = await sql`
-		insert into agent_withdrawals
-			(user_id, agent_id, amount, currency_mint, chain, to_address, status)
-		values
-			(${user.id}, ${agent_id}, ${amount}, ${currency_mint}, ${chain}, ${to_address}, 'pending')
-		returning id, agent_id, amount, currency_mint, chain, to_address, status, tx_signature, created_at, updated_at
-	`;
 
 	return json(res, 201, { withdrawal });
 });

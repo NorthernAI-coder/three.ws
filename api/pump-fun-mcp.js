@@ -18,6 +18,8 @@
 
 import { cors, json, method, wrap, readJson, error } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
+import { extractBearer, authenticateBearer } from './_lib/auth.js';
+import { verifyPayment, resolveResourceUrl, paymentRequirements } from './_lib/x402-spec.js';
 import { getPumpSdk, getConnection, solanaPubkey, getAmmPoolState } from './_lib/pump.js';
 import { pumpfunMcp, pumpfunBotEnabled } from './_lib/pumpfun-mcp.js';
 import { getRadarSignals } from '../src/kol/radar.js';
@@ -261,17 +263,34 @@ async function rawBotCall(tool, args) {
 	}
 }
 
-async function handleVanityMint({ suffix = '', prefix = '', caseSensitive = false, maxAttempts = 5_000_000 }) {
+// Hard ceiling on the single-threaded vanity grind. Each iteration is a full
+// ed25519 keygen; an unbounded budget lets one authenticated caller pin a CPU
+// for the whole serverless window. 1.5M ≈ comfortably inside the 58s abort.
+const VANITY_MAX_ATTEMPTS_CEILING = 1_500_000;
+// Suffix/prefix length cap — the match space is base58^len, so >4 chars makes a
+// hit astronomically unlikely within the budget and just burns CPU.
+const VANITY_MAX_PATTERN_LEN = 4;
+
+async function handleVanityMint({ suffix = '', prefix = '', caseSensitive = false, maxAttempts = 1_500_000 }) {
 	if (!suffix && !prefix) throw rpcError(-32602, 'at least one of suffix or prefix is required');
+	if (String(suffix).length > VANITY_MAX_PATTERN_LEN || String(prefix).length > VANITY_MAX_PATTERN_LEN)
+		throw rpcError(-32602, `suffix/prefix must each be ≤ ${VANITY_MAX_PATTERN_LEN} characters`);
+	const budget = Math.min(
+		VANITY_MAX_ATTEMPTS_CEILING,
+		Math.max(1, Number(maxAttempts) || VANITY_MAX_ATTEMPTS_CEILING),
+	);
 	const ac = new AbortController();
 	const timer = setTimeout(() => ac.abort(), 58_000);
 	let result;
 	try {
-		result = await generateVanityKey({ suffix, prefix, caseSensitive, maxAttempts, signal: ac.signal });
+		result = await generateVanityKey({ suffix, prefix, caseSensitive, maxAttempts: budget, signal: ac.signal });
 	} finally {
 		clearTimeout(timer);
 	}
-	if (!result) throw rpcError(-32003, `no match found in ${maxAttempts} attempts`);
+	if (!result) throw rpcError(-32003, `no match found in ${budget} attempts`);
+	// SECURITY: the secretKey is returned to the (authenticated) caller but must
+	// never be logged or recorded server-side. Keep it out of any usage/event
+	// metadata — the caller is the sole custodian of this key.
 	return {
 		publicKey: result.publicKey,
 		secretKey: bs58.encode(result.secretKey),
@@ -556,6 +575,52 @@ const HANDLERS = {
 
 // ── HTTP entrypoint ────────────────────────────────────────────────────────
 
+// Tools that are expensive (CPU grind or long-lived RPC subscriptions) or that
+// return sensitive material (a secret key). These require authentication — a
+// valid bearer (OAuth access token or sk_live_/sk_test_ API key) OR a verified
+// x402 micropayment. The free read-only snapshot/quote tools stay open.
+const AUTH_REQUIRED_TOOLS = new Set([
+	'pumpfun_vanity_mint',
+	'pumpfun_watch_whales',
+	'pumpfun_watch_claims',
+]);
+
+// Verify the request is authenticated for a gated tool. Returns true on success;
+// on failure it writes the JSON-RPC error envelope and returns false. Accepts a
+// bearer (API key / OAuth JWT) or a verified X-PAYMENT header.
+async function authorizeGatedTool(req, res, id) {
+	const bearer = extractBearer(req);
+	if (bearer) {
+		const auth = await authenticateBearer(bearer).catch(() => null);
+		if (auth) return true;
+		json(res, 401, rpcEnvelope(id, null, {
+			code: -32001,
+			message: 'authentication required: invalid or expired bearer token',
+		}));
+		return false;
+	}
+	const paymentHeader = req.headers['x-payment'];
+	if (paymentHeader) {
+		const resourceUrl = resolveResourceUrl(req, '/api/pump-fun-mcp');
+		const requirements = paymentRequirements(resourceUrl);
+		try {
+			await verifyPayment({ paymentHeader, requirements });
+			return true;
+		} catch (err) {
+			json(res, 402, rpcEnvelope(id, null, {
+				code: -32402,
+				message: `payment verification failed: ${err?.message || 'invalid payment'}`,
+			}));
+			return false;
+		}
+	}
+	json(res, 401, rpcEnvelope(id, null, {
+		code: -32001,
+		message: 'authentication required for this tool (provide a Bearer token or X-PAYMENT)',
+	}));
+	return false;
+}
+
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['POST'])) return;
@@ -577,7 +642,7 @@ export default wrap(async (req, res) => {
 			res,
 			200,
 			rpcEnvelope(id, {
-				protocolVersion: '2024-11-05',
+				protocolVersion: '2025-06-18',
 				capabilities: { tools: {} },
 				serverInfo: { name: 'three.ws-pumpfun-mcp', version: '0.1.0' },
 			}),
@@ -598,6 +663,13 @@ export default wrap(async (req, res) => {
 				200,
 				rpcEnvelope(id, null, { code: -32601, message: `unknown tool: ${name}` }),
 			);
+		}
+		// Auth gate: expensive (vanity grind, long-lived RPC watch) and sensitive
+		// (returns a secret key) tools require a bearer or verified x402 payment.
+		// authorizeGatedTool writes the 401/402 envelope and returns false on deny.
+		if (AUTH_REQUIRED_TOOLS.has(name)) {
+			const okAuth = await authorizeGatedTool(req, res, id);
+			if (!okAuth) return;
 		}
 		try {
 			const data = await handler(args);

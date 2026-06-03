@@ -256,18 +256,27 @@ async function handleCheck(req, res) {
 // signature to the active session's user.
 
 async function handleNonce(req, res) {
-	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
-	if (!method(req, res, ['POST'])) return;
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
 
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const { address, chainId } = parse(nonceBody, await readJson(req));
-
-	const nonce = issueNonce(session.id);
-
 	const appOrigin = env.APP_ORIGIN;
 	const domain = new URL(appOrigin).host;
+	const nonce = issueNonce(session.id);
+
+	// GET: bare per-user link nonce for the connect-button component, which
+	// builds the SIWE message client-side. The security of linking rests on this
+	// nonce being bound to the current session (handleLinkWallet validates it via
+	// consumeNonce(nonce, session.id)) and living in a store separate from the
+	// login nonce pool — so a captured *login* signature can't be replayed here.
+	if (req.method === 'GET') {
+		return json(res, 200, { nonce, domain, uri: appOrigin, ttl: NONCE_TTL_SEC });
+	}
+
+	const { address, chainId } = parse(nonceBody, await readJson(req));
+
 	const issuedAt = new Date().toISOString();
 	const expirationTime = new Date(Date.now() + NONCE_TTL_SEC * 1000).toISOString();
 

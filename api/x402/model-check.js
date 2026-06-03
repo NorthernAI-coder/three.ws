@@ -33,6 +33,7 @@ import {
 	PAYMENT_IDENTIFIER,
 	checkCache,
 	extractIdFromHeader,
+	hashPaymentProof,
 	hashRequestPayload,
 	paymentIdentifierExtension,
 	storeResponse,
@@ -337,14 +338,16 @@ export default wrap(async (req, res) => {
 		url: req.url,
 		body: null,
 	});
+	const paymentHash = hashPaymentProof(paymentHeader);
 	if (paymentId) {
-		const lookup = await checkCache({ route: ROUTE, paymentId, payloadHash });
+		const lookup = await checkCache({ route: ROUTE, paymentId, payloadHash, paymentHash });
 		if (lookup.kind === 'hit') return writeCachedResponse(res, lookup.entry);
 		if (lookup.kind === 'conflict') {
 			return writeConflict(res, {
 				route: ROUTE,
 				attemptedHash: lookup.attemptedHash,
 				existingHash: lookup.existingHash,
+				reason: lookup.reason,
 			});
 		}
 	}
@@ -388,6 +391,7 @@ export default wrap(async (req, res) => {
 			route: ROUTE,
 			paymentId,
 			payloadHash,
+			paymentHash,
 			status: 200,
 			body,
 			contentType,
