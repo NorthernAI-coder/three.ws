@@ -4,6 +4,10 @@
 
 Public feature history for [three.ws](https://three.ws), newest first. Feature dates are tracked from 2026-05-25 forward; earlier pages are omitted.
 
+## 2026-06-03
+
+- **three.ws on IBM watsonx** (`/ibm`) — three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
+
 ## 2026-05-29
 
 - **$THREE Live · Protocol Pulse** (`/three-live`) — The $THREE protocol as a living 3D organism. Real on-chain trades pulse through it in real time — each transaction emits a particle burst, whales send shockwaves, with a live trade feed and a HUD of price, market cap, holders, and volume.

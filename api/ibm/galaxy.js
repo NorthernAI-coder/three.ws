@@ -21,7 +21,7 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { publicUrl } from '../_lib/r2.js';
 import { watsonxConfig, watsonxEmbed, watsonxChatComplete } from '../_lib/watsonx.js';
 import { ensureAgentEmbeddings, readAgentVectors, agentEmbedText } from '../_lib/agent-embeddings.js';
-import { projectTo3D, kmeans, suggestClusterCount, cosineSimilarity, unit } from '../_lib/embedding-math.js';
+import { projectTo3D, kmeans, suggestClusterCount, cosineSimilarity, unit, dot } from '../_lib/embedding-math.js';
 import { createHash } from 'node:crypto';
 
 // Hard cap on agents in one galaxy — keeps embedding cost bounded and the scene
@@ -31,7 +31,10 @@ const MAX_AGENTS = 400;
 // bounds how stale a cached layout can be against new agents.
 const CACHE_TTL_MS = 30 * 60 * 1000;
 // Bumping this invalidates every cached layout when the build algorithm changes.
-const ALGO_VERSION = 'v1';
+// v2: payload now carries per-agent semantic neighbours.
+const ALGO_VERSION = 'v2';
+// How many semantic neighbours to precompute per agent.
+const NEIGHBOR_K = 6;
 
 // IBM Carbon-derived palette — distinct, accessible hues for up to 8 themes.
 const CLUSTER_COLORS = [
@@ -191,6 +194,11 @@ async function buildGalaxy(cfg) {
 	const kTarget = suggestClusterCount(kept.length);
 	const { assignments, k } = kmeans(unitVecs, kTarget);
 
+	// True semantic neighbours per agent, ranked by Granite cosine similarity (a
+	// dot product on the unit vectors). This is what the detail panel surfaces as
+	// "nearest in meaning" — the real embedding metric, not just 3D proximity.
+	const neighbors = topNeighbors(unitVecs, NEIGHBOR_K);
+
 	// Group members per cluster for naming + centroid placement.
 	const groups = Array.from({ length: k }, () => []);
 	for (let i = 0; i < kept.length; i++) {
@@ -234,6 +242,7 @@ async function buildGalaxy(cfg) {
 		x: round(coords[i][0]),
 		y: round(coords[i][1]),
 		z: round(coords[i][2]),
+		neighbors: neighbors[i].map((nb) => ({ id: kept[nb.j].id, score: round(nb.s) })),
 	}));
 
 	const clusters = groups.map((members, i) => ({
@@ -265,6 +274,24 @@ async function buildGalaxy(cfg) {
 
 function round(n) {
 	return Math.round(n * 100) / 100;
+}
+
+// For each agent, its top-K most semantically-similar agents by cosine. Vectors
+// are unit-normalised, so cosine is a plain dot product. O(N²·D) — bounded by
+// MAX_AGENTS, and computed once per cached rebuild.
+function topNeighbors(unitVecs, k) {
+	const n = unitVecs.length;
+	const out = new Array(n);
+	for (let i = 0; i < n; i++) {
+		const sims = [];
+		for (let j = 0; j < n; j++) {
+			if (j === i) continue;
+			sims.push({ j, s: dot(unitVecs[i], unitVecs[j]) });
+		}
+		sims.sort((a, b) => b.s - a.s);
+		out[i] = sims.slice(0, k);
+	}
+	return out;
 }
 
 // ── GET: build or serve cached galaxy ────────────────────────────────────────

@@ -11,11 +11,11 @@
 	<meta property="og:title" content="Agent Galaxy — Semantic 3D discovery on IBM Granite" />
 	<meta property="og:description" content="A living 3D constellation of AI agents, positioned by IBM Granite embeddings on watsonx.ai. Search by meaning, not keywords." />
 	<meta property="og:url" content="https://three.ws/ibm/galaxy" />
-	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta property="og:image" content="https://three.ws/ibm-og.png" />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Agent Galaxy — Semantic 3D discovery on IBM Granite" />
 	<meta name="twitter:description" content="A 3D constellation of AI agents positioned by IBM Granite embeddings on watsonx.ai." />
-	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:image" content="https://three.ws/ibm-og.png" />
 
 	<link rel="icon" href="/favicon.ico" />
 	<style>
@@ -66,6 +66,8 @@
 		.tb-btn:hover { background: rgba(40,46,60,0.9); border-color: rgba(255,255,255,0.18); }
 		.tb-btn:active { transform: translateY(1px); }
 		.tb-btn svg { width: 15px; height: 15px; }
+		.tb-btn.active { background: var(--ibm); border-color: var(--ibm); color: #fff; }
+		.tb-btn.active:hover { background: var(--ibm); filter: brightness(1.1); }
 
 		/* ── Search ──────────────────────────────────────────────── */
 		.search-wrap {
@@ -175,7 +177,8 @@
 		.panel .neighbors .nb-av { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; background:#1a1f2c; flex:none; display:grid; place-items:center; font-weight:600; color: var(--ibm-light); font-size: 14px; }
 		.panel .neighbors .nb-meta { min-width: 0; }
 		.panel .neighbors .nb-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.panel .neighbors .nb-sim { font-size: 11px; color: var(--muted); }
+		.panel .neighbors .nb-sim { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+		.panel .neighbors .nb-sim .pct { color: var(--ibm-light); font-weight: 600; font-variant-numeric: tabular-nums; }
 		.panel .p-cta { display: block; margin-top: 22px; text-align: center; background: var(--ibm); color: #fff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px; border-radius: 11px; transition: filter .15s; }
 		.panel .p-cta:hover { filter: brightness(1.12); }
 
@@ -257,6 +260,10 @@
 			<span class="badge"><span class="dot"></span><strong>Agent Galaxy</strong><span>·</span>IBM Granite</span>
 		</div>
 		<div class="actions">
+			<button class="tb-btn" id="tourBtn" title="Take a guided tour of the themes">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+				<span class="lbl">Tour</span>
+			</button>
 			<button class="tb-btn" id="resetView" title="Reset camera">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>
 				<span class="lbl">Reset</span>

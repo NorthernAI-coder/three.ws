@@ -22,12 +22,15 @@ vi.mock('../../api/_lib/watsonx-forecast.js', () => ({
 	watsonxForecast: vi.fn(),
 	forecastModelFor: vi.fn(() => 'ibm/granite-ttm-512-96-r2'),
 }));
-vi.mock('../../api/_lib/guardian.js', () => ({ assessRisk: vi.fn() }));
+vi.mock('../../api/_lib/granite-guardian.js', () => ({
+	guardianConfig: vi.fn(() => ({ configured: true })),
+	assessRisk: vi.fn(),
+}));
 
 import { fetchOhlcv, topPoolForToken, trendingPools } from '../../api/_lib/market/ohlcv.js';
 import { watsonxConfig, watsonxChatComplete } from '../../api/_lib/watsonx.js';
 import { watsonxForecast } from '../../api/_lib/watsonx-forecast.js';
-import { assessRisk } from '../../api/_lib/guardian.js';
+import { assessRisk } from '../../api/_lib/granite-guardian.js';
 
 const { default: handler } = await import('../../api/ibm/oracle.js');
 
@@ -110,9 +113,10 @@ beforeEach(() => {
 	assessRisk.mockResolvedValue({
 		flagged: false,
 		risk: 'harm',
-		label: 'Harm',
-		verdict: 'No',
-		confidence: 'High',
+		label: 'Safe',
+		probability: 0.02,
+		confidence: 'high',
+		model: 'ibm/granite-guardian-3-8b',
 	});
 });
 

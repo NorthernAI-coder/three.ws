@@ -141,14 +141,14 @@ export default wrap(async function handler(req, res) {
 		}
 	}
 
+	// json() defaults to no-store, which is correct here: this is a POST whose
+	// body varies per request, so it must not be shared-cached. Determinism is
+	// exploited by the process-local `cache` above, not by HTTP caches.
 	return json(res, 200, {
 		model,
 		dimensions,
 		count: vectors.length,
 		cachedHits: texts.length - missText.length,
 		vectors,
-	}, {
-		// Vectors are deterministic per (model, text); let shared caches hold them.
-		'cache-control': 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400',
 	});
 });

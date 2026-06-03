@@ -10,7 +10,7 @@
 import { fetchOhlcv, trendingPools } from '../api/_lib/market/ohlcv.js';
 import { watsonxConfig, watsonxChatComplete } from '../api/_lib/watsonx.js';
 import { watsonxForecast, forecastModelFor } from '../api/_lib/watsonx-forecast.js';
-import { assessRisk } from '../api/_lib/guardian.js';
+import { assessRisk, guardianConfig } from '../api/_lib/granite-guardian.js';
 
 const log = (...a) => console.log(...a);
 const iso = (t) => new Date(t * 1000).toISOString();
@@ -74,8 +74,9 @@ async function main() {
 	log(`   "${n.text}"  [${n.model}]`);
 
 	log('\n▶ Granite Guardian');
-	const g = await assessRisk(cfg, { risk: 'harm', assistant: n.text });
-	log(`   risk=${g.risk} verdict=${g.verdict} → ${g.flagged ? 'FLAGGED' : 'PASS'}`);
+	const g = await assessRisk(guardianConfig(), { risk: 'harm', input: n.text });
+	const pp = g.probability != null ? ` p=${g.probability.toFixed(3)}${g.estimated ? '~' : ''}` : '';
+	log(`   risk=${g.risk} label=${g.label}${pp} → ${g.flagged ? 'FLAGGED' : 'PASS'}`);
 
 	log('\n✅ Granite Oracle live path verified end-to-end.');
 }

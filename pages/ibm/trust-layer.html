@@ -11,11 +11,11 @@
 	<meta property="og:title" content="Trust Layer — IBM Granite Guardian for autonomous AI agents" />
 	<meta property="og:description" content="Real-time AI governance for crypto-capable 3D agents. Granite Guardian on watsonx.ai classifies every action; a hash-chained ledger makes it auditable." />
 	<meta property="og:url" content="https://three.ws/ibm/trust-layer" />
-	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta property="og:image" content="https://three.ws/ibm-og.png" />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Trust Layer — IBM Granite Guardian for autonomous AI agents" />
 	<meta name="twitter:description" content="Real-time AI governance for crypto-capable 3D agents, powered by IBM Granite Guardian on watsonx.ai." />
-	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:image" content="https://three.ws/ibm-og.png" />
 
 	<link rel="icon" href="/favicon.ico" />
 	<style>
@@ -200,6 +200,9 @@
 		.ledger .l-verify:hover { filter:brightness(1.2); }
 		.ledger .l-verify.ok { color:var(--allow); background:rgba(66,190,101,0.12); border-color:rgba(66,190,101,0.3); }
 		.ledger .l-verify.bad { color:var(--block); background:rgba(250,77,86,0.12); border-color:rgba(250,77,86,0.3); }
+		.ledger .l-export { font-size:11px; color:var(--muted); background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:8px; padding:5px 9px; cursor:pointer; transition:color .15s, border-color .15s; display:inline-flex; align-items:center; gap:6px; }
+		.ledger .l-export:hover:not(:disabled) { color:var(--text); border-color:var(--border-strong); }
+		.ledger .l-export:disabled { opacity:.4; cursor:default; }
 		.ledger .l-body { overflow-y:auto; padding:8px; scrollbar-width:thin; }
 		.ledger .l-empty { padding:20px 14px; text-align:center; color:var(--faint); font-size:12.5px; line-height:1.55; }
 		.lrow { display:flex; align-items:center; gap:10px; padding:9px 9px; border-radius:10px; transition:background .12s; }
@@ -333,6 +336,10 @@
 			<button class="l-verify" id="verifyBtn" title="Recompute the SHA-256 hash chain in your browser">
 				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
 				<span class="vb-label">Verify chain</span>
+			</button>
+			<button class="l-export" id="exportBtn" title="Copy the full hash-chained ledger as JSON so you can re-verify it offline" disabled>
+				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+				Export
 			</button>
 		</div>
 		<div class="l-body" id="ledgerBody">

@@ -53,7 +53,10 @@ controls.target.set(0, 0, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.06;
 controls.enablePan = false;
-controls.autoRotate = true;
+// Respect the OS "reduce motion" setting: no idle camera spin (and no forecast
+// sweep — see renderSeries). Users who opt out of motion get a static scene.
+const reduceMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+controls.autoRotate = !reduceMotion;
 controls.autoRotateSpeed = 0.5;
 controls.minDistance = 6;
 controls.maxDistance = 22;

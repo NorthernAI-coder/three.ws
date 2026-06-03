@@ -374,10 +374,9 @@ function frameModel(root) {
 	root.position.y -= box.min.y; // feet on the ground plane
 
 	const height = size.y || 1.7;
-	// Look at the upper third (where the face/identity lives) and stand back enough
-	// to frame the whole figure with headroom.
-	const targetY = box.min.y - box.min.y + height * 0.62;
-	controls.target.set(0, targetY, 0);
+	// Feet now sit at y=0, so aim at the upper body (where the face/identity lives)
+	// and stand back far enough to frame the whole figure with headroom.
+	controls.target.set(0, height * 0.62, 0);
 	const dist = height * 1.5 + 0.6;
 	camera.position.set(0, height * 0.7, dist);
 	camera.near = dist / 50;

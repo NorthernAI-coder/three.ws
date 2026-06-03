@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-02T16:04:52.686Z",
+	"generated_at": "2026-06-03T08:05:29.246Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -92,6 +92,15 @@
 					"title": "Characters",
 					"description": "Discover AI characters on three.ws. Chat, trade, and create.",
 					"added": "2026-05-25",
+					"auth": null,
+					"indexable": true,
+					"tags": []
+				},
+				{
+					"path": "/ibm",
+					"title": "three.ws on IBM watsonx",
+					"description": "three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.",
+					"added": "2026-06-03",
 					"auth": null,
 					"indexable": true,
 					"tags": []
@@ -364,6 +373,15 @@
 					"path": "/pump-visualizer",
 					"title": "Pump Visualizer",
 					"description": "3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": []
+				},
+				{
+					"path": "/constellation",
+					"title": "watsonx Constellation",
+					"description": "Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.",
 					"added": null,
 					"auth": null,
 					"indexable": true,

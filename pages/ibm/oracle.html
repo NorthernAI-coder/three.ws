@@ -375,6 +375,41 @@
 				pointer-events: none;
 			}
 
+			/* Narration bar pulses while the avatar speaks */
+			.narration-bar.speaking {
+				border-color: var(--ibm-blue-2);
+				box-shadow:
+					0 0 0 1px var(--ibm-blue-2),
+					0 24px 70px rgba(15, 98, 254, 0.28);
+			}
+			.narration-bar.speaking .label::after {
+				content: '●';
+				margin-left: 8px;
+				color: var(--ibm-blue-2);
+				animation: pulse 1s infinite;
+			}
+
+			/* Keyboard focus visibility */
+			.o-chip:focus-visible,
+			#o-search:focus-visible,
+			#o-run:focus-visible,
+			.topbar a:focus-visible {
+				outline: 2px solid var(--ibm-blue-2);
+				outline-offset: 2px;
+			}
+
+			/* Respect reduced-motion (the 3D scene also stops auto-rotate + reveal in JS) */
+			@media (prefers-reduced-motion: reduce) {
+				.narration-bar.speaking .label::after,
+				#o-status.busy::after {
+					animation: none;
+				}
+				.o-chip,
+				#o-run {
+					transition: none;
+				}
+			}
+
 			@media (max-width: 760px) {
 				.readout {
 					top: 58px;
@@ -417,7 +452,16 @@
 				<span>Granite Oracle</span>
 				<small>three.ws&nbsp;×&nbsp;IBM watsonx</small>
 			</div>
-			<a class="back" href="/ibm">← IBM partnership</a>
+			<nav style="display: flex; gap: 8px; align-items: center">
+				<a class="back" href="/ibm">← IBM partnership</a>
+				<a
+					class="back"
+					id="o-notarize"
+					href="/ibm/proof"
+					title="Stamp this governed forecast on-chain with Granite Proof"
+					>Notarize on-chain →</a
+				>
+			</nav>
 		</header>
 
 		<div class="controls">

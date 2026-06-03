@@ -182,6 +182,21 @@
 			}
 			.msg.bot .cursor { display: inline-block; width: 7px; animation: blink 1s steps(2) infinite; }
 			@keyframes blink { 50% { opacity: 0; } }
+			/* IBM Granite Guardian "Trust Layer" notice — shown when an autonomous
+			   send is held server-side before it could move funds. */
+			.gov-chip {
+				align-self: flex-start;
+				display: inline-flex; align-items: center; gap: 7px;
+				margin: -2px 0 2px;
+				padding: 6px 11px; border-radius: 99px;
+				font-size: 12px; font-weight: 600;
+				background: rgba(255, 107, 107, 0.12);
+				border: 1px solid rgba(255, 107, 107, 0.35);
+				color: #ffb3b3;
+				animation: rise 0.25s ease both;
+			}
+			.gov-chip svg { width: 13px; height: 13px; flex: none; }
+			.gov-chip a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
 			/* Empty state */
 			#empty {
@@ -533,6 +548,25 @@
 				}
 			}
 
+			// Surface the IBM Granite Guardian verdict when an autonomous send was
+			// held server-side (the action is already stripped from the stream, so
+			// this only explains the hold — it never gates anything client-side).
+			function governanceNote(gov) {
+				if (!gov || gov.decision !== 'block') return;
+				const reason = gov.reasons?.[0]?.label || 'platform policy';
+				const chip = document.createElement('div');
+				chip.className = 'gov-chip';
+				chip.innerHTML =
+					'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>' +
+					`<span>Send held by <a href="/ibm/trust-layer" target="_blank" rel="noopener">IBM Granite Guardian</a> — ${escapeHtml(reason)}.</span>`;
+				log.appendChild(chip);
+				log.scrollTop = log.scrollHeight;
+			}
+
+			function escapeHtml(s) {
+				return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+			}
+
 			async function ask(message) {
 				if (busy || !message.trim()) return;
 				busy = true;
@@ -561,6 +595,7 @@
 					const dec = new TextDecoder();
 					let buf = '';
 					let actions = [];
+					let governance = null;
 					while (true) {
 						const { value, done } = await reader.read();
 						if (done) break;
@@ -579,6 +614,7 @@
 								reply = (evt.reply || reply).trim();
 								bot.textContent = reply || '…';
 								actions = evt.actions || [];
+								governance = evt.governance || null;
 							} else if (evt.type === 'error') {
 								throw new Error(evt.message || 'chat error');
 							}
@@ -588,6 +624,7 @@
 						history.push({ role: 'assistant', content: reply });
 						avatarSpeak(reply);
 					}
+					governanceNote(governance);
 					await runActions(actions);
 				} catch (err) {
 					bot.textContent = 'I had trouble reaching my brain. Try again in a moment.';

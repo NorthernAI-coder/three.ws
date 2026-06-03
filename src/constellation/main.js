@@ -213,7 +213,15 @@ async function embedTokens(tokens) {
 
 // ---- interaction: hover + click ------------------------------------------
 let hovered = null;
-let selectedIndex = -1;
+let selectedNode = null;
+
+// The glow scale for a node depends on its state: selected stars stay largest,
+// hovered stars enlarge for feedback, everything else sits at its base size.
+function glowScaleFor(node) {
+	if (node === selectedNode) return node.baseScale * 11;
+	if (node === hovered) return node.baseScale * 9;
+	return node.baseScale * 6;
+}
 
 function updatePointer(e) {
 	pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -228,11 +236,12 @@ function onPointerMove(e) {
 	updatePointer(e);
 	const node = pickNode();
 	if (node !== hovered) {
-		if (hovered) hovered.glow.scale.setScalar(hovered.baseScale * 6);
+		const prev = hovered;
 		hovered = node;
+		if (prev) prev.glow.scale.setScalar(glowScaleFor(prev));
 		renderer.domElement.style.cursor = node ? 'pointer' : 'grab';
 		if (node) {
-			node.glow.scale.setScalar(node.baseScale * 9);
+			node.glow.scale.setScalar(glowScaleFor(node));
 			tipSym.textContent = node.token.symbol;
 			tipNm.textContent = node.token.name;
 			tooltip.style.left = `${e.clientX}px`;
@@ -262,7 +271,10 @@ function onPointerUp(e) {
 let analysisAbort = null;
 
 function selectNode(index) {
-	selectedIndex = index;
+	const prev = selectedNode;
+	selectedNode = nodes[index];
+	if (prev && prev !== selectedNode) prev.glow.scale.setScalar(glowScaleFor(prev));
+	selectedNode.glow.scale.setScalar(glowScaleFor(selectedNode));
 	const { token } = nodes[index];
 	hint.style.opacity = '0';
 
@@ -300,6 +312,7 @@ function formatPrice(p) {
 function closePanel() {
 	panel.classList.remove('open');
 	panel.setAttribute('aria-hidden', 'true');
+	if (selectedNode) { const n = selectedNode; selectedNode = null; n.glow.scale.setScalar(glowScaleFor(n)); }
 	if (analysisAbort) { analysisAbort.abort(); analysisAbort = null; }
 }
 

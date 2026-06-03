@@ -78,6 +78,14 @@
 					"priority": 0.8,
 					"changefreq": "daily",
 					"added": "2026-05-25"
+				},
+				{
+					"path": "/ibm",
+					"title": "three.ws on IBM watsonx",
+					"description": "three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-06-03"
 				}
 			]
 		},
@@ -306,6 +314,13 @@
 					"path": "/pump-visualizer",
 					"title": "Pump Visualizer",
 					"description": "3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.",
+					"priority": 0.7,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/constellation",
+					"title": "watsonx Constellation",
+					"description": "Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.",
 					"priority": 0.7,
 					"changefreq": "weekly"
 				},

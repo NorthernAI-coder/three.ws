@@ -166,7 +166,9 @@ const TYPE_SCHEMAS = {
 			agentName: z.string().max(80).default(''),
 			agentTitle: z.string().max(80).default('AI Agent'),
 			avatar: z.enum(['embedded', 'chat-only']).default('embedded'),
-			brainProvider: z.enum(['none', 'anthropic', 'custom']).default('anthropic'),
+			brainProvider: z
+				.enum(['none', 'auto', 'anthropic', 'openrouter', 'groq', 'openai', 'watsonx', 'custom'])
+				.default('anthropic'),
 			proxyURL: z.string().url().startsWith('https://').or(z.literal('')).default(''),
 			systemPrompt: z.string().max(4000).default(''),
 			greeting: z.string().max(280).default('Hi! Ask me anything.'),

@@ -98,6 +98,14 @@
 			"dest": "/ibm/oracle.html"
 		},
 		{
+			"src": "/ibm/twin",
+			"dest": "/ibm/twin.html"
+		},
+		{
+			"src": "/ibm/twin/",
+			"dest": "/ibm/twin.html"
+		},
+		{
 			"src": "/ibm/vision",
 			"dest": "/ibm/vision.html"
 		},

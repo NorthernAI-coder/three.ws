@@ -4,7 +4,7 @@
 // own module (with model-context helpers the Oracle and its tests depend on). It
 // reuses the stable IAM-token cache from ./watsonx.js and speaks the same
 // version-stamped, project-scoped REST contract. Governance is handled by the
-// canonical Granite Guardian helper in ./guardian.js.
+// canonical Granite Guardian helper in ./granite-guardian.js.
 //
 // There is no mock path: any IAM or upstream failure throws with the real
 // upstream status + message so the caller reports the true cause.

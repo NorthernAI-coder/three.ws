@@ -31,6 +31,21 @@ function fmtPct(n) {
 }
 const MOOD_COLOR = { celebration: '#42be65', curiosity: '#78a9ff', patience: '#8a93a6', empathy: '#f1c21b', concern: '#fa4d56' };
 const MOOD_ANIM = { celebration: 'celebrate', curiosity: 'wave', patience: 'idle', empathy: 'idle', concern: 'idle' };
+// The embed applies ARKit-52 morphs by name (v1.avatar.morphs). Each mood is a
+// blend; we always send the full key set (zeros included) so switching moods
+// clears the previous expression rather than stacking.
+const NEUTRAL_MORPHS = {
+	mouthSmileLeft: 0, mouthSmileRight: 0, cheekSquintLeft: 0, cheekSquintRight: 0,
+	mouthFrownLeft: 0, mouthFrownRight: 0, browInnerUp: 0, browDownLeft: 0, browDownRight: 0,
+	jawOpen: 0, eyeWideLeft: 0, eyeWideRight: 0,
+};
+const MOOD_MORPHS = {
+	celebration: { ...NEUTRAL_MORPHS, mouthSmileLeft: 0.9, mouthSmileRight: 0.9, cheekSquintLeft: 0.45, cheekSquintRight: 0.45 },
+	curiosity: { ...NEUTRAL_MORPHS, browInnerUp: 0.5, eyeWideLeft: 0.5, eyeWideRight: 0.5, mouthSmileLeft: 0.3, mouthSmileRight: 0.3 },
+	patience: { ...NEUTRAL_MORPHS },
+	empathy: { ...NEUTRAL_MORPHS, mouthSmileLeft: 0.25, mouthSmileRight: 0.25, browInnerUp: 0.4 },
+	concern: { ...NEUTRAL_MORPHS, mouthFrownLeft: 0.65, mouthFrownRight: 0.65, browInnerUp: 0.55 },
+};
 
 // ── 3D avatar bridge (queue until the iframe handshakes ready) ───────────────
 const avatar = (() => {
@@ -58,7 +73,7 @@ const avatar = (() => {
 	});
 	return {
 		speak: (text) => text && send({ type: 'v1.avatar.speak', text: String(text).slice(0, 600) }),
-		emote: (name, weight = 0.8) => name && send({ type: 'v1.avatar.emote', name, weight }),
+		morphs: (weights) => weights && send({ type: 'v1.avatar.morphs', weights }),
 		animate: (name) => name && send({ type: 'v1.avatar.animation', name }),
 	};
 })();
@@ -69,7 +84,7 @@ function setMood(mood) {
 	if (!mood) { sw.style.background = 'var(--faint)'; tx.textContent = 'awaiting forecast'; return; }
 	sw.style.background = MOOD_COLOR[mood.emotion] || 'var(--faint)';
 	tx.textContent = `${mood.emotion} · sentiment ${mood.sentiment >= 0 ? '+' : ''}${mood.sentiment}`;
-	avatar.emote(mood.emotion, Math.min(1, 0.4 + Math.abs(mood.sentiment)));
+	avatar.morphs(MOOD_MORPHS[mood.emotion] || NEUTRAL_MORPHS);
 	avatar.animate(MOOD_ANIM[mood.emotion] || 'idle');
 }
 function setCaption(text) {
@@ -104,10 +119,10 @@ function drawChart(data) {
 	if (all.length < 2) return;
 
 	const ys = all.map((p) => p.c);
-	let lo = Math.min(...ys), hi = Math.max(...ys);
-	if (data.stats) { lo = Math.min(lo, data.stats.forecastLow); hi = Math.max(hi, data.stats.forecastHigh); }
-	const span = hi - lo || hi || 1;
-	lo -= span * 0.08; hi += span * 0.08;
+	let trueLo = Math.min(...ys), trueHi = Math.max(...ys);
+	if (data.stats) { trueLo = Math.min(trueLo, data.stats.forecastLow); trueHi = Math.max(trueHi, data.stats.forecastHigh); }
+	const span = trueHi - trueLo || trueHi || 1;
+	const lo = trueLo - span * 0.08, hi = trueHi + span * 0.08;
 	const n = all.length;
 	const x = (i) => pad.l + (i / (n - 1)) * W;
 	const y = (v) => pad.t + (1 - (v - lo) / (hi - lo)) * H;
@@ -158,6 +173,21 @@ function drawChart(data) {
 		const li = histTail.length - 1;
 		ctx.fillStyle = '#8a93a6';
 		ctx.beginPath(); ctx.arc(x(li), y(histTail[li].c), 3, 0, Math.PI * 2); ctx.fill();
+	}
+
+	// axis labels — true price range + the now / horizon markers
+	ctx.font = '11px ui-monospace, "SF Mono", monospace';
+	ctx.textAlign = 'left';
+	ctx.fillStyle = '#5a6376';
+	ctx.textBaseline = 'top'; ctx.fillText(fmtPrice(trueHi), pad.l + 3, y(trueHi) + 2);
+	ctx.textBaseline = 'bottom'; ctx.fillText(fmtPrice(trueLo), pad.l + 3, y(trueLo) - 2);
+	if (fc.length) {
+		ctx.fillStyle = '#78a9ff';
+		ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+		ctx.fillText('now', splitX, pad.t + 2);
+		const hz = data.stats?.horizonHours;
+		if (hz) { ctx.textAlign = 'right'; ctx.fillText(`+${hz}h`, pad.l + W - 3, pad.t + 2); }
+		ctx.textAlign = 'left';
 	}
 }
 
@@ -328,8 +358,11 @@ function renderPicker() {
 		const sym = (p.name || '?').split('/')[0].trim() || '?';
 		const nm = p.name || '';
 		const px = p.priceUsd != null ? fmtPrice(Number(p.priceUsd)) : '';
+		const chg = p.change24h != null
+			? `<span style="color:${p.change24h >= 0 ? 'var(--up)' : 'var(--down)'};margin-left:7px">${p.change24h >= 0 ? '+' : ''}${Number(p.change24h).toFixed(1)}%</span>`
+			: '';
 		return `<button class="chip" role="tab" data-pool="${p.pool}" aria-selected="${i === 0 ? 'true' : 'false'}">
-			<span class="sym">${sym}</span><span class="nm">${nm}</span><span class="px">${px}</span>
+			<span class="sym">${sym}</span><span class="nm">${nm}</span><span class="px">${px}${chg}</span>
 		</button>`;
 	}).join('');
 	el.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {

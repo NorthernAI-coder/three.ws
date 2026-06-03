@@ -420,7 +420,7 @@ export class NichAgent {
 						}
 					} else if (evt.type === 'done') {
 						if (!streaming || bubble) streamEl.remove();
-						return { ok: true, message, reply: evt.reply || '', actions: evt.actions || [], streamEl: (streaming && !bubble) ? streamEl : null };
+						return { ok: true, message, reply: evt.reply || '', actions: evt.actions || [], governance: evt.governance || null, streamEl: (streaming && !bubble) ? streamEl : null };
 					} else if (evt.type === 'error') {
 						streamEl.remove();
 						return { ok: false, reason: evt.code || 'upstream_error' };
@@ -437,7 +437,7 @@ export class NichAgent {
 		}
 	}
 
-	async _applyApiReply({ message, reply, actions, streamEl }) {
+	async _applyApiReply({ message, reply, actions, governance, streamEl }) {
 		this._pushHistory('user', message);
 
 		if (reply) {
@@ -452,6 +452,15 @@ export class NichAgent {
 			} else {
 				this._speak(reply);
 			}
+		}
+
+		// IBM Granite Guardian held an autonomous action server-side (the action is
+		// already stripped from `actions`). Surface it as a status line so the hold
+		// is visible even in the streaming path, where the appended reply suffix
+		// isn't re-rendered. See api/chat.js governActions().
+		if (governance?.decision === 'block') {
+			const why = governance.reasons?.[0]?.label || 'platform policy';
+			this._addMessage('agent', `Held by the IBM Granite Guardian Trust Layer — ${why}.`, 'status');
 		}
 
 		for (const action of actions || []) {

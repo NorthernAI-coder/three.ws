@@ -166,13 +166,15 @@ export async function watsonxEmbed(cfg, { inputs, model } = {}) {
 // answer rather than a token stream — e.g. asking Granite to name a cluster of
 // semantically-similar agents. Returns the assistant text and token usage.
 export async function watsonxChatComplete(cfg, { messages, model, maxTokens, temperature } = {}) {
-	const parameters = {};
-	if (maxTokens != null) parameters.max_tokens = maxTokens;
-	if (temperature != null) parameters.temperature = temperature;
+	// Decoding params are TOP-LEVEL on the chat endpoint (it is OpenAI-shaped) —
+	// not nested under a `parameters` wrapper (that's the older text/generation
+	// API). Nesting them here silently dropped max_tokens/temperature; keep this
+	// consistent with watsonxChatRequest() above, which already sends them flat.
 	const data = await watsonxPost(cfg, '/ml/v1/text/chat', {
 		model_id: model || cfg.chatModel,
 		messages,
-		...(Object.keys(parameters).length ? { parameters } : {}),
+		...(maxTokens != null ? { max_tokens: maxTokens } : {}),
+		...(temperature != null ? { temperature } : {}),
 	});
 	const choice = data.choices?.[0];
 	return {
@@ -183,77 +185,9 @@ export async function watsonxChatComplete(cfg, { messages, model, maxTokens, tem
 	};
 }
 
-// ── Granite Time Series (TinyTimeMixer) forecasting ──────────────────────────
-//
-// IBM's Granite TS foundation models do zero-shot multivariate forecasting via
-// the watsonx.ai Time Series Forecasting API (GA Feb 2025). Each model name
-// encodes <context length>-<max horizon>: ttm-512-96 ingests 512 points and can
-// predict up to 96 ahead. Input series must be at least `context` points long.
-
-export const TS_MODELS = [
-	{ id: 'ibm/granite-ttm-512-96-r2', context: 512, horizon: 96 },
-	{ id: 'ibm/granite-ttm-1024-96-r2', context: 1024, horizon: 96 },
-	{ id: 'ibm/granite-ttm-1536-96-r2', context: 1536, horizon: 96 },
-];
-export const DEFAULT_TS_MODEL = 'ibm/granite-ttm-512-96-r2';
-const TS_MODEL_BY_ID = new Map(TS_MODELS.map((m) => [m.id, m]));
-
-export function tsModelSpec(id) {
-	return TS_MODEL_BY_ID.get(id) || null;
-}
-
-/**
- * Zero-shot univariate forecast with a Granite TS foundation model.
- *
- * @param {object} cfg watsonxConfig() result
- * @param {object} opts
- * @param {string[]} opts.timestamps  ISO-8601 timestamps, evenly spaced, ascending
- * @param {number[]} opts.values      target values, same length as timestamps
- * @param {string}   opts.freq        pandas offset alias for the spacing (e.g. "5min", "1h", "1D")
- * @param {number}  [opts.predictionLength]  steps to forecast (clamped to the model horizon)
- * @param {string}  [opts.model]      one of TS_MODELS ids
- * @returns {Promise<{ model:string, horizon:number, timestamps:string[], values:number[] }>}
- * @throws  {Error} with code 'insufficient_data' when fewer than `context` points are given.
- */
-export async function watsonxForecast(
-	cfg,
-	{ timestamps, values, freq, predictionLength, model } = {},
-) {
-	const spec = TS_MODEL_BY_ID.get(model || DEFAULT_TS_MODEL);
-	if (!spec) throw new Error(`unsupported time series model: ${model}`);
-	if (!Array.isArray(timestamps) || !Array.isArray(values) || timestamps.length !== values.length)
-		throw new Error('watsonxForecast: timestamps and values must be equal-length arrays');
-	if (!freq) throw new Error('watsonxForecast: freq is required');
-	if (timestamps.length < spec.context) {
-		throw Object.assign(
-			new Error(`need at least ${spec.context} points for ${spec.id} (got ${timestamps.length})`),
-			{ code: 'insufficient_data', need: spec.context, got: timestamps.length },
-		);
-	}
-
-	const horizon = Math.max(1, Math.min(Number(predictionLength) || spec.horizon, spec.horizon));
-	// The model reads exactly its context window; send the most recent points.
-	const ts = timestamps.slice(-spec.context);
-	const vals = values.slice(-spec.context);
-
-	const data = await watsonxPost(
-		cfg,
-		'/ml/v1/time_series/forecast',
-		{
-			model_id: spec.id,
-			data: { date: ts, value: vals },
-			schema: { timestamp_column: 'date', target_columns: ['value'], freq },
-			parameters: { prediction_length: horizon },
-		},
-		cfg.tsApiVersion,
-	);
-
-	const result = data.results?.[0] || {};
-	const outTimestamps = result.date || [];
-	const outValues = (result.value || []).map(Number);
-	if (!outValues.length) throw new Error('watsonx returned an empty forecast');
-	return { model: spec.id, horizon, timestamps: outTimestamps, values: outValues };
-}
+// Granite TimeSeries forecasting lives in ./watsonx-forecast.js (the canonical
+// helper the Granite Oracle + Granite Proof and their tests import). It reuses
+// watsonxToken() from this module, so there is no forecast code here.
 
 // Build a ready-to-fetch streaming chat request. `messages` is the standard
 // [{ role, content }] array (system messages allowed). The response body is an

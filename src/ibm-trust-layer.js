@@ -54,7 +54,7 @@ const els = {
 	amountWrap: $('amountWrap'), amount: $('amount'), runBtn: $('runBtn'), modelPill: $('modelPill'),
 	verdict: $('verdict'), vDecision: $('vDecision'), vMeta: $('vMeta'), vReasons: $('vReasons'),
 	risks: $('risks'), riskRows: $('riskRows'),
-	ledgerBody: $('ledgerBody'), ledgerCnt: $('ledgerCnt'), verifyBtn: $('verifyBtn'), verifyLabel: null,
+	ledgerBody: $('ledgerBody'), ledgerCnt: $('ledgerCnt'), verifyBtn: $('verifyBtn'), verifyLabel: null, exportBtn: $('exportBtn'),
 	loading: $('loadingState'), unavailable: $('unavailableState'), error: $('errorState'),
 	errorMsg: $('errorMsg'), retryBtn: $('retryBtn'), toast: $('toast'),
 };
@@ -376,6 +376,7 @@ function pushLedger(data, ctx) {
 
 function renderLedger() {
 	els.ledgerCnt.textContent = `· ${state.chain.length}`;
+	els.exportBtn.disabled = state.chain.length === 0;
 	if (!state.chain.length) return;
 	els.ledgerBody.innerHTML = state.chain
 		.map((e, i) => {
@@ -398,6 +399,26 @@ function renderLedger() {
 function resetVerifyButton() {
 	els.verifyBtn.className = 'l-verify';
 	els.verifyLabel.textContent = 'Verify chain';
+}
+
+// Copy the full hash-chained ledger as JSON so anyone can re-derive the chain
+// offline (the record schema matches what api/_lib/granite-guardian.js emits).
+async function exportLedger() {
+	if (!state.chain.length) return;
+	const json = JSON.stringify(state.chain.map((e) => e.record), null, 2);
+	try {
+		await navigator.clipboard.writeText(json);
+		toast(`Ledger copied — ${state.chain.length} record(s). Re-verify the SHA-256 chain anywhere.`);
+	} catch {
+		// Clipboard blocked (insecure context / permissions) — fall back to a download.
+		const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'granite-guardian-ledger.json';
+		a.click();
+		URL.revokeObjectURL(url);
+		toast(`Ledger downloaded — ${state.chain.length} record(s).`);
+	}
 }
 
 async function sha256Hex(str) {

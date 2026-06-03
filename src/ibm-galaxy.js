@@ -26,7 +26,7 @@ const els = {
 	loading: $('loadingState'), empty: $('emptyState'), unavailable: $('unavailableState'),
 	error: $('errorState'), errorMsg: $('errorMsg'), emptyTitle: $('emptyTitle'), emptyMsg: $('emptyMsg'),
 	unavailableMsg: $('unavailableMsg'), loadSteps: $('loadSteps'), retryBtn: $('retryBtn'),
-	resetView: $('resetView'), hudHint: $('hudHint'),
+	resetView: $('resetView'), hudHint: $('hudHint'), tourBtn: $('tourBtn'),
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ function initThree() {
 	controls.autoRotate = true;
 	controls.autoRotateSpeed = 0.35;
 	controls.target.set(0, 0, 0);
-	controls.addEventListener('start', () => { controls.autoRotate = false; idleTimer = 0; });
+	controls.addEventListener('start', () => { controls.autoRotate = false; idleTimer = 0; if (tour.active) stopTour(); });
 
 	raycaster = new THREE.Raycaster();
 	raycaster.params.Points.threshold = 3.2;
@@ -333,22 +333,29 @@ function selectAgent(idx, doFly) {
 	const c = state.clusters[a.cluster];
 	if (doFly) flyTo(new THREE.Vector3(a.x, a.y, a.z), 60);
 
+	const neighbors = semanticNeighbors(a, 5);
+	drawLinks(idx, neighbors);
+	setUrlParam('agent', a.id);
+
 	els.panelHead.innerHTML =
 		avatarMarkup(a, 'p-avatar') +
 		`<div class="p-theme" style="color:${c?.color || '#fff'}"><span class="swatch" style="background:${c?.color}"></span>${escapeHtml(c?.label || 'Agent')}</div>` +
 		`<div class="p-name">${escapeHtml(a.name)}</div>`;
 
-	const neighbors = nearestNeighbors(idx, 4);
 	const nbMarkup = neighbors.map((nb) => {
-		const na = state.agents[nb.idx];
+		const na = nb.agent;
+		const meta = nb.score != null
+			? `<span class="pct">${Math.round(nb.score * 100)}%</span> similar`
+			: escapeHtml(state.clusters[na.cluster]?.label || '');
 		return `<div class="nb" data-idx="${nb.idx}">${avatarMarkup(na, 'nb-av')}` +
 			`<div class="nb-meta"><div class="nb-name">${escapeHtml(na.name)}</div>` +
-			`<div class="nb-sim">${escapeHtml(state.clusters[na.cluster]?.label || '')}</div></div></div>`;
+			`<div class="nb-sim">${meta}</div></div></div>`;
 	}).join('');
 
+	const sourceNote = neighbors.length && neighbors[0].score != null ? ' <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">· by Granite cosine</span>' : '';
 	els.panelBody.innerHTML =
 		`<div class="p-desc">${escapeHtml(a.description || 'No description provided.')}</div>` +
-		(neighbors.length ? `<div class="p-section neighbors"><h4>Nearest in meaning</h4>${nbMarkup}</div>` : '') +
+		(neighbors.length ? `<div class="p-section neighbors"><h4>Nearest in meaning${sourceNote}</h4>${nbMarkup}</div>` : '') +
 		`<a class="p-cta" href="${escapeAttr(a.url)}">Open agent →</a>`;
 
 	els.panelBody.querySelectorAll('.nb').forEach((row) => {
@@ -365,11 +372,24 @@ function closePanel() {
 	if (state.selected >= 0 && state.selected !== state.hovered) aHi[state.selected] = 0;
 	state.selected = -1;
 	geometry.attributes.aHi.needsUpdate = true;
+	clearLinks();
+	setUrlParam('agent', null);
 }
 
-// Nearest neighbours by 3D distance — the same proximity the eye sees, a faithful
-// proxy for embedding similarity in the projected space.
-function nearestNeighbors(idx, k) {
+// Semantic neighbours: prefer the server's Granite-cosine ranking (true meaning),
+// falling back to 3D proximity only if the payload predates that field.
+function semanticNeighbors(agent, k) {
+	if (Array.isArray(agent.neighbors) && agent.neighbors.length) {
+		return agent.neighbors.slice(0, k).map((nb) => {
+			const na = state.byId.get(nb.id);
+			return na ? { agent: na, idx: state.agents.indexOf(na), score: nb.score } : null;
+		}).filter(Boolean);
+	}
+	return nearestNeighbors3D(state.agents.indexOf(agent), k).map((nb) => ({ agent: state.agents[nb.idx], idx: nb.idx, score: null }));
+}
+
+// Fallback nearest neighbours by 3D distance — the proximity the eye sees.
+function nearestNeighbors3D(idx, k) {
 	const a = state.agents[idx];
 	const out = [];
 	for (let i = 0; i < state.agents.length; i++) {
@@ -380,6 +400,34 @@ function nearestNeighbors(idx, k) {
 	}
 	out.sort((p, q) => p.d - q.d);
 	return out.slice(0, k);
+}
+
+// ── Constellation links ───────────────────────────────────────────────────────
+// Faint glowing lines from the selected agent to its semantic neighbours —
+// literally drawing the constellation the embedding implies.
+let linkLines = null;
+function clearLinks() {
+	if (linkLines) { scene.remove(linkLines); linkLines.geometry.dispose(); linkLines.material.dispose(); linkLines = null; }
+}
+function drawLinks(idx, neighbors) {
+	clearLinks();
+	if (!neighbors.length) return;
+	const a = state.agents[idx];
+	const col = new THREE.Color(a.color);
+	const pos = [];
+	const colors = [];
+	for (const nb of neighbors) {
+		const b = nb.agent;
+		pos.push(a.x, a.y, a.z, b.x, b.y, b.z);
+		// Brighter near the selected end, dimmer at the neighbour end.
+		colors.push(col.r, col.g, col.b, col.r * 0.5, col.g * 0.5, col.b * 0.5);
+	}
+	const g = new THREE.BufferGeometry();
+	g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+	g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+	const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+	linkLines = new THREE.LineSegments(g, m);
+	scene.add(linkLines);
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────────
@@ -401,9 +449,15 @@ function buildLegend() {
 }
 
 function toggleIsolate(clusterId) {
+	stopTour();
 	state.isolatedCluster = state.isolatedCluster === clusterId ? null : clusterId;
 	if (state.searchActive) clearSearch();
 	applyVisibility();
+	// When isolating a theme, fly to its centroid so the user actually sees it.
+	if (state.isolatedCluster !== null) {
+		const c = state.clusters[clusterId];
+		if (c) flyTo(new THREE.Vector3(c.x, c.y, c.z), 95);
+	}
 	els.legendRows.querySelectorAll('.row').forEach((row) => {
 		const isMuted = state.isolatedCluster !== null && Number(row.dataset.cluster) !== state.isolatedCluster;
 		row.classList.toggle('muted', isMuted);
@@ -425,6 +479,41 @@ function applyVisibility() {
 function scoreToBrightness(score) {
 	// Stretch the typical cosine range (~0.2–0.6) to 0–1 for visual contrast.
 	return Math.max(0, Math.min(1, (score - 0.18) / 0.42));
+}
+
+// ── Guided tour ───────────────────────────────────────────────────────────────
+// Hands-free fly-through of every Granite-named theme — great for an unattended
+// demo loop. Each step isolates a theme, flies to its centroid, and surfaces its
+// label; any user interaction stops it.
+const tour = { active: false, i: 0, timer: 0 };
+function toggleTour() { tour.active ? stopTour() : startTour(); }
+function startTour() {
+	const themed = state.clusters.filter((c) => c.size);
+	if (themed.length < 2) return;
+	if (state.searchActive) clearSearch();
+	if (els.panel.classList.contains('open')) closePanel();
+	tour.active = true; tour.i = 0;
+	els.tourBtn.classList.add('active');
+	flashHudHint('Guided tour — touring the themes Granite named. Interact to stop.');
+	tourStep(themed);
+	tour.timer = setInterval(() => tourStep(themed), 4800);
+}
+function tourStep(themed) {
+	const c = themed[tour.i % themed.length];
+	tour.i++;
+	state.isolatedCluster = c.id;
+	applyVisibility();
+	els.legendRows.querySelectorAll('.row').forEach((r) => r.classList.toggle('muted', Number(r.dataset.cluster) !== c.id));
+	flyTo(new THREE.Vector3(c.x, c.y, c.z), 95);
+}
+function stopTour() {
+	if (!tour.active) return;
+	tour.active = false;
+	clearInterval(tour.timer);
+	els.tourBtn.classList.remove('active');
+	state.isolatedCluster = null;
+	applyVisibility();
+	els.legendRows.querySelectorAll('.row').forEach((r) => r.classList.remove('muted'));
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -463,6 +552,9 @@ function wireSearch() {
 }
 
 async function runSearch(query) {
+	stopTour();
+	setUrlParam('q', query);
+	setUrlParam('agent', null);
 	els.searchBox.classList.add('searching');
 	try {
 		const res = await fetch('/api/ibm/galaxy', {
@@ -531,6 +623,7 @@ function clearSearch() {
 	for (const a of state.agents) a._score = null;
 	els.results.classList.remove('show');
 	applyVisibility();
+	setUrlParam('q', null);
 }
 
 // ── Markup helpers ────────────────────────────────────────────────────────────
@@ -539,6 +632,16 @@ function avatarMarkup(a, cls) {
 	return `<div class="${cls} placeholder">${escapeHtml((a.name[0] || '?').toUpperCase())}</div>`;
 }
 function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+// Reflect view state into the URL so a selected agent / active search is a
+// shareable link (no history spam — replaceState).
+function setUrlParam(key, val) {
+	try {
+		const url = new URL(window.location.href);
+		if (val == null || val === '') url.searchParams.delete(key);
+		else url.searchParams.set(key, val);
+		window.history.replaceState(null, '', url);
+	} catch { /* older browsers without URL/replaceState — non-fatal */ }
+}
 function escapeAttr(s) { return escapeHtml(s); }
 function hexA(hex, a) {
 	const h = hex.replace('#', '');
@@ -612,6 +715,7 @@ async function load() {
 	showOnly(null);
 	els.loading.classList.remove('show');
 	flashHudHint(`Drag to orbit · scroll to zoom · click a star to explore · press <b>/</b> to search`);
+	applyDeepLink();
 
 	document.body.dataset.galaxyState = 'ready';
 	// Read-only introspection handle for support/debugging a 3D scene that can't
@@ -623,6 +727,8 @@ async function load() {
 		points: () => points,
 		starCount: () => (points ? points.geometry.attributes.position.count : 0),
 		rendererInfo: () => renderer.info.render,
+		linkCount: () => (linkLines ? linkLines.geometry.attributes.position.count / 2 : 0),
+		tourActive: () => tour.active,
 	};
 }
 
@@ -630,6 +736,23 @@ function flashHudHint(html) {
 	els.hudHint.innerHTML = html;
 	els.hudHint.classList.add('show');
 	setTimeout(() => els.hudHint.classList.remove('show'), 6500);
+}
+
+// Honour a shareable URL: ?agent=<id> selects + flies to a star, ?q=<text>
+// runs a semantic search. Lets a demo link open straight to the right view.
+function applyDeepLink() {
+	try {
+		const params = new URLSearchParams(window.location.search);
+		const agentId = params.get('agent');
+		const q = params.get('q');
+		if (agentId && state.byId.has(agentId)) {
+			selectAgent(state.agents.indexOf(state.byId.get(agentId)), true);
+		} else if (q) {
+			els.searchInput.value = q;
+			els.searchClear.style.display = 'block';
+			runSearch(q);
+		}
+	} catch { /* malformed URL — ignore */ }
 }
 
 function onResize() {
@@ -641,7 +764,8 @@ function onResize() {
 
 function wireGlobalUI() {
 	els.panelClose.addEventListener('click', closePanel);
-	els.resetView.addEventListener('click', () => { resetView(); state.isolatedCluster = null; if (state.searchActive) clearSearch(); applyVisibility(); els.legendRows.querySelectorAll('.row').forEach((r) => r.classList.remove('muted')); });
+	els.resetView.addEventListener('click', () => { stopTour(); resetView(); state.isolatedCluster = null; if (state.searchActive) clearSearch(); applyVisibility(); els.legendRows.querySelectorAll('.row').forEach((r) => r.classList.remove('muted')); });
+	els.tourBtn.addEventListener('click', toggleTour);
 	els.retryBtn.addEventListener('click', () => load());
 	window.addEventListener('keydown', (e) => {
 		if (e.key === '/' && document.activeElement !== els.searchInput) { e.preventDefault(); els.searchInput.focus(); }

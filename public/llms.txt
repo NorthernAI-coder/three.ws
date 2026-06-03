@@ -20,6 +20,7 @@ Entry points into the product.
 - [Community](https://three.ws/community): Featured creators, builds, and conversations from the three.ws community.
 - [Sitemap](https://three.ws/sitemap): Human-readable index of every page on three.ws.
 - [Characters](https://three.ws/characters): Discover AI characters on three.ws. Chat, trade, and create.
+- [three.ws on IBM watsonx](https://three.ws/ibm): three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
 
 ## Build
 
@@ -62,6 +63,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix using your browser's GPU.
 - [ETH Vanity (CREATE2)](https://three.ws/eth-vanity): Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer on BSC.
 - [Pump Visualizer](https://three.ws/pump-visualizer): 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
+- [watsonx Constellation](https://three.ws/constellation): Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.
 - [x402 Bazaar](https://three.ws/bazaar): Search and browse the x402 facilitator catalog. Filter by network, price, and extensions. Pay any service in one click.
 - [x402 Arbitrage](https://three.ws/arbitrage): Cross-provider price disparities surfaced live from the merged x402 facilitator catalog. Find the cheapest endpoint for any capability.
 - [x402 Providers](https://three.ws/providers): Quantified operator profiles for the x402 paid API catalog. Service counts, price bands, dominant categories, and the underlying listings.

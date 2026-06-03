@@ -12,7 +12,7 @@ import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
 import { watsonxForecast, forecastModelFor } from '../_lib/watsonx-forecast.js';
-import { assessRisk } from '../_lib/guardian.js';
+import { guardianConfig, assessRisk } from '../_lib/granite-guardian.js';
 import { fetchOhlcv, topPoolForToken, trendingPools } from '../_lib/market/ohlcv.js';
 
 const isBase58 = (s) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
@@ -195,13 +195,16 @@ export default wrap(async (req, res) => {
 			});
 			out.narration = { text: n.text, model: n.model };
 			try {
-				const g = await assessRisk(cfg, { risk: 'harm', assistant: n.text });
+				// Screen the narration with the canonical Granite Guardian client —
+				// proper safety-agent framing + a real probability from logprobs.
+				const g = await assessRisk(guardianConfig(), { risk: 'harm', input: n.text });
 				out.governance = {
 					passed: !g.flagged,
 					risk: g.risk,
 					label: g.label,
-					verdict: g.verdict,
+					probability: g.probability,
 					confidence: g.confidence ?? null,
+					model: g.model,
 				};
 			} catch (gErr) {
 				out.governance = { passed: null, error: String(gErr.message || gErr) };

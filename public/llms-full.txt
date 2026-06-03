@@ -67,6 +67,12 @@ URL: https://three.ws/characters
 
 Discover AI characters on three.ws. Chat, trade, and create.
 
+### three.ws on IBM watsonx
+
+URL: https://three.ws/ibm
+
+three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
+
 ## Build
 
 Create and customize an agent.
@@ -247,6 +253,12 @@ Grind a vanity smart-contract address using the ThreeWSFactory CREATE2 deployer 
 URL: https://three.ws/pump-visualizer
 
 3D visualizer of trending pump.fun tokens — live market data rendered as an interactive scene.
+
+### watsonx Constellation
+
+URL: https://three.ws/constellation
+
+Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.
 
 ### x402 Bazaar
 
