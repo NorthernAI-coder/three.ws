@@ -477,23 +477,10 @@
 			}
 
 			/* ── Site header (glass overlay) ───────────────────────────── */
-			.walk-site-header {
-				position: fixed;
-				top: 0;
-				left: 0;
-				right: 0;
-				z-index: 10;
-				display: flex;
-				align-items: center;
-				padding: 0 24px;
-				height: 52px;
-				background: rgba(10, 10, 10, 0.55);
-				backdrop-filter: blur(16px);
-				-webkit-backdrop-filter: blur(16px);
-				border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-			}
-			.walk-site-header h1 { margin: 0; font-size: inherit; font-weight: inherit; line-height: inherit; }
-			.walk-site-header a { color: var(--text); text-decoration: none; }
+			/* The header is the shared site nav (public/nav.html + nav.css),
+			   which styles and positions itself. This wrapper only carries the
+			   class so zen mode can hide it (see body.is-zen rules below). */
+			.walk-site-header { display: block; }
 
 			/* ── Loading overlay ───────────────────────────────────────── */
 			.walk-loading {
@@ -999,14 +986,7 @@
 		<link rel="stylesheet" href="/nav.css" />
 	</head>
 	<body>
-		<header class="walk-site-header" id="walk-header">
-			<h1 class="site-header-brand">
-				<a href="/" aria-label="three.ws home">
-					<img class="wordmark-logo" src="/three.svg" alt="" aria-hidden="true" /><span class="wordmark-dot" aria-hidden="true"></span>three.ws
-				</a>
-			</h1>
-			<div id="nav-container"></div>
-		</header>
+		<header class="walk-site-header" id="walk-header"><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
 
 		<!-- Loading overlay -->
