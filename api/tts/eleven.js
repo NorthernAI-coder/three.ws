@@ -23,7 +23,12 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { cors, method, wrap, error, readJson } from '../_lib/http.js';
 import { sha256 } from '../_lib/crypto.js';
 import { headObject, getObjectBuffer, putObject } from '../_lib/r2.js';
-import { ELEVEN_BASE, DEFAULT_TTS_MODEL, elevenApiKey } from '../_lib/elevenlabs.js';
+import {
+	ELEVEN_BASE,
+	DEFAULT_TTS_MODEL,
+	elevenApiKey,
+	normalizeVoiceSettings,
+} from '../_lib/elevenlabs.js';
 
 const CHARS_PER_HOUR = 1000;
 
@@ -72,18 +77,11 @@ export default wrap(async (req, res) => {
 
 	// Honor the canonical ElevenLabs `voice_settings` object the client sends
 	// (the ElevenLabsTTS client maps `rate` → `style` and forwards it here);
-	// fall back to ElevenLabs' recommended defaults. Clamped to 0..1 and folded
-	// into the cache key so distinct settings never collide on a shared clip.
-	const clamp01 = (v, fallback) => {
-		const n = Number(v);
-		return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : fallback;
-	};
-	const vs =
-		body.voice_settings && typeof body.voice_settings === 'object' ? body.voice_settings : {};
-	const stability = clamp01(vs.stability, 0.5);
-	const similarityBoost = clamp01(vs.similarity_boost, 0.75);
-	const style = clamp01(vs.style, 0.5);
-	const useSpeakerBoost = vs.use_speaker_boost !== undefined ? !!vs.use_speaker_boost : true;
+	// fall back to ElevenLabs' recommended defaults. Folded into the cache key so
+	// distinct settings never collide on a shared clip.
+	const settings = normalizeVoiceSettings(
+		body.voice_settings && typeof body.voice_settings === 'object' ? body.voice_settings : {},
+	);
 
 	// ── Char-based rate limit ─────────────────────────────────────────────────
 	// rKey is lifted to function scope so a failed synthesis can refund the
@@ -123,7 +121,7 @@ export default wrap(async (req, res) => {
 
 	// ── R2 cache lookup ───────────────────────────────────────────────────────
 	const cacheHash = await sha256(
-		`${voiceId}\x00${text}\x00${modelId}\x00${stability}\x00${similarityBoost}\x00${style}\x00${useSpeakerBoost}`,
+		`${voiceId}\x00${text}\x00${modelId}\x00${settings.stability}\x00${settings.similarity_boost}\x00${settings.style}\x00${settings.use_speaker_boost}`,
 	);
 	const cacheKey = `tts/cache/${cacheHash}.mp3`;
 
@@ -156,12 +154,7 @@ export default wrap(async (req, res) => {
 				body: JSON.stringify({
 					text,
 					model_id: modelId,
-					voice_settings: {
-						stability,
-						similarity_boost: similarityBoost,
-						style,
-						use_speaker_boost: useSpeakerBoost,
-					},
+					voice_settings: settings,
 				}),
 			},
 		);

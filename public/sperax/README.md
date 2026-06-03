@@ -85,12 +85,15 @@ The manifest is hosted and ready. To list it on `plugin.delivery`:
 
 ## Local testing
 
-Run the dev server and drive the iframe with the protocol harness — it posts the
-exact `speraxos:` / `lobe-chat:` messages a real host sends:
+Drive the iframe with the protocol harness in `chat-plugin/dev/sperax.html` — it
+posts the exact `speraxos:` / `lobe-chat:` messages a real host sends. Run the dev
+server for the iframe, and a static server for the harness (it lives outside
+`public/`, so Vite won't serve it):
 
 ```bash
-npm run dev   # http://localhost:3000
-open "http://localhost:3000/chat-plugin/dev/sperax.html?origin=http://localhost:3000&agent=<agentId>"
+npm run dev                  # http://localhost:3000  (iframe + /api)
+python3 -m http.server 8080  # serves the harness
+open "http://localhost:8080/chat-plugin/dev/sperax.html?origin=http://localhost:3000&agent=<agentId>"
 ```
 
 ---

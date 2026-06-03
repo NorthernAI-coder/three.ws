@@ -10,10 +10,28 @@ import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
 import { limits } from '../../_lib/rate-limit.js';
-import { isConfigured, listVoices, createClonedVoice, deleteVoice } from '../../_lib/elevenlabs.js';
+import {
+	isConfigured,
+	listVoices,
+	createClonedVoice,
+	deleteVoice,
+	isValidModel,
+	normalizeVoiceSettings,
+} from '../../_lib/elevenlabs.js';
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
 const MIN_DURATION_SEC = 30;
+
+// Canonical voice-status response shape, shared by GET and the PUT branches.
+function voiceStatus(row) {
+	return {
+		voice_provider: row?.voice_provider || 'browser',
+		voice_id: row?.voice_id || null,
+		voice_cloned_at: row?.voice_cloned_at || null,
+		voice_model: row?.voice_model || null,
+		voice_settings: row?.voice_settings || null,
+	};
+}
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -57,24 +75,22 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 
 	if (req.method === 'GET') {
 		const [row] =
-			await sql`SELECT voice_provider, voice_id, voice_cloned_at FROM agent_identities WHERE id = ${id}`;
-		return json(res, 200, {
-			voice_provider: row.voice_provider || 'browser',
-			voice_id: row.voice_id || null,
-			voice_cloned_at: row.voice_cloned_at || null,
-		});
+			await sql`SELECT voice_provider, voice_id, voice_cloned_at, voice_model, voice_settings FROM agent_identities WHERE id = ${id}`;
+		return json(res, 200, voiceStatus(row));
 	}
 
-	// ── PUT — assign a voice from the ElevenLabs library ────────────────────
+	// ── PUT — assign a voice and/or tune its settings ───────────────────────
 	//
-	// Body: { voice_id: string | null }
-	//   - null/empty: equivalent to DELETE (clear selection, free clone slot)
-	//   - non-null:   must be a voice_id present in /v1/voices for this account
+	// Body (every field optional; only keys that are present are applied):
+	//   voice_id:       string | null  — library voice id (null/'' clears to browser)
+	//   voice_model:    string | null  — synthesis model id (null = platform default)
+	//   voice_settings: object | null  — { stability, similarity_boost, style,
+	//                                       use_speaker_boost }; null = defaults
 	//
-	// If the agent currently holds a *cloned* voice and the new pick is
-	// different, the old clone is freed in ElevenLabs to recover the quota
-	// slot. voice_cloned_at is cleared (the new pick is a library voice,
-	// not a clone owned by this user).
+	// A settings/model-only PUT (no voice_id key) updates just those columns and
+	// leaves voice_id / voice_cloned_at untouched, so tuning a cloned voice never
+	// drops the clone marker. Assigning a new voice_id over an existing *clone*
+	// frees the old clone in ElevenLabs to recover the quota slot.
 
 	if (req.method === 'PUT') {
 		if (!isConfigured())
@@ -92,57 +108,85 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 			return error(res, 400, 'validation_error', 'invalid JSON body');
 		}
 
-		const nextVoiceId = body?.voice_id == null ? null : String(body.voice_id).trim() || null;
+		const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+		const hasVoiceId = has('voice_id');
+		const hasModel = has('voice_model');
+		const hasSettings = has('voice_settings');
+		if (!hasVoiceId && !hasModel && !hasSettings)
+			return error(res, 400, 'validation_error', 'nothing to update');
+
+		// Validate model + settings up front.
+		let model;
+		if (hasModel) {
+			model = body.voice_model == null ? null : String(body.voice_model);
+			if (model !== null && !isValidModel(model))
+				return error(res, 400, 'validation_error', 'unsupported voice_model');
+		}
+		let settings;
+		if (hasSettings) {
+			try {
+				settings = normalizeVoiceSettings(body.voice_settings);
+			} catch (e) {
+				return error(res, 400, 'validation_error', e.message);
+			}
+		}
 
 		const [current] =
-			await sql`SELECT voice_id, voice_cloned_at FROM agent_identities WHERE id = ${id}`;
-		const wasCloned = !!current?.voice_cloned_at;
-		const oldVoiceId = current?.voice_id || null;
+			await sql`SELECT voice_id, voice_cloned_at, voice_model, voice_settings FROM agent_identities WHERE id = ${id}`;
 
-		// Validate library membership for non-null picks.
-		if (nextVoiceId) {
-			let voices;
-			try {
-				({ voices } = await listVoices());
-			} catch (err) {
-				console.error('[voice/put] listVoices failed', err);
-				return error(res, 502, 'upstream_error', 'voice library is unavailable');
+		// Carry forward whatever wasn't explicitly provided.
+		const finalModel = hasModel ? model : (current?.voice_model ?? null);
+		const finalSettings = hasSettings ? settings : (current?.voice_settings ?? null);
+		const settingsParam = finalSettings == null ? null : JSON.stringify(finalSettings);
+
+		if (hasVoiceId) {
+			const nextVoiceId = body.voice_id == null ? null : String(body.voice_id).trim() || null;
+			const wasCloned = !!current?.voice_cloned_at;
+			const oldVoiceId = current?.voice_id || null;
+
+			if (nextVoiceId) {
+				let voices;
+				try {
+					({ voices } = await listVoices());
+				} catch (err) {
+					console.error('[voice/put] listVoices failed', err);
+					return error(res, 502, 'upstream_error', 'voice library is unavailable');
+				}
+				if (!voices.some((v) => v.voice_id === nextVoiceId))
+					return error(res, 400, 'validation_error', 'voice_id is not in the available library');
+
+				if (wasCloned && oldVoiceId && oldVoiceId !== nextVoiceId) deleteVoice(oldVoiceId);
+
+				const [row] = await sql`
+					UPDATE agent_identities
+					SET voice_provider = 'elevenlabs', voice_id = ${nextVoiceId}, voice_cloned_at = NULL,
+					    voice_model = ${finalModel}, voice_settings = ${settingsParam}::jsonb
+					WHERE id = ${id}
+					RETURNING voice_provider, voice_id, voice_cloned_at, voice_model, voice_settings
+				`;
+				return json(res, 200, voiceStatus(row));
 			}
-			if (!voices.some((v) => v.voice_id === nextVoiceId)) {
-				return error(
-					res,
-					400,
-					'validation_error',
-					'voice_id is not in the available library',
-				);
-			}
-		}
 
-		// Free the prior cloned voice on ElevenLabs (best-effort) only when
-		// we're actually replacing a clone with something else.
-		if (wasCloned && oldVoiceId && oldVoiceId !== nextVoiceId) {
-			deleteVoice(oldVoiceId);
-		}
-
-		if (nextVoiceId) {
-			await sql`
+			// Clear to browser — resets every voice column.
+			if (wasCloned && oldVoiceId) deleteVoice(oldVoiceId);
+			const [row] = await sql`
 				UPDATE agent_identities
-				SET voice_provider = 'elevenlabs', voice_id = ${nextVoiceId}, voice_cloned_at = NULL
+				SET voice_provider = 'browser', voice_id = NULL, voice_cloned_at = NULL,
+				    voice_model = NULL, voice_settings = NULL
 				WHERE id = ${id}
+				RETURNING voice_provider, voice_id, voice_cloned_at, voice_model, voice_settings
 			`;
-			return json(res, 200, {
-				voice_provider: 'elevenlabs',
-				voice_id: nextVoiceId,
-				voice_cloned_at: null,
-			});
+			return json(res, 200, voiceStatus(row));
 		}
 
-		await sql`
+		// Settings/model-only update — leave the voice assignment untouched.
+		const [row] = await sql`
 			UPDATE agent_identities
-			SET voice_provider = 'browser', voice_id = NULL, voice_cloned_at = NULL
+			SET voice_model = ${finalModel}, voice_settings = ${settingsParam}::jsonb
 			WHERE id = ${id}
+			RETURNING voice_provider, voice_id, voice_cloned_at, voice_model, voice_settings
 		`;
-		return json(res, 200, { voice_provider: 'browser', voice_id: null, voice_cloned_at: null });
+		return json(res, 200, voiceStatus(row));
 	}
 
 	// ── DELETE — remove cloned voice ─────────────────────────────────────────

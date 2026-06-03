@@ -17,6 +17,9 @@ vi.mock('@elevenlabs/elevenlabs-js', () => ({
 
 import {
 	DEFAULT_TTS_MODEL,
+	TTS_MODELS,
+	isValidModel,
+	normalizeVoiceSettings,
 	elevenApiKey,
 	isConfigured,
 	listVoices,
@@ -53,6 +56,61 @@ describe('config gate', () => {
 
 	it('defaults to the low-latency flash model', () => {
 		expect(DEFAULT_TTS_MODEL).toBe('eleven_flash_v2_5');
+	});
+});
+
+describe('isValidModel / TTS_MODELS', () => {
+	it('accepts catalog models and rejects everything else', () => {
+		expect(isValidModel('eleven_flash_v2_5')).toBe(true);
+		expect(isValidModel('eleven_turbo_v2_5')).toBe(true);
+		expect(isValidModel('gpt-4o-tts')).toBe(false);
+		expect(isValidModel(null)).toBe(false);
+		expect(isValidModel(undefined)).toBe(false);
+	});
+
+	it('exposes the default model in the catalog', () => {
+		expect(TTS_MODELS.some((m) => m.id === DEFAULT_TTS_MODEL)).toBe(true);
+		for (const m of TTS_MODELS) expect(m).toMatchObject({ id: expect.any(String), label: expect.any(String) });
+	});
+});
+
+describe('normalizeVoiceSettings', () => {
+	it('returns null for null input (use defaults)', () => {
+		expect(normalizeVoiceSettings(null)).toBeNull();
+		expect(normalizeVoiceSettings(undefined)).toBeNull();
+	});
+
+	it('fills recommended defaults for an empty object', () => {
+		expect(normalizeVoiceSettings({})).toEqual({
+			stability: 0.5,
+			similarity_boost: 0.75,
+			style: 0.5,
+			use_speaker_boost: true,
+		});
+	});
+
+	it('clamps numeric fields to 0..1 and falls back on non-numbers', () => {
+		expect(normalizeVoiceSettings({ stability: 2, similarity_boost: -1, style: 'nope' })).toEqual({
+			stability: 1,
+			similarity_boost: 0,
+			style: 0.5,
+			use_speaker_boost: true,
+		});
+	});
+
+	it('coerces use_speaker_boost to a boolean', () => {
+		expect(normalizeVoiceSettings({ use_speaker_boost: false }).use_speaker_boost).toBe(false);
+		expect(normalizeVoiceSettings({ use_speaker_boost: 0 }).use_speaker_boost).toBe(false);
+	});
+
+	it('rejects non-object input with a 400', () => {
+		expect(() => normalizeVoiceSettings('x')).toThrowError(/must be an object/);
+		expect(() => normalizeVoiceSettings([])).toThrow();
+		try {
+			normalizeVoiceSettings(5);
+		} catch (e) {
+			expect(e.status).toBe(400);
+		}
 	});
 });
 

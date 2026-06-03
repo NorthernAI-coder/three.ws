@@ -109,6 +109,19 @@ export async function resolveByAgentId(agentId, signal) {
 	return resolved;
 }
 
+// Map a stored ElevenLabs voice_settings object (snake_case, as persisted by
+// PUT /api/agents/:id/voice) to the camelCase options ElevenLabsTTS accepts.
+// Omits absent fields so the TTS client falls back to its own defaults.
+function voiceSettingsToConfig(vs) {
+	if (!vs || typeof vs !== 'object') return {};
+	const out = {};
+	if (vs.stability != null) out.stability = vs.stability;
+	if (vs.similarity_boost != null) out.similarityBoost = vs.similarity_boost;
+	if (vs.style != null) out.style = vs.style;
+	if (vs.use_speaker_boost != null) out.useSpeakerBoost = vs.use_speaker_boost;
+	return out;
+}
+
 export async function resolveAgentById(
 	agentId,
 	{ origin = typeof location !== 'undefined' ? location.origin : '', fetchFn = fetch } = {},
@@ -159,6 +172,8 @@ export async function resolveAgentById(
 							provider: 'elevenlabs',
 							voiceId: agent.voice_id,
 							proxyURL: `${origin}/api/tts/eleven`,
+							...(agent.voice_model ? { modelId: agent.voice_model } : {}),
+							...voiceSettingsToConfig(agent.voice_settings),
 						}
 					: { provider: 'browser' },
 			stt: { provider: 'browser' },

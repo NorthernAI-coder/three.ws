@@ -132,12 +132,19 @@ Two harnesses live in `chat-plugin/dev/`:
   one to use when verifying the SperaxOS / LobeChat integration.
 - **`index.html`** — drives the lower-level v1 bridge directly.
 
-```bash
-# From repo root, run the dev server (serves /lobehub/iframe/ + /api proxy):
-npm run dev   # http://localhost:3000
+The harness files live outside `public/` (so they never ship), which means the Vite
+dev server can't serve them — run a plain static server for the harness and point its
+iframe at the dev server:
 
-# Open the protocol harness against it:
-open http://localhost:3000/chat-plugin/dev/sperax.html?origin=http://localhost:3000&agent=<your-agent-id>
+```bash
+# Terminal 1 — the dev server (serves /lobehub/iframe/, /src/lib.js, /api proxy):
+npm run dev            # http://localhost:3000
+
+# Terminal 2 — a static server for the harness:
+python3 -m http.server 8080
+
+# Open the protocol harness; ?origin points the iframe at the dev server:
+open "http://localhost:8080/chat-plugin/dev/sperax.html?origin=http://localhost:3000&agent=<your-agent-id>"
 ```
 
 Click **Load iframe**, wait for the green **plugin-ready ✓** dot, then **Inject

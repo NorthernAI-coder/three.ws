@@ -15,6 +15,41 @@ export const ELEVEN_BASE = 'https://api.elevenlabs.io/v1';
 // still override per request with `modelId`.
 export const DEFAULT_TTS_MODEL = 'eleven_flash_v2_5';
 
+// Selectable synthesis models surfaced in the voice editor. Keep ids in sync
+// with ElevenLabs' model catalog; the agent voice API validates against this.
+export const TTS_MODELS = [
+	{ id: 'eleven_flash_v2_5', label: 'Flash v2.5', note: 'Lowest latency · real-time' },
+	{ id: 'eleven_turbo_v2_5', label: 'Turbo v2.5', note: 'Balanced latency & quality' },
+	{ id: 'eleven_multilingual_v2', label: 'Multilingual v2', note: 'Highest quality · 29 languages' },
+];
+const TTS_MODEL_IDS = new Set(TTS_MODELS.map((m) => m.id));
+
+export function isValidModel(id) {
+	return typeof id === 'string' && TTS_MODEL_IDS.has(id);
+}
+
+/**
+ * Normalize a client-supplied voice_settings object to the canonical ElevenLabs
+ * shape with every numeric field clamped to 0..1.
+ * @returns the normalized object, or null for null input ("use defaults").
+ * @throws  {Error & { status:400 }} for a non-object, non-null input.
+ */
+export function normalizeVoiceSettings(input) {
+	if (input == null) return null;
+	if (typeof input !== 'object' || Array.isArray(input))
+		throw upstreamError('voice_settings must be an object', 400);
+	const clamp01 = (v, d) => {
+		const n = Number(v);
+		return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : d;
+	};
+	return {
+		stability: clamp01(input.stability, 0.5),
+		similarity_boost: clamp01(input.similarity_boost, 0.75),
+		style: clamp01(input.style, 0.5),
+		use_speaker_boost: input.use_speaker_boost !== undefined ? !!input.use_speaker_boost : true,
+	};
+}
+
 export function elevenApiKey() {
 	return env.ELEVENLABS_API_KEY || null;
 }

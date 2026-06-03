@@ -495,9 +495,11 @@ function decorate(row, isOwner = true) {
 		is_owner: !!isOwner,
 		created_at: row.created_at,
 	};
-	// Voice clone fields are public (voice_id is needed by the runtime to select TTS).
+	// Voice fields are public (the runtime reads them to configure TTS).
 	base.voice_provider = row.voice_provider || 'browser';
 	base.voice_id = row.voice_id || null;
+	base.voice_model = row.voice_model || null;
+	base.voice_settings = row.voice_settings || null;
 
 	if (isOwner) {
 		base.wallet_address = row.wallet_address;

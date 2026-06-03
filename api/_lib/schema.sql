@@ -403,6 +403,8 @@ alter table agent_identities add column if not exists embed_policy     jsonb;
 alter table agent_identities add column if not exists voice_provider   text default 'browser';
 alter table agent_identities add column if not exists voice_id         text;
 alter table agent_identities add column if not exists voice_cloned_at  timestamptz;
+alter table agent_identities add column if not exists voice_model      text;
+alter table agent_identities add column if not exists voice_settings   jsonb;
 alter table agent_identities add column if not exists farcaster_fid        integer;
 alter table agent_identities add column if not exists farcaster_fname      text;
 alter table agent_identities add column if not exists farcaster_seeded_at  timestamptz;

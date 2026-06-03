@@ -857,6 +857,12 @@
 			.voice-tile-meta { font-size: 0.618rem; color: rgba(255, 255, 255, 0.4); }
 			.voice-tile-play { background: transparent; border: 0; color: rgba(255, 255, 255, 0.6); font-size: 1rem; cursor: pointer; padding: 0 0.25rem; }
 			.voice-tile-play:hover { color: #fff; }
+			.voice-tune-grid { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 0.85rem; align-items: center; margin-bottom: 0.85rem; }
+			.voice-tune-grid .form-label { margin: 0; display: flex; justify-content: space-between; gap: 0.5rem; }
+			.voice-tune-grid input[type="range"] { width: 100%; accent-color: #3b82f6; cursor: pointer; }
+			.voice-range-val { font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.55); font-weight: 400; }
+			.voice-check { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: rgba(255, 255, 255, 0.75); cursor: pointer; }
+			.voice-check input { accent-color: #3b82f6; }
 
 			/* Memories */
 			.mem-list { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -1243,6 +1249,40 @@
 					<label class="form-label">Pick an ElevenLabs voice</label>
 					<input class="form-input" id="voice-filter" type="search" placeholder="Filter voices by name…" />
 					<div id="voice-list" class="voice-list"><div class="muted">Loading voices…</div></div>
+				</div>
+
+				<div class="form-group" id="voice-tune" hidden>
+					<label class="form-label">Fine-tune delivery</label>
+					<p class="hint">Applied whenever this agent speaks with its ElevenLabs voice.</p>
+
+					<div class="voice-tune-grid">
+						<label class="form-label" for="voice-model">Model</label>
+						<select class="form-input" id="voice-model"></select>
+
+						<label class="form-label" for="voice-stability">Stability
+							<span class="voice-range-val" id="voice-stability-val">0.50</span></label>
+						<input type="range" id="voice-stability" min="0" max="1" step="0.05" value="0.5" />
+
+						<label class="form-label" for="voice-similarity">Similarity
+							<span class="voice-range-val" id="voice-similarity-val">0.75</span></label>
+						<input type="range" id="voice-similarity" min="0" max="1" step="0.05" value="0.75" />
+
+						<label class="form-label" for="voice-style">Style
+							<span class="voice-range-val" id="voice-style-val">0.50</span></label>
+						<input type="range" id="voice-style" min="0" max="1" step="0.05" value="0.5" />
+
+						<label class="voice-check" for="voice-speaker-boost">
+							<input type="checkbox" id="voice-speaker-boost" checked /> Speaker boost
+						</label>
+					</div>
+
+					<div class="form-actions">
+						<input class="form-input" id="voice-test-text" type="text" maxlength="200"
+							placeholder="Type a line to test…" value="Hi! This is how I sound." style="max-width:280px" />
+						<button class="btn-ghost" id="voice-test-btn">Test voice</button>
+						<button class="btn-primary" id="voice-save-settings-btn">Save settings</button>
+						<span class="form-status" id="voice-settings-status" role="status" aria-live="polite"></span>
+					</div>
 				</div>
 
 				<div class="form-group">

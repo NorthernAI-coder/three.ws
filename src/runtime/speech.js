@@ -182,6 +182,7 @@ export class ElevenLabsTTS {
 		lang = 'en-US',
 		stability = 0.5,
 		similarityBoost = 0.75,
+		style = null,
 		useSpeakerBoost = true,
 	} = {}) {
 		if (!voiceId) throw new Error('ElevenLabsTTS requires voiceId');
@@ -194,6 +195,8 @@ export class ElevenLabsTTS {
 		this.lang = lang;
 		this.stability = stability;
 		this.similarityBoost = similarityBoost;
+		// Explicit style override (0..1). When null, style is derived from `rate`.
+		this.style = style;
 		this.useSpeakerBoost = useSpeakerBoost;
 
 		this._speaking = false;
@@ -237,9 +240,12 @@ export class ElevenLabsTTS {
 		// apiKey is only sent when there's no proxy. Proxies must keep keys server-side.
 		if (!this.proxyURL && this.apiKey) headers['xi-api-key'] = this.apiKey;
 
-		// Map rate (0.5..1.5) → style (0..1). Clamped to keep delivery natural.
+		// Explicit style wins; otherwise map rate (0.5..1.5) → style (0..1).
 		const rateNorm = Math.min(1.5, Math.max(0.5, this.rate));
-		const styleVal = Math.min(1, Math.max(0, (rateNorm - 0.5) / 1.0));
+		const styleVal =
+			this.style != null
+				? Math.min(1, Math.max(0, Number(this.style)))
+				: Math.min(1, Math.max(0, (rateNorm - 0.5) / 1.0));
 
 		const body = JSON.stringify({
 			text,
