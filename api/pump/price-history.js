@@ -7,8 +7,7 @@
 
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-
-const BIRDEYE_API_KEY = process.env.BIRDEYE_API_KEY;
+import { fetchBirdeyeOhlcv, birdeyeConfigured } from '../_lib/birdeye.js';
 
 const VALID_INTERVALS = new Set([
 	'1m',
@@ -76,7 +75,7 @@ export default wrap(async (req, res) => {
 	// Cap the window at 30 days to keep upstream payloads bounded.
 	if (to - from > 30 * 86400) from = to - 30 * 86400;
 
-	if (!BIRDEYE_API_KEY) {
+	if (!birdeyeConfigured()) {
 		return error(res, 503, 'not_configured', 'On-chain data provider is not configured');
 	}
 
@@ -92,50 +91,13 @@ export default wrap(async (req, res) => {
 		);
 	}
 
-	const url =
-		`https://public-api.birdeye.so/defi/ohlcv` +
-		`?address=${encodeURIComponent(mint)}&type=${interval}&time_from=${from}&time_to=${to}`;
-
-	let upstream;
+	let data;
 	try {
-		upstream = await fetch(url, {
-			headers: {
-				'X-API-KEY': BIRDEYE_API_KEY,
-				'x-chain': 'solana',
-				accept: 'application/json',
-			},
-			signal: AbortSignal.timeout(10_000),
-		});
+		data = await fetchBirdeyeOhlcv({ mint, interval, from, to });
 	} catch (e) {
-		return error(res, 502, 'bad_gateway', `Birdeye unreachable: ${e.message}`);
+		const code = e.status === 503 ? 'not_configured' : 'upstream_error';
+		return error(res, e.status || 502, code, e.message);
 	}
-
-	if (!upstream.ok) {
-		const body = await upstream.text().catch(() => '');
-		return error(
-			res,
-			502,
-			'upstream_error',
-			`Birdeye ${upstream.status}: ${body.slice(0, 200)}`,
-		);
-	}
-
-	const payload = await upstream.json().catch(() => null);
-	const items = payload?.data?.items;
-	if (!Array.isArray(items)) {
-		return error(res, 502, 'upstream_error', 'Birdeye returned an unexpected payload');
-	}
-
-	const data = items
-		.map((it) => ({
-			t: Number(it.unixTime),
-			o: Number(it.o),
-			h: Number(it.h),
-			l: Number(it.l),
-			c: Number(it.c),
-			v: Number(it.v ?? 0),
-		}))
-		.filter((d) => Number.isFinite(d.t) && Number.isFinite(d.c));
 
 	_cache.set(key, { value: data, expiresAt: now + TTL_MS });
 	if (_cache.size > 128) _cache.delete(_cache.keys().next().value);

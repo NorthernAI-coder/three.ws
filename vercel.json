@@ -592,6 +592,14 @@
 			"dest": "/coin3d.html"
 		},
 		{
+			"src": "/constellation",
+			"dest": "/constellation.html"
+		},
+		{
+			"src": "/constellation/",
+			"dest": "/constellation.html"
+		},
+		{
 			"src": "/p/([a-z0-9-]+)/?",
 			"dest": "/p/index.html"
 		},

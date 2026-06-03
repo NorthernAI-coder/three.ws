@@ -30,6 +30,7 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
 import { orchestrateConfig } from './_lib/orchestrate.js';
+import { guardianConfig, governSend, sendCapUsd } from './_lib/granite-guardian.js';
 import { z } from 'zod';
 
 // Providers anonymous (unauthenticated) callers may use. Groq and OpenRouter

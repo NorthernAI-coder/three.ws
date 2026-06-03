@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+	<title>watsonx Constellation — live tokens in IBM Granite embedding space · three.ws</title>
+	<meta name="description" content="A live 3D galaxy of trending Solana tokens, positioned by IBM Granite embeddings on watsonx.ai. Click any star for a live Granite analysis. 3D + AI + crypto, all real." />
+	<link rel="canonical" href="https://three.ws/constellation" />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="watsonx Constellation — live tokens in IBM Granite embedding space" />
+	<meta property="og:description" content="Trending Solana tokens laid out in 3D semantic space by IBM Granite embeddings. Click a star for a live Granite analysis." />
+	<meta property="og:url" content="https://three.ws/constellation" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="watsonx Constellation · three.ws × IBM" />
+	<meta name="twitter:description" content="Live Solana tokens in 3D IBM Granite embedding space. Click a star for a Granite analysis." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+	<link rel="icon" href="/favicon.ico" />
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #04040a; --text: #eaeaf6; --muted: #8a93b2; --border: rgba(255,255,255,.10);
+			--panel: rgba(12,14,26,.72); --ibm: #0f62fe; --ibm-light: #78a9ff; --good: #42d392; --warn: #f7b955;
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		html, body { height: 100%; }
+		body { background: var(--bg); color: var(--text); font: 15px/1.55 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+		#c-scene { position: fixed; inset: 0; display: block; }
+		canvas { display: block; }
+
+		.c-hud { position: fixed; top: 22px; left: 22px; max-width: min(420px, 76vw); z-index: 5; pointer-events: none; }
+		.c-badge { display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; text-decoration: none; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px 6px 10px; font-size: 12px; color: var(--muted); margin-bottom: 16px; transition: border-color .15s, color .15s; }
+		.c-badge:hover { border-color: rgba(120,169,255,.5); color: var(--text); }
+		.c-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 10px var(--ibm); }
+		.c-badge strong { color: var(--text); font-weight: 600; }
+		.c-hud h1 { font-size: clamp(22px, 3.4vw, 30px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+		.c-hud h1 .g { background: linear-gradient(110deg, var(--ibm-light) 20%, var(--ibm) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+		.c-hud p { color: var(--muted); font-size: 13.5px; margin-top: 8px; }
+		.c-status { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; pointer-events: auto; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: var(--text); }
+		.c-status .s-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; transition: background .3s; }
+		.c-status.live .s-dot { background: var(--good); box-shadow: 0 0 10px var(--good); }
+		.c-status.off .s-dot { background: var(--warn); }
+		.c-status.err .s-dot { background: #ff6b6b; }
+		.c-status code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--ibm-light); }
+
+		.c-hint { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 5; color: var(--muted); font-size: 12.5px; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; white-space: nowrap; transition: opacity .4s; }
+		@media (max-width: 640px) { .c-hint { font-size: 11px; padding: 6px 12px; } }
+
+		.c-tooltip { position: fixed; z-index: 6; pointer-events: none; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 9px; padding: 6px 10px; font-size: 12.5px; opacity: 0; transition: opacity .12s; transform: translate(-50%, -130%); white-space: nowrap; }
+		.c-tooltip .sym { color: var(--ibm-light); font-weight: 700; }
+		.c-tooltip .nm { color: var(--muted); }
+
+		/* Detail + Granite analysis panel */
+		.c-panel { position: fixed; top: 0; right: 0; height: 100%; width: min(420px, 92vw); z-index: 8; background: rgba(8,9,18,.92); backdrop-filter: blur(16px); border-left: 1px solid var(--border); transform: translateX(102%); transition: transform .32s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column; }
+		.c-panel.open { transform: translateX(0); }
+		.c-panel-head { padding: 22px 22px 16px; border-bottom: 1px solid var(--border); }
+		.c-panel-top { display: flex; align-items: center; gap: 12px; }
+		.c-panel-logo { width: 46px; height: 46px; border-radius: 12px; object-fit: cover; background: #11131f; border: 1px solid var(--border); flex: none; }
+		.c-panel-title { flex: 1; min-width: 0; }
+		.c-panel-sym { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+		.c-panel-nm { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.c-close { pointer-events: auto; background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; width: 32px; height: 32px; font-size: 18px; line-height: 1; cursor: pointer; flex: none; transition: background .15s, color .15s; }
+		.c-close:hover { background: rgba(255,255,255,.1); color: var(--text); }
+		.c-stats { display: flex; gap: 18px; margin-top: 16px; flex-wrap: wrap; }
+		.c-stat .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+		.c-stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+		.c-links { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+		.c-links a { font-size: 12px; color: var(--ibm-light); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; transition: border-color .15s; }
+		.c-links a:hover { border-color: rgba(120,169,255,.5); }
+
+		.c-analysis-wrap { flex: 1; overflow-y: auto; padding: 20px 22px 28px; }
+		.c-analysis-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+		.c-analysis-head .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 9px var(--ibm); flex: none; }
+		.c-analysis-head strong { color: var(--text); font-weight: 600; }
+		.c-analysis { font-size: 14px; line-height: 1.7; color: #d6d9ec; white-space: pre-wrap; min-height: 40px; }
+		.c-analysis .cursor { display: inline-block; width: 7px; height: 15px; background: var(--ibm-light); vertical-align: text-bottom; animation: blink 1s steps(2) infinite; }
+		@keyframes blink { 50% { opacity: 0; } }
+		.c-meta { margin-top: 16px; font-size: 11px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+		.c-notice { font-size: 13px; line-height: 1.6; color: var(--warn); background: rgba(247,185,85,.07); border: 1px solid rgba(247,185,85,.25); border-radius: 10px; padding: 12px 14px; }
+		.c-notice a { color: var(--ibm-light); }
+		.c-disclaim { margin-top: 18px; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+
+		/* Center overlay (loading / fatal error) */
+		.c-overlay { position: fixed; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; text-align: center; padding: 24px; transition: opacity .5s; }
+		.c-overlay.hidden { opacity: 0; pointer-events: none; }
+		.c-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(120,169,255,.2); border-top-color: var(--ibm-light); animation: spin .8s linear infinite; }
+		@keyframes spin { to { transform: rotate(360deg); } }
+		.c-overlay .msg { color: var(--muted); font-size: 14px; max-width: 380px; }
+		.c-overlay .msg strong { color: var(--text); }
+	</style>
+</head>
+<body>
+	<canvas id="c-scene"></canvas>
+
+	<div class="c-hud">
+		<a class="c-badge" href="/ibm"><span class="dot"></span><strong>three.ws</strong> × IBM watsonx</a>
+		<h1>watsonx <span class="g">Constellation</span></h1>
+		<p>Live Solana tokens, positioned in 3D by IBM&nbsp;Granite embeddings on watsonx.ai. Nearby stars are semantically alike.</p>
+		<div class="c-status" id="c-status"><span class="s-dot"></span><span id="c-status-text">Starting…</span></div>
+	</div>
+
+	<div class="c-hint" id="c-hint">drag to orbit · scroll to zoom · click a star for a live Granite analysis</div>
+	<div class="c-tooltip" id="c-tooltip"><span class="sym" id="c-tip-sym"></span> <span class="nm" id="c-tip-nm"></span></div>
+
+	<aside class="c-panel" id="c-panel" aria-hidden="true">
+		<div class="c-panel-head">
+			<div class="c-panel-top">
+				<img class="c-panel-logo" id="c-panel-logo" alt="" />
+				<div class="c-panel-title">
+					<div class="c-panel-sym" id="c-panel-sym"></div>
+					<div class="c-panel-nm" id="c-panel-nm"></div>
+				</div>
+				<button class="c-close" id="c-close" aria-label="Close">×</button>
+			</div>
+			<div class="c-stats">
+				<div class="c-stat"><div class="k">Price</div><div class="v" id="c-panel-price">—</div></div>
+				<div class="c-stat"><div class="k">Trending rank</div><div class="v" id="c-panel-rank">—</div></div>
+				<div class="c-stat"><div class="k">Neighbors</div><div class="v" id="c-panel-neighbors">—</div></div>
+			</div>
+			<div class="c-links" id="c-panel-links"></div>
+		</div>
+		<div class="c-analysis-wrap">
+			<div class="c-analysis-head"><span class="dot"></span>Analysis by <strong>IBM Granite</strong>&nbsp;on watsonx.ai</div>
+			<div class="c-analysis" id="c-analysis"></div>
+			<div class="c-meta" id="c-analysis-meta"></div>
+			<p class="c-disclaim">Generated by an AI model from public token metadata. Informational only — not financial advice. Tokens shown are live pump.fun / Solana trending data and are not endorsements.</p>
+		</div>
+	</aside>
+
+	<div class="c-overlay" id="c-overlay">
+		<div class="c-spinner" id="c-spinner"></div>
+		<div class="msg" id="c-overlay-msg"><strong>Loading the constellation…</strong><br/>Fetching live trending tokens.</div>
+	</div>
+
+	<script type="module" src="/src/constellation/main.js"></script>
+</body>
+</html>

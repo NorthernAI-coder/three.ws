@@ -108,6 +108,17 @@ export const limits = {
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	// Generic public read endpoints (explore, showcase, public agent fetch). 60/min per IP.
 	publicIp: (ip) => getLimiter('public:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// IBM watsonx.ai Granite embeddings (api/watsonx/embed). Each call bills real
+	// watsonx inference against the server key, so keep the per-IP burst small and
+	// add a global hourly ceiling as a hard cost cap independent of any one client.
+	watsonxEmbedIp: (ip) => getLimiter('watsonx:embed:ip', { limit: 20, window: '1 m' }).limit(ip),
+	watsonxEmbedGlobal: () =>
+		getLimiter('watsonx:embed:global', { limit: 600, window: '1 h' }).limit('global'),
+	// IBM Granite Guardian governance (api/guardian/assess). Each request fans out
+	// to one Granite Guardian classifier pass per risk against the server watsonx
+	// key, so cap the per-IP burst and keep a global hourly ceiling as a cost cap.
+	guardianIp: (ip) => getLimiter('guardian:ip', { limit: 30, window: '1 m' }).limit(ip),
+	guardianGlobal: () => getLimiter('guardian:global', { limit: 1200, window: '1 h' }).limit('global'),
 	// Skills marketplace browse — isolated bucket so traffic on other public endpoints
 	// can't starve the skills list. 60/min per IP.
 	skillsBrowse: (ip) => getLimiter('skills:browse', { limit: 60, window: '1 m' }).limit(ip),
@@ -169,6 +180,9 @@ export const limits = {
 	memorySeed: (agentId) => getLimiter('memory:seed', { limit: 1, window: '1 d' }).limit(agentId),
 	// Edge TTS: free upstream but cached in R2 — limit unique synthesis requests per user/min.
 	ttsEdge: (userId) => getLimiter('tts:edge', { limit: 20, window: '1 m' }).limit(userId),
+	// Granite Oracle forecast: each call hits Birdeye + two paid watsonx inferences
+	// (Granite TS forecast + Granite LLM commentary), so cap per IP.
+	forecastIp: (ip) => getLimiter('forecast:ip', { limit: 15, window: '1 m' }).limit(ip),
 	// X (Twitter) memory seeding: 1 seed per agent per 6 hours.
 	xSeed: (agentId) => getLimiter('memory:seed:x', { limit: 1, window: '6 h' }).limit(agentId),
 	// Withdrawal requests: 5 per user per day to prevent spam.

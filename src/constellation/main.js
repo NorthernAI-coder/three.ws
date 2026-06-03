@@ -1,0 +1,547 @@
+// watsonx Constellation — a live 3D galaxy of trending Solana tokens, positioned
+// in semantic space by IBM Granite embeddings on watsonx.ai.
+//
+// Pipeline (all real, no mock data):
+//   1. GET /api/pump/trending          → live pump.fun / Solana trending tokens
+//   2. POST /api/watsonx/embed         → IBM Granite embedding vector per token
+//   3. PCA (classical MDS, in-browser) → project 768-d vectors down to 3 axes
+//   4. three.js                        → render tokens as glowing stars; nearby
+//                                        stars are semantically alike
+//   5. click a star → POST /api/brain/chat (provider: ibm-granite) streams a
+//      live IBM Granite analysis of that token into the side panel.
+//
+// Tokens render immediately in a deterministic layout from real data; when the
+// Granite embeddings arrive the stars animate into their semantic positions. If
+// watsonx is not configured the page says so plainly and keeps the rank layout —
+// it never fabricates vectors or an analysis.
+
+import {
+	Scene, PerspectiveCamera, WebGLRenderer, Color, Group,
+	SphereGeometry, MeshBasicMaterial, Mesh,
+	Sprite, SpriteMaterial, CanvasTexture, AdditiveBlending,
+	BufferGeometry, BufferAttribute, Points, PointsMaterial,
+	Raycaster, Vector2, Vector3, MathUtils,
+} from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---- DOM ------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const canvas = $('c-scene');
+const statusEl = $('c-status');
+const statusText = $('c-status-text');
+const tooltip = $('c-tooltip');
+const tipSym = $('c-tip-sym');
+const tipNm = $('c-tip-nm');
+const hint = $('c-hint');
+const overlay = $('c-overlay');
+const overlayMsg = $('c-overlay-msg');
+const spinner = $('c-spinner');
+const panel = $('c-panel');
+
+const EMBED_MODEL_HINT = 'ibm/granite-embedding-278m-multilingual';
+const RADIUS = 28; // target galaxy radius for the semantic / rank layouts
+
+// ---- three.js setup -------------------------------------------------------
+const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new Scene();
+scene.background = new Color(0x04040a);
+
+const camera = new PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
+camera.position.set(0, 6, 74);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.rotateSpeed = 0.6;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.32;
+controls.minDistance = 18;
+controls.maxDistance = 260;
+
+const nodesGroup = new Group();
+scene.add(nodesGroup);
+
+// ---- shared textures ------------------------------------------------------
+// Soft radial gradient used as an additive glow sprite behind each star.
+function makeGlowTexture() {
+	const s = 128;
+	const cv = document.createElement('canvas');
+	cv.width = cv.height = s;
+	const ctx = cv.getContext('2d');
+	const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+	g.addColorStop(0, 'rgba(255,255,255,1)');
+	g.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+	g.addColorStop(0.55, 'rgba(255,255,255,0.16)');
+	g.addColorStop(1, 'rgba(255,255,255,0)');
+	ctx.fillStyle = g;
+	ctx.fillRect(0, 0, s, s);
+	return new CanvasTexture(cv);
+}
+const glowTex = makeGlowTexture();
+
+// ---- backdrop starfield ---------------------------------------------------
+function addStarfield() {
+	const COUNT = 1800;
+	const pos = new Float32Array(COUNT * 3);
+	for (let i = 0; i < COUNT; i++) {
+		// Uniform on a large shell so the galaxy floats inside a star sphere.
+		const r = 150 + Math.random() * 120;
+		const theta = Math.acos(2 * Math.random() - 1);
+		const phi = Math.random() * Math.PI * 2;
+		pos[i * 3] = r * Math.sin(theta) * Math.cos(phi);
+		pos[i * 3 + 1] = r * Math.cos(theta);
+		pos[i * 3 + 2] = r * Math.sin(theta) * Math.sin(phi);
+	}
+	const geom = new BufferGeometry();
+	geom.setAttribute('position', new BufferAttribute(pos, 3));
+	const mat = new PointsMaterial({ size: 0.7, color: 0x6b78b5, transparent: true, opacity: 0.7, depthWrite: false });
+	scene.add(new Points(geom, mat));
+}
+addStarfield();
+
+// ---- token nodes ----------------------------------------------------------
+const sphereGeo = new SphereGeometry(1, 20, 20);
+/** @type {{token:object, mesh:Mesh, glow:Sprite, baseColor:Color, baseScale:number, target:Vector3}[]} */
+let nodes = [];
+const raycaster = new Raycaster();
+const pointer = new Vector2();
+
+// Deterministic point on a Fibonacci sphere — the honest "by rank" layout shown
+// before (or instead of) the Granite embedding layout.
+function fibonacciPoint(i, n, radius) {
+	const golden = Math.PI * (3 - Math.sqrt(5));
+	const y = 1 - (i / Math.max(1, n - 1)) * 2;
+	const r = Math.sqrt(Math.max(0, 1 - y * y));
+	const theta = golden * i;
+	return new Vector3(Math.cos(theta) * r * radius, y * radius, Math.sin(theta) * r * radius);
+}
+
+function buildNodes(tokens) {
+	for (const n of nodes) { nodesGroup.remove(n.mesh); nodesGroup.remove(n.glow); }
+	nodes = [];
+	const N = tokens.length;
+	tokens.forEach((token, i) => {
+		const rank = Number.isFinite(token.rank) ? token.rank : i + 1;
+		// Size by trending rank: #1 is the brightest, largest star.
+		const baseScale = MathUtils.lerp(1.7, 0.55, (rank - 1) / Math.max(1, N - 1));
+		// Pre-embedding hue: a cohesive blue→violet ramp down the ranking.
+		const hue = MathUtils.lerp(205, 280, (rank - 1) / Math.max(1, N - 1)) / 360;
+		const baseColor = new Color().setHSL(hue, 0.7, 0.6);
+
+		const mesh = new Mesh(sphereGeo, new MeshBasicMaterial({ color: baseColor.clone() }));
+		mesh.scale.setScalar(baseScale);
+		const p = fibonacciPoint(i, N, RADIUS);
+		mesh.position.copy(p);
+		mesh.userData.index = i;
+
+		const glow = new Sprite(new SpriteMaterial({
+			map: glowTex, color: baseColor.clone(), transparent: true,
+			blending: AdditiveBlending, depthWrite: false, opacity: 0.5,
+		}));
+		glow.scale.setScalar(baseScale * 6);
+		glow.position.copy(p);
+
+		nodesGroup.add(glow);
+		nodesGroup.add(mesh);
+		nodes.push({ token, mesh, glow, baseColor, baseScale, target: p.clone() });
+	});
+}
+
+// ---- PCA: classical MDS via the Gram matrix (no external deps) ------------
+// For N tokens of dimension D (N << D), the principal coordinates are the top
+// eigenvectors of the N×N Gram matrix scaled by sqrt(eigenvalue) — far cheaper
+// and more stable than eigendecomposing the D×D covariance.
+function pca3(vectors) {
+	const n = vectors.length;
+	const d = vectors[0].length;
+	const mean = new Float64Array(d);
+	for (const v of vectors) for (let j = 0; j < d; j++) mean[j] += v[j];
+	for (let j = 0; j < d; j++) mean[j] /= n;
+	const X = vectors.map((v) => {
+		const r = new Float64Array(d);
+		for (let j = 0; j < d; j++) r[j] = v[j] - mean[j];
+		return r;
+	});
+	// Gram matrix G = X Xᵀ (symmetric, N×N).
+	const G = Array.from({ length: n }, () => new Float64Array(n));
+	for (let i = 0; i < n; i++) {
+		for (let k = i; k < n; k++) {
+			let s = 0;
+			const xi = X[i], xk = X[k];
+			for (let j = 0; j < d; j++) s += xi[j] * xk[j];
+			G[i][k] = s; G[k][i] = s;
+		}
+	}
+	const M = G.map((row) => Float64Array.from(row));
+	const coords = Array.from({ length: n }, () => [0, 0, 0]);
+	const matVec = (A, v) => {
+		const w = new Float64Array(n);
+		for (let i = 0; i < n; i++) { let s = 0; const row = A[i]; for (let k = 0; k < n; k++) s += row[k] * v[k]; w[i] = s; }
+		return w;
+	};
+	const norm = (v) => Math.sqrt(v.reduce((a, x) => a + x * x, 0));
+	for (let c = 0; c < 3; c++) {
+		// Deterministic, non-degenerate seed so the layout is stable across loads.
+		let v = new Float64Array(n);
+		for (let i = 0; i < n; i++) v[i] = Math.sin(i * (c + 1) * 0.7 + 1) + 0.13;
+		let nv = norm(v); for (let i = 0; i < n; i++) v[i] /= nv;
+		let lambda = 0;
+		for (let it = 0; it < 128; it++) {
+			const w = matVec(M, v);
+			const wn = norm(w);
+			if (wn < 1e-9) break;
+			for (let i = 0; i < n; i++) w[i] /= wn;
+			let dot = 0; for (let i = 0; i < n; i++) dot += w[i] * v[i];
+			lambda = wn; v = w;
+			if (Math.abs(Math.abs(dot) - 1) < 1e-8) break;
+		}
+		const scale = Math.sqrt(Math.max(lambda, 0));
+		for (let i = 0; i < n; i++) coords[i][c] = v[i] * scale;
+		// Deflate so the next iteration finds the next principal axis.
+		for (let i = 0; i < n; i++) for (let k = 0; k < n; k++) M[i][k] -= lambda * v[i] * v[k];
+	}
+	return coords;
+}
+
+// Rescale raw PCA coordinates to fill the galaxy radius nicely.
+function normalizeCoords(coords) {
+	let max = 1e-9;
+	for (const c of coords) for (const x of c) max = Math.max(max, Math.abs(x));
+	const k = RADIUS / max;
+	return coords.map((c) => new Vector3(c[0] * k, c[1] * k, c[2] * k));
+}
+
+let vectorsByIndex = null; // number[][] aligned with nodes, for neighbor lookups
+
+function applySemanticLayout(vectors) {
+	vectorsByIndex = vectors;
+	const positions = normalizeCoords(pca3(vectors));
+	// Recolor by spatial angle so emergent clusters read as distinct hues, and
+	// retarget each star to its semantic coordinate (the render loop tweens it).
+	nodes.forEach((node, i) => {
+		const p = positions[i];
+		node.target.copy(p);
+		const angle = (Math.atan2(p.z, p.x) + Math.PI) / (Math.PI * 2); // 0..1
+		const hue = MathUtils.lerp(190, 285, angle) / 360;
+		const col = new Color().setHSL(hue, 0.72, 0.62);
+		node.baseColor = col;
+		node.mesh.material.color.copy(col);
+		node.glow.material.color.copy(col);
+	});
+}
+
+// cosine-similarity nearest neighbors for a node (used in the detail panel).
+function nearestNeighbors(idx, k = 3) {
+	if (!vectorsByIndex) return [];
+	const a = vectorsByIndex[idx];
+	if (!a) return [];
+	const dot = (x, y) => { let s = 0; for (let j = 0; j < x.length; j++) s += x[j] * y[j]; return s; };
+	const na = Math.sqrt(dot(a, a)) || 1;
+	const sims = [];
+	for (let j = 0; j < vectorsByIndex.length; j++) {
+		if (j === idx || !vectorsByIndex[j]) continue;
+		const b = vectorsByIndex[j];
+		const nb = Math.sqrt(dot(b, b)) || 1;
+		sims.push({ j, sim: dot(a, b) / (na * nb) });
+	}
+	sims.sort((x, y) => y.sim - x.sim);
+	return sims.slice(0, k).map((s) => ({ token: nodes[s.j].token, sim: s.sim }));
+}
+
+// ---- status helpers -------------------------------------------------------
+function setStatus(kind, text) {
+	statusEl.classList.remove('live', 'off', 'err');
+	if (kind) statusEl.classList.add(kind);
+	statusText.innerHTML = text;
+}
+function hideOverlay() { overlay.classList.add('hidden'); }
+function fatalOverlay(html) {
+	spinner.style.display = 'none';
+	overlayMsg.innerHTML = html;
+	overlay.classList.remove('hidden');
+}
+
+// ---- data: live tokens ----------------------------------------------------
+async function fetchTokens(limit = 64) {
+	const res = await fetch(`/api/pump/trending?limit=${limit}`, { headers: { accept: 'application/json' } });
+	if (!res.ok) throw new Error(`trending feed returned ${res.status}`);
+	const json = await res.json();
+	const rows = Array.isArray(json.data) ? json.data : [];
+	return rows
+		.filter((t) => t && t.symbol && t.name && t.mint)
+		.map((t, i) => ({
+			mint: t.mint,
+			symbol: String(t.symbol).slice(0, 16),
+			name: String(t.name).slice(0, 80),
+			logo: t.logo || '',
+			price_usd: Number(t.price_usd) || 0,
+			rank: Number.isFinite(t.rank) ? t.rank : i + 1,
+		}));
+}
+
+// ---- data: Granite embeddings --------------------------------------------
+async function embedTokens(tokens) {
+	const texts = tokens.map((t) => `${t.name} (${t.symbol})`);
+	const res = await fetch('/api/watsonx/embed', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ texts }),
+	});
+	if (!res.ok) {
+		let code = `http_${res.status}`;
+		try { code = (await res.json()).error || code; } catch { /* non-JSON */ }
+		const err = new Error(code);
+		err.code = code;
+		err.status = res.status;
+		throw err;
+	}
+	return res.json(); // { model, dimensions, vectors }
+}
+
+// ---- interaction: hover + click ------------------------------------------
+let hovered = null;
+let selectedIndex = -1;
+
+function updatePointer(e) {
+	pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+	pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+}
+function pickNode() {
+	raycaster.setFromCamera(pointer, camera);
+	const hits = raycaster.intersectObjects(nodes.map((n) => n.mesh), false);
+	return hits.length ? nodes[hits[0].object.userData.index] : null;
+}
+
+renderer.domElement.addEventListener('pointermove', (e) => {
+	updatePointer(e);
+	const node = pickNode();
+	if (node !== hovered) {
+		if (hovered) { hovered.glow.scale.setScalar(hovered.baseScale * 6); }
+		hovered = node;
+		renderer.domElement.style.cursor = node ? 'pointer' : 'grab';
+		if (node) {
+			node.glow.scale.setScalar(node.baseScale * 9);
+			tipSym.textContent = node.token.symbol;
+			tipNm.textContent = node.token.name;
+			tooltip.style.left = `${e.clientX}px`;
+			tooltip.style.top = `${e.clientY}px`;
+			tooltip.style.opacity = '1';
+		} else {
+			tooltip.style.opacity = '0';
+		}
+	} else if (node) {
+		tooltip.style.left = `${e.clientX}px`;
+		tooltip.style.top = `${e.clientY}px`;
+	}
+});
+
+// Distinguish a click from an orbit-drag.
+let downAt = 0; let downXY = [0, 0];
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = performance.now(); downXY = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+	const moved = Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]);
+	if (moved < 6 && performance.now() - downAt < 450) {
+		updatePointer(e);
+		const node = pickNode();
+		if (node) selectNode(node.mesh.userData.index);
+	}
+});
+
+// ---- detail panel + Granite analysis stream -------------------------------
+let analysisAbort = null;
+
+function selectNode(index) {
+	selectedIndex = index;
+	const { token } = nodes[index];
+	hint.style.opacity = '0';
+
+	$('c-panel-sym').textContent = token.symbol;
+	$('c-panel-nm').textContent = token.name;
+	const logo = $('c-panel-logo');
+	if (token.logo) { logo.src = token.logo; logo.style.display = ''; } else { logo.style.display = 'none'; }
+	$('c-panel-price').textContent = token.price_usd ? formatPrice(token.price_usd) : '—';
+	$('c-panel-rank').textContent = `#${token.rank}`;
+
+	const neigh = nearestNeighbors(index, 3);
+	$('c-panel-neighbors').textContent = neigh.length ? neigh.map((x) => x.token.symbol).join(', ') : '—';
+
+	const links = $('c-panel-links');
+	links.innerHTML = '';
+	links.appendChild(extLink(`https://pump.fun/coin/${token.mint}`, 'pump.fun ↗'));
+	links.appendChild(extLink(`https://solscan.io/token/${token.mint}`, 'Solscan ↗'));
+
+	panel.classList.add('open');
+	panel.setAttribute('aria-hidden', 'false');
+
+	runGraniteAnalysis(token, neigh);
+}
+
+function extLink(href, label) {
+	const a = document.createElement('a');
+	a.href = href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = label;
+	return a;
+}
+
+function formatPrice(p) {
+	if (p >= 1) return `$${p.toFixed(3)}`;
+	if (p >= 0.0001) return `$${p.toFixed(6)}`;
+	return `$${p.toExponential(2)}`;
+}
+
+function closePanel() {
+	panel.classList.remove('open');
+	panel.setAttribute('aria-hidden', 'true');
+	if (analysisAbort) { analysisAbort.abort(); analysisAbort = null; }
+}
+$('c-close').addEventListener('click', closePanel);
+
+async function runGraniteAnalysis(token, neighbors) {
+	const out = $('c-analysis');
+	const meta = $('c-analysis-meta');
+	out.innerHTML = '<span class="cursor"></span>';
+	meta.textContent = '';
+	if (analysisAbort) analysisAbort.abort();
+	analysisAbort = new AbortController();
+
+	const neighborLine = neighbors.length
+		? ` Its closest neighbors in Granite embedding space are ${neighbors.map((n) => `${n.token.name} (${n.token.symbol})`).join(', ')}.`
+		: '';
+	const system = 'You are a concise, neutral crypto market analyst. You never give financial advice or price predictions. You explain what a token\'s name and ticker suggest, the typical risks of similar Solana meme/utility tokens, and concrete things a careful trader should verify (liquidity, holder concentration, mint authority, socials).';
+	const userMsg = `Briefly analyze the Solana token "${token.name}" (ticker ${token.symbol}), currently trending at rank #${token.rank}.${neighborLine} In ~110 words: what the name/ticker signals about its theme, the main risks, and 3 things to check before touching it. End with one line: "Not financial advice."`;
+
+	let firstToken = false;
+	let text = '';
+	try {
+		const res = await fetch('/api/brain/chat', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				provider: 'ibm-granite',
+				system,
+				messages: [{ role: 'user', content: userMsg }],
+				maxTokens: 400,
+			}),
+			signal: analysisAbort.signal,
+		});
+
+		if (!res.ok || !(res.headers.get('content-type') || '').includes('text/event-stream')) {
+			let code = `http_${res.status}`;
+			try { code = (await res.json()).error || code; } catch { /* ignore */ }
+			out.innerHTML = graniteUnavailableNotice(code);
+			return;
+		}
+
+		const reader = res.body.getReader();
+		const decoder = new TextDecoder();
+		let buf = '';
+		let usage = null;
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			buf += decoder.decode(value, { stream: true });
+			const blocks = buf.split('\n\n');
+			buf = blocks.pop();
+			for (const block of blocks) {
+				let evt = 'message'; let data = '';
+				for (const line of block.split('\n')) {
+					if (line.startsWith('event:')) evt = line.slice(6).trim();
+					else if (line.startsWith('data:')) data += line.slice(5).trim();
+				}
+				if (!data) continue;
+				if (evt === 'error') { out.innerHTML = `<div class="c-notice">IBM Granite returned an error: ${escapeHtml(safeMsg(data))}</div>`; return; }
+				if (evt === 'done') { try { usage = JSON.parse(data).usage; } catch { /* ignore */ } continue; }
+				if (evt === 'meta' || evt === 'first') continue;
+				if (data === '[DONE]') continue;
+				// default event = streamed text chunk (JSON-encoded string)
+				try { text += JSON.parse(data); } catch { text += data; }
+				if (!firstToken) { firstToken = true; }
+				out.textContent = text;
+				out.insertAdjacentHTML('beforeend', '<span class="cursor"></span>');
+			}
+		}
+		out.textContent = text || 'No response.';
+		if (usage?.totalTokens) meta.textContent = `IBM Granite 3.8B · watsonx.ai · ${usage.totalTokens} tokens`;
+		else meta.textContent = 'IBM Granite 3.8B · watsonx.ai';
+	} catch (e) {
+		if (e.name === 'AbortError') return;
+		out.innerHTML = `<div class="c-notice">Could not reach the analysis service: ${escapeHtml(e.message)}</div>`;
+	}
+}
+
+function graniteUnavailableNotice(code) {
+	if (code === 'provider_not_configured') {
+		return '<div class="c-notice">IBM Granite isn\'t enabled on this deployment yet — set <code>WATSONX_API_KEY</code> to turn on live analysis. See the <a href="/ibm">IBM partnership page</a>.</div>';
+	}
+	if (code === 'rate_limited') {
+		return '<div class="c-notice">Rate limit reached — wait a moment and click again.</div>';
+	}
+	return `<div class="c-notice">Analysis unavailable (${escapeHtml(code)}).</div>`;
+}
+function safeMsg(data) { try { return JSON.parse(data).message || data; } catch { return data; } }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ---- render loop ----------------------------------------------------------
+function animate() {
+	requestAnimationFrame(animate);
+	// Tween each star toward its target position (rank → semantic morph).
+	for (const node of nodes) {
+		node.mesh.position.lerp(node.target, 0.06);
+		node.glow.position.copy(node.mesh.position);
+	}
+	controls.update();
+	renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(window.innerWidth, window.innerHeight);
+});
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+// ---- orchestration --------------------------------------------------------
+async function init() {
+	let tokens;
+	try {
+		setStatus('off', 'Fetching live tokens…');
+		tokens = await fetchTokens(64);
+	} catch (e) {
+		fatalOverlay(`<strong>Couldn't load live tokens.</strong><br/>${escapeHtml(e.message)}`);
+		return;
+	}
+	if (!tokens.length) {
+		fatalOverlay('<strong>No trending tokens right now.</strong><br/>The live feed returned an empty set — try again shortly.');
+		return;
+	}
+
+	buildNodes(tokens);
+	hideOverlay();
+	setStatus('off', `${tokens.length} live tokens · embedding with IBM&nbsp;Granite…`);
+
+	try {
+		const { vectors, model, dimensions } = await embedTokens(tokens);
+		const usable = vectors.filter((v) => Array.isArray(v) && v.length).length;
+		if (usable < 3) throw Object.assign(new Error('too few vectors'), { code: 'insufficient_vectors' });
+		// Replace any missing vector with a zero vector of the right dim so PCA
+		// stays aligned; such tokens simply land near the origin.
+		const dim = vectors.find((v) => v?.length)?.length || dimensions || 0;
+		const filled = vectors.map((v) => (v?.length ? v : new Array(dim).fill(0)));
+		applySemanticLayout(filled);
+		setStatus('live', `Embedded by IBM&nbsp;Granite · <code>${escapeHtml(model || EMBED_MODEL_HINT)}</code> · ${dimensions || dim}d`);
+	} catch (e) {
+		// Honest degraded state — real tokens stay, laid out by trending rank.
+		if (e.code === 'watsonx_unconfigured') {
+			setStatus('off', 'IBM watsonx not configured — showing tokens by trending rank. <a href="/ibm" style="color:var(--ibm-light)">Enable →</a>');
+		} else if (e.status === 404) {
+			setStatus('off', 'Granite embeddings endpoint not deployed yet — showing tokens by trending rank.');
+		} else {
+			setStatus('err', `Granite embeddings unavailable (${escapeHtml(e.code || e.message)}) — showing tokens by rank.`);
+		}
+	}
+}
+
+init();

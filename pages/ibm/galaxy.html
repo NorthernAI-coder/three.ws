@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+	<title>Agent Galaxy — Semantic 3D agent discovery on IBM Granite · three.ws</title>
+	<meta name="description" content="Every three.ws agent embedded with IBM Granite on watsonx.ai, projected into an explorable 3D constellation. Similar agents cluster together; search in natural language and fly to what you mean." />
+	<link rel="canonical" href="https://three.ws/ibm/galaxy" />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Agent Galaxy — Semantic 3D discovery on IBM Granite" />
+	<meta property="og:description" content="A living 3D constellation of AI agents, positioned by IBM Granite embeddings on watsonx.ai. Search by meaning, not keywords." />
+	<meta property="og:url" content="https://three.ws/ibm/galaxy" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Agent Galaxy — Semantic 3D discovery on IBM Granite" />
+	<meta name="twitter:description" content="A 3D constellation of AI agents positioned by IBM Granite embeddings on watsonx.ai." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+	<link rel="icon" href="/favicon.ico" />
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg: #05070d; --panel: rgba(18,22,32,0.82); --panel-solid:#11151f;
+			--border: rgba(255,255,255,0.10); --text:#e9edf6; --muted:#8b93a7;
+			--ibm:#0f62fe; --ibm-light:#78a9ff; --green:#42be65;
+			--shadow: 0 18px 50px rgba(0,0,0,0.55);
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		html, body { height: 100%; overflow: hidden; }
+		body {
+			font: 15px/1.6 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+			color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased;
+		}
+		a { color: inherit; }
+		#scene { position: fixed; inset: 0; display: block; touch-action: none; }
+
+		/* ── Top bar ─────────────────────────────────────────────── */
+		.topbar {
+			position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+			display: flex; align-items: center; justify-content: space-between; gap: 16px;
+			padding: 14px 20px;
+			background: linear-gradient(180deg, rgba(5,7,13,0.92) 0%, rgba(5,7,13,0) 100%);
+			pointer-events: none;
+		}
+		.topbar > * { pointer-events: auto; }
+		.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+		.brand a.home { display:inline-flex; align-items:center; gap:8px; text-decoration: none; color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+		.brand .sep { color: var(--muted); }
+		.badge {
+			display: inline-flex; align-items: center; gap: 8px;
+			background: var(--panel); border: 1px solid var(--border); border-radius: 99px;
+			padding: 6px 13px 6px 10px; font-size: 12px; color: var(--muted); backdrop-filter: blur(12px);
+			white-space: nowrap;
+		}
+		.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 10px var(--ibm); }
+		.badge strong { color: var(--text); font-weight: 500; }
+		.topbar .actions { display: flex; gap: 8px; }
+		.tb-btn {
+			display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+			background: var(--panel); border: 1px solid var(--border); color: var(--text);
+			border-radius: 10px; padding: 9px 13px; font-size: 13px; font-weight: 500;
+			backdrop-filter: blur(12px); transition: background .15s, border-color .15s, transform .1s;
+			text-decoration: none;
+		}
+		.tb-btn:hover { background: rgba(40,46,60,0.9); border-color: rgba(255,255,255,0.18); }
+		.tb-btn:active { transform: translateY(1px); }
+		.tb-btn svg { width: 15px; height: 15px; }
+
+		/* ── Search ──────────────────────────────────────────────── */
+		.search-wrap {
+			position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 25;
+			width: min(560px, calc(100vw - 32px)); pointer-events: auto;
+		}
+		.search-box {
+			display: flex; align-items: center; gap: 10px;
+			background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+			padding: 11px 14px; backdrop-filter: blur(16px); box-shadow: var(--shadow);
+			transition: border-color .15s, box-shadow .15s;
+		}
+		.search-box:focus-within { border-color: var(--ibm-light); box-shadow: 0 0 0 3px rgba(15,98,254,0.18), var(--shadow); }
+		.search-box svg.lead { width: 18px; height: 18px; color: var(--ibm-light); flex: none; }
+		.search-box input {
+			flex: 1; min-width: 0; background: none; border: 0; outline: none;
+			color: var(--text); font-size: 15px; font-family: inherit;
+		}
+		.search-box input::placeholder { color: var(--muted); }
+		.search-box .kbd { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; flex:none; }
+		.search-box .clear { display:none; cursor:pointer; color: var(--muted); background:none; border:0; padding:4px; border-radius:6px; flex:none; }
+		.search-box .clear:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+		.search-box.searching .spinner { display:inline-block; }
+		.spinner { display:none; width:16px; height:16px; border:2px solid rgba(120,169,255,0.3); border-top-color: var(--ibm-light); border-radius:50%; animation: spin .7s linear infinite; flex:none; }
+		@keyframes spin { to { transform: rotate(360deg); } }
+		.search-hint {
+			margin-top: 8px; display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
+			opacity: 0; transition: opacity .2s; pointer-events: none;
+		}
+		.search-wrap:hover .search-hint, .search-box:focus-within ~ .search-hint { opacity: 1; pointer-events: auto; }
+		.chip {
+			font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border);
+			border-radius: 99px; padding: 5px 11px; cursor: pointer; backdrop-filter: blur(12px); transition: color .15s, border-color .15s;
+		}
+		.chip:hover { color: var(--text); border-color: var(--ibm-light); }
+
+		/* ── Legend ──────────────────────────────────────────────── */
+		.legend {
+			position: fixed; left: 18px; bottom: 18px; z-index: 20;
+			background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+			padding: 14px 15px; backdrop-filter: blur(16px); box-shadow: var(--shadow);
+			max-width: 240px; max-height: 46vh; overflow-y: auto;
+		}
+		.legend h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin-bottom: 11px; font-weight: 600; }
+		.legend .row { display: flex; align-items: center; gap: 9px; padding: 5px 6px; border-radius: 8px; cursor: pointer; transition: background .12s; }
+		.legend .row:hover { background: rgba(255,255,255,0.05); }
+		.legend .row.muted { opacity: 0.38; }
+		.legend .swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; box-shadow: 0 0 8px currentColor; }
+		.legend .name { font-size: 13px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.legend .cnt { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+		.legend .foot { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+		/* ── Stats (bottom-right) ────────────────────────────────── */
+		.stats {
+			position: fixed; right: 18px; bottom: 18px; z-index: 20;
+			display: flex; gap: 18px; background: var(--panel); border: 1px solid var(--border);
+			border-radius: 12px; padding: 11px 16px; backdrop-filter: blur(16px); box-shadow: var(--shadow);
+		}
+		.stats .stat .v { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+		.stats .stat .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-top: 1px; }
+		.stats .stat .v .u { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+		/* ── Cluster labels in 3D space ──────────────────────────── */
+		.cluster-labels { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
+		.clabel {
+			position: absolute; transform: translate(-50%, -50%);
+			font-size: 12px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap;
+			padding: 3px 10px; border-radius: 99px; background: rgba(5,7,13,0.55); backdrop-filter: blur(6px);
+			border: 1px solid var(--border); text-shadow: 0 1px 6px rgba(0,0,0,0.7); transition: opacity .25s;
+		}
+
+		/* ── Hover tooltip ───────────────────────────────────────── */
+		.tooltip {
+			position: fixed; z-index: 28; pointer-events: none; opacity: 0; transform: translateY(4px);
+			transition: opacity .12s, transform .12s; max-width: 280px;
+			background: var(--panel-solid); border: 1px solid var(--border); border-radius: 11px;
+			padding: 10px 13px; box-shadow: var(--shadow);
+		}
+		.tooltip.show { opacity: 1; transform: translateY(0); }
+		.tooltip .tt-theme { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 3px; }
+		.tooltip .tt-name { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
+		.tooltip .tt-desc { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+		.tooltip .tt-match { font-size: 11px; color: var(--green); margin-top: 6px; font-weight: 600; }
+
+		/* ── Detail panel ────────────────────────────────────────── */
+		.panel {
+			position: fixed; top: 0; right: 0; bottom: 0; z-index: 35; width: min(380px, 100vw);
+			background: var(--panel-solid); border-left: 1px solid var(--border);
+			transform: translateX(100%); transition: transform .32s cubic-bezier(.22,.61,.36,1);
+			display: flex; flex-direction: column; box-shadow: -20px 0 60px rgba(0,0,0,0.5);
+		}
+		.panel.open { transform: translateX(0); }
+		.panel .p-head { position: relative; padding: 22px 22px 0; }
+		.panel .p-close { position: absolute; top: 16px; right: 16px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 32px; height: 32px; display: grid; place-items: center; transition: color .15s, background .15s; }
+		.panel .p-close:hover { color: var(--text); background: rgba(255,255,255,0.12); }
+		.panel .p-avatar { width: 72px; height: 72px; border-radius: 16px; object-fit: cover; background: #1a1f2c; border: 1px solid var(--border); margin-bottom: 14px; }
+		.panel .p-avatar.placeholder { display: grid; place-items: center; font-size: 30px; font-weight: 600; color: var(--ibm-light); }
+		.panel .p-theme { display:inline-flex; align-items:center; gap:7px; font-size: 12px; font-weight: 600; margin-bottom: 9px; }
+		.panel .p-theme .swatch { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
+		.panel .p-name { font-size: 22px; font-weight: 680; letter-spacing: -0.02em; line-height: 1.2; }
+		.panel .p-body { padding: 18px 22px 22px; overflow-y: auto; flex: 1; }
+		.panel .p-desc { font-size: 14px; color: #c7cdda; line-height: 1.6; }
+		.panel .p-section { margin-top: 22px; }
+		.panel .p-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+		.panel .neighbors .nb { display: flex; align-items: center; gap: 11px; padding: 8px; border-radius: 10px; cursor: pointer; transition: background .12s; }
+		.panel .neighbors .nb:hover { background: rgba(255,255,255,0.05); }
+		.panel .neighbors .nb-av { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; background:#1a1f2c; flex:none; display:grid; place-items:center; font-weight:600; color: var(--ibm-light); font-size: 14px; }
+		.panel .neighbors .nb-meta { min-width: 0; }
+		.panel .neighbors .nb-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.panel .neighbors .nb-sim { font-size: 11px; color: var(--muted); }
+		.panel .p-cta { display: block; margin-top: 22px; text-align: center; background: var(--ibm); color: #fff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px; border-radius: 11px; transition: filter .15s; }
+		.panel .p-cta:hover { filter: brightness(1.12); }
+
+		/* ── Search results panel ────────────────────────────────── */
+		.results {
+			position: fixed; top: 116px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 24;
+			width: min(560px, calc(100vw - 32px)); max-height: 42vh; overflow-y: auto;
+			background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+			backdrop-filter: blur(16px); box-shadow: var(--shadow); padding: 8px; opacity: 0; pointer-events: none;
+			transition: opacity .2s, transform .2s;
+		}
+		.results.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+		.results .r-head { display:flex; justify-content: space-between; align-items:center; padding: 6px 8px 8px; font-size: 12px; color: var(--muted); }
+		.results .r-head b { color: var(--text); }
+		.results .ritem { display: flex; align-items: center; gap: 11px; padding: 9px 8px; border-radius: 10px; cursor: pointer; transition: background .12s; }
+		.results .ritem:hover, .results .ritem.active { background: rgba(15,98,254,0.14); }
+		.results .ritem .r-av { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; background:#1a1f2c; flex:none; display:grid; place-items:center; font-weight:600; color: var(--ibm-light); font-size:13px; }
+		.results .ritem .r-name { font-size: 13px; font-weight: 600; flex:1; min-width:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.results .ritem .r-bar { width: 56px; height: 5px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; flex:none; }
+		.results .ritem .r-bar i { display:block; height:100%; background: linear-gradient(90deg, var(--ibm), var(--ibm-light)); }
+		.results .ritem .r-score { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; width: 34px; text-align: right; flex:none; }
+
+		/* ── Full-screen states ──────────────────────────────────── */
+		.overlay {
+			position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
+			background: radial-gradient(1200px 600px at 50% 30%, rgba(15,98,254,0.10), transparent 60%), var(--bg);
+			padding: 24px; text-align: center;
+		}
+		.overlay.show { display: flex; }
+		.overlay .inner { max-width: 460px; }
+		.overlay .o-orb { width: 56px; height: 56px; margin: 0 auto 22px; border-radius: 50%;
+			background: radial-gradient(circle at 35% 30%, var(--ibm-light), var(--ibm) 60%, #062a8a);
+			box-shadow: 0 0 40px rgba(15,98,254,0.55); animation: pulse 1.8s ease-in-out infinite; }
+		@keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.78; } }
+		.overlay h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 10px; }
+		.overlay p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+		.overlay .o-steps { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; max-width: 320px; margin-left:auto; margin-right:auto; }
+		.overlay .o-step { display: flex; align-items: center; gap: 11px; font-size: 13px; color: var(--muted); }
+		.overlay .o-step .s-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); flex:none; transition: all .3s; }
+		.overlay .o-step.active .s-dot { border-color: var(--ibm-light); box-shadow: 0 0 10px var(--ibm-light); }
+		.overlay .o-step.done .s-dot { background: var(--green); border-color: var(--green); }
+		.overlay .o-step.active { color: var(--text); }
+		.overlay .o-btn { display:inline-flex; align-items:center; gap:8px; margin-top: 22px; background: var(--ibm); color:#fff; text-decoration:none; font-weight:600; font-size:14px; padding: 12px 20px; border-radius: 11px; border:0; cursor:pointer; transition: filter .15s; }
+		.overlay .o-btn:hover { filter: brightness(1.12); }
+		.overlay .o-btn.sec { background: var(--panel-solid); border: 1px solid var(--border); }
+		.overlay .o-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+		.hud-hint {
+			position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 15;
+			font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border);
+			border-radius: 99px; padding: 7px 14px; backdrop-filter: blur(12px); opacity: 0; transition: opacity .4s;
+		}
+		.hud-hint.show { opacity: 1; }
+		.hud-hint b { color: var(--text); font-weight: 600; }
+
+		@media (max-width: 640px) {
+			.legend { max-width: 180px; bottom: 84px; }
+			.stats { bottom: 84px; gap: 12px; padding: 9px 12px; }
+			.stats .stat .v { font-size: 15px; }
+			.search-wrap { top: 60px; }
+			.hud-hint { display: none; }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.o-orb { animation: none; }
+		}
+	</style>
+</head>
+<body>
+	<canvas id="scene"></canvas>
+	<div class="cluster-labels" id="clusterLabels"></div>
+
+	<div class="topbar">
+		<div class="brand">
+			<a href="/ibm" class="home" title="Back to IBM partnership">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+				three.ws
+			</a>
+			<span class="sep">/</span>
+			<span class="badge"><span class="dot"></span><strong>Agent Galaxy</strong><span>·</span>IBM Granite</span>
+		</div>
+		<div class="actions">
+			<button class="tb-btn" id="resetView" title="Reset camera">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>
+				<span class="lbl">Reset</span>
+			</button>
+			<a class="tb-btn" href="/ibm" title="Learn about the IBM integration">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+				<span class="lbl">About</span>
+			</a>
+		</div>
+	</div>
+
+	<div class="search-wrap" id="searchWrap" style="display:none">
+		<div class="search-box" id="searchBox">
+			<svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+			<input id="searchInput" type="text" placeholder="Search agents by meaning — e.g. “a witty Solana trading assistant”" autocomplete="off" spellcheck="false" />
+			<span class="spinner"></span>
+			<button class="clear" id="searchClear" title="Clear" aria-label="Clear search">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+			</button>
+			<span class="kbd">/</span>
+		</div>
+		<div class="search-hint" id="searchHint"></div>
+	</div>
+
+	<div class="results" id="results"></div>
+
+	<div class="legend" id="legend" style="display:none">
+		<h3>Themes <span style="font-weight:400;text-transform:none;letter-spacing:0">· named by Granite</span></h3>
+		<div id="legendRows"></div>
+		<div class="foot" id="legendFoot"></div>
+	</div>
+
+	<div class="stats" id="stats" style="display:none"></div>
+
+	<div class="tooltip" id="tooltip"></div>
+
+	<aside class="panel" id="panel" aria-hidden="true">
+		<div class="p-head">
+			<button class="p-close" id="panelClose" aria-label="Close">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+			</button>
+			<div id="panelHead"></div>
+		</div>
+		<div class="p-body" id="panelBody"></div>
+	</aside>
+
+	<div class="hud-hint" id="hudHint"></div>
+
+	<!-- Loading -->
+	<div class="overlay show" id="loadingState">
+		<div class="inner">
+			<div class="o-orb"></div>
+			<h2>Mapping the Agent Galaxy</h2>
+			<p>Embedding every agent on <strong style="color:var(--ibm-light)">IBM Granite</strong> via watsonx.ai and projecting meaning into 3D space.</p>
+			<div class="o-steps" id="loadSteps">
+				<div class="o-step active" data-step="0"><span class="s-dot"></span> Gathering public agents</div>
+				<div class="o-step" data-step="1"><span class="s-dot"></span> Granite embeddings → vector space</div>
+				<div class="o-step" data-step="2"><span class="s-dot"></span> Projecting to 3D &amp; clustering themes</div>
+				<div class="o-step" data-step="3"><span class="s-dot"></span> Rendering constellation</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Empty -->
+	<div class="overlay" id="emptyState">
+		<div class="inner">
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#3a4253,#1a1f2c)"></div>
+			<h2 id="emptyTitle">No agents to map yet</h2>
+			<p id="emptyMsg">The galaxy lights up once public agents exist. Create one and it joins the constellation on the next rebuild.</p>
+			<div class="o-actions">
+				<a class="o-btn" href="/create">Create an agent</a>
+				<a class="o-btn sec" href="/discover">Browse agents</a>
+			</div>
+		</div>
+	</div>
+
+	<!-- watsonx unavailable -->
+	<div class="overlay" id="unavailableState">
+		<div class="inner">
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#3a4253,#1a1f2c)"></div>
+			<h2>IBM watsonx is not configured</h2>
+			<p id="unavailableMsg">This deployment has no watsonx.ai credentials, so Granite can't embed the agents. Configure <code>WATSONX_API_KEY</code> and <code>WATSONX_PROJECT_ID</code> to power the galaxy.</p>
+			<div class="o-actions">
+				<a class="o-btn" href="/ibm">About the IBM integration</a>
+			</div>
+		</div>
+	</div>
+
+	<!-- Error -->
+	<div class="overlay" id="errorState">
+		<div class="inner">
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#5a2330,#2c1a1f)"></div>
+			<h2>Couldn't load the galaxy</h2>
+			<p id="errorMsg">Something went wrong reaching the galaxy service.</p>
+			<div class="o-actions">
+				<button class="o-btn" id="retryBtn">Try again</button>
+				<a class="o-btn sec" href="/ibm">Back to IBM</a>
+			</div>
+		</div>
+	</div>
+
+	<script type="module" src="/src/ibm-galaxy.js"></script>
+	<script src="/brand.js" defer></script>
+</body>
+</html>

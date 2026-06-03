@@ -231,6 +231,7 @@ const appConfig = {
 				tutorial: resolve(__dirname, 'pages/tutorial.html'),
 				playground: resolve(__dirname, 'pages/playground.html'),
 				coin3d: resolve(__dirname, 'pages/coin3d.html'),
+				constellation: resolve(__dirname, 'pages/constellation.html'),
 				embed: resolve(__dirname, 'pages/embed.html'),
 				'embed-demo': resolve(__dirname, 'pages/embed-demo.html'),
 				widget: resolve(__dirname, 'pages/widget.html'),
@@ -350,6 +351,7 @@ const appConfig = {
 				'aws-marketplace-welcome': resolve(__dirname, 'pages/aws-marketplace/welcome.html'),
 				'aws':                     resolve(__dirname, 'pages/aws/index.html'),
 				'ibm':                     resolve(__dirname, 'pages/ibm/index.html'),
+				'ibm-galaxy':              resolve(__dirname, 'pages/ibm/galaxy.html'),
 				// dashboard-next prototype — sub-pages auto-discovered so the parallel
 				// agents that land new pages/dashboard-next/*.html files don't have to
 				// touch this config to register them as Rollup inputs.
@@ -558,6 +560,8 @@ const appConfig = {
 					'/aws/': resolve(root, 'pages/aws/index.html'),
 					'/ibm': resolve(root, 'pages/ibm/index.html'),
 					'/ibm/': resolve(root, 'pages/ibm/index.html'),
+					'/ibm/galaxy': resolve(root, 'pages/ibm/galaxy.html'),
+					'/ibm/galaxy/': resolve(root, 'pages/ibm/galaxy.html'),
 					'/voice': resolve(root, 'pages/voice.html'),
 					'/voice/': resolve(root, 'pages/voice.html'),
 					'/brain': resolve(root, 'pages/brain.html'),
