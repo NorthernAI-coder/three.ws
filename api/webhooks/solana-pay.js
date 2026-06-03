@@ -12,6 +12,7 @@
  * a unique secret, so the surface is narrow; we still gate to avoid spammy
  * DoS-via-confirm probes.
  */
+import { timingSafeEqual } from 'node:crypto';
 import { sql } from '../_lib/db.js';
 import { error, json, method, readJson, wrap } from '../_lib/http.js';
 import { confirmSkillPurchase } from '../_lib/purchase-confirm.js';
@@ -20,7 +21,11 @@ function authOk(req) {
 	const secret = process.env.WEBHOOK_SECRET;
 	if (!secret) return false;
 	const header = req.headers?.authorization || '';
-	return header === `Bearer ${secret}`;
+	// Constant-time compare so the static webhook secret can't be recovered via a
+	// timing side-channel (mirrors api/webhooks/replicate.js).
+	const expected = Buffer.from(`Bearer ${secret}`);
+	const provided = Buffer.from(header);
+	return expected.length === provided.length && timingSafeEqual(expected, provided);
 }
 
 export default wrap(async (req, res) => {

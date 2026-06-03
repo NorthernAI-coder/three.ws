@@ -17,7 +17,8 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { z } from 'zod';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'pump_snapshot';
 const TOOL_DESCRIPTION =
@@ -170,23 +171,20 @@ async function getHeliusHolderCount(mint) {
 	}
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		token: {
-			type: 'string',
-			description: 'Solana SPL or pump.fun mint pubkey (base58).',
-			minLength: 32,
-			maxLength: 64,
-		},
-	},
-	required: ['token'],
-	additionalProperties: false,
+// Single source of truth: Zod shape carries the base58 validity refinement AND
+// the length bounds/description; the JSON Schema is derived from it. (The
+// refine() predicate is the strict check; the min/max length bounds mirror the
+// previous hand-written JSON Schema so the bazaar still advertises them.)
+const inputZodShape = {
+	token: z
+		.string()
+		.min(32)
+		.max(64)
+		.refine((v) => isValidSolanaPubkey(v), 'must be a base58 Solana pubkey')
+		.describe('Solana SPL or pump.fun mint pubkey (base58).'),
 };
 
-const inputZodShape = {
-	token: z.string().refine((v) => isValidSolanaPubkey(v), 'must be a base58 Solana pubkey'),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildPumpSnapshotTool() {
 	const handler = await paid(
@@ -207,7 +205,7 @@ export async function buildPumpSnapshotTool() {
 		},
 		async ({ token }) => {
 			if (!isValidSolanaPubkey(token)) {
-				return { error: 'invalid_mint', token };
+				return toolError('invalid_mint', 'token must be a base58 Solana pubkey', { token });
 			}
 			const [price, ds, meta, holders, helius] = await Promise.all([
 				getJupiterPrice(token),

@@ -21,7 +21,8 @@
 import { JsonRpcProvider, Contract, isAddress, ZeroAddress } from 'ethers';
 import { z } from 'zod';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'agent_reputation';
 const TOOL_DESCRIPTION =
@@ -177,27 +178,19 @@ async function readRecentEvents(provider, agentId) {
 	};
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		address: {
-			type: 'string',
-			description:
-				'ERC-8004 agentId (uint), EVM wallet address (0x...), or CAIP-10 "eip155:<chainId>:<wallet>".',
-		},
-		chain: {
-			type: 'string',
-			description: 'Chain to query (default: base). Accepts name or numeric chainId. Overridden by CAIP-10 input.',
-		},
-	},
-	required: ['address'],
-	additionalProperties: false,
+// Single source of truth: Zod shape with descriptions; JSON Schema derived.
+const inputZodShape = {
+	address: z
+		.string()
+		.min(1)
+		.describe('ERC-8004 agentId (uint), EVM wallet address (0x...), or CAIP-10 "eip155:<chainId>:<wallet>".'),
+	chain: z
+		.string()
+		.describe('Chain to query (default: base). Accepts name or numeric chainId. Overridden by CAIP-10 input.')
+		.optional(),
 };
 
-const inputZodShape = {
-	address: z.string().min(1),
-	chain: z.string().optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildAgentReputationTool() {
 	const handler = await paid(
@@ -228,15 +221,18 @@ export async function buildAgentReputationTool() {
 			if (!agentId) {
 				agentId = await resolveAgentId(provider, walletResolved);
 				if (!agentId) {
-					return {
-						chain: parsed.chain.name,
-						chainId: parsed.chain.id,
-						input: address,
-						resolvedWallet: walletResolved,
-						error: 'no_agent_registered_for_wallet',
-						identityRegistry: IDENTITY_REGISTRY_MAINNET,
-						reputationRegistry: REPUTATION_REGISTRY_MAINNET,
-					};
+					return toolError(
+						'no_agent_registered_for_wallet',
+						`no ERC-8004 agent is registered for ${walletResolved} on ${parsed.chain.name}`,
+						{
+							chain: parsed.chain.name,
+							chainId: parsed.chain.id,
+							input: address,
+							resolvedWallet: walletResolved,
+							identityRegistry: IDENTITY_REGISTRY_MAINNET,
+							reputationRegistry: REPUTATION_REGISTRY_MAINNET,
+						},
+					);
 				}
 			}
 

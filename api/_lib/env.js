@@ -174,7 +174,21 @@ export const env = {
 	// internal notify webhook. Falls back to HOLDER_PASS_SECRET (already shared
 	// with the multiplayer process) so a single secret configures both gates.
 	get MULTIPLAYER_SHARED_SECRET() {
-		return opt('MULTIPLAYER_SHARED_SECRET') || opt('HOLDER_PASS_SECRET') || 'dev-insecure-multiplayer-secret';
+		const s = opt('MULTIPLAYER_SHARED_SECRET') || opt('HOLDER_PASS_SECRET');
+		if (s) return s;
+		// Fail closed in production exactly like holder-pass.js / token/quote.js:
+		// this secret is the HMAC key for world-service auth tokens, presence
+		// tickets, and the internal notify webhook signature. Returning a publicly
+		// known constant would let anyone forge a `{svc:'world'}` service token
+		// (bypassing world-store permissions), forge presence tickets for any
+		// userId, and forge the notify webhook signature. Refuse rather than do that.
+		if (opt('NODE_ENV') === 'production' || opt('VERCEL_ENV') === 'production') {
+			throw new Error(
+				'[multiplayer] MULTIPLAYER_SHARED_SECRET (or HOLDER_PASS_SECRET) is required in production — ' +
+					'refusing to sign world-service tokens and presence tickets with the dev secret.',
+			);
+		}
+		return 'dev-insecure-multiplayer-secret';
 	},
 	// Base URL of the multiplayer server's internal API, used to push live DMs /
 	// friend events to connected clients. Optional: when unset, delivery falls

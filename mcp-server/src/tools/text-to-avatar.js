@@ -26,7 +26,8 @@
 
 import { z } from 'zod';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'text_to_avatar';
 const TOOL_DESCRIPTION =
@@ -151,32 +152,20 @@ async function rehostIfRequested(glbUrl, { prompt, images }) {
 	}
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		prompt: {
-			type: 'string',
-			description: 'Natural-language description of the avatar to generate.',
-			maxLength: 1000,
-		},
-		images: {
-			type: 'array',
-			description: 'Optional reference image URLs. When provided, the model performs image-to-3D reconstruction.',
-			items: { type: 'string', format: 'uri' },
-			maxItems: 4,
-		},
-		seed: { type: 'integer', minimum: 0, maximum: 2147483647 },
-		texture: { type: 'boolean', description: 'Request PBR textures when supported (default true).' },
-	},
-	additionalProperties: false,
+// Single source of truth: Zod shape carries descriptions + bounds; JSON Schema
+// derived. (No required fields — the handler enforces "prompt OR images".)
+const inputZodShape = {
+	prompt: z.string().max(1000).describe('Natural-language description of the avatar to generate.').optional(),
+	images: z
+		.array(z.string().url())
+		.max(4)
+		.describe('Optional reference image URLs. When provided, the model performs image-to-3D reconstruction.')
+		.optional(),
+	seed: z.number().int().min(0).max(2147483647).optional(),
+	texture: z.boolean().describe('Request PBR textures when supported (default true).').optional(),
 };
 
-const inputZodShape = {
-	prompt: z.string().max(1000).optional(),
-	images: z.array(z.string().url()).max(4).optional(),
-	seed: z.number().int().min(0).max(2147483647).optional(),
-	texture: z.boolean().optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildTextToAvatarTool() {
 	const handler = await paid(
@@ -200,15 +189,13 @@ export async function buildTextToAvatarTool() {
 		async ({ prompt, images, seed, texture }) => {
 			const version = env('REPLICATE_TEXT_TO_AVATAR_MODEL');
 			if (!version) {
-				return {
-					ok: false,
-					error: 'not_configured',
-					message:
-						'REPLICATE_TEXT_TO_AVATAR_MODEL is not set on the MCP server. Pin a commercial-OK image/text-to-3D version (e.g. tencent/hunyuan-3d-3.1 latest).',
-				};
+				return toolError(
+					'not_configured',
+					'REPLICATE_TEXT_TO_AVATAR_MODEL is not set on the MCP server. Pin a commercial-OK image/text-to-3D version (e.g. tencent/hunyuan-3d-3.1 latest).',
+				);
 			}
 			if (!prompt && (!images || images.length === 0)) {
-				return { ok: false, error: 'invalid_input', message: 'Provide either prompt or images[].' };
+				return toolError('invalid_input', 'Provide either prompt or images[].');
 			}
 			const input = {
 				prompt: prompt || undefined,
@@ -224,7 +211,7 @@ export async function buildTextToAvatarTool() {
 			try {
 				submitted = await submitPrediction({ version, input });
 			} catch (err) {
-				return { ok: false, error: err.code || 'provider_error', message: err.message };
+				return toolError(err.code || 'provider_error', err.message);
 			}
 
 			const timeoutMs = Number(env('MCP_TEXT_TO_AVATAR_TIMEOUT_MS', '110000'));
@@ -233,48 +220,37 @@ export async function buildTextToAvatarTool() {
 			try {
 				finalState = await pollPrediction(submitted.id, { timeoutMs, intervalMs });
 			} catch (err) {
-				return {
-					ok: false,
-					error: err.code || 'provider_error',
-					message: err.message,
+				return toolError(err.code || 'provider_error', err.message, {
 					predictionId: submitted.id,
-				};
+				});
 			}
 
 			const durationMs = Date.now() - started;
 
 			if (finalState._timedOut) {
-				return {
-					ok: false,
-					error: 'timeout',
-					message: `prediction did not finish within ${timeoutMs}ms`,
+				return toolError('timeout', `prediction did not finish within ${timeoutMs}ms`, {
 					predictionId: submitted.id,
 					status: finalState.status,
 					resumeUrl: `${REPLICATE_BASE}/predictions/${submitted.id}`,
 					durationMs,
-				};
+				});
 			}
 
 			if (finalState.status === 'failed' || finalState.status === 'canceled') {
-				return {
-					ok: false,
-					error: 'prediction_failed',
-					message: finalState.error || `prediction ended with status ${finalState.status}`,
-					predictionId: submitted.id,
-					durationMs,
-				};
+				return toolError(
+					'prediction_failed',
+					finalState.error || `prediction ended with status ${finalState.status}`,
+					{ predictionId: submitted.id, durationMs },
+				);
 			}
 
 			const glbUrl = extractGlbUrl(finalState.output);
 			if (!glbUrl) {
-				return {
-					ok: false,
-					error: 'no_glb_in_output',
-					message: 'prediction succeeded but no GLB url was found in output',
+				return toolError('no_glb_in_output', 'prediction succeeded but no GLB url was found in output', {
 					rawOutput: finalState.output,
 					predictionId: submitted.id,
 					durationMs,
-				};
+				});
 			}
 
 			const rehost = await rehostIfRequested(glbUrl, { prompt, images });

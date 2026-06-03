@@ -12,7 +12,8 @@
 
 import { z } from 'zod';
 
-import { paid } from '../payments.js';
+import { paid, toolError } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'sentiment_pulse';
 const TOOL_DESCRIPTION =
@@ -25,38 +26,28 @@ function env(k, def) {
 
 const SOLANA_MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		token: {
-			type: 'string',
-			description: 'Solana SPL or pump.fun mint pubkey (base58).',
-			minLength: 32,
-			maxLength: 44,
-		},
-		limit: {
-			type: 'integer',
-			minimum: 1,
-			maximum: 200,
-			default: 100,
-			description: 'Max pump.fun comments to score.',
-		},
-		extraTexts: {
-			type: 'array',
-			items: { type: 'string', maxLength: 2000 },
-			maxItems: 200,
-			description: 'Extra text snippets to include (e.g. X posts you have already collected).',
-		},
-	},
-	required: ['token'],
-	additionalProperties: false,
+// Single source of truth: Zod shape carries the base58 refinement + bounds +
+// descriptions; JSON Schema derived. (The previous JSON Schema declared a
+// `default: 100` on limit, which Zod cannot express as a JSON-Schema default
+// while keeping the field optional — the handler already treats an absent
+// limit as "use the endpoint default", so dropping the advertised default is
+// the correct, drift-free outcome.)
+const inputZodShape = {
+	token: z
+		.string()
+		.min(32)
+		.max(44)
+		.refine((v) => SOLANA_MINT_RE.test(v), 'token must be a base58 Solana mint pubkey')
+		.describe('Solana SPL or pump.fun mint pubkey (base58).'),
+	limit: z.number().int().min(1).max(200).describe('Max pump.fun comments to score.').optional(),
+	extraTexts: z
+		.array(z.string().max(2000))
+		.max(200)
+		.describe('Extra text snippets to include (e.g. X posts you have already collected).')
+		.optional(),
 };
 
-const inputZodShape = {
-	token: z.string().refine((v) => SOLANA_MINT_RE.test(v), 'token must be a base58 Solana mint pubkey'),
-	limit: z.number().int().min(1).max(200).optional(),
-	extraTexts: z.array(z.string().max(2000)).max(200).optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildSentimentPulseTool() {
 	const handler = await paid(
@@ -84,7 +75,7 @@ export async function buildSentimentPulseTool() {
 					body: JSON.stringify({ token, limit, extraTexts }),
 				});
 			} catch (err) {
-				return { ok: false, error: 'upstream_unreachable', message: err?.message || 'fetch failed' };
+				return toolError('upstream_unreachable', err?.message || 'fetch failed');
 			}
 			const data = await res.json().catch(() => null);
 			if (!res.ok || !data || data.ok === false) {

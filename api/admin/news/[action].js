@@ -14,6 +14,8 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { json, error, method, cors, readJson, wrap } from '../../_lib/http.js';
+import { requireAdmin } from '../../_lib/admin.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { loadCuratedItems } from '../../_lib/rss-feed.js';
 import { writeAllPages } from '../../../scripts/build-news.mjs';
 import { syndicateAll, cmcCopyBlock } from '../../_lib/syndicate.js';
@@ -55,6 +57,33 @@ async function regeneratePages() {
 	const items = await loadCuratedItems();
 	if (!items.length) return { written: 0, routes: 0 };
 	return writeAllPages(items);
+}
+
+// body_html is rich text written verbatim into the generated permalink pages
+// (scripts/build-news.mjs injects item.bodyHtml unescaped). Even though writes
+// now require an authenticated admin + CSRF, strip the active-content vectors so
+// a compromised admin session, a stored value, or a syndication round-trip can't
+// plant script execution / clickjacking into a public, cacheable page.
+function sanitizeBodyHtml(html) {
+	let out = String(html || '');
+	// Remove entire dangerous elements (open tag → close tag, case-insensitive).
+	out = out.replace(/<\s*(script|style|iframe|object|embed|form|link|meta|base)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+	// Remove self-closing / unclosed variants of those same elements.
+	out = out.replace(/<\s*(script|style|iframe|object|embed|form|link|meta|base)\b[^>]*\/?>/gi, '');
+	// Strip inline event handlers (onclick=, onerror=, …) in both quoted and bare forms.
+	out = out.replace(/\son[a-z0-9_-]+\s*=\s*"[^"]*"/gi, '');
+	out = out.replace(/\son[a-z0-9_-]+\s*=\s*'[^']*'/gi, '');
+	out = out.replace(/\son[a-z0-9_-]+\s*=\s*[^\s">]+/gi, '');
+	// Neutralize javascript:/vbscript:/data: targets in href/src/srcset/xlink:href.
+	out = out.replace(
+		/((?:href|src|srcset|xlink:href|formaction)\s*=\s*)("|')\s*(?:javascript|vbscript|data)\s*:[^"']*\2/gi,
+		'$1$2#$2',
+	);
+	out = out.replace(
+		/((?:href|src|srcset|xlink:href|formaction)\s*=\s*)(?:javascript|vbscript|data)\s*:[^\s">]*/gi,
+		'$1#',
+	);
+	return out;
 }
 
 function sanitizeImageFilename(name) {
@@ -146,6 +175,7 @@ function sanitizeItem(input) {
 		err.code = 'invalid_item';
 		throw err;
 	}
+	out.body_html = sanitizeBodyHtml(out.body_html);
 	if (Array.isArray(out.tags)) {
 		out.tags = out.tags.filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim().toLowerCase());
 	}
@@ -158,11 +188,25 @@ function sanitizeItem(input) {
 	return out;
 }
 
+// Mutating actions write files into the public web root, regenerate pages, and
+// fire external syndication — they require an admin session + a CSRF token.
+const MUTATING_ACTIONS = new Set(['save', 'delete', 'upload-image', 'resyndicate']);
+
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: false })) return;
-	if (refuseIfNotLocal(req, res)) return;
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
 
 	const action = String(req.query?.action || '').toLowerCase();
+
+	// Identity is the primary gate (independent of host / NODE_ENV), exactly like
+	// every other /api/admin/* route. refuseIfNotLocal stays below as
+	// defense-in-depth for the filesystem-write surface.
+	const admin = await requireAdmin(req, res);
+	if (!admin) return;
+	if (MUTATING_ACTIONS.has(action)) {
+		if (!(await requireCsrf(req, res, admin.id))) return;
+	}
+
+	if (refuseIfNotLocal(req, res)) return;
 
 	if (action === 'list') {
 		if (!method(req, res, ['GET'])) return;

@@ -14,8 +14,11 @@
 // with `whsec_` — we strip it. The signing input is exactly `${id}.${timestamp}.${body}`
 // joined with periods. Compare with timingSafeEqual.
 //
-// If the key isn't set the endpoint accepts the payload but does NOT mark the
-// job as authenticated — useful in local dev. In production, set the env var.
+// If REPLICATE_WEBHOOK_SIGNING_KEY is unset the endpoint FAILS CLOSED in
+// production (401) — an unsigned webhook would otherwise let anyone who can
+// guess an ext_job_id spoof job completion and drive a server-side fetch of an
+// attacker-controlled URL (SSRF). The unsigned dev path is allowed only when
+// NODE_ENV !== 'production' AND ALLOW_UNSIGNED_WEBHOOKS=1 is explicitly set.
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sql } from '../_lib/db.js';
@@ -53,6 +56,27 @@ function verifyStandardWebhook({ signingKey, id, timestamp, body, headerSig }) {
 		if (a.length === b.length && timingSafeEqual(a, b)) return true;
 	}
 	return false;
+}
+
+// Replicate serves prediction outputs from its own delivery hosts. Pin the
+// fetched GLB URL to https on one of those hosts so a forged/compromised payload
+// can't point the server-side fetch at an internal/metadata endpoint (SSRF).
+const REPLICATE_RESULT_HOSTS = [
+	'replicate.delivery',
+	'replicate.com',
+	'pbxt.replicate.delivery',
+];
+
+function isAllowedResultUrl(raw) {
+	let u;
+	try {
+		u = new URL(raw);
+	} catch {
+		return false;
+	}
+	if (u.protocol !== 'https:') return false;
+	const host = u.hostname.toLowerCase();
+	return REPLICATE_RESULT_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 }
 
 function extractGlbUrl(output) {
@@ -124,6 +148,14 @@ export default wrap(async (req, res) => {
 		if (!verified) {
 			return error(res, 401, 'invalid_signature', 'webhook signature mismatch');
 		}
+	} else {
+		// Fail closed: an unsigned webhook is forgeable (spoofed job completion +
+		// server-side SSRF fetch). Only accept it in dev when explicitly opted in.
+		const allowUnsigned =
+			process.env.NODE_ENV !== 'production' && process.env.ALLOW_UNSIGNED_WEBHOOKS === '1';
+		if (!allowUnsigned) {
+			return error(res, 401, 'unsigned_webhook', 'webhook signing key not configured');
+		}
 	}
 
 	let prediction;
@@ -170,6 +202,7 @@ export default wrap(async (req, res) => {
 	if (
 		nextStatus === 'done' &&
 		nextGlbUrl &&
+		isAllowedResultUrl(nextGlbUrl) &&
 		job.mode === 'reconstruct' &&
 		!job.result_avatar_id
 	) {

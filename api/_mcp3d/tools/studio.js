@@ -7,6 +7,7 @@
 // renders any public GLB the same way.
 
 import { limits } from '../../_lib/rate-limit.js';
+import { assertSafePublicUrl } from '../../_lib/ssrf-guard.js';
 import { createRegenProvider } from '../../_providers/replicate.js';
 import { textToImage } from '../text-to-image.js';
 import {
@@ -46,14 +47,14 @@ function regenProvider() {
 	}
 }
 
-function isPublicHttpsUrl(s) {
+// Validate via the shared DNS-resolving SSRF guard: https-only, the hostname is
+// resolved and every A/AAAA record is checked against the full private/loopback/
+// link-local/ULA/IPv4-mapped/metadata blocklist (covering 172.16/12, [::1],
+// fc00::/7, fe80::/10, ::ffff: and decimal/hex IP encodings the old ad-hoc
+// prefix checks missed). Async because it performs DNS resolution.
+async function isPublicHttpsUrl(s) {
 	try {
-		const u = new URL(String(s));
-		if (u.protocol !== 'https:') return false;
-		const h = u.hostname;
-		if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return false;
-		if (h.startsWith('169.254.') || h.startsWith('10.') || h.startsWith('192.168.')) return false;
-		if (h.endsWith('.internal') || h.endsWith('.local')) return false;
+		await assertSafePublicUrl(String(s), { allowHttp: false });
 		return true;
 	} catch {
 		return false;
@@ -162,7 +163,7 @@ export const toolDefs = [
 		},
 		async handler(args, auth) {
 			await enforce(limits.mcp3dGenerate, auth);
-			if (!isPublicHttpsUrl(args.image_url)) {
+			if (!(await isPublicHttpsUrl(args.image_url))) {
 				return {
 					content: [{ type: 'text', text: 'Error: image_url must be a public https URL.' }],
 					isError: true,
@@ -276,7 +277,7 @@ export const toolDefs = [
 			additionalProperties: false,
 		},
 		async handler(args) {
-			if (!isPublicHttpsUrl(args.glb_url)) {
+			if (!(await isPublicHttpsUrl(args.glb_url))) {
 				return {
 					content: [{ type: 'text', text: 'Error: glb_url must be a public https URL.' }],
 					isError: true,

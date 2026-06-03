@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 import { paid } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 import { PRESETS, PRESET_GROUPS } from '../../../src/pose-presets.js';
 
 const TOOL_NAME = 'get_pose_seed';
@@ -97,22 +98,19 @@ function deriveSeed(prompt, presetId) {
 	return createHash('sha256').update(`${prompt}|${presetId}`).digest('hex').slice(0, 16);
 }
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		prompt: {
-			type: 'string',
-			description:
-				'Natural-language description of the pose, e.g. "warrior stance", "wave hello", "sitting cross-legged".',
-		},
-	},
-	required: ['prompt'],
-	additionalProperties: false,
+// Single source of truth: declare the args once as a Zod shape (with the
+// human-facing descriptions + bounds), and derive the JSON Schema the MCP
+// client / bazaar sees from it. The previous hand-written JSON Schema had no
+// length bounds; the Zod (min 1, max 500) is stricter and now wins.
+const inputZodShape = {
+	prompt: z
+		.string()
+		.min(1)
+		.max(500)
+		.describe('Natural-language description of the pose, e.g. "warrior stance", "wave hello", "sitting cross-legged".'),
 };
 
-const inputZodShape = {
-	prompt: z.string().min(1).max(500),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 export async function buildPoseSeedTool() {
 	const handler = await paid(

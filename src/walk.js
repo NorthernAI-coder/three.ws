@@ -46,7 +46,6 @@ import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js'
 import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
-import { mountOracleRibbon } from './game/oracle-ribbon.js';
 import { WalkNet } from './walk-net.js';
 import { getPresenceTicket, friendsClient } from './friends.js';
 import { FriendsPanel } from './game/friends-panel.js';
@@ -1727,9 +1726,6 @@ function tick() {
 	// 4b. Animate the coin totem (billboard + bob + ring spin) when present.
 	if (coinTotem) coinTotem.update(dt);
 
-	// 4c. Animate the Granite oracle forecast line (idle bob + slow spin).
-	if (oracleRibbon) oracleRibbon.update(dt);
-
 	// 5. Update speech bubbles (3D -> 2D projection)
 	updateSpeechBubbles();
 
@@ -1762,10 +1758,6 @@ const remotePlayers = new Map();
 let net = null;
 let netConnected = false;
 let coinTotem = null; // CoinTotem instance when in a coin community world
-
-// Granite oracle forecast line — the /ibm/oracle 3D price+forecast ribbon,
-// standing in the world as a floating data sculpture you can walk around.
-const oracleRibbon = mountOracleRibbon(scene);
 
 // Remote-avatar template cache. Each distinct GLB URL is fetched once and
 // reused (via SkeletonUtils.clone) for every player wearing it, so a room full

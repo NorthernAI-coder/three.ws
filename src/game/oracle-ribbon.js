@@ -150,10 +150,7 @@ export function mountOracleRibbon(scene, opts = {}) {
 
 	(async () => {
 		try {
-			const list = await fetch('/api/ibm/oracle?list=trending').then((r) => r.json());
-			const pool = list?.pools?.[0]?.pool;
-			if (!pool) return;
-			const data = await fetch(`/api/ibm/oracle?pool=${encodeURIComponent(pool)}`).then((r) => r.json());
+			const data = await fetch(`/api/ibm/oracle?token=${THREE_MINT}`).then((r) => r.json());
 			if (data && data.history) buildSeries(series, data);
 		} catch {
 			/* offline / rate-limited — the world simply renders without the line */

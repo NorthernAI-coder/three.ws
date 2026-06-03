@@ -24,6 +24,7 @@ import { CommunityNet } from './community-net.js';
 import { CommunityUI } from './coincommunities-ui.js';
 import { createWorldEnvironment } from './world-env.js';
 import { createChartScreen } from './chart-screen.js';
+import { mountOracleRibbon } from './oracle-ribbon.js';
 import { MarketReactor } from './market-reactor.js';
 import { VoxelWorld, createBuildHud, parseKey, MAX_BLOCKS } from './build-voxels.js';
 import { normalizeGatewayURL } from '../ipfs.js';
@@ -354,6 +355,7 @@ export class CoinCommunities {
 			this._screenPulse.material.opacity = 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(this._screenT * 2.4));
 		}
 		this._chartScreen?.update(dt);
+		this._oracleRibbon?.update(dt);
 		this._reactor?.update(dt);
 	}
 
@@ -637,6 +639,10 @@ export class CoinCommunities {
 			position: [0, 0, -30], width: 18,
 			onTrades: (trades, metrics) => this._reactor?.ingestTrades(trades, metrics),
 		});
+		// The /ibm/oracle 3D forecast line — the live $THREE price history + IBM
+		// Granite TimeSeries forecast, rendered as a glowing ribbon standing in the
+		// world (no backdrop, just the line) that players can walk around.
+		this._oracleRibbon = mountOracleRibbon(this.scene, { x: 17, y: 4.2, z: -20, scale: 0.7 });
 		this.localRig = new Group();
 		this.localRig.position.copy(this.localPos);
 		this.scene.add(this.localRig);
@@ -1002,6 +1008,7 @@ export class CoinCommunities {
 			this._screenArt = null; this._screenPulse = null;
 		}
 		if (this._chartScreen) { this._chartScreen.dispose(); this._chartScreen = null; }
+		if (this._oracleRibbon) { this._oracleRibbon.dispose(); this._oracleRibbon = null; }
 		if (this._reactor) { this._reactor.dispose(); this._reactor = null; }
 		if (this.voxels) { this.voxels.dispose(); this.voxels = null; }
 		this._cancelLongPress();

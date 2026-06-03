@@ -19,6 +19,7 @@
 import { z } from 'zod';
 
 import { paid } from '../payments.js';
+import { jsonSchemaFromZod } from './_shared.js';
 import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET } from '../../../api/_lib/pump-vanity.js';
 import bs58 from 'bs58';
 
@@ -50,42 +51,34 @@ const TOOL_DESCRIPTION =
 	`import it into a wallet immediately, and never reuse a key that may have been logged. ` +
 	`Billed via x402 \`exact\` (flat ${PRICE_USD} USDC on Solana).`;
 
-const inputJsonSchema = {
-	type: 'object',
-	properties: {
-		prefix: {
-			type: 'string',
-			description: `Base58 prefix the address must start with. Allowed chars: ${BASE58_ALPHABET}. 1-6 chars (longer prefixes are exponentially harder and are rejected).`,
-			minLength: 1,
-			maxLength: 6,
-		},
-		suffix: {
-			type: 'string',
-			description: 'Optional base58 suffix the address must end with. 1-6 chars.',
-			minLength: 1,
-			maxLength: 6,
-		},
-		ignoreCase: {
-			type: 'boolean',
-			description: 'Case-insensitive match (folds upper+lower base58 chars).',
-		},
-		maxIterations: {
-			type: 'integer',
-			description: `Hard cap on grinder iterations. Default ${DEFAULT_MAX_ITERATIONS}, clamped to ${MAX_ITERATIONS_CAP}.`,
-			minimum: 1,
-			maximum: MAX_ITERATIONS_CAP,
-		},
-	},
-	required: ['prefix'],
-	additionalProperties: false,
+// Single source of truth: Zod shape carries descriptions + bounds; JSON Schema
+// derived. Previously the JSON Schema and Zod both capped prefix/suffix at 6
+// chars and maxIterations at MAX_ITERATIONS_CAP — kept identical here.
+const inputZodShape = {
+	prefix: z
+		.string()
+		.min(1)
+		.max(6)
+		.describe(
+			`Base58 prefix the address must start with. Allowed chars: ${BASE58_ALPHABET}. 1-6 chars (longer prefixes are exponentially harder and are rejected).`,
+		),
+	suffix: z
+		.string()
+		.min(1)
+		.max(6)
+		.describe('Optional base58 suffix the address must end with. 1-6 chars.')
+		.optional(),
+	ignoreCase: z.boolean().describe('Case-insensitive match (folds upper+lower base58 chars).').optional(),
+	maxIterations: z
+		.number()
+		.int()
+		.min(1)
+		.max(MAX_ITERATIONS_CAP)
+		.describe(`Hard cap on grinder iterations. Default ${DEFAULT_MAX_ITERATIONS}, clamped to ${MAX_ITERATIONS_CAP}.`)
+		.optional(),
 };
 
-const inputZodShape = {
-	prefix: z.string().min(1).max(6),
-	suffix: z.string().min(1).max(6).optional(),
-	ignoreCase: z.boolean().optional(),
-	maxIterations: z.number().int().min(1).max(MAX_ITERATIONS_CAP).optional(),
-};
+const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
 
 // Up-front difficulty guard. Returns null if the request is feasible within the
 // iteration cap, or a helpful Error (status 400) if the requested prefix/suffix
