@@ -47,7 +47,6 @@ const COL = {
 	good: '#5fd08a', bad: '#e06c75',
 };
 
-const SIG_MARK = { bullish: '▲', bearish: '▼', neutral: '→' };
 
 function fmtUsdc(micro) {
 	const n = Number(micro);
@@ -276,7 +275,7 @@ export function createX402Jumbotron(scene, opts = {}) {
 			ctx.fillStyle = COL.text; ctx.font = '800 34px Inter, system-ui, sans-serif';
 			ctx.fillText('Two AI agents paying each other, live on Solana', padX, stageTop + 44);
 			ctx.fillStyle = COL.dim; ctx.font = '600 21px Inter, system-ui, sans-serif';
-			ctx.fillText('Walk up to ORACLE & NOVA and press E to trigger a real $0.01 USDC payment.', padX, stageTop + 82);
+			ctx.fillText('Walk up to ORACLE & NOVA and press E to trigger a real USDC payment.', padX, stageTop + 82);
 			drawStepper(stageTop + 124, null, false);
 		}
 
@@ -379,13 +378,12 @@ export function createX402Jumbotron(scene, opts = {}) {
 		},
 		// A real settlement landed — drop it on the top of the feed.
 		pushSettlement(payment = {}, intel = {}) {
-			const sig = (intel.signal || '').toLowerCase();
-			const mark = SIG_MARK[sig] || '';
-			const topic = (intel.topic || 'sol').toUpperCase();
+			const topic = intel.topic || 'model';
+			const detail = intel.stat || intel.headline || 'inspected';
 			const entry = {
 				ts: Date.now(),
 				label: 'NOVA → ORACLE',
-				sub: `${mark} ${topic} intel${intel.headline ? ' · ' + intel.headline : ''}`.trim(),
+				sub: `inspect ${topic} · ${detail}`.trim(),
 				amount: payment.amount,
 				tx: payment.tx || null,
 				kind: 'local',
@@ -393,7 +391,7 @@ export function createX402Jumbotron(scene, opts = {}) {
 			if (entry.tx) seenTx.add(entry.tx);
 			localFeed.unshift(entry);
 			if (localFeed.length > MAX_ROWS) localFeed.length = MAX_ROWS;
-			sessionTotal += (Number(payment.amount) / 1e6) || 0.01;
+			sessionTotal += (Number(payment.amount) / 1e6) || 0;
 			status = 'live';
 		},
 		setError(stage, message) {

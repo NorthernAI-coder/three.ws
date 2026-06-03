@@ -11,6 +11,11 @@ const IPFS_GATEWAYS = [
 
 const CID_RE = /^[a-zA-Z0-9]+$/;
 
+// Mirror pin.js's per-file ceiling. A pinned memory file is capped at 512 KB on
+// write, so a gateway response larger than that is not one of our files — bound
+// it to avoid streaming an arbitrary-size body back through the proxy.
+const MAX_BYTES = 512 * 1024;
+
 async function fetchFromIPFS(cid) {
 	let lastErr;
 	for (const gw of IPFS_GATEWAYS) {
@@ -52,8 +57,25 @@ export default wrap(async (req, res) => {
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
+	// Bind the CID to this agent's own pinned set. Owning the agent is not enough
+	// — without this the route is a generic authenticated IPFS fetch proxy for any
+	// CID, defeating the "prevent enumeration" intent in the comment above.
+	const [pin] =
+		await sql`SELECT cid FROM agent_memory_pins WHERE agent_id = ${agentId} AND cid = ${cid} LIMIT 1`;
+	if (!pin) return error(res, 404, 'not_found', 'memory file not found for this agent');
+
 	const ipfsResp = await fetchFromIPFS(cid);
+
+	// Bound the proxied body. Trust the gateway's Content-Length when present, then
+	// re-check the materialized buffer (a lying header can't exceed the real cap).
+	const declared = Number(ipfsResp.headers.get('content-length') || 0);
+	if (declared > MAX_BYTES) {
+		return error(res, 413, 'payload_too_large', 'memory file exceeds size limit');
+	}
 	const buf = Buffer.from(await ipfsResp.arrayBuffer());
+	if (buf.byteLength > MAX_BYTES) {
+		return error(res, 413, 'payload_too_large', 'memory file exceeds size limit');
+	}
 
 	res.statusCode = 200;
 	res.setHeader('Content-Type', 'application/octet-stream');

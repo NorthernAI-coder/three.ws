@@ -73,5 +73,16 @@ export default wrap(async (req, res) => {
 	}
 
 	const cid = await pinViaPinata(buf, body.filename);
+
+	// Record the CID against this agent so the read proxy
+	// (GET /api/agents/:id/memory/:cid) can verify ownership of the CID itself,
+	// not just of the agent — otherwise any owner could proxy-fetch any CID.
+	await sql`
+		INSERT INTO agent_memory_pins (agent_id, cid, filename, bytes)
+		VALUES (${agentId}, ${cid}, ${body.filename}, ${buf.byteLength})
+		ON CONFLICT (agent_id, cid)
+		DO UPDATE SET filename = excluded.filename, bytes = excluded.bytes
+	`;
+
 	return json(res, 200, { cid });
 });

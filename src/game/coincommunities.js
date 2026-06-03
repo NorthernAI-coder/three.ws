@@ -58,11 +58,12 @@ const COIN_URL = '/api/pump/coin';
 // Normalize a raw pump.fun coin (trending feed or search results — both share
 // the same upstream shape) into the compact record the lobby/world consume.
 function mapCoins(raw) {
-	return (Array.isArray(raw) ? raw : raw.coins || raw.items || []).map((c) => ({
+	const list = Array.isArray(raw) ? raw : raw.data || raw.coins || raw.items || [];
+	return list.map((c) => ({
 		mint: c.mint || c.address,
 		name: (c.name || '').trim() || 'Unnamed coin',
 		symbol: (c.symbol || '').trim(),
-		image: normalizeGatewayURL(c.image_uri || c.image || c.imageUri || ''),
+		image: normalizeGatewayURL(c.image_uri || c.image || c.imageUri || c.logo || ''),
 		marketCap: c.usd_market_cap || c.market_cap_usd || c.marketCap || 0,
 	})).filter((c) => c.mint);
 }

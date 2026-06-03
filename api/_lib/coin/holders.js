@@ -22,6 +22,7 @@ import { createHelius } from 'helius-sdk';
 
 const PAGE_LIMIT = 1000;
 const MAX_PAGES = 200; // hard ceiling — 200k holders before we abort, matches Helius limits
+const UPSERT_CHUNK = 2000; // rows per batched upsert — keeps statements under Neon size limits
 
 let _heliusMainnet = null;
 let _heliusDevnet = null;
@@ -96,14 +97,23 @@ export async function persistHolderSnapshot({ coinId, balances }) {
 	const now = new Date();
 	const wallets = [...balances.keys()];
 
-	// Insert/update each wallet. Postgres jsonb-style would be nice but we
-	// don't have batch tooling wired in; for snapshots of a few thousand
-	// holders this is fast enough on Solana traffic.
-	for (const wallet of wallets) {
-		const bal = balances.get(wallet);
+	// Batched multi-row upsert via unnest — one round-trip per chunk instead of
+	// one per holder. For a popular mint that is thousands of holders, so a
+	// per-wallet loop over the Neon HTTP driver would be thousands of serial
+	// round-trips. Chunk to stay under Postgres statement-size limits. Mirrors
+	// the unnest upsert in api/_lib/agent-embeddings.js.
+	for (let i = 0; i < wallets.length; i += UPSERT_CHUNK) {
+		const chunk = wallets.slice(i, i + UPSERT_CHUNK);
+		const coinIds = chunk.map(() => coinId);
+		const balanceStrs = chunk.map((w) => balances.get(w).toString());
 		await sql`
 			insert into coin_holders (coin_id, wallet, balance, first_seen, last_seen)
-			values (${coinId}, ${wallet}, ${bal.toString()}, ${now}, ${now})
+			select u.coin_id, u.wallet, u.balance, ${now}, ${now}
+			from unnest(
+				${coinIds}::uuid[],
+				${chunk}::text[],
+				${balanceStrs}::bigint[]
+			) as u(coin_id, wallet, balance)
 			on conflict (coin_id, wallet) do update set
 				balance = excluded.balance,
 				last_seen = excluded.last_seen

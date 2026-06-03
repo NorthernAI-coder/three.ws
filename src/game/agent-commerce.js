@@ -4,10 +4,12 @@
 // This ports the /agent-exchange demo into the walkaround world: instead of two
 // iframed avatars on a flat page, two GLB-bodied agents stand in the plaza. Walk
 // up to them and trigger a round — they negotiate in speech bubbles while the
-// buyer pays the seller $0.01 USDC for a live crypto signal through the exact
-// same server-side x402 payer the demo uses (/api/x402-pay: challenge → sign →
-// verify → settle → confirm, streamed as SSE). Every settlement is real on
-// Solana mainnet, with a Solscan link in the receipt.
+// buyer (NOVA) pays the seller (ORACLE) in USDC to inspect a real 3D model
+// through the server-side x402 payer (/api/x402-pay: challenge → sign → verify →
+// dispatch → settle, streamed as SSE). The paid call is the platform's own
+// `inspect_model` MCP tool, so the "intel" NOVA buys is a real glTF report
+// (vertices, triangles, materials). Every settlement is real USDC on Solana
+// mainnet, with a Solscan link in the receipt.
 //
 // Scoped to the home town only (see isHomeTown) and built per-world by
 // coincommunities.js, so it never leaks into other coins' worlds. The payment
@@ -30,10 +32,16 @@ const INTERACT_RANGE = 6.5;     // how close the player must be to trigger a rou
 const ROUND_COOLDOWN_MS = 9000; // min time between paid rounds (one real payment each)
 const BUBBLE_MS = 5200;
 
-// The intel subject. Scoped to SOL — the Solana network's own asset, the chain
-// these agents pay each other on — so the exchange never names or surfaces any
-// other coin (USDC settlement + SOL fees are the only on-chain assets in play).
-const TOPICS = ['sol'];
+// The models NOVA pays to have inspected, rotated each round for variety. Each is
+// a public https GLB (the validator only fetches public URLs) — three.ws's own
+// avatars, so the exchange stays on-brand and never references any coin/token.
+const MODELS = [
+	{ name: 'default.glb', url: 'https://three.ws/avatars/default.glb' },
+	{ name: 'cz.glb',      url: 'https://three.ws/avatars/cz.glb' },
+];
+
+// The paid x402 tool NOVA buys from ORACLE — the platform's own glTF inspector.
+const PAID_TOOL = 'inspect_model';
 
 // Stage labels for the HUD stepper, keyed to the SSE events /api/x402-pay emits.
 const STAGES = [
@@ -44,30 +52,56 @@ const STAGES = [
 	{ id: 'done',      label: 'Confirmed' },
 ];
 
-// Scripted dialogue, matched to each stage. SELLER hosts the intel; BUYER pays.
+// Scripted dialogue, matched to each stage. SELLER runs the inspector; BUYER pays.
 const LINES = {
 	seller: {
-		idle:      'Live crypto intel — $0.01 USDC a signal, settled on-chain.',
+		idle:      '3D model intel — a real glTF inspection, settled on-chain in USDC.',
 		challenge: 'Payment challenge issued. Awaiting your signed transfer…',
 		built:     'Transfer received. Forwarding to the facilitator…',
-		verified:  'Payment verified. Pulling the latest signal…',
-		settled:   'Funds confirmed on-chain. Delivering now.',
-		done:      (h) => `Here's your signal: ${h}`,
+		verified:  'Payment verified. Running the inspection…',
+		settled:   'Funds confirmed on-chain. Sending the report.',
+		done:      (summary) => `Report: ${summary}`,
 		error:     'Payment failed — no charge made.',
 	},
 	buyer: {
-		idle:      (t) => `I need live ${t.toUpperCase()} intelligence. Paying now.`,
+		idle:      (name) => `I need a structural read on ${name}. Paying now.`,
 		challenge: 'Building and signing the Solana transfer…',
 		built:     'Signed. Sending to the facilitator for verification.',
 		verified:  'Verified on-chain. Waiting on settlement…',
-		settled:   'Settled. Collecting my intel.',
-		done:      (s) => `Signal received: ${s.toUpperCase()}. Updating my model.`,
+		settled:   'Settled. Collecting my report.',
+		done:      (verts) => `Report received — ${verts}. Filing it.`,
 		error:     'Transaction rolled back. Wallet unchanged.',
 	},
 };
 
+// Pull a one-line summary + a vertex count out of the inspector's text report,
+// so the agents can speak it and the receipt can headline it.
+function summarizeModelReport(intel) {
+	const text = intel?.result?.content?.[0]?.text || '';
+	const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+	const modelLine = lines.find((l) => /^Model:/i.test(l)) || lines[0] || 'model inspected';
+	const vertLine = lines.find((l) => /Vertices:/i.test(l)) || '';
+	const verts = (vertLine.match(/Vertices:\s*([\d,]+)/i)?.[1] || '').trim();
+	const tris = (vertLine.match(/Triangles:\s*([\d,]+)/i)?.[1] || '').trim();
+	const stat = verts ? `${verts} verts${tris ? ` · ${tris} tris` : ''}` : '';
+	return {
+		headline: modelLine.replace(/^Model:\s*/i, ''),
+		verts: verts ? `${verts} verts` : 'report ready',
+		stat,
+		isError: !!intel?.result?.isError,
+	};
+}
+
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Format a USDC dollar amount, keeping sub-cent micropayments legible (so a
+// $0.001 settlement reads as "$0.0010", never "$0.00").
+const fmtUsd = (n) => {
+	const v = Number(n) || 0;
+	return '$' + (v >= 0.01 || v === 0 ? v.toFixed(2) : v.toFixed(4));
+};
+const fmtUsdcAmount = (micro) => `${((Number(micro) || 0) / 1e6).toFixed(4)} USDC`;
 
 // One agent: its avatar rig + animation, a nameplate, and a transient speech
 // bubble. Mirrors RemotePlayer's DOM/anim shape so the agents read as first-class
@@ -377,8 +411,9 @@ export class AgentCommerce {
 		this.lastRoundAt = (typeof performance !== 'undefined' ? performance.now() : 0);
 		this.prompt.classList.remove('ac-show');
 
-		const topic = TOPICS[this.topicIdx % TOPICS.length];
+		const model = MODELS[this.topicIdx % MODELS.length];
 		this.topicIdx++;
+		const topic = model.name;
 
 		this._renderPanel({ topic, stage: 'challenge', stageState: 'active' });
 		this.panel.classList.add('ac-show');
@@ -396,12 +431,15 @@ export class AgentCommerce {
 			const res = await fetch('/api/x402-pay', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-				body: JSON.stringify({ tool: 'crypto_intel', topic, endpoint: '/api/x402/crypto-intel', body: { topic } }),
+				// Pay for the platform's own glTF inspector. /api/x402-pay handles the
+				// Solana USDC payment, then dispatches the MCP tool call and returns
+				// its report alongside the settlement.
+				body: JSON.stringify({ tool: PAID_TOOL, args: { url: model.url } }),
 			});
 			if (!res.ok || !res.body) {
 				const text = await res.text().catch(() => '');
 				let msg = 'Payment service unavailable.';
-				try { msg = JSON.parse(text).error_description || msg; } catch { /* ignore */ }
+				try { msg = JSON.parse(text).error_description || JSON.parse(text).error || msg; } catch { /* ignore */ }
 				throw new Error(msg);
 			}
 
@@ -428,21 +466,27 @@ export class AgentCommerce {
 				} else if (event === 'error') {
 					throw new Error(data.error || 'payment failed');
 				}
+				// 'dispatched' carries only timing — no UI beat needed.
 			}
 
 			if (!intel || !settled) throw new Error('incomplete response from payment service');
 
+			// The settlement is on-chain truth; payer/payee/amount live on the result's
+			// payment block. Surface the inspector's report as the bought "intel".
+			const payment = { ...(intel.payment || {}), ...settled };
+			const report = summarizeModelReport(intel);
+
 			// Success choreography.
 			this._gesture(this.buyer, 'celebrate');
 			await delay(300);
-			this.buyer.say(LINES.buyer.done(intel.signal));
+			this.buyer.say(LINES.buyer.done(report.verts));
 			await delay(700);
-			this.seller.say(LINES.seller.done(intel.headline));
+			this.seller.say(LINES.seller.done(report.headline));
 			this._gesture(this.seller, 'av-cheering');
 
-			this.sessionTotal += 0.01;
-			this.jumbotron?.pushSettlement(settled, intel);
-			this._renderReceipt(settled, intel);
+			this.sessionTotal += (Number(payment.amount) / 1e6) || 0;
+			this.jumbotron?.pushSettlement(payment, { topic, ...report });
+			this._renderReceipt(payment, { topic, ...report });
 			// Auto-dismiss the panel after the receipt has been read.
 			this._scheduleHide(9000);
 		} catch (err) {
@@ -475,15 +519,15 @@ export class AgentCommerce {
 		// stepper animates in lockstep with this HUD panel.
 		this.jumbotron?.setStage({ topic, stage, amount: this._amount });
 		const activeIdx = STAGES.findIndex((s) => s.id === stage);
-		const amt = this._amount ? `${(Number(this._amount) / 1e6).toFixed(2)} USDC` : '$0.01 USDC';
+		const amt = this._amount ? fmtUsdcAmount(this._amount) : '— USDC';
 		const steps = STAGES.map((s, i) => {
 			const cls = i < activeIdx ? 'ac-done' : i === activeIdx ? 'ac-active' : '';
 			return `<div class="ac-step ${cls}"><span class="ac-dot"></span>${s.label}</div>`;
 		}).join('');
 		this.panel.innerHTML =
 			`<div class="ac-ph">` +
-			`<span class="ac-pt">Paying for <b>${escHtml(topic.toUpperCase())}</b> intel · ${escHtml(amt)}</span>` +
-			`<span class="ac-total">$${this.sessionTotal.toFixed(2)}</span>` +
+			`<span class="ac-pt">NOVA pays ORACLE to inspect <b>${escHtml(topic)}</b> · ${escHtml(amt)}</span>` +
+			`<span class="ac-total">${fmtUsd(this.sessionTotal)}</span>` +
 			`</div><div class="ac-steps">${steps}</div>`;
 	}
 
@@ -493,13 +537,10 @@ export class AgentCommerce {
 		this.panel.querySelectorAll('.ac-step').forEach((el) => { el.classList.remove('ac-active'); el.classList.add('ac-done'); });
 		this.panel.querySelector('.ac-total')?.classList.add('ac-flash');
 
-		const amount = payment.amount ? `${(Number(payment.amount) / 1e6).toFixed(2)} USDC` : '$0.01 USDC';
+		const amount = payment.amount ? fmtUsdcAmount(payment.amount) : '— USDC';
 		const short = (a) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '—');
 		const tx = payment.tx;
-		const sig = intel.signal || 'neutral';
-		const sigMark = { bullish: '▲', bearish: '▼', neutral: '→' }[sig] || '';
-		const change = intel.change_24h != null ? ` ${intel.change_24h >= 0 ? '+' : ''}${Number(intel.change_24h).toFixed(2)}% 24h` : '';
-		const price = intel.price_usd != null ? ` · $${Number(intel.price_usd) >= 100 ? Number(intel.price_usd).toFixed(2) : Number(intel.price_usd).toFixed(4)}` : '';
+		const stat = intel.stat ? `<span class="ac-sig">${escHtml(intel.stat)}</span>` : '';
 
 		const receipt = document.createElement('div');
 		receipt.className = 'ac-receipt';
@@ -509,8 +550,7 @@ export class AgentCommerce {
 			(tx
 				? `<div class="ac-rrow"><span>Transaction</span><span class="ac-v"><a href="https://solscan.io/tx/${escHtml(tx)}" target="_blank" rel="noopener">${tx.slice(0, 8)}…${tx.slice(-6)} ↗</a></span></div>`
 				: '') +
-			`<div class="ac-headline"><span class="ac-sig">${sigMark} ${escHtml(sig.toUpperCase())}</span>` +
-			`<b>${escHtml(intel.topic.toUpperCase())}</b>${escHtml(price)}${escHtml(change)} — ${escHtml(intel.headline)}</div>`;
+			`<div class="ac-headline">${stat}<b>${escHtml(intel.topic)}</b> — ${escHtml(intel.headline)}</div>`;
 		this.panel.appendChild(receipt);
 
 		setTimeout(() => this.panel.querySelector('.ac-total')?.classList.remove('ac-flash'), 600);
@@ -524,7 +564,7 @@ export class AgentCommerce {
 		});
 		const msg = document.createElement('div');
 		msg.className = 'ac-err-msg';
-		msg.innerHTML = `⚠ ${escHtml(message || 'Payment failed. No funds moved.')} <a href="/agent-exchange" target="_blank" rel="noopener">Open the full demo →</a>`;
+		msg.innerHTML = `⚠ ${escHtml(message || 'Payment failed. No funds moved.')}`;
 		this.panel.appendChild(msg);
 	}
 

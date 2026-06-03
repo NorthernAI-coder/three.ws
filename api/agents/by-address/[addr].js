@@ -18,6 +18,13 @@ const ENUM_ABI = [
 const _cache = new Map();
 const CACHE_TTL = 60_000;
 const RPC_TIMEOUT = 3_000;
+// `addr` is caller-supplied; balanceOf can return an arbitrarily large count
+// (an attacker can mint themselves many tokens, or target a large holder), so
+// reading `count` tokens via tokenOfOwnerByIndex + tokenURI would fan one HTTP
+// request out into thousands of upstream RPC calls. Cap enumeration to a sane
+// maximum and flag the result as truncated, mirroring the bounded limits used
+// elsewhere (suggest.js, nfts.js).
+const MAX_ENUM = 50;
 
 function cacheGet(key) {
 	const entry = _cache.get(key);

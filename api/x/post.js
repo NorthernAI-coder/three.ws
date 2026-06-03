@@ -4,6 +4,8 @@
 
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, method, wrap, error, readJson, json } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { publishTweet, XPostError } from '../_lib/x-post.js';
 
 export default wrap(async (req, res) => {
@@ -12,6 +14,14 @@ export default wrap(async (req, res) => {
 
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// Publishing to the user's connected X account is a sensitive state change —
+	// gate it behind CSRF like the rest of the write surface (marketplace, etc.),
+	// and rate-limit so a leaked session can't spam the account.
+	if (!(await requireCsrf(req, res, user.id))) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
 	const body = await readJson(req);
 	const text = typeof body?.text === 'string' ? body.text : '';

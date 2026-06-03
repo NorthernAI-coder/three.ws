@@ -24,7 +24,7 @@ import { pathToFileURL } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-import { getLastFacilitatorInitError, getResourceServer } from './payments.js';
+import { assertPaymentEnv, getLastFacilitatorInitError, getResourceServer } from './payments.js';
 import { buildPoseSeedTool } from './tools/pose-seed.js';
 import { buildPumpSnapshotTool } from './tools/pump-snapshot.js';
 import { buildAgentReputationTool } from './tools/agent-reputation.js';
@@ -124,6 +124,10 @@ export async function buildServer() {
  * /supported fetch cost, then connects the StdioServerTransport.
  */
 async function main() {
+	// Fail fast: a running server that can't receive payments is useless. This
+	// is the ONLY startup env gate — it does not run during buildServer()/tests.
+	assertPaymentEnv();
+
 	// Force the shared x402 resource server to initialize before any tool is
 	// invoked — this fetches /supported from each facilitator so verify + settle
 	// don't pay that cost on the first paid call.

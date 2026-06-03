@@ -314,6 +314,8 @@ export async function resolvePendingDraws(coin) {
 
 // ─── Reflection ─────────────────────────────────────────────────────────────
 
+const ALLOC_CHUNK = 2000; // rows per batched reflection write — keeps statements under Neon size limits
+
 /**
  * Compute the next reflection batch id (one per reflection_interval_seconds).
  */
@@ -368,28 +370,51 @@ export async function allocateReflection(coin, nowMs = Date.now()) {
 	if (totalBalance === 0n) return { batchId, status: 'no_balance', queued: 0 };
 
 	let allocated = 0n;
-	let queued = 0;
 	const MIN_PAYOUT = 1_000n; // 0.000001 SOL — skip dust to keep tx batches efficient
 
+	// Compute every (wallet, share) pair in memory first, then flush both the
+	// coin_payouts insert and the coin_holders accrual as set-based unnest
+	// statements. A per-holder loop would issue 2*N serial Neon round-trips and
+	// risk a mid-loop timeout leaving the pot partially drained; batching makes
+	// each chunk a single statement. Mirrors the unnest upsert in
+	// api/_lib/agent-embeddings.js and persistHolderSnapshot.
+	const allocations = [];
 	for (const h of holders) {
 		const share = (pot * h.balance) / totalBalance;
 		if (share < MIN_PAYOUT) continue;
+		allocations.push({ wallet: h.wallet, share });
+		allocated += share;
+	}
+	const queued = allocations.length;
+
+	for (let i = 0; i < allocations.length; i += ALLOC_CHUNK) {
+		const chunk = allocations.slice(i, i + ALLOC_CHUNK);
+		const wallets = chunk.map((a) => a.wallet);
+		const shareStrs = chunk.map((a) => a.share.toString());
+		const coinIds = chunk.map(() => coin.id);
+		const batchIds = chunk.map(() => batchId);
+
 		await sql`
-			insert into coin_payouts (
-				coin_id, kind, wallet, amount_lamports, batch_id, status
-			) values (
-				${coin.id}, 'reflection', ${h.wallet}, ${share.toString()}::bigint,
-				${batchId}, 'pending'
-			)
+			insert into coin_payouts (coin_id, kind, wallet, amount_lamports, batch_id, status)
+			select u.coin_id, 'reflection', u.wallet, u.share, u.batch_id, 'pending'
+			from unnest(
+				${coinIds}::uuid[],
+				${wallets}::text[],
+				${shareStrs}::bigint[],
+				${batchIds}::text[]
+			) as u(coin_id, wallet, share, batch_id)
 			on conflict (batch_id, wallet) do nothing
 		`;
+
 		await sql`
-			update coin_holders
-			set accrued_reflection_lamports = accrued_reflection_lamports + ${share.toString()}::bigint
-			where coin_id = ${coin.id} and wallet = ${h.wallet}
+			update coin_holders h
+			set accrued_reflection_lamports = h.accrued_reflection_lamports + d.share
+			from unnest(
+				${wallets}::text[],
+				${shareStrs}::bigint[]
+			) as d(wallet, share)
+			where h.coin_id = ${coin.id} and h.wallet = d.wallet
 		`;
-		allocated += share;
-		queued += 1;
 	}
 
 	// Drain the allocated portion from the reflection pot. Rounding dust stays.

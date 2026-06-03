@@ -59,64 +59,13 @@
 	pointer-events: none;
 }
 
-/* ── Premium sticky header (warm, blurred) ───────────────────────────────── */
+/* ── Global header ───────────────────────────────────────────────────────── */
 
+/* The site header is the shared nav (public/nav.html + nav.css), injected into
+   #nav-container. It positions and styles itself (sticky, blurred, branded), so
+   this wrapper just gets out of the way — no fixed chrome, no second wordmark. */
 .home-page header {
-	position: fixed !important;
-	top: 0;
-	left: 0;
-	right: 0;
-	z-index: 200 !important;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0.9rem clamp(1rem, 4vw, 2rem);
-	height: auto;
-	line-height: normal;
-	overflow: visible;
-	white-space: normal;
-	background: linear-gradient(
-		to bottom,
-		rgba(10, 8, 6, 0.78) 0%,
-		rgba(10, 8, 6, 0.3) 75%,
-		transparent 100%
-	);
-	backdrop-filter: blur(14px) saturate(140%);
-	-webkit-backdrop-filter: blur(14px) saturate(140%);
-	border-bottom: 1px solid rgba(255, 215, 106, 0.06);
-	transition:
-		background 0.3s ease,
-		border-color 0.3s ease;
-}
-
-.home-page header h1 {
-	margin: 0;
-	font-family: 'Space Grotesk', 'Inter', sans-serif;
-	font-size: 1.12rem;
-	font-weight: 700;
-	letter-spacing: -0.01em;
-}
-
-.home-page header h1 a {
-	color: #fff;
-	text-decoration: none;
-	display: inline-flex;
-	align-items: center;
-	gap: 0.45rem;
-}
-
-.home-page header h1 a .wordmark-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: #ffffff;
-	box-shadow: 0 0 12px rgba(255, 143, 77, 0.6);
-}
-
-.home-page header h1 a .wordmark-logo {
-	width: 28px;
-	height: 28px;
-	display: inline-block;
+	display: block;
 }
 
 /* ── Loading flash on page reveal ────────────────────────────────────────── */

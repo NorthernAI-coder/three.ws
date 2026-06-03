@@ -43,10 +43,22 @@ function requireSvmPayTo() {
 	const addr = env('MCP_SVM_PAYMENT_ADDRESS') || env('X402_PAY_TO_SOLANA') || env('X402_PAY_TO');
 	if (!addr) {
 		throw new Error(
-			'mcp-server: set MCP_SVM_PAYMENT_ADDRESS (or X402_PAY_TO_SOLANA / X402_PAY_TO) to receive Solana USDC payments',
+			'mcp-server: set MCP_SVM_PAYMENT_ADDRESS to receive Solana USDC payments (or X402_PAY_TO_SOLANA / X402_PAY_TO)',
 		);
 	}
 	return addr;
+}
+
+/**
+ * Assert the receiving Solana payment address is configured. Called once by the
+ * stdio entry point so a running server fails fast with a single clean line
+ * instead of only erroring on the first paid call. Does NOT run during
+ * `buildServer()`/tests — tool registration stays secret-free.
+ *
+ * @throws {Error} with a single actionable message when no pay-to is set
+ */
+export function assertPaymentEnv() {
+	requireSvmPayTo();
 }
 
 function svmFeePayer() {
