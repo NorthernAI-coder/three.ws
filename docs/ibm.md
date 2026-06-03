@@ -8,14 +8,17 @@ For the broader platform model see [How it works](./how-it-works.md); for the ag
 
 ## Partnership & affiliation
 
-three.ws is an **IBM Business Partner**, and the agent runtime runs on IBM watsonx.ai using your own IBM Cloud credentials. The showcase at [three.ws/ibm](https://three.ws/ibm) demonstrates what the integration makes possible.
+three.ws is an **IBM Business Partner**, and the agent runtime runs on IBM watsonx.ai using your own IBM Cloud credentials.
 
-Two things are deliberately kept distinct, and the docs say so plainly:
+**The public showcase is not the partnership.** Everything under `/ibm/*` and `/api/ibm/*` — the galaxy, oracle, twin, trust-layer, identity, proof, and vision demos at [three.ws/ibm](https://three.ws/ibm) — is an independent set of tools three.ws built for developers to explore IBM Granite on watsonx.ai and build their own integrations. These demos are **not** official IBM partnership deliverables, **not** IBM products, and **not** endorsed by IBM. They run on IBM's publicly available Granite models, nothing more. Our formal partnership work with IBM is being built on the IBM platform and is not yet public — do not present these public demos as that work.
 
-- **The hosted integration** (everything under `/ibm/*` and `/api/ibm/*`) runs Granite models on watsonx.ai as part of the three.ws platform.
+Three things are deliberately kept distinct, and the docs say so plainly:
+
+- **The public showcase** (everything under `/ibm/*` and `/api/ibm/*`) is a community-built playground for developers, not a partnership deliverable or an IBM product.
+- **The hosted integration** runs Granite models on watsonx.ai as part of the three.ws platform, using your own IBM Cloud credentials.
 - **The open-source connector** — the npm package [`@three-ws/ibm-watsonx-mcp`](#mcp-server-three-wsibm-watsonx-mcp) — is community-built and not an IBM product. It speaks directly to the watsonx.ai REST API with your credentials; IBM does not operate or endorse it.
 
-Do not describe the connector as an official IBM release. Do describe the platform integration as built on IBM watsonx.ai.
+Do not describe the connector or the public demos as an official IBM release or partnership deliverable. Do describe the platform integration as built on IBM watsonx.ai.
 
 ---
 

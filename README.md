@@ -380,6 +380,8 @@ three.ws is indexed in chain-ecosystem dApp directories so the community can dis
 
 three.ws is an **IBM Business Partner**, and the agent runtime runs on **IBM Granite** foundation models served through **IBM watsonx.ai**. One IBM Cloud API key + project unlocks the whole suite; every call is real inference (no mock path — endpoints return `503` when unconfigured). Full docs: **[docs/ibm.md](docs/ibm.md)**. Live showcase: **[three.ws/ibm](https://three.ws/ibm)**.
 
+> **The public showcase is not the partnership.** The demos under `/ibm/*` are independent tools three.ws built for developers to explore Granite on watsonx.ai and build their own integrations — they are not official IBM partnership deliverables, not IBM products, and not endorsed by IBM. Our formal partnership work with IBM is being built on the IBM platform and is not yet public.
+
 | Granite model | Where it runs |
 | ------------- | ------------- |
 | `granite-3-8b-instruct` | Selectable avatar **brain** + all narration |
