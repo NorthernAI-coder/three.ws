@@ -3815,8 +3815,8 @@ body.deploy-page {
 	color: #fff;
 }
 .showcase-seg--active {
-	background: #fff;
-	color: #0a0a0a;
+	background: var(--accent);
+	color: #000;
 }
 
 /* sort select */
@@ -3833,9 +3833,9 @@ body.deploy-page {
 }
 .showcase-sort-sel {
 	padding: 7px 12px;
-	background: rgba(255, 255, 255, 0.04);
-	border: 1px solid rgba(255, 255, 255, 0.12);
-	border-radius: 10px;
+	background: var(--surface-2);
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-control);
 	color: #fff;
 	font: inherit;
 	font-size: var(--text-sm);
@@ -3875,9 +3875,9 @@ body.deploy-page {
 	border-color: rgba(255, 255, 255, 0.2);
 }
 .showcase-chip--active {
-	color: #0a0a0a;
-	background: #fff;
-	border-color: #fff;
+	color: #000;
+	background: var(--accent);
+	border-color: var(--accent);
 }
 .showcase-chip-dot {
 	width: 6px;
@@ -3886,13 +3886,13 @@ body.deploy-page {
 	background: rgba(255, 255, 255, 0.45);
 }
 .showcase-chip--active .showcase-chip-dot {
-	background: #0a0a0a;
+	background: #000;
 }
 .showcase-chip--testnet .showcase-chip-dot {
-	background: #fbbf24;
+	background: var(--warn);
 }
 .showcase-chip--active.showcase-chip--testnet .showcase-chip-dot {
-	background: #0a0a0a;
+	background: #000;
 }
 .showcase-chip-reset {
 	padding: 5px 11px;
@@ -3925,8 +3925,8 @@ body.deploy-page {
 	display: flex;
 	flex-direction: column;
 	background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
-	border: 1px solid rgba(255, 255, 255, 0.08);
-	border-radius: 14px;
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-card);
 	overflow: hidden;
 	transition:
 		transform 0.16s ease,
@@ -3982,7 +3982,7 @@ body.deploy-page {
 	border-radius: 999px;
 }
 .showcase-chain-badge--testnet {
-	color: #fbbf24;
+	color: var(--warn);
 }
 .showcase-card-3dpill {
 	position: absolute;
@@ -3991,7 +3991,7 @@ body.deploy-page {
 	padding: 3px 9px;
 	font-size: 11px;
 	font-weight: 600;
-	color: #0a0a0a;
+	color: #000;
 	background: rgba(255, 255, 255, 0.92);
 	border-radius: 999px;
 	opacity: 0;
@@ -4059,7 +4059,7 @@ body.deploy-page {
 	font-size: 11px;
 	font-weight: 500;
 	color: rgba(255, 255, 255, 0.7);
-	background: rgba(255, 255, 255, 0.05);
+	background: var(--surface-2);
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	border-radius: 999px;
 }
@@ -4068,7 +4068,7 @@ body.deploy-page {
 	border-color: rgba(255, 255, 255, 0.22);
 }
 .showcase-tag--x402 {
-	color: #4ade80;
+	color: var(--success);
 	border-color: rgba(74, 222, 128, 0.3);
 	background: rgba(74, 222, 128, 0.08);
 }
@@ -4100,9 +4100,9 @@ body.deploy-page {
 	font-weight: 500;
 	color: #fff;
 	text-decoration: none;
-	background: rgba(255, 255, 255, 0.05);
+	background: var(--surface-2);
 	border: 1px solid rgba(255, 255, 255, 0.1);
-	border-radius: 10px;
+	border-radius: var(--radius-control);
 	cursor: pointer;
 	transition:
 		background 0.12s ease,
@@ -4126,17 +4126,31 @@ body.deploy-page {
 	border-radius: 8px;
 }
 .showcase-btn--primary {
-	background: #fff;
-	border-color: #fff;
-	color: #0a0a0a;
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #000;
 	font-weight: 600;
 }
 .showcase-btn--primary:hover {
-	background: #e8e8e8;
-	border-color: #e8e8e8;
+	background: var(--ink);
+	border-color: var(--ink);
 }
 .showcase-btn--ghost {
 	background: transparent;
+}
+
+/* Keyboard focus — interactive elements get a visible ring (the dashboard's
+   blanket ring is scoped to .dn-shell and doesn't reach the showcase). */
+.showcase-seg:focus-visible,
+.showcase-chip:focus-visible,
+.showcase-chip-reset:focus-visible,
+.showcase-sort-sel:focus-visible,
+.showcase-btn:focus-visible,
+.showcase-card-thumb:focus-visible,
+.showcase-card-title:focus-visible,
+.showcase-card-owner:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 /* load more */
@@ -4219,6 +4233,12 @@ body.deploy-page {
 }
 .showcase-empty .showcase-btn {
 	margin-top: var(--space-sm);
+}
+.showcase-empty--error .showcase-empty-art {
+	opacity: 1;
+}
+.showcase-empty--error h3 {
+	color: var(--danger);
 }
 
 @media (max-width: 560px) {

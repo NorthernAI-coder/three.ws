@@ -34,7 +34,7 @@ export const THREE_WS = {
 	xHandle: '@trythreews',
 	github: 'https://github.com/nirholas/three.ws',
 	docs: 'https://three.ws/docs',
-	ogImage: 'https://three.ws/og.png',
+	ogImage: 'https://three.ws/og-image.png',
 };
 
 // ── $THREE — the platform coin every artifact links back to ──────────────────
@@ -65,9 +65,25 @@ export function agentHomeUrl(agentId) {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function clamp(str, max) {
+const _enc = new TextEncoder();
+
+/**
+ * Clamp to a UTF-8 *byte* budget without splitting a codepoint. On-chain
+ * attributes are borsh strings measured in bytes, so a CJK/emoji name must be
+ * bounded by bytes — not characters — or it can overflow the 1232-byte tx.
+ */
+function clamp(str, maxBytes) {
 	const s = String(str ?? '').trim();
-	return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+	if (_enc.encode(s).length <= maxBytes) return s;
+	let out = '';
+	let bytes = 0;
+	for (const ch of s) {
+		const b = _enc.encode(ch).length;
+		if (bytes + b > maxBytes - 3) break; // reserve 3 bytes for the ellipsis
+		out += ch;
+		bytes += b;
+	}
+	return `${out.trimEnd()}…`;
 }
 
 /** A Metaplex `creators` array crediting the owner + the platform. */
@@ -75,6 +91,23 @@ function creators(ownerAddress) {
 	const list = [];
 	if (ownerAddress) list.push({ address: ownerAddress, share: 100 });
 	return list;
+}
+
+/** Default enforced secondary-sale royalty for agent assets: 5%, to the owner. */
+export const AGENT_ROYALTY_BPS = 500;
+
+/**
+ * Plain-data config for the Metaplex Core Royalties plugin. Kept SDK-free so
+ * this module stays dependency-light — the caller turns this into the plugin
+ * with `ruleSet('None')`. Returns `null` when there's no owner to credit
+ * (the plugin requires creator percentages to sum to 100).
+ *
+ * @param {string} ownerAddress base58 owner/creator wallet
+ * @param {number} [basisPoints]
+ */
+export function agentRoyaltyConfig(ownerAddress, basisPoints = AGENT_ROYALTY_BPS) {
+	if (!ownerAddress) return null;
+	return { basisPoints, creators: [{ address: ownerAddress, percentage: 100 }] };
 }
 
 // ── Agent identity (Metaplex Core asset) ─────────────────────────────────────
@@ -158,21 +191,22 @@ export function buildAgentManifest(a) {
  */
 export function buildAgentOnchainAttributes(a) {
 	const tok = threeTokenLinks();
-	// Caps keep the plugin well under Solana's 1232-byte tx limit even with a
-	// long agent name, a long IPFS URI, and a full skill list.
+	// Caps (in UTF-8 bytes) keep the plugin comfortably under Solana's 1232-byte
+	// tx limit even with a long agent name and a full skill list. The off-chain
+	// JSON URI already lives on-chain in the asset's `uri` field, so it is not
+	// duplicated here.
 	const pairs = [
 		['platform', THREE_WS.name],
 		['url', THREE_WS.website],
 		['agent', clamp(a.name, 48)],
-		...(a.agentUrl ? [['agent_url', clamp(a.agentUrl, 80)]] : []),
+		...(a.agentUrl ? [['agent_url', clamp(a.agentUrl, 72)]] : []),
 		['x', THREE_WS.x],
 		['github', THREE_WS.github],
 		['$THREE', tok.mint],
 		['$THREE_url', tok.pumpfun],
 		['standard', 'metaplex-core'],
 		['schema', 'agent-manifest/0.1'],
-		...(a.metadataUri ? [['metadata', clamp(a.metadataUri, 96)]] : []),
-		...(a.skills?.length ? [['skills', clamp(a.skills.join(','), 96)]] : []),
+		...(a.skills?.length ? [['skills', clamp(a.skills.join(','), 80)]] : []),
 		...(a.createdAt ? [['created', a.createdAt]] : []),
 	];
 	return pairs.map(([key, value]) => ({ key, value: String(value) }));

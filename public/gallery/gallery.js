@@ -343,6 +343,14 @@ function renderCard(a) {
 
 	const viewsLabel = views >= 1 ? `${formatCompact(views)} view${views === 1 ? '' : 's'}` : '';
 
+	// Same "deployed on-chain" badge used across the platform. gallery.js is a
+	// static public asset (not bundled), so the shared module is reached via the
+	// global set by /src/shared/onchain-badge.js loaded in index.html; degrades
+	// to no badge if unavailable. Only avatars backing an on-chain agent show it.
+	const onchainBadge = window.twsOnchainBadge?.onchainBadgeHTML
+		? window.twsOnchainBadge.onchainBadgeHTML(a, { link: false, showChain: true, size: 'sm' })
+		: '';
+
 	card.innerHTML = `
 		<a class="gallery-card-thumb" href="${escapeAttr(viewerUrl)}" aria-label="View ${escapeAttr(a.name || 'Avatar')} in 3D viewer">
 			${thumbContent}
@@ -351,6 +359,7 @@ function renderCard(a) {
 		</a>
 		<div class="gallery-card-body">
 			<h3 class="gallery-card-name"><a href="${escapeAttr(detailUrl)}">${escapeHtml(a.name || 'Untitled')}</a></h3>
+			${onchainBadge ? `<div class="gallery-card-onchain" style="margin:4px 0 2px">${onchainBadge}</div>` : ''}
 			${a.description ? `<p class="gallery-card-desc">${escapeHtml(a.description)}</p>` : ''}
 			${tagChips ? `<div class="gallery-card-tags">${tagChips}</div>` : ''}
 			<div class="gallery-card-foot">

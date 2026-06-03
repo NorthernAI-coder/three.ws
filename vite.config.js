@@ -199,7 +199,7 @@ const appConfig = {
 		// large bundles (Three.js, ethers) without affecting the output.
 		reportCompressedSize: false,
 		rollupOptions: {
-			external: ['/studio/launch-panel.js', /^@pump-fun\/agent-payments-sdk(\/.*)?$/],
+			external: ['/studio/launch-panel.js', '/studio/fees-panel.js', './fees-panel.js', /^@pump-fun\/agent-payments-sdk(\/.*)?$/],
 			output: {
 				manualChunks(id) {
 					if (id.includes('node_modules/three/')) {
@@ -470,6 +470,8 @@ const appConfig = {
 					'/widget/': resolve(root, 'pages/widget.html'),
 					'/login': resolve(root, 'public/login.html'),
 					'/deploy': resolve(root, 'pages/app.html'),
+					'/showcase': resolve(root, 'pages/app.html'),
+					'/showcase/': resolve(root, 'pages/app.html'),
 					'/agents': resolve(root, 'public/agents/index.html'),
 					'/agents/': resolve(root, 'public/agents/index.html'),
 					'/start': resolve(root, 'pages/start.html'),

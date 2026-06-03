@@ -3551,12 +3551,14 @@ body.market-page {
 	transition: color 0.15s, transform 0.1s, background 0.15s;
 	opacity: 0;
 }
-.market-card-agent:hover .card-star { opacity: 1; }
+.market-card-agent:hover .card-star,
+.card-star:focus-visible { opacity: 1; }
 .card-star.on {
 	color: #fde047;
 	opacity: 1;
 }
 .card-star:hover { color: #fde047; transform: scale(1.1); background: rgba(0,0,0,0.7); }
+.card-star:focus-visible { color: #fde047; outline: 2px solid #fde047; outline-offset: 2px; }
 
 /* ── Featured badge on cards ────────────────────────────────────── */
 

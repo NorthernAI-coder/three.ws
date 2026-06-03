@@ -48,9 +48,13 @@ vi.mock('@metaplex-foundation/umi-bundle-defaults', () => ({
 }));
 vi.mock('@metaplex-foundation/mpl-core', () => ({
 	mplCore: vi.fn(() => () => {}),
+	create: vi.fn(() => ({
+		buildAndSign: vi.fn(async () => FAKE_TX),
+	})),
 	createV1: vi.fn(() => ({
 		buildAndSign: vi.fn(async () => FAKE_TX),
 	})),
+	ruleSet: vi.fn((type) => ({ type })),
 	fetchAsset: vi.fn(),
 }));
 vi.mock('@metaplex-foundation/umi', () => ({

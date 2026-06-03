@@ -10,6 +10,8 @@
 // DOM entry:
 //   mountLaunchPanel(el, { getAvatar, getUser }) → { avatarChanged, teardown }
 
+import { mountFeesPanel } from './fees-panel.js';
+
 // ── Pure validation ─────────────────────────────────────────────────────────
 
 export function validateLaunchForm({ name, symbol, description, initialBuy } = {}) {
@@ -101,8 +103,9 @@ const LP_CSS = `
 .lp-src button.on .lp-src-sub{color:rgba(164,240,188,.55)}
 
 /* Coin-type selector */
-.lp-coin{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;padding:.25rem;
+.lp-coin{display:grid;grid-template-columns:repeat(5,1fr);gap:.3rem;padding:.25rem;
   background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px}
+@media (max-width:360px){.lp-coin{grid-template-columns:repeat(3,1fr)}}
 .lp-coin button{padding:.5rem .35rem;border-radius:7px;cursor:pointer;background:transparent;
   border:1px solid transparent;color:rgba(255,255,255,.5);font-size:.74rem;font-weight:600;
   transition:all .15s;line-height:1.2;text-align:center}
@@ -110,16 +113,20 @@ const LP_CSS = `
 .lp-coin button.on{background:rgba(164,240,188,.12);border-color:rgba(164,240,188,.32);color:#c8f0d8}
 .lp-coin button.mayhem.on{background:rgba(246,140,80,.14);border-color:rgba(246,140,80,.38);color:#f6c498}
 .lp-coin button.usdc.on{background:rgba(120,160,240,.12);border-color:rgba(120,160,240,.34);color:#a8c4f0}
+.lp-coin button.reward.on{background:rgba(170,140,240,.14);border-color:rgba(170,140,240,.36);color:#cdbcf8}
 .lp-coin button[disabled]{opacity:.42;cursor:not-allowed}
 .lp-coin-sub{display:block;font-size:.6rem;color:rgba(255,255,255,.32);font-weight:400;margin-top:.18rem;letter-spacing:.01em}
 .lp-coin button.on .lp-coin-sub{color:rgba(200,240,216,.62)}
 .lp-coin button.mayhem.on .lp-coin-sub{color:rgba(246,196,152,.72)}
 .lp-coin button.usdc.on .lp-coin-sub{color:rgba(168,196,240,.72)}
+.lp-coin button.reward.on .lp-coin-sub{color:rgba(205,188,248,.72)}
 .lp-coin-emoji{display:block;font-size:.95rem;line-height:1;margin-bottom:.18rem}
 .lp-coin-note{font-size:.7rem;color:rgba(255,255,255,.42);line-height:1.5;padding:.45rem .65rem;
   background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:8px}
 .lp-coin-note.mayhem{color:rgba(246,196,152,.85);background:rgba(246,140,80,.07);border-color:rgba(246,140,80,.2)}
 .lp-coin-note.usdc{color:rgba(168,196,240,.85);background:rgba(120,160,240,.07);border-color:rgba(120,160,240,.22)}
+.lp-coin-note.reward{color:rgba(205,188,248,.9);background:rgba(170,140,240,.07);border-color:rgba(170,140,240,.22)}
+.lp-coin-note.reward b{color:#dccff8}
 .lp-empty{text-align:center;padding:2.5rem 1rem;color:rgba(255,255,255,.3);font-size:.85rem;line-height:1.7}
 .lp-empty a{color:rgba(164,240,188,.7);text-decoration:none}
 .lp-empty a:hover{color:#a4f0bc}
@@ -434,8 +441,14 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 
 	let _balanceInterval = null;
 	const _walletListeners = []; // [{ wallet, event, fn }]
+	let _feesPanel = null; // mounted fee/rewards panel in the existing-token view
+
+	function teardownFees() {
+		if (_feesPanel) { try { _feesPanel.teardown(); } catch { /* ignore */ } _feesPanel = null; }
+	}
 
 	function cleanup() {
+		teardownFees();
 		if (_balanceInterval) { clearInterval(_balanceInterval); _balanceInterval = null; }
 		if (s._agentBalanceTimer) { clearInterval(s._agentBalanceTimer); s._agentBalanceTimer = null; }
 		for (const { wallet, event, fn } of _walletListeners) {
@@ -846,7 +859,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 	}
 
 	function switchCoinType(next) {
-		if (!['regular', 'mayhem', 'agent', 'usdc'].includes(next)) return;
+		if (!['regular', 'mayhem', 'agent', 'usdc', 'reward'].includes(next)) return;
 		if (next === s.coinType) return;
 		s.coinType = next;
 		s.errorMsg = '';
@@ -1037,7 +1050,9 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 				...(av.agent_id ? { agent_id: av.agent_id } : { avatar_id: av.id }),
 				wallet_address: payer,
 				name: nameTrim, symbol: symTrim, uri: s._metaUrl,
-				coin_type: isUsdc ? 'agent' : s.coinType,
+				// 'reward' launches as a plain pump.fun coin; the delegated fee split
+				// is configured after graduation in the Fees & rewards panel.
+				coin_type: isUsdc ? 'agent' : s.coinType === 'reward' ? 'regular' : s.coinType,
 				buyback_bps: (isUsdc || s.coinType === 'agent') ? s.buybackBps : 0,
 				...(isUsdc
 					? { usdc_buy_in: buyIn, quote_mint: USDC_MAINNET_MINT }
@@ -1151,6 +1166,10 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 	// ── Render ─────────────────────────────────────────────────────────────
 
 	function render() {
+		// The fee/rewards panel only lives in the existing-token view; tear it down
+		// before any re-render so it never leaks across views (renderExisting
+		// re-mounts it fresh against the current mint).
+		teardownFees();
 		if (!av || av.id === DEMO_ID)         { renderEmpty();    return; }
 		if (s.checkingMint)                   { renderChecking(); return; }
 		if (s.existingMint && !s.forceNew)    { renderExisting(); return; }
@@ -1190,6 +1209,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 					<div class="lp-guide-type" title="Pump.fun high-volatility mode — no agent buyback or payments. Pure speculation."><b>🔥 Mayhem</b>High-volatility mode on pump.fun.</div>
 					<div class="lp-guide-type" title="Agent revenue (SOL from paid endpoints) buys back and burns the token automatically."><b>🤖 Agent</b>SOL revenue auto-buyback &amp; burn.</div>
 					<div class="lp-guide-type" title="USDC-denominated agent payments via agent-payments-sdk. Coming soon."><b>💵 USDC</b>Stablecoin-denominated. Coming soon.</div>
+					<div class="lp-guide-type" title="Open-source reward coin — delegate creator fees to a team or GitHub contributors who each claim their share."><b>🎁 Reward</b>Delegate fees to contributors.</div>
 				</div>
 
 				<div class="lp-guide-tip">
@@ -1257,6 +1277,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 					? `<a class="lp-ex-link" href="/agent/${esc(s.resolvedAgentId || av.agent_id)}">Agent page ↗</a>`
 					: ''}
 			</div>
+			<div id="lp-fees"></div>
 			<button class="lp-ex-new" id="lp-force-new">Launch a new token for this avatar</button>
 		</div></div>`;
 
@@ -1268,6 +1289,23 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		container.querySelector('#lp-force-new')?.addEventListener('click', () => {
 			s.forceNew = true; render();
 		});
+
+		// Mount the fees & rewards control surface against this coin. The on-chain
+		// creator (agent_authority) decides whether claims are server-signed by the
+		// agent wallet or signed by the user's connected creator wallet.
+		const feesEl = container.querySelector('#lp-fees');
+		if (feesEl && m.mint) {
+			_feesPanel = mountFeesPanel(feesEl, {
+				mint: m.mint,
+				network: m.network || 'mainnet',
+				creator: m.agent_authority || null,
+				agentId: s.resolvedAgentId || av?.agent_id || null,
+				avatarId: av?.id || null,
+				symbol: m.symbol || '',
+				name: m.name || '',
+				getUser,
+			});
+		}
 	}
 
 	function renderTimeout() {
@@ -1458,15 +1496,20 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 			<button type="button" role="tab" data-coin="usdc" class="usdc ${ct === 'usdc' ? 'on' : ''}" ${busy ? 'disabled' : ''} title="USDC-paired agent coin — trades and pays out in USDC instead of SOL.">
 				<span class="lp-coin-emoji">💵</span>USDC<span class="lp-coin-sub">Stablecoin pair</span>
 			</button>
+			<button type="button" role="tab" data-coin="reward" class="reward ${ct === 'reward' ? 'on' : ''}" ${busy ? 'disabled' : ''} title="Open-source / GitHub reward coin — creator fees are delegated and split to a team or repo contributors who each claim their share.">
+				<span class="lp-coin-emoji">🎁</span>Reward<span class="lp-coin-sub">Delegated fees</span>
+			</button>
 		</div>`;
 
 		const coinNoteHtml = ct === 'mayhem'
 			? `<div class="lp-coin-note mayhem">Mayhem coins launch on pump.fun's high-volatility mode. No agent buyback or payments — pure speculation.</div>`
 			: ct === 'usdc'
 				? `<div class="lp-coin-note usdc">USDC-paired agent coin. Bonding curve quotes in USDC instead of SOL — your initial buy and all subsequent trades settle through the wallet's USDC ATA. Buyback share still applies, denominated in USDC.</div>`
-				: ct === 'regular'
-					? `<div class="lp-coin-note">Standard pump.fun launch — no on-chain buyback. Initial buy still funds bonding curve.</div>`
-					: '';
+				: ct === 'reward'
+					? `<div class="lp-coin-note reward">Open-source reward coin. Launches as a standard pump.fun coin, then once it graduates you delegate creator fees as a split — import a GitHub repo's contributors or add wallets in <b>Fees &amp; rewards</b>. Each delegated wallet claims its share.</div>`
+					: ct === 'regular'
+						? `<div class="lp-coin-note">Standard pump.fun launch — no on-chain buyback. Initial buy still funds bonding curve.</div>`
+						: '';
 
 		// USDC coins are agent-buyback-bound (same on-chain agent identity flow
 		// as 'agent'), so surface the buyback slider for both variants.

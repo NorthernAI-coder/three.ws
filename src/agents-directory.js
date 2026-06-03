@@ -306,7 +306,7 @@ export class AgentsDirectory {
 					</div>
 				</div>
 				<p class="card-desc">${cleanDesc}${agent.description.length > 140 ? '…' : ''}</p>
-				${onchainBadge ? `<div class="card-onchain">${onchainBadge}</div>` : ''}
+				${onchainBadge ? `<div class="card-onchain" style="margin:8px 0 2px">${onchainBadge}</div>` : ''}
 				${protoBadges || overflow ? `<div class="card-protos">${protoBadges}${overflow}</div>` : ''}
 				${trustPills ? `<div class="card-trust">${trustPills}</div>` : ''}
 				${

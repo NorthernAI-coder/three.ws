@@ -160,7 +160,7 @@ export class DeployButton {
 			</div>
 			<div class="deploy-vanity-link-row" style="${showVanity ? '' : 'display:none'};margin-top:4px;font-size:12px;">
 				<button type="button" class="deploy-vanity-link"
-					style="background:none;border:none;color:#0066cc;cursor:pointer;padding:0;font-size:12px;text-decoration:underline">
+					style="background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;padding:0;font-size:12px;text-decoration:underline">
 					${this._vanityPrefix
 						? `&#10024; Vanity: <span style="font-family:monospace;font-weight:600">${_esc(this._vanityPrefix)}</span> &middot; change`
 						: '&#10024; Customize address (optional)'}

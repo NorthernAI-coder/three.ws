@@ -11,7 +11,7 @@
 
 import { z } from 'zod';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { mplCore, create } from '@metaplex-foundation/mpl-core';
+import { mplCore, create, ruleSet } from '@metaplex-foundation/mpl-core';
 import {
 	generateSigner,
 	publicKey as umiPublicKey,
@@ -35,6 +35,7 @@ import { env } from '../../_lib/env.js';
 import {
 	buildAgentManifest,
 	buildAgentOnchainAttributes,
+	agentRoyaltyConfig,
 	agentHomeUrl,
 } from '../../_lib/three-brand.js';
 
@@ -134,12 +135,14 @@ async function pinManifest(manifest) {
 	return { cid, uri: publicUrl(key) };
 }
 
-function buildManifest({ agent_id, name, description, avatar_id, skills, wallet_address }) {
+function buildManifest({ agent_id, name, description, avatar_id, skills, wallet_address, image, animationUrl }) {
 	return buildAgentManifest({
 		name,
 		description,
 		avatarId: avatar_id || null,
 		skills,
+		image,
+		animationUrl,
 		externalUrl: agentHomeUrl(agent_id),
 		ownerAddress: wallet_address,
 		createdAt: new Date().toISOString(),
@@ -166,18 +169,23 @@ async function buildSolanaTx({ rpc, walletAddress, name, metadataUri, attributes
 	const ownerPk = umiPublicKey(walletAddress);
 	const assetSigner = generateSigner(umi);
 	umi.use(signerIdentity(createNoopSigner(ownerPk)));
-	// `create` (Core v2 under the hood) lets us attach the on-chain Attributes
-	// plugin: three.ws brand, provenance links, and the $THREE mint are written
-	// into the asset account itself — not just the off-chain JSON at `uri`.
-	const builder = create(umi, {
-		asset: assetSigner,
-		owner: ownerPk,
-		name,
-		uri: metadataUri,
-		plugins: attributes?.length
-			? [{ type: 'Attributes', attributeList: attributes }]
-			: [],
-	});
+	// `create` (Core v2 under the hood) lets us attach on-chain plugins:
+	//  • Attributes — three.ws brand, provenance links, and the $THREE mint are
+	//    written into the asset account itself, not just the off-chain JSON.
+	//  • Royalties — an enforced 5% secondary-sale royalty to the owner.
+	const royalty = agentRoyaltyConfig(walletAddress);
+	const plugins = [
+		...(attributes?.length ? [{ type: 'Attributes', attributeList: attributes }] : []),
+		...(royalty
+			? [{
+					type: 'Royalties',
+					basisPoints: royalty.basisPoints,
+					creators: royalty.creators.map((c) => ({ address: umiPublicKey(c.address), percentage: c.percentage })),
+					ruleSet: ruleSet('None'),
+				}]
+			: []),
+	];
+	const builder = create(umi, { asset: assetSigner, owner: ownerPk, name, uri: metadataUri, plugins });
 	const tx = await builder.buildAndSign(umi);
 	return { assetSigner, txBytes: umi.transactions.serialize(tx) };
 }
@@ -270,13 +278,18 @@ async function handlePrep(req, res) {
 		return error(res, 400, 'validation_error', `invalid chain: ${e.message}`);
 	}
 
+	// Resolve the avatar's real media so the asset carries its actual thumbnail
+	// (PNG) and 3D body (GLB) — not the branded default poster.
+	let avatarImage, avatarAnimationUrl;
 	if (body.avatar_id) {
 		const [av] = await sql`
-			select id from avatars
+			select id, storage_key, thumbnail_key from avatars
 			where id=${body.avatar_id} and owner_id=${user.id} and deleted_at is null
 			limit 1
 		`;
 		if (!av) return error(res, 404, 'not_found', 'avatar not found');
+		if (av.thumbnail_key) avatarImage = publicUrl(av.thumbnail_key);
+		if (av.storage_key) avatarAnimationUrl = publicUrl(av.storage_key);
 	}
 
 	// Refuse if the wallet is linked to a *different* user. If unlinked, allow
@@ -292,7 +305,7 @@ async function handlePrep(req, res) {
 		return error(res, 403, 'forbidden', 'wallet is linked to another account');
 	}
 
-	const manifest = buildManifest(body);
+	const manifest = buildManifest({ ...body, image: avatarImage, animationUrl: avatarAnimationUrl });
 	const { cid, uri: metadataUri } = await pinManifest(manifest);
 
 	let familyPrep;
@@ -304,7 +317,6 @@ async function handlePrep(req, res) {
 				name: body.name,
 				agentUrl: agentHomeUrl(body.agent_id),
 				skills: body.skills,
-				metadataUri,
 				createdAt: new Date().toISOString(),
 			});
 			familyPrep = await prepSolana({

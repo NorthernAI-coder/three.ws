@@ -244,66 +244,6 @@
 	font-style: italic;
 }
 
-/* ── Light-mode overrides ────────────────────────────────────────────────── */
-
-@media (prefers-color-scheme: light) {
-	.deploy-chain-select {
-		border-color: rgba(0, 0, 0, 0.18);
-		background-color: rgba(0, 0, 0, 0.03);
-		color: #444;
-	}
-
-	.deploy-chain-select:hover:not(:disabled) {
-		background-color: rgba(0, 0, 0, 0.05);
-		color: #111;
-		border-color: rgba(0, 0, 0, 0.35);
-	}
-
-	.deploy-chain-select option {
-		background: #fff;
-		color: #111;
-	}
-
-	.deploy-btn {
-		border-color: rgba(0, 0, 0, 0.18);
-		background: rgba(0, 0, 0, 0.03);
-		color: #111;
-	}
-
-	.deploy-btn:hover:not(:disabled) {
-		background: rgba(0, 0, 0, 0.06);
-		border-color: rgba(0, 0, 0, 0.4);
-		color: #000;
-	}
-
-	.deploy-chip--success {
-		background: #ecfdf5;
-		border-color: #22c55e;
-		color: #15803d;
-	}
-
-	.deploy-progress {
-		color: #555;
-	}
-
-	.progress-step--active {
-		color: #111;
-		background: rgba(0, 0, 0, 0.06);
-		border-color: rgba(0, 0, 0, 0.25);
-	}
-
-	.progress-step--done {
-		color: #15803d;
-	}
-
-	.deploy-error {
-		background: #fff1f2;
-		border-color: #fca5a5;
-		color: #b91c1c;
-	}
-
-	.deploy-action-btn {
-		border-color: #b91c1c;
-		color: #b91c1c;
-	}
-}
+/* No light-mode block: three.ws is a dark-only product (no prefers-color-scheme
+   switch anywhere in theme.css / style.css). This control must stay dark to match
+   the page it lives in, regardless of the visitor's OS theme. */

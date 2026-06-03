@@ -747,6 +747,10 @@
 			"dest": "/app-next.html"
 		},
 		{
+			"src": "/showcase/?",
+			"dest": "/app-next.html"
+		},
+		{
 			"src": "/dashboard-classic/?",
 			"dest": "/dashboard-classic/index.html"
 		},

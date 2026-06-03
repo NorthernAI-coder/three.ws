@@ -35,6 +35,13 @@
 //                                     quotes is handled internally by the SDK)
 //   create-fee-sharing-prep       -> handleCreateFeeSharingPrep   (step 1)
 //   update-fee-shares-prep        -> handleUpdateFeeSharesPrep    (step 2)
+//   fee-info                      -> handleFeeInfo (read-only: claimable creator
+//                                    fees, graduation, sharing-config shareholders)
+//   collect-creator-fee-agent     -> handleCollectCreatorFeeAgent (server-signs
+//                                    with the agent custodial wallet)
+//   distribute-creator-fees-agent -> handleDistributeCreatorFeesAgent (server-signs)
+//   fee-sharing-agent             -> handleFeeSharingAgent (server-signs create +
+//                                    update sharing config; delegated fee rewards)
 
 import { z } from 'zod';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
@@ -3017,4 +3024,398 @@ async function handleCreateFeeSharingPrep(req, res) {
 		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build create-fee-sharing tx');
 	}
 }
+// ── fee-info ───────────────────────────────────────────────────────────────
+// Read-only resolver: given a mint, report where creator fees go (cashback,
+// sharing-config shareholders, or direct creator), the claimable vault balance
+// (pump native vault + AMM WSOL vault), graduation status, and the on-chain
+// sharing-config shareholders if one exists. Mirrors the coin-fees skill's
+// fetch-fee-info.mjs so the studio shows real, on-chain numbers — no estimates.
+// Public read (rate-limited) so anyone can inspect a coin's fee posture before
+// claiming a delegated share.
+
+const MIN_RENT_EXEMPTION_LAMPORTS = 890_880n;
+
+async function handleFeeInfo(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const mintStr = url.searchParams.get('mint');
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const mintPk = solanaPubkey(mintStr);
+	if (!mintPk) return error(res, 400, 'validation_error', 'valid mint required');
+
+	try {
+		const connection = getConnection({ network });
+		const [
+			{ PumpSdk, OnlinePumpSdk, canonicalPumpPoolPda, creatorVaultPda, feeSharingConfigPda },
+			{ OnlinePumpAmmSdk, coinCreatorVaultAuthorityPda, coinCreatorVaultAtaPda },
+			{ AccountLayout, NATIVE_MINT, TOKEN_PROGRAM_ID },
+		] = await Promise.all([
+			import('@pump-fun/pump-sdk'),
+			import('@pump-fun/pump-swap-sdk'),
+			import('@solana/spl-token'),
+		]);
+
+		const onlineSdk = new OnlinePumpSdk(connection);
+		const offlineSdk = new PumpSdk();
+		const bondingCurve = await onlineSdk.fetchBondingCurve(mintPk).catch(() => null);
+		if (!bondingCurve) return error(res, 404, 'not_found', 'no bonding curve for this mint');
+
+		const poolPda = canonicalPumpPoolPda(mintPk);
+		const poolInfo = await connection.getAccountInfo(poolPda);
+		let isGraduated = false;
+		let poolCoinCreator = null;
+		let isCashbackCoin = false;
+
+		if (poolInfo) {
+			isGraduated = true;
+			try {
+				const pool = await new OnlinePumpAmmSdk(connection).fetchPool(poolPda);
+				poolCoinCreator = pool.coinCreator;
+				isCashbackCoin = pool.isCashbackCoin === true
+					|| (Array.isArray(pool.is_cashback_coin) && pool.is_cashback_coin[0] === true);
+			} catch { /* pool not fully initialized */ }
+		} else {
+			isCashbackCoin = bondingCurve.isCashbackCoin === true
+				|| (Array.isArray(bondingCurve.is_cashback_coin) && bondingCurve.is_cashback_coin[0] === true);
+		}
+
+		const effectiveCreator = poolCoinCreator ?? new PublicKey(bondingCurve.creator);
+
+		let hasSharingConfig = false;
+		let sharingConfig = null;
+		if (!isCashbackCoin) {
+			// When a creator migrates to a fee-sharing config, the on-chain creator
+			// field (pool.coinCreator / bondingCurve.creator) becomes the config PDA.
+			const cfgPda = feeSharingConfigPda(mintPk);
+			hasSharingConfig = effectiveCreator.equals(cfgPda);
+			if (hasSharingConfig) {
+				const cfgInfo = await connection.getAccountInfo(cfgPda);
+				if (cfgInfo) {
+					const cfg = offlineSdk.decodeSharingConfig(cfgInfo);
+					sharingConfig = {
+						address: cfgPda.toBase58(),
+						admin: cfg.admin.toBase58(),
+						admin_revoked: cfg.adminRevoked ?? false,
+						shareholders: cfg.shareholders.map((s) => ({
+							address: s.address.toBase58(),
+							bps: Number(s.shareBps),
+						})),
+					};
+				} else {
+					hasSharingConfig = false;
+				}
+			}
+		}
+
+		// Vault balance = pump native creator vault (minus rent) + AMM WSOL vault.
+		// When a sharing config exists, fees accrue under the config PDA.
+		let claimableLamports = 0n;
+		if (!isCashbackCoin) {
+			const vaultCreator = hasSharingConfig ? feeSharingConfigPda(mintPk) : effectiveCreator;
+			const nativeVault = creatorVaultPda(vaultCreator);
+			const nativeInfo = await connection.getAccountInfo(nativeVault);
+			if (nativeInfo) {
+				const adjusted = BigInt(nativeInfo.lamports) - MIN_RENT_EXEMPTION_LAMPORTS;
+				if (adjusted > 0n) claimableLamports += adjusted;
+			}
+			try {
+				const ammAuthority = coinCreatorVaultAuthorityPda(vaultCreator);
+				const ammAta = coinCreatorVaultAtaPda(ammAuthority, NATIVE_MINT, TOKEN_PROGRAM_ID);
+				const ammInfo = await connection.getAccountInfo(ammAta);
+				if (ammInfo) {
+					const parsed = AccountLayout.decode(
+						new Uint8Array(ammInfo.data.buffer, ammInfo.data.byteOffset, ammInfo.data.byteLength),
+					);
+					claimableLamports += BigInt(parsed.amount.toString());
+				}
+			} catch { /* no AMM vault yet */ }
+		}
+
+		const feeDestination = isCashbackCoin ? 'cashback' : hasSharingConfig ? 'sharing_config' : 'creator';
+
+		return json(res, 200, {
+			mint: mintPk.toBase58(),
+			network,
+			is_graduated: isGraduated,
+			is_cashback_coin: isCashbackCoin,
+			has_sharing_config: hasSharingConfig,
+			creator: effectiveCreator.toBase58(),
+			claimable_lamports: claimableLamports.toString(),
+			claimable_sol: Number(claimableLamports) / LAMPORTS_PER_SOL,
+			fee_destination: feeDestination,
+			sharing_config: sharingConfig,
+		});
+	} catch (e) {
+		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to read fee info');
+	}
+}
+
+// Build a v0 transaction from `instructions`, sign with the agent keypair (and
+// any extra signers), send, and confirm. Mirrors the launch-agent send path so
+// every server-signed pump action uses the same RPC handling.
+async function signSendWithAgent({ network, agentKeypair, instructions, extraSigners = [] }) {
+	const conn = solanaConnection(network);
+	const { TransactionMessage, VersionedTransaction } = await import('@solana/web3.js');
+	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
+	const msg = new TransactionMessage({
+		payerKey: agentKeypair.publicKey,
+		recentBlockhash: blockhash,
+		instructions,
+	}).compileToV0Message();
+	const vtx = new VersionedTransaction(msg);
+	vtx.sign([agentKeypair, ...extraSigners]);
+	const signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false });
+	await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+	return signature;
+}
+
+// Resolve the agent + mint the caller controls, and assert the agent's custodial
+// wallet is the on-chain creator (agent_authority) of the coin. Returns
+// { agent, mintRow, loaded, creator } or sends an error and returns null.
+async function resolveAgentFeeContext(req, res, body) {
+	const user = await getSessionUser(req);
+	if (!user) { error(res, 401, 'unauthorized', 'sign in required'); return null; }
+
+	const agent = await resolveLaunchAgentId({
+		userId: user.id, agentId: body.agent_id, avatarId: body.avatar_id,
+	});
+	if (!agent) { error(res, 404, 'not_found', 'agent not found'); return null; }
+
+	const [mintRow] = await sql`
+		select id, mint, network, agent_authority, sharing_config
+		from pump_agent_mints
+		where agent_id=${agent.id} and mint=${body.mint} and network=${body.network}
+		limit 1
+	`;
+	if (!mintRow) { error(res, 404, 'not_found', 'coin not found for this agent'); return null; }
+
+	const loaded = await loadAgentForSigning(agent.id, user.id, {
+		reason: 'studio_fee_action',
+		meta: { mint: body.mint, network: body.network },
+	});
+	if (loaded.error) { error(res, loaded.error.status, loaded.error.code, loaded.error.msg); return null; }
+
+	const creator = loaded.keypair.publicKey.toBase58();
+	if (mintRow.agent_authority && mintRow.agent_authority !== creator) {
+		error(res, 409, 'creator_mismatch',
+			'this coin was launched from a connected wallet — claim with that wallet instead of the agent wallet');
+		return null;
+	}
+	return { user, agent, mintRow, loaded, creator };
+}
+
+// ── collect-creator-fee-agent ──────────────────────────────────────────────
+// Server-signs the creator-fee collection with the agent custodial wallet. Use
+// for coins launched from the agent wallet (agent_authority == agent wallet).
+
+const collectFeeAgentSchema = z.object({
+	agent_id: z.string().uuid().optional(),
+	avatar_id: z.string().uuid().optional(),
+	mint: z.string().min(32).max(44),
+	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+}).refine((b) => b.agent_id || b.avatar_id, { message: 'agent_id or avatar_id required' });
+
+async function handleCollectCreatorFeeAgent(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const body = parse(collectFeeAgentSchema, await readJson(req));
+	const ctx = await resolveAgentFeeContext(req, res, body);
+	if (!ctx) return;
+
+	try {
+		const { connection } = await getPumpSdk({ network: body.network });
+		const { OnlinePumpSdk } = await import('@pump-fun/pump-sdk');
+		const onlineSdk = new OnlinePumpSdk(connection);
+		const creatorPk = ctx.loaded.keypair.publicKey;
+		const ixs = await onlineSdk.collectCoinCreatorFeeInstructions(creatorPk, creatorPk);
+		const signature = await signSendWithAgent({
+			network: body.network,
+			agentKeypair: ctx.loaded.keypair,
+			instructions: Array.isArray(ixs) ? ixs : [ixs],
+		});
+		await sql`
+			insert into agent_actions (agent_id, type, payload, source_skill)
+			values (${ctx.agent.id}, ${'pumpfun.collect_creator_fee'},
+				${JSON.stringify({ mint: body.mint, network: body.network, signature, source: 'studio_agent_wallet' })}::jsonb,
+				${'pumpfun'})
+		`.catch((e) => console.error('[pump/collect-creator-fee-agent] log failed', e?.message));
+		return json(res, 201, {
+			ok: true, mint: body.mint, network: body.network, signature,
+			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
+		});
+	} catch (e) {
+		return error(res, e.status || 502, e.code || 'rpc_error', e.message || 'collect failed');
+	}
+}
+
+// ── distribute-creator-fees-agent ──────────────────────────────────────────
+// Server-signs distribution of shared fees to the sharing-config shareholders,
+// paid by the agent custodial wallet. Distribution is permissionless on-chain;
+// this lets the agent wallet crank it without a connected wallet.
+
+async function handleDistributeCreatorFeesAgent(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const body = parse(collectFeeAgentSchema, await readJson(req));
+	const ctx = await resolveAgentFeeContext(req, res, body);
+	if (!ctx) return;
+
+	try {
+		const { connection } = await getPumpSdk({ network: body.network });
+		const { OnlinePumpSdk } = await import('@pump-fun/pump-sdk');
+		const onlineSdk = new OnlinePumpSdk(connection);
+		const { instructions } = await onlineSdk.buildDistributeCreatorFeesInstructions(new PublicKey(body.mint));
+		const signature = await signSendWithAgent({
+			network: body.network,
+			agentKeypair: ctx.loaded.keypair,
+			instructions,
+		});
+		await sql`
+			insert into agent_actions (agent_id, type, payload, source_skill)
+			values (${ctx.agent.id}, ${'pumpfun.distribute_creator_fees'},
+				${JSON.stringify({ mint: body.mint, network: body.network, signature, source: 'studio_agent_wallet' })}::jsonb,
+				${'pumpfun'})
+		`.catch((e) => console.error('[pump/distribute-creator-fees-agent] log failed', e?.message));
+		return json(res, 201, {
+			ok: true, mint: body.mint, network: body.network, signature,
+			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
+		});
+	} catch (e) {
+		return error(res, e.status || 502, e.code || 'rpc_error', e.message || 'distribute failed');
+	}
+}
+
+// ── fee-sharing-agent ──────────────────────────────────────────────────────
+// Server-signs the full delegation lifecycle with the agent custodial wallet:
+// creates the sharing config if absent, then sets the shareholder split. This
+// is the on-chain mechanism behind "reward" coins — creator fees are split to a
+// list of delegated wallets (e.g. GitHub contributors) who can each claim their
+// share via distribute. Shares are basis points and must sum to 10000.
+
+const feeSharingAgentSchema = z.object({
+	agent_id: z.string().uuid().optional(),
+	avatar_id: z.string().uuid().optional(),
+	mint: z.string().min(32).max(44),
+	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+	shareholders: z.array(z.object({
+		address: z.string().min(32).max(44),
+		share_bps: z.number().int().min(1).max(10_000),
+	})).min(1).max(10)
+		.refine((arr) => arr.reduce((s, x) => s + x.share_bps, 0) === 10_000, { message: 'share_bps must sum to 10000' })
+		.refine((arr) => new Set(arr.map((x) => x.address)).size === arr.length, { message: 'duplicate shareholder addresses' }),
+}).refine((b) => b.agent_id || b.avatar_id, { message: 'agent_id or avatar_id required' });
+
+async function handleFeeSharingAgent(req, res) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const body = parse(feeSharingAgentSchema, await readJson(req));
+	const ctx = await resolveAgentFeeContext(req, res, body);
+	if (!ctx) return;
+
+	const newShareholders = body.shareholders.map((s) => {
+		const pk = solanaPubkey(s.address);
+		if (!pk) throw Object.assign(new Error(`invalid shareholder ${s.address}`), { status: 400, code: 'validation_error' });
+		return { address: pk, shareBps: s.share_bps };
+	});
+
+	try {
+		const { sdk, connection } = await getPumpSdk({ network: body.network });
+		const [
+			{ feeSharingConfigPda, bondingCurvePda },
+			{ canonicalPumpPoolPda },
+			{ isLegacyQuoteMint },
+		] = await Promise.all([
+			import('@pump-fun/pump-sdk'),
+			import('@pump-fun/pump-swap-sdk'),
+			getPumpSdkV2({ network: body.network }),
+		]);
+
+		const mintPk   = new PublicKey(body.mint);
+		const creator  = ctx.loaded.keypair.publicKey;
+
+		// The sharing-config account existing on-chain means the split has already
+		// been initialized — skip creation and go straight to updating shares.
+		const cfgPda  = feeSharingConfigPda(mintPk);
+		const cfgInfo = await connection.getAccountInfo(cfgPda);
+		const configExists = !!cfgInfo;
+
+		const signatures = [];
+
+		// Step 1 — create the config if it doesn't exist yet. A fresh config seeds
+		// the creator as the sole shareholder at 10000 bps.
+		if (!configExists) {
+			const bcInfo = await connection.getAccountInfo(bondingCurvePda(mintPk));
+			const bc = bcInfo ? sdk.decodeBondingCurve(bcInfo) : null;
+			const poolPk = (bc && bc.quoteMint && !isLegacyQuoteMint(bc.quoteMint))
+				? canonicalPumpPoolPda(mintPk, bc.quoteMint)
+				: canonicalPumpPoolPda(mintPk);
+			const createIx = await sdk.createFeeSharingConfig({ creator, mint: mintPk, pool: poolPk });
+			signatures.push(await signSendWithAgent({
+				network: body.network, agentKeypair: ctx.loaded.keypair, instructions: [createIx],
+			}));
+		}
+
+		// Step 2 — set the shareholder split. Right after creation the current set
+		// is [creator] at 10000 bps; otherwise it's whatever the cached config holds.
+		const cached = Array.isArray(ctx.mintRow.sharing_config?.shareholders)
+			? ctx.mintRow.sharing_config.shareholders
+			: null;
+		const currentShareholders = (configExists && cached?.length)
+			? cached.map((s) => new PublicKey(s.address))
+			: [creator];
+		const updateIx = await sdk.updateFeeShares({
+			authority: creator, mint: mintPk, currentShareholders, newShareholders,
+		});
+		signatures.push(await signSendWithAgent({
+			network: body.network, agentKeypair: ctx.loaded.keypair, instructions: [updateIx],
+		}));
+
+		// Cache the split so the next update knows the current shareholder set and
+		// the UI reflects delegation immediately. On-chain fee-info remains the
+		// source of truth.
+		const sharingConfig = {
+			address: cfgPda.toBase58(),
+			admin: creator,
+			shareholders: body.shareholders.map((s) => ({ address: s.address, bps: s.share_bps })),
+			updated_at: new Date().toISOString(),
+		};
+		await sql`
+			update pump_agent_mints set sharing_config=${JSON.stringify(sharingConfig)}::jsonb
+			where id=${ctx.mintRow.id}
+		`;
+		await sql`
+			insert into agent_actions (agent_id, type, payload, source_skill)
+			values (${ctx.agent.id}, ${'pumpfun.set_fee_sharing'},
+				${JSON.stringify({ mint: body.mint, network: body.network, shareholders: sharingConfig.shareholders, signatures, source: 'studio_agent_wallet' })}::jsonb,
+				${'pumpfun'})
+		`.catch((e) => console.error('[pump/fee-sharing-agent] log failed', e?.message));
+
+		return json(res, 201, {
+			ok: true, mint: body.mint, network: body.network,
+			created: !configExists, signatures,
+			sharing_config: sharingConfig,
+			explorer: `https://solscan.io/tx/${signatures[signatures.length - 1]}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
+		});
+	} catch (e) {
+		return error(res, e.status || 502, e.code || 'rpc_error', e.message || 'fee sharing failed');
+	}
+}
+
 function _sse(res, event, data) { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); }

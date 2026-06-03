@@ -13,6 +13,8 @@ import { getSessionUser } from '../../_lib/auth.js';
 import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
 import { env } from '../../_lib/env.js';
+import { publicUrl } from '../../_lib/r2.js';
+import { buildAgentManifest, buildAgentOnchainAttributes, agentRoyaltyConfig } from '../../_lib/three-brand.js';
 import { KIND_MAP, crawlAgentAttestations } from '../../_lib/solana-attestations.js';
 import {
 	mintAttestation,
@@ -161,16 +163,49 @@ export const handleMetadata = wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	const url  = new URL(req.url, `http://${req.headers.host}`);
-	const name = url.searchParams.get('name') || 'Agent';
-	const desc = url.searchParams.get('desc') || '';
+	const url     = new URL(req.url, `http://${req.headers.host}`);
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	let   asset   = url.searchParams.get('asset');
+	if (asset) { try { new PublicKey(asset); } catch { asset = null; } }
 
-	return json(res, 200, {
+	// Defaults come from the query (mint-time, agent not yet in the DB). Once the
+	// agent is registered + confirmed, we serve its live name/skills/avatar.
+	let name        = url.searchParams.get('name') || 'Agent';
+	let description = url.searchParams.get('desc') || '';
+	let skills      = [];
+	let ownerAddress = null;
+	let avatarId    = null;
+	let image;          // real avatar thumbnail (PNG) when available
+	let animationUrl;   // real avatar GLB when available
+
+	if (asset) {
+		const [a] = await sql`select name, description, skills, wallet_address as owner, avatar_id from agent_identities where meta->>'sol_mint_address' = ${asset} and deleted_at is null limit 1`;
+		if (a) {
+			name         = a.name || name;
+			description  = a.description || description;
+			skills       = a.skills || [];
+			ownerAddress = a.owner || null;
+			avatarId     = a.avatar_id || null;
+			if (a.avatar_id) {
+				const [av] = await sql`select storage_key, thumbnail_key from avatars where id = ${a.avatar_id} and deleted_at is null limit 1`;
+				if (av?.thumbnail_key) image = publicUrl(av.thumbnail_key);
+				if (av?.storage_key) animationUrl = publicUrl(av.storage_key);
+			}
+		}
+	}
+
+	const manifest = buildAgentManifest({
 		name,
-		description: desc,
-		image: '',
-		attributes: [],
-	}, { 'cache-control': 'public, max-age=3600', 'access-control-allow-origin': '*' });
+		description,
+		image,
+		animationUrl,
+		externalUrl: asset ? `${env.APP_ORIGIN}/agent-passport.html?asset=${asset}&network=${network}` : undefined,
+		avatarId,
+		skills,
+		ownerAddress,
+	});
+
+	return json(res, 200, manifest, { 'cache-control': 'public, max-age=300', 'access-control-allow-origin': '*' });
 });
 
 // ── solana-card ───────────────────────────────────────────────────────────────
@@ -275,7 +310,7 @@ export const handlePriceHistory = wrap(async (req, res) => {
 // ── solana-register-prep ──────────────────────────────────────────────────────
 
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { mplCore, createV1 } from '@metaplex-foundation/mpl-core';
+import { mplCore, create, ruleSet } from '@metaplex-foundation/mpl-core';
 import { generateSigner, publicKey as umiPublicKey, signerIdentity, createNoopSigner } from '@metaplex-foundation/umi';
 import { limits as _limits } from '../../_lib/rate-limit.js';
 
@@ -336,21 +371,53 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 	const publicRpc = PUBLIC_RPC[network] || PUBLIC_RPC.mainnet;
 
 	const appOrigin = env.APP_ORIGIN;
-	const metadataUri = body.metadata_uri || `${appOrigin}/api/agents/solana-metadata?name=${encodeURIComponent(name)}&desc=${encodeURIComponent(description)}`;
+
+	// Resolve the asset signer up front so its pubkey can be baked into the
+	// metadata URI and the on-chain attributes before the tx is built.
+	// generateSigner is local crypto (no RPC), so this is safe even if the
+	// configured RPC is unreachable.
+	const assetSigner = asset_pubkey
+		? createNoopSigner(umiPublicKey(asset_pubkey))
+		: generateSigner(createUmi(publicRpc).use(mplCore()));
+	const assetPubkey = assetSigner.publicKey;
+
+	const passportUrl = `${appOrigin}/agent-passport.html?asset=${assetPubkey}&network=${network}`;
+	const metadataUri = body.metadata_uri
+		|| `${appOrigin}/api/agents/solana-metadata?asset=${assetPubkey}&network=${network}&name=${encodeURIComponent(name)}&desc=${encodeURIComponent(description)}`;
+
+	// On-chain brand written into the asset account itself: three.ws identity,
+	// our links, and the $THREE mint (Attributes plugin) + an enforced 5%
+	// secondary-sale royalty to the owner (Royalties plugin).
+	const attributeList = buildAgentOnchainAttributes({
+		name,
+		agentUrl: passportUrl,
+		createdAt: new Date().toISOString(),
+	});
+	const royalty = agentRoyaltyConfig(wallet_address);
+	const plugins = [
+		{ type: 'Attributes', attributeList },
+		...(royalty
+			? [{
+					type: 'Royalties',
+					basisPoints: royalty.basisPoints,
+					creators: royalty.creators.map((c) => ({ address: umiPublicKey(c.address), percentage: c.percentage })),
+					ruleSet: ruleSet('None'),
+				}]
+			: []),
+	];
 
 	const buildTx = async (rpc) => {
 		const umi = createUmi(rpc).use(mplCore());
 		const ownerPubkey = umiPublicKey(wallet_address);
-		const assetSigner = asset_pubkey ? createNoopSigner(umiPublicKey(asset_pubkey)) : generateSigner(umi);
 		umi.use(signerIdentity(createNoopSigner(ownerPubkey)));
-		const builder = createV1(umi, { asset: assetSigner, owner: ownerPubkey, name, uri: metadataUri });
+		const builder = create(umi, { asset: assetSigner, owner: ownerPubkey, name, uri: metadataUri, plugins });
 		const tx = await builder.buildAndSign(umi);
-		return { assetSigner, txBytes: umi.transactions.serialize(tx) };
+		return umi.transactions.serialize(tx);
 	};
 
-	let assetSigner, txBytes;
+	let txBytes;
 	try {
-		({ assetSigner, txBytes } = await buildTx(configuredRpc));
+		txBytes = await buildTx(configuredRpc);
 	} catch (rpcErr) {
 		if (configuredRpc === publicRpc) {
 			console.error('[solana/register-prep] public RPC failed:', rpcErr.message);
@@ -358,7 +425,7 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 		}
 		console.warn('[solana/register-prep] configured RPC failed, retrying with public RPC:', rpcErr.message);
 		try {
-			({ assetSigner, txBytes } = await buildTx(publicRpc));
+			txBytes = await buildTx(publicRpc);
 		} catch (fallbackErr) {
 			console.error('[solana/register-prep] public RPC fallback also failed:', fallbackErr.message);
 			return error(res, 503, 'rpc_unavailable', 'Solana RPC temporarily unavailable — try again in a moment.');
