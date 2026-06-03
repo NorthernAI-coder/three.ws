@@ -201,7 +201,7 @@ export default wrap(async (req, res) => {
 					risk: g.risk,
 					label: g.label,
 					verdict: g.verdict,
-						confidence: g.confidence ?? null,
+					confidence: g.confidence ?? null,
 				};
 			} catch (gErr) {
 				out.governance = { passed: null, error: String(gErr.message || gErr) };

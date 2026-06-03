@@ -26,7 +26,25 @@ import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
 
 // Granite Vision 3.2 (2B) is the default multimodal model on watsonx.ai. Override
 // per account/region with WATSONX_VISION_MODEL_ID.
-const VISION_MODEL = process.env.WATSONX_VISION_MODEL_ID?.trim() || 'ibm/granite-vision-3-2-2b';
+export const VISION_MODEL = process.env.WATSONX_VISION_MODEL_ID?.trim() || 'ibm/granite-vision-3-2-2b';
+
+// The exact watsonx.ai chat payload for a Granite Vision read: a system message
+// plus a user message whose content is the multimodal block array Granite expects
+// (a text instruction followed by the image as a data/base64 URL). Extracted so the
+// verification script can assert this wire shape without a live call.
+export function buildVisionMessages(subject, hint, dataUrl) {
+	const { system, user } = buildPrompt(subject, hint);
+	return [
+		{ role: 'system', content: system },
+		{
+			role: 'user',
+			content: [
+				{ type: 'text', text: user },
+				{ type: 'image_url', image_url: { url: dataUrl } },
+			],
+		},
+	];
+}
 
 // Server-side image-fetch limits. Granite accepts png/jpeg/webp/gif; we cap bytes
 // so a hostile URL can't stream us an unbounded body, and only follow https.
@@ -36,7 +54,7 @@ const FETCH_TIMEOUT_MS = 8000;
 // SSRF allowlist for imageUrl. We only fetch from our own asset host and a small
 // set of public, content-addressed media CDNs the platform already serves images
 // from — never an arbitrary host, so this can't be turned into an internal probe.
-function allowedImageHost(host) {
+export function allowedImageHost(host) {
 	host = host.toLowerCase();
 	const ours = [process.env.S3_PUBLIC_DOMAIN, process.env.APP_ORIGIN, 'https://three.ws']
 		.map(hostOf)
@@ -146,23 +164,13 @@ async function handleVision(req, res) {
 		return error(res, e.status || 400, e.code || 'bad_image', e.message);
 	}
 
-	const { system, user } = buildPrompt(subject, hint);
 	let reply;
 	try {
 		reply = await watsonxChatComplete(cfg, {
 			model: VISION_MODEL,
 			maxTokens: 460,
 			temperature: 0.4,
-			messages: [
-				{ role: 'system', content: system },
-				{
-					role: 'user',
-					content: [
-						{ type: 'text', text: user },
-						{ type: 'image_url', image_url: { url: dataUrl } },
-					],
-				},
-			],
+			messages: buildVisionMessages(subject, hint, dataUrl),
 		});
 	} catch (e) {
 		// Surface the real upstream cause (auth, unsupported model in region, quota).
@@ -237,7 +245,7 @@ function fail(status, code, message) {
 
 // ── Prompting ────────────────────────────────────────────────────────────────
 
-function buildPrompt(subject, hint) {
+export function buildPrompt(subject, hint) {
 	const hintLine = hint ? `\nThe person who made it adds: "${hint}". Take it into account but trust your eyes first.` : '';
 	if (subject === 'token') {
 		return {
@@ -285,7 +293,7 @@ function buildPrompt(subject, hint) {
 // Parse Granite's reply into a normalized identity. Tolerant of code fences and
 // stray prose; falls back to { structured:false } so the UI shows the raw read
 // rather than nothing — never fabricates fields the model didn't return.
-function parseVision(text) {
+export function parseVision(text) {
 	const out = {
 		structured: false,
 		appearance: '',

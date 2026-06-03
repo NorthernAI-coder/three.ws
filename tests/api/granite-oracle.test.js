@@ -20,13 +20,14 @@ vi.mock('../../api/_lib/watsonx.js', () => ({
 }));
 vi.mock('../../api/_lib/watsonx-forecast.js', () => ({
 	watsonxForecast: vi.fn(),
-	watsonxGuardian: vi.fn(),
 	forecastModelFor: vi.fn(() => 'ibm/granite-ttm-512-96-r2'),
 }));
+vi.mock('../../api/_lib/guardian.js', () => ({ assessRisk: vi.fn() }));
 
 import { fetchOhlcv, topPoolForToken, trendingPools } from '../../api/_lib/market/ohlcv.js';
 import { watsonxConfig, watsonxChatComplete } from '../../api/_lib/watsonx.js';
-import { watsonxForecast, watsonxGuardian } from '../../api/_lib/watsonx-forecast.js';
+import { watsonxForecast } from '../../api/_lib/watsonx-forecast.js';
+import { assessRisk } from '../../api/_lib/guardian.js';
 
 const { default: handler } = await import('../../api/ibm/oracle.js');
 
@@ -106,11 +107,12 @@ beforeEach(() => {
 		text: 'Granite sees three drifting higher.',
 		model: 'ibm/granite-3-8b-instruct',
 	});
-	watsonxGuardian.mockResolvedValue({
+	assessRisk.mockResolvedValue({
 		flagged: false,
 		risk: 'harm',
-		label: 'no',
-		model: 'ibm/granite-guardian-3-8b',
+		label: 'Harm',
+		verdict: 'No',
+		confidence: 'High',
 	});
 });
 

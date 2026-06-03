@@ -355,6 +355,7 @@ const appConfig = {
 				'ibm-galaxy':              resolve(__dirname, 'pages/ibm/galaxy.html'),
 				'ibm-trust-layer':         resolve(__dirname, 'pages/ibm/trust-layer.html'),
 				'ibm-oracle':              resolve(__dirname, 'pages/ibm/oracle.html'),
+				'ibm-vision':              resolve(__dirname, 'pages/ibm/vision.html'),
 				'ibm-proof':               resolve(__dirname, 'pages/ibm/proof.html'),
 				// dashboard-next prototype — sub-pages auto-discovered so the parallel
 				// agents that land new pages/dashboard-next/*.html files don't have to
@@ -570,6 +571,8 @@ const appConfig = {
 					'/ibm/trust-layer/': resolve(root, 'pages/ibm/trust-layer.html'),
 					'/ibm/oracle': resolve(root, 'pages/ibm/oracle.html'),
 					'/ibm/oracle/': resolve(root, 'pages/ibm/oracle.html'),
+					'/ibm/vision': resolve(root, 'pages/ibm/vision.html'),
+					'/ibm/vision/': resolve(root, 'pages/ibm/vision.html'),
 					'/ibm/proof': resolve(root, 'pages/ibm/proof.html'),
 					'/ibm/proof/': resolve(root, 'pages/ibm/proof.html'),
 					'/voice': resolve(root, 'pages/voice.html'),

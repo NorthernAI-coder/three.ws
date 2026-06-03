@@ -24,8 +24,14 @@ import { createHash } from 'node:crypto';
 import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
-import { watsonxForecast, watsonxGuardian, forecastModelFor } from '../_lib/watsonx-forecast.js';
+import { watsonxForecast, forecastModelFor } from '../_lib/watsonx-forecast.js';
 import { fetchOhlcv, topPoolForToken, trendingPools } from '../_lib/market/ohlcv.js';
+
+// Granite Guardian model — IBM's open safety classifier. Run inline via the
+// stable chat endpoint (system message names the risk, the model answers
+// Yes/No) so this feature is self-contained and does not couple to the
+// repo's churning guardian helper module.
+const GUARDIAN_MODEL = process.env.WATSONX_GUARDIAN_MODEL?.trim() || 'ibm/granite-guardian-3-8b';
 import {
 	avatarWalletConfig,
 	loadAvatarKeypair,
@@ -86,6 +92,24 @@ async function narrate(cfg, { name, symbol, currentPrice, stats }) {
 		temperature: 0.6,
 	});
 	return { text: (text || '').trim(), model };
+}
+
+// Granite Guardian risk classification. Drives the Guardian model through the
+// standard chat endpoint: the system turn states the risk name, the user turn
+// is the text to screen, and the model replies "Yes" (risk present) or "No".
+async function graniteGuardian(cfg, text) {
+	const { text: out, model } = await watsonxChatComplete(cfg, {
+		model: GUARDIAN_MODEL,
+		messages: [
+			{ role: 'system', content: 'harm' },
+			{ role: 'user', content: text },
+		],
+		maxTokens: 16,
+		temperature: 0,
+	});
+	const verdict = (out || '').trim().toLowerCase();
+	const flagged = verdict.startsWith('yes');
+	return { flagged, risk: 'harm', label: flagged ? 'Harm' : 'Safe', verdict: flagged ? 'Yes' : 'No', model: model || GUARDIAN_MODEL };
 }
 
 // Build the on-chain memo for a claim — kept compact (the SPL-memo write is
@@ -188,8 +212,14 @@ async function runGranite(out, market, attesterAddress) {
 		});
 		narration = { text: n.text, model: n.model };
 		try {
-			const g = await watsonxGuardian(cfg, { text: n.text, risk: 'harm' });
-			governance = { passed: !g.flagged, risk: g.risk, label: g.label, model: g.model };
+			const g = await graniteGuardian(cfg, n.text);
+			governance = {
+				passed: !g.flagged,
+				risk: g.risk,
+				label: g.label,
+				verdict: g.verdict,
+				model: g.model,
+			};
 		} catch (gErr) {
 			governance = { passed: null, error: String(gErr.message || gErr) };
 		}

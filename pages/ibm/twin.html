@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<title>Digital Twin — a living market replica on IBM watsonx · three.ws</title>
+		<meta
+			name="description"
+			content="A living digital twin of a real Solana market: it mirrors its on-chain vitals in real time, IBM Granite TimeSeries projects its future, it back-tests itself against reality, and you can run what-if simulations. Real watsonx.ai, real on-chain data."
+		/>
+		<meta name="theme-color" content="#0b0e17" />
+		<meta property="og:title" content="Digital Twin — a living market replica, powered by IBM watsonx" />
+		<meta
+			property="og:description"
+			content="Mirror a live token's vitals, project its future with IBM Granite TimeSeries, validate the model against reality, and simulate what-if scenarios — all in 3D."
+		/>
+		<meta property="og:image" content="https://three.ws/ibm-og.png" />
+		<meta property="og:type" content="website" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<link rel="icon" href="/favicon.ico" />
+		<style>
+			:root {
+				--ibm-blue: #0f62fe;
+				--ibm-blue-2: #4589ff;
+				--ibm-blue-3: #78a9ff;
+				--up: #42be65;
+				--down: #fa4d56;
+				--warn: #f1c21b;
+				--ink: #f4f4f4;
+				--muted: #a6b0c3;
+				--panel: rgba(13, 17, 28, 0.62);
+				--panel-2: rgba(13, 17, 28, 0.82);
+				--stroke: rgba(120, 169, 255, 0.22);
+				--font: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+			}
+			body {
+				font-family: var(--font);
+				color: var(--ink);
+				background:
+					radial-gradient(1200px 700px at 50% -10%, #16224a 0%, rgba(11, 14, 23, 0) 60%),
+					radial-gradient(900px 600px at 90% 110%, #1a1340 0%, rgba(11, 14, 23, 0) 55%),
+					#0b0e17;
+				overflow: hidden;
+			}
+			a {
+				color: var(--ibm-blue-2);
+				text-decoration: none;
+			}
+			#twin-stage {
+				position: fixed;
+				inset: 0;
+				z-index: 0;
+			}
+			#twin-stage canvas {
+				display: block;
+			}
+
+			/* Top bar */
+			.topbar {
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				z-index: 6;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 16px 22px;
+				pointer-events: none;
+			}
+			.topbar > * {
+				pointer-events: auto;
+			}
+			.brand {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				font-weight: 600;
+				letter-spacing: 0.01em;
+			}
+			.brand .dot {
+				width: 9px;
+				height: 9px;
+				border-radius: 50%;
+				background: var(--ibm-blue);
+				box-shadow: 0 0 12px var(--ibm-blue);
+			}
+			.brand small {
+				color: var(--muted);
+				font-weight: 400;
+			}
+			.topbar .back {
+				font-size: 13px;
+				color: var(--muted);
+				border: 1px solid var(--stroke);
+				padding: 7px 12px;
+				border-radius: 8px;
+				background: var(--panel);
+				backdrop-filter: blur(8px);
+				transition:
+					border-color 0.15s,
+					color 0.15s;
+			}
+			.topbar .back:hover {
+				color: var(--ink);
+				border-color: var(--ibm-blue-2);
+			}
+
+			/* Controls (top center) */
+			.controls {
+				position: fixed;
+				top: 16px;
+				left: 50%;
+				transform: translateX(-50%);
+				z-index: 7;
+				display: flex;
+				gap: 8px;
+				align-items: center;
+				flex-wrap: wrap;
+				justify-content: center;
+				max-width: 56vw;
+			}
+			.chips {
+				display: flex;
+				gap: 6px;
+				flex-wrap: wrap;
+				justify-content: center;
+			}
+			.chip {
+				font: inherit;
+				font-size: 12px;
+				color: var(--ink);
+				cursor: pointer;
+				background: var(--panel);
+				border: 1px solid var(--stroke);
+				border-radius: 999px;
+				padding: 6px 12px;
+				backdrop-filter: blur(8px);
+				transition:
+					border-color 0.15s,
+					transform 0.12s;
+				max-width: 150px;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.chip:hover {
+				border-color: var(--ibm-blue-2);
+				transform: translateY(-1px);
+			}
+			.search-wrap {
+				display: flex;
+				gap: 6px;
+			}
+			#t-search {
+				font: inherit;
+				font-size: 12px;
+				color: var(--ink);
+				width: 210px;
+				background: var(--panel);
+				border: 1px solid var(--stroke);
+				border-radius: 8px;
+				padding: 7px 11px;
+				backdrop-filter: blur(8px);
+			}
+			#t-search::placeholder {
+				color: var(--muted);
+			}
+			.btn {
+				font: inherit;
+				font-size: 12px;
+				font-weight: 600;
+				color: #fff;
+				cursor: pointer;
+				background: var(--ibm-blue);
+				border: none;
+				border-radius: 8px;
+				padding: 7px 14px;
+				transition:
+					background 0.15s,
+					opacity 0.15s,
+					transform 0.12s;
+			}
+			.btn:hover {
+				background: var(--ibm-blue-2);
+			}
+			.btn:active {
+				transform: translateY(1px);
+			}
+			.btn:disabled {
+				opacity: 0.5;
+				cursor: progress;
+			}
+
+			/* Vitals panel (top-left) */
+			.vitals {
+				position: fixed;
+				top: 70px;
+				left: 22px;
+				z-index: 5;
+				width: 286px;
+				max-width: calc(100vw - 44px);
+				background: var(--panel);
+				border: 1px solid var(--stroke);
+				border-radius: 14px;
+				padding: 16px 18px;
+				backdrop-filter: blur(12px);
+				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+			}
+			.vitals .head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 10px;
+			}
+			.vitals .name {
+				font-size: 14px;
+				font-weight: 600;
+				color: var(--muted);
+				letter-spacing: 0.02em;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.state-pill {
+				font-size: 11px;
+				font-weight: 700;
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+				padding: 4px 9px;
+				border-radius: 999px;
+				border: 1px solid currentColor;
+				color: var(--ibm-blue-3);
+				white-space: nowrap;
+				flex: 0 0 auto;
+			}
+			.vitals .price {
+				font-size: 32px;
+				font-weight: 700;
+				line-height: 1;
+				margin-top: 8px;
+				font-variant-numeric: tabular-nums;
+			}
+			.vitals .grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 10px 14px;
+				margin-top: 14px;
+			}
+			.metric .k {
+				font-size: 10.5px;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--muted);
+			}
+			.metric .v {
+				font-size: 16px;
+				font-weight: 600;
+				font-variant-numeric: tabular-nums;
+				margin-top: 2px;
+			}
+			.metric .v.up {
+				color: var(--up);
+			}
+			.metric .v.down {
+				color: var(--down);
+			}
+			.heart {
+				display: inline-block;
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				background: var(--down);
+				margin-right: 6px;
+				vertical-align: middle;
+				box-shadow: 0 0 8px var(--down);
+				animation: beat 1s infinite ease-in-out;
+			}
+			@keyframes beat {
+				0%,
+				100% {
+					transform: scale(0.7);
+					opacity: 0.55;
+				}
+				28% {
+					transform: scale(1.25);
+					opacity: 1;
+				}
+			}
+			.synced {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				margin-top: 14px;
+				padding-top: 12px;
+				border-top: 1px solid var(--stroke);
+				font-size: 11.5px;
+				color: var(--muted);
+			}
+			.toggle {
+				position: relative;
+				display: inline-flex;
+				align-items: center;
+				gap: 7px;
+				cursor: pointer;
+				user-select: none;
+			}
+			.toggle input {
+				position: absolute;
+				opacity: 0;
+				pointer-events: none;
+			}
+			.toggle .track {
+				width: 32px;
+				height: 18px;
+				border-radius: 999px;
+				background: rgba(120, 169, 255, 0.2);
+				border: 1px solid var(--stroke);
+				transition: background 0.15s;
+				flex: 0 0 auto;
+			}
+			.toggle .track::after {
+				content: '';
+				display: block;
+				width: 12px;
+				height: 12px;
+				border-radius: 50%;
+				background: var(--muted);
+				margin: 2px;
+				transition:
+					transform 0.18s,
+					background 0.15s;
+			}
+			.toggle input:checked + .track {
+				background: rgba(15, 98, 254, 0.55);
+			}
+			.toggle input:checked + .track::after {
+				transform: translateX(14px);
+				background: #fff;
+			}
+
+			/* Badges (top-right) */
+			.badges {
+				position: fixed;
+				top: 70px;
+				right: 22px;
+				z-index: 5;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				align-items: flex-end;
+			}
+			.badge {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+				background: var(--panel);
+				border: 1px solid var(--stroke);
+				border-radius: 12px;
+				padding: 10px 13px;
+				backdrop-filter: blur(12px);
+				max-width: 290px;
+			}
+			.badge .mark {
+				width: 26px;
+				height: 26px;
+				border-radius: 6px;
+				flex: 0 0 auto;
+				background: linear-gradient(135deg, var(--ibm-blue), var(--ibm-blue-2));
+				display: grid;
+				place-items: center;
+				font-size: 11px;
+				font-weight: 700;
+				color: #fff;
+			}
+			.badge.fidelity .mark {
+				background: linear-gradient(135deg, #0072c3, #33b1ff);
+			}
+			.badge.gov .mark {
+				background: linear-gradient(135deg, #24a148, #42be65);
+			}
+			.badge.gov.fail .mark {
+				background: linear-gradient(135deg, #da1e28, #fa4d56);
+			}
+			.badge .t {
+				font-size: 12.5px;
+				font-weight: 600;
+			}
+			.badge .s {
+				font-size: 11px;
+				color: var(--muted);
+				font-variant-numeric: tabular-nums;
+				word-break: break-word;
+			}
+
+			/* Scenario simulator (bottom-left) */
+			.sim {
+				position: fixed;
+				left: 22px;
+				bottom: 22px;
+				z-index: 6;
+				width: 300px;
+				max-width: calc(100vw - 44px);
+				background: var(--panel-2);
+				border: 1px solid var(--stroke);
+				border-radius: 16px;
+				padding: 16px 18px;
+				backdrop-filter: blur(14px);
+				box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+			}
+			.sim .label {
+				font-size: 11px;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+				color: var(--ibm-blue-2);
+				margin-bottom: 12px;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+			}
+			.sim .label .hint {
+				text-transform: none;
+				letter-spacing: 0;
+				color: var(--muted);
+				font-size: 10.5px;
+			}
+			.slider {
+				margin-bottom: 14px;
+			}
+			.slider .row {
+				display: flex;
+				justify-content: space-between;
+				font-size: 12px;
+				margin-bottom: 5px;
+			}
+			.slider .row b {
+				font-variant-numeric: tabular-nums;
+				color: var(--ibm-blue-3);
+			}
+			input[type='range'] {
+				width: 100%;
+				accent-color: var(--ibm-blue);
+				cursor: pointer;
+			}
+			.sim-row {
+				display: flex;
+				gap: 8px;
+				align-items: center;
+				margin-bottom: 12px;
+			}
+			.sim .actions {
+				display: flex;
+				gap: 8px;
+			}
+			.sim .actions .btn {
+				flex: 1;
+			}
+			.btn.ghost {
+				background: transparent;
+				border: 1px solid var(--stroke);
+				color: var(--muted);
+				flex: 0 0 auto;
+			}
+			.btn.ghost:hover {
+				color: var(--ink);
+				border-color: var(--ibm-blue-2);
+				background: transparent;
+			}
+			.sim-out {
+				margin-top: 13px;
+				padding-top: 12px;
+				border-top: 1px solid var(--stroke);
+				font-size: 12.5px;
+				display: none;
+			}
+			.sim-out.show {
+				display: block;
+			}
+			.sim-out .cmp {
+				display: flex;
+				justify-content: space-between;
+				gap: 10px;
+				margin-bottom: 6px;
+				font-variant-numeric: tabular-nums;
+			}
+			.sim-out .cmp .lab {
+				color: var(--muted);
+			}
+			.sim-out .delta {
+				font-weight: 700;
+				font-variant-numeric: tabular-nums;
+			}
+
+			/* Persona bar (bottom center) */
+			.persona-bar {
+				position: fixed;
+				left: 50%;
+				bottom: 22px;
+				transform: translateX(-50%);
+				z-index: 5;
+				width: min(640px, calc(100vw - 380px));
+				background: var(--panel);
+				border: 1px solid var(--stroke);
+				border-radius: 16px;
+				padding: 16px 20px;
+				backdrop-filter: blur(14px);
+				box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+			}
+			.persona-bar .label {
+				font-size: 11px;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+				color: var(--ibm-blue-2);
+				margin-bottom: 6px;
+			}
+			#t-persona {
+				font-size: 16px;
+				line-height: 1.5;
+				min-height: 1.5em;
+			}
+			#t-persona.muted {
+				color: var(--muted);
+				font-size: 14px;
+			}
+			#t-status {
+				font-size: 12px;
+				color: var(--muted);
+				margin-top: 8px;
+				min-height: 1em;
+			}
+			#t-status.busy::after {
+				content: '';
+				display: inline-block;
+				width: 6px;
+				height: 6px;
+				margin-left: 4px;
+				border-radius: 50%;
+				background: var(--ibm-blue-2);
+				animation: pulse 1s infinite;
+			}
+			@keyframes pulse {
+				0%,
+				100% {
+					opacity: 0.3;
+				}
+				50% {
+					opacity: 1;
+				}
+			}
+
+			/* Embodied narrator */
+			agent-3d {
+				position: fixed;
+				right: 18px;
+				bottom: 120px;
+				z-index: 4;
+				width: 190px;
+				height: 270px;
+				display: block;
+				pointer-events: none;
+			}
+
+			@media (max-width: 900px) {
+				.persona-bar {
+					width: calc(100vw - 44px);
+					bottom: 12px;
+				}
+				.sim {
+					display: none;
+				}
+				.controls {
+					max-width: calc(100vw - 24px);
+				}
+			}
+			@media (max-width: 760px) {
+				.vitals {
+					top: 58px;
+					left: 12px;
+					right: 12px;
+					width: auto;
+				}
+				.badges {
+					top: auto;
+					bottom: 210px;
+					right: 12px;
+				}
+				#t-search {
+					width: 150px;
+				}
+				agent-3d {
+					width: 120px;
+					height: 170px;
+					bottom: 210px;
+					right: 6px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="twin-stage"></div>
+
+		<!-- Embodied narrator: the twin speaks of itself, governed by Granite Guardian -->
+		<agent-3d src="/avatars/default.glb" kiosk eager hide-chrome aria-hidden="true"></agent-3d>
+
+		<header class="topbar">
+			<div class="brand">
+				<span class="dot"></span>
+				<span>Digital Twin</span>
+				<small>three.ws&nbsp;×&nbsp;IBM watsonx</small>
+			</div>
+			<a class="back" href="/ibm">← IBM partnership</a>
+		</header>
+
+		<div class="controls">
+			<div id="t-chips" class="chips"></div>
+			<div class="search-wrap">
+				<input id="t-search" type="text" placeholder="Solana token mint…" spellcheck="false" />
+				<button id="t-spawn" class="btn">Spawn twin</button>
+			</div>
+		</div>
+
+		<section class="vitals" aria-live="polite">
+			<div class="head">
+				<div id="t-name" class="name">Spawning…</div>
+				<div id="t-state" class="state-pill">—</div>
+			</div>
+			<div id="t-price" class="price">—</div>
+			<div class="grid">
+				<div class="metric">
+					<div class="k">Momentum 24b</div>
+					<div id="m-momentum" class="v">—</div>
+				</div>
+				<div class="metric">
+					<div class="k">Volatility / bar</div>
+					<div id="m-vol" class="v">—</div>
+				</div>
+				<div class="metric">
+					<div class="k"><span class="heart" id="m-heart"></span>Heartbeat</div>
+					<div id="m-bpm" class="v">—</div>
+				</div>
+				<div class="metric">
+					<div class="k">Activity</div>
+					<div id="m-activity" class="v">—</div>
+				</div>
+				<div class="metric">
+					<div class="k">Liquidity / bar</div>
+					<div id="m-liq" class="v">—</div>
+				</div>
+				<div class="metric">
+					<div class="k">Volume trend</div>
+					<div id="m-voltrend" class="v">—</div>
+				</div>
+			</div>
+			<div class="synced">
+				<label class="toggle">
+					<input type="checkbox" id="t-live" checked />
+					<span class="track"></span>
+					<span>Live sync</span>
+				</label>
+				<span id="t-synced" style="margin-left:auto"></span>
+			</div>
+		</section>
+
+		<div class="badges">
+			<div id="b-projection" class="badge" hidden>
+				<div class="mark">TS</div>
+				<div>
+					<div class="t">Projection · Granite TimeSeries</div>
+					<div class="s"></div>
+				</div>
+			</div>
+			<div id="b-fidelity" class="badge fidelity" hidden>
+				<div class="mark">◑</div>
+				<div>
+					<div class="t">Fidelity · back-tested vs reality</div>
+					<div class="s"></div>
+				</div>
+			</div>
+			<div id="b-gov" class="badge gov" hidden>
+				<div class="mark">✓</div>
+				<div>
+					<div class="t">Governed · Granite Guardian</div>
+					<div class="s"></div>
+				</div>
+			</div>
+		</div>
+
+		<aside class="sim">
+			<div class="label">
+				<span>What-if simulator</span>
+				<span class="hint">perturbs &amp; re-forecasts</span>
+			</div>
+			<div class="slider">
+				<div class="row"><span>Demand shock</span><b id="s-shock-v">0%</b></div>
+				<input type="range" id="s-shock" min="-90" max="300" step="5" value="0" />
+			</div>
+			<div class="slider">
+				<div class="row"><span>Volatility regime</span><b id="s-vol-v">1.0×</b></div>
+				<input type="range" id="s-vol" min="0.1" max="5" step="0.1" value="1" />
+			</div>
+			<label class="toggle sim-row">
+				<input type="checkbox" id="s-flip" />
+				<span class="track"></span>
+				<span>Momentum reversal</span>
+			</label>
+			<div class="actions">
+				<button id="s-run" class="btn">Run scenario</button>
+				<button id="s-reset" class="btn ghost" title="Clear scenario">Reset</button>
+			</div>
+			<div id="s-out" class="sim-out">
+				<div class="cmp"><span class="lab">Baseline path</span><span id="s-base">—</span></div>
+				<div class="cmp"><span class="lab">Scenario path</span><span id="s-sim">—</span></div>
+				<div class="cmp"><span class="lab">Divergence</span><span id="s-delta" class="delta">—</span></div>
+			</div>
+		</aside>
+
+		<div class="persona-bar">
+			<div class="label">The twin says</div>
+			<div id="t-persona" class="muted">Mirroring live on-chain vitals and asking IBM Granite to project the future…</div>
+			<div id="t-status"></div>
+		</div>
+
+		<!-- Define the <agent-3d> element: dev loads from the local runtime, prod from CDN. -->
+		<script type="module">
+			const h = location.hostname;
+			const isLocal =
+				h === 'localhost' ||
+				h === '127.0.0.1' ||
+				h.endsWith('.github.dev') ||
+				h.endsWith('.local');
+			try {
+				if (isLocal) {
+					const { defineElement } = await import('/src/lib.js');
+					defineElement();
+				} else {
+					await import('https://three.ws/agent-3d/latest/agent-3d.js');
+				}
+			} catch (e) {
+				console.warn('[digital-twin] avatar runtime unavailable, persona falls back to speech', e);
+			}
+		</script>
+		<script type="module" src="/src/ibm-twin.js"></script>
+	</body>
+</html>

@@ -54,7 +54,7 @@ const els = {
 	amountWrap: $('amountWrap'), amount: $('amount'), runBtn: $('runBtn'), modelPill: $('modelPill'),
 	verdict: $('verdict'), vDecision: $('vDecision'), vMeta: $('vMeta'), vReasons: $('vReasons'),
 	risks: $('risks'), riskRows: $('riskRows'),
-	ledgerBody: $('ledgerBody'), ledgerCnt: $('ledgerCnt'), verifyBtn: $('verifyBtn'),
+	ledgerBody: $('ledgerBody'), ledgerCnt: $('ledgerCnt'), verifyBtn: $('verifyBtn'), verifyLabel: null,
 	loading: $('loadingState'), unavailable: $('unavailableState'), error: $('errorState'),
 	errorMsg: $('errorMsg'), retryBtn: $('retryBtn'), toast: $('toast'),
 };
@@ -397,7 +397,7 @@ function renderLedger() {
 
 function resetVerifyButton() {
 	els.verifyBtn.className = 'l-verify';
-	els.verifyBtn.lastChild.textContent = ' Verify chain';
+	els.verifyLabel.textContent = 'Verify chain';
 }
 
 async function sha256Hex(str) {
@@ -433,7 +433,7 @@ async function verifyChain() {
 		}
 	});
 	els.verifyBtn.className = `l-verify ${allOk ? 'ok' : 'bad'}`;
-	els.verifyBtn.lastChild.textContent = allOk ? ` Chain intact · ${state.chain.length}` : ' Tamper detected';
+	els.verifyLabel.textContent = allOk ? `Chain intact · ${state.chain.length}` : 'Tamper detected';
 	toast(allOk ? `Hash chain verified — ${state.chain.length} record(s) intact.` : 'Chain verification failed.', !allOk);
 }
 
@@ -487,6 +487,7 @@ function buildScenarios() {
 }
 
 function wire() {
+	els.verifyLabel = els.verifyBtn.querySelector('.vb-label');
 	buildScenarios();
 	els.runBtn.addEventListener('click', assess);
 	els.verifyBtn.addEventListener('click', verifyChain);
