@@ -1,0 +1,332 @@
+/* =============================================================================
+   ibm.css — the three.ws × IBM design system
+   Single source of truth for the /ibm showcase surface.
+
+   Why this file exists: every /ibm page had its own :root with the same IBM
+   Carbon colors spelled eight different ways (--ibm / --ibm-blue, --up / --allow
+   / --green, etc.). That drift is why the pages looked like eight sites. This
+   file defines the canonical tokens ONCE and aliases every legacy name to them,
+   so a page only has to link this file and delete its local :root — no var()
+   rewrites. Tune the look here and it changes everywhere.
+
+   Usage in a page <head>:
+     <link rel="stylesheet" href="/ibm.css" />
+   then remove that page's local `:root { ... }` token block.
+
+   Palette is IBM Carbon: Blue 60 #0f62fe, Blue 50 #4589ff, Blue 40 #78a9ff,
+   Green 50 #42be65, Red 50 #fa4d56, Yellow 30 #f1c21b.
+   ============================================================================= */
+
+:root {
+	color-scheme: dark;
+
+	/* ---- Canonical tokens ------------------------------------------------- */
+
+	/* Surfaces */
+	--ibm-bg:           #05070d;                     /* page background          */
+	--ibm-panel:        rgba(16, 20, 30, 0.80);      /* translucent card/panel   */
+	--ibm-panel-solid:  #0d111c;                     /* opaque panel             */
+	--ibm-panel-2:      #11161f;                     /* nested / raised panel    */
+	--ibm-panel-hover:  rgba(28, 34, 50, 0.92);      /* panel hover              */
+
+	/* Lines */
+	--ibm-border:       rgba(255, 255, 255, 0.10);
+	--ibm-border-hi:    rgba(255, 255, 255, 0.18);
+
+	/* Type colors */
+	--ibm-text:         #e9edf6;
+	--ibm-muted:        #8b93a7;
+	--ibm-muted-2:      #5a6478;
+	--ibm-faint:        #5a6376;
+
+	/* IBM Carbon blues */
+	--ibm-blue:         #0f62fe;
+	--ibm-blue-2:       #4589ff;
+	--ibm-blue-light:   #78a9ff;
+	--ibm-blue-dim:     rgba(15, 98, 254, 0.12);
+	--ibm-blue-glow:    rgba(15, 98, 254, 0.22);
+	--ibm-stroke:       rgba(120, 169, 255, 0.22);
+
+	/* Semantic (status / market direction / governance) */
+	--ibm-green:        #42be65;   /* up · allow · ok      */
+	--ibm-red:          #fa4d56;   /* down · block · error */
+	--ibm-amber:        #f1c21b;   /* warn · review        */
+
+	/* Radii */
+	--ibm-radius-sm:    9px;
+	--ibm-radius-md:    12px;
+	--ibm-radius-lg:    16px;
+	--ibm-radius-pill:  999px;
+
+	/* Elevation */
+	--ibm-shadow:       0 20px 56px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
+
+	/* Spacing scale */
+	--ibm-space-1: 4px;
+	--ibm-space-2: 8px;
+	--ibm-space-3: 12px;
+	--ibm-space-4: 16px;
+	--ibm-space-5: 24px;
+	--ibm-space-6: 32px;
+	--ibm-space-7: 48px;
+
+	/* Motion */
+	--ibm-ease:       cubic-bezier(0.4, 0.14, 0.3, 1);
+	--ibm-dur-fast:   0.15s;
+	--ibm-dur:        0.24s;
+
+	/* Type families */
+	--ibm-font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--ibm-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+	/* ---- Back-compat aliases --------------------------------------------- *
+	 * Every legacy spelling found across the /ibm pages maps to a canonical
+	 * token above. This is what lets a page drop its local :root with zero
+	 * var() rewrites. Add a new alias here rather than re-defining a token. */
+
+	--bg:            var(--ibm-bg);
+	--panel:         var(--ibm-panel);
+	--panel-solid:   var(--ibm-panel-solid);
+	--panel-2:       var(--ibm-panel-2);
+	--panel2:        var(--ibm-panel-2);
+	--panel-hover:   var(--ibm-panel-hover);
+
+	--border:        var(--ibm-border);
+	--border2:       var(--ibm-border-hi);
+	--border-hi:     var(--ibm-border-hi);
+	--border-strong: var(--ibm-border-hi);
+	--line:          var(--ibm-border);
+	--stroke:        var(--ibm-stroke);
+
+	--text:          var(--ibm-text);
+	--ink:           var(--ibm-text);
+	--accent:        #ffffff;
+	--accent2:       #cccccc;
+	--muted:         var(--ibm-muted);
+	--muted2:        var(--ibm-muted-2);
+	--faint:         var(--ibm-faint);
+
+	--ibm:           var(--ibm-blue);
+	--ibm-blue-1:    var(--ibm-blue);
+	--ibm-blue-3:    var(--ibm-blue-light);
+	--ibm-light:     var(--ibm-blue-light);
+	--ibm-lt:        var(--ibm-blue-light);
+	--ibm-dim:       var(--ibm-blue-dim);
+	--ibm-glow:      var(--ibm-blue-glow);
+
+	--green:         var(--ibm-green);
+	--up:            var(--ibm-green);
+	--allow:         var(--ibm-green);
+	--down:          var(--ibm-red);
+	--block:         var(--ibm-red);
+	--warn:          var(--ibm-amber);
+	--review:        var(--ibm-amber);
+	--amber:         var(--ibm-amber);
+
+	--radius:        var(--ibm-radius-md);
+	--radius-sm:     var(--ibm-radius-sm);
+	--radius-md:     var(--ibm-radius-md);
+	--radius-lg:     var(--ibm-radius-lg);
+	--shadow:        var(--ibm-shadow);
+
+	--font:          var(--ibm-font);
+	--mono:          var(--ibm-mono);
+}
+
+/* =============================================================================
+   Base — safe defaults. Page-level inline <style> loads after this <link> and
+   wins at equal specificity, so these never fight a page's own rules.
+   ============================================================================= */
+
+.ibm-scope, body.ibm {
+	background: var(--ibm-bg);
+	color: var(--ibm-text);
+	font-family: var(--ibm-font);
+	-webkit-font-smoothing: antialiased;
+}
+
+/* =============================================================================
+   Components — prefixed `.ibm-` so they never collide with a page's existing
+   .btn / .chip / .panel classes. Use these for new UI (states, skeletons,
+   badges) and going forward as the standard primitives.
+   ============================================================================= */
+
+/* Buttons ------------------------------------------------------------------ */
+.ibm-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--ibm-space-2);
+	padding: 11px 18px;
+	border-radius: var(--ibm-radius-md);
+	border: 1px solid var(--ibm-border);
+	background: var(--ibm-panel-2);
+	color: var(--ibm-text);
+	font: 600 14px/1 var(--ibm-font);
+	text-decoration: none;
+	cursor: pointer;
+	transition: background var(--ibm-dur-fast) var(--ibm-ease),
+		border-color var(--ibm-dur-fast) var(--ibm-ease),
+		filter var(--ibm-dur-fast) var(--ibm-ease),
+		transform var(--ibm-dur-fast) var(--ibm-ease);
+}
+.ibm-btn:hover { background: var(--ibm-panel-hover); border-color: var(--ibm-border-hi); }
+.ibm-btn:active { transform: translateY(1px); }
+.ibm-btn[disabled], .ibm-btn[aria-disabled="true"] {
+	opacity: 0.5; cursor: not-allowed; pointer-events: none;
+}
+.ibm-btn--primary {
+	background: var(--ibm-blue);
+	border-color: transparent;
+	color: #fff;
+}
+.ibm-btn--primary:hover { background: var(--ibm-blue); filter: brightness(1.12); border-color: transparent; }
+.ibm-btn--ghost { background: transparent; }
+.ibm-btn--sm { padding: 7px 12px; font-size: 13px; }
+
+/* Chip --------------------------------------------------------------------- */
+.ibm-chip {
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 6px 12px;
+	border-radius: var(--ibm-radius-pill);
+	border: 1px solid var(--ibm-border);
+	background: var(--ibm-panel-2);
+	color: var(--ibm-muted);
+	font: 500 12px/1 var(--ibm-font);
+	cursor: pointer;
+	transition: color var(--ibm-dur-fast) var(--ibm-ease),
+		border-color var(--ibm-dur-fast) var(--ibm-ease),
+		background var(--ibm-dur-fast) var(--ibm-ease);
+}
+.ibm-chip:hover, .ibm-chip[aria-selected="true"] {
+	color: var(--ibm-text); border-color: var(--ibm-border-hi);
+}
+
+/* Card / panel ------------------------------------------------------------- */
+.ibm-card {
+	background: var(--ibm-panel);
+	border: 1px solid var(--ibm-border);
+	border-radius: var(--ibm-radius-lg);
+	box-shadow: var(--ibm-shadow);
+}
+
+/* Status badge (live / allow / review / block) ----------------------------- */
+.ibm-badge {
+	display: inline-flex; align-items: center; gap: 7px;
+	padding: 4px 11px;
+	border-radius: var(--ibm-radius-pill);
+	border: 1px solid var(--ibm-border);
+	font: 600 11px/1 var(--ibm-font);
+	letter-spacing: 0.04em; text-transform: uppercase;
+	color: var(--ibm-muted);
+}
+.ibm-badge .ibm-badge__dot {
+	width: 7px; height: 7px; border-radius: 50%;
+	background: var(--ibm-blue); box-shadow: 0 0 10px var(--ibm-blue);
+}
+.ibm-badge--live    { color: var(--ibm-blue-light); border-color: var(--ibm-stroke); }
+.ibm-badge--allow   { color: var(--ibm-green); border-color: rgba(66,190,101,0.4); }
+.ibm-badge--allow   .ibm-badge__dot { background: var(--ibm-green); box-shadow: 0 0 10px var(--ibm-green); }
+.ibm-badge--review  { color: var(--ibm-amber); border-color: rgba(241,194,27,0.4); }
+.ibm-badge--review  .ibm-badge__dot { background: var(--ibm-amber); box-shadow: 0 0 10px var(--ibm-amber); }
+.ibm-badge--block   { color: var(--ibm-red); border-color: rgba(250,77,86,0.4); }
+.ibm-badge--block   .ibm-badge__dot { background: var(--ibm-red); box-shadow: 0 0 10px var(--ibm-red); }
+
+/* Spinner ------------------------------------------------------------------ */
+.ibm-spinner {
+	display: inline-block;
+	width: 16px; height: 16px;
+	border: 2px solid var(--ibm-border-hi);
+	border-top-color: var(--ibm-blue-light);
+	border-radius: 50%;
+	animation: ibm-spin 0.7s linear infinite;
+	vertical-align: middle;
+}
+.ibm-spinner--lg { width: 28px; height: 28px; border-width: 3px; }
+@keyframes ibm-spin { to { transform: rotate(360deg); } }
+
+/* Skeleton (shimmer placeholder) ------------------------------------------- */
+.ibm-skeleton {
+	position: relative;
+	overflow: hidden;
+	border-radius: var(--ibm-radius-sm);
+	background: var(--ibm-panel-2);
+}
+.ibm-skeleton::after {
+	content: "";
+	position: absolute; inset: 0;
+	transform: translateX(-100%);
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+	animation: ibm-shimmer 1.4s infinite;
+}
+@keyframes ibm-shimmer { 100% { transform: translateX(100%); } }
+.ibm-skeleton--text { height: 0.85em; margin: 0.35em 0; }
+.ibm-skeleton--line { height: 12px; }
+.ibm-skeleton--block { height: 120px; border-radius: var(--ibm-radius-md); }
+
+/* State blocks — loading / empty / error.
+   The fix for "blank panel / spinner-forever on 503". One designed, accessible
+   shell for every non-happy state, used identically across the surface. ------ */
+.ibm-state {
+	display: flex; flex-direction: column; align-items: center; justify-content: center;
+	gap: var(--ibm-space-3);
+	text-align: center;
+	padding: var(--ibm-space-6) var(--ibm-space-5);
+	min-height: 160px;
+	color: var(--ibm-muted);
+}
+.ibm-state__icon {
+	width: 40px; height: 40px;
+	display: flex; align-items: center; justify-content: center;
+	border-radius: var(--ibm-radius-md);
+	background: var(--ibm-blue-dim);
+	border: 1px solid var(--ibm-stroke);
+	color: var(--ibm-blue-light);
+}
+.ibm-state__title { color: var(--ibm-text); font-size: 15px; font-weight: 600; }
+.ibm-state__body  { font-size: 14px; line-height: 1.55; max-width: 42ch; }
+.ibm-state--error .ibm-state__icon {
+	background: rgba(250, 77, 86, 0.12);
+	border-color: rgba(250, 77, 86, 0.4);
+	color: var(--ibm-red);
+}
+.ibm-state__action { margin-top: var(--ibm-space-2); }
+
+/* Visually-hidden (screen-reader only) ------------------------------------- */
+.ibm-sr-only {
+	position: absolute !important;
+	width: 1px; height: 1px;
+	padding: 0; margin: -1px;
+	overflow: hidden; clip: rect(0, 0, 0, 0);
+	white-space: nowrap; border: 0;
+}
+
+/* =============================================================================
+   Accessibility — applies to every page that links this file.
+   ============================================================================= */
+
+/* A consistent, visible focus ring for keyboard users across the surface.
+   Pages that style their own :focus-visible win (loaded later); this is the
+   default so nothing is ever left without a focus indicator. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.ibm-btn:focus-visible,
+.ibm-chip:focus-visible {
+	outline: 2px solid var(--ibm-blue-light);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/* Honor reduced-motion globally — fixes every "animation ignores
+   prefers-reduced-motion" finding on the surface in one place. */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+}

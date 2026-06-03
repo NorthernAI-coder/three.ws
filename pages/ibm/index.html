@@ -19,8 +19,9 @@
 	<meta name="twitter:image" content="https://three.ws/ibm-og.png" />
 
 	<link rel="icon" href="/favicon.ico" />
+	<link rel="stylesheet" href="/ibm.css" />
 	<style>
-		:root { color-scheme: dark; --accent:#ffffff; --accent2:#cccccc; --border:#222222; --bg:#000000; --panel:#141414; --panel2:#1a1a1a; --text:#e8e8f0; --muted:#888888; --green:#22c55e; --ibm:#0f62fe; --ibm-light:#78a9ff; }
+		/* Design tokens come from the shared system: /ibm.css */
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body { font: 16px/1.6 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); min-height: 100vh; }
 
@@ -37,7 +38,7 @@
 		.partner-badge strong { color: var(--text); font-weight: 500; }
 
 		h1 { font-size: clamp(36px, 6vw, 56px); letter-spacing: -0.03em; line-height: 1.05; font-weight: 600; margin-bottom: 20px; }
-		h1 .gradient { background: linear-gradient(110deg, var(--ibm-light) 25%, var(--ibm) 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+		.gradient { background: linear-gradient(110deg, var(--ibm-light) 25%, var(--ibm) 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 		.lede { font-size: clamp(17px, 2vw, 19px); color: var(--muted); line-height: 1.55; max-width: 640px; margin-bottom: 40px; }
 		.lede strong { color: var(--text); font-weight: 500; }
@@ -87,6 +88,18 @@
 		.footer a:hover { color: var(--text); }
 
 		.disclaimer { font-size: 12px; color: var(--muted); margin-top: 60px; line-height: 1.55; max-width: 700px; }
+
+		/* Demo feature cards — unique background gradient is the only per-card inline style */
+		.demo-card { display: block; text-decoration: none; color: inherit; margin-bottom: 80px; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: var(--card-bg, var(--panel)); position: relative; transition: border-color .2s, transform .2s; outline: none; }
+		.demo-card:hover, .demo-card:focus-visible { border-color: rgba(120,169,255,0.45); transform: translateY(-2px); }
+		.demo-card:focus-visible { outline: 2px solid var(--ibm-light); outline-offset: 3px; }
+		.card-body { padding: 30px 30px 32px; }
+		.card-tag { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ibm-light); background: rgba(15,98,254,0.12); border: 1px solid rgba(120,169,255,0.25); border-radius: 99px; padding: 5px 12px; margin-bottom: 16px; }
+		.card-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dot-color, var(--ibm)); box-shadow: 0 0 10px var(--dot-color, var(--ibm)); flex-shrink: 0; }
+		.card-h { font-size: clamp(24px,3.5vw,32px); letter-spacing: -0.02em; line-height: 1.15; font-weight: 600; margin-bottom: 12px; }
+		.card-p { color: var(--muted); font-size: 16px; line-height: 1.55; max-width: 620px; margin-bottom: 22px; }
+		.card-p strong { color: var(--text); font-weight: 500; }
+		.card-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--ibm); color: #fff; font-size: 14px; font-weight: 600; padding: 12px 20px; border-radius: 11px; }
 
 		@media (max-width: 720px) {
 			.platform-grid { grid-template-columns: 1fr; }
@@ -146,108 +159,87 @@
 			</a>
 		</div>
 
-		<a href="/ibm/galaxy" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(900px 360px at 80% -20%, rgba(15,98,254,0.18), transparent 60%), linear-gradient(180deg,#0a0e18,#0c1020);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-			<div style="padding:30px 30px 32px;">
-				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
-					<span style="width:7px;height:7px;border-radius:50%;background:#0f62fe;box-shadow:0 0 10px #0f62fe;"></span>
+		<a href="/ibm/galaxy" class="demo-card" style="--card-bg:radial-gradient(900px 360px at 80% -20%,rgba(15,98,254,0.18),transparent 60%),linear-gradient(180deg,#0a0e18,#0c1020)">
+			<div class="card-body">
+				<div class="card-tag">
+					<span class="card-dot" style="--dot-color:#0f62fe"></span>
 					Live demo · Granite embeddings
 				</div>
-				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">Explore the Agent Galaxy</h2>
-				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">Every public three.ws agent embedded with IBM&nbsp;Granite on watsonx.ai and projected into an explorable 3D constellation. Agents that mean similar things cluster together — and Granite <em>names</em> every theme. Search in plain language, like &ldquo;a witty Solana trading assistant,&rdquo; and the camera flies to what you actually mean.</p>
-				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
-					Enter the galaxy
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-				</span>
+				<h2 class="card-h">Explore the Agent Galaxy</h2>
+				<p class="card-p">Every public three.ws agent embedded with IBM&nbsp;Granite on watsonx.ai and projected into an explorable 3D constellation. Agents that mean similar things cluster together — and Granite <em>names</em> every theme. Search in plain language, like &ldquo;a witty Solana trading assistant,&rdquo; and the camera flies to what you actually mean.</p>
+				<span class="card-cta">Enter the galaxy <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
 			</div>
 		</a>
 
-		<a href="/ibm/oracle" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(900px 360px at 20% -20%, rgba(66,190,101,0.16), transparent 60%), radial-gradient(700px 320px at 90% 120%, rgba(15,98,254,0.18), transparent 60%), linear-gradient(180deg,#0a0e18,#0c1020);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-			<div style="padding:30px 30px 32px;">
-				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
-					<span style="width:7px;height:7px;border-radius:50%;background:#42be65;box-shadow:0 0 10px #42be65;"></span>
+		<a href="/ibm/oracle" class="demo-card" style="--card-bg:radial-gradient(900px 360px at 20% -20%,rgba(66,190,101,0.16),transparent 60%),radial-gradient(700px 320px at 90% 120%,rgba(15,98,254,0.18),transparent 60%),linear-gradient(180deg,#0a0e18,#0c1020)">
+			<div class="card-body">
+				<div class="card-tag">
+					<span class="card-dot" style="--dot-color:#42be65"></span>
 					Live demo · Granite TimeSeries
 				</div>
-				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">Consult the Granite Oracle</h2>
-				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">Point IBM&nbsp;Granite TimeSeries at a live Solana token and watch it forecast the next four days of price as a glowing 3D cone. An embodied agent narrates the call in a Granite voice, and IBM&nbsp;Granite Guardian governs every word it speaks. Real watsonx.ai, real on-chain candles, zero mock data.</p>
-				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
-					Run a forecast
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-				</span>
+				<h2 class="card-h">Consult the Granite Oracle</h2>
+				<p class="card-p">Point IBM&nbsp;Granite TimeSeries at a live Solana token and watch it forecast the next four days of price as a glowing 3D cone. An embodied agent narrates the call in a Granite voice, and IBM&nbsp;Granite Guardian governs every word it speaks. Real watsonx.ai, real on-chain candles, zero mock data.</p>
+				<span class="card-cta">Run a forecast <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
 			</div>
 		</a>
 
-		<a href="/ibm/twin" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(900px 360px at 22% -20%, rgba(120,169,255,0.20), transparent 60%), radial-gradient(720px 320px at 88% 120%, rgba(66,190,101,0.14), transparent 60%), linear-gradient(180deg,#0a0e18,#0c1020);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-			<div style="padding:30px 30px 32px;">
-				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
-					<span style="width:7px;height:7px;border-radius:50%;background:#78a9ff;box-shadow:0 0 10px #78a9ff;"></span>
+		<a href="/ibm/twin" class="demo-card" style="--card-bg:radial-gradient(900px 360px at 22% -20%,rgba(120,169,255,0.20),transparent 60%),radial-gradient(720px 320px at 88% 120%,rgba(66,190,101,0.14),transparent 60%),linear-gradient(180deg,#0a0e18,#0c1020)">
+			<div class="card-body">
+				<div class="card-tag">
+					<span class="card-dot" style="--dot-color:#78a9ff"></span>
 					Live demo · Granite TimeSeries + Guardian
 				</div>
-				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">Spawn a Digital Twin</h2>
-				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">A living virtual replica of a real Solana market. It mirrors its on-chain vitals in real time — a core that breathes with its heartbeat and churns with its volatility — while IBM&nbsp;Granite TimeSeries projects its future. The twin <em>back-tests itself against reality</em> so you can trust the model, then lets you run real what-if simulations: shock demand, change the volatility regime, reverse momentum, and watch Granite re-forecast the trajectory. Every word it speaks is governed by Granite&nbsp;Guardian.</p>
-				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
-					Spawn the twin
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-				</span>
+				<h2 class="card-h">Spawn a Digital Twin</h2>
+				<p class="card-p">A living virtual replica of a real Solana market. It mirrors its on-chain vitals in real time — a core that breathes with its heartbeat and churns with its volatility — while IBM&nbsp;Granite TimeSeries projects its future. The twin <em>back-tests itself against reality</em> so you can trust the model, then lets you run real what-if simulations: shock demand, change the volatility regime, reverse momentum, and watch Granite re-forecast the trajectory. Every word it speaks is governed by Granite&nbsp;Guardian.</p>
+				<span class="card-cta">Spawn the twin <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
 			</div>
 		</a>
 
-		<a href="/ibm/trust-layer" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(820px 360px at 18% -20%, rgba(250,77,86,0.16), transparent 60%), radial-gradient(760px 320px at 92% 120%, rgba(15,98,254,0.20), transparent 60%), linear-gradient(180deg,#0a0e18,#0c1020);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-			<div style="padding:30px 30px 32px;">
-				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
-					<span style="width:7px;height:7px;border-radius:50%;background:#fa4d56;box-shadow:0 0 10px #fa4d56;"></span>
+		<a href="/ibm/trust-layer" class="demo-card" style="--card-bg:radial-gradient(820px 360px at 18% -20%,rgba(250,77,86,0.16),transparent 60%),radial-gradient(760px 320px at 92% 120%,rgba(15,98,254,0.20),transparent 60%),linear-gradient(180deg,#0a0e18,#0c1020)">
+			<div class="card-body">
+				<div class="card-tag">
+					<span class="card-dot" style="--dot-color:#fa4d56"></span>
 					Live demo · Granite Guardian
 				</div>
-				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">Watch the Trust Layer govern</h2>
-				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">This agent thinks on IBM&nbsp;Granite and holds its own Solana wallet — so before it acts, <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite&nbsp;Guardian</strong> on watsonx.ai classifies every request across jailbreak, harm, bias and more, and gates autonomous SOL sends in real time. Each verdict lands in a hash-chained audit ledger you can re-verify in your own browser. Try to jailbreak it or drain the wallet — and watch it get held.</p>
-				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
-					Open the Trust Layer
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-				</span>
+				<h2 class="card-h">Watch the Trust Layer govern</h2>
+				<p class="card-p">This agent thinks on IBM&nbsp;Granite and holds its own Solana wallet — so before it acts, <strong>IBM&nbsp;Granite&nbsp;Guardian</strong> on watsonx.ai classifies every request across jailbreak, harm, bias and more, and gates autonomous SOL sends in real time. Each verdict lands in a hash-chained audit ledger you can re-verify in your own browser. Try to jailbreak it or drain the wallet — and watch it get held.</p>
+				<span class="card-cta">Open the Trust Layer <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
 			</div>
 		</a>
 
-		<a href="/ibm/identity" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(840px 360px at 80% -20%, rgba(66,190,101,0.16), transparent 60%), radial-gradient(760px 320px at 10% 120%, rgba(15,98,254,0.20), transparent 60%), linear-gradient(180deg,#0a0e18,#0c1020);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-			<div style="padding:30px 30px 32px;">
-				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
-					<span style="width:7px;height:7px;border-radius:50%;background:#42be65;box-shadow:0 0 10px #42be65;"></span>
+		<a href="/ibm/identity" class="demo-card" style="--card-bg:radial-gradient(840px 360px at 80% -20%,rgba(66,190,101,0.16),transparent 60%),radial-gradient(760px 320px at 10% 120%,rgba(15,98,254,0.20),transparent 60%),linear-gradient(180deg,#0a0e18,#0c1020)">
+			<div class="card-body">
+				<div class="card-tag">
+					<span class="card-dot" style="--dot-color:#42be65"></span>
 					Live demo · Granite embeddings + Guardian
 				</div>
-				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">Stop agent impersonation — the Granite&nbsp;Identity&nbsp;Firewall</h2>
-				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">Every three.ws agent holds a wallet and earns on-chain reputation, so cloning a trusted one is a real attack. Before an identity is born, <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite embeddings</strong> cosine-compare it against every public agent to catch look-alikes a name match would miss, and <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite&nbsp;Guardian</strong> screens the name, bio and persona for harmful content. Try to clone an agent — and watch it get blocked.</p>
-				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
-					Open the Identity Firewall
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-				</span>
+				<h2 class="card-h">Stop agent impersonation — the Granite&nbsp;Identity&nbsp;Firewall</h2>
+				<p class="card-p">Every three.ws agent holds a wallet and earns on-chain reputation, so cloning a trusted one is a real attack. Before an identity is born, <strong>IBM&nbsp;Granite embeddings</strong> cosine-compare it against every public agent to catch look-alikes a name match would miss, and <strong>IBM&nbsp;Granite&nbsp;Guardian</strong> screens the name, bio and persona for harmful content. Try to clone an agent — and watch it get blocked.</p>
+				<span class="card-cta">Open the Identity Firewall <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
 			</div>
 		</a>
 
-		<a href="/ibm/proof" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(880px 360px at 82% -20%, rgba(120,169,255,0.18), transparent 60%), radial-gradient(700px 320px at 8% 120%, rgba(66,190,101,0.14), transparent 60%), linear-gradient(180deg,#0a0e18,#0b1222);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-			<div style="padding:30px 30px 32px;">
-				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
-					<span style="width:7px;height:7px;border-radius:50%;background:#0f62fe;box-shadow:0 0 10px #0f62fe;"></span>
+		<a href="/ibm/proof" class="demo-card" style="--card-bg:radial-gradient(880px 360px at 82% -20%,rgba(120,169,255,0.18),transparent 60%),radial-gradient(700px 320px at 8% 120%,rgba(66,190,101,0.14),transparent 60%),linear-gradient(180deg,#0a0e18,#0b1222)">
+			<div class="card-body">
+				<div class="card-tag">
+					<span class="card-dot" style="--dot-color:#0f62fe"></span>
 					Live demo · Granite TimeSeries + Guardian + Solana
 				</div>
-				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">Auditable AI on a public ledger — Granite&nbsp;Proof</h2>
-				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">A 3D agent forecasts a live market with <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite TimeSeries</strong>, <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite&nbsp;Guardian</strong> governs every word it says, and each governed forecast is <em>notarized on Solana</em> — a SHA-256 proof signed by the agent's own wallet, timestamped forever. If Guardian flags the statement, the agent refuses to sign. Trust you can verify on-chain.</p>
-				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
-					Open Granite Proof
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-				</span>
+				<h2 class="card-h">Auditable AI on a public ledger — Granite&nbsp;Proof</h2>
+				<p class="card-p">A 3D agent forecasts a live market with <strong>IBM&nbsp;Granite TimeSeries</strong>, <strong>IBM&nbsp;Granite&nbsp;Guardian</strong> governs every word it says, and each governed forecast is <em>notarized on Solana</em> — a SHA-256 proof signed by the agent's own wallet, timestamped forever. If Guardian flags the statement, the agent refuses to sign. Trust you can verify on-chain.</p>
+				<span class="card-cta">Open Granite Proof <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
 			</div>
 		</a>
 
-		<a href="/ibm/vision" style="display:block;text-decoration:none;color:inherit;margin-bottom:80px;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:radial-gradient(900px 360px at 78% -20%, rgba(165,110,255,0.18), transparent 60%), radial-gradient(720px 320px at 10% 120%, rgba(15,98,254,0.18), transparent 60%), linear-gradient(180deg,#0a0e18,#0c1020);position:relative;transition:border-color .2s, transform .2s;" onmouseover="this.style.borderColor='rgba(120,169,255,0.45)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-			<div style="padding:30px 30px 32px;">
-				<div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#78a9ff;background:rgba(15,98,254,0.12);border:1px solid rgba(120,169,255,0.25);border-radius:99px;padding:5px 12px;margin-bottom:16px;">
-					<span style="width:7px;height:7px;border-radius:50%;background:#a56eff;box-shadow:0 0 10px #a56eff;"></span>
+		<a href="/ibm/vision" class="demo-card" style="--card-bg:radial-gradient(900px 360px at 78% -20%,rgba(165,110,255,0.18),transparent 60%),radial-gradient(720px 320px at 10% 120%,rgba(15,98,254,0.18),transparent 60%),linear-gradient(180deg,#0a0e18,#0c1020)">
+			<div class="card-body">
+				<div class="card-tag">
+					<span class="card-dot" style="--dot-color:#a56eff"></span>
 					Live demo · Granite Vision (multimodal)
 				</div>
-				<h2 style="font-size:clamp(24px,3.5vw,32px);letter-spacing:-0.02em;line-height:1.15;font-weight:600;margin-bottom:12px;">AI that sees your AI — <span class="gradient">Granite Vision</span></h2>
-				<p style="color:var(--muted);font-size:16px;line-height:1.55;max-width:620px;margin-bottom:22px;">Show <strong style="color:var(--text);font-weight:500;">IBM&nbsp;Granite&nbsp;Vision</strong> on watsonx.ai a three.ws 3D avatar and watch it <em>read the look</em> — appearance, vibe, personality, a name, a bio, even a fitting voice — turning a rendered face into a complete agent identity in one multimodal call. Capture any pose, or upload your own image. Real vision inference, zero mock data.</p>
-				<span style="display:inline-flex;align-items:center;gap:8px;background:#0f62fe;color:#fff;font-size:14px;font-weight:600;padding:12px 20px;border-radius:11px;">
-					Let Granite look
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-				</span>
+				<h2 class="card-h">AI that sees your AI — <span class="gradient">Granite Vision</span></h2>
+				<p class="card-p">Show <strong>IBM&nbsp;Granite&nbsp;Vision</strong> on watsonx.ai a three.ws 3D avatar and watch it <em>read the look</em> — appearance, vibe, personality, a name, a bio, even a fitting voice — turning a rendered face into a complete agent identity in one multimodal call. Capture any pose, or upload your own image. Real vision inference, zero mock data.</p>
+				<span class="card-cta">Let Granite look <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></span>
 			</div>
 		</a>
 
