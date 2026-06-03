@@ -21,7 +21,6 @@
 // `guardian_unconfigured` so the caller renders an honest state instead of a
 // fabricated verdict. Every score is a real Granite Guardian classifier pass.
 
-import { createHash } from 'node:crypto';
 import { cors, method, readJson, error, json, wrap } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
@@ -30,6 +29,7 @@ import {
 	assess,
 	decide,
 	governSend,
+	buildAuditRecord,
 	RISKS,
 	RISK_NAMES,
 } from '../_lib/granite-guardian.js';
@@ -39,7 +39,6 @@ const MAX_TURNS = 20;
 // Default risk panel for the standalone assess flow — the user-facing harms a
 // governance dashboard wants on screen. All are scorable from a single message.
 const SHOWCASE_RISKS = ['harm', 'jailbreak', 'violence', 'social_bias', 'profanity', 'sexual_content', 'unethical_behavior'];
-const GENESIS = '0'.repeat(64);
 
 function bad(res, msg) {
 	return error(res, 400, 'bad_request', msg);
@@ -90,38 +89,8 @@ function parseAction(raw) {
 	return { type: 'sendSol', usd, to: typeof raw.to === 'string' ? raw.to.slice(0, 64) : null };
 }
 
-function sha256(s) {
-	return createHash('sha256').update(s).digest('hex');
-}
-
 function round(n) {
 	return Math.round(n * 1e4) / 1e4;
-}
-
-// Build a hash-chained audit record. The hash commits to the prior record's hash
-// (`prev`) plus this verdict, so the ledger is tamper-evident: altering any past
-// entry breaks every hash after it. Raw assessed content is never stored — only
-// its SHA-256 digest — so the chain is shareable without leaking the message.
-function buildRecord({ prev, model, summary, action, decision, verdicts }) {
-	const record = {
-		v: 1,
-		ts: new Date().toISOString(),
-		model,
-		inputDigest: sha256(summary),
-		action: action ? { type: action.type, usd: action.usd } : null,
-		decision: decision.decision,
-		flagged: decision.flagged,
-		reasons: decision.reasons.map((r) => ({ risk: r.risk, label: r.label, probability: round(r.probability) })),
-		risks: verdicts.map((v) => ({
-			risk: v.risk,
-			label: RISKS[v.risk]?.label || v.risk,
-			flagged: v.flagged,
-			probability: round(v.probability),
-			confidence: v.confidence,
-		})),
-		prev: /^[0-9a-f]{64}$/i.test(prev || '') ? prev.toLowerCase() : GENESIS,
-	};
-	return { ...record, hash: sha256(JSON.stringify(record)) };
 }
 
 export default wrap(async function handler(req, res) {
@@ -191,10 +160,10 @@ export default wrap(async function handler(req, res) {
 		return error(res, 502, 'guardian_failed', `Granite Guardian assessment failed: ${e.message}`);
 	}
 
-	const record = buildRecord({
+	const record = buildAuditRecord({
 		prev: body.prev,
 		model: cfg.model,
-		summary: parsed.summary,
+		content: parsed.summary,
 		action,
 		decision,
 		verdicts,

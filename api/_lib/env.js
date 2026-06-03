@@ -113,6 +113,24 @@ export const env = {
 		return opt('WATSONX_API_VERSION');
 	},
 
+	// IBM Granite Guardian — the watsonx "Trust Layer". Reuses the watsonx
+	// credentials above (same IBM Cloud key + project); this only names the
+	// guardrail classifier model. Powers /api/guardian/assess and the autonomous-
+	// send gate in /api/chat. Defaults to ibm/granite-guardian-3-8b.
+	get WATSONX_GUARDIAN_MODEL_ID() {
+		return opt('WATSONX_GUARDIAN_MODEL_ID');
+	},
+	// Hard dollar cap on an avatar's autonomous SOL send, enforced independently
+	// of the model so a well-phrased request can't drain the wallet. Default $25.
+	get GUARDIAN_SEND_CAP_USD() {
+		return opt('GUARDIAN_SEND_CAP_USD');
+	},
+	// Set to "true" to bypass Granite Guardian gating in /api/chat (model gating
+	// off; the dollar cap is unaffected). Off by default — governance is on.
+	get GUARDIAN_DISABLE() {
+		return opt('GUARDIAN_DISABLE');
+	},
+
 	// IBM watsonx Orchestrate agent (Agent Connect) — adds a "watsonx
 	// Orchestrate" brain to /api/chat so a 3D avatar fronts an enterprise
 	// Orchestrate agent. URL is the agent's chat-completions endpoint (instance

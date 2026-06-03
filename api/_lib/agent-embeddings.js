@@ -127,16 +127,20 @@ async function upsertEmbeddings(records, model) {
 	const hashes = records.map((r) => r.hash);
 	const models = records.map(() => model);
 	const dims = records.map((r) => r.dims);
+	// Vectors ride as a text[] of JSON strings and are cast to jsonb per-row in
+	// the SELECT — both `::text[]` array params and single-value `::jsonb` casts
+	// are established Neon patterns here, unlike an unproven `::jsonb[]` param.
 	const vectors = records.map((r) => JSON.stringify(r.vector));
 	await sql`
 		INSERT INTO agent_embeddings (agent_id, content_hash, model, dims, vector)
-		SELECT * FROM unnest(
+		SELECT u.id, u.hash, u.model, u.dims, u.vec::jsonb
+		FROM unnest(
 			${ids}::uuid[],
 			${hashes}::text[],
 			${models}::text[],
 			${dims}::int[],
-			${vectors}::jsonb[]
-		)
+			${vectors}::text[]
+		) AS u(id, hash, model, dims, vec)
 		ON CONFLICT (agent_id) DO UPDATE SET
 			content_hash = EXCLUDED.content_hash,
 			model        = EXCLUDED.model,

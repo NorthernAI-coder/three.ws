@@ -4,7 +4,7 @@
 // Pipeline (all real, no mock data):
 //   1. GET /api/pump/trending          → live pump.fun / Solana trending tokens
 //   2. POST /api/watsonx/embed         → IBM Granite embedding vector per token
-//   3. PCA (classical MDS, in-browser) → project 768-d vectors down to 3 axes
+//   3. PCA (classical MDS, in-browser) → project the vectors down to 3 axes
 //   4. three.js                        → render tokens as glowing stars; nearby
 //                                        stars are semantically alike
 //   5. click a star → POST /api/brain/chat (provider: ibm-granite) streams a
@@ -23,6 +23,7 @@ import {
 	Raycaster, Vector2, Vector3, MathUtils,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { tokenText, pca3, normalizeCoordsToRadius, cosineNeighbors } from './embedding.js';
 
 // ---- DOM ------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
@@ -41,28 +42,39 @@ const panel = $('c-panel');
 const EMBED_MODEL_HINT = 'ibm/granite-embedding-278m-multilingual';
 const RADIUS = 28; // target galaxy radius for the semantic / rank layouts
 
-// ---- three.js setup -------------------------------------------------------
-const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+// WebGL-dependent objects, assigned in boot(). Functions below close over these
+// module bindings, so they resolve correctly once boot() has run.
+let renderer, scene, camera, controls, nodesGroup, glowTex;
+const sphereGeo = new SphereGeometry(1, 20, 20);
+const raycaster = new Raycaster();
+const pointer = new Vector2();
+/** @type {{token:object, mesh:Mesh, glow:Sprite, baseColor:Color, baseScale:number, target:Vector3}[]} */
+let nodes = [];
+let vectorsByIndex = null; // number[][] aligned with nodes, for neighbor lookups
 
-const scene = new Scene();
-scene.background = new Color(0x04040a);
-
-const camera = new PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
-camera.position.set(0, 6, 74);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.rotateSpeed = 0.6;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.32;
-controls.minDistance = 18;
-controls.maxDistance = 260;
-
-const nodesGroup = new Group();
-scene.add(nodesGroup);
+// ---- status / overlay helpers ---------------------------------------------
+function setStatus(kind, html) {
+	statusEl.classList.remove('live', 'off', 'err');
+	if (kind) statusEl.classList.add(kind);
+	statusText.innerHTML = html;
+}
+function hideOverlay() { overlay.classList.add('hidden'); }
+function fatalOverlay(html) {
+	spinner.style.display = 'none';
+	overlayMsg.innerHTML = html;
+	overlay.classList.remove('hidden');
+}
+function webglAvailable() {
+	try {
+		const c = document.createElement('canvas');
+		return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+	} catch {
+		return false;
+	}
+}
+function escapeHtml(s) {
+	return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 // ---- shared textures ------------------------------------------------------
 // Soft radial gradient used as an additive glow sprite behind each star.
@@ -80,14 +92,12 @@ function makeGlowTexture() {
 	ctx.fillRect(0, 0, s, s);
 	return new CanvasTexture(cv);
 }
-const glowTex = makeGlowTexture();
 
 // ---- backdrop starfield ---------------------------------------------------
 function addStarfield() {
 	const COUNT = 1800;
 	const pos = new Float32Array(COUNT * 3);
 	for (let i = 0; i < COUNT; i++) {
-		// Uniform on a large shell so the galaxy floats inside a star sphere.
 		const r = 150 + Math.random() * 120;
 		const theta = Math.acos(2 * Math.random() - 1);
 		const phi = Math.random() * Math.PI * 2;
@@ -100,15 +110,8 @@ function addStarfield() {
 	const mat = new PointsMaterial({ size: 0.7, color: 0x6b78b5, transparent: true, opacity: 0.7, depthWrite: false });
 	scene.add(new Points(geom, mat));
 }
-addStarfield();
 
 // ---- token nodes ----------------------------------------------------------
-const sphereGeo = new SphereGeometry(1, 20, 20);
-/** @type {{token:object, mesh:Mesh, glow:Sprite, baseColor:Color, baseScale:number, target:Vector3}[]} */
-let nodes = [];
-const raycaster = new Raycaster();
-const pointer = new Vector2();
-
 // Deterministic point on a Fibonacci sphere — the honest "by rank" layout shown
 // before (or instead of) the Granite embedding layout.
 function fibonacciPoint(i, n, radius) {
@@ -125,9 +128,7 @@ function buildNodes(tokens) {
 	const N = tokens.length;
 	tokens.forEach((token, i) => {
 		const rank = Number.isFinite(token.rank) ? token.rank : i + 1;
-		// Size by trending rank: #1 is the brightest, largest star.
 		const baseScale = MathUtils.lerp(1.7, 0.55, (rank - 1) / Math.max(1, N - 1));
-		// Pre-embedding hue: a cohesive blue→violet ramp down the ranking.
 		const hue = MathUtils.lerp(205, 280, (rank - 1) / Math.max(1, N - 1)) / 360;
 		const baseColor = new Color().setHSL(hue, 0.7, 0.6);
 
@@ -150,75 +151,9 @@ function buildNodes(tokens) {
 	});
 }
 
-// ---- PCA: classical MDS via the Gram matrix (no external deps) ------------
-// For N tokens of dimension D (N << D), the principal coordinates are the top
-// eigenvectors of the N×N Gram matrix scaled by sqrt(eigenvalue) — far cheaper
-// and more stable than eigendecomposing the D×D covariance.
-function pca3(vectors) {
-	const n = vectors.length;
-	const d = vectors[0].length;
-	const mean = new Float64Array(d);
-	for (const v of vectors) for (let j = 0; j < d; j++) mean[j] += v[j];
-	for (let j = 0; j < d; j++) mean[j] /= n;
-	const X = vectors.map((v) => {
-		const r = new Float64Array(d);
-		for (let j = 0; j < d; j++) r[j] = v[j] - mean[j];
-		return r;
-	});
-	// Gram matrix G = X Xᵀ (symmetric, N×N).
-	const G = Array.from({ length: n }, () => new Float64Array(n));
-	for (let i = 0; i < n; i++) {
-		for (let k = i; k < n; k++) {
-			let s = 0;
-			const xi = X[i], xk = X[k];
-			for (let j = 0; j < d; j++) s += xi[j] * xk[j];
-			G[i][k] = s; G[k][i] = s;
-		}
-	}
-	const M = G.map((row) => Float64Array.from(row));
-	const coords = Array.from({ length: n }, () => [0, 0, 0]);
-	const matVec = (A, v) => {
-		const w = new Float64Array(n);
-		for (let i = 0; i < n; i++) { let s = 0; const row = A[i]; for (let k = 0; k < n; k++) s += row[k] * v[k]; w[i] = s; }
-		return w;
-	};
-	const norm = (v) => Math.sqrt(v.reduce((a, x) => a + x * x, 0));
-	for (let c = 0; c < 3; c++) {
-		// Deterministic, non-degenerate seed so the layout is stable across loads.
-		let v = new Float64Array(n);
-		for (let i = 0; i < n; i++) v[i] = Math.sin(i * (c + 1) * 0.7 + 1) + 0.13;
-		let nv = norm(v); for (let i = 0; i < n; i++) v[i] /= nv;
-		let lambda = 0;
-		for (let it = 0; it < 128; it++) {
-			const w = matVec(M, v);
-			const wn = norm(w);
-			if (wn < 1e-9) break;
-			for (let i = 0; i < n; i++) w[i] /= wn;
-			let dot = 0; for (let i = 0; i < n; i++) dot += w[i] * v[i];
-			lambda = wn; v = w;
-			if (Math.abs(Math.abs(dot) - 1) < 1e-8) break;
-		}
-		const scale = Math.sqrt(Math.max(lambda, 0));
-		for (let i = 0; i < n; i++) coords[i][c] = v[i] * scale;
-		// Deflate so the next iteration finds the next principal axis.
-		for (let i = 0; i < n; i++) for (let k = 0; k < n; k++) M[i][k] -= lambda * v[i] * v[k];
-	}
-	return coords;
-}
-
-// Rescale raw PCA coordinates to fill the galaxy radius nicely.
-function normalizeCoords(coords) {
-	let max = 1e-9;
-	for (const c of coords) for (const x of c) max = Math.max(max, Math.abs(x));
-	const k = RADIUS / max;
-	return coords.map((c) => new Vector3(c[0] * k, c[1] * k, c[2] * k));
-}
-
-let vectorsByIndex = null; // number[][] aligned with nodes, for neighbor lookups
-
 function applySemanticLayout(vectors) {
 	vectorsByIndex = vectors;
-	const positions = normalizeCoords(pca3(vectors));
+	const positions = normalizeCoordsToRadius(pca3(vectors), RADIUS).map((c) => new Vector3(c[0], c[1], c[2]));
 	// Recolor by spatial angle so emergent clusters read as distinct hues, and
 	// retarget each star to its semantic coordinate (the render loop tweens it).
 	nodes.forEach((node, i) => {
@@ -233,35 +168,10 @@ function applySemanticLayout(vectors) {
 	});
 }
 
-// cosine-similarity nearest neighbors for a node (used in the detail panel).
+// Map cosine-neighbor indices to their tokens for the detail panel.
 function nearestNeighbors(idx, k = 3) {
 	if (!vectorsByIndex) return [];
-	const a = vectorsByIndex[idx];
-	if (!a) return [];
-	const dot = (x, y) => { let s = 0; for (let j = 0; j < x.length; j++) s += x[j] * y[j]; return s; };
-	const na = Math.sqrt(dot(a, a)) || 1;
-	const sims = [];
-	for (let j = 0; j < vectorsByIndex.length; j++) {
-		if (j === idx || !vectorsByIndex[j]) continue;
-		const b = vectorsByIndex[j];
-		const nb = Math.sqrt(dot(b, b)) || 1;
-		sims.push({ j, sim: dot(a, b) / (na * nb) });
-	}
-	sims.sort((x, y) => y.sim - x.sim);
-	return sims.slice(0, k).map((s) => ({ token: nodes[s.j].token, sim: s.sim }));
-}
-
-// ---- status helpers -------------------------------------------------------
-function setStatus(kind, text) {
-	statusEl.classList.remove('live', 'off', 'err');
-	if (kind) statusEl.classList.add(kind);
-	statusText.innerHTML = text;
-}
-function hideOverlay() { overlay.classList.add('hidden'); }
-function fatalOverlay(html) {
-	spinner.style.display = 'none';
-	overlayMsg.innerHTML = html;
-	overlay.classList.remove('hidden');
+	return cosineNeighbors(vectorsByIndex, idx, k).map((n) => ({ token: nodes[n.index].token, sim: n.sim }));
 }
 
 // ---- data: live tokens ----------------------------------------------------
@@ -284,7 +194,7 @@ async function fetchTokens(limit = 64) {
 
 // ---- data: Granite embeddings --------------------------------------------
 async function embedTokens(tokens) {
-	const texts = tokens.map((t) => `${t.name} (${t.symbol})`);
+	const texts = tokens.map(tokenText);
 	const res = await fetch('/api/watsonx/embed', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -314,12 +224,11 @@ function pickNode() {
 	const hits = raycaster.intersectObjects(nodes.map((n) => n.mesh), false);
 	return hits.length ? nodes[hits[0].object.userData.index] : null;
 }
-
-renderer.domElement.addEventListener('pointermove', (e) => {
+function onPointerMove(e) {
 	updatePointer(e);
 	const node = pickNode();
 	if (node !== hovered) {
-		if (hovered) { hovered.glow.scale.setScalar(hovered.baseScale * 6); }
+		if (hovered) hovered.glow.scale.setScalar(hovered.baseScale * 6);
 		hovered = node;
 		renderer.domElement.style.cursor = node ? 'pointer' : 'grab';
 		if (node) {
@@ -336,19 +245,18 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 		tooltip.style.left = `${e.clientX}px`;
 		tooltip.style.top = `${e.clientY}px`;
 	}
-});
+}
 
-// Distinguish a click from an orbit-drag.
 let downAt = 0; let downXY = [0, 0];
-renderer.domElement.addEventListener('pointerdown', (e) => { downAt = performance.now(); downXY = [e.clientX, e.clientY]; });
-renderer.domElement.addEventListener('pointerup', (e) => {
+function onPointerDown(e) { downAt = performance.now(); downXY = [e.clientX, e.clientY]; }
+function onPointerUp(e) {
 	const moved = Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]);
 	if (moved < 6 && performance.now() - downAt < 450) {
 		updatePointer(e);
 		const node = pickNode();
 		if (node) selectNode(node.mesh.userData.index);
 	}
-});
+}
 
 // ---- detail panel + Granite analysis stream -------------------------------
 let analysisAbort = null;
@@ -384,19 +292,16 @@ function extLink(href, label) {
 	a.href = href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = label;
 	return a;
 }
-
 function formatPrice(p) {
 	if (p >= 1) return `$${p.toFixed(3)}`;
 	if (p >= 0.0001) return `$${p.toFixed(6)}`;
 	return `$${p.toExponential(2)}`;
 }
-
 function closePanel() {
 	panel.classList.remove('open');
 	panel.setAttribute('aria-hidden', 'true');
 	if (analysisAbort) { analysisAbort.abort(); analysisAbort = null; }
 }
-$('c-close').addEventListener('click', closePanel);
 
 async function runGraniteAnalysis(token, neighbors) {
 	const out = $('c-analysis');
@@ -412,7 +317,6 @@ async function runGraniteAnalysis(token, neighbors) {
 	const system = 'You are a concise, neutral crypto market analyst. You never give financial advice or price predictions. You explain what a token\'s name and ticker suggest, the typical risks of similar Solana meme/utility tokens, and concrete things a careful trader should verify (liquidity, holder concentration, mint authority, socials).';
 	const userMsg = `Briefly analyze the Solana token "${token.name}" (ticker ${token.symbol}), currently trending at rank #${token.rank}.${neighborLine} In ~110 words: what the name/ticker signals about its theme, the main risks, and 3 things to check before touching it. End with one line: "Not financial advice."`;
 
-	let firstToken = false;
 	let text = '';
 	try {
 		const res = await fetch('/api/brain/chat', {
@@ -457,14 +361,14 @@ async function runGraniteAnalysis(token, neighbors) {
 				if (data === '[DONE]') continue;
 				// default event = streamed text chunk (JSON-encoded string)
 				try { text += JSON.parse(data); } catch { text += data; }
-				if (!firstToken) { firstToken = true; }
 				out.textContent = text;
 				out.insertAdjacentHTML('beforeend', '<span class="cursor"></span>');
 			}
 		}
 		out.textContent = text || 'No response.';
-		if (usage?.totalTokens) meta.textContent = `IBM Granite 3.8B · watsonx.ai · ${usage.totalTokens} tokens`;
-		else meta.textContent = 'IBM Granite 3.8B · watsonx.ai';
+		meta.textContent = usage?.totalTokens
+			? `IBM Granite 3.8B · watsonx.ai · ${usage.totalTokens} tokens`
+			: 'IBM Granite 3.8B · watsonx.ai';
 	} catch (e) {
 		if (e.name === 'AbortError') return;
 		out.innerHTML = `<div class="c-notice">Could not reach the analysis service: ${escapeHtml(e.message)}</div>`;
@@ -481,12 +385,10 @@ function graniteUnavailableNotice(code) {
 	return `<div class="c-notice">Analysis unavailable (${escapeHtml(code)}).</div>`;
 }
 function safeMsg(data) { try { return JSON.parse(data).message || data; } catch { return data; } }
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ---- render loop ----------------------------------------------------------
 function animate() {
 	requestAnimationFrame(animate);
-	// Tween each star toward its target position (rank → semantic morph).
 	for (const node of nodes) {
 		node.mesh.position.lerp(node.target, 0.06);
 		node.glow.position.copy(node.mesh.position);
@@ -494,14 +396,56 @@ function animate() {
 	controls.update();
 	renderer.render(scene, camera);
 }
-animate();
 
-window.addEventListener('resize', () => {
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
+// ---- boot: create the WebGL scene; degrade gracefully without WebGL -------
+function boot() {
+	if (!webglAvailable()) {
+		fatalOverlay('<strong>This experience needs WebGL.</strong><br/>Open it in a modern desktop or mobile browser with hardware acceleration enabled.');
+		return false;
+	}
+	try {
+		renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
+	} catch (e) {
+		fatalOverlay('<strong>This experience needs WebGL.</strong><br/>Your browser could not create a WebGL context.');
+		return false;
+	}
+	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	renderer.setSize(window.innerWidth, window.innerHeight);
-});
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+	scene = new Scene();
+	scene.background = new Color(0x04040a);
+
+	camera = new PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
+	camera.position.set(0, 6, 74);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enableDamping = true;
+	controls.dampingFactor = 0.06;
+	controls.rotateSpeed = 0.6;
+	controls.autoRotate = true;
+	controls.autoRotateSpeed = 0.32;
+	controls.minDistance = 18;
+	controls.maxDistance = 260;
+
+	nodesGroup = new Group();
+	scene.add(nodesGroup);
+	glowTex = makeGlowTexture();
+	addStarfield();
+
+	renderer.domElement.addEventListener('pointermove', onPointerMove);
+	renderer.domElement.addEventListener('pointerdown', onPointerDown);
+	renderer.domElement.addEventListener('pointerup', onPointerUp);
+	window.addEventListener('resize', () => {
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+		renderer.setSize(window.innerWidth, window.innerHeight);
+	});
+	$('c-close').addEventListener('click', closePanel);
+	window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+	animate();
+	return true;
+}
 
 // ---- orchestration --------------------------------------------------------
 async function init() {
@@ -526,14 +470,11 @@ async function init() {
 		const { vectors, model, dimensions } = await embedTokens(tokens);
 		const usable = vectors.filter((v) => Array.isArray(v) && v.length).length;
 		if (usable < 3) throw Object.assign(new Error('too few vectors'), { code: 'insufficient_vectors' });
-		// Replace any missing vector with a zero vector of the right dim so PCA
-		// stays aligned; such tokens simply land near the origin.
 		const dim = vectors.find((v) => v?.length)?.length || dimensions || 0;
 		const filled = vectors.map((v) => (v?.length ? v : new Array(dim).fill(0)));
 		applySemanticLayout(filled);
 		setStatus('live', `Embedded by IBM&nbsp;Granite · <code>${escapeHtml(model || EMBED_MODEL_HINT)}</code> · ${dimensions || dim}d`);
 	} catch (e) {
-		// Honest degraded state — real tokens stay, laid out by trending rank.
 		if (e.code === 'watsonx_unconfigured') {
 			setStatus('off', 'IBM watsonx not configured — showing tokens by trending rank. <a href="/ibm" style="color:var(--ibm-light)">Enable →</a>');
 		} else if (e.status === 404) {
@@ -544,4 +485,4 @@ async function init() {
 	}
 }
 
-init();
+if (boot()) init();

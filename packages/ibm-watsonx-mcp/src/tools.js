@@ -83,6 +83,65 @@ export function buildTools(client) {
 
 		{
 			definition: {
+				name: 'watsonx_forecast',
+				description:
+					'Zero-shot time-series forecasting with an IBM Granite TimeSeries (TinyTimeMixer) ' +
+					'model. Provide equal-length `timestamps` (ISO-8601, uniform cadence, oldest first) ' +
+					'and numeric `values`; the series length must meet the model context window (≥512 ' +
+					'for the default). Returns the forecast horizon (up to 96 steps) as future ' +
+					'timestamps and values.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						timestamps: {
+							type: 'array',
+							items: { type: 'string' },
+							minItems: 1,
+							description: 'ISO-8601 timestamps, uniform cadence, oldest first.',
+						},
+						values: {
+							type: 'array',
+							items: { type: 'number' },
+							minItems: 1,
+							description: 'Numeric series, same length and order as timestamps.',
+						},
+						freq: {
+							type: 'string',
+							description: "Pandas-style cadence string, e.g. '1h', '15min', '1D'.",
+						},
+						model: {
+							type: 'string',
+							description: 'Override the forecasting model (default ibm/granite-ttm-512-96-r2).',
+						},
+						target_column: {
+							type: 'string',
+							description: 'Name for the series column (default "value").',
+						},
+						prediction_length: {
+							type: 'integer',
+							minimum: 1,
+							maximum: 96,
+							description: 'Shorten the forecast horizon (default 96).',
+						},
+					},
+					required: ['timestamps', 'values', 'freq'],
+				},
+			},
+			handler: async (args) => {
+				const result = await client.forecast({
+					timestamps: args.timestamps,
+					values: args.values,
+					freq: args.freq,
+					model: args.model,
+					targetColumn: args.target_column,
+					predictionLength: args.prediction_length,
+				});
+				return jsonResult(result, `Forecast ${result.values.length} steps with ${result.model}.`);
+			},
+		},
+
+		{
+			definition: {
 				name: 'watsonx_generate',
 				description:
 					'Raw text generation from a single prompt (no chat templating). Use for ' +

@@ -53,8 +53,12 @@ export function loadConfig(env = process.env) {
 		url: (env.WATSONX_URL?.trim() || 'https://us-south.ml.cloud.ibm.com').replace(/\/$/, ''),
 		iamUrl: env.WATSONX_IAM_URL?.trim() || IAM_TOKEN_URL,
 		apiVersion: env.WATSONX_API_VERSION?.trim() || '2024-05-31',
+		// The Time Series Forecasting API is version-stamped separately (it GA'd
+		// later than chat). Overridable per account/region.
+		tsApiVersion: env.WATSONX_TS_API_VERSION?.trim() || '2025-02-11',
 		chatModel: env.WATSONX_MODEL_ID?.trim() || 'ibm/granite-3-8b-instruct',
 		embedModel: env.WATSONX_EMBED_MODEL_ID?.trim() || 'ibm/granite-embedding-278m-multilingual',
+		forecastModel: env.WATSONX_FORECAST_MODEL?.trim() || 'ibm/granite-ttm-512-96-r2',
 		timeoutMs: Number(env.WATSONX_TIMEOUT_MS) || 60_000,
 	};
 }
@@ -147,9 +151,9 @@ export class WatsonxClient {
 	// Authenticated POST to a watsonx ml endpoint. Adds the version query param,
 	// bearer token, and scoping; raises a WatsonxError carrying the upstream
 	// status and IBM error payload on any non-2xx response.
-	async _post(path, payload) {
+	async _post(path, payload, version) {
 		const token = await this._getToken();
-		const url = `${this.config.url}${path}?version=${this.config.apiVersion}`;
+		const url = `${this.config.url}${path}?version=${version || this.config.apiVersion}`;
 		const res = await this._fetch(url, {
 			method: 'POST',
 			headers: {
@@ -233,6 +237,39 @@ export class WatsonxClient {
 			vectors: (data.results || []).map((r) => r.embedding),
 			inputCount: inputs.length,
 			dimensions: data.results?.[0]?.embedding?.length ?? 0,
+		};
+	}
+
+	// Granite TimeSeries zero-shot forecast. `timestamps` are ISO-8601 strings at
+	// a uniform cadence (oldest → newest) and `values` is the equal-length numeric
+	// series; the series length must meet the model's context window (e.g. 512).
+	// `freq` is a pandas-style cadence ('1h', '15min', '1D'). Returns the forecast
+	// horizon as { model, timestamps, values, inputWindow }.
+	async forecast({ timestamps, values, freq, model, targetColumn = 'value', predictionLength } = {}) {
+		if (
+			!Array.isArray(timestamps) ||
+			!Array.isArray(values) ||
+			timestamps.length !== values.length ||
+			values.length === 0
+		) {
+			throw new WatsonxError('forecast: timestamps and values must be equal-length, non-empty arrays');
+		}
+		const data = await this._post(
+			'/ml/v1/time_series/forecast',
+			{
+				model_id: model || this.config.forecastModel,
+				schema: { timestamp_column: 'date', freq, target_columns: [targetColumn] },
+				data: { date: timestamps, [targetColumn]: values },
+				...(predictionLength ? { parameters: { prediction_length: predictionLength } } : {}),
+			},
+			this.config.tsApiVersion,
+		);
+		const r = data.results?.[0] || {};
+		return {
+			model: data.model_id || model || this.config.forecastModel,
+			timestamps: r.date || [],
+			values: r[targetColumn] || [],
+			inputWindow: values.length,
 		};
 	}
 

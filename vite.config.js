@@ -273,6 +273,7 @@ const appConfig = {
 				'avatar-sdk': resolve(__dirname, 'pages/avatar-sdk.html'),
 				brain: resolve(__dirname, 'pages/brain.html'),
 				voice: resolve(__dirname, 'pages/voice.html'),
+				galaxy: resolve(__dirname, 'pages/galaxy.html'),
 				'ar-page':     resolve(__dirname, 'pages/ar.html'),
 				creating: resolve(__dirname, 'pages/creating.html'),
 				pricing: resolve(__dirname, 'pages/pricing.html'),
@@ -352,6 +353,8 @@ const appConfig = {
 				'aws':                     resolve(__dirname, 'pages/aws/index.html'),
 				'ibm':                     resolve(__dirname, 'pages/ibm/index.html'),
 				'ibm-galaxy':              resolve(__dirname, 'pages/ibm/galaxy.html'),
+				'ibm-trust-layer':         resolve(__dirname, 'pages/ibm/trust-layer.html'),
+				'ibm-oracle':              resolve(__dirname, 'pages/ibm/oracle.html'),
 				// dashboard-next prototype — sub-pages auto-discovered so the parallel
 				// agents that land new pages/dashboard-next/*.html files don't have to
 				// touch this config to register them as Rollup inputs.
@@ -562,6 +565,10 @@ const appConfig = {
 					'/ibm/': resolve(root, 'pages/ibm/index.html'),
 					'/ibm/galaxy': resolve(root, 'pages/ibm/galaxy.html'),
 					'/ibm/galaxy/': resolve(root, 'pages/ibm/galaxy.html'),
+					'/ibm/trust-layer': resolve(root, 'pages/ibm/trust-layer.html'),
+					'/ibm/trust-layer/': resolve(root, 'pages/ibm/trust-layer.html'),
+					'/ibm/oracle': resolve(root, 'pages/ibm/oracle.html'),
+					'/ibm/oracle/': resolve(root, 'pages/ibm/oracle.html'),
 					'/voice': resolve(root, 'pages/voice.html'),
 					'/voice/': resolve(root, 'pages/voice.html'),
 					'/brain': resolve(root, 'pages/brain.html'),

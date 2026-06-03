@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+	<title>Trust Layer — IBM Granite Guardian governs autonomous AI agents · three.ws</title>
+	<meta name="description" content="Watch IBM Granite Guardian govern an autonomous, wallet-holding 3D AI agent in real time. Every message and every on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger before it can run." />
+	<link rel="canonical" href="https://three.ws/ibm/trust-layer" />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Trust Layer — IBM Granite Guardian for autonomous AI agents" />
+	<meta property="og:description" content="Real-time AI governance for crypto-capable 3D agents. Granite Guardian on watsonx.ai classifies every action; a hash-chained ledger makes it auditable." />
+	<meta property="og:url" content="https://three.ws/ibm/trust-layer" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Trust Layer — IBM Granite Guardian for autonomous AI agents" />
+	<meta name="twitter:description" content="Real-time AI governance for crypto-capable 3D agents, powered by IBM Granite Guardian on watsonx.ai." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+	<link rel="icon" href="/favicon.ico" />
+	<style>
+		:root {
+			color-scheme: dark;
+			--bg:#05070d; --panel:rgba(18,22,32,0.80); --panel-solid:#0e121b;
+			--border:rgba(255,255,255,0.10); --border-strong:rgba(255,255,255,0.18);
+			--text:#e9edf6; --muted:#8b93a7; --faint:#5a6276;
+			--ibm:#0f62fe; --ibm-light:#78a9ff;
+			--allow:#42be65; --review:#f1c21b; --block:#fa4d56;
+			--shadow:0 18px 50px rgba(0,0,0,0.55);
+			--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+		}
+		* { box-sizing:border-box; margin:0; padding:0; }
+		html,body { height:100%; }
+		body {
+			font:15px/1.6 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+			color:var(--text); background:var(--bg); -webkit-font-smoothing:antialiased;
+			overflow:hidden;
+		}
+		a { color:inherit; }
+		#scene { position:fixed; inset:0; display:block; z-index:0; touch-action:none; }
+		.node-labels { position:fixed; inset:0; z-index:6; pointer-events:none; }
+		.nlabel {
+			position:absolute; transform:translate(-50%,-50%);
+			font-size:10.5px; font-weight:600; letter-spacing:0.02em; white-space:nowrap;
+			padding:2px 8px; border-radius:99px; background:rgba(5,7,13,0.55);
+			border:1px solid var(--border); backdrop-filter:blur(6px);
+			text-shadow:0 1px 6px rgba(0,0,0,0.8); transition:color .3s, border-color .3s, opacity .3s;
+			color:var(--muted);
+		}
+
+		/* ── Top bar ─────────────────────────────────────── */
+		.topbar {
+			position:fixed; top:0; left:0; right:0; z-index:30;
+			display:flex; align-items:center; justify-content:space-between; gap:16px;
+			padding:14px 20px;
+			background:linear-gradient(180deg,rgba(5,7,13,0.92),rgba(5,7,13,0));
+			pointer-events:none;
+		}
+		.topbar > * { pointer-events:auto; }
+		.brand { display:flex; align-items:center; gap:12px; min-width:0; }
+		.brand a.home { display:inline-flex; align-items:center; gap:8px; text-decoration:none; color:var(--text); font-weight:600; letter-spacing:-0.01em; }
+		.brand .sep { color:var(--faint); }
+		.badge {
+			display:inline-flex; align-items:center; gap:8px;
+			background:var(--panel); border:1px solid var(--border); border-radius:99px;
+			padding:6px 13px 6px 10px; font-size:12px; color:var(--muted); backdrop-filter:blur(12px); white-space:nowrap;
+		}
+		.badge .dot { width:7px; height:7px; border-radius:50%; background:var(--ibm); box-shadow:0 0 10px var(--ibm); }
+		.badge strong { color:var(--text); font-weight:500; }
+		.tb-actions { display:flex; gap:8px; }
+		.tb-btn {
+			display:inline-flex; align-items:center; gap:7px; cursor:pointer; text-decoration:none;
+			background:var(--panel); border:1px solid var(--border); color:var(--text);
+			border-radius:10px; padding:9px 13px; font-size:13px; font-weight:500;
+			backdrop-filter:blur(12px); transition:background .15s, border-color .15s, transform .1s;
+		}
+		.tb-btn:hover { background:rgba(40,46,60,0.9); border-color:var(--border-strong); }
+		.tb-btn:active { transform:translateY(1px); }
+		.tb-btn svg { width:15px; height:15px; }
+
+		/* ── Hero (center, fades on first run) ───────────── */
+		.hero {
+			position:fixed; top:84px; left:50%; transform:translateX(-50%); z-index:8;
+			text-align:center; width:min(680px,calc(100vw - 32px)); pointer-events:none;
+			transition:opacity .5s, transform .5s;
+		}
+		.hero h1 { font-size:clamp(26px,4.4vw,42px); font-weight:680; letter-spacing:-0.03em; line-height:1.08; }
+		.hero h1 .g { background:linear-gradient(110deg,var(--ibm-light) 20%,var(--ibm) 85%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+		.hero p { color:var(--muted); font-size:clamp(14px,1.7vw,16px); margin-top:12px; max-width:560px; margin-inline:auto; }
+		.hero.dim { opacity:0; transform:translateX(-50%) translateY(-14px); pointer-events:none; }
+
+		/* ── Verdict ring (center under hero / over core) ── */
+		.verdict-tag {
+			position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:7;
+			text-align:center; pointer-events:none; opacity:0; transition:opacity .4s;
+		}
+		.verdict-tag.show { opacity:1; }
+		.verdict-tag .vt-word { font-size:clamp(30px,6vw,58px); font-weight:760; letter-spacing:-0.03em; line-height:1; }
+		.verdict-tag .vt-sub { font-size:12px; color:var(--muted); margin-top:8px; text-transform:uppercase; letter-spacing:0.14em; }
+
+		/* ── Console (right) ─────────────────────────────── */
+		.console {
+			position:fixed; top:70px; right:18px; bottom:18px; z-index:20;
+			width:min(390px,calc(100vw - 36px));
+			background:var(--panel); border:1px solid var(--border); border-radius:16px;
+			backdrop-filter:blur(18px); box-shadow:var(--shadow);
+			display:flex; flex-direction:column; overflow:hidden;
+		}
+		.console .c-head { padding:16px 18px 12px; border-bottom:1px solid var(--border); }
+		.console .c-title { font-size:13px; font-weight:650; letter-spacing:-0.01em; display:flex; align-items:center; gap:8px; }
+		.console .c-title .pill { font-size:10px; font-weight:600; color:var(--ibm-light); background:rgba(15,98,254,0.14); border:1px solid rgba(120,169,255,0.25); border-radius:99px; padding:2px 8px; letter-spacing:0.02em; }
+		.console .c-sub { font-size:12px; color:var(--muted); margin-top:4px; }
+		.console .c-body { padding:14px 18px 18px; overflow-y:auto; flex:1; scrollbar-width:thin; }
+
+		.scenarios { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
+		.chip {
+			font-size:12px; color:var(--muted); background:rgba(255,255,255,0.04);
+			border:1px solid var(--border); border-radius:99px; padding:6px 11px; cursor:pointer;
+			transition:color .15s, border-color .15s, background .15s; display:inline-flex; align-items:center; gap:6px;
+		}
+		.chip:hover { color:var(--text); border-color:var(--border-strong); }
+		.chip .ci { width:6px; height:6px; border-radius:50%; flex:none; }
+		.chip[data-tone="safe"] .ci { background:var(--allow); }
+		.chip[data-tone="risk"] .ci { background:var(--block); }
+		.chip[data-tone="send"] .ci { background:var(--ibm-light); }
+
+		textarea#msg {
+			width:100%; min-height:78px; resize:vertical; background:rgba(0,0,0,0.25);
+			border:1px solid var(--border); border-radius:12px; color:var(--text);
+			font:14px/1.5 inherit; padding:11px 12px; outline:none; transition:border-color .15s, box-shadow .15s;
+		}
+		textarea#msg:focus { border-color:var(--ibm-light); box-shadow:0 0 0 3px rgba(15,98,254,0.16); }
+		textarea#msg::placeholder { color:var(--faint); }
+
+		.send-row { display:flex; align-items:center; gap:10px; margin-top:10px; }
+		.toggle { display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); cursor:pointer; user-select:none; }
+		.toggle input { position:absolute; opacity:0; pointer-events:none; }
+		.toggle .tk { width:34px; height:19px; border-radius:99px; background:rgba(255,255,255,0.12); border:1px solid var(--border); position:relative; transition:background .18s; flex:none; }
+		.toggle .tk::after { content:""; position:absolute; top:1px; left:1px; width:15px; height:15px; border-radius:50%; background:#cfd5e2; transition:transform .18s; }
+		.toggle input:checked + .tk { background:var(--ibm); }
+		.toggle input:checked + .tk::after { transform:translateX(15px); background:#fff; }
+		.toggle input:focus-visible + .tk { box-shadow:0 0 0 3px rgba(15,98,254,0.3); }
+		.amount { margin-left:auto; display:none; align-items:center; gap:6px; font-size:13px; color:var(--muted); }
+		.amount.show { display:inline-flex; }
+		.amount .dol { color:var(--ibm-light); font-weight:600; }
+		.amount input { width:74px; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:9px; color:var(--text); padding:7px 9px; font:13px var(--mono); outline:none; }
+		.amount input:focus { border-color:var(--ibm-light); }
+
+		.run-btn {
+			margin-top:13px; width:100%; display:inline-flex; align-items:center; justify-content:center; gap:9px;
+			background:var(--ibm); color:#fff; border:0; border-radius:12px; padding:12px; cursor:pointer;
+			font-size:14px; font-weight:650; transition:filter .15s, transform .1s;
+		}
+		.run-btn:hover { filter:brightness(1.12); }
+		.run-btn:active { transform:translateY(1px); }
+		.run-btn:disabled { opacity:.6; cursor:default; filter:none; }
+		.run-btn .spin { width:15px; height:15px; border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; display:none; }
+		.run-btn.busy .spin { display:inline-block; }
+		.run-btn.busy .lbl { opacity:.85; }
+		@keyframes spin { to { transform:rotate(360deg); } }
+
+		/* ── Verdict card ─────────────────────────────────── */
+		.verdict { margin-top:16px; border:1px solid var(--border); border-radius:13px; padding:14px; background:rgba(0,0,0,0.22); display:none; }
+		.verdict.show { display:block; animation:rise .35s ease; }
+		@keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+		.verdict .v-top { display:flex; align-items:center; gap:11px; }
+		.v-decision { font-size:15px; font-weight:720; letter-spacing:-0.01em; display:inline-flex; align-items:center; gap:8px; }
+		.v-decision .vd-dot { width:11px; height:11px; border-radius:50%; box-shadow:0 0 10px currentColor; }
+		.v-decision.allow { color:var(--allow); } .v-decision.review { color:var(--review); } .v-decision.block { color:var(--block); }
+		.v-meta { margin-left:auto; font-size:11px; color:var(--faint); font-variant-numeric:tabular-nums; text-align:right; line-height:1.4; }
+		.v-reasons { margin-top:11px; display:flex; flex-direction:column; gap:6px; }
+		.v-reason { font-size:12.5px; color:#d6dbe6; display:flex; gap:8px; align-items:baseline; }
+		.v-reason .rb { font-size:10px; font-weight:700; color:var(--block); background:rgba(250,77,86,0.14); border:1px solid rgba(250,77,86,0.3); border-radius:5px; padding:1px 6px; flex:none; }
+		.v-reason.cap .rb { color:var(--review); background:rgba(241,194,27,0.14); border-color:rgba(241,194,27,0.32); }
+		.v-pass { font-size:12.5px; color:var(--muted); margin-top:10px; }
+
+		/* ── Risk bars ────────────────────────────────────── */
+		.risks { margin-top:16px; display:none; }
+		.risks.show { display:block; }
+		.risks h4 { font-size:10.5px; text-transform:uppercase; letter-spacing:0.09em; color:var(--faint); margin-bottom:10px; font-weight:650; }
+		.rrow { display:flex; align-items:center; gap:10px; padding:5px 0; }
+		.rrow .rn { font-size:12.5px; width:84px; flex:none; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+		.rrow .rbar { flex:1; height:7px; border-radius:99px; background:rgba(255,255,255,0.07); overflow:hidden; position:relative; }
+		.rrow .rbar i { position:absolute; inset:0 100% 0 0; border-radius:99px; transition:right .5s cubic-bezier(.22,.61,.36,1), background .3s; }
+		.rrow .rv { font-size:11.5px; width:62px; text-align:right; flex:none; font-variant-numeric:tabular-nums; color:var(--muted); }
+		.rrow .rv .est { color:var(--faint); font-size:10px; }
+		.rrow.flagged .rn { color:var(--text); font-weight:600; }
+
+		/* ── Ledger (bottom-left) ─────────────────────────── */
+		.ledger {
+			position:fixed; left:18px; bottom:18px; z-index:20; width:min(360px,calc(100vw - 36px));
+			max-height:min(52vh,520px); display:flex; flex-direction:column;
+			background:var(--panel); border:1px solid var(--border); border-radius:16px;
+			backdrop-filter:blur(18px); box-shadow:var(--shadow); overflow:hidden;
+		}
+		.ledger .l-head { padding:13px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:9px; }
+		.ledger .l-title { font-size:12.5px; font-weight:650; }
+		.ledger .l-title .cnt { color:var(--faint); font-weight:500; }
+		.ledger .l-verify { margin-left:auto; font-size:11px; color:var(--ibm-light); background:rgba(15,98,254,0.12); border:1px solid rgba(120,169,255,0.25); border-radius:8px; padding:5px 9px; cursor:pointer; transition:filter .15s; display:inline-flex; align-items:center; gap:6px; }
+		.ledger .l-verify:hover { filter:brightness(1.2); }
+		.ledger .l-verify.ok { color:var(--allow); background:rgba(66,190,101,0.12); border-color:rgba(66,190,101,0.3); }
+		.ledger .l-verify.bad { color:var(--block); background:rgba(250,77,86,0.12); border-color:rgba(250,77,86,0.3); }
+		.ledger .l-body { overflow-y:auto; padding:8px; scrollbar-width:thin; }
+		.ledger .l-empty { padding:20px 14px; text-align:center; color:var(--faint); font-size:12.5px; line-height:1.55; }
+		.lrow { display:flex; align-items:center; gap:10px; padding:9px 9px; border-radius:10px; transition:background .12s; }
+		.lrow + .lrow { border-top:1px solid rgba(255,255,255,0.05); }
+		.lrow:hover { background:rgba(255,255,255,0.04); }
+		.lrow .ld { width:8px; height:8px; border-radius:50%; flex:none; box-shadow:0 0 8px currentColor; }
+		.lrow .ld.allow { color:var(--allow); background:var(--allow); } .lrow .ld.review { color:var(--review); background:var(--review); } .lrow .ld.block { color:var(--block); background:var(--block); }
+		.lrow .lmeta { min-width:0; flex:1; }
+		.lrow .lmeta .lt { font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+		.lrow .lmeta .lh { font-size:10.5px; color:var(--faint); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+		.lrow .lc { font-size:10px; flex:none; color:var(--faint); display:flex; align-items:center; gap:4px; }
+		.lrow .lc.ok { color:var(--allow); } .lrow .lc.bad { color:var(--block); }
+
+		/* ── Overlays (loading / unavailable / error) ─────── */
+		.overlay { position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:24px; text-align:center;
+			background:radial-gradient(1200px 600px at 50% 32%,rgba(15,98,254,0.10),transparent 60%),var(--bg); }
+		.overlay.show { display:flex; }
+		.overlay .inner { max-width:440px; }
+		.o-orb { width:54px; height:54px; margin:0 auto 20px; border-radius:50%;
+			background:radial-gradient(circle at 35% 30%,var(--ibm-light),var(--ibm) 60%,#062a8a);
+			box-shadow:0 0 40px rgba(15,98,254,0.5); animation:pulse 1.8s ease-in-out infinite; }
+		@keyframes pulse { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.12); opacity:.78; } }
+		.overlay h2 { font-size:21px; font-weight:650; letter-spacing:-0.02em; margin-bottom:10px; }
+		.overlay p { color:var(--muted); font-size:14.5px; line-height:1.6; }
+		.overlay code { font-family:var(--mono); color:var(--ibm-light); font-size:13px; }
+		.overlay .o-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+		.o-btn { display:inline-flex; align-items:center; gap:8px; background:var(--ibm); color:#fff; text-decoration:none; font-weight:600; font-size:14px; padding:11px 18px; border-radius:11px; border:0; cursor:pointer; transition:filter .15s; }
+		.o-btn:hover { filter:brightness(1.12); }
+		.o-btn.sec { background:var(--panel-solid); border:1px solid var(--border); }
+
+		.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(14px); z-index:50;
+			background:var(--panel-solid); border:1px solid var(--border-strong); border-radius:11px; padding:11px 16px;
+			font-size:13px; color:var(--text); box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; max-width:90vw; }
+		.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+		.toast.err { border-color:rgba(250,77,86,0.5); }
+
+		@media (max-width:1040px) {
+			.ledger { max-height:38vh; width:min(340px,calc(100vw - 36px)); }
+		}
+		@media (max-width:860px) {
+			body { overflow:auto; }
+			#scene { position:fixed; height:46vh; inset:0 0 auto 0; }
+			.node-labels, .verdict-tag { display:none; }
+			.hero { position:absolute; top:70px; }
+			.console { position:relative; inset:auto; width:auto; margin:46vh 12px 12px; max-height:none; }
+			.ledger { position:relative; inset:auto; width:auto; margin:0 12px 24px; max-height:60vh; }
+		}
+		@media (prefers-reduced-motion:reduce) { .o-orb { animation:none; } }
+	</style>
+</head>
+<body>
+	<canvas id="scene"></canvas>
+	<div class="node-labels" id="nodeLabels"></div>
+
+	<div class="verdict-tag" id="verdictTag">
+		<div class="vt-word" id="vtWord"></div>
+		<div class="vt-sub" id="vtSub"></div>
+	</div>
+
+	<div class="topbar">
+		<div class="brand">
+			<a href="/ibm" class="home" title="Back to IBM partnership">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+				three.ws
+			</a>
+			<span class="sep">/</span>
+			<span class="badge"><span class="dot"></span><strong>Trust Layer</strong><span>·</span>IBM Granite Guardian</span>
+		</div>
+		<div class="tb-actions">
+			<a class="tb-btn" href="/ibm/galaxy" title="Agent Galaxy — semantic discovery on Granite">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="1.6"/><circle cx="19" cy="7" r="1.6"/><circle cx="18" cy="18" r="1.6"/><circle cx="6" cy="17" r="1.6"/></svg>
+				<span class="lbl">Galaxy</span>
+			</a>
+			<a class="tb-btn" href="/ibm" title="About the IBM integration">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+				<span class="lbl">About</span>
+			</a>
+		</div>
+	</div>
+
+	<div class="hero" id="hero">
+		<h1>Autonomous agents, <span class="g">governed before they act</span>.</h1>
+		<p>This agent thinks on IBM Granite and holds its own Solana wallet. Every message and every on-chain action is classified by <strong style="color:var(--ibm-light)">Granite Guardian</strong> on watsonx.ai — then written to a tamper-evident ledger — <em>before</em> it can run.</p>
+	</div>
+
+	<!-- Governance console -->
+	<aside class="console" aria-label="Governance console">
+		<div class="c-head">
+			<div class="c-title">Governance console <span class="pill" id="modelPill">Granite Guardian</span></div>
+			<div class="c-sub">Send a request to the agent. Granite Guardian assesses it live.</div>
+		</div>
+		<div class="c-body">
+			<div class="scenarios" id="scenarios"></div>
+
+			<label for="msg" style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--faint);font-weight:650;display:block;margin-bottom:7px;">Request to the agent</label>
+			<textarea id="msg" placeholder="e.g. “Wave hello and tell me what you can do.”" spellcheck="false"></textarea>
+
+			<div class="send-row">
+				<label class="toggle" title="Treat this as an autonomous SOL transfer from the agent's wallet">
+					<input type="checkbox" id="sendToggle" />
+					<span class="tk"></span>
+					<span>Autonomous SOL send</span>
+				</label>
+				<span class="amount" id="amountWrap"><span class="dol">$</span><input id="amount" type="number" min="1" step="1" value="5" aria-label="Send amount in US dollars" /></span>
+			</div>
+
+			<button class="run-btn" id="runBtn">
+				<span class="spin"></span>
+				<span class="lbl">Assess with Granite Guardian</span>
+			</button>
+
+			<div class="verdict" id="verdict" aria-live="polite">
+				<div class="v-top">
+					<span class="v-decision" id="vDecision"><span class="vd-dot"></span><span class="vd-word"></span></span>
+					<span class="v-meta" id="vMeta"></span>
+				</div>
+				<div class="v-reasons" id="vReasons"></div>
+			</div>
+
+			<div class="risks" id="risks">
+				<h4>Risk assessment · per dimension</h4>
+				<div id="riskRows"></div>
+			</div>
+		</div>
+	</aside>
+
+	<!-- Audit ledger -->
+	<section class="ledger" aria-label="Governance audit ledger">
+		<div class="l-head">
+			<span class="l-title">Audit ledger <span class="cnt" id="ledgerCnt">· 0</span></span>
+			<button class="l-verify" id="verifyBtn" title="Recompute the SHA-256 hash chain in your browser">
+				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+				Verify chain
+			</button>
+		</div>
+		<div class="l-body" id="ledgerBody">
+			<div class="l-empty">No records yet. Each assessment appends a hash-chained, tamper-evident entry here — verifiable in your browser.</div>
+		</div>
+	</section>
+
+	<!-- Loading -->
+	<div class="overlay show" id="loadingState">
+		<div class="inner">
+			<div class="o-orb"></div>
+			<h2>Spinning up the Trust Layer</h2>
+			<p>Rendering the governance core and arming the <strong style="color:var(--ibm-light)">Granite Guardian</strong> sentinels.</p>
+		</div>
+	</div>
+
+	<!-- watsonx unavailable -->
+	<div class="overlay" id="unavailableState">
+		<div class="inner">
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#3a4253,#1a1f2c)"></div>
+			<h2>IBM watsonx is not configured</h2>
+			<p>This deployment has no watsonx.ai credentials, so Granite Guardian can't classify risk. Set <code>WATSONX_API_KEY</code> and <code>WATSONX_PROJECT_ID</code> to power the Trust Layer.</p>
+			<div class="o-actions"><a class="o-btn" href="/ibm">About the IBM integration</a></div>
+		</div>
+	</div>
+
+	<!-- Error -->
+	<div class="overlay" id="errorState">
+		<div class="inner">
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#5a2330,#2c1a1f)"></div>
+			<h2>Couldn't reach the governance service</h2>
+			<p id="errorMsg">Something went wrong reaching Granite Guardian.</p>
+			<div class="o-actions">
+				<button class="o-btn" id="retryBtn">Dismiss</button>
+				<a class="o-btn sec" href="/ibm">Back to IBM</a>
+			</div>
+		</div>
+	</div>
+
+	<div class="toast" id="toast"></div>
+
+	<script type="module" src="/src/ibm-trust-layer.js"></script>
+	<script src="/brand.js" defer></script>
+</body>
+</html>

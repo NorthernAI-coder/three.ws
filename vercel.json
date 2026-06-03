@@ -74,6 +74,30 @@
 			"dest": "/aws/index.html"
 		},
 		{
+			"src": "/ibm/galaxy",
+			"dest": "/ibm/galaxy.html"
+		},
+		{
+			"src": "/ibm/galaxy/",
+			"dest": "/ibm/galaxy.html"
+		},
+		{
+			"src": "/ibm/trust-layer",
+			"dest": "/ibm/trust-layer.html"
+		},
+		{
+			"src": "/ibm/trust-layer/",
+			"dest": "/ibm/trust-layer.html"
+		},
+		{
+			"src": "/ibm/oracle",
+			"dest": "/ibm/oracle.html"
+		},
+		{
+			"src": "/ibm/oracle/",
+			"dest": "/ibm/oracle.html"
+		},
+		{
 			"src": "/ibm",
 			"dest": "/ibm/index.html"
 		},
@@ -427,6 +451,10 @@
 		{
 			"src": "/brain/?",
 			"dest": "/brain.html"
+		},
+		{
+			"src": "/galaxy/?",
+			"dest": "/galaxy.html"
 		},
 		{
 			"src": "/lipsync/mic/?",

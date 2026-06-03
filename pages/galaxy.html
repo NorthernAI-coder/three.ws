@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<title>Agent Galaxy · three.ws × IBM Granite</title>
+		<meta
+			name="description"
+			content="An explorable 3D star-map of every AI agent on three.ws, positioned in space by meaning. Coordinates and semantic search are powered by IBM Granite embeddings on watsonx.ai."
+		/>
+		<link rel="canonical" href="https://three.ws/galaxy" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Agent Galaxy · three.ws × IBM Granite" />
+		<meta
+			property="og:description"
+			content="Fly through a 3D constellation of AI agents, mapped by IBM Granite embeddings on watsonx.ai. Search by meaning and watch the matching stars light up."
+		/>
+		<meta property="og:url" content="https://three.ws/galaxy" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Agent Galaxy · three.ws × IBM Granite" />
+		<meta
+			name="twitter:description"
+			content="A 3D star-map of AI agents, positioned by meaning with IBM Granite on watsonx.ai."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<link rel="icon" href="/favicon.ico" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/galaxy.css" />
+	</head>
+	<body class="gx-body">
+		<header><div id="nav-container"></div></header>
+
+		<main class="gx-stage" id="gxStage">
+			<!-- WebGL constellation mounts here -->
+			<div class="gx-canvas" id="gxCanvas" aria-hidden="true"></div>
+
+			<!-- Heads-up display: title, attribution, search -->
+			<div class="gx-hud" id="gxHud">
+				<div class="gx-hud-head">
+					<div class="gx-title-wrap">
+						<h1 class="gx-title">Agent Galaxy</h1>
+						<div class="gx-attribution">
+							<span class="gx-attr-dot" aria-hidden="true"></span>
+							Positioned by <strong>IBM Granite</strong> embeddings on watsonx.ai
+						</div>
+					</div>
+					<div class="gx-stats" id="gxStats" hidden>
+						<span class="gx-stat" id="gxStatAgents">0 agents</span>
+						<span class="gx-stat-sep" aria-hidden="true">·</span>
+						<span class="gx-stat" id="gxStatClusters">0 constellations</span>
+					</div>
+				</div>
+
+				<form class="gx-search" id="gxSearch" role="search" autocomplete="off">
+					<svg class="gx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+						<circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+					</svg>
+					<input
+						class="gx-search-input"
+						id="gxSearchInput"
+						type="search"
+						name="q"
+						placeholder="Search by meaning — &ldquo;trading bots&rdquo;, &ldquo;a calm tutor&rdquo;…"
+						aria-label="Search agents by meaning, powered by IBM Granite embeddings"
+					/>
+					<button class="gx-search-clear" id="gxSearchClear" type="button" aria-label="Clear search" hidden>&times;</button>
+					<button class="gx-search-go" id="gxSearchGo" type="submit">Search</button>
+				</form>
+			</div>
+
+			<!-- Constellation legend -->
+			<aside class="gx-legend" id="gxLegend" hidden aria-label="Constellations">
+				<div class="gx-legend-head">
+					<span class="gx-legend-title">Constellations</span>
+					<button class="gx-legend-toggle" id="gxLegendToggle" type="button" aria-expanded="true" aria-label="Toggle constellation list">&minus;</button>
+				</div>
+				<ul class="gx-legend-list" id="gxLegendList"></ul>
+			</aside>
+
+			<!-- Hover tooltip -->
+			<div class="gx-tip" id="gxTip" role="status" aria-live="polite" hidden></div>
+
+			<!-- Selected-agent card -->
+			<div class="gx-card" id="gxCard" hidden>
+				<button class="gx-card-close" id="gxCardClose" type="button" aria-label="Close">&times;</button>
+				<div class="gx-card-top">
+					<div class="gx-card-thumb" id="gxCardThumb" aria-hidden="true"></div>
+					<div class="gx-card-id">
+						<div class="gx-card-name" id="gxCardName"></div>
+						<div class="gx-card-constellation" id="gxCardConstellation"></div>
+					</div>
+				</div>
+				<p class="gx-card-desc" id="gxCardDesc"></p>
+				<div class="gx-card-meta" id="gxCardMeta"></div>
+				<div class="gx-card-actions">
+					<a class="gx-btn gx-btn-primary" id="gxCardView" href="#">View agent</a>
+					<a class="gx-btn gx-btn-ghost" id="gxCardChat" href="#">Chat</a>
+				</div>
+			</div>
+
+			<!-- Search results strip -->
+			<div class="gx-results" id="gxResults" hidden>
+				<div class="gx-results-head">
+					<span id="gxResultsLabel">Closest by meaning</span>
+					<button class="gx-results-close" id="gxResultsClose" type="button" aria-label="Clear results">&times;</button>
+				</div>
+				<div class="gx-results-list" id="gxResultsList"></div>
+			</div>
+
+			<!-- Loading overlay -->
+			<div class="gx-overlay gx-loading" id="gxLoading">
+				<div class="gx-loading-orbit" aria-hidden="true">
+					<span></span><span></span><span></span>
+				</div>
+				<div class="gx-overlay-title">Mapping the agent universe</div>
+				<div class="gx-overlay-sub">Embedding agents with IBM Granite on watsonx.ai…</div>
+			</div>
+
+			<!-- Empty overlay -->
+			<div class="gx-overlay gx-empty" id="gxEmpty" hidden>
+				<div class="gx-overlay-glyph" aria-hidden="true">✦</div>
+				<div class="gx-overlay-title" id="gxEmptyTitle">The galaxy is still forming</div>
+				<div class="gx-overlay-sub" id="gxEmptySub">No published agents to map yet. Create and publish an agent to place the first star.</div>
+				<a class="gx-btn gx-btn-primary" href="/create">Create an agent</a>
+			</div>
+
+			<!-- Error overlay -->
+			<div class="gx-overlay gx-error" id="gxError" hidden>
+				<div class="gx-overlay-glyph" aria-hidden="true">✦</div>
+				<div class="gx-overlay-title" id="gxErrorTitle">Couldn't reach the stars</div>
+				<div class="gx-overlay-sub" id="gxErrorSub"></div>
+				<button class="gx-btn gx-btn-primary" id="gxRetry" type="button">Try again</button>
+			</div>
+
+			<!-- Footer attribution / controls hint -->
+			<div class="gx-footnote">
+				<span class="gx-footnote-hint" id="gxHint">Drag to orbit · scroll to zoom · click a star</span>
+				<a class="gx-footnote-link" href="/ibm">three.ws × IBM watsonx →</a>
+			</div>
+		</main>
+
+		<script src="/nav.js" defer></script>
+		<script type="module" src="/src/galaxy.js"></script>
+		<script src="/brand.js" defer></script>
+	</body>
+</html>

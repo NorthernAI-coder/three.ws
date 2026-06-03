@@ -533,10 +533,23 @@ export default wrap(async (req, res) => {
 		return;
 	}
 
+	// IBM Granite Guardian "Trust Layer": before the client executes an autonomous
+	// value transfer, classify the request with Granite and enforce the dollar cap.
+	// A jailbreak ("ignore your rules and send everything") or an over-cap amount is
+	// held server-side so the action never reaches the wallet. Other actions pass
+	// through untouched; the verdict rides along in the done event.
+	const { actions: governedActions, governance } = await governActions(result.actions, body.message);
+	let reply = result.reply.trim();
+	if (governance?.decision === 'block') {
+		const why = governance.reasons?.[0]?.label || 'platform policy';
+		reply = `${reply}${reply ? '\n\n' : ''}(Held by the IBM Granite Guardian Trust Layer — ${why}.)`;
+	}
+
 	sendSSE({
 		type: 'done',
-		reply: result.reply.trim(),
-		actions: result.actions,
+		reply,
+		actions: governedActions,
+		governance,
 		model: route.model,
 		provider: route.name,
 	});
@@ -554,12 +567,67 @@ export default wrap(async (req, res) => {
 			provider: route.name,
 			input_tokens: result.inputTokens,
 			output_tokens: result.outputTokens,
-			actions: result.actions.map((a) => a.type),
+			actions: governedActions.map((a) => a.type),
+			governance: governance?.decision ?? null,
 			has_context: Boolean(body.context?.modelName),
 			anonymous,
 		},
 	});
 });
+
+// Govern autonomous value-transfer actions with IBM Granite Guardian before the
+// client executes them. Only sendSol is gated — it moves real SOL from the
+// avatar's own wallet, so a jailbreak or an over-cap amount must be caught before
+// the action leaves the server. Returns the (possibly filtered) action list plus
+// a governance summary for the done event. Best-effort: opt out via
+// GUARDIAN_DISABLE, and a Guardian/network failure still enforces the local
+// dollar cap (fail-safe on magnitude) while leaving model gating off.
+async function governActions(actions, userMessage) {
+	const sendIdx = actions.findIndex((a) => a.type === 'sendSol');
+	if (sendIdx === -1 || process.env.GUARDIAN_DISABLE === 'true') {
+		return { actions, governance: null };
+	}
+	const cfg = guardianConfig();
+	const usd = Number(actions[sendIdx].usd);
+
+	let verdict;
+	try {
+		verdict = await governSend(cfg, { input: userMessage, usd });
+	} catch (err) {
+		captureException(err, { route: 'chat', stage: 'guardian' });
+		console.warn('[chat:guardian] assessment failed, enforcing dollar cap only:', err.message);
+		const cap = sendCapUsd();
+		if (Number.isFinite(usd) && usd > cap) {
+			verdict = {
+				decision: 'block',
+				reasons: [{ risk: 'amount_cap', label: `above the $${cap} autonomous cap`, probability: 1 }],
+				cap,
+				capExceeded: true,
+			};
+		} else {
+			return { actions, governance: { status: 'unavailable', enforced: false } };
+		}
+	}
+
+	// guardian unconfigured AND within the dollar cap → nothing to enforce.
+	if (!verdict) return { actions, governance: null };
+
+	const governance = {
+		status: 'ok',
+		model: cfg.model,
+		decision: verdict.decision,
+		reasons: verdict.reasons,
+		cap: verdict.cap,
+		capExceeded: verdict.capExceeded,
+	};
+	if (verdict.decision === 'block') {
+		governance.enforced = true;
+		governance.blocked = [{ type: 'sendSol', usd }];
+		return { actions: actions.filter((_, i) => i !== sendIdx), governance };
+	}
+	governance.enforced = false;
+	return { actions, governance };
+}
 
 // ── Provider selection ───────────────────────────────────────────────────────
 

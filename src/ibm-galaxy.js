@@ -549,6 +549,9 @@ function hexA(hex, a) {
 // ── State machine for overlays ────────────────────────────────────────────────
 function showOnly(el) {
 	for (const o of [els.loading, els.empty, els.unavailable, els.error]) o.classList.toggle('show', o === el);
+	const name = el === els.loading ? 'loading' : el === els.empty ? 'empty'
+		: el === els.unavailable ? 'unavailable' : el === els.error ? 'error' : 'scene';
+	document.body.dataset.galaxyState = name;
 }
 function setLoadStep(step) {
 	els.loadSteps.querySelectorAll('.o-step').forEach((s) => {
@@ -609,6 +612,18 @@ async function load() {
 	showOnly(null);
 	els.loading.classList.remove('show');
 	flashHudHint(`Drag to orbit · scroll to zoom · click a star to explore · press <b>/</b> to search`);
+
+	document.body.dataset.galaxyState = 'ready';
+	// Read-only introspection handle for support/debugging a 3D scene that can't
+	// be inspected from pixels alone (headless WebGL renders nothing screenshotable).
+	window.__ibmGalaxy = {
+		state,
+		scene,
+		camera,
+		points: () => points,
+		starCount: () => (points ? points.geometry.attributes.position.count : 0),
+		rendererInfo: () => renderer.info.render,
+	};
 }
 
 function flashHudHint(html) {

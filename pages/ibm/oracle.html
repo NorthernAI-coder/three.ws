@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<title>Granite Oracle — IBM watsonx price forecasting in 3D · three.ws</title>
+		<meta
+			name="description"
+			content="A live 3D oracle: IBM Granite TimeSeries forecasts a Solana token's price, an embodied agent narrates it, and IBM Granite Guardian governs every word. Real watsonx.ai, real on-chain data."
+		/>
+		<meta name="theme-color" content="#0b0e17" />
+		<meta property="og:title" content="Granite Oracle — IBM watsonx forecasting, embodied in 3D" />
+		<meta
+			property="og:description"
+			content="IBM Granite TimeSeries forecasts a live token's price, rendered as a 3D forecast cone and narrated by a governed AI avatar."
+		/>
+		<meta property="og:image" content="https://three.ws/ibm-og.png" />
+		<meta property="og:type" content="website" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<link rel="icon" href="/favicon.ico" />
+		<style>
+			:root {
+				--ibm-blue: #0f62fe;
+				--ibm-blue-2: #4589ff;
+				--up: #42be65;
+				--down: #fa4d56;
+				--ink: #f4f4f4;
+				--muted: #a6b0c3;
+				--panel: rgba(13, 17, 28, 0.62);
+				--stroke: rgba(120, 169, 255, 0.22);
+				--font: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+			}
+			* { box-sizing: border-box; }
+			html, body { margin: 0; height: 100%; }
+			body {
+				font-family: var(--font);
+				color: var(--ink);
+				background:
+					radial-gradient(1200px 700px at 50% -10%, #16224a 0%, rgba(11, 14, 23, 0) 60%),
+					radial-gradient(900px 600px at 90% 110%, #1a1340 0%, rgba(11, 14, 23, 0) 55%),
+					#0b0e17;
+				overflow: hidden;
+			}
+			a { color: var(--ibm-blue-2); text-decoration: none; }
+
+			#oracle-stage { position: fixed; inset: 0; z-index: 0; }
+			#oracle-stage canvas { display: block; }
+
+			/* Top bar */
+			.topbar {
+				position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+				display: flex; align-items: center; justify-content: space-between;
+				padding: 16px 22px; pointer-events: none;
+			}
+			.topbar > * { pointer-events: auto; }
+			.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: 0.01em; }
+			.brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ibm-blue); box-shadow: 0 0 12px var(--ibm-blue); }
+			.brand small { color: var(--muted); font-weight: 400; }
+			.topbar .back {
+				font-size: 13px; color: var(--muted); border: 1px solid var(--stroke);
+				padding: 7px 12px; border-radius: 8px; background: var(--panel); backdrop-filter: blur(8px);
+				transition: border-color 0.15s, color 0.15s;
+			}
+			.topbar .back:hover { color: var(--ink); border-color: var(--ibm-blue-2); }
+
+			/* Token readout (top-left) */
+			.readout {
+				position: fixed; top: 70px; left: 22px; z-index: 5; max-width: 320px;
+				background: var(--panel); border: 1px solid var(--stroke); border-radius: 14px;
+				padding: 16px 18px; backdrop-filter: blur(12px);
+				box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+			}
+			.readout .name { font-size: 15px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.02em; }
+			.readout .price { font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+			.readout .row { display: flex; align-items: baseline; gap: 12px; margin-top: 10px; }
+			.o-change { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+			.o-change.up { color: var(--up); } .o-change.down { color: var(--down); } .o-change.flat { color: var(--muted); }
+			.readout .meta { color: var(--muted); font-size: 12.5px; }
+			.readout .band { margin-top: 8px; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+			/* IBM badges (top-right) */
+			.badges { position: fixed; top: 70px; right: 22px; z-index: 5; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+			.o-badge {
+				display: flex; gap: 10px; align-items: center; background: var(--panel);
+				border: 1px solid var(--stroke); border-radius: 12px; padding: 10px 13px;
+				backdrop-filter: blur(12px); max-width: 300px;
+			}
+			.o-badge .mark { width: 26px; height: 26px; border-radius: 6px; flex: 0 0 auto;
+				background: linear-gradient(135deg, var(--ibm-blue), var(--ibm-blue-2)); display: grid; place-items: center;
+				font-size: 11px; font-weight: 700; color: #fff; }
+			.o-badge.gov .mark { background: linear-gradient(135deg, #24a148, #42be65); }
+			.o-badge.gov.fail .mark { background: linear-gradient(135deg, #da1e28, #fa4d56); }
+			.o-badge .o-badge-title { font-size: 12.5px; font-weight: 600; }
+			.o-badge .o-badge-sub { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; word-break: break-all; }
+
+			/* Controls (top-center) */
+			.controls {
+				position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 6;
+				display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center;
+				max-width: 60vw;
+			}
+			.o-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+			.o-chip {
+				font: inherit; font-size: 12px; color: var(--ink); cursor: pointer;
+				background: var(--panel); border: 1px solid var(--stroke); border-radius: 999px;
+				padding: 6px 12px; backdrop-filter: blur(8px); transition: border-color 0.15s, transform 0.12s;
+				max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+			}
+			.o-chip:hover { border-color: var(--ibm-blue-2); transform: translateY(-1px); }
+			.search-wrap { display: flex; gap: 6px; }
+			#o-search {
+				font: inherit; font-size: 12px; color: var(--ink); width: 220px;
+				background: var(--panel); border: 1px solid var(--stroke); border-radius: 8px;
+				padding: 7px 11px; backdrop-filter: blur(8px);
+			}
+			#o-search::placeholder { color: var(--muted); }
+			#o-run {
+				font: inherit; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer;
+				background: var(--ibm-blue); border: none; border-radius: 8px; padding: 7px 14px;
+				transition: background 0.15s, opacity 0.15s;
+			}
+			#o-run:hover { background: var(--ibm-blue-2); }
+			#o-run:disabled { opacity: 0.5; cursor: progress; }
+
+			/* Narration (bottom) */
+			.narration-bar {
+				position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 5;
+				width: min(720px, calc(100vw - 44px));
+				background: var(--panel); border: 1px solid var(--stroke); border-radius: 16px;
+				padding: 16px 20px; backdrop-filter: blur(14px); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+			}
+			.narration-bar .label { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ibm-blue-2); margin-bottom: 6px; }
+			#o-narration { font-size: 16px; line-height: 1.5; min-height: 1.5em; }
+			#o-narration.muted { color: var(--muted); font-size: 14px; }
+			#o-status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 1em; }
+			#o-status.busy::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 4px;
+				border-radius: 50%; background: var(--ibm-blue-2); animation: pulse 1s infinite; }
+			@keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+			/* Embodied avatar */
+			agent-3d {
+				position: fixed; right: 18px; bottom: 120px; z-index: 4;
+				width: 200px; height: 280px; display: block; pointer-events: none;
+			}
+
+			@media (max-width: 760px) {
+				.readout { top: 58px; left: 12px; right: 12px; max-width: none; }
+				.badges { top: auto; bottom: 200px; right: 12px; }
+				.controls { max-width: calc(100vw - 24px); }
+				#o-search { width: 150px; }
+				agent-3d { width: 130px; height: 180px; bottom: 200px; right: 6px; }
+				.narration-bar { bottom: 12px; }
+			}
+		</style>
+	</head>
+	<body>
+		<div id="oracle-stage"></div>
+
+		<!-- Embodied narrator: speaks the Granite analysis, emotes on the forecast -->
+		<agent-3d src="/avatars/default.glb" kiosk eager hide-chrome aria-hidden="true"></agent-3d>
+
+		<header class="topbar">
+			<div class="brand">
+				<span class="dot"></span>
+				<span>Granite Oracle</span>
+				<small>three.ws&nbsp;×&nbsp;IBM watsonx</small>
+			</div>
+			<a class="back" href="/ibm">← IBM partnership</a>
+		</header>
+
+		<div class="controls">
+			<div id="o-chips" class="o-chips"></div>
+			<div class="search-wrap">
+				<input id="o-search" type="text" placeholder="Solana token mint…" spellcheck="false" />
+				<button id="o-run">Forecast</button>
+			</div>
+		</div>
+
+		<section class="readout" aria-live="polite">
+			<div id="o-name" class="name">Loading…</div>
+			<div id="o-price" class="price">—</div>
+			<div class="row">
+				<span id="o-change" class="o-change flat">—</span>
+				<span id="o-horizon" class="meta"></span>
+			</div>
+			<div id="o-band" class="band"></div>
+		</section>
+
+		<div class="badges">
+			<div id="o-forecast-badge" class="o-badge" hidden>
+				<div class="mark">TS</div>
+				<div>
+					<div class="o-badge-title">Forecast · IBM Granite TimeSeries</div>
+					<div class="o-badge-sub"></div>
+				</div>
+			</div>
+			<div id="o-gov-badge" class="o-badge gov" hidden>
+				<div class="mark">✓</div>
+				<div>
+					<div class="o-badge-title">Governed · Granite Guardian</div>
+					<div class="o-badge-sub"></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="narration-bar">
+			<div class="label">Granite says</div>
+			<div id="o-narration" class="muted">Pulling live candles and asking IBM Granite to forecast…</div>
+			<div id="o-status"></div>
+		</div>
+
+		<!-- Define the <agent-3d> element: dev loads from the local runtime, prod from CDN. -->
+		<script type="module">
+			const h = location.hostname;
+			const isLocal =
+				h === 'localhost' || h === '127.0.0.1' || h.endsWith('.github.dev') || h.endsWith('.local');
+			try {
+				if (isLocal) {
+					const { defineElement } = await import('/src/lib.js');
+					defineElement();
+				} else {
+					await import('https://three.ws/agent-3d/latest/agent-3d.js');
+				}
+			} catch (e) {
+				console.warn('[granite-oracle] avatar runtime unavailable, narration falls back to speech', e);
+			}
+		</script>
+		<script type="module" src="/src/ibm-oracle.js"></script>
+	</body>
+</html>

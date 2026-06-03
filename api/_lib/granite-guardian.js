@@ -24,6 +24,7 @@
 // is false so callers fall through (assessment is best-effort, never fabricated);
 // any IAM/upstream failure throws so the real cause surfaces.
 
+import { createHash } from 'node:crypto';
 import { watsonxConfig, watsonxToken } from './watsonx.js';
 
 // The canonical Granite Guardian risk taxonomy. Keys are the model's risk_name
@@ -328,4 +329,55 @@ export async function governSend(cfg, { input, usd, signal } = {}) {
 		];
 	}
 	return { ...base, capExceeded, cap, verdicts };
+}
+
+// ── Tamper-evident audit ledger ──────────────────────────────────────────────
+// Every governance decision is committed to a hash-chained record: hash =
+// SHA-256(this record, which itself contains the prior record's hash). Altering
+// any past entry breaks every hash after it, so the ledger is verifiable without
+// trusting the server. Raw assessed content is never stored — only its digest —
+// so a record is shareable without leaking the message it judged.
+export const GENESIS_HASH = '0'.repeat(64);
+
+function sha256(s) {
+	return createHash('sha256').update(s).digest('hex');
+}
+function round4(n) {
+	return Math.round(Number(n) * 1e4) / 1e4;
+}
+
+export function buildAuditRecord({ prev, model, content, action, decision, verdicts }) {
+	const record = {
+		v: 1,
+		ts: new Date().toISOString(),
+		model,
+		inputDigest: sha256(String(content)),
+		action: action ? { type: action.type, usd: action.usd } : null,
+		decision: decision.decision,
+		flagged: decision.flagged,
+		reasons: (decision.reasons || []).map((r) => ({ risk: r.risk, label: r.label, probability: round4(r.probability) })),
+		risks: verdicts.map((v) => ({
+			risk: v.risk,
+			label: RISKS[v.risk]?.label || v.risk,
+			flagged: v.flagged,
+			probability: round4(v.probability),
+			confidence: v.confidence ?? null,
+		})),
+		prev: /^[0-9a-f]{64}$/i.test(prev || '') ? String(prev).toLowerCase() : GENESIS_HASH,
+	};
+	return { ...record, hash: sha256(JSON.stringify(record)) };
+}
+
+// Re-derive the chain. Returns { ok, brokenAt } — brokenAt is the index of the
+// first record whose hash or prev-link doesn't check out, or -1 when intact.
+export function verifyAuditChain(records) {
+	let prev = GENESIS_HASH;
+	for (let i = 0; i < records.length; i++) {
+		const { hash, ...rest } = records[i];
+		if (sha256(JSON.stringify(rest)) !== hash || rest.prev !== prev) {
+			return { ok: false, brokenAt: i };
+		}
+		prev = hash;
+	}
+	return { ok: true, brokenAt: -1 };
 }
