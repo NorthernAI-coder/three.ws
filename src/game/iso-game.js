@@ -1550,6 +1550,7 @@ export class IsoGame {
 			const latest = await conn.getLatestBlockhash('confirmed');
 			await conn.confirmTransaction({ signature: sig, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight }, 'confirmed');
 			this.q?.setMarketBusy(id, 'Settling…');
+			this._lastMarketSig = sig;
 			this.net?.marketTokenSettle(qd.quote, sig);
 		} catch (err) {
 			const msg = String(err?.message || err);
@@ -1566,6 +1567,9 @@ export class IsoGame {
 		const id = s?.id || this._tokenBuy?.id;
 		this._tokenBuy = null;
 		if (id) this.q?.clearMarketBusy(id);
+		const sig = this._lastMarketSig;
+		this._lastMarketSig = null;
+		if (sig) this._toast({ kind: 'market', text: 'Purchase settled on-chain.', href: `https://solscan.io/tx/${sig}`, hrefText: 'View on Solscan ↗' });
 	}
 
 	// Server rejected a token quote/settle (price feed down, expired quote, failed
@@ -2471,14 +2475,26 @@ export class IsoGame {
 		else if ((n?.kind === 'full' || n?.kind === 'tool') && this._cast) this._resolveCast(false);
 	}
 
-	_toast({ kind, text }) {
+	_toast({ kind, text, href, hrefText }) {
 		if (!text) return;
 		const el = document.createElement('div');
 		el.className = 'kg-toast kg-toast--' + (kind || 'info');
 		el.textContent = text;
+		if (href) {
+			el.appendChild(document.createTextNode(' '));
+			const a = document.createElement('a');
+			a.className = 'kg-toast-link';
+			a.href = href;
+			a.target = '_blank';
+			a.rel = 'noopener';
+			a.textContent = hrefText || 'view ↗';
+			el.appendChild(a);
+		}
 		this.hud.toasts.appendChild(el);
 		requestAnimationFrame(() => el.classList.add('kg-toast--in'));
-		setTimeout(() => { el.classList.remove('kg-toast--in'); setTimeout(() => el.remove(), 300); }, 2600);
+		// A toast carrying a link lingers longer so it can actually be clicked.
+		const ttl = href ? 7000 : 2600;
+		setTimeout(() => { el.classList.remove('kg-toast--in'); setTimeout(() => el.remove(), 300); }, ttl);
 	}
 
 	// ---------------------------------------------------------------- cooking & food

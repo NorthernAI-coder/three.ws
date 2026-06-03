@@ -32,16 +32,11 @@ const INTERACT_RANGE = 6.5;     // how close the player must be to trigger a rou
 const ROUND_COOLDOWN_MS = 9000; // min time between paid rounds (one real payment each)
 const BUBBLE_MS = 5200;
 
-// The models NOVA pays to have inspected, rotated each round for variety. Each is
-// a public https GLB (the validator only fetches public URLs) — three.ws's own
-// avatars, so the exchange stays on-brand and never references any coin/token.
-const MODELS = [
-	{ name: 'default.glb', url: 'https://three.ws/avatars/default.glb' },
-	{ name: 'cz.glb',      url: 'https://three.ws/avatars/cz.glb' },
-];
-
-// The paid x402 tool NOVA buys from ORACLE — the platform's own glTF inspector.
-const PAID_TOOL = 'inspect_model';
+// What NOVA buys from ORACLE: the platform's own `tools/list` MCP call — the
+// simplest, fastest paid tool (no args, no file fetch), so a round settles in a
+// beat. The "intel" is ORACLE's live service catalog (its priced skills).
+const PAID_TOOL = 'tools/list';
+const PAID_LABEL = 'service catalog';
 
 // Stage labels for the HUD stepper, keyed to the SSE events /api/x402-pay emits.
 const STAGES = [
@@ -52,42 +47,44 @@ const STAGES = [
 	{ id: 'done',      label: 'Confirmed' },
 ];
 
-// Scripted dialogue, matched to each stage. SELLER runs the inspector; BUYER pays.
+// Scripted dialogue, matched to each stage. SELLER hosts the catalog; BUYER pays.
 const LINES = {
 	seller: {
-		idle:      '3D model intel — a real glTF inspection, settled on-chain in USDC.',
+		idle:      'My service catalog — priced skills, paid per call in USDC, on-chain.',
 		challenge: 'Payment challenge issued. Awaiting your signed transfer…',
 		built:     'Transfer received. Forwarding to the facilitator…',
-		verified:  'Payment verified. Running the inspection…',
-		settled:   'Funds confirmed on-chain. Sending the report.',
-		done:      (summary) => `Report: ${summary}`,
+		verified:  'Payment verified. Pulling the catalog…',
+		settled:   'Funds confirmed on-chain. Sending the list.',
+		done:      (summary) => `Catalog: ${summary}`,
 		error:     'Payment failed — no charge made.',
 	},
 	buyer: {
-		idle:      (name) => `I need a structural read on ${name}. Paying now.`,
+		idle:      'I need your live rate card. Paying now.',
 		challenge: 'Building and signing the Solana transfer…',
 		built:     'Signed. Sending to the facilitator for verification.',
 		verified:  'Verified on-chain. Waiting on settlement…',
-		settled:   'Settled. Collecting my report.',
-		done:      (verts) => `Report received — ${verts}. Filing it.`,
+		settled:   'Settled. Collecting the catalog.',
+		done:      (count) => `Got it — ${count}. Indexing your services.`,
 		error:     'Transaction rolled back. Wallet unchanged.',
 	},
 };
 
-// Pull a one-line summary + a vertex count out of the inspector's text report,
-// so the agents can speak it and the receipt can headline it.
-function summarizeModelReport(intel) {
-	const text = intel?.result?.content?.[0]?.text || '';
-	const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-	const modelLine = lines.find((l) => /^Model:/i.test(l)) || lines[0] || 'model inspected';
-	const vertLine = lines.find((l) => /Vertices:/i.test(l)) || '';
-	const verts = (vertLine.match(/Vertices:\s*([\d,]+)/i)?.[1] || '').trim();
-	const tris = (vertLine.match(/Triangles:\s*([\d,]+)/i)?.[1] || '').trim();
-	const stat = verts ? `${verts} verts${tris ? ` · ${tris} tris` : ''}` : '';
+// Summarize ORACLE's catalog from a tools/list result: how many priced skills it
+// offers and the cheapest price, so the agents can speak it and the receipt can
+// headline it.
+function summarizeCatalog(intel) {
+	const tools = intel?.result?.tools || [];
+	const n = tools.length;
+	const prices = tools
+		.map((t) => Number(t?.pricing?.amount_usdc))
+		.filter((v) => Number.isFinite(v) && v > 0);
+	const min = prices.length ? Math.min(...prices) : null;
+	const fromStr = min != null ? `from $${min < 0.01 ? min.toFixed(4) : min.toFixed(2)}` : '';
+	const count = n ? `${n} service${n === 1 ? '' : 's'}` : 'catalog ready';
 	return {
-		headline: modelLine.replace(/^Model:\s*/i, ''),
-		verts: verts ? `${verts} verts` : 'report ready',
-		stat,
+		headline: n ? `${count} on offer${fromStr ? ` · ${fromStr}` : ''}` : 'catalog delivered',
+		count,
+		stat: fromStr,
 		isError: !!intel?.result?.isError,
 	};
 }
@@ -411,15 +408,14 @@ export class AgentCommerce {
 		this.lastRoundAt = (typeof performance !== 'undefined' ? performance.now() : 0);
 		this.prompt.classList.remove('ac-show');
 
-		const model = MODELS[this.topicIdx % MODELS.length];
+		const topic = PAID_LABEL;
 		this.topicIdx++;
-		const topic = model.name;
 
 		this._renderPanel({ topic, stage: 'challenge', stageState: 'active' });
 		this.panel.classList.add('ac-show');
 
 		// Opening beats.
-		this.buyer.say(LINES.buyer.idle(topic));
+		this.buyer.say(LINES.buyer.idle);
 		this._gesture(this.buyer, 'av-call-me');
 		await delay(650);
 		this.seller.say(LINES.seller.idle);
@@ -431,10 +427,10 @@ export class AgentCommerce {
 			const res = await fetch('/api/x402-pay', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
-				// Pay for the platform's own glTF inspector. /api/x402-pay handles the
-				// Solana USDC payment, then dispatches the MCP tool call and returns
-				// its report alongside the settlement.
-				body: JSON.stringify({ tool: PAID_TOOL, args: { url: model.url } }),
+				// Pay for the platform's own tools/list MCP call — the simplest paid
+				// tool. /api/x402-pay handles the Solana USDC payment, then dispatches
+				// the call and returns ORACLE's catalog alongside the settlement.
+				body: JSON.stringify({ tool: PAID_TOOL, args: {} }),
 			});
 			if (!res.ok || !res.body) {
 				const text = await res.text().catch(() => '');
@@ -472,14 +468,14 @@ export class AgentCommerce {
 			if (!intel || !settled) throw new Error('incomplete response from payment service');
 
 			// The settlement is on-chain truth; payer/payee/amount live on the result's
-			// payment block. Surface the inspector's report as the bought "intel".
+			// payment block. Surface ORACLE's catalog as the bought "intel".
 			const payment = { ...(intel.payment || {}), ...settled };
-			const report = summarizeModelReport(intel);
+			const report = summarizeCatalog(intel);
 
 			// Success choreography.
 			this._gesture(this.buyer, 'celebrate');
 			await delay(300);
-			this.buyer.say(LINES.buyer.done(report.verts));
+			this.buyer.say(LINES.buyer.done(report.count));
 			await delay(700);
 			this.seller.say(LINES.seller.done(report.headline));
 			this._gesture(this.seller, 'av-cheering');
@@ -526,7 +522,7 @@ export class AgentCommerce {
 		}).join('');
 		this.panel.innerHTML =
 			`<div class="ac-ph">` +
-			`<span class="ac-pt">NOVA pays ORACLE to inspect <b>${escHtml(topic)}</b> · ${escHtml(amt)}</span>` +
+			`<span class="ac-pt">NOVA pays ORACLE for its <b>${escHtml(topic)}</b> · ${escHtml(amt)}</span>` +
 			`<span class="ac-total">${fmtUsd(this.sessionTotal)}</span>` +
 			`</div><div class="ac-steps">${steps}</div>`;
 	}

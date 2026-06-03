@@ -300,6 +300,7 @@ class SpinWheel {
 		this.busy = false;
 		this.phase = 'result';
 		this._prep = null;
+		const sig = this._sig;
 		this._sig = null;
 		const seg = this.segments?.[m.index];
 		const label = m.label || seg?.label || 'a prize';
@@ -307,7 +308,12 @@ class SpinWheel {
 		if (m.overflow > 0) line += ` (${m.overflow} waiting in a bag at your feet — your pack was full)`;
 		this.resultLine.textContent = line;
 		this.resultLine.dataset.kind = seg ? kindOf(seg) : 'stone';
-		this._status(m.mode === 'paid' ? 'Paid spin settled on-chain.' : 'Free spin used.', 'ok');
+		if (m.mode === 'paid' && sig) {
+			const url = solanaTxExplorerUrl(NETWORK, sig);
+			this._statusNode(el('span', {}, ['Paid spin settled on-chain — ', el('a', { href: url, target: '_blank', rel: 'noopener', text: 'view on Solscan ↗' })]), 'ok');
+		} else {
+			this._status(m.mode === 'paid' ? 'Paid spin settled on-chain.' : 'Free spin used.', 'ok');
+		}
 		if (m.mode === 'free') this._startCountdown();
 		this._sync();
 	}

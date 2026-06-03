@@ -279,6 +279,20 @@ body.kg-loading-cursor {
 .kg-toast--market {
 	border-color: rgba(110, 231, 176, 0.5);
 }
+.kg-toast-link {
+	color: var(--kg-text);
+	pointer-events: auto;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	text-decoration-color: rgba(110, 231, 176, 0.6);
+	white-space: nowrap;
+	transition: text-decoration-color 0.15s;
+}
+.kg-toast-link:hover,
+.kg-toast-link:focus-visible {
+	text-decoration-color: var(--kg-text);
+	outline: none;
+}
 
 /* Contextual action bar (cook at a Roast Pit, eat to heal). Buttons reveal only
    when the action is actually possible; see _updateActions in iso-game.js. */

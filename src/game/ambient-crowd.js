@@ -18,6 +18,7 @@ import { AnimationManager } from '../animation-manager.js';
 
 const AVATAR_DEFAULT = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
+const GALLERY_URL = '/api/avatars/public?limit=24'; // public avatar gallery — one distinct model per wanderer
 const CLIP_IDLE = 'idle';
 const CLIP_WALK = 'av-walk-feminine';
 const WORLD_RADIUS = 54;       // a touch inside the plaza edge
@@ -30,6 +31,7 @@ const LINES = ['gm ☀️', 'wen moon', 'lfg 🚀', 'wagmi', 'probably nothing',
 const _gltf = new GLTFLoader();
 let _defs = null;     // [idle, walk] animation defs
 let _emotes = null;   // a handful of emote defs
+let _avatars = null;  // pool of public-gallery GLB URLs ([] once the fetch settles)
 
 async function loadManifest() {
 	if (_defs) return;
@@ -43,11 +45,27 @@ async function loadManifest() {
 	_emotes = manifest.filter((d) => d.name !== CLIP_IDLE && d.name !== CLIP_WALK).slice(0, 6);
 }
 
-// Load the default avatar into a rig + animation manager. Falls back to a simple
-// stand-in so a wanderer is never invisible.
-async function buildAvatar(rig, anim) {
+// Pull a varied set of real avatars from the public gallery so the crowd reads as
+// a living mix of community models rather than one repeated default. Settles to an
+// empty array on failure — each wanderer then falls back to AVATAR_DEFAULT.
+async function loadAvatarPool() {
+	if (_avatars) return;
+	let urls = [];
 	try {
-		const gltf = await _gltf.loadAsync(AVATAR_DEFAULT);
+		const r = await fetch(GALLERY_URL, { headers: { accept: 'application/json' } });
+		if (r.ok) {
+			const { avatars } = await r.json();
+			urls = (avatars || []).map((a) => a.model_url || a.base_model_url).filter(Boolean);
+		}
+	} catch { /* default-avatar fallback below */ }
+	_avatars = urls;
+}
+
+// Load a gallery avatar (or the default) into a rig + animation manager. Falls
+// back to a simple stand-in so a wanderer is never invisible.
+async function buildAvatar(rig, anim, url) {
+	try {
+		const gltf = await _gltf.loadAsync(url || AVATAR_DEFAULT);
 		const model = gltf.scene;
 		model.traverse((n) => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = false; } });
 		const box = new Box3().setFromObject(model);
@@ -57,6 +75,9 @@ async function buildAvatar(rig, anim) {
 		if (_defs?.length) { anim.setAnimationDefs(_defs); await anim.loadAll(); await anim.crossfadeTo(CLIP_IDLE, 0); }
 		return Math.max(0.5, box.max.y - box.min.y);
 	} catch {
+		// A gallery model that fails to load shouldn't strand the wanderer on a
+		// capsule — fall back to the bundled default once before the stand-in.
+		if (url && url !== AVATAR_DEFAULT) return buildAvatar(rig, anim, AVATAR_DEFAULT);
 		const body = new Mesh(new CapsuleGeometry(0.32, 0.7, 4, 10), new MeshStandardMaterial({ color: 0x9aa3ad }));
 		body.position.y = 0.85; body.castShadow = true;
 		const head = new Mesh(new SphereGeometry(0.28, 14, 10), new MeshStandardMaterial({ color: 0xc9cdd2 }));
@@ -77,7 +98,7 @@ async function playEmote(anim, motion) {
 }
 
 class Wanderer {
-	constructor(scene, name) {
+	constructor(scene, name, avatarUrl) {
 		this.name = name;
 		this.rig = new Group();
 		this.anim = new AnimationManager();
@@ -100,7 +121,7 @@ class Wanderer {
 		this._sayIn = 5 + Math.random() * 16;
 		this._emoteIn = 9 + Math.random() * 22;
 
-		buildAvatar(this.rig, this.anim).then((h) => { this.height = h; });
+		buildAvatar(this.rig, this.anim, avatarUrl).then((h) => { this.height = h; });
 	}
 	_setMotion(m) {
 		if (m === this.motion) return;
@@ -162,6 +183,7 @@ class AmbientCrowd {
 		this.list = [];
 		this.active = false;
 		this._names = [...NAMES];
+		this._avatarBag = []; // shuffled gallery URLs, drained for distinct assignment
 		this._onChat = (n, t) => { try { this.cc.ui?.addChat?.({ name: n, text: t, mine: false }); } catch { /* ui not ready */ } };
 	}
 	_takeName() {
@@ -169,9 +191,17 @@ class AmbientCrowd {
 		const i = (Math.random() * this._names.length) | 0;
 		return this._names.splice(i, 1)[0];
 	}
+	// Hand out a distinct gallery avatar each time; refill (and reshuffle) only once
+	// the bag empties, so we exhaust the pool before any model repeats.
+	_takeAvatar() {
+		if (!_avatars?.length) return AVATAR_DEFAULT;
+		if (!this._avatarBag.length) this._avatarBag = [..._avatars];
+		const i = (Math.random() * this._avatarBag.length) | 0;
+		return this._avatarBag.splice(i, 1)[0];
+	}
 	sync(realCount) {
 		const want = Math.max(0, AMBIENT_TARGET - (realCount | 0));
-		while (this.list.length < want) this.list.push(new Wanderer(this.cc.scene, this._takeName()));
+		while (this.list.length < want) this.list.push(new Wanderer(this.cc.scene, this._takeName(), this._takeAvatar()));
 		while (this.list.length > want) this.list.pop().dispose();
 		// Reflect the livelier population in the HUD's online count.
 		try { this.cc.ui?.setOnline?.((realCount | 0) + this.list.length + 1); } catch { /* ignore */ }
@@ -198,10 +228,10 @@ class AmbientCrowd {
 }
 
 // ---- bootstrap: wait for the scene, then run an independent update loop ----
-function attach() {
+async function attach() {
 	const cc = window.__CC__;
 	if (!cc || !cc.scene || !cc.camera) { setTimeout(attach, 300); return; }
-	loadManifest();
+	await Promise.all([loadManifest(), loadAvatarPool()]);
 	const crowd = new AmbientCrowd(cc);
 	let last = performance.now();
 	let realCount = -1;
