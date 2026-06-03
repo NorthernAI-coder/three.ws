@@ -20,7 +20,11 @@ export const DEFAULT_TTS_MODEL = 'eleven_flash_v2_5';
 export const TTS_MODELS = [
 	{ id: 'eleven_flash_v2_5', label: 'Flash v2.5', note: 'Lowest latency · real-time' },
 	{ id: 'eleven_turbo_v2_5', label: 'Turbo v2.5', note: 'Balanced latency & quality' },
-	{ id: 'eleven_multilingual_v2', label: 'Multilingual v2', note: 'Highest quality · 29 languages' },
+	{
+		id: 'eleven_multilingual_v2',
+		label: 'Multilingual v2',
+		note: 'Highest quality · 29 languages',
+	},
 ];
 const TTS_MODEL_IDS = new Set(TTS_MODELS.map((m) => m.id));
 

@@ -1,8 +1,8 @@
 // Voice clone management for an agent.
 //
-// GET    /api/agents/:id/voice        — current voice status
-// PUT    /api/agents/:id/voice        — assign a voice_id from the server's
-//                                       ElevenLabs library (body { voice_id })
+// GET    /api/agents/:id/voice        — current voice status (provider, id, model, settings)
+// PUT    /api/agents/:id/voice        — assign a library voice and/or tune the
+//                                       synthesis model + voice_settings
 // POST   /api/agents/:id/voice/clone  — clone voice from uploaded audio
 // DELETE /api/agents/:id/voice        — remove cloned voice / clear selection
 
@@ -153,7 +153,12 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 					return error(res, 502, 'upstream_error', 'voice library is unavailable');
 				}
 				if (!voices.some((v) => v.voice_id === nextVoiceId))
-					return error(res, 400, 'validation_error', 'voice_id is not in the available library');
+					return error(
+						res,
+						400,
+						'validation_error',
+						'voice_id is not in the available library',
+					);
 
 				if (wasCloned && oldVoiceId && oldVoiceId !== nextVoiceId) deleteVoice(oldVoiceId);
 

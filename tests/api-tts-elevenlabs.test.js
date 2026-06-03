@@ -70,7 +70,8 @@ describe('isValidModel / TTS_MODELS', () => {
 
 	it('exposes the default model in the catalog', () => {
 		expect(TTS_MODELS.some((m) => m.id === DEFAULT_TTS_MODEL)).toBe(true);
-		for (const m of TTS_MODELS) expect(m).toMatchObject({ id: expect.any(String), label: expect.any(String) });
+		for (const m of TTS_MODELS)
+			expect(m).toMatchObject({ id: expect.any(String), label: expect.any(String) });
 	});
 });
 
@@ -90,7 +91,9 @@ describe('normalizeVoiceSettings', () => {
 	});
 
 	it('clamps numeric fields to 0..1 and falls back on non-numbers', () => {
-		expect(normalizeVoiceSettings({ stability: 2, similarity_boost: -1, style: 'nope' })).toEqual({
+		expect(
+			normalizeVoiceSettings({ stability: 2, similarity_boost: -1, style: 'nope' }),
+		).toEqual({
 			stability: 1,
 			similarity_boost: 0,
 			style: 0.5,

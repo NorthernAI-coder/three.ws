@@ -695,6 +695,7 @@ function mountTalkingAgentExtras(wrap) {
 		selectField('brainProvider', 'LLM provider', state.config.brainProvider || 'anthropic', [
 			['anthropic', 'Anthropic (Claude)'],
 			['openai', 'OpenAI'],
+			['watsonx', 'IBM Granite (watsonx)'],
 			['groq', 'Groq'],
 			['openrouter', 'OpenRouter'],
 			['custom', 'Custom proxy URL'],

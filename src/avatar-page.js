@@ -298,6 +298,9 @@ function renderShell(glbUrl) {
 									(o) => `<option value="${o.id}">${esc(o.label)}</option>`,
 								).join('')}
 							</select>
+								<span class="av-chat-ibm" id="av-chat-ibm" title="This avatar&#39;s brain runs on IBM watsonx (Granite) — fully embodied via Granite function calling">
+									<span class="av-chat-ibm-dot" aria-hidden="true"></span>Powered by IBM watsonx
+								</span>
 						</div>
 						<div class="av-chat-log" id="av-chat-log">
 							<div class="av-chat-empty">
@@ -952,6 +955,16 @@ function bindChat() {
 	if (!form || !input || !send) return;
 
 	const modelSelect = $('av-chat-model');
+	// Show a "Powered by IBM watsonx" badge whenever the active brain is a watsonx
+	// provider (Granite or Orchestrate), so the IBM integration is visible the
+	// moment it's driving the avatar.
+	const ibmBadge = $('av-chat-ibm');
+	const syncIbmBadge = () => {
+		if (!ibmBadge) return;
+		const choice = MODEL_OPTIONS.find((o) => o.id === selectedModelId);
+		const onIbm = choice?.provider === 'watsonx' || choice?.provider === 'orchestrate';
+		ibmBadge.dataset.on = onIbm ? '1' : '0';
+	};
 	if (modelSelect) {
 		try {
 			const stored = localStorage.getItem(MODEL_STORAGE_KEY);
@@ -961,8 +974,10 @@ function bindChat() {
 		modelSelect.addEventListener('change', () => {
 			selectedModelId = modelSelect.value;
 			try { localStorage.setItem(MODEL_STORAGE_KEY, selectedModelId); } catch {}
+			syncIbmBadge();
 		});
 	}
+	syncIbmBadge();
 
 	// Persistent memory (memory skill): replay stored history on first paint.
 	if (attachedSkills.has('memory')) hydrateChatHistory();

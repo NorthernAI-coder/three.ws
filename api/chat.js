@@ -393,6 +393,27 @@ export default wrap(async (req, res) => {
 			return error(res, 502, 'upstream_unavailable', 'chat backend unreachable');
 		}
 
+		// watsonx/Granite: a few foundation models (or regions) reject a
+		// tools-augmented chat with a 4xx instead of serving it tool-free. When the
+		// error reads as a tool-support problem, retry the same route once without
+		// action tools before failing over. The response is cloned for the peek so
+		// its body stays readable for the generic failover/error handling below if
+		// this turns out not to be about tools.
+		if (
+			includeTools &&
+			route.style === 'watsonx' &&
+			upstream.status >= 400 &&
+			upstream.status < 500 &&
+			upstream.status !== 429
+		) {
+			const peek = await upstream.clone().text().catch(() => '');
+			if (/tool|function[\s_-]?call|tool_choice|not[\s_-]?support|unsupported/i.test(peek)) {
+				console.warn(`[chat:${route.name}] ${route.model} rejected action tools (${upstream.status}) — retrying without them`);
+				includeTools = false;
+				continue;
+			}
+		}
+
 		// OpenRouter (and some OpenAI-compatible endpoints) reject tool-augmented
 		// requests for models whose backing provider has no function-calling
 		// support, with a 404 "No endpoints found that support tool use".
@@ -676,13 +697,20 @@ function makeRoute(name, cfg, apiKey, model) {
 			// No static headers: the IAM bearer token is minted (and cached) on
 			// demand. The request loop awaits resolveHeaders() before each fetch.
 			resolveHeaders: () => watsonxAuthHeaders(wx),
-			// watsonx has no action-tool wiring here; Granite chats and animates
-			// via text, but scene tool-calls are owned by the other providers.
-			buildPayload: ({ systemPrompt, history, maxTokens }) => ({
+			// Granite 3.x supports OpenAI-shaped function calling through the chat
+			// API, so a watsonx-brained avatar gets the same action tools as every
+			// other provider — it can wave, dance, emote and send SOL, not just
+			// narrate them. watsonx names the auto-select switch `tool_choice_option`
+			// (string "auto"/"none"), distinct from OpenAI's `tool_choice`; the
+			// streamed tool-call deltas are OpenAI-shaped, so streamOpenAI parses
+			// them verbatim. If a model/region rejects tools the request loop retries
+			// this route once without them (see the 4xx tool-rejection guard above).
+			buildPayload: ({ systemPrompt, history, maxTokens, includeTools = true }) => ({
 				model_id: model,
 				...scope,
 				messages: [{ role: 'system', content: systemPrompt }, ...history],
 				max_tokens: maxTokens,
+				...(includeTools ? { tools: OPENAI_TOOLS, tool_choice_option: 'auto' } : {}),
 			}),
 		};
 	}

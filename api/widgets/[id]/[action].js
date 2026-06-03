@@ -17,6 +17,7 @@ import { isDemoWidgetId, getDemoWidget } from '../_demo-fixtures.js';
 import { decorate } from '../index.js';
 import { redactPii } from '../../_lib/pii.js';
 import { embed, cosine, embeddingsConfigured } from '../../_lib/embeddings.js';
+import { watsonxConfig, watsonxToken } from '../../_lib/watsonx.js';
 import { listTranscripts, getTranscript } from './_transcripts.js';
 // _knowledge.js is loaded on demand — its jsdom→html-encoding-sniffer→@exodus/bytes
 // transitive dep chain causes ERR_REQUIRE_ESM at import time on some Node versions,
@@ -76,15 +77,24 @@ const PROVIDERS = {
 		url: 'https://api.openai.com/v1/chat/completions',
 		style: 'openai',
 	},
+	// IBM watsonx.ai. Granite 3.x speaks OpenAI-shaped tool calls over the chat
+	// API, so a Granite-brained widget animates and gestures like the others; the
+	// IAM token + project scoping live in callWatsonx (auth is async, so it can't
+	// be a static header like the other providers).
+	watsonx: {
+		envKey: 'WATSONX_API_KEY',
+		defaultModel: 'ibm/granite-3-8b-instruct',
+		style: 'watsonx',
+	},
 };
 
 // Brain settings that surface in widget config. `auto` picks the first
 // configured provider; `custom`/`none` keep their legacy meanings.
-const BRAIN_PROVIDERS = new Set(['auto', 'anthropic', 'openrouter', 'groq', 'openai']);
+const BRAIN_PROVIDERS = new Set(['auto', 'anthropic', 'openrouter', 'groq', 'openai', 'watsonx']);
 
 const chatBody = z.object({
 	message: z.string().trim().min(1).max(4000),
-	provider: z.enum(['auto', 'anthropic', 'openrouter', 'groq', 'openai']).optional(),
+	provider: z.enum(['auto', 'anthropic', 'openrouter', 'groq', 'openai', 'watsonx']).optional(),
 	model: z.string().min(1).max(160).optional(),
 	history: z
 		.array(
@@ -289,11 +299,15 @@ function pickProvider(requested, requestedModel) {
 		const cfg = PROVIDERS[name];
 		const apiKey = process.env[cfg.envKey];
 		if (!apiKey) continue;
+		// watsonx needs both a key and a project/space scope to serve a model.
+		if (name === 'watsonx' && !watsonxConfig().configured) continue;
+		// CHAT_MODEL is an Anthropic-style id; never leak it into a watsonx request
+		// (which expects its own ibm/* model id). watsonx uses the client-named
+		// value or its own default.
 		const model =
 			(requested === name && requestedModel) ||
 			(requested === 'auto' && requestedModel) ||
-			process.env.CHAT_MODEL ||
-			cfg.defaultModel;
+			(name === 'watsonx' ? cfg.defaultModel : process.env.CHAT_MODEL || cfg.defaultModel);
 		return { name, cfg, apiKey, model };
 	}
 	return null;
@@ -322,6 +336,17 @@ async function callLLM({
 
 	if (route.cfg.style === 'anthropic') {
 		return callAnthropic({
+			route,
+			messages,
+			systemPrompt,
+			temperature,
+			maxTokens,
+			tools,
+			allowedSkills,
+		});
+	}
+	if (route.cfg.style === 'watsonx') {
+		return callWatsonx({
 			route,
 			messages,
 			systemPrompt,
@@ -448,6 +473,77 @@ async function callOpenAICompatible({
 			reply: 'I had trouble thinking of a response. Try again in a moment.',
 			actions: [],
 		};
+	}
+	const data = await upstream.json();
+	return normalizeOpenAI(data, allowedSkills);
+}
+
+// IBM watsonx.ai (Granite) brain. Non-streaming chat completion: an IAM bearer
+// token is minted (and cached) from the IBM Cloud API key, every call is scoped
+// to a project/space, and Granite's OpenAI-shaped tool calls are normalised with
+// the same reader as the other OpenAI-compatible providers. Tools use watsonx's
+// `tool_choice_option: "auto"` switch (distinct from OpenAI's `tool_choice`); a
+// model/region that rejects tools is retried once tool-free before giving up.
+async function callWatsonx({ route, messages, systemPrompt, temperature, maxTokens, tools, allowedSkills }) {
+	const wx = watsonxConfig();
+	const scope = wx.projectId ? { project_id: wx.projectId } : { space_id: wx.spaceId };
+	const openaiTools = tools.map((t) => ({
+		type: 'function',
+		function: { name: t.name, description: t.description, parameters: t.input_schema },
+	}));
+	const url = `${wx.url}/ml/v1/text/chat?version=${wx.apiVersion}`;
+
+	async function send(includeTools) {
+		const token = await watsonxToken(wx);
+		const payload = {
+			model_id: route.model,
+			...scope,
+			messages: [{ role: 'system', content: systemPrompt }, ...messages],
+			max_tokens: maxTokens,
+			temperature,
+		};
+		if (includeTools && openaiTools.length) {
+			payload.tools = openaiTools;
+			payload.tool_choice_option = 'auto';
+		}
+		return fetch(url, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${token}`,
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+			body: JSON.stringify(payload),
+		});
+	}
+
+	let upstream;
+	try {
+		upstream = await send(true);
+		// Some Granite models/regions reject a tools-augmented chat with a 4xx —
+		// retry once tool-free before surfacing a failure.
+		if (!upstream.ok && upstream.status >= 400 && upstream.status < 500 && upstream.status !== 429) {
+			const peek = await upstream.clone().text().catch(() => '');
+			if (/tool|function[\s_-]?call|tool_choice|not[\s_-]?support|unsupported/i.test(peek)) {
+				upstream = await send(false);
+			}
+		}
+	} catch (err) {
+		captureException(err, { route: 'widget-chat', provider: 'watsonx', stage: 'fetch' });
+		if (process.env.DEBUG === 'true') console.warn('[widget-chat] watsonx fetch', err?.message);
+		return { reply: 'I had trouble thinking of a response. Try again in a moment.', actions: [] };
+	}
+
+	if (!upstream.ok) {
+		const text = await upstream.text().catch(() => '');
+		captureException(new Error(`watsonx upstream ${upstream.status}`), {
+			route: 'widget-chat',
+			provider: 'watsonx',
+			status: upstream.status,
+			body: text.slice(0, 400),
+		});
+		if (process.env.DEBUG === 'true') console.warn('[widget-chat] watsonx', upstream.status, text.slice(0, 400));
+		return { reply: 'I had trouble thinking of a response. Try again in a moment.', actions: [] };
 	}
 	const data = await upstream.json();
 	return normalizeOpenAI(data, allowedSkills);

@@ -584,6 +584,28 @@
 				cursor: pointer;
 			}
 			.av-chat-model:focus { border-color: var(--accent); }
+			.av-chat-ibm {
+				display: none;
+				align-items: center;
+				gap: 6px;
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.01em;
+				color: var(--text);
+				background: var(--panel);
+				border: 1px solid var(--border-2);
+				border-radius: 999px;
+				padding: 4px 10px;
+				white-space: nowrap;
+			}
+			.av-chat-ibm[data-on="1"] { display: inline-flex; }
+			.av-chat-ibm-dot {
+				width: 7px;
+				height: 7px;
+				border-radius: 50%;
+				background: #0f62fe;
+				box-shadow: 0 0 0 3px color-mix(in srgb, #0f62fe 25%, transparent);
+			}
 			.av-chat-log {
 				flex: 1;
 				min-height: 240px;

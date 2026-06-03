@@ -9,7 +9,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error } from '../../_lib/http.js';
-import { isConfigured, listVoices } from '../../_lib/elevenlabs.js';
+import { isConfigured, listVoices, TTS_MODELS } from '../../_lib/elevenlabs.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
@@ -19,7 +19,7 @@ export default wrap(async (req, res) => {
 	const bearer = session ? null : await authenticateBearer(extractBearer(req));
 	if (!session && !bearer) return error(res, 401, 'unauthorized', 'sign in required');
 
-	if (!isConfigured()) return json(res, 200, { enabled: false, voices: [] });
+	if (!isConfigured()) return json(res, 200, { enabled: false, voices: [], models: TTS_MODELS });
 
 	let result;
 	try {
@@ -37,7 +37,7 @@ export default wrap(async (req, res) => {
 	return json(
 		res,
 		200,
-		{ enabled: true, voices: result.voices },
+		{ enabled: true, voices: result.voices, models: TTS_MODELS },
 		{
 			'cache-control': 'private, max-age=300',
 			'x-voices-cache': result.cached ? 'hit' : 'miss',

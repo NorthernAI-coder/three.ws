@@ -1023,10 +1023,12 @@ function renderVoiceStatus() {
   const el = $('voice-current');
   const previewBtn = $('voice-preview-btn');
   const removeBtn = $('voice-remove-btn');
+  const tune = $('voice-tune');
   if (!voiceStatus || !voiceStatus.voice_id) {
     el.textContent = `Browser speech synthesis (no custom voice set).`;
     previewBtn.hidden = true;
     removeBtn.hidden = true;
+    if (tune) tune.hidden = true;
     return;
   }
   const name = (voicesCache || []).find((v) => v.voice_id === voiceStatus.voice_id)?.name || voiceStatus.voice_id;
@@ -1034,6 +1036,10 @@ function renderVoiceStatus() {
   el.textContent = `${voiceStatus.voice_provider || 'elevenlabs'}: ${name}${cloned}`;
   previewBtn.hidden = false;
   removeBtn.hidden = false;
+  if (tune) {
+    tune.hidden = false;
+    populateVoiceSettings();
+  }
 }
 
 async function loadVoiceList(filter = '') {
@@ -1044,6 +1050,10 @@ async function loadVoiceList(filter = '') {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
       voicesCache = j.voices || [];
+      if (j.models?.length) {
+        voiceModelsCache = j.models;
+        populateModelSelect();
+      }
     } catch (err) {
       container.innerHTML = `<div class="muted">Could not load voices: ${escapeHtml(err.message)}</div>`;
       return;
@@ -1094,17 +1104,19 @@ async function selectVoice(voiceId) {
   status.textContent = 'Saving…';
   status.className = 'form-status';
   try {
-    const r = await apiFetch(`${API_BASE}/agents/${agentId}`, {
+    // The dedicated voice endpoint validates library membership and frees a
+    // replaced clone's quota slot — the generic agent PUT ignores voice fields.
+    const r = await apiFetch(`${API_BASE}/agents/${agentId}/voice`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ voice_provider: 'elevenlabs', voice_id: voiceId }),
+      body: JSON.stringify({ voice_id: voiceId }),
     });
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
       throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
     }
-    voiceStatus = { voice_provider: 'elevenlabs', voice_id: voiceId, voice_cloned_at: null };
+    voiceStatus = await r.json();
     renderVoiceStatus();
     renderVoiceList($('voice-filter').value);
     status.textContent = 'Saved.';
@@ -1178,6 +1190,143 @@ $('voice-clone-file').addEventListener('change', async (e) => {
     e.target.value = '';
   }
 });
+
+// ── Voice fine-tuning (model + delivery settings) ─────────────────────────────
+
+// Fallback only — the live catalog is served by GET /api/tts/eleven/voices
+// (`models`) so the editor and the API's validator share one source of truth.
+const VOICE_MODELS_FALLBACK = [
+  { id: 'eleven_flash_v2_5', label: 'Flash v2.5', note: 'lowest latency' },
+  { id: 'eleven_turbo_v2_5', label: 'Turbo v2.5', note: 'balanced' },
+  { id: 'eleven_multilingual_v2', label: 'Multilingual v2', note: 'highest quality' },
+];
+const VOICE_SETTING_DEFAULTS = { stability: 0.5, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true };
+let voiceModelsCache = null;
+let voiceTestAudio = null;
+
+function voiceModels() {
+  return voiceModelsCache?.length ? voiceModelsCache : VOICE_MODELS_FALLBACK;
+}
+
+function populateModelSelect() {
+  const sel = $('voice-model');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = voiceModels()
+    .map((m) => {
+      const label = m.note ? `${m.label} — ${m.note}` : m.label;
+      return `<option value="${escapeHtml(m.id)}">${escapeHtml(label)}</option>`;
+    })
+    .join('');
+  if (cur) sel.value = cur;
+}
+
+function initVoiceSettingsControls() {
+  populateModelSelect();
+  for (const key of ['stability', 'similarity', 'style']) {
+    const input = $(`voice-${key}`);
+    const label = $(`voice-${key}-val`);
+    input?.addEventListener('input', () => {
+      if (label) label.textContent = Number(input.value).toFixed(2);
+    });
+  }
+  $('voice-save-settings-btn')?.addEventListener('click', saveVoiceSettings);
+  $('voice-test-btn')?.addEventListener('click', testVoice);
+}
+
+function setRange(id, value) {
+  const input = $(id);
+  if (!input) return;
+  input.value = String(value);
+  const label = $(`${id}-val`);
+  if (label) label.textContent = Number(value).toFixed(2);
+}
+
+function populateVoiceSettings() {
+  const s = voiceStatus?.voice_settings || VOICE_SETTING_DEFAULTS;
+  const model = voiceStatus?.voice_model || 'eleven_flash_v2_5';
+  const sel = $('voice-model');
+  if (sel) sel.value = voiceModels().some((m) => m.id === model) ? model : 'eleven_flash_v2_5';
+  setRange('voice-stability', s.stability ?? 0.5);
+  setRange('voice-similarity', s.similarity_boost ?? 0.75);
+  setRange('voice-style', s.style ?? 0.5);
+  const boost = $('voice-speaker-boost');
+  if (boost) boost.checked = s.use_speaker_boost !== false;
+}
+
+function readVoiceSettingsFromUI() {
+  return {
+    voice_model: $('voice-model')?.value || 'eleven_flash_v2_5',
+    voice_settings: {
+      stability: Number($('voice-stability').value),
+      similarity_boost: Number($('voice-similarity').value),
+      style: Number($('voice-style').value),
+      use_speaker_boost: $('voice-speaker-boost').checked,
+    },
+  };
+}
+
+async function saveVoiceSettings() {
+  const status = $('voice-settings-status');
+  status.textContent = 'Saving…';
+  status.className = 'form-status';
+  try {
+    const r = await apiFetch(`${API_BASE}/agents/${agentId}/voice`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(readVoiceSettingsFromUI()),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
+    }
+    voiceStatus = await r.json();
+    status.textContent = 'Saved.';
+    status.className = 'form-status ok';
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.className = 'form-status err';
+  }
+}
+
+async function testVoice() {
+  if (!voiceStatus?.voice_id) return;
+  const status = $('voice-settings-status');
+  const btn = $('voice-test-btn');
+  const text = ($('voice-test-text').value || '').trim() || 'Hi! This is how I sound.';
+  const { voice_model, voice_settings } = readVoiceSettingsFromUI();
+  status.textContent = 'Synthesizing…';
+  status.className = 'form-status';
+  btn.disabled = true;
+  try {
+    const r = await apiFetch(`${API_BASE}/tts/eleven`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ voiceId: voiceStatus.voice_id, text, modelId: voice_model, voice_settings }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
+    }
+    const blob = await r.blob();
+    try { voiceTestAudio?.pause(); } catch {}
+    const url = URL.createObjectURL(blob);
+    voiceTestAudio = new Audio(url);
+    voiceTestAudio.onended = () => URL.revokeObjectURL(url);
+    await voiceTestAudio.play();
+    status.textContent = 'Playing…';
+    status.className = 'form-status ok';
+  } catch (err) {
+    status.textContent = `Error: ${err.message}`;
+    status.className = 'form-status err';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+initVoiceSettingsControls();
 
 function blobToArrayBuffer(blob) {
   return new Promise((resolve, reject) => {
