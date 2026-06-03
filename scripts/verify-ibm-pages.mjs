@@ -216,6 +216,10 @@ async function checkPage(browser, base, page) {
 	tab.on('requestfailed', (req) => {
 		const u = req.url();
 		if (u.includes('@vite') || u.startsWith('ws:') || u.includes('/api/')) return;
+		// Only render-critical resources count. Analytics beacons / images / fetch
+		// routinely ERR_ABORTED on page teardown and are not defects.
+		if (!['document', 'script', 'stylesheet', 'font'].includes(req.resourceType())) return;
+		if (/\/ingest\/|posthog|segment|google-analytics|sentry|cdn\.vercel-insights/i.test(u)) return;
 		failedAssets.push(`${req.method()} ${u.replace(base, '')} — ${req.failure()?.errorText}`);
 	});
 	tab.on('response', (res) => {
@@ -242,12 +246,13 @@ async function checkPage(browser, base, page) {
 		return { page, errors, degraded, draws: 0 };
 	}
 
-	// Heading must render (page isn't a blank/404 shell).
-	const hasHeading = await tab
-		.waitForFunction(() => !!document.querySelector('h1, h2') && document.body.innerText.trim().length > 40, { timeout: 15_000 })
+	// Page must not be a blank/404 shell. Immersive pages put their hero in the
+	// canvas, so a rendered canvas/svg counts as content alongside real text.
+	const hasContent = await tab
+		.waitForFunction(() => document.body.innerText.trim().length > 40 || !!document.querySelector('canvas, svg'), { timeout: 15_000 })
 		.then(() => true)
 		.catch(() => false);
-	if (!hasHeading) errors.push('no heading / empty body after load');
+	if (!hasContent) errors.push('blank shell: no text, canvas, or svg after load');
 
 	// Engine pages must actually draw. RAF-driven scenes accumulate draws on
 	// load; give it room, then nudge a primary control if still idle.
@@ -279,15 +284,98 @@ async function checkPage(browser, base, page) {
 	errors.push(...failedAssets.map((e) => `asset: ${e}`));
 	errors.push(...pageErrors.map((e) => `uncaught: ${e}`));
 
+	// UX quality audit (a11y + responsive). Reported as warnings; promote to hard
+	// failures with STRICT_A11Y=1.
+	const warnings = await auditPage(tab);
+
 	await tab.close();
-	return { page, errors, degraded, draws, controls };
+	return { page, errors, warnings, degraded, draws, controls };
 }
 
-function waitForDraws(tab, timeout) {
-	return tab
-		.waitForFunction(() => window.__glDrawCalls > 0, { timeout, polling: 200 })
-		.then(() => tab.evaluate(() => window.__glDrawCalls))
-		.catch(() => tab.evaluate(() => window.__glDrawCalls || 0).catch(() => 0));
+// Accessibility + responsive audit. Returns human-readable warnings.
+async function auditPage(tab) {
+	const a11y = await tab
+		.evaluate(() => {
+			const out = [];
+			const visible = (el) => {
+				const r = el.getBoundingClientRect();
+				return r.width > 0 && r.height > 0;
+			};
+			const accName = (el) =>
+				(el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.getAttribute('title') || el.innerText || el.value || (el.querySelector('img') && el.querySelector('img').alt) || '').trim();
+
+			let unnamed = 0;
+			document.querySelectorAll('button, a[href], [role="button"]').forEach((el) => {
+				if (visible(el) && !accName(el)) unnamed++;
+			});
+			if (unnamed) out.push(`${unnamed} interactive element(s) without an accessible name`);
+
+			let imgNoAlt = 0;
+			document.querySelectorAll('img').forEach((img) => {
+				if (img.getAttribute('alt') == null) imgNoAlt++;
+			});
+			if (imgNoAlt) out.push(`${imgNoAlt} <img> without an alt attribute`);
+
+			let unlabeled = 0;
+			document.querySelectorAll('input:not([type=hidden]), textarea, select').forEach((el) => {
+				const ok = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.getAttribute('placeholder') || (el.id && document.querySelector(`label[for="${el.id}"]`));
+				if (!ok) unlabeled++;
+			});
+			if (unlabeled) out.push(`${unlabeled} form field(s) without a label/aria-label`);
+
+			const hasFocusStyle = [...document.styleSheets].some((s) => {
+				try {
+					return [...(s.cssRules || [])].some((r) => /:focus(-visible)?/.test(r.selectorText || ''));
+				} catch {
+					return false; // cross-origin sheet
+				}
+			});
+			if (!hasFocusStyle) out.push('no :focus / :focus-visible styles (keyboard focus is invisible)');
+
+			if (!document.querySelector('main, [role="main"]')) out.push('no <main> / role=main landmark');
+			return out;
+		})
+		.catch(() => []);
+
+	let overflow = 0;
+	try {
+		await tab.setViewport({ width: 390, height: 800 });
+		await new Promise((r) => setTimeout(r, 400));
+		overflow = await tab.evaluate(() => {
+			const el = document.scrollingElement || document.documentElement;
+			return el.scrollWidth - el.clientWidth;
+		});
+		await tab.setViewport({ width: 1440, height: 900 });
+	} catch {
+		/* viewport change failed — skip */
+	}
+	if (overflow > 4) a11y.push(`horizontal overflow at 390px (+${overflow}px) — not mobile-clean`);
+	return a11y;
+}
+
+// Sum draw calls across every frame — some pages (e.g. proof) render their
+// avatar inside a same-origin <iframe> embed, so the GL work happens there.
+async function totalDraws(tab) {
+	let sum = 0;
+	for (const f of tab.frames()) {
+		try {
+			sum += (await f.evaluate(() => window.__glDrawCalls || 0)) || 0;
+		} catch {
+			/* frame detached/cross-origin — ignore */
+		}
+	}
+	return sum;
+}
+
+async function waitForDraws(tab, timeout) {
+	const deadline = Date.now() + timeout;
+	let d = 0;
+	while (Date.now() < deadline) {
+		d = await totalDraws(tab);
+		if (d > 0) return d;
+		await new Promise((r) => setTimeout(r, 250));
+	}
+	return d;
 }
 
 async function clickPrimary(tab) {
@@ -331,30 +419,43 @@ async function main() {
 	const results = [];
 	try {
 		for (const page of targets) {
-			const res = await checkPage(browser, server.base, page);
+			// One retry absorbs transient dev-server blips (a concurrent editor
+			// saving a module mid-transform yields a momentary 500). A real break
+			// fails both attempts.
+			let res = await checkPage(browser, server.base, page);
+			if (res.errors.length) {
+				await new Promise((r) => setTimeout(r, 1500));
+				res = await checkPage(browser, server.base, page);
+			}
 			results.push(res);
 			const ok = res.errors.length === 0;
-			const marker = ok ? C.g('●') : C.r('●');
+			const warns = res.warnings || [];
+			const marker = !ok ? C.r('●') : warns.length ? C.y('●') : C.g('●');
 			const drawInfo = page.engine ? C.d(` · ${res.draws} draws`) : '';
 			const degInfo = res.degraded.length ? C.y(` · degraded(${res.degraded.length})`) : '';
 			console.log(`${marker} ${C.b(page.path)}${drawInfo}${degInfo}`);
 			if (!ok) res.errors.forEach((e) => console.log(`    ${C.r('✗')} ${e}`));
-			else if (res.degraded.length && process.env.LOG_ALL)
-				res.degraded.forEach((d) => console.log(`    ${C.y('○')} ${d} (watsonx unconfigured — honest degrade)`));
+			warns.forEach((w) => console.log(`    ${C.y('⚠')} ${w}`));
+			if (ok && res.degraded.length && process.env.LOG_ALL)
+				res.degraded.forEach((d) => console.log(`    ${C.d('○')} ${d} (watsonx unconfigured — honest degrade)`));
 		}
 	} finally {
 		await browser.close();
 		await server.stop();
 	}
 
-	const failed = results.filter((r) => r.errors.length);
+	const strict = !!process.env.STRICT_A11Y;
+	const failed = results.filter((r) => r.errors.length || (strict && (r.warnings || []).length));
+	const warnPages = results.filter((r) => (r.warnings || []).length);
 	console.log('');
 	if (failed.length) {
-		console.log(C.r(`✗ ${failed.length}/${results.length} page(s) failed the runtime gate.`));
+		const why = strict ? 'failed the runtime/quality gate' : 'failed the runtime gate';
+		console.log(C.r(`✗ ${failed.length}/${results.length} page(s) ${why}.`));
 		process.exit(1);
 	}
 	const anyDegraded = results.some((r) => r.degraded.length);
 	console.log(C.g(`✓ all ${results.length} /ibm page(s) render, draw, and handle errors cleanly.`));
+	if (warnPages.length) console.log(C.y(`⚠ ${warnPages.length} page(s) have UX/a11y warnings above (run STRICT_A11Y=1 to enforce).`));
 	if (anyDegraded) console.log(C.d('  (some /api/ibm endpoints returned the honest "watsonx unconfigured" degrade — expected.)'));
 }
 

@@ -38,11 +38,29 @@ const hud = {
 };
 
 // ── Three.js scaffold ───────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(stage.clientWidth, stage.clientHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.localClippingEnabled = true;
-stage.appendChild(renderer.domElement);
+// Build the WebGL renderer defensively. On a device without WebGL the
+// constructor throws — so instead of crashing the whole page (and losing the
+// Granite narration + numeric readout, which don't need 3D) we show an inline
+// note and hand back an inert stub the scene code below can call harmlessly.
+function makeRenderer() {
+	try {
+		const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+		r.setSize(stage.clientWidth, stage.clientHeight);
+		r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+		r.localClippingEnabled = true;
+		stage.appendChild(r.domElement);
+		r.ok = true;
+		return r;
+	} catch {
+		const note = document.createElement('div');
+		note.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center';
+		note.innerHTML =
+			'<p style="max-width:34ch;margin:0;color:#8a93a6;font:14px/1.5 system-ui,sans-serif">Live 3D forecast needs WebGL, which isn’t available on this device. The Granite narration and numeric readout below still work.</p>';
+		stage.appendChild(note);
+		return { ok: false, domElement: document.createElement('canvas'), setSize() {}, setPixelRatio() {}, render() {}, dispose() {} };
+	}
+}
+const renderer = makeRenderer();
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(48, stage.clientWidth / stage.clientHeight, 0.1, 200);
@@ -262,7 +280,7 @@ function renderSeries(data) {
 // ── Animation loop ──────────────────────────────────────────────────────────
 let running = true;
 function animate() {
-	if (!running) return;
+	if (!running || !renderer.ok) return;
 	requestAnimationFrame(animate);
 	const t = performance.now();
 	controls.update();
@@ -362,8 +380,16 @@ const fmtPrice = (p) => {
 };
 const fmtPct = (p) => `${p >= 0 ? '+' : ''}${p.toFixed(2)}%`;
 
-function setStatus(msg, busy = false) {
-	hud.status.textContent = msg || '';
+function setStatus(msg, busy = false, onRetry = null) {
+	while (hud.status.firstChild) hud.status.removeChild(hud.status.firstChild);
+	if (msg) hud.status.appendChild(document.createTextNode(msg));
+	if (onRetry && msg) {
+		const btn = document.createElement('button');
+		btn.className = 'status-retry';
+		btn.textContent = 'Retry';
+		btn.addEventListener('click', onRetry);
+		hud.status.appendChild(btn);
+	}
 	hud.status.classList.toggle('busy', busy);
 	hud.run.disabled = busy;
 }
@@ -371,6 +397,7 @@ function setStatus(msg, busy = false) {
 async function loadTrending() {
 	try {
 		const r = await fetch('/api/ibm/oracle?list=trending');
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const j = await r.json();
 		hud.chips.innerHTML = '';
 		(j.pools || []).forEach((p) => {
@@ -384,7 +411,7 @@ async function loadTrending() {
 		// Auto-run the top trending pool so the scene is never empty.
 		if (j.pools?.[0]) runForecast({ pool: j.pools[0].pool, label: j.pools[0].name });
 	} catch (e) {
-		setStatus(`Could not load trending tokens: ${e.message}`);
+		setStatus(`Could not load trending tokens: ${e.message}`, false, loadTrending);
 	}
 }
 
@@ -400,7 +427,8 @@ async function runForecast({ pool, token, label }) {
 		if (!r.ok) throw new Error(data.error_description || data.error || `HTTP ${r.status}`);
 		applyData(data);
 	} catch (e) {
-		setStatus(`Forecast failed: ${e.message}`);
+		const target = { pool, token, label };
+		setStatus(`Forecast failed: ${e.message}`, false, () => runForecast(target));
 	} finally {
 		inFlight = false;
 	}

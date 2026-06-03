@@ -73,10 +73,28 @@ const hud = {
 };
 
 // ── Three.js scaffold ─────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(stage.clientWidth, stage.clientHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-stage.appendChild(renderer.domElement);
+// Build the WebGL renderer defensively. On a device without WebGL the
+// constructor throws — so instead of crashing the whole page (and losing the
+// vitals + Granite forecast readout, which don't need 3D) we show an inline note
+// and hand back an inert stub the scene code below can call harmlessly.
+function makeRenderer() {
+	try {
+		const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+		r.setSize(stage.clientWidth, stage.clientHeight);
+		r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+		stage.appendChild(r.domElement);
+		r.ok = true;
+		return r;
+	} catch {
+		const note = document.createElement('div');
+		note.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center';
+		note.innerHTML =
+			'<p style="max-width:34ch;margin:0;color:#8a93a6;font:14px/1.5 system-ui,sans-serif">The live 3D twin needs WebGL, which isn’t available on this device. The vitals and Granite forecast below still work.</p>';
+		stage.appendChild(note);
+		return { ok: false, domElement: document.createElement('canvas'), setSize() {}, setPixelRatio() {}, render() {}, dispose() {} };
+	}
+}
+const renderer = makeRenderer();
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(48, stage.clientWidth / stage.clientHeight, 0.1, 200);
@@ -411,7 +429,7 @@ function clearScenario() {
 let running = true;
 const tmpV = new THREE.Vector3();
 function animate() {
-	if (!running) return;
+	if (!running || !renderer.ok) return;
 	requestAnimationFrame(animate);
 	const t = performance.now() / 1000;
 	controls.update();
@@ -529,8 +547,16 @@ const STATE_INK = {
 	dormant: '#8d8d8d',
 };
 
-function setStatus(msg, busy = false) {
-	hud.status.textContent = msg || '';
+function setStatus(msg, busy = false, onRetry = null) {
+	while (hud.status.firstChild) hud.status.removeChild(hud.status.firstChild);
+	if (msg) hud.status.appendChild(document.createTextNode(msg));
+	if (onRetry && msg) {
+		const btn = document.createElement('button');
+		btn.className = 'status-retry';
+		btn.textContent = 'Retry';
+		btn.addEventListener('click', onRetry);
+		hud.status.appendChild(btn);
+	}
 	hud.status.classList.toggle('busy', busy);
 	hud.spawn.disabled = busy;
 }
@@ -543,6 +569,7 @@ const SYNC_MS = 30_000;
 async function loadTrending() {
 	try {
 		const r = await fetch('/api/ibm/twin?list=trending');
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		const j = await r.json();
 		hud.chips.innerHTML = '';
 		(j.pools || []).forEach((p) => {
@@ -555,7 +582,7 @@ async function loadTrending() {
 		});
 		if (j.pools?.[0]) spawn({ pool: j.pools[0].pool, label: j.pools[0].name });
 	} catch (e) {
-		setStatus(`Could not load trending tokens: ${e.message}`);
+		setStatus(`Could not load trending tokens: ${e.message}`, false, loadTrending);
 	}
 }
 
@@ -577,7 +604,7 @@ async function spawn(target, { silent = false } = {}) {
 		if (!r.ok) throw new Error(data.error_description || data.error || `HTTP ${r.status}`);
 		applySnapshot(data, { silent });
 	} catch (e) {
-		setStatus(`Twin failed: ${e.message}`);
+		setStatus(`Twin failed: ${e.message}`, false, () => spawn(target));
 	} finally {
 		inFlight = false;
 	}

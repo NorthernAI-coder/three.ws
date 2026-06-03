@@ -6,7 +6,6 @@
 	<title>Agent Galaxy — Semantic 3D agent discovery on IBM Granite · three.ws</title>
 	<meta name="description" content="Every three.ws agent embedded with IBM Granite on watsonx.ai, projected into an explorable 3D constellation. Similar agents cluster together; search in natural language and fly to what you mean." />
 	<link rel="canonical" href="https://three.ws/ibm/galaxy" />
-
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="Agent Galaxy — Semantic 3D discovery on IBM Granite" />
 	<meta property="og:description" content="A living 3D constellation of AI agents, positioned by IBM Granite embeddings on watsonx.ai. Search by meaning, not keywords." />
@@ -16,326 +15,545 @@
 	<meta name="twitter:title" content="Agent Galaxy — Semantic 3D discovery on IBM Granite" />
 	<meta name="twitter:description" content="A 3D constellation of AI agents positioned by IBM Granite embeddings on watsonx.ai." />
 	<meta name="twitter:image" content="https://three.ws/ibm-og.png" />
-
 	<link rel="icon" href="/favicon.ico" />
 	<style>
 		:root {
 			color-scheme: dark;
-			--bg: #05070d; --panel: rgba(18,22,32,0.82); --panel-solid:#11151f;
-			--border: rgba(255,255,255,0.10); --text:#e9edf6; --muted:#8b93a7;
-			--ibm:#0f62fe; --ibm-light:#78a9ff; --green:#42be65;
-			--shadow: 0 18px 50px rgba(0,0,0,0.55);
+			--bg:#05070d; --panel:rgba(14,18,28,0.84); --panel-solid:#0d1118;
+			--panel-hover:rgba(20,26,40,0.92);
+			--border:rgba(255,255,255,0.09); --border-hi:rgba(255,255,255,0.18);
+			--text:#e9edf6; --muted:#7a8499; --muted2:#5a6478;
+			--ibm:#0f62fe; --ibm-light:#78a9ff; --ibm-glow:rgba(15,98,254,0.22);
+			--green:#42be65; --amber:#f1c21b;
+			--shadow:0 20px 60px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.3);
+			--radius-sm:8px; --radius:12px; --radius-lg:16px;
 		}
-		* { box-sizing: border-box; margin: 0; padding: 0; }
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 		html, body { height: 100%; overflow: hidden; }
 		body {
-			font: 15px/1.6 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+			font: 14px/1.6 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
 			color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased;
 		}
 		a { color: inherit; }
-		#scene { position: fixed; inset: 0; display: block; touch-action: none; }
+		#scene { position: fixed; inset: 0; display: block; touch-action: none; cursor: grab; }
+		body.dragging #scene { cursor: grabbing; }
 
 		/* ── Top bar ─────────────────────────────────────────────── */
 		.topbar {
 			position: fixed; top: 0; left: 0; right: 0; z-index: 30;
-			display: flex; align-items: center; justify-content: space-between; gap: 16px;
-			padding: 14px 20px;
-			background: linear-gradient(180deg, rgba(5,7,13,0.92) 0%, rgba(5,7,13,0) 100%);
+			display: flex; align-items: center; justify-content: space-between; gap: 12px;
+			padding: 13px 18px;
+			background: linear-gradient(180deg, rgba(5,7,13,0.95) 0%, rgba(5,7,13,0) 100%);
 			pointer-events: none;
 		}
 		.topbar > * { pointer-events: auto; }
-		.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-		.brand a.home { display:inline-flex; align-items:center; gap:8px; text-decoration: none; color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
-		.brand .sep { color: var(--muted); }
+		.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+		.brand a.home {
+			display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+			color: var(--text); font-weight: 600; font-size: 14px; letter-spacing: -0.01em;
+		}
+		.brand a.home:hover { color: var(--ibm-light); }
+		.brand .sep { color: var(--muted2); font-size: 12px; }
 		.badge {
-			display: inline-flex; align-items: center; gap: 8px;
+			display: inline-flex; align-items: center; gap: 7px;
 			background: var(--panel); border: 1px solid var(--border); border-radius: 99px;
-			padding: 6px 13px 6px 10px; font-size: 12px; color: var(--muted); backdrop-filter: blur(12px);
+			padding: 5px 12px 5px 9px; font-size: 12px; color: var(--muted); backdrop-filter: blur(14px);
 			white-space: nowrap;
 		}
-		.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 10px var(--ibm); }
-		.badge strong { color: var(--text); font-weight: 500; }
-		.topbar .actions { display: flex; gap: 8px; }
+		.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 8px var(--ibm); flex: none; }
+		.badge strong { color: var(--text); font-weight: 600; }
+		.topbar .actions { display: flex; gap: 6px; }
 		.tb-btn {
-			display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
-			background: var(--panel); border: 1px solid var(--border); color: var(--text);
-			border-radius: 10px; padding: 9px 13px; font-size: 13px; font-weight: 500;
-			backdrop-filter: blur(12px); transition: background .15s, border-color .15s, transform .1s;
-			text-decoration: none;
+			display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+			background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+			border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px; font-weight: 500;
+			backdrop-filter: blur(14px); transition: background .15s, border-color .15s, color .15s, transform .1s;
+			text-decoration: none; white-space: nowrap;
 		}
-		.tb-btn:hover { background: rgba(40,46,60,0.9); border-color: rgba(255,255,255,0.18); }
+		.tb-btn:hover { background: var(--panel-hover); border-color: var(--border-hi); color: var(--text); }
 		.tb-btn:active { transform: translateY(1px); }
-		.tb-btn svg { width: 15px; height: 15px; }
+		.tb-btn svg { width: 14px; height: 14px; flex: none; }
 		.tb-btn.active { background: var(--ibm); border-color: var(--ibm); color: #fff; }
-		.tb-btn.active:hover { background: var(--ibm); filter: brightness(1.1); }
+		.tb-btn.active:hover { filter: brightness(1.1); }
+		/* Hide labels on very small screens */
+		@media (max-width: 480px) { .tb-btn .lbl { display: none; } .tb-btn { padding: 8px 10px; } }
 
 		/* ── Search ──────────────────────────────────────────────── */
 		.search-wrap {
-			position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 25;
-			width: min(560px, calc(100vw - 32px)); pointer-events: auto;
+			position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 25;
+			width: min(580px, calc(100vw - 28px)); pointer-events: auto;
 		}
 		.search-box {
 			display: flex; align-items: center; gap: 10px;
-			background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-			padding: 11px 14px; backdrop-filter: blur(16px); box-shadow: var(--shadow);
-			transition: border-color .15s, box-shadow .15s;
+			background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+			padding: 10px 13px; backdrop-filter: blur(18px); box-shadow: var(--shadow);
+			transition: border-color .15s, box-shadow .15s, background .15s;
 		}
-		.search-box:focus-within { border-color: var(--ibm-light); box-shadow: 0 0 0 3px rgba(15,98,254,0.18), var(--shadow); }
-		.search-box svg.lead { width: 18px; height: 18px; color: var(--ibm-light); flex: none; }
+		.search-box:focus-within {
+			border-color: var(--ibm-light); background: var(--panel-hover);
+			box-shadow: 0 0 0 3px var(--ibm-glow), var(--shadow);
+		}
+		.search-box svg.lead { width: 17px; height: 17px; color: var(--ibm-light); flex: none; }
 		.search-box input {
 			flex: 1; min-width: 0; background: none; border: 0; outline: none;
-			color: var(--text); font-size: 15px; font-family: inherit;
+			color: var(--text); font-size: 14px; font-family: inherit;
 		}
-		.search-box input::placeholder { color: var(--muted); }
-		.search-box .kbd { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; flex:none; }
-		.search-box .clear { display:none; cursor:pointer; color: var(--muted); background:none; border:0; padding:4px; border-radius:6px; flex:none; }
-		.search-box .clear:hover { color: var(--text); background: rgba(255,255,255,0.06); }
-		.search-box.searching .spinner { display:inline-block; }
-		.spinner { display:none; width:16px; height:16px; border:2px solid rgba(120,169,255,0.3); border-top-color: var(--ibm-light); border-radius:50%; animation: spin .7s linear infinite; flex:none; }
+		.search-box input::placeholder { color: var(--muted2); }
+		.search-box .kbd {
+			font-size: 11px; color: var(--muted2); border: 1px solid var(--border);
+			border-radius: 5px; padding: 1px 6px; flex: none; font-family: ui-monospace, monospace;
+		}
+		.search-box .clear {
+			display: none; cursor: pointer; color: var(--muted); background: none; border: 0;
+			padding: 3px; border-radius: 5px; flex: none; transition: color .12s, background .12s;
+		}
+		.search-box .clear:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+		.spinner {
+			display: none; width: 15px; height: 15px;
+			border: 2px solid rgba(120,169,255,0.25); border-top-color: var(--ibm-light);
+			border-radius: 50%; animation: spin .65s linear infinite; flex: none;
+		}
+		.search-box.searching .spinner { display: inline-block; }
 		@keyframes spin { to { transform: rotate(360deg); } }
+
 		.search-hint {
-			margin-top: 8px; display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
+			margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
 			opacity: 0; transition: opacity .2s; pointer-events: none;
 		}
-		.search-wrap:hover .search-hint, .search-box:focus-within ~ .search-hint { opacity: 1; pointer-events: auto; }
+		.search-wrap:hover .search-hint,
+		.search-box:focus-within ~ .search-hint { opacity: 1; pointer-events: auto; }
 		.chip {
-			font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border);
-			border-radius: 99px; padding: 5px 11px; cursor: pointer; backdrop-filter: blur(12px); transition: color .15s, border-color .15s;
+			font-size: 11px; color: var(--muted); background: var(--panel); border: 1px solid var(--border);
+			border-radius: 99px; padding: 4px 10px; cursor: pointer; backdrop-filter: blur(12px);
+			transition: color .13s, border-color .13s, background .13s;
 		}
-		.chip:hover { color: var(--text); border-color: var(--ibm-light); }
+		.chip:hover { color: var(--text); border-color: var(--ibm-light); background: var(--ibm-glow); }
 
 		/* ── Legend ──────────────────────────────────────────────── */
 		.legend {
-			position: fixed; left: 18px; bottom: 18px; z-index: 20;
-			background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-			padding: 14px 15px; backdrop-filter: blur(16px); box-shadow: var(--shadow);
-			max-width: 240px; max-height: 46vh; overflow-y: auto;
+			position: fixed; left: 16px; bottom: 16px; z-index: 20;
+			background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+			padding: 13px 14px; backdrop-filter: blur(18px); box-shadow: var(--shadow);
+			max-width: 230px; max-height: 48vh; overflow-y: auto;
+			transition: transform .28s cubic-bezier(.22,.61,.36,1), opacity .2s;
 		}
-		.legend h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin-bottom: 11px; font-weight: 600; }
-		.legend .row { display: flex; align-items: center; gap: 9px; padding: 5px 6px; border-radius: 8px; cursor: pointer; transition: background .12s; }
+		.legend.hidden { transform: translateX(calc(-100% - 20px)); opacity: 0; pointer-events: none; }
+		.legend-toggle {
+			position: fixed; left: 16px; bottom: 16px; z-index: 21;
+			display: none; background: var(--panel); border: 1px solid var(--border);
+			border-radius: var(--radius-sm); padding: 8px 12px; cursor: pointer;
+			backdrop-filter: blur(14px); font-size: 12px; font-weight: 500; color: var(--muted);
+			align-items: center; gap: 7px; transition: color .13s, border-color .13s;
+		}
+		.legend-toggle:hover { color: var(--text); border-color: var(--border-hi); }
+		.legend-toggle svg { width: 13px; height: 13px; }
+		.legend h3 {
+			font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+			color: var(--muted2); margin-bottom: 10px; font-weight: 700;
+			display: flex; align-items: center; gap: 6px;
+		}
+		.legend h3 span { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted2); opacity: 0.7; }
+		.legend .row {
+			display: flex; align-items: center; gap: 8px; padding: 5px 6px;
+			border-radius: var(--radius-sm); cursor: pointer; transition: background .12s;
+		}
 		.legend .row:hover { background: rgba(255,255,255,0.05); }
-		.legend .row.muted { opacity: 0.38; }
-		.legend .swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; box-shadow: 0 0 8px currentColor; }
-		.legend .name { font-size: 13px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.legend .cnt { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-		.legend .foot { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); line-height: 1.5; }
+		.legend .row.muted { opacity: 0.32; }
+		.legend .row.active { background: rgba(15,98,254,0.10); }
+		.legend .swatch {
+			width: 10px; height: 10px; border-radius: 50%; flex: none;
+			box-shadow: 0 0 7px currentColor;
+		}
+		.legend .name { font-size: 12px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.legend .cnt { font-size: 10px; color: var(--muted2); font-variant-numeric: tabular-nums; background: rgba(255,255,255,0.06); border-radius: 4px; padding: 1px 5px; }
+		.legend .foot { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); font-size: 10px; color: var(--muted2); line-height: 1.5; }
 
 		/* ── Stats (bottom-right) ────────────────────────────────── */
 		.stats {
-			position: fixed; right: 18px; bottom: 18px; z-index: 20;
-			display: flex; gap: 18px; background: var(--panel); border: 1px solid var(--border);
-			border-radius: 12px; padding: 11px 16px; backdrop-filter: blur(16px); box-shadow: var(--shadow);
+			position: fixed; right: 16px; bottom: 16px; z-index: 20;
+			display: flex; gap: 16px; background: var(--panel); border: 1px solid var(--border);
+			border-radius: var(--radius); padding: 10px 15px; backdrop-filter: blur(18px); box-shadow: var(--shadow);
 		}
-		.stats .stat .v { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-		.stats .stat .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-top: 1px; }
-		.stats .stat .v .u { font-size: 12px; color: var(--muted); font-weight: 500; }
+		.stats .stat .v {
+			font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
+			font-variant-numeric: tabular-nums; line-height: 1.2;
+		}
+		.stats .stat .v .u { font-size: 11px; color: var(--muted); font-weight: 400; }
+		.stats .stat .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted2); margin-top: 2px; }
 
-		/* ── Cluster labels in 3D space ──────────────────────────── */
+		/* ── Cluster labels ──────────────────────────────────────── */
 		.cluster-labels { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
 		.clabel {
 			position: absolute; transform: translate(-50%, -50%);
-			font-size: 12px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap;
-			padding: 3px 10px; border-radius: 99px; background: rgba(5,7,13,0.55); backdrop-filter: blur(6px);
-			border: 1px solid var(--border); text-shadow: 0 1px 6px rgba(0,0,0,0.7); transition: opacity .25s;
+			font-size: 11px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+			padding: 3px 10px; border-radius: 99px;
+			background: rgba(5,7,13,0.65); backdrop-filter: blur(8px);
+			border: 1px solid var(--border); text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+			transition: opacity .3s; will-change: transform;
 		}
 
 		/* ── Hover tooltip ───────────────────────────────────────── */
 		.tooltip {
-			position: fixed; z-index: 28; pointer-events: none; opacity: 0; transform: translateY(4px);
-			transition: opacity .12s, transform .12s; max-width: 280px;
-			background: var(--panel-solid); border: 1px solid var(--border); border-radius: 11px;
+			position: fixed; z-index: 28; pointer-events: none; opacity: 0;
+			transform: translateY(6px) scale(0.97);
+			transition: opacity .1s, transform .1s; max-width: 272px;
+			background: var(--panel-solid); border: 1px solid var(--border); border-radius: var(--radius);
 			padding: 10px 13px; box-shadow: var(--shadow);
 		}
-		.tooltip.show { opacity: 1; transform: translateY(0); }
-		.tooltip .tt-theme { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 3px; }
-		.tooltip .tt-name { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
-		.tooltip .tt-desc { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-		.tooltip .tt-match { font-size: 11px; color: var(--green); margin-top: 6px; font-weight: 600; }
+		.tooltip.show { opacity: 1; transform: translateY(0) scale(1); }
+		.tooltip .tt-theme { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 3px; text-transform: uppercase; }
+		.tooltip .tt-name { font-size: 13px; font-weight: 650; letter-spacing: -0.01em; line-height: 1.3; }
+		.tooltip .tt-desc {
+			font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.45;
+			display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+		}
+		.tooltip .tt-match { font-size: 10px; color: var(--green); margin-top: 5px; font-weight: 700; }
 
 		/* ── Detail panel ────────────────────────────────────────── */
 		.panel {
-			position: fixed; top: 0; right: 0; bottom: 0; z-index: 35; width: min(380px, 100vw);
+			position: fixed; top: 0; right: 0; bottom: 0; z-index: 35;
+			width: min(360px, 100vw);
 			background: var(--panel-solid); border-left: 1px solid var(--border);
-			transform: translateX(100%); transition: transform .32s cubic-bezier(.22,.61,.36,1);
-			display: flex; flex-direction: column; box-shadow: -20px 0 60px rgba(0,0,0,0.5);
+			transform: translateX(100%); transition: transform .3s cubic-bezier(.22,.61,.36,1);
+			display: flex; flex-direction: column; box-shadow: -24px 0 80px rgba(0,0,0,0.55);
 		}
 		.panel.open { transform: translateX(0); }
-		.panel .p-head { position: relative; padding: 22px 22px 0; }
-		.panel .p-close { position: absolute; top: 16px; right: 16px; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 32px; height: 32px; display: grid; place-items: center; transition: color .15s, background .15s; }
-		.panel .p-close:hover { color: var(--text); background: rgba(255,255,255,0.12); }
-		.panel .p-avatar { width: 72px; height: 72px; border-radius: 16px; object-fit: cover; background: #1a1f2c; border: 1px solid var(--border); margin-bottom: 14px; }
-		.panel .p-avatar.placeholder { display: grid; place-items: center; font-size: 30px; font-weight: 600; color: var(--ibm-light); }
-		.panel .p-theme { display:inline-flex; align-items:center; gap:7px; font-size: 12px; font-weight: 600; margin-bottom: 9px; }
-		.panel .p-theme .swatch { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
-		.panel .p-name { font-size: 22px; font-weight: 680; letter-spacing: -0.02em; line-height: 1.2; }
-		.panel .p-body { padding: 18px 22px 22px; overflow-y: auto; flex: 1; }
-		.panel .p-desc { font-size: 14px; color: #c7cdda; line-height: 1.6; }
-		.panel .p-section { margin-top: 22px; }
-		.panel .p-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
-		.panel .neighbors .nb { display: flex; align-items: center; gap: 11px; padding: 8px; border-radius: 10px; cursor: pointer; transition: background .12s; }
-		.panel .neighbors .nb:hover { background: rgba(255,255,255,0.05); }
-		.panel .neighbors .nb-av { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; background:#1a1f2c; flex:none; display:grid; place-items:center; font-weight:600; color: var(--ibm-light); font-size: 14px; }
-		.panel .neighbors .nb-meta { min-width: 0; }
-		.panel .neighbors .nb-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.panel .neighbors .nb-sim { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-		.panel .neighbors .nb-sim .pct { color: var(--ibm-light); font-weight: 600; font-variant-numeric: tabular-nums; }
-		.panel .p-cta { display: block; margin-top: 22px; text-align: center; background: var(--ibm); color: #fff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px; border-radius: 11px; transition: filter .15s; }
-		.panel .p-cta:hover { filter: brightness(1.12); }
 
-		/* ── Search results panel ────────────────────────────────── */
+		.panel .p-head {
+			padding: 20px 20px 0; position: relative; flex: none;
+			border-bottom: 1px solid var(--border); padding-bottom: 18px;
+		}
+		.panel .p-head-actions {
+			position: absolute; top: 14px; right: 14px;
+			display: flex; gap: 6px; align-items: center;
+		}
+		.panel .p-icon-btn {
+			cursor: pointer; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+			color: var(--muted); border-radius: var(--radius-sm); width: 30px; height: 30px;
+			display: grid; place-items: center; transition: color .13s, background .13s; flex: none;
+		}
+		.panel .p-icon-btn:hover { color: var(--text); background: rgba(255,255,255,0.10); }
+		.panel .p-icon-btn svg { width: 14px; height: 14px; }
+		.panel .p-icon-btn.copied { color: var(--green); border-color: var(--green); }
+
+		.panel .p-avatar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+		.panel .p-avatar {
+			width: 56px; height: 56px; border-radius: var(--radius); object-fit: cover;
+			background: #161c28; border: 1px solid var(--border); flex: none;
+		}
+		.panel .p-avatar.placeholder {
+			display: grid; place-items: center;
+			font-size: 22px; font-weight: 700; color: var(--ibm-light);
+		}
+		.panel .p-meta { min-width: 0; }
+		.panel .p-theme {
+			display: inline-flex; align-items: center; gap: 6px;
+			font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+			margin-bottom: 5px;
+		}
+		.panel .p-theme .swatch { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 6px currentColor; flex: none; }
+		.panel .p-name { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+
+		.panel .p-body { padding: 16px 20px 24px; overflow-y: auto; flex: 1; }
+		.panel .p-desc { font-size: 13px; color: #bcc4d4; line-height: 1.65; }
+		.panel .p-section { margin-top: 20px; }
+		.panel .p-section h4 {
+			font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+			color: var(--muted2); margin-bottom: 9px; font-weight: 700;
+			display: flex; align-items: center; gap: 6px;
+		}
+		.panel .p-section h4 .granite-tag {
+			font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--ibm-light); opacity: 0.85;
+		}
+
+		.panel .nb {
+			display: flex; align-items: center; gap: 10px; padding: 7px 8px;
+			border-radius: var(--radius-sm); cursor: pointer; transition: background .1s;
+		}
+		.panel .nb:hover { background: rgba(255,255,255,0.05); }
+		.panel .nb-av {
+			width: 32px; height: 32px; border-radius: 9px; object-fit: cover;
+			background: #161c28; flex: none; display: grid; place-items: center;
+			font-weight: 700; color: var(--ibm-light); font-size: 13px;
+		}
+		.panel .nb-meta { min-width: 0; flex: 1; }
+		.panel .nb-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+		.panel .nb-score-row { display: flex; align-items: center; gap: 7px; }
+		.panel .nb-bar { flex: 1; height: 3px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; }
+		.panel .nb-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ibm), var(--ibm-light)); border-radius: 99px; }
+		.panel .nb-pct { font-size: 10px; color: var(--ibm-light); font-weight: 700; font-variant-numeric: tabular-nums; width: 30px; text-align: right; flex: none; }
+
+		.panel .p-actions { display: flex; gap: 8px; margin-top: 18px; }
+		.panel .p-cta {
+			flex: 1; text-align: center; background: var(--ibm); color: #fff; text-decoration: none;
+			font-weight: 600; font-size: 13px; padding: 11px 14px; border-radius: var(--radius-sm);
+			transition: filter .13s; display: block;
+		}
+		.panel .p-cta:hover { filter: brightness(1.12); }
+		.panel .p-copy-link {
+			display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+			background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+			color: var(--muted); border-radius: var(--radius-sm); padding: 11px 13px;
+			font-size: 12px; font-weight: 500; transition: color .13s, background .13s, border-color .13s;
+			white-space: nowrap;
+		}
+		.panel .p-copy-link:hover { color: var(--text); background: rgba(255,255,255,0.09); border-color: var(--border-hi); }
+		.panel .p-copy-link.copied { color: var(--green); border-color: var(--green); }
+		.panel .p-copy-link svg { width: 13px; height: 13px; }
+
+		/* ── Search results ──────────────────────────────────────── */
 		.results {
-			position: fixed; top: 116px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 24;
-			width: min(560px, calc(100vw - 32px)); max-height: 42vh; overflow-y: auto;
-			background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-			backdrop-filter: blur(16px); box-shadow: var(--shadow); padding: 8px; opacity: 0; pointer-events: none;
-			transition: opacity .2s, transform .2s;
+			position: fixed; top: 112px; left: 50%; transform: translateX(-50%) translateY(-8px); z-index: 24;
+			width: min(580px, calc(100vw - 28px)); max-height: 44vh; overflow-y: auto;
+			background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+			backdrop-filter: blur(18px); box-shadow: var(--shadow); padding: 6px;
+			opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
 		}
 		.results.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-		.results .r-head { display:flex; justify-content: space-between; align-items:center; padding: 6px 8px 8px; font-size: 12px; color: var(--muted); }
-		.results .r-head b { color: var(--text); }
-		.results .ritem { display: flex; align-items: center; gap: 11px; padding: 9px 8px; border-radius: 10px; cursor: pointer; transition: background .12s; }
-		.results .ritem:hover, .results .ritem.active { background: rgba(15,98,254,0.14); }
-		.results .ritem .r-av { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; background:#1a1f2c; flex:none; display:grid; place-items:center; font-weight:600; color: var(--ibm-light); font-size:13px; }
-		.results .ritem .r-name { font-size: 13px; font-weight: 600; flex:1; min-width:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.results .ritem .r-bar { width: 56px; height: 5px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; flex:none; }
-		.results .ritem .r-bar i { display:block; height:100%; background: linear-gradient(90deg, var(--ibm), var(--ibm-light)); }
-		.results .ritem .r-score { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; width: 34px; text-align: right; flex:none; }
+		.results .r-head {
+			display: flex; justify-content: space-between; align-items: center;
+			padding: 6px 8px 7px; font-size: 11px; color: var(--muted2);
+			border-bottom: 1px solid var(--border); margin-bottom: 4px;
+		}
+		.results .r-head b { color: var(--text); font-weight: 600; }
+		.results .ritem {
+			display: flex; align-items: center; gap: 10px; padding: 8px 8px;
+			border-radius: var(--radius-sm); cursor: pointer; transition: background .1s;
+		}
+		.results .ritem:hover, .results .ritem.active { background: rgba(15,98,254,0.12); }
+		.results .r-av {
+			width: 30px; height: 30px; border-radius: 8px; object-fit: cover;
+			background: #161c28; flex: none; display: grid; place-items: center;
+			font-weight: 700; color: var(--ibm-light); font-size: 12px;
+		}
+		.results .r-name { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.results .r-bar { width: 48px; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow: hidden; flex: none; }
+		.results .r-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ibm), var(--ibm-light)); }
+		.results .r-score { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; width: 32px; text-align: right; flex: none; }
 
-		/* ── Full-screen states ──────────────────────────────────── */
+		/* ── Full-screen overlays ────────────────────────────────── */
 		.overlay {
-			position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center;
-			background: radial-gradient(1200px 600px at 50% 30%, rgba(15,98,254,0.10), transparent 60%), var(--bg);
+			position: fixed; inset: 0; z-index: 40; display: none;
+			align-items: center; justify-content: center;
+			background: radial-gradient(1400px 700px at 50% 30%, rgba(15,98,254,0.08), transparent 60%), var(--bg);
 			padding: 24px; text-align: center;
 		}
 		.overlay.show { display: flex; }
-		.overlay .inner { max-width: 460px; }
-		.overlay .o-orb { width: 56px; height: 56px; margin: 0 auto 22px; border-radius: 50%;
+		.overlay .inner { max-width: 440px; }
+		.overlay .o-orb {
+			width: 52px; height: 52px; margin: 0 auto 20px; border-radius: 50%;
 			background: radial-gradient(circle at 35% 30%, var(--ibm-light), var(--ibm) 60%, #062a8a);
-			box-shadow: 0 0 40px rgba(15,98,254,0.55); animation: pulse 1.8s ease-in-out infinite; }
-		@keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.12); opacity: 0.78; } }
-		.overlay h2 { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 10px; }
-		.overlay p { color: var(--muted); font-size: 15px; line-height: 1.6; }
-		.overlay .o-steps { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; text-align: left; max-width: 320px; margin-left:auto; margin-right:auto; }
-		.overlay .o-step { display: flex; align-items: center; gap: 11px; font-size: 13px; color: var(--muted); }
-		.overlay .o-step .s-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); flex:none; transition: all .3s; }
+			box-shadow: 0 0 44px rgba(15,98,254,0.5); animation: pulse 1.8s ease-in-out infinite;
+		}
+		@keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } }
+		.overlay h2 { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 9px; }
+		.overlay p { color: var(--muted); font-size: 14px; line-height: 1.65; }
+		.overlay p code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ibm-light); }
+		.overlay .o-steps { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; text-align: left; max-width: 300px; margin-left: auto; margin-right: auto; }
+		.overlay .o-step { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+		.overlay .o-step .s-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); flex: none; transition: all .3s; }
 		.overlay .o-step.active .s-dot { border-color: var(--ibm-light); box-shadow: 0 0 10px var(--ibm-light); }
 		.overlay .o-step.done .s-dot { background: var(--green); border-color: var(--green); }
 		.overlay .o-step.active { color: var(--text); }
-		.overlay .o-btn { display:inline-flex; align-items:center; gap:8px; margin-top: 22px; background: var(--ibm); color:#fff; text-decoration:none; font-weight:600; font-size:14px; padding: 12px 20px; border-radius: 11px; border:0; cursor:pointer; transition: filter .15s; }
+		.overlay .o-btn {
+			display: inline-flex; align-items: center; gap: 7px; margin-top: 20px;
+			background: var(--ibm); color: #fff; text-decoration: none; font-weight: 600;
+			font-size: 13px; padding: 11px 18px; border-radius: var(--radius-sm); border: 0;
+			cursor: pointer; transition: filter .13s;
+		}
 		.overlay .o-btn:hover { filter: brightness(1.12); }
-		.overlay .o-btn.sec { background: var(--panel-solid); border: 1px solid var(--border); }
-		.overlay .o-actions { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+		.overlay .o-btn.sec { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); }
+		.overlay .o-btn.sec:hover { background: rgba(255,255,255,0.10); filter: none; }
+		.overlay .o-actions { display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; }
 
+		/* ── HUD hint ────────────────────────────────────────────── */
 		.hud-hint {
-			position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 15;
-			font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border);
-			border-radius: 99px; padding: 7px 14px; backdrop-filter: blur(12px); opacity: 0; transition: opacity .4s;
+			position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 15;
+			font-size: 11px; color: var(--muted); background: var(--panel); border: 1px solid var(--border);
+			border-radius: 99px; padding: 6px 14px; backdrop-filter: blur(14px); opacity: 0; transition: opacity .4s;
+			white-space: nowrap;
 		}
 		.hud-hint.show { opacity: 1; }
-		.hud-hint b { color: var(--text); font-weight: 600; }
+		.hud-hint b { color: var(--text); }
 
+		/* ── Keyboard shortcuts overlay ──────────────────────────── */
+		.shortcuts-overlay {
+			position: fixed; inset: 0; z-index: 50; display: none;
+			align-items: center; justify-content: center;
+			background: rgba(5,7,13,0.8); backdrop-filter: blur(6px); padding: 24px;
+		}
+		.shortcuts-overlay.show { display: flex; }
+		.shortcuts-card {
+			background: var(--panel-solid); border: 1px solid var(--border); border-radius: var(--radius-lg);
+			padding: 24px 26px; max-width: 380px; width: 100%; box-shadow: var(--shadow);
+		}
+		.shortcuts-card h3 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 16px; }
+		.shortcuts-card .sk-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+		.shortcuts-card .sk-row:last-child { border-bottom: none; }
+		.shortcuts-card .sk-desc { font-size: 12px; color: var(--muted); }
+		.shortcuts-card .sk-keys { display: flex; gap: 4px; }
+		.shortcuts-card kbd {
+			font-size: 11px; color: var(--text); background: rgba(255,255,255,0.08);
+			border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px;
+			font-family: ui-monospace, monospace; font-weight: 600;
+		}
+		.shortcuts-card .sk-close { display: block; margin-top: 18px; text-align: center; font-size: 12px; color: var(--muted2); cursor: pointer; }
+		.shortcuts-card .sk-close:hover { color: var(--text); }
+
+		/* ── Responsive ──────────────────────────────────────────── */
 		@media (max-width: 640px) {
-			.legend { max-width: 180px; bottom: 84px; }
-			.stats { bottom: 84px; gap: 12px; padding: 9px 12px; }
-			.stats .stat .v { font-size: 15px; }
-			.search-wrap { top: 60px; }
+			.legend { display: none; }
+			.legend-toggle { display: inline-flex; }
+			.stats { bottom: 16px; right: 16px; gap: 12px; padding: 9px 13px; }
+			.stats .stat .v { font-size: 14px; }
+			.stats .stat .k { font-size: 8px; }
+			.search-wrap { top: 58px; }
 			.hud-hint { display: none; }
+			.panel { width: 100vw; }
+			.brand .badge { display: none; }
+		}
+		@media (max-width: 360px) {
+			.stats { display: none; }
 		}
 		@media (prefers-reduced-motion: reduce) {
-			.o-orb { animation: none; }
+			.o-orb, .spinner { animation: none; }
+			.panel, .tooltip, .results, .legend { transition: none; }
 		}
 	</style>
 </head>
 <body>
-		<noscript>
-			<div style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#06080f;color:#e7ecf5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;text-align:center">
-				<div style="max-width:480px">
-					<div style="width:12px;height:12px;border-radius:50%;background:#0f62fe;margin:0 auto 20px;box-shadow:0 0 24px #0f62fe" aria-hidden="true"></div>
-					<h1 style="font-size:26px;font-weight:600;letter-spacing:-0.02em;margin:0 0 10px;color:#fff">Agent Galaxy</h1>
-					<p style="font-size:15px;line-height:1.6;color:#9fb0c8;margin:0 0 22px">A 3D semantic map of every three.ws agent, mapped by IBM Granite embeddings. This interactive 3D experience needs JavaScript enabled.</p>
-					<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-						<a href="/docs/ibm" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#0f62fe;color:#fff;text-decoration:none;font-size:14px;font-weight:500">Read the docs</a>
-						<a href="/ibm" style="display:inline-block;padding:10px 18px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);color:#e7ecf5;text-decoration:none;font-size:14px">Back to the showcase</a>
-					</div>
+	<noscript>
+		<div style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#06080f;color:#e7ecf5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;text-align:center">
+			<div style="max-width:480px">
+				<div style="width:12px;height:12px;border-radius:50%;background:#0f62fe;margin:0 auto 20px;box-shadow:0 0 24px #0f62fe" aria-hidden="true"></div>
+				<h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 10px">Agent Galaxy</h1>
+				<p style="font-size:14px;line-height:1.65;color:#8a9ab8;margin:0 0 20px">A 3D semantic map of every three.ws agent, mapped by IBM Granite embeddings. JavaScript is required for this experience.</p>
+				<div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap">
+					<a href="/docs/ibm" style="display:inline-block;padding:10px 18px;border-radius:9px;background:#0f62fe;color:#fff;text-decoration:none;font-size:13px;font-weight:600">Read the docs</a>
+					<a href="/ibm" style="display:inline-block;padding:10px 18px;border-radius:9px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#e7ecf5;text-decoration:none;font-size:13px">About IBM integration</a>
 				</div>
 			</div>
-		</noscript>
+		</div>
+	</noscript>
+
 	<canvas id="scene"></canvas>
 	<div class="cluster-labels" id="clusterLabels"></div>
 
+	<!-- Top bar -->
 	<div class="topbar">
 		<div class="brand">
-			<a href="/ibm" class="home" title="Back to IBM partnership">
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+			<a href="/ibm" class="home" title="IBM partnership">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
 				three.ws
 			</a>
 			<span class="sep">/</span>
 			<span class="badge"><span class="dot"></span><strong>Agent Galaxy</strong><span>·</span>IBM Granite</span>
 		</div>
 		<div class="actions">
-			<button class="tb-btn" id="tourBtn" title="Take a guided tour of the themes">
+			<button class="tb-btn" id="tourBtn" title="Guided tour of themes (T)">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
 				<span class="lbl">Tour</span>
 			</button>
-			<button class="tb-btn" id="resetView" title="Reset camera">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>
+			<button class="tb-btn" id="resetView" title="Reset camera (R)">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
 				<span class="lbl">Reset</span>
 			</button>
-			<a class="tb-btn" href="/ibm" title="Learn about the IBM integration">
+			<button class="tb-btn" id="shortcutsBtn" title="Keyboard shortcuts (?)">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+				<span class="lbl">Keys</span>
+			</button>
+			<a class="tb-btn" href="/ibm" title="IBM partnership">
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-				<span class="lbl">About</span>
+				<span class="lbl">IBM</span>
 			</a>
 		</div>
 	</div>
 
+	<!-- Search -->
 	<div class="search-wrap" id="searchWrap" style="display:none">
 		<div class="search-box" id="searchBox">
 			<svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-			<input id="searchInput" type="text" placeholder="Search agents by meaning — e.g. “a witty Solana trading assistant”" autocomplete="off" spellcheck="false" />
-			<span class="spinner"></span>
-			<button class="clear" id="searchClear" title="Clear" aria-label="Clear search">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+			<input id="searchInput" type="text" placeholder='Search by meaning — e.g. "witty Solana trading assistant"' autocomplete="off" spellcheck="false" aria-label="Semantic search" />
+			<span class="spinner" aria-hidden="true"></span>
+			<button class="clear" id="searchClear" title="Clear search" aria-label="Clear search">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
 			</button>
-			<span class="kbd">/</span>
+			<span class="kbd" aria-hidden="true">/</span>
 		</div>
-		<div class="search-hint" id="searchHint"></div>
+		<div class="search-hint" id="searchHint" aria-label="Search examples"></div>
 	</div>
 
-	<div class="results" id="results"></div>
+	<!-- Search results -->
+	<div class="results" id="results" role="listbox" aria-label="Search results"></div>
 
-	<div class="legend" id="legend" style="display:none">
-		<h3>Themes <span style="font-weight:400;text-transform:none;letter-spacing:0">· named by Granite</span></h3>
+	<!-- Legend (desktop) -->
+	<nav class="legend" id="legend" aria-label="Theme legend" style="display:none">
+		<h3>Themes <span>· Granite</span></h3>
 		<div id="legendRows"></div>
 		<div class="foot" id="legendFoot"></div>
-	</div>
+	</nav>
 
-	<div class="stats" id="stats" style="display:none"></div>
+	<!-- Mobile legend toggle -->
+	<button class="legend-toggle" id="legendToggle" aria-label="Show themes" style="display:none">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M2 12h2M20 12h2M12 2v2M12 20v2"/></svg>
+		Themes
+	</button>
 
-	<div class="tooltip" id="tooltip"></div>
+	<!-- Stats -->
+	<div class="stats" id="stats" style="display:none" aria-label="Galaxy statistics"></div>
 
-	<aside class="panel" id="panel" aria-hidden="true">
+	<!-- Hover tooltip -->
+	<div class="tooltip" id="tooltip" role="tooltip" aria-live="polite"></div>
+
+	<!-- Detail panel -->
+	<aside class="panel" id="panel" aria-label="Agent detail" aria-hidden="true">
 		<div class="p-head">
-			<button class="p-close" id="panelClose" aria-label="Close">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-			</button>
+			<div class="p-head-actions">
+				<button class="p-icon-btn" id="panelClose" aria-label="Close panel" title="Close (Esc)">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+				</button>
+			</div>
 			<div id="panelHead"></div>
 		</div>
 		<div class="p-body" id="panelBody"></div>
 	</aside>
 
-	<div class="hud-hint" id="hudHint"></div>
+	<!-- Mobile legend panel (same data, different layout) -->
+	<div class="legend" id="legendMobile" style="display:none; position:fixed; left:0; right:0; bottom:0; max-width:100%; max-height:55vh; border-radius:var(--radius-lg) var(--radius-lg) 0 0; border-left:none; border-right:none; border-bottom:none; z-index:36;" aria-label="Themes" hidden>
+		<h3>Themes <span>· named by IBM Granite</span></h3>
+		<div id="legendMobileRows"></div>
+	</div>
+
+	<!-- HUD hint -->
+	<div class="hud-hint" id="hudHint" aria-live="polite"></div>
+
+	<!-- Keyboard shortcuts -->
+	<div class="shortcuts-overlay" id="shortcutsOverlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+		<div class="shortcuts-card">
+			<h3>Keyboard shortcuts</h3>
+			<div class="sk-row"><span class="sk-desc">Focus search</span><span class="sk-keys"><kbd>/</kbd></span></div>
+			<div class="sk-row"><span class="sk-desc">Reset camera</span><span class="sk-keys"><kbd>R</kbd></span></div>
+			<div class="sk-row"><span class="sk-desc">Toggle tour</span><span class="sk-keys"><kbd>T</kbd></span></div>
+			<div class="sk-row"><span class="sk-desc">Close panel</span><span class="sk-keys"><kbd>Esc</kbd></span></div>
+			<div class="sk-row"><span class="sk-desc">Shortcuts</span><span class="sk-keys"><kbd>?</kbd></span></div>
+			<div class="sk-row"><span class="sk-desc">Orbit</span><span class="sk-desc">Drag</span></div>
+			<div class="sk-row"><span class="sk-desc">Zoom</span><span class="sk-desc">Scroll</span></div>
+			<div class="sk-row"><span class="sk-desc">Select star</span><span class="sk-desc">Click</span></div>
+			<button class="sk-close" id="shortcutsClose">Close</button>
+		</div>
+	</div>
 
 	<!-- Loading -->
 	<div class="overlay show" id="loadingState">
 		<div class="inner">
 			<div class="o-orb"></div>
 			<h2>Mapping the Agent Galaxy</h2>
-			<p>Embedding every agent on <strong style="color:var(--ibm-light)">IBM Granite</strong> via watsonx.ai and projecting meaning into 3D space.</p>
+			<p>Embedding every agent with <strong style="color:var(--ibm-light)">IBM Granite</strong> on watsonx.ai and projecting meaning into 3D space.</p>
 			<div class="o-steps" id="loadSteps">
-				<div class="o-step active" data-step="0"><span class="s-dot"></span> Gathering public agents</div>
-				<div class="o-step" data-step="1"><span class="s-dot"></span> Granite embeddings → vector space</div>
-				<div class="o-step" data-step="2"><span class="s-dot"></span> Projecting to 3D &amp; clustering themes</div>
-				<div class="o-step" data-step="3"><span class="s-dot"></span> Rendering constellation</div>
+				<div class="o-step active" data-step="0"><span class="s-dot"></span>Gathering public agents</div>
+				<div class="o-step" data-step="1"><span class="s-dot"></span>Granite embeddings → vector space</div>
+				<div class="o-step" data-step="2"><span class="s-dot"></span>PCA projection + k-means themes</div>
+				<div class="o-step" data-step="3"><span class="s-dot"></span>Rendering constellation</div>
 			</div>
 		</div>
 	</div>
@@ -343,9 +561,9 @@
 	<!-- Empty -->
 	<div class="overlay" id="emptyState">
 		<div class="inner">
-			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#3a4253,#1a1f2c)"></div>
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#2a3348,#141820)"></div>
 			<h2 id="emptyTitle">No agents to map yet</h2>
-			<p id="emptyMsg">The galaxy lights up once public agents exist. Create one and it joins the constellation on the next rebuild.</p>
+			<p id="emptyMsg">The galaxy lights up when public agents exist. Create one and it joins the constellation on the next rebuild.</p>
 			<div class="o-actions">
 				<a class="o-btn" href="/create">Create an agent</a>
 				<a class="o-btn sec" href="/discover">Browse agents</a>
@@ -356,9 +574,9 @@
 	<!-- watsonx unavailable -->
 	<div class="overlay" id="unavailableState">
 		<div class="inner">
-			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#3a4253,#1a1f2c)"></div>
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#1f2a3a,#0d1118)"></div>
 			<h2>IBM watsonx is not configured</h2>
-			<p id="unavailableMsg">This deployment has no watsonx.ai credentials, so Granite can't embed the agents. Configure <code>WATSONX_API_KEY</code> and <code>WATSONX_PROJECT_ID</code> to power the galaxy.</p>
+			<p id="unavailableMsg">Set <code>WATSONX_API_KEY</code> and <code>WATSONX_PROJECT_ID</code> on this deployment to power the galaxy with Granite embeddings.</p>
 			<div class="o-actions">
 				<a class="o-btn" href="/ibm">About the IBM integration</a>
 			</div>
@@ -368,9 +586,9 @@
 	<!-- Error -->
 	<div class="overlay" id="errorState">
 		<div class="inner">
-			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#5a2330,#2c1a1f)"></div>
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#3a1a22,#1a0d10)"></div>
 			<h2>Couldn't load the galaxy</h2>
-			<p id="errorMsg">Something went wrong reaching the galaxy service.</p>
+			<p id="errorMsg">Something went wrong. Check your connection and try again.</p>
 			<div class="o-actions">
 				<button class="o-btn" id="retryBtn">Try again</button>
 				<a class="o-btn sec" href="/ibm">Back to IBM</a>

@@ -340,6 +340,7 @@ function hideNotice() { const n = $('notice'); n.hidden = true; n.innerHTML = ''
 // ── notarize (POST submit) ───────────────────────────────────────────────────
 async function notarize(data) {
 	if (state.busy) return;
+	if (!data?.token?.pool) { showNotice('warn', 'No forecast loaded to notarize yet — pick a token first.'); return; }
 	state.busy = true;
 	const btn = $('action').querySelector('button');
 	if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Signing &amp; broadcasting…'; }
@@ -478,7 +479,7 @@ async function select(pool) {
 		if (!r.ok) throw new Error(`endpoint ${r.status}`);
 		const data = await r.json();
 		state.current = data;
-		$('token-tag').textContent = `${data.token.symbol} · ${data.token.network}`;
+		$('token-tag').textContent = `${data.token?.symbol ?? '—'} · ${data.token?.network ?? 'mainnet'}`;
 		$('agent-net').textContent = data.attester?.network || 'mainnet';
 		drawChart(data);
 		renderStats(data);

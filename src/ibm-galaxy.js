@@ -21,12 +21,15 @@ const els = {
 	searchWrap: $('searchWrap'), searchBox: $('searchBox'), searchInput: $('searchInput'),
 	searchClear: $('searchClear'), searchHint: $('searchHint'), results: $('results'),
 	legend: $('legend'), legendRows: $('legendRows'), legendFoot: $('legendFoot'),
+	legendMobile: $('legendMobile'), legendMobileRows: $('legendMobileRows'),
+	legendToggle: $('legendToggle'),
 	stats: $('stats'), tooltip: $('tooltip'), clusterLabels: $('clusterLabels'),
 	panel: $('panel'), panelHead: $('panelHead'), panelBody: $('panelBody'), panelClose: $('panelClose'),
 	loading: $('loadingState'), empty: $('emptyState'), unavailable: $('unavailableState'),
 	error: $('errorState'), errorMsg: $('errorMsg'), emptyTitle: $('emptyTitle'), emptyMsg: $('emptyMsg'),
 	unavailableMsg: $('unavailableMsg'), loadSteps: $('loadSteps'), retryBtn: $('retryBtn'),
 	resetView: $('resetView'), hudHint: $('hudHint'), tourBtn: $('tourBtn'),
+	shortcutsOverlay: $('shortcutsOverlay'), shortcutsBtn: $('shortcutsBtn'), shortcutsClose: $('shortcutsClose'),
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -337,30 +340,61 @@ function selectAgent(idx, doFly) {
 	drawLinks(idx, neighbors);
 	setUrlParam('agent', a.id);
 
+	const color = c?.color || '#78a9ff';
 	els.panelHead.innerHTML =
+		`<div class="p-avatar-row">` +
 		avatarMarkup(a, 'p-avatar') +
-		`<div class="p-theme" style="color:${c?.color || '#fff'}"><span class="swatch" style="background:${c?.color}"></span>${escapeHtml(c?.label || 'Agent')}</div>` +
-		`<div class="p-name">${escapeHtml(a.name)}</div>`;
+		`<div class="p-meta">` +
+		`<div class="p-theme" style="color:${color}"><span class="swatch" style="background:${color}"></span>${escapeHtml(c?.label || 'Agent')}</div>` +
+		`<div class="p-name">${escapeHtml(a.name)}</div>` +
+		`</div></div>`;
 
+	const hasGraniteScores = neighbors.length && neighbors[0].score != null;
 	const nbMarkup = neighbors.map((nb) => {
 		const na = nb.agent;
-		const meta = nb.score != null
-			? `<span class="pct">${Math.round(nb.score * 100)}%</span> similar`
-			: escapeHtml(state.clusters[na.cluster]?.label || '');
+		const pct = nb.score != null ? Math.round(nb.score * 100) : null;
+		const barWidth = pct != null ? Math.round(scoreToBrightness(nb.score) * 100) : 0;
+		const scoreHtml = pct != null
+			? `<div class="nb-score-row"><div class="nb-bar"><i style="width:${barWidth}%"></i></div><span class="nb-pct">${pct}%</span></div>`
+			: `<div class="nb-score-row"><span style="font-size:10px;color:var(--muted2)">${escapeHtml(state.clusters[na.cluster]?.label || '')}</span></div>`;
 		return `<div class="nb" data-idx="${nb.idx}">${avatarMarkup(na, 'nb-av')}` +
-			`<div class="nb-meta"><div class="nb-name">${escapeHtml(na.name)}</div>` +
-			`<div class="nb-sim">${meta}</div></div></div>`;
+			`<div class="nb-meta"><div class="nb-name">${escapeHtml(na.name)}</div>${scoreHtml}</div></div>`;
 	}).join('');
 
-	const sourceNote = neighbors.length && neighbors[0].score != null ? ' <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)">· by Granite cosine</span>' : '';
+	const graniteTag = hasGraniteScores ? '<span class="granite-tag">· Granite cosine</span>' : '';
 	els.panelBody.innerHTML =
 		`<div class="p-desc">${escapeHtml(a.description || 'No description provided.')}</div>` +
-		(neighbors.length ? `<div class="p-section neighbors"><h4>Nearest in meaning${sourceNote}</h4>${nbMarkup}</div>` : '') +
-		`<a class="p-cta" href="${escapeAttr(a.url)}">Open agent →</a>`;
+		(neighbors.length ? `<div class="p-section neighbors"><h4>Nearest in meaning ${graniteTag}</h4>${nbMarkup}</div>` : '') +
+		`<div class="p-actions">` +
+		`<a class="p-cta" href="${escapeAttr(a.url)}">Open agent</a>` +
+		`<button class="p-copy-link" title="Copy shareable link">` +
+		`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>` +
+		`Copy link</button>` +
+		`</div>`;
 
 	els.panelBody.querySelectorAll('.nb').forEach((row) => {
 		row.addEventListener('click', () => selectAgent(Number(row.dataset.idx), true));
 	});
+	const copyBtn = els.panelBody.querySelector('.p-copy-link');
+	if (copyBtn) {
+		copyBtn.addEventListener('click', () => {
+			const url = new URL(window.location.href);
+			url.searchParams.set('agent', a.id);
+			navigator.clipboard.writeText(url.toString()).then(() => {
+				copyBtn.classList.add('copied');
+				copyBtn.textContent = 'Copied!';
+				setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy link`; }, 2000);
+			}).catch(() => {
+				// Fallback: select the URL so user can copy manually.
+				const inp = document.createElement('input');
+				inp.value = url.toString();
+				document.body.appendChild(inp);
+				inp.select();
+				document.execCommand('copy');
+				inp.remove();
+			});
+		});
+	}
 
 	els.panel.classList.add('open');
 	els.panel.setAttribute('aria-hidden', 'false');
@@ -432,20 +466,35 @@ function drawLinks(idx, neighbors) {
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 function buildLegend() {
-	els.legendRows.innerHTML = '';
-	for (const c of state.clusters) {
-		if (!c.size) continue;
-		const row = document.createElement('div');
-		row.className = 'row';
-		row.innerHTML = `<span class="swatch" style="background:${c.color};color:${c.color}"></span>` +
-			`<span class="name">${escapeHtml(c.label)}</span><span class="cnt">${c.size}</span>`;
-		row.addEventListener('click', () => toggleIsolate(c.id));
-		row.dataset.cluster = c.id;
-		els.legendRows.appendChild(row);
-	}
+	const buildRows = (container, onclick) => {
+		container.innerHTML = '';
+		for (const c of state.clusters) {
+			if (!c.size) continue;
+			const row = document.createElement('div');
+			row.className = 'row';
+			row.innerHTML = `<span class="swatch" style="background:${c.color};color:${c.color}"></span>` +
+				`<span class="name">${escapeHtml(c.label)}</span><span class="cnt">${c.size}</span>`;
+			row.addEventListener('click', () => { onclick?.(); toggleIsolate(c.id); });
+			row.dataset.cluster = c.id;
+			container.appendChild(row);
+		}
+	};
+	buildRows(els.legendRows, null);
+	if (els.legendMobileRows) buildRows(els.legendMobileRows, closeMobileLegend);
+
 	const src = state.clusters.filter((c) => c.labelSource === 'granite').length;
-	els.legendFoot.textContent = `${state.data.meta.clusterCount} themes · ${src} named by Granite. Click a theme to isolate it.`;
+	if (els.legendFoot) els.legendFoot.textContent = `${state.data.meta.clusterCount} themes · ${src} named by Granite. Click to isolate.`;
 	els.legend.style.display = 'block';
+
+	// Mobile toggle button — only shown when legend is CSS-hidden (<640px).
+	if (els.legendToggle) els.legendToggle.style.display = '';
+	if (els.legendMobile) { els.legendMobile.style.display = 'none'; els.legendMobile.hidden = true; }
+}
+
+function closeMobileLegend() {
+	if (!els.legendMobile) return;
+	els.legendMobile.style.display = 'none';
+	els.legendMobile.hidden = true;
 }
 
 function toggleIsolate(clusterId) {
@@ -458,9 +507,12 @@ function toggleIsolate(clusterId) {
 		const c = state.clusters[clusterId];
 		if (c) flyTo(new THREE.Vector3(c.x, c.y, c.z), 95);
 	}
-	els.legendRows.querySelectorAll('.row').forEach((row) => {
-		const isMuted = state.isolatedCluster !== null && Number(row.dataset.cluster) !== state.isolatedCluster;
-		row.classList.toggle('muted', isMuted);
+	[els.legendRows, els.legendMobileRows].forEach((container) => {
+		if (!container) return;
+		container.querySelectorAll('.row').forEach((row) => {
+			const isMuted = state.isolatedCluster !== null && Number(row.dataset.cluster) !== state.isolatedCluster;
+			row.classList.toggle('muted', isMuted);
+		});
 	});
 }
 
@@ -503,7 +555,7 @@ function tourStep(themed) {
 	tour.i++;
 	state.isolatedCluster = c.id;
 	applyVisibility();
-	els.legendRows.querySelectorAll('.row').forEach((r) => r.classList.toggle('muted', Number(r.dataset.cluster) !== c.id));
+	[els.legendRows, els.legendMobileRows].forEach((ct) => ct?.querySelectorAll('.row').forEach((r) => r.classList.toggle('muted', Number(r.dataset.cluster) !== c.id)));
 	flyTo(new THREE.Vector3(c.x, c.y, c.z), 95);
 }
 function stopTour() {
@@ -513,7 +565,7 @@ function stopTour() {
 	els.tourBtn.classList.remove('active');
 	state.isolatedCluster = null;
 	applyVisibility();
-	els.legendRows.querySelectorAll('.row').forEach((r) => r.classList.remove('muted'));
+	[els.legendRows, els.legendMobileRows].forEach((ct) => ct?.querySelectorAll('.row').forEach((r) => r.classList.remove('muted')));
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
@@ -764,13 +816,43 @@ function onResize() {
 
 function wireGlobalUI() {
 	els.panelClose.addEventListener('click', closePanel);
-	els.resetView.addEventListener('click', () => { stopTour(); resetView(); state.isolatedCluster = null; if (state.searchActive) clearSearch(); applyVisibility(); els.legendRows.querySelectorAll('.row').forEach((r) => r.classList.remove('muted')); });
+	els.resetView.addEventListener('click', () => {
+		stopTour(); resetView(); state.isolatedCluster = null;
+		if (state.searchActive) clearSearch(); applyVisibility();
+		[els.legendRows, els.legendMobileRows].forEach((c) => c?.querySelectorAll('.row').forEach((r) => r.classList.remove('muted')));
+	});
 	els.tourBtn.addEventListener('click', toggleTour);
 	els.retryBtn.addEventListener('click', () => load());
+
+	// Mobile legend toggle.
+	if (els.legendToggle) {
+		els.legendToggle.addEventListener('click', () => {
+			if (!els.legendMobile) return;
+			const open = !els.legendMobile.hidden;
+			els.legendMobile.style.display = open ? 'none' : 'block';
+			els.legendMobile.hidden = open;
+		});
+	}
+
+	// Keyboard shortcuts overlay.
+	const openShortcuts = () => { els.shortcutsOverlay.classList.add('show'); };
+	const closeShortcuts = () => { els.shortcutsOverlay.classList.remove('show'); };
+	if (els.shortcutsBtn) els.shortcutsBtn.addEventListener('click', openShortcuts);
+	if (els.shortcutsClose) els.shortcutsClose.addEventListener('click', closeShortcuts);
+	els.shortcutsOverlay?.addEventListener('click', (e) => { if (e.target === els.shortcutsOverlay) closeShortcuts(); });
+
 	window.addEventListener('keydown', (e) => {
-		if (e.key === '/' && document.activeElement !== els.searchInput) { e.preventDefault(); els.searchInput.focus(); }
-		else if (e.key === 'Escape') { if (els.panel.classList.contains('open')) closePanel(); }
-		else if ((e.key === 'r' || e.key === 'R') && document.activeElement !== els.searchInput) resetView();
+		const inInput = document.activeElement === els.searchInput;
+		if (e.key === '/' && !inInput) { e.preventDefault(); els.searchInput.focus(); }
+		else if (e.key === 'Escape') {
+			if (els.shortcutsOverlay.classList.contains('show')) { closeShortcuts(); return; }
+			if (els.legendMobile && !els.legendMobile.hidden) { closeMobileLegend(); return; }
+			if (els.panel.classList.contains('open')) { closePanel(); return; }
+			if (state.searchActive) { els.searchInput.value = ''; clearSearch(); return; }
+		}
+		else if ((e.key === 'r' || e.key === 'R') && !inInput) { els.resetView.click(); }
+		else if ((e.key === 't' || e.key === 'T') && !inInput) toggleTour();
+		else if (e.key === '?' && !inInput) openShortcuts();
 	});
 }
 

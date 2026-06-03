@@ -89,6 +89,19 @@ const TEMPLATE_ROUTES = [
 	'/agent-embed.html',
 	'/a-edit.html',
 	'/a-embed.html',
+
+	// IBM watsonx / Granite showcase. These clean URLs map to pages/ibm/*.html via
+	// vercel.json and aren't in the page index, so they'd otherwise escape the
+	// smoke test. Booting them here guards against console crashes (e.g. a WebGL
+	// context that throws on construction) and broken fetch handling.
+	'/ibm',
+	'/ibm/oracle',
+	'/ibm/galaxy',
+	'/ibm/proof',
+	'/ibm/trust-layer',
+	'/ibm/vision',
+	'/ibm/twin',
+	'/ibm/identity',
 ];
 
 // ── Noise filters ──────────────────────────────────────────────────────────

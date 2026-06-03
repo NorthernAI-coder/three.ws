@@ -4,6 +4,8 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<title>Digital Twin — a living market replica on IBM watsonx · three.ws</title>
+		<link rel="canonical" href="https://three.ws/ibm/twin" />
+		<meta property="og:url" content="https://three.ws/ibm/twin" />
 		<meta
 			name="description"
 			content="A living digital twin of a real Solana market: it mirrors its on-chain vitals in real time, IBM Granite TimeSeries projects its future, it back-tests itself against reality, and you can run what-if simulations. Real watsonx.ai, real on-chain data."
@@ -549,6 +551,12 @@
 				background: var(--ibm-blue-2);
 				animation: pulse 1s infinite;
 			}
+			#t-status .status-retry {
+				background: none; border: none; padding: 0; margin-left: 6px;
+				color: var(--ibm-blue-2); font-size: inherit; font-family: inherit;
+				cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+			}
+			#t-status .status-retry:hover { color: var(--ibm-blue-1); }
 			@keyframes pulse {
 				0%,
 				100% {
