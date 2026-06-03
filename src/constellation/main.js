@@ -390,7 +390,7 @@ async function runGraniteAnalysis(token, neighbors) {
 
 function graniteUnavailableNotice(code) {
 	if (code === 'provider_not_configured') {
-		return '<div class="c-notice">IBM Granite isn\'t enabled on this deployment yet — set <code>WATSONX_API_KEY</code> to turn on live analysis. See the <a href="/ibm">IBM partnership page</a>.</div>';
+		return '<div class="c-notice">IBM Granite isn\'t enabled on this deployment yet — set <code>WATSONX_API_KEY</code> to turn on live analysis. See the <a href="/ibm">IBM Granite demos</a>.</div>';
 	}
 	if (code === 'rate_limited') {
 		return '<div class="c-notice">Rate limit reached — wait a moment and click again.</div>';

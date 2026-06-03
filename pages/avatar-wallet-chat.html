@@ -632,7 +632,56 @@
 				} finally {
 					busy = false;
 					sendBtn.disabled = false;
-					input.focus();
+// Receive detection: the avatar notices when SOL lands in its own wallet
+					// (a tip from you) and reacts in real time — the "receiving" half of the
+					// round-trip. Real on-chain data via /api/agent/activity; the first poll
+					// seeds the seen-set so only NEW arrivals trigger a reaction.
+					const seenSigs = new Set();
+					let activitySeeded = false;
+					function receiveCard(t) {
+						clearEmpty();
+						const card = document.createElement('div');
+						card.className = 'pay ok recv';
+						const from = t.counterparty ? short(t.counterparty) : 'someone';
+						card.innerHTML =
+							'<div class="head"><span class="ic">↓</span> Received SOL</div>' +
+							'<div class="amt">' + fmtSol(t.sol) + ' SOL</div>' +
+							'<div class="sub">' + (t.usd != null ? '≈ $' + t.usd.toFixed(2) + ' · ' : '') + 'from ' + from + '</div>' +
+							'<div class="status"><span class="pip"></span><span class="label">Confirmed on-chain</span></div>';
+						const a = document.createElement('a');
+						a.className = 'sig';
+						a.href = t.explorer; a.target = '_blank'; a.rel = 'noopener';
+						a.textContent = '↗ ' + short(t.signature);
+						card.appendChild(a);
+						log.appendChild(card);
+						log.scrollTop = log.scrollHeight;
+					}
+					async function pollActivity() {
+						try {
+							const r = await fetch('/api/agent/activity?limit=12', { headers: { accept: 'application/json' } });
+							if (!r.ok) return;
+							const data = await r.json();
+							const transfers = data.transfers || [];
+							if (!activitySeeded) {
+								transfers.forEach((t) => seenSigs.add(t.signature));
+								activitySeeded = true;
+								return;
+							}
+							for (const t of [...transfers].reverse()) {
+								if (seenSigs.has(t.signature)) continue;
+								seenSigs.add(t.signature);
+								if (t.direction !== 'in') continue;
+								receiveCard(t);
+								toast('Received ' + fmtSol(t.sol) + ' SOL' + (t.usd != null ? ' ($' + t.usd.toFixed(2) + ')' : ''));
+								avatarSpeak('I just received ' + fmtSol(t.sol) + ' SOL' + (t.usd != null ? ', about $' + t.usd.toFixed(2) : '') + ' — thank you!');
+								avatarGesture('celebrate');
+								refreshWallet();
+							}
+						} catch (e) { /* transient RPC/network blip — next tick retries */ }
+					}
+					pollActivity();
+					setInterval(pollActivity, 9000);
+										input.focus();
 				}
 			}
 

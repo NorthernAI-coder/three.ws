@@ -58,6 +58,22 @@
 			"continue": true
 		},
 		{
+			"src": "/agent-exchange",
+			"dest": "/agent-exchange.html"
+		},
+		{
+			"src": "/agent-exchange/",
+			"dest": "/agent-exchange.html"
+		},
+		{
+			"src": "/agent-trade",
+			"dest": "/agent-trade.html"
+		},
+		{
+			"src": "/agent-trade/",
+			"dest": "/agent-trade.html"
+		},
+		{
 			"src": "/aws-marketplace/welcome",
 			"dest": "/aws-marketplace/welcome.html"
 		},
@@ -72,6 +88,38 @@
 		{
 			"src": "/aws/",
 			"dest": "/aws/index.html"
+		},
+		{
+			"src": "/agent-economy",
+			"dest": "/agent-economy.html"
+		},
+		{
+			"src": "/agent-economy/",
+			"dest": "/agent-economy.html"
+		},
+		{
+			"src": "/demo",
+			"dest": "/demo-economy.html"
+		},
+		{
+			"src": "/demo/",
+			"dest": "/demo-economy.html"
+		},
+		{
+			"src": "/live",
+			"dest": "/live.html"
+		},
+		{
+			"src": "/live/",
+			"dest": "/live.html"
+		},
+		{
+			"src": "/avatar-wallet-chat",
+			"dest": "/avatar-wallet-chat.html"
+		},
+		{
+			"src": "/avatar-wallet-chat/",
+			"dest": "/avatar-wallet-chat.html"
 		},
 		{
 			"src": "/ibm/galaxy",
@@ -1056,12 +1104,16 @@
 		{
 			"src": "/marketplace/agents/([^/]+)",
 			"status": 301,
-			"headers": { "Location": "/agent-next?id=$1" }
+			"headers": {
+				"Location": "/agent-next?id=$1"
+			}
 		},
 		{
 			"src": "/marketplace/avatars/([^/]+)",
 			"status": 301,
-			"headers": { "Location": "/agent-next?id=$1" }
+			"headers": {
+				"Location": "/agent-next?id=$1"
+			}
 		},
 		{
 			"src": "/api/agents/me",
@@ -1607,7 +1659,9 @@
 		{
 			"src": "/avatars/([^/]+)",
 			"status": 301,
-			"headers": { "Location": "/agent-next?id=$1" }
+			"headers": {
+				"Location": "/agent-next?id=$1"
+			}
 		},
 		{
 			"src": "/api/characters",
@@ -1910,6 +1964,14 @@
 		{
 			"src": "/reputation/(.*)",
 			"dest": "/reputation/$1"
+		},
+		{
+			"src": "/deal",
+			"dest": "/deal.html"
+		},
+		{
+			"src": "/deal/",
+			"dest": "/deal.html"
 		},
 		{
 			"src": "/pay",

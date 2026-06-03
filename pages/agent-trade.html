@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Commerce · three.ws</title>
+  <meta name="description" content="Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, in 3D.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue: #4589ff;
+      --teal: #08bdba;
+      --gold: #f1c21b;
+      --green: #42be65;
+      --red: #fa4d56;
+      --bg: #05050e;
+      --surface: rgba(13,13,26,0.92);
+      --surface2: rgba(22,22,40,0.85);
+      --border: rgba(255,255,255,0.08);
+      --text: #f4f4f4;
+      --muted: #8d8d8d;
+      --font: 'IBM Plex Sans', system-ui, sans-serif;
+      --mono: 'IBM Plex Mono', monospace;
+      --radius: 12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); }
+
+    #canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    #header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: center; gap: 12px; padding: 14px 22px;
+      background: linear-gradient(to bottom, rgba(5,5,14,0.92) 0%, transparent 100%);
+    }
+    #header a { color: var(--text); text-decoration: none; font-weight: 600; font-size: 1.05rem; }
+    #header a span { color: var(--teal); }
+    .hbadge {
+      padding: 3px 9px; border-radius: 20px; font-size: 0.68rem;
+      font-family: var(--mono); letter-spacing: 0.06em;
+    }
+    .hbadge-x402  { background: rgba(69,137,255,0.14); border: 1px solid rgba(69,137,255,0.3); color: var(--blue); }
+    .hbadge-sol   { background: rgba(8,189,186,0.1);  border: 1px solid rgba(8,189,186,0.3);  color: var(--teal); }
+    #hright { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    #networkBadge {
+      padding: 3px 8px; border-radius: 20px; font-size: 0.68rem; font-family: var(--mono);
+      text-transform: uppercase; background: rgba(241,194,27,0.1);
+      border: 1px solid rgba(241,194,27,0.3); color: var(--gold);
+    }
+    #liveDot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 1.6s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* ── Agent labels (tracked to 3D positions by JS) ─────────────────── */
+    .agent-label {
+      position: fixed; display: flex; flex-direction: column; align-items: center;
+      gap: 3px; pointer-events: none; z-index: 6; transition: opacity 0.4s;
+      text-align: center;
+    }
+    .al-name  { font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; }
+    .al-role  { font-size: 0.67rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+    .al-addr  { font-size: 0.62rem; color: var(--muted); font-family: var(--mono); }
+    .al-bal   { font-size: 0.75rem; font-family: var(--mono); }
+    #buyerLabel  .al-name { color: var(--blue); }
+    #sellerLabel .al-name { color: var(--gold); }
+
+    /* ── Speech bubbles ───────────────────────────────────────────────── */
+    .bubble {
+      position: fixed; max-width: 210px; padding: 10px 14px; border-radius: 16px;
+      font-size: 0.82rem; line-height: 1.5; backdrop-filter: blur(14px);
+      z-index: 20; pointer-events: none; text-align: center;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .bubble.hidden { opacity: 0; transform: translateY(8px); }
+    #buyerBubble  { background: rgba(69,137,255,0.15); border: 1px solid rgba(69,137,255,0.35); }
+    #sellerBubble { background: rgba(241,194,27,0.1);  border: 1px solid rgba(241,194,27,0.35); }
+
+    /* ── Central floating card ─────────────────────────────────────────── */
+    #centralCard {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      top: 50%; margin-top: -40px; width: 360px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); backdrop-filter: blur(18px);
+      padding: 18px 22px; z-index: 20;
+      transition: opacity 0.35s, transform 0.35s;
+    }
+    #centralCard.hidden { opacity: 0; transform: translateX(-50%) translateY(14px); pointer-events: none; }
+    .c-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 20px; font-size: 0.67rem;
+      font-family: var(--mono); letter-spacing: 0.05em; margin-bottom: 10px;
+    }
+    .c-badge-402    { background: rgba(250,77,86,0.1);  border: 1px solid rgba(250,77,86,0.3);  color: #fa4d56; }
+    .c-badge-ok     { background: rgba(66,190,101,0.1); border: 1px solid rgba(66,190,101,0.3); color: var(--green); }
+    .c-label  { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+    .c-price  { font-size: 1.7rem; font-weight: 600; font-family: var(--mono); margin: 8px 0 4px; }
+    .c-price.blue  { color: var(--blue); }
+    .c-price.green { color: var(--green); }
+    .c-row    { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
+    .c-row span  { color: var(--text); font-family: var(--mono); font-size: 0.75rem; }
+    .c-link   { color: var(--blue); font-family: var(--mono); font-size: 0.7rem; text-decoration: none; word-break: break-all; display: block; margin-top: 8px; }
+    .c-link:hover { text-decoration: underline; }
+    .c-content { font-size: 0.86rem; line-height: 1.65; color: var(--text); margin-top: 8px; }
+    .c-powered { margin-top: 12px; font-size: 0.67rem; color: var(--muted); font-family: var(--mono); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* ── Step log ──────────────────────────────────────────────────────── */
+    #stepLog {
+      position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 7px; flex-wrap: wrap; justify-content: center;
+      z-index: 10; max-width: 600px;
+    }
+    .step-chip {
+      padding: 4px 11px; border-radius: 20px; font-size: 0.68rem;
+      font-family: var(--mono); border: 1px solid var(--border);
+      color: var(--muted); background: var(--surface); backdrop-filter: blur(8px);
+      transition: all 0.25s;
+    }
+    .step-chip.active { color: var(--text);    border-color: var(--blue);  background: rgba(69,137,255,0.1); }
+    .step-chip.done   { color: var(--green);   border-color: rgba(66,190,101,0.35); background: rgba(66,190,101,0.06); }
+    .step-chip.error  { color: var(--red);     border-color: rgba(250,77,86,0.35); }
+
+    /* ── CTA bar ────────────────────────────────────────────────────────── */
+    #cta {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 10px; z-index: 10;
+    }
+    #topicSelect {
+      padding: 9px 14px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: var(--font);
+      font-size: 0.86rem; cursor: pointer; backdrop-filter: blur(10px);
+      min-width: 200px; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238d8d8d' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      padding-right: 32px;
+    }
+    #topicSelect:disabled { opacity: 0.45; cursor: default; }
+    #startBtn {
+      padding: 10px 24px; background: var(--blue); color: #fff;
+      border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 500;
+      cursor: pointer; font-family: var(--font); transition: background 0.18s, transform 0.1s;
+      white-space: nowrap;
+    }
+    #startBtn:hover:not(:disabled) { background: #6ea6ff; }
+    #startBtn:active { transform: scale(0.97); }
+    #startBtn:disabled { opacity: 0.45; cursor: default; }
+
+    /* ── Toast ──────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%);
+      background: rgba(250,77,86,0.14); border: 1px solid rgba(250,77,86,0.4);
+      color: #fa4d56; padding: 10px 20px; border-radius: 8px;
+      font-size: 0.83rem; z-index: 30; opacity: 0;
+      transition: opacity 0.3s; pointer-events: none; max-width: 420px; text-align: center;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ── Not-configured overlay ─────────────────────────────────────────── */
+    #notConfigured {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(5,5,14,0.94); z-index: 50; padding: 24px;
+    }
+    #notConfigured.hidden { display: none; }
+    .cfg-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 28px 32px; max-width: 500px; width: 100%; backdrop-filter: blur(20px);
+    }
+    .cfg-card h2 { font-size: 1.2rem; margin-bottom: 8px; }
+    .cfg-card p  { color: var(--muted); font-size: 0.85rem; line-height: 1.65; margin-bottom: 18px; }
+    .env-block {
+      background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; font-family: var(--mono); font-size: 0.75rem; line-height: 2.1;
+    }
+    .env-k { color: var(--blue); }
+    .env-c { color: #525252; }
+    .cfg-gen {
+      margin-top: 16px; font-size: 0.75rem; color: var(--muted); line-height: 1.7;
+    }
+    .cfg-gen code {
+      font-family: var(--mono); font-size: 0.72rem;
+      background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;
+    }
+    .cfg-close {
+      margin-top: 18px; padding: 9px 20px; background: rgba(69,137,255,0.15);
+      border: 1px solid rgba(69,137,255,0.35); color: var(--blue);
+      border-radius: 8px; font-family: var(--font); font-size: 0.86rem;
+      cursor: pointer; transition: background 0.18s;
+    }
+    .cfg-close:hover { background: rgba(69,137,255,0.25); }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <!-- Header -->
+  <div id="header">
+    <a href="/"><span>three</span>.ws</a>
+    <div class="hbadge hbadge-x402">x402</div>
+    <div class="hbadge hbadge-sol">Solana</div>
+    <div id="hright">
+      <div id="liveDot"></div>
+      <div id="networkBadge">mainnet</div>
+    </div>
+  </div>
+
+  <!-- Agent labels (JS positions these over the 3D avatars) -->
+  <div class="agent-label" id="buyerLabel">
+    <div class="al-name">Nexus</div>
+    <div class="al-role">Buyer Agent</div>
+    <div class="al-addr" id="buyerAddr">—</div>
+    <div class="al-bal"  id="buyerBal"></div>
+  </div>
+  <div class="agent-label" id="sellerLabel">
+    <div class="al-name">Oracle</div>
+    <div class="al-role">Seller Agent</div>
+    <div class="al-addr" id="sellerAddr">—</div>
+  </div>
+
+  <!-- Speech bubbles -->
+  <div class="bubble hidden" id="buyerBubble"></div>
+  <div class="bubble hidden" id="sellerBubble"></div>
+
+  <!-- Central floating card (402 challenge → tx receipt → content) -->
+  <div id="centralCard" class="hidden"></div>
+
+  <!-- Step log -->
+  <div id="stepLog"></div>
+
+  <!-- CTA -->
+  <div id="cta">
+    <select id="topicSelect">
+      <option value="Solana DeFi outlook">Solana DeFi outlook</option>
+      <option value="BTC market sentiment">BTC market sentiment</option>
+      <option value="Top pump.fun tokens">Top pump.fun tokens</option>
+      <option value="Ethereum L2 landscape">Ethereum L2 landscape</option>
+      <option value="AI agent token trends">AI agent token trends</option>
+    </select>
+    <button id="startBtn">▶ Run Trade Demo</button>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Not-configured overlay -->
+  <div id="notConfigured" class="hidden">
+    <div class="cfg-card">
+      <h2>Fund two Solana wallets</h2>
+      <p>Generate keypairs, set these env vars, and fund each wallet with a small amount of SOL to run the live agent-to-agent trade demo.</p>
+      <div class="env-block">
+        <div><span class="env-c"># Buyer agent (Nexus)</span></div>
+        <div><span class="env-k">AGENT_BUYER_SECRET</span>=&lt;base58-secret-key&gt;</div>
+        <div><span class="env-c"># Seller agent (Oracle)</span></div>
+        <div><span class="env-k">AGENT_SELLER_SECRET</span>=&lt;base58-secret-key&gt;</div>
+        <div><span class="env-c"># Trade price in SOL (default: 0.001)</span></div>
+        <div><span class="env-k">AGENT_TRADE_PRICE_SOL</span>=0.001</div>
+        <div><span class="env-c"># mainnet or devnet</span></div>
+        <div><span class="env-k">AGENT_TRADE_NETWORK</span>=mainnet</div>
+      </div>
+      <p class="cfg-gen">
+        Generate a keypair:<br>
+        <code>node -e "const {Keypair}=require('@solana/web3.js'),bs58=require('bs58');const k=Keypair.generate();console.log('secret:',bs58.encode(k.secretKey),'addr:',k.publicKey.toString())"</code>
+      </p>
+      <button class="cfg-close" id="cfgClose">Dismiss (demo scene still visible)</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/agent-trade.js"></script>
+</body>
+</html>
