@@ -82,7 +82,9 @@ async function call(url) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	trendingPools.mockResolvedValue([{ pool: POOL, name: 'three / SOL', baseMint: 'm', priceUsd: 0.002 }]);
+	trendingPools.mockResolvedValue([
+		{ pool: POOL, name: 'three / SOL', baseMint: 'm', priceUsd: 0.002 },
+	]);
 	fetchOhlcv.mockResolvedValue({
 		candles: mkCandles(520),
 		base: { name: 'three', symbol: 'three', address: 'm' },
@@ -92,10 +94,24 @@ beforeEach(() => {
 		aggregate: 1,
 	});
 	topPoolForToken.mockResolvedValue(POOL);
-	watsonxConfig.mockReturnValue({ configured: true, projectId: 'p', url: 'u', apiVersion: 'v', tsApiVersion: 't' });
+	watsonxConfig.mockReturnValue({
+		configured: true,
+		projectId: 'p',
+		url: 'u',
+		apiVersion: 'v',
+		tsApiVersion: 't',
+	});
 	watsonxForecast.mockResolvedValue(mkForecast(96, 151.9));
-	watsonxChatComplete.mockResolvedValue({ text: 'Granite sees three drifting higher.', model: 'ibm/granite-3-8b-instruct' });
-	watsonxGuardian.mockResolvedValue({ flagged: false, risk: 'harm', label: 'no', model: 'ibm/granite-guardian-3-8b' });
+	watsonxChatComplete.mockResolvedValue({
+		text: 'Granite sees three drifting higher.',
+		model: 'ibm/granite-3-8b-instruct',
+	});
+	watsonxGuardian.mockResolvedValue({
+		flagged: false,
+		risk: 'harm',
+		label: 'no',
+		model: 'ibm/granite-guardian-3-8b',
+	});
 });
 
 describe('/api/ibm/oracle', () => {
@@ -123,7 +139,10 @@ describe('/api/ibm/oracle', () => {
 
 	it('resolves a token mint to its top pool', async () => {
 		await call('/api/ibm/oracle?token=So11111111111111111111111111111111111111112');
-		expect(topPoolForToken).toHaveBeenCalledWith('So11111111111111111111111111111111111111112', 'solana');
+		expect(topPoolForToken).toHaveBeenCalledWith(
+			'So11111111111111111111111111111111111111112',
+			'solana',
+		);
 		expect(watsonxForecast).toHaveBeenCalled();
 	});
 

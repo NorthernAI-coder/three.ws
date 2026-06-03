@@ -102,7 +102,8 @@ scene.add(seriesGroup);
 function disposeGroup(g) {
 	g.traverse((o) => {
 		if (o.geometry) o.geometry.dispose();
-		if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+		if (o.material)
+			(Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
 	});
 	scene.remove(g);
 }
@@ -110,10 +111,18 @@ function disposeGroup(g) {
 function glowTube(points, color, radius, opacity = 1) {
 	const curve = new THREE.CatmullRomCurve3(points);
 	const geo = new THREE.TubeGeometry(curve, Math.min(600, points.length * 4), radius, 8, false);
-	const core = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity }));
+	const core = new THREE.Mesh(
+		geo,
+		new THREE.MeshBasicMaterial({ color, transparent: true, opacity }),
+	);
 	const halo = new THREE.Mesh(
 		new THREE.TubeGeometry(curve, Math.min(600, points.length * 4), radius * 2.6, 8, false),
-		new THREE.MeshBasicMaterial({ color, transparent: true, opacity: opacity * 0.16, depthWrite: false }),
+		new THREE.MeshBasicMaterial({
+			color,
+			transparent: true,
+			opacity: opacity * 0.16,
+			depthWrite: false,
+		}),
 	);
 	const grp = new THREE.Group();
 	grp.add(core, halo);
@@ -155,7 +164,7 @@ function renderSeries(data) {
 	const min = Math.min(...all);
 	const max = Math.max(...all);
 	const tMin = history[0].t;
-	const tMax = (forecast.length ? forecast[forecast.length - 1].t : history[history.length - 1].t);
+	const tMax = forecast.length ? forecast[forecast.length - 1].t : history[history.length - 1].t;
 	const span = Math.max(1, tMax - tMin);
 	const xOf = (t) => ((t - tMin) / span) * SPAN - SPAN / 2;
 	const yOf = (c) => (max === min ? 0 : ((c - min) / (max - min)) * HEIGHT - HEIGHT / 2);
@@ -167,7 +176,12 @@ function renderSeries(data) {
 	const seam = histPts[histPts.length - 1];
 	const seamLine = new THREE.Mesh(
 		new THREE.PlaneGeometry(0.012, HEIGHT * 1.05),
-		new THREE.MeshBasicMaterial({ color: IBM.white, transparent: true, opacity: 0.28, side: THREE.DoubleSide }),
+		new THREE.MeshBasicMaterial({
+			color: IBM.white,
+			transparent: true,
+			opacity: 0.28,
+			side: THREE.DoubleSide,
+		}),
 	);
 	seamLine.position.set(seam.x, 0, 0);
 	seriesGroup.add(seamLine);
@@ -182,7 +196,10 @@ function renderSeries(data) {
 		const fTube = glowTube(fPts, dirColor, 0.045);
 
 		// Uncertainty ribbon: half-band grows 0 → (high-low)/2 across the horizon.
-		const halfMax = Math.max(0.06, (yOf(data.stats.forecastHigh) - yOf(data.stats.forecastLow)) / 2);
+		const halfMax = Math.max(
+			0.06,
+			(yOf(data.stats.forecastHigh) - yOf(data.stats.forecastLow)) / 2,
+		);
 		const ribGeo = new THREE.BufferGeometry();
 		const verts = [];
 		for (let i = 0; i < fPts.length; i++) {
@@ -214,7 +231,10 @@ function renderSeries(data) {
 		const fGroup = new THREE.Group();
 		fGroup.add(fTube, ribbon, endMarker);
 		fGroup.traverse((o) => {
-			if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => (m.clippingPlanes = [revealPlane]));
+			if (o.material)
+				(Array.isArray(o.material) ? o.material : [o.material]).forEach(
+					(m) => (m.clippingPlanes = [revealPlane]),
+				);
 		});
 		seriesGroup.add(fGroup);
 
@@ -281,7 +301,9 @@ function narrate(text, emotion, sentiment) {
 		}
 		if (emotion) {
 			avatar.dispatchEvent(
-				new CustomEvent('agent:action', { detail: { type: 'emote', payload: { trigger: emotion, weight: 1 } } }),
+				new CustomEvent('agent:action', {
+					detail: { type: 'emote', payload: { trigger: emotion, weight: 1 } },
+				}),
 			);
 		}
 	} else {
@@ -363,7 +385,13 @@ function applyData(data) {
 
 	if (data.stats) {
 		hud.change.textContent = fmtPct(data.stats.changePct);
-		hud.change.className = 'o-change ' + (data.stats.direction === 'down' ? 'down' : data.stats.direction === 'up' ? 'up' : 'flat');
+		hud.change.className =
+			'o-change ' +
+			(data.stats.direction === 'down'
+				? 'down'
+				: data.stats.direction === 'up'
+					? 'up'
+					: 'flat');
 		hud.horizon.textContent = `${data.stats.horizonHours}h horizon`;
 		hud.band.textContent = `${fmtPrice(data.stats.forecastLow)} – ${fmtPrice(data.stats.forecastHigh)}`;
 	} else {
@@ -379,7 +407,8 @@ function applyData(data) {
 		hud.forecastBadge.querySelector('.o-badge-sub').textContent = data.ibm.forecastModel;
 	} else {
 		hud.forecastBadge.hidden = false;
-		hud.forecastBadge.querySelector('.o-badge-sub').textContent = data.ibm?.error || data.ibm?.reason || 'forecast unavailable';
+		hud.forecastBadge.querySelector('.o-badge-sub').textContent =
+			data.ibm?.error || data.ibm?.reason || 'forecast unavailable';
 	}
 
 	if (data.governance) {
@@ -387,7 +416,11 @@ function applyData(data) {
 		const pass = data.governance.passed;
 		hud.govBadge.classList.toggle('fail', pass === false);
 		hud.govBadge.querySelector('.o-badge-sub').textContent =
-			pass === true ? `PASS · ${data.governance.risk}` : pass === false ? `FLAGGED · ${data.governance.risk}` : 'checked';
+			pass === true
+				? `PASS · ${data.governance.risk}`
+				: pass === false
+					? `FLAGGED · ${data.governance.risk}`
+					: 'checked';
 	} else {
 		hud.govBadge.hidden = true;
 	}
@@ -403,7 +436,8 @@ function applyData(data) {
 			'IBM watsonx is not configured on this deployment — the live forecast, narration, and Granite Guardian governance run in production. The chart above shows real on-chain history.';
 		hud.narration.classList.add('muted');
 	} else {
-		hud.narration.textContent = data.narration?.error || data.ibm?.error || 'Forecast complete.';
+		hud.narration.textContent =
+			data.narration?.error || data.ibm?.error || 'Forecast complete.';
 		hud.narration.classList.add('muted');
 	}
 

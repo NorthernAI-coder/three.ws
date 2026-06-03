@@ -80,7 +80,10 @@ export async function trendingPools(network = 'solana', limit = 8) {
 			name: a.name || 'Unknown',
 			baseMint: bareId(p.relationships?.base_token?.data?.id),
 			priceUsd: a.base_token_price_usd != null ? Number(a.base_token_price_usd) : null,
-			change24h: a.price_change_percentage?.h24 != null ? Number(a.price_change_percentage.h24) : null,
+			change24h:
+				a.price_change_percentage?.h24 != null
+					? Number(a.price_change_percentage.h24)
+					: null,
 		};
 	});
 }
@@ -117,8 +120,7 @@ export async function fetchOhlcv({
 		.sort((a, b) => a.t - b.t);
 
 	const meta = json?.meta || {};
-	const tokenOf = (m) =>
-		m ? { name: m.name, symbol: m.symbol, address: m.address } : null;
+	const tokenOf = (m) => (m ? { name: m.name, symbol: m.symbol, address: m.address } : null);
 
 	return {
 		candles,

@@ -240,8 +240,10 @@ function animate() {
 	renderer.render(scene, camera);
 }
 
-// Drive the 3D scene from an assessment result.
+// Drive the 3D scene from an assessment result. No-op when WebGL is unavailable
+// (the governance console still renders the full verdict, risks, and ledger).
 function applyToScene(result) {
+	if (!sceneOk) return;
 	const byKey = new Map((result.risks || []).map((r) => [r.risk, r]));
 	for (const n of nodes) {
 		const r = byKey.get(n.key);

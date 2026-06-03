@@ -20,7 +20,12 @@ const samplingProps = {
 		maximum: 2,
 		description: 'Sampling temperature. 0 is greedy/deterministic.',
 	},
-	top_p: { type: 'number', minimum: 0, maximum: 1, description: 'Nucleus sampling probability mass.' },
+	top_p: {
+		type: 'number',
+		minimum: 0,
+		maximum: 1,
+		description: 'Nucleus sampling probability mass.',
+	},
 };
 
 // Build a chat `parameters` object from loose tool args, omitting unset keys.
@@ -35,7 +40,9 @@ function chatParams({ max_tokens, temperature, top_p }) {
 // Render a JSON object as a pretty MCP text block plus structuredContent, so
 // both humans and programmatic clients get a usable result.
 function jsonResult(structured, summary) {
-	const text = summary ? `${summary}\n\n${JSON.stringify(structured, null, 2)}` : JSON.stringify(structured, null, 2);
+	const text = summary
+		? `${summary}\n\n${JSON.stringify(structured, null, 2)}`
+		: JSON.stringify(structured, null, 2);
 	return { content: [{ type: 'text', text }], structuredContent: structured };
 }
 
@@ -65,7 +72,8 @@ export function buildTools(client) {
 						},
 						model: {
 							type: 'string',
-							description: 'Override the model id (default: the server WATSONX_MODEL_ID).',
+							description:
+								'Override the model id (default: the server WATSONX_MODEL_ID).',
 						},
 						...samplingProps,
 					},
@@ -111,7 +119,8 @@ export function buildTools(client) {
 						},
 						model: {
 							type: 'string',
-							description: 'Override the forecasting model (default ibm/granite-ttm-512-96-r2).',
+							description:
+								'Override the forecasting model (default ibm/granite-ttm-512-96-r2).',
 						},
 						target_column: {
 							type: 'string',
@@ -136,7 +145,10 @@ export function buildTools(client) {
 					targetColumn: args.target_column,
 					predictionLength: args.prediction_length,
 				});
-				return jsonResult(result, `Forecast ${result.values.length} steps with ${result.model}.`);
+				return jsonResult(
+					result,
+					`Forecast ${result.values.length} steps with ${result.model}.`,
+				);
 			},
 		},
 
@@ -216,7 +228,7 @@ export function buildTools(client) {
 				name: 'watsonx_tokenize',
 				description:
 					'Count tokens (and optionally return them) for a text against a model ' +
-					"tokenizer. Use to budget context and cost before a generation call.",
+					'tokenizer. Use to budget context and cost before a generation call.',
 				inputSchema: {
 					type: 'object',
 					properties: {
@@ -260,7 +272,10 @@ export function buildTools(client) {
 			},
 			handler: async (args) => {
 				const models = await client.listModels({ filter: args.filter, limit: args.limit });
-				return jsonResult({ count: models.length, models }, `${models.length} model(s) available.`);
+				return jsonResult(
+					{ count: models.length, models },
+					`${models.length} model(s) available.`,
+				);
 			},
 		},
 	];

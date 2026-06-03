@@ -130,7 +130,9 @@ export class WatsonxClient {
 			return await fetch(url, { ...init, signal: controller.signal });
 		} catch (err) {
 			if (err.name === 'AbortError') {
-				throw new WatsonxError(`Request to ${url} timed out after ${this.config.timeoutMs}ms.`);
+				throw new WatsonxError(
+					`Request to ${url} timed out after ${this.config.timeoutMs}ms.`,
+				);
 			}
 			throw new WatsonxError(`Network error calling ${url}: ${err.message}`);
 		} finally {
@@ -182,7 +184,8 @@ export class WatsonxClient {
 
 	_upstreamError(status, data) {
 		const first = Array.isArray(data?.errors) ? data.errors[0] : null;
-		const message = first?.message || data?.message || data?._raw || 'watsonx.ai request failed';
+		const message =
+			first?.message || data?.message || data?._raw || 'watsonx.ai request failed';
 		return new WatsonxError(`watsonx.ai error (${status}): ${message}`, {
 			status,
 			detail: first?.code || data?.trace || undefined,
@@ -245,14 +248,23 @@ export class WatsonxClient {
 	// series; the series length must meet the model's context window (e.g. 512).
 	// `freq` is a pandas-style cadence ('1h', '15min', '1D'). Returns the forecast
 	// horizon as { model, timestamps, values, inputWindow }.
-	async forecast({ timestamps, values, freq, model, targetColumn = 'value', predictionLength } = {}) {
+	async forecast({
+		timestamps,
+		values,
+		freq,
+		model,
+		targetColumn = 'value',
+		predictionLength,
+	} = {}) {
 		if (
 			!Array.isArray(timestamps) ||
 			!Array.isArray(values) ||
 			timestamps.length !== values.length ||
 			values.length === 0
 		) {
-			throw new WatsonxError('forecast: timestamps and values must be equal-length, non-empty arrays');
+			throw new WatsonxError(
+				'forecast: timestamps and values must be equal-length, non-empty arrays',
+			);
 		}
 		const data = await this._post(
 			'/ml/v1/time_series/forecast',
@@ -260,7 +272,9 @@ export class WatsonxClient {
 				model_id: model || this.config.forecastModel,
 				schema: { timestamp_column: 'date', freq, target_columns: [targetColumn] },
 				data: { date: timestamps, [targetColumn]: values },
-				...(predictionLength ? { parameters: { prediction_length: predictionLength } } : {}),
+				...(predictionLength
+					? { parameters: { prediction_length: predictionLength } }
+					: {}),
 			},
 			this.config.tsApiVersion,
 		);

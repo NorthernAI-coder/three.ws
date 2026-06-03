@@ -72,7 +72,9 @@ export async function watsonxForecast(
 		timestamps.length !== values.length ||
 		values.length === 0
 	) {
-		throw new Error('watsonxForecast: timestamps and values must be equal-length, non-empty arrays');
+		throw new Error(
+			'watsonxForecast: timestamps and values must be equal-length, non-empty arrays',
+		);
 	}
 	const modelId = model || cfg.forecastModel || forecastModelFor(values.length);
 	const data = await post(

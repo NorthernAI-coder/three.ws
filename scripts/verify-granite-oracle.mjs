@@ -9,7 +9,11 @@
 
 import { fetchOhlcv, trendingPools } from '../api/_lib/market/ohlcv.js';
 import { watsonxConfig, watsonxChatComplete } from '../api/_lib/watsonx.js';
-import { watsonxForecast, watsonxGuardian, forecastModelFor } from '../api/_lib/watsonx-forecast.js';
+import {
+	watsonxForecast,
+	watsonxGuardian,
+	forecastModelFor,
+} from '../api/_lib/watsonx-forecast.js';
 
 const log = (...a) => console.log(...a);
 const iso = (t) => new Date(t * 1000).toISOString();
@@ -28,7 +32,9 @@ async function main() {
 		aggregate: 1,
 		limit: 1000,
 	});
-	log(`   ${candles.length} hourly candles · base=${base?.symbol} · freq=${freq} · last=$${candles.at(-1).c}`);
+	log(
+		`   ${candles.length} hourly candles · base=${base?.symbol} · freq=${freq} · last=$${candles.at(-1).c}`,
+	);
 	if (candles.length < 512) log('   ⚠ fewer than 512 candles — Granite TimeSeries needs ≥512');
 
 	const cfg = watsonxConfig();
@@ -61,7 +67,10 @@ async function main() {
 	const n = await watsonxChatComplete(cfg, {
 		messages: [
 			{ role: 'system', content: 'You are a terse market oracle. One sentence, no advice.' },
-			{ role: 'user', content: `${base?.symbol}: current $${cur}, forecast end $${end} (${pct}%).` },
+			{
+				role: 'user',
+				content: `${base?.symbol}: current $${cur}, forecast end $${end} (${pct}%).`,
+			},
 		],
 		maxTokens: 80,
 	});

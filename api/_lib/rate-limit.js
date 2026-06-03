@@ -180,9 +180,6 @@ export const limits = {
 	memorySeed: (agentId) => getLimiter('memory:seed', { limit: 1, window: '1 d' }).limit(agentId),
 	// Edge TTS: free upstream but cached in R2 — limit unique synthesis requests per user/min.
 	ttsEdge: (userId) => getLimiter('tts:edge', { limit: 20, window: '1 m' }).limit(userId),
-	// Granite Oracle forecast: each call hits Birdeye + two paid watsonx inferences
-	// (Granite TS forecast + Granite LLM commentary), so cap per IP.
-	forecastIp: (ip) => getLimiter('forecast:ip', { limit: 15, window: '1 m' }).limit(ip),
 	// X (Twitter) memory seeding: 1 seed per agent per 6 hours.
 	xSeed: (agentId) => getLimiter('memory:seed:x', { limit: 1, window: '6 h' }).limit(agentId),
 	// Withdrawal requests: 5 per user per day to prevent spam.

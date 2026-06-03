@@ -75,7 +75,12 @@ export default wrap(async (req, res) => {
 		pool = await topPoolForToken(token, network);
 	}
 	if (!pool || !isBase58(pool)) {
-		return error(res, 400, 'bad_request', 'provide ?pool=<addr> or ?token=<mint>, or ?list=trending');
+		return error(
+			res,
+			400,
+			'bad_request',
+			'provide ?pool=<addr> or ?token=<mint>, or ?list=trending',
+		);
 	}
 
 	const timeframe = ['minute', 'hour', 'day'].includes(params.get('timeframe'))
@@ -92,7 +97,12 @@ export default wrap(async (req, res) => {
 		limit: 1000,
 	});
 	if (candles.length < 64) {
-		return error(res, 422, 'insufficient_history', 'not enough candle history to chart this pool');
+		return error(
+			res,
+			422,
+			'insufficient_history',
+			'not enough candle history to chart this pool',
+		);
 	}
 
 	const tokenMeta = {
@@ -125,8 +135,8 @@ export default wrap(async (req, res) => {
 
 	// ── Granite TimeSeries forecast ──────────────────────────────────────────
 	// Fill the largest context window the history supports, then send exactly
-	// that window (TTM requires the input length to equal the model's context).
-	const window = candles.length >= 1536 ? 1536 : candles.length >= 1024 ? 1024 : 512;
+	// that many points (TTM requires the input length to equal the model's context).
+	const ctxLen = candles.length >= 1536 ? 1536 : candles.length >= 1024 ? 1024 : 512;
 	if (candles.length < 512) {
 		out.ibm = {
 			configured: true,
@@ -134,10 +144,10 @@ export default wrap(async (req, res) => {
 		};
 		return json(res, 200, out, { 'cache-control': 'public, max-age=20' });
 	}
-	const slice = candles.slice(-window);
+	const slice = candles.slice(-ctxLen);
 	const timestamps = slice.map((c) => isoOf(c.t));
 	const values = slice.map((c) => c.c);
-	const forecastModel = forecastModelFor(window);
+	const forecastModel = forecastModelFor(ctxLen);
 
 	try {
 		const fc = await watsonxForecast(cfg, {
@@ -160,7 +170,8 @@ export default wrap(async (req, res) => {
 			forecastLow: Math.min(...fVals),
 			forecastHigh: Math.max(...fVals),
 			changePct: ((forecastEnd - currentPrice) / currentPrice) * 100,
-			direction: forecastEnd > currentPrice ? 'up' : forecastEnd < currentPrice ? 'down' : 'flat',
+			direction:
+				forecastEnd > currentPrice ? 'up' : forecastEnd < currentPrice ? 'down' : 'flat',
 			horizonHours: timeframe === 'hour' ? forecast.length * aggregate : forecast.length,
 		};
 		out.forecast = forecast;
@@ -184,7 +195,12 @@ export default wrap(async (req, res) => {
 			out.narration = { text: n.text, model: n.model };
 			try {
 				const g = await watsonxGuardian(cfg, { text: n.text, risk: 'harm' });
-				out.governance = { passed: !g.flagged, risk: g.risk, label: g.label, model: g.model };
+				out.governance = {
+					passed: !g.flagged,
+					risk: g.risk,
+					label: g.label,
+					model: g.model,
+				};
 			} catch (gErr) {
 				out.governance = { passed: null, error: String(gErr.message || gErr) };
 			}

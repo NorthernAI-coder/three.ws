@@ -221,8 +221,10 @@ export class AttestationLedger {
 			turn,
 			governance,
 		});
+		// Only `signature` is added post-hash; receiptBody() strips it on verify.
+		// The signing algorithm travels in the exported header, not per receipt,
+		// so it never pollutes the hashed body.
 		receipt.signature = await this.signer.sign(receipt.hash);
-		receipt.signerAlg = this.signer.alg;
 		this.receipts.push(receipt);
 		return receipt;
 	}
