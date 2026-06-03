@@ -10,6 +10,8 @@
  * so the module is self-contained.
  */
 
+import { onchainBadgeHTML } from './shared/onchain-badge.js';
+
 const API = '/api';
 const $ = (id) => document.getElementById(id);
 
@@ -299,9 +301,14 @@ function renderCreatorModal(payload, deps) {
 			const thumb = a.thumbnail_url
 				? `<div class="thumb" style="background-image:url('${escapeHtml(a.thumbnail_url)}')"></div>`
 				: `<div class="thumb">${escapeHtml(initial(a.name))}</div>`;
+			// Non-link badge: the whole card is clickable (navigates to the agent),
+			// so a nested explorer anchor would double-fire. The explorer link lives
+			// on the agent detail page this card opens.
+			const onchain = onchainBadgeHTML(a, { link: false, size: 'sm' });
 			return `<div class="creator-mini-card" data-agent-id="${escapeHtml(a.id)}">
 				${thumb}
 				<div class="name">${escapeHtml(a.name)}</div>
+				${onchain ? `<div class="meta">${onchain}</div>` : ''}
 				<div class="meta">⊙ ${fmtNumber(a.views_count)} · ⑂ ${fmtNumber(a.forks_count)}</div>
 			</div>`;
 		}).join('');

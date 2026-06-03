@@ -122,7 +122,10 @@ const SOLANA_ENTRIES = {
  * @returns {ChainEntry[]}
  */
 export function buildRegistry(evmMeta, evmDeployments) {
-	const entries = [];
+	// Solana mainnet leads — it's the default deploy target (Metaplex Core), so
+	// it sits at the top of the Mainnets group rather than buried under the EVM
+	// chains. Devnet is appended last and lands in the Testnets group.
+	const entries = [SOLANA_ENTRIES.mainnet];
 	for (const [idStr, meta] of Object.entries(evmMeta || {})) {
 		const id = Number(idStr);
 		if (!evmDeployments?.[id]) continue;
@@ -135,7 +138,7 @@ export function buildRegistry(evmMeta, evmDeployments) {
 			explorerAddress: (a) => `${meta.explorer}/address/${a}`,
 		});
 	}
-	entries.push(SOLANA_ENTRIES.mainnet, SOLANA_ENTRIES.devnet);
+	entries.push(SOLANA_ENTRIES.devnet);
 	return entries;
 }
 

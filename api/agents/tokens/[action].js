@@ -21,6 +21,7 @@ import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
 import { env } from '../../_lib/env.js';
 import { r2, publicUrl } from '../../_lib/r2.js';
+import { buildTokenMetadata, agentHomeUrl } from '../../_lib/three-brand.js';
 
 // Heavy SDKs (Solana web3, Pump.fun, AWS S3 commands) are dynamic-imported
 // inside the handlers that need them. Loading them at module top-level was
@@ -78,18 +79,16 @@ const launchPrepSchema = z.object({
 		.regex(/^[A-Za-z0-9]+$/, 'symbol must be alphanumeric'),
 	description: z.string().trim().max(280).default(''),
 	image: z.string().url().or(z.literal('')).default(''),
+	// Optional socials surfaced on the pump.fun coin page. When omitted, the
+	// metadata still links back to three.ws + the agent profile + our X.
+	website: z.string().url().or(z.literal('')).default(''),
+	twitter: z.string().url().or(z.literal('')).default(''),
+	telegram: z.string().url().or(z.literal('')).default(''),
 	initial_buy_sol: z.number().min(0).max(50).default(0),
 });
 
-async function pinTokenMetadata({ name, symbol, description, image }) {
-	const json = {
-		name,
-		symbol,
-		description,
-		image,
-		showName: true,
-		createdOn: 'three.ws',
-	};
+async function pinTokenMetadata(meta) {
+	const json = buildTokenMetadata(meta);
 	const bytes = Buffer.from(JSON.stringify(json), 'utf-8');
 	const token = process.env.WEB3_STORAGE_TOKEN;
 	if (token) {
@@ -162,12 +161,19 @@ async function handleLaunchPrep(req, res) {
 		return error(res, 409, 'conflict', 'agent already has a launched token');
 	}
 
-	// 3. Pin token metadata
+	// 3. Pin token metadata — links the coin back to three.ws, the agent
+	// profile, our X, and the $THREE coin.
 	const { cid, uri: metadataUri } = await pinTokenMetadata({
 		name: body.name,
 		symbol: body.symbol,
 		description: body.description,
 		image: body.image,
+		website: body.website,
+		twitter: body.twitter,
+		telegram: body.telegram,
+		agentUrl: agentHomeUrl(agent.id),
+		creatorAddress: body.wallet_address,
+		createdAt: new Date().toISOString(),
 	});
 
 	// 4. Build the launch tx
@@ -260,6 +266,9 @@ async function handleLaunchPrep(req, res) {
 				symbol: body.symbol,
 				description: body.description,
 				image: body.image,
+				website: body.website || '',
+				twitter: body.twitter || '',
+				telegram: body.telegram || '',
 				initial_buy_sol: body.initial_buy_sol,
 				wallet_address: body.wallet_address,
 			})}::jsonb,
@@ -358,6 +367,9 @@ async function handleLaunchConfirm(req, res) {
 		creator: body.wallet_address,
 		tx_signature: body.tx_signature,
 		launched_at: new Date().toISOString(),
+		...(prep.payload.website ? { website: prep.payload.website } : {}),
+		...(prep.payload.twitter ? { twitter: prep.payload.twitter } : {}),
+		...(prep.payload.telegram ? { telegram: prep.payload.telegram } : {}),
 		...(prep.cluster === 'mainnet'
 			? { pumpfun_url: `https://pump.fun/${prep.mint}` }
 			: {

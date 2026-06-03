@@ -1074,6 +1074,7 @@
 			import { AgentSkills } from '/src/agent-skills.js';
 			import { AgentHome } from '/src/agent-home.js';
 			import { protocol } from '/src/agent-protocol.js';
+			import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
 
 			const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 			const rawSeg = location.pathname.split('/').filter(Boolean).pop() || '';
@@ -1098,7 +1099,7 @@
 						<img src="${escapeHtml(avatarUrl)}" class="my-agents-card-icon" alt="${name} avatar" onerror="this.src='/three.svg'">
 						<div class="my-agents-card-title">${name}</div>
 						<div class="my-agents-card-desc">${escapeHtml(agent.description || 'No description')}</div>
-						${agent.onchain ? '<div class="my-agents-card-badge">On-chain</div>' : ''}
+						${onchainBadgeHTML(agent, { link: false })}
 					`;
 					grid.appendChild(card);
 				}

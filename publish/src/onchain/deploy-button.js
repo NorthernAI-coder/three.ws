@@ -27,7 +27,9 @@ import {
 import { deployAgent } from './deploy.js';
 import { isUserRejection } from './adapters/index.js';
 
-const DEFAULT_REF_CAIP2 = 'eip155:8453'; // Base mainnet
+// Solana mainnet-beta. Deploying here mints the agent as a Metaplex Core asset
+// (see api/agents/onchain prepSolana), which is our default on-chain home.
+const DEFAULT_REF_CAIP2 = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 
 const STEP_LABELS = {
 	connect: 'Connecting wallet',
@@ -51,7 +53,7 @@ export class OnchainDeployButton {
 	 * @param {object} opts
 	 * @param {object} opts.agent
 	 * @param {HTMLElement} opts.container
-	 * @param {string} [opts.preferredChain]   CAIP-2 string. Defaults to Base mainnet.
+	 * @param {string} [opts.preferredChain]   CAIP-2 string. Defaults to Solana mainnet (Metaplex Core).
 	 */
 	constructor({ agent, container, preferredChain = DEFAULT_REF_CAIP2 }) {
 		this._agent = agent;

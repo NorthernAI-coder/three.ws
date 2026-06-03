@@ -78,6 +78,16 @@
 	font-size: 0.62rem;
 	color: rgba(255, 255, 255, 0.25);
 }
+.ltm-brand-note {
+	margin: 0;
+	font-size: 0.66rem;
+	line-height: 1.4;
+	color: rgba(120, 200, 140, 0.7);
+	background: rgba(120, 200, 140, 0.06);
+	border: 1px solid rgba(120, 200, 140, 0.16);
+	border-radius: 8px;
+	padding: 0.5rem 0.7rem;
+}
 .ltm-input,
 .ltm-textarea {
 	background: rgba(255, 255, 255, 0.05);

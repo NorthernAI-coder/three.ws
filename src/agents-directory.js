@@ -13,6 +13,7 @@ import {
 } from './erc8004/queries.js';
 import { CHAIN_META } from './erc8004/chain-meta.js';
 import { REGISTRY_DEPLOYMENTS } from './erc8004/abi.js';
+import { onchainBadgeHTML } from './shared/onchain-badge.js';
 
 const CACHE_TTL_MS = 60000;
 const ITEMS_PER_PAGE = 24;
@@ -281,6 +282,11 @@ export class AgentsDirectory {
 			)
 			.join('');
 
+		// Every directory agent is on-chain — surface the canonical badge (chain +
+		// explorer link) so the indicator matches the rest of the platform. The
+		// ERC-8004 shape uses `id`/`chainId`; map `id` → `agentId` for detection.
+		const onchainBadge = onchainBadgeHTML({ ...agent, agentId: agent.id });
+
 		return `
 			<div class="agent-card" data-agent-id="${agent.id}" data-chain-id="${agent.chainId}">
 				<div class="card-head">
@@ -300,6 +306,7 @@ export class AgentsDirectory {
 					</div>
 				</div>
 				<p class="card-desc">${cleanDesc}${agent.description.length > 140 ? '…' : ''}</p>
+				${onchainBadge ? `<div class="card-onchain">${onchainBadge}</div>` : ''}
 				${protoBadges || overflow ? `<div class="card-protos">${protoBadges}${overflow}</div>` : ''}
 				${trustPills ? `<div class="card-trust">${trustPills}</div>` : ''}
 				${
@@ -325,6 +332,9 @@ export class AgentsDirectory {
 	_attachEventListeners() {
 		this.container.querySelectorAll('.agent-card').forEach((card) => {
 			card.addEventListener('click', (e) => {
+				// Let the on-chain badge open the block explorer without also
+				// triggering card navigation.
+				if (e.target.closest('a.tws-ocb')) return;
 				const copyTarget = e.target.closest('[data-copy]');
 				if (copyTarget) {
 					e.stopPropagation();

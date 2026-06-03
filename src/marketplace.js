@@ -16,6 +16,7 @@ import {
 	bindMobileSidebar,
 	bindDetailExtras,
 } from './marketplace-detail.js';
+import { onchainBadgeHTML } from './shared/onchain-badge.js';
 
 const API = '/api';
 
@@ -993,7 +994,18 @@ function renderGrid() {
 	if (hasMore) _setupInfiniteScroll();
 
 	els.grid.querySelectorAll('[data-id]').forEach((card) => {
-		card.addEventListener('click', () => navTo(`/marketplace/agents/${card.dataset.id}`));
+		card.addEventListener('click', (e) => {
+			// Inner links (e.g. the on-chain badge → explorer) handle their own
+			// navigation; don't also route to the agent detail page.
+			if (e.target.closest('a')) return;
+			const star = e.target.closest('.card-star');
+			if (star) {
+				e.stopPropagation();
+				toggleAgentBookmarkFromCard(star.dataset.agentBm || '', star);
+				return;
+			}
+			navTo(`/marketplace/agents/${card.dataset.id}`);
+		});
 	});
 	els.grid.querySelectorAll('[data-avatar-id]').forEach((card) => {
 		card.addEventListener('click', (e) => {
@@ -3741,6 +3753,7 @@ function renderCard(a) {
 			: `<div class="thumb">${placeholderHtml(a.name)}</div>`;
 	const bmOn = bookmarkedAgents.has(a.id);
 	const starBtn = `<button type="button" class="card-star${bmOn ? ' on' : ''}" data-agent-bm="${escapeHtml(a.id)}" aria-label="Bookmark agent" aria-pressed="${bmOn}" title="${bmOn ? 'Remove bookmark' : 'Bookmark agent'}">${bmOn ? '★' : '☆'}</button>`;
+	const onchainBadge = onchainBadgeHTML(a);
 	return `<div class="market-card-agent" data-id="${a.id}">
 		${previewStrip}
 		${priceBadge}
@@ -3754,6 +3767,7 @@ function renderCard(a) {
 		</div>
 		<div class="desc">${escapeHtml(a.description || '')}</div>
 		<div class="stats">
+			${onchainBadge}
 			<span class="stat-pill">⊙ ${fmtNumber(views)}</span>
 			<span class="stat-pill">⑂ ${fmtNumber(forks)}</span>
 			${skillsCount ? `<span class="stat-pill">▤ ${skillsCount}</span>` : ''}

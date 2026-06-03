@@ -3,6 +3,7 @@
 
 import { mountAgentSolanaWalletCard } from '/src/agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from '/src/agent-vanity-grinder.js';
+import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
 
 export const state = { user: null };
 
@@ -268,36 +269,6 @@ const tabs = {
 // ── Agents ──────────────────────────────────────────────────────────────────
 // On-chain agents discovered from linked wallets live at /my-agents.
 
-const AGENT_CHAIN_NAMES = {
-	1: 'Ethereum',
-	10: 'Optimism',
-	56: 'BNB Chain',
-	97: 'BSC Testnet',
-	100: 'Gnosis',
-	137: 'Polygon',
-	250: 'Fantom',
-	324: 'zkSync Era',
-	1284: 'Moonbeam',
-	5000: 'Mantle',
-	8453: 'Base',
-	42161: 'Arbitrum',
-	42220: 'Celo',
-	43113: 'Avalanche Fuji',
-	43114: 'Avalanche',
-	59144: 'Linea',
-	80002: 'Polygon Amoy',
-	84532: 'Base Sepolia',
-	421614: 'Arb Sepolia',
-	534352: 'Scroll',
-	11155111: 'Sepolia',
-	11155420: 'OP Sepolia',
-};
-
-function agentChainName(id) {
-	if (id == null) return '';
-	return AGENT_CHAIN_NAMES[Number(id)] || `Chain ${id}`;
-}
-
 async function renderAgents(root) {
 	root.innerHTML = `
 		<div class="widgets-header">
@@ -364,9 +335,9 @@ function agentCard(a, onRemoved) {
 	const el = document.createElement('div');
 	el.className = 'card';
 
-	const onchainBadge = a.is_registered
-		? `<span class="tag" title="Registered on-chain (ERC-8004)" style="background:rgba(106,92,255,0.18); color:#cfc6ff;">on-chain${a.chain_id ? ' · ' + esc(agentChainName(a.chain_id)) : ''}</span>`
-		: `<span class="tag" title="Not yet registered on-chain">off-chain</span>`;
+	const onchainBadge =
+		onchainBadgeHTML(a) ||
+		`<span class="tag" title="Not yet deployed on-chain">off-chain</span>`;
 	const skillCount = (a.skills || []).length;
 	const wallet = a.wallet_address
 		? `${a.wallet_address.slice(0, 6)}…${a.wallet_address.slice(-4)}`

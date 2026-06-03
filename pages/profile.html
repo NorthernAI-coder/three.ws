@@ -794,6 +794,7 @@
 
 		<script type="module">
 			import { mountUserProfile } from '/src/erc8004/user-profile.js';
+			import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
 
 			const esc = (s) =>
 				String(s ?? '').replace(
@@ -1172,6 +1173,7 @@
 							<div class="up-card-row-body">
 								<div class="up-card-row-head">
 									<h3 class="up-card-row-name">${esc(a.name)}</h3>
+									${onchainBadgeHTML(a, { link: false })}
 								</div>
 								${a.description ? `<p class="up-card-row-desc">${esc(a.description)}</p>` : ''}
 								${meta.length ? `<div class="up-card-row-meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div>` : ''}

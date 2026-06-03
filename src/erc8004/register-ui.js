@@ -31,7 +31,6 @@ import { renderBatchTab } from './batch-tab.js';
 import { renderQRToCanvas } from './qr.js';
 import {
 	CHAIN_META,
-	DEFAULT_CHAIN_ID,
 	switchChain,
 	addressExplorerUrl,
 	tokenExplorerUrl,
@@ -322,11 +321,13 @@ export class RegisterUI {
 		// Wallet state
 		this.wallet = null; // { address, chainId }
 
-		// Selected chain for reads + writes. Initialized to BSC Testnet; if the
-		// wallet is already on a different supported chain, we'll adopt that.
+		// Selected chain for reads + writes. Defaults to Solana mainnet, where a
+		// deploy mints the agent as a Metaplex Core asset. Because the Solana
+		// default is non-EVM, the wallet-chain adoption below leaves it intact
+		// unless the user explicitly picks an EVM chain.
 		// `initial.network` (from ?network= URL param) overrides the default
 		// when it maps to a known chain.
-		this.selectedChainId = _resolveNetworkArg(opts.initial?.network) ?? DEFAULT_CHAIN_ID;
+		this.selectedChainId = _resolveNetworkArg(opts.initial?.network) ?? SOLANA_MAINNET;
 
 		// Tab state
 		this.activeTab = opts.initialTab || 'create';
@@ -1667,7 +1668,7 @@ export class RegisterUI {
 					? `<div class="erc8004-alert">No Solana wallet detected. Install <a class="erc8004-link" href="https://phantom.app" target="_blank" rel="noopener">Phantom</a> to deploy.</div>`
 					: ''
 			}
-			<div class="erc8004-alert" style="background:#fff8e1;border-color:#ffd54f;color:#5d4037">
+			<div class="erc8004-alert erc8004-alert--note">
 				<b>Note:</b> your Solana wallet must already be linked to this account
 				(via Sign-In-with-Solana). If you haven't, <a class="erc8004-link" href="/login.html">link it first</a>.
 			</div>

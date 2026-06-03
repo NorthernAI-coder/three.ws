@@ -25,6 +25,7 @@ const solanaWeb3 = {
 	clusterApiUrl,
 };
 import { openSwapModal } from './swap-jupiter.js';
+import { onchainBadgeEl } from './shared/onchain-badge.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -143,6 +144,15 @@ function render(agent) {
 	const status = $('ad-status');
 	status.textContent = agent.active ? 'Active' : 'Inactive';
 	status.classList.toggle('ad-status-inactive', !agent.active);
+
+	// On-chain badge sits beside the live/inactive status. Re-rendered safely if
+	// render() runs twice (e.g. avatar refresh) — drop any prior badge first.
+	document.getElementById('ad-onchain-badge')?.remove();
+	const onchainBadge = onchainBadgeEl(agent.rawMetadata || agent, { size: 'md' });
+	if (onchainBadge) {
+		onchainBadge.id = 'ad-onchain-badge';
+		status.insertAdjacentElement('afterend', onchainBadge);
+	}
 
 	$('ad-id-short').textContent = shortAddr(agent.id);
 	$('ad-id-short').dataset.full = agent.id;

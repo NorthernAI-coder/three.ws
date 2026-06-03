@@ -39,6 +39,7 @@ export default wrap(async (req, res) => {
 			SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id,
 			       ai.forks_count, ai.views_count, ai.published_at, ai.created_at, ai.skills,
 			       av.thumbnail_key,
+			       ai.meta->'onchain' AS onchain,
 			       EXISTS (
 			         SELECT 1 FROM agent_skill_prices asp
 			         WHERE asp.agent_id = ai.id AND asp.is_active = true
@@ -81,6 +82,8 @@ export default wrap(async (req, res) => {
 		views_count: a.views_count || 0,
 		published_at: a.published_at,
 		has_paid_skills: a.has_paid_skills || false,
+		// Public on-chain block so the creator modal shows the same deployed badge.
+		onchain: a.onchain || null,
 	}));
 
 	const avatars = avatarRows.map((a) => ({

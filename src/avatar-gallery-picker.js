@@ -17,6 +17,7 @@
  */
 
 import './avatar-gallery-picker.css';
+import { onchainBadgeHTML } from './shared/onchain-badge.js';
 
 const PAGE_SIZE = 24;
 
@@ -408,12 +409,16 @@ export class AvatarGalleryPicker {
 			`<span class="agp-card-chip">${esc(t)}</span>`).join('');
 
 		const views = Number(a.view_count) || 0;
+		// The card is a <button>, so render a non-link badge (no nested anchor /
+		// click conflict). The explorer link lives on the agent's own pages.
+		const onchain = onchainBadgeHTML(a, { link: false, size: 'sm', showChain: false });
 
 		card.innerHTML = `
 			<div class="agp-card-thumb">${thumb}</div>
 			<div class="agp-card-body">
 				<div class="agp-card-name">${esc(a.name || 'Untitled')}</div>
 				<div class="agp-card-meta">
+					${onchain}
 					${tags}
 					${views ? `<span class="agp-card-chip">${compact.format(views)} views</span>` : ''}
 				</div>

@@ -228,13 +228,24 @@ export async function searchPublicAvatars({ q, tag, limit = 24, cursor, withTota
 	// usdz_key / halfbody_key are intentionally NOT selected here yet — see the
 	// matching comment in listAvatars(). decorate() returns null for both when
 	// the columns are absent from the row.
+	// Surface the on-chain status of the agent this avatar represents so the
+	// public gallery can show the same "deployed on-chain" badge as everywhere
+	// else. Only the public `meta->'onchain'` block is exposed (never secrets);
+	// a deployed agent is preferred over an undeployed one for the same avatar.
 	const rows = await sql(
-		`select id, owner_id, slug, name, description, storage_key, thumbnail_key,
-		        appearance, appearance_hash, baked_storage_key, baked_at,
-		        size_bytes,
-		        content_type, source, visibility, tags, view_count, created_at
-		 from avatars where ${conds.join(' and ')}
-		 order by created_at desc limit $${params.length}`,
+		`select av.id, av.owner_id, av.slug, av.name, av.description, av.storage_key, av.thumbnail_key,
+		        av.appearance, av.appearance_hash, av.baked_storage_key, av.baked_at,
+		        av.size_bytes,
+		        av.content_type, av.source, av.visibility, av.tags, av.view_count, av.created_at,
+		        ai.id as agent_id, ai.onchain as agent_onchain
+		 from avatars av
+		 left join lateral (
+		   select id, meta->'onchain' as onchain from agent_identities
+		   where avatar_id = av.id and owner_id = av.owner_id and deleted_at is null
+		   order by (meta->'onchain') is not null desc, created_at asc limit 1
+		 ) ai on true
+		 where ${conds.join(' and ')}
+		 order by av.created_at desc limit $${params.length}`,
 		params,
 	);
 	const hasMore = rows.length > limit;
@@ -353,6 +364,10 @@ function decorate(row) {
 		baked_at: row.baked_at || null,
 		agent_id: row.agent_id || null,
 		agent_wallet_address: row.agent_wallet_address || null,
+		// On-chain block of the agent this avatar represents (public gallery only;
+		// null for callers whose query doesn't join it). Shape mirrors meta.onchain
+		// so the shared onchain badge can read it directly via `{ onchain }`.
+		onchain: row.agent_onchain || null,
 	};
 }
 

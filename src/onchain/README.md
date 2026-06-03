@@ -39,7 +39,7 @@ import { OnchainDeployButton } from 'src/onchain/deploy-button.js';
 const btn = new OnchainDeployButton({
   agent,                          // { id, name, description?, avatarId?, onchain? }
   container: document.querySelector('#deploy'),
-  preferredChain: 'eip155:8453',  // CAIP-2; default Base mainnet
+  preferredChain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',  // CAIP-2; default Solana mainnet (Metaplex Core)
 });
 btn.mount();
 ```

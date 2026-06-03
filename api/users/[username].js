@@ -47,7 +47,9 @@ export default wrap(async (req, res) => {
 			       wallet_address, chain_id, erc8004_agent_id, x_username,
 			       farcaster_fname, created_at,
 			       meta->>'solana_address' as solana_address,
-			       meta->>'sns_domain'     as sns_domain
+			       meta->>'sns_domain'     as sns_domain,
+			       meta->'onchain'         as onchain,
+			       meta->'token'           as token
 			from agent_identities
 			where user_id = ${user.id}
 			  and is_public = true
@@ -130,6 +132,8 @@ export default wrap(async (req, res) => {
 		wallet_address: a.wallet_address,
 		chain_id: a.chain_id,
 		erc8004_agent_id: a.erc8004_agent_id ? String(a.erc8004_agent_id) : null,
+		onchain: a.onchain || null,
+		token: a.token || null,
 		x_username: a.x_username,
 		farcaster_fname: a.farcaster_fname,
 		solana_address: a.solana_address,

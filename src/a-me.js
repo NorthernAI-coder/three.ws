@@ -13,6 +13,8 @@
 //   GET /api/agents/:id/reputation
 //   GET /api/billing/summary
 
+import { onchainBadgeHTML } from './shared/onchain-badge.js';
+
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 
 function esc(s) {
@@ -217,7 +219,7 @@ function renderAgentCards(host, agents, avatars) {
 		const name = esc(a.name || a.display_name || 'Unnamed');
 		const tagline = esc((a.persona?.tagline || a.tagline || '').slice(0, 120));
 		const wallet = a.wallet_address || a.solana_address || '';
-		const onchain = a.onchain_id || a.erc8004_id || a.chain_id;
+		const onchainBadge = onchainBadgeHTML(a);
 		const pumpMint = a.meta?.pumpfun?.mint || a.meta?.token?.mint;
 		const created = a.created_at ? relTime(a.created_at) : '';
 		const avatarId = a.avatar_id || '';
@@ -235,7 +237,7 @@ function renderAgentCards(host, agents, avatars) {
 						<div class="ame-agent-name">${name}</div>
 						${tagline ? `<div class="ame-agent-tagline">${tagline}</div>` : ''}
 						<div class="ame-agent-meta">
-							${onchain ? `<span class="ame-tag ok">on-chain</span>` : `<span class="ame-tag">off-chain</span>`}
+							${onchainBadge || `<span class="ame-tag">off-chain</span>`}
 							${pumpMint ? `<span class="ame-tag pump">pump.fun</span>` : ''}
 							${created ? `<span class="ame-meta-text">${esc(created)}</span>` : ''}
 						</div>

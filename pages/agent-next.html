@@ -785,6 +785,7 @@
 
 	<script type="module">
 		import { openSelfieModal } from '/src/selfie-modal.js';
+		import { onchainBadgeHTML, getOnchainStatus } from '/src/shared/onchain-badge.js';
 
 		// ── Parse ?id= from URL (default: nich) ─────────────────────
 		// The id can be either an avatar id or an agent id — dashboard and
@@ -837,6 +838,54 @@
 			})();
 			return _resolved;
 		}
+
+		// Resolve the agent record backing this page (the URL id can be an agent
+		// id or an avatar id) so we can surface its public on-chain deploy status.
+		// Memoized — only fetched once per page load.
+		let _agentRecordP;
+		function resolveAgentRecord() {
+			if (_agentRecordP) return _agentRecordP;
+			_agentRecordP = (async () => {
+				const rawId = params.get('id');
+				// 1. The id may itself be an agent id — fetch it directly.
+				if (rawId) {
+					try {
+						const r = await fetch(`${location.origin}/api/agents/${encodeURIComponent(rawId)}`);
+						if (r.ok) {
+							const j = await r.json();
+							const ag = j.agent || j;
+							if (ag && ag.id) return ag;
+						}
+					} catch { /* fall through to avatar lookup */ }
+				}
+				// 2. Otherwise resolve the avatar, then find the agent backing it.
+				try {
+					await resolveAvatar();
+					const r = await fetch(`${location.origin}/api/agents?avatar_id=${encodeURIComponent(avatarId)}`);
+					if (r.ok) {
+						const j = await r.json();
+						const list = Array.isArray(j.agents) ? j.agents : [];
+						return list.find((a) => getOnchainStatus(a)) || list[0] || null;
+					}
+				} catch { /* badge is non-critical */ }
+				return null;
+			})();
+			return _agentRecordP;
+		}
+
+		// Append the shared on-chain badge to the identity pills when the agent
+		// is deployed on-chain. No-op (and no false positive) otherwise.
+		async function applyOnchainBadge() {
+			try {
+				const rec = await resolveAgentRecord();
+				if (!rec) return;
+				const html = onchainBadgeHTML(rec, { size: 'sm' });
+				if (!html) return;
+				const pills = document.getElementById('identity-pills');
+				if (pills && !pills.querySelector('.tws-ocb')) pills.insertAdjacentHTML('beforeend', html);
+			} catch { /* badge is non-critical */ }
+		}
+
 		const chatForm = document.getElementById('chat-form');
 		const chatInput = document.getElementById('chat-input');
 		const chatMessages = document.getElementById('chat-messages');
@@ -930,11 +979,13 @@
 			const tags = data.tags || [];
 			let pillsHtml = '<span class="pill live">● Live</span><span class="pill">glTF · GLB</span>';
 			if (tags.includes('animated') || data.source === 'avatar-pipeline') pillsHtml += '<span class="pill">Animated</span>';
-			if (data.agent_id) pillsHtml += '<span class="pill">On-chain</span>';
 			tags.filter(t => !['animated'].includes(t)).slice(0, 3).forEach(t => {
 				pillsHtml += `<span class="pill">${escHtml(t)}</span>`;
 			});
 			pills.innerHTML = pillsHtml;
+			// Real on-chain status: resolve the backing agent record and, when it
+			// has been deployed on-chain, append the shared badge used everywhere.
+			applyOnchainBadge();
 
 			// Hide loading
 			setTimeout(() => document.getElementById('loading').classList.add('hidden'), 200);

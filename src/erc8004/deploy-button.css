@@ -1,4 +1,10 @@
-/* deploy-button.css — scoped under .deploy-button-root */
+/* deploy-button.css — scoped under .deploy-button-root
+ *
+ * Monochrome by design: this component renders inside the /dashboard agent
+ * rows, so it borrows the dashboard-next palette (--nxt-*) with plain
+ * monochrome fallbacks for any page that doesn't load tokens.css. Keep it
+ * on-brand — glass surfaces, white accent, 10px controls, 999px chips,
+ * semantic green/red only for success/error. No coloured accents. */
 
 .visually-hidden {
 	position: absolute;
@@ -28,30 +34,35 @@
 }
 
 .deploy-chain-select {
-	padding: 0.4em 0.65em;
-	border: 1.5px solid #6c63ff;
-	border-radius: 6px;
-	background: transparent;
-	color: #a89fff;
+	appearance: none;
+	-webkit-appearance: none;
+	padding: 0.45em 2em 0.45em 0.65em;
+	border: 1px solid var(--nxt-stroke-strong, rgba(255, 255, 255, 0.14));
+	border-radius: var(--nxt-radius-sm, 10px);
+	background-color: var(--nxt-accent-soft, rgba(255, 255, 255, 0.04));
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23888888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 0.7em center;
+	color: var(--nxt-ink-dim, #b5b5b5);
 	font-family: inherit;
 	font-size: 0.82rem;
 	font-weight: 500;
 	cursor: pointer;
 	transition:
-		background 0.15s,
+		background-color 0.15s,
 		border-color 0.15s,
 		color 0.15s;
 	max-width: 12em;
 }
 
 .deploy-chain-select:hover:not(:disabled) {
-	background: #6c63ff15;
-	color: #fff;
-	border-color: #a89fff;
+	background-color: rgba(255, 255, 255, 0.07);
+	color: var(--nxt-ink, #fff);
+	border-color: rgba(255, 255, 255, 0.28);
 }
 
 .deploy-chain-select:focus-visible {
-	outline: 2px solid #a89fff;
+	outline: 2px solid rgba(255, 255, 255, 0.5);
 	outline-offset: 2px;
 }
 
@@ -66,7 +77,7 @@
 }
 
 .deploy-chain-select option {
-	background: #14141c;
+	background: #111;
 	color: #e6e6e6;
 	font-style: normal;
 }
@@ -77,11 +88,11 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4em;
-	padding: 0.45em 1em;
-	border: 1.5px solid #6c63ff;
-	border-radius: 6px;
-	background: transparent;
-	color: #a89fff;
+	padding: 0.5em 1em;
+	border: 1px solid var(--nxt-stroke-strong, rgba(255, 255, 255, 0.14));
+	border-radius: var(--nxt-radius-sm, 10px);
+	background: var(--nxt-accent-soft, rgba(255, 255, 255, 0.04));
+	color: var(--nxt-ink, #e8e8e8);
 	font-size: 0.875rem;
 	font-weight: 600;
 	cursor: pointer;
@@ -93,8 +104,8 @@
 }
 
 .deploy-btn:hover:not(:disabled) {
-	background: #6c63ff22;
-	border-color: #a89fff;
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.28);
 	color: #fff;
 }
 
@@ -102,7 +113,7 @@
 .deploy-btn:disabled {
 	opacity: 0.45;
 	cursor: not-allowed;
-	border-color: #555;
+	border-color: rgba(255, 255, 255, 0.1);
 	color: #888;
 }
 
@@ -113,7 +124,7 @@
 	align-items: center;
 	gap: 0.4em;
 	padding: 0.35em 0.85em;
-	border-radius: 999px;
+	border-radius: var(--nxt-radius-pill, 999px);
 	font-size: 0.8rem;
 	font-weight: 600;
 	text-decoration: none;
@@ -122,9 +133,9 @@
 }
 
 .deploy-chip--success {
-	background: #0f2e1a;
-	border: 1.5px solid #2a7a4a;
-	color: #4ade80;
+	background: rgba(74, 222, 128, 0.1);
+	border: 1px solid rgba(74, 222, 128, 0.4);
+	color: var(--nxt-success, #4ade80);
 }
 
 .deploy-chip--success:hover {
@@ -143,24 +154,24 @@
 
 .progress-step {
 	padding: 0.2em 0.5em;
-	border-radius: 4px;
+	border-radius: 6px;
 	transition:
 		color 0.2s,
 		background 0.2s;
 }
 
 .progress-step--pending {
-	color: #555;
+	color: #666;
 }
 
 .progress-step--active {
 	color: #fff;
-	background: #6c63ff33;
-	border: 1px solid #6c63ff88;
+	background: rgba(255, 255, 255, 0.12);
+	border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .progress-step--done {
-	color: #4ade80;
+	color: var(--nxt-success, #4ade80);
 }
 
 .progress-sep {
@@ -176,7 +187,7 @@
 	gap: 0.55em;
 	padding: 0.32em 0.32em 0.32em 0.75em;
 	border: 1px solid rgba(248, 113, 113, 0.28);
-	border-radius: 999px;
+	border-radius: var(--nxt-radius-pill, 999px);
 	background: rgba(127, 29, 29, 0.18);
 	font-size: 0.72rem;
 	color: rgba(252, 165, 165, 0.95);
@@ -190,7 +201,7 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background: #f87171;
+	background: var(--nxt-danger, #f87171);
 	box-shadow: 0 0 8px rgba(248, 113, 113, 0.6);
 }
 
@@ -206,7 +217,7 @@
 	flex-shrink: 0;
 	padding: 0.18em 0.65em;
 	border: 1px solid rgba(248, 113, 113, 0.35);
-	border-radius: 999px;
+	border-radius: var(--nxt-radius-pill, 999px);
 	background: rgba(255, 255, 255, 0.02);
 	color: rgba(252, 165, 165, 0.95);
 	font-size: 0.7rem;
@@ -237,30 +248,32 @@
 
 @media (prefers-color-scheme: light) {
 	.deploy-chain-select {
-		border-color: #4f46e5;
-		color: #4f46e5;
+		border-color: rgba(0, 0, 0, 0.18);
+		background-color: rgba(0, 0, 0, 0.03);
+		color: #444;
 	}
 
 	.deploy-chain-select:hover:not(:disabled) {
-		background: #4f46e511;
-		color: #312e81;
-		border-color: #4f46e5;
+		background-color: rgba(0, 0, 0, 0.05);
+		color: #111;
+		border-color: rgba(0, 0, 0, 0.35);
 	}
 
 	.deploy-chain-select option {
 		background: #fff;
-		color: #1e1b4b;
+		color: #111;
 	}
 
 	.deploy-btn {
-		border-color: #4f46e5;
-		color: #4f46e5;
+		border-color: rgba(0, 0, 0, 0.18);
+		background: rgba(0, 0, 0, 0.03);
+		color: #111;
 	}
 
 	.deploy-btn:hover:not(:disabled) {
-		background: #4f46e511;
-		border-color: #4f46e5;
-		color: #312e81;
+		background: rgba(0, 0, 0, 0.06);
+		border-color: rgba(0, 0, 0, 0.4);
+		color: #000;
 	}
 
 	.deploy-chip--success {
@@ -274,9 +287,9 @@
 	}
 
 	.progress-step--active {
-		color: #312e81;
-		background: #eef2ff;
-		border-color: #818cf8;
+		color: #111;
+		background: rgba(0, 0, 0, 0.06);
+		border-color: rgba(0, 0, 0, 0.25);
 	}
 
 	.progress-step--done {

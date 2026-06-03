@@ -59,6 +59,38 @@ async function handleList(req, res) {
 	const isMe = url.pathname.endsWith('/me');
 	const onchainOnly = url.searchParams.get('onchain') === 'true';
 
+	// Public lookup: agents backing a given avatar, by avatar_id. Anonymous-safe
+	// so any surface that only knows an avatar id (e.g. the agent profile page)
+	// can resolve its agent's public on-chain status without owning it. Mirrors
+	// the public projection of GET /api/agents/:id — decorate() strips secrets.
+	const avatarIdParam = url.searchParams.get('avatar_id');
+	if (avatarIdParam && !isMe) {
+		if (!UUID_RE.test(avatarIdParam)) {
+			return error(res, 400, 'validation_error', 'avatar_id must be a UUID');
+		}
+		let viewer = null;
+		try {
+			viewer = await resolveAuth(req);
+		} catch {
+			/* anonymous viewers still get the public projection */
+		}
+		const rows = await sql`
+			SELECT i.*,
+			       a.storage_key  AS avatar_storage_key,
+			       a.thumbnail_key AS avatar_thumbnail_key,
+			       a.visibility   AS avatar_visibility
+			  FROM agent_identities i
+			  LEFT JOIN avatars a ON a.id = i.avatar_id AND a.deleted_at IS NULL
+			 WHERE i.avatar_id = ${avatarIdParam}
+			   AND i.deleted_at IS NULL
+			 ORDER BY i.created_at ASC
+			 LIMIT 10
+		`;
+		return json(res, 200, {
+			agents: rows.map((row) => decorate(row, !!(viewer && viewer.userId === row.user_id))),
+		});
+	}
+
 	// /me is the identity bootstrap endpoint hit on every page load, including
 	// by anonymous visitors. Treat any auth-resolution failure (DB hiccup,
 	// missing sessions table, JWT secret unset) the same as "no auth" so the

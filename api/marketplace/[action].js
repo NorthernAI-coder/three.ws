@@ -400,6 +400,8 @@ async function handleList(req, res, url) {
 			SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id, ai.user_id,
 			       ai.forks_count, ai.views_count, ai.published_at, ai.created_at, ai.skills,
 			       av.thumbnail_key,
+			       ai.meta->'onchain' AS onchain,
+			       ai.meta->'token'   AS token,
 				   u.display_name AS author_name,
 			       EXISTS (
 			         SELECT 1 FROM agent_skill_prices asp
@@ -443,6 +445,8 @@ async function handleList(req, res, url) {
 					SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id, ai.user_id,
 					       ai.forks_count, ai.views_count, ai.published_at, ai.created_at, ai.skills,
 					       av.thumbnail_key,
+					       ai.meta->'onchain' AS onchain,
+					       ai.meta->'token'   AS token,
 					       u.display_name AS author_name,
 					       EXISTS (
 					         SELECT 1 FROM agent_skill_prices asp
@@ -1123,6 +1127,10 @@ function toCard(row) {
 		rating_avg: Number(row.rating_avg || 0),
 		rating_count: row.rating_count || 0,
 		price,
+		// Canonical on-chain blocks (mirror of api/agents decorate) so the shared
+		// badge can light up a deployed agent's marketplace card. Null when absent.
+		onchain: row.onchain || null,
+		token: row.token || null,
 	};
 }
 

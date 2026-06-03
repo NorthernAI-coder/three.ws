@@ -124,6 +124,10 @@ const wrapped = wrap(async (req, res) => {
 		case 'distribute-creator-fees-prep':  return handleDistributeCreatorFeesPrep(req, res);
 		case 'create-fee-sharing-prep':       return handleCreateFeeSharingPrep(req, res);
 		case 'update-fee-shares-prep':        return handleUpdateFeeSharesPrep(req, res);
+		case 'fee-info':                      return handleFeeInfo(req, res);
+		case 'collect-creator-fee-agent':     return handleCollectCreatorFeeAgent(req, res);
+		case 'distribute-creator-fees-agent': return handleDistributeCreatorFeesAgent(req, res);
+		case 'fee-sharing-agent':             return handleFeeSharingAgent(req, res);
 		default:
 			return error(res, 404, 'not_found', 'unknown pump action');
 	}

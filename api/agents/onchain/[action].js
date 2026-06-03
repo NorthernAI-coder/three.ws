@@ -11,7 +11,7 @@
 
 import { z } from 'zod';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { mplCore, createV1 } from '@metaplex-foundation/mpl-core';
+import { mplCore, create } from '@metaplex-foundation/mpl-core';
 import {
 	generateSigner,
 	publicKey as umiPublicKey,
@@ -32,6 +32,11 @@ import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
 import { r2, publicUrl } from '../../_lib/r2.js';
 import { env } from '../../_lib/env.js';
+import {
+	buildAgentManifest,
+	buildAgentOnchainAttributes,
+	agentHomeUrl,
+} from '../../_lib/three-brand.js';
 
 export default wrap(async (req, res) => {
 	const action = req.query?.action;
@@ -129,19 +134,16 @@ async function pinManifest(manifest) {
 	return { cid, uri: publicUrl(key) };
 }
 
-function buildManifest({ name, description, avatar_id, skills }) {
-	return {
-		$schema: 'https://3d-agent.io/schemas/manifest/0.1.json',
-		spec: 'agent-manifest/0.1',
+function buildManifest({ agent_id, name, description, avatar_id, skills, wallet_address }) {
+	return buildAgentManifest({
 		name,
 		description,
-		image: '',
-		tags: [],
-		body: { uri: '', format: 'gltf-binary' },
-		_baseURI: 'ipfs://',
-		...(avatar_id ? { avatarId: avatar_id } : {}),
-		...(skills?.length ? { skills } : {}),
-	};
+		avatarId: avatar_id || null,
+		skills,
+		externalUrl: agentHomeUrl(agent_id),
+		ownerAddress: wallet_address,
+		createdAt: new Date().toISOString(),
+	});
 }
 
 async function prepEvm({ chainId, metadataUri }) {
@@ -159,12 +161,23 @@ const SOLANA_PUBLIC_RPC = {
 	devnet: 'https://api.devnet.solana.com',
 };
 
-async function buildSolanaTx({ rpc, walletAddress, name, metadataUri }) {
+async function buildSolanaTx({ rpc, walletAddress, name, metadataUri, attributes }) {
 	const umi = createUmi(rpc).use(mplCore());
 	const ownerPk = umiPublicKey(walletAddress);
 	const assetSigner = generateSigner(umi);
 	umi.use(signerIdentity(createNoopSigner(ownerPk)));
-	const builder = createV1(umi, { asset: assetSigner, owner: ownerPk, name, uri: metadataUri });
+	// `create` (Core v2 under the hood) lets us attach the on-chain Attributes
+	// plugin: three.ws brand, provenance links, and the $THREE mint are written
+	// into the asset account itself — not just the off-chain JSON at `uri`.
+	const builder = create(umi, {
+		asset: assetSigner,
+		owner: ownerPk,
+		name,
+		uri: metadataUri,
+		plugins: attributes?.length
+			? [{ type: 'Attributes', attributeList: attributes }]
+			: [],
+	});
 	const tx = await builder.buildAndSign(umi);
 	return { assetSigner, txBytes: umi.transactions.serialize(tx) };
 }
@@ -174,7 +187,7 @@ function isRpcAuthError(err) {
 	return msg.includes('401') || msg.includes('Unauthorized') || msg.includes('invalid api key');
 }
 
-async function prepSolana({ cluster, metadataUri, walletAddress, name }) {
+async function prepSolana({ cluster, metadataUri, walletAddress, name, attributes }) {
 	const configuredRpc =
 		cluster === 'devnet'
 			? process.env.SOLANA_RPC_URL_DEVNET || SOLANA_PUBLIC_RPC.devnet
@@ -187,6 +200,7 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name }) {
 			walletAddress,
 			name,
 			metadataUri,
+			attributes,
 		}));
 	} catch (err) {
 		// If the configured RPC rejects with an auth error AND it's not already the
@@ -214,6 +228,7 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name }) {
 				walletAddress,
 				name,
 				metadataUri,
+				attributes,
 			}));
 		} catch (fallbackErr) {
 			if (isRpcAuthError(fallbackErr)) {
@@ -285,11 +300,19 @@ async function handlePrep(req, res) {
 		if (chain.family === 'evm') {
 			familyPrep = await prepEvm({ chainId: chain.chainId, metadataUri });
 		} else {
+			const attributes = buildAgentOnchainAttributes({
+				name: body.name,
+				agentUrl: agentHomeUrl(body.agent_id),
+				skills: body.skills,
+				metadataUri,
+				createdAt: new Date().toISOString(),
+			});
 			familyPrep = await prepSolana({
 				cluster: chain.cluster,
 				metadataUri,
 				walletAddress: body.wallet_address,
 				name: body.name,
+				attributes,
 			});
 		}
 	} catch (e) {

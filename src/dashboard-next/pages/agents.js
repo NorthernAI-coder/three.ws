@@ -16,6 +16,7 @@ import { mountShell } from '../shell.js';
 import { requireUser, get, post, put, del, esc, relTime, ApiError } from '../api.js';
 import { openAvatarPicker } from '../../avatar-gallery-picker.js';
 import { openLaunchTokenModal } from '../../pump/launch-token-modal.js';
+import { onchainBadgeHTML } from '../../shared/onchain-badge.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 
@@ -426,7 +427,7 @@ function agentCard(a, avatars) {
 	const avatar = avatars.find((av) => av.id === a.avatar_id);
 	const avatarThumb = avatar?.thumbnail_url || avatar?.url || '';
 	const created = a.created_at ? relTime(a.created_at) : '—';
-	const onchain = a.onchain_id || a.erc8004_id || a.chain_id;
+	const onchainBadge = onchainBadgeHTML(a);
 	const pumpMint = a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca;
 	const brain = brainLabel(a);
 
@@ -447,7 +448,7 @@ function agentCard(a, avatars) {
 			<div style="min-width:0">
 				<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
 					<span style="font-size:15px;font-weight:600;color:var(--nxt-ink)">${name}</span>
-					${onchain ? `<span class="dn-tag success" style="font-size:11px">on-chain</span>` : `<span class="dn-tag" style="font-size:11px">off-chain</span>`}
+					${onchainBadge || `<span class="dn-tag" style="font-size:11px">off-chain</span>`}
 					${pumpMint ? `<span class="dn-tag" style="font-size:11px;background:rgba(168,173,181,0.12);border-color:rgba(168,173,181,0.28);color:#a8adb5">pump.fun</span>` : ''}
 				</div>
 				${wallet ? `<div style="font-family:${MONO};font-size:12px;color:var(--nxt-ink-fade);margin-bottom:6px">${esc(truncMid(wallet, 8, 6))}</div>` : ''}

@@ -133,3 +133,7 @@ scripts/debug-*.png
 
 # Scratch/diagnostic scripts and screenshots
 scripts/_*
+scratch/showcase-before.png
+
+# Local scratch: throwaway scripts, screenshots, verification snippets
+scratch/

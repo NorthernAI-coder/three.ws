@@ -6,6 +6,8 @@
  *   chat CTA, token card with price/trade, and memes gallery.
  */
 
+import { onchainBadgeEl } from './shared/onchain-badge.js';
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function $(id) { return document.getElementById(id); }
@@ -68,8 +70,18 @@ function renderHero(agent) {
 	}
 
 	// Name
-	$('ch-name').textContent = agent.name || 'Unnamed';
+	const nameEl = $('ch-name');
+	nameEl.textContent = agent.name || 'Unnamed';
 	document.title = `${agent.name || 'Character'} — three.ws`;
+
+	// On-chain badge — surfaces below the name when this character is deployed.
+	document.getElementById('ch-onchain-badge')?.remove();
+	const onchainBadge = onchainBadgeEl(agent, { size: 'md' });
+	if (onchainBadge) {
+		onchainBadge.id = 'ch-onchain-badge';
+		onchainBadge.style.marginTop = '8px';
+		nameEl.insertAdjacentElement('afterend', onchainBadge);
+	}
 
 	// Creator
 	const authorName = agent.author_name || 'Unknown';

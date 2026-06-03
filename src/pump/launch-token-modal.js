@@ -78,6 +78,9 @@ export class LaunchTokenModal {
 			symbol: _nameToSymbol(agentName),
 			description: '',
 			image: String(imageUrl),
+			website: '',
+			twitter: '',
+			telegram: '',
 			initialBuySol: 0,
 			cluster: 'mainnet',
 		};
@@ -373,6 +376,28 @@ export class LaunchTokenModal {
 						value="${_esc(d.image)}" autocomplete="off" placeholder="https://…">
 				</div>
 				<div class="ltm-field">
+					<label class="ltm-label" for="ltm-web">
+						Website <span class="ltm-hint">optional — defaults to your three.ws agent page</span>
+					</label>
+					<input class="ltm-input" id="ltm-web" type="url"
+						value="${_esc(d.website)}" autocomplete="off" placeholder="https://three.ws/agent/…">
+				</div>
+				<div class="ltm-field">
+					<label class="ltm-label" for="ltm-tw">
+						X / Twitter <span class="ltm-hint">optional — defaults to @trythreews</span>
+					</label>
+					<input class="ltm-input" id="ltm-tw" type="url"
+						value="${_esc(d.twitter)}" autocomplete="off" placeholder="https://x.com/…">
+				</div>
+				<div class="ltm-field">
+					<label class="ltm-label" for="ltm-tg">
+						Telegram <span class="ltm-hint">optional</span>
+					</label>
+					<input class="ltm-input" id="ltm-tg" type="url"
+						value="${_esc(d.telegram)}" autocomplete="off" placeholder="https://t.me/…">
+				</div>
+				<p class="ltm-brand-note">Every launch links back to three.ws and the $THREE coin in its on-chain metadata.</p>
+				<div class="ltm-field">
 					<label class="ltm-label" for="ltm-buy">
 						Dev buy <span class="ltm-hint">optional, 0–50 SOL</span>
 					</label>
@@ -450,6 +475,9 @@ export class LaunchTokenModal {
 			this._d.symbol = symbol;
 			this._d.description = this._overlay.querySelector('#ltm-desc').value.trim();
 			this._d.image = this._overlay.querySelector('#ltm-img').value.trim();
+			this._d.website = this._overlay.querySelector('#ltm-web').value.trim();
+			this._d.twitter = this._overlay.querySelector('#ltm-tw').value.trim();
+			this._d.telegram = this._overlay.querySelector('#ltm-tg').value.trim();
 			this._d.initialBuySol = Math.min(
 				50,
 				Math.max(0, parseFloat(this._overlay.querySelector('#ltm-buy').value) || 0),
@@ -625,6 +653,9 @@ export class LaunchTokenModal {
 					symbol: this._d.symbol,
 					description: this._d.description,
 					image: this._d.image,
+					website: this._d.website,
+					twitter: this._d.twitter,
+					telegram: this._d.telegram,
 					initial_buy_sol: this._d.initialBuySol,
 				}),
 			});
