@@ -14,7 +14,7 @@
 
 import { Redis } from '@upstash/redis';
 import { env } from './env.js';
-import { hmacSha256, constantTimeEquals } from './crypto.js';
+import { hmacSha256, constantTimeEquals, sha256Base64Url } from './crypto.js';
 
 const PRESENCE_PREFIX = 'presence:';
 const TICKET_TTL_SEC = 600; // 10 min — the client refreshes well before expiry
@@ -107,11 +107,23 @@ export async function notifyMultiplayer(type, toUserId, payload = {}) {
 	const base = env.MULTIPLAYER_INTERNAL_URL;
 	if (!base) return { delivered: false, reason: 'unconfigured' };
 	try {
-		const sig = await hmacSha256(env.MULTIPLAYER_SHARED_SECRET, `notify:${toUserId}:${type}`);
+		// Bind the signature to the exact body and a fresh timestamp so a captured
+		// (to,type,sig) tuple can't be replayed with a different payload or after the
+		// short freshness window. The signed string covers the payload hash; the
+		// multiplayer verifier recomputes it over the same serialized payload it acts
+		// on, so a tampered body fails the check. Keep byte-compatible with
+		// verifyNotifySignature in multiplayer/src/presence-token.js.
+		const requestBody = JSON.stringify({ type, to: toUserId, payload });
+		const ts = Math.floor(Date.now() / 1000);
+		const payloadHash = await sha256Base64Url(JSON.stringify(payload ?? {}));
+		const sig = await hmacSha256(
+			env.MULTIPLAYER_SHARED_SECRET,
+			`notify:${toUserId}:${type}:${ts}:${payloadHash}`,
+		);
 		const res = await fetch(`${base}/internal/notify`, {
 			method: 'POST',
-			headers: { 'content-type': 'application/json', 'x-mp-signature': sig },
-			body: JSON.stringify({ type, to: toUserId, payload }),
+			headers: { 'content-type': 'application/json', 'x-mp-signature': sig, 'x-mp-timestamp': String(ts) },
+			body: requestBody,
 			signal: AbortSignal.timeout(2500),
 		});
 		if (!res.ok) return { delivered: false, reason: `http_${res.status}` };

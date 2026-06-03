@@ -19,6 +19,35 @@ import { assertSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
 
 const ROUTE = '/api/agents/a2a-paid';
 const MAX_FETCH_BYTES = 16 * 1024 * 1024;
+const MAX_REDIRECTS = 5;
+
+// SSRF-safe fetch: re-validate every redirect hop with assertSafePublicUrl
+// before following it. The model URL is fully attacker-controlled, so following
+// redirects with the global `redirect:'follow'` would let an allowlisted public
+// host 302 us to 169.254.169.254 / RFC1918, defeating the guard. Bounded hops.
+async function fetchModelFollowingValidatedRedirects(parsed) {
+	let url = parsed;
+	let redirects = 0;
+	while (true) {
+		const res = await fetch(url.toString(), {
+			redirect: 'manual',
+			headers: { accept: 'model/gltf-binary,model/gltf+json,application/octet-stream' },
+			signal: AbortSignal.timeout(20_000),
+		});
+		if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+			if (++redirects > MAX_REDIRECTS) {
+				const e = new Error('too many redirects');
+				e.code = 'fetch_failed';
+				e.status = 502;
+				throw e;
+			}
+			const next = new URL(res.headers.get('location'), url);
+			url = await assertSafePublicUrl(next.toString(), { allowHttp: true });
+			continue;
+		}
+		return res;
+	}
+}
 
 const DESCRIPTION =
 	'three.ws A2A glTF/GLB Inspector — pay per call (USDC). Fetch a 3D model ' +
@@ -82,12 +111,14 @@ async function fetchAndInspect(targetUrl) {
 	}
 	let upstream;
 	try {
-		upstream = await fetch(parsed.toString(), {
-			redirect: 'follow',
-			headers: { accept: 'model/gltf-binary,model/gltf+json,application/octet-stream' },
-			signal: AbortSignal.timeout(20_000),
-		});
+		upstream = await fetchModelFollowingValidatedRedirects(parsed);
 	} catch (err) {
+		if (err instanceof SsrfBlockedError) {
+			const e = new Error(err.message);
+			e.code = 'invalid_url';
+			e.status = 400;
+			throw e;
+		}
 		const e = new Error(`could not fetch model: ${err.message}`);
 		e.code = 'fetch_failed';
 		e.status = 502;

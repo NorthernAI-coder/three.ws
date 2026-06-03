@@ -1426,21 +1426,58 @@
 				}
 			}
 
+			// Incoming events are queued and flushed once per animation frame. A busy
+			// pump.fun feed can emit many events per second; rendering each one
+			// synchronously thrashes layout and starves the main thread (jank, the
+			// cursor stuttering during repaints). Batching coalesces that work.
+			let _feedQueue = [];
+			let _feedFlushRaf = 0;
+
 			function handleWsEvent(data) {
 				const type = data.type || data.event || data.kind || 'unknown';
 				const ts = data.timestamp || Date.now();
-				const item = {
+				_feedQueue.push({
 					type,
 					time: new Date(typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts),
 					data,
-				};
-				addFeedItem('pd-live-feed', item);
-				addFeedItem('pd-dashboard-feed', item);
-				state.feedCount++;
+				});
+				if (!_feedFlushRaf) _feedFlushRaf = requestAnimationFrame(flushFeedQueue);
+			}
+
+			function flushFeedQueue() {
+				_feedFlushRaf = 0;
+				const batch = _feedQueue;
+				_feedQueue = [];
+				if (!batch.length) return;
+
+				// Suppress per-row entry animations during bursts — animating dozens of
+				// prepended rows at once is the main source of feed jank.
+				const burst = batch.length > 6;
+				const liveFeed = $('pd-live-feed');
+				const dashFeed = $('pd-dashboard-feed');
+				if (burst) {
+					liveFeed?.classList.add('pd-no-anim');
+					dashFeed?.classList.add('pd-no-anim');
+				}
+
+				for (const item of batch) {
+					addFeedItem('pd-live-feed', item);
+					addFeedItem('pd-dashboard-feed', item);
+					checkAlerts(item);
+				}
+
+				state.feedCount += batch.length;
+				state.activityCount += batch.length;
 				$('pd-feed-count').textContent = state.feedCount;
-				state.activityCount++;
 				$('pd-activity-count').textContent = state.activityCount;
-				checkAlerts(item);
+
+				if (burst) {
+					// Re-enable animations on the next frame, after the burst is painted.
+					requestAnimationFrame(() => {
+						liveFeed?.classList.remove('pd-no-anim');
+						dashFeed?.classList.remove('pd-no-anim');
+					});
+				}
 			}
 
 			function addFeedItem(feedId, item) {
@@ -1499,26 +1536,37 @@
 						<div class="pd-feed-detail">${escapeHtml(detail)}</div>
 					</div>
 				`;
+				// Only the live feed is filterable; hide the new row up front if it
+				// doesn't match the active filter, instead of re-scanning all rows.
+				if (feedId === 'pd-live-feed' && !rowMatchesFilter(item.type, state.currentFilter)) {
+					div.style.display = 'none';
+				}
+
 				feed.prepend(div);
 				while (feed.children.length > 500) feed.lastElementChild.remove();
-
-				if (feedId === 'pd-live-feed') applyFeedFilter();
 			}
 
+			const FEED_FILTER_GROUPS = {
+				launch: ['launch', 'create', 'mint'],
+				trade:  ['trade', 'buy', 'sell'],
+				whale:  ['whale', 'whale_trade'],
+				graduation: ['graduation', 'complete'],
+				claim:  ['claim', 'fee_claim'],
+			};
+
+			function rowMatchesFilter(type, filter) {
+				if (filter === 'all') return true;
+				const matches = FEED_FILTER_GROUPS[filter] || [filter];
+				return matches.includes(type || '');
+			}
+
+			// Called only when the user changes the active filter — a full rescan is
+			// correct here, but it no longer runs on every incoming feed event.
 			function applyFeedFilter() {
 				const feed = $('pd-live-feed');
 				if (!feed) return;
 				feed.querySelectorAll('.pd-feed-item').forEach((item) => {
-					if (state.currentFilter === 'all') { item.style.display = ''; return; }
-					const type = item.dataset.type || '';
-					const matches = ({
-						launch: ['launch', 'create', 'mint'],
-						trade:  ['trade', 'buy', 'sell'],
-						whale:  ['whale', 'whale_trade'],
-						graduation: ['graduation', 'complete'],
-						claim:  ['claim', 'fee_claim'],
-					}[state.currentFilter]) || [state.currentFilter];
-					item.style.display = matches.includes(type) ? '' : 'none';
+					item.style.display = rowMatchesFilter(item.dataset.type, state.currentFilter) ? '' : 'none';
 				});
 			}
 
@@ -2441,13 +2489,25 @@
 				chart.geom = { x0, x1, y0, y1, tMin, tMax, pMin, pMax };
 			}
 
+			// mousemove fires far faster than the screen refreshes; a full chart
+			// re-render per event pegs the main thread and makes the crosshair cursor
+			// flicker. Coalesce to at most one redraw per animation frame.
+			let _chartHoverRaf = 0;
+			let _chartHoverX = 0;
 			function onChartMove(e) {
+				const canvas = $('pd-market-chart');
+				const rect = canvas.getBoundingClientRect();
+				_chartHoverX = e.clientX - rect.left;
+				if (!_chartHoverRaf) _chartHoverRaf = requestAnimationFrame(drawChartCrosshair);
+			}
+
+			function drawChartCrosshair() {
+				_chartHoverRaf = 0;
 				const canvas = $('pd-market-chart');
 				const tip = $('pd-chart-tooltip');
 				const g = chart.geom;
 				if (!g || !chart.candles.length) { tip.style.display = 'none'; return; }
-				const rect = canvas.getBoundingClientRect();
-				const x = e.clientX - rect.left;
+				const x = _chartHoverX;
 				if (x < g.x0 || x > g.x1) { tip.style.display = 'none'; return; }
 				const frac = (x - g.x0) / (g.x1 - g.x0);
 				const t = g.tMin + frac * (g.tMax - g.tMin);
@@ -2751,7 +2811,10 @@
 				document.addEventListener('chart:tokenChange', (e) => fetchChartData(e.detail.mint, e.detail.symbol));
 				const marketCanvas = $('pd-market-chart');
 				marketCanvas.addEventListener('mousemove', onChartMove);
-				marketCanvas.addEventListener('mouseleave', () => { $('pd-chart-tooltip').style.display = 'none'; });
+				marketCanvas.addEventListener('mouseleave', () => {
+					if (_chartHoverRaf) { cancelAnimationFrame(_chartHoverRaf); _chartHoverRaf = 0; }
+					$('pd-chart-tooltip').style.display = 'none';
+				});
 				let _chartResizeRaf = 0;
 				new ResizeObserver(() => {
 					cancelAnimationFrame(_chartResizeRaf);

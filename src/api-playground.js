@@ -80,12 +80,21 @@
 		return pgS.key ? pgS.key.value.trim() : '';
 	}
 
-	// Restore a previously-entered key and persist edits so the playground is
-	// usable across reloads without re-pasting credentials.
+	// The API key is a long-lived credential, so never persist it in
+	// localStorage (no expiry, readable by any same-origin script). Keep it in
+	// the in-memory input only, mirrored to sessionStorage so a reload within
+	// the same tab session doesn't force a re-paste; sessionStorage is cleared
+	// when the tab closes. Also purge any key left behind by older builds that
+	// wrote to localStorage.
 	if (pgS.key) {
-		try { pgS.key.value = localStorage.getItem(PG_KEY_STORE) || ''; } catch (_) {}
+		try { localStorage.removeItem(PG_KEY_STORE); } catch (_) {}
+		try { pgS.key.value = sessionStorage.getItem(PG_KEY_STORE) || ''; } catch (_) {}
 		pgS.key.addEventListener('input', function() {
-			try { localStorage.setItem(PG_KEY_STORE, pgGetKey()); } catch (_) {}
+			try {
+				var k = pgGetKey();
+				if (k) sessionStorage.setItem(PG_KEY_STORE, k);
+				else sessionStorage.removeItem(PG_KEY_STORE);
+			} catch (_) {}
 			pgUpdateCurl();
 			pgUpdateSdk();
 		});

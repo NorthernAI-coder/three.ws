@@ -46,6 +46,7 @@ import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js'
 import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
+import { mountOracleRibbon } from './game/oracle-ribbon.js';
 import { WalkNet } from './walk-net.js';
 import { getPresenceTicket, friendsClient } from './friends.js';
 import { FriendsPanel } from './game/friends-panel.js';
@@ -470,6 +471,16 @@ const FP_EYE_HEIGHT_MULT = 0.9; // fraction of avatar height for eye position
 const TOPDOWN_HEIGHT = 18;
 const TOPDOWN_LOOK_DOWN = new Vector3(0, -1, 0.001); // slight offset so lookAt works
 
+// Hot-path scratch — computeCameraForMode runs every frame; reuse these instead
+// of allocating fresh Vector3s per call. _RIGHT is the world +X (pitch) axis;
+// upY (the world +Y / yaw axis, defined below) is reused for the yaw rotation.
+const _RIGHT = new Vector3(1, 0, 0);
+const _camPos = new Vector3();
+const _camLook = new Vector3();
+const _camOffset = new Vector3();
+const _camFpForward = new Vector3();
+const _camResult = { pos: _camPos, look: _camLook };
+
 // Restore saved camera mode
 try {
 	const saved = localStorage.getItem(CAMERA_MODE_KEY);
@@ -529,12 +540,14 @@ function updateCameraModeIndicator() {
 }
 
 // Compute desired camera position/look for each mode
+// Returns a shared scratch { pos, look } — the caller must read/copy the values
+// in the same frame and must not retain the reference across frames.
 function computeCameraForMode(mode, avatarPos, avatarHeight) {
-	const pos = new Vector3();
-	const look = new Vector3();
+	const pos = _camPos;
+	const look = _camLook;
 	if (mode === 'follow') {
-		const offset = CAM_OFFSET.clone().multiplyScalar(camZoom);
-		offset.applyAxisAngle(new Vector3(1, 0, 0), -cameraPitch);
+		const offset = _camOffset.copy(CAM_OFFSET).multiplyScalar(camZoom);
+		offset.applyAxisAngle(_RIGHT, -cameraPitch);
 		offset.applyAxisAngle(upY, cameraYaw);
 		pos.copy(avatarPos).add(offset);
 		look.copy(avatarPos).add(CAM_LOOK_OFFSET);
@@ -551,14 +564,14 @@ function computeCameraForMode(mode, avatarPos, avatarHeight) {
 		const eyeH = (avatarHeight || 1.8) * FP_EYE_HEIGHT_MULT;
 		pos.set(avatarPos.x, avatarPos.y + eyeH, avatarPos.z);
 		// Look in the direction the avatar is facing
-		const fpForward = new Vector3(Math.sin(avatarYaw), 0, Math.cos(avatarYaw));
+		const fpForward = _camFpForward.set(Math.sin(avatarYaw), 0, Math.cos(avatarYaw));
 		look.copy(pos).add(fpForward.multiplyScalar(5));
 		look.y -= 0.15; // slight downward gaze
 	} else if (mode === 'topdown') {
 		pos.set(avatarPos.x, avatarPos.y + TOPDOWN_HEIGHT, avatarPos.z + 0.01);
 		look.copy(avatarPos);
 	}
-	return { pos, look };
+	return _camResult;
 }
 
 // Place the camera at its starting pose immediately so frame 0 isn't blank.
@@ -1714,6 +1727,9 @@ function tick() {
 	// 4b. Animate the coin totem (billboard + bob + ring spin) when present.
 	if (coinTotem) coinTotem.update(dt);
 
+	// 4c. Animate the Granite oracle forecast line (idle bob + slow spin).
+	if (oracleRibbon) oracleRibbon.update(dt);
+
 	// 5. Update speech bubbles (3D -> 2D projection)
 	updateSpeechBubbles();
 
@@ -1747,14 +1763,28 @@ let net = null;
 let netConnected = false;
 let coinTotem = null; // CoinTotem instance when in a coin community world
 
+// Granite oracle forecast line — the /ibm/oracle 3D price+forecast ribbon,
+// standing in the world as a floating data sculpture you can walk around.
+const oracleRibbon = mountOracleRibbon(scene);
+
 // Remote-avatar template cache. Each distinct GLB URL is fetched once and
 // reused (via SkeletonUtils.clone) for every player wearing it, so a room full
-// of the same avatar costs a single download. Keyed by URL → Promise<scene>.
+// of the same avatar costs a single download. Keyed by URL → entry. Each entry
+// refcounts the live RemotePlayers cloning it; when a template falls to zero
+// refs it is eligible for eviction. To keep GPU memory bounded in long-lived
+// busy worlds we cap the number of *idle* (zero-ref) templates kept warm and
+// dispose the geometries/textures/materials of any evicted scene. Templates
+// with live refs are never disposed (their clones share geometry/materials).
+// The local avatar is never stored here (short-circuited below), so disposing a
+// remote template can never free buffers still used by the local avatar.
 const _remoteAvatarTemplates = new Map();
+const MAX_IDLE_REMOTE_TEMPLATES = 12;
+
 function loadRemoteAvatarTemplate(url) {
 	if (url === resolvedAvatarUrl && avatarTemplate) return Promise.resolve(avatarTemplate);
-	if (_remoteAvatarTemplates.has(url)) return _remoteAvatarTemplates.get(url);
-	const p = new GLTFLoader().loadAsync(url).then((gltf) => {
+	let entry = _remoteAvatarTemplates.get(url);
+	if (entry) { entry.lastUsed = performance.now(); return entry.promise; }
+	const promise = new GLTFLoader().loadAsync(url).then((gltf) => {
 		gltf.scene.traverse((n) => {
 			if (n.isMesh) {
 				n.castShadow = true;
@@ -1762,10 +1792,63 @@ function loadRemoteAvatarTemplate(url) {
 				if (n.material && 'envMapIntensity' in n.material) n.material.envMapIntensity = 0.85;
 			}
 		});
+		if (entry) entry.scene = gltf.scene;
 		return gltf.scene;
+	}).catch((err) => {
+		// A failed load must not poison the cache forever — drop the entry so a
+		// later player can retry, and re-throw for the caller's own handling.
+		if (_remoteAvatarTemplates.get(url) === entry) _remoteAvatarTemplates.delete(url);
+		throw err;
 	});
-	_remoteAvatarTemplates.set(url, p);
-	return p;
+	entry = { promise, scene: null, refs: 0, lastUsed: performance.now() };
+	_remoteAvatarTemplates.set(url, entry);
+	return promise;
+}
+
+// A RemotePlayer claims/releases the template URL it is currently cloning so the
+// cache knows when a template is unreferenced and safe to evict.
+function acquireRemoteTemplate(url) {
+	const entry = _remoteAvatarTemplates.get(url);
+	if (entry) { entry.refs++; entry.lastUsed = performance.now(); }
+}
+
+function releaseRemoteTemplate(url) {
+	const entry = _remoteAvatarTemplates.get(url);
+	if (!entry) return;
+	if (entry.refs > 0) entry.refs--;
+	entry.lastUsed = performance.now();
+	pruneRemoteTemplates();
+}
+
+// Evict the least-recently-used idle (zero-ref) templates beyond the cap and
+// dispose their GPU resources.
+function pruneRemoteTemplates() {
+	const idle = [];
+	for (const [url, entry] of _remoteAvatarTemplates) {
+		if (entry.refs <= 0 && entry.scene) idle.push([url, entry]);
+	}
+	if (idle.length <= MAX_IDLE_REMOTE_TEMPLATES) return;
+	idle.sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+	const evictCount = idle.length - MAX_IDLE_REMOTE_TEMPLATES;
+	for (let i = 0; i < evictCount; i++) {
+		const [url, entry] = idle[i];
+		_remoteAvatarTemplates.delete(url);
+		disposeTemplateScene(entry.scene);
+	}
+}
+
+function disposeTemplateScene(scene) {
+	if (!scene) return;
+	scene.traverse((n) => {
+		if (n.geometry) n.geometry.dispose();
+		const mats = Array.isArray(n.material) ? n.material : (n.material ? [n.material] : []);
+		for (const mat of mats) {
+			for (const v of Object.values(mat)) {
+				if (v && v.isTexture) v.dispose();
+			}
+			mat.dispose();
+		}
+	});
 }
 function isLoadableAvatarUrl(url) {
 	return typeof url === 'string' && url.length > 0 &&
@@ -1801,6 +1884,7 @@ class RemotePlayer {
 		this._emoting = false;
 		this._avatarUrl = initial?.avatar || '';
 		this._avatarLoadToken = 0;
+		this._heldTemplateUrl = null; // remote-template URL this player currently clones
 		this._root = root;
 
 		this.rig = new Group();
@@ -1838,7 +1922,7 @@ class RemotePlayer {
 		this.motion = initial?.motion ?? 'idle';
 		this.currentYaw = this.targetYaw;
 		this.rig.position.set(this.targetX, this.targetY, this.targetZ);
-		this.rig.quaternion.setFromAxisAngle(new Vector3(0, 1, 0), this.targetYaw);
+		this.rig.quaternion.setFromAxisAngle(upY, this.targetYaw);
 	}
 
 	applyServerState(player) {
@@ -1893,6 +1977,12 @@ class RemotePlayer {
 		this._root = root;
 		this.rig.add(root);
 
+		// Track template references so the cache can evict & dispose templates no
+		// live player is cloning. Release the previous, claim the new.
+		if (this._heldTemplateUrl && this._heldTemplateUrl !== url) releaseRemoteTemplate(this._heldTemplateUrl);
+		acquireRemoteTemplate(url);
+		this._heldTemplateUrl = url;
+
 		this.anim = new AnimationManager();
 		this.anim.attach(root);
 		this.anim.setAnimationDefs(animationDefs);
@@ -1929,7 +2019,7 @@ class RemotePlayer {
 		this.rig.position.z += (this.targetZ - this.rig.position.z) * REMOTE_LERP;
 		// Yaw lerp (shortest arc).
 		this.currentYaw = lerpAngle(this.currentYaw, this.targetYaw, REMOTE_YAW_LERP);
-		this.rig.quaternion.setFromAxisAngle(new Vector3(0, 1, 0), this.currentYaw);
+		this.rig.quaternion.setFromAxisAngle(upY, this.currentYaw);
 
 		this.anim.update(dt);
 		this._updateLabel();
@@ -1955,6 +2045,7 @@ class RemotePlayer {
 
 	dispose() {
 		this._avatarLoadToken++; // cancel any in-flight avatar swap
+		if (this._heldTemplateUrl) { releaseRemoteTemplate(this._heldTemplateUrl); this._heldTemplateUrl = null; }
 		scene.remove(this.rig);
 		this.rig = null;
 		this.anim.dispose();

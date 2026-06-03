@@ -16,6 +16,7 @@ import { sql } from './_lib/db.js';
 import { error, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getObjectBuffer } from './_lib/r2.js';
+import { assertSafePublicUrl } from './_lib/ssrf-guard.js';
 
 const AGENT_ID_RE = /^[a-z0-9_-]{3,64}$/i;
 
@@ -36,6 +37,7 @@ const ALLOWED_MODEL_ORIGINS = [
 // and risk the artifact panel timing out before first paint.
 const MAX_GLB_BYTES = 6 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
+const MAX_GLB_REDIRECTS = 5;
 
 // Mirrors the actual CSP Claude.ai applies to artifact iframes (scraped at
 // github.com/simonw/scrape-claude-artifacts). Setting the same response CSP
@@ -86,11 +88,31 @@ function validateModelUrl(raw) {
 	return url.toString();
 }
 
+// Follow redirects manually so each hop is re-validated. An allowlisted origin
+// (the list includes wildcard *.vercel.app) could 3xx toward an internal or
+// metadata address; without per-hop checks the global redirect:'follow' would
+// connect there. Each hop must keep an allowlisted https origin AND pass the
+// DNS-resolving SSRF guard (private/loopback/link-local/metadata IPs blocked).
 async function fetchExternalGlb(url) {
 	const ctrl = new AbortController();
 	const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
 	try {
-		const res = await fetch(url, { signal: ctrl.signal, redirect: 'follow' });
+		let current = url;
+		let redirects = 0;
+		let res;
+		while (true) {
+			if (!validateModelUrl(current)) {
+				throw new Error('redirect target is not a whitelisted https origin');
+			}
+			await assertSafePublicUrl(current);
+			res = await fetch(current, { signal: ctrl.signal, redirect: 'manual' });
+			if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+				if (++redirects > MAX_GLB_REDIRECTS) throw new Error('too many redirects');
+				current = new URL(res.headers.get('location'), current).toString();
+				continue;
+			}
+			break;
+		}
 		if (!res.ok) throw new Error(`upstream ${res.status}`);
 		const len = Number(res.headers.get('content-length') || 0);
 		if (len && len > MAX_GLB_BYTES) {

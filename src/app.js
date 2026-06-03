@@ -2173,7 +2173,7 @@ class App {
 	_flashSaved(avatar) {
 		const el = document.createElement('div');
 		el.className = 'save-toast';
-		el.innerHTML = `Saved to your account · <a href="/dashboard/#avatars">${avatar.name}</a>`;
+		el.innerHTML = `Saved to your account · <a href="/dashboard/#avatars">${escHtml(avatar.name)}</a>`;
 		document.body.appendChild(el);
 		setTimeout(() => el.remove(), 5000);
 	}

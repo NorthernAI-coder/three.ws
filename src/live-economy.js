@@ -331,21 +331,27 @@ export function updateOverlayPositions() {
 }
 
 // ── Flash glow ring ───────────────────────────────────────────────────────
-let flashRing   = null;
+// A single reusable ring: built once and re-targeted/-tinted per flash so each
+// payment event doesn't leak a RingGeometry + material on the GPU. It stays in
+// the scene and is shown/hidden via visibility + opacity.
+const flashRing = new THREE.Mesh(
+	new THREE.RingGeometry(1.7, 2.0, 32),
+	new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+);
+flashRing.rotation.x = -Math.PI / 2;
+flashRing.visible = false;
+scene.add(flashRing);
 let flashTimer  = 0;
 let flashTarget = null;
 
 export function flashAgent(which) {
 	flashTarget = which === 'A' ? AGENT_A_POS : AGENT_B_POS;
 	const color  = which === 'A' ? 0xa855f7 : 0x4e8cff;
-	if (flashRing) scene.remove(flashRing);
-	flashRing = new THREE.Mesh(
-		new THREE.RingGeometry(1.7, 2.0, 32),
-		new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
-	);
-	flashRing.rotation.x = -Math.PI / 2;
+	flashRing.material.color.setHex(color);
+	flashRing.material.opacity = 0.9;
 	flashRing.position.set(flashTarget.x, 0.06, flashTarget.z);
-	scene.add(flashRing);
+	flashRing.scale.set(1, 1, 1);
+	flashRing.visible = true;
 	flashTimer = 1.0;
 }
 
@@ -380,12 +386,12 @@ let lastTime = performance.now();
 	updateBeam(dt);
 
 	// Flash ring fade
-	if (flashTimer > 0 && flashRing) {
+	if (flashTimer > 0) {
 		flashTimer -= dt * 1.4;
 		flashRing.material.opacity = Math.max(0, flashTimer);
 		const s = 1 + (1 - flashTimer) * 0.6;
 		flashRing.scale.set(s, s, s);
-		if (flashTimer <= 0) { scene.remove(flashRing); flashRing = null; }
+		if (flashTimer <= 0) { flashRing.visible = false; flashRing.material.opacity = 0; }
 	}
 
 	renderer.render(scene, camera);

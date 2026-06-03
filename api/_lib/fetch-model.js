@@ -13,13 +13,12 @@
 
 import { lookup } from 'node:dns/promises';
 import { Agent } from 'undici';
-import { env } from './env.js';
 
 const DEFAULT_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 const DEFAULT_TIMEOUT_MS = 20_000;
 const MAX_REDIRECTS = 3;
 
-const IS_DEV = env.NODE_ENV !== 'production';
+const IS_DEV = process.env.NODE_ENV !== 'production';
 
 export class FetchModelError extends Error {
 	constructor(message, code = 'fetch_failed') {

@@ -960,55 +960,6 @@
 		}
 		.pg-copy:hover { color: var(--text); border-color: var(--text-3); }
 
-		/* ── PRICING TEASER ──────────────────────────────────────── */
-		.pricing-grid {
-			display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
-			background: var(--hairline); border: 1px solid var(--hairline);
-			border-radius: 14px; overflow: hidden;
-		}
-		@media (max-width: 860px) { .pricing-grid { grid-template-columns: 1fr; } }
-		.pricing-card {
-			background: var(--surface-0); padding: 40px 32px;
-			display: flex; flex-direction: column; gap: 0;
-			transition: background 0.15s; position: relative;
-		}
-		.pricing-card:hover { background: var(--surface-1); }
-		.pricing-card.featured {
-			background: var(--surface-1);
-			box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
-		}
-		.pricing-badge {
-			position: absolute; top: 16px; right: 16px;
-			font-family: var(--font-mono); font-size: 10px;
-			letter-spacing: 0.15em; text-transform: uppercase;
-			background: rgba(255,255,255,0.15); color: #cccccc;
-			padding: 3px 9px; border-radius: 99px;
-		}
-		.pricing-tier {
-			font-family: var(--font-mono); font-size: 11px;
-			letter-spacing: 0.18em; text-transform: uppercase;
-			color: var(--text-3); margin-bottom: 12px;
-		}
-		.pricing-price {
-			font-family: var(--font-display); font-size: 40px;
-			font-weight: 600; letter-spacing: -0.03em;
-			color: var(--text); margin: 0 0 4px; line-height: 1;
-		}
-		.pricing-price sub { font-size: 16px; font-weight: 400; color: var(--text-3); }
-		.pricing-cycle { font-size: 13px; color: var(--text-3); margin-bottom: 28px; }
-		.pricing-feats {
-			list-style: none; padding: 0; margin: 0 0 32px; flex: 1;
-			display: flex; flex-direction: column; gap: 10px;
-		}
-		.pricing-feats li {
-			display: flex; align-items: flex-start; gap: 10px;
-			font-size: 14px; color: var(--text-2); line-height: 1.45;
-		}
-		.pricing-feats li::before {
-			content: "✓"; color: var(--green); font-weight: 700; flex-shrink: 0;
-			font-size: 12px; margin-top: 1px;
-		}
-
 		/* ── BOTTOM CTA ──────────────────────────────────────────── */
 		.cta-card {
 			padding: 80px 64px; border: 1px solid var(--hairline-strong);
@@ -1026,7 +977,7 @@
 		footer { border-top: 1px solid var(--hairline); padding: 56px 0; }
 		.foot-cols {
 			display: grid;
-			grid-template-columns: repeat(5, 1fr);
+			grid-template-columns: repeat(6, 1fr);
 			gap: 32px; margin-bottom: 48px;
 			padding-bottom: 40px; border-bottom: 1px solid var(--hairline);
 		}
@@ -1252,30 +1203,7 @@
 		.btn.primary:active { background: #e0e0e0; }
 		.door-screenshot img[src] { transition: transform 0.4s cubic-bezier(.2,.7,.3,1); }
 		.door:hover .door-screenshot img { transform: scale(1.03); }
-		.pricing-card { transition: background 0.15s, transform 0.2s; }
-		.pricing-card:hover { transform: translateY(-2px); }
 
-		/* ── PRICING AVATAR STAGE ────────────────────────────── */
-		.pricing-stage { position: relative; }
-		#pricing-canvas {
-			position: absolute;
-			top: -200px; left: 0; right: 0; bottom: 0;
-			pointer-events: none; z-index: 10;
-		}
-		.pricing-card.is-active {
-			background: var(--surface-1);
-			box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
-			transform: translateY(-2px);
-		}
-		.pricing-hint {
-			text-align: center; margin-top: 20px;
-			font-family: var(--font-mono); font-size: 11px;
-			letter-spacing: 0.12em; text-transform: uppercase;
-			color: var(--text-4);
-		}
-		@media (max-width: 860px) {
-			#pricing-canvas, .pricing-hint { display: none; }
-		}
 		@keyframes stat-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 		.stat-animated { animation: stat-in 0.5s cubic-bezier(.2,.7,.3,1) both; }
 
@@ -2543,6 +2471,21 @@
 				</div>
 			</div>
 			<div class="nav-grp">
+				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Integrations<span class="nav-caret" aria-hidden="true">▾</span></button>
+				<div class="nav-pop wide" role="menu" aria-label="Integrations">
+					<div class="nav-pop-note">Live partner showcases — built on real platforms, running end-to-end.</div>
+					<a class="nav-mi" href="/ibm" role="menuitem"><span class="nav-mi-t">IBM watsonx</span><span class="nav-mi-d">Granite-powered 3D agent demos — the hub</span></a>
+					<a class="nav-mi" href="/ibm/galaxy" role="menuitem"><span class="nav-mi-t">Agent Galaxy</span><span class="nav-mi-d">Granite embeddings → 3D semantic agent map</span></a>
+					<a class="nav-mi" href="/ibm/oracle" role="menuitem"><span class="nav-mi-t">Oracle</span><span class="nav-mi-d">Granite TimeSeries forecasting in 3D</span></a>
+					<a class="nav-mi" href="/ibm/twin" role="menuitem"><span class="nav-mi-t">Digital Twin</span><span class="nav-mi-d">Living market replica + projection</span></a>
+					<a class="nav-mi" href="/ibm/trust-layer" role="menuitem"><span class="nav-mi-t">Trust Layer</span><span class="nav-mi-d">Granite Guardian governs wallet agents</span></a>
+					<a class="nav-mi" href="/ibm/identity" role="menuitem"><span class="nav-mi-t">Identity Firewall</span><span class="nav-mi-d">Granite gate against agent impersonation</span></a>
+					<a class="nav-mi" href="/ibm/proof" role="menuitem"><span class="nav-mi-t">Proof</span><span class="nav-mi-d">On-chain AI notary — forecast → govern → Solana</span></a>
+					<a class="nav-mi" href="/ibm/vision" role="menuitem"><span class="nav-mi-t">Vision</span><span class="nav-mi-d">Granite Vision — image → understanding</span></a>
+					<a class="nav-mi" href="/aws" role="menuitem"><span class="nav-mi-t">AWS Marketplace</span><span class="nav-mi-d">three.ws as an AWS Partner listing</span></a>
+				</div>
+			</div>
+			<div class="nav-grp">
 				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Labs<span class="nav-pill-sm" aria-hidden="true">Beta</span><span class="nav-caret" aria-hidden="true">▾</span></button>
 				<div class="nav-pop wide" role="menu" aria-label="Labs">
 					<div class="nav-pop-note">Experimental features — actively iterating. Expect rough edges.</div>
@@ -2614,6 +2557,14 @@
 	<a href="/brain">Brain</a>
 	<a href="/chat">Chat</a>
 	<a href="/pay">Pay</a>
+	<div class="dr-h">Integrations</div>
+	<a href="/ibm">IBM watsonx</a>
+	<a href="/ibm/galaxy">Agent Galaxy</a>
+	<a href="/ibm/oracle">Oracle</a>
+	<a href="/ibm/twin">Digital Twin</a>
+	<a href="/ibm/trust-layer">Trust Layer</a>
+	<a href="/ibm/proof">Proof</a>
+	<a href="/aws">AWS Marketplace</a>
 	<div class="dr-h">Labs · Beta</div>
 	<a href="/launchpad">Launchpad Studio</a>
 	<a href="/lipsync">Lipsync</a>
@@ -3870,69 +3821,11 @@
 	</div>
 </section>
 
-<!-- ── PRICING ────────────────────────────────────────────────────── -->
-<section class="block">
-	<div class="wrap-1280">
-		<div class="block-head reveal">
-			<p class="block-eyebrow"><span class="num">09</span>Pricing</p>
-			<h2 class="block-h">Free to start. <em>Scale when you do.</em></h2>
-			<p class="block-lede">Open beta is free with no limits. Pro and Enterprise plans unlock higher rate limits, custom domains, and dedicated support.</p>
-		</div>
-		<div class="pricing-stage" id="pricing-stage">
-			<canvas id="pricing-canvas"></canvas>
-			<div class="pricing-grid reveal reveal-d1">
-				<div class="pricing-card" id="tier-beta" data-tier="beta">
-					<div class="pricing-tier">Beta</div>
-					<div class="pricing-price">$0<sub>/mo</sub></div>
-					<div class="pricing-cycle">Free during open beta</div>
-					<ul class="pricing-feats">
-						<li>Unlimited agents</li>
-						<li>Unlimited embeds</li>
-						<li>200+ animation clips</li>
-						<li>x402 payments (0% fee)</li>
-						<li>Community support</li>
-					</ul>
-					<a class="btn" href="/create" data-tier-cta="beta">Start for free</a>
-				</div>
-				<div class="pricing-card featured" id="tier-pro" data-tier="pro">
-					<span class="pricing-badge">Most popular</span>
-					<div class="pricing-tier">Pro</div>
-					<div class="pricing-price">$49<sub>/mo</sub></div>
-					<div class="pricing-cycle">After open beta · billed monthly</div>
-					<ul class="pricing-feats">
-						<li>Everything in Beta</li>
-						<li>Custom domain embeds</li>
-						<li>Priority CDN &amp; GPU rendering</li>
-						<li>Advanced analytics dashboard</li>
-						<li>Priority support &amp; SLA</li>
-					</ul>
-					<a class="btn primary" href="/pricing" data-tier-cta="pro">See full pricing</a>
-				</div>
-				<div class="pricing-card" id="tier-enterprise" data-tier="enterprise">
-					<div class="pricing-tier">Enterprise</div>
-					<div class="pricing-price" style="font-size:28px;margin-top:6px;">Custom</div>
-					<div class="pricing-cycle">Volume · white-label · SLA</div>
-					<ul class="pricing-feats">
-						<li>Everything in Pro</li>
-						<li>White-label embed &amp; API</li>
-						<li>Dedicated infrastructure</li>
-						<li>Custom integrations</li>
-						<li>Dedicated solutions engineer</li>
-					</ul>
-					<a class="btn" href="mailto:hello@three.ws" data-tier-cta="enterprise">Contact us</a>
-				</div>
-			</div>
-			<p class="pricing-hint">Hover a tier — she walks over</p>
-		</div>
-	</div>
-</section>
-
-
 <!-- ── AVATAR DROP ─────────────────────────────────────────────────── -->
 <section class="block body-drop" id="body-drop">
 	<div class="wrap-1280">
 		<div class="body-drop-content reveal">
-			<p class="block-eyebrow"><span class="num">10</span>See it in action</p>
+			<p class="block-eyebrow"><span class="num">09</span>See it in action</p>
 			<h2 class="body-drop-title">
 				<span id="drop-sit-line">Your agent</span><br/>
 				lives <em>here.</em>
@@ -3999,6 +3892,13 @@
 				<a href="/dashboard/api">API</a>
 				<a href="/artifact">Artifact Viewer</a>
 				<a href="/sitemap">Sitemap</a>
+			</div>
+			<div class="foot-col">
+				<div class="foot-col-h">Integrations</div>
+				<a href="/ibm">IBM watsonx</a>
+				<a href="/ibm/galaxy">Agent Galaxy</a>
+				<a href="/ibm/trust-layer">Trust Layer</a>
+				<a href="/aws">AWS Marketplace</a>
 			</div>
 			<div class="foot-col">
 				<div class="foot-col-h">Company</div>
@@ -5283,312 +5183,6 @@
 </script>
 <script type="module" src="/src/api-playground.js"></script>
 <script type="module" src="/dragon-section.js"></script>
-<script type="module">
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { reserveWebGLContext } from '/src/webgl-budget.js';
-
-const canvas = document.getElementById('pricing-canvas');
-const tiers = [...document.querySelectorAll('#pricing-stage .pricing-card')];
-
-if (canvas && tiers.length && window.matchMedia('(min-width: 861px)').matches) {
-	// The renderer is created lazily, only when the pricing section nears the
-	// viewport. Creating it at page load would make it one of the oldest WebGL
-	// contexts on a page full of <agent-3d> avatars, so the browser's "oldest
-	// context wins" eviction would kill the pricing avatar first. Deferring it
-	// keeps it young; the webglcontextlost/restored handlers let it recover if
-	// it is ever evicted anyway.
-	let renderer = null;
-	let contextLost = false;
-	let sectionVisible = false;
-	function ensureRenderer() {
-		if (renderer) return renderer;
-		renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-		renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-		renderer.outputColorSpace = THREE.SRGBColorSpace;
-		renderer.toneMapping = THREE.ACESFilmicToneMapping;
-		renderer.toneMappingExposure = 1.1;
-		// Count this context against the shared budget so <agent-3d> grids on the
-		// same page leave room for it (see /src/webgl-budget.js).
-		reserveWebGLContext();
-		canvas.addEventListener('webglcontextlost', (e) => {
-			e.preventDefault();
-			contextLost = true;
-		}, false);
-		canvas.addEventListener('webglcontextrestored', () => {
-			contextLost = false;
-			resize();
-		}, false);
-		resize();
-		return renderer;
-	}
-
-	const scene = new THREE.Scene();
-	const PX_PER_UNIT = 120;
-	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
-	camera.position.z = 10;
-
-	function updateFrustum() {
-		const r = canvas.getBoundingClientRect();
-		if (!r.width || !r.height) return;
-		const hw = r.width / PX_PER_UNIT / 2;
-		const hh = r.height / PX_PER_UNIT / 2;
-		camera.left = -hw; camera.right = hw;
-		camera.top = hh; camera.bottom = -hh;
-		camera.updateProjectionMatrix();
-	}
-
-	const _v3 = new THREE.Vector3();
-	function domToWorld(sx, sy) {
-		const r = canvas.getBoundingClientRect();
-		_v3.set(
-			((sx - r.left) / r.width) * 2 - 1,
-			-((sy - r.top) / r.height) * 2 + 1,
-			0
-		);
-		_v3.unproject(camera);
-		return { x: _v3.x, y: _v3.y };
-	}
-
-	let avatar = null, mixer = null, rootBone = null, baseRootPos = null;
-	let phase = 'loading';
-	let activeTier = null;
-
-	function resize() {
-		const r = canvas.getBoundingClientRect();
-		if (!r.width || !r.height) return;
-		if (renderer) renderer.setSize(r.width, r.height, false);
-		updateFrustum();
-		if (avatar && activeTier && phase === 'idle') {
-			const t = standOnTopOf(activeTier);
-			avatar.position.set(t.x, t.y, 0);
-		}
-	}
-	window.addEventListener('resize', resize);
-
-	scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-	const keyLight = new THREE.DirectionalLight(0xfff4dc, 2.0);
-	keyLight.position.set(3, 6, 5); scene.add(keyLight);
-	const rimLight = new THREE.DirectionalLight(0x4060ff, 0.6);
-	rimLight.position.set(-4, 3, -2); scene.add(rimLight);
-	const fillLight = new THREE.DirectionalLight(0xffeedd, 0.4);
-	fillLight.position.set(0, 2, 7); scene.add(fillLight);
-
-	const actions = {};
-	let currentAction = null;
-	const FADE_S = 0.3;
-
-	function setAnimation(name, opts = {}) {
-		const next = actions[name];
-		if (!next || next === currentAction) return;
-		const loop = opts.loop !== false;
-		next.reset();
-		next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1);
-		next.clampWhenFinished = !!opts.hold;
-		if (currentAction) next.crossFadeFrom(currentAction, FADE_S, false).play();
-		else next.fadeIn(FADE_S).play();
-		currentAction = next;
-	}
-
-	function standOnTopOf(tierEl) {
-		const r = tierEl.getBoundingClientRect();
-		return domToWorld(r.left + r.width / 2, r.top);
-	}
-
-	let walkT = 0, walkStart = null, walkEnd = null, walkDur = 0.85, walkPeakRise = 0;
-	let onArrival = null;
-	const WALK_SPEED = 5;
-	function smoothstep(t) { return t * t * (3 - 2 * t); }
-
-	function beginMove(tierEl) {
-		if (activeTier) activeTier.classList.remove('is-active');
-		activeTier = tierEl;
-		activeTier.classList.add('is-active');
-	}
-
-	function walkToTier(tierEl) {
-		if (!avatar || tierEl === activeTier) return;
-		beginMove(tierEl);
-		phase = 'walking';
-		walkT = 0;
-		walkStart = { x: avatar.position.x, y: avatar.position.y };
-		walkEnd = standOnTopOf(tierEl);
-		const dx = Math.abs(walkEnd.x - walkStart.x);
-		walkDur = Math.max(0.4, dx / WALK_SPEED);
-		const minX = Math.min(walkStart.x, walkEnd.x);
-		const maxX = Math.max(walkStart.x, walkEnd.x);
-		const baseY = Math.max(walkStart.y, walkEnd.y);
-		let peakY = baseY;
-		for (const tt of tiers) {
-			const tp = standOnTopOf(tt);
-			if (tp.x > minX && tp.x < maxX && tp.y > peakY) peakY = tp.y;
-		}
-		walkPeakRise = peakY - baseY;
-		setAnimation('walk', { loop: true });
-		const dir = Math.sign(walkEnd.x - walkStart.x) || 0;
-		avatar.rotation.y = dir * (Math.PI / 2);
-	}
-
-	const CTA_REACTION = { beta: 'wave', pro: 'av-celebrating', enterprise: 'av-brag-claps' };
-	const CTA_REACTION_MAX_MS = 3500;
-
-	function landOnTier() {
-		phase = 'idle';
-		const snap = standOnTopOf(activeTier);
-		avatar.position.set(snap.x, snap.y, 0);
-		setAnimation('idle', { loop: true });
-		if (onArrival) {
-			const cb = onArrival;
-			onArrival = null;
-			setTimeout(cb, 300);
-		}
-	}
-
-	let hoverTimer = null, hoverPendingTier = null;
-	function scheduleMove(tierEl) {
-		if (!tierEl) { clearTimeout(hoverTimer); hoverPendingTier = null; return; }
-		if (tierEl === activeTier) { clearTimeout(hoverTimer); hoverPendingTier = null; return; }
-		if (tierEl === hoverPendingTier) return;
-		clearTimeout(hoverTimer);
-		hoverPendingTier = tierEl;
-		hoverTimer = setTimeout(() => {
-			hoverPendingTier = null;
-			if (phase === 'walking') setTimeout(() => scheduleMove(tierEl), 200);
-			else walkToTier(tierEl);
-		}, 120);
-	}
-
-	function tierAtPoint(cx, cy) {
-		for (const t of tiers) {
-			const r = t.getBoundingClientRect();
-			if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) return t;
-		}
-		return null;
-	}
-
-	const grid = document.querySelector('#pricing-stage .pricing-grid');
-	grid.addEventListener('mousemove', e => scheduleMove(tierAtPoint(e.clientX, e.clientY)));
-	grid.addEventListener('mouseleave', () => scheduleMove(null));
-
-	document.querySelectorAll('#pricing-stage [data-tier-cta]').forEach(cta => {
-		cta.addEventListener('click', e => {
-			if (!avatar) return;
-			const tierEl = document.getElementById('tier-' + cta.dataset.tierCta);
-			const reactionClip = CTA_REACTION[tierEl?.dataset.tier] || 'wave';
-			const fireReaction = () => {
-				setAnimation(reactionClip, { loop: false, hold: true });
-				const clipDur = actions[reactionClip]?.getClip().duration ?? 2;
-				const playMs = Math.min(clipDur * 1000, CTA_REACTION_MAX_MS);
-				setTimeout(() => { if (phase === 'idle') setAnimation('idle', { loop: true }); }, playMs);
-			};
-			if (tierEl === activeTier && phase === 'idle') {
-				e.preventDefault();
-				fireReaction();
-			} else if (tierEl !== activeTier) {
-				e.preventDefault();
-				onArrival = fireReaction;
-				walkToTier(tierEl);
-			}
-		});
-	});
-
-	let mouseNx = 0, mouseNy = 0;
-	window.addEventListener('mousemove', e => {
-		mouseNx = (e.clientX / window.innerWidth) * 2 - 1;
-		mouseNy = (e.clientY / window.innerHeight) * 2 - 1;
-	});
-
-	const ro = new ResizeObserver(() => {
-		if (avatar && activeTier && phase === 'idle') {
-			const t = standOnTopOf(activeTier);
-			avatar.position.set(t.x, t.y, 0);
-		}
-	});
-	tiers.forEach(t => ro.observe(t));
-
-	const CLIPS = ['idle', 'walk', 'wave', 'av-celebrating', 'av-brag-claps'];
-	let loaded = false;
-
-	const io = new IntersectionObserver(entries => {
-		if (!entries[0].isIntersecting || loaded) return;
-		loaded = true;
-		io.disconnect();
-		ensureRenderer();
-		resize();
-
-		new GLTFLoader().load('/avatars/cz.glb', gltf => {
-			avatar = gltf.scene;
-			avatar.traverse(n => {
-				if (!rootBone && /^(Hips|Root|mixamorig:?Hips)$/i.test(n.name)) rootBone = n;
-			});
-			scene.add(avatar);
-			mixer = new THREE.AnimationMixer(avatar);
-
-			Promise.all(CLIPS.map(name =>
-				fetch('/animations/clips/' + name + '.json').then(r => r.json())
-			)).then(jsons => {
-				CLIPS.forEach((name, i) => {
-					actions[name] = mixer.clipAction(THREE.AnimationClip.parse(jsons[i]));
-				});
-				if (rootBone) baseRootPos = rootBone.position.clone();
-				const _render = renderer.render.bind(renderer);
-				renderer.render = (sc, cam) => {
-					try { if (rootBone && baseRootPos) rootBone.position.copy(baseRootPos); } catch (_) {}
-					_render(sc, cam);
-				};
-
-				const pro = document.getElementById('tier-pro');
-				activeTier = pro;
-				pro.classList.add('is-active');
-				const start = standOnTopOf(pro);
-				avatar.position.set(start.x, start.y, 0);
-				setAnimation('idle', { loop: true });
-				phase = 'idle';
-			});
-		});
-	}, { threshold: 0, rootMargin: '400px' });
-	io.observe(document.getElementById('pricing-stage'));
-
-	// Only draw while the section is actually on screen — saves GPU/CPU and
-	// avoids rendering onto a context the browser may have evicted.
-	const visObs = new IntersectionObserver(entries => {
-		sectionVisible = entries.some(e => e.isIntersecting);
-	});
-	visObs.observe(document.getElementById('pricing-stage'));
-
-	const clock = new THREE.Clock();
-	(function tick() {
-		requestAnimationFrame(tick);
-		try {
-			const dt = Math.min(clock.getDelta(), 0.05);
-			mixer?.update(dt);
-
-			if (phase === 'walking' && avatar && walkStart && walkEnd) {
-				walkT += dt;
-				const p = Math.min(walkT / walkDur, 1);
-				const e = smoothstep(p);
-				const x = walkStart.x + (walkEnd.x - walkStart.x) * e;
-				const arc = walkPeakRise * 4 * p * (1 - p);
-				const y = walkStart.y + (walkEnd.y - walkStart.y) * e + arc;
-				avatar.position.set(x, y, 0);
-				if (p >= 1) landOnTier();
-			}
-
-			if (phase === 'idle' && avatar) {
-				avatar.rotation.y *= 0.9;
-			}
-
-			const targetCamX = mouseNx * 0.08;
-			const targetCamY = -mouseNy * 0.05;
-			camera.position.x += (targetCamX - camera.position.x) * 0.04;
-			camera.position.y += (targetCamY - camera.position.y) * 0.04;
-
-			if (renderer && !contextLost && sectionVisible) renderer.render(scene, camera);
-		} catch (_) {}
-	})();
-}
-</script>
-
 <script>
 // ── Interactive Bento Features ─────────────────────────────────────
 (function initBentoInteractives() {

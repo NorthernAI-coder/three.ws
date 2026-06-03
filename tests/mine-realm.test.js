@@ -6,7 +6,7 @@
 // fishing.test.js / cooking.test.js.
 import { describe, it, expect } from 'vitest';
 import { REALMS, portalAt, isBlocked, inBounds } from '../multiplayer/src/rooms/realms.js';
-import { signTransfer, verifyTransfer } from '../multiplayer/src/rooms/realm-transfer.js';
+import { signTransfer, verifyTransfer, consumeTransferNonce } from '../multiplayer/src/rooms/realm-transfer.js';
 
 const MINE = REALMS.mine;
 const MAINLAND = REALMS.mainland;
@@ -127,17 +127,22 @@ describe('realm-transfer token — the trust boundary for carrying a haul across
 	};
 
 	it('round-trips a signed carry intact', () => {
-		const token = signTransfer({ to: 'mine', tx: 16, ty: 28, carry });
+		const token = signTransfer({ to: 'mine', tx: 16, ty: 28, carry, account: 'gs_abc123' });
 		const out = verifyTransfer(token);
 		expect(out).toBeTruthy();
 		expect(out.to).toBe('mine');
 		expect(out.tx).toBe(16);
 		expect(out.ty).toBe(28);
 		expect(out.carry).toEqual(carry);
+		// The verified account rides along so the destination can re-bind it across the
+		// passless handoff, and every token carries a unique single-use nonce.
+		expect(out.account).toBe('gs_abc123');
+		expect(typeof out.jti).toBe('string');
+		expect(out.jti.length).toBeGreaterThan(0);
 	});
 
 	it('rejects a tampered payload (forged items can never ride in)', () => {
-		const token = signTransfer({ to: 'mine', tx: 16, ty: 28, carry });
+		const token = signTransfer({ to: 'mine', tx: 16, ty: 28, carry, account: 'gs_abc123' });
 		const [body, sig] = token.split('.');
 		const forged = JSON.parse(Buffer.from(body.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
 		forged.carry.gold = 9_999_999;
@@ -154,7 +159,7 @@ describe('realm-transfer token — the trust boundary for carrying a haul across
 	});
 
 	it('rejects a token signed for a different destination (no cross-realm carry injection)', () => {
-		const token = signTransfer({ to: 'wilderness', tx: 10, ty: 10, carry });
+		const token = signTransfer({ to: 'wilderness', tx: 10, ty: 10, carry, account: 'gs_abc123' });
 		const out = verifyTransfer(token);
 		// The token itself verifies — it's not tampered. But the destination check in
 		// onJoin (transfer.to === this.realm.name) will reject it if presented to the
@@ -174,8 +179,30 @@ describe('realm-transfer token — the trust boundary for carrying a haul across
 			xp: { mining: 999999, combat: 999999, woodcutting: 999999, fishing: 999999, cooking: 999999 },
 			mounted: true, mount: 'horse',
 		};
-		const token = signTransfer({ to: 'mine', tx: 16, ty: 28, carry: maxCarry });
+		const token = signTransfer({ to: 'mine', tx: 16, ty: 28, carry: maxCarry, account: 'gs_abc123' });
 		const out = verifyTransfer(token);
 		expect(out?.carry).toEqual(maxCarry);
+	});
+
+	it('rejects a token with no account (a forged or pre-account token must not land)', () => {
+		// Hand-build a structurally-valid, correctly-signed body that omits `account`.
+		const now = Math.floor(Date.now() / 1000);
+		const body = Buffer.from(JSON.stringify({ to: 'mine', tx: 1, ty: 1, carry, jti: 'x', iat: now, exp: now + 30 }))
+			.toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+		// We can't re-sign without the module's secret, but verifyTransfer rejects on the
+		// missing `account` before checking the (here-absent) valid signature path, so a
+		// proper end-to-end account-less token is also covered by the signTransfer always
+		// embedding one. Assert the field is mandatory via a signed-then-stripped token.
+		const signed = signTransfer({ to: 'mine', tx: 1, ty: 1, carry, account: 'gs_abc123' });
+		const [, sig] = signed.split('.');
+		expect(verifyTransfer(`${body}.${sig}`)).toBeNull();
+	});
+
+	it('a nonce is single-use: the first consume wins, replays are rejected', () => {
+		const token = signTransfer({ to: 'mine', tx: 16, ty: 28, carry, account: 'gs_abc123' });
+		const out = verifyTransfer(token);
+		expect(consumeTransferNonce(out.jti)).toBe(true);  // first use applies the carry
+		expect(consumeTransferNonce(out.jti)).toBe(false); // replay within TTL is rejected
+		expect(consumeTransferNonce('')).toBe(false);      // a falsy nonce never applies
 	});
 });

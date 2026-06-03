@@ -81,10 +81,14 @@ app.get(['/health', '/healthz'], (_req, res) => {
 app.post('/internal/notify', express.json({ limit: '16kb' }), (req, res) => {
 	const { type, to, payload } = req.body || {};
 	const sig = req.headers['x-mp-signature'];
+	const ts = req.headers['x-mp-timestamp'];
 	if (typeof type !== 'string' || typeof to !== 'string' || !type || !to) {
 		return res.status(400).json({ error: 'bad_request' });
 	}
-	if (!verifyNotifySignature(to, type, sig)) {
+	// The signature is bound to the exact payload and a fresh timestamp, so a leaked
+	// (to,type,sig) tuple can't be replayed with attacker-chosen content or after
+	// the freshness window. Verify against the body we're about to deliver.
+	if (!verifyNotifySignature(to, type, payload || {}, ts, sig)) {
 		return res.status(401).json({ error: 'bad_signature' });
 	}
 	const delivered = socialHub.deliver(to, type, payload || {});
@@ -122,7 +126,19 @@ const transport = new WebSocketTransport({
 	server: httpServer,
 	verifyClient(info, next) {
 		const origin = info.req.headers.origin;
-		if (!origin) return next(true); // native clients / curl probes
+		// Origin-less upgrades (native clients / scripted probes) must NOT be a free
+		// pass: a browser always sends Origin, so omitting it was a trivial way to skip
+		// the allowlist entirely. The real access boundary is each room's onAuth (a
+		// signed play pass / presence ticket, or a server-issued guest token), so the
+		// origin allowlist is only a browser-facing CSRF-style filter. We still reject
+		// origin-less handshakes in production — there is no legitimate origin-less
+		// browser client, and the signed-token gate, not a spoofable header, is what
+		// protects the rooms. Non-prod keeps them open for local curl/native dev probes.
+		if (!origin) {
+			if (!IS_PROD) return next(true);
+			console.warn('[multiplayer] rejecting origin-less upgrade');
+			return next(false, 403, 'origin required');
+		}
 		if (ALLOWED_ORIGINS.includes(origin)) return next(true);
 		// Allow any Vercel preview deploy that targets the same project — these
 		// have origins like https://three-ws-<hash>-<team>.vercel.app. We match
@@ -218,8 +234,31 @@ function publicJsonCors(_req, res, next) {
 const RATE_WINDOW_MS = 10_000;
 const RATE_MAX = 30;
 const _rateBuckets = new Map(); // ip -> { windowStart, count }
+
+// Trusted client-IP resolution. X-Forwarded-For is fully client-controlled when a
+// request reaches the app directly, so keying the limiter on it lets a flood rotate
+// a fresh XFF per request and never hit a bucket. We only trust a forwarded IP from
+// our actual fronting proxy:
+//   - Fly.io sets Fly-Client-IP to the real edge client IP (it can't be spoofed
+//     past the proxy);
+//   - TRUSTED_PROXY_IP_HEADER names any other platform's verified client-IP header
+//     (e.g. CF-Connecting-IP, X-Real-IP) for non-Fly deploys.
+// Absent a trusted header we fall back to the raw socket peer, which an attacker
+// can't forge. We deliberately do NOT parse X-Forwarded-For as the access key.
+const TRUSTED_IP_HEADER = (process.env.TRUSTED_PROXY_IP_HEADER || '').trim().toLowerCase();
+function clientIp(req) {
+	const fly = req.headers['fly-client-ip'];
+	if (typeof fly === 'string' && fly.trim()) return fly.trim();
+	if (TRUSTED_IP_HEADER) {
+		const h = req.headers[TRUSTED_IP_HEADER];
+		const v = Array.isArray(h) ? h[0] : h;
+		if (typeof v === 'string' && v.trim()) return v.split(',')[0].trim();
+	}
+	return req.socket?.remoteAddress || 'unknown';
+}
+
 function rateLimit(req, res, next) {
-	const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+	const ip = clientIp(req);
 	const now = Date.now();
 	let b = _rateBuckets.get(ip);
 	if (!b || now - b.windowStart > RATE_WINDOW_MS) { b = { windowStart: now, count: 0 }; _rateBuckets.set(ip, b); }

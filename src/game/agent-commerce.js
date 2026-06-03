@@ -20,6 +20,7 @@ import {
 } from 'three';
 import { AnimationManager } from '../animation-manager.js';
 import { resolveAvatarUrl, buildAvatar, loadManifest, MANIFEST_URL, CLIP_IDLE } from './avatar-rig.js';
+import { createX402Jumbotron } from './x402-jumbotron.js';
 
 // Where the two agents stand — off to the right of the totem so a player
 // entering the town sees them but doesn't spawn on top of them.
@@ -141,6 +142,17 @@ export class AgentCommerce {
 
 		this._buildMarker();
 		this._buildPromptAndPanel();
+
+		// A big jumbotron behind the agents, facing the plaza, so anyone in the
+		// town can watch the payments land on a screen — not just the player who
+		// walked up and triggered the round. It pulls the real platform-wide x402
+		// feed on its own, then the live local round is pushed into it stage by
+		// stage from _runRound below.
+		this.jumbotron = createX402Jumbotron(scene, {
+			position: [EXCHANGE_CENTER.x, 0, EXCHANGE_CENTER.z - 7],
+			rotationY: 0,
+			width: 12,
+		});
 
 		// Pull the full clip manifest so gestures can reach any animation (the
 		// shared emote set is only the first six). Idempotent + cached.
@@ -290,6 +302,7 @@ export class AgentCommerce {
 	tick(dt) {
 		this.seller.tick(dt);
 		this.buyer.tick(dt);
+		this.jumbotron?.update(dt);
 
 		// Billboard the sign to face the camera; breathe the ground ring.
 		if (this.sign) {
@@ -428,6 +441,7 @@ export class AgentCommerce {
 			this._gesture(this.seller, 'av-cheering');
 
 			this.sessionTotal += 0.01;
+			this.jumbotron?.pushSettlement(settled, intel);
 			this._renderReceipt(settled, intel);
 			// Auto-dismiss the panel after the receipt has been read.
 			this._scheduleHide(9000);
@@ -436,6 +450,7 @@ export class AgentCommerce {
 			this.seller.say(LINES.seller.error);
 			this.buyer.say(LINES.buyer.error);
 			this._gesture(this.seller, 'facepalm');
+			this.jumbotron?.setError(active, err?.message);
 			this._renderError(active, err?.message);
 			this._scheduleHide(7000);
 		} finally {
@@ -445,13 +460,20 @@ export class AgentCommerce {
 
 	_scheduleHide(ms) {
 		clearTimeout(this._hideTimer);
-		this._hideTimer = setTimeout(() => this.panel.classList.remove('ac-show'), ms);
+		this._hideTimer = setTimeout(() => {
+			this.panel.classList.remove('ac-show');
+			// Revert the jumbotron's hero back to idle; its payment feed persists.
+			this.jumbotron?.setIdle();
+		}, ms);
 	}
 
 	// Render the panel header + stage stepper. `stage` is the currently-active
 	// step; everything before it is marked done.
 	_renderPanel({ topic, stage, amount }) {
 		if (amount != null) this._amount = amount;
+		// Mirror the live stage onto the in-world jumbotron so the big screen's
+		// stepper animates in lockstep with this HUD panel.
+		this.jumbotron?.setStage({ topic, stage, amount: this._amount });
 		const activeIdx = STAGES.findIndex((s) => s.id === stage);
 		const amt = this._amount ? `${(Number(this._amount) / 1e6).toFixed(2)} USDC` : '$0.01 USDC';
 		const steps = STAGES.map((s, i) => {
@@ -534,6 +556,7 @@ export class AgentCommerce {
 		clearTimeout(this._hideTimer);
 		this.seller.dispose();
 		this.buyer.dispose();
+		this.jumbotron?.dispose(); this.jumbotron = null;
 		if (this.marker) { this.scene.remove(this.marker); this.marker = null; }
 		this.prompt?.remove();
 		this.panel?.remove();

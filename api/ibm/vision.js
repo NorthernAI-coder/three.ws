@@ -23,6 +23,7 @@ import { cors, method, readJson, error, json, wrap } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { publicUrl } from '../_lib/r2.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
+import { assertSafePublicUrl } from '../_lib/ssrf-guard.js';
 
 // Granite Vision 3.2 (2B) is the default multimodal model on watsonx.ai. Override
 // per account/region with WATSONX_VISION_MODEL_ID.
@@ -220,13 +221,38 @@ async function resolveImage(body) {
 	throw fail(400, 'bad_image', 'provide image (data URL) or imageUrl (https)');
 }
 
+const MAX_IMAGE_REDIRECTS = 5;
+
+// Re-validate every redirect hop before following it. An allowlisted host (the
+// list includes broad CDNs and open-redirect-prone providers) could otherwise
+// 3xx us toward an internal/metadata address. Each hop must stay https, keep an
+// allowlisted host, AND pass the DNS-resolving SSRF guard (private/loopback/
+// link-local/metadata IPs blocked). Bounded by MAX_IMAGE_REDIRECTS.
 async function fetchImageAsDataUrl(url) {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 	let resp;
 	try {
-		resp = await fetch(url, { signal: controller.signal, redirect: 'follow' });
+		let current = url;
+		let redirects = 0;
+		while (true) {
+			const host = hostOf(current);
+			if (!/^https:\/\//i.test(current) || !host || !allowedImageHost(host)) {
+				throw fail(400, 'image_host_not_allowed', 'image redirect target host is not allowed');
+			}
+			await assertSafePublicUrl(current);
+			resp = await fetch(current, { signal: controller.signal, redirect: 'manual' });
+			if (resp.status >= 300 && resp.status < 400 && resp.headers.get('location')) {
+				if (++redirects > MAX_IMAGE_REDIRECTS) {
+					throw fail(502, 'image_fetch_failed', 'too many redirects');
+				}
+				current = new URL(resp.headers.get('location'), current).toString();
+				continue;
+			}
+			break;
+		}
 	} catch (e) {
+		if (e?.status && e?.code) throw e; // already a structured fail()
 		throw fail(502, 'image_fetch_failed', `could not fetch image: ${e.message}`);
 	} finally {
 		clearTimeout(timer);

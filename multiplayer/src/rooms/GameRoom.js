@@ -15,7 +15,7 @@ import { Room, matchMaker } from '@colyseus/core';
 
 import { GameState, GamePlayer, ResourceNode, Mob, Slot, Tombstone, Structure } from '../schemas/game.js';
 import { REALMS, DEFAULT_REALM, isBlocked, inBounds, realmLayout, fishingSpotNear, portalAt, rollerAt, rollerDelta, inNoPvpZone, wheelLandmark } from './realms.js';
-import { signTransfer, verifyTransfer } from './realm-transfer.js';
+import { signTransfer, verifyTransfer, consumeTransferNonce } from './realm-transfer.js';
 import { runCommand, commandManifest } from './commands.js';
 import { STACKABLE_ITEMS, isEdible, healValue, scaledHeal, isMount, mountStepMs, rollLoot, itemLabel, clientItemRegistry, cookBurnChance, fishCatchChance, fishDoubleChance } from '../items.js';
 import { cleanAvatarUrl } from '../avatar-url.js';
@@ -24,6 +24,8 @@ import { cleanServer } from '../servers.js';
 import { evictChannel, payoutChannel, TAKEOVER_CLOSE_CODE } from '../presence-keys.js';
 import { socialHub } from '../social-hub.js';
 import { verifyPresenceTicket } from '../presence-token.js';
+import { verifyPlayPass } from '../play-pass.js';
+import { newGuestId, signGuestToken, verifyGuestToken } from '../guest-token.js';
 import { cosmeticById, evaluatePurchase, currentOffers, clientCatalog } from '../cosmetics.js';
 import { marketplaceStore } from '../marketplaceStore.js';
 import {
@@ -45,6 +47,20 @@ import {
 // lookup reads `this.realm`, so the same class serves Mainland, Wilderness,
 // Whisperwood, and Pond. A realm's `danger` flag is what gates death-bag drops
 // (Task 02): dying in a danger realm spills part of your pack into a tombstone.
+
+// Platform entry gate (wallet-first sign-in + game-token balance), mirrored from
+// WalkRoom. When a game token is pinned (PLAY_GATE_MINT, falling back to
+// THREE_MINT) every wallet-shaped join must carry a valid play pass proving the
+// signed-in wallet holds ≥ the floor. An unset mint leaves the gate off, but the
+// account-binding in onAuth still applies (a wallet pid always needs a pass; a
+// guest always needs a server-signed guest token) so the profile account can
+// never be claimed from an unsigned option. Read at boot — gate config is fixed
+// for the process lifetime.
+const PLAY_GATE_MINT = (process.env.PLAY_GATE_MINT || process.env.THREE_MINT || '').trim();
+const PLAY_GATE_MIN = (() => {
+	const n = Number(process.env.PLAY_GATE_MIN);
+	return Number.isFinite(n) && n > 0 ? n : 1;
+})();
 
 const MAX_CLIENTS_PER_ROOM = 50;
 const PATCH_RATE_MS = 1000 / 15;
@@ -190,6 +206,92 @@ function hslToHex(h, s, l) {
 }
 
 export class GameRoom extends Room {
+	// Account ownership is proven here, before onJoin, exactly as WalkRoom verifies
+	// its play pass. The game profile account key (playerId) — which loads gold,
+	// bank, inventory, cosmetics and drives the single-session eviction channel —
+	// MUST come only from this verified binding, never from a raw `options.pid`. An
+	// unsigned pid set to a victim's wallet/guest id would otherwise hijack their
+	// whole saved profile and grief them off their eviction channel.
+	//
+	// Two proof shapes:
+	//   • Wallet account — proven by a play pass (ed25519-over-nonce minted by
+	//     /api/play/verify, sealed with the shared secret). The wallet rides inside
+	//     the signed pass; we bind it as the account. A wallet-shaped pid presented
+	//     WITHOUT a matching pass is rejected — never trusted on assertion alone.
+	//   • Guest account — no wallet to sign, so the server mints the identity: a
+	//     random guest id in an HMAC-signed token. The client replays the token on
+	//     reconnect; we verify it and bind the sealed id. A guest with no (or an
+	//     invalid) token is issued a brand-new id + token here, so a guest id can
+	//     only ever be used by the socket that holds its signed token.
+	// The bound account + (for new guests) the fresh token are stashed on
+	// client.userData/auth so onJoin derives playerId from the verified value and
+	// hands any new guest token back to the client to persist.
+	static onAuth(client, options) {
+		// Portal handoff (trusted server-to-server seat reservation). The source room
+		// already verified this account and minted a single-use, HMAC-signed transfer
+		// carrying it; the reservation can't ride a play pass / guest token, so the
+		// account is re-bound from the signed transfer here. Consume the nonce NOW (the
+		// earliest trusted point) so a captured transfer can't be replayed to bind a
+		// victim's account or restore a carry — and stash the verified result so onJoin
+		// applies the carry without re-consuming.
+		const transfer = options?.transfer ? verifyTransfer(options.transfer) : null;
+		if (transfer && consumeTransferNonce(transfer.jti)) {
+			client.userData = {
+				...(client.userData || {}),
+				account: transfer.account,
+				accountKind: isWalletAddress(transfer.account) ? 'wallet' : 'guest',
+				transfer,
+			};
+			return true;
+		}
+
+		const pass = verifyPlayPass(options?.playPass);
+		if (pass) {
+			// A valid play pass: bind its verified wallet as the account. When the gate
+			// is pinned, also enforce the mint + balance floor so an off-floor wallet
+			// can't ride a pass minted for a different token. Throw (not return false)
+			// so a refusal reaches the client as a `play_pass`-prefixed error.
+			if (PLAY_GATE_MINT) {
+				if (pass.mint !== PLAY_GATE_MINT) throw new Error('play_pass_mismatch');
+				if (!(typeof pass.balance === 'number' && pass.balance >= PLAY_GATE_MIN)) {
+					throw new Error('play_pass_required');
+				}
+			}
+			client.userData = {
+				...(client.userData || {}),
+				account: pass.wallet,
+				accountKind: 'wallet',
+				playBalance: pass.balance,
+				playExp: pass.exp,
+			};
+			return true;
+		}
+
+		// No play pass. The platform gate, when pinned, requires one for entry.
+		if (PLAY_GATE_MINT) throw new Error('play_pass_required');
+
+		// A wallet-shaped pid with no proving pass is a takeover attempt — reject it
+		// outright rather than load that wallet's profile on a bare assertion.
+		if (isWalletAddress(clean(options?.pid, 80))) throw new Error('play_pass_required');
+
+		// Guest path: trust only a server-signed guest token. A valid one re-binds the
+		// returning guest's id; anything else (missing/forged/expired) gets a brand-new
+		// server-minted id so a guest id can never be claimed by another socket.
+		let gid = verifyGuestToken(options?.guestToken);
+		let issuedToken = null;
+		if (!gid) {
+			gid = newGuestId();
+			issuedToken = signGuestToken(gid);
+		}
+		client.userData = {
+			...(client.userData || {}),
+			account: gid,
+			accountKind: 'guest',
+			...(issuedToken ? { newGuestToken: issuedToken } : {}),
+		};
+		return true;
+	}
+
 	constructor() {
 		super();
 		this.maxClients = MAX_CLIENTS_PER_ROOM;
@@ -305,6 +407,24 @@ export class GameRoom extends Room {
 		this.onMessage('questTurnIn', (c, p) => this._handleTurnIn(c, p));
 		this.onMessage('chat', (c, p) => this._handleChat(c, p));
 
+		// Re-check the token gate the same way WalkRoom does: the game server has no
+		// RPC, so "still holding the floor" is re-proven by the client minting a fresh
+		// play pass before the current one's TTL lapses and reconnecting (onAuth
+		// re-validates). To actively evict a wallet that fell below the floor
+		// mid-session, sweep once a minute and drop any client whose bound pass has
+		// expired without a refresh. Only runs when the gate is pinned.
+		if (PLAY_GATE_MINT) {
+			this.clock.setInterval(() => {
+				const nowS = Date.now() / 1000;
+				for (const client of this.clients) {
+					const exp = client.userData?.playExp;
+					if (typeof exp === 'number' && exp < nowS) {
+						try { client.leave(4002, 'play_pass_required'); } catch {}
+					}
+				}
+			}, 60_000);
+		}
+
 		this.setSimulationInterval(() => this._tick(), SIM_TICK_MS);
 	}
 
@@ -341,11 +461,19 @@ export class GameRoom extends Room {
 
 	async onJoin(client, options) {
 		const name = clean(options?.name, 24) || `guest-${client.sessionId.slice(0, 4)}`;
-		// Stable account key: the wallet address / persistent guest id the client
-		// sends (Task 16), falling back to the ephemeral session id when absent.
-		// Tutorial completion, daily assignment, progress, and badges are keyed to
-		// it so they survive a disconnect/reconnect.
-		const playerId = clean(options?.pid, 80) || client.sessionId;
+		// Stable account key: the VERIFIED account bound in onAuth — a play-pass wallet
+		// or a server-signed guest id — never a raw `options.pid`. Tutorial completion,
+		// daily assignment, progress, badges, the bank, and the single-session eviction
+		// channel all key off it, so trusting it only when proven is what stops another
+		// client from loading or evicting a victim's profile. onAuth always populates
+		// account; the session id is a last-resort fallback that can never collide.
+		const playerId = clean(client.userData?.account, 80) || client.sessionId;
+		// Hand a freshly-minted guest token back to the client so it can persist it and
+		// re-present it on reconnect to keep this guest's progression. Sent before any
+		// other state so the client stores it even if it disconnects early.
+		if (client.userData?.newGuestToken) {
+			try { client.send('guestToken', { token: client.userData.newGuestToken, account: playerId }); } catch {}
+		}
 		const now = Date.now();
 		// Single active session per account (Task 16 integrity rule, enforced across
 		// world instances for Task 23): announce this login on the account's eviction
@@ -422,9 +550,12 @@ export class GameRoom extends Room {
 
 		// Arriving through a portal: a signed transfer restores the haul the player
 		// carried out of the previous realm and lands them at the portal's exit tile
-		// instead of the realm's default spawn. An unsigned/expired/tampered token is
-		// ignored — the player simply spawns fresh, never gaining forged items.
-		const transfer = options?.transfer ? verifyTransfer(options.transfer) : null;
+		// instead of the realm's default spawn. The transfer was verified AND its
+		// single-use nonce consumed in onAuth (which also bound the account from it),
+		// so we read the already-validated result off client.userData here — a replayed
+		// transfer never reaches this point with a fresh nonce, so it can't re-apply a
+		// carry and dupe gold/items the player has since banked or spent.
+		const transfer = client.userData?.transfer || null;
 		if (transfer && transfer.to === this.realm.name) {
 			if (transfer.carry) this._applyCarry(p, this.priv.get(client.sessionId), transfer.carry);
 			const dtx = transfer.tx | 0, dty = transfer.ty | 0;
@@ -690,12 +821,11 @@ export class GameRoom extends Room {
 		const tx = Number.isFinite(portal.toTx) ? portal.toTx : destRealm.spawn.tx;
 		const ty = Number.isFinite(portal.toTy) ? portal.toTy : destRealm.spawn.ty;
 		priv.transferring = true;
-		const token = signTransfer({ to: dest, tx, ty, carry: this._snapshotCarry(client, p) });
+		const token = signTransfer({ to: dest, tx, ty, carry: this._snapshotCarry(client, p), account: priv.playerId });
 		try {
 			const reservation = await matchMaker.joinOrCreate(`game_${dest}`, {
 				name: p.name,
 				avatar: p.cosmetic,
-				pid: priv.playerId,
 				transfer: token,
 			});
 			// Persist quests now so the destination room (which reloads them by pid)

@@ -130,6 +130,14 @@ async function buildAcceptsForTool({ resourceServer, scheme, priceUsd, networks,
 /**
  * Wrap a tool handler with x402 payment (USDC on Solana, `exact` scheme).
  *
+ * The x402 wiring (resource server init, `accepts` requirements, payment
+ * wrapper) is built LAZILY on the first invocation — NOT when the tool is
+ * registered. This keeps tool registration (names/descriptions/schemas)
+ * free of any runtime payment env: `buildServer()` can enumerate every tool
+ * without MCP_SVM_PAYMENT_ADDRESS, and only an actual paid call triggers the
+ * env requirement. The wrapper is memoized so the first call pays the init cost
+ * once and every subsequent call reuses it.
+ *
  * @param {object} cfg
  * @param {string} cfg.toolName              — e.g. "get_pose_seed"
  * @param {string} cfg.description           — human-readable description
@@ -142,9 +150,9 @@ async function buildAcceptsForTool({ resourceServer, scheme, priceUsd, networks,
  * @param {object} [cfg.extra]               — extra fields (extra.svm)
  * @param {object} [cfg.hooks]               — { onBeforeExecution, onAfterExecution, onAfterSettlement }
  * @param {Function} handler                 — async (args, { settle? }) → result
- * @returns {Promise<Function>} MCP tool callback for McpServer.tool()
+ * @returns {Function} MCP tool callback for McpServer.tool()
  */
-export async function paid(cfg, handler) {
+export function paid(cfg, handler) {
 	const {
 		toolName,
 		description,
@@ -166,40 +174,71 @@ export async function paid(cfg, handler) {
 		throw new Error(`paid(): only the 'exact' scheme is supported on Solana (got '${scheme}')`);
 	}
 
-	const resourceServer = await getResourceServer();
-	const resourceUrl = createToolResourceUrl(toolName);
-	const accepts = await buildAcceptsForTool({
-		resourceServer,
-		scheme,
-		priceUsd,
-		networks,
-		resourceUrl,
-		extra,
-	});
+	// Lazily build (and memoize) the payment wrapper. This is the ONLY place
+	// that touches payment env (requireSvmPayTo) and the facilitator, so it
+	// runs on first invocation rather than at registration time.
+	let wrapperPromise = null;
+	async function getWrapper() {
+		if (wrapperPromise) return wrapperPromise;
+		wrapperPromise = (async () => {
+			const resourceServer = await getResourceServer();
+			const resourceUrl = createToolResourceUrl(toolName);
+			const accepts = await buildAcceptsForTool({
+				resourceServer,
+				scheme,
+				priceUsd,
+				networks,
+				resourceUrl,
+				extra,
+			});
 
-	const bazaar = declareDiscoveryExtension({
-		toolName,
-		description,
-		transport: 'stdio',
-		inputSchema,
-		example,
-		output: outputExample ? { example: outputExample } : undefined,
-	});
+			const bazaar = declareDiscoveryExtension({
+				toolName,
+				description,
+				transport: 'stdio',
+				inputSchema,
+				example,
+				output: outputExample ? { example: outputExample } : undefined,
+			});
 
-	const wrap = createPaymentWrapper(resourceServer, {
-		accepts,
-		resource: { url: resourceUrl, description, mimeType: 'application/json' },
-		extensions: bazaar,
-		hooks,
-	});
+			const wrap = createPaymentWrapper(resourceServer, {
+				accepts,
+				resource: { url: resourceUrl, description, mimeType: 'application/json' },
+				extensions: bazaar,
+				hooks,
+			});
 
-	return wrap(async (args, context) => {
-		const result = await handler(args, context);
-		const text = typeof result === 'string' ? result : JSON.stringify(result);
-		return {
-			content: [{ type: 'text', text }],
-		};
-	});
+			return wrap(async (args, context) => {
+				const result = await handler(args, context);
+				const text = typeof result === 'string' ? result : JSON.stringify(result);
+				return {
+					content: [{ type: 'text', text }],
+				};
+			});
+		})();
+		return wrapperPromise;
+	}
+
+	// The callback McpServer.registerTool() invokes. Defers all payment wiring
+	// to the first real call.
+	return async function paidToolCallback(args, context) {
+		const wrapped = await getWrapper();
+		return wrapped(args, context);
+	};
+}
+
+/**
+ * Standard tool error envelope. Every tool's error path returns this shape so
+ * MCP clients can branch on a stable `{ ok: false, error: <code>, message }`
+ * contract instead of the per-tool ad-hoc shapes this server used to emit.
+ *
+ * @param {string} code     — machine-readable error code (snake_case)
+ * @param {string} message  — human-readable explanation
+ * @param {object} [extra]  — optional extra fields merged into the envelope
+ * @returns {{ ok: false, error: string, message: string }}
+ */
+export function toolError(code, message, extra) {
+	return { ok: false, error: code, message, ...(extra || {}) };
 }
 
 export { NETWORK_SOLANA_MAINNET };

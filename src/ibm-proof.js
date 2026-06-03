@@ -414,8 +414,8 @@ async function verifyProof(sig) {
 	try {
 		const r = await fetch(attestUrl(`?verify=${encodeURIComponent(sig)}`));
 		const v = await r.json();
-		if (v.error) { out.innerHTML = `<div class="notice warn">${v.message || v.error}</div>`; return; }
-		if (!v.found) { out.innerHTML = `<div class="notice warn">Not found on ${v.network || 'chain'}: ${v.reason || 'no such transaction'}.</div>`; return; }
+		if (v.error) { out.innerHTML = `<div class="notice warn">${escapeHtml(v.message || v.error)}</div>`; return; }
+		if (!v.found) { out.innerHTML = `<div class="notice warn">Not found on ${escapeHtml(v.network || 'chain')}: ${escapeHtml(v.reason || 'no such transaction')}.</div>`; return; }
 		if (!v.isGraniteProof) {
 			out.innerHTML = `<div class="notice warn">Transaction found, but its memo is not a Granite Proof.${v.memo ? ` Memo: <span style="font-family:var(--mono)">${escapeHtml(v.memo)}</span>` : ''}</div>`;
 			return;
@@ -425,13 +425,22 @@ async function verifyProof(sig) {
 			<b>✓ Verified on-chain.</b> A Granite Proof signed by
 			<span style="font-family:var(--mono)">${(v.signer || '').slice(0, 8)}…</span> at ${when}.<br />
 			<span style="font-family:var(--mono);font-size:12px;color:var(--muted)">${escapeHtml(v.memo)}</span><br />
-			<a href="${v.explorer}" target="_blank" rel="noopener">View on Solscan ↗</a>
+			${explorerHref(v.explorer) ? `<a href="${escapeHtml(explorerHref(v.explorer))}" target="_blank" rel="noopener">View on Solscan ↗</a>` : ''}
 		</div>`;
 	} catch (e) {
 		out.innerHTML = `<div class="notice warn">Verification failed: ${e?.message || e}</div>`;
 	}
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+// Only trust an http(s) explorer URL from the server; anything else (relative,
+// javascript:, data:, malformed) is dropped so it can't become a live href.
+function explorerHref(u) {
+	if (typeof u !== 'string') return '';
+	try {
+		const parsed = new URL(u);
+		return (parsed.protocol === 'https:' || parsed.protocol === 'http:') ? parsed.toString() : '';
+	} catch (_) { return ''; }
+}
 
 function setupVerifyBar() {
 	const sub = document.querySelector('.feed .sub');

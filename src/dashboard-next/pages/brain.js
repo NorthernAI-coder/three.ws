@@ -7,6 +7,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, put, esc, ApiError } from '../api.js';
+import { sanitizeUrl } from '../../shared/sanitize-url.js';
 
 // ── Provider registry ────────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ function inlineMd(s) {
 	s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
 	s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
 	s = s.replace(/`([^`\n]+)`/g, '<code class="brn-ic">$1</code>');
-	s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+	s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, url) => `<a href="${sanitizeUrl(url)}" target="_blank" rel="noopener">${text}</a>`);
 	return s;
 }
 

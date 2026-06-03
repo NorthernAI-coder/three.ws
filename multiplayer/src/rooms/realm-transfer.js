@@ -55,9 +55,46 @@ function safeEqual(a, b) {
 	return crypto.timingSafeEqual(ba, bb);
 }
 
+// Single-use guard. A transfer token seals a full carry snapshot (gold, items,
+// bank, skills) and is otherwise replayable for its whole TTL — letting a player
+// transfer at high gold, spend/bank it, then replay the same token to restore the
+// snapshot and dupe the difference. So every token carries a random nonce (`jti`)
+// and the destination room consumes it on arrival; a nonce seen twice is rejected.
+// This shared map is the single source of truth across every room in the process
+// (a portal handoff lands in a different GameRoom instance), mirroring the
+// spin-wheel/marketplace replay guards. Entries are swept after a TTL beyond the
+// token window so the set never grows unbounded. (Horizontal scale would back this
+// with the same Redis the presence/profile layers use; the interface is unchanged.)
+const _consumedNonces = new Map(); // jti -> consumedAt (ms)
+const NONCE_TTL_MS = (TTL_SECONDS + 30) * 1000; // cover the token window + clock skew
+
+/**
+ * Atomically consume a transfer nonce. Returns true the first time a given nonce
+ * is presented (the carry may be applied) and false on every subsequent attempt
+ * within the TTL (a replay — the carry must be ignored). Synchronous, so two joins
+ * racing the same token can't both win. A falsy nonce is rejected outright so an
+ * old token minted before nonces existed can never apply a carry.
+ * @param {unknown} jti
+ * @returns {boolean}
+ */
+export function consumeTransferNonce(jti) {
+	if (typeof jti !== 'string' || !jti) return false;
+	const now = Date.now();
+	const prev = _consumedNonces.get(jti);
+	if (prev !== undefined && now - prev <= NONCE_TTL_MS) return false; // already used
+	_consumedNonces.set(jti, now);
+	return true;
+}
+
+// Sweep expired nonces so a long-lived process doesn't accumulate them forever.
+setInterval(() => {
+	const now = Date.now();
+	for (const [jti, at] of _consumedNonces) if (now - at > NONCE_TTL_MS) _consumedNonces.delete(jti);
+}, NONCE_TTL_MS).unref?.();
+
 /**
  * Seal a portal transfer into a signed token.
- * @param {{ to: string, tx: number, ty: number, carry: object }} payload
+ * @param {{ to: string, tx: number, ty: number, carry: object, account: string }} payload
  * @returns {string} `${base64url(body)}.${signature}`
  */
 export function signTransfer(payload) {
@@ -68,6 +105,15 @@ export function signTransfer(payload) {
 			tx: payload.tx,
 			ty: payload.ty,
 			carry: payload.carry,
+			// The verified account that minted this transfer (a play-pass wallet or a
+			// server-signed guest id). A portal handoff is a trusted server-to-server
+			// seat reservation that carries no play pass / guest token, so the
+			// destination room's onAuth re-binds the account from this signed field —
+			// the only path by which an account is trusted without a fresh pass/token.
+			account: payload.account,
+			// Random single-use id so the destination room can reject a replayed token
+			// even within its TTL. Bound to the signature, so it can't be swapped.
+			jti: crypto.randomBytes(16).toString('hex'),
 			iat: now,
 			exp: now + TTL_SECONDS,
 		}),
@@ -99,6 +145,12 @@ export function verifyTransfer(token) {
 	if (typeof payload.to !== 'string' || !payload.to) return null;
 	if (!Number.isFinite(payload.tx) || !Number.isFinite(payload.ty)) return null;
 	if (!payload.carry || typeof payload.carry !== 'object') return null;
+	// Every legitimate token carries a single-use nonce; its absence means a forged
+	// or pre-nonce token, which must not be honoured.
+	if (typeof payload.jti !== 'string' || !payload.jti) return null;
+	// The minting account rides along so the destination can re-bind it across the
+	// passless handoff; require it so an old/forged token can't land account-less.
+	if (typeof payload.account !== 'string' || !payload.account) return null;
 
 	const now = Date.now() / 1000;
 	if (typeof payload.exp !== 'number' || payload.exp < now) return null;

@@ -104,9 +104,29 @@ export async function assertSafePublicUrl(input, { allowHttp = false } = {}) {
 	return url;
 }
 
+const MAX_REDIRECTS = 5;
+
 // Convenience: assert + fetch. Uses the global fetch. Same options as fetch,
 // minus that the URL must pass `assertSafePublicUrl`.
+//
+// Redirects are followed MANUALLY so each Location hop is re-validated with
+// `assertSafePublicUrl` before we connect to it. The default global fetch
+// (`redirect: 'follow'`) would only check the first URL, letting an attacker
+// host a public endpoint that 302s to 169.254.169.254 / RFC1918 and slip past
+// the guard. Hops are bounded by `MAX_REDIRECTS`.
 export async function fetchSafePublicUrl(input, init = {}, opts = {}) {
-	const url = await assertSafePublicUrl(input, opts);
-	return fetch(url.toString(), init);
+	let url = await assertSafePublicUrl(input, opts);
+	let redirects = 0;
+	while (true) {
+		const res = await fetch(url.toString(), { ...init, redirect: 'manual' });
+		if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+			if (++redirects > MAX_REDIRECTS) {
+				throw new SsrfBlockedError('too many redirects');
+			}
+			const next = new URL(res.headers.get('location'), url);
+			url = await assertSafePublicUrl(next.toString(), opts);
+			continue;
+		}
+		return res;
+	}
 }

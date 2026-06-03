@@ -50,6 +50,8 @@ let renderer, scene, camera, controls, raycaster, points, geometry, material, st
 let aDim, aHi, aSize, positions, colors; // attribute backing arrays
 const pointer = new THREE.Vector2(-2, -2);
 let pointerDown = null; // {x,y} to distinguish click from drag
+let rafPending = false; // coalesce hover raycasts to one per frame
+const _pointerClient = { x: 0, y: 0 }; // latest cursor position for tooltip placement
 const fly = { active: false, camFrom: new THREE.Vector3(), camTo: new THREE.Vector3(), tgtFrom: new THREE.Vector3(), tgtTo: new THREE.Vector3(), t: 0, dur: 1 };
 let idleTimer = 0;
 const clock = new THREE.Clock();
@@ -250,12 +252,24 @@ function updateClusterLabels() {
 function onPointerMove(e) {
 	pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
 	pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+	_pointerClient.x = e.clientX;
+	_pointerClient.y = e.clientY;
+	// Pointermove fires far more often than the display refreshes; coalesce the
+	// raycast + tooltip work to one pass per frame via a rAF flag.
+	if (!rafPending) {
+		rafPending = true;
+		requestAnimationFrame(updateHover);
+	}
+}
+
+function updateHover() {
+	rafPending = false;
 	if (!points) return;
 	raycaster.setFromCamera(pointer, camera);
 	const hits = raycaster.intersectObject(points);
 	const idx = pickVisible(hits);
 	setHover(idx);
-	if (idx >= 0) positionTooltip(e.clientX, e.clientY, idx);
+	if (idx >= 0) positionTooltip(_pointerClient.x, _pointerClient.y, idx);
 }
 
 // Nearest hit that isn't dimmed away by isolation/search.

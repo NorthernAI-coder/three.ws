@@ -549,6 +549,15 @@ html.pump-dashboard-page body {
 	to   { opacity: 1; transform: translateX(0); }
 }
 
+/* During high-rate feed bursts, animating every prepended row at once is the
+   main source of jank — the JS toggles this class to skip the entry animation. */
+.pd-no-anim .pd-feed-item { animation: none; }
+
+/* Respect users who ask the OS to minimize motion. */
+@media (prefers-reduced-motion: reduce) {
+	.pd-feed-item { animation: none; }
+}
+
 .pd-feed-item:last-child { border-bottom: none; }
 
 .pd-feed-time {
