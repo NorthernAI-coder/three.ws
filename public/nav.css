@@ -132,7 +132,20 @@
 .nav-grp.open .nav-pop {
 	opacity: 1; transform: translateY(0) scale(1); pointer-events: auto;
 }
-.nav-pop.wide { grid-template-columns: 1fr 1fr; min-width: 540px; }
+/* Labs mega menu — categorized columns, right-anchored (it's the last group). */
+.nav-pop.mega {
+	left: auto; right: 0;
+	transform-origin: top right;
+	min-width: 632px;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 2px 6px; padding: 8px;
+}
+.nav-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nav-col-h {
+	font-family: var(--nv-font-mono); font-size: 10px;
+	text-transform: uppercase; letter-spacing: 0.14em;
+	color: var(--nv-text-4); padding: 9px 12px 5px;
+}
 .nav-mi {
 	display: block; padding: 9px 12px; border-radius: 9px;
 	transition: background 0.12s;

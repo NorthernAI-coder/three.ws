@@ -15,18 +15,15 @@
 
 import http from 'node:http';
 import express from 'express';
-import { Server, matchMaker } from '@colyseus/core';
+import { Server } from '@colyseus/core';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { monitor } from '@colyseus/monitor';
 
 import { WalkRoom } from './rooms/WalkRoom.js';
-import { GameRoom } from './rooms/GameRoom.js';
-import { REALMS } from './rooms/realms.js';
 import { blockStore } from './block-store.js';
 import { worldPersistence } from './persistence.js';
 import { flushAllPlayers } from './playerStore.js';
 import { marketplaceStore } from './marketplaceStore.js';
-import { SERVERS } from './servers.js';
 import { socialHub } from './social-hub.js';
 import { verifyNotifySignature } from './presence-token.js';
 
@@ -191,129 +188,6 @@ const gameServer = new Server({ transport, ...(driver && { driver }), ...(presen
 // to the shared mainland world; a missing tier is the open General world (see
 // WalkRoom.onCreate / onAuth / schemas.js).
 gameServer.define('walk_world', WalkRoom).filterBy(['coin', 'tier']);
-// One room definition per realm — each is its own instance, so players in
-// different realms never see or affect each other. The realm name is baked into
-// the definition's options and read by GameRoom.onCreate. Mainland/Whisperwood/
-// Pond/Mine are safe; Wilderness is the danger+pvp realm that drops death-bags.
-// Mine is the enclosed cave interior reached through the Mainland mine entrance.
-//
-// Server dimension (Task 23): filterBy(['server']) splits each realm definition
-// into one room per chosen world instance, exactly as walk_world is split by
-// coin/tier above. A joinOrCreate for game_mainland with {server:'s2'} matches
-// only rooms created with server='s2', so the two worlds never merge — players
-// on different servers can't see each other in any realm, chat, or /who. A
-// missing/forged server option collapses to the default instance (see
-// servers.cleanServer / GameRoom.onCreate).
-// One room definition per realm, sourced from REALMS so a newly-defined realm is
-// reachable the moment it's added to realms.js — no separate list to keep in sync.
-for (const realm of Object.keys(REALMS)) {
-	gameServer.define(`game_${realm}`, GameRoom, { realm }).filterBy(['server']);
-}
-
-// --- Multi-server discovery (Task 23) --------------------------------------
-// Read-only population the /play login picker consumes from the (different-origin)
-// static site, so it carries permissive CORS. Always live truth — never cached or
-// faked. (Friends presence — "which server+realm a friend is on" — is published by
-// the social hub under the verified account id and read by the authenticated
-// friends API, NOT here; there is no anonymous by-id lookup to scrape.)
-
-// CORS for the public population endpoint. The counts aren't sensitive, so any
-// origin may GET them; no credentials are involved. OPTIONS preflights short-circuit.
-function publicJsonCors(_req, res, next) {
-	res.set('Access-Control-Allow-Origin', '*');
-	res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-	res.set('Access-Control-Allow-Headers', 'Content-Type');
-	res.set('Cache-Control', 'no-store');
-	if (_req.method === 'OPTIONS') return res.status(204).end();
-	next();
-}
-
-// Lightweight per-IP rate limit for the public endpoint — a fixed window that
-// clears legitimate picker polling (one every ~10s) with wide headroom but caps a
-// scripted flood. In-process (per instance), which is plenty for a read-only GET.
-const RATE_WINDOW_MS = 10_000;
-const RATE_MAX = 30;
-const _rateBuckets = new Map(); // ip -> { windowStart, count }
-
-// Trusted client-IP resolution. X-Forwarded-For is fully client-controlled when a
-// request reaches the app directly, so keying the limiter on it lets a flood rotate
-// a fresh XFF per request and never hit a bucket. We only trust a forwarded IP from
-// our actual fronting proxy:
-//   - Fly.io sets Fly-Client-IP to the real edge client IP (it can't be spoofed
-//     past the proxy);
-//   - TRUSTED_PROXY_IP_HEADER names any other platform's verified client-IP header
-//     (e.g. CF-Connecting-IP, X-Real-IP) for non-Fly deploys.
-// Absent a trusted header we fall back to the raw socket peer, which an attacker
-// can't forge. We deliberately do NOT parse X-Forwarded-For as the access key.
-const TRUSTED_IP_HEADER = (process.env.TRUSTED_PROXY_IP_HEADER || '').trim().toLowerCase();
-function clientIp(req) {
-	const fly = req.headers['fly-client-ip'];
-	if (typeof fly === 'string' && fly.trim()) return fly.trim();
-	if (TRUSTED_IP_HEADER) {
-		const h = req.headers[TRUSTED_IP_HEADER];
-		const v = Array.isArray(h) ? h[0] : h;
-		if (typeof v === 'string' && v.trim()) return v.split(',')[0].trim();
-	}
-	return req.socket?.remoteAddress || 'unknown';
-}
-
-function rateLimit(req, res, next) {
-	const ip = clientIp(req);
-	const now = Date.now();
-	let b = _rateBuckets.get(ip);
-	if (!b || now - b.windowStart > RATE_WINDOW_MS) { b = { windowStart: now, count: 0 }; _rateBuckets.set(ip, b); }
-	b.count++;
-	if (b.count > RATE_MAX) return res.status(429).json({ error: 'rate_limited' });
-	next();
-}
-// Bound the bucket map so a churn of distinct IPs can't grow it without limit.
-setInterval(() => {
-	const now = Date.now();
-	for (const [ip, b] of _rateBuckets) if (now - b.windowStart > RATE_WINDOW_MS) _rateBuckets.delete(ip);
-}, RATE_WINDOW_MS * 6).unref?.();
-
-// GET /servers — the world-instance roster with REAL live population. Population
-// is the sum of connected clients across every game_* room whose metadata names
-// that server, queried through the matchmaker (so it's correct across all
-// horizontally-scaled instances, not just this process). The most-populated server
-// that isn't near capacity is recommended, so newcomers land where the world feels
-// alive rather than fragmenting into an empty instance — without ever faking a count.
-app.get('/servers', publicJsonCors, rateLimit, async (_req, res) => {
-	const counts = Object.fromEntries(SERVERS.map((s) => [s.id, 0]));
-	try {
-		const rooms = await matchMaker.query({});
-		for (const r of rooms) {
-			if (typeof r.name !== 'string' || !r.name.startsWith('game_')) continue;
-			const sid = r.metadata?.server;
-			if (sid && sid in counts) counts[sid] += r.clients || 0;
-		}
-	} catch (err) {
-		console.warn('[multiplayer] /servers query failed:', err?.message);
-		return res.status(503).json({ error: 'population_unavailable' });
-	}
-	// Recommend the fullest server that still has comfortable headroom, so worlds
-	// stay lively instead of every newcomer being sent to the emptiest one. Falls
-	// back to the least-full server only when all are near capacity. Stable on ties
-	// (first in roster order wins) so the suggestion doesn't flicker between polls.
-	const SOFT_CAP = 40; // leave room under the 50/room ceiling before steering elsewhere
-	let recommended = SERVERS[0]?.id || null;
-	let bestLive = -1;   // fullest below the soft cap
-	let leastFull = Infinity; // fallback when everyone is busy
-	for (const s of SERVERS) {
-		const n = counts[s.id];
-		if (n < SOFT_CAP && n > bestLive) { bestLive = n; recommended = s.id; }
-		if (bestLive < 0 && n < leastFull) { leastFull = n; recommended = s.id; }
-	}
-	res.json({
-		servers: SERVERS.map((s) => ({
-			id: s.id,
-			name: s.name,
-			blurb: s.blurb,
-			players: counts[s.id],
-			recommended: s.id === recommended,
-		})),
-	});
-});
 
 gameServer
 	.listen(PORT, HOST)

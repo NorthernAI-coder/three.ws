@@ -9,7 +9,8 @@
 				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Build<span class="nav-caret" aria-hidden="true">▾</span></button>
 				<div class="nav-pop" role="menu" aria-label="Build">
 					<a class="nav-mi" href="/create" role="menuitem"><span class="nav-mi-t">Create agent</span><span class="nav-mi-d">Avatar + brain wizard</span></a>
-					<a class="nav-mi" href="/create/selfie" role="menuitem"><span class="nav-mi-t">Selfie to avatar <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">One photo → rigged 3D avatar</span></a>
+					<a class="nav-mi" href="/create/selfie" role="menuitem"><span class="nav-mi-t">Selfie to avatar</span><span class="nav-mi-d">One photo → rigged 3D avatar</span></a>
+					<a class="nav-mi" href="/forge" role="menuitem"><span class="nav-mi-t">Text to 3D <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Describe an object → textured GLB</span></a>
 					<a class="nav-mi" href="/play" role="menuitem"><span class="nav-mi-t">Worlds <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Every coin is a 3D world — drop in &amp; hang out</span></a>
 					<a class="nav-mi" href="/app" role="menuitem"><span class="nav-mi-t">Viewer</span><span class="nav-mi-d">Drag-and-drop GLB</span></a>
 					<a class="nav-mi" href="/playground" role="menuitem"><span class="nav-mi-t">Playground</span><span class="nav-mi-d">Viewer + environment + embed code</span></a>
@@ -49,42 +50,50 @@
 					<a class="nav-mi" href="/tutorials" role="menuitem"><span class="nav-mi-t">Tutorials</span><span class="nav-mi-d">Step-by-step guides</span></a>
 					<a class="nav-mi" href="/brain" role="menuitem"><span class="nav-mi-t">Brain <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Claude · GPT · DeepSeek · Qwen · Llama</span></a>
 					<a class="nav-mi" href="/chat" role="menuitem"><span class="nav-mi-t">Chat</span><span class="nav-mi-d">Talk to your agent</span></a>
-					<a class="nav-mi" href="/pay" role="menuitem"><span class="nav-mi-t">Pay <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Agent payments — x402 + USDC</span></a>
+					<a class="nav-mi" href="/pay" role="menuitem"><span class="nav-mi-t">Pay</span><span class="nav-mi-d">Agent payments — x402 + USDC</span></a>
 					<a class="nav-mi" href="/docs#solana" role="menuitem"><span class="nav-mi-t">Solana SDK</span><span class="nav-mi-d">Attestations + agent-kit</span></a>
 				</div>
 			</div>
 			<div class="nav-grp">
 				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Labs<span class="nav-pill-sm" aria-hidden="true">Beta</span><span class="nav-caret" aria-hidden="true">▾</span></button>
-				<div class="nav-pop wide" role="menu" aria-label="Labs">
+				<div class="nav-pop mega" role="menu" aria-label="Labs">
 					<div class="nav-pop-note">Experimental features — actively iterating. Expect rough edges.</div>
-					<a class="nav-mi" href="/launchpad" role="menuitem"><span class="nav-mi-t">Launchpad Studio <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Build a 3D launchpad · token · concierge</span></a>
-					<a class="nav-mi" href="/lipsync" role="menuitem"><span class="nav-mi-t">Lipsync <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">TTS or mic → in-browser viseme → mouth</span></a>
-					<a class="nav-mi" href="/mocap-studio" role="menuitem"><span class="nav-mi-t">Mocap Studio <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Record face → save clip → replay</span></a>
-					<a class="nav-mi" href="/pose" role="menuitem"><span class="nav-mi-t">Pose Studio</span><span class="nav-mi-d">Click-to-pose mannequin + export PNG</span></a>
-					<a class="nav-mi" href="/overlay-control" role="menuitem"><span class="nav-mi-t">OBS Overlay</span><span class="nav-mi-d">Stream deck — emote hotkeys, mic</span></a>
-					<a class="nav-mi" href="/walk" role="menuitem"><span class="nav-mi-t">Walk <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Walk your avatar — multiplayer + AR</span></a>
-					<a class="nav-mi" href="/xr" role="menuitem"><span class="nav-mi-t">XR <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Place your avatar in the real world</span></a>
-					<a class="nav-mi" href="/gmgn" role="menuitem"><span class="nav-mi-t">GMGN Smart Money <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Agent narrates smart wallet signals</span></a>
-					<a class="nav-mi" href="/pumpfun" role="menuitem"><span class="nav-mi-t">Pump.fun stream</span><span class="nav-mi-d">Mint agent tokens</span></a>
-					<a class="nav-mi" href="/pump-live" role="menuitem"><span class="nav-mi-t">Live launches</span><span class="nav-mi-d">Real-time mint feed</span></a>
-					<a class="nav-mi" href="/pump-dashboard" role="menuitem"><span class="nav-mi-t">Pump Dashboard</span><span class="nav-mi-d">Watches · scanner · quotes</span></a>
-					<a class="nav-mi" href="/pump-visualizer" role="menuitem"><span class="nav-mi-t">Pump Visualizer</span><span class="nav-mi-d">3D view of trending tokens</span></a>
-					<a class="nav-mi" href="/three-live" role="menuitem"><span class="nav-mi-t">$THREE Live <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Protocol pulse — live trades in 3D</span></a>
-					<a class="nav-mi" href="/strategy-lab" role="menuitem"><span class="nav-mi-t">Strategy Lab</span><span class="nav-mi-d">DCA + subscriptions</span></a>
-					<a class="nav-mi" href="/club" role="menuitem"><span class="nav-mi-t">Pole Club <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">x402 micro-tip demo — $0.001 / dance</span></a>
-					<a class="nav-mi" href="/shopper" role="menuitem"><span class="nav-mi-t">Endpoint Shopper <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">AI chains x402 endpoints to answer a task</span></a>
-					<a class="nav-mi" href="/tutor" role="menuitem"><span class="nav-mi-t">Pay-As-You-Learn Tutor <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">$0.01 per answer in USDC over x402</span></a>
-					<a class="nav-mi" href="/fact-checker" role="menuitem"><span class="nav-mi-t">Fact Checker <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">$0.10 per claim — cited verdict + attestation</span></a>
-					<a class="nav-mi" href="/arbitrage" role="menuitem"><span class="nav-mi-t">x402 Arbitrage <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Cheapest endpoint per capability, live</span></a>
-					<a class="nav-mi" href="/providers" role="menuitem"><span class="nav-mi-t">x402 Providers <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Operator profiles for the paid API catalog</span></a>
-					<a class="nav-mi" href="/unstoppable" role="menuitem"><span class="nav-mi-t">Unstoppable Agent <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Self-funding agent dashboard, live</span></a>
-					<a class="nav-mi" href="/rider" role="menuitem"><span class="nav-mi-t">Rider (VR)</span><span class="nav-mi-d">Open-source VR music visualization</span></a>
-					<a class="nav-mi" href="/forever" role="menuitem"><span class="nav-mi-t">Forever</span><span class="nav-mi-d">Etch a message into Bitcoin — forever</span></a>
-					<a class="nav-mi" href="/eth-vanity" role="menuitem"><span class="nav-mi-t">ETH vanity (CREATE2)</span><span class="nav-mi-d">Grind a smart-contract address</span></a>
-					<a class="nav-mi" href="/vanity-wallet" role="menuitem"><span class="nav-mi-t">Vanity wallet</span><span class="nav-mi-d">Grind a Solana address</span></a>
+					<div class="nav-col" role="group" aria-label="Avatar &amp; Motion">
+						<div class="nav-col-h">Avatar &amp; Motion</div>
+						<a class="nav-mi" href="/lipsync" role="menuitem"><span class="nav-mi-t">Lipsync</span><span class="nav-mi-d">TTS or mic → in-browser viseme → mouth</span></a>
+						<a class="nav-mi" href="/mocap-studio" role="menuitem"><span class="nav-mi-t">Mocap Studio</span><span class="nav-mi-d">Record face → save clip → replay</span></a>
+						<a class="nav-mi" href="/pose" role="menuitem"><span class="nav-mi-t">Pose Studio</span><span class="nav-mi-d">Click-to-pose mannequin + export PNG</span></a>
+						<a class="nav-mi" href="/overlay-control" role="menuitem"><span class="nav-mi-t">OBS Overlay</span><span class="nav-mi-d">Stream deck — emote hotkeys, mic</span></a>
+						<a class="nav-mi" href="/walk" role="menuitem"><span class="nav-mi-t">Walk</span><span class="nav-mi-d">Walk your avatar — multiplayer + AR</span></a>
+						<a class="nav-mi" href="/xr" role="menuitem"><span class="nav-mi-t">XR</span><span class="nav-mi-d">Place your avatar in the real world</span></a>
+						<a class="nav-mi" href="/rider" role="menuitem"><span class="nav-mi-t">Rider (VR)</span><span class="nav-mi-d">Open-source VR music visualization</span></a>
+					</div>
+					<div class="nav-col" role="group" aria-label="Markets &amp; Pump">
+						<div class="nav-col-h">Markets &amp; Pump</div>
+						<a class="nav-mi" href="/launchpad" role="menuitem"><span class="nav-mi-t">Launchpad Studio</span><span class="nav-mi-d">Build a 3D launchpad · token · concierge</span></a>
+						<a class="nav-mi" href="/gmgn" role="menuitem"><span class="nav-mi-t">GMGN Smart Money</span><span class="nav-mi-d">Agent narrates smart wallet signals</span></a>
+						<a class="nav-mi" href="/pumpfun" role="menuitem"><span class="nav-mi-t">Pump.fun stream</span><span class="nav-mi-d">Mint agent tokens</span></a>
+						<a class="nav-mi" href="/pump-live" role="menuitem"><span class="nav-mi-t">Live launches</span><span class="nav-mi-d">Real-time mint feed</span></a>
+						<a class="nav-mi" href="/pump-dashboard" role="menuitem"><span class="nav-mi-t">Pump Dashboard</span><span class="nav-mi-d">Watches · scanner · quotes</span></a>
+						<a class="nav-mi" href="/pump-visualizer" role="menuitem"><span class="nav-mi-t">Pump Visualizer</span><span class="nav-mi-d">3D view of trending tokens</span></a>
+						<a class="nav-mi" href="/three-live" role="menuitem"><span class="nav-mi-t">$THREE Live <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Protocol pulse — live trades in 3D</span></a>
+						<a class="nav-mi" href="/strategy-lab" role="menuitem"><span class="nav-mi-t">Strategy Lab</span><span class="nav-mi-d">DCA + subscriptions</span></a>
+					</div>
+					<div class="nav-col" role="group" aria-label="x402 &amp; Onchain">
+						<div class="nav-col-h">x402 &amp; Onchain</div>
+						<a class="nav-mi" href="/club" role="menuitem"><span class="nav-mi-t">Pole Club</span><span class="nav-mi-d">x402 micro-tip demo — $0.001 / dance</span></a>
+						<a class="nav-mi" href="/shopper" role="menuitem"><span class="nav-mi-t">Endpoint Shopper</span><span class="nav-mi-d">AI chains x402 endpoints to answer a task</span></a>
+						<a class="nav-mi" href="/tutor" role="menuitem"><span class="nav-mi-t">Pay-As-You-Learn Tutor</span><span class="nav-mi-d">$0.01 per answer in USDC over x402</span></a>
+						<a class="nav-mi" href="/fact-checker" role="menuitem"><span class="nav-mi-t">Fact Checker</span><span class="nav-mi-d">$0.10 per claim — cited verdict + attestation</span></a>
+						<a class="nav-mi" href="/arbitrage" role="menuitem"><span class="nav-mi-t">x402 Arbitrage</span><span class="nav-mi-d">Cheapest endpoint per capability, live</span></a>
+						<a class="nav-mi" href="/providers" role="menuitem"><span class="nav-mi-t">x402 Providers</span><span class="nav-mi-d">Operator profiles for the paid API catalog</span></a>
+						<a class="nav-mi" href="/unstoppable" role="menuitem"><span class="nav-mi-t">Unstoppable Agent</span><span class="nav-mi-d">Self-funding agent dashboard, live</span></a>
+						<a class="nav-mi" href="/forever" role="menuitem"><span class="nav-mi-t">Forever</span><span class="nav-mi-d">Etch a message into Bitcoin — forever</span></a>
+						<a class="nav-mi" href="/eth-vanity" role="menuitem"><span class="nav-mi-t">ETH vanity (CREATE2)</span><span class="nav-mi-d">Grind a smart-contract address</span></a>
+						<a class="nav-mi" href="/vanity-wallet" role="menuitem"><span class="nav-mi-t">Vanity wallet</span><span class="nav-mi-d">Grind a Solana address</span></a>
+					</div>
 				</div>
 			</div>
-			<a href="/pricing">Pricing</a>
 		</nav>
 		<div class="nav-end">
 			<button type="button" class="nav-walk-toggle" id="home-nav-walk" aria-pressed="false" aria-label="Walk with me — toggle the avatar companion" title="Walk with me">
@@ -104,9 +113,11 @@
 	<div class="dr-h">Build</div>
 	<a href="/create">Create agent</a>
 	<a href="/create/selfie">Selfie to avatar</a>
+	<a href="/forge">Text to 3D</a>
 	<a href="/play">Worlds</a>
 	<a href="/app">Viewer</a>
 	<a href="/playground">Playground</a>
+	<a href="/validation">glTF Validator</a>
 	<a href="/voice">Voice Lab</a>
 	<div class="dr-h">Discover</div>
 	<a href="/features">Features</a>
@@ -123,22 +134,33 @@
 	<a href="/studio">Widget Studio</a>
 	<a href="/embed.html">Embed editor</a>
 	<a href="/avatar-sdk">Avatar SDK</a>
+	<a href="/docs#embedding">Embed docs</a>
+	<a href="/docs#web-component">&lt;agent-3d&gt;</a>
 	<div class="dr-h">Learn</div>
 	<a href="/docs">Docs</a>
 	<a href="/tutorials">Tutorials</a>
 	<a href="/brain">Brain</a>
 	<a href="/chat">Chat</a>
 	<a href="/pay">Pay</a>
-	<div class="dr-h">Labs · Beta</div>
-	<a href="/launchpad">Launchpad Studio</a>
+	<a href="/docs#solana">Solana SDK</a>
+	<div class="dr-h">Labs · Avatar &amp; Motion</div>
 	<a href="/lipsync">Lipsync</a>
 	<a href="/mocap-studio">Mocap Studio</a>
 	<a href="/pose">Pose Studio</a>
+	<a href="/overlay-control">OBS Overlay</a>
 	<a href="/walk">Walk</a>
 	<a href="/xr">XR</a>
+	<a href="/rider">Rider (VR)</a>
+	<div class="dr-h">Labs · Markets &amp; Pump</div>
+	<a href="/launchpad">Launchpad Studio</a>
 	<a href="/gmgn">GMGN Smart Money</a>
 	<a href="/pumpfun">Pump.fun stream</a>
+	<a href="/pump-live">Live launches</a>
+	<a href="/pump-dashboard">Pump Dashboard</a>
+	<a href="/pump-visualizer">Pump Visualizer</a>
 	<a href="/three-live">$THREE Live</a>
+	<a href="/strategy-lab">Strategy Lab</a>
+	<div class="dr-h">Labs · x402 &amp; Onchain</div>
 	<a href="/club">Pole Club</a>
 	<a href="/shopper">Endpoint Shopper</a>
 	<a href="/tutor">Pay-As-You-Learn Tutor</a>
@@ -146,10 +168,10 @@
 	<a href="/arbitrage">x402 Arbitrage</a>
 	<a href="/providers">x402 Providers</a>
 	<a href="/unstoppable">Unstoppable Agent</a>
-	<a href="/rider">Rider (VR)</a>
 	<a href="/forever">Forever</a>
+	<a href="/eth-vanity">ETH vanity (CREATE2)</a>
+	<a href="/vanity-wallet">Vanity wallet</a>
 	<div class="dr-h">More</div>
-	<a href="/pricing">Pricing</a>
 	<a href="/my-agents" id="home-nav-drawer-my-agents" hidden>My Agents</a>
 	<div class="sep"></div>
 	<a href="/login" id="home-nav-drawer-cta">Sign in</a>

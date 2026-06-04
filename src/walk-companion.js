@@ -62,7 +62,6 @@ const EXCLUDED_PREFIXES = [
 	'/walk',
 	'/walk-embed',
 	'/embed',
-	'/game',
 	'/play',
 	'/club',
 	'/city',

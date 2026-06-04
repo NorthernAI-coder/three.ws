@@ -49,6 +49,7 @@ import { AnimationManager } from './animation-manager.js';
 import { WalkNet } from './walk-net.js';
 import { getPresenceTicket, friendsClient } from './friends.js';
 import { FriendsPanel } from './game/friends-panel.js';
+import { PhysicsWorld } from './physics/physics-world.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -715,7 +716,27 @@ const JUMP_FORCE = 5.8;
 const GRAVITY = -14;
 const GROUND_Y = 0;
 
+// ── Physics ────────────────────────────────────────────────────────────────
+// A real Rapier solver drives roaming when available (non-AR). Until the WASM
+// runtime finishes loading — and in AR, where the avatar floats in the room —
+// movement falls back to the legacy direct-mutation path below.
+let physics = null;
+let physicsReady = false;
+let character = null;
+let verticalVel = 0; // m/s — integrated vertical velocity for the physics path
+let characterGrounded = true;
+let physicsActivePrev = false; // rising-edge guard to resync after AR/legacy
+
 function triggerJump() {
+	// Physics path: only launch when actually standing on something.
+	if (physicsReady && character && !arActive) {
+		if (characterGrounded) {
+			verticalVel = JUMP_FORCE;
+			haptics.buzz(10);
+		}
+		return;
+	}
+	// Legacy parabola (AR / pre-physics).
 	if (jumpActive) return;
 	jumpActive = true;
 	jumpVelocity = JUMP_FORCE;
@@ -1554,8 +1575,14 @@ function tick() {
 		cameraPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, cameraPitch + input.look.y * LOOK_PITCH_SPEED * dt));
 	}
 
-	// Jump physics — simple parabola in Y, lands back at GROUND_Y.
-	if (jumpActive && avatar) {
+	// When the Rapier solver is up (and we're not in AR), the kinematic
+	// character controller owns position, collision, and gravity. Otherwise the
+	// legacy direct-mutation path keeps the scene fully playable.
+	const usePhysics = physicsReady && !!character && !arActive;
+
+	// Legacy jump — simple parabola in Y, lands back at GROUND_Y. The physics
+	// path integrates verticalVel against real ground contact instead.
+	if (!usePhysics && jumpActive && avatar) {
 		jumpVelocity += GRAVITY * dt;
 		avatarRig.position.y += jumpVelocity * dt;
 		if (avatarRig.position.y <= GROUND_Y) {
@@ -1586,17 +1613,21 @@ function tick() {
 			.normalize()
 			.multiplyScalar(speed * dt);
 
-		avatarRig.position.add(moveWorld);
+		// Legacy path applies horizontal motion directly; the physics path feeds
+		// moveWorld to the character controller after this block.
+		if (!usePhysics) {
+			avatarRig.position.add(moveWorld);
 
-		// Clamp roaming radius so the avatar can't walk off the ground disc
-		// in non-AR mode. In AR there's no ground, so let it roam freely.
-		if (!arActive) {
-			const r = Math.hypot(avatarRig.position.x, avatarRig.position.z);
-			const max = GROUND_RADIUS - 0.5;
-			if (r > max) {
-				const k = max / r;
-				avatarRig.position.x *= k;
-				avatarRig.position.z *= k;
+			// Clamp roaming radius so the avatar can't walk off the ground disc
+			// in non-AR mode. In AR there's no ground, so let it roam freely.
+			if (!arActive) {
+				const r = Math.hypot(avatarRig.position.x, avatarRig.position.z);
+				const max = GROUND_RADIUS - 0.5;
+				if (r > max) {
+					const k = max / r;
+					avatarRig.position.x *= k;
+					avatarRig.position.z *= k;
+				}
 			}
 		}
 
@@ -1615,6 +1646,46 @@ function tick() {
 	} else if (currentMotion !== 'idle' && avatar) {
 		currentMotion = 'idle';
 		animationManager.crossfadeTo(CLIP_IDLE, 0.25);
+	}
+
+	// Physics movement — feed the frame's horizontal displacement plus an
+	// integrated vertical velocity to the kinematic character controller. It
+	// resolves wall slides, step-ups, ground contact, and shoves dynamic props,
+	// then hands back where the feet actually ended up. We step the world right
+	// after so the solver consumes the queued kinematic move in the same frame.
+	if (usePhysics && avatar) {
+		// On the first physics frame after boot/AR, snap the body to wherever the
+		// avatar currently is so the controller doesn't lurch from a stale pose.
+		if (!physicsActivePrev) {
+			character.setPosition(avatarRig.position);
+			verticalVel = 0;
+			physicsActivePrev = true;
+		}
+		const dispX = mag > 0.01 ? moveWorld.x : 0;
+		const dispZ = mag > 0.01 ? moveWorld.z : 0;
+		verticalVel += GRAVITY * dt;
+		if (verticalVel < -40) verticalVel = -40; // terminal velocity guard
+		const res = character.move({ x: dispX, y: verticalVel * dt, z: dispZ });
+		characterGrounded = res.grounded;
+		if (characterGrounded && verticalVel < 0) verticalVel = 0;
+
+		// Boundary safety — keep roaming inside the ground disc. Snap the body
+		// too so the controller's next query starts from the corrected spot.
+		let px = res.position.x;
+		let pz = res.position.z;
+		const r = Math.hypot(px, pz);
+		const maxR = GROUND_RADIUS - 0.5;
+		if (r > maxR) {
+			const k = maxR / r;
+			px *= k;
+			pz *= k;
+			character.setPosition({ x: px, y: res.position.y, z: pz });
+		}
+		avatarRig.position.set(px, res.position.y, pz);
+
+		physics.step(dt);
+	} else {
+		physicsActivePrev = false;
 	}
 
 	// Sync clip playback rate to actual ground speed so feet plant instead
@@ -2395,6 +2466,13 @@ let currentEnvIndex = 0;
 const envPropsGroup = new Group();
 scene.add(envPropsGroup);
 
+// Collider descriptors emitted by the prop builders for the current environment.
+// `worldObstacles` are static (trees/buildings); `worldDynamicProps` are the
+// kickable bodies whose meshes the physics solver drives each frame. Both are
+// rebuilt on every environment swap and consumed by rebuildPhysicsWorld().
+let worldObstacles = [];
+let worldDynamicProps = [];
+
 // Restore saved environment
 try {
 	const savedEnv = localStorage.getItem(ENV_KEY);
@@ -2429,10 +2507,16 @@ function applyEnvironment(index) {
 			child.material.dispose();
 		}
 	}
+	// Reset collider descriptors — the builders below repopulate them.
+	worldObstacles = [];
+	worldDynamicProps = [];
 	// Add environment props
 	if (env.name === 'park') buildParkProps();
 	else if (env.name === 'city') buildCityProps();
 	else if (env.name === 'beach') buildBeachProps();
+	buildDynamicProps(env.name);
+	// Sync the physics world to the new scenery (no-op until physics is ready).
+	rebuildPhysicsWorld();
 	try { localStorage.setItem(ENV_KEY, env.name); } catch {}
 	updateEnvIndicator();
 }
@@ -2462,6 +2546,13 @@ function buildParkProps() {
 		dummy.position.y = 1.1 * scale;
 		dummy.updateMatrix();
 		foliageMesh.setMatrixAt(i, dummy.matrix);
+		// Solid trunk: a cylinder you can't walk through, sized to the canopy base.
+		worldObstacles.push({
+			type: 'cylinder',
+			position: { x, y: 0.9 * scale, z },
+			radius: 0.32 * scale,
+			halfHeight: 0.9 * scale,
+		});
 	}
 	envPropsGroup.add(trunkMesh);
 	envPropsGroup.add(foliageMesh);
@@ -2484,11 +2575,18 @@ function buildCityProps() {
 		const h = 1.5 + Math.random() * 4;
 		const w = 0.8 + Math.random() * 1.2;
 		const d = 0.8 + Math.random() * 1.2;
+		const rotationY = Math.random() * Math.PI;
 		dummy.position.set(x, h / 2, z);
 		dummy.scale.set(w, h, d);
-		dummy.rotation.y = Math.random() * Math.PI;
+		dummy.rotation.y = rotationY;
 		dummy.updateMatrix();
 		mesh.setMatrixAt(i, dummy.matrix);
+		worldObstacles.push({
+			type: 'box',
+			position: { x, y: h / 2, z },
+			halfExtents: { x: w / 2, y: h / 2, z: d / 2 },
+			rotationY,
+		});
 	}
 	envPropsGroup.add(mesh);
 	// Grid lines on ground
@@ -2536,9 +2634,59 @@ function buildBeachProps() {
 		dummy.position.y = 2.6;
 		dummy.updateMatrix();
 		palmLeaves.setMatrixAt(i, dummy.matrix);
+		worldObstacles.push({
+			type: 'cylinder',
+			position: { x, y: 1.25, z },
+			radius: 0.28,
+			halfHeight: 1.25,
+		});
 	}
 	envPropsGroup.add(palmTrunks);
 	envPropsGroup.add(palmLeaves);
+}
+
+// Kickable physics props — beach balls and crates that fall, roll, and get
+// shoved when the avatar walks into them. Each prop builds its own mesh (added
+// to envPropsGroup so it's torn down on env change) and records a descriptor in
+// worldDynamicProps; rebuildPhysicsWorld() binds a rigid body to that mesh.
+const PROP_BALL_COLORS = [0xff5a5f, 0x2ec4b6, 0xffd166, 0x5a8dee];
+function buildDynamicProps(envName) {
+	const balls = envName === 'beach' ? 5 : 3;
+	const crates = envName === 'beach' ? 0 : 3;
+
+	for (let i = 0; i < balls; i++) {
+		const radius = 0.28 + Math.random() * 0.12;
+		const mesh = new Mesh(
+			new SphereGeometry(radius, 24, 16),
+			new MeshStandardMaterial({
+				color: PROP_BALL_COLORS[i % PROP_BALL_COLORS.length],
+				roughness: 0.35,
+				metalness: 0.05,
+			}),
+		);
+		const angle = (i / balls) * Math.PI * 2 + 0.6;
+		const r = 2.4 + Math.random() * 1.6;
+		mesh.position.set(Math.cos(angle) * r, radius + 0.05, Math.sin(angle) * r);
+		mesh.castShadow = true;
+		envPropsGroup.add(mesh);
+		worldDynamicProps.push({ kind: 'ball', mesh, radius });
+	}
+
+	for (let i = 0; i < crates; i++) {
+		const s = 0.4 + Math.random() * 0.18;
+		const mesh = new Mesh(
+			new BoxGeometry(s * 2, s * 2, s * 2),
+			new MeshStandardMaterial({ color: 0x9c6b3f, roughness: 0.85, metalness: 0.0 }),
+		);
+		const angle = (i / crates) * Math.PI * 2 - 0.8;
+		const r = 2.0 + Math.random() * 1.4;
+		mesh.position.set(Math.cos(angle) * r, s + 0.02, Math.sin(angle) * r);
+		mesh.rotation.y = Math.random() * Math.PI;
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
+		envPropsGroup.add(mesh);
+		worldDynamicProps.push({ kind: 'box', mesh, half: s });
+	}
 }
 
 // Environment indicator
@@ -2925,6 +3073,45 @@ function showHelpOnFirstVisit() {
 	}, 6000);
 }
 
+// ── Physics bring-up ────────────────────────────────────────────────────────
+// Rebuild the static + dynamic colliders to match the current scenery. Safe to
+// call before physics is ready (no-op) and on every environment swap.
+function rebuildPhysicsWorld() {
+	if (!physics || !physicsReady) return;
+	physics.clearObstacles();
+	physics.clearDynamics();
+	for (const o of worldObstacles) {
+		if (o.type === 'box') physics.addStaticBox(o);
+		else if (o.type === 'cylinder') physics.addStaticCylinder(o);
+	}
+	for (const p of worldDynamicProps) {
+		if (p.kind === 'ball') physics.addDynamicBall({ mesh: p.mesh, radius: p.radius });
+		else if (p.kind === 'box') physics.addDynamicBox({ mesh: p.mesh, halfExtents: { x: p.half, y: p.half, z: p.half } });
+	}
+}
+
+async function initWalkPhysics() {
+	try {
+		physics = await PhysicsWorld.create({ gravity: { x: 0, y: GRAVITY, z: 0 } });
+		physics.addGround(GROUND_Y, GROUND_RADIUS + 40);
+		character = physics.createCharacter({
+			position: { x: avatarRig.position.x, y: avatarRig.position.y, z: avatarRig.position.z },
+			radius: 0.3,
+			halfHeight: Math.max(0.3, (avatarHeight || 1.7) / 2 - 0.3),
+		});
+		physicsReady = true;
+		// Catch up to whatever environment is already showing.
+		rebuildPhysicsWorld();
+	} catch (err) {
+		// Solver failed to load — the legacy movement path keeps the scene fully
+		// playable, so degrade quietly rather than blocking the experience.
+		console.warn('[walk] physics unavailable, using legacy movement:', err);
+		physics = null;
+		physicsReady = false;
+		character = null;
+	}
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 loadAvatar()
 	.then(() => {
@@ -2932,6 +3119,8 @@ loadAvatar()
 		startNet();
 		// Apply saved environment
 		applyEnvironment(currentEnvIndex);
+		// Bring up the physics solver (async WASM); legacy movement runs until ready.
+		initWalkPhysics();
 		// Show camera mode if not default
 		if (cameraMode !== 'follow') {
 			if (avatar) avatar.visible = cameraMode !== 'firstperson';

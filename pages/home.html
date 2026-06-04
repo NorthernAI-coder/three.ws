@@ -5,11 +5,29 @@
 	<meta name="viewport" content="width=device-width,initial-scale=1" />
 	<title>three.ws — The 3D Agent Layer of the Internet</title>
 	<meta name="description" content="Create a 3D AI agent from a selfie in 60 seconds. Embed it anywhere with two lines of HTML. Charge per chat with x402. The 3D agent layer of the internet." />
+	<link rel="canonical" href="https://three.ws/" />
+	<meta name="theme-color" content="#050505" />
+	<meta name="color-scheme" content="dark" />
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="three.ws" />
+	<meta property="og:url" content="https://three.ws/" />
 	<meta property="og:title" content="three.ws — The 3D Agent Layer of the Internet" />
 	<meta property="og:description" content="Create, embed, and monetize living 3D AI agents. One tag. Any site. Voice, memory, payments, and on-chain identity included." />
-	<meta property="og:image" content="/og-image.png" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="three.ws — living 3D AI agents you can embed anywhere" />
+	<!-- Twitter -->
 	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:site" content="@trythreews" />
+	<meta name="twitter:creator" content="@trythreews" />
+	<meta name="twitter:title" content="three.ws — The 3D Agent Layer of the Internet" />
+	<meta name="twitter:description" content="Create, embed, and monetize living 3D AI agents. One tag. Any site. Voice, memory, payments, and on-chain identity included." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:image:alt" content="three.ws — living 3D AI agents you can embed anywhere" />
 	<link rel="icon" href="/favicon.ico" />
+	<link rel="apple-touch-icon" href="/pwa-192x192.png" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;450;500;550;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
@@ -46,6 +64,17 @@
 		a { color: inherit; text-decoration: none; }
 		button { font-family: inherit; cursor: pointer; }
 		::selection { background: var(--text); color: var(--bg); }
+		main#main-content { display: block; outline: none; }
+		.skip-link {
+			position: fixed; top: 12px; left: 12px; z-index: 1000;
+			transform: translateY(-150%);
+			padding: 10px 16px; border-radius: 8px;
+			background: var(--text); color: var(--bg);
+			font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+			text-decoration: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+			transition: transform 0.18s ease;
+		}
+		.skip-link:focus-visible { transform: translateY(0); outline: 2px solid var(--accent); outline-offset: 2px; }
 		.wrap-1280 { max-width: 1280px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 		.wrap-1440 { max-width: 1440px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 		@media (max-width: 720px) { .wrap-1280, .wrap-1440 { padding-left: 20px; padding-right: 20px; } }
@@ -1992,33 +2021,9 @@
 			transition: stroke-dashoffset 1.7s cubic-bezier(.4,0,.2,1);
 			stroke-dashoffset: 0;
 		}
-		.door-earn-stream {
-			position: absolute; top: 12px; left: 12px; right: 12px;
-			display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
-			pointer-events: none;
-		}
-		.earn-tick {
-			display: inline-flex; align-items: center; gap: 6px;
-			padding: 4px 9px; border-radius: 6px; white-space: nowrap;
-			background: rgba(5,5,5,0.7); backdrop-filter: blur(8px);
-			border: 1px solid var(--hairline-strong);
-			font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.03em;
-			color: var(--text-3);
-			animation: earnTickIn 0.5s cubic-bezier(.2,.7,.3,1) both;
-		}
-		.earn-tick b { color: var(--green); font-weight: 600; }
-		.earn-tick.out { animation: earnTickOut 0.42s ease forwards; }
-		@keyframes earnTickIn {
-			from { opacity: 0; transform: translateY(-7px); }
-			to   { opacity: 1; transform: translateY(0); }
-		}
-		@keyframes earnTickOut {
-			to { opacity: 0; transform: translateY(-9px); }
-		}
 		@media (prefers-reduced-motion: reduce) {
 			.door-earn-line { transition: none; stroke-dashoffset: 0; }
 			.door-earn-area { transition: none; opacity: 1; }
-			.earn-tick { animation: none; }
 		}
 		.bento-screenshot { position: relative; }
 		.bento-agent { position: absolute; inset: 0; }
@@ -2389,6 +2394,7 @@
 		.mktplace-more{flex-shrink:0;width:52px;height:52px;border-radius:10px;border:1px dashed var(--hairline-strong);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:18px;color:var(--text-4);cursor:pointer;transition:border-color .15s,color .15s;text-decoration:none}
 		.mktplace-more:hover{border-color:var(--text-3);color:var(--text-2)}
 		.analytics-demo{display:flex;flex-direction:column;gap:10px;--spark:#34d399;--spark-deep:#10b981}
+		.analytics-example-tag{align-self:flex-start;font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-4);border:1px solid var(--hairline);border-radius:5px;padding:2px 7px}
 		.analytics-counters{display:flex;gap:16px}
 		.analytics-counter{display:flex;flex-direction:column;gap:1px}
 		.analytics-val{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
@@ -2413,6 +2419,8 @@
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
 </head>
 <body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
 
 <!-- ── NAV ──────────────────────────────────────────────────────── -->
 <header class="nav">
@@ -2680,6 +2688,7 @@
 </script>
 
 <!-- ── HERO ─────────────────────────────────────────────────────── -->
+<main id="main-content" tabindex="-1">
 <section class="hero">
 	<div class="hero-text">
 		<div class="eyebrow">Open beta · live now</div>
@@ -2970,11 +2979,10 @@
 								<path class="door-earn-area" d="M0,158 L32,150 L64,140 L96,134 L128,120 L160,112 L192,92 L224,86 L256,66 L288,50 L320,38 L320,180 L0,180 Z" fill="url(#earnFill)"/>
 								<path class="door-earn-line" d="M0,158 L32,150 L64,140 L96,134 L128,120 L160,112 L192,92 L224,86 L256,66 L288,50 L320,38"/>
 							</svg>
-							<div class="door-earn-stream" id="door-earn-stream" aria-hidden="true"></div>
 						</div>
 					<div class="door-earn-overlay">
 						<div class="door-earn-val" id="door-earn-val">$0.00</div>
-						<div class="door-earn-lbl">USDC earned</div>
+						<div class="door-earn-lbl">example earnings · USDC</div>
 					</div>
 				</div>
 				<h3>Charge per chat. Keep everything.</h3>
@@ -3395,6 +3403,7 @@
 				<p class="bento-title">Track everything</p>
 				<p class="bento-desc">Conversations, revenue, engagement, retention — all in real-time. See which skills earn the most.</p>
 				<div class="bento-interact analytics-demo" id="analytics-demo">
+					<div class="analytics-example-tag" aria-hidden="true">Example dashboard</div>
 					<div class="analytics-counters">
 						<div class="analytics-counter"><span class="analytics-val" id="an-convos">0</span><span class="analytics-lbl">convos</span></div>
 						<div class="analytics-counter"><span class="analytics-val" id="an-revenue">$0</span><span class="analytics-lbl">revenue</span></div>
@@ -3481,12 +3490,12 @@
 				</div>
 			</div>
 			<div class="feat-visual">
-				<div class="feat-visual-label">Earnings · last 24 hours</div>
+				<div class="feat-visual-label">Earnings dashboard · example</div>
 				<div class="feat-visual-inner">
 					<div style="display:flex;justify-content:space-between;align-items:baseline;">
 						<div>
 							<div style="font-family:var(--font-display);font-size:36px;font-weight:600;letter-spacing:-0.025em;color:var(--green)">$847.50</div>
-							<div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-top:4px">Total earned · USDC</div>
+							<div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3);margin-top:4px">Example earnings · USDC</div>
 						</div>
 						<div style="text-align:right">
 							<div style="font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--text)">312</div>
@@ -3865,6 +3874,8 @@
 	</div>
 </section>
 
+</main>
+
 <!-- ── FOOTER ─────────────────────────────────────────────────────── -->
 <footer>
 	<div class="wrap-1280">
@@ -3904,7 +3915,8 @@
 				<div class="foot-col-h">Company</div>
 				<a href="/blog">Blog</a>
 				<a href="/community">Community</a>
-				<a href="https://github.com/nirholas/three.ws">GitHub</a>
+				<a href="https://x.com/trythreews" target="_blank" rel="noopener noreferrer">X / Twitter</a>
+				<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener noreferrer">GitHub</a>
 				<a href="mailto:hello@three.ws">Contact</a>
 			</div>
 			<div class="foot-col">
@@ -5131,51 +5143,31 @@
 			});
 		}
 
-		// Earn door ticker
+		// Earn door — one-time count-up reveal of an illustrative example figure.
+		// The number is labeled "example earnings" in the markup; it is not live
+		// platform data (real earnings live behind auth on /dashboard/monetize).
 		var earnVal = document.getElementById('door-earn-val');
 		var earnViz = document.getElementById('door-earn-viz');
-		var earnStream = document.getElementById('door-earn-stream');
 		if (earnVal) {
 			var started = false;
+			var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+			var EARN_EXAMPLE = 128.40;
 			var earnObs = new IntersectionObserver(function(entries) {
 				if (!entries[0].isIntersecting || started) return;
 				started = true; earnObs.disconnect();
 				if (earnViz) earnViz.classList.add('is-live');
 
-				var val = 0, target = 847.5;
-				(function tick() {
-					val += (target - val) * 0.025;
-					if (val >= target - 0.01) val = target;
-					earnVal.textContent = '$' + val.toFixed(2);
-					if (val < target) requestAnimationFrame(tick);
-				})();
-
-				var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-				if (earnStream && !reduceMotion) {
-					var EARN_EVENTS = [
-						{ label: 'chat',   amt: 0.05 },
-						{ label: 'voice',  amt: 0.12 },
-						{ label: 'skill',  amt: 0.25 },
-						{ label: 'chat',   amt: 0.05 },
-						{ label: 'memory', amt: 0.08 }
-					];
-					var ei = 0;
-					function pushEarnTick() {
-						var ev = EARN_EVENTS[ei++ % EARN_EVENTS.length];
-						var row = document.createElement('div');
-						row.className = 'earn-tick';
-						row.innerHTML = '+&nbsp;<b>$' + ev.amt.toFixed(2) + '</b>&nbsp;&middot;&nbsp;' + ev.label;
-						earnStream.prepend(row);
-						var live = earnStream.querySelectorAll('.earn-tick:not(.out)');
-						if (live.length > 3) {
-							var oldest = live[live.length - 1];
-							oldest.classList.add('out');
-							oldest.addEventListener('animationend', function() { oldest.remove(); }, { once: true });
-						}
-					}
-					pushEarnTick();
-					setInterval(pushEarnTick, 2200);
+				if (reduceMotion) {
+					earnVal.textContent = '$' + EARN_EXAMPLE.toFixed(2);
+					return;
 				}
+				var val = 0;
+				(function tick() {
+					val += (EARN_EXAMPLE - val) * 0.025;
+					if (val >= EARN_EXAMPLE - 0.01) val = EARN_EXAMPLE;
+					earnVal.textContent = '$' + val.toFixed(2);
+					if (val < EARN_EXAMPLE) requestAnimationFrame(tick);
+				})();
 			}, { threshold: 0.35 });
 			earnObs.observe(earnVal);
 		}
@@ -5813,30 +5805,31 @@
 				+ '<circle class="spark-dot" cx="' + last.x.toFixed(1) + '" cy="' + last.y.toFixed(1) + '" r="2.5"/>';
 		}
 
+		// Counters reveal a fixed set of example figures (the widget is labeled
+		// "example" in the markup). These are illustrative of the analytics
+		// dashboard — not live platform data — so no random "live" simulation.
 		var animated = false;
+		var targets = { convos: 1247, revenue: 847.5, retention: 68 };
+		function setCounters(convos, revenue, retention) {
+			convosEl.textContent = Math.round(convos).toLocaleString();
+			revenueEl.textContent = '$' + revenue.toFixed(0);
+			retentionEl.textContent = Math.round(retention) + '%';
+		}
 		function animateCounters() {
 			if (animated) return;
 			animated = true;
-			var targets = { convos: 1247, revenue: 847.5, retention: 68 };
+			if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+				setCounters(targets.convos, targets.revenue, targets.retention);
+				return;
+			}
 			var start = performance.now();
 			var dur = 1200;
 			(function tick(now) {
 				var p = Math.min((now - start) / dur, 1);
 				var e = 1 - Math.pow(1 - p, 3);
-				convosEl.textContent = Math.round(targets.convos * e).toLocaleString();
-				revenueEl.textContent = '$' + (targets.revenue * e).toFixed(0);
-				retentionEl.textContent = Math.round(targets.retention * e) + '%';
+				setCounters(targets.convos * e, targets.revenue * e, targets.retention * e);
 				if (p < 1) requestAnimationFrame(tick);
 			})(start);
-
-			// Live tick
-			setInterval(function() {
-				var newPt = dataPoints[dataPoints.length - 1] + Math.round((Math.random() - 0.3) * 8);
-				dataPoints.push(Math.max(5, newPt));
-				if (dataPoints.length > 30) dataPoints.shift();
-				maxVal = Math.max.apply(null, dataPoints);
-				buildPath();
-			}, 2000);
 		}
 
 		buildPath();

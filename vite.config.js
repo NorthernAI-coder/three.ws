@@ -239,6 +239,7 @@ const appConfig = {
 				launchpad: resolve(__dirname, 'pages/launchpad.html'),
 				start: resolve(__dirname, 'pages/start.html'),
 			create: resolve(__dirname, 'pages/create.html'),
+				forge: resolve(__dirname, 'pages/forge.html'),
 				'create-selfie': resolve(__dirname, 'pages/create-selfie.html'),
 				scan: resolve(__dirname, 'pages/scan.html'),
 				worlds: resolve(__dirname, 'pages/worlds.html'),
@@ -296,7 +297,6 @@ const appConfig = {
 				'walk-embed': resolve(__dirname, 'pages/walk-embed.html'),
 				city: resolve(__dirname, 'pages/city.html'),
 				play: resolve(__dirname, 'pages/play.html'),
-				game: resolve(__dirname, 'pages/game.html'),
 				pose: resolve(__dirname, 'pages/pose.html'),
 				club: resolve(__dirname, 'pages/club.html'),
 				skills: resolve(__dirname, 'pages/skills.html'),
@@ -310,6 +310,11 @@ const appConfig = {
 				// its inline modules (incl. pump-modals, agent-token-widget)
 				// instead of shipping /src/* refs that 404 in production.
 				'agent-token-page': resolve(__dirname, 'public/agent/index.html'),
+				// /login lives in public/ but its inline avatar module imports the
+				// bare `@three-ws/agent-ui` specifier. Registering it as an input
+				// bundles that module so the sign-in avatar renders in production
+				// instead of shipping an unresolvable bare import.
+				login: resolve(__dirname, 'public/login.html'),
 				// BEGIN:DISCOVER_ROUTE
 				'my-agents': resolve(__dirname, 'public/my-agents/index.html'),
 				discover: resolve(__dirname, 'public/discover/index.html'),
@@ -553,8 +558,6 @@ const appConfig = {
 					'/walk/': resolve(root, 'pages/walk.html'),
 					'/play': resolve(root, 'pages/play.html'),
 					'/play/': resolve(root, 'pages/play.html'),
-					'/game': resolve(root, 'pages/game.html'),
-					'/game/': resolve(root, 'pages/game.html'),
 					'/walk-embed': resolve(root, 'pages/walk-embed.html'),
 					'/walk-embed/': resolve(root, 'pages/walk-embed.html'),
 					'/demo': resolve(root, 'pages/demo-economy.html'),
@@ -1176,6 +1179,7 @@ const appConfig = {
 			closeBundle() {
 				const pairs = [
 					['dist/public/agent/index.html', 'dist/agent/index.html'],
+					['dist/public/login.html', 'dist/login.html'],
 					['dist/public/demos/brain.html', 'dist/demos/brain.html'],
 					['dist/public/demos/lipsync-tts.html', 'dist/demos/lipsync-tts.html'],
 					['dist/public/demos/lipsync-mic.html', 'dist/demos/lipsync-mic.html'],

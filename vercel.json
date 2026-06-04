@@ -434,6 +434,10 @@
 			"dest": "/avatar-studio-demo.html"
 		},
 		{
+			"src": "/forge/?",
+			"dest": "/forge.html"
+		},
+		{
 			"src": "/xr/?",
 			"dest": "/xr.html"
 		},
@@ -446,8 +450,9 @@
 			"dest": "/play.html"
 		},
 		{
-			"src": "/game/?",
-			"dest": "/game.html"
+			"src": "/game(/.*)?",
+			"status": 308,
+			"headers": { "Location": "/play" }
 		},
 		{
 			"src": "/walk/?",

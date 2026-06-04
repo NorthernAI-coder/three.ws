@@ -344,6 +344,8 @@ async function handleMine(req, res) {
 		SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id, ai.user_id,
 		       ai.forks_count, ai.views_count, ai.published_at, ai.created_at, ai.skills,
 		       ai.is_published, av.thumbnail_key,
+		       av.storage_key AS avatar_storage_key,
+		       av.visibility AS avatar_visibility,
 		       ap.amount        AS asset_price_amount,
 		       ap.currency_mint AS asset_price_currency_mint,
 		       ap.chain         AS asset_price_chain,
@@ -400,6 +402,8 @@ async function handleList(req, res, url) {
 			SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id, ai.user_id,
 			       ai.forks_count, ai.views_count, ai.published_at, ai.created_at, ai.skills,
 			       av.thumbnail_key,
+			       av.storage_key AS avatar_storage_key,
+			       av.visibility AS avatar_visibility,
 			       ai.meta->'onchain' AS onchain,
 			       ai.meta->'token'   AS token,
 				   u.display_name AS author_name,
@@ -445,6 +449,8 @@ async function handleList(req, res, url) {
 					SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id, ai.user_id,
 					       ai.forks_count, ai.views_count, ai.published_at, ai.created_at, ai.skills,
 					       av.thumbnail_key,
+					       av.storage_key AS avatar_storage_key,
+					       av.visibility AS avatar_visibility,
 					       ai.meta->'onchain' AS onchain,
 					       ai.meta->'token'   AS token,
 					       u.display_name AS author_name,
@@ -917,6 +923,8 @@ async function handleSimilar(req, res, id) {
 		SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id, ai.user_id,
 		       ai.forks_count, ai.views_count, ai.published_at, ai.created_at, ai.skills,
 		       av.thumbnail_key,
+		       av.storage_key AS avatar_storage_key,
+		       av.visibility AS avatar_visibility,
 		       (
 		         (CASE WHEN ai.category = ${base.category} THEN 3 ELSE 0 END)
 		         + cardinality(ARRAY(SELECT unnest(ai.tags) INTERSECT SELECT unnest(${base.tags}::text[])))

@@ -868,7 +868,7 @@
 
 			const agent = await createAgentUI({
 				canvas: document.getElementById('avatar-canvas'),
-				clips: ['idle', 'walk', 'lookdown', 'covereyes', 'reaction', 'silly', 'defeated', 'angry', 'facepalm'],
+				clips: ['idle', 'walk', 'covereyes', 'reaction', 'silly', 'defeated', 'angry', 'facepalm'],
 				subclips: {
 					covereyes: { start: 0, end: 48, fps: 30 },
 				},
@@ -881,20 +881,27 @@
 				agent.standOn(avatarWrap, { anchor: 'bottom-center', offsetY: -50 });
 			});
 
-			emailInput.addEventListener('focus', () => {
-				agent.play('lookdown', { loop: true });
-			});
-			emailInput.addEventListener('blur', () => {
-				agent.play('idle', { loop: true });
-			});
+			// The avatar shields its eyes whenever the user is typing a
+			// credential — email or password — so it never "peeks" at what
+			// you enter. It stays covered while focus moves between the two
+			// fields (or to the password show/hide toggle) and only relaxes
+			// back to idle once you leave the credential inputs entirely.
+			const credentialFields = [emailInput, passwordInput];
 
-			passwordInput.addEventListener('focus', () => {
+			function coverEyes() {
+				if (agent.currentClip === 'covereyes') return;
 				agent.play('covereyes', { loop: false, hold: true });
 				agent.faceFront();
-			});
-			passwordInput.addEventListener('blur', (e) => {
-				if (e.relatedTarget && e.relatedTarget.closest('.password-wrap')) return;
+			}
+			function uncoverEyes(e) {
+				const to = e.relatedTarget;
+				if (to && (credentialFields.includes(to) || to.closest?.('.password-wrap'))) return;
 				agent.play('idle', { loop: true });
+			}
+
+			credentialFields.forEach((field) => {
+				field.addEventListener('focus', coverEyes);
+				field.addEventListener('blur', uncoverEyes);
 			});
 
 			const pickFail = agent.pickFrom(['reaction', 'defeated', 'angry', 'facepalm']);
