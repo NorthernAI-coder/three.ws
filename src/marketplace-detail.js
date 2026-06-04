@@ -11,6 +11,7 @@
  */
 
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { coinChipHTML } from './shared/agent-coin.js';
 
 const API = '/api';
 const $ = (id) => document.getElementById(id);
@@ -305,10 +306,11 @@ function renderCreatorModal(payload, deps) {
 			// so a nested explorer anchor would double-fire. The explorer link lives
 			// on the agent detail page this card opens.
 			const onchain = onchainBadgeHTML(a, { link: false, size: 'sm' });
+			const coin = coinChipHTML(a, { link: false, size: 'sm' });
 			return `<div class="creator-mini-card" data-agent-id="${escapeHtml(a.id)}">
 				${thumb}
 				<div class="name">${escapeHtml(a.name)}</div>
-				${onchain ? `<div class="meta">${onchain}</div>` : ''}
+				${onchain || coin ? `<div class="meta">${onchain}${coin}</div>` : ''}
 				<div class="meta">⊙ ${fmtNumber(a.views_count)} · ⑂ ${fmtNumber(a.forks_count)}</div>
 			</div>`;
 		}).join('');

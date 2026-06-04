@@ -26,6 +26,7 @@ const solanaWeb3 = {
 };
 import { openSwapModal } from './swap-jupiter.js';
 import { onchainBadgeEl } from './shared/onchain-badge.js';
+import { openCoinLaunch } from './shared/agent-coin.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -207,27 +208,7 @@ function render(agent) {
 		launchBtn.addEventListener('click', async () => {
 			launchBtn.disabled = true;
 			try {
-				const { openLaunchTokenModal } = await import('/src/pump/launch-token-modal.js');
-				const rec = agent.rawMetadata || {};
-				const onchain = rec.onchain || rec.meta?.onchain || null;
-				const needsDeploy = !onchain || onchain.family !== 'solana';
-				const imageUrl =
-					rec.avatar_thumbnail_url || rec.meta?.thumbnail_url || agent.avatar || '';
-				openLaunchTokenModal({
-					agentId: agent.id,
-					agentName: agent.name,
-					imageUrl,
-					needsDeploy,
-					agentForDeploy: needsDeploy
-						? {
-								id: agent.id,
-								name: rec.name || agent.name,
-								description: rec.description || '',
-								avatar_id: rec.avatar_id || null,
-								skills: rec.skills || undefined,
-							}
-						: null,
-				});
+				await openCoinLaunch(agent);
 			} finally {
 				launchBtn.disabled = false;
 			}

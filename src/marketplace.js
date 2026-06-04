@@ -17,6 +17,7 @@ import {
 	bindDetailExtras,
 } from './marketplace-detail.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { coinChipHTML } from './shared/agent-coin.js';
 
 const API = '/api';
 
@@ -3768,6 +3769,7 @@ function renderCard(a) {
 		<div class="desc">${escapeHtml(a.description || '')}</div>
 		<div class="stats">
 			${onchainBadge}
+			${coinChipHTML(a)}
 			<span class="stat-pill">⊙ ${fmtNumber(views)}</span>
 			<span class="stat-pill">⑂ ${fmtNumber(forks)}</span>
 			${skillsCount ? `<span class="stat-pill">▤ ${skillsCount}</span>` : ''}

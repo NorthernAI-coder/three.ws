@@ -17,6 +17,7 @@ import { requireUser, get, post, put, del, esc, relTime, ApiError } from '../api
 import { openAvatarPicker } from '../../avatar-gallery-picker.js';
 import { openLaunchTokenModal } from '../../pump/launch-token-modal.js';
 import { onchainBadgeHTML } from '../../shared/onchain-badge.js';
+import { coinChipHTML } from '../../shared/agent-coin.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 
@@ -449,7 +450,7 @@ function agentCard(a, avatars) {
 				<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
 					<span style="font-size:15px;font-weight:600;color:var(--nxt-ink)">${name}</span>
 					${onchainBadge || `<span class="dn-tag" style="font-size:11px">off-chain</span>`}
-					${pumpMint ? `<span class="dn-tag" style="font-size:11px;background:rgba(168,173,181,0.12);border-color:rgba(168,173,181,0.28);color:#a8adb5">pump.fun</span>` : ''}
+					${coinChipHTML(a, { launchable: false })}
 				</div>
 				${wallet ? `<div style="font-family:${MONO};font-size:12px;color:var(--nxt-ink-fade);margin-bottom:6px">${esc(truncMid(wallet, 8, 6))}</div>` : ''}
 				<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--nxt-ink-dim)">

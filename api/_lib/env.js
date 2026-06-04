@@ -509,6 +509,15 @@ export const env = {
 		return opt('ZAUTH_DEBUG');
 	},
 
+	// Set to "1" to include request/response bodies in zauth telemetry. OFF by
+	// default: these endpoints carry payment payloads and MCP tool args, which
+	// must not be shipped to a third-party backend. Enable only for short-lived
+	// debugging. Endpoint health (status/timing/validation verdict) is reported
+	// regardless — body capture is not needed for WORKING/FAILING classification.
+	get ZAUTH_INCLUDE_BODIES() {
+		return opt('ZAUTH_INCLUDE_BODIES');
+	},
+
 	// Solana RPC URL — single source of truth for all Solana RPC calls.
 	// Set to a Helius/QuickNode/Triton URL in production to avoid public RPC rate limits.
 	get SOLANA_RPC_URL() {

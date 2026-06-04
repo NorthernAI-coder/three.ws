@@ -157,6 +157,21 @@ async function probeX402() {
 		result.facilitator = 'not_configured';
 	}
 
+	// Provider Hub (zauthx402) x402 telemetry — report whether the SDK
+	// initialized so the integration is observable in prod. Booleans only:
+	// no key material is surfaced on this public, unauthenticated endpoint.
+	try {
+		const { status: zauthStatus } = await import('./_lib/zauth.js');
+		const z = zauthStatus();
+		result.telemetry = {
+			provider: 'zauthx402',
+			configured: z.hasKey,
+			initialized: z.initialized,
+		};
+	} catch {
+		result.telemetry = { provider: 'zauthx402', configured: false, initialized: false };
+	}
+
 	// Recent payments from audit log
 	result.recent_payments = await countRecentPayments(60);
 

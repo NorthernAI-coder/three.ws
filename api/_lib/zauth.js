@@ -21,6 +21,43 @@ import { env } from './env.js';
 let cached;
 let _bootLogged = false;
 
+// The SDK submits telemetry with a fire-and-forget `fetch` it never hands back
+// a promise for, so on Vercel the function can freeze mid-POST and silently
+// drop the event. We wrap `fetch` once (only when monitoring is enabled) to
+// track in-flight POSTs to the zauth backend; `drain()` then awaits exactly
+// those, capped — reliable delivery instead of a fixed-time guess. Only
+// zauth-host requests are ever tracked; all other traffic passes through
+// untouched and unobserved.
+const ZAUTH_HOST = (process.env.ZAUTH_API_ENDPOINT || 'https://back.zauthx402.com')
+	.replace(/^https?:\/\//, '')
+	.replace(/\/.*$/, '');
+const _inflight = new Set();
+let _fetchWrapped = false;
+
+function trackZauthFetch() {
+	if (_fetchWrapped || typeof globalThis.fetch !== 'function') return;
+	_fetchWrapped = true;
+	const realFetch = globalThis.fetch.bind(globalThis);
+	globalThis.fetch = (input, init) => {
+		const url = typeof input === 'string' ? input : input?.url || '';
+		const promise = realFetch(input, init);
+		if (url.includes(ZAUTH_HOST)) {
+			_inflight.add(promise);
+			const clear = () => _inflight.delete(promise);
+			promise.then(clear, clear);
+		}
+		return promise;
+	};
+}
+
+// The deploy environment reported to the Provider Hub dashboard. The SDK
+// defaults to 'development'; without this, production telemetry would be
+// mislabeled. VERCEL_ENV is 'production' | 'preview' | 'development' on Vercel.
+function resolveEnvironment() {
+	if (env.VERCEL_ENV === 'production' || env.NODE_ENV === 'production') return 'production';
+	return env.VERCEL_ENV || 'development';
+}
+
 function buildMiddleware() {
 	const apiKey = env.ZAUTH_API_KEY;
 	if (!apiKey) {
@@ -36,11 +73,39 @@ function buildMiddleware() {
 		// POST to back.zauthx402.com). Force flush-per-event so submission
 		// starts immediately; the `drain()` helper below keeps the lambda
 		// alive long enough for that POST to complete.
+		const includeBodies = env.ZAUTH_INCLUDE_BODIES === '1';
 		const mw = zauthProvider(apiKey, {
+			environment: resolveEnvironment(),
 			shouldMonitor: shouldMonitorReq,
 			debug: env.ZAUTH_DEBUG === '1',
 			batching: { maxBatchSize: 1, maxBatchWaitMs: 0, retry: false },
+			// Privacy: the monitored routes are payment and MCP endpoints. Ship
+			// status/timing/validation telemetry, but NOT the request/response
+			// bodies (payment payloads, tool args) unless explicitly opted in.
+			// The SDK validates responses locally and only reports the verdict,
+			// so health classification is unaffected when bodies are withheld.
+			telemetry: {
+				includeRequestBody: includeBodies,
+				includeResponseBody: includeBodies,
+				// redactHeaders replaces (not merges) the SDK default list, so we
+				// restate its entries and add every header that can carry a payment
+				// proof, session, or secret on these routes.
+				redactHeaders: [
+					'authorization',
+					'cookie',
+					'set-cookie',
+					'x-api-key',
+					'x-api-secret',
+					'x-payment',
+					'x-payment-intent',
+					'x-payment-signature',
+					'x-payment-response',
+					'payment-signature',
+					'sign-in-with-x',
+				],
+			},
 		});
+		trackZauthFetch();
 		if (env.ZAUTH_DEBUG === '1' && !_bootLogged) {
 			console.log('[zauth] middleware initialized');
 			_bootLogged = true;
@@ -76,6 +141,7 @@ export function status() {
 		initialized,
 		hasKey: Boolean(apiKey),
 		keyPrefix: apiKey ? apiKey.slice(0, 14) : null,
+		environment: resolveEnvironment(),
 		debug: env.ZAUTH_DEBUG === '1',
 	};
 }
@@ -152,10 +218,27 @@ export function instrument(req, res) {
 }
 
 /**
- * Wait briefly for the SDK's fire-and-forget POST to `back.zauthx402.com`
- * to complete before Vercel freezes the function. Only call this on
- * requests where `instrument()` returned true.
+ * Hold the lambda open until the SDK's in-flight telemetry POST(s) to the
+ * zauth backend actually settle, so Vercel doesn't freeze the function
+ * mid-flush and drop the event. Awaits the tracked fetches rather than a fixed
+ * delay; capped by ZAUTH_DRAIN_MAX_MS (default 1500ms) so a hung backend can
+ * never stall the response runtime. Only call this on requests where
+ * `instrument()` returned true.
  */
 export function drain() {
-	return new Promise((resolve) => setTimeout(resolve, 250));
+	const capMs = Number(process.env.ZAUTH_DRAIN_MAX_MS) || 1500;
+	if (_inflight.size === 0) {
+		// The POST may be scheduled on the next microtask; give it a beat to
+		// register, then settle whatever appeared.
+		return new Promise((resolve) => setTimeout(resolve, 50)).then(() =>
+			_inflight.size ? settleInflight(capMs) : undefined,
+		);
+	}
+	return settleInflight(capMs);
+}
+
+function settleInflight(capMs) {
+	const pending = Promise.allSettled([..._inflight]);
+	const cap = new Promise((resolve) => setTimeout(resolve, capMs));
+	return Promise.race([pending, cap]);
 }
