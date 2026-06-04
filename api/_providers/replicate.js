@@ -66,35 +66,57 @@ function modelForMode(mode) {
 	return readEnv(envName) || DEFAULT_MODELS[mode] || null;
 }
 
-// Map our 5 modes onto the input shape each model expects. The exact shape
-// depends on the model; we default to a generic payload and let provider-side
-// models pick the fields they care about. Caller-supplied params always win.
-//
-// For `reconstruct` (image-to-3D, no source GLB) we feed `image` from the
-// caller's first photo and pass the full list through as `images` for models
-// that accept multi-view. This matches the input contracts of the Hunyuan3D
-// family and TripoSR — both ignore unrecognized fields.
-function buildInput({ mode, sourceUrl, params }) {
-	if (mode === 'reconstruct') {
-		const photos = Array.isArray(params?.images) ? params.images : [];
-		const primary = photos[0] || params?.image || sourceUrl;
-		const base = {
-			mode,
-			image: primary,
-			images: photos.length ? photos : undefined,
-			prompt: typeof params?.prompt === 'string' ? params.prompt : undefined,
-		};
-		return { ...base, ...(params || {}) };
+// Keys that belong to OUR job/contract envelope and must never be forwarded to
+// a Replicate model. Replicate validates prediction input against each model's
+// OpenAPI schema; leaking these (or the multi-MB base64 image list) risks a 422
+// that fails the whole reconstruction. We map the meaningful ones onto the
+// model's real input fields (e.g. `images`) and drop the rest.
+const INTERNAL_PARAM_KEYS = Object.freeze([
+	'mode',
+	'name',
+	'description',
+	'visibility',
+	'bodyType',
+	'style',
+	'image',
+	'images',
+	'rig', // chain bookkeeping written by the reconstruct-finalize stage
+]);
+
+function stripInternal(params) {
+	const out = {};
+	for (const [key, value] of Object.entries(params || {})) {
+		if (INTERNAL_PARAM_KEYS.includes(key)) continue;
+		if (value === undefined) continue;
+		out[key] = value;
 	}
-	const base = {
-		mode,
+	return out;
+}
+
+// Map our modes onto the input shape each model expects. Caller-supplied
+// generation params (seed, texture_size, …) survive and win; internal envelope
+// keys are stripped so they never reach the model schema.
+//
+// For `reconstruct` (image-to-3D) the canonical input across the Hunyuan3D
+// family, TRELLIS and TripoSR is an `images` array of URIs — we always send
+// that and never the singular `image`/`mode` fields the old payload leaked.
+function buildInput({ mode, sourceUrl, params }) {
+	const clean = stripInternal(params);
+	if (mode === 'reconstruct') {
+		const photos = Array.isArray(params?.images)
+			? params.images.filter((u) => typeof u === 'string' && u.length > 0)
+			: [];
+		const primary = photos[0] || (typeof params?.image === 'string' ? params.image : sourceUrl);
+		const images = photos.length ? photos : primary ? [primary] : [];
+		return { images, ...clean };
+	}
+	// remesh / retex / rerig / restyle operate on an existing GLB. Send the
+	// source under the two field names cog GLB-pipelines commonly accept.
+	return {
 		source_url: sourceUrl,
 		source_glb: sourceUrl,
-		// Pass through every caller param; later spread wins so explicit
-		// overrides take precedence over the defaults above.
-		prompt: typeof params?.prompt === 'string' ? params.prompt : undefined,
+		...clean,
 	};
-	return { ...base, ...(params || {}) };
 }
 
 function translateStatus(replicateStatus) {
@@ -156,6 +178,13 @@ export function createRegenProvider() {
 		|| (readEnv('APP_ORIGIN') ? `${readEnv('APP_ORIGIN').replace(/\/$/, '')}/api/webhooks/replicate` : null);
 
 	return {
+		// True when a model is configured for `mode`. The reconstruct-finalize
+		// auto-rig stage consults this before chaining a 'rerig' job, so rigging
+		// stays dormant (mesh delivered as-is) until REPLICATE_RERIG_MODEL is set.
+		supportsMode(mode) {
+			return !!modelForMode(mode);
+		},
+
 		async submit(request) {
 			const modelRef = modelForMode(request.mode);
 			if (!modelRef) {

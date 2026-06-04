@@ -658,6 +658,55 @@ function confirmCamShot() {
 	setSlot(slot, file);
 }
 
+// ── Homepage handoff ─────────────────────────────────────────────────────────
+// The homepage Avatar Studio teaser lets a visitor drop/capture a selfie, then
+// sends them here to finish the real build. It stashes that photo in
+// sessionStorage; pick it up as the frontal slot so they don't re-capture.
+(function ingestHandoff() {
+	let raw;
+	try {
+		raw = sessionStorage.getItem('threews:selfie-handoff');
+		if (raw) sessionStorage.removeItem('threews:selfie-handoff');
+	} catch {
+		return; // storage blocked (private mode / cookies off)
+	}
+	if (!raw) return;
+	let parsed;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return;
+	}
+	const dataUrl = parsed?.dataUrl;
+	if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return;
+	const file = dataUrlToFile(dataUrl, typeof parsed?.name === 'string' ? parsed.name : 'selfie.jpg');
+	if (file) setSlot(REQUIRED_SLOT, file);
+})();
+
+/**
+ * @param {string} dataUrl
+ * @param {string} name
+ * @returns {File | null}
+ */
+function dataUrlToFile(dataUrl, name) {
+	const comma = dataUrl.indexOf(',');
+	if (comma < 0) return null;
+	const header = dataUrl.slice(0, comma);
+	const mime = (header.match(/^data:([^;]+)/) || [])[1] || 'image/jpeg';
+	const body = dataUrl.slice(comma + 1);
+	let bytes;
+	try {
+		const bin = /;base64/i.test(header) ? atob(body) : decodeURIComponent(body);
+		bytes = new Uint8Array(bin.length);
+		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+	} catch {
+		return null;
+	}
+	const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+	const safeName = /\.[a-z0-9]+$/i.test(name) ? name : `${name}.${ext}`;
+	return new File([bytes], safeName, { type: mime });
+}
+
 // ── Utilities ──────────────────────────────────────────────────────────────
 /** @param {string} slot */
 function slotPretty(slot) {

@@ -50,6 +50,7 @@ import { WalkNet } from './walk-net.js';
 import { getPresenceTicket, friendsClient } from './friends.js';
 import { FriendsPanel } from './game/friends-panel.js';
 import { PhysicsWorld } from './physics/physics-world.js';
+import { createTerrain } from './game/terrain.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -393,6 +394,15 @@ const groundOpaque = new Mesh(
 groundOpaque.rotation.x = -Math.PI / 2;
 groundOpaque.receiveShadow = true;
 scene.add(groundOpaque);
+// The flat disc is kept only as the AR shadow backing; the rolling heightfield
+// terrain below supersedes it as the visible, walkable ground in non-AR mode.
+groundOpaque.visible = false;
+
+// Procedural heightfield terrain — the single source of truth for ground shape.
+// Its column-major height buffer feeds both this mesh and the Rapier heightfield
+// collider (see initWalkPhysics), so the surface you see is the surface you walk.
+const terrain = createTerrain({ color: 0x202833 });
+scene.add(terrain.mesh);
 
 const groundShadowCatcher = new Mesh(
 	new CircleGeometry(GROUND_RADIUS, 64),
@@ -1218,7 +1228,7 @@ async function enableAR() {
 	arActive = true;
 	stage.classList.add('is-ar');
 	arBtn.setAttribute('aria-pressed', 'true');
-	groundOpaque.visible = false;
+	terrain.mesh.visible = false; // hide the world ground; the room is the floor in AR
 	groundShadowCatcher.visible = true;
 	groundShadowCatcher.material.opacity = 0.55;
 	renderer.setClearColor(0x000000, 0);
@@ -1265,7 +1275,7 @@ function disableAR() {
 	arActive = false;
 	stage.classList.remove('is-ar');
 	arBtn.setAttribute('aria-pressed', 'false');
-	groundOpaque.visible = true;
+	terrain.mesh.visible = true; // restore the rolling ground when leaving AR
 	groundShadowCatcher.visible = false;
 	groundShadowCatcher.material.opacity = 0.32;
 	scene.background = null; // CSS gradient on #walk-stage shows through
@@ -1585,8 +1595,10 @@ function tick() {
 	if (!usePhysics && jumpActive && avatar) {
 		jumpVelocity += GRAVITY * dt;
 		avatarRig.position.y += jumpVelocity * dt;
-		if (avatarRig.position.y <= GROUND_Y) {
-			avatarRig.position.y = GROUND_Y;
+		// Land on the terrain surface (flat GROUND_Y while floating in AR).
+		const landY = arActive ? GROUND_Y : terrain.heightAt(avatarRig.position.x, avatarRig.position.z);
+		if (avatarRig.position.y <= landY) {
+			avatarRig.position.y = landY;
 			jumpVelocity = 0;
 			jumpActive = false;
 		}
@@ -1627,6 +1639,10 @@ function tick() {
 					const k = max / r;
 					avatarRig.position.x *= k;
 					avatarRig.position.z *= k;
+				}
+				// Follow the terrain surface until the physics solver takes over.
+				if (!jumpActive) {
+					avatarRig.position.y = terrain.heightAt(avatarRig.position.x, avatarRig.position.z);
 				}
 			}
 		}
@@ -2486,7 +2502,8 @@ function applyEnvironment(index) {
 	const env = ENVIRONMENTS[index];
 	if (!env) return;
 	currentEnvIndex = index;
-	// Ground color
+	// Ground color — recolor the terrain surface (the flat disc stays hidden).
+	terrain.setColor(env.groundColor);
 	groundOpaque.material.color.setHex(env.groundColor);
 	// Stage background gradient
 	if (stage) stage.style.background = `radial-gradient(80% 60% at 50% 30%, ${env.skyTop} 0%, ${env.skyBot} 70%) ${env.skyBot}`;
@@ -2539,17 +2556,18 @@ function buildParkProps() {
 		const x = Math.cos(angle) * r;
 		const z = Math.sin(angle) * r;
 		const scale = 0.8 + Math.random() * 0.6;
-		dummy.position.set(x, 0.4 * scale, z);
+		const gy = terrain.heightAt(x, z); // sit the tree on the rolling ground
+		dummy.position.set(x, gy + 0.4 * scale, z);
 		dummy.scale.set(scale, scale, scale);
 		dummy.updateMatrix();
 		trunkMesh.setMatrixAt(i, dummy.matrix);
-		dummy.position.y = 1.1 * scale;
+		dummy.position.y = gy + 1.1 * scale;
 		dummy.updateMatrix();
 		foliageMesh.setMatrixAt(i, dummy.matrix);
 		// Solid trunk: a cylinder you can't walk through, sized to the canopy base.
 		worldObstacles.push({
 			type: 'cylinder',
-			position: { x, y: 0.9 * scale, z },
+			position: { x, y: gy + 0.9 * scale, z },
 			radius: 0.32 * scale,
 			halfHeight: 0.9 * scale,
 		});
@@ -2576,14 +2594,15 @@ function buildCityProps() {
 		const w = 0.8 + Math.random() * 1.2;
 		const d = 0.8 + Math.random() * 1.2;
 		const rotationY = Math.random() * Math.PI;
-		dummy.position.set(x, h / 2, z);
+		const gy = terrain.heightAt(x, z); // base the building on the terrain surface
+		dummy.position.set(x, gy + h / 2, z);
 		dummy.scale.set(w, h, d);
 		dummy.rotation.y = rotationY;
 		dummy.updateMatrix();
 		mesh.setMatrixAt(i, dummy.matrix);
 		worldObstacles.push({
 			type: 'box',
-			position: { x, y: h / 2, z },
+			position: { x, y: gy + h / 2, z },
 			halfExtents: { x: w / 2, y: h / 2, z: d / 2 },
 			rotationY,
 		});
@@ -2626,17 +2645,18 @@ function buildBeachProps() {
 		const r = 6 + Math.random() * 4;
 		const x = Math.cos(angle) * r;
 		const z = Math.sin(angle) * r;
-		dummy.position.set(x, 1.25, z);
+		const gy = terrain.heightAt(x, z); // root the palm in the sand
+		dummy.position.set(x, gy + 1.25, z);
 		dummy.rotation.set(Math.random() * 0.15, 0, Math.random() * 0.15);
 		dummy.scale.setScalar(1);
 		dummy.updateMatrix();
 		palmTrunks.setMatrixAt(i, dummy.matrix);
-		dummy.position.y = 2.6;
+		dummy.position.y = gy + 2.6;
 		dummy.updateMatrix();
 		palmLeaves.setMatrixAt(i, dummy.matrix);
 		worldObstacles.push({
 			type: 'cylinder',
-			position: { x, y: 1.25, z },
+			position: { x, y: gy + 1.25, z },
 			radius: 0.28,
 			halfHeight: 1.25,
 		});
@@ -3093,7 +3113,9 @@ function rebuildPhysicsWorld() {
 async function initWalkPhysics() {
 	try {
 		physics = await PhysicsWorld.create({ gravity: { x: 0, y: GRAVITY, z: 0 } });
-		physics.addGround(GROUND_Y, GROUND_RADIUS + 40);
+		// Heightfield ground matching the rendered terrain (not a flat plane), so
+		// the character climbs slopes, follows dips, and stands on the real surface.
+		physics.addHeightfield(terrain);
 		character = physics.createCharacter({
 			position: { x: avatarRig.position.x, y: avatarRig.position.y, z: avatarRig.position.z },
 			radius: 0.3,
@@ -3146,6 +3168,25 @@ loadAvatar()
 		}
 		requestAnimationFrame(tick);
 	});
+
+// Dev-only introspection hook for verifying the physics integration from a
+// headless browser. Stripped from production builds (import.meta.env.DEV is
+// statically false there, so the whole block is dead-code-eliminated).
+if (import.meta.env?.DEV) {
+	window.__walkPhysics = () => ({
+		ready: physicsReady,
+		grounded: characterGrounded,
+		pos: { x: avatarRig.position.x, y: avatarRig.position.y, z: avatarRig.position.z },
+		obstacles: worldObstacles.length,
+		props: worldDynamicProps.map((p) => ({
+			kind: p.kind,
+			x: p.mesh.position.x,
+			y: p.mesh.position.y,
+			z: p.mesh.position.z,
+		})),
+		env: ENVIRONMENTS[currentEnvIndex]?.name,
+	});
+}
 
 // ── Avatar picker ────────────────────────────────────────────────────────
 {

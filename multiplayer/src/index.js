@@ -23,7 +23,6 @@ import { WalkRoom } from './rooms/WalkRoom.js';
 import { blockStore } from './block-store.js';
 import { worldPersistence } from './persistence.js';
 import { flushAllPlayers } from './playerStore.js';
-import { marketplaceStore } from './marketplaceStore.js';
 import { socialHub } from './social-hub.js';
 import { verifyNotifySignature } from './presence-token.js';
 
@@ -193,9 +192,7 @@ gameServer
 	.listen(PORT, HOST)
 	.then(() => {
 		console.log(`[multiplayer] listening on ws://${HOST}:${PORT}`);
-		console.log(`[multiplayer] rooms: walk_world, game_{${Object.keys(REALMS).join(',')}}`);
-		console.log(`[multiplayer] world instances: ${SERVERS.map((s) => `${s.id} (${s.name})`).join(', ')}`);
-		console.log(`[multiplayer] discovery: GET /servers`);
+		console.log(`[multiplayer] rooms: walk_world`);
 		console.log(`[multiplayer] allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
 	})
 	.catch((err) => {
@@ -244,13 +241,6 @@ const shutdown = async (signal) => {
 		await flushAllPlayers();
 	} catch (err) {
 		console.error('[multiplayer] final player flush error:', err);
-	}
-	// And the marketplace (Task 20): flush any debounced listing/payout writes so a
-	// redeploy never drops an active listing or a seller's owed proceeds.
-	try {
-		await marketplaceStore.flushAll();
-	} catch (err) {
-		console.error('[multiplayer] final market flush error:', err);
 	}
 	process.exit(0);
 };

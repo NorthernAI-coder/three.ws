@@ -4,7 +4,7 @@
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { presignUpload, headObject, r2, publicUrl, putObject } from '../_lib/r2.js';
 import { storageKeyFor, enforceQuotas, searchPublicAvatars, stripOwnerFor } from '../_lib/avatars.js';
-import { listAvatars, createAvatar } from '../_lib/avatars.js';
+import { listAvatars } from '../_lib/avatars.js';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
 import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
@@ -12,63 +12,11 @@ import { parse, presignUploadBody, slug as slugSchema, createAvatarBody } from '
 import { recordEvent } from '../_lib/usage.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
-import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
-import { isValidGlbHeader, inspectGlb } from '../_lib/glb-inspect.js';
-
-// ── regen provider loader ─────────────────────────────────────────────────────
-// Dynamically import a provider module by name so we don't pay the cost of
-// loading e.g. the Replicate SDK on every request when regeneration is unused.
-// Cached per-process after first load.
-//
-// Provider name precedence:
-//   1. Explicit env: AVATAR_REGEN_PROVIDER=replicate|huggingface|gcp
-//   2. Inferred from credentials: if REPLICATE_API_TOKEN is set with no
-//      explicit provider, default to 'replicate'. Same for GCP_RECONSTRUCTION_URL.
-//      This keeps the deploy path 1-step: drop the token in env, ship.
-let _regenProviderCache = null;
-let _regenProviderName = null;
-function resolveProviderName() {
-	const explicit = (process.env.AVATAR_REGEN_PROVIDER || '').trim().toLowerCase();
-	if (explicit) return explicit;
-	// Auto-detect order is paid → free: prefer Replicate's pinned-version
-	// reliability, then our own GCP Cloud Run service, then the HF Spaces
-	// queue (free GPU but variable wait + cold starts).
-	if (process.env.REPLICATE_API_TOKEN) return 'replicate';
-	if (process.env.GCP_RECONSTRUCTION_URL) return 'gcp';
-	if (process.env.HF_TOKEN) return 'huggingface';
-	return 'none';
-}
-async function getRegenProvider() {
-	const name = resolveProviderName();
-	if (name === 'none' || !name) return { name, instance: null };
-	if (_regenProviderCache && _regenProviderName === name) {
-		return { name, instance: _regenProviderCache };
-	}
-	if (name === 'replicate') {
-		const mod = await import('../_providers/replicate.js');
-		_regenProviderCache = mod.createRegenProvider();
-		_regenProviderName = name;
-		return { name, instance: _regenProviderCache };
-	}
-	if (name === 'huggingface' || name === 'hf') {
-		const mod = await import('../_providers/huggingface.js');
-		_regenProviderCache = mod.createRegenProvider();
-		_regenProviderName = name;
-		return { name, instance: _regenProviderCache };
-	}
-	if (name === 'gcp') {
-		const mod = await import('../_providers/gcp.js');
-		_regenProviderCache = mod.createRegenProvider();
-		_regenProviderName = name;
-		return { name, instance: _regenProviderCache };
-	}
-	throw Object.assign(new Error(`unknown AVATAR_REGEN_PROVIDER: ${name}`), {
-		code: 'regen_provider_unknown',
-		status: 501,
-	});
-}
+import { isValidGlbHeader } from '../_lib/glb-inspect.js';
+import { getRegenProvider } from '../_lib/regen-provider.js';
+import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-finalize.js';
 
 // ── presign ───────────────────────────────────────────────────────────────────
 
@@ -388,10 +336,22 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 		}
 	}
 
-	// Materialize the avatar row when a reconstruct job finishes successfully
-	// but hasn't yet been materialized. We copy the result GLB from the
-	// provider's URL into our R2 bucket so the avatar is durable, then create
-	// the avatars row with the user-supplied name/description.
+	// Stage 2 — the reconstructed mesh was bare and we kicked off an auto-rig
+	// job. Poll that child job; the shared stage swaps in the rigged GLB when it
+	// lands, or falls back to the bare mesh so the user is never left empty.
+	if (job.status === 'rigging' && job.mode === 'reconstruct' && !job.result_avatar_id) {
+		try {
+			const result = await pollRiggingStage({ userId, jobId, job });
+			job = { ...job, status: result.status, result_avatar_id: result.resultAvatarId ?? job.result_avatar_id };
+		} catch (err) {
+			job = { ...job, error: job.error || `rig stage failed: ${err?.message}` };
+		}
+	}
+
+	// Stage 1 — the reconstruct job finished successfully but isn't materialized
+	// yet. The shared stage copies the GLB into R2 and either creates the avatar
+	// immediately or, when the mesh is unrigged and a rig model is configured,
+	// chains a rigging job and moves us into 'rigging' (handled above next poll).
 	if (
 		job.status === 'done' &&
 		job.mode === 'reconstruct' &&
@@ -400,69 +360,8 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 		job.result_glb_url
 	) {
 		try {
-			const params = job.params || {};
-			const name = (params.name || 'My selfie avatar').toString().slice(0, 120);
-			const description = params.description ? String(params.description).slice(0, 500) : null;
-			const visibility = ['private', 'unlisted', 'public'].includes(params.visibility) ? params.visibility : 'private';
-			const glbResp = await fetch(job.result_glb_url);
-			if (!glbResp.ok) throw new Error(`fetch result_glb_url: ${glbResp.status}`);
-			const glbBuf = Buffer.from(await glbResp.arrayBuffer());
-
-			// Probe the GLB to capture rigging state. Reconstruction families
-			// differ on whether they emit a skeleton (Hunyuan3D yes, TRELLIS/
-			// TripoSR no) — the UI uses source_meta.is_rigged to badge
-			// "needs rigging" and to gate animation features.
-			const info = inspectGlb(glbBuf);
-			const glbMeta = info
-				? {
-					is_rigged: info.isRigged,
-					skin_count: info.skinCount,
-					skeleton_joint_count: info.skeletonJointCount,
-					node_count: info.nodeCount,
-					mesh_count: info.meshCount,
-					animation_count: info.animationCount,
-					glb_generator: info.generator,
-				}
-				: { is_rigged: null, glb_inspect_error: 'invalid_glb_header' };
-
-			const slug = `selfie-${Math.random().toString(36).slice(2, 8)}`;
-			const key = storageKeyFor({ userId, slug });
-			await putObject({
-				key,
-				body: glbBuf,
-				contentType: 'model/gltf-binary',
-				metadata: { source: 'reconstruct', job_id: jobId },
-			});
-			const tags = ['selfie'];
-			if (info && !info.isRigged) tags.push('unrigged');
-			const avatar = await createAvatar({
-				userId,
-				storageKey: key,
-				input: {
-					slug,
-					name,
-					description,
-					size_bytes: glbBuf.length,
-					content_type: 'model/gltf-binary',
-					source: 'reconstruct',
-					source_meta: { jobId, provider: job.provider, replicateGlb: job.result_glb_url, ...glbMeta },
-					visibility,
-					tags,
-					checksum_sha256: null,
-					parent_avatar_id: null,
-				},
-			});
-			await sql`
-				update avatar_regen_jobs
-				set result_avatar_id = ${avatar.id}, updated_at = now()
-				where job_id = ${jobId} and user_id = ${userId}
-			`;
-			dispatchWebhooks({
-				userId,
-				eventType: 'avatar.created',
-				data: { id: avatar.id, name: avatar.name, slug: avatar.slug, source: 'reconstruct' },
-			}).catch(() => {});
-			job = { ...job, result_avatar_id: avatar.id };
+			const result = await finalizeReconstructStage({ userId, jobId, job, glbUrl: job.result_glb_url });
+			job = { ...job, status: result.status, result_avatar_id: result.resultAvatarId ?? job.result_avatar_id };
 		} catch (err) {
 			job = { ...job, error: job.error || `materialize failed: ${err?.message}` };
 		}

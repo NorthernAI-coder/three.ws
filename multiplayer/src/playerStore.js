@@ -12,7 +12,7 @@
 //      instance, so the Map alone already carries a profile between realms (each
 //      realm is its own room in one process) and across a reconnect. It is also
 //      the synchronous read/write cache that keeps loadPlayer/savePlayer cheap on
-//      the hot path — the GameRoom persists on every meaningful change and reads
+//      the hot path — the WalkRoom persists on every meaningful change and reads
 //      back inside its eviction/leave paths, all synchronously against the Map.
 //   2. Upstash Redis (REST), used when UPSTASH_REDIS_REST_URL + _TOKEN are set.
 //      This is what makes a profile durable across restarts and shareable across
@@ -27,7 +27,7 @@
 // only); with it, progress outlives the process.
 //
 // One-active-session-per-account integrity (Task 16 rule 6) is enforced upstream
-// by the presence-based eviction in GameRoom (see presence-keys.js): a fresh
+// by the presence-based eviction in WalkRoom (see presence-keys.js): a fresh
 // login persists and disconnects the stale session before taking over, so two
 // sessions never fork-and-clobber one profile. This module is purely the store.
 
@@ -177,11 +177,11 @@ class PlayerStore {
 	}
 }
 
-// One store shared by every GameRoom instance in the process — that shared memory
+// One store shared by every WalkRoom instance in the process — that shared memory
 // is what lets a profile travel between realms without a Redis hop.
 export const playerStore = new PlayerStore();
 
-// Backwards-compatible functional API. The GameRoom persists synchronously on the
+// Backwards-compatible functional API. The WalkRoom persists synchronously on the
 // hot path (loadPlayer/savePlayer), and the durable Redis tier rides underneath
 // via the write-behind cache. hydratePlayer/flushPlayer/flushAllPlayers expose the
 // async durability hooks for the join, leave/dispose, and shutdown paths.

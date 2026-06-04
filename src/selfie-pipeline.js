@@ -303,12 +303,13 @@ function backoffInterval(errors) {
 }
 
 /**
- * @param {'queued'|'running'|'done'|'failed'|undefined} status
+ * @param {'queued'|'running'|'rigging'|'done'|'failed'|undefined} status
  * @param {number} attempt
  * @param {number} elapsedMs
  */
 function statusLabel(status, attempt, elapsedMs) {
 	if (status === 'queued') return 'Queued -- waiting for a reconstruction slot...';
+	if (status === 'rigging') return 'Auto-rigging skeleton and skinning...';
 	if (status === 'running') {
 		if (attempt <= 4) return 'Generating 3D mesh from your photo...';
 		if (attempt <= 12) return 'Building geometry and textures...';

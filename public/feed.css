@@ -1,0 +1,282 @@
+/* three.ws live activity ticker — the site-wide "something is always happening
+ * here" widget. Loaded on every page by nav.js, mounted bottom-left (the Walk
+ * Companion owns bottom-right). Tokens fall back to literals so the widget looks
+ * right on pages that don't load style.css. */
+
+.tws-feed {
+	position: fixed;
+	left: 16px;
+	bottom: 16px;
+	z-index: 2147482000; /* below the Walk Companion (…483000), above page chrome */
+	font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+	color: var(--ink, #e8e8e8);
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.tws-feed[hidden] {
+	display: none;
+}
+
+/* ── Collapsed pill ─────────────────────────────────────────────────────── */
+.tws-feed-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	max-width: min(320px, calc(100vw - 32px));
+	padding: 8px 12px 8px 11px;
+	border: 1px solid var(--stroke, rgba(255, 255, 255, 0.08));
+	border-radius: 999px;
+	background: var(--surface-2, rgba(20, 21, 28, 0.82));
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+	color: inherit;
+	font: inherit;
+	font-size: 12.5px;
+	line-height: 1.2;
+	cursor: pointer;
+	transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.tws-feed-pill:hover {
+	transform: translateY(-1px);
+	border-color: var(--stroke-strong, rgba(255, 255, 255, 0.18));
+	background: var(--surface-3, rgba(28, 30, 40, 0.9));
+}
+.tws-feed-pill:focus-visible {
+	outline: 2px solid var(--success, #4ade80);
+	outline-offset: 2px;
+}
+
+.tws-feed-dot {
+	flex: 0 0 auto;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--success, #4ade80);
+	box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5);
+	animation: tws-feed-pulse 2.4s ease-out infinite;
+}
+@keyframes tws-feed-pulse {
+	0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.45); }
+	70% { box-shadow: 0 0 0 7px rgba(74, 222, 128, 0); }
+	100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+.tws-feed-pill-text {
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: var(--ink, #e8e8e8);
+}
+.tws-feed-pill-text b {
+	font-weight: 600;
+}
+
+.tws-feed-count {
+	flex: 0 0 auto;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 999px;
+	background: var(--success, #4ade80);
+	color: #06210f;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 18px;
+	text-align: center;
+}
+.tws-feed-count[hidden] {
+	display: none;
+}
+
+/* ── Expanded panel ─────────────────────────────────────────────────────── */
+.tws-feed-panel {
+	width: min(330px, calc(100vw - 32px));
+	border: 1px solid var(--stroke, rgba(255, 255, 255, 0.08));
+	border-radius: var(--radius-card, 14px);
+	background: var(--surface-2, rgba(16, 17, 24, 0.92));
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+	overflow: hidden;
+	transform-origin: bottom left;
+	animation: tws-feed-open 0.18s ease;
+}
+@keyframes tws-feed-open {
+	from { opacity: 0; transform: translateY(8px) scale(0.98); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tws-feed-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 11px 12px;
+	border-bottom: 1px solid var(--stroke, rgba(255, 255, 255, 0.08));
+}
+.tws-feed-head .tws-feed-dot {
+	width: 7px;
+	height: 7px;
+}
+.tws-feed-title {
+	flex: 1 1 auto;
+	font-size: 12.5px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	color: var(--ink, #e8e8e8);
+}
+.tws-feed-close {
+	flex: 0 0 auto;
+	width: 24px;
+	height: 24px;
+	display: grid;
+	place-items: center;
+	border: none;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--ink-dim, #888);
+	font-size: 17px;
+	line-height: 1;
+	cursor: pointer;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+.tws-feed-close:hover {
+	background: var(--surface-3, rgba(255, 255, 255, 0.08));
+	color: var(--ink, #e8e8e8);
+}
+.tws-feed-close:focus-visible {
+	outline: 2px solid var(--success, #4ade80);
+	outline-offset: 1px;
+}
+
+.tws-feed-list {
+	max-height: min(56vh, 420px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 4px;
+	margin: 0;
+	list-style: none;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.tws-feed-list::-webkit-scrollbar { width: 8px; }
+.tws-feed-list::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.16);
+	border-radius: 8px;
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────────── */
+.tws-feed-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 9px 9px;
+	border-radius: 10px;
+	text-decoration: none;
+	color: inherit;
+	transition: background 0.14s ease;
+	animation: tws-feed-row-in 0.32s ease both;
+}
+a.tws-feed-item:hover {
+	background: var(--surface-3, rgba(255, 255, 255, 0.06));
+}
+a.tws-feed-item:focus-visible {
+	outline: 2px solid var(--success, #4ade80);
+	outline-offset: -2px;
+}
+@keyframes tws-feed-row-in {
+	from { opacity: 0; transform: translateY(-6px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.tws-feed-ico {
+	flex: 0 0 auto;
+	width: 26px;
+	height: 26px;
+	display: grid;
+	place-items: center;
+	border-radius: 8px;
+	background: var(--surface-3, rgba(255, 255, 255, 0.08));
+	font-size: 14px;
+	line-height: 1;
+}
+.tws-feed-ico[data-kind='coin-buy'] { color: var(--success, #4ade80); }
+.tws-feed-ico[data-kind='agent-deploy'] { color: #c4b5fd; }
+.tws-feed-ico[data-kind='level-up'] { color: var(--warn, #fbbf24); }
+.tws-feed-ico[data-kind='world-join'] { color: #7dd3fc; }
+.tws-feed-ico[data-kind='jackpot'] { color: var(--warn, #fbbf24); }
+
+.tws-feed-body {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.tws-feed-text {
+	font-size: 12.5px;
+	line-height: 1.35;
+	color: var(--ink, #e8e8e8);
+	word-break: break-word;
+}
+.tws-feed-text b {
+	font-weight: 600;
+}
+.tws-feed-time {
+	margin-top: 2px;
+	font-size: 11px;
+	color: var(--ink-dim, #888);
+}
+
+/* ── Skeleton / empty / error ───────────────────────────────────────────── */
+.tws-feed-skel {
+	display: flex;
+	gap: 10px;
+	padding: 9px;
+	align-items: center;
+}
+.tws-feed-skel span {
+	display: block;
+	height: 10px;
+	border-radius: 6px;
+	background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+	background-size: 200% 100%;
+	animation: tws-feed-shimmer 1.3s linear infinite;
+}
+.tws-feed-skel .s-ico { width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto; }
+.tws-feed-skel .s-a { width: 70%; }
+.tws-feed-skel .s-b { width: 40%; margin-top: 6px; }
+@keyframes tws-feed-shimmer {
+	from { background-position: 200% 0; }
+	to { background-position: -200% 0; }
+}
+
+.tws-feed-msg {
+	padding: 22px 18px;
+	text-align: center;
+	color: var(--ink-dim, #888);
+	font-size: 12.5px;
+	line-height: 1.5;
+}
+.tws-feed-msg strong {
+	display: block;
+	color: var(--ink, #e8e8e8);
+	font-weight: 600;
+	margin-bottom: 3px;
+}
+.tws-feed-msg a {
+	color: var(--success, #4ade80);
+	text-decoration: none;
+}
+.tws-feed-msg a:hover { text-decoration: underline; }
+
+/* ── Motion / responsive ────────────────────────────────────────────────── */
+@media (max-width: 520px) {
+	.tws-feed { left: 10px; bottom: 10px; }
+	.tws-feed-pill .tws-feed-pill-text { max-width: 150px; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.tws-feed-dot { animation: none; }
+	.tws-feed-panel,
+	.tws-feed-item { animation: none; }
+	.tws-feed-skel span { animation: none; }
+	.tws-feed-pill { transition: none; }
+}

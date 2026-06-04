@@ -86,13 +86,14 @@ export class PhysicsWorld {
 			this.world.removeRigidBody(this._ground.body);
 			this._ground = null;
 		}
-		const n = terrain.points; // samples per side; heights.length === n*n
+		// Rapier's nrows/ncols are SEGMENT counts; it requires
+		// heights.length === (nrows+1)·(ncols+1). terrain.points = segments+1,
+		// so pass points-1 and the points²-length column-major buffer fits exactly.
+		const segs = terrain.points - 1;
 		const scale = { x: terrain.size, y: 1, z: terrain.size };
-		const body = this.world.createRigidBody(
-			R.RigidBodyDesc.fixed().setTranslation(0, y, 0),
-		);
+		const body = this.world.createRigidBody(R.RigidBodyDesc.fixed().setTranslation(0, y, 0));
 		this.world.createCollider(
-			R.ColliderDesc.heightfield(n, n, terrain.heights, scale).setFriction(friction),
+			R.ColliderDesc.heightfield(segs, segs, terrain.heights, scale).setFriction(friction),
 			body,
 		);
 		this._ground = { body };
@@ -150,7 +151,10 @@ export class PhysicsWorld {
 				.setAngularDamping(0.5),
 		);
 		this.world.createCollider(
-			R.ColliderDesc.ball(radius).setRestitution(restitution).setDensity(density).setFriction(0.6),
+			R.ColliderDesc.ball(radius)
+				.setRestitution(restitution)
+				.setDensity(density)
+				.setFriction(0.6),
 			body,
 		);
 		const entry = { body, mesh, spawn: { x: p.x, y: p.y, z: p.z } };
@@ -191,10 +195,19 @@ export class PhysicsWorld {
 	 * A kinematic capsule whose body translation tracks the FEET position.
 	 * Returns a controller façade with move()/setPosition().
 	 */
-	createCharacter({ position = { x: 0, y: 0, z: 0 }, radius = 0.3, halfHeight = 0.55, offset = 0.04 } = {}) {
+	createCharacter({
+		position = { x: 0, y: 0, z: 0 },
+		radius = 0.3,
+		halfHeight = 0.55,
+		offset = 0.04,
+	} = {}) {
 		const R = this.RAPIER;
 		const body = this.world.createRigidBody(
-			R.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z),
+			R.RigidBodyDesc.kinematicPositionBased().setTranslation(
+				position.x,
+				position.y,
+				position.z,
+			),
 		);
 		// Lift the capsule so the body origin is the feet, not the capsule center.
 		const collider = this.world.createCollider(
@@ -227,7 +240,10 @@ export class PhysicsWorld {
 				_v.y = t.y + m.y;
 				_v.z = t.z + m.z;
 				body.setNextKinematicTranslation(_v);
-				return { position: { x: _v.x, y: _v.y, z: _v.z }, grounded: controller.computedGrounded() };
+				return {
+					position: { x: _v.x, y: _v.y, z: _v.z },
+					grounded: controller.computedGrounded(),
+				};
 			},
 			/** Hard-teleport (respawn, boundary snap) — bypasses collision. */
 			setPosition: (p) => {

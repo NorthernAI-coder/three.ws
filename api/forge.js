@@ -20,12 +20,27 @@ import { cors, json, method, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { textToImage } from './_mcp3d/text-to-image.js';
 import { createRegenProvider } from './_providers/replicate.js';
+import {
+	hashClient,
+	hashIp,
+	createCreation,
+	materializeCreation,
+	markFailed,
+} from './_lib/forge-store.js';
 
 const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 
 // A Replicate prediction id is a lowercase base32-ish token. Constrain the
 // poll parameter to that shape so we never forward arbitrary strings upstream.
 const JOB_ID_RE = /^[a-z0-9]{16,64}$/;
+
+// Stable anonymous handle for the browser making the request (/forge has no
+// login). Used to scope durable creations + the gallery to one client without
+// trusting any of its other input.
+function clientKeyFrom(req) {
+	const raw = req.headers['x-forge-client'];
+	return hashClient(Array.isArray(raw) ? raw[0] : raw);
+}
 
 function unconfigured(res) {
 	return json(res, 503, {
@@ -69,8 +84,23 @@ async function startJob(req, res) {
 			mode: 'reconstruct',
 			params: { image: imageUrl, prompt },
 		});
+
+		// Record the generation the moment it starts so the prompt + reference
+		// image survive even if the mesh step later fails. Fail-soft: a missing
+		// store just means no durable copy + no gallery entry for this run.
+		const creationId = await createCreation({
+			clientKey: clientKeyFrom(req),
+			ipHash: hashIp(ip),
+			prompt,
+			aspect,
+			previewImageUrl: imageUrl,
+			replicateJobId: job.extJobId,
+			textToImageModel: model,
+		});
+
 		return json(res, 200, {
 			job_id: job.extJobId,
+			creation_id: creationId,
 			status: 'queued',
 			prompt,
 			preview_image_url: imageUrl,
@@ -106,11 +136,27 @@ async function pollJob(req, res, jobId) {
 		return unconfigured(res);
 	}
 
+	const clientKey = clientKeyFrom(req);
 	const result = await provider.status(jobId);
 	if (result.status === 'done' && result.resultGlbUrl) {
-		return json(res, 200, { job_id: jobId, status: 'done', glb_url: result.resultGlbUrl });
+		// Copy the mesh + reference image into our own storage so the model is
+		// permanent (Replicate delivery URLs expire in ~1h) and serve the durable
+		// CDN url. Falls back to the provider url where the store is unavailable.
+		const durable = await materializeCreation({
+			replicateJobId: jobId,
+			clientKey,
+			glbUrl: result.resultGlbUrl,
+		});
+		return json(res, 200, {
+			job_id: jobId,
+			creation_id: durable?.id ?? null,
+			status: 'done',
+			glb_url: durable?.glbUrl ?? result.resultGlbUrl,
+			durable: Boolean(durable),
+		});
 	}
 	if (result.status === 'failed') {
+		await markFailed({ replicateJobId: jobId, clientKey, error: result.error });
 		return json(res, 200, {
 			job_id: jobId,
 			status: 'failed',

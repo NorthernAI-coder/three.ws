@@ -20,6 +20,7 @@ import { generateAgentWallet, generateSolanaAgentWallet } from './_lib/agent-wal
 import { checkIdentityIntegrity } from './_lib/identity-integrity.js';
 import { publicUrl } from './_lib/r2.js';
 import { pingIndexNow } from './_lib/indexnow.js';
+import { publishFeedEvent } from './_lib/feed.js';
 import { env } from './_lib/env.js';
 import { z } from 'zod';
 
@@ -286,6 +287,16 @@ async function handleCreate(req, res) {
 	// minutes instead of waiting for the next crawl. Fire-and-forget — IndexNow
 	// failures must never block agent creation.
 	pingIndexNow(`${env.APP_ORIGIN}/agent/${agent.id}`).catch(() => {});
+
+	// Announce the new agent on the site-wide live activity ticker — discovery +
+	// social proof. Fire-and-forget; never block or fail creation on the feed.
+	publishFeedEvent({
+		type: 'agent-deploy',
+		ts: Date.now(),
+		actor: name,
+		agentId: agent.id,
+		name,
+	}).catch(() => {});
 
 	return json(res, 201, { agent: decorate(agent) });
 }

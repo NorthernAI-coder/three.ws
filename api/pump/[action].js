@@ -60,6 +60,7 @@ import { env } from '../_lib/env.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 import { randomToken } from '../_lib/crypto.js';
+import { publishFeedEvent } from '../_lib/feed.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
 import {
 	getConnection,
@@ -417,6 +418,18 @@ async function handleBuyConfirm(req, res) {
 		`;
 	}
 
+	// Surface the buy on the site-wide live activity ticker. The tx is already
+	// verified on-chain above, so this is a real, confirmed purchase. Fire-and-
+	// forget: never let the delight layer delay or fail the buy response.
+	publishFeedEvent({
+		type: 'coin-buy',
+		ts: Date.now(),
+		actor: shortAddr(body.wallet_address),
+		mint: body.mint,
+		sol: body.sol,
+		network: body.network,
+	}).catch(() => {});
+
 	return json(res, 200, {
 		ok: true,
 		tracked: !!mintId,
@@ -424,6 +437,13 @@ async function handleBuyConfirm(req, res) {
 		network: body.network,
 		tx_signature: body.tx_signature,
 	});
+}
+
+// Truncate a base58 address for public display: "AbCd…WxYz". The feed is world-
+// readable, so we only ever surface the head/tail, never the full key.
+function shortAddr(addr) {
+	const s = String(addr || '');
+	return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
 }
 
 // ── sell-prep ──────────────────────────────────────────────────────────────

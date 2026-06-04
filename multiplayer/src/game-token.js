@@ -12,8 +12,8 @@
 // and checks both legs landed at the right destinations for the right amounts.
 //
 // Quotes are sealed into an HMAC-SHA256 token (identical construction to
-// realm-transfer.js / holder-pass.js) so a client can't move the price, swap the
-// recipient, or replay an old quote after the market moves.
+// holder-pass.js) so a client can't move the price, swap the recipient, or
+// replay an old quote after the market moves.
 
 import crypto from 'node:crypto';
 import { Connection, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
@@ -283,7 +283,7 @@ function accountKeyAt(tx, index) {
 // treasury) and a memo binding the on-chain tx to the exact quote it settles:
 //   buildSpinPayment() → client signs+broadcasts → verifySpinPayment().
 // Replay protection (a settled signature/nonce can't roll a second prize) is the
-// caller's responsibility — the GameRoom tracks consumed nonces per process and
+// caller's responsibility — the caller tracks consumed nonces per process and
 // the short quote TTL bounds the window.
 
 // Split a total into burn + treasury legs by basis points. Treasury absorbs the

@@ -1,8 +1,8 @@
-// Friends panel UI (Task 15) — a pure view over the shared FriendsClient. It
-// renders into a container the host owns (the /play "friends" surface in
-// iso-controls) and drives every account-level social interaction: incoming /
-// outgoing requests, the friends list with live online + realm badges, a
-// search-to-add flow, and per-friend DM threads with unread indicators.
+// Friends panel UI — a pure view over the shared FriendsClient. It renders into a
+// container the host owns (the /play "friends" surface, and /walk) and drives every
+// account-level social interaction: incoming / outgoing requests, the friends list
+// with live online badges, a search-to-add flow, and per-friend DM threads with
+// unread indicators.
 //
 // All state lives in the FriendsClient; this module subscribes to its 'change'
 // signal and re-renders. Every state is designed: loading, signed-out, network
@@ -13,9 +13,8 @@ import panelCss from '../friends-panel.css?inline';
 
 const HOTKEY_NOTE = 'Press F to toggle this panel.';
 
-// Inject the standalone friends-panel CSS once per document. Harmless in /play
-// where iso-game.css already covers the .kg-fr-* rules (duplicate selectors are
-// idempotent). In /walk the --kg-* vars are absent so .wf-friends provides them.
+// Inject the standalone friends-panel CSS once per document. In /walk the --kg-*
+// vars are absent so .wf-friends provides them; duplicate selectors are idempotent.
 let _cssInjected = false;
 function ensureCss() {
 	if (_cssInjected || typeof document === 'undefined') return;

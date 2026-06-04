@@ -331,6 +331,132 @@
 				flex: none;
 			}
 
+			/* Keep / discard verdict (the flywheel signal) */
+			.verdict {
+				display: inline-flex;
+				gap: 2px;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: 2px;
+			}
+			.verdict button {
+				background: transparent;
+				border: none;
+				color: var(--ink-dim);
+				font-size: var(--text-sm);
+				padding: 0.34rem 0.6rem;
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				transition: background 0.15s, color 0.15s;
+			}
+			.verdict button:hover {
+				color: var(--ink);
+			}
+			.verdict button:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.verdict button[aria-pressed='true'][data-outcome='accepted'] {
+				background: color-mix(in srgb, var(--success) 22%, transparent);
+				color: var(--success);
+			}
+			.verdict button[aria-pressed='true'][data-outcome='rejected'] {
+				background: color-mix(in srgb, var(--danger) 20%, transparent);
+				color: var(--danger);
+			}
+
+			/* Your creations gallery -------------------------------------- */
+			.creations {
+				margin-top: var(--space-2xl);
+			}
+			.creations-head {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: var(--space-sm);
+				margin-bottom: var(--space-md);
+			}
+			.creations-head h2 {
+				font-family: var(--font-display);
+				font-size: var(--text-lg);
+				margin: 0;
+			}
+			.creations-head .count {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
+			.creations-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+				gap: var(--space-sm);
+			}
+			.creation {
+				position: relative;
+				display: flex;
+				flex-direction: column;
+				text-align: left;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				overflow: hidden;
+				cursor: pointer;
+				padding: 0;
+				color: inherit;
+				font: inherit;
+				transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+			}
+			.creation:hover {
+				border-color: var(--stroke-strong);
+				transform: translateY(-2px);
+				box-shadow: 0 16px 36px -24px rgba(0, 0, 0, 0.9);
+			}
+			.creation:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.creation .thumb {
+				aspect-ratio: 1 / 1;
+				width: 100%;
+				object-fit: cover;
+				background: var(--surface-2);
+				display: block;
+			}
+			.creation .thumb.placeholder {
+				display: grid;
+				place-items: center;
+				color: var(--ink-dim);
+				font-size: 1.6rem;
+			}
+			.creation .meta {
+				padding: 0.5rem 0.6rem;
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				line-height: var(--leading-snug);
+				display: -webkit-box;
+				-webkit-line-clamp: 2;
+				-webkit-box-orient: vertical;
+				overflow: hidden;
+			}
+			.creation .badge {
+				position: absolute;
+				top: 6px;
+				right: 6px;
+				font-size: 0.65rem;
+				font-family: var(--font-mono);
+				padding: 1px 6px;
+				border-radius: 999px;
+				background: rgba(0, 0, 0, 0.55);
+				backdrop-filter: blur(4px);
+			}
+			.creation .badge[data-outcome='accepted'] {
+				color: var(--success);
+			}
+			.creation .badge[data-outcome='rejected'] {
+				color: var(--danger);
+			}
+
 			/* Empty + error + unconfigured */
 			.notice {
 				padding: var(--space-2xl) var(--space-lg);
@@ -475,6 +601,29 @@
 					<div class="result-bar">
 						<span class="label" id="result-label"></span>
 						<div class="actions">
+							<div
+								class="verdict"
+								id="verdict"
+								role="group"
+								aria-label="Rate this model"
+							>
+								<button
+									type="button"
+									data-outcome="accepted"
+									aria-pressed="false"
+									title="Keep — good result"
+								>
+									👍 Keep
+								</button>
+								<button
+									type="button"
+									data-outcome="rejected"
+									aria-pressed="false"
+									title="Discard — bad result"
+								>
+									👎 Discard
+								</button>
+							</div>
 							<a class="btn btn-ghost" id="download" download>Download GLB</a>
 							<button class="btn" type="button" id="again">Make another</button>
 						</div>
@@ -501,6 +650,15 @@
 						pipeline with no further changes.
 					</p>
 				</div>
+			</section>
+
+			<!-- Your creations — durable, reusable models tied to this browser -->
+			<section class="creations is-hidden" id="creations" aria-label="Your forged models">
+				<div class="creations-head">
+					<h2>Your creations</h2>
+					<span class="count" id="creations-count"></span>
+				</div>
+				<div class="creations-grid" id="creations-grid"></div>
 			</section>
 
 			<p class="hint-foot">

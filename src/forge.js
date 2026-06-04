@@ -35,16 +35,43 @@ const els = {
 	cancel: document.getElementById('cancel'),
 	viewer: document.getElementById('viewer'),
 	resultLabel: document.getElementById('result-label'),
+	verdict: document.getElementById('verdict'),
 	download: document.getElementById('download'),
 	again: document.getElementById('again'),
 	retry: document.getElementById('retry'),
 	errorMessage: document.getElementById('error-message'),
+	creations: document.getElementById('creations'),
+	creationsGrid: document.getElementById('creations-grid'),
+	creationsCount: document.getElementById('creations-count'),
 };
 
 let aspectRatio = '1:1';
 let elapsedTimer = null;
 let pollAbort = false;
 let lastPrompt = '';
+let currentCreationId = null;
+
+// Stable anonymous handle for this browser. /forge has no login, so durable
+// creations + the gallery are scoped to this id (hashed server-side). Sent on
+// every request via the x-forge-client header.
+const CLIENT_ID = (() => {
+	const KEY = 'forge:cid';
+	try {
+		let id = localStorage.getItem(KEY);
+		if (!id) {
+			id =
+				crypto?.randomUUID?.() ||
+				`c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+			localStorage.setItem(KEY, id);
+		}
+		return id;
+	} catch {
+		// Private mode / storage blocked — fall back to an ephemeral per-load id.
+		return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+	}
+})();
+
+const CLIENT_HEADERS = { 'x-forge-client': CLIENT_ID };
 
 function showState(name) {
 	for (const [key, node] of Object.entries(els.states)) {
@@ -86,7 +113,7 @@ function sleep(ms) {
 async function startJob(prompt) {
 	const res = await fetch('/api/forge', {
 		method: 'POST',
-		headers: { 'content-type': 'application/json' },
+		headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
 		body: JSON.stringify({ prompt, aspect_ratio: aspectRatio }),
 	});
 	const data = await res.json().catch(() => ({}));
@@ -106,14 +133,16 @@ async function pollUntilDone(jobId) {
 	while (!pollAbort && performance.now() < deadline) {
 		await sleep(POLL_INTERVAL_MS);
 		if (pollAbort) return null;
-		const res = await fetch(`/api/forge?job=${encodeURIComponent(jobId)}`);
+		const res = await fetch(`/api/forge?job=${encodeURIComponent(jobId)}`, {
+			headers: CLIENT_HEADERS,
+		});
 		const data = await res.json().catch(() => ({}));
 		if (data.error === 'unconfigured') {
 			const e = new Error(data.message || 'unconfigured');
 			e.kind = 'unconfigured';
 			throw e;
 		}
-		if (data.status === 'done' && data.glb_url) return data.glb_url;
+		if (data.status === 'done' && data.glb_url) return data;
 		if (data.status === 'failed') throw new Error(data.error || 'Generation failed.');
 		if (data.status === 'running') setStep('mesh', 'active');
 	}
@@ -121,8 +150,28 @@ async function pollUntilDone(jobId) {
 	throw new Error('Generation timed out. The model may be too complex — try a simpler prompt.');
 }
 
+// Post the human verdict on a creation — the labeled half of the data flywheel.
+// Fire-and-forget: a missing store or a network blip must never disrupt the UI.
+function sendFeedback(payload) {
+	if (!currentCreationId) return;
+	fetch('/api/forge-feedback', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
+		body: JSON.stringify({ creation_id: currentCreationId, ...payload }),
+		keepalive: true,
+	}).catch(() => {});
+}
+
+function resetVerdict() {
+	if (!els.verdict) return;
+	for (const b of els.verdict.querySelectorAll('button')) {
+		b.setAttribute('aria-pressed', 'false');
+	}
+}
+
 function showResult(glbUrl, prompt) {
 	stopElapsed();
+	resetVerdict();
 	els.viewer.setAttribute('src', glbUrl);
 	els.viewer.setAttribute('alt', `3D model: ${prompt}`);
 	els.resultLabel.textContent = prompt;
@@ -134,6 +183,76 @@ function showResult(glbUrl, prompt) {
 	showState('result');
 }
 
+// Load (or reload) the "Your creations" strip from durable storage. Hidden
+// entirely when persistence is off or the client has no creations yet.
+async function loadGallery() {
+	if (!els.creations) return;
+	let data;
+	try {
+		const res = await fetch('/api/forge-gallery?limit=24', { headers: CLIENT_HEADERS });
+		data = await res.json().catch(() => ({}));
+	} catch {
+		return;
+	}
+	const creations = Array.isArray(data?.creations) ? data.creations : [];
+	if (!data?.enabled || creations.length === 0) {
+		els.creations.classList.add('is-hidden');
+		return;
+	}
+	els.creationsGrid.innerHTML = '';
+	for (const c of creations) {
+		const card = document.createElement('button');
+		card.type = 'button';
+		card.className = 'creation';
+		card.title = c.prompt || 'Forged model';
+		card.setAttribute('aria-label', `Open: ${c.prompt || 'forged model'}`);
+
+		if (c.preview_image_url) {
+			const img = document.createElement('img');
+			img.className = 'thumb';
+			img.loading = 'lazy';
+			img.alt = '';
+			img.src = c.preview_image_url;
+			card.appendChild(img);
+		} else {
+			const ph = document.createElement('span');
+			ph.className = 'thumb placeholder';
+			ph.textContent = '◳';
+			card.appendChild(ph);
+		}
+
+		if (c.outcome === 'accepted' || c.outcome === 'rejected') {
+			const badge = document.createElement('span');
+			badge.className = 'badge';
+			badge.dataset.outcome = c.outcome;
+			badge.textContent = c.outcome === 'accepted' ? '👍' : '👎';
+			card.appendChild(badge);
+		}
+
+		const meta = document.createElement('span');
+		meta.className = 'meta';
+		meta.textContent = c.prompt || 'Untitled';
+		card.appendChild(meta);
+
+		card.addEventListener('click', () => {
+			currentCreationId = c.id;
+			lastPrompt = c.prompt || '';
+			showResult(c.glb_url, c.prompt || 'Forged model');
+			// Reflect any verdict already on record.
+			if (els.verdict) {
+				for (const b of els.verdict.querySelectorAll('button')) {
+					b.setAttribute('aria-pressed', String(b.dataset.outcome === c.outcome));
+				}
+			}
+			els.stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		});
+
+		els.creationsGrid.appendChild(card);
+	}
+	els.creationsCount.textContent = `${creations.length} saved`;
+	els.creations.classList.remove('is-hidden');
+}
+
 function showError(message) {
 	stopElapsed();
 	els.errorMessage.textContent = message;
@@ -143,6 +262,7 @@ function showError(message) {
 async function run(prompt) {
 	lastPrompt = prompt;
 	pollAbort = false;
+	currentCreationId = null;
 	setBusy(true);
 
 	// Reset generating UI to its initial real state.
@@ -155,6 +275,7 @@ async function run(prompt) {
 
 	try {
 		const job = await startJob(prompt);
+		if (job.creation_id) currentCreationId = job.creation_id;
 
 		// Text-to-image really resolved before the POST returned: show it.
 		if (job.preview_image_url) {
@@ -169,12 +290,15 @@ async function run(prompt) {
 			};
 		}
 
-		const glbUrl = await pollUntilDone(job.job_id);
-		if (pollAbort || !glbUrl) return; // cancelled
+		const done = await pollUntilDone(job.job_id);
+		if (pollAbort || !done) return; // cancelled
 
+		// Prefer the durable creation id resolved at completion time.
+		if (done.creation_id) currentCreationId = done.creation_id;
 		setStep('mesh', 'done');
 		setStep('finish', 'done');
-		showResult(glbUrl, prompt);
+		showResult(done.glb_url, prompt);
+		loadGallery();
 	} catch (err) {
 		if (pollAbort) return;
 		if (err.kind === 'unconfigured') {
@@ -249,3 +373,27 @@ els.retry.addEventListener('click', () => {
 		els.prompt.focus();
 	}
 });
+
+// Keep / discard — the explicit training signal. Toggling re-records so a
+// mistaken click is correctable; the verdict is scoped server-side to the
+// creation this browser made.
+if (els.verdict) {
+	els.verdict.addEventListener('click', (e) => {
+		const btn = e.target.closest('button[data-outcome]');
+		if (!btn || !currentCreationId) return;
+		const outcome = btn.dataset.outcome;
+		for (const b of els.verdict.querySelectorAll('button')) {
+			b.setAttribute('aria-pressed', String(b === btn));
+		}
+		sendFeedback({ outcome });
+	});
+}
+
+// A download is an implicit positive signal — capture it alongside the keep/
+// discard verdict without requiring a second click.
+els.download.addEventListener('click', () => {
+	sendFeedback({ downloaded: true });
+});
+
+// Surface any previously forged models for this browser on load.
+loadGallery();

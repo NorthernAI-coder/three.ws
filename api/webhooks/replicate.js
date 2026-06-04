@@ -22,10 +22,8 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sql } from '../_lib/db.js';
-import { putObject } from '../_lib/r2.js';
-import { storageKeyFor, createAvatar } from '../_lib/avatars.js';
 import { json, method, wrap, error } from '../_lib/http.js';
-import { inspectGlb } from '../_lib/glb-inspect.js';
+import { finalizeReconstructStage } from '../_lib/reconstruct-finalize.js';
 
 const REPLAY_WINDOW_SECONDS = 5 * 60;
 
@@ -196,9 +194,12 @@ export default wrap(async (req, res) => {
 		where job_id = ${job.job_id}
 	`;
 
-	// Materialize the avatar inline when this is a reconstruct job that just
-	// succeeded — the user's status poll will see resultAvatarId on its next
-	// hit instead of waiting one more round-trip for the fetch+putObject pair.
+	// Finalize inline when this is a reconstruct job that just succeeded — the
+	// user's status poll then sees resultAvatarId (or the 'rigging' stage) on its
+	// next hit instead of waiting a round-trip. The shared stage handles the
+	// rig-or-materialize decision, identical to the poll path, so the two never
+	// drift. isAllowedResultUrl pins the fetch to Replicate's delivery hosts
+	// (SSRF guard) before we hand the URL off.
 	if (
 		nextStatus === 'done' &&
 		nextGlbUrl &&
@@ -207,78 +208,16 @@ export default wrap(async (req, res) => {
 		!job.result_avatar_id
 	) {
 		try {
-			const params = job.params || {};
-			const name = String(params.name || 'My selfie avatar').slice(0, 120);
-			const description = params.description ? String(params.description).slice(0, 500) : null;
-			const visibility = ['private', 'unlisted', 'public'].includes(params.visibility)
-				? params.visibility
-				: 'private';
-
-			const glbResp = await fetch(nextGlbUrl);
-			if (!glbResp.ok) throw new Error(`fetch result_glb_url: ${glbResp.status}`);
-			const glbBuf = Buffer.from(await glbResp.arrayBuffer());
-
-			// Probe the GLB JSON chunk to capture rigging state. Reconstruction
-			// model families differ on this: Hunyuan3D's generation_all returns
-			// a rigged textured GLB, but TRELLIS / TripoSR return static
-			// meshes. Surfacing is_rigged in source_meta lets the UI badge
-			// "needs rigging" + lets a future auto-rig pass enqueue itself
-			// against avatars that lack a skeleton.
-			const info = inspectGlb(glbBuf);
-			const glbMeta = info
-				? {
-					is_rigged: info.isRigged,
-					skin_count: info.skinCount,
-					skeleton_joint_count: info.skeletonJointCount,
-					node_count: info.nodeCount,
-					mesh_count: info.meshCount,
-					animation_count: info.animationCount,
-					glb_generator: info.generator,
-				}
-				: { is_rigged: null, glb_inspect_error: 'invalid_glb_header' };
-
-			const slug = `selfie-${Math.random().toString(36).slice(2, 8)}`;
-			const key = storageKeyFor({ userId: job.user_id, slug });
-			await putObject({
-				key,
-				body: glbBuf,
-				contentType: 'model/gltf-binary',
-				metadata: { source: 'reconstruct', job_id: job.job_id },
-			});
-			const tags = ['selfie'];
-			if (info && !info.isRigged) tags.push('unrigged');
-			const avatar = await createAvatar({
+			await finalizeReconstructStage({
 				userId: job.user_id,
-				storageKey: key,
-				input: {
-					slug,
-					name,
-					description,
-					size_bytes: glbBuf.length,
-					content_type: 'model/gltf-binary',
-					source: 'reconstruct',
-					source_meta: {
-						jobId: job.job_id,
-						provider: 'replicate',
-						replicateGlb: nextGlbUrl,
-						via: 'webhook',
-						...glbMeta,
-					},
-					visibility,
-					tags,
-					checksum_sha256: null,
-					parent_avatar_id: null,
-				},
+				jobId: job.job_id,
+				job: { ...job, provider: 'replicate' },
+				glbUrl: nextGlbUrl,
 			});
-			await sql`
-				update avatar_regen_jobs
-				set result_avatar_id = ${avatar.id}, updated_at = now()
-				where job_id = ${job.job_id}
-			`;
 		} catch (err) {
-			// Materialization failure isn't fatal for the webhook ack — the
-			// next /regenerate-status poll will retry the materialize path.
-			console.warn('[replicate-webhook] materialize failed', { jobId: job.job_id, error: err?.message });
+			// Finalize failure isn't fatal for the webhook ack — the next
+			// /regenerate-status poll will retry the materialize/rig path.
+			console.warn('[replicate-webhook] finalize failed', { jobId: job.job_id, error: err?.message });
 		}
 	}
 

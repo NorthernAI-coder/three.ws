@@ -3,7 +3,7 @@
 // item ids inline, so stacking, edibility, heal values, and mount tuning are
 // data-driven and an item means the same thing everywhere it appears.
 //
-// Reused by the GameRoom (gather/cook/consume/banking/loot/mounts) and, going
+// Reused by the /play coin-world economy (gather/cook/consume/banking) and, going
 // forward, by the marketplace and the shop — they all describe items in the
 // same vocabulary so a "cookedFish" is identical whether it was cooked, looted,
 // or bought.

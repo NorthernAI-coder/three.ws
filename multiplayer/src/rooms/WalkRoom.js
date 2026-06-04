@@ -23,6 +23,7 @@ import {
 import { itemLabel, fishCatchChance, fishDoubleChance } from '../items.js';
 import { fishingSpotInRange } from '../world-features.js';
 import { hydratePlayer, loadPlayer, savePlayer, flushPlayer } from '../playerStore.js';
+import { publishFeedEvent } from '../feed.js';
 
 // Platform entry gate (wallet-first sign-in + game-token balance). When a game
 // token is pinned (PLAY_GATE_MINT, falling back to THREE_MINT) every join must
@@ -348,6 +349,20 @@ export class WalkRoom extends Room {
 		console.log(
 			`[walk_world ${this.roomId} coin=${this.state.coin || 'mainland'}${tierTag}] +join ${client.sessionId} ${name} (n=${this.state.players.size})`,
 		);
+
+		// "Someone is hanging out in <world>" — social proof + FOMO on the site-wide
+		// ticker. Throttled per world so a popular coin emits at most once a minute,
+		// not once per arrival. Mainland falls back to a friendly label.
+		publishFeedEvent(
+			{
+				type: 'world-join',
+				ts: Date.now(),
+				actor: name,
+				coin: this.state.coin || '',
+				coinName: this.state.coinName || (this.state.coin ? '' : 'Mainland'),
+			},
+			this.state.coin || 'mainland',
+		);
 	}
 
 	onLeave(client) {
@@ -557,7 +572,27 @@ export class WalkRoom extends Room {
 			skill: res.skill, amount: res.amount, xp: res.xp,
 			level: res.level, levelXp: res.levelXp, nextXp: res.nextXp,
 		});
-		if (res.leveledUp) client.send('levelup', { skill: res.skill, level: res.level });
+		if (res.leveledUp) {
+			client.send('levelup', { skill: res.skill, level: res.level });
+			// Broadcast milestone level-ups (every 10th + the level-99 cap) to the
+			// site-wide ticker. Early levels come fast and would be noise; milestones
+			// are real achievements worth celebrating publicly. Throttled per
+			// player+skill so a burst can't spam the global feed.
+			if (res.level === 99 || res.level % 10 === 0) {
+				const player = this.state.players.get(client.sessionId);
+				publishFeedEvent(
+					{
+						type: 'level-up',
+						ts: Date.now(),
+						actor: player?.name || 'A player',
+						skill: res.skill,
+						level: res.level,
+						coin: this.state.coin || '',
+					},
+					`${player?.account || client.sessionId}:${res.skill}`,
+				);
+			}
+		}
 	}
 
 	// Cast a line. Validates (rod on the active slot, beside a pond, off cooldown,
@@ -644,8 +679,8 @@ export class WalkRoom extends Room {
 	}
 
 	// Write this session's economy profile through to the account-keyed store,
-	// merging onto any existing record so non-economy fields (e.g. a /game profile
-	// for the same account) are preserved. Synchronous + debounced like GameRoom.
+	// merging onto any existing record so unrelated fields for the same account
+	// are preserved. Synchronous + debounced.
 	_persistEcon(sessionId) {
 		const profile = this.econ.get(sessionId);
 		if (!profile || !profile.playerId) return;

@@ -1,11 +1,9 @@
 // Economy & progression for the /play coin worlds.
 //
-// The /game isometric MMO (GameRoom) keeps inventory, hotbar, gold and skills on
-// the synced Colyseus schema because peers render each other's equipped tools and
-// mounts on a tile grid. /play is a free-roam, per-coin social world where a
-// player's pack and purse are PRIVATE — no peer needs to see them — so we keep all
-// of it OFF the shared WalkState schema and stream each owner only their own state
-// via targeted messages (the same pattern GameRoom already uses for skills/xpgain).
+// /play is a free-roam, per-coin social world where a player's pack and purse are
+// PRIVATE — no peer needs to see them — so we keep all of it OFF the shared
+// WalkState schema and stream each owner only their own state via targeted
+// messages.
 //
 // That keeps the /walk experience (which shares the same schema) untouched, costs
 // peers zero extra wire bytes, and lets the economy grow (cooking, gathering,
@@ -31,8 +29,8 @@ export const SKILLS = ['combat', 'woodcutting', 'mining', 'fishing', 'cooking'];
 // the later phases (woodcutting/mining/combat) will use. Tools occupy the hotbar.
 const STARTER_HOTBAR = ['rod', 'axe', 'pickaxe', 'sword'];
 
-// XP curve — identical to GameRoom's so progression is consistent across the
-// platform: level n needs 50 * n^1.8 cumulative XP, capped at LEVEL_CAP.
+// XP curve — the canonical progression for the platform: level n needs
+// 50 * n^1.8 cumulative XP, capped at LEVEL_CAP.
 export function levelForXp(xp) {
 	let lvl = 1;
 	while (lvl < LEVEL_CAP && xp >= Math.floor(50 * Math.pow(lvl, 1.8))) lvl++;
@@ -98,8 +96,7 @@ export function restoreProfile(saved, playerId = '') {
 	return base;
 }
 
-// The persisted slice (mirrors GameRoom._serializeProfile so the two stores stay
-// interchangeable for an account that plays both surfaces).
+// The persisted slice written through to the account-keyed player store.
 export function serializeProfile(profile) {
 	const slots = (arr) => arr.map((s) => ({ item: s.item, qty: s.qty }));
 	return {
@@ -127,7 +124,7 @@ export function hasRoomFor(profile, item) {
 }
 
 // Add `qty` of `item` to the backpack, filling existing stacks first. Returns the
-// quantity that did NOT fit (0 = everything landed). Mirrors GameRoom._addItem.
+// quantity that did NOT fit (0 = everything landed).
 export function addItem(profile, item, qty) {
 	let left = qty;
 	const inv = profile.inv;
@@ -157,7 +154,7 @@ export function addItem(profile, item, qty) {
 }
 
 // Resolve a client slot reference { zone:'inv'|'hotbar', i } to the live slot
-// object, or null when out of range. Validated like GameRoom._resolveSlot so a
+// object, or null when out of range. Validated server-side so a
 // crafted index can never read outside the arrays.
 export function resolveSlot(profile, ref) {
 	if (!ref || typeof ref !== 'object') return null;

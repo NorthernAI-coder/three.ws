@@ -1,8 +1,8 @@
 // Shared avatar rig helpers — the single path for loading a GLB/VRM avatar into
 // a Three.js rig, wiring its AnimationManager (idle/walk + emotes), and playing
 // one-shot emotes. Used by every multiplayer 3D scene (the social walkaround in
-// coincommunities.js, the isometric RPG in iso-game.js) so avatar loading,
-// fallbacks, and the animation clip set never drift between experiences.
+// coincommunities.js, plus /walk and /city) so avatar loading, fallbacks, and
+// the animation clip set never drift between experiences.
 //
 // Scene-specific concerns (chat bubbles, nameplates, position interpolation,
 // HP bars) live in each scene's own player class — this module only owns the

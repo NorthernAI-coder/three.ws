@@ -1,9 +1,9 @@
-// Avatar handoff between the creation surfaces and the live worlds (/play, /game).
+// Avatar handoff between the creation surfaces and the live worlds (/play, /walk).
 //
 // One localStorage key — `cc-avatar` — is the contract that ties the platform's
 // avatar tools to its multiplayer scenes. The lobby avatar bar, the boot loader,
-// the social walkaround (coincommunities.js) and the isometric RPG (iso-game.js)
-// all read it. This module is the single writer used by every "use this avatar"
+// and the social walkaround (coincommunities.js) all read it. This module is the
+// single writer used by every "use this avatar"
 // affordance, so the value stored is always something the scenes can resolve:
 //
 //   • a three.ws avatar id        — canonical identity, resolved via /api/avatars/:id
@@ -55,7 +55,7 @@ export function setPlayName(name) {
  * @param {Blob}   [opts.blob]  a freshly-created GLB not yet uploaded
  * @param {string} [opts.name]  player display name to carry in
  * @param {string} [opts.source] provenance label when staging a blob
- * @param {'/play'|'/game'|null} [opts.dest='/play'] where to navigate; null = stay
+ * @param {'/play'|null} [opts.dest='/play'] where to navigate; null = stay
  * @param {object} [opts.coin]  optional { mint, name, symbol, image } deep-link
  * @returns {Promise<string>} the value stored in cc-avatar
  */

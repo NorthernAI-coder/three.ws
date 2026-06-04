@@ -2283,18 +2283,24 @@
 		.bento-action-btn:active{transform:translateY(0)}
 		.bento-action-btn:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-offset:2px}
 		.bento-action-btn.sm{padding:5px 11px;font-size:10.5px}
+		.bento-action-btn.primary{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+		.bento-action-btn.primary:hover{background:#fff;border-color:#fff}
+		.bento-action-btn.ghost{background:transparent;color:var(--text-2)}
 		.studio-zone{display:flex;gap:8px;align-items:stretch}
 		.studio-drop{flex:1;border:1px dashed var(--hairline-strong);border-radius:8px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s,background .2s;font-family:var(--font-mono);font-size:11px;color:var(--text-3);text-align:center;min-height:80px}
 		.studio-drop:hover,.studio-drop.drag-over{border-color:var(--text-2);background:rgba(255,255,255,.03)}
 		.studio-drop-icon{font-size:22px;opacity:.5}
-		.studio-processing{display:none;align-items:center;justify-content:center;gap:10px;padding:12px;font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
-		.studio-processing.active{display:flex}
-		.studio-processing-ring{width:18px;height:18px;border:2px solid var(--hairline-strong);border-top-color:var(--text-2);border-radius:50%;animation:walk-spin .7s linear infinite}
-		.studio-preview-img{width:48px;height:48px;border-radius:50%;object-fit:cover;border:1px solid var(--hairline-strong);display:none}
-		.studio-preview-img.show{display:block}
-		.studio-done{display:none;align-items:center;gap:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
-		.studio-done.show{display:flex}
-		.studio-done-check{width:18px;height:18px;border-radius:50%;background:var(--text);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+		.studio-preview-img{width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--hairline-strong);flex:none}
+		.studio-ready{display:none;flex-direction:column;align-items:stretch;gap:12px;padding:14px;border:1px solid var(--hairline-strong);border-radius:8px;background:rgba(255,255,255,.02)}
+		.studio-ready.show{display:flex}
+		.studio-ready > .studio-preview-img{align-self:flex-start}
+		.studio-ready-body{display:flex;flex-direction:column;gap:4px}
+		.studio-ready-title{font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--text)}
+		.studio-ready-sub{font-family:var(--font-mono);font-size:11px;line-height:1.5;color:var(--text-3)}
+		.studio-ready-actions{display:flex;gap:8px;flex-wrap:wrap}
+		.studio-ready-actions .bento-action-btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+		.studio-error{display:none;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--hairline-strong);border-radius:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
+		.studio-error.show{display:flex}
 		.mocap-demo{display:flex;flex-direction:column;gap:8px}
 		.mocap-bar{display:flex;align-items:center;gap:10px}
 		.mocap-waveform{width:100%;height:48px;border-radius:6px;background:var(--surface-2);border:1px solid var(--hairline-strong);display:block}
@@ -3169,17 +3175,20 @@
 							<span>Drop a selfie or click to upload</span>
 							<input type="file" accept="image/*" id="studio-file" style="display:none" />
 						</div>
-						<button class="bento-action-btn studio-webcam-btn" id="studio-webcam-btn">Webcam</button>
+						<button class="bento-action-btn studio-webcam-btn" id="studio-webcam-btn" type="button">Webcam</button>
 					</div>
-					<div class="studio-processing" id="studio-processing">
-						<div class="studio-processing-ring"></div>
-						<img class="studio-preview-img" id="studio-preview-img" alt="" />
-						<span id="studio-processing-text">Generating 3D mesh...</span>
+					<div class="studio-ready" id="studio-ready">
+						<img class="studio-preview-img" id="studio-preview-img" alt="The photo you just captured" />
+						<div class="studio-ready-body">
+							<span class="studio-ready-title">Photo ready.</span>
+							<span class="studio-ready-sub">Finish in Avatar Studio — we'll build a rigged 3D avatar from it. Add side angles, a personality, and a voice.</span>
+						</div>
+						<div class="studio-ready-actions">
+							<a class="bento-action-btn primary" id="studio-continue" href="/create/selfie">Continue in Avatar Studio →</a>
+							<button class="bento-action-btn ghost" id="studio-reset" type="button">Use a different photo</button>
+						</div>
 					</div>
-					<div class="studio-done" id="studio-done">
-						<div class="studio-done-check">✓</div>
-						<span>Avatar generated — rigged &amp; ready</span>
-					</div>
+					<div class="studio-error" id="studio-error" role="alert" hidden></div>
 				</div>
 				<div class="bento-screenshot">
 					<div class="bento-agent" id="bento-studio"></div>
@@ -4308,7 +4317,9 @@
 					message: msg,
 					system_prompt: HERO_SYSTEM_PROMPT,
 					history: history.slice(0, -1),
-					context: {}
+					context: {},
+					provider: 'openrouter',
+					model: 'openai/gpt-oss-120b:free'
 				})
 			}).then(function(res) {
 				if (!res.ok) throw new Error('Chat request failed');
@@ -5179,68 +5190,132 @@
 // ── Interactive Bento Features ─────────────────────────────────────
 (function initBentoInteractives() {
 
-	// ── 1. Avatar Studio: webcam + drag-drop ────────────────────────
+	// ── 1. Avatar Studio: capture a real photo, hand it to the real flow ──
+	// This is a teaser. It does NOT fabricate a build — it captures the
+	// visitor's photo, stashes it for the real selfie pipeline, and sends
+	// them to /create-selfie where the actual reconstruction runs. The photo
+	// is downscaled before storage so it fits comfortably in sessionStorage.
 	(function() {
+		var HANDOFF_KEY = 'threews:selfie-handoff';
+		var MAX_DIM = 1024;
+
 		var drop = document.getElementById('studio-drop');
 		var fileInput = document.getElementById('studio-file');
 		var webcamBtn = document.getElementById('studio-webcam-btn');
 		var zone = document.getElementById('studio-zone');
-		var processing = document.getElementById('studio-processing');
+		var ready = document.getElementById('studio-ready');
 		var previewImg = document.getElementById('studio-preview-img');
-		var processingText = document.getElementById('studio-processing-text');
-		var done = document.getElementById('studio-done');
+		var resetBtn = document.getElementById('studio-reset');
+		var errorEl = document.getElementById('studio-error');
 		if (!drop) return;
 
-		function runPipeline(imgUrl) {
+		function showError(msg) {
+			if (!errorEl) return;
+			errorEl.textContent = msg;
+			errorEl.classList.add('show');
+			errorEl.hidden = false;
+		}
+		function clearError() {
+			if (!errorEl) return;
+			errorEl.classList.remove('show');
+			errorEl.hidden = true;
+		}
+
+		// Load → downscale → JPEG data URL. Keeps storage small and strips EXIF.
+		function toDataUrl(file) {
+			return new Promise(function(resolve, reject) {
+				if (!file || !/^image\//.test(file.type)) { reject(new Error('not an image')); return; }
+				var url = URL.createObjectURL(file);
+				var img = new Image();
+				img.onload = function() {
+					var scale = Math.min(1, MAX_DIM / Math.max(img.naturalWidth, img.naturalHeight));
+					var w = Math.max(1, Math.round(img.naturalWidth * scale));
+					var h = Math.max(1, Math.round(img.naturalHeight * scale));
+					var canvas = document.createElement('canvas');
+					canvas.width = w; canvas.height = h;
+					canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+					URL.revokeObjectURL(url);
+					try { resolve(canvas.toDataURL('image/jpeg', 0.9)); }
+					catch (e) { reject(e); }
+				};
+				img.onerror = function() { URL.revokeObjectURL(url); reject(new Error('decode failed')); };
+				img.src = url;
+			});
+		}
+
+		function present(dataUrl, name) {
+			try {
+				sessionStorage.setItem(HANDOFF_KEY, JSON.stringify({ dataUrl: dataUrl, name: name || 'selfie.jpg' }));
+			} catch (e) {
+				// Storage blocked or quota exceeded — the visitor can still start
+				// fresh in Avatar Studio, so degrade gracefully instead of lying.
+			}
+			previewImg.src = dataUrl;
 			zone.style.display = 'none';
-			previewImg.src = imgUrl;
-			previewImg.classList.add('show');
-			processing.classList.add('active');
-			var steps = ['Detecting face...', 'Generating 3D mesh...', 'Auto-rigging skeleton...', 'Retargeting animations...'];
-			var i = 0;
-			var iv = setInterval(function() {
-				i++;
-				if (i < steps.length) {
-					processingText.textContent = steps[i];
-				} else {
-					clearInterval(iv);
-					processing.classList.remove('active');
-					done.classList.add('show');
-				}
-			}, 700);
+			ready.classList.add('show');
+		}
+
+		function accept(file) {
+			clearError();
+			toDataUrl(file).then(function(dataUrl) {
+				present(dataUrl, file.name);
+			}).catch(function() {
+				showError('Could not read that image. Try a JPG or PNG.');
+			});
 		}
 
 		drop.addEventListener('click', function() { fileInput.click(); });
 		fileInput.addEventListener('change', function() {
-			if (fileInput.files && fileInput.files[0]) {
-				var url = URL.createObjectURL(fileInput.files[0]);
-				runPipeline(url);
-			}
+			if (fileInput.files && fileInput.files[0]) accept(fileInput.files[0]);
 		});
 		drop.addEventListener('dragover', function(e) { e.preventDefault(); drop.classList.add('drag-over'); });
 		drop.addEventListener('dragleave', function() { drop.classList.remove('drag-over'); });
 		drop.addEventListener('drop', function(e) {
 			e.preventDefault(); drop.classList.remove('drag-over');
-			if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-				var url = URL.createObjectURL(e.dataTransfer.files[0]);
-				runPipeline(url);
-			}
+			if (e.dataTransfer.files && e.dataTransfer.files[0]) accept(e.dataTransfer.files[0]);
 		});
+
+		resetBtn && resetBtn.addEventListener('click', function() {
+			try { sessionStorage.removeItem(HANDOFF_KEY); } catch (e) {}
+			ready.classList.remove('show');
+			zone.style.display = '';
+			fileInput.value = '';
+			clearError();
+		});
+
 		webcamBtn.addEventListener('click', function() {
-			navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 256, height: 256 } })
+			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+				showError('Webcam not available in this browser. Upload a photo instead.');
+				return;
+			}
+			clearError();
+			webcamBtn.disabled = true;
+			navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 640 } })
 				.then(function(stream) {
 					var video = document.createElement('video');
 					video.srcObject = stream;
+					video.muted = true;
+					video.playsInline = true;
 					video.play();
-					setTimeout(function() {
+					var done = false;
+					function snap() {
+						if (done) return;
+						done = true;
+						var size = Math.min(video.videoWidth || 640, video.videoHeight || 640) || 640;
 						var canvas = document.createElement('canvas');
-						canvas.width = 256; canvas.height = 256;
-						canvas.getContext('2d').drawImage(video, 0, 0, 256, 256);
+						canvas.width = size; canvas.height = size;
+						var sx = ((video.videoWidth || size) - size) / 2;
+						var sy = ((video.videoHeight || size) - size) / 2;
+						canvas.getContext('2d').drawImage(video, sx, sy, size, size, 0, 0, size, size);
 						stream.getTracks().forEach(function(t) { t.stop(); });
-						runPipeline(canvas.toDataURL('image/jpeg'));
-					}, 500);
+						webcamBtn.disabled = false;
+						present(canvas.toDataURL('image/jpeg', 0.9), 'webcam.jpg');
+					}
+					// Snap once the first frame is actually available.
+					video.addEventListener('loadeddata', function() { setTimeout(snap, 250); }, { once: true });
 				}).catch(function() {
-					runPipeline('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="%23222"/><text x="32" y="36" text-anchor="middle" fill="%23666" font-size="12">cam</text></svg>');
+					webcamBtn.disabled = false;
+					showError('Camera access was blocked. Upload a photo instead.');
 				});
 		});
 	})();

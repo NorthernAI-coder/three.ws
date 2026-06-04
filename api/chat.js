@@ -318,7 +318,9 @@ export default wrap(async (req, res) => {
 		if (body.provider && !ANON_PROVIDERS.has(body.provider)) {
 			return error(res, 401, 'unauthorized', 'sign in to use this model');
 		}
-		body.provider = 'groq';
+		// Honor an explicitly-requested free-tier provider (groq/openrouter);
+		// only default to groq when the caller didn't pick one.
+		if (!body.provider) body.provider = 'groq';
 		anonymous = true;
 	}
 
@@ -360,7 +362,11 @@ export default wrap(async (req, res) => {
 	// Provider/model failover chain. The first entry is the picked route; if it
 	// returns 429 (rate-limit) or 5xx (provider down) we cycle through a
 	// pre-built fallback list before surfacing an error.
-	const fallbackRoutes = buildFallbackChain(route, userProviderKeys);
+	let fallbackRoutes = buildFallbackChain(route, userProviderKeys);
+	// Anonymous traffic must never fail over onto paid providers (OpenAI/
+	// Anthropic). Clamp the whole chain to the free-tier anon providers so a
+	// rate-limited free model degrades to another free model, never paid keys.
+	if (anonymous) fallbackRoutes = fallbackRoutes.filter((r) => ANON_PROVIDERS.has(r.name));
 
 	let upstream;
 	let routeIdx = 0;

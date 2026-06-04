@@ -1,4 +1,4 @@
-// Shared avatar-URL sanitizer for every authoritative room (WalkRoom, GameRoom).
+// Shared avatar-URL sanitizer for the authoritative room (WalkRoom).
 //
 // We only ever broadcast avatar URLs we'd be willing to load cross-origin: our
 // own origins and the public model hosts. Site-relative paths are always fine.

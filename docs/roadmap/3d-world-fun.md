@@ -1,8 +1,8 @@
-# three.ws — 3D World "Make It Fun" Roadmap (25 agent tasks)
+# three.ws — 3D World "Make It Fun" Roadmap (18 agent tasks)
 
 Goal: turn the existing 3D worlds from a pretty hangout into a place with things to **do**
-together — Roblox-style social play + mini-games + avatar economy, plus rendering the
-already-built Kintara RPG, plus a Minecraft-style shared sandbox.
+together — Roblox-style social play + mini-games + avatar economy, plus a Minecraft-style
+shared sandbox.
 
 ## How to run this
 
@@ -18,7 +18,6 @@ Key existing files (for reference, don't make agents re-discover these):
 - `/play` scene: `src/game/coincommunities.js`, `coincommunities-ui.js`, `coincommunities.css`
 - `/play` net client: `src/game/community-net.js`
 - Server: `multiplayer/src/rooms/WalkRoom.js`, `multiplayer/src/schemas.js`
-- RPG server (done, unrendered): `multiplayer/src/rooms/GameRoom.js`, `multiplayer/src/schemas/game.js`, `multiplayer/src/rooms/realms.js`; client net `src/game/game-net.js`
 - Avatars/anim: `src/animation-manager.js`, `public/animations/manifest.json` (70 clips)
 - Accessory GLBs (unwired): `public/accessories/` (hats, glasses, earrings)
 - Payments: `api/x402/`, `agent-payments-sdk/`, `solana-agent-sdk/`
@@ -125,78 +124,12 @@ and broadcasts via the existing emote path, accessible (keyboard + screen-reader
 
 ---
 
-## WAVE 2 — Render the Kintara RPG (mostly sequential; this is the big one)
-
-> The server (`GameRoom.js`), schema (`schemas/game.js`), realms (`realms.js`), and client net
-> (`game-net.js`) are COMPLETE. These tasks build the missing 3D client. Do them in order.
-
-### Task 10 — Kintara scene scaffold + tile renderer
-Create the entry: `pages/game.html` + `src/game/kintara.js` (mirror how `play.html` →
-`coincommunities.js` is wired). Connect via `GameNet` (`src/game/game-net.js`) to `GameRoom`. Set up
-a Three.js scene with an **orthographic isometric** camera (rotatable yaw, fixed pitch ~35°), and on
-the `realm` message render the tile grid: floor tiles, blocked/water tiles, zone tints
-(safe/PvP/danger), bank zone, fishing/cooking tiles, fountain. Reuse the renderer/lighting/loop
-structure from `coincommunities.js`. No players/nodes yet.
-**Done:** entering loads a realm and draws its grid correctly with zones visually distinct; camera
-orbits/zooms; matches the realm data in `realms.js`.
-
-### Task 11 — Kintara players: avatars on the tile grid
-Render local + remote players from `GamePlayer` state. Reuse the avatar rig + AnimationManager from
-`coincommunities.js` (`buildAvatar`, `RemotePlayer` interpolation). Convert tile coords (`tx,ty`) →
-world position, animate tile-stepped movement (smooth glide between adjacent tiles), drive
-idle/walk/run motion states, render name labels (reuse the projected-label system) and HP bars.
-Send `step` intents from WASD/click-to-move respecting the server's 8-way adjacency.
-**Depends on:** Task 10. **Done:** you and others walk the grid smoothly, animations match motion,
-names + HP show, movement is server-validated (no teleport).
-
-### Task 12 — Resource nodes + gathering
-Render `ResourceNode` state (trees, rocks, coal) as meshes on their tiles; show depleted/respawning
-states. Wire the `gather` intent: walk adjacent + click a node to harvest (server gates on
-tool+skill). Add harvest feedback — swing animation, a glow/particle on hit, an item-gained toast,
-and node depletion/respawn visuals.
-**Depends on:** Task 11. **Done:** gathering works end-to-end against the server (wood/stone/coal),
-respects tool/skill gates, feels responsive with clear feedback.
-
-### Task 13 — Combat + mobs
-Render `Mob` state (training dummy, goblin, ogre) with HP bars, idle/roam animation, aggro, hit
-flashes, death + respawn. Wire the `attack` intent (sword equipped + adjacent). Add hit feedback
-(damage numbers, flash, knockback tween), death VFX, and your own death/respawn handling. Respect
-PvP/safe zones from realm data.
-**Depends on:** Task 11. **Done:** combat loop works vs mobs, HP/damage/death/respawn all sync,
-zones enforced, feels punchy.
-
-### Task 14 — Inventory + hotbar + bank UI
-Build the RPG UI chrome (new `src/game/kintara-ui.js`, styled to match the `cc-*` token system):
-24-slot backpack with drag-reorder (`invMove`), 6-slot hotbar with equip (`equip`/`activeSlot`),
-item tooltips/icons/stack counts, and the bank window (`bankOpen`/`bankDeposit`/`bankWithdraw`) that
-opens near the Mainland bank zone. All wired to `GameNet`.
-**Depends on:** Tasks 12, 13 (so there are items to hold). **Done:** drag/drop, equip, and banking
-all work against the server with correct state; polished, keyboard-navigable, designed empty states.
-
-### Task 15 — Skills HUD + XP/level feedback
-A skills panel (combat, woodcutting, mining, fishing, cooking) showing level + XP progress from
-player state, with level-up celebration VFX/sound and floating XP toasts on each gather/kill. Fishing
-(cast at fishing tiles) and cooking (at the roast pit) action UIs — the server logic exists; add the
-client interactions + a small timing element to make them feel like mini-games.
-**Depends on:** Tasks 12, 13. **Done:** levels/XP display live, level-ups feel rewarding, fishing &
-cooking are playable and fun, all server-validated.
-
-### Task 16 — Realm portals + travel + minimap
-Render portals as meshes at their tiles; walking into one triggers the realm transition (re-render
-via Task 10's path) with a transition wipe. Add a minimap (top-down of the current realm with
-players/nodes/portals) and a zone banner ("⚔️ Wilderness — PvP"). Add a discovery/world-select entry
-so players can find Kintara from the site.
-**Depends on:** Task 10. **Done:** travel between all 4 realms works smoothly, minimap is accurate,
-zones are clearly communicated, Kintara is reachable from navigation.
-
----
-
 ## WAVE 3 — Sandbox building (Minecraft-style; depends on Wave 0 object sync)
 
 ### Task 17 — Persistence layer for world objects
 Make placed objects durable per coin world. Add a storage-backed API/worker (use the existing
 `api/`/`workers/` patterns and whatever KV/DB the repo already uses — inspect, don't invent a new
-provider) keyed by coin mint. `GameRoom`/`WalkRoom` loads saved objects on room create and persists
+provider) keyed by coin mint. `WalkRoom` loads saved objects on room create and persists
 on `obj:spawn/update/remove` (debounced). Real backend, no in-memory-only.
 **Depends on:** Task 1. **Done:** placing objects, leaving, and re-entering a coin world shows the
 same build; persistence survives server restart.
@@ -270,10 +203,9 @@ flex/leaderboard surface is live and links back into worlds.
 
 1. **Wave 0** (Tasks 1→2→3) — sequential, unblocks everything. ~3 chats.
 2. **Wave 1** (Tasks 4–9) — parallel, 6 chats. Fastest visible fun.
-3. **Wave 2** (Tasks 10→11→{12,13}→{14,15,16}) — the RPG, ~7 chats, mostly ordered.
-4. **Wave 3** (Tasks 17→18→19→20) — building, 4 chats.
-5. **Wave 4** (Tasks 21→22→{23,24,25}) — economy, 5 chats.
+3. **Wave 3** (Tasks 17→18→19→20) — building, 4 chats.
+4. **Wave 4** (Tasks 21→22→{23,24,25}) — economy, 5 chats.
 
-Total: 25. Within a wave, only parallelize tasks that don't edit the same file — Wave-1 tasks each
+Total: 18. Within a wave, only parallelize tasks that don't edit the same file — Wave-1 tasks each
 add their own modules but several touch `WalkRoom.js`/`coincommunities-ui.js`, so stagger those or
 have one agent own the shared file per wave.
