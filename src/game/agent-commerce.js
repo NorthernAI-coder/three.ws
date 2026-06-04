@@ -59,7 +59,7 @@ const LINES = {
 		error:     'Payment failed — no charge made.',
 	},
 	buyer: {
-		idle:      'I need your live rate card. Paying now.',
+		idle:      'I need alpha. Paying now.',
 		challenge: 'Building and signing the Solana transfer…',
 		built:     'Signed. Sending to the facilitator for verification.',
 		verified:  'Verified on-chain. Waiting on settlement…',

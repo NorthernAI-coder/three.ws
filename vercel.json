@@ -744,11 +744,11 @@
 		},
 		{
 			"src": "/deploy",
-			"dest": "/app-next.html"
+			"dest": "/app.html"
 		},
 		{
 			"src": "/showcase/?",
-			"dest": "/app-next.html"
+			"dest": "/app.html"
 		},
 		{
 			"src": "/dashboard-classic/?",

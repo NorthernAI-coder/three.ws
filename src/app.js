@@ -519,7 +519,16 @@ class App {
 			// Also skip in any kiosk surface (slim /widget shell, public embed
 			// snippets) so the "Agent" pill doesn't leak across an iframe
 			// boundary that's meant to be branded by the embedder.
-			if (!this.options.widget && !this.options.kiosk && !this._widgetShell) {
+			// Skip on the /deploy wizard and /showcase grid too — those replace
+			// the viewer with a full-page surface, so a floating chat toggle
+			// would just overlap the form/marketplace with nothing to talk to.
+			if (
+				!this.options.widget &&
+				!this.options.kiosk &&
+				!this._widgetShell &&
+				!this.options.deploy &&
+				!this.options.showcase
+			) {
 				this._initNichAgent();
 			}
 
@@ -544,10 +553,11 @@ class App {
 	}
 
 	_applyViewerMode() {
-		const { kiosk, widget, agent, deploy } = this.options;
+		const { kiosk, widget, agent, deploy, showcase } = this.options;
 		let mode = 'main';
 		if (kiosk || widget || agent) mode = 'embed';
 		else if (deploy) mode = 'deploy';
+		else if (showcase) mode = 'explore';
 		document.body.dataset.viewerMode = mode;
 		if (mode === 'main') {
 			// Only use 'pending' (hide gate, hide sidebar) when we have a stored 'true' hint —

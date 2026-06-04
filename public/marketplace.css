@@ -48,6 +48,15 @@ body.market-page {
 	min-height: 100vh;
 }
 
+/* The shared global nav is injected as `<header><div id="nav-container">` — a
+   direct child of this grid body. Left unplaced it lands in the first grid cell,
+   shoving the sidebar into the wide column and the main grid down into the narrow
+   240px track. Span it across both columns so it sits as a full-width top row and
+   the sidebar/main flow correctly beneath it. */
+body.market-page > header {
+	grid-column: 1 / -1;
+}
+
 /* ── Sidebar ─────────────────────────────────────────────────────────── */
 
 .market-sidebar {

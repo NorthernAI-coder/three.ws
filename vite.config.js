@@ -20,13 +20,14 @@ const TARGET = process.env.TARGET || 'app';
 // so pages like /pumpfun see real SSE feeds and JSON responses in dev.
 // Override with DEV_API_PROXY=http://localhost:3001 to point at vercel-dev.
 const DEV_API_PROXY = process.env.DEV_API_PROXY || 'https://three.ws';
-// Local-only override for /api/x402-pay (the demo's paid-call backend).
-// Spin up the helper with `node scripts/dev-x402-pay-server.mjs`; if set, the
-// main Vite dev server will route /api/x402-pay → here while other /api/* still
-// proxy to prod. Default is empty so /api/x402-pay falls through to the prod
-// proxy when the helper isn't running — otherwise the first hit to /pay would
-// crash the dev server with an unhandled ECONNREFUSED proxy error.
-const X402_PAY_DEV_URL = process.env.X402_PAY_DEV_URL ?? '';
+// Local override for /api/x402-pay (the demo's paid-call backend) so the agent
+// payments settle from a locally-funded wallet in dev. Spin up the helper with
+// `node scripts/dev-x402-pay-server.mjs` (reads .env for the agent wallet); Vite
+// routes /api/x402-pay → here while other /api/* still proxy to prod. Defaults to
+// the helper's port so a plain `npm run dev` works without an env prefix; if the
+// helper isn't running the proxy's error handler below returns a clean 502 (not a
+// crash). Set X402_PAY_DEV_URL='' to disable and fall back to the prod payer.
+const X402_PAY_DEV_URL = process.env.X402_PAY_DEV_URL ?? 'http://localhost:3032';
 
 // Auto-discover dashboard-next sub-pages so each agent can add an HTML file
 // under pages/dashboard-next/ without touching this config. The Rollup input
