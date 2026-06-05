@@ -21,6 +21,15 @@
  * Returns null when the agent is not deployed on-chain — callers render nothing.
  */
 
+// Shared pill class names — the canonical .pill system (B04 / style.css) uses
+// the same --badge-onchain-* / --badge-devnet-* tokens, so tws-ocb elements
+// double as .pill elements. This keeps the badge in sync with the design system
+// without breaking any surface that renders it outside the main style.css scope
+// (widgets, embeds, iframes). The isolated injected stylesheet below is the
+// authoritative fallback for those out-of-scope contexts.
+const PILL_BASE_CLASS = 'pill';
+const PILL_ONCHAIN_CLASS = 'pill--onchain';
+const PILL_DEVNET_CLASS = 'pill--devnet';
 const STYLE_ID = 'tws-onchain-badge-styles';
 
 // Known EVM chains → display name + explorer base. Solana is handled separately
@@ -304,8 +313,10 @@ export function onchainBadgeHTML(agent, opts = {}) {
 	ensureOnchainBadgeStyles();
 
 	const { size = 'sm', link = true, showChain = true, label = 'On-chain' } = opts;
-	const classes = ['tws-ocb'];
-	if (size === 'md') classes.push('tws-ocb--md');
+	// tws-ocb — isolated injected styles (works in iframes/embeds/widgets)
+	// pill / pill--onchain — canonical B04 .pill system (in scope when style.css is loaded)
+	const classes = ['tws-ocb', PILL_BASE_CLASS, status.testnet ? PILL_DEVNET_CLASS : PILL_ONCHAIN_CLASS];
+	if (size === 'md') classes.push('tws-ocb--md', 'pill--md');
 	if (status.testnet) classes.push('tws-ocb--devnet');
 
 	const chainHtml = showChain ? `<span class="tws-ocb-chain">${esc(status.chainShort)}</span>` : '';
@@ -318,7 +329,7 @@ export function onchainBadgeHTML(agent, opts = {}) {
 	const title = esc(titleBits.join(' · '));
 	const aria = `Deployed on-chain on ${status.chainLabel}`;
 
-	const inner = `<span class="tws-ocb-dot" aria-hidden="true"></span><span class="tws-ocb-label">${esc(label)}</span>${chainHtml}`;
+	const inner = `<span class="tws-ocb-dot pill__dot" aria-hidden="true"></span><span class="tws-ocb-label">${esc(label)}</span>${chainHtml}`;
 
 	if (link && status.explorerUrl) {
 		return `<a class="${classes.join(' ')}" href="${esc(status.explorerUrl)}" target="_blank" rel="noopener noreferrer" title="${title}" aria-label="${esc(aria)} — view on explorer">${inner}</a>`;

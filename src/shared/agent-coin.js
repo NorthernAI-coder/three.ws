@@ -108,6 +108,13 @@ export async function openCoinLaunch(agent) {
 	const id = agent.id || rec.id || agent.agent_id || rec.agent_id;
 	if (!id) return;
 
+	// First-timers crossing the on-chain threshold get the plain-language
+	// explainer + wallet setup before the launch modal. Returning/ready users
+	// pass straight through (the primer resolves instantly). Loaded lazily so a
+	// wall of coin chips never pays for the wizard's deps until one is clicked.
+	const { ensureOnchainPrimer } = await import('./onchain-primer.js');
+	if (!(await ensureOnchainPrimer({ action: 'launch-token' }))) return;
+
 	const onchain = rec.onchain || rec.meta?.onchain || agent.onchain || null;
 	const needsDeploy = !onchain || onchain.family !== 'solana';
 	const name = rec.name || agent.name || 'Agent';
