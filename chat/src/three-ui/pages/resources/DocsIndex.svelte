@@ -101,34 +101,34 @@
         type="search"
         placeholder="Search docs"
         bind:value={search}
-        class="bg-white border border-[#E5E3DC] rounded-full h-9 px-3 text-sm w-full mb-6 focus:outline-none focus:border-[#1A1A1A]"
+        class="bg-white border border-rule rounded-full h-9 px-3 text-sm w-full mb-6 focus:outline-none focus:border-ink"
       />
       {#if filtered}
         <div class="mb-4">
-          <div class="text-xs font-semibold uppercase tracking-wide text-[#9C9A93] mb-1">Results</div>
+          <div class="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-1">Results</div>
           <ul class="space-y-0.5">
             {#each filtered as slug}
               <li>
                 <button
-                  class="w-full text-left text-sm px-2 py-1 rounded-lg transition-colors {active === slug ? 'bg-[#F5F4EF] text-[#1A1A1A] font-medium' : 'text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#F5F4EF]'}"
+                  class="w-full text-left text-sm px-2 py-1 rounded-lg transition-colors {active === slug ? 'bg-paper text-ink font-medium' : 'text-ink-soft hover:text-ink hover:bg-paper'}"
                   on:click={() => navigate(slug)}
                 >{getTitle(slug)}</button>
               </li>
             {/each}
             {#if filtered.length === 0}
-              <li class="text-sm text-[#9C9A93] px-2 py-1">No results</li>
+              <li class="text-sm text-ink-faint px-2 py-1">No results</li>
             {/if}
           </ul>
         </div>
       {:else}
         {#each sections as s}
           <div class="mb-4">
-            <div class="text-xs font-semibold uppercase tracking-wide text-[#9C9A93] mb-1">{s.label}</div>
+            <div class="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-1">{s.label}</div>
             <ul class="space-y-0.5">
               {#each s.items as slug}
                 <li>
                   <button
-                    class="w-full text-left text-sm px-2 py-1 rounded-lg transition-colors {active === slug ? 'bg-[#F5F4EF] text-[#1A1A1A] font-medium' : 'text-[#6B6B6B] hover:text-[#1A1A1A] hover:bg-[#F5F4EF]'}"
+                    class="w-full text-left text-sm px-2 py-1 rounded-lg transition-colors {active === slug ? 'bg-paper text-ink font-medium' : 'text-ink-soft hover:text-ink hover:bg-paper'}"
                     on:click={() => navigate(slug)}
                   >{getTitle(slug)}</button>
                 </li>
@@ -141,7 +141,7 @@
   </aside>
 
   <!-- Content -->
-  <main class="flex-1 min-w-0 prose prose-neutral max-w-none">
+  <main class="flex-1 min-w-0 prose prose-neutral prose-invert max-w-none">
     {@html htmlContent}
   </main>
 </div>

@@ -13,16 +13,16 @@
 
 <div class="max-w-[1100px] mx-auto px-6 pt-16 pb-24">
   <h1 class="font-serif text-4xl font-semibold mb-2">Use Cases</h1>
-  <p class="text-[#6B6B6B] text-base mb-12">How teams are putting three.ws to work</p>
+  <p class="text-ink-soft text-base mb-12">How teams are putting three.ws to work</p>
 
   <div class="grid md:grid-cols-2 gap-6">
     {#each cases as c}
-      <article class="bg-white border border-[#E5E3DC] rounded-2xl p-6 hover:bg-[#FAF9F4] transition-colors cursor-pointer flex flex-col">
-        <span class="inline-block text-xs uppercase tracking-wide text-[#6B6B6B]">{c.industry}</span>
-        <h2 class="font-serif text-xl mt-2 text-[#1A1A1A] leading-snug">{c.headline}</h2>
-        <p class="text-sm text-[#6B6B6B] mt-2 line-clamp-2 flex-1">{c.summary}</p>
-        <div class="mt-5 h-8 bg-[#F5F4EF] rounded-lg flex items-center px-3">
-          <span class="text-xs text-[#9C9A93] font-medium">{c.logo}</span>
+      <article class="bg-white border border-rule rounded-2xl p-6 hover:bg-paper-deep transition-colors cursor-pointer flex flex-col">
+        <span class="inline-block text-xs uppercase tracking-wide text-ink-soft">{c.industry}</span>
+        <h2 class="font-serif text-xl mt-2 text-ink leading-snug">{c.headline}</h2>
+        <p class="text-sm text-ink-soft mt-2 line-clamp-2 flex-1">{c.summary}</p>
+        <div class="mt-5 h-8 bg-paper rounded-lg flex items-center px-3">
+          <span class="text-xs text-ink-faint font-medium">{c.logo}</span>
         </div>
       </article>
     {/each}

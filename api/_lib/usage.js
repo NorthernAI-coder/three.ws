@@ -1,12 +1,12 @@
 // Fire-and-forget usage event logging. Failures must never impact the request.
 
-import { sql } from './db.js';
+import { sql, withDbRetry } from './db.js';
 
 export function recordEvent(evt) {
 	// Intentionally not awaited in callers; we swallow errors here.
 	queueMicrotask(async () => {
 		try {
-			await sql`
+			await withDbRetry(() => sql`
 				insert into usage_events (user_id, api_key_id, client_id, avatar_id, agent_id, kind, tool, status, bytes, latency_ms, meta)
 				values (
 					${evt.userId ?? null},
@@ -21,7 +21,7 @@ export function recordEvent(evt) {
 					${evt.latencyMs ?? null},
 					${JSON.stringify(evt.meta ?? {})}::jsonb
 				)
-			`;
+			`);
 		} catch (err) {
 			console.warn('[usage] write failed', err?.message);
 		}

@@ -113,7 +113,15 @@ export default wrap(async (req, res) => {
 		return;
 	} catch (err) {
 		console.warn('[avatar-og] render fallback', { avatarId, err: err?.message });
-		return sendFallbackLogo(req, res);
+		// Render failed (oversized GLB, timeout, unreachable model). We still hold
+		// the avatar's real metadata, so serve the branded, *named* card — strictly
+		// better for a Twitter/Slack/Discord crawler than the anonymous site logo,
+		// and the crawler caches a card that actually identifies the avatar.
+		return sendCardSvg(res, 200, CACHE_FALLBACK, {
+			name: avatar.name || 'Avatar',
+			description: avatar.description || 'A 3D avatar on three.ws',
+			tags: avatar.tags || [],
+		});
 	}
 });
 

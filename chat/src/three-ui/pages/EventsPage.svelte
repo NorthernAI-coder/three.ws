@@ -93,8 +93,8 @@
 
   <!-- Hero -->
   <div class="text-center mb-16">
-    <h1 class="font-serif text-5xl font-semibold text-[#1A1A1A]">{page.title}</h1>
-    <p class="text-[#6B6B6B] text-lg max-w-[560px] mx-auto mt-4">{page.sub}</p>
+    <h1 class="font-serif text-5xl font-semibold text-ink">{page.title}</h1>
+    <p class="text-ink-soft text-lg max-w-[560px] mx-auto mt-4">{page.sub}</p>
     {#if page.cta}
       <button class="mt-8 bg-black text-white rounded-full h-10 px-6 text-sm font-medium hover:bg-[#333] transition-colors">
         {page.cta}
@@ -104,22 +104,22 @@
 
   <!-- Upcoming -->
   {#if page.upcoming.length > 0}
-    <h2 class="font-serif text-2xl font-semibold text-[#1A1A1A] mb-6">Upcoming</h2>
+    <h2 class="font-serif text-2xl font-semibold text-ink mb-6">Upcoming</h2>
     <div class="space-y-3 mb-16">
       {#each page.upcoming as e}
-        <div class="bg-white border border-[#E5E3DC] rounded-2xl px-6 py-5 flex items-center gap-6">
-          <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-[#F5F4EF] shrink-0">
-            <Icon icon={feCalendar} class="w-5 h-5 text-[#1A1A1A]" strokeWidth={1.5} />
+        <div class="bg-white border border-rule rounded-2xl px-6 py-5 flex items-center gap-6">
+          <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-paper shrink-0">
+            <Icon icon={feCalendar} class="w-5 h-5 text-ink" strokeWidth={1.5} />
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-[#1A1A1A]">{e.title}</p>
-            <p class="text-xs text-[#6B6B6B] mt-1">{e.host} · {e.duration}</p>
+            <p class="text-sm font-semibold text-ink">{e.title}</p>
+            <p class="text-xs text-ink-soft mt-1">{e.host} · {e.duration}</p>
           </div>
           <div class="text-right shrink-0">
-            <p class="text-xs font-medium text-[#1A1A1A]">{e.date}</p>
-            <p class="text-xs text-[#6B6B6B] mt-1">{e.spots}</p>
+            <p class="text-xs font-medium text-ink">{e.date}</p>
+            <p class="text-xs text-ink-soft mt-1">{e.spots}</p>
           </div>
-          <button class="shrink-0 h-8 px-4 rounded-full border border-[#E5E3DC] text-xs font-medium text-[#1A1A1A] hover:bg-[#F5F4EF] transition-colors">
+          <button class="shrink-0 h-8 px-4 rounded-full border border-rule text-xs font-medium text-ink hover:bg-paper transition-colors">
             Register
           </button>
         </div>
@@ -128,20 +128,20 @@
   {/if}
 
   <!-- Past / All Recordings -->
-  <h2 class="font-serif text-2xl font-semibold text-[#1A1A1A] mb-6">
+  <h2 class="font-serif text-2xl font-semibold text-ink mb-6">
     {page.upcoming.length > 0 ? 'Past sessions' : 'All recordings'}
   </h2>
   <div class="grid md:grid-cols-2 gap-4">
     {#each page.past as e}
-      <div class="bg-white border border-[#E5E3DC] rounded-2xl px-6 py-5 flex items-center gap-4 hover:bg-[#FAF9F4] transition-colors cursor-pointer">
-        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-[#F5F4EF] shrink-0">
-          <Icon icon={fePlay} class="w-4 h-4 text-[#1A1A1A]" strokeWidth={1.5} />
+      <div class="bg-white border border-rule rounded-2xl px-6 py-5 flex items-center gap-4 hover:bg-paper-deep transition-colors cursor-pointer">
+        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-paper shrink-0">
+          <Icon icon={fePlay} class="w-4 h-4 text-ink" strokeWidth={1.5} />
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-[#1A1A1A] line-clamp-1">{e.title}</p>
-          <p class="text-xs text-[#6B6B6B] mt-1">{e.date} · {e.views}</p>
+          <p class="text-sm font-semibold text-ink line-clamp-1">{e.title}</p>
+          <p class="text-xs text-ink-soft mt-1">{e.date} · {e.views}</p>
         </div>
-        <Icon icon={feExternalLink} class="w-4 h-4 text-[#9C9A93] shrink-0" strokeWidth={1.5} />
+        <Icon icon={feExternalLink} class="w-4 h-4 text-ink-faint shrink-0" strokeWidth={1.5} />
       </div>
     {/each}
   </div>

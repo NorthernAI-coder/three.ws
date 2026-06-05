@@ -68,11 +68,11 @@
   <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
     {#each samplePrompts as prompt}
       <button
-        class="bg-white border border-[#E5E3DC] rounded-xl p-4 h-[112px] flex flex-col justify-between text-left hover:bg-[#F5F4EF] transition-colors"
+        class="bg-white border border-rule rounded-xl p-4 h-[112px] flex flex-col justify-between text-left hover:bg-paper transition-colors"
         on:click={() => selectPrompt(prompt)}
       >
-        <span class="text-sm text-[#1A1A1A] leading-snug">{prompt}</span>
-        <Icon icon={feArrowUpLeft} size={14} class="text-[#9C9A93] self-end" />
+        <span class="text-sm text-ink leading-snug">{prompt}</span>
+        <Icon icon={feArrowUpLeft} size={14} class="text-ink-faint self-end" />
       </button>
     {/each}
   </div>
@@ -97,7 +97,7 @@
     {#each ideas as idea}
       <button class="three-ui-chip" on:click={() => selectIdea(idea)}>
         {idea}
-        <Icon icon={feArrowUpLeft} size={14} class="text-[#9C9A93]" />
+        <Icon icon={feArrowUpLeft} size={14} class="text-ink-faint" />
       </button>
     {/each}
   </div>

@@ -12,12 +12,12 @@
 
     <!-- Hero -->
     <div class="text-center">
-      <p class="text-xs font-medium tracking-[0.16em] uppercase text-[#6B6B6B] mb-4">{page.eyebrow}</p>
+      <p class="text-xs font-medium tracking-[0.16em] uppercase text-ink-soft mb-4">{page.eyebrow}</p>
       <h1 class="three.ws-display">{page.title}</h1>
-      <p class="text-[#6B6B6B] text-lg max-w-[640px] mx-auto mt-6">{page.sub}</p>
+      <p class="text-ink-soft text-lg max-w-[640px] mx-auto mt-6">{page.sub}</p>
       <div class="flex items-center justify-center gap-3 mt-8">
         <button class="three.ws-btn-primary">{page.primaryCta}</button>
-        <button class="three.ws-btn-ghost border border-[#E5E3DC]">{page.secondaryCta}</button>
+        <button class="three.ws-btn-ghost border border-rule">{page.secondaryCta}</button>
       </div>
     </div>
 
@@ -25,12 +25,12 @@
     <h2 class="font-serif text-3xl font-semibold mt-24 mb-8 text-center">What you get</h2>
     <div class="grid md:grid-cols-3 gap-4">
       {#each page.features as feat}
-        <div class="bg-white border border-[#E5E3DC] rounded-2xl p-6">
-          <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-paper border border-[#E5E3DC]">
+        <div class="bg-white border border-rule rounded-2xl p-6">
+          <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-paper border border-rule">
             <Icon icon={feat.icon} class="h-[22px] w-[22px] text-ink" strokeWidth={1.5} />
           </div>
           <p class="text-base font-semibold mt-4">{feat.title}</p>
-          <p class="text-sm text-[#6B6B6B] mt-2">{feat.body}</p>
+          <p class="text-sm text-ink-soft mt-2">{feat.body}</p>
         </div>
       {/each}
     </div>

@@ -29,14 +29,14 @@
 
 <div class="max-w-[1100px] mx-auto px-6 pt-16 pb-24">
   <h1 class="font-serif text-4xl font-semibold mb-2">Trust Center</h1>
-  <p class="text-[#6B6B6B] text-base mb-12">Security, privacy, and compliance at three.ws</p>
+  <p class="text-ink-soft text-base mb-12">Security, privacy, and compliance at three.ws</p>
 
   <!-- Stats row -->
   <div class="grid md:grid-cols-3 gap-4 mb-10">
     {#each stats as s}
-      <div class="bg-white border border-[#E5E3DC] rounded-2xl p-6">
-        <div class="font-serif text-2xl font-semibold text-[#1A1A1A] mb-1">{s.label}</div>
-        <p class="text-sm text-[#6B6B6B]">{s.detail}</p>
+      <div class="bg-white border border-rule rounded-2xl p-6">
+        <div class="font-serif text-2xl font-semibold text-ink mb-1">{s.label}</div>
+        <p class="text-sm text-ink-soft">{s.detail}</p>
       </div>
     {/each}
   </div>
@@ -44,19 +44,19 @@
   <!-- Content sections -->
   <div class="grid md:grid-cols-2 gap-4 mb-14">
     {#each sections as s}
-      <div class="bg-white border border-[#E5E3DC] rounded-2xl p-6">
-        <h2 class="font-serif text-xl font-semibold mb-3 text-[#1A1A1A]">{s.title}</h2>
-        <p class="text-sm text-[#6B6B6B] leading-relaxed">{s.body}</p>
+      <div class="bg-white border border-rule rounded-2xl p-6">
+        <h2 class="font-serif text-xl font-semibold mb-3 text-ink">{s.title}</h2>
+        <p class="text-sm text-ink-soft leading-relaxed">{s.body}</p>
       </div>
     {/each}
   </div>
 
   <!-- Compliance badge grid -->
-  <h2 class="font-serif text-2xl font-semibold mb-6 text-[#1A1A1A]">Certifications &amp; frameworks</h2>
+  <h2 class="font-serif text-2xl font-semibold mb-6 text-ink">Certifications &amp; frameworks</h2>
   <div class="grid grid-cols-3 md:grid-cols-6 gap-4">
     {#each badges as b}
-      <div class="bg-[#F5F4EF] border border-[#E5E3DC] rounded-xl aspect-square flex items-center justify-center">
-        <span class="text-xs font-semibold text-[#6B6B6B] text-center px-2">{b}</span>
+      <div class="bg-paper border border-rule rounded-xl aspect-square flex items-center justify-center">
+        <span class="text-xs font-semibold text-ink-soft text-center px-2">{b}</span>
       </div>
     {/each}
   </div>

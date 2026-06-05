@@ -44,22 +44,22 @@
 </script>
 
 <div class="w-full pb-12">
-  <p class="text-[#1A1A1A] font-medium mb-4 mt-10 max-w-[1100px] mx-auto px-6">Get started with</p>
+  <p class="text-ink font-medium mb-4 mt-10 max-w-[1100px] mx-auto px-6">Get started with</p>
   <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 max-w-[1100px] mx-auto px-6">
     {#each cards as card}
       <button
-        class="bg-white border border-[#E5E3DC] rounded-2xl p-5 flex gap-4 hover:bg-[#F5F4EF] transition-colors text-left w-full"
+        class="bg-white border border-rule rounded-2xl p-5 flex gap-4 hover:bg-paper transition-colors text-left w-full"
         on:click={() => selectCard(card.description)}
       >
         <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between text-[#1A1A1A] font-semibold text-sm">
+          <div class="flex items-center justify-between text-ink font-semibold text-sm">
             <span class="text-ellipsis overflow-hidden whitespace-nowrap mr-2">{card.title}</span>
-            <Icon icon={feChevronRight} class="h-4 w-4 shrink-0 text-[#9C9A93]" />
+            <Icon icon={feChevronRight} class="h-4 w-4 shrink-0 text-ink-faint" />
           </div>
-          <p class="text-xs text-[#6B6B6B] mt-1.5 line-clamp-2">{card.description}</p>
+          <p class="text-xs text-ink-soft mt-1.5 line-clamp-2">{card.description}</p>
         </div>
-        <div class="w-24 h-24 shrink-0 rounded-lg bg-[#EFECE3] flex items-center justify-center">
-          <Icon icon={card.icon} class="h-8 w-8 text-[#9C9A93]" />
+        <div class="w-24 h-24 shrink-0 rounded-lg bg-paper-deep flex items-center justify-center">
+          <Icon icon={card.icon} class="h-8 w-8 text-ink-faint" />
         </div>
       </button>
     {/each}

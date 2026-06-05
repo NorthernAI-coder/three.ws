@@ -22,6 +22,7 @@ import '../../solana-mobile/src/index.js';
 
 const NONCE_URL = '/api/play/nonce';
 const VERIFY_URL = '/api/play/verify';
+const REFRESH_URL = '/api/play/refresh';
 const STORE_KEY = 'cc-play-pass';
 // Refresh a little before the server's 10-min pass TTL so a reconnect never
 // races expiry; the game server sweeps expired passes every minute.
@@ -158,6 +159,43 @@ export async function signInToPlay({ nonce, forceReconnect = false, onStage = ()
 	}
 	const data = body?.data;
 	if (!data) throw new PlayAuthError('verify_failed', 'Sign-in returned an unexpected response.');
+
+	if (data.ok && data.playPass) storePass(data);
+	return data;
+}
+
+/**
+ * Silently renew an unexpired play pass — no wallet prompt. Possession of a
+ * still-valid pass proves the wallet was verified minutes ago, so the server
+ * re-issues a fresh pass after re-reading the on-chain balance, without a new
+ * signature. Used by the mid-session refresh so a long building session never
+ * re-pops the wallet's sign-in dialog.
+ *
+ * @param {string} playPass the current, still-valid pass
+ * @returns {Promise<object>} the /refresh result — { ok: true, wallet, balance,
+ *   playPass, expiresAt, … } when the wallet still clears the floor, or
+ *   { ok: false, reason: 'balance_too_low', … }.
+ * @throws {PlayAuthError} pass_invalid (expired/forged → re-sign) | verify_failed
+ */
+export async function refreshPlayPass(playPass) {
+	let res, body;
+	try {
+		res = await fetch(REFRESH_URL, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ playPass }),
+		});
+		body = await res.json().catch(() => null);
+	} catch {
+		throw new PlayAuthError('verify_failed', 'Network error during refresh. Check your connection and retry.');
+	}
+	if (!res.ok) {
+		const code = body?.error || 'verify_failed';
+		throw new PlayAuthError(code, body?.error_description || 'Could not renew your session.');
+	}
+	const data = body?.data;
+	if (!data) throw new PlayAuthError('verify_failed', 'Refresh returned an unexpected response.');
 
 	if (data.ok && data.playPass) storePass(data);
 	return data;

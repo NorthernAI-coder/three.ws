@@ -14,7 +14,7 @@ import { resolveAvatarUrl } from './avatar-rig.js';
 import { validateGlb, uploadGlb } from './avatar-upload.js';
 import { GUEST_SENTINEL, playAs } from './play-handoff.js';
 import { COMPOSITE_PIECES } from './build-voxels.js';
-import { PROP_CATALOG } from './world-objects.js';
+import { PROP_CATALOG, GALLERY_PROP_PREFIX, registerGalleryProp } from './world-objects.js';
 import { log } from '../shared/log.js';
 
 // Degrees shown on the rotate button for each quarter-turn step (0–3).
@@ -1261,22 +1261,33 @@ export class CommunityUI {
 	_buildPropPalette() {
 		this._activeProp = null;
 		this._propBtns = new Map();
+		// Gallery streaming state: every public community model is placeable, paged in
+		// after the built-in props as the user scrolls / searches / hits "More".
+		this._gallery = { cursor: null, loading: false, done: false, started: false, q: '' };
 
-		const items = PROP_CATALOG.map((p) => {
-			const btn = el('button', {
-				class: 'cc-prop', type: 'button',
-				role: 'radio', 'aria-checked': 'false',
-				title: `${p.name} — place a prop (R rotates, break mode removes yours)`,
-				'aria-label': p.name,
-				onclick: () => this.h.onPickProp?.(this._activeProp === p.id ? null : p.id),
-			}, [
-				el('span', { class: 'cc-prop-ico', 'aria-hidden': 'true', text: p.icon || '◆' }),
-				el('span', { class: 'cc-prop-name', text: p.name }),
-			]);
-			this._propBtns.set(p.id, btn);
-			return btn;
+		const items = PROP_CATALOG.map((p) => this._propButton(p));
+
+		// A thin rule separates the hand-authored props from the community gallery that
+		// streams in after them; hidden until the first gallery model lands.
+		this._galleryDivider = el('div', { class: 'cc-prop-divider', hidden: true, 'aria-hidden': 'true' });
+		this._galleryMore = el('button', {
+			class: 'cc-prop cc-prop-more', type: 'button', hidden: true,
+			title: 'Load more community models', 'aria-label': 'Load more community models',
+			onclick: () => this._loadGalleryPage(),
+		}, [
+			el('span', { class: 'cc-prop-ico', 'aria-hidden': 'true', text: '＋' }),
+			el('span', { class: 'cc-prop-name', text: 'More' }),
+		]);
+		this.propRow = el('div', { class: 'cc-prop-row', role: 'radiogroup', 'aria-label': 'Place a prop' },
+			[...items, this._galleryDivider, this._galleryMore]);
+
+		this.propSearch = el('input', {
+			type: 'search', class: 'cc-prop-search', placeholder: 'Search models…',
+			'aria-label': 'Search community models', maxlength: '60', autocomplete: 'off',
+			oninput: (e) => this._onGallerySearch(e.target.value),
+			// Swallow keys so typing in the search box never steers the avatar/build hotkeys.
+			onkeydown: (e) => e.stopPropagation(),
 		});
-		const row = el('div', { class: 'cc-prop-row', role: 'radiogroup', 'aria-label': 'Place a prop' }, items);
 
 		this.propRotateBtn = el('button', {
 			class: 'cc-prop-rotate', type: 'button', disabled: true,
@@ -1286,25 +1297,151 @@ export class CommunityUI {
 
 		const head = el('div', { class: 'cc-prop-head' }, [
 			el('span', { class: 'cc-prop-title', text: 'Props' }),
+			this.propSearch,
 			this.propRotateBtn,
 		]);
 
-		this.propPalette = el('div', { id: 'cc-props', hidden: true, 'aria-label': 'Build props' }, [head, row]);
+		this._galleryStatus = el('div', { class: 'cc-prop-gstatus', role: 'status', 'aria-live': 'polite', hidden: true });
+
+		this.propPalette = el('div', { id: 'cc-props', hidden: true, 'aria-label': 'Build props' }, [head, this.propRow, this._galleryStatus]);
 		document.body.appendChild(this.propPalette);
 	}
 
-	/** Show/hide the props palette with build mode. */
-	setPropPaletteVisible(on) { if (this.propPalette) this.propPalette.hidden = !on; }
+	// One placeable-prop button. Built-in props show their emoji glyph; gallery models
+	// show a real thumbnail (falling back to the glyph when a model has no render yet).
+	_propButton(p) {
+		const ico = p.thumbnail
+			? el('img', { class: 'cc-prop-thumb', src: p.thumbnail, alt: '', loading: 'lazy', decoding: 'async' })
+			: el('span', { class: 'cc-prop-ico', 'aria-hidden': 'true', text: p.icon || '◆' });
+		const btn = el('button', {
+			class: 'cc-prop', type: 'button',
+			role: 'radio', 'aria-checked': 'false',
+			title: `${p.name} — place a prop (R rotates, break mode removes yours)`,
+			'aria-label': p.name,
+			onclick: () => this.h.onPickProp?.(this._activeProp === p.id ? null : p.id),
+		}, [ico, el('span', { class: 'cc-prop-name', text: p.name })]);
+		this._propBtns.set(p.id, btn);
+		return btn;
+	}
+
+	/** Show/hide the props palette with build mode; first open kicks off the gallery. */
+	setPropPaletteVisible(on) {
+		if (!this.propPalette) return;
+		this.propPalette.hidden = !on;
+		if (on) this._startGallery();
+	}
 
 	/** Reflect the armed prop (null = voxel layer); toggles the rotate button. */
 	setPropSelected(id) {
 		this._activeProp = id ?? null;
+		let foundActive = false;
 		for (const [pid, btn] of this._propBtns) {
 			const on = pid === this._activeProp;
+			if (on) foundActive = true;
 			btn.classList.toggle('cc-on', on);
 			btn.setAttribute('aria-checked', on ? 'true' : 'false');
 		}
+		// A gallery prop can be armed before its button has paged in (e.g. armed by a
+		// deep link); scroll the active button into view when it exists.
+		if (foundActive) this._propBtns.get(this._activeProp)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 		if (this.propRotateBtn) this.propRotateBtn.disabled = this._activeProp == null;
+	}
+
+	// ---- community gallery as placeable props -------------------------------------
+	// Kick the first gallery page when the palette first opens; cheap no-op after.
+	_startGallery() {
+		if (this._gallery.started) return;
+		this._gallery.started = true;
+		this._loadGalleryPage();
+	}
+
+	// Debounced search: re-query the gallery for models matching the typed text.
+	_onGallerySearch(value) {
+		const q = (value || '').trim();
+		if (q === this._gallery.q) return;
+		this._gallery.q = q;
+		clearTimeout(this._gallerySearchT);
+		this._gallerySearchT = setTimeout(() => this._resetGallery(), 260);
+	}
+
+	// Drop every streamed gallery button (keeping built-in props) and re-page from the
+	// top — used when the search query changes.
+	_resetGallery() {
+		for (const [id, btn] of this._propBtns) {
+			if (id.startsWith(GALLERY_PROP_PREFIX)) { btn.remove(); this._propBtns.delete(id); }
+		}
+		this._galleryDivider.hidden = true;
+		this._gallery.cursor = null;
+		this._gallery.done = false;
+		this._loadGalleryPage();
+	}
+
+	// Fetch one page of public gallery models and stream them in as placeable props.
+	async _loadGalleryPage() {
+		const g = this._gallery;
+		if (g.loading || g.done) return;
+		g.loading = true;
+		this._galleryMore.hidden = true;
+		const first = !g.cursor;
+		if (first) this._setGalleryStatus('Loading community models…', false);
+		try {
+			const params = new URLSearchParams({ limit: '48' });
+			if (g.cursor) params.set('cursor', g.cursor);
+			if (g.q) params.set('q', g.q);
+			const r = await fetch(`/api/avatars/public?${params}`, { headers: { accept: 'application/json' } });
+			if (!r.ok) throw new Error(`gallery ${r.status}`);
+			const { avatars, next_cursor: next } = await r.json();
+			const list = (avatars || []).filter((a) => a.id && (a.model_url || a.base_model_url));
+			for (const a of list) this._appendGalleryItem(a);
+			g.cursor = next || null;
+			g.done = !g.cursor || list.length === 0;
+			const count = this._galleryCount();
+			this._galleryMore.hidden = g.done || !count;
+			this._setGalleryStatus(count ? '' : (g.q ? `No models match “${g.q}”.` : 'No community models yet.'), false);
+		} catch (e) {
+			log.warn('[cc-ui] gallery load failed', e?.message || e);
+			this._setGalleryStatus('Couldn’t load models — tap to retry.', true);
+			this._galleryMore.hidden = true;
+		} finally {
+			g.loading = false;
+		}
+	}
+
+	_galleryCount() {
+		let n = 0;
+		for (const id of this._propBtns.keys()) if (id.startsWith(GALLERY_PROP_PREFIX)) n++;
+		return n;
+	}
+
+	// Register a gallery model with the world-object catalog (so it can be placed +
+	// rendered) and add its button to the palette, just before the trailing "More".
+	_appendGalleryItem(a) {
+		const id = GALLERY_PROP_PREFIX + a.id;
+		if (this._propBtns.has(id)) return;
+		registerGalleryProp(a.id, { url: a.model_url || a.base_model_url, name: a.name, thumbnail: a.thumbnail_url });
+		const btn = this._propButton({ id, name: a.name || 'Model', icon: '🧍', thumbnail: a.thumbnail_url });
+		btn.classList.add('cc-prop-gallery');
+		this.propRow.insertBefore(btn, this._galleryMore);
+		this._galleryDivider.hidden = false;
+	}
+
+	// Render a one-line gallery status (loading / empty / error). The error variant is
+	// tappable to retry the failed page.
+	_setGalleryStatus(msg, isError) {
+		const s = this._galleryStatus;
+		if (!s) return;
+		s.textContent = msg || '';
+		s.hidden = !msg;
+		s.classList.toggle('cc-err', !!isError);
+		if (isError) {
+			s.setAttribute('role', 'button');
+			s.tabIndex = 0;
+			s.onclick = () => { this._gallery.done = false; this._loadGalleryPage(); };
+		} else {
+			s.setAttribute('role', 'status');
+			s.removeAttribute('tabindex');
+			s.onclick = null;
+		}
 	}
 
 	// ---------------------------------------------------------------- share sheet (R20)

@@ -595,6 +595,7 @@ function closeLobby() {
 // ── Weekly theme strip ───────────────────────────────────────────────────
 
 async function loadTheme() {
+	renderThemeSkeleton();
 	try {
 		const r = await fetch(`${API}/marketplace/theme`);
 		if (!r.ok) return;
@@ -608,6 +609,22 @@ async function loadTheme() {
 	}
 }
 
+// Show the strip with a shimmer immediately so the top of the page never pops
+// in late. Replaced by the real lineup once /theme resolves.
+function renderThemeSkeleton() {
+	const strip = $('market-theme-strip');
+	const picks = $('market-theme-picks');
+	if (!strip || !picks) return;
+	picks.hidden = false;
+	picks.innerHTML = Array.from({ length: 6 })
+		.map(
+			() =>
+				`<div class="market-theme-pick is-skeleton" aria-hidden="true"><div class="market-theme-pick-stage"></div><div class="market-theme-pick-meta"><span class="market-theme-pick-name">&nbsp;</span><span class="market-theme-pick-cat">&nbsp;</span></div></div>`,
+		)
+		.join('');
+	strip.hidden = false;
+}
+
 function renderTheme() {
 	const strip = $('market-theme-strip');
 	if (!strip || !state.theme) return;
@@ -616,19 +633,103 @@ function renderTheme() {
 	if (titleEl) titleEl.textContent = state.theme.title;
 	if (blurbEl) blurbEl.textContent = state.theme.blurb || '';
 	const cta = $('market-theme-cta');
-	if (cta && state.theme.tag) {
+	// The theme endpoint scopes by category (general = all). Wire the CTA to
+	// browse that category; hide it for the catch-all "general" weeks.
+	const cat = state.theme.category;
+	if (cta && cat && cat !== 'general') {
 		cta.hidden = false;
-		cta.textContent = `Browse #${state.theme.tag} →`;
+		cta.textContent = `Browse ${CATEGORY_LABELS[cat] || cat} →`;
 		cta.onclick = () => {
-			els.search.value = state.theme.tag;
-			state.q = state.theme.tag;
+			state.category = cat;
+			state.cursor = null;
 			loadList(true);
+			if (typeof highlightCategoryChips === 'function') highlightCategoryChips();
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		};
 	} else if (cta) {
 		cta.hidden = true;
 	}
+	renderThemePicks();
 	strip.hidden = false;
+}
+
+// Render the randomized 3D lineup. Every agent here is guaranteed (by the API)
+// to carry a public avatar GLB, so each card shows a live rotating model. We
+// reshuffle client-side too, so revisiting the page varies the order even when
+// the API response is served from cache.
+function renderThemePicks() {
+	const row = $('market-theme-picks');
+	if (!row) return;
+	const all = (state.theme?.agents || []).filter((a) => a.avatar_glb_url);
+	if (!all.length) {
+		row.hidden = true;
+		row.innerHTML = '';
+		return;
+	}
+	const picks = shuffle(all.slice()).slice(0, 6);
+	row.hidden = false;
+	row.innerHTML = picks
+		.map((a, i) => {
+			const views = a.views_count || 0;
+			const catLabel = CATEGORY_LABELS[a.category] || a.category || 'Agent';
+			return `<button type="button" class="market-theme-pick" role="listitem" data-id="${escapeHtml(a.id)}" title="${escapeHtml(a.name || 'Agent')}" aria-label="${escapeHtml(a.name || 'Agent')} — ${fmtNumber(views)} views">
+				<div class="market-theme-pick-stage">
+					<span class="market-theme-pick-rank">#${i + 1}</span>
+					${views > 0 ? `<span class="market-theme-pick-views">⊙ ${fmtNumber(views)}</span>` : ''}
+					<span class="market-theme-pick-placeholder" aria-hidden="true">${escapeHtml(initial(a.name || 'A'))}</span>
+					<model-viewer
+						src="${escapeHtml(a.avatar_glb_url)}"
+						alt="${escapeHtml(a.name || 'Agent')}"
+						${a.thumbnail_url ? `poster="${escapeHtml(a.thumbnail_url)}"` : ''}
+						auto-rotate
+						autoplay
+						rotation-per-second="22deg"
+						interaction-prompt="none"
+						disable-zoom
+						disable-pan
+						disable-tap
+						camera-controls
+						exposure="1.05"
+						shadow-intensity="0.5"
+						tone-mapping="aces"
+						loading="lazy"
+						reveal="auto"
+					></model-viewer>
+				</div>
+				<div class="market-theme-pick-meta">
+					<span class="market-theme-pick-name">${escapeHtml(a.name || 'Untitled')}</span>
+					<span class="market-theme-pick-cat">${escapeHtml(catLabel)}</span>
+				</div>
+			</button>`;
+		})
+		.join('');
+	row.querySelectorAll('.market-theme-pick').forEach((card) => {
+		card.addEventListener('click', () => navTo(`/marketplace/agents/${card.dataset.id}`));
+		const mv = card.querySelector('model-viewer');
+		if (mv) {
+			mv.addEventListener('load', () => card.classList.add('mv-loaded'), { once: true });
+			mv.addEventListener('poster-dismissed', () => card.classList.add('mv-loaded'), { once: true });
+			// If a GLB 404s or is CORS-blocked, drop the card so the strip never
+			// shows an empty stage.
+			mv.addEventListener(
+				'error',
+				() => {
+					card.remove();
+					if (!row.querySelector('.market-theme-pick')) row.hidden = true;
+				},
+				{ once: true },
+			);
+		}
+	});
+}
+
+// Fisher–Yates shuffle. Browser-only path, so Math.random is fine here.
+function shuffle(arr) {
+	for (let i = arr.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[arr[i], arr[j]] = [arr[j], arr[i]];
+	}
+	return arr;
 }
 
 // ── Featured hero (rotating 3D showcase) ─────────────────────────────────

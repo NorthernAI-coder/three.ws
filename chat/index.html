@@ -6,7 +6,11 @@
     <link rel="icon" type="image/png" href="/chat/ios/180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="manifest" href="/chat/manifest.json">
-    <meta name="theme-color" content="#FFFFFF"/>
+    <meta name="theme-color" content="#0A0A0A"/>
+    <style>
+      /* Dark canvas before the app stylesheet loads — avoids a white flash. */
+      html, body { background: #0A0A0A; color: #ECEAE3; }
+    </style>
 
     <meta name="description" content="Chat with any AI model — Claude, GPT, Gemini, Ollama and more. Powered by three.ws." />
 

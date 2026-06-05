@@ -311,10 +311,10 @@ function render(agent) {
 	}
 
 	document.querySelector('.ad-main').classList.remove('loading');
-	bindWalletActions();
+	bindWalletActions(agent.isOwner);
 	wireShareButton(agent);
 
-	loadExtraSections(agent.id, agent.rawMetadata);
+	loadExtraSections(agent.id, agent.rawMetadata, agent.isOwner);
 
 	// Layer the marketplace discovery + commerce features (3D avatar, live chat
 	// preview, creator profile, skill pricing, sale panel, embed, similar,
@@ -323,7 +323,7 @@ function render(agent) {
 	enrichAgentDetail(agent).catch((e) => log.warn('[agent-detail] enrich failed:', e?.message));
 }
 
-async function loadExtraSections(agentId, rec) {
+async function loadExtraSections(agentId, rec, isOwner) {
 	const url = (p) => `/api/agents/${encodeURIComponent(agentId)}${p}`;
 
 	const safe = async (fn) => {
@@ -334,14 +334,19 @@ async function loadExtraSections(agentId, rec) {
 		}
 	};
 
+	// Actions, memory and strategy are owner-only on the server (401/403 for
+	// anyone else). Only request them when the viewer owns the agent, so public
+	// visitors don't generate failed requests that pollute the console.
+	const ownerOnly = (fn) => (isOwner ? safe(fn) : Promise.resolve(null));
+
 	const [actions, memory, strategy, reputation, embedPolicy] = await Promise.all([
-		safe(() => fetchJson(url('/actions?limit=8'))),
-		safe(() =>
+		ownerOnly(() => fetchJson(url('/actions?limit=8'))),
+		ownerOnly(() =>
 			fetch(`/api/agent-memory?agentId=${encodeURIComponent(agentId)}&limit=6`, {
 				credentials: 'include',
 			}).then((r) => (r.ok ? r.json() : null)),
 		),
-		safe(() =>
+		ownerOnly(() =>
 			fetch(`/api/agent-strategy?id=${encodeURIComponent(agentId)}`, {
 				credentials: 'include',
 			}).then((r) => (r.ok ? r.json() : null)),
@@ -1010,7 +1015,20 @@ function wireShareButton(agent) {
 	});
 }
 
-function bindWalletActions() {
+function bindWalletActions(isOwner) {
+	// Receive / Withdraw / Swap act on funds the viewer controls, not the agent's
+	// on-chain wallet — there is no client-side key for the agent address. Showing
+	// them under AGENT HOLDINGS on agents the viewer doesn't own misrepresents what
+	// they do (it reads as "move the agent's SOL"). Server-side ownership is the
+	// authoritative signal: /api/agents/:id only returns user_id to the owner, which
+	// is what `isOwner` reflects. Hide the actions for everyone else; the balance and
+	// address above stay visible as read-only info.
+	const actions = document.getElementById('ad-holdings-actions');
+	if (!isOwner) {
+		if (actions) actions.style.display = 'none';
+		return;
+	}
+
 	const receiveBtn = document.getElementById('receive-btn');
 	const withdrawBtn = document.getElementById('withdraw-btn');
 	const swapBtn = document.getElementById('swap-btn');
@@ -1146,7 +1164,6 @@ function renderNotFound(id, reason) {
 	document.title = 'Agent not found — three.ws';
 	const main = document.querySelector('.ad-main');
 	main.innerHTML = `
-		<div class="ad-banner"><span>S1 Powered by Torque · $250K rewards</span></div>
 		<div style="padding:60px 24px;text-align:center;">
 			<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;">Agent not found</h1>
 			<p style="color:rgba(231,233,238,0.55);font-size:14px;margin:0 0 22px;">

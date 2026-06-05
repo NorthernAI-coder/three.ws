@@ -18,7 +18,7 @@ import { AnimationManager } from '../animation-manager.js';
 
 const AVATAR_DEFAULT = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
-const GALLERY_URL = '/api/avatars/public?limit=24'; // public avatar gallery — one distinct model per wanderer
+const GALLERY_URL = '/api/avatars/public?limit=96'; // public avatar gallery — a broad pool so each wanderer is a distinct community model
 const CLIP_IDLE = 'idle';
 const CLIP_WALK = 'av-walk-feminine';
 const WORLD_RADIUS = 54;       // a touch inside the plaza edge

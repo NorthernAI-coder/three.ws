@@ -56,13 +56,13 @@
 
 <div class="mt-8 max-w-[760px] mx-auto px-1">
   <div class="flex items-center justify-between">
-    <h3 class="text-sm font-semibold text-[#1A1A1A]">What would you like to build?</h3>
+    <h3 class="text-sm font-semibold text-ink">What would you like to build?</h3>
     {#if !compact}
-      <div class="flex items-center gap-3 text-sm text-[#1A1A1A]">
+      <div class="flex items-center gap-3 text-sm text-ink">
         <button class="inline-flex items-center gap-1.5 hover:underline">
           <Icon icon={feLink} size={14} /> Add website reference
         </button>
-        <span class="text-[#9C9A93]">|</span>
+        <span class="text-ink-faint">|</span>
         <button class="inline-flex items-center gap-1.5 hover:underline">
           <Icon icon={feFigma} size={14} /> Import from Figma
         </button>
@@ -89,7 +89,7 @@
         {#each ideasByCategory[$websiteCategory] as idea}
           <button class="three-ui-chip" on:click={() => selectIdea(idea)}>
             <span>{idea}</span>
-            <Icon icon={feArrowUpLeft} size={14} class="text-[#9C9A93]" />
+            <Icon icon={feArrowUpLeft} size={14} class="text-ink-faint" />
           </button>
         {/each}
       </div>

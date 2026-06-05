@@ -35,20 +35,20 @@
 
 <div class="max-w-[1100px] mx-auto px-6 pt-16 pb-24">
   <h1 class="font-serif text-4xl font-semibold mb-2">Updates</h1>
-  <p class="text-[#6B6B6B] text-base mb-12">What's new in three.ws</p>
+  <p class="text-ink-soft text-base mb-12">What's new in three.ws</p>
 
   <div class="relative">
     <!-- vertical line -->
-    <div class="absolute left-[120px] top-0 bottom-0 w-px bg-[#E5E3DC]"></div>
+    <div class="absolute left-[120px] top-0 bottom-0 w-px bg-rule"></div>
 
     <div class="space-y-10">
       {#each entries as e}
         <div class="flex gap-10">
-          <time class="w-[100px] shrink-0 text-xs text-[#9C9A93] uppercase tracking-wide pt-5 text-right">{e.date}</time>
+          <time class="w-[100px] shrink-0 text-xs text-ink-faint uppercase tracking-wide pt-5 text-right">{e.date}</time>
           <div class="flex-1 pl-8">
-            <div class="bg-white border border-[#E5E3DC] rounded-2xl p-6 hover:bg-[#FAF9F4] transition-colors">
-              <h2 class="font-serif text-xl font-semibold text-[#1A1A1A]">{e.title}</h2>
-              <p class="text-sm text-[#6B6B6B] mt-2 leading-relaxed">{e.body}</p>
+            <div class="bg-white border border-rule rounded-2xl p-6 hover:bg-paper-deep transition-colors">
+              <h2 class="font-serif text-xl font-semibold text-ink">{e.title}</h2>
+              <p class="text-sm text-ink-soft mt-2 leading-relaxed">{e.body}</p>
             </div>
           </div>
         </div>

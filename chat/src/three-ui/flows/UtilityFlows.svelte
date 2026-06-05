@@ -36,7 +36,7 @@
 {:else if $mode === 'audio'}
   <SamplePromptGrid title="Audio examples" prompts={audioPrompts} />
 {:else if $mode === 'chat'}
-  <p class="text-xs text-[#6B6B6B] mt-4 text-center">
+  <p class="text-xs text-ink-soft mt-4 text-center">
     Tools and agents are off. Plain chat with the model.
   </p>
 {:else if $mode === 'playbook'}

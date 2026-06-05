@@ -9,7 +9,7 @@
 //   api/_lib/migrations/2026-05-25-audit-log-context.sql  — ip + user_agent
 // Audit data starts 2026-05-01 — earlier deletions/revocations have no row.
 
-import { sql } from './db.js';
+import { sql, withDbRetry } from './db.js';
 import { clientIp } from './rate-limit.js';
 
 const UA_MAX = 512;
@@ -31,10 +31,10 @@ export function logAudit({ userId, action, resourceId = null, meta = null, req =
 	const resolvedUa = rawUa ? String(rawUa).slice(0, UA_MAX) : null;
 	queueMicrotask(async () => {
 		try {
-			await sql`
+			await withDbRetry(() => sql`
 				insert into audit_log (user_id, action, resource_id, meta, ip, user_agent)
 				values (${userId}, ${action}, ${resourceId}, ${meta}, ${resolvedIp}, ${resolvedUa})
-			`;
+			`);
 		} catch (err) {
 			console.error('[audit] insert failed', { action, resourceId, error: err?.message });
 		}

@@ -1,55 +1,96 @@
 const typography = require('@tailwindcss/typography');
+const palette = require('tailwindcss/colors');
+
+// ---------------------------------------------------------------------------
+// Dark theme by default.
+//
+// The chat UI was authored against a light "paper/ink" palette, using the full
+// Tailwind neutral + accent scales (slate-800 text on white, slate-200 rules,
+// etc.). Rather than annotate every one of the ~700 utility classes with a
+// `dark:` variant, we flip the palette itself: each numeric scale is mirrored
+// (50 <-> 950, 100 <-> 900, ... 500 stays) so that every light-mode colour
+// relationship inverts into its dark-mode counterpart. A dark `slate-800`
+// heading becomes a light one; a `bg-white` surface becomes near-black; a
+// `bg-indigo-50` tint becomes a deep indigo. The design intent is preserved;
+// only the luminance axis is reflected.
+//
+// `white` and `black` are remapped to act as surface/accent anchors so the
+// canvas reads as true black with subtly-raised panels.
+// ---------------------------------------------------------------------------
+
+const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+
+function invertScale(scale) {
+	if (!scale || typeof scale !== 'object') return scale;
+	const out = {};
+	for (const shade of SHADES) {
+		if (scale[shade] === undefined) continue;
+		const mirror = 1000 - shade; // 50<->950, 100<->900, ... 500<->500
+		out[shade] = scale[mirror] !== undefined ? scale[mirror] : scale[shade];
+	}
+	// preserve any non-numeric keys (e.g. DEFAULT) untouched
+	for (const key of Object.keys(scale)) {
+		if (!SHADES.includes(Number(key))) out[key] = scale[key];
+	}
+	return out;
+}
+
+const NEUTRAL_HUES = ['slate', 'gray', 'zinc', 'neutral', 'stone'];
+const ACCENT_HUES = [
+	'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal',
+	'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose',
+];
+
+const invertedScales = {};
+for (const hue of [...NEUTRAL_HUES, ...ACCENT_HUES]) {
+	if (palette[hue]) invertedScales[hue] = invertScale(palette[hue]);
+}
+
+// Dark surface/text anchors. `white` is used throughout for raised surfaces
+// (cards, panels, the composer) so it maps to a slightly-lifted near-black;
+// `black` is used for the primary accent (solid buttons) so it maps to a warm
+// near-white that reads as an inverted accent on the dark canvas.
+const SURFACE_RAISED = '#141414';
+const ACCENT_INVERTED = '#F0EEE7';
 
 function scrollbarsPlugin({ addUtilities }) {
+	const track = '#0A0A0A';
+	const thumb = 'rgba(255,255,255,0.18)';
 	addUtilities({
 		'.scrollbar-invisible': {
-			'scrollbar-color': 'white white',
-			'&::-webkit-scrollbar-track': {
-				background: 'white',
-			},
-			'&::-webkit-scrollbar-thumb': {
-				background: 'white',
-			},
+			'scrollbar-color': `${track} ${track}`,
+			'&::-webkit-scrollbar-track': { background: track },
+			'&::-webkit-scrollbar-thumb': { background: track },
 		},
 		'.scrollbar-white': {
-			'scrollbar-color': 'theme(\'colors.gray.400 / 50%\') white',
-			'&::-webkit-scrollbar-track': {
-				background: 'white',
-			},
-			'&::-webkit-scrollbar-thumb': {
-				background: 'white',
-			},
+			'scrollbar-color': `${thumb} ${track}`,
+			'&::-webkit-scrollbar-track': { background: track },
+			'&::-webkit-scrollbar-thumb': { background: thumb },
 		},
 		'.scrollbar-slim': {
 			'scrollbar-width': 'thin',
-			'&::-webkit-scrollbar': {
-				width: '6px',
-				height: '6px',
-			},
+			'&::-webkit-scrollbar': { width: '6px', height: '6px' },
 			'&::-webkit-scrollbar-track': {
-				background: "theme('colors.gray.200 / 70%')",
+				background: track,
 				'-webkit-border-radius': '10px',
 				'border-radius': '10px',
 			},
 			'&::-webkit-scrollbar-thumb': {
-				background: "theme('colors.gray.400 / 50%')",
+				background: thumb,
 				'-webkit-border-radius': '10px',
 				'border-radius': '10px',
 			},
 		},
 		'.scrollbar-ultraslim': {
 			'scrollbar-width': 'thin',
-			'&::-webkit-scrollbar': {
-				width: '3px',
-				height: '3px',
-			},
+			'&::-webkit-scrollbar': { width: '3px', height: '3px' },
 			'&::-webkit-scrollbar-track': {
-				background: "theme('colors.gray.200 / 70%')",
+				background: track,
 				'-webkit-border-radius': '10px',
 				'border-radius': '10px',
 			},
 			'&::-webkit-scrollbar-thumb': {
-				background: "theme('colors.gray.400 / 50%')",
+				background: thumb,
 				'-webkit-border-radius': '10px',
 				'border-radius': '10px',
 			},
@@ -57,16 +98,12 @@ function scrollbarsPlugin({ addUtilities }) {
 		'.scrollbar-none': {
 			'-ms-overflow-style': 'none',
 			'scrollbar-width': 'none',
-			'&::-webkit-scrollbar': {
-				display: 'none',
-			},
+			'&::-webkit-scrollbar': { display: 'none' },
 		},
 		'.scrollbar-default': {
 			'-ms-overflow-style': 'auto',
 			'scrollbar-width': 'auto',
-			'&::-webkit-scrollbar': {
-				display: 'block',
-			},
+			'&::-webkit-scrollbar': { display: 'block' },
 		},
 	});
 }
@@ -91,20 +128,25 @@ const config = {
 				serif: ['Lora', 'ui-serif', 'Georgia', 'serif'],
 			},
 			colors: {
-				paper: '#F5F4EF',
-				'paper-deep': '#EBE8E0',
-				ink: '#1A1A1A',
-				'ink-soft': '#6B6B6B',
-				rule: '#E5E3DC',
+				...invertedScales,
+				white: SURFACE_RAISED,
+				black: ACCENT_INVERTED,
+				// Semantic design tokens, flipped to a true-black dark theme.
+				paper: '#0A0A0A',        // app canvas
+				'paper-deep': '#1C1C1C', // raised / hover surface
+				ink: '#ECEAE3',          // primary text
+				'ink-soft': '#9A988F',   // secondary text
+				'ink-faint': '#6B6B6B',  // tertiary text / timestamps
+				rule: '#2A2A2A',         // hairline borders
 				'three-ui': {
-					blue: '#3B82F6',
-					'blue-soft': '#EFF6FF',
-					'blue-border': '#BFDBFE',
+					blue: '#60A5FA',
+					'blue-soft': '#172554',
+					'blue-border': '#1E40AF',
 				},
 			},
 			boxShadow: {
-				pop: '0 8px 24px -8px rgba(20,20,20,0.12), 0 2px 6px -2px rgba(20,20,20,0.06)',
-				composer: '0 1px 2px rgba(20,20,20,0.04), 0 8px 32px -16px rgba(20,20,20,0.10)',
+				pop: '0 8px 24px -8px rgba(0,0,0,0.55), 0 2px 6px -2px rgba(0,0,0,0.40)',
+				composer: '0 1px 2px rgba(0,0,0,0.40), 0 8px 32px -16px rgba(0,0,0,0.55)',
 			},
 			borderRadius: {
 				composer: '20px',

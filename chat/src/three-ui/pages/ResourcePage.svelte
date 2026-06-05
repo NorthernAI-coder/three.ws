@@ -20,6 +20,6 @@
   <TrustCenter />
 {:else}
   <div class="max-w-[1100px] mx-auto px-6 pt-16 pb-24">
-    <p class="text-[#6B6B6B]">Page not found: resources/{slug}</p>
+    <p class="text-ink-soft">Page not found: resources/{slug}</p>
   </div>
 {/if}

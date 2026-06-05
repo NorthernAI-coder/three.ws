@@ -67,8 +67,57 @@ export const PROP_CATALOG = [
 	{ id: 'pole', name: 'Pole', icon: '🎚️', foot: 0.35, glb: '/club/props/pole.glb', fitH: 3.0 },
 ];
 const PROP_BY_ID = new Map(PROP_CATALOG.map((p) => [p.id, p]));
-export function propDef(type) { return PROP_BY_ID.get(type) || null; }
+export function propDef(type) { return PROP_BY_ID.get(type) || GALLERY_PROPS.get(type) || null; }
 export const DEFAULT_PROP = PROP_CATALOG[0].id;
+
+// ── gallery props ────────────────────────────────────────────────────────────
+// Any public gallery model can be placed into a world as a prop. It rides the
+// EXACT same networking as a built-in prop: a placed object's `type` is the
+// gallery avatar id prefixed with `g:` (a UUID → 38 chars, comfortably inside the
+// server's 48-char `type` budget), so no schema or server change is needed. The
+// model's GLB url is resolved client-side — registered up-front when the user
+// picks it from the palette, and lazily fetched from /api/avatars/<id> when a
+// peer's placement (or a build restored from disk) references a model this client
+// hasn't loaded yet. Gallery defs share the same shape as GLB catalog props
+// (`glb` + `fitH` + `foot`), so the ghost, instancing and disposal paths all work
+// unchanged — gallery models are just props the catalog learns about at runtime.
+export const GALLERY_PROP_PREFIX = 'g:';
+const DEFAULT_GALLERY_FIT = 1.8;   // a human-height avatar standing on the floor
+const DEFAULT_GALLERY_FOOT = 0.5;  // snap-grid + ghost footprint half-extent
+const GALLERY_PROPS = new Map();   // 'g:<id>' → def
+
+export function isGalleryType(type) {
+	return typeof type === 'string' && type.startsWith(GALLERY_PROP_PREFIX);
+}
+
+// Register (or refresh the url of) a gallery model so it can be placed + rendered
+// as a prop. Idempotent — returns the shared def either way so callers can rely on
+// `propDef('g:'+id)` immediately after.
+export function registerGalleryProp(id, { url, name, thumbnail, fitH, foot } = {}) {
+	const type = isGalleryType(id) ? id : GALLERY_PROP_PREFIX + id;
+	let def = GALLERY_PROPS.get(type);
+	if (def) { if (url) def.glb = url; return def; }
+	def = {
+		id: type, name: name || 'Model', icon: '🧍', gallery: true,
+		glb: url || null, fitH: fitH || DEFAULT_GALLERY_FIT, foot: foot || DEFAULT_GALLERY_FOOT,
+		thumbnail: thumbnail || null,
+	};
+	GALLERY_PROPS.set(type, def);
+	return def;
+}
+
+// Resolve a gallery model we don't have registered yet (a peer placed it, or it was
+// restored from a saved build) by fetching its public avatar record for the GLB url.
+async function resolveGalleryDef(type) {
+	const id = type.slice(GALLERY_PROP_PREFIX.length);
+	const r = await fetch(`/api/avatars/${encodeURIComponent(id)}`, { headers: { accept: 'application/json' } });
+	if (!r.ok) throw new Error(`avatar ${id} → ${r.status}`);
+	const data = await r.json();
+	const a = data?.avatar || data || {};
+	const url = a.model_url || a.base_model_url || a.url;
+	if (!url) throw new Error(`avatar ${id} has no model url`);
+	return registerGalleryProp(id, { url, name: a.name, thumbnail: a.thumbnail_url });
+}
 
 // ── procedural prop builders (base at y=0) ───────────────────────────────────
 function std(color, opts = {}) {
@@ -209,11 +258,23 @@ function instanceGLB(def, holder) {
 // synchronous; GLB props attach a placeholder-free holder that populates on load.
 function buildProp(type) {
 	const def = propDef(type);
-	if (!def) return neutralBox();
-	if (def.build) return def.build();
-	const holder = new Group();
-	instanceGLB(def, holder);
-	return holder;
+	if (def && (def.build || def.glb)) {
+		if (def.build) return def.build();
+		const holder = new Group();
+		instanceGLB(def, holder);
+		return holder;
+	}
+	// A gallery model we haven't loaded yet (a peer's placement or a restored build):
+	// hold the slot now and resolve the GLB url from the API, then instance it in place
+	// so the object renders for real rather than vanishing.
+	if (isGalleryType(type)) {
+		const holder = new Group();
+		resolveGalleryDef(type)
+			.then((d) => instanceGLB(d, holder))
+			.catch((e) => { log.warn('[world-objects] gallery resolve failed', type, e?.message || e); holder.add(neutralBox()); });
+		return holder;
+	}
+	return neutralBox();
 }
 
 // Register the build-prop factory for the durable kinds R18 places. Both 'block'

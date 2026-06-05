@@ -544,9 +544,9 @@ ${file.contents}
 								<Icon icon={feChevronDown} class="w-3 h-3" />
 							</button>
 							{#if platformsOpen}
-								<div class="absolute left-0 bottom-full mb-2 bg-white border border-[#E5E3DC] rounded-xl shadow-pop z-10 min-w-[160px] py-1">
+								<div class="absolute left-0 bottom-full mb-2 bg-white border border-rule rounded-xl shadow-pop z-10 min-w-[160px] py-1">
 									{#each desktopPlatformOptions as p}
-										<label class="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[#1A1A1A] hover:bg-[#F5F4EF] cursor-pointer">
+										<label class="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-ink hover:bg-paper cursor-pointer">
 											<input
 												type="checkbox"
 												class="accent-blue-500"
@@ -588,10 +588,10 @@ ${file.contents}
 								<Icon icon={feChevronDown} class="w-3 h-3" />
 							</button>
 							{#if toneOpen}
-								<div class="absolute left-0 bottom-full mb-2 bg-white border border-[#E5E3DC] rounded-xl shadow-pop z-10 min-w-[140px]">
+								<div class="absolute left-0 bottom-full mb-2 bg-white border border-rule rounded-xl shadow-pop z-10 min-w-[140px]">
 									{#each tones as tone}
 										<button
-											class="block w-full px-4 py-2 text-sm text-left text-[#1A1A1A] hover:bg-[#F5F4EF] first:rounded-t-xl last:rounded-b-xl"
+											class="block w-full px-4 py-2 text-sm text-left text-ink hover:bg-paper first:rounded-t-xl last:rounded-b-xl"
 											on:click={() => { selectedTone = tone; toneOpen = false; }}
 										>
 											{tone}
@@ -602,20 +602,20 @@ ${file.contents}
 						</div>
 						<div class="relative">
 							<button
-								class="rounded-full bg-white border border-[#E5E3DC] h-7 px-2 inline-flex items-center gap-1 hover:bg-[#F5F4EF] transition-colors"
+								class="rounded-full bg-white border border-rule h-7 px-2 inline-flex items-center gap-1 hover:bg-paper transition-colors"
 								on:click={() => { imgModelOpen = !imgModelOpen; toneOpen = false; }}
 							>
 								<span class="w-[18px] h-[18px] rounded-full bg-black shrink-0 inline-block"></span>
 								<span class="text-base leading-none">🍌</span>
-								<Icon icon={feChevronDown} class="w-3 h-3 text-[#6B6B6B]" />
+								<Icon icon={feChevronDown} class="w-3 h-3 text-ink-soft" />
 							</button>
 							{#if imgModelOpen}
-								<div class="absolute left-0 bottom-full mb-2 bg-white border border-[#E5E3DC] rounded-xl shadow-pop z-10 min-w-[140px]">
-									<button class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-[#1A1A1A] hover:bg-[#F5F4EF] rounded-t-xl">
+								<div class="absolute left-0 bottom-full mb-2 bg-white border border-rule rounded-xl shadow-pop z-10 min-w-[140px]">
+									<button class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-ink hover:bg-paper rounded-t-xl">
 										<span class="w-[18px] h-[18px] rounded-full bg-black shrink-0 inline-block"></span>
 										OpenAI
 									</button>
-									<button class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-[#1A1A1A] hover:bg-[#F5F4EF] rounded-b-xl">
+									<button class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-ink hover:bg-paper rounded-b-xl">
 										<span class="text-base leading-none shrink-0">🍌</span>
 										Banana
 									</button>
@@ -633,12 +633,12 @@ ${file.contents}
 						</button>
 						<div class="relative">
 							<button
-								class="inline-flex items-center gap-2 h-8 px-2 pr-1 rounded-full border border-[#E5E3DC] bg-white text-sm hover:bg-[#F5F4EF] transition-colors"
+								class="inline-flex items-center gap-2 h-8 px-2 pr-1 rounded-full border border-rule bg-white text-sm hover:bg-paper transition-colors"
 								on:click={() => (designModelPickerOpen = !designModelPickerOpen)}
 							>
 								<span class="w-4 h-4 rounded-full bg-gray-900 shrink-0 inline-block"></span>
 								<span>{DESIGN_MODEL_LABELS[$designModel] ?? $designModel}</span>
-								<Icon icon={feChevronDown} class="w-3.5 h-3.5 text-[#6B6B6B]" />
+								<Icon icon={feChevronDown} class="w-3.5 h-3.5 text-ink-soft" />
 							</button>
 							{#if designModelPickerOpen}
 								<DesignModelPicker on:close={() => (designModelPickerOpen = false)} />
@@ -671,10 +671,10 @@ ${file.contents}
 										tabindex="-1"
 										on:click={() => (secondaryOpen = null)}
 									/>
-									<div class="absolute left-0 bottom-full mb-2 bg-white border border-[#E5E3DC] rounded-xl shadow-pop z-30 min-w-[160px] py-1">
+									<div class="absolute left-0 bottom-full mb-2 bg-white border border-rule rounded-xl shadow-pop z-30 min-w-[160px] py-1">
 										{#each sec.options as opt}
 											<button
-												class="block w-full px-4 py-2 text-sm text-left text-[#1A1A1A] hover:bg-[#F5F4EF] {currentVal === opt ? 'font-medium' : ''} first:rounded-t-xl last:rounded-b-xl"
+												class="block w-full px-4 py-2 text-sm text-left text-ink hover:bg-paper {currentVal === opt ? 'font-medium' : ''} first:rounded-t-xl last:rounded-b-xl"
 												on:click={() => { $flowSecondary = { ...$flowSecondary, [$mode]: opt }; secondaryOpen = null; }}
 											>
 												{opt}

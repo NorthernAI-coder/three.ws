@@ -1018,7 +1018,7 @@
 										<!-- Markdown content (knowledge skills) -->
 										{#if isContentSkill(detail) && typeof detail.content === 'string' && detail.content.length > 0}
 											<div class="mt-4 max-h-[420px] overflow-y-auto rounded border border-slate-100 bg-slate-50/50 p-3">
-												<div class="markdown prose prose-sm prose-slate max-w-none break-words prose-pre:whitespace-pre-wrap prose-pre:rounded-md prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white">
+												<div class="markdown prose prose-sm prose-slate prose-invert max-w-none break-words prose-pre:whitespace-pre-wrap prose-pre:rounded-md prose-pre:border prose-pre:border-slate-200 prose-pre:bg-white">
 													<Markdown source={detail.content} />
 												</div>
 											</div>

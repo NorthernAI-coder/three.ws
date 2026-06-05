@@ -3,7 +3,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error } from '../_lib/http.js';
-import { limits, clientIp } from '../_lib/rate-limit.js';
+import { limits } from '../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
@@ -12,7 +12,7 @@ export default wrap(async (req, res) => {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const rl = await limits.authIp(clientIp(req));
+	const rl = await limits.notificationsRead(user.id);
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
 	const params = new URL(req.url, 'http://x').searchParams;

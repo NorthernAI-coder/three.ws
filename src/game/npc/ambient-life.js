@@ -23,7 +23,7 @@ import { AnimationManager } from '../../animation-manager.js';
 import { buildAvatar, CLIP_WALK } from '../avatar-rig.js';
 import { mulberry32 } from './nav-graph.js';
 
-const GALLERY_URL = '/api/avatars/public?limit=24';
+const GALLERY_URL = '/api/avatars/public?limit=96';
 const DEFAULT_AVATAR = '/avatars/default.glb';
 
 const PED_WALK_SPEED = 1.35;     // m/s along the loop — an unhurried stroll

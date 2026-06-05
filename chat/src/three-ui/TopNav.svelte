@@ -117,8 +117,8 @@
 
 <style>
 	:global(.three-ui-card) {
-		background: #f5f4ef;
-		border: 1px solid #e5e3dc;
+		background: #0A0A0A;
+		border: 1px solid #2A2A2A;
 		border-radius: 12px;
 	}
 </style>

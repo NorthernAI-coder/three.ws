@@ -310,7 +310,7 @@
 	<div class="mx-auto flex w-full max-w-[760px] flex-col">
 		<!-- Composer card -->
 		<div
-			class="bg-white border border-[#E5E3DC] rounded-[20px] shadow-composer pt-5 px-5 pb-3"
+			class="bg-white border border-rule rounded-[20px] shadow-composer pt-5 px-5 pb-3"
 			style="min-height:140px"
 		>
 			<!-- Textarea -->
@@ -319,7 +319,7 @@
 				bind:value={content}
 				{placeholder}
 				rows={1}
-				class="w-full resize-none bg-transparent border-0 p-0 outline-none ring-0 focus:outline-none focus:ring-0 text-base text-[#1A1A1A] placeholder-[#9C9A93] font-sans overflow-y-auto scrollbar-ultraslim"
+				class="w-full resize-none bg-transparent border-0 p-0 outline-none ring-0 focus:outline-none focus:ring-0 text-base text-ink placeholder-ink-faint font-sans overflow-y-auto scrollbar-ultraslim"
 				style="max-height:320px;"
 				on:paste={handlePaste}
 				on:keydown={(event) => {
@@ -366,7 +366,7 @@
 							<img
 								src={image.url}
 								alt=""
-								class="h-16 w-16 rounded-lg border border-[#E5E3DC] object-cover"
+								class="h-16 w-16 rounded-lg border border-rule object-cover"
 							/>
 							<button
 								on:click={() => {
@@ -403,7 +403,7 @@
 				<div class="flex items-center gap-2 min-w-0">
 					<!-- "+" attach button -->
 					<button
-						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E5E3DC] bg-white text-[#1A1A1A] hover:bg-[#F0EEE6] transition-colors text-xl leading-none"
+						class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rule bg-white text-ink hover:bg-paper-deep transition-colors text-xl leading-none"
 						on:click={() => fileInputEl.click()}
 						title="Attach files"
 					>
@@ -420,14 +420,14 @@
 					<!-- Selected mode pill -->
 					{#if mode}
 						<div
-							class="flex shrink-0 items-center gap-1 rounded-full border border-[#E5E3DC] bg-[#F5F4EF] px-3 py-1 text-xs text-[#1A1A1A]"
+							class="flex shrink-0 items-center gap-1 rounded-full border border-rule bg-paper px-3 py-1 text-xs text-ink"
 						>
 							{#if modes.find((m) => m.id === mode)?.icon}
 								<Icon icon={modes.find((m) => m.id === mode).icon} class="h-3 w-3" />
 							{/if}
 							<span>{modes.find((m) => m.id === mode)?.label ?? mode}</span>
 							<button
-								class="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full hover:bg-[#E5E3DC] transition-colors"
+								class="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full hover:bg-rule transition-colors"
 								on:click={onModeClear}
 							>
 								<Icon icon={feX} class="h-2.5 w-2.5" />
@@ -573,13 +573,13 @@
 						title={recording ? 'Stop recording' : 'Speak a message'}
 						on:click={toggleVoiceInput}
 						class="flex h-9 w-9 items-center justify-center rounded-full transition-colors
-							{recording ? 'bg-red-500 text-white animate-pulse' : 'text-[#9C9A93] hover:text-[#1A1A1A]'}"
+							{recording ? 'bg-red-500 text-white animate-pulse' : 'text-ink-faint hover:text-ink'}"
 					>
 						<Icon icon={recording ? feMicOff : feMic} class="h-4 w-4" />
 					</button>
 					{#if isGenerating}
 						<button
-							class="flex h-9 w-9 items-center justify-center rounded-full bg-[#1A1A1A] transition-colors hover:bg-[#333]"
+							class="flex h-9 w-9 items-center justify-center rounded-full bg-ink transition-colors hover:bg-[#333]"
 							on:click={handleAbort}
 							title="Stop generating"
 						>
@@ -590,7 +590,7 @@
 							disabled={!canSend}
 							class="flex h-9 w-9 items-center justify-center rounded-full transition-colors {canSend
 								? 'bg-black text-white hover:bg-[#333] cursor-pointer'
-								: 'bg-[#E7E5DD] text-[#9C9A93] cursor-default'}"
+								: 'bg-paper-deep text-ink-faint cursor-default'}"
 							on:click={sendMessage}
 							title="Send message"
 						>

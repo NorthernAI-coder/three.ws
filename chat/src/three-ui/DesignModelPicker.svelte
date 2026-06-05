@@ -32,10 +32,10 @@
   on:click={() => dispatch('close')}
 />
 
-<div class="absolute bottom-full mb-2 left-0 z-30 bg-white border border-[#E5E3DC] rounded-2xl shadow-pop p-2 w-[220px]">
+<div class="absolute bottom-full mb-2 left-0 z-30 bg-white border border-rule rounded-2xl shadow-pop p-2 w-[220px]">
   {#each models as model}
     <button
-      class="flex items-center gap-3 w-full px-3 h-10 rounded-lg text-sm font-medium text-[#1A1A1A] hover:bg-[#F5F4EF]"
+      class="flex items-center gap-3 w-full px-3 h-10 rounded-lg text-sm font-medium text-ink hover:bg-paper"
       on:click={() => pick(model)}
     >
       <span class="w-5 h-5 shrink-0 flex items-center justify-center text-base leading-none">

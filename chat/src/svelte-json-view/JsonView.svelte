@@ -122,7 +122,7 @@
 	}
 	:where(._jsonBkt):not(.empty):hover {
 		cursor: pointer;
-		background: var(--jsonBracketHoverBackground, #e5e7eb);
+		background: var(--jsonBracketHoverBackground, rgba(255,255,255,0.08));
 	}
 	:where(._jsonSep) {
 		color: var(--jsonSeparatorColor, currentcolor);
@@ -134,12 +134,12 @@
 		color: var(--jsonValColor, #9ca3af);
 	}
 	:where(._jsonVal).string {
-		color: var(--jsonValStringColor, #059669);
+		color: var(--jsonValStringColor, #34d399);
 	}
 	:where(._jsonVal).number {
-		color: var(--jsonValNumberColor, #d97706);
+		color: var(--jsonValNumberColor, #fbbf24);
 	}
 	:where(._jsonVal).boolean {
-		color: var(--jsonValBooleanColor, #2563eb);
+		color: var(--jsonValBooleanColor, #60a5fa);
 	}
 </style>

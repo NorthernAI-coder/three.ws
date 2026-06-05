@@ -33,16 +33,18 @@ const _cache = new Map();
 // price panel is not.
 const STALE_MAX_MS = 5 * 60_000;
 
-// One warn per URL per cooldown so a sustained Birdeye 429 can't itself flood the
+// One warn per key per cooldown so a sustained Birdeye 429 can't itself flood the
 // logs (the very failure mode brief 09 is about).
-const _staleWarnedAt = new Map();
+const _warnedAt = new Map();
 const STALE_WARN_COOLDOWN_MS = 60_000;
-function warnStaleOnce(url, status) {
-	const last = _staleWarnedAt.get(url) || 0;
+function warnThrottled(key, msg) {
 	const now = Date.now();
-	if (now - last < STALE_WARN_COOLDOWN_MS) return;
-	_staleWarnedAt.set(url, now);
-	console.warn(`[three-token] birdeye ${status} — serving last good value (stale) for ${url.split('?')[0]}`);
+	if (now - (_warnedAt.get(key) || 0) < STALE_WARN_COOLDOWN_MS) return;
+	_warnedAt.set(key, now);
+	console.warn(msg);
+}
+function warnStaleOnce(url, status) {
+	warnThrottled(url, `[three-token] birdeye ${status} — serving last good value (stale) for ${url.split('?')[0]}`);
 }
 
 async function cachedFetch(url, headers, ttlMs = 30_000) {
@@ -85,15 +87,30 @@ async function cachedFetch(url, headers, ttlMs = 30_000) {
 
 async function fetchTokenOverview(apiKey) {
 	const headers = { 'X-API-KEY': apiKey, accept: 'application/json' };
-	const [priceResp, securityResp] = await Promise.all([
-		cachedFetch(`${BIRDEYE_BASE}/defi/price?address=${THREE_MINT}`, headers),
-		cachedFetch(`${BIRDEYE_BASE}/defi/token_overview?address=${THREE_MINT}`, headers, 60_000),
-	]);
+	// token_overview already carries price + 24h change alongside market cap,
+	// volume, holders, liquidity and supply — so one call covers everything the
+	// stats panel needs. We deliberately do NOT also hit /defi/price: a second
+	// request per stats load only doubles pressure on the shared, rate-limited
+	// Birdeye key (the source of the 429s).
+	const resp = await cachedFetch(`${BIRDEYE_BASE}/defi/token_overview?address=${THREE_MINT}`, headers, 60_000);
+	const ov = resp?.data ?? null;
 	return {
-		price: priceResp?.data?.value ?? null,
-		priceChange24h: priceResp?.data?.priceChange24h ?? null,
-		overview: securityResp?.data ?? null,
+		price: ov?.price ?? null,
+		priceChange24h: ov?.priceChange24hPercent ?? null,
+		overview: ov,
 	};
+}
+
+// Birdeye 429/5xx on a cold cache (no last-good value to fall back to) is an
+// upstream throttle, not a bug on our side — warn (throttled) instead of
+// error-spamming. A genuine client/auth error (4xx other than 429) still logs.
+function logBirdeyeFailure(err) {
+	const status = Number(/Birdeye (\d+)/.exec(err?.message || '')?.[1] || 0);
+	if (status === 429 || status >= 500) {
+		warnThrottled('birdeye-cold', `[three-token] birdeye ${status} (cold cache) — price temporarily unavailable`);
+		return;
+	}
+	console.error('[three-token] birdeye error:', err?.message);
 }
 
 async function fetchPlatformMetrics() {
@@ -166,7 +183,7 @@ export default wrap(async (req, res) => {
 		const [tokenData, platform] = await Promise.all([
 			apiKey
 				? fetchTokenOverview(apiKey).catch((err) => {
-						console.error('[three-token] birdeye error:', err.message);
+						logBirdeyeFailure(err);
 						return { price: null, priceChange24h: null, overview: null };
 					})
 				: { price: null, priceChange24h: null, overview: null },
@@ -175,27 +192,35 @@ export default wrap(async (req, res) => {
 
 		const ov = tokenData.overview || {};
 
-		return json(res, 200, {
-			token: {
-				mint: THREE_MINT,
-				symbol: '$THREE',
-				price_usd: tokenData.price,
-				price_change_24h: tokenData.priceChange24h,
-				market_cap: ov.mc ?? ov.marketCap ?? null,
-				volume_24h: ov.v24hUSD ?? ov.volume24h ?? null,
-				holders: ov.holder ?? ov.uniqueWallet30m ?? null,
-				liquidity: ov.liquidity ?? null,
-				supply: ov.supply ?? null,
-				decimals: ov.decimals ?? 6,
+		return json(
+			res,
+			200,
+			{
+				token: {
+					mint: THREE_MINT,
+					symbol: '$THREE',
+					price_usd: tokenData.price,
+					price_change_24h: tokenData.priceChange24h,
+					market_cap: ov.mc ?? ov.marketCap ?? null,
+					volume_24h: ov.v24hUSD ?? ov.volume24h ?? null,
+					holders: ov.holder ?? ov.uniqueWallet30m ?? null,
+					liquidity: ov.liquidity ?? null,
+					supply: ov.supply ?? null,
+					decimals: ov.decimals ?? 6,
+				},
+				protocol: {
+					total_agents: platform.total_agents,
+					total_revenue_usd: platform.total_revenue_gross / 1_000_000,
+					total_payments: platform.total_payments,
+					revenue_share_pool_pct: REVENUE_SHARE_POOL_PCT,
+					agent_deploy_burn: AGENT_DEPLOY_BURN,
+				},
 			},
-			protocol: {
-				total_agents: platform.total_agents,
-				total_revenue_usd: platform.total_revenue_gross / 1_000_000,
-				total_payments: platform.total_payments,
-				revenue_share_pool_pct: REVENUE_SHARE_POOL_PCT,
-				agent_deploy_burn: AGENT_DEPLOY_BURN,
-			},
-		});
+			// Edge-cache the public stats at the CDN so most page loads never reach
+			// the lambda (or Birdeye). 20s freshness is invisible for a token price;
+			// stale-while-revalidate keeps the panel populated during a refresh.
+			{ 'cache-control': 'public, s-maxage=20, stale-while-revalidate=120' },
+		);
 	}
 
 	if (action === 'revenue-share') {

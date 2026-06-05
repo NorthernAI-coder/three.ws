@@ -255,7 +255,10 @@ export function openChat(npc, { ui, serviceId, persona, greeting, world } = {}) 
 		input.style.height = 'auto';
 		addBubble('me', text);
 		history.push({ role: 'user', content: text });
-		if (history.length > HISTORY_CAP) history.splice(0, history.length - HISTORY_CAP);
+		// Keep the context bounded, and always opening on a user turn (Anthropic
+		// rejects histories that start with an assistant message).
+		while (history.length > HISTORY_CAP) history.shift();
+		if (history[0]?.role === 'assistant') history.shift();
 
 		setBusy(true);
 		const target = addBubble('npc', '');

@@ -106,7 +106,7 @@
 		return name?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
 	}
 
-	const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444'];
+	const COLORS = ['#818CF8','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444'];
 	function color(id) {
 		let h = 0;
 		for (let i = 0; i < (id?.length ?? 0); i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
@@ -220,7 +220,7 @@
 		{/if}
 		<div
 			class="{message.role === 'user'
-				? 'bg-[#EBE8E0] text-[#1A1A1A] rounded-2xl px-4 py-3 max-w-[78%] relative'
+				? 'bg-paper-deep text-ink rounded-2xl px-4 py-3 max-w-[78%] relative'
 				: 'relative flex w-full gap-x-3.5 items-end'}"
 		>
 			{#if message.role !== 'user'}
@@ -374,7 +374,7 @@
 								<div
 									class="{generating
 										? 'animate-pulse'
-										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-paper-deep px-3.5 py-2 text-left text-xs text-[#9C9A93] transition-colors hover:bg-[#E0DDD5]"
+										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-paper-deep px-3.5 py-2 text-left text-xs text-ink-faint transition-colors hover:bg-paper-deep"
 								>
 									{generating ? 'Searching' : 'Searched'} the web
 								</div>
@@ -383,7 +383,7 @@
 								<button
 									class="{message.thinking
 										? 'animate-pulse'
-										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-paper-deep px-3.5 py-2 text-left text-xs text-[#9C9A93] transition-colors hover:bg-[#E0DDD5]"
+										: ''} flex items-center gap-x-1.5 self-start rounded-full bg-paper-deep px-3.5 py-2 text-left text-xs text-ink-faint transition-colors hover:bg-paper-deep"
 									on:click={() => {
 										message.thoughtsExpanded = !message.thoughtsExpanded;
 										saveMessage(message);
@@ -399,7 +399,7 @@
 											icon={feChevronDown}
 											class="{message.thoughtsExpanded
 												? 'rotate-180'
-												: ''} h-4 w-4 text-[#9C9A93] transition-transform"
+												: ''} h-4 w-4 text-ink-faint transition-transform"
 										/>
 									{/if}
 								</button>
@@ -415,7 +415,7 @@
 										/>
 										{#if contentHeight > 400}
 											<button
-												class="sticky z-10 bottom-2 left-1/2 flex translate-x-[calc(-50%+40px)] items-center gap-x-1.5 self-start rounded-full bg-paper-deep px-3.5 py-2 text-left text-xs text-[#9C9A93] transition-colors hover:bg-[#E0DDD5]"
+												class="sticky z-10 bottom-2 left-1/2 flex translate-x-[calc(-50%+40px)] items-center gap-x-1.5 self-start rounded-full bg-paper-deep px-3.5 py-2 text-left text-xs text-ink-faint transition-colors hover:bg-paper-deep"
 												on:click={() => {
 													message.thoughtsExpanded = !message.thoughtsExpanded;
 													saveMessage(message);
@@ -741,17 +741,17 @@
 		width: 180px;
 		padding: 8px 12px 10px;
 		border-radius: 14px;
-		background: #ffffff;
-		border: 1px solid #E5E3DC;
+		background: #141414;
+		border: 1px solid #2A2A2A;
 		box-shadow: 0 4px 16px rgba(0,0,0,0.07);
 		font-size: 12px;
 		line-height: 1.45;
-		color: #1A1A1A;
+		color: #ECEAE3;
 		animation: bubble-pop 200ms ease-out;
 	}
 	.avatar-bubble--thinking {
-		background: #F8F7F4;
-		color: #6B7280;
+		background: #1C1C1C;
+		color: #9A988F;
 	}
 	.avatar-bubble-tail {
 		position: absolute;
@@ -760,12 +760,12 @@
 		transform: translateX(-50%) rotate(45deg);
 		width: 10px;
 		height: 10px;
-		background: #ffffff;
-		border-right: 1px solid #E5E3DC;
-		border-bottom: 1px solid #E5E3DC;
+		background: #141414;
+		border-right: 1px solid #2A2A2A;
+		border-bottom: 1px solid #2A2A2A;
 	}
 	.avatar-bubble--thinking .avatar-bubble-tail {
-		background: #F8F7F4;
+		background: #1C1C1C;
 	}
 	@keyframes bubble-pop {
 		from { opacity: 0; transform: translateY(4px) scale(0.97); }

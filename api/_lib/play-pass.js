@@ -150,3 +150,21 @@ export function signPlayPass({ wallet, mint, balance }) {
 		exp: now + PASS_TTL_S,
 	});
 }
+
+/**
+ * Verify an existing play pass and return its payload, or null when missing,
+ * malformed, tampered with, or expired. Mirrors the game server's verifyPlayPass
+ * (multiplayer/src/play-pass.js) so a still-valid pass can be used to silently
+ * re-issue a fresh one — possession of an unexpired, HMAC-signed pass already
+ * proves the wallet was verified minutes ago, so no new signature is needed.
+ * @param {unknown} token
+ * @returns {{ wallet: string, mint: string, balance: number, tier: string, iat: number, exp: number } | null}
+ */
+export function verifyPlayPass(token) {
+	const payload = open(token, 'play-pass');
+	if (!payload || payload.tier !== 'play') return null;
+	if (typeof payload.wallet !== 'string' || !payload.wallet) return null;
+	if (typeof payload.mint !== 'string' || !payload.mint) return null;
+	if (typeof payload.balance !== 'number' || !Number.isFinite(payload.balance) || payload.balance < 0) return null;
+	return payload;
+}

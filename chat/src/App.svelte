@@ -2199,7 +2199,7 @@
     <ResourcePage slug={$route.slice('resources/'.length)} />
   </div>
 {:else if $route === 'dashboard/revenue'}
-  <div class="min-h-dvh bg-[#F5F4EF]">
+  <div class="min-h-dvh bg-paper">
     <div class="sticky top-0 z-[110]"><TopNav /></div>
     <RevenueDashboard />
   </div>
@@ -2269,13 +2269,13 @@
 					tabindex="-1"
 					on:click={() => (exportOpen = false)}
 				/>
-				<div class="absolute right-0 top-full mt-1 z-30 w-48 rounded-xl border border-[#E5E3DC] bg-white p-1 shadow-pop">
+				<div class="absolute right-0 top-full mt-1 z-30 w-48 rounded-xl border border-rule bg-white p-1 shadow-pop">
 					<button
-						class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-[#1A1A1A] hover:bg-[#F5F4EF]"
+						class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-paper"
 						on:click={exportConvoAsMarkdown}
 					>Export as Markdown</button>
 					<button
-						class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-[#1A1A1A] hover:bg-[#F5F4EF]"
+						class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-paper"
 						on:click={exportConvoAsJSON}
 					>Export as JSON</button>
 				</div>
@@ -2526,13 +2526,13 @@
 							tabindex="-1"
 							on:click={() => (exportOpen = false)}
 						/>
-						<div class="absolute right-0 top-full mt-1 z-30 w-48 rounded-xl border border-[#E5E3DC] bg-white p-1 shadow-pop">
+						<div class="absolute right-0 top-full mt-1 z-30 w-48 rounded-xl border border-rule bg-white p-1 shadow-pop">
 							<button
-								class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-[#1A1A1A] hover:bg-[#F5F4EF]"
+								class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-paper"
 								on:click={exportConvoAsMarkdown}
 							>Export as Markdown</button>
 							<button
-								class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-[#1A1A1A] hover:bg-[#F5F4EF]"
+								class="flex h-9 w-full items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-paper"
 								on:click={exportConvoAsJSON}
 							>Export as JSON</button>
 						</div>
@@ -2862,12 +2862,12 @@
 	}
 
 	:global(.markdown.prose :where(a):not(:where([class~='not-prose'], [class~='not-prose'] *))) {
-		color: #1A1A1A;
+		color: #ECEAE3;
 	}
 
 	:global(.markdown.prose :where(pre):not(:where([class~='not-prose'], [class~='not-prose'] *))) {
-		background-color: #EBE8E0;
-		border-color: #E5E3DC;
+		background-color: #1C1C1C;
+		border-color: #2A2A2A;
 	}
 
 	.avatar-floater {
@@ -2909,8 +2909,8 @@
 		margin-bottom: 14px;
 		padding: 10px 14px 12px;
 		border-radius: 18px;
-		background: #ffffff;
-		border: 1px solid #E5E3DC;
+		background: #141414;
+		border: 1px solid #2A2A2A;
 		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 		font-family: 'Inter', system-ui, sans-serif;
 		animation: thought-bubble-pop 220ms ease-out;
@@ -2929,7 +2929,7 @@
 		margin-bottom: 6px;
 		font-size: 11px;
 		font-weight: 600;
-		color: #9C9A93;
+		color: #6B6B6B;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
 	}
@@ -2945,11 +2945,11 @@
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
-		background: #6366F1;
+		background: #818CF8;
 		animation: thought-bubble-pulse 1.2s ease-in-out infinite;
 	}
 	.thought-bubble-dot.idle {
-		background: #C7C4BB;
+		background: #3A3A3A;
 		animation: none;
 	}
 
@@ -2963,20 +2963,20 @@
 		overflow-y: auto;
 		font-size: 12px;
 		line-height: 1.5;
-		color: #4B4A45;
+		color: #C9C7C0;
 		white-space: pre-wrap;
 		word-break: break-word;
 		scrollbar-width: thin;
-		scrollbar-color: #D4D2CA transparent;
+		scrollbar-color: #3A3A3A transparent;
 		mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
 		-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
 	}
 
 	.thought-bubble-body::-webkit-scrollbar { width: 4px; }
-	.thought-bubble-body::-webkit-scrollbar-thumb { background: #D4D2CA; border-radius: 2px; }
+	.thought-bubble-body::-webkit-scrollbar-thumb { background: #3A3A3A; border-radius: 2px; }
 
 	.thought-bubble-placeholder {
-		color: #9C9A93;
+		color: #6B6B6B;
 		font-style: italic;
 	}
 
@@ -2984,8 +2984,8 @@
 		position: absolute;
 		right: 28px;
 		border-radius: 50%;
-		background: #ffffff;
-		border: 1px solid #E5E3DC;
+		background: #141414;
+		border: 1px solid #2A2A2A;
 		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 	}
 	.thought-bubble-tail-1 {
@@ -3003,53 +3003,8 @@
 		visibility: visible;
 		opacity: 1;
 	}
-	:global(.h-footer-horizon) {
-		background: #F5F4EF !important;
-		color: #1A1A1A !important;
-		border-top: 1px solid #E5E3DC !important;
-	}
-	:global(.h-footer-horizon .h-footer-glow-line, .h-footer-horizon .h-footer-floor, .h-footer-horizon .h-footer-haze, .h-footer-horizon .h-footer-watermark) {
-		display: none;
-	}
-	:global(.h-footer-links a) {
-		color: rgba(0,0,0,0.65) !important;
-	}
-	:global(.h-footer-links a:hover) {
-		color: #000 !important;
-		text-shadow: none !important;
-	}
-	:global(.h-footer-link-heading) {
-		color: rgba(0,0,0,0.45) !important;
-	}
-	:global(.h-footer-brand) {
-		color: #000 !important;
-	}
-	:global(.h-footer-brand .wordmark-dot) {
-		background: #000 !important;
-		box-shadow: none !important;
-	}
-	:global(.h-footer-tagline) {
-		color: rgba(0,0,0,0.55) !important;
-	}
-	:global(.h-footer-legal) {
-		color: rgba(0,0,0,0.52) !important;
-	}
-	:global(.h-footer-legal-links a) {
-		color: rgba(0,0,0,0.65) !important;
-	}
-	:global(.h-footer-social) {
-		color: rgba(0,0,0,0.65) !important;
-		background: rgba(0,0,0,0.03) !important;
-		border-color: rgba(0,0,0,0.06) !important;
-	}
-	:global(.h-footer-social:hover) {
-		color: #000 !important;
-		background: rgba(0,0,0,0.08) !important;
-		border-color: rgba(0,0,0,0.18) !important;
-	}
-	:global(.h-footer-bottom) {
-		border-top: 1px solid rgba(0,0,0,0.06) !important;
-	}
+	/* The chat canvas is dark, so let the shared (dark) footer.css show through
+	   unchanged — only keep the layout spacing tweak. */
 	:global(.h-footer-inner) {
 		margin-bottom: 2rem;
 	}

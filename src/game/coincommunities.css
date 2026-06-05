@@ -1603,12 +1603,45 @@ html, body {
 .cc-prop:focus-visible { outline: 2px solid #66ff8c; outline-offset: 2px; }
 .cc-prop.cc-on { background: #f4f5f7; color: var(--cc-ink); border-color: #f4f5f7; }
 .cc-prop-ico { font-size: 19px; line-height: 1; }
-.cc-prop-name { font-size: 10px; letter-spacing: 0.02em; white-space: nowrap; }
+.cc-prop-name { font-size: 10px; letter-spacing: 0.02em; white-space: nowrap; max-width: 64px; overflow: hidden; text-overflow: ellipsis; }
+
+/* community gallery models streamed into the props row */
+.cc-prop-thumb {
+    width: 30px; height: 30px; border-radius: 7px; object-fit: cover; display: block;
+    background: rgba(255, 255, 255, 0.06);
+}
+.cc-prop.cc-on .cc-prop-thumb { box-shadow: 0 0 0 1px var(--cc-ink); }
+.cc-prop-divider {
+    flex: 0 0 auto; align-self: stretch; width: 1px; margin: 2px 1px;
+    background: var(--cc-edge); border-radius: 1px;
+}
+.cc-prop-divider[hidden] { display: none; }
+.cc-prop-more { border-style: dashed; border-color: var(--cc-edge); color: var(--cc-dim); }
+.cc-prop-more:hover { border-color: var(--cc-edge-hi); color: var(--cc-text); }
+.cc-prop-more[hidden] { display: none; }
+.cc-prop-search {
+    flex: 1 1 auto; min-width: 0; max-width: 220px; height: 27px; margin: 0 8px;
+    padding: 0 10px; border-radius: var(--cc-radius-sm);
+    border: 1px solid var(--cc-edge); background: rgba(255, 255, 255, 0.04);
+    color: var(--cc-text); font: inherit; font-size: 12px;
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    transition: background 0.12s, border-color 0.12s;
+}
+.cc-prop-search::placeholder { color: var(--cc-dim); }
+.cc-prop-search:focus { outline: none; border-color: var(--cc-edge-hi); background: rgba(255, 255, 255, 0.08); }
+.cc-prop-gstatus {
+    align-self: center; padding: 2px 6px; color: var(--cc-dim);
+    font-size: 11px; letter-spacing: 0.02em; pointer-events: auto;
+}
+.cc-prop-gstatus[hidden] { display: none; }
+.cc-prop-gstatus.cc-err { color: #ff8a8a; cursor: pointer; }
+.cc-prop-gstatus.cc-err:focus-visible { outline: 2px solid #66ff8c; outline-offset: 2px; }
 
 @media (pointer: coarse) { #cc-props { bottom: 150px; } }
 @media (max-width: 560px) {
     #cc-props { bottom: 156px; width: 96vw; }
     .cc-prop { min-width: 48px; }
+    .cc-prop-search { max-width: none; }
 }
 
 /* ---------------- share-a-build sheet (R20) ---------------- */

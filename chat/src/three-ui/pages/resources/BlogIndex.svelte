@@ -14,15 +14,15 @@
 
 <div class="max-w-[1100px] mx-auto px-6 pt-16 pb-24">
   <h1 class="font-serif text-4xl font-semibold mb-2">Blog</h1>
-  <p class="text-[#6B6B6B] text-base mb-12">Ideas, guides, and stories from the three.ws team</p>
+  <p class="text-ink-soft text-base mb-12">Ideas, guides, and stories from the three.ws team</p>
 
   <div class="grid md:grid-cols-3 gap-6">
     {#each articles as a}
-      <article class="bg-white border border-[#E5E3DC] rounded-2xl p-6 hover:bg-[#FAF9F4] transition-colors cursor-pointer">
-        <span class="inline-block text-xs uppercase tracking-wide text-[#6B6B6B]">{a.tag}</span>
-        <h2 class="font-serif text-xl mt-2 text-[#1A1A1A]">{a.title}</h2>
-        <p class="text-sm text-[#6B6B6B] mt-2 line-clamp-2">{a.excerpt}</p>
-        <div class="text-xs text-[#9C9A93] mt-4">{a.date} · {a.read}</div>
+      <article class="bg-white border border-rule rounded-2xl p-6 hover:bg-paper-deep transition-colors cursor-pointer">
+        <span class="inline-block text-xs uppercase tracking-wide text-ink-soft">{a.tag}</span>
+        <h2 class="font-serif text-xl mt-2 text-ink">{a.title}</h2>
+        <p class="text-sm text-ink-soft mt-2 line-clamp-2">{a.excerpt}</p>
+        <div class="text-xs text-ink-faint mt-4">{a.date} · {a.read}</div>
       </article>
     {/each}
   </div>

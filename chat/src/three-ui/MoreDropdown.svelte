@@ -45,10 +45,10 @@
 />
 
 <!-- Dropdown card -->
-<div class="absolute bottom-full mb-2 right-0 z-30 bg-white border border-[#E5E3DC] rounded-2xl shadow-pop p-2 w-[260px]">
+<div class="absolute bottom-full mb-2 right-0 z-30 bg-white border border-rule rounded-2xl shadow-pop p-2 w-[260px]">
   {#each items as item}
     <button
-      class="flex items-center gap-3 w-full px-3 h-10 rounded-lg text-sm font-medium text-[#1A1A1A] hover:bg-[#F5F4EF]"
+      class="flex items-center gap-3 w-full px-3 h-10 rounded-lg text-sm font-medium text-ink hover:bg-paper"
       on:click={() => pick(item)}
     >
       <Icon icon={item.icon} class="h-4 w-4 shrink-0" />

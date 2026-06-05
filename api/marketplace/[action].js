@@ -179,42 +179,77 @@ async function handleTheme(req, res) {
 	const weekNum = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
 	const cat = THEME_CATEGORIES[weekNum % THEME_CATEGORIES.length];
 
-	let rows;
-	try {
-		rows = await sql`
-			SELECT a.id, a.name, a.description, a.category, a.tags, a.skills,
-			       a.views_count, a.forks_count,
-			       COALESCE((SELECT AVG(rating)::numeric(3,2) FROM agent_reviews r WHERE r.agent_id = a.id), 0) AS rating_avg,
-			       COALESCE((SELECT COUNT(*) FROM agent_reviews r WHERE r.agent_id = a.id), 0) AS rating_count,
-			       a.published_at, a.created_at,
-			       v.storage_key AS avatar_storage_key,
-			       (v.visibility IS NULL OR v.visibility IN ('public', 'unlisted')) AS avatar_public,
-			       v.thumbnail_key
-			FROM agent_identities a
-			LEFT JOIN avatars v ON v.id = a.avatar_id AND v.deleted_at IS NULL
-			WHERE a.is_published = true AND a.deleted_at IS NULL
-			  AND (${cat.slug === 'general'} OR a.category = ${cat.slug})
-			ORDER BY a.views_count DESC, rating_avg DESC
-			LIMIT 8
+	// Top Picks pulls a randomized lineup of the community's most-viewed agents
+	// that actually carry a public 3D avatar — every pick renders a real GLB,
+	// and the order reshuffles per request so the strip always feels alive.
+	// We INNER JOIN avatars (not LEFT) so agents without a 3D asset never appear.
+	// Strategy: take the top-by-views pool, then `random()` within it. Themed
+	// weeks scope to their category but fall back to the global pool when that
+	// category has too few 3D-backed agents to fill the strip.
+	const PICKS_LIMIT = 12;
+	const POOL_SIZE = 60;
+
+	// Two literal variants instead of composed `sql` fragments: the Neon HTTP
+	// driver binds interpolations as parameters and doesn't support nested
+	// tagged-template fragments. The no-ratings variant is the fallback for
+	// databases without the agent_reviews table/columns yet.
+	function queryWithRatings(scopeToCategory) {
+		return sql`
+			WITH pool AS (
+				SELECT a.id, a.name, a.description, a.category, a.tags, a.skills,
+				       a.views_count, a.forks_count,
+				       COALESCE((SELECT AVG(rating)::numeric(3,2) FROM agent_reviews r WHERE r.agent_id = a.id), 0) AS rating_avg,
+				       COALESCE((SELECT COUNT(*) FROM agent_reviews r WHERE r.agent_id = a.id), 0) AS rating_count,
+				       a.published_at, a.created_at,
+				       v.storage_key AS avatar_storage_key,
+				       v.thumbnail_key
+				FROM agent_identities a
+				JOIN avatars v ON v.id = a.avatar_id AND v.deleted_at IS NULL
+				WHERE a.is_published = true AND a.deleted_at IS NULL
+				  AND v.storage_key IS NOT NULL
+				  AND (v.visibility IS NULL OR v.visibility IN ('public', 'unlisted'))
+				  AND (${!scopeToCategory} OR a.category = ${cat.slug})
+				ORDER BY a.views_count DESC NULLS LAST
+				LIMIT ${POOL_SIZE}
+			)
+			SELECT * FROM pool ORDER BY random() LIMIT ${PICKS_LIMIT}
 		`;
-	} catch (err) {
-		// 42P01 = table does not exist, 42703 = column does not exist
-		if (err.code === '42P01' || err.code === '42703') {
-			rows = await sql`
+	}
+	function queryNoRatings(scopeToCategory) {
+		return sql`
+			WITH pool AS (
 				SELECT a.id, a.name, a.description, a.category, a.tags, a.skills,
 				       a.views_count, a.forks_count,
 				       0::numeric AS rating_avg, 0::int AS rating_count,
 				       a.published_at, a.created_at,
 				       v.storage_key AS avatar_storage_key,
-				       (v.visibility IS NULL OR v.visibility IN ('public', 'unlisted')) AS avatar_public,
 				       v.thumbnail_key
 				FROM agent_identities a
-				LEFT JOIN avatars v ON v.id = a.avatar_id AND v.deleted_at IS NULL
+				JOIN avatars v ON v.id = a.avatar_id AND v.deleted_at IS NULL
 				WHERE a.is_published = true AND a.deleted_at IS NULL
-				  AND (${cat.slug === 'general'} OR a.category = ${cat.slug})
-				ORDER BY a.views_count DESC
-				LIMIT 8
-			`;
+				  AND v.storage_key IS NOT NULL
+				  AND (v.visibility IS NULL OR v.visibility IN ('public', 'unlisted'))
+				  AND (${!scopeToCategory} OR a.category = ${cat.slug})
+				ORDER BY a.views_count DESC NULLS LAST
+				LIMIT ${POOL_SIZE}
+			)
+			SELECT * FROM pool ORDER BY random() LIMIT ${PICKS_LIMIT}
+		`;
+	}
+
+	const scopeToCategory = cat.slug !== 'general';
+	let rows;
+	try {
+		rows = await queryWithRatings(scopeToCategory);
+		// A themed category with a thin 3D lineup falls back to the global pool
+		// so the strip is never half-empty.
+		if (scopeToCategory && rows.length < 4) rows = await queryWithRatings(false);
+	} catch (err) {
+		// 42P01 = table does not exist, 42703 = column does not exist (e.g. no
+		// reviews table yet). Retry without the rating subqueries.
+		if (err.code === '42P01' || err.code === '42703') {
+			rows = await queryNoRatings(scopeToCategory);
+			if (scopeToCategory && rows.length < 4) rows = await queryNoRatings(false);
 		} else {
 			throw err;
 		}
@@ -232,7 +267,7 @@ async function handleTheme(req, res) {
 		rating_avg: Number(row.rating_avg || 0),
 		rating_count: row.rating_count || 0,
 		thumbnail_url: row.thumbnail_key ? publicUrl(row.thumbnail_key) : null,
-		avatar_glb_url: row.avatar_public && row.avatar_storage_key ? publicUrl(row.avatar_storage_key) : null,
+		avatar_glb_url: row.avatar_storage_key ? publicUrl(row.avatar_storage_key) : null,
 		published_at: row.published_at,
 	}));
 
@@ -240,7 +275,9 @@ async function handleTheme(req, res) {
 		res,
 		200,
 		{ data: { theme: { title: cat.title, blurb: cat.blurb, category: cat.slug, agents } } },
-		{ 'cache-control': 'public, max-age=3600, stale-while-revalidate=7200' },
+		// Short cache: the lineup is randomized per request, so a long freeze would
+		// defeat the shuffle. The client reshuffles on top of this for per-load variety.
+		{ 'cache-control': 'public, max-age=120, stale-while-revalidate=600' },
 	);
 }
 

@@ -22,7 +22,7 @@
 
 <section class="pt-20 pb-24">
   <h1 class="three.ws-display text-center">Simple pricing.<br/>Built for momentum.</h1>
-  <p class="text-[#6B6B6B] text-lg max-w-[640px] text-center mx-auto mt-6">
+  <p class="text-ink-soft text-lg max-w-[640px] text-center mx-auto mt-6">
     Start free. Upgrade when your team is ready to ship more.
   </p>
 
@@ -30,13 +30,13 @@
     {#each plans as p}
       <div class={'rounded-2xl p-8 flex flex-col border ' + (p.highlight
         ? 'bg-black text-white border-black'
-        : 'bg-white text-[#1A1A1A] border-[#E5E3DC]')}>
+        : 'bg-white text-ink border-rule')}>
         <div class="text-sm font-medium opacity-80">{p.name}</div>
         <div class="mt-2 flex items-baseline gap-1">
           <span class="font-serif text-5xl font-semibold">{p.price}</span>
-          <span class={p.highlight ? 'text-white/60 text-base' : 'text-[#6B6B6B] text-base'}>{p.suffix}</span>
+          <span class={p.highlight ? 'text-white/60 text-base' : 'text-ink-soft text-base'}>{p.suffix}</span>
         </div>
-        <div class={'mt-2 text-sm ' + (p.highlight ? 'text-white/70' : 'text-[#6B6B6B]')}>{p.tag}</div>
+        <div class={'mt-2 text-sm ' + (p.highlight ? 'text-white/70' : 'text-ink-soft')}>{p.tag}</div>
         <ul class="mt-6 space-y-2 text-sm">
           {#each p.features as f}
             <li class="flex items-center gap-2">
@@ -47,18 +47,18 @@
         </ul>
         <button class={'mt-8 h-10 rounded-full text-sm font-medium ' + (p.highlight
           ? 'bg-white text-black hover:bg-white/90'
-          : 'bg-black text-white hover:bg-[#1A1A1A]')}>{p.cta}</button>
+          : 'bg-black text-white hover:bg-ink')}>{p.cta}</button>
       </div>
     {/each}
   </div>
 
   <div class="max-w-[760px] mx-auto px-6 mt-24">
     <h2 class="font-serif text-3xl font-semibold mb-6">Questions</h2>
-    <div class="divide-y divide-[#E5E3DC] border-t border-[#E5E3DC]">
+    <div class="divide-y divide-rule border-t border-rule">
       {#each faqs as f}
         <details class="py-4">
-          <summary class="cursor-pointer font-medium text-[#1A1A1A]">{f.q}</summary>
-          <p class="mt-2 text-[#6B6B6B] text-sm">{f.a}</p>
+          <summary class="cursor-pointer font-medium text-ink">{f.q}</summary>
+          <p class="mt-2 text-ink-soft text-sm">{f.a}</p>
         </details>
       {/each}
     </div>

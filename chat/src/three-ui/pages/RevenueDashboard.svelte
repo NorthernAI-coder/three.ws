@@ -190,14 +190,14 @@
 <section class="pt-10 pb-20 px-4 max-w-2xl mx-auto">
   <div class="flex items-center gap-3 mb-8">
     <button
-      class="text-[#6B6B6B] hover:text-[#1A1A1A] text-sm"
+      class="text-ink-soft hover:text-ink text-sm"
       on:click={() => route.set('chat')}
     >← Back</button>
-    <h1 class="font-serif text-2xl font-semibold text-[#1A1A1A]">Revenue &amp; Withdrawals</h1>
+    <h1 class="font-serif text-2xl font-semibold text-ink">Revenue &amp; Withdrawals</h1>
   </div>
 
   {#if loading}
-    <p class="text-[#6B6B6B] text-sm">Loading…</p>
+    <p class="text-ink-soft text-sm">Loading…</p>
   {:else if loadError}
     <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{loadError}</div>
   {:else}
@@ -211,12 +211,12 @@
       { label: 'Net Earnings', value: revenueData.summary.net_total },
       { label: 'Payments', count: revenueData.summary.payment_count },
     ] as card}
-    <div class="rounded-xl border border-[#E5E3DC] bg-white p-4">
-      <p class="text-xs text-[#6B6B6B] mb-1">{card.label}</p>
+    <div class="rounded-xl border border-rule bg-white p-4">
+      <p class="text-xs text-ink-soft mb-1">{card.label}</p>
       {#if card.count !== undefined}
-        <p class="text-lg font-semibold text-[#1A1A1A]">{card.count}</p>
+        <p class="text-lg font-semibold text-ink">{card.count}</p>
       {:else}
-        <p class="text-lg font-semibold {card.neg ? 'text-red-600' : 'text-[#1A1A1A]'}">
+        <p class="text-lg font-semibold {card.neg ? 'text-red-600' : 'text-ink'}">
           {card.neg ? '−' : ''}{formatUSDC(card.value)}
         </p>
       {/if}
@@ -226,19 +226,19 @@
   {/if}
 
   <!-- Withdraw Earnings -->
-  <div class="rounded-2xl border border-[#E5E3DC] bg-white p-6 mb-6">
-    <h2 class="font-semibold text-[#1A1A1A] mb-4">Withdraw Earnings</h2>
+  <div class="rounded-2xl border border-rule bg-white p-6 mb-6">
+    <h2 class="font-semibold text-ink mb-4">Withdraw Earnings</h2>
 
     <!-- Available balance -->
     <div class="flex items-baseline gap-2 mb-5">
-      <span class="text-sm text-[#6B6B6B]">Available balance</span>
-      <span class="text-xl font-semibold text-[#1A1A1A]">{formatUSDC(availableBalance)}</span>
+      <span class="text-sm text-ink-soft">Available balance</span>
+      <span class="text-xl font-semibold text-ink">{formatUSDC(availableBalance)}</span>
     </div>
 
     {#if noWallets}
-      <div class="rounded-xl bg-[#F5F4EF] border border-[#E5E3DC] p-4 text-sm text-[#6B6B6B] mb-4">
+      <div class="rounded-xl bg-paper border border-rule p-4 text-sm text-ink-soft mb-4">
         No payout wallet configured.
-        <button class="text-[#1A1A1A] underline ml-1" on:click={() => route.set('settings/payout-wallets')}>
+        <button class="text-ink underline ml-1" on:click={() => route.set('settings/payout-wallets')}>
           Add a wallet
         </button>
         to enable withdrawals.
@@ -247,7 +247,7 @@
 
     <!-- Amount -->
     <label class="block mb-4">
-      <span class="text-xs font-medium text-[#6B6B6B] mb-1.5 block">Amount (USDC)</span>
+      <span class="text-xs font-medium text-ink-soft mb-1.5 block">Amount (USDC)</span>
       <div class="flex gap-2">
         <input
           type="number"
@@ -256,13 +256,13 @@
           bind:value={amountDisplay}
           disabled={noWallets}
           placeholder="0.00"
-          class="flex-1 h-11 px-4 rounded-xl border border-[#E5E3DC] bg-white focus:outline-none focus:border-[#1A1A1A] disabled:bg-[#F5F4EF] disabled:text-[#9C9A93] text-sm"
+          class="flex-1 h-11 px-4 rounded-xl border border-rule bg-white focus:outline-none focus:border-ink disabled:bg-paper disabled:text-ink-faint text-sm"
         />
         <button
           type="button"
           disabled={noWallets || availableBalance === 0}
           on:click={setMax}
-          class="h-11 px-4 rounded-xl border border-[#E5E3DC] bg-white text-sm font-medium text-[#1A1A1A] hover:bg-[#F5F4EF] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          class="h-11 px-4 rounded-xl border border-rule bg-white text-sm font-medium text-ink hover:bg-paper disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >Max</button>
       </div>
       {#if amountErr}
@@ -272,12 +272,12 @@
 
     <!-- Wallet selector -->
     <label class="block mb-5">
-      <span class="text-xs font-medium text-[#6B6B6B] mb-1.5 block">To wallet</span>
+      <span class="text-xs font-medium text-ink-soft mb-1.5 block">To wallet</span>
       <div class="flex gap-2 items-center">
         {#if wallets.length > 0}
           <select
             bind:value={selectedWalletId}
-            class="flex-1 h-11 px-4 rounded-xl border border-[#E5E3DC] bg-white focus:outline-none focus:border-[#1A1A1A] text-sm"
+            class="flex-1 h-11 px-4 rounded-xl border border-rule bg-white focus:outline-none focus:border-ink text-sm"
           >
             {#each wallets as w}
               <option value={w.id}>
@@ -286,12 +286,12 @@
             {/each}
           </select>
         {:else}
-          <div class="flex-1 h-11 px-4 rounded-xl border border-[#E5E3DC] bg-[#F5F4EF] flex items-center text-sm text-[#9C9A93]">
+          <div class="flex-1 h-11 px-4 rounded-xl border border-rule bg-paper flex items-center text-sm text-ink-faint">
             No wallets
           </div>
         {/if}
         <button
-          class="text-sm text-[#1A1A1A] underline whitespace-nowrap"
+          class="text-sm text-ink underline whitespace-nowrap"
           on:click={() => route.set('settings/payout-wallets')}
         >+ Add wallet</button>
       </div>
@@ -315,7 +315,7 @@
         type="button"
         disabled={noWallets || submitting || availableBalance === 0}
         on:click={submit}
-        class="w-full h-11 rounded-full bg-black text-white text-sm font-medium hover:bg-[#1A1A1A] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        class="w-full h-11 rounded-full bg-black text-white text-sm font-medium hover:bg-ink disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         {submitting ? 'Requesting…' : 'Request Withdrawal'}
       </button>
@@ -323,34 +323,34 @@
   </div>
 
   <!-- Withdrawal History -->
-  <div class="rounded-2xl border border-[#E5E3DC] bg-white p-6">
-    <h2 class="font-semibold text-[#1A1A1A] mb-4">Withdrawal History</h2>
+  <div class="rounded-2xl border border-rule bg-white p-6">
+    <h2 class="font-semibold text-ink mb-4">Withdrawal History</h2>
 
     {#if withdrawals.length === 0}
-      <p class="text-sm text-[#9C9A93]">No withdrawals yet.</p>
+      <p class="text-sm text-ink-faint">No withdrawals yet.</p>
     {:else}
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-[#E5E3DC]">
-              <th class="py-2 pr-4 text-left text-xs font-medium text-[#6B6B6B]">Date</th>
-              <th class="py-2 pr-4 text-left text-xs font-medium text-[#6B6B6B]">Amount</th>
-              <th class="py-2 pr-4 text-left text-xs font-medium text-[#6B6B6B]">Wallet</th>
-              <th class="py-2 pr-4 text-left text-xs font-medium text-[#6B6B6B]">Status</th>
-              <th class="py-2 text-left text-xs font-medium text-[#6B6B6B]">Tx</th>
+            <tr class="border-b border-rule">
+              <th class="py-2 pr-4 text-left text-xs font-medium text-ink-soft">Date</th>
+              <th class="py-2 pr-4 text-left text-xs font-medium text-ink-soft">Amount</th>
+              <th class="py-2 pr-4 text-left text-xs font-medium text-ink-soft">Wallet</th>
+              <th class="py-2 pr-4 text-left text-xs font-medium text-ink-soft">Status</th>
+              <th class="py-2 text-left text-xs font-medium text-ink-soft">Tx</th>
             </tr>
           </thead>
           <tbody>
             {#each withdrawals as w}
               {@const txUrl = explorerUrl(w)}
-              <tr class="border-b border-[#E5E3DC] last:border-0">
-                <td class="py-3 pr-4 text-[#6B6B6B] whitespace-nowrap">
+              <tr class="border-b border-rule last:border-0">
+                <td class="py-3 pr-4 text-ink-soft whitespace-nowrap">
                   {new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </td>
-                <td class="py-3 pr-4 font-mono text-[#1A1A1A] whitespace-nowrap">
+                <td class="py-3 pr-4 font-mono text-ink whitespace-nowrap">
                   {formatUSDC(w.amount)}
                 </td>
-                <td class="py-3 pr-4 font-mono text-[#6B6B6B] whitespace-nowrap">
+                <td class="py-3 pr-4 font-mono text-ink-soft whitespace-nowrap">
                   {truncateAddr(w.to_address)}
                 </td>
                 <td class="py-3 pr-4">
@@ -365,7 +365,7 @@
                       {w.tx_signature.slice(0, 8)}…
                     </a>
                   {:else}
-                    <span class="text-xs text-[#9C9A93]">—</span>
+                    <span class="text-xs text-ink-faint">—</span>
                   {/if}
                 </td>
               </tr>
@@ -376,18 +376,18 @@
 
       <!-- Pagination -->
       {#if withdrawalsTotal > HIST_LIMIT}
-        <div class="flex items-center justify-between mt-4 text-sm text-[#6B6B6B]">
+        <div class="flex items-center justify-between mt-4 text-sm text-ink-soft">
           <span>{histOffset + 1}–{Math.min(histOffset + HIST_LIMIT, withdrawalsTotal)} of {withdrawalsTotal}</span>
           <div class="flex gap-2">
             <button
               disabled={histOffset === 0}
               on:click={prevPage}
-              class="px-3 py-1 rounded-lg border border-[#E5E3DC] hover:bg-[#F5F4EF] disabled:opacity-40 disabled:cursor-not-allowed"
+              class="px-3 py-1 rounded-lg border border-rule hover:bg-paper disabled:opacity-40 disabled:cursor-not-allowed"
             >← Prev</button>
             <button
               disabled={histOffset + HIST_LIMIT >= withdrawalsTotal}
               on:click={nextPage}
-              class="px-3 py-1 rounded-lg border border-[#E5E3DC] hover:bg-[#F5F4EF] disabled:opacity-40 disabled:cursor-not-allowed"
+              class="px-3 py-1 rounded-lg border border-rule hover:bg-paper disabled:opacity-40 disabled:cursor-not-allowed"
             >Next →</button>
           </div>
         </div>

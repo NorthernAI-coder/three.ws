@@ -321,6 +321,12 @@ export const limits = {
 	// per user is generous for browse but discourages scraping the full year.
 	auditLogRead: (userId) =>
 		getLimiter('audit-log:read', { limit: 120, window: '1 m' }).limit(userId),
+	// Notifications inbox poll — the nav badge polls every 30s and re-polls on
+	// each navigation + tab focus. Keyed by userId with its own generous bucket so
+	// it never competes with the strict per-IP `authIp` budget (which a shared
+	// office/NAT IP would otherwise exhaust, 429-ing the badge for everyone).
+	notificationsRead: (userId) =>
+		getLimiter('notifications:read', { limit: 120, window: '1 m' }).limit(userId),
 	// $THREE token payment layer (api/token/*).
 	// quote: 30 per user per minute — prevents price-polling abuse; each quote
 	//   hits a live price feed and signs a HMAC. Generous enough for interactive
