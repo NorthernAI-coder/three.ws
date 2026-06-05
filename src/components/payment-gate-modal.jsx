@@ -1,10 +1,11 @@
-import vhtml from 'vhtml';
-/** @jsx vhtml */
-
+import { Modal } from '../shared/modal.js';
 import { isUserRejection } from '../onchain/adapters/index.js';
 
 /**
  * Show a blocking modal asking the caller to pay before a priced skill executes.
+ *
+ * Non-dismissible via backdrop/ESC while payment is in flight; the Cancel button
+ * is the only exit path (it is disabled once the transaction starts).
  *
  * @param {{
  *   skill: string,
@@ -18,37 +19,40 @@ import { isUserRejection } from '../onchain/adapters/index.js';
  */
 export function showPaymentGateModal({ skill, amount, currencySymbol, chain, onPay, onCancel }) {
 	return new Promise((resolve, reject) => {
-		const overlay = document.createElement('div');
-		overlay.className = 'pgm-overlay';
-		overlay.innerHTML = (
-			<div class="pgm-modal" role="dialog" aria-modal="true" aria-label="Skill payment required">
-				<h3>This skill requires payment</h3>
-				<p class="pgm-price">
-					<strong>{skill}</strong> costs{' '}
-					<strong>
-						{amount} {currencySymbol}
-					</strong>
-					{chain && <span class="pgm-chain"> on {chain}</span>}
-				</p>
-				<p class="pgm-status" role="status" aria-live="polite"></p>
-				<div class="pgm-actions">
-					<button class="pgm-cancel" type="button">
-						Cancel
-					</button>
-					<button class="pgm-pay" type="button">
-						Pay
-					</button>
-				</div>
-			</div>
-		);
-		document.body.appendChild(overlay);
+		// ── Body content ──────────────────────────────────────────────────────────
+		const bodyEl = document.createElement('div');
+		bodyEl.className = 'pgm-body';
 
-		const cancelBtn = overlay.querySelector('.pgm-cancel');
-		const payBtn = overlay.querySelector('.pgm-pay');
-		const statusEl = overlay.querySelector('.pgm-status');
+		const chainSpan = chain ? `<span class="pgm-chain"> on ${_esc(chain)}</span>` : '';
+		bodyEl.innerHTML = `
+			<p class="pgm-price">
+				<strong>${_esc(skill)}</strong> costs
+				<strong>${_esc(amount)} ${_esc(currencySymbol)}</strong>${chainSpan}.
+			</p>
+			<p class="pgm-status" role="status" aria-live="polite"></p>
+		`;
+
+		// ── Action buttons ────────────────────────────────────────────────────────
+		const actionsEl = document.createElement('div');
+		actionsEl.innerHTML = `
+			<button class="pgm-cancel btn btn--secondary" type="button">Cancel</button>
+			<button class="pgm-pay btn btn--primary" type="button">Pay</button>
+		`;
+
+		// ── Build modal ───────────────────────────────────────────────────────────
+		const modal = new Modal({
+			title: 'This skill requires payment',
+			body: bodyEl,
+			actions: actionsEl,
+			dismissible: false,
+		});
+
+		const cancelBtn = modal.actionsEl.querySelector('.pgm-cancel');
+		const payBtn    = modal.actionsEl.querySelector('.pgm-pay');
+		const statusEl  = modal.bodyEl.querySelector('.pgm-status');
 
 		function close() {
-			overlay.remove();
+			modal.destroy();
 		}
 
 		cancelBtn.addEventListener('click', () => {
@@ -75,5 +79,14 @@ export function showPaymentGateModal({ skill, amount, currencySymbol, chain, onP
 				cancelBtn.disabled = false;
 			}
 		});
+
+		modal.open();
 	});
+}
+
+function _esc(s) {
+	return String(s ?? '').replace(
+		/[<>&"]/g,
+		(c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c],
+	);
 }

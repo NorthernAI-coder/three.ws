@@ -424,7 +424,7 @@ export function mountBondingCurve(rootEl, opts = {}) {
 	const network = opts.network === 'devnet' ? 'devnet' : 'mainnet';
 	const refreshMs = Math.max(5_000, Number(opts.refreshMs) || 15_000);
 	const showUsd = opts.showUsd !== false;
-	const accent = /^#[0-9a-fA-F]{3,8}$/.test(opts.accent || '') ? opts.accent : '#8b5cf6';
+	const accent = /^#[0-9a-fA-F]{3,8}$/.test(opts.accent || '') ? opts.accent : '#888888';
 
 	const wrap = doc.createElement('div');
 	wrap.className = 'bcw';

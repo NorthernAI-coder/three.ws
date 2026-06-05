@@ -459,7 +459,7 @@ function renderGraduation(ev) {
 	].filter(Boolean).join(' ');
 
 	const chartLinks = mint
-		? `<a href="https://dexscreener.com/solana/${m}" target="_blank" rel="noopener" style="color:#9a8cff">DEX</a>⋅<a href="https://www.defined.fi/sol/${m}" target="_blank" rel="noopener" style="color:#9a8cff">DEF</a>`
+		? `<a href="https://dexscreener.com/solana/${m}" target="_blank" rel="noopener" style="color:#888888">DEX</a>⋅<a href="https://www.defined.fi/sol/${m}" target="_blank" rel="noopener" style="color:#888888">DEF</a>`
 		: '';
 	const toolAbbr = mint
 		? [
@@ -468,7 +468,7 @@ function renderGraduation(ev) {
 			['PDR', `https://trade.padre.gg/trade/solana/${mint}`],
 			['PHO', `https://photon-sol.tinyastro.io/en/r/@bonk/${mint}`],
 			['BLX', `https://bullx.io/terminal?chainId=1399811149&address=${mint}`],
-		].map(([l, u]) => `<a href="${attrEsc(u)}" target="_blank" rel="noopener" style="color:#9a8cff">${l}</a>`).join('⋅')
+		].map(([l, u]) => `<a href="${attrEsc(u)}" target="_blank" rel="noopener" style="color:#888888">${l}</a>`).join('⋅')
 		: '';
 
 	const sig = ev.signature || ev.tx_signature;
@@ -498,8 +498,8 @@ function renderGraduation(ev) {
 		${toolAbbr ? `<div style="font-size:11px">🧰 ${toolAbbr}</div>` : ''}
 		<div style="font-family:ui-monospace,monospace;font-size:10px;opacity:0.55;margin-top:4px;word-break:break-all">${escapeHtml(mint)}</div>
 		<div style="font-size:10px;opacity:0.55;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
-			${sig ? `🔗 <a href="https://solscan.io/tx/${encodeURIComponent(sig)}" target="_blank" rel="noopener" style="color:#9a8cff">TX</a>` : ''}
-			${mint ? `· <a href="https://pump.fun/coin/${m}" target="_blank" rel="noopener" style="color:#9a8cff">pump.fun</a>` : ''}
+			${sig ? `🔗 <a href="https://solscan.io/tx/${encodeURIComponent(sig)}" target="_blank" rel="noopener" style="color:#888888">TX</a>` : ''}
+			${mint ? `· <a href="https://pump.fun/coin/${m}" target="_blank" rel="noopener" style="color:#888888">pump.fun</a>` : ''}
 			${tsStr ? `· 🕐 ${escapeHtml(tsStr)}` : ''}
 		</div>
 	`;

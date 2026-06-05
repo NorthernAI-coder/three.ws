@@ -47,6 +47,7 @@
 
 /** @typedef {'chill'|'normal'|'hype'} Mood */
 
+import { log } from '../shared/log.js';
 const MOOD_PROFILE = {
 	chill:  { gestureScale: 0.7, threshold: 30, speakRate: 0.4 },
 	normal: { gestureScale: 1.0, threshold: 0,  speakRate: 1.0 },
@@ -494,7 +495,7 @@ export function createReactionDispatcher(opts = {}) {
 		activePriority = reaction.priority ?? 0;
 		record(reaction, kind, ev);
 		try { runner(reaction); } catch (err) {
-			console.warn('[pumpfun-reactions] runner threw:', err);
+			log.warn('[pumpfun-reactions] runner threw:', err);
 		}
 	}
 

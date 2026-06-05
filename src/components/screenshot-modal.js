@@ -1,3 +1,4 @@
+import { log } from '../shared/log.js';
 export class ScreenshotModal {
 	constructor(container) {
 		this.container = container;
@@ -83,7 +84,7 @@ export class ScreenshotModal {
 				btn.textContent = originalText;
 			}, 2000);
 		} catch (e) {
-			console.error('Failed to copy image to clipboard:', e);
+			log.error('Failed to copy image to clipboard:', e);
 			btn.textContent = 'Error!';
 			setTimeout(() => {
 				btn.textContent = originalText;

@@ -16,6 +16,7 @@
 import { NichAgent } from '../nich-agent.js';
 import { ACTION_TYPES } from '../agent-protocol.js';
 import { ThoughtBubble } from '../thought-bubble.js';
+import { log } from '../shared/log.js';
 
 /**
  * @param {import('../viewer.js').Viewer} viewer
@@ -75,13 +76,13 @@ export async function mountTalkingAgent(viewer, config, container, ctx) {
 						onMessage?.({ role: 'user', content: text });
 						onMessage?.({ role: 'assistant', content: result.reply });
 					} catch (cbErr) {
-						console.warn('[talking-agent] onMessage callback threw', cbErr?.message);
+						log.warn('[talking-agent] onMessage callback threw', cbErr?.message);
 					}
 				}
 				queueMicrotask(() => runActions(result.actions, getSceneCtrl, protocol));
 				return { reply: result.reply, error: result.error };
 			} catch (err) {
-				console.warn('[talking-agent] chat dispatch failed', err.message);
+				log.warn('[talking-agent] chat dispatch failed', err.message);
 				return { error: 'Chat is unavailable right now.' };
 			}
 		},
@@ -213,7 +214,7 @@ function runActions(actions, getSceneCtrl, protocol) {
 		try {
 			runOne(action, sceneCtrl, protocol);
 		} catch (err) {
-			console.warn('[talking-agent] action failed', action.type, err.message);
+			log.warn('[talking-agent] action failed', action.type, err.message);
 		}
 	}
 }
@@ -240,6 +241,6 @@ function runOne(action, sceneCtrl, protocol) {
 			}
 			return;
 		default:
-			console.warn('[talking-agent] unknown action type:', action.type);
+			log.warn('[talking-agent] unknown action type:', action.type);
 	}
 }

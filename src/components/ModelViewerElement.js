@@ -1,5 +1,6 @@
 import { Viewer } from '../viewer.js';
 import { LinearToneMapping, ACESFilmicToneMapping } from 'three';
+import { log } from '../shared/log.js';
 
 const STYLE_ID = 'mv-viewer-style';
 const DEFAULT_ENVIRONMENT = 'Neutral';
@@ -122,7 +123,7 @@ export class ModelViewerElement extends HTMLElement {
 		if (typeof this._viewer.dispose === 'function') {
 			this._viewer.dispose();
 		} else {
-			console.warn(
+			log.warn(
 				'[mv-viewer] Viewer.dispose() not available — disconnect will leak resources.',
 			);
 		}

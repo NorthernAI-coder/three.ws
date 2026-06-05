@@ -27,6 +27,7 @@ import {
 	chainLabel,
 } from '../widget-types.js';
 import { resolveURI, isDecentralizedURI } from '../ipfs.js';
+import { log } from '../shared/log.js';
 
 const CACHE_PREFIX = 'erc8004-passport:';
 const STALE_TTL_MS = 1000 * 60 * 60 * 24; // 24h hard ceiling on stale cache
@@ -112,7 +113,7 @@ function _pickRpc(config, chainId) {
 	if (config.rpcURL) {
 		// Require HTTPS per the security spec.
 		if (!/^https:\/\//i.test(config.rpcURL)) {
-			console.warn('[passport] ignoring non-HTTPS rpcURL');
+			log.warn('[passport] ignoring non-HTTPS rpcURL');
 		} else {
 			return config.rpcURL;
 		}
@@ -208,7 +209,7 @@ async function _refresh(state, panel) {
 		_writeCache(state.cacheKey, { data: state.data, savedAt: state.lastVerifiedAt });
 		_render(panel, state);
 	} catch (err) {
-		console.warn('[passport] refresh failed:', err.message || err);
+		log.warn('[passport] refresh failed:', err.message || err);
 		// Leave whatever stale data we had; update the status label.
 		_render(panel, state, { staleReason: 'RPC error' });
 	}
