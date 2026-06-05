@@ -2227,3 +2227,128 @@ select.npc-svc-input { cursor: pointer; appearance: none; -webkit-appearance: no
 	.npc-svc-overlay, .npc-svc-card { transition: none; }
 	.npc-svc-pay.is-busy .npc-svc-pay-label::before { animation: none; }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   NPC conversation (npc-chat.js). Press E and the townsperson answers in
+   character, streamed live from the same models the chats use. Vendors surface
+   their paid counter as a chip; tapping it opens the npc-svc panel on top.
+   Same z-layer as the service counter; only one is ever open at a time.
+   ─────────────────────────────────────────────────────────────────────────── */
+.npc-chat-overlay {
+	position: fixed; inset: 0; z-index: 120; display: grid; place-items: end center;
+	padding: 20px; background: rgba(4, 4, 5, 0.5);
+	backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+	opacity: 0; transition: opacity 0.18s ease;
+}
+.npc-chat-overlay.is-in { opacity: 1; }
+.npc-chat-card {
+	width: min(440px, 100%); height: min(72vh, 600px); display: flex; flex-direction: column;
+	background: var(--cc-panel-solid); color: var(--cc-text);
+	border: 1px solid var(--cc-edge); border-radius: var(--cc-radius);
+	box-shadow: var(--cc-shadow);
+	transform: translateY(12px) scale(0.99); transition: transform 0.18s ease;
+}
+.npc-chat-overlay.is-in .npc-chat-card { transform: translateY(0) scale(1); }
+
+.npc-chat-head {
+	display: flex; align-items: flex-start; gap: 10px;
+	padding: 14px 14px 12px; border-bottom: 1px solid var(--cc-edge-soft);
+}
+.npc-chat-id { flex: 1; min-width: 0; }
+.npc-chat-who { font-size: 16px; font-weight: 650; line-height: 1.15; }
+.npc-chat-sub { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cc-dim); margin-top: 3px; }
+.npc-chat-tools { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.npc-chat-model {
+	max-width: 130px; font: inherit; font-size: 12px; cursor: pointer;
+	background: var(--cc-bg2); color: var(--cc-dim);
+	border: 1px solid var(--cc-edge); border-radius: var(--cc-radius-sm);
+	padding: 5px 8px; appearance: none; -webkit-appearance: none;
+	transition: border-color 0.14s ease, color 0.14s ease;
+}
+.npc-chat-model:hover { color: var(--cc-text); border-color: var(--cc-edge-hi); }
+.npc-chat-model:focus-visible { outline: 2px solid var(--cc-edge-hi); outline-offset: 1px; }
+.npc-chat-close {
+	flex-shrink: 0; width: 28px; height: 28px; line-height: 1; cursor: pointer;
+	background: transparent; border: 1px solid var(--cc-edge-soft); border-radius: var(--cc-radius-sm);
+	color: var(--cc-dim); font: inherit; font-size: 13px; transition: all 0.14s ease;
+}
+.npc-chat-close:hover { color: var(--cc-text); border-color: var(--cc-edge-hi); }
+.npc-chat-close:focus-visible { outline: 2px solid var(--cc-edge-hi); outline-offset: 1px; }
+
+.npc-chat-offer { padding: 10px 14px 0; }
+.npc-chat-offer-btn {
+	display: flex; align-items: center; gap: 8px; width: 100%; cursor: pointer;
+	font: inherit; font-size: 13px; text-align: left;
+	background: rgba(255, 255, 255, 0.04); color: var(--cc-text);
+	border: 1px solid var(--cc-edge); border-radius: var(--cc-radius-sm);
+	padding: 9px 12px; transition: border-color 0.14s ease, background 0.14s ease;
+}
+.npc-chat-offer-btn:hover { background: rgba(255, 255, 255, 0.07); border-color: var(--cc-edge-hi); }
+.npc-chat-offer-btn:focus-visible { outline: 2px solid var(--cc-edge-hi); outline-offset: 1px; }
+.npc-chat-offer-btn::before { content: '🛒'; font-size: 13px; }
+.npc-chat-offer-label { flex: 1; font-weight: 600; }
+.npc-chat-offer-price {
+	flex-shrink: 0; font-size: 11px; font-weight: 650; letter-spacing: 0.02em;
+	padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: var(--cc-text);
+}
+
+.npc-chat-log {
+	flex: 1; min-height: 0; overflow-y: auto;
+	padding: 14px; display: flex; flex-direction: column; gap: 9px;
+}
+.npc-chat-log::-webkit-scrollbar { width: 8px; }
+.npc-chat-log::-webkit-scrollbar-thumb { background: var(--cc-edge); border-radius: 4px; }
+.npc-chat-msg { max-width: 84%; display: flex; }
+.npc-chat-msg.is-me { align-self: flex-end; }
+.npc-chat-msg.is-npc { align-self: flex-start; }
+.npc-chat-text {
+	font-size: 14px; line-height: 1.5; padding: 9px 12px;
+	border-radius: 12px; white-space: pre-wrap; word-break: break-word;
+}
+.npc-chat-msg.is-me .npc-chat-text {
+	background: var(--cc-accent); color: var(--cc-ink); border-bottom-right-radius: 4px;
+}
+.npc-chat-msg.is-npc .npc-chat-text {
+	background: var(--cc-bg2); color: var(--cc-text);
+	border: 1px solid var(--cc-edge-soft); border-bottom-left-radius: 4px;
+}
+.npc-chat-msg.is-error .npc-chat-text { border-left: 2px solid var(--cc-edge-hi); color: var(--cc-dim); }
+.npc-chat-msg.is-typing .npc-chat-text { min-width: 38px; }
+.npc-chat-msg.is-typing .npc-chat-text::after {
+	content: '●●●'; letter-spacing: 2px; color: var(--cc-faint);
+	animation: npc-chat-pulse 1.1s ease-in-out infinite;
+}
+@keyframes npc-chat-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.85; } }
+
+.npc-chat-composer {
+	display: flex; align-items: flex-end; gap: 8px;
+	padding: 12px 14px; border-top: 1px solid var(--cc-edge-soft);
+}
+.npc-chat-input {
+	flex: 1; resize: none; max-height: 120px; font: inherit; font-size: 14px; line-height: 1.45;
+	background: var(--cc-bg2); color: var(--cc-text);
+	border: 1px solid var(--cc-edge); border-radius: var(--cc-radius-sm);
+	padding: 9px 11px; transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+.npc-chat-input::placeholder { color: var(--cc-faint); }
+.npc-chat-input:focus { outline: none; border-color: var(--cc-edge-hi); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08); }
+.npc-chat-input:disabled { opacity: 0.55; cursor: not-allowed; }
+.npc-chat-send {
+	flex-shrink: 0; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+	background: var(--cc-accent); color: var(--cc-ink); border: 1px solid var(--cc-accent);
+	border-radius: var(--cc-radius-sm); padding: 9px 16px;
+	transition: filter 0.14s ease, transform 0.06s ease;
+}
+.npc-chat-send:hover:not(:disabled) { filter: brightness(0.9); }
+.npc-chat-send:active:not(:disabled) { transform: translateY(1px); }
+.npc-chat-send:disabled { opacity: 0.6; cursor: progress; }
+.npc-chat-send:focus-visible { outline: 2px solid var(--cc-edge-hi); outline-offset: 1px; }
+
+@media (max-width: 520px) {
+	.npc-chat-overlay { padding: 0; }
+	.npc-chat-card { width: 100%; height: 88vh; border-radius: var(--cc-radius) var(--cc-radius) 0 0; border-bottom: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.npc-chat-overlay, .npc-chat-card { transition: none; }
+	.npc-chat-msg.is-typing .npc-chat-text::after { animation: none; }
+}

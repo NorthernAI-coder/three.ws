@@ -109,6 +109,16 @@ async function startJob(req, res) {
 		});
 	} catch (err) {
 		if (err?.code === 'unconfigured') return unconfigured(res);
+		// Upstream (Replicate) throttling is a transient 429, not a server fault —
+		// return it as such with a retry hint so the page can show a "busy, try
+		// again shortly" state instead of a hard error.
+		if (err?.code === 'rate_limited' || err?.providerStatus === 429) {
+			return json(res, 429, {
+				error: 'rate_limited',
+				message: 'The 3D generator is busy right now. Try again in a few seconds.',
+				retry_after: typeof err?.retryAfter === 'number' ? err.retryAfter : 10,
+			});
+		}
 		return json(res, 502, {
 			error: 'generation_failed',
 			message: err?.message || 'The generator could not start this job.',

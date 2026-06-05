@@ -126,6 +126,14 @@ async function startJob(prompt) {
 		e.kind = 'unconfigured';
 		throw e;
 	}
+	if (res.status === 429 || data.error === 'rate_limited') {
+		const secs = Number(data.retry_after) > 0 ? Math.ceil(Number(data.retry_after)) : 10;
+		const e = new Error(
+			data.message || `The 3D generator is busy. Try again in about ${secs} seconds.`,
+		);
+		e.kind = 'rate_limited';
+		throw e;
+	}
 	if (!res.ok) {
 		throw new Error(data.message || `The generator returned ${res.status}.`);
 	}

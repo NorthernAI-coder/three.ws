@@ -37,6 +37,18 @@ function extractImageUrl(output) {
 	return null;
 }
 
+// Best-effort retry hint (in seconds) for a throttled request. Prefers the
+// standard Retry-After header; falls back to the "resets in ~Ns" phrasing
+// Replicate uses in its throttle message. Defaults to a short, sane backoff.
+function parseRetryAfter(headers, message) {
+	const header = headers?.get?.('retry-after');
+	const fromHeader = header ? Number.parseInt(header, 10) : NaN;
+	if (Number.isFinite(fromHeader) && fromHeader > 0) return fromHeader;
+	const m = /resets in ~?(\d+)\s*s/i.exec(message || '');
+	if (m) return Number.parseInt(m[1], 10);
+	return 10;
+}
+
 // Generate a single image from a text prompt. Uses Replicate's synchronous
 // prediction mode (`Prefer: wait`) so the caller gets a URL back in one round
 // trip — flux-schnell is fast enough that the request returns within the MCP
@@ -96,7 +108,17 @@ export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
 
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
-		throw new Error(data?.detail || data?.title || `text-to-image returned ${res.status}`);
+		const message = data?.detail || data?.title || `text-to-image returned ${res.status}`;
+		// Replicate throttles prediction creation (notably when account credit is
+		// low). Surface it as a retryable rate limit, not a generic failure, so the
+		// caller can return 429 + retry hint instead of a hard 5xx.
+		if (res.status === 429) {
+			throw Object.assign(new Error(message), {
+				code: 'rate_limited',
+				retryAfter: parseRetryAfter(res.headers, message),
+			});
+		}
+		throw Object.assign(new Error(message), { providerStatus: res.status });
 	}
 
 	// With `Prefer: wait` the prediction usually completes inline. If Replicate
