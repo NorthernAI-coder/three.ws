@@ -3785,6 +3785,30 @@ body.deploy-page {
 	word-break: break-word;
 }
 
+.erc8004-img-summary {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-xs);
+	min-width: 0;
+}
+
+.erc8004-img-summary .erc8004-muted,
+.erc8004-img-summary a {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.erc8004-img-thumb {
+	width: 40px;
+	height: 40px;
+	flex: 0 0 auto;
+	object-fit: cover;
+	border-radius: var(--radius-sm);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(255, 255, 255, 0.04);
+}
+
 .erc8004-agent-card {
 	padding: var(--space-sm);
 	background: rgba(255, 255, 255, 0.03);

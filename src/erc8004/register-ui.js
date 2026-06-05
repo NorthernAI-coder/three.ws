@@ -1597,7 +1597,7 @@ export class RegisterUI {
 			<dl class="erc8004-summary">
 				<dt>Name</dt>        <dd>${esc(this.form.name)}</dd>
 				<dt>Description</dt> <dd>${esc(this.form.description)}</dd>
-				${this.form.imageUrl ? `<dt>Image</dt>      <dd>${esc(this.form.imageUrl)}</dd>` : ''}
+				${this.form.imageUrl ? `<dt>Image</dt>      <dd>${this._imageSummaryHtml()}</dd>` : ''}
 				<dt>Avatar</dt>      <dd>${this._avatarSummary()}</dd>
 				<dt>Services</dt>    <dd>${this.form.services.length ? this.form.services.map((s) => `${esc(s.type)}: ${esc(s.endpoint || '—')}`).join('<br>') : '<span class="erc8004-muted">none</span>'}</dd>
 				<dt>Chain</dt>       <dd>${esc(meta.name)} (chainId ${this.selectedChainId})</dd>
@@ -1717,7 +1717,7 @@ export class RegisterUI {
 			<dl class="erc8004-summary">
 				<dt>Name</dt>        <dd>${esc(this.form.name)}</dd>
 				<dt>Description</dt> <dd>${esc(this.form.description)}</dd>
-				${this.form.imageUrl ? `<dt>Image</dt>      <dd>${esc(this.form.imageUrl)}</dd>` : ''}
+				${this.form.imageUrl ? `<dt>Image</dt>      <dd>${this._imageSummaryHtml()}</dd>` : ''}
 				<dt>Avatar</dt>      <dd>${this._avatarSummary()}</dd>
 				<dt>Chain</dt>       <dd>${esc(chainLabel)} (${esc(network)})</dd>
 				<dt>Standard</dt>    <dd>Metaplex Core (mpl-core)</dd>
@@ -1891,6 +1891,25 @@ export class RegisterUI {
 		}
 		if (s === 'skip') return `<span class="erc8004-muted">None — metadata-only</span>`;
 		return `<span class="erc8004-muted">Not selected</span>`;
+	}
+
+	/**
+	 * Compact, human-readable summary of the agent image for the Review step.
+	 * A 3D-capture ("📸 Use 3D view") can leave an inline base64 data: URL of
+	 * tens of thousands of characters — never dump that raw into the page.
+	 * Render the actual thumbnail plus a short label instead of the string.
+	 */
+	_imageSummaryHtml() {
+		const url = (this.form.imageUrl || '').trim();
+		if (!url) return '';
+		const thumb = `<img src="${esc(url)}" alt="Agent image" class="erc8004-img-thumb"
+			onerror="this.style.display='none'" />`;
+		if (url.startsWith('data:')) {
+			const kb = Math.round((url.length * 0.75) / 1024);
+			return `<span class="erc8004-img-summary">${thumb}<span class="erc8004-muted">Captured from 3D view · inline image (~${kb} KB)</span></span>`;
+		}
+		const label = url.length > 64 ? url.slice(0, 48) + '…' + url.slice(-12) : url;
+		return `<span class="erc8004-img-summary">${thumb}<a href="${esc(url)}" target="_blank" rel="noopener"><code>${esc(label)}</code></a></span>`;
 	}
 
 	/**
