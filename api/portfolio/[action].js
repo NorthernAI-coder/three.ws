@@ -10,6 +10,7 @@
 // per-page-load fan-out.
 
 import { cors, json, method, readJson, wrap, error, validationError } from '../_lib/http.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, isSameSiteOrigin } from '../_lib/auth.js';
 import { requireCsrf } from '../_lib/csrf.js';
@@ -302,7 +303,7 @@ async function sendSolana({ agent, asset, recipient, amount, userId }) {
 
 	const { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
 	const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-	const conn = new Connection(rpcUrl, 'confirmed');
+	const conn = solanaConnection({ url: rpcUrl, commitment: 'confirmed' });
 
 	const kp = await recoverSolanaAgentKeypair(encryptedSecret, {
 		userId,

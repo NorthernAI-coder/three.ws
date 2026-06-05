@@ -2,6 +2,7 @@
 // Used by the cron crawler and the read endpoints.
 
 import { Connection, PublicKey } from '@solana/web3.js';
+import { solanaConnection } from './solana/connection.js';
 import { sql } from './db.js';
 
 export const RPC = {
@@ -81,7 +82,7 @@ export function attesterFromTx(tx) {
 // Crawl recent signatures for one agent and upsert into solana_attestations.
 // Returns { scanned, inserted, skipped }.
 export async function crawlAgentAttestations({ agentAsset, network, ownerWallet, limit = 200 }) {
-	const conn = new Connection(RPC[network] || RPC.devnet, 'confirmed');
+	const conn = solanaConnection({ url: RPC[network] || RPC.devnet, commitment: 'confirmed' });
 	const agentKey = new PublicKey(agentAsset);
 
 	const [cursor] = await sql`

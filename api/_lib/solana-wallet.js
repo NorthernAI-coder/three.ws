@@ -2,6 +2,7 @@
 // (pump-fun-trade, jupiter-swap, etc). Built on top of recoverSolanaAgentKeypair.
 
 import { Connection, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { solanaConnection } from './solana/connection.js';
 import { recoverSolanaAgentKeypair } from './agent-wallet.js';
 
 /**
@@ -42,7 +43,7 @@ export async function loadWallet(encryptedSecret) {
  * Convenience: build a Connection from a URL, defaulting to mainnet.
  */
 export function makeConnection(rpcUrl) {
-	return new Connection(rpcUrl ?? 'https://api.mainnet-beta.solana.com', 'confirmed');
+	return solanaConnection({ url: rpcUrl ?? 'https://api.mainnet-beta.solana.com', commitment: 'confirmed' });
 }
 
 export { PublicKey };

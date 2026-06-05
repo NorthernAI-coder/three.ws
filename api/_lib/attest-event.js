@@ -10,6 +10,7 @@
 // a second on-chain tx for the same logical event.
 
 import crypto from 'node:crypto';
+import { solanaConnection } from './solana/connection.js';
 import {
 	Connection,
 	Keypair,
@@ -134,7 +135,7 @@ export async function mintAttestation(input) {
 	});
 	const memo = JSON.stringify(payload);
 
-	const conn = new Connection(RPC[network] || RPC.devnet, 'confirmed');
+	const conn = solanaConnection({ url: RPC[network] || RPC.devnet, commitment: 'confirmed' });
 	const ix = new TransactionInstruction({
 		programId: MEMO_PROGRAM_ID,
 		keys: [

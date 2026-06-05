@@ -272,6 +272,14 @@
 			"dest": "/api/agents/solana/[action]?action=metadata"
 		},
 		{
+			"src": "/api/agents/solana-collection-metadata",
+			"dest": "/api/agents/solana/[action]?action=collection-metadata"
+		},
+		{
+			"src": "/api/agents/solana-edit",
+			"dest": "/api/agents/solana/[action]?action=edit"
+		},
+		{
 			"src": "/api/agents/solana-attestations",
 			"dest": "/api/agents/solana/[action]?action=attestations"
 		},

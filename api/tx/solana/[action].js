@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { solanaConnection } from '../../_lib/solana/connection.js';
 import {
 	Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL,
 	TransactionInstruction,
@@ -38,7 +39,7 @@ async function handleBuildTransfer(req, res) {
 	const { sender, recipient, amount, token, memo, network } = parse(transferSchema, await readJson(req));
 
 	const rpcUrl = network === 'devnet' ? SOLANA_RPC_DEVNET : SOLANA_RPC_MAINNET;
-	const connection = new Connection(rpcUrl, 'confirmed');
+	const connection = solanaConnection({ url: rpcUrl, commitment: 'confirmed' });
 	const senderPubkey    = new PublicKey(sender);
 	const recipientPubkey = new PublicKey(recipient);
 
@@ -107,7 +108,7 @@ async function handleBuildSwap(req, res) {
 
 	const { sender, inputMint, outputMint, amount, slippageBps } = parse(swapSchema, await readJson(req));
 
-	const connection  = new Connection(SOLANA_RPC_MAINNET, 'confirmed');
+	const connection  = solanaConnection({ url: SOLANA_RPC_MAINNET, commitment: 'confirmed' });
 	const inputMintPk = new PublicKey(inputMint);
 	const mintInfo    = await getMint(connection, inputMintPk);
 	const amountInSmallestUnit = Math.round(amount * 10 ** mintInfo.decimals);

@@ -11,6 +11,7 @@
  */
 
 import { z } from 'zod';
+import { solanaConnection } from '../../_lib/solana/connection.js';
 import { createHash } from 'crypto';
 
 import { sql } from '../../_lib/db.js';
@@ -186,7 +187,7 @@ async function handleLaunchPrep(req, res) {
 	const { Connection, Keypair, PublicKey, Transaction, ComputeBudgetProgram } =
 		await loadSolanaWeb3();
 	const { PumpSdk, OnlinePumpSdk, getBuyTokenAmountFromSolAmount, BN } = await loadPumpSdk();
-	const conn = new Connection(rpcUrl(body.cluster), 'confirmed');
+	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
 	const onlineSdk = new OnlinePumpSdk(conn);
 	const sdk = new PumpSdk();
 
@@ -345,7 +346,7 @@ async function handleLaunchConfirm(req, res) {
 
 	// Verify on-chain
 	const { Connection } = await loadSolanaWeb3();
-	const conn = new Connection(rpcUrl(prep.cluster), 'confirmed');
+	const conn = solanaConnection({ url: rpcUrl(prep.cluster), commitment: 'confirmed' });
 
 	const deadline = Date.now() + 30_000;
 	let tx;
@@ -462,7 +463,7 @@ async function handleLaunchQuote(req, res) {
 		try {
 			const { Connection } = await loadSolanaWeb3();
 			const { OnlinePumpSdk, getBuyTokenAmountFromSolAmount, BN } = await loadPumpSdk();
-			const conn = new Connection(rpcUrl(q.cluster), 'confirmed');
+			const conn = solanaConnection({ url: rpcUrl(q.cluster), commitment: 'confirmed' });
 			const onlineSdk = new OnlinePumpSdk(conn);
 			const global = await onlineSdk.fetchGlobal();
 			const lamports = new BN(Math.floor(q.initial_buy_sol * 1_000_000_000));

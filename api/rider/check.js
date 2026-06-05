@@ -1,4 +1,5 @@
 import { Connection, PublicKey } from '@solana/web3.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { TOKEN_MINT as THREE_MINT } from '../_lib/token/config.js';
@@ -22,7 +23,7 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'validation_error', 'invalid Solana address');
 	}
 
-	const connection = new Connection(RPC, 'confirmed');
+	const connection = solanaConnection({ url: RPC, commitment: 'confirmed' });
 	const accounts = await connection.getParsedTokenAccountsByOwner(owner, {
 		programId: TOKEN_PROGRAM,
 	});

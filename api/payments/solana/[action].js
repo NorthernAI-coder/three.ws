@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import { Connection } from '@solana/web3.js';
+import { solanaConnection } from '../../_lib/solana/connection.js';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
@@ -75,7 +76,7 @@ async function handleConfirm(req, res) {
 	// A confirmed plan payment grants 30 days of paid plan — an irreversible,
 	// latency-tolerant, one-time grant. Require 'finalized' so a short reorg
 	// can't roll back the tx after we've already upgraded the account.
-	const connection = new Connection(rpcUrl, 'finalized');
+	const connection = solanaConnection({ url: rpcUrl, commitment: 'finalized' });
 	const usdcMint = network === 'devnet' ? '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' : SOLANA_USDC_MINT;
 	let tx;
 	try { tx = await connection.getParsedTransaction(tx_signature, { maxSupportedTransactionVersion: 0, commitment: 'finalized' }); }

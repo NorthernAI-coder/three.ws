@@ -19,6 +19,7 @@
 // balance so the UI can show it ticking down during the demo.
 
 import { readFileSync } from 'node:fs';
+import { solanaConnection } from './_lib/solana/connection.js';
 import {
 	Connection, PublicKey, Keypair, TransactionMessage, VersionedTransaction,
 	ComputeBudgetProgram,
@@ -181,7 +182,7 @@ async function getAgentsForUser(userId) {
 		WHERE user_id = ${userId} AND deleted_at IS NULL
 		ORDER BY created_at ASC
 	`;
-	const conn = new Connection(SOLANA_RPC, 'confirmed');
+	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 	return Promise.all(rows.map(async (row) => {
 		const address = row.meta?.solana_address || null;
 		const source = row.meta?.solana_wallet_source || null;
@@ -355,7 +356,7 @@ async function buildSolanaPaymentPayload({ accept, buyer, conn, resourceUrl }) {
 
 async function getAgentBalance() {
 	const buyer = loadAgentKeypair();
-	const conn = new Connection(SOLANA_RPC, 'confirmed');
+	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 	const sol = await conn.getBalance(buyer.publicKey);
 	let usdc = 0;
 	try {
@@ -394,7 +395,7 @@ function sseSend(res, event, data) {
 
 async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl }) {
 	const buyer = buyerOverride ?? loadAgentKeypair();
-	const conn = new Connection(SOLANA_RPC, 'confirmed');
+	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 
 	const requirements = paymentRequirements();
 	const accept = requirements.find((r) => r.network === NETWORK_SOLANA_MAINNET);

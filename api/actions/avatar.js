@@ -11,6 +11,7 @@
 // GLB via headless chromium so X shows a live 3D-rendered portrait in the card.
 
 import { cors, json, error, readJson, wrap } from '../_lib/http.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 import { env } from '../_lib/env.js';
 
 export const maxDuration = 10;
@@ -87,7 +88,7 @@ async function handlePost(req, res, avatarId) {
 
 	const rpc =
 		process.env.SOLANA_MAINNET_RPC || 'https://api.mainnet-beta.solana.com';
-	const connection = new Connection(rpc, 'confirmed');
+	const connection = solanaConnection({ url: rpc, commitment: 'confirmed' });
 	const { blockhash } = await connection.getLatestBlockhash();
 
 	const memo = JSON.stringify({

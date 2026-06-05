@@ -1,4 +1,5 @@
 import { Connection, PublicKey, Transaction, Keypair } from '@solana/web3.js';
+import { solanaConnection } from './solana/connection.js';
 import {
 	getAssociatedTokenAddress,
 	createAssociatedTokenAccountInstruction,
@@ -22,7 +23,7 @@ export async function transferSolanaUSDC({ fromWallet, toAddress, amount, mint }
 	const mintPubkey = new PublicKey(mint);
 	const recipientPubkey = new PublicKey(toAddress);
 
-	const connection = new Connection(SOLANA_RPC, 'confirmed');
+	const connection = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 
 	const senderATA = await getAssociatedTokenAddress(mintPubkey, kp.publicKey);
 	const recipientATA = await getAssociatedTokenAddress(mintPubkey, recipientPubkey);

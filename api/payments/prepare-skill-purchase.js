@@ -8,6 +8,7 @@
  * Returns: { transaction (base64), reference, recipient, amount, currency_mint }
  */
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 import { getAssociatedTokenAddressSync, createTransferCheckedInstruction, getMint } from '@solana/spl-token';
 
 import { sql } from '../_lib/db.js';
@@ -97,7 +98,7 @@ export default wrap(async (req, res) => {
 	`;
 
 	// Build the SPL token transfer transaction
-	const connection = new Connection(SOLANA_RPC, 'confirmed');
+	const connection = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 	const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
 
 	const mintInfo   = await getMint(connection, new PublicKey(price.currency_mint));

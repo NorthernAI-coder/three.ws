@@ -306,4 +306,208 @@ export const toolDefs = [
 			};
 		},
 	},
+	{
+		name: 'remove_background',
+		title: 'Remove the background from an image',
+		description:
+			'Strip the background from a photo or illustration using BRIA RMBG-2.0 (Apache-2.0). Returns a PNG with a transparent background — useful for preparing clean inputs before image_to_3d reconstruction.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				image_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the source image (PNG/JPG/WebP).',
+				},
+				model: {
+					type: 'string',
+					enum: ['rmbg2', 'u2net', 'isnet', 'u2net_human_seg', 'silueta'],
+					default: 'rmbg2',
+					description: 'Background removal model. rmbg2 is highest quality; u2net_human_seg is optimised for people.',
+				},
+			},
+			required: ['image_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.image_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: image_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			const provider = regenProvider('rembg');
+			const job = await provider.submit({
+				mode: 'rembg',
+				sourceUrl: args.image_url,
+				params: { model: args.model || 'rmbg2' },
+			});
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Background removal started.\nJob ID: ${job.extJobId}\n` +
+							'Poll with generation_status. Typically completes in 3–10 seconds.',
+					},
+				],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_image_url: args.image_url,
+					eta_seconds: job.eta,
+				},
+			};
+		},
+	},
+	{
+		name: 'remesh_model',
+		title: 'Remesh, simplify, repair, or convert a 3D model',
+		description:
+			'Process an existing GLB/OBJ/STL/PLY mesh: fix holes and degenerate geometry, reduce face count via quadric decimation, or convert to a different format. Returns a clean GLB (or the requested format) job_id to poll with generation_status.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				mesh_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the source mesh (GLB/OBJ/FBX/STL/PLY).',
+				},
+				operation: {
+					type: 'string',
+					enum: ['full', 'simplify', 'repair', 'convert'],
+					default: 'full',
+					description: 'full = repair + simplify; simplify = face reduction only; repair = hole-fill + normal fix; convert = format change only.',
+				},
+				target_faces: {
+					type: 'integer',
+					minimum: 1000,
+					maximum: 500000,
+					default: 50000,
+					description: 'Target polygon count for simplification.',
+				},
+				output_format: {
+					type: 'string',
+					enum: ['glb', 'obj', 'stl', 'ply', 'usdz', '3mf'],
+					default: 'glb',
+				},
+			},
+			required: ['mesh_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.mesh_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			const provider = regenProvider('remesh');
+			const job = await provider.submit({
+				mode: 'remesh',
+				sourceUrl: args.mesh_url,
+				params: {
+					operation: args.operation || 'full',
+					target_faces: args.target_faces || 50_000,
+					output_format: args.output_format || 'glb',
+				},
+			});
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Mesh processing started (${args.operation || 'full'}).\nJob ID: ${job.extJobId}\n` +
+							'Poll with generation_status. Typically completes in 10–60 seconds.',
+					},
+				],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_mesh_url: args.mesh_url,
+					operation: args.operation || 'full',
+					eta_seconds: job.eta,
+				},
+			};
+		},
+	},
+	{
+		name: 'retexture_model',
+		title: 'Paint a new texture onto a 3D model from a text prompt',
+		description:
+			'Generate a fresh texture for an untextured or poorly-textured GLB using SDXL + ControlNet depth. Renders the mesh from 8 viewpoints, generates coherent texture views guided by your prompt, and back-projects them onto the UV atlas. Returns a job_id to poll with generation_status.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				mesh_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the source GLB mesh.',
+				},
+				prompt: {
+					type: 'string',
+					minLength: 3,
+					maxLength: 500,
+					description: 'Texture description, e.g. "worn leather armour, dark brown, scratched metal buckles".',
+				},
+				negative_prompt: {
+					type: 'string',
+					maxLength: 200,
+					default: 'blurry, low quality, distorted, watermark',
+				},
+				num_views: {
+					type: 'integer',
+					enum: [4, 8],
+					default: 8,
+					description: '4 = faster; 8 = better coverage.',
+				},
+				texture_size: {
+					type: 'integer',
+					enum: [512, 1024, 2048],
+					default: 1024,
+				},
+			},
+			required: ['mesh_url', 'prompt'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.mesh_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			const provider = regenProvider('retex');
+			const job = await provider.submit({
+				mode: 'retex',
+				sourceUrl: args.mesh_url,
+				params: {
+					prompt: args.prompt,
+					negative_prompt: args.negative_prompt,
+					num_views: args.num_views || 8,
+					texture_size: args.texture_size || 1024,
+				},
+			});
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Texture generation started for "${args.prompt}".\nJob ID: ${job.extJobId}\n` +
+							'Poll with generation_status. Typically completes in 2–5 minutes.',
+					},
+				],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_mesh_url: args.mesh_url,
+					prompt: args.prompt,
+					eta_seconds: job.eta,
+				},
+			};
+		},
+	},
 ];

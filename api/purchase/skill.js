@@ -6,6 +6,7 @@
  * QR code can fetch and sign the USDC transfer directly.
  */
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 import { getAssociatedTokenAddressSync, createTransferCheckedInstruction, getMint } from '@solana/spl-token';
 import { findReference } from '@solana/pay';
 
@@ -82,7 +83,7 @@ export default wrap(async (req, res) => {
 	`;
 
 	// Build transaction
-	const connection = new Connection(SOLANA_RPC, 'confirmed');
+	const connection = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 	const { blockhash } = await connection.getLatestBlockhash('confirmed');
 
 	const mintInfo = await getMint(connection, new PublicKey(price.currency_mint));

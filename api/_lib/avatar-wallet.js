@@ -21,6 +21,7 @@ import {
 	Transaction,
 	TransactionInstruction,
 } from '@solana/web3.js';
+import { solanaConnection } from './solana/connection.js';
 import bs58 from 'bs58';
 
 const bs58decode = bs58.default ? bs58.default.decode : bs58.decode;
@@ -118,7 +119,7 @@ export function isValidPubkey(s) {
 let _connByUrl = new Map();
 export function getConnection(rpcUrl) {
 	const url = rpcUrl || DEFAULT_MAINNET_RPC;
-	if (!_connByUrl.has(url)) _connByUrl.set(url, new Connection(url, 'confirmed'));
+	if (!_connByUrl.has(url)) _connByUrl.set(url, solanaConnection({ url: url, commitment: 'confirmed' }));
 	return _connByUrl.get(url);
 }
 

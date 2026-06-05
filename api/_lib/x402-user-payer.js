@@ -16,6 +16,7 @@
 // handoff instead of moving funds.
 
 import { sql } from './db.js';
+import { solanaConnection } from './solana/connection.js';
 import { env } from './env.js';
 import { recoverSolanaAgentKeypair } from './agent-wallet.js';
 import { installSpendingCap } from './x402-spending-cap.js';
@@ -142,7 +143,7 @@ export async function getUserWalletStatus(userId) {
 			env.SOLANA_RPC_URL ??
 			(typeof process !== 'undefined' ? process.env?.SOLANA_RPC_URL : null) ??
 			'https://api.mainnet-beta.solana.com';
-		const conn = new Connection(rpc, 'confirmed');
+		const conn = solanaConnection({ url: rpc, commitment: 'confirmed' });
 		const owner = new PublicKey(wallet.address);
 		const lamports = await conn.getBalance(owner);
 		sol = lamports / 1e9;

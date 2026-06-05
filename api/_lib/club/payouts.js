@@ -20,6 +20,7 @@ import {
 	Transaction,
 	ComputeBudgetProgram,
 } from '@solana/web3.js';
+import { solanaConnection } from '../solana/connection.js';
 import {
 	getAssociatedTokenAddress,
 	createAssociatedTokenAccountInstruction,
@@ -65,7 +66,7 @@ export async function sendClubUsdcSolana({ recipient, amount }) {
 	const amt = typeof amount === 'bigint' ? amount : BigInt(amount);
 	if (amt <= 0n) throw new Error('amount must be > 0');
 
-	const connection = new Connection(env.SOLANA_RPC_URL, 'confirmed');
+	const connection = solanaConnection({ url: env.SOLANA_RPC_URL, commitment: 'confirmed' });
 	const senderAta = await getAssociatedTokenAddress(mint, kp.publicKey);
 	const recipientAta = await getAssociatedTokenAddress(mint, to);
 

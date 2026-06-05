@@ -9,6 +9,7 @@
 //                        as already_settled rather than crediting twice.
 
 import { Connection } from '@solana/web3.js';
+import { solanaConnection } from '../solana/connection.js';
 import { sql } from '../db.js';
 import { env } from '../env.js';
 import { verifyQuote } from './quote.js';
@@ -16,7 +17,9 @@ import { verifyQuote } from './quote.js';
 const MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
 
 function rpcUrl(network) {
-	return network === 'devnet' ? env.SOLANA_RPC_URL_DEVNET : env.SOLANA_RPC_URL;
+	return network === 'devnet'
+		? env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com'
+		: env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 }
 
 function verifyError(message, status = 422, code = 'verification_failed', extra = {}) {
@@ -47,7 +50,7 @@ function creditedTo(tx, { mint, ownerAddress }) {
  * @returns {Promise<{ confirmedAt: string, slot: number|null, credited: object }>}
  */
 export async function verifyOnChain({ quote, txSignature, network = 'mainnet' }) {
-	const connection = new Connection(rpcUrl(network), 'confirmed');
+	const connection = solanaConnection({ url: rpcUrl(network), commitment: 'confirmed' });
 	let tx;
 	try {
 		tx = await connection.getParsedTransaction(txSignature, {

@@ -18,6 +18,7 @@
 // RpcFallback wrapper for read-side handlers that opt in via getRpcFallback().
 
 import { Connection, PublicKey } from '@solana/web3.js';
+import { solanaConnection } from './solana/connection.js';
 import { rpcFallbackFromEnv } from './solana/rpc-fallback.js';
 
 // @solana/web3.js calls console.error() on every 429 retry attempt. Those
@@ -41,7 +42,7 @@ const RPC_DEVNET = () => process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devne
 
 export function getConnection({ network = 'mainnet', commitment = 'confirmed' } = {}) {
 	const url = network === 'devnet' ? RPC_DEVNET() : RPC_MAINNET();
-	return new Connection(url, commitment);
+	return solanaConnection({ url: url, commitment: commitment });
 }
 
 // Returns an RpcFallback wrapper for read-only flows that benefit from

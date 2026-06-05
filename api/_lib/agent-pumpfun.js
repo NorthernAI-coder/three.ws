@@ -3,7 +3,7 @@
 // Keypair derived from the agent's encrypted Solana secret.
 
 import { sql } from './db.js';
-import { Connection } from '@solana/web3.js';
+import { solanaConnection as failoverConnection } from './solana/connection.js';
 import {
 	generateSolanaAgentWallet,
 	recoverSolanaAgentKeypair,
@@ -38,11 +38,11 @@ const RPC = {
 };
 
 export function solanaConnection(network = 'mainnet') {
-	return new Connection(RPC[network] || RPC.mainnet, 'confirmed');
+	return solanaConnection({ url: RPC[network] || RPC.mainnet, commitment: 'confirmed' });
 }
 
 export function solanaPublicConnection(network = 'mainnet') {
-	return new Connection(RPC_PUBLIC[network] || RPC_PUBLIC.mainnet, 'confirmed');
+	return solanaConnection({ url: RPC_PUBLIC[network] || RPC_PUBLIC.mainnet, commitment: 'confirmed' });
 }
 
 /**

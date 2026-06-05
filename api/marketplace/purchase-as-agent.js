@@ -18,6 +18,7 @@
  * Revenue + notifications are handled by confirmSkillPurchase (purchase-confirm.js).
  */
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 import {
 	getAssociatedTokenAddressSync,
 	createTransferCheckedInstruction,
@@ -204,7 +205,7 @@ export default wrap(async (req, res) => {
 	});
 
 	// Build, sign, and submit the SPL transferChecked
-	const connection = new Connection(SOLANA_RPC, 'confirmed');
+	const connection = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
 	const mintKey  = new PublicKey(price.currency_mint);
 	const recipKey = new PublicKey(recipientAddr);
 	const mintInfo = await getMint(connection, mintKey);

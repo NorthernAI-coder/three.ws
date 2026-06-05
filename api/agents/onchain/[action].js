@@ -19,6 +19,7 @@ import {
 	createNoopSigner,
 } from '@metaplex-foundation/umi';
 import { Connection } from '@solana/web3.js';
+import { solanaConnection } from '../../_lib/solana/connection.js';
 import { JsonRpcProvider } from 'ethers';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { CID } from 'multiformats/cid';
@@ -39,6 +40,11 @@ import {
 	agentRoyaltyConfig,
 	agentHomeUrl,
 } from '../../_lib/three-brand.js';
+import {
+	getAgentCollection,
+	loadCollectionAuthorityKeypair,
+	collectionAuthoritySigner,
+} from '../../_lib/solana-collection.js';
 
 export default wrap(async (req, res) => {
 	const action = req.query?.action;
@@ -165,7 +171,7 @@ const SOLANA_PUBLIC_RPC = {
 	devnet: 'https://api.devnet.solana.com',
 };
 
-async function buildSolanaTx({ rpc, walletAddress, name, metadataUri, attributes }) {
+async function buildSolanaTx({ rpc, walletAddress, name, metadataUri, attributes, collectionAddr }) {
 	const umi = createUmi(rpc).use(mplCore());
 	const ownerPk = umiPublicKey(walletAddress);
 	const assetSigner = generateSigner(umi);
@@ -186,7 +192,15 @@ async function buildSolanaTx({ rpc, walletAddress, name, metadataUri, attributes
 				}]
 			: []),
 	];
-	const builder = create(umi, { asset: assetSigner, owner: ownerPk, name, uri: metadataUri, plugins });
+	const createArgs = { asset: assetSigner, owner: ownerPk, name, uri: metadataUri, plugins };
+	// When the three.ws Agent Collection exists for this network, mint into it so
+	// the asset is authority-managed (three.ws holds the collection authority and
+	// co-signs the mint). Otherwise fall back to a standalone owner-managed asset.
+	if (collectionAddr) {
+		createArgs.collection = umiPublicKey(collectionAddr);
+		createArgs.authority = collectionAuthoritySigner(umi);
+	}
+	const builder = create(umi, createArgs);
 	const tx = await builder.buildAndSign(umi);
 	return { assetSigner, txBytes: umi.transactions.serialize(tx) };
 }
@@ -202,6 +216,18 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name, attribute
 			? process.env.SOLANA_RPC_URL_DEVNET || SOLANA_PUBLIC_RPC.devnet
 			: process.env.SOLANA_RPC_URL || SOLANA_PUBLIC_RPC.mainnet;
 
+	// Mint into the three.ws Agent Collection when one is deployed for this
+	// cluster; this makes the asset authority-managed (editable by three.ws).
+	const collectionAddr = getAgentCollection(cluster);
+	if (collectionAddr) {
+		try {
+			loadCollectionAuthorityKeypair();
+		} catch (e) {
+			e.code = 'authority_unconfigured';
+			throw e;
+		}
+	}
+
 	let assetSigner, txBytes;
 	try {
 		({ assetSigner, txBytes } = await buildSolanaTx({
@@ -210,6 +236,7 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name, attribute
 			name,
 			metadataUri,
 			attributes,
+			collectionAddr,
 		}));
 	} catch (err) {
 		// If the configured RPC rejects with an auth error AND it's not already the
@@ -238,6 +265,7 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name, attribute
 				name,
 				metadataUri,
 				attributes,
+				collectionAddr,
 			}));
 		} catch (fallbackErr) {
 			if (isRpcAuthError(fallbackErr)) {
@@ -257,6 +285,7 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name, attribute
 		assetPubkey: assetSigner.publicKey,
 		txBase64: Buffer.from(txBytes).toString('base64'),
 		metadataUri,
+		collection: collectionAddr || null,
 	};
 }
 
@@ -332,6 +361,9 @@ async function handlePrep(req, res) {
 		if (e.code === 'rpc_auth_failed') {
 			return error(res, 503, 'rpc_unavailable', e.message);
 		}
+		if (e.code === 'authority_unconfigured') {
+			return error(res, 500, 'authority_unconfigured', e.message);
+		}
 		throw e;
 	}
 
@@ -357,7 +389,7 @@ async function handlePrep(req, res) {
 				skills: body.skills || [],
 				...(chain.family === 'evm'
 					? { contract_address: familyPrep.contractAddress }
-					: { asset_pubkey: familyPrep.assetPubkey, cluster: chain.cluster }),
+					: { asset_pubkey: familyPrep.assetPubkey, cluster: chain.cluster, collection: familyPrep.collection }),
 			})}::jsonb,
 			${expiresAt}
 		)
@@ -432,7 +464,7 @@ async function verifySolana({ cluster, txSig, expectedAsset, expectedOwner }) {
 		cluster === 'devnet'
 			? process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com'
 			: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
-	const conn = new Connection(rpc, 'confirmed');
+	const conn = solanaConnection({ url: rpc, commitment: 'confirmed' });
 
 	// Bounded poll — RPC may not have indexed the tx yet, especially on devnet.
 	const deadline = Date.now() + 20_000;
@@ -545,6 +577,19 @@ async function handleConfirm(req, res) {
 		...(p.chain_family === 'solana' ? { cluster: p.cluster } : {}),
 	};
 
+	// For Solana, also surface the flat fields the edit + attestation paths key on
+	// (sol_mint_address), plus the collection/authority marker so the
+	// authority-managed edit endpoint recognises this agent as editable.
+	const solanaMeta =
+		p.chain_family === 'solana'
+			? {
+					chain_type: 'solana',
+					network: p.cluster,
+					sol_mint_address: p.asset_pubkey,
+					...(p.collection ? { collection: p.collection, update_authority: 'threews' } : {}),
+				}
+			: {};
+
 	// Upsert agent_identities. If a row already exists for (user, agent), we
 	// merge the new onchain block in — supports redeploying across chains.
 	const [existing] = await sql`
@@ -557,7 +602,7 @@ async function handleConfirm(req, res) {
 
 	let agent;
 	if (existing) {
-		const mergedMeta = { ...(existing.meta || {}), onchain };
+		const mergedMeta = { ...(existing.meta || {}), ...solanaMeta, onchain };
 		[agent] = await sql`
 			update agent_identities
 			set meta = ${JSON.stringify(mergedMeta)}::jsonb,
@@ -576,7 +621,7 @@ async function handleConfirm(req, res) {
 				${p.description},
 				${p.avatar_id},
 				${body.wallet_address},
-				${JSON.stringify({ onchain })}::jsonb
+				${JSON.stringify({ ...solanaMeta, onchain })}::jsonb
 			)
 			returning id, name, description, wallet_address, meta, created_at
 		`;

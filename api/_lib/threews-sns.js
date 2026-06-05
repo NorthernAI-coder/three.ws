@@ -21,6 +21,7 @@ import {
 	storefrontUrlForLabel,
 } from '../../src/solana/sns-subdomain.js';
 import { Connection } from '@solana/web3.js';
+import { solanaConnection } from './solana/connection.js';
 
 const DEFAULT_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
@@ -67,7 +68,7 @@ export function hasOwnerKey() {
  * subdomain has not been registered yet.
  */
 export async function getSubdomainOwner(label) {
-	const conn = new Connection(DEFAULT_RPC_URL, 'confirmed');
+	const conn = solanaConnection({ url: DEFAULT_RPC_URL, commitment: 'confirmed' });
 	const { exists, owner } = await checkSubdomainAvailability({
 		connection: conn,
 		parentDomain: PARENT_LABEL,

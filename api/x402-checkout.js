@@ -21,6 +21,7 @@
 // x402 envelope. Keeps each step short and visible.
 
 import { z } from 'zod';
+import { solanaConnection } from './_lib/solana/connection.js';
 import {
 	Connection,
 	PublicKey,
@@ -153,7 +154,7 @@ async function handlePrepare(req, res) {
 	}
 
 	const rpc = rpcFor(accept.network);
-	const conn = new Connection(rpc, 'confirmed');
+	const conn = solanaConnection({ url: rpc, commitment: 'confirmed' });
 	const mint = new PublicKey(accept.asset);
 	const payTo = new PublicKey(accept.payTo);
 	const feePayer = new PublicKey(accept.extra.feePayer);

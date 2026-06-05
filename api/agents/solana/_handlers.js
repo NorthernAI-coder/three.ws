@@ -6,6 +6,7 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { PublicKey, Connection } from '@solana/web3.js';
+import { solanaConnection } from '../../_lib/solana/connection.js';
 import { sql } from '../../_lib/db.js';
 import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
@@ -510,7 +511,7 @@ export const handleRegisterConfirm = wrap(async (req, res) => {
 		? (process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com')
 		: (process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
 
-	const connection = new Connection(rpcEndpoint, 'confirmed');
+	const connection = solanaConnection({ url: rpcEndpoint, commitment: 'confirmed' });
 	let tx;
 	try { tx = await connection.getParsedTransaction(tx_signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' }); }
 	catch { return error(res, 422, 'tx_not_found', 'transaction not found — try again after a few seconds'); }

@@ -2,6 +2,7 @@ import { env } from '../_lib/env.js';
 import { wrap, cors, error, json, readJson, method } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { Connection } from '@solana/web3.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -17,7 +18,7 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'validation_error', 'signedTxBase64 required');
 
 	const rpcUrl = env.SOLANA_RPC_URL;
-	const connection = new Connection(rpcUrl, 'confirmed');
+	const connection = solanaConnection({ url: rpcUrl, commitment: 'confirmed' });
 
 	let txBytes;
 	try {
