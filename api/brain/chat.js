@@ -20,6 +20,11 @@ import { watsonxConfig, watsonxChatRequest } from '../_lib/watsonx.js';
 
 export const maxDuration = 120;
 
+// Each spec declares its *native* provider model (built from a first-party key,
+// or null when that key is absent) and the OpenRouter model id that mirrors it.
+// buildPrimary() prefers the native model and falls back to routing through
+// OpenRouter; buildFallback() reuses the OpenRouter id to route *around* a native
+// provider outage (quota/billing/rate-limit) at request time.
 const PROVIDERS = {
 	'gpt-oss-120b': {
 		label: 'GPT-OSS 120B',
@@ -27,10 +32,8 @@ const PROVIDERS = {
 		tier: 'balanced',
 		maxOutput: 8192,
 		description: "OpenAI's open-weight 120B. Fast, capable, free tier. Platform default.",
-		build: () => {
-			if (env.OPENROUTER_API_KEY) return openrouter()('openai/gpt-oss-120b:free');
-			return null;
-		},
+		// OpenRouter-only — no first-party key for the free tier.
+		openrouterModel: 'openai/gpt-oss-120b:free',
 	},
 	'claude-opus-4-7': {
 		label: 'Claude Opus 4.7',
@@ -38,11 +41,8 @@ const PROVIDERS = {
 		tier: 'flagship',
 		maxOutput: 16384,
 		description: 'Most capable. Extended thinking, complex reasoning.',
-		build: () => {
-			if (env.ANTHROPIC_API_KEY) return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-opus-4-7');
-			if (env.OPENROUTER_API_KEY) return openrouter()('anthropic/claude-opus-4');
-			return null;
-		},
+		native: () => (env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-opus-4-7') : null),
+		openrouterModel: 'anthropic/claude-opus-4',
 	},
 	'claude-sonnet-4-6': {
 		label: 'Claude Sonnet 4.6',
@@ -50,11 +50,8 @@ const PROVIDERS = {
 		tier: 'balanced',
 		maxOutput: 16384,
 		description: 'Balanced speed and intelligence. Best for most tasks.',
-		build: () => {
-			if (env.ANTHROPIC_API_KEY) return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-sonnet-4-6');
-			if (env.OPENROUTER_API_KEY) return openrouter()('anthropic/claude-sonnet-4');
-			return null;
-		},
+		native: () => (env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-sonnet-4-6') : null),
+		openrouterModel: 'anthropic/claude-sonnet-4',
 	},
 	'claude-haiku-4-5': {
 		label: 'Claude Haiku 4.5',
@@ -62,11 +59,8 @@ const PROVIDERS = {
 		tier: 'fast',
 		maxOutput: 8192,
 		description: 'Fastest Claude. Low latency, high throughput.',
-		build: () => {
-			if (env.ANTHROPIC_API_KEY) return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-haiku-4-5-20251001');
-			if (env.OPENROUTER_API_KEY) return openrouter()('anthropic/claude-3.5-haiku');
-			return null;
-		},
+		native: () => (env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-haiku-4-5-20251001') : null),
+		openrouterModel: 'anthropic/claude-3.5-haiku',
 	},
 	'gpt-4o': {
 		label: 'GPT-4o',
@@ -74,11 +68,8 @@ const PROVIDERS = {
 		tier: 'flagship',
 		maxOutput: 16384,
 		description: 'OpenAI flagship. Strong multimodal reasoning.',
-		build: () => {
-			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('gpt-4o');
-			if (env.OPENROUTER_API_KEY) return openrouter()('openai/gpt-4o');
-			return null;
-		},
+		native: () => (env.OPENAI_API_KEY ? createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('gpt-4o') : null),
+		openrouterModel: 'openai/gpt-4o',
 	},
 	'gpt-4o-mini': {
 		label: 'GPT-4o-mini',
@@ -86,11 +77,8 @@ const PROVIDERS = {
 		tier: 'fast',
 		maxOutput: 16384,
 		description: 'Fast, affordable GPT. Great for simple tasks.',
-		build: () => {
-			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('gpt-4o-mini');
-			if (env.OPENROUTER_API_KEY) return openrouter()('openai/gpt-4o-mini');
-			return null;
-		},
+		native: () => (env.OPENAI_API_KEY ? createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('gpt-4o-mini') : null),
+		openrouterModel: 'openai/gpt-4o-mini',
 	},
 	'o3-mini': {
 		label: 'o3-mini',
@@ -98,11 +86,8 @@ const PROVIDERS = {
 		tier: 'reasoning',
 		maxOutput: 16384,
 		description: 'Reasoning-optimized. Fast chain-of-thought.',
-		build: () => {
-			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('o3-mini');
-			if (env.OPENROUTER_API_KEY) return openrouter()('openai/o3-mini');
-			return null;
-		},
+		native: () => (env.OPENAI_API_KEY ? createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('o3-mini') : null),
+		openrouterModel: 'openai/o3-mini',
 	},
 	'groq-llama': {
 		label: 'Llama 3.3 70B',
@@ -110,16 +95,11 @@ const PROVIDERS = {
 		tier: 'fast',
 		maxOutput: 8192,
 		description: 'Open-weight on Groq. Extremely fast inference.',
-		build: () => {
-			if (env.GROQ_API_KEY) {
-				return createOpenAI({
-					apiKey: env.GROQ_API_KEY,
-					baseURL: 'https://api.groq.com/openai/v1',
-				}).chat('llama-3.3-70b-versatile');
-			}
-			if (env.OPENROUTER_API_KEY) return openrouter()('meta-llama/llama-3.3-70b-instruct');
-			return null;
-		},
+		native: () =>
+			env.GROQ_API_KEY
+				? createOpenAI({ apiKey: env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' }).chat('llama-3.3-70b-versatile')
+				: null,
+		openrouterModel: 'meta-llama/llama-3.3-70b-instruct',
 	},
 	'qwen-plus': {
 		label: 'Qwen Plus',
@@ -127,11 +107,8 @@ const PROVIDERS = {
 		tier: 'balanced',
 		maxOutput: 8192,
 		description: 'Qwen Plus on DashScope. Strong multilingual.',
-		build: () => {
-			if (env.DASHSCOPE_API_KEY) return createQwen({ apiKey: env.DASHSCOPE_API_KEY })('qwen-plus');
-			if (env.OPENROUTER_API_KEY) return openrouter()('qwen/qwen-2.5-72b-instruct');
-			return null;
-		},
+		native: () => (env.DASHSCOPE_API_KEY ? createQwen({ apiKey: env.DASHSCOPE_API_KEY })('qwen-plus') : null),
+		openrouterModel: 'qwen/qwen-2.5-72b-instruct',
 	},
 	'modelscope-qwen': {
 		label: 'Qwen3-Coder 480B',
@@ -139,16 +116,11 @@ const PROVIDERS = {
 		tier: 'flagship',
 		maxOutput: 16384,
 		description: 'Largest Qwen coder. Exceptional code generation.',
-		build: () => {
-			if (env.MODELSCOPE_API_KEY) {
-				return createOpenAI({
-					apiKey: env.MODELSCOPE_API_KEY,
-					baseURL: 'https://api-inference.modelscope.cn/v1',
-				}).chat('Qwen/Qwen3-Coder-480B-A35B-Instruct');
-			}
-			if (env.OPENROUTER_API_KEY) return openrouter()('qwen/qwen3-coder');
-			return null;
-		},
+		native: () =>
+			env.MODELSCOPE_API_KEY
+				? createOpenAI({ apiKey: env.MODELSCOPE_API_KEY, baseURL: 'https://api-inference.modelscope.cn/v1' }).chat('Qwen/Qwen3-Coder-480B-A35B-Instruct')
+				: null,
+		openrouterModel: 'qwen/qwen3-coder',
 	},
 	'deepseek-r1': {
 		label: 'DeepSeek R1',
@@ -156,21 +128,16 @@ const PROVIDERS = {
 		tier: 'reasoning',
 		maxOutput: 8192,
 		description: 'Open reasoning model. Strong at math and code.',
-		build: () => {
-			if (env.DEEPSEEK_API_KEY) {
-				return createOpenAI({
-					apiKey: env.DEEPSEEK_API_KEY,
-					baseURL: 'https://api.deepseek.com/v1',
-				}).chat('deepseek-reasoner');
-			}
-			if (env.OPENROUTER_API_KEY) return openrouter()('deepseek/deepseek-r1');
-			return null;
-		},
+		native: () =>
+			env.DEEPSEEK_API_KEY
+				? createOpenAI({ apiKey: env.DEEPSEEK_API_KEY, baseURL: 'https://api.deepseek.com/v1' }).chat('deepseek-reasoner')
+				: null,
+		openrouterModel: 'deepseek/deepseek-r1',
 	},
 	// IBM watsonx.ai Granite. watsonx is not OpenAI-compatible at the API layer
 	// (IAM bearer token, project scoping, version param), so it can't be a
 	// Vercel AI SDK model object. The `watsonx` flag routes it to a dedicated
-	// streaming path; build() only reports availability.
+	// streaming path; buildPrimary() only reports availability.
 	'ibm-granite': {
 		label: 'IBM Granite 3.8B',
 		network: 'IBM watsonx.ai',
@@ -178,9 +145,31 @@ const PROVIDERS = {
 		maxOutput: 4096,
 		description: 'IBM’s open, enterprise-governed foundation model on watsonx.ai.',
 		watsonx: true,
-		build: () => (watsonxConfig().configured ? { watsonx: true } : null),
 	},
 };
+
+// Resolve the primary route for a spec: native first-party model when its key is
+// present, otherwise the OpenRouter-routed equivalent, otherwise nothing. `via`
+// records which path won so buildFallback() knows whether OpenRouter is a
+// distinct escape hatch.
+function buildPrimary(spec) {
+	if (spec.watsonx) return watsonxConfig().configured ? { kind: 'watsonx' } : null;
+	const native = spec.native?.();
+	if (native) return { kind: 'model', model: native, via: 'native' };
+	if (spec.openrouterModel && env.OPENROUTER_API_KEY) {
+		return { kind: 'model', model: openrouter()(spec.openrouterModel), via: 'openrouter' };
+	}
+	return null;
+}
+
+// A distinct fallback exists only when the primary ran on a native provider key
+// AND an OpenRouter key is configured — then OpenRouter routes around a native
+// outage (quota exhausted, out of credits, rate-limited). When the primary was
+// already OpenRouter there's nowhere better to retry.
+function buildFallback(spec, primary) {
+	if (primary?.via !== 'native' || !spec.openrouterModel || !env.OPENROUTER_API_KEY) return null;
+	return openrouter()(spec.openrouterModel);
+}
 
 function openrouter() {
 	const provider = createOpenAI({
@@ -286,7 +275,7 @@ function validateMessages(input) {
 
 function getAvailableProviders() {
 	return Object.entries(PROVIDERS).map(([key, spec]) => {
-		const available = Boolean(spec.build());
+		const available = Boolean(buildPrimary(spec));
 		return {
 			key,
 			label: spec.label,
@@ -327,11 +316,13 @@ export default wrap(async function handler(req, res) {
 		});
 	}
 
-	const model = spec.build();
-	if (!model) {
+	const primary = buildPrimary(spec);
+	if (!primary) {
 		return error(res, 503, 'provider_not_configured',
 			`No API key for ${spec.label}. Add your own key in Account → AI Provider Keys to unlock this model.`);
 	}
+	// OpenRouter escape hatch for a native-provider outage (quota/credits/rate).
+	const fallbackModel = buildFallback(spec, primary);
 
 	let messages;
 	try {
@@ -359,16 +350,24 @@ export default wrap(async function handler(req, res) {
 
 	let firstTokenMs = null;
 
-	// Drains one streamText attempt to the SSE response. Returns true on success.
-	// firstTokenMs is set on the first delta; once tokens have been written we are
-	// committed and can no longer transparently retry (the client already has
-	// partial output).
-	const streamOnce = async (budget) => {
+	// Drains one streamText attempt to the SSE response. firstTokenMs is set on
+	// the first delta; once tokens have been written we are committed and can no
+	// longer transparently retry (the client already has partial output).
+	const streamOnce = async (budget, model) => {
+		// The SDK's default onError console.errors the entire provider error object
+		// (the giant 402/429 dumps in the logs). We own error handling via the
+		// retry/fallback chain below, so capture it here instead. Some providers
+		// report a pre-stream failure through onError rather than by throwing from
+		// textStream — surfacing the captured error keeps the chain working either way.
+		let streamErr = null;
 		const result = streamText({
 			model,
 			system,
 			messages,
 			maxOutputTokens: budget,
+			onError: ({ error }) => {
+				streamErr = error;
+			},
 		});
 
 		for await (const delta of result.textStream) {
@@ -378,6 +377,11 @@ export default wrap(async function handler(req, res) {
 			}
 			res.write(`data: ${JSON.stringify(delta)}\n\n`);
 		}
+
+		// Failure before any token streamed → hand to the retry/fallback logic.
+		// A failure *after* partial output isn't retryable, so we finish cleanly
+		// with whatever was produced.
+		if (streamErr && firstTokenMs === null) throw streamErr;
 
 		const usage = await result.usage.catch(() => null);
 		const elapsedMs = Date.now() - t0;
@@ -397,29 +401,44 @@ export default wrap(async function handler(req, res) {
 	try {
 		// watsonx.ai isn't an AI SDK model — stream it through the shared client,
 		// emitting the same first/chunk/done event protocol the page expects.
-		if (spec.watsonx) {
+		if (primary.kind === 'watsonx') {
 			await streamWatsonx(res, { messages, system, maxTokens, t0 });
 			return;
 		}
 
 		try {
-			await streamOnce(maxTokens);
+			await streamOnce(maxTokens, primary.model);
 		} catch (err) {
-			// OpenRouter free tier: "requires more credits, or fewer max_tokens.
-			// You requested up to 1024 tokens, but can only afford 788." The
-			// upstream tells us the affordable ceiling — retry once at that budget
-			// (with a small safety margin) instead of hard-failing. Only safe
-			// before any token has been streamed.
-			const m = /can only afford (\d+)/i.exec(err?.message || '');
-			if (m && firstTokenMs === null && !res.writableEnded) {
-				const affordable = Math.max(64, Math.floor(Number(m[1]) * 0.9));
-				await streamOnce(affordable);
+			const canRetry = firstTokenMs === null && !res.writableEnded;
+			const affordable = affordableBudget(err);
+			if (affordable && canRetry) {
+				// OpenRouter free tier: "requires more credits, or fewer max_tokens.
+				// You requested up to 1024 tokens, but can only afford 788." Retry once
+				// at the affordable ceiling instead of hard-failing.
+				await streamOnce(affordable, primary.model);
+			} else if (fallbackModel && canRetry && isProviderOutage(err)) {
+				// Native provider is down (over quota, out of credits, rate-limited).
+				// Route the same request through OpenRouter so the user still gets a reply.
+				console.warn(`[brain:${providerKey}] native provider failed (${conciseReason(err)}); falling back to OpenRouter`);
+				try {
+					await streamOnce(maxTokens, fallbackModel);
+				} catch (err2) {
+					const affordable2 = affordableBudget(err2);
+					if (affordable2 && firstTokenMs === null && !res.writableEnded) {
+						await streamOnce(affordable2, fallbackModel);
+					} else {
+						throw err2;
+					}
+				}
 			} else {
 				throw err;
 			}
 		}
 	} catch (err) {
 		const elapsedMs = Date.now() - t0;
+		// The SDK no longer logs for us (onError is captured), so emit one concise
+		// server line for observability — not the multi-screen error object.
+		console.warn(`[brain:${providerKey}] stream failed: ${conciseReason(err)}`);
 		if (!res.writableEnded) {
 			try {
 				res.write(`event: error\ndata: ${JSON.stringify({
@@ -433,3 +452,28 @@ export default wrap(async function handler(req, res) {
 		}
 	}
 });
+
+// OpenRouter (and some OpenAI-compatible backends) reject a request whose
+// max_tokens exceeds the caller's remaining credit, naming the affordable
+// ceiling: "...but can only afford 788." Returns that ceiling (with a safety
+// margin) so we can retry within budget, or null when the error isn't this.
+function affordableBudget(err) {
+	const m = /can only afford (\d+)/i.exec(err?.message || '');
+	return m ? Math.max(64, Math.floor(Number(m[1]) * 0.9)) : null;
+}
+
+// A provider-side outage we can route around (vs a caller/content error that
+// every provider would reject identically): rate-limit, quota exhaustion, out of
+// credits, or an upstream 5xx.
+function isProviderOutage(err) {
+	const status = Number(err?.statusCode || err?.cause?.statusCode || 0);
+	if (status === 429 || status === 402 || status >= 500) return true;
+	const msg = `${err?.message || ''} ${err?.cause?.message || ''}`;
+	return /quota|insufficient_quota|rate.?limit|too many requests|billing|exceeded your current|requires more credits|overloaded|temporarily unavailable|maxRetriesExceeded/i.test(msg);
+}
+
+// One-line, length-capped error summary for server logs.
+function conciseReason(err) {
+	const msg = (err?.message || String(err)).replace(/\s+/g, ' ').trim();
+	return msg.length > 160 ? `${msg.slice(0, 157)}…` : msg;
+}

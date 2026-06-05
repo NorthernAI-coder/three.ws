@@ -181,8 +181,8 @@ describe('GET /api/avatar/:id/og — server render path', () => {
 		expect(sqlArgs).toContain('a3');
 	});
 
-	it('falls back to logo on GLB-too-large precheck', async () => {
-		// 50 MB content-length triggers the 10 MB cap.
+	it('falls back to the named card on GLB-too-large precheck', async () => {
+		// 50 MB content-length triggers the 12 MB cap.
 		globalThis.fetch = vi.fn(async () => ({
 			ok: true,
 			headers: { get: (h) => (h.toLowerCase() === 'content-length' ? String(50 * 1024 * 1024) : null) },
@@ -199,13 +199,15 @@ describe('GET /api/avatar/:id/og — server render path', () => {
 		const res = mkRes();
 		await handler(req, res);
 
-		expect(res.statusCode).toBe(302);
-		expect(res._h.location).toMatch(/\/assets\/og-image\.png$/);
+		// A branded card naming the avatar beats the anonymous site logo for crawlers.
+		expect(res.statusCode).toBe(200);
+		expect(res._h['content-type']).toMatch(/image\/svg/);
+		expect(String(res._body)).toContain('Big');
 		expect(renderGlbToPngMock).not.toHaveBeenCalled();
 		expect(putObjectMock).not.toHaveBeenCalled();
 	});
 
-	it('falls back to logo when the renderer throws', async () => {
+	it('falls back to the named card when the renderer throws', async () => {
 		getAvatarMock.mockResolvedValueOnce({
 			id: 'a5',
 			name: 'Err',
@@ -219,8 +221,9 @@ describe('GET /api/avatar/:id/og — server render path', () => {
 		const res = mkRes();
 		await handler(req, res);
 
-		expect(res.statusCode).toBe(302);
-		expect(res._h.location).toMatch(/\/assets\/og-image\.png$/);
+		expect(res.statusCode).toBe(200);
+		expect(res._h['content-type']).toMatch(/image\/svg/);
+		expect(String(res._body)).toContain('Err');
 		expect(putObjectMock).not.toHaveBeenCalled();
 		expect(sqlMock).not.toHaveBeenCalled();
 	});
@@ -263,11 +266,11 @@ describe('GET /api/avatar/:id/og — server render path', () => {
 		expect(res2.statusCode).toBe(200);
 	});
 
-	it('ignores forwarded host and anchors the fallback redirect on APP_ORIGIN', async () => {
-		// Previously this endpoint built the redirect from `x-forwarded-host`,
-		// which let a caller redirect OG crawlers (or end users) to an
-		// attacker-controlled host by spoofing the header. The handler now
-		// always uses env.APP_ORIGIN.
+	it('serves the self-contained card on render failure, never an attacker-controllable redirect', async () => {
+		// The fallback used to 302 to a logo URL built from request host headers,
+		// which a spoofed `x-forwarded-host` could repoint at an attacker site. The
+		// failure path now renders a self-contained SVG card inline — no Location
+		// header, so the header can't influence where a crawler is sent.
 		getAvatarMock.mockResolvedValueOnce({
 			id: 'a7',
 			name: 'X',
@@ -286,7 +289,8 @@ describe('GET /api/avatar/:id/og — server render path', () => {
 		});
 		const res = mkRes();
 		await handler(req, res);
-		expect(res.statusCode).toBe(302);
-		expect(res._h.location).toBe('http://localhost:3000/assets/og-image.png');
+		expect(res.statusCode).toBe(200);
+		expect(res._h['content-type']).toMatch(/image\/svg/);
+		expect(res._h.location).toBeUndefined();
 	});
 });

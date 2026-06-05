@@ -22,7 +22,6 @@
 import { sql } from './_lib/db.js';
 import { getAvatar } from './_lib/avatars.js';
 import { DEMO_AVATARS } from './_lib/demo-avatars.js';
-import { env } from './_lib/env.js';
 import { cors, wrap } from './_lib/http.js';
 import { publicUrl, putObject } from './_lib/r2.js';
 import { renderGlbToPng } from './_lib/render-glb.js';
@@ -35,8 +34,10 @@ const CACHE_FALLBACK = 'public, max-age=300';
 
 // Anything bigger than this would dominate the 15s render budget — and
 // Vercel's 30s function ceiling means a single oversized GLB risks killing
-// the request. Falls back to the site logo instead.
-const MAX_GLB_BYTES = 10 * 1024 * 1024;
+// the request. Falls back to the named avatar card instead. Set at 12 MB:
+// comfortably renders typical photoreal GLBs (which cluster just above 10 MB)
+// while still kicking the genuinely huge ones to the card before chromium.
+const MAX_GLB_BYTES = 12 * 1024 * 1024;
 
 // Per-avatar lock so two simultaneous crawls don't both spin up chromium.
 // In-memory only — multiple lambda containers may each render once, but
@@ -189,15 +190,6 @@ function ogKeyFor(avatar) {
 function extractIdFromPath(pathname) {
 	const m = pathname.match(/\/api\/avatar(?:s)?\/([^/]+)\/og$/);
 	return m ? m[1] : null;
-}
-
-function sendFallbackLogo(_req, res) {
-	// 302 to the static brand logo. Anchor on env.APP_ORIGIN so a caller can't
-	// craft an `x-forwarded-host` that redirects this 302 to an attacker site.
-	res.statusCode = 302;
-	res.setHeader('location', `${env.APP_ORIGIN}/assets/og-image.png`);
-	res.setHeader('cache-control', CACHE_FALLBACK);
-	res.end();
 }
 
 function sendCardSvg(res, status, cacheControl, payload) {

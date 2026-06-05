@@ -49,7 +49,7 @@ import { isServicePanelOpen } from './npc/npc-services.js';
 import { VoiceChat, voiceSupported } from './voice-chat.js';
 import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet, getSession, getWorldGate, setWorldGate } from '../community/town-auth.js';
 import { ensurePlayAccess } from './play-gate.js';
-import { clearStoredPass, fetchPlayConfig, signInToPlay, loadStoredPass, storePass } from './play-auth.js';
+import { clearStoredPass, refreshPlayPass, loadStoredPass, storePass } from './play-auth.js';
 import { PlaySystems } from './play-systems.js';
 import { PlayOnboard } from './play-onboard.js';
 import { WorldHudSystem } from './hud/index.js';
@@ -939,11 +939,11 @@ export class CoinCommunities {
 	}
 
 	// Silent mid-session pass refresh. Runs once the player is in a world; wakes
-	// up 2 min before the pass expires, re-runs the sign+verify flow silently (no
-	// UI), and updates this.playPass so the next reconnect uses the fresh token.
-	// Re-checks the chain, so a wallet that offloaded its tokens gets evicted here
-	// rather than on the next reconnect. Cancels automatically when leave() tears
-	// the net down.
+	// up 2 min before the pass expires and renews it off the still-valid pass — no
+	// wallet prompt, since possession of an unexpired pass already proves the wallet.
+	// Updates this.playPass so the next reconnect uses the fresh token, and re-checks
+	// the chain, so a wallet that offloaded its tokens gets evicted here rather than
+	// on the next reconnect. Cancels automatically when leave() tears the net down.
 	_schedulePassRefresh() {
 		clearTimeout(this._passRefreshTimer);
 		if (!this.playPass || !this.account) return; // gate was off when we entered
@@ -955,11 +955,11 @@ export class CoinCommunities {
 	}
 
 	async _doPassRefresh() {
-		if (this.phase !== 'world' || !this.account) return;
+		if (this.phase !== 'world' || !this.account || !this.playPass) return;
 		try {
-			const cfg = await fetchPlayConfig();
-			if (!cfg.required) return; // gate turned off — nothing to refresh
-			const res = await signInToPlay({ nonce: cfg.nonce });
+			// Silent renewal: the current pass is still valid (we fire 2 min early), so
+			// the server re-issues off it after re-reading the chain — no wallet prompt.
+			const res = await refreshPlayPass(this.playPass);
 			if (res.ok && res.playPass) {
 				this.playPass = res.playPass;
 				storePass(res);
@@ -973,7 +973,18 @@ export class CoinCommunities {
 				this.leave();
 				this._playReady = this._ensurePlayAccess();
 			}
-		} catch {
+		} catch (err) {
+			// The pass expired or was rejected (we missed the window): a silent renew is
+			// impossible now, so a fresh signed sign-in is the only way back. Surface the
+			// gate once rather than retrying a renewal that can never succeed.
+			if (err?.code === 'pass_invalid') {
+				clearStoredPass();
+				this.playPass = '';
+				this.ui.toast('Your session expired — sign in again to keep playing.', 'warn');
+				this.leave();
+				this._playReady = this._ensurePlayAccess();
+				return;
+			}
 			// Network hiccup — try again in 30 s rather than breaking the session.
 			clearTimeout(this._passRefreshTimer);
 			this._passRefreshTimer = setTimeout(() => this._doPassRefresh(), 30_000);

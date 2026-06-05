@@ -688,7 +688,6 @@ function renderThemePicks() {
 						disable-zoom
 						disable-pan
 						disable-tap
-						camera-controls
 						exposure="1.05"
 						shadow-intensity="0.5"
 						tone-mapping="aces"
