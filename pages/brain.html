@@ -61,82 +61,23 @@
 						<div class="br-persona-inner">
 							<div class="br-persona-hero">
 								<h1>Build Your Persona</h1>
-								<p>Define how your AI agent thinks, speaks, and behaves. Extract a structured persona and test it across models.</p>
+								<p>Pick a starting point or describe your agent in plain English. Done in seconds.</p>
 							</div>
 
-							<div class="br-method-tabs" id="brMethodTabs">
-								<div class="br-method-tab active" data-method="interview">
-									<span class="br-method-tab-icon">&#9998;</span>
-									<div class="br-method-tab-title">Guided Interview</div>
-									<div class="br-method-tab-desc">Answer targeted questions and let AI synthesize your voice</div>
-								</div>
-								<div class="br-method-tab" data-method="freeform">
-									<span class="br-method-tab-icon">&#9998;</span>
-									<div class="br-method-tab-title">Freeform</div>
-									<div class="br-method-tab-desc">Paste a bio, description, tweets, or anything that captures a voice</div>
-								</div>
-								<div class="br-method-tab" data-method="manual">
-									<span class="br-method-tab-icon">&#9881;</span>
-									<div class="br-method-tab-title">Manual Edit</div>
-									<div class="br-method-tab-desc">Set tone, vocabulary, interests, and style fields directly</div>
-								</div>
+							<!-- Quick-pick archetypes -->
+							<div class="br-archetype-section">
+								<div class="br-archetype-label">Pick a starting point</div>
+								<div class="br-archetype-grid" id="brArchetypeGrid"></div>
 							</div>
 
-							<!-- Interview method -->
-							<div class="br-interview active" id="brInterview">
-								<div id="brQuestions"></div>
+							<!-- Describe input -->
+							<div class="br-describe-section">
+								<div class="br-describe-divider"><span>or describe your agent</span></div>
+								<textarea class="br-describe-input" id="brDescribeInput"
+									placeholder="A sharp crypto trader who speaks plainly and hates buzzwords. Direct, a little sardonic, always on-chain."
+									rows="3"></textarea>
 								<div class="br-actions">
-									<button class="br-btn br-btn-primary" id="brSynthesize" disabled>Synthesize Persona</button>
-									<button class="br-btn br-btn-ghost" id="brFillExample">Fill example</button>
-								</div>
-							</div>
-
-							<!-- Freeform method -->
-							<div class="br-freeform" id="brFreeform">
-								<textarea class="br-freeform-area" id="brFreeformText" placeholder="Paste a bio, a collection of tweets, a LinkedIn summary, a Reddit comment history, or just describe the personality you want in plain English...&#10;&#10;The more context you provide, the richer the extracted persona will be." rows="8"></textarea>
-								<div class="br-freeform-hint">Tip: paste real writing samples for the most authentic extraction</div>
-								<div class="br-actions">
-									<button class="br-btn br-btn-primary" id="brFreeformSynth" disabled>Synthesize Persona</button>
-								</div>
-							</div>
-
-							<!-- Manual edit method -->
-							<div class="br-freeform" id="brManual">
-								<div class="br-pc-edit-body" style="padding:0">
-									<div class="br-edit-row">
-										<label class="br-edit-label" for="brManTone">Tone</label>
-										<input class="br-edit-input" id="brManTone" placeholder="Warm but direct, slightly sardonic" />
-									</div>
-									<div class="br-edit-row">
-										<label class="br-edit-label" for="brManStyle">Communication Style</label>
-										<select class="br-agent-select" id="brManStyle" style="width:100%">
-											<option value="terse">Terse</option>
-											<option value="detailed">Detailed</option>
-											<option value="playful">Playful</option>
-											<option value="analytical">Analytical</option>
-											<option value="warm" selected>Warm</option>
-										</select>
-									</div>
-									<div class="br-edit-row">
-										<label class="br-edit-label" for="brManVocab">Vocabulary</label>
-										<input class="br-edit-input" id="brManVocab" placeholder="Comma-separated words or phrases" />
-										<span class="br-edit-hint">Words and phrases this persona uses often</span>
-									</div>
-									<div class="br-edit-row">
-										<label class="br-edit-label" for="brManInterests">Interests</label>
-										<input class="br-edit-input" id="brManInterests" placeholder="Comma-separated interests" />
-									</div>
-									<div class="br-edit-row">
-										<label class="br-edit-label" for="brManDont">Don't Say</label>
-										<input class="br-edit-input" id="brManDont" placeholder="Phrases to avoid, comma-separated" />
-									</div>
-									<div class="br-edit-row">
-										<label class="br-edit-label" for="brManGreet">Sample Greeting</label>
-										<textarea class="br-edit-textarea" id="brManGreet" placeholder="A greeting in the persona's voice" rows="2"></textarea>
-									</div>
-								</div>
-								<div class="br-actions">
-									<button class="br-btn br-btn-primary" id="brManualSave">Set Persona</button>
+									<button class="br-btn br-btn-primary" id="brDescribeGenerate" disabled>Generate Persona</button>
 								</div>
 							</div>
 

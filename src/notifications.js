@@ -10,6 +10,55 @@
 const POLL_INTERVAL = 30_000;
 const AUTH_HINT_KEY = '3dagent:auth-hint';
 
+// Cross-tab coordination. The inbox badge mounts in every open tab, and the
+// /api/notifications budget is keyed per user — so N tabs each polling on their
+// own 30s timer (plus a re-poll on every tab focus) used to multiply into a
+// burst that tripped the per-user 429. We dedupe across tabs through a shared
+// localStorage cache + a BroadcastChannel: whichever tab actually fetches
+// writes the result and broadcasts it, and every other tab reuses that result
+// for the poll interval instead of spending its own request.
+const NOTIF_CACHE_KEY = '3dagent:notif-cache';
+const NOTIF_LOCK_KEY = '3dagent:notif-lock';
+const NOTIF_CHANNEL = '3dagent:notifications';
+// Best-effort cross-tab fetch lock TTL — long enough to collapse a simultaneous
+// poll burst, short enough that a tab whose fetch died never wedges the others.
+const LOCK_TTL = 5_000;
+// Cap exponential backoff after repeated 429s so the badge self-heals within a
+// bounded window once the per-user budget refills.
+const MAX_BACKOFF = 5 * 60_000;
+
+function readNotifCache() {
+	try {
+		const raw = localStorage.getItem(NOTIF_CACHE_KEY);
+		if (!raw) return null;
+		const c = JSON.parse(raw);
+		return c && typeof c.ts === 'number' ? c : null;
+	} catch { return null; }
+}
+
+function writeNotifCache(notifications, unread_count) {
+	try {
+		localStorage.setItem(
+			NOTIF_CACHE_KEY,
+			JSON.stringify({ ts: Date.now(), notifications, unread_count }),
+		);
+	} catch { /* storage disabled/full — degrade to per-tab polling */ }
+}
+
+// Best-effort, last-writer-wins lock. localStorage isn't transactional across
+// tabs, but the race window is sub-millisecond and an occasional double-fetch is
+// harmless — this only needs to thin out the simultaneous burst.
+function tryAcquireFetchLock() {
+	try {
+		const now = Date.now();
+		const raw = localStorage.getItem(NOTIF_LOCK_KEY);
+		const held = raw ? Number(raw) : 0;
+		if (Number.isFinite(held) && now - held < LOCK_TTL) return false;
+		localStorage.setItem(NOTIF_LOCK_KEY, String(now));
+		return true;
+	} catch { return true; }
+}
+
 const TYPE_ICON = {
 	skill_purchased:          '💵',
 	skill_purchase_confirmed: '✅',
@@ -113,6 +162,16 @@ class NotificationInbox {
 		this._unread = 0;
 		this._open = false;
 		this._timer = null;
+		this._backoffUntil = 0;
+		this._backoffMs = 0;
+
+		// Listen for fresh data fetched by sibling tabs so we update the badge
+		// without spending our own request.
+		this._channel = null;
+		try {
+			this._channel = new BroadcastChannel(NOTIF_CHANNEL);
+			this._channel.onmessage = (e) => this._applyData(e.data, false);
+		} catch { /* BroadcastChannel unsupported — localStorage cache still coordinates */ }
 
 		btn.addEventListener('click', (e) => { e.stopPropagation(); this._toggle(); });
 		document.addEventListener('keydown', (e) => {
@@ -120,14 +179,41 @@ class NotificationInbox {
 		});
 	}
 
+	// Apply a notifications payload (from our own fetch, the shared cache, or a
+	// sibling tab) to local state + the badge. `share` re-publishes to the cache
+	// and other tabs; broadcasts received from siblings pass `false` to avoid a
+	// rebroadcast loop.
+	_applyData(data, share) {
+		if (!data) return;
+		this._notifications = data.notifications || [];
+		this._unread = data.unread_count || 0;
+		this._updateBadge();
+		if (this._open) this._renderBody();
+		if (share) {
+			writeNotifCache(this._notifications, this._unread);
+			try {
+				this._channel?.postMessage({
+					notifications: this._notifications,
+					unread_count: this._unread,
+				});
+			} catch { /* channel closed */ }
+		}
+	}
+
 	start() {
 		if (!isAuthed()) return;
+		// Seed the badge instantly from whatever a sibling tab fetched last, so a
+		// new tab is correct on load without adding its own request.
+		const cached = readNotifCache();
+		if (cached) this._applyData(cached, false);
 		this._poll();
 		this._schedulePoll();
 		document.addEventListener('visibilitychange', () => {
 			if (document.hidden) {
 				clearTimeout(this._timer);
 			} else {
+				// Re-poll on focus, but `_poll` reuses a fresh shared cache, so
+				// rapidly flipping between tabs no longer bursts the API.
 				this._poll();
 				this._schedulePoll();
 			}
@@ -143,14 +229,34 @@ class NotificationInbox {
 	}
 
 	async _poll() {
+		if (!isAuthed()) return;
+
+		// Honour a 429 backoff window — don't keep hammering a drained budget.
+		if (Date.now() < this._backoffUntil) return;
+
+		// If any tab fetched within the poll interval, reuse it instead of
+		// spending another request against the per-user budget.
+		const cached = readNotifCache();
+		if (cached && Date.now() - cached.ts < POLL_INTERVAL) {
+			this._applyData(cached, false);
+			return;
+		}
+
+		// Collapse a simultaneous multi-tab poll into a single fetch; the winner
+		// broadcasts the result to everyone else.
+		if (!tryAcquireFetchLock()) return;
+
 		try {
 			const resp = await fetch('/api/notifications?limit=20', { credentials: 'include' });
+			if (resp.status === 429) {
+				this._backoffMs = Math.min(this._backoffMs ? this._backoffMs * 2 : POLL_INTERVAL, MAX_BACKOFF);
+				this._backoffUntil = Date.now() + this._backoffMs;
+				return;
+			}
 			if (!resp.ok) return;
-			const data = await resp.json();
-			this._notifications = data.notifications || [];
-			this._unread = data.unread_count || 0;
-			this._updateBadge();
-			if (this._open) this._renderBody();
+			this._backoffMs = 0;
+			this._backoffUntil = 0;
+			this._applyData(await resp.json(), true);
 		} catch { /* network blip — silently ignore */ }
 	}
 
@@ -332,6 +438,9 @@ class NotificationInbox {
 }
 
 function mount() {
+	// Guard against a double mount (e.g. nav re-injected) spinning up a second
+	// poller for the same tab.
+	if (window.__notifInbox) return;
 	const btn = document.getElementById('nav-notifications-btn');
 	if (!btn) return;
 	const inbox = new NotificationInbox(btn);

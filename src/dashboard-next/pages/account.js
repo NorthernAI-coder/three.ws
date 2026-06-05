@@ -235,6 +235,7 @@ async function copyToClipboard(text) {
 const PROVIDER_META = {
 	anthropic: { label: 'Anthropic (Claude)', placeholder: 'sk-ant-api03-…', url: 'https://console.anthropic.com/settings/keys' },
 	openai:    { label: 'OpenAI (GPT-4)',      placeholder: 'sk-proj-…',      url: 'https://platform.openai.com/api-keys' },
+	meshy:     { label: 'Meshy AI (3D gen)',   placeholder: 'msy_…',          url: 'https://www.meshy.ai/settings/api' },
 };
 
 async function loadProviderKeys(host) {

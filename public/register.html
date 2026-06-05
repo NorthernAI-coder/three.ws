@@ -425,6 +425,17 @@
 				padding: 0; text-decoration: underline; text-underline-offset: 2px; width: auto;
 			}
 			.privy-back-link:hover { color: #888; }
+			.privy-wallet-divider { margin: 10px 0 8px; text-align: center; font-size: 11px; color: #555; letter-spacing: 0.04em; }
+			#privy-wallet-btn {
+				width: 100%; margin: 0; padding: 10px 16px;
+				background: transparent; border: 1px solid rgba(0,0,0,0.12);
+				border-radius: 10px; color: #444; font-size: 14px; font-weight: 500;
+				cursor: pointer; display: flex; align-items: center; justify-content: center;
+				gap: 8px; transition: background 0.12s, border-color 0.12s, color 0.12s;
+			}
+			#privy-wallet-btn:hover:not(:disabled) { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.22); color: #000; }
+			#privy-wallet-btn:disabled { opacity: 0.4; cursor: default; }
+			#privy-wallet-status { margin: 6px 0 0; font-size: 12px; color: #888; }
 		</style>
 	
 	<meta name="description" content="Create a new three.ws account.">
@@ -468,6 +479,14 @@
 							<input id="privy-code-input" type="text" inputmode="numeric" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" />
 							<button type="button" id="privy-verify-btn" class="privy-row-btn">Verify</button>
 						</div>
+					</div>
+					<div id="privy-wallet-wrap">
+						<p class="privy-wallet-divider">or</p>
+						<button type="button" id="privy-wallet-btn">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+							Connect Wallet
+						</button>
+						<p id="privy-wallet-status" hidden></p>
 					</div>
 					<p id="privy-inline-err" hidden></p>
 					<button type="button" id="privy-back-btn" class="privy-back-link">← Back</button>

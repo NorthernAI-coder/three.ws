@@ -53,6 +53,7 @@ export async function decryptProviderKey(ciphertext) {
 export const BYOK_PROVIDERS = {
 	anthropic: { label: 'Anthropic', prefix: 'sk-ant-', hint: 'console.anthropic.com/settings/keys' },
 	openai:    { label: 'OpenAI',    prefix: 'sk-',     hint: 'platform.openai.com/api-keys' },
+	meshy:     { label: 'Meshy AI',  prefix: 'msy_',    hint: 'www.meshy.ai/settings/api' },
 };
 
 // Load and decrypt all stored provider keys for a user.

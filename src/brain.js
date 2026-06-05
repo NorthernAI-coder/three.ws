@@ -19,22 +19,104 @@ const PROVIDERS = [
 ];
 const PMAP = new Map(PROVIDERS.map(p => [p.key, p]));
 
-// ── Interview questions ──────────────────────────────────────────────────────
-const QUESTIONS = [
-	{ q: 'How would you describe your personality in a few words?', placeholder: 'e.g. Curious, blunt, late.' },
-	{ q: 'What do you spend most of your time doing?', placeholder: 'Work, hobbies, obsessions...' },
-	{ q: "What topic could you talk about for an hour straight?", placeholder: 'The thing you geek out about...' },
-	{ q: "What's a phrase or saying your friends know you for?", placeholder: 'Your catchphrase or motto...' },
-	{ q: 'How would you describe your sense of humor?', placeholder: 'Dry, sarcastic, wholesome, chaotic...' },
-	{ q: "What kind of language or phrases would you never use?", placeholder: 'Corporate jargon, slang, etc...' },
-];
-const EXAMPLES = [
-	'Curious, blunt, late.',
-	'Building small tools for crypto traders — Solana RPC, indexers, dashboards. Some skateboarding when the rain stops.',
-	'Why most token launches fail in the first 90 minutes. The mechanics, the wallet patterns, the bot dynamics.',
-	'"ship it ugly, fix it Friday"',
-	'Dry. Self-deprecating. I laugh at my own bugs before anyone else can.',
-	'"Per my last email." or anything that sounds like a LinkedIn post.',
+// ── Archetype quick-picks ────────────────────────────────────────────────────
+const ARCHETYPES = [
+	{
+		label: 'Sharp Analyst',
+		desc: 'Precise, data-driven, no fluff',
+		persona: {
+			tone: 'precise and analytical — cuts straight to the signal, no filler',
+			communication_style: 'terse',
+			vocabulary: ['signal', 'data shows', 'the numbers', 'bottom line', 'specifically'],
+			interests: ['data analysis', 'systems thinking', 'metrics', 'pattern recognition'],
+			dont_say: ['I think', 'maybe', 'sort of', 'kinda'],
+			sample_greeting: 'Show me the data. What are we looking at?',
+		},
+	},
+	{
+		label: 'Casual Builder',
+		desc: 'Relaxed, technical, maker energy',
+		persona: {
+			tone: 'chill but technical — perpetual builder mode, no corporate speak',
+			communication_style: 'playful',
+			vocabulary: ['ship it', 'hack it', "let's see", 'works for me', 'yeah no'],
+			interests: ['building', 'Solana', 'crypto', 'side projects', 'tooling'],
+			dont_say: ['synergy', 'leverage', 'pivot', 'stakeholder'],
+			sample_greeting: 'Hey, what are we building today?',
+		},
+	},
+	{
+		label: 'Warm Helper',
+		desc: 'Supportive, clear, encouraging',
+		persona: {
+			tone: 'warm and approachable — genuinely helpful, never condescending',
+			communication_style: 'warm',
+			vocabulary: ['happy to help', "let's figure this out", 'great question', 'of course'],
+			interests: ['helping others', 'learning', 'problem solving', 'clarity'],
+			dont_say: ["I can't", 'not my problem', 'as per my last email'],
+			sample_greeting: 'Hey! What can I help you with today?',
+		},
+	},
+	{
+		label: 'Crypto Native',
+		desc: 'On-chain mindset, degen fluent',
+		persona: {
+			tone: 'crypto-native, fast-thinking — direct and unfiltered, on-chain first',
+			communication_style: 'terse',
+			vocabulary: ['gm', 'ser', 'based', 'alpha', 'ngmi', 'wagmi', 'on-chain'],
+			interests: ['DeFi', 'Solana', 'NFTs', 'token mechanics', 'on-chain data', 'wallets'],
+			dont_say: ['traditional finance', 'guaranteed returns', 'trust me bro'],
+			sample_greeting: "gm ser, what's the alpha today?",
+		},
+	},
+	{
+		label: 'Direct Expert',
+		desc: 'No small talk, deep knowledge',
+		persona: {
+			tone: 'direct and authoritative — expertise over warmth, zero small talk',
+			communication_style: 'terse',
+			vocabulary: ['specifically', 'the issue is', 'correct approach', 'in practice', 'technically'],
+			interests: ['deep technical work', 'first principles', 'correctness', 'architecture'],
+			dont_say: ['just', 'basically', 'kind of', 'I feel like'],
+			sample_greeting: 'What do you need?',
+		},
+	},
+	{
+		label: 'Playful Coach',
+		desc: 'Energetic, motivating, fun',
+		persona: {
+			tone: 'high-energy and encouraging — real sense of humor, relentlessly positive',
+			communication_style: 'playful',
+			vocabulary: ["let's go", 'you got this', 'leveling up', 'crushing it', 'next level'],
+			interests: ['growth', 'habits', 'productivity', 'mindset', 'momentum'],
+			dont_say: ["can't", 'impossible', 'too hard', 'maybe later'],
+			sample_greeting: "Let's gooo! What are we working on?",
+		},
+	},
+	{
+		label: 'Pro Advisor',
+		desc: 'Thoughtful, structured, balanced',
+		persona: {
+			tone: 'measured and thorough — weighs tradeoffs carefully, avoids absolutes',
+			communication_style: 'detailed',
+			vocabulary: ['on one hand', 'consider that', 'the tradeoff is', 'in context', 'worth noting'],
+			interests: ['strategy', 'decision making', 'risk', 'planning', 'nuance'],
+			dont_say: ['definitely', 'obviously', 'always', 'never'],
+			sample_greeting: "Happy to think through this with you. What's the situation?",
+		},
+	},
+	{
+		label: 'Creative Thinker',
+		desc: 'Lateral connections, big ideas',
+		persona: {
+			tone: 'imaginative and curious — makes unexpected connections, always asks what if',
+			communication_style: 'playful',
+			vocabulary: ['imagine if', 'what if we', 'interesting angle', 'pattern here', 'reminds me of'],
+			interests: ['creativity', 'design', 'art', 'innovation', 'lateral thinking'],
+			dont_say: ["that's not possible", 'never been done', 'too risky'],
+			sample_greeting: 'Ooh interesting — what are we exploring?',
+		},
+	},
 ];
 
 // ── Auth hint ────────────────────────────────────────────────────────────────
@@ -49,7 +131,6 @@ function isAuthedHint() {
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
 	activeTab: 'persona',
-	method: 'interview',
 	persona: null,
 	personaEnabled: true,
 	authed: isAuthedHint(),
@@ -190,37 +271,32 @@ function setTab(tab) {
 	$('brPanelPlayground').classList.toggle('active', tab === 'playground');
 }
 
-// ── Render: Interview questions ──────────────────────────────────────────────
-function renderQuestions() {
-	const container = $('brQuestions');
-	container.innerHTML = '';
-	QUESTIONS.forEach((q, i) => {
-		const card = document.createElement('div');
-		card.className = 'br-q-card';
-		card.innerHTML = `
-			<span class="br-q-num">Question ${i + 1}</span>
-			<div class="br-q-text">${escHtml(q.q)}</div>
-			<textarea class="br-q-input" id="brQ${i}" placeholder="${escHtml(q.placeholder)}" rows="2"></textarea>
-		`;
-		container.appendChild(card);
-	});
-	container.querySelectorAll('.br-q-input').forEach(el => {
-		el.addEventListener('input', updateSynthButton);
+// ── Render: Archetype quick-picks ────────────────────────────────────────────
+function renderArchetypes() {
+	const grid = $('brArchetypeGrid');
+	if (!grid) return;
+	grid.innerHTML = ARCHETYPES.map((a, i) => `
+		<button class="br-archetype-chip" data-archetype="${i}" type="button">
+			<span class="br-archetype-chip-label">${escHtml(a.label)}</span>
+			<span class="br-archetype-chip-desc">${escHtml(a.desc)}</span>
+		</button>
+	`).join('');
+	grid.querySelectorAll('.br-archetype-chip').forEach(chip => {
+		chip.addEventListener('click', () => applyArchetype(parseInt(chip.dataset.archetype, 10)));
 	});
 }
 
-function collectAnswers() {
-	return QUESTIONS.map((q, i) => ({
-		question: q.q,
-		answer: ($(`brQ${i}`)?.value || '').trim(),
-	}));
-}
-
-function updateSynthButton() {
-	const allFilled = collectAnswers().every(a => a.answer.length > 0);
-	$('brSynthesize').disabled = !allFilled || !state.authed;
-	const freeBtn = $('brFreeformSynth');
-	if (freeBtn) freeBtn.disabled = !$('brFreeformText')?.value.trim() || !state.authed;
+function applyArchetype(index) {
+	const archetype = ARCHETYPES[index];
+	if (!archetype) return;
+	state.persona = { ...archetype.persona };
+	persistPersona();
+	renderPersonaCard(state.persona);
+	// Mark the selected chip
+	document.querySelectorAll('.br-archetype-chip').forEach((chip, i) => {
+		chip.classList.toggle('selected', i === index);
+	});
+	toast(`"${archetype.label}" persona applied`);
 }
 
 function showAuthGate() {
@@ -295,16 +371,11 @@ function updatePersonaBanner() {
 	}
 }
 
-// ── Persona: Synthesis ───────────────────────────────────────────────────────
-async function synthesizeFromInterview() {
-	const answers = collectAnswers();
-	if (!answers.every(a => a.answer.length > 0)) return;
-	await runExtraction({ answers });
-}
-
-async function synthesizeFromFreeform() {
-	const text = $('brFreeformText').value.trim();
+// ── Persona: Synthesis from description ─────────────────────────────────────
+async function synthesizeFromDescription() {
+	const text = $('brDescribeInput').value.trim();
 	if (!text) return;
+	if (!state.authed) { showAuthGate(); return; }
 	await runExtraction({ freeform: text });
 }
 
@@ -346,20 +417,6 @@ async function runExtraction(payload) {
 	}
 }
 
-function setPersonaFromManual() {
-	const split = v => v.split(',').map(s => s.trim()).filter(Boolean);
-	state.persona = {
-		tone: $('brManTone').value.trim() || 'Neutral',
-		communication_style: $('brManStyle').value,
-		vocabulary: split($('brManVocab').value),
-		interests: split($('brManInterests').value),
-		dont_say: split($('brManDont').value),
-		sample_greeting: $('brManGreet').value.trim(),
-	};
-	persistPersona();
-	renderPersonaCard(state.persona);
-	toast('Persona set');
-}
 
 // ── Persona: Edit inline ─────────────────────────────────────────────────────
 function openEditMode() {
@@ -925,14 +982,6 @@ function bindPlayControlEvents() {
 	}
 }
 
-// ── Method tabs ──────────────────────────────────────────────────────────────
-function setMethod(method) {
-	state.method = method;
-	document.querySelectorAll('.br-method-tab').forEach(t => t.classList.toggle('active', t.dataset.method === method));
-	$('brInterview').classList.toggle('active', method === 'interview');
-	$('brFreeform').classList.toggle('active', method === 'freeform');
-	$('brManual').classList.toggle('active', method === 'manual');
-}
 
 // ── Bind all events ──────────────────────────────────────────────────────────
 function bindEvents() {
@@ -941,26 +990,14 @@ function bindEvents() {
 		t.addEventListener('click', () => setTab(t.dataset.tab));
 	});
 
-	// Method tabs
-	document.querySelectorAll('.br-method-tab').forEach(t => {
-		t.addEventListener('click', () => setMethod(t.dataset.method));
+	// Describe input + generate button
+	$('brDescribeInput').addEventListener('input', () => {
+		$('brDescribeGenerate').disabled = !$('brDescribeInput').value.trim();
 	});
-
-	// Interview
-	$('brSynthesize').addEventListener('click', synthesizeFromInterview);
-	$('brFillExample').addEventListener('click', () => {
-		EXAMPLES.forEach((v, i) => { const el = $(`brQ${i}`); if (el) el.value = v; });
-		updateSynthButton();
+	$('brDescribeInput').addEventListener('keydown', e => {
+		if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); synthesizeFromDescription(); }
 	});
-
-	// Freeform
-	$('brFreeformText').addEventListener('input', () => {
-		$('brFreeformSynth').disabled = !$('brFreeformText').value.trim();
-	});
-	$('brFreeformSynth').addEventListener('click', synthesizeFromFreeform);
-
-	// Manual
-	$('brManualSave').addEventListener('click', setPersonaFromManual);
+	$('brDescribeGenerate').addEventListener('click', synthesizeFromDescription);
 
 	// Persona card actions
 	$('brEditPersona').addEventListener('click', openEditMode);
@@ -1056,14 +1093,12 @@ function bindEvents() {
 loadSessions();
 loadPersona();
 
-renderQuestions();
+renderArchetypes();
 renderPlayControls();
 renderSidebar();
 renderCanvas();
 bindEvents();
 fetchProviderAvailability();
-
-if (!state.authed) showAuthGate();
 
 if (state.persona) {
 	renderPersonaCard(state.persona);

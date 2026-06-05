@@ -252,98 +252,96 @@ body {
 	margin: 0 auto;
 }
 
-/* Method selector */
-.br-method-tabs {
-	display: flex;
-	gap: 12px;
-	justify-content: center;
-}
-.br-method-tab {
-	flex: 1;
-	max-width: 260px;
-	background: #0c0c0c;
-	border: 1.5px solid var(--bg-1);
-	border-radius: 14px;
-	padding: 20px;
-	cursor: pointer;
-	transition: all 0.18s;
-	text-align: center;
-}
-.br-method-tab:hover { border-color: #303030; background: #121212; }
-.br-method-tab.active { border-color: #ffffff; background: #0d0d0d; }
-.br-method-tab-icon { font-size: 24px; margin-bottom: 8px; display: block; color: #ffffff; }
-.br-method-tab-title { font-size: 14px; font-weight: 600; color: #dde0f0; margin-bottom: 4px; }
-.br-method-tab-desc { font-size: 12px; color: #6b70a0; line-height: 1.5; }
-
-/* Interview flow */
-.br-interview { display: none; }
-.br-interview.active { display: flex; flex-direction: column; gap: 16px; }
-
-.br-q-card {
-	background: #0c0c0c;
-	border: 1.5px solid var(--bg-1);
-	border-radius: 14px;
-	padding: 20px 22px;
+/* Archetype quick-picks */
+.br-archetype-section {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
-	transition: border-color 0.2s;
+	gap: 14px;
 }
-.br-q-card:focus-within { border-color: #2a3060; }
-.br-q-num {
-	font-size: 11px;
+.br-archetype-label {
+	font-size: 11.5px;
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.1em;
-	color: #ffffff;
+	color: #4a4a6a;
+	text-align: center;
 }
-.br-q-text {
-	font-size: 15px;
-	font-weight: 500;
+.br-archetype-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 10px;
+}
+.br-archetype-chip {
+	background: #0c0c0c;
+	border: 1.5px solid #1c1c2a;
+	border-radius: 12px;
+	padding: 14px 16px;
+	cursor: pointer;
+	text-align: left;
+	transition: border-color 0.15s, background 0.15s, transform 0.1s;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.br-archetype-chip:hover {
+	border-color: #3a3a5a;
+	background: #101018;
+	transform: translateY(-1px);
+}
+.br-archetype-chip.selected {
+	border-color: #ffffff;
+	background: #0e0e1a;
+}
+.br-archetype-chip-label {
+	font-size: 13px;
+	font-weight: 600;
 	color: #dde0f0;
+	display: block;
+}
+.br-archetype-chip-desc {
+	font-size: 11.5px;
+	color: #5a5a7a;
+	display: block;
 	line-height: 1.4;
 }
-.br-q-input {
-	width: 100%;
-	background: #080808;
-	border: 1px solid var(--bg-1);
-	border-radius: 10px;
-	color: var(--ink);
-	font: inherit;
-	font-size: 14px;
-	padding: 12px 14px;
-	resize: vertical;
-	min-height: 56px;
-	outline: none;
-	transition: border-color 0.15s;
-}
-.br-q-input:focus { border-color: #3050a0; }
-.br-q-input::placeholder { color: #3d3d3d; }
 
-/* Freeform input */
-.br-freeform { display: none; }
-.br-freeform.active { display: flex; flex-direction: column; gap: 14px; }
-.br-freeform-area {
+/* Describe input section */
+.br-describe-section {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.br-describe-divider {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: #3a3a5a;
+	font-size: 12px;
+}
+.br-describe-divider::before,
+.br-describe-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background: #1c1c2a;
+}
+.br-describe-input {
 	width: 100%;
-	min-height: 160px;
 	background: #0c0c0c;
-	border: 1.5px solid var(--bg-1);
+	border: 1.5px solid #1c1c2a;
 	border-radius: 14px;
 	color: var(--ink);
 	font: inherit;
 	font-size: 14px;
-	padding: 18px 20px;
+	padding: 16px 18px;
 	resize: vertical;
+	min-height: 80px;
 	outline: none;
 	transition: border-color 0.15s;
+	line-height: 1.55;
 }
-.br-freeform-area:focus { border-color: #3050a0; }
-.br-freeform-area::placeholder { color: #3d3d3d; }
-.br-freeform-hint {
-	font-size: 12.5px;
-	color: #4a4a4a;
-	text-align: center;
-}
+.br-describe-input:focus { border-color: #3050a0; }
+.br-describe-input::placeholder { color: #3a3a4a; }
 
 /* Action row */
 .br-actions {
@@ -968,8 +966,7 @@ body {
 @media (max-width: 900px) {
 	.br-side { display: none; }
 	.br-persona-inner { padding: 20px 16px 60px; }
-	.br-method-tabs { flex-direction: column; }
-	.br-method-tab { max-width: none; }
+	.br-archetype-grid { grid-template-columns: repeat(2, 1fr); }
 	.br-pc-body { grid-template-columns: 1fr; }
 	.br-play-bar { padding: 8px 12px; }
 	.br-chat-msgs { padding: 16px; }

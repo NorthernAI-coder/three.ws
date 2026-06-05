@@ -76,11 +76,11 @@ describe('GET /api/sns?name=…', () => {
 		expect(resolveSnsName).toHaveBeenCalledWith('nich.threews');
 	});
 
-	it('returns 404 when the name has no owner', async () => {
+	it('returns 200 + resolved:false when the name has no owner', async () => {
 		resolveSnsName.mockResolvedValue(null);
 		const { res, body } = await call('/api/sns?name=does-not-exist.sol');
-		expect(res.statusCode).toBe(404);
-		expect(body.error_description).toMatch(/does not resolve/);
+		expect(res.statusCode).toBe(200);
+		expect(body.data).toEqual({ name: 'does-not-exist.sol', address: null, network: 'solana', resolved: false });
 		expect(res.getHeader('cache-control')).toMatch(/max-age=30/);
 	});
 
@@ -105,15 +105,15 @@ describe('GET /api/sns?address=…', () => {
 		reverseLookupAddress.mockResolvedValue('bonfida.sol');
 		const { res, body } = await call(`/api/sns?address=${ADDR}`);
 		expect(res.statusCode).toBe(200);
-		expect(body.data).toEqual({ name: 'bonfida.sol', address: ADDR, network: 'solana' });
+		expect(body.data).toEqual({ name: 'bonfida.sol', address: ADDR, network: 'solana', resolved: true });
 		expect(reverseLookupAddress).toHaveBeenCalledWith(ADDR);
 	});
 
-	it('returns 404 when no primary domain is set', async () => {
+	it('returns 200 + resolved:false when no primary domain is set', async () => {
 		reverseLookupAddress.mockResolvedValue(null);
 		const { res, body } = await call(`/api/sns?address=${ADDR}`);
-		expect(res.statusCode).toBe(404);
-		expect(body.error_description).toMatch(/no primary/);
+		expect(res.statusCode).toBe(200);
+		expect(body.data).toEqual({ name: null, address: ADDR, network: 'solana', resolved: false });
 	});
 
 	it('rejects malformed addresses', async () => {
