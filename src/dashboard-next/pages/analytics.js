@@ -360,7 +360,7 @@ function paintHorizontalBarChart(host, bySkill) {
 
 	const sorted = [...bySkill].sort((a, b) => Number(b.net_total) - Number(a.net_total)).slice(0, 8);
 	const max = Math.max(1, Number(sorted[0]?.net_total ?? 0));
-	const colors = ['#4ade80', '#fbbf24', '#60a5fa', '#f472b6', '#a78bfa', '#fb923c', '#22d3ee', '#94a3b8'];
+	const colors = ['#4ade80', '#fbbf24', '#60a5fa', '#f472b6', '#888888', '#fb923c', '#22d3ee', '#94a3b8'];
 
 	const labelW = 100;
 	const valueW = 70;
@@ -540,7 +540,7 @@ function renderFunnel({ totalViews, totalChats, revPayments }) {
 
 	const steps = [
 		{ label: 'Widget Views', value: totalViews, color: '#60a5fa' },
-		{ label: 'Conversations', value: totalChats, color: '#a78bfa' },
+		{ label: 'Conversations', value: totalChats, color: '#888888' },
 		{ label: 'Payments', value: revPayments, color: '#4ade80' },
 	];
 	const max = Math.max(1, steps[0].value);

@@ -751,7 +751,7 @@ function renderSkillLegend(bySkill) {
 		return `<span style="color:var(--nxt-ink-fade)">Source breakdown unavailable for this range.</span>`;
 	}
 	const total = bySkill.reduce((s, r) => s + Number(r.net_total || 0), 0) || 1;
-	const swatches = ['#4ade80', '#fbbf24', '#60a5fa', '#f472b6', '#a78bfa', '#fb923c'];
+	const swatches = ['#4ade80', '#fbbf24', '#60a5fa', '#f472b6', '#888888', '#fb923c'];
 	return bySkill
 		.slice(0, 6)
 		.map((r, i) => {
@@ -998,7 +998,18 @@ function renderWithdrawals({ withdrawals, wallets, available, host, me, agents }
 		});
 	}
 
-	const openModal = () => openWithdrawModal({ available, wallets, host, me, agents });
+	// Withdrawals land in a Solana wallet the user controls — the exact term the
+	// audit flagged as unexplained. Gate the modal behind the plain-language
+	// wallet/USDC explainer for first-timers; returning users pass straight through.
+	const openModal = async () => {
+		try {
+			const { ensureOnchainPrimer } = await import('../../shared/onchain-primer.js');
+			if (!(await ensureOnchainPrimer({ action: 'withdraw' }))) return;
+		} catch {
+			/* primer unavailable — never block a real withdrawal */
+		}
+		openWithdrawModal({ available, wallets, host, me, agents });
+	};
 	panel.querySelector('[data-action="open-withdraw"]').addEventListener('click', openModal);
 	document.addEventListener('dn:monetize:open-withdraw', openModal);
 

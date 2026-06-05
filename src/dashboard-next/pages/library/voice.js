@@ -3,7 +3,7 @@
 // library (/api/tts/eleven/voices), shows the currently assigned voice
 // for each agent, lets the user swap voices (PUT /api/agents/:id/voice)
 // and previews any voice with custom text via POST /api/tts/eleven.
-// Cloning a fresh voice from a recording lives on /dashboard/voice.
+// Cloning a fresh voice from a recording lives on /dashboard/settings.
 
 import { get, put, esc } from '../../api.js';
 

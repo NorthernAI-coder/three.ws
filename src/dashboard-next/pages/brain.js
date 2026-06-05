@@ -21,7 +21,7 @@ const PROVIDERS = [
 	{ key: 'groq-llama',        label: 'Llama 3.3 70B',      short: 'Llama 3.3',   network: 'Groq',       color: '#ff9a3c', ctx: '128K', tier: 'Fast' },
 	{ key: 'qwen-plus',         label: 'Qwen Plus',           short: 'Qwen+',       network: 'DashScope',  color: '#69db7c', ctx: '131K', tier: 'Balanced' },
 	{ key: 'modelscope-qwen',   label: 'Qwen3-Coder 480B',   short: 'Qwen3-Code',  network: 'ModelScope', color: '#40c057', ctx: '32K',  tier: 'Flagship' },
-	{ key: 'deepseek-r1',       label: 'DeepSeek R1',         short: 'DeepSeek',    network: 'DeepSeek',   color: '#b197fc', ctx: '64K',  tier: 'Reasoning' },
+	{ key: 'deepseek-r1',       label: 'DeepSeek R1',         short: 'DeepSeek',    network: 'DeepSeek',   color: '#888888', ctx: '64K',  tier: 'Reasoning' },
 ];
 const PMAP = new Map(PROVIDERS.map(p => [p.key, p]));
 
@@ -1354,7 +1354,7 @@ function injectStyles() {
 .brn-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .brn-chip { display: inline-block; padding: 3px 10px; border-radius: var(--nxt-radius-pill); font-size: 12px; font-weight: 500; }
 .brn-chip-blue { background: rgba(116,192,252,0.12); color: #74c0fc; }
-.brn-chip-purple { background: rgba(177,151,252,0.12); color: #b197fc; }
+.brn-chip-purple { background: rgba(255,255,255,0.06); color: #888888; }
 .brn-chip-red { background: rgba(248,113,113,0.12); color: #f87171; }
 .brn-chip-empty { font-size: 12px; color: var(--nxt-ink-fade); }
 .brn-pc-edit { padding: 20px; flex-direction: column; gap: 16px; border-top: 1px solid var(--nxt-stroke); }

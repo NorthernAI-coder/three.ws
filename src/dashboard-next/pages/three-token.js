@@ -236,7 +236,7 @@ function renderUtilityPillars(stats) {
 			desc: '$THREE is the index across the entire agent economy. Every agent token launched, every skill sold, every subscription created compounds into $THREE value.',
 			metric: t.market_cap ? fmtUsd(t.market_cap) : '—',
 			metricLabel: 'market cap',
-			color: '#a78bfa',
+			color: '#888888',
 		},
 	];
 
@@ -313,15 +313,15 @@ function renderLiveConverter(tokenConfig) {
 		: '';
 
 	section.innerHTML = `
-		<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#a78bfa,#60a5fa);opacity:0.6;border-radius:2px 2px 0 0"></div>
+		<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,rgba(255,255,255,0.4),rgba(255,255,255,0.15));opacity:0.6;border-radius:2px 2px 0 0"></div>
 		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;margin-top:4px">
 			<div>
 				<h2 style="font-size:18px;font-weight:700;margin:0 0 4px">Live USD → $THREE Converter</h2>
 				<p style="font-size:13px;color:var(--nxt-ink-dim);margin:0">Real-time price quote from Jupiter. Price updates every 30 seconds.</p>
 			</div>
-			<div data-slot="price-badge" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.15);border-radius:999px">
-				<div style="width:6px;height:6px;border-radius:50%;background:#a78bfa;animation:pulse-dot 2s ease-in-out infinite"></div>
-				<span style="font-size:12px;color:#a78bfa;font-weight:500" data-slot="price-label">fetching price…</span>
+			<div data-slot="price-badge" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:999px">
+				<div style="width:6px;height:6px;border-radius:50%;background:#888888;animation:pulse-dot 2s ease-in-out infinite"></div>
+				<span style="font-size:12px;color:#888888;font-weight:500" data-slot="price-label">fetching price…</span>
 			</div>
 		</div>
 
@@ -343,9 +343,9 @@ function renderLiveConverter(tokenConfig) {
 			</div>
 
 			<div data-slot="result" style="display:flex;flex-direction:column;gap:10px">
-				<div style="padding:16px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.12);border-radius:var(--nxt-radius-sm)">
+				<div style="padding:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:var(--nxt-radius-sm)">
 					<div style="font-size:11.5px;color:var(--nxt-ink-dim);margin-bottom:4px">You receive</div>
-					<div data-slot="token-amount" style="font-size:28px;font-weight:700;font-family:${MONO};color:#a78bfa;letter-spacing:-0.02em">—</div>
+					<div data-slot="token-amount" style="font-size:28px;font-weight:700;font-family:${MONO};color:#ffffff;letter-spacing:-0.02em">—</div>
 					<div style="font-size:12px;color:var(--nxt-ink-fade);margin-top:3px">$THREE</div>
 				</div>
 				<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -410,7 +410,7 @@ function renderLiveConverter(tokenConfig) {
 
 	usdInput.addEventListener('input', () => scheduleRefresh(300));
 	usdInput.addEventListener('focus', () => {
-		usdInput.style.borderColor = '#a78bfa';
+		usdInput.style.borderColor = 'rgba(255,255,255,0.28)';
 	});
 	usdInput.addEventListener('blur', () => {
 		usdInput.style.borderColor = '';
@@ -454,7 +454,7 @@ function renderRevenueShare(stats, revenueData) {
 	const perToken = totalSupply > 0 ? revenuePool / totalSupply : 0;
 
 	section.innerHTML = `
-		<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#60a5fa,#818cf8);opacity:0.6;border-radius:2px 2px 0 0"></div>
+		<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#60a5fa,rgba(255,255,255,0.4));opacity:0.6;border-radius:2px 2px 0 0"></div>
 		<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px;margin-top:4px">
 			<div>
 				<h2 style="font-size:18px;font-weight:700;margin:0 0 4px">Revenue Share Calculator</h2>
@@ -654,10 +654,10 @@ function renderActivityFeed(activityData) {
 	const sourceColors = {
 		payment: '#4ade80',
 		echo: '#60a5fa',
-		validate_model: '#a78bfa',
+		validate_model: '#888888',
 		inspect_model: '#fbbf24',
 		optimize_model: '#f472b6',
-		search_public_avatars: '#818cf8',
+		search_public_avatars: '#60a5fa',
 	};
 
 	if (!events.length) {

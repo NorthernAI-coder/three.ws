@@ -313,7 +313,7 @@ function renderKpis() {
 		</div>
 		<div class="dn-panel ls-kpi">
 			<div class="ls-kpi-label">Unique to three.ws</div>
-			<div class="ls-kpi-value" style="color:#a78bfa">${uniqueFeatures}</div>
+			<div class="ls-kpi-value" style="color:#ffffff">${uniqueFeatures}</div>
 			<div class="ls-kpi-sub">features no competitor has</div>
 		</div>
 	`;
@@ -432,8 +432,8 @@ function paintPositionMap(host) {
 		const twx = PAD.left + (65 / 100) * innerW;
 		const twy = PAD.top + (1 - 75 / 100) * innerH;
 		const grad = ctx.createRadialGradient(twx, twy, 0, twx, twy, 100 * eased);
-		grad.addColorStop(0, 'rgba(167,139,250,0.08)');
-		grad.addColorStop(1, 'rgba(167,139,250,0)');
+		grad.addColorStop(0, 'rgba(255,255,255,0.04)');
+		grad.addColorStop(1, 'rgba(255,255,255,0)');
 		ctx.fillStyle = grad;
 		ctx.beginPath();
 		ctx.arc(twx, twy, 100 * eased, 0, Math.PI * 2);
@@ -447,14 +447,14 @@ function paintPositionMap(host) {
 
 			if (p.isThreews) {
 				const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3);
-				glow.addColorStop(0, 'rgba(167,139,250,0.2)');
-				glow.addColorStop(1, 'rgba(167,139,250,0)');
+				glow.addColorStop(0, 'rgba(255,255,255,0.10)');
+				glow.addColorStop(1, 'rgba(255,255,255,0)');
 				ctx.fillStyle = glow;
 				ctx.beginPath();
 				ctx.arc(p.x, p.y, r * 3, 0, Math.PI * 2);
 				ctx.fill();
 
-				ctx.strokeStyle = 'rgba(167,139,250,0.5)';
+				ctx.strokeStyle = 'rgba(255,255,255,0.25)';
 				ctx.lineWidth = 2;
 				ctx.beginPath();
 				ctx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
@@ -463,11 +463,11 @@ function paintPositionMap(host) {
 
 			ctx.beginPath();
 			ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-			ctx.fillStyle = p.isThreews ? '#a78bfa' : p.color;
+			ctx.fillStyle = p.isThreews ? '#ffffff' : p.color;
 			ctx.fill();
 
 			if (scale > 0.6) {
-				ctx.fillStyle = p.isThreews ? '#a78bfa' : 'rgba(255,255,255,0.5)';
+				ctx.fillStyle = p.isThreews ? '#ffffff' : 'rgba(255,255,255,0.5)';
 				ctx.font = p.isThreews ? 'bold 13px Inter, system-ui, sans-serif' : '10px Inter, system-ui, sans-serif';
 				ctx.textAlign = 'center';
 				ctx.fillText(p.name, p.x, p.y - r - (p.isThreews ? 10 : 8));
@@ -677,7 +677,7 @@ function renderFeatureMatrix() {
 						${cols.map(c => {
 							const count = FEATURES.filter(f => f[c.key]).length;
 							const cls = c.key === 'threews' ? 'ls-matrix-hl' : '';
-							return `<td class="${cls}"><strong style="${c.key === 'threews' ? 'color:#a78bfa' : ''}">${count}</strong></td>`;
+							return `<td class="${cls}"><strong style="${c.key === 'threews' ? 'color:#ffffff' : ''}">${count}</strong></td>`;
 						}).join('')}
 					</tr>
 				</tbody>
@@ -768,8 +768,8 @@ function paintGrowthChart(host) {
 
 			const grad = ctx.createLinearGradient(0, y, 0, PAD.top + innerH);
 			if (p.year >= 2026) {
-				grad.addColorStop(0, 'rgba(167,139,250,0.9)');
-				grad.addColorStop(1, 'rgba(167,139,250,0.3)');
+				grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+				grad.addColorStop(1, 'rgba(255,255,255,0.3)');
 			} else {
 				grad.addColorStop(0, 'rgba(255,255,255,0.5)');
 				grad.addColorStop(1, 'rgba(255,255,255,0.15)');
@@ -789,7 +789,7 @@ function paintGrowthChart(host) {
 			ctx.fill();
 
 			if (eased > 0.5) {
-				ctx.fillStyle = p.year >= 2026 ? '#a78bfa' : 'rgba(255,255,255,0.6)';
+				ctx.fillStyle = p.year >= 2026 ? '#ffffff' : 'rgba(255,255,255,0.6)';
 				ctx.font = 'bold 12px Inter, system-ui, sans-serif';
 				ctx.textAlign = 'center';
 				ctx.fillText('$' + p.value.toFixed(1) + 'B', cx, y - 8);
@@ -803,7 +803,7 @@ function paintGrowthChart(host) {
 
 		if (eased > 0.7) {
 			const opacity = Math.min(1, (eased - 0.7) / 0.3);
-			ctx.fillStyle = `rgba(167,139,250,${opacity * 0.8})`;
+			ctx.fillStyle = `rgba(255,255,255,${opacity * 0.4})`;
 			ctx.font = 'bold 14px Inter, system-ui, sans-serif';
 			ctx.textAlign = 'right';
 			ctx.fillText(MARKET.cagr + '% CAGR', W - PAD.right, PAD.top + 16);
@@ -842,7 +842,7 @@ function injectStyles() {
 .ls-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
 .ls-header-badge { text-align: right; }
 .ls-badge-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--nxt-ink-dim); font-weight: 500; }
-.ls-badge-value { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; background: linear-gradient(135deg, #a78bfa 0%, #818cf8 50%, #60a5fa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.1; }
+.ls-badge-value { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; color: #ffffff; line-height: 1.1; }
 .ls-badge-sub { font-size: 12px; color: var(--nxt-ink-fade); margin-top: 2px; }
 
 /* KPIs */
@@ -866,21 +866,21 @@ function injectStyles() {
 .ls-diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .ls-diff-card { padding: 24px; position: relative; transition: border-color 0.2s, transform 0.2s; }
 .ls-diff-card:hover { border-color: var(--nxt-stroke-strong); transform: translateY(-2px); }
-.ls-diff-card:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; border-radius: var(--nxt-radius); }
-.ls-diff-icon { width: 36px; height: 36px; color: #a78bfa; margin-bottom: 14px; }
+.ls-diff-card:focus-visible { outline: 2px solid var(--stroke-strong); outline-offset: 2px; border-radius: var(--nxt-radius); }
+.ls-diff-icon { width: 36px; height: 36px; color: #888888; margin-bottom: 14px; }
 .ls-diff-icon svg { width: 100%; height: 100%; }
 .ls-diff-card-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
 .ls-diff-card-desc { font-size: 13px; color: var(--nxt-ink-dim); line-height: 1.5; }
-.ls-diff-badge { display: inline-block; margin-top: 12px; padding: 3px 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #a78bfa; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.2); border-radius: var(--nxt-radius-pill); }
+.ls-diff-badge { display: inline-block; margin-top: 12px; padding: 3px 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #888888; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); border-radius: var(--nxt-radius-pill); }
 
 /* Category filter */
 .ls-cat-bar { display: flex; gap: 6px; flex-wrap: wrap; }
 .ls-cat-btn { padding: 7px 16px; border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius-pill); background: none; color: var(--nxt-ink-dim); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; display: flex; align-items: center; gap: 6px; }
 .ls-cat-btn:hover { background: rgba(255,255,255,0.04); color: var(--nxt-ink); }
-.ls-cat-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
-.ls-cat-btn.is-active { background: rgba(167,139,250,0.12); color: #a78bfa; border-color: rgba(167,139,250,0.3); }
+.ls-cat-btn:focus-visible { outline: 2px solid var(--stroke-strong); outline-offset: 2px; }
+.ls-cat-btn.is-active { background: rgba(255,255,255,0.06); color: #ffffff; border-color: rgba(255,255,255,0.15); }
 .ls-cat-count { font-size: 10px; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 10px; }
-.ls-cat-btn.is-active .ls-cat-count { background: rgba(167,139,250,0.2); }
+.ls-cat-btn.is-active .ls-cat-count { background: rgba(255,255,255,0.10); }
 
 /* Competitor cards */
 .ls-comp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
@@ -905,7 +905,7 @@ function injectStyles() {
 .ls-comp-sw-list li::before { content: '•'; margin-right: 6px; }
 .ls-comp-toggle { display: flex; align-items: center; justify-content: center; width: 100%; padding: 4px; background: none; border: none; color: var(--nxt-ink-fade); cursor: pointer; transition: color 0.15s; margin-top: 4px; }
 .ls-comp-toggle:hover { color: var(--nxt-ink); }
-.ls-comp-toggle:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; border-radius: 4px; }
+.ls-comp-toggle:focus-visible { outline: 2px solid var(--stroke-strong); outline-offset: 2px; border-radius: 4px; }
 .ls-comp-chevron { width: 16px; height: 16px; transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
 .ls-comp-chevron.is-open { transform: rotate(180deg); }
 
@@ -917,8 +917,8 @@ function injectStyles() {
 .ls-matrix-feature-col { text-align: left !important; min-width: 180px; }
 .ls-matrix td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center; }
 .ls-matrix-feature { text-align: left; font-weight: 500; color: var(--nxt-ink); }
-.ls-matrix-hl { background: rgba(167,139,250,0.05); }
-.ls-matrix thead .ls-matrix-hl { color: #a78bfa !important; background: rgba(167,139,250,0.08); }
+.ls-matrix-hl { background: rgba(255,255,255,0.025); }
+.ls-matrix thead .ls-matrix-hl { color: #ffffff !important; background: rgba(255,255,255,0.04); }
 .ls-matrix-check { font-size: 14px; font-weight: 700; }
 .ls-matrix-check.is-yes { color: var(--nxt-success); }
 .ls-matrix-check.is-no { color: rgba(255,255,255,0.12); }
@@ -929,7 +929,7 @@ function injectStyles() {
 .ls-growth-panel { padding: 24px; }
 .ls-growth-header { display: flex; justify-content: space-between; align-items: flex-start; }
 .ls-growth-stat { text-align: right; }
-.ls-growth-stat-value { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.ls-growth-stat-value { font-size: 28px; font-weight: 800; color: #ffffff; }
 .ls-growth-stat-label { display: block; font-size: 11px; color: var(--nxt-ink-fade); text-transform: uppercase; letter-spacing: 0.06em; }
 
 /* Responsive */

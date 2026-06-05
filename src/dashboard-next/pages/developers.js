@@ -952,7 +952,7 @@ function renderUsageTab(root) {
 				</div>
 			</div>
 			<div class="dn-panel dev-usage-kpi">
-				<div class="dev-usage-kpi-icon" style="background:rgba(167,139,250,0.12);color:#a78bfa">
+				<div class="dev-usage-kpi-icon" style="background:rgba(255,255,255,0.06);color:#888888">
 					<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="2" width="10" height="10" rx="2"/><circle cx="8" cy="6.5" r="1"/><circle cx="12" cy="6.5" r="1"/><path d="M3 14l2-2h10l2 2v3a1 1 0 01-1 1H4a1 1 0 01-1-1v-3z"/></svg>
 				</div>
 				<div class="dev-usage-kpi-body">
@@ -1080,7 +1080,7 @@ function renderTopActions(container, actions) {
 	}
 
 	const max = Math.max(1, actions[0].count);
-	const colors = ['#6c8aff', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#fb923c', '#22d3ee', '#94a3b8', '#818cf8', '#4ade80'];
+	const colors = ['#6c8aff', '#34d399', '#fbbf24', '#f472b6', '#888888', '#fb923c', '#22d3ee', '#94a3b8', '#60a5fa', '#4ade80'];
 
 	container.innerHTML = `<div class="dev-usage-actions-list">
 		${actions.map((a, i) => {
@@ -1209,7 +1209,7 @@ const CHANGELOG = [
 const CATEGORY_META = {
 	api:            { label: 'API',            color: '#6c8aff' },
 	platform:       { label: 'Platform',       color: '#34d399' },
-	dashboard:      { label: 'Dashboard',      color: '#a78bfa' },
+	dashboard:      { label: 'Dashboard',      color: '#888888' },
 	sdk:            { label: 'SDK',            color: '#fbbf24' },
 	infrastructure: { label: 'Infrastructure', color: '#f472b6' },
 };
@@ -1583,7 +1583,7 @@ function injectStyles() {
 	font-size:20px; font-weight:700;
 	flex-shrink:0;
 }
-.dev-sdk-web { background:rgba(99,102,241,0.15); color:#818cf8; }
+.dev-sdk-web { background:rgba(255,255,255,0.07); color:#e8e8e8; }
 .dev-sdk-unity { background:rgba(255,255,255,0.08); color:#fff; }
 .dev-sdk-unreal { background:rgba(0,0,0,0.3); color:#fff; }
 .dev-sdk-rest { background:rgba(74,222,128,0.12); color:#4ade80; }
@@ -1594,8 +1594,8 @@ function injectStyles() {
 /* ── Interop callout ──────────────────────────────────────── */
 .dev-interop-callout {
 	padding:32px; margin-top:20px;
-	background:linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.08) 100%);
-	border:1px solid rgba(99,102,241,0.15);
+	background:linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.03) 100%);
+	border:1px solid rgba(255,255,255,0.07);
 }
 .dev-interop-badges { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
 .dev-badge {

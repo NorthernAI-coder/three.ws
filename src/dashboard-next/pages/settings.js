@@ -414,7 +414,7 @@ function renderPrefs(prefs) {
 		btn.disabled = true;
 		btn.textContent = 'Saving…';
 		try {
-			await patch('/api/dashboard/prefs', newPrefs);
+			await patch('/api/dashboard/prefs', { prefs: newPrefs });
 			toast('Preferences saved');
 		} catch (err) {
 			toast(err?.message || 'Save failed');
@@ -513,7 +513,7 @@ function renderDefaultNetwork(prefs) {
 				if (sub) sub.style.color = b.dataset.network === network ? 'rgba(0,0,0,0.6)' : 'var(--nxt-ink-fade)';
 			});
 			try {
-				await patch('/api/dashboard/prefs', { default_network: network });
+				await patch('/api/dashboard/prefs', { prefs: { default_network: network } });
 			} catch { /* best-effort server save */ }
 			toast(`Default network set to ${network}`);
 		});

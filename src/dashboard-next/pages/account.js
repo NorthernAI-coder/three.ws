@@ -116,13 +116,13 @@ async function copyToClipboard(text) {
 				<div data-slot="provider-keys"><div class="dn-skeleton" style="height:80px"></div></div>
 			</section>
 
-			<section class="dn-panel" data-section="wallets">
+			<section class="dn-panel" id="wallets" data-section="wallets">
 				<div style="display:flex;justify-content:space-between;align-items:start;gap:16px;margin-bottom:14px;flex-wrap:wrap">
 					<div>
 						<div class="dn-panel-title">Linked wallets</div>
 						<div class="dn-panel-sub" style="margin:0">Addresses that can claim royalties, pay for subscriptions, or sign as you.</div>
 					</div>
-					<a class="dn-btn primary" href="/dashboard/wallets" data-link="wallets">+ Link wallet</a>
+					<a class="dn-btn primary" href="#wallets" data-link="wallets">+ Link wallet</a>
 				</div>
 				<div data-slot="wallets"><div class="dn-skeleton" style="height:120px"></div></div>
 			</section>
@@ -151,13 +151,13 @@ async function copyToClipboard(text) {
 				<div data-slot="sns"><div class="dn-skeleton" style="height:80px"></div></div>
 			</section>
 
-			<section class="dn-panel" data-section="delegation">
+			<section class="dn-panel" id="delegation" data-section="delegation">
 				<div style="display:flex;justify-content:space-between;align-items:start;gap:16px;margin-bottom:14px;flex-wrap:wrap">
 					<div>
 						<div class="dn-panel-title">Delegation</div>
 						<div class="dn-panel-sub" style="margin:0">Let one of your agents answer on behalf of another, or hand off to a partner agent.</div>
 					</div>
-					<a class="dn-btn" href="/dashboard/delegation">Open delegation console →</a>
+					<a class="dn-btn" href="#delegation">Open delegation console →</a>
 				</div>
 				<div data-slot="delegation"><div class="dn-skeleton" style="height:80px"></div></div>
 			</section>
@@ -439,7 +439,7 @@ function renderWallets(host, wallets) {
 			<div class="dn-empty">
 				<h3>No wallets linked</h3>
 				<p>Link a wallet so you can claim royalties, pay for subscriptions, or sign as you.</p>
-				<a class="dn-btn primary" href="/dashboard/wallets">+ Link wallet</a>
+				<a class="dn-btn primary" href="#wallets">+ Link wallet</a>
 			</div>`;
 		return;
 	}
@@ -640,7 +640,7 @@ async function loadDelegations(host) {
 					${a.wallet_address ? `<span style="font-family:${MONO}">${esc(truncMid(a.wallet_address, 6, 6))}</span>` : '<span style="color:var(--nxt-ink-fade)">no delegate</span>'}
 				</td>
 				<td style="padding:11px 12px;text-align:right">
-					<a class="dn-btn ghost" href="/dashboard/delegation?agent=${encodeURIComponent(a.id)}" style="padding:5px 10px;font-size:12px">Configure →</a>
+					<a class="dn-btn ghost" href="#delegation" style="padding:5px 10px;font-size:12px">Configure →</a>
 				</td>
 			</tr>
 		`).join('');

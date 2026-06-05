@@ -655,7 +655,7 @@ function describeEvent(ev) {
 			return {
 				title:    `Withdrawal ${status}`,
 				subtitle: amount,
-				link:     { label: 'Open wallet', href: '/dashboard/wallets.html' },
+				link:     { label: 'Open wallet', href: '/dashboard/account#wallets' },
 			};
 		}
 		case 'auth.signin': {
@@ -663,7 +663,7 @@ function describeEvent(ev) {
 			return {
 				title:    'Sign-in',
 				subtitle: ip ? `from ${ip}` : '',
-				link:     { label: 'Open sessions', href: '/dashboard/sessions.html' },
+				link:     { label: 'Open sessions', href: '/dashboard/settings' },
 			};
 		}
 		default:

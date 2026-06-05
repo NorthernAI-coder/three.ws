@@ -18,6 +18,8 @@ import { openAvatarPicker } from '../../avatar-gallery-picker.js';
 import { openLaunchTokenModal } from '../../pump/launch-token-modal.js';
 import { onchainBadgeHTML } from '../../shared/onchain-badge.js';
 import { coinChipHTML } from '../../shared/agent-coin.js';
+import { skeletonHTML, emptyStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+ensureStateKitStyles();
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 
@@ -89,7 +91,8 @@ function truncMid(s, head = 6, tail = 4) {
 		`;
 
 		const host = main.querySelector('[data-slot="content"]');
-		host.innerHTML = `<div class="dn-skeleton" style="height:220px;border-radius:12px"></div>`;
+		host.setAttribute('aria-busy', 'true');
+		host.innerHTML = skeletonHTML(6, 'row');
 
 		const [agentsResp, avatarsResp] = await Promise.all([
 			safeGet('/api/agents'),
@@ -188,16 +191,18 @@ async function safeGet(url) {
 // ── Render agent list ──────────────────────────────────────────────────────
 
 function renderAgents(host, agents, avatars, root) {
+	host.removeAttribute('aria-busy');
 	if (!agents.length) {
-		host.innerHTML = `
-			<div class="dn-panel" style="text-align:center;padding:48px 24px">
-				<div style="font-size:40px;margin-bottom:16px">🤖</div>
-				<h3 style="font-size:17px;font-weight:600;margin:0 0 8px">No agents yet</h3>
-				<p style="color:var(--nxt-ink-dim);margin:0 0 20px;font-size:14px">Create your first agent to get an on-chain AI identity with its own wallet and skills.</p>
-				<button class="dn-btn primary" data-action="create-first">+ Create your first agent</button>
-			</div>
-		`;
-		host.querySelector('[data-action="create-first"]').addEventListener('click', () => {
+		host.innerHTML = emptyStateHTML({
+			icon: '🤖',
+			title: 'No agents yet',
+			body: 'Agents are AI characters you can embed and chat with — each gets an on-chain identity, its own wallet, and attachable skills.',
+			actions: [
+				{ label: '+ Create your first agent', id: 'create-first', primary: true },
+				{ label: "What's an agent?", href: '/docs/agents-vs-avatars', id: 'learn-agents' },
+			],
+		});
+		host.querySelector('[data-sk-action="create-first"]')?.addEventListener('click', () => {
 			openCreateModal(host, agents, avatars);
 		});
 		return;
@@ -465,7 +470,7 @@ function agentCard(a, avatars) {
 
 			<div class="dn-agent-actions">
 				<div class="dn-agent-actions-primary">
-					${a.avatar_id ? `<a class="dn-btn" href="/agent-next?id=${encodeURIComponent(a.avatar_id)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:12px">Live page ↗</a>` : ''}
+					${a.avatar_id ? `<a class="dn-btn" href="/agents/${encodeURIComponent(a.avatar_id)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:12px">Live page ↗</a>` : ''}
 					<a class="dn-btn" href="/app?agent=${encodeURIComponent(a.id)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:12px">3D Studio ↗</a>
 				</div>
 				<div class="dn-agent-actions-secondary">

@@ -6,6 +6,12 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, esc, relTime, ApiError } from '../api.js';
+import { log } from '../../shared/log.js';
+import {
+	cryptoOptionalBannerHTML,
+	cryptoOptionalTagHTML,
+	injectStyles as injectCryptoOptionalStyles,
+} from '/crypto-optional.js';
 
 const POLL_MS = 30_000;
 const DAYS_WINDOW = 7;
@@ -74,6 +80,31 @@ const STATE = {
 
 	if (slots.onboarding) {
 		renderOnboarding(slots.onboarding, { avatars, agents, widgets });
+	}
+
+	// First-run guided tour — fires once after wizard completion (?welcome=1)
+	const _welcomeUrl = new URL(location.href);
+	if (_welcomeUrl.searchParams.get('welcome') === '1' && !localStorage.getItem('threews:tour:done')) {
+		_welcomeUrl.searchParams.delete('welcome');
+		history.replaceState(null, '', _welcomeUrl.toString());
+
+		const newestAgent = [...agents]
+			.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0] ?? null;
+
+		import('../../first-meet.js').then(({ playFirstMeet }) => {
+			playFirstMeet({
+				viewer: null,
+				agent: newestAgent
+					? { id: newestAgent.id, name: newestAgent.name || newestAgent.display_name || 'Your agent' }
+					: { id: null, name: 'Your agent' },
+				onShare() {
+					if (newestAgent?.id) {
+						navigator.clipboard?.writeText(`${location.origin}/agent/${newestAgent.id}`).catch(() => {});
+					}
+				},
+				onContinue() {},
+			}).catch(log.error);
+		}).catch(log.error);
 	}
 
 	const refresh = async () => {
@@ -184,7 +215,7 @@ function renderHero(host, avatars, err) {
 			<article class="dnx-hero-card">
 				<threews-avatar avatar-id="${esc(a.id)}" bg="transparent" hide-chrome></threews-avatar>
 				<div class="dnx-hero-overlay">
-					<a class="dn-btn" href="/agent-next?id=${encodeURIComponent(a.id)}">Live page</a>
+					<a class="dn-btn" href="/agents/${encodeURIComponent(a.id)}">Live page</a>
 					<a class="dn-btn" href="/dashboard/widgets?avatar=${encodeURIComponent(a.id)}">Embed</a>
 					<a class="dn-btn" href="/dashboard/avatars?edit=${encodeURIComponent(a.id)}">Edit</a>
 				</div>
@@ -463,7 +494,7 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 		{
 			id: 'agent',
 			label: 'Build an agent identity',
-			sub: 'Give your avatar a name, personality, and on-chain address.',
+			sub: 'Give your avatar a name, personality, and voice. Add an on-chain address later if you want one.',
 			href: agents.length === 0 ? '/start' : '/dashboard/agents',
 			cta: 'Set up agent',
 			done: agents.length > 0,
@@ -479,10 +510,12 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 		{
 			id: 'monetize',
 			label: 'Start earning',
-			sub: 'Charge per message, set a subscription, or let fans tip.',
+			sub: 'Charge per message, set a subscription, or let fans tip — paid out in USDC.',
 			href: '/dashboard/monetize',
 			cta: 'Set up monetization',
 			done: false,
+			optional: true,
+			optionalTip: 'Earning and payouts settle in USDC and need a wallet. It is entirely opt-in — skip it and the rest of your agent works exactly the same.',
 		},
 	];
 
@@ -493,6 +526,8 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 	}
 
 	const pct = Math.round((doneCount / steps.length) * 100);
+
+	injectCryptoOptionalStyles();
 
 	host.innerHTML = `
 		<div class="dn-panel dnx-ob" id="dnx-onboarding">
@@ -517,13 +552,14 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 								: `${i + 1}`}
 						</span>
 						<div class="dnx-ob-text">
-							<span class="dnx-ob-label">${esc(s.label)}</span>
+							<span class="dnx-ob-label">${esc(s.label)}${s.optional ? ` ${cryptoOptionalTagHTML('', s.optionalTip)}` : ''}</span>
 							<span class="dnx-ob-sub">${esc(s.sub)}</span>
 						</div>
 						${!s.done ? `<a class="dn-btn dnx-ob-btn" href="${s.href}">${esc(s.cta)} →</a>` : ''}
 					</li>
 				`).join('')}
 			</ol>
+			<div class="dnx-ob-reassure">${cryptoOptionalBannerHTML('compact')}</div>
 		</div>
 	`;
 
@@ -549,7 +585,7 @@ function renderQuickActions(host, { avatars = [], agents = [] } = {}) {
 
 	const defaults = [];
 	if (firstAvatar) {
-		defaults.push({ href: `/agent-next?id=${encodeURIComponent(firstAvatar.id)}`, title: 'View live agent page', sub: 'See how visitors experience your agent', iconKey: '/dashboard/agents', cat: 'Agents & Identity' });
+		defaults.push({ href: `/agents/${encodeURIComponent(firstAvatar.id)}`, title: 'View live agent page', sub: 'See how visitors experience your agent', iconKey: '/dashboard/agents', cat: 'Agents & Identity' });
 	} else {
 		defaults.push({ href: '/create', title: 'Create avatar from selfie', sub: 'Snap a photo, get a 3D agent in 60 seconds', iconKey: '/create', cat: 'Create & Build' });
 	}
@@ -660,7 +696,7 @@ const DIR_ICONS = {
 };
 
 const CATEGORY_COLORS = {
-	'Create & Build':     { accent: '139,92,246',  label: '#a78bfa' },
+	'Create & Build':     { accent: '136,136,136',  label: '#888888' },
 	'Agents & Identity':  { accent: '59,130,246',  label: '#60a5fa' },
 	'Distribute & Embed': { accent: '16,185,129',  label: '#34d399' },
 	'Monetize & Trade':   { accent: '245,158,11',  label: '#fbbf24' },
@@ -1326,9 +1362,10 @@ function injectStyles() {
 			border-color: var(--nxt-stroke-strong);
 		}
 		.dnx-ob-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-		.dnx-ob-label { font-size: 13.5px; font-weight: 500; color: var(--nxt-ink); }
+		.dnx-ob-label { font-size: 13.5px; font-weight: 500; color: var(--nxt-ink); display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 		.dnx-ob-sub { font-size: 12px; color: var(--nxt-ink-fade); }
 		.dnx-ob-btn { flex-shrink: 0; font-size: 12px; padding: 5px 10px; white-space: nowrap; }
+		.dnx-ob-reassure { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--nxt-line, rgba(255,255,255,0.08)); }
 		@media (max-width: 600px) {
 			.dnx-ob-step { flex-wrap: wrap; }
 			.dnx-ob-btn { margin-left: 36px; }

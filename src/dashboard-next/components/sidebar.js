@@ -55,7 +55,6 @@ export function renderSidebar(pathname) {
 					</span>
 					<span class="dn-rail-item-text">Collapse</span>
 				</button>
-				<a href="/dashboard-classic" class="dn-rail-foot-back">&larr; Classic dashboard</a>
 			</div>
 		</aside>`;
 }

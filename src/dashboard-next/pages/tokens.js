@@ -53,7 +53,7 @@ function toast(msg) {
 					<h1 class="dn-h1">Tokens</h1>
 					<p class="dn-h1-sub">Pump.fun tokens launched by your agents. Track performance, manage royalties, withdraw earnings.</p>
 				</div>
-				<a class="dn-btn primary" href="/pump-dashboard" target="_blank" rel="noopener">Full Pump dashboard ↗</a>
+				<a class="dn-btn primary" href="/pump-dashboard">Open Token Cockpit →</a>
 			</div>
 			<div data-slot="content" style="display:flex;flex-direction:column;gap:16px">
 				<div class="dn-skeleton" style="height:200px;border-radius:12px"></div>
@@ -130,7 +130,7 @@ function renderEmpty() {
 		</p>
 		<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
 			<a class="dn-btn primary" href="/dashboard/agents">Go to Agents →</a>
-			<a class="dn-btn" href="/pump-dashboard" target="_blank" rel="noopener">Pump dashboard ↗</a>
+			<a class="dn-btn" href="/pump-dashboard">Open Token Cockpit →</a>
 		</div>
 	`;
 	return panel;
