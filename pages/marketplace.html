@@ -1326,6 +1326,28 @@
 				border-color: var(--stroke-strong);
 				transform: translateY(-1px);
 			}
+			.market-skill-card:focus-visible {
+				outline: none;
+				border-color: var(--stroke-strong);
+				box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
+				transform: translateY(-1px);
+			}
+			/* "Details →" affordance — dim at rest, resolves on card hover/focus */
+			.market-skill-card .skill-foot { justify-content: space-between; }
+			.market-skill-card .open-cta {
+				color: #fafafa;
+				font-weight: 500;
+				opacity: 0.55;
+				transition: opacity 0.15s ease;
+			}
+			.market-skill-card .open-cta-arrow {
+				display: inline-block;
+				transition: transform 0.15s ease;
+			}
+			.market-skill-card:hover .open-cta,
+			.market-skill-card:focus-visible .open-cta { opacity: 1; }
+			.market-skill-card:hover .open-cta-arrow,
+			.market-skill-card:focus-visible .open-cta-arrow { transform: translateX(2px); }
 			.market-skill-card .skill-head {
 				display: flex;
 				justify-content: space-between;
