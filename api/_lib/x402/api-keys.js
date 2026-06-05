@@ -102,32 +102,40 @@ export async function checkRateLimit(subscription, route) {
 
 	const redis = getRedis();
 	if (redis) {
-		// Redis sorted-set sliding window: ZREMRANGEBYSCORE drops expired
-		// timestamps, ZCARD counts the rest, ZADD writes the new one. EXPIRE
-		// keeps the key from leaking when the partner stops calling.
-		const cutoff = now - windowMs;
-		const member = `${now}:${Math.random().toString(36).slice(2, 10)}`;
-		const pipeline = redis.pipeline();
-		pipeline.zremrangebyscore(bucketKey, 0, cutoff);
-		pipeline.zadd(bucketKey, { score: now, member });
-		pipeline.zcard(bucketKey);
-		pipeline.expire(bucketKey, Math.ceil(windowMs / 1000) + 5);
-		const results = await pipeline.exec();
-		const count = Number(results?.[2] ?? 0);
-		if (count > limit) {
-			// Remove the candidate we just added so it doesn't count against
-			// the next legitimate request after the window slides.
-			await redis.zrem(bucketKey, member);
-			const oldest = await redis.zrange(bucketKey, 0, 0, { withScores: true });
-			const resetAt = oldest?.length >= 2 ? Number(oldest[1]) + windowMs : now + windowMs;
-			return { allowed: false, remaining: 0, limit, resetAt };
+		try {
+			// Redis sorted-set sliding window: ZREMRANGEBYSCORE drops expired
+			// timestamps, ZCARD counts the rest, ZADD writes the new one. EXPIRE
+			// keeps the key from leaking when the partner stops calling.
+			const cutoff = now - windowMs;
+			const member = `${now}:${Math.random().toString(36).slice(2, 10)}`;
+			const pipeline = redis.pipeline();
+			pipeline.zremrangebyscore(bucketKey, 0, cutoff);
+			pipeline.zadd(bucketKey, { score: now, member });
+			pipeline.zcard(bucketKey);
+			pipeline.expire(bucketKey, Math.ceil(windowMs / 1000) + 5);
+			const results = await pipeline.exec();
+			const count = Number(results?.[2] ?? 0);
+			if (count > limit) {
+				// Remove the candidate we just added so it doesn't count against
+				// the next legitimate request after the window slides.
+				await redis.zrem(bucketKey, member);
+				const oldest = await redis.zrange(bucketKey, 0, 0, { withScores: true });
+				const resetAt = oldest?.length >= 2 ? Number(oldest[1]) + windowMs : now + windowMs;
+				return { allowed: false, remaining: 0, limit, resetAt };
+			}
+			return {
+				allowed: true,
+				remaining: Math.max(0, limit - count),
+				limit,
+				resetAt: now + windowMs,
+			};
+		} catch (err) {
+			// Redis down/over-quota: fail open so a paid subscriber isn't 500'd
+			// when the limiter backend blinks. The partner's spend is still
+			// bounded by the upstream 402 cost and per-account caps.
+			console.warn('[x402/api-keys] rate-limit redis degraded, allowing:', err?.message || err);
+			return { allowed: true, remaining: limit, limit, resetAt: now + windowMs };
 		}
-		return {
-			allowed: true,
-			remaining: Math.max(0, limit - count),
-			limit,
-			resetAt: now + windowMs,
-		};
 	}
 
 	// In-memory fallback. Single-process correctness only — fine for local

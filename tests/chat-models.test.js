@@ -1,0 +1,117 @@
+import { describe, it, expect } from 'vitest';
+import {
+	MODEL_CATALOG,
+	modelSupportsTools,
+	isModelModerationGated,
+	usableModels,
+	DEFAULT_FREE_MODEL,
+	DEFAULT_PROVIDER_ORDER,
+	PROVIDER_MODEL_DEFAULTS,
+	OPENROUTER_SIBLINGS,
+	ANON_PROVIDER_LIST,
+	MAX_FALLBACK_ATTEMPTS,
+	TOTAL_BUDGET_MS,
+} from '../api/_lib/chat-models.js';
+
+// Models removed from the catalog because they will never succeed: OpenRouter
+// 404 "No endpoints found" / no tool-capable endpoint. They must never appear
+// in any routing list.
+const DEAD_ROUTES = [
+	'mistralai/mistral-7b-instruct:free',
+	'meta-llama/llama-3.2-3b-instruct:free',
+	'openai/gpt-oss-120b', // non-free variant, never catalogued
+];
+
+describe('chat-models catalog', () => {
+	it('does not carry permanently-broken routes', () => {
+		for (const dead of DEAD_ROUTES) {
+			expect(MODEL_CATALOG[dead], `${dead} should be absent`).toBeUndefined();
+		}
+	});
+
+	it('every catalogued model declares a provider and tool capability', () => {
+		for (const [id, meta] of Object.entries(MODEL_CATALOG)) {
+			expect(meta.provider, `${id} provider`).toBeTruthy();
+			expect(typeof meta.tools, `${id} tools`).toBe('boolean');
+		}
+	});
+
+	it('marks gpt-oss-120b:free moderation-gated and tool-capable', () => {
+		expect(isModelModerationGated('openai/gpt-oss-120b:free')).toBe(true);
+		expect(modelSupportsTools('openai/gpt-oss-120b:free')).toBe(true);
+	});
+});
+
+describe('usableModels (route selector)', () => {
+	const ALL = Object.keys(MODEL_CATALOG);
+
+	it('a tool-required request never returns a non-tool model', () => {
+		// Inject a hypothetical non-tool model id and confirm it is filtered.
+		const candidates = [...ALL, 'meta-llama/llama-3.2-3b-instruct:free'];
+		const picked = usableModels(candidates, { requireTools: true });
+		for (const m of picked) {
+			expect(modelSupportsTools(m), `${m} must support tools`).toBe(true);
+		}
+		// The unknown/non-tool id is dropped.
+		expect(picked).not.toContain('meta-llama/llama-3.2-3b-instruct:free');
+	});
+
+	it('excludes moderation-gated models from auto selection by default', () => {
+		const picked = usableModels(ALL, { requireTools: true });
+		expect(picked).not.toContain('openai/gpt-oss-120b:free');
+	});
+
+	it('includes gated models only when explicitly allowed', () => {
+		const picked = usableModels(['openai/gpt-oss-120b:free'], { allowGated: true });
+		expect(picked).toContain('openai/gpt-oss-120b:free');
+	});
+
+	it('drops unknown models entirely', () => {
+		expect(usableModels(['totally-made-up-model'])).toEqual([]);
+	});
+});
+
+describe('reliability-first ordering', () => {
+	it('ranks groq first and openai last (over-quota tier)', () => {
+		expect(DEFAULT_PROVIDER_ORDER[0]).toBe('groq');
+		expect(DEFAULT_PROVIDER_ORDER[DEFAULT_PROVIDER_ORDER.length - 1]).toBe('openai');
+	});
+
+	it('does not lead the free tier with the moderation-gated model', () => {
+		expect(DEFAULT_FREE_MODEL).not.toBe('openai/gpt-oss-120b:free');
+		expect(isModelModerationGated(DEFAULT_FREE_MODEL)).toBe(false);
+		expect(modelSupportsTools(DEFAULT_FREE_MODEL)).toBe(true);
+	});
+
+	it('OpenRouter siblings are all live, tool-capable, non-gated', () => {
+		for (const m of OPENROUTER_SIBLINGS) {
+			expect(MODEL_CATALOG[m], `${m} catalogued`).toBeDefined();
+			expect(modelSupportsTools(m)).toBe(true);
+			expect(isModelModerationGated(m)).toBe(false);
+		}
+	});
+
+	it('every provider default is a real, usable, tool-capable model', () => {
+		for (const [provider, model] of Object.entries(PROVIDER_MODEL_DEFAULTS)) {
+			expect(MODEL_CATALOG[model], `${provider} default ${model}`).toBeDefined();
+			expect(MODEL_CATALOG[model].provider).toBe(provider);
+			expect(modelSupportsTools(model)).toBe(true);
+		}
+	});
+
+	it('anonymous callers are clamped to free providers only', () => {
+		expect(ANON_PROVIDER_LIST).toEqual(['groq', 'openrouter']);
+		expect(ANON_PROVIDER_LIST).not.toContain('openai');
+		expect(ANON_PROVIDER_LIST).not.toContain('anthropic');
+	});
+});
+
+describe('bounded fallback chain', () => {
+	it('caps attempts and wall-clock to prevent provider churn', () => {
+		expect(MAX_FALLBACK_ATTEMPTS).toBeGreaterThanOrEqual(2);
+		expect(MAX_FALLBACK_ATTEMPTS).toBeLessThanOrEqual(4);
+		// Budget must leave streaming headroom under the 60s function limit.
+		expect(TOTAL_BUDGET_MS).toBeGreaterThan(0);
+		expect(TOTAL_BUDGET_MS).toBeLessThan(60_000);
+	});
+});

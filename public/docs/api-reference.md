@@ -952,6 +952,45 @@ Each asset has its own SIWX grant key: the endpoint passes a `resourceUrlBuilder
 
 `evmVerifierConfigured: true` means `BASE_RPC_URL` is set and smart-contract wallet signatures (Coinbase Smart Wallet, Safe) will verify. Without it, only EOA signatures are accepted.
 
+### Browser drop-in modal: "Sign in with wallet"
+
+The drop-in modal at `https://3d.irish/x402.js` speaks SIWX automatically — no merchant code changes. The same `<button data-x402-endpoint="…">` and `window.X402.pay({…})` keep working.
+
+When the 402 body carries the `sign-in-with-x` extension and the visitor has a matching wallet (Phantom for Solana, any `window.ethereum` wallet for EVM), the modal leads with a **Sign in with wallet** primary button and demotes paying to a secondary action:
+
+```
+┌─────────────────────────────────────┐
+│  THREE.WS                         ✕  │
+│  Download pole-dancer-rumba.glb      │
+├─────────────────────────────────────┤
+│  0.50 USDC                  ● Solana │
+├─────────────────────────────────────┤
+│  ✓ Confirming price                  │
+│  ◌ Connect wallet                    │
+│                                      │
+│  ┌─────────────────────────────────┐│
+│  │      Sign in with Phantom       ││  ← primary
+│  └─────────────────────────────────┘│
+│  ┌─────────────────────────────────┐│
+│  │     Pay 0.50 USDC instead       ││  ← secondary
+│  └─────────────────────────────────┘│
+│  Already paid for this once? Sign in │
+│  to re-enter without paying again.   │
+└─────────────────────────────────────┘
+```
+
+Clicking **Sign in with wallet** opens the wallet, signs the CAIP-122 message the server advertised, and retries the endpoint with the `SIGN-IN-WITH-X` header. On `200` the success receipt reads "Welcome back!" and the call resolves identically to a paid one. If the retry returns `401`/`402` with `code: siwx_not_paid` (this wallet never paid for this resource), the modal silently drops the SIWX offer, shows a one-line "You haven't paid for this yet" notice, and falls back to the normal pay flow. When the 402 body has no SIWX extension, behavior is unchanged.
+
+A successful sign-in also dispatches a `x402:siwx-signed` CustomEvent (`detail: { address, network }`) on the bound element, right before the usual `x402:result`, so merchants can wire analytics:
+
+```js
+button.addEventListener('x402:siwx-signed', (e) => {
+  analytics.track('siwx_reentry', { wallet: e.detail.address, network: e.detail.network });
+});
+```
+
+A minimal manual test surface lives at `/siwx-test.html` — two SIWX-enabled endpoints plus a live event log.
+
 ---
 
 ## Config API

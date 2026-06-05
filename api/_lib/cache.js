@@ -15,6 +15,32 @@
 const memCache = new Map();
 const MEM_DEFAULT_TTL_MS = 60_000;
 
+// Short read-through memo, in front of Redis even when Redis is configured.
+// A warm serverless instance often serves a burst of identical hot reads
+// (trending, token config, marketplace listings) within a second or two; without
+// this, each one spends a Redis GET and at platform scale that volume alone can
+// exhaust the Upstash request quota. We hold the last value for MEMO_TTL_MS so
+// repeated reads collapse to a single Redis round-trip per key per window. Writes
+// (cacheSet/cacheDel) refresh/clear the memo so we never serve a value we just
+// overwrote. Bounded: a few seconds of staleness on cache data is invisible.
+const readMemo = new Map();
+const MEMO_TTL_MS = 2_000;
+const MEMO_MAX_ENTRIES = 5_000; // backstop against unbounded key cardinality
+
+function memoGet(key) {
+	const hit = readMemo.get(key);
+	if (!hit) return undefined; // undefined = no memo; null is a cached "miss"
+	if (Date.now() > hit.expiresAt) {
+		readMemo.delete(key);
+		return undefined;
+	}
+	return hit.value;
+}
+function memoPut(key, value) {
+	if (readMemo.size >= MEMO_MAX_ENTRIES) readMemo.clear();
+	readMemo.set(key, { value, expiresAt: Date.now() + MEMO_TTL_MS });
+}
+
 function memSet(key, value, ttlSeconds) {
 	const ttlMs = (ttlSeconds && ttlSeconds * 1000) || MEM_DEFAULT_TTL_MS;
 	memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
@@ -53,10 +79,13 @@ async function redisCmd(args) {
 
 export async function cacheGet(key) {
 	if (!redisConfigured()) return memGet(key);
+	const memo = memoGet(key);
+	if (memo !== undefined) return memo;
 	try {
 		const raw = await redisCmd(['GET', key]);
-		if (raw == null) return null;
-		return JSON.parse(raw);
+		const value = raw == null ? null : JSON.parse(raw);
+		memoPut(key, value);
+		return value;
 	} catch (err) {
 		console.warn('[cache] redis GET failed, using memory fallback:', err?.message);
 		return memGet(key);
@@ -68,13 +97,16 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 	try {
 		const payload = JSON.stringify(value);
 		await redisCmd(['SET', key, payload, 'EX', String(ttlSeconds)]);
+		memoPut(key, value); // keep the memo coherent with what we just wrote
 	} catch (err) {
 		console.warn('[cache] redis SET failed, using memory fallback:', err?.message);
+		readMemo.delete(key);
 		memSet(key, value, ttlSeconds);
 	}
 }
 
 export async function cacheDel(key) {
+	readMemo.delete(key);
 	if (!redisConfigured()) return memDel(key);
 	try {
 		await redisCmd(['DEL', key]);

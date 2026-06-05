@@ -13,9 +13,13 @@
 //      debounced (one network round-trip a few seconds after the last edit) and
 //      flushed on room dispose, so a busy build doesn't hammer Redis.
 //
-// Each world is stored as a single JSON object { "gx,gy,gz": type } under the
-// key `walkblocks:<mint>`. A world is hard-capped (see MAX_BLOCKS in WalkRoom),
-// so the payload stays tens of KB — comfortably one Redis value.
+// Each world is stored as a single JSON object under the key `walkblocks:<mint>`.
+// A cell's value carries the block type AND the stable id of whoever placed it,
+// so ownership (R19 build permissions) survives a room emptying and a server
+// restart — without it, every restored build would be ownerless and unprotected.
+// The on-wire form is a compact `[type, owner]` pair; a bare number is still
+// accepted on load as a legacy (pre-ownership) cell. A world is hard-capped (see
+// MAX_BLOCKS in WalkRoom), so the payload stays well within one Redis value.
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
@@ -27,9 +31,25 @@ function redisKey(coin) {
 	return KEY_PREFIX + (coin || 'mainland');
 }
 
+// Normalize a persisted cell value into { t, o }. Accepts the current
+// `[type, owner]` pair, a bare `type` number from pre-ownership saves (owner
+// unknown → ''), or a `{ t, o }` object. Returns null for anything unparseable.
+function decodeCell(v) {
+	if (Array.isArray(v)) {
+		const t = Number(v[0]);
+		return Number.isInteger(t) ? { t, o: typeof v[1] === 'string' ? v[1] : '' } : null;
+	}
+	if (v && typeof v === 'object') {
+		const t = Number(v.t);
+		return Number.isInteger(t) ? { t, o: typeof v.o === 'string' ? v.o : '' } : null;
+	}
+	const t = Number(v);
+	return Number.isInteger(t) ? { t, o: '' } : null;
+}
+
 class BlockStore {
 	constructor() {
-		this._mem = new Map();       // coin → Map(packedKey → type)
+		this._mem = new Map();       // coin → Map(packedKey → { t:type, o:ownerId })
 		this._saveTimers = new Map(); // coin → timeout handle
 		this._redis = null;
 		this._redisReady = null;
@@ -82,9 +102,9 @@ class BlockStore {
 				const raw = this._redis ? await this._redis.get(redisKey(coin)) : null;
 				const obj = typeof raw === 'string' ? JSON.parse(raw) : raw; // Upstash may auto-parse JSON
 				if (obj && typeof obj === 'object') {
-					for (const [k, t] of Object.entries(obj)) {
-						const type = Number(t);
-						if (Number.isInteger(type)) map.set(k, type);
+					for (const [k, v] of Object.entries(obj)) {
+						const rec = decodeCell(v);
+						if (rec) map.set(k, rec);
 					}
 				}
 			} catch (err) {
@@ -95,11 +115,12 @@ class BlockStore {
 	}
 
 	// In-memory edits + a debounced durable write. Synchronous so callers don't
-	// await on the hot path of a place/break.
-	set(coin, key, type) {
+	// await on the hot path of a place/break. `owner` is the stable id of the
+	// placer (R19 ownership); '' for an ownerless/community cell.
+	set(coin, key, type, owner = '') {
 		const map = this._mem.get(coin);
 		if (!map) return;
-		map.set(key, type);
+		map.set(key, { t: type, o: owner || '' });
 		this._scheduleSave(coin);
 	}
 
@@ -136,7 +157,9 @@ class BlockStore {
 			if (map.size === 0) {
 				await this._redis.del(redisKey(coin));
 			} else {
-				await this._redis.set(redisKey(coin), JSON.stringify(Object.fromEntries(map)));
+				const obj = {};
+				for (const [k, rec] of map) obj[k] = [rec.t, rec.o || ''];
+				await this._redis.set(redisKey(coin), JSON.stringify(obj));
 			}
 			// A successful write proves durability is back; reset the failure streak.
 			if (this._writeFailures > 0) {

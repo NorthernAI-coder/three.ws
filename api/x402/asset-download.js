@@ -101,6 +101,23 @@ async function loadAsset(slug) {
 	return rows[0] || null;
 }
 
+// Build the SIWX statement. EIP-4361 restricts the statement to a single line
+// of RFC 3986 reserved/unreserved characters + space — double quotes, braces,
+// backticks, etc. are illegal and make the official SIWX client (browser
+// wallets and @x402/extensions alike) refuse to render a signable message. The
+// asset title is catalog-controlled, so we strip anything outside that set and
+// collapse whitespace rather than wrapping the title in quotes.
+const SIWE_STATEMENT_DISALLOWED = /[^A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;= ]+/g;
+function buildSiwxStatement(title) {
+	const clean = String(title || '')
+		.replace(SIWE_STATEMENT_DISALLOWED, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+	return clean
+		? `Sign in to re-download ${clean} without re-paying.`
+		: 'Sign in to re-download this asset without re-paying.';
+}
+
 function buildPayToOverride(asset) {
 	const out = {};
 	if (asset.creator_payto_base) out.base = asset.creator_payto_base;
@@ -148,7 +165,7 @@ export default async function handler(req, res) {
 		resourceUrlBuilder: () =>
 			`${env.APP_ORIGIN}${ROUTE}?slug=${encodeURIComponent(asset.slug)}`,
 		siwx: {
-			statement: `Sign in to re-download "${asset.title}" without re-paying.`,
+			statement: buildSiwxStatement(asset.title),
 			// Permanent grant per (asset, wallet) — once a wallet has paid for
 			// this asset it can re-download forever by signing.
 			ttlSeconds: null,

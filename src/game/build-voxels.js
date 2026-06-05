@@ -50,10 +50,93 @@ export const BLOCK_TYPES = [
 ];
 export const BLOCK_TYPE_COUNT = BLOCK_TYPES.length;
 
+// Composite pieces — ready-made structures placed as a single unit so a builder
+// can stamp a wall or a flight of stairs in one click instead of stacking dozens
+// of blocks by hand. Each piece is a list of cells in its own LOCAL frame (before
+// rotation): `dx`/`dz` are the horizontal footprint (rotated in 90° steps about
+// the anchor), `dy` is height (rotation-invariant), and an optional `t` pins a
+// block type — omit it and the cell inherits the player's selected palette block.
+// The anchor cell (where the ghost is aimed) is the piece's near-bottom corner,
+// so a piece grows up-and-forward from the cursor. The whole stamp goes through
+// the SAME server-authoritative block channel as single placements (a batch of
+// validated cells), so there's no second build path to keep honest.
+export const COMPOSITE_PIECES = [
+	{
+		id: 'wall', name: 'Wall', icon: '▯',
+		// 4 wide × 3 tall slab, one cell deep.
+		cells() {
+			const out = [];
+			for (let dx = 0; dx < 4; dx++) for (let dy = 0; dy < 3; dy++) out.push({ dx, dy, dz: 0 });
+			return out;
+		},
+	},
+	{
+		id: 'floor', name: 'Floor', icon: '▦',
+		// 4 × 4 flat slab — a platform or roof tile.
+		cells() {
+			const out = [];
+			for (let dx = 0; dx < 4; dx++) for (let dz = 0; dz < 4; dz++) out.push({ dx, dy: 0, dz });
+			return out;
+		},
+	},
+	{
+		id: 'ramp', name: 'Stairs', icon: '◢',
+		// A 4-step staircase climbing along +dx, 2 cells wide, solid underneath so
+		// it's walkable both as a ramp and as a viewing stand.
+		cells() {
+			const out = [];
+			for (let step = 0; step < 4; step++) {
+				for (let dy = 0; dy <= step; dy++) for (let dz = 0; dz < 2; dz++) out.push({ dx: step, dy, dz });
+			}
+			return out;
+		},
+	},
+	{
+		id: 'door', name: 'Doorway', icon: '🚪',
+		// A 3 × 3 wall with a 1-wide, 2-tall opening punched in the middle.
+		cells() {
+			const out = [];
+			for (let dx = 0; dx < 3; dx++) for (let dy = 0; dy < 3; dy++) {
+				if (dx === 1 && dy < 2) continue; // the doorway
+				out.push({ dx, dy, dz: 0 });
+			}
+			return out;
+		},
+	},
+];
+
+// The largest stamp any piece produces — the server caps a batch at this so a
+// crafted client can't smuggle a giant write through the composite channel, and
+// the footprint-ghost instance pool is sized to it.
+export const MAX_COMPOSITE_CELLS = COMPOSITE_PIECES.reduce((m, p) => Math.max(m, p.cells().length), 0);
+
 const _dummy = new Object3D();
 
 export function keyOf(gx, gy, gz) { return `${gx},${gy},${gz}`; }
 export function parseKey(key) { const p = key.split(','); return [+p[0], +p[1], +p[2]]; }
+
+// Rotate a horizontal footprint offset by a quarter-turn step (0–3 = 0/90/180/270°)
+// about the anchor. Integer-only so a rotated piece stays perfectly grid-aligned.
+export function rotateXZ(dx, dz, rot) {
+	switch (((rot % 4) + 4) % 4) {
+		case 1: return [dz, -dx];
+		case 2: return [-dx, -dz];
+		case 3: return [-dz, dx];
+		default: return [dx, dz];
+	}
+}
+
+// Resolve a composite piece to absolute world cells for a given anchor, rotation,
+// and selected block type. Each cell is `{ x, y, z, t }` ready for the place/batch
+// channel. Returns [] for an unknown piece id so callers can treat it as a no-op.
+export function compositeCells(pieceId, anchor, rot, type) {
+	const piece = COMPOSITE_PIECES.find((p) => p.id === pieceId);
+	if (!piece || !anchor) return [];
+	return piece.cells().map(({ dx, dy, dz, t }) => {
+		const [rx, rz] = rotateXZ(dx, dz, rot);
+		return { x: anchor[0] + rx, y: anchor[1] + dy, z: anchor[2] + rz, t: t == null ? type : t };
+	});
+}
 
 // Centre of a grid cell in world space. y is offset by half a block so gy=0 sits
 // flush on the ground plane (its base at y=0, top at y=BLOCK).
@@ -170,6 +253,7 @@ export class VoxelWorld {
 		this.index = new Map(); // key → { type, i }
 		this._meshes = []; // refreshed lazily for raycasting
 		this._buildGhost();
+		this._buildFootprintGhost();
 	}
 
 	get count() { return this.index.size; }
@@ -292,11 +376,72 @@ export class VoxelWorld {
 
 	hideGhost() { if (this._ghost) this._ghost.visible = false; }
 
+	// --- Composite footprint ghost ----------------------------------------
+	// A single InstancedMesh previewing every cell a composite piece would place,
+	// so a wall or staircase shows its full shape (and rotation) before you commit.
+	// One draw call regardless of piece size — it never competes with the build's
+	// own instanced batches for performance.
+	_buildFootprintGhost() {
+		const box = new BoxGeometry(BLOCK * 1.02, BLOCK * 1.02, BLOCK * 1.02);
+		this._fpGeom = box;
+		this._fpMat = new MeshBasicMaterial({ transparent: true, opacity: 0.22, depthWrite: false });
+		const m = new InstancedMesh(box, this._fpMat, MAX_COMPOSITE_CELLS);
+		m.frustumCulled = false;
+		m.count = 0;
+		m.visible = false;
+		this.scene.add(m);
+		this._fpGhost = m;
+		this._fpColor = new Color();
+	}
+
+	// Preview a composite piece's cells, tinted by whether the whole stamp can
+	// land (green) or is blocked (amber). Hides the single-cell ghost so the two
+	// cursors never overlap.
+	showFootprint(cells, valid) {
+		this.hideGhost();
+		if (!cells || cells.length === 0) { this.hideFootprint(); return; }
+		const n = Math.min(cells.length, MAX_COMPOSITE_CELLS);
+		for (let i = 0; i < n; i++) {
+			cellToWorld(cells[i].x, cells[i].y, cells[i].z, _dummy.position);
+			_dummy.rotation.set(0, 0, 0);
+			_dummy.scale.setScalar(1);
+			_dummy.updateMatrix();
+			this._fpGhost.setMatrixAt(i, _dummy.matrix);
+		}
+		this._fpGhost.count = n;
+		this._fpGhost.instanceMatrix.needsUpdate = true;
+		this._fpColor.setHex(valid ? 0x66ff8c : 0xffb648);
+		this._fpMat.color.copy(this._fpColor);
+		this._fpGhost.visible = true;
+	}
+
+	hideFootprint() { if (this._fpGhost) { this._fpGhost.visible = false; this._fpGhost.count = 0; } }
+
+	// True only when every cell of a proposed stamp is in bounds, empty, and the
+	// build has room for all of them under the block budget. Used to tint the
+	// footprint ghost and to gate a composite placement client-side.
+	canPlaceAll(cells, maxBlocks = Infinity) {
+		if (!cells || cells.length === 0) return false;
+		let fresh = 0;
+		const seen = new Set();
+		for (const c of cells) {
+			if (!cellInBounds(c.x, c.y, c.z)) return false;
+			const key = keyOf(c.x, c.y, c.z);
+			if (seen.has(key)) continue; // a piece never repeats a cell, but be safe
+			seen.add(key);
+			if (!this.index.has(key)) fresh++;
+		}
+		return this.count + fresh <= maxBlocks;
+	}
+
 	dispose() {
 		this.hideGhost();
+		this.hideFootprint();
 		this.scene.remove(this._ghost);
 		this._ghostFill.geometry.dispose(); this._ghostFill.material.dispose();
 		this._ghostEdges.geometry.dispose(); this._ghostEdges.material.dispose();
+		this.scene.remove(this._fpGhost);
+		this._fpGeom.dispose(); this._fpMat.dispose();
 		for (const b of this.batches) b.dispose();
 		this.geometry.dispose();
 		this.index.clear();

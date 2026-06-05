@@ -279,7 +279,16 @@ function buildSiwxMessage(info, chain, address) {
 	const chainRef = isEvm ? String(parseInt(chainTail, 10)) : chainTail;
 
 	const lines = [accountHeader, address, ''];
-	if (info.statement) lines.push(info.statement, '');
+	if (info.statement) {
+		lines.push(info.statement, '');
+	} else if (isEvm) {
+		// siwe's prepareMessage() reserves the statement block even when the
+		// statement is absent, emitting an extra blank line (header, address,
+		// "", "", URI). SIWS's formatter does not. The server rebuilds the EVM
+		// message via siwe before recovering the signer, so omit-statement EVM
+		// must carry the same extra blank or the recovered address mismatches.
+		lines.push('');
+	}
 	lines.push(`URI: ${info.uri}`);
 	lines.push(`Version: ${info.version || '1'}`);
 	lines.push(`Chain ID: ${chainRef}`);

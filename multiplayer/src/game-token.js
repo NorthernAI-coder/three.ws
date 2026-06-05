@@ -295,6 +295,24 @@ export function splitBurnTreasury(rawTotal, burnBps = 5000) {
 	return { burn, treasury };
 }
 
+// Three-leg split for a coin-tied sale (R25): the creator share comes off the top
+// (by `creatorBps`), then the remainder splits burn/treasury by `burnBps`. The
+// creator leg is taken FIRST so the platform's burn/treasury split is computed on
+// what's left — i.e. a 50% creator share over a 50/50 burn/treasury remainder
+// pays the creator 50%, burns 25%, treasuries 25%. Treasury absorbs every rounding
+// remainder so the three legs always sum to exactly the total. `creatorBps` is
+// clamped to [0,10000]; 0 (or a falsy creator wallet upstream) degenerates to the
+// plain burn/treasury split with a zero creator leg.
+export function splitCreatorTreasuryBurn(rawTotal, creatorBps = 0, burnBps = 5000) {
+	const total = BigInt(rawTotal);
+	const cbps = BigInt(Math.max(0, Math.min(10000, Number(creatorBps) | 0)));
+	const creator = (total * cbps) / 10000n;
+	const remainder = total - creator;
+	const burn = (remainder * BigInt(burnBps)) / 10000n;
+	const treasury = remainder - burn;
+	return { creator, burn, treasury };
+}
+
 function memoInstruction(nonce) {
 	return new TransactionInstruction({ keys: [], programId: MEMO_PROGRAM_ID, data: Buffer.from(nonce, 'utf8') });
 }
@@ -401,6 +419,14 @@ export async function verifySpinPayment({ quoteToken, txSig, buyerWallet }) {
 	};
 	if (delta(burnATA) < BigInt(q.burnRaw)) return { ok: false, reason: 'burn_underpaid' };
 	if (delta(treasuryATA) < BigInt(q.treasuryRaw)) return { ok: false, reason: 'treasury_underpaid' };
+	// Creator leg (R25): when the quote sealed a creator transfer, the on-chain tx
+	// must have moved at least that share to the creator's $THREE account — else the
+	// split didn't happen and we refuse to credit the sale. Quotes without a creator
+	// leg (spins, plain boutique sales) skip this and behave exactly as before.
+	if (q.creatorAddr && BigInt(q.creatorRaw || '0') > 0n) {
+		const creatorATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.creatorAddr))).toBase58();
+		if (delta(creatorATA) < BigInt(q.creatorRaw)) return { ok: false, reason: 'creator_underpaid' };
+	}
 	return { ok: true, nonce: q.nonce, quote: q };
 }
 
@@ -421,17 +447,36 @@ export async function verifySpinPayment({ quoteToken, txSig, buyerWallet }) {
  * `extra` is sealed into the quote verbatim (e.g. the boutique listing id) so settle
  * can act on it without trusting the client. Returns null when no treasury is
  * configured, the buyer isn't a real wallet, or the amount is non-positive.
- * @param {{ buyerWallet: string, amountRaw: string|bigint, purpose: string, burnBps?: number, extra?: object }} params
+ *
+ * Coin-tied creator splits (R25): pass `creator: { wallet, bps }` to route a share
+ * of the SAME signed transaction to a coin creator's wallet. The creator leg is a
+ * real third SPL transfer the buyer signs — no platform float, no second payout —
+ * so the split is enforced on-chain atomically. The creator share comes off the
+ * top; the remainder splits burn/treasury by `burnBps` as before. A falsy/invalid
+ * creator wallet or a zero `bps` degenerates to the plain two-leg split.
+ *
+ * @param {{ buyerWallet: string, amountRaw: string|bigint, purpose: string, burnBps?: number, creator?: { wallet?: string, bps?: number }, extra?: object }} params
  * @returns {Promise<null | { quoteToken: string, txBase64: string, quote: object }>}
  */
-export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burnBps = 5000, extra = {} }) {
+export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burnBps = 5000, creator = null, extra = {} }) {
 	if (!tokenConfigured()) return null;
 	if (!isWalletAddress(buyerWallet)) return null;
 	let total;
 	try { total = BigInt(amountRaw); } catch { return null; }
 	if (!(total > 0n)) return null;
 
-	const { burn: burnRaw, treasury: treasuryRaw } = splitBurnTreasury(total, burnBps);
+	// A creator leg only applies when both a valid wallet and a positive share are
+	// supplied (and the creator isn't the buyer — a no-op self-transfer). Otherwise
+	// fall back to the plain burn/treasury split, the creator leg zeroed.
+	const creatorBpsIn = Math.max(0, Math.min(10000, Number(creator?.bps) | 0));
+	const creatorWallet = creator?.wallet;
+	const creatorActive = creatorBpsIn > 0
+		&& isWalletAddress(creatorWallet)
+		&& creatorWallet !== buyerWallet;
+	const effectiveCreatorBps = creatorActive ? creatorBpsIn : 0;
+
+	const { creator: creatorRaw, burn: burnRaw, treasury: treasuryRaw } =
+		splitCreatorTreasuryBurn(total, effectiveCreatorBps, burnBps);
 	const treasuryAddr = treasuryWallet();
 	const nonce = crypto.randomBytes(16).toString('hex');
 
@@ -444,16 +489,23 @@ export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burn
 	const buyerATA = await getAssociatedTokenAddress(mint, buyer);
 	const burnATA = await getAssociatedTokenAddress(mint, burn);
 	const treasuryATA = await getAssociatedTokenAddress(mint, treasury);
+	const creatorATA = creatorActive
+		? await getAssociatedTokenAddress(mint, new PublicKey(creatorWallet))
+		: null;
 
 	const tx = new Transaction();
-	const [burnAcct, treasuryAcct] = await Promise.all([
-		conn.getAccountInfo(burnATA),
-		conn.getAccountInfo(treasuryATA),
-	]);
+	const accountChecks = [conn.getAccountInfo(burnATA), conn.getAccountInfo(treasuryATA)];
+	if (creatorActive) accountChecks.push(conn.getAccountInfo(creatorATA));
+	const [burnAcct, treasuryAcct, creatorAcct] = await Promise.all(accountChecks);
 	if (!burnAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, burnATA, burn, mint));
 	if (!treasuryAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, treasuryATA, treasury, mint));
-	tx.add(createTransferInstruction(buyerATA, burnATA, buyer, burnRaw));
-	tx.add(createTransferInstruction(buyerATA, treasuryATA, buyer, treasuryRaw));
+	if (creatorActive && !creatorAcct) {
+		tx.add(createAssociatedTokenAccountInstruction(buyer, creatorATA, new PublicKey(creatorWallet), mint));
+	}
+	// Order legs largest-intent first for readability; amounts are what matter.
+	if (creatorActive && creatorRaw > 0n) tx.add(createTransferInstruction(buyerATA, creatorATA, buyer, creatorRaw));
+	if (burnRaw > 0n) tx.add(createTransferInstruction(buyerATA, burnATA, buyer, burnRaw));
+	if (treasuryRaw > 0n) tx.add(createTransferInstruction(buyerATA, treasuryATA, buyer, treasuryRaw));
 	tx.add(memoInstruction(nonce));
 
 	const { blockhash } = await conn.getLatestBlockhash('confirmed');
@@ -473,6 +525,10 @@ export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burn
 		burnRaw: burnRaw.toString(),
 		treasuryAddr,
 		treasuryRaw: treasuryRaw.toString(),
+		// Creator leg (R25). Sealed into the quote so settle verifies the on-chain
+		// creator transfer landed before crediting earnings — the client can't forge
+		// or omit it. Absent keys mean "no creator leg" (plain two-way split).
+		...(creatorActive ? { creatorAddr: creatorWallet, creatorRaw: creatorRaw.toString(), creatorBps: effectiveCreatorBps } : {}),
 		nonce,
 		...extra,
 	};
@@ -521,5 +577,13 @@ export async function verifyTokenPurchase({ quoteToken, txSig, buyerWallet, purp
 	};
 	if (delta(burnATA) < BigInt(q.burnRaw)) return { ok: false, reason: 'burn_underpaid' };
 	if (delta(treasuryATA) < BigInt(q.treasuryRaw)) return { ok: false, reason: 'treasury_underpaid' };
+	// Creator leg (R25): when the quote sealed a creator transfer, the on-chain tx
+	// must have moved at least that share to the creator's $THREE account — else the
+	// split didn't happen and we refuse to credit the sale. Quotes without a creator
+	// leg (spins, plain boutique sales) skip this and behave exactly as before.
+	if (q.creatorAddr && BigInt(q.creatorRaw || '0') > 0n) {
+		const creatorATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.creatorAddr))).toBase58();
+		if (delta(creatorATA) < BigInt(q.creatorRaw)) return { ok: false, reason: 'creator_underpaid' };
+	}
 	return { ok: true, nonce: q.nonce, quote: q };
 }

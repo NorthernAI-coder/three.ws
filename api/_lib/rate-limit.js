@@ -71,8 +71,61 @@ function getLimiter(name, opts) {
 		prefix: `rl:${name}`,
 		analytics: false,
 	});
-	limiters.set(key, rl);
-	return rl;
+	const resilient = resilientLimiter(rl, name, opts);
+	limiters.set(key, resilient);
+	return resilient;
+}
+
+// One warn per limiter name per cooldown — a Redis outage hits every request,
+// so unthrottled logging would itself become a denial-of-service on the logs.
+const _degradeWarnedAt = new Map();
+const DEGRADE_WARN_COOLDOWN_MS = 60_000;
+function warnDegradedOnce(name, err) {
+	const last = _degradeWarnedAt.get(name) || 0;
+	const t = Date.now();
+	if (t - last < DEGRADE_WARN_COOLDOWN_MS) return;
+	_degradeWarnedAt.set(name, t);
+	console.warn(
+		`[rate-limit] redis degraded for "${name}", limiter served from fallback decision:`,
+		err?.message || err,
+	);
+}
+
+// Wrap a real (Redis-backed) Ratelimit so a Redis error — most importantly the
+// account-wide "max requests limit exceeded" over-quota UpstashError — degrades
+// instead of throwing an unhandled 500 out of every route. Non-critical buckets
+// (the read/public/auth-IP limiters every page hits) FAIL OPEN: a limiter
+// outage must never take down the API. Critical buckets (cost/money-moving)
+// FAIL CLOSED: better to 503 a paid action than allow unbounded spend when the
+// distributed limiter is blind.
+function resilientLimiter(rl, name, opts) {
+	const ms = parseWindowMs(opts.window);
+	const failClosed = Boolean(opts.critical) && IS_PRODUCTION;
+	return {
+		async limit(id) {
+			try {
+				return await rl.limit(id);
+			} catch (err) {
+				warnDegradedOnce(name, err);
+				if (failClosed) {
+					return {
+						success: false,
+						limit: opts.limit,
+						remaining: 0,
+						reset: Date.now() + ms,
+						reason: 'rate_limiter_unavailable',
+					};
+				}
+				return {
+					success: true,
+					limit: opts.limit,
+					remaining: opts.limit,
+					reset: Date.now() + ms,
+					reason: 'rate_limiter_degraded',
+				};
+			}
+		},
+	};
 }
 
 function memoryLimiter({ limit, window }) {

@@ -939,6 +939,12 @@ export class CommunityUI {
 			class: 'cc-buy-btn', type: 'button', title: 'Buy this coin',
 			onclick: () => this.h.onBuy?.(),
 		}, [el('span', { class: 'cc-buy-btn-ico', text: '⚡' }), this.buyBtnLabel]);
+		// Open the cosmetics shop — browse + try cosmetics on your avatar live.
+		this.shopBtn = el('button', {
+			class: 'cc-shop-btn', type: 'button', title: 'Cosmetics — try looks on your avatar',
+			'aria-label': 'Open cosmetics shop',
+			onclick: () => this.h.onShop?.(),
+		}, [el('span', { class: 'cc-shop-btn-ico', 'aria-hidden': 'true', text: '🛍️' }), el('span', { class: 'cc-shop-btn-text', text: 'Shop' })]);
 		const banner = el('div', { class: 'cc-coin-banner' }, [
 			this.coinImg,
 			el('div', { class: 'cc-coin-info' }, [
@@ -949,6 +955,7 @@ export class CommunityUI {
 					this.tierBadge,
 				]),
 			]),
+			this.shopBtn,
 			this.buyBtn,
 		]);
 

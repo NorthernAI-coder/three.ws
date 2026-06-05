@@ -16,7 +16,7 @@ import {
 	Mesh, MeshStandardMaterial, MeshBasicMaterial, CircleGeometry,
 	CylinderGeometry, PlaneGeometry,
 	CanvasTexture, TextureLoader, DoubleSide,
-	Raycaster, Vector2,
+	Raycaster, Vector2, WebGLRenderTarget,
 } from 'three';
 
 import { AnimationManager } from '../animation-manager.js';
@@ -26,13 +26,18 @@ import { createWorldEnvironment, seedFromString } from './world-env.js';
 import { createChartScreen } from './chart-screen.js';
 import { mountOracleRibbon } from './oracle-ribbon.js';
 import { MarketReactor } from './market-reactor.js';
-import { VoxelWorld, createBuildHud, parseKey, MAX_BLOCKS } from './build-voxels.js';
+import {
+	VoxelWorld, createBuildHud, parseKey, keyOf, MAX_BLOCKS,
+	COMPOSITE_PIECES, compositeCells, MAX_COMPOSITE_CELLS,
+} from './build-voxels.js';
 import { normalizeGatewayURL } from '../ipfs.js';
 import {
 	loadManifest, getEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
 	CLIP_IDLE, CLIP_WALK,
 } from './avatar-rig.js';
 import { GUEST_SENTINEL, uploadPendingGuestAvatar } from './play-handoff.js';
+import { AccessoryManager } from '../agent-accessories.js';
+import { CosmeticsShop } from './cosmetics-shop.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
 import { AgentCommerce } from './agent-commerce.js';
 import { WorldLife } from './npc/world-life.js';
@@ -220,15 +225,27 @@ export class CoinCommunities {
 			},
 			onRename: (name) => this._rename(name),
 			onBuy: () => this._openBuy(),
+			onShop: () => this._toggleShop(),
 			onVoiceToggle: () => this._toggleVoice(),
+			// Build structures toolbar (R20): pick a composite piece, rotate it, share a
+			// screenshot of the build, or open this coin's featured builds.
+			onPickPiece: (id) => this._pickPiece(id),
+			onRotateBuild: () => this._rotateBuild(),
+			onShareBuild: () => this._shareBuild(),
+			onOpenFeatured: () => this._openFeatured(),
+			onPublishBuild: (meta) => this._publishBuild(meta),
 		});
 
 		// Collaborative building HUD (hotbar + place/break toggle). Hidden until the
 		// player is in a world and connected — there's nowhere to build otherwise.
 		this.buildType = 0;
+		// R20 structures: which composite piece is armed (null = single block) and the
+		// quarter-turn rotation (0–3) applied to it. Both drive the ghost preview.
+		this.buildPiece = null;
+		this.buildRot = 0;
 		this.buildHud = createBuildHud({
 			onToggle: (on) => this._onBuildToggle(on),
-			onPick: (i) => { this.buildType = i; },
+			onPick: (i) => { this.buildType = i; this._refreshGhost(); },
 			onModeChange: () => this._refreshGhost(),
 		});
 		this.buildHud.root.hidden = true;
@@ -651,6 +668,10 @@ export class CoinCommunities {
 		this.localRig = new Group();
 		this.localRig.position.copy(this.localPos);
 		this.scene.add(this.localRig);
+		// Cosmetics preview rig (R21) re-binds to whatever avatar is current —
+		// drop any prior session's manager so it attaches to this fresh skeleton.
+		this._accessoryMgr = null;
+		this._previewItem = null;
 		this.localAnim = new AnimationManager();
 		const avatarInput = this.ui.getAvatar();
 		const url = await resolveAvatarUrl(avatarInput);
@@ -1032,6 +1053,10 @@ export class CoinCommunities {
 		if (this.agentCommerce) { this.agentCommerce.dispose(); this.agentCommerce = null; }
 		if (this.worldLife) { this.worldLife.dispose(); this.worldLife = null; }
 		if (this._onboard) { this._onboard.dispose(); this._onboard = null; }
+		// Close the shop and drop the rig binding — the next world rebuilds both.
+		if (this._shop?.isOpen()) this._shop.close();
+		this._accessoryMgr = null;
+		this._previewPresetId = null; this._previewLayers = false; this._previewItem = null;
 		for (const [, r] of this.remotes) r.dispose();
 		this.remotes.clear();
 		if (this._totem) { this.world.remove(this._totem); this._totem = null; this._coinSpin = null; }
@@ -1089,6 +1114,76 @@ export class CoinCommunities {
 	}
 	_sendChat(text) { this.net?.sendChat(text); }
 	_emote(name) { this.net?.sendEmote(name); playEmoteClip(this.localAnim, name, this.motion); }
+
+	// ── Cosmetics live preview (R21) ──────────────────────────────────────────
+	// The shop previews a catalog item on YOUR OWN avatar before any purchase.
+	// This is the local R03 rig hook: bone-attach GLBs, drive outfit morphs,
+	// recolour garment layers, or play premium emote clips — never broadcast,
+	// never persisted (a purchase is R22/R23). Selecting reverts the previous
+	// preview first, so only one item previews at a time.
+
+	// Bind an AccessoryManager to the live local skeleton. localRig holds the
+	// avatar model + its bones, which is all the rig needs; invalidate is a no-op
+	// because /play renders every frame (no on-demand invalidation loop).
+	_ensureAccessoryMgr() {
+		if (!this.localRig) return null;
+		if (!this._accessoryMgr) {
+			this._accessoryMgr = new AccessoryManager({ content: this.localRig, invalidate: () => {} });
+		}
+		return this._accessoryMgr;
+	}
+
+	// Preview a catalog item live. Returns true if something visible happened.
+	async equipCosmeticPreview(item) {
+		if (!item) return false;
+		this.unequipCosmeticPreview();
+		this._previewItem = item;
+		// Emotes preview as a one-shot clip that naturally returns to locomotion.
+		if (item.kind === 'emote' && item.emote) {
+			playEmoteClip(this.localAnim, item.emote, this.motion);
+			return true;
+		}
+		const mgr = this._ensureAccessoryMgr();
+		if (!mgr) return false;
+		// Skins recolour the avatar's own garment layers (absolute state).
+		if (item.kind === 'skin' && item.colors) {
+			mgr.applyLayers({ colors: item.colors, hidden: [] });
+			this._previewLayers = true;
+			return true;
+		}
+		// Hats / glasses / earrings (GLB) and outfits (morph) go through presets.
+		if (item.glbUrl || item.morphBinding) {
+			await mgr.applyPreset({
+				id: item.id, kind: item.kind, name: item.name,
+				glbUrl: item.glbUrl, attachBone: item.attachBone, morphBinding: item.morphBinding,
+			});
+			this._previewPresetId = item.id;
+			return true;
+		}
+		return false;
+	}
+
+	// Open/close the cosmetics shop (R21). Lazy-built; previews route to the
+	// local rig hooks above. Reverts any preview when it closes.
+	_toggleShop() {
+		if (!this._shop) {
+			this._shop = new CosmeticsShop({
+				onPreview: (item) => this.equipCosmeticPreview(item),
+				onEndPreview: () => this.unequipCosmeticPreview(),
+			});
+		}
+		this._shop.toggle();
+	}
+
+	// Revert the active preview, leaving the avatar exactly as it was.
+	unequipCosmeticPreview() {
+		const mgr = this._accessoryMgr;
+		if (mgr) {
+			if (this._previewLayers) { mgr.applyLayers({ colors: {}, hidden: [] }); this._previewLayers = false; }
+			if (this._previewPresetId) { mgr.removePreset(this._previewPresetId); this._previewPresetId = null; }
+		}
+		this._previewItem = null;
+	}
 
 	// Surface unread chat in the tab title when the page is backgrounded, so a
 	// new message pulls the user back. Cleared the moment they refocus the tab.
@@ -1162,6 +1257,12 @@ export class CoinCommunities {
 				if (this.buildHud.active && k.length === 1 && k >= '0' && k <= '9') {
 					e.preventDefault();
 					this.buildHud.select(k === '0' ? 9 : Number(k) - 1);
+					return;
+				}
+				// R rotates the armed composite piece a quarter-turn while building.
+				if (k === 'r' && this.buildHud.active && this.buildPiece) {
+					e.preventDefault();
+					this._rotateBuild();
 					return;
 				}
 				// E watches the Agent Exchange round when standing near the agents in
@@ -1293,7 +1394,15 @@ export class CoinCommunities {
 		if (!this.voxels || this.phase !== 'world' || !this._buildableConnection()) return;
 		const target = this.voxels.raycast(this._pointerRay(clientX, clientY));
 		if (!target) return;
-		if (forceRemove || this.buildHud.mode === 'remove') {
+		const removing = forceRemove || this.buildHud.mode === 'remove';
+		// A composite piece stamps several cells at once — but only when placing.
+		// Break mode always falls back to the single-cell path below.
+		if (!removing && this.buildPiece && target.placeCell) {
+			this._placeComposite(target.placeCell);
+			this._updateGhost(clientX, clientY);
+			return;
+		}
+		if (removing) {
 			if (target.hit === 'block' && target.cell) {
 				// Capture the type before it's gone so undo can put it back exactly.
 				const prevType = this.voxels.typeAt(...target.cell);
@@ -1317,6 +1426,55 @@ export class CoinCommunities {
 			return;
 		}
 		this._updateGhost(clientX, clientY);
+	}
+
+	// Stamp a composite piece (wall / floor / stairs / doorway) anchored at `cell`,
+	// rotated by the current quarter-turn. Validated as a whole: every cell must be
+	// in bounds, empty, and fit the budget, or nothing lands — so a piece never
+	// half-appears. Online it goes through the place-batch channel (server echoes
+	// each block back); solo it's applied to the local layer directly. Undo records
+	// just the cells this stamp actually created.
+	_placeComposite(cell) {
+		const cells = compositeCells(this.buildPiece, cell, this.buildRot, this.buildType);
+		if (!cells.length) return;
+		if (!this.voxels.canPlaceAll(cells, MAX_BLOCKS)) {
+			this.voxels.showFootprint(cells, false);
+			// Name the most likely reason so a blocked stamp isn't a silent no-op.
+			const overBudget = this.voxels.count + cells.length > MAX_BLOCKS;
+			this.ui.toast(overBudget
+				? `Not enough room — that piece needs ${cells.length} blocks.`
+				: 'That piece doesn’t fit here — rotate it or move back.', 'warn');
+			return;
+		}
+		// The cells this stamp newly creates (a piece may overlap existing blocks);
+		// only those are recorded for undo so we never break a neighbour's work.
+		const fresh = cells.filter((c) => !this.voxels.hasBlock(keyOf(c.x, c.y, c.z)));
+		const online = this.net?.status === 'online';
+		if (online) {
+			this.net.sendPlaceBatch(cells);
+		} else {
+			for (const c of cells) this.voxels.setBlock(c.x, c.y, c.z, c.t);
+			this._syncBudget();
+		}
+		if (fresh.length) this._pushUndo({ kind: 'remove-batch', cells: fresh.map((c) => [c.x, c.y, c.z]) });
+	}
+
+	// Arm a composite piece (or null for single-block mode) and reflect it in the
+	// toolbar + ghost. Resets rotation so each piece starts square-on.
+	_pickPiece(id) {
+		this.buildPiece = COMPOSITE_PIECES.some((p) => p.id === id) ? id : null;
+		this.buildRot = 0;
+		this.ui.setBuildPiece(this.buildPiece);
+		this.ui.setBuildRotation(this.buildRot);
+		this._refreshGhost();
+	}
+
+	// Rotate the armed piece a quarter-turn and re-preview it in place.
+	_rotateBuild() {
+		if (!this.buildPiece) return;
+		this.buildRot = (this.buildRot + 1) % 4;
+		this.ui.setBuildRotation(this.buildRot);
+		this._refreshGhost();
 	}
 
 	// Arm a hold-to-break timer for the current press. If the player keeps the
@@ -1393,6 +1551,10 @@ export class CoinCommunities {
 			rate: 'Building too fast — slow down a moment.',
 			bounds: 'Can’t build there — outside the build area.',
 			type: 'That block type isn’t available.',
+			owned: 'That block belongs to another builder — you can’t change it.',
+			column: 'That stack is too tall here — try building wider, not higher.',
+			protected: 'That spot is protected — keep the spawn and totem clear.',
+			player: 'You’ve hit your block limit for this world — break some to build more.',
 		}[reason] || 'That edit couldn’t be applied.';
 		this.ui.toast(msg, 'warn');
 	}
@@ -1402,11 +1564,18 @@ export class CoinCommunities {
 	_updateGhost(clientX, clientY) {
 		if (!this.voxels) return;
 		const target = this.voxels.raycast(this._pointerRay(clientX, clientY));
-		if (!target) { this.voxels.hideGhost(); return; }
+		if (!target) { this.voxels.hideGhost(); this.voxels.hideFootprint(); return; }
 		if (this.buildHud.mode === 'remove') {
+			this.voxels.hideFootprint();
 			if (target.hit === 'block') this.voxels.showGhost(target.cell, 'remove');
 			else this.voxels.hideGhost();
+		} else if (this.buildPiece && target.placeCell) {
+			// Preview the whole composite footprint (rotated), tinted by whether it
+			// can land in one piece.
+			const cells = compositeCells(this.buildPiece, target.placeCell, this.buildRot, this.buildType);
+			this.voxels.showFootprint(cells, this.voxels.canPlaceAll(cells, MAX_BLOCKS));
 		} else {
+			this.voxels.hideFootprint();
 			this.voxels.showGhost(target.placeCell, target.placeValid ? 'place' : 'blocked');
 		}
 	}

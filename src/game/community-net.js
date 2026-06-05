@@ -412,6 +412,10 @@ export class CommunityNet {
 	// request the edit; the block is added/removed locally when the server patches
 	// state.blocks (see the onAdd/onRemove wiring above).
 	sendPlace(x, y, z, t) { this.room?.send('place', { x, y, z, t }); }
+	// Place a composite piece in one atomic message: an array of {x,y,z,t} cells the
+	// server validates and applies all-or-nothing (see WalkRoom._handlePlaceBatch).
+	// Each placed block streams back through the same blockAdd path as single edits.
+	sendPlaceBatch(cells) { this.room?.send('place-batch', { cells }); }
 	sendRemove(x, y, z) { this.room?.send('remove', { x, y, z }); }
 	sendInteract(to, action) { this.room?.send('interact', { to, action }); }
 	// Spatial voice: relay a WebRTC offer/answer/ICE candidate to one peer, and

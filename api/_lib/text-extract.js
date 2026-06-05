@@ -1,8 +1,17 @@
 // Server-side helpers for turning a URL into plain text we can chunk + embed.
 // PDFs are extracted client-side (pdfjs in the studio bundle) and posted as
 // text, so this module only needs to handle HTML / plain content fetches.
+//
+// HTML parsing uses node-html-parser, not jsdom. jsdom (≥27.4) pulls in
+// html-encoding-sniffer@6 → @exodus/bytes, an ESM-only module that
+// html-encoding-sniffer `require()`s — which throws ERR_REQUIRE_ESM at cold
+// start on the deployed Node runtime and crashes the entire widgets serverless
+// function (taking stats/transcripts down with it). node-html-parser is a
+// dependency-light, CJS-clean parser that reproduces our exact extraction
+// (querySelector / remove / textContent with HTML-entity decoding) without the
+// fragile ESM/CJS chain. Our usage is trivial DOM scraping; jsdom was overkill.
 
-import { JSDOM } from 'jsdom';
+import { parse } from 'node-html-parser';
 
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB hard cap per source
@@ -69,20 +78,22 @@ export async function fetchAndExtract(url) {
 		};
 	}
 
-	const dom = new JSDOM(raw);
-	const doc = dom.window.document;
-	doc.querySelectorAll(
+	const root = parse(raw);
+	root.querySelectorAll(
 		'script, style, noscript, template, svg, iframe, nav, footer, header, form, [aria-hidden="true"]',
 	).forEach((el) => el.remove());
 
 	const title =
 		(
-			doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
-			doc.querySelector('title')?.textContent ||
+			root.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+			root.querySelector('title')?.textContent ||
 			''
 		).trim() || derivedTitleFromUrl(u);
 
-	const main = doc.querySelector('article, main, [role="main"], #main, #content') || doc.body;
+	const main =
+		root.querySelector('article, main, [role="main"], #main, #content') ||
+		root.querySelector('body') ||
+		root;
 	const text = (main?.textContent || '')
 		.replace(/[ \t]+/g, ' ')
 		.replace(/\n[ \t]+/g, '\n')

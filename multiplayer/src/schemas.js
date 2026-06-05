@@ -186,6 +186,48 @@ defineTypes(Tombstone, {
 	ts: 'float64',
 });
 
+// A generic networked world object (R01) — the single shared channel every later
+// object feature reuses: thrown balls, placed build props, pickups, confetti.
+// Unlike a player's private economy (off-schema), an object is a world entity
+// everyone must see, so it rides on the synced state. Keyed in the `objects`
+// MapSchema by its id. `ownerId` is the account/session allowed to move or remove
+// it; the sentinel 'server' means the room owns it (clients can't write it, e.g.
+// the R05 physics ball). `kind` is the category — build props persist across a
+// server restart (R17); transient kinds like 'ball' are never saved.
+export class WorldObject extends Schema {
+	constructor() {
+		super();
+		this.id = '';
+		this.type = '';     // model/variant within a kind (e.g. 'crate', 'lamp')
+		this.x = 0;
+		this.y = 0;
+		this.z = 0;
+		this.yaw = 0;
+		this.scale = 1;
+		this.ownerId = '';  // account/session allowed to move/remove ('server' = room-owned)
+		this.vx = 0;
+		this.vy = 0;
+		this.vz = 0;
+		this.kind = '';     // category: '' / 'prop' persist; 'ball'/'fx' are transient
+		this.ts = 0;        // last authoritative update (epoch ms)
+	}
+}
+defineTypes(WorldObject, {
+	id: 'string',
+	type: 'string',
+	x: 'float32',
+	y: 'float32',
+	z: 'float32',
+	yaw: 'float32',
+	scale: 'float32',
+	ownerId: 'string',
+	vx: 'float32',
+	vy: 'float32',
+	vz: 'float32',
+	kind: 'string',
+	ts: 'float64',
+});
+
 export class WalkState extends Schema {
 	constructor() {
 		super();
@@ -226,6 +268,10 @@ export class WalkState extends Schema {
 		// the schema (append-only) so an older client isn't shifted off the format.
 		this.mobs = new MapSchema();
 		this.tombstones = new MapSchema();
+		// Generic placed/networked world objects (R01) — balls, props, pickups —
+		// keyed by object id. Durable build props in here are persisted per coin
+		// world (R17); transient ones (the R05 ball) are not. Append-only at the end.
+		this.objects = new MapSchema();
 	}
 }
 defineTypes(WalkState, {
@@ -244,4 +290,5 @@ defineTypes(WalkState, {
 	worldTime: 'float32',
 	mobs: { map: Mob },
 	tombstones: { map: Tombstone },
+	objects: { map: WorldObject },
 });

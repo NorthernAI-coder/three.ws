@@ -2758,12 +2758,18 @@ async function handleSiwxGc(req, res) {
 
 	const { pruneOldNonces, pruneExpiredPayments } = await import('../_lib/siwx-storage.js');
 
-	const nonces_pruned = await pruneOldNonces(600);
-	const payments_pruned = await pruneExpiredPayments(7 * 24 * 3600);
+	// 10-minute nonce window — well over the 5-minute SIWX message maxAge.
+	const noncesDeleted = await pruneOldNonces(10 * 60);
+
+	// 7-day grace on expired payments so a slow client doesn't lose access
+	// mid-session right at the boundary.
+	const paymentsDeleted = await pruneExpiredPayments(7 * 24 * 3600);
 
 	return json(res, 200, {
-		nonces_pruned,
-		payments_pruned,
+		ok: true,
+		noncesDeleted,
+		paymentsDeleted,
+		ranAt: new Date().toISOString(),
 	});
 }
 

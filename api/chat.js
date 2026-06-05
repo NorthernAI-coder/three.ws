@@ -37,6 +37,9 @@ import {
 	DEFAULT_PROVIDER_ORDER,
 	OPENROUTER_SIBLINGS,
 	ANON_PROVIDER_LIST,
+	MODEL_CATALOG,
+	MAX_FALLBACK_ATTEMPTS,
+	TOTAL_BUDGET_MS,
 } from './_lib/chat-models.js';
 import { z } from 'zod';
 
@@ -330,10 +333,11 @@ export default wrap(async (req, res) => {
 			return error(res, 401, 'unauthorized', 'sign in to use this model');
 		}
 		// Honor an explicitly-requested free-tier provider (groq/openrouter).
-		// Otherwise default to GPT-OSS 120B on OpenRouter — the platform-wide
-		// default model — and fall back to Groq when OpenRouter isn't configured.
+		// Otherwise default to Groq — the fast, first-attempt-reliable free tier —
+		// and fall back to OpenRouter's free Llama (DEFAULT_FREE_MODEL) if Groq
+		// isn't configured.
 		if (!body.provider) {
-			body.provider = hasOpenRouter ? 'openrouter' : 'groq';
+			body.provider = hasGroq ? 'groq' : 'openrouter';
 			if (!body.model && body.provider === 'openrouter') body.model = DEFAULT_FREE_MODEL;
 		}
 		anonymous = true;
@@ -391,7 +395,17 @@ export default wrap(async (req, res) => {
 	// One in-place retry per route on transient gateway errors (503/504) before
 	// failing over. Reset to false every time we advance to a new route.
 	let retriedTransient = false;
+	// Bound the whole chain by wall-clock so a request can't churn through every
+	// provider and still time out at the 60s function limit. Once the budget is
+	// spent we stop failing over and surface a clean terminal error. `attempted`
+	// records which provider/model each upstream call hit, so an exhausted chain
+	// can tell the client (and the logs) exactly what failed.
+	const deadline = started + TOTAL_BUDGET_MS;
+	const attempted = [];
+	// Whether another route exists *and* the time budget allows trying it.
+	const canFailOver = () => routeIdx + 1 < fallbackRoutes.length && Date.now() < deadline;
 	while (true) {
+		attempted.push({ provider: route.name, model: route.model });
 		try {
 			// Most routes carry static headers; watsonx resolves a fresh IAM
 			// bearer token (cached between requests) just before the fetch.
@@ -404,15 +418,17 @@ export default wrap(async (req, res) => {
 		} catch (err) {
 			captureException(err, { route: 'chat', stage: 'fetch', provider: route.name });
 			console.error(`[chat:${route.name}] upstream fetch failed:`, err.message);
-			// Network blip — try next route if available.
+			// Network blip — try next route if one exists and time remains.
 			routeIdx++;
-			if (routeIdx < fallbackRoutes.length) {
+			if (routeIdx < fallbackRoutes.length && Date.now() < deadline) {
 				route = fallbackRoutes[routeIdx];
 				includeTools = true;
 				retriedTransient = false;
 				continue;
 			}
-			return error(res, 502, 'upstream_unavailable', 'chat backend unreachable');
+			return error(res, 502, 'upstream_unavailable', 'chat backend unreachable', {
+				providers_tried: providersTried(attempted),
+			});
 		}
 
 		// watsonx/Granite: a few foundation models (or regions) reject a
@@ -449,7 +465,7 @@ export default wrap(async (req, res) => {
 				continue;
 			}
 			// Already tried without tools, or non-tool-use 404 — fall over to next provider.
-			if (routeIdx + 1 < fallbackRoutes.length) {
+			if (canFailOver()) {
 				console.warn(`[chat:${route.name}] 404 — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`);
 				routeIdx++;
 				route = fallbackRoutes[routeIdx];
@@ -480,7 +496,7 @@ export default wrap(async (req, res) => {
 		// Fall over on rate-limit (429) and transient gateway errors (502/503/504).
 		// Don't re-fetch on 4xx other than 429 — those are caller mistakes that
 		// the next provider would also reject.
-		if ((upstream.status === 429 || upstream.status >= 500) && routeIdx + 1 < fallbackRoutes.length) {
+		if ((upstream.status === 429 || upstream.status >= 500) && canFailOver()) {
 			const text = await upstream.text().catch(() => '');
 			console.warn(`[chat:${route.name}] ${upstream.status} — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`);
 			routeIdx++;
@@ -512,21 +528,35 @@ export default wrap(async (req, res) => {
 		} catch {
 			upstreamMessage = text.slice(0, 200);
 		}
+		const budgetSpent = Date.now() - started >= TOTAL_BUDGET_MS;
 		console.error(
 			`[chat:${route.name}]`,
 			upstream.status,
-			`(final — all ${fallbackRoutes.length} route(s) exhausted)`,
+			budgetSpent
+				? `(final — ${TOTAL_BUDGET_MS}ms time budget spent after ${attempted.length} attempt(s))`
+				: `(final — all ${fallbackRoutes.length} route(s) exhausted)`,
 			upstreamMessage ? `${upstreamMessage} ` : '',
 			text.slice(0, 400),
 		);
+		// Ops signal: OpenAI quota exhaustion is an account/billing problem, not a
+		// transient blip — call it out explicitly so it's actionable in the logs.
+		if (route.name === 'openai' && /quota|billing|exceeded your current/i.test(`${upstreamMessage} ${text}`)) {
+			console.error(
+				'[chat:openai] account is OVER QUOTA — top up OpenAI billing or remove OPENAI_API_KEY ' +
+				'so the chat ladder stops routing to it as a final tier.',
+			);
+		}
 		// Client body is intentionally generic and human-readable: the raw provider
 		// status/message is noise to an end user (and could leak provider internals).
-		// The frontend renders `error_description` directly in the chat UI.
+		// The frontend renders `error_description` directly in the chat UI. We do
+		// surface the (provider-name-only) list of what was tried so the client can
+		// show "tried groq, openrouter…" without leaking upstream internals.
 		return error(
 			res,
 			502,
 			'upstream_error',
 			'The AI chat provider is temporarily unavailable. Please try again in a moment.',
+			{ providers_tried: providersTried(attempted) },
 		);
 	}
 
@@ -695,36 +725,52 @@ const FALLBACK_SIBLINGS = {
 	openai: ['gpt-4o-mini'],
 };
 
+// A model is eligible for an *auto-built* fallback slot only when it can serve
+// the request. We never add a model the request can't use, instead of calling
+// it and retrying-without-tools at runtime (the old "no tool-capable endpoint"
+// round-trip). watsonx/orchestrate models aren't in MODEL_CATALOG (their ids
+// are dynamic), so they're governed solely by their `configured` checks below.
+//
+//   - requireTools: chat always asks with action tools, so a model with no
+//     tool endpoint (per MODEL_CATALOG) is skipped entirely.
+//   - moderation-gated models (e.g. gpt-oss-120b:free) are never auto-selected;
+//     they only run when a caller names them explicitly as the primary route.
+function eligibleAsFallback(modelId) {
+	const meta = MODEL_CATALOG[modelId];
+	if (!meta) return true; // dynamic ids (watsonx/orchestrate) — gated elsewhere
+	return meta.tools === true && !meta.moderationGated;
+}
+
 function buildFallbackChain(primary, userKeys = {}) {
 	const chain = [primary];
 	const seen = new Set([`${primary.name}:${primary.model}`]);
 
-	// Sibling models on the same provider
-	const siblings = FALLBACK_SIBLINGS[primary.name] || [];
-	for (const m of siblings) {
-		const key = `${primary.name}:${m}`;
-		if (seen.has(key)) continue;
-		seen.add(key);
-		const cfg = PROVIDERS[primary.name];
-		const apiKey = userKeys[primary.name] || process.env[cfg.envKey];
-		if (!apiKey) continue;
-		chain.push(makeRoute(primary.name, cfg, apiKey, m));
-	}
-
-	// Other providers, in declared order, picking the configured default model
-	for (const name of Object.keys(PROVIDERS)) {
-		if (name === primary.name) continue;
+	const tryAdd = (name, model) => {
+		if (chain.length >= MAX_FALLBACK_ATTEMPTS) return;
+		const key = `${name}:${model}`;
+		if (seen.has(key)) return;
+		if (!eligibleAsFallback(model)) return;
 		const cfg = PROVIDERS[name];
 		const apiKey = userKeys[name] || process.env[cfg.envKey];
-		if (!apiKey) continue;
-		if (name === 'watsonx' && !watsonxConfig().configured) continue;
-		if (name === 'orchestrate' && !orchestrateConfig().configured) continue;
-		const key = `${name}:${cfg.defaultModel}`;
-		if (seen.has(key)) continue;
+		if (!apiKey) return;
+		if (name === 'watsonx' && !watsonxConfig().configured) return;
+		if (name === 'orchestrate' && !orchestrateConfig().configured) return;
 		seen.add(key);
-		chain.push(makeRoute(name, cfg, apiKey, cfg.defaultModel));
+		chain.push(makeRoute(name, cfg, apiKey, model));
+	};
+
+	// (a) Sibling models on the same provider — recover from a per-model
+	// rate-limit without leaving the (already-selected, reliable) provider.
+	for (const m of FALLBACK_SIBLINGS[primary.name] || []) tryAdd(primary.name, m);
+
+	// (b) Other providers, in reliability order, at their configured default.
+	for (const name of DEFAULT_PROVIDER_ORDER) {
+		if (name === primary.name) continue;
+		tryAdd(name, PROVIDERS[name].defaultModel);
 	}
 
+	// The chain is bounded to MAX_FALLBACK_ATTEMPTS so a single request can't
+	// churn through every provider before timing out.
 	return chain;
 }
 
@@ -998,6 +1044,17 @@ async function resolveAuth(req) {
 	const bearer = await authenticateBearer(extractBearer(req));
 	if (bearer) return bearer;
 	return null;
+}
+
+// Distinct provider names from the attempt log, in first-tried order — the
+// client-safe summary of an exhausted chain (provider names only, no models or
+// upstream messages, which could leak internals).
+function providersTried(attempted) {
+	const out = [];
+	for (const a of attempted) {
+		if (!out.includes(a.provider)) out.push(a.provider);
+	}
+	return out;
 }
 
 function fmt(n) {

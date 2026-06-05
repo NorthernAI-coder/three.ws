@@ -8,7 +8,7 @@
 
 import { Room } from '@colyseus/core';
 
-import { Player, Block, Vehicle, Mob, Tombstone, WalkState } from '../schemas.js';
+import { Player, Block, Vehicle, Mob, Tombstone, WorldObject, WalkState } from '../schemas.js';
 import {
 	VEHICLE_SPAWNS, vehicleSpec, isVehicleType,
 	VEHICLE_WORLD_RADIUS_M, VEHICLE_ENTER_RANGE_M,
@@ -16,6 +16,7 @@ import {
 } from '../vehicles.js';
 import { cleanAvatarUrl } from '../avatar-url.js';
 import { blockStore } from '../block-store.js';
+import { worldPersistence } from '../persistence.js';
 import { verifyHolderPass } from '../holder-pass.js';
 import { socialHub } from '../social-hub.js';
 import { verifyPresenceTicket } from '../presence-token.js';
@@ -83,6 +84,52 @@ const MAX_BLOCKS = 6000;
 // Building is bursty (drag-to-place), so allow a higher rate than movement but
 // still cap it so a scripted client can't flood the room.
 const EDITS_PER_SEC_LIMIT = 20;
+// Generic world objects (R01): the shared channel for balls, props and pickups.
+// Caps keep the synced state and the persisted per-coin doc (R17) bounded, and
+// the rate limit mirrors the edit limiter so a scripted client can't flood spawns.
+const MAX_WORLD_OBJECTS = 200;        // total objects one room may hold
+const MAX_OBJECTS_PER_PLAYER = 30;    // how many one owner may have at once
+const OBJ_OPS_PER_SEC_LIMIT = 30;     // per-client spawn/update/remove rate
+const OBJ_SCALE_MIN = 0.1;
+const OBJ_SCALE_MAX = 10;
+const OBJ_STR_MAX = 48;               // clamp length of id/type/kind strings
+const OBJ_Y_MIN = -5;
+const OBJ_Y_MAX = 240;
+const SERVER_OBJECT_OWNER = 'server'; // ownerId sentinel: room-owned, no client writes
+// Transient object kinds are ephemeral (physics balls, fx) and are NEVER persisted
+// (R17). Everything else is a durable build piece saved per coin world.
+const TRANSIENT_OBJECT_KINDS = new Set(['ball', 'projectile', 'confetti', 'fx', 'spark', 'pickup']);
+const OBJ_ID_RE = /^[A-Za-z0-9_-]{1,48}$/;
+// Composite pieces (walls, stairs, doors) place several cells at once through the
+// place-batch channel. A single stamp is capped at this many cells, and stamps
+// are rate-limited separately from single edits, so a crafted client can't smuggle
+// an oversized or rapid-fire write through it. Mirrors MAX_COMPOSITE_CELLS on the
+// client, with headroom so appending a larger piece there doesn't desync.
+const MAX_BATCH_CELLS = 32;
+const BATCHES_PER_SEC_LIMIT = 4;
+
+// --- Build permissions & anti-grief (R19) ---------------------------------
+// The per-world MAX_BLOCKS budget above protects the room; these caps protect it
+// from a SINGLE builder. A per-player ceiling stops one user consuming the whole
+// world; a per-column ceiling stops them stacking a 24-high wall to fence the
+// plaza off; protected discs keep the spawn and the coin totem from being buried
+// or caged. Every rejection is surfaced to the client (edit-reject), never silent.
+const PER_PLAYER_BLOCK_CAP = 1200;   // how many cells one player may own at once
+const COLUMN_CAP = 14;               // blocks allowed in a single (x,z) column (< MAX_GRID_Y)
+const PROTECTED_RADIUS_CELLS = 3;    // keep this many cells clear around each protected point
+// The build grid is centred on the world origin and maps a cell to metres via the
+// client's BLOCK size (1.5 m). The spawn point is the origin; the coin totem
+// renders at world z = -12 → grid z = round(-12 / 1.5) = -8. Protect both columns
+// at every height so neither can be buried or walled in.
+const PROTECTED_POINTS = [{ x: 0, z: 0 }, { x: 0, z: -8 }];
+// Creator moderation: a clear-area sweep is bounded to this radius (cells) so even
+// the creator's broad-brush tool can't nuke a whole world in one malformed call;
+// 'all' is the explicit full-clear path.
+const CLEAR_AREA_MAX_RADIUS = 12;
+// The three.ws API the multiplayer server reads the coin's on-chain creator from,
+// so "is this player the coin's creator" is proven server-side, not claimed by a
+// client. Mirrors persistence.js's WORLD_API_BASE.
+const WORLD_API_BASE = (process.env.WORLD_API_BASE || 'https://three.ws').replace(/\/$/, '');
 
 // Anti-cheat: reject any movement update that would move the player farther
 // than this in a single message. The client sends moves at ~15Hz, so even at
@@ -160,6 +207,18 @@ function clean(str, maxLen) {
 		.replace(/\s+/g, ' ')
 		.trim()
 		.slice(0, maxLen);
+}
+
+// Numeric guards for world-object payloads: a finite value or the fallback, and a
+// clamp into [lo, hi]. Kept tiny and local so the object handlers read cleanly.
+function objNum(v, fallback) {
+	return Number.isFinite(v) ? v : fallback;
+}
+function objClamp(v, lo, hi) {
+	return v < lo ? lo : v > hi ? hi : v;
+}
+function round3(n) {
+	return Math.round(n * 1000) / 1000;
 }
 
 function pickPlayerColor(sessionId) {
@@ -247,6 +306,17 @@ export class WalkRoom extends Room {
 		// stable persistence id + per-action cooldowns). Never synced to peers.
 		this.econ = new Map();
 		this._actionCounters = new Map(); // sessionId → { [action]: { windowStart, count } }
+		// Build permissions & anti-grief (R19). Ownership and density are tracked
+		// off-schema (peers don't render them) but persisted with the build so they
+		// survive a restart. blockOwners: key → owner id. blockCounts: owner id → how
+		// many cells they hold (drives the per-player cap, keyed by stable owner so it
+		// outlives a disconnect while their build stands). columnCounts: "x,z" → height.
+		this.blockOwners = new Map();
+		this.blockCounts = new Map();
+		this.columnCounts = new Map();
+		// The coin's on-chain creator wallet, resolved once on create. '' until known
+		// (or for the ownerless mainland world); gates the clear-area moderation tool.
+		this.coinCreator = '';
 		// Co-op heist instances live on the room, not on a profile: a SHARED run a
 		// crew advances together. Keyed by mission id (one live instance per heist per
 		// world). Each value: { missionId, members:Set<sessionId>, run, done:Set<zone> }.
@@ -292,7 +362,9 @@ export class WalkRoom extends Room {
 		this.onMessage('avatar', (client, payload) => this._handleAvatar(client, payload));
 		this.onMessage('play-pass', (client, payload) => this._handlePlayPassRefresh(client, payload));
 		this.onMessage('place', (client, payload) => this._handlePlace(client, payload));
+		this.onMessage('place-batch', (client, payload) => this._handlePlaceBatch(client, payload));
 		this.onMessage('remove', (client, payload) => this._handleRemove(client, payload));
+		this.onMessage('build-clear', (client, payload) => this._handleBuildClear(client, payload));
 		this.onMessage('voice-state', (client, payload) => this._handleVoiceState(client, payload));
 		this.onMessage('voice-signal', (client, payload) => this._handleVoiceSignal(client, payload));
 		// Economy & activities (off-schema). The owning client drives these and
@@ -315,18 +387,31 @@ export class WalkRoom extends Room {
 		this.onMessage('venter', (client, payload) => this._handleVehicleEnter(client, payload));
 		this.onMessage('vexit', (client, payload) => this._handleVehicleExit(client, payload));
 		this.onMessage('vsync', (client, payload) => this._handleVehicleSync(client, payload));
+		// Generic world objects (R01): spawn/move/remove balls, props and pickups on
+		// the shared `objects` map. Durable build props placed here persist per coin
+		// world (R17); transient kinds (the R05 ball) live only for the session.
+		this.onMessage('obj:spawn', (client, payload) => this._handleObjSpawn(client, payload));
+		this.onMessage('obj:update', (client, payload) => this._handleObjUpdate(client, payload));
+		this.onMessage('obj:remove', (client, payload) => this._handleObjRemove(client, payload));
 		this._emoteCooldowns = new Map();
 		this._editCounters = new Map(); // sessionId → { windowStart, count }
+		this._batchCounters = new Map(); // sessionId → { windowStart, count } for composite stamps
 		this._voiceCounters = new Map(); // sessionId → { windowStart, count }
+		this._objCounters = new Map();   // sessionId → { windowStart, count } for obj:* ops
+		this._objSeq = 0;                // monotonic counter for server-minted object ids
 
 		// Rehydrate this coin's persisted build before the first client renders the
 		// world, so newcomers always drop into the community's existing creation.
 		try {
 			const saved = await blockStore.load(this.worldKey);
-			for (const [key, type] of saved) {
+			for (const [key, rec] of saved) {
 				const b = new Block();
-				b.t = type;
+				b.t = rec.t;
 				this.state.blocks.set(key, b);
+				// Rehydrate ownership + density so the per-player cap, column cap, and
+				// the "only the placer (or creator) may delete" rule hold for a build
+				// that was placed before this process started.
+				this._trackPlacement(key, rec.o || '');
 			}
 			if (saved.size) {
 				console.log(`[walk_world ${this.roomId} coin=${this.state.coin || 'mainland'}] restored ${saved.size} blocks`);
@@ -334,6 +419,21 @@ export class WalkRoom extends Room {
 		} catch (err) {
 			console.warn(`[walk_world ${this.roomId}] block restore failed:`, err?.message);
 		}
+
+		// Rehydrate this coin's durable placed objects (R17) — the build props the
+		// community left behind — from the per-world persistence store before the
+		// first client renders, mirroring how blocks are restored above. The store is
+		// keyed by world id; mainland (empty coin) gets a stable fallback key. Blocks
+		// and objects share the world key but live in separate backends, so they
+		// don't collide. load() never throws (it falls back to its memory mirror).
+		this._objKey = this.worldKey || 'mainland';
+		try {
+			const { doc } = await worldPersistence.load(this._objKey);
+			this._restoreObjects(doc);
+		} catch (err) {
+			console.warn(`[walk_world ${this.roomId}] object restore failed:`, err?.message);
+		}
+
 		// Tell builders, honestly, whether this world survives a server restart.
 		// load() above already awaited the store's readiness probe, so durability
 		// is settled by now.
@@ -346,6 +446,13 @@ export class WalkRoom extends Room {
 		// affordance. v1 fleet is ephemeral per room (re-spawned fresh each time the
 		// room is created); persistence of parked vehicles is a later concern.
 		this._seedVehicles();
+
+		// Resolve this coin's on-chain creator so the build-permission layer can grant
+		// the creator world-wide moderation (delete any piece, clear an area). Fetched
+		// once, off the hot path; a failure just leaves the world without a creator
+		// (no moderation tool), never blocks the room. The mainland world has no coin
+		// and therefore no creator.
+		this._resolveCoinCreator();
 
 		// Re-check policy for the token gate. The game server has no RPC of its own,
 		// so "still holding the token" is re-proven by the client minting a fresh
@@ -424,6 +531,10 @@ export class WalkRoom extends Room {
 		player.cosmetics = serializeLoadout(profile.cosmetics.equipped);
 		this._sendProfile(client);
 		this._sendQuests(client);
+		// Build permissions: the per-player cap, current usage, and whether this player
+		// is the coin creator (so the HUD can reveal the clear-area moderation tool).
+		// Re-sent later if the creator lookup resolves after this join.
+		this._sendBuildPerms(client);
 
 		const tierTag = this.state.tier === 'holders' ? ' tier=holders' : '';
 		console.log(
@@ -461,12 +572,19 @@ export class WalkRoom extends Room {
 			if (profile.playerId) { try { flushPlayer(profile.playerId); } catch { /* best-effort */ } }
 			this.econ.delete(client.sessionId);
 		}
+		// Reap this owner's transient objects (R01): balls and fx they spawned die
+		// with their session. Their durable build props stay as part of the world
+		// (R17) — that's the whole point of persistence. Computed before the player
+		// is removed from state so _ownerKey can still read their account.
+		this._reapOwnerTransients(this._ownerKey(client));
 		this.state.players.delete(client.sessionId);
 		this._moveCounters.delete(client.sessionId);
 		this._chatCooldowns.delete(client.sessionId);
 		this._editCounters?.delete(client.sessionId);
+		this._batchCounters?.delete(client.sessionId);
 		this._emoteCooldowns?.delete(client.sessionId);
 		this._voiceCounters?.delete(client.sessionId);
+		this._objCounters?.delete(client.sessionId);
 		this._actionCounters.delete(client.sessionId);
 		console.log(
 			`[walk_world ${this.roomId}] -leave ${client.sessionId} (n=${this.state.players.size})`,
@@ -482,6 +600,14 @@ export class WalkRoom extends Room {
 			await blockStore.flush(this.worldKey);
 		} catch (err) {
 			console.warn(`[walk_world ${this.roomId}] final flush failed:`, err?.message);
+		}
+		// Flush the durable placed objects (R17) the same way — any spawn/move/remove
+		// whose debounce hadn't fired lands before the room is gone, so leaving and
+		// re-entering (or a redeploy) shows the same build.
+		try {
+			await worldPersistence.flush(this._objKey);
+		} catch (err) {
+			console.warn(`[walk_world ${this.roomId}] final object flush failed:`, err?.message);
 		}
 		// Flush any economy profiles still resident (a redeploy can dispose a room
 		// with players mid-session) so no progression is lost between the last
@@ -1027,19 +1153,93 @@ export class WalkRoom extends Room {
 		if (key === null) { this._rejectEdit(client, 'bounds'); return; }
 		const t = payload.t;
 		if (!Number.isInteger(t) || t < 0 || t >= BLOCK_TYPE_COUNT) { this._rejectEdit(client, 'type'); return; }
+		const owner = this._ownerKey(client.sessionId);
 		const existing = this.state.blocks.get(key);
-		// New cell — enforce the per-world budget. Re-painting an existing cell
-		// (changing its type) is always allowed since it doesn't grow the world.
-		if (!existing && this.state.blocks.size >= MAX_BLOCKS) { this._rejectEdit(client, 'budget'); return; }
 		if (existing) {
+			// Re-painting an existing cell. It doesn't grow the world, but it DOES
+			// rewrite someone's build — only the piece's owner (or the coin creator)
+			// may change it, so a passer-by can't recolour another player's work.
 			if (existing.t === t) return; // no-op
+			if (!this._mayModify(client, key)) { this._rejectEdit(client, 'owned'); return; }
 			existing.t = t;
-		} else {
-			const b = new Block();
-			b.t = t;
-			this.state.blocks.set(key, b);
+			blockStore.set(this.worldKey, key, t, this.blockOwners.get(key) || owner);
+			return;
 		}
-		blockStore.set(this.worldKey, key, t);
+		// New cell. Enforce, in order: the per-world budget, the protected spawn/totem
+		// discs, the per-player ownership cap, and the per-column density cap. Each is
+		// surfaced to the builder with its own reason — never a silent drop.
+		if (this.state.blocks.size >= MAX_BLOCKS) { this._rejectEdit(client, 'budget'); return; }
+		const reason = this._placementBlock(owner, payload.x, payload.z);
+		if (reason) { this._rejectEdit(client, reason); return; }
+		const b = new Block();
+		b.t = t;
+		this.state.blocks.set(key, b);
+		this._trackPlacement(key, owner);
+		blockStore.set(this.worldKey, key, t, owner);
+		this._sendBuildPerms(client);
+	}
+
+	// Place a composite piece — a handful of cells in one atomic, all-or-nothing
+	// stamp. Validated exactly like a single place (in-bounds integer cell, real
+	// type) for EVERY cell before anything lands, plus a whole-batch budget check,
+	// so a wall never half-appears and the per-world cap can't be straddled. Rate
+	// limited on its own bucket; the schema patch broadcasts each new block to all
+	// clients just like single edits, so there's no separate sync path.
+	_handlePlaceBatch(client, payload) {
+		if (!this.state.players.has(client.sessionId)) return;
+		if (!this._batchOk(client.sessionId)) { this._rejectEdit(client, 'rate'); return; }
+		const cells = payload?.cells;
+		if (!Array.isArray(cells) || cells.length === 0 || cells.length > MAX_BATCH_CELLS) {
+			this._rejectEdit(client, 'bounds');
+			return;
+		}
+		// First pass: validate every cell and count how many are new, so the budget,
+		// per-player cap, per-column density, protected-zone, and ownership checks all
+		// cover the WHOLE stamp before anything lands — a single bad cell rejects the
+		// lot. Cumulative tallies (ownerAdds, per-column) are tracked across the batch
+		// so a single stamp can't straddle a cap the same way a sequence of singles can't.
+		const owner = this._ownerKey(client.sessionId);
+		const validated = [];
+		let fresh = 0;
+		let ownerAdds = 0;
+		const colAdds = new Map();
+		for (const cell of cells) {
+			const key = this._cellKey(cell);
+			if (key === null) { this._rejectEdit(client, 'bounds'); return; }
+			const t = cell.t;
+			if (!Number.isInteger(t) || t < 0 || t >= BLOCK_TYPE_COUNT) { this._rejectEdit(client, 'type'); return; }
+			const existing = this.state.blocks.get(key);
+			if (existing) {
+				// Repaint of an occupied cell needs the same ownership gate as a single edit.
+				if (existing.t !== t && !this._mayModify(client, key)) { this._rejectEdit(client, 'owned'); return; }
+			} else {
+				const col = `${cell.x},${cell.z}`;
+				const extraCol = colAdds.get(col) || 0;
+				const reason = this._placementBlock(owner, cell.x, cell.z, ownerAdds, extraCol);
+				if (reason) { this._rejectEdit(client, reason); return; }
+				fresh++;
+				ownerAdds++;
+				colAdds.set(col, extraCol + 1);
+			}
+			validated.push({ key, t, cell });
+		}
+		if (this.state.blocks.size + fresh > MAX_BLOCKS) { this._rejectEdit(client, 'budget'); return; }
+		// Second pass: apply. All cells are known-valid now, so this can't partially fail.
+		for (const { key, t, cell } of validated) {
+			const existing = this.state.blocks.get(key);
+			if (existing) {
+				if (existing.t === t) continue;
+				existing.t = t;
+				blockStore.set(this.worldKey, key, t, this.blockOwners.get(key) || owner);
+			} else {
+				const b = new Block();
+				b.t = t;
+				this.state.blocks.set(key, b);
+				this._trackPlacement(key, owner);
+				blockStore.set(this.worldKey, key, t, owner);
+			}
+		}
+		this._sendBuildPerms(client);
 	}
 
 	_handleRemove(client, payload) {
@@ -1048,8 +1248,161 @@ export class WalkRoom extends Room {
 		const key = this._cellKey(payload);
 		if (key === null) { this._rejectEdit(client, 'bounds'); return; }
 		if (!this.state.blocks.has(key)) return;
+		// Ownership: only the placer may break their piece, except the coin creator,
+		// who moderates the whole world. Enforced server-side off the persisted owner,
+		// never the client's word.
+		if (!this._mayModify(client, key)) { this._rejectEdit(client, 'owned'); return; }
+		const owner = this.blockOwners.get(key) || '';
 		this.state.blocks.delete(key);
+		this._untrackPlacement(key, owner, payload.x, payload.z);
 		blockStore.delete(this.worldKey, key);
+		this._sendBuildPerms(client);
+	}
+
+	// Creator-only moderation: clear a disc of blocks around a grid point, or the
+	// whole world. Validated server-side — the creator identity comes from the coin's
+	// on-chain creator matching this client's verified wallet, never a client claim.
+	// Bounded radius keeps even a malformed call from over-reaching; 'all' is the
+	// explicit full wipe. Every removed cell streams out via the blocks state, so all
+	// clients see the area clear without a bespoke broadcast.
+	_handleBuildClear(client, payload) {
+		if (!this.state.players.has(client.sessionId)) return;
+		if (!this._isCreator(client)) { this._rejectEdit(client, 'notcreator'); return; }
+		if (!this._actionOk(client.sessionId, 'clear')) { this._rejectEdit(client, 'rate'); return; }
+		if (!payload || typeof payload !== 'object') return;
+
+		const all = payload.all === true;
+		let cx = 0, cz = 0, r = 0;
+		if (!all) {
+			cx = Number(payload.x); cz = Number(payload.z); r = Number(payload.r);
+			if (!Number.isFinite(cx) || !Number.isFinite(cz) || !Number.isFinite(r)) return;
+			r = Math.max(1, Math.min(CLEAR_AREA_MAX_RADIUS, Math.round(r)));
+		}
+
+		let cleared = 0;
+		for (const key of [...this.state.blocks.keys()]) {
+			const [bx, , bz] = key.split(',').map(Number);
+			if (!all && Math.hypot(bx - cx, bz - cz) > r) continue;
+			const owner = this.blockOwners.get(key) || '';
+			this.state.blocks.delete(key);
+			this._untrackPlacement(key, owner, bx, bz);
+			blockStore.delete(this.worldKey, key);
+			cleared++;
+		}
+		client.send('build-cleared', { count: cleared, all });
+		this._sendBuildPerms(client); // the creator's own tally may have changed
+		if (cleared) {
+			console.log(`[walk_world ${this.roomId}] creator cleared ${cleared} block(s)${all ? ' (all)' : ` near ${cx},${cz} r=${r}`}`);
+		}
+	}
+
+	// --- Build-permission bookkeeping ---------------------------------------
+
+	// The stable id a placed block is owned by: the player's persistence id (wallet
+	// account when the gate is on, else their guest id), falling back to the session
+	// id before the economy profile lands. Stable across reconnects so a returning
+	// builder still owns their pieces.
+	_ownerKey(sessionId) {
+		return this.econ.get(sessionId)?.playerId || sessionId;
+	}
+
+	// Whether this client may modify the block at `key` — its owner, or the creator.
+	// An ownerless cell (a legacy/pre-ownership restore) is creator-only, so restored
+	// builds stay protected from griefing while the creator can still moderate them.
+	_mayModify(client, key) {
+		if (this._isCreator(client)) return true;
+		const owner = this.blockOwners.get(key) || '';
+		return owner !== '' && owner === this._ownerKey(client.sessionId);
+	}
+
+	// Is this client the coin's on-chain creator? Requires a verified wallet (the
+	// account bound in onAuth) matching the creator we resolved on room create.
+	_isCreator(client) {
+		if (!this.coinCreator) return false;
+		const player = this.state.players.get(client.sessionId);
+		return !!player && !!player.account && player.account === this.coinCreator;
+	}
+
+	// True if (x,z) is inside a protected disc (spawn or totem) — placement there is
+	// refused at every height so neither landmark can be buried or fenced in.
+	_isProtectedColumn(x, z) {
+		for (const p of PROTECTED_POINTS) {
+			if (Math.hypot(x - p.x, z - p.z) <= PROTECTED_RADIUS_CELLS) return true;
+		}
+		return false;
+	}
+
+	// Shared anti-grief gate for a NEW cell (the per-world budget is checked by the
+	// caller, since it spans a whole batch). `extraOwner` / `extraColumn` are cells
+	// already committed earlier in the same batch, so a composite stamp can't straddle
+	// a cap. Returns an edit-reject reason, or null when the placement is allowed.
+	_placementBlock(owner, x, z, extraOwner = 0, extraColumn = 0) {
+		if (this._isProtectedColumn(x, z)) return 'protected';
+		if ((this.blockCounts.get(owner) || 0) + extraOwner >= PER_PLAYER_BLOCK_CAP) return 'playercap';
+		if ((this.columnCounts.get(`${x},${z}`) || 0) + extraColumn >= COLUMN_CAP) return 'dense';
+		return null;
+	}
+
+	// Record a placement against its owner + column tallies (used by the caps).
+	_trackPlacement(key, owner) {
+		this.blockOwners.set(key, owner);
+		if (owner) this.blockCounts.set(owner, (this.blockCounts.get(owner) || 0) + 1);
+		const ck = key.split(',', 3); // "x,y,z" -> column "x,z"
+		const col = `${ck[0]},${ck[2]}`;
+		this.columnCounts.set(col, (this.columnCounts.get(col) || 0) + 1);
+	}
+
+	// Reverse a placement's bookkeeping when a cell is removed.
+	_untrackPlacement(key, owner, x, z) {
+		this.blockOwners.delete(key);
+		if (owner) {
+			const n = (this.blockCounts.get(owner) || 0) - 1;
+			if (n > 0) this.blockCounts.set(owner, n); else this.blockCounts.delete(owner);
+		}
+		const col = `${x},${z}`;
+		const c = (this.columnCounts.get(col) || 0) - 1;
+		if (c > 0) this.columnCounts.set(col, c); else this.columnCounts.delete(col);
+	}
+
+	// Tell one client what they're allowed to do and how much of their build budget
+	// they've used, so the HUD can surface the per-player cap and reveal the creator
+	// moderation control — no silent limits. Sent on join and after their tally moves.
+	_sendBuildPerms(client) {
+		const owner = this._ownerKey(client.sessionId);
+		client.send('build-perms', {
+			creator: this._isCreator(client),
+			cap: PER_PLAYER_BLOCK_CAP,
+			used: this.blockCounts.get(owner) || 0,
+			clearMaxRadius: CLEAR_AREA_MAX_RADIUS,
+		});
+	}
+
+	// Resolve the coin's on-chain creator from the three.ws API (the same pump.fun
+	// coin record the lobby reads). Best-effort: a miss leaves the world without a
+	// creator and therefore without the clear-area tool. Re-broadcasts permissions to
+	// everyone already seated once known, so a creator who joined first still gets
+	// their moderation control the moment it resolves.
+	async _resolveCoinCreator() {
+		const mint = this.state.coin;
+		if (!mint) return; // mainland — no coin, no creator
+		try {
+			const ctrl = new AbortController();
+			const timer = setTimeout(() => ctrl.abort(), 6000);
+			let body;
+			try {
+				const res = await fetch(`${WORLD_API_BASE}/api/pump/coin?mint=${encodeURIComponent(mint)}`, {
+					headers: { accept: 'application/json' }, signal: ctrl.signal,
+				});
+				if (!res.ok) return;
+				body = await res.json();
+			} finally { clearTimeout(timer); }
+			const creator = typeof body?.creator === 'string' ? body.creator.trim() : '';
+			if (!MINT_RE.test(creator)) return; // a creator is a base58 wallet, same shape as a mint
+			this.coinCreator = creator;
+			for (const client of this.clients) this._sendBuildPerms(client);
+		} catch (err) {
+			console.warn(`[walk_world ${this.roomId}] creator lookup failed:`, err?.message);
+		}
 	}
 
 	_editOk(sessionId) {
@@ -1061,6 +1414,20 @@ export class WalkRoom extends Room {
 		}
 		bucket.count++;
 		return bucket.count <= EDITS_PER_SEC_LIMIT;
+	}
+
+	// Separate token bucket for composite stamps, so a legitimate wall (a dozen
+	// cells at once) isn't starved by the per-cell single-edit limit, while still
+	// capping how fast a client can fire whole pieces.
+	_batchOk(sessionId) {
+		const now = Date.now();
+		let bucket = (this._batchCounters ||= new Map()).get(sessionId);
+		if (!bucket || now - bucket.windowStart > 1000) {
+			bucket = { windowStart: now, count: 0 };
+			this._batchCounters.set(sessionId, bucket);
+		}
+		bucket.count++;
+		return bucket.count <= BATCHES_PER_SEC_LIMIT;
 	}
 
 	_rateOk(sessionId) {

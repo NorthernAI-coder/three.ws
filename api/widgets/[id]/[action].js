@@ -20,9 +20,12 @@ import { redactPii } from '../../_lib/pii.js';
 import { embed, cosine, embeddingsConfigured } from '../../_lib/embeddings.js';
 import { watsonxConfig, watsonxToken } from '../../_lib/watsonx.js';
 import { listTranscripts, getTranscript } from './_transcripts.js';
-// _knowledge.js is loaded on demand — its jsdom→html-encoding-sniffer→@exodus/bytes
-// transitive dep chain causes ERR_REQUIRE_ESM at import time on some Node versions,
-// which would crash the entire function and take down stats/transcripts as well.
+// _knowledge.js is loaded on demand (dynamic import in handleKnowledge) so the
+// knowledge-ingest path stays isolated: any failure constructing that module
+// surfaces as a 503 on /knowledge alone and can never crash stats/transcripts.
+// (The historical ERR_REQUIRE_ESM crash — jsdom→html-encoding-sniffer@6→
+// @exodus/bytes, an ESM module require()d from CJS — is gone now that
+// text-extract.js parses HTML with node-html-parser instead of jsdom.)
 
 export default wrap(async (req, res) => {
 	const action = req.query?.action;
