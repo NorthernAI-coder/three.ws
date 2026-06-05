@@ -218,7 +218,7 @@ const STYLE = `
 	.skill-item-info .skill-item-desc { color: #9ca3af; font-size: 11px; margin-top: 3px; line-height: 1.4; }
 	.skill-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 	.skill-tag { font: 600 9px/1 system-ui; letter-spacing: .04em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25); padding: 3px 6px; border-radius: 4px; }
-	.skill-tag[data-chain="solana"] { color: #c4b5fd; background: rgba(139,92,246,.14); border-color: rgba(139,92,246,.28); }
+	.skill-tag[data-chain="solana"] { color: #888888; background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.14); }
 	.skill-tag[data-chain="evm"] { color: #93c5fd; background: rgba(59,130,246,.14); border-color: rgba(59,130,246,.28); }
 	.skill-tag[data-kind="readonly"] { color: #6ee7b7; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.28); }
 	.skill-tag[data-kind="payments"] { color: #fbbf24; background: rgba(234,179,8,.12); border-color: rgba(234,179,8,.28); }

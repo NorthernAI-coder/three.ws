@@ -8,6 +8,7 @@
  */
 
 import { stashSession } from './edit-persistence.js';
+import { log } from '../shared/log.js';
 
 const STEPS = [
 	{ key: 'export', label: 'Export' },
@@ -137,7 +138,7 @@ export class PublishModal {
 		`;
 		this.body.querySelector('.publish-signin-btn').addEventListener('click', () => {
 			this._signInAndReturn().catch((err) => {
-				console.warn('[publish-modal] sign-in redirect failed', err);
+				log.warn('[publish-modal] sign-in redirect failed', err);
 				window.location.href = `/login?next=${encodeURIComponent(location.href)}`;
 			});
 		});
@@ -324,7 +325,7 @@ export class PublishModal {
 			btn.textContent = 'Copied ✓';
 			btn.disabled = true;
 		} catch (err) {
-			console.warn('[publish-modal] clipboard write failed', err);
+			log.warn('[publish-modal] clipboard write failed', err);
 			btn.textContent = 'Copy failed';
 		}
 		setTimeout(() => {

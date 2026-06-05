@@ -7,6 +7,7 @@
  * keyed by the same id. URL-loaded models store only the url and re-fetch.
  */
 
+import { log } from '../shared/log.js';
 const DB_NAME = '3dagent';
 const STORE_NAME = 'edt-bytes';
 const SS_PREFIX = 'edt:';
@@ -123,7 +124,7 @@ export async function stashSession(session) {
 			const bytes = await file.arrayBuffer();
 			await idbPut(id, { name: file.name, type: file.type, bytes });
 		} catch (err) {
-			console.warn('[edit-persistence] failed to stash file bytes', err);
+			log.warn('[edit-persistence] failed to stash file bytes', err);
 			// fall through — restore returns null if bytes are missing
 		}
 	} else {
@@ -133,7 +134,7 @@ export async function stashSession(session) {
 	try {
 		sessionStorage.setItem(SS_PREFIX + id, JSON.stringify(blob));
 	} catch (err) {
-		console.warn('[edit-persistence] sessionStorage write failed', err);
+		log.warn('[edit-persistence] sessionStorage write failed', err);
 	}
 
 	return id;
@@ -178,7 +179,7 @@ export async function restoreSession(token) {
 		try {
 			rec = await idbGet(token);
 		} catch (err) {
-			console.warn('[edit-persistence] idb read failed', err);
+			log.warn('[edit-persistence] idb read failed', err);
 			return null;
 		}
 		if (!rec || !rec.bytes) return null;

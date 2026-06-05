@@ -512,14 +512,14 @@ function injectStyles() {
 		.ee-picker:hover { border-color:#3a4250; background:#181c22; }
 		.ee-picker:focus-visible { outline:2px solid #6366f1; outline-offset:2px; }
 		.ee-picker.is-selected { border-color:#2f3845; }
-		.ee-picker-icon { display:flex; align-items:center; justify-content:center; width:32px; height:32px; flex:0 0 auto; border-radius:8px; background:#1f242c; color:#818cf8; }
+		.ee-picker-icon { display:flex; align-items:center; justify-content:center; width:32px; height:32px; flex:0 0 auto; border-radius:8px; background:#1f242c; color:#888888; }
 		.ee-picker-thumb { width:32px; height:32px; flex:0 0 auto; border-radius:8px; object-fit:cover; background:#1f242c; }
 		.ee-picker-thumb--ph { background:linear-gradient(135deg,#1f242c,#2a3340); }
 		.ee-picker-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 		.ee-picker.is-selected .ee-picker-name { color:#e4e4e7; font-weight:600; }
 		.ee-picker:not(.is-selected) .ee-picker-name { color:#a1a1aa; font-weight:500; }
-		.ee-picker-action { flex:0 0 auto; font-size:11px; font-weight:600; color:#818cf8; padding:3px 9px; border-radius:6px; background:#1f242c; }
-		.ee-picker:hover .ee-picker-action { color:#a5b4fc; }
+		.ee-picker-action { flex:0 0 auto; font-size:11px; font-weight:600; color:#888888; padding:3px 9px; border-radius:6px; background:#1f242c; }
+		.ee-picker:hover .ee-picker-action { color:#aaaaaa; }
 		.ee-idinput { font-size:12px !important; padding:7px 11px !important; }
 		.ee-segment { display:flex; gap:6px; background:#121519; border:1px solid #21262e; border-radius:10px; padding:4px; }
 		.ee-segment-sm { gap:4px; }

@@ -16,6 +16,7 @@
 //             mountLaunchpadStudio(rootEl, { slug, template, wallet, ... });
 
 import '../element.js'; // ensures <agent-3d> is registered
+import { log } from '../shared/log.js';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Templates
@@ -146,7 +147,7 @@ const STYLE = `
 	.template-card:hover { border-color: #3a4150; background: #1c2027; }
 	.template-card.active {
 		border-color: #ffffff;
-		background: linear-gradient(180deg, rgba(99,102,241,0.08), rgba(99,102,241,0));
+		background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
 	}
 	.template-card .label { font-weight: 600; margin-bottom: 4px; }
 	.template-card .tagline { color: #a1a1aa; font-size: 12px; line-height: 1.45; }
@@ -224,11 +225,11 @@ const STYLE = `
 	.stage-frame .skill-pill {
 		display: inline-flex; align-items: center; gap: 6px;
 		padding: 6px 10px 6px 12px; border-radius: 999px;
-		background: rgba(99,102,241,0.08); color: var(--brand, #ffffff);
+		background: rgba(255,255,255,0.04); color: var(--brand, #ffffff);
 		font-size: 12px; font-weight: 500;
-		border: 1px solid rgba(99,102,241,0.15);
+		border: 1px solid rgba(255,255,255,0.07);
 	}
-	.stage-frame.dark .skill-pill { background: rgba(99,102,241,0.16); }
+	.stage-frame.dark .skill-pill { background: rgba(255,255,255,0.08); }
 	.stage-frame .skill-pill .price {
 		background: var(--brand, #ffffff); color: #fff;
 		padding: 2px 7px; border-radius: 999px;
@@ -854,7 +855,7 @@ export function mountLaunchpadStudio(root, options = {}) {
 			history.replaceState(null, '', `/launchpad?slug=${encodeURIComponent(slug)}`);
 			render();
 		} catch (err) {
-			console.warn('[launchpad-studio] hydrate failed:', err.message);
+			log.warn('[launchpad-studio] hydrate failed:', err.message);
 			// Network failure shouldn't blow up the editor — start clean.
 			state.identity.slug = slug;
 			render();

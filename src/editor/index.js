@@ -12,6 +12,7 @@ import { MaterialEditor } from './material-editor.js';
 import { SceneExplorer } from './scene-explorer.js';
 import { TextureInspector } from './texture-inspector.js';
 import { exportEditedGLB, downloadGLB } from './glb-export.js';
+import { log } from '../shared/log.js';
 
 export class Editor {
 	constructor(viewer) {
@@ -118,7 +119,7 @@ export class Editor {
 				.replace(/\.(glb|gltf)$/i, '');
 			downloadGLB(bytes, `${base}.edited.glb`);
 		} catch (err) {
-			console.error('[editor] GLB export failed', err);
+			log.error('[editor] GLB export failed', err);
 			window.alert('GLB export failed: ' + (err.message || err));
 		}
 	}
@@ -162,7 +163,7 @@ export class Editor {
 				this._saveNeedsAuth = true;
 				this._saveCtrl?.name('⚠ sign in to save (click)');
 			} else {
-				console.error('[editor] save failed', err);
+				log.error('[editor] save failed', err);
 				this._saveCtrl?.name('⚠ ' + (err?.message || 'save failed'));
 				setTimeout(() => this._saveCtrl?.name(LABEL), 3000);
 			}
@@ -202,10 +203,10 @@ export class Editor {
 				} else {
 					modal.showError(err);
 				}
-				console.error('[editor] publish failed', err);
+				log.error('[editor] publish failed', err);
 			}
 		} catch (err) {
-			console.error('[editor] publish modal failed to load', err);
+			log.error('[editor] publish modal failed to load', err);
 			if (modal) modal.showError(err);
 			else window.alert('Publish failed: ' + (err.message || err));
 		} finally {

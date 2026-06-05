@@ -10,6 +10,7 @@
  * via glTF-Transform without refetching. Bytes are captured lazily either
  * from a URL or from a File.
  */
+import { log } from '../shared/log.js';
 export class EditorSession {
 	constructor(viewer) {
 		this.viewer = viewer;
@@ -33,7 +34,7 @@ export class EditorSession {
 		this.transformEdits = {};
 		this.visibilityEdits = {};
 		if (!url && !file) {
-			console.warn('[editor] no source — export disabled');
+			log.warn('[editor] no source — export disabled');
 		}
 		this._emit();
 	}
@@ -52,7 +53,7 @@ export class EditorSession {
 			try {
 				fn(this);
 			} catch (e) {
-				console.warn('[editor.session] listener error', e);
+				log.warn('[editor.session] listener error', e);
 			}
 		}
 	}
