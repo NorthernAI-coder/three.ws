@@ -69,6 +69,7 @@ import {
 	publicConfig,
 } from '../api/_lib/token/config.js';
 import { getTokenPriceUsd, quoteTokenForUsd, atomicsToTokens } from '../api/_lib/token/price.js';
+import { __resetMarketCache } from '../api/_lib/market/token-market.js';
 import { issueQuote, verifyQuote } from '../api/_lib/token/quote.js';
 import { verifyOnChain } from '../api/_lib/token/payments.js';
 import { cacheGet, cacheSet } from '../api/_lib/cache.js';
@@ -80,6 +81,7 @@ beforeEach(() => {
 	cacheGet.mockResolvedValue(null);
 	cacheSet.mockResolvedValue();
 	sql.mockResolvedValue([]);
+	__resetMarketCache();
 });
 
 afterEach(() => {
@@ -234,10 +236,10 @@ describe('getTokenPriceUsd', () => {
 	it('falls back to Birdeye when Jupiter returns null price', async () => {
 		const priorKey = process.env.BIRDEYE_API_KEY;
 		process.env.BIRDEYE_API_KEY = 'test-key';
-		// Jupiter returns with missing field
+		// Jupiter returns with missing field → null
 		fetchResponses.push({ body: { [TOKEN_MINT]: {} } });
-		// Birdeye
-		fetchResponses.push({ body: { data: { value: 0.0004 } } });
+		// Market module's first source is Birdeye token_overview ({ data: { price } }).
+		fetchResponses.push({ body: { data: { price: 0.0004 } } });
 		const p = await getTokenPriceUsd({ fresh: true });
 		expect(p.priceUsd).toBe(0.0004);
 		expect(p.source).toBe('birdeye');
@@ -261,8 +263,12 @@ describe('getTokenPriceUsd', () => {
 	it('throws price_unavailable when all feeds fail', async () => {
 		const priorKey = process.env.BIRDEYE_API_KEY;
 		process.env.BIRDEYE_API_KEY = 'test-key';
-		fetchResponses.push({ ok: false, status: 503, body: 'down' });
-		fetchResponses.push({ ok: false, status: 503, body: 'down' });
+		// Jupiter, then the market module's three sources (Birdeye, DexScreener,
+		// GeckoTerminal) all 503 → no price → price_unavailable.
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // jupiter
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // birdeye
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // dexscreener
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // geckoterminal
 		await expect(getTokenPriceUsd({ fresh: true })).rejects.toMatchObject({
 			code: 'price_unavailable',
 		});
