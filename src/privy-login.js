@@ -28,14 +28,13 @@ const appId = await getAppId();
 
 // If Privy is not configured, hide the section and exit.
 const section = document.getElementById('privy-section');
+const divider = document.getElementById('privy-or-divider');
+
 if (!appId) {
 	if (section) section.style.display = 'none';
-	// Also hide the "or" divider if nothing else is above it.
-	const divider = document.getElementById('privy-or-divider');
 	if (divider) divider.style.display = 'none';
 } else {
 	const privy = new Privy({ appId, storage: new LocalStorage() });
-	await privy.initialize();
 	mountPrivyUI(privy);
 }
 

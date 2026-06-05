@@ -1,5 +1,12 @@
 {
 	"mcpServers": {
+		"meshy": {
+			"command": "npx",
+			"args": ["-y", "@meshy-ai/meshy-mcp-server"],
+			"env": {
+				"MESHY_API_KEY": "${MESHY_API_KEY}"
+			}
+		},
 		"3d-agent": {
 			"url": "https://three.ws/api/mcp",
 			"headers": {

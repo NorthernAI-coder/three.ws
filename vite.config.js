@@ -329,6 +329,7 @@ const appConfig = {
 				// bundles that module so the sign-in avatar renders in production
 				// instead of shipping an unresolvable bare import.
 				login: resolve(__dirname, 'public/login.html'),
+				register: resolve(__dirname, 'public/register.html'),
 				// BEGIN:DISCOVER_ROUTE
 				'my-agents': resolve(__dirname, 'public/my-agents/index.html'),
 				discover: resolve(__dirname, 'public/discover/index.html'),

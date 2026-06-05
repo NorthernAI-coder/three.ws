@@ -458,7 +458,6 @@
 		// But only render the floating UI on non-immersive pages, when not opted out.
 		if (!hidden && !isExcludedRoute()) {
 			mount();
-			if (shouldShowWelcome()) showWelcome();
 		}
 	}
 
