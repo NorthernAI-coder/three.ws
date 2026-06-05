@@ -174,6 +174,65 @@ async function boot() {
 		e.target.value = '';
 		await handleGlbFile(file);
 	});
+
+	loadYourAvatars();
+}
+
+// Returning users with at least one saved avatar get a "Start from one of
+// yours" strip above the cards — each thumbnail remixes that avatar through the
+// same fork path the ?fork= query param uses. Anonymous users (401) and users
+// with no avatars simply never see the strip; it stays hidden.
+async function loadYourAvatars() {
+	const section = document.getElementById('your-avatars');
+	const row = document.getElementById('your-avatars-row');
+	if (!section || !row) return;
+
+	let avatars = [];
+	try {
+		// allowAnonymous: anonymous visitors 401 here by design — apiFetch would
+		// otherwise redirect them to /login, breaking the anonymous create flow.
+		const res = await apiFetch('/api/avatars', { allowAnonymous: true });
+		if (!res.ok) return;
+		avatars = (await res.json()) ?? [];
+	} catch {
+		return; // network/auth issue — leave the strip hidden
+	}
+	if (!Array.isArray(avatars) || avatars.length === 0) return;
+
+	const placeholder =
+		'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7"/></svg>';
+
+	const frag = document.createDocumentFragment();
+	for (const av of avatars.slice(0, 8)) {
+		const name = av.display_name || av.name || 'Avatar';
+		const thumb = av.thumbnail_url;
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'ya-thumb';
+		btn.setAttribute('aria-label', `Remix ${name}`);
+
+		const imgWrap = document.createElement('span');
+		imgWrap.className = 'ya-thumb-img';
+		if (thumb) {
+			const img = document.createElement('img');
+			img.src = thumb;
+			img.alt = '';
+			img.loading = 'lazy';
+			imgWrap.appendChild(img);
+		} else {
+			imgWrap.innerHTML = placeholder;
+		}
+
+		const label = document.createElement('span');
+		label.className = 'ya-thumb-label';
+		label.textContent = name;
+
+		btn.append(imgWrap, label);
+		btn.addEventListener('click', () => handleFork(av.id));
+		frag.appendChild(btn);
+	}
+	row.appendChild(frag);
+	section.hidden = false;
 }
 
 // Cards are divs with role="button", so we need to wire both click and
