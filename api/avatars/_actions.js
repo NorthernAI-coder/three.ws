@@ -17,6 +17,7 @@ import { randomUUID } from 'crypto';
 import { isValidGlbHeader } from '../_lib/glb-inspect.js';
 import { getRegenProvider } from '../_lib/regen-provider.js';
 import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-finalize.js';
+import { textToImage } from '../_mcp3d/text-to-image.js';
 
 // ── presign ───────────────────────────────────────────────────────────────────
 
@@ -798,13 +799,28 @@ const photoUrlOrDataUri = z
 		'must be an http(s) URL or a data:image/* base64 URI',
 	);
 
-const reconstructSchema = z.object({
-	name: z.string().trim().min(1).max(120),
-	description: z.string().trim().max(500).optional(),
-	photos: z.array(photoUrlOrDataUri).min(1).max(6),
-	visibility: z.enum(['private', 'unlisted', 'public']).optional(),
-	params: z.record(z.unknown()).optional(),
-});
+const reconstructSchema = z
+	.object({
+		name: z.string().trim().min(1).max(120),
+		description: z.string().trim().max(500).optional(),
+		photos: z.array(photoUrlOrDataUri).min(1).max(6).optional(),
+		// Text → avatar: a prompt is turned into a clean frontal reference image
+		// (Flux), which then feeds the exact same reconstruct → auto-rig pipeline
+		// as a selfie. One of `photos` or `prompt` is required.
+		prompt: z.string().trim().min(3).max(600).optional(),
+		visibility: z.enum(['private', 'unlisted', 'public']).optional(),
+		params: z.record(z.unknown()).optional(),
+	})
+	.refine((v) => (Array.isArray(v.photos) && v.photos.length > 0) || !!v.prompt, {
+		message: 'provide either photos or a prompt',
+		path: ['photos'],
+	});
+
+// Steer Flux toward a single, evenly-lit, full-figure humanoid on a plain
+// background — that composition reconstructs and auto-rigs far more reliably
+// than a busy scene — without overriding the user's own subject description.
+const AVATAR_PROMPT_SUFFIX =
+	', full body character, standing in a relaxed A-pose, facing forward, centered in frame, entire figure visible from head to feet, plain neutral studio background, soft even lighting, single subject, high detail, game-ready character render';
 
 const handleReconstruct = wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -830,13 +846,36 @@ const handleReconstruct = wrap(async (req, res) => {
 		);
 	}
 
+	// Text → avatar: turn the prompt into a frontal reference image, then treat
+	// it exactly like a selfie. Done only once the reconstruct backend is known
+	// to be live, so a configuration gap never burns a Flux generation.
+	let photos = body.photos ?? null;
+	let referenceImageUrl = null;
+	if (!photos || !photos.length) {
+		try {
+			const generated = await textToImage(`${body.prompt}${AVATAR_PROMPT_SUFFIX}`, {
+				aspectRatio: '2:3',
+			});
+			referenceImageUrl = generated.imageUrl;
+			photos = [generated.imageUrl];
+		} catch (err) {
+			const unconfigured = err?.code === 'unconfigured';
+			return error(
+				res,
+				unconfigured ? 501 : 502,
+				unconfigured ? 'txt2img_unconfigured' : 'txt2img_error',
+				err?.message || 'could not generate a reference image from your prompt',
+			);
+		}
+	}
+
 	let submission;
 	try {
 		submission = await provider.instance.submit({
 			userId,
 			mode: 'reconstruct',
-			params: { ...(body.params ?? {}), images: body.photos, name: body.name },
-			sourceUrl: body.photos[0],
+			params: { ...(body.params ?? {}), images: photos, name: body.name },
+			sourceUrl: photos[0],
 		});
 	} catch (err) {
 		return error(
@@ -849,10 +888,13 @@ const handleReconstruct = wrap(async (req, res) => {
 
 	const jobId = `${provider.name}-${randomUUID()}`;
 	const params = {
-		images: body.photos,
+		images: photos,
 		name: body.name,
 		description: body.description ?? null,
 		visibility: body.visibility ?? 'private',
+		...(body.prompt
+			? { source: 'prompt', prompt: body.prompt, referenceImageUrl }
+			: {}),
 	};
 	await sql`
 		insert into avatar_regen_jobs

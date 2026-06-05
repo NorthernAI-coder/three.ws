@@ -56,6 +56,7 @@ async function handleInvoke(req, res) {
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
 	const body = parse(invokeSchema, await readJson(req));
+	if (!isUuid(body.agent_id)) return error(res, 404, 'not_found', 'agent not found');
 	const [agent] = await sql`select id, user_id, name, meta, skills from agent_identities where id = ${body.agent_id} and deleted_at is null limit 1`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
@@ -120,6 +121,7 @@ async function handleManifest(req, res) {
 	const agent_id = url.searchParams.get('agent_id');
 	const skill = url.searchParams.get('skill');
 	if (!agent_id || !skill) return error(res, 400, 'validation_error', 'agent_id and skill required');
+	if (!isUuid(agent_id)) return error(res, 404, 'not_found', 'agent not found');
 
 	const [agent] = await sql`select id, name, meta from agent_identities where id = ${agent_id} and deleted_at is null limit 1`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');

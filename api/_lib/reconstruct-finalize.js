@@ -63,7 +63,11 @@ async function materializeReconstructAvatar({
 	sourceMetaExtra = {},
 }) {
 	const params = job.params || {};
-	const name = String(params.name || 'My selfie avatar').slice(0, 120);
+	// Both the selfie capture flow and the text → avatar flow land here; tag and
+	// describe the result by how it was actually made so the library stays honest.
+	const fromPrompt = params.source === 'prompt';
+	const baseTag = fromPrompt ? 'prompt' : 'selfie';
+	const name = String(params.name || (fromPrompt ? 'My prompt avatar' : 'My selfie avatar')).slice(0, 120);
 	const description = params.description ? String(params.description).slice(0, 500) : null;
 	const visibility = ['private', 'unlisted', 'public'].includes(params.visibility)
 		? params.visibility
@@ -76,8 +80,12 @@ async function materializeReconstructAvatar({
 		metadata: { source: 'reconstruct', job_id: jobId },
 	});
 
-	const tags = ['selfie', ...extraTags];
+	const tags = [baseTag, ...extraTags];
 	if (glbInfo && !glbInfo.isRigged && !tags.includes('unrigged')) tags.push('unrigged');
+
+	const promptMeta = fromPrompt
+		? { prompt: params.prompt ?? null, referenceImageUrl: params.referenceImageUrl ?? null }
+		: {};
 
 	const avatar = await createAvatar({
 		userId,
@@ -89,7 +97,7 @@ async function materializeReconstructAvatar({
 			size_bytes: glbBuf.length,
 			content_type: 'model/gltf-binary',
 			source: 'reconstruct',
-			source_meta: { jobId, provider: job.provider, ...glbMetaFrom(glbInfo), ...sourceMetaExtra },
+			source_meta: { jobId, provider: job.provider, ...glbMetaFrom(glbInfo), ...promptMeta, ...sourceMetaExtra },
 			visibility,
 			tags,
 			checksum_sha256: null,
@@ -120,7 +128,8 @@ async function materializeReconstructAvatar({
 export async function finalizeReconstructStage({ userId, jobId, job, glbUrl }) {
 	const glbBuf = await fetchGlbBuffer(glbUrl);
 	const info = isValidGlbHeader(glbBuf) ? inspectGlb(glbBuf) : null;
-	const slug = `selfie-${Math.random().toString(36).slice(2, 8)}`;
+	const slugPrefix = job?.params?.source === 'prompt' ? 'prompt' : 'selfie';
+	const slug = `${slugPrefix}-${Math.random().toString(36).slice(2, 8)}`;
 	const storageKey = storageKeyFor({ userId, slug });
 
 	let provider = null;

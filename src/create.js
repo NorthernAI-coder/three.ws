@@ -156,6 +156,14 @@ async function boot() {
 		if (await isAtAvatarLimit()) return;
 		window.location.href = '/scan';
 	});
+	wireCard('card-prompt', async () => {
+		if (window.__authed === false) {
+			window.location.replace(`/login?next=${encodeURIComponent('/create/prompt')}`);
+			return;
+		}
+		if (await isAtAvatarLimit()) return;
+		window.location.href = '/create/prompt';
+	});
 	wireCard('card-video-avatar', () => {
 		if (!_videoAvatarReady) {
 			showStatus('Talking avatar video is coming soon — stay tuned.', 'info');

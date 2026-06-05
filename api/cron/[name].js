@@ -1436,8 +1436,18 @@ async function handleRunBuyback(req, res) {
 
 	const relayer = await buybackLoadRelayer();
 
+	// Honor per-coin autopilot policy. A missing pump_autopilot row preserves the
+	// legacy "always eligible, burn-only" behaviour via coalesce, so existing
+	// coins keep working until an owner opts into autopilot from /autopilot.
 	const mints = await sql`
-		select id, mint, network, full_swap, slippage_bps from pump_agent_mints limit 200
+		select m.id, m.mint, m.network, m.slippage_bps,
+		       coalesce(ap.buyback_full_swap, m.full_swap) as full_swap,
+		       coalesce(ap.buyback_min_atomics, 0)         as buyback_min_atomics
+		from pump_agent_mints m
+		left join pump_autopilot ap on ap.mint_id = m.id
+		where coalesce(ap.enabled, true) = true
+		  and coalesce(ap.buyback_enabled, true) = true
+		limit 200
 	`;
 
 	const results = [];
@@ -1445,18 +1455,24 @@ async function handleRunBuyback(req, res) {
 		const currencyStr = m.network === 'devnet' ? SOLANA_USDC_MINT_DEVNET : SOLANA_USDC_MINT;
 		const currency = solanaPubkey(currencyStr);
 		const fullSwap = m.full_swap === true;
+		const minAtomics = BigInt(m.buyback_min_atomics ?? 0);
 
 		try {
 			const { agent } = await getPumpAgent({ network: m.network, mint: m.mint });
 			const balances = await agent.getBalances(currency);
 			const buyback = BigInt(balances.buybackVault?.balance ?? 0);
 
-			if (buyback === 0n) {
+			if (buyback === 0n || buyback < minAtomics) {
 				const [run] = await sql`
 					insert into pump_buyback_runs (mint_id, currency_mint, status)
 					values (${m.id}, ${currencyStr}, 'skipped') returning id
 				`;
-				results.push({ mint: m.mint, status: 'skipped', run_id: run.id });
+				results.push({
+					mint: m.mint,
+					status: 'skipped',
+					run_id: run.id,
+					reason: buyback === 0n ? 'empty' : 'below_threshold',
+				});
 				continue;
 			}
 
@@ -2036,9 +2052,13 @@ async function handleRunDistributePayments(req, res) {
 	// Pick mints to consider: those with confirmed payments since last
 	// distribute run, or never run before.
 	const mints = await sql`
-		select m.id, m.mint, m.network, m.buyback_bps
+		select m.id, m.mint, m.network, m.buyback_bps,
+		       coalesce(ap.distribute_min_atomics, 0) as distribute_min_atomics
 		from pump_agent_mints m
-		where exists (
+		left join pump_autopilot ap on ap.mint_id = m.id
+		where coalesce(ap.enabled, true) = true
+		  and coalesce(ap.distribute_enabled, true) = true
+		  and exists (
 			select 1 from pump_agent_payments p
 			where p.mint_id = m.id and p.status = 'confirmed'
 			  and (
@@ -2062,14 +2082,20 @@ async function handleRunDistributePayments(req, res) {
 			const { agent } = await getPumpAgent({ network: m.network, mint: m.mint });
 			const balancesBefore = await agent.getBalances(currency);
 			const paymentBalance = BigInt(balancesBefore.paymentVault.balance ?? 0);
+			const minAtomics = BigInt(m.distribute_min_atomics ?? 0);
 
-			if (paymentBalance === 0n) {
+			if (paymentBalance === 0n || paymentBalance < minAtomics) {
 				const [run] = await sql`
 					insert into pump_distribute_runs (mint_id, currency_mint, status, balances_before)
 					values (${m.id}, ${currencyStr}, 'skipped', ${JSON.stringify({ payment: paymentBalance.toString() })}::jsonb)
 					returning id
 				`;
-				results.push({ mint: m.mint, status: 'skipped', run_id: run.id });
+				results.push({
+					mint: m.mint,
+					status: 'skipped',
+					run_id: run.id,
+					reason: paymentBalance === 0n ? 'empty' : 'below_threshold',
+				});
 				continue;
 			}
 

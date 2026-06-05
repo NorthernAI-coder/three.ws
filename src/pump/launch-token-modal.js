@@ -10,6 +10,7 @@
 
 import { mountLaunchBondingCurve } from './bonding-curve-chart.js';
 import { log } from '../shared/log.js';
+import { THREE_WS_MARK } from '../solana/vanity/brand.js';
 
 const _isDev =
 	typeof location !== 'undefined' &&
@@ -329,6 +330,50 @@ export class LaunchTokenModal {
 		}
 	}
 
+	// ── Live preview card (step 1) ────────────────────────────────────────────
+
+	/** A live pump.fun-style coin card that mirrors the form as the user types. */
+	_previewCardHtml() {
+		const d = this._d;
+		const initials = (d.symbol || d.name || 'A').slice(0, 3).toUpperCase();
+		const img = d.image
+			? `<img class="ltm-pc-img" src="${_esc(d.image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+				<div class="ltm-pc-fallback" style="display:none">${_esc(initials)}</div>`
+			: `<div class="ltm-pc-fallback">${_esc(initials)}</div>`;
+		return `
+		<div class="ltm-preview-card" id="ltm-preview">
+			<div class="ltm-pc-media">${img}</div>
+			<div class="ltm-pc-meta">
+				<div class="ltm-pc-name" id="ltm-pc-name">${_esc(d.name || 'Your token')}</div>
+				<div class="ltm-pc-sym" id="ltm-pc-sym">$${_esc(d.symbol || 'SYMBOL')}</div>
+				<div class="ltm-pc-mark" title="Every three.ws launch mints an address starting with “${_esc(THREE_WS_MARK)}”.">
+					<span class="ltm-pc-mark-chip">${_esc(THREE_WS_MARK)}…</span>
+					<span class="ltm-pc-mark-label">on-chain mark</span>
+				</div>
+			</div>
+		</div>`;
+	}
+
+	/** Refresh the preview card in place from the current field values. */
+	_updatePreview({ name, symbol, image } = {}) {
+		const ov = this._overlay;
+		if (!ov) return;
+		const nameEl = ov.querySelector('#ltm-pc-name');
+		const symEl = ov.querySelector('#ltm-pc-sym');
+		if (nameEl && name != null) nameEl.textContent = name || 'Your token';
+		if (symEl && symbol != null) symEl.textContent = `$${symbol || 'SYMBOL'}`;
+		if (image != null) {
+			const media = ov.querySelector('#ltm-preview .ltm-pc-media');
+			if (media) {
+				const initials = (symbol || name || 'A').slice(0, 3).toUpperCase();
+				media.innerHTML = image
+					? `<img class="ltm-pc-img" src="${_esc(image)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+						<div class="ltm-pc-fallback" style="display:none">${_esc(initials)}</div>`
+					: `<div class="ltm-pc-fallback">${_esc(initials)}</div>`;
+			}
+		}
+	}
+
 	// ── Step 1 — Token details ────────────────────────────────────────────────
 
 	_renderStep1() {
@@ -347,7 +392,8 @@ export class LaunchTokenModal {
 		this._paint(
 			this._shell(
 				'Launch Token — Details',
-				`<div class="ltm-field">
+				`${this._previewCardHtml()}
+				<div class="ltm-field">
 					<label class="ltm-label" for="ltm-name">
 						Token name <span class="ltm-hint">max 32 chars</span>
 					</label>
@@ -433,15 +479,28 @@ export class LaunchTokenModal {
 			updateBuyUsd();
 		}
 
+		const imgInput = this._overlay.querySelector('#ltm-img');
+
 		nameInput.addEventListener('input', () => {
 			if (!symTouched) symInput.value = _nameToSymbol(nameInput.value);
+			this._updatePreview({ name: nameInput.value.trim(), symbol: symInput.value });
 		});
 		symInput.addEventListener('input', () => {
 			symInput.value = symInput.value.toUpperCase();
 			symTouched = true;
 			symErr.textContent = '';
 			symInput.classList.remove('ltm-err');
+			this._updatePreview({ symbol: symInput.value, name: nameInput.value.trim() });
 		});
+		if (imgInput) {
+			imgInput.addEventListener('input', () =>
+				this._updatePreview({
+					image: imgInput.value.trim(),
+					name: nameInput.value.trim(),
+					symbol: symInput.value,
+				}),
+			);
+		}
 
 		this._overlay.querySelectorAll('[data-net]').forEach((btn) => {
 			btn.addEventListener('click', () => {
@@ -745,9 +804,15 @@ export class LaunchTokenModal {
 			this._shell(
 				'Token Launched!',
 				`<div class="ltm-success">
-					<div class="ltm-success-icon">🎉</div>
-					<div class="ltm-success-title">Token launched successfully!</div>
-					<div class="ltm-mint-box">${_esc(mint)}</div>
+					<div class="ltm-success-title">Your coin is live</div>
+					<canvas class="ltm-share-card" id="ltm-share" width="800" height="420"
+						aria-label="Shareable launch card for ${_esc(this._d.symbol)}"></canvas>
+					<div class="ltm-mint-box" id="ltm-mint">${_esc(mint)}</div>
+					<div class="ltm-share-actions">
+						<button class="ltm-btn" id="ltm-copy-mint">Copy mint</button>
+						<button class="ltm-btn" id="ltm-download">Download card</button>
+						<button class="ltm-btn ltm-btn-primary" id="ltm-share-x">Share on X</button>
+					</div>
 					${pumpUrl ? `<a class="ltm-pumpfun-link" href="${_esc(pumpUrl)}" target="_blank" rel="noopener noreferrer">View on pump.fun →</a>` : ''}
 				</div>`,
 				`<div></div>
@@ -755,7 +820,37 @@ export class LaunchTokenModal {
 			),
 		);
 
-		this._overlay.querySelector('#ltm-done').addEventListener('click', () => {
+		this._drawShareCard(mint);
+
+		const ov = this._overlay;
+		const shareText = `I just launched $${this._d.symbol} on @pumpdotfun — built & deployed on three.ws 🌐`;
+		const shareUrl = pumpUrl || `https://three.ws`;
+
+		ov.querySelector('#ltm-copy-mint')?.addEventListener('click', async (e) => {
+			try {
+				await navigator.clipboard.writeText(mint);
+				e.target.textContent = 'Copied ✓';
+				setTimeout(() => (e.target.textContent = 'Copy mint'), 1500);
+			} catch {
+				this._msg('Copy failed — select the address manually.', true);
+			}
+		});
+
+		ov.querySelector('#ltm-download')?.addEventListener('click', () => {
+			const canvas = ov.querySelector('#ltm-share');
+			if (!canvas) return;
+			const a = document.createElement('a');
+			a.download = `${this._d.symbol || 'token'}-launch.png`;
+			a.href = canvas.toDataURL('image/png');
+			a.click();
+		});
+
+		ov.querySelector('#ltm-share-x')?.addEventListener('click', () => {
+			const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+			window.open(intent, '_blank', 'noopener,noreferrer');
+		});
+
+		ov.querySelector('#ltm-done').addEventListener('click', () => {
 			this._close();
 			location.reload();
 		});
@@ -763,6 +858,104 @@ export class LaunchTokenModal {
 		window.dispatchEvent(
 			new CustomEvent('agent-token-launched', { detail: { mint, pumpUrl } }),
 		);
+	}
+
+	/** Render a polished, shareable launch card onto the success-step canvas. */
+	_drawShareCard(mint) {
+		const canvas = this._overlay?.querySelector('#ltm-share');
+		if (!canvas?.getContext) return;
+		const ctx = canvas.getContext('2d');
+		const W = canvas.width;
+		const H = canvas.height;
+		const d = this._d;
+
+		// Backdrop — subtle vertical gradient on the brand-dark surface.
+		const bg = ctx.createLinearGradient(0, 0, 0, H);
+		bg.addColorStop(0, '#0f1512');
+		bg.addColorStop(1, '#0a0c0b');
+		ctx.fillStyle = bg;
+		ctx.fillRect(0, 0, W, H);
+
+		// Accent glow top-left.
+		const glow = ctx.createRadialGradient(120, 90, 10, 120, 90, 360);
+		glow.addColorStop(0, 'rgba(120,200,140,0.22)');
+		glow.addColorStop(1, 'rgba(120,200,140,0)');
+		ctx.fillStyle = glow;
+		ctx.fillRect(0, 0, W, H);
+
+		// Border.
+		ctx.strokeStyle = 'rgba(120,200,140,0.25)';
+		ctx.lineWidth = 2;
+		ctx.strokeRect(8, 8, W - 16, H - 16);
+
+		const drawText = (text, x, y, font, color, align = 'left') => {
+			ctx.font = font;
+			ctx.fillStyle = color;
+			ctx.textAlign = align;
+			ctx.fillText(text, x, y);
+		};
+
+		// Header eyebrow.
+		drawText('LAUNCHED ON PUMP.FUN', 56, 70, '600 18px Inter, system-ui, sans-serif', 'rgba(120,200,140,0.85)');
+
+		// Token name + symbol.
+		const name = (d.name || 'Your token').slice(0, 28);
+		drawText(name, 56, 150, '700 56px Inter, system-ui, sans-serif', '#f3f6f4');
+		drawText(`$${(d.symbol || 'TOKEN').slice(0, 12)}`, 56, 210, '600 38px Inter, system-ui, sans-serif', 'rgba(216,245,226,0.9)');
+
+		if (d.description) {
+			const desc = d.description.length > 90 ? d.description.slice(0, 87) + '…' : d.description;
+			drawText(desc, 56, 256, '400 20px Inter, system-ui, sans-serif', 'rgba(255,255,255,0.5)');
+		}
+
+		// Mint address (mono, truncated middle).
+		const shortMint = mint.length > 24 ? `${mint.slice(0, 12)}…${mint.slice(-8)}` : mint;
+		drawText('MINT', 56, 330, '600 14px Inter, system-ui, sans-serif', 'rgba(255,255,255,0.35)');
+		drawText(shortMint, 56, 360, '500 24px ui-monospace, monospace', 'rgba(255,255,255,0.7)');
+
+		// 3ws mark badge (bottom-left).
+		ctx.fillStyle = 'rgba(120,200,140,0.14)';
+		this._roundRect(ctx, 56, 376, 196, 30, 8);
+		ctx.fill();
+		drawText(`◆ ${THREE_WS_MARK}… on-chain mark`, 70, 396, '600 15px Inter, system-ui, sans-serif', 'rgba(216,245,226,0.95)');
+
+		// three.ws wordmark (bottom-right).
+		drawText('three.ws', W - 56, 392, '700 26px Inter, system-ui, sans-serif', 'rgba(255,255,255,0.85)', 'right');
+
+		// Token image, if same-origin / CORS-friendly. Drawn async; failure is silent.
+		if (d.image) {
+			const im = new Image();
+			im.crossOrigin = 'anonymous';
+			im.onload = () => {
+				try {
+					const size = 150;
+					const ix = W - 56 - size;
+					const iy = 56;
+					ctx.save();
+					this._roundRect(ctx, ix, iy, size, size, 16);
+					ctx.clip();
+					ctx.drawImage(im, ix, iy, size, size);
+					ctx.restore();
+					ctx.strokeStyle = 'rgba(120,200,140,0.4)';
+					ctx.lineWidth = 2;
+					this._roundRect(ctx, ix, iy, size, size, 16);
+					ctx.stroke();
+				} catch {
+					/* tainted canvas — leave card without the image */
+				}
+			};
+			im.src = d.image;
+		}
+	}
+
+	_roundRect(ctx, x, y, w, h, r) {
+		ctx.beginPath();
+		ctx.moveTo(x + r, y);
+		ctx.arcTo(x + w, y, x + w, y + h, r);
+		ctx.arcTo(x + w, y + h, x, y + h, r);
+		ctx.arcTo(x, y + h, x, y, r);
+		ctx.arcTo(x, y, x + w, y, r);
+		ctx.closePath();
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

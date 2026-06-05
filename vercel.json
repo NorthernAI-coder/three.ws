@@ -432,6 +432,10 @@
 			"dest": "/pump-dashboard.html"
 		},
 		{
+			"src": "/autopilot/?",
+			"dest": "/autopilot.html"
+		},
+		{
 			"src": "/avatar-sdk/?",
 			"dest": "/avatar-sdk.html"
 		},
@@ -2517,6 +2521,14 @@
 		{
 			"src": "/create/selfie/",
 			"dest": "/create-selfie.html"
+		},
+		{
+			"src": "/create/prompt",
+			"dest": "/create-prompt.html"
+		},
+		{
+			"src": "/create/prompt/",
+			"dest": "/create-prompt.html"
 		},
 		{
 			"src": "/scan",
