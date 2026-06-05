@@ -1297,12 +1297,11 @@ export class RegisterUI {
 				const { data } = await resp.json();
 				this.form.imageUrl = data.thumbnail_url;
 			} else {
-				this.form.imageUrl = await new Promise((resolve, reject) => {
-					const reader = new FileReader();
-					reader.onload = () => resolve(reader.result);
-					reader.onerror = reject;
-					reader.readAsDataURL(blob);
-				});
+				// No avatar row to attach to — pin the PNG to get a stable hosted
+				// URL. Embedding the raw base64 data: URL would bloat the minted
+				// metadata JSON (tens of KB) and render unusably in the Review UI.
+				const file = new File([blob], 'agent-3d-capture.png', { type: 'image/png' });
+				this.form.imageUrl = await pinFile(file, this.form.apiToken || undefined);
 			}
 
 			const input = stepBody?.querySelector('[name="imageUrl"]');

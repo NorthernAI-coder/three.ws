@@ -948,6 +948,10 @@ a { color: inherit; text-decoration: none; }
 	backdrop-filter: blur(4px);
 }
 .creator-modal-overlay.show { opacity: 1; }
+/* Without this the unconditional `display:flex` above defeats the `hidden`
+   attribute, leaving an invisible (opacity:0) full-viewport layer that swallows
+   every click on the page. */
+.creator-modal-overlay[hidden] { display: none; }
 .creator-modal {
 	position: relative;
 	width: min(720px, 100%);
@@ -1016,6 +1020,11 @@ a { color: inherit; text-decoration: none; }
 	-webkit-backdrop-filter: blur(4px);
 	backdrop-filter: blur(4px);
 }
+/* The shared skill-purchase modal is injected with a `hidden` attribute and
+   toggled via overlay.hidden. Without this, the unconditional `display:flex`
+   above overrides the UA `[hidden]{display:none}` rule and the (blank) modal
+   shows on page load. */
+.market-modal-overlay[hidden] { display: none; }
 .market-modal {
 	position: relative;
 	width: min(440px, 100%);
