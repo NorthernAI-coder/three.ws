@@ -9,14 +9,32 @@ import {
 	recoverSolanaAgentKeypair,
 } from './agent-wallet.js';
 
-const RPC = {
-	mainnet: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
-	devnet: process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com',
-};
-
 const RPC_PUBLIC = {
 	mainnet: 'https://api.mainnet-beta.solana.com',
 	devnet: 'https://api.devnet.solana.com',
+};
+
+// Resolve the primary mainnet RPC, preferring a real paid endpoint over the
+// public one (which 429s under load). Order:
+//   1. SOLANA_RPC_URL, but only when it points at something other than the
+//      public endpoint — operators sometimes set it to the public URL, which
+//      is no better than leaving it unset.
+//   2. A Helius endpoint derived from HELIUS_API_KEY — the same credential that
+//      already powers the DAS balance path in balances.js, so one key fixes
+//      both the portfolio reads and the agent-wallet balance reads.
+//   3. The public endpoint as a last resort.
+function resolveMainnetRpc() {
+	const configured = process.env.SOLANA_RPC_URL;
+	if (configured && configured !== RPC_PUBLIC.mainnet) return configured;
+	if (process.env.HELIUS_API_KEY) {
+		return `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+	}
+	return RPC_PUBLIC.mainnet;
+}
+
+const RPC = {
+	mainnet: resolveMainnetRpc(),
+	devnet: process.env.SOLANA_RPC_URL_DEVNET || RPC_PUBLIC.devnet,
 };
 
 export function solanaConnection(network = 'mainnet') {

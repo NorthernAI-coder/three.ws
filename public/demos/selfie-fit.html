@@ -926,6 +926,17 @@
 							avatar_type: state.style,
 						}),
 					});
+					if (res.status === 501) {
+						// Editor fallback is not configured in this environment
+						// (AVATURN_API_KEY absent). The native pipeline above is the
+						// primary path; surface a clear, non-error message instead of
+						// throwing a raw HTTP 501 at the user.
+						const why = await res.json().catch(() => ({}));
+						log(`editor path unavailable (${why?.error || '501'}): avatar customization is temporarily unavailable in this environment.`, 'info');
+						submitBtn.disabled = false;
+						submitBtn.textContent = original;
+						return;
+					}
 					if (!res.ok) {
 						const text = await res.text();
 						throw new Error(`HTTP ${res.status}: ${text.slice(0, 240)}`);

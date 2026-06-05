@@ -30,7 +30,7 @@ const EXPIRY_GRACE_MS = 10_000;
 export class AvaturnError extends Error {
 	/**
 	 * @param {string} message
-	 * @param {'quota'|'auth'|'session-expired'|'network'|'timeout'} code
+	 * @param {'quota'|'auth'|'session-expired'|'network'|'timeout'|'not-configured'} code
 	 */
 	constructor(message, code) {
 		super(message);
@@ -81,14 +81,19 @@ export async function createAvaturnSession({ front, left, right }) {
 	if (!res.ok) {
 		const payload = await res.json().catch(() => ({}));
 		const code = payload?.error;
+		// 501 not_configured = the avatar editor key is absent in this environment.
+		// Surface a distinct code so callers can skip the editor step gracefully
+		// rather than treating it as an auth failure the user could act on.
+		if (res.status === 501 || code === 'not_configured')
+			throw new AvaturnError(
+				payload?.error_description || 'avatar editor is not available right now',
+				'not-configured',
+			);
 		if (res.status === 401 || res.status === 403)
 			throw new AvaturnError(payload?.error_description || 'unauthorized', 'auth');
 		if (res.status === 429)
 			throw new AvaturnError(payload?.error_description || 'rate limited', 'quota');
-		throw new AvaturnError(
-			payload?.error_description || `http ${res.status}`,
-			code === 'not_configured' ? 'auth' : 'network',
-		);
+		throw new AvaturnError(payload?.error_description || `http ${res.status}`, 'network');
 	}
 
 	const data = await res.json();

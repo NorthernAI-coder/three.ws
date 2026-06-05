@@ -9,7 +9,10 @@ import { cors, method, error, wrap, json } from '../../_lib/http.js';
 export const maxDuration = 30;
 
 const SUPPORTED_CHAINS = Object.keys(DEFAULT_REGISTRIES).map(Number);
-const SUBGRAPH_TIMEOUT_MS = 12_000;
+// Match the search endpoint's budget: a 12s timeout never fires on runtimes that
+// enforce a ~10s ceiling — the function is killed and 504s before our graceful
+// subgraph_timeout path can run. 6s leaves room to map the result and respond.
+const SUBGRAPH_TIMEOUT_MS = 6_000;
 
 const AGENT_QUERY = `
   query GetAgent($agentId: String!) {
