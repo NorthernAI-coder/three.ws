@@ -134,11 +134,11 @@ async function boot() {
 
 	wireCard('card-default-editor', async () => {
 		if (window.__authed && (await isAtAvatarLimit())) return;
-		createFromTemplate();
+		creator.openDefaultEditor();
 	});
 	wireCard('card-customize', async () => {
 		if (window.__authed && (await isAtAvatarLimit())) return;
-		creator.openDefaultEditor();
+		createFromTemplate();
 	});
 	wireCard('card-agent-studio', async () => {
 		if (window.__authed && (await isAtAvatarLimit())) return;
