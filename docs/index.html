@@ -584,42 +584,35 @@
 		<script>
 			const NAV = [
 				{
-					title: 'Getting started',
+					title: 'Start here',
 					links: [
-						{ label: 'Introduction', path: 'introduction' },
-						{ label: 'Getting started (hosted)', path: 'tutorials/getting-started' },
+						{ label: 'What is three.ws?', path: 'start-here' },
 						{ label: 'Agents vs. Avatars', path: 'agents-vs-avatars' },
-						{ label: 'Quick start', path: 'quick-start' },
-						{ label: 'Deployment', path: 'deployment' },
-						{ label: 'Local setup', path: 'internal/SETUP' },
-						{ label: 'Development guide', path: 'internal/DEVELOPMENT' },
+						{ label: 'Make your first agent', path: 'make-your-agent' },
+						{ label: 'Share & embed', path: 'share-and-embed' },
+						{ label: 'Do I need crypto?', path: 'do-i-need-crypto' },
 					],
 				},
 				{
-					title: 'Architecture',
+					title: 'Getting started',
 					links: [
-						{ label: 'Architecture overview', path: 'architecture' },
+						{ label: 'Introduction', path: 'introduction' },
+						{ label: 'Quick start', path: 'quick-start' },
+						{ label: 'Getting started (hosted)', path: 'tutorials/getting-started' },
+						{ label: 'Deployment', path: 'deployment' },
+					],
+				},
+				{
+					title: 'Core concepts',
+					links: [
 						{ label: 'How it works', path: 'how-it-works' },
+						{ label: 'Architecture overview', path: 'architecture' },
 						{ label: 'Agent system', path: 'agent-system' },
 						{ label: 'Memory system', path: 'memory' },
 						{ label: 'Skills system', path: 'skills' },
 						{ label: 'Multi-agent', path: 'multi-agent' },
 						{ label: 'Permissions', path: 'permissions' },
 						{ label: 'Layers', path: 'layers' },
-					],
-				},
-				{
-					title: 'API reference',
-					links: [
-						{ label: 'REST API', path: 'api-reference' },
-						{ label: 'JavaScript API', path: 'js-api' },
-						{ label: 'Web component', path: 'web-component' },
-						{ label: 'MCP', path: 'mcp' },
-						{ label: 'SDK', path: 'sdk' },
-						{ label: 'Widgets', path: 'widgets' },
-						{ label: 'Widget Studio', path: 'widget-studio' },
-						{ label: 'Widget API (JSON-RPC)', path: 'widget-api' },
-						{ label: 'Widget reference', href: '/docs/widgets', external: true },
 					],
 				},
 				{
@@ -640,6 +633,20 @@
 					],
 				},
 				{
+					title: 'SDK / API reference',
+					links: [
+						{ label: 'REST API', path: 'api-reference' },
+						{ label: 'JavaScript API', path: 'js-api' },
+						{ label: 'Web component', path: 'web-component' },
+						{ label: 'MCP', path: 'mcp' },
+						{ label: 'SDK', path: 'sdk' },
+						{ label: 'Widgets', path: 'widgets' },
+						{ label: 'Widget Studio', path: 'widget-studio' },
+						{ label: 'Widget API (JSON-RPC)', path: 'widget-api' },
+						{ label: 'Widget reference', href: '/docs/widgets', external: true },
+					],
+				},
+				{
 					title: 'Integrations',
 					links: [
 						{ label: 'IBM watsonx & Granite', path: 'ibm' },
@@ -649,7 +656,6 @@
 				{
 					title: 'Tutorials',
 					links: [
-						{ label: 'Getting started (hosted)', path: 'tutorials/getting-started' },
 						{ label: 'Build your first agent', path: 'tutorials/first-agent' },
 						{ label: 'Personal AI site', path: 'tutorials/personal-ai-site' },
 						{ label: 'Create a custom skill', path: 'tutorials/custom-skill' },
@@ -669,6 +675,8 @@
 				{
 					title: 'Operations',
 					links: [
+						{ label: 'Local setup', path: 'internal/SETUP' },
+						{ label: 'Development guide', path: 'internal/DEVELOPMENT' },
 						{ label: 'Smoke test', path: 'internal/SMOKE_TEST' },
 						{ label: 'Validation deployment', path: 'internal/VALIDATION_DEPLOY' },
 						{ label: 'API inventory', path: 'internal/api-inventory' },
@@ -681,7 +689,7 @@
 			function currentPath() {
 				if (location.hash) return location.hash.slice(1).replace(/^\//, '');
 				const m = location.pathname.match(/^\/docs\/([^/]+)$/);
-				return m ? m[1] : 'introduction';
+				return m ? m[1] : 'start-here';
 			}
 
 			function buildSidebar(filter) {

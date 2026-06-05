@@ -175,6 +175,39 @@ It returns one vector per input (the response reports the model and its native `
 
 ---
 
+## Identity Firewall — Granite embeddings + Guardian
+
+**Page:** [three.ws/ibm/identity](https://three.ws/ibm/identity) · **API:** `POST /api/agents/identity-check` · **Lib:** [`api/_lib/identity-integrity.js`](../api/_lib/identity-integrity.js)
+
+Every three.ws agent holds a Solana wallet and earns on-chain reputation — which makes impersonating a trusted agent a real economic attack. The Identity Firewall runs before any new agent identity is created and gates it with two Granite checks:
+
+1. **Semantic impersonation detection.** The candidate name + description are embedded with `granite-embedding-278m-multilingual` and cosine-compared against every existing public agent. Similarity ≥ 93% to another owner's agent is treated as impersonation and the identity is blocked; 86–93% triggers a review warning with the nearest neighbours surfaced.
+2. **Granite Guardian content screen.** The identity text is run through `granite-guardian-3-8b` and classified against `harm`, `social_bias`, and `sexual_content`. Any flagged risk blocks the identity from representing the platform.
+
+The endpoint is auth-optional: anonymous callers (including the public `/ibm/identity` demo) get impersonation detection against all public agents; authenticated callers also get their own agents included in the comparison so the editor can warn "you already have a similar agent."
+
+When watsonx is unconfigured the response returns `{ configured: false, status: "unavailable" }` and the identity is allowed (fail-open) — the page surfaces a clear "not configured" state rather than a fake verdict.
+
+```bash
+curl -s https://three.ws/api/agents/identity-check \
+  -H 'content-type: application/json' \
+  -d '{"name":"Granite Oracle","description":"A market oracle that forecasts live Solana prices."}'
+```
+
+```json
+{
+  "configured": true,
+  "status": "review",
+  "uniqueness": 0.79,
+  "reasons": ["High semantic similarity to an existing agent"],
+  "similar": [{ "id": "…", "name": "Granite Oracle", "score": 0.91, "public": true }],
+  "guardian": { "flagged": [], "reasons": [] },
+  "model": "ibm/granite-embedding-278m-multilingual"
+}
+```
+
+---
+
 ## Granite Vision
 
 **Page:** [three.ws/ibm/vision](https://three.ws/ibm/vision) · **API:** `GET|POST /api/ibm/vision`
@@ -210,15 +243,16 @@ It reads the same `WATSONX_*` environment variables documented above. See the [M
 
 ## Showcase routes
 
-| Route                                                  | What it is                                                       |
-| ------------------------------------------------------ | ---------------------------------------------------------------- |
-| [`/ibm`](https://three.ws/ibm)                         | The hub — overview of the integration and links to every surface |
-| [`/ibm/galaxy`](https://three.ws/ibm/galaxy)           | Semantic 3D agent star-map (Granite embeddings)                  |
-| [`/ibm/oracle`](https://three.ws/ibm/oracle)           | Granite TimeSeries forecast, narrated by an avatar               |
-| [`/ibm/twin`](https://three.ws/ibm/twin)               | Digital Twin — back-test + what-if simulation                    |
-| [`/ibm/trust-layer`](https://three.ws/ibm/trust-layer) | Granite Guardian governance + audit ledger                       |
-| [`/ibm/proof`](https://three.ws/ibm/proof)             | Governed forecast notarized on Solana                            |
-| [`/ibm/vision`](https://three.ws/ibm/vision)           | Granite Vision reads an avatar into an identity                  |
+| Route                                                    | What it is                                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------------- |
+| [`/ibm`](https://three.ws/ibm)                           | The hub — overview of the integration and links to every surface |
+| [`/ibm/galaxy`](https://three.ws/ibm/galaxy)             | Semantic 3D agent star-map (Granite embeddings)                  |
+| [`/ibm/oracle`](https://three.ws/ibm/oracle)             | Granite TimeSeries forecast, narrated by an avatar               |
+| [`/ibm/twin`](https://three.ws/ibm/twin)                 | Digital Twin — back-test + what-if simulation                    |
+| [`/ibm/trust-layer`](https://three.ws/ibm/trust-layer)   | Granite Guardian governance + audit ledger                       |
+| [`/ibm/identity`](https://three.ws/ibm/identity)         | Identity Firewall — Granite embeddings + Guardian impersonation gate |
+| [`/ibm/proof`](https://three.ws/ibm/proof)               | Governed forecast notarized on Solana                            |
+| [`/ibm/vision`](https://three.ws/ibm/vision)             | Granite Vision reads an avatar into an identity                  |
 
 ---
 
