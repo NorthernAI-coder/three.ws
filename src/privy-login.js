@@ -250,26 +250,53 @@ function mountPrivyUI(privy) {
 			const address = resp.publicKey.toString();
 
 			setWalletStatus('Generating sign-in message…');
-			const { nonce } = await privy.auth.siws.fetchNonce({ address });
-			const message   = createSiwsMessage({
+			const nonceRes = await fetch('/api/auth/siws/nonce', { credentials: 'include' });
+			if (!nonceRes.ok) throw new Error('Failed to get nonce');
+			const { nonce, csrf, domain: serverDomain, uri: serverUri } = await nonceRes.json();
+
+			const domain          = serverDomain || location.host;
+			const uri             = serverUri    || location.origin;
+			const issuedAt        = new Date().toISOString();
+			const expirationTime  = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+			const message = [
+				`${domain} wants you to sign in with your Solana account:`,
 				address,
-				nonce,
-				domain: location.hostname,
-				uri:    location.origin,
-			});
+				'',
+				'Sign in to three.ws. This request will not trigger any blockchain transaction or cost any fees.',
+				'',
+				`URI: ${uri}`,
+				'Version: 1',
+				'Chain ID: mainnet',
+				`Nonce: ${nonce}`,
+				`Issued At: ${issuedAt}`,
+				`Expiration Time: ${expirationTime}`,
+			].join('\n');
 
 			setWalletStatus('Sign the message in your wallet…');
 			const { signature: sigBytes } = await provider.signMessage(
 				new TextEncoder().encode(message),
 				'utf8',
 			);
-			const signature = bs58.encode(sigBytes);
+			const signature = btoa(String.fromCharCode(...sigBytes));
 
 			setWalletStatus('Signing in…');
-			const { identity_token } = await privy.auth.siws.login({ message, signature });
-			if (!identity_token) throw new Error('No identity token returned.');
+			const verifyRes = await fetch('/api/auth/siws/verify', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+				body: JSON.stringify({ message, signature }),
+			});
+			const data = await verifyRes.json().catch(() => ({}));
+			if (!verifyRes.ok) throw new Error(data.error_description || 'Sign-in failed.');
 
-			await verifyWithBackend(identity_token);
+			try {
+				localStorage.setItem(
+					'3dagent:auth-hint',
+					JSON.stringify({ authed: true, name: data.user?.display_name || '', ts: Date.now() }),
+				);
+			} catch { /* ignore */ }
+
+			location.href = next;
 		} catch (e) {
 			const raw = e?.message || '';
 			showErr(/reject|denied|cancel|refused/i.test(raw) ? 'Signature cancelled.' : raw || 'Wallet sign-in failed.');
