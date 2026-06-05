@@ -381,8 +381,19 @@ async function loadAvatars() {
 	} catch (err) {
 		renderAvatarList();
 		const note = document.createElement('div');
-		note.className = 'empty';
-		note.textContent = `Couldn't load your avatars: ${err.message}`;
+		note.className = 'empty empty--error';
+		const msg = document.createElement('span');
+		msg.textContent = `Couldn't load your avatars. `;
+		const retryBtn = document.createElement('button');
+		retryBtn.type = 'button';
+		retryBtn.className = 'btn-ghost btn-sm';
+		retryBtn.textContent = 'Retry';
+		retryBtn.addEventListener('click', () => {
+			state.avatars = [DEMO_AVATAR];
+			loadAvatars();
+		});
+		note.appendChild(msg);
+		note.appendChild(retryBtn);
 		list.appendChild(note);
 	}
 }
@@ -431,7 +442,7 @@ async function cloneTemplate(id) {
 function renderAvatarList() {
 	const list = $('#avatar-list');
 	if (!state.avatars.length) {
-		list.innerHTML = `<div class="empty">No avatars yet. <a href="/dashboard#upload" target="_blank" rel="noopener">Upload one →</a></div>`;
+		list.innerHTML = `<div class="empty">No avatars yet. <a href="/scan">Scan yourself to 3D →</a> <span class="empty-sep">or</span> <a href="/create/selfie">AI selfie →</a></div>`;
 		return;
 	}
 	list.innerHTML = '';
@@ -1613,7 +1624,7 @@ function _refreshEmbedSnippet() {
 	const w = parseInt($('#embed-width').value) || 600;
 	const h = parseInt($('#embed-height').value) || 600;
 	$('#embed-iframe-snippet').value =
-		`<iframe src="${url}" width="${w}" height="${h}" style="border:0;border-radius:12px" allow="autoplay; xr-spatial-tracking" loading="lazy"></iframe>`;
+		`<iframe src="${url}" width="${w}" height="${h}" style="border:0;border-radius:12px;max-width:100%" allow="autoplay; xr-spatial-tracking; clipboard-write" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" loading="lazy"></iframe>`;
 	$('#embed-preview-iframe').src = url;
 }
 

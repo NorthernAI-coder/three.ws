@@ -113,20 +113,20 @@ const LP_CSS = `
 .lp-coin button.on{background:rgba(164,240,188,.12);border-color:rgba(164,240,188,.32);color:#c8f0d8}
 .lp-coin button.mayhem.on{background:rgba(246,140,80,.14);border-color:rgba(246,140,80,.38);color:#f6c498}
 .lp-coin button.usdc.on{background:rgba(120,160,240,.12);border-color:rgba(120,160,240,.34);color:#a8c4f0}
-.lp-coin button.reward.on{background:rgba(170,140,240,.14);border-color:rgba(170,140,240,.36);color:#cdbcf8}
+.lp-coin button.reward.on{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.18);color:rgba(255,255,255,.85)}
 .lp-coin button[disabled]{opacity:.42;cursor:not-allowed}
 .lp-coin-sub{display:block;font-size:.6rem;color:rgba(255,255,255,.32);font-weight:400;margin-top:.18rem;letter-spacing:.01em}
 .lp-coin button.on .lp-coin-sub{color:rgba(200,240,216,.62)}
 .lp-coin button.mayhem.on .lp-coin-sub{color:rgba(246,196,152,.72)}
 .lp-coin button.usdc.on .lp-coin-sub{color:rgba(168,196,240,.72)}
-.lp-coin button.reward.on .lp-coin-sub{color:rgba(205,188,248,.72)}
+.lp-coin button.reward.on .lp-coin-sub{color:rgba(255,255,255,.52)}
 .lp-coin-emoji{display:block;font-size:.95rem;line-height:1;margin-bottom:.18rem}
 .lp-coin-note{font-size:.7rem;color:rgba(255,255,255,.42);line-height:1.5;padding:.45rem .65rem;
   background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:8px}
 .lp-coin-note.mayhem{color:rgba(246,196,152,.85);background:rgba(246,140,80,.07);border-color:rgba(246,140,80,.2)}
 .lp-coin-note.usdc{color:rgba(168,196,240,.85);background:rgba(120,160,240,.07);border-color:rgba(120,160,240,.22)}
-.lp-coin-note.reward{color:rgba(205,188,248,.9);background:rgba(170,140,240,.07);border-color:rgba(170,140,240,.22)}
-.lp-coin-note.reward b{color:#dccff8}
+.lp-coin-note.reward{color:rgba(255,255,255,.75);background:rgba(255,255,255,.035);border-color:rgba(255,255,255,.11)}
+.lp-coin-note.reward b{color:rgba(255,255,255,.9)}
 .lp-empty{text-align:center;padding:2.5rem 1rem;color:rgba(255,255,255,.3);font-size:.85rem;line-height:1.7}
 .lp-empty a{color:rgba(164,240,188,.7);text-decoration:none}
 .lp-empty a:hover{color:#a4f0bc}

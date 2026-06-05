@@ -69,7 +69,7 @@
 				transition: all .15s;
 			}
 			.mem-tab:hover { color: #ddd; border-color: var(--border); }
-			.mem-tab.active { border-color: var(--accent); color: #c8c0ff; background: rgba(106,92,255,.1); }
+			.mem-tab.active { border-color: var(--accent); color: var(--ink); background: rgba(255,255,255,.05); }
 
 			/* ── Memory cards ───────────────────────────────────────────── */
 			.mem-card {
@@ -99,7 +99,7 @@
 				margin-top: 2px;
 			}
 			.mem-type-user    { background: rgba(59,130,246,.15); color: #93c5fd; border: 1px solid rgba(59,130,246,.3); }
-			.mem-type-feedback{ background: rgba(168,85,247,.15); color: #d8b4fe; border: 1px solid rgba(168,85,247,.3); }
+			.mem-type-feedback{ background: rgba(255,255,255,.07); color: var(--ink-dim); border: 1px solid rgba(255,255,255,.14); }
 			.mem-type-project { background: rgba(34,197,94,.15);  color: #86efac; border: 1px solid rgba(34,197,94,.3); }
 			.mem-type-reference{background: rgba(251,146,60,.15); color: #fdba74; border: 1px solid rgba(251,146,60,.3); }
 
@@ -484,7 +484,7 @@
 			}
 
 			function typeColor(t) {
-				return { user: '#93c5fd', feedback: '#d8b4fe', project: '#86efac', reference: '#fdba74' }[t] || '#aaa';
+				return { user: '#93c5fd', feedback: '#888888', project: '#86efac', reference: '#fdba74' }[t] || '#aaa';
 			}
 
 			function renderMemoryCard(m, editing = false) {

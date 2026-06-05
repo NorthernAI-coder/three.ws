@@ -36,7 +36,7 @@
 				display: flex;
 				flex-direction: column;
 			}
-			a { color: #9a8cff; text-decoration: none; }
+			a { color: #888888; text-decoration: none; }
 
 			/* ── Site header ───────────────────────────────────────────────── */
 			.site-header {
@@ -59,7 +59,7 @@
 				position: absolute;
 				left: 0; right: 0; bottom: -1px;
 				height: 1px;
-				background: linear-gradient(90deg, transparent 0%, rgba(154,140,255,0.4) 35%, rgba(99,102,241,0.35) 60%, rgba(34,211,238,0.25) 80%, transparent 100%);
+				background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 35%, rgba(255,255,255,0.15) 60%, rgba(34,211,238,0.25) 80%, transparent 100%);
 				pointer-events: none;
 			}
 			.site-brand {
@@ -94,7 +94,7 @@
 				white-space: nowrap;
 			}
 			.site-nav a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-			.site-nav a.active { color: #fff; background: rgba(106,92,255,0.14); }
+			.site-nav a.active { color: #fff; background: rgba(255,255,255,0.07); }
 
 			.site-header-right {
 				display: flex;
@@ -154,11 +154,11 @@
 			.sidebar-link:hover { color: var(--text); background: rgba(255,255,255,0.04); }
 			.sidebar-link.active {
 				color: #fff;
-				background: rgba(106,92,255,0.14);
+				background: rgba(255,255,255,0.07);
 				box-shadow: inset 2px 0 0 var(--accent);
 			}
 			.sidebar-link svg { flex-shrink: 0; opacity: 0.65; }
-			.sidebar-link.active svg { opacity: 1; color: #9a8cff; }
+			.sidebar-link.active svg { opacity: 1; color: var(--ink-dim); }
 
 			/* ── Main content ──────────────────────────────────────────────── */
 			.dash-main {
@@ -182,7 +182,7 @@
 			.btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); }
 			.btn:active { transform: scale(0.98); }
 			.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-			.btn.primary:hover { background: #7d70ff; border-color: #7d70ff; }
+			.btn.primary:hover { background: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.9); }
 			.btn.sec { background: #16161f; color: #d0d0e0; border-color: var(--border); }
 			.btn.sec:hover { background: #1e1e2a; }
 			.btn.ghost { background: transparent; border-color: transparent; color: var(--muted-2); }
@@ -193,7 +193,7 @@
 			/* ── Hero card ─────────────────────────────────────────────────── */
 			.hero {
 				background:
-					radial-gradient(900px 280px at 10% -30%, rgba(106,92,255,0.15), transparent 60%),
+					radial-gradient(900px 280px at 10% -30%, rgba(255,255,255,0.07), transparent 60%),
 					radial-gradient(600px 200px at 90% -10%, rgba(255,92,168,0.1), transparent 60%),
 					var(--panel);
 				border: 1px solid var(--border-2);
@@ -264,7 +264,7 @@
 			}
 			.range-tab:hover { color: var(--muted-2); background: rgba(255,255,255,0.04); }
 			.range-tab[aria-pressed="true"] {
-				background: rgba(106,92,255,0.18); color: #c4bcff;
+				background: rgba(255,255,255,0.09); color: var(--ink);
 				border: 0;
 			}
 
@@ -279,13 +279,13 @@
 				position: relative; overflow: hidden;
 				transition: border-color 0.14s, box-shadow 0.14s;
 			}
-			.stat:hover { border-color: var(--border-2); box-shadow: 0 4px 18px -8px rgba(106,92,255,0.18); }
+			.stat:hover { border-color: var(--border-2); box-shadow: 0 4px 18px -8px rgba(255,255,255,0.09); }
 			.stat-icon {
 				width: 28px; height: 28px; border-radius: 8px;
 				display: grid; place-items: center;
 				margin-bottom: 10px; font-size: 14px;
 			}
-			.stat-icon.purple { background: rgba(106,92,255,0.14); }
+			.stat-icon.purple { background: rgba(255,255,255,0.07); }
 			.stat-icon.teal   { background: rgba(46,212,163,0.12); }
 			.stat-icon.green  { background: rgba(46,212,163,0.12); }
 			.stat-icon.red    { background: rgba(255,106,106,0.1); }
@@ -369,7 +369,7 @@
 				border: 1px solid var(--border);
 			}
 			.chain-pill.sol { background: rgba(20,241,149,0.1); color: var(--ok); border-color: rgba(20,241,149,0.15); }
-			.chain-pill.evm { background: rgba(106,92,255,0.12); color: #a99aff; border-color: rgba(106,92,255,0.2); }
+			.chain-pill.evm { background: rgba(255,255,255,0.06); color: var(--ink-dim); border-color: rgba(255,255,255,0.10); }
 
 			/* ── Wallet cards ──────────────────────────────────────────────── */
 			.wallet-list { display: flex; flex-direction: column; gap: 10px; }
@@ -458,8 +458,8 @@
 				transition: border-color 0.13s, box-shadow 0.13s;
 			}
 			.modal input:focus, .modal select:focus {
-				outline: none; border-color: rgba(106,92,255,0.55);
-				box-shadow: 0 0 0 3px rgba(106,92,255,0.12);
+				outline: none; border-color: rgba(255,255,255,0.28);
+				box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
 			}
 			.modal input[data-mono] { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; }
 			.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
@@ -649,7 +649,7 @@
 				<div class="stats-row">
 					<div class="stat">
 						<div class="stat-icon purple">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a8cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9.354a4 4 0 1 0 0 5.292"/></svg>
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#888888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9.354a4 4 0 1 0 0 5.292"/></svg>
 						</div>
 						<div class="stat-label">Assets</div>
 						<div class="stat-value" id="stat-assets">—</div>
@@ -1116,13 +1116,13 @@
 					handleScale: false,
 				});
 				const seriesOpts = {
-					lineColor: '#7c6fff',
-					topColor: 'rgba(124,111,255,0.32)',
-					bottomColor: 'rgba(124,111,255,0)',
+					lineColor: '#888888',
+					topColor: 'rgba(255,255,255,0.16)',
+					bottomColor: 'rgba(255,255,255,0)',
 					lineWidth: 2,
 					priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
 					crosshairMarkerRadius: 5,
-					crosshairMarkerBorderColor: '#9a8cff',
+					crosshairMarkerBorderColor: '#888888',
 					crosshairMarkerBackgroundColor: '#fff',
 				};
 				series = chart.addAreaSeries
