@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-05T05:35:08.561Z",
+	"generated_at": "2026-06-05T09:53:55.956Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -18,7 +18,7 @@
 				{
 					"path": "/",
 					"title": "Home",
-					"description": "Landing page. Pitch, live agent demos, and the front door to every flow.",
+					"description": "Landing page. 3D AI agents that think on IBM watsonx.ai (Granite) — the pitch, live agent demos, and the front door to every flow.",
 					"added": null,
 					"auth": null,
 					"indexable": true,
@@ -136,6 +136,16 @@
 					"path": "/create",
 					"title": "Create Agent",
 					"description": "Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/create-agent",
+					"title": "Create an Agent",
+					"description": "Step-by-step wizard to create a 3D AI agent: name, 3D body, skills, personality, voice, and on-chain identity.",
 					"added": null,
 					"auth": null,
 					"indexable": true,
