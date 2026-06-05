@@ -20,6 +20,7 @@
  * GLB load.
  */
 
+import { log } from '../shared/log.js';
 const JPEG_QUALITY = 0.86;
 const MIN_BYTES = 2_000;             // smaller than this means the canvas is blank
 const MAX_BYTES = 2 * 1024 * 1024;   // 2 MB ceiling (matches server-side cap)
@@ -125,7 +126,7 @@ export async function uploadAvatarSnapshot({ avatarId, scene }) {
 		);
 		if (tagRes.ok) autoTagged = await tagRes.json();
 	} catch (err) {
-		console.warn('[snapshot] auto-tag failed, thumbnail still uploaded:', err?.message);
+		log.warn('[snapshot] auto-tag failed, thumbnail still uploaded:', err?.message);
 	}
 
 	return { ok: true, thumbKey: thumb_key, autoTagged };

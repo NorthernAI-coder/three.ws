@@ -22,6 +22,7 @@
  * can coexist (e.g. a peer avatar's speech bubble) without ill effects.
  */
 
+import { log } from '../shared/log.js';
 const DEFAULT_FFT_SIZE = 256; // 128 bands — enough resolution for vowel cues
 const SMOOTH_ATTACK = 0.45; // weight on new sample when value is rising
 const SMOOTH_RELEASE = 0.18; // weight on new sample when value is falling
@@ -107,7 +108,7 @@ export class LipsyncDriver {
 		} catch (err) {
 			// Target failures should not kill the loop; log once.
 			if (!this._loggedTargetErr) {
-				console.warn('[lipsync] target error:', err?.message);
+				log.warn('[lipsync] target error:', err?.message);
 				this._loggedTargetErr = true;
 			}
 		}

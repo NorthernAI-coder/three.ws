@@ -20,6 +20,7 @@ import { AvatarMouthTarget } from './avatar-morph-target.js';
 import { TalkController } from './talk-controller.js';
 import { openVoiceCloneModal } from './voice-clone-modal.js';
 import { nextPreset, PRESET_LABELS } from './camera-presets.js';
+import { log } from '../shared/log.js';
 
 let activeSession = null;
 
@@ -37,7 +38,7 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 	const glbUrl = avatar.model_url || avatar.url;
 	const glbBlob = avatar.glbBlob || null;
 	if (!glbUrl && !glbBlob) {
-		console.warn('[talk] avatar has no GLB; cannot enter talk mode');
+		log.warn('[talk] avatar has no GLB; cannot enter talk mode');
 		return null;
 	}
 
@@ -83,13 +84,13 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 			scene.attachMouthTarget(mouthTarget);
 			const diag = mouthTarget.describe();
 			if (!mouthTarget.hasAnyMouthDriver()) {
-				console.warn('[talk] avatar has no mouth morphs, jaw bone, or head fallback. Diagnostics:', diag);
+				log.warn('[talk] avatar has no mouth morphs, jaw bone, or head fallback. Diagnostics:', diag);
 				showLipsyncNotice(lipsyncNotice, 'none');
 			} else if (!mouthTarget.hasMouthMorphs() && !mouthTarget.hasJawBone() && mouthTarget.hasHeadFallback()) {
-				console.info('[talk] mouth binding (head fallback):', diag);
+				log.info('[talk] mouth binding (head fallback):', diag);
 				showLipsyncNotice(lipsyncNotice, 'head');
 			} else {
-				console.info('[talk] mouth binding:', diag);
+				log.info('[talk] mouth binding:', diag);
 			}
 			setStatus(statusEl, 'idle');
 
@@ -313,7 +314,7 @@ const TALK_CSS = `
 	position: fixed; inset: 0; z-index: 9999;
 	background:
 		radial-gradient(ellipse at 50% 30%, rgba(125,211,252,0.10), transparent 60%),
-		radial-gradient(ellipse at 70% 80%, rgba(167,139,250,0.08), transparent 50%),
+		radial-gradient(ellipse at 70% 80%, rgba(255,255,255,0.04), transparent 50%),
 		#050505;
 	color: #fafafa;
 	font-family: 'Inter', system-ui, sans-serif;

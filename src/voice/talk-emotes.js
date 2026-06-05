@@ -18,6 +18,7 @@
  */
 
 import { AnimationManager } from '../animation-manager.js';
+import { log } from '../shared/log.js';
 
 // Curated set shown on the talk overlay's emote bar. Keep it short — too
 // many buttons creates choice paralysis during a live conversation.
@@ -75,7 +76,7 @@ export class TalkEmotes {
 				this._manager.setAnimationDefs(list);
 				return true;
 			} catch (err) {
-				console.warn('[talk-emotes] manifest fetch failed:', err?.message);
+				log.warn('[talk-emotes] manifest fetch failed:', err?.message);
 				return false;
 			}
 		})();
@@ -107,7 +108,7 @@ export class TalkEmotes {
 	async play(name) {
 		const def = this._defsByName.get(name);
 		if (!def) {
-			console.warn(`[talk-emotes] unknown emote: ${name}`);
+			log.warn(`[talk-emotes] unknown emote: ${name}`);
 			return false;
 		}
 
@@ -125,7 +126,7 @@ export class TalkEmotes {
 			try {
 				await inflight;
 			} catch (err) {
-				console.warn(`[talk-emotes] load failed for "${name}":`, err?.message);
+				log.warn(`[talk-emotes] load failed for "${name}":`, err?.message);
 				return false;
 			}
 		}

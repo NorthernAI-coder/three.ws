@@ -12,6 +12,7 @@
  */
 
 import { VoiceRecorder } from '../editor/voice-recorder.js';
+import { log } from '../shared/log.js';
 
 let active = null;
 
@@ -23,7 +24,7 @@ let active = null;
  */
 export function openVoiceCloneModal({ agentId, agentName = 'Avatar', onClose } = {}) {
 	if (!agentId) {
-		console.warn('[voice-clone] no agentId — owner has no linked agent yet');
+		log.warn('[voice-clone] no agentId — owner has no linked agent yet');
 		return null;
 	}
 	if (active) return active; // single instance
@@ -74,7 +75,7 @@ export function openVoiceCloneModal({ agentId, agentName = 'Avatar', onClose } =
 		try {
 			onClose?.();
 		} catch (err) {
-			console.warn('[voice-clone] onClose threw', err?.message);
+			log.warn('[voice-clone] onClose threw', err?.message);
 		}
 	};
 

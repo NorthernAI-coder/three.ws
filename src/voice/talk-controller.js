@@ -26,6 +26,7 @@
  */
 
 import { LipsyncDriver, tapAudioElement } from './lipsync-driver.js';
+import { log } from '../shared/log.js';
 
 const EDGE_VOICES_BY_GENDER = {
 	female: 'en-US-AriaNeural',
@@ -53,7 +54,7 @@ export class TalkController {
 		this.systemPromptFn = systemPromptFn || (() => '');
 		this.onMessage = onMessage || (() => {});
 		this.onStateChange = onStateChange || (() => {});
-		this.onError = onError || ((e) => console.warn('[talk]', e?.message));
+		this.onError = onError || ((e) => log.warn('[talk]', e?.message));
 		this.mouthTarget = mouthTarget;
 
 		this._state = 'idle';
@@ -349,7 +350,7 @@ export class TalkController {
 		if (!r.ok) {
 			// Fall back to Edge so the talk loop still completes if ElevenLabs
 			// is rate-limited or down.
-			console.warn('[talk] eleven TTS failed, falling back to edge');
+			log.warn('[talk] eleven TTS failed, falling back to edge');
 			return this._fetchTtsEdge(text);
 		}
 		return r.blob();
