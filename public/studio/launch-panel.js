@@ -64,6 +64,10 @@ function fileToDataUrl(file) {
 function friendlyError(msg) {
 	const m = String(msg || '');
 	if (/user rejected|rejected the request/i.test(m)) return 'Wallet signing cancelled.';
+	// Defensive: our client always grinds the 3ws mark before prep, so the server
+	// should never reject for an unbranded mint — but if it does, keep the copy
+	// consistent with the other launch surfaces and point at a re-grind retry.
+	if (/unbranded_mint/i.test(m)) return 'Could not stamp the three.ws brand mark — retry to re-grind.';
 	if (/0x1\b/.test(m) || /insufficient.*lamports|insufficient.*sol/i.test(m))
 		return 'Not enough SOL — fund your wallet and try again.';
 	if (/wallet.*not.*found|no.*wallet/i.test(m))
@@ -1053,7 +1057,9 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		s.phase = 'stamping'; s.phaseLabel = 'Stamping the three.ws mark 3ws…'; render();
 
 		const { grindVanity } = await import('../../src/solana/vanity/grinder.js');
-		const THREE_WS_VANITY = { prefix: '3ws', suffix: '', ignoreCase: true };
+		// Single source of truth for the `3ws` mark + its grind config — never
+		// hardcode the mark literal here (see src/solana/vanity/brand.js).
+		const { THREE_WS_VANITY } = await import('../../src/solana/vanity/brand.js');
 
 		let ground;
 		try {
