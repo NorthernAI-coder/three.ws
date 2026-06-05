@@ -1,7 +1,6 @@
 // Consolidated Solana payment endpoints (checkout + confirm).
 
 import { z } from 'zod';
-import { Connection } from '@solana/web3.js';
 import { solanaConnection } from '../../_lib/solana/connection.js';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';

@@ -608,7 +608,7 @@ export const handleEdit = wrap(async (req, res) => {
 	try { new PublicKey(asset_pubkey); } catch { return error(res, 400, 'validation_error', 'invalid asset pubkey'); }
 
 	// Ownership: the agent must belong to the signed-in user.
-	const [agent] = await sql`select id, name, description, skills, avatar_id, wallet_address, meta from agent_identities where (meta->>'sol_mint_address') = ${asset_pubkey} and user_id = ${user.id} and deleted_at is null limit 1`;
+	const [agent] = await sql`select id, name, description, avatar_id, wallet_address, meta from agent_identities where (meta->>'sol_mint_address') = ${asset_pubkey} and user_id = ${user.id} and deleted_at is null limit 1`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found for your account');
 
 	const collectionAddr = agent.meta?.collection || null;
@@ -621,11 +621,12 @@ export const handleEdit = wrap(async (req, res) => {
 		if (!av) return error(res, 404, 'not_found', 'avatar not found');
 	}
 
-	// Merge requested edits over current values.
+	// Merge requested edits over current DB values. Skills are stored on-chain in
+	// the Attributes plugin (and in the off-chain manifest), not as an
+	// agent_identities column, so they are not written to the DB here.
 	const next = {
 		name: body.name ?? agent.name,
 		description: body.description ?? agent.description,
-		skills: body.skills ?? agent.skills ?? [],
 		avatar_id: body.avatar_id === undefined ? agent.avatar_id : body.avatar_id,
 	};
 
@@ -645,41 +646,54 @@ export const handleEdit = wrap(async (req, res) => {
 	const collectionPk = umiPublicKey(collectionAddr);
 	const passportUrl = `${env.APP_ORIGIN}/agent-passport.html?asset=${asset_pubkey}&network=${network}`;
 
-	const signatures = {};
-	try {
-		// 1) Rewrite the on-chain Attributes plugin with the new curated fields.
-		const attributeList = buildAgentOnchainAttributes({
-			name: next.name,
-			agentUrl: passportUrl,
-			skills: next.skills,
-			createdAt: new Date().toISOString(),
-		});
-		const attrRes = await updatePlugin(umi, {
-			asset: assetPk,
-			collection: collectionPk,
-			plugin: { type: 'Attributes', attributeList },
-		}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
-		signatures.attributes = base58Sig(attrRes.signature);
+	// Only name/skills live in the on-chain Attributes plugin (and name in the
+	// asset's name field). Description/avatar are served dynamically from the
+	// metadata endpoint via the asset URI, so they need no on-chain write.
+	const nameChanged = body.name !== undefined && body.name !== agent.name;
+	const skillsChanged = body.skills !== undefined;
 
-		// 2) If the display name changed, update the asset's on-chain name too.
-		if (body.name !== undefined && body.name !== agent.name) {
-			const [onchainAsset, onchainCollection] = await Promise.all([
-				fetchAsset(umi, assetPk),
-				fetchCollection(umi, collectionPk),
-			]);
-			const nameRes = await update(umi, {
-				asset: onchainAsset,
-				collection: onchainCollection,
+	const signatures = {};
+	if (nameChanged || skillsChanged) {
+		try {
+			// Read current on-chain attributes so unedited fields (skills, the
+			// original created timestamp) are preserved rather than dropped.
+			const onchainAsset = await fetchAsset(umi, assetPk);
+			const existingAttrs = onchainAsset.attributes?.attributeList || [];
+			const attrMap = new Map(existingAttrs.map((a) => [a.key, a.value]));
+			const existingSkills = attrMap.get('skills')
+				? String(attrMap.get('skills')).split(',').filter(Boolean)
+				: [];
+
+			const attributeList = buildAgentOnchainAttributes({
 				name: next.name,
+				agentUrl: passportUrl,
+				skills: body.skills ?? existingSkills,
+				createdAt: attrMap.get('created') || undefined,
+			});
+			const attrRes = await updatePlugin(umi, {
+				asset: assetPk,
+				collection: collectionPk,
+				plugin: { type: 'Attributes', attributeList },
 			}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
-			signatures.name = base58Sig(nameRes.signature);
+			signatures.attributes = base58Sig(attrRes.signature);
+
+			// If the display name changed, update the asset's on-chain name too.
+			if (nameChanged) {
+				const onchainCollection = await fetchCollection(umi, collectionPk);
+				const nameRes = await update(umi, {
+					asset: onchainAsset,
+					collection: onchainCollection,
+					name: next.name,
+				}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+				signatures.name = base58Sig(nameRes.signature);
+			}
+		} catch (e) {
+			return error(res, 502, 'onchain_edit_failed', `on-chain edit failed: ${e?.message || e}`);
 		}
-	} catch (e) {
-		return error(res, 502, 'onchain_edit_failed', `on-chain edit failed: ${e?.message || e}`);
 	}
 
-	// Keep the off-chain row in sync with what we just wrote on-chain.
-	const [updated] = await sql`update agent_identities set name=${next.name}, description=${next.description}, skills=${next.skills}, avatar_id=${next.avatar_id}, updated_at=now() where id=${agent.id} returning id, name, description, skills, avatar_id, wallet_address, meta, updated_at`;
+	// Keep the off-chain row in sync (name/description/avatar are real columns).
+	const [updated] = await sql`update agent_identities set name=${next.name}, description=${next.description}, avatar_id=${next.avatar_id}, updated_at=now() where id=${agent.id} returning id, name, description, avatar_id, wallet_address, meta, updated_at`;
 
 	return json(res, 200, {
 		ok: true,

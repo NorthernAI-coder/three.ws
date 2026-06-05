@@ -1,7 +1,6 @@
 import { env } from '../_lib/env.js';
 import { wrap, cors, error, json, readJson, method } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { Connection } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 
 export default wrap(async (req, res) => {

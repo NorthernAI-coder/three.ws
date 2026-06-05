@@ -12,7 +12,6 @@
 // records argument.
 
 import { checkSubdomainAvailability, createNamedSubdomain, getParentDomain, getStorefrontOrigin, loadParentOwnerKeypair, normalizeLabel as normalizeLabelRaw, storefrontUrlForLabel, } from '../../src/solana/sns-subdomain.js';
-import { Connection } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
 
 const DEFAULT_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';

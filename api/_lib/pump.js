@@ -17,7 +17,7 @@
 // SOLANA_RPC_FALLBACK_URLS (comma-separated) enables the multi-endpoint
 // RpcFallback wrapper for read-side handlers that opt in via getRpcFallback().
 
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
 import { rpcFallbackFromEnv } from './solana/rpc-fallback.js';
 

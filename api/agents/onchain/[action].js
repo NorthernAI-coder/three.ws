@@ -14,7 +14,6 @@ import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplCore, create, ruleSet } from '@metaplex-foundation/mpl-core';
 import {
 	generateSigner, publicKey as umiPublicKey, signerIdentity, createNoopSigner, } from '@metaplex-foundation/umi';
-import { Connection } from '@solana/web3.js';
 import { solanaConnection } from '../../_lib/solana/connection.js';
 import { JsonRpcProvider } from 'ethers';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
