@@ -32,6 +32,7 @@ import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
+import { insertNotification } from '../../_lib/notify.js';
 
 function rpcUrl(cluster) {
 	return cluster === 'devnet'
@@ -421,6 +422,22 @@ async function handlePayConfirm(req, res) {
 		where id = ${intent.id}
 		returning id, agent_id, amount, currency_mint, paid_at
 	`;
+
+	// Fire-and-forget: notify the agent owner that they received a payment.
+	sql`select user_id from agent_identities where id = ${updated.agent_id} and deleted_at is null limit 1`
+		.then(([row]) => {
+			if (row?.user_id) {
+				insertNotification(row.user_id, 'payment-earned', {
+					agent_id: updated.agent_id,
+					amount: updated.amount.toString(),
+					currency_mint: updated.currency_mint,
+					tx_signature: body.tx_signature,
+					actor: user.display_name || user.username || 'a user',
+					link: `/agent/${updated.agent_id}`,
+				});
+			}
+		})
+		.catch(() => {});
 
 	return json(res, 200, { ok: true, intent: updated });
 }

@@ -1,8 +1,9 @@
 /**
  * Dashboard Preferences
  * ---------------------
- * GET  /api/dashboard/prefs — returns the signed-in user's prefs JSON
- * POST /api/dashboard/prefs — replaces the user's prefs JSON
+ * GET   /api/dashboard/prefs — returns the signed-in user's prefs JSON
+ * POST  /api/dashboard/prefs — replaces the user's prefs JSON body: { prefs: {...} }
+ * PATCH /api/dashboard/prefs — merges partial prefs body: { prefs: {...} }
  *
  * Backed by the user_prefs table. localStorage remains the primary client
  * store; this endpoint provides a durable backup so prefs follow the user
@@ -26,8 +27,8 @@ const prefsBody = z.object({
 });
 
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
-	if (!method(req, res, ['GET', 'POST'])) return;
+	if (cors(req, res, { methods: 'GET,POST,PATCH,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'POST', 'PATCH'])) return;
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
@@ -39,19 +40,35 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { prefs: row?.prefs || {} });
 	}
 
-	// POST — replace prefs
 	const rl = await limits.prefsWrite(auth.userId);
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
-	const { prefs } = parse(prefsBody, await readJson(req));
+	const { prefs: incoming } = parse(prefsBody, await readJson(req));
 
-	await sql`
-		INSERT INTO user_prefs (user_id, prefs, updated_at)
-		VALUES (${auth.userId}, ${JSON.stringify(prefs)}::jsonb, now())
-		ON CONFLICT (user_id) DO UPDATE SET
-			prefs = EXCLUDED.prefs,
-			updated_at = now()
-	`;
+	if (req.method === 'PATCH') {
+		// Merge: read existing prefs, shallow-merge incoming keys, write back.
+		const [row] = await sql`SELECT prefs FROM user_prefs WHERE user_id = ${auth.userId}`;
+		const merged = { ...(row?.prefs || {}), ...incoming };
+		if (JSON.stringify(merged).length > MAX_BYTES) {
+			return error(res, 400, 'prefs_too_large', `prefs exceed ${MAX_BYTES} bytes`);
+		}
+		await sql`
+			INSERT INTO user_prefs (user_id, prefs, updated_at)
+			VALUES (${auth.userId}, ${JSON.stringify(merged)}::jsonb, now())
+			ON CONFLICT (user_id) DO UPDATE SET
+				prefs = EXCLUDED.prefs,
+				updated_at = now()
+		`;
+	} else {
+		// POST — replace prefs entirely
+		await sql`
+			INSERT INTO user_prefs (user_id, prefs, updated_at)
+			VALUES (${auth.userId}, ${JSON.stringify(incoming)}::jsonb, now())
+			ON CONFLICT (user_id) DO UPDATE SET
+				prefs = EXCLUDED.prefs,
+				updated_at = now()
+		`;
+	}
 
 	return json(res, 200, { ok: true });
 });

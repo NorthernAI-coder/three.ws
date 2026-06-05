@@ -31,6 +31,7 @@
 
 import { Redis } from '@upstash/redis';
 import { env } from './env.js';
+import { insertNotification } from './notify.js';
 
 const FEED_KEY = 'feed:events';
 const MAX_EVENTS = 200; // capped list — the widget shows ~30; we keep headroom
@@ -41,6 +42,25 @@ export const ALLOWED_TYPES = new Set([
 	'level-up',
 	'world-join',
 	'jackpot',
+	'payment',  // skill/service payment confirmed; { usdcAtomic, recipientLabel, txSig, explorerUrl }
+]);
+
+// Per-user notification types: stored in user_notifications (DB), never in the
+// public feed:events list. Extend here so one place owns the full vocabulary.
+export const USER_EVENT_TYPES = new Set([
+	'payment-earned',    // agent owner received an x402 payment
+	'sale',              // marketplace asset sale
+	'embed',             // someone embedded the creator's agent
+	'remix',             // someone remixed a creation
+	'reply',             // new reply to an agent interaction
+	// types already produced by purchase-confirm / buy-asset confirm flows
+	'skill_purchased',
+	'skill_purchase_confirmed',
+	'asset_purchased',
+	'asset_purchase_confirmed',
+	'asset_payment_mismatch',
+	'skill_payment_mismatch',
+	'referral_earned',
 ]);
 
 let _redis = null;
@@ -62,6 +82,25 @@ function eventId(ts) {
 	return `${ts.toString(36)}-${_seq.toString(36)}`;
 }
 
+// Publish a per-user notification event. Writes to user_notifications (DB),
+// never to the public feed:events list. Preserves the shared event shape
+// { id, type, ts, actor, ...typeSpecific } plus `read` flag and a `link` for
+// click-through. Fire-and-forget: never throws.
+//
+// @param {string} userId  — recipient's user id
+// @param {object} event   — { type (USER_EVENT_TYPES), actor, link, ...rest }
+export function publishUserEvent(userId, event) {
+	if (!userId || !event || !USER_EVENT_TYPES.has(event.type)) return;
+	const ts = Number.isFinite(event.ts) ? event.ts : Date.now();
+	const payload = {
+		...event,
+		ts,
+		id: event.id || eventId(ts),
+		link: event.link || null,
+	};
+	insertNotification(userId, event.type, payload);
+}
+
 // Append an event to the feed. Returns the stored record (with id + ts filled
 // in) or null on a no-op (unknown type, Redis down, malformed input). Never
 // throws — every caller is fire-and-forget on a non-critical path.
@@ -78,6 +117,28 @@ export async function publishFeedEvent(event) {
 		console.warn('[feed] publish failed:', err?.message);
 		return null;
 	}
+}
+
+/**
+ * Convenience wrapper: publish a 'payment' feed event from a confirmed skill/service payment.
+ * All params best-effort; the event is fire-and-forget on a non-critical path.
+ *
+ * @param {object} opts
+ * @param {string}  opts.actor          short display label (truncated wallet / agent name)
+ * @param {number}  [opts.usdcAtomic]   payment amount in micro-USDC (1e6 scale)
+ * @param {string}  [opts.recipientLabel]  "Luna's creator", "Oracle", etc.
+ * @param {string}  [opts.txSig]        Solana tx signature
+ * @param {string}  [opts.explorerUrl]  full Solscan/explorer URL
+ */
+export function pushPaymentEvent({ actor, usdcAtomic, recipientLabel, txSig, explorerUrl } = {}) {
+	return publishFeedEvent({
+		type: 'payment',
+		actor: String(actor || 'user').slice(0, 32),
+		usdcAtomic: usdcAtomic != null ? Number(usdcAtomic) : undefined,
+		recipientLabel: recipientLabel ? String(recipientLabel).slice(0, 40) : undefined,
+		txSig: txSig ? String(txSig).slice(0, 88) : undefined,
+		explorerUrl: explorerUrl ? String(explorerUrl).slice(0, 200) : undefined,
+	});
 }
 
 // Short-lived in-process read cache. The widget is mounted on every page and

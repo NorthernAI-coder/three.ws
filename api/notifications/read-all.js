@@ -11,12 +11,12 @@ export default wrap(async (req, res) => {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const [{ count }] = await sql`
+	const rows = await sql`
 		update user_notifications
 		set read_at = now()
 		where user_id = ${user.id} and read_at is null
 		returning count(*) over ()::int as count
 	`;
 
-	return json(res, 200, { marked_read: count ?? 0 });
+	return json(res, 200, { marked_read: rows[0]?.count ?? 0 });
 });

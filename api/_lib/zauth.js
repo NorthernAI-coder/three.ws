@@ -74,11 +74,49 @@ function buildMiddleware() {
 		// starts immediately; the `drain()` helper below keeps the lambda
 		// alive long enough for that POST to complete.
 		const includeBodies = env.ZAUTH_INCLUDE_BODIES === '1';
+		const evmKey = env.ZAUTH_REFUND_PRIVATE_KEY || undefined;
+		const solKey = env.ZAUTH_SOLANA_PRIVATE_KEY || undefined;
+		const refundEnabled = Boolean(evmKey || solKey);
+
 		const mw = zauthProvider(apiKey, {
 			environment: resolveEnvironment(),
 			shouldMonitor: shouldMonitorReq,
 			debug: env.ZAUTH_DEBUG === '1',
 			batching: { maxBatchSize: 1, maxBatchWaitMs: 0, retry: false },
+			// Validate responses so the dashboard has health signal beyond status
+			// codes. Our paid routes return JSON objects — reject empty collections
+			// and bodies that only contain error fields.
+			validation: {
+				minResponseSize: 2,
+				rejectEmptyCollections: true,
+				errorFields: ['error', 'error_description'],
+			},
+			// Auto-refund callers who pay and receive a server error or empty body.
+			// Enabled only when at least one refund keypair is present. Caps are
+			// set above our highest tool price ($0.05) with conservative daily/
+			// monthly ceilings; all three are overridable via env without a deploy.
+			refund: {
+				enabled: refundEnabled,
+				privateKey: evmKey,
+				solanaPrivateKey: solKey,
+				maxRefundUsd: Number(process.env.ZAUTH_REFUND_MAX_USD) || 0.10,
+				dailyCapUsd: Number(process.env.ZAUTH_REFUND_DAILY_CAP_USD) || 25.00,
+				monthlyCapUsd: Number(process.env.ZAUTH_REFUND_MONTHLY_CAP_USD) || 250.00,
+				triggers: {
+					serverError: true,
+					emptyResponse: true,
+					timeout: true,
+					schemaValidation: false,
+				},
+				onRefund: (r) => {
+					console.log(
+						`[zauth] refund executed: $${r.amountUsd} → ${r.recipient} on ${r.network} tx:${r.txHash}`,
+					);
+				},
+				onRefundError: (e) => {
+					console.error(`[zauth] refund failed for ${e.url}: ${e.error}`);
+				},
+			},
 			// Privacy: the monitored routes are payment and MCP endpoints. Ship
 			// status/timing/validation telemetry, but NOT the request/response
 			// bodies (payment payloads, tool args) unless explicitly opted in.
@@ -107,7 +145,7 @@ function buildMiddleware() {
 		});
 		trackZauthFetch();
 		if (env.ZAUTH_DEBUG === '1' && !_bootLogged) {
-			console.log('[zauth] middleware initialized');
+			console.log(`[zauth] middleware initialized (refunds:${refundEnabled ? 'on' : 'off'})`);
 			_bootLogged = true;
 		}
 		return mw;
@@ -143,6 +181,11 @@ export function status() {
 		keyPrefix: apiKey ? apiKey.slice(0, 14) : null,
 		environment: resolveEnvironment(),
 		debug: env.ZAUTH_DEBUG === '1',
+		refunds: {
+			enabled: Boolean(env.ZAUTH_REFUND_PRIVATE_KEY || env.ZAUTH_SOLANA_PRIVATE_KEY),
+			evm: Boolean(env.ZAUTH_REFUND_PRIVATE_KEY),
+			solana: Boolean(env.ZAUTH_SOLANA_PRIVATE_KEY),
+		},
 	};
 }
 
