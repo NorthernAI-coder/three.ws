@@ -93,6 +93,14 @@
 			href: function (e) { return e.agentId ? '/agent/' + encodeURIComponent(e.agentId) : '/discover'; },
 			parts: function (e) { return [bold(e.name || e.actor || 'A new agent'), ' just joined three.ws']; },
 		},
+		'agent-onchain': {
+			icon: '⛓',
+			href: function (e) { return e.agentId ? '/agent/' + encodeURIComponent(e.agentId) : '/discover'; },
+			parts: function (e) {
+				var who = bold(e.name || e.actor || 'An agent');
+				return e.chain ? [who, ' deployed on-chain on ', bold(e.chain)] : [who, ' just deployed on-chain'];
+			},
+		},
 		'level-up': {
 			icon: '⬆',
 			href: function () { return '/play'; },
