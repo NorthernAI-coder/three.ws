@@ -383,10 +383,13 @@ export class CommunityNet {
 	equip(slot) { this.room?.send('equip', { slot }); }
 	consume(ref) { this.room?.send('consume', { slot: ref }); }
 	requestProfile() { this.room?.send('profileReq'); }
-	// Update the stored play pass so the next reconnect (after a drop) uses the
-	// refreshed credential. Does not affect the live session — the server already
-	// authenticated this connection; the new pass is only needed for re-joins.
-	updatePlayPass(pass) { this.playPass = pass || ''; }
+	// Adopt a refreshed play pass. Store it so the next reconnect (after a drop)
+	// uses the fresh credential, AND push it to the live session so the server can
+	// extend this connection's bound expiry — otherwise the server's per-minute
+	// sweep evicts a still-qualifying player at the original 10-min TTL (which
+	// stranded anyone in a long building session). The server re-verifies the pass
+	// against the gate before extending; a forged or below-floor pass is ignored.
+	updatePlayPass(pass) { this.playPass = pass || ''; if (pass) this.room?.send('play-pass', { playPass: pass }); }
 
 	get state() { return this.room?.state ?? null; }
 

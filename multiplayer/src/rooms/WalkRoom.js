@@ -244,6 +244,7 @@ export class WalkRoom extends Room {
 		this.onMessage('emote', (client, payload) => this._handleEmote(client, payload));
 		this.onMessage('chat', (client, payload) => this._handleChat(client, payload));
 		this.onMessage('avatar', (client, payload) => this._handleAvatar(client, payload));
+		this.onMessage('play-pass', (client, payload) => this._handlePlayPassRefresh(client, payload));
 		this.onMessage('place', (client, payload) => this._handlePlace(client, payload));
 		this.onMessage('remove', (client, payload) => this._handleRemove(client, payload));
 		this.onMessage('voice-state', (client, payload) => this._handleVoiceState(client, payload));
@@ -725,6 +726,26 @@ export class WalkRoom extends Room {
 	// throttles these into a single toast, so a flood reply is harmless.
 	_rejectEdit(client, reason) {
 		client.send('edit-reject', { reason });
+	}
+
+	// Adopt a mid-session play-pass refresh. The client re-mints a pass (re-reading
+	// the chain) ahead of the 10-min TTL and pushes it here so this live session's
+	// bound expiry tracks the fresh credential — without this, the once-a-minute
+	// expiry sweep evicts a still-qualifying player at the original TTL, which is
+	// what kicked anyone in a long building session. We re-verify exactly as onAuth
+	// does: a valid pass for this gate's mint, at or above the floor, bound to the
+	// same wallet. Anything else is silently ignored — the stale expiry stands and
+	// the sweep handles it, so a forged refresh can't extend or hijack a session.
+	_handlePlayPassRefresh(client, payload) {
+		if (!PLAY_GATE_MINT) return;
+		const pass = verifyPlayPass(payload?.playPass);
+		if (!pass) return;
+		if (pass.mint !== PLAY_GATE_MINT) return;
+		if (!(typeof pass.balance === 'number' && pass.balance >= PLAY_GATE_MIN)) return;
+		// The refreshed pass must belong to the wallet this session authenticated as,
+		// so a leaked pass from another holder can't graft onto this connection.
+		if (client.userData?.account && pass.wallet !== client.userData.account) return;
+		client.userData = { ...(client.userData || {}), playBalance: pass.balance, playExp: pass.exp };
 	}
 
 	_handlePlace(client, payload) {

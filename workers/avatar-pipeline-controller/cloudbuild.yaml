@@ -1,5 +1,6 @@
 substitutions:
   _REGION: us-central1
+  _RUN_SA: avatar-reconstruction-sa@aerial-vehicle-466722-p5.iam.gserviceaccount.com
   _SERVICE: avatar-pipeline-controller
   _REPO: avatar-pipeline-controller
   _GCS_BUCKET: three-ws-avatar-reconstructions
@@ -36,6 +37,7 @@ steps:
       - ${_SERVICE}
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/server:$SHORT_SHA
       - --region=${_REGION}
+      - --service-account=${_RUN_SA}
       - --platform=managed
       - --port=8080
       # CPU-only — no GPU needed for orchestration.

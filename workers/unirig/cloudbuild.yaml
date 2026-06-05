@@ -1,5 +1,6 @@
 substitutions:
   _REGION: us-central1
+  _RUN_SA: avatar-reconstruction-sa@aerial-vehicle-466722-p5.iam.gserviceaccount.com
   _SERVICE: unirig
   _REPO: unirig
   _GCS_BUCKET: three-ws-avatar-reconstructions
@@ -37,6 +38,7 @@ steps:
       - ${_SERVICE}
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/server:$SHORT_SHA
       - --region=${_REGION}
+      - --service-account=${_RUN_SA}
       - --platform=managed
       - --port=8080
       - --gpu=1

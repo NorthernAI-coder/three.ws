@@ -60,8 +60,15 @@ if ! python3 -c "import huggingface_hub, sys; v=tuple(map(int,huggingface_hub.__
   log "installing/upgrading huggingface_hub…"
   pip install --quiet --upgrade "huggingface_hub[cli]>=0.23"
 fi
-HF_CLI="huggingface-cli"
-command -v "$HF_CLI" >/dev/null 2>&1 || HF_CLI="python3 -m huggingface_hub.commands.huggingface_cli"
+# Newer huggingface_hub ships the `hf` CLI and the legacy `huggingface-cli`
+# is a deprecated no-op, so prefer `hf` and fall back only if it's missing.
+if command -v hf >/dev/null 2>&1; then
+  HF_CLI="hf"
+elif command -v huggingface-cli >/dev/null 2>&1; then
+  HF_CLI="huggingface-cli"
+else
+  HF_CLI="python3 -m huggingface_hub.cli"
+fi
 [ -n "${HF_TOKEN:-}" ] && export HF_TOKEN
 
 # Ensure the weights bucket exists.
@@ -104,6 +111,10 @@ stage_one() {
     $HF_CLI download "$repo" --local-dir "$target" ${HF_TOKEN:+--token "$HF_TOKEN"}
     log "${svc}: uploading → ${dest}"
     gcloud storage rsync --recursive --delete-unmatched-destination-objects "$target" "$dest"
+    # Free the local copy immediately so peak disk stays ~one model, not the
+    # whole fleet — lets staging run on a bounded-disk host.
+    rm -rf "$target"
+    log "${svc}: freed local scratch ${target}"
   else
     target="${MOUNT_DIR}/${subdir}"
     log "${svc}: downloading ${repo} straight into bucket (${dest}) — this is the slow step"

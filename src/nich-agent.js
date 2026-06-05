@@ -552,9 +552,20 @@ export class NichAgent {
 				}
 				break;
 			case 'setBgColor':
-				if (viewer && typeof action.value === 'string') {
-					viewer.state.bgColor = action.value;
-					viewer.updateBackground();
+				if (typeof action.value === 'string') {
+					// On /app the stage keeps the WebGL canvas transparent and paints a
+					// backdrop layer behind it, so writing the clear color would be
+					// invisible. Drive the backdrop layer when it exists; otherwise fall
+					// back to the solid WebGL background on the plain viewer.
+					if (document.getElementById('nxt-stage-backdrop')) {
+						window.dispatchEvent(
+							new CustomEvent('nxt:backdrop', { detail: { value: action.value } }),
+						);
+					} else if (viewer) {
+						viewer.state.bgColor = action.value;
+						viewer.state.transparentBg = false;
+						viewer.updateBackground();
+					}
 				}
 				break;
 			case 'setTransparentBg':
@@ -594,6 +605,22 @@ export class NichAgent {
 					viewer.showPumpFunTrades();
 				}
 				break;
+			case 'playAnimation': {
+				// The LLM emits friendly names ("wave", "dance", "jump"); resolve them
+				// against the loaded model's clip library and play immediately.
+				const mgr = viewer?.animationManager;
+				if (mgr && typeof action.name === 'string') {
+					const clip = resolveClipName(action.name, mgr);
+					if (clip) {
+						mgr.ensureLoaded(clip)
+							.then(() => mgr.play(clip))
+							.catch((err) => log.warn('[NichAgent] playAnimation failed:', err?.message));
+					} else {
+						log.warn('[NichAgent] no clip matches animation:', action.name);
+					}
+				}
+				break;
+			}
 			default:
 				log.warn('[NichAgent] unknown action:', action.type);
 		}
@@ -657,13 +684,34 @@ export class NichAgent {
 	 * Returns null if no skill matches.
 	 */
 	_matchSkill(lower) {
-		if (lower.match(/\b(present|describe|tell me about|what.*model|show me)\b/))
-			return 'present-model';
-		if (lower.match(/\b(validate|check|errors|warnings|valid)\b/)) return 'validate-model';
-		if (lower.match(/\b(remember|save|store|note|don't forget)\b/)) return 'remember';
-		if (lower.match(/\b(sign|signature|wallet|verify|prove)\b/)) return 'sign-action';
-		if (lower.match(/\b(think|recall|what do you know|context)\b/)) return 'think';
-		if (lower.match(/\b(help|what can you|commands|skills|abilities)\b/)) return 'help';
+		// Platform / identity questions ("tell me about three.ws", "who are you?") belong to
+		// the LLM at /api/chat — it carries the three.ws knowledge base and the agent persona.
+		// They must NOT be hijacked by the present-model skill, which only narrates the loaded
+		// 3D asset. Generic verbs (tell me about / describe / show me) only mean "present the
+		// model" when they actually reference the loaded asset.
+		const aboutPlatformOrSelf = /\b(three\.?\s?ws|platform|3d-?agent|yourself|about you|who (are|r) (you|u))\b/.test(lower);
+		if (!aboutPlatformOrSelf) {
+			const aboutModel = /\b(model|scene|mesh|avatar|geometry|polys?|triangles?|vertices|verts|materials|animations?|clips?|this( one)?|it)\b/;
+			if (/^present([- ]model)?$/.test(lower)) return 'present-model';
+			if (lower.match(/\b(present|describe|tell me about|show me|what'?s? in)\b/) && aboutModel.test(lower))
+				return 'present-model';
+			if (lower.match(/\bwhat('?s| is| are)?\b[^?]*\bmodel\b/)) return 'present-model';
+			if (lower.match(/\bhow many\b[^?]*\b(vertices|verts|meshes|materials|polys?|triangles?|clips?|animations?)\b/))
+				return 'present-model';
+		}
+		// Explicit glTF validation only — not conversational "is this valid?".
+		if (lower.match(/\b(validate|run validation)\b/) || lower.match(/\b(gltf|glb)\b[^?]*\b(errors?|warnings?)\b/))
+			return 'validate-model';
+		// Persist a memory — imperative "remember/note that …" only, so a casual
+		// "do you remember me?" reaches the LLM instead of silently storing nothing.
+		if (lower.match(/^(remember|note|don't forget)\b/) || lower.match(/\b(remember|note) (that|this)\b/))
+			return 'remember';
+		// Wallet signing — needs an explicit sign command. Plain "wallet"/"verify"
+		// is conversational and belongs to the LLM (which knows the agent holds a
+		// Solana wallet and can act through tools).
+		if (lower.match(/\b(sign)\b[^?]*\b(action|message|this|it)\b/)) return 'sign-action';
+		// Everything else — identity, capabilities, platform questions, smalltalk —
+		// flows to /api/chat for a real Groq/OpenRouter answer.
 		return null;
 	}
 
@@ -713,6 +761,9 @@ export class NichAgent {
 		}
 		if (lower.match(/\b(performance|fps|stats)\b/)) {
 			return 'Open the Performance folder in the controls panel for live FPS/MS/MB stats.';
+		}
+		if (/\b(three\.?\s?ws|platform|what is this|about (this )?(site|platform|project))\b/.test(lower)) {
+			return 'three.ws is the platform for building, embedding, and monetising 3D AI agents. Turn a selfie into a photorealistic 3D avatar in ~60s, embed it on any site with <agent-3d>, give it voice, memory and tools, and let it earn via x402 micropayments. Browse live agents at three.ws/agents.';
 		}
 		if (lower.match(/\b(who|what).*(you|this|agent)\b/)) {
 			return `I'm ${this.identity?.name || 'three.ws'} — present, embodied, and here to help with your 3D work.`;
@@ -799,6 +850,43 @@ export class NichAgent {
 		this.panel?.remove();
 		this.toggleBtn?.remove();
 	}
+}
+
+// Common synonyms the LLM reaches for that don't match a manifest clip 1:1.
+const CLIP_ALIASES = {
+	waving: 'wave',
+	hello: 'wave',
+	hi: 'wave',
+	dancing: 'dance',
+	jumping: 'jump',
+	celebrating: 'celebrate',
+	cheer: 'celebrate',
+	cheering: 'celebrate',
+	praying: 'pray',
+	flex: 'av-arm-flex',
+	flexing: 'av-arm-flex',
+	backflip: 'av-back-flip',
+	'back-flip': 'av-back-flip',
+};
+
+/**
+ * Resolve an LLM-friendly animation name ("wave", "dancing") to an actual clip
+ * registered on the loaded model. Returns null when nothing reasonable matches.
+ * @param {string} requested
+ * @param {{getAnimationDefs:()=>Array<{name:string}>}} mgr
+ * @returns {string|null}
+ */
+function resolveClipName(requested, mgr) {
+	const want = String(requested).trim().toLowerCase();
+	if (!want) return null;
+	const defs = mgr.getAnimationDefs?.() || [];
+	const names = defs.map((d) => d.name);
+	if (names.includes(want)) return want;
+	if (CLIP_ALIASES[want] && names.includes(CLIP_ALIASES[want])) return CLIP_ALIASES[want];
+	if (names.includes(`av-${want}`)) return `av-${want}`;
+	// Loose contains-match — "shuffle" → "av-dance-shuffle".
+	const partial = names.find((n) => n.includes(want) || want.includes(n.replace(/^av-/, '')));
+	return partial || null;
 }
 
 function _escapeHTML(s) {

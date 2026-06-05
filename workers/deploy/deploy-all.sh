@@ -64,7 +64,11 @@ gcloud services enable \
 ok "APIs enabled"
 
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
-COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+# Build + runtime identity. Hardened orgs (like this project) have NO default
+# compute service account, so we use one explicit SA for both building and
+# running. Override via RUN_SA / BUILD_SA if your project differs.
+RUN_SA="${RUN_SA:-avatar-reconstruction-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
+BUILD_SA="${BUILD_SA:-$RUN_SA}"
 
 # ── 2. buckets ────────────────────────────────────────────────────────────────
 for b in "$OUTPUT_BUCKET" "$WEIGHTS_BUCKET"; do
@@ -99,14 +103,21 @@ else
   ok "created secret $SECRET_NAME"
 fi
 
-# ── 5. IAM for the Cloud Run runtime service account ──────────────────────────
-log "granting runtime roles to $COMPUTE_SA…"
-for role in roles/secretmanager.secretAccessor roles/datastore.user roles/storage.objectAdmin; do
+# ── 5. IAM for the build + runtime service account ────────────────────────────
+log "ensuring $RUN_SA has the needed build + runtime roles…"
+for role in roles/secretmanager.secretAccessor roles/datastore.user roles/storage.objectAdmin \
+            roles/run.admin roles/artifactregistry.writer roles/logging.logWriter \
+            roles/cloudbuild.builds.builder; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:${COMPUTE_SA}" --role="$role" --condition=None >/dev/null 2>&1 \
-    || warn "could not grant $role to $COMPUTE_SA (may already be bound or need an admin)"
+    --member="serviceAccount:${RUN_SA}" --role="$role" --condition=None >/dev/null 2>&1 \
+    || warn "could not grant $role to $RUN_SA (may already be bound or need an admin)"
 done
-ok "runtime IAM configured"
+# The build runs AS this SA and deploys Cloud Run with it as the runtime SA, so
+# it must be permitted to actAs itself.
+gcloud iam service-accounts add-iam-policy-binding "$RUN_SA" \
+  --member="serviceAccount:${RUN_SA}" --role="roles/iam.serviceAccountUser" --condition=None >/dev/null 2>&1 \
+  || warn "could not grant actAs-self to $RUN_SA"
+ok "build + runtime IAM configured"
 
 # ── 6. Artifact Registry repos + build/deploy each GPU service ────────────────
 declare -A SERVICE_URL
@@ -126,7 +137,9 @@ build_and_deploy() {
   gcloud builds submit \
     --config "$dir/cloudbuild.yaml" \
     --region "$REGION" \
-    --substitutions="SHORT_SHA=${TAG},_REGION=${REGION},_GCS_BUCKET=${OUTPUT_BUCKET},_WEIGHTS_BUCKET=${WEIGHTS_BUCKET}" \
+    --service-account="projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}" \
+    --default-buckets-behavior=regional-user-owned-bucket \
+    --substitutions="SHORT_SHA=${TAG},_REGION=${REGION},_GCS_BUCKET=${OUTPUT_BUCKET},_WEIGHTS_BUCKET=${WEIGHTS_BUCKET},_RUN_SA=${RUN_SA}" \
     . \
     || die "build/deploy failed for $runname — inspect the Cloud Build log above"
 
@@ -147,7 +160,9 @@ log "building + deploying controller (avatar-pipeline-controller, CPU)…"
 gcloud builds submit \
   --config "workers/avatar-pipeline-controller/cloudbuild.yaml" \
   --region "$REGION" \
-  --substitutions="SHORT_SHA=${TAG},_REGION=${REGION},_GCS_BUCKET=${OUTPUT_BUCKET}" \
+  --service-account="projects/${PROJECT_ID}/serviceAccounts/${BUILD_SA}" \
+  --default-buckets-behavior=regional-user-owned-bucket \
+  --substitutions="SHORT_SHA=${TAG},_REGION=${REGION},_GCS_BUCKET=${OUTPUT_BUCKET},_RUN_SA=${RUN_SA}" \
   . \
   || die "controller build/deploy failed"
 

@@ -49,6 +49,22 @@ const CAMERA_PRESETS = {
 	hero: { framePadding: 1.55, heightFrac: 0.3, distFrac: 3.2, targetY: 0.55 },
 };
 
+// Stage backdrops painted behind the transparent avatar canvas. Each `css` is a
+// valid CSS `background` value (gradient or solid). `light` flips the swatch
+// label to dark text. The agent can also set an arbitrary solid color via the
+// chat ("make the background dark blue") — that arrives as a `nxt:backdrop`
+// CustomEvent and is rendered as the "Custom" entry.
+const BACKDROPS = [
+	{ id: 'studio', label: 'Studio', css: 'radial-gradient(circle at 50% 28%, #2b2b33 0%, #111116 72%)' },
+	{ id: 'aurora', label: 'Aurora', css: 'linear-gradient(165deg, #0a1f3a 0%, #123f54 48%, #1e6f60 100%)' },
+	{ id: 'sunset', label: 'Sunset', css: 'linear-gradient(165deg, #271238 0%, #7a2f4a 55%, #d9763c 100%)' },
+	{ id: 'mint', label: 'Mint', css: 'linear-gradient(165deg, #0c2a26 0%, #15463c 100%)' },
+	{ id: 'noir', label: 'Noir', css: '#050507' },
+	{ id: 'paper', label: 'Paper', css: 'linear-gradient(165deg, #f5f2ea 0%, #dcd6c9 100%)', light: true },
+];
+const BACKDROP_STORAGE_KEY = 'nxt:backdrop';
+const DEFAULT_BACKDROP_ID = 'studio';
+
 document.addEventListener('DOMContentLoaded', boot);
 
 function boot() {
@@ -68,6 +84,8 @@ function boot() {
 	wireDeployMirror();
 	wireVisitorCard();
 	wirePosterSkeleton();
+	wireBackdrop();
+	wireAvatarSwitcher();
 
 	waitForViewer().then((viewer) => {
 		if (!viewer) {
@@ -1031,6 +1049,152 @@ function wireDeployMirror() {
 			pop.hidden = true;
 			document.getElementById('nxt-share-btn')?.setAttribute('aria-expanded', 'false');
 		});
+	}
+}
+
+// ── Backdrop switcher ──────────────────────────────────────────────────────
+//
+// The avatar canvas is kept transparent (see polishStage), so a full-bleed
+// layer behind it sets the visible "scene". The agent can change it from chat
+// (setBgColor → nxt:backdrop event) and the user can pick from a popover.
+
+function applyBackdrop(value, { persistId } = {}) {
+	const layer = document.getElementById('nxt-stage-backdrop');
+	if (!layer) return;
+	layer.style.background = value;
+	layer.classList.add('is-painted');
+	if (persistId) {
+		try {
+			localStorage.setItem(BACKDROP_STORAGE_KEY, persistId);
+		} catch {}
+	}
+	// Reflect the active swatch in the popover, if open/built.
+	document.querySelectorAll('.nxt-backdrop-swatch').forEach((b) => {
+		b.classList.toggle('is-active', b.dataset.id === persistId);
+		b.setAttribute('aria-pressed', b.dataset.id === persistId ? 'true' : 'false');
+	});
+}
+
+function wireBackdrop() {
+	const btn = document.getElementById('nxt-backdrop-btn');
+	const pop = document.getElementById('nxt-backdrop-popover');
+	const grid = document.getElementById('nxt-backdrop-grid');
+
+	// Restore the saved (or default) backdrop even if the control markup is absent.
+	let savedId = DEFAULT_BACKDROP_ID;
+	try {
+		const s = localStorage.getItem(BACKDROP_STORAGE_KEY);
+		if (s) savedId = s;
+	} catch {}
+	const saved = BACKDROPS.find((b) => b.id === savedId);
+	if (saved) applyBackdrop(saved.css, { persistId: saved.id });
+
+	// The agent can paint an arbitrary solid color via chat.
+	window.addEventListener('nxt:backdrop', (e) => {
+		const value = e.detail?.value;
+		if (typeof value === 'string') applyBackdrop(value, { persistId: 'custom' });
+	});
+
+	if (!btn || !pop || !grid) return;
+
+	// Build the swatch grid once.
+	grid.innerHTML = '';
+	for (const b of BACKDROPS) {
+		const swatch = document.createElement('button');
+		swatch.type = 'button';
+		swatch.className = 'nxt-backdrop-swatch' + (b.light ? ' is-light' : '');
+		swatch.dataset.id = b.id;
+		swatch.style.background = b.css;
+		swatch.title = b.label;
+		swatch.setAttribute('aria-pressed', b.id === savedId ? 'true' : 'false');
+		if (b.id === savedId) swatch.classList.add('is-active');
+		swatch.innerHTML = `<span class="nxt-backdrop-swatch__label">${escHtml(b.label)}</span>`;
+		swatch.addEventListener('click', () => {
+			applyBackdrop(b.css, { persistId: b.id });
+		});
+		grid.appendChild(swatch);
+	}
+
+	const open = () => {
+		pop.hidden = false;
+		btn.setAttribute('aria-expanded', 'true');
+	};
+	const close = () => {
+		pop.hidden = true;
+		btn.setAttribute('aria-expanded', 'false');
+	};
+	btn.addEventListener('click', () => (pop.hidden ? open() : close()));
+	document.addEventListener('pointerdown', (e) => {
+		if (pop.hidden) return;
+		if (pop.contains(e.target) || btn.contains(e.target)) return;
+		close();
+	});
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape' && !pop.hidden) close();
+	});
+}
+
+// ── Avatar switcher ────────────────────────────────────────────────────────
+//
+// Opens the shared gallery picker (same component as /gallery) and swaps the
+// loaded avatar to whatever the user chooses — "change the avatar like in the
+// gallery", but without leaving the stage.
+
+function wireAvatarSwitcher() {
+	const btn = document.getElementById('nxt-avatar-btn');
+	if (!btn) return;
+
+	let opening = false;
+	btn.addEventListener('click', async () => {
+		if (opening) return;
+		opening = true;
+		btn.classList.add('is-loading');
+		try {
+			const { AvatarGalleryPicker } = await import('./avatar-gallery-picker.js');
+			const currentId = new URLSearchParams(location.search).get('agent') || undefined;
+			const picker = new AvatarGalleryPicker({
+				source: 'public',
+				title: 'Switch avatar',
+				showModes: false,
+				ctaLabel: 'Use this avatar',
+				selectedId: currentId,
+				onSelect: (avatar) => {
+					if (avatar?.model_url) loadAvatarOntoStage(avatar);
+				},
+			});
+			picker.openModal();
+		} catch (err) {
+			log.warn('[nxt] avatar picker failed to load', err);
+			toast('Could not open the avatar gallery — try again.');
+		} finally {
+			btn.classList.remove('is-loading');
+			opening = false;
+		}
+	});
+}
+
+function loadAvatarOntoStage(avatar) {
+	const app = window.VIEWER?.app;
+	if (!app || typeof app.view !== 'function') {
+		toast('Viewer not ready — try again in a moment.');
+		return;
+	}
+	toast(`Loading ${avatar.name || 'avatar'}…`);
+	try {
+		const result = app.view(avatar.model_url, '', new Map());
+		Promise.resolve(result)
+			.then(() => {
+				// Reframe on the new avatar and refresh the (clip-dependent) chips.
+				applyCameraPreset('body');
+				window.dispatchEvent(new CustomEvent('viewer:model-loaded'));
+			})
+			.catch((err) => {
+				log.warn('[nxt] avatar load failed', err);
+				toast('Failed to load that avatar.');
+			});
+	} catch (err) {
+		log.warn('[nxt] avatar view() threw', err);
+		toast('Failed to load that avatar.');
 	}
 }
 

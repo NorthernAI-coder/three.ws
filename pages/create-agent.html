@@ -1,0 +1,1265 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<title>Create an agent · three.ws</title>
+		<meta name="theme-color" content="#000000" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="three.ws" />
+		<link rel="apple-touch-icon" href="/pwa-192x192.png" />
+		<link rel="icon" href="/favicon.ico" />
+		<meta
+			name="description"
+			content="Create a 3D AI agent step by step — name it, give it a body, pick its skills, set its personality, and ship it on-chain."
+		/>
+		<meta name="robots" content="noindex" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/create-agent" />
+		<meta property="og:title" content="Create an agent · three.ws" />
+		<meta
+			property="og:description"
+			content="Create a 3D AI agent step by step — name it, give it a body, pick its skills, set its personality, and ship it on-chain."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Create an agent · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Create a 3D AI agent step by step — name it, give it a body, pick its skills, set its personality, and ship it on-chain."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+		<link rel="stylesheet" href="/buttons.css" />
+		<script defer src="/footer-newsletter.js"></script>
+
+		<style>
+			:root {
+				color-scheme: dark;
+				--accent: #ffffff;
+				--accent-ink: #000000;
+				--bg: #000000;
+				--panel: #0a0a0a;
+				--panel-2: #101010;
+				--border: #1a1a1a;
+				--border-strong: #2a2a2a;
+				--text: #e8e8e8;
+				--muted: #888888;
+				--faint: rgba(255, 255, 255, 0.45);
+				--ok: #4ade80;
+				--err: #f87171;
+				--font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+				--header-h: 3.5rem;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				font:
+					15px/1.55 -apple-system,
+					system-ui,
+					'Segoe UI',
+					Roboto,
+					sans-serif;
+				color: var(--text);
+				background: var(--bg);
+				min-height: 100vh;
+				overflow-x: hidden;
+			}
+			body::before {
+				content: '';
+				position: fixed;
+				inset: 0;
+				z-index: -1;
+				pointer-events: none;
+				background:
+					radial-gradient(820px 520px at 50% -120px, rgba(255, 255, 255, 0.035) 0, transparent 70%),
+					#000;
+			}
+			.skip-link {
+				position: absolute;
+				left: -9999px;
+			}
+			.skip-link:focus {
+				left: 1rem;
+				top: 1rem;
+				padding: 0.5rem 1rem;
+				background: var(--panel);
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				z-index: 9999;
+			}
+
+			/* ── Page loading veil ──────────────────────────────────────────── */
+			#page-loading {
+				position: fixed;
+				inset: 0;
+				z-index: 9999;
+				background: #000;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 18px;
+			}
+			#page-loading img {
+				width: 56px;
+				height: 56px;
+				animation: pulse 1.6s ease-in-out infinite;
+			}
+			#page-loading .dots {
+				color: rgba(255, 255, 255, 0.6);
+				font-size: 22px;
+				letter-spacing: 4px;
+			}
+			@keyframes pulse {
+				0%,
+				100% {
+					opacity: 0.55;
+					transform: scale(1);
+				}
+				50% {
+					opacity: 1;
+					transform: scale(1.06);
+				}
+			}
+
+			/* ── Layout ─────────────────────────────────────────────────────── */
+			main.stage {
+				max-width: 840px;
+				margin: 0 auto;
+				padding: 44px 24px 96px;
+			}
+			.wizard-head {
+				text-align: center;
+				max-width: 600px;
+				margin: 0 auto 28px;
+			}
+			.wizard-title {
+				font-family: var(--font-display);
+				font-size: clamp(26px, 4.6vw, 36px);
+				font-weight: 600;
+				margin: 0 0 10px;
+				letter-spacing: -0.025em;
+				line-height: 1.1;
+				background: linear-gradient(180deg, #fff 0%, #b8b8b8 100%);
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
+			}
+			.wizard-sub {
+				color: var(--muted);
+				font-size: 14.5px;
+				margin: 0;
+			}
+
+			/* ── Stepper ────────────────────────────────────────────────────── */
+			.stepper {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 0;
+				margin: 0 auto 30px;
+				max-width: 720px;
+				list-style: none;
+				padding: 0;
+				flex-wrap: wrap;
+			}
+			.step-pip {
+				display: flex;
+				align-items: center;
+				gap: 9px;
+				color: var(--muted);
+				font-size: 12.5px;
+				font-weight: 500;
+				white-space: nowrap;
+			}
+			.step-pip .num {
+				width: 26px;
+				height: 26px;
+				border-radius: 50%;
+				display: grid;
+				place-items: center;
+				border: 1.5px solid var(--border-strong);
+				background: var(--panel);
+				font-size: 12px;
+				font-weight: 600;
+				color: var(--muted);
+				transition:
+					background 0.2s,
+					border-color 0.2s,
+					color 0.2s,
+					transform 0.2s;
+				flex: 0 0 auto;
+			}
+			.step-pip[data-state='active'] {
+				color: var(--text);
+			}
+			.step-pip[data-state='active'] .num {
+				background: var(--accent);
+				border-color: var(--accent);
+				color: var(--accent-ink);
+				transform: scale(1.06);
+			}
+			.step-pip[data-state='done'] {
+				color: var(--text);
+			}
+			.step-pip[data-state='done'] .num {
+				background: rgba(74, 222, 128, 0.12);
+				border-color: rgba(74, 222, 128, 0.5);
+				color: var(--ok);
+			}
+			.step-pip[data-clickable='true'] {
+				cursor: pointer;
+			}
+			.step-pip[data-clickable='true']:hover .num {
+				border-color: var(--accent);
+			}
+			.step-pip .label {
+				display: none;
+			}
+			.step-bar {
+				flex: 1 1 18px;
+				min-width: 14px;
+				max-width: 48px;
+				height: 1.5px;
+				background: var(--border-strong);
+				margin: 0 4px;
+			}
+			.step-bar[data-state='done'] {
+				background: rgba(74, 222, 128, 0.5);
+			}
+			@media (min-width: 720px) {
+				.step-pip .label {
+					display: inline;
+				}
+			}
+
+			/* ── Card / panel ───────────────────────────────────────────────── */
+			.wizard-card {
+				border: 1px solid var(--border);
+				border-radius: 18px;
+				background: var(--panel);
+				box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+				overflow: hidden;
+			}
+			.wizard-body {
+				padding: 30px 30px 26px;
+			}
+			.panel {
+				display: none;
+				animation: panel-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+			}
+			.panel.is-active {
+				display: block;
+			}
+			@keyframes panel-in {
+				from {
+					opacity: 0;
+					transform: translateY(8px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+			.panel-eyebrow {
+				font-size: 11px;
+				font-weight: 600;
+				letter-spacing: 0.09em;
+				text-transform: uppercase;
+				color: var(--faint);
+				margin: 0 0 6px;
+			}
+			.panel-title {
+				font-family: var(--font-display);
+				font-size: 21px;
+				font-weight: 600;
+				margin: 0 0 6px;
+				letter-spacing: -0.015em;
+			}
+			.panel-help {
+				color: var(--muted);
+				font-size: 13.5px;
+				margin: 0 0 22px;
+				line-height: 1.55;
+			}
+
+			/* ── Fields ─────────────────────────────────────────────────────── */
+			.field {
+				margin-bottom: 20px;
+			}
+			.field:last-child {
+				margin-bottom: 0;
+			}
+			.field-label {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 10px;
+				font-size: 13px;
+				font-weight: 600;
+				margin: 0 0 7px;
+				color: var(--text);
+			}
+			.field-label .req {
+				color: var(--err);
+				font-weight: 700;
+			}
+			.field-label .count {
+				font-size: 11.5px;
+				font-weight: 500;
+				color: var(--faint);
+			}
+			.field-hint {
+				font-size: 12px;
+				color: var(--muted);
+				margin: 6px 0 0;
+				line-height: 1.5;
+			}
+			.input,
+			.textarea,
+			.select {
+				width: 100%;
+				background: var(--panel-2);
+				border: 1px solid var(--border-strong);
+				border-radius: 10px;
+				color: var(--text);
+				font: inherit;
+				font-size: 14px;
+				padding: 11px 13px;
+				transition:
+					border-color 0.16s,
+					box-shadow 0.16s,
+					background 0.16s;
+				outline: none;
+			}
+			.textarea {
+				resize: vertical;
+				min-height: 84px;
+				line-height: 1.5;
+			}
+			.input:focus,
+			.textarea:focus,
+			.select:focus {
+				border-color: rgba(255, 255, 255, 0.5);
+				box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+				background: #141414;
+			}
+			.input::placeholder,
+			.textarea::placeholder {
+				color: #555;
+			}
+			.input.is-invalid,
+			.select.is-invalid {
+				border-color: rgba(248, 113, 113, 0.6);
+				box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.1);
+			}
+			.select {
+				appearance: none;
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+				background-repeat: no-repeat;
+				background-position: right 13px center;
+				padding-right: 34px;
+				cursor: pointer;
+			}
+			.field-error {
+				display: none;
+				color: var(--err);
+				font-size: 12px;
+				margin: 7px 0 0;
+			}
+			.field-error.show {
+				display: block;
+			}
+
+			/* ── Tag / chip input ───────────────────────────────────────────── */
+			.tagbox {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 7px;
+				align-items: center;
+				background: var(--panel-2);
+				border: 1px solid var(--border-strong);
+				border-radius: 10px;
+				padding: 8px 10px;
+				transition: border-color 0.16s;
+			}
+			.tagbox:focus-within {
+				border-color: rgba(255, 255, 255, 0.5);
+			}
+			.tag {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				background: rgba(255, 255, 255, 0.07);
+				border: 1px solid var(--border-strong);
+				border-radius: 7px;
+				padding: 3px 5px 3px 9px;
+				font-size: 12.5px;
+				color: var(--text);
+				animation: panel-in 0.18s ease both;
+			}
+			.tag button {
+				display: grid;
+				place-items: center;
+				width: 16px;
+				height: 16px;
+				border: 0;
+				border-radius: 4px;
+				background: transparent;
+				color: var(--muted);
+				cursor: pointer;
+				font-size: 14px;
+				line-height: 1;
+				padding: 0;
+				transition:
+					background 0.14s,
+					color 0.14s;
+			}
+			.tag button:hover {
+				background: rgba(255, 255, 255, 0.12);
+				color: #fff;
+			}
+			.tagbox input {
+				flex: 1;
+				min-width: 100px;
+				border: 0;
+				background: transparent;
+				color: var(--text);
+				font: inherit;
+				font-size: 14px;
+				padding: 4px 2px;
+				outline: none;
+			}
+			.tagbox input::placeholder {
+				color: #555;
+			}
+
+			/* ── Selectable option grid (model / skills / voice) ────────────── */
+			.opt-grid {
+				display: grid;
+				gap: 12px;
+			}
+			.opt-grid.cols-2 {
+				grid-template-columns: repeat(2, 1fr);
+			}
+			.opt-grid.cols-3 {
+				grid-template-columns: repeat(3, 1fr);
+			}
+			.opt {
+				position: relative;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				text-align: left;
+				padding: 15px;
+				border: 1.5px solid var(--border-strong);
+				border-radius: 13px;
+				background: var(--panel-2);
+				color: inherit;
+				font: inherit;
+				cursor: pointer;
+				transition:
+					border-color 0.16s,
+					background 0.16s,
+					transform 0.16s;
+			}
+			.opt:hover {
+				border-color: rgba(255, 255, 255, 0.3);
+				transform: translateY(-1px);
+			}
+			.opt:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.opt[aria-pressed='true'],
+			.opt.is-selected {
+				border-color: var(--accent);
+				background: rgba(255, 255, 255, 0.05);
+			}
+			.opt[aria-pressed='true']::after,
+			.opt.is-selected::after {
+				content: '';
+				position: absolute;
+				top: 11px;
+				right: 11px;
+				width: 18px;
+				height: 18px;
+				border-radius: 50%;
+				background: var(--accent)
+					url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E")
+					center / 12px no-repeat;
+			}
+			.opt-icon {
+				width: 34px;
+				height: 34px;
+				border-radius: 9px;
+				background: rgba(255, 255, 255, 0.05);
+				border: 1px solid var(--border-strong);
+				display: grid;
+				place-items: center;
+				color: #cfd2e0;
+			}
+			.opt-icon svg {
+				width: 18px;
+				height: 18px;
+			}
+			.opt-name {
+				font-size: 14px;
+				font-weight: 600;
+				letter-spacing: -0.01em;
+			}
+			.opt-desc {
+				font-size: 12px;
+				color: var(--muted);
+				line-height: 1.5;
+			}
+
+			/* ── Model step ─────────────────────────────────────────────────── */
+			.model-preview {
+				margin-top: 18px;
+				height: 260px;
+				border: 1px solid var(--border);
+				border-radius: 14px;
+				background:
+					radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.05) 0, transparent 60%),
+					rgba(255, 255, 255, 0.015);
+				overflow: hidden;
+				position: relative;
+			}
+			.model-preview model-viewer {
+				width: 100%;
+				height: 100%;
+				--poster-color: transparent;
+			}
+			.model-preview-empty {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				color: var(--faint);
+				font-size: 12.5px;
+				text-align: center;
+				padding: 20px;
+			}
+			.model-preview-empty svg {
+				width: 30px;
+				height: 30px;
+				opacity: 0.5;
+			}
+			.starter-grid {
+				display: grid;
+				grid-template-columns: repeat(4, 1fr);
+				gap: 10px;
+				margin-top: 6px;
+			}
+			.starter {
+				border: 1.5px solid var(--border-strong);
+				border-radius: 12px;
+				background: var(--panel-2);
+				padding: 8px;
+				cursor: pointer;
+				transition:
+					border-color 0.16s,
+					transform 0.16s;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				align-items: center;
+			}
+			.starter:hover {
+				border-color: rgba(255, 255, 255, 0.3);
+				transform: translateY(-1px);
+			}
+			.starter:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.starter.is-selected {
+				border-color: var(--accent);
+				background: rgba(255, 255, 255, 0.05);
+			}
+			.starter-thumb {
+				width: 100%;
+				aspect-ratio: 1;
+				border-radius: 8px;
+				background:
+					radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.06) 0, transparent 65%),
+					rgba(255, 255, 255, 0.02);
+				display: grid;
+				place-items: center;
+				overflow: hidden;
+			}
+			.starter-thumb model-viewer {
+				width: 100%;
+				height: 100%;
+			}
+			.starter-name {
+				font-size: 11.5px;
+				color: var(--muted);
+				font-weight: 500;
+			}
+			.starter.is-selected .starter-name {
+				color: var(--text);
+			}
+			.dropzone {
+				margin-top: 6px;
+				border: 1.5px dashed var(--border-strong);
+				border-radius: 12px;
+				padding: 26px 20px;
+				text-align: center;
+				cursor: pointer;
+				transition:
+					border-color 0.16s,
+					background 0.16s;
+				color: var(--muted);
+			}
+			.dropzone:hover,
+			.dropzone.is-drag {
+				border-color: rgba(255, 255, 255, 0.45);
+				background: rgba(255, 255, 255, 0.02);
+				color: var(--text);
+			}
+			.dropzone svg {
+				width: 26px;
+				height: 26px;
+				opacity: 0.6;
+				margin-bottom: 8px;
+			}
+			.dropzone-title {
+				font-size: 13.5px;
+				font-weight: 600;
+				color: var(--text);
+			}
+			.dropzone-sub {
+				font-size: 12px;
+				margin-top: 3px;
+			}
+			.dropzone .file-name {
+				color: var(--ok);
+				font-weight: 600;
+			}
+			.model-tabs {
+				display: flex;
+				gap: 6px;
+				margin-bottom: 14px;
+				border-bottom: 1px solid var(--border);
+			}
+			.model-tab {
+				appearance: none;
+				border: 0;
+				background: transparent;
+				color: var(--muted);
+				font: inherit;
+				font-size: 13px;
+				font-weight: 500;
+				padding: 8px 12px;
+				cursor: pointer;
+				border-bottom: 2px solid transparent;
+				margin-bottom: -1px;
+				transition:
+					color 0.16s,
+					border-color 0.16s;
+			}
+			.model-tab:hover {
+				color: var(--text);
+			}
+			.model-tab.is-active {
+				color: var(--text);
+				border-bottom-color: var(--accent);
+			}
+			.model-pane {
+				display: none;
+			}
+			.model-pane.is-active {
+				display: block;
+			}
+
+			/* ── Skills ─────────────────────────────────────────────────────── */
+			.skill-row {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 12px 14px;
+				border: 1px solid var(--border-strong);
+				border-radius: 11px;
+				background: var(--panel-2);
+				margin-bottom: 9px;
+				transition: border-color 0.16s;
+			}
+			.skill-row.locked {
+				opacity: 0.85;
+			}
+			.skill-info {
+				flex: 1;
+				min-width: 0;
+			}
+			.skill-name {
+				font-size: 13.5px;
+				font-weight: 600;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.skill-name .core-pill {
+				font-size: 9.5px;
+				font-weight: 600;
+				letter-spacing: 0.05em;
+				text-transform: uppercase;
+				color: var(--faint);
+				border: 1px solid var(--border-strong);
+				border-radius: 5px;
+				padding: 1px 5px;
+			}
+			.skill-desc {
+				font-size: 12px;
+				color: var(--muted);
+				margin-top: 2px;
+				line-height: 1.45;
+			}
+			/* toggle */
+			.toggle {
+				position: relative;
+				width: 40px;
+				height: 23px;
+				flex: 0 0 auto;
+				cursor: pointer;
+			}
+			.toggle input {
+				position: absolute;
+				opacity: 0;
+				width: 100%;
+				height: 100%;
+				margin: 0;
+				cursor: pointer;
+			}
+			.toggle .track {
+				position: absolute;
+				inset: 0;
+				border-radius: 999px;
+				background: #2a2a2a;
+				border: 1px solid var(--border-strong);
+				transition: background 0.18s;
+			}
+			.toggle .knob {
+				position: absolute;
+				top: 3px;
+				left: 3px;
+				width: 16px;
+				height: 16px;
+				border-radius: 50%;
+				background: #888;
+				transition:
+					transform 0.18s,
+					background 0.18s;
+			}
+			.toggle input:checked ~ .track {
+				background: rgba(255, 255, 255, 0.9);
+				border-color: transparent;
+			}
+			.toggle input:checked ~ .knob {
+				transform: translateX(17px);
+				background: #000;
+			}
+			.toggle input:disabled {
+				cursor: not-allowed;
+			}
+			.toggle input:focus-visible ~ .track {
+				box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+			}
+			.skills-meta {
+				font-size: 12px;
+				color: var(--muted);
+				margin: 16px 0 0;
+				text-align: center;
+			}
+
+			/* ── Review ─────────────────────────────────────────────────────── */
+			.review-grid {
+				display: grid;
+				gap: 12px;
+			}
+			.review-row {
+				display: flex;
+				gap: 14px;
+				padding: 14px 16px;
+				border: 1px solid var(--border-strong);
+				border-radius: 12px;
+				background: var(--panel-2);
+				align-items: flex-start;
+			}
+			.review-key {
+				flex: 0 0 96px;
+				font-size: 12px;
+				font-weight: 600;
+				color: var(--faint);
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				padding-top: 1px;
+			}
+			.review-val {
+				flex: 1;
+				min-width: 0;
+				font-size: 13.5px;
+				color: var(--text);
+				line-height: 1.5;
+				word-break: break-word;
+			}
+			.review-val .dim {
+				color: var(--muted);
+			}
+			.review-val .chips {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+				margin-top: 2px;
+			}
+			.review-val .mini-chip {
+				font-size: 11.5px;
+				padding: 2px 8px;
+				border-radius: 6px;
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid var(--border-strong);
+				color: var(--text);
+			}
+			.review-edit {
+				background: 0;
+				border: 0;
+				color: var(--faint);
+				font: inherit;
+				font-size: 12px;
+				cursor: pointer;
+				padding: 0;
+				text-decoration: underline;
+				text-underline-offset: 2px;
+				white-space: nowrap;
+				align-self: center;
+			}
+			.review-edit:hover {
+				color: var(--text);
+			}
+			.publish-box {
+				display: flex;
+				gap: 12px;
+				align-items: flex-start;
+				margin-top: 16px;
+				padding: 14px 16px;
+				border: 1px solid var(--border-strong);
+				border-radius: 12px;
+				background: rgba(255, 255, 255, 0.02);
+			}
+			.publish-box .toggle {
+				margin-top: 1px;
+			}
+			.publish-text strong {
+				font-size: 13.5px;
+				display: block;
+				margin-bottom: 2px;
+			}
+			.publish-text span {
+				font-size: 12px;
+				color: var(--muted);
+				line-height: 1.5;
+			}
+
+			/* ── Footer nav (prev/next) ─────────────────────────────────────── */
+			.wizard-foot {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 18px 30px;
+				border-top: 1px solid var(--border);
+				background: rgba(255, 255, 255, 0.015);
+			}
+			.foot-msg {
+				flex: 1;
+				font-size: 12.5px;
+				color: var(--muted);
+				min-height: 18px;
+			}
+			.foot-msg.err {
+				color: var(--err);
+			}
+			.foot-msg.ok {
+				color: var(--ok);
+			}
+			.foot-actions {
+				display: flex;
+				gap: 10px;
+				flex: 0 0 auto;
+			}
+
+			/* ── Auth gate ──────────────────────────────────────────────────── */
+			.auth-gate {
+				display: none;
+				text-align: center;
+				padding: 40px 24px;
+			}
+			.auth-gate.show {
+				display: block;
+			}
+			.auth-gate svg {
+				width: 40px;
+				height: 40px;
+				color: var(--muted);
+				margin-bottom: 14px;
+			}
+			.auth-gate h2 {
+				font-family: var(--font-display);
+				font-size: 19px;
+				margin: 0 0 8px;
+			}
+			.auth-gate p {
+				color: var(--muted);
+				font-size: 13.5px;
+				max-width: 380px;
+				margin: 0 auto 20px;
+			}
+
+			/* ── Success ────────────────────────────────────────────────────── */
+			.success {
+				display: none;
+				text-align: center;
+				padding: 24px 24px 12px;
+				animation: panel-in 0.4s ease both;
+			}
+			.success.show {
+				display: block;
+			}
+			.success-badge {
+				width: 60px;
+				height: 60px;
+				margin: 0 auto 18px;
+				border-radius: 50%;
+				display: grid;
+				place-items: center;
+				background: rgba(74, 222, 128, 0.12);
+				border: 1.5px solid rgba(74, 222, 128, 0.5);
+				color: var(--ok);
+			}
+			.success-badge svg {
+				width: 30px;
+				height: 30px;
+			}
+			.success h2 {
+				font-family: var(--font-display);
+				font-size: 23px;
+				margin: 0 0 8px;
+			}
+			.success p {
+				color: var(--muted);
+				font-size: 14px;
+				max-width: 420px;
+				margin: 0 auto 22px;
+			}
+			.success-preview {
+				width: 180px;
+				height: 180px;
+				margin: 0 auto 22px;
+				border: 1px solid var(--border);
+				border-radius: 16px;
+				overflow: hidden;
+				background: rgba(255, 255, 255, 0.02);
+			}
+			.success-preview model-viewer {
+				width: 100%;
+				height: 100%;
+			}
+			.success-actions {
+				display: flex;
+				gap: 10px;
+				justify-content: center;
+				flex-wrap: wrap;
+			}
+
+			@media (max-width: 640px) {
+				main.stage {
+					padding: 28px 14px 72px;
+				}
+				.wizard-body {
+					padding: 22px 18px 20px;
+				}
+				.wizard-foot {
+					padding: 16px 18px;
+				}
+				.opt-grid.cols-2,
+				.opt-grid.cols-3 {
+					grid-template-columns: 1fr;
+				}
+				.starter-grid {
+					grid-template-columns: repeat(2, 1fr);
+				}
+				.review-key {
+					flex-basis: 74px;
+				}
+			}
+		</style>
+
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+		></script>
+		<link rel="canonical" href="https://three.ws/create-agent" />
+	</head>
+	<body>
+		<div id="page-loading" aria-hidden="true">
+			<img src="/three.svg" alt="" />
+			<div class="dots">...</div>
+		</div>
+		<a href="#main-content" class="skip-link">Skip to main content</a>
+		<header>
+			<div id="nav-container"></div>
+		</header>
+		<script src="/nav.js"></script>
+
+		<main class="stage" id="main-content">
+			<div class="wizard-head">
+				<h1 class="wizard-title">Create an agent</h1>
+				<p class="wizard-sub">Five quick steps — name it, give it a body, pick its skills, set its voice, ship it.</p>
+			</div>
+
+			<ol class="stepper" id="stepper" aria-label="Progress"></ol>
+
+			<div class="wizard-card">
+				<!-- Auth gate (shown when not signed in) -->
+				<div class="auth-gate" id="auth-gate">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="3" y="11" width="18" height="11" rx="2" />
+						<path d="M7 11V7a5 5 0 0 1 10 0v4" />
+					</svg>
+					<h2>Sign in to create your agent</h2>
+					<p>Your agent gets its own wallet and on-chain identity, so we need an account to anchor it to. It takes a few seconds.</p>
+					<a class="btn btn--primary btn--lg" id="auth-gate-signin" href="/login?next=%2Fcreate-agent">Sign in to continue</a>
+				</div>
+
+				<!-- Wizard form -->
+				<form id="wizard" novalidate>
+					<div class="wizard-body" id="wizard-body">
+						<!-- Step 1 — Basics -->
+						<section class="panel is-active" data-step="0" aria-label="Basic info">
+							<p class="panel-eyebrow">Step 1 of 5</p>
+							<h2 class="panel-title">The basics</h2>
+							<p class="panel-help">Give your agent a name and a short description. This is what people see first in the marketplace and on its profile.</p>
+
+							<div class="field">
+								<label class="field-label" for="f-name">
+									<span>Agent name <span class="req" aria-hidden="true">*</span></span>
+									<span class="count" id="name-count">0 / 60</span>
+								</label>
+								<input class="input" id="f-name" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Nova, Atlas, Market Oracle" aria-required="true" />
+								<p class="field-error" id="name-error">Please enter a name for your agent.</p>
+							</div>
+
+							<div class="field">
+								<label class="field-label" for="f-description">
+									<span>Description</span>
+									<span class="count" id="desc-count">0 / 280</span>
+								</label>
+								<textarea class="textarea" id="f-description" maxlength="280" placeholder="What does this agent do? Who is it for?"></textarea>
+								<p class="field-hint">One or two sentences. You can refine this later.</p>
+							</div>
+
+							<div class="field">
+								<label class="field-label" for="f-tags-input"><span>Tags</span></label>
+								<div class="tagbox" id="tagbox">
+									<input id="f-tags-input" type="text" autocomplete="off" placeholder="Type a tag and press Enter" aria-describedby="tags-hint" />
+								</div>
+								<p class="field-hint" id="tags-hint">Press Enter or comma to add. Tags help people discover your agent. Up to 8.</p>
+							</div>
+						</section>
+
+						<!-- Step 2 — 3D Model -->
+						<section class="panel" data-step="1" aria-label="3D model">
+							<p class="panel-eyebrow">Step 2 of 5</p>
+							<h2 class="panel-title">Give it a body</h2>
+							<p class="panel-help">Pick a ready-made 3D character or upload your own glTF model. You can always swap it later.</p>
+
+							<div class="model-tabs" role="tablist">
+								<button type="button" class="model-tab is-active" data-pane="starter" role="tab" aria-selected="true">Starter library</button>
+								<button type="button" class="model-tab" data-pane="upload" role="tab" aria-selected="false">Upload your own</button>
+								<button type="button" class="model-tab" data-pane="skip" role="tab" aria-selected="false">Add later</button>
+							</div>
+
+							<div class="model-pane is-active" data-pane="starter">
+								<div class="starter-grid" id="starter-grid"></div>
+							</div>
+
+							<div class="model-pane" data-pane="upload">
+								<div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload a GLB file">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="16 16 12 12 8 16" />
+										<line x1="12" y1="12" x2="12" y2="21" />
+										<path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+									</svg>
+									<div class="dropzone-title" id="dropzone-title">Drop a .glb file or click to browse</div>
+									<div class="dropzone-sub" id="dropzone-sub">Any glTF 2.0 binary model, up to 16 MB</div>
+								</div>
+								<input type="file" id="glb-input" accept=".glb,model/gltf-binary" hidden />
+							</div>
+
+							<div class="model-pane" data-pane="skip">
+								<p class="panel-help" style="margin: 6px 0 0">
+									No problem — you can create the agent now and attach a 3D model anytime from its editor.
+									It'll use a neutral placeholder until then.
+								</p>
+							</div>
+
+							<div class="model-preview" id="model-preview">
+								<div class="model-preview-empty" id="model-preview-empty">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+										<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+										<line x1="12" y1="22.08" x2="12" y2="12" />
+									</svg>
+									<span>Select a model to preview it in 3D</span>
+								</div>
+							</div>
+						</section>
+
+						<!-- Step 3 — Skills -->
+						<section class="panel" data-step="2" aria-label="Skills">
+							<p class="panel-eyebrow">Step 3 of 5</p>
+							<h2 class="panel-title">Pick its skills</h2>
+							<p class="panel-help">Every agent ships with a core set. Toggle on extra capabilities to extend what yours can do.</p>
+
+							<div id="core-skills" aria-label="Core skills"></div>
+							<div id="optional-skills" aria-label="Optional skills"></div>
+							<p class="skills-meta" id="skills-meta">5 skills selected</p>
+						</section>
+
+						<!-- Step 4 — Personality & Voice -->
+						<section class="panel" data-step="3" aria-label="Personality and voice">
+							<p class="panel-eyebrow">Step 4 of 5</p>
+							<h2 class="panel-title">Personality &amp; voice</h2>
+							<p class="panel-help">Shape how your agent talks. A category and a profile prompt are what publish it to the marketplace.</p>
+
+							<div class="field">
+								<label class="field-label" for="f-category"><span>Category</span></label>
+								<select class="select" id="f-category">
+									<option value="">Choose a category…</option>
+								</select>
+								<p class="field-hint">Required to list on the marketplace. Pick the closest fit.</p>
+							</div>
+
+							<div class="field">
+								<label class="field-label" for="f-greeting">
+									<span>Greeting</span>
+									<span class="count" id="greet-count">0 / 200</span>
+								</label>
+								<input class="input" id="f-greeting" type="text" maxlength="200" placeholder="Hey, I'm Nova — ask me anything about pump.fun." />
+								<p class="field-hint">The first line your agent says when someone opens a chat.</p>
+							</div>
+
+							<div class="field">
+								<label class="field-label" for="f-persona">
+									<span>Profile &amp; instructions</span>
+									<span class="count" id="persona-count">0 / 2000</span>
+								</label>
+								<textarea class="textarea" id="f-persona" maxlength="2000" style="min-height: 120px" placeholder="Describe who your agent is and how it should behave. e.g. 'You are Nova, a sharp, friendly Solana market analyst. Be concise, cite on-chain data, and never give financial advice.'"></textarea>
+								<p class="field-hint">This becomes the agent's system prompt — its personality and rules.</p>
+							</div>
+
+							<div class="field">
+								<label class="field-label"><span>Voice</span></label>
+								<div class="opt-grid cols-2">
+									<button type="button" class="opt is-selected" id="voice-browser" data-voice="browser" aria-pressed="true">
+										<div class="opt-icon">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+												<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+												<path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+											</svg>
+										</div>
+										<span class="opt-name">Built-in voice</span>
+										<span class="opt-desc">Free browser text-to-speech. Works instantly, no setup.</span>
+									</button>
+									<button type="button" class="opt" id="voice-custom" data-voice="custom" aria-pressed="false">
+										<div class="opt-icon">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+												<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+												<line x1="12" y1="19" x2="12" y2="23" />
+											</svg>
+										</div>
+										<span class="opt-name">Custom voice</span>
+										<span class="opt-desc">Pick or clone a premium voice in the editor after creating.</span>
+									</button>
+								</div>
+								<p class="field-hint">Starts on the built-in voice — you can upgrade to a premium or cloned voice anytime.</p>
+							</div>
+						</section>
+
+						<!-- Step 5 — Review -->
+						<section class="panel" data-step="4" aria-label="Review and create">
+							<p class="panel-eyebrow">Step 5 of 5</p>
+							<h2 class="panel-title">Review &amp; create</h2>
+							<p class="panel-help">Here's the agent you're about to ship. Edit any step, then create it.</p>
+
+							<div class="review-grid" id="review-grid"></div>
+
+							<div class="publish-box">
+								<label class="toggle">
+									<input type="checkbox" id="f-publish" checked />
+									<span class="track"></span>
+									<span class="knob"></span>
+								</label>
+								<div class="publish-text">
+									<strong>List on the agent marketplace</strong>
+									<span id="publish-note">Make your agent discoverable. Requires a category and a profile prompt. You can unlist anytime.</span>
+								</div>
+							</div>
+						</section>
+
+						<!-- Success -->
+						<section class="success" id="success" aria-live="polite">
+							<div class="success-badge">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+									<polyline points="20 6 9 17 4 12" />
+								</svg>
+							</div>
+							<h2 id="success-title">Your agent is live</h2>
+							<p id="success-sub">It now has its own wallet and on-chain identity. Open it to chat, customize, or share.</p>
+							<div class="success-preview" id="success-preview" hidden></div>
+							<div class="success-actions">
+								<a class="btn btn--primary btn--lg" id="success-open" href="#">Open agent</a>
+								<a class="btn btn--secondary btn--lg" id="success-edit" href="#">Customize further</a>
+								<a class="btn btn--ghost btn--lg" href="/create-agent">Create another</a>
+							</div>
+						</section>
+					</div>
+
+					<div class="wizard-foot" id="wizard-foot">
+						<div class="foot-msg" id="foot-msg" role="status" aria-live="polite"></div>
+						<div class="foot-actions">
+							<button type="button" class="btn btn--ghost" id="btn-back" hidden>Back</button>
+							<button type="button" class="btn btn--primary" id="btn-next">Next</button>
+							<button type="submit" class="btn btn--primary" id="btn-create" hidden aria-label="Create agent">Create agent</button>
+						</div>
+					</div>
+				</form>
+			</div>
+		</main>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script type="module" src="/src/create-agent.js"></script>
+	</body>
+</html>

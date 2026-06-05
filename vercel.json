@@ -2545,6 +2545,14 @@
 			"dest": "/create.html"
 		},
 		{
+			"src": "/create-agent",
+			"dest": "/create-agent.html"
+		},
+		{
+			"src": "/create-agent/",
+			"dest": "/create-agent.html"
+		},
+		{
 			"src": "/creating",
 			"dest": "/creating.html"
 		},
