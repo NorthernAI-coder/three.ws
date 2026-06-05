@@ -432,6 +432,10 @@
 			"dest": "/three-live.html"
 		},
 		{
+			"src": "/go/?",
+			"dest": "/go.html"
+		},
+		{
 			"src": "/pump-live/?",
 			"dest": "/pump-live.html"
 		},

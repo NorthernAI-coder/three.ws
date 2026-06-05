@@ -40,6 +40,7 @@ export const NAV = [
 	{ path: '/reputation',            label: 'Reputation',      icon: 'star',      group: 'Monetize',   tags: ['reviews', 'attestations', 'onchain', 'trust', 'score'], external: true },
 
 	// ── Explore ─────────────────────────────────────────────────────────
+	{ path: '/go',                    label: 'GO · Bounties',   icon: 'bounty',    group: 'Explore',    tags: ['bounty', 'earn', 'submit', 'proof', 'challenge', 'reward', 'go'], external: true },
 	{ path: '/gallery-picker',        label: 'Gallery',         icon: 'gallery',   group: 'Explore',    tags: ['browse', 'avatars', 'public', 'models', 'pick'], external: true },
 	{ path: '/discover',              label: 'Discover',        icon: 'globe',     group: 'Explore',    tags: ['explore', 'directory', 'onchain', 'agents'], external: true },
 	{ path: '/community',             label: 'Community',       icon: 'community', group: 'Explore',    tags: ['social', 'forum', 'connect', 'members'], external: true },
@@ -83,6 +84,7 @@ export const ICONS = {
 	skills:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3"/><path d="M7 7h6M7 10h4M7 13h5"/></svg>',
 	devhub:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="12" rx="2"/><path d="M6 7l-2 2.5L6 12M14 7l2 2.5L14 12M9 13l2-8"/></svg>',
 	landscape: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="8" r="2"/><circle cx="14" cy="6" r="2"/><circle cx="10" cy="14" r="2"/><path d="M8 8l2 5M12 7l-2 6"/><path d="M3 3h14v14H3z" stroke-dasharray="2 2" opacity="0.3"/></svg>',
+	bounty:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v8M7 8l3-2 3 2M7 12l3 2 3-2"/></svg>',
 };
 
 /** Resolve the route for the current pathname (exact match wins; falls back to startsWith). */
