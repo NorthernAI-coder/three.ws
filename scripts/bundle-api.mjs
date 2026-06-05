@@ -75,8 +75,12 @@ const EXTERNALS = [
 	'@nirholas/*',
 	'@coral-xyz/*',
 	'@aws-sdk/*',
-	'@sentry/*',
-	'@opentelemetry/*',
+	// NOTE: @sentry/* and @opentelemetry/* are intentionally NOT externalized —
+	// nothing imports them anymore. api/_lib/sentry.js reports to Sentry's HTTP
+	// envelope API via fetch instead of the @sentry/node SDK, specifically so NFT
+	// no longer traces that ~50 MB tree once per function across the ~360 routes
+	// that import http.js (the 45-min build timeout, deploy 5vphtZz6S). If you
+	// re-add the SDK, read api/_lib/sentry.js's header first.
 	'@asamuzakjp/*',
 	'@csstools/*',
 	'@neynar/*',

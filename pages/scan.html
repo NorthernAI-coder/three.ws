@@ -232,6 +232,8 @@
 		.done-viewer::after { content: ''; position: absolute; inset: -2px; border-radius: 18px; background: conic-gradient(from 0deg, var(--scan), rgba(136, 136, 136, 0.3), var(--scan), rgba(136, 136, 136, 0.3)); z-index: -1; animation: done-glow 6s linear infinite; opacity: 0.45; }
 		@keyframes done-glow { to { transform: rotate(360deg); } }
 		.done-viewer model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
+		.viewer-error { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 22px; text-align: center; font-size: 13px; line-height: 1.5; color: var(--muted); background: var(--panel); }
+		.viewer-error.show { display: flex; }
 		.name-row { margin: 0 0 18px; }
 		.name-input { width: 100%; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; color: var(--text); font: 15px/1 inherit; outline: none; transition: border-color 120ms; }
 		.name-input:focus { border-color: var(--scan); }
@@ -630,6 +632,25 @@
 		let _docTitleBase = document.title;
 		let _notifyPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'denied';
 
+		function showViewerError(message) {
+			const viewer = document.querySelector('.done-viewer');
+			if (!viewer) return;
+			let el = viewer.querySelector('.viewer-error');
+			if (!el) {
+				el = document.createElement('div');
+				el.className = 'viewer-error';
+				el.setAttribute('role', 'alert');
+				viewer.appendChild(el);
+			}
+			el.textContent = message;
+			el.classList.add('show');
+		}
+
+		// Surface model-viewer decode/load failures instead of leaving a black box.
+		document.getElementById('done-model')?.addEventListener('error', () => {
+			showViewerError('This scan couldn’t be displayed. Try downloading the .GLB instead.');
+		});
+
 		document.addEventListener('selfie:preview', (e) => {
 			const dataUrl = e.detail?.dataUrl;
 			if (!dataUrl) return;
@@ -667,15 +688,27 @@
 			try {
 				const res = await fetch(`/api/avatars/${encodeURIComponent(_avatarId)}`, { credentials: 'include' });
 				if (res.ok) {
-					const avatar = await res.json();
-					_modelUrl = avatar.model_url || null;
+					const data = await res.json();
+					// GET /api/avatars/:id wraps the record in { avatar }. Private
+					// scans expose the playable model as a presigned `url`; the public
+					// CDN field `model_url` is null until the scan is made public.
+					const avatar = data.avatar || data;
+					_modelUrl = avatar.url || avatar.model_url || null;
 					_avatarName = avatar.name || _avatarName;
 					const modelEl = document.getElementById('done-model');
-					if (modelEl && _modelUrl) modelEl.setAttribute('src', _modelUrl);
+					if (modelEl && _modelUrl) {
+						modelEl.setAttribute('src', _modelUrl);
+					} else {
+						showViewerError('Your scan finished, but the model is still finalizing. Refresh in a moment.');
+					}
 					const nameEl = document.getElementById('done-name');
 					if (nameEl && avatar.name) nameEl.value = avatar.name;
+				} else {
+					showViewerError('Couldn’t load your scan. Refresh to try again.');
 				}
-			} catch (_) {}
+			} catch (_) {
+				showViewerError('Couldn’t load your scan. Check your connection and refresh.');
+			}
 
 			notifyDone();
 			showStep('done');
