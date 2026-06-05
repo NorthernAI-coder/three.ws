@@ -35,7 +35,7 @@
             margin: 0;
             background: var(--bg);
             color: var(--text);
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: var(--font-body);
             -webkit-font-smoothing: antialiased;
         }
         body { display: flex; flex-direction: column; min-height: 100vh; }
@@ -353,7 +353,7 @@
             border: 1px solid var(--border-2);
             background: var(--panel-2);
             color: var(--text-2);
-            font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+            font-family: var(--font-mono);
             font-size: 10.5px;
             resize: none;
             line-height: 1.5;
@@ -446,6 +446,22 @@
             .pg-header-nav { display: none; }
         }
     </style>
+
+	<meta name="description" content="Sandbox for experimenting with agents, prompts, and 3D scenes.">
+	<link rel="canonical" href="https://three.ws/playground">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:title" content="Playground · three.ws">
+	<meta property="og:description" content="Sandbox for experimenting with agents, prompts, and 3D scenes.">
+	<meta property="og:url" content="https://three.ws/playground">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Playground · three.ws">
+	<meta name="twitter:description" content="Sandbox for experimenting with agents, prompts, and 3D scenes.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Playground","description":"Sandbox for experimenting with agents, prompts, and 3D scenes.","url":"https://three.ws/playground","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 

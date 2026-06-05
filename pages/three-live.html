@@ -166,6 +166,20 @@
 			.pl-flow { bottom: 12px; }
 		}
 	</style>
+
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:title" content="$THREE Live · Protocol Pulse · three.ws">
+	<meta property="og:description" content="The $THREE protocol as a living 3D organism. Real on-chain trades pulse through it in real time — each transaction emits a particle burst, whales send shockwaves, with a live trade feed and a HUD of price, market cap, holders, and volume.">
+	<meta property="og:url" content="https://three.ws/three-live">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="$THREE Live · Protocol Pulse · three.ws">
+	<meta name="twitter:description" content="The $THREE protocol as a living 3D organism. Real on-chain trades pulse through it in real time — each transaction emits a particle burst, whales send shockwaves, with a live trade feed and a HUD of price, market cap, holders, and volume.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"$THREE Live · Protocol Pulse","description":"The $THREE protocol as a living 3D organism. Real on-chain trades pulse through it in real time — each transaction emits a particle burst, whales send shockwaves, with a live trade feed and a HUD of price, market cap, holders, and volume.","url":"https://three.ws/three-live","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 	<header><div id="nav-container"></div></header>
@@ -191,7 +205,7 @@
 		<aside class="pl-overlay pl-ticker" id="pl-ticker">
 			<div class="head">Live trades <span class="live">live</span></div>
 			<ol id="pl-ticker-list">
-				<li class="empty" id="pl-ticker-empty">Listening to the $THREE bonding curve…<br />trades will stream in here.</li>
+				<li class="empty" id="pl-ticker-empty">Live trades will appear here.</li>
 			</ol>
 		</aside>
 
@@ -225,6 +239,7 @@
 		import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 		import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 		import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+		import { emptyStateHTML } from '/src/shared/state-kit.js';
 
 		// ── Config / live data sources ───────────────────────────────────────
 		const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
@@ -247,6 +262,19 @@
 		const activityReading = document.getElementById('pl-activity-reading');
 		const tickerList = document.getElementById('pl-ticker-list');
 		const tickerEmpty = document.getElementById('pl-ticker-empty');
+		// Upgrade the static placeholder to a guided empty state. Plain headline copy
+		// with the on-chain technical detail tucked behind an info tooltip (C06).
+		if (tickerEmpty) {
+			tickerEmpty.style.cssText = 'padding:0;display:block;';
+			tickerEmpty.innerHTML = emptyStateHTML({
+				compact: true,
+				icon: '',
+				live: true,
+				title: 'No trades yet',
+				body: 'Live trades will appear here.',
+				tip: 'Streaming live from the $THREE bonding curve on-chain — each trade shows up the moment it settles.',
+			});
+		}
 		const introEl = document.getElementById('pl-intro');
 		const toastEl = document.getElementById('pl-toast');
 		const el = (id) => document.getElementById(id);
@@ -310,7 +338,7 @@
 			uTime:      { value: 0 },
 			uPulse:     { value: 0 },      // momentary kick on each trade (decays)
 			uHeart:     { value: 0 },      // activity level (trade frequency) — NOT directional
-			uColorCalm: { value: new THREE.Color(0x6d5cff) }, // brand violet at rest
+			uColorCalm: { value: new THREE.Color(0xe8e8e8) }, // neutral white at rest
 			uColorHot:  { value: new THREE.Color(0x46e0d0) }, // teal when busy
 		};
 		const coreMat = new THREE.ShaderMaterial({

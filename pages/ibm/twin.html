@@ -44,7 +44,7 @@
 				overflow: hidden;
 			}
 			a {
-				color: var(--ibm-blue-2);
+				color: var(--brand-blue-2);
 				text-decoration: none;
 			}
 			#twin-stage {
@@ -83,8 +83,8 @@
 				width: 9px;
 				height: 9px;
 				border-radius: 50%;
-				background: var(--ibm-blue);
-				box-shadow: 0 0 12px var(--ibm-blue);
+				background: var(--brand-blue);
+				box-shadow: 0 0 12px var(--brand-blue);
 			}
 			.brand small {
 				color: var(--muted);
@@ -104,7 +104,7 @@
 			}
 			.topbar .back:hover {
 				color: var(--ink);
-				border-color: var(--ibm-blue-2);
+				border-color: var(--brand-blue-2);
 			}
 
 			/* Controls (top center) */
@@ -146,7 +146,7 @@
 				white-space: nowrap;
 			}
 			.chip:hover {
-				border-color: var(--ibm-blue-2);
+				border-color: var(--brand-blue-2);
 				transform: translateY(-1px);
 			}
 			.search-wrap {
@@ -173,7 +173,7 @@
 				font-weight: 600;
 				color: #fff;
 				cursor: pointer;
-				background: var(--ibm-blue);
+				background: var(--brand-blue);
 				border: none;
 				border-radius: 8px;
 				padding: 7px 14px;
@@ -183,7 +183,7 @@
 					transform 0.12s;
 			}
 			.btn:hover {
-				background: var(--ibm-blue-2);
+				background: var(--brand-blue-2);
 			}
 			.btn:active {
 				transform: translateY(1px);
@@ -231,7 +231,7 @@
 				padding: 4px 9px;
 				border-radius: 999px;
 				border: 1px solid currentColor;
-				color: var(--ibm-blue-3);
+				color: var(--brand-blue-light);
 				white-space: nowrap;
 				flex: 0 0 auto;
 			}
@@ -367,7 +367,7 @@
 				height: 26px;
 				border-radius: 6px;
 				flex: 0 0 auto;
-				background: linear-gradient(135deg, var(--ibm-blue), var(--ibm-blue-2));
+				background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-2));
 				display: grid;
 				place-items: center;
 				font-size: 11px;
@@ -413,7 +413,7 @@
 				font-size: 11px;
 				letter-spacing: 0.14em;
 				text-transform: uppercase;
-				color: var(--ibm-blue-2);
+				color: var(--brand-blue-2);
 				margin-bottom: 12px;
 				display: flex;
 				align-items: center;
@@ -436,11 +436,11 @@
 			}
 			.slider .row b {
 				font-variant-numeric: tabular-nums;
-				color: var(--ibm-blue-3);
+				color: var(--brand-blue-light);
 			}
 			input[type='range'] {
 				width: 100%;
-				accent-color: var(--ibm-blue);
+				accent-color: var(--brand-blue);
 				cursor: pointer;
 			}
 			.sim-row {
@@ -464,7 +464,7 @@
 			}
 			.btn.ghost:hover {
 				color: var(--ink);
-				border-color: var(--ibm-blue-2);
+				border-color: var(--brand-blue-2);
 				background: transparent;
 			}
 			.sim-out {
@@ -511,7 +511,7 @@
 				font-size: 11px;
 				letter-spacing: 0.14em;
 				text-transform: uppercase;
-				color: var(--ibm-blue-2);
+				color: var(--brand-blue-2);
 				margin-bottom: 6px;
 			}
 			#t-persona {
@@ -536,15 +536,15 @@
 				height: 6px;
 				margin-left: 4px;
 				border-radius: 50%;
-				background: var(--ibm-blue-2);
+				background: var(--brand-blue-2);
 				animation: pulse 1s infinite;
 			}
 			#t-status .status-retry {
 				background: none; border: none; padding: 0; margin-left: 6px;
-				color: var(--ibm-blue-2); font-size: inherit; font-family: inherit;
+				color: var(--brand-blue-2); font-size: inherit; font-family: inherit;
 				cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
 			}
-			#t-status .status-retry:hover { color: var(--ibm-blue-1); }
+			#t-status .status-retry:hover { color: var(--brand-blue); }
 			@keyframes pulse {
 				0%,
 				100% {
@@ -780,5 +780,6 @@
 			}
 		</script>
 		<script type="module" src="/src/ibm-twin.js"></script>
+		<script type="module" src="/src/ibm-suite-nav.js"></script>
 	</body>
 </html>

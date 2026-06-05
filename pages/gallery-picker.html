@@ -17,7 +17,6 @@
 		<meta name="twitter:image" content="https://three.ws/assets/og-image.png" />
 
 		<link rel="shortcut icon" href="/favicon.ico" />
-		<link rel="stylesheet" href="/theme.css" />
 		<link rel="stylesheet" href="/style.css" />
 		<link rel="stylesheet" href="/nav.css" />
 		<link rel="stylesheet" href="/fonts/fonts.css" />
@@ -47,22 +46,22 @@
 				margin: 0 0 12px;
 			}
 			.gp-crumb a {
-				color: var(--t-ink-dim, #888);
+				color: var(--ink-dim);
 				text-decoration: none;
 			}
 			.gp-crumb a:hover {
-				color: var(--t-ink, #e8e8e8);
+				color: var(--ink);
 			}
 			.gp-title {
 				font-size: clamp(1.6rem, 3.5vw, 2.2rem);
 				font-weight: 700;
 				letter-spacing: -0.02em;
-				color: var(--t-ink, #e8e8e8);
+				color: var(--ink);
 				margin: 0 0 8px;
 				line-height: 1.15;
 			}
 			.gp-sub {
-				color: var(--t-ink-dim, #888);
+				color: var(--ink-dim);
 				font-size: 15px;
 				max-width: 60ch;
 				margin: 0;
@@ -73,7 +72,7 @@
 			}
 			/* Override shell borders in inline mode since we have our own page chrome */
 			.gp-picker-host .agp-shell--inline {
-				border: 1px solid var(--t-stroke, #1a1a1a);
+				border: 1px solid var(--stroke);
 			}
 		</style>
 	</head>
@@ -110,5 +109,7 @@
 			picker.mountInline(host);
 		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

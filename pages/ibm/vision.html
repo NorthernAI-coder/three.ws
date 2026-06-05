@@ -35,7 +35,7 @@
 					#0b0e17;
 				overflow: hidden;
 			}
-			a { color: var(--ibm-blue-2); text-decoration: none; }
+			a { color: var(--brand-blue-2); text-decoration: none; }
 
 			/* ── 3D stage ──────────────────────────────────────────────── */
 			#vision-stage { position: fixed; inset: 0; z-index: 0; }
@@ -82,7 +82,7 @@
 			.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
 			.brand .dot {
 				width: 9px; height: 9px; border-radius: 50%;
-				background: var(--ibm-blue); box-shadow: 0 0 12px var(--ibm-blue);
+				background: var(--brand-blue); box-shadow: 0 0 12px var(--brand-blue);
 				animation: glow-pulse 2.6s ease-in-out infinite;
 			}
 			@keyframes glow-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -92,8 +92,8 @@
 				padding: 7px 12px; border-radius: 8px; background: var(--panel);
 				backdrop-filter: blur(8px); transition: border-color 0.15s, color 0.15s;
 			}
-			.topbar .back:hover { color: var(--ink); border-color: var(--ibm-blue-2); }
-			.topbar .back:focus-visible { outline: 2px solid var(--ibm-blue-2); outline-offset: 2px; }
+			.topbar .back:hover { color: var(--ink); border-color: var(--brand-blue-2); }
+			.topbar .back:focus-visible { outline: 2px solid var(--brand-blue-2); outline-offset: 2px; }
 
 			/* ── Read-out panel (right) ─────────────────────────────────── */
 			.read {
@@ -112,7 +112,7 @@
 			.read-head .rh-title { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; }
 			.read-head .mark {
 				width: 24px; height: 24px; border-radius: 6px; flex: none;
-				background: linear-gradient(135deg, var(--ibm-blue), var(--ibm-blue-2));
+				background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-2));
 				display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff;
 			}
 			.read-head .rh-model { font-size: 11px; color: var(--faint); }
@@ -138,7 +138,7 @@
 
 			/* ── Idle state ──────────────────────────────────────────────── */
 			.idle-glyph {
-				font-size: 30px; margin-bottom: 12px; color: var(--ibm-light);
+				font-size: 30px; margin-bottom: 12px; color: var(--brand-blue-light);
 				text-shadow: 0 0 22px rgba(120,169,255,0.5);
 			}
 			.idle-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
@@ -161,12 +161,12 @@
 			.skel.big { height: 26px; width: 60%; margin-bottom: 14px; }
 			@keyframes shimmer { to { background-position: -200% 0; } }
 			.looking {
-				font-size: 13px; color: var(--ibm-light); margin-top: 14px;
+				font-size: 13px; color: var(--brand-blue-light); margin-top: 14px;
 				display: flex; align-items: center; gap: 8px;
 			}
 			.looking .ring {
 				width: 13px; height: 13px; border-radius: 50%; flex: none;
-				border: 2px solid rgba(120,169,255,0.3); border-top-color: var(--ibm-light);
+				border: 2px solid rgba(120,169,255,0.3); border-top-color: var(--brand-blue-light);
 				animation: spin 0.9s linear infinite;
 			}
 			@keyframes spin { to { transform: rotate(360deg); } }
@@ -174,7 +174,7 @@
 			/* ── Result state ────────────────────────────────────────────── */
 			.v-name { font-size: 23px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
 			.v-bio {
-				font-size: 14px; color: var(--ibm-light); font-style: italic;
+				font-size: 14px; color: var(--brand-blue-light); font-style: italic;
 				margin-top: 6px; line-height: 1.45;
 			}
 			.v-usage-badge {
@@ -197,12 +197,12 @@
 				transition: background 0.15s;
 			}
 			.v-voice { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #d7dceb; }
-			.v-voice svg { width: 15px; height: 15px; color: var(--ibm-light); flex: none; }
+			.v-voice svg { width: 15px; height: 15px; color: var(--brand-blue-light); flex: none; }
 			.v-raw { font-size: 13.5px; line-height: 1.6; color: #d7dceb; white-space: pre-wrap; }
 			.v-actions { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
 
 			/* ── Error state ─────────────────────────────────────────────── */
-			.err-glyph { font-size: 28px; color: var(--ibm-light); margin-bottom: 10px; }
+			.err-glyph { font-size: 28px; color: var(--brand-blue-light); margin-bottom: 10px; }
 			.err-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
 			.err-sub { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
 
@@ -223,9 +223,9 @@
 				position: relative; overflow: hidden;
 			}
 			.subject:hover { transform: translateY(-2px); }
-			.subject:focus-visible { outline: 2px solid var(--ibm-blue-2); outline-offset: 2px; }
+			.subject:focus-visible { outline: 2px solid var(--brand-blue-2); outline-offset: 2px; }
 			.subject.sel {
-				border-color: var(--ibm-blue-2);
+				border-color: var(--brand-blue-2);
 				box-shadow: 0 0 0 3px rgba(15,98,254,0.2), 0 0 18px rgba(120,169,255,0.3);
 			}
 			.subject .cap {
@@ -243,8 +243,8 @@
 				display: inline-flex; align-items: center; gap: 7px;
 				transition: filter 0.15s, background 0.15s, transform 0.1s; white-space: nowrap;
 			}
-			.btn:focus-visible { outline: 2px solid var(--ibm-blue-2); outline-offset: 2px; }
-			.btn-primary { background: var(--ibm-blue); color: #fff; }
+			.btn:focus-visible { outline: 2px solid var(--brand-blue-2); outline-offset: 2px; }
+			.btn-primary { background: var(--brand-blue); color: #fff; }
 			.btn-primary:hover { filter: brightness(1.12); }
 			.btn-primary:active { transform: translateY(1px); }
 			.btn-primary:disabled { opacity: 0.55; cursor: progress; }
@@ -264,7 +264,7 @@
 			}
 			.attribution .adot {
 				width: 6px; height: 6px; border-radius: 50%;
-				background: var(--ibm-blue); box-shadow: 0 0 8px var(--ibm-blue);
+				background: var(--brand-blue); box-shadow: 0 0 8px var(--brand-blue);
 			}
 			.stage-hint {
 				position: fixed; left: 50%; top: 64px; transform: translateX(-50%); z-index: 4;
@@ -430,5 +430,6 @@
 		</p>
 
 		<script type="module" src="/src/ibm-vision.js"></script>
+		<script type="module" src="/src/ibm-suite-nav.js"></script>
 	</body>
 </html>

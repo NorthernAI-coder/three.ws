@@ -31,17 +31,23 @@
 		<style>
 			/* Config connection-test pills (Task 10) */
 			.pd-probe { display:inline-block; margin-left:0.4rem; font-size:0.66rem; font-weight:600; padding:0.05rem 0.45rem; border-radius:999px; vertical-align:middle; }
-			.pd-probe.is-ok { color:var(--pd-success); background:var(--pd-success-soft); border:1px solid var(--pd-success-border); }
-			.pd-probe.is-err { color:var(--pd-danger); background:var(--pd-danger-soft); border:1px solid var(--pd-danger-border); }
-			.pd-probe.is-pending { color:var(--pd-warn); background:var(--pd-warn-soft); border:1px solid var(--pd-warn-border); }
+			.pd-probe.is-ok { color:var(--success); background:rgba(74, 222, 128, 0.14); border:1px solid rgba(74, 222, 128, 0.3); }
+			.pd-probe.is-err { color:var(--danger); background:rgba(248, 113, 113, 0.14); border:1px solid rgba(248, 113, 113, 0.32); }
+			.pd-probe.is-pending { color:var(--warn); background:rgba(251, 191, 36, 0.14); border:1px solid rgba(251, 191, 36, 0.3); }
 			/* Stale monitor stat cards (Task 07) */
 			.pd-stat.is-stale { opacity:0.5; }
-			.pd-stale-badge { display:inline-block; font-size:0.58rem; color:var(--pd-warn); margin-left:0.35rem; text-transform:uppercase; letter-spacing:0.05em; vertical-align:middle; }
+			.pd-stale-badge { display:inline-block; font-size:0.58rem; color:var(--warn); margin-left:0.35rem; text-transform:uppercase; letter-spacing:0.05em; vertical-align:middle; }
 			/* Wallet holdings token logos (Task 02) */
-			.pd-token-logo { width:18px; height:18px; border-radius:50%; vertical-align:middle; margin-right:0.4rem; object-fit:cover; background:var(--pd-bg-elev); }
+			.pd-token-logo { width:18px; height:18px; border-radius:50%; vertical-align:middle; margin-right:0.4rem; object-fit:cover; background:var(--surface-1); }
 			#pd-market-chart { cursor:crosshair; }
 		</style>
-	</head>
+	
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Pump Dashboard · three.ws">
+	<meta name="twitter:description" content="Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Pump Dashboard","description":"Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.","url":"https://three.ws/pump-dashboard","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="home-page pump-dashboard-page">
 		<a href="#pd-main" class="h-skip-link">Skip to main content</a>
 
@@ -53,7 +59,7 @@
 					<a class="pd-sidebar-brand" href="/" aria-label="three.ws home">
 						<img class="wordmark-logo" src="/three.svg" alt="" aria-hidden="true" />three.ws
 					</a>
-					<div class="pd-sidebar-eyebrow">Pump Dashboard</div>
+					<div class="pd-sidebar-eyebrow">Token Cockpit</div>
 				</div>
 				<nav>
 					<div class="pd-nav-section">Overview</div>
@@ -115,6 +121,7 @@
 					</a>
 				</nav>
 				<div class="pd-sidebar-foot">
+					<a class="pd-sidebar-back" href="/dashboard/tokens">&larr; Back to dashboard</a>
 					<span id="pd-uptime">Uptime: —</span>
 				</div>
 			</aside>
@@ -142,29 +149,29 @@
 					<!-- Bot/monitor stat cards — bound to GET /api/healthz (monitor + watches + uptime). -->
 					<div class="pd-stat-grid" id="pd-monitor-stats" style="margin-bottom:1rem">
 						<div class="pd-stat">
-							<div class="pd-stat-label">Bot status</div>
+							<div class="pd-stat-label">Live monitor</div>
 							<div class="pd-stat-value" id="stat-bot-status">—</div>
-							<div class="pd-stat-sub" id="stat-bot-status-sub">Live monitor</div>
+							<div class="pd-stat-sub" id="stat-bot-status-sub">Realtime tracker</div>
 						</div>
 						<div class="pd-stat">
-							<div class="pd-stat-label">Mode</div>
+							<div class="pd-stat-label">Tracking engine</div>
 							<div class="pd-stat-value" id="stat-bot-mode">—</div>
-							<div class="pd-stat-sub">Worker mode</div>
+							<div class="pd-stat-sub">Monitor mode</div>
 						</div>
 						<div class="pd-stat">
-							<div class="pd-stat-label">Graduations seen</div>
+							<div class="pd-stat-label">Graduations</div>
 							<div class="pd-stat-value" id="stat-claims">—</div>
 							<div class="pd-stat-sub">Detected on-chain</div>
 						</div>
 						<div class="pd-stat">
-							<div class="pd-stat-label">Active alerts</div>
+							<div class="pd-stat-label">Active watches</div>
 							<div class="pd-stat-value" id="stat-watches">—</div>
-							<div class="pd-stat-sub">Users watching</div>
+							<div class="pd-stat-sub">Across the network</div>
 						</div>
 						<div class="pd-stat">
 							<div class="pd-stat-label">Uptime</div>
 							<div class="pd-stat-value" id="stat-uptime">—</div>
-							<div class="pd-stat-sub">API process</div>
+							<div class="pd-stat-sub">Monitor process</div>
 						</div>
 					</div>
 					<div class="pd-dash-grid">
@@ -260,10 +267,10 @@
 								<button class="pd-btn pd-btn-sm" id="pd-chart-retry" type="button" hidden>Retry</button>
 							</div>
 							<div class="pd-panel-body">
-								<div id="pd-chart-meta" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:baseline;margin-bottom:0.6rem;min-height:1.2rem;font-size:0.82rem;color:var(--pd-text-muted)"></div>
+								<div id="pd-chart-meta" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:baseline;margin-bottom:0.6rem;min-height:1.2rem;font-size:0.82rem;color:var(--ink-dim)"></div>
 								<div style="position:relative">
 									<canvas id="pd-market-chart" style="width:100%;height:300px;display:block"></canvas>
-									<div id="pd-chart-tooltip" style="position:absolute;pointer-events:none;display:none;background:var(--pd-bg-elev);border:1px solid var(--pd-border-strong);border-radius:6px;padding:0.35rem 0.55rem;font-family:var(--pd-font-mono);font-size:0.72rem;color:var(--pd-text-bright);white-space:nowrap;z-index:3;transform:translate(-50%,-120%)"></div>
+									<div id="pd-chart-tooltip" style="position:absolute;pointer-events:none;display:none;background:var(--surface-1);border:1px solid var(--stroke-strong);border-radius:6px;padding:0.35rem 0.55rem;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);white-space:nowrap;z-index:3;transform:translate(-50%,-120%)"></div>
 								</div>
 							</div>
 						</div>
@@ -294,7 +301,7 @@
 							<h2>Realtime feed</h2>
 							<span class="pd-badge" id="pd-feed-count">0</span>
 							<div class="pd-spacer"></div>
-							<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--pd-text-muted)">
+							<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--ink-dim)">
 								<input type="checkbox" class="pd-toggle" id="pd-feed-pause"> Pause
 							</label>
 							<button class="pd-btn pd-btn-sm" id="pd-clear-live-feed" type="button">Clear</button>
@@ -335,7 +342,7 @@
 									<tr><th>Wallet</th><th>Label</th><th>Token filter</th><th>Webhook</th><th>Created</th><th></th></tr>
 								</thead>
 								<tbody id="pd-watches-table">
-									<tr><td colspan="6" class="pd-empty">Open the Watch List tab to load.</td></tr>
+									<tr><td colspan="6" class="pd-empty">Loading watches…</td></tr>
 								</tbody>
 							</table>
 						</div>
@@ -372,7 +379,7 @@
 									<tr><th>Time</th><th>Wallet</th><th>Type</th><th>Token</th><th>Amount</th><th>TX</th></tr>
 								</thead>
 								<tbody id="pd-claims-table">
-									<tr><td colspan="6" class="pd-empty">Open the Claims tab to load.</td></tr>
+									<tr><td colspan="6" class="pd-empty">Loading claims…</td></tr>
 								</tbody>
 							</table>
 						</div>
@@ -422,7 +429,7 @@
 								<div class="pd-form-group">
 									<label>Webhook URL (optional)</label>
 									<input class="pd-input" type="url" id="pd-alert-webhook" placeholder="https://your-server.com/pump-alerts" />
-									<div style="font-size:0.72rem;color:var(--pd-text-dim);margin-top:0.3rem">Graduation alerts POST here even when no tab is open. Must be https.</div>
+									<div style="font-size:0.72rem;color:var(--ink-dim);margin-top:0.3rem">Graduation alerts POST here even when no tab is open. Must be https.</div>
 								</div>
 								<button class="pd-btn is-primary" id="pd-save-alerts" type="button">Save settings</button>
 							</div>
@@ -546,7 +553,7 @@
 								<button class="pd-btn is-primary" id="pd-vanity-start" type="button">Generate</button>
 								<button class="pd-btn is-danger" id="pd-vanity-stop" type="button" hidden>Stop</button>
 							</div>
-							<div id="pd-vanity-status" style="margin-top:0.85rem;font-size:0.82rem;color:var(--pd-text-muted);font-family:var(--pd-font-mono)"></div>
+							<div id="pd-vanity-status" style="margin-top:0.85rem;font-size:0.82rem;color:var(--ink-dim);font-family:var(--font-mono)"></div>
 							<div id="pd-vanity-result" style="margin-top:0.85rem"></div>
 						</div>
 					</div>
@@ -558,7 +565,7 @@
 						<div class="pd-panel-head"><h2>Default agent</h2></div>
 						<div class="pd-panel-body">
 							<div class="pd-config-grid">
-								<div id="pd-agent-view-container" style="background:#000;border:1px solid var(--pd-border);min-height:320px;display:flex;align-items:center;justify-content:center;border-radius:var(--pd-radius-sm);overflow:hidden">
+								<div id="pd-agent-view-container" style="background:#000;border:1px solid var(--stroke);min-height:320px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-md);overflow:hidden">
 									<iframe id="pd-agent-iframe" style="width:100%;height:100%;border:none" title="Default agent preview"></iframe>
 								</div>
 								<div>
@@ -647,7 +654,7 @@
 					<div class="pd-panel" style="margin-bottom:1rem">
 						<div class="pd-panel-head"><h2>Net earnings over time</h2></div>
 						<div class="pd-panel-body">
-							<div id="pd-rev-status" style="font-size:0.85rem;color:var(--pd-text-muted);margin-bottom:0.5rem;min-height:1.2rem"></div>
+							<div id="pd-rev-status" style="font-size:0.85rem;color:var(--ink-dim);margin-bottom:0.5rem;min-height:1.2rem"></div>
 							<div style="position:relative">
 								<canvas id="pd-rev-chart" style="width:100%;height:260px;display:block"></canvas>
 							</div>
@@ -732,7 +739,7 @@
 								</div>
 								<div class="pd-form-group" style="flex:2;min-width:240px;margin:0">
 									<label>Scopes</label>
-									<div style="display:flex;gap:0.85rem;flex-wrap:wrap;font-size:0.82rem;color:var(--pd-text-muted)">
+									<div style="display:flex;gap:0.85rem;flex-wrap:wrap;font-size:0.82rem;color:var(--ink-dim)">
 										<label style="display:flex;gap:0.3rem;align-items:center"><input type="checkbox" class="pd-key-scope" value="avatars:read" checked /> avatars:read</label>
 										<label style="display:flex;gap:0.3rem;align-items:center"><input type="checkbox" class="pd-key-scope" value="avatars:write" checked /> avatars:write</label>
 										<label style="display:flex;gap:0.3rem;align-items:center"><input type="checkbox" class="pd-key-scope" value="avatars:delete" /> avatars:delete</label>
@@ -752,7 +759,7 @@
 					<div class="pd-panel">
 						<div class="pd-panel-head"><h2>API endpoints</h2></div>
 						<div class="pd-panel-body">
-							<p style="color:var(--pd-text-muted);font-size:0.88rem;margin-bottom:1rem">
+							<p style="color:var(--ink-dim);font-size:0.88rem;margin-bottom:1rem">
 								three.ws ships these Pump endpoints for free, no auth required.
 								Resolved against: <span class="pd-mono-inline" id="pd-api-endpoint-display">—</span>
 							</p>
@@ -771,7 +778,7 @@
 									<tr><td><span class="pd-tag is-buy">GET</span></td><td class="pd-mono">/api/agents/pumpfun?op=claims</td><td>Recent fee claim feed</td><td>Session</td></tr>
 								</tbody>
 							</table>
-							<p style="color:var(--pd-text-muted);font-size:0.82rem;margin-top:0.85rem">
+							<p style="color:var(--ink-dim);font-size:0.82rem;margin-top:0.85rem">
 								For an OpenAPI spec, see <a href="/openapi.json">/openapi.json</a>.
 							</p>
 						</div>
@@ -811,7 +818,7 @@
 		<div class="pd-modal-backdrop" id="pd-key-modal" role="dialog" aria-modal="true" aria-labelledby="pd-key-modal-title">
 			<div class="pd-modal">
 				<h3 id="pd-key-modal-title">API key created</h3>
-				<p style="font-size:0.85rem;color:var(--pd-warn);margin:0 0 0.75rem">
+				<p style="font-size:0.85rem;color:var(--warn);margin:0 0 0.75rem">
 					Copy this token now — you won't be able to see it again.
 				</p>
 				<div class="pd-form-group">
@@ -839,6 +846,7 @@
 			import { grindVanity } from '/src/solana/vanity/grinder.js';
 			import { validatePattern } from '/src/solana/vanity/validation.js';
 			import { initWalletButton, getConnectedWallet, getConnectedWalletAddress } from '/src/wallet.js';
+			import { emptyStateHTML } from '/src/shared/state-kit.js';
 
 			const PAGE_TITLES = {
 				dashboard: 'Dashboard',
@@ -1026,7 +1034,7 @@
 					slot.innerHTML = `<img src="${escapeHtml(agent.avatar_url)}" alt="${escapeHtml(agent.display_name || 'Agent')} avatar" style="width:100%;height:100%;object-fit:cover" loading="lazy" />`;
 				} else {
 					// Never a stock placeholder — render the agent's initials.
-					slot.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--pd-font-display);font-size:2.2rem;font-weight:700;color:var(--pd-text-bright);background:linear-gradient(135deg,var(--pd-bg-elev),#161616)">${escapeHtml(initialsOf(agent.display_name))}</div>`;
+					slot.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:2.2rem;font-weight:700;color:var(--accent);background:linear-gradient(135deg,var(--surface-1),#161616)">${escapeHtml(initialsOf(agent.display_name))}</div>`;
 				}
 			}
 
@@ -1048,7 +1056,7 @@
 						linkEl.textContent = 'Create agent';
 						linkEl.href = '/create';
 						if (statsEl) statsEl.hidden = true;
-						$('pd-featured-avatar').innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--pd-text-dim);font-size:0.8rem">No agents yet</div>`;
+						$('pd-featured-avatar').innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-dim);font-size:0.8rem">No agents yet</div>`;
 						return;
 					}
 					if (!resp.ok) throw new Error('featured ' + resp.status);
@@ -1094,7 +1102,7 @@
 				if (empty) empty.hidden = true;
 				if (disconnectBtn) disconnectBtn.hidden = false;
 				holdings.hidden = false;
-				holdings.innerHTML = '<div style="font-size:0.85rem;color:var(--pd-text-muted)">Loading balances…</div>';
+				holdings.innerHTML = '<div style="font-size:0.85rem;color:var(--ink-dim)">Loading balances…</div>';
 
 				try {
 					const resp = await apiFetch('/api/wallet/balances', {
@@ -1105,12 +1113,12 @@
 					const data = await resp.json().catch(() => ({}));
 					if (!resp.ok) {
 						const msg = data.error_description || data.error || `Balance lookup failed (${resp.status})`;
-						holdings.innerHTML = `<div style="font-size:0.85rem;color:var(--pd-danger)">${escapeHtml(msg)}</div>`;
+						holdings.innerHTML = `<div style="font-size:0.85rem;color:var(--danger)">${escapeHtml(msg)}</div>`;
 						return;
 					}
 					renderWalletHoldings(address, data);
 				} catch (e) {
-					holdings.innerHTML = `<div style="font-size:0.85rem;color:var(--pd-danger)">Network error: ${escapeHtml(e.message || 'failed')}</div>`;
+					holdings.innerHTML = `<div style="font-size:0.85rem;color:var(--danger)">Network error: ${escapeHtml(e.message || 'failed')}</div>`;
 				}
 			}
 
@@ -1133,8 +1141,8 @@
 						<div class="pd-stat-value">${solAmount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</div>
 						<div class="pd-stat-sub">${solUsd > 0 ? '$' + solUsd.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</div>
 					</div>
-					<div style="font-size:0.78rem;color:var(--pd-text-muted);margin-bottom:0.45rem;font-family:var(--pd-font-display);text-transform:uppercase;letter-spacing:0.08em">Top holdings</div>
-					${tokens.length === 0 ? '<div style="font-size:0.85rem;color:var(--pd-text-dim)">No SPL tokens</div>' : `
+					<div style="font-size:0.78rem;color:var(--ink-dim);margin-bottom:0.45rem;font-family:var(--font-display);text-transform:uppercase;letter-spacing:0.08em">Top holdings</div>
+					${tokens.length === 0 ? '<div style="font-size:0.85rem;color:var(--ink-dim)">No SPL tokens</div>' : `
 						<table class="pd-table">
 							<thead><tr><th>Token</th><th style="text-align:right">Amount</th><th style="text-align:right">USD</th></tr></thead>
 							<tbody>
@@ -1167,7 +1175,7 @@
 				try {
 					const resp = await apiFetch('/api/agents');
 					if (resp.status === 401) {
-						tbody.innerHTML = '<tr><td colspan="4" class="pd-empty">Sign in to manage your agents. <a href="/login" style="color:var(--pd-accent)">Sign in</a></td></tr>';
+						tbody.innerHTML = '<tr><td colspan="4" class="pd-empty">Sign in to manage your agents. <a href="/login" style="color:var(--accent)">Sign in</a></td></tr>';
 						return;
 					}
 					if (!resp.ok) {
@@ -1177,7 +1185,13 @@
 					const j = await resp.json();
 					const agents = j.agents || j.data || [];
 					if (!agents.length) {
-						tbody.innerHTML = '<tr><td colspan="4" class="pd-empty">No custom agents yet — click <strong>+ New agent</strong>.</td></tr>';
+						tbody.innerHTML = `<tr><td colspan="4">${emptyStateHTML({
+							compact: true,
+							icon: '🤖',
+							title: 'No custom agents yet',
+							body: 'Agents are AI characters with their own wallet and skills that you can embed and chat with. Spin one up to manage it here.',
+							actions: [{ label: '+ New agent', href: '/create', primary: true }],
+						})}</td></tr>`;
 						return;
 					}
 					tbody.innerHTML = agents.map((a) => {
@@ -1551,7 +1565,7 @@
 					<div class="pd-feed-time">${timeStr}</div>
 					<div class="pd-feed-tag-col"></div>
 					<div class="pd-feed-body">
-						<div class="pd-feed-title" style="color:var(--pd-warn)">${escapeHtml(label)}</div>
+						<div class="pd-feed-title" style="color:var(--warn)">${escapeHtml(label)}</div>
 						<div class="pd-feed-detail">${escapeHtml(detail)}</div>
 					</div>
 				`;
@@ -1653,7 +1667,7 @@
 				try {
 					const resp = await apiFetch('/api/v1/watches?limit=100');
 					if (resp.status === 404) {
-						tbody.innerHTML = `<tr><td colspan="6" class="pd-empty">Watches require a PumpKit-style API. Point the API URL in <a href="#" data-page-link="config" class="pd-mono" style="color:var(--pd-accent)">Configuration</a> at your PumpKit deployment.</td></tr>`;
+						tbody.innerHTML = `<tr><td colspan="6" class="pd-empty">Watches require a PumpKit-style API. Point the API URL in <a href="#" data-page-link="config" class="pd-mono" style="color:var(--accent)">Configuration</a> at your PumpKit deployment.</td></tr>`;
 						$('pd-watches-count').textContent = '0';
 						bindPageLinks();
 						return;
@@ -1770,7 +1784,7 @@
 								<td><a class="pd-addr" href="https://solscan.io/account/${escapeHtml(wal)}" target="_blank" rel="noopener">${shortAddr(wal)}</a></td>
 								<td><span class="pd-tag ${typeClass}">${escapeHtml(typeLabel)}</span></td>
 								<td class="pd-mono">${escapeHtml(sym)}</td>
-								<td class="pd-mono" style="color:var(--pd-success)">${amt.toFixed(4)} SOL</td>
+								<td class="pd-mono" style="color:var(--success)">${amt.toFixed(4)} SOL</td>
 								<td>${tx ? `<a class="pd-addr" href="https://solscan.io/tx/${escapeHtml(tx)}" target="_blank" rel="noopener">${shortAddr(tx)}</a>` : '—'}</td>
 							</tr>
 						`;
@@ -1919,11 +1933,11 @@
 			function renderQuoteResult(target, opts) {
 				const { amountLabel, amountText, impact, mc } = opts;
 				target.innerHTML = `
-					<div style="padding:0.85rem 1rem;background:var(--pd-bg-elev);border-radius:var(--pd-radius-sm);border:1px solid var(--pd-border)">
-						<div style="font-family:var(--pd-font-display);font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--pd-text-dim);margin-bottom:0.25rem">${escapeHtml(amountLabel)}</div>
-						<div style="font-family:var(--pd-font-mono);font-size:1.35rem;color:var(--pd-text-bright);margin-bottom:0.35rem">${escapeHtml(amountText)}</div>
-						<div style="font-size:0.78rem;color:var(--pd-text-muted)">Price impact <span style="color:${impact > 5 ? 'var(--pd-warn)' : 'var(--pd-success)'}">${impact.toFixed(2)}%</span></div>
-						${mc ? `<div style="font-size:0.74rem;color:var(--pd-text-dim);margin-top:0.35rem">Spot: ${escapeHtml(formatPriceContext(mc))}</div>` : ''}
+					<div style="padding:0.85rem 1rem;background:var(--surface-1);border-radius:var(--radius-md);border:1px solid var(--stroke)">
+						<div style="font-family:var(--font-display);font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-dim);margin-bottom:0.25rem">${escapeHtml(amountLabel)}</div>
+						<div style="font-family:var(--font-mono);font-size:1.35rem;color:var(--accent);margin-bottom:0.35rem">${escapeHtml(amountText)}</div>
+						<div style="font-size:0.78rem;color:var(--ink-dim)">Price impact <span style="color:${impact > 5 ? 'var(--warn)' : 'var(--success)'}">${impact.toFixed(2)}%</span></div>
+						${mc ? `<div style="font-size:0.74rem;color:var(--ink-dim);margin-top:0.35rem">Spot: ${escapeHtml(formatPriceContext(mc))}</div>` : ''}
 					</div>
 				`;
 			}
@@ -1934,11 +1948,11 @@
 				if (!mint) { toast('Enter token mint', 'error'); return; }
 				if (!Number.isFinite(solAmount) || solAmount <= 0) { toast('Enter a positive SOL amount', 'error'); return; }
 				const target = $('pd-quote-buy-result');
-				target.innerHTML = '<span style="color:var(--pd-text-muted)">Calculating…</span>';
+				target.innerHTML = '<span style="color:var(--ink-dim)">Calculating…</span>';
 				try {
 					const r = await fetch(`/api/pump/quote-sdk?mint=${encodeURIComponent(mint)}&side=buy&amount=${solAmount}`);
 					const data = await r.json();
-					if (!r.ok) { target.innerHTML = `<span style="color:var(--pd-danger)">${escapeHtml(data.message || data.error || 'Quote failed')}</span>`; return; }
+					if (!r.ok) { target.innerHTML = `<span style="color:var(--danger)">${escapeHtml(data.message || data.error || 'Quote failed')}</span>`; return; }
 					renderQuoteResult(target, {
 						amountLabel: 'You receive',
 						amountText: `${Number(data.output?.tokensUi || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} tokens for ${solAmount} SOL`,
@@ -1946,7 +1960,7 @@
 						mc: data.marketContext,
 					});
 				} catch (e) {
-					target.innerHTML = `<span style="color:var(--pd-danger)">Error: ${escapeHtml(e.message || 'Quote failed')}</span>`;
+					target.innerHTML = `<span style="color:var(--danger)">Error: ${escapeHtml(e.message || 'Quote failed')}</span>`;
 				}
 			}
 
@@ -1956,11 +1970,11 @@
 				if (!mint) { toast('Enter token mint', 'error'); return; }
 				if (!Number.isFinite(tokenAmount) || tokenAmount <= 0) { toast('Enter a positive token amount', 'error'); return; }
 				const target = $('pd-quote-sell-result');
-				target.innerHTML = '<span style="color:var(--pd-text-muted)">Calculating…</span>';
+				target.innerHTML = '<span style="color:var(--ink-dim)">Calculating…</span>';
 				try {
 					const r = await fetch(`/api/pump/quote-sdk?mint=${encodeURIComponent(mint)}&side=sell&amount=${tokenAmount}`);
 					const data = await r.json();
-					if (!r.ok) { target.innerHTML = `<span style="color:var(--pd-danger)">${escapeHtml(data.message || data.error || 'Quote failed')}</span>`; return; }
+					if (!r.ok) { target.innerHTML = `<span style="color:var(--danger)">${escapeHtml(data.message || data.error || 'Quote failed')}</span>`; return; }
 					renderQuoteResult(target, {
 						amountLabel: 'You receive',
 						amountText: `${Number(data.output?.sol || 0).toFixed(6)} SOL for ${tokenAmount.toLocaleString()} tokens`,
@@ -1968,7 +1982,7 @@
 						mc: data.marketContext,
 					});
 				} catch (e) {
-					target.innerHTML = `<span style="color:var(--pd-danger)">Error: ${escapeHtml(e.message || 'Quote failed')}</span>`;
+					target.innerHTML = `<span style="color:var(--danger)">Error: ${escapeHtml(e.message || 'Quote failed')}</span>`;
 				}
 			}
 
@@ -1999,17 +2013,17 @@
 					const seconds = (result.durationMs / 1000).toFixed(1);
 					$('pd-vanity-status').textContent = `Found in ${seconds}s · ${result.attempts.toLocaleString()} attempts · ${result.workers} worker${result.workers > 1 ? 's' : ''}`;
 					$('pd-vanity-result').innerHTML = `
-						<div style="padding:0.85rem 1rem;background:var(--pd-bg-elev);border-radius:var(--pd-radius-sm);border:1px solid var(--pd-accent-border)">
-							<div style="font-family:var(--pd-font-display);font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--pd-text-dim);margin-bottom:0.25rem">Public key</div>
-							<div class="pd-mono" style="font-size:0.92rem;color:var(--pd-accent-bright);word-break:break-all;margin-bottom:0.55rem">${escapeHtml(result.publicKey)}</div>
+						<div style="padding:0.85rem 1rem;background:var(--surface-1);border-radius:var(--radius-md);border:1px solid var(--stroke-strong)">
+							<div style="font-family:var(--font-display);font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-dim);margin-bottom:0.25rem">Public key</div>
+							<div class="pd-mono" style="font-size:0.92rem;color:var(--ink);word-break:break-all;margin-bottom:0.55rem">${escapeHtml(result.publicKey)}</div>
 							<div style="display:flex;gap:0.4rem;flex-wrap:wrap">
 								<button class="pd-btn pd-btn-sm" id="pd-vanity-copy-pub" type="button">Copy address</button>
 								<button class="pd-btn pd-btn-sm" id="pd-vanity-reveal" type="button">Reveal secret key</button>
 								<button class="pd-btn pd-btn-sm" id="pd-vanity-download-key" type="button">Download keypair JSON</button>
 							</div>
 							<div id="pd-vanity-secret" hidden style="margin-top:0.6rem">
-								<div style="font-family:var(--pd-font-display);font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--pd-danger);margin-bottom:0.25rem">Secret key (base58)</div>
-								<div class="pd-mono" id="pd-vanity-secret-val" style="font-size:0.8rem;color:var(--pd-text-bright);word-break:break-all;margin-bottom:0.45rem"></div>
+								<div style="font-family:var(--font-display);font-size:0.66rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--danger);margin-bottom:0.25rem">Secret key (base58)</div>
+								<div class="pd-mono" id="pd-vanity-secret-val" style="font-size:0.8rem;color:var(--accent);word-break:break-all;margin-bottom:0.45rem"></div>
 								<button class="pd-btn pd-btn-sm" id="pd-vanity-copy-secret" type="button">Copy secret</button>
 							</div>
 							<div class="pd-callout" style="margin-top:0.6rem;font-size:0.78rem">Secret key never leaves your browser. Save it securely or import into a wallet.</div>
@@ -2309,36 +2323,54 @@
 			// ════════════════════════════════════════════════════════════
 			const chart = { candles: [], mint: '', symbol: '', spotUsd: null, geom: null };
 
+			// The $THREE flagship — our cockpit's default chart token. Pinned client-side
+			// too so the market chart renders instantly and never hangs on a slow or
+			// unavailable trending feed.
+			const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+
+			function selectChartToken(mint, symbol) {
+				if (chart.mint === mint) return;
+				document.dispatchEvent(new CustomEvent('chart:tokenChange', { detail: { mint, symbol } }));
+			}
+
+			// Render $THREE as an immediate, real default option + chart while the live
+			// trending list loads (or if it never does).
+			function ensureThreeDefault(sel) {
+				if (sel.value) return;
+				sel.innerHTML = `<option value="${THREE_MINT}" data-symbol="THREE">★  THREE  (${escapeHtml(shortAddr(THREE_MINT))})</option>`;
+				sel.selectedIndex = 0;
+				selectChartToken(THREE_MINT, 'THREE');
+			}
+
 			async function loadTrendingTokens() {
 				const sel = $('pd-chart-token');
 				if (!sel) return;
-				sel.innerHTML = '<option value="" disabled selected>Loading trending tokens…</option>';
 				$('pd-chart-retry').hidden = true;
+				ensureThreeDefault(sel);
 				try {
 					const r = await fetch('/api/pump/trending?limit=25');
 					const d = await r.json().catch(() => ({}));
-					if (!r.ok) {
-						sel.innerHTML = `<option value="" disabled selected>${escapeHtml(d.error_description || d.error || 'Trending unavailable')}</option>`;
-						$('pd-chart-retry').hidden = false;
-						drawChartMessage($('pd-market-chart'), d.error_description || 'Trending tokens unavailable');
-						return;
-					}
-					const tokens = d.data || [];
-					if (!tokens.length) {
-						sel.innerHTML = '<option value="" disabled selected>No trending tokens right now</option>';
-						drawChartMessage($('pd-market-chart'), 'No trending tokens right now');
-						return;
-					}
-					sel.innerHTML = tokens.map((t) =>
-						`<option value="${escapeHtml(t.mint)}" data-symbol="${escapeHtml(t.symbol)}">#${t.rank ?? '?'}  ${escapeHtml(t.symbol)}  (${escapeHtml(shortAddr(t.mint))})</option>`
-					).join('');
-					sel.selectedIndex = 0;
-					const first = tokens[0];
-					document.dispatchEvent(new CustomEvent('chart:tokenChange', { detail: { mint: first.mint, symbol: first.symbol } }));
-				} catch (e) {
-					sel.innerHTML = `<option value="" disabled selected>Error loading tokens</option>`;
-					$('pd-chart-retry').hidden = false;
-					drawChartMessage($('pd-market-chart'), e.message || 'load failed');
+					// Tolerate both the normalized { data: [...] } shape and a bare array.
+					const feed = Array.isArray(d) ? d : (Array.isArray(d.data) ? d.data : []);
+					if (!r.ok || !feed.length) return; // keep the $THREE default in place
+
+					// Pin the $THREE flagship first (de-duped), then the live market below it.
+					const three = { mint: THREE_MINT, symbol: 'THREE', flagship: true };
+					const tokens = [three, ...feed.filter((t) => t.mint !== THREE_MINT)];
+
+					const prevMint = chart.mint;
+					sel.innerHTML = tokens.map((t, i) => {
+						const tag = t.flagship ? '★  ' : `#${t.rank ?? i}  `;
+						return `<option value="${escapeHtml(t.mint)}" data-symbol="${escapeHtml(t.symbol)}">${tag}${escapeHtml(t.symbol)}  (${escapeHtml(shortAddr(t.mint))})</option>`;
+					}).join('');
+					// Keep the currently-charted token selected if it survived the refresh;
+					// otherwise fall to the pinned flagship at the top.
+					const keep = Array.from(sel.options).findIndex((o) => o.value === prevMint);
+					sel.selectedIndex = keep >= 0 ? keep : 0;
+					const first = tokens[sel.selectedIndex] || tokens[0];
+					selectChartToken(first.mint, first.symbol);
+				} catch {
+					// Network error — the $THREE default is already charted; leave it.
 				}
 			}
 
@@ -2348,7 +2380,7 @@
 				chart.spotUsd = null;
 				const canvas = $('pd-market-chart');
 				drawChartMessage(canvas, 'skeleton');
-				$('pd-chart-meta').innerHTML = `<span class="pd-mono" style="color:var(--pd-text-bright)">${escapeHtml(symbol || '')}</span> <span style="color:var(--pd-text-dim)">${escapeHtml(shortAddr(mint))}</span>`;
+				$('pd-chart-meta').innerHTML = `<span class="pd-mono" style="color:var(--accent)">${escapeHtml(symbol || '')}</span> <span style="color:var(--ink-dim)">${escapeHtml(shortAddr(mint))}</span>`;
 				const now = Math.floor(Date.now() / 1000);
 				const from = now - 24 * 3600;
 				try {
@@ -2366,7 +2398,7 @@
 					} else {
 						drawMarketChart(canvas);
 						const last = chart.candles[chart.candles.length - 1].c;
-						$('pd-chart-meta').innerHTML += ` · <span style="color:var(--pd-text-bright)">$${fmtPrice(last)}</span>`;
+						$('pd-chart-meta').innerHTML += ` · <span style="color:var(--accent)">$${fmtPrice(last)}</span>`;
 					}
 					fetchSpotOverlay(mint);
 				} catch (e) {
@@ -2386,7 +2418,7 @@
 					if (!isFinite(priceSol) || priceSol <= 0 || !state.solPrice) return;
 					chart.spotUsd = priceSol * state.solPrice;
 					if (chart.candles.length) drawMarketChart($('pd-market-chart'));
-					$('pd-chart-meta').innerHTML += ` · <span style="color:var(--pd-warn)">live ${priceSol.toFixed(9)} SOL</span>`;
+					$('pd-chart-meta').innerHTML += ` · <span style="color:var(--warn)">live ${priceSol.toFixed(9)} SOL</span>`;
 				} catch { /* overlay optional */ }
 			}
 
@@ -2419,7 +2451,7 @@
 					ctx.fillText(label, Math.max(x0 + 14, Math.min(x1 - 14, x)), y1 + 5);
 				}
 				// Price line + area
-				ctx.strokeStyle = cssVar('--pd-accent'); ctx.lineWidth = 1.5; ctx.beginPath();
+				ctx.strokeStyle = cssVar('--accent'); ctx.lineWidth = 1.5; ctx.beginPath();
 				candles.forEach((c, i) => { const x = xFor(c.t), y = yFor(c.c); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
 				ctx.stroke();
 				ctx.lineTo(xFor(tMax), y1); ctx.lineTo(xFor(tMin), y1); ctx.closePath();
@@ -2427,7 +2459,7 @@
 				// Spot overlay
 				if (chart.spotUsd != null) {
 					const y = yFor(chart.spotUsd);
-					ctx.strokeStyle = cssVar('--pd-warn'); ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); ctx.setLineDash([]);
+					ctx.strokeStyle = cssVar('--warn'); ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); ctx.setLineDash([]);
 				}
 				chart.geom = { x0, x1, y0, y1, tMin, tMax, pMin, pMax };
 			}
@@ -2462,7 +2494,7 @@
 				const ctx = canvas.getContext('2d');
 				ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
 				ctx.beginPath(); ctx.moveTo(cx, g.y0); ctx.lineTo(cx, g.y1); ctx.stroke(); ctx.setLineDash([]);
-				ctx.fillStyle = cssVar('--pd-accent'); ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
+				ctx.fillStyle = cssVar('--accent'); ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI * 2); ctx.fill();
 				const dt = new Date(nearest.t * 1000);
 				tip.textContent = `${dt.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })} · $${fmtPrice(nearest.c)}`;
 				tip.style.left = cx + 'px';
@@ -2522,7 +2554,7 @@
 				try {
 					const r = await apiFetch('/api/billing/revenue?' + params.toString());
 					if (r.status === 401) {
-						status.innerHTML = 'Sign in to view revenue. <a href="/login" style="color:var(--pd-accent)">Sign in</a>';
+						status.innerHTML = 'Sign in to view revenue. <a href="/login" style="color:var(--accent)">Sign in</a>';
 						skillTbody.innerHTML = '<tr><td colspan="3" class="pd-empty">Sign in required.</td></tr>';
 						['pd-rev-gross', 'pd-rev-fees', 'pd-rev-net', 'pd-rev-count'].forEach((id) => { $(id).textContent = '—'; });
 						drawChartMessage($('pd-rev-chart'), 'Sign in to view revenue');
@@ -2573,7 +2605,7 @@
 				ctx.textAlign = 'center'; ctx.textBaseline = 'top';
 				const step = Math.max(1, Math.floor(n / 6));
 				for (let i = 0; i < n; i += step) { const x = xFor(i); ctx.fillText(String(series[i].period).slice(5), Math.max(x0 + 12, Math.min(x1 - 12, x)), y1 + 5); }
-				ctx.strokeStyle = cssVar('--pd-success'); ctx.lineWidth = 1.5; ctx.beginPath();
+				ctx.strokeStyle = cssVar('--success'); ctx.lineWidth = 1.5; ctx.beginPath();
 				vals.forEach((v, i) => { const x = xFor(i), y = yFor(v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
 				ctx.stroke();
 				ctx.lineTo(xFor(n - 1), y1); ctx.lineTo(xFor(0), y1); ctx.closePath();
@@ -2588,7 +2620,7 @@
 				tbody.innerHTML = '<tr><td colspan="7" class="pd-empty">Loading…</td></tr>';
 				try {
 					const r = await apiFetch('/api/api-keys');
-					if (r.status === 401) { tbody.innerHTML = '<tr><td colspan="7" class="pd-empty">Sign in to manage keys. <a href="/login" style="color:var(--pd-accent)">Sign in</a></td></tr>'; $('pd-keys-count').textContent = '—'; return; }
+					if (r.status === 401) { tbody.innerHTML = '<tr><td colspan="7" class="pd-empty">Sign in to manage keys. <a href="/login" style="color:var(--accent)">Sign in</a></td></tr>'; $('pd-keys-count').textContent = '—'; return; }
 					if (r.status === 429) { tbody.innerHTML = '<tr><td colspan="7" class="pd-empty">Too many requests, try again shortly.</td></tr>'; return; }
 					if (!r.ok) { tbody.innerHTML = `<tr><td colspan="7" class="pd-empty">Error ${r.status}.</td></tr>`; return; }
 					const { data } = await r.json();
@@ -2736,7 +2768,7 @@
 					if (holdings && !getConnectedWalletAddress()) {
 						$('pd-wallet-empty').hidden = true;
 						holdings.hidden = false;
-						holdings.innerHTML = '<div style="font-size:0.85rem;color:var(--pd-text-muted)">Connecting…</div>';
+						holdings.innerHTML = '<div style="font-size:0.85rem;color:var(--ink-dim)">Connecting…</div>';
 					}
 				});
 				$('pd-wallet-disconnect').addEventListener('click', disconnectWallet);

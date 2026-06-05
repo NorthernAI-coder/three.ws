@@ -961,7 +961,7 @@
 					modal.setAttribute('aria-modal', 'true');
 					modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem;backdrop-filter:blur(6px)';
 					modal.innerHTML = `
-						<div class="up-pay-card" style="background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:1.5rem;max-width:420px;width:100%;color:rgba(255,255,255,.95)">
+						<div class="up-pay-card" style="background:var(--bg-0);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:1.5rem;max-width:420px;width:100%;color:rgba(255,255,255,.95)">
 							<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
 								<h3 style="margin:0;font-weight:500;font-size:1.1rem">Pay @${esc(handle)}</h3>
 								<button id="up-pay-close" aria-label="Close" style="background:transparent;border:0;color:rgba(255,255,255,.5);font-size:1.4rem;cursor:pointer;line-height:1;padding:0">×</button>
@@ -1276,5 +1276,7 @@
 			});
 		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

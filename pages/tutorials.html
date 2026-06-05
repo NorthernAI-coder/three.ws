@@ -89,7 +89,7 @@
 				display: inline-flex;
 				align-items: center;
 				gap: 0.4rem;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.7rem;
 				font-weight: 600;
 				letter-spacing: 0.12em;
@@ -107,7 +107,7 @@
 			}
 
 			.tut-hero h1 {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: clamp(2.1rem, 5vw, 3.4rem);
 				font-weight: 700;
 				letter-spacing: -0.025em;
@@ -195,7 +195,7 @@
 				border-radius: 999px;
 				background: var(--tut-tier-soft, rgba(255, 255, 255, 0.16));
 				border: 1px solid var(--tut-tier-border, rgba(255, 255, 255, 0.32));
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.72rem;
 				font-weight: 700;
 				color: var(--tut-tier-accent, #ffffff);
@@ -272,7 +272,7 @@
 				align-items: center;
 				gap: 0.55rem;
 				margin-bottom: 0.85rem;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.66rem;
 				font-weight: 600;
 				letter-spacing: 0.08em;
@@ -288,7 +288,7 @@
 			}
 
 			.tut-card-title {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 1.08rem;
 				font-weight: 700;
 				color: #fff;
@@ -340,7 +340,7 @@
 			}
 
 			.tut-bottom-cta h2 {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 1.3rem;
 				font-weight: 700;
 				color: #fff;
@@ -377,7 +377,7 @@
 			.tut-bottom-btn.primary {
 				background: rgba(255, 255, 255, 0.16);
 				border: 1px solid rgba(255, 255, 255, 0.4);
-				color: #c4b5fd;
+				color: var(--ink);
 			}
 
 			.tut-bottom-btn.primary:hover {
@@ -401,7 +401,9 @@
 				.tut-bottom-cta { flex-direction: column; align-items: flex-start; }
 			}
 		</style>
-	</head>
+	
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Tutorials","description":"Step-by-step build guides.","url":"https://three.ws/tutorials","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="home-page tutorials-page tut-page">
 		<div class="cursor" id="cursor" aria-hidden="true"></div>
 		<a href="#main-content" class="h-skip-link">Skip to main content</a>
@@ -626,5 +628,7 @@
 			}
 		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

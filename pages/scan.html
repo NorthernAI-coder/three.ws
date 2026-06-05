@@ -679,6 +679,9 @@
 
 			notifyDone();
 			showStep('done');
+			// Surface adjacent features now that the avatar exists (walk it / embed
+			// it). The site-wide discovery layer renders the cross-link card.
+			document.dispatchEvent(new CustomEvent('tws:feature-done', { detail: { feature: 'scan' } }));
 		});
 
 		function notifyDone() {
@@ -809,21 +812,18 @@
 			if (!_avatarId) return;
 			await persistName();
 			const shareUrl = `${location.origin}/avatars/${encodeURIComponent(_avatarId)}`;
-			const shareData = {
-				title: `${_avatarName} · 3D scan on three.ws`,
-				text: 'I just scanned myself into 3D on three.ws — spin it 👇',
-				url: shareUrl,
-			};
-			if (navigator.share) {
-				try { await navigator.share(shareData); return; }
-				catch (err) { if (err?.name === 'AbortError') return; }
-			}
-			try {
-				await navigator.clipboard.writeText(shareUrl);
-				toast('Link copied — paste it anywhere.');
-			} catch (_) {
-				window.open(shareUrl, '_blank', 'noopener');
-			}
+			const { showSharePanel } = await import('/src/shared/share.js');
+			showSharePanel(
+				{
+					kind: 'scan',
+					id: _avatarId,
+					title: _avatarName || 'My 3D scan',
+					description: 'A real-time photogrammetry scan made on three.ws.',
+					shareUrl,
+					remixUrl: `${location.origin}/scan`,
+				},
+				document.getElementById('share-btn'),
+			);
 		});
 
 		document.getElementById('done-save-btn')?.addEventListener('click', async () => {
@@ -851,5 +851,6 @@
 		});
 	</script>
 	<script src="/brand.js" defer></script>
+	<script src="/getting-started.js" defer></script>
 </body>
 </html>

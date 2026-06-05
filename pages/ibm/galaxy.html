@@ -43,7 +43,7 @@
 			display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
 			color: var(--text); font-weight: 600; font-size: 14px; letter-spacing: -0.01em;
 		}
-		.brand a.home:hover { color: var(--ibm-light); }
+		.brand a.home:hover { color: var(--brand-blue-light); }
 		.brand .sep { color: var(--muted2); font-size: 12px; }
 		.badge {
 			display: inline-flex; align-items: center; gap: 7px;
@@ -51,7 +51,7 @@
 			padding: 5px 12px 5px 9px; font-size: 12px; color: var(--muted); backdrop-filter: blur(14px);
 			white-space: nowrap;
 		}
-		.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 8px var(--ibm); flex: none; }
+		.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--brand-blue); box-shadow: 0 0 8px var(--brand-blue); flex: none; }
 		.badge strong { color: var(--text); font-weight: 600; }
 		.topbar .actions { display: flex; gap: 6px; }
 		.tb-btn {
@@ -64,7 +64,7 @@
 		.tb-btn:hover { background: var(--panel-hover); border-color: var(--border-hi); color: var(--text); }
 		.tb-btn:active { transform: translateY(1px); }
 		.tb-btn svg { width: 14px; height: 14px; flex: none; }
-		.tb-btn.active { background: var(--ibm); border-color: var(--ibm); color: #fff; }
+		.tb-btn.active { background: var(--brand-blue); border-color: var(--brand-blue); color: #fff; }
 		.tb-btn.active:hover { filter: brightness(1.1); }
 		/* Hide labels on very small screens */
 		@media (max-width: 480px) { .tb-btn .lbl { display: none; } .tb-btn { padding: 8px 10px; } }
@@ -81,10 +81,10 @@
 			transition: border-color .15s, box-shadow .15s, background .15s;
 		}
 		.search-box:focus-within {
-			border-color: var(--ibm-light); background: var(--panel-hover);
-			box-shadow: 0 0 0 3px var(--ibm-glow), var(--shadow);
+			border-color: var(--brand-blue-light); background: var(--panel-hover);
+			box-shadow: 0 0 0 3px var(--brand-blue-glow), var(--shadow);
 		}
-		.search-box svg.lead { width: 17px; height: 17px; color: var(--ibm-light); flex: none; }
+		.search-box svg.lead { width: 17px; height: 17px; color: var(--brand-blue-light); flex: none; }
 		.search-box input {
 			flex: 1; min-width: 0; background: none; border: 0; outline: none;
 			color: var(--text); font-size: 14px; font-family: inherit;
@@ -101,7 +101,7 @@
 		.search-box .clear:hover { color: var(--text); background: rgba(255,255,255,0.07); }
 		.spinner {
 			display: none; width: 15px; height: 15px;
-			border: 2px solid rgba(120,169,255,0.25); border-top-color: var(--ibm-light);
+			border: 2px solid rgba(120,169,255,0.25); border-top-color: var(--brand-blue-light);
 			border-radius: 50%; animation: spin .65s linear infinite; flex: none;
 		}
 		.search-box.searching .spinner { display: inline-block; }
@@ -118,7 +118,7 @@
 			border-radius: 99px; padding: 4px 10px; cursor: pointer; backdrop-filter: blur(12px);
 			transition: color .13s, border-color .13s, background .13s;
 		}
-		.chip:hover { color: var(--text); border-color: var(--ibm-light); background: var(--ibm-glow); }
+		.chip:hover { color: var(--text); border-color: var(--brand-blue-light); background: var(--brand-blue-glow); }
 
 		/* ── Legend ──────────────────────────────────────────────── */
 		.legend {
@@ -234,7 +234,7 @@
 		}
 		.panel .p-avatar.placeholder {
 			display: grid; place-items: center;
-			font-size: 22px; font-weight: 700; color: var(--ibm-light);
+			font-size: 22px; font-weight: 700; color: var(--brand-blue-light);
 		}
 		.panel .p-meta { min-width: 0; }
 		.panel .p-theme {
@@ -254,7 +254,7 @@
 			display: flex; align-items: center; gap: 6px;
 		}
 		.panel .p-section h4 .granite-tag {
-			font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--ibm-light); opacity: 0.85;
+			font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--brand-blue-light); opacity: 0.85;
 		}
 
 		.panel .nb {
@@ -265,18 +265,18 @@
 		.panel .nb-av {
 			width: 32px; height: 32px; border-radius: 9px; object-fit: cover;
 			background: #161c28; flex: none; display: grid; place-items: center;
-			font-weight: 700; color: var(--ibm-light); font-size: 13px;
+			font-weight: 700; color: var(--brand-blue-light); font-size: 13px;
 		}
 		.panel .nb-meta { min-width: 0; flex: 1; }
 		.panel .nb-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
 		.panel .nb-score-row { display: flex; align-items: center; gap: 7px; }
 		.panel .nb-bar { flex: 1; height: 3px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; }
-		.panel .nb-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ibm), var(--ibm-light)); border-radius: 99px; }
-		.panel .nb-pct { font-size: 10px; color: var(--ibm-light); font-weight: 700; font-variant-numeric: tabular-nums; width: 30px; text-align: right; flex: none; }
+		.panel .nb-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--brand-blue), var(--brand-blue-light)); border-radius: 99px; }
+		.panel .nb-pct { font-size: 10px; color: var(--brand-blue-light); font-weight: 700; font-variant-numeric: tabular-nums; width: 30px; text-align: right; flex: none; }
 
 		.panel .p-actions { display: flex; gap: 8px; margin-top: 18px; }
 		.panel .p-cta {
-			flex: 1; text-align: center; background: var(--ibm); color: #fff; text-decoration: none;
+			flex: 1; text-align: center; background: var(--brand-blue); color: #fff; text-decoration: none;
 			font-weight: 600; font-size: 13px; padding: 11px 14px; border-radius: var(--radius-sm);
 			transition: filter .13s; display: block;
 		}
@@ -315,11 +315,11 @@
 		.results .r-av {
 			width: 30px; height: 30px; border-radius: 8px; object-fit: cover;
 			background: #161c28; flex: none; display: grid; place-items: center;
-			font-weight: 700; color: var(--ibm-light); font-size: 12px;
+			font-weight: 700; color: var(--brand-blue-light); font-size: 12px;
 		}
 		.results .r-name { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.results .r-bar { width: 48px; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow: hidden; flex: none; }
-		.results .r-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ibm), var(--ibm-light)); }
+		.results .r-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--brand-blue), var(--brand-blue-light)); }
 		.results .r-score { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; width: 32px; text-align: right; flex: none; }
 
 		/* ── Full-screen overlays ────────────────────────────────── */
@@ -333,22 +333,22 @@
 		.overlay .inner { max-width: 440px; }
 		.overlay .o-orb {
 			width: 52px; height: 52px; margin: 0 auto 20px; border-radius: 50%;
-			background: radial-gradient(circle at 35% 30%, var(--ibm-light), var(--ibm) 60%, #062a8a);
+			background: radial-gradient(circle at 35% 30%, var(--brand-blue-light), var(--brand-blue) 60%, #062a8a);
 			box-shadow: 0 0 44px rgba(15,98,254,0.5); animation: pulse 1.8s ease-in-out infinite;
 		}
 		@keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } }
 		.overlay h2 { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 9px; }
 		.overlay p { color: var(--muted); font-size: 14px; line-height: 1.65; }
-		.overlay p code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ibm-light); }
+		.overlay p code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--brand-blue-light); }
 		.overlay .o-steps { margin-top: 16px; display: flex; flex-direction: column; gap: 7px; text-align: left; max-width: 300px; margin-left: auto; margin-right: auto; }
 		.overlay .o-step { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
 		.overlay .o-step .s-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); flex: none; transition: all .3s; }
-		.overlay .o-step.active .s-dot { border-color: var(--ibm-light); box-shadow: 0 0 10px var(--ibm-light); }
+		.overlay .o-step.active .s-dot { border-color: var(--brand-blue-light); box-shadow: 0 0 10px var(--brand-blue-light); }
 		.overlay .o-step.done .s-dot { background: var(--green); border-color: var(--green); }
 		.overlay .o-step.active { color: var(--text); }
 		.overlay .o-btn {
 			display: inline-flex; align-items: center; gap: 7px; margin-top: 20px;
-			background: var(--ibm); color: #fff; text-decoration: none; font-weight: 600;
+			background: var(--brand-blue); color: #fff; text-decoration: none; font-weight: 600;
 			font-size: 13px; padding: 11px 18px; border-radius: var(--radius-sm); border: 0;
 			cursor: pointer; transition: filter .13s;
 		}
@@ -539,7 +539,7 @@
 		<div class="inner">
 			<div class="o-orb"></div>
 			<h2>Mapping the Agent Galaxy</h2>
-			<p>Embedding every agent with <strong style="color:var(--ibm-light)">IBM Granite</strong> on watsonx.ai and projecting meaning into 3D space.</p>
+			<p>Embedding every agent with <strong style="color:var(--brand-blue-light)">IBM Granite</strong> on watsonx.ai and projecting meaning into 3D space.</p>
 			<div class="o-steps" id="loadSteps">
 				<div class="o-step active" data-step="0"><span class="s-dot"></span>Gathering public agents</div>
 				<div class="o-step" data-step="1"><span class="s-dot"></span>Granite embeddings → vector space</div>
@@ -591,6 +591,7 @@
 	<p class="galaxy-disclaimer" style="position:fixed;left:50%;bottom:6px;transform:translateX(-50%);z-index:10;pointer-events:none;text-align:center;color:#7a85a8;font-size:11px;line-height:1.6;max-width:680px;width:calc(100vw - 28px);margin:0">These are community demos for developers to explore IBM Granite on watsonx.ai and build their own tools — not official IBM partnership deliverables, not IBM products, and not endorsed by IBM. three.ws's formal partnership work with IBM is being built on the IBM platform and is not yet public.</p>
 
 	<script type="module" src="/src/ibm-galaxy.js"></script>
+	<script type="module" src="/src/ibm-suite-nav.js"></script>
 	<script src="/brand.js" defer></script>
 </body>
 </html>

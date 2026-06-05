@@ -79,15 +79,15 @@
 			.market-card-avatar {
 				display: flex;
 				flex-direction: column;
-				background: var(--mk-panel, #111);
-				border: 1px solid var(--mk-border, #1f1f1f);
-				border-radius: var(--mk-radius, 14px);
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-card);
 				overflow: hidden;
 				cursor: pointer;
 				transition: border-color 0.15s ease, transform 0.15s ease;
 			}
 			.market-card-avatar:hover {
-				border-color: var(--mk-border-2, #2a2a2a);
+				border-color: var(--stroke-strong);
 				transform: translateY(-1px);
 			}
 			.market-card-avatar .thumb {
@@ -98,7 +98,7 @@
 				justify-content: center;
 				font-size: 40px;
 				color: rgba(255, 255, 255, 0.25);
-				border-bottom: 1px solid var(--mk-border, #1f1f1f);
+				border-bottom: 1px solid var(--stroke);
 			}
 			.market-card-avatar .body {
 				padding: 12px 14px;
@@ -111,7 +111,7 @@
 			.market-card-avatar .title {
 				font-size: 14px;
 				font-weight: 600;
-				color: var(--mk-text, #f4f4f5);
+				color: var(--ink);
 				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
@@ -128,7 +128,7 @@
 			}
 			.market-card-avatar .desc {
 				font-size: 12px;
-				color: var(--mk-text-2, #a1a1aa);
+				color: var(--ink-dim);
 				display: -webkit-box;
 				-webkit-line-clamp: 2;
 				-webkit-box-orient: vertical;
@@ -139,7 +139,7 @@
 				justify-content: space-between;
 				align-items: center;
 				font-size: 11px;
-				color: var(--mk-text-3, #71717a);
+				color: var(--ink-dim);
 				margin-top: auto;
 				padding-top: 4px;
 			}
@@ -158,10 +158,10 @@
 				font-weight: 600;
 				letter-spacing: 0.08em;
 				text-transform: uppercase;
-				color: var(--mk-text-2, #a1a1aa);
+				color: var(--ink-dim);
 				margin: 28px 0 6px;
 				padding: 12px 0 10px;
-				border-top: 1px solid var(--mk-border, #1f1f1f);
+				border-top: 1px solid var(--stroke);
 				display: flex;
 				align-items: baseline;
 				gap: 10px;
@@ -173,7 +173,7 @@
 			}
 			.market-grid-section-title .count {
 				font-size: 11px;
-				color: var(--mk-text-3, #71717a);
+				color: var(--ink-dim);
 				font-weight: 500;
 				letter-spacing: 0.02em;
 				text-transform: none;
@@ -201,7 +201,7 @@
 				padding: 28px;
 				background:
 					radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.08), transparent 60%),
-					radial-gradient(ellipse at bottom left, rgba(168, 85, 247, 0.06), transparent 50%),
+					radial-gradient(ellipse at bottom left, rgba(255, 255, 255, 0.04), transparent 50%),
 					linear-gradient(180deg, #0e0e10, #0a0a0a);
 				border: 1px solid #1f1f1f;
 				border-radius: 20px;
@@ -244,10 +244,10 @@
 				gap: 14px;
 				background:
 					radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.14), transparent 65%),
-					radial-gradient(circle at 50% 90%, rgba(168, 85, 247, 0.08), transparent 70%),
+					radial-gradient(circle at 50% 90%, rgba(255, 255, 255, 0.05), transparent 70%),
 					linear-gradient(180deg, #0a0a0a, #000000);
 				color: rgba(244, 244, 245, 0.85);
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				pointer-events: none;
 				transition: opacity 0.5s ease;
 			}
@@ -298,7 +298,7 @@
 				min-width: 0;
 			}
 			.market-hero-eyebrow {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 11px;
 				letter-spacing: 0.18em;
 				text-transform: uppercase;
@@ -309,7 +309,7 @@
 				gap: 8px;
 			}
 			.market-hero-beta-pill {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 9px;
 				font-weight: 700;
 				letter-spacing: 0.18em;
@@ -320,7 +320,7 @@
 				border: 1px solid rgba(253, 224, 71, 0.25);
 			}
 			.market-hero-title {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 32px;
 				font-weight: 700;
 				color: #fafafa;
@@ -457,7 +457,7 @@
 				justify-content: center;
 				background:
 					radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.12), transparent 65%),
-					radial-gradient(circle at 50% 95%, rgba(168, 85, 247, 0.08), transparent 70%),
+					radial-gradient(circle at 50% 95%, rgba(255, 255, 255, 0.05), transparent 70%),
 					linear-gradient(180deg, #0a0a0a, #000000);
 				pointer-events: none;
 				transition: opacity 0.4s ease;
@@ -466,7 +466,7 @@
 				opacity: 0;
 			}
 			.market-card-avatar .thumb .mv-placeholder-initial {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 56px;
 				font-weight: 700;
 				line-height: 1;
@@ -524,7 +524,7 @@
 				z-index: 1500;
 				background:
 					radial-gradient(ellipse at top, rgba(255, 255, 255, 0.06), transparent 60%),
-					radial-gradient(ellipse at bottom, rgba(168, 85, 247, 0.05), transparent 60%),
+					radial-gradient(ellipse at bottom, rgba(255, 255, 255, 0.03), transparent 60%),
 					#050608;
 				display: flex;
 				align-items: center;
@@ -562,7 +562,7 @@
 				transform: translateX(-50%);
 				font-size: 12px;
 				color: rgba(255, 255, 255, 0.6);
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				letter-spacing: 0.06em;
 				background: rgba(0, 0, 0, 0.4);
 				padding: 8px 16px;
@@ -579,19 +579,19 @@
 				gap: 12px;
 				margin: 14px 24px 0;
 				padding: 10px 16px;
-				background: linear-gradient(90deg, rgba(168, 85, 247, 0.1), rgba(255, 255, 255, 0.06) 60%, transparent);
-				border: 1px solid rgba(168, 85, 247, 0.18);
+				background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06) 60%, transparent);
+				border: 1px solid rgba(255, 255, 255, 0.12);
 				border-radius: 12px;
 				font-size: 13px;
 				color: #d4d4d8;
 				flex-wrap: wrap;
 			}
 			.market-theme-strip .market-theme-eyebrow {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 10px;
 				letter-spacing: 0.2em;
 				text-transform: uppercase;
-				color: #c4b5fd;
+				color: var(--ink-dim);
 				font-weight: 700;
 			}
 			.market-theme-strip .market-theme-title {
@@ -605,9 +605,9 @@
 				min-width: 200px;
 			}
 			.market-theme-strip .market-theme-cta {
-				background: rgba(168, 85, 247, 0.18);
+				background: rgba(255, 255, 255, 0.08);
 				color: #f5f3ff;
-				border: 1px solid rgba(168, 85, 247, 0.3);
+				border: 1px solid rgba(255, 255, 255, 0.18);
 				border-radius: 8px;
 				padding: 6px 12px;
 				font-size: 12px;
@@ -616,7 +616,7 @@
 				transition: background 0.15s ease;
 			}
 			.market-theme-strip .market-theme-cta:hover {
-				background: rgba(168, 85, 247, 0.3);
+				background: rgba(255, 255, 255, 0.14);
 			}
 
 			/* ── Onchain card variants ────────────────────────────────────── */
@@ -624,13 +624,13 @@
 				background: linear-gradient(180deg, #0c0d10, #0a0a0a);
 			}
 			.market-card-avatar.onchain .avatar-pill.onchain {
-				background: rgba(168, 85, 247, 0.12);
-				color: #c4b5fd;
+				background: rgba(255, 255, 255, 0.08);
+				color: var(--ink-dim);
 			}
 			.market-card-avatar.onchain .card-chain {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				letter-spacing: 0.04em;
-				color: #c4b5fd;
+				color: var(--ink-dim);
 				font-weight: 600;
 				font-size: 11px;
 				text-transform: uppercase;
@@ -684,7 +684,7 @@
 				font-size: 10px;
 				font-weight: 700;
 				letter-spacing: 0.03em;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				backdrop-filter: blur(6px);
 				border: 1px solid transparent;
 				line-height: 1.4;
@@ -701,13 +701,7 @@
 				color: #fde047;
 				border-color: rgba(253, 224, 71, 0.32);
 			}
-			/* Agent cards aren't position:relative by default — make them so the
-			   pill anchors to the card edge instead of the page. */
-			.market-card-agent {
-				position: relative;
-			}
-
-			/* Featured-curated badge over the avatar thumbnail (gold star, top-left) */
+/* Featured-curated badge over the avatar thumbnail (gold star, top-left) */
 			.market-card-avatar.featured {
 				border-color: rgba(253, 224, 71, 0.25);
 				box-shadow: 0 0 0 1px rgba(253, 224, 71, 0.05);
@@ -878,7 +872,7 @@
 				min-width: 0;
 			}
 			.avatar-modal-eyebrow {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 10px;
 				letter-spacing: 0.18em;
 				text-transform: uppercase;
@@ -886,7 +880,7 @@
 				font-weight: 600;
 			}
 			.avatar-modal-title {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 24px;
 				font-weight: 700;
 				color: #fafafa;
@@ -936,7 +930,7 @@
 				font-size: 13px;
 			}
 			.avatar-modal-sale .sale-eyebrow {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 10px;
 				letter-spacing: 0.18em;
 				text-transform: uppercase;
@@ -947,7 +941,7 @@
 				font-size: 22px;
 				font-weight: 700;
 				color: #fde047;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 			}
 			.avatar-modal-sale .sale-price.free {
 				color: #ffffff;
@@ -987,7 +981,7 @@
 				color: #d4d4d8;
 				padding: 8px 10px;
 				border-radius: 8px;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-weight: 600;
 				font-size: 12px;
 			}
@@ -1148,7 +1142,7 @@
 			}
 			.market-skill-card .skill-meta .installs,
 			.market-skill-card .skill-meta .rating {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-weight: 500;
 			}
 			.market-skill-card.installed {
@@ -1160,7 +1154,7 @@
 				align-items: center;
 				padding: 2px 7px;
 				border-radius: 999px;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 10px;
 				font-weight: 700;
 				letter-spacing: 0.04em;
@@ -1171,7 +1165,7 @@
 			/* Per-call x402 panel on the skill detail page */
 			.skill-x402-block .skill-x402-price {
 				margin-left: auto;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-weight: 700;
 				font-size: 13px;
 				color: #6ee7b7;
@@ -1197,7 +1191,7 @@
 				border-radius: 8px;
 				background: rgba(0, 0, 0, 0.35);
 				border: 1px solid rgba(255, 255, 255, 0.08);
-				font-family: 'JetBrains Mono', ui-monospace, monospace;
+				font-family: var(--font-mono);
 				font-size: 12px;
 				color: #e4e4e7;
 			}
@@ -1230,7 +1224,7 @@
 				margin: 0;
 				padding: 14px;
 				overflow-x: auto;
-				font-family: 'JetBrains Mono', ui-monospace, monospace;
+				font-family: var(--font-mono);
 				font-size: 12px;
 				line-height: 1.6;
 				color: #d4d4d8;
@@ -1292,7 +1286,7 @@
 				gap: 4px;
 			}
 			.market-skill-tools li {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 12px;
 				color: #e4e4e7;
 			}
@@ -1310,7 +1304,7 @@
 				margin-top: 6px;
 				max-height: 280px;
 				overflow-y: auto;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 12px;
 				line-height: 1.55;
 				color: #d4d4d8;
@@ -1318,8 +1312,8 @@
 				word-break: break-word;
 			}
 			.market-skill-card {
-				background: var(--mk-panel, #111);
-				border: 1px solid var(--mk-border, #1f1f1f);
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
 				border-radius: 14px;
 				padding: 16px;
 				display: flex;
@@ -1329,7 +1323,7 @@
 				transition: border-color 0.15s ease, transform 0.15s ease;
 			}
 			.market-skill-card:hover {
-				border-color: var(--mk-border-2, #2a2a2a);
+				border-color: var(--stroke-strong);
 				transform: translateY(-1px);
 			}
 			.market-skill-card .skill-head {
@@ -1348,7 +1342,7 @@
 			}
 			.market-skill-card .skill-price {
 				flex: 0 0 auto;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-weight: 700;
 				font-size: 14px;
 			}
@@ -1407,7 +1401,7 @@
 				color: #a1a1aa;
 			}
 			.market-empty-cta h3 {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				color: #fafafa;
 				margin: 0 0 8px;
 				font-size: 18px;
@@ -1737,6 +1731,27 @@
 				border-color: rgba(255, 255, 255, 0.18);
 			}
 
+			/* ── Card profile link (agent/avatar/onchain title <a>) ─────── */
+			.card-profile-link {
+				color: inherit;
+				text-decoration: none;
+				display: block;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				font-size: inherit;
+				font-weight: inherit;
+			}
+			.card-profile-link:hover {
+				text-decoration: underline;
+				text-underline-offset: 2px;
+			}
+			.card-profile-link:focus-visible {
+				outline: 2px solid #ffffff;
+				outline-offset: 2px;
+				border-radius: 2px;
+			}
+
 			/* ── Card entry animations ────────────────────────────────────── */
 			@keyframes mk-card-in {
 				from { opacity: 0; transform: translateY(14px); }
@@ -1755,8 +1770,8 @@
 				grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 			}
 			.market-anim-card {
-				background: var(--mk-panel, #111);
-				border: 1px solid var(--mk-border, #1f1f1f);
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
 				border-radius: 14px;
 				padding: 16px;
 				display: flex;
@@ -1842,7 +1857,7 @@
 			.anim-detail-stage {
 				position: relative;
 				background: radial-gradient(circle at 50% 60%, rgba(255,255,255,0.05), transparent 70%), linear-gradient(180deg, #050505, #0a0a0a);
-				border: 1px solid var(--mk-border);
+				border: 1px solid var(--stroke);
 				border-radius: 18px;
 				min-height: 420px;
 				overflow: hidden;
@@ -1864,7 +1879,7 @@
 				gap: 24px;
 				align-items: flex-start;
 				padding: 28px;
-				background: radial-gradient(ellipse at top right, rgba(168,85,247,0.08), transparent 60%), linear-gradient(180deg, #0e0e10, #0a0a0a);
+				background: radial-gradient(ellipse at top right, rgba(255,255,255,0.05), transparent 60%), linear-gradient(180deg, #0e0e10, #0a0a0a);
 				border: 1px solid #1f1f1f;
 				border-radius: 18px;
 				margin-top: 4px;
@@ -1872,7 +1887,7 @@
 			}
 			.memory-intro-text { flex: 1; min-width: 280px; }
 			.memory-intro-title {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 24px;
 				font-weight: 700;
 				color: #fafafa;
@@ -1906,7 +1921,7 @@
 				box-shadow: 0 8px 20px rgba(255,255,255,0.08);
 			}
 			.market-memory-section-title {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 13px;
 				font-weight: 700;
 				letter-spacing: 0.12em;
@@ -1920,8 +1935,8 @@
 				gap: 14px;
 			}
 			.market-memory-type-card {
-				background: var(--mk-panel, #111);
-				border: 1px solid var(--mk-border, #1f1f1f);
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
 				border-radius: 16px;
 				padding: 20px;
 				display: flex;
@@ -1976,14 +1991,14 @@
 				background: rgba(255,255,255,0.03);
 				border: 1px solid rgba(255,255,255,0.06);
 				border-radius: 8px;
-				border-left: 3px solid rgba(168,85,247,0.3);
+				border-left: 3px solid rgba(255,255,255,0.18);
 			}
 
 			/* Memory type accent colors */
 			.market-memory-type-card[data-memory-type="user"] .memory-type-icon { background: rgba(59,130,246,0.1); }
 			.market-memory-type-card[data-memory-type="feedback"] .memory-type-icon { background: rgba(234,179,8,0.1); }
 			.market-memory-type-card[data-memory-type="project"] .memory-type-icon { background: rgba(34,197,94,0.1); }
-			.market-memory-type-card[data-memory-type="reference"] .memory-type-icon { background: rgba(168,85,247,0.1); }
+			.market-memory-type-card[data-memory-type="reference"] .memory-type-icon { background: rgba(255,255,255,0.06); }
 
 			/* How memory works section */
 			.market-memory-how {
@@ -2004,7 +2019,7 @@
 				align-items: flex-start;
 				gap: 16px;
 				padding: 18px 20px;
-				background: var(--mk-panel, #111);
+				background: var(--surface-1);
 				transition: background 0.15s ease;
 			}
 			.memory-step:hover { background: #141414; }
@@ -2014,7 +2029,7 @@
 				border-radius: 50%;
 				background: rgba(255,255,255,0.08);
 				color: #a1a1aa;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-weight: 700;
 				font-size: 12px;
 				display: flex;
@@ -2049,7 +2064,7 @@
 				align-items: flex-start;
 				gap: 12px;
 				padding: 12px 16px;
-				background: var(--mk-panel, #111);
+				background: var(--surface-1);
 			}
 			.memory-feed-icon {
 				width: 28px;
@@ -2112,7 +2127,10 @@
 			<link rel="stylesheet" href="/footer.css" />
 			<link rel="stylesheet" href="/mobile.css" />
 			<script defer src="/footer-newsletter.js"></script>
-	</head>
+	
+	<meta property="og:site_name" content="three.ws">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Marketplace","description":"Buy access to agents, skills, and avatars from other creators.","url":"https://three.ws/marketplace","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="market-page">
 		<header><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
@@ -2208,7 +2226,7 @@
 					</select>
 					<a class="market-submit-avatar-btn" href="/create" id="market-submit-avatar-btn">+ Create Avatar</a>
 				</header>
-
+				<div id="market-result-count" class="market-visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
 
 				<div class="market-cat-chips" id="market-cat-chips" role="navigation" aria-label="Categories"></div>
 
@@ -2282,7 +2300,7 @@
 									<span class="count" id="d-rating-count">No reviews yet</span>
 								</div>
 								<div class="d-rating-input" id="d-rating-input" hidden>
-									<span style="font-size:12px;color:var(--mk-text-2)">Your rating:</span>
+									<span style="font-size:12px;color:var(--ink-dim)">Your rating:</span>
 									<span class="stars" id="d-rating-pick" role="radiogroup" aria-label="Pick a rating">
 										<button type="button" class="star-pick" data-rating="1" aria-label="1 star">☆</button>
 										<button type="button" class="star-pick" data-rating="2" aria-label="2 stars">☆</button>
@@ -2334,7 +2352,7 @@
 
 						<div data-panel="embed" class="market-panel">
 							<h2>Embed this Agent</h2>
-							<p class="market-prose" style="font-size:13px;color:var(--mk-text-2);margin:0 0 18px">Drop the agent anywhere — as a web component, iframe, or direct link.</p>
+							<p class="market-prose" style="font-size:13px;color:var(--ink-dim);margin:0 0 18px">Drop the agent anywhere — as a web component, iframe, or direct link.</p>
 							<div class="d-embed-section">
 								<div class="d-embed-label">
 									<span>Web component</span>
@@ -2692,17 +2710,17 @@
 						</section>
 						<section class="tool-detail-block skill-x402-block" id="skill-detail-x402-wrap" hidden>
 							<div class="tool-detail-block-head">
-								<h2 class="tool-detail-block-title">Call this skill · x402</h2>
+								<h2 class="tool-detail-block-title">Call this skill · pay-per-call</h2>
 								<span class="skill-x402-price" id="skill-detail-x402-price"></span>
 							</div>
-							<p class="skill-x402-lead">Pay per call in USDC (Base or Solana) and get the skill's tool schema and instructions back. Settlement routes straight to the author — no account needed, just an x402 wallet.</p>
+							<p class="skill-x402-lead">Pay per call in <span data-term="usdc">USDC (a $1 digital dollar)</span> on Base or Solana and get the skill's tool schema and instructions back. Payment goes straight to the creator — no account needed, just a wallet.</p>
 							<div class="skill-x402-endpoint">
 								<code id="skill-detail-x402-url"></code>
 								<button type="button" class="btn-secondary skill-x402-copy" id="skill-detail-x402-copy-url" aria-label="Copy endpoint URL">Copy</button>
 							</div>
 							<div class="skill-x402-snippet">
 								<div class="skill-x402-snippet-head">
-									<span>Call with x402-fetch</span>
+									<span>Call with x402-fetch (pay-per-call client)</span>
 									<button type="button" class="btn-secondary skill-x402-copy" id="skill-detail-x402-copy-code" aria-label="Copy code snippet">Copy code</button>
 								</div>
 								<pre id="skill-detail-x402-code"></pre>
@@ -2981,7 +2999,7 @@
 					<h2 id="wallet-setup-title">Payout Wallet</h2>
 					<button class="market-modal-close" id="wallet-setup-close" aria-label="Close">×</button>
 				</div>
-				<p style="color:#a1a1aa;font-size:0.875rem;margin:0 0 1.25rem">Payments from buyers go directly to this wallet. You can use a Solana or Base (EVM) address.</p>
+				<p style="color:#a1a1aa;font-size:0.875rem;margin:0 0 1.25rem">Payments from buyers go directly to this wallet. You can use a Solana or Base wallet address.</p>
 				<div class="market-field">
 					<label for="ws-chain">Chain</label>
 					<select id="ws-chain">
@@ -2991,7 +3009,7 @@
 				</div>
 				<div class="market-field">
 					<label for="ws-address">Wallet address <span class="req">*</span></label>
-					<input id="ws-address" type="text" maxlength="100" placeholder="Solana or EVM address" autocomplete="off" />
+					<input id="ws-address" type="text" maxlength="100" placeholder="Solana or wallet address" autocomplete="off" />
 				</div>
 				<div id="wallet-setup-error" class="market-form-error" hidden></div>
 				<div class="market-submit-actions">
@@ -3007,7 +3025,7 @@
 					<h2 id="agent-pricing-title">Set Skill Prices</h2>
 					<button class="market-modal-close" id="agent-pricing-close" aria-label="Close">×</button>
 				</div>
-				<p style="color:#a1a1aa;font-size:0.875rem;margin:0 0 1rem" id="agent-pricing-hint">Set a USDC price for each skill. Leave blank or 0 to keep it free.</p>
+				<p style="color:#a1a1aa;font-size:0.875rem;margin:0 0 1rem" id="agent-pricing-hint">Set a USDC (a $1 digital dollar) price for each skill. Leave blank or 0 to keep it free.</p>
 				<div id="agent-pricing-rows" class="agent-pricing-rows"></div>
 				<div class="agent-pricing-add-row">
 					<input id="ap-new-skill" type="text" maxlength="100" placeholder="skill-name" autocomplete="off" />

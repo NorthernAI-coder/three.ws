@@ -44,7 +44,7 @@
 				overflow: hidden;
 			}
 			a {
-				color: var(--ibm-blue-2);
+				color: var(--brand-blue-2);
 				text-decoration: none;
 			}
 
@@ -84,8 +84,8 @@
 				width: 9px;
 				height: 9px;
 				border-radius: 50%;
-				background: var(--ibm-blue);
-				box-shadow: 0 0 12px var(--ibm-blue);
+				background: var(--brand-blue);
+				box-shadow: 0 0 12px var(--brand-blue);
 			}
 			.brand small {
 				color: var(--muted);
@@ -105,7 +105,7 @@
 			}
 			.topbar .back:hover {
 				color: var(--ink);
-				border-color: var(--ibm-blue-2);
+				border-color: var(--brand-blue-2);
 			}
 
 			/* Token readout (top-left) */
@@ -193,7 +193,7 @@
 				height: 26px;
 				border-radius: 6px;
 				flex: 0 0 auto;
-				background: linear-gradient(135deg, var(--ibm-blue), var(--ibm-blue-2));
+				background: linear-gradient(135deg, var(--brand-blue), var(--brand-blue-2));
 				display: grid;
 				place-items: center;
 				font-size: 11px;
@@ -256,7 +256,7 @@
 				white-space: nowrap;
 			}
 			.o-chip:hover {
-				border-color: var(--ibm-blue-2);
+				border-color: var(--brand-blue-2);
 				transform: translateY(-1px);
 			}
 			.search-wrap {
@@ -283,7 +283,7 @@
 				font-weight: 600;
 				color: #fff;
 				cursor: pointer;
-				background: var(--ibm-blue);
+				background: var(--brand-blue);
 				border: none;
 				border-radius: 8px;
 				padding: 7px 14px;
@@ -292,7 +292,7 @@
 					opacity 0.15s;
 			}
 			#o-run:hover {
-				background: var(--ibm-blue-2);
+				background: var(--brand-blue-2);
 			}
 			#o-run:disabled {
 				opacity: 0.5;
@@ -318,7 +318,7 @@
 				font-size: 11px;
 				letter-spacing: 0.14em;
 				text-transform: uppercase;
-				color: var(--ibm-blue-2);
+				color: var(--brand-blue-2);
 				margin-bottom: 6px;
 			}
 			#o-narration {
@@ -343,15 +343,15 @@
 				height: 6px;
 				margin-left: 4px;
 				border-radius: 50%;
-				background: var(--ibm-blue-2);
+				background: var(--brand-blue-2);
 				animation: pulse 1s infinite;
 			}
 			#o-status .status-retry {
 				background: none; border: none; padding: 0; margin-left: 6px;
-				color: var(--ibm-blue-2); font-size: inherit; font-family: inherit;
+				color: var(--brand-blue-2); font-size: inherit; font-family: inherit;
 				cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
 			}
-			#o-status .status-retry:hover { color: var(--ibm-blue-1); }
+			#o-status .status-retry:hover { color: var(--brand-blue); }
 			@keyframes pulse {
 				0%,
 				100% {
@@ -376,15 +376,15 @@
 
 			/* Narration bar pulses while the avatar speaks */
 			.narration-bar.speaking {
-				border-color: var(--ibm-blue-2);
+				border-color: var(--brand-blue-2);
 				box-shadow:
-					0 0 0 1px var(--ibm-blue-2),
+					0 0 0 1px var(--brand-blue-2),
 					0 24px 70px rgba(15, 98, 254, 0.28);
 			}
 			.narration-bar.speaking .label::after {
 				content: '●';
 				margin-left: 8px;
-				color: var(--ibm-blue-2);
+				color: var(--brand-blue-2);
 				animation: pulse 1s infinite;
 			}
 
@@ -393,7 +393,7 @@
 			#o-search:focus-visible,
 			#o-run:focus-visible,
 			.topbar a:focus-visible {
-				outline: 2px solid var(--ibm-blue-2);
+				outline: 2px solid var(--brand-blue-2);
 				outline-offset: 2px;
 			}
 
@@ -549,5 +549,6 @@
 			}
 		</script>
 		<script type="module" src="/src/ibm-oracle.js"></script>
+		<script type="module" src="/src/ibm-suite-nav.js"></script>
 	</body>
 </html>

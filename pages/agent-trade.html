@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent Commerce · three.ws</title>
   <meta name="description" content="Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, in 3D.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/fonts.css">
   <style>
     :root {
       --blue: #4589ff;
@@ -20,8 +19,8 @@
       --border: rgba(255,255,255,0.08);
       --text: #f4f4f4;
       --muted: #8d8d8d;
-      --font: 'IBM Plex Sans', system-ui, sans-serif;
-      --mono: 'IBM Plex Mono', monospace;
+      --font: var(--font-body, 'Inter', system-ui, sans-serif);
+      --mono: var(--font-mono, 'JetBrains Mono', 'SF Mono', ui-monospace, monospace);
       --radius: 12px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

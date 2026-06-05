@@ -50,7 +50,7 @@
 			background:var(--panel); border:1px solid var(--border); border-radius:99px;
 			padding:6px 13px 6px 10px; font-size:12px; color:var(--muted); backdrop-filter:blur(12px); white-space:nowrap;
 		}
-		.badge .dot { width:7px; height:7px; border-radius:50%; background:var(--ibm); box-shadow:0 0 10px var(--ibm); }
+		.badge .dot { width:7px; height:7px; border-radius:50%; background:var(--brand-blue); box-shadow:0 0 10px var(--brand-blue); }
 		.badge strong { color:var(--text); font-weight:500; }
 
 		.wrap { max-width:960px; margin:0 auto; padding:40px 20px 100px; }
@@ -58,11 +58,11 @@
 		.hero { text-align:center; margin-bottom:40px; }
 		.kicker {
 			display:inline-flex; align-items:center; gap:8px;
-			font-size:12px; font-weight:600; color:var(--ibm-light);
+			font-size:12px; font-weight:600; color:var(--brand-blue-light);
 			background:rgba(15,98,254,0.12); border:1px solid rgba(120,169,255,0.25);
 			border-radius:99px; padding:5px 12px; margin-bottom:18px;
 		}
-		.kicker .dot { width:7px; height:7px; border-radius:50%; background:var(--ibm); box-shadow:0 0 10px var(--ibm); }
+		.kicker .dot { width:7px; height:7px; border-radius:50%; background:var(--brand-blue); box-shadow:0 0 10px var(--brand-blue); }
 		h1 { font-size:clamp(30px,5vw,46px); letter-spacing:-0.025em; line-height:1.08; font-weight:650; }
 		h1 .grad { background:linear-gradient(90deg,#78a9ff,#42be65); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
 		.lede { color:var(--muted); font-size:17px; line-height:1.6; max-width:680px; margin:16px auto 0; }
@@ -85,22 +85,22 @@
 		}
 		.field textarea { resize:vertical; min-height:88px; }
 		.field input:focus, .field textarea:focus {
-			outline:none; border-color:var(--ibm-light); box-shadow:0 0 0 3px rgba(15,98,254,0.25);
+			outline:none; border-color:var(--brand-blue-light); box-shadow:0 0 0 3px rgba(15,98,254,0.25);
 		}
 		.counter { font-size:12px; color:var(--faint); text-align:right; }
 
 		.examples { display:flex; flex-wrap:wrap; gap:8px; margin:-4px 0 18px; }
 		.chip {
-			font-size:12px; color:var(--ibm-light); background:rgba(15,98,254,0.10);
+			font-size:12px; color:var(--brand-blue-light); background:rgba(15,98,254,0.10);
 			border:1px solid rgba(120,169,255,0.25); border-radius:99px; padding:6px 12px;
 			cursor:pointer; transition:background .15s, border-color .15s;
 		}
-		.chip:hover { background:rgba(15,98,254,0.20); border-color:var(--ibm-light); }
-		.chip:focus-visible { outline:2px solid var(--ibm-light); outline-offset:2px; }
+		.chip:hover { background:rgba(15,98,254,0.20); border-color:var(--brand-blue-light); }
+		.chip:focus-visible { outline:2px solid var(--brand-blue-light); outline-offset:2px; }
 
 		.run {
 			width:100%; padding:13px 18px; border:none; border-radius:11px;
-			background:var(--ibm); color:#fff; font-size:14px; font-weight:600; cursor:pointer;
+			background:var(--brand-blue); color:#fff; font-size:14px; font-weight:600; cursor:pointer;
 			display:inline-flex; align-items:center; justify-content:center; gap:9px; transition:filter .15s, opacity .15s;
 		}
 		.run:hover { filter:brightness(1.08); }
@@ -135,7 +135,7 @@
 
 		.reasons { list-style:none; display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
 		.reasons li { font-size:13.5px; color:var(--text); display:flex; gap:9px; align-items:flex-start; }
-		.reasons li::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--ibm-light); margin-top:7px; flex:0 0 auto; }
+		.reasons li::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--brand-blue-light); margin-top:7px; flex:0 0 auto; }
 
 		.section-title { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--faint); margin:18px 0 10px; }
 
@@ -143,10 +143,10 @@
 		.neighbor:first-of-type { border-top:none; }
 		.neighbor .nname { font-size:13.5px; color:var(--text); flex:0 0 38%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 		.neighbor .nbar { flex:1; height:6px; border-radius:99px; background:#0a0e16; border:1px solid var(--border); overflow:hidden; }
-		.neighbor .nbar > span { display:block; height:100%; background:var(--ibm-light); }
+		.neighbor .nbar > span { display:block; height:100%; background:var(--brand-blue-light); }
 		.neighbor .nscore { font:12px/1 var(--mono); color:var(--muted); flex:0 0 auto; width:46px; text-align:right; }
 		.neighbor .ntag { font-size:10px; color:var(--faint); border:1px solid var(--border); border-radius:99px; padding:2px 7px; }
-		.neighbor:hover .nname { color:var(--ibm-light); }
+		.neighbor:hover .nname { color:var(--brand-blue-light); }
 
 		.guardian-chips { display:flex; flex-wrap:wrap; gap:8px; }
 		.gchip { font-size:12px; padding:5px 11px; border-radius:99px; border:1px solid var(--border); color:var(--muted); display:inline-flex; align-items:center; gap:7px; }
@@ -159,12 +159,12 @@
 		.steps { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
 		@media (max-width:760px){ .steps { grid-template-columns:1fr; } }
 		.step { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px; }
-		.step .n { font:13px/1 var(--mono); color:var(--ibm-light); margin-bottom:10px; }
+		.step .n { font:13px/1 var(--mono); color:var(--brand-blue-light); margin-bottom:10px; }
 		.step h3 { font-size:14px; font-weight:600; margin-bottom:6px; }
 		.step p { font-size:13px; color:var(--muted); line-height:1.55; }
 
 		.foot { text-align:center; color:var(--faint); font-size:12px; margin-top:40px; }
-		.foot a { color:var(--ibm-light); text-decoration:none; }
+		.foot a { color:var(--brand-blue-light); text-decoration:none; }
 	</style>
 </head>
 <body>
@@ -284,147 +284,9 @@
 		</p>
 	</main>
 
-	<script type="module">
-		const $ = (id) => document.getElementById(id);
-		const nameEl = $('name'), descEl = $('desc'), runBtn = $('run'), runLabel = $('run-label');
-		const emptyEl = $('empty'), verdictEl = $('verdict');
-
-		function esc(s) {
-			return String(s ?? '').replace(/[&<>"']/g, (c) =>
-				({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-		}
-
-		$('desc').addEventListener('input', () => { $('count').textContent = descEl.value.length; });
-
-		document.getElementById('examples').addEventListener('click', (e) => {
-			const chip = e.target.closest('.chip');
-			if (!chip) return;
-			nameEl.value = chip.dataset.name || '';
-			descEl.value = chip.dataset.desc || '';
-			$('count').textContent = descEl.value.length;
-			run();
-		});
-
-		let busy = false;
-		async function run() {
-			const name = nameEl.value.trim();
-			const description = descEl.value.trim();
-			if (!name && !description) { nameEl.focus(); return; }
-			if (busy) return;
-			busy = true;
-			runBtn.disabled = true;
-			runLabel.textContent = 'Checking with Granite';
-			runBtn.insertAdjacentHTML('afterbegin', '<span class="spinner"></span>');
-
-			try {
-				const res = await fetch('/api/agents/identity-check', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					credentials: 'include',
-					body: JSON.stringify({ name, description }),
-				});
-				const data = await res.json();
-				if (!res.ok) {
-					renderError(data?.error_description || 'Check failed. Please try again.');
-				} else {
-					render(data);
-				}
-			} catch {
-				renderError('Network error. Please try again.');
-			} finally {
-				busy = false;
-				runBtn.disabled = false;
-				runBtn.querySelector('.spinner')?.remove();
-				runLabel.textContent = 'Run identity check';
-			}
-		}
-		runBtn.addEventListener('click', run);
-
-		function show() { emptyEl.style.display = 'none'; verdictEl.classList.add('show'); }
-
-		function renderError(msg) {
-			show();
-			verdictEl.dataset.state = 'unavailable';
-			$('status-icon').textContent = '!';
-			$('status-label').textContent = 'Could not check';
-			$('status-meta').textContent = msg;
-			$('uniq-block').style.display = 'none';
-			$('reasons').innerHTML = '';
-			$('neighbors-block').style.display = 'none';
-			$('guardian-block').style.display = 'none';
-		}
-
-		const ICON = { clear: '✓', review: '⚠', block: '✗', unavailable: '·' };
-		const LABEL = { clear: 'Distinct identity', review: 'Similar identity exists', block: 'Identity conflict', unavailable: 'Check unavailable' };
-
-		function render(data) {
-			show();
-			const state = data.status || 'unavailable';
-			verdictEl.dataset.state = state;
-			$('status-icon').textContent = ICON[state] || '·';
-			$('status-label').textContent = LABEL[state] || 'Unknown';
-
-			if (!data.configured || state === 'unavailable') {
-				$('status-meta').textContent = 'IBM watsonx.ai is not configured on this deployment.';
-				$('uniq-block').style.display = 'none';
-				$('reasons').innerHTML = '';
-				$('neighbors-block').style.display = 'none';
-				$('guardian-block').style.display = 'none';
-				return;
-			}
-
-			// Uniqueness gauge
-			const pct = data.uniqueness != null ? Math.round(data.uniqueness * 100) : null;
-			$('status-meta').textContent = pct != null ? `${pct}% distinct from existing agents` : '';
-			if (pct != null) {
-				$('uniq-block').style.display = 'block';
-				$('uniq-bar').style.width = pct + '%';
-				$('uniq-pct').textContent = pct + '%';
-			} else {
-				$('uniq-block').style.display = 'none';
-			}
-
-			// Reasons
-			$('reasons').innerHTML = (data.reasons || []).map((r) => `<li>${esc(r)}</li>`).join('');
-
-			// Nearest agents
-			const sims = (data.similar || []).filter((s) => s.score > 0);
-			if (sims.length) {
-				$('neighbors-block').style.display = 'block';
-				$('neighbors').innerHTML = sims.slice(0, 5).map((s) => {
-					const score = Math.round(s.score * 100);
-					const tag = s.owned ? '<span class="ntag">yours</span>' : (s.public ? '' : '<span class="ntag">private</span>');
-					return `<a class="neighbor" href="/agent/${esc(s.id)}" target="_blank" rel="noopener">
-						<span class="nname">${esc(s.name || 'Agent')}</span>
-						<span class="nbar"><span style="width:${score}%"></span></span>
-						<span class="nscore">${score}%</span>${tag}
-					</a>`;
-				}).join('');
-			} else {
-				$('neighbors-block').style.display = 'none';
-			}
-
-			// Guardian chips
-			const g = data.guardian;
-			if (g) {
-				$('guardian-block').style.display = 'block';
-				const flagged = new Set(g.flagged || []);
-				const reasons = g.reasons || [];
-				const labelFor = (risk) => {
-					const m = reasons.find((x) => x.risk === risk);
-					return m ? m.label : risk;
-				};
-				const risks = ['harm', 'social_bias', 'sexual_content'];
-				const chips = risks.map((risk) => {
-					const isFlag = flagged.has(risk);
-					const label = (labelFor(risk) || risk).replace(/_/g, ' ');
-					return `<span class="gchip ${isFlag ? 'flag' : ''}"><span class="gd"></span>${esc(label)}: ${isFlag ? 'flagged' : 'clear'}</span>`;
-				});
-				$('guardian-chips').innerHTML = chips.join('');
-			} else {
-				$('guardian-block').style.display = 'none';
-			}
-		}
-	</script>
+	<script type="module" src="/src/ibm-identity.js"></script>
+	<script type="module" src="/src/ibm-suite-nav.js"></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

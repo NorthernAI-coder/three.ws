@@ -15,7 +15,7 @@
 			--text: #e8eaf4;
 			--muted: #6b6e8a;
 			--alpha: #4e8cff;
-			--oracle: #a855f7;
+			--oracle: var(--accent);
 			--green: #22d17a;
 			--font: -apple-system, "Segoe UI", system-ui, sans-serif;
 		}
@@ -116,7 +116,7 @@
 			padding: 12px 32px;
 			border-radius: 12px;
 			border: 1px solid rgba(78,140,255,0.5);
-			background: linear-gradient(135deg, rgba(78,140,255,0.2), rgba(168,85,247,0.2));
+			background: linear-gradient(135deg, rgba(78,140,255,0.2), rgba(255,255,255,0.1));
 			color: #fff;
 			font: 600 13px/1 var(--font);
 			letter-spacing: 0.05em;
@@ -124,7 +124,7 @@
 			backdrop-filter: blur(14px);
 			transition: opacity .15s, transform .1s, border-color .2s;
 		}
-		#trade-btn:hover:not(:disabled) { opacity: .85; border-color: rgba(168,85,247,0.8); }
+		#trade-btn:hover:not(:disabled) { opacity: .85; border-color: rgba(255,255,255,0.5); }
 		#trade-btn:active:not(:disabled) { transform: scale(.97); }
 		#trade-btn:disabled { opacity: .35; cursor: not-allowed; }
 
@@ -398,7 +398,7 @@ async function refreshStatus() {
 		const r = await fetch('/api/demo/economy?status=1');
 		if (!r.ok) return;
 		const { agentA, agentB } = await r.json();
-		if (agentA?.configured) renderWalletChip('Oracle', agentA, '#a855f7');
+		if (agentA?.configured) renderWalletChip('Oracle', agentA, '#888888');
 		if (agentB?.configured) renderWalletChip('Trader', agentB, '#4e8cff');
 	} catch {}
 }

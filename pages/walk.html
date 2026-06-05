@@ -16,13 +16,12 @@
 		<meta name="theme-color" content="#000000" />
 
 		<!--
-			Multiplayer server URL. Empty in dev — the page falls back to
-			ws://<host>:2567 so `npm run dev:walk-all` works out of the box.
-			In production, set this to the deployed Colyseus host once the
-			multiplayer/ workspace is live (see multiplayer/README.md):
-				<meta name="walk-server" content="wss://three-ws-multiplayer.fly.dev">
+			Multiplayer server URL — the deployed Colyseus host. Leave the
+			content empty in a local checkout if you'd rather hit your own
+			`npm run dev:walk-all` server (the page then resolves ws://<host>:2567
+			in dev, or stays solo in prod). See multiplayer/README.md.
 		-->
-		<meta name="walk-server" content="" />
+		<meta name="walk-server" content="wss://three-ws-multiplayer-93741856042.us-central1.run.app" />
 
 		<link rel="shortcut icon" href="/favicon.ico" />
 		<link rel="stylesheet" href="/style.css" />
@@ -378,6 +377,12 @@
 			#walk-online[data-status="connecting"] .dot,
 			#walk-online[data-status="offline"] .dot {
 				background: #fbbf24;
+			}
+			#walk-online[data-status="unavailable"] {
+				cursor: default;
+			}
+			#walk-online[data-status="unavailable"] .dot {
+				background: var(--text-2);
 			}
 			#walk-online[data-status="failed"] {
 				cursor: pointer;
@@ -929,6 +934,55 @@
 				.walk-actions { gap: 5px; }
 			}
 
+			/* ── Focus styles ───────────────────────────────────────────────
+			   Keyboard-navigable interactive elements need a visible ring that
+			   passes contrast against the dark panels. :focus-visible avoids
+			   showing the ring on mouse clicks. */
+			.walk-btn:focus-visible,
+			.walk-touch-btn:focus-visible,
+			.walk-emote-btn:focus-visible,
+			.walk-avatar-opt:focus-visible,
+			.walk-chat-send:focus-visible,
+			#walk-online:focus-visible,
+			#walk-zen-exit:focus-visible,
+			.walk-players-header button:focus-visible,
+			.walk-avatar-picker-header button:focus-visible {
+				outline: 2px solid rgba(255, 255, 255, 0.55);
+				outline-offset: 2px;
+			}
+
+			/* ── Help hint fade ─────────────────────────────────────────────
+			   The hint bar auto-hides via JS; opacity lets it fade before the
+			   display:none removes it from layout. */
+			#walk-help {
+				transition: opacity 0.4s ease;
+			}
+
+			/* ── Prefers-reduced-motion ─────────────────────────────────────
+			   Users who opt out of animation get static indicators instead of
+			   spinning/pulsing elements, and all CSS transitions are cut to
+			   instant so no content ever appears to move on its own. */
+			@media (prefers-reduced-motion: reduce) {
+				.walk-loading-spinner {
+					animation: none;
+					border: 2.5px solid var(--text-2);
+					border-top-color: var(--accent);
+				}
+				.walk-loading { transition: none; }
+				.walk-btn,
+				.walk-touch-btn,
+				.walk-emote-btn,
+				.walk-avatar-opt { transition: none; }
+				#walk-ar-cta { transition: none; }
+				#walk-ar-cta .pulse { animation: none; background: var(--danger); box-shadow: none; }
+				.walk-players-panel { animation: none; }
+				.walk-chat-msg { animation: none; }
+				#walk-record-btn .dot { animation: none !important; }
+				#walk-record-status .rec-dot { animation: none; }
+				#walk-help { transition: none; }
+				#walk-zen-exit { transition: none; }
+			}
+
 			/* ── Zen mode (hide all UI) ─────────────────────────────────────
 			   Strips every overlay — controls, animated cards, chat — so the
 			   scene is just the 3D background and the movement joystick. A
@@ -984,7 +1038,10 @@
 			#walk-zen-exit svg { display: block; }
 		</style>
 		<link rel="stylesheet" href="/nav.css" />
-	</head>
+	
+	<link rel="canonical" href="https://three.ws/walk">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Walk","description":"Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.","url":"https://three.ws/walk","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body>
 		<header class="walk-site-header" id="walk-header"><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>

@@ -131,7 +131,7 @@
 				border-radius: 999px;
 				background: var(--tdoc-accent-soft, rgba(255, 255, 255, 0.16));
 				border: 1px solid var(--tdoc-accent-border, rgba(255, 255, 255, 0.32));
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.68rem;
 				font-weight: 700;
 				color: var(--tdoc-accent, #ffffff);
@@ -164,7 +164,7 @@
 			.tdoc-meta-chip svg { width: 11px; height: 11px; opacity: 0.7; }
 
 			.tdoc-hero h1 {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: clamp(1.8rem, 4.4vw, 2.9rem);
 				font-weight: 700;
 				letter-spacing: -0.025em;
@@ -195,7 +195,7 @@
 
 			.tdoc-builds-label {
 				flex-shrink: 0;
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.66rem;
 				font-weight: 700;
 				color: rgba(255, 255, 255, 0.4);
@@ -280,7 +280,7 @@
 			}
 
 			.tdoc-article h2 {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 1.5rem;
 				font-weight: 700;
 				color: #fff;
@@ -299,7 +299,7 @@
 			}
 
 			.tdoc-article h3 {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 1.15rem;
 				font-weight: 700;
 				color: rgba(255, 255, 255, 0.92);
@@ -310,7 +310,7 @@
 			}
 
 			.tdoc-article h4 {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 1rem;
 				font-weight: 700;
 				color: rgba(255, 255, 255, 0.85);
@@ -358,7 +358,7 @@
 			.tdoc-article blockquote p:last-child { margin-bottom: 0; }
 
 			.tdoc-article code {
-				font-family: 'JetBrains Mono', ui-monospace, monospace;
+				font-family: var(--font-mono);
 				font-size: 0.86em;
 				padding: 0.12em 0.4em;
 				background: rgba(255, 255, 255, 0.06);
@@ -388,7 +388,7 @@
 				background: none;
 				border: none;
 				font-size: inherit;
-				color: #c4b5fd;
+				color: var(--ink-dim);
 			}
 
 			.tdoc-article table {
@@ -406,7 +406,7 @@
 			}
 
 			.tdoc-article th {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-weight: 700;
 				color: rgba(255, 255, 255, 0.85);
 				font-size: 0.85rem;
@@ -437,7 +437,7 @@
 			}
 
 			.tdoc-toc-heading {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.68rem;
 				font-weight: 700;
 				color: rgba(255, 255, 255, 0.42);
@@ -519,7 +519,7 @@
 			}
 
 			.tdoc-pager-dir {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.68rem;
 				font-weight: 600;
 				color: rgba(255, 255, 255, 0.4);
@@ -528,7 +528,7 @@
 			}
 
 			.tdoc-pager-title {
-				font-family: 'Space Grotesk', sans-serif;
+				font-family: var(--font-display);
 				font-size: 0.95rem;
 				font-weight: 700;
 				color: #fff;
@@ -917,5 +917,7 @@
 			}
 		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

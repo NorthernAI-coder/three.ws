@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Glossary — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="author" content="nirholas" />
+		<meta
+			name="description"
+			content="Plain-English definitions for every crypto and AI-agent term on three.ws — x402, USDC, Solana, on-chain, mint, bonding curve, MCP, skills, brain, rig and more, each explained in one line."
+		/>
+		<meta name="theme-color" content="#000000" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Glossary — three.ws" />
+		<meta
+			property="og:description"
+			content="Every crypto and agent term on three.ws, explained in one plain-English line. No jargon, no assumptions."
+		/>
+		<meta property="og:url" content="https://three.ws/glossary" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Glossary — three.ws" />
+		<meta
+			name="twitter:description"
+			content="Every crypto and agent term on three.ws, explained in one plain-English line."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="canonical" href="https://three.ws/glossary" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="apple-touch-icon" href="/pwa-192x192.png" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+
+		<main class="glossary-page">
+			<div class="glos-hero">
+				<p class="glos-eyebrow">Plain English</p>
+				<h1>Glossary</h1>
+				<p class="glos-sub">
+					Every crypto and agent term on three.ws, explained in one line — no
+					jargon, no assumptions. Hover any underlined term across the site for
+					the same definition.
+				</p>
+				<div class="glos-search">
+					<input
+						id="glos-q"
+						type="search"
+						placeholder="Search terms…"
+						aria-label="Search glossary terms"
+						autocomplete="off"
+						spellcheck="false"
+					/>
+				</div>
+				<p id="glos-count" class="glos-count" aria-live="polite"></p>
+			</div>
+
+			<div id="glos-grid" class="glos-grid" aria-label="Glossary terms"></div>
+
+			<p id="glos-empty" class="glos-empty" role="status" hidden>
+				No terms match “<span></span>”. Try another word.
+			</p>
+		</main>
+
+		<script src="/nav.js"></script>
+		<script type="module" src="/src/glossary/page.js"></script>
+	</body>
+</html>

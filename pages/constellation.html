@@ -22,7 +22,12 @@
 		:root {
 			color-scheme: dark;
 			--bg: #04040a; --text: #eaeaf6; --muted: #8a93b2; --border: rgba(255,255,255,.10);
-			--panel: rgba(12,14,26,.72); --ibm: #0f62fe; --ibm-light: #78a9ff; --good: #42d392; --warn: #f7b955;
+			--panel: rgba(12,14,26,.72); --good: #42d392; --warn: #f7b955;
+			/* IBM Carbon brand accent — theme layer over the canonical monochrome system.
+			   Scoped visual identity for /ibm/* surfaces; everything else stays monochrome. */
+			--brand-blue: #0f62fe; --brand-blue-2: #4589ff; --brand-blue-light: #78a9ff;
+			--brand-blue-dim: rgba(15, 98, 254, 0.12); --brand-blue-glow: rgba(15, 98, 254, 0.22);
+			--brand-blue-stroke: rgba(120, 169, 255, 0.22);
 		}
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		html, body { height: 100%; }
@@ -33,23 +38,23 @@
 		.c-hud { position: fixed; top: 22px; left: 22px; max-width: min(420px, 76vw); z-index: 5; pointer-events: none; }
 		.c-badge { display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; text-decoration: none; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px 6px 10px; font-size: 12px; color: var(--muted); margin-bottom: 16px; transition: border-color .15s, color .15s; }
 		.c-badge:hover { border-color: rgba(120,169,255,.5); color: var(--text); }
-		.c-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 10px var(--ibm); }
+		.c-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-blue); box-shadow: 0 0 10px var(--brand-blue); }
 		.c-badge strong { color: var(--text); font-weight: 600; }
 		.c-hud h1 { font-size: clamp(22px, 3.4vw, 30px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
-		.c-hud h1 .g { background: linear-gradient(110deg, var(--ibm-light) 20%, var(--ibm) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+		.c-hud h1 .g { background: linear-gradient(110deg, var(--brand-blue-light) 20%, var(--brand-blue) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 		.c-hud p { color: var(--muted); font-size: 13.5px; margin-top: 8px; }
 		.c-status { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; pointer-events: auto; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: var(--text); }
 		.c-status .s-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; transition: background .3s; }
 		.c-status.live .s-dot { background: var(--good); box-shadow: 0 0 10px var(--good); }
 		.c-status.off .s-dot { background: var(--warn); }
 		.c-status.err .s-dot { background: #ff6b6b; }
-		.c-status code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--ibm-light); }
+		.c-status code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--brand-blue-light); }
 
 		.c-hint { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 5; color: var(--muted); font-size: 12.5px; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; white-space: nowrap; transition: opacity .4s; }
 		@media (max-width: 640px) { .c-hint { font-size: 11px; padding: 6px 12px; } }
 
 		.c-tooltip { position: fixed; z-index: 6; pointer-events: none; background: var(--panel); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 9px; padding: 6px 10px; font-size: 12.5px; opacity: 0; transition: opacity .12s; transform: translate(-50%, -130%); white-space: nowrap; }
-		.c-tooltip .sym { color: var(--ibm-light); font-weight: 700; }
+		.c-tooltip .sym { color: var(--brand-blue-light); font-weight: 700; }
 		.c-tooltip .nm { color: var(--muted); }
 
 		/* Detail + Granite analysis panel */
@@ -67,29 +72,32 @@
 		.c-stat .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 		.c-stat .v { font-size: 15px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
 		.c-links { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
-		.c-links a { font-size: 12px; color: var(--ibm-light); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; transition: border-color .15s; }
+		.c-links a { font-size: 12px; color: var(--brand-blue-light); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; transition: border-color .15s; }
 		.c-links a:hover { border-color: rgba(120,169,255,.5); }
 
 		.c-analysis-wrap { flex: 1; overflow-y: auto; padding: 20px 22px 28px; }
 		.c-analysis-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
-		.c-analysis-head .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 9px var(--ibm); flex: none; }
+		.c-analysis-head .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-blue); box-shadow: 0 0 9px var(--brand-blue); flex: none; }
 		.c-analysis-head strong { color: var(--text); font-weight: 600; }
 		.c-analysis { font-size: 14px; line-height: 1.7; color: #d6d9ec; white-space: pre-wrap; min-height: 40px; }
-		.c-analysis .cursor { display: inline-block; width: 7px; height: 15px; background: var(--ibm-light); vertical-align: text-bottom; animation: blink 1s steps(2) infinite; }
+		.c-analysis .cursor { display: inline-block; width: 7px; height: 15px; background: var(--brand-blue-light); vertical-align: text-bottom; animation: blink 1s steps(2) infinite; }
 		@keyframes blink { 50% { opacity: 0; } }
 		.c-meta { margin-top: 16px; font-size: 11px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
 		.c-notice { font-size: 13px; line-height: 1.6; color: var(--warn); background: rgba(247,185,85,.07); border: 1px solid rgba(247,185,85,.25); border-radius: 10px; padding: 12px 14px; }
-		.c-notice a { color: var(--ibm-light); }
+		.c-notice a { color: var(--brand-blue-light); }
 		.c-disclaim { margin-top: 18px; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
 
 		/* Center overlay (loading / fatal error) */
 		.c-overlay { position: fixed; inset: 0; z-index: 7; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; text-align: center; padding: 24px; transition: opacity .5s; }
 		.c-overlay.hidden { opacity: 0; pointer-events: none; }
-		.c-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(120,169,255,.2); border-top-color: var(--ibm-light); animation: spin .8s linear infinite; }
+		.c-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(120,169,255,.2); border-top-color: var(--brand-blue-light); animation: spin .8s linear infinite; }
 		@keyframes spin { to { transform: rotate(360deg); } }
 		.c-overlay .msg { color: var(--muted); font-size: 14px; max-width: 380px; }
 		.c-overlay .msg strong { color: var(--text); }
 	</style>
+
+	<meta property="og:site_name" content="three.ws">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"watsonx Constellation","description":"Live Solana tokens in a 3D galaxy, positioned in semantic space by IBM Granite embeddings on watsonx.ai. Click a star for a live IBM Granite analysis.","url":"https://three.ws/constellation","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 	<canvas id="c-scene"></canvas>

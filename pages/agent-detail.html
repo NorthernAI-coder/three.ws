@@ -24,24 +24,45 @@
 				visibility: hidden;
 			}
 
+			/* Shared B04 skeleton treatment — monochrome shimmer, tokens from
+			   agent-detail.css :root mirror the canonical site values. */
 			.skeleton {
-				background-color: #2a2a3a;
-				border-radius: 4px;
-				animation: skeleton-pulse 1.5s infinite ease-in-out;
+				background-color: var(--skeleton-base);
+				background-image: linear-gradient(
+					90deg,
+					var(--skeleton-base) 0%,
+					var(--skeleton-sheen) 50%,
+					var(--skeleton-base) 100%
+				);
+				background-size: 200% 100%;
+				border-radius: var(--skeleton-radius);
+				animation: skeleton-shimmer 1.4s ease-in-out infinite;
 			}
 
-			@keyframes skeleton-pulse {
-				0% { background-color: #2a2a3a; }
-				50% { background-color: #3a3a4a; }
-				100% { background-color: #2a2a3a; }
+			@keyframes skeleton-shimmer {
+				0% { background-position: 200% 0; }
+				100% { background-position: -200% 0; }
 			}
 
 			.ad-main.loading .ad-hero-avatar {
 				visibility: visible; /* Keep the container visible */
-				background-color: #2a2a3a;
+				background-color: var(--skeleton-base);
+				background-image: linear-gradient(
+					90deg,
+					var(--skeleton-base) 0%,
+					var(--skeleton-sheen) 50%,
+					var(--skeleton-base) 100%
+				);
+				background-size: 200% 100%;
+				animation: skeleton-shimmer 1.4s ease-in-out infinite;
 				border-radius: 50%;
 				width: 120px;
 				height: 120px;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.skeleton,
+				.ad-main.loading .ad-hero-avatar { animation: none; }
 			}
 			.ad-main.loading #ad-name-skeleton { display: block; }
 			.ad-main.loading #ad-meta-skeleton { display: block; }
@@ -71,29 +92,6 @@
 		<script src="/nav.js"></script>
 
 		<div class="ad-shell">
-			<div id="withdraw-modal" class="ad-modal-overlay hidden">
-				<div class="ad-modal">
-					<div class="ad-modal-header">
-						<h3>Withdraw SOL</h3>
-						<button id="close-modal-btn" class="ad-modal-close">&times;</button>
-					</div>
-					<div class="ad-modal-body">
-						<div class="ad-form-group">
-							<label for="withdraw-amount">Amount (SOL)</label>
-							<input type="number" id="withdraw-amount" class="ad-input" placeholder="0.0">
-						</div>
-						<div class="ad-form-group">
-							<label for="recipient-address">Recipient address or .sol name</label>
-							<input type="text" id="recipient-address" class="ad-input" placeholder="Wallet address or yourname.sol" autocomplete="off" spellcheck="false">
-							<div id="recipient-resolved" class="ad-resolved" hidden></div>
-						</div>
-					</div>
-					<div class="ad-modal-footer">
-						<button id="cancel-withdraw-btn" class="ad-btn">Cancel</button>
-						<button id="confirm-withdraw-btn" class="ad-btn ad-btn-primary">Confirm Withdraw</button>
-					</div>
-				</div>
-			</div>
 			<aside class="ad-sidebar">
 				<div class="ad-brand">three.ws</div>
 				<nav class="ad-nav">
@@ -142,6 +140,18 @@
 						<p class="ad-hero-desc" id="ad-desc"></p>
 						<div id="ad-desc-skeleton" class="skeleton" style="width: 80%; height: 48px; margin-top: 8px; display: none;"></div>
 						<div class="ad-hero-trust" id="ad-trust-pills"></div>
+						<div class="ad-hero-actions">
+							<button
+								type="button"
+								id="ad-share-btn"
+								class="ad-btn"
+								aria-label="Share this agent"
+								style="display:none"
+							>
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+								Share
+							</button>
+						</div>
 					</div>
 				</section>
 
@@ -212,7 +222,7 @@
 
 				<section class="ad-card">
 					<div class="ad-card-head">
-						<span class="ad-bullet ad-bullet-violet"></span>
+						<span class="ad-bullet ad-bullet-dim"></span>
 						<h2>REGISTRATIONS</h2>
 					</div>
 					<div class="ad-row ad-row-split">
@@ -272,7 +282,7 @@
 
 				<section class="ad-card" id="ad-strategy-card" style="display:none">
 					<div class="ad-card-head">
-						<span class="ad-bullet ad-bullet-violet"></span>
+						<span class="ad-bullet ad-bullet-dim"></span>
 						<h2>STRATEGY</h2>
 					</div>
 					<pre class="ad-raw" id="ad-strategy"></pre>
@@ -324,13 +334,13 @@
 				<section class="ad-card">
 					<div class="ad-card-head">
 						<span class="ad-bullet"></span>
-						<h2>ON-CHAIN DETAILS</h2>
+						<h2>BLOCKCHAIN DETAILS</h2>
 					</div>
 					<div id="ad-onchain"></div>
 					<div class="ad-row ad-row-split"><span class="ad-muted">Active</span><span id="ad-active">true</span></div>
 					<div class="ad-row ad-row-split"><span class="ad-muted">Services</span><span id="ad-svc-count2">0</span></div>
 					<div class="ad-row ad-row-split"><span class="ad-muted">Supported Trust</span><span class="ad-trust-pills" id="ad-supported-trust"></span></div>
-					<div class="ad-row ad-row-split"><span class="ad-muted">x402 Support</span><span id="ad-x402">No</span></div>
+					<div class="ad-row ad-row-split"><span class="ad-muted">Pay-per-call Support</span><span id="ad-x402">No</span></div>
 					<div class="ad-sub">PROTOCOLS</div>
 					<div class="ad-protocols" id="ad-protocols"></div>
 					<div class="ad-cta-row">
@@ -348,5 +358,7 @@
 
 		<script type="module" src="/src/agent-detail.js"></script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

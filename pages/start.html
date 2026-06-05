@@ -7,6 +7,7 @@
 	<meta name="description" content="Create your 3D AI agent in minutes. Give it a body, a brain, and a revenue stream." />
 	<meta name="robots" content="noindex" />
 	<link rel="icon" href="/favicon.ico" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
 	<style>
 		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -573,6 +574,12 @@
 			color: var(--text-3);
 			font-size: 11px;
 		}
+		.wz-earn-usd-hint {
+			font-size: 11px;
+			color: var(--text-3);
+			margin-top: 5px;
+			min-height: 16px;
+		}
 		.wz-wallet-input-wrap {
 			display: flex;
 			align-items: center;
@@ -648,6 +655,200 @@
 		}
 		.wz-btn-skip:hover { color: var(--text-2); }
 
+		/* ── Templates gallery screen ─────────────────────────────── */
+		#templates-screen {
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+			background: var(--bg);
+		}
+		#templates-screen.tpl-hidden {
+			display: none;
+		}
+		#wizard.wz-offstage {
+			display: none;
+		}
+		.tpl-header {
+			flex-shrink: 0;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 16px 24px;
+			border-bottom: 1px solid var(--border);
+		}
+		.tpl-scroll {
+			flex: 1;
+			overflow-y: auto;
+			-webkit-overflow-scrolling: touch;
+		}
+		.tpl-main {
+			max-width: 960px;
+			margin: 0 auto;
+			padding: 40px 24px 56px;
+			width: 100%;
+		}
+		.tpl-eyebrow {
+			font-size: 11px;
+			font-weight: 600;
+			letter-spacing: 0.12em;
+			text-transform: uppercase;
+			color: var(--text-3);
+			margin-bottom: 12px;
+		}
+		.tpl-headline {
+			font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+			font-weight: 700;
+			letter-spacing: -0.03em;
+			line-height: 1.15;
+			color: var(--text);
+			margin-bottom: 10px;
+		}
+		.tpl-sub {
+			font-size: 15px;
+			color: var(--text-2);
+			line-height: 1.6;
+			margin-bottom: 36px;
+		}
+		.tpl-grid {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 12px;
+			margin-bottom: 28px;
+		}
+		@media (max-width: 900px) {
+			.tpl-grid { grid-template-columns: repeat(2, 1fr); }
+		}
+		@media (max-width: 480px) {
+			.tpl-grid { grid-template-columns: 1fr; }
+		}
+		.tpl-card {
+			padding: 22px 18px 20px;
+			background: var(--surface);
+			border: 1.5px solid var(--border);
+			border-radius: var(--radius-lg);
+			cursor: pointer;
+			text-align: left;
+			position: relative;
+			overflow: hidden;
+			transition: border-color 0.18s, background 0.18s, transform 0.15s, box-shadow 0.18s;
+			font-family: inherit;
+			color: inherit;
+			width: 100%;
+		}
+		.tpl-card:hover {
+			border-color: var(--border-2);
+			background: var(--surface-2);
+			transform: translateY(-2px);
+			box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+		}
+		.tpl-card:active { transform: translateY(0); }
+		.tpl-card:focus-visible {
+			outline: 2px solid var(--text);
+			outline-offset: 2px;
+			border-color: var(--text);
+		}
+		.tpl-card-icon {
+			font-size: 26px;
+			line-height: 1;
+			margin-bottom: 14px;
+			display: block;
+		}
+		.tpl-card-name {
+			font-size: 14px;
+			font-weight: 600;
+			color: var(--text);
+			margin-bottom: 5px;
+		}
+		.tpl-card-tagline {
+			font-size: 12px;
+			color: var(--text-3);
+			line-height: 1.55;
+		}
+		.tpl-card-badge {
+			position: absolute;
+			top: 10px;
+			right: 10px;
+			font-size: 9px;
+			font-weight: 600;
+			background: #1a1100;
+			color: var(--amber);
+			padding: 2px 7px;
+			border-radius: 20px;
+			border: 1px solid #3a2a00;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+		}
+		.tpl-card-cta {
+			margin-top: 14px;
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--text-2);
+			opacity: 0;
+			transition: opacity 0.15s;
+			display: flex;
+			align-items: center;
+			gap: 4px;
+		}
+		.tpl-card:hover .tpl-card-cta,
+		.tpl-card:focus-visible .tpl-card-cta {
+			opacity: 1;
+		}
+		.tpl-blank-btn {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			background: none;
+			border: 1.5px dashed var(--border-2);
+			border-radius: var(--radius-sm);
+			padding: 12px 20px;
+			font-size: 13px;
+			font-weight: 500;
+			color: var(--text-3);
+			cursor: pointer;
+			font-family: inherit;
+			transition: color 0.15s, border-color 0.15s;
+			margin: 4px auto 0;
+		}
+		.tpl-blank-btn:hover { color: var(--text-2); border-color: #3f3f46; }
+		.tpl-blank-btn:focus-visible {
+			outline: 2px solid var(--text-3);
+			outline-offset: 2px;
+		}
+
+		/* ── Templates screen enter animation ──────────────────────── */
+		#templates-screen {
+			animation: tpl-fade-in 0.3s ease both;
+		}
+		@keyframes tpl-fade-in {
+			from { opacity: 0; }
+			to   { opacity: 1; }
+		}
+		.tpl-exit {
+			animation: tpl-fade-out 0.2s ease forwards;
+		}
+		@keyframes tpl-fade-out {
+			from { opacity: 1; transform: scale(1); }
+			to   { opacity: 0; transform: scale(0.98); }
+		}
+
+		/* ── Focus rings (keyboard navigation) ────────────────────── */
+		.wz-avatar-card:focus-visible,
+		.wz-chip:focus-visible,
+		.wz-model-card:focus-visible,
+		.wz-skill-card:focus-visible,
+		.wz-btn:focus-visible,
+		.wz-copy-btn:focus-visible,
+		.wz-live-link:focus-visible,
+		.wz-crypto-toggle-row:focus-visible,
+		.wz-crypto-reveal-btn:focus-visible,
+		.wz-crypto-hide-btn:focus-visible,
+		.wz-btn-skip:focus-visible {
+			outline: 2px solid var(--text);
+			outline-offset: 2px;
+			border-radius: var(--radius-sm);
+		}
+		.wz-live-link:focus-visible { border-radius: var(--radius-sm); border-color: var(--text); }
+
 		/* ── Error toast ───────────────────────────────────────────── */
 		.wz-toast {
 			position: fixed;
@@ -677,13 +878,152 @@
 			background: var(--border);
 			margin: 20px 0;
 		}
+
+		/* ── Crypto toggle ─────────────────────────────────────────── */
+		.wz-crypto-toggle-row {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			width: 100%;
+			padding: 8px 0;
+			background: none;
+			border: none;
+			cursor: pointer;
+			color: var(--text-3);
+			font-size: 12px;
+			font-weight: 600;
+			font-family: inherit;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+			transition: color 0.15s;
+			margin-bottom: 6px;
+			text-align: left;
+		}
+		.wz-crypto-toggle-row:hover { color: var(--text-2); }
+		.wz-crypto-toggle-row:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; border-radius: 4px; }
+		.wz-crypto-toggle-row[aria-expanded="true"] { color: var(--text-2); }
+		.wz-crypto-toggle-icon {
+			font-size: 14px;
+			transition: transform 0.2s;
+			display: inline-block;
+		}
+		.wz-crypto-toggle-row[aria-expanded="true"] .wz-crypto-toggle-icon {
+			transform: rotate(90deg);
+		}
+		.wz-crypto-section { margin-bottom: 4px; }
+		.wz-crypto-skills { margin-top: 16px; }
+		.wz-crypto-skills-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 10px;
+		}
+		.wz-crypto-skills-label {
+			font-size: 11px;
+			font-weight: 600;
+			color: var(--text-3);
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+		}
+		.wz-crypto-hide-btn {
+			font-size: 11px;
+			color: var(--text-3);
+			background: none;
+			border: none;
+			cursor: pointer;
+			font-family: inherit;
+			padding: 2px 4px;
+			transition: color 0.15s;
+		}
+		.wz-crypto-hide-btn:hover { color: var(--text-2); }
+		.wz-crypto-hide-btn:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
+		.wz-crypto-reveal-btn {
+			display: block;
+			width: 100%;
+			margin-top: 12px;
+			padding: 9px;
+			background: none;
+			border: 1px dashed var(--border-2);
+			border-radius: var(--radius-sm);
+			font-size: 12px;
+			color: var(--text-3);
+			cursor: pointer;
+			font-family: inherit;
+			transition: border-color 0.15s, color 0.15s;
+			text-align: center;
+		}
+		.wz-crypto-reveal-btn:hover { border-color: #3f3f46; color: var(--text-2); }
+		.wz-crypto-reveal-btn:focus-visible { outline: 2px solid var(--text-3); outline-offset: 2px; }
+
+		/* ── Step 5 no-wallet panel ────────────────────────────────── */
+		.wz-no-wallet-panel {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			padding: 16px 0 24px;
+		}
+		.wz-no-wallet-icon {
+			font-size: 52px;
+			margin-bottom: 20px;
+			line-height: 1;
+		}
+		.wz-no-wallet-hint {
+			display: flex;
+			align-items: flex-start;
+			gap: 12px;
+			padding: 14px;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-sm);
+			text-align: left;
+			width: 100%;
+			max-width: 480px;
+		}
+		.wz-no-wallet-hint-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+		.wz-no-wallet-hint-body { flex: 1; }
+		.wz-no-wallet-hint-title {
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--text-2);
+			margin-bottom: 4px;
+		}
+		.wz-no-wallet-hint-desc {
+			font-size: 12px;
+			color: var(--text-3);
+			line-height: 1.55;
+		}
 	</style>
 </head>
 <body>
-<div id="wizard">
+
+<!-- ── Templates gallery (pre-wizard) ──────────────────────────────── -->
+<div id="templates-screen" class="tpl-hidden" aria-label="Choose an agent template">
+	<header class="tpl-header">
+		<a href="/" class="wz-logo" aria-label="three.ws home">
+			<img src="/three.svg" alt="" />
+			<span>three.ws</span>
+		</a>
+		<a href="/dashboard" class="wz-skip">Skip setup</a>
+	</header>
+	<div class="tpl-scroll">
+		<main class="tpl-main">
+			<p class="tpl-eyebrow">Get started</p>
+			<h1 class="tpl-headline">Pick a starting point</h1>
+			<p class="tpl-sub">Choose a template to launch with a pre-built persona and skill set, or start from scratch.</p>
+			<div class="tpl-grid" id="tpl-grid" role="list" aria-label="Agent templates">
+				<!-- Cards injected by start.js -->
+			</div>
+			<button type="button" class="tpl-blank-btn" id="btn-blank-start" aria-label="Start from scratch without a template">
+				Start from scratch <span aria-hidden="true">→</span>
+			</button>
+		</main>
+	</div>
+</div>
+
+<div id="wizard" class="wz-offstage">
 	<!-- Header -->
 	<header class="wz-header">
-		<a href="/" class="wz-logo">
+		<a href="/" class="wz-logo" aria-label="three.ws home">
 			<img src="/three.svg" alt="" />
 			<span>three.ws</span>
 		</a>
@@ -759,24 +1099,36 @@
 
 				<p class="wz-label" style="margin-bottom:10px">Quick personality</p>
 				<div class="wz-chips" id="personality-chips">
-					<button type="button" class="wz-chip" data-preset="crypto">Crypto advisor</button>
-					<button type="button" class="wz-chip" data-preset="artist">Creative artist</button>
-					<button type="button" class="wz-chip" data-preset="community">Community manager</button>
-					<button type="button" class="wz-chip" data-preset="defi">DeFi expert</button>
-					<button type="button" class="wz-chip" data-preset="assistant">Helpful assistant</button>
+					<button type="button" class="wz-chip" data-preset="researcher" aria-pressed="false">Web researcher</button>
+					<button type="button" class="wz-chip" data-preset="support" aria-pressed="false">Customer support</button>
+					<button type="button" class="wz-chip" data-preset="podcast" aria-pressed="false">Podcast host</button>
+					<button type="button" class="wz-chip" data-preset="artist" aria-pressed="false">Creative artist</button>
+					<button type="button" class="wz-chip" data-preset="assistant" aria-pressed="false">Helpful assistant</button>
+				</div>
+
+				<button type="button" class="wz-crypto-toggle-row" id="crypto-toggle" aria-expanded="false">
+					<span class="wz-crypto-toggle-icon">›</span>
+					<span>Advanced / crypto</span>
+				</button>
+				<div class="wz-crypto-section" id="crypto-personality-section" hidden>
+					<div class="wz-chips">
+						<button type="button" class="wz-chip" data-preset="crypto" aria-pressed="false">Crypto advisor</button>
+						<button type="button" class="wz-chip" data-preset="defi" aria-pressed="false">DeFi expert</button>
+						<button type="button" class="wz-chip" data-preset="community" aria-pressed="false">Community manager</button>
+					</div>
 				</div>
 
 				<p class="wz-label" style="margin-bottom:10px">AI model</p>
 				<div class="wz-model-grid" id="model-grid">
-					<button type="button" class="wz-model-card active" data-model="claude-sonnet-4-5">
+					<button type="button" class="wz-model-card active" data-model="claude-sonnet-4-5" aria-pressed="true">
 						<div class="wz-model-name">Claude Sonnet</div>
 						<div class="wz-model-desc">Smart & fast</div>
 					</button>
-					<button type="button" class="wz-model-card" data-model="gpt-4o">
+					<button type="button" class="wz-model-card" data-model="gpt-4o" aria-pressed="false">
 						<div class="wz-model-name">GPT-4o</div>
 						<div class="wz-model-desc">OpenAI flagship</div>
 					</button>
-					<button type="button" class="wz-model-card" data-model="llama-3.3-70b">
+					<button type="button" class="wz-model-card" data-model="llama-3.3-70b" aria-pressed="false">
 						<div class="wz-model-name">Llama 3.3</div>
 						<div class="wz-model-desc">Open source</div>
 					</button>
@@ -797,7 +1149,7 @@
 						<div class="wz-skill-icon">🧠</div>
 						<div class="wz-skill-text">
 							<div class="wz-skill-name">Memory</div>
-							<div class="wz-skill-desc">Remember users & context across sessions</div>
+							<div class="wz-skill-desc">Remember users &amp; context across sessions</div>
 						</div>
 					</button>
 					<button type="button" class="wz-skill-card active" data-skill="think" aria-pressed="true">
@@ -808,39 +1160,49 @@
 							<div class="wz-skill-desc">Reason step-by-step before answering</div>
 						</div>
 					</button>
-					<button type="button" class="wz-skill-card" data-skill="pumpfun" aria-pressed="false">
-						<div class="wz-skill-check"></div>
-						<div class="wz-skill-icon">🚀</div>
-						<div class="wz-skill-text">
-							<div class="wz-skill-name">pump.fun</div>
-							<div class="wz-skill-desc">Monitor Solana token launches & whale moves</div>
-						</div>
-					</button>
-					<button type="button" class="wz-skill-card" data-skill="solana" aria-pressed="false">
-						<div class="wz-skill-check"></div>
-						<div class="wz-skill-icon">◎</div>
-						<div class="wz-skill-text">
-							<div class="wz-skill-name">Solana wallet</div>
-							<div class="wz-skill-desc">Execute on-chain swaps & check balances</div>
-						</div>
-					</button>
-					<button type="button" class="wz-skill-card" data-skill="x402" aria-pressed="false">
-						<div class="wz-skill-check"></div>
-						<div class="wz-skill-icon">💳</div>
-						<div class="wz-skill-text">
-							<div class="wz-skill-name">x402 payments</div>
-							<div class="wz-skill-desc">Accept USDC micropayments per API call</div>
-						</div>
-					</button>
 					<button type="button" class="wz-skill-card" data-skill="web" aria-pressed="false">
 						<div class="wz-skill-check"></div>
 						<div class="wz-skill-icon">🌐</div>
 						<div class="wz-skill-text">
 							<div class="wz-skill-name">Web research</div>
-							<div class="wz-skill-desc">Browse URLs & extract live information</div>
+							<div class="wz-skill-desc">Browse URLs &amp; extract live information</div>
 						</div>
 					</button>
 				</div>
+
+				<div class="wz-crypto-skills" id="crypto-skills-section" hidden>
+					<div class="wz-crypto-skills-header">
+						<span class="wz-crypto-skills-label">Crypto &amp; blockchain</span>
+						<button type="button" class="wz-crypto-hide-btn" id="crypto-skills-hide">Hide</button>
+					</div>
+					<div class="wz-skills-grid">
+						<button type="button" class="wz-skill-card" data-skill="pumpfun" aria-pressed="false">
+							<div class="wz-skill-check"></div>
+							<div class="wz-skill-icon">🚀</div>
+							<div class="wz-skill-text">
+								<div class="wz-skill-name">pump.fun</div>
+								<div class="wz-skill-desc">Monitor Solana token launches &amp; whale moves</div>
+							</div>
+						</button>
+						<button type="button" class="wz-skill-card" data-skill="solana" aria-pressed="false">
+							<div class="wz-skill-check"></div>
+							<div class="wz-skill-icon">◎</div>
+							<div class="wz-skill-text">
+								<div class="wz-skill-name">Solana wallet</div>
+								<div class="wz-skill-desc">Execute blockchain swaps &amp; check balances</div>
+							</div>
+						</button>
+						<button type="button" class="wz-skill-card" data-skill="x402" aria-pressed="false">
+							<div class="wz-skill-check"></div>
+							<div class="wz-skill-icon">💳</div>
+							<div class="wz-skill-text">
+								<div class="wz-skill-name">Pay-per-call</div>
+								<div class="wz-skill-desc">Accept USDC micropayments per API call</div>
+							</div>
+						</button>
+					</div>
+				</div>
+				<button type="button" class="wz-crypto-reveal-btn" id="crypto-skills-reveal">+ Enable crypto &amp; blockchain tools</button>
 			</div>
 		</section>
 
@@ -880,49 +1242,71 @@
 			</div>
 		</section>
 
-		<!-- Step 5: Earn -->
-		<section class="wz-step" id="step-5" aria-label="Step 5: Start earning">
+		<!-- Step 5: Finish -->
+		<section class="wz-step" id="step-5" aria-label="Step 5: Finish up">
 			<div class="wz-step-inner">
 				<p class="wz-eyebrow">Step 5 of 5</p>
-				<h1 class="wz-headline">Start earning</h1>
-				<p class="wz-sub">Set a price for your agent's API and connect a wallet to receive payouts. Both are optional.</p>
 
-				<div class="wz-earn-rows">
-					<div class="wz-earn-row">
-						<div class="wz-earn-icon">💰</div>
-						<div class="wz-earn-row-body">
-							<div class="wz-earn-row-label">Price per API call</div>
-							<div class="wz-earn-row-desc">Others pay USDC every time they call your agent's API</div>
-						</div>
-						<div>
-							<div class="wz-earn-input-wrap">
-								<span class="wz-earn-prefix">$</span>
-								<input type="number" class="wz-earn-num" id="earn-price" min="0" max="100" step="0.001" placeholder="0.001" />
-								<span class="wz-earn-suffix">USDC</span>
+				<!-- No-crypto: you're all set -->
+				<div id="step5-skip">
+					<h1 class="wz-headline">You're all set</h1>
+					<p class="wz-sub">Your agent is live and ready — no wallet needed. Head to your dashboard to start using it.</p>
+					<div class="wz-no-wallet-panel">
+						<div class="wz-no-wallet-icon">🎉</div>
+						<div class="wz-no-wallet-hint">
+							<div class="wz-no-wallet-hint-icon">💡</div>
+							<div class="wz-no-wallet-hint-body">
+								<div class="wz-no-wallet-hint-title">Want to earn from your agent later?</div>
+								<div class="wz-no-wallet-hint-desc">Enable crypto &amp; blockchain tools from your agent settings to accept USDC micropayments per API call.</div>
 							</div>
-						</div>
-					</div>
-
-					<div class="wz-earn-row">
-						<div class="wz-earn-icon">◎</div>
-						<div class="wz-earn-row-body">
-							<div class="wz-earn-row-label">Payout wallet</div>
-							<div class="wz-earn-row-desc">Solana or EVM address for withdrawals</div>
-						</div>
-					</div>
-					<div style="padding: 0 0 4px;">
-						<div class="wz-wallet-input-wrap">
-							<input type="text" class="wz-wallet-input" id="earn-wallet" placeholder="Enter Solana or EVM wallet address" />
-							<span class="wz-wallet-chain" id="earn-chain">SOL</span>
 						</div>
 					</div>
 				</div>
 
-				<div class="wz-divider"></div>
+				<!-- Crypto-enabled: earn setup -->
+				<div id="step5-earn" hidden>
+					<h1 class="wz-headline">Start earning</h1>
+					<p class="wz-sub">Set a price for your agent's API and connect a wallet to receive payouts. Both are optional.</p>
 
-				<p style="font-size:12px;color:var(--text-3);text-align:center;margin-bottom:16px">
-					You can always update pricing and wallets from your dashboard.
-				</p>
+					<div class="wz-earn-rows">
+						<div class="wz-earn-row">
+							<div class="wz-earn-icon">💰</div>
+							<div class="wz-earn-row-body">
+								<div class="wz-earn-row-label">Price per API call</div>
+								<div class="wz-earn-row-desc">Others pay <span data-term="usdc">USDC (a $1 digital dollar)</span> every time they call your agent's API</div>
+							</div>
+							<div>
+								<div class="wz-earn-input-wrap">
+									<span class="wz-earn-prefix">$</span>
+									<input type="number" class="wz-earn-num" id="earn-price" min="0" max="100" step="0.001" placeholder="0.001" />
+									<span class="wz-earn-suffix">USDC</span>
+								</div>
+								<div class="wz-earn-usd-hint" id="earn-price-usd-hint"></div>
+							</div>
+						</div>
+
+						<div class="wz-earn-row">
+							<div class="wz-earn-icon">◎</div>
+							<div class="wz-earn-row-body">
+								<div class="wz-earn-row-label">Payout wallet</div>
+								<div class="wz-earn-row-desc">Wallet address for withdrawals</div>
+							</div>
+						</div>
+						<div style="padding: 0 0 4px;">
+							<div class="wz-wallet-input-wrap">
+								<input type="text" class="wz-wallet-input" id="earn-wallet" placeholder="Solana or wallet address" />
+								<span class="wz-wallet-chain" id="earn-chain">SOL</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="wz-divider"></div>
+
+					<p style="font-size:12px;color:var(--text-3);text-align:center;margin-bottom:16px">
+						You can always update pricing and wallets from your dashboard.
+					</p>
+				</div>
+
 			</div>
 		</section>
 
@@ -941,5 +1325,6 @@
 
 <script type="module" src="/src/start.js"></script>
 	<script src="/brand.js" defer></script>
+	<script src="/getting-started.js" defer></script>
 </body>
 </html>

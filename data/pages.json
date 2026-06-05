@@ -163,6 +163,70 @@
 					"changefreq": "weekly"
 				},
 				{
+					"path": "/features/forge",
+					"title": "Forge — Text to 3D Model",
+					"description": "Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/features/scan",
+					"title": "Scan — Selfie to 3D Avatar",
+					"description": "Point your camera at your face, hold still, and walk away with a rigged 3D avatar in 60 seconds. Free, in your browser.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/features/play",
+					"title": "Play — Live 3D Coin Worlds",
+					"description": "Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/features/walk",
+					"title": "Walk — 3D Avatar AR",
+					"description": "Drive your AI agent's 3D avatar with WASD or joystick. Toggle AR mode and it walks on your real floor through your phone camera.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/features/studio",
+					"title": "Studio — Embeddable AI Widget Builder",
+					"description": "Configure avatar, voice, and knowledge base in the Widget Studio, then copy one script tag to embed a 3D AI agent anywhere.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/features/marketplace",
+					"title": "Marketplace — Discover and Fork AI Agents",
+					"description": "Browse hundreds of community-built AI agents with 3D avatars and on-chain identities. Fork any agent, buy paid skills, and ship in minutes.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/features/agent-exchange",
+					"title": "Agent Exchange — AI Agents Paying Each Other",
+					"description": "Watch two AI agents with 3D avatars autonomously negotiate and pay each other for crypto intelligence via x402 micropayments on Solana.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/features/deploy",
+					"title": "Deploy — On-Chain Agent Identity",
+					"description": "Register your AI agent on Solana via ERC-8004 and Metaplex Core. Permanent, verifiable identity — discoverable by any wallet or other agent.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
 					"path": "/agent/new",
 					"title": "New Agent",
 					"description": "Create a new agent from scratch — avatar, brain, skills, and on-chain identity.",
@@ -193,6 +257,15 @@
 					"priority": 0.6,
 					"changefreq": "monthly",
 					"added": "2026-05-25"
+				},
+				{
+					"path": "/voice",
+					"title": "Voice Lab",
+					"description": "Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-06-05",
+					"showcase": true
 				}
 			]
 		},
@@ -214,14 +287,16 @@
 					"title": "Multi-LLM Brain",
 					"description": "Send one prompt to Claude, GPT, Qwen, ModelScope, and Groq simultaneously. Side-by-side streaming with latency and token stats.",
 					"priority": 0.7,
-					"changefreq": "weekly"
+					"changefreq": "weekly",
+					"showcase": true
 				},
 				{
 					"path": "/lipsync",
 					"title": "Lipsync (TTS)",
 					"description": "Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.",
 					"priority": 0.6,
-					"changefreq": "weekly"
+					"changefreq": "weekly",
+					"showcase": true
 				},
 				{
 					"path": "/lipsync/mic",
@@ -243,7 +318,8 @@
 					"description": "A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.",
 					"priority": 0.6,
 					"changefreq": "monthly",
-					"added": "2026-05-25"
+					"added": "2026-05-25",
+					"indexable": false
 				},
 				{
 					"path": "/playground",
@@ -252,6 +328,14 @@
 					"priority": 0.5,
 					"changefreq": "weekly",
 					"added": "2026-05-25"
+				},
+				{
+					"path": "/labs",
+					"title": "Labs Showcase",
+					"description": "A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-05"
 				}
 			]
 		},
@@ -338,7 +422,8 @@
 					"description": "Cross-provider price disparities surfaced live from the merged x402 facilitator catalog. Find the cheapest endpoint for any capability.",
 					"priority": 0.7,
 					"changefreq": "daily",
-					"added": "2026-05-29"
+					"added": "2026-05-29",
+					"showcase": true
 				},
 				{
 					"path": "/providers",
@@ -362,7 +447,8 @@
 					"description": "The $THREE protocol as a living 3D organism. Real on-chain trades pulse through it in real time — each transaction emits a particle burst, whales send shockwaves, with a live trade feed and a HUD of price, market cap, holders, and volume.",
 					"priority": 0.8,
 					"changefreq": "always",
-					"added": "2026-05-29"
+					"added": "2026-05-29",
+					"showcase": true
 				},
 				{
 					"path": "/fact-checker",
@@ -370,7 +456,8 @@
 					"description": "Pay $0.10 per claim. The agent searches across authoritative sources, pays per retrieval via x402, and returns a verdict with cited evidence and a signed attestation.",
 					"priority": 0.8,
 					"changefreq": "weekly",
-					"added": "2026-05-27"
+					"added": "2026-05-27",
+					"showcase": true
 				},
 				{
 					"path": "/tutor",
@@ -378,7 +465,8 @@
 					"description": "Ask anything and pay a cent per answer. A pay-as-you-learn AI tutor that bills $0.01 per explanation in USDC over x402, with a live itemized session invoice and signed attestation.",
 					"priority": 0.8,
 					"changefreq": "weekly",
-					"added": "2026-05-29"
+					"added": "2026-05-29",
+					"showcase": true
 				},
 				{
 					"path": "/unstoppable",
@@ -386,7 +474,8 @@
 					"description": "Live dashboard for an autonomous agent that funds itself via x402 micropayments. Watch its balance, earnings, costs, and daily reflections in real time.",
 					"priority": 0.9,
 					"changefreq": "realtime",
-					"added": "2026-05-27"
+					"added": "2026-05-27",
+					"showcase": true
 				},
 				{
 					"path": "/shopper",
@@ -394,7 +483,8 @@
 					"description": "Describe a task and set a budget. An AI agent discovers relevant x402 endpoints via the Bazaar, chains them together, and synthesizes a final answer — paying per API call.",
 					"priority": 0.8,
 					"changefreq": "weekly",
-					"added": "2026-05-27"
+					"added": "2026-05-27",
+					"showcase": true
 				},
 				{
 					"path": "/forever",
@@ -402,7 +492,17 @@
 					"description": "Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.",
 					"priority": 0.6,
 					"changefreq": "monthly",
-					"added": "2026-05-29"
+					"added": "2026-05-29",
+					"showcase": true
+				},
+				{
+					"path": "/club",
+					"title": "Pole Club",
+					"description": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-06-05",
+					"showcase": true
 				}
 			]
 		},
@@ -487,37 +587,23 @@
 					"added": "2026-05-25"
 				},
 				{
-					"path": "/dashboard/wallets",
-					"title": "Dashboard · Wallets",
-					"description": "Manage connected and agent-managed wallets.",
+					"path": "/dashboard/account",
+					"title": "Dashboard · Account",
+					"description": "Manage connected wallets, SNS, delegation, and action log.",
 					"auth": "required",
 					"indexable": false
 				},
 				{
-					"path": "/dashboard/usage",
-					"title": "Dashboard · Usage",
+					"path": "/dashboard/analytics",
+					"title": "Dashboard · Analytics",
 					"description": "API call volume, x402 spend, and per-agent usage breakdowns.",
 					"auth": "required",
 					"indexable": false
 				},
 				{
-					"path": "/dashboard/storage",
-					"title": "Dashboard · Storage",
-					"description": "Avatar storage modes (R2 vs IPFS) and pin management.",
-					"auth": "required",
-					"indexable": false
-				},
-				{
-					"path": "/dashboard/sessions",
-					"title": "Dashboard · Sessions",
-					"description": "Active sign-in sessions across devices.",
-					"auth": "required",
-					"indexable": false
-				},
-				{
-					"path": "/dashboard/actions",
-					"title": "Dashboard · Actions",
-					"description": "Agent action history and approvals.",
+					"path": "/dashboard/settings",
+					"title": "Dashboard · Settings",
+					"description": "Avatar storage modes (R2 vs IPFS), sessions, notifications, and preferences.",
 					"auth": "required",
 					"indexable": false
 				},
@@ -541,6 +627,38 @@
 					"description": "Full documentation: SDKs, API reference, embedding, agent system, smart contracts.",
 					"priority": 0.9,
 					"changefreq": "weekly"
+				},
+				{
+					"path": "/docs/start-here",
+					"title": "Docs · Start Here",
+					"description": "Plain-language introduction to three.ws for creators and non-developers — what it is, who it’s for, and where to begin.",
+					"priority": 0.9,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/docs/make-your-agent",
+					"title": "Docs · Make Your First Agent",
+					"description": "Step-by-step guide to creating a 3D AI agent in the browser with no code required.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/docs/share-and-embed",
+					"title": "Docs · Share & Embed",
+					"description": "Three ways to put your agent in front of people: share a link, embed an iframe, or use the web component.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
+				},
+				{
+					"path": "/docs/do-i-need-crypto",
+					"title": "Docs · Do I Need Crypto?",
+					"description": "Honest answers to the wallet and payment questions — what requires crypto, what doesn’t, and how payments work.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-05"
 				},
 				{
 					"path": "/docs/quick-start",

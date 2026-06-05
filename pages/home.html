@@ -4,8 +4,9 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width,initial-scale=1" />
 	<title>three.ws — The 3D Agent Layer of the Internet</title>
-	<meta name="description" content="Create a 3D AI agent from a selfie in 60 seconds. Embed it anywhere with two lines of HTML. Charge per chat with x402. The 3D agent layer of the internet." />
+	<meta name="description" content="Make a 3D AI agent from a selfie in 60 seconds. Drop one HTML tag to embed it on any website. Optionally charge per chat with built-in micropayments." />
 	<link rel="canonical" href="https://three.ws/" />
+	<link rel="alternate" type="application/rss+xml" title="three.ws announcements" href="https://three.ws/rss/announcements.xml" />
 	<meta name="theme-color" content="#050505" />
 	<meta name="color-scheme" content="dark" />
 	<!-- Open Graph -->
@@ -13,7 +14,7 @@
 	<meta property="og:site_name" content="three.ws" />
 	<meta property="og:url" content="https://three.ws/" />
 	<meta property="og:title" content="three.ws — The 3D Agent Layer of the Internet" />
-	<meta property="og:description" content="Create, embed, and monetize living 3D AI agents. One tag. Any site. Voice, memory, payments, and on-chain identity included." />
+	<meta property="og:description" content="Make a living 3D AI agent from a selfie — embed it on any website in 60 seconds. Voice, memory, and payments built in." />
 	<meta property="og:image" content="https://three.ws/og-image.png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
@@ -23,14 +24,13 @@
 	<meta name="twitter:site" content="@trythreews" />
 	<meta name="twitter:creator" content="@trythreews" />
 	<meta name="twitter:title" content="three.ws — The 3D Agent Layer of the Internet" />
-	<meta name="twitter:description" content="Create, embed, and monetize living 3D AI agents. One tag. Any site. Voice, memory, payments, and on-chain identity included." />
+	<meta name="twitter:description" content="Make a living 3D AI agent from a selfie — embed it on any website in 60 seconds. Voice, memory, and payments built in." />
 	<meta name="twitter:image" content="https://three.ws/og-image.png" />
 	<meta name="twitter:image:alt" content="three.ws — living 3D AI agents you can embed anywhere" />
 	<link rel="icon" href="/favicon.ico" />
 	<link rel="apple-touch-icon" href="/pwa-192x192.png" />
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;450;500;550;600&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
+	<link rel="stylesheet" href="/buttons.css" />
 	<style>
 		:root {
 			color-scheme: dark;
@@ -48,9 +48,9 @@
 			--accent:    #ffffff;
 			--accent-2:  #ffffff;
 			--green:     #e8e8e8;
-			--font-display: "Inter Tight", "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-			--font-body:    "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-			--font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+			--font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+			--font-body:    'Inter', system-ui, sans-serif;
+			--font-mono:    'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
 		}
 		* { box-sizing: border-box; }
 		html { scroll-behavior: smooth; }
@@ -189,25 +189,7 @@
 		.nav-main > a { display: inline-flex; align-items: center; }
 		.nav-link-pill { display: inline-flex; align-items: center; gap: 6px; }
 
-		/* ── BUTTONS ─────────────────────────────────────────────── */
-		.btn {
-			display: inline-flex; align-items: center; gap: 10px;
-			padding: 13px 22px; border-radius: 8px;
-			font-size: 14.5px; font-weight: 500;
-			border: 1px solid var(--hairline-strong);
-			background: transparent; color: var(--text);
-			transition: border-color 0.15s, background 0.15s;
-			cursor: pointer; text-decoration: none; font-family: inherit;
-		}
-		.btn:hover { border-color: var(--text); background: rgba(255,255,255,0.04); }
-		.btn.primary {
-			background: var(--text); color: var(--bg);
-			border-color: var(--text); font-weight: 550;
-		}
-		.btn.primary:hover { background: #fff; }
-		.btn .arrow { transition: transform 0.18s; }
-		.btn:hover .arrow { transform: translateX(3px); }
-		.btn.sm { padding: 9px 16px; font-size: 13.5px; }
+		/* Buttons: canonical shared system — see public/buttons.css (loaded above). */
 		.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
 
 		/* ── HERO ────────────────────────────────────────────────── */
@@ -261,7 +243,24 @@
 			background: var(--text-3); flex-shrink: 0;
 		}
 		.hero-bullets li strong { color: var(--text); font-weight: 550; }
-		.hero-cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 52px; }
+		.hero-cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+		.hero-reassure {
+			display: inline-flex; align-items: center; gap: 9px;
+			font-size: 13.5px; line-height: 1.5; color: var(--text-3);
+			margin: 0 0 52px; max-width: 460px;
+		}
+		.hero-reassure svg {
+			width: 15px; height: 15px; flex-shrink: 0; color: var(--green);
+		}
+		.hero-reassure strong { color: var(--text-2); font-weight: 600; }
+		.hero-reassure a {
+			color: var(--text-2); text-decoration: none;
+			border-bottom: 1px solid var(--hairline-strong);
+			transition: color 0.15s, border-color 0.15s;
+		}
+		.hero-reassure a:hover, .hero-reassure a:focus-visible {
+			color: var(--text); border-bottom-color: var(--text-3); outline: none;
+		}
 
 		.metrics {
 			display: flex; gap: 28px; flex-wrap: wrap;
@@ -974,7 +973,7 @@
 		.pg-response-body .json-key { color: #60a5fa; }
 		.pg-response-body .json-str { color: #4ade80; }
 		.pg-response-body .json-num { color: #fbbf24; }
-		.pg-response-body .json-bool { color: #c084fc; }
+		.pg-response-body .json-bool { color: var(--accent); }
 		.pg-response-body .json-null { color: var(--text-4); }
 		.pg-curl-code {
 			font-family: var(--font-mono); font-size: 12px;
@@ -1024,9 +1023,6 @@
 		@media (max-width: 460px) {
 			.foot-cols { grid-template-columns: 1fr 1fr; }
 		}
-	.version-switch { display:inline-flex; align-items:center; gap:6px; margin-top:16px; padding:6px 14px; border-radius:100px; border:1px solid var(--hairline-strong); color:var(--text-3); font-size:12px; text-decoration:none; transition:color .2s, border-color .2s; }
-	.version-switch:hover { color:var(--text-2); border-color:var(--text-3); }
-	.version-switch svg { width:14px; height:14px; }
 		.foot-inner {
 			display: flex; justify-content: space-between; align-items: center;
 			gap: 24px; flex-wrap: wrap;
@@ -1064,12 +1060,12 @@
 			color: var(--text-4); padding: 18px 16px 6px;
 		}
 		.nav-drawer .dr-h:first-child { padding-top: 4px; }
-		.nav-drawer a {
+		.nav-drawer a:not(.btn) {
 			padding: 11px 16px; font-size: 15.5px; font-weight: 450;
 			color: var(--text-2); border-radius: 8px;
 			transition: background 0.12s, color 0.12s;
 		}
-		.nav-drawer a:hover { background: var(--surface-1); color: var(--text); }
+		.nav-drawer a:not(.btn):hover { background: var(--surface-1); color: var(--text); }
 		.nav-drawer .sep { height: 1px; background: var(--hairline); margin: 12px 0; }
 		.nav-drawer .btn { margin-top: 8px; justify-content: center; }
 		@media (max-width: 880px) {
@@ -1225,11 +1221,9 @@
 		.bento-card:hover::before { opacity: 1; }
 
 		/* ── ENHANCED INTERACTIVE STATES ─────────────────────────── */
-		.btn:focus-visible, .copy-btn:focus-visible, .nav-toggle:focus-visible {
+		.copy-btn:focus-visible, .nav-toggle:focus-visible {
 			outline: 2px solid rgba(255,255,255,0.5); outline-offset: 2px;
 		}
-		.btn:active:not(.primary) { background: rgba(255,255,255,0.06); }
-		.btn.primary:active { background: #e0e0e0; }
 		.door-screenshot img[src] { transition: transform 0.4s cubic-bezier(.2,.7,.3,1); }
 		.door:hover .door-screenshot img { transform: scale(1.03); }
 
@@ -1596,7 +1590,7 @@
 		}
 		.wyg-card-eyebrow.clr-gold { color: #c9a94e; }
 		.wyg-card-eyebrow.clr-teal { color: #5eadad; }
-		.wyg-card-eyebrow.clr-purple { color: #a78bfa; }
+		.wyg-card-eyebrow.clr-purple { color: var(--ink-dim); }
 		.wyg-card-eyebrow.clr-rose { color: #e879a0; }
 		.wyg-card-eyebrow.clr-sky { color: #7ab8e0; }
 		.wyg-card-eyebrow.clr-amber { color: #d4a04a; }
@@ -2423,6 +2417,8 @@
 	</style>
 	<noscript><style>.reveal{opacity:1!important;transform:none!important}.hero-text>*{opacity:1!important;transform:none!important}</style></noscript>
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
+
+	<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://three.ws/#organization","name":"three.ws","url":"https://three.ws","logo":"https://three.ws/og-image.png","description":"three.ws is the AI-agent layer for the open web: build, embed, monetize, and trade autonomous agents with real 3D avatars, on-chain identity (ERC-8004), pay-per-call (x402), and pump.fun token launches.","sameAs":["https://x.com/trythreews","https://github.com/nirholas/three.ws"]},{"@type":"WebSite","@id":"https://three.ws/#website","name":"three.ws","url":"https://three.ws","description":"Give your AI a body.","publisher":{"@id":"https://three.ws/#organization"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://three.ws/discover?q={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>
 </head>
 <body>
 
@@ -2451,6 +2447,7 @@
 			<div class="nav-grp">
 				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Discover<span class="nav-caret" aria-hidden="true">▾</span></button>
 				<div class="nav-pop" role="menu" aria-label="Discover">
+					<a class="nav-mi" href="/what-is" role="menuitem"><span class="nav-mi-t">What is three.ws?</span><span class="nav-mi-d">Plain-English intro + real use-cases — start here</span></a>
 					<a class="nav-mi" href="/features" role="menuitem"><span class="nav-mi-t">Features</span><span class="nav-mi-d">Everything an agent gets — interactive tour</span></a>
 					<a class="nav-mi" href="/discover" role="menuitem"><span class="nav-mi-t">ERC-8004 Agents</span><span class="nav-mi-d">On-chain agent directory</span></a>
 					<a class="nav-mi" href="/agents" role="menuitem"><span class="nav-mi-t">Agents Index</span><span class="nav-mi-d">Browse every registered agent</span></a>
@@ -2458,7 +2455,7 @@
 					<a class="nav-mi" href="/marketplace" role="menuitem"><span class="nav-mi-t">Marketplace</span><span class="nav-mi-d">Buy, sell &amp; remix agents</span></a>
 					<a class="nav-mi" href="/gallery" role="menuitem"><span class="nav-mi-t">Avatar Gallery</span><span class="nav-mi-d">Every public 3D avatar</span></a>
 					<a class="nav-mi" href="/skills" role="menuitem"><span class="nav-mi-t">Skills <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Browse agent tool packs &amp; capabilities</span></a>
-					<a class="nav-mi" href="/bazaar" role="menuitem"><span class="nav-mi-t">x402 Bazaar</span><span class="nav-mi-d">Browse paid APIs and MCP tools</span></a>
+					<a class="nav-mi" href="/bazaar" role="menuitem"><span class="nav-mi-t">Marketplace</span><span class="nav-mi-d">Browse paid APIs and MCP tools</span></a>
 					<a class="nav-mi" href="/community" role="menuitem"><span class="nav-mi-t">Community</span><span class="nav-mi-d">X, GitHub, and ways to get involved</span></a>
 				</div>
 			</div>
@@ -2480,7 +2477,7 @@
 					<a class="nav-mi" href="/tutorials" role="menuitem"><span class="nav-mi-t">Tutorials</span><span class="nav-mi-d">Step-by-step guides</span></a>
 					<a class="nav-mi" href="/brain" role="menuitem"><span class="nav-mi-t">Brain <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Claude · GPT · DeepSeek · Qwen · Llama</span></a>
 					<a class="nav-mi" href="/chat" role="menuitem"><span class="nav-mi-t">Chat</span><span class="nav-mi-d">Talk to your agent</span></a>
-					<a class="nav-mi" href="/pay" role="menuitem"><span class="nav-mi-t">Pay <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Agent payments — x402 + USDC</span></a>
+					<a class="nav-mi" href="/pay" role="menuitem"><span class="nav-mi-t">Pay <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Agent micropayments + USDC</span></a>
 					<a class="nav-mi" href="/docs#solana" role="menuitem"><span class="nav-mi-t">Solana SDK</span><span class="nav-mi-d">Attestations + agent-kit</span></a>
 				</div>
 			</div>
@@ -2512,17 +2509,17 @@
 					<a class="nav-mi" href="/xr" role="menuitem"><span class="nav-mi-t">XR <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Place your avatar in the real world</span></a>
 					<a class="nav-mi" href="/gmgn" role="menuitem"><span class="nav-mi-t">GMGN Smart Money <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Agent narrates smart wallet signals</span></a>
 					<a class="nav-mi" href="/pumpfun" role="menuitem"><span class="nav-mi-t">Pump.fun stream</span><span class="nav-mi-d">Mint agent tokens</span></a>
-					<a class="nav-mi" href="/pump-live" role="menuitem"><span class="nav-mi-t">Live launches</span><span class="nav-mi-d">Real-time mint feed</span></a>
+					<a class="nav-mi" href="/pump-live" role="menuitem"><span class="nav-mi-t">Live launches</span><span class="nav-mi-d">Real-time launch feed</span></a>
 					<a class="nav-mi" href="/pump-dashboard" role="menuitem"><span class="nav-mi-t">Pump Dashboard</span><span class="nav-mi-d">Watches · scanner · quotes</span></a>
 					<a class="nav-mi" href="/pump-visualizer" role="menuitem"><span class="nav-mi-t">Pump Visualizer</span><span class="nav-mi-d">3D view of trending tokens</span></a>
 					<a class="nav-mi" href="/three-live" role="menuitem"><span class="nav-mi-t">$THREE Live <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Protocol pulse — live trades in 3D</span></a>
 					<a class="nav-mi" href="/strategy-lab" role="menuitem"><span class="nav-mi-t">Strategy Lab</span><span class="nav-mi-d">DCA + subscriptions</span></a>
-					<a class="nav-mi" href="/club" role="menuitem"><span class="nav-mi-t">Pole Club <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">x402 micro-tip demo — $0.001 / dance</span></a>
-					<a class="nav-mi" href="/shopper" role="menuitem"><span class="nav-mi-t">Endpoint Shopper <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">AI chains x402 endpoints to answer a task</span></a>
-					<a class="nav-mi" href="/tutor" role="menuitem"><span class="nav-mi-t">Pay-As-You-Learn Tutor <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">$0.01 per answer in USDC over x402</span></a>
+					<a class="nav-mi" href="/club" role="menuitem"><span class="nav-mi-t">Pole Club <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Pay-per-tip demo — $0.001 / dance</span></a>
+					<a class="nav-mi" href="/shopper" role="menuitem"><span class="nav-mi-t">Endpoint Shopper <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">AI chains pay-per-call endpoints to answer a task</span></a>
+					<a class="nav-mi" href="/tutor" role="menuitem"><span class="nav-mi-t">Pay-As-You-Learn Tutor <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">$0.01 per answer in USDC</span></a>
 					<a class="nav-mi" href="/fact-checker" role="menuitem"><span class="nav-mi-t">Fact Checker <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">$0.10 per claim — cited verdict + attestation</span></a>
-					<a class="nav-mi" href="/arbitrage" role="menuitem"><span class="nav-mi-t">x402 Arbitrage <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Cheapest endpoint per capability, live</span></a>
-					<a class="nav-mi" href="/providers" role="menuitem"><span class="nav-mi-t">x402 Providers <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Operator profiles for the paid API catalog</span></a>
+					<a class="nav-mi" href="/arbitrage" role="menuitem"><span class="nav-mi-t">API Arbitrage <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Cheapest endpoint per capability, live</span></a>
+					<a class="nav-mi" href="/providers" role="menuitem"><span class="nav-mi-t">API Providers <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Operator profiles for the paid API catalog</span></a>
 					<a class="nav-mi" href="/unstoppable" role="menuitem"><span class="nav-mi-t">Unstoppable Agent <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Self-funding agent dashboard, live</span></a>
 					<a class="nav-mi" href="/rider" role="menuitem"><span class="nav-mi-t">Rider (VR)</span><span class="nav-mi-d">Open-source VR music visualization</span></a>
 					<a class="nav-mi" href="/forever" role="menuitem"><span class="nav-mi-t">Forever</span><span class="nav-mi-d">Etch a message into Bitcoin — forever</span></a>
@@ -2551,6 +2548,7 @@
 	<a href="/playground">Playground</a>
 	<a href="/voice">Voice Lab</a>
 	<div class="dr-h">Discover</div>
+	<a href="/what-is">What is three.ws?</a>
 	<a href="/features">Features</a>
 	<a href="/discover">ERC-8004 Agents</a>
 	<a href="/agents">Agents Index</a>
@@ -2558,7 +2556,7 @@
 	<a href="/marketplace">Marketplace</a>
 	<a href="/gallery">Avatar Gallery</a>
 	<a href="/skills">Skills</a>
-	<a href="/bazaar">x402 Bazaar</a>
+	<a href="/bazaar">Marketplace (paid APIs)</a>
 	<a href="/community">Community</a>
 	<div class="dr-h">Embed</div>
 	<a href="/widgets">Widgets</a>
@@ -2593,8 +2591,8 @@
 	<a href="/shopper">Endpoint Shopper</a>
 	<a href="/tutor">Pay-As-You-Learn Tutor</a>
 	<a href="/fact-checker">Fact Checker</a>
-	<a href="/arbitrage">x402 Arbitrage</a>
-	<a href="/providers">x402 Providers</a>
+	<a href="/arbitrage">API Arbitrage</a>
+	<a href="/providers">API Providers</a>
 	<a href="/unstoppable">Unstoppable Agent</a>
 	<a href="/rider">Rider (VR)</a>
 	<a href="/forever">Forever</a>
@@ -2602,7 +2600,7 @@
 	<a href="/pricing">Pricing</a>
 	<div class="sep"></div>
 	<a href="/login">Sign in</a>
-	<a class="btn primary" href="/dashboard" style="margin-top:4px;">Console →</a>
+	<a class="btn btn--primary" href="/dashboard" style="margin-top:4px;">Console →</a>
 </nav>
 <script>
 	(function () {
@@ -2699,19 +2697,24 @@
 	<div class="hero-text">
 		<div class="eyebrow">Open beta · live now</div>
 		<h1 class="hero-h">
-			The 3D agent<br/>
-			layer of the<br/>
-			<em>internet.</em>
+			Make a 3D AI agent<br/>
+			from a selfie.<br/>
+			<em>Embed it anywhere.</em>
 		</h1>
 		<ul class="hero-bullets">
 			<li><strong>Create</strong> a 3D AI agent from a selfie in 60 seconds</li>
 			<li><strong>Embed</strong> it on any website with two lines of HTML</li>
-			<li><strong>Earn</strong> USDC per chat with x402 micropayments</li>
+			<li><strong>Earn</strong> <span data-term="usdc">USDC (a $1 digital dollar)</span> per chat with <span data-term="pay-per-call">pay-per-call micropayments</span></li>
 		</ul>
 		<div class="hero-cta-row">
-			<a class="btn primary" href="/create">Build your agent <span class="arrow">→</span></a>
+			<a class="btn btn--primary" href="/create">Build your agent <span class="arrow">→</span></a>
+			<a class="btn" href="/what-is">What is this? <span class="arrow">→</span></a>
 			<a class="btn" href="#embed">See the embed</a>
 		</div>
+		<p class="hero-reassure">
+			<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 4.5L6 12L2.5 8.5"/></svg>
+			<span><strong>No crypto needed to start.</strong> Build, embed, and chat with your agent for free. Owning it on-chain or charging for it is <a href="/pricing#no-crypto">an optional layer</a>.</span>
+		</p>
 	</div>
 	<div class="hero-stage" id="hero-stage">
 		<span class="stage-marker">live</span>
@@ -2763,11 +2766,11 @@
 			<span class="cap-sep">·</span>
 			<span class="cap-item">AI agent SDK</span>
 			<span class="cap-sep">·</span>
-			<span class="cap-item">On-chain payments via x402</span>
+			<span class="cap-item">Pay-per-call micropayments</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">Solana native</span>
 			<span class="cap-sep">·</span>
-			<span class="cap-item">ERC-8004 standard</span>
+			<span class="cap-item">Blockchain identity</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">TypeScript SDK</span>
 			<span class="cap-sep">·</span>
@@ -2797,11 +2800,11 @@
 			<span class="cap-sep">·</span>
 			<span class="cap-item">AI agent SDK</span>
 			<span class="cap-sep">·</span>
-			<span class="cap-item">On-chain payments via x402</span>
+			<span class="cap-item">Pay-per-call micropayments</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">Solana native</span>
 			<span class="cap-sep">·</span>
-			<span class="cap-item">ERC-8004 standard</span>
+			<span class="cap-item">Blockchain identity</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">TypeScript SDK</span>
 			<span class="cap-sep">·</span>
@@ -2838,7 +2841,7 @@
 			<span class="logo">solana</span>
 			<span class="logo">metaplex</span>
 			<span class="logo">erc-8004</span>
-			<span class="logo">x402</span>
+			<span class="logo">pay-per-call</span>
 		</div>
 	</div>
 </div>
@@ -2949,7 +2952,7 @@
 			<p class="block-eyebrow"><span class="num">02</span>The platform</p>
 			<h2 class="block-h">Build, embed, <em>and earn.</em></h2>
 			<p class="block-lede">
-				A full-stack platform for 3D AI agents: from selfie to on-chain identity, from embed to monetization.
+				A full-stack platform for 3D AI agents: from selfie to published agent, from embed to earning.
 			</p>
 		</div>
 		<div class="doors reveal reveal-d1">
@@ -2992,7 +2995,7 @@
 					</div>
 				</div>
 				<h3>Charge per chat. Keep everything.</h3>
-				<p>Gate skills behind x402 USDC micropayments. Keep 100% during open beta. Watch earnings flow in real-time from your dashboard.</p>
+				<p>Gate skills behind <span data-term="pay-per-call">pay-per-call (micropayments)</span> USDC payments. Keep 100% during open beta. Watch earnings flow in real-time from your dashboard.</p>
 				<span class="door-cta">Set up monetization</span>
 			</a>
 		</div>
@@ -3111,9 +3114,9 @@
 
 				<!-- On-chain -->
 				<div class="wyg-card">
-					<p class="wyg-card-eyebrow clr-purple">On-chain</p>
-					<h3 class="wyg-card-title">Verifiable identity.</h3>
-					<p class="wyg-card-body">Metaplex Core asset on Solana. One transaction, sub-cent fees. Discoverable by any A2A or MCP client.</p>
+					<p class="wyg-card-eyebrow clr-purple">On-chain · optional</p>
+					<h3 class="wyg-card-title">Own it, if you want.</h3>
+					<p class="wyg-card-body">Optionally record your agent on the blockchain so anyone can verify it's really yours — and other AI tools can find and call it. One transaction, sub-cent fees. Built on Metaplex Core, ERC-8004, A2A, and MCP.</p>
 				</div>
 
 				<!-- AI -->
@@ -3122,7 +3125,7 @@
 					<h3 class="wyg-card-title">Expression, in real time.</h3>
 					<p class="wyg-card-body">Your agent reacts as it speaks, thinks, succeeds, and fails — emotion wired directly to model output, not scripted.</p>
 					<div class="wyg-card-pills">
-						<span class="wyg-card-pill"><span class="dot" style="background:#a78bfa"></span>Celebration</span>
+						<span class="wyg-card-pill"><span class="dot" style="background:#ffffff"></span>Celebration</span>
 						<span class="wyg-card-pill"><span class="dot" style="background:#34d399"></span>Curiosity</span>
 						<span class="wyg-card-pill"><span class="dot" style="background:#60a5fa"></span>Empathy</span>
 						<span class="wyg-card-pill"><span class="dot" style="background:#fbbf24"></span>Concern</span>
@@ -3133,7 +3136,7 @@
 				<div class="wyg-card">
 					<p class="wyg-card-eyebrow clr-gold">Widgets</p>
 					<h3 class="wyg-card-title">5 widget types.</h3>
-					<p class="wyg-card-body">Turntable &middot; Talking Agent &middot; Animation Gallery &middot; ERC-8004 Passport &middot; Hotspot Tour</p>
+					<p class="wyg-card-body">Turntable &middot; Talking Agent &middot; Animation Gallery &middot; Agent Passport &middot; Hotspot Tour</p>
 					<a href="/widgets" class="wyg-card-link">Widget Studio</a>
 				</div>
 
@@ -3156,7 +3159,7 @@
 			<p class="block-eyebrow"><span class="num">03</span>Capabilities</p>
 			<h2 class="block-h">Every feature your <em>agent needs.</em></h2>
 			<p class="block-lede">
-				A complete platform — not a widget. Voice, motion capture, multiplayer, on-chain identity, and crypto payments built into every agent.
+				A complete platform — not a widget. Voice, motion capture, multiplayer, and payments built into every agent — with optional blockchain identity.
 			</p>
 		</div>
 		<div class="bento reveal reveal-d1">
@@ -3205,7 +3208,7 @@
 			<!-- Animations -->
 			<div class="bento-card">
 				<div class="bento-icon">
-					<span class="dot" style="background:#e8e8e8;box-shadow:0 0 8px #e8e8e855"></span>
+					<span class="dot" style="background:var(--ink);box-shadow:0 0 8px #e8e8e855"></span>
 					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">Animations</span>
 				</div>
 				<p class="bento-title">200+ motion clips</p>
@@ -3269,14 +3272,14 @@
 				</div>
 			</div>
 
-			<!-- x402 Payments -->
+			<!-- Micropayments -->
 			<div class="bento-card">
 				<div class="bento-icon">
-					<span class="dot" style="background:#e8e8e8;box-shadow:0 0 8px #e8e8e855"></span>
-					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">x402 Payments</span>
+					<span class="dot" style="background:var(--ink);box-shadow:0 0 8px #e8e8e855"></span>
+					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">Micropayments</span>
 				</div>
 				<p class="bento-title">Charge per chat in USDC</p>
-				<p class="bento-desc">Gate any agent skill behind an x402 HTTP paywall. Visitors pay with USDC on Base or Solana. Funds land in your wallet instantly.</p>
+				<p class="bento-desc">Gate any agent skill behind a pay-per-call paywall. Visitors pay with USDC (a $1 digital dollar) on Base or Solana. Funds land in your wallet instantly.</p>
 				<div class="bento-interact x402-demo" id="x402-demo">
 					<div class="x402-step" id="x402-step-req">
 						<span class="x402-code err" id="x402-code">HTTP 402 — Payment Required</span>
@@ -3297,10 +3300,10 @@
 			<div class="bento-card">
 				<div class="bento-icon">
 					<span class="dot" style="background:#ffffff;box-shadow:0 0 8px #ffffff55"></span>
-					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">On-chain Identity</span>
+					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">Blockchain Identity</span>
 				</div>
-				<p class="bento-title">ERC-8004 agent standard</p>
-				<p class="bento-desc">Mint your agent as an ERC-8004 identity on Solana — a Metaplex Core asset minted in one transaction for sub-cent fees. Own it, trade it, and let other agents discover and call it autonomously via A2A.</p>
+				<p class="bento-title">Blockchain identity (optional)</p>
+				<p class="bento-desc">Save your agent to the blockchain as a tradeable identity on Solana — created in one transaction for sub-cent fees. Own it, trade it, and let other agents discover and call it automatically.</p>
 				<div class="bento-interact mint-demo">
 					<div class="mint-card" id="mint-card">
 						<div class="mint-card-inner">
@@ -3331,8 +3334,8 @@
 					<span class="dot" style="background:#ffffff;box-shadow:0 0 8px #ffffff55"></span>
 					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">Skills</span>
 				</div>
-				<p class="bento-title">MCP · A2A · tool chain</p>
-				<p class="bento-desc">Wire your agent to any tool via MCP. Call other agents via A2A. Build skill packs and sell them in the marketplace.</p>
+				<p class="bento-title">Connect tools &amp; other agents</p>
+				<p class="bento-desc">Wire your agent to any tool via MCP. Let it discover and call other agents via A2A. Build skill packs and sell them in the marketplace.</p>
 				<div class="bento-interact skill-demo">
 					<div class="bento-pills" id="skill-tools">
 						<button class="bento-pill bento-pill-btn active" data-tool="jupiter">Jupiter</button>
@@ -3365,7 +3368,7 @@
 			<!-- AR / WebXR -->
 			<div class="bento-card">
 				<div class="bento-icon">
-					<span class="dot" style="background:#e8e8e8;box-shadow:0 0 8px #e8e8e855"></span>
+					<span class="dot" style="background:var(--ink);box-shadow:0 0 8px #e8e8e855"></span>
 					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">AR / WebXR</span>
 				</div>
 				<p class="bento-title">Augmented reality, no app</p>
@@ -3452,7 +3455,7 @@
 					<li><strong>Trending dashboard</strong> — track your token across the Pump.fun leaderboard in real-time</li>
 				</ul>
 				<div>
-					<a class="btn sm" href="/pump-3d-agent">Explore token agents <span class="arrow">→</span></a>
+					<a class="btn btn--sm" href="/pump-3d-agent">Explore token agents <span class="arrow">→</span></a>
 				</div>
 			</div>
 			<div class="feat-visual">
@@ -3468,8 +3471,8 @@
 					</a>
 					<div class="earn-rows" id="hlt-rows" style="border:1px solid var(--hairline);border-radius:8px;overflow:hidden;"></div>
 					<div style="display:flex;gap:10px;">
-						<a class="btn sm" href="/pumpfun-trending" style="flex:1;justify-content:center;">Trending tokens</a>
-						<button class="btn sm primary" id="hlt-launch" type="button" style="flex:1;justify-content:center;">Launch yours</button>
+						<a class="btn btn--sm" href="/pumpfun-trending" style="flex:1;justify-content:center;">Trending tokens</a>
+						<button class="btn btn--sm btn--primary" id="hlt-launch" type="button" style="flex:1;justify-content:center;">Launch yours</button>
 					</div>
 				</div>
 			</div>
@@ -3477,15 +3480,15 @@
 	</div>
 </section>
 
-<!-- ── x402 EARN ──────────────────────────────────────────────────── -->
+<!-- ── PAY-PER-CALL EARN ──────────────────────────────────────────────────── -->
 <section class="block">
 	<div class="wrap-1280">
 		<div class="feat-split rev reveal">
 			<div class="feat-text">
-				<p class="feat-eyebrow">x402 protocol · USDC payments</p>
+				<p class="feat-eyebrow">Pay-per-call (micropayments) · USDC payments</p>
 				<h3 class="feat-h">Charge per chat.<br/><em>Keep everything.</em></h3>
 				<p class="feat-body">
-					x402 is an open HTTP payment protocol — your agent responds with a 402 status code and visitors pay in USDC before unlocking your skills. No platform cut during open beta.
+					Pay-per-call is an open HTTP payment protocol — your agent responds with a 402 status code and visitors pay in USDC before unlocking your skills. No platform cut during open beta.
 				</p>
 				<ul class="feat-list">
 					<li><strong>Set your price</strong> — from $0.001 per message to $100 per session</li>
@@ -3495,7 +3498,7 @@
 					<li><strong>0% fee during beta</strong> — keep 100% of revenue while the platform scales</li>
 				</ul>
 				<div>
-					<a class="btn sm" href="/dashboard/monetize">Configure monetization <span class="arrow">→</span></a>
+					<a class="btn btn--sm" href="/dashboard/monetize">Configure monetization <span class="arrow">→</span></a>
 				</div>
 			</div>
 			<div class="feat-visual">
@@ -3565,7 +3568,7 @@
 					<li><strong>One embed tag</strong> — same <code>&lt;walk-embed&gt;</code> tag, zero backend setup</li>
 				</ul>
 				<div>
-					<a class="btn sm" href="/walk">See walk mode <span class="arrow">→</span></a>
+					<a class="btn btn--sm" href="/walk">See walk mode <span class="arrow">→</span></a>
 				</div>
 			</div>
 			<div class="feat-visual walk-preview-visual">
@@ -3669,7 +3672,7 @@
   <span class="fn">handler</span>: <span class="kw">async</span> (query) =&gt; { <span class="cmt">/* … */</span> },
 });
 
-<span class="cmt">// x402 gated endpoint auto-wired</span>
+<span class="cmt">// pay-per-call gated endpoint auto-wired</span>
 <span class="kw">await</span> <span class="fn">agent</span>.<span class="fn">deploy</span>();
 					</div>
 				</div>
@@ -3738,7 +3741,7 @@
 					<div class="dev-api-desc">Agent-to-agent protocol endpoint</div>
 				</div>
 				<div style="padding:14px 20px;margin-top:auto;border-top:1px solid var(--hairline);">
-					<a class="btn sm" href="/dashboard/api">Get API key <span class="arrow">&rarr;</span></a>
+					<a class="btn btn--sm" href="/dashboard/api">Get API key <span class="arrow">&rarr;</span></a>
 				</div>
 			</div>
 		</div>
@@ -3766,7 +3769,7 @@
 			<div class="step">
 				<div class="step-num">03 · SHIP</div>
 				<div class="step-title">Your site is alive</div>
-				<p class="step-body">Visitors talk to your agent with text or voice. It remembers across sessions. Charge per chat with x402. Launch its token on Pump.fun. Watch it grow on-chain.</p>
+				<p class="step-body">Visitors talk to your agent with text or voice. It remembers across sessions. Charge per chat with pay-per-call micropayments. Launch its token on Pump.fun. Watch it grow.</p>
 			</div>
 		</div>
 	</div>
@@ -3791,7 +3794,7 @@
 				<a href="/discover" class="stack-card">
 					<span class="stack-card-num">02</span>
 					<span class="stack-card-title">Registry</span>
-					<span class="stack-card-desc">ERC-8004 on-chain identity. Agents discoverable, portable, and attestable across any A2A or MCP client.</span>
+					<span class="stack-card-desc">Optional blockchain identity. Agents discoverable, portable, and attestable across any A2A or MCP client.</span>
 					<span class="stack-card-arrow">↗</span>
 				</a>
 				<a href="/docs" class="stack-card">
@@ -3802,7 +3805,7 @@
 				</a>
 				<a href="/dashboard/monetize" class="stack-card">
 					<span class="stack-card-num">04</span>
-					<span class="stack-card-title">x402</span>
+					<span class="stack-card-title">Pay-per-call</span>
 					<span class="stack-card-desc">HTTP-native USDC micropayments. Bill per skill, message, or session. 0% platform fee during open beta.</span>
 					<span class="stack-card-arrow">↗</span>
 				</a>
@@ -3852,7 +3855,7 @@
 				Not a render. Not a video. A real 3D character sitting on this text, jumping onto the button, interacting with the page in real-time.
 			</p>
 			<div class="cta-row">
-				<a class="btn primary" href="/create" id="drop-cta-btn">Build your agent <span class="arrow">→</span></a>
+				<a class="btn btn--primary" href="/create" id="drop-cta-btn">Build your agent <span class="arrow">→</span></a>
 			</div>
 		</div>
 	</div>
@@ -3867,9 +3870,9 @@
 	<div class="vclose-overlay">
 		<div class="vclose-eyebrow">live · three.ws</div>
 		<h2 class="vclose-title">Your AI deserves<br />a <em>body.</em></h2>
-		<p class="vclose-sub">Free to start. Two lines of HTML. Voice, payments, and on-chain identity included.</p>
+		<p class="vclose-sub">Free to start. Two lines of HTML. Voice, memory, and payments included.</p>
 		<div class="cta-row" style="justify-content:center;">
-			<a class="btn primary" href="/create">Build your agent <span class="arrow">→</span></a>
+			<a class="btn btn--primary" href="/create">Build your agent <span class="arrow">→</span></a>
 			<a class="btn" href="/docs">Read the docs</a>
 		</div>
 		<div class="vclose-chips" id="vclose-chips" role="group" aria-label="Trigger an animation">
@@ -3903,7 +3906,7 @@
 				<a href="/reputation">Reputation</a>
 				<a href="/characters">Characters</a>
 				<a href="/gallery">Avatar Gallery</a>
-				<a href="/bazaar">x402 Bazaar</a>
+				<a href="/bazaar">Marketplace</a>
 			</div>
 			<div class="foot-col">
 				<div class="foot-col-h">Developers</div>
@@ -3936,10 +3939,6 @@
 		</nav>
 		<div class="foot-inner">
 			<div>© 2026 · three.ws · the 3D agent layer of the internet</div>
-			<a href="/home-classic" class="version-switch" aria-label="Switch to classic homepage">
-				<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8h11M6.5 4L2.5 8l4 4"/></svg>
-				Classic homepage
-			</a>
 		</div>
 	</div>
 </footer>
@@ -4189,12 +4188,12 @@
 	// ── Hero thought-bubble chat ────────────────────────────────────
 	var HERO_SYSTEM_PROMPT = [
 		'You are the three.ws demo avatar — a live AI agent embedded on the three.ws homepage.',
-		'three.ws lets anyone build a 3D AI agent from a selfie in 60 seconds, embed it on any website with two lines of HTML, and earn USDC per chat using x402 micropayments.',
+		'three.ws lets anyone build a 3D AI agent from a selfie in 60 seconds, embed it on any website with two lines of HTML, and earn USDC per chat using pay-per-call micropayments.',
 		'',
 		'Platform knowledge:',
 		'- Create: Upload a selfie → photorealistic 3D avatar in ~60 seconds.',
 		'- Embed: <agent-3d id="..."> works on any site — React, Vue, plain HTML — zero config needed.',
-		'- Earn: x402 micropayments let your agent charge per chat in USDC on Base.',
+		'- Earn: pay-per-call micropayments let your agent charge per chat in USDC on Base.',
 		'- Discover: Browse and chat with live agents at three.ws/agents.',
 		'- Console: Manage your agents, voice, memory, and payments at three.ws/console.',
 		'- Voice, memory, tool use, animations, and payments are all built-in to every agent.',
@@ -4517,7 +4516,7 @@
 				syncCode();
 				if (liveAgent) { liveAgent.remove(); liveAgent = null; }
 				updatePreview();
-			});
+			}).catch(function() {});
 		}
 
 		function renderAvatars(list) {
@@ -4783,13 +4782,13 @@
 			syncCode();
 			updatePreview();
 			loadAvatars();
-		});
+		}).catch(function() {});
 	})();
 
 	// ── Showcase 3D — live agent grid ──────────────────────────────
 	(function () {
 		const SHOWCASE_ANIMS = ['idle', 'dance', 'wave', 'celebrate', 'capoeira', 'thriller'];
-		const SHOWCASE_TAGS = ['3D', 'animated', 'rigged', 'ERC-8004', 'x402', 'community'];
+		const SHOWCASE_TAGS = ['3D', 'animated', 'rigged', 'ERC-8004', 'pay-per-call', 'community'];
 		const EXPLORE_SHOWCASE_URL = '/api/explore?source=all&limit=6&quality=high';
 		const FALLBACK_AGENTS = [
 			{ name: 'CZ', description: 'Stylized humanoid', glbUrl: '/avatars/cz.glb', viewerUrl: '/avatars/avatar_demo_disk_cz', kind: 'avatar' },
@@ -4846,7 +4845,7 @@
 			if (item.kind === 'onchain') {
 				var tag = document.createElement('span');
 				tag.className = 'showcase-card-tag';
-				tag.textContent = 'On-chain';
+				tag.textContent = 'Blockchain';
 				card.appendChild(tag);
 			} else if (idx === 0) {
 				var ftag = document.createElement('span');
@@ -5825,7 +5824,7 @@
 					var thumb = item.thumbnail || (THUMB_CDN + '/' + id + '.png');
 					var a = document.createElement('a');
 					a.className = 'mktplace-item';
-					a.href = '/agent-next?id=' + id;
+					a.href = '/agents/' + id;
 					a.title = name;
 					var img = document.createElement('img');
 					img.src = thumb;
@@ -5977,26 +5976,43 @@
 
 	function showError(err) {
 		card.classList.add('error');
+		console.group('[three.ws] home deploy error');
+		console.error(err);
+		console.groupEnd();
+
 		const code = err && err.code;
 		const httpStatus = err && err.status;
+		const rawMsg = (err && err.message) || '';
+
 		if (code === 'NO_WALLET') {
-			setStatus(['No Solana wallet detected — ', extLink('https://phantom.app/', 'install Phantom ↗'), ' to deploy.'], 'err');
+			setStatus([
+				'No Solana wallet connected. ',
+				extLink('https://phantom.app/', 'Get Phantom ↗'),
+				' — takes about a minute, then come back to deploy.',
+			], 'err');
 			return;
 		}
 		if (httpStatus === 401) {
-			setStatus(['Sign in to mint your agent — ', navLink('/deploy', 'open the deploy console ↗')], 'err');
+			setStatus(['Sign in first — ', navLink('/deploy', 'open the deploy console ↗')], 'err');
 			return;
 		}
 		if (code === 'forbidden' || httpStatus === 403) {
-			setStatus(['Link this Solana wallet to your account first — ', navLink('/deploy', 'finish in the deploy console ↗')], 'err');
+			setStatus(["This wallet isn't linked to your account yet — ", navLink('/deploy', 'finish setup in the deploy console ↗')], 'err');
 			return;
 		}
-		const msg = (err && err.message) || 'Deploy failed — try again.';
-		if (/reject|denied|cancel|user.*declin/i.test(msg)) {
-			setStatus('Transaction cancelled in wallet.', 'err');
+		if (/reject|denied|cancel|user.*declin/i.test(rawMsg)) {
+			setStatus("Transaction cancelled — try again whenever you're ready.", 'err');
 			return;
 		}
-		setStatus(msg.length > 96 ? msg.slice(0, 96) + '…' : msg, 'err');
+		if (/insufficient|balance|funds/i.test(rawMsg)) {
+			setStatus(['Not enough funds in your wallet. ', navLink('/deploy', 'Add funds ↗'), ' and try again.'], 'err');
+			return;
+		}
+		if (/network|fetch|econnrefused/i.test(rawMsg)) {
+			setStatus('Connection problem — check your internet and try again.', 'err');
+			return;
+		}
+		setStatus('Deploy failed — try again. If this keeps happening, contact support.', 'err');
 	}
 
 	async function deploy() {
@@ -6025,7 +6041,7 @@
 
 		try {
 			const { runSolanaDeploy, solanaTxExplorerUrl } = await import('/src/erc8004/solana-deploy.js');
-			setStatus('Approve the mint in your wallet, then waiting for confirmation…');
+			setStatus('Approve the transaction in your wallet, then waiting for confirmation…');
 			const res = await runSolanaDeploy({ agent: { name }, network: NETWORK });
 
 			progress.classList.add('done');
@@ -6067,5 +6083,6 @@
 })();
 </script>
 	<script src="/brand.js" defer></script>
+	<script src="/getting-started.js" defer></script>
 </body>
 </html>

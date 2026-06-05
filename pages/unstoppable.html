@@ -9,6 +9,7 @@
 	<meta property="og:description" content="An AI that earns its own living. Every query to its status API funds its continued existence." />
 	<meta name="twitter:card" content="summary_large_image" />
 	<link rel="icon" href="/favicon.ico" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
 	<style>
 		:root {
 			color-scheme: dark;
@@ -30,7 +31,7 @@
 			--amber-dim: #b45309;
 			--red:       #ef4444;
 			--red-dim:   #b91c1c;
-			--font-display: "Inter Tight", "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+			--font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
 			--font-body:    "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 			--font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 		}
@@ -311,7 +312,7 @@
 			font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
 			min-width: 68px; justify-content: center;
 		}
-		.action-badge.think   { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+		.action-badge.think   { background: rgba(255,255,255,0.07); color: var(--ink-dim); border: 1px solid rgba(255,255,255,0.10); }
 		.action-badge.earn    { background: rgba(34,197,94,0.12);  color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
 		.action-badge.reflect { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
 		.action-badge.idle    { background: rgba(100,100,100,0.1); color: var(--text-3); border: 1px solid var(--hairline-strong); }
@@ -363,7 +364,7 @@
 			line-height: 1.65; color: var(--text-2);
 			white-space: pre;
 		}
-		.code-block .cm-keyword { color: #c084fc; }
+		.code-block .cm-keyword { color: var(--accent); }
 		.code-block .cm-string  { color: #86efac; }
 		.code-block .cm-comment { color: var(--text-4); }
 		.code-block .cm-header  { color: #7dd3fc; }
@@ -419,6 +420,18 @@
 		}
 		@keyframes shimmer { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
 	</style>
+
+	<link rel="canonical" href="https://three.ws/unstoppable">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:url" content="https://three.ws/unstoppable">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:title" content="Unstoppable Agent · three.ws">
+	<meta name="twitter:description" content="Live dashboard for an autonomous agent that funds itself via x402 micropayments. Watch its balance, earnings, costs, and daily reflections in real time.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Unstoppable Agent","description":"Live dashboard for an autonomous agent that funds itself via x402 micropayments. Watch its balance, earnings, costs, and daily reflections in real time.","url":"https://three.ws/unstoppable","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 	<!-- NAV -->

@@ -22,13 +22,13 @@
 		<meta property="og:url" content="https://three.ws/create">
 		<meta property="og:title" content="Create avatar · three.ws">
 		<meta property="og:description" content="Create a 3D avatar. Start from a ready-made template in our web editor or upload your own GLB.">
-		<meta property="og:image" content="https://three.ws/assets/og-image.png">
+		<meta property="og:image" content="https://three.ws/og-image.png">
 		<meta property="og:image:width" content="1200">
 		<meta property="og:image:height" content="630">
 		<meta name="twitter:card" content="summary_large_image">
 		<meta name="twitter:title" content="Create avatar · three.ws">
 		<meta name="twitter:description" content="Create a 3D avatar. Start from a ready-made template in our web editor or upload your own GLB.">
-		<meta name="twitter:image" content="https://three.ws/assets/og-image.png">
+		<meta name="twitter:image" content="https://three.ws/og-image.png">
 
 		<style>
 			#page-loading,
@@ -138,7 +138,12 @@
 				text-align: center;
 				color: var(--muted);
 				font-size: 13px;
-				margin: 0 0 48px;
+				margin: 0 0 16px;
+			}
+			.picker-reassure {
+				display: flex;
+				justify-content: center;
+				margin: 0 0 44px;
 			}
 
 			/* ── card grid ────────────────────────────────────────────────────── */
@@ -678,7 +683,10 @@
 					if (el) el.remove();
 				});
 		</script>
-	</head>
+	
+	<link rel="canonical" href="https://three.ws/create">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Create Agent","description":"Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.","url":"https://three.ws/create","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body>
 		<div id="page-loading" aria-hidden="true">
 			<img src="/three.svg" alt="" />
@@ -689,12 +697,14 @@
 			<div id="nav-container"></div>
 		</header>
 		<script src="/nav.js"></script>
+		<script type="module" src="/crypto-optional.js"></script>
 
 		<main class="stage" id="main-content">
 			<div class="picker-heading">
 				<h1>Create new avatar</h1>
 			</div>
 			<p class="picker-sub">Choose how you want to create your 3D avatar.</p>
+			<div class="picker-reassure" data-crypto-optional="compact"></div>
 
 			<div class="card-grid" role="group" aria-label="Choose avatar creation method">
 				<!-- Card 1: Default editor (recommended) -->
@@ -1132,5 +1142,7 @@
 			if (btn) wireSigninButton(btn);
 		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

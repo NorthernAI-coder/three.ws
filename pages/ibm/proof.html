@@ -25,7 +25,7 @@
 
 		header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 30; background: rgba(5,7,13,0.82); backdrop-filter: blur(12px); }
 		header .home { color: var(--text); text-decoration: none; font-weight: 650; font-size: 15px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px; }
-		header .home .badge { font-size: 11px; font-weight: 600; color: var(--ibm-light); background: var(--ibm-dim); border: 1px solid rgba(120,169,255,0.25); border-radius: 99px; padding: 3px 9px; }
+		header .home .badge { font-size: 11px; font-weight: 600; color: var(--brand-blue-light); background: var(--brand-blue-dim); border: 1px solid rgba(120,169,255,0.25); border-radius: 99px; padding: 3px 9px; }
 		header nav { display: flex; gap: 20px; align-items: center; }
 		header nav a { color: var(--muted); text-decoration: none; font-size: 13.5px; transition: color 0.15s; }
 		header nav a:hover { color: var(--text); }
@@ -33,23 +33,23 @@
 		.wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
 
 		.hero { padding: 56px 0 28px; }
-		.kicker { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 600; color: var(--ibm-light); background: var(--ibm-dim); border: 1px solid rgba(120,169,255,0.22); border-radius: 99px; padding: 6px 13px; margin-bottom: 20px; }
-		.kicker .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ibm); box-shadow: 0 0 10px var(--ibm); animation: pulse 2.4s ease-in-out infinite; }
+		.kicker { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 600; color: var(--brand-blue-light); background: var(--brand-blue-dim); border: 1px solid rgba(120,169,255,0.22); border-radius: 99px; padding: 6px 13px; margin-bottom: 20px; }
+		.kicker .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-blue); box-shadow: 0 0 10px var(--brand-blue); animation: pulse 2.4s ease-in-out infinite; }
 		@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 		h1 { font-size: clamp(30px, 5vw, 50px); letter-spacing: -0.03em; line-height: 1.04; font-weight: 650; margin-bottom: 16px; }
-		h1 .g { background: linear-gradient(110deg, var(--ibm-light) 20%, var(--ibm) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+		h1 .g { background: linear-gradient(110deg, var(--brand-blue-light) 20%, var(--brand-blue) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 		.lede { font-size: clamp(15px, 1.7vw, 17.5px); color: var(--muted); max-width: 660px; line-height: 1.55; }
 		.lede strong { color: var(--text); font-weight: 500; }
 		.pipeline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
 		.pill { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 99px; padding: 6px 13px; }
 		.pill b { color: var(--text); font-weight: 600; }
-		.pill .n { font-family: var(--mono); font-size: 10px; color: var(--ibm-light); background: var(--ibm-dim); border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; }
+		.pill .n { font-family: var(--mono); font-size: 10px; color: var(--brand-blue-light); background: var(--brand-blue-dim); border-radius: 50%; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; }
 
 		/* token picker */
 		.picker { display: flex; gap: 8px; overflow-x: auto; padding: 22px 0 6px; scrollbar-width: thin; }
 		.chip { flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; min-width: 132px; text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.15s; color: inherit; }
 		.chip:hover { border-color: var(--border2); transform: translateY(-1px); }
-		.chip[aria-selected="true"] { border-color: var(--ibm); background: linear-gradient(180deg, var(--ibm-dim), transparent); }
+		.chip[aria-selected="true"] { border-color: var(--brand-blue); background: linear-gradient(180deg, var(--brand-blue-dim), transparent); }
 		.chip .sym { font-weight: 650; font-size: 14px; display: flex; align-items: center; gap: 6px; }
 		.chip .nm { font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 		.chip .px { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
@@ -66,7 +66,7 @@
 		.stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 		.stage .caption { position: absolute; left: 12px; right: 12px; bottom: 12px; background: rgba(5,7,13,0.74); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; font-size: 13.5px; line-height: 1.45; color: var(--text); min-height: 0; opacity: 0; transform: translateY(6px); transition: opacity 0.3s, transform 0.3s; }
 		.stage .caption.on { opacity: 1; transform: none; }
-		.stage .caption .who { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ibm-light); margin-bottom: 3px; font-weight: 600; }
+		.stage .caption .who { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--brand-blue-light); margin-bottom: 3px; font-weight: 600; }
 		.stage .mood { position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); background: rgba(5,7,13,0.6); border: 1px solid var(--border); border-radius: 99px; padding: 4px 11px 4px 8px; }
 		.stage .mood .swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); transition: background 0.4s; }
 
@@ -86,7 +86,7 @@
 		/* governance + proof */
 		.rows { display: grid; gap: 14px; }
 		.gov { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel2); }
-		.gov .shield { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; background: var(--ibm-dim); border: 1px solid rgba(120,169,255,0.25); }
+		.gov .shield { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; background: var(--brand-blue-dim); border: 1px solid rgba(120,169,255,0.25); }
 		.gov.passed .shield { background: rgba(66,190,101,0.12); border-color: rgba(66,190,101,0.3); }
 		.gov.flagged .shield { background: rgba(250,77,86,0.12); border-color: rgba(250,77,86,0.3); }
 		.gov .gtxt b { font-size: 14.5px; font-weight: 650; display: block; }
@@ -99,15 +99,15 @@
 		.proof .field .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; }
 		.proof .field .mono { font-family: var(--mono); font-size: 12px; color: var(--text); word-break: break-all; line-height: 1.5; }
 		.proof .field .mono.dim { color: var(--muted); }
-		.copy { background: none; border: 0; color: var(--ibm-light); font-size: 11px; cursor: pointer; padding: 0; }
+		.copy { background: none; border: 0; color: var(--brand-blue-light); font-size: 11px; cursor: pointer; padding: 0; }
 		.copy:hover { text-decoration: underline; }
 
 		.models { display: flex; flex-wrap: wrap; gap: 7px; }
 		.models .m { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; }
-		.models .m b { color: var(--ibm-light); font-weight: 600; }
+		.models .m b { color: var(--brand-blue-light); font-weight: 600; }
 
 		.btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; padding: 14px 20px; border-radius: 12px; border: 0; font-size: 14.5px; font-weight: 650; cursor: pointer; transition: filter 0.15s, transform 0.1s, opacity 0.15s; }
-		.btn-primary { background: var(--ibm); color: #fff; }
+		.btn-primary { background: var(--brand-blue); color: #fff; }
 		.btn-primary:hover:not(:disabled) { filter: brightness(1.12); }
 		.btn-primary:active:not(:disabled) { transform: translateY(1px); }
 		.btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -117,7 +117,7 @@
 		.notice { font-size: 12.5px; color: var(--muted); line-height: 1.5; padding: 11px 14px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--border); }
 		.notice.warn { border-color: rgba(241,194,27,0.3); background: rgba(241,194,27,0.06); color: #e8d9a0; }
 		.notice.ok { border-color: rgba(66,190,101,0.3); background: rgba(66,190,101,0.07); }
-		.notice a { color: var(--ibm-light); text-decoration: none; font-weight: 600; }
+		.notice a { color: var(--brand-blue-light); text-decoration: none; font-weight: 600; }
 		.notice a:hover { text-decoration: underline; }
 
 		/* feed */
@@ -130,7 +130,7 @@
 		.attestation .badge2.up { background: rgba(66,190,101,0.12); color: var(--up); } .attestation .badge2.down { background: rgba(250,77,86,0.12); color: var(--down); }
 		.attestation .meta .l1 { font-size: 14px; font-weight: 600; }
 		.attestation .meta .l2 { font-family: var(--mono); font-size: 11.5px; color: var(--faint); word-break: break-all; }
-		.attestation a.tx { font-size: 12.5px; color: var(--ibm-light); text-decoration: none; white-space: nowrap; font-weight: 600; }
+		.attestation a.tx { font-size: 12.5px; color: var(--brand-blue-light); text-decoration: none; white-space: nowrap; font-weight: 600; }
 		.attestation a.tx:hover { text-decoration: underline; }
 		.feed-empty { font-size: 13px; color: var(--faint); padding: 22px; text-align: center; border: 1px dashed var(--border2); border-radius: 13px; }
 
@@ -210,12 +210,12 @@
 				<div class="card">
 					<div class="hd">
 						<span class="t">Granite TimeSeries forecast</span>
-						<span class="t" id="token-tag" style="text-transform:none;letter-spacing:0;color:var(--ibm-light)"></span>
+						<span class="t" id="token-tag" style="text-transform:none;letter-spacing:0;color:var(--brand-blue-light)"></span>
 					</div>
 					<div class="chartwrap"><canvas id="chart"></canvas></div>
 					<div class="chart-legend">
 						<span><i style="background:var(--muted)"></i> History</span>
-						<span><i style="background:var(--ibm-light)"></i> Granite forecast</span>
+						<span><i style="background:var(--brand-blue-light)"></i> Granite forecast</span>
 						<span><i style="background:rgba(120,169,255,0.25)"></i> Forecast range</span>
 					</div>
 					<div class="stats" id="stats">
@@ -231,7 +231,7 @@
 					<div class="bd rows">
 						<div class="gov" id="gov">
 							<div class="shield" id="gov-shield">
-								<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ibm-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+								<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brand-blue-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
 							</div>
 							<div class="gtxt"><b id="gov-title">Awaiting Granite</b><span id="gov-sub">Pick a token to run the pipeline.</span></div>
 							<div class="gmodel" id="gov-model"></div>
@@ -278,6 +278,9 @@
 	</footer>
 
 	<script type="module" src="/src/ibm-proof.js"></script>
+	<script type="module" src="/src/ibm-suite-nav.js"></script>
 	<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

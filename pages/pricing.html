@@ -281,7 +281,7 @@
 				<summary>Can I monetize my own agents?</summary>
 				<p>Yes. The x402 protocol lets you charge per skill invocation (per chat turn, per generation, per API call) in USDC. During beta you keep 100% of revenue. After beta the platform fee is 2.9% on Pro and negotiable on Enterprise.</p>
 			</details>
-			<details>
+			<details id="no-crypto" open>
 				<summary>Do I need crypto to use three.ws?</summary>
 				<p>No. The web component, dashboard, and API work without a wallet. Crypto unlocks: on-chain agent identity (ERC-8004), payable skills (x402), and creator payouts. If you don't need those, the platform works like any other SaaS.</p>
 			</details>
@@ -686,5 +686,7 @@
 	})();
 	</script>
 	<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

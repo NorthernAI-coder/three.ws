@@ -53,7 +53,9 @@
 		<!-- Re-uses the production app boot (real viewer, real agent system, real animations). -->
 		<script defer type="module" src="/src/app.js"></script>
 		<script defer type="module" src="/src/app-next-overlay.js"></script>
-	</head>
+	
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Viewer","description":"Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.","url":"https://three.ws/app","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="app-next-body">
 		<!-- Minimal glass header — wordmark left, single action right -->
 		<header class="nxt-header">
@@ -549,5 +551,6 @@
 			<a href="/app-classic" role="menuitem">Classic viewer</a>
 		</div>
 		<script src="/brand.js" defer></script>
+		<script src="/getting-started.js" defer></script>
 </body>
 </html>

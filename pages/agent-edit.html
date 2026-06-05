@@ -869,9 +869,9 @@
 				padding: 2rem 1.5rem; text-align: center;
 			}
 			.voice-unconfigured-icon { font-size: 2rem; line-height: 1; }
-			.voice-unconfigured-title { font-size: 0.875rem; font-weight: 600; color: var(--t-ink); }
-			.voice-unconfigured-body { font-size: 0.764rem; color: var(--t-ink-dim); margin: 0; max-width: 340px; line-height: 1.5; }
-			.voice-unconfigured-body code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.73rem; background: var(--t-bg-3); padding: 1px 5px; border-radius: 4px; }
+			.voice-unconfigured-title { font-size: 0.875rem; font-weight: 600; color: var(--ink); }
+			.voice-unconfigured-body { font-size: 0.764rem; color: var(--ink-dim); margin: 0; max-width: 340px; line-height: 1.5; }
+			.voice-unconfigured-body code { font-family: var(--font-mono); font-size: 0.73rem; background: var(--surface-3); padding: 1px 5px; border-radius: 4px; }
 
 			/* Memories */
 			.mem-list { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -1190,12 +1190,12 @@
 			>
 				<div class="form-group" id="launch-token-group">
 					<label class="form-label">Agent Token</label>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Launch a pump.fun bonding-curve token tied to this agent. Buyers fund the curve, fees route to the agent.</p>
+					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Launch a pump.fun community token (its price rises as more people buy) tied to this agent. Buyers help fund the token, fees route to the agent.</p>
 					<div id="launch-token-state" class="muted">Loading…</div>
 				</div>
 				<div class="form-group">
 					<label class="form-label">Skill Prices</label>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Set a price for your skills to be used by other agents. Leave blank for free skills. Prices are set in USDC on Solana.</p>
+					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Set a price for your skills to be used by other agents. Leave blank for free skills. Prices are set in USDC (a $1 digital dollar) on Solana.</p>
 					<div id="skill-prices-list">
 						<div class="muted">Loading skills…</div>
 					</div>
@@ -1396,7 +1396,7 @@
 					</div>
 
 					<div class="card">
-						<div class="card-title">EVM wallet</div>
+						<div class="card-title">Base wallet</div>
 						<div class="card-sub mono" id="wallet-evm-address">Not linked.</div>
 						<div class="card-row" style="margin-top:.618rem">
 							<div>
@@ -1625,7 +1625,7 @@
 
 			<!-- Studio tab -->
 			<section class="edit-panel persona-panel" id="panel-studio" role="tabpanel" aria-labelledby="tab-studio" hidden>
-				<p class="hint">Power-user tools for tuning the avatar, animations, and on-chain identity.</p>
+				<p class="hint">Power-user tools for tuning the avatar, animations, and blockchain identity.</p>
 
 				<div class="studio-grid">
 					<a class="studio-tile" id="studio-playground" href="#" target="_blank" rel="noopener">
