@@ -6,6 +6,7 @@
 <title>x402 Bazaar — discover paid APIs and MCP tools</title>
 <meta name="description" content="Search and browse the x402 facilitator catalog. Filter by network, price, extensions. Pay any service in one click." />
 <meta name="theme-color" content="#0a0b10" />
+<link rel="stylesheet" href="/nav.css" />
 <meta property="og:title" content="x402 Bazaar — discover paid APIs and MCP tools" />
 <meta property="og:description" content="Search and browse the x402 facilitator catalog. Filter by network, price, extensions. Pay any service in one click." />
 <meta property="og:type" content="website" />
@@ -40,21 +41,6 @@
 	.wrap { max-width: 1280px; margin: 0 auto; padding: 0 28px; }
 	@media (max-width: 720px) { .wrap { padding: 0 16px; } }
 
-	nav {
-		padding: 22px 0;
-		display: flex; align-items: center; justify-content: space-between;
-		border-bottom: 1px solid var(--border);
-	}
-	nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
-	nav .brand .dot {
-		width: 22px; height: 22px;
-		background: conic-gradient(from 200deg, #ffffff, #60a5fa, #ffffff);
-		border-radius: 6px;
-	}
-	nav .links { display: flex; gap: 18px; font-size: 13.5px; color: var(--muted); }
-	nav .links a { color: var(--muted); }
-	nav .links a:hover { color: var(--text); }
-	nav .links a.active { color: var(--text); }
 
 	.ctx {
 		background: var(--bg-2);
@@ -301,7 +287,7 @@
 	.tag.price { color: var(--accent-green); border-color: rgba(74,222,128,0.3); }
 	.tag.net { color: var(--accent-blue); border-color: rgba(96,165,250,0.3); }
 	.tag.method { color: var(--text); }
-	.tag.ext { color: #c084fc; border-color: rgba(192,132,252,0.3); }
+	.tag.ext { color: #888888; border-color: rgba(255,255,255,0.15); }
 	.card .actions { display: flex; gap: 8px; margin-top: 4px; }
 	.btn-pay {
 		background: var(--accent-blue);
@@ -397,19 +383,23 @@
 		max-height: 360px;
 	}
 </style>
+
+	<link rel="canonical" href="https://three.ws/bazaar">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:url" content="https://three.ws/bazaar">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="x402 Bazaar · three.ws">
+	<meta name="twitter:description" content="Search and browse the x402 facilitator catalog. Filter by network, price, and extensions. Pay any service in one click.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"x402 Bazaar","description":"Search and browse the x402 facilitator catalog. Filter by network, price, and extensions. Pay any service in one click.","url":"https://three.ws/bazaar","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
+<div id="nav-container"></div>
+<script src="/nav.js"></script>
 <div class="wrap">
-	<nav>
-		<div class="brand"><span class="dot"></span><span>x402 bazaar</span></div>
-		<div class="links">
-			<a href="/bazaar" class="active">Catalog</a>
-			<a href="/arbitrage">Arbitrage</a>
-			<a href="/providers">Providers</a>
-			<a href="https://www.x402.org/docs/extensions/bazaar" target="_blank" rel="noopener">Spec</a>
-			<a href="/.well-known/x402.json">Our listing</a>
-		</div>
-	</nav>
 	<header class="hero">
 		<h1>Discover paid APIs and MCP tools</h1>
 		<p>Live catalog merged across x402 facilitators. Search, filter, and pay any endpoint with a single click — settlement is on-chain via the x402 protocol.</p>

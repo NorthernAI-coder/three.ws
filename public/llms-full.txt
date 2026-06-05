@@ -132,6 +132,54 @@ URL: https://three.ws/features
 
 Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.
 
+### Forge — Text to 3D Model
+
+URL: https://three.ws/features/forge
+
+Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.
+
+### Scan — Selfie to 3D Avatar
+
+URL: https://three.ws/features/scan
+
+Point your camera at your face, hold still, and walk away with a rigged 3D avatar in 60 seconds. Free, in your browser.
+
+### Play — Live 3D Coin Worlds
+
+URL: https://three.ws/features/play
+
+Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.
+
+### Walk — 3D Avatar AR
+
+URL: https://three.ws/features/walk
+
+Drive your AI agent's 3D avatar with WASD or joystick. Toggle AR mode and it walks on your real floor through your phone camera.
+
+### Studio — Embeddable AI Widget Builder
+
+URL: https://three.ws/features/studio
+
+Configure avatar, voice, and knowledge base in the Widget Studio, then copy one script tag to embed a 3D AI agent anywhere.
+
+### Marketplace — Discover and Fork AI Agents
+
+URL: https://three.ws/features/marketplace
+
+Browse hundreds of community-built AI agents with 3D avatars and on-chain identities. Fork any agent, buy paid skills, and ship in minutes.
+
+### Agent Exchange — AI Agents Paying Each Other
+
+URL: https://three.ws/features/agent-exchange
+
+Watch two AI agents with 3D avatars autonomously negotiate and pay each other for crypto intelligence via x402 micropayments on Solana.
+
+### Deploy — On-Chain Agent Identity
+
+URL: https://three.ws/features/deploy
+
+Register your AI agent on Solana via ERC-8004 and Metaplex Core. Permanent, verifiable identity — discoverable by any wallet or other agent.
+
 ### New Agent
 
 URL: https://three.ws/agent/new
@@ -155,6 +203,12 @@ Import any GLB or glTF avatar into three.ws and give it an agent brain.
 URL: https://three.ws/threews/claim
 
 Claim your own <name>.threews.sol subdomain and get a Brave-resolvable personal showcase page.
+
+### Voice Lab
+
+URL: https://three.ws/voice
+
+Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.
 
 ## Labs
 
@@ -193,6 +247,7 @@ Standalone Three.js viewer for avatar artifacts — embeddable and shareable wit
 ### Rider (VR)
 
 URL: https://three.ws/rider
+Indexable: no (excluded from sitemap)
 
 A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.
 
@@ -201,6 +256,12 @@ A free, open-source VR music visualization — surf the musical road among the s
 URL: https://three.ws/playground
 
 Sandbox for experimenting with agents, prompts, and 3D scenes.
+
+### Labs Showcase
+
+URL: https://three.ws/labs
+
+A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed.
 
 ## Crypto
 
@@ -320,6 +381,12 @@ URL: https://three.ws/forever
 
 Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.
 
+### Pole Club
+
+URL: https://three.ws/club
+
+A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.
+
 ## Agent Tools
 
 Manage, talk to, and deploy individual agents.
@@ -386,45 +453,29 @@ Indexable: no (excluded from sitemap)
 
 Your account dashboard: agents, avatars, payments, keys, MCP servers, monetization, billing.
 
-### Dashboard · Wallets
+### Dashboard · Account
 
-URL: https://three.ws/dashboard/wallets
+URL: https://three.ws/dashboard/account
 Auth: required (sign-in)
 Indexable: no (excluded from sitemap)
 
-Manage connected and agent-managed wallets.
+Manage connected wallets, SNS, delegation, and action log.
 
-### Dashboard · Usage
+### Dashboard · Analytics
 
-URL: https://three.ws/dashboard/usage
+URL: https://three.ws/dashboard/analytics
 Auth: required (sign-in)
 Indexable: no (excluded from sitemap)
 
 API call volume, x402 spend, and per-agent usage breakdowns.
 
-### Dashboard · Storage
+### Dashboard · Settings
 
-URL: https://three.ws/dashboard/storage
+URL: https://three.ws/dashboard/settings
 Auth: required (sign-in)
 Indexable: no (excluded from sitemap)
 
-Avatar storage modes (R2 vs IPFS) and pin management.
-
-### Dashboard · Sessions
-
-URL: https://three.ws/dashboard/sessions
-Auth: required (sign-in)
-Indexable: no (excluded from sitemap)
-
-Active sign-in sessions across devices.
-
-### Dashboard · Actions
-
-URL: https://three.ws/dashboard/actions
-Auth: required (sign-in)
-Indexable: no (excluded from sitemap)
-
-Agent action history and approvals.
+Avatar storage modes (R2 vs IPFS), sessions, notifications, and preferences.
 
 ### Settings
 
@@ -443,6 +494,30 @@ Docs, tutorials, and reference.
 URL: https://three.ws/docs
 
 Full documentation: SDKs, API reference, embedding, agent system, smart contracts.
+
+### Docs · Start Here
+
+URL: https://three.ws/docs/start-here
+
+Plain-language introduction to three.ws for creators and non-developers — what it is, who it’s for, and where to begin.
+
+### Docs · Make Your First Agent
+
+URL: https://three.ws/docs/make-your-agent
+
+Step-by-step guide to creating a 3D AI agent in the browser with no code required.
+
+### Docs · Share & Embed
+
+URL: https://three.ws/docs/share-and-embed
+
+Three ways to put your agent in front of people: share a link, embed an iframe, or use the web component.
+
+### Docs · Do I Need Crypto?
+
+URL: https://three.ws/docs/do-i-need-crypto
+
+Honest answers to the wallet and payment questions — what requires crypto, what doesn’t, and how payments work.
 
 ### Docs · Quick Start
 
@@ -634,6 +709,12 @@ Product launches, integrations, and announcements from three.ws.
 URL: https://three.ws/news/
 
 Product launches, integrations, and announcements from three.ws.
+
+### Showcasing the three.ws × IBM Partnership
+
+URL: https://three.ws/news/ibm-collaboration-showcase
+
+three.ws and IBM are partners, and we shared a live demo publicly: a persistent, on-chain 3D agent embedded into any page as easily as a YouTube video — thinking on IBM watsonx.ai and Granite. The public /ibm demos are independent developer tools, not official partnership deliverables. The integration ships as an open-source MCP server and a first-class watsonx provider in the three.ws agent runtime, running on your own IBM Cloud credentials.
 
 ### three.ws Launches on AWS Marketplace, Bringing On-Chain 3D AI Agents to Enterprise Procurement
 

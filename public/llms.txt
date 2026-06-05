@@ -34,10 +34,19 @@ Create and customize an agent.
 - [Widgets Gallery](https://three.ws/widgets): Pre-built chat, voice, and 3D-avatar widgets you can drop into any page.
 - [Hydrate](https://three.ws/hydrate): Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.
 - [Features](https://three.ws/features): Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.
+- [Forge — Text to 3D Model](https://three.ws/features/forge): Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.
+- [Scan — Selfie to 3D Avatar](https://three.ws/features/scan): Point your camera at your face, hold still, and walk away with a rigged 3D avatar in 60 seconds. Free, in your browser.
+- [Play — Live 3D Coin Worlds](https://three.ws/features/play): Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.
+- [Walk — 3D Avatar AR](https://three.ws/features/walk): Drive your AI agent's 3D avatar with WASD or joystick. Toggle AR mode and it walks on your real floor through your phone camera.
+- [Studio — Embeddable AI Widget Builder](https://three.ws/features/studio): Configure avatar, voice, and knowledge base in the Widget Studio, then copy one script tag to embed a 3D AI agent anywhere.
+- [Marketplace — Discover and Fork AI Agents](https://three.ws/features/marketplace): Browse hundreds of community-built AI agents with 3D avatars and on-chain identities. Fork any agent, buy paid skills, and ship in minutes.
+- [Agent Exchange — AI Agents Paying Each Other](https://three.ws/features/agent-exchange): Watch two AI agents with 3D avatars autonomously negotiate and pay each other for crypto intelligence via x402 micropayments on Solana.
+- [Deploy — On-Chain Agent Identity](https://three.ws/features/deploy): Register your AI agent on Solana via ERC-8004 and Metaplex Core. Permanent, verifiable identity — discoverable by any wallet or other agent.
 - [New Agent](https://three.ws/agent/new): Create a new agent from scratch — avatar, brain, skills, and on-chain identity.
 - [Selfie to Avatar](https://three.ws/create/selfie): One selfie. About a minute. A rigged 3D avatar that works everywhere.
 - [Import an avatar URL](https://three.ws/import/rpm): Import any GLB or glTF avatar into three.ws and give it an agent brain.
 - [Claim threews.sol Subdomain](https://three.ws/threews/claim): Claim your own <name>.threews.sol subdomain and get a Brave-resolvable personal showcase page.
+- [Voice Lab](https://three.ws/voice): Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.
 
 ## Labs
 
@@ -48,8 +57,8 @@ Experimental features actively shipping. Expect fast iteration.
 - [Lipsync (TTS)](https://three.ws/lipsync): Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.
 - [Lipsync (Mic)](https://three.ws/lipsync/mic): Feed live mic audio through the viseme analyser and watch the avatar's mouth track your voice in real time.
 - [Avatar Artifact](https://three.ws/avatar-artifact): Standalone Three.js viewer for avatar artifacts — embeddable and shareable without any wrapper page.
-- [Rider (VR)](https://three.ws/rider): A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.
 - [Playground](https://three.ws/playground): Sandbox for experimenting with agents, prompts, and 3D scenes.
+- [Labs Showcase](https://three.ws/labs): A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed.
 
 ## Crypto
 
@@ -74,6 +83,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Unstoppable Agent](https://three.ws/unstoppable): Live dashboard for an autonomous agent that funds itself via x402 micropayments. Watch its balance, earnings, costs, and daily reflections in real time.
 - [Endpoint Shopper](https://three.ws/shopper): Describe a task and set a budget. An AI agent discovers relevant x402 endpoints via the Bazaar, chains them together, and synthesizes a final answer — paying per API call.
 - [Forever — etch a message into Bitcoin](https://three.ws/forever): Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.
+- [Pole Club](https://three.ws/club): A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.
 
 ## Agent Tools
 
@@ -97,6 +107,10 @@ Sign-in, dashboard, billing.
 Docs, tutorials, and reference.
 
 - [Docs](https://three.ws/docs): Full documentation: SDKs, API reference, embedding, agent system, smart contracts.
+- [Docs · Start Here](https://three.ws/docs/start-here): Plain-language introduction to three.ws for creators and non-developers — what it is, who it’s for, and where to begin.
+- [Docs · Make Your First Agent](https://three.ws/docs/make-your-agent): Step-by-step guide to creating a 3D AI agent in the browser with no code required.
+- [Docs · Share & Embed](https://three.ws/docs/share-and-embed): Three ways to put your agent in front of people: share a link, embed an iframe, or use the web component.
+- [Docs · Do I Need Crypto?](https://three.ws/docs/do-i-need-crypto): Honest answers to the wallet and payment questions — what requires crypto, what doesn’t, and how payments work.
 - [Docs · Quick Start](https://three.ws/docs/quick-start): Five-minute walkthrough: create an agent, embed it, get a paid call.
 - [Docs · Agent System](https://three.ws/docs/agent-system): How agents, avatars, skills, and memories fit together.
 - [Docs · ERC-8004](https://three.ws/docs/erc8004): Reference for the on-chain agent identity standard.
@@ -129,6 +143,7 @@ Long-form announcements, launches, and writing from three.ws.
 Product launches, integrations, and announcements from three.ws.
 
 - [News & Announcements](https://three.ws/news/): Product launches, integrations, and announcements from three.ws.
+- [Showcasing the three.ws × IBM Partnership](https://three.ws/news/ibm-collaboration-showcase): three.ws and IBM are partners, and we shared a live demo publicly: a persistent, on-chain 3D agent embedded into any page as easily as a YouTube video — thinking on IBM watsonx.ai and Granite. The public /ibm demos are independent developer tools, not official partnership deliverables. The integration ships as an open-source MCP server and a first-class watsonx provider in the three.ws agent runtime, running on your own IBM Cloud credentials.
 - [three.ws Launches on AWS Marketplace, Bringing On-Chain 3D AI Agents to Enterprise Procurement](https://three.ws/news/live-on-aws-marketplace): three.ws is now live on AWS Marketplace as a SaaS subscription. Every AWS customer can subscribe directly, billing rolls onto their AWS invoice, AWS Activate credits apply, and the spend counts toward Enterprise Discount Program commitments. The first fully on-chain 3D AI agent platform listed on the AWS catalog.
 - [three.ws Joins the AWS Partner Network](https://three.ws/news/joined-aws-partner-network): three.ws is now an official AWS Partner, enrolled in the AWS Partner Network (APN) Software Path as a Technology Partner. The open-source platform for 3D AI agents on-chain is the first fully Web3-native ISV to join APN with a Solana / EVM on-chain identity stack. AWS Marketplace SaaS listing shipping next.
 - [three.ws Partners with HackerNoon](https://three.ws/news/partnered-with-hackernoon): three.ws has partnered with HackerNoon, bringing on-chain 3D agent coverage to one of the world's largest tech publications. Every three.ws announcement now auto-imports into HackerNoon via our RSS feed at https://three.ws/rss/announcements.xml.

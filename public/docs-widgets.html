@@ -122,10 +122,20 @@
 			.gallery-header h1 .wordmark-logo.docs-logo-mark {
 				filter: grayscale(1) contrast(1.05) brightness(1.08)
 					drop-shadow(0 0 5px rgba(139, 92, 246, 0.45))
-					drop-shadow(0 0 1px rgba(99, 102, 241, 0.55));
+					drop-shadow(0 0 1px rgba(255, 255, 255, 0.27));
 			}
 		</style>
-	</head>
+	
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Docs · Widgets · three.ws">
+	<meta name="twitter:description" content="Build and publish reusable chat and 3D widgets.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Docs · Widgets","description":"Build and publish reusable chat and 3D widgets.","url":"https://three.ws/docs/widgets","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="gallery-body">
 		<header>
 			<div id="nav-container"></div>
@@ -494,5 +504,7 @@ img-src https://three.ws/ data:;</code></pre>
 			</div>
 		</footer>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

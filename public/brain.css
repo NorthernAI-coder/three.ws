@@ -4,7 +4,7 @@
 
 body {
 	background: #000000;
-	color: #e8e8e8;
+	color: var(--ink);
 	font: 14px/1.55 -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
 	margin: 0;
 	display: flex;
@@ -117,7 +117,7 @@ body {
 }
 .br-persona-mini {
 	background: #0e0e0e;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 9px;
 	padding: 10px;
 	font-size: 12px;
@@ -173,7 +173,7 @@ body {
 }
 .br-tab:hover { color: #8a8a8a; }
 .br-tab.active {
-	color: #e8e8e8;
+	color: var(--ink);
 	border-bottom-color: #ffffff;
 }
 .br-tab .br-tab-badge {
@@ -262,7 +262,7 @@ body {
 	flex: 1;
 	max-width: 260px;
 	background: #0c0c0c;
-	border: 1.5px solid #1a1a1a;
+	border: 1.5px solid var(--bg-1);
 	border-radius: 14px;
 	padding: 20px;
 	cursor: pointer;
@@ -281,7 +281,7 @@ body {
 
 .br-q-card {
 	background: #0c0c0c;
-	border: 1.5px solid #1a1a1a;
+	border: 1.5px solid var(--bg-1);
 	border-radius: 14px;
 	padding: 20px 22px;
 	display: flex;
@@ -306,9 +306,9 @@ body {
 .br-q-input {
 	width: 100%;
 	background: #07080f;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 10px;
-	color: #e8e8e8;
+	color: var(--ink);
 	font: inherit;
 	font-size: 14px;
 	padding: 12px 14px;
@@ -327,9 +327,9 @@ body {
 	width: 100%;
 	min-height: 160px;
 	background: #0c0c0c;
-	border: 1.5px solid #1a1a1a;
+	border: 1.5px solid var(--bg-1);
 	border-radius: 14px;
-	color: #e8e8e8;
+	color: var(--ink);
 	font: inherit;
 	font-size: 14px;
 	padding: 18px 20px;
@@ -382,7 +382,7 @@ body {
 .br-persona-card {
 	display: none;
 	background: #0c0c0c;
-	border: 1.5px solid #1a1a1a;
+	border: 1.5px solid var(--bg-1);
 	border-radius: 16px;
 	overflow: hidden;
 }
@@ -394,7 +394,7 @@ body {
 	justify-content: space-between;
 	padding: 16px 22px;
 	border-bottom: 1px solid #141414;
-	background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(167,139,250,0.04) 100%);
+	background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%);
 }
 .br-pc-header h3 {
 	font-size: 15px;
@@ -498,9 +498,9 @@ body {
 .br-edit-input {
 	width: 100%;
 	background: #07080f;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 8px;
-	color: #e8e8e8;
+	color: var(--ink);
 	font: inherit;
 	font-size: 13px;
 	padding: 9px 12px;
@@ -511,9 +511,9 @@ body {
 .br-edit-textarea {
 	width: 100%;
 	background: #07080f;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 8px;
-	color: #e8e8e8;
+	color: var(--ink);
 	font: inherit;
 	font-size: 13px;
 	padding: 9px 12px;
@@ -529,7 +529,7 @@ body {
 .br-raw-json {
 	display: none;
 	background: #07080f;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 10px;
 	padding: 14px 16px;
 	margin: 0 22px 16px;
@@ -560,7 +560,7 @@ body {
 
 .br-mode-toggle {
 	display: flex;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 8px;
 	overflow: hidden;
 }
@@ -575,7 +575,7 @@ body {
 	cursor: pointer;
 	transition: all 0.12s;
 }
-.br-mode-btn + .br-mode-btn { border-left: 1px solid #1a1a1a; }
+.br-mode-btn + .br-mode-btn { border-left: 1px solid var(--bg-1); }
 .br-mode-btn.active { background: #161616; color: #dde0f0; }
 
 .br-play-label {
@@ -593,7 +593,7 @@ body {
 	gap: 5px;
 	padding: 5px 10px;
 	border-radius: 999px;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	background: #0c0c0c;
 	color: #4a4a4a;
 	font-size: 12px;
@@ -622,7 +622,7 @@ body {
 
 .br-focus-sel {
 	background: #0c0c0c;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	color: #b0b0b0;
 	padding: 6px 10px;
 	border-radius: 8px;
@@ -637,7 +637,7 @@ body {
 	align-items: center;
 	gap: 10px;
 	padding: 8px 16px;
-	background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(167,139,250,0.06) 100%);
+	background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
 	border-bottom: 1px solid rgba(255,255,255,0.15);
 	font-size: 12.5px;
 	color: #8a8a8a;
@@ -826,7 +826,7 @@ body {
 .br-sys-textarea {
 	width: 100%;
 	background: #0c0c0c;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 9px;
 	color: #b0b0b0;
 	font: inherit;
@@ -841,9 +841,9 @@ body {
 .br-prompt {
 	flex: 1;
 	background: #0c0c0c;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 12px;
-	color: #e8e8e8;
+	color: var(--ink);
 	font: inherit;
 	font-size: 14px;
 	padding: 12px 14px;
@@ -900,7 +900,7 @@ body {
 .md-ul li, .md-ol li { margin: 0.2em 0; }
 .md-code {
 	background: #0a0c18;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	border-radius: 9px;
 	padding: 12px 14px;
 	overflow-x: auto;
@@ -957,7 +957,7 @@ body {
 .br-loading-spinner {
 	width: 20px;
 	height: 20px;
-	border: 2px solid #1a1a1a;
+	border: 2px solid var(--bg-1);
 	border-top-color: #ffffff;
 	border-radius: 50%;
 	animation: brSpin 0.8s linear infinite;

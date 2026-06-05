@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-03T08:05:29.246Z",
+	"generated_at": "2026-06-05T04:58:22.475Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -22,7 +22,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/discover",
@@ -31,7 +32,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/gallery",
@@ -40,7 +42,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/walk",
@@ -49,7 +52,8 @@
 					"added": "2026-05-10",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/marketplace",
@@ -58,7 +62,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/skills",
@@ -67,7 +72,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/community",
@@ -76,7 +82,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/sitemap",
@@ -85,7 +92,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/characters",
@@ -94,7 +102,8 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/ibm",
@@ -103,7 +112,8 @@
 					"added": "2026-06-03",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -119,7 +129,8 @@
 					"added": "2026-05-27",
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/create",
@@ -128,7 +139,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/app",
@@ -137,7 +149,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/validation",
@@ -146,7 +159,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/studio",
@@ -155,7 +169,8 @@
 					"added": "2026-05-24",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/artifact",
@@ -164,7 +179,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/widgets",
@@ -173,7 +189,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/hydrate",
@@ -182,7 +199,8 @@
 					"added": "2026-05-20",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/features",
@@ -191,7 +209,88 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/forge",
+					"title": "Forge — Text to 3D Model",
+					"description": "Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/scan",
+					"title": "Scan — Selfie to 3D Avatar",
+					"description": "Point your camera at your face, hold still, and walk away with a rigged 3D avatar in 60 seconds. Free, in your browser.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/play",
+					"title": "Play — Live 3D Coin Worlds",
+					"description": "Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/walk",
+					"title": "Walk — 3D Avatar AR",
+					"description": "Drive your AI agent's 3D avatar with WASD or joystick. Toggle AR mode and it walks on your real floor through your phone camera.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/studio",
+					"title": "Studio — Embeddable AI Widget Builder",
+					"description": "Configure avatar, voice, and knowledge base in the Widget Studio, then copy one script tag to embed a 3D AI agent anywhere.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/marketplace",
+					"title": "Marketplace — Discover and Fork AI Agents",
+					"description": "Browse hundreds of community-built AI agents with 3D avatars and on-chain identities. Fork any agent, buy paid skills, and ship in minutes.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/agent-exchange",
+					"title": "Agent Exchange — AI Agents Paying Each Other",
+					"description": "Watch two AI agents with 3D avatars autonomously negotiate and pay each other for crypto intelligence via x402 micropayments on Solana.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/features/deploy",
+					"title": "Deploy — On-Chain Agent Identity",
+					"description": "Register your AI agent on Solana via ERC-8004 and Metaplex Core. Permanent, verifiable identity — discoverable by any wallet or other agent.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/agent/new",
@@ -200,7 +299,8 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/create/selfie",
@@ -209,7 +309,8 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/import/rpm",
@@ -218,7 +319,8 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/threews/claim",
@@ -227,7 +329,18 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/voice",
+					"title": "Voice Lab",
+					"description": "Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
 				}
 			]
 		},
@@ -243,7 +356,8 @@
 					"added": "2026-05-18",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/brain",
@@ -252,7 +366,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/lipsync",
@@ -261,7 +376,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/lipsync/mic",
@@ -270,7 +386,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/avatar-artifact",
@@ -279,7 +396,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/rider",
@@ -287,8 +405,9 @@
 					"description": "A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.",
 					"added": "2026-05-25",
 					"auth": null,
-					"indexable": true,
-					"tags": []
+					"indexable": false,
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/playground",
@@ -297,7 +416,18 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/labs",
+					"title": "Labs Showcase",
+					"description": "A curated gallery of three.ws's most powerful — and most hidden — features. Find and try things you didn't know existed.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -313,7 +443,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/pumpfun",
@@ -322,7 +453,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/pump-live",
@@ -331,7 +463,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/pump-dashboard",
@@ -340,7 +473,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/strategy-lab",
@@ -349,7 +483,8 @@
 					"added": "2026-05-15",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/vanity-wallet",
@@ -358,7 +493,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/eth-vanity",
@@ -367,7 +503,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/pump-visualizer",
@@ -376,7 +513,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/constellation",
@@ -385,7 +523,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/bazaar",
@@ -394,7 +533,8 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/arbitrage",
@@ -403,7 +543,8 @@
 					"added": "2026-05-29",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/providers",
@@ -412,7 +553,8 @@
 					"added": "2026-05-29",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/gmgn",
@@ -421,7 +563,8 @@
 					"added": "2026-05-25",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/three-live",
@@ -430,7 +573,8 @@
 					"added": "2026-05-29",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/fact-checker",
@@ -439,7 +583,8 @@
 					"added": "2026-05-27",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/tutor",
@@ -448,7 +593,8 @@
 					"added": "2026-05-29",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/unstoppable",
@@ -457,7 +603,8 @@
 					"added": "2026-05-27",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/shopper",
@@ -466,7 +613,8 @@
 					"added": "2026-05-27",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/forever",
@@ -475,7 +623,18 @@
 					"added": "2026-05-29",
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/club",
+					"title": "Pole Club",
+					"description": "A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
 				}
 			]
 		},
@@ -491,7 +650,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/agent",
@@ -500,7 +660,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/agents",
@@ -509,7 +670,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/my-agents",
@@ -518,7 +680,8 @@
 					"added": null,
 					"auth": "required",
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/reputation",
@@ -527,7 +690,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -543,7 +707,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/register",
@@ -552,7 +717,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/forgot-password",
@@ -561,7 +727,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/dashboard",
@@ -570,52 +737,38 @@
 					"added": "2026-05-25",
 					"auth": "required",
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
-					"path": "/dashboard/wallets",
-					"title": "Dashboard · Wallets",
-					"description": "Manage connected and agent-managed wallets.",
+					"path": "/dashboard/account",
+					"title": "Dashboard · Account",
+					"description": "Manage connected wallets, SNS, delegation, and action log.",
 					"added": null,
 					"auth": "required",
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
-					"path": "/dashboard/usage",
-					"title": "Dashboard · Usage",
+					"path": "/dashboard/analytics",
+					"title": "Dashboard · Analytics",
 					"description": "API call volume, x402 spend, and per-agent usage breakdowns.",
 					"added": null,
 					"auth": "required",
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
-					"path": "/dashboard/storage",
-					"title": "Dashboard · Storage",
-					"description": "Avatar storage modes (R2 vs IPFS) and pin management.",
+					"path": "/dashboard/settings",
+					"title": "Dashboard · Settings",
+					"description": "Avatar storage modes (R2 vs IPFS), sessions, notifications, and preferences.",
 					"added": null,
 					"auth": "required",
 					"indexable": false,
-					"tags": []
-				},
-				{
-					"path": "/dashboard/sessions",
-					"title": "Dashboard · Sessions",
-					"description": "Active sign-in sessions across devices.",
-					"added": null,
-					"auth": "required",
-					"indexable": false,
-					"tags": []
-				},
-				{
-					"path": "/dashboard/actions",
-					"title": "Dashboard · Actions",
-					"description": "Agent action history and approvals.",
-					"added": null,
-					"auth": "required",
-					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/settings",
@@ -624,7 +777,8 @@
 					"added": null,
 					"auth": "required",
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -640,7 +794,48 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/start-here",
+					"title": "Docs · Start Here",
+					"description": "Plain-language introduction to three.ws for creators and non-developers — what it is, who it’s for, and where to begin.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/make-your-agent",
+					"title": "Docs · Make Your First Agent",
+					"description": "Step-by-step guide to creating a 3D AI agent in the browser with no code required.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/share-and-embed",
+					"title": "Docs · Share & Embed",
+					"description": "Three ways to put your agent in front of people: share a link, embed an iframe, or use the web component.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/do-i-need-crypto",
+					"title": "Docs · Do I Need Crypto?",
+					"description": "Honest answers to the wallet and payment questions — what requires crypto, what doesn’t, and how payments work.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/quick-start",
@@ -649,7 +844,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/agent-system",
@@ -658,7 +854,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/erc8004",
@@ -667,7 +864,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/embedding",
@@ -676,7 +874,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/web-component",
@@ -685,7 +884,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/mcp",
@@ -694,7 +894,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/skills",
@@ -703,7 +904,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/widgets",
@@ -712,7 +914,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/api-reference",
@@ -721,7 +924,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/sdk",
@@ -730,7 +934,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/docs/listings",
@@ -739,7 +944,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/tutorials",
@@ -748,7 +954,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -764,7 +971,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/blog/three-ws-on-alibaba-cloud-marketplace",
@@ -773,7 +981,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/blog/three-ws-on-bnb-chain-dappbay",
@@ -782,7 +991,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/blog/how-to-embed-3d-onchain-agents",
@@ -791,7 +1001,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -807,7 +1018,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/legal/tos",
@@ -816,7 +1028,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -832,7 +1045,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/llms.txt",
@@ -841,7 +1055,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/llms-full.txt",
@@ -850,7 +1065,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/robots.txt",
@@ -859,7 +1075,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/openapi.json",
@@ -868,7 +1085,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/.well-known/x402",
@@ -877,7 +1095,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/.well-known/agent-attestation-schemas",
@@ -886,7 +1105,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/.well-known/oauth-authorization-server",
@@ -895,7 +1115,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/.well-known/chat-plugin.json",
@@ -904,7 +1125,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": false,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -920,7 +1142,18 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/news/ibm-collaboration-showcase",
+					"title": "Showcasing the three.ws × IBM Partnership",
+					"description": "three.ws and IBM are partners, and we shared a live demo publicly: a persistent, on-chain 3D agent embedded into any page as easily as a YouTube video — thinking on IBM watsonx.ai and Granite. The public /ibm demos are independent developer tools, not official partnership deliverables. The integration ships as an open-source MCP server and a first-class watsonx provider in the three.ws agent runtime, running on your own IBM Cloud credentials.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/live-on-aws-marketplace",
@@ -929,7 +1162,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/joined-aws-partner-network",
@@ -938,7 +1172,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/partnered-with-hackernoon",
@@ -947,7 +1182,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/listed-on-bnb-chain-dappbay",
@@ -956,7 +1192,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/live-on-alibaba-cloud-marketplace",
@@ -965,7 +1202,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2055310365588922872",
@@ -974,7 +1212,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2055309846556401735",
@@ -983,7 +1222,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2055140064070717618",
@@ -992,7 +1232,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2054404663802483072",
@@ -1001,7 +1242,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2053832201176027583",
@@ -1010,7 +1252,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2053804700609458214",
@@ -1019,7 +1262,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2053801703355629587",
@@ -1028,7 +1272,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2053698387263008827",
@@ -1037,7 +1282,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2052790746256920583",
@@ -1046,7 +1292,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2052603250524967045",
@@ -1055,7 +1302,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2052418108837781511",
@@ -1064,7 +1312,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2052167399399735476",
@@ -1073,7 +1322,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2052037977556287723",
@@ -1082,7 +1332,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051893054584553680",
@@ -1091,7 +1342,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051858503523066283",
@@ -1100,7 +1352,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051858035862335505",
@@ -1109,7 +1362,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051774915876098063",
@@ -1118,7 +1372,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051690803203105230",
@@ -1127,7 +1382,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051689230997618690",
@@ -1136,7 +1392,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051616708482498843",
@@ -1145,7 +1402,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051261108506558901",
@@ -1154,7 +1412,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2051140736201175323",
@@ -1163,7 +1422,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050758788186353723",
@@ -1172,7 +1432,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050753406109880576",
@@ -1181,7 +1442,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050627547394916768",
@@ -1190,7 +1452,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050229144676675999",
@@ -1199,7 +1462,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050226678321102975",
@@ -1208,7 +1472,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050221269732425928",
@@ -1217,7 +1482,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050049239301165535",
@@ -1226,7 +1492,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2050016695897706885",
@@ -1235,7 +1502,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2049576641127682430",
@@ -1244,7 +1512,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2049576603324411933",
@@ -1253,7 +1522,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2049476546285740512",
@@ -1262,7 +1532,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2049447738434339171",
@@ -1271,7 +1542,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				},
 				{
 					"path": "/news/2049412062837928202",
@@ -1280,7 +1552,8 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": []
+					"tags": [],
+					"showcase": false
 				}
 			]
 		}

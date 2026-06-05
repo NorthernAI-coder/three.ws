@@ -118,76 +118,28 @@
 			padding: 0.5rem 1rem; background: #0c0c0c; border: 1px solid rgba(255,255,255,0.1);
 			border-radius: 6px; z-index: 9999; color: #fff; text-decoration: none;
 		}
-		header.site-header {
-			display: flex;
-			background: rgba(0,0,0,0.8);
-			backdrop-filter: blur(20px);
-			-webkit-backdrop-filter: blur(20px);
-			padding: 0 var(--space-lg);
-			height: var(--header-h);
-			align-items: center;
-			overflow-x: auto;
-			overflow-y: hidden;
-			white-space: nowrap;
-			border-bottom: 1px solid rgba(255,255,255,0.06);
-			z-index: 10;
-			position: sticky;
-			top: 0;
-		}
-		header.site-header h1 {
-			color: #fff;
-			font-family: var(--font-display);
-			font-size: var(--text-lg);
-			font-weight: 600;
-			margin: 0;
-			letter-spacing: -0.01em;
-			display: flex;
-			align-items: center;
-			gap: var(--space-xs);
-			line-height: var(--header-h);
-		}
-		header.site-header h1 > a {
-			color: inherit; font-size: inherit; text-decoration: none;
-			display: flex; align-items: center; gap: 0.5rem;
-		}
 		.wordmark-dot {
 			width: 8px; height: 8px; border-radius: 50%;
 			background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
 			box-shadow: 0 0 10px rgba(139,92,246,0.6);
 			display: inline-block;
 		}
-		.features-nav {
-			margin-left: auto; display: flex; gap: var(--space-md); align-items: center;
-		}
-		.features-nav a {
-			color: rgba(255,255,255,0.5); text-decoration: none;
-			font-size: var(--text-sm); font-weight: 500; letter-spacing: -0.005em;
-			padding: 0.35rem 0.7rem; border-radius: var(--radius-md);
-			transition: color 0.18s ease, background 0.18s ease; position: relative;
-		}
-		.features-nav a:hover { color: #fff; background: rgba(255,255,255,0.04); }
-		.features-nav a.active { color: #fff; background: rgba(255,255,255,0.06); }
-		.nav-sign-in { border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-md); }
-		.nav-user {
-			display: inline-flex; align-items: center; gap: 6px;
-			padding: 4px 10px; border-radius: 20px;
-			border: 1px solid rgba(255,255,255,0.1);
-			background: rgba(255,255,255,0.04);
-			font-size: var(--text-sm); color: rgba(255,255,255,0.55);
-			max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-		}
-		.nav-user::before {
-			content: ''; width: 6px; height: 6px; border-radius: 50%;
-			background: #4ade80; flex-shrink: 0;
-		}
-		.nav-user:hover {
-			color: rgba(255,255,255,0.85) !important;
-			border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07);
-		}
-		@media (max-width: 700px) {
-			.features-nav a:not(.nav-sign-in):not(.nav-user):not(#nav-sign-in) { display: none; }
-		}
 	</style>
+
+	<link rel="canonical" href="https://three.ws/vanity-wallet">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:title" content="Solana Vanity Wallet · three.ws">
+	<meta property="og:description" content="Grind a Solana address with a custom prefix using your browser's GPU.">
+	<meta property="og:url" content="https://three.ws/vanity-wallet">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Solana Vanity Wallet · three.ws">
+	<meta name="twitter:description" content="Grind a Solana address with a custom prefix using your browser's GPU.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Solana Vanity Wallet","description":"Grind a Solana address with a custom prefix using your browser's GPU.","url":"https://three.ws/vanity-wallet","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 	<a href="#main-content" class="skip-link">Skip to main content</a>
@@ -362,23 +314,6 @@
 		</div>
 	</footer>
 
-	<script>
-		(function () {
-			try {
-				const raw = localStorage.getItem('3dagent:auth-hint');
-				if (raw) {
-					const { authed, name } = JSON.parse(raw);
-					if (authed) {
-						const myAgents = document.getElementById('nav-my-agents');
-						if (myAgents) myAgents.hidden = false;
-						const userEl = document.getElementById('nav-user');
-						if (userEl && name) { userEl.textContent = name; userEl.hidden = false; }
-					}
-				}
-			} catch (_) {}
-		})();
-	</script>
-
 	<script type="module">
 		import { grindVanity } from '/src/solana/vanity/grinder.js';
 		import { validatePattern, estimateAttempts, formatTimeEstimate } from '/src/solana/vanity/validation.js';
@@ -486,7 +421,7 @@
 			$('attempts').textContent = '0';
 			$('rate').textContent = '0/s';
 			$('eta').textContent = fmtTime(estSeconds(prefix.length));
-			$('scan').innerHTML = `<span class="pfx" style="background:linear-gradient(90deg,#ffd54f,#ff8a65);padding:0 3px;border-radius:3px;font-weight:700;color:#1a1a1a">${esc(prefix)}</span><span style="color:#555">${esc(sample(prefix).slice(prefix.length))}</span>`;
+			$('scan').innerHTML = `<span class="pfx" style="background:linear-gradient(90deg,#ffd54f,#ff8a65);padding:0 3px;border-radius:3px;font-weight:700;color:var(--bg-1)">${esc(prefix)}</span><span style="color:#555">${esc(sample(prefix).slice(prefix.length))}</span>`;
 			stopPreviewLoop();
 
 			// Animate the scan line during grind.
@@ -600,7 +535,7 @@
 				const data = await r.json();
 				agents = data.agents || [];
 			} catch (e) {
-				host.innerHTML = `<div class="assign"><h4>Use this wallet with an agent</h4><p style="font-size:.8rem;color:#f87171;margin:0">Could not load your agents: ${esc(e.message)}</p></div>`;
+				host.innerHTML = `<div class="assign"><h4>Use this wallet with an agent</h4><p style="font-size:.8rem;color:var(--danger);margin:0">Could not load your agents: ${esc(e.message)}</p></div>`;
 				return;
 			}
 			if (!agents.length) {
@@ -661,9 +596,9 @@
 					const data = await r.json();
 					if (!r.ok) {
 						if (r.status === 409) {
-							status.innerHTML = `<span style="color:#f87171">${esc(data.error_description)} — pick another agent or remove the existing wallet first.</span>`;
+							status.innerHTML = `<span style="color:var(--danger)">${esc(data.error_description)} — pick another agent or remove the existing wallet first.</span>`;
 						} else {
-							status.innerHTML = `<span style="color:#f87171">Failed: ${esc(data.error_description || r.status)}</span>`;
+							status.innerHTML = `<span style="color:var(--danger)">Failed: ${esc(data.error_description || r.status)}</span>`;
 						}
 						btn.disabled = false;
 						return;
@@ -676,12 +611,14 @@
 							<a href="/agent/${esc(sel.value)}" style="color:inherit;text-decoration:underline">Open agent →</a>
 						</div>`;
 				} catch (e) {
-					status.innerHTML = `<span style="color:#f87171">Network error: ${esc(e.message)}</span>`;
+					status.innerHTML = `<span style="color:var(--danger)">Network error: ${esc(e.message)}</span>`;
 					btn.disabled = false;
 				}
 			});
 		}
 	</script>
 	<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

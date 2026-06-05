@@ -1,7 +1,6 @@
 /**
  * three.ws MotionPath — drives a DOM element along a Bezier spline.
- * Used by embed.js (host-page wrapper movement) and agent-chat-widget.html
- * (standalone self-animation mode).
+ * Used by embed.js for host-page wrapper movement.
  *
  * Syncs walk/idle animations into the avatar iframe via JSON-RPC 2.0 postMessage.
  */

@@ -53,7 +53,7 @@
 }
 
 pre {
-	background: #1a1a1a;
+	background: var(--bg-1);
 	padding: 1rem;
 	border-radius: 8px;
 	overflow-x: auto;

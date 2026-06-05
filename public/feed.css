@@ -9,7 +9,7 @@
 	bottom: 16px;
 	z-index: 2147482000; /* below the Walk Companion (…483000), above page chrome */
 	font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-	color: var(--ink, #e8e8e8);
+	color: var(--ink, var(--ink));
 	-webkit-user-select: none;
 	user-select: none;
 }
@@ -44,7 +44,7 @@
 	background: var(--surface-3, rgba(28, 30, 40, 0.9));
 }
 .tws-feed-pill:focus-visible {
-	outline: 2px solid var(--success, #4ade80);
+	outline: 2px solid var(--success, var(--success));
 	outline-offset: 2px;
 }
 
@@ -53,7 +53,7 @@
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
-	background: var(--success, #4ade80);
+	background: var(--success, var(--success));
 	box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5);
 	animation: tws-feed-pulse 2.4s ease-out infinite;
 }
@@ -67,7 +67,7 @@
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
-	color: var(--ink, #e8e8e8);
+	color: var(--ink, var(--ink));
 }
 .tws-feed-pill-text b {
 	font-weight: 600;
@@ -79,7 +79,7 @@
 	height: 18px;
 	padding: 0 5px;
 	border-radius: 999px;
-	background: var(--success, #4ade80);
+	background: var(--success, var(--success));
 	color: #06210f;
 	font-size: 11px;
 	font-weight: 700;
@@ -124,7 +124,7 @@
 	font-size: 12.5px;
 	font-weight: 600;
 	letter-spacing: 0.02em;
-	color: var(--ink, #e8e8e8);
+	color: var(--ink, var(--ink));
 }
 .tws-feed-close {
 	flex: 0 0 auto;
@@ -143,10 +143,10 @@
 }
 .tws-feed-close:hover {
 	background: var(--surface-3, rgba(255, 255, 255, 0.08));
-	color: var(--ink, #e8e8e8);
+	color: var(--ink, var(--ink));
 }
 .tws-feed-close:focus-visible {
-	outline: 2px solid var(--success, #4ade80);
+	outline: 2px solid var(--success, var(--success));
 	outline-offset: 1px;
 }
 
@@ -182,7 +182,7 @@ a.tws-feed-item:hover {
 	background: var(--surface-3, rgba(255, 255, 255, 0.06));
 }
 a.tws-feed-item:focus-visible {
-	outline: 2px solid var(--success, #4ade80);
+	outline: 2px solid var(--success, var(--success));
 	outline-offset: -2px;
 }
 @keyframes tws-feed-row-in {
@@ -201,8 +201,8 @@ a.tws-feed-item:focus-visible {
 	font-size: 14px;
 	line-height: 1;
 }
-.tws-feed-ico[data-kind='coin-buy'] { color: var(--success, #4ade80); }
-.tws-feed-ico[data-kind='agent-deploy'] { color: #c4b5fd; }
+.tws-feed-ico[data-kind='coin-buy'] { color: var(--success, var(--success)); }
+.tws-feed-ico[data-kind='agent-deploy'] { color: var(--ink-dim, #888888); }
 .tws-feed-ico[data-kind='level-up'] { color: var(--warn, #fbbf24); }
 .tws-feed-ico[data-kind='world-join'] { color: #7dd3fc; }
 .tws-feed-ico[data-kind='jackpot'] { color: var(--warn, #fbbf24); }
@@ -214,7 +214,7 @@ a.tws-feed-item:focus-visible {
 .tws-feed-text {
 	font-size: 12.5px;
 	line-height: 1.35;
-	color: var(--ink, #e8e8e8);
+	color: var(--ink, var(--ink));
 	word-break: break-word;
 }
 .tws-feed-text b {
@@ -258,12 +258,12 @@ a.tws-feed-item:focus-visible {
 }
 .tws-feed-msg strong {
 	display: block;
-	color: var(--ink, #e8e8e8);
+	color: var(--ink, var(--ink));
 	font-weight: 600;
 	margin-bottom: 3px;
 }
 .tws-feed-msg a {
-	color: var(--success, #4ade80);
+	color: var(--success, var(--success));
 	text-decoration: none;
 }
 .tws-feed-msg a:hover { text-decoration: underline; }

@@ -1,21 +1,21 @@
 /* ── Avatar Studio Demo ─────────────────────────────────────────────────── */
 
 :root {
-	--as-bg: #000000;
-	--as-panel-bg: #0a0a0a;
-	--as-panel-2: #111111;
-	--as-border: #1a1a1a;
-	--as-border-2: #2a2a2a;
-	--as-text: #e8e8e8;
-	--as-text-2: #888888;
-	--as-text-3: #555555;
-	--as-accent: #ffffff;
-	--as-accent-hover: #e8e8e8;
-	--as-success: #4ade80;
-	--as-danger: #f87171;
-	--as-radius: 12px;
-	--as-radius-sm: 8px;
-	--as-transition: 180ms ease;
+	--as-bg:           #000000;
+	--as-panel-bg:     var(--surface-1,      var(--bg-0));
+	--as-panel-2:      var(--surface-2,      #111111);
+	--as-border:       var(--stroke,         var(--bg-1));
+	--as-border-2:     var(--stroke-strong,  #2a2a2a);
+	--as-text:         var(--ink,            var(--ink));
+	--as-text-2:       var(--ink-dim,        #888888);
+	--as-text-3:       var(--ink-dim,        #555555);
+	--as-accent:       var(--accent,         #ffffff);
+	--as-accent-hover: var(--ink,            var(--ink));
+	--as-success:      var(--success,        var(--success));
+	--as-danger:       var(--danger,         var(--danger));
+	--as-radius:       var(--radius-card,    12px);
+	--as-radius-sm:    var(--radius-lg,      8px);
+	--as-transition:   180ms ease;
 }
 
 html, body {
@@ -93,7 +93,7 @@ html, body {
 
 .as-btn-primary {
 	background: var(--as-accent);
-	color: #0a0a0a;
+	color: var(--bg-0);
 	font-weight: 600;
 }
 .as-btn-primary:hover {

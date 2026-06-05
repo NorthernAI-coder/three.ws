@@ -946,7 +946,7 @@
 				if (!isOwner) embedSection.style.display = '';
 				embedPreview.href = embedUrl;
 				document.getElementById('agent-embed-settings').href =
-					'/dashboard/embed-policy?agent=' + identity.id;
+					'/dashboard/api?agent=' + identity.id;
 
 				document.querySelectorAll('.agent-embed-tab').forEach((btn) => {
 					btn.addEventListener('click', () => {

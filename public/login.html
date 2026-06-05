@@ -20,6 +20,7 @@
 		<link rel="stylesheet" href="/auth.css" />
 		<link rel="stylesheet" href="/mobile.css" />
 		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
 		<script defer src="/footer-newsletter.js"></script>
 		<style>
 			:root {
@@ -80,110 +81,6 @@
 				border: 1px solid #1e1f2b;
 				border-radius: 6px;
 				z-index: 9999;
-			}
-			header.site-header {
-				display: flex;
-				background: rgba(0, 0, 0, 0.8);
-				backdrop-filter: blur(20px);
-				-webkit-backdrop-filter: blur(20px);
-				padding: 0 var(--space-lg);
-				height: var(--header-h);
-				align-items: center;
-				overflow-x: auto;
-				overflow-y: hidden;
-				white-space: nowrap;
-				border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-				z-index: 10;
-			}
-			header.site-header h1 {
-				color: #fff;
-				font-family: var(--font-display);
-				font-size: var(--text-lg);
-				font-weight: 600;
-				margin: 0;
-				letter-spacing: -0.01em;
-				display: flex;
-				align-items: center;
-				gap: var(--space-xs);
-				line-height: var(--header-h);
-			}
-			header.site-header h1 > a {
-				color: inherit;
-				font-size: inherit;
-				text-decoration: none;
-				display: flex;
-				align-items: center;
-				gap: 0.5rem;
-			}
-			.wordmark-dot {
-				width: 8px;
-				height: 8px;
-				border-radius: 50%;
-				background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
-				box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
-				display: inline-block;
-			}
-			.features-nav {
-				margin-left: auto;
-				display: flex;
-				gap: var(--space-md);
-				align-items: center;
-			}
-			.features-nav a {
-				color: rgba(255, 255, 255, 0.5);
-				text-decoration: none;
-				font-size: var(--text-sm);
-				font-weight: 500;
-				letter-spacing: -0.005em;
-				padding: 0.35rem 0.7rem;
-				border-radius: var(--radius-md);
-				transition: color 0.18s ease, background 0.18s ease;
-				position: relative;
-			}
-			.features-nav a:hover {
-				color: #fff;
-				background: rgba(255, 255, 255, 0.04);
-			}
-			.features-nav a.active {
-				color: #fff;
-				background: rgba(255, 255, 255, 0.06);
-			}
-			.nav-sign-in {
-				border: 1px solid rgba(255, 255, 255, 0.12);
-				border-radius: var(--radius-md);
-			}
-			.nav-user {
-				display: inline-flex;
-				align-items: center;
-				gap: 6px;
-				padding: 4px 10px;
-				border-radius: 20px;
-				border: 1px solid rgba(255, 255, 255, 0.1);
-				background: rgba(255, 255, 255, 0.04);
-				font-size: var(--text-sm);
-				color: rgba(255, 255, 255, 0.55);
-				max-width: 140px;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-			.nav-user::before {
-				content: '';
-				width: 6px;
-				height: 6px;
-				border-radius: 50%;
-				background: #4ade80;
-				flex-shrink: 0;
-			}
-			.nav-user:hover {
-				color: rgba(255, 255, 255, 0.85) !important;
-				border-color: rgba(255, 255, 255, 0.2);
-				background: rgba(255, 255, 255, 0.07);
-			}
-			@media (max-width: 700px) {
-				.features-nav a:not(.nav-sign-in):not(.nav-user):not(#nav-sign-in) {
-					display: none;
-				}
 			}
 			.shell {
 				display: flex;
@@ -402,6 +299,72 @@
 
 			/* .password-wrap, .password-toggle, .caps-warn come from /auth.css. */
 
+			/* ── No-wallet welcome banner ── */
+			.no-wallet-hint {
+				display: none;
+				background: rgba(255, 255, 255, 0.04);
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				border-radius: 8px;
+				padding: 9px 12px;
+				font-size: 12px;
+				color: #777;
+				margin: 0 0 18px;
+				line-height: 1.5;
+			}
+			.no-wallet-hint.show {
+				display: block;
+			}
+
+			/* ── On-chain features toggle ── */
+			.onchain-toggle-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin: 20px 0 0;
+			}
+			.onchain-toggle-label {
+				font-size: 12px;
+				color: #444;
+				letter-spacing: 0.02em;
+				user-select: none;
+			}
+			.onchain-toggle-btn {
+				width: auto;
+				margin: 0;
+				padding: 4px 12px;
+				background: transparent;
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				border-radius: 6px;
+				color: #555;
+				font-size: 12px;
+				font-weight: 500;
+				cursor: pointer;
+				transition: color 0.15s, border-color 0.15s, background 0.15s;
+				letter-spacing: 0.01em;
+			}
+			.onchain-toggle-btn:hover:not(:disabled) {
+				color: #bbb;
+				border-color: rgba(255, 255, 255, 0.2);
+				background: rgba(255, 255, 255, 0.03);
+			}
+			.onchain-toggle-btn.active {
+				color: #e0e0e0;
+				border-color: rgba(255, 255, 255, 0.25);
+				background: rgba(255, 255, 255, 0.06);
+			}
+			.onchain-section {
+				overflow: hidden;
+				max-height: 0;
+				opacity: 0;
+				transition: max-height 0.3s ease, opacity 0.22s ease, margin-top 0.22s ease;
+				margin-top: 0;
+			}
+			.onchain-section.open {
+				max-height: 300px;
+				opacity: 1;
+				margin-top: 14px;
+			}
+
 			/* ── Wallet chain tabs ── */
 			.chain-tabs {
 				display: flex;
@@ -490,28 +453,27 @@
 				animation: err-shake 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 			}
 		</style>
-	</head>
+	
+	<meta name="description" content="Sign in with email, GitHub, or a connected wallet.">
+	<link rel="canonical" href="https://three.ws/login">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:title" content="Sign in · three.ws">
+	<meta property="og:description" content="Sign in with email, GitHub, or a connected wallet.">
+	<meta property="og:url" content="https://three.ws/login">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Sign in · three.ws">
+	<meta name="twitter:description" content="Sign in with email, GitHub, or a connected wallet.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Sign in","description":"Sign in with email, GitHub, or a connected wallet.","url":"https://three.ws/login","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body>
 		<a href="#main-content" class="skip-link">Skip to main content</a>
-		<header class="site-header">
-			<h1>
-				<a href="/marketplace?tab=mine" aria-label="three.ws home"
-					><span class="wordmark-dot" aria-hidden="true"></span>three.ws</a
-				>
-			</h1>
-			<nav class="features-nav" aria-label="Primary">
-				<a href="/app">Viewer</a>
-				<a href="/create">Create</a>
-				<a href="/discover">Discover</a>
-				<a href="/widgets">Widgets</a>
-				<a href="/studio">Studio</a>
-				<a href="/chat">Chat</a>
-				<a href="/docs">Docs</a>
-				<a href="/dashboard" class="nav-dashboard">Dashboard</a>
-				<a href="/my-agents" id="nav-my-agents" hidden>My Agents</a>
-				<a href="/dashboard" id="nav-user" hidden class="nav-user"></a>
-			</nav>
-		</header>
+		<div id="nav-container"></div>
+		<script src="/nav.js"></script>
 		<main class="auth-stage" id="main-content">
 		<div class="shell">
 			<form class="card" id="f" autocomplete="on">
@@ -519,19 +481,9 @@
 				<h1>Welcome back</h1>
 				<p class="sub">Sign in to manage your avatars.</p>
 
-				<div class="chain-tabs" role="tablist" aria-label="Wallet chain">
-					<button type="button" class="chain-tab active" data-chain="solana" role="tab" aria-selected="true" aria-controls="solana-panel">Solana</button>
-					<button type="button" class="chain-tab" data-chain="evm" role="tab" aria-selected="false" aria-controls="evm-panel">EVM</button>
-				</div>
-				<div id="solana-panel" class="chain-panel active" role="tabpanel">
-					<div id="solana-wallet-mount"></div>
-				</div>
-				<div id="evm-panel" class="chain-panel" role="tabpanel">
-					<div id="wallet-mount"></div>
-				</div>
-				<p class="wallet-step-hint" title="Your wallet will prompt twice — once to connect, once to sign.">Wallet prompts to connect, then to sign.</p>
-
-				<div class="or-divider">or</div>
+				<p class="no-wallet-hint" id="no-wallet-hint">
+					No wallet needed — sign in with your email below.
+				</p>
 
 				<label for="email">Email or username</label>
 				<input id="email" name="username" type="text" inputmode="email" autocapitalize="none" autocomplete="username email" autofocus required aria-describedby="email-err" />
@@ -565,6 +517,28 @@
 				<button id="submit" type="submit">Sign in</button>
 
 				<div class="err" id="err" role="alert" aria-live="polite"></div>
+
+				<div class="onchain-toggle-row">
+					<span class="onchain-toggle-label">Using on-chain features?</span>
+					<button type="button" class="onchain-toggle-btn" id="onchain-toggle" aria-expanded="false" aria-controls="onchain-section">
+						Connect wallet
+					</button>
+				</div>
+
+				<div class="onchain-section" id="onchain-section" aria-hidden="true">
+					<div class="chain-tabs" role="tablist" aria-label="Wallet chain">
+						<button type="button" class="chain-tab active" data-chain="solana" role="tab" aria-selected="true" aria-controls="solana-panel">Solana</button>
+						<button type="button" class="chain-tab" data-chain="evm" role="tab" aria-selected="false" aria-controls="evm-panel">EVM</button>
+					</div>
+					<div id="solana-panel" class="chain-panel active" role="tabpanel">
+						<div id="solana-wallet-mount"></div>
+					</div>
+					<div id="evm-panel" class="chain-panel" role="tabpanel">
+						<div id="wallet-mount"></div>
+					</div>
+					<p class="wallet-step-hint" title="Your wallet will prompt twice — once to connect, once to sign.">Wallet prompts to connect, then to sign.</p>
+				</div>
+
 				<p class="foot">No account? <a href="/register">Create one</a></p>
 			</form>
 			<div class="panel">
@@ -669,22 +643,6 @@
 				</div>
 			</div>
 		</footer>
-		<script>
-			(function () {
-				try {
-					const raw = localStorage.getItem('3dagent:auth-hint');
-					if (raw) {
-						const { authed, name } = JSON.parse(raw);
-						if (authed) {
-							const myAgents = document.getElementById('nav-my-agents');
-							if (myAgents) myAgents.hidden = false;
-							const userEl = document.getElementById('nav-user');
-							if (userEl && name) { userEl.textContent = name; userEl.hidden = false; }
-						}
-					}
-				} catch (_) {}
-			})();
-		</script>
 		<script type="module" src="/wallet-login.js"></script>
 		<script>
 			(function () {
@@ -697,6 +655,35 @@
 				const passwordErr = document.getElementById('password-err');
 				const capsWarn = document.getElementById('caps-warn');
 				const pwToggle = document.getElementById('password-toggle');
+
+				// ── On-chain features toggle ──
+				const onchainToggle = document.getElementById('onchain-toggle');
+				const onchainSection = document.getElementById('onchain-section');
+				let onchainOpen = false;
+
+				function setOnchainOpen(open) {
+					onchainOpen = open;
+					onchainSection.classList.toggle('open', open);
+					onchainSection.setAttribute('aria-hidden', open ? 'false' : 'true');
+					onchainToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+					onchainToggle.classList.toggle('active', open);
+					onchainToggle.textContent = open ? 'Hide wallet' : 'Connect wallet';
+					try { sessionStorage.setItem('login:onchain', open ? '1' : '0'); } catch { /* ignore */ }
+				}
+
+				onchainToggle.addEventListener('click', () => setOnchainOpen(!onchainOpen));
+
+				// Show no-wallet hint when redirected from a wallet dead-end
+				const loginParams = new URLSearchParams(location.search);
+				if (loginParams.get('from') === 'no-wallet') {
+					document.getElementById('no-wallet-hint')?.classList.add('show');
+				}
+
+				// Restore previous toggle state (skip if coming from no-wallet dead-end)
+				try {
+					const saved = sessionStorage.getItem('login:onchain');
+					if (saved === '1' && loginParams.get('from') !== 'no-wallet') setOnchainOpen(true);
+				} catch { /* ignore */ }
 
 				// ── Wallet chain tabs ──
 				const solanaTab = document.querySelector('.chain-tab[data-chain="solana"]');

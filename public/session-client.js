@@ -56,7 +56,7 @@
 			background: 'transparent',
 			border: '1px solid #3a3a4a',
 			borderRadius: '6px',
-			color: '#9a8cff',
+			color: '#888888',
 			cursor: 'pointer',
 			padding: '4px 10px',
 			fontSize: '13px',

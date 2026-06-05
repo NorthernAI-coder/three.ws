@@ -446,7 +446,7 @@ a:hover {
 	border-color: #1f3a52;
 }
 .my-agents-card__pill--source {
-	background: #1a1a1a;
+	background: var(--bg-1);
 	color: #cccccc;
 	border-color: #2a2a2a;
 }
@@ -592,7 +592,7 @@ a:hover {
 }
 .my-agents-btn--ghost:hover:not(:disabled) {
 	filter: none;
-	background: #1a1a1a;
+	background: var(--bg-1);
 	color: #fff;
 	border-color: #3a3a3a;
 }
@@ -642,7 +642,7 @@ a:hover {
 
 .my-agents-skeleton__thumb {
 	aspect-ratio: 1 / 1;
-	background: linear-gradient(90deg, #1a1a1a 25%, #222222 50%, #1a1a1a 75%);
+	background: linear-gradient(90deg, var(--bg-1) 25%, #222222 50%, var(--bg-1) 75%);
 	background-size: 600px 100%;
 	animation: my-agents-shimmer 1.4s infinite linear;
 }
@@ -657,7 +657,7 @@ a:hover {
 .my-agents-skeleton__line {
 	height: 12px;
 	border-radius: 6px;
-	background: linear-gradient(90deg, #1a1a1a 25%, #222222 50%, #1a1a1a 75%);
+	background: linear-gradient(90deg, var(--bg-1) 25%, #222222 50%, var(--bg-1) 75%);
 	background-size: 600px 100%;
 	animation: my-agents-shimmer 1.4s infinite linear;
 }

@@ -129,7 +129,7 @@
   // ── Text layout ───────────────────────────────────────────────
   function getEntries() {
     const MO = '"JetBrains Mono","Courier New",monospace';
-    const DI = '"Inter Tight","Inter",sans-serif';
+    const DI = '"Space Grotesk","Inter",sans-serif';
     const cl = (a, v, b) => Math.max(a, Math.min(b, v));
     const mob = W < 680;
 

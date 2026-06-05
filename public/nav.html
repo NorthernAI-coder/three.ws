@@ -10,6 +10,7 @@
 				<div class="nav-pop" role="menu" aria-label="Build">
 					<a class="nav-mi" href="/create" role="menuitem"><span class="nav-mi-t">Create agent</span><span class="nav-mi-d">Avatar + brain wizard</span></a>
 					<a class="nav-mi" href="/create/selfie" role="menuitem"><span class="nav-mi-t">Selfie to avatar</span><span class="nav-mi-d">One photo → rigged 3D avatar</span></a>
+					<a class="nav-mi" href="/avatar-studio" role="menuitem"><span class="nav-mi-t">Avatar Studio</span><span class="nav-mi-d">Sculpt face + body from scratch → export GLB</span></a>
 					<a class="nav-mi" href="/forge" role="menuitem"><span class="nav-mi-t">Text to 3D <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Describe an object → textured GLB</span></a>
 					<a class="nav-mi" href="/play" role="menuitem"><span class="nav-mi-t">Worlds <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Every coin is a 3D world — drop in &amp; hang out</span></a>
 					<a class="nav-mi" href="/app" role="menuitem"><span class="nav-mi-t">Viewer</span><span class="nav-mi-d">Drag-and-drop GLB</span></a>
@@ -21,6 +22,7 @@
 			<div class="nav-grp">
 				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Discover<span class="nav-caret" aria-hidden="true">▾</span></button>
 				<div class="nav-pop" role="menu" aria-label="Discover">
+					<a class="nav-mi" href="/what-is" role="menuitem"><span class="nav-mi-t">What is three.ws?</span><span class="nav-mi-d">Plain-English intro + real use-cases — start here</span></a>
 					<a class="nav-mi" href="/features" role="menuitem"><span class="nav-mi-t">Features</span><span class="nav-mi-d">Everything an agent gets — interactive tour</span></a>
 					<a class="nav-mi" href="/discover" role="menuitem"><span class="nav-mi-t">ERC-8004 Agents</span><span class="nav-mi-d">On-chain agent directory</span></a>
 					<a class="nav-mi" href="/agents" role="menuitem"><span class="nav-mi-t">Agents Index</span><span class="nav-mi-d">Browse every registered agent</span></a>
@@ -30,6 +32,7 @@
 					<a class="nav-mi" href="/skills" role="menuitem"><span class="nav-mi-t">Skills <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Browse agent tool packs &amp; capabilities</span></a>
 					<a class="nav-mi" href="/bazaar" role="menuitem"><span class="nav-mi-t">x402 Bazaar</span><span class="nav-mi-d">Browse paid APIs and MCP tools</span></a>
 					<a class="nav-mi" href="/community" role="menuitem"><span class="nav-mi-t">Community</span><span class="nav-mi-d">X, GitHub, and ways to get involved</span></a>
+					<a class="nav-mi" href="/labs" role="menuitem"><span class="nav-mi-t">Labs <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Hidden gems — fact-checker, tutor, lipsync &amp; more</span></a>
 				</div>
 			</div>
 			<div class="nav-grp">
@@ -52,6 +55,7 @@
 					<a class="nav-mi" href="/chat" role="menuitem"><span class="nav-mi-t">Chat</span><span class="nav-mi-d">Talk to your agent</span></a>
 					<a class="nav-mi" href="/pay" role="menuitem"><span class="nav-mi-t">Pay</span><span class="nav-mi-d">Agent payments — x402 + USDC</span></a>
 					<a class="nav-mi" href="/docs#solana" role="menuitem"><span class="nav-mi-t">Solana SDK</span><span class="nav-mi-d">Attestations + agent-kit</span></a>
+					<a class="nav-mi" href="#" role="menuitem" data-glossary-open><span class="nav-mi-t">Glossary</span><span class="nav-mi-d">Plain-English definitions for crypto terms</span></a>
 				</div>
 			</div>
 			<div class="nav-grp">
@@ -66,7 +70,6 @@
 						<a class="nav-mi" href="/overlay-control" role="menuitem"><span class="nav-mi-t">OBS Overlay</span><span class="nav-mi-d">Stream deck — emote hotkeys, mic</span></a>
 						<a class="nav-mi" href="/walk" role="menuitem"><span class="nav-mi-t">Walk</span><span class="nav-mi-d">Walk your avatar — multiplayer + AR</span></a>
 						<a class="nav-mi" href="/xr" role="menuitem"><span class="nav-mi-t">XR</span><span class="nav-mi-d">Place your avatar in the real world</span></a>
-						<a class="nav-mi" href="/rider" role="menuitem"><span class="nav-mi-t">Rider (VR)</span><span class="nav-mi-d">Open-source VR music visualization</span></a>
 					</div>
 					<div class="nav-col" role="group" aria-label="Markets &amp; Pump">
 						<div class="nav-col-h">Markets &amp; Pump</div>
@@ -96,8 +99,20 @@
 			</div>
 		</nav>
 		<div class="nav-end">
+			<button type="button" class="nav-search-btn" data-search-open aria-label="Search (Cmd K)" title="Search">
+				<svg class="nav-search-ico" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="7.5" cy="7.5" r="5"/><line x1="11.5" y1="11.5" x2="16" y2="16"/></svg>
+				<span class="nav-search-label">Search</span>
+				<kbd class="nav-search-hint" aria-hidden="true">⌘K</kbd>
+			</button>
 			<button type="button" class="nav-walk-toggle" id="home-nav-walk" aria-pressed="false" aria-label="Walk with me — toggle the avatar companion" title="Walk with me">
 				<span class="nav-walk-ico" aria-hidden="true">🚶</span><span class="nav-walk-label">Walk</span>
+			</button>
+			<button type="button" class="nav-notif-btn" id="nav-notifications-btn" aria-label="Notifications" aria-expanded="false" aria-haspopup="dialog" title="Notifications">
+				<svg class="nav-notif-ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="18" height="18">
+					<path d="M15 9A5 5 0 0 0 5 9c0 4-2 5-2 5h14s-2-1-2-5"/>
+					<path d="M11.73 17a2 2 0 0 1-3.46 0"/>
+				</svg>
+				<span class="nav-notif-badge" hidden aria-live="polite"></span>
 			</button>
 			<a href="/my-agents" id="home-nav-my-agents-li" hidden>My Agents</a>
 			<a href="/login" id="home-nav-cta">Sign in</a>
@@ -113,6 +128,7 @@
 	<div class="dr-h">Build</div>
 	<a href="/create">Create agent</a>
 	<a href="/create/selfie">Selfie to avatar</a>
+	<a href="/avatar-studio">Avatar Studio</a>
 	<a href="/forge">Text to 3D</a>
 	<a href="/play">Worlds</a>
 	<a href="/app">Viewer</a>
@@ -120,6 +136,7 @@
 	<a href="/validation">glTF Validator</a>
 	<a href="/voice">Voice Lab</a>
 	<div class="dr-h">Discover</div>
+	<a href="/what-is">What is three.ws?</a>
 	<a href="/features">Features</a>
 	<a href="/discover">ERC-8004 Agents</a>
 	<a href="/agents">Agents Index</a>
@@ -129,6 +146,7 @@
 	<a href="/skills">Skills</a>
 	<a href="/bazaar">x402 Bazaar</a>
 	<a href="/community">Community</a>
+	<a href="/labs">Labs</a>
 	<div class="dr-h">Embed</div>
 	<a href="/widgets">Widgets</a>
 	<a href="/studio">Widget Studio</a>
@@ -143,6 +161,7 @@
 	<a href="/chat">Chat</a>
 	<a href="/pay">Pay</a>
 	<a href="/docs#solana">Solana SDK</a>
+	<a href="#" data-glossary-open>Glossary</a>
 	<div class="dr-h">Labs · Avatar &amp; Motion</div>
 	<a href="/lipsync">Lipsync</a>
 	<a href="/mocap-studio">Mocap Studio</a>
@@ -150,7 +169,6 @@
 	<a href="/overlay-control">OBS Overlay</a>
 	<a href="/walk">Walk</a>
 	<a href="/xr">XR</a>
-	<a href="/rider">Rider (VR)</a>
 	<div class="dr-h">Labs · Markets &amp; Pump</div>
 	<a href="/launchpad">Launchpad Studio</a>
 	<a href="/gmgn">GMGN Smart Money</a>
@@ -171,9 +189,12 @@
 	<a href="/forever">Forever</a>
 	<a href="/eth-vanity">ETH vanity (CREATE2)</a>
 	<a href="/vanity-wallet">Vanity wallet</a>
+	<div class="dr-h">Legal</div>
+	<a href="/legal/privacy">Privacy Policy</a>
+	<a href="/legal/tos">Terms of Use</a>
 	<div class="dr-h">More</div>
 	<a href="/my-agents" id="home-nav-drawer-my-agents" hidden>My Agents</a>
 	<div class="sep"></div>
 	<a href="/login" id="home-nav-drawer-cta">Sign in</a>
-	<a class="btn primary" href="/dashboard" style="margin-top:4px;">Console →</a>
+	<a class="btn primary btn--primary" href="/dashboard" style="margin-top:4px;">Console →</a>
 </nav>

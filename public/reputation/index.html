@@ -48,7 +48,7 @@
 			}
 			h1,h2,h3 { font-family: 'Space Grotesk', -apple-system, sans-serif; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
 			a { color: #ffffff; text-decoration: none; }
-			a:hover { color: #c4b5fd; }
+			a:hover { color: var(--ink-dim); }
 			button { font-family: inherit; }
 
 			.rep-page-wrap {
@@ -184,13 +184,13 @@
 				background: rgba(255,255,255,0.08);
 				border: 1px solid rgba(255,255,255,0.2);
 				border-radius: 999px;
-				color: rgba(167,139,250,0.85);
+				color: rgba(255,255,255,0.55);
 				font-size: 0.8rem;
 				cursor: pointer;
 				transition: background 0.15s, color 0.15s;
 				font-family: inherit;
 			}
-			.rep-example-chip:hover { background: rgba(255,255,255,0.14); color: #c4b5fd; }
+			.rep-example-chip:hover { background: rgba(255,255,255,0.14); color: var(--ink-dim); }
 
 			.rep-info-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; margin-top: 2.5rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; overflow: hidden; }
 			.rep-info-card { padding: 1.25rem 1.5rem; background: #0c0c14; display: flex; align-items: flex-start; gap: 0.875rem; }
@@ -241,7 +241,7 @@
 			.rep-tab:hover { color: rgba(232,233,240,0.8); }
 			.rep-tab.active { color: #e8e9f0; border-bottom-color: #ffffff; }
 			.rep-tab-badge { font-size: 0.7rem; background: rgba(255,255,255,0.07); border-radius: 20px; padding: 0.05rem 0.4rem; font-weight: 600; }
-			.rep-tab.active .rep-tab-badge { background: rgba(255,255,255,0.25); color: #c4b5fd; }
+			.rep-tab.active .rep-tab-badge { background: rgba(255,255,255,0.25); color: var(--ink-dim); }
 
 			.rep-review-list { display: flex; flex-direction: column; gap: 0.625rem; margin-top: 0.5rem; }
 			.rep-review-card { padding: 1rem 1.125rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; transition: background 0.15s, border-color 0.15s; }
@@ -254,7 +254,7 @@
 			.rep-review-comment { margin: 0.625rem 0 0; font-size: 0.875rem; color: rgba(232,233,240,0.75); line-height: 1.6; word-wrap: break-word; white-space: pre-wrap; }
 			.rep-review-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 0.625rem; font-size: 0.75rem; color: rgba(232,233,240,0.25); }
 			.rep-review-links { display: flex; gap: 0.75rem; }
-			.rep-review-links a { color: rgba(167,139,250,0.6); }
+			.rep-review-links a { color: rgba(255,255,255,0.40); }
 			.rep-review-links a:hover { color: #ffffff; }
 
 			/* ── Empty state ── */
@@ -298,7 +298,7 @@
 			.rep-submit-btn-primary:hover:not(:disabled) { background: #e0e0e0; }
 			.rep-submit-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 			.rep-submit-note { font-size: 0.8rem; color: rgba(232,233,240,0.35); margin: 0.75rem 0 0; text-align: center; }
-			.rep-submit-note a { color: rgba(167,139,250,0.7); }
+			.rep-submit-note a { color: rgba(255,255,255,0.45); }
 
 			.rep-success-card { display: flex; align-items: flex-start; gap: 0.875rem; padding: 1rem 1.25rem; background: rgba(34,209,122,0.07); border: 1px solid rgba(34,209,122,0.2); border-radius: 9px; }
 			.rep-success-card strong { display: block; color: #22d17a; margin-bottom: 0.25rem; }
@@ -309,7 +309,7 @@
 			.rep-error-card { padding: 1.75rem; background: rgba(255,90,90,0.06); border: 1px solid rgba(255,90,90,0.15); border-radius: 12px; }
 			.rep-error-card strong { color: rgba(252,165,165,0.9); display: block; margin-bottom: 0.5rem; font-size: 1.0625rem; }
 			.rep-error-card p { color: rgba(252,165,165,0.7); margin: 0 0 1rem; }
-			.rep-back-link { font-size: 0.875rem; color: rgba(167,139,250,0.8); }
+			.rep-back-link { font-size: 0.875rem; color: rgba(255,255,255,0.50); }
 
 			/* ── Responsive ── */
 			@media (max-width: 680px) {
@@ -324,7 +324,22 @@
 				.rep-stat-value { font-size: 1.75rem; }
 			}
 		</style>
-	</head>
+	
+	<link rel="canonical" href="https://three.ws/reputation">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:title" content="Reputation Explorer · three.ws">
+	<meta property="og:description" content="Inspect on-chain reputation scores and attestations for any agent.">
+	<meta property="og:url" content="https://three.ws/reputation">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Reputation Explorer · three.ws">
+	<meta name="twitter:description" content="Inspect on-chain reputation scores and attestations for any agent.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Reputation Explorer","description":"Inspect on-chain reputation scores and attestations for any agent.","url":"https://three.ws/reputation","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body>
 		<a href="#rep-content" class="h-skip-link">Skip to content</a>
 
@@ -452,5 +467,7 @@
 
 		<script type="module" src="/reputation/reputation.js"></script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

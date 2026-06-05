@@ -1,35 +1,44 @@
 /* ==========================================================================
    dashboard-next — design tokens
-   Reuses the --nxt-* palette established by /app-next so the prototype
-   feels like one product. Anything dashboard-shell specific (rail widths,
-   drawer width, content gutters) lives here.
+   The --nxt-* names are the dashboard/app-shell alias layer. They now resolve
+   to the canonical token set (public/tokens.css, B01) so there is ONE source of
+   truth for shared values. Tokens whose value is identical to a canonical token
+   are aliased via var(); the few that intentionally differ (the dashboard's
+   pure-black background ramp, dark glass, slightly tighter accent wash) stay
+   explicit and are commented. Dashboard-shell chrome dimensions (--dn-*) live
+   here too. See DESIGN-TOKENS.md.
    ========================================================================== */
+@import url('/tokens.css');
 
 :root {
-	/* Palette — monochrome */
+	/* Background ramp — dashboard runs a darker, pure-black base than the
+	   site-wide --bg-0/--bg-1 (which start at #0a0a0a). Kept explicit on purpose. */
 	--nxt-bg-0: #000000;
-	--nxt-bg-1: #0a0a0a;
+	--nxt-bg-1: #0a0a0a; /* == canonical --bg-0 */
 	--nxt-bg-2: #111111;
-	--nxt-bg-3: #1a1a1a;
-	--nxt-ink: #e8e8e8;
-	--nxt-ink-dim: #888888;
-	--nxt-ink-fade: #555555;
-	--nxt-accent: #ffffff;
-	--nxt-accent-soft: rgba(255, 255, 255, 0.08);
-	--nxt-accent-strong: #e8e8e8;
-	--nxt-glass: rgba(0, 0, 0, 0.55);
-	--nxt-glass-strong: rgba(0, 0, 0, 0.82);
-	--nxt-stroke: rgba(255, 255, 255, 0.08);
-	--nxt-stroke-strong: rgba(255, 255, 255, 0.14);
-	--nxt-success: #4ade80;
-	--nxt-warn: #fbbf24;
-	--nxt-danger: #f87171;
+	--nxt-bg-3: #1a1a1a; /* == canonical --bg-1 */
 
-	--nxt-radius: 14px;
-	--nxt-radius-sm: 10px;
-	--nxt-radius-pill: 999px;
+	/* Ink / accent / stroke / state — aliased to canonical (identical values) */
+	--nxt-ink:           var(--ink);            /* #e8e8e8 */
+	--nxt-ink-dim:       var(--ink-dim);        /* #888888 */
+	--nxt-ink-fade:      #555555;               /* darker than canonical --ink-faint; explicit */
+	--nxt-accent:        var(--accent);         /* #ffffff */
+	--nxt-accent-soft:   rgba(255, 255, 255, 0.08); /* tighter than canonical 0.10; explicit */
+	--nxt-accent-strong: var(--ink);            /* #e8e8e8 */
+	--nxt-glass:         rgba(0, 0, 0, 0.55);   /* dark glass — no canonical equivalent */
+	--nxt-glass-strong:  rgba(0, 0, 0, 0.82);
+	--nxt-stroke:        var(--stroke);         /* rgba(255,255,255,0.08) */
+	--nxt-stroke-strong: var(--stroke-strong);  /* rgba(255,255,255,0.14) */
+	--nxt-success:       var(--success);
+	--nxt-warn:          var(--warn);
+	--nxt-danger:        var(--danger);
 
-	/* Dashboard chrome dimensions */
+	/* Radii — aliased to canonical scale */
+	--nxt-radius:      var(--radius-lg);   /* 14px */
+	--nxt-radius-sm:   var(--radius-md);   /* 10px */
+	--nxt-radius-pill: var(--radius-pill); /* 999px */
+
+	/* Dashboard chrome dimensions (shell-specific layout, not design primitives) */
 	--dn-rail-w: 232px;          /* sidebar width on >= md */
 	--dn-rail-w-collapsed: 64px; /* sidebar width when user collapses it */
 	--dn-drawer-w: 360px;        /* right drawer width on >= xl */

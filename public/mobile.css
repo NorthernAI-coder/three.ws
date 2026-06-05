@@ -65,7 +65,7 @@
 }
 
 /* ── Home-page specific mobile polish ──────────────────────────────────
- * Fixes that span across home.css / home-saas.css but are best kept here
+ * Fixes that span across home.css but are best kept here
  * so the load order guarantees they win on equal-specificity conflicts.
  */
 

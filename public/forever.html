@@ -9,12 +9,13 @@
 <meta property="og:title" content="forever — etch a message into Bitcoin" />
 <meta property="og:description" content="Inscribe a message onto the Bitcoin blockchain. It stays there. Forever." />
 <meta property="og:type" content="website" />
-<meta property="og:image" content="https://three.ws/forever-og.png" />
+<meta property="og:image" content="https://three.ws/og-image.png" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="forever — etch a message into Bitcoin" />
 <meta name="twitter:description" content="Your words on the most secure chain in history. One inscription. Permanent." />
 <link rel="canonical" href="https://three.ws/forever" />
 <link rel="preconnect" href="https://api.ordinalsbot.com" />
+<link rel="stylesheet" href="/nav.css" />
 <style>
 	:root {
 		--bg: #000000;
@@ -88,33 +89,6 @@
 		display: flex;
 		flex-direction: column;
 	}
-	header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 22px 32px;
-		border-bottom: 1px solid var(--line);
-	}
-	.logo {
-		font-family: var(--mono);
-		font-size: 13px;
-		letter-spacing: 0.18em;
-		text-transform: uppercase;
-		color: var(--ink-2);
-		border: none;
-	}
-	.logo b { color: var(--btc); font-weight: 600; }
-	.nav {
-		display: flex;
-		gap: 22px;
-		font-family: var(--mono);
-		font-size: 12px;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
-	}
-	.nav a { color: inherit; border: none; }
-	.nav a:hover { color: var(--ink); }
 
 	/* ── hero ─────────────────────────────────────────────────── */
 	main {
@@ -585,19 +559,18 @@
 	.fade-in { animation: fadeIn 360ms ease forwards; }
 	@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 </style>
+
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:url" content="https://three.ws/forever">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Forever — etch a message into Bitcoin","description":"Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.","url":"https://three.ws/forever","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
 <div class="backdrop"></div>
 <div class="shell">
 
-<header>
-	<a class="logo" href="/"><b>three.ws</b> · forever</a>
-	<nav class="nav">
-		<a href="https://ordinals.com" target="_blank" rel="noopener">Ordinals</a>
-		<a href="https://mempool.space" target="_blank" rel="noopener">Mempool</a>
-		<a href="/bazaar">Bazaar</a>
-	</nav>
-</header>
+<div id="nav-container"></div>
+<script src="/nav.js"></script>
 
 <main>
 

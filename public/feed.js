@@ -112,6 +112,21 @@
 			href: function () { return '/play'; },
 			parts: function (e) { return [bold(e.actor || 'A player'), ' won ', bold(e.reward || 'the jackpot')]; },
 		},
+		payment: {
+			icon: '✓',
+			href: function (e) { return e.explorerUrl || null; },
+			parts: function (e) {
+				var amtParts = [];
+				if (e.usdcAtomic != null) {
+					var dec = Number(e.usdcAtomic) / 1e6;
+					var fmt = dec < 0.01 ? dec.toFixed(4) : dec < 1 ? dec.toFixed(3) : dec.toFixed(2);
+					amtParts.push(' $' + fmt);
+				}
+				var toParts = e.recipientLabel ? [' to ', bold(String(e.recipientLabel).slice(0, 40))] : [];
+				var actorParts = [bold(e.actor || 'User'), ' paid'];
+				return actorParts.concat(amtParts).concat(toParts);
+			},
+		},
 	};
 
 	function bold(t) {

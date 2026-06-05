@@ -280,6 +280,55 @@
 			}
 			.field-err.show { display: block; }
 			.chain-tab[disabled] { opacity: 0.4; cursor: not-allowed; }
+			/* ── On-chain features toggle ── */
+			.onchain-toggle-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				margin: 20px 0 0;
+			}
+			.onchain-toggle-label {
+				font-size: 12px;
+				color: #444;
+				letter-spacing: 0.02em;
+				user-select: none;
+			}
+			.onchain-toggle-btn {
+				width: auto;
+				margin: 0;
+				padding: 4px 12px;
+				background: transparent;
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				border-radius: 6px;
+				color: #555;
+				font-size: 12px;
+				font-weight: 500;
+				cursor: pointer;
+				transition: color 0.15s, border-color 0.15s, background 0.15s;
+				letter-spacing: 0.01em;
+			}
+			.onchain-toggle-btn:hover:not(:disabled) {
+				color: #bbb;
+				border-color: rgba(255, 255, 255, 0.2);
+				background: rgba(255, 255, 255, 0.03);
+			}
+			.onchain-toggle-btn.active {
+				color: #e0e0e0;
+				border-color: rgba(255, 255, 255, 0.25);
+				background: rgba(255, 255, 255, 0.06);
+			}
+			.onchain-section {
+				overflow: hidden;
+				max-height: 0;
+				opacity: 0;
+				transition: max-height 0.3s ease, opacity 0.22s ease, margin-top 0.22s ease;
+				margin-top: 0;
+			}
+			.onchain-section.open {
+				max-height: 300px;
+				opacity: 1;
+				margin-top: 14px;
+			}
 			#wallet-mount:empty::before,
 			#solana-wallet-mount:empty::before {
 				content: '';
@@ -346,27 +395,29 @@
 			.wallet-hint-btn:hover { border-color: #fff; color: #eee; }
 			.wallet-hint-btn.active { border-color: #fff; color: #eee; background: rgba(255,255,255,0.06); }
 		</style>
-	</head>
+	
+	<meta name="description" content="Create a new three.ws account.">
+	<link rel="canonical" href="https://three.ws/register">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:title" content="Create account · three.ws">
+	<meta property="og:description" content="Create a new three.ws account.">
+	<meta property="og:url" content="https://three.ws/register">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Create account · three.ws">
+	<meta name="twitter:description" content="Create a new three.ws account.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Create account","description":"Create a new three.ws account.","url":"https://three.ws/register","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body>
 		<div class="shell">
 			<form class="card" id="f" autocomplete="on">
 			<a href="/" class="brand"><img src="/three.svg" alt="" class="header-logo" aria-hidden="true" />three.ws</a>
 			<h1>Create account</h1>
-			<p class="sub">Get started free. <span class="badge">✓ No email needed</span></p>
-
-			<div class="chain-tabs" role="tablist" aria-label="Wallet chain">
-				<button type="button" class="chain-tab active" data-chain="solana" role="tab" aria-selected="true" aria-controls="solana-panel">Solana</button>
-				<button type="button" class="chain-tab" data-chain="evm" role="tab" aria-selected="false" aria-controls="evm-panel">EVM</button>
-			</div>
-			<div id="solana-panel" class="chain-panel active" role="tabpanel">
-				<div id="solana-wallet-mount"></div>
-			</div>
-			<div id="evm-panel" class="chain-panel" role="tabpanel">
-				<div id="wallet-mount"></div>
-			</div>
-			<p class="hint" style="margin-top:10px;text-align:center;font-size:11px;color:#555;cursor:help" title="Your wallet will prompt twice — once to connect, once to sign.">Wallet prompts to connect, then to sign.</p>
-
-			<div class="divider">or</div>
+			<p class="sub">Get started free. <span class="badge">✓ No wallet needed</span></p>
 
 			<label for="username">Username</label>
 			<input
@@ -410,6 +461,28 @@
 			<button id="submit" type="submit">Create account</button>
 
 			<div class="err" id="err" role="alert" aria-live="polite"></div>
+
+			<div class="onchain-toggle-row">
+				<span class="onchain-toggle-label">Using on-chain features?</span>
+				<button type="button" class="onchain-toggle-btn" id="onchain-toggle" aria-expanded="false" aria-controls="onchain-section">
+					Connect wallet
+				</button>
+			</div>
+
+			<div class="onchain-section" id="onchain-section" aria-hidden="true">
+				<div class="chain-tabs" role="tablist" aria-label="Wallet chain">
+					<button type="button" class="chain-tab active" data-chain="solana" role="tab" aria-selected="true" aria-controls="solana-panel">Solana</button>
+					<button type="button" class="chain-tab" data-chain="evm" role="tab" aria-selected="false" aria-controls="evm-panel">EVM</button>
+				</div>
+				<div id="solana-panel" class="chain-panel active" role="tabpanel">
+					<div id="solana-wallet-mount"></div>
+				</div>
+				<div id="evm-panel" class="chain-panel" role="tabpanel">
+					<div id="wallet-mount"></div>
+				</div>
+				<p class="hint" style="margin-top:10px;text-align:center;font-size:11px;color:#555;cursor:help" title="Your wallet will prompt twice — once to connect, once to sign.">Wallet prompts to connect, then to sign.</p>
+			</div>
+
 			<p class="foot">Already have an account? <a href="/login">Sign in</a></p>
 			<p class="legal">By creating an account you agree to our <a href="/legal/tos">Terms of Service</a> and <a href="/legal/privacy">Privacy Policy</a>.</p>
 		</form>
@@ -562,6 +635,27 @@
 					label.textContent = lvl.text;
 					label.style.color = lvl.color;
 				});
+			})();
+
+			// On-chain features toggle
+			(function () {
+				const btn = document.getElementById('onchain-toggle');
+				const section = document.getElementById('onchain-section');
+				if (!btn || !section) return;
+				let open = false;
+				function setOpen(val) {
+					open = val;
+					section.classList.toggle('open', open);
+					section.setAttribute('aria-hidden', open ? 'false' : 'true');
+					btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+					btn.classList.toggle('active', open);
+					btn.textContent = open ? 'Hide wallet' : 'Connect wallet';
+					try { sessionStorage.setItem('register:onchain', open ? '1' : '0'); } catch { /* ignore */ }
+				}
+				btn.addEventListener('click', () => setOpen(!open));
+				try {
+					if (sessionStorage.getItem('register:onchain') === '1') setOpen(true);
+				} catch { /* ignore */ }
 			})();
 
 			// Wallet chain tabs + Solana detection

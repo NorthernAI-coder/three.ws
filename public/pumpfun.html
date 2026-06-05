@@ -38,12 +38,12 @@
 		.pf-filterbar .status-pill:hover { background: transparent; }
 		.helius-pill { font-size: 10px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px;
 			padding: 2px 7px; border: 1px solid var(--border); border-radius: 999px; text-decoration: none;
-			background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06));
+			background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(255,255,255,0.04));
 			transition: color 0.15s ease, border-color 0.15s ease; vertical-align: middle; margin-left: 8px;
 			letter-spacing: 0.02em; text-transform: uppercase; font-weight: 500; }
 		.helius-pill:hover { color: #eee; border-color: #4a4a58; }
 		.helius-pill .helius-dot { width: 6px; height: 6px; border-radius: 50%;
-			background: linear-gradient(135deg, #f59e0b, #a855f7); box-shadow: 0 0 6px rgba(168,85,247,0.55); }
+			background: linear-gradient(135deg, #f59e0b, #e8e8e8); box-shadow: 0 0 6px rgba(255,255,255,0.3); }
 		#feed-wrap h2 { display: inline-flex; align-items: center; flex-wrap: wrap; }
 		.pf-filterbar .desc { color: var(--muted); font-size: 12px; }
 		.pf-filterbar .ctl { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; row-gap: 6px; }
@@ -95,7 +95,7 @@
 		.pf-preview { border-left: 1px solid var(--border); background: #0d0d15; display: flex; flex-direction: column; min-height: 0; }
 		.pf-preview-stage { flex: 1; min-height: 0; position: relative; background: radial-gradient(ellipse at center, #1a1a26 0%, #0a0a12 70%); }
 		.pf-preview-stage model-viewer { width: 100%; height: 100%; --poster-color: transparent; background: transparent; }
-		.pf-preview-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #2a2a3a; font-size: 48px; pointer-events: none; }
+		.pf-preview-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--stroke-strong, rgba(255,255,255,0.14)); font-size: 48px; pointer-events: none; }
 		.pf-preview-meta { padding: 12px 14px; border-top: 1px solid var(--border); }
 		.pf-preview-meta .name { font-size: 13px; font-weight: 600; }
 		.pf-preview-meta .sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
@@ -105,12 +105,12 @@
 		.pf-preview-meta .actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 		.pf-preview-meta .actions .primary:hover { filter: brightness(1.1); background: var(--accent); }
 		.pf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
-		.pf-card { position: relative; background: #161620; border: 1px solid #232330; border-radius: 8px; overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.1s; display: flex; flex-direction: column; text-align: left; padding: 0; color: #eee; font: inherit; }
-		.pf-card:hover, .pf-card:focus-visible { border-color: #3a3a4a; outline: none; }
+		.pf-card { position: relative; background: var(--surface-1, #161620); border: 1px solid var(--stroke, #232330); border-radius: var(--radius-card, 14px); overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.1s; display: flex; flex-direction: column; text-align: left; padding: 0; color: var(--ink, #eee); font: inherit; }
+		.pf-card:hover, .pf-card:focus-visible { border-color: var(--stroke-strong, #3a3a4a); outline: none; }
 		.pf-card:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 		.pf-card:active { transform: scale(0.98); }
 		.pf-card[data-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-		.pf-card .thumb { aspect-ratio: 1/1; background: #0e0e16 center/cover no-repeat; border-bottom: 1px solid #232330; position: relative; display: flex; align-items: center; justify-content: center; color: #2a2a3a; font-size: 32px; }
+		.pf-card .thumb { aspect-ratio: 1/1; background: var(--skeleton-base, rgba(255,255,255,0.04)) center/cover no-repeat; border-bottom: 1px solid var(--stroke, #232330); position: relative; display: flex; align-items: center; justify-content: center; color: var(--stroke-strong, rgba(255,255,255,0.14)); font-size: 32px; }
 		.pf-card .meta { padding: 8px 10px; }
 		.pf-card .name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.pf-card .sub { font-size: 10px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -160,14 +160,14 @@
 			justify-content: flex-end; align-items: center; padding: 0 24px 24px;
 			pointer-events: none; gap: 12px; z-index: 2; }
 		#stage-title { font-size: 22px; font-weight: 700; letter-spacing: 0.01em;
-			color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,0.7), 0 0 24px rgba(106,92,255,0.35);
+			color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,0.7), 0 0 24px rgba(255,255,255,0.2);
 			text-align: center; max-width: 720px; opacity: 0; transform: translateY(8px);
 			transition: opacity 0.25s ease, transform 0.25s ease; }
 		#stage-title[data-visible="true"] { opacity: 1; transform: none; }
 		#stage-title .sub { display: block; font-size: 13px; font-weight: 500; color: #cbd5e1;
 			text-shadow: 0 1px 8px rgba(0,0,0,0.7); margin-top: 4px; letter-spacing: 0.02em; }
 		#stage-caption { font-size: 14px; font-weight: 500; color: #eee; max-width: 640px;
-			background: rgba(10,10,16,0.78); border: 1px solid rgba(106,92,255,0.35);
+			background: rgba(10,10,16,0.78); border: 1px solid rgba(255,255,255,0.14);
 			border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(8px);
 			text-align: center; opacity: 0; transform: translateY(6px);
 			transition: opacity 0.2s ease, transform 0.2s ease; }
@@ -257,7 +257,7 @@
 		.signal .l { font-size: 11px; color: var(--muted); margin-top: 2px; }
 		.signal.neg { border-color: #4a1f23; background: #1f1418; }
 		.empty { color: var(--muted); font-size: 12px; padding: 8px 16px; }
-		a { color: #9a8cff; text-decoration: none; }
+		a { color: #888888; text-decoration: none; }
 		a:hover { text-decoration: underline; }
 		.warn { background: #2a1f0d; border: 1px solid #463a14; padding: 8px 10px; border-radius: 6px;
 			color: #fbbf24; font-size: 12px; margin: 12px 16px; }
@@ -279,7 +279,7 @@
 		.evt-socials a { font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #1e1e2c;
 			border: 1px solid #2a2a3c; color: #cbd5e1; }
 		.evt-socials a:hover { background: #26263a; color: #fff; }
-		.evt-pool { font-size: 10px; color: #9a8cff; margin-top: 4px; }
+		.evt-pool { font-size: 10px; color: #888888; margin-top: 4px; }
 		.evt-copy, .evt-focus { background: transparent; border: 0; color: #888; cursor: pointer; font-size: 11px; padding: 0 2px; }
 		.evt-copy:hover, .evt-focus:hover { color: #fff; }
 		.evt-copy[data-copied="1"]::after { content: ' ✓'; color: #4ade80; }
@@ -294,11 +294,11 @@
 		.evt-take { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; }
 		.evt-time { font-size: 10px; color: #555; }
 		.evt-links { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px; }
-		.evt-links a { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #1e1e2c; border: 1px solid #2a2a3c; color: #9a8cff; text-decoration: none; }
+		.evt-links a { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #1e1e2c; border: 1px solid #2a2a3c; color: #888888; text-decoration: none; }
 		.evt-links a:hover { background: #26263a; }
 		.evt-meta { margin-top: 5px; font-size: 10px; color: #555; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 		.evt-meta a { color: #666; text-decoration: none; }
-		.evt-meta a:hover { color: #9a8cff; }
+		.evt-meta a:hover { color: #888888; }
 		.evt-mint { font-size: 9px; color: #444; word-break: break-all; margin-top: 4px; font-family: monospace; }
 		.evt-desc { font-size: 11px; color: #8a8a9a; margin: 2px 0; }
 		.evt-section { margin-top: 6px; padding-top: 6px; border-top: 1px solid #1e1e2c; }
@@ -306,21 +306,21 @@
 		.evt-stat { color: var(--muted); }
 		.evt-gh { font-size: 11px; margin: 2px 0; }
 		.evt-repo { font-size: 11px; background: #1a1a24; border-radius: 4px; padding: 4px 7px; margin-top: 4px; }
-		.evt-repo-name { font-weight: 600; color: #9a8cff; }
+		.evt-repo-name { font-weight: 600; color: #888888; }
 		.evt-topics { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
 		.evt-topic { font-size: 9px; padding: 1px 5px; background: #1f1f30; border: 1px solid #2a2a3c; border-radius: 10px; color: #7a7aaa; }
 		@keyframes evt-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 		/* Helius pill live event counter */
 		.helius-pill .helius-count { font-variant-numeric: tabular-nums; color: #cbd5e1; font-weight: 600;
-			padding: 1px 5px; border-radius: 4px; background: rgba(168,85,247,0.12); margin-right: 4px;
+			padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.08); margin-right: 4px;
 			min-width: 16px; text-align: center; display: none; letter-spacing: 0; text-transform: none; }
 		.helius-pill[data-count="active"] .helius-count { display: inline-block; }
 
 		/* Jump-to-top button shown when feed is scrolled and new events queue up */
 		.feed-jump { position: absolute; left: 50%; transform: translateX(-50%); top: 38px; z-index: 4;
 			background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 6px 12px;
-			font-size: 11px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(106,92,255,0.4);
+			font-size: 11px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(255,255,255,0.15);
 			display: none; animation: fade-in 0.18s ease; }
 		.feed-jump[data-visible="true"] { display: inline-flex; align-items: center; gap: 6px; }
 		.feed-jump:hover { filter: brightness(1.1); }
@@ -355,6 +355,22 @@
 		.config-save-btn { background: var(--accent); border: 0; color: #fff; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
 		.config-save-btn:hover { filter: brightness(1.1); }
 	</style>
+
+	<meta name="description" content="Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.">
+	<link rel="canonical" href="https://three.ws/pumpfun">
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:title" content="Pump.fun Stream · three.ws">
+	<meta property="og:description" content="Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.">
+	<meta property="og:url" content="https://three.ws/pumpfun">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Pump.fun Stream · three.ws">
+	<meta name="twitter:description" content="Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Pump.fun Stream","description":"Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.","url":"https://three.ws/pumpfun","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body class="home-page">
 	<header>
@@ -1078,7 +1094,7 @@
 		});
 		viewer.addEventListener('error', (e) => {
 			console.warn('[agent] model load error', e?.detail || e);
-			$('anim-chips').innerHTML = '<span class="empty" style="padding:0;color:#f87171">avatar failed to load</span>';
+			$('anim-chips').innerHTML = '<span class="empty" style="padding:0;color:var(--danger)">avatar failed to load</span>';
 		});
 
 		function playAnim(name) {
@@ -1574,7 +1590,7 @@
 				renderFirstClaims();
 			} catch (err) {
 				console.error('[fc] fetch failed', err);
-				firstClaims.el.innerHTML = '<div class="empty" style="color:#f87171">Fetch failed.</div>';
+				firstClaims.el.innerHTML = '<div class="empty" style="color:var(--danger)">Fetch failed.</div>';
 			} finally {
 				firstClaims.refreshing = false;
 			}
@@ -1735,5 +1751,7 @@
 		fetchFirstClaims();
 	</script>
 	<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

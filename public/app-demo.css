@@ -257,8 +257,8 @@ body.app-demo-body .dropzone .upload-btn label {
 }
 
 body.app-demo-body .dropzone .upload-btn label:hover {
-	background: #e8e8e8;
-	border-color: #e8e8e8;
+	background: var(--ink);
+	border-color: var(--ink);
 }
 
 body.app-demo-body .dropzone .upload-btn label:active {
@@ -369,8 +369,8 @@ body.app-demo-body .auth-gate__btn--primary {
 }
 
 body.app-demo-body .auth-gate__btn--primary:hover {
-	background: #e8e8e8;
-	border-color: #e8e8e8;
+	background: var(--ink);
+	border-color: var(--ink);
 }
 
 body.app-demo-body .auth-gate__perks li {
@@ -424,8 +424,8 @@ body.app-demo-body .agent-onboarding__btn--primary {
 }
 
 body.app-demo-body .agent-onboarding__btn--primary:hover {
-	background: #e8e8e8;
-	border-color: #e8e8e8;
+	background: var(--ink);
+	border-color: var(--ink);
 }
 
 /* ---------- Demo banner — tiny indicator so the user knows this isn't /app ---------- */

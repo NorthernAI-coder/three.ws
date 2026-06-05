@@ -18,8 +18,69 @@ function loadActivityFeed() {
 	document.head.appendChild(s);
 }
 
+// Load the site-wide glossary tooltip system (public/glossary.js) on every
+// page. Self-mounting + idempotent; honours <html data-glossary="off">.
+function loadGlossary() {
+	if (document.documentElement.getAttribute('data-glossary') === 'off') return;
+	if (document.querySelector('script[src="/glossary.js"]')) return;
+	const s = document.createElement('script');
+	s.src = '/glossary.js';
+	s.defer = true;
+	document.head.appendChild(s);
+}
+
+// Load the site-wide Cmd-K command palette (public/search.js) on every page.
+// Self-mounting + idempotent; honours <html data-search="off">.
+function loadSearch() {
+	if (document.documentElement.getAttribute('data-search') === 'off') return;
+	if (document.querySelector('script[src="/search.js"]')) return;
+	const s = document.createElement('script');
+	s.src = '/search.js';
+	s.defer = true;
+	document.head.appendChild(s);
+}
+
+// Load the site-wide "Getting started" first-run guide (public/getting-started.js):
+// a one-time welcome for new visitors plus a resumable progress checklist. Self-
+// mounting + idempotent; honours <html data-getting-started="off">.
+function loadGettingStarted() {
+	if (document.documentElement.getAttribute('data-getting-started') === 'off') return;
+	if (document.querySelector('script[src="/getting-started.js"]')) return;
+	const s = document.createElement('script');
+	s.src = '/getting-started.js';
+	s.defer = true;
+	document.head.appendChild(s);
+}
+
+// Load the per-user notifications inbox. Must run after nav HTML is injected
+// because the module mounts onto #nav-notifications-btn which lives in nav.html.
+function loadNotificationsInbox() {
+	if (document.querySelector('script[src="/notifications.js"]')) return;
+	const s = document.createElement('script');
+	s.type = 'module';
+	s.src = '/notifications.js';
+	document.head.appendChild(s);
+}
+
+// Load the site-wide feature-discovery layer (public/feature-discovery.js):
+// "New" badges, "have you tried…" prompts and contextual cross-links. Loaded
+// after the glossary so it can reuse that tooltip primitive. Self-mounting +
+// idempotent; honours <html data-discovery="off">.
+function loadDiscovery() {
+	if (document.documentElement.getAttribute('data-discovery') === 'off') return;
+	if (document.querySelector('script[src="/feature-discovery.js"]')) return;
+	const s = document.createElement('script');
+	s.src = '/feature-discovery.js';
+	s.defer = true;
+	document.head.appendChild(s);
+}
+
 function boot() {
 	loadActivityFeed();
+	loadGlossary();
+	loadSearch();
+	loadDiscovery();
+	loadGettingStarted();
 	const navContainer = document.getElementById('nav-container');
 	if (!navContainer) return;
 	if (!document.querySelector('link[href="/nav.css"]')) {
@@ -33,6 +94,7 @@ function boot() {
 		.then((data) => {
 			navContainer.innerHTML = data;
 			initNav(navContainer);
+			loadNotificationsInbox();
 		})
 		.catch(() => {});
 }

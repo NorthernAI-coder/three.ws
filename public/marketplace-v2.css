@@ -70,7 +70,7 @@ body.market-page > #footer-container {
 /* ── Live chat preview on agent detail ─────────────────────────────────── */
 .market-preview-card {
 	margin-top: 16px;
-	background: linear-gradient(180deg, #0e0e10, #0a0a0a);
+	background: linear-gradient(180deg, #0e0e10, var(--bg-0));
 	border: 1px solid #1f1f1f;
 	border-radius: 16px;
 	padding: 18px;
@@ -186,7 +186,7 @@ body.market-page > #footer-container {
 	min-height: 14px;
 }
 .market-preview-footer.err {
-	color: #f87171;
+	color: var(--danger);
 }
 
 /* ── Creator profile modal ─────────────────────────────────────────────── */
@@ -238,13 +238,13 @@ body.market-page > #footer-container {
 	gap: 18px;
 	align-items: center;
 	padding: 24px 26px 18px;
-	border-bottom: 1px solid #1a1a1a;
+	border-bottom: 1px solid var(--bg-1);
 }
 .creator-modal-avatar {
 	width: 64px;
 	height: 64px;
 	border-radius: 50%;
-	background: #1a1a1a center/cover no-repeat;
+	background: var(--bg-1) center/cover no-repeat;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -338,7 +338,7 @@ body.market-page > #footer-container {
 	border-radius: 8px;
 	background: #050505 center/cover no-repeat;
 	margin-bottom: 8px;
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -408,7 +408,7 @@ body.market-page > #footer-container {
 .breakdown-track {
 	flex: 1;
 	height: 6px;
-	background: #1a1a1a;
+	background: var(--bg-1);
 	border-radius: 3px;
 	overflow: hidden;
 }
@@ -528,7 +528,7 @@ body.market-page > #footer-container {
 	transition: border-color 0.15s, color 0.15s;
 }
 .review-edit-btn:hover { border-color: #4a4a4a; color: #fafafa; }
-.review-delete-btn:hover { border-color: #7f1d1d; color: #f87171; }
+.review-delete-btn:hover { border-color: #7f1d1d; color: var(--danger); }
 .review-cancel-btn:hover { border-color: #3f3f46; color: #d4d4d8; }
 .review-edit-form {
 	margin-top: 12px;
@@ -544,8 +544,8 @@ body.market-page > #footer-container {
 	margin-top: 8px;
 	color: #71717a;
 }
-#d-rating-msg.ok { color: #4ade80; }
-#d-rating-msg.err { color: #f87171; }
+#d-rating-msg.ok { color: var(--success); }
+#d-rating-msg.err { color: var(--danger); }
 .d-reviews-list {
 	display: flex;
 	flex-direction: column;
@@ -553,8 +553,8 @@ body.market-page > #footer-container {
 }
 .review-card {
 	padding: 14px 16px;
-	background: #0a0a0a;
-	border: 1px solid #1a1a1a;
+	background: var(--bg-0);
+	border: 1px solid var(--bg-1);
 	border-radius: 10px;
 }
 .review-card.skeleton {
@@ -570,7 +570,7 @@ body.market-page > #footer-container {
 	width: 32px;
 	height: 32px;
 	border-radius: 50%;
-	background: #1a1a1a center/cover no-repeat;
+	background: var(--bg-1) center/cover no-repeat;
 	flex-shrink: 0;
 	display: flex;
 	align-items: center;
@@ -629,7 +629,7 @@ body.market-page > #footer-container {
 }
 .review-skeleton-line {
 	height: 12px;
-	background: #1a1a1a;
+	background: var(--bg-1);
 	border-radius: 4px;
 	margin-bottom: 8px;
 	animation: skeleton-pulse 1.4s ease-in-out infinite;
@@ -683,7 +683,7 @@ body.market-sidebar-open .market-sidebar-backdrop {
 		   spills below the home indicator. vh kept as a fallback for older UAs. */
 		height: 100vh;
 		height: 100dvh;
-		background: #0a0a0a;
+		background: var(--bg-0);
 		z-index: 45;
 		transition: left 0.2s ease;
 		overflow-y: auto;

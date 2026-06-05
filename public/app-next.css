@@ -7,21 +7,23 @@
    ========================================================================== */
 
 :root {
-	--nxt-bg-0: #000000;
-	--nxt-bg-1: #0a0a0a;
-	--nxt-ink: #e8e8e8;
-	--nxt-ink-dim: #888888;
-	--nxt-ink-fade: #555555;
-	--nxt-accent: #ffffff;
-	--nxt-accent-soft: rgba(255, 255, 255, 0.10);
-	--nxt-glass: rgba(0, 0, 0, 0.55);
-	--nxt-glass-strong: rgba(0, 0, 0, 0.82);
-	--nxt-stroke: rgba(255, 255, 255, 0.07);
-	--nxt-stroke-strong: rgba(255, 255, 255, 0.13);
-	--nxt-radius: 14px;
-	--nxt-radius-sm: 10px;
-	--nxt-radius-pill: 999px;
-	--nxt-header-h: 56px;
+	--nxt-bg-0:        #000000;
+	--nxt-bg-1:        var(--surface-1,      var(--bg-0));
+	--nxt-ink:         var(--ink,            var(--ink));
+	--nxt-ink-dim:     var(--ink-dim,        #888888);
+	--nxt-ink-fade:    var(--ink-dim,        #555555);
+	--nxt-accent:      var(--accent,         #ffffff);
+	--nxt-accent-soft: var(--accent-soft,    rgba(255, 255, 255, 0.10));
+	/* Dark glass overlays — canonical surface system uses light glass;
+	   dark glass here is a justified overlay for the chat dock context */
+	--nxt-glass:       rgba(0, 0, 0, 0.55);
+	--nxt-glass-strong:rgba(0, 0, 0, 0.82);
+	--nxt-stroke:      var(--stroke,         rgba(255, 255, 255, 0.07));
+	--nxt-stroke-strong:var(--stroke-strong, rgba(255, 255, 255, 0.13));
+	--nxt-radius:      var(--radius-card,    14px);
+	--nxt-radius-sm:   var(--radius-control, 10px);
+	--nxt-radius-pill: var(--radius-pill,    999px);
+	--nxt-header-h:    var(--header-h,       56px);
 }
 
 /* ── Body / shell ──────────────────────────────────────────────────────── */
@@ -477,7 +479,7 @@ body.app-next-body {
 
 .nxt-action--primary {
 	background: var(--nxt-ink);
-	color: #0a0a0a;
+	color: var(--bg-0);
 	box-shadow: 0 6px 18px rgba(255, 255, 255, 0.12);
 }
 
@@ -950,7 +952,7 @@ body.app-next-body.is-dragover::before {
 
 .nxt-chat-mic.is-recording {
 	background: var(--nxt-ink);
-	color: #0a0a0a;
+	color: var(--bg-0);
 	animation: nxt-mic-pulse 1.2s ease-in-out infinite;
 }
 
@@ -961,7 +963,7 @@ body.app-next-body.is-dragover::before {
 
 .nxt-chat-send {
 	background: var(--nxt-ink);
-	color: #0a0a0a;
+	color: var(--bg-0);
 	box-shadow: 0 4px 12px rgba(255, 255, 255, 0.10);
 }
 
@@ -1144,7 +1146,7 @@ body.app-next-body.is-dragover::before {
 .nxt-share-copy button {
 	flex: none;
 	background: var(--nxt-ink);
-	color: #0a0a0a;
+	color: var(--bg-0);
 	border: 0;
 	border-radius: 8px;
 	padding: 8px 14px;
@@ -1665,7 +1667,7 @@ body.app-next-body .dg.ac { display: none !important; }
 	padding: 3px 8px;
 	border-radius: 999px;
 	background: rgba(139, 92, 246, 0.12);
-	color: rgba(167, 139, 250, 0.85);
+	color: rgba(255, 255, 255, 0.55);
 	border: 1px solid rgba(139, 92, 246, 0.18);
 	white-space: nowrap;
 }
@@ -1703,14 +1705,14 @@ body.app-next-body .dg.ac { display: none !important; }
 .nxt-visitor-card__btn--primary {
 	flex: 1;
 	background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(124, 58, 237, 0.9));
-	border-color: rgba(167, 139, 250, 0.6);
+	border-color: rgba(255, 255, 255, 0.30);
 	color: #fff;
 	box-shadow: 0 4px 16px rgba(139, 92, 246, 0.28);
 }
 
 .nxt-visitor-card__btn--primary:hover {
 	background: linear-gradient(180deg, rgba(151, 109, 255, 1), rgba(139, 92, 246, 1));
-	border-color: rgba(167, 139, 250, 0.85);
+	border-color: rgba(255, 255, 255, 0.55);
 	box-shadow: 0 6px 20px rgba(139, 92, 246, 0.38);
 }
 
@@ -1967,7 +1969,7 @@ body.app-next-body .dg.ac { display: none !important; }
 		110deg,
 		transparent 25%,
 		rgba(139, 92, 246, 0.05) 37%,
-		rgba(167, 139, 250, 0.08) 50%,
+		rgba(255, 255, 255, 0.04) 50%,
 		rgba(139, 92, 246, 0.05) 63%,
 		transparent 75%
 	);

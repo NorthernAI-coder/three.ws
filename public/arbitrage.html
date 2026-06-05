@@ -9,6 +9,7 @@
 <meta property="og:title" content="x402 Arbitrage — same capability, different price" />
 <meta property="og:description" content="Live cross-provider price disparities from the merged x402 catalog." />
 <meta property="og:type" content="website" />
+<link rel="stylesheet" href="/nav.css" />
 <style>
 	:root {
 		--bg: #0a0b10;
@@ -24,7 +25,7 @@
 		--accent-green: #4ade80;
 		--accent-red: #f87171;
 		--accent-amber: #f59e0b;
-		--accent-purple: #c084fc;
+		--accent-purple: #888888;
 		--mono: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
 	}
 	* { box-sizing: border-box; }
@@ -41,23 +42,6 @@
 	.wrap { max-width: 1280px; margin: 0 auto; padding: 0 28px; }
 	@media (max-width: 720px) { .wrap { padding: 0 16px; } }
 
-	nav {
-		padding: 22px 0;
-		display: flex; align-items: center; justify-content: space-between;
-		border-bottom: 1px solid var(--border);
-		flex-wrap: wrap;
-		gap: 12px;
-	}
-	nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
-	nav .brand .dot {
-		width: 22px; height: 22px;
-		background: conic-gradient(from 200deg, #ffffff, #60a5fa, #ffffff);
-		border-radius: 6px;
-	}
-	nav .links { display: flex; gap: 18px; font-size: 13.5px; color: var(--muted); flex-wrap: wrap; }
-	nav .links a { color: var(--muted); }
-	nav .links a:hover { color: var(--text); }
-	nav .links a.active { color: var(--text); }
 
 	header.hero {
 		padding: 38px 0 8px;
@@ -152,7 +136,7 @@
 		text-transform: uppercase;
 		font-weight: 600;
 	}
-	.type-pill.mcp { background: rgba(192,132,252,0.1); color: var(--accent-purple); border-color: rgba(192,132,252,0.25); }
+	.type-pill.mcp { background: rgba(255,255,255,0.05); color: var(--accent-purple); border-color: rgba(255,255,255,0.12); }
 	.spread-pill {
 		font-family: var(--mono);
 		font-size: 11px;
@@ -319,18 +303,23 @@
 	@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 	.sk-card { height: 240px; }
 </style>
+
+	<link rel="canonical" href="https://three.ws/arbitrage">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:url" content="https://three.ws/arbitrage">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="x402 Arbitrage · three.ws">
+	<meta name="twitter:description" content="Cross-provider price disparities surfaced live from the merged x402 facilitator catalog. Find the cheapest endpoint for any capability.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"x402 Arbitrage","description":"Cross-provider price disparities surfaced live from the merged x402 facilitator catalog. Find the cheapest endpoint for any capability.","url":"https://three.ws/arbitrage","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
+<div id="nav-container"></div>
+<script src="/nav.js"></script>
 <div class="wrap">
-	<nav>
-		<div class="brand"><span class="dot"></span><span>x402 bazaar</span></div>
-		<div class="links">
-			<a href="/bazaar">Catalog</a>
-			<a href="/arbitrage" class="active">Arbitrage</a>
-			<a href="/providers">Providers</a>
-			<a href="https://www.x402.org/docs/extensions/bazaar" target="_blank" rel="noopener">Spec</a>
-		</div>
-	</nav>
 	<header class="hero">
 		<div class="left">
 			<div class="eyebrow"><span class="pulse"></span>Cross-provider arbitrage</div>

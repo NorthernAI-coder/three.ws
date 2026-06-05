@@ -73,9 +73,9 @@ html, body {
 	border-radius: 50%;
 	background: #555;
 }
-.dot.live { background: #4ade80; }
+.dot.live { background: var(--success); }
 .dot.connecting { background: #fbbf24; }
-.dot.down { background: #f87171; }
+.dot.down { background: var(--danger); }
 
 .ai-stream-main {
 	flex: 1;
@@ -85,7 +85,7 @@ html, body {
 }
 #stage {
 	position: relative;
-	background: radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 70%);
+	background: radial-gradient(ellipse at center, var(--bg-1) 0%, var(--bg-0) 70%);
 }
 #agent {
 	width: 100%;
@@ -105,7 +105,7 @@ html, body {
 }
 /* Event card styles from pumpfun.html can be reused here */
 .evt {
-	border: 1px solid #1a1a1a;
+	border: 1px solid var(--bg-1);
 	background: #111111;
 	border-radius: 8px;
 	padding: 10px 12px;
