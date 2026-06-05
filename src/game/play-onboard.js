@@ -1,0 +1,545 @@
+// First-join onboarding + economy clarity for /play.
+//
+// Three deliverables in one self-contained module:
+//
+//   1. First-join overlay — a 3-step modal shown once per browser:
+//        Step 1: Welcome — names the world and its coin; shared-world framing.
+//        Step 2: Controls — the real input bindings from the input handler.
+//        Step 3: Economy — grounded in agent-commerce.js and the market reactor.
+//      Persists dismissal in localStorage so it never nags returning players.
+//      ESC / ← → keyboard navigation; focus-trapped; prefers-reduced-motion respected.
+//
+//   2. Economy clarity strip — always-visible info panel below the coin banner.
+//      For the $THREE home town: describes the live Agent Exchange (ORACLE/NOVA).
+//      For other coins: describes how real trades drive the world environment.
+//
+//   3. Controls help button — "Controls" button that opens a full reference panel
+//      sourced from the real _bindInput() / _stepLocal() bindings.
+//
+// Never frames /play as single-player. Connecting/offline states use correct copy.
+
+import { isHomeTown } from './home-town.js';
+
+const ONBOARD_KEY = 'cc-onboarded-v1';
+
+// ── Real controls sourced from coincommunities.js _bindInput() / _stepLocal() ─
+
+const DESK_CONTROLS = [
+	{ key: 'W A S D', desc: 'Move' },
+	{ key: '↑ ↓ ← →', desc: 'Move (arrows)' },
+	{ key: 'Shift', desc: 'Sprint' },
+	{ key: 'Space', desc: 'Jump' },
+	{ key: 'Drag', desc: 'Look around' },
+	{ key: 'Scroll', desc: 'Zoom camera' },
+	{ key: 'Enter', desc: 'Chat' },
+	{ key: 'B', desc: 'Build mode' },
+	{ key: 'E', desc: 'Watch agent trade' },
+	{ key: 'F', desc: 'Fish (near ponds)' },
+	{ key: '1–6', desc: 'Hotbar slot' },
+	{ key: 'Ctrl/⌘+Z', desc: 'Undo build' },
+];
+
+const TOUCH_CONTROLS = [
+	{ key: 'Joystick', desc: 'Move (bottom-left)' },
+	{ key: 'Drag', desc: 'Look around' },
+	{ key: 'Scroll / pinch', desc: 'Zoom camera' },
+	{ key: '⛏ button', desc: 'Build mode' },
+	{ key: 'Tap agents', desc: 'Watch agent trade' },
+	{ key: 'Chat bar', desc: 'Chat' },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function isTouch() {
+	return typeof matchMedia === 'function' &&
+		matchMedia('(hover: none), (pointer: coarse)').matches;
+}
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch {} }
+
+function mk(tag, attrs = {}, ...children) {
+	const n = document.createElement(tag);
+	for (const [k, v] of Object.entries(attrs)) {
+		if (k === 'className') n.className = v;
+		else if (k === 'innerHTML') n.innerHTML = v;
+		else if (k === 'textContent') n.textContent = v;
+		else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2).toLowerCase(), v);
+		else if (v !== false && v !== null && v !== undefined) n.setAttribute(k, v === true ? '' : String(v));
+	}
+	children.flat().forEach((c) => c != null && n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+	return n;
+}
+
+// ── Main class ────────────────────────────────────────────────────────────────
+
+export class PlayOnboard {
+	/**
+	 * @param {object} opts
+	 * @param {object} opts.coin   The coin this world is keyed to { mint, name, symbol, image }.
+	 */
+	constructor({ coin }) {
+		this.coin = coin;
+		this._disposed = false;
+		this._step = 0;
+		this._overlay = null;
+		this._helpPanel = null;
+		this._strip = null;
+		this._keyFn = null;
+		this._showTimer = null;
+
+		this._injectStyles();
+		this._buildStrip();
+
+		if (!lsGet(ONBOARD_KEY)) {
+			// Delay slightly so the world geometry is visible behind the overlay.
+			this._showTimer = setTimeout(() => {
+				if (!this._disposed) this._showOverlay();
+			}, 650);
+		}
+	}
+
+	// ── Slide content ──────────────────────────────────────────────────────────
+
+	_slides() {
+		const { coin } = this;
+		const sym   = coin.symbol ? '$' + coin.symbol.toUpperCase() : '';
+		const name  = coin.name || 'Community';
+		const home  = isHomeTown(coin.mint);
+
+		return [
+			{
+				tag:   'Welcome',
+				title: name + (sym ? ' · ' + sym : ''),
+				body:
+					'A shared 3D world — everyone in ' +
+					(sym || `the ${name} community`) +
+					' meets here. Walk around, chat, build, and trade together. ' +
+					'Others are in this world with you right now.',
+			},
+			{
+				tag:         'Controls',
+				title:       'How to move',
+				isControls:  true,
+			},
+			{
+				tag:   'Economy',
+				title: 'The economy',
+				body: home
+					? 'Two AI agents — ORACLE and NOVA — trade on-chain here. NOVA pays ORACLE in USDC via x402 for access to ORACLE\'s service catalog. Every settlement is a real Solana transaction with a Solscan link. Walk up to the agents by the plaza and press E (or tap them) to watch a live payment round.'
+					: 'Real ' + (sym || name) + ' trades drive this world: buys light the boundary ring green, sells ripple red. Volume spins the totem, price momentum shifts the weather. The jumbotron above shows live on-chain market data.',
+			},
+		];
+	}
+
+	// ── Overlay ────────────────────────────────────────────────────────────────
+
+	_showOverlay() {
+		if (this._overlay) return;
+		this._step = 0;
+
+		const overlay = mk('div', {
+			id: 'po-overlay',
+			role: 'dialog',
+			'aria-modal': 'true',
+			'aria-label': 'Welcome to this world',
+		});
+		document.body.appendChild(overlay);
+		this._overlay = overlay;
+		this._renderSlide();
+
+		this._keyFn = (e) => {
+			if (!this._overlay) return;
+			if (e.key === 'Escape') { e.preventDefault(); this._dismiss(); }
+			if (e.key === 'ArrowRight') { e.preventDefault(); this._stepTo(this._step + 1); }
+			if (e.key === 'ArrowLeft')  { e.preventDefault(); this._stepTo(this._step - 1); }
+		};
+		document.addEventListener('keydown', this._keyFn);
+
+		requestAnimationFrame(() => {
+			overlay.classList.add('po-show');
+			overlay.querySelector('.po-btn-primary')?.focus();
+		});
+	}
+
+	_renderSlide() {
+		const overlay = this._overlay;
+		if (!overlay) return;
+		overlay.textContent = '';
+
+		const slides  = this._slides();
+		const slide   = slides[this._step];
+		const total   = slides.length;
+		const isLast  = this._step === total - 1;
+		const isFirst = this._step === 0;
+
+		// ── Dots ──
+		const dots = mk('div', { className: 'po-dots', 'aria-hidden': 'true' });
+		for (let i = 0; i < total; i++) {
+			dots.appendChild(mk('span', { className: 'po-dot' + (i === this._step ? ' po-dot-on' : '') }));
+		}
+
+		// ── Header ──
+		const tag   = mk('p',  { className: 'po-tag',   textContent: slide.tag.toUpperCase() });
+		const title = mk('h2', { className: 'po-title', textContent: slide.title });
+
+		// ── Body ──
+		let body;
+		if (slide.isControls) {
+			body = this._buildControlsGrid(isTouch());
+		} else {
+			body = mk('p', { className: 'po-body', textContent: slide.body });
+		}
+
+		// ── Actions ──
+		const actions = mk('div', { className: 'po-actions' });
+
+		if (!isFirst) {
+			const back = mk('button', {
+				className: 'po-btn po-btn-ghost', type: 'button', textContent: 'Back',
+				onclick: () => this._stepTo(this._step - 1),
+			});
+			actions.appendChild(back);
+		}
+
+		const cta = mk('button', {
+			className: 'po-btn po-btn-primary', type: 'button',
+			textContent: isLast ? 'Enter the world' : 'Continue',
+			onclick: () => isLast ? this._dismiss() : this._stepTo(this._step + 1),
+		});
+		actions.appendChild(cta);
+
+		// ── Close (skip) ──
+		const closeBtn = mk('button', {
+			className: 'po-close', type: 'button',
+			'aria-label': 'Skip intro',
+			textContent: '×',
+			onclick: () => this._dismiss(),
+		});
+
+		const card = mk('div', { className: 'po-card' });
+		card.appendChild(closeBtn);
+		card.appendChild(dots);
+		card.appendChild(tag);
+		card.appendChild(title);
+		card.appendChild(body);
+		card.appendChild(actions);
+		overlay.appendChild(card);
+	}
+
+	_stepTo(idx) {
+		const slides = this._slides();
+		const next = Math.max(0, Math.min(slides.length - 1, idx));
+		if (next === this._step) return;
+		this._step = next;
+		this._renderSlide();
+		this._overlay?.querySelector('.po-btn-primary')?.focus();
+	}
+
+	_dismiss() {
+		lsSet(ONBOARD_KEY, '1');
+		const overlay = this._overlay;
+		if (!overlay) return;
+		overlay.classList.remove('po-show');
+		setTimeout(() => overlay.remove(), 250);
+		this._overlay = null;
+		if (this._keyFn) { document.removeEventListener('keydown', this._keyFn); this._keyFn = null; }
+	}
+
+	// ── Controls grid (used in overlay slide + help panel) ─────────────────────
+
+	_buildControlsGrid(touch) {
+		const list = touch ? TOUCH_CONTROLS : DESK_CONTROLS;
+		const grid = mk('div', { className: 'po-ctrl-grid' });
+		for (const { key, desc } of list) {
+			const row = mk('div', { className: 'po-ctrl-row' });
+			row.appendChild(mk('kbd', { className: 'po-kbd', textContent: key }));
+			row.appendChild(mk('span', { className: 'po-ctrl-desc', textContent: desc }));
+			grid.appendChild(row);
+		}
+		return grid;
+	}
+
+	// ── Economy + controls strip (always-visible in-world) ─────────────────────
+
+	_buildStrip() {
+		const { coin } = this;
+		const home = isHomeTown(coin.mint);
+		const sym  = coin.symbol ? '$' + coin.symbol.toUpperCase() : '';
+
+		const econText = home
+			? 'AI agents trading on-chain · press E near them'
+			: (sym
+				? sym + ' community · live trades drive this world'
+				: 'Coin community · live trades drive this world');
+
+		// Economy row: live dot + label
+		const dot   = mk('span', { className: 'po-live-dot', 'aria-hidden': 'true' });
+		const label = mk('span', { className: 'po-econ-label', textContent: econText });
+		const econRow = mk('div', { className: 'po-econ-row' }, dot, label);
+
+		// Controls toggle button
+		const ctrlBtn = mk('button', {
+			className: 'po-ctrl-btn', type: 'button',
+			'aria-label': 'Show controls reference',
+			textContent: 'Controls',
+			onclick: () => this._toggleHelp(),
+		});
+
+		const strip = mk('div', { id: 'po-strip' }, econRow, ctrlBtn);
+		document.body.appendChild(strip);
+		this._strip = strip;
+	}
+
+	// ── Controls help panel ────────────────────────────────────────────────────
+
+	_toggleHelp() {
+		if (this._helpPanel) {
+			this._helpPanel.classList.remove('po-show');
+			const p = this._helpPanel;
+			this._helpPanel = null;
+			setTimeout(() => p.remove(), 200);
+			return;
+		}
+
+		const closeBtn = mk('button', {
+			className: 'po-help-close', type: 'button',
+			'aria-label': 'Close controls',
+			textContent: '×',
+			onclick: () => this._toggleHelp(),
+		});
+		const head = mk('div', { className: 'po-help-head' },
+			mk('span', { className: 'po-help-title', textContent: 'CONTROLS' }),
+			closeBtn,
+		);
+
+		const panel = mk('div', {
+			id: 'po-help',
+			role: 'dialog',
+			'aria-label': 'Controls reference',
+		}, head, this._buildControlsGrid(isTouch()));
+
+		document.body.appendChild(panel);
+		this._helpPanel = panel;
+
+		requestAnimationFrame(() => {
+			panel.classList.add('po-show');
+			closeBtn.focus();
+		});
+	}
+
+	// ── Styles ─────────────────────────────────────────────────────────────────
+
+	_injectStyles() {
+		if (document.getElementById('po-styles')) return;
+		const s = document.createElement('style');
+		s.id = 'po-styles';
+		/* Tokens mirror coincommunities.css --cc-* so this stands alone if /play
+		   ever loads without the main sheet. Values match the monochrome design lang. */
+		s.textContent = `
+/* ── PlayOnboard ─────────────────────────────────────────────────────────── */
+
+/* First-join overlay */
+#po-overlay {
+  position: fixed; inset: 0; z-index: 45;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(4,4,5,0.74); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  opacity: 0; transition: opacity 0.22s ease;
+}
+#po-overlay.po-show { opacity: 1; }
+
+.po-card {
+  position: relative;
+  width: min(440px, calc(100vw - 32px));
+  background: var(--cc-panel-solid, #0c0c0e);
+  border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  border-radius: var(--cc-radius, 4px);
+  box-shadow: var(--cc-shadow, 0 16px 50px rgba(0,0,0,0.7));
+  padding: 22px 22px 20px;
+  transform: translateY(10px) scale(0.99);
+  transition: transform 0.22s cubic-bezier(0.2,0.7,0.2,1);
+}
+#po-overlay.po-show .po-card { transform: none; }
+
+.po-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 28px; height: 28px;
+  border-radius: var(--cc-radius-sm, 2px);
+  background: var(--cc-bg2, #101012);
+  border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  color: var(--cc-dim, #8c8c92); font-size: 20px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.po-close:hover { color: var(--cc-text, #f5f5f6); border-color: var(--cc-edge-hi, rgba(255,255,255,0.55)); }
+.po-close:focus-visible { outline: none; border-color: #fff; box-shadow: 0 0 0 1px #fff; }
+
+/* Progress dots */
+.po-dots { display: flex; gap: 6px; margin-bottom: 16px; }
+.po-dot {
+  height: 3px; width: 18px; border-radius: 2px;
+  background: var(--cc-edge-soft, rgba(255,255,255,0.07));
+  transition: background 0.18s ease, width 0.18s ease;
+}
+.po-dot.po-dot-on { background: #fff; width: 26px; }
+
+/* Slide text */
+.po-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--cc-faint, #5a5a60); margin: 0 0 6px;
+}
+.po-title {
+  font-size: 19px; font-weight: 800; letter-spacing: 0.01em;
+  color: var(--cc-text, #f5f5f6); margin: 0 0 14px;
+}
+.po-body {
+  font-size: 13.5px; line-height: 1.65; color: var(--cc-dim, #8c8c92);
+  margin: 0 0 20px; max-width: 44ch;
+}
+
+/* Controls grid (used in overlay + help panel) */
+.po-ctrl-grid {
+  display: grid; grid-template-columns: auto 1fr; gap: 6px 14px;
+  margin-bottom: 20px;
+  max-height: 230px; overflow-y: auto; padding-right: 2px;
+}
+.po-ctrl-grid::-webkit-scrollbar { width: 4px; }
+.po-ctrl-grid::-webkit-scrollbar-thumb { background: var(--cc-edge, rgba(255,255,255,0.12)); }
+.po-ctrl-row { display: contents; }
+.po-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  border-radius: var(--cc-radius-sm, 2px); padding: 2px 7px;
+  font-size: 11px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--cc-text, #f5f5f6); white-space: nowrap; align-self: center;
+}
+.po-ctrl-desc {
+  font-size: 12px; color: var(--cc-dim, #8c8c92); align-self: center;
+}
+
+/* Slide actions */
+.po-actions {
+  display: flex; align-items: center; justify-content: flex-end; gap: 9px;
+  padding-top: 18px; border-top: 1px solid var(--cc-edge-soft, rgba(255,255,255,0.07));
+}
+.po-btn {
+  padding: 9px 20px; border-radius: var(--cc-radius-sm, 2px);
+  font: inherit; font-weight: 700; font-size: 13px; letter-spacing: 0.03em; cursor: pointer;
+  transition: filter 0.12s ease, transform 0.1s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.po-btn:active { transform: translateY(1px); }
+.po-btn-primary {
+  background: #fff; color: var(--cc-ink, #060607); border: 1px solid #fff;
+  box-shadow: var(--cc-glow, 0 0 14px rgba(255,255,255,0.35));
+}
+.po-btn-primary:hover { filter: brightness(0.92); }
+.po-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--cc-bg, #060607), 0 0 0 4px #fff; }
+.po-btn-ghost {
+  background: none; border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  color: var(--cc-dim, #8c8c92);
+}
+.po-btn-ghost:hover { border-color: var(--cc-edge-hi, rgba(255,255,255,0.55)); color: var(--cc-text, #f5f5f6); }
+.po-btn-ghost:focus-visible { outline: none; border-color: #fff; box-shadow: 0 0 0 1px #fff; }
+
+/* ── In-world info strip (economy + controls toggle) ── */
+#po-strip {
+  position: fixed; left: 14px; top: 128px; z-index: 19;
+  display: flex; flex-direction: column; gap: 6px;
+  pointer-events: auto;
+}
+/* Hide on narrow screens — the onboarding overlay covers economy info there */
+@media (max-width: 640px) { #po-strip { display: none; } }
+
+.po-econ-row {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--cc-panel, rgba(12,12,14,0.78));
+  border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  border-radius: var(--cc-radius, 4px); padding: 6px 11px;
+  backdrop-filter: blur(10px);
+  max-width: min(310px, 52vw);
+}
+.po-live-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex: none;
+  background: var(--cc-live, #fff);
+  box-shadow: var(--cc-glow, 0 0 14px rgba(255,255,255,0.35));
+  animation: po-blink 1.8s ease-in-out infinite;
+}
+@keyframes po-blink { 50% { opacity: 0.3; } }
+.po-econ-label {
+  font-size: 11px; color: var(--cc-dim, #8c8c92); letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.po-ctrl-btn {
+  display: inline-flex; align-items: center;
+  background: var(--cc-panel, rgba(12,12,14,0.78));
+  border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  border-radius: var(--cc-radius, 4px); padding: 5px 11px;
+  backdrop-filter: blur(10px);
+  color: var(--cc-dim, #8c8c92); font: inherit;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.po-ctrl-btn:hover { border-color: var(--cc-edge-hi, rgba(255,255,255,0.55)); color: var(--cc-text, #f5f5f6); }
+.po-ctrl-btn:focus-visible { outline: none; border-color: #fff; box-shadow: 0 0 0 1px #fff; }
+
+/* ── Controls reference panel ── */
+#po-help {
+  position: fixed; left: 14px; top: 202px; z-index: 46;
+  width: min(268px, calc(100vw - 28px));
+  background: var(--cc-panel-solid, #0c0c0e);
+  border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  border-radius: var(--cc-radius, 4px);
+  box-shadow: var(--cc-shadow, 0 16px 50px rgba(0,0,0,0.7));
+  padding: 12px 14px;
+  opacity: 0; transform: translateY(-4px); pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+#po-help.po-show { opacity: 1; transform: none; pointer-events: auto; }
+/* On small screens anchor to bottom-left above the joystick */
+@media (max-width: 640px) {
+  #po-help { left: 14px; top: auto; bottom: 160px; }
+}
+
+.po-help-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+}
+.po-help-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--cc-faint, #5a5a60);
+}
+.po-help-close {
+  width: 22px; height: 22px; border-radius: var(--cc-radius-sm, 2px);
+  background: var(--cc-bg2, #101012);
+  border: 1px solid var(--cc-edge, rgba(255,255,255,0.12));
+  color: var(--cc-dim, #8c8c92); font-size: 16px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.po-help-close:hover { color: var(--cc-text, #f5f5f6); border-color: var(--cc-edge-hi, rgba(255,255,255,0.55)); }
+.po-help-close:focus-visible { outline: none; border-color: #fff; box-shadow: 0 0 0 1px #fff; }
+
+#po-help .po-ctrl-grid { margin-bottom: 0; max-height: 280px; }
+
+/* Reduced-motion overrides */
+@media (prefers-reduced-motion: reduce) {
+  #po-overlay, .po-card, #po-help { transition: none; }
+  .po-dot { transition: none; }
+  .po-live-dot { animation: none; }
+}
+`;
+		document.head.appendChild(s);
+	}
+
+	// ── Teardown ───────────────────────────────────────────────────────────────
+
+	dispose() {
+		this._disposed = true;
+		clearTimeout(this._showTimer);
+		if (this._keyFn) { document.removeEventListener('keydown', this._keyFn); this._keyFn = null; }
+		if (this._overlay) { this._overlay.remove(); this._overlay = null; }
+		if (this._helpPanel) { this._helpPanel.remove(); this._helpPanel = null; }
+		if (this._strip) { this._strip.remove(); this._strip = null; }
+	}
+}

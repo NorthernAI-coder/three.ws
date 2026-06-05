@@ -11,6 +11,7 @@
 
 import { Client, getStateCallbacks } from 'colyseus.js';
 import { WalkState } from '../../multiplayer/src/schemas.js';
+import { log } from '../shared/log.js';
 
 const ROOM_NAME = 'walk_world';
 const RECONNECT_BASE_MS = 3000;
@@ -48,11 +49,24 @@ function defaultServerUrl() {
 			if (v) return v;
 		}
 	}
+	try {
+		const envUrl = import.meta?.env?.VITE_GAME_SERVER_URL || import.meta?.env?.VITE_WALK_SERVER_URL;
+		if (envUrl) return String(envUrl).trim().replace(/\/$/, '');
+	} catch (_) {}
 	if (typeof location !== 'undefined') {
 		const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-		return `${proto}//${location.hostname}:2567`;
+		// Codespaces / Gitpod forward each port as its own subdomain (-3000 → -2567).
+		const fwd = host.match(/^(.*)-(\d+)\.(app\.github\.dev|githubpreview\.dev|gitpod\.io)$/);
+		if (fwd) return `${proto}//${fwd[1]}-2567.${fwd[3]}`;
+		// Same-host:2567 is a dev convenience; the public domain doesn't expose
+		// :2567. In production with no meta/env configured, return '' so the
+		// caller stays single-player instead of looping on a dead socket.
+		let isProd = false;
+		try { isProd = import.meta?.env?.PROD === true; } catch (_) {}
+		if (!isProd) return `${proto}//${host}:2567`;
+		return '';
 	}
-	return 'ws://localhost:2567';
+	return '';
 }
 
 export class CommunityNet {
@@ -134,7 +148,7 @@ export class CommunityNet {
 	}
 	_emit(event, ...args) {
 		for (const fn of this._handlers[event]) {
-			try { fn(...args); } catch (e) { console.error(`[community-net] ${event} handler threw:`, e); }
+			try { fn(...args); } catch (e) { log.error(`[community-net] ${event} handler threw:`, e); }
 		}
 	}
 	_setStatus(status, error = null) {
@@ -161,6 +175,16 @@ export class CommunityNet {
 	async connect() {
 		if (this._destroyed) return;
 		this._closeRoom();
+		// No multiplayer server resolved for this environment (production with no
+		// game-server meta/env). Surface a distinct, honest 'unavailable' state —
+		// solo play still works — rather than throwing in `new Client('')`,
+		// looping on reconnects, or showing a "reconnecting…" pill that can never
+		// reconnect. (The exhausted-reconnect path below stays 'offline' because
+		// there a real server exists and a manual retry can still succeed.)
+		if (!this.url) {
+			this._setStatus('unavailable', 'multiplayer unavailable — single-player only');
+			return;
+		}
 		// Bump a generation token so a slower in-flight connect (e.g. a manual
 		// retry racing the auto-reconnect timer) can detect it's been superseded
 		// after its await resolves and discard the room it joined, rather than
@@ -275,7 +299,7 @@ export class CommunityNet {
 				if (code === 4002) { this._setStatus('denied', 'play_pass_required'); this._emit('denied', 'play_pass_required'); return; }
 				if (!this._destroyed && code !== 1000) this._scheduleReconnect();
 			});
-			this.room.onError((code, message) => console.warn('[community-net] room.onError', code, message));
+			this.room.onError((code, message) => log.warn('[community-net] room.onError', code, message));
 
 			this._reconnectAttempts = 0;
 			this._setStatus('online');
@@ -291,12 +315,12 @@ export class CommunityNet {
 			// retrying with the same expired/invalid pass just loops. Surface it so
 			// the scene can route the player back to the gate, and stop here.
 			if (/holder_pass|play_pass/i.test(msg)) {
-				console.warn('[community-net] gate denied join:', msg);
+				log.warn('[community-net] gate denied join:', msg);
 				this._setStatus('denied', msg);
 				this._emit('denied', msg);
 				return;
 			}
-			console.warn('[community-net] connect failed:', msg);
+			log.warn('[community-net] connect failed:', msg);
 			this._setStatus('failed', msg);
 			this._scheduleReconnect();
 		}

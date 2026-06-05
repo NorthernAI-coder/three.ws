@@ -725,6 +725,9 @@ html, body {
 #cc-status[data-state="connecting"] .cc-dot { background: var(--cc-warn); animation: cc-pulse 1s infinite; }
 #cc-status[data-state="offline"] .cc-dot, #cc-status[data-state="failed"] .cc-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--cc-dim); }
 #cc-status[data-state="offline"], #cc-status[data-state="failed"] { cursor: pointer; }
+/* No server configured for this env — passive solo readout, not retryable. */
+#cc-status[data-state="unavailable"] .cc-dot { background: var(--cc-faint); }
+#cc-status[data-state="unavailable"] { cursor: default; }
 @keyframes cc-pulse { 50% { opacity: 0.3; } }
 
 /* spatial voice toggle — top-right, tucked under the status pill */

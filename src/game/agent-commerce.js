@@ -23,6 +23,7 @@ import {
 import { AnimationManager } from '../animation-manager.js';
 import { resolveAvatarUrl, buildAvatar, loadManifest, MANIFEST_URL, CLIP_IDLE } from './avatar-rig.js';
 import { createX402Jumbotron } from './x402-jumbotron.js';
+import { log } from '../shared/log.js';
 
 // Where the two agents stand — off to the right of the totem so a player
 // entering the town sees them but doesn't spawn on top of them.
@@ -386,7 +387,7 @@ export class AgentCommerce {
 			this.ui?.toast?.('Give the agents a moment — settling the last payment.', 'info');
 			return;
 		}
-		this._runRound().catch((err) => console.warn('[agent-commerce] round failed:', err?.message));
+		this._runRound().catch((err) => log.warn('[agent-commerce] round failed:', err?.message));
 	}
 
 	// Load a one-shot gesture clip from the full manifest and play it, returning to

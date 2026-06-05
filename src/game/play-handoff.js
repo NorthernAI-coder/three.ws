@@ -17,6 +17,7 @@
 // URL so peers see it too — no upload round-trip before the world appears.
 
 import { stage, load, peek } from '../guest-avatar.js';
+import { log } from '../shared/log.js';
 
 export const CC_AVATAR_KEY = 'cc-avatar';
 export const CC_NAME_KEY = 'cc-name';
@@ -129,7 +130,7 @@ export async function uploadPendingGuestAvatar(onPublished) {
 		onPublished?.(publicUrl);
 		return publicUrl;
 	} catch (err) {
-		console.warn('[play-handoff] guest avatar upload failed; staying local-only:', err?.message);
+		log.warn('[play-handoff] guest avatar upload failed; staying local-only:', err?.message);
 		return null;
 	}
 }

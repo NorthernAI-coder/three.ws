@@ -13,6 +13,7 @@ import {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { AnimationManager } from '../animation-manager.js';
 import { loadManifest, getLocomotionDefs, CLIP_IDLE, dracoLoader } from './avatar-rig.js';
+import { log } from '../shared/log.js';
 
 const SIZE = 160; // square render target, downscaled by the chip's CSS box
 
@@ -41,7 +42,7 @@ function ensureRenderer() {
 		_camera = new PerspectiveCamera(30, 1, 0.01, 100);
 		return true;
 	} catch (err) {
-		console.warn('[avatar-thumb] WebGL unavailable, skipping previews:', err?.message);
+		log.warn('[avatar-thumb] WebGL unavailable, skipping previews:', err?.message);
 		_failed = true;
 		_renderer = null;
 		return false;
@@ -54,7 +55,7 @@ export function renderAvatarThumb(url) {
 	if (!url) return Promise.resolve(null);
 	if (_cache.has(url)) return _cache.get(url);
 	const p = _snapshot(url).catch((err) => {
-		console.warn('[avatar-thumb] preview failed:', url, err?.message);
+		log.warn('[avatar-thumb] preview failed:', url, err?.message);
 		return null;
 	});
 	_cache.set(url, p);

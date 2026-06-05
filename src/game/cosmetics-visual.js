@@ -20,6 +20,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { dracoLoader } from './avatar-rig.js';
+import { log } from '../shared/log.js';
 
 // Share the Draco-enabled decoder module + cache with the avatar loader so prop
 // GLBs (which may be Draco-compressed) decode without a second decoder instance.
@@ -33,7 +34,7 @@ function loadProp(url) {
 	if (!_propCache.has(url)) {
 		_propCache.set(url, _loader.loadAsync(url)
 			.then((g) => g.scene)
-			.catch((err) => { console.warn('[cosmetics] prop load failed:', url, err?.message); return null; }));
+			.catch((err) => { log.warn('[cosmetics] prop load failed:', url, err?.message); return null; }));
 	}
 	return _propCache.get(url);
 }

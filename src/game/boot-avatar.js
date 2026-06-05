@@ -26,6 +26,7 @@ import {
 	resolveAvatarUrl, dracoLoader,
 } from './avatar-rig.js';
 import { getPlayAvatar } from './play-handoff.js';
+import { log } from '../shared/log.js';
 
 const REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const TURN_SPEED = 0.5; // radians/sec — a slow, premium turntable
@@ -56,7 +57,7 @@ function boot() {
 		camera = new PerspectiveCamera(28, 1, 0.05, 100);
 	} catch (err) {
 		// No WebGL — reveal the static fallback mark and let the loader proceed.
-		console.warn('[boot-avatar] WebGL unavailable:', err?.message);
+		log.warn('[boot-avatar] WebGL unavailable:', err?.message);
 		canvas.parentElement?.classList.add('kx-boot-noavatar');
 		done();
 		return { ready, dispose() {} };
@@ -115,7 +116,7 @@ function boot() {
 		loop(last, target);
 		done();
 	}).catch((err) => {
-		console.warn('[boot-avatar] avatar load failed:', err?.message);
+		log.warn('[boot-avatar] avatar load failed:', err?.message);
 		canvas.parentElement?.classList.add('kx-boot-noavatar');
 		done();
 	});

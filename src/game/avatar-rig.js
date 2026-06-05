@@ -15,6 +15,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { AnimationManager } from '../animation-manager.js';
 import { GUEST_SENTINEL, resolveGuestAvatar } from './play-handoff.js';
+import { log } from '../shared/log.js';
 
 export const AVATAR_DEFAULT = '/avatars/default.glb';
 export const MANIFEST_URL = '/animations/manifest.json';
@@ -115,7 +116,7 @@ export async function buildAvatar(rig, url, anim) {
 		if (_animDefs?.length) { anim.setAnimationDefs(_animDefs); await anim.loadAll(); await anim.crossfadeTo(CLIP_IDLE, 0); }
 		return { height: headAnchorHeight(box), fallback: false };
 	} catch (err) {
-		console.warn('[avatar-rig] avatar load failed, using stand-in:', url, err?.message);
+		log.warn('[avatar-rig] avatar load failed, using stand-in:', url, err?.message);
 		const body = new Mesh(new CapsuleGeometry(0.32, 0.7, 4, 10), new MeshStandardMaterial({ color: 0x8aa6d8 }));
 		body.position.y = 0.85; body.castShadow = true;
 		const head = new Mesh(new SphereGeometry(0.28, 14, 10), new MeshStandardMaterial({ color: 0xf1c9a5 }));

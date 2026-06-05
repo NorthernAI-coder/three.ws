@@ -13,6 +13,7 @@ import { renderAvatarThumb } from './avatar-thumb.js';
 import { resolveAvatarUrl } from './avatar-rig.js';
 import { validateGlb, uploadGlb } from './avatar-upload.js';
 import { GUEST_SENTINEL, playAs } from './play-handoff.js';
+import { log } from '../shared/log.js';
 
 function el(tag, props = {}, kids = []) {
 	const n = document.createElement(tag);
@@ -503,7 +504,7 @@ export class CommunityUI {
 			});
 			await this._creator.openDefaultEditor();
 		} catch (err) {
-			console.warn('[coincommunities] avatar creator failed to open:', err?.message);
+			log.warn('[coincommunities] avatar creator failed to open:', err?.message);
 			this.toast('Couldn’t open the avatar creator. Try uploading a .glb instead.', 'warn');
 		} finally {
 			this.createBtn.classList.remove('cc-busy');
@@ -526,7 +527,7 @@ export class CommunityUI {
 			this._setUploadState('done', 'Your avatar is ready — pick a community to drop in.');
 			this.toast('Your avatar is ready — pick a community below to drop in.', 'info');
 		} catch (err) {
-			console.warn('[coincommunities] could not adopt created avatar:', err?.message);
+			log.warn('[coincommunities] could not adopt created avatar:', err?.message);
 			this._setUploadState('error', 'Couldn’t save your new avatar. Please try again.');
 		}
 	}
@@ -565,7 +566,7 @@ export class CommunityUI {
 			});
 			if (selected) this._adoptGalleryAvatar(selected);
 		} catch (err) {
-			console.warn('[coincommunities] gallery picker failed:', err?.message);
+			log.warn('[coincommunities] gallery picker failed:', err?.message);
 		} finally {
 			this.galleryBtn.classList.remove('cc-busy');
 		}
@@ -707,7 +708,7 @@ export class CommunityUI {
 		try {
 			results = (await this.h.onSearch(query)) || [];
 		} catch (err) {
-			console.warn('[coincommunities] search failed:', err?.message);
+			log.warn('[coincommunities] search failed:', err?.message);
 		}
 		if (seq !== this._searchSeq) return; // a newer query superseded this one
 		this.searchResults = results;
@@ -1099,7 +1100,7 @@ export class CommunityUI {
 	}
 
 	setStatus(state) {
-		const labels = { connecting: 'connecting…', online: 'connected', offline: 'reconnecting…', failed: 'offline — retry', idle: 'idle' };
+		const labels = { connecting: 'connecting…', online: 'connected', offline: 'reconnecting…', unavailable: 'multiplayer unavailable', failed: 'offline — retry', idle: 'idle' };
 		this.statusPill.setAttribute('data-state', state);
 		this.statusText.textContent = labels[state] || state;
 		// The latency readout is only meaningful while the link is live.

@@ -26,6 +26,7 @@
 // Proximity thresholds, in metres. CONNECT a little outside the audible edge so
 // the handshake completes before someone is fully in earshot; DISCONNECT with
 // hysteresis so a peer pacing the boundary doesn't thrash connections.
+import { log } from '../shared/log.js';
 const CONNECT_RANGE = 27;
 const DISCONNECT_RANGE = 33;
 
@@ -183,7 +184,7 @@ export class VoiceChat {
 				try { await peer.pc.addIceCandidate(data.ice); } catch { /* premature candidate */ }
 			}
 		} catch (err) {
-			console.warn('[voice] signal handling failed:', err?.message);
+			log.warn('[voice] signal handling failed:', err?.message);
 		}
 	}
 
@@ -265,7 +266,7 @@ export class VoiceChat {
 					await pc.setLocalDescription(offer);
 					this.sendSignal(id, { sdp: pc.localDescription });
 				} catch (err) {
-					console.warn('[voice] offer failed:', err?.message);
+					log.warn('[voice] offer failed:', err?.message);
 				}
 			};
 		}

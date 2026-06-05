@@ -40,6 +40,8 @@ import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet,
 import { ensurePlayAccess } from './play-gate.js';
 import { clearStoredPass, fetchPlayConfig, signInToPlay, loadStoredPass, storePass } from './play-auth.js';
 import { PlaySystems } from './play-systems.js';
+import { PlayOnboard } from './play-onboard.js';
+import { log } from '../shared/log.js';
 
 const WORLD_RADIUS = 58; // a touch inside the server's 60m clamp
 const MOVE_SPEED = 4.2;
@@ -279,7 +281,7 @@ export class CoinCommunities {
 			const raw = await r.json();
 			this.ui.setCoins(mapCoins(raw));
 		} catch (err) {
-			console.warn('[coincommunities] coin load failed:', err?.message);
+			log.warn('[coincommunities] coin load failed:', err?.message);
 			this.ui.setCoinsError(() => this._loadCoins());
 		}
 	}
@@ -297,7 +299,7 @@ export class CoinCommunities {
 			if (coin?.mint) this.ui.setFeatured({ ...HOME_TOWN, ...coin, official: true });
 		} catch (err) {
 			// Non-fatal: the static pin from above stands in until next load.
-			console.warn('[coincommunities] home town refresh failed:', err?.message);
+			log.warn('[coincommunities] home town refresh failed:', err?.message);
 		}
 	}
 
@@ -700,7 +702,7 @@ export class CoinCommunities {
 			// other players, chat and shared building are off, and how to recover.
 			if (status === 'failed' && !this._failedNotified) {
 				this._failedNotified = true;
-				this.ui.toast('Lost the connection — you’re in single-player. Builds here won’t be saved or seen by others. Tap the status pill to reconnect.', 'warn');
+				this.ui.toast('Lost the connection to the world — chat and shared builds are paused. Tap the status pill to reconnect.', 'warn');
 			}
 			if (status === 'online') this._failedNotified = false;
 			// Every (re)connect re-streams the server's authoritative build, so wipe
@@ -715,7 +717,7 @@ export class CoinCommunities {
 			// Durability badge: online reflects the server's persistent flag; solo
 			// single-player isn't saved at all, so hide it (null) to avoid a false
 			// promise. Re-sync the budget meter against whatever layer is now live.
-			this.buildHud.setPersistent(status === 'online' ? this.net?.persistent : (status === 'offline' ? false : null));
+			this.buildHud.setPersistent(status === 'online' ? this.net?.persistent : (status === 'offline' || status === 'unavailable' ? false : null));
 			this._syncBudget();
 			// A reconnect reissues every sessionId, stranding the voice mesh — refresh
 			// our id, drop the stale peers, and re-announce so it re-forms.
@@ -798,6 +800,12 @@ export class CoinCommunities {
 		// re-reads the chain (via /api/play/verify) so a wallet that offloaded its
 		// tokens is refused rather than silently let through on a stale pass.
 		this._schedulePassRefresh();
+
+		// First-join onboarding: overlay + economy clarity strip + controls help.
+		// Created per-world so the economy copy is always specific to this coin.
+		// Torn down in leave() along with all other per-world objects.
+		if (this._onboard) { this._onboard.dispose(); }
+		this._onboard = new PlayOnboard({ coin });
 	}
 
 	// First-run nudge so players discover building exists — the HUD's ⛏ toggle is
@@ -870,7 +878,7 @@ export class CoinCommunities {
 			}
 			return access;
 		} catch (err) {
-			console.warn('[coincommunities] play gate error:', err?.message);
+			log.warn('[coincommunities] play gate error:', err?.message);
 			return { required: false };
 		}
 	}
@@ -979,7 +987,7 @@ export class CoinCommunities {
 			try {
 				await this.voice.join();
 			} catch (err) {
-				console.warn('[coincommunities] voice join failed:', err?.name, err?.message);
+				log.warn('[coincommunities] voice join failed:', err?.name, err?.message);
 				this.ui.setVoiceState(err?.name === 'NotAllowedError' ? 'denied' : 'error');
 			}
 		} else {
@@ -999,6 +1007,7 @@ export class CoinCommunities {
 		if (this.net) { this.net.destroy(); this.net = null; }
 		if (this.playSystems) { this.playSystems.dispose(); this.playSystems = null; }
 		if (this.agentCommerce) { this.agentCommerce.dispose(); this.agentCommerce = null; }
+		if (this._onboard) { this._onboard.dispose(); this._onboard = null; }
 		for (const [, r] of this.remotes) r.dispose();
 		this.remotes.clear();
 		if (this._totem) { this.world.remove(this._totem); this._totem = null; this._coinSpin = null; }
@@ -1091,7 +1100,7 @@ export class CoinCommunities {
 			const { openBuyModal } = await import('./coin-buy.js');
 			openBuyModal(coin);
 		} catch (err) {
-			console.warn('[coincommunities] buy modal failed to load:', err?.message);
+			log.warn('[coincommunities] buy modal failed to load:', err?.message);
 			this.ui.toast('Couldn’t open the buy panel. Trade on pump.fun instead.', 'warn');
 		}
 	}
@@ -1243,7 +1252,9 @@ export class CoinCommunities {
 	// the connecting window (nothing to build into yet) is the only time off.
 	_buildableConnection() {
 		const s = this.net?.status;
-		return s === 'online' || s === 'offline';
+		// 'unavailable' (no server configured for this env) is a solo session just
+		// like 'offline' — let the player build their own local copy.
+		return s === 'online' || s === 'offline' || s === 'unavailable';
 	}
 
 	// Place or break a block under the pointer. Online is server-authoritative: we
@@ -1385,7 +1396,7 @@ export class CoinCommunities {
 		const how = touch
 			? 'tap to place, hold to break, pick a block, ⌘/Ctrl+Z to undo'
 			: 'click to place, right-click to break, 1–0 pick a block, ⌘/Ctrl+Z to undo';
-		this.ui.toast(`Build mode${solo ? ' (single-player)' : ''} — ${how}`, 'info');
+		this.ui.toast(`Build mode${solo ? ' (offline — reconnect to share)' : ''} — ${how}`, 'info');
 		this._syncBudget();
 		if (this._lastHover) this._updateGhost(this._lastHover.x, this._lastHover.y);
 	}
