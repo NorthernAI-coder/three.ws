@@ -1364,6 +1364,8 @@ async function postJson(url, body) {
 }
 
 // Probe the merchant endpoint with a benign request to extract the 402 challenge.
+// Accepts HTTP 402 (standard x402) or HTTP 401 with a `payment-required` header
+// (MCP 2025-06-18 spec, which uses 401 for resource-server authorization challenges).
 async function discoverChallenge(opts) {
 	const headers = { ...(opts.headers || {}) };
 	const init = {
@@ -1373,20 +1375,28 @@ async function discoverChallenge(opts) {
 	};
 	if (init.body && !headers['content-type']) headers['content-type'] = 'application/json';
 	const res = await fetch(opts.endpoint, init);
-	if (res.status !== 402) {
+
+	// MCP 2025-06-18 endpoints return 401 with the full x402 challenge in the
+	// `payment-required` header (base64-JSON). Accept that alongside standard 402.
+	const prHeader = res.headers.get('payment-required');
+	const is401WithChallenge = res.status === 401 && !!prHeader;
+
+	if (res.status !== 402 && !is401WithChallenge) {
 		// Endpoint isn't paid (200) or isn't an x402 endpoint at all. In either
 		// case, surface a clear error — accidentally pointing the modal at a
 		// free endpoint should not silently succeed.
 		const txt = await res.text();
 		throw new Error(`Endpoint did not return 402 (got ${res.status}). Body: ${txt.slice(0, 120)}`);
 	}
-	let body = await res.json().catch(() => null);
+
+	// For 401+header, decode directly — the full envelope is in the header.
+	// For 402, read body first and fall back to header if body is minimal.
+	let body = is401WithChallenge ? b64decode(prHeader) : await res.json().catch(() => null);
 	if (!body || !Array.isArray(body.accepts) || !body.accepts.length) {
 		// send402 (api/_lib/x402-spec.js) only emits `{error}` in the body and
 		// puts the full v2 PaymentRequired envelope (accepts + extensions) in
 		// the base64-JSON PAYMENT-REQUIRED header. b64decode returns already-
 		// parsed JSON, so use its result directly.
-		const prHeader = res.headers.get('payment-required');
 		const decoded = b64decode(prHeader);
 		if (decoded && Array.isArray(decoded.accepts) && decoded.accepts.length) {
 			body = decoded;

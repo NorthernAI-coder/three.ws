@@ -707,13 +707,22 @@
       <button class="chain-tab" data-chain="bsc">⛓ BNB Chain <span class="chip">USDC</span></button>
     </div>
     <div class="agent-bar" id="agentBar">
-      <span class="label">agent wallet</span>
+      <span class="label">pay with</span>
       <div class="agent-list" id="agentList">
         <span class="login-cta" id="agentLoginCta" style="display:none">
           <a href="/login?redirect=/pay">Sign in</a> to use your own agent's wallet.
           <span class="demo-note">Using shared demo wallet for now.</span>
         </span>
         <span id="agentLoading" style="color:var(--muted);font-size:12px">loading agents…</span>
+        <!-- Browser wallet cards — protected from renderAgentCards() by data-wallet -->
+        <div class="agent-card" id="phantomCard" data-wallet="phantom" style="display:none">
+          <div class="av" style="background:linear-gradient(135deg,#ab9ff2,#534bb1);color:#fff;font-size:11px">P</div>
+          <div><div class="name">Phantom</div><span class="bal" id="phantomBalLabel">Solana USDC</span></div>
+        </div>
+        <div class="agent-card" id="evmCard" data-wallet="evm" style="display:none">
+          <div class="av" style="background:linear-gradient(135deg,#f6851b,#e2761b);color:#fff;font-size:11px">M</div>
+          <div><div class="name">EVM wallet</div><span class="bal" id="evmBalLabel">Base USDC</span></div>
+        </div>
       </div>
     </div>
     <div class="conv" id="conv">
@@ -822,11 +831,13 @@ const genOverlay = $('genOverlay'), genCancel = $('genCancel'), genBtn = $('genB
 const genSpinner = $('genSpinner');
 
 // ---- Agent state --------------------------------------------------------
-let selectedAgent = null;  // { id, name, solana_address, usdc, sol }
+let selectedAgent = null;         // { id, name, solana_address, usdc, sol }
+let selectedBrowserWallet = null; // 'phantom' | 'evm' | null
 let pendingGenAgentId = null;
 
 function setSelectedAgent(agent) {
   selectedAgent = agent;
+  selectedBrowserWallet = null;
   // update wallet pill to show selected agent's balance
   if (agent) {
     walletText.textContent = `${agent.name} · ${
@@ -837,13 +848,66 @@ function setSelectedAgent(agent) {
   }
   // re-render agent cards to highlight selected
   renderAgentCards(window._agentCache || []);
+  updateBrowserWalletCards();
+}
+
+function setSelectedBrowserWallet(type) {
+  selectedAgent = null;
+  selectedBrowserWallet = type;
+  walletText.textContent = type === 'phantom' ? 'Phantom wallet' : 'EVM wallet';
+  // De-select any agent card without re-rendering the whole list
+  for (const el of agentList.querySelectorAll('.agent-card[data-agent-id].selected')) {
+    el.classList.remove('selected');
+  }
+  updateBrowserWalletCards();
+}
+
+function updateBrowserWalletCards() {
+  const phantomCard = $('phantomCard');
+  const evmCard = $('evmCard');
+  if (phantomCard) {
+    phantomCard.classList.toggle('selected', selectedBrowserWallet === 'phantom');
+  }
+  if (evmCard) {
+    evmCard.classList.toggle('selected', selectedBrowserWallet === 'evm');
+  }
+}
+
+// ---- Utility helpers ----------------------------------------------------
+function b64decode(str) {
+  if (!str) return null;
+  try { return JSON.parse(atob(str)); } catch { return null; }
+}
+function base64ToUint8Array(b64) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+function uint8ArrayToBase64(arr) {
+  let bin = '';
+  for (const b of arr) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function buildJsonRpc(call) {
+  return JSON.stringify({
+    jsonrpc: '2.0', id: 1,
+    method: call.tool === 'tools/list' ? 'tools/list' : 'tools/call',
+    params: call.tool === 'tools/list' ? undefined : { name: call.tool, arguments: call.args || {} },
+  });
+}
+function isSolanaAccept(accept) {
+  return /solana/i.test(accept?.network || '');
+}
+function isEip3009Accept(accept) {
+  return /base|evm|ethereum/i.test(accept?.network || '') || accept?.scheme === 'eip3009';
 }
 
 function renderAgentCards(agents) {
   window._agentCache = agents;
   agentLoading.style.display = 'none';
   // remove existing cards
-  for (const el of agentList.querySelectorAll('.agent-card')) el.remove();
+  for (const el of agentList.querySelectorAll('.agent-card[data-agent-id]')) el.remove();
   if (!agents.length) {
     agentLoginCta.style.display = 'block';
     agentLoginCta.innerHTML = `No agents yet. <a href="/create">Create your first agent →</a>`;
@@ -930,6 +994,377 @@ genBtn.addEventListener('click', async () => {
   }
 });
 
+// ---- Browser wallet cards -----------------------------------------------
+
+function getSolanaProvider() {
+  if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
+  if (window.solana?.isPhantom) return window.solana;
+  if (window.backpack?.solana) return window.backpack.solana;
+  if (window.solflare?.isSolflare) return window.solflare;
+  return null;
+}
+function getEvmProvider() {
+  return window.ethereum || null;
+}
+
+function initBrowserWalletCards() {
+  const phantomCard = $('phantomCard');
+  const evmCard     = $('evmCard');
+  if (phantomCard) {
+    if (getSolanaProvider()) {
+      phantomCard.style.display = '';
+      phantomCard.addEventListener('click', () => setSelectedBrowserWallet('phantom'));
+    }
+  }
+  if (evmCard) {
+    if (getEvmProvider()) {
+      evmCard.style.display = '';
+      evmCard.addEventListener('click', () => setSelectedBrowserWallet('evm'));
+    }
+  }
+}
+
+// ---- Phantom (Solana) inline payment ------------------------------------
+
+async function runPhantomPayment(call, displayLabel) {
+  const provider = getSolanaProvider();
+  if (!provider) throw new Error('Phantom wallet not found. Install Phantom to continue.');
+
+  addMsg('user', escape(displayLabel || displayLabelFor(call)));
+  resetSteps();
+  const t0 = performance.now();
+  sendBtn.disabled = true;
+  for (const b of quickEl.querySelectorAll('button')) b.disabled = true;
+  promptEl.disabled = true;
+
+  try {
+    // 1. Pull payment challenge
+    setStep('challenge', 'active', 'probing MCP endpoint for 402…');
+    const probeRes = await fetch('/api/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: buildJsonRpc(call),
+    });
+    if (probeRes.status !== 402 && probeRes.status !== 401) {
+      const t = await probeRes.text();
+      throw new Error(`Endpoint returned ${probeRes.status}: ${t.slice(0, 120)}`);
+    }
+    // Parse challenge from body or payment-required header
+    let challenge = null;
+    try { challenge = await probeRes.clone().json(); } catch { /* fall through */ }
+    if (!challenge?.accepts?.length) {
+      const hdr = probeRes.headers.get('payment-required');
+      challenge = b64decode(hdr);
+    }
+    if (!challenge?.accepts?.length) throw new Error('No accepts array in payment challenge');
+
+    const solanaAccept = challenge.accepts.find(isSolanaAccept);
+    if (!solanaAccept) throw new Error('Server does not accept Solana payments');
+    setStep('challenge', 'done', `${(Number(solanaAccept.maxAmountRequired) / 1e6).toFixed(6)} USDC`);
+
+    // 2. Connect Phantom + prepare unsigned tx
+    setStep('built', 'active', 'connecting Phantom…');
+    const connectResp = await provider.connect();
+    const buyerAddress = connectResp.publicKey.toString();
+
+    const prepRes = await fetch('/api/x402-checkout?action=prepare', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accept: solanaAccept, buyer: buyerAddress }),
+    });
+    if (!prepRes.ok) {
+      const e = await prepRes.json().catch(() => ({}));
+      throw new Error(e.error || `prepare failed: ${prepRes.status}`);
+    }
+    const { tx_base64 } = await prepRes.json();
+
+    // 3. Phantom signs
+    setStep('built', 'active', 'sign the transaction in Phantom…');
+    const { VersionedTransaction } = await import('https://esm.sh/@solana/web3.js@1');
+    const vtxBytes = base64ToUint8Array(tx_base64);
+    const vtx = VersionedTransaction.deserialize(vtxBytes);
+    const signedVtx = await provider.signTransaction(vtx);
+    const signedB64 = uint8ArrayToBase64(signedVtx.serialize());
+    setStep('built', 'done', 'signed');
+
+    // 4. Encode X-PAYMENT header
+    setStep('verified', 'active', 'encoding payment payload…');
+    const encRes = await fetch('/api/x402-checkout?action=encode', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accept: solanaAccept, signed_tx_base64: signedB64, resource_url: '/api/mcp' }),
+    });
+    if (!encRes.ok) {
+      const e = await encRes.json().catch(() => ({}));
+      throw new Error(e.error || `encode failed: ${encRes.status}`);
+    }
+    const { x_payment } = await encRes.json();
+    setStep('verified', 'done', 'payload encoded');
+
+    // 5. Dispatch to MCP with X-PAYMENT
+    setStep('dispatched', 'active', 'running MCP tool…');
+    const dispatchRes = await fetch('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'X-PAYMENT': x_payment,
+      },
+      body: buildJsonRpc(call),
+    });
+    const xPayResp = dispatchRes.headers.get('x-payment-response');
+    let payResp = b64decode(xPayResp);
+    const dispatchJson = await dispatchRes.json().catch(() => null);
+    if (!dispatchRes.ok) {
+      const errMsg = dispatchJson?.error || `MCP responded ${dispatchRes.status}`;
+      throw new Error(errMsg);
+    }
+    setStep('dispatched', 'done', 'tool ran');
+
+    // 6. Settled
+    const totalMs = Math.round(performance.now() - t0);
+    const tx = payResp?.transaction || '';
+    setStep('settled', 'done', tx ? `${tx.slice(0,8)}…` : `${totalMs}ms`);
+
+    // Build synthetic payment + durations for renderReceipt
+    const payment = {
+      tx,
+      amount: solanaAccept.maxAmountRequired,
+      network: 'solana-mainnet',
+      payer: buyerAddress,
+      payTo: solanaAccept.payTo || '',
+    };
+    const durations = { total_ms: totalMs };
+
+    renderReceipt(call, payment, durations);
+    addMsg('agent', renderResult(call, dispatchJson));
+    bumpTicker();
+
+    // Refresh Phantom balance label
+    refreshPhantomBalance(buyerAddress);
+  } catch (err) {
+    const step = document.querySelector('.step.active')?.id?.replace('step-', '') || 'challenge';
+    setStep(step, 'error', err.message);
+    addMsg('agent', `<div class="err">Phantom payment failed: ${escape(err.message)}</div>`);
+  } finally {
+    const elapsed = Math.round(performance.now() - t0);
+    document.title = `${elapsed}ms · three.ws · pay-per-call`;
+    sendBtn.disabled = false;
+    for (const b of quickEl.querySelectorAll('button')) b.disabled = false;
+    promptEl.disabled = false;
+    promptEl.focus();
+  }
+}
+
+async function refreshPhantomBalance(address) {
+  if (!address) return;
+  const balLabel = $('phantomBalLabel');
+  if (balLabel) balLabel.textContent = `${address.slice(0,4)}…${address.slice(-4)} · Solana`;
+  try {
+    // Fetch USDC balance directly from Solana RPC
+    const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    const rpcRes = await fetch('https://api.mainnet-beta.solana.com', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1,
+        method: 'getTokenAccountsByOwner',
+        params: [address, { mint: USDC_MINT }, { encoding: 'jsonParsed' }],
+      }),
+    });
+    const rpcData = await rpcRes.json();
+    const accounts = rpcData?.result?.value || [];
+    let usdcAmount = 0;
+    for (const acc of accounts) {
+      const info = acc?.account?.data?.parsed?.info?.tokenAmount;
+      if (info) usdcAmount += Number(info.uiAmount || 0);
+    }
+    if (balLabel) balLabel.textContent = `${usdcAmount.toFixed(3)} USDC · Solana`;
+  } catch { /* non-critical — label already shows address */ }
+}
+
+// ---- MetaMask / Base (EIP-3009) inline payment --------------------------
+
+const BASE_USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // Base mainnet USDC
+const BASE_CHAIN_ID = 8453;
+
+async function runEvmPayment(call, displayLabel) {
+  const ethereum = getEvmProvider();
+  if (!ethereum) throw new Error('No EVM wallet detected. Install MetaMask to continue.');
+
+  addMsg('user', escape(displayLabel || displayLabelFor(call)));
+  resetSteps();
+  const t0 = performance.now();
+  sendBtn.disabled = true;
+  for (const b of quickEl.querySelectorAll('button')) b.disabled = true;
+  promptEl.disabled = true;
+
+  try {
+    // 1. Pull payment challenge
+    setStep('challenge', 'active', 'probing MCP endpoint for 402…');
+    const probeRes = await fetch('/api/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: buildJsonRpc(call),
+    });
+    if (probeRes.status !== 402 && probeRes.status !== 401) {
+      const t = await probeRes.text();
+      throw new Error(`Endpoint returned ${probeRes.status}: ${t.slice(0, 120)}`);
+    }
+    let challenge = null;
+    try { challenge = await probeRes.clone().json(); } catch { /* fall through */ }
+    if (!challenge?.accepts?.length) {
+      const hdr = probeRes.headers.get('payment-required');
+      challenge = b64decode(hdr);
+    }
+    if (!challenge?.accepts?.length) throw new Error('No accepts array in payment challenge');
+
+    const evmAccept = challenge.accepts.find(isEip3009Accept);
+    if (!evmAccept) throw new Error('Server does not accept EVM/Base payments');
+    setStep('challenge', 'done', `${(Number(evmAccept.maxAmountRequired) / 1e6).toFixed(6)} USDC`);
+
+    // 2. Connect wallet + switch to Base
+    setStep('built', 'active', 'connecting EVM wallet…');
+    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+    const from = accounts[0];
+    if (!from) throw new Error('No account returned from wallet');
+
+    const chainHex = '0x' + BASE_CHAIN_ID.toString(16);
+    try {
+      await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainHex }] });
+    } catch (switchErr) {
+      if (switchErr.code === 4902) {
+        await ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: chainHex,
+            chainName: 'Base',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: ['https://mainnet.base.org'],
+            blockExplorerUrls: ['https://basescan.org'],
+          }],
+        });
+      } else throw switchErr;
+    }
+
+    // 3. Build EIP-3009 typed data + sign
+    setStep('built', 'active', 'sign EIP-3009 transfer in wallet…');
+    const amount = evmAccept.maxAmountRequired; // in USDC micro-units (6 decimals)
+    const payTo  = evmAccept.payTo;
+    const validAfter  = 0;
+    const validBefore = Math.floor((Date.now() + 3600 * 1000) / 1000); // 1 hour
+    // Random 32-byte nonce — use crypto.getRandomValues
+    const nonceBytes = new Uint8Array(32);
+    crypto.getRandomValues(nonceBytes);
+    const nonce = '0x' + Array.from(nonceBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const typedData = {
+      types: {
+        EIP712Domain: [
+          { name: 'name',              type: 'string' },
+          { name: 'version',           type: 'string' },
+          { name: 'chainId',           type: 'uint256' },
+          { name: 'verifyingContract', type: 'address' },
+        ],
+        TransferWithAuthorization: [
+          { name: 'from',        type: 'address' },
+          { name: 'to',         type: 'address' },
+          { name: 'value',      type: 'uint256' },
+          { name: 'validAfter', type: 'uint256' },
+          { name: 'validBefore',type: 'uint256' },
+          { name: 'nonce',      type: 'bytes32' },
+        ],
+      },
+      primaryType: 'TransferWithAuthorization',
+      domain: {
+        name:              'USD Coin',
+        version:           '2',
+        chainId:           BASE_CHAIN_ID,
+        verifyingContract: BASE_USDC_ADDRESS,
+      },
+      message: {
+        from:        from,
+        to:          payTo,
+        value:       String(amount),
+        validAfter:  String(validAfter),
+        validBefore: String(validBefore),
+        nonce,
+      },
+    };
+
+    const sig = await ethereum.request({
+      method: 'eth_signTypedData_v4',
+      params: [from, JSON.stringify(typedData)],
+    });
+    setStep('built', 'done', 'EIP-3009 signed');
+
+    // 4. Build x402 paymentPayload (EIP-3009 scheme)
+    setStep('verified', 'active', 'building payment payload…');
+    const payloadObj = {
+      scheme: 'eip3009',
+      network: 'base-mainnet',
+      payload: {
+        from,
+        to:          payTo,
+        value:       String(amount),
+        validAfter:  String(validAfter),
+        validBefore: String(validBefore),
+        nonce,
+        signature:   sig,
+      },
+    };
+    const x_payment = btoa(JSON.stringify(payloadObj));
+    setStep('verified', 'done', 'payload built');
+
+    // 5. Dispatch to MCP
+    setStep('dispatched', 'active', 'running MCP tool…');
+    const dispatchRes = await fetch('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'X-PAYMENT': x_payment,
+      },
+      body: buildJsonRpc(call),
+    });
+    const xPayResp = dispatchRes.headers.get('x-payment-response');
+    let payResp = b64decode(xPayResp);
+    const dispatchJson = await dispatchRes.json().catch(() => null);
+    if (!dispatchRes.ok) {
+      const errMsg = dispatchJson?.error || `MCP responded ${dispatchRes.status}`;
+      throw new Error(errMsg);
+    }
+    setStep('dispatched', 'done', 'tool ran');
+
+    // 6. Settlement
+    const totalMs = Math.round(performance.now() - t0);
+    const txHash = payResp?.transaction || '';
+    setStep('settled', 'done', txHash ? `${txHash.slice(0,10)}…` : `${totalMs}ms`);
+
+    const payment = {
+      tx:      txHash,
+      amount,
+      network: 'base-mainnet',
+      payer:   from,
+      payTo,
+    };
+    const durations = { total_ms: totalMs };
+
+    renderReceipt(call, payment, durations);
+    addMsg('agent', renderResult(call, dispatchJson));
+    bumpTicker();
+  } catch (err) {
+    const activeStep = document.querySelector('.step.active')?.id?.replace('step-', '') || 'challenge';
+    setStep(activeStep, 'error', err.message);
+    addMsg('agent', `<div class="err">EVM payment failed: ${escape(err.message)}</div>`);
+  } finally {
+    const elapsed = Math.round(performance.now() - t0);
+    document.title = `${elapsed}ms · three.ws · pay-per-call`;
+    sendBtn.disabled = false;
+    for (const b of quickEl.querySelectorAll('button')) b.disabled = false;
+    promptEl.disabled = false;
+    promptEl.focus();
+  }
+}
+
 const DEMO_MODEL = 'https://threejs.org/examples/models/gltf/DamagedHelmet/glTF-Binary/DamagedHelmet.glb';
 const TOOL_PRICE_USDC = 0.001;
 
@@ -963,7 +1398,7 @@ function addMsg(role, html) {
 
 const STEP_DEFS = [
   { id: 'challenge',  label: 'Pull payment requirements (402)' },
-  { id: 'built',      label: 'Build & sign Solana payment' },
+  { id: 'built',      label: 'Build & sign payment' },
   { id: 'verified',   label: 'Facilitator verify (off-chain)' },
   { id: 'dispatched', label: 'Run MCP tool in-process' },
   { id: 'settled',    label: 'Facilitator settle (on-chain)' },
@@ -1008,19 +1443,26 @@ function curlSnippet(call) {
 }
 
 function renderReceipt(call, payment, durations) {
-  const explorer = payment.tx ? `https://solscan.io/tx/${payment.tx}` : null;
+  const isEvm = payment.network && /base|evm|ethereum/i.test(payment.network);
+  const networkLabel = isEvm ? 'Base mainnet' : 'Solana mainnet';
+  const explorer = payment.tx
+    ? (isEvm ? `https://basescan.org/tx/${payment.tx}` : `https://solscan.io/tx/${payment.tx}`)
+    : null;
+  const explorerLabel = isEvm ? 'view on Basescan' : 'view on Solscan';
   const permalink = payment.tx ? `${location.origin}/pay/calls/${payment.tx}` : null;
+  const decimals = isEvm ? 6 : 6;
+  const amountDisplay = (Number(payment.amount) / 10 ** decimals).toFixed(6);
   receiptEl.innerHTML = `
     <div class="receipt">
       <h3>settlement receipt</h3>
-      <div class="row"><span class="k">amount</span><span class="v">${(Number(payment.amount) / 1e6).toFixed(6)} USDC</span></div>
-      <div class="row"><span class="k">network</span><span class="v">Solana mainnet</span></div>
+      <div class="row"><span class="k">amount</span><span class="v">${amountDisplay} USDC</span></div>
+      <div class="row"><span class="k">network</span><span class="v">${networkLabel}</span></div>
       <div class="row"><span class="k">payer</span><span class="v">${payment.payer.slice(0,8)}…${payment.payer.slice(-4)}</span></div>
       <div class="row"><span class="k">payTo</span><span class="v">${payment.payTo.slice(0,8)}…${payment.payTo.slice(-4)}</span></div>
       <div class="row"><span class="k">total</span><span class="v">${durations.total_ms} ms</span></div>
       ${explorer ? `<div class="row"><span class="k">tx</span><span class="v"><a href="${explorer}" target="_blank" rel="noopener">${payment.tx.slice(0,10)}…${payment.tx.slice(-6)} ↗</a></span></div>` : ''}
       <div class="actions">
-        ${explorer ? `<a href="${explorer}" target="_blank" rel="noopener">view on Solscan</a>` : ''}
+        ${explorer ? `<a href="${explorer}" target="_blank" rel="noopener">${explorerLabel}</a>` : ''}
         ${permalink ? `<button data-copy="${permalink}">copy permalink</button>` : ''}
         <button data-replay>↻ replay</button>
       </div>
@@ -1248,6 +1690,14 @@ async function* sseEvents(response) {
 
 async function run(call, displayLabel) {
   if (!call) return;
+  // Dispatch to browser wallet flows which manage their own UI lifecycle
+  if (selectedBrowserWallet === 'phantom') {
+    return runPhantomPayment(call, displayLabel);
+  }
+  if (selectedBrowserWallet === 'evm') {
+    return runEvmPayment(call, displayLabel);
+  }
+
   sendBtn.disabled = true;
   for (const b of quickEl.querySelectorAll('button')) b.disabled = true;
   promptEl.disabled = true;
@@ -1331,6 +1781,8 @@ function bumpTicker() {
 // ---- Wallet balance + activity feed ------------------------------------
 
 async function refreshBalance() {
+  // Browser wallet — don't poll the server; balance shown per-call
+  if (selectedBrowserWallet) return;
   // If using an agent wallet, reload agents to get fresh balances.
   if (selectedAgent) {
     try {
@@ -1421,6 +1873,9 @@ refreshBalance();
 refreshFeed();
 setInterval(refreshBalance, 30_000);
 setInterval(refreshFeed, 20_000);
+
+// Browser wallet cards — show Phantom/MetaMask if installed
+initBrowserWalletCards();
 
 // Agent picker — try to load if there's any sign the user is logged in.
 // The localStorage hint is set by the main site on login.

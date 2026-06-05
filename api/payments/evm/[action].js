@@ -7,7 +7,6 @@ import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
-import { env } from '../../_lib/env.js';
 import { sendSubscriptionConfirmEmail } from '../../_lib/email.js';
 import { PLANS, EVM_USDC, getEvmRecipient, INTENT_TTL_MINUTES } from '../_config.js';
 
@@ -40,7 +39,8 @@ async function handleCheckout(req, res) {
 
 // ── confirm ───────────────────────────────────────────────────────────────────
 
-import { createPublicClient, http, parseAbi } from 'viem';
+import { createPublicClient, parseAbi } from 'viem';
+import { evmTransport } from '../../_lib/evm/rpc.js';
 import { mainnet, base, optimism, arbitrum, polygon, sepolia, baseSepolia } from 'viem/chains';
 
 const CHAINS = { 1: mainnet, 8453: base, 10: optimism, 42161: arbitrum, 137: polygon, 11155111: sepolia, 84532: baseSepolia };
@@ -70,8 +70,7 @@ async function handleConfirm(req, res) {
 	const chainId = intent.chain_id;
 	const chain = CHAINS[chainId];
 	if (!chain) return error(res, 400, 'unsupported_chain', `chain ${chainId} not supported`);
-	const rpcUrl = env.getRpcUrl(chainId);
-	const client = createPublicClient({ chain, transport: http(rpcUrl || undefined) });
+	const client = createPublicClient({ chain, transport: evmTransport(chainId) });
 	let receipt;
 	try { receipt = await client.getTransactionReceipt({ hash: tx_hash }); }
 	catch { return error(res, 422, 'tx_not_found', 'transaction not found on chain — may need more confirmations'); }
