@@ -1391,6 +1391,7 @@ const appConfig = {
 					'**/3d.png',
 					'**/ddd.png',
 					'chat/**',
+					'pump-fun-skills/**',
 				],
 				skipWaiting: true,
 				clientsClaim: true,

@@ -113,6 +113,16 @@ export const COOK_REACH = 2.6;
 export function nearestFirepit(x, z) { return nearestNode(x, z, FIREPITS, COOK_REACH); }
 export function firepitInRange(x, z) { return nodeInRange(x, z, FIREPITS, COOK_REACH); }
 
+// Mob spawn points — used by W07 combat and the ACTIVITIES dispatch in play-systems.
+export const MOB_SPAWNS = [
+	{ id: 'mob-danger-n', x: 0, z: -60, r: 1.5 },
+	{ id: 'mob-danger-e', x: 60, z: 0, r: 1.5 },
+	{ id: 'mob-danger-s', x: 0, z: 60, r: 1.5 },
+	{ id: 'mob-danger-w', x: -60, z: 0, r: 1.5 },
+];
+export const MOB_REACH = 4.0;
+export function nearestMobSpawn(x, z) { return nearestNode(x, z, MOB_SPAWNS, MOB_REACH); }
+
 // ---------------------------------------------------------------------------
 // Safe vs danger zones — opt-in PvP by location (W07)
 // ---------------------------------------------------------------------------
