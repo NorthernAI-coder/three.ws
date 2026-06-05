@@ -6,112 +6,25 @@
  * GET /api/three-token/burns          — deploy-to-burn ledger (per-deploy burns)
  * GET /api/three-token/activity       — protocol activity feed
  *
- * Market data (price, market cap, supply, holders) is sourced from Birdeye.
- * Protocol data (agents, revenue, deploy burns) is derived from the
- * application database; deploy burns = deployed agents × AGENT_DEPLOY_BURN.
+ * Market data (price, market cap, supply, holders) comes from the shared market
+ * module — Birdeye → DexScreener → GeckoTerminal failover with a stale cache —
+ * so a Birdeye 429 transparently falls over to the keyless sources instead of
+ * blanking the price panel. Protocol data (agents, revenue, deploy burns) is
+ * derived from the application database; deploy burns = deployed agents ×
+ * AGENT_DEPLOY_BURN.
  */
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { TOKEN_MINT as THREE_MINT } from '../_lib/token/config.js';
-
-const BIRDEYE_BASE = 'https://public-api.birdeye.so';
+import { fetchTokenMarketData } from '../_lib/market/token-market.js';
 
 // Protocol tokenomics (fixed parameters of the $THREE protocol).
 // AGENT_DEPLOY_BURN: $THREE permanently burned each time an agent is deployed.
 // REVENUE_SHARE_POOL_PCT: share of platform revenue distributed to holders.
 const AGENT_DEPLOY_BURN = 1000;
 const REVENUE_SHARE_POOL_PCT = 10;
-
-const _cache = new Map();
-// How long a last-good value stays usable as a stale fallback after its TTL
-// expires. Birdeye rate-limits the shared key under bursty traffic; rather than
-// drop the price to null (and spam the error log) on every 429, we serve the
-// last good market data for up to STALE_MAX_MS while the limit clears. Token
-// price/market-cap drifting a couple of minutes is invisible to the UI; a blank
-// price panel is not.
-const STALE_MAX_MS = 5 * 60_000;
-
-// One warn per key per cooldown so a sustained Birdeye 429 can't itself flood the
-// logs (the very failure mode brief 09 is about).
-const _warnedAt = new Map();
-const STALE_WARN_COOLDOWN_MS = 60_000;
-function warnThrottled(key, msg) {
-	const now = Date.now();
-	if (now - (_warnedAt.get(key) || 0) < STALE_WARN_COOLDOWN_MS) return;
-	_warnedAt.set(key, now);
-	console.warn(msg);
-}
-function warnStaleOnce(url, status) {
-	warnThrottled(url, `[three-token] birdeye ${status} — serving last good value (stale) for ${url.split('?')[0]}`);
-}
-
-async function cachedFetch(url, headers, ttlMs = 30_000) {
-	const now = Date.now();
-	const hit = _cache.get(url);
-	if (hit && hit.expires > now) return hit.value;
-
-	let resp;
-	try {
-		resp = await fetch(url, { headers });
-	} catch (err) {
-		// Network failure — fall back to stale if we have a usable copy.
-		if (hit && now - hit.fetchedAt < STALE_MAX_MS) {
-			warnStaleOnce(url, 'fetch-failed');
-			return hit.value;
-		}
-		throw err;
-	}
-	if (!resp.ok) {
-		const text = await resp.text().catch(() => '');
-		// Rate-limited / upstream error: serve the last good value if it's still
-		// within the stale window instead of throwing and blanking the price.
-		if (hit && now - hit.fetchedAt < STALE_MAX_MS) {
-			warnStaleOnce(url, resp.status);
-			// Refresh the TTL briefly so we don't re-hit the limited endpoint on
-			// every request while it's throttled (cheap backoff).
-			hit.expires = now + Math.min(ttlMs, 15_000);
-			return hit.value;
-		}
-		throw new Error(`Birdeye ${resp.status}: ${text.slice(0, 200)}`);
-	}
-	const value = await resp.json();
-	_cache.set(url, { value, expires: now + ttlMs, fetchedAt: now });
-	if (_cache.size > 128) {
-		const oldest = _cache.keys().next().value;
-		_cache.delete(oldest);
-	}
-	return value;
-}
-
-async function fetchTokenOverview(apiKey) {
-	const headers = { 'X-API-KEY': apiKey, accept: 'application/json' };
-	// token_overview already carries price + 24h change alongside market cap,
-	// volume, holders, liquidity and supply — so one call covers everything the
-	// stats panel needs. We deliberately do NOT also hit /defi/price: a second
-	// request per stats load only doubles pressure on the shared, rate-limited
-	// Birdeye key (the source of the 429s).
-	const resp = await cachedFetch(`${BIRDEYE_BASE}/defi/token_overview?address=${THREE_MINT}`, headers, 60_000);
-	const ov = resp?.data ?? null;
-	return {
-		price: ov?.price ?? null,
-		priceChange24h: ov?.priceChange24hPercent ?? null,
-		overview: ov,
-	};
-}
-
-// Birdeye 429/5xx on a cold cache (no last-good value to fall back to) is an
-// upstream throttle, not a bug on our side — warn (throttled) instead of
-// error-spamming. A genuine client/auth error (4xx other than 429) still logs.
-function logBirdeyeFailure(err) {
-	const status = Number(/Birdeye (\d+)/.exec(err?.message || '')?.[1] || 0);
-	if (status === 429 || status >= 500) {
-		warnThrottled('birdeye-cold', `[three-token] birdeye ${status} (cold cache) — price temporarily unavailable`);
-		return;
-	}
-	console.error('[three-token] birdeye error:', err?.message);
-}
 
 async function fetchPlatformMetrics() {
 	const [agentCount, revenueData, paymentCount] = await Promise.all([
@@ -177,20 +90,11 @@ export default wrap(async (req, res) => {
 	const parts = url.pathname.split('/').filter(Boolean);
 	const action = parts[2];
 
-	const apiKey = process.env.BIRDEYE_API_KEY;
-
 	if (action === 'stats') {
-		const [tokenData, platform] = await Promise.all([
-			apiKey
-				? fetchTokenOverview(apiKey).catch((err) => {
-						logBirdeyeFailure(err);
-						return { price: null, priceChange24h: null, overview: null };
-					})
-				: { price: null, priceChange24h: null, overview: null },
+		const [market, platform] = await Promise.all([
+			fetchTokenMarketData(THREE_MINT).catch(() => null),
 			fetchPlatformMetrics(),
 		]);
-
-		const ov = tokenData.overview || {};
 
 		return json(
 			res,
@@ -199,14 +103,15 @@ export default wrap(async (req, res) => {
 				token: {
 					mint: THREE_MINT,
 					symbol: '$THREE',
-					price_usd: tokenData.price,
-					price_change_24h: tokenData.priceChange24h,
-					market_cap: ov.mc ?? ov.marketCap ?? null,
-					volume_24h: ov.v24hUSD ?? ov.volume24h ?? null,
-					holders: ov.holder ?? ov.uniqueWallet30m ?? null,
-					liquidity: ov.liquidity ?? null,
-					supply: ov.supply ?? null,
-					decimals: ov.decimals ?? 6,
+					price_usd: market?.price_usd ?? null,
+					price_change_24h: market?.price_change_24h ?? null,
+					market_cap: market?.market_cap ?? null,
+					volume_24h: market?.volume_24h ?? null,
+					holders: market?.holders ?? null,
+					liquidity: market?.liquidity ?? null,
+					supply: market?.supply ?? null,
+					decimals: market?.decimals ?? 6,
+					source: market?.source ?? null,
 				},
 				protocol: {
 					total_agents: platform.total_agents,
@@ -227,24 +132,21 @@ export default wrap(async (req, res) => {
 		const user = await getSessionUser(req, res);
 		if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
-		const [platform, tokenData] = await Promise.all([
+		const [platform, market] = await Promise.all([
 			fetchPlatformMetrics(),
-			apiKey
-				? fetchTokenOverview(apiKey).catch(() => ({ price: null, overview: null }))
-				: { price: null, overview: null },
+			fetchTokenMarketData(THREE_MINT).catch(() => null),
 		]);
 
-		const ov = tokenData.overview || {};
-		const totalSupply = ov.supply ?? null;
+		const totalSupply = market?.supply ?? null;
 		const totalRevenue = platform.total_revenue_gross / 1_000_000;
 		const poolPct = REVENUE_SHARE_POOL_PCT;
 		const revenuePool = totalRevenue * (poolPct / 100);
 
 		return json(res, 200, {
 			user_id: user.id,
-			token_price: tokenData.price,
+			token_price: market?.price_usd ?? null,
 			total_supply: totalSupply,
-			total_holders: ov.holder ?? null,
+			total_holders: market?.holders ?? null,
 			platform_revenue_usd: totalRevenue,
 			revenue_share_pool_pct: poolPct,
 			revenue_share_pool_usd: revenuePool,

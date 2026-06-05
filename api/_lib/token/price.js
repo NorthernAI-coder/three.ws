@@ -2,11 +2,13 @@
 //
 // Price source mirrors the rest of the platform: Jupiter Lite is the primary
 // Solana price feed (same source api/_lib/balances.js uses; no key, knows
-// pump.fun bonding curves), with Birdeye as a keyed fallback (the source
-// api/three-token uses). A short cache smooths bursts without letting a quote
+// pump.fun bonding curves). If Jupiter is down it falls through to the shared
+// market module (Birdeye → DexScreener → GeckoTerminal), so a single feed outage
+// never blocks a paid quote. A short cache smooths bursts without letting a quote
 // drift far from the live market — the quote's own expiry is the hard guard.
 
 import { cacheGet, cacheSet } from '../cache.js';
+import { fetchTokenMarketData } from '../market/token-market.js';
 import { TOKEN_MINT, TOKEN_DECIMALS, ATOMICS_PER_TOKEN } from './config.js';
 
 const PRICE_TTL_S = 30;
@@ -27,16 +29,6 @@ async function jupiterPrice(mint) {
 	const data = await fetchJson(`https://lite-api.jup.ag/price/v3?ids=${mint}`);
 	const usd = data?.[mint]?.usdPrice ?? data?.[mint]?.price;
 	const n = Number(usd);
-	return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-async function birdeyePrice(mint) {
-	const key = process.env.BIRDEYE_API_KEY;
-	if (!key) return null;
-	const data = await fetchJson(`https://public-api.birdeye.so/defi/price?address=${mint}`, {
-		headers: { 'X-API-KEY': key, accept: 'application/json' },
-	});
-	const n = Number(data?.data?.value);
 	return Number.isFinite(n) && n > 0 ? n : null;
 }
 
@@ -61,11 +53,14 @@ export async function getTokenPriceUsd({ fresh = false } = {}) {
 		console.warn('[token] jupiter price failed:', err?.message);
 	}
 	if (!priceUsd) {
-		try {
-			priceUsd = await birdeyePrice(TOKEN_MINT);
-			if (priceUsd) source = 'birdeye';
-		} catch (err) {
-			console.warn('[token] birdeye price failed:', err?.message);
+		// Jupiter down → shared market module: Birdeye → DexScreener → GeckoTerminal.
+		const md = await fetchTokenMarketData(TOKEN_MINT, { fresh }).catch((err) => {
+			console.warn('[token] market-data fallback failed:', err?.message);
+			return null;
+		});
+		if (md?.price_usd) {
+			priceUsd = md.price_usd;
+			source = md.source;
 		}
 	}
 	if (!priceUsd) {
