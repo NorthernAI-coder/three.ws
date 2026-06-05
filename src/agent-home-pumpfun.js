@@ -50,6 +50,9 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 		vanityEnabled: false,
 		vanitySuffix: 'pump',
 		vanityProgress: null,
+		// 3ws stamp state: null | 'grinding' | 'done'
+		stampPhase: null,
+		stampedMint: null,
 		// auto-trader
 		botOpen: false,
 		botMode: 'auto-snipe',
@@ -65,6 +68,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 		botEventCount: 0,
 	};
 	let botAbort = null;
+	let stampAbort = null;
 	// Stable per-mode session ids — re-running the same mode resumes prior state.
 	const botSessionIds = {
 		'research-and-buy': `pf-research-${identity.id}`,
@@ -80,7 +84,23 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 	cardBody.className = 'pumpfun-card-body';
 	root.appendChild(cardBody);
 
-	const launchCard = () => `
+	const launchCard = () => {
+		const isGrinding = state.stampPhase === 'grinding';
+		const isStamped  = state.stampPhase === 'done';
+		const stampLabel = isGrinding
+			? `<span class="pf-spin" aria-hidden="true"></span>Stamping the three.ws mark <strong>3ws</strong>…${state.vanityProgress ? ` · ${formatNumber(state.vanityProgress.rate)}/s · ${escapeHtml(state.vanityProgress.eta)}` : ''}`
+			: '';
+
+		const mintDisplay = isStamped && state.stampedMint
+			? stampedMintHtml(state.stampedMint)
+			: '';
+
+		let btnText;
+		if (isGrinding)      btnText = 'Stamping 3ws…';
+		else if (isStamped)  btnText = 'Launching…';
+		else                 btnText = `Launch ${escapeHtml(deriveSymbol(identity.name))}`;
+
+		return `
 		<div class="pumpfun-card pumpfun-card--cta">
 			<div class="pumpfun-card-head">
 				<span class="pumpfun-card-icon">◎</span>
@@ -88,21 +108,24 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 			</div>
 			<p class="pumpfun-card-sub">Mint a token whose metadata is your 3D avatar.</p>
 			<div class="pumpfun-signer" role="tablist" aria-label="Signer">
-				<button class="pumpfun-signer-tab ${state.signer === 'agent' ? 'is-active' : ''}" data-action="signer-agent" role="tab" aria-selected="${state.signer === 'agent'}">Agent wallet</button>
-				<button class="pumpfun-signer-tab ${state.signer === 'owner' ? 'is-active' : ''}" data-action="signer-owner" role="tab" aria-selected="${state.signer === 'owner'}">Owner wallet</button>
+				<button class="pumpfun-signer-tab ${state.signer === 'agent' ? 'is-active' : ''}" data-action="signer-agent" role="tab" aria-selected="${state.signer === 'agent'}" ${isGrinding || isStamped ? 'disabled' : ''}>Agent wallet</button>
+				<button class="pumpfun-signer-tab ${state.signer === 'owner' ? 'is-active' : ''}" data-action="signer-owner" role="tab" aria-selected="${state.signer === 'owner'}" ${isGrinding || isStamped ? 'disabled' : ''}>Owner wallet</button>
 			</div>
-			<label class="pumpfun-vanity-row" title="Grind a custom mint address ending in your suffix. Slower, but distinctive.">
-				<input type="checkbox" data-action="toggle-vanity" ${state.vanityEnabled ? 'checked' : ''}>
-				<span>Vanity ends with</span>
-				<input type="text" data-action="vanity-suffix" value="${escapeAttr(state.vanitySuffix)}" maxlength="6" ${state.vanityEnabled ? '' : 'disabled'} class="pumpfun-vanity-input">
+			<label class="pumpfun-vanity-row" title="Grind a custom mint address ending in your suffix. The three.ws 3ws prefix is always stamped first.">
+				<input type="checkbox" data-action="toggle-vanity" ${state.vanityEnabled ? 'checked' : ''} ${isGrinding || isStamped ? 'disabled' : ''}>
+				<span>Custom suffix</span>
+				<input type="text" data-action="vanity-suffix" value="${escapeAttr(state.vanitySuffix)}" maxlength="6" ${state.vanityEnabled && !isGrinding && !isStamped ? '' : 'disabled'} class="pumpfun-vanity-input">
 			</label>
-			${state.vanityProgress ? `<div class="pumpfun-vanity-progress">grinding… ${formatNumber(state.vanityProgress.rate)}/s · eta ${escapeHtml(state.vanityProgress.eta)}</div>` : ''}
-			<button class="pumpfun-btn pumpfun-btn--primary" id="pf-launch-btn">
-				Launch ${deriveSymbol(identity.name)}
+			<div class="pumpfun-stamp-live" role="status" aria-live="polite" aria-atomic="false" id="pf-stamp-live">${stampLabel}</div>
+			${mintDisplay ? `<div class="pumpfun-stamp-success-mint" style="margin-bottom:4px"><div class="pf-mint-addr">${mintDisplay}</div></div>` : ''}
+			<button class="pumpfun-btn pumpfun-btn--primary" id="pf-launch-btn" ${isStamped ? 'disabled' : ''}>
+				${btnText}
 			</button>
+			${isGrinding ? `<button class="pumpfun-btn pumpfun-btn--ghost" id="pf-stamp-cancel" style="margin-top:4px">Cancel</button>` : ''}
 			<a class="pumpfun-card-foot" href="https://pump.fun" target="_blank" rel="noopener">What is pump.fun?</a>
 		</div>
-	`;
+		`;
+	};
 
 	const statusCard = (s) => {
 		const pct = s.progressPct != null ? `${s.progressPct.toFixed(1)}%` : '—';
@@ -239,9 +262,43 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 
 	const skeleton = () => `<div class="pumpfun-card pumpfun-card--skeleton"></div>`;
 
+	const stampSuccessCard = (mint, symbol) => {
+		const network = state.network;
+		const explorer = network === 'devnet'
+			? `https://pump.fun/coin/${mint}?cluster=devnet`
+			: `https://pump.fun/coin/${mint}`;
+		return `
+		<div class="pumpfun-stamp-success">
+			<div class="pumpfun-stamp-success-head">$${escapeHtml(symbol || 'TOKEN')} stamped &amp; live</div>
+			<div class="pumpfun-stamp-success-sub">Stamped on-chain — every three.ws coin starts with <strong style="color:rgba(255,255,255,0.8);font-weight:600">3ws</strong>.</div>
+			<div class="pumpfun-stamp-success-mint">
+				<div class="pf-mint-addr">${stampedMintHtml(mint)}</div>
+				<button class="pumpfun-btn pumpfun-btn--ghost" id="pf-copy-stamped" style="font-size:11px;padding:3px 8px">Copy</button>
+				<span class="pumpfun-verified-pill">✓ three.ws</span>
+			</div>
+			<div class="pumpfun-stamp-success-links">
+				<a class="pumpfun-btn pumpfun-btn--ghost" href="${escapeAttr(explorer)}" target="_blank" rel="noopener" style="font-size:11.5px">pump.fun ↗</a>
+				<a class="pumpfun-btn pumpfun-btn--ghost" href="https://solscan.io/token/${escapeAttr(mint)}" target="_blank" rel="noopener" style="font-size:11.5px">Solscan ↗</a>
+			</div>
+		</div>
+		`;
+	};
+
 	const render = () => {
 		if (state.loading) {
 			cardBody.innerHTML = skeleton();
+			return;
+		}
+		if (state.mint && state.stampPhase === 'success') {
+			cardBody.innerHTML = stampSuccessCard(state.mint, state.symbol);
+			const copyBtn = cardBody.querySelector('#pf-copy-stamped');
+			if (copyBtn) {
+				copyBtn.addEventListener('click', () => {
+					navigator.clipboard?.writeText(state.mint).catch(() => {});
+					copyBtn.textContent = '✓';
+					setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1600);
+				});
+			}
 			return;
 		}
 		cardBody.innerHTML = state.mint ? statusCard(state) : launchCard();
@@ -261,6 +318,12 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 		const launchBtn = cardBody.querySelector('#pf-launch-btn');
 		if (launchBtn) {
 			launchBtn.addEventListener('click', () => doLaunch(launchBtn));
+		}
+		const cancelBtn = cardBody.querySelector('#pf-stamp-cancel');
+		if (cancelBtn) {
+			cancelBtn.addEventListener('click', () => {
+				if (stampAbort) { try { stampAbort.abort(); } catch {} }
+			});
 		}
 		cardBody.querySelectorAll('[data-action]').forEach((btn) => {
 			btn.addEventListener('click', (e) => handleAction(btn.dataset.action, e));
@@ -306,43 +369,68 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 	async function doLaunch(launchBtn) {
 		launchBtn.disabled = true;
 		const useAgent = state.signer === 'agent';
-		const wantsVanity = state.vanityEnabled && state.vanitySuffix?.trim();
-		launchBtn.textContent = wantsVanity ? 'Grinding vanity…' : 'Launching…';
+		const retryLabel = `Launch ${deriveSymbol(identity.name)}`;
+
 		try {
 			let extraArgs = {};
-			if (wantsVanity) {
-				if (useAgent) {
-					// Server grinds + signs in the same request.
-					extraArgs = { vanitySuffix: state.vanitySuffix.trim() };
-					launchBtn.textContent = `Launching with …${state.vanitySuffix.trim()}…`;
-				} else {
-					// Client grinds with workers, owner wallet signs.
-					try {
-						const { grindVanity } = await import('./solana/vanity/grinder.js');
-						const ground = await grindVanity({
-							suffix: state.vanitySuffix.trim(),
-							onProgress: (p) => {
-								state.vanityProgress = { rate: p.rate, eta: p.eta };
-								const slot = cardBody.querySelector('.pumpfun-vanity-progress');
-								if (slot) slot.textContent = `grinding… ${formatNumber(p.rate)}/s · eta ${p.eta}`;
-							},
-						});
-						extraArgs = {
-							mintPublicKey: ground.publicKey,
-							mintSecretKeyB64: btoa(String.fromCharCode(...ground.secretKey)),
-						};
-						state.vanityProgress = null;
-						launchBtn.textContent = `Launching ${shortMint(ground.publicKey)}…`;
-					} catch (err) {
-						state.vanityProgress = null;
-						launchBtn.disabled = false;
-						launchBtn.textContent = `Retry launch ${deriveSymbol(identity.name)}`;
-						toast(err.message || 'Vanity grind failed', null, null, 'error');
-						render();
-						return;
+
+			if (!useAgent) {
+				// Client grinds the 3ws prefix (+ optional user suffix) with workers.
+				// The brand mark is always required; server rejects unbranded mints.
+				const { grindVanity } = await import('./solana/vanity/grinder.js');
+				const { THREE_WS_VANITY } = await import('./solana/vanity/brand.js');
+
+				const userSuffix = state.vanityEnabled ? (state.vanitySuffix?.trim() || '') : '';
+				stampAbort = new AbortController();
+
+				state.stampPhase = 'grinding';
+				state.vanityProgress = null;
+				render();
+
+				let ground;
+				try {
+					ground = await grindVanity({
+						...THREE_WS_VANITY,
+						...(userSuffix ? { suffix: userSuffix } : {}),
+						signal: stampAbort.signal,
+						onProgress: (p) => {
+							state.vanityProgress = { rate: p.rate, eta: p.eta };
+							const liveEl = cardBody.querySelector('#pf-stamp-live');
+							if (liveEl) {
+								liveEl.innerHTML = `<span class="pf-spin" aria-hidden="true"></span>Stamping the three.ws mark <strong>3ws</strong>… · ${formatNumber(p.rate)}/s · ${escapeHtml(p.eta)}`;
+							}
+						},
+					});
+				} catch (err) {
+					stampAbort = null;
+					state.stampPhase = null;
+					state.vanityProgress = null;
+					launchBtn.disabled = false;
+					render();
+					if (err.name !== 'AbortError') {
+						toast(err.message || 'Stamp grind failed', null, null, 'error');
 					}
+					return;
 				}
+
+				stampAbort = null;
+				state.stampPhase = 'done';
+				state.stampedMint = ground.publicKey;
+				state.vanityProgress = null;
+				extraArgs = {
+					mintPublicKey: ground.publicKey,
+					mintSecretKeyB64: btoa(String.fromCharCode(...ground.secretKey)),
+				};
+				// Patch live region to clear and button to Launching…
+				const liveEl = cardBody.querySelector('#pf-stamp-live');
+				if (liveEl) liveEl.innerHTML = '';
+				const btnEl = cardBody.querySelector('#pf-launch-btn');
+				if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Launching…'; }
+			} else {
+				// Agent wallet: server stamps 3ws mark. Reflect the phase on the button.
+				launchBtn.textContent = 'Launching…';
 			}
+
 			const skillName = useAgent
 				? 'pumpfun-self-launch-from-identity'
 				: 'pumpfun-launch-from-agent';
@@ -352,18 +440,50 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 				{ identity },
 			);
 			if (r?.success && r.data?.mint) {
-				toast(`Launched ${r.data.symbol || ''}`, r.data.signature, state.network, 'success');
-				state = { ...state, mint: r.data.mint, symbol: r.data.symbol, loading: true };
-				await refresh();
+				const launchedMint = r.data.mint;
+				const launchedSym  = r.data.symbol || '';
+				toast(`Launched ${launchedSym}`, r.data.signature, state.network, 'success');
+				state = {
+					...state,
+					mint: launchedMint,
+					symbol: launchedSym,
+					stampPhase: 'success',
+					stampedMint: launchedMint,
+					loading: false,
+				};
+				render();
+				setTimeout(async () => {
+					state.stampPhase = null;
+					state.loading = true;
+					await refresh();
+				}, 3500);
 			} else {
+				const isUnbranded = /unbranded_mint/.test(r?.output || '');
+				state.stampPhase = null;
+				state.stampedMint = null;
 				launchBtn.disabled = false;
-				launchBtn.textContent = `Retry launch ${deriveSymbol(identity.name)}`;
-				toast(r?.output || 'Launch failed', null, null, 'error');
+				launchBtn.textContent = isUnbranded ? 'Could not stamp the brand — retry' : retryLabel;
+				render();
+				toast(
+					isUnbranded
+						? 'Could not stamp the three.ws mark — retry to re-grind'
+						: (r?.output || 'Launch failed'),
+					null, null, 'error',
+				);
 			}
 		} catch (err) {
+			state.stampPhase = null;
+			state.stampedMint = null;
 			launchBtn.disabled = false;
-			launchBtn.textContent = 'Launch failed — retry';
-			toast(err.message || 'Launch failed', null, null, 'error');
+			const isUnbranded = /unbranded_mint/.test(err.message || '');
+			launchBtn.textContent = isUnbranded ? 'Could not stamp the brand — retry' : 'Launch failed — retry';
+			render();
+			toast(
+				isUnbranded
+					? 'Could not stamp the three.ws mark — retry to re-grind'
+					: (err.message || 'Launch failed'),
+				null, null, 'error',
+			);
 		}
 	}
 
@@ -700,6 +820,16 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
+
+/** Render a mint address with the leading three.ws mark visually emphasized. */
+function stampedMintHtml(mint) {
+	if (!mint) return '';
+	const MARK_LEN = 3; // '3ws'
+	const mark = escapeHtml(mint.slice(0, MARK_LEN));
+	const tail = mint.slice(MARK_LEN);
+	const tailShort = tail.length > 8 ? tail.slice(0, 4) + '…' + tail.slice(-4) : escapeHtml(tail);
+	return `<span class="pumpfun-mint-marked" title="${escapeAttr(mint)}"><span class="pf-mark" aria-label="three.ws mark">${mark}</span><span class="pf-rest">${tailShort}</span></span>`;
+}
 
 function isExecutable(s) {
 	if (!s.tradeOpen || !s.tradeAmount) return false;

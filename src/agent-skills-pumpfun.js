@@ -18,6 +18,8 @@
  */
 
 import { detectSolanaWallet, SOLANA_RPC } from './erc8004/solana-deploy.js';
+import { grindVanity } from './solana/vanity/grinder.js';
+import { THREE_WS_VANITY, hasThreeWsMark } from './solana/vanity/brand.js';
 import { quoteSwap } from './pump/pump-swap-quote.js';
 import { fetchChannelFeed } from './pump/channel-feed.js';
 import { listRecentClaims } from './pump/pumpkit-claims.js';
@@ -216,8 +218,20 @@ export function registerPumpFunSkills(skills) {
 				const bin = atob(args.mintSecretKeyB64);
 				const secret = Uint8Array.from(bin, (c) => c.charCodeAt(0));
 				mintKeypair = web3.Keypair.fromSecretKey(secret);
+				// Fail closed: a caller-supplied mint must already carry the 3ws mark.
+				if (!hasThreeWsMark(mintKeypair.publicKey.toBase58())) {
+					return {
+						success: false,
+						output:
+							'Supplied mint does not carry the three.ws "3ws" mark. Grind a marked mint, or omit it to stamp one automatically.',
+						sentiment: -0.3,
+					};
+				}
 			} else {
-				mintKeypair = web3.Keypair.generate();
+				// Default: grind the three.ws brand mark so every launch leads with 3ws…
+				// (~49k attempts, sub-second). The mint secret never leaves the browser.
+				const ground = await grindVanity({ ...THREE_WS_VANITY });
+				mintKeypair = web3.Keypair.fromSecretKey(ground.secretKey);
 			}
 			const offline = new pump.PumpSdk();
 			let instructions;

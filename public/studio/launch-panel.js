@@ -351,6 +351,7 @@ const LP_CSS = `
   background:rgba(255,255,255,.04);border-radius:8px;width:100%;
   font-family:ui-monospace,monospace;font-size:.75rem;color:rgba(255,255,255,.6)}
 .lp-ok-mint span{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-ok-mint .lp-ok-mint-addr{flex:1;text-align:left;overflow:hidden;white-space:nowrap}
 .lp-copy{padding:.2rem .5rem;border-radius:5px;cursor:pointer;flex-shrink:0;
   background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
   color:rgba(255,255,255,.65);font-size:.7rem;white-space:nowrap}
@@ -367,6 +368,25 @@ const LP_CSS = `
 .lp-again{width:100%;padding:.42rem;border-radius:7px;cursor:pointer;background:transparent;
   border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.32);font-size:.77rem}
 .lp-again:hover{color:rgba(255,255,255,.62);border-color:rgba(255,255,255,.16)}
+
+/* Stamp progress + success */
+.lp-stamp-live{min-height:1.1em;font-size:.7rem;color:rgba(255,255,255,.5);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:.2rem;
+  display:flex;align-items:center;gap:5px}
+.lp-stamp-live .lp-spspin{width:9px;height:9px;border:1.5px solid rgba(255,255,255,.14);
+  border-top-color:rgba(255,255,255,.5);border-radius:50%;
+  animation:lp-spin .75s linear infinite;flex-shrink:0}
+.lp-stamp-live strong{color:rgba(255,255,255,.88);font-weight:600}
+.lp-ok-mint-marked{display:inline-flex;align-items:baseline;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem}
+.lp-ok-mint-marked .lp-mark{font-weight:700;color:rgba(255,255,255,.92);letter-spacing:.02em}
+.lp-ok-mint-marked .lp-rest{color:rgba(255,255,255,.42);font-weight:400}
+.lp-ok-verified{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;
+  border-radius:999px;font-size:.67rem;font-weight:500;letter-spacing:.04em;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.11);
+  color:rgba(255,255,255,.52);margin-top:.1rem}
+.lp-ok-stamp-sub{font-size:.7rem;color:rgba(255,255,255,.35);line-height:1.5;
+  margin:-.3rem 0 0;text-align:center}
 `;
 
 let _cssInjected = false;
@@ -1028,7 +1048,29 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 	}
 
 	async function launchViaConnectedWallet(nameTrim, symTrim) {
-		// Prep transaction
+		// Step 0: grind the 3ws brand mark client-side so we can show stamping progress
+		// and pass the known keypair to the server (no server-side grind needed).
+		s.phase = 'stamping'; s.phaseLabel = 'Stamping the three.ws mark 3ws…'; render();
+
+		const { grindVanity } = await import('../../src/solana/vanity/grinder.js');
+		const THREE_WS_VANITY = { prefix: '3ws', suffix: '', ignoreCase: true };
+
+		let ground;
+		try {
+			ground = await grindVanity({
+				...THREE_WS_VANITY,
+				onProgress: (p) => {
+					const liveEl = container.querySelector('#lp-stamp-live');
+					if (liveEl) {
+						liveEl.innerHTML = `<span class="lp-spspin" aria-hidden="true"></span>Stamping the three.ws mark <strong>3ws</strong>… · ${Math.round(p.rate / 1000)}k/s · ${esc(p.eta)}`;
+					}
+				},
+			});
+		} catch (err) {
+			throw new Error(`Could not stamp the three.ws brand mark — retry (${err.message})`);
+		}
+
+		// Grind done — transition to signing.
 		s.phase = 'signing'; s.phaseLabel = 'Sign in your wallet…'; render();
 
 		const w = detectWallet();
@@ -1039,10 +1081,6 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 
 		const isUsdc = s.coinType === 'usdc';
 		const buyIn  = Math.max(0, parseFloat(s.initialBuy) || 0);
-		// Server schema treats 'usdc' as an unknown coin_type. Map it to 'agent'
-		// (the buyback-bound variant) so the launch wires up an agent identity,
-		// but flip the quote mint to USDC and route the initial buy through
-		// usdc_buy_in so the backend builds createV2AndBuyV2Instructions.
 		const pr = await fetch('/api/pump/launch-prep', {
 			method: 'POST', credentials: 'include',
 			headers: { 'content-type': 'application/json' },
@@ -1050,8 +1088,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 				...(av.agent_id ? { agent_id: av.agent_id } : { avatar_id: av.id }),
 				wallet_address: payer,
 				name: nameTrim, symbol: symTrim, uri: s._metaUrl,
-				// 'reward' launches as a plain pump.fun coin; the delegated fee split
-				// is configured after graduation in the Fees & rewards panel.
+				mint_address: ground.publicKey,
 				coin_type: isUsdc ? 'agent' : s.coinType === 'reward' ? 'regular' : s.coinType,
 				buyback_bps: (isUsdc || s.coinType === 'agent') ? s.buybackBps : 0,
 				...(isUsdc
@@ -1069,13 +1106,17 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		const tx = VersionedTransaction.deserialize(
 			Uint8Array.from(atob(prep.tx_base64), (c) => c.charCodeAt(0)),
 		);
-		// Phantom Lighthouse requires the wallet to sign FIRST when there are
-		// multiple signers; additional signers must sign afterward.
 		const signed = await w.signTransaction(tx);
+		// Sign with our client-ground mint keypair (the 3ws-stamped one).
+		signed.sign([Keypair.fromSecretKey(ground.secretKey)]);
+		// If the server also returned a mint secret (shouldn't happen when we supply one,
+		// but handle gracefully for backward-compat).
 		if (prep.mint_secret_key_b64) {
-			signed.sign([Keypair.fromSecretKey(
-				Uint8Array.from(atob(prep.mint_secret_key_b64), (c) => c.charCodeAt(0)),
-			)]);
+			try {
+				signed.sign([Keypair.fromSecretKey(
+					Uint8Array.from(atob(prep.mint_secret_key_b64), (c) => c.charCodeAt(0)),
+				)]);
+			} catch { /* ignore duplicate signer */ }
 		}
 
 		// Send + poll confirmation (75s timeout)
@@ -1099,7 +1140,8 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 	}
 
 	async function launchViaAgentWallet(nameTrim, symTrim) {
-		s.phase = 'signing'; s.phaseLabel = 'Agent wallet signing…'; render();
+		// Server stamps the 3ws mark; reflect this phase so the user knows.
+		s.phase = 'stamping'; s.phaseLabel = 'Stamping the three.ws mark 3ws…'; render();
 
 		const isUsdc = s.coinType === 'usdc';
 		const buyIn  = Math.max(0, parseFloat(s.initialBuy) || 0);
@@ -1618,28 +1660,40 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 			${walletHtml}
 			${s.phase === 'error' ? `<div class="lp-err">${esc(s.errorMsg)}<div class="lp-err-sub">Adjust the details above and try again — nothing has been minted yet.</div></div>` : ''}
 			<button class="lp-launch${busy ? ' busy' : ''}" id="lp-go" data-action="${btnAction}"${btnTitle ? ` title="${esc(btnTitle)}"` : ''} ${btnDis ? 'disabled' : ''}>${btnText}</button>
-			${busy ? `<div class="lp-phase">${esc(s.phaseLabel)}</div>` : ''}
+			${busy ? `<div class="lp-phase" role="status" aria-live="polite">${esc(s.phaseLabel)}</div>` : ''}
+			${s.phase === 'stamping' ? `<div class="lp-stamp-live" id="lp-stamp-live" role="status" aria-live="polite" aria-atomic="false"><span class="lp-spspin" aria-hidden="true"></span>Stamping the three.ws mark <strong>3ws</strong>…</div>` : ''}
 		</div>`;
 
 		wireForm();
 	}
 
+	/** Render a mint with the leading 3ws mark visually emphasized. */
+	function stampedMintMarkup(mint) {
+		if (!mint) return '';
+		const mark = esc(mint.slice(0, 3));
+		const tail = mint.slice(3);
+		const tailShort = tail.length > 8 ? tail.slice(0, 4) + '…' + tail.slice(-4) : esc(tail);
+		return `<span class="lp-ok-mint-marked" title="${esc(mint)}"><span class="lp-mark" aria-label="three.ws mark">${mark}</span><span class="lp-rest">${tailShort}</span></span>`;
+	}
+
 	function renderSuccess() {
 		const imgSrc   = s.imagePreviewUrl || av?.thumbnail_url;
 		const mint     = s.mint || '';
-		const mintShort = mint ? mint.slice(0, 6) + '…' + mint.slice(-6) : '';
 		const sym      = s.symbol.trim() || 'TOKEN';
 		const agentId  = s.resolvedAgentId || av?.agent_id;
 		const shareText = `Just launched $${sym} on pump.fun 🎉 Built with three.ws\n${PUMP_URL(mint)}`;
 
+		const mintDisplay = stampedMintMarkup(mint);
+
 		container.innerHTML = `<div class="lp"><div class="lp-ok">
 			${imgSrc ? `<img class="lp-ok-thumb" src="${esc(imgSrc)}" alt="" />` : `<div class="lp-ok-thumb-ph">🪙</div>`}
 			<p class="lp-ok-title">$${esc(sym)} is live!</p>
-			<p class="lp-ok-sub">Your token is live on pump.fun</p>
+			<p class="lp-ok-stamp-sub">Stamped on-chain — every three.ws coin starts with <strong style="color:rgba(255,255,255,.75);font-weight:600">3ws</strong>.</p>
 			<div class="lp-ok-mint">
-				<span title="${esc(mint)}">${mintShort}</span>
+				<span class="lp-ok-mint-addr">${mintDisplay || esc(mint)}</span>
 				<button class="lp-copy" id="lp-copy-mint">Copy</button>
 			</div>
+			<span class="lp-ok-verified">✓ three.ws coin</span>
 			<div class="lp-ok-links">
 				<a class="lp-ext" href="${esc(PUMP_URL(mint))}" target="_blank" rel="noopener">pump.fun ↗</a>
 				<a class="lp-ext" href="https://solscan.io/token/${esc(mint)}" target="_blank" rel="noopener">Solscan ↗</a>

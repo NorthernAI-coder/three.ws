@@ -10,6 +10,9 @@
  * (window.solana / phantom / backpack / solflare). Frontend never holds keys.
  */
 
+import { grindVanity } from '../solana/vanity/grinder.js';
+import { THREE_WS_VANITY } from '../solana/vanity/brand.js';
+
 const M_STYLES = `
 .pmodal-back {
 	position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
@@ -393,6 +396,8 @@ function openGovernance({ mint, currentBps }) {
 function openLaunch({ identity, agentId, avatarId, formData }) {
 	const { inner, close } = openModal();
 	let step = 1;
+	// Aborts the in-browser 3ws-mark grind if the user backs out mid-stamp.
+	let launchGrindAbort = null;
 	// USDC mainnet mint — pump.fun v2 quote when the user picks USDC pair.
 	const USDC_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
@@ -511,12 +516,14 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 			body.innerHTML = `
 				<div class="pmodal-row"><span>Name</span><b>${esc(name)}</b></div>
 				<div class="pmodal-row"><span>Symbol</span><b>$${esc(symbol)}</b></div>
+				<div class="pmodal-row"><span>Mint mark</span><b><code>3ws</code>…</b></div>
 				<div class="pmodal-row"><span>Buyback</span><b>${((f.bps || 500) / 100).toFixed(1)}%</b></div>
 				<div class="pmodal-row"><span>Initial buy</span><b>${f.buyin || 0} SOL</b></div>
 				<div class="pmodal-row"><span>Tx</span><b>createInstruction + PumpAgent.create</b></div>
 				<div class="pmodal-sub" style="margin-top:0.7rem">
-					You'll sign once with your Solana wallet. The new mint keypair and your wallet co-sign.
+					Every three.ws coin is stamped <code>3ws…</code> on-chain. We grind the mark in your browser, then you sign once — the mint keypair and your wallet co-sign.
 				</div>
+				<div class="pmodal-meta-building" id="pmodal-launch-grind" role="status" aria-live="polite" aria-atomic="false" hidden></div>
 			`;
 		}
 
@@ -571,6 +578,44 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 			} else {
 				const btn = inner.querySelector('#pmodal-launch-next');
 				btn.disabled = true;
+
+				// 1 ── Grind the three.ws brand mark in the browser. The mint secret
+				// never leaves the page; the server builds the tx around our vanity
+				// pubkey and we co-sign locally.
+				btn.textContent = 'Stamping 3ws…';
+				const grindEl = inner.querySelector('#pmodal-launch-grind');
+				if (grindEl) { grindEl.hidden = false; grindEl.textContent = 'Stamping the three.ws mark 3ws…'; }
+				let mintKp;
+				launchGrindAbort = new AbortController();
+				try {
+					const ground = await grindVanity({
+						...THREE_WS_VANITY,
+						signal: launchGrindAbort.signal,
+						onProgress: ({ rate, eta }) => {
+							if (grindEl && grindEl.isConnected) {
+								grindEl.textContent = `Stamping the three.ws mark 3ws… ${Math.round(rate).toLocaleString()}/s · eta ${eta}`;
+							}
+						},
+					});
+					mintKp = Keypair.fromSecretKey(ground.secretKey);
+				} catch (e) {
+					launchGrindAbort = null;
+					if (e?.name === 'AbortError' || !inner.isConnected) return; // user backed out
+					errEl.textContent = e.message || 'Could not stamp the three.ws mark.';
+					btn.disabled = false; btn.textContent = 'Launch on-chain';
+					if (grindEl) grindEl.hidden = true;
+					return;
+				}
+				launchGrindAbort = null;
+				if (!inner.isConnected) return; // modal closed mid-grind — never pop the wallet
+				if (grindEl) {
+					const addr = mintKp.publicKey.toBase58();
+					const mark = addr.slice(0, 3);
+					const tail = addr.slice(3, 9) + '…';
+					grindEl.innerHTML = `Stamped <strong style="color:rgba(255,255,255,.88);font-weight:700">${mark}</strong><span style="opacity:.5">${tail}</span> &mdash; every three.ws coin starts with <strong>3ws</strong>.`;
+					grindEl.setAttribute('aria-label', `Stamped three.ws mark on mint ${addr.slice(0, 6)}…`);
+				}
+
 				btn.textContent = 'Preparing…';
 				try {
 					const wallet = detectSolanaWallet();
@@ -592,19 +637,15 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 							uri: f.uri,
 							buyback_bps: f.bps || 0,
 							sol_buy_in: f.buyin || 0,
+							mint_address: mintKp.publicKey.toBase58(),
 							network: 'mainnet',
 						}),
 					}).then((r) => r.json());
 					if (prep.error) throw new Error(prep.error_description || prep.error);
 
-					const mintKp = prep.mint_secret_key_b64
-						? Keypair.fromSecretKey(
-								Uint8Array.from(atob(prep.mint_secret_key_b64), (c) => c.charCodeAt(0)),
-							)
-						: null;
 					btn.textContent = 'Sign in wallet…';
 					const sig = await signAndSend(prep.tx_base64, {
-						extraSigners: mintKp ? [mintKp] : [],
+						extraSigners: [mintKp],
 						network: 'mainnet',
 					});
 					btn.textContent = 'Confirming…';
@@ -615,8 +656,16 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 						body: JSON.stringify({ prep_id: prep.prep_id, tx_signature: sig }),
 					}).then((r) => r.json());
 					if (confirm.error) throw new Error(confirm.error_description || confirm.error);
+					// Show the stamped mint with emphasized 3ws prefix before redirect.
+					const launchedMint = confirm.pump_agent_mint?.mint || mintKp.publicKey.toBase58();
+					const mintMark = launchedMint.slice(0, 3);
+					const mintRest = launchedMint.slice(3, 7) + '…' + launchedMint.slice(-4);
+					if (grindEl) {
+						grindEl.hidden = false;
+						grindEl.className = 'pmodal-ok';
+						grindEl.innerHTML = `Stamped on-chain — every three.ws coin starts with <strong style="font-weight:700">3ws</strong>. Mint: <strong style="color:rgba(255,255,255,.88);font-weight:700" aria-label="three.ws mark">${mintMark}</strong><span style="opacity:.5">${mintRest}</span>`;
+					}
 					btn.textContent = 'Launched!';
-					// Redirect to the agent's page to see the new token
 					const resolvedAgentId = prep.agent_id || agentId;
 					setTimeout(() => {
 						close();
@@ -627,12 +676,16 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 						}
 					}, 900);
 				} catch (e) {
-					errEl.textContent = e.message || String(e);
+					const isUnbranded = /unbranded_mint/.test(e.message || '');
+					errEl.textContent = isUnbranded
+						? 'Could not stamp the brand — retry to re-grind.'
+						: (e.message || String(e));
 					const btn = inner.querySelector('#pmodal-launch-next');
 					if (btn) {
 						btn.disabled = false;
-						btn.textContent = 'Launch on-chain';
+						btn.textContent = isUnbranded ? 'Retry stamp' : 'Launch on-chain';
 					}
+					if (grindEl) { grindEl.hidden = true; grindEl.className = 'pmodal-meta-building'; }
 				}
 			}
 		});

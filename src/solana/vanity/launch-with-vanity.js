@@ -8,7 +8,7 @@
  * Usage:
  *   const { prep, mintKeypair } = await launchWithVanity({
  *     agentId, walletAddress, name, symbol, uri,
- *     suffix: 'pump',
+ *     // prefix defaults to the `3ws` brand mark when omitted
  *     onProgress: ({ rate, eta }) => console.log(rate, eta),
  *   });
  *   // ...co-sign prep.tx_base64 with both `mintKeypair` and the user wallet,
@@ -17,6 +17,7 @@
 
 import { Keypair } from '@solana/web3.js';
 import { grindVanity } from './grinder.js';
+import { THREE_WS_MARK } from './brand.js';
 
 /**
  * @param {object} args
@@ -38,8 +39,17 @@ import { grindVanity } from './grinder.js';
  * @returns {Promise<{ prep: object, mintKeypair: Keypair }>}
  */
 export async function launchWithVanity(args) {
-	const { prefix, suffix, ignoreCase, signal, onProgress } = args;
-	if (!prefix && !suffix) throw new Error('prefix or suffix required for vanity launch');
+	let { prefix, suffix, ignoreCase } = args;
+	const { signal, onProgress } = args;
+
+	// Every three.ws launch leads with the `3ws` brand mark. When the caller
+	// supplies no explicit pattern, default to grinding the mark (case-insensitive
+	// — keeps the grind sub-second). Power users may still pass an explicit
+	// prefix/suffix to append extra characters after the mark.
+	if (!prefix && !suffix) {
+		prefix = THREE_WS_MARK;
+		ignoreCase = true;
+	}
 
 	const ground = await grindVanity({ prefix, suffix, ignoreCase, signal, onProgress });
 	const mintKeypair = Keypair.fromSecretKey(ground.secretKey);

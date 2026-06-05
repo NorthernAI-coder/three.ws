@@ -45,6 +45,9 @@ import { AnchorProvider, Wallet } from '@coral-xyz/anchor';
 import { PumpSdk, getBuyTokenAmountFromSolAmount } from '@pump-fun/pump-sdk';
 import BN from 'bn.js';
 
+import { grindVanityNode } from '../src/solana/vanity/grinder-node.js';
+import { THREE_WS_VANITY, THREE_WS_MARK, hasThreeWsMark } from '../src/solana/vanity/brand.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
 
@@ -218,7 +221,7 @@ async function cmdPrepare(positional, opts) {
 
 async function cmdLaunch(positional, opts) {
 	const [uri] = positional;
-	if (!uri) throw new Error('Usage: launch <metadata-url> --wallet <buyer.json> --creator <creator.json> [--buy <sol>] [--name "..."] [--symbol "..."] [--execute]');
+	if (!uri) throw new Error('Usage: launch <metadata-url> --wallet <buyer.json> --creator <creator.json> [--buy <sol>] [--name "..."] [--symbol "..."] [--mint-keypair <path>] [--no-mark] [--execute]');
 	if (!opts.wallet) throw new Error('--wallet <buyer.json> is required (fee payer + initial buyer)');
 	if (!opts.creator) throw new Error('--creator <creator.json> is required (pump.fun creator address; receives creator fees)');
 	if (!opts.name) throw new Error('--name "..." is required');
@@ -232,12 +235,35 @@ async function cmdLaunch(positional, opts) {
 	const buyer = loadKeypair(opts.wallet);
 	const creator = loadKeypair(opts.creator);
 
+	// Every three.ws coin mint carries the brand mark — its address starts with
+	// `3ws…`. The default path grinds a marked mint. The --mint-keypair escape
+	// hatch lets power users supply a pre-ground mint, but we refuse an unmarked
+	// one unless --no-mark is passed (the same kill-switch the server exposes for
+	// genuinely coin-agnostic, caller-supplied plumbing).
+	const noMark = !!opts['no-mark'];
 	let mint;
 	if (opts['mint-keypair']) {
 		mint = loadKeypair(opts['mint-keypair']);
-		console.error(`Using existing mint keypair: ${mint.publicKey.toBase58()}`);
-	} else {
+		const marked = hasThreeWsMark(mint.publicKey.toBase58());
+		if (!marked && !noMark) {
+			throw new Error(
+				`supplied --mint-keypair ${mint.publicKey.toBase58()} does not carry the three.ws "${THREE_WS_MARK}" mark. ` +
+					`Pass a mint whose address starts with "${THREE_WS_MARK}", omit --mint-keypair to grind one, ` +
+					`or pass --no-mark to launch an unbranded mint deliberately.`,
+			);
+		}
+		console.error(
+			`Using existing mint keypair: ${mint.publicKey.toBase58()}` +
+				(marked ? ` (carries ${THREE_WS_MARK} mark)` : ' (UNMARKED — --no-mark override)'),
+		);
+	} else if (noMark) {
 		mint = Keypair.generate();
+		console.error(`Generated unmarked mint (--no-mark): ${mint.publicKey.toBase58()}`);
+	} else {
+		console.error(`Grinding ${THREE_WS_MARK}… mint mark (sub-minute)…`);
+		const ground = grindVanityNode({ ...THREE_WS_VANITY });
+		mint = Keypair.fromSecretKey(ground.secretKey);
+		console.error(`  marked mint: ${mint.publicKey.toBase58()} (${ground.attempts} attempts, ${Math.round(ground.durationMs)}ms)`);
 	}
 
 	const connection = new Connection(rpc, 'confirmed');
@@ -486,7 +512,8 @@ async function main() {
 		console.error('  keygen [--out <path>]');
 		console.error('  prepare <name> <symbol> [--description "..."] [--image <url>] [--website https://three.ws]');
 		console.error('  launch <metadata-url> --wallet <buyer.json> --creator <creator.json> --name "..." --symbol "..."');
-		console.error('                          [--buy <sol>] [--mint-keypair <path>] [--network mainnet|devnet] [--rpc <url>] [--execute]');
+		console.error('                          [--buy <sol>] [--mint-keypair <path>] [--no-mark] [--network mainnet|devnet] [--rpc <url>] [--execute]');
+		console.error(`                          (mint is ground to the ${THREE_WS_MARK}… brand mark by default; --no-mark opts out for coin-agnostic plumbing)`);
 		console.error('  register <mint> --name "..." --symbol "..." --creator-wallet <pubkey>');
 		console.error('                          [--creator-secret-b64 <b64>] [--lottery-bps 7000] [--reflection-bps 2500] [--ops-bps 500]');
 		console.error('                          [--draw-interval-seconds 3600] [--ops-wallet <pubkey>] [--network mainnet|devnet]');

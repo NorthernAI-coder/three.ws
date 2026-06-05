@@ -25,6 +25,8 @@
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { THREE_WS_MARK, hasThreeWsMark } from '../src/solana/vanity/brand.js';
+
 const BASE = process.env.SMOKE_BASE_URL || 'http://localhost:3000';
 const OWNER_K = process.env.SMOKE_OWNER_KEY;
 const AGENT_ID = process.env.SMOKE_AGENT_ID;
@@ -116,8 +118,13 @@ if (PHASES.includes('create')) {
 		if (!confirm.ok)
 			throw new Error(`launch-confirm ${confirm.status}: ${JSON.stringify(confirm.body)}`);
 		MINT = prep.body.mint || confirm.body.pump_agent_mint?.mint;
-		report.phases.create = { ok: true, mint: MINT, signature: sig };
-		console.log('  ✓ create', MINT);
+		// Regression-guard the brand end-to-end: a server-minted coin must carry
+		// the three.ws mark (address starts with `3ws…`), case-insensitively.
+		if (!/^3ws/i.test(MINT || '') || !hasThreeWsMark(MINT)) {
+			throw new Error(`minted ${MINT} is missing the three.ws "${THREE_WS_MARK}" mark`);
+		}
+		report.phases.create = { ok: true, mint: MINT, marked: true, signature: sig };
+		console.log('  ✓ create', MINT, `(${THREE_WS_MARK} mark)`);
 	} catch (e) {
 		report.phases.create = { ok: false, error: e.message };
 		console.log('  ✗ create:', e.message);

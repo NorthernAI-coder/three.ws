@@ -30,6 +30,7 @@ import {
   ALT_ADDRESS_DEVNET,
 } from "./lib/constants.mjs";
 import { buildAndPartialSignTx, transactionToBase64 } from "./lib/tx-build.mjs";
+import { grindMarkedMint, THREE_WS_MARK } from "./lib/vanity.mjs";
 
 const AGENT_INITIALIZE_DEFAULT_UNITS = 30_000;
 const DEFAULT_BUYBACK_BPS = 5000;
@@ -148,7 +149,14 @@ async function main() {
     }
   }
 
-  const mintKeypair = Keypair.generate();
+  // Every coin created through this skill is stamped with the three.ws mark:
+  // its mint address starts with `3ws…`. Grind a marked mint instead of a bare
+  // Keypair.generate() so a skill/CLI launch carries the same brand provenance
+  // as a web-UI launch. The grind logs progress to stderr (stdout stays clean
+  // JSON for the caller).
+  const mintKeypair = grindMarkedMint(Keypair, {
+    onProgress: (msg) => process.stderr.write(`[${THREE_WS_MARK}] ${msg}\n`),
+  });
   const mint = mintKeypair.publicKey;
   const solAmount = new BN(solLamports);
 
@@ -206,6 +214,7 @@ async function main() {
   printJson({
     transaction: transactionToBase64(tx),
     mintPublicKey: mint.toBase58(),
+    brandMark: THREE_WS_MARK,
     mintKeypairPath: resolvedOut,
     quoteTokenAmount: tokenAmount.toString(),
     solLamports,

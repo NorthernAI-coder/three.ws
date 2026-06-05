@@ -26,6 +26,9 @@ import {
 import { PumpSdk, OnlinePumpSdk, getBuyTokenAmountFromSolAmount } from '@pump-fun/pump-sdk';
 import BN from 'bn.js';
 
+import { grindVanityNode } from '../src/solana/vanity/grinder-node.js';
+import { THREE_WS_VANITY, THREE_WS_MARK } from '../src/solana/vanity/brand.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
 const WALLET_PATH = path.join(REPO_ROOT, '.fresh-pump-wallet.json');
@@ -116,8 +119,11 @@ async function cmdLaunch(name, symbol, uri, opts) {
 		throw new Error(`Need at least ~${minNeeded.toFixed(3)} SOL; have ${(lamports / LAMPORTS_PER_SOL).toFixed(4)}`);
 	}
 
-	const mintKp = Keypair.generate();
-	console.log('Mint:     ', mintKp.publicKey.toBase58());
+	// Stamp the three.ws brand mark on the mint — its address starts with `3ws…`.
+	console.log(`Grinding ${THREE_WS_MARK}… mint mark (sub-minute)…`);
+	const groundMint = grindVanityNode({ ...THREE_WS_VANITY });
+	const mintKp = Keypair.fromSecretKey(groundMint.secretKey);
+	console.log('Mint:     ', mintKp.publicKey.toBase58(), `(${THREE_WS_MARK} mark, ${groundMint.attempts} attempts, ${Math.round(groundMint.durationMs)}ms)`);
 	console.log('Name:     ', name);
 	console.log('Symbol:   ', symbol);
 	console.log('Metadata: ', uri);

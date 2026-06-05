@@ -28,6 +28,7 @@ import {
 	getBuyTokenAmountFromSolAmount,
 } from '@pump-fun/pump-sdk';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
+import { THREE_WS_MARK, hasThreeWsMark } from '../src/solana/vanity/brand.js';
 
 const RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const USDC_MAINNET = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
@@ -94,6 +95,26 @@ async function main() {
 	console.log('  wallet:     ', wallet.publicKey.toBase58());
 	console.log('  mint:       ', mint.publicKey.toBase58());
 	console.log('');
+
+	// The launched mint must carry the three.ws brand mark (address starts with
+	// `3ws…`). mint-latest.json is expected to be a pre-ground vanity keypair
+	// (grind one with `node scripts/coin-cli.mjs launch …` or the /vanity tool).
+	// Fail closed on an unbranded mint unless ALLOW_UNMARKED_MINT=1 is set for
+	// genuinely coin-agnostic plumbing — the same kill-switch the server exposes.
+	if (!hasThreeWsMark(mint.publicKey.toBase58()) && process.env.ALLOW_UNMARKED_MINT !== '1') {
+		writeResult({
+			ok: false,
+			reason: 'unmarked_mint',
+			mint: mint.publicKey.toBase58(),
+			expected_prefix: THREE_WS_MARK,
+		});
+		console.error(
+			`Aborting: mint ${mint.publicKey.toBase58()} does not carry the three.ws "${THREE_WS_MARK}" mark.\n` +
+				`  Supply a vanity mint at mint-latest.json whose address starts with "${THREE_WS_MARK}", ` +
+				`or set ALLOW_UNMARKED_MINT=1 to launch an unbranded mint deliberately.`,
+		);
+		process.exit(1);
+	}
 
 	const connection = new Connection(RPC, 'confirmed');
 

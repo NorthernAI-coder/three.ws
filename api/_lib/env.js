@@ -573,6 +573,16 @@ export const env = {
 	// Alternative: store the base64 in coin_launches.metadata.creator_secret_b64
 	// at register time (less secure than env; v2 should move to a KMS).
 
+	// ── Mint-mark kill-switch ─────────────────────────────────────────────
+	// Controls whether launch-prep and launch-agent enforce the three.ws "3ws"
+	// mint mark. Default: ON (any value other than '0' or 'false' enforces).
+	// Flip to '0' ONLY during an incident where grindVanityNode is broken and
+	// launches must continue unblocked. Re-enable immediately after resolution.
+	// When OFF, mints may be generated without the mark (pure-legacy path).
+	get THREE_WS_MARK_ENFORCE() {
+		return opt('THREE_WS_MARK_ENFORCE', '1');
+	},
+
 	// ── x402 pay-per-call pump.fun launcher (api/x402/pump-launch.js) ─────
 	// Base64-encoded 64-byte Solana secret for the server keypair that PAYS
 	// the SOL deploy cost (~0.022 SOL) and signs the create-coin tx on behalf

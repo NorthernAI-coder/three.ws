@@ -65,7 +65,7 @@ Only `user`, `name`, `symbol`, `uri`, and `solLamports` are required. All other 
 ```json
 {
   "transaction": "<base64-encoded VersionedTransaction>",
-  "mintPublicKey": "<base58 mint address>",
+  "mintPublicKey": "<base58 mint address — starts with 3ws>",
   "quoteTokenAmount": "123456789",
   "solLamports": "1000000",
   "mayhemMode": false,
@@ -150,10 +150,21 @@ const onlinePump = new OnlinePumpSdk(connection);
 
 Full transaction building (compute budget, blockhash, partial sign) is implemented in `scripts/lib/tx-build.mjs` and `scripts/lib/compute.mjs`.
 
+## three.ws brand mark (`3ws…`)
+
+Coins created through this skill's **launch script** are **stamped with the three.ws brand mark**: the mint address always starts with `3ws` (case-insensitive). `scripts/build-create-coin-tx.mjs` does not call a bare `Keypair.generate()` — it grinds a vanity keypair whose Base58 address carries the mark before partial-signing the create transaction. This gives a scripted/CLI launch the same on-chain brand provenance as a launch from the three.ws web UI: anyone can see, straight from the mint address, that the coin originated from three.ws.
+
+- **Which path carries the mark:** the local script (`build-create-coin-tx.mjs`) grinds the mint locally, so it always carries the mark. The hosted `POST /agents/create-coin` builder mints on pump.fun's side and is outside our control — **use the script path when brand provenance is required.**
+- The grind for a 3-character case-insensitive prefix clears in well under a minute; progress is logged to **stderr** so stdout stays clean JSON for the caller.
+- The mark string lives in **one** local constant — `scripts/lib/vanity.mjs` (`THREE_WS_MARK`), which mirrors the canonical `src/solana/vanity/brand.js` in the three.ws repo. Never hardcode `3ws` anywhere else in this package.
+- The response JSON includes a `brandMark` field (`"3ws"`) alongside `mintPublicKey` for confirmation.
+
+This is brand plumbing on the mint **address** only — it does not name, add, or reference any token. The only coin this platform discusses is **$THREE** (`FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`); all examples and fixtures stay on it.
+
 ## Create a coin
 
 - **Default:** `POST /agents/create-coin` (see API section above)
-- **Script (only when user explicitly requests):** `scripts/build-create-coin-tx.mjs`
+- **Script (only when user explicitly requests):** `scripts/build-create-coin-tx.mjs` — grinds a `3ws…` marked mint (see above)
 - **Metadata JSON:** [references/METADATA.md](references/METADATA.md)
 
 ### Parameters (`createV2AndBuyInstructions`)
@@ -161,7 +172,7 @@ Full transaction building (compute budget, blockhash, partial sign) is implement
 | Parameter    | Type        | Description                                                            |
 | ------------ | ----------- | ---------------------------------------------------------------------- |
 | `global`     | `Global`    | From `OnlinePumpSdk.fetchGlobal()`                                     |
-| `mint`       | `PublicKey` | New mint (generated keypair)                                           |
+| `mint`       | `PublicKey` | New mint (vanity keypair ground to the `3ws…` brand mark)              |
 | `name`       | `string`    | Coin name                                                              |
 | `symbol`     | `string`    | Ticker                                                                 |
 | `uri`        | `string`    | Metadata JSON URL                                                      |

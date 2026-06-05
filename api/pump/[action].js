@@ -62,6 +62,13 @@ import { parse } from '../_lib/validate.js';
 import { randomToken } from '../_lib/crypto.js';
 import { publishFeedEvent } from '../_lib/feed.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
+import { buildTokenMetadata } from '../_lib/three-brand.js';
+import { pinToIPFS, ipfsPinningConfigured } from '../_lib/ipfs-pin.js';
+import { THREE_WS_VANITY, hasThreeWsMark } from '../../src/solana/vanity/brand.js';
+import { grindVanityNode, GrindExhaustedError } from '../../src/solana/vanity/grinder-node.js';
+import { logger } from '../_lib/usage.js';
+
+const log = logger('pump.launch');
 import {
 	getConnection,
 	getPumpSdk,
@@ -671,53 +678,94 @@ async function handleBuildMetadata(req, res) {
 	const ts = Date.now().toString(36);
 	const prefix = `pump/meta/${uid}/${ts}`;
 
-	// ── Resolve image URL ───────────────────────────────────────────────────
-	let imageUrl = null;
+	// ── Resolve image bytes ─────────────────────────────────────────────────
+	// We want raw bytes (not just an HTTPS URL) so the image can be pinned to
+	// IPFS alongside the metadata — matching pump.fun's native upload flow.
+	let imageBuf = null;
+	let imageContentType = 'image/png';
+	let imageExt = 'png';
+	let imageUrl = null; // set directly only when we can't get bytes to pin
 
 	if (body.image_data_url) {
 		const commaIdx = body.image_data_url.indexOf(',');
 		if (commaIdx === -1) return error(res, 400, 'validation_error', 'invalid image_data_url');
 		const meta = body.image_data_url.slice(0, commaIdx);
 		const payload = body.image_data_url.slice(commaIdx + 1);
-		const buf = meta.includes('base64')
+		imageBuf = meta.includes('base64')
 			? Buffer.from(payload, 'base64')
 			: Buffer.from(decodeURIComponent(payload));
-		if (buf.byteLength > 4 * 1024 * 1024) {
+		if (imageBuf.byteLength > 4 * 1024 * 1024) {
 			return error(res, 413, 'payload_too_large', 'image must be under 4 MB');
 		}
-		const contentType = meta.match(/data:([^;,]+)/)?.[1] || 'image/png';
-		const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'png';
-		const imgKey = `${prefix}/image.${ext}`;
-		await putObject({ key: imgKey, body: buf, contentType });
-		imageUrl = r2PublicUrl(imgKey);
+		imageContentType = meta.match(/data:([^;,]+)/)?.[1] || 'image/png';
+		imageExt = imageContentType.includes('jpeg') || imageContentType.includes('jpg') ? 'jpg' : 'png';
 	} else if (body.avatar_id) {
 		const [av] = await sql`
 			select thumbnail_key from avatars
 			where id=${body.avatar_id} and owner_id=${uid} and deleted_at is null limit 1
 		`;
-		if (av?.thumbnail_key) imageUrl = r2PublicUrl(av.thumbnail_key);
+		if (av?.thumbnail_key) {
+			const thumbUrl = r2PublicUrl(av.thumbnail_key);
+			// Fetch the stored thumbnail so it too lands on IPFS; if that fails,
+			// fall back to referencing the R2 URL directly (still a valid image).
+			try {
+				const resp = await fetch(thumbUrl);
+				if (resp.ok) {
+					imageBuf = Buffer.from(await resp.arrayBuffer());
+					imageContentType = resp.headers.get('content-type') || 'image/png';
+					imageExt = imageContentType.includes('jpeg') || imageContentType.includes('jpg') ? 'jpg' : 'png';
+				}
+			} catch {
+				/* fall through to direct URL */
+			}
+			if (!imageBuf) imageUrl = thumbUrl;
+		}
 	}
 
-	// ── Build metadata JSON ─────────────────────────────────────────────────
-	const agentHomeUrl = body.agent_id
-		? `${env.APP_ORIGIN}/agent/${body.agent_id}`
-		: env.APP_ORIGIN;
+	// Pin the image (IPFS preferred, R2 fallback) so the metadata references a
+	// stable, gateway-resolvable URL.
+	if (imageBuf && !imageUrl) {
+		const pinnedImage = await pinToIPFS(imageBuf, `image.${imageExt}`).catch(() => null);
+		if (pinnedImage) {
+			imageUrl = pinnedImage.uri;
+		} else {
+			const imgKey = `${prefix}/image.${imageExt}`;
+			await putObject({ key: imgKey, body: imageBuf, contentType: imageContentType });
+			imageUrl = r2PublicUrl(imgKey);
+		}
+	}
 
-	const metadata = {
+	// ── Build metadata JSON via the canonical three.ws brand builder ─────────
+	// This stamps createdOn=https://three.ws plus the Platform/Launchpad
+	// attributes that explorers and launchpad aggregators read for attribution.
+	const agentHomeUrl = body.agent_id ? `${env.APP_ORIGIN}/agent/${body.agent_id}` : undefined;
+	const metadata = buildTokenMetadata({
 		name: body.name,
 		symbol: body.symbol,
 		description: body.description,
-		...(imageUrl ? { image: imageUrl } : {}),
-		showName: true,
-		createdOn: 'https://pump.fun',
-		website: agentHomeUrl,
-	};
+		image: imageUrl || '',
+		...(agentHomeUrl ? { agentUrl: agentHomeUrl } : {}),
+		createdAt: new Date().toISOString(),
+	});
 
+	// Pin the metadata JSON (IPFS preferred, R2 fallback).
 	const jsonBuf = Buffer.from(JSON.stringify(metadata, null, 2));
-	const jsonKey = `${prefix}/metadata.json`;
-	await putObject({ key: jsonKey, body: jsonBuf, contentType: 'application/json' });
+	const pinnedJson = await pinToIPFS(jsonBuf, 'metadata.json').catch(() => null);
+	let metadataUrl;
+	if (pinnedJson) {
+		metadataUrl = pinnedJson.uri;
+	} else {
+		const jsonKey = `${prefix}/metadata.json`;
+		await putObject({ key: jsonKey, body: jsonBuf, contentType: 'application/json' });
+		metadataUrl = r2PublicUrl(jsonKey);
+	}
 
-	return json(res, 200, { metadata_url: r2PublicUrl(jsonKey), image_url: imageUrl });
+	return json(res, 200, {
+		metadata_url: metadataUrl,
+		image_url: imageUrl,
+		on_ipfs: Boolean(pinnedJson),
+		provider: pinnedJson?.provider ?? (ipfsPinningConfigured() ? 'r2-fallback' : 'r2'),
+	});
 }
 
 // ── shared launch helpers ──────────────────────────────────────────────────
@@ -950,13 +998,31 @@ async function handleLaunchPrep(req, res) {
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 	const resolvedAgentId = agent.id;
 
-	// Mint pubkey: client-supplied (vanity-ground) or freshly generated.
+	// Mint pubkey: client-supplied (vanity-ground) or server-ground with the three.ws mark.
+	const enforceMark = env.THREE_WS_MARK_ENFORCE !== '0' && env.THREE_WS_MARK_ENFORCE !== 'false';
 	let mintKeypair = null;
 	let mint;
+
 	if (body.mint_address) {
 		const supplied = solanaPubkey(body.mint_address);
 		if (!supplied) return error(res, 400, 'validation_error', 'invalid mint_address');
+		if (enforceMark && !hasThreeWsMark(supplied.toBase58())) {
+			return error(res, 400, 'unbranded_mint',
+				'three.ws launches must use a mint address carrying the "3ws" mark — grind one client-side or omit mint_address to let the server stamp it');
+		}
 		mint = supplied;
+	} else if (enforceMark) {
+		try {
+			const ground = await grindVanityNode({ ...THREE_WS_VANITY }); // ~49k attempts, sub-second
+			mintKeypair = Keypair.fromSecretKey(ground.secretKey);
+			mint = mintKeypair.publicKey;
+			log.info('mint_mark_stamped', { publicKey: ground.publicKey, attempts: ground.attempts, durationMs: Math.round(ground.durationMs) });
+		} catch (err) {
+			if (err instanceof GrindExhaustedError) {
+				return error(res, 503, 'mark_grind_failed', 'could not stamp the three.ws mark — retry');
+			}
+			throw err;
+		}
 	} else {
 		mintKeypair = Keypair.generate();
 		mint = mintKeypair.publicKey;
@@ -1114,6 +1180,17 @@ async function handleLaunchConfirm(req, res) {
 
 	await sql`delete from agent_registrations_pending where id=${pending.id}`;
 
+	// Surface the confirmed launch on the site-wide live activity ticker.
+	publishFeedEvent({
+		type: 'coin-buy',
+		ts: Date.now(),
+		actor: shortAddr(p.wallet_address),
+		mint: p.mint,
+		sol: 0,
+		network: p.network,
+		branded: hasThreeWsMark(p.mint),
+	}).catch(() => {});
+
 	return json(res, 201, {
 		ok: true,
 		pump_agent_mint: row,
@@ -1238,7 +1315,10 @@ async function handleLaunchAgent(req, res) {
 	const agentKeypair = loaded.keypair;
 	const creator = agentKeypair.publicKey;
 
-	// Mint keypair: client-supplied (vanity) or server-generated.
+	// Mint keypair: client-supplied (vanity) or server-ground with the three.ws mark.
+	// This path signs server-side with the agent custodial wallet, so the server
+	// always holds the mint secret — supplied or ground.
+	const enforceMark = env.THREE_WS_MARK_ENFORCE !== '0' && env.THREE_WS_MARK_ENFORCE !== 'false';
 	let mintKeypair;
 	if (body.mint_address && body.mint_secret_key_b64) {
 		try {
@@ -1250,6 +1330,21 @@ async function handleLaunchAgent(req, res) {
 		}
 		if (mintKeypair.publicKey.toBase58() !== body.mint_address) {
 			return error(res, 400, 'validation_error', 'mint_address does not match secret key');
+		}
+		if (enforceMark && !hasThreeWsMark(mintKeypair.publicKey.toBase58())) {
+			return error(res, 400, 'unbranded_mint',
+				'three.ws launches must use a mint carrying the "3ws" mark — omit mint_address to let the server stamp it');
+		}
+	} else if (enforceMark) {
+		try {
+			const ground = await grindVanityNode({ ...THREE_WS_VANITY }); // ~49k attempts, sub-second
+			mintKeypair = Keypair.fromSecretKey(ground.secretKey);
+			log.info('mint_mark_stamped', { publicKey: ground.publicKey, attempts: ground.attempts, durationMs: Math.round(ground.durationMs) });
+		} catch (err) {
+			if (err instanceof GrindExhaustedError) {
+				return error(res, 503, 'mark_grind_failed', 'could not stamp the three.ws mark — retry');
+			}
+			throw err;
 		}
 	} else {
 		mintKeypair = Keypair.generate();
@@ -1357,6 +1452,17 @@ async function handleLaunchAgent(req, res) {
 			${'pumpfun'}
 		)
 	`.catch((e) => console.error('[pump/launch-agent] log failed', e?.message));
+
+	// Surface the confirmed agent-wallet launch on the site-wide live activity ticker.
+	publishFeedEvent({
+		type: 'coin-buy',
+		ts: Date.now(),
+		actor: shortAddr(creator.toBase58()),
+		mint: mintAddr,
+		sol: body.sol_buy_in || 0,
+		network: body.network,
+		branded: hasThreeWsMark(mintAddr),
+	}).catch(() => {});
 
 	return json(res, 201, {
 		ok: true,
