@@ -1,10 +1,8 @@
 // Privy headless auth for login and register pages.
-// Handles email-OTP, EVM wallet (SIWE via Privy), and Solana wallet (SIWS via Privy).
-// On success POSTs the Privy identity_token to /api/auth/privy/verify
-// which issues our standard session cookie, then redirects.
+// Handles email-OTP and EVM wallet (SIWE via Privy).
+// Solana wallet uses our own SIWS backend (/api/auth/siws/*) directly.
 
-import Privy, { LocalStorage, createSiwsMessage } from '@privy-io/js-sdk-core';
-import bs58 from 'bs58';
+import Privy, { LocalStorage } from '@privy-io/js-sdk-core';
 
 const next =
 	window.__loginNext ||

@@ -1,4 +1,5 @@
 import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 
 import { toolDefs as avatarDefs } from './tools/avatars.js';
 import { toolDefs as modelDefs } from './tools/models.js';
@@ -29,6 +30,7 @@ const ajv = new Ajv({
 	coerceTypes: true,
 	strict: false,
 });
+addFormats(ajv);
 
 // Handler lookup for tools/call — keyed by tool name.
 export const TOOLS = Object.fromEntries(

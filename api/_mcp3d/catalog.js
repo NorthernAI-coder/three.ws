@@ -1,4 +1,5 @@
 import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 
 import { toolDefs as studioDefs } from './tools/studio.js';
 import { toolDefs as modelDefs } from '../_mcp/tools/models.js';
@@ -17,6 +18,7 @@ export const TOOL_CATALOG = allDefs.map(({ scope: _s, handler: _h, ...schema }) 
 // Compile each tool's inputSchema once so dispatch can validate args before the
 // handler runs — same defense-in-depth + forgiving coercion the main server uses.
 const ajv = new Ajv({ allErrors: true, useDefaults: true, coerceTypes: true, strict: false });
+addFormats(ajv);
 
 export const TOOLS = Object.fromEntries(
 	allDefs.map(({ name, scope, handler, inputSchema }) => [
