@@ -11,11 +11,11 @@
 import {
 	createPublicClient,
 	createWalletClient,
-	http,
 	encodeFunctionData,
 	parseAbi,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { evmTransport } from './evm/rpc.js';
 import {
 	mainnet,
 	base,
@@ -79,7 +79,7 @@ export async function sendEvmUsdc({ chainId, recipient, amount }) {
 		process.env[`EVM_RPC_URL_${chainId}`] ||
 		(chainId === 8453 && env.CLUB_BASE_RPC_URL) ||
 		undefined;
-	const transport = http(rpcUrl);
+	const transport = evmTransport(chainId, { primaryUrl: rpcUrl });
 	const publicClient = createPublicClient({ chain, transport });
 	const walletClient = createWalletClient({ account, chain, transport });
 

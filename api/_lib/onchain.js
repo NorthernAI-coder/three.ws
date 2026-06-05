@@ -10,7 +10,8 @@
  * src/erc8004/abi.js — kept in sync by hand.
  */
 
-import { JsonRpcProvider, Contract, getAddress } from 'ethers';
+import { Contract, getAddress } from 'ethers';
+import { evmFallbackProvider } from './evm/rpc.js';
 import { cacheGet, cacheSet } from './cache.js';
 
 const IDENTITY_ABI = [
@@ -280,7 +281,7 @@ export async function resolveOnChainAgent({
 
 	let provider;
 	try {
-		provider = new JsonRpcProvider(meta.rpc, chainId, { staticNetwork: true });
+		provider = await evmFallbackProvider(chainId, { primaryUrl: meta.rpc });
 	} catch (err) {
 		return { ...base, error: `rpc_init: ${err.message}` };
 	}

@@ -2,7 +2,7 @@
 // Resolves an ENS name → address, then looks up agents registered to that address.
 // Public, rate-limited 60/min per IP. ENS → address cached 5 min in-memory.
 
-import { ethers } from 'ethers';
+import { evmFallbackProvider } from '../../_lib/evm/rpc.js';
 import { sql } from '../../_lib/db.js';
 import { cors, error, json, method, wrap } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
@@ -30,10 +30,7 @@ function setCached(name, address) {
 }
 
 async function resolveEns(name) {
-	const rpcUrl = env.MAINNET_RPC_URL;
-	const provider = rpcUrl
-		? new ethers.JsonRpcProvider(rpcUrl)
-		: ethers.getDefaultProvider('mainnet');
+	const provider = await evmFallbackProvider(1, { primaryUrl: env.MAINNET_RPC_URL });
 
 	const timeout = new Promise((_, reject) =>
 		setTimeout(() => reject(new Error('ens-timeout')), 3000),

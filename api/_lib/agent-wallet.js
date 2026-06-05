@@ -4,6 +4,7 @@
 
 import { webcrypto } from 'node:crypto';
 import { env } from './env.js';
+import { evmFallbackProvider } from './evm/rpc.js';
 
 const subtle = globalThis.crypto?.subtle || webcrypto.subtle;
 const randomBytes = (n) => {
@@ -114,12 +115,8 @@ export async function getAgentBalance(agentId) {
 	if (!agent?.wallet_address) throw new Error('agent has no wallet_address');
 	const chainId = agent.chain_id || 8453;
 
-	const { env } = await import('./env.js');
-	const rpcUrl = env.getRpcUrl(chainId);
-	if (!rpcUrl) throw new Error(`no RPC URL for chain ${chainId}`);
-
-	const { JsonRpcProvider, formatEther } = await import('ethers');
-	const provider = new JsonRpcProvider(rpcUrl);
+	const { formatEther } = await import('ethers');
+	const provider = await evmFallbackProvider(chainId);
 	const balanceBigInt = await provider.getBalance(agent.wallet_address);
 	return {
 		address: agent.wallet_address,
@@ -208,7 +205,7 @@ export async function triggerSkillPayment({ agentId, skillSlug, skillId }) {
 		// Convert USD → wei
 		const ethUsd = await fetchEthUsdPrice();
 		const priceEth = priceUsd / ethUsd;
-		const { parseEther, Wallet, JsonRpcProvider } = await import('ethers');
+		const { parseEther, Wallet } = await import('ethers');
 		const amountWei = parseEther(priceEth.toFixed(18));
 
 		const affordable = BigInt(
@@ -242,11 +239,8 @@ export async function triggerSkillPayment({ agentId, skillSlug, skillId }) {
 		// Build signer + dispatch tx (fire-and-forget)
 		(async () => {
 			try {
-				const { env } = await import('./env.js');
-				const rpcUrl = env.getRpcUrl(chainId);
-				if (!rpcUrl) throw new Error(`no RPC URL for chain ${chainId}`);
 				const pkHex = await decrypt(encryptedKey);
-				const provider = new JsonRpcProvider(rpcUrl);
+				const provider = await evmFallbackProvider(chainId);
 				const signer = new Wallet(pkHex, provider);
 				const recipient = skill.author_wallet || signer.address;
 				const txHash = await delegatedSpend({

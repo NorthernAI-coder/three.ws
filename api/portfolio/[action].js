@@ -11,6 +11,7 @@
 
 import { cors, json, method, readJson, wrap, error, validationError } from '../_lib/http.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
+import { evmFallbackProvider } from '../_lib/evm/rpc.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, isSameSiteOrigin } from '../_lib/auth.js';
 import { requireCsrf } from '../_lib/csrf.js';
@@ -251,17 +252,10 @@ async function sendEvm({ agent, asset, recipient, amount, memo }) {
 		throw e;
 	}
 	const chainId = agent.chain_id || 8453;
-	const rpcUrl = env.getRpcUrl(chainId);
-	if (!rpcUrl) {
-		const e = new Error(`no RPC URL for chain ${chainId}`);
-		e.code = 'no_rpc';
-		e.status = 503;
-		throw e;
-	}
 
 	const pkHex = await recoverAgentKey(encryptedKey);
-	const { JsonRpcProvider, Wallet, parseEther, Contract } = await import('ethers');
-	const provider = new JsonRpcProvider(rpcUrl);
+	const { Wallet, parseEther, Contract } = await import('ethers');
+	const provider = await evmFallbackProvider(chainId);
 	const signer = new Wallet(pkHex, provider);
 
 	if (asset === 'native') {

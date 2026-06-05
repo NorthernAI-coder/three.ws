@@ -26,10 +26,10 @@ import {
 	createPublicClient,
 	decodeEventLog,
 	getAddress,
-	http,
 	parseAbiItem,
 } from 'viem';
 import { bsc } from 'viem/chains';
+import { evmTransport } from './evm/rpc.js';
 
 import { env } from './env.js';
 import { X402Error } from './x402-errors.js';
@@ -100,7 +100,7 @@ let cachedClient = null;
 function bscClient() {
 	if (cachedClient) return cachedClient;
 	const rpc = env.getRpcUrl(56) || 'https://bsc-dataseed.binance.org';
-	cachedClient = createPublicClient({ chain: bsc, transport: http(rpc) });
+	cachedClient = createPublicClient({ chain: bsc, transport: evmTransport(56, { primaryUrl: rpc }) });
 	return cachedClient;
 }
 

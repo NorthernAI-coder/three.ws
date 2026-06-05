@@ -13,7 +13,8 @@
 
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { ethers, Wallet, JsonRpcProvider, Contract, Interface, getAddress, isAddress } from 'ethers';
+import { ethers, Wallet, Contract, Interface, getAddress, isAddress } from 'ethers';
+import { evmFallbackProvider } from '../_lib/evm/rpc.js';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
@@ -864,7 +865,7 @@ async function handleRedeem(req, res) {
 
 	let signer;
 	try {
-		const provider = new JsonRpcProvider(rpcUrl);
+		const provider = await evmFallbackProvider(chainId, { primaryUrl: rpcUrl });
 		// AGENT_RELAYER_KEY is never logged — only use it to construct the Wallet
 		signer = new Wallet(env.AGENT_RELAYER_KEY, provider);
 	} catch {
@@ -1024,7 +1025,7 @@ async function handleRevoke(req, res) {
 		);
 	}
 
-	const provider = new JsonRpcProvider(chainMeta.rpc, row.chain_id, { staticNetwork: true });
+	const provider = await evmFallbackProvider(row.chain_id, { primaryUrl: chainMeta.rpc });
 
 	// Fetch receipt (up to 3 attempts with short back-off for propagation lag)
 	let receipt = null;
@@ -1196,9 +1197,7 @@ async function handleVerify(req, res) {
 }
 
 async function verifyCheckDisabled(hash, chainId) {
-	const rpcUrl = process.env[`RPC_URL_${chainId}`];
-	if (!rpcUrl) throw new Error(`no RPC configured for chainId ${chainId}`);
-	const provider = new JsonRpcProvider(rpcUrl);
+	const provider = await evmFallbackProvider(chainId);
 	const manager = new Contract(
 		DELEGATION_MANAGER_DEPLOYMENTS[chainId],
 		DELEGATION_MANAGER_ABI,

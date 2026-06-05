@@ -15,7 +15,7 @@ import { mplCore, create, ruleSet } from '@metaplex-foundation/mpl-core';
 import {
 	generateSigner, publicKey as umiPublicKey, signerIdentity, createNoopSigner, } from '@metaplex-foundation/umi';
 import { solanaConnection } from '../../_lib/solana/connection.js';
-import { JsonRpcProvider } from 'ethers';
+import { evmFallbackProvider } from '../../_lib/evm/rpc.js';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { CID } from 'multiformats/cid';
 import * as raw from 'multiformats/codecs/raw';
@@ -416,12 +416,7 @@ const confirmBodySchema = z.object({
 });
 
 async function verifyEvm({ chainId, txHash, expectedContract, expectedOwner }) {
-	const { CHAIN_BY_ID } = await import('../../_lib/erc8004-chains.js');
-	const cfg = CHAIN_BY_ID[chainId];
-	const rpcUrl = cfg?.rpcUrls?.[0] ?? cfg?.rpcUrl;
-	if (!rpcUrl) throw new Error(`no RPC for chainId ${chainId}`);
-
-	const provider = new JsonRpcProvider(rpcUrl);
+	const provider = await evmFallbackProvider(chainId);
 	const receipt = await provider.getTransactionReceipt(txHash);
 	if (!receipt) {
 		const e = new Error('Transaction not found yet — try again in a few seconds.');

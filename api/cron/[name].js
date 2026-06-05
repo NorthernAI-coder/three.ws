@@ -23,7 +23,8 @@
  */
 
 import { id as keccakId, AbiCoder, getAddress, Interface } from 'ethers';
-import { createPublicClient, http, encodeFunctionData, parseAbi } from 'viem';
+import { createPublicClient, encodeFunctionData, parseAbi } from 'viem';
+import { evmTransport } from '../_lib/evm/rpc.js';
 import { baseSepolia, base } from 'viem/chains';
 
 import { sql } from '../_lib/db.js';
@@ -1670,10 +1671,11 @@ async function dcaWithRetry(fn, { retries, backoffMs = 500, label }) {
 function dcaGetViemClient(chainId) {
 	const cfg = DCA_CHAIN_CONFIG[chainId];
 	if (!cfg) throw new Error(`Unsupported chainId: ${chainId}`);
-	const rpcUrl = env.getRpcUrl(chainId);
-	const transport = rpcUrl
-		? http(rpcUrl, { timeout: DCA_RPC_TIMEOUT_MS, retryCount: 0 })
-		: http(undefined, { timeout: DCA_RPC_TIMEOUT_MS, retryCount: 0 });
+	const transport = evmTransport(chainId, {
+		primaryUrl: env.getRpcUrl(chainId),
+		timeout: DCA_RPC_TIMEOUT_MS,
+		retryCount: 0,
+	});
 	return createPublicClient({ chain: cfg.chain, transport });
 }
 

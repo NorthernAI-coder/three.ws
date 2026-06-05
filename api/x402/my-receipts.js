@@ -15,8 +15,9 @@
 // In both cases the signed message includes an `issuedAt` ISO timestamp so
 // old signatures can't be replayed indefinitely (5-minute window).
 
-import { createPublicClient, http } from 'viem';
+import { createPublicClient } from 'viem';
 import { mainnet } from 'viem/chains';
+import { evmTransport } from '../_lib/evm/rpc.js';
 
 import { cors, error, json, method } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -32,7 +33,7 @@ const SOL_RE = /^[A-HJ-NP-Za-km-z1-9]{32,44}$/;
 // hits the chain for contract-wallet sigs, and we use the public default.
 let _client;
 function getClient() {
-	if (!_client) _client = createPublicClient({ chain: mainnet, transport: http() });
+	if (!_client) _client = createPublicClient({ chain: mainnet, transport: evmTransport(1) });
 	return _client;
 }
 

@@ -45,11 +45,15 @@ function alchemyUrl(chainId) {
 }
 
 /**
- * Priority-ordered, de-duplicated RPC URL list for a chain.
+ * Priority-ordered, de-duplicated RPC URL list for a chain. `primaryUrl` (a url a
+ * call site already resolved, e.g. a per-row `meta.rpc` or MAINNET_RPC_URL) is
+ * pinned first so its choice is honored, with the keyed/public endpoints as
+ * fallbacks behind it.
  */
-export function evmRpcEndpoints(chainId) {
+export function evmRpcEndpoints(chainId, primaryUrl = null) {
 	const chain = CHAIN_BY_ID[chainId];
 	const urls = [
+		primaryUrl,
 		env.getRpcUrl(chainId), // explicit RPC_URL_<id> / BASE_SEPOLIA_RPC_URL / SEPOLIA_RPC_URL
 		alchemyUrl(chainId),
 		...((chain && chain.rpcUrls) || []),
@@ -63,12 +67,13 @@ export function evmRpcEndpoints(chainId) {
  * `rank: false` keeps strict priority order (override → Alchemy → public) rather
  * than latency-ranking, so we lead with the most reliable endpoint.
  */
-export function evmTransport(chainId, { retryCount = 1 } = {}) {
-	const urls = evmRpcEndpoints(chainId);
-	if (urls.length === 0) return http(); // viem default for the chain
-	if (urls.length === 1) return http(urls[0], { retryCount });
+export function evmTransport(chainId, { retryCount = 1, timeout, primaryUrl = null } = {}) {
+	const httpOpts = { retryCount, ...(timeout != null ? { timeout } : {}) };
+	const urls = evmRpcEndpoints(chainId, primaryUrl);
+	if (urls.length === 0) return http(undefined, httpOpts); // viem default for the chain
+	if (urls.length === 1) return http(urls[0], httpOpts);
 	return fallback(
-		urls.map((u) => http(u, { retryCount })),
+		urls.map((u) => http(u, httpOpts)),
 		{ rank: false },
 	);
 }
@@ -78,9 +83,9 @@ export function evmTransport(chainId, { retryCount = 1 } = {}) {
  * tried in priority order. Returns a single-provider JsonRpcProvider when only
  * one endpoint exists (FallbackProvider requires ≥2 and quorum ≤ count).
  */
-export async function evmFallbackProvider(chainId) {
+export async function evmFallbackProvider(chainId, { primaryUrl = null } = {}) {
 	const { JsonRpcProvider, FallbackProvider, Network } = await import('ethers');
-	const urls = evmRpcEndpoints(chainId);
+	const urls = evmRpcEndpoints(chainId, primaryUrl);
 	if (urls.length === 0) throw new Error(`no RPC endpoint for chain ${chainId}`);
 	const network = chainId ? Network.from(chainId) : undefined;
 	// staticNetwork avoids a per-call eth_chainId round-trip on every provider.

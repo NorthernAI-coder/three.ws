@@ -30,11 +30,11 @@ import {
 	createPublicClient,
 	createWalletClient,
 	encodeFunctionData,
-	http,
 	parseAbi,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base } from 'viem/chains';
+import { evmTransport } from '../evm/rpc.js';
 
 import { env } from '../env.js';
 import { SOLANA_USDC_MINT, EVM_USDC } from '../../payments/_config.js';
@@ -134,7 +134,7 @@ export async function sendClubUsdcBase({ recipient, amount }) {
 		throw new Error(`invalid EVM recipient: ${recipient}`);
 	}
 
-	const transport = http(env.CLUB_BASE_RPC_URL);
+	const transport = evmTransport(8453, { primaryUrl: env.CLUB_BASE_RPC_URL });
 	const publicClient = createPublicClient({ chain: base, transport });
 	const walletClient = createWalletClient({ account, chain: base, transport });
 

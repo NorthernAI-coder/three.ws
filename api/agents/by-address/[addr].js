@@ -2,7 +2,8 @@
 // Public, rate-limited 120/min per IP.
 // DB-first, then chain fallback via ERC-721 enumerable reads.
 
-import { JsonRpcProvider, Contract } from 'ethers';
+import { Contract } from 'ethers';
+import { evmFallbackProvider } from '../../_lib/evm/rpc.js';
 import { sql } from '../../_lib/db.js';
 import { cors, error, json, method, wrap } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
@@ -59,7 +60,7 @@ function withTimeout(promise, ms) {
 async function queryChain(addr, chainId, meta) {
 	let provider;
 	try {
-		provider = new JsonRpcProvider(meta.rpc, chainId, { staticNetwork: true });
+		provider = await evmFallbackProvider(chainId, { primaryUrl: meta.rpc });
 	} catch {
 		return [];
 	}
