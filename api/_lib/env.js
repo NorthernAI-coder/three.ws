@@ -627,6 +627,23 @@ export const env = {
 		return opt('BUBBLEGUM_TREE_AUTHORITY');
 	},
 
+	// Privy — embedded wallet + social auth. App ID is public (used on the frontend);
+	// app secret is server-only. JWKS endpoint is derived from the app ID by default.
+	get PRIVY_APP_ID() {
+		return opt('VITE_PRIVY_APP_ID') || opt('PRIVY_APP_ID');
+	},
+	get PRIVY_APP_SECRET() {
+		return opt('PRIVY_APP_SECRET');
+	},
+	get PRIVY_JWKS_ENDPOINT() {
+		return opt(
+			'PRIVY_JWKS_ENDPOINT',
+			this.PRIVY_APP_ID
+				? `https://auth.privy.io/api/v1/apps/${this.PRIVY_APP_ID}/jwks.json`
+				: undefined,
+		);
+	},
+
 	// GitHub OAuth — social memory seeding. When unset, /api/auth/github/connect returns 501.
 	get GITHUB_OAUTH_CLIENT_ID() {
 		return opt('GITHUB_OAUTH_CLIENT_ID');

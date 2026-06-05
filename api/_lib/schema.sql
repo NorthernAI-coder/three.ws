@@ -25,8 +25,10 @@ create table if not exists users (
 alter table users add column if not exists wallet_address text;
 alter table users add column if not exists is_admin boolean not null default false;
 alter table users add column if not exists username text;
+alter table users add column if not exists privy_did text;
 create unique index if not exists users_wallet_unique on users(wallet_address) where wallet_address is not null;
 create unique index if not exists users_username_unique on users(lower(username)) where username is not null;
+create unique index if not exists users_privy_did_unique on users(privy_did) where privy_did is not null;
 
 -- ── user_subdomains — tracks `<label>.threews.sol` SNS claims ───────────────
 -- Populated by /api/threews/subdomain POST; read by /api/threews/* + a few

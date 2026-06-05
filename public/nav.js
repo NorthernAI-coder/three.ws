@@ -7,17 +7,6 @@
 // styles (public/nav.css) and behavior here mirror pages/home.html so every
 // page reads as the same site.
 
-// Load the site-wide live activity ticker (public/feed.js) on every page that
-// carries the shared nav. Self-mounting + idempotent; honours <html data-feed="off">.
-function loadActivityFeed() {
-	if (document.documentElement.getAttribute('data-feed') === 'off') return;
-	if (document.querySelector('script[src="/feed.js"]')) return;
-	const s = document.createElement('script');
-	s.src = '/feed.js';
-	s.defer = true;
-	document.head.appendChild(s);
-}
-
 // Load the site-wide glossary tooltip system (public/glossary.js) on every
 // page. Self-mounting + idempotent; honours <html data-glossary="off">.
 function loadGlossary() {
@@ -76,7 +65,6 @@ function loadDiscovery() {
 }
 
 function boot() {
-	loadActivityFeed();
 	loadGlossary();
 	loadSearch();
 	loadDiscovery();

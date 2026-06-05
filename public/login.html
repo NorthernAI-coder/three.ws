@@ -299,6 +299,48 @@
 
 			/* .password-wrap, .password-toggle, .caps-warn come from /auth.css. */
 
+			/* ── Privy section ── */
+			#privy-section { margin: 0 0 2px; }
+			#privy-toggle-btn {
+				width: 100%;
+				margin-top: 0;
+				padding: 11px 16px;
+				background: #0e0e0e;
+				border: 1px solid rgba(255,255,255,0.1);
+				border-radius: 10px;
+				color: #d0d0d0;
+				font-size: 14px;
+				font-weight: 500;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 9px;
+				transition: background 0.12s, border-color 0.12s, color 0.12s;
+				letter-spacing: -0.01em;
+			}
+			#privy-toggle-btn:hover { background: #161616; border-color: rgba(255,255,255,0.18); color: #fff; }
+			#privy-toggle-btn svg { flex-shrink: 0; }
+			#privy-expanded { margin-top: 8px; }
+			.privy-row { display: flex; gap: 8px; align-items: flex-start; }
+			.privy-row input { flex: 1; margin: 0; }
+			.privy-row-btn {
+				width: auto; margin: 0; padding: 11px 16px;
+				background: #fff; color: #000; border-radius: 10px;
+				font-size: 14px; font-weight: 600; border: none; cursor: pointer;
+				white-space: nowrap; flex-shrink: 0;
+				transition: background 0.12s, opacity 0.12s;
+			}
+			.privy-row-btn:hover:not(:disabled) { background: #e8ecf4; }
+			.privy-row-btn:disabled { opacity: 0.4; cursor: default; }
+			#privy-inline-err { margin: 6px 0 0; font-size: 12px; color: #ff9a9a; }
+			.privy-back-link {
+				display: inline-block; margin-top: 8px; font-size: 12px;
+				color: #444; cursor: pointer; background: none; border: none;
+				padding: 0; text-decoration: underline; text-underline-offset: 2px; width: auto;
+			}
+			.privy-back-link:hover { color: #888; }
+
 			/* ── No-wallet welcome banner ── */
 			.no-wallet-hint {
 				display: none;
@@ -485,6 +527,31 @@
 					No wallet needed — sign in with your email below.
 				</p>
 
+				<!-- Privy social / email-OTP login -->
+				<div id="privy-section">
+					<button type="button" id="privy-toggle-btn">
+						<svg width="18" height="18" viewBox="0 0 36 36" fill="none" aria-hidden="true"><rect width="36" height="36" rx="8" fill="#2563EB"/><path d="M18 8C12.477 8 8 12.477 8 18s4.477 10 10 10 10-4.477 10-10S23.523 8 18 8zm0 3a7 7 0 110 14A7 7 0 0118 11zm0 2a5 5 0 100 10A5 5 0 0018 13zm0 2a3 3 0 110 6 3 3 0 010-6z" fill="#fff" opacity=".9"/></svg>
+						Continue with Privy
+					</button>
+					<div id="privy-expanded" hidden>
+						<div id="privy-step-email">
+							<div class="privy-row">
+								<input id="privy-email-input" type="email" inputmode="email" placeholder="Email address" autocomplete="email" autocapitalize="none" />
+								<button type="button" id="privy-send-btn" class="privy-row-btn">Send code</button>
+							</div>
+						</div>
+						<div id="privy-step-code" hidden>
+							<div class="privy-row">
+								<input id="privy-code-input" type="text" inputmode="numeric" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" />
+								<button type="button" id="privy-verify-btn" class="privy-row-btn">Verify</button>
+							</div>
+						</div>
+						<p id="privy-inline-err" hidden></p>
+						<button type="button" id="privy-back-btn" class="privy-back-link">← Back</button>
+					</div>
+				</div>
+				<div class="or-divider" id="privy-or-divider">or</div>
+
 				<label for="email">Email or username</label>
 				<input id="email" name="username" type="text" inputmode="email" autocapitalize="none" autocomplete="username email" autofocus required aria-describedby="email-err" />
 				<p class="field-err" id="email-err" role="alert"></p>
@@ -644,6 +711,7 @@
 			</div>
 		</footer>
 		<script type="module" src="/wallet-login.js"></script>
+		<script type="module" src="/privy-login.js"></script>
 		<script>
 			(function () {
 				const form = document.getElementById('f');

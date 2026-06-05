@@ -1,7 +1,7 @@
 // Auth primitives: password hashing, JWTs, session cookies, bearer extraction.
 
 import bcrypt from 'bcryptjs';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, createRemoteJWKSet } from 'jose';
 import { env } from './env.js';
 import { sql } from './db.js';
 import { logAudit } from './audit.js';
@@ -299,6 +299,62 @@ export async function authenticateBearer(token, { audience } = {}) {
 			source: 'oauth',
 			clientId: payload.client_id,
 		};
+	} catch {
+		return null;
+	}
+}
+
+// ── Privy token verification (JWKS) ─────────────────────────────────────────
+// Lazy singleton — the JWKS set caches the remote keyset and handles rotation
+// automatically; it is only created on first call so imports don't fail when
+// PRIVY_APP_ID is unset in environments that don't use Privy.
+let _privyJWKS;
+function privyJWKS() {
+	if (!_privyJWKS) {
+		const endpoint = env.PRIVY_JWKS_ENDPOINT;
+		if (!endpoint) throw new Error('Missing required env var: PRIVY_JWKS_ENDPOINT (or VITE_PRIVY_APP_ID)');
+		// cooldownDuration throttles refetches when an unknown `kid` is seen
+		// (rotation), so a burst of requests during a key rotation triggers at
+		// most one upstream fetch instead of one per request.
+		_privyJWKS = createRemoteJWKSet(new URL(endpoint), { cooldownDuration: 30_000 });
+	}
+	return _privyJWKS;
+}
+
+// Verify a Privy access token issued by the Privy auth service.
+// Returns the JWT payload on success; throws on invalid/expired tokens.
+// payload.sub is the user's Privy DID (e.g. "did:privy:clxxx...").
+// clockTolerance absorbs small skew between Privy's clock and ours so a freshly
+// minted token isn't rejected as "not yet valid".
+export async function verifyPrivyToken(token) {
+	if (!token) throw new Error('missing token');
+	const { payload } = await jwtVerify(token, privyJWKS(), {
+		issuer: 'privy.io',
+		audience: env.PRIVY_APP_ID,
+		clockTolerance: 30,
+	});
+	return payload;
+}
+
+// Privy sends its access token as the `privy-id-token` header, an
+// Authorization: Bearer, or the `privy-token` cookie (in that preference order).
+// Returns the raw token string or null.
+export function extractPrivyToken(req) {
+	const header = req.headers['privy-id-token'];
+	if (header) return Array.isArray(header) ? header[0] : header;
+	const bearer = extractBearer(req);
+	if (bearer) return bearer;
+	const cookie = req.headers.cookie || '';
+	const m = cookie.match(/(?:^|;\s*)privy-token=([^;]+)/);
+	return m ? decodeURIComponent(m[1]) : null;
+}
+
+// Non-throwing resolver mirroring authenticateBearer(): verifies the request's
+// Privy token and returns the payload, or null on any failure. Use this in
+// route handlers that want "authenticated or not" without try/catch.
+export async function authenticatePrivy(req) {
+	try {
+		return await verifyPrivyToken(extractPrivyToken(req));
 	} catch {
 		return null;
 	}

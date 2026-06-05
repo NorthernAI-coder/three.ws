@@ -388,37 +388,6 @@
 		}
 		.logo-row .logo:hover { opacity: 1; }
 
-		/* ── PRESS / LISTINGS ────────────────────────────────────── */
-		.press-strip { padding: 64px 0; border-bottom: 1px solid var(--hairline); }
-		.press-cap {
-			font-family: var(--font-mono); font-size: 10.5px;
-			letter-spacing: 0.2em; text-transform: uppercase;
-			color: var(--text-4); text-align: center; margin-bottom: 22px;
-		}
-		.press-row {
-			display: flex; flex-wrap: wrap; justify-content: center;
-			gap: 14px; align-items: stretch; max-width: 920px; margin: 0 auto;
-		}
-		.press-chip {
-			display: inline-flex; align-items: center; gap: 8px;
-			padding: 10px 16px; border: 1px solid var(--hairline);
-			border-radius: 10px; background: var(--surface-2, rgba(255,255,255,0.03));
-			font-family: var(--font-display); font-size: 14px; font-weight: 500;
-			letter-spacing: -0.01em; color: var(--text-3); text-decoration: none;
-			transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s;
-		}
-		.press-chip:hover { color: var(--text); border-color: var(--text-3); transform: translateY(-2px); }
-		.press-chip:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-		.press-chip .press-arrow { font-size: 11px; opacity: 0.5; }
-		.press-divider { height: 30px; }
-		.press-ca {
-			margin: 26px auto 0; text-align: center;
-			font-family: var(--font-mono); font-size: 11px; color: var(--text-4);
-			word-break: break-all; max-width: 520px; line-height: 1.5;
-		}
-		.press-ca code { color: var(--text-3); }
-		@media (max-width: 720px) { .press-strip { padding: 48px 0; } }
-
 		/* ── SECTION FRAME ───────────────────────────────────────── */
 		section.block { padding: 112px 0; border-top: 1px solid var(--hairline); }
 		@media (max-width: 720px) { section.block { padding: 72px 0; } }
@@ -2869,31 +2838,6 @@
 		</div>
 	</div>
 </div>
-
-<!-- ── PRESS / LISTINGS ──────────────────────────────────────────── -->
-<!-- Coinbase + CoinGecko route to our own listings post on purpose: their public
-     pages can surface a non-canonical mint, so we keep the destination on a page
-     we control that shows the canonical $three contract. -->
-<section class="press-strip" id="press" aria-label="Press coverage and exchange listings">
-	<div class="wrap-1280">
-		<div class="press-cap">In the press</div>
-		<div class="press-row">
-			<a class="press-chip" href="https://markets.businessinsider.com/news/stocks/three-ws-and-ibm-announce-strategic-partnership-to-advance-ai-powered-3d-agent-technology-1036222181" target="_blank" rel="noopener noreferrer">Business Insider <span class="press-arrow" aria-hidden="true">↗</span></a>
-			<a class="press-chip" href="https://finance.yahoo.com/sectors/technology/articles/ibm-extends-ai-narrative-three-010650764.html" target="_blank" rel="noopener noreferrer">Yahoo Finance <span class="press-arrow" aria-hidden="true">↗</span></a>
-		</div>
-		<div class="press-divider"></div>
-		<div class="press-cap">Trading $three</div>
-		<div class="press-row">
-			<a class="press-chip" href="/blog/three-token-listings.html">Coinbase</a>
-			<a class="press-chip" href="/blog/three-token-listings.html">CoinGecko</a>
-			<a class="press-chip" href="https://announcements.bybit.com/en/article/three-is-now-live-on-bybit-alpha-bltc04fc471efada919/" target="_blank" rel="noopener noreferrer">Bybit <span class="press-arrow" aria-hidden="true">↗</span></a>
-			<a class="press-chip" href="https://www.kucoin.com/news/flash/solana-meme-coin-three-surges-104-in-two-hours-reaches-16m-market-cap" target="_blank" rel="noopener noreferrer">KuCoin <span class="press-arrow" aria-hidden="true">↗</span></a>
-			<a class="press-chip" href="https://www.mexc.com/exchange/THREE_USDT" target="_blank" rel="noopener noreferrer">MEXC <span class="press-arrow" aria-hidden="true">↗</span></a>
-			<a class="press-chip" href="https://www.tradingview.com/news/coinmarketcal:f0996d63c094b:0-three-ws-three-kucoin-listing-02-june-2026/" target="_blank" rel="noopener noreferrer">TradingView <span class="press-arrow" aria-hidden="true">↗</span></a>
-		</div>
-		<p class="press-ca">$three contract · <code>FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump</code></p>
-	</div>
-</section>
 
 <!-- ── PLAYGROUND ──────────────────────────────────────────────────── -->
 <section class="block" id="embed">

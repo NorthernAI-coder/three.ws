@@ -26,6 +26,7 @@ export default wrap(async (req, res) => {
 
 	return json(res, 200, {
 		walletConnectProjectId: process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
+		privyAppId: process.env.VITE_PRIVY_APP_ID || process.env.PRIVY_APP_ID || '',
 		features: {
 			// /create/selfie + /scan use /api/avatars/reconstruct, which 501s
 			// unless an ML backend is wired. The pages read this to either show the
