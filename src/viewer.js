@@ -49,6 +49,7 @@ import { LightProbeGrid } from './light-probe-grid.js';
 import { AnimationManager } from './animation-manager.js';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import { EffectComposer, RenderPass, BloomEffect, VignetteEffect, EffectPass } from 'postprocessing';
+import { log } from './shared/log.js';
 
 // Install BVH-accelerated raycasting on Three.js prototypes. This must happen
 // before any geometry is created so every Mesh benefits transparently.
@@ -316,7 +317,7 @@ export class Viewer {
 				// This is one-way for now; the embed doesn't need to receive clips.
 				break;
 			default:
-				console.warn(`[a-embed] unhandled op: ${e.data.op}`);
+				log.warn(`[a-embed] unhandled op: ${e.data.op}`);
 		}
 	}
 
@@ -663,7 +664,7 @@ export class Viewer {
 
 	async bakeLightProbes() {
 		if (!this.content) {
-			console.warn('LightProbeGrid: load a model first');
+			log.warn('LightProbeGrid: load a model first');
 			return;
 		}
 
@@ -697,7 +698,7 @@ export class Viewer {
 				progressEl.textContent = `Baking probes… ${Math.round(t * 100)}%`;
 			});
 		} catch (err) {
-			console.error('LightProbeGrid bake failed:', err);
+			log.error('LightProbeGrid bake failed:', err);
 			return;
 		} finally {
 			progressEl.style.display = 'none';
@@ -706,12 +707,12 @@ export class Viewer {
 		this._lightProbeGrid = grid;
 		grid.addToScene(this.scene);
 
-		console.log(`LightProbeGrid baked: ${probeNx}×${probeNy}×${probeNz} cells`);
+		log.log(`LightProbeGrid baked: ${probeNx}×${probeNy}×${probeNz} cells`);
 	}
 
 	saveLightProbes() {
 		if (!this._lightProbeGrid) {
-			console.warn('LightProbeGrid: bake or load a grid first');
+			log.warn('LightProbeGrid: bake or load a grid first');
 			return;
 		}
 		const json = JSON.stringify(this._lightProbeGrid.toJSON());
@@ -736,7 +737,7 @@ export class Viewer {
 			try {
 				json = JSON.parse(text);
 			} catch {
-				console.error('LightProbeGrid: invalid JSON file');
+				log.error('LightProbeGrid: invalid JSON file');
 				return;
 			}
 			if (this._lightProbeGrid) {
@@ -745,7 +746,7 @@ export class Viewer {
 			}
 			this._lightProbeGrid = LightProbeGrid.fromJSON(json);
 			this._lightProbeGrid.addToScene(this.scene);
-			console.log(`LightProbeGrid loaded: ${json.nx}×${json.ny}×${json.nz} cells`);
+			log.log(`LightProbeGrid loaded: ${json.nx}×${json.ny}×${json.nz} cells`);
 		};
 		input.click();
 	}
@@ -896,7 +897,7 @@ export class Viewer {
 								try {
 									onProgress(xhr);
 								} catch (e) {
-									console.warn('[viewer] onProgress threw', e);
+									log.warn('[viewer] onProgress threw', e);
 								}
 							}
 						: undefined,

@@ -1,3 +1,4 @@
+import { log } from '../shared/log.js';
 const WATERMARK_URL = '/three.svg';
 let watermarkImage = null;
 
@@ -18,7 +19,7 @@ async function getWatermark() {
 		watermarkImage = img;
 		return watermarkImage;
 	} catch (e) {
-		console.error('Failed to load watermark:', e);
+		log.error('Failed to load watermark:', e);
 		return null;
 	}
 }

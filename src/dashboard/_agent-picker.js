@@ -24,7 +24,7 @@ export async function mountAgentPicker({ host, onPick, paramKey = 'agent' }) {
 	if (!agents.length) {
 		host.innerHTML =
 			'<div style="padding:14px 16px;background:#1a1a24;border:1px solid #22222e;border-radius:10px;color:#aaa">' +
-			'You have no agents yet. <a href="/dashboard/agents" style="color:#9a8cff">Create your first agent</a> to use this page.' +
+			'You have no agents yet. <a href="/dashboard/agents" style="color:#888888">Create your first agent</a> to use this page.' +
 			'</div>';
 		return;
 	}

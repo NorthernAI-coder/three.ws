@@ -7,6 +7,7 @@
 //   - On 402: parses challenge body, shows payment requirement notice.
 //   - Falls back to localStorage cache for display while unpaid.
 
+import { log } from './shared/log.js';
 const STATUS_ENDPOINT = '/api/agents/unstoppable-status';
 const POLL_INTERVAL_MS = 60_000;
 const LOCALSTORAGE_KEY = 'unstoppable_last_reading';
@@ -248,7 +249,7 @@ async function fetchStatus() {
 			headers: { 'accept': 'application/json' },
 		});
 	} catch (err) {
-		console.warn('[unstoppable-dashboard] fetch error:', err.message);
+		log.warn('[unstoppable-dashboard] fetch error:', err.message);
 		return null;
 	}
 
@@ -268,7 +269,7 @@ async function fetchStatus() {
 		return { ok: false, status: 402, challenge };
 	}
 
-	console.warn('[unstoppable-dashboard] unexpected status:', response.status);
+	log.warn('[unstoppable-dashboard] unexpected status:', response.status);
 	return null;
 }
 

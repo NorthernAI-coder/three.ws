@@ -4,6 +4,8 @@
 import { mountAgentSolanaWalletCard } from '/src/agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from '/src/agent-vanity-grinder.js';
 import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
+import { renderError as renderAsyncError } from '/src/shared/async-state.js';
+import { log } from '../shared/log.js';
 
 export const state = { user: null };
 
@@ -290,23 +292,39 @@ async function renderAgents(root) {
 		openCreateForm(createHost, list),
 	);
 
-	let agents = [];
-	try {
-		const data = await api.listAgents();
-		agents = data.agents || [];
-	} catch (e) {
-		list.innerHTML = `<div class="err">${esc(e.message || 'Failed to load agents')}</div>`;
-		return;
+	async function loadList() {
+		list.innerHTML = '<div class="muted">Loading…</div>';
+		let agents = [];
+		try {
+			const data = await api.listAgents();
+			agents = data.agents || [];
+		} catch (e) {
+			renderAsyncError(
+				list,
+				e,
+				{
+					error: {
+						title: 'Couldn’t load your agents',
+						body: 'We hit a problem reaching your account. Check your connection and try again.',
+					},
+					context: 'dashboard:agents',
+				},
+				loadList,
+			);
+			return;
+		}
+
+		list.innerHTML = '';
+		if (!agents.length) {
+			renderAgentsEmpty(list, createHost);
+			return;
+		}
+
+		for (const a of agents)
+			list.appendChild(agentCard(a, () => maybeRenderEmpty(list, createHost)));
 	}
 
-	list.innerHTML = '';
-	if (!agents.length) {
-		renderAgentsEmpty(list, createHost);
-		return;
-	}
-
-	for (const a of agents)
-		list.appendChild(agentCard(a, () => maybeRenderEmpty(list, createHost)));
+	loadList();
 }
 
 function renderAgentsEmpty(list, createHost) {
@@ -359,7 +377,7 @@ function agentCard(a, onRemoved) {
 		<div class="row" style="gap:6px; margin-bottom:10px; flex-wrap:wrap">${onchainBadge}${tokenBadge}</div>
 		${a.description ? `<p class="meta" style="white-space:normal;color:#aaa;margin:0 0 10px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(a.description)}</p>` : ''}
 		<details class="agent-inspector" style="margin:0 0 10px;border-top:1px solid #22222e;padding-top:10px">
-			<summary style="cursor:pointer;font-size:12px;color:#9a8cff;list-style:none">Inspector ▾</summary>
+			<summary style="cursor:pointer;font-size:12px;color:#888888;list-style:none">Inspector ▾</summary>
 			<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;margin-top:10px;font-size:12px">
 				<a href="/dashboard/memory?agent=${agentIdEnc}">Memory</a>
 				<a href="/dashboard/actions?agent=${agentIdEnc}">Action log</a>
@@ -900,7 +918,7 @@ function mountAvatarWalletSection(host, a) {
 		host.innerHTML = `
 			<div class="muted" style="margin-top:10px; padding:10px; border:1px dashed #2a2a36; border-radius:8px; font-size:12px">
 				No agent linked to this avatar yet.
-				<a href="/deploy?avatar=${encodeURIComponent(a.id)}" style="color:#9a8cff">Deploy on-chain</a> to mint one
+				<a href="/deploy?avatar=${encodeURIComponent(a.id)}" style="color:#888888">Deploy on-chain</a> to mint one
 				and provision a wallet.
 			</div>
 		`;
@@ -981,9 +999,9 @@ async function loadXPanel({ host, meterEl, bodyEl, avatar }) {
 	const tier = status.tier || 'free';
 	const tierBadge =
 		tier === 'pro'
-			? `<span style="background:rgba(106,92,255,0.15);color:#ffffff;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:600;margin-left:6px">PRO</span>`
+			? `<span style="background:rgba(255,255,255,0.07);color:#ffffff;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:600;margin-left:6px">PRO</span>`
 			: `<a href="/pricing" style="background:rgba(255,184,77,0.15);color:#ffb84d;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:600;margin-left:6px;text-decoration:none">FREE · upgrade</a>`;
-	meterEl.innerHTML = `@${esc(status.username)} ${tierBadge} <span style="color:${remaining === 0 ? '#ffb3b3' : '#9a8cff'};margin-left:6px">${used}/${quota}</span>`;
+	meterEl.innerHTML = `@${esc(status.username)} ${tierBadge} <span style="color:${remaining === 0 ? '#ffb3b3' : '#888888'};margin-left:6px">${used}/${quota}</span>`;
 
 	bodyEl.innerHTML = `
 		<div class="row" style="gap:8px;margin-bottom:8px;font-size:12px;flex-wrap:wrap;align-items:center">
@@ -1036,7 +1054,7 @@ async function loadXPanel({ host, meterEl, bodyEl, avatar }) {
 	const threadEl = bodyEl.querySelector('[data-x-thread]');
 	const linkEl = bodyEl.querySelector('[data-x-link]');
 
-	const setMsg = (text, color = '#9a8cff') => {
+	const setMsg = (text, color = '#888888') => {
 		msgEl.style.color = color;
 		msgEl.innerHTML = text;
 	};
@@ -1379,7 +1397,7 @@ async function loadXTriggers(host, avatar) {
 	`;
 
 	const trigMsg = host.querySelector('[data-trig-msg]');
-	const setTrigMsg = (text, color = '#9a8cff') => {
+	const setTrigMsg = (text, color = '#888888') => {
 		trigMsg.style.color = color;
 		trigMsg.textContent = text;
 	};
@@ -1693,7 +1711,7 @@ async function doReplaceUpload(a, file, warnEl, cardEl) {
 		// Canonicalization is non-fatal \u2014 fall back to the original buffer and
 		// let the boneMatch warning surface the issue. A malformed GLB will
 		// also fail at the R2 upload step with a clearer error.
-		console.warn('[upload] canonicalize failed; uploading original', err);
+		log.warn('[upload] canonicalize failed; uploading original', err);
 	}
 
 	const boneMatch = checkMixamoSkeleton(uploadBytes);
@@ -1825,7 +1843,7 @@ function renderUpload(root) {
 			}
 		} catch (err) {
 			// Canonicalization is non-fatal; let upload proceed with the original.
-			console.warn('[upload] canonicalize failed; uploading original', err);
+			log.warn('[upload] canonicalize failed; uploading original', err);
 		}
 
 		progress.textContent = 'Requesting upload URL…';
@@ -1943,7 +1961,7 @@ async function saveAvaturnAvatar(blob) {
 	});
 
 	await attachAvatarToDefaultAgent(avatar.id).catch((e) =>
-		console.warn('attach to agent skipped:', e.message),
+		log.warn('attach to agent skipped:', e.message),
 	);
 	return avatar;
 }
@@ -2018,7 +2036,7 @@ async function renderEdit(root, params = []) {
 				<div id="epublink" style="margin-top:16px;${avatar.visibility === 'private' ? 'display:none' : ''}">
 					<p class="muted" style="margin:0 0 6px;font-size:11px">Public link</p>
 					<div class="row" style="gap:6px;align-items:center">
-						<input id="epublinkval" readonly value="${attr(location.origin + '/avatars/' + avatar.id)}" style="width:100%;font-size:12px;color:#9a8cff;cursor:text">
+						<input id="epublinkval" readonly value="${attr(location.origin + '/avatars/' + avatar.id)}" style="width:100%;font-size:12px;color:#888888;cursor:text">
 						<button id="ecopybtn" class="btn sec" type="button" style="white-space:nowrap;flex-shrink:0">Copy</button>
 					</div>
 				</div>
@@ -2051,7 +2069,7 @@ async function renderEdit(root, params = []) {
 				visibility: body.querySelector('#evis').value,
 				tags,
 			});
-			msg.style.color = '#9a8cff';
+			msg.style.color = '#888888';
 			msg.textContent = 'Saved.';
 		} catch (err) {
 			msg.style.color = '#ffb3b3';
@@ -2082,7 +2100,7 @@ async function renderEdit(root, params = []) {
 		msg.textContent = 'Linking to your agent…';
 		try {
 			await attachAvatarToDefaultAgent(id);
-			msg.style.color = '#9a8cff';
+			msg.style.color = '#888888';
 			msg.textContent = 'Your agent will now render with this avatar.';
 		} catch (err) {
 			msg.style.color = '#ffb3b3';
@@ -2490,7 +2508,7 @@ function bindEmbedTryIt(body, agent) {
 			const action = samples[btn.dataset.tryit];
 			if (!action) return;
 			if (!frameOrigin) {
-				console.warn('[dashboard] embed preview frame has no resolvable origin');
+				log.warn('[dashboard] embed preview frame has no resolvable origin');
 				return;
 			}
 			frame.contentWindow?.postMessage(
@@ -2602,7 +2620,7 @@ function onchainCard(agent) {
 	const alreadyDeployed = !!agent.erc8004_agent_id;
 	const chainHint = agent.chain_id ? ` on chain ${esc(String(agent.chain_id))}` : '';
 	const statusHtml = alreadyDeployed
-		? `<p style="margin:0 0 10px; color:#9a8cff">Deployed: agentId <code>${esc(String(agent.erc8004_agent_id))}</code>${chainHint}.</p>`
+		? `<p style="margin:0 0 10px; color:#888888">Deployed: agentId <code>${esc(String(agent.erc8004_agent_id))}</code>${chainHint}.</p>`
 		: `<p class="muted" style="margin:0 0 10px">Mint your agent as an ERC-8004 onchain identity. Any client that knows the agentId can resolve your avatar, skills, and reputation — no off-chain registry lookup needed.</p>`;
 	return `
 		<div class="card" id="onchain-card" style="margin-top:14px">
@@ -3185,7 +3203,7 @@ async function renderMonetization(root) {
 					row.querySelector('[data-save]').parentNode.appendChild(removeBtn);
 					wireRemove(removeBtn, row, skill);
 				}
-				msg.style.color = '#9a8cff';
+				msg.style.color = '#888888';
 				msg.textContent = 'Saved ✓';
 				setTimeout(() => {
 					msg.textContent = '';
@@ -3251,7 +3269,7 @@ async function renderMonetization(root) {
 				const d = await r.json().catch(() => ({}));
 				throw new Error(d.error_description || `HTTP ${r.status}`);
 			}
-			msgEl.style.color = '#9a8cff';
+			msgEl.style.color = '#888888';
 			msgEl.textContent = 'Saved ✓';
 			setTimeout(() => {
 				msgEl.textContent = '';
@@ -4036,7 +4054,7 @@ async function renderAccount(root) {
 				<div style="margin-top:12px">
 					<p class="muted" style="font-size:11px;margin:0 0 4px">Your public profile</p>
 					<div class="row" style="gap:6px;align-items:center">
-						<a href="${attr(profileUrl)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#9a8cff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(profileUrl)}</a>
+						<a href="${attr(profileUrl)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#888888;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(profileUrl)}</a>
 						<button id="acct-copy" class="btn sec" type="button" style="flex-shrink:0;white-space:nowrap">Copy</button>
 					</div>
 				</div>
@@ -4075,11 +4093,11 @@ async function renderAccount(root) {
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error_description || res.statusText);
-			msg.style.color = '#9a8cff';
+			msg.style.color = '#888888';
 			msg.textContent = 'Saved.';
 			if (data.user.username) {
 				const url = `${location.origin}/u/${encodeURIComponent(data.user.username)}`;
-				msg.innerHTML = `Saved. Your profile is at <a href="${attr(url)}" target="_blank" rel="noopener noreferrer" style="color:#9a8cff">${esc(url)}</a>`;
+				msg.innerHTML = `Saved. Your profile is at <a href="${attr(url)}" target="_blank" rel="noopener noreferrer" style="color:#888888">${esc(url)}</a>`;
 			}
 		} catch (err) {
 			msg.style.color = '#ffb3b3';
@@ -4561,7 +4579,7 @@ async function openWidgetDrawer(w, ctx) {
 			const frameOrigin = new URL(frame.src, location.href).origin;
 			frame.contentWindow?.postMessage(msg, frameOrigin);
 		} catch (e) {
-			console.warn('test message failed:', e);
+			log.warn('test message failed:', e);
 		}
 	});
 
@@ -5473,7 +5491,7 @@ async function renderAnimations(root) {
 			try {
 				await api.patchAgentAnimations(agent.id, animations);
 				if (seq !== saveSeq) return;
-				statusEl.style.color = '#9a8cff';
+				statusEl.style.color = '#888888';
 				statusEl.textContent = 'Saved.';
 				clearTimer = setTimeout(() => {
 					if (seq === saveSeq && statusEl.textContent === 'Saved.')
