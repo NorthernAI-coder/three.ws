@@ -22,7 +22,7 @@ import {
 import { AnimationManager } from '../animation-manager.js';
 import { CommunityNet } from './community-net.js';
 import { CommunityUI } from './coincommunities-ui.js';
-import { createWorldEnvironment } from './world-env.js';
+import { createWorldEnvironment, seedFromString } from './world-env.js';
 import { createChartScreen } from './chart-screen.js';
 import { mountOracleRibbon } from './oracle-ribbon.js';
 import { MarketReactor } from './market-reactor.js';
@@ -35,6 +35,7 @@ import {
 import { GUEST_SENTINEL, uploadPendingGuestAvatar } from './play-handoff.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
 import { AgentCommerce } from './agent-commerce.js';
+import { WorldLife } from './npc/world-life.js';
 import { VoiceChat, voiceSupported } from './voice-chat.js';
 import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet, getSession } from '../community/town-auth.js';
 import { ensurePlayAccess } from './play-gate.js';
@@ -795,6 +796,21 @@ export class CoinCommunities {
 				ui: this.ui,
 			});
 		}
+		// Living world (W08): ambient pedestrians + traffic, interactive vendor /
+		// quest / flavor NPCs, and (gated behind W07) hostile mobs — all on a
+		// deterministic nav graph so every client sees the same crowd without
+		// syncing it. Built for every world; the Agent Exchange above stays the
+		// home town's special NPC. Torn down in leave().
+		this.worldLife = new WorldLife({
+			scene: this.scene,
+			camera: this.camera,
+			renderer: this.renderer,
+			getPlayer: () => this.localPos,
+			ui: this.ui,
+			net: this.net,
+			world: { mint: coin.mint, seed: seedFromString(coin.mint) >>> 0, biome: this.env?.biome },
+			radius: WORLD_RADIUS - 4,
+		});
 		// Start the silent pass-refresh cycle. The play pass has a 10-min server
 		// TTL; the server sweeps expired passes every minute. We refresh 2 min early
 		// so a player in a long session is never evicted mid-build. The refresh
@@ -1014,6 +1030,7 @@ export class CoinCommunities {
 		if (this.net) { this.net.destroy(); this.net = null; }
 		if (this.playSystems) { this.playSystems.dispose(); this.playSystems = null; }
 		if (this.agentCommerce) { this.agentCommerce.dispose(); this.agentCommerce = null; }
+		if (this.worldLife) { this.worldLife.dispose(); this.worldLife = null; }
 		if (this._onboard) { this._onboard.dispose(); this._onboard = null; }
 		for (const [, r] of this.remotes) r.dispose();
 		this.remotes.clear();
@@ -1149,9 +1166,11 @@ export class CoinCommunities {
 				}
 				// E watches the Agent Exchange round when standing near the agents in
 				// the home town (no-op elsewhere). Not while building.
-				if (k === 'e' && !this.buildHud.active && this.agentCommerce) {
+				if (k === 'e' && !this.buildHud.active) {
 					e.preventDefault();
-					this.agentCommerce.interact();
+					// Talk to the nearest townsperson (vendor/quest/flavor); if none is
+					// in range, fall through to the home town's Agent Exchange.
+					if (!this.worldLife?.interact()) this.agentCommerce?.interact();
 					return;
 				}
 				// F casts a line when standing by a pond (no-op elsewhere). Not while
@@ -1198,6 +1217,7 @@ export class CoinCommunities {
 			if (this.phase === 'world' && this.buildHud.active) { this._buildAt(e.clientX, e.clientY, false); return; }
 			// Tap the agents (or their exchange ring) to watch a live payment — the
 			// touch-native equivalent of pressing E. Checked before the chart screen.
+			if (this.worldLife?.tryActivateAt(e.clientX, e.clientY)) return;
 			if (this.agentCommerce?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			if (this._raycastScreen(e.clientX, e.clientY)) this._chartScreen.openExternal();
 		});
@@ -1481,6 +1501,7 @@ export class CoinCommunities {
 			this._updateVoice();
 			this.playSystems?.tick(dt);
 			this.agentCommerce?.tick(dt);
+			if (this.worldLife) { this.worldLife.setRealPeers(this.remotes.size); this.worldLife.tick(dt); }
 			if (this.net) this.net.sendMove({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, motion: this.motion });
 		}
 		this._tickEnv(dt);

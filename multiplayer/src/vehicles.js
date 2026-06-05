@@ -120,10 +120,9 @@ export const VEHICLE_SPAWNS = [
 
 // --- Anti-cheat limits (server-enforced) ----------------------------------
 
-// World bounds must match WalkRoom's authoritative player clamp (the W01 square
-// district WORLD_BOUND = DISTRICT.half - 2) so a car is held to the same playable
-// area as a pedestrian — applied per-axis, not as a disc.
-export const VEHICLE_WORLD_BOUND_M = 198;
+// World bounds must match WalkRoom's player clamp so a car can't be driven past
+// the visible arena.
+export const VEHICLE_WORLD_RADIUS_M = 60;
 
 // How close a player must stand to a parked vehicle to take the wheel.
 export const VEHICLE_ENTER_RANGE_M = 3.4;

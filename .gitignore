@@ -178,14 +178,4 @@ docs/3d-generation-api/texture/texture-model-v3-0-20250812.md
 
 # Snapshot day-exports — recoverable from git history, never commit
 snapshots/exported/
-docs/agent-briefs/W-world-online/W01-open-world-foundation.md
-docs/agent-briefs/W-world-online/W02-vehicles-and-driving.md
-docs/agent-briefs/W-world-online/W03-character-avatar-customization.md
-docs/agent-briefs/W-world-online/W04-economy-and-money.md
-docs/agent-briefs/W-world-online/W05-jobs-missions-heists.md
-docs/agent-briefs/W-world-online/W06-activities-and-minigames.md
-docs/agent-briefs/W-world-online/W07-combat-and-weapons.md
-docs/agent-briefs/W-world-online/W08-npcs-and-world-life.md
-docs/agent-briefs/W-world-online/W09-social-and-crews.md
-docs/agent-briefs/W-world-online/W10-hud-menu-and-gamefeel.md
 docs/ibm.md
