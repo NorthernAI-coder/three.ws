@@ -153,6 +153,7 @@ async function loadAndRender(host, me, agents) {
 	host.appendChild(renderSubscriptionPlans({ creatorPlans, me }));
 	host.appendChild(renderWithdrawals({ withdrawals, wallets, available, host, me, agents }));
 	host.appendChild(renderLegacyPayoutWallets({ wallets, host, me, agents }));
+	host.appendChild(renderCosmeticEarnings({ wallets }));
 	host.appendChild(renderPlanUsage(summary));
 	host.appendChild(renderTokensPanel(agents));
 }
@@ -1431,6 +1432,164 @@ function renderPlanUsage(summary) {
 		</div>
 	`;
 	return panel;
+}
+
+// -- Cosmetic creator earnings (R25) --
+//
+// Real, settled earnings from cosmetic sales tied to the creator's coins. When a
+// player buys a premium cosmetic inside one of your coin's /play worlds, a
+// configurable share of the settled USDC pays out to your Solana wallet on-chain.
+// This panel reads /api/cosmetics/earnings (settled-sale ledger) for the user's
+// Solana payout wallet(s) — only real numbers, with the payout's on-chain status.
+
+function renderCosmeticEarnings({ wallets }) {
+	const panel = document.createElement('div');
+	panel.className = 'dn-panel';
+
+	// Candidate Solana wallets the creator earns to, from their payout wallets.
+	const solWallets = [...new Set(
+		(wallets || [])
+			.map((w) => w?.solana_address || w?.solana || '')
+			.filter((a) => a && SOLANA_ADDR_RE.test(a)),
+	)];
+
+	panel.innerHTML = `
+		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+			<div>
+				<div class="dn-panel-title">Cosmetic creator earnings</div>
+				<div class="dn-panel-sub" style="margin:2px 0 0">
+					Your share of cosmetics sold in your coins’ worlds — paid out in USDC on-chain.
+				</div>
+			</div>
+			<div data-slot="wallet-pick"></div>
+		</div>
+		<div data-slot="ce-body"></div>
+	`;
+
+	const body = panel.querySelector('[data-slot="ce-body"]');
+
+	if (!solWallets.length) {
+		body.innerHTML = `
+			<div style="text-align:center;padding:26px 12px;color:var(--nxt-ink-fade)">
+				<div style="font-size:28px;opacity:.5" aria-hidden="true">✦</div>
+				<div style="font-weight:600;color:var(--nxt-ink);margin-top:6px">No Solana payout wallet yet</div>
+				<div style="font-size:13px;margin-top:6px;max-width:46ch;margin-inline:auto;line-height:1.5">
+					Add a Solana payout wallet above to start receiving your share of cosmetic
+					sales in your coins’ worlds. The split pays out in USDC on-chain.
+				</div>
+			</div>`;
+		return panel;
+	}
+
+	// Wallet picker (only when more than one) + load.
+	let selected = solWallets[0];
+	const pickHost = panel.querySelector('[data-slot="wallet-pick"]');
+	if (solWallets.length > 1) {
+		pickHost.innerHTML = `<select class="mon-select" aria-label="Earnings wallet">${
+			solWallets.map((w) => `<option value="${esc(w)}">${esc(w.slice(0, 4) + '…' + w.slice(-4))}</option>`).join('')
+		}</select>`;
+		pickHost.querySelector('select').addEventListener('change', (e) => {
+			selected = e.target.value;
+			loadCosmeticEarnings(body, selected);
+		});
+	}
+
+	loadCosmeticEarnings(body, selected);
+	return panel;
+}
+
+async function loadCosmeticEarnings(body, wallet) {
+	body.innerHTML = `<div style="padding:20px;color:var(--nxt-ink-fade);font-size:13px">Loading settled earnings…</div>`;
+	let data;
+	try {
+		data = await get(`/api/cosmetics/earnings?creator=${encodeURIComponent(wallet)}`);
+	} catch (err) {
+		body.innerHTML = `<div style="padding:18px;color:var(--nxt-danger);font-size:13px">
+			Couldn’t load earnings. <button class="dn-btn" data-slot="ce-retry" style="margin-left:8px">Retry</button></div>`;
+		body.querySelector('[data-slot="ce-retry"]')?.addEventListener('click', () => loadCosmeticEarnings(body, wallet));
+		return;
+	}
+
+	const t = data?.totals || {};
+	const usd = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+	if (!t.sales) {
+		body.innerHTML = `
+			<div style="text-align:center;padding:24px 12px;color:var(--nxt-ink-fade)">
+				<div style="font-weight:600;color:var(--nxt-ink)">No cosmetic sales yet</div>
+				<div style="font-size:13px;margin-top:6px;max-width:46ch;margin-inline:auto;line-height:1.5">
+					When a player buys a premium cosmetic inside one of your coins’ worlds,
+					your share lands here — and a payout is sent to your wallet on-chain.
+				</div>
+			</div>`;
+		return;
+	}
+
+	const stat = (label, value, sub) => `
+		<div style="background:var(--nxt-surface-2,rgba(255,255,255,.02));border:1px solid var(--nxt-stroke);border-radius:12px;padding:14px 16px">
+			<div style="font-size:12px;color:var(--nxt-ink-fade)">${esc(label)}</div>
+			<div style="font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.01em">${esc(value)}</div>
+			${sub ? `<div style="font-size:11.5px;color:var(--nxt-ink-fade);margin-top:2px">${esc(sub)}</div>` : ''}
+		</div>`;
+
+	const payoutBadge = (s) => {
+		const map = {
+			paid: ['var(--nxt-success)', 'Paid'],
+			pending: ['var(--nxt-warn)', 'Pending'],
+			failed: ['var(--nxt-danger)', 'Retrying'],
+			skipped: ['var(--nxt-ink-fade)', 'Accrued'],
+			none: ['var(--nxt-ink-fade)', '—'],
+		};
+		const [color, label] = map[s] || map.none;
+		return `<span style="font-size:11px;font-weight:600;color:${color}">${esc(label)}</span>`;
+	};
+
+	const recentRows = (data.recent || []).map((r) => {
+		const tx = r.payoutTx
+			? `<a href="https://solscan.io/tx/${esc(r.payoutTx)}" target="_blank" rel="noopener" style="color:var(--nxt-accent,#8aa0ff);text-decoration:none">view ↗</a>`
+			: '';
+		return `
+			<tr style="border-top:1px solid var(--nxt-stroke)">
+				<td style="padding:8px 10px">${esc(r.name)}</td>
+				<td style="padding:8px 10px;text-transform:capitalize;color:var(--nxt-ink-fade)">${esc(r.rarity)}</td>
+				<td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${usd(r.earnedUsdc)}</td>
+				<td style="padding:8px 10px">${payoutBadge(r.payoutStatus)} ${tx}</td>
+				<td style="padding:8px 10px;color:var(--nxt-ink-fade)">${r.settledAt ? esc(relTime(r.settledAt)) : ''}</td>
+			</tr>`;
+	}).join('');
+
+	body.innerHTML = `
+		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:6px 0 18px">
+			${stat('Total earned', usd(t.earnedUsdc), `${t.sales} sale${t.sales === 1 ? '' : 's'} · ${t.buyers} buyer${t.buyers === 1 ? '' : 's'}`)}
+			${stat('Paid out', usd(t.paidUsdc), 'settled on-chain')}
+			${stat('Pending', usd(t.pendingUsdc), 'awaiting payout')}
+			${stat('Last 30 days', usd(t.earned30dUsdc), null)}
+		</div>
+		${(data.perCosmetic || []).length ? `
+			<div style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--nxt-ink-fade);margin-bottom:8px">Top earning cosmetics</div>
+			<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px">
+				${data.perCosmetic.slice(0, 8).map((c) => `
+					<div style="display:flex;align-items:center;gap:8px;background:var(--nxt-surface-2,rgba(255,255,255,.02));border:1px solid var(--nxt-stroke);border-radius:999px;padding:5px 12px;font-size:12.5px">
+						<span style="font-weight:600">${esc(c.name)}</span>
+						<span style="color:var(--nxt-ink-fade)">${c.sales}×</span>
+						<span style="font-weight:600;color:var(--nxt-success)">${usd(c.earnedUsdc)}</span>
+					</div>`).join('')}
+			</div>` : ''}
+		${recentRows ? `
+			<div style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--nxt-ink-fade);margin-bottom:6px">Recent sales</div>
+			<div style="overflow:auto;border:1px solid var(--nxt-stroke);border-radius:12px">
+				<table style="width:100%;border-collapse:collapse;font-size:13px">
+					<thead><tr style="text-align:left;color:var(--nxt-ink-fade)">
+						<th style="padding:8px 10px;font-weight:500">Cosmetic</th>
+						<th style="padding:8px 10px;font-weight:500">Rarity</th>
+						<th style="padding:8px 10px;font-weight:500;text-align:right">Your cut</th>
+						<th style="padding:8px 10px;font-weight:500">Payout</th>
+						<th style="padding:8px 10px;font-weight:500">When</th>
+					</tr></thead>
+					<tbody>${recentRows}</tbody>
+				</table>
+			</div>` : ''}
+	`;
 }
 
 // -- Token earnings --

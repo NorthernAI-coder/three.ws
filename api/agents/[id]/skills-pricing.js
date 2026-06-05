@@ -58,14 +58,18 @@ async function handlePut(req, res, agentId) {
 
 	const { prices } = parsed.data;
 
-	await sql.transaction(async (tx) => {
-		// Deactivate all existing prices for this agent
-		await tx`
-			UPDATE agent_skill_prices SET is_active = false WHERE agent_id = ${agentId}
-		`;
-		// Insert or update new prices
-		for (const p of prices) {
-			await tx`
+	// Neon's serverless driver runs a transaction as an ARRAY of queries in a
+	// single round-trip — not the interactive `async (tx) => {}` callback of
+	// node-postgres (which throws "transaction() expects an array of queries, or
+	// a function returning an array of queries"). Every statement is known up
+	// front, so we build the array and pass it. Atomic: the deactivate + all
+	// upserts commit together or not at all.
+	const statements = [
+		// Deactivate all existing prices for this agent…
+		sql`UPDATE agent_skill_prices SET is_active = false WHERE agent_id = ${agentId}`,
+		// …then (re)assert the submitted set as the active prices.
+		...prices.map(
+			(p) => sql`
 				INSERT INTO agent_skill_prices
 					(agent_id, skill, amount, currency_mint, chain, is_active, trial_uses, time_pass_hours, time_pass_amount)
 				VALUES
@@ -80,9 +84,11 @@ async function handlePut(req, res, agentId) {
 					time_pass_hours = EXCLUDED.time_pass_hours,
 					time_pass_amount = EXCLUDED.time_pass_amount,
 					updated_at = now()
-			`;
-		}
-	});
+			`,
+		),
+	];
+
+	await sql.transaction(statements);
 
 	return json(res, 200, { ok: true });
 }

@@ -1249,6 +1249,9 @@ export class CoinCommunities {
 				onPurchased: (item) => { this.equipCosmeticPreview(item); },
 			});
 		}
+		// The shop is built once and reused across worlds, so refresh the coin tie
+		// each open — a sale always credits the world the player is currently in.
+		this._shop.h.coinMint = this.coin?.mint || '';
 		this._shop.toggle();
 	}
 
@@ -1730,12 +1733,19 @@ export class CoinCommunities {
 		const coin = this.coin;
 		if (!coin?.mint) return;
 		let current = 0;
+		let unknown = false;
 		try {
 			const cfg = await getWorldGate(coin.mint);
 			current = cfg?.minTokens || 0;
-		} catch { /* fall back to a blank form — the save still validates server-side */ }
+		} catch {
+			// Couldn't read the current gate — open in an "unknown" state so the creator
+			// can still overwrite or remove it, rather than a blank form that wrongly
+			// implies the world is ungated. The save validates server-side regardless.
+			unknown = true;
+		}
 		this.ui.openGateConfig(coin, {
 			minTokens: current,
+			unknown,
 			onSave: async (minTokens) => {
 				const saved = await setWorldGate(coin.mint, minTokens);
 				const next = saved?.minTokens || 0;

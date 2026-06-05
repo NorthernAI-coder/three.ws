@@ -49,6 +49,17 @@ export function treasuryWallet() {
 	return burnAddress();
 }
 
+/**
+ * Non-throwing treasury lookup for READ paths (public config, status). Returns
+ * the configured address or `null` when unset — never throws. A missing
+ * treasury is a misconfiguration of the *fund-routing* path; it must not 500 a
+ * read-only endpoint. Fund-moving callers use `treasuryWallet()` (strict) so
+ * they still fail closed and never route to an unset address.
+ */
+export function treasuryWalletOrNull() {
+	return env.THREE_TREASURY_WALLET || null;
+}
+
 /** The burn sink. Defaults to the Solana incinerator (unspendable ATA). */
 export function burnAddress() {
 	return env.THREE_BURN_ADDRESS;
@@ -129,11 +140,15 @@ export function applySplit(totalAtomics, legs) {
 
 /** Public, non-secret config for clients to display and build transactions. */
 export function publicConfig() {
+	// Read path: surface the treasury as null when unset rather than throwing.
+	// The strict treasuryWallet() guard stays on the fund-routing path only.
+	const treasury = treasuryWalletOrNull();
 	return {
 		mint: TOKEN_MINT,
 		symbol: TOKEN_SYMBOL,
 		decimals: TOKEN_DECIMALS,
-		treasury: treasuryWallet(),
+		treasury,
+		treasury_configured: treasury != null,
 		burn_address: burnAddress(),
 		quote_ttl_seconds: env.THREE_QUOTE_TTL_S,
 		split_policies: Object.fromEntries(

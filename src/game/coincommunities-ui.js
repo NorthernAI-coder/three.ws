@@ -880,7 +880,7 @@ export class CommunityUI {
 	// token amount a wallet must hold to enter the Holders world, or removes the
 	// requirement. `onSave(minTokens)` returns a promise that resolves to the saved
 	// config or rejects with a coded error; we drive the busy/error states off it.
-	openGateConfig(coin, { minTokens = 0, onSave } = {}) {
+	openGateConfig(coin, { minTokens = 0, unknown = false, onSave } = {}) {
 		this.closeGateConfig();
 		const sym = coin?.symbol ? '$' + String(coin.symbol).replace(/^\$/, '').toUpperCase() : 'this coin';
 		const input = el('input', {
@@ -888,12 +888,16 @@ export class CommunityUI {
 			class: 'cc-gatecfg-input', value: minTokens > 0 ? String(minTokens) : '',
 			placeholder: 'e.g. 1000000', 'aria-label': `Minimum ${sym} to enter the holders world`,
 		});
-		const errLine = el('p', { class: 'cc-gatecfg-err', hidden: true });
+		const errLine = el('p', { class: 'cc-gatecfg-err', hidden: !unknown });
+		if (unknown) errLine.textContent = 'Couldn’t load the current gate — saving will overwrite it.';
 		const hint = el('p', { class: 'cc-gatecfg-hint', text: `Leave blank to use the default ($-value) floor. Set a number to require that many ${sym} on-chain.` });
 		const saveBtn = el('button', { type: 'button', class: 'cc-gate-btn cc-gate-primary', text: 'Save gate' });
+		// "Remove gate" whenever a gate exists — or might exist (the read failed). Only
+		// a confirmed-ungated world shows a plain "Cancel".
+		const canRemove = minTokens > 0 || unknown;
 		const clearBtn = el('button', {
 			type: 'button', class: 'cc-gate-btn cc-gate-ghost',
-			text: minTokens > 0 ? 'Remove gate' : 'Cancel',
+			text: canRemove ? 'Remove gate' : 'Cancel',
 		});
 		const busy = (on) => {
 			saveBtn.disabled = on; clearBtn.disabled = on; input.disabled = on;
@@ -901,7 +905,7 @@ export class CommunityUI {
 		};
 		const fail = (msg) => { errLine.textContent = msg; errLine.hidden = false; busy(false); };
 		const commit = async (value) => {
-			errLine.hidden = true;
+			errLine.hidden = true; errLine.textContent = '';
 			busy(true);
 			try {
 				await onSave?.(value);
@@ -916,7 +920,7 @@ export class CommunityUI {
 			if (!Number.isFinite(v) || v <= 0) return fail('Enter a positive number of tokens, or use Remove gate.');
 			commit(v);
 		};
-		clearBtn.onclick = () => { if (minTokens > 0) commit(0); else this.closeGateConfig(); };
+		clearBtn.onclick = () => { if (canRemove) commit(0); else this.closeGateConfig(); };
 		input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); } e.stopPropagation(); };
 
 		const body = el('div', { class: 'cc-gate-body' }, [
