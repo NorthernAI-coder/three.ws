@@ -590,6 +590,7 @@ let inFlight = false;
 async function spawn(target, { silent = false } = {}) {
 	if (inFlight) return;
 	inFlight = true;
+	const prevTarget = activeTarget;
 	activeTarget = target;
 	clearScenario();
 	hud.sim.out.classList.remove('show');
@@ -601,9 +602,19 @@ async function spawn(target, { silent = false } = {}) {
 			: `token=${encodeURIComponent(target.token)}`;
 		const r = await fetch(`/api/ibm/twin?${q}`);
 		const data = await r.json();
-		if (!r.ok) throw new Error(data.error_description || data.error || `HTTP ${r.status}`);
+		if (!r.ok) {
+			// Permanent failures: don't leave the failing pool as activeTarget so the
+			// live-sync timer doesn't keep hammering the same broken endpoint.
+			if (r.status === 422 && data.error === 'insufficient_history') {
+				activeTarget = prevTarget;
+				setStatus('Not enough trading history to model this pool — try a more active market.');
+				return;
+			}
+			throw new Error(data.error_description || data.error || `HTTP ${r.status}`);
+		}
 		applySnapshot(data, { silent });
 	} catch (e) {
+		activeTarget = prevTarget;
 		setStatus(`Twin failed: ${e.message}`, false, () => spawn(target));
 	} finally {
 		inFlight = false;
