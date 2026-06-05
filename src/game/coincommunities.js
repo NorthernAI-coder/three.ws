@@ -44,7 +44,7 @@ import { HOME_TOWN, isHomeTown } from './home-town.js';
 import { AgentCommerce } from './agent-commerce.js';
 import { WorldLife } from './npc/world-life.js';
 import { VoiceChat, voiceSupported } from './voice-chat.js';
-import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet, getSession } from '../community/town-auth.js';
+import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet, getSession, getWorldGate, setWorldGate } from '../community/town-auth.js';
 import { ensurePlayAccess } from './play-gate.js';
 import { clearStoredPass, fetchPlayConfig, signInToPlay, loadStoredPass, storePass } from './play-auth.js';
 import { PlaySystems } from './play-systems.js';
@@ -253,6 +253,8 @@ export class CoinCommunities {
 			onRename: (name) => this._rename(name),
 			onBuy: () => this._openBuy(),
 			onShop: () => this._toggleShop(),
+			// Creator-only (R24): set/clear the token threshold for the Holders world.
+			onConfigureGate: () => this._configureGate(),
 			onVoiceToggle: () => this._toggleVoice(),
 			// Build structures toolbar (R20): pick a composite piece, rotate it, share a
 			// screenshot of the build, or open this coin's featured builds.
@@ -1236,11 +1238,15 @@ export class CoinCommunities {
 				// Key ownership + purchases on the verified wallet when we have one;
 				// the shop falls back to the persisted guest id otherwise.
 				account: this.account || '',
+				// The coin world we're in (R25): ties a cosmetic sale to this coin so a
+				// configurable share of the settled USDC pays out to the coin's creator.
+				coinMint: this.coin?.mint || '',
 				onPreview: (item) => this.equipCosmeticPreview(item),
 				onEndPreview: () => this.unequipCosmeticPreview(),
 				// A premium item was just bought (R22) — now owned for this account.
-				// Keep it previewing so the buyer sees what they unlocked.
-				onPurchased: (item) => { this._previewItem = item; },
+				// Equip it live so the buyer immediately sees what they unlocked
+				// (durable cross-world equip persistence lands in R23).
+				onPurchased: (item) => { this.equipCosmeticPreview(item); },
 			});
 		}
 		this._shop.toggle();
@@ -1701,6 +1707,8 @@ export class CoinCommunities {
 		};
 		this.buildHud.setCreator(this._buildPerms.creator);
 		this.buildHud.setUsage(this._buildPerms.used, this._buildPerms.cap);
+		// R24: the same server-proven creator flag reveals the holder-gate control.
+		this.ui.setWorldCreator(this._buildPerms.creator);
 	}
 
 	// Clear the per-player meter + creator tool — on leave and on every (re)connect,
@@ -1710,6 +1718,35 @@ export class CoinCommunities {
 		this._buildPerms = { creator: false, cap: 0, used: 0, clearMaxRadius: 12 };
 		this.buildHud.setCreator(false);
 		this.buildHud.setUsage(0, 0);
+		this.ui.setWorldCreator(false);
+	}
+
+	// Creator gate config (R24): open the modal to set or clear the token threshold
+	// a wallet must hold to enter this coin's Holders world. Reads the current value
+	// first so the input is pre-filled, then writes through the creator-only
+	// endpoint (which re-verifies ownership server-side). Only the coin's verified
+	// creator ever reaches this — the button is hidden otherwise.
+	async _configureGate() {
+		const coin = this.coin;
+		if (!coin?.mint) return;
+		let current = 0;
+		try {
+			const cfg = await getWorldGate(coin.mint);
+			current = cfg?.minTokens || 0;
+		} catch { /* fall back to a blank form — the save still validates server-side */ }
+		this.ui.openGateConfig(coin, {
+			minTokens: current,
+			onSave: async (minTokens) => {
+				const saved = await setWorldGate(coin.mint, minTokens);
+				const next = saved?.minTokens || 0;
+				// Keep the in-world Holders badge honest without tearing down the HUD.
+				if (this.coin) {
+					this.coin = { ...this.coin, holderMinTokens: next };
+					this.ui.refreshTierBadge(this.coin);
+				}
+				return saved;
+			},
+		});
 	}
 
 	// Creator moderation: clear a disc of blocks around where the player stands, or

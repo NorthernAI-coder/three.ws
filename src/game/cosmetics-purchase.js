@@ -43,7 +43,7 @@ export function resolveShopAccount(explicitWallet) {
 // Run the x402 USDC payment for one cosmetic. Resolves with the settled ticket
 // ({ ok, owned, newlyOwned, payer, network, … }); rejects with an Error on
 // failure or { code:'cancelled' } when the buyer dismisses the wallet.
-export async function purchaseCosmetic(item, { account } = {}) {
+export async function purchaseCosmetic(item, { account, coin } = {}) {
 	if (!window.X402?.pay) {
 		throw new Error('Payment widget still loading — try again in a second.');
 	}
@@ -64,7 +64,16 @@ export async function purchaseCosmetic(item, { account } = {}) {
 		// primer unavailable — proceed to the payment modal anyway.
 	}
 
-	const url = `${PURCHASE_ENDPOINT}?id=${encodeURIComponent(item.id)}&account=${encodeURIComponent(acct)}`;
+	// When bought inside a coin's /play world, tie the sale to that coin (R25) so a
+	// configurable share of the settled USDC pays out to the coin's creator. The
+	// server resolves the creator + share from the mint — the client only declares
+	// which world the purchase happened in; it never sets where the money goes.
+	// Falls back to the world in the URL (the /play deep link keeps ?coin=<mint>),
+	// so the tie holds even when the caller doesn't pass an explicit mint.
+	const coinMint = coin || currentWorldMint();
+	const coinParam = coinMint && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(coinMint)
+		? `&coin=${encodeURIComponent(coinMint)}` : '';
+	const url = `${PURCHASE_ENDPOINT}?id=${encodeURIComponent(item.id)}&account=${encodeURIComponent(acct)}${coinParam}`;
 	const out = await window.X402.pay({
 		endpoint: url,
 		method: 'GET',

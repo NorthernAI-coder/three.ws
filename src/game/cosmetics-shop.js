@@ -103,6 +103,13 @@ export class CosmeticsShop {
 					el('span', { class: 'cc-shop-title-main', text: 'Cosmetics' }),
 					el('span', { class: 'cc-shop-title-sub', text: 'Preview live on your avatar' }),
 				]),
+				// Rarest Fits — the platform flex board (R25). Lazy-loaded on click so
+				// it never weighs down the shop bundle.
+				el('button', {
+					class: 'cc-shop-flex', type: 'button', title: 'See the rarest fits & top earning creators',
+					'aria-label': 'Open rarest fits leaderboard',
+					onclick: () => this._openFlex(),
+				}, [el('span', { 'aria-hidden': 'true', text: '✦' }), el('span', { class: 'cc-shop-flex-text', text: 'Rarest Fits' })]),
 				this.closeBtn,
 			]),
 			this.filters,
@@ -320,6 +327,18 @@ export class CosmeticsShop {
 		return el('div', { class: 'cc-shop-glyph', 'aria-hidden': 'true', text: SLOT_GLYPH[item.slot] || '✦' });
 	}
 
+	// Open the Rarest Fits flex board (R25), highlighting the current coin world.
+	// Lazy chunk — the leaderboard UI only loads when a player asks for it.
+	async _openFlex() {
+		try {
+			const { openCosmeticsFlex } = await import('./cosmetics-flex.js');
+			openCosmeticsFlex({ coinMint: this.h.coinMint || '' });
+		} catch (err) {
+			log.warn('[shop] flex board failed to load', err?.message);
+			this._status('Couldn’t open the flex board. Try again in a moment.', 'error');
+		}
+	}
+
 	// ── purchase (R22) ──────────────────────────────────────────────────────────
 	// Run the real x402 USDC payment for a locked item and, on the server's
 	// confirmation, flip the card to owned. Every state is honest: pending while
@@ -332,7 +351,7 @@ export class CosmeticsShop {
 		this._swapAction(card, item);
 		this._status(`Settling payment for ${item.name}…`, 'pending');
 		try {
-			const ticket = await purchaseCosmetic(item, { account: this.account });
+			const ticket = await purchaseCosmetic(item, { account: this.account, coin: this.h.coinMint });
 			this.buyingId = null;
 			item.owned = true;
 			if (card) {

@@ -81,8 +81,10 @@ async function loadOwnership({ withRedis }) {
 }
 
 describe('cosmetics ownership ledger', () => {
+	// Each scenario re-imports the module fresh (resetModules) with its own
+	// @upstash/redis doMock, so no cross-test mock leakage.
 	beforeEach(() => { vi.resetModules(); });
-	afterEach(() => { vi.unmock('@upstash/redis'); vi.resetModules(); });
+	afterEach(() => { vi.resetModules(); });
 
 	it('normalizeAccountId accepts wallets + guest ids, rejects junk', async () => {
 		const { normalizeAccountId } = await loadOwnership({ withRedis: false });
@@ -145,9 +147,11 @@ async function call(query) {
 
 describe('cosmetic-purchase endpoint boundary', () => {
 	beforeEach(() => {
-		// Minimal x402 config so the 402 challenge can build a Solana accept.
+		// Minimal x402 config so the 402 challenge can build a Solana accept — the
+		// Solana leg needs both a payout address and a co-signing fee payer.
 		process.env.X402_PAY_TO_SOLANA = 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN';
 		process.env.X402_ASSET_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+		process.env.X402_FEE_PAYER_SOLANA = 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN';
 	});
 
 	it('rejects missing id / account', async () => {
@@ -159,7 +163,7 @@ describe('cosmetic-purchase endpoint boundary', () => {
 		expect((await call({ id: 'nope', account: 'guest-1' })).status).toBe(404);
 		const free = await call({ id: 'hat-baseball', account: 'guest-1' });
 		expect(free.status).toBe(400);
-		expect(free.parsed.code).toBe('not_purchasable');
+		expect(free.parsed.error).toBe('not_purchasable');
 	});
 
 	it('issues a 402 priced in USDC for a premium cosmetic', async () => {

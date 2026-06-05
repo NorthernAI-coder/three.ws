@@ -2022,6 +2022,14 @@ class RemotePlayer {
 		this.rig.add(root);
 		scene.add(this.rig);
 
+		// This peer's equipped cosmetic loadout (R23). Measure the body's height so
+		// props anchor correctly (mountProp scales/places by it), then dress them in
+		// the same applyLoadout the local player uses. Re-measured + re-applied after
+		// any avatar swap, and re-applied when they change their fit.
+		this._avatarHeight = measureRigHeight(root);
+		this._cosWire = initial?.cosmetics || '';
+		this._applyCosmetics();
+
 		this.anim = new AnimationManager();
 		this.anim.attach(root);
 		this.anim.setAnimationDefs(animationDefs);
@@ -2079,6 +2087,23 @@ class RemotePlayer {
 			this._avatarUrl = player.avatar;
 			this._swapAvatar(player.avatar);
 		}
+		// Live cosmetic change — they equipped/unequipped something.
+		if (player.cosmetics !== undefined && player.cosmetics !== this._cosWire) {
+			this._applyCosmetics(player.cosmetics);
+		}
+	}
+
+	// (Re)dress this peer in their equipped loadout. Idempotent — re-applies only
+	// when the wire changed — and shares applyLoadout with the local avatar so one
+	// wardrobe renders the same in every world.
+	_applyCosmetics(wire) {
+		const next = typeof wire === 'string' ? wire : (this._cosWire || '');
+		this._cosWire = next;
+		if (!this.rig || !this._avatarHeight) return;
+		if (this.cosmetics && this._cosApplied === next) return;
+		this._cosApplied = next;
+		try { this.cosmetics?.dispose(); } catch { /* already gone */ }
+		this.cosmetics = applyLoadout(this.rig, this._avatarHeight, next);
 	}
 
 	// Replace the visible body with the player's own avatar GLB. Loads (cached)
@@ -2107,6 +2132,12 @@ class RemotePlayer {
 		if (this._root) this.rig.remove(this._root);
 		this._root = root;
 		this.rig.add(root);
+
+		// New body, new proportions: re-measure and re-dress so worn cosmetics fit
+		// the swapped avatar (tint binds to the new meshes; props re-anchor to it).
+		this._avatarHeight = Math.max(0.5, box.max.y - box.min.y);
+		this._cosApplied = null;
+		this._applyCosmetics();
 
 		// Track template references so the cache can evict & dispose templates no
 		// live player is cloning. Release the previous, claim the new.
@@ -2153,6 +2184,7 @@ class RemotePlayer {
 		this.rig.quaternion.setFromAxisAngle(upY, this.currentYaw);
 
 		this.anim.update(dt);
+		this.cosmetics?.tick(dt);
 		this._updateLabel();
 	}
 
@@ -2177,11 +2209,18 @@ class RemotePlayer {
 	dispose() {
 		this._avatarLoadToken++; // cancel any in-flight avatar swap
 		if (this._heldTemplateUrl) { releaseRemoteTemplate(this._heldTemplateUrl); this._heldTemplateUrl = null; }
+		try { this.cosmetics?.dispose(); } catch { /* already gone */ }
 		scene.remove(this.rig);
 		this.rig = null;
 		this.anim.dispose();
 		this.label.remove();
 	}
+}
+
+// Head-anchor height for a freshly built body, used to scale/place worn props.
+function measureRigHeight(root) {
+	const b = new Box3().setFromObject(root);
+	return Math.max(0.5, b.max.y - b.min.y);
 }
 
 const _tmpV3 = new Vector3();
@@ -2248,6 +2287,9 @@ function startNet() {
 		coinName: COIN_PARAMS.name,
 		coinSymbol: COIN_PARAMS.symbol,
 		coinImage: COIN_PARAMS.image,
+		// The equipped cosmetic loadout (R23), carried in from the player's account /
+		// the cross-world mirror so peers see their fit on arrival.
+		cosmetics: getPlayCosmetics(),
 		// Publish account presence (Task 15) so friends see this player online in
 		// this coin world, and so DMs can deliver here live. No-op when signed out.
 		getPresence: getPresenceTicket,
@@ -2268,7 +2310,7 @@ function startNet() {
 		remotePlayers.set(sessionId, new RemotePlayer(sessionId, {
 			x: player.x, y: player.y, z: player.z, yaw: player.yaw,
 			motion: player.motion, name: player.name, color: player.color,
-			avatar: player.avatar, agent: player.agent,
+			avatar: player.avatar, agent: player.agent, cosmetics: player.cosmetics,
 		}));
 		renderOnlineCount();
 	});

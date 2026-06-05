@@ -146,6 +146,42 @@ export function pushPaymentEvent({ actor, usdcAtomic, recipientLabel, txSig, exp
 	});
 }
 
+// Per-user throttle window for member-join events. A returning user signs in
+// often; we only want one "joined" line per person per window so the feed shows
+// real arrivals without spamming on every login or popup re-auth.
+const MEMBER_JOIN_TTL_S = 6 * 60 * 60; // 6h
+
+/**
+ * Publish a 'member-join' feed event when someone signs in, throttled to once
+ * per `userKey` per MEMBER_JOIN_TTL_S so re-logins don't spam the ticker.
+ * Best-effort and fire-and-forget — never throws, returns the stored record or
+ * null (throttled / Redis down / no display name).
+ *
+ * @param {object} opts
+ * @param {string} opts.userKey  stable per-user key for throttling (id or handle)
+ * @param {string} opts.actor    short public display name ("alice")
+ * @param {string} [opts.handle] X/social handle without '@', for click-through
+ */
+export async function publishMemberJoin({ userKey, actor, handle } = {}) {
+	const r = redis();
+	const name = String(actor || '').trim().slice(0, 32);
+	if (!r || !name) return null;
+	const key = String(userKey || handle || name).slice(0, 80);
+	try {
+		// SET NX EX: claims the window atomically; null reply means already seen.
+		const claimed = await r.set(`feed:joined:${key}`, '1', { nx: true, ex: MEMBER_JOIN_TTL_S });
+		if (!claimed) return null;
+	} catch (err) {
+		console.warn('[feed] member-join throttle check failed:', err?.message);
+		return null;
+	}
+	return publishFeedEvent({
+		type: 'member-join',
+		actor: name,
+		handle: handle ? String(handle).replace(/^@/, '').slice(0, 40) : undefined,
+	});
+}
+
 // Short-lived in-process read cache. The widget is mounted on every page and
 // polls this endpoint continuously, so without dedup each poll becomes a Redis
 // command — at platform scale that alone can exhaust the Upstash request quota.

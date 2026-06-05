@@ -789,7 +789,7 @@ export class CommunityUI {
 		// discoverable on touch too; clicking it routes the player through the gate.
 		const holdersBadge = el('button', {
 			type: 'button', class: 'cc-card-holders',
-			title: `Holders only — hold $8+ of ${sym} to enter this coin’s gated world`,
+			title: `Holders only — hold ${sym} to enter this coin’s gated world`,
 			'aria-label': `Enter the ${sym} holders-only world`,
 			onclick: (e) => { e.stopPropagation(); this.h.onEnter(c, 'holders'); },
 		}, [el('span', { class: 'cc-card-holders-ico', 'aria-hidden': 'true', text: '🔒' }), document.createTextNode('Holders')]);
@@ -869,6 +869,98 @@ export class CommunityUI {
 		const done = () => o.remove();
 		o.addEventListener('transitionend', done, { once: true });
 		setTimeout(done, 280); // fallback if transitionend never fires
+	}
+
+	// Reveal the creator-only gate control once the server confirms ownership.
+	setWorldCreator(isCreator) {
+		if (this.gateBtn) this.gateBtn.hidden = !isCreator;
+	}
+
+	// Creator gate config (R24). A small modal where the coin's creator sets the
+	// token amount a wallet must hold to enter the Holders world, or removes the
+	// requirement. `onSave(minTokens)` returns a promise that resolves to the saved
+	// config or rejects with a coded error; we drive the busy/error states off it.
+	openGateConfig(coin, { minTokens = 0, onSave } = {}) {
+		this.closeGateConfig();
+		const sym = coin?.symbol ? '$' + String(coin.symbol).replace(/^\$/, '').toUpperCase() : 'this coin';
+		const input = el('input', {
+			type: 'number', min: '0', step: '1', inputmode: 'numeric',
+			class: 'cc-gatecfg-input', value: minTokens > 0 ? String(minTokens) : '',
+			placeholder: 'e.g. 1000000', 'aria-label': `Minimum ${sym} to enter the holders world`,
+		});
+		const errLine = el('p', { class: 'cc-gatecfg-err', hidden: true });
+		const hint = el('p', { class: 'cc-gatecfg-hint', text: `Leave blank to use the default ($-value) floor. Set a number to require that many ${sym} on-chain.` });
+		const saveBtn = el('button', { type: 'button', class: 'cc-gate-btn cc-gate-primary', text: 'Save gate' });
+		const clearBtn = el('button', {
+			type: 'button', class: 'cc-gate-btn cc-gate-ghost',
+			text: minTokens > 0 ? 'Remove gate' : 'Cancel',
+		});
+		const busy = (on) => {
+			saveBtn.disabled = on; clearBtn.disabled = on; input.disabled = on;
+			saveBtn.textContent = on ? 'Saving…' : 'Save gate';
+		};
+		const fail = (msg) => { errLine.textContent = msg; errLine.hidden = false; busy(false); };
+		const commit = async (value) => {
+			errLine.hidden = true;
+			busy(true);
+			try {
+				await onSave?.(value);
+				this.closeGateConfig();
+				this.toast(value > 0 ? `Holders world now needs ${fmtCompact(value)} ${sym}.` : 'Holders gate removed — default floor applies.', 'success');
+			} catch (err) {
+				fail(err?.message || 'Couldn’t save the gate. Try again.');
+			}
+		};
+		saveBtn.onclick = () => {
+			const v = Math.floor(Number(input.value));
+			if (!Number.isFinite(v) || v <= 0) return fail('Enter a positive number of tokens, or use Remove gate.');
+			commit(v);
+		};
+		clearBtn.onclick = () => { if (minTokens > 0) commit(0); else this.closeGateConfig(); };
+		input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); } e.stopPropagation(); };
+
+		const body = el('div', { class: 'cc-gate-body' }, [
+			el('h3', { class: 'cc-gate-title', text: 'Holders world gate' }),
+			el('p', { class: 'cc-gate-msg', text: `Require holding ${sym} to enter this coin’s Holders world.` }),
+			el('label', { class: 'cc-gatecfg-row' }, [
+				el('span', { class: 'cc-gatecfg-label', text: `Minimum ${sym}` }), input,
+			]),
+			hint, errLine,
+			el('div', { class: 'cc-gate-actions' }, [saveBtn, clearBtn]),
+		]);
+		const modal = el('div', {
+			class: 'cc-gate-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Holders world gate',
+		}, [
+			el('div', { class: 'cc-gate-head' }, [
+				el('span', { class: 'cc-gate-tag', text: '🔑 Creator' }),
+				el('button', { type: 'button', class: 'cc-gate-x', 'aria-label': 'Close', text: '×', onclick: () => this.closeGateConfig() }),
+			]),
+			body,
+		]);
+		const overlay = el('div', {
+			class: 'cc-gate-overlay', onclick: (e) => { if (e.target === overlay) this.closeGateConfig(); },
+		}, [modal]);
+		this._gateCfg = overlay;
+		this._gateCfgKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); this.closeGateConfig(); } };
+		document.addEventListener('keydown', this._gateCfgKey, true);
+		this._gateCfgOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		document.body.appendChild(overlay);
+		this._gateCfgTrapRelease = this._trapFocus(overlay);
+		requestAnimationFrame(() => { overlay.classList.add('cc-on'); input.focus(); });
+	}
+
+	closeGateConfig() {
+		const o = this._gateCfg;
+		if (!o) return;
+		this._gateCfg = null;
+		if (this._gateCfgKey) { document.removeEventListener('keydown', this._gateCfgKey, true); this._gateCfgKey = null; }
+		if (this._gateCfgTrapRelease) { this._gateCfgTrapRelease(); this._gateCfgTrapRelease = null; }
+		if (this._gateCfgOpener?.isConnected) this._gateCfgOpener.focus();
+		this._gateCfgOpener = null;
+		o.classList.remove('cc-on');
+		const done = () => o.remove();
+		o.addEventListener('transitionend', done, { once: true });
+		setTimeout(done, 280);
 	}
 
 	setHolderGate(state, data = {}) {
@@ -1377,19 +1469,24 @@ export class CommunityUI {
 		this.buyBtnLabel.textContent = coin.symbol ? 'Buy $' + coin.symbol.toUpperCase() : 'Buy';
 		if (coin.image) { this.coinImg.src = coin.image; this.coinImg.style.display = ''; }
 		else this.coinImg.style.display = 'none';
+		this.refreshTierBadge(coin);
+		this.chatLog.textContent = '';
+		this._unread = 0;
+		this.chatUnread.hidden = true;
+		this.pingText.hidden = true;
+	}
+
+	// The Holders badge states the real entry bar: a creator-set token threshold
+	// (R24) reads "1M $SYM+", otherwise the USD floor reads "$8+". Extracted so the
+	// creator can update it live after saving a new gate without rebuilding the HUD.
+	refreshTierBadge(coin) {
 		const holders = coin.tier === 'holders';
 		this.tierBadge.hidden = !holders;
-		// State the real bar: a creator-set token threshold (R24) reads "1M $SYM+",
-		// otherwise the USD floor reads "$8+".
 		const sym = coin.symbol ? '$' + String(coin.symbol).replace(/^\$/, '').toUpperCase() : '';
 		const req = coin.holderMinTokens > 0
 			? `${fmtCompact(coin.holderMinTokens)} ${sym}+`
 			: `$${coin.holderMinUsd ? Math.round(coin.holderMinUsd * 100) / 100 : 8}+`;
 		this.tierBadge.textContent = holders ? `🔒 Holders · ${req}` : '';
-		this.chatLog.textContent = '';
-		this._unread = 0;
-		this.chatUnread.hidden = true;
-		this.pingText.hidden = true;
 	}
 
 	showLobby() {

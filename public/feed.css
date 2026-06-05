@@ -206,6 +206,7 @@ a.tws-feed-item:focus-visible {
 .tws-feed-ico[data-kind='level-up'] { color: var(--warn, #fbbf24); }
 .tws-feed-ico[data-kind='world-join'] { color: #7dd3fc; }
 .tws-feed-ico[data-kind='jackpot'] { color: var(--warn, #fbbf24); }
+.tws-feed-ico[data-kind='member-join'] { color: #5eead4; }
 
 .tws-feed-body {
 	flex: 1 1 auto;

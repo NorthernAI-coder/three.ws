@@ -1,8 +1,10 @@
 // three.ws live activity ticker — the site-wide "something is always happening
 // here" widget. Self-mounting: nav.js loads this on every page. Renders a small
 // pulsing pill bottom-left that expands into a live panel of recent platform
-// events (coin buys, agent deploys, level-ups, world joins). Polls GET /api/feed
-// and prepends anything new.
+// events (coin buys, agent deploys, member sign-ins, level-ups, world joins).
+// Loads the backlog once from GET /api/feed, then subscribes to /api/feed-stream
+// (SSE) so new activity appears in real time; a slow poll stays on as a backstop
+// and to refresh relative timestamps. Falls back to polling where SSE is absent.
 //
 // Opt out per page with <html data-feed="off"> or window.__twsFeedOff = true.
 // The data source and event shape live in api/_lib/feed.js.
@@ -92,6 +94,11 @@
 			icon: '✦',
 			href: function (e) { return e.agentId ? '/agent/' + encodeURIComponent(e.agentId) : '/discover'; },
 			parts: function (e) { return [bold(e.name || e.actor || 'A new agent'), ' just joined three.ws']; },
+		},
+		'member-join': {
+			icon: '✷',
+			href: function (e) { return e.handle ? 'https://x.com/' + encodeURIComponent(e.handle) : '/play'; },
+			parts: function (e) { return [bold('@' + (e.handle || e.actor || 'someone')), ' just joined three.ws']; },
 		},
 		'agent-onchain': {
 			icon: '⛓',
@@ -248,9 +255,11 @@
 		document.addEventListener('visibilitychange', function () {
 			if (document.hidden) {
 				stopPolling();
+				stopStream();
 			} else {
 				poll();
 				startPolling();
+				startStream();
 			}
 		});
 		// Hide entirely while a page element is fullscreen (immersive 3D etc.).
@@ -401,6 +410,17 @@
 		return added;
 	}
 
+	// Reflect freshly-merged events into the UI. Shared by the poll and the SSE
+	// stream so both paths animate in identically.
+	function onIngest(added, first) {
+		if (open) {
+			if (first || added) render();
+			else refreshTimes();
+		} else {
+			updatePill();
+		}
+	}
+
 	function poll() {
 		fetch(API, { headers: { accept: 'application/json' }, credentials: 'omit' })
 			.then(function (r) {
@@ -411,13 +431,7 @@
 				errored = false;
 				var first = !loaded;
 				loaded = true;
-				var added = merge(Array.isArray(data.events) ? data.events : []);
-				if (open) {
-					if (first || added) render();
-					else refreshTimes();
-				} else {
-					updatePill();
-				}
+				onIngest(merge(Array.isArray(data.events) ? data.events : []), first);
 			})
 			.catch(function () {
 				errored = true;
@@ -426,6 +440,35 @@
 					else updatePill();
 				}
 			});
+	}
+
+	// ── Real-time stream ─────────────────────────────────────────────────────
+	// EventSource pushes new events within ~1.5s of them happening (vs the poll's
+	// 20s). The poll stays on as a slow backstop that also refreshes "Nm ago"
+	// labels and reconciles anything the stream missed across a reconnect. When
+	// EventSource is unavailable the poll alone carries the feed.
+	var es = null;
+	function startStream() {
+		if (typeof EventSource === 'undefined' || es) return;
+		try {
+			es = new EventSource('/api/feed-stream');
+		} catch (_) {
+			es = null;
+			return;
+		}
+		es.addEventListener('event', function (msg) {
+			var ev = null;
+			try { ev = JSON.parse(msg.data); } catch (_) { return; }
+			if (!ev) return;
+			loaded = true;
+			errored = false;
+			onIngest(merge([ev]), false);
+		});
+		// On error EventSource auto-reconnects; nothing to do. The backstop poll
+		// covers the gap. We deliberately don't tear down on error.
+	}
+	function stopStream() {
+		if (es) { try { es.close(); } catch (_) {} es = null; }
 	}
 
 	function startPolling() {
@@ -451,6 +494,7 @@
 		mount();
 		poll();
 		startPolling();
+		startStream();
 	}
 
 	if (document.readyState === 'loading') {

@@ -7,6 +7,18 @@
 import { text, wrap } from '../../_lib/http.js';
 import { env } from '../../_lib/env.js';
 import { cc, setUserSession, UnconfiguredError } from '../../_lib/coin-communities.js';
+import { publishMemberJoin } from '../../_lib/feed.js';
+
+// Surface a signed-in user in the live ticker. Fire-and-forget on a non-critical
+// path: the throttle in publishMemberJoin keeps re-logins from spamming, and any
+// failure (no display name, Redis down) degrades silently to no event.
+function announceSignIn(user) {
+	if (!user) return;
+	const actor = user.username || user.handle || user.displayName || user.name || null;
+	if (!actor) return;
+	const handle = user.username || user.handle || null;
+	publishMemberJoin({ userKey: user.id || user.userId || actor, actor, handle }).catch(() => {});
+}
 
 function page({ ok, user = null, message = '' }) {
 	// The opener verifies event.origin === APP_ORIGIN before trusting this.
@@ -55,6 +67,7 @@ export default wrap(async (req, res) => {
 			throw new Error('missing challenge code');
 		}
 		setUserSession(res, session);
+		announceSignIn(session.user);
 		return text(res, 200, page({ ok: true, user: session.user }), {
 			'content-type': 'text/html; charset=utf-8',
 		});
