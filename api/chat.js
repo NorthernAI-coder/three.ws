@@ -31,19 +31,28 @@ import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
 import { orchestrateConfig } from './_lib/orchestrate.js';
 import { guardianConfig, governSend, sendCapUsd } from './_lib/granite-guardian.js';
+import {
+	DEFAULT_FREE_MODEL,
+	PROVIDER_MODEL_DEFAULTS,
+	DEFAULT_PROVIDER_ORDER,
+	OPENROUTER_SIBLINGS,
+	ANON_PROVIDER_LIST,
+} from './_lib/chat-models.js';
 import { z } from 'zod';
 
 // Providers anonymous (unauthenticated) callers may use. Groq and OpenRouter
 // free-tier models are exposed without sign-in — paid keys stay gated behind auth.
-const ANON_PROVIDERS = new Set(['groq', 'openrouter']);
+const ANON_PROVIDERS = new Set(ANON_PROVIDER_LIST);
 
 export const maxDuration = 60;
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
-const DEFAULT_OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
-const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile';
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+const DEFAULT_ANTHROPIC_MODEL = PROVIDER_MODEL_DEFAULTS.anthropic;
+// GPT-OSS 120B on OpenRouter — the platform-wide default chat model (same one
+// the /chat app uses). See api/_lib/chat-models.js.
+const DEFAULT_OPENROUTER_MODEL = PROVIDER_MODEL_DEFAULTS.openrouter;
+const DEFAULT_GROQ_MODEL = PROVIDER_MODEL_DEFAULTS.groq;
+const DEFAULT_OPENAI_MODEL = PROVIDER_MODEL_DEFAULTS.openai;
 const DEFAULT_MAX_TOKENS = 1024;
 const HARD_MAX_TOKENS = 4096;
 
@@ -312,15 +321,21 @@ export default wrap(async (req, res) => {
 		if (!rl.success) {
 			return error(res, 429, 'rate_limited', 'too many anonymous chat requests, try again shortly');
 		}
-		if (!process.env.GROQ_API_KEY) {
+		const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
+		const hasGroq = !!process.env.GROQ_API_KEY;
+		if (!hasOpenRouter && !hasGroq) {
 			return error(res, 401, 'unauthorized', 'sign in to chat with the agent');
 		}
 		if (body.provider && !ANON_PROVIDERS.has(body.provider)) {
 			return error(res, 401, 'unauthorized', 'sign in to use this model');
 		}
-		// Honor an explicitly-requested free-tier provider (groq/openrouter);
-		// only default to groq when the caller didn't pick one.
-		if (!body.provider) body.provider = 'groq';
+		// Honor an explicitly-requested free-tier provider (groq/openrouter).
+		// Otherwise default to GPT-OSS 120B on OpenRouter — the platform-wide
+		// default model — and fall back to Groq when OpenRouter isn't configured.
+		if (!body.provider) {
+			body.provider = hasOpenRouter ? 'openrouter' : 'groq';
+			if (!body.model && body.provider === 'openrouter') body.model = DEFAULT_FREE_MODEL;
+		}
 		anonymous = true;
 	}
 
@@ -640,7 +655,7 @@ async function governActions(actions, userMessage) {
 function pickProvider(requested, model, userKeys = {}) {
 	const order = requested
 		? [requested, ...Object.keys(PROVIDERS).filter((p) => p !== requested)]
-		: ['groq', 'openrouter', 'openai', 'anthropic'];
+		: DEFAULT_PROVIDER_ORDER;
 
 	for (const name of order) {
 		const cfg = PROVIDERS[name];
@@ -674,11 +689,7 @@ function pickProvider(requested, model, userKeys = {}) {
 // from a single upstream burst without paying. Last resort is paid Anthropic
 // so the user still gets a response.
 const FALLBACK_SIBLINGS = {
-	openrouter: [
-		'meta-llama/llama-3.3-70b-instruct:free',
-		'meta-llama/llama-3.2-3b-instruct:free',
-		'mistralai/mistral-7b-instruct:free',
-	],
+	openrouter: OPENROUTER_SIBLINGS,
 	groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
 	anthropic: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
 	openai: ['gpt-4o-mini'],

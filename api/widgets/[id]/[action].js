@@ -15,6 +15,7 @@ import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { captureException } from '../../_lib/sentry.js';
 import { isDemoWidgetId, getDemoWidget } from '../_demo-fixtures.js';
 import { decorate } from '../index.js';
+import { PROVIDER_MODEL_DEFAULTS, DEFAULT_PROVIDER_ORDER } from '../../_lib/chat-models.js';
 import { redactPii } from '../../_lib/pii.js';
 import { embed, cosine, embeddingsConfigured } from '../../_lib/embeddings.js';
 import { watsonxConfig, watsonxToken } from '../../_lib/watsonx.js';
@@ -60,7 +61,8 @@ const PROVIDERS = {
 	},
 	openrouter: {
 		envKey: 'OPENROUTER_API_KEY',
-		defaultModel: 'meta-llama/llama-3.3-70b-instruct:free',
+		// GPT-OSS 120B (free) — the platform-wide default; see api/_lib/chat-models.js.
+		defaultModel: PROVIDER_MODEL_DEFAULTS.openrouter,
 		url: 'https://openrouter.ai/api/v1/chat/completions',
 		style: 'openai',
 		extraHeaders: { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws widget' },
@@ -293,7 +295,7 @@ function pickProvider(requested, requestedModel) {
 	const order =
 		requested && requested !== 'auto'
 			? [requested, ...Object.keys(PROVIDERS).filter((p) => p !== requested)]
-			: ['anthropic', 'openrouter', 'groq', 'openai'];
+			: DEFAULT_PROVIDER_ORDER;
 
 	for (const name of order) {
 		const cfg = PROVIDERS[name];
