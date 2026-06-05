@@ -11,15 +11,7 @@
 // `mintSubdomain()` wrapper that callers can use without re-spelling the
 // records argument.
 
-import {
-	checkSubdomainAvailability,
-	createNamedSubdomain,
-	getParentDomain,
-	getStorefrontOrigin,
-	loadParentOwnerKeypair,
-	normalizeLabel as normalizeLabelRaw,
-	storefrontUrlForLabel,
-} from '../../src/solana/sns-subdomain.js';
+import { checkSubdomainAvailability, createNamedSubdomain, getParentDomain, getStorefrontOrigin, loadParentOwnerKeypair, normalizeLabel as normalizeLabelRaw, storefrontUrlForLabel, } from '../../src/solana/sns-subdomain.js';
 import { Connection } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
 

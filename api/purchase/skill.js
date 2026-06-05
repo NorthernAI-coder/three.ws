@@ -5,7 +5,7 @@
  * Implements the Solana Pay Transaction Request spec so wallets that scan a
  * QR code can fetch and sign the USDC transfer directly.
  */
-import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { getAssociatedTokenAddressSync, createTransferCheckedInstruction, getMint } from '@solana/spl-token';
 import { findReference } from '@solana/pay';

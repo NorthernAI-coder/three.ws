@@ -17,7 +17,7 @@
  *
  * Revenue + notifications are handled by confirmSkillPurchase (purchase-confirm.js).
  */
-import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import {
 	getAssociatedTokenAddressSync,

@@ -1,7 +1,7 @@
 // Shared helpers for Solana attestation parsing, validation, and indexing.
 // Used by the cron crawler and the read endpoints.
 
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
 import { sql } from './db.js';
 

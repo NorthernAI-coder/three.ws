@@ -7,7 +7,7 @@
  * Body: { agentId, skillName, buyerPublicKey }
  * Returns: { transaction (base64), reference, recipient, amount, currency_mint }
  */
-import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { getAssociatedTokenAddressSync, createTransferCheckedInstruction, getMint } from '@solana/spl-token';
 

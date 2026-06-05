@@ -8,7 +8,6 @@
 //                        duplicate insert is a replay/double-submit, surfaced
 //                        as already_settled rather than crediting twice.
 
-import { Connection } from '@solana/web3.js';
 import { solanaConnection } from '../solana/connection.js';
 import { sql } from '../db.js';
 import { env } from '../env.js';

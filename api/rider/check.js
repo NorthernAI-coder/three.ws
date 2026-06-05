@@ -1,4 +1,4 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';

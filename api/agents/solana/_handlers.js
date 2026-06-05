@@ -5,7 +5,7 @@
 
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { PublicKey, Connection } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { solanaConnection } from '../../_lib/solana/connection.js';
 import { sql } from '../../_lib/db.js';
 import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';

@@ -1,4 +1,4 @@
-import { Connection, PublicKey, Transaction, Keypair } from '@solana/web3.js';
+import { PublicKey, Transaction, Keypair } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
 import {
 	getAssociatedTokenAddress,

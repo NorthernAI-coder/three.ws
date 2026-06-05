@@ -38,11 +38,11 @@ const RPC = {
 };
 
 export function solanaConnection(network = 'mainnet') {
-	return solanaConnection({ url: RPC[network] || RPC.mainnet, commitment: 'confirmed' });
+	return failoverConnection({ url: RPC[network] || RPC.mainnet, commitment: 'confirmed' });
 }
 
 export function solanaPublicConnection(network = 'mainnet') {
-	return solanaConnection({ url: RPC_PUBLIC[network] || RPC_PUBLIC.mainnet, commitment: 'confirmed' });
+	return failoverConnection({ url: RPC_PUBLIC[network] || RPC_PUBLIC.mainnet, commitment: 'confirmed' });
 }
 
 /**
