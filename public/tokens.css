@@ -1,0 +1,158 @@
+/******************************************************************************
+ * three.ws — Canonical Design Tokens (B01)
+ * ════════════════════════════════════════════════════════════════════════════
+ * THE single source of truth for every design primitive on the platform:
+ * colour, surface, ink, stroke, spacing, type, radius, shadow, blur, motion.
+ *
+ * One vocabulary, not eight. The per-surface namespaces (--mk-* / --pd-* /
+ * --ibm-* / --gx-* / --ho-* / --saas-* / --sdk-* / --t-*) were removed in B02;
+ * do NOT reintroduce a parallel palette. A surface that needs a distinct brand
+ * accent (e.g. IBM Carbon blue at /ibm/*) expresses it as a small theme layer
+ * that REMAPS these tokens — never a standalone set.
+ *
+ * Loading: imported by public/style.css and public/nav.css, so it reaches every
+ * page (full-stylesheet pages via style.css; nav-only / embed surfaces via
+ * nav.css). New pages need only ensure one of those is linked.
+ *
+ * Rule: reference tokens by name (var(--surface-1), var(--space-md), …). Never
+ * hardcode a hex/rgba/px that an existing token already expresses. See
+ * DESIGN-TOKENS.md for the full vocabulary and migration guidance.
+ * Monochrome on near-black + golden-ratio (φ = 1.618) spacing & type.
+ ******************************************************************************/
+
+:root {
+	/* Phi ratio */
+	--phi: 1.618;
+
+	/* Spacing scale (each step × φ) */
+	--space-3xs: 0.146rem; /* ~2.3px  */
+	--space-2xs: 0.236rem; /* ~3.8px  */
+	--space-xs: 0.382rem; /* ~6.1px  */
+	--space-sm: 0.618rem; /* ~9.9px  */
+	--space-md: 1rem; /* 16px    */
+	--space-lg: 1.618rem; /* ~25.9px */
+	--space-xl: 2.618rem; /* ~41.9px */
+	--space-2xl: 4.236rem; /* ~67.8px */
+
+	/* Typography scale
+	 * Two registers in one ladder:
+	 *  · dense UI band (2xs→ui) — fixed px-honest rungs for chrome/labels/body,
+	 *    where the product actually lives (nav, dashboard, cards). These fill the
+	 *    gap the phi steps skip; they are the homes for 11/13/14px text.
+	 *  · display band (base→3xl) — phi-spaced (×φ) for marketing headers.
+	 * Migrate hardcoded px to the nearest rung; never reintroduce raw px. */
+	--text-2xs: 0.6875rem; /* 11px — micro: pills, badges, hints, timestamps */
+	--text-xs: 0.618rem; /* ~9.9px — smallest decorative label */
+	--text-sm: 0.764rem; /* ~12.2px — small UI labels, captions */
+	--text-md: 0.8125rem; /* 13px — dense UI body (the most common size) */
+	--text-ui: 0.875rem; /* 14px — nav links, controls, comfortable UI */
+	--text-base: 1rem; /* 16px — reading body baseline */
+	--text-lg: 1.236rem; /* ~19.8px — small headings (×φ) */
+	--text-xl: 1.618rem; /* ~25.9px — section headings (×φ) */
+	--text-2xl: 2.618rem; /* ~41.9px — hero / display (×φ) */
+	--text-3xl: 4.236rem; /* ~67.8px — oversized marketing display (×φ) */
+
+	/* Font weights — one ladder, referenced by the heading/body classes below */
+	--weight-regular: 400;
+	--weight-medium: 500;
+	--weight-semibold: 600;
+	--weight-bold: 700;
+
+	/* Line heights — golden ratio */
+	--leading-tight: 1.382;
+	--leading-normal: 1.618;
+	--leading-loose: 2.058;
+
+	/* Radii — 4-token scale (B09). Every rounded corner on the site maps to one
+	   of exactly these four; do not introduce ad-hoc px radii.
+	     sm   small controls, inputs, chips, tags        (6px)
+	     md   buttons & interactive controls             (10px, = dashboard control)
+	     lg   cards, panels, modals                      (14px, = dashboard card)
+	     pill fully-rounded pills (circles use 50%)       (999px)
+	   The legacy semantic names --radius-card / --radius-control are kept below as
+	   thin aliases so existing consumers keep working; new code uses sm/md/lg/pill. */
+	--radius-sm: 6px;
+	--radius-md: 10px;
+	--radius-lg: 14px;
+	--radius-pill: 999px;
+
+	/* Header height */
+	--header-h: 3.5rem;
+
+	/* Font stacks — families are self-hosted in /fonts/fonts.css */
+	--font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+	--font-body: 'Inter', system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
+
+	/* Accent */
+	--accent: #ffffff;
+	--accent-soft: rgba(255, 255, 255, 0.10);
+
+	/* Surface system — mirrors the /dashboard (dashboard-next) palette so every
+	   surface across the site reads as one product. Monochrome glass on near-black,
+	   soft 14px cards, semantic green/red/amber. Reference these instead of
+	   hand-rolling rgba()s so future pages stay on-brand. */
+	--surface-glass: linear-gradient(180deg, rgba(20, 21, 28, 0.7), rgba(14, 15, 22, 0.5));
+	--surface-1: rgba(255, 255, 255, 0.03);
+	--surface-2: rgba(255, 255, 255, 0.05);
+	--surface-3: rgba(255, 255, 255, 0.08);
+	--stroke: rgba(255, 255, 255, 0.08);
+	--stroke-strong: rgba(255, 255, 255, 0.14);
+	--ink: #e8e8e8;
+	--ink-dim: #888888;
+	--radius-card:    var(--radius-lg); /* legacy alias → lg */
+	--radius-control: var(--radius-md); /* legacy alias → md */
+	--success: #4ade80;
+	--danger: #f87171;
+	--warn: #fbbf24;
+
+	/* Solid near-black backgrounds — opaque counterparts to the translucent
+	   --surface-* overlays. Use these for solid page/panel fills instead of
+	   hand-typing var(--bg-0) / var(--bg-1) so the monochrome base stays consistent. */
+	--bg-0: #0a0a0a; /* deepest page background */
+	--bg-1: #1a1a1a; /* raised solid panel/control */
+
+	/* Ink tiers (B01 additions) — completes the text-colour ramp so headings and
+	   muted captions stop hardcoding #fff / rgba whites.
+	     bright  pure-white headings & primary CTA labels
+	     ink     default body text (above)
+	     dim     secondary/muted text (above)
+	     faint   tertiary hints, disabled, watermark labels */
+	--ink-bright: #ffffff;
+	--ink-faint:  rgba(255, 255, 255, 0.45);
+
+	/* Elevation / shadow (B01) — three depth tiers. Mirrors the component layer
+	   in style.css so any surface can express depth without hand-rolling shadows.
+	     1 = resting panel · 2 = card · 3 = lifted / hover / modal */
+	--shadow-1: 0 1px 3px rgba(0, 0, 0, 0.30);
+	--shadow-2: 0 4px 24px rgba(0, 0, 0, 0.40), 0 1px 4px rgba(0, 0, 0, 0.20);
+	--shadow-3: 0 8px 32px rgba(0, 0, 0, 0.50), 0 1px 4px rgba(0, 0, 0, 0.20);
+
+	/* Blur (B01) — backdrop-filter glass tiers. Pair with a --surface-* fill.
+	     sm  subtle chrome (sticky bars, chips)
+	     md  standard glass panels / docks
+	     lg  heavy modal / overlay scrim glass */
+	--blur-sm: 8px;
+	--blur-md: 16px;
+	--blur-lg: 28px;
+
+	/* Motion (B01) — one duration ladder + named easings. Compose as
+	   `transition: <prop> var(--duration-fast) var(--ease-standard);`
+	   Respect prefers-reduced-motion at the component level. */
+	--duration-instant: 80ms;  /* state flips: hover tint, focus ring */
+	--duration-fast:    140ms; /* controls: buttons, toggles, tabs */
+	--duration-base:    220ms; /* panels, dropdowns, cards */
+	--duration-slow:    420ms; /* page/section reveals, large moves */
+	--ease-standard:   cubic-bezier(0.2, 0.8, 0.2, 1);  /* default UI motion */
+	--ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);  /* expressive enter/reveal */
+	--ease-out:        cubic-bezier(0, 0, 0.2, 1);       /* decelerate-only */
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--duration-instant: 0ms;
+		--duration-fast: 0ms;
+		--duration-base: 0ms;
+		--duration-slow: 0ms;
+	}
+}
