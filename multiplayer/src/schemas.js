@@ -33,6 +33,13 @@ export class Player extends Schema {
 		// player persists under and is known by in the social graph. Empty in the
 		// open (un-gated) world; set from the play pass when the token gate is on.
 		this.account = '';
+		// Combat (W07). HP/armor stay PRIVATE (off-schema, streamed only to the
+		// owner) so peers can't read exact vitals, but two states MUST be visible to
+		// everyone: whether you're downed (peers render the ragdoll + skip you as a
+		// target) and your wanted level (0–5 stars peers can see to bounty you). Both
+		// are tiny and authoritative — set only by the server's combat resolution.
+		this.dead = false;
+		this.heat = 0; // wanted/heat stars (0–5), derived from the private heat meter
 	}
 }
 // IMPORTANT: append-only. Field indices are positional in @colyseus/schema's
@@ -55,6 +62,9 @@ defineTypes(Player, {
 	voice: 'boolean',
 	tsServer: 'float64',
 	account: 'string',
+	// Append-only (W07): downed state + wanted stars. See the constructor note.
+	dead: 'boolean',
+	heat: 'uint8',
 });
 
 // A single placed voxel in a coin's world. Keyed in the blocks MapSchema by its
@@ -69,6 +79,111 @@ export class Block extends Schema {
 }
 defineTypes(Block, {
 	t: 'uint8',
+});
+
+// A drivable vehicle living in the shared world. Unlike a player's private
+// economy (off-schema), a vehicle is a world entity everyone must see, so it
+// rides on the synced state. The driver's client simulates it with Rapier and
+// streams the authoritative transform (full quaternion — cars pitch/roll over
+// the ground, a single yaw can't express that); the server validates per-type
+// speed/bounds and relays. `driver` is the sessionId at the wheel ('' = parked),
+// the field that gates who is allowed to write this vehicle's transform.
+export class Vehicle extends Schema {
+	constructor() {
+		super();
+		this.id = '';
+		this.type = 'sedan'; // VEHICLE_TYPES key — picks the mesh + handling profile
+		this.color = 0xffffff;
+		this.x = 0;
+		this.y = 0;
+		this.z = 0;
+		// Orientation as a quaternion so peers reproduce body tilt, not just heading.
+		this.qx = 0;
+		this.qy = 0;
+		this.qz = 0;
+		this.qw = 1;
+		this.speed = 0;        // signed forward speed (m/s) — drives wheel spin + audio
+		this.driver = '';      // sessionId at the wheel; '' when parked
+		this.health = 100;     // damage hooks for W07 (combat); full here
+		this.tsServer = 0;     // last authoritative update (epoch ms) for interpolation
+	}
+}
+defineTypes(Vehicle, {
+	id: 'string',
+	type: 'string',
+	color: 'uint32',
+	x: 'float32',
+	y: 'float32',
+	z: 'float32',
+	qx: 'float32',
+	qy: 'float32',
+	qz: 'float32',
+	qw: 'float32',
+	speed: 'float32',
+	driver: 'string',
+	health: 'float32',
+	tsServer: 'float64',
+});
+
+// A PvE enemy in the shared world (W07). Unlike a player's private vitals, a mob
+// is a world entity everyone must see and fight, so it rides on the synced state.
+// The SERVER owns every field — spawns it, runs its AI, applies damage — so a
+// client can never move, heal, or kill a mob by writing state; it only renders
+// what the room replicates. Keyed in the mobs MapSchema by its id.
+export class Mob extends Schema {
+	constructor() {
+		super();
+		this.id = '';
+		this.kind = 'goblin'; // MOB_STATS key — picks stats, mesh, loot table
+		this.x = 0;
+		this.y = 0;
+		this.z = 0;
+		this.yaw = 0;
+		this.hp = 1;
+		this.maxHp = 1;
+		this.state = 'idle'; // 'idle' | 'chase' | 'attack' | 'dead'
+		this.tsServer = 0;   // last authoritative update (epoch ms) for interpolation
+	}
+}
+defineTypes(Mob, {
+	id: 'string',
+	kind: 'string',
+	x: 'float32',
+	y: 'float32',
+	z: 'float32',
+	yaw: 'float32',
+	hp: 'uint16',
+	maxHp: 'uint16',
+	state: 'string',
+	tsServer: 'float64',
+});
+
+// A death-drop marker (W07). When a player or mob dies in a danger zone its carried
+// cash + items spill into a lootable tombstone the killer and others can claim. The
+// synced fields are only what peers must SEE to find and read it (where it is, how
+// much cash, how many item lines, whose it was); the actual item manifest stays
+// off-schema on the room so the wire stays cheap and contents can't be inspected
+// without walking up and looting. Keyed in the tombstones MapSchema by its id.
+export class Tombstone extends Schema {
+	constructor() {
+		super();
+		this.id = '';
+		this.x = 0;
+		this.z = 0;
+		this.gold = 0;     // carried cash inside (display + claim)
+		this.count = 0;    // number of item lines inside (for the "N items" pip)
+		this.owner = '';   // display name of who dropped it
+		this.ts = 0;       // epoch ms it was created (clients fade it as it ages)
+	}
+}
+defineTypes(Tombstone, {
+	id: 'string',
+	x: 'float32',
+	z: 'float32',
+	gold: 'uint32',
+	count: 'uint8',
+	owner: 'string',
+	ts: 'float64',
 });
 
 export class WalkState extends Schema {
@@ -97,6 +212,20 @@ export class WalkState extends Schema {
 		// but not a full server restart. The client surfaces this so builders know
 		// whether their creation is saved for keeps.
 		this.persistent = false;
+		// Drivable vehicles in this world, keyed by vehicle id. Seeded on room create
+		// from the vehicle spawn registry; transforms driven by whoever is at the
+		// wheel and validated server-side.
+		this.vehicles = new MapSchema();
+		// Authoritative time of day for the open-world day/night cycle, as a day
+		// fraction in [0,1): 0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset.
+		// The server advances it (see WalkRoom) so every client in the world renders
+		// the same sky and two players always agree on whether it's night.
+		this.worldTime = 0;
+		// Combat world entities (W07), both server-owned: roaming PvE mobs in the
+		// danger zones, and death-drop tombstones anyone can loot. Kept at the end of
+		// the schema (append-only) so an older client isn't shifted off the format.
+		this.mobs = new MapSchema();
+		this.tombstones = new MapSchema();
 	}
 }
 defineTypes(WalkState, {
@@ -109,4 +238,10 @@ defineTypes(WalkState, {
 	holderMinUsd: 'float32',
 	blocks: { map: Block },
 	persistent: 'boolean',
+	// Append-only: keep new collections at the end so a still-running older client
+	// (pre-vehicles) isn't shifted off the wire format mid-deploy.
+	vehicles: { map: Vehicle },
+	worldTime: 'float32',
+	mobs: { map: Mob },
+	tombstones: { map: Tombstone },
 });

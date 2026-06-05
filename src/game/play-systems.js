@@ -17,14 +17,30 @@
 
 import {
 	Group, Mesh, Color, Vector3,
-	CircleGeometry, RingGeometry, CylinderGeometry, SphereGeometry,
+	CircleGeometry, RingGeometry, CylinderGeometry, SphereGeometry, ConeGeometry, BoxGeometry, IcosahedronGeometry,
 	MeshStandardMaterial, MeshBasicMaterial,
 	BufferGeometry, Line, LineBasicMaterial, Float32BufferAttribute, DoubleSide,
 } from 'three';
 
-import { FISHING_SPOTS, nearestFishingSpot } from '../../multiplayer/src/world-features.js';
+import {
+	FISHING_SPOTS, nearestFishingSpot,
+	TREES, nearestTree, ROCKS, nearestRock,
+	FIREPITS, nearestFirepit, MOB_SPAWNS, nearestMobSpawn,
+} from '../../multiplayer/src/world-features.js';
 import { itemDisplay } from './items.js';
 import './play-systems.css';
+
+// Contextual activities the world offers, beyond fishing. Each entry knows the
+// tool the player must hold (null = none), the nearest-node finder (shared with the
+// server so the range rule never drifts), and the verb shown on the action button.
+// Ordered by how close the player must be — when several are reachable, tick() picks
+// the nearest. Fishing keeps its bespoke cast path; these four share one dispatch.
+const ACTIVITIES = [
+	{ type: 'chop', tool: 'axe', near: nearestTree, label: 'Chop', glyph: '🪓', noTool: 'Need an axe' },
+	{ type: 'mine', tool: 'pickaxe', near: nearestRock, label: 'Mine', glyph: '⛏️', noTool: 'Need a pickaxe' },
+	{ type: 'attack', tool: 'sword', near: nearestMobSpawn, label: 'Attack', glyph: '⚔️', noTool: 'Need a sword' },
+	{ type: 'cook', tool: null, near: nearestFirepit, label: 'Cook fish', glyph: '🍳', noTool: '' },
+];
 
 const SKILL_META = {
 	fishing: { label: 'Fishing', glyph: '🎣' },
@@ -215,6 +231,31 @@ export class PlaySystems {
 		this._renderHotbar();
 		this._renderGold();
 		if (this._invOpen) this._renderInventory();
+	}
+
+	// ---------------------------------------------------------------- accessors
+	// The unified WorldHud owns the canonical cash/health readout, so the legacy
+	// gold purse is hidden when that HUD is active — one money readout, not two.
+	setGoldVisible(v) { if (this.gold) this.gold.hidden = !v; }
+
+	getGold() { return this.profile?.gold ?? 0; }
+	getHp() { return this.profile?.hp ?? 0; }
+	getMaxHp() { return this.profile?.maxHp ?? 0; }
+
+	// Hotbar projected for the weapon/action wheel: glyph + name + qty per slot.
+	getHotbarItems() {
+		const hb = this.profile?.hotbar || [];
+		const active = this.profile?.activeSlot ?? -1;
+		const out = [];
+		for (let i = 0; i < Math.max(6, hb.length); i++) {
+			const slot = hb[i] || { item: '', qty: 0 };
+			const disp = slot.item ? itemDisplay(slot.item) : null;
+			out.push({
+				slot: i, empty: !slot.item, active: i === active,
+				glyph: disp ? disp.glyph : '', name: disp ? disp.name : '', qty: slot.qty || 0,
+			});
+		}
+		return out;
 	}
 
 	onXpGain(g) {

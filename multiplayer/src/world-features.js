@@ -47,3 +47,126 @@ export function fishingSpotInRange(x, z) {
 	const near = nearestFishingSpot(x, z);
 	return near && near.gap <= 0 ? near.spot : null;
 }
+
+// ---------------------------------------------------------------------------
+// Gather & craft stations — woodcutting, mining, cooking (W06)
+// ---------------------------------------------------------------------------
+//
+// The gather→craft loop's fixed world stations, the chop/mine/cook counterpart to
+// the fishing ponds above. All sited in the SAFE town (clear of the W07 danger
+// zones), so the gather economy stays peaceful — you fight foes in the wilds, you
+// gather and cook at home. Generalised over `nearestNode` so the range rule the
+// server trusts and the client renders the button from is byte-identical to fishing.
+
+// Generic proximity: distance from (x,z) to the nearest usable edge of a node list,
+// where each node is { x, z, r } and `reach` is how far beyond the body radius a
+// player may stand and still act. Returns { node, gap, dist } for the nearest (gap ≤
+// 0 = in range) or null when the list is empty.
+export function nearestNode(x, z, nodes, reach) {
+	let best = null;
+	for (const node of nodes) {
+		const dist = Math.hypot(x - node.x, z - node.z);
+		const gap = dist - (node.r + reach);
+		if (!best || gap < best.gap) best = { node, gap, dist };
+	}
+	return best;
+}
+
+function nodeInRange(x, z, nodes, reach) {
+	const near = nearestNode(x, z, nodes, reach);
+	return near && near.gap <= 0 ? near.node : null;
+}
+
+// Trees, chopped with an axe. `difficulty` scales the chop curve (a hardwood is
+// slower). A grove west of the totem, clear of the ponds and the danger zones.
+export const TREES = [
+	{ id: 'tree-1', x: -36, z: -6, r: 0.9, difficulty: 1 },
+	{ id: 'tree-2', x: -39, z: -11, r: 0.9, difficulty: 1.2 },
+	{ id: 'tree-3', x: -33, z: -14, r: 0.9, difficulty: 1 },
+	{ id: 'tree-4', x: -41, z: -4, r: 0.9, difficulty: 1.4 },
+	{ id: 'tree-5', x: -35, z: -20, r: 0.9, difficulty: 1.2 },
+];
+export const CHOP_REACH = 2.6;
+export function nearestTree(x, z) { return nearestNode(x, z, TREES, CHOP_REACH); }
+export function treeInRange(x, z) { return nodeInRange(x, z, TREES, CHOP_REACH); }
+
+// Ore rocks, mined with a pickaxe. `difficulty` slows the strike; `coal` is the
+// bonus-coal weight (denser seams give up coal more readily). A quarry east of the
+// totem, away from the grove, the ponds and the danger zones.
+export const ROCKS = [
+	{ id: 'rock-1', x: 36, z: -16, r: 1.1, difficulty: 1, coal: 1 },
+	{ id: 'rock-2', x: 40, z: -21, r: 1.1, difficulty: 1.3, coal: 1.4 },
+	{ id: 'rock-3', x: 33, z: -24, r: 1.1, difficulty: 1.2, coal: 1.2 },
+	{ id: 'rock-4', x: 42, z: -13, r: 1.1, difficulty: 1.5, coal: 1.6 },
+];
+export const MINE_REACH = 2.8;
+export function nearestRock(x, z) { return nearestNode(x, z, ROCKS, MINE_REACH); }
+export function rockInRange(x, z) { return nodeInRange(x, z, ROCKS, MINE_REACH); }
+
+// Roast pits — cook raw fish into edible cooked fish. Sited beside the ponds so the
+// catch→cook→eat loop is a short walk, not a trek.
+export const FIREPITS = [
+	{ id: 'fire-east', x: 23, z: 13, r: 1.0 },
+	{ id: 'fire-west', x: -22, z: 20, r: 1.0 },
+];
+export const COOK_REACH = 2.6;
+export function nearestFirepit(x, z) { return nearestNode(x, z, FIREPITS, COOK_REACH); }
+export function firepitInRange(x, z) { return nodeInRange(x, z, FIREPITS, COOK_REACH); }
+
+// ---------------------------------------------------------------------------
+// Safe vs danger zones — opt-in PvP by location (W07)
+// ---------------------------------------------------------------------------
+//
+// GTA / Kintara-style risk geography: the whole built-up town (spawn, totem,
+// trading screen, and the gather/fish stations) is SAFE — no player may damage
+// another there and no roaming mob enters it. Combat tension is confined to a
+// handful of named WILDERNESS pockets sited in the open ground away from those
+// landmarks: inside one, PvP is on and PvE mobs roam and drop the better loot.
+// Naming the danger zones (rather than carving the map by radius) keeps the dense
+// town peaceful, gives each red zone a sign to put over the crossing, and leaves
+// the gather economy undisturbed.
+//
+// This is the ONE source of truth for the boundary, imported by BOTH the server
+// (WalkRoom — gates every attack, confines + seeds mobs, picks death-drop rules)
+// and the client (PlayCombat — paints the danger ground ring, signposts the
+// crossing, gates the attack button). A circle test is exact, cheap and trivially
+// unit-testable; W01 can later refine these into full districts.
+export const DANGER_ZONES = [
+	{ id: 'southern-wilds', name: 'Southern Wilds', x: 0, z: -46, r: 13 },
+	{ id: 'western-marches', name: 'Western Marches', x: -46, z: 28, r: 11 },
+	{ id: 'eastern-marches', name: 'Eastern Marches', x: 46, z: 8, r: 11 },
+];
+
+export const WORLD_RADIUS = 60;            // matches WalkRoom's authoritative clamp
+export const SPAWN_POINT = { x: 0, z: 0 }; // where the dead respawn — always safe
+
+// The danger zone a world point sits inside, or null when it's in safe town.
+export function dangerZoneAt(x, z) {
+	for (const zone of DANGER_ZONES) {
+		if (Math.hypot(x - zone.x, z - zone.z) <= zone.r) return zone;
+	}
+	return null;
+}
+
+// The zone kind a world point falls in. Pure and shared so client signposting and
+// server gating agree to the metre.
+export function zoneAt(x, z) {
+	return dangerZoneAt(x, z) ? 'danger' : 'safe';
+}
+
+export function isSafeZone(x, z) {
+	return !dangerZoneAt(x, z);
+}
+
+export function isDangerZone(x, z) {
+	return !!dangerZoneAt(x, z);
+}
+
+// A random point inside a given danger zone (kept a little in from its edge so a
+// spawn never lands straddling the boundary). `rng` is injectable so spawn
+// placement is deterministic under test, mirroring the loot/fish roll helpers.
+export function randomPointInZone(zone, rng = Math.random) {
+	const rr = Math.max(0, zone.r - 1.5) * Math.sqrt(rng()); // uniform over the disc
+	const a = rng() * Math.PI * 2;
+	return { x: zone.x + Math.cos(a) * rr, z: zone.z + Math.sin(a) * rr };
+}

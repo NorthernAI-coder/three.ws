@@ -524,7 +524,7 @@ a:hover {
 	align-items: center;
 	justify-content: center;
 	background: var(--accent);
-	color: #fff;
+	color: #000;
 	border-radius: 50%;
 	font-size: 0.58rem;
 	font-weight: 800;
@@ -850,7 +850,7 @@ a:hover {
 
 .studio-right-tab[aria-selected='true'] {
 	background: var(--accent);
-	color: #fff;
+	color: #000;
 }
 
 .config-form {
@@ -963,14 +963,14 @@ a:hover {
 
 .btn-primary {
 	background: var(--accent);
-	color: #fff;
+	color: #000;
 	border-color: var(--accent);
 	box-shadow: 0 2px 12px rgba(255, 255, 255, 0.15);
 }
 
 .btn-primary:hover {
-	background: var(--ink);
-	border-color: var(--ink);
+	background: var(--accent-strong);
+	border-color: var(--accent-strong);
 	box-shadow: 0 4px 20px rgba(255, 255, 255, 0.25);
 	transform: translateY(-1px);
 }

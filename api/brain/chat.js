@@ -21,6 +21,17 @@ import { watsonxConfig, watsonxChatRequest } from '../_lib/watsonx.js';
 export const maxDuration = 120;
 
 const PROVIDERS = {
+	'gpt-oss-120b': {
+		label: 'GPT-OSS 120B',
+		network: 'OpenAI · OpenRouter',
+		tier: 'balanced',
+		maxOutput: 8192,
+		description: "OpenAI's open-weight 120B. Fast, capable, free tier. Platform default.",
+		build: () => {
+			if (env.OPENROUTER_API_KEY) return openrouter()('openai/gpt-oss-120b:free');
+			return null;
+		},
+	},
 	'claude-opus-4-7': {
 		label: 'Claude Opus 4.7',
 		network: 'Anthropic',
@@ -302,7 +313,7 @@ export default wrap(async function handler(req, res) {
 		return error(res, e.status || 400, 'bad_request', e.message);
 	}
 
-	const providerKey = String(body.provider || 'claude-sonnet-4-6');
+	const providerKey = String(body.provider || 'gpt-oss-120b');
 	const spec = PROVIDERS[providerKey];
 	if (!spec) {
 		return error(res, 400, 'unknown_provider', `unknown provider: ${providerKey}`, {

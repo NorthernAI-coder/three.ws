@@ -104,6 +104,14 @@
 @media (max-width: 1080px) {
 	.nav-search-label { display: none; }
 	.nav-search-hint { display: none; }
+	/* Collapse to a square icon button that matches the notifications bell,
+	   instead of a wide pill wrapping a tiny off-balance icon. */
+	.nav-search-btn {
+		width: 36px; height: 36px; padding: 0;
+		justify-content: center; border-radius: 8px;
+		border-color: transparent;
+	}
+	.nav-search-ico { width: 16px; height: 16px; }
 }
 
 /* ── Notifications bell button ───────────────────────────────── */

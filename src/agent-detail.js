@@ -1258,7 +1258,12 @@ function normalize(rec, avatar) {
 		id: rec.id,
 		name: rec.name || 'Unnamed agent',
 		assetKind: rec.is_registered ? 'Core Asset' : 'Off-chain',
-		active: !!rec.is_registered,
+		// "Active" is a liveness signal, NOT an on-chain one. An agent is live as
+		// long as it isn't an unpublished draft — off-chain agents are fully usable
+		// and must not read as dead. On-chain status is carried separately by the
+		// asset-kind label + the on-chain badge. `is_published` is only present in
+		// the owner view; public viewers (undefined) always see a live agent.
+		active: rec.is_published !== false,
 		avatar: avatar?.image_url || avatar?.thumbnail_url || avatar?.preview_url || null,
 		description: rec.description || '',
 		trust,

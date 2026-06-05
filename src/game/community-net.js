@@ -129,6 +129,7 @@ export class CommunityNet {
 			xpgain: new Set(),      // ({skill, amount, xp, level, levelXp, nextXp})
 			levelup: new Set(),     // ({skill, level})
 			notice: new Set(),      // ({kind, text, ...}) — activity result toast (fish/eat/tool/full)
+			combat: new Set(),      // ({node, kind, mobHp, mobMaxHp, playerHp, playerMaxHp, dealt, dead, ...}) — combat-lite exchange
 		};
 		this.ping = null;        // smoothed RTT in ms, null until the first echo
 		this._pingSentAt = 0;    // perf-clock stamp of the last move awaiting an echo
@@ -241,6 +242,7 @@ export class CommunityNet {
 			this.room.onMessage('xpgain', (msg) => this._emit('xpgain', msg || {}));
 			this.room.onMessage('levelup', (msg) => this._emit('levelup', msg || {}));
 			this.room.onMessage('notice', (msg) => this._emit('notice', msg || {}));
+			this.room.onMessage('combat', (msg) => this._emit('combat', msg || {}));
 
 			const $ = getStateCallbacks(this.room);
 			const $state = $(this.room.state);
@@ -380,6 +382,10 @@ export class CommunityNet {
 	// Activities & economy. Server-authoritative: these only request the action; the
 	// result arrives via the profile/inv/xpgain/levelup/notice events above.
 	fish() { this.room?.send('fish'); }
+	chop() { this.room?.send('chop'); }
+	mine() { this.room?.send('mine'); }
+	cook() { this.room?.send('cook'); }
+	attack() { this.room?.send('attack'); }
 	equip(slot) { this.room?.send('equip', { slot }); }
 	consume(ref) { this.room?.send('consume', { slot: ref }); }
 	requestProfile() { this.room?.send('profileReq'); }

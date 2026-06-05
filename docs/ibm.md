@@ -20,6 +20,13 @@ Three things are deliberately kept distinct, and the docs say so plainly:
 
 Do not describe the connector or the public demos as an official IBM release or partnership deliverable. Do describe the platform integration as built on IBM watsonx.ai.
 
+### Press & coverage
+
+Outside coverage of three.ws and its work on IBM watsonx.ai. These are third-party press and syndicated releases — link to them as coverage, and keep the distinctions above intact when you cite them. Do not let a headline upgrade the careful framing on this page.
+
+- [three.ws and IBM announce strategic partnership to advance AI-powered 3D agent technology](https://markets.businessinsider.com/news/stocks/three-ws-and-ibm-announce-strategic-partnership-to-advance-ai-powered-3d-agent-technology-1036222181) — Business Insider (syndicated release)
+- [IBM extends its AI narrative to three.ws](https://finance.yahoo.com/sectors/technology/articles/ibm-extends-ai-narrative-three-010650764.html) — Yahoo Finance
+
 ---
 
 ## The Granite models we run

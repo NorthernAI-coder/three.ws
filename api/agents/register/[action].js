@@ -10,6 +10,7 @@ import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 import { r2, publicUrl } from '../../_lib/r2.js';
 import { SERVER_CHAIN_META } from '../../_lib/onchain.js';
+import { publishFeedEvent } from '../../_lib/feed.js';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { AbiCoder, getAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { z } from 'zod';
@@ -161,6 +162,16 @@ async function handleConfirm(req, res) {
 	if (agentURI !== prep.metadata_uri) return error(res, 409, 'conflict', `metadata URI mismatch: expected ${prep.metadata_uri} got ${agentURI}`);
 	const [updated] = await sql`insert into agent_identities (user_id, name, description, avatar_id, chain_id, erc8004_agent_id, erc8004_registry, registration_cid) values (${session.id}, ${(prep.payload.name || 'Unnamed Agent').slice(0, 255)}, ${(prep.payload.description || '').slice(0, 1000)}, null, ${body.chainId}, ${String(body.agentId)}, ${chainMeta.registry}, ${prep.cid}) on conflict (user_id) do update set name=excluded.name, description=excluded.description, chain_id=excluded.chain_id, erc8004_agent_id=excluded.erc8004_agent_id, erc8004_registry=excluded.erc8004_registry, registration_cid=excluded.registration_cid, updated_at=now() returning id`;
 	await sql`delete from agent_registrations_pending where id = ${body.prepId}`;
+	// Truthful "deployed on-chain" ticker event — only after the ERC-8004 tx is
+	// verified and the agent row carries its on-chain id. Fire-and-forget.
+	publishFeedEvent({
+		type: 'agent-onchain',
+		ts: Date.now(),
+		actor: prep.payload.name || 'An agent',
+		agentId: updated.id,
+		name: prep.payload.name || 'An agent',
+		chain: chainMeta.name || 'EVM',
+	}).catch(() => {});
 	return json(res, 200, { ok: true, agentId: updated.id });
 }
 
