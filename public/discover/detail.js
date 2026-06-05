@@ -373,11 +373,20 @@ function buildEmbedPanel(item, $) {
 		const key = btn.dataset.copyKey;
 		const textarea = panesEl.querySelector(`[data-pane="${key}"] textarea`);
 		if (!textarea) return;
-		navigator.clipboard.writeText(textarea.value).then(() => {
+		const flash = (label) => {
 			const orig = btn.textContent;
-			btn.textContent = 'Copied!';
+			btn.textContent = label;
 			setTimeout(() => { btn.textContent = orig; }, 1800);
-		});
+		};
+		Promise.resolve(navigator.clipboard?.writeText(textarea.value))
+			.then(() => flash('Copied!'))
+			.catch(() => {
+				// Clipboard API can reject (permissions, insecure context) — fall
+				// back to selecting the text so the user can copy manually.
+				textarea.focus();
+				textarea.select();
+				flash('Press ⌘C / Ctrl+C');
+			});
 	});
 }
 

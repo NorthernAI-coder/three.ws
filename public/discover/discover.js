@@ -357,17 +357,25 @@ async function loadPage() {
 		}
 	} catch (err) {
 		clearSkeletons();
-		els.status.innerHTML = `<div class="explore-error">Failed to load: ${escapeHtml(err.message)}</div>`;
+		els.status.innerHTML = `<div class="explore-error" role="alert">
+			<span class="explore-error-msg">Couldn't load agents. Check your connection and try again.</span>
+			<button type="button" class="explore-retry" data-role="retry-load">Retry</button>
+		</div>`;
 	} finally {
 		state.loading = false;
 	}
 }
 
-// Delegated clear-filters click (status block is re-rendered each load).
+// Delegated status-block clicks (the block is re-rendered each load).
 els.status.addEventListener('click', (e) => {
-	const btn = e.target.closest('[data-role="clear-filters"]');
-	if (!btn) return;
-	clearAllFilters();
+	if (e.target.closest('[data-role="clear-filters"]')) {
+		clearAllFilters();
+		return;
+	}
+	if (e.target.closest('[data-role="retry-load"]')) {
+		els.status.textContent = 'Loading…';
+		loadPage();
+	}
 });
 
 function clearAllFilters() {
@@ -526,7 +534,7 @@ function renderAvatarCard(item) {
 		.join('');
 
 	const viewerUrl = item.viewerUrl || '#';
-	const detailUrl = `/agent-next?id=${encodeURIComponent(item.avatarId)}`;
+	const detailUrl = `/agents/${encodeURIComponent(item.avatarId)}`;
 
 	card.innerHTML = `
 		<a class="explore-card-thumb" href="${escapeAttr(detailUrl)}">

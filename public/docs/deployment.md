@@ -333,7 +333,7 @@ The `vercel.json` at the root configures routing, headers, and background cron j
 ```
 /agent/:id/edit      → /agent-edit.html
 /agent/:id/embed     → /agent-embed.html   (frame-ancestors: * header)
-/agent/:id           → /agent-home.html
+/agent/:id           → 301 /agents/:id (canonical)
 /dashboard           → /dashboard/index.html
 /w/:id               → widget page (server-side)
 /a/:chainId/:id      → on-chain agent page

@@ -333,7 +333,7 @@ Controls routing and cron jobs for the Vercel deployment. The `routes` array map
 ```json
 { "src": "/agent/([^/]+)/edit",  "dest": "/agent-edit.html" }
 { "src": "/agent/([^/]+)/embed", "dest": "/agent-embed.html" }
-{ "src": "/agent/([^/]+)",       "dest": "/agent-home.html" }
+{ "src": "/agent/([^/]+)",       "status": 301, "headers": { "Location": "/agents/$1" } }
 { "src": "/a/(\\d+)/(\\d+)",    "dest": "/api/a-page?chain=$1&id=$2" }
 { "src": "/dashboard",           "dest": "/dashboard/index.html" }
 { "src": "/studio",              "dest": "/studio/index.html" }
@@ -391,7 +391,7 @@ The build is controlled by the `TARGET` environment variable:
 
 - `index.html` — marketing/landing
 - `app.html` — agent creator
-- `agent-home.html`, `agent-edit.html`, `agent-embed.html` — agent pages
+- `agent-detail.html`, `agent-edit.html`, `agent-embed.html` — agent pages
 - `dashboard/index.html` — user dashboard
 - `studio/index.html` — widget studio
 

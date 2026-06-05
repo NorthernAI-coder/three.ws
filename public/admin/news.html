@@ -9,7 +9,7 @@
 :root { color-scheme: dark; --accent: #ffffff; --accent2: #ffffff; --ok: #14f195; --warn: #ffa64d; --err: #ff5c5c; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font: 14px/1.5 -apple-system,system-ui,'Segoe UI',sans-serif; background: #080814; color: #ccc; min-height: 100vh; }
-a { color: #9a8cff; text-decoration: none; }
+a { color: #888888; text-decoration: none; }
 a:hover { text-decoration: underline; }
 .layout { display: flex; min-height: 100vh; }
 .sidebar { width: 200px; background: #0d0d1a; border-right: 1px solid #1e1e2e; padding: 20px 0; flex-shrink: 0; }
@@ -80,7 +80,7 @@ textarea { resize: vertical; min-height: 220px; font-family: 'SF Mono', Menlo, m
 .synd-err { background: rgba(255,92,92,.14); color: #ff5c5c; }
 .synd-none { background: #1a1a26; color: #666; }
 .synd-meta { color: #666; font-size: 11px; }
-.synd-meta a { color: #9a8cff; }
+.synd-meta a { color: #888888; }
 .synd-actions { display: flex; gap: 8px; }
 .actions { display: flex; gap: 10px; justify-content: space-between; padding-top: 14px; border-top: 1px solid #1e1e2e; margin-top: 22px; }
 .actions-left, .actions-right { display: flex; gap: 8px; }
@@ -180,8 +180,8 @@ function renderList() {
 \tconst badge = $('#post-count');
 \tbadge.textContent = posts.length;
 \tbadge.style.display = posts.length ? 'inline-block' : 'none';
-\tbadge.style.background = 'rgba(106,92,255,.18)';
-\tbadge.style.color = '#9a8cff';
+\tbadge.style.background = 'rgba(255,255,255,0.09)';
+\tbadge.style.color = 'var(--ink)';
 \tif (!posts.length) {
 \t\t$('#post-list').innerHTML = '<div class="list-empty">No posts yet. Click <strong>+ New post</strong> to start.</div>';
 \t\treturn;

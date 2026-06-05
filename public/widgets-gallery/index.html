@@ -25,23 +25,20 @@
 		<link rel="shortcut icon" href="/favicon.ico" />
 		<link rel="stylesheet" href="/fonts/fonts.css" />
 		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
 		<link rel="stylesheet" href="/widgets-gallery/gallery.css" />
 		<link rel="stylesheet" href="/footer.css" />
 		<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
-	</head>
+	
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="Widgets Gallery · three.ws">
+	<meta name="twitter:description" content="Pre-built chat, voice, and 3D-avatar widgets you can drop into any page.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Widgets Gallery","description":"Pre-built chat, voice, and 3D-avatar widgets you can drop into any page.","url":"https://three.ws/widgets","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="gallery-body">
-		<header class="gallery-header">
-			<h1>
-				<a href="/"><img src="/three.svg" alt="three.ws" class="wordmark-logo" /></a>
-			</h1>
-			<nav class="features-nav" aria-label="Primary">
-				<a href="/create">Create</a>
-				<a href="/discover">Discover</a>
-				<a href="/studio">Studio</a>
-				<a href="/widgets" aria-current="page" class="active">Widgets</a>
-				<a href="/docs">Docs</a>
-			</nav>
-		</header>
+		<div id="nav-container"></div>
+		<script src="/nav.js"></script>
 
 		<main class="gallery-main" id="gallery-main">
 			<section class="gallery-hero">
