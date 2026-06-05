@@ -68,6 +68,20 @@ const DEFAULT_BACKDROP_ID = 'studio';
 document.addEventListener('DOMContentLoaded', boot);
 
 function boot() {
+	// In chat-embed mode (/a/<uuid>?embed=1) the site header and nav chrome
+	// are hidden by CSS. Wire only what the embedded chat surface needs.
+	const chatEmbed = new URLSearchParams(location.search).get('embed') === '1';
+	if (chatEmbed) {
+		wireChatDock();
+		wireChatPanelDock();
+		wireAutoHide();
+		waitForViewer().then((viewer) => {
+			if (!viewer) return;
+			hookAgentBubble();
+		});
+		return;
+	}
+
 	wireExploreMenu();
 	wireUserMenu();
 	wireFirstHint();

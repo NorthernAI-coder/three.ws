@@ -365,6 +365,10 @@ export default wrap(async function handler(req, res) {
 			system,
 			messages,
 			maxOutputTokens: budget,
+			// maxRetries: 0 — the outer retry/fallback chain owns retries. The SDK
+			// default of 2 means a quota-exhausted or credits-depleted key burns
+			// ~10–20s retrying before surfacing the error we already know to route around.
+			maxRetries: 0,
 			onError: ({ error }) => {
 				streamErr = error;
 			},

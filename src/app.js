@@ -148,8 +148,19 @@ class App {
 		// 3D avatar by resolving its registration file → `avatar` service endpoint.
 		const onchain = parseOnchainPath(location.pathname) || parseOnchainHash(hash.onchain);
 
+		// /a/<uuid>?embed=1 — chromeless chat embed for non-on-chain agents.
+		// Distinct from kiosk: NichAgent is still mounted so visitors can chat.
+		const _pathSegs = location.pathname.split('/').filter(Boolean);
+		const _chatEmbedId = (
+			_pathSegs[0] === 'a' &&
+			_pathSegs.length === 2 &&
+			!onchain &&
+			qp.get('embed') === '1'
+		) ? _pathSegs[1] : null;
+
 		this.options = {
 			kiosk: Boolean(hash.kiosk) || !!(onchain && onchain.embed),
+			embedChat: !!_chatEmbedId, // /a/<uuid>?embed=1 chat embed mode
 			model: hash.model || '',
 			type: hash.type || '',
 			preset: hash.preset || '',
@@ -250,9 +261,10 @@ class App {
 
 		const options = this.options;
 
-		if (options.kiosk) {
+		if (options.kiosk || options.embedChat) {
 			// In the slim widget shell there's no <header> in the DOM —
-			// hide defensively only if it exists (legacy /app#kiosk=true URLs).
+			// hide defensively only if it exists (legacy /app#kiosk=true URLs
+			// and /a/<uuid>?embed=1 chat embeds).
 			const headerEl = document.querySelector('header');
 			if (headerEl) headerEl.style.display = 'none';
 			const footerEl = document.querySelector('footer');
@@ -291,6 +303,13 @@ class App {
 		// Load a specific agent by ID: /#agent=<uuid> (embed mode)
 		if (options.agent) {
 			this._loadAgent(options.agent);
+			return;
+		}
+
+		// /a/<uuid>?embed=1 — chromeless chat embed. Load the named agent;
+		// NichAgent will initialize because kiosk is false.
+		if (_chatEmbedId) {
+			this._loadAgent(_chatEmbedId);
 			return;
 		}
 
@@ -554,9 +573,9 @@ class App {
 	}
 
 	_applyViewerMode() {
-		const { kiosk, widget, agent, deploy, showcase } = this.options;
+		const { kiosk, widget, agent, deploy, showcase, embedChat } = this.options;
 		let mode = 'main';
-		if (kiosk || widget || agent) mode = 'embed';
+		if (kiosk || widget || agent || embedChat) mode = 'embed';
 		else if (deploy) mode = 'deploy';
 		else if (showcase) mode = 'explore';
 		document.body.dataset.viewerMode = mode;

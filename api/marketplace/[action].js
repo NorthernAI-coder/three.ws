@@ -753,8 +753,8 @@ async function handlePreview(req, res, id) {
 		return error(res, 404, 'not_found', 'agent not found or not published');
 	}
 
-	const route = pickPreviewProvider();
-	if (!route) return error(res, 503, 'preview_unavailable', 'no preview provider configured');
+	const routes = buildPreviewRoutes();
+	if (!routes.length) return error(res, 503, 'preview_unavailable', 'no preview provider configured');
 
 	const baseSystem = (agent.system_prompt || agent.persona_prompt || '').trim();
 	const systemPrompt = baseSystem
@@ -764,22 +764,33 @@ async function handlePreview(req, res, id) {
 	const history = body.history.map((m) => ({ role: m.role, content: m.content }));
 	history.push({ role: 'user', content: body.message });
 
+	// Try each configured provider in order; fail over on rate-limit (429) or
+	// provider errors (5xx). Each attempt is capped at 22s so a hung upstream
+	// can never push the request into Vercel's 30s function timeout.
 	let upstream;
-	try {
-		upstream = await fetch(route.url, {
-			method: 'POST',
-			headers: route.headers,
-			body: JSON.stringify(route.buildPayload({ systemPrompt, history })),
-		});
-	} catch {
-		return error(res, 502, 'upstream_unavailable', 'preview backend unreachable');
-	}
-
-	if (!upstream.ok) {
-		const text = await upstream.text().catch(() => '');
-		if (process.env.DEBUG === 'true') {
-			console.warn(`[preview:${route.name}]`, upstream.status, text.slice(0, 400));
+	let route;
+	for (let i = 0; i < routes.length; i++) {
+		route = routes[i];
+		try {
+			upstream = await fetch(route.url, {
+				method: 'POST',
+				headers: route.headers,
+				body: JSON.stringify(route.buildPayload({ systemPrompt, history })),
+				signal: AbortSignal.timeout(22_000),
+			});
+		} catch (fetchErr) {
+			const reason = fetchErr?.name === 'TimeoutError' ? 'timed out' : fetchErr.message;
+			console.warn(`[preview:${route.name}] fetch failed: ${reason}`);
+			if (i + 1 < routes.length) continue;
+			return error(res, 502, 'upstream_unavailable', 'preview backend unreachable');
 		}
+
+		if (upstream.ok) break;
+
+		const text = await upstream.text().catch(() => '');
+		console.warn(`[preview:${route.name}] ${upstream.status} — ${text.slice(0, 200)}`);
+		const canFailOver = i + 1 < routes.length && (upstream.status === 429 || upstream.status >= 500);
+		if (canFailOver) continue;
 		return error(res, 502, 'upstream_error', `preview backend returned ${upstream.status}`);
 	}
 
@@ -813,15 +824,21 @@ async function handlePreview(req, res, id) {
 	res.end();
 }
 
-function pickPreviewProvider() {
-	const order = ['anthropic', 'openrouter', 'groq', 'openai'];
+// Build an ordered list of all configured preview routes. Priority:
+//   1. groq       — free, fast, first-attempt reliable (per-minute caps only)
+//   2. openrouter — free Llama fallback
+//   3. anthropic  — paid server key; reliable but costs money
+//   4. openai     — paid; last resort (account may be over quota)
+function buildPreviewRoutes() {
+	const order = ['groq', 'openrouter', 'anthropic', 'openai'];
+	const routes = [];
 	for (const name of order) {
 		const cfg = PREVIEW_PROVIDERS[name];
 		const key = process.env[cfg.envKey];
 		if (!key) continue;
 		const model = process.env.PREVIEW_MODEL || cfg.defaultModel;
 		if (cfg.style === 'anthropic') {
-			return {
+			routes.push({
 				name,
 				model,
 				url: cfg.url,
@@ -838,27 +855,28 @@ function pickPreviewProvider() {
 					messages: history,
 					stream: true,
 				}),
-			};
-		}
-		return {
-			name,
-			model,
-			url: cfg.url,
-			style: 'openai',
-			headers: {
-				Authorization: `Bearer ${key}`,
-				'Content-Type': 'application/json',
-				...(cfg.extraHeaders || {}),
-			},
-			buildPayload: ({ systemPrompt, history }) => ({
+			});
+		} else {
+			routes.push({
+				name,
 				model,
-				max_tokens: 512,
-				messages: [{ role: 'system', content: systemPrompt }, ...history],
-				stream: true,
-			}),
-		};
+				url: cfg.url,
+				style: 'openai',
+				headers: {
+					Authorization: `Bearer ${key}`,
+					'Content-Type': 'application/json',
+					...(cfg.extraHeaders || {}),
+				},
+				buildPayload: ({ systemPrompt, history }) => ({
+					model,
+					max_tokens: 512,
+					messages: [{ role: 'system', content: systemPrompt }, ...history],
+					stream: true,
+				}),
+			});
+		}
 	}
-	return null;
+	return routes;
 }
 
 async function streamAnthropicPreview(upstream, sendSSE) {

@@ -1498,6 +1498,17 @@ body.app-next-body.is-dragover::before {
 	to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* ── Chat-embed mode (/a/<uuid>?embed=1) ───────────────────────────────── */
+/* Hide all site chrome; only the 3D canvas + NichAgent panel remain.      */
+
+body[data-viewer-mode='embed'].app-next-body .nxt-header,
+body[data-viewer-mode='embed'].app-next-body .nxt-action-bar,
+body[data-viewer-mode='embed'].app-next-body .nxt-first-hint,
+body[data-viewer-mode='embed'].app-next-body .nxt-more-btn,
+body[data-viewer-mode='embed'].app-next-body .nxt-preset-cluster {
+	display: none !important;
+}
+
 /* ── Auto-hide chrome ──────────────────────────────────────────────────── */
 
 body.app-next-body.nxt-chrome-hidden .nxt-header,

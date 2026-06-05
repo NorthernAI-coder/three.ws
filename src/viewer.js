@@ -593,7 +593,17 @@ export class Viewer {
 	}
 
 	render() {
-		this._composer.render();
+		// Additive bloom bleeds bright highlights into neighbouring pixels —
+		// including the alpha-0 background. Over a transparent canvas that halo
+		// composites onto the host page as a washed-out "box" around the avatar
+		// (very visible on light backgrounds). For transparent embeds we skip the
+		// bloom/vignette pass and render the scene straight to the canvas so it
+		// composites cleanly; opaque/studio backgrounds keep the cinematic pass.
+		if (this.state.transparentBg) {
+			this.renderer.render(this.scene, this.activeCamera);
+		} else {
+			this._composer.render();
+		}
 		if (this.state.grid) {
 			this._ensureAxesRenderer();
 			this.axesCamera.position.copy(this.defaultCamera.position);

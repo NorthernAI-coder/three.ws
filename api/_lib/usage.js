@@ -1,6 +1,7 @@
 // Fire-and-forget usage event logging. Failures must never impact the request.
 
-import { sql, withDbRetry } from './db.js';
+import { sql } from './db.js';
+import { withDbRetry } from './db-retry.js';
 
 export function recordEvent(evt) {
 	// Intentionally not awaited in callers; we swallow errors here.

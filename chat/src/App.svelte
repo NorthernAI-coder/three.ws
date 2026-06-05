@@ -632,7 +632,10 @@
 				convo.messages[convo.messages.length - 1].reasoning = true;
 				convo.messages[convo.messages.length - 1].thinking = true;
 				convo.messages[convo.messages.length - 1].thoughts = '';
-				convo.messages[convo.messages.length - 1].thoughtsExpanded = true;
+				// Keep reasoning collapsed in the thread — the "Thinking…" pill and the
+				// avatar thought bubble surface that the model is reasoning; the raw
+				// transcript stays behind the pill instead of dumping into the chat.
+				convo.messages[convo.messages.length - 1].thoughtsExpanded = false;
 				startThinkingTimer(convo.messages.length - 1);
 			}
 
@@ -724,7 +727,8 @@
 			if (choice.delta.reasoning && !convo.messages[i].reasoning) {
 				convo.messages[i].reasoning = true;
 				convo.messages[i].thoughts = '';
-				convo.messages[i].thoughtsExpanded = true;
+				// Collapsed by default — reasoning lives behind the pill, not inline.
+				convo.messages[i].thoughtsExpanded = false;
 				if (!convo.messages[i].thinking && !unexpandedThinkingOnce) {
 					unexpandedThinkingOnce = true;
 					convo.messages[i].thinking = true;

@@ -9,7 +9,8 @@
 //   api/_lib/migrations/2026-05-25-audit-log-context.sql  — ip + user_agent
 // Audit data starts 2026-05-01 — earlier deletions/revocations have no row.
 
-import { sql, withDbRetry } from './db.js';
+import { sql } from './db.js';
+import { withDbRetry } from './db-retry.js';
 import { clientIp } from './rate-limit.js';
 
 const UA_MAX = 512;
