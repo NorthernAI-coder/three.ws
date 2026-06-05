@@ -2,6 +2,7 @@
 // Translates host requests into AgentProtocol events and mirrors agent events back to the host.
 // See specs/EMBED_SPEC.md §Bridge Protocol
 
+import { log } from './shared/log.js';
 const PROTOCOL_VERSION = 1;
 const MAX_QUEUED_EVENTS = 256;
 
@@ -108,7 +109,7 @@ export class EmbedActionBridge {
 			const list = this._getClips();
 			return Array.isArray(list) ? list : [];
 		} catch (err) {
-			console.warn('[embed-action-bridge] getClips failed', err);
+			log.warn('[embed-action-bridge] getClips failed', err);
 			return [];
 		}
 	}
@@ -149,7 +150,7 @@ export class EmbedActionBridge {
 		// message we use the referrer-derived origin (best effort); after we lock,
 		// we use the host's actual origin.
 		if (!this._parentOrigin) {
-			console.warn('[embed-action-bridge] parent origin unknown; dropping', msg.op);
+			log.warn('[embed-action-bridge] parent origin unknown; dropping', msg.op);
 			return;
 		}
 		this._win.parent.postMessage(

@@ -5,26 +5,39 @@
  * State is persisted in sessionStorage so users can navigate away and back.
  */
 
+import { formatUsdcEq } from './shared/usd-price.js';
+import { TEMPLATES, TEMPLATES_BY_ID } from './templates.js';
+import { log } from './shared/log.js';
+
 const STORAGE_KEY = 'wz:state';
 const TOTAL_STEPS = 5;
 
 // ── Personality presets ────────────────────────────────────────────────────
 
 const PRESETS = {
-	crypto: {
-		bio: 'A crypto-savvy assistant that monitors Solana token launches, tracks whale movements on pump.fun, and helps users make informed trading decisions in real time.',
+	researcher: {
+		bio: 'A sharp web researcher who digs into any topic, synthesizes sources, and delivers clear, well-organized insights on demand.',
+	},
+	support: {
+		bio: 'A calm, helpful customer support agent who answers questions thoroughly, resolves issues efficiently, and keeps users feeling heard.',
+	},
+	podcast: {
+		bio: 'A conversational podcast host with a knack for storytelling. Brainstorms episode ideas, drafts interview questions, and writes engaging show notes.',
 	},
 	artist: {
 		bio: 'A creative collaborator with a bold visual aesthetic. Helps brainstorm concepts, generate ideas, and develop artistic projects across any medium.',
+	},
+	assistant: {
+		bio: 'A helpful, honest assistant. Clear and concise answers. No filler. Gets things done.',
+	},
+	crypto: {
+		bio: 'A crypto-savvy assistant that monitors Solana token launches, tracks whale movements on pump.fun, and helps users make informed trading decisions in real time.',
 	},
 	community: {
 		bio: 'An engaging community manager who greets members, answers questions, moderates discussions, and keeps the community thriving 24/7.',
 	},
 	defi: {
-		bio: 'A DeFi expert fluent in liquidity pools, yield strategies, on-chain analytics, and protocol mechanics across Solana and EVM chains.',
-	},
-	assistant: {
-		bio: 'A helpful, honest assistant. Clear and concise answers. No filler. Gets things done.',
+		bio: 'A DeFi expert fluent in liquidity pools, yield strategies, blockchain analytics, and protocol mechanics across Solana and EVM networks.',
 	},
 };
 
@@ -40,6 +53,8 @@ const SKILL_MAP = {
 	x402:    ['x402-accept', 'x402-pay'],
 	web:     ['web-search'],
 };
+
+const CRYPTO_SKILLS = new Set(['pumpfun', 'solana', 'x402']);
 
 // ── State ─────────────────────────────────────────────────────────────────
 
@@ -75,12 +90,14 @@ function initState() {
 		description: '',
 		model: 'claude-sonnet-4-5',
 		enabledSkills: ['memory', 'think'],
+		cryptoMode: false,
 		price: '',
 		wallet: '',
 		deployed: false,
 		embedCode: '',
 		liveUrl: '',
 	};
+	if (base.cryptoMode === undefined) base.cryptoMode = false;
 
 	if (avatarId) {
 		base.avatarId = avatarId;
@@ -96,6 +113,90 @@ function initState() {
 	}
 
 	return base;
+}
+
+// ── Templates gallery ─────────────────────────────────────────────────────
+
+const templatesScreen = document.getElementById('templates-screen');
+const wizardEl = document.getElementById('wizard');
+
+function showWizard() {
+	if (templatesScreen) {
+		templatesScreen.classList.add('tpl-exit');
+		setTimeout(() => {
+			templatesScreen.classList.add('tpl-hidden');
+			templatesScreen.classList.remove('tpl-exit');
+		}, 200);
+	}
+	if (wizardEl) wizardEl.classList.remove('wz-offstage');
+}
+
+function applyTemplate(tpl) {
+	state.description = tpl.bio;
+	state.enabledSkills = [...tpl.skills];
+	if (tpl.model) state.model = tpl.model;
+	state.cryptoMode = Boolean(tpl.cryptoMode);
+	// Jump to step 2 (Name & Brain) so the user immediately sees the prefilled persona
+	state.step = 2;
+	saveState(state);
+	showWizard();
+	renderStep();
+}
+
+function renderTemplateCard(tpl) {
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className = 'tpl-card';
+	btn.setAttribute('role', 'listitem');
+	btn.setAttribute('aria-label', `Use template: ${tpl.name}`);
+	btn.dataset.templateId = tpl.id;
+
+	btn.innerHTML = `
+		<span class="tpl-card-icon" aria-hidden="true">${tpl.icon}</span>
+		<div class="tpl-card-name">${tpl.name}</div>
+		<div class="tpl-card-tagline">${tpl.tagline}</div>
+		<div class="tpl-card-cta" aria-hidden="true">Use template <span>→</span></div>
+		${tpl.cryptoMode ? '<span class="tpl-card-badge">Crypto</span>' : ''}
+	`;
+
+	btn.addEventListener('click', () => applyTemplate(tpl));
+	return btn;
+}
+
+function initTemplateGallery() {
+	if (!templatesScreen) return false;
+
+	const url = new URL(location.href);
+	const tplParam = url.searchParams.get('template');
+	const hasSavedState = Boolean(loadState());
+
+	// If a specific template is requested via ?template=id, apply it immediately.
+	// applyTemplate() calls renderStep() — return true so caller skips its own call.
+	if (tplParam && TEMPLATES_BY_ID[tplParam]) {
+		applyTemplate(TEMPLATES_BY_ID[tplParam]);
+		return true;
+	}
+
+	// If there's an in-progress wizard session, skip the gallery and let caller renderStep.
+	if (hasSavedState) {
+		showWizard();
+		return false;
+	}
+
+	// Show the gallery — renderStep still runs so wizard state is primed behind the overlay.
+	templatesScreen.classList.remove('tpl-hidden');
+
+	const grid = document.getElementById('tpl-grid');
+	if (grid) {
+		TEMPLATES.forEach((tpl) => grid.appendChild(renderTemplateCard(tpl)));
+	}
+
+	const blankBtn = document.getElementById('btn-blank-start');
+	if (blankBtn) {
+		blankBtn.addEventListener('click', () => showWizard());
+	}
+
+	return false;
 }
 
 // ── CSRF helper ───────────────────────────────────────────────────────────
@@ -147,6 +248,46 @@ const dots = Array.from(document.querySelectorAll('.wz-dot'));
 
 let state = initState();
 
+// ── Crypto mode helpers ───────────────────────────────────────────────────
+
+function hasCryptoSkills() {
+	return state.enabledSkills.some(s => CRYPTO_SKILLS.has(s));
+}
+
+function updateCryptoUI() {
+	const on = state.cryptoMode;
+
+	const toggleBtn = $('crypto-toggle');
+	if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(on));
+
+	const personalitySection = $('crypto-personality-section');
+	if (personalitySection) personalitySection.hidden = !on;
+
+	const skillsSection = $('crypto-skills-section');
+	if (skillsSection) skillsSection.hidden = !on;
+
+	const revealBtn = $('crypto-skills-reveal');
+	if (revealBtn) revealBtn.hidden = on;
+}
+
+function setCryptoMode(on) {
+	state.cryptoMode = on;
+	if (!on) {
+		state.enabledSkills = state.enabledSkills.filter(s => !CRYPTO_SKILLS.has(s));
+		document.querySelectorAll('[data-skill]').forEach((card) => {
+			if (CRYPTO_SKILLS.has(card.dataset.skill)) {
+				card.classList.remove('active');
+				card.setAttribute('aria-pressed', 'false');
+				const check = card.querySelector('.wz-skill-check');
+				if (check) check.textContent = '';
+			}
+		});
+	}
+	updateCryptoUI();
+	if (state.step === 5) renderStep5();
+	saveState(state);
+}
+
 // ── Render current step ───────────────────────────────────────────────────
 
 function renderStep() {
@@ -165,12 +306,11 @@ function renderStep() {
 	});
 
 	$('btn-back').hidden = state.step <= 1;
-	$('btn-skip-step').hidden = state.step !== 1 && state.step !== 5;
 	$('btn-next').hidden = state.step === 4 && !state.deployed;
 
 	const nextBtn = $('btn-next');
 	if (state.step === 5) {
-		nextBtn.textContent = 'Go to dashboard';
+		nextBtn.textContent = hasCryptoSkills() ? 'Save & finish' : 'Go to dashboard';
 	} else if (state.step === 4) {
 		nextBtn.textContent = 'Continue';
 		nextBtn.hidden = !state.deployed;
@@ -178,12 +318,16 @@ function renderStep() {
 		nextBtn.textContent = state.step === 3 ? 'Continue to deploy' : 'Continue';
 	}
 
+	// Skip button: show on step 1 always; on step 5 only when crypto skills selected (skip wallet setup)
+	$('btn-skip-step').hidden = state.step !== 1 && !(state.step === 5 && hasCryptoSkills());
+
 	// Step-specific renders
 	if (state.step === 1) renderStep1();
-	if (state.step === 2) renderStep2();
-	if (state.step === 3) renderStep3();
+	if (state.step === 2) { renderStep2(); updateCryptoUI(); }
+	if (state.step === 3) { renderStep3(); updateCryptoUI(); }
 	if (state.step === 4 && !state.deployed) startDeploy();
 	if (state.step === 4 && state.deployed) showDeploySuccess();
+	if (state.step === 5) renderStep5();
 
 	// Announce progress to screen readers
 	const aria = $('wz-progress');
@@ -228,12 +372,16 @@ function renderStep2() {
 	if (bioEl && state.description) bioEl.value = state.description;
 
 	document.querySelectorAll('[data-model]').forEach((btn) => {
-		btn.classList.toggle('active', btn.dataset.model === state.model);
+		const on = btn.dataset.model === state.model;
+		btn.classList.toggle('active', on);
+		btn.setAttribute('aria-pressed', String(on));
 	});
 
 	document.querySelectorAll('[data-preset]').forEach((btn) => {
 		const preset = PRESETS[btn.dataset.preset];
-		btn.classList.toggle('active', preset && preset.bio === state.description);
+		const on = Boolean(preset && preset.bio === state.description);
+		btn.classList.toggle('active', on);
+		btn.setAttribute('aria-pressed', String(on));
 	});
 }
 
@@ -247,6 +395,22 @@ function renderStep3() {
 		const check = card.querySelector('.wz-skill-check');
 		if (check) check.textContent = enabled ? '✓' : '';
 	});
+}
+
+// ── Step 5: Conditional earn/skip ─────────────────────────────────────────
+
+function renderStep5() {
+	const hasCrypto = hasCryptoSkills();
+	const skipPanel = $('step5-skip');
+	const earnPanel = $('step5-earn');
+	if (skipPanel) skipPanel.hidden = hasCrypto;
+	if (earnPanel) earnPanel.hidden = !hasCrypto;
+
+	const skipBtn = $('btn-skip-step');
+	if (skipBtn) skipBtn.hidden = !hasCrypto;
+
+	const nextBtn = $('btn-next');
+	if (nextBtn) nextBtn.textContent = hasCrypto ? 'Save & finish' : 'Go to dashboard';
 }
 
 // ── Step 4: Deploy ─────────────────────────────────────────────────────────
@@ -303,13 +467,10 @@ async function startDeploy() {
 		state.deployed = true;
 		saveState(state);
 
-		// Small pause so the "Building…" label is visible
-		await new Promise((r) => setTimeout(r, 400));
-
 		showDeploySuccess();
 
 	} catch (err) {
-		console.error('[wizard/deploy]', err);
+		log.error('[wizard/deploy]', err);
 		$('deploy-label').textContent = err.message || 'Deployment failed. Please try again.';
 		$('deploy-label').style.color = '#f87171';
 		const spinner = document.querySelector('.wz-deploy-spinner');
@@ -408,10 +569,11 @@ async function goNext() {
 	if (!validateStep()) return;
 
 	if (state.step === 5) {
-		// Save earn settings and go to dashboard
 		$('btn-next').disabled = true;
 		$('btn-next').textContent = 'Saving…';
-		await saveEarnSettings().catch(() => {});
+		if (hasCryptoSkills()) {
+			await saveEarnSettings().catch(() => {});
+		}
 		sessionStorage.removeItem(STORAGE_KEY);
 		location.href = '/dashboard?welcome=1';
 		return;
@@ -514,7 +676,7 @@ $('glb-file-input').addEventListener('change', async (e) => {
 		renderStep1();
 
 	} catch (err) {
-		console.error('[wizard/upload]', err);
+		log.error('[wizard/upload]', err);
 		showError(err.message || 'Upload failed. Please try again.');
 	} finally {
 		btn.querySelector('.wz-avatar-card-label').textContent = origLabel;
@@ -532,8 +694,10 @@ $('agent-name').addEventListener('input', () => {
 
 $('agent-bio').addEventListener('input', () => {
 	state.description = $('agent-bio').value;
-	// Deselect preset chips if manually edited
-	document.querySelectorAll('[data-preset]').forEach((btn) => btn.classList.remove('active'));
+	document.querySelectorAll('[data-preset]').forEach((btn) => {
+		btn.classList.remove('active');
+		btn.setAttribute('aria-pressed', 'false');
+	});
 	saveState(state);
 });
 
@@ -543,16 +707,24 @@ document.querySelectorAll('[data-preset]').forEach((btn) => {
 		if (!preset) return;
 		$('agent-bio').value = preset.bio;
 		state.description = preset.bio;
-		document.querySelectorAll('[data-preset]').forEach((b) => b.classList.remove('active'));
+		document.querySelectorAll('[data-preset]').forEach((b) => {
+			b.classList.remove('active');
+			b.setAttribute('aria-pressed', 'false');
+		});
 		btn.classList.add('active');
+		btn.setAttribute('aria-pressed', 'true');
 		saveState(state);
 	});
 });
 
 document.querySelectorAll('[data-model]').forEach((btn) => {
 	btn.addEventListener('click', () => {
-		document.querySelectorAll('[data-model]').forEach((b) => b.classList.remove('active'));
+		document.querySelectorAll('[data-model]').forEach((b) => {
+			b.classList.remove('active');
+			b.setAttribute('aria-pressed', 'false');
+		});
 		btn.classList.add('active');
+		btn.setAttribute('aria-pressed', 'true');
 		state.model = btn.dataset.model;
 		saveState(state);
 	});
@@ -596,6 +768,23 @@ $('copy-embed').addEventListener('click', () => {
 	});
 });
 
+// ── Crypto toggle event bindings ──────────────────────────────────────────
+
+const cryptoToggleBtn = $('crypto-toggle');
+if (cryptoToggleBtn) {
+	cryptoToggleBtn.addEventListener('click', () => setCryptoMode(!state.cryptoMode));
+}
+
+const cryptoSkillsRevealBtn = $('crypto-skills-reveal');
+if (cryptoSkillsRevealBtn) {
+	cryptoSkillsRevealBtn.addEventListener('click', () => setCryptoMode(true));
+}
+
+const cryptoSkillsHideBtn = $('crypto-skills-hide');
+if (cryptoSkillsHideBtn) {
+	cryptoSkillsHideBtn.addEventListener('click', () => setCryptoMode(false));
+}
+
 // ── Step 5: Wallet chain detection ────────────────────────────────────────
 
 $('earn-wallet').addEventListener('input', () => {
@@ -603,6 +792,25 @@ $('earn-wallet').addEventListener('input', () => {
 	$('earn-chain').textContent = detectChain(addr);
 });
 
+// ── Step 5: Earn price USD equivalent ────────────────────────────────────
+// USDC is pegged 1:1 to USD — show "≈ $X.XXX per call" so users know
+// exactly what they're charging in dollars.
+
+function updateEarnPriceHint() {
+	const hint = $('earn-price-usd-hint');
+	if (!hint) return;
+	const raw = parseFloat($('earn-price')?.value);
+	if (!raw || raw <= 0) { hint.textContent = ''; return; }
+	const eq = formatUsdcEq(raw);
+	hint.textContent = eq ? `${eq} per call` : '';
+}
+
+$('earn-price').addEventListener('input', updateEarnPriceHint);
+updateEarnPriceHint();
+
 // ── Initial render ─────────────────────────────────────────────────────────
 
-renderStep();
+// initTemplateGallery may call renderStep() itself (template apply or ?template= param).
+// Only call renderStep() here if the gallery didn't already do it.
+const _galleryRendered = initTemplateGallery();
+if (!_galleryRendered) renderStep();

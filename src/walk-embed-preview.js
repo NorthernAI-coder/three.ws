@@ -29,6 +29,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
 import { reserveWebGLContext } from './webgl-budget.js';
+import { log } from './shared/log.js';
 
 const AVATAR_URL = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -456,7 +457,7 @@ export function initWalkPreview(container) {
 		for (const entry of entries) {
 			if (entry.isIntersecting && !started) {
 				started = true;
-				loadAvatar().catch((err) => console.warn('[walk-preview] load failed', err));
+				loadAvatar().catch((err) => log.warn('[walk-preview] load failed', err));
 				syncRunning();
 				observer.disconnect();
 			}

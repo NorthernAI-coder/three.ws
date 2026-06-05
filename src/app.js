@@ -40,6 +40,7 @@ import { SceneController } from './runtime/scene.js';
 import { Runtime } from './runtime/index.js';
 import { Memory } from './memory/index.js';
 import { SkillRegistry } from './skills/index.js';
+import { log } from './shared/log.js';
 
 window.THREE = THREE;
 window.VIEWER = {};
@@ -124,9 +125,9 @@ function parseOnchainHash(value) {
 }
 
 if (!(window.File && window.FileReader && window.FileList && window.Blob)) {
-	console.error('The File APIs are not fully supported in this browser.');
+	log.error('The File APIs are not fully supported in this browser.');
 } else if (!WebGL.isWebGL2Available()) {
-	console.error('WebGL is not supported in this browser.');
+	log.error('WebGL is not supported in this browser.');
 }
 
 class App {
@@ -308,7 +309,7 @@ class App {
 				// Defensive: _loadAgentForEdit handles its own failures and
 				// always mounts the viewer up-front, but a truly unexpected
 				// throw shouldn't leave the user with no UI to act on.
-				console.warn('[3d-agent] agent-edit load failed', err);
+				log.warn('[3d-agent] agent-edit load failed', err);
 				this._showViewerError("Couldn't load this agent.", () => this._retryAgentLoad());
 				if (!this.viewer) this._maybeResumeOrLoad(this.options);
 				if (!this._agentSystemBooted) this._initAgentSystem();
@@ -385,7 +386,7 @@ class App {
 					return;
 				}
 			} catch (err) {
-				console.warn('[3d-agent] resume failed', err);
+				log.warn('[3d-agent] resume failed', err);
 			}
 		}
 
@@ -548,7 +549,7 @@ class App {
 				}
 			});
 		} catch (err) {
-			console.warn('[3d-agent] Agent system init failed:', err.message);
+			log.warn('[3d-agent] Agent system init failed:', err.message);
 		}
 	}
 
@@ -667,16 +668,19 @@ class App {
 
 		if (signOutBtn) {
 			signOutBtn.addEventListener('click', () => {
-				fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(
-					() => {
+				fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+					.finally(() => {
 						try {
 							localStorage.removeItem('3dagent:auth-hint');
 						} catch {
 							/* ignore */
 						}
 						location.href = '/';
-					},
-				);
+					})
+					// `.finally` re-throws a network rejection; swallow it so a
+					// failed logout request never surfaces as an unhandled
+					// rejection (the user is navigated home regardless).
+					.catch(() => {});
 			});
 		}
 	}
@@ -963,7 +967,7 @@ class App {
 				}
 			}
 		} catch (err) {
-			console.warn('[3d-agent] save failed:', err.message);
+			log.warn('[3d-agent] save failed:', err.message);
 			if (btn) {
 				btn.removeAttribute('disabled');
 				btn.querySelector('span').textContent = 'Save to account';
@@ -1383,7 +1387,7 @@ class App {
 				this._widgetController = ctl;
 			}
 		} catch (e) {
-			console.warn('[widget] mount failed', type, e?.message);
+			log.warn('[widget] mount failed', type, e?.message);
 		}
 	}
 
@@ -1411,7 +1415,7 @@ class App {
 				this.viewer.setEnvironment(cfg.envPreset);
 			}
 		} catch (e) {
-			console.warn('[widget] applyConfig failed', e?.message);
+			log.warn('[widget] applyConfig failed', e?.message);
 		}
 	}
 
@@ -1590,7 +1594,7 @@ class App {
 					break;
 			}
 		} catch (e) {
-			console.warn('[widget] command failed', command, e?.message);
+			log.warn('[widget] command failed', command, e?.message);
 		}
 	}
 
@@ -1602,7 +1606,7 @@ class App {
 			} catch {}
 		}
 		if (!this._parentOrigin) {
-			console.warn('[widget] parent origin unknown; dropping', msg?.type);
+			log.warn('[widget] parent origin unknown; dropping', msg?.type);
 			return;
 		}
 		window.parent.postMessage(msg, this._parentOrigin);
@@ -1686,7 +1690,7 @@ class App {
 				this._flashSaved(avatar);
 			} catch (err) {
 				if (err.code !== 'not_signed_in') {
-					console.warn('[3d-agent] save to account failed:', err.message);
+					log.warn('[3d-agent] save to account failed:', err.message);
 				}
 			}
 		});
@@ -1888,12 +1892,14 @@ class App {
 							.then((r) => (r.ok ? def : null))
 							.catch(() => null),
 					),
-				).then((results) => {
-					const available = results.filter(Boolean);
-					if (available.length > 0) {
-						viewer.setAnimationDefs(available);
-					}
-				});
+				)
+					.then((results) => {
+						const available = results.filter(Boolean);
+						if (available.length > 0) {
+							viewer.setAnimationDefs(available);
+						}
+					})
+					.catch(() => {});
 			});
 	}
 
@@ -1973,7 +1979,7 @@ class App {
 				if (this._editingAgentId && this._avatarNeedsThumbnail) {
 					this._avatarNeedsThumbnail = false;
 					this._captureAndUploadThumbnail().catch((err) =>
-						console.warn('[3d-agent] thumbnail upload failed', err),
+						log.warn('[3d-agent] thumbnail upload failed', err),
 					);
 				}
 			} else {
@@ -2195,7 +2201,7 @@ class App {
 		// The viewer-status overlay (driven by LOAD_END payload) is the
 		// user-facing error surface now — see _classifyLoadError above.
 		// onError is kept as a console-only fallback for diagnostics.
-		console.error('[3d-agent] load error:', error);
+		log.error('[3d-agent] load error:', error);
 	}
 
 	/**
@@ -2246,7 +2252,7 @@ class App {
 			const resolvedGlb = isDecentralizedURI(glbUri) ? resolveURI(glbUri) : glbUri;
 			await this.view(resolvedGlb, '', new Map());
 		} catch (err) {
-			console.warn('[3d-agent] on-chain load failed:', err);
+			log.warn('[3d-agent] on-chain load failed:', err);
 			this._showOnChainError(err.message || String(err));
 		}
 	}
@@ -2302,7 +2308,7 @@ class App {
 			const { renderShowcasePage } = await import('./erc8004/showcase.js');
 			renderShowcasePage(page);
 		} catch (err) {
-			console.error('[3d-agent] showcase page load failed', err);
+			log.error('[3d-agent] showcase page load failed', err);
 		}
 	}
 
@@ -2338,12 +2344,12 @@ class App {
 			new RegisterUI(
 				page,
 				(result) => {
-					console.info('[ERC-8004] Agent registered:', result);
+					log.info('[ERC-8004] Agent registered:', result);
 				},
 				{ mode: 'page', initial, viewer: this.viewer, avatarId: initial.avatarId },
 			);
 		} catch (err) {
-			console.error('[3d-agent] deploy page load failed', err);
+			log.error('[3d-agent] deploy page load failed', err);
 		}
 	}
 
@@ -2382,7 +2388,7 @@ class App {
 					glbUrl: avatar.url || avatar.model_url || '',
 				};
 			} catch (err) {
-				console.warn('[deploy] avatar prefill failed; falling back to viewer model', err);
+				log.warn('[deploy] avatar prefill failed; falling back to viewer model', err);
 			}
 		}
 		return {
@@ -2466,7 +2472,7 @@ if (!window.__WIDGET_SHELL) {
 function _bootApp() {
 	const app = new App(document.body, location);
 	window.VIEWER.app = app;
-	console.info('[three.ws] Debugging data exported as `window.VIEWER`.');
+	log.info('[three.ws] Debugging data exported as `window.VIEWER`.');
 }
 // The slim /widget shell injects this script after DOMContentLoaded (the
 // reveal state machine dynamically appends it), so a plain

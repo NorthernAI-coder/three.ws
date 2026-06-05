@@ -212,7 +212,7 @@ async function startGeneration() {
 		if (!res.ok) {
 			const e = await res.json().catch(() => ({}));
 			if (res.status === 402 && e.error === 'free_trial_used') {
-				showResult('error', 'You've used your 1 free video. Upgrade to generate more.');
+				showResult('error', 'You\'ve used your 1 free video. Upgrade to generate more.');
 				retryBtn.textContent = 'Upgrade plan';
 				retryBtn.onclick = () => { window.location.href = '/dashboard'; };
 				generateBtn.disabled = false;

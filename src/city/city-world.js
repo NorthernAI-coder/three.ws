@@ -3,6 +3,7 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { fetchOSMData, buildCity, buildMinimapStatic, CITY_HALF } from './city-map.js';
 import { CityPlayer } from './city-player.js';
 import { CityCamera } from './city-camera.js';
+import { log } from '../shared/log.js';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,7 @@ async function main() {
 			progress(22 + frac * 30, label);
 		});
 	} catch (err) {
-		console.error('OSM fetch failed — loading empty world:', err);
+		log.error('OSM fetch failed — loading empty world:', err);
 		osmData = { elements: [] };
 	}
 
@@ -184,4 +185,4 @@ function updateCoords(pos) {
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-main().catch(console.error);
+main().catch(log.error);

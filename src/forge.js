@@ -1,4 +1,7 @@
 // Forge — text → 3D generator (browser client).
+import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
+import { showSharePanel } from './shared/share.js';
+ensureStateKitStyles();
 //
 // Drives /api/forge: POST a prompt to start a job, then poll GET /api/forge?job
 // until it resolves to a GLB. State transitions are driven by real API
@@ -40,6 +43,7 @@ const els = {
 	again: document.getElementById('again'),
 	retry: document.getElementById('retry'),
 	errorMessage: document.getElementById('error-message'),
+	forgeShareBtn: document.getElementById('forge-share-btn'),
 	creations: document.getElementById('creations'),
 	creationsGrid: document.getElementById('creations-grid'),
 	creationsCount: document.getElementById('creations-count'),
@@ -181,19 +185,42 @@ function showResult(glbUrl, prompt) {
 		`${prompt.replace(/[^a-z0-9]+/gi, '-').slice(0, 48).replace(/^-|-$/g, '') || 'forge'}.glb`,
 	);
 	showState('result');
+	// Surface adjacent features now that a model exists (embed it / drop it in a
+	// world). The site-wide discovery layer (public/feature-discovery.js) renders
+	// the contextual cross-link card; this just announces the moment.
+	document.dispatchEvent(new CustomEvent('tws:feature-done', { detail: { feature: 'forge' } }));
+	// Update share button label with creation context (non-blocking).
+	if (els.forgeShareBtn) {
+		els.forgeShareBtn.dataset.sharePrompt = prompt;
+	}
 }
 
 // Load (or reload) the "Your creations" strip from durable storage. Hidden
 // entirely when persistence is off or the client has no creations yet.
 async function loadGallery() {
 	if (!els.creations) return;
+
+	// Show skeleton while the real fetch is in flight.
+	els.creations.classList.remove('is-hidden');
+	els.creationsGrid.setAttribute('aria-busy', 'true');
+	els.creationsGrid.innerHTML = skeletonHTML(4, 'card');
+
 	let data;
 	try {
 		const res = await fetch('/api/forge-gallery?limit=24', { headers: CLIENT_HEADERS });
 		data = await res.json().catch(() => ({}));
 	} catch {
+		// On network error, show error state with a retry that reloads the gallery.
+		els.creationsGrid.removeAttribute('aria-busy');
+		els.creationsGrid.innerHTML = errorStateHTML({
+			title: "Couldn't load your creations",
+			body: 'Check your connection — your models are still saved.',
+		});
+		els.creationsGrid.querySelector('[data-sk-retry]')?.addEventListener('click', loadGallery);
 		return;
 	}
+
+	els.creationsGrid.removeAttribute('aria-busy');
 	const creations = Array.isArray(data?.creations) ? data.creations : [];
 	if (!data?.enabled || creations.length === 0) {
 		els.creations.classList.add('is-hidden');
@@ -206,6 +233,7 @@ async function loadGallery() {
 		card.className = 'creation';
 		card.title = c.prompt || 'Forged model';
 		card.setAttribute('aria-label', `Open: ${c.prompt || 'forged model'}`);
+		if (c.id) card.dataset.creationId = c.id;
 
 		if (c.preview_image_url) {
 			const img = document.createElement('img');
@@ -395,5 +423,60 @@ els.download.addEventListener('click', () => {
 	sendFeedback({ downloaded: true });
 });
 
+// Share button — open share panel with copy-link, X, Farcaster, and remix CTA.
+if (els.forgeShareBtn) {
+	els.forgeShareBtn.addEventListener('click', () => {
+		const origin = location.origin;
+		const prompt = els.forgeShareBtn.dataset.sharePrompt || lastPrompt || '';
+		const id = currentCreationId;
+		const shareUrl = id
+			? `${origin}/forge/share/${id}`
+			: `${origin}/forge`;
+		const remixUrl = prompt
+			? `${origin}/forge?prompt=${encodeURIComponent(prompt)}`
+			: `${origin}/forge`;
+		showSharePanel(
+			{
+				kind: 'forge',
+				id: id || '',
+				title: prompt || 'Forged creation',
+				description: 'A 3D model generated with text → 3D on three.ws',
+				shareUrl,
+				remixUrl,
+			},
+			els.forgeShareBtn,
+		);
+	});
+}
+
+// Handle ?prompt= (pre-fill the prompt box from a remix link)
+// and ?share= (load a shared creation from the gallery).
+(function handleQueryParams() {
+	const params = new URLSearchParams(location.search);
+	const promptParam = params.get('prompt');
+	const shareParam = params.get('share');
+	if (promptParam && els.prompt) {
+		els.prompt.value = decodeURIComponent(promptParam).slice(0, 300);
+		els.prompt.focus();
+	}
+	if (shareParam) {
+		// Attempt to load the shared creation once the gallery fetch completes.
+		// We hook into the gallery load so the creation card is available.
+		const origLoadGallery = loadGallery;
+		// Override load to highlight the shared creation after gallery loads.
+		// This is a one-shot intercept via a flag.
+		window.__forgeShareId = shareParam;
+	}
+})();
+
 // Surface any previously forged models for this browser on load.
-loadGallery();
+loadGallery().then(() => {
+	const shareId = window.__forgeShareId;
+	if (!shareId) return;
+	// Find the creation card in the grid and trigger it.
+	const card = els.creationsGrid?.querySelector(`[data-creation-id="${shareId}"]`);
+	if (card) {
+		card.click();
+		card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
+});

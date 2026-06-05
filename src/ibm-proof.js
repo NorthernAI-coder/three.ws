@@ -220,7 +220,7 @@ function setupChartHover() {
 		cross.style.display = 'block'; cross.style.left = best.px + 'px'; cross.style.height = rect.height + 'px';
 		tip.style.display = 'block'; tip.style.left = best.px + 'px'; tip.style.top = best.py + 'px';
 		const when = new Date(best.t * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' });
-		const tag = best.kind === 'forecast' ? '<span style="color:var(--ibm-light)">· forecast</span>' : `<span style="color:var(--faint)">· ${when}</span>`;
+		const tag = best.kind === 'forecast' ? '<span style="color:var(--brand-blue-light)">· forecast</span>' : `<span style="color:var(--faint)">· ${when}</span>`;
 		tip.innerHTML = `${fmtPrice(best.c)} ${tag}`;
 	});
 }
@@ -235,7 +235,7 @@ function clearPanels() {
 	const govEl = $('gov');
 	govEl.classList.remove('passed', 'flagged');
 	const svgStroke = $('gov-shield')?.querySelector('svg');
-	if (svgStroke) svgStroke.setAttribute('stroke', 'var(--ibm-light)');
+	if (svgStroke) svgStroke.setAttribute('stroke', 'var(--brand-blue-light)');
 	$('gov-title').textContent = 'Running Granite…';
 	$('gov-sub').textContent = 'Forecasting and screening the narration.';
 	$('gov-model').textContent = '';
@@ -294,7 +294,7 @@ function renderProof(data) {
 	].filter(([, v]) => v).map(([k, v]) => `<span class="m"><b>${k}</b> ${v}</span>`).join('');
 	const at = data.attester?.address;
 	$('p-attester').innerHTML = at
-		? `<a href="${data.attester.explorer}" target="_blank" rel="noopener" style="color:var(--ibm-light);text-decoration:none">${at}</a>`
+		? `<a href="${data.attester.explorer}" target="_blank" rel="noopener" style="color:var(--brand-blue-light);text-decoration:none">${at}</a>`
 		: '<span style="color:var(--faint)">not configured — set AVATAR_WALLET_SECRET to enable notarization</span>';
 }
 

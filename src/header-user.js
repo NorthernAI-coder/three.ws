@@ -25,7 +25,7 @@ function injectStyles() {
 .hu-root { position: relative; display: inline-flex; }
 .hu-avatar {
 	width: 32px; height: 32px; border-radius: 50%;
-	background: linear-gradient(135deg, #ffffff 0%, #9a8cff 100%);
+	background: linear-gradient(135deg, #ffffff 0%, #888888 100%);
 	color: #fff; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
 	border: 1px solid rgba(255,255,255,0.08);
 	display: inline-flex; align-items: center; justify-content: center;
@@ -33,9 +33,9 @@ function injectStyles() {
 	transition: transform 0.12s ease, box-shadow 0.15s ease;
 	font-family: inherit;
 }
-.hu-avatar:hover { box-shadow: 0 0 0 3px rgba(106,92,255,0.18); }
-.hu-avatar:focus-visible { outline: 2px solid #9a8cff; outline-offset: 2px; }
-.hu-avatar[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(106,92,255,0.28); }
+.hu-avatar:hover { box-shadow: 0 0 0 3px rgba(255,255,255,0.09); }
+.hu-avatar:focus-visible { outline: 2px solid rgba(255,255,255,0.28); outline-offset: 2px; }
+.hu-avatar[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(255,255,255,0.14); }
 .hu-avatar svg { width: 16px; height: 16px; display: block; }
 
 .hu-menu {
@@ -60,7 +60,7 @@ function injectStyles() {
 }
 .hu-identity-avatar {
 	width: 36px; height: 36px; border-radius: 50%;
-	background: linear-gradient(135deg, #ffffff 0%, #9a8cff 100%);
+	background: linear-gradient(135deg, #ffffff 0%, #888888 100%);
 	color: #fff; font-size: 14px; font-weight: 600;
 	display: inline-flex; align-items: center; justify-content: center;
 	flex-shrink: 0;
@@ -91,7 +91,7 @@ function injectStyles() {
 .hu-item.danger:hover { background: rgba(255,80,80,0.08); color: #ffb3b3; }
 
 .hu-divider { height: 1px; background: #23232f; margin: 6px 4px; }
-.hu-copy-flash { color: #9a8cff !important; }
+.hu-copy-flash { color: #888888 !important; }
 `;
 	const style = document.createElement('style');
 	style.setAttribute('data-header-user', '');
@@ -169,7 +169,7 @@ function buildMenu(user, identity, options) {
 		items.push(`<a class="hu-item" href="/settings">${SETTINGS_ICON}<span>Settings</span></a>`);
 	}
 	items.push(`<a class="hu-item" href="/dashboard/portfolio">${PORTFOLIO_ICON}<span>Portfolio</span></a>`);
-	items.push(`<a class="hu-item" href="/dashboard/wallets">${WALLETS_ICON}<span>Linked wallets</span></a>`);
+	items.push(`<a class="hu-item" href="/dashboard/account#wallets">${WALLETS_ICON}<span>Linked wallets</span></a>`);
 
 	const copyTarget = identity.walletAddr || (identity.hasRealEmail ? user.email : '');
 	if (copyTarget) {

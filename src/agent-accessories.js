@@ -11,6 +11,7 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { resolveURI } from './ipfs.js';
 import { collectSlotTargets } from './avatar-wardrobe.js';
+import { log } from './shared/log.js';
 
 const SINGLE_SLOT_KINDS = new Set(['outfit', 'hat', 'glasses']);
 
@@ -100,7 +101,7 @@ export class AccessoryManager {
 			if (preset) {
 				await this.applyPreset(preset);
 			} else {
-				console.warn(`[accessories] unknown preset id on boot: ${id}`);
+				log.warn(`[accessories] unknown preset id on boot: ${id}`);
 			}
 		}
 	}
@@ -164,13 +165,13 @@ export class AccessoryManager {
 		try {
 			gltf = await _loadGLB(this._loader, preset.glbUrl);
 		} catch (err) {
-			console.warn(`[accessories] failed to load ${preset.glbUrl}:`, err);
+			log.warn(`[accessories] failed to load ${preset.glbUrl}:`, err);
 			return;
 		}
 
 		const bone = _findBone(this.viewer?.content, preset.attachBone);
 		if (!bone) {
-			console.warn(
+			log.warn(
 				`[accessories] bone not found: ${preset.attachBone} (preset: ${preset.id})`,
 			);
 			// Still record as applied so list() and removePreset() work correctly
@@ -186,7 +187,7 @@ export class AccessoryManager {
 
 	_applyMorphBinding(preset) {
 		if (!this.viewer?.content) {
-			console.warn(`[accessories] no model loaded yet for preset ${preset.id}`);
+			log.warn(`[accessories] no model loaded yet for preset ${preset.id}`);
 			return;
 		}
 

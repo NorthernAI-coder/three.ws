@@ -12,6 +12,7 @@
 
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 import { coinChipHTML } from './shared/agent-coin.js';
+import { log } from './shared/log.js';
 
 const API = '/api';
 const $ = (id) => document.getElementById(id);
@@ -203,7 +204,7 @@ export async function submitPreviewMessage(e) {
 		footer.textContent = modelLabel ? `via ${modelLabel}` : '';
 	} catch (err) {
 		if (err.name === 'AbortError') return;
-		console.error('[marketplace] preview', err);
+		log.error('[marketplace] preview', err);
 		if (assistantBubble) {
 			assistantBubble.classList.remove('streaming');
 			if (!assistantText) assistantText = '— preview failed';
@@ -252,7 +253,7 @@ export async function openCreatorModal(creatorId, deps = {}) {
 		activeCreator = j?.data;
 		renderCreatorModal(activeCreator, deps);
 	} catch (err) {
-		console.error('[marketplace] creator', err);
+		log.error('[marketplace] creator', err);
 		$('creator-modal-title').textContent = 'Could not load creator';
 		$('creator-agents-grid').innerHTML = `<div class="market-empty">${escapeHtml(err.message || 'Failed')}</div>`;
 		$('creator-avatars-grid').innerHTML = '';

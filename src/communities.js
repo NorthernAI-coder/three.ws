@@ -7,6 +7,7 @@
 // is the signed-in user's real avatars (/api/avatars). No mocks, no fakes — if
 // a source is empty or unreachable, the UI says so and offers a way forward.
 
+import { log } from './shared/log.js';
 const NAME_STORAGE_KEY = 'walk:player-name';
 const AVATAR_CHOICE_KEY = 'communities:avatar-choice';
 const DEFAULT_AVATAR_URL = '/avatars/default.glb';
@@ -220,7 +221,7 @@ async function loadTrending() {
 		const data = await r.json();
 		renderCoins(Array.isArray(data) ? data : data?.coins || []);
 	} catch (err) {
-		console.warn('[communities] trending failed:', err?.message ?? err);
+		log.warn('[communities] trending failed:', err?.message ?? err);
 		renderCoinError();
 	}
 }
@@ -341,7 +342,7 @@ async function loadCoinProfile(mint) {
 		const r = await fetch(`/api/pump/coin?mint=${encodeURIComponent(mint)}`, { headers: { accept: 'application/json' } });
 		if (r.ok) coin = await r.json();
 	} catch (err) {
-		console.warn('[communities] coin profile', err?.message ?? err);
+		log.warn('[communities] coin profile', err?.message ?? err);
 	}
 
 	// User may have navigated away during the fetch.
@@ -466,7 +467,7 @@ async function loadCoinMarket(mint) {
 			if (lbl) lbl.textContent = g.isGraduated ? 'graduated' : 'to graduation';
 		}
 	} catch (err) {
-		console.warn('[communities] coin market', err?.message ?? err);
+		log.warn('[communities] coin market', err?.message ?? err);
 	}
 }
 
@@ -503,7 +504,7 @@ async function loadCoinTrades(mint) {
 		$('cp-trades-hint').textContent = `Last ${trades.length}`;
 		wrap.hidden = false;
 	} catch (err) {
-		console.warn('[communities] coin trades', err?.message ?? err);
+		log.warn('[communities] coin trades', err?.message ?? err);
 	}
 }
 

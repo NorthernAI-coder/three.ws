@@ -20,6 +20,7 @@
  */
 
 import { ACTION_TYPES } from './agent-protocol.js';
+import { THREE_WS_MARK } from './solana/vanity/brand.js';
 
 const REFRESH_MS = 30_000;
 const QUOTE_DEBOUNCE_MS = 250;
@@ -46,9 +47,12 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 		quote: null,
 		quoting: false,
 		signer: 'agent', // 'agent' = server-side agent wallet; 'owner' = browser wallet
-		// vanity launch
+		// Brand mark: every three.ws coin is stamped `3ws…` on-chain (always
+		// ground). `vanityEnabled` + `vanitySuffix` only let power users append
+		// extra base58 characters *after* the mark — never disable it. No default
+		// suffix: the mark leads, with no extra characters unless the user adds them.
 		vanityEnabled: false,
-		vanitySuffix: 'pump',
+		vanitySuffix: '',
 		vanityProgress: null,
 		// 3ws stamp state: null | 'grinding' | 'done'
 		stampPhase: null,
@@ -107,6 +111,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 				<span class="pumpfun-card-title">Launch coin on pump.fun</span>
 			</div>
 			<p class="pumpfun-card-sub">Mint a token whose metadata is your 3D avatar.</p>
+			<p class="pumpfun-card-sub">Every three.ws coin is stamped <strong>3ws…</strong> on-chain.</p>
 			<div class="pumpfun-signer" role="tablist" aria-label="Signer">
 				<button class="pumpfun-signer-tab ${state.signer === 'agent' ? 'is-active' : ''}" data-action="signer-agent" role="tab" aria-selected="${state.signer === 'agent'}" ${isGrinding || isStamped ? 'disabled' : ''}>Agent wallet</button>
 				<button class="pumpfun-signer-tab ${state.signer === 'owner' ? 'is-active' : ''}" data-action="signer-owner" role="tab" aria-selected="${state.signer === 'owner'}" ${isGrinding || isStamped ? 'disabled' : ''}>Owner wallet</button>
@@ -427,7 +432,16 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 				const btnEl = cardBody.querySelector('#pf-launch-btn');
 				if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Launching…'; }
 			} else {
-				// Agent wallet: server stamps 3ws mark. Reflect the phase on the button.
+				// Agent wallet: the custodial agent wallet signs server-side, so the
+				// server grinds + holds the mint secret. Always request the 3ws mark
+				// (plus any optional user suffix) so the agent launch is branded too —
+				// this launch endpoint only grinds the mark when we ask for it.
+				const userSuffix = state.vanityEnabled ? (state.vanitySuffix?.trim() || '') : '';
+				extraArgs = {
+					vanityPrefix: THREE_WS_MARK,
+					vanityIgnoreCase: true,
+					...(userSuffix ? { vanitySuffix: userSuffix } : {}),
+				};
 				launchBtn.textContent = 'Launching…';
 			}
 
@@ -824,7 +838,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 /** Render a mint address with the leading three.ws mark visually emphasized. */
 function stampedMintHtml(mint) {
 	if (!mint) return '';
-	const MARK_LEN = 3; // '3ws'
+	const MARK_LEN = THREE_WS_MARK.length;
 	const mark = escapeHtml(mint.slice(0, MARK_LEN));
 	const tail = mint.slice(MARK_LEN);
 	const tailShort = tail.length > 8 ? tail.slice(0, 4) + '…' + tail.slice(-4) : escapeHtml(tail);

@@ -36,6 +36,7 @@ import {
 	slugify,
 	toggleEmoteStrip,
 } from './create-review-features.js';
+import { log } from './shared/log.js';
 
 const RESUME_KEY = '3dagent:guest-avatar-resume';
 const $ = (sel) => document.querySelector(sel);
@@ -64,7 +65,7 @@ async function boot() {
 	// Kick off the 3D mount but don't block UI wiring on it — the loading
 	// overlay stays up until renderPreview() resolves and hides it.
 	renderPreview(staged).catch((err) => {
-		console.error('[create-review] renderPreview failed', err);
+		log.error('[create-review] renderPreview failed', err);
 	});
 	wireControls();
 
@@ -104,7 +105,7 @@ async function renderPreview(record) {
 	try {
 		await viewerScene.mount({ container, glbBlob: record.blob, cameraPreset: 'full' });
 	} catch (err) {
-		console.error('[create-review] failed to mount viewer', err);
+		log.error('[create-review] failed to mount viewer', err);
 		$('#viewer-loading').innerHTML =
 			'<span style="color:#ffb3b3">Couldn\'t render this model.</span>';
 		return;
@@ -126,7 +127,7 @@ async function renderPreview(record) {
 	// it before requesting. Prefer the calmer breathing loop; fall back to the
 	// plain idle clip if breathing isn't in the manifest.
 	playBaseIdle().catch((err) =>
-		console.warn('[create-review] base idle failed', err),
+		log.warn('[create-review] base idle failed', err),
 	);
 }
 
@@ -356,9 +357,12 @@ async function onSave({ auto = false } = {}) {
 		// If the user backgrounded the tab, ping a Notification so they know to
 		// come back. Best-effort: silently no-ops if permission was never granted.
 		notifySaveComplete(name);
+		// Mark the "create your first avatar" step of the getting-started guide
+		// done at the true completion point, before we navigate away.
+		try { window.__twsGuide?.complete('create'); } catch (_) {}
 		window.location.href = '/app?agent=' + agent.id;
 	} catch (err) {
-		console.error('[create-review] save failed', err);
+		log.error('[create-review] save failed', err);
 		setSaveCancellable(false);
 
 		if (err.code === 'upload_aborted') {
@@ -750,6 +754,6 @@ function showStatus(msg, type = 'info') {
 window.addEventListener('beforeunload', releaseObjectUrl);
 
 boot().catch((err) => {
-	console.error('[create-review] boot failed', err);
+	log.error('[create-review] boot failed', err);
 	setPageState('empty');
 });

@@ -24,6 +24,7 @@ import { protocol, ACTION_TYPES } from './agent-protocol.js';
 import { AgentAvatar } from './agent-avatar.js';
 // END:EMBED_BRIDGES_IMPORT
 import { AgentNotifier } from './agent-notifier.js';
+import { log } from './shared/log.js';
 
 const MODES = ['inline', 'floating', 'section', 'fullscreen'];
 
@@ -386,7 +387,7 @@ const BASE_STYLE = `
 	.alert-banner button:hover { opacity: 1; }
 	/* Rich token card unfurl rendered inline in chat */
 	.token-card { margin: 6px 0; padding: 10px 12px; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; font: 12px var(--agent-chat-font); color: var(--agent-on-surface); }
-	.token-card.solana { border-left: 3px solid #c084fc; }
+	.token-card.solana { border-left: 3px solid rgba(255,255,255,0.3); }
 	.token-card-header { display: flex; align-items: center; gap: 8px; }
 	.token-card-symbol { font: 700 14px var(--agent-chat-font); }
 	.token-card-name { opacity: .7; }
@@ -395,7 +396,7 @@ const BASE_STYLE = `
 	.token-card-stat .label { font: 600 9px/1 var(--agent-chat-font); letter-spacing: .06em; text-transform: uppercase; opacity: .5; }
 	.token-card-stat .value { font: 600 13px var(--agent-chat-font); font-variant-numeric: tabular-nums; }
 	.token-card-bar { margin-top: 8px; height: 6px; background: rgba(255,255,255,.08); border-radius: 999px; overflow: hidden; }
-	.token-card-bar .fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #c084fc); transition: width .4s; }
+	.token-card-bar .fill { height: 100%; background: linear-gradient(90deg, #3b82f6, rgba(255,255,255,0.7)); transition: width .4s; }
 	.token-card-bar .fill.danger { background: linear-gradient(90deg, #f59e0b, #ef4444); }
 	.token-card .flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 	.token-card .flag { font: 600 9px/1 var(--agent-chat-font); letter-spacing: .04em; text-transform: uppercase; padding: 3px 6px; border-radius: 4px; background: rgba(239,68,68,.18); color: #fecaca; border: 1px solid rgba(239,68,68,.32); }
@@ -1405,7 +1406,7 @@ class Agent3DElement extends HTMLElement {
 						}
 					}
 				} catch (_e) {
-					console.warn('[agent-3d] embed-policy fetch failed; continuing', _e);
+					log.warn('[agent-3d] embed-policy fetch failed; continuing', _e);
 				}
 			}
 
@@ -1508,7 +1509,7 @@ class Agent3DElement extends HTMLElement {
 						}),
 					);
 				} catch (e) {
-					console.warn('[agent-3d] skill load failed', spec, e);
+					log.warn('[agent-3d] skill load failed', spec, e);
 				}
 			}
 
@@ -1540,7 +1541,7 @@ class Agent3DElement extends HTMLElement {
 						}
 					}
 				} catch (e) {
-					console.warn('[agent-3d] skill-access fetch failed; defaulting to allow-all', e);
+					log.warn('[agent-3d] skill-access fetch failed; defaulting to allow-all', e);
 				}
 			}
 
@@ -1577,7 +1578,7 @@ class Agent3DElement extends HTMLElement {
 			} catch (e) {
 				// Empathy is non-essential — embed still works without it. Log so
 				// integrators can see the failure during development.
-				console.warn('[agent-3d] AgentAvatar attach failed; continuing without empathy/lipsync', e);
+				log.warn('[agent-3d] AgentAvatar attach failed; continuing without empathy/lipsync', e);
 				this._avatar = null;
 			}
 
@@ -1795,7 +1796,7 @@ class Agent3DElement extends HTMLElement {
 			// LiveKit realtime voice — connect when voice="livekit" and agent-id is set
 			if (this.getAttribute('voice') === 'livekit' && _backendId) {
 				this._connectLiveKit(_backendId).catch((err) => {
-					console.warn('[agent-3d] LiveKit connect failed', err);
+					log.warn('[agent-3d] LiveKit connect failed', err);
 				});
 			}
 
@@ -1828,7 +1829,7 @@ class Agent3DElement extends HTMLElement {
 				}),
 			);
 		} catch (err) {
-			console.error('[agent-3d] boot failed', err);
+			log.error('[agent-3d] boot failed', err);
 			this._loadingEl.hidden = true;
 			// Resolve errors should already have been caught and replaced with the
 			// default-avatar manifest in _resolveManifest. Anything reaching here is
@@ -1870,7 +1871,7 @@ class Agent3DElement extends HTMLElement {
 			try {
 				return await resolveByAvatarId(avatarIdAttr, { origin: apiBase });
 			} catch (err) {
-				console.warn(
+				log.warn(
 					'[agent-3d] avatar-id resolve failed, using default avatar:',
 					err,
 				);
@@ -1878,7 +1879,7 @@ class Agent3DElement extends HTMLElement {
 			}
 		}
 		if (src) {
-			if (agentIdAttr) console.warn('[agent-3d] both src and agent-id provided; using src');
+			if (agentIdAttr) log.warn('[agent-3d] both src and agent-id provided; using src');
 			// Plain .glb / .gltf URLs are bare bodies, not manifests — treat
 			// them as if `body=` had been set so users don't need to know the
 			// distinction.
@@ -1932,7 +1933,7 @@ class Agent3DElement extends HTMLElement {
 				return await resolveAgentById(agentIdAttr);
 			} catch (err) {
 				// Never let avatar rendering error out — fall back to default avatar.
-				console.warn('[agent-3d] agent resolve failed, using default avatar:', err);
+				log.warn('[agent-3d] agent resolve failed, using default avatar:', err);
 				return this._defaultFallbackManifest();
 			}
 		}
@@ -2427,7 +2428,7 @@ class Agent3DElement extends HTMLElement {
 			const text = await this._runtime.listen();
 			if (text) this.say(text, { voice: true });
 		} catch (e) {
-			console.warn('[agent-3d] listen failed', e);
+			log.warn('[agent-3d] listen failed', e);
 		} finally {
 			this._listening = false;
 			this._micEl.dataset.listening = 'false';
@@ -2453,7 +2454,7 @@ class Agent3DElement extends HTMLElement {
 		});
 		if (!resp.ok) {
 			const body = await resp.json().catch(() => ({}));
-			console.warn('[agent-3d] livekit-token fetch failed', resp.status, body);
+			log.warn('[agent-3d] livekit-token fetch failed', resp.status, body);
 			return;
 		}
 		const { token, serverUrl } = await resp.json();

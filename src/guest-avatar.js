@@ -14,6 +14,7 @@
  * /login post-auth check.
  */
 
+import { log } from './shared/log.js';
 const DB_NAME = 'three-ws-guest';
 const STORE = 'avatars';
 const KEY = 'pending';
@@ -121,7 +122,7 @@ export async function load() {
 			}),
 		);
 	} catch (err) {
-		console.warn('[guest-avatar] load failed:', err);
+		log.warn('[guest-avatar] load failed:', err);
 		return null;
 	}
 }
@@ -144,7 +145,7 @@ export async function clear() {
 			}),
 		);
 	} catch (err) {
-		console.warn('[guest-avatar] clear failed:', err);
+		log.warn('[guest-avatar] clear failed:', err);
 	}
 }
 

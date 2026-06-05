@@ -1,5 +1,6 @@
 import { ensureWallet } from './erc8004/agent-registry.js';
 import { identifyUser, resetIdentity } from './analytics.js';
+import { resolveError } from './shared/error-messages.js';
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -145,9 +146,9 @@ function _wireClickHandler(buttonEl) {
 		if (_busy) return;
 
 		if (!window.ethereum) {
-			statusEl.style.display = 'inline';
-			statusEl.textContent =
-				'No wallet detected — install a wallet extension (MetaMask, Coinbase Wallet, etc.) and refresh.';
+			// No wallet extension — route to the email sign-in path instead of dead-ending.
+			try { sessionStorage.setItem('login_redirect', location.href); } catch { /* ignore */ }
+			location.href = '/login?from=no-wallet';
 			return;
 		}
 
@@ -161,9 +162,51 @@ function _wireClickHandler(buttonEl) {
 			statusEl.textContent = 'Signed in — reloading…';
 			location.reload();
 		} catch (err) {
-			statusEl.textContent = err.message || 'Sign-in failed.';
+			const entry = resolveError(err, 'wallet-auth sign-in');
+			_renderInlineError(statusEl, entry, {
+				retry: () => {
+					buttonEl.disabled = false;
+					_busy = false;
+					statusEl.style.display = 'none';
+					buttonEl.click();
+				},
+			});
 			buttonEl.disabled = false;
 			_busy = false;
 		}
 	});
+}
+
+/**
+ * Render a compact inline error with action links/buttons into a status span.
+ *
+ * @param {HTMLElement} el
+ * @param {{ title: string, body: string, actions: Array }} entry
+ * @param {Record<string, () => void>} handlers
+ */
+function _renderInlineError(el, entry, handlers = {}) {
+	el.innerHTML = '';
+	el.setAttribute('role', 'alert');
+
+	const text = document.createTextNode(`${entry.title} — ${entry.body} `);
+	el.appendChild(text);
+
+	for (const action of (entry.actions || [])) {
+		if (action.href) {
+			const a = document.createElement('a');
+			a.href = action.href;
+			if (action.href.startsWith('http')) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+			a.textContent = action.label;
+			a.style.cssText = 'margin-left:.4em;text-decoration:underline;cursor:pointer;';
+			el.appendChild(a);
+		} else if (action.onClick) {
+			const handler = handlers[action.onClick];
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.textContent = action.label;
+			btn.style.cssText = 'margin-left:.4em;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;font-size:inherit;color:inherit;';
+			if (handler) btn.addEventListener('click', handler);
+			el.appendChild(btn);
+		}
+	}
 }

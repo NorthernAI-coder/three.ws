@@ -15,6 +15,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { log } from './shared/log.js';
 
 const REDUCED_MOTION =
 	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -391,7 +392,7 @@ function loadModel(url) {
 		undefined,
 		(err) => {
 			if (token !== loadToken) return;
-			console.warn('[granite-vision] model load failed', url, err);
+			log.warn('[granite-vision] model load failed', url, err);
 			if (!state.current?.thumbnail) {
 				showError(
 					'Couldn’t load this avatar',

@@ -25,6 +25,7 @@ import { IdleAnimation } from './idle-animation.js';
 import { renderSculptPanel } from './avatar-sculpt.js';
 import { renderWardrobePanel } from './avatar-wardrobe.js';
 import { playAs } from './game/play-handoff.js';
+import { log } from './shared/log.js';
 
 // ── Routing ────────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ let previewToken = 0;
 let opQueue = Promise.resolve();
 function queueOp(fn) {
 	const next = opQueue.then(fn).catch((err) => {
-		console.warn('[avatar-edit] queued op failed:', err);
+		log.warn('[avatar-edit] queued op failed:', err);
 	});
 	opQueue = next;
 	return next;
@@ -107,7 +108,7 @@ if (!avatarId) {
 	$('ae-shell').innerHTML = `<div class="ae-error">No avatar specified.</div>`;
 } else {
 	init().catch((err) => {
-		console.error('[avatar-edit] init', err);
+		log.error('[avatar-edit] init', err);
 		$('ae-shell').innerHTML = `<div class="ae-error">${esc(err.message || 'Failed to load')}</div>`;
 	});
 }
@@ -234,7 +235,7 @@ async function saveAppearance() {
 		try {
 			await uploadAvatarSnapshot({ avatarId: avatar.id, scene });
 		} catch (err) {
-			console.warn('[avatar-edit] snapshot upload failed:', err?.message);
+			log.warn('[avatar-edit] snapshot upload failed:', err?.message);
 		}
 	});
 }

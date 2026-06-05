@@ -12,6 +12,7 @@
 
 import { fetchCapabilities, fetchMessages, connectRealtime } from './town-client.js';
 import { getSession, signInWithX, ensureSolanaWallet, postAsUser, logout } from './town-auth.js';
+import { log } from '../shared/log.js';
 
 const MAX_BUBBLES = 4;
 const BUBBLE_TTL_MS = 7000;
@@ -531,7 +532,7 @@ export class Town {
 				onLike: (evt) => this._applyLike(evt),
 			});
 		} catch (err) {
-			console.warn('[town] realtime unavailable:', err?.message ?? err);
+			log.warn('[town] realtime unavailable:', err?.message ?? err);
 			this._setStatus('offline');
 		}
 	}

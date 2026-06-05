@@ -12,6 +12,7 @@
  */
 
 import { ACTION_TYPES } from './agent-protocol.js';
+import { log } from './shared/log.js';
 
 const DEG2RAD = Math.PI / 180;
 const TWO_PI = Math.PI * 2;
@@ -241,7 +242,7 @@ export class IdleAnimation {
 			!this._hipBone &&
 			this._morphMeshes.length === 0
 		) {
-			console.warn(
+			log.warn(
 				'[IdleAnimation] No bones or morph targets found on avatar root — channels will be no-ops.',
 			);
 		}

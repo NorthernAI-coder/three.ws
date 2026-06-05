@@ -37,6 +37,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
+import { log } from './shared/log.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -659,7 +660,7 @@ loadAvatar()
 		requestAnimationFrame(tick);
 	})
 	.catch((err) => {
-		console.error('[walk-embed] failed to load avatar:', err);
+		log.error('[walk-embed] failed to load avatar:', err);
 		if (statusEl) {
 			statusEl.textContent = `failed to load avatar: ${err?.message ?? err}`;
 			statusEl.classList.add('is-error');

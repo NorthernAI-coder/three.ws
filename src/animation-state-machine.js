@@ -29,6 +29,7 @@
  * already animates the mouth. Agents that have a talking-body clip (e.g. a
  * subtle idle-2) override `states.talk.clip` via meta.animationGraph.
  */
+import { log } from './shared/log.js';
 const DEFAULT_STATES = Object.freeze({
 	idle:  { clip: 'idle',     loop: true,  crossfade: 0.5,  oneShot: false, returnTo: null },
 	talk:  { clip: 'idle',     loop: true,  crossfade: 0.35, oneShot: false, returnTo: null },
@@ -140,7 +141,7 @@ export class AnimationStateMachine {
 					crossfade: def.crossfade,
 				});
 			} catch (err) {
-				console.warn('[AnimationStateMachine] onTransition threw:', err);
+				log.warn('[AnimationStateMachine] onTransition threw:', err);
 			}
 		}
 		return resolvedTarget;

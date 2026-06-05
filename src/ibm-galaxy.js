@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { log } from './shared/log.js';
 
 const RADIUS = 100; // matches the server's projection half-width
 
@@ -632,7 +633,7 @@ async function runSearch(query) {
 		const data = await res.json();
 		applySearchResults(query, data);
 	} catch (err) {
-		console.error('[galaxy] search failed', err);
+		log.error('[galaxy] search failed', err);
 		els.results.innerHTML = `<div class="r-head"><span>Search unavailable right now.</span></div>`;
 		els.results.classList.add('show');
 	} finally {
@@ -740,7 +741,7 @@ async function load() {
 		if (!res.ok) throw new Error(`galaxy ${res.status}`);
 		data = await res.json();
 	} catch (err) {
-		console.error('[galaxy] load failed', err);
+		log.error('[galaxy] load failed', err);
 		els.errorMsg.textContent = 'Something went wrong reaching the galaxy service. Check your connection and try again.';
 		showOnly(els.error);
 		return;

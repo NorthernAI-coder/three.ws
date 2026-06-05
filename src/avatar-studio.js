@@ -36,6 +36,7 @@ import {
 	clearDraft as clearDraftStorage,
 	DRAFT_KEY,
 } from './avatar-studio-utils.js';
+import { log } from './shared/log.js';
 
 const BASE_GLB_URL = '/avatars/default.glb';
 const MAX_HISTORY = 50;
@@ -69,7 +70,7 @@ let searchQuery = '';
 
 function queueOp(fn) {
 	const next = opQueue.then(fn).catch((err) => {
-		console.warn('[avatar-studio] queued op failed:', err);
+		log.warn('[avatar-studio] queued op failed:', err);
 	});
 	opQueue = next;
 	return next;
@@ -125,7 +126,7 @@ const EYE_OFF =
 // ── Init ─────────────────────────────────────────────────────────────
 
 init().catch((err) => {
-	console.error('[avatar-studio] init', err);
+	log.error('[avatar-studio] init', err);
 	$('as-shell').innerHTML = `<div class="as-error">${esc(err.message || 'Failed to load')}</div>`;
 });
 
@@ -1190,7 +1191,7 @@ async function saveAvatar() {
 				// Log for debugging but don't block the save — the avatar will look right,
 				// it just won't be re-editable via ?edit= until this is retried.
 				const body = await patchRes.json().catch(() => ({}));
-				console.warn('[avatar-studio] appearance PATCH failed (non-fatal):', body);
+				log.warn('[avatar-studio] appearance PATCH failed (non-fatal):', body);
 			}
 		}
 		updateProgress(92);
@@ -1200,7 +1201,7 @@ async function saveAvatar() {
 		try {
 			await uploadAvatarSnapshot({ avatarId: avatar.id, scene });
 		} catch (err) {
-			console.warn('[avatar-studio] snapshot upload failed:', err?.message);
+			log.warn('[avatar-studio] snapshot upload failed:', err?.message);
 		}
 
 		updateProgress(100);
@@ -1222,7 +1223,7 @@ async function saveAvatar() {
 		window.location.href = `/avatars/${encodeURIComponent(avatar.id)}`;
 	} catch (err) {
 		hideSaveOverlay();
-		console.error('[avatar-studio] save failed:', err);
+		log.error('[avatar-studio] save failed:', err);
 
 		if (err.code === 'not_signed_in' || err.stage === 'auth') {
 			const next = encodeURIComponent(location.pathname + location.search);

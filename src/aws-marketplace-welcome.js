@@ -11,6 +11,7 @@
 //   3. Otherwise → show Sign in tab (they may already have an account).
 //   After auth, call /api/aws-marketplace/link with the customer ID to attach the subscription.
 
+import { log } from './shared/log.js';
 const p = new URLSearchParams(location.search);
 const customerId = p.get('customer');
 const isTrial = p.get('trial') === '1';
@@ -68,7 +69,7 @@ async function linkAndIssue() {
 	try {
 		return await issueApiKey();
 	} catch (err) {
-		console.error('[aws-marketplace/welcome] issueApiKey failed', err);
+		log.error('[aws-marketplace/welcome] issueApiKey failed', err);
 		return null;
 	}
 }

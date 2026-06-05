@@ -12,6 +12,7 @@ import { BrowserProvider, Contract } from 'ethers';
 import { CHAIN_META, addressExplorerUrl, txExplorerUrl } from '../erc8004/chain-meta.js';
 import { DELEGATION_MANAGER_DEPLOYMENTS, DELEGATION_MANAGER_ABI } from '../erc7710/abi.js';
 import { GrantPermissionsModal } from './grant-modal.js';
+import { log } from '../shared/log.js';
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -135,7 +136,7 @@ class ManagePanel {
 		if (!this._agentWalletAddress) {
 			// Defensive: button shouldn't be visible without an agent wallet,
 			// but fail loud just in case.
-			console.warn('[manage-panel] cannot grant: agent has no wallet address');
+			log.warn('[manage-panel] cannot grant: agent has no wallet address');
 			return;
 		}
 
@@ -320,7 +321,7 @@ class ManagePanel {
 			if (!data.ok) throw new Error(data.message || 'revoke mirror failed');
 		} catch (err) {
 			// Server mirror failure is non-fatal — on-chain is source of truth.
-			console.warn('[manage-panel] server mirror failed:', err.message);
+			log.warn('[manage-panel] server mirror failed:', err.message);
 		}
 
 		// Flip card to revoked optimistically

@@ -9,6 +9,11 @@
  *   if (purchased) runtime.skillAccess = refreshedChecker;
  */
 
+import { formatUsdcEq, formatSolEq } from './shared/usd-price.js';
+import { buildReceiptHTML, buildReceiptText } from './shared/payment-receipt.js';
+import { showAddFunds } from './shared/add-funds.js';
+import { log } from './shared/log.js';
+
 const USDC_DECIMALS = 6;
 
 // Lazy-load Solana modules via bundled npm deps. Dynamic import keeps the
@@ -24,24 +29,25 @@ async function loadSolana() {
 
 const STYLE = `
 .pay-chip {
-	background: rgba(167,139,250,.08);
-	border: 1px solid rgba(167,139,250,.22);
+	background: rgba(255,255,255,.04);
+	border: 1px solid rgba(255,255,255,.11);
 	border-radius: 12px; padding: 12px 14px; margin: 2px 0;
 }
 .pay-chip-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .pay-chip-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.55); text-transform: uppercase; letter-spacing: .06em; }
 .pay-chip-skill { font-size: 13px; color: #ffffff; font-family: monospace; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pay-chip-price { font-size: 15px; color: #34d399; font-weight: 700; margin-bottom: 10px; }
+.pay-chip-price .usd-eq { font-size: 12px; color: rgba(255,255,255,.45); font-weight: 400; margin-left: 5px; }
 .pay-chip-actions { display: flex; gap: 8px; }
 .pay-chip-btn {
 	flex: 1; padding: 8px 12px; border-radius: 8px; border: none;
 	font-size: 13px; font-weight: 600; cursor: pointer;
-	background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;
+	background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.18);
 	transition: opacity .15s; letter-spacing: .02em;
 }
 .pay-chip-btn:hover:not(:disabled) { opacity: .85; }
 .pay-chip-btn:disabled { opacity: .4; cursor: default; }
-.pay-chip-btn-pay { background: linear-gradient(135deg, #059669, #047857); }
+.pay-chip-btn-pay { background: linear-gradient(135deg, #059669, #047857); border: none; }
 .pay-chip-btn-cancel { flex: 0 0 auto; background: rgba(255,255,255,.08); color: rgba(255,255,255,.45); }
 .pay-chip-status { font-size: 12px; color: rgba(255,255,255,.45); margin-top: 7px; min-height: 15px; }
 .pay-chip-status.err { color: #f87171; }
@@ -69,7 +75,7 @@ const STYLE = `
 .skill-pay-close:hover { color: #fff; }
 .skill-pay-skill {
 	font-size: 15px; font-weight: 600; color: #ffffff;
-	background: rgba(167,139,250,.1); border-radius: 8px;
+	background: rgba(255,255,255,.05); border-radius: 8px;
 	padding: 8px 12px; margin: 0 0 8px; font-family: monospace;
 	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -80,11 +86,12 @@ const STYLE = `
 	background: rgba(255,255,255,.05); border-radius: 10px;
 }
 .skill-pay-price strong { font-size: 20px; color: #34d399; }
+.skill-pay-price .usd-eq { font-size: 13px; color: rgba(255,255,255,.45); margin-left: 6px; }
 .skill-pay-wallet-area { margin-bottom: 12px; }
 .skill-pay-btn {
 	width: 100%; padding: 12px; border-radius: 10px; border: none;
 	font-size: 14px; font-weight: 600; cursor: pointer;
-	background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;
+	background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.18);
 	transition: opacity .15s; letter-spacing: .02em;
 }
 .skill-pay-btn:hover:not(:disabled) { opacity: .88; }
@@ -145,7 +152,7 @@ export class SkillPaymentModal {
 				<p class="skill-pay-desc">This skill requires a one-time payment to unlock.</p>
 				<div class="skill-pay-price">
 					<span>Total</span>
-					<strong></strong>
+					<strong><span class="skill-pay-amount"></span><span class="usd-eq" hidden></span></strong>
 				</div>
 				<div class="skill-pay-wallet-area">
 					<button class="skill-pay-btn" id="skill-pay-connect">Connect Phantom</button>
@@ -181,7 +188,14 @@ export class SkillPaymentModal {
 			const currency = price.chain === 'solana' ? 'USDC' : price.currency_mint?.slice(0, 8) || 'USDC';
 
 			this._el.querySelector('.skill-pay-skill').textContent = skill;
-			this._el.querySelector('.skill-pay-price strong').textContent = `${amountUsdc} ${currency}`;
+			const amountEl = this._el.querySelector('.skill-pay-amount');
+			const usdEqEl  = this._el.querySelector('.skill-pay-price .usd-eq');
+			amountEl.textContent = `${amountUsdc} ${currency}`;
+			usdEqEl.textContent = '';
+			usdEqEl.hidden = true;
+			const humanAmount = Number(price.amount || 0) / 10 ** USDC_DECIMALS;
+			const eqPromise = currency === 'USDC' ? Promise.resolve(formatUsdcEq(humanAmount)) : formatSolEq(humanAmount);
+			eqPromise.then((eq) => { if (eq) { usdEqEl.textContent = eq; usdEqEl.hidden = false; } });
 			this._el.querySelector('.skill-pay-open-link').href =
 				`/marketplace/agents/${this._agentId}?buy=${encodeURIComponent(skill)}`;
 
@@ -206,6 +220,40 @@ export class SkillPaymentModal {
 		const el = this._el.querySelector('.skill-pay-status');
 		el.textContent = msg;
 		el.className = 'skill-pay-status' + (kind ? ' ' + kind : '');
+	}
+
+	_setStatusHTML(html, kind = '') {
+		const el = this._el.querySelector('.skill-pay-status');
+		el.innerHTML = html;
+		el.className = 'skill-pay-status' + (kind ? ' ' + kind : '');
+	}
+
+	_showInsufficientFunds(walletAddress, requiredAtomic, currentAtomic, confirmBtn) {
+		const requiredUsdc = requiredAtomic ? (requiredAtomic / 1e6).toFixed(2) : null;
+		const currentUsdc = currentAtomic != null ? (currentAtomic / 1e6).toFixed(2) : null;
+		const needed = requiredUsdc
+			? (currentUsdc != null ? `Need ${requiredUsdc} USDC, have ${currentUsdc}.` : `Need ${requiredUsdc} USDC.`)
+			: '';
+		this._setStatus(`Not enough USDC. ${needed}`, 'err');
+
+		const statusEl = this._el.querySelector('.skill-pay-status');
+		const addBtn = document.createElement('button');
+		addBtn.className = 'skill-pay-add-funds';
+		addBtn.textContent = 'Add funds →';
+		addBtn.addEventListener('click', async () => {
+			const result = await showAddFunds({
+				walletAddress: walletAddress || '',
+				requiredUsdc: requiredAtomic ? requiredAtomic / 1e6 : undefined,
+				container: this._root.host?.getRootNode?.()?.body || document.body,
+			});
+			if (result?.usdc) {
+				this._setStatus(`Balance updated: ${result.usdc.toFixed(2)} USDC — try again.`, 'ok');
+				if (confirmBtn) confirmBtn.disabled = false;
+			}
+		});
+		statusEl.appendChild(document.createTextNode(' '));
+		statusEl.appendChild(addBtn);
+		if (confirmBtn) confirmBtn.disabled = false;
 	}
 
 	_updateWalletArea() {
@@ -235,14 +283,23 @@ export class SkillPaymentModal {
 				await window.solana.connect();
 				this._wallet = window.solana;
 			} else {
-				this._setStatus('Phantom not detected. Install Phantom wallet to purchase.', 'err');
-				if (btn) { btn.textContent = 'Connect Phantom'; btn.disabled = false; }
+				this._setStatus('Phantom isn\'t installed. Get it at phantom.app — takes about a minute, then come back.', 'err');
+				if (btn) {
+					btn.textContent = 'Get Phantom';
+					btn.disabled = false;
+					btn.onclick = () => window.open('https://phantom.app/', '_blank', 'noopener');
+				}
 				return;
 			}
 			this._setStatus('');
 			this._updateWalletArea();
 		} catch (e) {
-			this._setStatus(e.message || 'Connection failed', 'err');
+			log.warn('[three.ws] payment-modal connect error:', e);
+			if (/reject|denied|cancel|user.*declin/i.test(e.message || '')) {
+				this._setStatus('Connection cancelled — try again when you\'re ready.', 'err');
+			} else {
+				this._setStatus('Couldn\'t connect to your wallet — try again.', 'err');
+			}
 			if (btn) { btn.textContent = 'Connect Phantom'; btn.disabled = false; }
 		}
 	}
@@ -288,10 +345,11 @@ export class SkillPaymentModal {
 
 		// Step 2: Build + sign + send the SPL transfer
 		this._setStatus('Building transaction…');
+		const txStartMs = Date.now();
 		try {
 			const { web3, spl } = await loadSolana();
 			const { Connection, PublicKey, Transaction } = web3;
-			const { getAssociatedTokenAddressSync, createTransferInstruction } = spl;
+			const { getAssociatedTokenAddressSync, createTransferInstruction, getAccount } = spl;
 
 			if (!this._connection) {
 				const rpc = window.__solanaRpc || `${window.location.origin}/api/solana-rpc`;
@@ -309,6 +367,19 @@ export class SkillPaymentModal {
 			const fromAta = getAssociatedTokenAddressSync(mintKey, payerKey);
 			const toAta = getAssociatedTokenAddressSync(mintKey, recipientKey);
 
+			// Pre-flight balance check: surface "Add funds" before wallet prompt
+			try {
+				const ataInfo = await getAccount(this._connection, fromAta, 'confirmed');
+				const balance = BigInt(ataInfo.amount);
+				const required = BigInt(purchase.amount);
+				if (balance < required) {
+					this._showInsufficientFunds(payerKey.toBase58(), Number(required), Number(balance), confirm);
+					return;
+				}
+			} catch {
+				// ATA may not exist yet — let sendTransaction surface the real error
+			}
+
 			const ix = createTransferInstruction(fromAta, toAta, payerKey, BigInt(purchase.amount));
 			ix.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
 
@@ -324,15 +395,39 @@ export class SkillPaymentModal {
 
 			this._setStatus('Verifying with server…');
 			const ok = await this._pollConfirm(purchase.reference);
-			if (!ok) throw new Error('Server could not verify the transaction — contact support with tx: ' + txid);
+			if (!ok) {
+				log.warn('[three.ws] payment-modal: verification failed, tx:', txid);
+				throw new Error('verification_failed');
+			}
 
-			this._setStatus('✓ Skill unlocked!', 'ok');
-			await delay(1200);
+			const receiptHtml = buildReceiptHTML({
+				usdcAtomic: purchase.amount,
+				recipientLabel: 'creator',
+				elapsedMs: Date.now() - txStartMs,
+				explorerUrl: `https://solscan.io/tx/${txid}`,
+				signature: txid,
+			});
+			this._setStatusHTML(receiptHtml, 'ok');
+			await delay(1800);
 			this.hide();
 			this._resolve?.(true);
 			this._resolve = null;
 		} catch (e) {
-			this._setStatus(e.message || 'Purchase failed', 'err');
+			log.warn('[three.ws] payment-modal purchase error:', e);
+			const msg = e.message || '';
+			const payerAddr = (this._wallet?.publicKey || window.solana?.publicKey)?.toBase58?.() || null;
+			if (/reject|denied|cancel|user.*declin/i.test(msg)) {
+				this._setStatus('Transaction cancelled — try again whenever you\'re ready.', 'err');
+			} else if (msg === 'verification_failed') {
+				this._setStatus('Payment may have gone through but couldn\'t be verified. Contact support if funds were deducted.', 'err');
+			} else if (/insufficient|balance|funds/i.test(msg)) {
+				this._showInsufficientFunds(payerAddr, purchase?.amount, null, confirm);
+				return;
+			} else if (/network|fetch|econnrefused/i.test(msg)) {
+				this._setStatus('Connection problem — check your internet and try again.', 'err');
+			} else {
+				this._setStatus('Purchase didn\'t go through — try again.', 'err');
+			}
 			confirm.disabled = false;
 		}
 	}
@@ -394,12 +489,16 @@ export class PaymentChip {
 							<span class="pay-chip-label">Payment required</span>
 						</div>
 						<div class="pay-chip-skill">${skill}</div>
-						<div class="pay-chip-price">${amountUsdc} ${currency}</div>
+						<div class="pay-chip-price">${amountUsdc} ${currency}<span class="usd-eq" hidden></span></div>
 						<div class="pay-chip-actions"></div>
 						<div class="pay-chip-status"></div>
 					</div>
 				</div>
 			`;
+			const chipUsdEq = wrapper.querySelector('.pay-chip-price .usd-eq');
+			const humanAmountChip = Number(price.amount || 0) / 10 ** USDC_DECIMALS;
+			const chipEqPromise = currency === 'USDC' ? Promise.resolve(formatUsdcEq(humanAmountChip)) : formatSolEq(humanAmountChip);
+			chipEqPromise.then((eq) => { if (eq) { chipUsdEq.textContent = eq; chipUsdEq.hidden = false; } });
 
 			const setStatus = (msg, kind = '') => {
 				const el = wrapper.querySelector('.pay-chip-status');
@@ -440,10 +539,20 @@ export class PaymentChip {
 						setStatus('');
 						updateActions();
 					} else {
-						setStatus('Phantom not detected. Install Phantom to pay.', 'err');
+						setStatus('Phantom isn\'t installed. Get it at phantom.app — takes about a minute.', 'err');
+						const connectBtn = wrapper.querySelector('.pay-chip-btn-connect');
+						if (connectBtn) {
+							connectBtn.textContent = 'Get Phantom';
+							connectBtn.onclick = () => window.open('https://phantom.app/', '_blank', 'noopener');
+						}
 					}
 				} catch (e) {
-					setStatus(e.message || 'Connection failed', 'err');
+					log.warn('[three.ws] payment-chip connect error:', e);
+					if (/reject|denied|cancel|user.*declin/i.test(e.message || '')) {
+						setStatus('Connection cancelled — try again when you\'re ready.', 'err');
+					} else {
+						setStatus('Couldn\'t connect to your wallet — try again.', 'err');
+					}
 				}
 			};
 
@@ -476,10 +585,41 @@ export class PaymentChip {
 				}
 
 				setStatus('Building transaction…');
+				const chipTxStart = Date.now();
+				const chipPayerAddr = (this._wallet?.publicKey || window.solana?.publicKey)?.toBase58?.() || '';
+
+				const showChipAddFunds = (requiredAtomic, currentAtomic) => {
+					const requiredUsdc = requiredAtomic ? (requiredAtomic / 1e6).toFixed(2) : null;
+					const currentUsdc = currentAtomic != null ? (currentAtomic / 1e6).toFixed(2) : null;
+					const needed = requiredUsdc
+						? (currentUsdc != null ? `Need ${requiredUsdc} USDC, have ${currentUsdc}.` : `Need ${requiredUsdc} USDC.`)
+						: '';
+					setStatus(`Not enough USDC. ${needed}`, 'err');
+
+					// Inject "Add funds" button after the status text
+					const statusEl = wrapper.querySelector('.pay-chip-status');
+					const btn = document.createElement('button');
+					btn.className = 'pay-chip-add-funds';
+					btn.textContent = 'Add funds →';
+					btn.addEventListener('click', async () => {
+						const result = await showAddFunds({
+							walletAddress: chipPayerAddr,
+							requiredUsdc: requiredAtomic ? requiredAtomic / 1e6 : undefined,
+						});
+						if (result?.usdc) {
+							setStatus(`Balance updated: ${result.usdc.toFixed(2)} USDC — try again.`, 'ok');
+							if (payBtn) payBtn.disabled = false;
+						}
+					});
+					statusEl.appendChild(document.createTextNode(' '));
+					statusEl.appendChild(btn);
+					if (payBtn) payBtn.disabled = false;
+				};
+
 				try {
 					const { web3, spl } = await loadSolana();
 					const { Connection, PublicKey, Transaction } = web3;
-					const { getAssociatedTokenAddressSync, createTransferInstruction } = spl;
+					const { getAssociatedTokenAddressSync, createTransferInstruction, getAccount } = spl;
 
 					if (!this._connection) {
 						const rpc = window.__solanaRpc || `${window.location.origin}/api/solana-rpc`;
@@ -497,6 +637,17 @@ export class PaymentChip {
 					const fromAta = getAssociatedTokenAddressSync(mintKey, payerKey);
 					const toAta = getAssociatedTokenAddressSync(mintKey, recipientKey);
 
+					// Pre-flight balance check before showing the wallet prompt
+					try {
+						const ataInfo = await getAccount(this._connection, fromAta, 'confirmed');
+						if (BigInt(ataInfo.amount) < BigInt(purch.amount)) {
+							showChipAddFunds(purch.amount, Number(ataInfo.amount));
+							return;
+						}
+					} catch {
+						// ATA not yet created — proceed; sendTransaction will surface the error
+					}
+
 					const ix = createTransferInstruction(fromAta, toAta, payerKey, BigInt(purch.amount));
 					ix.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
 
@@ -512,13 +663,40 @@ export class PaymentChip {
 
 					setStatus('Verifying…');
 					const ok = await this._pollConfirm(purch.reference);
-					if (!ok) throw new Error('Verification failed — contact support. tx: ' + txid);
+					if (!ok) {
+						log.warn('[three.ws] payment-chip: verification failed, tx:', txid);
+						throw new Error('verification_failed');
+					}
 
-					setStatus('Unlocked!', 'ok');
-					await delay(900);
+					const chipReceiptHtml = buildReceiptHTML({
+						usdcAtomic: purch.amount,
+						recipientLabel: 'creator',
+						elapsedMs: Date.now() - chipTxStart,
+						explorerUrl: `https://solscan.io/tx/${txid}`,
+						signature: txid,
+					});
+					const statusEl = wrapper.querySelector('.pay-chip-status');
+					if (statusEl) {
+						statusEl.innerHTML = chipReceiptHtml;
+						statusEl.className = 'pay-chip-status ok';
+					}
+					await delay(1400);
 					dismiss(true);
 				} catch (e) {
-					setStatus(e.message || 'Purchase failed', 'err');
+					log.warn('[three.ws] payment-chip purchase error:', e);
+					const msg = e.message || '';
+					if (/reject|denied|cancel|user.*declin/i.test(msg)) {
+						setStatus('Transaction cancelled — try again whenever you\'re ready.', 'err');
+					} else if (msg === 'verification_failed') {
+						setStatus('Payment may have gone through but couldn\'t be verified. Contact support if funds were deducted.', 'err');
+					} else if (/insufficient|balance|funds/i.test(msg)) {
+						showChipAddFunds(purch?.amount, null);
+						return;
+					} else if (/network|fetch|econnrefused/i.test(msg)) {
+						setStatus('Connection problem — check your internet and try again.', 'err');
+					} else {
+						setStatus("Purchase didn't go through — try again.", 'err');
+					}
 					if (payBtn) payBtn.disabled = false;
 				}
 			};

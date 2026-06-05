@@ -6,6 +6,7 @@
 // directly, so it stays small and the avatar runtime is identical wherever
 // it shows up.
 
+import { log } from './shared/log.js';
 const main = document.getElementById('main');
 
 const handle = (() => {
@@ -23,7 +24,7 @@ if (!handle) {
 	renderClaimLanding();
 } else {
 	render(handle).catch((err) => {
-		console.error('[handle] render failed', err);
+		log.error('[handle] render failed', err);
 		renderNotFound(err?.message || 'Could not load this profile.');
 	});
 }
@@ -116,7 +117,7 @@ GET ${escapeHtml(avatar.model_url)}</pre>
 		try {
 			iframe.contentWindow?.postMessage(msg, new URL(embedUrl).origin);
 		} catch (err) {
-			console.warn('[handle] postMessage failed', err);
+			log.warn('[handle] postMessage failed', err);
 		}
 	};
 
@@ -175,7 +176,7 @@ GET ${escapeHtml(avatar.model_url)}</pre>
 					btn.classList.remove('copied');
 				}, 1400);
 			} catch (err) {
-				console.warn('[handle] clipboard failed', err);
+				log.warn('[handle] clipboard failed', err);
 			}
 		});
 	});

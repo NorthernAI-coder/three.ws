@@ -14,10 +14,17 @@
 //   - /api/agent-economy/status polled on load to show live wallet balances.
 //   - The tx feed in the center column is pure DOM — no framework.
 
+import { buildReceiptHTML, buildReceiptText } from './shared/payment-receipt.js';
+import { showAddFunds } from './shared/add-funds.js';
+import { log } from './shared/log.js';
+
 const $ = (id) => document.getElementById(id);
 
 // ── Wallet status ─────────────────────────────────────────────────────────────
 // Fetched on load; re-fetched after each trade to show updated balances.
+// Kept in module scope so the "Add funds" handler can read the agent address.
+let currentWalletStatus = null;
+
 async function fetchWalletStatus() {
 	try {
 		const res = await fetch('/api/agent-economy/status');
@@ -55,19 +62,29 @@ function renderFundAlert(status) {
 	if (aOk) { el.classList.remove('visible'); return; }
 	let html = '';
 	if (!aCfg) {
-		html = '<strong>Nova\'s wallet not configured.</strong> Set <code>AVATAR_WALLET_SECRET</code> in Vercel env to enable live transactions.';
+		// Technical detail (env var name) goes to console only
+		log.info('[three.ws] agent-economy: AVATAR_WALLET_SECRET not configured');
+		html = '<strong>Live transactions are paused.</strong> This feature is temporarily unavailable — check back shortly.';
 	} else {
 		const addr = status.agentA.address;
 		const exp = status.agentA.explorer || `https://solscan.io/account/${addr}`;
-		html = `<strong>Nova needs SOL to transact.</strong> Fund her wallet with a small amount of SOL:<span class="fund-addr">${addr} <a href="${exp}" target="_blank" rel="noopener">↗ Solscan</a></span>`;
+		html = `<strong>Nova needs a small amount of SOL to transact.</strong> Fund her wallet to get started:
+			<span class="fund-addr">${addr} <a href="${exp}" target="_blank" rel="noopener">↗ Solscan</a></span>
+			<button class="fund-alert-btn" data-addr="${escHtml(addr)}">Add funds →</button>`;
 	}
 	el.innerHTML = html;
 	el.classList.add('visible');
+
+	el.querySelector('.fund-alert-btn')?.addEventListener('click', (e) => {
+		const addr = e.currentTarget.dataset.addr;
+		if (addr) showAddFunds({ walletAddress: addr }).then(() => refreshWalletStatus());
+	});
 }
 
 async function refreshWalletStatus() {
 	const status = await fetchWalletStatus();
 	if (!status) return;
+	currentWalletStatus = status;
 	renderBal('buyer-bal', status.agentA);
 	renderBal('seller-bal', status.agentB);
 	renderFundAlert(status);
@@ -196,6 +213,7 @@ function addFeedItem({ icon, type, title, sub, time }) {
 		<div class="tx-time">${escHtml(now)}</div>`;
 	const feed = $('feed');
 	feed.prepend(item);
+	return item;
 }
 
 function escHtml(s) {
@@ -262,6 +280,7 @@ async function purchase(service) {
 		sub: topic ? `Topic: ${escHtml(topic)}` : 'Service request initiated',
 	});
 
+	const txStartTime = Date.now();
 	let data;
 	try {
 		const res = await fetch('/api/agent-economy/transact', {
@@ -306,31 +325,63 @@ async function purchase(service) {
 		const usdStr = tx.usdAmount ? `$${tx.usdAmount.toFixed(4)} USD` : '';
 		const amountStr = [solStr, usdStr].filter(Boolean).join(' · ');
 
+		const receiptHtml = buildReceiptHTML({
+			usdAmount: tx.usdAmount || null,
+			recipientLabel: 'Oracle',
+			elapsedMs: Date.now() - txStartTime,
+			explorerUrl: tx.explorerUrl,
+			signature: tx.signature,
+		});
 		addFeedItem({
 			icon: '💸',
 			type: 'pay',
 			title: `Payment sent · ${amountStr}`,
-			sub: `<a href="${escHtml(tx.explorerUrl)}" target="_blank" rel="noopener" class="tx-mono">
-				${escHtml(tx.signature.slice(0, 8))}…${escHtml(tx.signature.slice(-8))} ↗
-			</a><br>${escHtml(tx.network === 'devnet' ? 'Solana devnet' : 'Solana mainnet')}`,
+			sub: receiptHtml,
 		});
-		setStatus(`Payment confirmed · ${amountStr}`);
+		setStatus(buildReceiptText({
+			usdAmount: tx.usdAmount || null,
+			recipientLabel: 'Oracle',
+			elapsedMs: Date.now() - txStartTime,
+		}));
 	} else if (tx?.error === 'wallet_unconfigured') {
+		// Log technical detail privately; never surface env-var names to users
+		log.info('[three.ws] agent-economy: wallet_unconfigured —', tx.message);
 		addFeedItem({
-			icon: '🔑',
+			icon: '⏸️',
 			type: 'pay',
-			title: 'Wallet not configured',
-			sub: escHtml(tx.message),
+			title: 'Live transactions paused',
+			sub: 'This feature is temporarily unavailable. Check back shortly.',
 		});
-		setStatus('Set AVATAR_WALLET_SECRET to enable live transactions');
+		setStatus('Live transactions are temporarily unavailable');
 	} else if (tx?.error === 'insufficient_balance') {
-		addFeedItem({ icon: '💰', type: 'pay', title: 'Fund Nova\'s wallet', sub: escHtml(tx.message) });
-		setStatus('Fund Nova\'s wallet to transact');
+		const agentAddr = currentWalletStatus?.agentA?.address;
+		const fundBtn = agentAddr
+			? `<button class="tx-add-funds-btn" data-addr="${escHtml(agentAddr)}">Add funds →</button>`
+			: '';
+		const feedEl = addFeedItem({
+			icon: '💰',
+			type: 'pay',
+			title: 'Not enough funds',
+			sub: `Nova's wallet needs a small top-up to cover this transaction. ${fundBtn}`,
+		});
+		feedEl?.querySelector('.tx-add-funds-btn')?.addEventListener('click', (e) => {
+			const addr = e.currentTarget.dataset.addr;
+			if (addr) showAddFunds({ walletAddress: addr }).then(() => refreshWalletStatus());
+		});
+		setStatus('Nova\'s wallet needs funds — use "Add funds" above');
 	} else if (tx?.error === 'no_recipient') {
-		addFeedItem({ icon: '📭', type: 'pay', title: 'Set Agent B address', sub: escHtml(tx.message) });
-		setStatus('Set AGENT_B_ADDRESS to Oracle\'s wallet');
+		// Log technical detail privately; never surface env-var names to users
+		log.info('[three.ws] agent-economy: no_recipient —', tx.message);
+		addFeedItem({
+			icon: '⏸️',
+			type: 'pay',
+			title: 'Live transactions paused',
+			sub: 'This feature is temporarily unavailable. Check back shortly.',
+		});
+		setStatus('Live transactions are temporarily unavailable');
 	} else if (tx?.error) {
-		addFeedItem({ icon: '⚠️', type: 'pay', title: 'Transaction error', sub: escHtml(tx.message || tx.error) });
+		log.warn('[three.ws] agent-economy tx error:', tx.error, tx.message);
+		addFeedItem({ icon: '⚠️', type: 'pay', title: 'Transaction didn\'t go through', sub: 'The network rejected this transaction — try again in a moment.' });
 	}
 
 	// Oracle delivers the service

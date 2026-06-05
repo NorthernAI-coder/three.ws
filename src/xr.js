@@ -25,6 +25,7 @@ import { AnimationManager } from './animation-manager.js';
 import { WebXRSession } from './ar/webxr.js';
 import { canUseQuickLook } from './ar/quick-look.js';
 import { canUseSceneViewer, openSceneViewer } from './ar/scene-viewer.js';
+import { log } from './shared/log.js';
 
 // ── DOM ──────────────────────────────────────────────────────────────────────
 
@@ -458,7 +459,7 @@ window.addEventListener('resize', () => {
 		await loadAvatar();
 	} catch (err) {
 		setStatus('Failed to load avatar', 'error');
-		console.error('[xr] avatar load failed:', err);
+		log.error('[xr] avatar load failed:', err);
 	}
 
 	if (loadingEl) loadingEl.hidden = true;

@@ -2,13 +2,15 @@
 // Two 3D AI avatars buying and selling live crypto intel for real USDC via x402.
 // Agent A (seller) hosts /api/x402/crypto-intel. Agent B (buyer) pays $0.01 per
 // call through the server-side x402 payer at /api/x402-pay, which handles the
-// challenge → sign → verify → settle → confirm flow and streams SSE stages.
+// challenge → sign → verify → settle → confirm flow and streams SSE events.
 //
 // Every on-chain confirmation is real: real USDC on Solana mainnet, real Solscan
 // link. The avatars are iframed into the page and driven via postMessage.
 //
 // No mock data. When /api/x402-pay is unconfigured (no funded agent wallet) the
 // page shows an honest error state.
+
+import { formatUsdcEq } from './shared/usd-price.js';
 
 // ── Topics ────────────────────────────────────────────────────────────────────
 const TOPICS = [
@@ -20,12 +22,14 @@ const TOPICS = [
 ];
 
 // Stage config matches the SSE event names /api/x402-pay emits.
+// narration: plain-language line shown to the viewer as each stage arrives.
 const STAGE_DEFS = [
-	{ id: 'challenge',  label: '402 Challenge' },
-	{ id: 'built',      label: 'Sign tx'       },
-	{ id: 'verified',   label: 'Verify'        },
-	{ id: 'settled',    label: 'Settle'        },
-	{ id: 'done',       label: 'Confirmed'     },
+	{ id: 'challenge',  label: '402 Challenge', narration: 'The seller issued a $0.01 USDC payment challenge — the buyer is building a Solana transaction.' },
+	{ id: 'built',      label: 'Build tx',      narration: 'Transaction signed. Submitting to the x402 facilitator for verification…' },
+	{ id: 'verified',   label: 'Verify',        narration: 'Payment verified by the facilitator. Dispatching the intel request…' },
+	{ id: 'dispatched', label: 'Dispatch',      narration: 'Request dispatched — the intel agent is preparing the market signal.' },
+	{ id: 'settled',    label: 'Settle',        narration: 'Settling USDC on Solana mainnet — a real on-chain transfer is confirming.' },
+	{ id: 'done',       label: 'Confirmed',     narration: 'Confirmed on-chain. Intel delivered.' },
 ];
 
 // Agent scripts — lines spoken at each stage of the exchange.
@@ -66,9 +70,11 @@ const els = {
 	topics:    $('topics'),
 	payBtn:    $('payBtn'),
 	payLabel:  null, // set in init()
-	stages:    $('stages'),
-	receipt:   $('receipt'),
-	totalUsdc: $('totalUsdc'),
+	stages:      $('stages'),
+	receipt:     $('receipt'),
+	totalUsdc:   $('totalUsdc'),
+	narration:   $('narration'),
+	walletState: $('walletState'),
 };
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -148,7 +154,10 @@ function resetStages() {
 
 // ── Receipt renderer ──────────────────────────────────────────────────────────
 function renderReceipt(payment, intel) {
-	const amount    = payment.amount ? `${(Number(payment.amount) / 1e6).toFixed(4)} USDC` : '$0.01 USDC';
+	const humanAmount = payment.amount ? Number(payment.amount) / 1e6 : 0.01;
+	const amountStr   = `${humanAmount.toFixed(4)} USDC`;
+	const usdEqStr    = formatUsdcEq(humanAmount);
+	const amount      = usdEqStr ? `${amountStr} <span style="color:rgba(255,255,255,.45);font-size:0.9em">${usdEqStr}</span>` : amountStr;
 	const payer     = payment.payer ? `${payment.payer.slice(0, 8)}…${payment.payer.slice(-4)}` : '—';
 	const payTo     = payment.payTo ? `${payment.payTo.slice(0, 8)}…${payment.payTo.slice(-4)}` : '—';
 	const txShort   = payment.tx ? `${payment.tx.slice(0, 10)}…${payment.tx.slice(-6)}` : null;
@@ -187,6 +196,83 @@ function renderReceipt(payment, intel) {
 	els.receipt.classList.add('show');
 }
 
+// ── Narration helpers ─────────────────────────────────────────────────────────
+
+function showEmptyState() {
+	els.narration.innerHTML =
+		`<div class="nr-pre">` +
+		`<span class="nr-kicker">What you'll watch —</span>` +
+		`<span>Intel Agent issues a $0.01 USDC challenge</span>` +
+		`<span class="nr-arrow">→</span>` +
+		`<span>Buyer signs a Solana transaction</span>` +
+		`<span class="nr-arrow">→</span>` +
+		`<span>x402 verifies &amp; settles on-chain</span>` +
+		`<span class="nr-arrow">→</span>` +
+		`<span>Live crypto intel delivered</span>` +
+		`<span class="nr-arrow">·</span>` +
+		`<span>No mocks. Real USDC on Solana mainnet.</span>` +
+		`</div>`;
+}
+
+function narrate(stageId, extra) {
+	const s = STAGE_DEFS.find((d) => d.id === stageId);
+	if (!s) return;
+	const text = extra ? `${s.narration} ${extra}` : s.narration;
+	els.narration.innerHTML =
+		`<div class="nr-live">` +
+		`<span class="nr-dot" aria-hidden="true"></span>` +
+		`<span class="nr-text">${escHtml(text)}</span>` +
+		`</div>`;
+}
+
+function narrateDone(intelObj, paymentObj) {
+	const topic = intelObj?.topic?.toUpperCase() || 'Intel';
+	const amount = paymentObj?.amount ? (Number(paymentObj.amount) / 1e6).toFixed(4) : '0.0100';
+	const txLink = paymentObj?.tx
+		? ` <a href="https://solscan.io/tx/${escHtml(paymentObj.tx)}" target="_blank" rel="noopener">View on Solscan ↗</a>`
+		: '';
+	els.narration.innerHTML =
+		`<div class="nr-done">` +
+		`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>` +
+		`${escHtml(amount)} USDC settled — ${escHtml(topic)} intelligence delivered.${txLink}` +
+		`</div>`;
+}
+
+async function checkWallet() {
+	try {
+		const r = await fetch('/api/x402-pay?balance=1');
+		if (!r.ok) return;
+		const b = await r.json();
+		if (!b.configured) {
+			els.walletState.className = 'show ws-unconfigured';
+			els.walletState.innerHTML =
+				`<div class="ws-head">` +
+				`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` +
+				`Demo wallet not configured` +
+				`</div>` +
+				`<div class="ws-body">` +
+				`This demo settles real USDC on Solana mainnet. The agent wallet isn't configured right now — live settlements are paused. ` +
+				`To enable: set <span class="ws-mono">X402_AGENT_SOLANA_SECRET_BASE58</span> and fund the wallet.` +
+				`</div>`;
+			els.payBtn.disabled = true;
+		} else if (typeof b.usdc === 'number' && b.usdc < 0.01) {
+			const addr = b.address ? `${b.address.slice(0, 8)}…${b.address.slice(-4)}` : '—';
+			els.walletState.className = 'show ws-low';
+			els.walletState.innerHTML =
+				`<div class="ws-head">` +
+				`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>` +
+				`Agent wallet low on USDC` +
+				`</div>` +
+				`<div class="ws-body">` +
+				`The buyer wallet holds ${b.usdc.toFixed(4)} USDC — below the $0.01 minimum for a live settlement. ` +
+				`Fund <span class="ws-mono">${escHtml(addr)}</span> with USDC on Solana mainnet to run the demo.` +
+				`</div>`;
+		}
+	} catch {
+		// Network failures silently ignored — don't block the page.
+	}
+}
+
 // ── Main payment flow ─────────────────────────────────────────────────────────
 async function doPurchase() {
 	if (busy) return;
@@ -196,6 +282,13 @@ async function doPurchase() {
 	els.payLabel.textContent = 'Paying…';
 	resetStages();
 
+	// Show "initiating" in the narration region immediately.
+	els.narration.innerHTML =
+		`<div class="nr-live">` +
+		`<span class="nr-dot" aria-hidden="true"></span>` +
+		`<span class="nr-text">Initiating payment — connecting to the x402 facilitator…</span>` +
+		`</div>`;
+
 	// Both agents react to the initiation.
 	const line = LINES.B.idle(activeTopic);
 	sayB(line);
@@ -203,6 +296,8 @@ async function doPurchase() {
 	await delay(600);
 	sayA(LINES.A.idle);
 
+	// settled tracks the on-chain settlement info; intel is the purchased signal.
+	// Both are populated from SSE events and merged in the 'result' event handler.
 	let settled     = null;
 	let intel       = null;
 	let activeStage = 'challenge';
@@ -215,8 +310,6 @@ async function doPurchase() {
 			body: JSON.stringify({
 				tool:   'crypto_intel',
 				topic:  activeTopic,
-				// Tell x402-pay which endpoint to call. The server proxies to
-				// /api/x402/crypto-intel with the x402 payment attached.
 				endpoint: '/api/x402/crypto-intel',
 				body: { topic: activeTopic },
 			}),
@@ -225,7 +318,7 @@ async function doPurchase() {
 		if (!res.ok || !res.body) {
 			const text = await res.text().catch(() => '');
 			let msg = 'Payment service unavailable.';
-			try { msg = JSON.parse(text).error_description || msg; } catch { /* ignore */ }
+			try { msg = JSON.parse(text).error_description || JSON.parse(text).error || msg; } catch { /* ignore */ }
 			throw new Error(msg);
 		}
 
@@ -234,33 +327,44 @@ async function doPurchase() {
 				setStage('challenge', 'done', `${(Number(data.amount) / 1e6).toFixed(4)} USDC`);
 				setStage('built', 'active', 'signing…');
 				activeStage = 'built';
+				narrate('challenge');
 				sayB(LINES.B.challenge);
 				sayA(LINES.A.challenge);
 			} else if (event === 'built') {
 				setStage('built', 'done', `${data.build_ms} ms`);
 				setStage('verified', 'active', 'facilitator…');
 				activeStage = 'verified';
+				narrate('built', `(${data.build_ms} ms)`);
 				sayB(LINES.B.built);
 				sayA(LINES.A.built);
 			} else if (event === 'verified') {
 				setStage('verified', 'done', `${data.verify_ms} ms`);
-				setStage('settled', 'active', 'on-chain…');
-				activeStage = 'settled';
+				setStage('dispatched', 'active', 'dispatching…');
+				activeStage = 'dispatched';
+				narrate('verified', `(${data.verify_ms} ms)`);
 				sayB(LINES.B.verified);
 				sayA(LINES.A.verified);
+			} else if (event === 'dispatched') {
+				setStage('dispatched', 'done', `${data.dispatch_ms} ms`);
+				setStage('settled', 'active', 'on-chain…');
+				activeStage = 'settled';
+				narrate('dispatched');
 			} else if (event === 'settled') {
 				setStage('settled', 'done', `${data.settle_ms} ms · ${data.tx ? data.tx.slice(0, 8) + '…' : ''}`);
 				setStage('done', 'active');
 				activeStage = 'done';
 				settled = data;
+				narrate('settled');
 				sayB(LINES.B.settled);
 				sayA(LINES.A.settled);
 			} else if (event === 'result') {
-				intel = data;
+				// result carries { ok, tool, args, result: <intelObj>, payment: <paymentObj>, durations }
+				intel = data.result ?? data;
+				if (data.payment) settled = { ...settled, ...data.payment };
 			} else if (event === 'error') {
 				errored = true;
 				setStage(activeStage, 'error', data.error || 'failed');
-				throw new Error(data.error || 'payment failed');
+				throw new Error(data.error_description || data.error || 'payment failed');
 			}
 		}
 
@@ -268,25 +372,23 @@ async function doPurchase() {
 
 		// ── Success choreography ──────────────────────────────
 		setStage('done', 'done', 'confirmed');
+		narrateDone(intel, settled);
 
-		// Buyer celebrates receiving the intel.
 		gestureB('celebrate');
 		await delay(300);
 		sayB(LINES.B.done(intel.signal));
 
-		// Seller delivers the headline.
 		await delay(700);
 		sayA(LINES.A.done(intel.headline));
 		gestureA('wave');
 
 		// Update session total.
-		const amount = intel ? 0.01 : Number(settled.amount || 10000) / 1e6;
-		sessionTotal += amount;
+		const paidAmount = settled.amount ? Number(settled.amount) / 1e6 : 0.01;
+		sessionTotal += paidAmount;
 		els.totalUsdc.textContent = `$${sessionTotal.toFixed(2)}`;
 		els.totalUsdc.classList.add('flash');
 		setTimeout(() => els.totalUsdc.classList.remove('flash'), 600);
 
-		// Show the receipt.
 		renderReceipt(settled, intel);
 
 	} catch (err) {
@@ -294,13 +396,22 @@ async function doPurchase() {
 		sayA(LINES.A.error);
 		sayB(LINES.B.error);
 		gestureA('idle');
-		// Show a user-facing error in the receipt area.
+
+		const msg = escHtml(err.message || 'Payment failed. No funds moved.');
 		els.receipt.innerHTML =
-			`<div style="color:var(--red);font-size:13px;font-weight:600;">` +
-			`⚠ ${escHtml(err.message || 'Payment failed. No funds moved.')} ` +
-			`<a href="/pay" style="color:var(--usdc-lt);text-decoration:underline;">See the x402 demo →</a>` +
+			`<div style="background:rgba(255,79,106,.06);border:1px solid rgba(255,79,106,.22);border-radius:10px;padding:12px 14px;">` +
+			`<div style="display:flex;align-items:center;gap:7px;font-weight:700;color:var(--red);font-size:13px;margin-bottom:5px;">` +
+			`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` +
+			`Payment failed — no funds moved` +
+			`</div>` +
+			`<div style="font-size:12.5px;color:var(--muted);">${msg} ` +
+			`<a href="/pay" style="color:var(--usdc-lt);text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Learn about x402 →</a>` +
+			`</div>` +
 			`</div>`;
 		els.receipt.classList.add('show');
+
+		// Reset narration to empty state so the viewer knows they can retry.
+		showEmptyState();
 	} finally {
 		busy = false;
 		els.payBtn.classList.remove('busy');
@@ -392,6 +503,8 @@ function init() {
 	buildTopics();
 	renderStages();
 	mountAvatars();
+	showEmptyState();
+	checkWallet();
 
 	els.payBtn.addEventListener('click', doPurchase);
 

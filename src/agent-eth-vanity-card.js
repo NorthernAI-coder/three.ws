@@ -48,7 +48,7 @@ const STYLE = `
 .agent-eth-vanity-details[open] .agent-eth-vanity-summary::before { content: '▾ '; }
 .agent-eth-vanity { border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: .85rem 1rem; margin: .4rem 0 0; font: 13px/1.4 system-ui, sans-serif; background: rgba(255,255,255,0.03); color: #e6e6ea; }
 .agent-eth-vanity h3 { margin: 0 0 .2rem; font-size: .85rem; font-weight: 600; color: #f2f2f5; display:flex; align-items:center; gap:.4rem; }
-.agent-eth-vanity h3 .badge { font-size: .65rem; font-weight: 600; padding: .1rem .45rem; border-radius: 999px; background: linear-gradient(90deg, rgba(167,139,250,0.2), rgba(99,102,241,0.2)); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.25); letter-spacing: .03em; }
+.agent-eth-vanity h3 .badge { font-size: .65rem; font-weight: 600; padding: .1rem .45rem; border-radius: 999px; background: rgba(255,255,255,0.07); color: #888888; border: 1px solid rgba(255,255,255,0.14); letter-spacing: .03em; }
 .agent-eth-vanity h3 .badge.case { background: linear-gradient(90deg, rgba(251,191,36,0.18), rgba(239,68,68,0.18)); color: #fbbf24; border-color: rgba(251,191,36,0.25); }
 .agent-eth-vanity .sub { color: rgba(230,230,234,0.6); font-size: .78rem; margin: 0 0 .55rem; }
 .agent-eth-vanity .row { display: flex; gap: .5rem; align-items: center; margin-top: .35rem; flex-wrap: wrap; }
@@ -67,7 +67,7 @@ const STYLE = `
 .agent-eth-vanity button:disabled { opacity: .45; cursor: not-allowed; }
 .agent-eth-vanity .preset-row { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .3rem; }
 .agent-eth-vanity .preset { padding: .2rem .55rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); font-size: .7rem; cursor: pointer; }
-.agent-eth-vanity .preset.active { background: linear-gradient(90deg, rgba(167,139,250,0.18), rgba(99,102,241,0.18)); border-color: rgba(167,139,250,0.35); color: #c4b5fd; }
+.agent-eth-vanity .preset.active { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.18); color: #e8e8e8; }
 .agent-eth-vanity .progress { font-size: .72rem; color: rgba(230,230,234,0.7); margin-top: .55rem; font-family: ui-monospace, monospace; }
 .agent-eth-vanity .err { color: #ff8a80; font-size: .72rem; margin-top: .4rem; }
 .agent-eth-vanity .ok { color: #4ade80; font-size: .72rem; margin-top: .4rem; }
@@ -194,7 +194,7 @@ export function mountAgentEthVanityCard({ panel, identity, onAssigned }) {
 				to <strong>every EVM chain</strong> that has your factory — same address everywhere.
 				No keys. Mixed-case patterns enable EIP-55 checksum matching.
 			</p>
-			${suggestedFromName ? `<p class="sub" style="color:#c4b5fd">Suggested prefix from agent name: <code style="font-family:ui-monospace,monospace">${_esc(suggestedFromName)}</code></p>` : ''}
+			${suggestedFromName ? `<p class="sub" style="color:#888888">Suggested prefix from agent name: <code style="font-family:ui-monospace,monospace">${_esc(suggestedFromName)}</code></p>` : ''}
 			<div class="row">
 				<button class="primary" data-act="new">Set up CREATE2 vanity</button>
 				<a href="/eth-vanity" target="_blank" rel="noopener" style="font-size:.72rem">open full grinder ↗</a>

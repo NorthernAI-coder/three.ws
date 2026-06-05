@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			const wrap = document.querySelector('.sdk-hero-viewer');
 			if (wrap) {
 				const msg = document.createElement('p');
-				msg.style.cssText = 'text-align:center;color:var(--sdk-dim);font-size:13px;padding:24px';
+				msg.style.cssText = 'text-align:center;color:var(--ink-dim);font-size:13px;padding:24px';
 				msg.textContent = 'Avatar preview unavailable in this environment.';
 				wrap.appendChild(msg);
 			}

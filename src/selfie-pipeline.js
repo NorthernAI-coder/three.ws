@@ -16,6 +16,7 @@
  */
 
 import { detectFaceIdentity } from './avatar-face-capture.js';
+import { log } from './shared/log.js';
 
 const SUBMIT_ENDPOINT = '/api/avatars/reconstruct';
 const STATUS_ENDPOINT = '/api/avatars/regenerate-status';
@@ -34,7 +35,7 @@ document.addEventListener('selfie:submit', (event) => {
 	const ev = /** @type {CustomEvent} */ (event);
 	_building = false;
 	run(ev.detail).catch((err) => {
-		console.error('[selfie-pipeline]', err);
+		log.error('[selfie-pipeline]', err);
 		if (err?.redirect) {
 			window.location.assign(err.redirect);
 			return;
@@ -74,7 +75,7 @@ document.addEventListener('selfie:submit', (event) => {
 				}));
 			}
 		}).catch((err) => {
-			console.error('[selfie-pipeline] resume failed:', err);
+			log.error('[selfie-pipeline] resume failed:', err);
 			if (err?.redirect) {
 				window.location.assign(err.redirect);
 				return;
@@ -241,7 +242,7 @@ async function pollUntilDone(jobId) {
 			consecutiveErrors = 0;
 		} catch (err) {
 			consecutiveErrors += 1;
-			console.warn('[selfie-pipeline] poll fetch failed (%d):', consecutiveErrors, err);
+			log.warn('[selfie-pipeline] poll fetch failed (%d):', consecutiveErrors, err);
 			if (consecutiveErrors >= 5) {
 				throw withMessage(
 					new Error('poll network failure'),

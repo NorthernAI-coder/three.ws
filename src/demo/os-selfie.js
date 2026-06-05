@@ -35,6 +35,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { FilesetResolver, FaceLandmarker } from '@mediapipe/tasks-vision';
 import { TRIANGULATION } from './triangulation.js';
+import { log } from '../shared/log.js';
 
 const MODEL_URL =
 	'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
@@ -241,7 +242,7 @@ btnBuild.addEventListener('click', async () => {
 		setStatus(exportStatus, 'ready to export');
 	} catch (err) {
 		setStatus(buildStatus, `build failed: ${err.message}`, 'err');
-		console.error('[os-selfie] build failed', err);
+		log.error('[os-selfie] build failed', err);
 	} finally {
 		btnBuild.disabled = false;
 	}

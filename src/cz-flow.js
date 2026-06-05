@@ -3,6 +3,7 @@
  */
 
 import { ensureWallet, getIdentityRegistry } from './erc8004/agent-registry.js';
+import { log } from './shared/log.js';
 
 /**
  * Start the claim flow based on the current state.
@@ -107,7 +108,7 @@ export function mountEmbedCopy(container, { state }) {
 				button.textContent = orig;
 			}, 2000);
 		} catch (err) {
-			console.error('Copy failed:', err);
+			log.error('Copy failed:', err);
 			button.textContent = 'Copy failed';
 			setTimeout(() => {
 				button.textContent = 'Copy embed';

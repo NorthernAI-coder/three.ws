@@ -9,8 +9,11 @@
 // acquisition; this module no longer references it.
 
 import { AvaturnSDK } from '@avaturn/sdk';
+import { log } from './shared/log.js';
 
 function getStudioUrl() {
+	// Explicit override wins in any environment (e.g. a standalone studio dev
+	// server on :5173 during character-studio development).
 	try {
 		if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CHARACTER_STUDIO_URL) {
 			return String(import.meta.env.VITE_CHARACTER_STUDIO_URL)
@@ -18,7 +21,17 @@ function getStudioUrl() {
 				.replace(/\/$/, '');
 		}
 	} catch (_) {}
-	return 'http://localhost:5173';
+	// Default: the Avatar Studio is served SAME-ORIGIN under /avatar-studio — the
+	// Vite dev middleware serves character-studio/build there in dev, and the
+	// copy-avatar-studio step ships the same build to /avatar-studio in prod
+	// (see vite.config.js). Resolving to the live origin keeps this correct on
+	// every deployment and avoids a dead localhost fallback in production. The
+	// value must stay absolute: it's used as an iframe src and parsed with
+	// `new URL(studioUrl).origin` for postMessage validation.
+	if (typeof location !== 'undefined' && location.origin) {
+		return `${location.origin}/avatar-studio`;
+	}
+	return 'https://three.ws/avatar-studio';
 }
 
 export class AvatarCreator {
@@ -99,11 +112,11 @@ export class AvatarCreator {
 						: new Blob([await blob.arrayBuffer()], { type: 'model/gltf-binary' });
 					this._fireExport(glbBlob, { sourceUrl: data.urlType === 'dataURL' ? null : glbUrl });
 				} catch (err) {
-					console.error('[three.ws Avatar Creator] failed to fetch selfie GLB:', err);
+					log.error('[three.ws Avatar Creator] failed to fetch selfie GLB:', err);
 				}
 			});
 		} catch (err) {
-			console.error('[three.ws Avatar Creator] Failed to initialize selfie SDK:', err);
+			log.error('[three.ws Avatar Creator] Failed to initialize selfie SDK:', err);
 			this._showError('Failed to load the avatar creator. Please try again.');
 		}
 	}
@@ -131,7 +144,7 @@ export class AvatarCreator {
 			try {
 				this.onExport(blob, { provider: this._provider, ...meta });
 			} catch (err) {
-				console.error('[three.ws Avatar Creator] onExport handler threw:', err);
+				log.error('[three.ws Avatar Creator] onExport handler threw:', err);
 			}
 		}
 		this.close();

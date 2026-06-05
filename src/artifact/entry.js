@@ -4,6 +4,7 @@
 // Usage: <script src="artifact.js"></script>
 //        <div id="agent3d" data-agent-id="123"></div>
 
+import { log } from '../shared/log.js';
 (async function initArtifact() {
 	const container = document.getElementById('agent3d');
 	if (!container) return;
@@ -138,7 +139,7 @@
 			renderer.setSize(w, h);
 		});
 	} catch (err) {
-		console.error('[artifact] error:', err);
+		log.error('[artifact] error:', err);
 		caption.textContent = 'Failed to load viewer';
 	}
 })();

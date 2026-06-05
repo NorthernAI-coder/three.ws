@@ -15,7 +15,7 @@ const FOV = 60;
 // 3D positions (x, y, z). Camera looks slightly down at the stage.
 const CAM_POS    = new THREE.Vector3(0, 6, 18);
 const CAM_TARGET = new THREE.Vector3(0, 1.5, 0);
-const AGENT_A_POS = new THREE.Vector3(-7, 0, 0);   // Oracle (purple, right in world space)
+const AGENT_A_POS = new THREE.Vector3(-7, 0, 0);   // Oracle (white, right in world space)
 const AGENT_B_POS = new THREE.Vector3( 7, 0, 0);   // Trader  (blue,   left)
 const TV_POS      = new THREE.Vector3( 0, 4.2, -6);
 
@@ -49,8 +49,8 @@ const sunLight = new THREE.DirectionalLight(0xc0cfff, 0.6);
 sunLight.position.set(0, 20, 10);
 scene.add(sunLight);
 
-// Oracle point light (purple)
-const oracleLight = new THREE.PointLight(0xa855f7, 3.5, 18);
+// Oracle point light (white)
+const oracleLight = new THREE.PointLight(0xffffff, 2.5, 18);
 oracleLight.position.set(AGENT_A_POS.x, 4, AGENT_A_POS.z + 2);
 scene.add(oracleLight);
 
@@ -105,7 +105,7 @@ function makePedestal(position, color) {
 	return { group, ring };
 }
 
-const pedestalA = makePedestal(AGENT_A_POS, 0xa855f7);  // Oracle purple
+const pedestalA = makePedestal(AGENT_A_POS, 0xffffff);  // Oracle white
 const pedestalB = makePedestal(AGENT_B_POS, 0x4e8cff);  // Trader blue
 
 // ── TV Screen ─────────────────────────────────────────────────────────────
@@ -167,9 +167,9 @@ export function drawTvData(markets) {
 	tvCtx.fillRect(0, 0, TV_W, TV_H);
 
 	// Header bar
-	tvCtx.fillStyle = 'rgba(168,85,247,0.15)';
+	tvCtx.fillStyle = 'rgba(255,255,255,0.07)';
 	tvCtx.fillRect(0, 0, TV_W, 44);
-	tvCtx.fillStyle = '#a855f7';
+	tvCtx.fillStyle = '#888888';
 	tvCtx.font      = 'bold 13px -apple-system, system-ui, sans-serif';
 	tvCtx.textAlign = 'left';
 	tvCtx.fillText('● ORACLE INTEL FEED  ·  SOLANA LIVE', 16, 28);

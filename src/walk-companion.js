@@ -38,6 +38,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { AnimationManager } from './animation-manager.js';
 import { getMeshoptDecoder } from './viewer/internal.js';
 import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
+import { log } from './shared/log.js';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const ENABLED_KEY = 'walk:companion:enabled';
@@ -313,7 +314,7 @@ class WalkCompanion {
 		try {
 			await this._buildScene();
 		} catch (err) {
-			console.warn('[walk-companion] failed to load avatar:', err?.message || err);
+			log.warn('[walk-companion] failed to load avatar:', err?.message || err);
 			this._teardownScene();
 			this._showError();
 			return;

@@ -19,6 +19,7 @@
  */
 
 import { detectFaceAll } from './avatar-face-capture.js';
+import { log } from './shared/log.js';
 
 /* ────────────────────────────────────────────────────────────────────────── *
  * Category map — orders + groups the 52 ARKit names + common body morphs
@@ -677,7 +678,7 @@ function openFaceCaptureModal({ root, working, onDirty, rerender }) {
 			rerender?.();
 			setTimeout(teardown, 1200);
 		} catch (err) {
-			console.error('[avatar-sculpt] capture failed', err);
+			log.error('[avatar-sculpt] capture failed', err);
 			status.textContent = `Capture failed: ${err.message}`;
 			shootBtn.disabled = false;
 		}

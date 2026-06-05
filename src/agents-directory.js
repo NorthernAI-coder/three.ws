@@ -14,6 +14,7 @@ import {
 import { CHAIN_META } from './erc8004/chain-meta.js';
 import { REGISTRY_DEPLOYMENTS } from './erc8004/abi.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { log } from './shared/log.js';
 
 const CACHE_TTL_MS = 60000;
 const ITEMS_PER_PAGE = 24;
@@ -202,14 +203,14 @@ export class AgentsDirectory {
 									metadata,
 								};
 							} catch (err) {
-								console.warn(`Failed to fetch agent ${ev.agentId} on ${cid}:`, err);
+								log.warn(`Failed to fetch agent ${ev.agentId} on ${cid}:`, err);
 								return null;
 							}
 						}),
 					);
 					return enriched.filter(Boolean);
 				} catch (err) {
-					console.warn(`Failed to fetch chain ${cid}:`, err);
+					log.warn(`Failed to fetch chain ${cid}:`, err);
 					return [];
 				}
 			}),

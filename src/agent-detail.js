@@ -26,7 +26,11 @@ const solanaWeb3 = {
 };
 import { openSwapModal } from './swap-jupiter.js';
 import { onchainBadgeEl } from './shared/onchain-badge.js';
+import { renderError as renderAsyncError } from './shared/async-state.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
+import { Modal } from './shared/modal.js';
+import { showSharePanel } from './shared/share.js';
+import { log } from './shared/log.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -46,7 +50,7 @@ const TRUST_ACCENT = {
 };
 
 const GRADIENTS = [
-	['#7c3aed', '#4f46e5'],
+	['#555577', '#4f46e5'],
 	['#0ea5e9', '#ffffff'],
 	['#10b981', '#0ea5e9'],
 	['#f59e0b', '#ef4444'],
@@ -307,6 +311,7 @@ function render(agent) {
 
 	document.querySelector('.ad-main').classList.remove('loading');
 	bindWalletActions();
+	wireShareButton(agent);
 
 	loadExtraSections(agent.id, agent.rawMetadata);
 }
@@ -762,7 +767,7 @@ function renderActions(actions, agentId) {
 		el('div', { style: 'text-align:center;padding-top:10px' }, [
 			el('a', {
 				class: 'ad-cta',
-				href: `/dashboard/actions?agent=${encodeURIComponent(agentId)}`,
+				href: `/dashboard/account?agent=${encodeURIComponent(agentId)}`,
 				text: 'See full action log →',
 			}),
 		]),
@@ -974,6 +979,30 @@ function makeSnsResolver(inputEl, statusEl) {
 	return { resolveForSubmit, reset };
 }
 
+function wireShareButton(agent) {
+	const btn = document.getElementById('ad-share-btn');
+	if (!btn) return;
+
+	const origin = location.origin;
+	const shareUrl = `${origin}/agents/${agent.id}`;
+	const remixUrl = `${origin}/create`;
+
+	btn.style.display = '';
+	btn.addEventListener('click', () => {
+		showSharePanel(
+			{
+				kind: 'agent',
+				id: agent.id,
+				title: agent.name || 'Agent',
+				description: agent.description || '',
+				shareUrl,
+				remixUrl,
+			},
+			btn,
+		);
+	});
+}
+
 function bindWalletActions() {
 	const receiveBtn = document.getElementById('receive-btn');
 	const withdrawBtn = document.getElementById('withdraw-btn');
@@ -981,14 +1010,6 @@ function bindWalletActions() {
 	const qrCodeContainer = document.getElementById('qr-code-container');
 	const qrCodeCanvas = document.getElementById('qr-code');
 	const walletAddressSpan = document.getElementById('ad-holdings-addr');
-	const modal = document.getElementById('withdraw-modal');
-	const closeModalBtn = document.getElementById('close-modal-btn');
-	const cancelWithdrawBtn = document.getElementById('cancel-withdraw-btn');
-	const confirmWithdrawBtn = document.getElementById('confirm-withdraw-btn');
-	const withdrawAmountInput = document.getElementById('withdraw-amount');
-	const recipientAddressInput = document.getElementById('recipient-address');
-	const recipientResolvedEl = document.getElementById('recipient-resolved');
-	const snsResolver = makeSnsResolver(recipientAddressInput, recipientResolvedEl);
 
 	receiveBtn.addEventListener('click', () => {
 		const walletAddress = walletAddressSpan.dataset.full;
@@ -1004,16 +1025,46 @@ function bindWalletActions() {
 		}
 	});
 
-	withdrawBtn.addEventListener('click', () => {
-		modal.classList.remove('hidden');
+	// Build the withdraw modal using the shared Modal primitive
+	const bodyEl = document.createElement('div');
+	bodyEl.innerHTML = `
+		<div class="ad-form-group">
+			<label for="withdraw-amount">Amount (SOL)</label>
+			<input type="number" id="withdraw-amount" class="ad-input" placeholder="0.0">
+		</div>
+		<div class="ad-form-group">
+			<label for="recipient-address">Recipient address or .sol name</label>
+			<input type="text" id="recipient-address" class="ad-input"
+				placeholder="Wallet address or yourname.sol" autocomplete="off" spellcheck="false">
+			<div id="recipient-resolved" class="ad-resolved" hidden></div>
+		</div>
+	`;
+
+	const actionsEl = document.createElement('div');
+	actionsEl.innerHTML = `
+		<button id="cancel-withdraw-btn" class="ad-btn" type="button">Cancel</button>
+		<button id="confirm-withdraw-btn" class="ad-btn ad-btn-primary" type="button">Confirm Withdraw</button>
+	`;
+
+	const withdrawModal = new Modal({
+		title: 'Withdraw SOL',
+		body: bodyEl,
+		actions: actionsEl,
 	});
 
-	closeModalBtn.addEventListener('click', () => {
-		modal.classList.add('hidden');
+	const withdrawAmountInput   = withdrawModal.bodyEl.querySelector('#withdraw-amount');
+	const recipientAddressInput = withdrawModal.bodyEl.querySelector('#recipient-address');
+	const recipientResolvedEl   = withdrawModal.bodyEl.querySelector('#recipient-resolved');
+	const cancelWithdrawBtn     = withdrawModal.actionsEl.querySelector('#cancel-withdraw-btn');
+	const confirmWithdrawBtn    = withdrawModal.actionsEl.querySelector('#confirm-withdraw-btn');
+	const snsResolver = makeSnsResolver(recipientAddressInput, recipientResolvedEl);
+
+	withdrawBtn.addEventListener('click', () => {
+		withdrawModal.open(withdrawBtn);
 	});
 
 	cancelWithdrawBtn.addEventListener('click', () => {
-		modal.classList.add('hidden');
+		withdrawModal.close();
 	});
 
 	confirmWithdrawBtn.addEventListener('click', async () => {
@@ -1067,12 +1118,12 @@ function bindWalletActions() {
 					: `${typedRecipient} (${recipientAddress})`;
 			alert(`Withdrawal of ${amount} SOL to ${displayTarget} successful!`);
 
-			modal.classList.add('hidden');
+			withdrawModal.close();
 			withdrawAmountInput.value = '';
 			recipientAddressInput.value = '';
 			snsResolver.reset();
 		} catch (error) {
-			console.error('Withdrawal failed:', error);
+			log.error('Withdrawal failed:', error);
 			alert(`Withdrawal failed: ${error.message}`);
 		} finally {
 			confirmWithdrawBtn.disabled = false;
@@ -1099,13 +1150,36 @@ function renderNotFound(id, reason) {
 	`;
 }
 
+/**
+ * Transient load failure (offline, 5xx) — distinct from a genuine 404. Shows the
+ * shared retryable error shell so a network blip never leaves a blank page.
+ */
+function renderLoadError(err) {
+	document.title = 'Couldn’t load agent — three.ws';
+	const main = document.querySelector('.ad-main');
+	if (!main) return;
+	main.innerHTML = '<div class="ad-load-error"></div>';
+	renderAsyncError(
+		main.querySelector('.ad-load-error'),
+		err,
+		{
+			error: {
+				title: 'Couldn’t load this agent',
+				body: 'We hit a problem reaching the registry. Check your connection and try again.',
+			},
+			context: 'agent-detail:load',
+		},
+		runLoad,
+	);
+}
+
 document.addEventListener('click', (e) => {
 	const btn = e.target.closest('.ad-copy[data-copy-target]');
 	if (!btn) return;
 	const id = btn.getAttribute('data-copy-target');
 	const node = document.getElementById(id);
 	const value = node?.dataset?.full || node?.textContent || '';
-	if (value && value !== '—') navigator.clipboard?.writeText(value);
+	if (value && value !== '—') navigator.clipboard?.writeText(value)?.catch(() => {});
 });
 
 async function fetchJson(url) {
@@ -1208,20 +1282,25 @@ function normalize(rec, avatar) {
 }
 
 async function loadAgent(id) {
-	if (!id) return { error: 'missing id', agent: null };
-	if (!UUID_RE.test(id)) return { error: 'invalid id (expected UUID)', agent: null };
+	if (!id) return { error: 'missing id', agent: null, notFound: true };
+	if (!UUID_RE.test(id))
+		return { error: 'invalid id (expected UUID)', agent: null, notFound: true };
 
 	let rec;
 	try {
 		const json = await fetchJson(`/api/agents/${encodeURIComponent(id)}`);
 		rec = json.agent;
 	} catch (e) {
+		// A 404 is genuinely "no such agent"; anything else (offline, 5xx) is a
+		// transient load failure the user should be able to retry.
+		const notFound = e.status === 404;
 		return {
-			error: e.status === 404 ? 'No agent with id' : `Fetch failed: ${e.message}`,
+			error: notFound ? 'No agent with id' : e,
 			agent: null,
+			notFound,
 		};
 	}
-	if (!rec) return { error: 'No agent with id', agent: null };
+	if (!rec) return { error: 'No agent with id', agent: null, notFound: true };
 
 	let avatar = null;
 	if (rec.avatar_id) {
@@ -1229,7 +1308,7 @@ async function loadAgent(id) {
 			const json = await fetchJson(`/api/avatars/${encodeURIComponent(rec.avatar_id)}`);
 			avatar = json.avatar || null;
 		} catch (e) {
-			console.warn('[agent-detail] avatar fetch failed:', e.message);
+			log.warn('[agent-detail] avatar fetch failed:', e.message);
 		}
 	}
 
@@ -1268,7 +1347,7 @@ connectWalletBtn.addEventListener('click', async () => {
 
 			connectWalletBtn.textContent = `${wallet.toString().slice(0, 4)}...${wallet.toString().slice(-4)}`;
 		} catch (err) {
-			console.error('Failed to connect to wallet:', err);
+			log.error('Failed to connect to wallet:', err);
 		}
 	}
 });
@@ -1276,12 +1355,16 @@ connectWalletBtn.addEventListener('click', async () => {
 const id =
 	new URLSearchParams(location.search).get('id') ||
 	location.pathname.match(/\/agents\/([^/]+)/)?.[1];
-loadAgent(id)
-	.then(({ agent, error }) => {
-		if (!agent) return renderNotFound(id, error);
-		render(agent);
-	})
-	.catch((e) => {
-		console.error('[agent-detail] load failed', e);
-		renderNotFound(id, 'Unexpected error loading');
-	});
+
+function runLoad() {
+	loadAgent(id)
+		.then(({ agent, error, notFound }) => {
+			if (agent) return render(agent);
+			if (notFound) return renderNotFound(id, typeof error === 'string' ? error : '');
+			renderLoadError(error);
+		})
+		.catch((e) => {
+			renderLoadError(e);
+		});
+}
+runLoad();

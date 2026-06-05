@@ -13,7 +13,7 @@ const PROVIDERS = [
 	{ key: 'groq-llama',        label: 'Llama 3.3 70B',      short: 'Llama 3.3',   network: 'Groq',       color: '#ff9a3c', ctx: '128K', tier: 'Fast'     },
 	{ key: 'qwen-plus',         label: 'Qwen Plus',           short: 'Qwen+',       network: 'DashScope',  color: '#69db7c', ctx: '131K', tier: 'Balanced' },
 	{ key: 'modelscope-qwen',   label: 'Qwen3-Coder 480B',   short: 'Qwen3-Code',  network: 'ModelScope', color: '#40c057', ctx: '32K',  tier: 'Flagship' },
-	{ key: 'deepseek-r1',       label: 'DeepSeek R1',         short: 'DeepSeek',    network: 'DeepSeek',   color: '#b197fc', ctx: '64K',  tier: 'Reasoning' },
+	{ key: 'deepseek-r1',       label: 'DeepSeek R1',         short: 'DeepSeek',    network: 'DeepSeek',   color: '#888888', ctx: '64K',  tier: 'Reasoning' },
 	{ key: 'ibm-granite',       label: 'IBM Granite 3.8B',   short: 'Granite',     network: 'IBM watsonx.ai', color: '#0f62fe', ctx: '128K', tier: 'Balanced' },
 ];
 const PMAP = new Map(PROVIDERS.map(p => [p.key, p]));

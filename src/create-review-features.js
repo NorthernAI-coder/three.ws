@@ -13,6 +13,7 @@
 
 import { openTalkMode } from './voice/talk-mode.js';
 import { downloadAvatar } from './avatar-export.js';
+import { log } from './shared/log.js';
 
 // ── Feature-preview modal ────────────────────────────────────────────────────
 
@@ -341,7 +342,7 @@ export async function openIdentityModal(ctx = {}) {
 		link.removeAttribute('href');
 		link.style.pointerEvents = 'none';
 		card.querySelector('[data-explorer-hint]').hidden = true;
-		console.warn('[identity-preview] keypair gen failed', err);
+		log.warn('[identity-preview] keypair gen failed', err);
 	}
 }
 
@@ -611,7 +612,7 @@ export default function Page() {
 				skel.hidden = true;
 			}, 'image/png');
 		} catch (err) {
-			console.warn('[embed-preview] canvas snapshot failed', err);
+			log.warn('[embed-preview] canvas snapshot failed', err);
 		}
 	} else {
 		skel.textContent = 'Preview will render here once your avatar is loaded.';
@@ -695,7 +696,7 @@ export function openDownloadModal(ctx) {
 				statusEl.textContent = `Saved ${result.filename} · ${prettyBytes(result.size)}`;
 				statusEl.dataset.tone = 'ok';
 			} catch (err) {
-				console.error('[create-review] download failed', err);
+				log.error('[create-review] download failed', err);
 				statusEl.textContent =
 					err?.message?.includes('humanoid') && format === 'vrm'
 						? "Couldn't write VRM — this avatar's skeleton isn't humanoid enough. Try GLB instead."

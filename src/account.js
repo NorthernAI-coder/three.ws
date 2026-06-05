@@ -3,6 +3,7 @@
 
 import { identifyUser, resetIdentity } from './analytics.js';
 import { apiFetch, consumeCsrfToken } from './api.js';
+import { log } from './shared/log.js';
 
 // Re-export for back-compat — many modules still `import { apiFetch } from
 // './account.js'`. New code should import from './api.js' directly.
@@ -97,7 +98,7 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 	try {
 		me = await getMe();
 	} catch (err) {
-		console.warn('[account] getMe probe failed, proceeding optimistically:', err?.message);
+		log.warn('[account] getMe probe failed, proceeding optimistically:', err?.message);
 		me = { id: null, optimistic: true };
 	}
 	if (me === null) throw stageError('auth', 'Not signed in', { code: 'not_signed_in' });
@@ -130,7 +131,7 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 			retargetedBoneCount = result.renamed;
 		}
 	} catch (err) {
-		console.warn('[account] canonicalize failed; uploading original', err);
+		log.warn('[account] canonicalize failed; uploading original', err);
 	}
 
 	const size = blob.size;
@@ -172,7 +173,7 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 			err.stage = err.stage || 'upload';
 			throw err;
 		}
-		console.warn('[account] direct R2 PUT blocked; retrying via server proxy');
+		log.warn('[account] direct R2 PUT blocked; retrying via server proxy');
 		// Reset progress so the proxy attempt restarts visibly at 0% rather than
 		// looking stuck at whatever the direct PUT reached before failing.
 		onProgress?.(0);
@@ -221,7 +222,7 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 	// Uses a hidden off-screen model-viewer to render the GLB, captures a JPEG
 	// poster, uploads to R2, and calls Claude Haiku for tags + description.
 	captureAndTagAvatar(avatar.id, storageKey).catch((err) => {
-		console.warn('[account] thumbnail/auto-tag pipeline failed silently', err?.message);
+		log.warn('[account] thumbnail/auto-tag pipeline failed silently', err?.message);
 	});
 
 	// USDZ + half-body companion generation is opt-in (the demo page at
@@ -230,7 +231,7 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 	// seconds of CPU on every save, so they don't ship to all users yet.
 	if (meta.generateCompanions) {
 		generateAndSaveCompanions(avatar.id, blob).catch((err) => {
-			console.warn('[account] usdz/halfbody pipeline failed silently', err?.message);
+			log.warn('[account] usdz/halfbody pipeline failed silently', err?.message);
 		});
 	}
 
@@ -251,10 +252,10 @@ export async function generateAndSaveCompanions(avatarId, glbBlob) {
 		try {
 			report = await glbBlobToArkitReport(glbBlob);
 		} catch (err) {
-			console.warn('[account] arkit report failed:', err?.message);
+			log.warn('[account] arkit report failed:', err?.message);
 			return;
 		}
-		console.info(
+		log.info(
 			`[account] avatar ${avatarId} ARKit-52 coverage: ${Math.round(report.coverage * 100)}% (${report.implemented.length}/52)`,
 		);
 		try {
@@ -273,7 +274,7 @@ export async function generateAndSaveCompanions(avatarId, glbBlob) {
 		try {
 			usdzBlob = await glbBlobToUsdzBlob(glbBlob);
 		} catch (err) {
-			console.warn('[account] usdz export failed:', err?.message);
+			log.warn('[account] usdz export failed:', err?.message);
 			return;
 		}
 		try {
@@ -293,7 +294,7 @@ export async function generateAndSaveCompanions(avatarId, glbBlob) {
 				body: JSON.stringify({ usdz_key: pre.usdz_key }),
 			});
 		} catch (err) {
-			console.warn('[account] usdz upload/patch failed:', err?.message);
+			log.warn('[account] usdz upload/patch failed:', err?.message);
 		}
 	})();
 
@@ -325,7 +326,7 @@ export async function generateAndSaveCompanions(avatarId, glbBlob) {
 				body: JSON.stringify({ halfbody_key: pre.halfbody_key }),
 			});
 		} catch (err) {
-			console.warn('[account] halfbody upload/patch failed:', err?.message);
+			log.warn('[account] halfbody upload/patch failed:', err?.message);
 		}
 	})();
 }

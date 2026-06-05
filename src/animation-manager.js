@@ -1,5 +1,6 @@
 import { AnimationClip, AnimationMixer, LoopRepeat, LoopOnce } from 'three';
 import { canonicalizeBoneName } from './glb-canonicalize.js';
+import { log } from './shared/log.js';
 
 // Minimum number of canonical bones a skinned model must expose before the
 // pre-baked clip library can drive it meaningfully. The clips address tracks by
@@ -177,7 +178,7 @@ export class AnimationManager {
 				try {
 					await this.loadAnimation(def.name, def.url, { loop: def.loop !== false });
 				} catch (err) {
-					console.warn(`[AnimationManager] failed to load "${def.name}":`, err.message);
+					log.warn(`[AnimationManager] failed to load "${def.name}":`, err.message);
 					this._failed.add(def.name);
 				}
 			}
@@ -216,7 +217,7 @@ export class AnimationManager {
 		const ready = await this.ensureLoaded(name);
 		if (!ready) {
 			if (this._failed.has(name) || this._animationDefs.some((d) => d.name === name))
-				console.warn(`[AnimationManager] "${name}" unavailable`);
+				log.warn(`[AnimationManager] "${name}" unavailable`);
 			return;
 		}
 		const action = this.actions.get(name);
@@ -228,7 +229,7 @@ export class AnimationManager {
 		action.reset().fadeIn(0.01).play();
 		this.currentAction = action;
 		this.currentName = name;
-		try { this.onChange?.(name); } catch (e) { console.warn('[AnimationManager] onChange threw:', e); }
+		try { this.onChange?.(name); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }
 	}
 
 	/**
@@ -243,7 +244,7 @@ export class AnimationManager {
 		const ready = await this.ensureLoaded(name);
 		if (!ready) {
 			if (this._failed.has(name) || this._animationDefs.some((d) => d.name === name))
-				console.warn(`[AnimationManager] "${name}" unavailable`);
+				log.warn(`[AnimationManager] "${name}" unavailable`);
 			return;
 		}
 		const next = this.actions.get(name);
@@ -257,7 +258,7 @@ export class AnimationManager {
 		}
 		this.currentAction = next;
 		this.currentName = name;
-		try { this.onChange?.(name); } catch (e) { console.warn('[AnimationManager] onChange threw:', e); }
+		try { this.onChange?.(name); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }
 	}
 
 	/**
@@ -274,7 +275,7 @@ export class AnimationManager {
 		this.mixer?.stopAllAction();
 		this.currentAction = null;
 		this.currentName = null;
-		try { this.onChange?.(null); } catch (e) { console.warn('[AnimationManager] onChange threw:', e); }
+		try { this.onChange?.(null); } catch (e) { log.warn('[AnimationManager] onChange threw:', e); }
 	}
 
 	/**

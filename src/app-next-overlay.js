@@ -1,6 +1,7 @@
 // UX preview overlay for /app-next — re-skins /src/app.js without touching it.
 
 import { getMe, readAuthHint, saveRemoteGlbToAccount } from './account.js';
+import { log } from './shared/log.js';
 
 const STORAGE_HINT_KEY = 'nxt:first-hint-dismissed';
 const CHIP_ROTATE_MS = 9000;
@@ -70,7 +71,7 @@ function boot() {
 
 	waitForViewer().then((viewer) => {
 		if (!viewer) {
-			console.warn('[nxt] viewer never appeared — stage polish skipped');
+			log.warn('[nxt] viewer never appeared — stage polish skipped');
 			return;
 		}
 		polishStage(viewer);
@@ -121,7 +122,7 @@ function polishStage(viewer) {
 		viewer.state.transparentBg = true;
 		viewer.updateBackground();
 	} catch (err) {
-		console.warn('[nxt] could not set transparent canvas', err);
+		log.warn('[nxt] could not set transparent canvas', err);
 	}
 }
 
@@ -414,7 +415,7 @@ async function sendChat(text, optionalClip) {
 		try {
 			agent._send();
 		} catch (err) {
-			console.warn('[nxt] chat send failed', err);
+			log.warn('[nxt] chat send failed', err);
 		}
 	}
 }
@@ -552,7 +553,7 @@ function wireAnimationSheet() {
 		// Chain through any existing onChange so we don't clobber a viewer subscriber.
 		const prevOnChange = viewer.animationManager.onChange;
 		viewer.animationManager.onChange = (...args) => {
-			try { prevOnChange?.(...args); } catch (e) { console.warn('[nxt] prior onChange threw', e); }
+			try { prevOnChange?.(...args); } catch (e) { log.warn('[nxt] prior onChange threw', e); }
 			const current = viewer.animationManager.currentName;
 			grid.querySelectorAll('.nxt-anim-card').forEach((c) => {
 				c.setAttribute('aria-pressed', c.dataset.name === current ? 'true' : 'false');
@@ -602,7 +603,7 @@ function playClip(viewer, name) {
 	if (!def) return;
 	mgr.ensureLoaded(name)
 		.then(() => mgr.play(name))
-		.catch((err) => console.warn('[nxt] clip play failed', name, err));
+		.catch((err) => log.warn('[nxt] clip play failed', name, err));
 }
 
 // ── Share / embed popover ─────────────────────────────────────────────────
@@ -907,7 +908,7 @@ function wirePrimaryCTA() {
 				throw new Error('save failed');
 			}
 		} catch (err) {
-			console.warn('[nxt] save failed', err);
+			log.warn('[nxt] save failed', err);
 			if (primaryLabel) primaryLabel.textContent = original;
 			const code = err.data?.error || err.code || '';
 			const detail = err.data?.error_description || err.message || '';

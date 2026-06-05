@@ -8,6 +8,7 @@
  */
 
 import { glbBlobToUsdzBlob } from './usdz-pipeline.js';
+import { log } from './shared/log.js';
 
 const segments = location.pathname.split('/').filter(Boolean);
 // /avatars/:id/ar → segments = ['avatars', 'uuid', 'ar']
@@ -72,7 +73,7 @@ function renderPage(avatar, glbUrl) {
 		viewer.setAttribute('ios-src', avatar.usdz_url);
 	}
 
-	$('ar-back-link').href = `/agent-next?id=${encodeURIComponent(avatar.id || avatarId)}`;
+	$('ar-back-link').href = `/agents/${encodeURIComponent(avatar.id || avatarId)}`;
 
 	$('ar-share-btn').addEventListener('click', () => shareAvatar(avatar));
 }
@@ -162,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 
 	init().catch((err) => {
-		console.error('[ar-page] init error', err);
+		log.error('[ar-page] init error', err);
 		showError('Something went wrong loading this avatar.');
 	});
 

@@ -13,6 +13,7 @@
 // when constructing their parts of the scene. Anything that doesn't
 // exist yet is simply gated for the future; the flag set is the contract.
 
+import { log } from './shared/log.js';
 const PROFILE_TIERS = ['high', 'medium', 'low'];
 
 /**
@@ -188,7 +189,7 @@ export function createFrameWatchdog({
 					// Smooth out the EMA so we don't immediately retrigger
 					// while the still-warm GPU recovers.
 					frameAvg = slowSec * 0.9;
-					try { onDowngrade?.(next); } catch (err) { console.warn('[club-perf] onDowngrade threw', err); }
+					try { onDowngrade?.(next); } catch (err) { log.warn('[club-perf] onDowngrade threw', err); }
 				}
 			} else {
 				slowAccum = 0;

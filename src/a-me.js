@@ -249,7 +249,7 @@ function renderAgentCards(host, agents, avatars) {
 
 				<div class="ame-agent-actions">
 					<div class="ame-actions-row">
-						${avatarId ? `<a class="ame-btn primary small" href="/agent-next?id=${encodeURIComponent(avatarId)}" target="_blank">View Live</a>` : ''}
+						${avatarId ? `<a class="ame-btn primary small" href="/agents/${encodeURIComponent(avatarId)}" target="_blank">View Live</a>` : ''}
 						${avatarId ? `<button class="ame-btn small" data-action="share" data-avatar-id="${esc(avatarId)}" data-name="${name}">Share</button>` : ''}
 						${avatarId ? `<button class="ame-btn small" data-action="embed" data-avatar-id="${esc(avatarId)}">Embed</button>` : ''}
 						<a class="ame-btn small" href="/dashboard/monetize">Monetize</a>
@@ -303,7 +303,7 @@ function renderAvatarCards(host, avatars, agents) {
 
 		return `
 			<div class="ame-avatar-card">
-				<a class="ame-avatar-preview" href="/agent-next?id=${encodeURIComponent(av.id)}">
+				<a class="ame-avatar-preview" href="/agents/${encodeURIComponent(av.id)}">
 					${thumb
 						? `<img src="${esc(thumb)}" alt="${name}" loading="lazy" />`
 						: `<div class="ame-avatar-placeholder">
@@ -321,7 +321,7 @@ function renderAvatarCards(host, avatars, agents) {
 						${created ? `<span class="ame-meta-text">${esc(created)}</span>` : ''}
 					</div>
 					<div class="ame-avatar-footer-right">
-						<a class="ame-btn ghost tiny" href="/agent-next?id=${encodeURIComponent(av.id)}" title="View">View</a>
+						<a class="ame-btn ghost tiny" href="/agents/${encodeURIComponent(av.id)}" title="View">View</a>
 						<button class="ame-btn ghost tiny" data-action="selfie" data-avatar-id="${esc(av.id)}" title="Update from selfie">Selfie</button>
 						<button class="ame-btn ghost tiny" data-action="share" data-avatar-id="${esc(av.id)}" data-name="${name}" title="Share">Share</button>
 						<a class="ame-btn ghost tiny" href="/walk?avatar=${encodeURIComponent(av.id)}" title="Walk">Walk</a>
@@ -452,7 +452,7 @@ function renderPanel(panel, type, data, agentId) {
 				}).join('')}
 				${memories.length > 10 ? `<div class="ame-panel-item" style="color:var(--text-soft)">+ ${memories.length - 10} more entries</div>` : ''}
 			</div>
-			<div class="ame-panel-footer"><a href="/dashboard/memory">View all memory</a></div>
+			<div class="ame-panel-footer"><a href="/dashboard/agents">View all memory</a></div>
 		`;
 	} else if (type === 'actions') {
 		const actions = data?.actions || data?.items || [];
@@ -478,7 +478,7 @@ function renderPanel(panel, type, data, agentId) {
 					`;
 				}).join('')}
 			</div>
-			<div class="ame-panel-footer"><a href="/dashboard/actions">View all activity</a></div>
+			<div class="ame-panel-footer"><a href="/dashboard/account">View all activity</a></div>
 		`;
 	}
 }
@@ -486,7 +486,7 @@ function renderPanel(panel, type, data, agentId) {
 // ── Share / Embed actions ────────────────────────────────────────────────────
 
 function handleShare(avatarId, name) {
-	const link = `${location.origin}/agent-next?id=${encodeURIComponent(avatarId)}`;
+	const link = `${location.origin}/agents/${encodeURIComponent(avatarId)}`;
 	navigator.clipboard.writeText(link).then(() => {
 		toast(`Link copied for ${name || 'agent'}`);
 	}).catch(() => {
@@ -524,7 +524,7 @@ function injectStyles() {
 			--accent: #ffffff;
 			--pump: #888888;
 			--danger: #f87171;
-			--font-sans: "Inter Tight", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+			--font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 			--font-mono: ${MONO};
 		}
 		* { box-sizing: border-box; }

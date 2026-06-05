@@ -15,6 +15,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { reserveWebGLContext } from './webgl-budget.js';
+import { log } from './shared/log.js';
 
 export function initAvatarDrop(sectionEl) {
 	const canvas  = sectionEl.querySelector('#drop-canvas');
@@ -361,7 +362,10 @@ export function initAvatarDrop(sectionEl) {
 				scene.add(avatar);
 				mixer = new AnimationMixer(avatar);
 
-				const fetchClip = f => fetch(f).then(r => r.json());
+				const fetchClip = f => fetch(f).then(r => {
+					if (!r.ok) throw new Error(`${f} → HTTP ${r.status}`);
+					return r.json();
+				});
 				Promise.all([
 					fetchClip('/animations/clips/sitidle.json'),
 					fetchClip('/animations/clips/standup.json'),
@@ -398,10 +402,10 @@ export function initAvatarDrop(sectionEl) {
 					};
 
 					startSit();
-				});
-			});
+				}).catch(e => log.warn('[avatar-drop] animation clips failed to load — skipping interactive sit/stand sequence', e));
+			}, undefined, err => log.warn('[avatar-drop] avatar GLB failed to load', err));
 		})
-		.catch(e => console.warn('[avatar-drop] boot failed', e));
+		.catch(e => log.warn('[avatar-drop] boot failed', e));
 
 	// Render loop — paused when the section is offscreen or the tab is hidden.
 	const clock = new Clock();

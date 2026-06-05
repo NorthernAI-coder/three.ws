@@ -4,6 +4,7 @@
 // window.solana that signs through the on-device Seed Vault. On every other
 // platform the import is a no-op (it checks display-mode + UA + referrer).
 import '../solana-mobile/src/index.js';
+import { log } from './shared/log.js';
 
 let connectedWalletAddress = null;
 let listenersBound = false;
@@ -45,7 +46,7 @@ async function onConnectWallet() {
 		connectedWalletAddress = res?.publicKey?.toString?.() || null;
 		updateWalletState(connectedWalletAddress);
 	} catch (err) {
-		console.error('Wallet connection failed:', err);
+		log.error('Wallet connection failed:', err);
 	}
 }
 

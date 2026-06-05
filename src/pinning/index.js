@@ -11,6 +11,7 @@ import { Web3StoragePinner } from './web3-storage.js';
 import { FilebasePinner } from './filebase.js';
 import { PinataPinner } from './pinata.js';
 import { MemoryPinner, NullDevPinner } from './null-dev.js';
+import { log } from '../shared/log.js';
 
 const PROVIDERS = ['web3-storage', 'filebase', 'pinata', 'memory'];
 
@@ -72,7 +73,7 @@ export function getPinner() {
 
 	if (!_autoFallbackWarned) {
 		_autoFallbackWarned = true;
-		console.warn(
+		log.warn(
 			'[pinning] No pinner configured — falling back to in-memory pinner. ' +
 				'CIDs are real but content is local-only. ' +
 				'Set window.__agent3dPinner or call setPinner() with a real provider for production.',

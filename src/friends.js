@@ -13,6 +13,7 @@
 // The panel UI (game/friends-panel.js) is a pure view over this client.
 
 import { apiFetch } from './api.js';
+import { log } from './shared/log.js';
 
 // ── presence ticket ─────────────────────────────────────────────────────────
 // Short-lived, account-scoped token the realm room verifies before publishing
@@ -66,7 +67,7 @@ export class FriendsClient {
 			try {
 				fn(this);
 			} catch (e) {
-				console.error('[friends] listener threw:', e);
+				log.error('[friends] listener threw:', e);
 			}
 		}
 	}
@@ -140,7 +141,7 @@ export class FriendsClient {
 		} catch (err) {
 			this.loadError = 'network';
 			this.loaded = true;
-			console.warn('[friends] refresh failed:', err?.message);
+			log.warn('[friends] refresh failed:', err?.message);
 		}
 		this._emit();
 	}
@@ -233,7 +234,7 @@ export class FriendsClient {
 			// open composer rebuilds every few seconds and steals the caret.
 			if (changed || !quiet) this._emit();
 		} catch (err) {
-			if (!quiet) console.warn('[friends] thread load failed:', err?.message);
+			if (!quiet) log.warn('[friends] thread load failed:', err?.message);
 		}
 	}
 

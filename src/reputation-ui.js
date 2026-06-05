@@ -10,6 +10,7 @@ import { JsonRpcProvider } from 'ethers';
 import { getReputation, getRecentReviews, submitReputation, getTotalStake } from './erc8004/reputation.js';
 import { ensureWallet } from './erc8004/agent-registry.js';
 import { REGISTRY_DEPLOYMENTS } from './erc8004/abi.js';
+import { log } from './shared/log.js';
 
 const CHAIN_NAMES = {
 	1: 'Ethereum',
@@ -89,7 +90,7 @@ export class ReputationDashboard {
 			await this._fetchReputation();
 			this._render();
 		} catch (err) {
-			console.error('[ReputationDashboard] load failed:', err);
+			log.error('[ReputationDashboard] load failed:', err);
 			this._renderError(err);
 		}
 	}
@@ -239,7 +240,7 @@ export class ReputationDashboard {
 				this._stopPolling();
 			}
 		} catch (err) {
-			console.warn('[ReputationDashboard] poll failed:', err.message);
+			log.warn('[ReputationDashboard] poll failed:', err.message);
 		}
 	}
 

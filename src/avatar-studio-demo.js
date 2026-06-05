@@ -15,6 +15,7 @@ import {
 	applyMorphsToRoot,
 	renderSculptPanel,
 } from './avatar-sculpt.js';
+import { log } from './shared/log.js';
 
 const BASE_GLB = '/avatars/default.glb';
 const PRESETS_URL = '/accessories/presets.json';
@@ -169,7 +170,7 @@ function wireExport() {
 			URL.revokeObjectURL(url);
 			setStatus('Exported avatar.glb');
 		} catch (err) {
-			console.error('[studio] export failed:', err);
+			log.error('[studio] export failed:', err);
 			setStatus(`Export failed: ${err.message}`);
 		} finally {
 			btn.disabled = false;
@@ -207,7 +208,7 @@ function wirePresetInteraction() {
 		try {
 			await handlePresetClick(card);
 		} catch (err) {
-			console.warn('[studio] preset click failed:', err);
+			log.warn('[studio] preset click failed:', err);
 			setStatus(`Failed: ${err.message}`);
 		}
 	});
@@ -222,7 +223,7 @@ function wirePresetInteraction() {
 		try {
 			await accessoryMgr.applyPreset(preset);
 		} catch (err) {
-			console.warn('[studio] hover preview failed:', err);
+			log.warn('[studio] hover preview failed:', err);
 		}
 	}, true);
 
@@ -233,7 +234,7 @@ function wirePresetInteraction() {
 		try {
 			await revertToCommitted();
 		} catch (err) {
-			console.warn('[studio] revert failed:', err);
+			log.warn('[studio] revert failed:', err);
 		}
 	}, true);
 }
@@ -473,7 +474,7 @@ window.addEventListener('pagehide', () => {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 boot().catch((err) => {
-	console.error('[avatar-studio] boot failed:', err);
+	log.error('[avatar-studio] boot failed:', err);
 	setStatus(`Failed to initialize: ${err.message}`);
 	$('#as-viewport-loader')?.classList.add('hidden');
 });

@@ -14,6 +14,7 @@
 
 import { Client, getStateCallbacks } from 'colyseus.js';
 import { WalkState } from '../multiplayer/src/schemas.js';
+import { log } from './shared/log.js';
 
 const ROOM_NAME = 'walk_world';
 const SEND_HZ = 15;
@@ -23,10 +24,14 @@ const YAW_EPSILON = 0.01;       // rad
 
 function defaultServerUrl() {
 	// Resolution priority:
-	//   1. window.WALK_SERVER_URL  (test override)
-	//   2. <meta name="walk-server" content="...">
-	//   3. Codespaces / Gitpod port-subdomain forwarding (-3000 → -2567)
-	//   4. Same host on :2567 (dev convenience)
+	//   1. window.WALK_SERVER_URL            (runtime / test override)
+	//   2. <meta name="walk-server" content> (per-page production config)
+	//   3. VITE_WALK_SERVER_URL              (build-time production config)
+	//   4. Codespaces / Gitpod port-subdomain forwarding (-3000 → -2567)
+	//   5. Same host on :2567                (DEV ONLY convenience)
+	// In production with none of the above set we return '' so the caller stays
+	// in graceful offline mode — the public domain does not expose :2567, so a
+	// same-host fallback would only produce a doomed connect + reconnect storm.
 	if (typeof window !== 'undefined' && window.WALK_SERVER_URL) {
 		return window.WALK_SERVER_URL;
 	}
@@ -35,6 +40,10 @@ function defaultServerUrl() {
 		const v = meta?.getAttribute('content')?.trim();
 		if (v) return v;
 	}
+	try {
+		const envUrl = import.meta?.env?.VITE_WALK_SERVER_URL;
+		if (envUrl) return String(envUrl).trim().replace(/\/$/, '');
+	} catch (_) {}
 	if (typeof location !== 'undefined') {
 		const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
 		const host = location.hostname;
@@ -43,9 +52,16 @@ function defaultServerUrl() {
 		// on -3000; the walk server is the same name on -2567.
 		const fwd = host.match(/^(.*)-(\d+)\.(app\.github\.dev|githubpreview\.dev|gitpod\.io)$/);
 		if (fwd) return `${proto}//${fwd[1]}-2567.${fwd[3]}`;
-		return `${proto}//${host}:2567`;
+		// Same-host:2567 is a dev convenience only. In production the walk server
+		// is a separately-deployed Colyseus host addressed via the meta tag or
+		// VITE_WALK_SERVER_URL above; never assume it lives on the public domain.
+		let isProd = false;
+		try { isProd = import.meta?.env?.PROD === true; } catch (_) {}
+		const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+		if (!isProd || isLocalHost) return `${proto}//${host}:2567`;
+		return '';
 	}
-	return 'ws://localhost:2567';
+	return '';
 }
 
 export class WalkNet {
@@ -104,7 +120,7 @@ export class WalkNet {
 
 	_emit(event, ...args) {
 		for (const fn of this._handlers[event]) {
-			try { fn(...args); } catch (e) { console.error(`[walk-net] ${event} handler threw:`, e); }
+			try { fn(...args); } catch (e) { log.error(`[walk-net] ${event} handler threw:`, e); }
 		}
 	}
 
@@ -131,6 +147,15 @@ export class WalkNet {
 	async connect() {
 		if (this._destroyed) return;
 		this._closeRoom();
+		// No multiplayer server resolved for this environment (e.g. production
+		// with no walk-server meta/env configured). Surface a distinct, honest
+		// 'unavailable' state — the page still works solo — instead of throwing
+		// in `new Client('')`, looping on a dead endpoint, or showing a
+		// "reconnecting…" pill that will never reconnect (no server exists).
+		if (!this.url) {
+			this._setStatus('unavailable');
+			return;
+		}
 		// Bump a generation token so a slower in-flight connect (e.g. a manual
 		// retry racing the auto-reconnect timer) can detect it's been superseded
 		// after its await resolves and discard the room it joined, rather than
@@ -188,12 +213,12 @@ export class WalkNet {
 				if (!this._destroyed && code !== 1000) this._scheduleReconnect();
 			});
 			this.room.onError((code, message) => {
-				console.warn('[walk-net] room.onError', code, message);
+				log.warn('[walk-net] room.onError', code, message);
 			});
 
 			this._setStatus('online');
 		} catch (err) {
-			console.warn('[walk-net] connect failed:', err?.message ?? err);
+			log.warn('[walk-net] connect failed:', err?.message ?? err);
 			this._setStatus('failed', err?.message ?? String(err));
 			// Single retry after ~3s — most failures here are "server not
 			// running yet" during local dev. After that we go offline until

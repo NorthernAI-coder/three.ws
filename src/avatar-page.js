@@ -9,6 +9,8 @@
 
 import { openTalkMode } from './voice/talk-mode.js';
 import { downloadAvatar } from './avatar-export.js';
+import { log } from './shared/log.js';
+import { emptyStateHTML } from './shared/state-kit.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -40,7 +42,7 @@ if (!avatarId) {
 	$('av-shell').innerHTML = `<div class="av-error">No avatar specified.</div>`;
 } else {
 	init().catch((err) => {
-		console.error('[avatar] init', err);
+		log.error('[avatar] init', err);
 		$('av-shell').innerHTML = `<div class="av-error">${esc(err.message || 'Failed to load')}</div>`;
 	});
 }
@@ -423,7 +425,7 @@ function openDownloadMenu(ev) {
 				}
 				setTimeout(closeDownloadMenu, 1500);
 			} catch (err) {
-				console.error('[avatar] download failed', err);
+				log.error('[avatar] download failed', err);
 				statusEl.textContent =
 					format === 'vrm' && /humanoid/i.test(err?.message || '')
 						? "VRM needs a humanoid skeleton — try GLB."
@@ -582,7 +584,7 @@ function bindTabs() {
 				btn.classList.remove('copied');
 			}, 1800);
 		} catch (err) {
-			console.error('[avatar] clipboard', err);
+			log.error('[avatar] clipboard', err);
 		}
 	});
 }
@@ -603,7 +605,7 @@ function bindShareButtons() {
 					linkBtn.classList.remove('copied');
 				}, 1800);
 			} catch (err) {
-				console.error('[avatar] copy link', err);
+				log.error('[avatar] copy link', err);
 			}
 		});
 	}
@@ -662,7 +664,7 @@ async function openDeployOnchain() {
 		document.body.appendChild(wrap);
 		new RegisterUI(wrap, () => { wrap.remove(); }, { initial });
 	} catch (err) {
-		console.error('[avatar] deploy on-chain failed', err);
+		log.error('[avatar] deploy on-chain failed', err);
 	} finally {
 		btn.disabled = false;
 		if (btn.lastChild) btn.lastChild.textContent = ' Deploy on-chain';
@@ -718,7 +720,7 @@ async function openLaunchPumpFun() {
 			getPreviewViewer: () => null,
 		});
 	} catch (err) {
-		console.error('[avatar] launch pump.fun failed', err);
+		log.error('[avatar] launch pump.fun failed', err);
 	} finally {
 		if (btn) btn.disabled = false;
 	}
@@ -753,7 +755,7 @@ async function openFeesPanel() {
 			getUser: () => user,
 		});
 	} catch (err) {
-		console.error('[avatar] open fees panel failed', err);
+		log.error('[avatar] open fees panel failed', err);
 	} finally {
 		if (btn) btn.disabled = false;
 	}
@@ -803,7 +805,7 @@ async function startAgentWithAvatar() {
 		if (!newId) throw new Error('Server did not return new agent id');
 		location.href = `/agent/${encodeURIComponent(newId)}/edit`;
 	} catch (err) {
-		console.error('[avatar] start agent', err);
+		log.error('[avatar] start agent', err);
 		btn.textContent = original;
 		btn.disabled = false;
 		alert(err.message || 'Failed to start agent');
@@ -817,7 +819,12 @@ async function loadSkills() {
 	if (!list) return;
 	const skills = await fetchSkills();
 	if (!skills.length) {
-		list.innerHTML = '<div class="av-list-empty">No skills available.</div>';
+		list.innerHTML = emptyStateHTML({
+			compact: true,
+			icon: '🧩',
+			title: 'No skills available',
+			body: 'Skills give this avatar new abilities — wallet, memory, animations and more. None can be attached yet; check back soon.',
+		});
 		return;
 	}
 	list.innerHTML = skills.map(renderSkillRow).join('');
@@ -908,7 +915,12 @@ async function loadPlugins() {
 	if (!list) return;
 	const plugins = await fetchPlugins();
 	if (!plugins.length) {
-		list.innerHTML = '<div class="av-list-empty">No plugins published yet.</div>';
+		list.innerHTML = emptyStateHTML({
+			compact: true,
+			icon: '🔌',
+			title: 'No plugins yet',
+			body: 'Plugins are community-built tools you can attach to extend what this avatar can do. None have been published yet — yours could be the first.',
+		});
 		return;
 	}
 	list.innerHTML = plugins.slice(0, 20).map(renderPluginRow).join('');
@@ -1089,7 +1101,7 @@ function bindChat() {
 			}
 			if (listening) { rec.stop(); return; }
 			try { rec.start(); listening = true; mic.classList.add('listening'); }
-			catch (err) { console.warn('[avatar] STT start', err.message); }
+			catch (err) { log.warn('[avatar] STT start', err.message); }
 		});
 		rec.onresult = (e) => {
 			const text = e.results[0]?.[0]?.transcript;
@@ -1125,7 +1137,7 @@ function hydrateChatHistory() {
 		existing.forEach((n) => n.remove());
 		for (const m of chatHistory) appendChatMessage(m.role, m.content);
 	} catch (err) {
-		console.warn('[avatar] memory hydrate failed', err.message);
+		log.warn('[avatar] memory hydrate failed', err.message);
 	}
 }
 
@@ -1167,7 +1179,7 @@ async function speakReply(text) {
 		ttsAudio.onended = () => { URL.revokeObjectURL(url); ttsAudio = null; };
 		await ttsAudio.play();
 	} catch (err) {
-		console.warn('[avatar] TTS playback failed', err.message);
+		log.warn('[avatar] TTS playback failed', err.message);
 	}
 }
 
@@ -1252,7 +1264,7 @@ async function sendChatMessage(text) {
 	} catch (err) {
 		assistantNode.textContent = acc || `⚠ ${err.message}`;
 		finalizeThought(acc || err.message);
-		console.error('[avatar] chat', err);
+		log.error('[avatar] chat', err);
 	} finally {
 		cursor.remove();
 		send.disabled = false;
@@ -1371,7 +1383,7 @@ async function measureModel(glbUrl) {
 		const { fetchGlbStats } = await import('./lib/glb-stats.js');
 		stats = await fetchGlbStats(glbUrl);
 	} catch (err) {
-		console.warn('[avatar] glb stats parse failed', err.message);
+		log.warn('[avatar] glb stats parse failed', err.message);
 		return;
 	}
 

@@ -2,6 +2,7 @@ import { AvatarCreator } from './avatar-creator.js';
 import { saveRemoteGlbToAccount } from './account.js';
 import { apiFetch } from './api.js';
 import { openAvatarPicker } from './avatar-gallery-picker.js';
+import { log } from './shared/log.js';
 
 const API_BASE = '/api';
 const params = new URLSearchParams(location.search);
@@ -87,7 +88,7 @@ async function createDraftAgent() {
         body: JSON.stringify({ avatar_id: initAvatarId }),
       });
       if (!patchRes.ok) {
-        console.warn('[agent-edit] avatar attach failed', patchRes.status);
+        log.warn('[agent-edit] avatar attach failed', patchRes.status);
       }
     }
 

@@ -18,6 +18,9 @@ import {
 } from './marketplace-detail.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 import { coinChipHTML } from './shared/agent-coin.js';
+import { skeletonHTML, ensureStateKitStyles } from './shared/state-kit.js';
+import { log } from './shared/log.js';
+ensureStateKitStyles();
 
 const API = '/api';
 
@@ -43,7 +46,7 @@ async function fetchUserPurchases() {
 		const list = j.data?.purchases || [];
 		purchasedSkills = new Set(list.map((p) => `${p.agent_id}:${p.skill}`));
 	} catch (err) {
-		console.error('[marketplace] purchases', err);
+		log.error('[marketplace] purchases', err);
 	}
 }
 
@@ -55,7 +58,7 @@ async function fetchUserBookmarks() {
 		const j = await r.json();
 		bookmarkedAgents = new Set(j.data?.agent_ids || []);
 	} catch (err) {
-		console.error('[marketplace] bookmarks', err);
+		log.error('[marketplace] bookmarks', err);
 	}
 }
 
@@ -85,7 +88,7 @@ async function toggleAgentBookmarkFromCard(agentId, btn) {
 		btn.classList.toggle('on', wasOn);
 		btn.setAttribute('aria-pressed', String(wasOn));
 		btn.textContent = wasOn ? '★' : '☆';
-		console.error('[marketplace] toggle bookmark', err);
+		log.error('[marketplace] toggle bookmark', err);
 	}
 }
 
@@ -150,7 +153,7 @@ const els = {
 // Filter values that round-trip through ?tab= on the list view. Kept here so
 // readRoute and syncFilterToUrl agree on which strings are valid.
 const LIST_FILTER_TABS = new Set(['agents', 'avatars', 'onchain']);
-const SORT_VALUES = new Set(['recommended', 'recent', 'popular']);
+const SORT_VALUES = new Set(['recommended', 'recent', 'popular', 'top_rated']);
 
 function readRoute() {
 	const m = location.pathname.match(/^\/marketplace\/agents\/([^/]+)/);
@@ -331,7 +334,7 @@ async function loadCategories() {
 		const j = await r.json();
 		renderCategories(j.data);
 	} catch (err) {
-		console.error('[marketplace] categories', err);
+		log.error('[marketplace] categories', err);
 	}
 }
 
@@ -428,7 +431,8 @@ async function loadList(reset = false) {
 	if (reset) {
 		state.items = [];
 		state.cursor = null;
-		els.grid.innerHTML = '<div class="market-empty">Loading…</div>';
+		els.grid.setAttribute('aria-busy', 'true');
+		els.grid.innerHTML = skeletonHTML(8, 'card');
 	}
 	try {
 		const url = new URL(`${API}/marketplace/agents`, location.origin);
@@ -447,7 +451,7 @@ async function loadList(reset = false) {
 		state.cursor = nextCursor;
 		renderGrid();
 	} catch (err) {
-		console.error('[marketplace] list', err);
+		log.error('[marketplace] list', err);
 		els.grid.innerHTML = renderErrorState('agents');
 	} finally {
 		state.loading = false;
@@ -503,7 +507,7 @@ async function loadPublicAvatars() {
 		renderGrid();
 		updateOnchainChipCount();
 	} catch (err) {
-		console.error('[marketplace] public avatars', err);
+		log.error('[marketplace] public avatars', err);
 	}
 }
 
@@ -532,7 +536,7 @@ async function loadOnchainAgents(reset = false) {
 		if (state.filter === 'onchain' || state.filter === 'all') renderGrid();
 		updateOnchainChipCount();
 	} catch (err) {
-		console.error('[marketplace] onchain', err);
+		log.error('[marketplace] onchain', err);
 	}
 }
 
@@ -575,7 +579,7 @@ async function openLobby() {
 			},
 		});
 	} catch (err) {
-		console.error('[marketplace] lobby load', err);
+		log.error('[marketplace] lobby load', err);
 		closeLobby();
 	}
 }
@@ -600,7 +604,7 @@ async function loadTheme() {
 		state.theme = theme;
 		renderTheme();
 	} catch (err) {
-		console.error('[marketplace] theme', err);
+		log.error('[marketplace] theme', err);
 	}
 }
 
@@ -657,7 +661,7 @@ async function loadFeatured() {
 		renderHero();
 		startHeroAutoplay();
 	} catch (err) {
-		console.error('[marketplace] featured', err);
+		log.error('[marketplace] featured', err);
 	}
 }
 
@@ -940,6 +944,13 @@ function renderGrid() {
 
 	const totalCards = agentItems.length + avatars.length + onchain.length;
 
+	const resultCountEl = $('market-result-count');
+	if (resultCountEl) {
+		resultCountEl.textContent = totalCards
+			? `${totalCards} result${totalCards === 1 ? '' : 's'}`
+			: '';
+	}
+
 	if (!totalCards) {
 		const stillLoading =
 			(!state.publicAvatarsLoaded && state.filter !== 'agents' && state.filter !== 'onchain') ||
@@ -986,6 +997,7 @@ function renderGrid() {
 		html += '<div class="market-loadmore-spinner" aria-label="Loading more…"></div>';
 	}
 
+	els.grid.removeAttribute('aria-busy');
 	els.grid.innerHTML = html;
 
 	// Poster cache + shimmer-off for model-viewers.
@@ -1007,6 +1019,12 @@ function renderGrid() {
 			}
 			navTo(`/marketplace/agents/${card.dataset.id}`);
 		});
+		card.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				navTo(`/marketplace/agents/${card.dataset.id}`);
+			}
+		});
 	});
 	els.grid.querySelectorAll('[data-avatar-id]').forEach((card) => {
 		card.addEventListener('click', (e) => {
@@ -1021,6 +1039,13 @@ function renderGrid() {
 			const id = card.dataset.avatarId;
 			if (id) navTo(`/marketplace/avatars/${encodeURIComponent(id)}`);
 		});
+		card.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				const id = card.dataset.avatarId;
+				if (id) navTo(`/marketplace/avatars/${encodeURIComponent(id)}`);
+			}
+		});
 	});
 	els.grid.querySelectorAll('[data-onchain-id]').forEach((card) => {
 		const oid = card.dataset.onchainId;
@@ -1034,6 +1059,17 @@ function renderGrid() {
 		card.addEventListener('click', go);
 		card.addEventListener('keydown', (e) => {
 			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+		});
+	});
+
+	// Card profile links — intercept normal left-clicks for SPA navigation so
+	// the user stays in the single-page context. Ctrl/Cmd/middle-click falls
+	// through to let the browser open in a new tab as expected.
+	els.grid.querySelectorAll('.card-profile-link').forEach((link) => {
+		link.addEventListener('click', (e) => {
+			if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+			e.preventDefault();
+			navTo(link.getAttribute('href'));
 		});
 	});
 
@@ -1241,7 +1277,7 @@ async function renderAvatarSalePanel(avatar) {
 		const j = await r.json();
 		detail = j?.avatar;
 	} catch (err) {
-		console.warn('[marketplace] sale-panel fetch failed', err);
+		log.warn('[marketplace] sale-panel fetch failed', err);
 		return;
 	}
 	if (!detail) return;
@@ -1645,7 +1681,7 @@ async function loadSkillCategories() {
 		skillsState.categories = Array.isArray(j?.categories) ? j.categories : [];
 		renderSkillCategoryChips();
 	} catch (err) {
-		console.error('[marketplace] skills categories', err);
+		log.error('[marketplace] skills categories', err);
 	}
 }
 
@@ -1700,10 +1736,14 @@ async function loadSkillsTab(force = false, append = false) {
 		skillsState.cursor = j?.next_cursor || null;
 		skillsState.loaded = true;
 	} catch (err) {
-		console.error('[marketplace] skills load', err);
+		log.error('[marketplace] skills load', err);
 		if (grid && !append) {
-			grid.innerHTML = `<div class="market-empty">Failed to load skills. <button id="skills-retry" class="market-empty-cta-btn">Retry</button></div>`;
-			$('skills-retry')?.addEventListener('click', () => loadSkillsTab(true));
+			grid.innerHTML = renderErrorState('skills');
+			grid.querySelector('[data-empty-action="empty-retry"]')?.addEventListener('click', () => {
+				grid.setAttribute('aria-busy', 'true');
+				grid.innerHTML = renderSkeletons(8);
+				loadSkillsTab(true);
+			});
 		}
 	} finally {
 		skillsState.loading = false;
@@ -1851,7 +1891,7 @@ async function loadSkillDetail(id) {
 			skill = j?.skill || null;
 		}
 	} catch (err) {
-		console.error('[marketplace] skill detail', err);
+		log.error('[marketplace] skill detail', err);
 	}
 
 	if (readRoute().view !== 'skill-detail') return;
@@ -2033,7 +2073,7 @@ function copyToClipboard(text, btn) {
 		btn.textContent = 'Copied!';
 		btn.classList.add('copied');
 		setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
-	}).catch((err) => console.error('[marketplace] clipboard', err));
+	}).catch((err) => log.error('[marketplace] clipboard', err));
 }
 
 // Render the per-call x402 panel. Free skills hide it entirely — there's
@@ -2095,7 +2135,7 @@ async function toggleSkillInstall(id) {
 		await loadSkillDetail(id);
 		loadSkillsTab(true);
 	} catch (err) {
-		console.error('[marketplace] skill install', err);
+		log.error('[marketplace] skill install', err);
 		btn.disabled = false;
 		btn.textContent = wasInstalled ? 'Installed ✓ — Remove' : 'Install';
 	}
@@ -2117,7 +2157,7 @@ async function rateSkill(id, rating) {
 		_skillDetailId = null;
 		await loadSkillDetail(id);
 	} catch (err) {
-		console.error('[marketplace] skill rate', err);
+		log.error('[marketplace] skill rate', err);
 	}
 }
 
@@ -2135,7 +2175,7 @@ async function shareCurrentPage(btn, title, text) {
 		btn.classList.add('copied');
 		setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1800);
 	} catch (err) {
-		console.error('[marketplace] share copy', err);
+		log.error('[marketplace] share copy', err);
 	}
 }
 
@@ -2168,7 +2208,7 @@ async function loadPurchases(force = false) {
 		purchasesState.items = j?.data?.purchases || [];
 		purchasesState.loaded = true;
 	} catch (err) {
-		console.error('[marketplace] purchases load', err);
+		log.error('[marketplace] purchases load', err);
 	} finally {
 		purchasesState.loading = false;
 	}
@@ -2221,7 +2261,7 @@ function renderPurchaseCard(p) {
 	const thumb = p.agent_thumbnail
 		? `<div class="avatar avatar-img" style="background-image:url('${escapeHtml(p.agent_thumbnail)}');width:36px;height:36px;border-radius:8px;flex-shrink:0"></div>`
 		: `<div class="avatar" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#1a1a1a;font-size:16px">${escapeHtml(initial(p.agent_name || '?'))}</div>`;
-	return `<div class="market-card-agent" data-purchase-agent="${escapeHtml(p.agent_id)}" style="cursor:pointer">
+	return `<div class="card card--interactive market-card-agent" data-purchase-agent="${escapeHtml(p.agent_id)}">
 		<div class="head">
 			${thumb}
 			<div style="min-width:0;flex:1">
@@ -2334,7 +2374,7 @@ async function loadEarnTab(force = false) {
 
 		earnState.loaded = true;
 	} catch (err) {
-		console.error('[marketplace] earn tab', err);
+		log.error('[marketplace] earn tab', err);
 		earnState.errorMsg = 'Network error — check your connection and try again.';
 	} finally {
 		earnState.loading = false;
@@ -2358,7 +2398,7 @@ async function loadEarnRevenue() {
 			earnState.revTimeseries = j.timeseries || [];
 		}
 	} catch (err) {
-		console.error('[marketplace] revenue chart', err);
+		log.error('[marketplace] revenue chart', err);
 	} finally {
 		earnState.revLoading = false;
 	}
@@ -2560,11 +2600,11 @@ function renderEarnTransactions() {
 	if (!visible.length) { el.innerHTML = ''; return; }
 
 	const kindIcons = { skill: '≡', avatar: '◉', agent: '▣' };
-	const kindColors = { skill: '#60a5fa', avatar: '#a78bfa', agent: '#34d399' };
+	const kindColors = { skill: '#60a5fa', avatar: '#888888', agent: '#34d399' };
 
 	el.innerHTML = visible.map(e => {
 		const icon = kindIcons[e.kind] || '·';
-		const color = kindColors[e.kind] || 'var(--mk-text-3)';
+		const color = kindColors[e.kind] || 'var(--ink-dim)';
 		const statusCls = e.status === 'settled' ? 'earn-status-settled' : 'earn-status-pending';
 		const date = e.created_at ? formatDate(e.created_at) : '';
 		return `<div class="earn-txn">
@@ -2909,8 +2949,8 @@ async function loadAnimationsTab(force = false) {
 		animState.items = arr;
 		animState.loaded = true;
 	} catch (err) {
-		console.error('[marketplace] animations', err);
-		if (grid) grid.innerHTML = `<div class="market-empty">Could not load animations.</div>`;
+		log.error('[marketplace] animations', err);
+		if (grid) grid.innerHTML = renderErrorState('animations');
 	} finally {
 		animState.loading = false;
 	}
@@ -3013,7 +3053,7 @@ async function loadAnimDetail(name) {
 				animState.loaded = true;
 			}
 		} catch (err) {
-			console.error('[marketplace] anim manifest', err);
+			log.error('[marketplace] anim manifest', err);
 		}
 	}
 
@@ -3176,7 +3216,7 @@ async function loadOnchainDetail(composite) {
 				item = j?.item || null;
 			}
 		} catch (err) {
-			console.error('[marketplace] onchain detail', err);
+			log.error('[marketplace] onchain detail', err);
 		}
 	}
 
@@ -3337,7 +3377,10 @@ async function loadMemoryTab(force = false) {
 	if (memoryState.loaded && !force) { renderMemoryTab(); return; }
 	memoryState.loading = true;
 	const body = $('market-memory-body');
-	if (body) body.innerHTML = `<div class="market-empty">Loading…</div>`;
+	if (body) {
+		body.setAttribute('aria-busy', 'true');
+		body.innerHTML = skeletonHTML(4, 'row');
+	}
 	try {
 		const agentsRes = await fetch(`${API}/marketplace/agents/mine`, { credentials: 'include' });
 		if (agentsRes.status === 401) {
@@ -3368,7 +3411,7 @@ async function loadMemoryTab(force = false) {
 		memoryState.entries = memorySets.flat().sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
 		memoryState.loaded = true;
 	} catch (err) {
-		console.error('[marketplace] memory', err);
+		log.error('[marketplace] memory', err);
 	} finally {
 		memoryState.loading = false;
 	}
@@ -3447,7 +3490,7 @@ function renderMemoryTab() {
 }
 
 function _memoryIconBg(type) {
-	const map = { user: 'background:rgba(59,130,246,0.15)', feedback: 'background:rgba(234,179,8,0.15)', project: 'background:rgba(34,197,94,0.15)', reference: 'background:rgba(168,85,247,0.15)' };
+	const map = { user: 'background:rgba(59,130,246,0.15)', feedback: 'background:rgba(234,179,8,0.15)', project: 'background:rgba(34,197,94,0.15)', reference: 'background:rgba(255,255,255,0.07)' };
 	return map[type] || 'background:rgba(255,255,255,0.06)';
 }
 
@@ -3479,7 +3522,7 @@ async function loadMine(force = false) {
 		mineState.items = Array.isArray(j) ? j : (j?.data?.items ?? []);
 		mineState.loaded = true;
 	} catch (err) {
-		console.error('[marketplace] mine', err);
+		log.error('[marketplace] mine', err);
 	} finally {
 		mineState.loading = false;
 	}
@@ -3513,20 +3556,13 @@ function renderMineGrid() {
 }
 
 function renderSkeletons(n) {
-	const cards = Array.from({ length: n }, () =>
-		`<div class="market-card-skeleton"><div class="sk-thumb"></div><div class="sk-line"></div><div class="sk-line short"></div></div>`,
-	).join('');
-	return cards;
+	return skeletonHTML(n, 'card');
 }
 
-// Empty-state block with a recovery action — when the grid is empty we want
-// the user to be able to escape the dead-end with one click (clear the search,
-// drop the filter, or submit/create their own content).
 function renderEmptyState() {
 	const hasSearch = !!state.q;
 	const hasTag = !!state.tag;
 	const hasCategory = !!state.category;
-	const hasFilter = state.filter && state.filter !== 'all';
 
 	let title;
 	let body;
@@ -3559,33 +3595,31 @@ function renderEmptyState() {
 		actions.push({ id: 'empty-create-avatar', label: '+ Create Avatar', primary: false });
 	}
 
+	// Use state-kit shell; keep data-empty-action for the existing delegation handler.
 	const buttons = actions
 		.map(
 			(a) =>
-				`<button type="button" class="market-empty-cta-btn${a.primary ? ' primary' : ''}" data-empty-action="${a.id}">${escapeHtml(a.label)}</button>`,
+				`<button type="button" class="tws-es-btn${a.primary ? ' tws-es-btn--primary' : ''}" data-empty-action="${a.id}">${escapeHtml(a.label)}</button>`,
 		)
 		.join('');
 
-	return `
-		<div class="market-empty-cta" role="status">
-			<h3>${escapeHtml(title)}</h3>
-			<p>${body}</p>
-			<div class="market-empty-cta-actions">${buttons}</div>
-		</div>`;
+	return `<div class="tws-es" role="status">
+		<h3 class="tws-es-title">${escapeHtml(title)}</h3>
+		<p class="tws-es-body">${body}</p>
+		<div class="tws-es-actions">${buttons}</div>
+	</div>`;
 }
 
-// Error state with a retry CTA. Shown when an API call rejects so the user
-// can recover without manually refreshing the page.
 function renderErrorState(scope = 'agents') {
 	const label = scope === 'avatars' ? 'avatars' : scope === 'onchain' ? 'onchain agents' : 'agents';
-	return `
-		<div class="market-empty-cta" role="alert">
-			<h3>Couldn't load ${escapeHtml(label)}</h3>
-			<p>The marketplace server didn't respond. Check your connection and try again.</p>
-			<div class="market-empty-cta-actions">
-				<button type="button" class="market-empty-cta-btn primary" data-empty-action="empty-retry" data-retry-scope="${escapeHtml(scope)}">Retry</button>
-			</div>
-		</div>`;
+	return `<div class="tws-es tws-es--error" role="alert">
+		<div class="tws-es-icon tws-es-icon--err" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5" opacity=".35"/><path d="M16 9v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="22.5" r="1.25" fill="currentColor"/></svg></div>
+		<h3 class="tws-es-title">Couldn't load ${escapeHtml(label)}</h3>
+		<p class="tws-es-body">The marketplace server didn't respond. Check your connection and try again.</p>
+		<div class="tws-es-actions">
+			<button type="button" class="tws-es-btn tws-es-btn--primary" data-empty-action="empty-retry" data-retry-scope="${escapeHtml(scope)}">Retry</button>
+		</div>
+	</div>`;
 }
 
 // Single delegated click handler so empty-state buttons keep working across
@@ -3630,7 +3664,8 @@ function bindEmptyStateActions() {
 			location.href = '/create';
 		} else if (action === 'empty-retry') {
 			const scope = btn.dataset.retryScope || 'agents';
-			els.grid.innerHTML = '<div class="market-empty">Retrying…</div>';
+			els.grid.setAttribute('aria-busy', 'true');
+			els.grid.innerHTML = skeletonHTML(8, 'card');
 			if (scope === 'avatars') {
 				state.publicAvatarsLoaded = false;
 				loadPublicAvatars();
@@ -3696,11 +3731,11 @@ function renderAvatarCard(a, spotlight = false) {
 	const bmActive = getAvatarBookmarks().has(a.avatarId || '');
 	const priceBadge = priceBadgeHtml(a.price);
 	const cardClasses = ['market-card-avatar', isSpotlight && 'market-card-avatar--featured'].filter(Boolean).join(' ');
-	return `<div class="${cardClasses}" data-avatar-id="${escapeHtml(a.avatarId || '')}">
+	return `<div class="${cardClasses}" role="link" tabindex="0" data-avatar-id="${escapeHtml(a.avatarId || '')}">
 		<div class="thumb">${spotlightBadge}${priceBadge}${preview}</div>
 		<div class="body">
 			<div class="title-row">
-				<div class="title">${name}</div>
+				<a class="title card-profile-link" href="/marketplace/avatars/${encodeURIComponent(a.avatarId || '')}" tabindex="-1">${name}</a>
 				<button type="button" class="card-heart${bmActive ? ' active' : ''}" data-bm-id="${escapeHtml(a.avatarId||'')}" aria-label="Bookmark" aria-pressed="${bmActive}">♥</button>
 			</div>
 			<div class="byline">${authorLine}${when ? `<span class="dot">·</span><span class="when">${escapeHtml(when)}</span>` : ''}</div>
@@ -3755,14 +3790,14 @@ function renderCard(a) {
 	const bmOn = bookmarkedAgents.has(a.id);
 	const starBtn = `<button type="button" class="card-star${bmOn ? ' on' : ''}" data-agent-bm="${escapeHtml(a.id)}" aria-label="Bookmark agent" aria-pressed="${bmOn}" title="${bmOn ? 'Remove bookmark' : 'Bookmark agent'}">${bmOn ? '★' : '☆'}</button>`;
 	const onchainBadge = onchainBadgeHTML(a);
-	return `<div class="market-card-agent" data-id="${a.id}">
+	return `<div class="card card--interactive market-card-agent" role="link" tabindex="0" data-id="${a.id}">
 		${previewStrip}
 		${priceBadge}
 		${starBtn}
 		<div class="head">
 			${avatarBlock}
 			<div style="min-width:0;flex:1">
-				<div class="title">${escapeHtml(a.name || 'Untitled')}</div>
+				<a class="title card-profile-link" href="/marketplace/agents/${a.id}" tabindex="-1">${escapeHtml(a.name || 'Untitled')}</a>
 				<div class="author">${escapeHtml(author)}</div>
 			</div>
 		</div>
@@ -3818,7 +3853,7 @@ function renderOnchainCard(a) {
 	return `<div class="market-card-avatar onchain" role="link" tabindex="0" data-onchain-id="${escapeHtml(onchainId)}" data-onchain-href="${escapeHtml(href)}">
 		<div class="thumb">${priceBadge}${preview}</div>
 		<div class="body">
-			<div class="title">${name}</div>
+			<a class="title card-profile-link" href="/marketplace/onchain/${encodeURIComponent(onchainId)}" tabindex="-1">${name}</a>
 			<div class="byline">
 				<span class="card-chain">${chain}</span>
 				${ownerShort ? `<span class="dot">·</span><span class="card-author muted">${escapeHtml(ownerShort)}</span>` : ''}
@@ -3879,7 +3914,7 @@ async function loadDetail(id) {
 			renderSimilar(similar);
 		}).catch(() => { /* best-effort — main detail already rendered */ });
 	} catch (err) {
-		console.error('[marketplace] detail load', err);
+		log.error('[marketplace] detail load', err);
 		if (!cached) showDetailState('error', { id });
 	}
 }
@@ -3998,7 +4033,7 @@ async function loadAvatarDetail(id) {
 				avatar = _normaliseAvatar(j?.avatar || j?.data?.avatar || j);
 			}
 		} catch (err) {
-			console.error('[marketplace] avatar detail fetch', err);
+			log.error('[marketplace] avatar detail fetch', err);
 		}
 	}
 
@@ -4062,7 +4097,7 @@ async function loadAvatarDetail(id) {
 				shareBtn.classList.add('copied');
 				setTimeout(() => { shareBtn.textContent = original; shareBtn.classList.remove('copied'); }, 1800);
 			} catch (err) {
-				console.error('[marketplace] share copy', err);
+				log.error('[marketplace] share copy', err);
 			}
 		};
 	}
@@ -4380,23 +4415,38 @@ function renderSimilar(items) {
 		card.addEventListener('click', () => navTo(`/marketplace/agents/${card.dataset.id}`));
 	});
 
-	side.innerHTML =
-		`<div class="related-side-title">Related Agents <a href="#" id="rel-more">View More ›</a></div>` +
-		items
-			.slice(0, 4)
-			.map(
-				(a) => `<div class="related-card" data-id="${a.id}">
-					<div class="av">${initial(a.name)}</div>
-					<div style="min-width:0">
-						<div class="name">${escapeHtml(a.name || '')}</div>
-						<div class="desc">${escapeHtml(a.description || '')}</div>
-					</div>
-				</div>`,
-			)
-			.join('');
-	side.querySelectorAll('[data-id]').forEach((card) => {
-		card.addEventListener('click', () => navTo(`/marketplace/agents/${card.dataset.id}`));
-	});
+	// "View more" toggles the side list between the top 4 and the full set,
+	// rather than dead-ending on an href="#". Only shown when there's more to see.
+	const renderSideList = (expanded) => {
+		const shown = expanded ? items : items.slice(0, 4);
+		const moreLabel = items.length > 4 ? (expanded ? 'Show less ‹' : 'View more ›') : '';
+		side.innerHTML =
+			`<div class="related-side-title">Related Agents${
+				moreLabel ? ` <a href="#" id="rel-more" role="button">${moreLabel}</a>` : ''
+			}</div>` +
+			shown
+				.map(
+					(a) => `<div class="related-card" data-id="${a.id}">
+						<div class="av">${initial(a.name)}</div>
+						<div style="min-width:0">
+							<div class="name">${escapeHtml(a.name || '')}</div>
+							<div class="desc">${escapeHtml(a.description || '')}</div>
+						</div>
+					</div>`,
+				)
+				.join('');
+		side.querySelectorAll('[data-id]').forEach((card) => {
+			card.addEventListener('click', () => navTo(`/marketplace/agents/${card.dataset.id}`));
+		});
+		const moreLink = side.querySelector('#rel-more');
+		if (moreLink) {
+			moreLink.addEventListener('click', (e) => {
+				e.preventDefault();
+				renderSideList(!expanded);
+			});
+		}
+	};
+	renderSideList(false);
 }
 
 // ── Reviews & Ratings ─────────────────────────────────────────────────────
@@ -4429,7 +4479,7 @@ async function loadReviews(agentId) {
 		renderReviewInput();
 		renderReviewsList();
 	} catch (err) {
-		console.error('[marketplace] reviews', err);
+		log.error('[marketplace] reviews', err);
 		reviewsState.loading = false;
 		const msg = $('d-rating-msg');
 		if (msg) { msg.textContent = 'Could not load reviews.'; msg.classList.add('err'); }
@@ -4528,7 +4578,7 @@ function renderReviewInput() {
 				</div>
 			</div>
 			<div class="review-edit-form" id="d-review-edit-form" hidden>
-				<span style="font-size:12px;color:var(--mk-text-2)">Update your rating:</span>
+				<span style="font-size:12px;color:var(--ink-dim)">Update your rating:</span>
 				<span class="stars review-star-picker" id="d-rating-pick-edit" role="radiogroup" aria-label="Pick a rating">
 					${[1,2,3,4,5].map(i => `<button type="button" class="star-pick${i <= reviewsState.myReview.rating ? ' active' : ''}" data-rating="${i}" aria-label="${i} star${i>1?'s':''}">${i <= reviewsState.myReview.rating ? '★' : '☆'}</button>`).join('')}
 				</span>
@@ -4555,7 +4605,7 @@ function renderReviewInput() {
 		bindStarPicker($('d-rating-pick-edit'));
 	} else {
 		input.innerHTML = `
-			<span style="font-size:12px;color:var(--mk-text-2)">Your rating:</span>
+			<span style="font-size:12px;color:var(--ink-dim)">Your rating:</span>
 			<span class="stars review-star-picker" id="d-rating-pick" role="radiogroup" aria-label="Pick a rating">
 				${[1,2,3,4,5].map(i => `<button type="button" class="star-pick" data-rating="${i}" aria-label="${i} star${i>1?'s':''}">${i <= reviewsState.selectedRating ? '★' : '☆'}</button>`).join('')}
 			</span>
@@ -4631,7 +4681,7 @@ async function submitReview(rating, body) {
 		setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
 		loadReviews(reviewsState.agentId);
 	} catch (err) {
-		console.error('[marketplace] submit review', err);
+		log.error('[marketplace] submit review', err);
 		if (msg) { msg.textContent = err.message || 'Failed to save review.'; msg.classList.add('err'); }
 	} finally {
 		reviewsState.submitting = false;
@@ -4662,7 +4712,7 @@ async function deleteReview() {
 		setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
 		loadReviews(reviewsState.agentId);
 	} catch (err) {
-		console.error('[marketplace] delete review', err);
+		log.error('[marketplace] delete review', err);
 		if (msg) { msg.textContent = err.message || 'Delete failed.'; msg.classList.add('err'); }
 	} finally {
 		reviewsState.submitting = false;
@@ -4814,7 +4864,7 @@ async function toggleBookmark() {
 		$('d-bookmark').classList.toggle('on', detailState.bookmarked);
 		$('d-bookmark').textContent = detailState.bookmarked ? '★' : '☆';
 	} catch (err) {
-		console.error('[marketplace] bookmark', err);
+		log.error('[marketplace] bookmark', err);
 	}
 }
 
@@ -4909,18 +4959,18 @@ function bindEvents() {
 		if (e.target.matches('.purchase-btn')) {
 			const skillName = e.target.dataset.skillName;
 			const agentId = e.target.dataset.agentId;
-			if (agentId && skillName) openPurchaseFlow(agentId, skillName).catch((err) => console.error('[marketplace] purchase flow', err));
+			if (agentId && skillName) openPurchaseFlow(agentId, skillName).catch((err) => log.error('[marketplace] purchase flow', err));
 		}
 		if (e.target.matches('.trial-btn')) {
 			const skillName = e.target.dataset.skillName;
 			const agentId = e.target.dataset.agentId;
-			if (agentId && skillName) openTrialFlow(agentId, skillName, e.target).catch((err) => console.error('[marketplace] trial flow', err));
+			if (agentId && skillName) openTrialFlow(agentId, skillName, e.target).catch((err) => log.error('[marketplace] trial flow', err));
 		}
 		if (e.target.matches('.time-pass-btn')) {
 			const skillName = e.target.dataset.skillName;
 			const agentId = e.target.dataset.agentId;
 			const duration = Number(e.target.dataset.duration);
-			if (agentId && skillName && duration) openTimePassFlow(agentId, skillName, duration, e.target).catch((err) => console.error('[marketplace] time-pass flow', err));
+			if (agentId && skillName && duration) openTimePassFlow(agentId, skillName, duration, e.target).catch((err) => log.error('[marketplace] time-pass flow', err));
 		}
 	});
 
@@ -5754,7 +5804,7 @@ async function handleAssetPurchase() {
 			primaryLabel: target.label,
 		});
 	} catch (e) {
-		console.error('[marketplace] asset purchase failed', e);
+		log.error('[marketplace] asset purchase failed', e);
 		// Differentiate "tx already sent, server lookup failing" from
 		// "tx never built". If we have a txid, the user already paid and
 		// must NOT be told to retry — surface the verify-again card.
@@ -5871,7 +5921,7 @@ async function handlePurchase() {
 
 		await onUnlocked();
 	} catch (e) {
-		console.error('[marketplace] purchase failed', e);
+		log.error('[marketplace] purchase failed', e);
 		if (txid) {
 			renderPaymentVerifyAgain({
 				txid,
@@ -6416,7 +6466,10 @@ async function loadPlugins(reset = false) {
 		pluginState.items = [];
 		pluginState.cursor = null;
 		const grid = $('plugin-grid');
-		if (grid) grid.innerHTML = '<div class="market-empty">Loading…</div>';
+		if (grid) {
+			grid.setAttribute('aria-busy', 'true');
+			grid.innerHTML = renderSkeletons(6);
+		}
 	}
 	try {
 		const url = new URL(PLUGIN_API + '/list', location.origin);
@@ -6432,7 +6485,7 @@ async function loadPlugins(reset = false) {
 		renderPluginGrid();
 	} catch {
 		const grid = $('plugin-grid');
-		if (grid) grid.innerHTML = '<div class="market-empty">Failed to load plugins.</div>';
+		if (grid) grid.innerHTML = renderErrorState('plugins');
 	} finally {
 		pluginState.loading = false;
 	}
@@ -6574,7 +6627,7 @@ async function loadToolDetail(id) {
 				plugin = j?.data?.plugin || null;
 			}
 		} catch (err) {
-			console.error('[marketplace] tool detail fetch', err);
+			log.error('[marketplace] tool detail fetch', err);
 		}
 	}
 
@@ -6709,7 +6762,7 @@ function renderToolDetail(p) {
 				shareBtn.classList.add('copied');
 				setTimeout(() => { shareBtn.textContent = original; shareBtn.classList.remove('copied'); }, 1800);
 			} catch (err) {
-				console.error('[marketplace] tool share copy', err);
+				log.error('[marketplace] tool share copy', err);
 			}
 		};
 	}

@@ -10,14 +10,14 @@
 }
 
 .share-panel-modal {
-	background: #1a1a1a;
+	background: var(--bg-1);
 	border: 1px solid #333;
 	border-radius: 12px;
 	width: min(560px, calc(100vw - 32px));
 	max-height: calc(100vh - 64px);
 	overflow-y: auto;
 	padding: 24px;
-	color: #e8e8e8;
+	color: var(--ink);
 	font-family: system-ui, sans-serif;
 	font-size: 14px;
 }

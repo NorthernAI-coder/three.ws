@@ -7,6 +7,7 @@
 // avatar helpers) so this module never reaches into the scene directly.
 
 import { Quaternion } from 'three';
+import { log } from './shared/log.js';
 
 const SESSION_KEY = 'pose:pendingDoc';
 
@@ -254,7 +255,7 @@ export class PoseLibrary {
 				});
 			}
 		} catch (err) {
-			console.warn('[pose-library] thumbnail upload failed:', err.message);
+			log.warn('[pose-library] thumbnail upload failed:', err.message);
 		}
 		return saved;
 	}

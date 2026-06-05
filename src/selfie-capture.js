@@ -14,6 +14,7 @@
  */
 
 import { createQualitySession, preload, SLOT_PRESETS } from './face-quality.js';
+import { log } from './shared/log.js';
 
 const REQUIRED_SLOT = 'frontal';
 const OPTIONAL_SLOTS = /** @type {const} */ (['left', 'right']);
@@ -388,7 +389,7 @@ async function openCamera(slot) {
 		});
 		camVideo.srcObject = cam.stream;
 	} catch (err) {
-		console.warn('[selfie] camera error:', err);
+		log.warn('[selfie] camera error:', err);
 		const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
 		showCamError(
 			denied
@@ -429,7 +430,7 @@ async function startFaceQuality(slot) {
 		cam.qualitySession.start();
 		camOval?.setAttribute('hidden', '');
 	} catch (err) {
-		console.warn('[selfie] face-quality init failed, falling back:', err);
+		log.warn('[selfie] face-quality init failed, falling back:', err);
 		setShutterEnabled(true);
 	}
 }

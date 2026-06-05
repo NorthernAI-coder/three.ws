@@ -58,6 +58,7 @@ import {
 	DEFAULT_EASING,
 } from './pose-animation.js';
 import { PoseLibrary } from './pose-library.js';
+import { log } from './shared/log.js';
 
 // ─── DOM helpers ────────────────────────────────────────────────────────
 const $ = (sel) => document.querySelector(sel);
@@ -310,7 +311,7 @@ function boot() {
 	const canvas = $('#pose-canvas');
 	const hudStatus = $('#pose-status');
 	if (!canvas) {
-		console.error('[pose] missing #pose-canvas');
+		log.error('[pose] missing #pose-canvas');
 		return;
 	}
 

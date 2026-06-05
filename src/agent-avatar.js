@@ -28,6 +28,7 @@ import { resolveMorphTargets, MORPH_ALIASES, ARKIT_VISEMES } from './runtime/ark
 import { AnimationStateMachine } from './animation-state-machine.js';
 // BEGIN:IDLE_LOOP_IMPORT
 import { IdleAnimation } from './idle-animation.js';
+import { log } from './shared/log.js';
 // END:IDLE_LOOP_IMPORT
 
 const DEG2RAD = Math.PI / 180;
@@ -434,7 +435,7 @@ export class AgentAvatar {
 			}
 			// Clip not in library — warn once, try default slot fallback
 			if (!this._warnedSlots.has(clipName)) {
-				console.warn(
+				log.warn(
 					`[AgentAvatar] slot "${slot}" → "${clipName}" not in animation library`,
 				);
 				this._warnedSlots.add(clipName);

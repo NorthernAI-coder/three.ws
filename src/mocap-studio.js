@@ -12,6 +12,7 @@
 import { Viewer } from './viewer.js';
 import { FaceMocap } from './face-mocap.js';
 import { IdleAnimation } from './idle-animation.js';
+import { log } from './shared/log.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -442,7 +443,7 @@ function formatTime(seconds) {
 }
 
 function showErr(err) {
-	console.error('[mocap-studio]', err);
+	log.error('[mocap-studio]', err);
 	alert(err?.message || String(err));
 	startCamBtn.disabled = false;
 	startCamBtn.textContent = 'Start camera';

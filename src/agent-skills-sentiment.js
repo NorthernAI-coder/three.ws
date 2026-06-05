@@ -1,5 +1,6 @@
 
 import { ACTION_TYPES } from './agent-protocol.js';
+import { log } from './shared/log.js';
 
 export function registerSentimentSkills(agentSkills) {
   agentSkills.register({
@@ -54,7 +55,7 @@ export function registerSentimentSkills(agentSkills) {
           data: { text, sentiment },
         };
       } catch (error) {
-        console.error('Sentiment analysis failed:', error);
+        log.error('Sentiment analysis failed:', error);
         return {
           success: false,
           output: 'Failed to analyze sentiment.',

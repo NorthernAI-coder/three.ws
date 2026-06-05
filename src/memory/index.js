@@ -13,6 +13,7 @@
 // or typo'd config never breaks <agent-3d> boot.
 
 import { encryptBlob, bytesToBase64, base64ToBytes } from './crypto.js';
+import { log } from '../shared/log.js';
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
 
@@ -77,7 +78,7 @@ export class Memory {
 				throw new Error('encrypted-ipfs mode requires a deriveKey function');
 			return Memory._loadIPFS({ mode, namespace, manifestURI, fetchFn, deriveKey });
 		}
-		console.warn(`[memory] unknown mode "${mode}"; falling back to "local"`);
+		log.warn(`[memory] unknown mode "${mode}"; falling back to "local"`);
 		return Memory._loadLocal(namespace);
 	}
 
@@ -277,7 +278,7 @@ export class Memory {
 		try {
 			localStorage.setItem(key, JSON.stringify(data));
 		} catch (e) {
-			console.warn('[memory] persist failed', e);
+			log.warn('[memory] persist failed', e);
 		}
 	}
 

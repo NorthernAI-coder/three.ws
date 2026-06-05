@@ -7,6 +7,7 @@
  * Actions flow: Skills → Protocol → Avatar (renders) + Identity (logs) + Memory (stores)
  */
 
+import { log } from './shared/log.js';
 export const ACTION_TYPES = {
 	SPEAK: 'speak', // agent says something (text + sentiment)
 	THINK: 'think', // agent is processing (internal monologue)
@@ -119,7 +120,7 @@ export class AgentProtocol extends EventTarget {
 	 */
 	emit(action) {
 		if (this.debug) {
-			console.log(`[agent-protocol] ${Date.now()} ${action.type}`, action.payload);
+			log.log(`[agent-protocol] ${Date.now()} ${action.type}`, action.payload);
 			this._doEmit(action);
 			return;
 		}
@@ -129,7 +130,7 @@ export class AgentProtocol extends EventTarget {
 		if (policy.mode === 'passthrough') {
 			// Passthrough events go through the burst rate-limiter.
 			if (this._isThrottled(action.type)) {
-				console.warn(`[agent-protocol] rate-limited: ${action.type} — too many events`);
+				log.warn(`[agent-protocol] rate-limited: ${action.type} — too many events`);
 				return;
 			}
 			this._doEmit(action);

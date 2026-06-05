@@ -51,6 +51,7 @@ import { getPresenceTicket, friendsClient } from './friends.js';
 import { FriendsPanel } from './game/friends-panel.js';
 import { PhysicsWorld } from './physics/physics-world.js';
 import { createTerrain } from './game/terrain.js';
+import { log } from './shared/log.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -1077,11 +1078,15 @@ async function loadAvatar() {
 	setStatus('Ready — drag to look around');
 	buildEmoteTray();
 
-	// Auto-hide help hints after 5 seconds.
+	// Auto-hide help hints after 5 seconds — fade first, then remove from layout
+	// so the transition in walk.html's #walk-help { transition: opacity } plays.
 	if (helpEl) {
 		helpAutoHideTimer = setTimeout(() => {
-			helpEl.style.display = 'none';
-			helpAutoHideTimer = null;
+			helpEl.style.opacity = '0';
+			helpAutoHideTimer = setTimeout(() => {
+				helpEl.style.display = 'none';
+				helpAutoHideTimer = null;
+			}, 400);
 		}, 5000);
 	}
 }
@@ -1315,6 +1320,31 @@ const IS_TOUCH = (() => {
 const CAMERA_SUPPORTED = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 const AR_CTA_DISMISS_KEY = 'walk:ar-cta-dismissed';
 
+// ── AR button capability state ────────────────────────────────────────────
+// Run once at load time: if the camera API is absent the button is marked
+// disabled immediately so the user never encounters a dead click.
+// On supported devices the button stays active and any getUserMedia failure
+// (permission denied, no camera attached) is surfaced at click time by
+// enableAR() with a clear error message.
+(function initArButtonState() {
+	if (!arBtn) return;
+	if (CAMERA_SUPPORTED) return; // all good — leave the button as-is
+
+	// Camera API unavailable: mark the button as disabled and explain why.
+	arBtn.disabled = true;
+	arBtn.setAttribute('aria-disabled', 'true');
+	arBtn.title = 'AR requires a browser with camera access (try Chrome or Safari on a phone)';
+	const dot = arBtn.querySelector('.dot');
+	if (dot) dot.style.background = 'rgba(255,255,255,0.2)';
+	const label = arBtn.querySelector('[data-label]');
+	if (label) label.textContent = 'AR (unavailable)';
+	// Prevent the click handler from firing via the disabled attribute, and
+	// style it as inert so it doesn't look interactive.
+	arBtn.style.opacity = '0.4';
+	arBtn.style.cursor = 'not-allowed';
+	arBtn.style.pointerEvents = 'none';
+})();
+
 function showArCta() {
 	if (!arCta) return;
 	if (arActive) return;
@@ -1459,7 +1489,7 @@ async function startRecording() {
 			} catch (err) {
 				// User cancelled or share failed — fall through to download.
 				if (err?.name !== 'AbortError') {
-					console.warn('[walk] share failed, falling back to download:', err);
+					log.warn('[walk] share failed, falling back to download:', err);
 				} else {
 					setStatus('share cancelled');
 					return;
@@ -1480,7 +1510,7 @@ async function startRecording() {
 	};
 
 	recorder.onerror = (e) => {
-		console.error('[walk] recorder error:', e);
+		log.error('[walk] recorder error:', e);
 		recording = false;
 		recordBtn?.setAttribute('data-recording', 'false');
 		recordStatus?.classList.remove('is-visible');
@@ -2038,7 +2068,7 @@ class RemotePlayer {
 		try {
 			templateScene = await loadRemoteAvatarTemplate(url);
 		} catch (err) {
-			console.warn('[walk] remote avatar load failed, keeping stand-in:', url, err?.message ?? err);
+			log.warn('[walk] remote avatar load failed, keeping stand-in:', url, err?.message ?? err);
 			return;
 		}
 		if (token !== this._avatarLoadToken || !this.rig) return; // superseded or disposed
@@ -2176,7 +2206,9 @@ function setOnlineStatus(status) {
 						? 'offline — tap to retry'
 						: status === 'offline'
 							? 'reconnecting…'
-							: 'solo';
+							: status === 'unavailable'
+								? 'multiplayer unavailable'
+								: 'solo';
 	}
 }
 
@@ -3127,7 +3159,7 @@ async function initWalkPhysics() {
 	} catch (err) {
 		// Solver failed to load — the legacy movement path keeps the scene fully
 		// playable, so degrade quietly rather than blocking the experience.
-		console.warn('[walk] physics unavailable, using legacy movement:', err);
+		log.warn('[walk] physics unavailable, using legacy movement:', err);
 		physics = null;
 		physicsReady = false;
 		character = null;
@@ -3155,7 +3187,7 @@ loadAvatar()
 		setTimeout(showArCta, 900);
 	})
 	.catch((err) => {
-		console.error('[walk] failed to load avatar:', err);
+		log.error('[walk] failed to load avatar:', err);
 		// Tear down the full-screen loading overlay so the error is readable and
 		// the scene (default ground/lighting) is visible behind the message.
 		dismissLoading();
@@ -3277,7 +3309,7 @@ if (import.meta.env?.DEV) {
 			setStatus('Avatar switched');
 		} catch (err) {
 			setStatus('Failed to load avatar', { error: true });
-			console.error('[walk] avatar switch failed:', err);
+			log.error('[walk] avatar switch failed:', err);
 		}
 		togglePicker();
 	});

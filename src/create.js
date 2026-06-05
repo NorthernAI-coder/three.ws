@@ -1,6 +1,7 @@
 import { apiFetch } from './account.js';
 import { AvatarCreator } from './avatar-creator.js';
 import { stage as stageGuestAvatar } from './guest-avatar.js';
+import { log } from './shared/log.js';
 
 // GLB magic bytes: ASCII "glTF"
 const GLB_MAGIC = [0x67, 0x6c, 0x54, 0x46];
@@ -101,7 +102,7 @@ async function handleFork(avatarId) {
 		window.location.href = '/create-review';
 	} catch (err) {
 		hideSaveOverlay();
-		console.error('[create] fork failed:', err);
+		log.error('[create] fork failed:', err);
 		showStatus(err.message || 'Could not remix this avatar. Try again.', 'error');
 	}
 }
@@ -237,7 +238,7 @@ async function stageAndReview(blob, meta = {}) {
 		await stageGuestAvatar(blob, meta);
 	} catch (err) {
 		hideSaveOverlay();
-		console.error('[create] failed to stage guest avatar:', err);
+		log.error('[create] failed to stage guest avatar:', err);
 		showStatus('Could not save your avatar locally. Check browser storage settings.', 'error');
 		return;
 	}

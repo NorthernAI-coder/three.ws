@@ -50,6 +50,8 @@ import { ClubCamera } from './club-camera.js';
 import { ClubAudio, styleAudioFor, TRACK_LABELS } from './club-audio.js';
 import { playSequence, ticketSteps } from './club-sequence.js';
 import { detectProfile, PROFILES, createFrameWatchdog, isMobileLayout } from './club-perf.js';
+import { log } from './shared/log.js';
+import { emptyStateHTML } from './shared/state-kit.js';
 
 const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
@@ -112,6 +114,18 @@ const feedStatusEl = document.getElementById('club-feed-status');
 const lbRowsEl = document.getElementById('club-lb-rows');
 const lbTabsEls = document.querySelectorAll('.club-lb-tab');
 
+// Upgrade the static "No tips yet" line to a guided empty state (C06). Cleared
+// by renderTipRow() the moment the first tip settles.
+if (tipFeedEl) {
+	tipFeedEl.innerHTML = emptyStateHTML({
+		compact: true,
+		live: true,
+		icon: '💸',
+		title: 'No tips yet',
+		body: 'Tip a dancer and they take the pole — every tip lands here live, paid on-chain for $0.001. Be the first.',
+	});
+}
+
 function setStatus(text, { kind = 'info' } = {}) {
 	if (!statusEl) return;
 	statusEl.textContent = text;
@@ -171,6 +185,7 @@ function renderTipRow(rowLike, { live = false, prepend = true } = {}) {
 	const timestamp = rowLike.created_at ?? rowLike.startsAt ?? new Date().toISOString();
 
 	tipFeedEl.querySelector('.club-feed-empty')?.remove();
+	tipFeedEl.querySelector('.tws-es')?.remove();
 	const row = document.createElement('div');
 	row.className = 'club-tip-row';
 	if (live) row.classList.add('is-live');
@@ -237,7 +252,7 @@ async function loadInitialTips({ attempt = 0 } = {}) {
 		}
 		setFeedStatus(null);
 	} catch (err) {
-		console.warn('[club] tip history failed', err);
+		log.warn('[club] tip history failed', err);
 		if (attempt === 0) {
 			setFeedStatus("Couldn't load tip history — retrying", 'error');
 			setTimeout(() => loadInitialTips({ attempt: 1 }), 4000);
@@ -265,7 +280,7 @@ function subscribeTipStream() {
 		try {
 			es = new EventSource(TIPS_STREAM_URL);
 		} catch (err) {
-			console.warn('[club] EventSource init failed', err);
+			log.warn('[club] EventSource init failed', err);
 			scheduleReconnect();
 			return;
 		}
@@ -278,7 +293,7 @@ function subscribeTipStream() {
 				const row = JSON.parse(e.data);
 				renderTipRow(row, { live: true });
 			} catch (err) {
-				console.warn('[club] tip event parse failed', err);
+				log.warn('[club] tip event parse failed', err);
 			}
 		});
 		es.onerror = () => {
@@ -401,7 +416,7 @@ const DANCER_META = [
 	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink' },
 	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan' },
 	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber' },
-	{ name: 'Luna', bio: 'Violet dream. Gravity-defying flow.', palette: 'violet' },
+	{ name: 'Luna', bio: 'Lunar glow. Gravity-defying flow.', palette: 'white' },
 ];
 
 class PoleStation {
@@ -994,7 +1009,7 @@ if (typeof window !== 'undefined') window.__clubAudio = audio;
 // loop back to ambience. Decoupled via custom event so the station class
 // stays focused on motion.
 window.addEventListener('club:performance-end', () => {
-	audio.fadeOutStyle().catch((err) => console.warn('[club] fadeOutStyle', err));
+	audio.fadeOutStyle().catch((err) => log.warn('[club] fadeOutStyle', err));
 });
 
 // ── Tip flow (x402 drop-in) ──────────────────────────────────────────────
@@ -1014,15 +1029,25 @@ async function tipDancer({ dancer, dance, button }) {
 		return;
 	}
 
+	// A tip is a real on-chain micro-payment. First-timers get the wallet/USDC
+	// explainer + guided setup before the payment modal; returning users pass
+	// straight through. Lazy-loaded so the club only pays for it on first tip.
+	try {
+		const { ensureOnchainPrimer } = await import('./shared/onchain-primer.js');
+		if (!(await ensureOnchainPrimer({ action: 'tip' }))) return;
+	} catch (err) {
+		log.warn('[club] onchain primer unavailable', err);
+	}
+
 	// First click on a Tip button is the user gesture browsers require to
 	// unlock AudioContext. Do this BEFORE opening the wallet modal so the
 	// gesture isn't lost by the time we settle. Failures here are
 	// non-fatal — the rest of the tip flow still works without audio.
 	try {
 		await audio.ensureContext();
-		audio.startAmbience().catch((err) => console.warn('[club] startAmbience', err));
+		audio.startAmbience().catch((err) => log.warn('[club] startAmbience', err));
 	} catch (err) {
-		console.warn('[club] audio unavailable', err);
+		log.warn('[club] audio unavailable', err);
 	}
 
 	const url = `${TIP_ENDPOINT}?dancer=${encodeURIComponent(dancer)}&dance=${encodeURIComponent(dance)}`;
@@ -1052,7 +1077,7 @@ async function tipDancer({ dancer, dance, button }) {
 			audio.fadeToStyle(trackName).then(() => {
 				const label = TRACK_LABELS[trackName] || trackName;
 				setStatus(`Now playing: ${label}`, { kind: 'ok' });
-			}).catch((err) => console.warn('[club] fadeToStyle', err));
+			}).catch((err) => log.warn('[club] fadeToStyle', err));
 		}
 
 		// Local echo — renderTipRow's dedupe ring (keyed on ticket_id) drops
@@ -1389,7 +1414,7 @@ const watchdog = createFrameWatchdog({
 			const dropped = disco.children[disco.children.length - 1];
 			disco.remove(dropped);
 		}
-		console.info('[club] downgrading profile to', nextTier);
+		log.info('[club] downgrading profile to', nextTier);
 	},
 });
 
@@ -1478,7 +1503,7 @@ async function fetchLeaderboard() {
 		const body = await res.json();
 		renderLeaderboard(body.rows || []);
 	} catch (err) {
-		console.error('[club] leaderboard fetch failed', err);
+		log.error('[club] leaderboard fetch failed', err);
 		// Don't blow away an already-rendered table on a transient hiccup.
 		if (!lbRowsEl.querySelector('.club-lb-row')) {
 			lbRowsEl.innerHTML = '<div class="club-lb-empty">Leaderboard unavailable.</div>';
@@ -1637,7 +1662,7 @@ startLeaderboardPolling();
 
 bootstrap()
 	.catch((err) => {
-		console.error('[club] bootstrap failed', err);
+		log.error('[club] bootstrap failed', err);
 		setStatus(`Club failed to load: ${err.message}`, { kind: 'error' });
 	})
 	.finally(() => animate());

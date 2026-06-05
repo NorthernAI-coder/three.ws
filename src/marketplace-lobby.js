@@ -38,6 +38,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import { EffectComposer, RenderPass, SelectiveBloomEffect, EffectPass } from 'postprocessing';
 import { getMeshoptDecoder } from './viewer/internal.js';
+import { log } from './shared/log.js';
 
 // Accelerate click-to-select raycasting with a BVH. Patches the Three.js
 // prototypes once at module load — idempotent if the main viewer already did so.
@@ -156,7 +157,7 @@ export async function mountLobby(canvas, avatars, options = {}) {
 					slotMeta[i].avatar = avatar;
 				},
 				undefined,
-				(err) => console.warn('[lobby] failed to load', url, err?.message),
+				(err) => log.warn('[lobby] failed to load', url, err?.message),
 			);
 		});
 	});

@@ -489,7 +489,7 @@ async function init() {
 		setStatus('live', `Embedded by IBM&nbsp;Granite · <code>${escapeHtml(model || EMBED_MODEL_HINT)}</code> · ${dimensions || dim}d`);
 	} catch (e) {
 		if (e.code === 'watsonx_unconfigured') {
-			setStatus('off', 'IBM watsonx not configured — showing tokens by trending rank. <a href="/ibm" style="color:var(--ibm-light)">Enable →</a>');
+			setStatus('off', 'IBM watsonx not configured — showing tokens by trending rank. <a href="/ibm" style="color:var(--brand-blue-light)">Enable →</a>');
 		} else if (e.status === 404) {
 			setStatus('off', 'Granite embeddings endpoint not deployed yet — showing tokens by trending rank.');
 		} else {

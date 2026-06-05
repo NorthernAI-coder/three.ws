@@ -6,6 +6,7 @@
  * Only shown to the agent's owner. Non-owners see the unmodified panel.
  */
 import { AgentEmbedModal } from './agent-embed-modal.js';
+import { log } from './shared/log.js';
 
 /**
  * @param {HTMLElement}                                  panel      — .agent-home-panel element
@@ -72,7 +73,7 @@ export function renderHubActions(panel, identity, rawAgent) {
 					{ initialTab: 'my' },
 				);
 			} catch (err) {
-				console.error('[hub] register-ui load failed', err);
+				log.error('[hub] register-ui load failed', err);
 			} finally {
 				deployBtn.disabled = false;
 			}
@@ -96,7 +97,7 @@ export function renderHubActions(panel, identity, rawAgent) {
 					{ initial },
 				);
 			} catch (err) {
-				console.error('[hub] register-ui load failed', err);
+				log.error('[hub] register-ui load failed', err);
 				deployBtn.disabled = false;
 				deployBtn.querySelector('span').textContent = 'Deploy on-chain';
 			}
@@ -141,7 +142,7 @@ async function _resolveAgentPrefill(rawAgent) {
 		initial.glbUrl = avatar.url || avatar.model_url || '';
 		initial.imageUrl = avatar.thumbnail_url || '';
 	} catch (err) {
-		console.warn('[hub] avatar prefill failed; opening wizard without it', err);
+		log.warn('[hub] avatar prefill failed; opening wizard without it', err);
 	}
 	return initial;
 }

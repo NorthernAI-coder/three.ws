@@ -10,6 +10,7 @@
  */
 
 import { ACTION_TYPES } from './agent-protocol.js';
+import { log } from './shared/log.js';
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -315,7 +316,7 @@ export class NichAgent {
 					return;
 				}
 			} catch (err) {
-				console.warn('[NichAgent] Runtime error, falling back:', err.message);
+				log.warn('[NichAgent] Runtime error, falling back:', err.message);
 			}
 		}
 
@@ -432,7 +433,7 @@ export class NichAgent {
 			return { ok: false, reason: 'stream_incomplete' };
 		} catch (err) {
 			streamEl.remove();
-			console.warn('[NichAgent] /api/chat failed:', err.message);
+			log.warn('[NichAgent] /api/chat failed:', err.message);
 			return { ok: false, reason: 'network' };
 		}
 	}
@@ -467,7 +468,7 @@ export class NichAgent {
 			try {
 				await this._executeAction(action);
 			} catch (err) {
-				console.warn('[NichAgent] action failed:', action?.type, err.message);
+				log.warn('[NichAgent] action failed:', action?.type, err.message);
 			}
 		}
 	}
@@ -594,7 +595,7 @@ export class NichAgent {
 				}
 				break;
 			default:
-				console.warn('[NichAgent] unknown action:', action.type);
+				log.warn('[NichAgent] unknown action:', action.type);
 		}
 	}
 

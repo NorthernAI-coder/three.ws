@@ -70,6 +70,7 @@ import {
 	MORPH_ALIASES,
 	conformanceReport,
 } from './runtime/arkit52.js';
+import { log } from './shared/log.js';
 
 const BRIDGE_VERSION = '1.0';
 const CAPABILITIES = [
@@ -162,7 +163,7 @@ async function main() {
 			animMgr.loadAll().catch(() => {});
 		}
 	} catch (err) {
-		console.warn('[avatar-embed] animation manifest load failed', err?.message);
+		log.warn('[avatar-embed] animation manifest load failed', err?.message);
 	}
 
 	const startAnim = params.get('animation') || params.get('pose');
@@ -303,7 +304,7 @@ async function main() {
 		try {
 			await startMocap();
 		} catch (err) {
-			console.warn('[avatar-embed] mocap auto-start failed', err);
+			log.warn('[avatar-embed] mocap auto-start failed', err);
 		}
 	} else if (!hideChrome) {
 		pill.style.display = 'inline-flex';
@@ -548,7 +549,7 @@ async function main() {
 	}
 	if (params.get('mic') === '1') {
 		enableMic().catch((err) =>
-			console.warn('[avatar-embed] mic auto-start failed', err?.message),
+			log.warn('[avatar-embed] mic auto-start failed', err?.message),
 		);
 	}
 	if (params.get('state') === '1') document.body.classList.add('show-state');
@@ -571,7 +572,7 @@ async function main() {
 			bc.postMessage({ type: 'v1.avatar.online', channel: channelKey, name: resolved.name, handle: resolved.handle, id: resolved.id });
 		}
 	} catch (err) {
-		console.warn('[avatar-embed] BroadcastChannel unavailable', err?.message);
+		log.warn('[avatar-embed] BroadcastChannel unavailable', err?.message);
 	}
 	function broadcast(msg) {
 		if (!bc) return;
