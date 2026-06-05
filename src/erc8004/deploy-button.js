@@ -27,6 +27,7 @@ import {
 } from './chain-meta.js';
 import { runSolanaDeploy, solanaTxExplorerUrl, detectSolanaWallet } from './solana-deploy.js';
 import { openVanityModal } from './vanity-modal.js';
+import { log } from '../shared/log.js';
 
 const VANITY_LS_KEY = (agentId) => `3dagent:vanity-prefix:${agentId}`;
 const VANITY_TTL_MS = 30 * 60 * 1000;
@@ -203,7 +204,7 @@ export class DeployButton {
 					await switchChain(newChainId);
 				} catch (err) {
 					if (!_isUserRejection(err)) {
-						console.warn('[deploy-button] switchChain failed:', err?.message);
+						log.warn('[deploy-button] switchChain failed:', err?.message);
 					}
 				} finally {
 					select.disabled = false;
@@ -382,6 +383,16 @@ export class DeployButton {
 	}
 
 	async _startDeploy() {
+		// Newcomers deploying on-chain for the first time get the plain-language
+		// wallet/USDC/fees explainer + guided setup before any wallet prompt.
+		// Returning/ready users pass straight through. Lazy-loaded.
+		try {
+			const { ensureOnchainPrimer } = await import('../shared/onchain-primer.js');
+			if (!(await ensureOnchainPrimer({ action: 'deploy' }))) return;
+		} catch (err) {
+			log.warn('[deploy-button] onchain primer unavailable', err);
+		}
+
 		if (_isSolana(this._chainId)) return this._startSolanaDeploy();
 
 		if (!_hasWallet()) {

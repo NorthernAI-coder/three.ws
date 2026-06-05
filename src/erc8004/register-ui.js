@@ -55,6 +55,9 @@ import {
 	INPUT_TYPES,
 } from './resolve-avatar.js';
 import { runSolanaDeploy, solanaTxExplorerUrl, detectSolanaWallet } from './solana-deploy.js';
+import { onchainBadgeHTML, ensureOnchainBadgeStyles } from '../shared/onchain-badge.js';
+import { log } from '../shared/log.js';
+ensureOnchainBadgeStyles();
 
 // ───────────────────────────────────────────────────────────────────────────
 // Solana sentinels — chain dropdown stores these strings instead of a numeric
@@ -102,6 +105,37 @@ function _resolveNetworkArg(raw) {
 	};
 	const id = aliases[s];
 	return id && REGISTRY_DEPLOYMENTS[id] ? id : null;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Error classification — turns raw error messages into user-readable copy
+// ───────────────────────────────────────────────────────────────────────────
+
+function _classifyDeployError(raw, err = null) {
+	const m = String(raw || '').toLowerCase();
+	const code = err?.code;
+	// Wallet rejection (MetaMask 4001, ethers ACTION_REJECTED, Phantom)
+	if (code === 4001 || code === 'ACTION_REJECTED' ||
+		/user rejected|user denied|cancelled|reject/i.test(m)) {
+		return 'You cancelled the signature request — no transaction was sent. Click Deploy to try again.';
+	}
+	// Insufficient gas / funds
+	if (/insufficient funds|not enough|gas/i.test(m)) {
+		return 'Insufficient funds — make sure your wallet has enough ETH (or SOL) to cover gas. Top up and retry.';
+	}
+	// Wrong chain
+	if (/wrong chain|wrong network|mismatched chain/i.test(m)) {
+		return 'Wrong chain — switch your wallet to the target network and click Deploy again.';
+	}
+	// Network / RPC errors
+	if (/network|rpc|fetch|timeout|econnrefused|http 5/i.test(m)) {
+		return 'Network error — check your connection and retry. If the problem persists the RPC may be down.';
+	}
+	// Contract revert
+	if (/revert|execution reverted/i.test(m)) {
+		return `Transaction reverted by the contract — ${raw}. Check the registry address and retry.`;
+	}
+	return `Deploy failed: ${raw}`;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -432,7 +466,7 @@ export class RegisterUI {
 								<span class="deploy-chain-label">Target network</span>
 								<select class="erc8004-chain-select" title="Target chain"></select>
 							</label>
-							<button class="erc8004-btn erc8004-btn--wallet deploy-wallet-btn" type="button">
+							<button class="erc8004-btn erc8004-btn--wallet deploy-wallet-btn btn btn--secondary" type="button">
 								Connect wallet
 							</button>
 						</div>
@@ -454,10 +488,10 @@ export class RegisterUI {
 					<div class="erc8004-header">
 						<div class="erc8004-controls">
 							<select class="erc8004-chain-select" title="Target chain"></select>
-							<button class="erc8004-btn erc8004-btn--wallet" type="button">
+							<button class="erc8004-btn erc8004-btn--wallet btn btn--secondary" type="button">
 								Connect MetaMask
 							</button>
-							<button class="erc8004-btn erc8004-btn--close" type="button" title="Close">✕</button>
+							<button class="erc8004-btn erc8004-btn--close btn btn--ghost btn--icon" type="button" title="Close">✕</button>
 						</div>
 					</div>
 
@@ -811,7 +845,7 @@ export class RegisterUI {
 				throw new Error(`link failed (${res.status}): ${text}`);
 			}
 		} catch (err) {
-			console.warn('[erc8004] Failed to link on-chain agentId to account:', err.message);
+			log.warn('[erc8004] Failed to link on-chain agentId to account:', err.message);
 			if (throwOnError) throw err;
 		}
 	}
@@ -1186,14 +1220,14 @@ export class RegisterUI {
 			<label class="erc8004-label">Image URL
 				<div class="erc8004-image-row">
 					<input class="erc8004-input" name="imageUrl" placeholder="https://example.com/avatar.png or ipfs://…" value="${esc(this.form.imageUrl)}" />
-					${this._viewer ? `<button type="button" class="erc8004-btn erc8004-btn--ghost erc8004-capture-btn" data-role="capture3d" title="Snapshot the current 3D viewer and use it as the agent image">📸 Use 3D view</button>` : ''}
+					${this._viewer ? `<button type="button" class="erc8004-btn erc8004-btn--ghost erc8004-capture-btn btn btn--ghost" data-role="capture3d" title="Snapshot the current 3D viewer and use it as the agent image">📸 Use 3D view</button>` : ''}
 				</div>
 			</label>
 			<p class="erc8004-hint">Avatar or logo for your agent NFT</p>
 
 			<div class="erc8004-wizard-nav">
 				<span></span>
-				<button class="erc8004-btn erc8004-btn--primary" data-role="next">Next: Services →</button>
+				<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="next">Next: Services →</button>
 			</div>
 		`;
 		body.querySelector('[name="name"]').addEventListener('input', (e) => {
@@ -1289,7 +1323,7 @@ export class RegisterUI {
 
 			<div class="erc8004-services" data-role="list"></div>
 
-			<button class="erc8004-btn erc8004-btn--ghost" data-role="add">+ Add endpoint</button>
+			<button class="erc8004-btn erc8004-btn--ghost btn btn--ghost" data-role="add">+ Add endpoint</button>
 
 			<label class="erc8004-checkbox" style="margin-top:12px">
 				<input type="checkbox" data-role="x402" ${this.form.x402Support ? 'checked' : ''} />
@@ -1297,8 +1331,8 @@ export class RegisterUI {
 			</label>
 
 			<div class="erc8004-wizard-nav">
-				<button class="erc8004-btn" data-role="back">← Back</button>
-				<button class="erc8004-btn erc8004-btn--primary" data-role="next">Next: Configuration →</button>
+				<button class="erc8004-btn btn btn--secondary" data-role="back">← Back</button>
+				<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="next">Next: Configuration →</button>
 			</div>
 		`;
 		const list = body.querySelector('[data-role="list"]');
@@ -1312,7 +1346,7 @@ export class RegisterUI {
 					</select>
 					<input class="erc8004-input" data-field="name" placeholder="Name" value="${esc(svc.name)}" />
 					<input class="erc8004-input" data-field="endpoint" placeholder="https://… or ipfs://…" value="${esc(svc.endpoint)}" />
-					<button class="erc8004-btn erc8004-btn--ghost erc8004-btn--x" data-role="rm" title="Remove">✕</button>
+					<button class="erc8004-btn erc8004-btn--ghost erc8004-btn--x btn btn--ghost btn--icon" data-role="rm" title="Remove">✕</button>
 				</div>
 			`,
 				)
@@ -1385,8 +1419,8 @@ export class RegisterUI {
 			<p class="erc8004-hint">Without a token, uploads go through our backend (R2). Paste a Pinata JWT to pin directly to IPFS.</p>
 
 			<div class="erc8004-wizard-nav">
-				<button class="erc8004-btn" data-role="back">← Back</button>
-				<button class="erc8004-btn erc8004-btn--primary" data-role="next">Next: Deploy →</button>
+				<button class="erc8004-btn btn btn--secondary" data-role="back">← Back</button>
+				<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="next">Next: Deploy →</button>
 			</div>
 		`;
 
@@ -1601,24 +1635,50 @@ export class RegisterUI {
 				</div>
 			</details>
 
+			<div class="deploy-phase-track" data-role="phase-track" hidden aria-live="polite">
+				<div class="deploy-phase deploy-phase--pending" data-phase="prepare">
+					<span class="deploy-phase-dot" aria-hidden="true"></span>
+					<div class="deploy-phase-content">
+						<span class="deploy-phase-label">Prepare</span>
+						<span class="deploy-phase-hint">Pinning metadata to IPFS and building the on-chain record</span>
+					</div>
+				</div>
+				<div class="deploy-phase deploy-phase--pending" data-phase="sign">
+					<span class="deploy-phase-dot" aria-hidden="true"></span>
+					<div class="deploy-phase-content">
+						<span class="deploy-phase-label">Sign</span>
+						<span class="deploy-phase-hint">One wallet signature mints your agent as an ERC-721 NFT — no other approvals needed</span>
+					</div>
+				</div>
+				<div class="deploy-phase deploy-phase--pending" data-phase="confirm">
+					<span class="deploy-phase-dot" aria-hidden="true"></span>
+					<div class="deploy-phase-content">
+						<span class="deploy-phase-label">Confirm</span>
+						<span class="deploy-phase-hint">Waiting for the transaction to land and the agent ID to be assigned</span>
+					</div>
+				</div>
+			</div>
+
 			<div class="erc8004-log" data-role="log"></div>
 
-			<div class="erc8004-result" data-role="result" style="display:none">
-				<h4 class="erc8004-h4">✓ Agent registered</h4>
+			<div class="erc8004-result deploy-result" data-role="result" style="display:none">
+				<div class="deploy-result-badge" data-role="res-badge"></div>
+				<h4 class="erc8004-h4 deploy-result-heading">Agent registered on-chain</h4>
 				<dl class="erc8004-result-dl">
 					<dt>Agent ID</dt> <dd data-role="res-id"></dd>
 					<dt>Metadata</dt> <dd data-role="res-uri"></dd>
 					<dt>Tx Hash</dt>  <dd data-role="res-tx"></dd>
 				</dl>
 				<div class="erc8004-row">
-					<button class="erc8004-btn" data-role="view-3d">View in 3D</button>
-					<a class="erc8004-btn" data-role="view-explorer" target="_blank" rel="noopener">View on explorer ↗</a>
+					<button class="erc8004-btn btn btn--secondary" data-role="view-3d">View in 3D</button>
+					<a class="erc8004-btn btn btn--secondary" data-role="view-explorer" target="_blank" rel="noopener">Explorer ↗</a>
+					<a class="erc8004-btn btn btn--secondary" href="/showcase">Browse showcase ↗</a>
 				</div>
 			</div>
 
 			<div class="erc8004-wizard-nav">
-				<button class="erc8004-btn" data-role="back">← Back</button>
-				<button class="erc8004-btn erc8004-btn--primary" data-role="deploy" ${walletOk ? '' : 'disabled'}>🚀 Register Agent On-Chain</button>
+				<button class="erc8004-btn btn btn--secondary" data-role="back">← Back</button>
+				<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="deploy" ${walletOk ? '' : 'disabled'}>🚀 Register Agent On-Chain</button>
 			</div>
 		`;
 		body.querySelector('[data-role="back"]').addEventListener('click', () => {
@@ -1673,23 +1733,49 @@ export class RegisterUI {
 				(via Sign-In-with-Solana). If you haven't, <a class="erc8004-link" href="/login.html">link it first</a>.
 			</div>
 
+			<div class="deploy-phase-track" data-role="phase-track" hidden aria-live="polite">
+				<div class="deploy-phase deploy-phase--pending" data-phase="prepare">
+					<span class="deploy-phase-dot" aria-hidden="true"></span>
+					<div class="deploy-phase-content">
+						<span class="deploy-phase-label">Prepare</span>
+						<span class="deploy-phase-hint">Pinning metadata to IPFS and generating the Metaplex Core mint</span>
+					</div>
+				</div>
+				<div class="deploy-phase deploy-phase--pending" data-phase="sign">
+					<span class="deploy-phase-dot" aria-hidden="true"></span>
+					<div class="deploy-phase-content">
+						<span class="deploy-phase-label">Sign</span>
+						<span class="deploy-phase-hint">Phantom (or Backpack) will request one transaction — approve to mint the agent NFT</span>
+					</div>
+				</div>
+				<div class="deploy-phase deploy-phase--pending" data-phase="confirm">
+					<span class="deploy-phase-dot" aria-hidden="true"></span>
+					<div class="deploy-phase-content">
+						<span class="deploy-phase-label">Confirm</span>
+						<span class="deploy-phase-hint">Waiting for the Solana transaction to finalize</span>
+					</div>
+				</div>
+			</div>
+
 			<div class="erc8004-log" data-role="log"></div>
 
-			<div class="erc8004-result" data-role="result" style="display:none">
-				<h4 class="erc8004-h4">✓ Agent registered</h4>
+			<div class="erc8004-result deploy-result" data-role="result" style="display:none">
+				<div class="deploy-result-badge" data-role="res-badge"></div>
+				<h4 class="erc8004-h4 deploy-result-heading">Agent minted on Solana</h4>
 				<dl class="erc8004-result-dl">
 					<dt>Asset</dt>      <dd data-role="res-id"></dd>
 					<dt>Network</dt>    <dd data-role="res-uri"></dd>
 					<dt>Tx Signature</dt><dd data-role="res-tx"></dd>
 				</dl>
 				<div class="erc8004-row">
-					<a class="erc8004-btn" data-role="view-explorer" target="_blank" rel="noopener">View on explorer ↗</a>
+					<a class="erc8004-btn btn btn--secondary" data-role="view-explorer" target="_blank" rel="noopener">Explorer ↗</a>
+					<a class="erc8004-btn btn btn--secondary" href="/showcase">Browse showcase ↗</a>
 				</div>
 			</div>
 
 			<div class="erc8004-wizard-nav">
-				<button class="erc8004-btn" data-role="back">← Back</button>
-				<button class="erc8004-btn erc8004-btn--primary" data-role="deploy" ${hasSolanaWallet ? '' : 'disabled'}>🚀 Mint on ${esc(chainLabel)}</button>
+				<button class="erc8004-btn btn btn--secondary" data-role="back">← Back</button>
+				<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="deploy" ${hasSolanaWallet ? '' : 'disabled'}>🚀 Mint on ${esc(chainLabel)}</button>
 			</div>
 		`;
 		body.querySelector('[data-role="back"]').addEventListener('click', () => {
@@ -1720,6 +1806,9 @@ export class RegisterUI {
 			return;
 		}
 
+		const setPhase = this._makePhaseTracker(body);
+		setPhase('prepare');
+
 		const network = _solanaNetwork(this.selectedChainId);
 		const synthAgent = {
 			id: this._backendAgentId || 'wizard',
@@ -1729,10 +1818,13 @@ export class RegisterUI {
 		};
 
 		say(`Connecting Solana wallet…`);
+		setPhase('sign');
 		try {
 			const result = await runSolanaDeploy({ agent: synthAgent, network });
+			setPhase('confirm');
 			say(`Minted asset ${result.assetPubkey}`);
 			say(`Tx ${result.txSignature}`);
+			setPhase('done');
 
 			body.querySelector('[data-role="result"]').style.display = '';
 			body.querySelector('[data-role="res-id"]').textContent = result.assetPubkey;
@@ -1743,6 +1835,18 @@ export class RegisterUI {
 				result.txSignature,
 			);
 
+			const badgeEl = body.querySelector('[data-role="res-badge"]');
+			if (badgeEl) {
+				const cluster = network === 'devnet' ? 'devnet' : 'mainnet';
+				const caip2 = cluster === 'devnet'
+					? 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
+					: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+				badgeEl.innerHTML = onchainBadgeHTML(
+					{ onchain: { family: 'solana', chain: caip2, cluster, contract_or_mint: result.assetPubkey, tx_hash: result.txSignature } },
+					{ size: 'md', showChain: true },
+				);
+			}
+
 			this.onRegistered({
 				agentId: result.agent?.id || result.assetPubkey,
 				txHash: result.txSignature,
@@ -1751,13 +1855,13 @@ export class RegisterUI {
 		} catch (err) {
 			if (err?.code === 'forbidden') {
 				say(
-					'Your Solana wallet is not linked to this account. Sign in with your Solana wallet first.',
+					'Wallet not linked — sign in with your Solana wallet first, then retry.',
 					true,
 				);
 			} else if (err?.code === 'payment_required') {
 				say(`${err.message || 'Paid plan required'} — upgrade to use 5+ char vanity prefixes.`, true);
 			} else {
-				say('Solana deploy failed: ' + (err.message || String(err)), true);
+				say(_classifyDeployError(err.message || String(err), err), true);
 			}
 			deployBtn.disabled = false;
 		}
@@ -1787,6 +1891,55 @@ export class RegisterUI {
 		}
 		if (s === 'skip') return `<span class="erc8004-muted">None — metadata-only</span>`;
 		return `<span class="erc8004-muted">Not selected</span>`;
+	}
+
+	/**
+	 * Drives the deploy-phase-track indicator in Step 4.
+	 * Returns (phaseName) => void to advance to a given phase.
+	 * Pass 'done' to mark all phases complete.
+	 */
+	_makePhaseTracker(body) {
+		const track = body.querySelector('[data-role="phase-track"]');
+		if (!track) return () => {};
+		const order = ['prepare', 'sign', 'confirm'];
+		return (phase) => {
+			track.hidden = false;
+			if (phase === 'done') {
+				track.querySelectorAll('[data-phase]').forEach((el) => {
+					el.classList.remove('deploy-phase--pending', 'deploy-phase--active');
+					el.classList.add('deploy-phase--done');
+				});
+				return;
+			}
+			const idx = order.indexOf(phase);
+			track.querySelectorAll('[data-phase]').forEach((el) => {
+				const pi = order.indexOf(el.dataset.phase);
+				el.classList.toggle('deploy-phase--done', pi < idx);
+				el.classList.toggle('deploy-phase--active', pi === idx);
+				el.classList.toggle('deploy-phase--pending', pi > idx);
+			});
+		};
+	}
+
+	/**
+	 * Wrap say() with keyword-based phase advancement so the phase tracker
+	 * automatically advances when registerAgent / runSolanaDeploy emit known
+	 * status strings. setPhase is always called explicitly at the right points
+	 * too — the keyword detection is a belt-and-suspenders safety net.
+	 */
+	_phaseAwareSay(say, setPhase) {
+		return (msg, err = false) => {
+			say(msg, err);
+			if (err) return;
+			const m = String(msg || '').toLowerCase();
+			if (m.includes('sign') || m.includes('approv') || m.includes('phantom') ||
+				m.includes('wallet') || m.includes('metamask')) {
+				setPhase('sign');
+			} else if (m.includes('wait') || m.includes('confirm') || m.includes('broadcast') ||
+				m.includes('mining') || m.includes('block') || m.includes('finali')) {
+				setPhase('confirm');
+			}
+		};
 	}
 
 	_wireExportOptions(body) {
@@ -1896,6 +2049,10 @@ export class RegisterUI {
 			return;
 		}
 
+		const setPhase = this._makePhaseTracker(body);
+		const phaseSay = this._phaseAwareSay(say, setPhase);
+		setPhase('prepare');
+
 		try {
 			// Ensure we're on the target chain
 			if (this.wallet && this.wallet.chainId !== this.selectedChainId) {
@@ -1904,8 +2061,9 @@ export class RegisterUI {
 				this.wallet.chainId = this.selectedChainId;
 			}
 
-			const result = await this._doRegister(say);
+			const result = await this._doRegister(phaseSay);
 
+			setPhase('done');
 			body.querySelector('[data-role="result"]').style.display = '';
 			body.querySelector('[data-role="res-id"]').textContent = String(result.agentId);
 			body.querySelector('[data-role="res-uri"]').textContent = result.registrationUrl;
@@ -1920,6 +2078,14 @@ export class RegisterUI {
 				result.txHash,
 			);
 
+			const badgeEl = body.querySelector('[data-role="res-badge"]');
+			if (badgeEl) {
+				badgeEl.innerHTML = onchainBadgeHTML(
+					{ agentId: String(result.agentId), chainId: this.selectedChainId },
+					{ size: 'md', showChain: true },
+				);
+			}
+
 			this.onRegistered({ ...result, chainId: this.selectedChainId });
 			await this._linkAgentToAccount({
 				agentId: result.agentId,
@@ -1928,7 +2094,9 @@ export class RegisterUI {
 			});
 			this._refreshStats();
 		} catch (err) {
-			say('Registration failed: ' + (err.shortMessage || err.message || String(err)), true);
+			const raw = err.shortMessage || err.message || String(err);
+			const errMsg = _classifyDeployError(raw, err);
+			say(errMsg, true);
 			deployBtn.disabled = false;
 		}
 	}
@@ -2241,8 +2409,8 @@ export class RegisterUI {
 				<div class="erc8004-qr-canvas-wrap" data-role="canvas"></div>
 				<p class="erc8004-muted erc8004-small erc8004-qr-url">${esc(url)}</p>
 				<div class="erc8004-row" style="justify-content:center">
-					<button class="erc8004-btn erc8004-btn--primary" data-role="download">Download PNG</button>
-					<button class="erc8004-btn" data-role="copy">Copy Link</button>
+					<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="download">Download PNG</button>
+					<button class="erc8004-btn btn btn--secondary" data-role="copy">Copy Link</button>
 				</div>
 			</div>
 		`;
@@ -2329,22 +2497,22 @@ export class RegisterUI {
 					<div data-panel="wc" class="is-active">
 						<p class="erc8004-muted erc8004-small">Drop into any HTML page. Self-contained, no build step.</p>
 						<textarea class="erc8004-code" data-role="code-wc" readonly rows="4">${esc(snippetWC)}</textarea>
-						<button class="erc8004-btn erc8004-btn--primary" data-copy="wc">Copy</button>
+						<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-copy="wc">Copy</button>
 					</div>
 					<div data-panel="if" hidden>
 						<p class="erc8004-muted erc8004-small">Works everywhere iframes do — Notion, Ghost, WordPress, Substack.</p>
 						<textarea class="erc8004-code" data-role="code-if" readonly rows="4">${esc(snippetIframe)}</textarea>
-						<button class="erc8004-btn erc8004-btn--primary" data-copy="if">Copy</button>
+						<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-copy="if">Copy</button>
 					</div>
 					<div data-panel="sh" hidden>
 						<p class="erc8004-muted erc8004-small">Paste anywhere (Discord, Slack, X, Farcaster) — OG preview + Twitter Player Card auto-render.</p>
 						<textarea class="erc8004-code" data-role="code-sh" readonly rows="2">${esc(pageUrl)}</textarea>
-						<button class="erc8004-btn erc8004-btn--primary" data-copy="sh">Copy</button>
+						<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-copy="sh">Copy</button>
 					</div>
 					<div data-panel="oe" hidden>
 						<p class="erc8004-muted erc8004-small">For apps that consume <a href="https://oembed.com" target="_blank" rel="noopener">oEmbed</a> directly (Notion, some CMSes).</p>
 						<textarea class="erc8004-code" data-role="code-oe" readonly rows="2">${esc(oembedUrl)}</textarea>
-						<button class="erc8004-btn erc8004-btn--primary" data-copy="oe">Copy</button>
+						<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-copy="oe">Copy</button>
 					</div>
 				</div>
 				<details class="erc8004-embed-policy">
@@ -2455,8 +2623,8 @@ export class RegisterUI {
 				<div class="erc8004-log" data-role="log"></div>
 
 				<div class="erc8004-row" style="justify-content:flex-end">
-					<button class="erc8004-btn" data-role="cancel">Cancel</button>
-					<button class="erc8004-btn erc8004-btn--primary" data-role="save">Save on-chain</button>
+					<button class="erc8004-btn btn btn--secondary" data-role="cancel">Cancel</button>
+					<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="save">Save on-chain</button>
 				</div>
 			</div>
 		`;
@@ -2627,8 +2795,8 @@ export class RegisterUI {
 				</label>
 				<div class="erc8004-log" data-role="log"></div>
 				<div class="erc8004-row" style="justify-content:flex-end">
-					<button class="erc8004-btn" data-role="cancel">Cancel</button>
-					<button class="erc8004-btn erc8004-btn--primary" data-role="go">Transfer</button>
+					<button class="erc8004-btn btn btn--secondary" data-role="cancel">Cancel</button>
+					<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="go">Transfer</button>
 				</div>
 			</div>
 		`;
@@ -2709,8 +2877,8 @@ export class RegisterUI {
 				</label>
 				<div class="erc8004-log" data-role="log"></div>
 				<div class="erc8004-row" style="justify-content:flex-end">
-					<button class="erc8004-btn" data-role="cancel">Cancel</button>
-					<button class="erc8004-btn erc8004-btn--primary" data-role="go">Deploy</button>
+					<button class="erc8004-btn btn btn--secondary" data-role="cancel">Cancel</button>
+					<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="go">Deploy</button>
 				</div>
 			</div>
 		`;
@@ -2796,7 +2964,7 @@ export class RegisterUI {
 			</p>
 			<div class="erc8004-row">
 				<input class="erc8004-input" name="q" placeholder="Agent ID · 0x address · ENS · tx hash · agent://chain/id" />
-				<button class="erc8004-btn erc8004-btn--primary" data-role="go">Search</button>
+				<button class="erc8004-btn erc8004-btn--primary btn btn--primary" data-role="go">Search</button>
 			</div>
 			<div class="erc8004-filter-chips" data-role="chips">
 				<button class="erc8004-chip ${this._searchFilter === 'all' ? 'erc8004-chip--active' : ''}" data-filter="all">All</button>

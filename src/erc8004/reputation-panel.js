@@ -10,7 +10,7 @@
  * Writes (only when signed-in visitor has a wallet):
  *   • submitReputation(agentId, score, comment)  — the "vouch" CTA
  *
- * Mounted from agent-home.html when the agent has chain_id and
+ * Mounted on agent pages when the agent has chain_id and
  * erc8004_agent_id, so visitors see real on-chain reputation rather
  * than a generic identity card.
  */
@@ -19,6 +19,7 @@ import { JsonRpcProvider, BrowserProvider } from 'ethers';
 import { CHAIN_META, switchChain, txExplorerUrl } from './chain-meta.js';
 import { REGISTRY_DEPLOYMENTS } from './abi.js';
 import { submitReputation, stakeReputation, getTotalStake, getReputation, getRecentReviews } from './reputation.js';
+import { log } from '../shared/log.js';
 
 const REVIEWS_LOOKBACK_BLOCKS = 50_000;
 const MIN_STAKE_ETH = 0.001;
@@ -103,7 +104,7 @@ export class ReputationPanel {
 				}).catch(() => 0n),
 			]);
 		} catch (err) {
-			console.warn('[reputation-panel] getReputation failed:', err?.message);
+			log.warn('[reputation-panel] getReputation failed:', err?.message);
 			this._renderEmpty('Could not read reputation from the chain.');
 			return;
 		}

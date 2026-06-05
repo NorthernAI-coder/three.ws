@@ -11,11 +11,26 @@
 
 import { CHAIN_META, supportedChainIds } from './chain-meta.js';
 import { resolveURI } from '../ipfs.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from '../shared/state-kit.js';
+import { onchainBadgeHTML, ensureOnchainBadgeStyles } from '../shared/onchain-badge.js';
+ensureStateKitStyles();
+ensureOnchainBadgeStyles();
 
 const PAGE_SIZE = 24;
 const NET_KEY = '3dagent.showcase.net';
 const CHAINS_KEY = '3dagent.showcase.chains';
 const SORT_KEY = '3dagent.showcase.sort';
+
+// Returns true if a URL contains signed/expiring query params (GitHub JWT,
+// S3/R2 presigned) — these reliably 404 after the token expires, so we
+// skip rendering the image rather than logging a spurious network error.
+function hasExpiringSignature(url) {
+	if (!url) return false;
+	try {
+		const p = new URL(url).searchParams;
+		return p.has('jwt') || p.has('X-Amz-Signature') || p.has('X-Goog-Signature');
+	} catch { return false; }
+}
 
 const esc = (s) =>
 	String(s ?? '').replace(
@@ -401,34 +416,21 @@ class ShowcasePage {
 	_renderResults({ skeleton = false } = {}) {
 		const out = this.container.querySelector('[data-role="results"]');
 		if (skeleton) {
-			out.innerHTML = `
-				<div class="showcase-grid" aria-busy="true">
-					${Array.from(
-						{ length: 8 },
-						() => `
-						<div class="showcase-card showcase-card--skel">
-							<div class="showcase-skel-img"></div>
-							<div class="showcase-skel-line"></div>
-							<div class="showcase-skel-line showcase-skel-line--short"></div>
-						</div>
-					`,
-					).join('')}
-				</div>
-			`;
+			out.setAttribute('aria-busy', 'true');
+			out.innerHTML = `<div class="showcase-grid">${skeletonHTML(8, 'card')}</div>`;
 			return;
 		}
 
+		out.removeAttribute('aria-busy');
+
 		if (!this._items.length) {
-			out.innerHTML = `
-				<div class="showcase-empty">
-					<div class="showcase-empty-art">✨</div>
-					<h3>No three.wss found.</h3>
-					<p class="showcase-muted">
-						Try a different chain filter, flip to ${this._net === 'mainnet' ? 'Testnet' : 'Mainnet'}, or
-						<a href="/deploy">deploy your own</a>.
-					</p>
-				</div>
-			`;
+			const altNet = this._net === 'mainnet' ? 'Testnet' : 'Mainnet';
+			out.innerHTML = emptyStateHTML({
+				title: 'No agents found',
+				body: `Try a different chain filter, flip to ${altNet}, or <a href="/deploy">deploy your own</a>.`,
+				actions: [{ label: 'Deploy an agent', href: '/deploy', primary: true }],
+				live: true,
+			});
 			return;
 		}
 
@@ -442,15 +444,12 @@ class ShowcasePage {
 
 	_renderError(message) {
 		const out = this.container.querySelector('[data-role="results"]');
-		out.innerHTML = `
-			<div class="showcase-empty showcase-empty--error">
-				<div class="showcase-empty-art">⚠️</div>
-				<h3>Couldn't load the directory.</h3>
-				<p class="showcase-muted">${esc(message)}</p>
-				<button type="button" class="showcase-btn" data-role="retry">Retry</button>
-			</div>
-		`;
-		out.querySelector('[data-role="retry"]').addEventListener('click', () =>
+		out.removeAttribute('aria-busy');
+		out.innerHTML = errorStateHTML({
+			title: "Couldn't load the directory",
+			body: esc(message),
+		});
+		out.querySelector('[data-sk-retry]').addEventListener('click', () =>
 			this._resetAndLoad(),
 		);
 	}
@@ -482,7 +481,7 @@ class ShowcasePage {
 function renderCard(a) {
 	const chainMeta = CHAIN_META[a.chainId];
 	const chainShort = chainMeta?.shortName || a.chainName || `#${a.chainId}`;
-	const img = a.image ? resolveURI(a.image) : '';
+	const img = (a.image && !hasExpiringSignature(a.image)) ? resolveURI(a.image) : '';
 	const title = esc(a.name || `Agent #${a.agentId}`);
 	const descLine = a.description
 		? `<p class="showcase-card-desc">${esc(truncate(a.description, 140))}</p>`
@@ -490,6 +489,8 @@ function renderCard(a) {
 	const ownerLine = a.owner
 		? `<a class="showcase-card-owner" href="${esc(a.ownerExplorerUrl || '#')}" target="_blank" rel="noopener" title="${esc(a.owner)}">Owner ${esc(shortAddr(a.owner))} ↗</a>`
 		: '';
+
+	const badgeHtml = onchainBadgeHTML(a, { size: 'sm', showChain: true });
 
 	const tags = [];
 	tags.push(`<span class="showcase-tag showcase-tag--3d">3D</span>`);
@@ -516,6 +517,7 @@ function renderCard(a) {
 				<div class="showcase-card-head">
 					<a class="showcase-card-title" href="${esc(a.viewerUrl)}">${title}</a>
 					<span class="showcase-card-id">#${esc(a.agentId)}</span>
+					${badgeHtml}
 				</div>
 				${descLine}
 				<div class="showcase-card-tags">${tags.join('')}</div>

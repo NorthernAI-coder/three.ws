@@ -92,7 +92,7 @@
 	border: 1px solid var(--nxt-stroke-strong, rgba(255, 255, 255, 0.14));
 	border-radius: var(--nxt-radius-sm, 10px);
 	background: var(--nxt-accent-soft, rgba(255, 255, 255, 0.04));
-	color: var(--nxt-ink, #e8e8e8);
+	color: var(--nxt-ink, var(--ink));
 	font-size: 0.875rem;
 	font-weight: 600;
 	cursor: pointer;
@@ -135,7 +135,7 @@
 .deploy-chip--success {
 	background: rgba(74, 222, 128, 0.1);
 	border: 1px solid rgba(74, 222, 128, 0.4);
-	color: var(--nxt-success, #4ade80);
+	color: var(--nxt-success, var(--success));
 }
 
 .deploy-chip--success:hover {
@@ -171,7 +171,7 @@
 }
 
 .progress-step--done {
-	color: var(--nxt-success, #4ade80);
+	color: var(--nxt-success, var(--success));
 }
 
 .progress-sep {
@@ -201,7 +201,7 @@
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background: var(--nxt-danger, #f87171);
+	background: var(--nxt-danger, var(--danger));
 	box-shadow: 0 0 8px rgba(248, 113, 113, 0.6);
 }
 
