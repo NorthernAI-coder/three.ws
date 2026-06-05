@@ -344,6 +344,10 @@ body.app-next-body {
 	z-index: 4;
 	background: transparent;
 	pointer-events: auto;
+	/* Shifts left into the empty stage when the chat thread docks on the right
+	   (see --nxt-stage-shift). 0 by default so the avatar stays centered. */
+	transform: translateX(var(--nxt-stage-shift, 0));
+	transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nxt-viewer canvas {
@@ -361,7 +365,9 @@ body.app-next-body {
 	bottom: 8%;
 	width: 88vmin;
 	height: 32vmin;
-	transform: translate(-50%, 18%);
+	/* Tracks the avatar's --nxt-stage-shift so the glow stays under the feet. */
+	transform: translate(calc(-50% + var(--nxt-stage-shift, 0)), 18%);
+	transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 	background:
 		/* Inner soft light pool */
 		radial-gradient(
@@ -1598,6 +1604,16 @@ body.app-next-body.nxt-chat-merged .nxt-chat-dock {
 body.app-next-body.nxt-chat-merged .nxt-chat-chips {
 	justify-content: flex-start;
 	padding: 2px 2px 10px;
+}
+
+/* While the conversation thread is open it docks against the right edge and
+   would otherwise cover the centered avatar. Nudge the whole stage left into the
+   empty half so the avatar reads clear of the panel. Desktop only — below 720px
+   the panel centers and there's no room to shift. */
+@media (min-width: 721px) {
+	body.app-next-body.nxt-chat-merged {
+		--nxt-stage-shift: -190px;
+	}
 }
 
 /* Inside the card the composer is just a row — strip its standalone pill chrome. */

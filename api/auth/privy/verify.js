@@ -1,14 +1,22 @@
 // Verify a Privy auth token and issue a three.ws session.
 // POST /api/auth/privy/verify  { token: string }
 //
-// The token is a Privy identity JWT signed by Privy's private key.
-// We verify it against Privy's published JWKS endpoint (no app secret needed).
-// On success we find-or-create a user and issue the standard session cookie.
+// The token is a Privy identity JWT signed by Privy's private key. We verify it
+// against Privy's published JWKS (shared verifyPrivyToken — handles key rotation
+// and clock skew). On success we resolve-or-create a user keyed by the durable
+// `privy_did` column, pull their linked wallets from the Privy server API, and
+// issue the standard session cookie.
 
-import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
-import { createSession, sessionCookie, destroySession } from '../../_lib/auth.js';
+import {
+	verifyPrivyToken,
+	createSession,
+	sessionCookie,
+	destroySession,
+} from '../../_lib/auth.js';
+import { fetchPrivyWallets, extractIdentity } from '../../_lib/privy.js';
+import { env } from '../../_lib/env.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
@@ -19,18 +27,6 @@ const bodySchema = z.object({
 	token: z.string().min(10),
 });
 
-// jose caches the JWKS in memory between calls on the same warm instance.
-const jwksSets = new Map();
-function getJwks(appId) {
-	if (!jwksSets.has(appId)) {
-		jwksSets.set(
-			appId,
-			createRemoteJWKSet(new URL(`https://auth.privy.io/api/v1/apps/${appId}/jwks.json`)),
-		);
-	}
-	return jwksSets.get(appId);
-}
-
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
@@ -39,20 +35,13 @@ export default wrap(async (req, res) => {
 	const rl = await limits.authIp(ip);
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many attempts');
 
-	const appId = process.env.PRIVY_APP_ID || process.env.VITE_PRIVY_APP_ID;
-	if (!appId) return error(res, 503, 'not_configured', 'Privy is not configured on this server');
+	if (!env.PRIVY_APP_ID) return error(res, 503, 'not_configured', 'Privy is not configured on this server');
 
 	const { token } = parse(bodySchema, await readJson(req));
 
-	// Verify the Privy identity token with Privy's JWKS.
 	let payload;
 	try {
-		const JWKS = getJwks(appId);
-		const result = await jwtVerify(token, JWKS, {
-			issuer: 'privy.io',
-			audience: appId,
-		});
-		payload = result.payload;
+		payload = await verifyPrivyToken(token);
 	} catch {
 		return error(res, 401, 'invalid_token', 'Privy token verification failed');
 	}
@@ -60,54 +49,44 @@ export default wrap(async (req, res) => {
 	const privyDid = payload.sub; // 'did:privy:xxxxxxxx'
 	if (!privyDid) return error(res, 401, 'invalid_token', 'missing subject claim');
 
-	// Extract the most useful identity info Privy bundles in the token.
-	const linkedAccounts = Array.isArray(payload.linked_accounts) ? payload.linked_accounts : [];
-	const emailAccount = linkedAccounts.find(
-		(a) => a.type === 'email' || a.type === 'google_oauth' || a.type === 'twitter_oauth' || a.type === 'github_oauth',
-	);
-	const walletAccount = linkedAccounts.find((a) => a.type === 'wallet');
+	// Identity from the token payload (email, if Privy bundled it), then wallets
+	// from the server API — the access token does not reliably carry linked wallets.
+	const { email: realEmail } = extractIdentity(payload);
+	const displayName = realEmail ? realEmail.split('@')[0] : privyDid.slice(-8);
 
-	const realEmail = emailAccount?.address || emailAccount?.email || null;
-	// Stable synthetic email scoped to this Privy DID — same pattern as SIWE/SIWS.
-	const syntheticEmail = `privy-${privyDid.replace('did:privy:', '')}@privy.local`;
-	const effectiveEmail = realEmail || syntheticEmail;
-	const displayName =
-		emailAccount?.name ||
-		(realEmail ? realEmail.split('@')[0] : null) ||
-		privyDid.slice(-8);
-
-	// Find or create user. Look up by synthetic email first (stable per Privy DID),
-	// then fall through to real email (lets an existing email/password user link
-	// their Privy account on next login without creating a duplicate).
+	// Resolve the local user. Prefer the durable privy_did match; then fall back
+	// to an existing real-email account (so an email/password user links their
+	// Privy login without spawning a duplicate). Stamp privy_did on link.
 	let userId;
 	let isNew = false;
 
 	const [byDid] = await sql`
-		select id from users
-		where email = ${syntheticEmail} and deleted_at is null
-		limit 1
+		select id from users where privy_did = ${privyDid} and deleted_at is null limit 1
 	`;
 
 	if (byDid) {
 		userId = byDid.id;
 	} else if (realEmail) {
-		const [byReal] = await sql`
-			select id from users
-			where email = ${realEmail} and deleted_at is null
-			limit 1
+		const [byEmail] = await sql`
+			select id from users where email = ${realEmail} and deleted_at is null limit 1
 		`;
-		if (byReal) {
-			userId = byReal.id;
+		if (byEmail) {
+			userId = byEmail.id;
+			await sql`update users set privy_did = ${privyDid} where id = ${userId}`;
 		}
 	}
 
 	if (!userId) {
-		// Create a new passwordless user. ON CONFLICT guards against a concurrent verify.
+		// New passwordless user. Use the real email when present, else a stable
+		// synthetic scoped to the DID (matches the SIWE/SIWS @*.local convention).
+		const effectiveEmail =
+			realEmail || `privy-${privyDid.replace('did:privy:', '')}@privy.local`;
 		const [created] = await sql`
-			insert into users (email, display_name)
-			values (${effectiveEmail}, ${displayName})
+			insert into users (email, display_name, privy_did)
+			values (${effectiveEmail}, ${displayName}, ${privyDid})
 			on conflict (email) do update
 				set deleted_at = null,
+					privy_did = excluded.privy_did,
 					display_name = excluded.display_name
 			returning id, (xmax = 0) as inserted
 		`;
@@ -119,15 +98,19 @@ export default wrap(async (req, res) => {
 		queueMicrotask(() => seedDefaultAgent(userId));
 	}
 
-	// If Privy returned an embedded wallet, record it in user_wallets.
-	if (walletAccount?.address) {
-		const addr = walletAccount.address.toLowerCase();
-		await sql`
-			insert into user_wallets (user_id, address, chain_type, is_primary)
-			values (${userId}, ${addr}, 'evm', true)
-			on conflict (address) do update
-				set last_used_at = now()
-		`.catch(() => {});
+	// Pull linked wallets from Privy (app-secret API; token payload as fallback)
+	// and persist each. Failures here never block login.
+	try {
+		const wallets = await fetchPrivyWallets(privyDid, payload);
+		for (const w of wallets) {
+			await sql`
+				insert into user_wallets (user_id, address, chain_type, is_primary)
+				values (${userId}, ${w.address}, ${w.chainType}, false)
+				on conflict (address) do update set last_used_at = now()
+			`.catch(() => {});
+		}
+	} catch {
+		// best-effort wallet sync — login proceeds regardless
 	}
 
 	await destroySession(req);

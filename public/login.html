@@ -923,7 +923,10 @@
 
 			const agent = await createAgentUI({
 				canvas: document.getElementById('avatar-canvas'),
-				clips: ['idle', 'covereyes', 'facepalm', 'falltolanding', 'standup', 'dance'],
+				// Plant him: no camera parallax means he holds his mark and never
+				// drifts after the cursor.
+				parallax: false,
+				clips: ['idle', 'covereyes', 'facepalm', 'dance'],
 				subclips: {
 					covereyes: { start: 0, end: 48, fps: 30 },
 				},
@@ -978,20 +981,10 @@
 				}, dur - 150);
 			};
 
-			// Wrong credentials — the avatar topples to the ground, lies there
-			// a beat, then picks itself back up.
-			window.__avatarFall = function () {
-				agent.faceFront();
-				agent.play('falltolanding', {
-					loop: false,
-					hold: true,
-					onComplete: () => {
-						setTimeout(() => {
-							agent.play('standup', { loop: false, onComplete: settle });
-						}, 650);
-					},
-				});
-			};
+			// Wrong credentials — same upright facepalm nudge as an empty field.
+			// He reacts with character but stays on his feet and on his mark;
+			// he never topples or wanders.
+			window.__avatarFall = window.__avatarReact;
 
 			// Successful sign-in — a happy dance while we redirect.
 			window.__avatarCelebrate = function () {
