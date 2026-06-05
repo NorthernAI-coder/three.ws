@@ -147,6 +147,23 @@ async function start() {
 
 class ApiError extends Error {}
 
+/** @param {string | null | undefined} raw */
+function friendlyJobError(raw) {
+	if (!raw) return 'Generation failed. Try a different prompt.';
+	const lower = raw.toLowerCase();
+	if (lower.includes('face') && (lower.includes('detect') || lower.includes('no face')))
+		return 'Couldn\'t find a face in the generated reference image. Try rewording your prompt to describe the person more clearly.';
+	if (lower.includes('nsfw'))
+		return 'Content safety blocked this image. Try a different prompt.';
+	if (lower.includes('unreachable') || lower.includes('502') || lower.includes('503'))
+		return 'The avatar engine is temporarily unavailable. Try again in a few minutes.';
+	if (lower.includes('timeout') || lower.includes('timed out'))
+		return 'The engine took too long. Try again in a moment.';
+	if (lower.includes('oom') || lower.includes('memory'))
+		return 'The engine ran out of resources. Try a simpler prompt.';
+	return 'Generation failed. Try a different prompt.';
+}
+
 function mapSubmitError(status, data) {
 	const code = data?.error?.code || data?.code;
 	if (status === 429) return 'You\'re generating too fast — wait a moment and try again.';
@@ -186,7 +203,7 @@ async function pollUntilDone(jobId) {
 			return data;
 		}
 		if (data.status === 'failed') {
-			throw new ApiError(data.error || 'Generation failed. Try a different prompt.');
+			throw new ApiError(friendlyJobError(data.error));
 		}
 	}
 	throw new ApiError('This is taking longer than expected. Your avatar may still finish — check your dashboard in a minute.');

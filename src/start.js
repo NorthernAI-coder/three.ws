@@ -126,9 +126,14 @@ function showWizard() {
 		setTimeout(() => {
 			templatesScreen.classList.add('tpl-hidden');
 			templatesScreen.classList.remove('tpl-exit');
+			// Reveal wizard only after template screen is gone — avoids a black
+			// flash caused by both full-height elements being in the DOM at once
+			// with overflow:hidden on body hiding the below-fold wizard.
+			if (wizardEl) wizardEl.classList.remove('wz-offstage');
 		}, 200);
+	} else {
+		if (wizardEl) wizardEl.classList.remove('wz-offstage');
 	}
-	if (wizardEl) wizardEl.classList.remove('wz-offstage');
 }
 
 function applyTemplate(tpl) {
