@@ -301,27 +301,11 @@
 
 			/* ── Privy section ── */
 			#privy-section { margin: 0 0 2px; }
-			#privy-toggle-btn {
-				width: 100%;
-				margin-top: 0;
-				padding: 11px 16px;
-				background: #0e0e0e;
-				border: 1px solid rgba(255,255,255,0.1);
-				border-radius: 10px;
-				color: #d0d0d0;
-				font-size: 14px;
-				font-weight: 500;
-				cursor: pointer;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 9px;
-				transition: background 0.12s, border-color 0.12s, color 0.12s;
-				letter-spacing: -0.01em;
+			.privy-code-hint {
+				font-size: 13px;
+				color: #666;
+				margin: 0 0 10px;
 			}
-			#privy-toggle-btn:hover { background: #161616; border-color: rgba(255,255,255,0.18); color: #fff; }
-			#privy-toggle-btn svg { flex-shrink: 0; }
-			#privy-expanded { margin-top: 8px; }
 			.privy-row { display: flex; gap: 8px; align-items: flex-start; }
 			.privy-row input { flex: 1; margin: 0; }
 			.privy-row-btn {
@@ -540,47 +524,42 @@
 					No wallet needed — sign in with your email below.
 				</p>
 
-				<!-- Privy social / email-OTP login -->
+				<!-- Privy email-OTP + wallet login -->
 				<div id="privy-section">
-					<button type="button" id="privy-toggle-btn">
-						<svg width="18" height="18" viewBox="0 0 36 36" fill="none" aria-hidden="true"><rect width="36" height="36" rx="8" fill="#2563EB"/><path d="M18 8C12.477 8 8 12.477 8 18s4.477 10 10 10 10-4.477 10-10S23.523 8 18 8zm0 3a7 7 0 110 14A7 7 0 0118 11zm0 2a5 5 0 100 10A5 5 0 0018 13zm0 2a3 3 0 110 6 3 3 0 010-6z" fill="#fff" opacity=".9"/></svg>
-						Continue with Privy
-					</button>
-					<div id="privy-expanded" hidden>
-						<div id="privy-step-email">
-							<div class="privy-row">
-								<input id="privy-email-input" type="email" inputmode="email" placeholder="Email address" autocomplete="email" autocapitalize="none" />
-								<button type="button" id="privy-send-btn" class="privy-row-btn">Send code</button>
-							</div>
+					<div id="privy-step-email">
+						<div class="privy-row">
+							<input id="privy-email-input" type="email" inputmode="email" placeholder="Email address" autocomplete="email" autocapitalize="none" autofocus />
+							<button type="button" id="privy-send-btn" class="privy-row-btn">Send code</button>
 						</div>
-						<div id="privy-step-code" hidden>
-							<div class="privy-row">
-								<input id="privy-code-input" type="text" inputmode="numeric" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" />
-								<button type="button" id="privy-verify-btn" class="privy-row-btn">Verify</button>
-							</div>
+					</div>
+					<div id="privy-step-code" hidden>
+						<p class="privy-code-hint">Code sent — check your inbox</p>
+						<div class="privy-row">
+							<input id="privy-code-input" type="text" inputmode="numeric" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" />
+							<button type="button" id="privy-verify-btn" class="privy-row-btn">Verify</button>
 						</div>
-						<div id="privy-wallet-wrap">
-							<p class="privy-wallet-divider">or connect wallet</p>
-							<div class="privy-chain-btns">
-								<button type="button" id="privy-evm-btn" class="privy-chain-btn">
-									<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2L4 16.5 16 22l12-5.5L16 2z" fill="#627EEA" opacity=".6"/><path d="M16 2v12.5L4 16.5 16 2z" fill="#627EEA"/><path d="M16 22v8l12-11L16 22z" fill="#627EEA" opacity=".6"/><path d="M16 22L4 19l12 11V22z" fill="#627EEA"/><path d="M16 14.5v5.5L4 16.5l12-2z" fill="#627EEA" opacity=".2"/><path d="M28 16.5l-12 3.5v-5.5l12 2z" fill="#627EEA"/></svg>
-									EVM
-								</button>
-								<button type="button" id="privy-solana-btn" class="privy-chain-btn">
-									<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 22.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M6 13.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M26.3 18H6a.6.6 0 0 0-.5.3l-2 3.5a.6.6 0 0 0 .4.7h20.3c.2 0 .4-.1.5-.3l2-3.5a.6.6 0 0 0-.4-.7z" fill="#14F195"/></svg>
-									Solana
-								</button>
-							</div>
-							<p id="privy-wallet-status" hidden></p>
-						</div>
-					<p id="privy-inline-err" hidden></p>
 						<button type="button" id="privy-back-btn" class="privy-back-link">← Back</button>
 					</div>
+					<div id="privy-wallet-wrap">
+						<p class="privy-wallet-divider">or connect wallet</p>
+						<div class="privy-chain-btns">
+							<button type="button" id="privy-evm-btn" class="privy-chain-btn">
+								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2L4 16.5 16 22l12-5.5L16 2z" fill="#627EEA" opacity=".6"/><path d="M16 2v12.5L4 16.5 16 2z" fill="#627EEA"/><path d="M16 22v8l12-11L16 22z" fill="#627EEA" opacity=".6"/><path d="M16 22L4 19l12 11V22z" fill="#627EEA"/><path d="M16 14.5v5.5L4 16.5l12-2z" fill="#627EEA" opacity=".2"/><path d="M28 16.5l-12 3.5v-5.5l12 2z" fill="#627EEA"/></svg>
+								EVM
+							</button>
+							<button type="button" id="privy-solana-btn" class="privy-chain-btn">
+								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 22.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M6 13.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M26.3 18H6a.6.6 0 0 0-.5.3l-2 3.5a.6.6 0 0 0 .4.7h20.3c.2 0 .4-.1.5-.3l2-3.5a.6.6 0 0 0-.4-.7z" fill="#14F195"/></svg>
+								Solana
+							</button>
+						</div>
+						<p id="privy-wallet-status" hidden></p>
+					</div>
+					<p id="privy-inline-err" hidden></p>
 				</div>
 				<div class="or-divider" id="privy-or-divider">or</div>
 
 				<label for="email">Email or username</label>
-				<input id="email" name="username" type="text" inputmode="email" autocapitalize="none" autocomplete="username email" autofocus required aria-describedby="email-err" />
+				<input id="email" name="username" type="text" inputmode="email" autocapitalize="none" autocomplete="username email" required aria-describedby="email-err" />
 				<p class="field-err" id="email-err" role="alert"></p>
 
 				<label for="password">Password</label>
