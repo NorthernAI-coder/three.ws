@@ -63,6 +63,19 @@ const EVM_NETWORKS = {
 	'eip155:10': { chainId: 10, name: 'Optimism', explorer: 'https://optimistic.etherscan.io/tx/' },
 };
 
+// Normalize a single 402 `accept` entry to the shape the modal speaks
+// internally. The x402 spec's canonical atomic-price field is
+// `maxAmountRequired`; some merchants (and our own server) emit `amount`. We
+// read `amount` everywhere downstream (price display, cap check, prepare/encode
+// POST body, EIP-3009 signing), so coerce here once at ingestion. Without this,
+// a spec-compliant merchant yields `accept.amount === undefined` → "NaN USDC"
+// in the modal and an `accept.amount: Required` 400 from /api/x402-checkout.
+function normalizeAccept(accept) {
+	if (!accept || typeof accept !== 'object') return accept;
+	const amount = accept.amount ?? accept.maxAmountRequired;
+	return amount != null && accept.amount == null ? { ...accept, amount: String(amount) } : accept;
+}
+
 function isSolanaNetwork(net) {
 	return typeof net === 'string' && (net === 'solana' || net.startsWith('solana:'));
 }
@@ -358,7 +371,7 @@ const STYLES = `
 	opacity: 0; transition: opacity 0.16s ease-out;
 	font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	-webkit-font-smoothing: antialiased;
-	color: #0d0f15;
+	color: #0f0f0f;
 }
 .x402-overlay.x402-open { opacity: 1; }
 .x402-overlay * { box-sizing: border-box; }
@@ -387,7 +400,7 @@ const STYLES = `
 	margin-bottom: 2px;
 }
 .x402-merchant .x402-action {
-	font-size: 17px; font-weight: 700; color: #0d0f15;
+	font-size: 17px; font-weight: 700; color: #0f0f0f;
 	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 	letter-spacing: -0.01em;
 }
@@ -398,7 +411,7 @@ const STYLES = `
 	display: flex; align-items: center; justify-content: center;
 	transition: background 0.12s;
 }
-.x402-close:hover { background: #e7e9ee; color: #0d0f15; }
+.x402-close:hover { background: #e7e9ee; color: #0f0f0f; }
 
 .x402-price-row {
 	padding: 18px 20px;
@@ -407,7 +420,7 @@ const STYLES = `
 	border-bottom: 1px solid #eef0f4;
 }
 .x402-price {
-	font-size: 32px; font-weight: 700; letter-spacing: -0.02em; color: #0d0f15;
+	font-size: 32px; font-weight: 700; letter-spacing: -0.02em; color: #0f0f0f;
 	font-variant-numeric: tabular-nums;
 }
 .x402-price .x402-currency { font-size: 14px; color: #5a6378; font-weight: 600; margin-left: 6px; letter-spacing: 0; }
@@ -453,7 +466,7 @@ const STYLES = `
 	to { box-shadow: 0 0 0 8px rgba(10, 132, 255, 0); }
 }
 .x402-step-body { flex: 1; min-width: 0; }
-.x402-step-label { font-size: 14px; font-weight: 600; color: #0d0f15; line-height: 1.35; }
+.x402-step-label { font-size: 14px; font-weight: 600; color: #0f0f0f; line-height: 1.35; }
 .x402-step-meta { font-size: 12px; color: #5a6378; margin-top: 2px; font-feature-settings: 'tnum' 1; }
 .x402-step.x402-error .x402-step-meta { color: #ef4444; }
 
@@ -464,7 +477,7 @@ const STYLES = `
 .x402-wallet-btn {
 	width: 100%; padding: 13px 14px;
 	background: #ffffff; border: 1.5px solid #e2e5ec; border-radius: 11px;
-	font-size: 14px; font-weight: 600; color: #0d0f15;
+	font-size: 14px; font-weight: 600; color: #0f0f0f;
 	cursor: pointer; font-family: inherit;
 	display: flex; align-items: center; gap: 12px;
 	transition: border-color 0.12s, background 0.12s, transform 0.05s;
@@ -486,7 +499,7 @@ const STYLES = `
 
 .x402-pay-btn {
 	width: 100%; padding: 14px 16px;
-	background: #0d0f15; color: #fff; border: none;
+	background: #0f0f0f; color: #fff; border: none;
 	border-radius: 12px;
 	font-size: 15px; font-weight: 700; font-family: inherit;
 	cursor: pointer; letter-spacing: -0.005em;
@@ -494,13 +507,13 @@ const STYLES = `
 	margin-top: 4px;
 	display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.x402-pay-btn:hover:not(:disabled) { background: #1a1d28; }
+.x402-pay-btn:hover:not(:disabled) { background: #1d1d1d; }
 .x402-pay-btn:active:not(:disabled) { transform: translateY(1px); }
 .x402-pay-btn:disabled { background: #c8ccd4; cursor: not-allowed; }
 
 .x402-pay-secondary {
 	width: 100%; padding: 12px 14px;
-	background: #ffffff; color: #0d0f15;
+	background: #ffffff; color: #0f0f0f;
 	border: 1.5px solid #e2e5ec; border-radius: 11px;
 	font-size: 14px; font-weight: 600; font-family: inherit;
 	cursor: pointer; letter-spacing: -0.005em;
@@ -548,7 +561,7 @@ const STYLES = `
 	font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
 }
 .x402-receipt-row .x402-k { color: #5a6378; }
-.x402-receipt-row .x402-v { color: #0d0f15; text-align: right; word-break: break-all; }
+.x402-receipt-row .x402-v { color: #0f0f0f; text-align: right; word-break: break-all; }
 .x402-receipt-row a { color: #0a84ff; text-decoration: none; }
 .x402-receipt-row a:hover { text-decoration: underline; }
 
@@ -557,7 +570,7 @@ const STYLES = `
 	background: #fafbfc; border: 1px solid #e2e5ec;
 	max-height: 240px; overflow: auto;
 	font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
-	font-size: 12px; line-height: 1.5; color: #0d0f15;
+	font-size: 12px; line-height: 1.5; color: #0f0f0f;
 	white-space: pre-wrap; word-break: break-word;
 }
 
@@ -568,7 +581,7 @@ const STYLES = `
 	font-size: 11px; color: #8a90a8;
 }
 .x402-foot a { color: #5a6378; text-decoration: none; font-weight: 600; }
-.x402-foot a:hover { color: #0d0f15; }
+.x402-foot a:hover { color: #0f0f0f; }
 .x402-foot .x402-secure { display: flex; align-items: center; gap: 5px; }
 .x402-foot .x402-secure::before { content: '🔒'; font-size: 10px; }
 
@@ -579,30 +592,30 @@ const STYLES = `
 
 @media (prefers-color-scheme: dark) {
 	.x402-overlay { color: #e6e8f0; }
-	.x402-modal { background: #14161f; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6); }
-	.x402-head, .x402-price-row, .x402-foot { border-color: #232636; }
-	.x402-step + .x402-step { border-top-color: #232636; }
+	.x402-modal { background: #161616; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6); }
+	.x402-head, .x402-price-row, .x402-foot { border-color: #272727; }
+	.x402-step + .x402-step { border-top-color: #272727; }
 	.x402-merchant .x402-name { color: #8a90a8; }
 	.x402-merchant .x402-action, .x402-price, .x402-step-label { color: #e6e8f0; }
 	.x402-step-meta { color: #8a90a8; }
-	.x402-close { background: #1f2230; color: #8a90a8; }
-	.x402-close:hover { background: #2a2e3d; color: #e6e8f0; }
-	.x402-price-row { background: linear-gradient(180deg, #1a1d29 0%, #14161f 100%); }
-	.x402-network { background: #1f2230; color: #b0b6cc; }
-	.x402-wallet-btn { background: #1a1d29; border-color: #2a2e3d; color: #e6e8f0; }
-	.x402-wallet-btn:hover:not(:disabled) { background: #20243a; border-color: #0a84ff; }
-	.x402-wallet-icon { background: #2a2e3d; }
+	.x402-close { background: #222222; color: #8a90a8; }
+	.x402-close:hover { background: #2e2e2e; color: #e6e8f0; }
+	.x402-price-row { background: linear-gradient(180deg, #1d1d1d 0%, #161616 100%); }
+	.x402-network { background: #222222; color: #b0b6cc; }
+	.x402-wallet-btn { background: #1d1d1d; border-color: #2e2e2e; color: #e6e8f0; }
+	.x402-wallet-btn:hover:not(:disabled) { background: #252525; border-color: #0a84ff; }
+	.x402-wallet-icon { background: #2e2e2e; }
 	.x402-wallet-meta { color: #6b7088; }
-	.x402-pay-btn { background: #ffffff; color: #0d0f15; }
+	.x402-pay-btn { background: #ffffff; color: #0f0f0f; }
 	.x402-pay-btn:hover:not(:disabled) { background: #e7e9ee; }
-	.x402-pay-btn:disabled { background: #2a2e3d; color: #5a6378; }
-	.x402-pay-secondary { background: #1a1d29; border-color: #2a2e3d; color: #e6e8f0; }
-	.x402-pay-secondary:hover:not(:disabled) { background: #20243a; border-color: #0a84ff; }
+	.x402-pay-btn:disabled { background: #2e2e2e; color: #5a6378; }
+	.x402-pay-secondary { background: #1d1d1d; border-color: #2e2e2e; color: #e6e8f0; }
+	.x402-pay-secondary:hover:not(:disabled) { background: #252525; border-color: #0a84ff; }
 	.x402-siwx-hint { color: #8a90a8; }
 	.x402-siwx-fallback { background: #2a1d10; border-color: #78350f; color: #fcd34d; }
-	.x402-step-num { background: #14161f; border-color: #2a2e3d; color: #8a90a8; }
-	.x402-result { background: #1a1d29; border-color: #2a2e3d; color: #e6e8f0; }
-	.x402-receipt { background: linear-gradient(180deg, #0b1f17 0%, #14161f 100%); border-color: #14532d; }
+	.x402-step-num { background: #161616; border-color: #2e2e2e; color: #8a90a8; }
+	.x402-result { background: #1d1d1d; border-color: #2e2e2e; color: #e6e8f0; }
+	.x402-receipt { background: linear-gradient(180deg, #0b1f17 0%, #161616 100%); border-color: #14532d; }
 	.x402-receipt-title { color: #4ade80; }
 	.x402-receipt-row .x402-k { color: #8a90a8; }
 	.x402-receipt-row .x402-v { color: #e6e8f0; }

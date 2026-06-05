@@ -7,9 +7,10 @@
  *
  * One-shot Solana Pay purchase: the server mints a unique reference Pubkey, the
  * buyer's connected wallet (Phantom / Solflare / Backpack) sends USDC + the
- * reference in a single tx, the server verifies on-chain, and the
- * (user, agent, skill) tuple lands in skill_purchases as 'confirmed'. A mobile
- * QR path (Solana Pay URL) is offered when no browser wallet is present.
+ * reference in a single tx, the server verifies on-chain via
+ * findReference / validateTransfer, and the (user, agent, skill) tuple lands in
+ * skill_purchases as 'confirmed'. A mobile QR path (Solana Pay URL) is offered
+ * when no browser wallet is present.
  *
  * Usage:
  *   import { configureSkillPurchase, openPurchaseFlow } from './shared/skill-purchase.js';
@@ -38,6 +39,8 @@ function escapeHtml(s) {
 
 let cfg = {
 	getAgent: () => null,
+	// Called with the agentId after a successful skill purchase / trial so the
+	// host can refresh the user's owned-skills state and re-render badges.
 	onPurchased: async () => {},
 };
 
@@ -212,7 +215,7 @@ function closePaymentModal() {
 let solanaConnection;
 let solanaWeb3Mod;
 let splTokenMod;
-let connectedWallet = null;
+let connectedWallet = null; // { provider, name, publicKey }
 
 const WALLET_PROVIDERS = [
 	{ key: 'phantom', name: 'Phantom', detect: () => window.phantom?.solana || (window.solana?.isPhantom && window.solana) },
@@ -730,6 +733,7 @@ async function handleAssetPurchase() {
 	}
 }
 
+// Mobile-wallet path: render a Solana Pay QR. Buyer scans + signs on phone.
 async function startQrPurchase() {
 	const agent = cfg.getAgent();
 	if (!agent) return;

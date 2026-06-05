@@ -441,9 +441,9 @@ a:hover {
 	flex-shrink: 0;
 }
 .my-agents-card__pill--chain {
-	background: #16202c;
+	background: #1f1f1f;
 	color: #8fc3ff;
-	border-color: #1f3a52;
+	border-color: #363636;
 }
 .my-agents-card__pill--source {
 	background: var(--bg-1);

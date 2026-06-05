@@ -10,11 +10,11 @@
 		<link rel="canonical" href="https://three.ws/embed/v1/preview" />
 		<style>
 			:root {
-				--bg: #07070a;
-				--panel: #0e0e12;
+				--bg: #070707;
+				--panel: #0e0e0e;
 				--ink: #f5f5f7;
 				--ink-dim: #8a8a93;
-				--ink-faint: #45454c;
+				--ink-faint: #464646;
 				--accent: #ffffff;
 				--ring: rgba(255, 255, 255, 0.08);
 				--ring-strong: rgba(255, 255, 255, 0.16);
@@ -56,7 +56,7 @@
 				max-width: 620px; margin: 0 auto 32px; line-height: 1.5;
 			}
 			.snippet {
-				display: inline-block; text-align: left; background: #0a0a0d;
+				display: inline-block; text-align: left; background: #0a0a0a;
 				border: 1px solid var(--ring); border-radius: 12px;
 				padding: 14px 18px; font-family: var(--mono); font-size: 13px;
 				color: #e8e8ec; max-width: 100%; overflow-x: auto;
@@ -102,19 +102,19 @@
 				color: var(--ink-dim); letter-spacing: 0.06em; text-transform: uppercase;
 			}
 			.surface .bar .dot {
-				width: 9px; height: 9px; border-radius: 50%; background: #2a2a31;
+				width: 9px; height: 9px; border-radius: 50%; background: #2b2b2b;
 			}
 			.surface .bar .pull { margin-left: auto; color: var(--ink-faint); font-size: 10px; }
 
 			/* ---- Surface: Twitter / X ------------------------------------ */
-			.x-post { padding: 18px 20px; background: #15171a; color: #e7e9ea; font-family: 'Helvetica Neue', system-ui, sans-serif; }
+			.x-post { padding: 18px 20px; background: #171717; color: #e7e9ea; font-family: 'Helvetica Neue', system-ui, sans-serif; }
 			.x-row { display: flex; gap: 12px; }
 			.x-av { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#1d9bf0,#7856ff); flex-shrink: 0; }
 			.x-name { font-weight: 700; font-size: 15px; }
 			.x-name .handle { color: #71767b; font-weight: 400; margin-left: 6px; }
 			.x-time { color: #71767b; font-size: 14px; }
 			.x-body { font-size: 15px; line-height: 1.4; margin: 6px 0 12px; color: #e7e9ea; }
-			.x-embed { border-radius: 16px; overflow: hidden; border: 1px solid #2f3336; aspect-ratio: 16 / 10; background: #000; }
+			.x-embed { border-radius: 16px; overflow: hidden; border: 1px solid #323232; aspect-ratio: 16 / 10; background: #000; }
 
 			/* ---- Surface: Notion ----------------------------------------- */
 			.notion { padding: 32px 40px; background: #191919; color: #e7e7e6; font-family: 'Inter', system-ui; }
@@ -123,16 +123,16 @@
 			.notion .block { border-radius: 4px; aspect-ratio: 4 / 3; overflow: hidden; background: #2a2a2a; }
 
 			/* ---- Surface: Discord ---------------------------------------- */
-			.discord { background: #313338; padding: 16px 18px; color: #dbdee1; font-family: 'gg sans','Noto Sans',system-ui; }
+			.discord { background: #333333; padding: 16px 18px; color: #dbdee1; font-family: 'gg sans','Noto Sans',system-ui; }
 			.dc-msg { display: flex; gap: 14px; align-items: flex-start; }
 			.dc-av { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#5865f2,#eb459e); flex-shrink: 0; }
 			.dc-meta { display: flex; align-items: baseline; gap: 8px; }
 			.dc-name { color: #f23f43; font-weight: 600; font-size: 16px; }
 			.dc-time { font-size: 12px; color: #949ba4; }
 			.dc-body { font-size: 15px; line-height: 1.375; color: #dbdee1; margin: 2px 0 8px; }
-			.dc-embed { width: 100%; max-width: 420px; border-left: 4px solid #5865f2; background: #2b2d31; border-radius: 4px; padding: 12px; }
+			.dc-embed { width: 100%; max-width: 420px; border-left: 4px solid #5865f2; background: #2d2d2d; border-radius: 4px; padding: 12px; }
 			.dc-embed-title { font-size: 14px; font-weight: 600; color: #00a8fc; margin-bottom: 8px; }
-			.dc-embed .stage { aspect-ratio: 1 / 1; border-radius: 4px; overflow: hidden; background: #1e1f22; }
+			.dc-embed .stage { aspect-ratio: 1 / 1; border-radius: 4px; overflow: hidden; background: #1f1f1f; }
 
 			/* ---- Surface: Shopify product -------------------------------- */
 			.shop { background: #fff; color: #111; padding: 0; font-family: 'Inter', system-ui; }
@@ -156,22 +156,22 @@
 			.news .caption { font-family: var(--sans); font-size: 12px; color: #66554a; text-align: center; margin-top: -8px; }
 
 			/* ---- Surface: Personal blog ---------------------------------- */
-			.blog { background: #0f1419; color: #c9d1d9; padding: 36px 40px; font-family: 'Inter', system-ui; }
+			.blog { background: #131313; color: #c9d1d9; padding: 36px 40px; font-family: 'Inter', system-ui; }
 			.blog .meta { font-size: 12px; color: #6e7681; margin-bottom: 8px; }
 			.blog h3 { margin: 0 0 14px; font-size: 24px; font-weight: 700; color: #f0f6fc; letter-spacing: -0.01em; }
 			.blog p { font-size: 14px; line-height: 1.6; color: #b1bac4; margin: 0 0 16px; }
-			.blog .embedded { aspect-ratio: 1 / 1; border-radius: 10px; overflow: hidden; background: #0a0d11; border: 1px solid #21262d; }
+			.blog .embedded { aspect-ratio: 1 / 1; border-radius: 10px; overflow: hidden; background: #0d0d0d; border: 1px solid #252525; }
 
 			/* ---- Install + docs section --------------------------------- */
-			.docs { margin-top: 96px; padding: 48px; border: 1px solid var(--ring); border-radius: var(--radius); background: linear-gradient(180deg, #0c0c10 0%, #07070a 100%); }
+			.docs { margin-top: 96px; padding: 48px; border: 1px solid var(--ring); border-radius: var(--radius); background: linear-gradient(180deg, #0c0c0c 0%, #070707 100%); }
 			.docs h2 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
 			.docs p.lead { color: var(--ink-dim); margin: 0 0 32px; font-size: 15px; }
 			.docs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
 			@media (max-width: 800px) { .docs-grid { grid-template-columns: 1fr; } }
-			.docs-card { padding: 20px; background: #0a0a0d; border: 1px solid var(--ring); border-radius: 10px; }
+			.docs-card { padding: 20px; background: #0a0a0a; border: 1px solid var(--ring); border-radius: 10px; }
 			.docs-card h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
 			.docs-card p { margin: 0 0 12px; font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
-			pre { margin: 0; padding: 12px 14px; background: #050507; border: 1px solid var(--ring); border-radius: 8px; font-family: var(--mono); font-size: 12px; color: #d6d6dd; overflow-x: auto; }
+			pre { margin: 0; padding: 12px 14px; background: #050505; border: 1px solid var(--ring); border-radius: 8px; font-family: var(--mono); font-size: 12px; color: #d6d6dd; overflow-x: auto; }
 
 			footer.foot {
 				margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--ring);

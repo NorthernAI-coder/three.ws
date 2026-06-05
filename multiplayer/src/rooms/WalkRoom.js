@@ -8,7 +8,12 @@
 
 import { Room } from '@colyseus/core';
 
-import { Player, Block, WalkState } from '../schemas.js';
+import { Player, Block, Vehicle, Mob, Tombstone, WalkState } from '../schemas.js';
+import {
+	VEHICLE_SPAWNS, vehicleSpec, isVehicleType,
+	VEHICLE_WORLD_RADIUS_M, VEHICLE_ENTER_RANGE_M,
+	vehicleMaxStepM, vehicleMaxSpeedMps,
+} from '../vehicles.js';
 import { cleanAvatarUrl } from '../avatar-url.js';
 import { blockStore } from '../block-store.js';
 import { verifyHolderPass } from '../holder-pass.js';
@@ -18,10 +23,30 @@ import { verifyPlayPass } from '../play-pass.js';
 import {
 	restoreProfile, serializeProfile, profileSnapshot,
 	addItem, hasRoomFor, resolveSlot, grantXp, consumeSlot,
+	countItem, removeItem,
+	dropCarried, reviveProfile, bankTransfer,
 	HOTBAR_SIZE,
 } from '../economy.js';
-import { itemLabel, fishCatchChance, fishDoubleChance } from '../items.js';
-import { fishingSpotInRange } from '../world-features.js';
+import {
+	itemLabel, fishCatchChance, fishDoubleChance,
+	gatherChance, gatherDoubleChance, coalBonusChance, cookBurnChance,
+	weaponDef, mobStats, rollLoot,
+} from '../items.js';
+import {
+	fishingSpotInRange, treeInRange, rockInRange, firepitInRange,
+	DANGER_ZONES, SPAWN_POINT, dangerZoneAt, isSafeZone, isDangerZone, randomPointInZone,
+} from '../world-features.js';
+import { registerActivityHandlers } from '../activities.js';
+import {
+	selectTarget, rollDamage, applyDamage, addHeat, decayHeat, heatStars,
+} from '../combat.js';
+import { interactZoneInRange, zoneAt } from '../quest-zones.js';
+import {
+	missionDef, isHeist, utcDayKey,
+	restoreQuestState, serializeQuestState,
+	acceptMission, abandonMission, applyEvent, recordCompletion,
+	missionReward, splitPot, questSnapshot, runView, objectiveMatches,
+} from '../quests.js';
 import { hydratePlayer, loadPlayer, savePlayer, flushPlayer } from '../playerStore.js';
 import { publishFeedEvent } from '../feed.js';
 
@@ -65,11 +90,23 @@ const EDITS_PER_SEC_LIMIT = 20;
 // headroom for packet timing jitter.
 const MAX_STEP_M = 1.2;
 
-// World bounds — match the ground disc radius in src/walk.js so the visual
-// ground and the authoritative area stay aligned. In AR mode the client lets
-// the avatar roam freely, but we still clamp on the server so a malicious
-// client can't broadcast nonsense positions.
+// Legacy disc radius — still used as the fallback drop clamp when a driver steps
+// out of a vehicle (vehicles carry their own VEHICLE_WORLD_RADIUS_M bound).
 const WORLD_RADIUS_M = 60;
+
+// Open-world district bounds (W01). The /play world is no longer the 60 m disc:
+// it's a square district the client renders streets/buildings across. These
+// mirror DISTRICT.half in src/game/world-zones.js — keep the two in sync so the
+// authoritative bounds and the rendered ground agree. The anti-teleport MAX_STEP
+// clamp above is independent and still applies on every move.
+const WORLD_HALF_M = 200;
+const WORLD_BOUND_M = WORLD_HALF_M - 2; // small margin so an edge-pressed avatar never clips the rim
+
+// Authoritative day/night clock. One full day every DAY_LENGTH_MS, derived from
+// the wall clock so every room (and every client in it) agrees on the time of
+// day without us syncing a phase. Broadcast once a second as state.worldTime (a
+// [0,1) day fraction); clients advance it smoothly between updates.
+const DAY_LENGTH_MS = 600_000; // 10-minute day → a visible cycle, not a frantic one
 
 // Rate limit incoming 'move' messages per client to twice the expected rate
 // so legitimate jitter passes but a flooding client gets dropped.
@@ -85,8 +122,13 @@ const MOTION_VALUES = new Set(['idle', 'walk', 'run']);
 // This keeps the shared /walk schema untouched and peers' wire cost at zero.
 const FISH_COOLDOWN_MS = 1500;   // per-cast reel time (cadence on the real clock)
 const CONSUME_COOLDOWN_MS = 1100; // pace between bites — no instant heal-spam
+const CHOP_COOLDOWN_MS = 1300;   // per-swing axe cadence
+const MINE_COOLDOWN_MS = 1500;   // per-strike pickaxe cadence (ore is slower)
+const COOK_COOLDOWN_MS = 900;    // pace between fish on the fire
 // Per-action rate ceilings (messages/sec/client) — a flooding client is dropped.
-const ACTION_RATES = { fish: 6, consume: 6, equip: 30 };
+// vsync rides at the same 15Hz the move netcode uses; allow 2× for jitter, like
+// MOVES_PER_SEC_LIMIT. enter/exit are deliberate, rare actions.
+const ACTION_RATES = { fish: 6, consume: 6, equip: 30, chop: 6, mine: 6, cook: 8, vsync: PATCH_RATE_HZ * 2, venter: 4, vexit: 4, quest: 8, questInteract: 6 };
 
 // Spatial voice signaling. The room only relays SDP/ICE between two peers (the
 // audio itself flows peer-to-peer over WebRTC), so the cap just has to clear a
@@ -205,6 +247,10 @@ export class WalkRoom extends Room {
 		// stable persistence id + per-action cooldowns). Never synced to peers.
 		this.econ = new Map();
 		this._actionCounters = new Map(); // sessionId → { [action]: { windowStart, count } }
+		// Co-op heist instances live on the room, not on a profile: a SHARED run a
+		// crew advances together. Keyed by mission id (one live instance per heist per
+		// world). Each value: { missionId, members:Set<sessionId>, run, done:Set<zone> }.
+		this.heists = new Map();
 	}
 
 	async onCreate(options) {
@@ -252,9 +298,23 @@ export class WalkRoom extends Room {
 		// Economy & activities (off-schema). The owning client drives these and
 		// receives the authoritative result via profile/inv/xpgain/levelup/notice.
 		this.onMessage('fish', (client) => this._handleFish(client));
+		registerActivityHandlers(this); // W06 gather/craft: chop, mine, cook
 		this.onMessage('equip', (client, payload) => this._handleEquip(client, payload));
 		this.onMessage('consume', (client, payload) => this._handleConsume(client, payload));
 		this.onMessage('profileReq', (client) => this._sendProfile(client));
+		// Quests, jobs & heists (W05, off-schema). The board, accepting/abandoning a
+		// mission, and acting at a quest object all flow through here; the server is the
+		// sole authority for objective progress and reward grants.
+		this.onMessage('questReq', (client) => this._sendQuests(client));
+		this.onMessage('questAccept', (client, payload) => this._handleQuestAccept(client, payload));
+		this.onMessage('questAbandon', (client, payload) => this._handleQuestAbandon(client, payload));
+		this.onMessage('questInteract', (client) => this._handleQuestInteract(client));
+		// Vehicles. The driver streams 'vsync' (the Rapier-simulated transform); the
+		// server validates per-type speed/bounds and relays. 'venter'/'vexit' take and
+		// release the wheel, gated by proximity and single-occupancy.
+		this.onMessage('venter', (client, payload) => this._handleVehicleEnter(client, payload));
+		this.onMessage('vexit', (client, payload) => this._handleVehicleExit(client, payload));
+		this.onMessage('vsync', (client, payload) => this._handleVehicleSync(client, payload));
 		this._emoteCooldowns = new Map();
 		this._editCounters = new Map(); // sessionId → { windowStart, count }
 		this._voiceCounters = new Map(); // sessionId → { windowStart, count }
@@ -279,6 +339,13 @@ export class WalkRoom extends Room {
 		// is settled by now.
 		await blockStore.ready();
 		this.state.persistent = blockStore.durable;
+
+		// Seed this world's drivable fleet. Vehicles are world entities (everyone sees
+		// them) so they ride on the synced state, parked until someone takes the wheel.
+		// Spawned for every coin world — driving is a core verb, not a flagship-only
+		// affordance. v1 fleet is ephemeral per room (re-spawned fresh each time the
+		// room is created); persistence of parked vehicles is a later concern.
+		this._seedVehicles();
 
 		// Re-check policy for the token gate. The game server has no RPC of its own,
 		// so "still holding the token" is re-proven by the client minting a fresh
@@ -342,9 +409,21 @@ export class WalkRoom extends Room {
 		if (!this.state.players.has(client.sessionId)) return;
 		const saved = loadPlayer(playerId);
 		const profile = restoreProfile(saved?.profile, playerId);
-		profile.cd = { fish: 0, consume: 0 }; // per-action cooldown clocks (runtime only)
+		profile.cd = { fish: 0, consume: 0, chop: 0, mine: 0, cook: 0 }; // per-action cooldown clocks (runtime only)
+		// Quest log (W05): the player's accepted/completed missions + daily state,
+		// persisted alongside the pack/purse. Stale dailies roll over to today on load.
+		profile.quests = restoreQuestState(saved?.profile?.quests, utcDayKey());
+		profile._zone = null; // last quest zone the player was inside (enter-zone edge detect)
 		this.econ.set(client.sessionId, profile);
+		// Cosmetics (W03): apply any loadout the player chose pre-join (in the
+		// character creator) on top of their persisted one, validating each id
+		// against what they own — free cosmetics always pass, premium only when
+		// unlocked, so a join option can never put an unowned cosmetic on a player.
+		// Then publish the equipped loadout on the schema so peers render the look.
+		this._applyJoinCosmetics(profile, options?.cosmetics);
+		player.cosmetics = serializeLoadout(profile.cosmetics.equipped);
 		this._sendProfile(client);
+		this._sendQuests(client);
 
 		const tierTag = this.state.tier === 'holders' ? ' tier=holders' : '';
 		console.log(
@@ -368,6 +447,12 @@ export class WalkRoom extends Room {
 
 	onLeave(client) {
 		if (client.userData?.accountUid) socialHub.unregister(client.userData.accountUid, client);
+		// Free any vehicle this player was driving so it parks where it was left and
+		// becomes available again — otherwise a disconnect would lock a car forever.
+		this._releaseVehicleOf(client.sessionId);
+		// Drop the player from any co-op heist instance they were in, so the shared run
+		// doesn't hold a phantom crew member (and disposes when the last one leaves).
+		this._leaveHeists(client.sessionId);
 		// Persist the final economy state and arm a durable flush so progress survives
 		// the disconnect and the room being torn down when the last player leaves.
 		const profile = this.econ.get(client.sessionId);
@@ -441,20 +526,34 @@ export class WalkRoom extends Room {
 			return;
 		}
 
-		// World bounds clamp.
-		const r = Math.hypot(x, z);
-		if (r > WORLD_RADIUS_M) {
-			const k = WORLD_RADIUS_M / r;
-			player.x = x * k;
-			player.z = z * k;
-		} else {
-			player.x = x;
-			player.z = z;
-		}
+		// World bounds clamp — the square open-world district (W01).
+		player.x = Math.max(-WORLD_BOUND_M, Math.min(WORLD_BOUND_M, x));
+		player.z = Math.max(-WORLD_BOUND_M, Math.min(WORLD_BOUND_M, z));
 		player.y = Math.max(-10, Math.min(10, y)); // keep avatars near the ground plane
 		player.yaw = yaw;
 		if (MOTION_VALUES.has(motion)) player.motion = motion;
 		player.tsServer = Date.now();
+
+		// Quest progress: detect entering a NEW quest zone (edge-triggered off the
+		// authoritative position, so a "goto" objective can't be faked from the client).
+		this._checkZoneEntry(client);
+	}
+
+	// Edge-detect quest-zone entry on the server's authoritative position. Emits a
+	// single 'enter-zone' event when the player crosses into a zone they weren't in
+	// last tick — never per-frame while standing in it — so survey/patrol objectives
+	// advance exactly once per visit. Cheap (a handful of zones); only does work when
+	// the current zone actually changed.
+	_checkZoneEntry(client) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		const player = this.state.players.get(client.sessionId);
+		if (!player) return;
+		const zone = zoneAt(player.x, player.z);
+		const id = zone ? zone.id : null;
+		if (id === profile._zone) return; // no transition
+		profile._zone = id;
+		if (id) this._questEvent(client, profile, { type: 'enter-zone', zone: id });
 	}
 
 	_handleRename(client, payload) {
@@ -640,6 +739,8 @@ export class WalkRoom extends Room {
 			this._grantXp(client, profile, 'fishing', xp);
 			this._sendInv(client, profile);
 			client.send('notice', { kind: 'fish', caught, text: caught > 1 ? `Caught ${caught} ${itemLabel('fish').toLowerCase()}!` : `Caught a ${itemLabel('fish').toLowerCase()}.` });
+			// Quest progress: a real catch advances any active "collect fish" objective.
+			this._questEvent(client, profile, { type: 'collect', item: 'fish', qty: caught });
 		} else {
 			this._grantXp(client, profile, 'fishing', 2);
 			client.send('notice', { kind: 'fish', caught: 0, text: 'The fish got away.' });
@@ -691,8 +792,179 @@ export class WalkRoom extends Room {
 			...prev,
 			name: player?.name || prev.name,
 			gold: profile.gold,
-			profile: serializeProfile(profile),
+			// Fold the quest log into the persisted profile blob so accepted jobs +
+			// daily state survive a disconnect (economy.js round-trips it opaquely).
+			profile: { ...serializeProfile(profile), quests: serializeQuestState(profile.quests) },
 		});
+	}
+
+	// --- Vehicles ------------------------------------------------------------
+
+	// Seed the parked fleet from the shared spawn registry. Colors come from each
+	// type's signature color so the world reads consistently across clients.
+	_seedVehicles() {
+		for (const spawn of VEHICLE_SPAWNS) {
+			if (!isVehicleType(spawn.type)) continue;
+			const spec = vehicleSpec(spawn.type);
+			const v = new Vehicle();
+			v.id = spawn.id;
+			v.type = spawn.type;
+			v.color = Number.isInteger(spawn.color) ? spawn.color : spec.color;
+			v.x = spawn.x;
+			v.y = 0;
+			v.z = spawn.z;
+			// Resting heading → quaternion about the up axis.
+			const half = (spawn.yaw || 0) / 2;
+			v.qx = 0; v.qy = Math.sin(half); v.qz = 0; v.qw = Math.cos(half);
+			v.speed = 0;
+			v.driver = '';
+			v.health = 100;
+			v.tsServer = Date.now();
+			this.state.vehicles.set(v.id, v);
+		}
+	}
+
+	// Take the wheel of a parked vehicle. Gated by: the vehicle exists, it isn't
+	// already occupied, and the player is standing within range of it. A player can
+	// only drive one vehicle, so any prior one is released first. The grant is the
+	// authoritative `driver` field flipping to this session — the client waits for
+	// that echo (plus a targeted ack) before it starts simulating.
+	_handleVehicleEnter(client, payload) {
+		const player = this.state.players.get(client.sessionId);
+		if (!player) return;
+		if (!this._actionOk(client.sessionId, 'venter')) return;
+		const id = typeof payload?.id === 'string' ? payload.id : '';
+		const v = this.state.vehicles.get(id);
+		if (!v) { client.send('vehicle', { event: 'deny', id, reason: 'gone' }); return; }
+		if (v.driver && v.driver !== client.sessionId) {
+			client.send('vehicle', { event: 'deny', id, reason: 'occupied' });
+			return;
+		}
+		// Proximity gate — can't claim a car from across the map.
+		const dist = Math.hypot(player.x - v.x, player.z - v.z);
+		if (dist > VEHICLE_ENTER_RANGE_M) {
+			client.send('vehicle', { event: 'deny', id, reason: 'range' });
+			return;
+		}
+		this._releaseVehicleOf(client.sessionId, id); // give up any other car first
+		v.driver = client.sessionId;
+		v.tsServer = Date.now();
+		client.send('vehicle', { event: 'enter', id });
+	}
+
+	// Leave the wheel. The client sends its final resting transform; the server
+	// parks the car there, clears the driver, and authors the player's drop point
+	// beside the door so the next ordinary 'move' is continuous (no teleport
+	// rejection). The drop is server-computed and bounds-clamped — a client can't
+	// use exit to warp.
+	_handleVehicleExit(client, payload) {
+		const player = this.state.players.get(client.sessionId);
+		if (!player) return;
+		if (!this._actionOk(client.sessionId, 'vexit')) return;
+		const v = this._vehicleDrivenBy(client.sessionId);
+		if (!v) return;
+		// Accept the final transform through the same validation as a sync so the car
+		// can't be parked somewhere impossible on the way out.
+		this._applyVehicleTransform(v, payload, /* park */ true);
+		v.driver = '';
+		v.speed = 0;
+		v.tsServer = Date.now();
+
+		// Drop the avatar just left of the car (chassis-left), clamped to the world.
+		const yaw = this._vehicleYaw(v);
+		const off = (vehicleSpec(v.type).dims.w / 2) + 0.6;
+		let dx = v.x + Math.cos(yaw) * off;
+		let dz = v.z - Math.sin(yaw) * off;
+		const r = Math.hypot(dx, dz);
+		if (r > WORLD_RADIUS_M) { const k = WORLD_RADIUS_M / r; dx *= k; dz *= k; }
+		player.x = dx;
+		player.z = dz;
+		player.y = 0;
+		player.motion = 'idle';
+		player.tsServer = Date.now();
+		client.send('vehicle', { event: 'exit', id: v.id, x: dx, z: dz });
+	}
+
+	// Adopt the driver's streamed transform. Server-authoritative validation: only
+	// the seated driver may write; reject NaNs; reject a jump larger than the type's
+	// top speed allows over the send window (teleport) and an implausible reported
+	// speed (speed hack). A rejected position is simply not applied — the car holds
+	// its last authoritative transform, which the cheating client then sees snap back.
+	_handleVehicleSync(client, payload) {
+		if (!this._actionOk(client.sessionId, 'vsync')) return;
+		const v = this._vehicleDrivenBy(client.sessionId);
+		if (!v) return;
+		if (!this._applyVehicleTransform(v, payload, /* park */ false)) return;
+
+		// Carry the driver's avatar with the car so peers render them in the seat and
+		// stepping out is continuous. The avatar sits at the seat height above the
+		// chassis; ordinary move validation is bypassed here because the vehicle's own
+		// speed clamp already policed this displacement.
+		const player = this.state.players.get(client.sessionId);
+		if (player) {
+			player.x = v.x;
+			player.z = v.z;
+			player.y = Math.max(0, Math.min(3, v.y + vehicleSpec(v.type).seat.y));
+			player.motion = 'idle';
+			player.tsServer = v.tsServer;
+		}
+	}
+
+	// Validate + write a transform onto a vehicle. Returns false (and leaves the
+	// vehicle untouched) when the update is malformed or fails an anti-cheat clamp.
+	_applyVehicleTransform(v, payload, park) {
+		if (!payload || typeof payload !== 'object') return false;
+		const { x, y, z, qx, qy, qz, qw, speed } = payload;
+		const nums = [x, y, z, qx, qy, qz, qw];
+		if (nums.some((n) => typeof n !== 'number' || !Number.isFinite(n))) return false;
+
+		// Teleport clamp: reject a step larger than top speed could cover this window.
+		const dx = x - v.x, dz = z - v.z;
+		if (Math.hypot(dx, dz) > vehicleMaxStepM(v.type)) return false;
+		// Speed-hack clamp on the reported forward speed.
+		const sp = typeof speed === 'number' && Number.isFinite(speed) ? speed : 0;
+		if (Math.abs(sp) > vehicleMaxSpeedMps(v.type)) return false;
+
+		// World bounds — keep the car inside the visible arena (scale x/z together so
+		// a clamp doesn't change heading).
+		const r = Math.hypot(x, z);
+		if (r > VEHICLE_WORLD_RADIUS_M) {
+			const k = VEHICLE_WORLD_RADIUS_M / r;
+			v.x = x * k; v.z = z * k;
+		} else {
+			v.x = x; v.z = z;
+		}
+		v.y = Math.max(-2, Math.min(8, y));
+		// Normalize the quaternion defensively so a denormalized client value can't
+		// poison every peer's renderer.
+		const ql = Math.hypot(qx, qy, qz, qw) || 1;
+		v.qx = qx / ql; v.qy = qy / ql; v.qz = qz / ql; v.qw = qw / ql;
+		v.speed = park ? 0 : sp;
+		v.tsServer = Date.now();
+		return true;
+	}
+
+	_vehicleDrivenBy(sessionId) {
+		for (const [, v] of this.state.vehicles) {
+			if (v.driver === sessionId) return v;
+		}
+		return null;
+	}
+
+	// Release any vehicle driven by this session (except `keepId`, when re-claiming).
+	_releaseVehicleOf(sessionId, keepId = null) {
+		for (const [, v] of this.state.vehicles) {
+			if (v.driver === sessionId && v.id !== keepId) {
+				v.driver = '';
+				v.speed = 0;
+				v.tsServer = Date.now();
+			}
+		}
+	}
+
+	// Heading (radians about the up axis) extracted from a vehicle's quaternion.
+	_vehicleYaw(v) {
+		return Math.atan2(2 * (v.qw * v.qy + v.qx * v.qz), 1 - 2 * (v.qy * v.qy + v.qx * v.qx));
 	}
 
 	// Per-action sliding-window rate limit (messages/sec/client). A flooding client

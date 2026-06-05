@@ -76,7 +76,7 @@ body {
 	margin-bottom: 2px;
 }
 .br-sess:hover { background: #0e0e0e; color: #b0b0b0; }
-.br-sess.active { background: #12142a; color: #dde0f0; border-color: #222222; }
+.br-sess.active { background: #151515; color: #dde0f0; border-color: #222222; }
 .br-sess-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .br-sess-del {
 	background: none;
@@ -269,7 +269,7 @@ body {
 	transition: all 0.18s;
 	text-align: center;
 }
-.br-method-tab:hover { border-color: #2a2e50; background: #0f1125; }
+.br-method-tab:hover { border-color: #303030; background: #121212; }
 .br-method-tab.active { border-color: #ffffff; background: #0d0d0d; }
 .br-method-tab-icon { font-size: 24px; margin-bottom: 8px; display: block; color: #ffffff; }
 .br-method-tab-title { font-size: 14px; font-weight: 600; color: #dde0f0; margin-bottom: 4px; }
@@ -305,7 +305,7 @@ body {
 }
 .br-q-input {
 	width: 100%;
-	background: #07080f;
+	background: #080808;
 	border: 1px solid var(--bg-1);
 	border-radius: 10px;
 	color: var(--ink);
@@ -433,7 +433,7 @@ body {
 .br-chip-blue { background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.25); }
 .br-chip-purple { background: rgba(255,255,255,0.06); color: #ffffff; border: 1px solid rgba(255,255,255,0.15); }
 .br-chip-red { background: rgba(255,100,100,0.08); color: #ff8a8a; border: 1px solid rgba(255,100,100,0.2); }
-.br-chip-muted { background: rgba(255,255,255,0.04); color: #8a8a8a; border: 1px solid #1e2035; }
+.br-chip-muted { background: rgba(255,255,255,0.04); color: #8a8a8a; border: 1px solid #212121; }
 
 .br-pc-badge {
 	display: inline-block;
@@ -469,7 +469,7 @@ body {
 	margin-left: auto;
 }
 .br-agent-select {
-	background: #0a0c18;
+	background: #0c0c0c;
 	border: 1px solid #222222;
 	border-radius: 8px;
 	color: #b0b0b0;
@@ -497,7 +497,7 @@ body {
 }
 .br-edit-input {
 	width: 100%;
-	background: #07080f;
+	background: #080808;
 	border: 1px solid var(--bg-1);
 	border-radius: 8px;
 	color: var(--ink);
@@ -510,7 +510,7 @@ body {
 .br-edit-input:focus { border-color: #3050a0; }
 .br-edit-textarea {
 	width: 100%;
-	background: #07080f;
+	background: #080808;
 	border: 1px solid var(--bg-1);
 	border-radius: 8px;
 	color: var(--ink);
@@ -528,7 +528,7 @@ body {
 /* ── Raw JSON toggle ─────────────────────────────────────────────────────── */
 .br-raw-json {
 	display: none;
-	background: #07080f;
+	background: #080808;
 	border: 1px solid var(--bg-1);
 	border-radius: 10px;
 	padding: 14px 16px;
@@ -725,7 +725,7 @@ body {
 	font-size: 12.5px;
 	color: #6b70a0;
 	padding: 8px 12px;
-	background: #0a0c18;
+	background: #0c0c0c;
 	border-radius: 10px;
 	border: 1px solid #141414;
 }
@@ -872,7 +872,7 @@ body {
 .br-send:disabled { opacity: 0.35; cursor: not-allowed; }
 .br-hint {
 	font-size: 11px;
-	color: #2d3050;
+	color: #323232;
 	margin-top: 6px;
 	display: flex;
 	gap: 14px;
@@ -899,7 +899,7 @@ body {
 .md-ul, .md-ol { margin: 0.4em 0 0.6em 1.4em; padding: 0; }
 .md-ul li, .md-ol li { margin: 0.2em 0; }
 .md-code {
-	background: #0a0c18;
+	background: #0c0c0c;
 	border: 1px solid var(--bg-1);
 	border-radius: 9px;
 	padding: 12px 14px;

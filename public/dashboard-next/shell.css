@@ -349,7 +349,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 .dn-btn.primary {
 	background: var(--nxt-accent);
 	border-color: var(--nxt-accent);
-	color: #0c0512;
+	color: #070707;
 	font-weight: 600;
 }
 .dn-btn.primary:hover { background: var(--nxt-accent-strong); border-color: var(--nxt-accent-strong); }
@@ -690,7 +690,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 	z-index: 200;
 	padding: 8px 14px;
 	background: var(--nxt-accent);
-	color: #0c0512;
+	color: #070707;
 	font-weight: 600;
 	font-size: 13px;
 	border-radius: var(--nxt-radius-sm);

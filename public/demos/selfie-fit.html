@@ -9,7 +9,7 @@
 		<link rel="stylesheet" href="/nav.css" />
 		<style>
 			:root { color-scheme: dark; }
-			body { background: #05060a; color: #eee; font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; }
+			body { background: #060606; color: #eee; font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; }
 			.stage { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
 			.crumb a { color: #8a8d98; text-decoration: none; }
 			.crumb a:hover { color: #3dc1ff; }
@@ -19,20 +19,20 @@
 			.grid { display: grid; grid-template-columns: 1fr 360px; gap: 24px; }
 			@media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
 			.panel {
-				background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px;
+				background: #101010; border: 1.5px solid #202020; border-radius: 14px;
 				padding: 22px; display: flex; flex-direction: column; gap: 14px;
 			}
 			.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 			@media (max-width: 600px) { .slots { grid-template-columns: 1fr; } }
 			.slot {
-				background: #07080d; border: 1.5px dashed #1e1f2b; border-radius: 12px;
+				background: #080808; border: 1.5px dashed #202020; border-radius: 12px;
 				aspect-ratio: 3 / 4; position: relative; overflow: hidden; cursor: pointer;
 				display: flex; align-items: center; justify-content: center;
 				transition: border-color 0.15s, transform 0.15s;
 			}
-			.slot:hover { border-color: #2c2d3d; }
+			.slot:hover { border-color: #2e2e2e; }
 			.slot.active { border-color: #3dc1ff; border-style: solid; }
-			.slot.filled { border-style: solid; border-color: #2c2d3d; cursor: default; }
+			.slot.filled { border-style: solid; border-color: #2e2e2e; cursor: default; }
 			.slot .placeholder {
 				color: #6a6d7c; font-size: 12px; text-align: center; padding: 12px;
 				display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -79,11 +79,11 @@
 			.radios { display: flex; gap: 8px; flex-wrap: wrap; }
 			.radio {
 				display: flex; align-items: center; gap: 6px; cursor: pointer;
-				background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px;
+				background: #080808; border: 1px solid #202020; border-radius: 9px;
 				padding: 8px 12px; font-size: 13px;
 			}
 			.radio input { accent-color: #3dc1ff; }
-			.radio:hover { border-color: #2c2d3d; }
+			.radio:hover { border-color: #2e2e2e; }
 			.radio.selected { border-color: #3dc1ff; color: #3dc1ff; }
 
 			button.submit {
@@ -94,7 +94,7 @@
 			button.submit:disabled { opacity: 0.35; cursor: not-allowed; }
 
 			.log {
-				background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px;
+				background: #080808; border: 1px solid #202020; border-radius: 9px;
 				padding: 12px; font-family: ui-monospace, monospace; font-size: 12px;
 				line-height: 1.6; color: #8a8d98; max-height: 320px; overflow: auto; white-space: pre-wrap;
 			}
@@ -111,7 +111,7 @@
 			.result-card.show { display: block; }
 			.result-card .url {
 				font-family: ui-monospace, monospace; font-size: 12px; color: #8a8d98;
-				background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px;
+				background: #080808; border: 1px solid #202020; border-radius: 9px;
 				padding: 10px 12px; margin: 10px 0; overflow-x: auto; white-space: nowrap;
 			}
 
@@ -123,8 +123,8 @@
 			.iframe-modal.open { display: flex; }
 			.iframe-modal .frame-shell {
 				position: relative; width: 100%; max-width: 980px; height: 100%; max-height: 720px;
-				background: #0a0b12; border-radius: 14px; overflow: hidden;
-				border: 1.5px solid #1e1f2b;
+				background: #0b0b0b; border-radius: 14px; overflow: hidden;
+				border: 1.5px solid #202020;
 			}
 			.iframe-modal iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
 			.iframe-modal .close {
@@ -1064,7 +1064,7 @@
 							Mint as agent →
 						</a>
 						<a href="${glbUrl}" target="_blank" rel="noopener"
-							class="submit" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;background:#1e1f2b;color:#eee">
+							class="submit" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;background:#202020;color:#eee">
 							Download GLB ↓
 						</a>
 					</div>

@@ -200,7 +200,7 @@
 }
 
 .share-panel-segment--active {
-	background: #2e3a55;
+	background: #393939;
 	border-color: #4d6aa3;
 	color: #e8eeff;
 }
@@ -237,7 +237,7 @@
 }
 
 .share-panel-preview-frame[data-bg='dark'] {
-	background: #0b0d10;
+	background: #0d0d0d;
 }
 
 .share-panel-preview-frame[data-bg='light'] {

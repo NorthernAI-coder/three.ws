@@ -58,15 +58,15 @@
 						align-items: center;
 						gap: 8px;
 						padding: 9px 16px;
-						background: #15171c;
+						background: #171717;
 						color: #f2f3f5;
-						border: 1px solid #26282f;
+						border: 1px solid #282828;
 						border-radius: 8px;
 						font: 600 14px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 						cursor: pointer;
 						transition: border-color 120ms, background 120ms;
 					}
-					button:hover { border-color: #6aa6ff; background: #1a1d23; }
+					button:hover { border-color: #6aa6ff; background: #1d1d1d; }
 					button:focus-visible { outline: 2px solid #6aa6ff; outline-offset: 2px; }
 					button:disabled { opacity: 0.6; cursor: progress; }
 					.dot {

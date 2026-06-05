@@ -12,6 +12,9 @@ const AVATAR_HOST_ALLOW = [
 	/(^|\.)r2\.dev$/i,
 	/(^|\.)pump\.fun$/i,
 	/(^|\.)githubusercontent\.com$/i,
+	// Ready Player Me (W03 character creator): full-body avatars are exported as
+	// models.readyplayer.me/<id>.glb. Loadable cross-origin like our own models.
+	/(^|\.)readyplayer\.me$/i,
 ];
 
 export function cleanAvatarUrl(v) {

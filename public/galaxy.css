@@ -14,7 +14,7 @@
 
 .gx-body {
 	margin: 0;
-	background: #05060a;
+	background: #060606;
 	color: var(--ink);
 	overflow: hidden;
 	overscroll-behavior: none;
@@ -36,7 +36,7 @@
 	background:
 		radial-gradient(1200px 800px at 70% -10%, rgba(15, 98, 254, 0.16), transparent 60%),
 		radial-gradient(900px 700px at 10% 110%, rgba(120, 169, 255, 0.10), transparent 55%),
-		#05060a;
+		#060606;
 }
 .gx-canvas {
 	position: absolute;

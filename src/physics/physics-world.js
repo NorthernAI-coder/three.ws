@@ -45,6 +45,7 @@ export class PhysicsWorld {
 		this._obstacles = []; // [{ body }] — cleared/rebuilt per environment
 		this._dynamics = []; // [{ body, mesh, spawn }] — props synced to meshes
 		this._character = null;
+		this._vehicles = []; // [vehicle façade] — raycast vehicles, pre-stepped each substep
 	}
 
 	/** Create a world with the WASM runtime guaranteed ready. */
@@ -258,6 +259,185 @@ export class PhysicsWorld {
 		return this._character;
 	}
 
+	// ── Raycast vehicle ──────────────────────────────────────────────────────
+
+	/**
+	 * A Rapier raycast vehicle (Rapier's built-in DynamicRayCastVehicleController):
+	 * a dynamic cuboid chassis with four ray-cast wheels providing suspension,
+	 * steering, engine force and braking. We don't hand-roll suspension — the
+	 * controller does it. The returned façade is fed driver intent via setInput()
+	 * and is integrated automatically inside step() (call setInput before step).
+	 *
+	 * @param {{position:{x,y,z}, yaw?:number, spec:object}} opts  spec = a
+	 *        VEHICLE_TYPES entry (mass, topSpeed, engineForce, dims, wheel, …).
+	 */
+	createVehicle({ position = { x: 0, y: 1, z: 0 }, yaw = 0, spec }) {
+		const R = this.RAPIER;
+		const { l, w, h } = spec.dims;
+		const hx = w / 2, hy = h / 2, hz = l / 2;
+
+		const half = yaw / 2;
+		const rot = { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
+		const body = this.world.createRigidBody(
+			R.RigidBodyDesc.dynamic()
+				.setTranslation(position.x, position.y, position.z)
+				.setRotation(rot)
+				.setLinearDamping(0.12)
+				.setAngularDamping(0.55)
+				.setCanSleep(false),
+		);
+		// Mass via density so the cuboid weighs the type's target mass. A lowered
+		// centre of mass keeps the car from flipping in hard turns.
+		const density = spec.mass / Math.max(0.001, l * w * h);
+		const collider = this.world.createCollider(
+			R.ColliderDesc.cuboid(hx, hy, hz)
+				.setDensity(density)
+				.setFriction(0.7)
+				.setRestitution(0.05)
+				.setTranslation(0, -hy * 0.3, 0),
+			body,
+		);
+
+		const controller = this.world.createVehicleController(body);
+		controller.indexUpAxis = 1;        // +y is up
+		controller.setIndexForwardAxis = 2; // +z is forward (matches the mesh)
+
+		const dir = { x: 0, y: -1, z: 0 };  // suspension casts straight down
+		const axle = { x: -1, y: 0, z: 0 }; // wheels spin about the x axle
+		const wb = w / 2 - spec.wheel.inset; // half track width
+		// Connection points sit in the lower body; rays start here and reach the
+		// ground through the suspension rest length + wheel radius.
+		const cy = -hy * 0.2;
+		const conns = [
+			{ x: wb, y: cy, z: spec.wheel.frontZ },  // 0 front-left  (steered)
+			{ x: -wb, y: cy, z: spec.wheel.frontZ }, // 1 front-right (steered)
+			{ x: wb, y: cy, z: spec.wheel.rearZ },   // 2 rear-left
+			{ x: -wb, y: cy, z: spec.wheel.rearZ },  // 3 rear-right
+		];
+		for (const c of conns) {
+			controller.addWheel(c, dir, axle, spec.suspension.rest, spec.wheel.radius);
+		}
+		for (let i = 0; i < 4; i++) {
+			controller.setWheelSuspensionStiffness(i, spec.suspension.stiffness);
+			controller.setWheelMaxSuspensionTravel(i, spec.suspension.travel);
+			controller.setWheelSuspensionCompression(i, spec.suspension.compression);
+			controller.setWheelSuspensionRelaxation(i, spec.suspension.relax);
+			controller.setWheelFrictionSlip(i, spec.grip);
+			controller.setWheelSideFrictionStiffness(i, 1.0);
+		}
+
+		// Exclude the chassis from its own wheel ray-casts so a wheel never reports
+		// the car's own underside as the ground.
+		const chassisHandle = collider.handle;
+		const wheelFilter = (col) => col.handle !== chassisHandle;
+
+		const vehicle = {
+			body,
+			controller,
+			spec,
+			steer: 0,
+			_throttle: 0,
+			_brake: 0,
+			_steerTarget: 0,
+			_handbrake: false,
+			/** Feed one frame of driver intent. throttle/brake in [0,1], steer in [-1,1]. */
+			setInput({ throttle = 0, brake = 0, steer = 0, handbrake = false } = {}) {
+				this._throttle = Math.max(0, Math.min(1, throttle));
+				this._brake = Math.max(0, Math.min(1, brake));
+				this._steerTarget = Math.max(-1, Math.min(1, steer));
+				this._handbrake = !!handbrake;
+			},
+			/** Integrate the controller one substep — called from PhysicsWorld.step. */
+			_preStep(dt) {
+				// Ease the steering angle toward the target so turns aren't instant.
+				const target = this._steerTarget * spec.steerMax;
+				const rate = spec.steerSpeed * dt;
+				this.steer += Math.max(-rate, Math.min(rate, target - this.steer));
+				controller.setWheelSteering(0, this.steer);
+				controller.setWheelSteering(1, this.steer);
+
+				const speed = controller.currentVehicleSpeed();
+				let force = 0;
+				let brakeImpulse = 0;
+				if (this._throttle > 0) {
+					// Cut the throttle at top speed so the car can't accelerate forever.
+					force = speed < spec.topSpeed ? spec.engineForce * this._throttle : 0;
+				}
+				if (this._brake > 0) {
+					if (speed > 0.6) {
+						brakeImpulse = spec.brakeForce * this._brake; // slowing down
+					} else {
+						force = -spec.reverseForce * this._brake;      // reversing from a stop
+					}
+				}
+				if (this._handbrake) brakeImpulse = Math.max(brakeImpulse, spec.brakeForce * 2.2);
+				// Light engine braking when coasting so the car rolls to rest.
+				if (this._throttle === 0 && this._brake === 0 && !this._handbrake) {
+					brakeImpulse = spec.brakeForce * 0.12;
+				}
+				const perWheelForce = force / 4; // all-wheel drive for arcade stability
+				for (let i = 0; i < 4; i++) {
+					controller.setWheelEngineForce(i, perWheelForce);
+					controller.setWheelBrake(i, brakeImpulse);
+				}
+				controller.updateVehicle(dt, undefined, undefined, wheelFilter);
+			},
+			/** Current world transform + forward speed, for rendering + netcode. */
+			transform() {
+				const t = body.translation();
+				const r = body.rotation();
+				return { x: t.x, y: t.y, z: t.z, qx: r.x, qy: r.y, qz: r.z, qw: r.w, speed: controller.currentVehicleSpeed() };
+			},
+			/** Hard-place the chassis (initial seat, flip recovery) and kill momentum. */
+			teleport(p, q) {
+				body.setTranslation({ x: p.x, y: p.y, z: p.z }, true);
+				if (q) body.setRotation({ x: q.qx, y: q.qy, z: q.qz, w: q.qw }, true);
+				body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+				body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+				this.steer = 0;
+			},
+			/** True when the car has rolled past ~110° — the driver can request a reset. */
+			flipped() {
+				const r = body.rotation();
+				// World up (0,1,0) rotated by the body; its y component is the chassis'
+				// up·worldUp. Below ~-0.35 means it's substantially upside-down.
+				const uy = 1 - 2 * (r.x * r.x + r.z * r.z);
+				return uy < -0.35;
+			},
+		};
+		this._vehicles.push(vehicle);
+		return vehicle;
+	}
+
+	/**
+	 * A kinematic cuboid the caller repositions each frame — used to give the
+	 * locally-simulated vehicle something solid to bump for OTHER players' cars,
+	 * which are otherwise pure interpolated ghosts not in this physics world.
+	 */
+	addKinematicBox({ halfExtents, position = { x: 0, y: 0, z: 0 } }) {
+		const R = this.RAPIER;
+		const body = this.world.createRigidBody(
+			R.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z),
+		);
+		this.world.createCollider(R.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z), body);
+		return {
+			body,
+			setTransform(p, q) {
+				body.setNextKinematicTranslation({ x: p.x, y: p.y, z: p.z });
+				if (q) body.setNextKinematicRotation({ x: q.qx, y: q.qy, z: q.qz, w: q.qw });
+			},
+			remove: () => { try { this.world.removeRigidBody(body); } catch { /* gone */ } },
+		};
+	}
+
+	/** Remove a vehicle created with createVehicle(). */
+	removeVehicle(vehicle) {
+		const i = this._vehicles.indexOf(vehicle);
+		if (i >= 0) this._vehicles.splice(i, 1);
+		try { this.world.removeVehicleController(vehicle.controller); } catch { /* already gone */ }
+		try { this.world.removeRigidBody(vehicle.body); } catch { /* already gone */ }
+	}
+
 	// ── Per-frame integration ────────────────────────────────────────────────
 
 	/**
@@ -270,6 +450,9 @@ export class PhysicsWorld {
 		let steps = 0;
 		this.world.timestep = this._fixedDt;
 		while (this._accumulator >= this._fixedDt && steps < 5) {
+			// Vehicles must integrate their suspension/engine BEFORE the world solves,
+			// each substep, or their chassis velocity lags the simulation.
+			for (const v of this._vehicles) v._preStep(this._fixedDt);
 			this.world.step();
 			this._accumulator -= this._fixedDt;
 			steps++;
@@ -297,6 +480,7 @@ export class PhysicsWorld {
 		this._ground = null;
 		this._obstacles.length = 0;
 		this._dynamics.length = 0;
+		this._vehicles.length = 0;
 		this._character = null;
 	}
 }

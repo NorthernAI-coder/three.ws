@@ -5,14 +5,14 @@
 		<title>Overlay Control · three.ws</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="description" content="Stream Deck for your three.ws OBS overlay — emote hotkeys, expression mixer, mic threshold." />
-		<meta name="theme-color" content="#0b0d10" />
+		<meta name="theme-color" content="#0d0d0d" />
 		<link rel="shortcut icon" href="/favicon.ico" />
 		<link rel="stylesheet" href="/fonts/fonts.css" />
 		<style>
 			:root {
 				color-scheme: dark;
-				--bg: #07090c;
-				--panel: #11141a;
+				--bg: #090909;
+				--panel: #141414;
 				--panel-edge: rgba(255, 255, 255, 0.07);
 				--ink: #e8ecf2;
 				--ink-dim: rgba(255, 255, 255, 0.6);
@@ -24,7 +24,7 @@
 			body {
 				margin: 0;
 				min-height: 100vh;
-				background: radial-gradient(1200px 600px at 30% -10%, #1a1f29, var(--bg));
+				background: radial-gradient(1200px 600px at 30% -10%, #1f1f1f, var(--bg));
 				color: var(--ink);
 				font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 				display: grid;
@@ -72,7 +72,7 @@
 			label.row input[type="url"] {
 				flex: 1;
 				min-width: 0;
-				background: #06080b;
+				background: #080808;
 				color: var(--ink);
 				border: 1px solid var(--panel-edge);
 				border-radius: 8px;
@@ -88,7 +88,7 @@
 			button.action {
 				appearance: none;
 				background: #fff;
-				color: #0a0c10;
+				color: #0c0c0c;
 				border: 0;
 				border-radius: 8px;
 				padding: 10px 14px;
@@ -161,7 +161,7 @@
 			.hotkey.fired {
 				transform: scale(0.97);
 				background: var(--accent);
-				color: #06080b;
+				color: #080808;
 				border-color: var(--accent);
 			}
 			.hotkey .k {
@@ -198,7 +198,7 @@
 			}
 			.snippet {
 				margin: 0;
-				background: #06080b;
+				background: #080808;
 				border: 1px solid var(--panel-edge);
 				border-radius: 8px;
 				padding: 10px 12px;
@@ -231,7 +231,7 @@
 			.event-log {
 				font-family: ui-monospace, SFMono-Regular, monospace;
 				font-size: 11px;
-				background: #06080b;
+				background: #080808;
 				border: 1px solid var(--panel-edge);
 				border-radius: 8px;
 				padding: 10px 12px;

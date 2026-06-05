@@ -41,6 +41,7 @@ import { ensurePlayAccess } from './play-gate.js';
 import { clearStoredPass, fetchPlayConfig, signInToPlay, loadStoredPass, storePass } from './play-auth.js';
 import { PlaySystems } from './play-systems.js';
 import { PlayOnboard } from './play-onboard.js';
+import { WorldHudSystem } from './hud/index.js';
 import { log } from '../shared/log.js';
 
 const WORLD_RADIUS = 58; // a touch inside the server's 60m clamp
@@ -999,6 +1000,12 @@ export class CoinCommunities {
 		// Invalidate any in-flight enter() so a connect/avatar continuation that
 		// resolves after this teardown bails instead of rebuilding the world.
 		this._enterEpoch = (this._enterEpoch || 0) + 1;
+		// Stand the W10 HUD down: close any open menu, hide the chrome, and forget the
+		// per-world vitals so the next world doesn't pop a phantom money/damage cue.
+		this.worldHud.closeMenus();
+		this.hud.hide();
+		this.camRig.reset();
+		this._prevGold = null; this._prevHp = null;
 		// Tear voice down before the socket so our final "left voice" flag still
 		// sends, and peers' connections close cleanly.
 		clearTimeout(this._passRefreshTimer);

@@ -120,6 +120,16 @@
 			href: function () { return '/play'; },
 			parts: function (e) { return [bold(e.actor || 'A player'), ' won ', bold(e.reward || 'the jackpot')]; },
 		},
+		'mission-complete': {
+			icon: '◈',
+			href: function (e) { return e.coin ? '/play?coin=' + encodeURIComponent(e.coin) : '/play'; },
+			parts: function (e) {
+				var verb = e.coop ? ' pulled off the heist ' : ' completed ';
+				var out = [bold(e.actor || 'A player'), verb, bold(e.mission || 'a job')];
+				if (e.gold) out.push(' for ', bold(Number(e.gold).toLocaleString() + ' gold'));
+				return out;
+			},
+		},
 		payment: {
 			icon: '✓',
 			href: function (e) { return e.explorerUrl || null; },

@@ -96,6 +96,10 @@ export class CommunityNet {
 		// refuses with a play_pass_* error. Sent for all tiers, not just holders.
 		this.playPass = opts.playPass || '';
 		this.account = opts.account || '';
+		// Pre-join cosmetic loadout (W03): the compact wire string the creator built.
+		// The server re-validates ownership before applying it, so an unowned premium
+		// id here is simply dropped — never trusted.
+		this.cosmetics = opts.cosmetics || '';
 		// Stable economy persistence key (wallet when signed in, else a guest id).
 		this.pid = persistedPid(this.account);
 		this.url = opts.url || defaultServerUrl();
@@ -106,6 +110,7 @@ export class CommunityNet {
 		this.error = null;
 		this.sessionId = null;
 		this.persistent = false; // set true once the server says this world is Redis-backed
+		this.worldTime = 0;      // authoritative day fraction [0,1) for the day/night cycle
 
 		this._handlers = {
 			status: new Set(),
@@ -123,12 +128,22 @@ export class CommunityNet {
 			blockRemove: new Set(), // (key) — a voxel was broken
 			editReject: new Set(),  // ({reason}) — the server refused one of our edits
 			persistent: new Set(),  // (bool) — whether this world's build is durably saved
+			worldtime: new Set(),   // (frac) — authoritative day fraction [0,1) for day/night
 			// Off-schema economy (private to this player; delivered as targeted messages).
 			profile: new Set(),     // (snapshot) — full purse/pack/skills on join + on demand
 			inv: new Set(),         // ({inv, hotbar, activeSlot, gold, hp, maxHp}) — economy delta
 			xpgain: new Set(),      // ({skill, amount, xp, level, levelXp, nextXp})
 			levelup: new Set(),     // ({skill, level})
-			notice: new Set(),      // ({kind, text, ...}) — activity result toast (fish/eat/tool/full)
+			notice: new Set(),      // ({kind, text, ...}) — activity result toast (fish/eat/tool/full/quest)
+			quests: new Set(),      // ({offers, active, day}) — jobs board + active runs (W05)
+			questComplete: new Set(), // ({id, title, reward, kind, coop}) — a mission/heist finished
+			combat: new Set(),      // ({node, kind, mobHp, mobMaxHp, playerHp, playerMaxHp, dealt, dead, ...}) — combat-lite exchange
+			// Vehicles (synced world entities). add/change/remove mirror the player
+			// callbacks; `vehicle` carries the server's targeted enter/exit/deny ack.
+			vehicleAdd: new Set(),    // (vehicle, id) — a vehicle entered our view (spawn/restore)
+			vehicleChange: new Set(), // (vehicle, id) — its transform/driver changed
+			vehicleRemove: new Set(), // (id) — a vehicle left the world
+			vehicle: new Set(),       // ({event, id, ...}) — enter/exit/deny ack for our request
 		};
 		this.ping = null;        // smoothed RTT in ms, null until the first echo
 		this._pingSentAt = 0;    // perf-clock stamp of the last move awaiting an echo
@@ -210,6 +225,9 @@ export class CommunityNet {
 				// when it is. The verified wallet rides inside the signed pass; the server
 				// binds it as the account id, so we never trust a raw `account` option.
 				playPass: this.playPass,
+				// Pre-join cosmetic loadout (W03). Server-validated against ownership
+				// before it dresses the player, so peers can trust the broadcast look.
+				cosmetics: this.cosmetics,
 				// Stable persistence key for the off-schema economy (used only when the
 				// server hasn't verified a wallet account of its own — i.e. un-gated/dev).
 				pid: this.pid,
@@ -241,6 +259,13 @@ export class CommunityNet {
 			this.room.onMessage('xpgain', (msg) => this._emit('xpgain', msg || {}));
 			this.room.onMessage('levelup', (msg) => this._emit('levelup', msg || {}));
 			this.room.onMessage('notice', (msg) => this._emit('notice', msg || {}));
+			// Quests, jobs & heists (W05): the board + active runs and completion events.
+			this.room.onMessage('quests', (msg) => this._emit('quests', msg || {}));
+			this.room.onMessage('questComplete', (msg) => this._emit('questComplete', msg || {}));
+			this.room.onMessage('combat', (msg) => this._emit('combat', msg || {}));
+			// Vehicles: the server's targeted reply to our enter/exit request (grant,
+			// drop point, or denial). World transforms arrive via the state callbacks.
+			this.room.onMessage('vehicle', (msg) => this._emit('vehicle', msg || {}));
 
 			const $ = getStateCallbacks(this.room);
 			const $state = $(this.room.state);
@@ -284,11 +309,29 @@ export class CommunityNet {
 				$blocks.onRemove((_b, key) => this._emit('blockRemove', key));
 			}
 
+			// Vehicles: synced world entities. The full parked fleet arrives via onAdd
+			// at join; onChange streams each driver's transform; onRemove drops one.
+			// Optional field (servers pre-dating vehicles omit it) — guarded like blocks.
+			const $vehicles = $state?.vehicles;
+			if ($vehicles) {
+				$vehicles.onAdd((vehicle, id) => {
+					this._emit('vehicleAdd', vehicle, id);
+					$(vehicle).onChange(() => this._emit('vehicleChange', vehicle, id));
+				});
+				$vehicles.onRemove((_v, id) => this._emit('vehicleRemove', id));
+			}
+
 			// Durability flag for this world's build (Redis-backed vs memory-only).
 			// Set once at room creation; listen so the HUD reflects it as soon as the
 			// first state patch lands and if it ever degrades mid-session.
 			this.persistent = !!this.room.state.persistent;
 			$state?.listen?.('persistent', (v) => { this.persistent = !!v; this._emit('persistent', !!v); });
+
+			// Authoritative time of day for the day/night cycle. The server advances it
+			// ~1Hz; the scene reads net.worldTime and interpolates between updates, so a
+			// coarse broadcast still renders a smooth sky every client agrees on.
+			this.worldTime = Number(this.room.state.worldTime) || 0;
+			$state?.listen?.('worldTime', (v) => { this.worldTime = Number(v) || 0; this._emit('worldtime', this.worldTime); });
 
 			this.room.onLeave((code) => {
 				this._setStatus('offline');
@@ -377,12 +420,41 @@ export class CommunityNet {
 	setVoiceActive(on) { this.room?.send('voice-state', { on: !!on }); }
 	rename(name) { this.name = name; this.room?.send('rename', { name }); }
 	setAvatar(avatar, agent) { this.avatar = avatar; this.room?.send('avatar', { avatar, agent }); }
+	// Equip a cosmetic into its slot (W03). Server-authoritative: it validates
+	// ownership, updates the player's schema `cosmetics` field (so peers re-render)
+	// and replies with a fresh profile. An unowned id is rejected with a 'notice'.
+	equipCosmetic(id) { this.room?.send('equip-cosmetic', { id }); }
 	// Activities & economy. Server-authoritative: these only request the action; the
 	// result arrives via the profile/inv/xpgain/levelup/notice events above.
 	fish() { this.room?.send('fish'); }
+	chop() { this.room?.send('chop'); }
+	mine() { this.room?.send('mine'); }
+	cook() { this.room?.send('cook'); }
+	attack() { this.room?.send('attack'); }
 	equip(slot) { this.room?.send('equip', { slot }); }
 	consume(ref) { this.room?.send('consume', { slot: ref }); }
 	requestProfile() { this.room?.send('profileReq'); }
+	// Quests, jobs & heists (W05). Server-authoritative: accept/abandon a mission and
+	// interact at a quest object; the board + progress arrive via the 'quests' event
+	// and completions via 'questComplete'. questInteract acts on the zone the server
+	// finds the player standing in (pickup/dropoff/terminal/crack).
+	requestQuests() { this.room?.send('questReq'); }
+	questAccept(id) { this.room?.send('questAccept', { id }); }
+	questAbandon(id) { this.room?.send('questAbandon', { id }); }
+	questInteract() { this.room?.send('questInteract'); }
+	// Vehicles. enter/exit take + release the wheel (server-gated by proximity +
+	// occupancy, answered on the 'vehicle' event); vsync streams the driver's
+	// authoritative Rapier transform, which the server validates and relays. vsync
+	// is throttled to the move send rate; the driving loop calls it every frame.
+	sendVEnter(id) { this.room?.send('venter', { id }); }
+	sendVExit(state) { this.room?.send('vexit', state || {}); }
+	sendVSync(state) {
+		if (!this.room) return;
+		const now = performance.now();
+		if (now - (this._lastVSyncAt || 0) < SEND_INTERVAL_MS) return;
+		this._lastVSyncAt = now;
+		this.room.send('vsync', state);
+	}
 	// Adopt a refreshed play pass. Store it so the next reconnect (after a drop)
 	// uses the fresh credential, AND push it to the live session so the server can
 	// extend this connection's bound expiry — otherwise the server's per-minute

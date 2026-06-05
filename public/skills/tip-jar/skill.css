@@ -9,7 +9,7 @@
 }
 
 .tip-jar-modal {
-	background: #1a1a2e;
+	background: #1b1b1b;
 	border: 1px solid #334466;
 	border-radius: 12px;
 	padding: 24px;
@@ -40,7 +40,7 @@
 	padding: 8px 4px;
 	border: 1px solid #445566;
 	border-radius: 8px;
-	background: #222244;
+	background: #242424;
 	color: #b0b8d8;
 	cursor: pointer;
 	font-size: 0.9rem;
@@ -66,7 +66,7 @@
 	padding: 8px 10px;
 	border: 1px solid #445566;
 	border-radius: 8px;
-	background: #111122;
+	background: #121212;
 	color: #e0e0f0;
 	font-size: 0.9rem;
 	box-sizing: border-box;
@@ -115,5 +115,5 @@
 }
 
 .tip-jar-cancel:hover {
-	background: #222233;
+	background: #232323;
 }

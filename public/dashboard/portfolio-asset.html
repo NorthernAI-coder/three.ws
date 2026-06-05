@@ -13,11 +13,11 @@
 				--ok: #2ed4a3;
 				--warn: #ffb35c;
 				--err: #ff6a6a;
-				--border: #161620;
-				--border-2: #1f1f2c;
+				--border: #171717;
+				--border-2: #202020;
 				--bg: #000;
-				--panel: #0c0c12;
-				--panel-2: #10101a;
+				--panel: #0c0c0c;
+				--panel-2: #111111;
 				--text: #f3f3f7;
 				--muted: #7c7c8a;
 			}
@@ -51,7 +51,7 @@
 				font-family: inherit;
 			}
 			.btn:hover { filter: brightness(1.08); }
-			.btn.sec { background: #1a1a26; color: #ddd; }
+			.btn.sec { background: #1b1b1b; color: #ddd; }
 			.btn.ghost { background: transparent; color: #ccc; border: 1px solid var(--border-2); }
 			.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 			.btn.sm { padding: 6px 10px; font-size: 12px; }
@@ -59,7 +59,7 @@
 			.pill {
 				display: inline-flex; align-items: center; gap: 6px;
 				font-size: 10.5px; padding: 3px 8px; border-radius: 99px;
-				background: #15151f; color: #ccc; white-space: nowrap;
+				background: #161616; color: #ccc; white-space: nowrap;
 				text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
 			}
 			.pill.sol { background: rgba(20,241,149,0.12); color: var(--ok); }
@@ -71,13 +71,13 @@
 			}
 			.chip.up { background: rgba(46,212,163,0.12); color: var(--ok); }
 			.chip.down { background: rgba(255,106,106,0.12); color: var(--err); }
-			.chip.flat { background: #1a1a26; color: #aaa; }
+			.chip.flat { background: #1b1b1b; color: #aaa; }
 
 			.hero {
 				background:
 					radial-gradient(900px 240px at 20% -40%, rgba(255,255,255,0.08), transparent 60%),
 					radial-gradient(600px 200px at 90% -20%, rgba(255,92,168,0.12), transparent 60%),
-					#06060a;
+					#060606;
 				border: 1px solid var(--border-2);
 				border-radius: 18px;
 				padding: 26px;
@@ -86,7 +86,7 @@
 			.hero-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 			.tok-logo {
 				width: 56px; height: 56px; border-radius: 50%;
-				background: #161620; flex-shrink: 0;
+				background: #171717; flex-shrink: 0;
 				display: inline-flex; align-items: center; justify-content: center;
 				font-size: 18px; font-weight: 700; color: #ccc;
 				overflow: hidden;
@@ -154,9 +154,9 @@
 				font-family: inherit;
 			}
 			.range-tab:hover { color: #ccc; }
-			.range-tab[aria-pressed="true"] { background: #16161f; color: var(--text); }
+			.range-tab[aria-pressed="true"] { background: #171717; color: var(--text); }
 
-			.holding-summary { padding: 14px; border-radius: 10px; background: #08080d; margin-bottom: 14px; border: 1px solid var(--border); }
+			.holding-summary { padding: 14px; border-radius: 10px; background: #080808; margin-bottom: 14px; border: 1px solid var(--border); }
 			.holding-summary .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 			.holding-summary .v { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 			.holding-summary .s { color: var(--muted); font-size: 13px; margin-top: 2px; font-variant-numeric: tabular-nums; }
@@ -164,7 +164,7 @@
 			.wallet-row {
 				display: flex; align-items: center; justify-content: space-between;
 				gap: 10px; padding: 10px 12px; border-radius: 9px;
-				border: 1px solid var(--border); background: #08080d;
+				border: 1px solid var(--border); background: #080808;
 				margin-bottom: 8px;
 			}
 			.wallet-row:last-child { margin-bottom: 0; }
@@ -188,7 +188,7 @@
 				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 				font-size: 11.5px; color: var(--muted);
 				padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
-				background: #08080d;
+				background: #080808;
 			}
 			.copy-btn {
 				background: none; border: none; color: #555; cursor: pointer;
@@ -223,7 +223,7 @@
 			.modal label span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 			.modal input, .modal select {
 				width: 100%; padding: 10px 12px; border-radius: 8px;
-				border: 1px solid var(--border-2); background: #08080d; color: #eee;
+				border: 1px solid var(--border-2); background: #080808; color: #eee;
 				font-size: 14px; font-family: inherit;
 			}
 			.modal input[data-mono] { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -533,12 +533,12 @@
 				chartTooltip = $$('chart-tooltip');
 				chart = createChart(chartEl, {
 					layout: { background: { color: 'transparent' }, textColor: '#666', fontFamily: 'inherit', fontSize: 11 },
-					grid: { vertLines: { visible: false }, horzLines: { color: '#0e0e16' } },
+					grid: { vertLines: { visible: false }, horzLines: { color: '#0f0f0f' } },
 					rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.15, bottom: 0.05 } },
 					timeScale: { borderVisible: false, timeVisible: false, secondsVisible: false },
 					crosshair: {
-						vertLine: { color: '#2a2a36', style: 0, width: 1, labelVisible: false },
-						horzLine: { color: '#2a2a36', style: 0, width: 1, labelVisible: true },
+						vertLine: { color: '#2b2b2b', style: 0, width: 1, labelVisible: false },
+						horzLine: { color: '#2b2b2b', style: 0, width: 1, labelVisible: true },
 					},
 					handleScroll: false,
 					handleScale: false,

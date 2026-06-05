@@ -37,7 +37,7 @@
 	 * --brand-blue-stroke (the IBM blue variant). Use --brand-blue-stroke
 	 * explicitly where blue borders are intentional. */
 
-	--bg:            #05070d;
+	--bg:            #070707;
 	--panel:         var(--surface-1);
 	--panel-solid:   var(--surface-1);
 	--panel-2:       var(--surface-2);
@@ -95,7 +95,7 @@
    ============================================================================= */
 
 .ibm-scope, body.ibm {
-	background: #05070d;
+	background: #070707;
 	color: var(--ink);
 	font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 	-webkit-font-smoothing: antialiased;

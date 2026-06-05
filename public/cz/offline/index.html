@@ -13,7 +13,7 @@
 
 			body {
 				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-				background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+				background: linear-gradient(135deg, #1b1b1b 0%, #212121 100%);
 				color: #fff;
 				overflow: hidden;
 				height: 100vh;
@@ -107,7 +107,7 @@
 			}
 
 			.modal-content {
-				background: #16213e;
+				background: #212121;
 				border: 1px solid rgba(255, 255, 255, 0.1);
 				border-radius: 12px;
 				padding: 40px;
@@ -351,7 +351,7 @@
 
 					// For now, just show a placeholder
 					viewer.style.background =
-						'radial-gradient(ellipse at center, #2d3d5c 0%, #1a1a2e 100%)';
+						'radial-gradient(ellipse at center, #2d3d5c 0%, #1b1b1b 100%)';
 					const ctx = viewer.getContext('2d');
 					if (ctx) {
 						ctx.fillStyle = '#667eea';
@@ -377,14 +377,14 @@
 				// For now, just show a placeholder
 				fallback.style.display = 'block';
 				fallback.style.background =
-					'radial-gradient(ellipse at center, #2d3d5c 0%, #1a1a2e 100%)';
+					'radial-gradient(ellipse at center, #2d3d5c 0%, #1b1b1b 100%)';
 
 				// Create a canvas fallback
 				const canvas = document.createElement('canvas');
 				canvas.width = window.innerWidth;
 				canvas.height = window.innerHeight;
 				const ctx = canvas.getContext('2d');
-				ctx.fillStyle = '#1a1a2e';
+				ctx.fillStyle = '#1b1b1b';
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
 				ctx.fillStyle = '#667eea';
 				ctx.font = 'bold 48px sans-serif';

@@ -109,9 +109,9 @@
 		// spinner skeleton.
 		var wrapper = document.createElement('div');
 		var bgCss = poster
-			? 'background:#0c0c12 url(' + JSON.stringify(poster).slice(1, -1) +
+			? 'background:#0c0c0c url(' + JSON.stringify(poster).slice(1, -1) +
 			  ') center/contain no-repeat;'
-			: 'background:#0c0c12;';
+			: 'background:#0c0c0c;';
 		wrapper.style.cssText =
 			'position:relative;display:inline-block;max-width:100%;' +
 			'width:' + width + 'px;height:' + height + 'px;' +

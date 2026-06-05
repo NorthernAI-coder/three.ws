@@ -33,8 +33,8 @@
 			position: 'fixed',
 			bottom: '20px',
 			right: '20px',
-			background: '#1c1c28',
-			border: '1px solid #2a2a36',
+			background: '#1d1d1d',
+			border: '1px solid #2b2b2b',
 			borderRadius: '10px',
 			padding: '12px 16px',
 			color: '#eee',
@@ -54,7 +54,7 @@
 		signOutBtn.textContent = 'Sign out';
 		Object.assign(signOutBtn.style, {
 			background: 'transparent',
-			border: '1px solid #3a3a4a',
+			border: '1px solid #3b3b3b',
 			borderRadius: '6px',
 			color: '#888888',
 			cursor: 'pointer',

@@ -52,17 +52,31 @@
 				flex-direction: column;
 			}
 
+			/* The injected .nav owns its own height, padding, blur and border.
+			   Neutralise the legacy app-shell `header {}` rule (style.css) so its
+			   line-height: var(--header-h) doesn't cascade into the nav links and
+			   blow out their height. This wrapper is a pure positioning context. */
 			.tut-page header {
 				position: sticky;
 				top: 0;
 				z-index: 200;
 				flex-shrink: 0;
+				display: block;
+				height: auto;
+				padding: 0;
+				line-height: normal;
+				white-space: normal;
+				overflow: visible;
+				background: none;
+				backdrop-filter: none;
+				-webkit-backdrop-filter: none;
+				border-bottom: none;
 			}
 
 			/* ── Hero ────────────────────────────────────────────────────── */
 
 			.tut-hero {
-				background: linear-gradient(180deg, #0a0608 0%, #07060b 60%, #06070b 100%);
+				background: linear-gradient(180deg, #0a0608 0%, #070707 60%, #070707 100%);
 				border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 				padding: clamp(3rem, 8vh, 5.5rem) clamp(1.25rem, 4vw, 2rem) clamp(2rem, 5vh, 3.5rem);
 				position: relative;
@@ -163,7 +177,7 @@
 
 			.tut-content {
 				flex: 1;
-				background: #06070b;
+				background: #070707;
 				padding: clamp(2.5rem, 6vh, 4rem) clamp(1.25rem, 4vw, 2rem);
 			}
 
