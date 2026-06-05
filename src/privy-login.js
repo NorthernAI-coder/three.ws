@@ -74,8 +74,6 @@ function getSolanaProvider() {
 
 function mountPrivyUI(privy) {
 	// Email OTP elements
-	const toggleBtn    = document.getElementById('privy-toggle-btn');
-	const expandedArea = document.getElementById('privy-expanded');
 	const stepEmail    = document.getElementById('privy-step-email');
 	const stepCode     = document.getElementById('privy-step-code');
 	const emailInput   = document.getElementById('privy-email-input');
@@ -91,7 +89,7 @@ function mountPrivyUI(privy) {
 	const solanaBtn    = document.getElementById('privy-solana-btn');
 	const walletStatus = document.getElementById('privy-wallet-status');
 
-	if (!toggleBtn || !expandedArea) return;
+	if (!stepEmail) return;
 
 	let pendingEmail = '';
 
@@ -102,21 +100,6 @@ function mountPrivyUI(privy) {
 		if (errEl) { errEl.textContent = ''; errEl.hidden = true; }
 	}
 
-	function expand() {
-		toggleBtn.hidden = true;
-		expandedArea.hidden = false;
-		showStep('email');
-		emailInput?.focus();
-	}
-	function collapse() {
-		toggleBtn.hidden = false;
-		expandedArea.hidden = true;
-		clearErr();
-		if (emailInput) emailInput.value = '';
-		if (codeInput) codeInput.value = '';
-		resetWalletBtns();
-	}
-
 	function showStep(step) {
 		clearErr();
 		stepEmail.hidden = step !== 'email';
@@ -124,9 +107,20 @@ function mountPrivyUI(privy) {
 		if (walletWrap) walletWrap.hidden = step !== 'email';
 	}
 
+	function reset() {
+		showStep('email');
+		if (emailInput) emailInput.value = '';
+		if (codeInput) codeInput.value = '';
+		resetWalletBtns();
+		emailInput?.focus();
+	}
+
+	const evmBtnHTML    = evmBtn?.innerHTML    ?? '';
+	const solanaBtnHTML = solanaBtn?.innerHTML ?? '';
+
 	function resetWalletBtns() {
-		if (evmBtn)    { evmBtn.disabled = false;    evmBtn.textContent = 'EVM'; }
-		if (solanaBtn) { solanaBtn.disabled = false;  solanaBtn.textContent = 'Solana'; }
+		if (evmBtn)    { evmBtn.disabled = false;    evmBtn.innerHTML = evmBtnHTML; }
+		if (solanaBtn) { solanaBtn.disabled = false;  solanaBtn.innerHTML = solanaBtnHTML; }
 		if (walletStatus) { walletStatus.textContent = ''; walletStatus.hidden = true; }
 	}
 
@@ -134,9 +128,10 @@ function mountPrivyUI(privy) {
 		if (walletStatus) { walletStatus.textContent = msg; walletStatus.hidden = false; }
 	}
 
-	// Open / close
-	toggleBtn.addEventListener('click', expand);
-	backBtn?.addEventListener('click', collapse);
+	// Initialize — show email step
+	showStep('email');
+
+	backBtn?.addEventListener('click', reset);
 
 	// ── Email OTP ──────────────────────────────────────────────────────────────
 
@@ -200,7 +195,7 @@ function mountPrivyUI(privy) {
 			return;
 		}
 		evmBtn.disabled = true;
-		evmBtn.textContent = 'Connecting…';
+		evmBtn.innerHTML = 'Connecting…';
 		if (solanaBtn) solanaBtn.disabled = true;
 		setWalletStatus('Requesting accounts…');
 		clearErr();
@@ -247,7 +242,7 @@ function mountPrivyUI(privy) {
 			return;
 		}
 		solanaBtn.disabled = true;
-		solanaBtn.textContent = 'Connecting…';
+		solanaBtn.innerHTML = 'Connecting…';
 		if (evmBtn) evmBtn.disabled = true;
 		setWalletStatus('Connecting wallet…');
 		clearErr();
