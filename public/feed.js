@@ -91,7 +91,7 @@
 		'agent-deploy': {
 			icon: '✦',
 			href: function (e) { return e.agentId ? '/agent/' + encodeURIComponent(e.agentId) : '/discover'; },
-			parts: function (e) { return [bold(e.name || e.actor || 'A new agent'), ' just deployed on-chain']; },
+			parts: function (e) { return [bold(e.name || e.actor || 'A new agent'), ' just joined three.ws']; },
 		},
 		'level-up': {
 			icon: '⬆',

@@ -898,24 +898,25 @@ function _escapeHTML(s) {
 		.replace(/'/g, '&#39;');
 }
 
-// Model choices surfaced in the header dropdown. `auto` lets the server pick
-// based on which keys are configured (Anthropic → OpenRouter → Groq → OpenAI).
+// Model choices surfaced in the header dropdown. `auto` lets the server pick —
+// which now resolves to GPT-OSS 120B on OpenRouter (the platform default, free),
+// then Groq, then any configured paid keys. See api/_lib/chat-models.js.
 // Free OpenRouter entries are tool-call capable; Gemma/Qwen omitted because
 // their tool-calling is unreliable.
 const MODEL_OPTIONS = [
-	{ id: 'auto', label: 'Auto', provider: null, model: null },
+	{ id: 'auto', label: 'Auto (GPT-OSS 120B)', provider: null, model: null },
+	{
+		id: 'openrouter:gpt-oss',
+		label: 'GPT-OSS 120B (free)',
+		provider: 'openrouter',
+		model: 'openai/gpt-oss-120b:free',
+	},
 	{ id: 'anthropic:sonnet', label: 'Claude Sonnet 4.6', provider: 'anthropic', model: 'claude-sonnet-4-6' },
 	{
 		id: 'openrouter:llama-70b',
 		label: 'Llama 3.3 70B (free)',
 		provider: 'openrouter',
 		model: 'meta-llama/llama-3.3-70b-instruct:free',
-	},
-	{
-		id: 'openrouter:gpt-oss',
-		label: 'GPT-OSS 120B (free)',
-		provider: 'openrouter',
-		model: 'openai/gpt-oss-120b:free',
 	},
 	{
 		id: 'openrouter:hermes',

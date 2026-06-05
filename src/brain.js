@@ -4,6 +4,7 @@ import { sanitizeUrl } from './shared/sanitize-url.js';
 
 // ── Provider registry ────────────────────────────────────────────────────────
 const PROVIDERS = [
+	{ key: 'gpt-oss-120b',      label: 'GPT-OSS 120B',       short: 'GPT-OSS',     network: 'OpenAI · OpenRouter', color: '#a5b4fc', ctx: '128K', tier: 'Default'  },
 	{ key: 'claude-opus-4-7',   label: 'Claude Opus 4.7',    short: 'Opus 4.7',    network: 'Anthropic',  color: '#c8a96e', ctx: '200K', tier: 'Flagship' },
 	{ key: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6',  short: 'Sonnet 4.6',  network: 'Anthropic',  color: '#d4b87a', ctx: '200K', tier: 'Balanced' },
 	{ key: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',   short: 'Haiku 4.5',   network: 'Anthropic',  color: '#e0c88a', ctx: '200K', tier: 'Fast'     },
@@ -54,8 +55,8 @@ const state = {
 	authed: isAuthedHint(),
 
 	playMode: 'compare',
-	focusKey: 'groq-llama',
-	active: new Set(['groq-llama', 'claude-sonnet-4-6', 'gpt-4o-mini', 'deepseek-r1']),
+	focusKey: 'gpt-oss-120b',
+	active: new Set(['gpt-oss-120b', 'groq-llama', 'claude-sonnet-4-6', 'gpt-4o-mini']),
 	sessions: [],
 	currentId: null,
 	streaming: false,

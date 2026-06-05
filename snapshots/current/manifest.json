@@ -1,0 +1,52 @@
+{
+  "capturedAt": "2026-06-05T08:31:41.751Z",
+  "date": "2026-06-05",
+  "baseUrl": "https://three.ws",
+  "viewports": [
+    "desktop"
+  ],
+  "pageCount": 5,
+  "capturedCount": 1,
+  "pages": [
+    {
+      "path": "/",
+      "title": "/",
+      "section": "Selected",
+      "slug": "home",
+      "shots": {}
+    },
+    {
+      "path": "/ibm",
+      "title": "/ibm",
+      "section": "Selected",
+      "slug": "ibm",
+      "shots": {
+        "desktop": {
+          "bytes": 700364,
+          "navStatus": 200
+        }
+      }
+    },
+    {
+      "path": "/pay",
+      "title": "/pay",
+      "section": "Selected",
+      "slug": "pay",
+      "shots": {}
+    },
+    {
+      "path": "/three-live",
+      "title": "/three-live",
+      "section": "Selected",
+      "slug": "three-live",
+      "shots": {}
+    },
+    {
+      "path": "/docs",
+      "title": "/docs",
+      "section": "Selected",
+      "slug": "docs",
+      "shots": {}
+    }
+  ]
+}
