@@ -200,7 +200,7 @@ const appConfig = {
 		// large bundles (Three.js, ethers) without affecting the output.
 		reportCompressedSize: false,
 		rollupOptions: {
-			external: ['/studio/launch-panel.js', '/studio/fees-panel.js', './fees-panel.js', /^@pump-fun\/agent-payments-sdk(\/.*)?$/],
+			external: ['/studio/launch-panel.js', '/studio/fees-panel.js', './fees-panel.js', '/crypto-optional.js', /^@pump-fun\/agent-payments-sdk(\/.*)?$/],
 			output: {
 				manualChunks(id) {
 					if (id.includes('node_modules/three/')) {
@@ -215,21 +215,31 @@ const appConfig = {
 				// scripts can load them by a predictable URL without knowing the
 				// build hash: footer.js → /footer-bot.js, nav.js → /walk-companion.js.
 				entryFileNames: (chunk) =>
-					chunk.name === 'footer-bot' || chunk.name === 'walk-companion'
+					chunk.name === 'footer-bot' || chunk.name === 'walk-companion' || chunk.name === 'notifications'
 						? `${chunk.name}.js`
 						: 'assets/[name]-[hash].js',
 			},
 			input: {
 				'footer-bot': resolve(__dirname, 'src/footer-bot.js'),
 				'walk-companion': resolve(__dirname, 'src/walk-companion.js'),
+				'notifications': resolve(__dirname, 'src/notifications.js'),
 				app: resolve(__dirname, 'pages/app.html'),
 				'app-demo': resolve(__dirname, 'pages/app-demo.html'),
 				'app-next': resolve(__dirname, 'pages/app-next.html'),
 				home: resolve(__dirname, 'pages/home.html'),
-				'home-v2': resolve(__dirname, 'pages/home-v2.html'),
+				'what-is': resolve(__dirname, 'pages/what-is.html'),
 				features: resolve(__dirname, 'pages/features.html'),
+				'features-forge': resolve(__dirname, 'pages/features/forge.html'),
+				'features-scan': resolve(__dirname, 'pages/features/scan.html'),
+				'features-play': resolve(__dirname, 'pages/features/play.html'),
+				'features-walk': resolve(__dirname, 'pages/features/walk.html'),
+				'features-studio': resolve(__dirname, 'pages/features/studio.html'),
+				'features-marketplace': resolve(__dirname, 'pages/features/marketplace.html'),
+				'features-agent-exchange': resolve(__dirname, 'pages/features/agent-exchange.html'),
+				'features-deploy': resolve(__dirname, 'pages/features/deploy.html'),
 				tutorials: resolve(__dirname, 'pages/tutorials.html'),
 				tutorial: resolve(__dirname, 'pages/tutorial.html'),
+				glossary: resolve(__dirname, 'pages/glossary.html'),
 				playground: resolve(__dirname, 'pages/playground.html'),
 				coin3d: resolve(__dirname, 'pages/coin3d.html'),
 				constellation: resolve(__dirname, 'pages/constellation.html'),
@@ -246,9 +256,13 @@ const appConfig = {
 				'avatar-studio': resolve(__dirname, 'pages/avatar-studio.html'),
 				'create-review': resolve(__dirname, 'pages/create-review.html'),
 				'import-rpm': resolve(__dirname, 'pages/import-rpm.html'),
-				'agent-home': resolve(__dirname, 'pages/agent-home.html'),
 				marketplace: resolve(__dirname, 'pages/marketplace.html'),
 				'agent-edit': resolve(__dirname, 'pages/agent-edit.html'),
+					'avatar-edit': resolve(__dirname, 'pages/avatar-edit.html'),
+					'create-video': resolve(__dirname, 'pages/create/video.html'),
+					'extension-privacy': resolve(__dirname, 'pages/extension-privacy.html'),
+					'extension-terms': resolve(__dirname, 'pages/extension-terms.html'),
+					'embed-walk': resolve(__dirname, 'pages/embed-walk.html'),
 				'agent-embed': resolve(__dirname, 'pages/agent-embed.html'),
 				'agent-detail': resolve(__dirname, 'pages/agent-detail.html'),
 				'avatar-embed': resolve(__dirname, 'pages/avatar-embed.html'),
@@ -263,6 +277,7 @@ const appConfig = {
 				'a-embed': resolve(__dirname, 'pages/a-embed.html'),
 				'a-edit': resolve(__dirname, 'pages/a-edit.html'),
 				'a-me': resolve(__dirname, 'pages/a-me.html'),
+				labs: resolve(__dirname, 'pages/labs.html'),
 				'fact-checker': resolve(__dirname, 'pages/fact-checker.html'),
 				unstoppable: resolve(__dirname, 'pages/unstoppable.html'),
 				shopper: resolve(__dirname, 'pages/shopper.html'),
@@ -284,11 +299,6 @@ const appConfig = {
 				creating: resolve(__dirname, 'pages/creating.html'),
 				pricing: resolve(__dirname, 'pages/pricing.html'),
 				'x-pricing': resolve(__dirname, 'pages/x-pricing.html'),
-				'home-classic': resolve(__dirname, 'pages/home-classic.html'),
-				'home-v3': resolve(__dirname, 'pages/home-v3.html'),
-				'home-v4': resolve(__dirname, 'pages/home-v4.html'),
-				'agent-next': resolve(__dirname, 'pages/agent-next.html'),
-				'discover-next': resolve(__dirname, 'pages/discover-next.html'),
 				'avatar-studio-demo': resolve(__dirname, 'pages/avatar-studio-demo.html'),
 				'gallery-picker': resolve(__dirname, 'pages/gallery-picker.html'),
 				xr: resolve(__dirname, 'pages/xr.html'),
@@ -485,6 +495,16 @@ const appConfig = {
 				'/create': resolve(root, 'pages/create.html'),
 					'/create/selfie': resolve(root, 'pages/create-selfie.html'),
 					'/create/selfie/': resolve(root, 'pages/create-selfie.html'),
+						'/create/video': resolve(root, 'pages/create/video.html'),
+						'/create/video/': resolve(root, 'pages/create/video.html'),
+						'/extension/privacy': resolve(root, 'pages/extension-privacy.html'),
+						'/extension/privacy/': resolve(root, 'pages/extension-privacy.html'),
+						'/extension/terms': resolve(root, 'pages/extension-terms.html'),
+						'/extension/terms/': resolve(root, 'pages/extension-terms.html'),
+						'/embed/walk': resolve(root, 'pages/embed-walk.html'),
+						'/embed/walk/': resolve(root, 'pages/embed-walk.html'),
+						'/paywall': resolve(root, 'public/paywall.html'),
+						'/paywall/': resolve(root, 'public/paywall.html'),
 					'/scan': resolve(root, 'pages/scan.html'),
 					'/scan/': resolve(root, 'pages/scan.html'),
 					'/worlds': resolve(root, 'pages/worlds.html'),
@@ -497,8 +517,8 @@ const appConfig = {
 					'/import/rpm/': resolve(root, 'pages/import-rpm.html'),
 					'/dashboard': resolve(root, 'pages/dashboard-next/index.html'),
 					'/dashboard/': resolve(root, 'pages/dashboard-next/index.html'),
-					'/dashboard-classic': resolve(root, 'public/dashboard-classic/index.html'),
-					'/dashboard-classic/': resolve(root, 'public/dashboard-classic/index.html'),
+					'/dashboard-classic': null,
+					'/dashboard-classic/': null,
 					'/dashboard-next': resolve(root, 'pages/dashboard-next/index.html'),
 					'/dashboard-next/': resolve(root, 'pages/dashboard-next/index.html'),
 					'/dashboard/avatars': resolve(root, 'pages/dashboard-next/avatars.html'),
@@ -544,6 +564,8 @@ const appConfig = {
 					// END:DISCOVER_ROUTE
 					'/tutorials': resolve(root, 'pages/tutorials.html'),
 					'/tutorials/': resolve(root, 'pages/tutorials.html'),
+					'/glossary': resolve(root, 'pages/glossary.html'),
+					'/glossary/': resolve(root, 'pages/glossary.html'),
 					'/pump-live': resolve(root, 'pages/pump-live.html'),
 					'/pump-live/': resolve(root, 'pages/pump-live.html'),
 					'/pump-dashboard': resolve(root, 'pages/pump-dashboard.html'),
@@ -637,22 +659,17 @@ const appConfig = {
 					'/demo/coin/': resolve(root, 'public/demo/coin/index.html'),
 					'/': resolve(root, 'pages/home.html'),
 					'/home': resolve(root, 'pages/home.html'),
-					'/home-v2': resolve(root, 'pages/home-v2.html'),
-					'/home-v2/': resolve(root, 'pages/home-v2.html'),
-					'/home-classic': resolve(root, 'pages/home-classic.html'),
-					'/home-classic/': resolve(root, 'pages/home-classic.html'),
-					'/home-v3': resolve(root, 'pages/home-v3.html'),
-					'/home-v3/': resolve(root, 'pages/home-v3.html'),
-					'/home-v4': resolve(root, 'pages/home-v4.html'),
-					'/home-v4/': resolve(root, 'pages/home-v4.html'),
+					'/what-is': resolve(root, 'pages/what-is.html'),
+					'/what-is/': resolve(root, 'pages/what-is.html'),
 					'/features': resolve(root, 'pages/features.html'),
 					'/features/': resolve(root, 'pages/features.html'),
-					'/agent': resolve(root, 'pages/agent-home.html'),
 					'/agent/new': resolve(root, 'pages/agent-edit.html'),
 					'/docs': resolve(root, 'docs/index.html'),
 					'/docs/': resolve(root, 'docs/index.html'),
 					'/bazaar': resolve(root, 'public/bazaar.html'),
 					'/bazaar/': resolve(root, 'public/bazaar.html'),
+					'/labs': resolve(root, 'pages/labs.html'),
+					'/labs/': resolve(root, 'pages/labs.html'),
 					'/forever': resolve(root, 'public/forever.html'),
 					'/forever/': resolve(root, 'public/forever.html'),
 					'/arbitrage': resolve(root, 'public/arbitrage.html'),
@@ -693,6 +710,14 @@ const appConfig = {
 						res.setHeader('Location', path + '/' + (req.url.slice(path.length) || ''));
 						return res.end();
 					}
+					// Legacy homepage variants (home-v2/v3/v4, classic, next) were
+					// reconciled into the single canonical pages/home.html. One front
+					// door: 301 every old variant URL to /. Mirrors vercel.json.
+					if (/^\/home-(v2|v3|v4|classic|next)\/?$/.test(path)) {
+						res.statusCode = 301;
+						res.setHeader('Location', '/');
+						return res.end();
+					}
 					// /explore is an alias for /discover — share the same JS bundle
 					if (path === '/explore' || path === '/explore/') {
 						res.statusCode = 301;
@@ -725,6 +750,32 @@ const appConfig = {
 					if (path === '/chat') {
 						res.statusCode = 301;
 						res.setHeader('Location', '/chat/');
+						return res.end();
+					}
+					// /dashboard-classic/* → canonical /dashboard/* (mirrors vercel.json 301s)
+					if (path === '/dashboard-classic' || path.startsWith('/dashboard-classic/')) {
+						const classicSlugMap = {
+							'portfolio/asset': '/dashboard/portfolio',
+							portfolio: '/dashboard/portfolio',
+							wallets: '/dashboard/account',
+							sessions: '/dashboard/settings',
+							actions: '/dashboard/account',
+							'embed-policy': '/dashboard/api',
+							memory: '/dashboard/agents',
+							strategy: '/dashboard/library',
+							voice: '/dashboard/settings',
+							sns: '/dashboard/account',
+							delegation: '/dashboard/account',
+							tokens: '/dashboard/tokens',
+							'agent-pumpfun': '/dashboard/tokens',
+							x402: '/dashboard/monetize',
+							storage: '/dashboard/settings',
+							usage: '/dashboard/analytics',
+						};
+						const slug = path.replace(/^\/dashboard-classic\/?/, '').replace(/\/$/, '');
+						const dest = classicSlugMap[slug] || '/dashboard/';
+						res.statusCode = 301;
+						res.setHeader('Location', dest);
 						return res.end();
 					}
 					let filePath = fileMap[path];
@@ -774,7 +825,7 @@ const appConfig = {
 					else if (!filePath && /^\/agent\/[^/]+\/embed$/.test(path))
 						filePath = resolve(root, 'pages/agent-embed.html');
 					else if (!filePath && /^\/agent\/[^/]+$/.test(path))
-						filePath = resolve(root, 'pages/agent-home.html');
+						filePath = resolve(root, 'pages/agent-detail.html');
 					else if (!filePath && /^\/character\/[^/]+\/?$/.test(path))
 						filePath = resolve(root, 'public/character.html');
 					else if (!filePath && (path === '/characters' || path === '/characters/'))
@@ -789,6 +840,9 @@ const appConfig = {
 					// /embed/avatar/:handle  → portable avatar embed by handle
 					else if (!filePath && /^\/embed\/avatar(\/[a-z0-9_-]{3,30})?\/?$/i.test(path))
 						filePath = resolve(root, 'pages/avatar-embed.html');
+					// /avatars/:id/edit  → avatar customize page (mirrors vercel.json rewrite)
+					else if (!filePath && /^\/avatars\/[^/.]+\/edit\/?$/.test(path))
+						filePath = resolve(root, 'pages/avatar-edit.html');
 					// /avatars/:id  → avatar studio page (mirrors vercel.json rewrite)
 					else if (!filePath && /^\/avatars\/[^/.]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/avatar-page.html');
@@ -817,18 +871,6 @@ const appConfig = {
 						filePath = resolve(root, 'pages/dashboard-next/index.html');
 					else if (!filePath && /^\/dashboard\/edit\/[^/]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/dashboard-next/index.html');
-					// /dashboard-classic/<tab> → public/dashboard-classic/index.html (classic SPA)
-					else if (
-						!filePath &&
-						/^\/dashboard-classic\/(?:agents|avatars|create|upload|animations|widgets|embed|keys|mcp|monetization|payments|subscriptions|billing|revenue|withdrawals|earnings|account|portfolio|wallets|sessions|actions|embed-policy|agent-pumpfun|usage|storage|memory|strategy|voice|sns|delegation|tokens)\/?$/.test(
-							path,
-						)
-					)
-						filePath = resolve(root, 'public/dashboard-classic/index.html');
-					else if (!filePath && /^\/dashboard-classic\/edit\/[^/]+\/?$/.test(path))
-						filePath = resolve(root, 'public/dashboard-classic/index.html');
-					else if (!filePath && /^\/dashboard-classic\/portfolio\/asset\/?$/.test(path))
-						filePath = resolve(root, 'public/dashboard-classic/portfolio-asset.html');
 					// /dashboard-next/<slug> → pages/dashboard-next/<slug>.html
 					// Mirrors vercel.json so the dev server resolves the sub-pages
 					// landed by parallel agents without each one having to touch
@@ -844,12 +886,12 @@ const appConfig = {
 						const candidate = resolve(root, `pages/dashboard-next/${slug}.html`);
 						if (existsSync(candidate)) filePath = candidate;
 					}
-					// /dashboard-classic/<page> → corresponding static HTML page (classic pages)
-					else if (!filePath && /^\/dashboard-classic\/portfolio\/asset\/?$/.test(path))
-						filePath = resolve(root, 'public/dashboard-classic/portfolio-asset.html');
-					else if (!filePath && /^\/dashboard-classic\/(?:portfolio|wallets|sessions|actions|embed-policy|agent-pumpfun|usage|storage|memory|strategy|voice|sns|delegation|tokens)\/?$/.test(path)) {
-						const slug = path.replace(/^\/dashboard-classic\//, '').replace(/\/$/, '');
-						filePath = resolve(root, `public/dashboard-classic/${slug}.html`);
+					// /features/<slug> → pages/features/<slug>.html
+					// Mirrors vercel.json so per-feature SEO landing pages work in dev.
+					else if (!filePath && /^\/features\/[a-z0-9][a-z0-9-]*\/?$/.test(path)) {
+						const slug = path.replace(/^\/features\//, '').replace(/\/$/, '');
+						const candidate = resolve(root, `pages/features/${slug}.html`);
+						if (existsSync(candidate)) filePath = candidate;
 					}
 					// Generic fallback: /<slug> or /<slug>.html → pages/<slug>.html
 					// Catches the long tail of bundled root-level pages (community,
@@ -869,6 +911,11 @@ const appConfig = {
 				// (built to a stable, unhashed name in prod; served from src in dev).
 				if (path === '/walk-companion.js') {
 					req.url = '/src/walk-companion.js';
+					return next();
+				}
+				// /notifications.js — nav.js loads this module for the per-user inbox.
+				if (path === '/notifications.js') {
+					req.url = '/src/notifications.js';
 					return next();
 				}
 				// Avatar Studio (rebranded Character Studio fork) — serve the
@@ -1274,7 +1321,7 @@ const appConfig = {
 						name: 'My Agents',
 						short_name: 'My Agents',
 						description: 'Manage your AI agents',
-						url: '/agent-home?source=pwa-shortcut',
+						url: '/agents?source=pwa-shortcut',
 						icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
 					},
 				],

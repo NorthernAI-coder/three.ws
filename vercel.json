@@ -434,6 +434,10 @@
 			"dest": "/avatar-studio-demo.html"
 		},
 		{
+			"src": "/forge/share/([^/]+)",
+			"dest": "/api/forge-share?id=$1"
+		},
+		{
 			"src": "/forge/?",
 			"dest": "/forge.html"
 		},
@@ -733,19 +737,28 @@
 		},
 		{
 			"src": "/home-classic/?",
-			"dest": "/home-classic.html"
+			"status": 301,
+			"headers": { "Location": "/" }
 		},
 		{
 			"src": "/home-v3/?",
-			"dest": "/home-v3.html"
+			"status": 301,
+			"headers": { "Location": "/" }
 		},
 		{
 			"src": "/home-v4/?",
-			"dest": "/home-v4.html"
+			"status": 301,
+			"headers": { "Location": "/" }
+		},
+		{
+			"src": "/discover-next/?",
+			"status": 301,
+			"headers": { "Location": "/discover" }
 		},
 		{
 			"src": "/agent-next/?",
-			"dest": "/agent-next.html"
+			"status": 301,
+			"headers": { "Location": "/agents" }
 		},
 		{
 			"src": "/deploy",
@@ -757,75 +770,93 @@
 		},
 		{
 			"src": "/dashboard-classic/?",
-			"dest": "/dashboard-classic/index.html"
+			"headers": { "Location": "/dashboard/" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/portfolio/asset",
-			"dest": "/dashboard-classic/portfolio-asset.html"
+			"headers": { "Location": "/dashboard/portfolio" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/portfolio",
-			"dest": "/dashboard-classic/portfolio.html"
+			"headers": { "Location": "/dashboard/portfolio" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/wallets",
-			"dest": "/dashboard-classic/wallets.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/sessions",
-			"dest": "/dashboard-classic/sessions.html"
+			"headers": { "Location": "/dashboard/settings" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/actions",
-			"dest": "/dashboard-classic/actions.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/embed-policy",
-			"dest": "/dashboard-classic/embed-policy.html"
+			"headers": { "Location": "/dashboard/api" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/memory",
-			"dest": "/dashboard-classic/memory.html"
+			"headers": { "Location": "/dashboard/agents" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/strategy",
-			"dest": "/dashboard-classic/strategy.html"
+			"headers": { "Location": "/dashboard/library" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/voice",
-			"dest": "/dashboard-classic/voice.html"
+			"headers": { "Location": "/dashboard/settings" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/sns",
-			"dest": "/dashboard-classic/sns.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/delegation",
-			"dest": "/dashboard-classic/delegation.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/tokens",
-			"dest": "/dashboard-classic/tokens.html"
+			"headers": { "Location": "/dashboard/tokens" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/agent-pumpfun",
-			"dest": "/dashboard-classic/agent-pumpfun.html"
+			"headers": { "Location": "/dashboard/tokens" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/x402",
-			"dest": "/dashboard-classic/x402.html"
+			"headers": { "Location": "/dashboard/monetize" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/storage",
-			"dest": "/dashboard-classic/storage.html"
+			"headers": { "Location": "/dashboard/settings" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/usage",
-			"dest": "/dashboard-classic/usage.html"
+			"headers": { "Location": "/dashboard/analytics" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard-classic/(.*)",
-			"dest": "/dashboard-classic/$1"
+			"headers": { "Location": "/dashboard/" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/?",
@@ -881,7 +912,8 @@
 		},
 		{
 			"src": "/dashboard/portfolio/asset",
-			"dest": "/dashboard-classic/portfolio-asset.html"
+			"headers": { "Location": "/dashboard/portfolio" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/portfolio/?",
@@ -889,43 +921,53 @@
 		},
 		{
 			"src": "/dashboard/wallets",
-			"dest": "/dashboard-classic/wallets.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/sessions",
-			"dest": "/dashboard-classic/sessions.html"
+			"headers": { "Location": "/dashboard/settings" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/actions",
-			"dest": "/dashboard-classic/actions.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/embed-policy",
-			"dest": "/dashboard-classic/embed-policy.html"
+			"headers": { "Location": "/dashboard/api" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/memory",
-			"dest": "/dashboard-classic/memory.html"
+			"headers": { "Location": "/dashboard/agents" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/strategy",
-			"dest": "/dashboard-classic/strategy.html"
+			"headers": { "Location": "/dashboard/library" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/voice",
-			"dest": "/dashboard-classic/voice.html"
+			"headers": { "Location": "/dashboard/settings" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/sns",
-			"dest": "/dashboard-classic/sns.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/delegation",
-			"dest": "/dashboard-classic/delegation.html"
+			"headers": { "Location": "/dashboard/account" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/agent-pumpfun",
-			"dest": "/dashboard-classic/agent-pumpfun.html"
+			"headers": { "Location": "/dashboard/tokens" },
+			"status": 301
 		},
 		{
 			"src": "/dashboard/x402",
@@ -1114,14 +1156,14 @@
 			"src": "/marketplace/agents/([^/]+)",
 			"status": 301,
 			"headers": {
-				"Location": "/agent-next?id=$1"
+				"Location": "/agents/$1"
 			}
 		},
 		{
 			"src": "/marketplace/avatars/([^/]+)",
 			"status": 301,
 			"headers": {
-				"Location": "/agent-next?id=$1"
+				"Location": "/agents/$1"
 			}
 		},
 		{
@@ -1170,7 +1212,8 @@
 		},
 		{
 			"src": "/dashboard/storage",
-			"dest": "/dashboard-classic/storage.html"
+			"headers": { "Location": "/dashboard/settings" },
+			"status": 301
 		},
 		{
 			"src": "/api/agents/([^/]+)/embed-policy",
@@ -1611,6 +1654,10 @@
 			"dest": "/api/agent-og?id=$1"
 		},
 		{
+			"src": "/api/forge/([^/]+)/og",
+			"dest": "/api/forge-og?id=$1"
+		},
+		{
 			"src": "/api/avatar/render",
 			"dest": "/api/avatar/render"
 		},
@@ -1661,7 +1708,7 @@
 			"src": "/avatars/([^/]+)",
 			"status": 301,
 			"headers": {
-				"Location": "/agent-next?id=$1"
+				"Location": "/agents/$1"
 			}
 		},
 		{
@@ -1757,22 +1804,13 @@
 		},
 		{
 			"src": "/agent/([^/]+)",
-			"has": [
-				{
-					"type": "query",
-					"key": "_spa",
-					"value": "1"
-				}
-			],
-			"dest": "/agent-home.html"
-		},
-		{
-			"src": "/agent/([^/]+)",
-			"dest": "/api/agent-page?id=$1"
+			"status": 301,
+			"headers": { "Location": "/agents/$1" }
 		},
 		{
 			"src": "/agent",
-			"dest": "/agent-home.html"
+			"status": 301,
+			"headers": { "Location": "/agents" }
 		},
 		{
 			"src": "/api/widgets/oembed",
@@ -1879,6 +1917,14 @@
 			"dest": "/docs/$1"
 		},
 		{
+			"src": "/glossary",
+			"dest": "/glossary.html"
+		},
+		{
+			"src": "/glossary/",
+			"dest": "/glossary.html"
+		},
+		{
 			"src": "/tutorials",
 			"dest": "/tutorials.html"
 		},
@@ -1967,14 +2013,6 @@
 			"dest": "/reputation/$1"
 		},
 		{
-			"src": "/deal",
-			"dest": "/deal.html"
-		},
-		{
-			"src": "/deal/",
-			"dest": "/deal.html"
-		},
-		{
 			"src": "/pay",
 			"dest": "/pay/index.html"
 		},
@@ -2001,6 +2039,14 @@
 		{
 			"src": "/x402/",
 			"dest": "/x402-stripe.html"
+		},
+		{
+			"src": "/community",
+			"dest": "/community.html"
+		},
+		{
+			"src": "/community/",
+			"dest": "/community.html"
 		},
 		{
 			"src": "/bazaar",
@@ -2088,7 +2134,8 @@
 		},
 		{
 			"src": "/dashboard/usage",
-			"dest": "/dashboard-classic/usage.html"
+			"headers": { "Location": "/dashboard/analytics" },
+			"status": 301
 		},
 		{
 			"src": "/api/erc8004/register-confirm",
@@ -2153,6 +2200,17 @@
 		{
 			"src": "/agents/",
 			"dest": "/agents/index.html"
+		},
+		{
+			"src": "/agents/([^/]+)",
+			"has": [
+				{
+					"type": "header",
+					"key": "user-agent",
+					"value": "(?i).*(Twitterbot|facebookexternalhit|Slackbot|LinkedInBot|Discordbot|TelegramBot|WhatsApp|Googlebot|bingbot|Applebot|Pinterestbot|redditbot|Embedly|Quora|outbrain|vkShare|Iframely).*"
+				}
+			],
+			"dest": "/api/agent-detail-og?id=$1"
 		},
 		{
 			"src": "/agents/([^/]+)",
@@ -2511,6 +2569,14 @@
 			"dest": "/extension-terms.html"
 		},
 		{
+			"src": "/what-is",
+			"dest": "/what-is.html"
+		},
+		{
+			"src": "/what-is/",
+			"dest": "/what-is.html"
+		},
+		{
 			"src": "/features",
 			"dest": "/features.html"
 		},
@@ -2519,16 +2585,77 @@
 			"dest": "/features.html"
 		},
 		{
+			"src": "/features/forge",
+			"dest": "/features/forge.html"
+		},
+		{
+			"src": "/features/forge/",
+			"dest": "/features/forge.html"
+		},
+		{
+			"src": "/features/scan",
+			"dest": "/features/scan.html"
+		},
+		{
+			"src": "/features/scan/",
+			"dest": "/features/scan.html"
+		},
+		{
+			"src": "/features/play",
+			"dest": "/features/play.html"
+		},
+		{
+			"src": "/features/play/",
+			"dest": "/features/play.html"
+		},
+		{
+			"src": "/features/walk",
+			"dest": "/features/walk.html"
+		},
+		{
+			"src": "/features/walk/",
+			"dest": "/features/walk.html"
+		},
+		{
+			"src": "/features/studio",
+			"dest": "/features/studio.html"
+		},
+		{
+			"src": "/features/studio/",
+			"dest": "/features/studio.html"
+		},
+		{
+			"src": "/features/marketplace",
+			"dest": "/features/marketplace.html"
+		},
+		{
+			"src": "/features/marketplace/",
+			"dest": "/features/marketplace.html"
+		},
+		{
+			"src": "/features/agent-exchange",
+			"dest": "/features/agent-exchange.html"
+		},
+		{
+			"src": "/features/agent-exchange/",
+			"dest": "/features/agent-exchange.html"
+		},
+		{
+			"src": "/features/deploy",
+			"dest": "/features/deploy.html"
+		},
+		{
+			"src": "/features/deploy/",
+			"dest": "/features/deploy.html"
+		},
+		{
 			"src": "/",
 			"dest": "/home.html"
 		},
 		{
-			"src": "/home-v2",
-			"dest": "/home-v2.html"
-		},
-		{
-			"src": "/home-v2/",
-			"dest": "/home-v2.html"
+			"src": "/home-v2/?",
+			"status": 301,
+			"headers": { "Location": "/" }
 		},
 		{
 			"src": "/home",
@@ -2597,6 +2724,14 @@
 			"dest": "/dist-lib/$1"
 		},
 		{
+			"src": "/labs",
+			"dest": "/labs.html"
+		},
+		{
+			"src": "/labs/",
+			"dest": "/labs.html"
+		},
+		{
 			"src": "/fact-checker",
 			"dest": "/fact-checker.html"
 		},
@@ -2622,11 +2757,11 @@
 		},
 		{
 			"src": "/paywall",
-			"dest": "/public/paywall.html"
+			"dest": "/paywall.html"
 		},
 		{
 			"src": "/paywall/",
-			"dest": "/public/paywall.html"
+			"dest": "/paywall.html"
 		},
 		{
 			"src": "/api/x402/fact-check",
