@@ -142,6 +142,11 @@ export const ANON_PROVIDER_LIST = ['groq', 'openrouter'];
  *   MAX_FALLBACK_ATTEMPTS — hard cap on upstream attempts per request.
  *   TOTAL_BUDGET_MS       — wall-clock budget across all attempts (< the 60s
  *                           function limit, leaving headroom to stream a reply).
+ *   PER_CALL_TIMEOUT_MS   — per-attempt abort ceiling. A single hung provider
+ *                           must not consume the whole TOTAL_BUDGET_MS; we abort
+ *                           the fetch at this bound (or the remaining budget,
+ *                           whichever is smaller) and fail over to the next route.
  */
 export const MAX_FALLBACK_ATTEMPTS = 3;
 export const TOTAL_BUDGET_MS = 25_000;
+export const PER_CALL_TIMEOUT_MS = 15_000;

@@ -40,6 +40,7 @@ import {
 	MODEL_CATALOG,
 	MAX_FALLBACK_ATTEMPTS,
 	TOTAL_BUDGET_MS,
+	PER_CALL_TIMEOUT_MS,
 } from './_lib/chat-models.js';
 import { z } from 'zod';
 
@@ -410,14 +411,30 @@ export default wrap(async (req, res) => {
 			// Most routes carry static headers; watsonx resolves a fresh IAM
 			// bearer token (cached between requests) just before the fetch.
 			const reqHeaders = route.headers || (await route.resolveHeaders());
-			upstream = await fetch(route.url, {
-				method: 'POST',
-				headers: reqHeaders,
-				body: JSON.stringify(route.buildPayload({ systemPrompt, history, maxTokens, includeTools })),
-			});
+			// Per-attempt abort: a single hung provider must not silently consume
+			// the whole TOTAL_BUDGET_MS (and ultimately trip the 60s function
+			// timeout). Cap each attempt at the smaller of the remaining budget or
+			// PER_CALL_TIMEOUT_MS, so a stalled upstream aborts fast and we fail
+			// over to the next route while time remains. The AbortError lands in
+			// the catch below, which advances the chain like any network blip.
+			const remainingMs = deadline - Date.now();
+			const ctrl = new AbortController();
+			const callMs = Math.max(1, Math.min(PER_CALL_TIMEOUT_MS, remainingMs));
+			const timer = setTimeout(() => ctrl.abort(), callMs);
+			try {
+				upstream = await fetch(route.url, {
+					method: 'POST',
+					headers: reqHeaders,
+					body: JSON.stringify(route.buildPayload({ systemPrompt, history, maxTokens, includeTools })),
+					signal: ctrl.signal,
+				});
+			} finally {
+				clearTimeout(timer);
+			}
 		} catch (err) {
 			captureException(err, { route: 'chat', stage: 'fetch', provider: route.name });
-			console.error(`[chat:${route.name}] upstream fetch failed:`, err.message);
+			const reason = err?.name === 'AbortError' ? 'timed out' : err.message;
+			console.error(`[chat:${route.name}] upstream fetch failed:`, reason);
 			// Network blip — try next route if one exists and time remains.
 			routeIdx++;
 			if (routeIdx < fallbackRoutes.length && Date.now() < deadline) {

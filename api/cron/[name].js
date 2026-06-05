@@ -369,6 +369,16 @@ const REDEEMED_TOPIC = dmIface.getEvent('RedeemedDelegation').topicHash;
 const IDX_BLOCK_CAP = 2000;
 const IDX_MAINNET_BLOCK_CAP = 25; // ETH mainnet is far more restrictive
 const IDX_RPC_TIMEOUT_MS = 10_000;
+// Stay this many blocks behind the chain tip. Two reasons:
+//   1. idxRpc rotates across a pool of public RPCs, and they are not perfectly
+//      in sync — eth_blockNumber may resolve on a node at head N while a sibling
+//      serves eth_getLogs with a head of N-2, which rejects toBlock=N with
+//      "block range extends beyond current head block". A small buffer keeps the
+//      queried range valid on every node in the pool.
+//   2. It avoids indexing blocks that can still be reorged out near the tip.
+// The next tick advances the cursor and picks up the buffered blocks once they
+// are safely confirmed.
+const IDX_HEAD_CONFIRMATIONS = 5;
 // Hard time budget per cron invocation — leave 8 s headroom before Vercel's 30 s limit.
 const IDX_TIME_BUDGET_MS = 22_000;
 
@@ -378,21 +388,24 @@ const BLOCKS_PER_DAY = {
 	11155111: 7200, // Sepolia ~12 s/block
 };
 
-// Public RPC fallbacks per chain — tried in order. Override primary via env RPC_URL_<chainId>.
+// Public RPC fallbacks per chain — tried in order. Override primary via env
+// RPC_URL_<chainId> with a keyed provider (Alchemy/Infura/QuickNode); the env
+// URL is always tried first (see idxRpcUrls). The public fallbacks below are a
+// best-effort safety net only — they rate-limit (429) and some don't serve
+// eth_getLogs, so prod MUST set RPC_URL_1 / RPC_URL_8453 for reliable indexing.
+// Removed: cloudflare-eth.com (endpoint sunset — always failed, wasting the
+// first attempt + timeout each run) and 1rpc.io/* (chronic 429 in prod logs).
 const PUBLIC_RPCS = {
 	1: [
-		'https://cloudflare-eth.com',
 		'https://eth.llamarpc.com',
 		'https://rpc.ankr.com/eth',
 		'https://ethereum.publicnode.com',
-		'https://1rpc.io/eth',
 	],
 	8453: [
 		'https://mainnet.base.org',
 		'https://base.llamarpc.com',
 		'https://rpc.ankr.com/base',
 		'https://base.publicnode.com',
-		'https://1rpc.io/base',
 	],
 	84532: [
 		'https://sepolia.base.org',
@@ -403,7 +416,6 @@ const PUBLIC_RPCS = {
 		'https://rpc.sepolia.org',
 		'https://ethereum-sepolia-rpc.publicnode.com',
 		'https://rpc.ankr.com/eth_sepolia',
-		'https://1rpc.io/sepolia',
 	],
 	421614: [
 		'https://sepolia-rollup.arbitrum.io/rpc',
@@ -486,8 +498,10 @@ async function idxIndexChain(chainId, contract, cronStart = Date.now()) {
 	// Per-chain batch size: ETH mainnet nodes cap eth_getLogs at 50 blocks.
 	const BATCH = chainId === 1 ? IDX_MAINNET_BLOCK_CAP : IDX_BLOCK_CAP;
 
-	const latestHex = await idxRpc(urls, 'eth_blockNumber', []);
-	const latestBlock = parseInt(latestHex, 16);
+	const headHex = await idxRpc(urls, 'eth_blockNumber', []);
+	// Index only up to a confirmed head, never the raw tip — see
+	// IDX_HEAD_CONFIRMATIONS for why (cross-RPC head skew + reorg safety).
+	const latestBlock = Math.max(0, parseInt(headHex, 16) - IDX_HEAD_CONFIRMATIONS);
 
 	const [cursor] = await sql`
 		SELECT last_indexed_block FROM indexer_state
@@ -533,14 +547,23 @@ async function idxIndexChain(chainId, contract, cronStart = Date.now()) {
 				},
 			]);
 		} catch (fetchErr) {
-			// AbortError means this batch timed out — save the cursor at the start
-			// of this batch so the next invocation can retry it, then stop.
-			if (fetchErr.name === 'AbortError' || fetchErr.name === 'TimeoutError') {
+			// AbortError (batch timed out) or a transient block-range/head-skew
+			// error (a lagging RPC in the rotation pool rejecting a range it
+			// hasn't synced yet) — save the cursor at the start of this batch so
+			// the next invocation retries it, then stop. These are not failures:
+			// the cron resumes from here next tick.
+			const transient =
+				fetchErr.name === 'AbortError' ||
+				fetchErr.name === 'TimeoutError' ||
+				/beyond (the )?current head|block range|range is too large|exceeds/i.test(
+					fetchErr.message || '',
+				);
+			if (transient) {
 				console.warn(
 					JSON.stringify({
 						stage: 'index-delegations',
 						chainId,
-						warning: 'rpc-abort',
+						warning: 'rpc-transient',
 						message: fetchErr.message,
 						stoppedAtBlock: fromBlock,
 					}),

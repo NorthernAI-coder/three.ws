@@ -35,9 +35,15 @@ export function treasuryWallet() {
 	const w = env.THREE_TREASURY_WALLET;
 	if (w) return w;
 	if (process.env.NODE_ENV === 'production') {
-		throw new Error(
+		// Fail closed, but as a typed 503 so the caller renders a clean
+		// "temporarily unavailable" state instead of an opaque 500. The condition
+		// is a deploy-time misconfiguration (env unset), not a client error.
+		const e = new Error(
 			'[token] THREE_TREASURY_WALLET is required in production — refusing to route treasury funds to an unset address.',
 		);
+		e.status = 503;
+		e.code = 'treasury_unavailable';
+		throw e;
 	}
 	if (!_treasuryWarned) {
 		_treasuryWarned = true;

@@ -20,6 +20,8 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { initSync, grind } from './wasm/vanity_grinder.js';
 import { validatePattern, estimateAttempts, BASE58_ALPHABET } from './validation.js';
@@ -55,12 +57,50 @@ export class GrindExhaustedError extends Error {
 
 // Lazily instantiate the WASM module once per process. `initSync` takes the
 // raw bytes — no fetch, no top-level await — which is what we want in a
-// serverless cold start. The .wasm file is shipped alongside this module via
-// the route's `includeFiles` glob in vercel.json.
+// serverless cold start.
+//
+// Locating the .wasm at runtime is the subtle part. The natural
+// `new URL('./wasm/...', import.meta.url)` resolves relative to THIS module —
+// but when a large route (e.g. api/pump/[action].js) bundles grinder-node.js
+// inline, import.meta.url becomes the bundle's path and the lookup points at a
+// `wasm/` dir next to the route that nothing ships there
+// (ENOENT /var/task/api/pump/wasm/vanity_grinder_bg.wasm in prod). So we try a
+// list of candidate locations and use the first that exists:
+//   1. module-relative (works when this file ships unbundled);
+//   2. the repo source path under the function root (/var/task), which the
+//      route's `includeFiles: "src/solana/vanity/wasm/**"` glob guarantees.
+// Whichever build strategy Vercel picks, one of these resolves.
+function readWasmBytes() {
+	const candidates = [];
+	try {
+		candidates.push(fileURLToPath(new URL('./wasm/vanity_grinder_bg.wasm', import.meta.url)));
+	} catch {
+		/* import.meta.url not a file URL in some bundlers — skip */
+	}
+	candidates.push(
+		join(process.cwd(), 'src/solana/vanity/wasm/vanity_grinder_bg.wasm'),
+		join(process.cwd(), 'dist/src/solana/vanity/wasm/vanity_grinder_bg.wasm'),
+	);
+
+	let lastErr;
+	for (const p of candidates) {
+		try {
+			return readFileSync(p);
+		} catch (err) {
+			lastErr = err;
+		}
+	}
+	throw Object.assign(
+		new Error(
+			`vanity grinder WASM not found in any known location (tried: ${candidates.join(', ')})`,
+		),
+		{ cause: lastErr, code: 'wasm_not_bundled' },
+	);
+}
+
 function ensureWasm() {
 	if (wasmReady) return;
-	const wasmPath = new URL('./wasm/vanity_grinder_bg.wasm', import.meta.url);
-	initSync({ module: readFileSync(wasmPath) });
+	initSync({ module: readWasmBytes() });
 	wasmReady = true;
 }
 

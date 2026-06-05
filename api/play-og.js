@@ -49,9 +49,15 @@ function formatMarketCap(mc) {
 }
 
 function originOf(req) {
-  const host = req.headers['x-forwarded-host'] || req.headers.host || 'three.ws';
-  const proto = req.headers['x-forwarded-proto'] || 'https';
-  return `${proto}://${host}`;
+  const rawHost = req.headers['x-forwarded-host'] || req.headers.host || 'three.ws';
+  // Host headers are client-supplied. A malformed value (spaces, control chars,
+  // multiple comma-joined hosts) makes the downstream `${origin}/api/pump/coin`
+  // an invalid URL and throws "Invalid URL". Keep only the first host and the
+  // characters legal in an authority; fall back to the canonical host otherwise.
+  const host = String(rawHost).split(',')[0].trim();
+  const safeHost = /^[a-zA-Z0-9.\-:]+$/.test(host) ? host : 'three.ws';
+  const proto = req.headers['x-forwarded-proto'] === 'http' ? 'http' : 'https';
+  return `${proto}://${safeHost}`;
 }
 
 async function fetchCoin(origin, mint) {

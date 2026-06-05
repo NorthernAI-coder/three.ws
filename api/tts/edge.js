@@ -180,11 +180,24 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── Synthesize via Microsoft Edge TTS ────────────────────────────────────
+	// Microsoft's unofficial Edge-TTS endpoint intermittently rejects the
+	// WebSocket upgrade with an HTTP 200 instead of a 101 ("Unexpected server
+	// response: 200") — a transient handshake failure that almost always clears
+	// on an immediate second attempt. Retry once before surfacing an error.
 	let audioBuffer;
-	try {
-		audioBuffer = await synthesize(voice, text, rate, pitch);
-	} catch (synthErr) {
-		console.error('[tts/edge] synthesis failed', synthErr);
+	let synthErr;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			audioBuffer = await synthesize(voice, text, rate, pitch);
+			synthErr = null;
+			break;
+		} catch (err) {
+			synthErr = err;
+			if (attempt === 0) await new Promise((r) => setTimeout(r, 250));
+		}
+	}
+	if (synthErr) {
+		console.error('[tts/edge] synthesis failed after retry', synthErr);
 		return error(res, 502, 'upstream_error', 'Edge TTS synthesis failed');
 	}
 

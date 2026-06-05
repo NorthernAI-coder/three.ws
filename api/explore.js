@@ -41,7 +41,15 @@ export default wrap(async (req, res) => {
 	const url = new URL(req.url, 'http://x');
 	const only3d = url.searchParams.get('only3d') === '1';
 	const chainId = parseInt(url.searchParams.get('chain') || '', 10);
-	const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
+	// Strip NUL and other C0/C1 control characters before the value reaches
+	// Postgres: a NUL or invalid byte in the search term throws "invalid byte
+	// sequence for encoding UTF8" (22021) out of the ILIKE query → an unhandled
+	// 500 on a public endpoint.
+	const q = (url.searchParams.get('q') || '')
+		// eslint-disable-next-line no-control-regex
+		.replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+		.trim()
+		.slice(0, 80);
 	const cursor = url.searchParams.get('cursor');
 	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '24', 10), 1), 250);
 	const sourceFilter = url.searchParams.get('source') || 'all';

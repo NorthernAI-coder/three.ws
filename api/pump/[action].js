@@ -860,7 +860,12 @@ const launchPrepSchema = z
 		creator_address: z.string().min(32).max(44).optional(),
 		name: z.string().trim().min(1).max(32),
 		symbol: z.string().trim().min(1).max(10),
-		uri: z.string().url(),
+		// Bound the metadata URI so name(32)+symbol(10)+uri always fit inside
+		// Solana's 1232-byte transaction packet — an unbounded URI is what pushed
+		// the create message past the limit and threw "encoding overruns
+		// Uint8Array" at sign time. 200 matches pump.fun's own URI ceiling; the
+		// 413 guard at sign time remains as a defence-in-depth backstop.
+		uri: z.string().url().max(200),
 		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 		buyback_bps: z.number().int().min(0).max(10_000).default(0),
 		sol_buy_in: z.number().nonnegative().max(50).default(0), // SOL-paired initial buy, capped 50 SOL
@@ -1270,7 +1275,12 @@ const launchAgentSchema = z
 		avatar_id: z.string().uuid().optional(),
 		name: z.string().trim().min(1).max(32),
 		symbol: z.string().trim().min(1).max(10),
-		uri: z.string().url(),
+		// Bound the metadata URI so name(32)+symbol(10)+uri always fit inside
+		// Solana's 1232-byte transaction packet — an unbounded URI is what pushed
+		// the create message past the limit and threw "encoding overruns
+		// Uint8Array" at sign time. 200 matches pump.fun's own URI ceiling; the
+		// 413 guard at sign time remains as a defence-in-depth backstop.
+		uri: z.string().url().max(200),
 		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 		buyback_bps: z.number().int().min(0).max(10_000).default(0),
 		sol_buy_in: z.number().nonnegative().max(50).default(0),
@@ -1404,13 +1414,31 @@ async function handleLaunchAgent(req, res) {
 	// Build a v0 transaction so we use the same SDK call path as launch-prep.
 	const { TransactionMessage, VersionedTransaction } = await import('@solana/web3.js');
 	const { blockhash } = await conn.getLatestBlockhash('confirmed');
-	const msg = new TransactionMessage({
-		payerKey: creator,
-		recentBlockhash: blockhash,
-		instructions,
-	}).compileToV0Message();
-	const vtx = new VersionedTransaction(msg);
-	vtx.sign([agentKeypair, mintKeypair]);
+	// Compile + sign defensively. When the coin name/uri push the message past
+	// Solana's 1232-byte packet limit, compileToV0Message()/sign() throws a raw
+	// RangeError ("encoding overruns Uint8Array" / "Transaction too large") that
+	// would otherwise surface as an opaque 500. Convert it to a typed 413 with an
+	// actionable message instead.
+	let vtx;
+	try {
+		const msg = new TransactionMessage({
+			payerKey: creator,
+			recentBlockhash: blockhash,
+			instructions,
+		}).compileToV0Message();
+		vtx = new VersionedTransaction(msg);
+		vtx.sign([agentKeypair, mintKeypair]);
+	} catch (err) {
+		if (/too large|overruns/i.test(err?.message || '')) {
+			return error(
+				res,
+				413,
+				'launch_payload_too_large',
+				'token launch transaction exceeds Solana size limits — shorten the token name or metadata URI',
+			);
+		}
+		throw err;
+	}
 
 	let signature;
 	try {
@@ -2705,7 +2733,19 @@ async function handleCoin(req, res) {
 		return error(res, 504, 'upstream_timeout', 'pump.fun did not respond');
 	}
 	if (!resp.ok) return error(res, 502, 'upstream_failed', `pump.fun returned ${resp.status}`);
-	const [body] = repairCoinImages([await resp.json()]);
+	// pump.fun returns 200 with an empty body for an unknown/unmigrated mint;
+	// resp.json() then throws "Unexpected end of JSON input" → an unhandled 500.
+	// Treat an empty/invalid body as "coin not found" (404) instead.
+	let parsed;
+	try {
+		parsed = await resp.json();
+	} catch {
+		return error(res, 404, 'coin_not_found', 'no pump.fun coin for that mint');
+	}
+	if (!parsed || typeof parsed !== 'object') {
+		return error(res, 404, 'coin_not_found', 'no pump.fun coin for that mint');
+	}
+	const [body] = repairCoinImages([parsed]);
 	COIN_CACHE.set(mint, { at: now, body });
 	res.setHeader('cache-control', 'public, max-age=15');
 	return json(res, 200, body);

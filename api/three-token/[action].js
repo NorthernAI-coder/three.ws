@@ -25,19 +25,57 @@ const AGENT_DEPLOY_BURN = 1000;
 const REVENUE_SHARE_POOL_PCT = 10;
 
 const _cache = new Map();
+// How long a last-good value stays usable as a stale fallback after its TTL
+// expires. Birdeye rate-limits the shared key under bursty traffic; rather than
+// drop the price to null (and spam the error log) on every 429, we serve the
+// last good market data for up to STALE_MAX_MS while the limit clears. Token
+// price/market-cap drifting a couple of minutes is invisible to the UI; a blank
+// price panel is not.
+const STALE_MAX_MS = 5 * 60_000;
+
+// One warn per URL per cooldown so a sustained Birdeye 429 can't itself flood the
+// logs (the very failure mode brief 09 is about).
+const _staleWarnedAt = new Map();
+const STALE_WARN_COOLDOWN_MS = 60_000;
+function warnStaleOnce(url, status) {
+	const last = _staleWarnedAt.get(url) || 0;
+	const now = Date.now();
+	if (now - last < STALE_WARN_COOLDOWN_MS) return;
+	_staleWarnedAt.set(url, now);
+	console.warn(`[three-token] birdeye ${status} — serving last good value (stale) for ${url.split('?')[0]}`);
+}
 
 async function cachedFetch(url, headers, ttlMs = 30_000) {
 	const now = Date.now();
 	const hit = _cache.get(url);
 	if (hit && hit.expires > now) return hit.value;
 
-	const resp = await fetch(url, { headers });
+	let resp;
+	try {
+		resp = await fetch(url, { headers });
+	} catch (err) {
+		// Network failure — fall back to stale if we have a usable copy.
+		if (hit && now - hit.fetchedAt < STALE_MAX_MS) {
+			warnStaleOnce(url, 'fetch-failed');
+			return hit.value;
+		}
+		throw err;
+	}
 	if (!resp.ok) {
 		const text = await resp.text().catch(() => '');
+		// Rate-limited / upstream error: serve the last good value if it's still
+		// within the stale window instead of throwing and blanking the price.
+		if (hit && now - hit.fetchedAt < STALE_MAX_MS) {
+			warnStaleOnce(url, resp.status);
+			// Refresh the TTL briefly so we don't re-hit the limited endpoint on
+			// every request while it's throttled (cheap backoff).
+			hit.expires = now + Math.min(ttlMs, 15_000);
+			return hit.value;
+		}
 		throw new Error(`Birdeye ${resp.status}: ${text.slice(0, 200)}`);
 	}
 	const value = await resp.json();
-	_cache.set(url, { value, expires: now + ttlMs });
+	_cache.set(url, { value, expires: now + ttlMs, fetchedAt: now });
 	if (_cache.size > 128) {
 		const oldest = _cache.keys().next().value;
 		_cache.delete(oldest);

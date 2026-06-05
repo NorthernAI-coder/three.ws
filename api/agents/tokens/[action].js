@@ -107,7 +107,13 @@ async function pinTokenMetadata(meta) {
 		}
 	}
 	const hash = createHash('sha256').update(bytes).digest('hex');
-	const key = `token-metadata/${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+	// Keep this key SHORT. The resulting public URL becomes the coin's on-chain
+	// metadata `uri`, which is serialized into the launch transaction. A long key
+	// pushes the (legacy) create+buy tx over Solana's 1232-byte packet limit
+	// ("Transaction too large"). A content-addressed 16-hex prefix is unique
+	// enough and ~30 bytes shorter than a timestamp+random path. (When
+	// web3.storage is configured we use the even shorter `ipfs://<cid>` above.)
+	const key = `tm/${hash.slice(0, 16)}.json`;
 	const { PutObjectCommand } = await loadS3Commands();
 	await r2.send(
 		new PutObjectCommand({
@@ -241,9 +247,27 @@ async function handleLaunchPrep(req, res) {
 	// secret key is no longer needed and goes out of scope.
 	tx.partialSign(mintKeypair);
 
-	const txBase64 = tx
-		.serialize({ requireAllSignatures: false, verifySignatures: false })
-		.toString('base64');
+	// Serialize defensively. A coin whose name/uri push the create+buy past
+	// Solana's 1232-byte packet limit otherwise throws an unhandled RangeError
+	// ("Transaction too large" / "encoding overruns Uint8Array") → a 500 with no
+	// actionable signal. Catch it and return a clean, typed 413 telling the user
+	// exactly what to shorten.
+	let txBase64;
+	try {
+		txBase64 = tx
+			.serialize({ requireAllSignatures: false, verifySignatures: false })
+			.toString('base64');
+	} catch (err) {
+		if (/too large|overruns/i.test(err?.message || '')) {
+			return error(
+				res,
+				413,
+				'launch_payload_too_large',
+				'token launch transaction exceeds Solana size limits — shorten the token name',
+			);
+		}
+		throw err;
+	}
 
 	// 5. Persist prep
 	const prepId = await randomToken(24);

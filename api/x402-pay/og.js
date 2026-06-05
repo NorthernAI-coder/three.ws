@@ -1,9 +1,8 @@
 // GET /api/x402-pay/og?tx=<signature>
-// Dynamic 1200×630 PNG card for /pay/calls/<tx> permalinks. When pasted into
+// Dynamic 1200×630 SVG card for /pay/calls/<tx> permalinks. When pasted into
 // X / Slack / Discord / iMessage, the link expands to a branded summary of the
 // paid x402 call (tool, amount, payer, timestamp).
 
-import sharp from 'sharp';
 import { Redis } from '@upstash/redis';
 import { env } from '../_lib/env.js';
 import { logger } from '../_lib/usage.js';
