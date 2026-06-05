@@ -1,11 +1,8 @@
 /**
  * launch-token-boot.js — self-initializing module for the Launch Token button.
  *
- * Loaded as a standalone <script type="module"> in agent-home.html.
- * Uses the `agent:ready` event emitted at the end of main() to pick up
- * agentId + identity without touching the existing inline script.
- *
- * Pattern mirrors agent-home-orphans.js.
+ * Self-initializing via the `agent:ready` event emitted by the host page.
+ * Picks up agentId + identity without touching the host's inline script.
  */
 
 import { openLaunchTokenModal } from './launch-token-modal.js';

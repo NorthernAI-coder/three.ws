@@ -528,6 +528,9 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 		}
 
 		inner.querySelector('#pmodal-launch-back').addEventListener('click', () => {
+			// Backing out mid-stamp cancels the grind so we never sign after the
+			// user navigated away (the grind's catch treats AbortError as a no-op).
+			if (launchGrindAbort) { try { launchGrindAbort.abort(); } catch {} }
 			step = Math.max(1, step - 1);
 			render();
 		});

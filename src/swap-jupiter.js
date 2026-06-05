@@ -18,6 +18,7 @@ import {
 	PublicKey,
 	VersionedTransaction,
 } from '@solana/web3.js';
+import { log } from './shared/log.js';
 
 // Solana mint constants used as built-in defaults / quick picks.
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -439,7 +440,7 @@ async function fetchQuote() {
 		updateConfirmButton();
 	} catch (err) {
 		if (seq !== _quoteSeq) return;
-		console.error('[swap-jupiter] quote failed', err);
+		log.error('[swap-jupiter] quote failed', err);
 		_quote = null;
 		$('sj-to-amount').value = '';
 		setStatus(`Quote failed: ${err.message}`, 'sj-err');
@@ -548,7 +549,7 @@ async function refreshBalance() {
 			onAmountInput();
 		};
 	} catch (err) {
-		console.warn('[swap-jupiter] balance fetch failed', err);
+		log.warn('[swap-jupiter] balance fetch failed', err);
 	}
 }
 
@@ -589,7 +590,7 @@ async function loadRemoteTokens() {
 			renderTokenList();
 		}
 	} catch (err) {
-		console.warn('[swap-jupiter] verified token list unavailable', err);
+		log.warn('[swap-jupiter] verified token list unavailable', err);
 	}
 }
 
@@ -768,14 +769,14 @@ async function executeSwap() {
 				'Submitted, awaiting confirmation. ',
 				el('a', { href: explorerLink, target: '_blank', rel: 'noopener', text: 'View on Solscan ↗' }),
 			), 'sj-ok');
-			console.warn('[swap-jupiter] confirm failed', confErr);
+			log.warn('[swap-jupiter] confirm failed', confErr);
 			btn.textContent = 'Swap again';
 			btn.disabled = false;
 		}
 
 		refreshBalance();
 	} catch (err) {
-		console.error('[swap-jupiter] swap failed', err);
+		log.error('[swap-jupiter] swap failed', err);
 		setStatus(`Swap failed: ${err.message}`, 'sj-err');
 		btn.disabled = false;
 		btn.textContent = `Swap ${_ctx.inputToken.symbol} → ${_ctx.outputToken.symbol}`;

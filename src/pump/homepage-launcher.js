@@ -144,7 +144,7 @@ class LaunchPicker {
 			this._shell(
 				'Launch a token',
 				`<div class="hpl-intro"><span class="hpl-spinner"></span>Loading your agents…</div>`,
-				`<div></div><button class="ltm-btn" id="hpl-cancel">Cancel</button>`,
+				`<div></div><button class="ltm-btn btn btn--secondary" id="hpl-cancel">Cancel</button>`,
 			),
 		);
 		this.overlay.querySelector('#hpl-cancel')?.addEventListener('click', () => this.close());
@@ -193,8 +193,8 @@ class LaunchPicker {
 						from your avatar. You'll sign the launch in your own wallet.
 					</div>
 				</div>`,
-				`<button class="ltm-btn" id="hpl-cancel">Cancel</button>
-				<a class="ltm-btn ltm-btn-primary" href="/login?next=/create">Sign in →</a>`,
+				`<button class="ltm-btn btn btn--secondary" id="hpl-cancel">Cancel</button>
+				<a class="ltm-btn ltm-btn-primary btn btn--primary" href="/login?next=/create">Sign in →</a>`,
 			),
 		);
 		this.overlay.querySelector('#hpl-cancel')?.addEventListener('click', () => this.close());
@@ -212,8 +212,8 @@ class LaunchPicker {
 						then launch its token straight from here.
 					</div>
 				</div>`,
-				`<button class="ltm-btn" id="hpl-cancel">Cancel</button>
-				<a class="ltm-btn ltm-btn-primary" href="/create">Create an agent →</a>`,
+				`<button class="ltm-btn btn btn--secondary" id="hpl-cancel">Cancel</button>
+				<a class="ltm-btn ltm-btn-primary btn btn--primary" href="/create">Create an agent →</a>`,
 			),
 		);
 		this.overlay.querySelector('#hpl-cancel')?.addEventListener('click', () => this.close());
@@ -228,8 +228,8 @@ class LaunchPicker {
 					<div class="hpl-empty-title">Couldn't load your agents</div>
 					<div class="hpl-empty-sub">Check your connection and try again.</div>
 				</div>`,
-				`<button class="ltm-btn" id="hpl-cancel">Close</button>
-				<button class="ltm-btn ltm-btn-primary" id="hpl-retry">Retry</button>`,
+				`<button class="ltm-btn btn btn--secondary" id="hpl-cancel">Close</button>
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="hpl-retry">Retry</button>`,
 			),
 		);
 		this.overlay.querySelector('#hpl-cancel')?.addEventListener('click', () => this.close());
@@ -278,8 +278,8 @@ class LaunchPicker {
 				'Choose an agent to tokenize',
 				`<div class="hpl-intro">Launch a real pump.fun token tied to your agent. You'll sign every transaction in your own wallet.</div>
 				<div class="hpl-list">${rows}</div>`,
-				`<a class="ltm-btn" href="/create">+ New agent</a>
-				<button class="ltm-btn ltm-btn-primary" id="hpl-cancel">Done</button>`,
+				`<a class="ltm-btn btn btn--secondary" href="/create">+ New agent</a>
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="hpl-cancel">Done</button>`,
 			),
 		);
 		this.overlay.querySelector('#hpl-cancel')?.addEventListener('click', () => this.close());

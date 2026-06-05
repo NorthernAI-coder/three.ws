@@ -9,6 +9,7 @@
  */
 
 import { mountLaunchBondingCurve } from './bonding-curve-chart.js';
+import { log } from '../shared/log.js';
 
 const _isDev =
 	typeof location !== 'undefined' &&
@@ -110,7 +111,7 @@ export class LaunchTokenModal {
 				}
 			}
 		} catch (e) {
-			console.warn('Could not fetch SOL price', e);
+			log.warn('Could not fetch SOL price', e);
 		}
 	}
 
@@ -238,8 +239,8 @@ export class LaunchTokenModal {
 					</ul>
 				</div>
 				<div class="ltm-status-msg" id="ltm-deploy-msg"></div>`,
-				`<button class="ltm-btn" id="ltm-s0-cancel">Cancel</button>
-				<button class="ltm-btn ltm-btn-primary" id="ltm-s0-deploy">Deploy on Solana →</button>`,
+				`<button class="ltm-btn btn btn--secondary" id="ltm-s0-cancel">Cancel</button>
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-s0-deploy">Deploy on Solana →</button>`,
 			),
 		);
 
@@ -409,7 +410,7 @@ export class LaunchTokenModal {
 				</div>
 				${netToggle}`,
 				`<div></div>
-				<button class="ltm-btn ltm-btn-primary" id="ltm-s1-next">Preview →</button>`,
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-s1-next">Preview →</button>`,
 			),
 		);
 
@@ -502,8 +503,8 @@ export class LaunchTokenModal {
 						<span class="ltm-spinner"></span>Fetching quote…
 					</div>
 				</div>`,
-				`<button class="ltm-btn" id="ltm-s2-back">← Back</button>
-				<button class="ltm-btn ltm-btn-primary" id="ltm-s2-next" disabled>Continue →</button>`,
+				`<button class="ltm-btn btn btn--secondary" id="ltm-s2-back">← Back</button>
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-s2-next" disabled>Continue →</button>`,
 			),
 		);
 
@@ -575,11 +576,11 @@ export class LaunchTokenModal {
 						<div class="ltm-wallet-status disconnected" id="ltm-ws">Wallet not connected</div>
 						<div class="ltm-wallet-addr" id="ltm-wa"></div>
 					</div>
-					<button class="ltm-btn" id="ltm-connect">Connect Wallet</button>
+					<button class="ltm-btn btn btn--secondary" id="ltm-connect">Connect Wallet</button>
 				</div>
 				<div class="ltm-status-msg" id="ltm-msg"></div>`,
-				`<button class="ltm-btn" id="ltm-s3-back">← Back</button>
-				<button class="ltm-btn ltm-btn-primary" id="ltm-launch" disabled>Sign &amp; Launch</button>`,
+				`<button class="ltm-btn btn btn--secondary" id="ltm-s3-back">← Back</button>
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-launch" disabled>Sign &amp; Launch</button>`,
 			),
 		);
 
@@ -750,7 +751,7 @@ export class LaunchTokenModal {
 					${pumpUrl ? `<a class="ltm-pumpfun-link" href="${_esc(pumpUrl)}" target="_blank" rel="noopener noreferrer">View on pump.fun →</a>` : ''}
 				</div>`,
 				`<div></div>
-				<button class="ltm-btn ltm-btn-primary" id="ltm-done">Done</button>`,
+				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-done">Done</button>`,
 			),
 		);
 
