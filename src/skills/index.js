@@ -4,6 +4,7 @@
 import { resolveURI } from '../ipfs.js';
 import { getHost } from './sandbox-host.js';
 import { startDataReactive } from '../runtime/data-reactive.js';
+import { log } from '../shared/log.js';
 
 /** Injected into every skill handler ctx as ctx.dataReactive */
 const dataReactive = { start: startDataReactive };
@@ -141,7 +142,7 @@ export class SkillRegistry {
 		for (const skill of this.skills.values()) {
 			for (const tool of skill.tools) {
 				if (merged.has(tool.name)) {
-					console.warn(
+					log.warn(
 						`[skills] tool "${tool.name}" overridden by skill "${skill.name}"`,
 					);
 				}
@@ -196,7 +197,7 @@ export class SkillRegistry {
 			const mod = await import(/* @vite-ignore */ url);
 			return mod;
 		} catch (e) {
-			console.warn(`[skills] handlers load failed: ${url}`, e);
+			log.warn(`[skills] handlers load failed: ${url}`, e);
 			return null;
 		}
 	}

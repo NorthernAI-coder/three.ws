@@ -1,6 +1,7 @@
 // Built-in scene-tools — available to every agent without any skill installed.
 // See specs/AGENT_MANIFEST.md § Built-in tools.
 
+import { log } from '../shared/log.js';
 export const BUILTIN_TOOLS = [
 	{
 		name: 'wave',
@@ -148,7 +149,7 @@ export const BUILTIN_HANDLERS = {
 		const played = ctx.viewer.playClipByName?.(resolved, { loop, fade_ms });
 		if (!played) {
 			if (resolved !== name)
-				console.warn(`[play_clip] slot "${name}" → "${resolved}" not found in library`);
+				log.warn(`[play_clip] slot "${name}" → "${resolved}" not found in library`);
 			return { ok: false, error: `No clip named "${resolved}"` };
 		}
 		return { ok: true, name, resolved };

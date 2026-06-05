@@ -2,6 +2,7 @@
 // Lazy-loaded — only imported when the voice-server attribute is present.
 // The server handles all STT/TTS; this module only streams mic audio and plays responses.
 
+import { log } from '../shared/log.js';
 export class VoiceClient {
 	constructor({ serverUrl, element }) {
 		this._url = serverUrl.replace(/\/$/, '');
@@ -25,7 +26,7 @@ export class VoiceClient {
 		try {
 			({ io } = await import(/* @vite-ignore */ `${this._url}/socket.io/socket.io.esm.min.js`));
 		} catch (err) {
-			console.warn('[voice-client] socket.io load failed', err);
+			log.warn('[voice-client] socket.io load failed', err);
 			this._active = false;
 			this._emitState('idle');
 			return;
@@ -52,7 +53,7 @@ export class VoiceClient {
 			if (status === 'idle' && this._active) this._emitState('listening');
 		});
 		socket.on('connect_error', (err) => {
-			console.warn('[voice-client] connect error', err.message);
+			log.warn('[voice-client] connect error', err.message);
 			this.stop();
 		});
 		socket.on('disconnect', () => this._emitState('idle'));
@@ -75,7 +76,7 @@ export class VoiceClient {
 		try {
 			this._stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 		} catch (err) {
-			console.warn('[voice-client] mic access denied', err);
+			log.warn('[voice-client] mic access denied', err);
 			this.stop();
 			return;
 		}

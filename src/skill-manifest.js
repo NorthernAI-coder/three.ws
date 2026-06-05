@@ -5,6 +5,7 @@
  * @param {Object|undefined} inputSchema
  * @returns {Record<string, string>}
  */
+import { log } from './shared/log.js';
 function schemaToArgs(inputSchema) {
 	if (!inputSchema?.properties) return {};
 	const required = new Set(inputSchema.required || []);
@@ -27,7 +28,7 @@ export function buildSkillManifest({ agentId, version, skills }) {
 	const entries = [];
 	for (const skill of skills) {
 		if (!skill.description) {
-			console.warn(`[skill-manifest] Skill "${skill.name}" has no description — omitting`);
+			log.warn(`[skill-manifest] Skill "${skill.name}" has no description — omitting`);
 			continue;
 		}
 		entries.push({

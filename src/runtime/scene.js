@@ -7,6 +7,7 @@ import { Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { resolveURI } from '../ipfs.js';
 import { resolveSlot } from './animation-slots.js';
+import { log } from '../shared/log.js';
 
 const EXPRESSION_MAP = {
 	neutral: {
@@ -202,7 +203,7 @@ export class SceneController {
 	lookAt(target) {
 		const t = this._resolveTarget(target);
 		if (!t) {
-			if (target != null) console.warn(`[SceneController] unknown lookAt target: "${target}"`);
+			if (target != null) log.warn(`[SceneController] unknown lookAt target: "${target}"`);
 			return;
 		}
 		if (!this.viewer.content) return;

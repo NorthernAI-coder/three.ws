@@ -5,6 +5,7 @@
 // no code-split chunk, compatible with both ES and UMD lib builds.
 // The worker is created at runtime as a classic-script blob: URL.
 import _workerSrc from './sandbox-worker.js?raw';
+import { log } from '../shared/log.js';
 
 /** @type {Worker | null} */
 let _worker = null;
@@ -60,7 +61,7 @@ function _getWorker() {
 }
 
 function _onError(err) {
-	console.error('[sandbox] worker crashed:', err);
+	log.error('[sandbox] worker crashed:', err);
 	_worker = null;
 	_installPromises.clear();
 	_installCallbacks.clear();

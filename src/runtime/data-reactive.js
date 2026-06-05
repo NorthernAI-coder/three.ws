@@ -6,6 +6,7 @@
  * protocol actions to fire.
  */
 
+import { log } from '../shared/log.js';
 const MAX_WS_RETRIES = 10;
 const WS_BACKOFF_CAP_MS = 30_000;
 
@@ -78,7 +79,7 @@ function startSSE(url, protocol, bindings, stats, signal) {
 	if (signal) signal.addEventListener('abort', () => ac.abort(), { once: true });
 
 	consumeSSE(url, protocol, bindings, stats, ac.signal).catch((err) => {
-		if (err?.name !== 'AbortError') console.error('[data-reactive] SSE error:', err);
+		if (err?.name !== 'AbortError') log.error('[data-reactive] SSE error:', err);
 	});
 
 	return () => ac.abort();
@@ -117,7 +118,7 @@ function startWS(url, subscribePayloads, reconnectBaseMs, protocol, bindings, st
 		});
 
 		ws.addEventListener('error', (e) => {
-			console.error('[data-reactive] WS error:', e.message ?? e);
+			log.error('[data-reactive] WS error:', e.message ?? e);
 			stats.errors++;
 		});
 
@@ -125,7 +126,7 @@ function startWS(url, subscribePayloads, reconnectBaseMs, protocol, bindings, st
 			if (stopped) return;
 			attempt++;
 			if (attempt > MAX_WS_RETRIES) {
-				console.error('[data-reactive] WS max retries reached, giving up');
+				log.error('[data-reactive] WS max retries reached, giving up');
 				return;
 			}
 			const delay = Math.min(reconnectBaseMs * 2 ** (attempt - 1), WS_BACKOFF_CAP_MS);
@@ -170,7 +171,7 @@ function startPoll(url, intervalMs, parseFn, protocol, bindings, stats, signal) 
 			.catch((err) => {
 				if (stopped) return;
 				if (err?.name !== 'AbortError') {
-					console.error('[data-reactive] poll error:', err);
+					log.error('[data-reactive] poll error:', err);
 					stats.errors++;
 				}
 			});
