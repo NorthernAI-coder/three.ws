@@ -183,11 +183,17 @@ const PROVIDERS = {
 };
 
 function openrouter() {
-	return createOpenAI({
+	const provider = createOpenAI({
 		apiKey: env.OPENROUTER_API_KEY,
 		baseURL: 'https://openrouter.ai/api/v1',
 		headers: { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws brain' },
 	});
+	// OpenRouter (like every OpenAI-*compatible* backend) implements the Chat
+	// Completions API, NOT OpenAI's newer Responses API. The AI SDK's callable
+	// default `provider(id)` builds a Responses-API model, which OpenRouter
+	// rejects ("Invalid Responses API request" / "unsupported content types").
+	// Force the chat-completions surface so every routed model actually answers.
+	return (modelId) => provider.chat(modelId);
 }
 
 // Stream IBM Granite (watsonx.ai) to the page using the same SSE protocol as

@@ -20,21 +20,40 @@ async function gecko(path) {
 	const hit = cache.get(url);
 	if (hit && hit.expiresAt > now) return hit.value;
 
+	// One bounded retry on a 429 with backoff before giving up — GeckoTerminal's
+	// free tier throttles bursts, and a short wait usually clears it well within
+	// the function budget. Preserves 429 as the thrown status (not a generic 502)
+	// so the caller can map it to a retryable response instead of a hard error.
 	let res;
-	try {
-		res = await fetch(url, {
-			headers: { accept: 'application/json', 'user-agent': UA },
-			signal: AbortSignal.timeout(12_000),
+	let lastStatus = 502;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			res = await fetch(url, {
+				headers: { accept: 'application/json', 'user-agent': UA },
+				signal: AbortSignal.timeout(12_000),
+			});
+		} catch (e) {
+			throw Object.assign(new Error(`GeckoTerminal unreachable: ${e.message}`), {
+				status: 502,
+			});
+		}
+		if (res.ok) break;
+		lastStatus = res.status;
+		const text = await res.text();
+		if (res.status === 429 && attempt === 0) {
+			await new Promise((r) => setTimeout(r, 600));
+			continue; // retry once
+		}
+		throw Object.assign(new Error(`GeckoTerminal ${res.status}: ${text.slice(0, 160)}`), {
+			status: res.status === 404 ? 404 : res.status === 429 ? 429 : 502,
 		});
-	} catch (e) {
-		throw Object.assign(new Error(`GeckoTerminal unreachable: ${e.message}`), { status: 502 });
+	}
+	if (!res || !res.ok) {
+		throw Object.assign(new Error(`GeckoTerminal ${lastStatus}`), {
+			status: lastStatus === 404 ? 404 : lastStatus === 429 ? 429 : 502,
+		});
 	}
 	const text = await res.text();
-	if (!res.ok) {
-		throw Object.assign(new Error(`GeckoTerminal ${res.status}: ${text.slice(0, 160)}`), {
-			status: res.status === 404 ? 404 : 502,
-		});
-	}
 	let json;
 	try {
 		json = JSON.parse(text);

@@ -146,6 +146,13 @@ export class CommunityNet {
 			vehicleChange: new Set(), // (vehicle, id) — its transform/driver changed
 			vehicleRemove: new Set(), // (id) — a vehicle left the world
 			vehicle: new Set(),       // ({event, id, ...}) — enter/exit/deny ack for our request
+			// Generic world objects (R01/R02): the shared `objects` channel — balls,
+			// build props, pickups. add/change/remove mirror the player callbacks; the
+			// live schema object is passed through so the manager reads current fields.
+			objectAdd: new Set(),    // (obj, id) — an object appeared (spawned or restored)
+			objectChange: new Set(), // (obj, id) — its transform/owner changed
+			objectRemove: new Set(), // (id) — an object left the world
+			objectReject: new Set(), // ({reason}) — server refused a spawn (world/player full)
 		};
 		this.ping = null;        // smoothed RTT in ms, null until the first echo
 		this._pingSentAt = 0;    // perf-clock stamp of the last move awaiting an echo
@@ -273,6 +280,10 @@ export class CommunityNet {
 			// Vehicles: the server's targeted reply to our enter/exit request (grant,
 			// drop point, or denial). World transforms arrive via the state callbacks.
 			this.room.onMessage('vehicle', (msg) => this._emit('vehicle', msg || {}));
+			// Generic world objects (R01): the server replies here when it refuses a
+			// spawn (the room is full, or we've hit our per-player object cap) so the
+			// build HUD can explain why a placed prop never appeared.
+			this.room.onMessage('obj:reject', (msg) => this._emit('objectReject', msg || {}));
 
 			const $ = getStateCallbacks(this.room);
 			const $state = $(this.room.state);
@@ -326,6 +337,20 @@ export class CommunityNet {
 					$(vehicle).onChange(() => this._emit('vehicleChange', vehicle, id));
 				});
 				$vehicles.onRemove((_v, id) => this._emit('vehicleRemove', id));
+			}
+
+			// Generic world objects (R01): the server is authoritative for every object,
+			// so the scene is driven entirely by these state callbacks — local spawn/
+			// move/remove only *send*; the object appears when the server echoes it back.
+			// onAdd fires for the full persisted set (durable props, R17) at join and for
+			// each new spawn. Optional field (older servers omit it) — guarded like blocks.
+			const $objects = $state?.objects;
+			if ($objects) {
+				$objects.onAdd((obj, id) => {
+					this._emit('objectAdd', obj, id);
+					$(obj).onChange(() => this._emit('objectChange', obj, id));
+				});
+				$objects.onRemove((_o, id) => this._emit('objectRemove', id));
 			}
 
 			// Durability flag for this world's build (Redis-backed vs memory-only).
@@ -471,6 +496,48 @@ export class CommunityNet {
 		this._lastVSyncAt = now;
 		this.room.send('vsync', state);
 	}
+	// Generic world objects (R01/R02). These only *request* the change; the object
+	// appears/moves/disappears when the server echoes its authoritative `objects`
+	// state back (see the objectAdd/Change/Remove wiring above). The server assigns
+	// ownership, mints/clamps ids, and bounds-clamps the transform — the client
+	// never trusts its own optimistic copy. x/y/z must be finite or the server drops
+	// the spawn, so we guard here too and skip a malformed send.
+	spawnObject(kind, opts = {}) {
+		if (!this.room) return;
+		const { x, y, z } = opts;
+		if (![x, y, z].every(Number.isFinite)) return;
+		const msg = { kind: String(kind || ''), x, y, z };
+		if (typeof opts.type === 'string') msg.type = opts.type;
+		if (typeof opts.id === 'string') msg.id = opts.id;
+		if (Number.isFinite(opts.yaw)) msg.yaw = opts.yaw;
+		if (Number.isFinite(opts.scale)) msg.scale = opts.scale;
+		if (Number.isFinite(opts.vx)) msg.vx = opts.vx;
+		if (Number.isFinite(opts.vy)) msg.vy = opts.vy;
+		if (Number.isFinite(opts.vz)) msg.vz = opts.vz;
+		this.room.send('obj:spawn', msg);
+	}
+	updateObject(id, transform = {}) {
+		if (!this.room || typeof id !== 'string') return;
+		const msg = { id };
+		for (const k of ['x', 'y', 'z', 'yaw', 'scale', 'vx', 'vy', 'vz']) {
+			if (Number.isFinite(transform[k])) msg[k] = transform[k];
+		}
+		this.room.send('obj:update', msg);
+	}
+	removeObject(id) {
+		if (!this.room || typeof id !== 'string') return;
+		this.room.send('obj:remove', { id });
+	}
+	// Does an object's server-assigned ownerId belong to THIS client? The server keys
+	// ownership on the verified account when signed in, else the persisted economy id,
+	// else the session id (WalkRoom._ownerKey) — match all three so delete-own works
+	// in gated, un-gated, and guest sessions alike.
+	ownsObject(obj) {
+		const owner = obj?.ownerId;
+		if (!owner) return false;
+		return owner === this.account || owner === this.pid || owner === this.sessionId;
+	}
+
 	// Adopt a refreshed play pass. Store it so the next reconnect (after a drop)
 	// uses the fresh credential, AND push it to the live session so the server can
 	// extend this connection's bound expiry — otherwise the server's per-minute

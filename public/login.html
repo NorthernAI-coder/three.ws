@@ -802,7 +802,7 @@
 						setFieldError(passwordInput, passwordErr, 'Enter your password.');
 						bad = true;
 					}
-					if (bad) { window.__avatarDisapprove?.(); return; }
+					if (bad) { window.__avatarReact?.(); return; }
 
 					btn.disabled = true;
 					btn.textContent = 'Signing in…';
@@ -840,7 +840,7 @@
 						setFieldError(passwordInput, passwordErr, e2.message);
 						btn.disabled = false;
 						btn.textContent = 'Sign in';
-						window.__avatarDisapprove?.();
+						window.__avatarFall?.();
 					}
 				});
 
@@ -855,7 +855,7 @@
 
 			const agent = await createAgentUI({
 				canvas: document.getElementById('avatar-canvas'),
-				clips: ['idle', 'walk', 'covereyes', 'reaction', 'silly', 'defeated', 'angry', 'facepalm'],
+				clips: ['idle', 'covereyes', 'facepalm', 'falltolanding', 'standup', 'dance'],
 				subclips: {
 					covereyes: { start: 0, end: 48, fps: 30 },
 				},
@@ -891,18 +891,44 @@
 				field.addEventListener('blur', uncoverEyes);
 			});
 
-			const pickFail = agent.pickFrom(['reaction', 'defeated', 'angry', 'facepalm']);
-			window.__avatarDisapprove = function () {
-				const pick = pickFail();
-				agent.play(pick, { loop: false });
-				const dur = agent.clip(pick) * 1000;
+			// Settle back to a resting pose after a one-shot reaction. If the
+			// user is still in a credential field, the eyes stay shielded;
+			// otherwise the avatar relaxes to idle.
+			function settle() {
+				const active = document.activeElement;
+				if (active && credentialFields.includes(active)) coverEyes();
+				else agent.play('idle', { loop: true });
+			}
+
+			// Empty field — a quick facepalm nudge, no full collapse.
+			window.__avatarReact = function () {
+				agent.faceFront();
+				agent.play('facepalm', { loop: false });
+				const dur = agent.clip('facepalm') * 1000;
 				setTimeout(() => {
-					if (agent.currentClip === pick) agent.play('idle', { loop: true });
+					if (agent.currentClip === 'facepalm') settle();
 				}, dur - 150);
 			};
 
+			// Wrong credentials — the avatar topples to the ground, lies there
+			// a beat, then picks itself back up.
+			window.__avatarFall = function () {
+				agent.faceFront();
+				agent.play('falltolanding', {
+					loop: false,
+					hold: true,
+					onComplete: () => {
+						setTimeout(() => {
+							agent.play('standup', { loop: false, onComplete: settle });
+						}, 650);
+					},
+				});
+			};
+
+			// Successful sign-in — a happy dance while we redirect.
 			window.__avatarCelebrate = function () {
-				agent.play('silly', { loop: true });
+				agent.faceFront();
+				agent.play('dance', { loop: true });
 			};
 		</script>
 		<script src="/brand.js" defer></script>

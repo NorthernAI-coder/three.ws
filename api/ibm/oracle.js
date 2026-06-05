@@ -52,6 +52,19 @@ async function narrate(cfg, { name, symbol, currentPrice, stats }) {
 	return { text: (text || '').trim(), model, usage };
 }
 
+// Map a GeckoTerminal upstream failure (ohlcv.js attaches the real .status) to
+// a clean client response instead of an unhandled 500. A 429 becomes a
+// retryable 503; 404 passes through; everything else is a 502 bad-gateway.
+function marketUpstreamError(res, err) {
+	const upstream = err?.status;
+	const status = upstream === 429 ? 503 : upstream === 404 ? 404 : 502;
+	const code =
+		status === 503 ? 'upstream_rate_limited' : status === 404 ? 'pool_not_found' : 'upstream_error';
+	return error(res, status, code, `market data upstream: ${err?.message || 'unavailable'}`, {
+		retryable: status === 503,
+	});
+}
+
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -63,8 +76,12 @@ export default wrap(async (req, res) => {
 
 	// ── Picker: trending Solana pools ────────────────────────────────────────
 	if (params.get('list') === 'trending') {
-		const pools = await trendingPools('solana', 8);
-		return json(res, 200, { pools }, { 'cache-control': 'public, max-age=30, s-maxage=60' });
+		try {
+			const pools = await trendingPools('solana', 8);
+			return json(res, 200, { pools }, { 'cache-control': 'public, max-age=30, s-maxage=60' });
+		} catch (err) {
+			return marketUpstreamError(res, err);
+		}
 	}
 
 	// ── Resolve the pool to forecast ─────────────────────────────────────────
@@ -73,7 +90,11 @@ export default wrap(async (req, res) => {
 	const token = (params.get('token') || '').trim();
 	if (!pool && token) {
 		if (!isBase58(token)) return error(res, 400, 'bad_token', 'token must be a base58 mint');
-		pool = await topPoolForToken(token, network);
+		try {
+			pool = await topPoolForToken(token, network);
+		} catch (err) {
+			return marketUpstreamError(res, err);
+		}
 	}
 	if (!pool || !isBase58(pool)) {
 		return error(
@@ -90,13 +111,18 @@ export default wrap(async (req, res) => {
 	const aggregate = Math.max(1, Math.min(60, parseInt(params.get('aggregate') || '1', 10) || 1));
 
 	// ── Real candles (keyless, always returned) ──────────────────────────────
-	const { candles, base, quote, freq } = await fetchOhlcv({
-		pool,
-		network,
-		timeframe,
-		aggregate,
-		limit: 1000,
-	});
+	let candles, base, quote, freq;
+	try {
+		({ candles, base, quote, freq } = await fetchOhlcv({
+			pool,
+			network,
+			timeframe,
+			aggregate,
+			limit: 1000,
+		}));
+	} catch (err) {
+		return marketUpstreamError(res, err);
+	}
 	if (candles.length < 64) {
 		return error(
 			res,

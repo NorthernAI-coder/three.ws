@@ -30,6 +30,7 @@ import {
 	VoxelWorld, createBuildHud, parseKey, keyOf, MAX_BLOCKS, BLOCK,
 	COMPOSITE_PIECES, compositeCells, MAX_COMPOSITE_CELLS,
 } from './build-voxels.js';
+import { WorldObjects, PropGhost, PROP_CATALOG, DEFAULT_PROP, propDef } from './world-objects.js';
 import { normalizeGatewayURL } from '../ipfs.js';
 import {
 	loadManifest, getEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
@@ -273,6 +274,12 @@ export class CoinCommunities {
 		// quarter-turn rotation (0–3) applied to it. Both drive the ghost preview.
 		this.buildPiece = null;
 		this.buildRot = 0;
+		// R18 props: which placeable prop is armed (null = voxel layer active), its
+		// quarter-turn rotation, and current scale. When a prop is armed, build clicks
+		// place free-standing objects through the R01 object channel instead of voxels.
+		this.buildProp = null;
+		this.buildPropRot = 0;
+		this.buildPropScale = 1;
 		this.buildHud = createBuildHud({
 			onToggle: (on) => this._onBuildToggle(on),
 			onPick: (i) => { this.buildType = i; this._refreshGhost(); },
@@ -765,6 +772,16 @@ export class CoinCommunities {
 			// anything unowned.
 			cosmetics: getPlayCosmetics(),
 		});
+		// Generic networked-object layer for this coin (R02): mirrors the server's
+		// authoritative `objects` map into the scene — build props (R18), and any
+		// future ball/pickup — interpolated like the avatars. Delete-own keys on the
+		// net's ownership check. Built per world; disposed alongside voxels on leave.
+		this.worldObjects = new WorldObjects(this.scene, this.net, {
+			isMine: (obj) => !!this.net?.ownsObject(obj),
+		});
+		this.propGhost = new PropGhost(this.scene);
+		this.net.on('objectReject', ({ reason }) => this._onObjectReject(reason));
+
 		if (isGuest) uploadPendingGuestAvatar((publicUrl) => this.net?.setAvatar(publicUrl));
 		this.net.on('status', ({ status }) => {
 			this.ui.setStatus(status);
@@ -1126,6 +1143,8 @@ export class CoinCommunities {
 		if (this._oracleRibbon) { this._oracleRibbon.dispose(); this._oracleRibbon = null; }
 		if (this._reactor) { this._reactor.dispose(); this._reactor = null; }
 		if (this.voxels) { this.voxels.dispose(); this.voxels = null; }
+		if (this.worldObjects) { this.worldObjects.dispose(); this.worldObjects = null; }
+		if (this.propGhost) { this.propGhost.dispose(); this.propGhost = null; }
 		this._cancelLongPress();
 		clearTimeout(this._onboardTimer);
 		this._undoStack = []; // history is per-world; don't carry edits across coins
@@ -1137,7 +1156,9 @@ export class CoinCommunities {
 		// Reset the structures toolbar back to single-block and close any open
 		// share / featured surfaces — they're scoped to the world we're leaving.
 		this.buildPiece = null; this.buildRot = 0;
+		this.buildProp = null; this.buildPropRot = 0; this.buildPropScale = 1;
 		this.ui.setBuildPiece(null);
+		this.ui.setPropSelected(null);
 		this.ui.setBuildToolsVisible(false);
 		this.ui.closeShareSheet();
 		this.ui.closeFeatured();
@@ -1367,10 +1388,10 @@ export class CoinCommunities {
 					this.buildHud.select(k === '0' ? 9 : Number(k) - 1);
 					return;
 				}
-				// R rotates the armed composite piece a quarter-turn while building.
-				if (k === 'r' && this.buildHud.active && this.buildPiece) {
+				// R rotates the armed prop or composite piece a quarter-turn while building.
+				if (k === 'r' && this.buildHud.active && (this.buildProp || this.buildPiece)) {
 					e.preventDefault();
-					this._rotateBuild();
+					if (this.buildProp) this._rotateProp(); else this._rotateBuild();
 					return;
 				}
 				// E watches the Agent Exchange round when standing near the agents in
@@ -1499,7 +1520,11 @@ export class CoinCommunities {
 	// single-player (no server) we apply the edit straight to the local voxel layer
 	// — same result on screen, just not synced or persisted.
 	_buildAt(clientX, clientY, forceRemove) {
-		if (!this.voxels || this.phase !== 'world' || !this._buildableConnection()) return;
+		if (this.phase !== 'world' || !this._buildableConnection()) return;
+		// Prop layer (R18): a click places a free-standing object; right-click / hold
+		// deletes one you own. Routed before the voxel path so the two never collide.
+		if (this.buildProp) { this._buildPropAt(clientX, clientY, forceRemove); return; }
+		if (!this.voxels) return;
 		const target = this.voxels.raycast(this._pointerRay(clientX, clientY));
 		if (!target) return;
 		const removing = forceRemove || this.buildHud.mode === 'remove';
@@ -1674,6 +1699,7 @@ export class CoinCommunities {
 	// Move the ghost cursor to whatever the pointer aims at, tinted by intent
 	// (green place / red break / amber blocked).
 	_updateGhost(clientX, clientY) {
+		if (this.buildProp) { this._updatePropGhost(clientX, clientY); return; }
 		if (!this.voxels) return;
 		const target = this.voxels.raycast(this._pointerRay(clientX, clientY));
 		if (!target) { this.voxels.hideGhost(); this.voxels.hideFootprint(); return; }
@@ -1784,7 +1810,12 @@ export class CoinCommunities {
 		// The structures toolbar (composite pieces + rotate + share + featured) lives
 		// or dies with build mode.
 		this.ui.setBuildToolsVisible(on);
-		if (!on) { this.voxels?.hideGhost(); this.voxels?.hideFootprint(); this.canvas.style.cursor = ''; return; }
+		this.ui.setPropPaletteVisible(on);
+		if (!on) {
+			this.voxels?.hideGhost(); this.voxels?.hideFootprint();
+			this.propGhost?.hide(); this.canvas.style.cursor = '';
+			return;
+		}
 		const touch = typeof matchMedia === 'function' && matchMedia('(hover: none), (pointer: coarse)').matches;
 		const solo = this.net?.status !== 'online';
 		const how = touch
@@ -1988,6 +2019,7 @@ export class CoinCommunities {
 			this.localAnim?.update(dt);
 			this.localCosmetics?.tick(dt);
 			for (const [, r] of this.remotes) r.tick(dt);
+			this.worldObjects?.update();
 			this._updateLabels();
 			this._updateVoice();
 			this.playSystems?.tick(dt);

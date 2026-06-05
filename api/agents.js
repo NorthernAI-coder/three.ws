@@ -346,12 +346,20 @@ export async function handleGetOne(req, res, id) {
 
 		await healStaleAvatarId(row);
 
-		const [chatRow] = await sql`
-			SELECT COUNT(*)::int AS total
-			FROM usage_events
-			WHERE agent_id = ${id} AND kind = 'llm'
-		`;
-		row.chat_count = chatRow?.total ?? 0;
+		// chat_count is supplementary decoration on the agent record — never let
+		// a usage-stats query failure (e.g. usage_events not yet migrated, code
+		// 42P01) take down the whole agent fetch. Degrade to 0.
+		try {
+			const [chatRow] = await sql`
+				SELECT COUNT(*)::int AS total
+				FROM usage_events
+				WHERE agent_id = ${id} AND kind = 'llm'
+			`;
+			row.chat_count = chatRow?.total ?? 0;
+		} catch (err) {
+			console.warn('[agents] chat_count usage_events query failed, defaulting to 0:', err?.message);
+			row.chat_count = 0;
+		}
 
 		// Public fields if not owner; full record if owner. Auth on a public GET
 		// is best-effort — anonymous viewers still get the public projection.

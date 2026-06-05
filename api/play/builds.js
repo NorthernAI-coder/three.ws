@@ -57,7 +57,10 @@ export default wrap(async (req, res) => {
 	const rl = await limits.buildPublishIp(clientIp(req));
 	if (!rl.success) return error(res, 429, 'rate_limited', 'sharing too fast — try again shortly');
 
-	const parsed = publishSchema.safeParse(await readJson(req, MAX_THUMB_CHARS + 2048).catch(() => null));
+	// Read a little past the thumb cap so a modestly-oversized screenshot is
+	// rejected by the schema (a clean 413) rather than the raw byte limit, while
+	// a truly enormous body is still refused before it's fully buffered.
+	const parsed = publishSchema.safeParse(await readJson(req, Math.round(MAX_THUMB_CHARS * 1.5)).catch(() => null));
 	if (!parsed.success) {
 		const tooBig = parsed.error?.issues?.some((i) => /too large/.test(i.message));
 		if (tooBig) return error(res, 413, 'thumb_too_large', 'screenshot too large to share');
