@@ -272,6 +272,7 @@ function buildFeaturesJson() {
 				auth: p.auth || null,
 				indexable: p.indexable !== false,
 				tags: p.tags || [],
+				showcase: p.showcase || false,
 			})),
 		})),
 	};
