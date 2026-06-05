@@ -24,6 +24,7 @@ import { uploadAvatarSnapshot } from './voice/avatar-snapshot.js';
 import { IdleAnimation } from './idle-animation.js';
 import { renderSculptPanel } from './avatar-sculpt.js';
 import { renderWardrobePanel } from './avatar-wardrobe.js';
+import { renderRigPanel } from './avatar-rig.js';
 import { playAs } from './game/play-handoff.js';
 import { log } from './shared/log.js';
 
@@ -87,6 +88,7 @@ const TABS = [
 	{ id: 'glasses', label: 'Glasses', kinds: ['glasses'], emoji: '🕶️', single: true },
 	{ id: 'earrings', label: 'Earrings', kinds: ['earrings'], emoji: '💎', single: false },
 	{ id: 'sculpt', label: 'Sculpt', kinds: [], emoji: '✨', single: true, sculpt: true },
+	{ id: 'rig', label: 'Animate', kinds: [], emoji: '🦴', rig: true },
 ];
 const KIND_EMOJI = {
 	outfit: '👕',
@@ -297,6 +299,22 @@ function renderActivePanel() {
 			onDirty: () => {
 				renderChips();
 				updateDirtyState();
+			},
+		});
+		return;
+	}
+
+	// Animate tab: rig status + one-click auto-rig. Turns a static mesh into an
+	// animation-ready avatar via the regenerate(mode:'rerig') backend. Rigging is
+	// non-destructive — it mints a new sibling avatar — so on success we hand the
+	// owner straight into that new avatar's editor.
+	if (tab.rig) {
+		renderRigPanel({
+			container: panel,
+			avatar,
+			onRigged: (newAvatar) => {
+				if (!newAvatar?.id) return;
+				location.href = `/avatars/${encodeURIComponent(newAvatar.id)}/edit`;
 			},
 		});
 		return;

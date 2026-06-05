@@ -5,7 +5,7 @@ import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
-import { parse } from '../../_lib/validate.js';
+import { parse, isUuid } from '../../_lib/validate.js';
 import { emit402, verifyPaid, consumeIntent, manifestOnly } from '../../_lib/x402.js';
 import { calculateFee } from '../../_lib/fee.js';
 import { insertNotification } from '../../_lib/notify.js';

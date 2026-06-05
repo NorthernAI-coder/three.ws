@@ -82,16 +82,30 @@ const handleUpload = wrap(async (req, res) => {
 		return error(res, 415, 'unsupported_media_type', `content_type must be one of: ${[...PROXY_CONTENT_TYPES].join(', ')}`);
 	}
 
-	const declaredLength = Number(req.headers['content-length']);
-	if (Number.isFinite(declaredLength) && declaredLength > MAX_PROXY_UPLOAD_BYTES) {
-		return error(res, 413, 'payload_too_large', `body exceeds ${MAX_PROXY_UPLOAD_BYTES} bytes — use presigned upload for larger GLBs`);
-	}
-
+	// Two body modes:
+	//   • source_url=<http(s) GLB URL> — we fetch the bytes server-side. This is
+	//     the URL-import path: the browser can't fetch most avatar CDNs directly
+	//     (CloudFront/Arweave/etc. send no CORS headers), so we pull it here where
+	//     same-origin policy doesn't apply. SSRF-guarded against internal targets.
+	//   • raw octet-stream body — the CORS-fallback path for client-held blobs.
+	const sourceUrl = url.searchParams.get('source_url');
 	let buffer;
-	try {
-		buffer = await readRawBody(req, MAX_PROXY_UPLOAD_BYTES);
-	} catch (err) {
-		return error(res, err.status || 400, err.code || 'invalid_body', err.message || 'failed to read body');
+	if (sourceUrl) {
+		try {
+			buffer = await fetchRemoteGlb(sourceUrl, MAX_PROXY_UPLOAD_BYTES);
+		} catch (err) {
+			return error(res, err.status || 502, err.code || 'fetch_failed', err.message || 'failed to fetch source URL');
+		}
+	} else {
+		const declaredLength = Number(req.headers['content-length']);
+		if (Number.isFinite(declaredLength) && declaredLength > MAX_PROXY_UPLOAD_BYTES) {
+			return error(res, 413, 'payload_too_large', `body exceeds ${MAX_PROXY_UPLOAD_BYTES} bytes — use presigned upload for larger GLBs`);
+		}
+		try {
+			buffer = await readRawBody(req, MAX_PROXY_UPLOAD_BYTES);
+		} catch (err) {
+			return error(res, err.status || 400, err.code || 'invalid_body', err.message || 'failed to read body');
+		}
 	}
 	if (!buffer.length) return error(res, 400, 'empty_body', 'no bytes received');
 
@@ -130,6 +144,122 @@ const handleUpload = wrap(async (req, res) => {
 		checksum_sha256: checksum,
 	});
 });
+
+// Fetch a remote GLB server-side for the URL-import flow. Guards against SSRF:
+// the URL is attacker-controlled (any signed-in user can submit one), so we
+// resolve every redirect hop's hostname to its IPs and reject anything that
+// points at loopback, private, link-local, or cloud-metadata ranges before a
+// single byte is read. Streamed with a hard byte cap and a wall-clock timeout.
+const REMOTE_FETCH_TIMEOUT_MS = 20_000;
+const MAX_REMOTE_REDIRECTS = 5;
+
+async function fetchRemoteGlb(rawUrl, maxBytes) {
+	let target;
+	try {
+		target = new URL(rawUrl);
+	} catch {
+		throw fetchError(400, 'invalid_url', 'source_url is not a valid URL');
+	}
+	const ac = new AbortController();
+	const timer = setTimeout(() => ac.abort(), REMOTE_FETCH_TIMEOUT_MS);
+	try {
+		let resp;
+		for (let hop = 0; hop <= MAX_REMOTE_REDIRECTS; hop++) {
+			if (!['http:', 'https:'].includes(target.protocol)) {
+				throw fetchError(400, 'unsupported_scheme', 'only http(s) URLs can be imported');
+			}
+			await assertPublicHost(target.hostname);
+			resp = await fetch(target.href, {
+				redirect: 'manual',
+				signal: ac.signal,
+				headers: { accept: 'model/gltf-binary,application/octet-stream,*/*' },
+			});
+			if (resp.status >= 300 && resp.status < 400 && resp.headers.get('location')) {
+				if (hop === MAX_REMOTE_REDIRECTS) throw fetchError(502, 'too_many_redirects', 'source URL redirected too many times');
+				target = new URL(resp.headers.get('location'), target);
+				continue;
+			}
+			break;
+		}
+		if (!resp.ok) throw fetchError(502, 'fetch_failed', `source URL returned HTTP ${resp.status}`);
+
+		const declared = Number(resp.headers.get('content-length'));
+		if (Number.isFinite(declared) && declared > maxBytes) {
+			throw fetchError(413, 'payload_too_large', `source file is ${declared} bytes — max ${maxBytes}`);
+		}
+
+		const reader = resp.body?.getReader();
+		if (!reader) throw fetchError(502, 'empty_body', 'source URL returned no body');
+		const chunks = [];
+		let total = 0;
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			total += value.length;
+			if (total > maxBytes) {
+				await reader.cancel();
+				throw fetchError(413, 'payload_too_large', `source file exceeds ${maxBytes} bytes`);
+			}
+			chunks.push(value);
+		}
+		return Buffer.concat(chunks.map((c) => Buffer.from(c)));
+	} catch (err) {
+		if (err.code && err.status) throw err;
+		if (err.name === 'AbortError') throw fetchError(504, 'fetch_timeout', 'source URL timed out');
+		throw fetchError(502, 'fetch_failed', err.message || 'failed to fetch source URL');
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+function fetchError(status, code, message) {
+	const err = new Error(message);
+	err.status = status;
+	err.code = code;
+	return err;
+}
+
+// Reject hostnames that resolve to non-public address space (SSRF defense).
+async function assertPublicHost(hostname) {
+	const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+	if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.local')) {
+		throw fetchError(400, 'blocked_host', 'source_url host is not allowed');
+	}
+	const { lookup } = await import('dns/promises');
+	let records;
+	try {
+		records = await lookup(host, { all: true });
+	} catch {
+		throw fetchError(400, 'dns_failure', 'could not resolve source_url host');
+	}
+	for (const { address } of records) {
+		if (isPrivateAddress(address)) {
+			throw fetchError(400, 'blocked_host', 'source_url resolves to a non-public address');
+		}
+	}
+}
+
+function isPrivateAddress(ip) {
+	if (ip.includes(':')) {
+		const v6 = ip.toLowerCase();
+		if (v6 === '::1' || v6 === '::') return true;
+		if (v6.startsWith('fe80') || v6.startsWith('fc') || v6.startsWith('fd')) return true;
+		// IPv4-mapped IPv6 (::ffff:a.b.c.d) — unwrap and re-check.
+		const mapped = v6.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+		if (mapped) return isPrivateAddress(mapped[1]);
+		return false;
+	}
+	const p = ip.split('.').map(Number);
+	if (p.length !== 4 || p.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true;
+	const [a, b] = p;
+	if (a === 0 || a === 10 || a === 127) return true;
+	if (a === 169 && b === 254) return true; // link-local incl. 169.254.169.254 metadata
+	if (a === 172 && b >= 16 && b <= 31) return true;
+	if (a === 192 && b === 168) return true;
+	if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+	if (a >= 224) return true; // multicast / reserved
+	return false;
+}
 
 function readRawBody(req, limit) {
 	return new Promise((resolve, reject) => {

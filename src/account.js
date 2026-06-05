@@ -103,7 +103,11 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 	}
 	if (me === null) throw stageError('auth', 'Not signed in', { code: 'not_signed_in' });
 
-	let blob;
+	// `serverFetched` is set when we couldn't pull the GLB in the browser and let
+	// the API fetch it instead — in that branch the bytes already live in R2, so
+	// we skip the local canonicalize/presign/upload steps and commit directly.
+	let blob = null;
+	let serverFetched = null;
 	if (source instanceof Blob) {
 		blob = source;
 	} else {
@@ -114,81 +118,103 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 			blob = await resp.blob();
 		} catch (err) {
 			if (err.stage) throw err;
-			throw stageError('fetch', err.message || 'failed to fetch source GLB');
+			// Most avatar CDNs (RPM CloudFront, Arweave, arbitrary storage) serve
+			// no CORS headers, so a browser fetch is blocked. Fall back to a
+			// server-side fetch: the API pulls the file for us — no CORS, no SSRF
+			// exposure — and stores it directly. This is the normal URL-import path.
+			log.warn('[account] client-side GLB fetch blocked; fetching via server', err?.message);
+			onProgress?.(0);
+			try {
+				serverFetched = await fetchRemoteViaProxy(String(source), { onProgress, signal });
+			} catch (proxyErr) {
+				proxyErr.stage = proxyErr.stage || 'fetch';
+				throw proxyErr;
+			}
 		}
 	}
 
-	// Canonicalize humanoid bone names before upload so the pre-baked Mixamo
-	// animation library plays out of the box. Non-fatal — if the buffer isn't
-	// a valid GLB or the rig isn't humanoid, fall through with the original.
 	let retargetedBoneCount = 0;
-	try {
-		const { canonicalizeGLBBones } = await import('./glb-canonicalize.js');
-		const buf = await blob.arrayBuffer();
-		const result = canonicalizeGLBBones(buf);
-		if (result.renamed > 0) {
-			blob = new Blob([result.buffer], { type: 'model/gltf-binary' });
-			retargetedBoneCount = result.renamed;
-		}
-	} catch (err) {
-		log.warn('[account] canonicalize failed; uploading original', err);
-	}
-
-	const size = blob.size;
-	const contentType = blob.type || 'model/gltf-binary';
-	const checksum = await sha256Hex(blob);
-
-	// Presign + direct browser→R2 PUT is the happy path: cheapest, doesn't
-	// route bytes through our function. When the deploy origin isn't in the
-	// bucket CORS allowlist (ephemeral Codespaces hosts, branch deploys with a
-	// new hostname), the preflight fails. In that case fall through to the
-	// server-side proxy upload so the save always completes regardless of
-	// bucket CORS state.
 	let storageKey = null;
-	let presign = null;
+	let size;
+	let contentType;
+	let checksum;
 
-	try {
-		presign = await postJson('/api/avatars/presign', {
-			size_bytes: size,
-			content_type: contentType,
-			checksum_sha256: checksum,
-		});
-	} catch (err) {
-		err.stage = err.stage || 'presign';
-		throw err;
-	}
+	if (serverFetched) {
+		storageKey = serverFetched.storage_key;
+		size = serverFetched.size_bytes;
+		contentType = serverFetched.content_type || 'model/gltf-binary';
+		checksum = serverFetched.checksum_sha256;
+		onProgress?.(100);
+	} else {
+		// Canonicalize humanoid bone names before upload so the pre-baked Mixamo
+		// animation library plays out of the box. Non-fatal — if the buffer isn't
+		// a valid GLB or the rig isn't humanoid, fall through with the original.
+		try {
+			const { canonicalizeGLBBones } = await import('./glb-canonicalize.js');
+			const buf = await blob.arrayBuffer();
+			const result = canonicalizeGLBBones(buf);
+			if (result.renamed > 0) {
+				blob = new Blob([result.buffer], { type: 'model/gltf-binary' });
+				retargetedBoneCount = result.renamed;
+			}
+		} catch (err) {
+			log.warn('[account] canonicalize failed; uploading original', err);
+		}
 
-	try {
-		await putToR2({
-			url: presign.upload_url,
-			blob,
-			contentType,
-			onProgress,
-			signal,
-		});
-		storageKey = presign.storage_key;
-	} catch (err) {
-		if (err.code === 'upload_aborted') throw err;
-		if (err.code !== 'upload_blocked') {
-			err.stage = err.stage || 'upload';
+		size = blob.size;
+		contentType = blob.type || 'model/gltf-binary';
+		checksum = await sha256Hex(blob);
+
+		// Presign + direct browser→R2 PUT is the happy path: cheapest, doesn't
+		// route bytes through our function. When the deploy origin isn't in the
+		// bucket CORS allowlist (ephemeral Codespaces hosts, branch deploys with a
+		// new hostname), the preflight fails. In that case fall through to the
+		// server-side proxy upload so the save always completes regardless of
+		// bucket CORS state.
+		let presign = null;
+		try {
+			presign = await postJson('/api/avatars/presign', {
+				size_bytes: size,
+				content_type: contentType,
+				checksum_sha256: checksum,
+			});
+		} catch (err) {
+			err.stage = err.stage || 'presign';
 			throw err;
 		}
-		log.warn('[account] direct R2 PUT blocked; retrying via server proxy');
-		// Reset progress so the proxy attempt restarts visibly at 0% rather than
-		// looking stuck at whatever the direct PUT reached before failing.
-		onProgress?.(0);
+
 		try {
-			const proxied = await uploadViaProxy({
+			await putToR2({
+				url: presign.upload_url,
 				blob,
 				contentType,
-				checksum,
 				onProgress,
 				signal,
 			});
-			storageKey = proxied.storage_key;
-		} catch (proxyErr) {
-			proxyErr.stage = proxyErr.stage || 'upload';
-			throw proxyErr;
+			storageKey = presign.storage_key;
+		} catch (err) {
+			if (err.code === 'upload_aborted') throw err;
+			if (err.code !== 'upload_blocked') {
+				err.stage = err.stage || 'upload';
+				throw err;
+			}
+			log.warn('[account] direct R2 PUT blocked; retrying via server proxy');
+			// Reset progress so the proxy attempt restarts visibly at 0% rather than
+			// looking stuck at whatever the direct PUT reached before failing.
+			onProgress?.(0);
+			try {
+				const proxied = await uploadViaProxy({
+					blob,
+					contentType,
+					checksum,
+					onProgress,
+					signal,
+				});
+				storageKey = proxied.storage_key;
+			} catch (proxyErr) {
+				proxyErr.stage = proxyErr.stage || 'upload';
+				throw proxyErr;
+			}
 		}
 	}
 
@@ -229,7 +255,7 @@ export async function saveRemoteGlbToAccount(source, meta = {}, opts = {}) {
 	// /demos/usdz-ar passes generateCompanions:true). The live /create flow
 	// stays untouched — those derivations run client-side and add several
 	// seconds of CPU on every save, so they don't ship to all users yet.
-	if (meta.generateCompanions) {
+	if (meta.generateCompanions && blob) {
 		generateAndSaveCompanions(avatar.id, blob).catch((err) => {
 			log.warn('[account] usdz/halfbody pipeline failed silently', err?.message);
 		});
@@ -537,6 +563,42 @@ async function uploadViaProxy({ blob, contentType, checksum, onProgress, signal 
 		};
 		xhr.send(blob);
 	});
+}
+
+// Server-side fetch for URL imports: the API pulls the GLB from `sourceUrl`
+// itself (where same-origin/CORS doesn't apply) and stores it in R2, returning
+// the storage_key + verified size/checksum to commit with. Used when the
+// browser can't fetch the source directly — the common case for avatar CDNs
+// that send no CORS headers. The request body is empty; the URL is passed as a
+// query param and validated server-side against SSRF.
+async function fetchRemoteViaProxy(sourceUrl, { onProgress, signal } = {}) {
+	if (signal?.aborted) {
+		throw stageError('fetch', 'Import aborted', { code: 'upload_aborted' });
+	}
+	const qs = new URLSearchParams({ content_type: 'model/gltf-binary', source_url: sourceUrl });
+	// The browser shows indeterminate progress while the server fetches+stores.
+	// apiFetch attaches the CSRF token for us on POST.
+	onProgress?.(50);
+	const res = await apiFetch(`${API}/api/avatars/upload?${qs.toString()}`, {
+		method: 'POST',
+		headers: { 'content-type': 'model/gltf-binary' },
+		signal,
+	});
+	const data = res.headers.get('content-type')?.includes('application/json')
+		? await res.json()
+		: null;
+	if (res.status === 401) {
+		throw stageError('fetch', 'session expired', { status: 401, code: 'not_signed_in' });
+	}
+	if (!res.ok || !data?.storage_key) {
+		throw stageError(
+			'fetch',
+			data?.error_description || `server fetch failed: ${res.status}`,
+			{ code: data?.error || 'fetch_failed', status: res.status },
+		);
+	}
+	onProgress?.(100);
+	return data;
 }
 
 function stageError(stage, message, extras = {}) {
