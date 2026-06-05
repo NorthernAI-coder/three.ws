@@ -14,18 +14,21 @@
 // couple of universal-service locals so its plaza still trades.
 
 import { isHomeTown } from '../home-town.js';
-import { openService } from './npc-services.js';
+import { openChat } from './npc-chat.js';
 
 const AVATAR_A = '/avatars/default.glb';
 const AVATAR_B = '/avatars/cz.glb';
 
-// Bind an NPC to its x402 service. On interact the NPC greets, plays a beat, and
-// opens its service counter; the counter runs the real wallet payment.
-function serve(serviceId, greeting, emote) {
-	return ({ npc, ui }) => {
+// Bind an NPC to a conversation. On interact the NPC greets in-world, plays a
+// beat, and opens a real chat: it answers in character, live from the same models
+// the chats use (see npc-chat.js). Vendors pass a serviceId so the chat surfaces
+// the paid counter — the NPC talks you toward the sale, the counter settles it.
+// `persona` is the character voice; `greeting` is the line spoken on walk-up.
+function talk({ serviceId, persona, greeting, emote }) {
+	return ({ npc, ui, world }) => {
 		if (greeting) npc.say(greeting);
 		if (emote) npc.emote(emote);
-		openService(serviceId, { npc, ui });
+		openChat(npc, { ui, serviceId, persona, greeting, world });
 	};
 }
 
@@ -45,7 +48,12 @@ export function npcCatalogFor(world) {
 			yaw: Math.PI / 2,
 			range: 5,
 			prompt: 'Read the market',
-			onInteract: serve('crypto-intel', 'Want the read on a coin? A cent buys the truth.', 'av-call-me'),
+			onInteract: talk({
+				serviceId: 'crypto-intel',
+				greeting: 'Want the read on a coin? A cent buys the truth.',
+				emote: 'av-call-me',
+				persona: 'You are Marisol, the town\'s trading desk — a sharp, fast-talking market reader who lives in numbers and never sugarcoats a chart. Confident, a little wry, always sizing up whether a thing is bullish or bearish.',
+			}),
 		});
 
 		// Sheriff Boone — the law. Verifies claims (fact-check) with sources.
@@ -58,7 +66,12 @@ export function npcCatalogFor(world) {
 			yaw: 0,
 			range: 5,
 			prompt: 'Bring a claim',
-			onInteract: serve('fact-check', 'Heard somethin’ you ain’t sure of? I’ll get to the truth.', 'av-arm-flex'),
+			onInteract: talk({
+				serviceId: 'fact-check',
+				greeting: 'Heard somethin’ you ain’t sure of? I’ll get to the truth.',
+				emote: 'av-arm-flex',
+				persona: 'You are Sheriff Boone, the law in this town — slow, measured, and allergic to rumor. You weigh your words, distrust hearsay, and care only about what can be proven with sources. Plain-spoken frontier lawman.',
+			}),
 		});
 
 		// Saloon Kid — the club. Tips a dancer onto the stage (dance-tip).
@@ -71,7 +84,12 @@ export function npcCatalogFor(world) {
 			yaw: -Math.PI / 2,
 			range: 5,
 			prompt: 'Tip the floor',
-			onInteract: serve('dance-tip', 'Drop a coin and somebody dances. Who’s it gonna be?', 'av-call-me'),
+			onInteract: talk({
+				serviceId: 'dance-tip',
+				greeting: 'Drop a coin and somebody dances. Who’s it gonna be?',
+				emote: 'av-call-me',
+				persona: 'You are the Saloon Kid, the young hype-man running the dance floor at the club — all energy, grins, and showmanship. You live for a good time and love getting somebody up on stage.',
+			}),
 		});
 
 		// Old Pete — the prospector. Grinds vanity Solana keys (vanity).
@@ -84,7 +102,12 @@ export function npcCatalogFor(world) {
 			yaw: -Math.PI * 0.7,
 			range: 5,
 			prompt: 'Grind an address',
-			onInteract: serve('vanity', 'I mine letters, not gold. Tell me what your address should spell.', 'av-arm-flex'),
+			onInteract: talk({
+				serviceId: 'vanity',
+				greeting: 'I mine letters, not gold. Tell me what your address should spell.',
+				emote: 'av-arm-flex',
+				persona: 'You are Old Pete, a grizzled prospector who gave up panning for gold to mine vanity Solana addresses — letters, not nuggets. Crusty, patient, full of mining metaphors, proud of the keys you grind.',
+			}),
 		});
 
 		// Wendell — the assay office clerk. Checks ticker collisions (symbol).
@@ -97,7 +120,12 @@ export function npcCatalogFor(world) {
 			yaw: -Math.PI * 0.85,
 			range: 5,
 			prompt: 'Stake a name',
-			onInteract: serve('symbol-availability', 'Before you stake that ticker — let me check it ain’t already claimed.', 'av-call-me'),
+			onInteract: talk({
+				serviceId: 'symbol-availability',
+				greeting: 'Before you stake that ticker — let me check it ain’t already claimed.',
+				emote: 'av-call-me',
+				persona: 'You are Wendell, the assay-office clerk — meticulous, precise, and a stickler for whether a ticker is already claimed. You treat a token symbol like a mining claim that has to be registered clean. Dry, exacting, a touch bureaucratic.',
+			}),
 		});
 
 		// Mei — the foundry. Forges a token mint into a 3D mesh (mint-to-mesh).
@@ -110,7 +138,12 @@ export function npcCatalogFor(world) {
 			yaw: Math.PI,
 			range: 5,
 			prompt: 'Forge a mesh',
-			onInteract: serve('mint-to-mesh', 'Hand me a mint. I’ll forge it into somethin’ you can hold.', 'av-arm-flex'),
+			onInteract: talk({
+				serviceId: 'mint-to-mesh',
+				greeting: 'Hand me a mint. I’ll forge it into somethin’ you can hold.',
+				emote: 'av-arm-flex',
+				persona: 'You are Mei, the town foundry-keeper who forges token mints into 3D meshes you can actually hold. A maker with soot on her hands and real pride in her craft — warm, direct, always talking about what she can build.',
+			}),
 		});
 
 		// Doc Halloran — the audit desk. Audits a pump-agent token (audit).
@@ -123,7 +156,12 @@ export function npcCatalogFor(world) {
 			yaw: 0,
 			range: 5,
 			prompt: 'Audit the books',
-			onInteract: serve('pump-agent-audit', 'You don’t pay a token ’til you’ve seen its books. Give me a mint.', 'av-call-me'),
+			onInteract: talk({
+				serviceId: 'pump-agent-audit',
+				greeting: 'You don’t pay a token ’til you’ve seen its books. Give me a mint.',
+				emote: 'av-call-me',
+				persona: 'You are Doc Halloran, the town auditor — skeptical, careful, and never trusting a token until you\'ve read its ledger. You speak in ledgers and red flags, and you\'d rather find the rot before someone loses their stake. Wry, sharp-eyed.',
+			}),
 		});
 
 		// The Oracle — reputation. Reads an agent's on-chain record (reputation).
@@ -136,7 +174,12 @@ export function npcCatalogFor(world) {
 			yaw: Math.PI / 4,
 			range: 5,
 			prompt: 'Vet an agent',
-			onInteract: serve('agent-reputation', 'Name the agent. I’ll tell you what the chain remembers.', 'av-arm-flex'),
+			onInteract: talk({
+				serviceId: 'agent-reputation',
+				greeting: 'Name the agent. I’ll tell you what the chain remembers.',
+				emote: 'av-arm-flex',
+				persona: 'You are the Oracle, a quiet seer who reads what the chain remembers about any agent — coins deployed, money taken, trust earned. You speak in measured, slightly mystical terms, but everything you say is grounded in the on-chain record.',
+			}),
 		});
 
 		// The Schoolmarm — the tutor. Answers any question (tutor).
@@ -149,7 +192,12 @@ export function npcCatalogFor(world) {
 			yaw: 0,
 			range: 5,
 			prompt: 'Ask a question',
-			onInteract: serve('tutor', 'A cent a question, and you leave knowin’ more than you came. Ask.', 'av-call-me'),
+			onInteract: talk({
+				serviceId: 'tutor',
+				greeting: 'A cent a question, and you leave knowin’ more than you came. Ask.',
+				emote: 'av-call-me',
+				persona: 'You are Miss Ada, the town schoolmarm and tutor — patient, encouraging, and delighted by a good question. You explain things clearly with a teacher\'s warmth, code or crypto or the wider world, and you love when a visitor leaves a little smarter.',
+			}),
 		});
 
 		// The Banker — the launchpad. Deploys a live pump.fun coin (pump-launch).
@@ -162,7 +210,12 @@ export function npcCatalogFor(world) {
 			yaw: -Math.PI / 2,
 			range: 5,
 			prompt: 'Launch a coin',
-			onInteract: serve('pump-launch', 'Five dollars and your coin’s on the board by sundown. Name it.', 'av-arm-flex'),
+			onInteract: talk({
+				serviceId: 'pump-launch',
+				greeting: 'Five dollars and your coin’s on the board by sundown. Name it.',
+				emote: 'av-arm-flex',
+				persona: 'You are Banker Cole, the smooth-talking frontier banker who runs the launchpad — you front the SOL and put a live coin on the board. Polished, persuasive, a dealmaker who makes launching sound easy. Confident without being pushy.',
+			}),
 		});
 
 		return list;
@@ -179,7 +232,12 @@ export function npcCatalogFor(world) {
 		yaw: Math.PI / 3,
 		range: 5,
 		prompt: 'Read the market',
-		onInteract: serve('crypto-intel', 'New here? A cent gets you the read on any coin.', 'av-call-me'),
+		onInteract: talk({
+			serviceId: 'crypto-intel',
+			greeting: 'New here? A cent gets you the read on any coin.',
+			emote: 'av-call-me',
+			persona: 'You are the Local Trader, a friendly newcomer-greeter at this plaza\'s trading desk who reads the market for anyone passing through. Welcoming, quick with a number, happy to show a stranger the ropes.',
+		}),
 	});
 	list.push({
 		id: 'svc-local-factcheck',
@@ -190,7 +248,12 @@ export function npcCatalogFor(world) {
 		yaw: -Math.PI * 0.8,
 		range: 5,
 		prompt: 'Bring a claim',
-		onInteract: serve('fact-check', 'Got a claim you want checked? I’ll run the sources.', 'av-arm-flex'),
+		onInteract: talk({
+			serviceId: 'fact-check',
+			greeting: 'Got a claim you want checked? I’ll run the sources.',
+			emote: 'av-arm-flex',
+			persona: 'You are the Local Scribe, the plaza\'s record-keeper who checks claims against the sources. Careful, literate, even-handed — you won\'t call a thing true or false until the sources back it.',
+		}),
 	});
 	return list;
 }

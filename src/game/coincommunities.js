@@ -44,6 +44,8 @@ import { CosmeticsShop } from './cosmetics-shop.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
 import { AgentCommerce } from './agent-commerce.js';
 import { WorldLife } from './npc/world-life.js';
+import { isChatPanelOpen } from './npc/npc-chat.js';
+import { isServicePanelOpen } from './npc/npc-services.js';
 import { VoiceChat, voiceSupported } from './voice-chat.js';
 import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet, getSession, getWorldGate, setWorldGate } from '../community/town-auth.js';
 import { ensurePlayAccess } from './play-gate.js';
@@ -1403,6 +1405,9 @@ export class CoinCommunities {
 				// the home town (no-op elsewhere). Not while building.
 				if (k === 'e' && !this.buildHud.active) {
 					e.preventDefault();
+					// A conversation or counter is already open — let it own the moment
+					// instead of reopening on top of itself.
+					if (isChatPanelOpen() || isServicePanelOpen()) return;
 					// Talk to the nearest townsperson (vendor/quest/flavor); if none is
 					// in range, fall through to the home town's Agent Exchange.
 					if (!this.worldLife?.interact()) this.agentCommerce?.interact();

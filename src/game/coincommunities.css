@@ -2090,3 +2090,140 @@ span.cc-shop-action.cc-owned { align-self: flex-start; }
 	.cc-shop-panel { width: 100%; max-height: 100%; height: 100%; border: none; border-radius: 0; }
 	.cc-shop-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   NPC service counter (npc-services.js). Each townsperson fronts one real
+   x402 endpoint; this is the storefront panel the player fills in to pay.
+   Sits above the world (z 120) but below the x402 checkout overlay, which
+   mounts on top to run the wallet payment.
+   ─────────────────────────────────────────────────────────────────────────── */
+.npc-svc-overlay {
+	position: fixed; inset: 0; z-index: 120; display: grid; place-items: center;
+	padding: 20px; background: rgba(4, 4, 5, 0.66);
+	backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+	opacity: 0; transition: opacity 0.18s ease;
+}
+.npc-svc-overlay.is-in { opacity: 1; }
+.npc-svc-card {
+	width: min(440px, 100%); max-height: min(86vh, 720px); overflow-y: auto;
+	background: var(--cc-panel-solid); color: var(--cc-text);
+	border: 1px solid var(--cc-edge); border-radius: var(--cc-radius);
+	box-shadow: var(--cc-shadow); padding: 18px 18px 16px;
+	transform: translateY(8px) scale(0.985); transition: transform 0.18s ease;
+}
+.npc-svc-overlay.is-in .npc-svc-card { transform: translateY(0) scale(1); }
+.npc-svc-card::-webkit-scrollbar { width: 8px; }
+.npc-svc-card::-webkit-scrollbar-thumb { background: var(--cc-edge); border-radius: 4px; }
+
+.npc-svc-head { display: flex; align-items: flex-start; gap: 10px; }
+.npc-svc-head > div:first-child { flex: 1; min-width: 0; }
+.npc-svc-who { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cc-dim); margin-bottom: 3px; }
+.npc-svc-title { font-size: 19px; line-height: 1.15; margin: 0; font-weight: 650; }
+.npc-svc-price-wrap { flex-shrink: 0; }
+.npc-svc-close {
+	flex-shrink: 0; width: 28px; height: 28px; line-height: 1; cursor: pointer;
+	background: transparent; border: 1px solid var(--cc-edge-soft); border-radius: var(--cc-radius-sm);
+	color: var(--cc-dim); font: inherit; font-size: 13px; transition: all 0.14s ease;
+}
+.npc-svc-close:hover { color: var(--cc-text); border-color: var(--cc-edge-hi); }
+.npc-svc-close:focus-visible { outline: 2px solid var(--cc-edge-hi); outline-offset: 1px; }
+
+.npc-svc-intro { margin: 11px 0 16px; font-size: 13.5px; line-height: 1.5; color: var(--cc-dim); }
+
+.npc-svc-form { display: flex; flex-direction: column; gap: 13px; }
+.npc-svc-field { display: flex; flex-direction: column; gap: 5px; }
+.npc-svc-field-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cc-dim); }
+.npc-svc-field-help { font-size: 11.5px; color: var(--cc-faint); }
+.npc-svc-input {
+	width: 100%; background: var(--cc-bg2); color: var(--cc-text);
+	border: 1px solid var(--cc-edge); border-radius: var(--cc-radius-sm);
+	padding: 9px 11px; font: inherit; font-size: 14px; transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+textarea.npc-svc-input { resize: vertical; min-height: 64px; line-height: 1.45; }
+select.npc-svc-input { cursor: pointer; appearance: none; -webkit-appearance: none;
+	background-image: linear-gradient(45deg, transparent 50%, var(--cc-dim) 50%), linear-gradient(135deg, var(--cc-dim) 50%, transparent 50%);
+	background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+	padding-right: 30px;
+}
+.npc-svc-input::placeholder { color: var(--cc-faint); }
+.npc-svc-input:focus { outline: none; border-color: var(--cc-edge-hi); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08); }
+.npc-svc-input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.npc-svc-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 5px; }
+.npc-svc-pay, .npc-svc-cancel, .npc-svc-btn {
+	font: inherit; font-size: 13.5px; cursor: pointer; border-radius: var(--cc-radius-sm);
+	padding: 9px 16px; transition: filter 0.14s ease, background 0.14s ease, border-color 0.14s ease, transform 0.06s ease;
+}
+.npc-svc-pay {
+	background: var(--cc-accent); color: var(--cc-ink); border: 1px solid var(--cc-accent); font-weight: 600;
+}
+.npc-svc-pay:hover:not(:disabled) { filter: brightness(0.9); }
+.npc-svc-pay:active:not(:disabled) { transform: translateY(1px); }
+.npc-svc-pay:disabled { opacity: 0.6; cursor: progress; }
+.npc-svc-pay.is-busy .npc-svc-pay-label::before {
+	content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 7px; vertical-align: -1px;
+	border: 2px solid rgba(6, 6, 7, 0.35); border-top-color: var(--cc-ink); border-radius: 50%;
+	animation: npc-svc-spin 0.7s linear infinite;
+}
+@keyframes npc-svc-spin { to { transform: rotate(360deg); } }
+.npc-svc-cancel { background: transparent; color: var(--cc-dim); border: 1px solid var(--cc-edge); }
+.npc-svc-cancel:hover { color: var(--cc-text); border-color: var(--cc-edge-hi); }
+.npc-svc-pay:focus-visible, .npc-svc-cancel:focus-visible, .npc-svc-btn:focus-visible, .npc-svc-copy:focus-visible {
+	outline: 2px solid var(--cc-edge-hi); outline-offset: 1px;
+}
+
+.npc-svc-error {
+	margin-top: 4px; padding: 9px 11px; font-size: 13px; line-height: 1.4;
+	background: rgba(255, 255, 255, 0.05); border: 1px solid var(--cc-edge); border-left: 2px solid var(--cc-edge-hi);
+	border-radius: var(--cc-radius-sm); color: var(--cc-text);
+}
+
+/* settled result */
+.npc-svc-result { margin-top: 4px; }
+.npc-svc-settled {
+	font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cc-faint);
+	margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--cc-edge-soft);
+}
+.npc-svc-payload { display: flex; flex-direction: column; gap: 12px; }
+.npc-svc-headline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.npc-svc-topic { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+.npc-svc-lede { margin: 0; font-size: 14px; line-height: 1.55; color: var(--cc-text); }
+.npc-svc-note { margin: 0; font-size: 13px; line-height: 1.5; color: var(--cc-dim); }
+.npc-svc-sublabel { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cc-dim); margin-bottom: -4px; }
+.npc-svc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 9px; }
+.npc-svc-kv { display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; background: var(--cc-bg2); border: 1px solid var(--cc-edge-soft); border-radius: var(--cc-radius-sm); }
+.npc-svc-kv-k { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cc-faint); }
+.npc-svc-kv-v { font-size: 15px; font-weight: 600; }
+.npc-svc-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; line-height: 1.45; color: var(--cc-text); }
+.npc-svc-list a { color: var(--cc-text); text-decoration: underline; text-underline-offset: 2px; }
+.npc-svc-list a:hover { color: var(--cc-dim); }
+.npc-svc-code { margin: 0; padding: 11px; background: var(--cc-bg); border: 1px solid var(--cc-edge-soft); border-radius: var(--cc-radius-sm); font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; }
+.npc-svc-mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; color: var(--cc-dim); margin: 0; }
+.npc-svc-address, .npc-svc-secret { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; background: var(--cc-bg2); border: 1px solid var(--cc-edge-soft); border-radius: var(--cc-radius-sm); }
+.npc-svc-secret { flex-direction: column; align-items: stretch; }
+.npc-svc-address code, .npc-svc-secret code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; word-break: break-all; flex: 1; min-width: 0; }
+.npc-svc-copy { flex-shrink: 0; font: inherit; font-size: 12px; cursor: pointer; padding: 5px 10px; background: transparent; color: var(--cc-dim); border: 1px solid var(--cc-edge); border-radius: var(--cc-radius-sm); transition: all 0.14s ease; }
+.npc-svc-copy:hover { color: var(--cc-text); border-color: var(--cc-edge-hi); }
+.npc-svc-btn { display: inline-block; text-align: center; text-decoration: none; background: transparent; color: var(--cc-text); border: 1px solid var(--cc-edge-hi); align-self: flex-start; }
+.npc-svc-btn:hover { background: rgba(255, 255, 255, 0.06); }
+
+/* pills */
+.npc-svc-pill {
+	display: inline-flex; align-items: center; font-size: 11px; font-weight: 650; letter-spacing: 0.06em;
+	padding: 4px 9px; border-radius: 999px; border: 1px solid var(--cc-edge); color: var(--cc-text); white-space: nowrap;
+}
+.npc-svc-pill.is-price { background: rgba(255, 255, 255, 0.05); color: var(--cc-text); letter-spacing: 0.02em; }
+.npc-svc-pill.is-up { background: rgba(255, 255, 255, 0.92); color: var(--cc-ink); border-color: transparent; }
+.npc-svc-pill.is-down { background: transparent; color: var(--cc-text); border-color: var(--cc-edge-hi); }
+.npc-svc-pill.is-flat { background: rgba(255, 255, 255, 0.06); color: var(--cc-dim); }
+
+@media (max-width: 520px) {
+	.npc-svc-overlay { padding: 0; place-items: end stretch; }
+	.npc-svc-card { width: 100%; max-height: 92vh; border-radius: var(--cc-radius) var(--cc-radius) 0 0; border-bottom: none; }
+	.npc-svc-overlay.is-in .npc-svc-card { transform: translateY(0); }
+	.npc-svc-card { transform: translateY(14px); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.npc-svc-overlay, .npc-svc-card { transition: none; }
+	.npc-svc-pay.is-busy .npc-svc-pay-label::before { animation: none; }
+}
