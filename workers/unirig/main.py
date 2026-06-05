@@ -39,13 +39,13 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
 
-import numpy as np
 import torch
 import trimesh
 from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from google.cloud import storage
 from pydantic import BaseModel, Field
 
+from rig_glb import build_rigged_glb
 from worker_security import (
     UnsafeUrlError,
     fetch_remote_bytes_async,
@@ -103,34 +103,6 @@ def _require_api_key(authorization: str) -> None:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
-# Wolf3D / ARKit-52 skeleton joint names. UniRig predicts joint placement; we
-# remap its output to this hierarchy so the three.ws avatar runtime can drive it.
-WOLF3D_JOINTS = [
-    "Hips", "Spine", "Spine1", "Spine2", "Neck", "Head",
-    "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand",
-    "RightShoulder", "RightArm", "RightForeArm", "RightHand",
-    "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase",
-    "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase",
-    "LeftEye", "RightEye", "Jaw",
-]
-
-ARKIT_52_BLENDSHAPES = [
-    "browDownLeft", "browDownRight", "browInnerUp", "browOuterUpLeft",
-    "browOuterUpRight", "cheekPuff", "cheekSquintLeft", "cheekSquintRight",
-    "eyeBlinkLeft", "eyeBlinkRight", "eyeLookDownLeft", "eyeLookDownRight",
-    "eyeLookInLeft", "eyeLookInRight", "eyeLookOutLeft", "eyeLookOutRight",
-    "eyeLookUpLeft", "eyeLookUpRight", "eyeSquintLeft", "eyeSquintRight",
-    "eyeWideLeft", "eyeWideRight", "jawForward", "jawLeft", "jawOpen",
-    "jawRight", "mouthClose", "mouthDimpleLeft", "mouthDimpleRight",
-    "mouthFrownLeft", "mouthFrownRight", "mouthFunnel", "mouthLeft",
-    "mouthLowerDownLeft", "mouthLowerDownRight", "mouthPressLeft",
-    "mouthPressRight", "mouthPucker", "mouthRight", "mouthRollLower",
-    "mouthRollUpper", "mouthShrugLower", "mouthShrugUpper", "mouthSmileLeft",
-    "mouthSmileRight", "mouthStretchLeft", "mouthStretchRight",
-    "mouthUpperUpLeft", "mouthUpperUpRight", "noseSneerLeft", "noseSneerRight",
-    "tongueOut",
-]
-
 
 async def _run_rigging(
     task_id: str,
@@ -169,16 +141,10 @@ async def _run_rigging(
                 parents = skeleton["parents"].cpu().numpy()
                 weights = skinning_weights.cpu().numpy()
 
-                import pygltflib
-                glb = pygltflib.GLTF2.load_from_bytes(mesh_bytes)
-                _inject_skeleton(glb, mesh, joints, parents, weights)
-
-                if blendshapes and hasattr(result, "blendshapes"):
-                    _inject_blendshapes(glb, mesh, result["blendshapes"])
-
-                buf = io.BytesIO()
-                glb.save_to_bytes(buf)
-                return buf.getvalue()
+                blendshape_data = result.get("blendshapes") if blendshapes else None
+                return build_rigged_glb(
+                    mesh_bytes, mesh, joints, parents, weights, blendshape_data,
+                )
 
             rigged_bytes = await loop.run_in_executor(None, _rig)
 
@@ -205,43 +171,6 @@ async def _run_rigging(
                 "elapsed_ms": int((time.time() - t0) * 1000),
             })
 
-
-def _inject_skeleton(glb, mesh, joints, parents, weights):
-    """
-    Inject a skeleton (joints + inverse bind matrices) and skinning weights
-    into the GLB. This wires the mesh as a skinned mesh node with the Wolf3D
-    joint hierarchy so the three.ws avatar runtime can animate it.
-
-    The actual implementation depends on UniRig's output format. This is a
-    scaffold — the joint remapping from UniRig's predicted skeleton to Wolf3D's
-    naming convention will need calibration during integration testing.
-    """
-    log.info("Injecting skeleton: %d joints, %d vertices", len(joints), len(mesh.vertices))
-    # TODO: Full pygltflib skeleton injection.
-    # This requires:
-    #   1. Creating skin.joints[] node array with Wolf3D names
-    #   2. Computing inverseBindMatrices accessor
-    #   3. Creating a JOINTS_0 + WEIGHTS_0 accessor pair on the mesh primitive
-    #   4. Remapping UniRig's joint ordering to WOLF3D_JOINTS
-    # Placeholder: the rigged GLB will be returned as-is from UniRig's output
-    # format. The three.ws glb-inspect.js will detect whether it's properly rigged.
-
-
-def _inject_blendshapes(glb, mesh, blendshapes_data):
-    """
-    Inject ARKit-52 blendshape morph targets into the GLB.
-
-    Blendshape transfer from a template head is the research-heavy part.
-    UniRig may or may not support this natively. Fallback approach:
-      1. Register the generated head mesh to a Wolf3D template via ICP
-      2. Transfer blendshape deltas using deformation transfer
-      3. Name them per ARKIT_52_BLENDSHAPES
-
-    This is scaffolded for now — the initial deployment will ship without
-    blendshapes (body animation only via skeleton). Blendshapes will be
-    added in a follow-up once we validate the mesh quality from each model.
-    """
-    log.info("Blendshape injection requested — not yet implemented, skipping")
 
 
 class RigRequest(BaseModel):

@@ -21,6 +21,7 @@ RUN pip install -r /app/requirements.txt
 
 WORKDIR /app
 COPY worker_security.py /app/worker_security.py
+COPY rig_glb.py /app/rig_glb.py
 COPY main.py /app/main.py
 
 # Wolf3D skeleton templates for blendshape transfer (added in Phase 2).
