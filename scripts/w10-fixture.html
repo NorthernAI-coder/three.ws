@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- Verification fixture for the W10 HUD layer. Loads coincommunities.css for the
+     design tokens, then mounts the WorldHudSystem with a real three camera so the
+     layer can be exercised in a browser without the rest of /play. Temporary. -->
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>W10 HUD fixture</title>
+	<link rel="stylesheet" href="/src/game/coincommunities.css" />
+	<style>html,body{margin:0;height:100%;background:#060607}</style>
+</head>
+<body>
+	<script type="module">
+		import { PerspectiveCamera } from 'three';
+		import { WorldHudSystem } from '/src/game/hud/index.js';
+		const camera = new PerspectiveCamera(50, 16 / 9, 0.1, 9000);
+		let hotbar = [
+			{ slot: 0, empty: false, glyph: '🎣', name: 'Fishing rod', qty: 1, active: true },
+			{ slot: 1, empty: false, glyph: '🐟', name: 'Fish', qty: 3, active: false },
+			{ slot: 2, empty: true, glyph: '', name: '', qty: 0, active: false },
+		];
+		const sys = new WorldHudSystem(camera, {
+			actions: { leave: () => {}, emote: () => {}, equipSlot: () => {} },
+			getEmotes: () => [{ name: 'wave', icon: '👋', label: 'Wave' }, { name: 'dance', icon: '🕺', label: 'Dance' }],
+			getHotbar: () => hotbar,
+		});
+		window.__WH__ = { sys, camera };
+	</script>
+</body>
+</html>

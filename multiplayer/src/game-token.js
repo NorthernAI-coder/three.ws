@@ -403,3 +403,123 @@ export async function verifySpinPayment({ quoteToken, txSig, buyerWallet }) {
 	if (delta(treasuryATA) < BigInt(q.treasuryRaw)) return { ok: false, reason: 'treasury_underpaid' };
 	return { ok: true, nonce: q.nonce, quote: q };
 }
+
+// --- generic fixed-amount purchases (W04 $THREE boutique) -------------------
+//
+// The boutique — and any future fixed-price $THREE sink — settles through this pair,
+// the spin flow's sibling generalised over an arbitrary token amount and `purpose`.
+// The player signs ONE transaction that splits a FIXED $THREE amount between the burn
+// sink and the treasury, carrying a memo nonce that binds the on-chain tx to this
+// exact quote. The server prices the charge (never the client), then re-fetches the
+// confirmed tx from RPC and checks both legs landed before releasing the unlock.
+// Replay protection is the caller's responsibility (track consumed nonces) AND, for
+// idempotent grants like a cosmetic unlock, a double-settle can never double-deliver.
+
+/**
+ * Build the unsigned $THREE purchase the buyer signs. `amountRaw` is the total in
+ * base units (string|bigint), split burn/treasury by `burnBps` (default 50/50).
+ * `extra` is sealed into the quote verbatim (e.g. the boutique listing id) so settle
+ * can act on it without trusting the client. Returns null when no treasury is
+ * configured, the buyer isn't a real wallet, or the amount is non-positive.
+ * @param {{ buyerWallet: string, amountRaw: string|bigint, purpose: string, burnBps?: number, extra?: object }} params
+ * @returns {Promise<null | { quoteToken: string, txBase64: string, quote: object }>}
+ */
+export async function buildTokenPurchase({ buyerWallet, amountRaw, purpose, burnBps = 5000, extra = {} }) {
+	if (!tokenConfigured()) return null;
+	if (!isWalletAddress(buyerWallet)) return null;
+	let total;
+	try { total = BigInt(amountRaw); } catch { return null; }
+	if (!(total > 0n)) return null;
+
+	const { burn: burnRaw, treasury: treasuryRaw } = splitBurnTreasury(total, burnBps);
+	const treasuryAddr = treasuryWallet();
+	const nonce = crypto.randomBytes(16).toString('hex');
+
+	const conn = new Connection(SOLANA_RPC, 'confirmed');
+	const mint = new PublicKey(TOKEN_MINT);
+	const buyer = new PublicKey(buyerWallet);
+	const burn = new PublicKey(BURN_ADDRESS);
+	const treasury = new PublicKey(treasuryAddr);
+
+	const buyerATA = await getAssociatedTokenAddress(mint, buyer);
+	const burnATA = await getAssociatedTokenAddress(mint, burn);
+	const treasuryATA = await getAssociatedTokenAddress(mint, treasury);
+
+	const tx = new Transaction();
+	const [burnAcct, treasuryAcct] = await Promise.all([
+		conn.getAccountInfo(burnATA),
+		conn.getAccountInfo(treasuryATA),
+	]);
+	if (!burnAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, burnATA, burn, mint));
+	if (!treasuryAcct) tx.add(createAssociatedTokenAccountInstruction(buyer, treasuryATA, treasury, mint));
+	tx.add(createTransferInstruction(buyerATA, burnATA, buyer, burnRaw));
+	tx.add(createTransferInstruction(buyerATA, treasuryATA, buyer, treasuryRaw));
+	tx.add(memoInstruction(nonce));
+
+	const { blockhash } = await conn.getLatestBlockhash('confirmed');
+	tx.feePayer = buyer;
+	tx.recentBlockhash = blockhash;
+	const txBase64 = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
+
+	const quotePayload = {
+		purpose,
+		mint: TOKEN_MINT,
+		decimals: TOKEN_DECIMALS,
+		symbol: TOKEN_SYMBOL,
+		buyer: buyerWallet,
+		total: total.toString(),
+		tokens: Number(total) / 10 ** TOKEN_DECIMALS,
+		burnAddr: BURN_ADDRESS,
+		burnRaw: burnRaw.toString(),
+		treasuryAddr,
+		treasuryRaw: treasuryRaw.toString(),
+		nonce,
+		...extra,
+	};
+	const quoteToken = signQuote(quotePayload);
+	return { quoteToken, txBase64, quote: { ...quotePayload, ttlSeconds: QUOTE_TTL_SECONDS } };
+}
+
+/**
+ * Verify a settled $THREE purchase on-chain: the quote is untampered, unexpired, and
+ * matches the expected purpose + buyer; the tx carries the quote's memo nonce; and the
+ * burn + treasury legs each received at least their share. Pre/post token-balance
+ * deltas make this robust to however the wallet assembled the transfers.
+ * @param {{ quoteToken: string, txSig: string, buyerWallet?: string, purpose?: string }} params
+ * @returns {Promise<{ ok: boolean, reason?: string, nonce?: string, quote?: object }>}
+ */
+export async function verifyTokenPurchase({ quoteToken, txSig, buyerWallet, purpose }) {
+	const q = verifyQuote(quoteToken);
+	if (!q || (purpose && q.purpose !== purpose)) return { ok: false, reason: 'bad_quote' };
+	if (buyerWallet && q.buyer && q.buyer !== buyerWallet) return { ok: false, reason: 'buyer_mismatch' };
+	if (typeof txSig !== 'string' || txSig.length < 32 || txSig.length > 128) return { ok: false, reason: 'bad_signature' };
+
+	const conn = new Connection(SOLANA_RPC, 'confirmed');
+	let tx;
+	try {
+		tx = await conn.getParsedTransaction(txSig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 });
+	} catch {
+		return { ok: false, reason: 'rpc_error' };
+	}
+	if (!tx) return { ok: false, reason: 'not_found' };
+	if (tx.meta?.err) return { ok: false, reason: 'tx_failed' };
+
+	// Memo must equal the quote nonce — binds this tx to this exact quote.
+	const memoIx = (tx.transaction?.message?.instructions || []).find(
+		(ix) => ix.programId?.toString() === MEMO_PROGRAM_ID.toBase58(),
+	);
+	const memo = typeof memoIx?.parsed === 'string' ? memoIx.parsed : null;
+	if (!memo || memo !== q.nonce) return { ok: false, reason: 'memo_mismatch' };
+
+	const mint = TOKEN_MINT;
+	const burnATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.burnAddr))).toBase58();
+	const treasuryATA = (await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(q.treasuryAddr))).toBase58();
+	const delta = (ownerATA) => {
+		const pre = (tx.meta?.preTokenBalances || []).find((b) => b.mint === mint && accountKeyAt(tx, b.accountIndex) === ownerATA);
+		const post = (tx.meta?.postTokenBalances || []).find((b) => b.mint === mint && accountKeyAt(tx, b.accountIndex) === ownerATA);
+		return BigInt(post?.uiTokenAmount?.amount || '0') - BigInt(pre?.uiTokenAmount?.amount || '0');
+	};
+	if (delta(burnATA) < BigInt(q.burnRaw)) return { ok: false, reason: 'burn_underpaid' };
+	if (delta(treasuryATA) < BigInt(q.treasuryRaw)) return { ok: false, reason: 'treasury_underpaid' };
+	return { ok: true, nonce: q.nonce, quote: q };
+}

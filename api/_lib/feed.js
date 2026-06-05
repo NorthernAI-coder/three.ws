@@ -20,9 +20,10 @@
 //     actor — short, already-sanitized display label (truncated wallet, player
 //             name, agent name). NEVER a raw secret or full address we wouldn't
 //             show publicly — this list is world-readable.
-//   coin-buy     → { mint, sol, network }
-//   agent-deploy → { agentId, name }
-//   level-up     → { skill, level, coin }
+//   coin-buy      → { mint, sol, network }
+//   agent-deploy  → { agentId, name }  — new agent joined the registry (off-chain)
+//   agent-onchain → { agentId, name, chain }  — agent verified on-chain
+//   level-up      → { skill, level, coin }
 //   world-join   → { coin, coinName }
 //   jackpot      → { reward, coin }
 //   mission-complete → { mission, gold, coop, coin }  — /play job or heist finished
@@ -40,6 +41,7 @@ const MAX_EVENTS = 200; // capped list — the widget shows ~30; we keep headroo
 export const ALLOWED_TYPES = new Set([
 	'coin-buy',
 	'agent-deploy',
+	'agent-onchain',
 	'level-up',
 	'world-join',
 	'jackpot',

@@ -86,6 +86,7 @@
 			<link rel="stylesheet" href="/nav.css" />
 			<link rel="stylesheet" href="/footer.css" />
 			<script defer src="/footer-newsletter.js"></script>
+			<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 	</head>
 	<body>
 		<header><div id="nav-container"></div></header>
@@ -136,6 +137,14 @@
 							<span class="ad-dot">·</span>
 							<span id="ad-asset-kind">Core Asset</span>
 						</div>
+						<div class="ad-market-meta" id="ad-market-meta" hidden>
+							<button type="button" id="d-author" class="ad-author-btn" aria-label="View creator profile">—</button>
+							<span class="ad-dot">·</span>
+							<span id="ad-published"></span>
+							<span id="ad-category" class="ad-cat-pill"></span>
+							<span id="ad-views" class="ad-stat-pill"></span>
+							<span id="ad-forks-pill" class="ad-stat-pill" hidden></span>
+						</div>
 						<div id="ad-meta-skeleton" class="skeleton" style="width: 150px; height: 16px; margin-top: 8px; display: none;"></div>
 						<p class="ad-hero-desc" id="ad-desc"></p>
 						<div id="ad-desc-skeleton" class="skeleton" style="width: 80%; height: 48px; margin-top: 8px; display: none;"></div>
@@ -151,8 +160,52 @@
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
 								Share
 							</button>
+							<span class="ad-market-actions" id="ad-market-actions" hidden>
+								<button type="button" id="ad-fork" class="ad-btn ad-btn-primary">⑂ Fork &amp; Chat</button>
+								<button type="button" id="ad-bookmark" class="ad-btn" aria-pressed="false">☆ Save</button>
+								<button type="button" id="ad-export-json" class="ad-btn">↓ Export JSON</button>
+							</span>
 						</div>
 					</div>
+				</section>
+
+				<section class="ad-card ad-sale-card" id="ad-sale-card" hidden>
+					<div class="ad-card-head">
+						<span class="ad-bullet ad-bullet-green"></span>
+						<h2>OWNERSHIP</h2>
+					</div>
+					<div id="ad-sale-panel"></div>
+				</section>
+
+				<section class="ad-card ad-preview-card" id="ad-preview-card" hidden>
+					<div class="ad-card-head">
+						<span class="ad-bullet ad-bullet-green"></span>
+						<h2>TRY IT NOW</h2>
+						<span class="ad-preview-hint">Send a message — no fork required</span>
+					</div>
+					<div class="ad-preview-thread" id="d-preview-thread" aria-live="polite"></div>
+					<form class="ad-preview-form" id="d-preview-form" autocomplete="off">
+						<input
+							type="text"
+							id="d-preview-input"
+							class="ad-preview-input"
+							placeholder="Ask this agent anything…"
+							maxlength="2000"
+							required
+						/>
+						<button type="submit" class="ad-btn ad-btn-primary" id="d-preview-send">Send</button>
+					</form>
+					<div class="ad-preview-footer" id="d-preview-footer"></div>
+				</section>
+
+				<section class="ad-card ad-pricing-card" id="ad-pricing-card" hidden>
+					<div class="ad-card-head">
+						<span class="ad-bullet ad-bullet-amber"></span>
+						<h2>SKILLS &amp; PRICING</h2>
+					</div>
+					<div class="ad-pricing-summary" id="ad-pricing-summary" hidden></div>
+					<div id="ad-pricing-body"></div>
+					<div id="ad-pricing-library" hidden></div>
 				</section>
 
 				<section class="ad-card">
@@ -323,6 +376,42 @@
 					</div>
 				</section>
 
+				<section class="ad-card ad-embed-card" id="ad-embed-card" hidden>
+					<div class="ad-card-head">
+						<span class="ad-bullet ad-bullet-muted"></span>
+						<h2>EMBED THIS AGENT</h2>
+					</div>
+					<p class="ad-embed-lede">Drop the agent anywhere — as a web component, iframe, or direct link.</p>
+					<div class="ad-embed-section">
+						<div class="ad-embed-label"><span>Web component</span><button class="ad-embed-copy" type="button" data-embed="wc">Copy</button></div>
+						<pre class="ad-embed-code" id="ad-embed-wc"></pre>
+					</div>
+					<div class="ad-embed-section">
+						<div class="ad-embed-label"><span>Iframe</span><button class="ad-embed-copy" type="button" data-embed="iframe">Copy</button></div>
+						<pre class="ad-embed-code" id="ad-embed-iframe"></pre>
+					</div>
+					<div class="ad-embed-section">
+						<div class="ad-embed-label"><span>Direct link</span><button class="ad-embed-copy" type="button" data-embed="link">Copy</button></div>
+						<pre class="ad-embed-code" id="ad-embed-link"></pre>
+					</div>
+				</section>
+
+				<section class="ad-card ad-versions-card" id="ad-versions-card" hidden>
+					<div class="ad-card-head">
+						<span class="ad-bullet ad-bullet-dim"></span>
+						<h2>VERSION HISTORY</h2>
+					</div>
+					<ul class="ad-versions" id="ad-versions-list"></ul>
+				</section>
+
+				<section class="ad-card ad-similar-card" id="ad-similar-card" hidden>
+					<div class="ad-card-head">
+						<span class="ad-bullet"></span>
+						<h2>SIMILAR AGENTS</h2>
+					</div>
+					<div class="ad-similar-grid" id="ad-similar-grid"></div>
+				</section>
+
 				<details class="ad-card ad-collapse">
 					<summary>
 						<span class="ad-bullet ad-bullet-muted"></span>
@@ -354,6 +443,31 @@
 					<span><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/content-policy">Content Policy</a></span>
 				</footer>
 			</main>
+		</div>
+
+		<div class="creator-modal-overlay" id="creator-modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="creator-modal-title">
+			<div class="creator-modal" role="document">
+				<button class="creator-modal-close" id="creator-modal-close" aria-label="Close">×</button>
+				<header class="creator-modal-head">
+					<div class="creator-modal-avatar" id="creator-modal-avatar"></div>
+					<div class="creator-modal-meta">
+						<div class="creator-modal-eyebrow">Creator profile</div>
+						<h2 class="creator-modal-title" id="creator-modal-title">—</h2>
+						<div class="creator-modal-handle" id="creator-modal-handle"></div>
+						<div class="creator-modal-stats" id="creator-modal-stats"></div>
+					</div>
+				</header>
+				<div class="creator-modal-body">
+					<section>
+						<h3 class="creator-modal-sectiontitle">Published agents <span id="creator-agents-count" class="muted"></span></h3>
+						<div class="creator-modal-grid" id="creator-agents-grid"><div class="market-empty">Loading…</div></div>
+					</section>
+					<section>
+						<h3 class="creator-modal-sectiontitle">Public avatars <span id="creator-avatars-count" class="muted"></span></h3>
+						<div class="creator-modal-grid" id="creator-avatars-grid"><div class="market-empty">Loading…</div></div>
+					</section>
+				</div>
+			</div>
 		</div>
 
 		<script type="module" src="/src/agent-detail.js"></script>

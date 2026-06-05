@@ -546,6 +546,144 @@ async function handleWatchWhales({ mint, minUsd = 5000, durationMs = 5000 }) {
 	return { mint, minUsd: minUsdNum, durationMs: windowMs, count: trades.length, trades };
 }
 
+// ── getTokenTrades (real on-chain history, indexer-optional) ────────────────
+
+// Recent trade history for a mint, read directly from chain so it works without
+// the optional pump.fun indexer. Pre-graduation tokens trade against the pump
+// bonding-curve program (`TradeEvent`); graduated tokens trade on the pump AMM
+// pool (`BuyEvent`/`SellEvent`). We pull recent signatures for whichever account
+// is live, fetch those transactions, and decode the on-chain events.
+async function readTradesFromChain({ mint, limit, network }) {
+	const pk = solanaPubkey(mint);
+	if (!pk) throw rpcError(-32602, 'invalid mint');
+	const want = Math.min(50, Math.max(1, Number(limit) || 20));
+	// Fetch a few extra signatures since some touching the account aren't trades
+	// (fee claims, migrations) and get filtered out during decode.
+	const sigLimit = Math.min(60, want * 2);
+	const connection = getConnection({ network });
+
+	// Resolve whether the token has graduated to the AMM. A live pool means we
+	// read AMM Buy/Sell events; otherwise we read bonding-curve TradeEvents.
+	let pool = null;
+	try {
+		const ammState = await getAmmPoolState({ network, mint });
+		pool = ammState?.poolKey ?? null;
+	} catch (e) {
+		// No pool yet (pool_not_found) or a transient AMM read failure — fall
+		// through to the bonding-curve path rather than failing the request.
+		void e;
+	}
+
+	const [anchor, pumpSdk, ammSdk, solPrice] = await Promise.all([
+		import('@coral-xyz/anchor'),
+		import('@pump-fun/pump-sdk'),
+		import('@pump-fun/pump-swap-sdk'),
+		getSolPriceUsd(),
+	]);
+	const { BorshCoder, EventParser } = anchor;
+
+	const isAmm = !!pool;
+	let address;
+	let parser;
+	if (isAmm) {
+		address = pool;
+		const coder = new BorshCoder(ammSdk.pumpAmmJson);
+		parser = new EventParser(ammSdk.PUMP_AMM_PROGRAM_ID, coder);
+	} else {
+		const { getPumpSdkV2 } = await import('./_lib/pump.js');
+		const v2 = await getPumpSdkV2({ network });
+		address = v2.bondingCurvePda(pk);
+		const coder = new BorshCoder(pumpSdk.pumpIdl);
+		parser = new EventParser(pumpSdk.PUMP_PROGRAM_ID, coder);
+	}
+
+	const sigInfos = await connection.getSignaturesForAddress(address, { limit: sigLimit });
+	if (!sigInfos.length) return { mint, network, graduated: isAmm, count: 0, trades: [] };
+
+	const signatures = sigInfos.map((s) => s.signature);
+	const mintStr = pk.toString();
+	const poolStr = pool?.toString();
+	const trades = [];
+
+	function decodeTx(tx, signature) {
+		const logs = tx?.meta?.logMessages;
+		if (!logs || tx.meta.err) return null;
+		const blockTime = tx.blockTime ? tx.blockTime * 1000 : Date.now();
+		let parsed;
+		try {
+			parsed = parser.parseLogs(logs);
+		} catch {
+			return null;
+		}
+		for (const event of parsed) {
+			if (isAmm && (event.name === 'BuyEvent' || event.name === 'SellEvent')) {
+				const d = event.data;
+				if (poolStr && d.pool?.toString() !== poolStr) continue;
+				const isBuy = event.name === 'BuyEvent';
+				const lamports = isBuy ? d.quoteAmountIn : d.quoteAmountOut;
+				const tokens = isBuy ? d.baseAmountOut : d.baseAmountIn;
+				const sol = Number(lamports?.toString() ?? '0') / 1e9;
+				return {
+					signature,
+					isBuy,
+					solAmount: sol,
+					tokenAmount: tokens?.toString() ?? '0',
+					usdValue: sol * solPrice,
+					wallet: d.user?.toString() ?? null,
+					timestamp: d.timestamp
+						? Number(d.timestamp.toString())
+						: Math.floor(blockTime / 1000),
+				};
+			}
+			if (!isAmm && event.name === 'TradeEvent') {
+				const d = event.data;
+				if (d.mint?.toString() !== mintStr) continue;
+				const sol = Number(d.solAmount?.toString() ?? '0') / 1e9;
+				return {
+					signature,
+					isBuy: !!d.isBuy,
+					solAmount: sol,
+					tokenAmount: d.tokenAmount?.toString() ?? '0',
+					usdValue: sol * solPrice,
+					wallet: d.user?.toString() ?? null,
+					timestamp: d.timestamp
+						? Number(d.timestamp.toString())
+						: Math.floor(blockTime / 1000),
+				};
+			}
+		}
+		return null;
+	}
+
+	// Fetch in small chunks and stop as soon as we have enough trades. Most
+	// signatures touching the curve/pool account ARE trades, so we rarely need
+	// the full window — chunking also keeps batch sizes friendly to public RPCs.
+	const CHUNK = 8;
+	for (let off = 0; off < signatures.length && trades.length < want; off += CHUNK) {
+		const slice = signatures.slice(off, off + CHUNK);
+		const txs = await connection.getTransactions(slice, {
+			maxSupportedTransactionVersion: 0,
+			commitment: 'confirmed',
+		});
+		for (let i = 0; i < txs.length && trades.length < want; i++) {
+			const trade = decodeTx(txs[i], slice[i]);
+			if (trade) trades.push(trade);
+		}
+	}
+
+	return { mint, network, graduated: isAmm, count: trades.length, trades };
+}
+
+async function handleGetTokenTrades({ mint, limit = 20, network = 'mainnet' }) {
+	// Fast path: if the indexer is configured it serves richer historical data.
+	if (pumpfunBotEnabled()) {
+		const r = await pumpfunMcpCall('getTokenTrades', { mint, limit });
+		if (r.ok) return r.data;
+		// Indexer configured but errored — fall back to on-chain reads.
+	}
+	return readTradesFromChain({ mint, limit, network });
+}
+
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 const HANDLERS = {
@@ -555,7 +693,7 @@ const HANDLERS = {
 	kol_radar: handleKolRadar,
 	kol_leaderboard: handleKolLeaderboard,
 	searchTokens: indexerOrUnavailable('searchTokens'),
-	getTokenTrades: indexerOrUnavailable('getTokenTrades'),
+	getTokenTrades: handleGetTokenTrades,
 	getTrendingTokens: indexerOrUnavailable('getTrendingTokens'),
 	getNewTokens: indexerOrUnavailable('getNewTokens'),
 	getGraduatedTokens: indexerOrUnavailable('getGraduatedTokens'),

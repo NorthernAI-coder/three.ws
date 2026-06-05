@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+	<title>Character creator · three.ws</title>
+	<link rel="icon" href="/favicon.ico" />
+	<meta name="description" content="Build your 3D character — generate it from a photo, a Ready Player Me avatar, or your own model, then dress it in the wardrobe and step into the world." />
+	<meta name="robots" content="index, follow" />
+
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="three.ws" />
+	<meta property="og:url" content="https://three.ws/create/character" />
+	<meta property="og:title" content="Character creator · three.ws" />
+	<meta property="og:description" content="Build your 3D character and step into the world." />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<link rel="canonical" href="https://three.ws/create/character" />
+
+	<link rel="stylesheet" href="/src/character-creator.css" />
+</head>
+<body>
+	<header class="cc-topbar">
+		<a class="back" href="/play" aria-label="Back to play">
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
+			</svg>
+		</a>
+		<div class="brand"><strong>three.ws</strong> · Character creator</div>
+	</header>
+
+	<main class="cc-layout">
+		<!-- Live 3D turntable -->
+		<section class="cc-stage" id="cc-stage" data-state="loading" aria-label="Avatar preview">
+			<canvas id="cc-canvas"></canvas>
+			<div class="cc-veil cc-veil--spin" id="cc-stage-veil">Loading avatar…</div>
+			<div class="cc-stage__label" id="cc-avatar-label">Starter avatar</div>
+			<div class="cc-stage__hint" aria-hidden="true">drag to rotate</div>
+		</section>
+
+		<!-- Controls -->
+		<section class="cc-panel" aria-label="Customize">
+			<h1>Create your character</h1>
+			<p class="cc-sub">Pick a body, dress it, and step into the world. Everything previews live, and your look follows you to every coin world.</p>
+
+			<p class="cc-section-label">Choose your avatar</p>
+			<div class="cc-sources">
+				<button type="button" class="cc-source" id="cc-src-rpm">
+					<span class="ic" aria-hidden="true">🧍</span>
+					<span class="t">Ready Player Me</span>
+					<span class="d">Full-body creator</span>
+				</button>
+				<button type="button" class="cc-source" id="cc-src-selfie">
+					<span class="ic" aria-hidden="true">📸</span>
+					<span class="t">From a selfie</span>
+					<span class="d">Photo → 3D</span>
+				</button>
+				<button type="button" class="cc-source" id="cc-src-import">
+					<span class="ic" aria-hidden="true">📦</span>
+					<span class="t">Import</span>
+					<span class="d">.glb / .vrm</span>
+				</button>
+			</div>
+			<div class="cc-import-url">
+				<input type="url" id="cc-import-url" placeholder="…or paste a GLB/VRM URL" autocomplete="off" inputmode="url" />
+				<button type="button" id="cc-import-url-btn">Load</button>
+			</div>
+			<input type="file" id="cc-import-file" accept=".glb,.vrm,model/gltf-binary" hidden />
+
+			<p class="cc-section-label">Wardrobe</p>
+			<div id="cc-wardrobe"></div>
+
+			<div class="cc-finish">
+				<input type="text" id="cc-name-input" class="cc-name-input" placeholder="Name your character" maxlength="24" autocomplete="off" aria-label="Character name" />
+				<div class="cc-actions">
+					<button type="button" class="cc-btn cc-btn--ghost" id="cc-save-only">Save</button>
+					<button type="button" class="cc-btn cc-btn--primary" id="cc-save">Enter the world →</button>
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<!-- Ready Player Me modal -->
+	<div class="cc-modal" id="cc-rpm-modal" role="dialog" aria-modal="true" aria-label="Ready Player Me avatar creator" hidden>
+		<div class="cc-modal__inner">
+			<button type="button" class="cc-modal__close" id="cc-rpm-close">Close</button>
+			<iframe id="cc-rpm-frame" title="Ready Player Me" allow="camera *; microphone *; clipboard-write" src="about:blank"></iframe>
+		</div>
+	</div>
+
+	<div class="cc-toast" id="cc-toast" role="status" aria-live="polite"></div>
+
+	<script type="module" src="/src/character-creator.js"></script>
+	<script src="/brand.js" defer></script>
+</body>
+</html>

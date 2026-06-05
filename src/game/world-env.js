@@ -504,14 +504,25 @@ export function createWorldEnvironment(scene, renderer, playRadius = 58, opts = 
 	const animators = [];
 
 	// --- Sky + atmosphere --------------------------------------------------
-	scene.background = gradientSky(biome.sky[0], biome.sky[1], biome.sky[2]);
 	scene.fog = new Fog(new Color(biome.fog), biome.fogNear, biome.fogFar);
+	// Swap the graded sky backdrop and retint the fog. Exposed via setSky() so the
+	// day/night cycle can move the whole atmosphere across the day; the previous
+	// texture is disposed so a long session doesn't leak canvases.
+	function applySky(top, mid, horizon, fogColor) {
+		const tex = gradientSky(top, mid, horizon);
+		scene.background?.dispose?.();
+		scene.background = tex;
+		if (fogColor && scene.fog) scene.fog.color.set(fogColor);
+	}
+	applySky(biome.sky[0], biome.sky[1], biome.sky[2]);
 
 	// --- Lighting ----------------------------------------------------------
 	// One key sun (casts the long shadows), a sky/ground hemisphere fill, and a
 	// touch of ambient so shadowed geometry never goes muddy. All biome-tuned.
-	root.add(new HemisphereLight(biome.hemi[0], biome.hemi[1], biome.hemi[2]));
-	root.add(new AmbientLight(0xffffff, biome.ambient));
+	const hemi = new HemisphereLight(biome.hemi[0], biome.hemi[1], biome.hemi[2]);
+	const ambient = new AmbientLight(0xffffff, biome.ambient);
+	root.add(hemi);
+	root.add(ambient);
 
 	const sun = new Vector3();
 	sun.setFromSphericalCoords(1, MathUtils.degToRad(90 - biome.sun.elevation), MathUtils.degToRad(biome.sun.azimuth));
@@ -656,20 +667,31 @@ export function createWorldEnvironment(scene, renderer, playRadius = 58, opts = 
 	// storm (fog closes in, the key dims) and euphoria (fog opens out, the sun
 	// flares). We lerp toward the target so a jumpy feed reads as a tide, not a
 	// strobe. Baselines are captured so every community settles back to its own.
-	const baseFogNear = biome.fogNear, baseFogFar = biome.fogFar;
-	const baseSun = biome.sun.intensity;
+	// Daytime baselines the market mood multiplies. The day/night cycle drives
+	// these through setBaseSun/setBaseFog so the time of day sets the base and the
+	// trade tape's mood still flexes it on top — the two compose instead of fighting.
+	const base = { sun: biome.sun.intensity, fogNear: biome.fogNear, fogFar: biome.fogFar };
 	let mood = 0, moodTarget = 0; // -1 storm … +1 euphoric
 	animators.push((t, dt) => {
 		mood += (moodTarget - mood) * Math.min(1, dt * 0.6);
-		scene.fog.near = baseFogNear * (1 + mood * 0.18);
-		scene.fog.far = baseFogFar * (1 + mood * 0.28);
-		sunLight.intensity = baseSun * (1 + mood * 0.22);
+		scene.fog.near = base.fogNear * (1 + mood * 0.18);
+		scene.fog.far = base.fogFar * (1 + mood * 0.28);
+		sunLight.intensity = base.sun * (1 + mood * 0.22);
 	});
 
 	let t = 0;
 	return {
 		biome,
 		seed,
+		// Handles the day/night cycle writes through (createDayNightCycle reads
+		// these). `sun` is the unit direction vector the sunLight position derives
+		// from; the cycle re-aims and re-colours it across the day.
+		lights: { sunLight, sun, hemi, ambient },
+		// Replace the graded sky + fog tint (used by the day/night cycle).
+		setSky(top, mid, horizon, fogColor) { applySky(top, mid, horizon, fogColor); },
+		// Set the daytime base the market mood multiplies (see `base` above).
+		setBaseSun(v) { base.sun = v; },
+		setBaseFog(near, far) { base.fogNear = near; base.fogFar = far; },
 		// Kick the boundary ring to a colour. strength 0..1 sets the flash
 		// intensity; it decays back to the coin's accent within ~0.6s.
 		flashRing(color, strength = 0.6) {

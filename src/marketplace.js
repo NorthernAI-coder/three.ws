@@ -1855,9 +1855,9 @@ function renderSkillCard(s) {
 			${toolsDisplay}
 			${ratingDisplay}
 		</div>
-		<div class="skill-meta" style="justify-content:space-between">
+		<div class="skill-meta skill-foot">
 			${installedTag || '<span></span>'}
-			<span class="open-cta" style="color:#fafafa;opacity:0.6;font-weight:500">Details →</span>
+			<span class="open-cta">Details <span class="open-cta-arrow" aria-hidden="true">→</span></span>
 		</div>
 	</div>`;
 }

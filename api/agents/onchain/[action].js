@@ -32,6 +32,7 @@ import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
 import { r2, publicUrl } from '../../_lib/r2.js';
 import { env } from '../../_lib/env.js';
+import { publishFeedEvent } from '../../_lib/feed.js';
 import {
 	buildAgentManifest,
 	buildAgentOnchainAttributes,
@@ -583,6 +584,25 @@ async function handleConfirm(req, res) {
 
 	// Cleanup prep
 	await sql`delete from agent_registrations_pending where id = ${prep.id}`;
+
+	// Announce the genuine on-chain deployment on the site-wide ticker. This is
+	// the ONLY truthful "deployed on-chain" feed event — fired here, after the tx
+	// is verified and the onchain block is persisted, never at plain creation.
+	// Fire-and-forget; the feed is a delight layer and must never block confirm.
+	const chainLabel =
+		onchain.family === 'solana'
+			? 'Solana'
+			: { '1': 'Ethereum', '8453': 'Base', '137': 'Polygon', '42161': 'Arbitrum', '10': 'Optimism' }[
+					String(onchain.chain).split(':')[1]
+				] || 'EVM';
+	publishFeedEvent({
+		type: 'agent-onchain',
+		ts: Date.now(),
+		actor: agent.name,
+		agentId: agent.id,
+		name: agent.name,
+		chain: chainLabel,
+	}).catch(() => {});
 
 	return json(res, 201, {
 		ok: true,

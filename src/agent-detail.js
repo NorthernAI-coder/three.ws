@@ -30,6 +30,7 @@ import { renderError as renderAsyncError } from './shared/async-state.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
 import { Modal } from './shared/modal.js';
 import { showSharePanel } from './shared/share.js';
+import { enrichAgentDetail } from './agent-detail-market.js';
 import { log } from './shared/log.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -314,6 +315,12 @@ function render(agent) {
 	wireShareButton(agent);
 
 	loadExtraSections(agent.id, agent.rawMetadata);
+
+	// Layer the marketplace discovery + commerce features (3D avatar, live chat
+	// preview, creator profile, skill pricing, sale panel, embed, similar,
+	// versions) onto the canonical page. No-ops if the agent isn't published to
+	// the marketplace, so the base page is never blocked.
+	enrichAgentDetail(agent).catch((e) => log.warn('[agent-detail] enrich failed:', e?.message));
 }
 
 async function loadExtraSections(agentId, rec) {
@@ -1258,7 +1265,12 @@ function normalize(rec, avatar) {
 		id: rec.id,
 		name: rec.name || 'Unnamed agent',
 		assetKind: rec.is_registered ? 'Core Asset' : 'Off-chain',
-		active: !!rec.is_registered,
+		// "Active" is a liveness signal, NOT an on-chain one. An agent is live as
+		// long as it isn't an unpublished draft — off-chain agents are fully usable
+		// and must not read as dead. On-chain status is carried separately by the
+		// asset-kind label + the on-chain badge. `is_published` is only present in
+		// the owner view; public viewers (undefined) always see a live agent.
+		active: rec.is_published !== false,
 		avatar: avatar?.image_url || avatar?.thumbnail_url || avatar?.preview_url || null,
 		description: rec.description || '',
 		trust,

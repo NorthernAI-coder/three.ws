@@ -15,19 +15,29 @@
 // same account-keyed playerStore.
 
 import {
-	STACKABLE_ITEMS, isEdible, scaledHeal,
+	STACKABLE_ITEMS, isEdible, scaledHeal, armorValue,
 } from './items.js';
+import {
+	DEFAULT_LOADOUT, SLOTS, getCosmetic, canWear, sanitizeLoadout, freeCosmeticIds,
+} from './cosmetics-catalog.js';
 
 export const INV_SIZE = 24;
 export const HOTBAR_SIZE = 6;
 export const MAX_STACK = 999;
 export const LEVEL_CAP = 99;
 export const SKILLS = ['combat', 'woodcutting', 'mining', 'fishing', 'cooking'];
+// The armor layer's ceiling — a vest tops you up to here, and incoming damage eats
+// armor before HP (see combat.js applyDamage). One capped bar, so it reads cleanly.
+export const MAX_ARMOR = 100;
 
 // Starter kit handed to a brand-new player so the loop is exercisable the moment
-// they land: a fishing rod (cast at any pond) plus the gathering tools and a sword
-// the later phases (woodcutting/mining/combat) will use. Tools occupy the hotbar.
-const STARTER_HOTBAR = ['rod', 'axe', 'pickaxe', 'sword'];
+// they land: a fishing rod (cast at any pond), the gathering tools, and BOTH a
+// melee (sword) and ranged (pistol) weapon so the W07 combat loop — swing, shoot,
+// heal, re-armor — is playable on arrival. Tools occupy the hotbar.
+const STARTER_HOTBAR = ['rod', 'axe', 'pickaxe', 'sword', 'pistol'];
+// Backpack seed so a new player can fire and survive their first fight without a
+// shop run: a clip of pistol ammo and one body-armor vest.
+const STARTER_INV = [{ item: 'ammo', qty: 24 }, { item: 'vest', qty: 1 }];
 
 // XP curve — the canonical progression for the platform: level n needs
 // 50 * n^1.8 cumulative XP, capped at LEVEL_CAP.
@@ -54,17 +64,61 @@ function emptySlots(n) {
 export function newProfile(playerId = '') {
 	const hotbar = emptySlots(HOTBAR_SIZE);
 	STARTER_HOTBAR.forEach((item, i) => { hotbar[i] = { item, qty: 1 }; });
+	const inv = emptySlots(INV_SIZE);
+	STARTER_INV.forEach((seed, i) => { inv[i] = { item: seed.item, qty: seed.qty }; });
 	return {
 		playerId,
 		gold: 0,
+		bank: 0,        // banked cash — protected on death (carried `gold` drops). W04 extends.
 		hp: 100,
 		maxHp: 100,
-		inv: emptySlots(INV_SIZE),
+		armor: 0,       // armor layer that absorbs damage before HP; refilled by a vest.
+		maxArmor: MAX_ARMOR,
+		heat: 0,        // wanted/heat meter (0..MAX_HEAT) — raised by crimes, decays over time.
+		inv,
 		hotbar,
 		activeSlot: 0, // the rod, ready to cast
 		xp: Object.fromEntries(SKILLS.map((s) => [s, 0])),
 		levels: Object.fromEntries(SKILLS.map((s) => [s, 1])),
+		// Cosmetic identity (W03), purely visual. `owned` lists the premium ids this
+		// account has unlocked (free cosmetics are implicitly owned by everyone, so
+		// they're never stored here); `equipped` is the per-slot loadout peers render.
+		cosmetics: { owned: [], equipped: { ...DEFAULT_LOADOUT } },
 	};
+}
+
+// Premium ids this profile may wear: its unlocked set plus every free cosmetic.
+// Returned as a Set for O(1) canWear checks on the equip hot path.
+export function ownedCosmeticSet(profile) {
+	const owned = new Set(freeCosmeticIds());
+	const list = profile?.cosmetics?.owned;
+	if (Array.isArray(list)) for (const id of list) if (getCosmetic(id)) owned.add(id);
+	return owned;
+}
+
+// Grant a premium cosmetic into an account's owned list (the W04 unlock hook:
+// the shop calls this after a $THREE payment settles). Idempotent; ignores free
+// or unknown ids. Returns true when it newly unlocked something.
+export function grantCosmetic(profile, id) {
+	const c = getCosmetic(id);
+	if (!c || c.tier !== 'premium') return false;
+	if (!profile.cosmetics) profile.cosmetics = { owned: [], equipped: { ...DEFAULT_LOADOUT } };
+	if (!Array.isArray(profile.cosmetics.owned)) profile.cosmetics.owned = [];
+	if (profile.cosmetics.owned.includes(id)) return false;
+	profile.cosmetics.owned.push(id);
+	return true;
+}
+
+// Equip `id` into its slot if the profile is allowed to wear it. Returns the new
+// equipped map on success, or null when the id is unknown or unowned (the server
+// then rejects the equip). Mutates profile.cosmetics.equipped.
+export function equipCosmetic(profile, id) {
+	const c = getCosmetic(id);
+	if (!c) return null;
+	if (!canWear(id, ownedCosmeticSet(profile))) return null;
+	if (!profile.cosmetics) profile.cosmetics = { owned: [], equipped: { ...DEFAULT_LOADOUT } };
+	profile.cosmetics.equipped = { ...profile.cosmetics.equipped, [c.slot]: id };
+	return profile.cosmetics.equipped;
 }
 
 // Rebuild a profile from a persisted blob (playerStore `profile` field). Tolerant
@@ -84,14 +138,28 @@ export function restoreProfile(saved, playerId = '') {
 	if (Array.isArray(saved.hotbar)) fill(base.hotbar, saved.hotbar);
 	if (Number.isFinite(saved.activeSlot)) base.activeSlot = Math.max(-1, Math.min(HOTBAR_SIZE - 1, saved.activeSlot | 0));
 	if (Number.isFinite(saved.gold)) base.gold = Math.max(0, Math.min(0xffffffff, saved.gold | 0));
+	if (Number.isFinite(saved.bank)) base.bank = Math.max(0, Math.min(0xffffffff, saved.bank | 0));
 	if (Number.isFinite(saved.maxHp) && saved.maxHp > 0) base.maxHp = saved.maxHp | 0;
 	if (Number.isFinite(saved.hp)) base.hp = Math.max(0, Math.min(base.maxHp, saved.hp | 0));
+	if (Number.isFinite(saved.maxArmor) && saved.maxArmor > 0) base.maxArmor = saved.maxArmor | 0;
+	if (Number.isFinite(saved.armor)) base.armor = Math.max(0, Math.min(base.maxArmor, saved.armor | 0));
+	if (Number.isFinite(saved.heat)) base.heat = Math.max(0, Math.min(99, saved.heat));
 	if (saved.xp && typeof saved.xp === 'object') {
 		for (const skill of SKILLS) {
 			const v = Number.isFinite(saved.xp[skill]) ? Math.max(0, saved.xp[skill]) : 0;
 			base.xp[skill] = v;
 			base.levels[skill] = levelForXp(v);
 		}
+	}
+	// Cosmetics: keep only premium ids that still exist in the catalog as owned,
+	// then sanitize the equipped loadout against what this account may actually
+	// wear (drops anything unowned/renamed to the slot default).
+	if (saved.cosmetics && typeof saved.cosmetics === 'object') {
+		const owned = Array.isArray(saved.cosmetics.owned)
+			? saved.cosmetics.owned.filter((id) => { const c = getCosmetic(id); return c && c.tier === 'premium'; })
+			: [];
+		base.cosmetics.owned = [...new Set(owned)];
+		base.cosmetics.equipped = sanitizeLoadout(saved.cosmetics.equipped, ownedCosmeticSet(base));
 	}
 	return base;
 }
@@ -104,9 +172,17 @@ export function serializeProfile(profile) {
 		hotbar: slots(profile.hotbar),
 		activeSlot: profile.activeSlot,
 		gold: profile.gold,
+		bank: profile.bank,
 		hp: profile.hp,
 		maxHp: profile.maxHp,
+		armor: profile.armor,
+		maxArmor: profile.maxArmor,
+		heat: profile.heat,
 		xp: { ...profile.xp },
+		cosmetics: {
+			owned: [...(profile.cosmetics?.owned || [])],
+			equipped: { ...(profile.cosmetics?.equipped || DEFAULT_LOADOUT) },
+		},
 	};
 }
 
@@ -151,6 +227,30 @@ export function addItem(profile, item, qty) {
 		}
 	}
 	return left;
+}
+
+// Total quantity of `item` held across the backpack (hotbar tools aren't counted —
+// resources and food live in the pack). Used to gate cooking ("any raw fish?").
+export function countItem(profile, item) {
+	let n = 0;
+	for (const s of profile.inv) if (s.item === item) n += s.qty;
+	return n;
+}
+
+// Remove up to `qty` of `item` from the backpack, draining stacks until satisfied or
+// the item runs out. Returns the quantity actually removed (≤ qty). Used by cooking
+// (consume raw fish) and any future recipe/sink. Mutates the profile.
+export function removeItem(profile, item, qty) {
+	let need = qty;
+	for (const s of profile.inv) {
+		if (need <= 0) break;
+		if (s.item !== item) continue;
+		const take = Math.min(s.qty, need);
+		s.qty -= take;
+		need -= take;
+		if (s.qty <= 0) { s.item = ''; s.qty = 0; }
+	}
+	return qty - need;
 }
 
 // Resolve a client slot reference { zone:'inv'|'hotbar', i } to the live slot
@@ -198,25 +298,94 @@ export function profileSnapshot(profile) {
 	}
 	return {
 		gold: profile.gold,
+		bank: profile.bank,
 		hp: profile.hp,
 		maxHp: profile.maxHp,
+		armor: profile.armor,
+		maxArmor: profile.maxArmor,
+		heat: profile.heat,
 		inv: profile.inv.map((s) => ({ item: s.item, qty: s.qty })),
 		hotbar: profile.hotbar.map((s) => ({ item: s.item, qty: s.qty })),
 		activeSlot: profile.activeSlot,
 		skills,
 		cap: LEVEL_CAP,
+		// Cosmetic loadout + unlocked set, so the owner's wardrobe shows what they
+		// own and have equipped without a second round-trip.
+		cosmetics: {
+			owned: [...(profile.cosmetics?.owned || [])],
+			equipped: { ...(profile.cosmetics?.equipped || DEFAULT_LOADOUT) },
+		},
 	};
 }
 
-// Eat the edible in `slot`, healing scaled by cooking level. Returns the HP gained
-// (0 when nothing happened: not edible, already full, or empty). Mutates profile.
+// Use the item in `slot`: eat an edible to restore HP (scaled by cooking level), or
+// don a vest to refill the armor layer. Returns what happened so the room can toast
+// it. Mutates the profile; consumes one of the item on success.
 export function consumeSlot(profile, slot) {
-	if (!slot || !slot.item || !isEdible(slot.item)) return { ok: false, reason: 'inedible' };
+	if (!slot || !slot.item) return { ok: false, reason: 'inedible' };
+
+	// Body armor — refill the armor bar instead of HP.
+	const armorPts = armorValue(slot.item);
+	if (armorPts > 0) {
+		const cap = profile.maxArmor || MAX_ARMOR;
+		if (profile.armor >= cap) return { ok: false, reason: 'armorFull' };
+		const before = profile.armor;
+		profile.armor = Math.min(cap, profile.armor + armorPts);
+		const gained = profile.armor - before;
+		slot.qty -= 1;
+		if (slot.qty <= 0) { slot.item = ''; slot.qty = 0; }
+		return { ok: true, kind: 'armor', gained };
+	}
+
+	if (!isEdible(slot.item)) return { ok: false, reason: 'inedible' };
 	if (profile.hp >= profile.maxHp) return { ok: false, reason: 'full' };
 	const before = profile.hp;
 	profile.hp = Math.min(profile.maxHp, profile.hp + scaledHeal(slot.item, profile.levels.cooking || 1));
 	const gained = profile.hp - before;
 	slot.qty -= 1;
 	if (slot.qty <= 0) { slot.item = ''; slot.qty = 0; }
-	return { ok: true, gained };
+	return { ok: true, kind: 'heal', gained };
+}
+
+// --- Death, banking & vitals (W07) ----------------------------------------
+
+// Strip the carried valuables a tombstone inherits when this player dies: all
+// carried cash (`gold`) plus everything in the BACKPACK. Equipped hotbar tools and
+// weapons are kept so a respawn isn't toothless, and BANKED cash is untouched —
+// that's the whole risk/reward point of banking. Mutates the profile (zeroing the
+// dropped slice) and returns { gold, items:[{item,qty}] } for the tombstone.
+export function dropCarried(profile) {
+	const gold = profile.gold | 0;
+	profile.gold = 0;
+	const items = [];
+	for (const s of profile.inv) {
+		if (s.item && s.qty > 0) items.push({ item: s.item, qty: s.qty });
+		s.item = ''; s.qty = 0;
+	}
+	return { gold, items };
+}
+
+// Restore a player to fighting shape after respawn: full HP and a cleared armor bar
+// (you lose your vest on death — re-armor from the pack or a vendor).
+export function reviveProfile(profile) {
+	profile.hp = profile.maxHp;
+	profile.armor = 0;
+}
+
+// Move cash between the carried purse and the protected bank. `amount > 0` deposits
+// (purse → bank); `amount < 0` withdraws. Clamps to what's actually available so it
+// can never mint or strand cash. Returns the signed amount actually moved.
+export function bankTransfer(profile, amount) {
+	const amt = amount | 0;
+	if (amt > 0) {
+		const moved = Math.min(amt, profile.gold | 0);
+		profile.gold -= moved; profile.bank += moved;
+		return moved;
+	}
+	if (amt < 0) {
+		const moved = Math.min(-amt, profile.bank | 0);
+		profile.bank -= moved; profile.gold += moved;
+		return -moved;
+	}
+	return 0;
 }

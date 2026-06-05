@@ -72,16 +72,33 @@ function safeParse(s) {
 // ── presence tickets ──────────────────────────────────────────────────────
 // A presence ticket proves to the multiplayer server that the bearer is a
 // specific authenticated account, without that server needing to read our
-// session cookie or call back to verify. Format: base64url(JSON{uid,exp}).base64url(hmac).
+// session cookie or call back to verify. The crew tag (W09) rides inside the
+// signed payload too, so the game server can stamp a TRUSTWORTHY crew badge over
+// the avatar without a DB of its own and without trusting a client option.
+// Format: base64url(JSON{uid,exp,crew,crewName}).base64url(hmac).
 export async function signPresenceTicket(userId) {
 	const exp = Math.floor(Date.now() / 1000) + TICKET_TTL_SEC;
-	const payload = base64url(JSON.stringify({ uid: userId, exp }));
+	// Fold in the bearer's crew tag if they're in one. Defensive: a missing crews
+	// table (pre-migration) or any lookup error must never break ticket minting —
+	// friends presence has to keep working regardless of the crew feature.
+	let crew = '';
+	let crewName = '';
+	try {
+		// Dynamic import (not top-level) so this module stays importable by endpoints
+		// that never mint tickets, and resilient if the dependency is unavailable.
+		const { crewTagFor } = await import('./crews-store.js');
+		const c = await crewTagFor(userId);
+		if (c) { crew = c.tag; crewName = c.name; }
+	} catch { /* crew is optional metadata; presence works without it */ }
+	const payload = base64url(JSON.stringify({ uid: userId, exp, crew, crewName }));
 	const sig = await hmacSha256(env.MULTIPLAYER_SHARED_SECRET, payload);
 	return { token: `${payload}.${sig}`, expiresIn: TICKET_TTL_SEC };
 }
 
-// Verify a ticket and return its userId, or null. Mirrored byte-for-byte on the
-// multiplayer side (multiplayer/src/presence-token.js); keep the two in sync.
+// Verify a ticket and return { uid, crew, crewName }, or null. Mirrored
+// byte-for-byte on the multiplayer side (multiplayer/src/presence-token.js); keep
+// the two in sync. (No API caller today — the multiplayer server is the verifier;
+// this stays here as the canonical reference implementation.)
 export async function verifyPresenceTicket(token) {
 	if (typeof token !== 'string' || !token.includes('.')) return null;
 	const [payload, sig] = token.split('.');
@@ -91,7 +108,7 @@ export async function verifyPresenceTicket(token) {
 	const data = safeParse(Buffer.from(payload, 'base64url').toString('utf8'));
 	if (!data || !data.uid || !data.exp) return null;
 	if (data.exp < Math.floor(Date.now() / 1000)) return null;
-	return data.uid;
+	return { uid: data.uid, crew: data.crew || '', crewName: data.crewName || '' };
 }
 
 function base64url(s) {

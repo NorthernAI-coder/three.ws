@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Avatar Gallery · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta
+			name="description"
+			content="Every public 3D avatar made on three.ws. Browse, preview, embed, or remix — all from one gallery."
+		/>
+		<meta name="theme-color" content="#000000" />
+		<link rel="canonical" href="https://three.ws/gallery" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="Avatar Gallery · three.ws" />
+		<meta
+			property="og:description"
+			content="Every public 3D avatar made on three.ws. Preview, embed, or remix from one place."
+		/>
+		<meta property="og:url" content="https://three.ws/gallery" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Avatar Gallery · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Every public 3D avatar made on three.ws."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/gallery/gallery.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+	
+	<meta property="og:site_name" content="three.ws">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Avatar Gallery","description":"Every public 3D avatar in the system, browsable as a grid.","url":"https://three.ws/gallery","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
+	<body class="gallery-page">
+		<header>
+			<div id="nav-container"></div>
+		</header>
+		<script src="/nav.js"></script>
+
+		<main class="gallery-main">
+			<section class="gallery-hero">
+				<div class="gallery-hero-inner">
+					<div class="gallery-hero-chips">
+						<div class="gallery-hero-chip">
+							<span class="gallery-hero-dot"></span>
+							<span>Public avatar gallery</span>
+						</div>
+						<a
+							href="/dashboard/avatars"
+							class="gallery-hero-chip gallery-hero-chip--link"
+							data-role="my-avatars-chip"
+							hidden
+						>
+							<span>My avatars →</span>
+						</a>
+					</div>
+					<h1 class="gallery-title">Every avatar, ever made.</h1>
+					<p class="gallery-sub">
+						The community-made 3D avatars on three.ws. Click any card to preview in
+						the viewer, then embed it anywhere or remix into a new agent.
+					</p>
+
+					<div class="gallery-stats">
+						<div class="gallery-stat">
+							<div class="gallery-stat-value" data-role="stat-count">—</div>
+							<div class="gallery-stat-label">Avatars</div>
+						</div>
+						<div class="gallery-stat">
+							<div class="gallery-stat-value" data-role="stat-views">—</div>
+							<div class="gallery-stat-label">Total views</div>
+						</div>
+					</div>
+
+					<div class="gallery-hero-ctas">
+						<button type="button" class="gallery-hero-btn gallery-hero-btn--primary" data-create-from-template>Create from template</button>
+						<a class="gallery-hero-btn" href="/create/selfie">Create from selfie</a>
+						<a class="gallery-hero-btn" href="/dashboard/avatars">Upload avatar</a>
+					</div>
+
+				</div>
+			</section>
+
+			<section class="gallery-controls">
+				<div class="gallery-controls-top">
+					<div class="gallery-search">
+					<svg
+						class="gallery-search-icon"
+						viewBox="0 0 20 20"
+						fill="none"
+						aria-hidden="true"
+					>
+						<circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6" />
+						<path d="m14 14 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+					</svg>
+					<input
+						type="search"
+						placeholder="Search by name or description…"
+						data-role="search"
+						aria-label="Search avatars"
+						autocomplete="off"
+						spellcheck="false"
+					/>
+						<button
+							type="button"
+							class="gallery-search-clear"
+							data-role="search-clear"
+							aria-label="Clear search"
+							hidden
+						>
+							×
+						</button>
+					</div>
+					<div class="gallery-sort-select">
+						<label for="gallery-sort">Sort:</label>
+						<select id="gallery-sort" data-role="sort">
+							<option value="newest">Newest</option>
+							<option value="popular">Most viewed</option>
+							<option value="alpha">A → Z</option>
+						</select>
+					</div>
+				</div>
+				<div class="gallery-tag-wrap" data-role="tag-wrap" hidden>
+					<div class="gallery-tag-label">Tags</div>
+					<div class="gallery-tags" data-role="tags"></div>
+				</div>
+			</section>
+
+			<section class="gallery-grid-wrap">
+				<div class="gallery-grid" data-role="grid"></div>
+				<div class="gallery-status" data-role="status"></div>
+				<div class="gallery-sentinel" data-role="sentinel" aria-hidden="true"></div>
+				<div class="gallery-load-more-wrap">
+					<button class="gallery-load-more" data-role="load-more" hidden>
+						Load more
+					</button>
+				</div>
+			</section>
+		</main>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+
+		<!-- Sets window.twsOnchainBadge for the static gallery.js (bundled by Vite). -->
+		<script type="module">import '/src/shared/onchain-badge.js';</script>
+		<script type="module" src="/gallery/gallery.js"></script>
+		<script src="/brand.js" defer></script>
+</body>
+</html>
