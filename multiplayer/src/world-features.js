@@ -131,10 +131,14 @@ export function firepitInRange(x, z) { return nodeInRange(x, z, FIREPITS, COOK_R
 // and the client (PlayCombat — paints the danger ground ring, signposts the
 // crossing, gates the attack button). A circle test is exact, cheap and trivially
 // unit-testable; W01 can later refine these into full districts.
+// Sited within the area players actually roam today (the ~58 m central plaza the
+// client renders) and clear of the gather/fish stations, so each is reachable and
+// reads as its own wilderness. As W01's full district streaming lands these can
+// move out into the deep map; the gating math doesn't change.
 export const DANGER_ZONES = [
-	{ id: 'southern-wilds', name: 'Southern Wilds', x: 0, z: -46, r: 13 },
-	{ id: 'western-marches', name: 'Western Marches', x: -46, z: 28, r: 11 },
-	{ id: 'eastern-marches', name: 'Eastern Marches', x: 46, z: 8, r: 11 },
+	{ id: 'southern-wilds', name: 'Southern Wilds', x: 0, z: -42, r: 10 },
+	{ id: 'northern-wilds', name: 'Northern Wilds', x: 0, z: 42, r: 10 },
+	{ id: 'eastern-marches', name: 'Eastern Marches', x: 40, z: 24, r: 9 },
 ];
 
 export const WORLD_RADIUS = 60;            // matches WalkRoom's authoritative clamp

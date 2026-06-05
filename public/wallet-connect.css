@@ -11,8 +11,8 @@
 	font-size: 14px;
 	font-weight: 500;
 	border-radius: 8px;
-	border: 1px solid #2a2a36;
-	background: #1c1c28;
+	border: 1px solid #2b2b2b;
+	background: #1d1d1d;
 	color: #eee;
 	cursor: pointer;
 	transition:
@@ -25,7 +25,7 @@
 }
 
 .cwb-btn:hover:not(:disabled) {
-	background: #22222e;
+	background: #232323;
 	border-color: #ffffff;
 }
 

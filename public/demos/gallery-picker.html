@@ -13,7 +13,7 @@
 		></script>
 		<style>
 			:root { color-scheme: dark; }
-			body { background: #05060a; color: #eee; font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; }
+			body { background: #060606; color: #eee; font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; }
 			.stage { max-width: 1280px; margin: 0 auto; padding: 48px 24px 80px; }
 			.crumb a { color: #8a8d98; text-decoration: none; }
 			.crumb a:hover { color: #3dc1ff; }
@@ -28,10 +28,10 @@
 			.search-wrap { position: relative; flex: 1 1 280px; min-width: 220px; }
 			.search-wrap input {
 				width: 100%; padding: 10px 36px 10px 14px; border-radius: 9px;
-				background: #07080d; color: #eee; border: 1px solid #1e1f2b;
+				background: #080808; color: #eee; border: 1px solid #202020;
 				font: inherit;
 			}
-			.search-wrap input:focus { outline: none; border-color: #2b2d3e; }
+			.search-wrap input:focus { outline: none; border-color: #2e2e2e; }
 			.search-clear {
 				position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
 				background: transparent; border: 0; color: #8a8d98; cursor: pointer;
@@ -49,11 +49,11 @@
 			}
 			.tag-chip {
 				background: rgba(255,255,255,0.05); color: #cfd1dc;
-				border: 1px solid #1e1f2b; border-radius: 999px;
+				border: 1px solid #202020; border-radius: 999px;
 				padding: 5px 11px; font-size: 12.5px; cursor: pointer;
 				font: inherit;
 			}
-			.tag-chip:hover { border-color: #2b2d3e; color: #eee; }
+			.tag-chip:hover { border-color: #2e2e2e; color: #eee; }
 			.tag-chip.is-active { background: #3dc1ff; color: #0a0a0a; border-color: #3dc1ff; }
 
 			.row { display: grid; grid-template-columns: 1fr 420px; gap: 24px; align-items: start; }
@@ -67,25 +67,25 @@
 			@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
 
 			.card {
-				background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 12px;
+				background: #101010; border: 1.5px solid #202020; border-radius: 12px;
 				overflow: hidden; cursor: pointer; display: flex; flex-direction: column;
 				transition: border-color 120ms ease, transform 120ms ease;
 				text-align: left;
 				color: inherit; font: inherit; padding: 0;
 			}
-			.card:hover { border-color: #2b2d3e; }
+			.card:hover { border-color: #2e2e2e; }
 			.card.is-selected { border-color: #3dc1ff; box-shadow: 0 0 0 1px #3dc1ff inset; }
 			.thumb {
-				aspect-ratio: 1 / 1; background: #14151f; position: relative;
+				aspect-ratio: 1 / 1; background: #161616; position: relative;
 				display: flex; align-items: center; justify-content: center;
 				overflow: hidden;
 			}
 			.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 			.thumb-ph {
 				width: 100%; height: 100%;
-				background: linear-gradient(135deg, #1a1c28 0%, #14151f 100%);
+				background: linear-gradient(135deg, #1c1c1c 0%, #161616 100%);
 				display: flex; align-items: center; justify-content: center;
-				color: #3a3d4e; font-size: 28px;
+				color: #3e3e3e; font-size: 28px;
 			}
 			.card-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
 			.card-name {
@@ -97,7 +97,7 @@
 			.card-tag {
 				font-size: 11px; color: #8a8d98;
 				background: rgba(255,255,255,0.04); border-radius: 999px;
-				padding: 2px 7px; border: 1px solid #1e1f2b;
+				padding: 2px 7px; border: 1px solid #202020;
 			}
 			.card-meta {
 				display: flex; justify-content: space-between; align-items: center;
@@ -106,15 +106,15 @@
 
 			.preview {
 				position: sticky; top: 20px;
-				background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px;
+				background: #101010; border: 1.5px solid #202020; border-radius: 14px;
 				padding: 16px; display: flex; flex-direction: column; gap: 14px;
 			}
 			.preview-stage {
 				aspect-ratio: 1 / 1; border-radius: 10px; overflow: hidden;
-				background: #07080d; border: 1px solid #1e1f2b;
+				background: #080808; border: 1px solid #202020;
 				display: flex; align-items: center; justify-content: center;
 			}
-			model-viewer { width: 100%; height: 100%; --poster-color: transparent; background: #07080d; }
+			model-viewer { width: 100%; height: 100%; --poster-color: transparent; background: #080808; }
 			.preview-empty { color: #4a4d5e; font-size: 13px; text-align: center; padding: 0 20px; }
 
 			.preview h2 {
@@ -123,14 +123,14 @@
 			}
 			.preview-sub { color: #8a8d98; font-size: 12.5px; margin: 0; }
 
-			.mode-radio { display: flex; gap: 4px; background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px; padding: 3px; }
+			.mode-radio { display: flex; gap: 4px; background: #080808; border: 1px solid #202020; border-radius: 9px; padding: 3px; }
 			.mode-radio label {
 				flex: 1; text-align: center; padding: 7px 4px;
 				font-size: 12px; color: #8a8d98; cursor: pointer;
 				border-radius: 7px; transition: background 120ms ease, color 120ms ease;
 			}
 			.mode-radio input { display: none; }
-			.mode-radio input:checked + span { background: #1e1f2b; color: #eee; }
+			.mode-radio input:checked + span { background: #202020; color: #eee; }
 			.mode-radio label span { display: block; padding: 7px 4px; border-radius: 7px; }
 
 			button.cta {
@@ -143,24 +143,24 @@
 
 			.preview-foot {
 				font-family: ui-monospace, monospace; font-size: 11.5px;
-				color: #8a8d98; background: #07080d; border: 1px solid #1e1f2b;
+				color: #8a8d98; background: #080808; border: 1px solid #202020;
 				border-radius: 8px; padding: 9px 11px; word-break: break-all;
 				max-height: 110px; overflow: auto; white-space: pre-wrap;
 			}
 
 			.load-more-wrap { display: flex; justify-content: center; margin-top: 22px; }
 			button.load-more {
-				background: rgba(255,255,255,0.06); color: #eee; border: 1px solid #1e1f2b;
+				background: rgba(255,255,255,0.06); color: #eee; border: 1px solid #202020;
 				border-radius: 9px; padding: 10px 22px; cursor: pointer; font: inherit;
 			}
-			button.load-more:hover { border-color: #2b2d3e; }
+			button.load-more:hover { border-color: #2e2e2e; }
 			button.load-more:disabled { opacity: 0.5; cursor: not-allowed; }
 			.sentinel { height: 1px; }
 
 			.empty, .error {
 				grid-column: 1 / -1;
 				padding: 40px 16px; text-align: center;
-				color: #8a8d98; border: 1.5px dashed #1e1f2b; border-radius: 12px;
+				color: #8a8d98; border: 1.5px dashed #202020; border-radius: 12px;
 			}
 			.error { color: #ff8888; border-color: #3a1f2b; }
 		</style>

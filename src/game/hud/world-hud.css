@@ -202,6 +202,33 @@
 	color: var(--cc-dim, #9a9aa2);
 }
 
+/* On-screen interaction-menu button (touch entry + desktop discoverability). */
+.wh-menu-btn {
+	position: absolute;
+	right: var(--wh-pad);
+	top: 50%;
+	transform: translateY(-50%);
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	display: grid;
+	place-items: center;
+	font-size: 20px;
+	line-height: 1;
+	color: var(--cc-text, #f5f5f6);
+	pointer-events: auto;
+	cursor: pointer;
+	background: var(--cc-panel, rgba(12, 12, 14, 0.78));
+	border: 1px solid var(--cc-edge, rgba(255, 255, 255, 0.12));
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	box-shadow: var(--cc-shadow, 0 16px 50px rgba(0, 0, 0, 0.7));
+	transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+.wh-menu-btn:hover { background: rgba(34, 34, 40, 0.9); border-color: var(--cc-edge-hi, rgba(255, 255, 255, 0.5)); }
+.wh-menu-btn:active { transform: translateY(-50%) scale(0.92); }
+.wh-menu-btn:focus-visible { outline: 2px solid var(--cc-edge-hi, #fff); outline-offset: 2px; }
+
 /* ----------------------------------------------------------- responsive ---- */
 @media (max-width: 640px) {
 	.wh-hud { --wh-pad: 10px; }

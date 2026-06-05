@@ -49,6 +49,17 @@ export class WorldHudSystem {
 			const orig = menu._setFocus.bind(menu);
 			menu._setFocus = (i) => { if (i !== menu.focus && i >= 0) this.feel.sfx('tick'); orig(i); };
 		}
+
+		// On-screen entry to the radial menu — the touch path to everything inside it
+		// (emotes, camera, sound, leave), and a discoverability hint on desktop.
+		this.menuBtn = document.createElement('button');
+		this.menuBtn.type = 'button';
+		this.menuBtn.className = 'wh-menu-btn';
+		this.menuBtn.title = 'Interaction menu (M)';
+		this.menuBtn.setAttribute('aria-label', 'Open interaction menu');
+		this.menuBtn.textContent = '☰';
+		this.menuBtn.addEventListener('click', () => this.toggleInteraction());
+		this.hud.root.appendChild(this.menuBtn);
 	}
 
 	// --------------------------------------------------------------- menu state

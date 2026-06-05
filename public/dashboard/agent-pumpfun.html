@@ -110,7 +110,7 @@
 				margin-top: 40px;
 				padding: 28px 24px 36px;
 				border-top: 1px solid var(--border);
-				background: #06060a;
+				background: #060606;
 				color: var(--muted);
 				font-size: 13px;
 			}
@@ -226,7 +226,7 @@
 			.btn {
 				padding: 8px 14px;
 				border-radius: 6px;
-				border: 1px solid #2a2a36;
+				border: 1px solid #2b2b2b;
 				font: inherit;
 				font-weight: 600;
 				cursor: pointer;
@@ -235,8 +235,8 @@
 				transition: border-color 0.12s ease, background 0.12s ease;
 			}
 			.btn:hover:not(:disabled) {
-				border-color: #3d3d52;
-				background: #0a0a12;
+				border-color: #3f3f3f;
+				background: #0b0b0b;
 			}
 			.btn:disabled {
 				opacity: 0.45;
@@ -248,8 +248,8 @@
 				color: #ddd;
 			}
 			.btn.ghost:hover:not(:disabled) {
-				background: #15151d;
-				border-color: #2e2e3e;
+				background: #161616;
+				border-color: #2f2f2f;
 			}
 			.btn.danger {
 				background: #3a1d22;
@@ -411,7 +411,7 @@
 				min-width: 80px;
 				height: 12px;
 				border-radius: 4px;
-				background: linear-gradient(90deg, #1a1a1a 0%, #24242e 50%, #1a1a1a 100%);
+				background: linear-gradient(90deg, #1a1a1a 0%, #252525 50%, #1a1a1a 100%);
 				background-size: 200% 100%;
 				animation: shimmer 1.2s linear infinite;
 				vertical-align: middle;
@@ -782,7 +782,7 @@
 						max-width: 100%;
 						border: 1px solid var(--border);
 						border-radius: 8px;
-						background: #0a0a12;
+						background: #0b0b0b;
 					"
 				></canvas>
 			</section>
@@ -1544,7 +1544,7 @@
 						if (ts.graduated) {
 							const a = ts.amm || {};
 							body =
-								`<span class="tag" style="background:#5c8fff22;color:#9bf;border-color:#2a3a55">graduated · AMM</span>` +
+								`<span class="tag" style="background:#5c8fff22;color:#9bf;border-color:#393939">graduated · AMM</span>` +
 								` <span class="muted">refreshed ${refreshedAgo}</span>` +
 								`<div class="stat-grid" style="margin-top:10px">` +
 								`<div class="stat-card"><div class="v">${fmtSolLamports(a.quote_reserve)}</div><div class="l">Pool quote</div></div>` +

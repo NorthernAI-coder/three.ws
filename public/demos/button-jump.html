@@ -7,12 +7,12 @@
 		<meta name="robots" content="noindex" />
 		<style>
 			*, *::before, *::after { box-sizing: border-box; }
-			html, body { height: 100%; margin: 0; background: #02030a; overflow: hidden; }
+			html, body { height: 100%; margin: 0; background: #030303; overflow: hidden; }
 			canvas { display: block; width: 100%; height: 100%; }
 			.hint {
 				position: fixed; bottom: 22px; left: 50%;
 				transform: translateX(-50%);
-				color: #1e2030; font: 12px/1 -apple-system, system-ui, sans-serif;
+				color: #212121; font: 12px/1 -apple-system, system-ui, sans-serif;
 				letter-spacing: 0.08em; pointer-events: none; z-index: 2;
 			}
 		</style>
@@ -68,7 +68,7 @@
 			const skyC = document.createElement('canvas');
 			skyC.width = 2048; skyC.height = 1024;
 			const skyCtx = skyC.getContext('2d');
-			skyCtx.fillStyle = '#02030b';
+			skyCtx.fillStyle = '#030303';
 			skyCtx.fillRect(0, 0, 2048, 1024);
 			// Nebula smear
 			const neb = skyCtx.createRadialGradient(900, 400, 0, 900, 400, 600);
@@ -134,10 +134,10 @@
 			const gridC = document.createElement('canvas');
 			gridC.width = gridC.height = 512;
 			const gc = gridC.getContext('2d');
-			gc.fillStyle = '#04050f';
+			gc.fillStyle = '#060606';
 			gc.fillRect(0, 0, 512, 512);
 			// Fine grid
-			gc.strokeStyle = '#0d0f22'; gc.lineWidth = 1;
+			gc.strokeStyle = '#101010'; gc.lineWidth = 1;
 			for (let i = 0; i <= 512; i += 32) {
 				gc.beginPath(); gc.moveTo(i,0); gc.lineTo(i,512); gc.stroke();
 				gc.beginPath(); gc.moveTo(0,i); gc.lineTo(512,i); gc.stroke();

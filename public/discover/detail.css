@@ -99,7 +99,7 @@ body.detail-page {
 	border-radius: 14px;
 	overflow: hidden;
 	aspect-ratio: 1 / 1;
-	background: linear-gradient(135deg, #111 0%, #1a1a1f 100%);
+	background: linear-gradient(135deg, #111 0%, #1a1a1a 100%);
 	border: 1px solid rgba(255, 255, 255, 0.07);
 	display: flex;
 	align-items: center;
@@ -241,7 +241,7 @@ body.detail-page {
 	border-radius: 14px;
 	overflow: hidden;
 	border: 1px solid rgba(255, 255, 255, 0.07);
-	background: #0b0b0e;
+	background: #0b0b0b;
 	height: 480px;
 	position: relative;
 }

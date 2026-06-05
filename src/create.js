@@ -1,6 +1,7 @@
 import { apiFetch } from './account.js';
 import { AvatarCreator } from './avatar-creator.js';
 import { stage as stageGuestAvatar } from './guest-avatar.js';
+import { createFromTemplate } from './shared/template-picker.js';
 import { log } from './shared/log.js';
 
 // GLB magic bytes: ASCII "glTF"
@@ -132,6 +133,10 @@ async function boot() {
 	});
 
 	wireCard('card-default-editor', async () => {
+		if (window.__authed && (await isAtAvatarLimit())) return;
+		createFromTemplate();
+	});
+	wireCard('card-customize', async () => {
 		if (window.__authed && (await isAtAvatarLimit())) return;
 		creator.openDefaultEditor();
 	});

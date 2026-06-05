@@ -79,7 +79,8 @@
 					</div>
 
 					<div class="gallery-hero-ctas">
-						<a class="gallery-hero-btn gallery-hero-btn--primary" href="/create/selfie">Create from selfie</a>
+						<button type="button" class="gallery-hero-btn gallery-hero-btn--primary" data-create-from-template>Create from template</button>
+						<a class="gallery-hero-btn" href="/create/selfie">Create from selfie</a>
 						<a class="gallery-hero-btn" href="/dashboard/avatars">Upload avatar</a>
 					</div>
 
@@ -148,6 +149,8 @@
 
 		<!-- Sets window.twsOnchainBadge for the static gallery.js (bundled by Vite). -->
 		<script type="module">import '/src/shared/onchain-badge.js';</script>
+		<!-- Wires the hero "Create from template" button. -->
+		<script type="module">import '/src/shared/template-picker.js';</script>
 		<script type="module" src="/gallery/gallery.js"></script>
 		<script src="/brand.js" defer></script>
 </body>

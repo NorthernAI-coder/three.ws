@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Checkout · x402</title>
 <meta name="description" content="Hosted x402 payment checkout. Pay with USDC on Base or Solana." />
-<meta name="theme-color" content="#0a0b10" />
+<meta name="theme-color" content="#0b0b0b" />
 <style>
 	:root {
 		--bg: #fafbfc;
-		--text: #0d0f15;
+		--text: #0f0f0f;
 		--muted: #5a6378;
 		--muted-2: #8a90a8;
 		--border: #e2e5ec;
@@ -19,12 +19,12 @@
 	}
 	@media (prefers-color-scheme: dark) {
 		:root {
-			--bg: #0a0b10;
+			--bg: #0b0b0b;
 			--text: #f0f2f8;
 			--muted: #b0b6cc;
 			--muted-2: #6b7088;
-			--border: #232636;
-			--panel: #14161f;
+			--border: #272727;
+			--panel: #161616;
 		}
 	}
 	* { box-sizing: border-box; }
@@ -74,7 +74,7 @@
 
 	.pay-btn {
 		width: 100%; padding: 16px;
-		background: #0d0f15; color: #fff;
+		background: #0f0f0f; color: #fff;
 		border: none; border-radius: 12px;
 		font-size: 15px; font-weight: 700; font-family: inherit;
 		cursor: pointer; letter-spacing: -0.005em;
@@ -82,10 +82,10 @@
 		margin-top: 8px;
 	}
 	@media (prefers-color-scheme: dark) {
-		.pay-btn { background: #ffffff; color: #0d0f15; }
+		.pay-btn { background: #ffffff; color: #0f0f0f; }
 		.pay-btn:hover:not(:disabled) { background: #e7e9ee; }
 	}
-	.pay-btn:hover:not(:disabled) { background: #1a1d28; }
+	.pay-btn:hover:not(:disabled) { background: #1d1d1d; }
 	.pay-btn:active:not(:disabled) { transform: translateY(1px); }
 	.pay-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 

@@ -8,7 +8,7 @@
 
 import { Room } from '@colyseus/core';
 
-import { Player, Block, Vehicle, WalkState } from '../schemas.js';
+import { Player, Block, Vehicle, Mob, Tombstone, WalkState } from '../schemas.js';
 import {
 	VEHICLE_SPAWNS, vehicleSpec, isVehicleType,
 	VEHICLE_WORLD_RADIUS_M, VEHICLE_ENTER_RANGE_M,
@@ -24,15 +24,22 @@ import {
 	restoreProfile, serializeProfile, profileSnapshot,
 	addItem, hasRoomFor, resolveSlot, grantXp, consumeSlot,
 	countItem, removeItem,
+	dropCarried, reviveProfile, bankTransfer,
 	HOTBAR_SIZE,
 } from '../economy.js';
 import {
 	itemLabel, fishCatchChance, fishDoubleChance,
 	gatherChance, gatherDoubleChance, coalBonusChance, cookBurnChance,
+	weaponDef, mobStats, rollLoot,
 } from '../items.js';
 import {
 	fishingSpotInRange, treeInRange, rockInRange, firepitInRange,
+	DANGER_ZONES, SPAWN_POINT, dangerZoneAt, isSafeZone, isDangerZone, randomPointInZone,
 } from '../world-features.js';
+import { registerActivityHandlers } from '../activities.js';
+import {
+	selectTarget, rollDamage, applyDamage, addHeat, decayHeat, heatStars,
+} from '../combat.js';
 import { interactZoneInRange, zoneAt } from '../quest-zones.js';
 import {
 	missionDef, isHeist, utcDayKey,
@@ -291,9 +298,7 @@ export class WalkRoom extends Room {
 		// Economy & activities (off-schema). The owning client drives these and
 		// receives the authoritative result via profile/inv/xpgain/levelup/notice.
 		this.onMessage('fish', (client) => this._handleFish(client));
-		this.onMessage('chop', (client) => this._handleChop(client));
-		this.onMessage('mine', (client) => this._handleMine(client));
-		this.onMessage('cook', (client) => this._handleCook(client));
+		registerActivityHandlers(this); // W06 gather/craft: chop, mine, cook
 		this.onMessage('equip', (client, payload) => this._handleEquip(client, payload));
 		this.onMessage('consume', (client, payload) => this._handleConsume(client, payload));
 		this.onMessage('profileReq', (client) => this._sendProfile(client));
@@ -410,6 +415,13 @@ export class WalkRoom extends Room {
 		profile.quests = restoreQuestState(saved?.profile?.quests, utcDayKey());
 		profile._zone = null; // last quest zone the player was inside (enter-zone edge detect)
 		this.econ.set(client.sessionId, profile);
+		// Cosmetics (W03): apply any loadout the player chose pre-join (in the
+		// character creator) on top of their persisted one, validating each id
+		// against what they own — free cosmetics always pass, premium only when
+		// unlocked, so a join option can never put an unowned cosmetic on a player.
+		// Then publish the equipped loadout on the schema so peers render the look.
+		this._applyJoinCosmetics(profile, options?.cosmetics);
+		player.cosmetics = serializeLoadout(profile.cosmetics.equipped);
 		this._sendProfile(client);
 		this._sendQuests(client);
 

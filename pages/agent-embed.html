@@ -55,7 +55,7 @@
 				text-align: center;
 			}
 			body.bg-dark {
-				background: #0b0d10;
+				background: #0d0d0d;
 			}
 			body.bg-light {
 				background: #f5f5f5;
@@ -420,7 +420,7 @@
 				if (bg === 'dark') {
 					// Midnight-blue atmosphere with volumetric clouds.
 					const { Clouds, Cloud } = await import('/src/cloud.js');
-					if (viewer.scene.background?.set) viewer.scene.background.set('#070b18');
+					if (viewer.scene.background?.set) viewer.scene.background.set('#0b0b0b');
 
 					const clouds = new Clouds({ limit: 350 });
 					clouds.add(

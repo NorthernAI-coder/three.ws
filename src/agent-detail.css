@@ -1,7 +1,7 @@
 :root {
-	--ad-bg: #0b0d10;
-	--ad-bg-2: #111418;
-	--ad-card: #14181d;
+	--ad-bg: #0d0d0d;
+	--ad-bg-2: #141414;
+	--ad-card: #181818;
 	--ad-line: rgba(255, 255, 255, 0.07);
 	--ad-line-2: rgba(255, 255, 255, 0.12);
 	--ad-text: #e7e9ee;
@@ -50,7 +50,7 @@ a { color: inherit; text-decoration: none; }
 .ad-main { padding: 0; max-width: 920px; margin: 0 auto; width: 100%; }
 
 .ad-banner {
-	background: linear-gradient(90deg, #1a1545, #2a1a55);
+	background: linear-gradient(90deg, #1a1a1a, #222222);
 	color: var(--ad-text);
 	font-size: 12px;
 	text-align: center;

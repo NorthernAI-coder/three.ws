@@ -8,10 +8,10 @@
 
 :root {
 	--cc-bg: #060607;
-	--cc-bg2: #101012;
-	--cc-bg3: #18181b;
+	--cc-bg2: #101010;
+	--cc-bg3: #181818;
 	--cc-panel: rgba(12, 12, 14, 0.78);
-	--cc-panel-solid: #0c0c0e;
+	--cc-panel-solid: #0c0c0c;
 	--cc-edge: rgba(255, 255, 255, 0.12);
 	--cc-edge-soft: rgba(255, 255, 255, 0.07);
 	--cc-edge-hi: rgba(255, 255, 255, 0.55);
@@ -46,7 +46,7 @@ html, body {
 /* ---------------- loading ---------------- */
 #kx-loading, #cc-loading {
 	position: fixed; inset: 0; display: grid; place-items: center; z-index: 80;
-	background: radial-gradient(circle at 50% 38%, #161618, #050505 72%);
+	background: radial-gradient(circle at 50% 38%, #161616, #050505 72%);
 	transition: opacity 0.5s ease;
 }
 #kx-loading.kx-hidden, #cc-loading.cc-hidden { opacity: 0; pointer-events: none; }
@@ -1200,7 +1200,7 @@ html, body {
 }
 .cc-build-toggle.cc-on {
     background: #f4f5f7;
-    color: #0c0e14;
+    color: #0e0e0e;
     border-color: #f4f5f7;
 }
 .cc-build-toggle:disabled {
@@ -1416,7 +1416,7 @@ html, body {
 .pg-root.pg-leaving { animation: pg-fade 0.3s ease reverse forwards; pointer-events: none; }
 .pg-backdrop {
 	position: absolute; inset: 0;
-	background: radial-gradient(circle at 50% 36%, #161618, #050505 74%);
+	background: radial-gradient(circle at 50% 36%, #161616, #050505 74%);
 	backdrop-filter: saturate(130%) blur(6px);
 }
 .pg-card {

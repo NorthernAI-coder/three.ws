@@ -18,9 +18,14 @@
 
 import { stage, load, peek } from '../guest-avatar.js';
 import { log } from '../shared/log.js';
+import { serializeLoadout } from '../../multiplayer/src/cosmetics-catalog.js';
 
 export const CC_AVATAR_KEY = 'cc-avatar';
 export const CC_NAME_KEY = 'cc-name';
+// Equipped cosmetic loadout (W03) chosen in the character creator, carried into
+// the world the same way the avatar is. Stored as the compact comma-joined wire
+// string the server validates and peers render (cosmetics-catalog.serializeLoadout).
+export const CC_COSMETICS_KEY = 'cc-cosmetics';
 export const GUEST_SENTINEL = 'guest:pending';
 
 // One object URL per staged blob, cached so repeated resolves (local rig + boot
@@ -44,6 +49,23 @@ export function setPlayName(name) {
 	if (!v) return '';
 	try { localStorage.setItem(CC_NAME_KEY, v); } catch { /* ignore */ }
 	return v;
+}
+
+// The pre-join cosmetic loadout the world sends as a join option. A wire string
+// ('' = nothing equipped); the server re-validates ownership before anyone wears
+// it, so this is only a convenience hand-off, never trusted.
+export function getPlayCosmetics() {
+	try { return localStorage.getItem(CC_COSMETICS_KEY) || ''; } catch { return ''; }
+}
+
+// Persist the equipped loadout the creator built. Accepts either the wire string
+// or an {slot:id} map; stores the normalized wire form.
+export function setPlayCosmetics(loadout) {
+	const wire = typeof loadout === 'string'
+		? loadout
+		: serializeLoadout(loadout || {});
+	try { localStorage.setItem(CC_COSMETICS_KEY, wire); } catch { /* storage disabled */ }
+	return wire;
 }
 
 /**

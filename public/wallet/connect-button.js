@@ -307,8 +307,8 @@ function ensurePickerStyles() {
 	s.textContent = `
 		.cwb-picker {
 			position: fixed;
-			background: #18181b;
-			border: 1px solid #2d2d32;
+			background: #181818;
+			border: 1px solid #2d2d2d;
 			border-radius: 10px;
 			box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 			overflow: hidden;
@@ -332,7 +332,7 @@ function ensurePickerStyles() {
 			white-space: nowrap;
 		}
 		.cwb-pick-item:hover { background: rgba(255,255,255,0.07); }
-		.cwb-pick-item + .cwb-pick-item { border-top: 1px solid #2d2d32; }
+		.cwb-pick-item + .cwb-pick-item { border-top: 1px solid #2d2d2d; }
 		.cwb-pick-icon {
 			display: inline-flex;
 			align-items: center;

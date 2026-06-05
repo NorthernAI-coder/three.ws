@@ -14,7 +14,7 @@
 .ltm-overlay.ltm-open { opacity: 1; }
 
 .ltm-modal {
-	background: #0d0d18;
+	background: #0e0e0e;
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	border-radius: 14px;
 	width: min(480px, calc(100vw - 2rem));

@@ -10,7 +10,7 @@
 		<link rel="stylesheet" href="/nav.css" />
 		<style>
 			:root { color-scheme: dark; }
-			body { background: #05060a; color: #eee; font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; }
+			body { background: #060606; color: #eee; font: 15px/1.5 -apple-system, system-ui, sans-serif; margin: 0; }
 			.stage { max-width: 1080px; margin: 0 auto; padding: 48px 24px 80px; }
 			.crumb a { color: #8a8d98; text-decoration: none; }
 			.crumb a:hover { color: #3dc1ff; }
@@ -21,7 +21,7 @@
 			@media (max-width: 920px) { .row { grid-template-columns: 1fr; } }
 
 			.card {
-				background: #0f1018; border: 1.5px solid #1e1f2b; border-radius: 14px;
+				background: #101010; border: 1.5px solid #202020; border-radius: 14px;
 				padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 100%;
 			}
 			.card .chip {
@@ -34,10 +34,10 @@
 			.card .chip.muted { background: rgba(255,255,255,0.05); color: #8a8d98; }
 			input[type=text] {
 				width: 100%; padding: 10px 12px; border-radius: 9px;
-				background: #07080d; color: #eee; border: 1px solid #1e1f2b;
+				background: #080808; color: #eee; border: 1px solid #202020;
 				font: inherit; box-sizing: border-box;
 			}
-			input[type=text]:focus { outline: none; border-color: #2a2b3a; }
+			input[type=text]:focus { outline: none; border-color: #2c2c2c; }
 			.input-row { display: flex; gap: 8px; }
 			.input-row input { flex: 1; }
 			button {
@@ -51,12 +51,12 @@
 
 			.connector-detail {
 				display: flex; flex-direction: column; gap: 10px;
-				padding: 12px; background: #07080d; border-radius: 9px;
-				border: 1px solid #1e1f2b;
+				padding: 12px; background: #080808; border-radius: 9px;
+				border: 1px solid #202020;
 			}
 			.connector-detail.empty { color: #555866; font-style: italic; padding: 24px 12px; text-align: center; }
 			.profile-head { display: flex; gap: 12px; align-items: center; }
-			.profile-head img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #1e1f2b; }
+			.profile-head img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #202020; }
 			.profile-head .name { font-weight: 600; }
 			.profile-head .sub-text { color: #8a8d98; font-size: 12.5px; }
 			.bio { color: #c8cad6; font-size: 13.5px; line-height: 1.45; }
@@ -64,17 +64,17 @@
 			.stats { display: flex; gap: 14px; font-size: 12px; color: #8a8d98; }
 			.stats b { color: #3dc1ff; font-weight: 600; }
 			.items { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
-			.items .item { padding: 8px 10px; background: #0a0b12; border-radius: 7px; border: 1px solid #1e1f2b; }
+			.items .item { padding: 8px 10px; background: #0b0b0b; border-radius: 7px; border: 1px solid #202020; }
 			.items .item b { color: #3dc1ff; font-weight: 600; }
 			.items .item .meta { color: #8a8d98; font-size: 11.5px; margin-top: 2px; }
 
 			.synth-section {
-				margin-top: 32px; background: #0f1018; border: 1.5px solid #1e1f2b;
+				margin-top: 32px; background: #101010; border: 1.5px solid #202020;
 				border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 16px;
 			}
 			.synth-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 			.synth-output {
-				background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px;
+				background: #080808; border: 1px solid #202020; border-radius: 9px;
 				padding: 20px; min-height: 80px;
 				font-family: ui-serif, Georgia, serif; font-size: 14.5px; line-height: 1.65;
 				color: #e8ebf0; white-space: pre-wrap;
@@ -91,7 +91,7 @@
 
 			.log {
 				margin-top: 32px;
-				background: #07080d; border: 1px solid #1e1f2b; border-radius: 9px;
+				background: #080808; border: 1px solid #202020; border-radius: 9px;
 				padding: 12px; font-family: ui-monospace, monospace; font-size: 12px;
 				line-height: 1.6; color: #8a8d98; max-height: 220px; overflow: auto; white-space: pre-wrap;
 			}
@@ -215,7 +215,7 @@
 			function renderProfileHead(avatarUrl, name, sub) {
 				const img = avatarUrl
 					? `<img src="${escapeHtml(avatarUrl)}" alt="" referrerpolicy="no-referrer" />`
-					: `<div style="width:44px;height:44px;border-radius:50%;background:#1e1f2b"></div>`;
+					: `<div style="width:44px;height:44px;border-radius:50%;background:#202020"></div>`;
 				return `
 					<div class="profile-head">
 						${img}

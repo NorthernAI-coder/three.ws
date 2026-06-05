@@ -388,7 +388,7 @@ function onMessage(ev) {
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
 function applyTheme({ mode, accent } = {}) {
-	if (mode === 'dark') document.body.style.background = '#0b0d10';
+	if (mode === 'dark') document.body.style.background = '#0d0d0d';
 	else if (mode === 'light') document.body.style.background = '#f5f5f5';
 	else if (mode === 'transparent') document.body.style.background = 'transparent';
 	if (accent) document.documentElement.style.setProperty('--agent-accent', accent);

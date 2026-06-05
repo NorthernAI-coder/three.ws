@@ -409,6 +409,27 @@ export class PhysicsWorld {
 		return vehicle;
 	}
 
+	/**
+	 * A kinematic cuboid the caller repositions each frame — used to give the
+	 * locally-simulated vehicle something solid to bump for OTHER players' cars,
+	 * which are otherwise pure interpolated ghosts not in this physics world.
+	 */
+	addKinematicBox({ halfExtents, position = { x: 0, y: 0, z: 0 } }) {
+		const R = this.RAPIER;
+		const body = this.world.createRigidBody(
+			R.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z),
+		);
+		this.world.createCollider(R.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z), body);
+		return {
+			body,
+			setTransform(p, q) {
+				body.setNextKinematicTranslation({ x: p.x, y: p.y, z: p.z });
+				if (q) body.setNextKinematicRotation({ x: q.qx, y: q.qy, z: q.qz, w: q.qw });
+			},
+			remove: () => { try { this.world.removeRigidBody(body); } catch { /* gone */ } },
+		};
+	}
+
 	/** Remove a vehicle created with createVehicle(). */
 	removeVehicle(vehicle) {
 		const i = this._vehicles.indexOf(vehicle);

@@ -70,7 +70,7 @@ body.market-page > #footer-container {
 /* ── Live chat preview on agent detail ─────────────────────────────────── */
 .market-preview-card {
 	margin-top: 16px;
-	background: linear-gradient(180deg, #0e0e10, var(--bg-0));
+	background: linear-gradient(180deg, #0e0e0e, var(--bg-0));
 	border: 1px solid #1f1f1f;
 	border-radius: 16px;
 	padding: 18px;
@@ -132,7 +132,7 @@ body.market-page > #footer-container {
 	border-color: #fafafa;
 }
 .market-preview-msg.assistant .market-preview-bubble {
-	background: #131316;
+	background: #131313;
 }
 .market-preview-bubble.streaming::after {
 	content: '▌';
@@ -151,7 +151,7 @@ body.market-page > #footer-container {
 }
 .market-preview-input {
 	flex: 1;
-	background: #0d0d0f;
+	background: #0d0d0d;
 	border: 1px solid #2a2a2a;
 	border-radius: 10px;
 	padding: 10px 14px;
@@ -441,7 +441,7 @@ body.market-page > #footer-container {
 	background: none;
 	border: none;
 	font-size: 22px;
-	color: #3f3f46;
+	color: #404040;
 	cursor: pointer;
 	padding: 2px;
 	line-height: 1;
@@ -475,7 +475,7 @@ body.market-page > #footer-container {
 #d-rating-input textarea:focus,
 #d-review-body:focus,
 #d-review-body-edit:focus {
-	border-color: #3f3f46;
+	border-color: #404040;
 }
 .submit-review {
 	margin-top: 10px;
@@ -529,7 +529,7 @@ body.market-page > #footer-container {
 }
 .review-edit-btn:hover { border-color: #4a4a4a; color: #fafafa; }
 .review-delete-btn:hover { border-color: #7f1d1d; color: var(--danger); }
-.review-cancel-btn:hover { border-color: #3f3f46; color: #d4d4d8; }
+.review-cancel-btn:hover { border-color: #404040; color: #d4d4d8; }
 .review-edit-form {
 	margin-top: 12px;
 }
@@ -625,7 +625,7 @@ body.market-page > #footer-container {
 }
 .reviews-empty-hint {
 	font-size: 12px;
-	color: #3f3f46;
+	color: #404040;
 }
 .review-skeleton-line {
 	height: 12px;

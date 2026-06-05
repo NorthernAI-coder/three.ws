@@ -17,11 +17,11 @@
 				--ok: #2ed4a3;
 				--warn: #ffb35c;
 				--err: #ff6a6a;
-				--border: #1c1c28;
-				--border-2: #232336;
+				--border: #1d1d1d;
+				--border-2: #242424;
 				--bg: #000;
-				--panel: #0b0b13;
-				--panel-2: #0f0f1a;
+				--panel: #0c0c0c;
+				--panel-2: #101010;
 				--text: #f0f0f5;
 				--muted: #6e6e82;
 				--muted-2: #9a9ab0;
@@ -183,8 +183,8 @@
 			.btn:active { transform: scale(0.98); }
 			.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 			.btn.primary:hover { background: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.9); }
-			.btn.sec { background: #16161f; color: #d0d0e0; border-color: var(--border); }
-			.btn.sec:hover { background: #1e1e2a; }
+			.btn.sec { background: #171717; color: #d0d0e0; border-color: var(--border); }
+			.btn.sec:hover { background: #1f1f1f; }
 			.btn.ghost { background: transparent; border-color: transparent; color: var(--muted-2); }
 			.btn.ghost:hover { background: rgba(255,255,255,0.05); color: var(--text); }
 			.btn.sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
@@ -442,7 +442,7 @@
 			}
 			.scrim[data-open="true"] { display: flex; }
 			.modal {
-				background: #0d0d17; border: 1px solid var(--border-2);
+				background: #0e0e0e; border: 1px solid var(--border-2);
 				border-radius: 14px; padding: 24px;
 				width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto;
 				box-shadow: 0 20px 60px rgba(0,0,0,0.6);
@@ -453,7 +453,7 @@
 			.modal label span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
 			.modal input, .modal select {
 				width: 100%; padding: 10px 12px; border-radius: 8px;
-				border: 1px solid var(--border-2); background: #080810; color: #eee;
+				border: 1px solid var(--border-2); background: #090909; color: #eee;
 				font-size: 14px; font-family: inherit;
 				transition: border-color 0.13s, box-shadow 0.13s;
 			}
@@ -1105,12 +1105,12 @@
 				chartTooltip = $('chart-tooltip');
 				chart = createChart(chartEl, {
 					layout: { background: { color: 'transparent' }, textColor: '#555', fontFamily: 'inherit', fontSize: 11 },
-					grid: { vertLines: { visible: false }, horzLines: { color: '#0e0e1a' } },
+					grid: { vertLines: { visible: false }, horzLines: { color: '#0f0f0f' } },
 					rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.15, bottom: 0.05 } },
 					timeScale: { borderVisible: false, timeVisible: false, secondsVisible: false },
 					crosshair: {
-						vertLine: { color: '#2a2a40', style: 0, width: 1, labelVisible: false },
-						horzLine: { color: '#2a2a40', style: 0, width: 1, labelVisible: true },
+						vertLine: { color: '#2c2c2c', style: 0, width: 1, labelVisible: false },
+						horzLine: { color: '#2c2c2c', style: 0, width: 1, labelVisible: true },
 					},
 					handleScroll: false,
 					handleScale: false,

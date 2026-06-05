@@ -230,7 +230,7 @@
 		.panel .p-avatar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
 		.panel .p-avatar {
 			width: 56px; height: 56px; border-radius: var(--radius); object-fit: cover;
-			background: #161c28; border: 1px solid var(--border); flex: none;
+			background: #1c1c1c; border: 1px solid var(--border); flex: none;
 		}
 		.panel .p-avatar.placeholder {
 			display: grid; place-items: center;
@@ -264,7 +264,7 @@
 		.panel .nb:hover { background: rgba(255,255,255,0.05); }
 		.panel .nb-av {
 			width: 32px; height: 32px; border-radius: 9px; object-fit: cover;
-			background: #161c28; flex: none; display: grid; place-items: center;
+			background: #1c1c1c; flex: none; display: grid; place-items: center;
 			font-weight: 700; color: var(--brand-blue-light); font-size: 13px;
 		}
 		.panel .nb-meta { min-width: 0; flex: 1; }
@@ -314,7 +314,7 @@
 		.results .ritem:hover, .results .ritem.active { background: rgba(15,98,254,0.12); }
 		.results .r-av {
 			width: 30px; height: 30px; border-radius: 8px; object-fit: cover;
-			background: #161c28; flex: none; display: grid; place-items: center;
+			background: #1c1c1c; flex: none; display: grid; place-items: center;
 			font-weight: 700; color: var(--brand-blue-light); font-size: 12px;
 		}
 		.results .r-name { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -414,7 +414,7 @@
 </head>
 <body>
 	<noscript>
-		<div style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#06080f;color:#e7ecf5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;text-align:center">
+		<div style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#080808;color:#e7ecf5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;text-align:center">
 			<div style="max-width:480px">
 				<div style="width:12px;height:12px;border-radius:50%;background:#0f62fe;margin:0 auto 20px;box-shadow:0 0 24px #0f62fe" aria-hidden="true"></div>
 				<h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;margin:0 0 10px">Agent Galaxy</h1>
@@ -552,7 +552,7 @@
 	<!-- Empty -->
 	<div class="overlay" id="emptyState">
 		<div class="inner">
-			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#2a3348,#141820)"></div>
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#333333,#181818)"></div>
 			<h2 id="emptyTitle">No agents to map yet</h2>
 			<p id="emptyMsg">The galaxy lights up when public agents exist. Create one and it joins the constellation on the next rebuild.</p>
 			<div class="o-actions">
@@ -565,7 +565,7 @@
 	<!-- watsonx unavailable -->
 	<div class="overlay" id="unavailableState">
 		<div class="inner">
-			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#1f2a3a,#0d1118)"></div>
+			<div class="o-orb" style="animation:none;background:radial-gradient(circle at 35% 30%,#292929,#111111)"></div>
 			<h2>IBM watsonx is not configured</h2>
 			<p id="unavailableMsg">Set <code>WATSONX_API_KEY</code> and <code>WATSONX_PROJECT_ID</code> on this deployment to power the galaxy with Granite embeddings.</p>
 			<div class="o-actions">

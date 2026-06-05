@@ -4,13 +4,13 @@
  * leak into /app, /create, etc.
  *
  * Aesthetic sourced from /studio (public/studio/studio.css):
- *   - bg #0a0a0f, panels #14141c on #2a2a36, radius 14px
+ *   - bg #0a0a0a, panels #151515 on #2b2b2b, radius 14px
  *   - Inter 14/1.45, sticky 60px header with backdrop blur
  *   - accent #ffffff, active nav as filled white pill
  */
 
 body.app-demo-body {
-	background: #0a0a0f;
+	background: #0a0a0a;
 	color: #eee;
 	font-family: 'Inter', system-ui, -apple-system, sans-serif;
 	font-size: 14px;
@@ -172,8 +172,8 @@ body.app-demo-body .nav-user::before {
 }
 
 body.app-demo-body .nav-user-menu {
-	background: #14141c;
-	border: 1px solid #2a2a36;
+	background: #151515;
+	border: 1px solid #2b2b2b;
 	border-radius: 12px;
 	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
 	padding: 0.35rem;
@@ -206,13 +206,13 @@ body.app-demo-body .wrap {
 body.app-demo-body .viewer-container {
 	border-radius: 14px;
 	overflow: hidden;
-	border: 1px solid #2a2a36;
+	border: 1px solid #2b2b2b;
 	background:
-		linear-gradient(45deg, #14141c 25%, transparent 25%) -8px 0,
-		linear-gradient(-45deg, #14141c 25%, transparent 25%) -8px 0,
-		linear-gradient(45deg, transparent 75%, #14141c 75%),
-		linear-gradient(-45deg, transparent 75%, #14141c 75%),
-		#0f0f15;
+		linear-gradient(45deg, #151515 25%, transparent 25%) -8px 0,
+		linear-gradient(-45deg, #151515 25%, transparent 25%) -8px 0,
+		linear-gradient(45deg, transparent 75%, #151515 75%),
+		linear-gradient(-45deg, transparent 75%, #151515 75%),
+		#0f0f0f;
 	background-size: 16px 16px;
 }
 
@@ -229,8 +229,8 @@ body.app-demo-body .dropzone {
 	align-items: center;
 	gap: 0.85rem;
 	padding: 0.65rem 0.85rem;
-	background: #14141c;
-	border: 1px solid #2a2a36;
+	background: #151515;
+	border: 1px solid #2b2b2b;
 	border-radius: 14px;
 	box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
 	backdrop-filter: blur(8px);
@@ -309,8 +309,8 @@ body.app-demo-body .create-avatar-btn svg {
 /* ---------- Auth gate aside — re-skin as a studio panel ---------- */
 
 body.app-demo-body .auth-gate {
-	background: #14141c;
-	border: 1px solid #2a2a36;
+	background: #151515;
+	border: 1px solid #2b2b2b;
 	border-radius: 14px;
 	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 	padding: 1.25rem 1.4rem 1.4rem;
@@ -385,8 +385,8 @@ body.app-demo-body .auth-gate__perks li::before {
 /* ---------- Agent presence sidebar — soften into studio aesthetic ---------- */
 
 body.app-demo-body .agent-presence-sidebar {
-	background: #14141c;
-	border: 1px solid #2a2a36;
+	background: #151515;
+	border: 1px solid #2b2b2b;
 	border-radius: 14px;
 	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 	overflow: hidden;
@@ -395,8 +395,8 @@ body.app-demo-body .agent-presence-sidebar {
 /* ---------- Onboarding banner ---------- */
 
 body.app-demo-body .agent-onboarding {
-	background: #14141c;
-	border: 1px solid #2a2a36;
+	background: #151515;
+	border: 1px solid #2b2b2b;
 	border-radius: 14px;
 	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
 }

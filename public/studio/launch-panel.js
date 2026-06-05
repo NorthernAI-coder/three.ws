@@ -285,7 +285,7 @@ const LP_CSS = `
 /* Deposit modal */
 .lp-dep-bd{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);
   display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem}
-.lp-dep{width:100%;max-width:380px;background:#15171a;border:1px solid rgba(255,255,255,.1);
+.lp-dep{width:100%;max-width:380px;background:#171717;border:1px solid rgba(255,255,255,.1);
   border-radius:16px;padding:1.4rem;display:flex;flex-direction:column;gap:1rem;
   box-shadow:0 24px 60px rgba(0,0,0,.5)}
 .lp-dep-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem}
@@ -741,7 +741,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 				width: 220,
 				margin: 1,
 				errorCorrectionLevel: 'M',
-				color: { dark: '#0a0c0e', light: '#ffffff' },
+				color: { dark: '#0c0c0c', light: '#ffffff' },
 			});
 			if (closed) return;
 			const slot = bd.querySelector('#lp-dep-qr');
@@ -860,7 +860,7 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 			const mod = await import('https://esm.sh/qrcode@1.5.3');
 			const QRCode = mod.default ?? mod;
 			const canvas = document.createElement('canvas');
-			await QRCode.toCanvas(canvas, addr, { width: 220, margin: 1, color: { dark: '#0a0c0e', light: '#ffffff' } });
+			await QRCode.toCanvas(canvas, addr, { width: 220, margin: 1, color: { dark: '#0c0c0c', light: '#ffffff' } });
 			const slot = bd.querySelector('#lp-dep-qr');
 			if (slot) { slot.innerHTML = ''; slot.appendChild(canvas); }
 		} catch {

@@ -26,6 +26,7 @@
 //   level-up      → { skill, level, coin }
 //   world-join   → { coin, coinName }
 //   jackpot      → { reward, coin }
+//   mission-complete → { mission, gold, coop, coin }  — /play job or heist finished
 //
 // All writes are best-effort. The feed is a delight layer, never on a critical
 // path: a Redis outage degrades to an empty feed, never a thrown error.
@@ -45,6 +46,7 @@ export const ALLOWED_TYPES = new Set([
 	'world-join',
 	'jackpot',
 	'payment',  // skill/service payment confirmed; { usdcAtomic, recipientLabel, txSig, explorerUrl }
+	'mission-complete',  // /play job or co-op heist finished; { mission, gold, coop, coin }
 ]);
 
 // Per-user notification types: stored in user_notifications (DB), never in the

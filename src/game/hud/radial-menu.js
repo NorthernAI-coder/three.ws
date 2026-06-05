@@ -101,16 +101,23 @@ export class RadialMenu {
 			if (dist < dead) { this._setFocus(-1); return; }
 			this._setFocus(this._indexForAngle(Math.atan2(dy, dx)));
 		});
-		// Click a wedge (or the hub to cancel).
+		// Tap/click a wedge to commit (works in both modes so touch can drive the
+		// hold-style wheels); a tap on the hub/centre cancels.
 		this.root.addEventListener('pointerup', (e) => {
-			if (!this.isOpen || this.mode !== 'toggle') return;
+			if (!this.isOpen || !this._pointerEngaged) return;
+			this._pointerEngaged = false;
 			if (this.focus >= 0) this._commit();
 			else this.close();
 			e.stopPropagation();
 		});
-		// Background click closes without selecting.
+		// A press inside the ring arms a tap-commit; a press on the backdrop closes.
 		this.root.addEventListener('pointerdown', (e) => {
-			if (e.target === this.root) this.close();
+			if (e.target === this.root) { this.close(); return; }
+			this._pointerEngaged = true;
+			// Touch has no hover — seed focus from the press angle.
+			const rect = this.stage.getBoundingClientRect();
+			const dx = e.clientX - (rect.left + rect.width / 2), dy = e.clientY - (rect.top + rect.height / 2);
+			if (Math.hypot(dx, dy) >= rect.width * (this._ri / this._size) * 0.62) this._setFocus(this._indexForAngle(Math.atan2(dy, dx)));
 		});
 	}
 

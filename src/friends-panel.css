@@ -4,7 +4,7 @@
    the panel looks consistent everywhere without polluting the host page. */
 
 .wf-friends {
-	--kg-bg:    #0d1420;
+	--kg-bg:    #131313;
 	--kg-panel: rgba(16, 22, 34, 0.96);
 	--kg-line:  rgba(255, 255, 255, 0.12);
 	--kg-text:  #e8edf6;

@@ -24,9 +24,9 @@
 			*, *::before, *::after { box-sizing: border-box; }
 
 			:root {
-				--bg: #04050a;
+				--bg: #050505;
 				--surface: rgba(12, 13, 22, 0.82);
-				--surface-solid: #0c0d16;
+				--surface-solid: #0d0d0d;
 				--border: rgba(255,255,255,0.07);
 				--border-accent: rgba(61,193,255,0.28);
 				--text: #f0f1f5;
@@ -54,8 +54,8 @@
 			#xr-stage {
 				position: fixed; inset: 0;
 				background:
-					radial-gradient(ellipse 100% 80% at 50% 0%, #0d1a2e 0%, transparent 65%),
-					radial-gradient(ellipse 60% 40% at 80% 80%, #0a0818 0%, transparent 55%),
+					radial-gradient(ellipse 100% 80% at 50% 0%, #191919 0%, transparent 65%),
+					radial-gradient(ellipse 60% 40% at 80% 80%, #0a0a0a 0%, transparent 55%),
 					var(--bg);
 			}
 
@@ -152,7 +152,7 @@
 			}
 			.xr-avatar-icon {
 				width: 34px; height: 34px;
-				background: linear-gradient(135deg, #1a2540, #110e28);
+				background: linear-gradient(135deg, #252525, #111111);
 				border: 1px solid var(--border-accent);
 				border-radius: 50%;
 				display: flex; align-items: center; justify-content: center;
@@ -190,7 +190,7 @@
 			}
 			.xr-toggle-btn.active.half {
 				color: var(--accent);
-				background: linear-gradient(135deg, #0e1928 0%, #090d1a 100%);
+				background: linear-gradient(135deg, #181818 0%, #0d0d0d 100%);
 				box-shadow: 0 0 0 1px var(--border-accent) inset, 0 1px 6px rgba(0,0,0,0.4);
 			}
 

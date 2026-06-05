@@ -14,17 +14,17 @@
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="https://three.ws/api/x402-pay/og" />
-<meta name="theme-color" content="#0a0b10" />
+<meta name="theme-color" content="#0b0b0b" />
 <link rel="preconnect" href="https://api.mainnet-beta.solana.com" />
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
 <style>
   :root {
-    --bg: #0a0b10;
-    --bg-2: #0f1119;
-    --panel: #14161f;
-    --panel-2: #1a1d29;
-    --border: #232636;
-    --border-strong: #2e3447;
+    --bg: #0b0b0b;
+    --bg-2: #111111;
+    --panel: #161616;
+    --panel-2: #1d1d1d;
+    --border: #272727;
+    --border-strong: #343434;
     --text: #e6e8f0;
     --muted: #8a90a8;
     --accent: #ffffff;
@@ -94,7 +94,7 @@
     animation: flash 0.6s ease-out;
   }
   @keyframes flash {
-    0% { background: var(--accent-2); color: #0a0b10; }
+    0% { background: var(--accent-2); color: #0b0b0b; }
     100% { background: var(--panel); }
   }
 
@@ -127,10 +127,10 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 700;
   }
-  .msg.user .av { background: #2a2f44; color: #fff; }
+  .msg.user .av { background: #2f2f2f; color: #fff; }
   .msg.agent .av {
     background: conic-gradient(from 200deg, var(--accent), var(--accent-2));
-    color: #0a0b10;
+    color: #0b0b0b;
   }
   .msg .body {
     flex: 1; min-width: 0;
@@ -237,7 +237,7 @@
     animation: spin 1.2s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .step.done .icon { background: var(--green); color: #0a0b10; border-color: var(--green); animation: none; }
+  .step.done .icon { background: var(--green); color: #0b0b0b; border-color: var(--green); animation: none; }
   .step.error { border-color: var(--red); }
   .step.error .icon { background: var(--red); color: #fff; border-color: var(--red); animation: none; }
   .step .label { font-weight: 500; }
@@ -355,7 +355,7 @@
   .avatar-card:hover { border-color: var(--accent); transform: translateY(-1px); }
   .avatar-card model-viewer {
     width: 100%; height: 140px;
-    background: linear-gradient(180deg, #1a1d29, #0a0b10);
+    background: linear-gradient(180deg, #1d1d1d, #0b0b0b);
     --poster-color: transparent;
   }
   .avatar-card .body { padding: 8px 10px; }
@@ -367,7 +367,7 @@
     margin-top: 10px;
     border: 1px solid var(--border);
     border-radius: 10px; overflow: hidden;
-    background: linear-gradient(180deg, #1a1d29, #0a0b10);
+    background: linear-gradient(180deg, #1d1d1d, #0b0b0b);
   }
   .mv-block model-viewer {
     width: 100%; height: 320px; display: block;
@@ -473,7 +473,7 @@
     width: 24px; height: 24px; flex: 0 0 auto;
     border-radius: 50%;
     background: conic-gradient(from 200deg, var(--accent), var(--accent-2));
-    color: #0a0b10; font-weight: 700;
+    color: #0b0b0b; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
     font-size: 13px;
   }
@@ -535,7 +535,7 @@
     width: 24px; height: 24px; border-radius: 6px;
     background: conic-gradient(from 200deg, var(--accent), var(--accent-2));
     display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 700; color: #0a0b10; flex: 0 0 auto;
+    font-size: 10px; font-weight: 700; color: #0b0b0b; flex: 0 0 auto;
   }
   .agent-card .av img { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; }
   .agent-card .name { font-weight: 600; }
@@ -618,7 +618,7 @@
   .bsc-panel .bsc-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
   .bsc-connect {
     background: linear-gradient(135deg, #F3BA2F, #E89C0C);
-    color: #1a1d29; font-weight: 700; font-size: 13px;
+    color: #1d1d1d; font-weight: 700; font-size: 13px;
     padding: 9px 16px; border-radius: 8px; border: none;
     cursor: pointer; transition: filter .15s;
     white-space: nowrap;

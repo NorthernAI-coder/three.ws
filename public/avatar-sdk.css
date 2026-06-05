@@ -649,7 +649,7 @@ pre.sdk-pre .t-op  { color: #a1a1a1; }
 }
 .sdk-playground-stage {
 	position: relative;
-	background: #060608;
+	background: #060606;
 	border-right: 1px solid var(--stroke);
 	display: flex;
 	align-items: center;

@@ -144,7 +144,7 @@
 .notif-panel {
 	position: fixed; z-index: 9999;
 	width: 360px; max-height: 480px;
-	background: #0d0d0f;
+	background: #0d0d0d;
 	border: 1px solid rgba(255,255,255,0.12);
 	border-radius: 12px;
 	box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
