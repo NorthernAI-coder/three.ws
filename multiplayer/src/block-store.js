@@ -158,7 +158,13 @@ class BlockStore {
 				await this._redis.del(redisKey(coin));
 			} else {
 				const obj = {};
-				for (const [k, rec] of map) obj[k] = [rec.t, rec.o || ''];
+				for (const [k, rec] of map) {
+					// Tolerate a raw-number value (a direct map mutation) as well as the
+					// canonical { t, o } record, so the serialized form is always a
+					// [type, owner] pair regardless of how the cell got into the map.
+					const r = decodeCell(rec);
+					if (r) obj[k] = [r.t, r.o || ''];
+				}
 				await this._redis.set(redisKey(coin), JSON.stringify(obj));
 			}
 			// A successful write proves durability is back; reset the failure streak.

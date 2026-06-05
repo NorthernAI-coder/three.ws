@@ -47,6 +47,8 @@ import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
 import { WalkNet } from './walk-net.js';
+import { applyLoadout } from './game/cosmetics-loadout.js';
+import { getPlayCosmetics } from './game/play-handoff.js';
 import { getPresenceTicket, friendsClient } from './friends.js';
 import { FriendsPanel } from './game/friends-panel.js';
 import { PhysicsWorld } from './physics/physics-world.js';
@@ -1019,6 +1021,19 @@ let avatarHeight = 1.8; // cached avatar height, updated on load/switch
 let avatarTemplate = null;
 let animationDefs = null;
 
+// The local avatar's equipped cosmetic loadout (R23), carried across worlds via
+// the cc-cosmetics mirror. `applyLoadout` returns a handle we tick each frame
+// (props re-glue to the head, the aura spins) and dispose before re-applying.
+let localCosmetics = null;
+let _localCosWire = null;
+function applyLocalCosmetics(wire) {
+	const next = typeof wire === 'string' ? wire : '';
+	if (localCosmetics && _localCosWire === next) return;
+	_localCosWire = next;
+	try { localCosmetics?.dispose(); } catch { /* already gone */ }
+	localCosmetics = applyLoadout(avatarRig, avatarHeight || 1.7, next);
+}
+
 async function loadAvatar() {
 	setLoadingText('Resolving avatar...');
 	const avatarUrl = await resolveAvatarUrl();
@@ -1048,6 +1063,12 @@ async function loadAvatar() {
 	const height = Math.max(0.5, box.max.y - box.min.y);
 	avatarHeight = height;
 	frameAvatarCamera();
+
+	// Dress the local avatar in the loadout the player last equipped (R23). The
+	// equipped fit is persisted to their account in /play and mirrored to the
+	// cross-world cc-cosmetics store, so the same wardrobe rides into /walk. Reuses
+	// the shared applyLoadout, so a hat or aura renders identically in both worlds.
+	applyLocalCosmetics(getPlayCosmetics());
 
 	animationManager.attach(avatar);
 
@@ -1826,6 +1847,7 @@ function tick() {
 
 	// 3. Tick the animation mixer.
 	animationManager.update(dt);
+	localCosmetics?.tick(dt);
 
 	// 4. Broadcast our state to the server (throttled inside WalkNet) and
 	//    advance every remote player's interpolated transform + animation.

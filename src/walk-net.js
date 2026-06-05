@@ -87,6 +87,10 @@ export class WalkNet {
 		this.coinName = opts.coinName || '';
 		this.coinSymbol = opts.coinSymbol || '';
 		this.coinImage = opts.coinImage || '';
+		// Pre-join cosmetic loadout (R23): the wire string the player last equipped,
+		// so peers in this world see their fit the moment they appear. The server
+		// re-validates each id against what the account owns before publishing it.
+		this.cosmetics = opts.cosmetics || '';
 		this.client = null;
 		this.room = null;
 		this.status = 'idle'; // 'idle' | 'connecting' | 'online' | 'offline' | 'failed'
@@ -177,6 +181,7 @@ export class WalkNet {
 				coinName: this.coinName,
 				coinSymbol: this.coinSymbol,
 				coinImage: this.coinImage,
+				cosmetics: this.cosmetics,
 				...(presence ? { presence } : {}),
 			}, WalkState);
 			if (this._destroyed || gen !== this._connectGen) {

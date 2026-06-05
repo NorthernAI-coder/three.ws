@@ -51,7 +51,7 @@ function safeEqual(a, b) {
  * Verify a holder pass and return its payload, or null if the token is missing,
  * malformed, tampered with, or expired.
  * @param {unknown} token
- * @returns {{ mint: string, wallet: string, usd: number, minUsd?: number, tier: string, iat: number, exp: number } | null}
+ * @returns {{ mint: string, wallet: string, usd: number, amount?: number, minUsd?: number, minTokens?: number, tier: string, iat: number, exp: number } | null}
  */
 export function verifyHolderPass(token) {
 	if (typeof token !== 'string' || token.length < 16 || token.length > 4096) return null;
@@ -85,5 +85,10 @@ export function verifyHolderPass(token) {
 	// game server displays it as the gate requirement). Tolerate its absence so a
 	// pass minted by an older signer during a rollout still verifies.
 	if (payload.minUsd != null && (typeof payload.minUsd !== 'number' || !Number.isFinite(payload.minUsd) || payload.minUsd < 0)) return null;
+	// minTokens (the creator-set threshold) and amount (the verified holding) are
+	// optional — a pass from an older signer during a rollout omits them — but when
+	// present must be sane numbers, since the game server displays them as the gate.
+	if (payload.minTokens != null && (typeof payload.minTokens !== 'number' || !Number.isFinite(payload.minTokens) || payload.minTokens < 0)) return null;
+	if (payload.amount != null && (typeof payload.amount !== 'number' || !Number.isFinite(payload.amount) || payload.amount < 0)) return null;
 	return payload;
 }

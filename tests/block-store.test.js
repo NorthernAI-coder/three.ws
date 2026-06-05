@@ -24,11 +24,12 @@ describe('BlockStore (memory-only)', () => {
 		blockStore.set(coin, '1,0,0', 5);
 
 		// A fresh load (e.g. the room disposed and was recreated) returns the SAME
-		// live map — the community's build is still there.
+		// live map — the community's build is still there. Each cell is a { t, o }
+		// record carrying the block type and the placer's id (R19 ownership).
 		const second = await blockStore.load(coin);
 		expect(second).toBe(first);
-		expect(second.get('0,0,0')).toBe(3);
-		expect(second.get('1,0,0')).toBe(5);
+		expect(second.get('0,0,0').t).toBe(3);
+		expect(second.get('1,0,0').t).toBe(5);
 		expect(second.size).toBe(2);
 	});
 
@@ -49,6 +50,16 @@ describe('BlockStore (memory-only)', () => {
 		blockStore.set(a, '0,0,0', 9);
 		const zMap = await blockStore.load(z);
 		expect(zMap.has('0,0,0')).toBe(false);
+	});
+
+	it('records the placer id alongside the block type (R19 ownership)', async () => {
+		const coin = 'CoinOwnerEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE';
+		await blockStore.load(coin);
+		blockStore.set(coin, '4,0,4', 2, 'wallet-alice');
+		blockStore.set(coin, '5,0,5', 7); // ownerless cell
+		const map = await blockStore.load(coin);
+		expect(map.get('4,0,4')).toEqual({ t: 2, o: 'wallet-alice' });
+		expect(map.get('5,0,5')).toEqual({ t: 7, o: '' });
 	});
 
 	it('set/delete on an unloaded coin is a safe no-op', () => {

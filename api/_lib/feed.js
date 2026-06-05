@@ -47,6 +47,7 @@ export const ALLOWED_TYPES = new Set([
 	'jackpot',
 	'payment',  // skill/service payment confirmed; { usdcAtomic, recipientLabel, txSig, explorerUrl }
 	'mission-complete',  // /play job or co-op heist finished; { mission, gold, coop, coin }
+	'member-join',  // a person signed in to three.ws; { handle } (actor = display name)
 ]);
 
 // Per-user notification types: stored in user_notifications (DB), never in the

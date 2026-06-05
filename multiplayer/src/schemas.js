@@ -40,6 +40,12 @@ export class Player extends Schema {
 		// are tiny and authoritative — set only by the server's combat resolution.
 		this.dead = false;
 		this.heat = 0; // wanted/heat stars (0–5), derived from the private heat meter
+		// Equipped cosmetic loadout (R03/R23) as the compact wire string peers render
+		// — the worn ids in slot order, comma-joined, `none` defaults dropped (see
+		// cosmetics-catalog.serializeLoadout). Set authoritatively from the owner's
+		// persisted, ownership-validated loadout so a peer can trust the look and an
+		// unowned cosmetic can never appear on anyone. Empty ⇒ the bare avatar.
+		this.cosmetics = '';
 	}
 }
 // IMPORTANT: append-only. Field indices are positional in @colyseus/schema's
@@ -65,6 +71,8 @@ defineTypes(Player, {
 	// Append-only (W07): downed state + wanted stars. See the constructor note.
 	dead: 'boolean',
 	heat: 'uint8',
+	// Append-only (R23): equipped cosmetic loadout wire string. See the constructor.
+	cosmetics: 'string',
 });
 
 // A single placed voxel in a coin's world. Keyed in the blocks MapSchema by its
@@ -245,6 +253,9 @@ export class WalkState extends Schema {
 		// two isolated rooms — General and Holders — kept apart by filterBy.
 		this.tier = '';
 		this.holderMinUsd = 0; // USD floor for the holder world (0 in General)
+		// Creator-set token threshold for this coin's holder world (R24): hold ≥ this
+		// many of `coin` to enter. 0 = no creator threshold, so holderMinUsd applies.
+		this.holderMinTokens = 0;
 		// Collaborative voxel builds for this coin's world. Keyed by packed grid
 		// coordinate; the value carries only the block type. Persisted per coin so
 		// a community's build survives the room emptying and the server restarting.
@@ -291,4 +302,7 @@ defineTypes(WalkState, {
 	mobs: { map: Mob },
 	tombstones: { map: Tombstone },
 	objects: { map: WorldObject },
+	// Append-only (R24): a new scalar at the end so a still-running older client
+	// isn't shifted off the wire format mid-deploy.
+	holderMinTokens: 'float32',
 });

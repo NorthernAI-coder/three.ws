@@ -28,7 +28,20 @@ import {
 	FIREPITS, nearestFirepit, MOB_SPAWNS, nearestMobSpawn,
 } from '../../multiplayer/src/world-features.js';
 import { itemDisplay } from './items.js';
+import {
+	COSMETICS, SLOTS, SLOT_LABELS, getCosmetic, DEFAULT_LOADOUT,
+} from '../../multiplayer/src/cosmetics-catalog.js';
 import './play-systems.css';
+
+// Rarity → display label + accent, shared by the inventory cards. Keeps the
+// wardrobe legible at a glance (a legendary aura should read differently from a
+// common dye) without inventing per-item art.
+const RARITY_META = {
+	common: { label: 'Common', cls: 'is-common' },
+	rare: { label: 'Rare', cls: 'is-rare' },
+	epic: { label: 'Epic', cls: 'is-epic' },
+	legendary: { label: 'Legendary', cls: 'is-legendary' },
+};
 
 // Contextual activities the world offers, beyond fishing. Each entry knows the
 // tool the player must hold (null = none), the nearest-node finder (shared with the
@@ -165,7 +178,10 @@ export class PlaySystems {
 		// Right tool rail: inventory + skills toggles.
 		this.invBtn = el('button', { class: 'ps-rail-btn', title: 'Inventory (backpack)', 'aria-label': 'Inventory', onclick: () => this.toggleInventory() }, [el('span', { text: '🎒' })]);
 		this.skillsBtn = el('button', { class: 'ps-rail-btn', title: 'Skills', 'aria-label': 'Skills', onclick: () => this.toggleSkills() }, [el('span', { text: '📊' })]);
-		this.rail = el('div', { class: 'ps-rail' }, [this.invBtn, this.skillsBtn]);
+		// My Cosmetics (R23): the owned wardrobe + equip. Equipping persists to the
+		// account and re-applies in every world; peers see the fit live.
+		this.cosBtn = el('button', { class: 'ps-rail-btn', title: 'My Cosmetics', 'aria-label': 'My Cosmetics', onclick: () => this.toggleCosmetics() }, [el('span', { text: '👕' })]);
+		this.rail = el('div', { class: 'ps-rail' }, [this.invBtn, this.skillsBtn, this.cosBtn]);
 
 		// Hotbar (bottom-center, above the emote tray).
 		this.hotbarEl = el('div', { class: 'ps-hotbar', role: 'toolbar', 'aria-label': 'Hotbar' });
@@ -194,8 +210,20 @@ export class PlaySystems {
 			this.skillsList,
 		]);
 
+		// My Cosmetics panel (R23): the owned wardrobe. Body is rebuilt per open from
+		// the latest profile snapshot so it always reflects the authoritative owned +
+		// equipped set; states (loading/empty/error) render inside ps-cos-body.
+		this.cosBody = el('div', { class: 'ps-cos-body' });
+		this.cosPanel = el('div', { class: 'ps-panel ps-cos', hidden: true, role: 'dialog', 'aria-label': 'My Cosmetics' }, [
+			el('div', { class: 'ps-panel-head' }, [
+				el('span', { class: 'ps-panel-title', text: 'My Cosmetics' }),
+				el('button', { class: 'ps-x', 'aria-label': 'Close', text: '✕', onclick: () => this.toggleCosmetics(false) }),
+			]),
+			this.cosBody,
+		]);
+
 		this.root = el('div', { id: 'ps-hud' }, [
-			this.gold, this.rail, this.actionBtn, this.hotbarEl, this.invPanel, this.skillsPanel,
+			this.gold, this.rail, this.actionBtn, this.hotbarEl, this.invPanel, this.skillsPanel, this.cosPanel,
 		]);
 		document.body.appendChild(this.root);
 
@@ -216,6 +244,16 @@ export class PlaySystems {
 		};
 		this.cap = snap.cap || 99;
 		this.skills = snap.skills || {};
+		// Cosmetics ownership + equipped loadout (R23). The server is the source of
+		// truth — owned premium ids the account has unlocked, plus the per-slot
+		// equipped map (free `none` defaults for empty slots). Marked "loaded" so the
+		// panel can tell a still-connecting world (loading) from a genuinely bare one.
+		const cos = snap.cosmetics && typeof snap.cosmetics === 'object' ? snap.cosmetics : null;
+		this.cosmetics = {
+			loaded: true,
+			owned: Array.isArray(cos?.owned) ? cos.owned : [],
+			equipped: cos?.equipped && typeof cos.equipped === 'object' ? cos.equipped : { ...DEFAULT_LOADOUT },
+		};
 		this._renderAll();
 	}
 
@@ -290,6 +328,7 @@ export class PlaySystems {
 		this._renderHotbar();
 		this._renderSkills();
 		if (this._invOpen) this._renderInventory();
+		if (this._cosOpen) this._renderCosmetics();
 	}
 
 	_renderGold() {
@@ -422,6 +461,132 @@ export class PlaySystems {
 		this.skillsPanel.hidden = !this._skillsOpen;
 		this.skillsBtn.classList.toggle('is-on', this._skillsOpen);
 		if (this._skillsOpen) this._renderSkills();
+	}
+
+	// ---------------------------------------------------------------- cosmetics
+	toggleCosmetics(force) {
+		this._cosOpen = force == null ? !this._cosOpen : !!force;
+		this.cosPanel.hidden = !this._cosOpen;
+		this.cosBtn.classList.toggle('is-on', this._cosOpen);
+		if (this._cosOpen) this._renderCosmetics();
+	}
+
+	// Render "My Cosmetics": the owned wardrobe grouped by slot, each item card
+	// showing its rarity and preview, with the equipped one marked and a per-slot
+	// "Remove" to unequip. Owned = every free cosmetic plus the premium ids the
+	// account has unlocked; locked premium items show a hint to the shop so the
+	// panel is never a dead end. Loading/empty states are designed, not blank.
+	_renderCosmetics() {
+		const body = this.cosBody;
+		body.replaceChildren();
+
+		// Loading: no profile snapshot has arrived yet (still joining the world).
+		if (!this.cosmetics?.loaded) {
+			body.appendChild(el('div', { class: 'ps-cos-state' }, [
+				el('div', { class: 'ps-cos-spinner', 'aria-hidden': 'true' }),
+				el('p', { class: 'ps-cos-state-text', text: 'Loading your wardrobe…' }),
+			]));
+			return;
+		}
+
+		const ownedSet = new Set(this.cosmetics.owned || []);
+		const equipped = this.cosmetics.equipped || DEFAULT_LOADOUT;
+		const ownsAnyPremium = (this.cosmetics.owned || []).length > 0;
+
+		for (const slot of SLOTS) {
+			const items = COSMETICS.filter((c) => c.slot === slot);
+			if (!items.length) continue;
+			const equippedId = equipped[slot];
+			// The slot's bare default (its `none` entry) — "Remove" equips it. Only
+			// offer it when something non-default is actually worn in this slot.
+			const noneId = DEFAULT_LOADOUT[slot];
+			const wornNonDefault = equippedId && equippedId !== noneId && getCosmetic(equippedId)?.visual;
+
+			const head = el('div', { class: 'ps-cos-slot-head' }, [
+				el('span', { class: 'ps-cos-slot-name', text: SLOT_LABELS[slot] || slot }),
+			]);
+			if (wornNonDefault) {
+				head.appendChild(el('button', {
+					class: 'ps-cos-remove', text: 'Remove', title: `Unequip ${SLOT_LABELS[slot] || slot}`,
+					'aria-label': `Unequip ${SLOT_LABELS[slot] || slot}`,
+					onclick: () => this._equipCosmetic(noneId),
+				}));
+			}
+			body.appendChild(head);
+
+			const grid = el('div', { class: 'ps-cos-grid' });
+			for (const item of items) {
+				// Skip the invisible `none` placeholders — "Remove" already covers
+				// clearing a slot; a card for "None" would just be noise.
+				if (!item.visual) continue;
+				const owned = item.tier === 'free' || ownedSet.has(item.id);
+				const isEquipped = equippedId === item.id;
+				grid.appendChild(this._cosmeticCard(item, { owned, isEquipped }));
+			}
+			body.appendChild(grid);
+		}
+
+		// Footer: an honest pointer. Everyone owns the free pack; premium pieces are
+		// earned in the shop. Surface that path so the wardrobe links onward.
+		if (!ownsAnyPremium) {
+			body.appendChild(el('p', { class: 'ps-cos-hint', text: 'Unlock premium dyes, hats and auras in the shop — they appear here once you own them.' }));
+		}
+	}
+
+	// One wardrobe card: preview (GLB thumb or colour swatch), name, rarity, and a
+	// state-appropriate action — Equipped (current), Equip (owned), or Locked (a
+	// premium item not yet purchased, routed to the shop).
+	_cosmeticCard(item, { owned, isEquipped }) {
+		const rarity = RARITY_META[item.rarity] || RARITY_META.common;
+		const preview = item.thumb
+			? el('img', { class: 'ps-cos-thumb', src: item.thumb, alt: '', loading: 'lazy', draggable: 'false' })
+			: el('span', { class: 'ps-cos-swatch', style: `background:${item.swatch || '#888'}`, 'aria-hidden': 'true' });
+
+		const card = el('div', {
+			class: `ps-cos-card ${rarity.cls}${isEquipped ? ' is-equipped' : ''}${owned ? '' : ' is-locked'}`,
+		}, [
+			el('div', { class: 'ps-cos-preview' }, [
+				preview,
+				el('span', { class: `ps-cos-rarity ${rarity.cls}`, text: rarity.label }),
+				isEquipped ? el('span', { class: 'ps-cos-check', text: '✓', 'aria-hidden': 'true' }) : null,
+			]),
+			el('span', { class: 'ps-cos-name', text: item.name }),
+			el('span', { class: 'ps-cos-status', text: isEquipped ? 'Equipped' : (owned ? 'Owned' : 'Locked') }),
+		]);
+
+		if (!owned) {
+			card.setAttribute('title', 'Unlock this in the shop');
+			card.setAttribute('aria-disabled', 'true');
+			return card;
+		}
+		// Owned + not equipped → clickable to equip. Equipped → inert (use Remove).
+		if (!isEquipped) {
+			card.setAttribute('role', 'button');
+			card.setAttribute('tabindex', '0');
+			card.setAttribute('aria-label', `Equip ${item.name}`);
+			const equip = () => this._equipCosmetic(item.id);
+			card.addEventListener('click', equip);
+			card.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); equip(); }
+			});
+		} else {
+			card.setAttribute('aria-label', `${item.name}, equipped`);
+		}
+		return card;
+	}
+
+	// Send the equip intent. The server validates ownership, persists the loadout to
+	// the account, re-broadcasts it to peers and echoes a fresh profile — which flows
+	// back through setProfile and re-renders this panel, so we don't mutate optimistically
+	// (an unowned id would be rejected with a 'cosmetic' notice). Unequip is the same
+	// path with the slot's `none` id.
+	_equipCosmetic(id) {
+		if (!id) return;
+		if (this.net?.status && this.net.status !== 'online') {
+			this.ui?.toast?.('Reconnecting to the world — your fit will sync in a moment.', 'warn');
+			return;
+		}
+		this.net?.equipCosmetic(id);
 	}
 
 	// ---------------------------------------------------------------- cast visual

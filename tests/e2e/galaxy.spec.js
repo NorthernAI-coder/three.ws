@@ -189,8 +189,8 @@ test.describe('IBM Agent Galaxy', () => {
 		await gotoGalaxy(page, { mode: 'unavailable', expectState: 'unavailable' });
 		await expect(page.locator('#unavailableState')).toBeVisible();
 		await expect(page.locator('#unavailableState h2')).toContainText('not configured');
-		// The /ibm link is present so users know what to do.
-		await expect(page.locator('#unavailableState a[href="/ibm"]')).toBeVisible();
+		// The IBM demos link is present so users know what to do.
+		await expect(page.locator('#unavailableState a[href="/ibm/galaxy"]')).toBeVisible();
 	});
 
 	// ── State: no agents ────────────────────────────────────────────────────

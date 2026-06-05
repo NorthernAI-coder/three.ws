@@ -89,6 +89,47 @@ describe('build HUD', () => {
 		expect(document.querySelectorAll('.cc-build-slot')[4].classList.contains('cc-on')).toBe(true);
 	});
 
+	it('per-player allowance meter hides without a cap and escalates with usage (R19)', () => {
+		mount();
+		const meter = document.querySelector('.cc-build-mine');
+		const fill = document.querySelector('.cc-build-mine-fill');
+
+		// Solo build (no cap) → meter stays hidden, never a phantom limit.
+		hud.setUsage(0, 0);
+		expect(meter.hidden).toBe(true);
+
+		hud.setUsage(600, 1200); // half of the cap
+		expect(meter.hidden).toBe(false);
+		expect(fill.style.transform).toBe('scaleX(0.5)');
+		expect(meter.classList.contains('cc-warn')).toBe(false);
+		expect(document.querySelector('.cc-build-mine-text').textContent).toMatch(/600/);
+
+		hud.setUsage(1100, 1200); // ≥80% → warn
+		expect(meter.classList.contains('cc-warn')).toBe(true);
+
+		hud.setUsage(1200, 1200); // at the cap → full
+		expect(meter.classList.contains('cc-full')).toBe(true);
+		expect(meter.classList.contains('cc-warn')).toBe(false);
+	});
+
+	it('creator moderation row is hidden until setCreator, and fires clear actions (R19)', () => {
+		const scopes = [];
+		mount({ onClearArea: (s) => scopes.push(s) });
+		const row = document.querySelector('.cc-build-mod');
+		expect(row.hidden).toBe(true); // ordinary builder never sees it
+
+		hud.setCreator(true);
+		expect(row.hidden).toBe(false);
+
+		const [nearbyBtn, allBtn] = document.querySelectorAll('.cc-build-mod-btn');
+		nearbyBtn.click();
+		allBtn.click();
+		expect(scopes).toEqual(['area', 'all']);
+
+		hud.setCreator(false);
+		expect(row.hidden).toBe(true);
+	});
+
 	it('setEnabled disables the toggle and collapses an open panel', () => {
 		const toggles = [];
 		mount({ onToggle: (v) => toggles.push(v) });

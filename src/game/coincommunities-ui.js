@@ -13,7 +13,11 @@ import { renderAvatarThumb } from './avatar-thumb.js';
 import { resolveAvatarUrl } from './avatar-rig.js';
 import { validateGlb, uploadGlb } from './avatar-upload.js';
 import { GUEST_SENTINEL, playAs } from './play-handoff.js';
+import { COMPOSITE_PIECES } from './build-voxels.js';
 import { log } from '../shared/log.js';
+
+// Degrees shown on the rotate button for each quarter-turn step (0–3).
+const ROT_DEG = ['0°', '90°', '180°', '270°'];
 
 function el(tag, props = {}, kids = []) {
 	const n = document.createElement(tag);
@@ -36,6 +40,26 @@ const fmtMc = (n) => {
 	return '$' + Math.round(n);
 };
 
+// Compact token-amount label ("1.5M", "12.3K", "950") for gate requirements.
+const fmtCompact = (n) => {
+	const v = Number(n) || 0;
+	if (v >= 1e9) return (v / 1e9).toFixed(v >= 1e10 ? 0 : 1).replace(/\.0$/, '') + 'B';
+	if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+	if (v >= 1e3) return (v / 1e3).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'K';
+	return String(Math.round(v));
+};
+
+// Compact "3h ago" / "just now" relative time from an epoch-ms timestamp.
+function timeAgo(ts) {
+	const t = Number(ts);
+	if (!t || !isFinite(t)) return '';
+	const s = Math.max(0, (Date.now() - t) / 1000);
+	if (s < 60) return 'just now';
+	if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+	if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+	return `${Math.floor(s / 86400)}d ago`;
+}
+
 const DEFAULT_AVATAR = '/avatars/default.glb';
 
 export class CommunityUI {
@@ -53,6 +77,7 @@ export class CommunityUI {
 		this.avatar = localStorage.getItem('cc-avatar') || DEFAULT_AVATAR;
 		this._buildLobby();
 		this._buildHud();
+		this._buildStructures();
 	}
 
 	// ---------------------------------------------------------------- lobby
@@ -852,8 +877,16 @@ export class CommunityUI {
 		if (!body) return;
 		const sym = data.symbol ? '$' + String(data.symbol).replace(/^\$/, '').toUpperCase() : 'this coin';
 		const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
-		const min = '$' + (data.minUsd ? round2(data.minUsd) : 8);
 		const usd = '$' + round2(data.usd);
+		// R24: a coin's creator can gate on a *token amount* instead of the USD floor.
+		// When set, state the requirement and the player's holding in tokens of the
+		// coin ("hold 1M $SYM"); otherwise fall back to the dollar floor.
+		const tokenGated = Number(data.minTokens) > 0;
+		const fmtAmt = (n) => fmtCompact(Number(n) || 0);
+		const min = tokenGated
+			? `${fmtAmt(data.minTokens)} ${sym}`
+			: '$' + (data.minUsd ? round2(data.minUsd) : 8);
+		const held = tokenGated ? `${fmtAmt(data.amount)} ${sym}` : usd;
 		const btn = (label, action, variant = '') => el('button', {
 			type: 'button', class: 'cc-gate-btn' + (variant ? ' ' + variant : ''),
 			onclick: () => this.h.onHolderAction?.(action),
@@ -873,13 +906,13 @@ export class CommunityUI {
 				nodes = [spin(), title('One moment'), msg(data.msg || 'Working…')];
 				break;
 			case 'granted':
-				nodes = [el('div', { class: 'cc-gate-check', text: '✓' }), title('You’re in'), msg(`Verified ${usd} of ${sym}. Welcome to the holders’ world.`)];
+				nodes = [el('div', { class: 'cc-gate-check', text: '✓' }), title('You’re in'), msg(`Verified ${held} of ${sym}. Welcome to the holders’ world.`)];
 				break;
 			case 'short':
 				nodes = [
 					el('div', { class: 'cc-gate-lock', text: '🔒' }),
 					title('Holders only'),
-					msg(`You hold ${usd} of ${sym}. This world is for holders of ${min} or more.`),
+					msg(`You hold ${held} of ${sym}. This world is for holders of ${min} or more.`),
 					actions(
 						btn(`Buy ${sym}`, 'buy', 'cc-gate-primary'),
 						btn('I bought — re-check', 'recheck'),
@@ -939,6 +972,14 @@ export class CommunityUI {
 			class: 'cc-buy-btn', type: 'button', title: 'Buy this coin',
 			onclick: () => this.h.onBuy?.(),
 		}, [el('span', { class: 'cc-buy-btn-ico', text: '⚡' }), this.buyBtnLabel]);
+		// Creator-only (R24): set the token threshold to enter this coin's Holders
+		// world. Hidden until the server confirms this player is the coin's creator
+		// (build-perms snapshot); shown in both the General and Holders worlds.
+		this.gateBtn = el('button', {
+			class: 'cc-gate-cfg-btn', type: 'button', hidden: true,
+			title: 'Set who can enter the Holders world', 'aria-label': 'Configure the holders gate',
+			onclick: () => this.h.onConfigureGate?.(),
+		}, [el('span', { class: 'cc-gate-cfg-ico', 'aria-hidden': 'true', text: '🔑' }), el('span', { class: 'cc-gate-cfg-text', text: 'Gate' })]);
 		// Open the cosmetics shop — browse + try cosmetics on your avatar live.
 		this.shopBtn = el('button', {
 			class: 'cc-shop-btn', type: 'button', title: 'Cosmetics — try looks on your avatar',
@@ -956,6 +997,7 @@ export class CommunityUI {
 				]),
 			]),
 			this.shopBtn,
+			this.gateBtn,
 			this.buyBtn,
 		]);
 
@@ -1039,6 +1081,250 @@ export class CommunityUI {
 		document.body.appendChild(this.hud);
 	}
 
+	// ---------------------------------------------------------------- build structures (R20)
+	// The structures toolbar that rides above the block hotbar while build mode is
+	// on: pick a composite piece (wall / floor / stairs / doorway) instead of a
+	// single block, rotate it, screenshot-and-share the build, or open this coin's
+	// featured builds. The block hotbar itself lives in build-voxels.js; this panel
+	// is the "structures" layer on top of it.
+	_buildStructures() {
+		this._activePiece = null;
+
+		// "Block" is the default single-cell tool; each composite piece follows.
+		const tools = [{ id: null, name: 'Block', icon: '▪', key: 'B' }, ...COMPOSITE_PIECES];
+		this._pieceBtns = new Map();
+		const pieceRow = el('div', { class: 'cc-st-pieces', role: 'radiogroup', 'aria-label': 'Build tool' },
+			tools.map((p) => {
+				const btn = el('button', {
+					class: 'cc-st-piece' + (p.id === null ? ' cc-on' : ''), type: 'button',
+					role: 'radio', 'aria-checked': p.id === null ? 'true' : 'false',
+					title: p.id === null ? 'Single block' : `${p.name} — one-click structure (R rotates)`,
+					'aria-label': p.name,
+					onclick: () => this.h.onPickPiece?.(p.id),
+				}, [
+					el('span', { class: 'cc-st-piece-ico', 'aria-hidden': 'true', text: p.icon || '▦' }),
+					el('span', { class: 'cc-st-piece-name', text: p.name }),
+				]);
+				this._pieceBtns.set(p.id, btn);
+				return btn;
+			}));
+
+		this.rotateBtn = el('button', {
+			class: 'cc-st-rotate', type: 'button', disabled: true,
+			title: 'Rotate the piece a quarter-turn (R)', 'aria-label': 'Rotate piece',
+			onclick: () => this.h.onRotateBuild?.(),
+		}, [
+			el('span', { class: 'cc-st-rotate-ico', 'aria-hidden': 'true', text: '⟳' }),
+			el('span', { class: 'cc-st-rotate-deg', text: ROT_DEG[0] }),
+		]);
+
+		const shareBtn = el('button', {
+			class: 'cc-st-action', type: 'button', title: 'Screenshot & share this build',
+			onclick: () => this.h.onShareBuild?.(),
+		}, [el('span', { 'aria-hidden': 'true', text: '📸' }), document.createTextNode('Share')]);
+
+		const featuredBtn = el('button', {
+			class: 'cc-st-action', type: 'button', title: 'Featured builds in this world',
+			onclick: () => this.h.onOpenFeatured?.(),
+		}, [el('span', { 'aria-hidden': 'true', text: '🏛' }), document.createTextNode('Builds')]);
+
+		this.structures = el('div', { id: 'cc-structures', hidden: true, 'aria-label': 'Build structures' }, [
+			pieceRow,
+			el('div', { class: 'cc-st-tools' }, [this.rotateBtn, el('span', { class: 'cc-st-sep' }), shareBtn, featuredBtn]),
+		]);
+		document.body.appendChild(this.structures);
+	}
+
+	/** Show/hide the structures toolbar with build mode. */
+	setBuildToolsVisible(on) { if (this.structures) this.structures.hidden = !on; }
+
+	/** Reflect the armed composite piece (null = single block); toggles rotate. */
+	setBuildPiece(id) {
+		this._activePiece = id ?? null;
+		for (const [pid, btn] of this._pieceBtns) {
+			const on = pid === this._activePiece;
+			btn.classList.toggle('cc-on', on);
+			btn.setAttribute('aria-checked', on ? 'true' : 'false');
+		}
+		this.rotateBtn.disabled = this._activePiece == null;
+	}
+
+	/** Reflect the current quarter-turn rotation on the rotate button. */
+	setBuildRotation(rot) {
+		this.rotateBtn.querySelector('.cc-st-rotate-deg').textContent = ROT_DEG[((rot % 4) + 4) % 4];
+	}
+
+	// ---------------------------------------------------------------- share sheet (R20)
+	// A modal that shows the captured screenshot and offers three ways to share the
+	// build: copy a deep link back into this world, download the image, or publish
+	// it to the coin's featured builds. The scene captures the shot and owns the
+	// publish call; this only renders and routes the user's choice.
+	openShareSheet({ image, link, blocks, coinName, canPublish }) {
+		this.closeShareSheet();
+		const titleInput = el('input', {
+			type: 'text', maxlength: '60', class: 'cc-share-title',
+			placeholder: 'Name your build (optional)', 'aria-label': 'Build name',
+			onkeydown: (e) => { e.stopPropagation(); if (e.key === 'Enter') publish(); },
+		});
+		const status = el('div', { class: 'cc-share-status', role: 'status', 'aria-live': 'polite', hidden: true });
+		const setStatus = (msg, kind) => {
+			status.hidden = !msg;
+			status.textContent = msg || '';
+			status.setAttribute('data-kind', kind || '');
+		};
+
+		const copyBtn = el('button', { class: 'cc-share-btn', type: 'button' },
+			[el('span', { 'aria-hidden': 'true', text: '🔗' }), document.createTextNode('Copy link')]);
+		copyBtn.addEventListener('click', async () => {
+			try { await navigator.clipboard.writeText(link); setStatus('Link copied to clipboard.', 'ok'); }
+			catch { setStatus('Couldn’t copy — select and copy the link manually.', 'warn'); }
+		});
+
+		const dlBtn = el('a', {
+			class: 'cc-share-btn', href: image, download: `threews-build-${Date.now()}.jpg`,
+		}, [el('span', { 'aria-hidden': 'true', text: '⬇' }), document.createTextNode('Download')]);
+
+		const publishBtn = el('button', {
+			class: 'cc-share-btn cc-primary', type: 'button', disabled: !canPublish,
+			title: canPublish ? 'Publish to this world’s featured builds' : 'Build something first',
+		}, [el('span', { 'aria-hidden': 'true', text: '🏛' }), document.createTextNode('Publish to featured')]);
+		const publish = async () => {
+			if (publishBtn.disabled) return;
+			publishBtn.disabled = true;
+			setStatus('Publishing…', '');
+			const res = await this.h.onPublishBuild?.({ image, title: titleInput.value });
+			if (res?.ok) {
+				setStatus('Published! It’s now in this world’s featured builds.', 'ok');
+				publishBtn.textContent = '✓ Published';
+			} else {
+				setStatus(res?.error || 'Couldn’t publish — try again.', 'warn');
+				publishBtn.disabled = false;
+			}
+		};
+		publishBtn.addEventListener('click', publish);
+
+		const closeBtn = el('button', {
+			class: 'cc-share-close', type: 'button', 'aria-label': 'Close', title: 'Close',
+			onclick: () => this.closeShareSheet(),
+		}, ['✕']);
+
+		const card = el('div', {
+			class: 'cc-share-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Share your build',
+			onclick: (e) => e.stopPropagation(),
+		}, [
+			closeBtn,
+			el('div', { class: 'cc-share-head' }, [
+				el('h3', { class: 'cc-share-h', text: 'Share your build' }),
+				el('p', { class: 'cc-share-sub', text: `${coinName} · ${blocks.toLocaleString()} block${blocks === 1 ? '' : 's'}` }),
+			]),
+			el('div', { class: 'cc-share-shot' }, [el('img', { src: image, alt: 'Screenshot of your build' })]),
+			titleInput,
+			el('div', { class: 'cc-share-actions' }, [copyBtn, dlBtn, publishBtn]),
+			status,
+		]);
+		this.shareSheet = el('div', { id: 'cc-share', onclick: () => this.closeShareSheet() }, [card]);
+		this._shareKeydown = (e) => { if (e.key === 'Escape') this.closeShareSheet(); };
+		document.addEventListener('keydown', this._shareKeydown);
+		document.body.appendChild(this.shareSheet);
+		requestAnimationFrame(() => this.shareSheet?.classList.add('cc-on'));
+		(canPublish ? titleInput : copyBtn).focus();
+	}
+
+	closeShareSheet() {
+		if (this._shareKeydown) { document.removeEventListener('keydown', this._shareKeydown); this._shareKeydown = null; }
+		if (this.shareSheet) { this.shareSheet.remove(); this.shareSheet = null; }
+	}
+
+	// ---------------------------------------------------------------- featured builds (R20)
+	// A per-coin surface of shared builds. Designed for every state: loading
+	// (skeletons), empty (a clear call to be the first), error (retry), and a
+	// populated grid whose cards link back into the world.
+	openFeatured(coinLabel) {
+		if (this.featuredPanel) { this.featuredPanel.remove(); this.featuredPanel = null; }
+		this._featuredBody = el('div', { class: 'cc-fb-body' });
+		const closeBtn = el('button', {
+			class: 'cc-fb-close', type: 'button', 'aria-label': 'Close', title: 'Close',
+			onclick: () => this.closeFeatured(),
+		}, ['✕']);
+		const card = el('div', {
+			class: 'cc-fb-card', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Featured builds',
+			onclick: (e) => e.stopPropagation(),
+		}, [
+			closeBtn,
+			el('div', { class: 'cc-fb-head' }, [
+				el('h3', { class: 'cc-fb-h', html: '🏛 Featured builds' }),
+				el('p', { class: 'cc-fb-sub', text: `Creations shared in ${coinLabel}` }),
+			]),
+			this._featuredBody,
+		]);
+		this.featuredPanel = el('div', { id: 'cc-featured', onclick: () => this.closeFeatured() }, [card]);
+		this._featuredKeydown = (e) => { if (e.key === 'Escape') this.closeFeatured(); };
+		document.addEventListener('keydown', this._featuredKeydown);
+		document.body.appendChild(this.featuredPanel);
+		requestAnimationFrame(() => this.featuredPanel?.classList.add('cc-on'));
+		closeBtn.focus();
+	}
+
+	closeFeatured() {
+		this._featuredOpen = false;
+		if (this._featuredKeydown) { document.removeEventListener('keydown', this._featuredKeydown); this._featuredKeydown = null; }
+		if (this.featuredPanel) { this.featuredPanel.remove(); this.featuredPanel = null; }
+		this.h.onFeaturedClosed?.();
+	}
+
+	setFeaturedLoading() {
+		if (!this._featuredBody) return;
+		this._featuredBody.textContent = '';
+		const grid = el('div', { class: 'cc-fb-grid', 'aria-busy': 'true' },
+			Array.from({ length: 4 }, () => el('div', { class: 'cc-fb-skel' })));
+		this._featuredBody.appendChild(grid);
+	}
+
+	setFeaturedError(retry) {
+		if (!this._featuredBody) return;
+		this._featuredBody.textContent = '';
+		this._featuredBody.appendChild(el('div', { class: 'cc-fb-state' }, [
+			el('span', { class: 'cc-fb-state-ico', 'aria-hidden': 'true', text: '⚠️' }),
+			el('p', { class: 'cc-fb-state-msg', text: 'Couldn’t load featured builds.' }),
+			el('button', { class: 'cc-fb-retry', type: 'button', text: 'Try again', onclick: () => retry?.() }),
+		]));
+	}
+
+	setFeaturedBuilds(list) {
+		if (!this._featuredBody) return;
+		this._featuredBody.textContent = '';
+		if (!list || list.length === 0) {
+			this._featuredBody.appendChild(el('div', { class: 'cc-fb-state' }, [
+				el('span', { class: 'cc-fb-state-ico', 'aria-hidden': 'true', text: '🏗️' }),
+				el('p', { class: 'cc-fb-state-msg', text: 'No featured builds yet.' }),
+				el('p', { class: 'cc-fb-state-hint', text: 'Build something, hit Share, and publish it to be the first.' }),
+			]));
+			return;
+		}
+		const grid = el('div', { class: 'cc-fb-grid' }, list.map((b) => this._featuredCard(b)));
+		this._featuredBody.appendChild(grid);
+	}
+
+	_featuredCard(b) {
+		const q = new URLSearchParams({ coin: b.mint || '' });
+		if (b.coinName) q.set('name', b.coinName);
+		if (b.coinSymbol) q.set('symbol', b.coinSymbol);
+		const href = `/play?${q.toString()}`;
+		const meta = [b.author ? `by ${b.author}` : null, b.blocks ? `${Number(b.blocks).toLocaleString()} blocks` : null, timeAgo(b.createdAt)]
+			.filter(Boolean).join(' · ');
+		return el('a', { class: 'cc-fb-item', href, title: 'Enter this world' }, [
+			el('div', { class: 'cc-fb-thumb' }, [
+				b.thumb ? el('img', { src: b.thumb, alt: b.title || 'Featured build', loading: 'lazy' })
+					: el('div', { class: 'cc-fb-thumb-empty', 'aria-hidden': 'true', text: '🧱' }),
+			]),
+			el('div', { class: 'cc-fb-meta' }, [
+				el('div', { class: 'cc-fb-title', text: b.title || 'Untitled build' }),
+				el('div', { class: 'cc-fb-byline', text: meta }),
+			]),
+			el('span', { class: 'cc-fb-enter', 'aria-hidden': 'true', text: 'Enter →' }),
+		]);
+	}
+
 	// Reflect the voice engine's state on the mic button: label, tooltip, and the
 	// data-state hook the CSS uses to colour the icon / show the mute slash.
 	setVoiceState(state) {
@@ -1093,7 +1379,13 @@ export class CommunityUI {
 		else this.coinImg.style.display = 'none';
 		const holders = coin.tier === 'holders';
 		this.tierBadge.hidden = !holders;
-		this.tierBadge.textContent = holders ? `🔒 Holders · $${coin.holderMinUsd ? Math.round(coin.holderMinUsd * 100) / 100 : 8}+` : '';
+		// State the real bar: a creator-set token threshold (R24) reads "1M $SYM+",
+		// otherwise the USD floor reads "$8+".
+		const sym = coin.symbol ? '$' + String(coin.symbol).replace(/^\$/, '').toUpperCase() : '';
+		const req = coin.holderMinTokens > 0
+			? `${fmtCompact(coin.holderMinTokens)} ${sym}+`
+			: `$${coin.holderMinUsd ? Math.round(coin.holderMinUsd * 100) / 100 : 8}+`;
+		this.tierBadge.textContent = holders ? `🔒 Holders · ${req}` : '';
 		this.chatLog.textContent = '';
 		this._unread = 0;
 		this.chatUnread.hidden = true;

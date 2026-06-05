@@ -1,17 +1,22 @@
-// Cosmetics Shop (R21) — in-world panel to browse the cosmetics catalog, filter
-// by rarity, and preview any item LIVE on your own avatar before buying.
+// Cosmetics Shop (R21 browse/preview + R22 x402 purchase) — in-world panel to
+// browse the cosmetics catalog, filter by rarity, preview any item LIVE on your
+// own avatar, and BUY a premium item with a real USDC payment over x402.
 //
 // The shop is pure 2D chrome: it fetches the real catalog and calls back into
-// the scene (coincommunities.js) to equip/unequip a preview on the local rig.
-// It never mutates the 3D scene directly and never persists a purchase — that's
-// R22 (x402) / R23 (inventory). Prices are denominated in $THREE, the only coin.
+// the scene (coincommunities.js) to equip/unequip a preview on the local rig. A
+// "Buy" runs the x402 flow in cosmetics-purchase.js — open wallet, settle USDC,
+// record ownership server-side — and flips the card to owned only once the
+// server confirms it (no optimistic unlock). Owned state is read per-account
+// from the R22 ledger. The item's value is quoted in $THREE (the only coin);
+// USDC is the settlement asset shown on the buy button.
 //
-// Catalog source: the real endpoint /api/cosmetics/catalog, with the static CDN
-// mirror /cosmetics/catalog.json as a resilient fallback (and the dev source,
-// where /api/* proxies to prod and the endpoint isn't deployed yet). Both are
-// real network fetches — there is no client-side sample array.
+// Catalog source: the real endpoint /api/cosmetics/catalog (with the caller's
+// account, so owned items render owned), with the static CDN mirror
+// /cosmetics/catalog.json as a resilient fallback (and the dev source, where
+// /api/* proxies to prod). Both are real network fetches — no sample array.
 
 import { log } from '../shared/log.js';
+import { purchaseCosmetic, resolveShopAccount } from './cosmetics-purchase.js';
 
 function el(tag, props = {}, kids = []) {
 	const n = document.createElement(tag);
@@ -38,8 +43,10 @@ const fmtPrice = (n) => {
 
 // Fetch the catalog from the real endpoint, falling back to the static mirror.
 // Throws only if neither source yields items, so the UI can show its error state.
-async function fetchCatalog(rarity) {
-	const qs = rarity ? `?rarity=${encodeURIComponent(rarity)}` : '';
+// `account` (when set) makes premium items the account already bought read as
+// owned — the static mirror has no account view, so it always shows them locked.
+async function fetchCatalog(account) {
+	const qs = account ? `?account=${encodeURIComponent(account)}` : '';
 	const sources = [`/api/cosmetics/catalog${qs}`, '/cosmetics/catalog.json'];
 	for (const url of sources) {
 		try {
@@ -55,8 +62,11 @@ async function fetchCatalog(rarity) {
 export class CosmeticsShop {
 	/**
 	 * @param {object} h handlers:
-	 *   onPreview(item)   — equip the item live on the local avatar.
-	 *   onEndPreview()    — revert the active preview.
+	 *   onPreview(item)        — equip the item live on the local avatar.
+	 *   onEndPreview()         — revert the active preview.
+	 *   onPurchased(item)      — (optional) a premium item was just bought.
+	 *   account                — (optional) verified wallet to key ownership on;
+	 *                            falls back to the persisted guest id.
 	 */
 	constructor(h = {}) {
 		this.h = h;
@@ -64,6 +74,10 @@ export class CosmeticsShop {
 		this.rarity = 'all';       // active rarity filter
 		this.previewId = null;     // id of the item currently previewing (toggle)
 		this.state = 'idle';       // idle | loading | ready | error
+		this.buyingId = null;      // id of the item whose payment is in flight
+		// The account ownership + purchases are keyed on. Resolved once at build;
+		// re-resolved on each open() in case the player signs in between sessions.
+		this.account = resolveShopAccount(h.account);
 		this._build();
 	}
 
@@ -134,8 +148,14 @@ export class CosmeticsShop {
 		requestAnimationFrame(() => this.root.classList.add('cc-shop-in'));
 		document.addEventListener('keydown', this._onKey, true);
 		this.closeBtn.focus();
-		// Load once; re-open reuses the catalog (cheap, and avoids a flash).
-		if (this.state !== 'ready') await this._load();
+		// Re-resolve the account in case the player signed in since last open, so a
+		// fresh wallet sees its owned items rather than the guest's.
+		const acct = resolveShopAccount(this.h.account);
+		const accountChanged = acct !== this.account;
+		this.account = acct;
+		// Load once; re-open reuses the catalog (cheap, and avoids a flash) — unless
+		// the account changed, which flips owned/locked state and needs a refetch.
+		if (this.state !== 'ready' || accountChanged) await this._load();
 		else this._render();
 	}
 
@@ -161,9 +181,9 @@ export class CosmeticsShop {
 		this.state = 'loading';
 		this._renderSkeleton();
 		try {
-			// Always fetch the full catalog; rarity filtering is client-side so
-			// switching tabs is instant and needs no refetch.
-			this.items = await fetchCatalog();
+			// Always fetch the full catalog (keyed on the account so owned items read
+			// owned); rarity filtering is client-side so switching tabs is instant.
+			this.items = await fetchCatalog(this.account);
 			this.state = 'ready';
 			this._render();
 		} catch (err) {
@@ -175,9 +195,10 @@ export class CosmeticsShop {
 
 	// ── rendering ───────────────────────────────────────────────────────────────
 
-	_status(text) {
+	_status(text, kind = '') {
 		this.statusEl.textContent = text || '';
 		this.statusEl.hidden = !text;
+		this.statusEl.dataset.kind = text ? kind : '';
 	}
 
 	_renderSkeleton() {
@@ -243,39 +264,108 @@ export class CosmeticsShop {
 			})
 			: this._glyph(item);
 
-		const badge = item.owned
-			? el('span', { class: 'cc-shop-badge cc-owned', text: 'Owned' })
-			: el('span', { class: 'cc-shop-badge cc-locked' }, [
-				el('span', { class: 'cc-lock-ico', 'aria-hidden': 'true', text: '🔒' }),
-				el('span', { text: `${fmtPrice(item.price)} $THREE` }),
-			]);
+		// The thumb is the live-preview toggle (R21): a button so it's keyboard- and
+		// screen-reader-operable on its own, separate from the Buy button below.
+		const previewBtn = el('button', {
+			class: 'cc-shop-thumb cc-shop-thumb-btn',
+			type: 'button',
+			'aria-pressed': active ? 'true' : 'false',
+			'aria-label': `${active ? 'Stop previewing' : 'Preview'} ${item.name} on your avatar`,
+			title: active ? 'Click to stop preview' : 'Click to preview on your avatar',
+			onclick: () => this._toggleItem(item),
+		}, [
+			thumb,
+			el('span', { class: 'cc-shop-rarity', 'data-rarity': item.rarity, text: RARITY_LABEL[item.rarity] }),
+			el('span', { class: 'cc-shop-preview-tag', 'aria-hidden': 'true', text: active ? 'Previewing' : 'Preview' }),
+		]);
 
-		const card = el('button', {
+		const card = el('div', {
 			class: 'cc-shop-card'
 				+ ` cc-rarity-${item.rarity}`
 				+ (item.owned ? ' cc-is-owned' : ' cc-is-locked')
 				+ (active ? ' cc-active' : ''),
-			type: 'button',
-			'aria-pressed': active ? 'true' : 'false',
-			'aria-label': `${item.name} — ${RARITY_LABEL[item.rarity]}, ${item.owned ? 'owned' : `locked, ${item.price} $THREE`}. ${active ? 'Stop preview' : 'Preview on your avatar'}`,
-			title: active ? 'Click to stop preview' : 'Click to preview on your avatar',
-			onclick: () => this._toggleItem(item),
+			'data-id': item.id,
 		}, [
-			el('div', { class: 'cc-shop-thumb' }, [
-				thumb,
-				el('span', { class: 'cc-shop-rarity', 'data-rarity': item.rarity, text: RARITY_LABEL[item.rarity] }),
-				el('span', { class: 'cc-shop-preview-tag', 'aria-hidden': 'true', text: active ? 'Previewing' : 'Preview' }),
-			]),
+			previewBtn,
 			el('div', { class: 'cc-shop-meta' }, [
 				el('span', { class: 'cc-shop-name', text: item.name }),
-				badge,
+				// The item's value is quoted in $THREE — the only coin (R21 copy).
+				el('span', { class: 'cc-shop-value', text: `${fmtPrice(item.price)} $THREE` }),
+				this._action(item),
 			]),
 		]);
 		return card;
 	}
 
+	// The owned badge or the Buy button (R22). Built separately so a settled
+	// purchase can swap just this node to "Owned" without re-rendering the grid.
+	_action(item) {
+		if (item.owned) {
+			return el('span', { class: 'cc-shop-action cc-shop-badge cc-owned', text: 'Owned' });
+		}
+		const pending = this.buyingId === item.id;
+		const buy = el('button', {
+			class: 'cc-shop-action cc-shop-buy',
+			type: 'button',
+			disabled: pending || undefined,
+			// USDC is the settlement asset (not a coin we hold) — labelled on the CTA.
+			'aria-label': `Buy ${item.name} for ${item.priceUsdc} USDC`,
+			text: pending ? 'Opening wallet…' : `Buy · $${item.priceUsdc} USDC`,
+			onclick: () => this._buy(item),
+		});
+		return buy;
+	}
+
 	_glyph(item) {
 		return el('div', { class: 'cc-shop-glyph', 'aria-hidden': 'true', text: SLOT_GLYPH[item.slot] || '✦' });
+	}
+
+	// ── purchase (R22) ──────────────────────────────────────────────────────────
+	// Run the real x402 USDC payment for a locked item and, on the server's
+	// confirmation, flip the card to owned. Every state is honest: pending while
+	// the wallet is open, owned only after the payment verifies, an actionable
+	// message on failure (including insufficient funds). No optimistic unlock.
+	async _buy(item) {
+		if (this.buyingId || item.owned) return;
+		this.buyingId = item.id;
+		const card = this.grid.querySelector(`.cc-shop-card[data-id="${CSS.escape(item.id)}"]`);
+		this._swapAction(card, item);
+		this._status(`Settling payment for ${item.name}…`, 'pending');
+		try {
+			const ticket = await purchaseCosmetic(item, { account: this.account });
+			this.buyingId = null;
+			item.owned = true;
+			if (card) {
+				card.classList.remove('cc-is-locked');
+				card.classList.add('cc-is-owned');
+				this._swapAction(card, item);
+			}
+			this._status(
+				ticket.newlyOwned ? `Unlocked ${item.name}.` : `${item.name} is already in your wardrobe.`,
+				'ok',
+			);
+			try { this.h.onPurchased?.(item, ticket); } catch (err) { log.warn('[shop] onPurchased', err?.message); }
+		} catch (err) {
+			this.buyingId = null;
+			this._swapAction(card, item);
+			if (err?.code === 'cancelled') { this._status(''); return; }
+			const msg = String(err?.message || err);
+			// The wallet relays an insufficient-balance error verbatim — turn it into
+			// an actionable nudge instead of a raw failure string.
+			const insufficient = /insufficient|balance|not enough|exceeds/i.test(msg);
+			this._status(
+				insufficient
+					? `Not enough USDC to buy ${item.name}. Top up your wallet and try again.`
+					: `Purchase failed: ${msg}`,
+				'error',
+			);
+		}
+	}
+
+	// Replace just the action node of a card in place (Buy ⇄ pending ⇄ Owned).
+	_swapAction(card, item) {
+		const old = card?.querySelector('.cc-shop-action');
+		if (old) old.replaceWith(this._action(item));
 	}
 
 	// ── preview toggle ────────────────────────────────────────────────────────

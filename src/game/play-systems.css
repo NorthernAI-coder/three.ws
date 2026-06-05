@@ -267,6 +267,128 @@
 .ps-skill-bar { height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 99px; overflow: hidden; }
 .ps-skill-fill { display: block; height: 100%; background: #fff; border-radius: 99px; transition: width 0.4s ease; }
 
+/* ---- My Cosmetics (R23) ---- */
+.ps-cos { width: 320px; }
+.ps-cos-body { padding: 12px 12px 6px; overflow-y: auto; }
+.ps-cos-slot-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin: 10px 2px 7px;
+}
+.ps-cos-slot-head:first-child { margin-top: 2px; }
+.ps-cos-slot-name {
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--cc-dim);
+}
+.ps-cos-remove {
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--cc-dim);
+	background: transparent;
+	border: 1px solid var(--cc-edge-soft);
+	border-radius: var(--cc-radius-sm);
+	padding: 2px 8px;
+	transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.ps-cos-remove:hover { color: var(--cc-text); border-color: var(--cc-edge); background: rgba(255, 255, 255, 0.08); }
+.ps-cos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.ps-cos-card {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 6px;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid var(--cc-edge-soft);
+	border-radius: var(--cc-radius-sm);
+	cursor: pointer;
+	transition: transform 0.09s ease, background 0.12s ease, border-color 0.12s ease, box-shadow 0.14s ease;
+}
+.ps-cos-card[role="button"]:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--cc-edge); transform: translateY(-2px); }
+.ps-cos-card[role="button"]:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.ps-cos-card.is-equipped { border-color: #fff; background: rgba(255, 255, 255, 0.14); box-shadow: var(--cc-glow); cursor: default; }
+.ps-cos-card.is-locked { opacity: 0.5; cursor: default; }
+.ps-cos-card.is-locked:hover { transform: none; }
+.ps-cos-preview {
+	position: relative;
+	aspect-ratio: 1;
+	display: grid;
+	place-items: center;
+	background: rgba(0, 0, 0, 0.25);
+	border-radius: var(--cc-radius-sm);
+	overflow: hidden;
+}
+.ps-cos-thumb { width: 100%; height: 100%; object-fit: contain; }
+.ps-cos-swatch { width: 60%; height: 60%; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.ps-cos-rarity {
+	position: absolute;
+	left: 3px;
+	bottom: 3px;
+	font-size: 8px;
+	font-weight: 800;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	padding: 1px 4px;
+	border-radius: 99px;
+	background: rgba(0, 0, 0, 0.6);
+	color: var(--cc-dim);
+}
+.ps-cos-rarity.is-rare { color: #7cc7ff; }
+.ps-cos-rarity.is-epic { color: #d49bff; }
+.ps-cos-rarity.is-legendary { color: #ffd470; }
+.ps-cos-check {
+	position: absolute;
+	top: 3px;
+	right: 3px;
+	width: 16px;
+	height: 16px;
+	display: grid;
+	place-items: center;
+	font-size: 10px;
+	font-weight: 900;
+	color: var(--cc-ink);
+	background: #fff;
+	border-radius: 50%;
+}
+.ps-cos-name {
+	font-size: 11px;
+	color: var(--cc-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ps-cos-status { font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cc-faint); }
+.ps-cos-card.is-equipped .ps-cos-status { color: var(--cc-text); }
+.ps-cos-hint {
+	margin: 10px 2px 6px;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--cc-faint);
+}
+.ps-cos-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	padding: 34px 12px;
+	text-align: center;
+}
+.ps-cos-state-text { font-size: 12px; color: var(--cc-dim); margin: 0; }
+.ps-cos-spinner {
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	border: 2px solid var(--cc-edge);
+	border-top-color: #fff;
+	animation: ps-cos-spin 0.8s linear infinite;
+}
+@keyframes ps-cos-spin { to { transform: rotate(360deg); } }
+
 /* ---- Floating XP + level-up ---- */
 .ps-xp-float {
 	position: fixed;

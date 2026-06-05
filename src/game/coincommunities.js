@@ -27,7 +27,7 @@ import { createChartScreen } from './chart-screen.js';
 import { mountOracleRibbon } from './oracle-ribbon.js';
 import { MarketReactor } from './market-reactor.js';
 import {
-	VoxelWorld, createBuildHud, parseKey, keyOf, MAX_BLOCKS,
+	VoxelWorld, createBuildHud, parseKey, keyOf, MAX_BLOCKS, BLOCK,
 	COMPOSITE_PIECES, compositeCells, MAX_COMPOSITE_CELLS,
 } from './build-voxels.js';
 import { normalizeGatewayURL } from '../ipfs.js';
@@ -35,7 +35,9 @@ import {
 	loadManifest, getEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
 	CLIP_IDLE, CLIP_WALK,
 } from './avatar-rig.js';
-import { GUEST_SENTINEL, uploadPendingGuestAvatar } from './play-handoff.js';
+import { GUEST_SENTINEL, uploadPendingGuestAvatar, getPlayCosmetics, setPlayCosmetics } from './play-handoff.js';
+import { applyLoadout } from './cosmetics-loadout.js';
+import { serializeLoadout } from '../../multiplayer/src/cosmetics-catalog.js';
 import { AccessoryManager } from '../agent-accessories.js';
 import { CosmeticsShop } from './cosmetics-shop.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
@@ -109,12 +111,20 @@ class RemotePlayer {
 
 		this.voice = !!player.voice;
 		this.label.classList.toggle('cc-invoice', this.voice);
+		// This peer's equipped cosmetic loadout (R23), as the wire string the server
+		// publishes on the schema. Applied once the GLB measures (setAvatar), and
+		// re-applied whenever they change their fit (apply()).
+		this._cosWire = player.cosmetics || '';
 		this.setAvatar(player.avatar);
 	}
 	setAvatar(url) {
 		if (url === this._avatarUrl) return;
 		this._avatarUrl = url;
-		// rebuild model
+		// rebuild model — clearing the rig takes any worn cosmetics with it, so drop
+		// the old handle and re-apply once the new GLB has measured.
+		try { this.cosmetics?.dispose(); } catch {}
+		this.cosmetics = null;
+		this._cosApplied = null;
 		this.rig.clear();
 		this.anim = new AnimationManager();
 		// Tag this load so a slower in-flight GLB can't attach to the rig after the
@@ -126,7 +136,21 @@ class RemotePlayer {
 			if (this._disposed || token !== this._avatarToken) return;
 			this.height = height;
 			anim.crossfadeTo(this.motion === 'walk' || this.motion === 'run' ? CLIP_WALK : CLIP_IDLE, 0);
+			this.applyCosmetics();
 		})).catch(() => {});
+	}
+	// Dress this peer in their equipped loadout. Idempotent — re-applies only when
+	// the wire actually changed, and waits for the avatar to measure (setAvatar
+	// calls it post-load). Reuses the same applyLoadout the local player and the
+	// creator use, so one wardrobe renders identically everywhere.
+	applyCosmetics(wire) {
+		const next = typeof wire === 'string' ? wire : (this._cosWire || '');
+		this._cosWire = next;
+		if (this._disposed || !this.height) return;
+		if (this.cosmetics && this._cosApplied === next) return;
+		this._cosApplied = next;
+		try { this.cosmetics?.dispose(); } catch {}
+		this.cosmetics = applyLoadout(this.rig, this.height, next);
 	}
 	apply(player) {
 		this.targetX = player.x; this.targetY = player.y; this.targetZ = player.z; this.targetYaw = player.yaw;
@@ -137,6 +161,7 @@ class RemotePlayer {
 			if (!this.voice) this.setSpeaking(false);
 		}
 		if (player.avatar !== this._avatarUrl) this.setAvatar(player.avatar);
+		if (player.cosmetics !== undefined && player.cosmetics !== this._cosWire) this.applyCosmetics(player.cosmetics);
 		if (player.motion !== this.motion) {
 			this.motion = player.motion;
 			this.anim.crossfadeTo(this.motion === 'walk' || this.motion === 'run' ? CLIP_WALK : CLIP_IDLE, 0.18);
@@ -173,9 +198,11 @@ class RemotePlayer {
 		this.rig.rotation.y = this.curYaw;
 		if (this.anim.currentName === CLIP_WALK) this.anim.setSpeed(this.motion === 'run' ? RUN_TIMESCALE : 1);
 		this.anim.update(dt);
+		this.cosmetics?.tick(dt);
 	}
 	dispose() {
 		this._disposed = true;
+		try { this.cosmetics?.dispose(); } catch {}
 		this.scene.remove(this.rig);
 		this.label.remove();
 		this.bubble?.remove();
@@ -234,6 +261,7 @@ export class CoinCommunities {
 			onShareBuild: () => this._shareBuild(),
 			onOpenFeatured: () => this._openFeatured(),
 			onPublishBuild: (meta) => this._publishBuild(meta),
+			onFeaturedClosed: () => { this._featuredOpen = false; },
 		});
 
 		// Collaborative building HUD (hotbar + place/break toggle). Hidden until the
@@ -247,7 +275,12 @@ export class CoinCommunities {
 			onToggle: (on) => this._onBuildToggle(on),
 			onPick: (i) => { this.buildType = i; this._refreshGhost(); },
 			onModeChange: () => this._refreshGhost(),
+			onClearArea: (scope) => this._onClearArea(scope),
 		});
+		// Build permissions (R19) — refreshed from the server's build-perms snapshot:
+		// the player's per-world block cap + usage, and whether they're the coin creator
+		// (which unlocks the clear-area moderation tool). Solo builds carry no cap.
+		this._buildPerms = { creator: false, cap: 0, used: 0, clearMaxRadius: 12 };
 		this.buildHud.root.hidden = true;
 		this.buildHud.setEnabled(false);
 
@@ -587,11 +620,13 @@ export class CoinCommunities {
 		// instead. A null result means they cancelled — stay put.
 		let holderPass = '';
 		let holderMinUsd = 0;
+		let holderMinTokens = 0;
 		if (tier === 'holders') {
 			const pass = await this._passHolderGate(coin);
 			if (!pass) return;
 			holderPass = pass.holderPass;
 			holderMinUsd = pass.minUsd;
+			holderMinTokens = pass.minTokens || 0;
 		}
 
 		this.phase = 'loading';
@@ -607,7 +642,7 @@ export class CoinCommunities {
 				official: true,
 			};
 		}
-		coin = { ...coin, tier, holderMinUsd };
+		coin = { ...coin, tier, holderMinUsd, holderMinTokens };
 		this.coin = coin;
 		this.ui.enterWorld(coin);
 		document.body.classList.toggle('cc-holders', tier === 'holders');
@@ -679,6 +714,13 @@ export class CoinCommunities {
 		// Backed out while the avatar GLB was loading — stop before we open a room.
 		if (epoch !== this._enterEpoch) return;
 		this.localHeight = localHeight;
+		// Dress the local avatar in the loadout the player last equipped (carried
+		// across sessions and worlds via the cc-cosmetics mirror). The server echoes
+		// the authoritative, ownership-validated loadout right after join — which
+		// re-applies here through _onCosmeticsProfile — but applying the cached wire
+		// now means the player sees their fit immediately, not a flash of bare avatar.
+		this._localCosWire = null;
+		this._applyLocalCosmetics(getPlayCosmetics());
 		// Don't silently swap a broken model for the stand-in — tell the player so
 		// they know to pick another avatar.
 		if (avatarFallback && avatarInput !== GUEST_SENTINEL) {
@@ -715,6 +757,11 @@ export class CoinCommunities {
 			// server binds the wallet (inside the pass) as the account id; harmless
 			// when the server isn't gated.
 			playPass: this.playPass, account: this.account,
+			// Pre-join cosmetic loadout (R23): the fit the player last equipped, so
+			// peers see it the instant we appear. The server validates each id against
+			// what the account owns before publishing it, so it can't dress us in
+			// anything unowned.
+			cosmetics: getPlayCosmetics(),
 		});
 		if (isGuest) uploadPendingGuestAvatar((publicUrl) => this.net?.setAvatar(publicUrl));
 		this.net.on('status', ({ status }) => {
@@ -731,7 +778,7 @@ export class CoinCommunities {
 			// Every (re)connect re-streams the server's authoritative build, so wipe
 			// the local layer first. On a manual retry out of single-player this also
 			// hands authority back: the solo build gives way to the shared world's.
-			if (status === 'connecting') { this.voxels?.clear(); this._undoStack = []; this._syncBudget(); }
+			if (status === 'connecting') { this.voxels?.clear(); this._undoStack = []; this._syncBudget(); this._resetBuildPerms(); }
 			// Building is available with a live server (synced + persisted for
 			// everyone) and in solo single-player mode (local-only) once multiplayer
 			// has been given up. The connecting window is the only time it's off, so
@@ -778,6 +825,13 @@ export class CoinCommunities {
 		this.net.on('blockChange', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); });
 		this.net.on('blockRemove', (key) => { const [x, y, z] = parseKey(key); this.voxels?.removeBlock(x, y, z); this._syncBudget(); });
 		this.net.on('editReject', ({ reason }) => this._onEditReject(reason));
+		// Build permissions: the per-player cap/usage + creator flag drive the HUD's
+		// allowance meter and reveal the creator-only clear-area control. build-cleared
+		// confirms a creator sweep landed.
+		this.net.on('buildPerms', (p) => this._onBuildPerms(p));
+		this.net.on('buildCleared', ({ count, all }) => {
+			this.ui.toast(all ? `Cleared the whole world (${count|0} blocks).` : `Cleared ${count|0} block${(count|0) === 1 ? '' : 's'} nearby.`, 'info');
+		});
 		// Durability flag for this world's build — drives the HUD "Saved" badge.
 		this.net.on('persistent', (durable) => { if (this.net?.status === 'online') this.buildHud.setPersistent(durable); });
 
@@ -791,7 +845,7 @@ export class CoinCommunities {
 			net: this.net,
 			ui: this.ui,
 		});
-		this.net.on('profile', (snap) => this.playSystems?.setProfile(snap));
+		this.net.on('profile', (snap) => { this.playSystems?.setProfile(snap); this._onCosmeticsProfile(snap); });
 		this.net.on('inv', (delta) => this.playSystems?.applyInv(delta));
 		this.net.on('xpgain', (g) => this.playSystems?.onXpGain(g));
 		this.net.on('levelup', (l) => this.playSystems?.onLevelup(l));
@@ -940,14 +994,14 @@ export class CoinCommunities {
 					try {
 						const res = await requestHolderPass(coin.mint);
 						if (res?.eligible && res.holderPass) {
-							this.ui.setHolderGate('granted', { symbol, usd: res.usd, minUsd: res.minUsd });
+							this.ui.setHolderGate('granted', { symbol, usd: res.usd, amount: res.amount, minUsd: res.minUsd, minTokens: res.minTokens });
 							// Let the "verified" state land for a beat before the world builds.
 							await new Promise((r) => setTimeout(r, 650));
 							this.ui.closeHolderGate();
 							return res;
 						}
 						state = 'short';
-						data = { symbol, usd: res?.usd ?? 0, amount: res?.amount ?? 0, minUsd: res?.minUsd ?? 8 };
+						data = { symbol, usd: res?.usd ?? 0, amount: res?.amount ?? 0, minUsd: res?.minUsd ?? 8, minTokens: res?.minTokens ?? 0 };
 					} catch (err) {
 						if (err?.code === 'auth_required') { state = 'auth'; data = { symbol, error: carryError }; }
 						else if (err?.code === 'wallet_required') { state = 'wallet'; data = { symbol, error: carryError }; }
@@ -1076,7 +1130,17 @@ export class CoinCommunities {
 		this.buildHud.setActive(false);
 		this.buildHud.setEnabled(false);
 		this.buildHud.setPersistent(null);
+		this._resetBuildPerms();
 		this.buildHud.root.hidden = true;
+		// Reset the structures toolbar back to single-block and close any open
+		// share / featured surfaces — they're scoped to the world we're leaving.
+		this.buildPiece = null; this.buildRot = 0;
+		this.ui.setBuildPiece(null);
+		this.ui.setBuildToolsVisible(false);
+		this.ui.closeShareSheet();
+		this.ui.closeFeatured();
+		try { this.localCosmetics?.dispose(); } catch {}
+		this.localCosmetics = null; this._localCosWire = null;
 		if (this.localRig) { this.scene.remove(this.localRig); this.localRig = null; }
 		if (this._nipple) { this._nipple.destroy(); this._nipple = null; }
 		this.phase = 'lobby';
@@ -1163,13 +1227,20 @@ export class CoinCommunities {
 		return false;
 	}
 
-	// Open/close the cosmetics shop (R21). Lazy-built; previews route to the
-	// local rig hooks above. Reverts any preview when it closes.
+	// Open/close the cosmetics shop (R21 browse/preview + R22 buy). Lazy-built;
+	// previews route to the local rig hooks above, and a settled purchase records
+	// ownership server-side. Reverts any preview when it closes.
 	_toggleShop() {
 		if (!this._shop) {
 			this._shop = new CosmeticsShop({
+				// Key ownership + purchases on the verified wallet when we have one;
+				// the shop falls back to the persisted guest id otherwise.
+				account: this.account || '',
 				onPreview: (item) => this.equipCosmeticPreview(item),
 				onEndPreview: () => this.unequipCosmeticPreview(),
+				// A premium item was just bought (R22) — now owned for this account.
+				// Keep it previewing so the buyer sees what they unlocked.
+				onPurchased: (item) => { this._previewItem = item; },
 			});
 		}
 		this._shop.toggle();
@@ -1183,6 +1254,34 @@ export class CoinCommunities {
 			if (this._previewPresetId) { mgr.removePreset(this._previewPresetId); this._previewPresetId = null; }
 		}
 		this._previewItem = null;
+	}
+
+	// ── Owned-cosmetics: persisted equip on the LOCAL avatar (R23) ─────────────
+	// Dress the local avatar in `wire` (an equipped loadout, slot→id map or wire
+	// string). Idempotent — re-applies only when it actually changed — and reuses
+	// the shared applyLoadout so the local body, peers and the creator preview all
+	// render the same wardrobe. Separate from the R21 shop's ephemeral preview
+	// above (AccessoryManager): this is the durable, equipped look.
+	_applyLocalCosmetics(wire) {
+		const next = typeof wire === 'string' ? wire : serializeLoadout(wire);
+		if (this.localCosmetics && this._localCosWire === next) return;
+		this._localCosWire = next;
+		try { this.localCosmetics?.dispose(); } catch {}
+		this.localCosmetics = (this.localRig && this.localHeight)
+			? applyLoadout(this.localRig, this.localHeight, next)
+			: null;
+	}
+
+	// The server echoes the authoritative profile on join and after every equip.
+	// Mirror the equipped loadout to the cross-world store (so /walk and the next
+	// session restore the same fit) and re-dress the local avatar. This is the one
+	// place equip state flows client-side, so the wardrobe panel, the 3D body and
+	// the persisted mirror never drift apart.
+	_onCosmeticsProfile(snap) {
+		const equipped = snap?.cosmetics?.equipped;
+		if (!equipped || typeof equipped !== 'object') return;
+		setPlayCosmetics(equipped);
+		this._applyLocalCosmetics(equipped);
 	}
 
 	// Surface unread chat in the tab title when the page is backgrounded, so a
@@ -1528,6 +1627,7 @@ export class CoinCommunities {
 		const action = this._undoStack?.pop();
 		if (!action) { this.ui.toast('Nothing to undo.', 'info'); return; }
 		if (action.kind === 'place') this._applyEdit('place', action.cell, action.type);
+		else if (action.kind === 'remove-batch') for (const cell of action.cells) this._applyEdit('remove', cell);
 		else this._applyEdit('remove', action.cell);
 		this._refreshGhost();
 	}
@@ -1555,6 +1655,9 @@ export class CoinCommunities {
 			column: 'That stack is too tall here — try building wider, not higher.',
 			protected: 'That spot is protected — keep the spawn and totem clear.',
 			player: 'You’ve hit your block limit for this world — break some to build more.',
+			playercap: 'You’ve hit your block limit for this world — break some to build more.',
+			dense: 'That stack is too tall here — try building wider, not higher.',
+			notcreator: 'Only the coin’s creator can clear builds here.',
 		}[reason] || 'That edit couldn’t be applied.';
 		this.ui.toast(msg, 'warn');
 	}
@@ -1585,16 +1688,187 @@ export class CoinCommunities {
 		if (this.buildHud.active && this._lastHover) this._updateGhost(this._lastHover.x, this._lastHover.y);
 	}
 
+	// Adopt the server's build-permission snapshot: drive the per-player allowance
+	// meter and reveal the creator-only moderation control. Authoritative — the HUD
+	// only surfaces what the server already enforces.
+	_onBuildPerms(p) {
+		if (!p || typeof p !== 'object') return;
+		this._buildPerms = {
+			creator: !!p.creator,
+			cap: Number(p.cap) || 0,
+			used: Number(p.used) || 0,
+			clearMaxRadius: Number(p.clearMaxRadius) || 12,
+		};
+		this.buildHud.setCreator(this._buildPerms.creator);
+		this.buildHud.setUsage(this._buildPerms.used, this._buildPerms.cap);
+	}
+
+	// Clear the per-player meter + creator tool — on leave and on every (re)connect,
+	// before fresh perms arrive, so a solo build or a different world never inherits
+	// the last one's allowance or moderation control.
+	_resetBuildPerms() {
+		this._buildPerms = { creator: false, cap: 0, used: 0, clearMaxRadius: 12 };
+		this.buildHud.setCreator(false);
+		this.buildHud.setUsage(0, 0);
+	}
+
+	// Creator moderation: clear a disc of blocks around where the player stands, or
+	// the whole world. Both are confirmed (a clear is destructive) and validated again
+	// server-side. Maps the avatar's world position to the build grid for the area
+	// sweep; the radius is the server-advertised maximum so the tool's reach is honest.
+	_onClearArea(scope) {
+		if (!this._buildPerms.creator || this.net?.status !== 'online') {
+			this.ui.toast('Clearing builds needs a live connection as the coin creator.', 'warn');
+			return;
+		}
+		if (scope === 'all') {
+			if (typeof confirm === 'function' && !confirm('Clear EVERY block in this world? This can\u2019t be undone.')) return;
+			this.net.sendClearAll();
+			return;
+		}
+		const r = this._buildPerms.clearMaxRadius || 12;
+		if (typeof confirm === 'function' && !confirm(`Clear all blocks within ${r} cells of where you stand?`)) return;
+		const gx = Math.round(this.localPos.x / BLOCK);
+		const gz = Math.round(this.localPos.z / BLOCK);
+		this.net.sendClearArea(gx, gz, r);
+	}
+
 	_onBuildToggle(on) {
-		if (!on) { this.voxels?.hideGhost(); this.canvas.style.cursor = ''; return; }
+		// The structures toolbar (composite pieces + rotate + share + featured) lives
+		// or dies with build mode.
+		this.ui.setBuildToolsVisible(on);
+		if (!on) { this.voxels?.hideGhost(); this.voxels?.hideFootprint(); this.canvas.style.cursor = ''; return; }
 		const touch = typeof matchMedia === 'function' && matchMedia('(hover: none), (pointer: coarse)').matches;
 		const solo = this.net?.status !== 'online';
 		const how = touch
 			? 'tap to place, hold to break, pick a block, ⌘/Ctrl+Z to undo'
-			: 'click to place, right-click to break, 1–0 pick a block, ⌘/Ctrl+Z to undo';
+			: 'click to place, right-click to break, 1–0 pick a block, R rotates pieces, ⌘/Ctrl+Z to undo';
 		this.ui.toast(`Build mode${solo ? ' (offline — reconnect to share)' : ''} — ${how}`, 'info');
 		this._syncBudget();
 		if (this._lastHover) this._updateGhost(this._lastHover.x, this._lastHover.y);
+	}
+
+	// ---------------------------------------------------------------- share builds
+	// Render the current view into an offscreen target and return a JPEG data URL +
+	// dimensions, or null if capture isn't possible. Uses a render target (not the
+	// live canvas) so it works regardless of preserveDrawingBuffer, and downscales
+	// to keep the thumbnail small enough to persist and share.
+	_captureBuildShot(maxW = 720) {
+		const r = this.renderer;
+		if (!r || !this.scene || !this.camera) return null;
+		const size = r.getSize(new Vector2());
+		if (size.x < 1 || size.y < 1) return null;
+		const scale = Math.min(1, maxW / size.x);
+		const w = Math.max(1, Math.round(size.x * scale));
+		const h = Math.max(1, Math.round(size.y * scale));
+		let rt = null;
+		try {
+			rt = new WebGLRenderTarget(w, h, { samples: 4 });
+			rt.texture.colorSpace = SRGBColorSpace;
+			const prev = r.getRenderTarget();
+			r.setRenderTarget(rt);
+			r.render(this.scene, this.camera);
+			const buf = new Uint8Array(w * h * 4);
+			r.readRenderTargetPixels(rt, 0, 0, w, h, buf);
+			r.setRenderTarget(prev);
+			const c = document.createElement('canvas');
+			c.width = w; c.height = h;
+			const ctx = c.getContext('2d');
+			const img = ctx.createImageData(w, h);
+			// WebGL's origin is bottom-left; flip rows so the image isn't upside down.
+			for (let y = 0; y < h; y++) {
+				const src = (h - 1 - y) * w * 4;
+				img.data.set(buf.subarray(src, src + w * 4), y * w * 4);
+			}
+			ctx.putImageData(img, 0, 0);
+			return { dataUrl: c.toDataURL('image/jpeg', 0.72), width: w, height: h };
+		} catch (err) {
+			log.warn('[coincommunities] build capture failed:', err?.message);
+			return null;
+		} finally {
+			rt?.dispose();
+		}
+	}
+
+	// Capture a screenshot of the build and open the share sheet: copy a deep link,
+	// download the image, or publish it to this coin's featured builds.
+	_shareBuild() {
+		if (this.phase !== 'world' || !this.coin) return;
+		const shot = this._captureBuildShot();
+		if (!shot) { this.ui.toast('Couldn’t capture the view — try again.', 'warn'); return; }
+		const link = this._coinShareLink();
+		const blocks = this.voxels?.count ?? 0;
+		this.ui.openShareSheet({
+			image: shot.dataUrl,
+			link,
+			blocks,
+			coinName: this.coin.symbol ? '$' + this.coin.symbol : (this.coin.name || 'this world'),
+			canPublish: blocks > 0,
+		});
+	}
+
+	// A shareable deep link back into this exact community.
+	_coinShareLink() {
+		const q = new URLSearchParams({ coin: this.coin.mint });
+		if (this.coin.name) q.set('name', this.coin.name);
+		if (this.coin.symbol) q.set('symbol', this.coin.symbol);
+		if (this.coin.image) q.set('image', this.coin.image);
+		return `${location.origin}/play?${q.toString()}`;
+	}
+
+	// Publish the captured build to this coin's featured surface via the R17
+	// persistence-backed endpoint. Returns a result the share sheet renders inline.
+	async _publishBuild({ image, title }) {
+		if (!this.coin?.mint) return { ok: false, error: 'No world to publish to.' };
+		const author = this.ui.getName() || (this.account ? this.account.slice(0, 4) + '…' + this.account.slice(-4) : 'anon');
+		try {
+			const res = await fetch('/api/play/builds', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					mint: this.coin.mint,
+					title: (title || '').trim().slice(0, 60),
+					author: author.slice(0, 32),
+					blocks: this.voxels?.count ?? 0,
+					thumb: image,
+				}),
+			});
+			if (!res.ok) {
+				const reason = res.status === 429 ? 'Sharing too fast — give it a minute.'
+					: res.status === 413 ? 'That screenshot was too large to share.'
+					: `Couldn’t publish (error ${res.status}).`;
+				return { ok: false, error: reason };
+			}
+			// A fresh publish belongs at the top of the featured list — refresh if open.
+			if (this._featuredOpen) this._loadFeatured();
+			return { ok: true };
+		} catch (err) {
+			log.warn('[coincommunities] publish build failed:', err?.message);
+			return { ok: false, error: 'Network error — check your connection and retry.' };
+		}
+	}
+
+	// Open this coin's featured builds surface and load it.
+	_openFeatured() {
+		if (!this.coin?.mint) return;
+		this._featuredOpen = true;
+		this.ui.openFeatured(this.coin.symbol ? '$' + this.coin.symbol : (this.coin.name || 'this world'));
+		this._loadFeatured();
+	}
+
+	async _loadFeatured() {
+		const mint = this.coin?.mint;
+		if (!mint) return;
+		this.ui.setFeaturedLoading();
+		try {
+			const res = await fetch(`/api/play/builds?mint=${encodeURIComponent(mint)}`, { headers: { accept: 'application/json' } });
+			if (!res.ok) throw new Error('HTTP ' + res.status);
+			const data = await res.json();
+			this.ui.setFeaturedBuilds(Array.isArray(data?.builds) ? data.builds : []);
+		} catch (err) {
+			log.warn('[coincommunities] featured load failed:', err?.message);
+			this.ui.setFeaturedError(() => this._loadFeatured());
+		}
 	}
 
 	_initJoystick() {
@@ -1665,6 +1939,7 @@ export class CoinCommunities {
 		if (this.phase === 'world') {
 			this._stepLocal(dt);
 			this.localAnim?.update(dt);
+			this.localCosmetics?.tick(dt);
 			for (const [, r] of this.remotes) r.tick(dt);
 			this._updateLabels();
 			this._updateVoice();

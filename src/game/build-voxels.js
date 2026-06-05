@@ -453,7 +453,7 @@ export class VoxelWorld {
 // place/break mode toggle, and an enable toggle. Returned controller lets the
 // scene drive selection from keys and reflect connection state. Kept here so the
 // build feature owns its own chrome end-to-end.
-export function createBuildHud({ onToggle, onPick, onModeChange }) {
+export function createBuildHud({ onToggle, onPick, onModeChange, onClearArea }) {
 	const el = (tag, props = {}, kids = []) => {
 		const n = document.createElement(tag);
 		for (const [k, v] of Object.entries(props)) {
@@ -516,7 +516,35 @@ export function createBuildHud({ onToggle, onPick, onModeChange }) {
 	// saved for keeps (Redis) or only for the life of the server process.
 	const durBadge = el('div', { class: 'cc-build-durability', role: 'status', hidden: true });
 
-	const panel = el('div', { class: 'cc-build-panel', hidden: true }, [modeBtn, hotbar, budget, durBadge, hint]);
+	// Per-player allowance (R19): how many blocks YOU own here vs your personal cap,
+	// separate from the world budget above. Hidden until the server reports a cap, so
+	// a solo (offline) build — which has no per-player limit — never shows it.
+	const mineFill = el('span', { class: 'cc-build-mine-fill' });
+	const mineText = el('span', { class: 'cc-build-mine-text', text: '' });
+	const mine = el('div', {
+		class: 'cc-build-mine', role: 'status', 'aria-label': 'Your blocks', hidden: true,
+		title: 'Blocks you have placed in this world (your personal cap)',
+	}, [el('span', { class: 'cc-build-mine-bar' }, [mineFill]), mineText]);
+
+	// Creator moderation (R19): the coin's creator can wipe griefed builds. Hidden for
+	// everyone else; the server is the real authority, so revealing it is purely a UI
+	// affordance — a non-creator's request is refused server-side regardless.
+	const clearAreaBtn = el('button', {
+		class: 'cc-build-mod-btn', type: 'button',
+		title: 'Clear the blocks around where you stand',
+		onclick: () => onClearArea?.('area'),
+	}, ['Clear nearby']);
+	const clearAllBtn = el('button', {
+		class: 'cc-build-mod-btn cc-danger', type: 'button',
+		title: 'Clear every block in this world',
+		onclick: () => onClearArea?.('all'),
+	}, ['Clear all']);
+	const modRow = el('div', { class: 'cc-build-mod', hidden: true }, [
+		el('span', { class: 'cc-build-mod-tag', text: '★ Creator' }),
+		clearAreaBtn, clearAllBtn,
+	]);
+
+	const panel = el('div', { class: 'cc-build-panel', hidden: true }, [modeBtn, hotbar, budget, mine, durBadge, modRow, hint]);
 	const root = el('div', { id: 'cc-build', class: 'cc-build' }, [toggleBtn, panel]);
 	document.body.appendChild(root);
 
@@ -576,6 +604,21 @@ export function createBuildHud({ onToggle, onPick, onModeChange }) {
 				? 'This world is saved to durable storage — your build is here when you return.'
 				: 'Durable storage is unavailable — this build lives only until the server restarts.';
 		},
+		// Per-player allowance meter. used/cap come from the server's build-perms
+		// snapshot; passing a falsy cap (solo build) hides the meter entirely.
+		setUsage(used, cap) {
+			if (!cap || cap <= 0) { mine.hidden = true; return; }
+			const u = Math.max(0, Math.min(used | 0, cap));
+			const pct = u / cap;
+			mineFill.style.transform = `scaleX(${pct})`;
+			mineText.textContent = `You: ${u.toLocaleString()} / ${cap.toLocaleString()}`;
+			mine.hidden = false;
+			mine.classList.toggle('cc-warn', pct >= 0.8 && u < cap);
+			mine.classList.toggle('cc-full', u >= cap);
+		},
+		// Reveal the creator-only moderation controls. Server-enforced — this only
+		// surfaces the affordance to the coin's creator.
+		setCreator(isCreator) { modRow.hidden = !isCreator; },
 		dispose() { root.remove(); },
 	};
 }

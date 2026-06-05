@@ -160,6 +160,29 @@ export function requestHolderPass(mint) {
 	return json(`/holder-pass?token=${encodeURIComponent(mint)}`, { method: 'POST' });
 }
 
+/**
+ * Read a coin's world gate (R24). Public: returns the token threshold to enter
+ * the Holders world (0 = uses the platform USD floor) and whether the signed-in
+ * user is the creator and may edit it.
+ * @returns {Promise<{ mint: string, gated: boolean, minTokens: number, canEdit: boolean }>}
+ */
+export function getWorldGate(mint) {
+	return json(`/world-gate?token=${encodeURIComponent(mint)}`);
+}
+
+/**
+ * Set (or clear, with minTokens ≤ 0) a coin's holder-world token threshold.
+ * Creator-only — the server re-verifies ownership against the linked wallet.
+ * Rejects with err.code on `auth_required` / `wallet_required` / `not_creator`.
+ */
+export function setWorldGate(mint, minTokens) {
+	return json(`/world-gate?token=${encodeURIComponent(mint)}`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ minTokens: Number(minTokens) || 0 }),
+	});
+}
+
 /** Post content to a coin world as the signed-in user from their linked wallet. */
 export function postAsUser(token, content, walletAddress) {
 	return json(`/messages?token=${encodeURIComponent(token)}`, {

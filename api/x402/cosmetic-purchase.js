@@ -25,6 +25,7 @@ import { error } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { getCosmetic, priceUsdcAtomicsOf } from '../_lib/cosmetics.js';
 import { grantCosmeticOwnership, normalizeAccountId } from '../_lib/cosmetics-ownership.js';
+import { recordSaleAndSplit, isMint } from '../_lib/cosmetics-economy.js';
 
 const ROUTE = '/api/x402/cosmetic-purchase';
 
@@ -91,6 +92,18 @@ const OUTPUT_SCHEMA = {
 		network: { type: ['string', 'null'] },
 		amountAtomics: { type: ['string', 'null'] },
 		asset: { type: ['string', 'null'] },
+		// Coin the sale was tied to (R25), and the creator split that paid out.
+		coin: { type: ['string', 'null'] },
+		split: {
+			type: ['object', 'null'],
+			properties: {
+				creatorWallet: { type: ['string', 'null'] },
+				creatorBps: { type: 'number' },
+				creatorCutAtomics: { type: 'string' },
+				payoutStatus: { type: 'string' },
+				payoutTx: { type: ['string', 'null'] },
+			},
+		},
 	},
 };
 
@@ -121,6 +134,12 @@ export default async function handler(req, res) {
 		return error(res, 400, 'account_required',
 			'query parameter "account" is required (a Solana wallet or guest id)');
 	}
+
+	// Coin-tied sale (R25): when bought inside a coin's /play world, the optional
+	// `coin` mint ties the sale to that coin so a configurable share of the settled
+	// USDC pays out to the coin's creator. Untied (no/invalid coin) → full platform
+	// revenue, exactly as before.
+	const coin = isMint(String(req.query?.coin || '').trim()) ? String(req.query.coin).trim() : null;
 
 	const item = getCosmetic(id);
 	if (!item) {
@@ -163,6 +182,36 @@ export default async function handler(req, res) {
 			// a charge we can't record. Idempotent: a re-paid/replayed call just
 			// re-confirms the existing unlock.
 			const newlyOwned = await grantCosmeticOwnership(account, item.id);
+
+			// Coin-tied creator split (R25). Only on a fresh, genuinely-settled
+			// purchase: `requirement` is null on the SIWX free-re-access path, and
+			// newlyOwned is false on a re-grant — either way we never re-record or
+			// re-pay. The split records the sale and pays the creator's USDC cut
+			// on-chain; it's best-effort and never throws, so a recording/payout
+			// hiccup can't undo the unlock the buyer already paid for.
+			let split = null;
+			if (requirement && newlyOwned) {
+				const result = await recordSaleAndSplit({
+					account,
+					cosmeticId: item.id,
+					item,
+					payerWallet: payer ?? null,
+					payerNetwork: requirement?.network ?? null,
+					asset: requirement?.asset ?? null,
+					priceAtomics: requirement?.amount ?? priceAtomics,
+					mint: coin,
+				});
+				if (result?.creatorWallet) {
+					split = {
+						creatorWallet: result.creatorWallet,
+						creatorBps: result.creatorBps,
+						creatorCutAtomics: result.creatorCutAtomics,
+						payoutStatus: result.payoutStatus,
+						payoutTx: result.payoutTx ?? null,
+					};
+				}
+			}
+
 			return {
 				ok: true,
 				id: item.id,
@@ -176,6 +225,8 @@ export default async function handler(req, res) {
 				network: requirement?.network ?? null,
 				amountAtomics: requirement?.amount ?? null,
 				asset: requirement?.asset ?? null,
+				coin: coin ?? null,
+				split,
 			};
 		},
 	});

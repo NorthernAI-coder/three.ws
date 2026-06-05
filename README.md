@@ -375,7 +375,7 @@ three.ws is indexed in chain-ecosystem dApp directories so the community can dis
 
 ## IBM watsonx & Granite
 
-three.ws is an **IBM Business Partner**, and the agent runtime runs on **IBM Granite** foundation models served through **IBM watsonx.ai**. One IBM Cloud API key + project unlocks the whole suite; every call is real inference (no mock path — endpoints return `503` when unconfigured). Full docs: **[docs/ibm.md](docs/ibm.md)**. Live showcase: **[three.ws/ibm](https://three.ws/ibm)**.
+three.ws is an **IBM Business Partner**, and the agent runtime runs on **IBM Granite** foundation models served through **IBM watsonx.ai**. One IBM Cloud API key + project unlocks the whole suite; every call is real inference (no mock path — endpoints return `503` when unconfigured). Full docs: **[docs/ibm.md](docs/ibm.md)**. Live showcase: **[three.ws/ibm/galaxy](https://three.ws/ibm/galaxy)**.
 
 > **The public showcase is not the partnership.** The demos under `/ibm/*` are independent tools three.ws built for developers to explore Granite on watsonx.ai and build their own integrations — they are not official IBM partnership deliverables, not IBM products, and not endorsed by IBM. Our formal partnership work with IBM is being built on the IBM platform and is not yet public.
 
@@ -387,7 +387,7 @@ three.ws is an **IBM Business Partner**, and the agent runtime runs on **IBM Gra
 | `granite-embedding-278m-multilingual` | **Semantic** agent map + `/api/watsonx/embed` |
 | `granite-vision-3-2-2b` | **Vision** — reads an avatar into a full agent identity |
 
-Six showcase surfaces put it on screen, linked from the [hub](https://three.ws/ibm): the [Agent Galaxy](https://three.ws/ibm/galaxy) (semantic 3D star-map), the [Granite Oracle](https://three.ws/ibm/oracle) (narrated forecast), the [Digital Twin](https://three.ws/ibm/twin) (back-test + what-if), the [Trust Layer](https://three.ws/ibm/trust-layer) (Guardian + hash-chained audit ledger), [Granite Proof](https://three.ws/ibm/proof) (a Guardian-governed forecast notarized on Solana), and [Granite Vision](https://three.ws/ibm/vision). The standalone connector [`@three-ws/ibm-watsonx-mcp`](packages/ibm-watsonx-mcp/) exposes watsonx.ai to any MCP host — it is community-built and not an IBM product; the hosted platform integration is what runs on IBM watsonx.ai.
+Six showcase surfaces put it on screen, cross-linked by an in-page suite switcher: the [Agent Galaxy](https://three.ws/ibm/galaxy) (semantic 3D star-map), the [Granite Oracle](https://three.ws/ibm/oracle) (narrated forecast), the [Digital Twin](https://three.ws/ibm/twin) (back-test + what-if), the [Trust Layer](https://three.ws/ibm/trust-layer) (Guardian + hash-chained audit ledger), [Granite Proof](https://three.ws/ibm/proof) (a Guardian-governed forecast notarized on Solana), and [Granite Vision](https://three.ws/ibm/vision). The standalone connector [`@three-ws/ibm-watsonx-mcp`](packages/ibm-watsonx-mcp/) exposes watsonx.ai to any MCP host — it is community-built and not an IBM product; the hosted platform integration is what runs on IBM watsonx.ai.
 
 ---
 

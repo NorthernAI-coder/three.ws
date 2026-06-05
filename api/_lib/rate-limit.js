@@ -214,6 +214,10 @@ export const limits = {
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	// Generic public read endpoints (explore, showcase, public agent fetch). 60/min per IP.
 	publicIp: (ip) => getLimiter('public:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// Publishing a /play build to a coin's featured surface (R20). Each write stores
+	// a screenshot in Redis, so cap the burst per IP to keep that bounded; reads use
+	// the generic publicIp bucket.
+	buildPublishIp: (ip) => getLimiter('build:publish:ip', { limit: 10, window: '10 m' }).limit(ip),
 	// Browser Solana JSON-RPC proxy (api/solana-rpc). Forwards to the keyed
 	// upstream (Helius), so cap per-IP burst to keep the studio launch panel
 	// responsive while preventing anonymous quota drain, plus a global hourly

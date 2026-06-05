@@ -54,9 +54,25 @@ describe('BlockStore (durable / Upstash)', () => {
 		const b = await freshStore();
 		await b.ready();
 		const mapB = await b.load('Mint1111111111111111111111111111111111111111');
-		expect(mapB.get('0,0,0')).toBe(3);
-		expect(mapB.get('1,2,3')).toBe(9);
+		// Reloaded cells are { t, o } records (the type round-trips; owner is '' here
+		// since the build was written by a direct map mutation, not blockStore.set).
+		expect(mapB.get('0,0,0').t).toBe(3);
+		expect(mapB.get('1,2,3').t).toBe(9);
 		expect(mapB.size).toBe(2);
+	});
+
+	it('round-trips block ownership across a simulated restart (R19)', async () => {
+		const coin = 'MintOwner11111111111111111111111111111111111';
+		const a = await freshStore();
+		await a.ready();
+		await a.load(coin);
+		a.set(coin, '0,0,0', 4, 'wallet-bob');
+		await a.flush(coin);
+
+		const b = await freshStore();
+		await b.ready();
+		const map = await b.load(coin);
+		expect(map.get('0,0,0')).toEqual({ t: 4, o: 'wallet-bob' });
 	});
 
 	it('clearing a world to empty deletes its durable key', async () => {

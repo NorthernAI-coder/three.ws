@@ -62,18 +62,28 @@ function hmac(body) {
 
 /**
  * Seal a verified holding into a signed pass.
- * @param {{ mint: string, wallet: string, usd: number }} claims
+ *
+ * A coin gates on either the platform USD floor (default) or a creator-set token
+ * amount (R24). Both the requirement and the verified holding are signed so the
+ * game server and HUD state the real bar without trusting a client value.
+ * @param {{ mint: string, wallet: string, usd: number, amount?: number, minTokens?: number }} claims
  * @returns {string} the compact pass token
  */
-export function signHolderPass({ mint, wallet, usd }) {
+export function signHolderPass({ mint, wallet, usd, amount = 0, minTokens = 0 }) {
 	const now = Math.floor(Date.now() / 1000);
 	const payload = {
 		mint,
 		wallet,
 		usd: Math.round((Number(usd) || 0) * 100) / 100,
-		// The floor this pass was gated on, signed so the game server can display
+		// The verified on-chain token holding, so a token-gated world can show
+		// "you hold N / X" instead of a dollar value.
+		amount: Math.max(0, Number(amount) || 0),
+		// The USD floor this pass was gated on, signed so the game server can display
 		// the real requirement without trusting a client-supplied value.
 		minUsd: HOLDER_MIN_USD,
+		// The creator-set token threshold this coin gates on, or 0 when it uses the
+		// USD floor above. Signed for the same reason.
+		minTokens: Math.max(0, Number(minTokens) || 0),
 		tier: 'holders',
 		iat: now,
 		exp: now + PASS_TTL_S,

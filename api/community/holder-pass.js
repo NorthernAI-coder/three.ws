@@ -22,6 +22,7 @@ import { clientIp, limits } from '../_lib/rate-limit.js';
 import { cc, userAuthHeaders, isValidToken, UnconfiguredError } from '../_lib/coin-communities.js';
 import { getBalances, solanaMintUsdPrice } from '../_lib/balances.js';
 import { HOLDER_MIN_USD, signHolderPass } from '../_lib/holder-pass.js';
+import { readWorldGate } from '../_lib/world-gate.js';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -121,9 +122,16 @@ export default wrap(async (req, res) => {
 	const wallet = primaryWallet;
 	const minUsd = HOLDER_MIN_USD;
 
-	if (usd >= minUsd) {
-		const holderPass = signHolderPass({ mint: token, wallet, usd });
-		return json(res, 200, { data: { eligible: true, usd, amount, minUsd, wallet, holderPass } });
+	// A coin's creator may pin a token-amount threshold (R24); absent that, the
+	// world gates on the platform USD floor. Read it best-effort — a KV hiccup
+	// falls back to the USD floor rather than wrongly locking the world.
+	const gate = await readWorldGate(token);
+	const minTokens = gate?.minTokens || 0;
+	const eligible = minTokens > 0 ? amount >= minTokens : usd >= minUsd;
+
+	if (eligible) {
+		const holderPass = signHolderPass({ mint: token, wallet, usd, amount, minTokens });
+		return json(res, 200, { data: { eligible: true, usd, amount, minUsd, minTokens, wallet, holderPass } });
 	}
-	return json(res, 200, { data: { eligible: false, usd, amount, minUsd, wallet } });
+	return json(res, 200, { data: { eligible: false, usd, amount, minUsd, minTokens, wallet } });
 });

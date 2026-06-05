@@ -26,8 +26,12 @@ import {
 	addItem, hasRoomFor, resolveSlot, grantXp, consumeSlot,
 	countItem, removeItem,
 	dropCarried, reviveProfile, bankTransfer,
+	equipCosmetic, ownedCosmeticSet,
 	HOTBAR_SIZE,
 } from '../economy.js';
+import {
+	serializeLoadout, getCosmetic, canWear,
+} from '../cosmetics-catalog.js';
 import {
 	itemLabel, fishCatchChance, fishDoubleChance,
 	gatherChance, gatherDoubleChance, coalBonusChance, cookBurnChance,
@@ -293,7 +297,14 @@ export class WalkRoom extends Room {
 		// Carry the verified holding + signed floor through to onJoin/onCreate so
 		// in-world affordances and the displayed requirement come from the pass,
 		// never from unsigned client options.
-		client.userData = { ...(client.userData || {}), holderUsd: pass.usd, holderWallet: pass.wallet, holderMinUsd: pass.minUsd };
+		client.userData = {
+			...(client.userData || {}),
+			holderUsd: pass.usd,
+			holderWallet: pass.wallet,
+			holderMinUsd: pass.minUsd,
+			holderMinTokens: pass.minTokens,
+			holderAmount: pass.amount,
+		};
 		return true;
 	}
 
@@ -344,11 +355,16 @@ export class WalkRoom extends Room {
 			// HOLDER_MIN_USD), not the client's unsigned `holderMinUsd` option which a
 			// malicious first-joiner could otherwise use to misstate the requirement
 			// for everyone in the room. Fall back to the server's own env, then 8.
-			const signed = verifyHolderPass(options?.holderPass)?.minUsd;
+			const signedPass = verifyHolderPass(options?.holderPass);
+			const signed = signedPass?.minUsd;
 			const envMin = Number(process.env.HOLDER_MIN_USD);
 			this.state.holderMinUsd = Number.isFinite(signed) && signed > 0
 				? signed
 				: (Number.isFinite(envMin) && envMin > 0 ? envMin : 8);
+			// R24: when the creator pinned a token threshold, record it from the signed
+			// pass (never the unsigned option) so the HUD states "hold N $SYM to enter".
+			const signedTokens = signedPass?.minTokens;
+			this.state.holderMinTokens = Number.isFinite(signedTokens) && signedTokens > 0 ? signedTokens : 0;
 		}
 		// Persisted-build key. General and Holders are separate worlds for the same
 		// coin, so their voxel builds must persist independently — otherwise the two
@@ -373,6 +389,10 @@ export class WalkRoom extends Room {
 		registerActivityHandlers(this); // W06 gather/craft: chop, mine, cook
 		this.onMessage('equip', (client, payload) => this._handleEquip(client, payload));
 		this.onMessage('consume', (client, payload) => this._handleConsume(client, payload));
+		// Equip/unequip a cosmetic from the owned-inventory (R23). Server-authoritative:
+		// validates ownership, persists the loadout to the account, re-publishes it on
+		// the schema so peers re-render, and echoes the owner a fresh profile.
+		this.onMessage('equip-cosmetic', (client, payload) => this._handleEquipCosmetic(client, payload));
 		this.onMessage('profileReq', (client) => this._sendProfile(client));
 		// Quests, jobs & heists (W05, off-schema). The board, accepting/abandoning a
 		// mission, and acting at a quest object all flow through here; the server is the
@@ -558,6 +578,9 @@ export class WalkRoom extends Room {
 
 	onLeave(client) {
 		if (client.userData?.accountUid) socialHub.unregister(client.userData.accountUid, client);
+		// Resolve this owner's object key up front — _ownerKey reads the econ profile,
+		// which the block below deletes, so capture it before reaping their objects.
+		const ownerKey = this._ownerKey(client.sessionId);
 		// Free any vehicle this player was driving so it parks where it was left and
 		// becomes available again — otherwise a disconnect would lock a car forever.
 		this._releaseVehicleOf(client.sessionId);
@@ -574,9 +597,8 @@ export class WalkRoom extends Room {
 		}
 		// Reap this owner's transient objects (R01): balls and fx they spawned die
 		// with their session. Their durable build props stay as part of the world
-		// (R17) — that's the whole point of persistence. Computed before the player
-		// is removed from state so _ownerKey can still read their account.
-		this._reapOwnerTransients(this._ownerKey(client));
+		// (R17) — that's the whole point of persistence.
+		this._reapOwnerTransients(ownerKey);
 		this.state.players.delete(client.sessionId);
 		this._moveCounters.delete(client.sessionId);
 		this._chatCooldowns.delete(client.sessionId);
@@ -871,6 +893,48 @@ export class WalkRoom extends Room {
 			this._grantXp(client, profile, 'fishing', 2);
 			client.send('notice', { kind: 'fish', caught: 0, text: 'The fish got away.' });
 		}
+		this._persistEcon(client.sessionId);
+	}
+
+	// Dress the player from a pre-join loadout wire (the character-creator / a
+	// world hand-off in `cosmetics` join option), merged on top of their persisted
+	// loadout and validated per id against what they own — free cosmetics always
+	// pass, premium only when unlocked — so a join option can never put an unowned
+	// cosmetic on a player. Mutates profile.cosmetics.equipped in place.
+	_applyJoinCosmetics(profile, wire) {
+		if (!profile.cosmetics) profile.cosmetics = { owned: [], equipped: {} };
+		if (typeof wire !== 'string' || !wire) return;
+		const owned = ownedCosmeticSet(profile);
+		for (const raw of wire.split(',')) {
+			const id = raw.trim();
+			const c = getCosmetic(id);
+			if (c && canWear(id, owned)) profile.cosmetics.equipped[c.slot] = id;
+		}
+	}
+
+	// Equip/unequip one cosmetic into its slot (R23). The economy validates the id
+	// is owned (or free) before it moves — an unowned id is rejected, never worn —
+	// then we re-publish the loadout on the schema (peers re-render the fit), echo
+	// the owner a fresh profile (inventory reflects the new equipped state), and
+	// persist to the account so it survives logout and applies in every world.
+	// Unequip is just equipping the slot's `none` default (always free).
+	_handleEquipCosmetic(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'equip')) return;
+		const id = typeof payload?.id === 'string' ? payload.id.slice(0, 64) : '';
+		if (!getCosmetic(id)) {
+			client.send('notice', { kind: 'cosmetic', text: 'That cosmetic doesn’t exist.' });
+			return;
+		}
+		const equipped = equipCosmetic(profile, id);
+		if (!equipped) {
+			client.send('notice', { kind: 'cosmetic', text: 'You don’t own that cosmetic yet.' });
+			return;
+		}
+		const player = this.state.players.get(client.sessionId);
+		if (player) player.cosmetics = serializeLoadout(profile.cosmetics.equipped);
+		this._sendProfile(client);
 		this._persistEcon(client.sessionId);
 	}
 
@@ -1257,6 +1321,187 @@ export class WalkRoom extends Room {
 		this._untrackPlacement(key, owner, payload.x, payload.z);
 		blockStore.delete(this.worldKey, key);
 		this._sendBuildPerms(client);
+	}
+
+	// ── Generic world objects (R01 protocol) ────────────────────────────────────
+	//
+	// The shared `objects` MapSchema carries every non-player, non-voxel world
+	// entity: thrown balls, placed build props, pickups, fx. Three client messages
+	// drive it; the server is authoritative on ids, ownership, bounds and lifetime.
+	//
+	//   obj:spawn  { id?, type?, kind?, x, y, z, yaw?, scale?, vx?, vy?, vz? }
+	//       Any joined player. x/y/z required + finite. The server assigns ownerId
+	//       (the sender's account, else sessionId), accepts a sane unused `id` or
+	//       mints one, clamps position to the world bound and scale to [0.1, 10],
+	//       and stamps ts. Rejected (obj:reject {reason}) when the room is at
+	//       MAX_WORLD_OBJECTS or the player at MAX_OBJECTS_PER_PLAYER. Clients can
+	//       never spawn a 'server'-owned object.
+	//   obj:update { id, x?, y?, z?, yaw?, scale?, vx?, vy?, vz? }
+	//       Owner only. Server-owned objects (ownerId === 'server', e.g. the R05
+	//       physics ball) are moved by the server's own simulation, never a client.
+	//       Position re-clamped to bounds, scale to range.
+	//   obj:remove { id }
+	//       Owner, or the coin creator (world moderation). No one else can.
+	//
+	// Limits: each handler is rate-limited per client (OBJ_OPS_PER_SEC_LIMIT),
+	// positions are bounds-clamped, NaN/Infinity payloads are dropped, and totals
+	// are capped per room and per player. Lifetime: on owner disconnect their
+	// transient objects are reaped (_reapOwnerTransients); durable build props stay
+	// and are persisted per coin world (R17). A `kind` in TRANSIENT_OBJECT_KINDS
+	// (or a 'server'-owned object) is transient and never written to storage.
+
+	_handleObjSpawn(client, payload) {
+		if (!this.state.players.has(client.sessionId)) return;
+		if (!this._objOk(client.sessionId)) return;
+		if (!payload || typeof payload !== 'object') return;
+		// Position is mandatory and must be finite — a NaN slips past clamps.
+		if (!Number.isFinite(payload.x) || !Number.isFinite(payload.y) || !Number.isFinite(payload.z)) return;
+		if (this.state.objects.size >= MAX_WORLD_OBJECTS) { client.send('obj:reject', { reason: 'world_full' }); return; }
+
+		const owner = this._ownerKey(client.sessionId);
+		let owned = 0;
+		for (const [, o] of this.state.objects) if (o.ownerId === owner) owned++;
+		if (owned >= MAX_OBJECTS_PER_PLAYER) { client.send('obj:reject', { reason: 'player_full' }); return; }
+
+		const obj = new WorldObject();
+		// Accept a client-supplied id only if it's a sane, unused token; otherwise the
+		// server mints a collision-free one. Either way ids stay server-controlled.
+		let id = (typeof payload.id === 'string' && OBJ_ID_RE.test(payload.id)) ? payload.id : '';
+		if (!id || this.state.objects.has(id)) id = `o_${client.sessionId.slice(0, 6)}_${++this._objSeq}`;
+		obj.id = id;
+		obj.type = typeof payload.type === 'string' ? payload.type.slice(0, OBJ_STR_MAX) : '';
+		// Ownership is assigned here; a client can never claim the 'server' sentinel.
+		obj.ownerId = owner;
+		obj.kind = typeof payload.kind === 'string' ? payload.kind.slice(0, OBJ_STR_MAX) : '';
+		obj.scale = objClamp(objNum(payload.scale, 1), OBJ_SCALE_MIN, OBJ_SCALE_MAX);
+		obj.yaw = objNum(payload.yaw, 0);
+		this._clampObjPos(obj, payload);
+		obj.vx = objNum(payload.vx, 0);
+		obj.vy = objNum(payload.vy, 0);
+		obj.vz = objNum(payload.vz, 0);
+		obj.ts = Date.now();
+		this.state.objects.set(obj.id, obj);
+		if (this._objectIsPersistent(obj)) this._persistObjects();
+	}
+
+	_handleObjUpdate(client, payload) {
+		if (!this._objOk(client.sessionId)) return;
+		if (!payload || typeof payload.id !== 'string') return;
+		const obj = this.state.objects.get(payload.id);
+		if (!obj) return;
+		// Server-owned objects (the R05 ball) are driven by the server, never a
+		// client; and only the owner may move their own object.
+		if (obj.ownerId === SERVER_OBJECT_OWNER) return;
+		if (obj.ownerId !== this._ownerKey(client.sessionId)) return;
+		this._clampObjPos(obj, payload);
+		if (Number.isFinite(payload.yaw)) obj.yaw = payload.yaw;
+		if (Number.isFinite(payload.scale)) obj.scale = objClamp(payload.scale, OBJ_SCALE_MIN, OBJ_SCALE_MAX);
+		obj.vx = objNum(payload.vx, obj.vx);
+		obj.vy = objNum(payload.vy, obj.vy);
+		obj.vz = objNum(payload.vz, obj.vz);
+		obj.ts = Date.now();
+		if (this._objectIsPersistent(obj)) this._persistObjects();
+	}
+
+	_handleObjRemove(client, payload) {
+		if (!this._objOk(client.sessionId)) return;
+		if (!payload || typeof payload.id !== 'string') return;
+		const obj = this.state.objects.get(payload.id);
+		if (!obj) return;
+		// The owner may remove their own object; the coin creator may remove any as
+		// world moderation. No one else can.
+		if (obj.ownerId !== this._ownerKey(client.sessionId) && !this._isCreator(client)) return;
+		const wasPersistent = this._objectIsPersistent(obj);
+		this.state.objects.delete(payload.id);
+		// Persist the removal too, so a deleted prop doesn't resurrect on re-entry.
+		if (wasPersistent) this._persistObjects();
+	}
+
+	// Per-client token bucket for obj:* ops, mirroring the edit limiter.
+	_objOk(sessionId) {
+		const now = Date.now();
+		let bucket = this._objCounters.get(sessionId);
+		if (!bucket || now - bucket.windowStart > 1000) {
+			bucket = { windowStart: now, count: 0 };
+			this._objCounters.set(sessionId, bucket);
+		}
+		bucket.count++;
+		return bucket.count <= OBJ_OPS_PER_SEC_LIMIT;
+	}
+
+	_clampObjPos(obj, payload) {
+		obj.x = objClamp(objNum(payload.x, obj.x), -WORLD_BOUND_M, WORLD_BOUND_M);
+		obj.y = objClamp(objNum(payload.y, obj.y), OBJ_Y_MIN, OBJ_Y_MAX);
+		obj.z = objClamp(objNum(payload.z, obj.z), -WORLD_BOUND_M, WORLD_BOUND_M);
+	}
+
+	// A durable build piece (worth persisting, R17) is any object that isn't a
+	// server-owned entity and isn't a transient kind (ball, fx, projectile…).
+	_objectIsPersistent(obj) {
+		return obj.ownerId !== SERVER_OBJECT_OWNER && !TRANSIENT_OBJECT_KINDS.has(obj.kind);
+	}
+
+	// Delete a disconnecting owner's transient objects; their persistent build props
+	// remain as part of the world (R17).
+	_reapOwnerTransients(owner) {
+		const doomed = [];
+		for (const [id, o] of this.state.objects) {
+			if (o.ownerId === owner && !this._objectIsPersistent(o)) doomed.push(id);
+		}
+		for (const id of doomed) this.state.objects.delete(id);
+	}
+
+	// Snapshot the durable build props for storage — transient and server-owned
+	// objects are excluded. Coordinates are rounded to keep the doc compact.
+	_snapshotObjects() {
+		const out = [];
+		for (const [id, o] of this.state.objects) {
+			if (!this._objectIsPersistent(o)) continue;
+			out.push({
+				id,
+				type: o.type,
+				kind: o.kind,
+				ownerId: o.ownerId,
+				x: round3(o.x), y: round3(o.y), z: round3(o.z),
+				yaw: round3(o.yaw),
+				scale: round3(o.scale),
+			});
+			if (out.length >= MAX_WORLD_OBJECTS) break;
+		}
+		return out;
+	}
+
+	// Arm a debounced durable write of this world's build props (R17). The producer
+	// runs at flush time so the latest state lands; worldPersistence coalesces a
+	// burst of edits into one backend write.
+	_persistObjects() {
+		worldPersistence.save(this._objKey, () => ({ objects: this._snapshotObjects() }));
+	}
+
+	// Rebuild the `objects` map from a persisted doc on room create. Persisted
+	// objects are at rest, so velocity restores to zero and ts is re-stamped.
+	_restoreObjects(doc) {
+		const list = Array.isArray(doc?.objects) ? doc.objects : null;
+		if (!list || !list.length) return;
+		let n = 0;
+		for (const o of list) {
+			if (n >= MAX_WORLD_OBJECTS) break;
+			if (!o || typeof o.id !== 'string' || !o.id) continue;
+			const obj = new WorldObject();
+			obj.id = o.id.slice(0, OBJ_STR_MAX);
+			obj.type = typeof o.type === 'string' ? o.type.slice(0, OBJ_STR_MAX) : '';
+			obj.kind = typeof o.kind === 'string' ? o.kind.slice(0, OBJ_STR_MAX) : '';
+			obj.ownerId = typeof o.ownerId === 'string' ? o.ownerId.slice(0, OBJ_STR_MAX) : '';
+			obj.x = objNum(o.x, 0);
+			obj.y = objClamp(objNum(o.y, 0), OBJ_Y_MIN, OBJ_Y_MAX);
+			obj.z = objNum(o.z, 0);
+			obj.yaw = objNum(o.yaw, 0);
+			obj.scale = objClamp(objNum(o.scale, 1), OBJ_SCALE_MIN, OBJ_SCALE_MAX);
+			obj.ts = Date.now();
+			this.state.objects.set(obj.id, obj);
+			n++;
+		}
+		if (n) console.log(`[walk_world ${this.roomId} coin=${this.state.coin || 'mainland'}] restored ${n} objects`);
 	}
 
 	// Creator-only moderation: clear a disc of blocks around a grid point, or the

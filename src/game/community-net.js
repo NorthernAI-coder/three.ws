@@ -127,6 +127,8 @@ export class CommunityNet {
 			blockChange: new Set(), // (key, type) — a voxel was repainted
 			blockRemove: new Set(), // (key) — a voxel was broken
 			editReject: new Set(),  // ({reason}) — the server refused one of our edits
+			buildPerms: new Set(),  // ({creator, cap, used, clearMaxRadius}) — build-permission snapshot (R19)
+			buildCleared: new Set(), // ({count, all}) — creator clear-area result (R19)
 			persistent: new Set(),  // (bool) — whether this world's build is durably saved
 			worldtime: new Set(),   // (frac) — authoritative day fraction [0,1) for day/night
 			// Off-schema economy (private to this player; delivered as targeted messages).
@@ -252,6 +254,11 @@ export class CommunityNet {
 			// The server replies here when it refuses one of our place/break edits
 			// (budget full, rate limited, …) so the HUD can explain the no-op.
 			this.room.onMessage('edit-reject', (msg) => this._emit('editReject', msg || {}));
+			// Build permissions (R19): the per-player cap + usage, and whether we're the
+			// coin creator (which unlocks the clear-area moderation tool). Sent on join and
+			// whenever our tally moves. build-cleared confirms a creator clear-area sweep.
+			this.room.onMessage('build-perms', (msg) => this._emit('buildPerms', msg || {}));
+			this.room.onMessage('build-cleared', (msg) => this._emit('buildCleared', msg || {}));
 			// Off-schema economy: the server streams this player's own pack/purse/skills
 			// here (peers never see it). Drives the HUD, inventory, hotbar and toasts.
 			this.room.onMessage('profile', (msg) => this._emit('profile', msg || {}));
@@ -417,6 +424,11 @@ export class CommunityNet {
 	// Each placed block streams back through the same blockAdd path as single edits.
 	sendPlaceBatch(cells) { this.room?.send('place-batch', { cells }); }
 	sendRemove(x, y, z) { this.room?.send('remove', { x, y, z }); }
+	// Creator-only moderation (R19): clear a disc of blocks around a grid cell, or the
+	// whole world. The server validates the creator identity + bounds and streams each
+	// removal back through the usual blockRemove path.
+	sendClearArea(x, z, r) { this.room?.send('build-clear', { x, z, r }); }
+	sendClearAll() { this.room?.send('build-clear', { all: true }); }
 	sendInteract(to, action) { this.room?.send('interact', { to, action }); }
 	// Spatial voice: relay a WebRTC offer/answer/ICE candidate to one peer, and
 	// flag ourselves in/out of voice so peers know whether to connect to us.

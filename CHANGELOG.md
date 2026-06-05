@@ -24,7 +24,7 @@ Public feature history for [three.ws](https://three.ws), newest first. Feature d
 
 ## 2026-06-03
 
-- **three.ws on IBM watsonx** (`/ibm`) — three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
+- **three.ws on IBM watsonx — Agent Galaxy** (`/ibm/galaxy`) — three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
 
 ## 2026-05-29
 

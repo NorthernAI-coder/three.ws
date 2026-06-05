@@ -4,15 +4,19 @@
  * Returns every shop item with its shop fields (id, name, slot, rarity, price,
  * previewImage, owned/locked) and the rig payload the live preview needs. The
  * base accessory pack is owned/free; premium emotes + skins are locked until
- * purchased (R22 x402 flow / R23 inventory). Prices are denominated in $THREE.
+ * purchased over the R22 x402 USDC rail. The item's value is quoted in $THREE
+ * (`price`/`currency`); checkout charges USDC (`priceUsdc`/`priceUsdcAtomics`).
  *
  * Query params:
  *   rarity=common|rare|epic|legendary  — optional filter to one tier.
+ *   account=<wallet|guest id>          — optional; when present, premium items
+ *                                        this account has purchased read as owned.
  */
 
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { buildCatalog, RARITIES } from '../_lib/cosmetics.js';
+import { readOwnedCosmetics, normalizeAccountId } from '../_lib/cosmetics-ownership.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
@@ -27,13 +31,18 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'bad_rarity', `rarity must be one of: ${RARITIES.join(', ')}`);
 	}
 
-	// Ownership beyond the free base pack is wired in R23 (wallet-bound
-	// inventory). Until then every premium item reads as locked.
-	const items = buildCatalog({ rarity: rarity || null });
+	// When the caller identifies an account, fold in the cosmetics it has bought
+	// over the R22 x402 rail so premium items it owns render as owned, not locked.
+	// Anonymous callers (no account) see every premium item locked.
+	const account = normalizeAccountId(url.searchParams.get('account'));
+	const ownedIds = account ? await readOwnedCosmetics(account) : [];
 
-	// Catalog is static content — cache hard at the edge, but let the client
-	// revalidate so a deploy that changes the pack propagates promptly.
-	return json(res, 200, { items, rarities: RARITIES }, {
-		'cache-control': 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400',
-	});
+	const items = buildCatalog({ rarity: rarity || null, ownedIds });
+
+	// Per-account responses must not be shared at the edge; the anonymous catalog
+	// is static and cacheable. Vary so a CDN never crosses the two.
+	const cacheControl = account
+		? 'private, no-store'
+		: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400';
+	return json(res, 200, { items, rarities: RARITIES }, { 'cache-control': cacheControl });
 });

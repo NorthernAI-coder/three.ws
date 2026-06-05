@@ -179,11 +179,13 @@
 		},
 		{
 			"src": "/ibm",
-			"dest": "/ibm/index.html"
+			"status": 308,
+			"headers": { "Location": "/ibm/galaxy" }
 		},
 		{
 			"src": "/ibm/",
-			"dest": "/ibm/index.html"
+			"status": 308,
+			"headers": { "Location": "/ibm/galaxy" }
 		},
 		{
 			"src": "/rss/announcements\\.xml",

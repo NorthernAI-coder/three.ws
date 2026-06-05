@@ -390,7 +390,7 @@ async function runGraniteAnalysis(token, neighbors) {
 
 function graniteUnavailableNotice(code) {
 	if (code === 'provider_not_configured') {
-		return '<div class="c-notice">IBM Granite isn\'t enabled on this deployment yet — set <code>WATSONX_API_KEY</code> to turn on live analysis. See the <a href="/ibm">IBM Granite demos</a>.</div>';
+		return '<div class="c-notice">IBM Granite isn\'t enabled on this deployment yet — set <code>WATSONX_API_KEY</code> to turn on live analysis. See the <a href="/ibm/galaxy">IBM Granite demos</a>.</div>';
 	}
 	if (code === 'rate_limited') {
 		return '<div class="c-notice">Rate limit reached — wait a moment and click again.</div>';
@@ -489,7 +489,7 @@ async function init() {
 		setStatus('live', `Embedded by IBM&nbsp;Granite · <code>${escapeHtml(model || EMBED_MODEL_HINT)}</code> · ${dimensions || dim}d`);
 	} catch (e) {
 		if (e.code === 'watsonx_unconfigured') {
-			setStatus('off', 'IBM watsonx not configured — showing tokens by trending rank. <a href="/ibm" style="color:var(--brand-blue-light)">Enable →</a>');
+			setStatus('off', 'IBM watsonx not configured — showing tokens by trending rank. <a href="/ibm/galaxy" style="color:var(--brand-blue-light)">Enable →</a>');
 		} else if (e.status === 404) {
 			setStatus('off', 'Granite embeddings endpoint not deployed yet — showing tokens by trending rank.');
 		} else {
