@@ -14,7 +14,13 @@ import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
 import { env } from '../../_lib/env.js';
 import { publicUrl } from '../../_lib/r2.js';
-import { buildAgentManifest, buildAgentOnchainAttributes, agentRoyaltyConfig } from '../../_lib/three-brand.js';
+import { buildAgentManifest, buildAgentOnchainAttributes, agentRoyaltyConfig, THREE_WS } from '../../_lib/three-brand.js';
+import {
+	getAgentCollection,
+	loadCollectionAuthorityKeypair,
+	collectionAuthoritySigner,
+	AGENT_COLLECTION,
+} from '../../_lib/solana-collection.js';
 import { KIND_MAP, crawlAgentAttestations } from '../../_lib/solana-attestations.js';
 import {
 	mintAttestation,
@@ -310,8 +316,9 @@ export const handlePriceHistory = wrap(async (req, res) => {
 // ── solana-register-prep ──────────────────────────────────────────────────────
 
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { mplCore, create, ruleSet } from '@metaplex-foundation/mpl-core';
+import { mplCore, create, ruleSet, updatePlugin, update, fetchAsset, fetchCollection } from '@metaplex-foundation/mpl-core';
 import { generateSigner, publicKey as umiPublicKey, signerIdentity, createNoopSigner } from '@metaplex-foundation/umi';
+import bs58 from 'bs58';
 import { limits as _limits } from '../../_lib/rate-limit.js';
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]+$/;
@@ -406,11 +413,32 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 			: []),
 	];
 
+	// If a three.ws Agent Collection is deployed for this network, mint the asset
+	// INTO it so the asset's update authority resolves to the collection (held by
+	// three.ws) — the authority-managed model that lets us edit on-chain metadata
+	// on the owner's behalf. Adding to a collection requires the collection
+	// authority to co-sign, so the server partial-signs with it; the owner still
+	// pays + signs in their wallet. When no collection is configured we fall back
+	// to the legacy standalone mint (owner = update authority) unchanged.
+	const collectionAddr = getAgentCollection(network);
+	if (collectionAddr) {
+		try {
+			loadCollectionAuthorityKeypair();
+		} catch (e) {
+			return error(res, 500, 'authority_unconfigured', e.message);
+		}
+	}
+
 	const buildTx = async (rpc) => {
 		const umi = createUmi(rpc).use(mplCore());
 		const ownerPubkey = umiPublicKey(wallet_address);
 		umi.use(signerIdentity(createNoopSigner(ownerPubkey)));
-		const builder = create(umi, { asset: assetSigner, owner: ownerPubkey, name, uri: metadataUri, plugins });
+		const createArgs = { asset: assetSigner, owner: ownerPubkey, name, uri: metadataUri, plugins };
+		if (collectionAddr) {
+			createArgs.collection = umiPublicKey(collectionAddr);
+			createArgs.authority = collectionAuthoritySigner(umi);
+		}
+		const builder = create(umi, createArgs);
 		const tx = await builder.buildAndSign(umi);
 		return umi.transactions.serialize(tx);
 	};
@@ -437,7 +465,7 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 	const prepId = await randomToken(24);
 	const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-	await sql`insert into agent_registrations_pending (user_id, cid, metadata_uri, payload, expires_at) values (${user.id}, ${assetSigner.publicKey}, ${metadataUri}, ${JSON.stringify({ name, description, avatar_id, wallet_address, asset_pubkey: assetSigner.publicKey, network, prep_id: prepId, vanity_prefix: vanity_prefix || null })}::jsonb, ${expiresAt})`;
+	await sql`insert into agent_registrations_pending (user_id, cid, metadata_uri, payload, expires_at) values (${user.id}, ${assetSigner.publicKey}, ${metadataUri}, ${JSON.stringify({ name, description, avatar_id, wallet_address, asset_pubkey: assetSigner.publicKey, network, prep_id: prepId, vanity_prefix: vanity_prefix || null, collection: collectionAddr || null })}::jsonb, ${expiresAt})`;
 
 	return json(res, 201, {
 		prep_id: prepId,
@@ -501,11 +529,164 @@ export const handleRegisterConfirm = wrap(async (req, res) => {
 	const description = body.description || payload.description || '';
 	const avatar_id = body.avatar_id || payload.avatar_id || null;
 
-	const [agent] = await sql`insert into agent_identities (user_id, name, description, avatar_id, wallet_address, meta) values (${user.id}, ${name}, ${description}, ${avatar_id}, ${wallet_address}, ${JSON.stringify({ chain_type: 'solana', network, sol_mint_address: asset_pubkey, tx_signature, ...(payload.vanity_prefix ? { vanity_prefix: payload.vanity_prefix } : {}) })}::jsonb) returning id, name, description, wallet_address, meta, created_at`;
+	const [agent] = await sql`insert into agent_identities (user_id, name, description, avatar_id, wallet_address, meta) values (${user.id}, ${name}, ${description}, ${avatar_id}, ${wallet_address}, ${JSON.stringify({ chain_type: 'solana', network, sol_mint_address: asset_pubkey, tx_signature, ...(payload.vanity_prefix ? { vanity_prefix: payload.vanity_prefix } : {}), ...(payload.collection ? { collection: payload.collection, update_authority: 'threews' } : {}) })}::jsonb) returning id, name, description, wallet_address, meta, created_at`;
 
 	await sql`delete from agent_registrations_pending where user_id=${user.id} and payload->>'asset_pubkey'=${asset_pubkey}`;
 
 	return json(res, 201, { ok: true, agent: { ...agent, home_url: `${env.APP_ORIGIN}/agent/${agent.id}` }, sol_mint_address: asset_pubkey, tx_signature, network });
+});
+
+// ── solana-collection-metadata ─────────────────────────────────────────────────
+// Off-chain JSON for the three.ws Agent Collection account (its `uri`). Standard
+// Metaplex collection metadata so wallets/explorers render it as a real
+// collection that groups every deployed three.ws agent.
+
+export const handleCollectionMetadata = wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+
+	return json(
+		res,
+		200,
+		{
+			name: AGENT_COLLECTION.name,
+			symbol: 'AGENT',
+			description: AGENT_COLLECTION.description,
+			image: THREE_WS.ogImage,
+			external_url: THREE_WS.website,
+			properties: {
+				category: 'image',
+				files: [{ uri: THREE_WS.ogImage, type: 'image/png' }],
+			},
+			platform: { name: THREE_WS.name, url: THREE_WS.website, x: THREE_WS.x, github: THREE_WS.github },
+			network,
+		},
+		{ 'cache-control': 'public, max-age=3600', 'access-control-allow-origin': '*' },
+	);
+});
+
+// ── solana-edit ───────────────────────────────────────────────────────────────
+// Authority-managed edit of a deployed agent's ON-CHAIN metadata. The user owns
+// the asset, but three.ws holds the collection update authority, so edits to the
+// Attributes plugin (and the asset name) are signed + paid server-side by the
+// three.ws authority — no owner-wallet round-trip. Only agents minted into the
+// three.ws collection (meta.update_authority='threews') are editable this way;
+// legacy standalone (owner-managed) assets are rejected with a clear message.
+
+const editSchema = z
+	.object({
+		asset_pubkey: z.string().min(32).max(44),
+		network:      z.enum(['mainnet', 'devnet']).default('mainnet'),
+		name:         z.string().trim().min(1).max(60).optional(),
+		description:  z.string().trim().max(280).optional(),
+		skills:       z.array(z.string().regex(/^[a-z0-9-]{1,40}$/i)).max(16).optional(),
+		avatar_id:    z.string().uuid().nullable().optional(),
+	})
+	.refine(
+		(b) => b.name !== undefined || b.description !== undefined || b.skills !== undefined || b.avatar_id !== undefined,
+		{ message: 'at least one editable field is required' },
+	);
+
+const base58Sig = (sig) => bs58.encode(sig);
+
+export const handleEdit = wrap(async (req, res) => {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+
+	const body = parse(editSchema, await readJson(req));
+	const { asset_pubkey, network } = body;
+	try { new PublicKey(asset_pubkey); } catch { return error(res, 400, 'validation_error', 'invalid asset pubkey'); }
+
+	// Ownership: the agent must belong to the signed-in user.
+	const [agent] = await sql`select id, name, description, skills, avatar_id, wallet_address, meta from agent_identities where (meta->>'sol_mint_address') = ${asset_pubkey} and user_id = ${user.id} and deleted_at is null limit 1`;
+	if (!agent) return error(res, 404, 'not_found', 'agent not found for your account');
+
+	const collectionAddr = agent.meta?.collection || null;
+	if (!collectionAddr || agent.meta?.update_authority !== 'threews') {
+		return error(res, 409, 'not_authority_managed', 'this agent is owner-managed (minted before the three.ws collection); on-chain edits must be signed by the owner wallet');
+	}
+
+	if (body.avatar_id) {
+		const [av] = await sql`select id from avatars where id=${body.avatar_id} and owner_id=${user.id} and deleted_at is null limit 1`;
+		if (!av) return error(res, 404, 'not_found', 'avatar not found');
+	}
+
+	// Merge requested edits over current values.
+	const next = {
+		name: body.name ?? agent.name,
+		description: body.description ?? agent.description,
+		skills: body.skills ?? agent.skills ?? [],
+		avatar_id: body.avatar_id === undefined ? agent.avatar_id : body.avatar_id,
+	};
+
+	const rpc = network === 'devnet'
+		? (process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com')
+		: (process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+
+	let umi;
+	try {
+		umi = createUmi(rpc).use(mplCore());
+		umi.use(signerIdentity(collectionAuthoritySigner(umi)));
+	} catch (e) {
+		return error(res, 500, 'authority_unconfigured', e.message);
+	}
+
+	const assetPk = umiPublicKey(asset_pubkey);
+	const collectionPk = umiPublicKey(collectionAddr);
+	const passportUrl = `${env.APP_ORIGIN}/agent-passport.html?asset=${asset_pubkey}&network=${network}`;
+
+	const signatures = {};
+	try {
+		// 1) Rewrite the on-chain Attributes plugin with the new curated fields.
+		const attributeList = buildAgentOnchainAttributes({
+			name: next.name,
+			agentUrl: passportUrl,
+			skills: next.skills,
+			createdAt: new Date().toISOString(),
+		});
+		const attrRes = await updatePlugin(umi, {
+			asset: assetPk,
+			collection: collectionPk,
+			plugin: { type: 'Attributes', attributeList },
+		}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+		signatures.attributes = base58Sig(attrRes.signature);
+
+		// 2) If the display name changed, update the asset's on-chain name too.
+		if (body.name !== undefined && body.name !== agent.name) {
+			const [onchainAsset, onchainCollection] = await Promise.all([
+				fetchAsset(umi, assetPk),
+				fetchCollection(umi, collectionPk),
+			]);
+			const nameRes = await update(umi, {
+				asset: onchainAsset,
+				collection: onchainCollection,
+				name: next.name,
+			}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+			signatures.name = base58Sig(nameRes.signature);
+		}
+	} catch (e) {
+		return error(res, 502, 'onchain_edit_failed', `on-chain edit failed: ${e?.message || e}`);
+	}
+
+	// Keep the off-chain row in sync with what we just wrote on-chain.
+	const [updated] = await sql`update agent_identities set name=${next.name}, description=${next.description}, skills=${next.skills}, avatar_id=${next.avatar_id}, updated_at=now() where id=${agent.id} returning id, name, description, skills, avatar_id, wallet_address, meta, updated_at`;
+
+	return json(res, 200, {
+		ok: true,
+		agent: { ...updated, home_url: `${env.APP_ORIGIN}/agent/${updated.id}` },
+		asset_pubkey,
+		network,
+		signatures,
+	});
 });
 
 // ── solana-reputation ─────────────────────────────────────────────────────────

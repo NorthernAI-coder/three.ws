@@ -1,26 +1,40 @@
-// GCP Cloud Run provider for avatar reconstruction.
+// GCP Cloud Run provider — implements the same contract as the Replicate provider.
 //
-// Implements the same contract as the replicate provider:
 //   submit(request)  → { extJobId, eta }
-//   status(extJobId) → { status, resultGlbUrl?, error? }
+//   status(extJobId) → { status, resultGlbUrl?, resultImageUrl?, error? }
 //
-// The Cloud Run service can be either:
-//   - workers/avatar-pipeline-controller/ (v2 — real 3D mesh generation via
-//     Hunyuan3D / TRELLIS / TripoSR + UniRig auto-rigging)
-//   - workers/avatar-reconstruction/ (v1 — face texture transfer only)
+// Supported modes and the Cloud Run service they route to:
 //
-// Both expose the same API:
-//   POST /reconstruct  → { job_id, status }
-//   GET  /jobs/:id     → { status, glb_url?, error? }
+//   reconstruct  → GCP_RECONSTRUCTION_URL   (avatar-pipeline-controller)
+//                  POST /reconstruct → { job_id }  GET /jobs/:id → { status, glb_url }
 //
-// Required env vars:
-//   GCP_RECONSTRUCTION_URL  — Cloud Run service URL
-//                             e.g. https://avatar-pipeline-controller-xxx-uc.a.run.app
-//   GCP_RECONSTRUCTION_KEY  — bearer secret matching the service's API_KEY
+//   remesh       → GCP_REMESH_URL           (workers/remesh)
+//   retex        → GCP_TEXTURE_URL          (workers/texture)
+//   rembg        → GCP_REMBG_URL            (workers/rembg)
+//   rerig        → GCP_RECONSTRUCTION_URL   (avatar-pipeline-controller, /rig endpoint)
+//
+// All workers share the same bearer secret (GCP_RECONSTRUCTION_KEY).
+// Each worker exposes the same task shape:
+//   POST /…  → { task_id, status: "queued" }
+//   GET /tasks/:id → { task_id, status, result_url|result_gcs_url?, error? }
+//
+// The extJobId is a JSON envelope base64url-encoded so it can carry both
+// the service discriminator and the upstream task_id without another DB call.
 
 function readEnv(name) {
 	if (typeof process !== 'undefined' && process.env?.[name]) return process.env[name];
 	return null;
+}
+
+function packJobId(payload) {
+	return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+}
+function unpackJobId(extJobId) {
+	try {
+		return JSON.parse(Buffer.from(extJobId, 'base64url').toString('utf8'));
+	} catch {
+		return null;
+	}
 }
 
 function translateStatus(s) {
@@ -33,55 +47,147 @@ function translateStatus(s) {
 	}
 }
 
-export function createRegenProvider() {
-	const serviceUrl = readEnv('GCP_RECONSTRUCTION_URL');
-	const apiKey     = readEnv('GCP_RECONSTRUCTION_KEY');
-
-	if (!serviceUrl) {
-		throw new Error('GCP_RECONSTRUCTION_URL env var is required for the gcp provider');
+// Resolve which Cloud Run base URL handles a given mode.
+function serviceUrlForMode(mode) {
+	switch (mode) {
+		case 'reconstruct':
+			return readEnv('GCP_RECONSTRUCTION_URL');
+		case 'remesh':
+			return readEnv('GCP_REMESH_URL');
+		case 'retex':
+			return readEnv('GCP_TEXTURE_URL');
+		case 'rembg':
+			return readEnv('GCP_REMBG_URL');
+		case 'rerig':
+			// Rigging is handled by the pipeline controller via its /rig endpoint.
+			return readEnv('GCP_RECONSTRUCTION_URL');
+		default:
+			return null;
 	}
+}
+
+// Build the request body and path suffix for each worker's API shape.
+function buildWorkerRequest(request) {
+	const { mode, sourceUrl, params } = request;
+
+	if (mode === 'reconstruct') {
+		const photos = Array.isArray(params?.images) && params.images.length
+			? params.images
+			: [sourceUrl].filter(Boolean);
+		return {
+			path: '/reconstruct',
+			resultKey: 'glb_url',
+			body: { images: photos, body_type: params?.bodyType || 'neutral' },
+		};
+	}
+
+	if (mode === 'remesh') {
+		return {
+			path: '/process',
+			resultKey: 'result_url',
+			body: {
+				mesh: sourceUrl,
+				operation: params?.operation || 'full',
+				target_faces: params?.target_faces || 50_000,
+				output_format: params?.output_format || 'glb',
+			},
+		};
+	}
+
+	if (mode === 'retex') {
+		return {
+			path: '/texture',
+			resultKey: 'result_url',
+			body: {
+				mesh: sourceUrl,
+				prompt: params?.prompt || '',
+				negative_prompt: params?.negative_prompt || 'blurry, low quality, distorted',
+				num_views: params?.num_views || 8,
+				texture_size: params?.texture_size || 1024,
+			},
+		};
+	}
+
+	if (mode === 'rembg') {
+		return {
+			path: '/remove',
+			resultKey: 'result_url',
+			body: {
+				image: sourceUrl,
+				model: params?.model || 'rmbg2',
+			},
+		};
+	}
+
+	if (mode === 'rerig') {
+		return {
+			path: '/rig',
+			resultKey: 'glb_url',
+			body: {
+				mesh_url: sourceUrl,
+				rig_type: params?.rig_type || 'biped',
+			},
+		};
+	}
+
+	return null;
+}
+
+// Expected wall-clock ETAs (seconds) per mode — used to populate the
+// progress indicator on the client side.
+const MODE_ETA = {
+	reconstruct: 120,
+	remesh: 30,
+	retex: 180,
+	rembg: 5,
+	rerig: 45,
+};
+
+export function createRegenProvider() {
+	const apiKey = readEnv('GCP_RECONSTRUCTION_KEY');
 	if (!apiKey) {
 		throw new Error('GCP_RECONSTRUCTION_KEY env var is required for the gcp provider');
 	}
 
-	const base = serviceUrl.replace(/\/$/, '');
 	const authHeaders = {
 		authorization: `Bearer ${apiKey}`,
 		'content-type': 'application/json',
 	};
 
 	return {
+		supportsMode(mode) {
+			return Boolean(serviceUrlForMode(mode));
+		},
+
 		async submit(request) {
-			if (request.mode !== 'reconstruct') {
+			const { mode } = request;
+			const baseUrl = serviceUrlForMode(mode);
+			if (!baseUrl) {
 				throw Object.assign(
-					new Error(`gcp provider only supports 'reconstruct' mode, got '${request.mode}'`),
+					new Error(`gcp provider: no service URL configured for mode "${mode}"`),
 					{ code: 'mode_unconfigured', status: 501 },
 				);
 			}
 
-			const images = Array.isArray(request.params?.images) && request.params.images.length
-				? request.params.images
-				: [request.sourceUrl].filter(Boolean);
-
-			if (!images.length) {
+			const workerReq = buildWorkerRequest(request);
+			if (!workerReq) {
 				throw Object.assign(
-					new Error('no images provided for reconstruction'),
-					{ code: 'invalid_request', status: 400 },
+					new Error(`gcp provider: unsupported mode "${mode}"`),
+					{ code: 'mode_unconfigured', status: 501 },
 				);
 			}
 
-			const bodyType = request.params?.bodyType || 'neutral';
-
+			const url = `${baseUrl.replace(/\/$/, '')}${workerReq.path}`;
 			let response;
 			try {
-				response = await fetch(`${base}/reconstruct`, {
+				response = await fetch(url, {
 					method: 'POST',
 					headers: authHeaders,
-					body: JSON.stringify({ images, body_type: bodyType }),
+					body: JSON.stringify(workerReq.body),
 				});
 			} catch (err) {
 				throw Object.assign(
-					new Error(`gcp reconstruction service unreachable: ${err?.message}`),
+					new Error(`gcp ${mode} service unreachable: ${err?.message}`),
 					{ code: 'provider_unreachable', status: 502 },
 				);
 			}
@@ -89,16 +195,23 @@ export function createRegenProvider() {
 			const data = await response.json().catch(() => ({}));
 			if (!response.ok) {
 				throw Object.assign(
-					new Error(data?.detail || `gcp service returned ${response.status}`),
+					new Error(data?.detail || data?.error || `gcp service returned ${response.status}`),
 					{ code: 'provider_error', status: 502, providerStatus: response.status },
 				);
 			}
 
+			// Workers return either task_id (new) or job_id (legacy reconstruct).
+			const taskId = data.task_id || data.job_id;
+			if (!taskId) {
+				throw Object.assign(
+					new Error('gcp service returned no task_id'),
+					{ code: 'provider_error', status: 502 },
+				);
+			}
+
 			return {
-				extJobId: data.job_id,
-				// v2 pipeline: mesh generation (30–120s) + UniRig rigging (15–30s).
-				// v1 fallback: face texture transfer (15–30s).
-				eta: 120,
+				extJobId: packJobId({ mode, taskId, baseUrl, resultKey: workerReq.resultKey }),
+				eta: MODE_ETA[mode] ?? 60,
 			};
 		},
 
@@ -107,23 +220,34 @@ export function createRegenProvider() {
 				return { status: 'failed', error: 'missing ext_job_id' };
 			}
 
+			const job = unpackJobId(extJobId);
+			if (!job?.taskId || !job?.baseUrl) {
+				return { status: 'failed', error: 'malformed ext_job_id' };
+			}
+
+			const { mode, taskId, baseUrl, resultKey } = job;
+
+			// Legacy reconstruct path uses /jobs/:id; new workers use /tasks/:id.
+			const pollPath = mode === 'reconstruct'
+				? `/jobs/${encodeURIComponent(taskId)}`
+				: `/tasks/${encodeURIComponent(taskId)}`;
+
 			let response;
 			try {
-				response = await fetch(`${base}/jobs/${encodeURIComponent(extJobId)}`, {
-					headers: authHeaders,
-				});
+				response = await fetch(
+					`${baseUrl.replace(/\/$/, '')}${pollPath}`,
+					{ headers: authHeaders },
+				);
 			} catch (err) {
-				// Treat network errors as transient — keep polling.
 				return { status: 'running', error: `poll failed: ${err?.message}` };
 			}
 
 			if (response.status === 404) {
-				return { status: 'failed', error: 'job not found on reconstruction service' };
+				return { status: 'failed', error: 'task not found on gcp service' };
 			}
 
 			const data = await response.json().catch(() => ({}));
 			if (!response.ok) {
-				// Treat unexpected errors as transient so the poller keeps retrying.
 				return { status: 'running', error: `gcp returned ${response.status}` };
 			}
 
@@ -131,16 +255,19 @@ export function createRegenProvider() {
 			const result = { status };
 
 			if (status === 'done') {
-				if (data.glb_url) {
-					result.resultGlbUrl = data.glb_url;
-				} else {
+				const url = data[resultKey] || data.result_url || data.glb_url || data.result_gcs_url;
+				if (!url) {
 					result.status = 'failed';
-					result.error  = 'reconstruction finished but no GLB URL in response';
+					result.error = `${mode} finished but no result URL in response`;
+				} else if (mode === 'rembg') {
+					result.resultImageUrl = url;
+				} else {
+					result.resultGlbUrl = url;
 				}
 			}
 
 			if (status === 'failed') {
-				result.error = data.error || 'reconstruction failed';
+				result.error = data.error || `${mode} failed`;
 			}
 
 			return result;

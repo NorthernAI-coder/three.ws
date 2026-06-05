@@ -1,14 +1,15 @@
 // three.ws 3D Studio MCP — generation tools.
 //
-// text_to_3d / image_to_3d submit a real reconstruction job to Replicate
-// (Microsoft TRELLIS by default) and return a job handle. generation_status
-// polls that job and, when finished, hands back the GLB URL plus an inline
-// <model-viewer> artifact so the model appears directly in the chat. preview_3d
-// renders any public GLB the same way.
+// text_to_3d / image_to_3d submit a reconstruction job and return a job handle.
+// generation_status polls that job. preview_3d renders any GLB inline.
+// remove_background strips image backgrounds (rembg/BRIA RMBG-2.0).
+// remesh_model converts, simplifies, and repairs meshes.
+// retexture_model paints a new texture onto a mesh from a text prompt.
 
 import { limits } from '../../_lib/rate-limit.js';
 import { assertSafePublicUrl } from '../../_lib/ssrf-guard.js';
-import { createRegenProvider } from '../../_providers/replicate.js';
+import { createRegenProvider as createReplicateProvider } from '../../_providers/replicate.js';
+import { createRegenProvider as createGcpProvider } from '../../_providers/gcp.js';
 import { textToImage } from '../text-to-image.js';
 import {
 	renderModelViewerHtml,
@@ -37,11 +38,21 @@ async function enforce(limiter, auth) {
 	}
 }
 
-// Lazily construct the Replicate-backed provider so a missing token surfaces as
-// a clean tool error rather than crashing module load for the whole server.
-function regenProvider() {
+// Resolve the best available provider for a given mode.
+// GCP takes priority when the service URL is configured for that mode;
+// falls back to Replicate for the standard reconstruct/remesh/retex/rerig modes.
+function regenProvider(mode = 'reconstruct') {
+	const gcpKey = process.env?.GCP_RECONSTRUCTION_KEY;
+	if (gcpKey) {
+		try {
+			const gcp = createGcpProvider();
+			if (gcp.supportsMode(mode)) return gcp;
+		} catch {
+			// fall through to Replicate
+		}
+	}
 	try {
-		return createRegenProvider();
+		return createReplicateProvider();
 	} catch (err) {
 		throw rpcError(-32000, '3D generation is not configured', { reason: err.message });
 	}

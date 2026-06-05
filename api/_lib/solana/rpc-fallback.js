@@ -12,6 +12,7 @@
 //     burn through fallbacks).
 
 import { Connection } from '@solana/web3.js';
+import { solanaRpcEndpoints } from './connection.js';
 
 const MAX_CONSECUTIVE_FAILS = 3;
 const COOLDOWN_MS = 60_000;
@@ -123,14 +124,15 @@ export function createRpcFallback(options) {
 	return new RpcFallback(options);
 }
 
-// Convenience: build a fallback set from env. Honors:
-//   SOLANA_RPC_URL              — primary
-//   SOLANA_RPC_FALLBACK_URLS    — comma-separated alternates (optional)
+// Convenience: build a fallback set from env. The endpoint list is the canonical
+// chain (explicit SOLANA_RPC_URL → Helius → Alchemy → Ankr → public), with any
+// extra SOLANA_RPC_FALLBACK_URLS appended. So even with no SOLANA_RPC_URL set,
+// the keyed providers and public endpoint give a real 3+ deep failover set.
 export function rpcFallbackFromEnv({ network = 'mainnet', commitment = 'confirmed' } = {}) {
-	const primary = network === 'devnet'
-		? (process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com')
-		: (process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
-	const fallbacks = (process.env.SOLANA_RPC_FALLBACK_URLS || '')
+	const extra = (process.env.SOLANA_RPC_FALLBACK_URLS || '')
 		.split(',').map((s) => s.trim()).filter(Boolean);
-	return new RpcFallback({ url: primary, fallbackUrls: fallbacks, commitment });
+	const urls = [...solanaRpcEndpoints(network), ...extra]
+		.filter((u, i, a) => u && a.indexOf(u) === i);
+	const [primary, ...fallbackUrls] = urls;
+	return new RpcFallback({ url: primary, fallbackUrls, commitment });
 }

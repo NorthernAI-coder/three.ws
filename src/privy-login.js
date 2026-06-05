@@ -1,9 +1,10 @@
 // Privy headless auth for login and register pages.
-// Handles email-OTP and EVM wallet (SIWE via Privy).
+// Handles email-OTP, EVM wallet (SIWE via Privy), and Solana wallet (SIWS via Privy).
 // On success POSTs the Privy identity_token to /api/auth/privy/verify
 // which issues our standard session cookie, then redirects.
 
-import Privy, { LocalStorage } from '@privy-io/js-sdk-core';
+import Privy, { LocalStorage, createSiwsMessage } from '@privy-io/js-sdk-core';
+import bs58 from 'bs58';
 
 const next =
 	window.__loginNext ||
@@ -26,7 +27,6 @@ async function getAppId() {
 
 const appId = await getAppId();
 
-// If Privy is not configured, hide the section and exit.
 const section = document.getElementById('privy-section');
 const divider = document.getElementById('privy-or-divider');
 
@@ -60,10 +60,20 @@ async function verifyWithBackend(identity_token) {
 	location.href = next;
 }
 
+// ── Solana wallet detection ───────────────────────────────────────────────────
+
+function getSolanaProvider() {
+	if (window.phantom?.solana?.isPhantom)  return window.phantom.solana;
+	if (window.solana?.isPhantom)           return window.solana;
+	if (window.backpack?.solana)            return window.backpack.solana;
+	if (window.solflare?.isSolflare)        return window.solflare;
+	return null;
+}
+
 // ── UI ───────────────────────────────────────────────────────────────────────
 
 function mountPrivyUI(privy) {
-	// Elements — email OTP
+	// Email OTP elements
 	const toggleBtn    = document.getElementById('privy-toggle-btn');
 	const expandedArea = document.getElementById('privy-expanded');
 	const stepEmail    = document.getElementById('privy-step-email');
@@ -75,9 +85,10 @@ function mountPrivyUI(privy) {
 	const backBtn      = document.getElementById('privy-back-btn');
 	const errEl        = document.getElementById('privy-inline-err');
 
-	// Elements — wallet
+	// Wallet elements
 	const walletWrap   = document.getElementById('privy-wallet-wrap');
-	const walletBtn    = document.getElementById('privy-wallet-btn');
+	const evmBtn       = document.getElementById('privy-evm-btn');
+	const solanaBtn    = document.getElementById('privy-solana-btn');
 	const walletStatus = document.getElementById('privy-wallet-status');
 
 	if (!toggleBtn || !expandedArea) return;
@@ -103,15 +114,24 @@ function mountPrivyUI(privy) {
 		clearErr();
 		if (emailInput) emailInput.value = '';
 		if (codeInput) codeInput.value = '';
-		if (walletStatus) { walletStatus.textContent = ''; walletStatus.hidden = true; }
+		resetWalletBtns();
 	}
 
 	function showStep(step) {
 		clearErr();
 		stepEmail.hidden = step !== 'email';
 		stepCode.hidden  = step !== 'code';
-		// Wallet option only shown on email step
 		if (walletWrap) walletWrap.hidden = step !== 'email';
+	}
+
+	function resetWalletBtns() {
+		if (evmBtn)    { evmBtn.disabled = false;    evmBtn.textContent = 'EVM'; }
+		if (solanaBtn) { solanaBtn.disabled = false;  solanaBtn.textContent = 'Solana'; }
+		if (walletStatus) { walletStatus.textContent = ''; walletStatus.hidden = true; }
+	}
+
+	function setWalletStatus(msg) {
+		if (walletStatus) { walletStatus.textContent = msg; walletStatus.hidden = false; }
 	}
 
 	// Open / close
@@ -174,14 +194,15 @@ function mountPrivyUI(privy) {
 
 	// ── EVM Wallet (SIWE via Privy) ────────────────────────────────────────────
 
-	walletBtn?.addEventListener('click', async () => {
+	evmBtn?.addEventListener('click', async () => {
 		if (!window.ethereum) {
-			showErr('No wallet detected. Install MetaMask or another browser wallet.');
+			showErr('No EVM wallet detected. Install MetaMask or another browser wallet.');
 			return;
 		}
-		walletBtn.disabled = true;
-		walletBtn.textContent = 'Connecting…';
-		if (walletStatus) { walletStatus.textContent = 'Requesting accounts…'; walletStatus.hidden = false; }
+		evmBtn.disabled = true;
+		evmBtn.textContent = 'Connecting…';
+		if (solanaBtn) solanaBtn.disabled = true;
+		setWalletStatus('Requesting accounts…');
 		clearErr();
 
 		try {
@@ -192,33 +213,74 @@ function mountPrivyUI(privy) {
 			const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
 			const chainId    = parseInt(chainIdHex, 16);
 
-			if (walletStatus) walletStatus.textContent = 'Generating sign-in message…';
+			setWalletStatus('Generating sign-in message…');
 			const { message } = await privy.auth.siwe.init(
 				{ address, chainId },
 				location.hostname,
 				location.origin,
 			);
 
-			if (walletStatus) walletStatus.textContent = 'Sign the message in your wallet…';
+			setWalletStatus('Sign the message in your wallet…');
 			const signature = await window.ethereum.request({
 				method: 'personal_sign',
 				params: [message, address],
 			});
 
-			if (walletStatus) walletStatus.textContent = 'Signing in…';
+			setWalletStatus('Signing in…');
 			const { identity_token } = await privy.auth.siwe.loginWithSiwe(signature);
 			if (!identity_token) throw new Error('No identity token returned.');
 
 			await verifyWithBackend(identity_token);
 		} catch (e) {
 			const raw = e?.message || '';
-			const msg = /reject|denied|cancel|user refused/i.test(raw)
-				? 'Signature cancelled.'
-				: raw || 'Wallet sign-in failed.';
-			showErr(msg);
-			walletBtn.disabled = false;
-			walletBtn.textContent = 'Connect Wallet';
-			if (walletStatus) { walletStatus.textContent = ''; walletStatus.hidden = true; }
+			showErr(/reject|denied|cancel|refused/i.test(raw) ? 'Signature cancelled.' : raw || 'Wallet sign-in failed.');
+			resetWalletBtns();
+		}
+	});
+
+	// ── Solana Wallet (SIWS via Privy) ─────────────────────────────────────────
+
+	solanaBtn?.addEventListener('click', async () => {
+		const provider = getSolanaProvider();
+		if (!provider) {
+			showErr('No Solana wallet detected. Install Phantom, Backpack, or Solflare.');
+			return;
+		}
+		solanaBtn.disabled = true;
+		solanaBtn.textContent = 'Connecting…';
+		if (evmBtn) evmBtn.disabled = true;
+		setWalletStatus('Connecting wallet…');
+		clearErr();
+
+		try {
+			const resp    = await provider.connect();
+			const address = resp.publicKey.toString();
+
+			setWalletStatus('Generating sign-in message…');
+			const { nonce } = await privy.auth.siws.fetchNonce({ address });
+			const message   = createSiwsMessage({
+				address,
+				nonce,
+				domain: location.hostname,
+				uri:    location.origin,
+			});
+
+			setWalletStatus('Sign the message in your wallet…');
+			const { signature: sigBytes } = await provider.signMessage(
+				new TextEncoder().encode(message),
+				'utf8',
+			);
+			const signature = bs58.encode(sigBytes);
+
+			setWalletStatus('Signing in…');
+			const { identity_token } = await privy.auth.siws.login({ message, signature });
+			if (!identity_token) throw new Error('No identity token returned.');
+
+			await verifyWithBackend(identity_token);
+		} catch (e) {
+			const raw = e?.message || '';
+			showErr(/reject|denied|cancel|refused/i.test(raw) ? 'Signature cancelled.' : raw || 'Wallet sign-in failed.');
+			resetWalletBtns();
 		}
 	});
 }

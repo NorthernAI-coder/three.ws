@@ -1,17 +1,19 @@
 // Text → image helper for the 3D Studio MCP.
 //
-// The image-to-3D backend (Microsoft TRELLIS via Replicate) reconstructs a
-// textured GLB from a single reference image. To support `text_to_3d` we first
-// turn the prompt into an image with a fast text-to-image model, then feed that
-// image into the same reconstruction pipeline. Both steps run on the one
-// REPLICATE_API_TOKEN already provisioned for the avatar regen pipeline.
+// Provider selection (first configured wins):
+//   1. GOOGLE_CLOUD_PROJECT set → Vertex AI Imagen 3 (best quality, free with GCP credits)
+//   2. REPLICATE_API_TOKEN set  → flux-schnell via Replicate (fast, $0.003/image)
 //
-//   REPLICATE_API_TOKEN     — required, from replicate.com/account
-//   REPLICATE_TXT2IMG_MODEL — optional override (owner/name[:version] or version hash)
+// The image-to-3D backend (TRELLIS / Hunyuan3D / TripoSR) reconstructs a
+// textured GLB from the generated image. Both steps share the same call site.
 //
-// Default model: black-forest-labs/flux-schnell — Apache-2.0 weights,
-// commercial-OK, ~1–3s per image on Replicate's fleet, $0.003/run. Pinned to
-// the model slug (not a version hash) so it tracks Replicate's latest build.
+//   GOOGLE_CLOUD_PROJECT    — GCP project id (enables Vertex AI Imagen path)
+//   VERTEX_IMAGEN_MODEL     — override Imagen model (default: imagen-3.0-generate-001)
+//   REPLICATE_API_TOKEN     — required when GCP not configured
+//   REPLICATE_TXT2IMG_MODEL — optional Replicate model override
+//
+// Replicate fallback: black-forest-labs/flux-schnell — Apache-2.0,
+// commercial-OK, ~1–3s per image on Replicate's fleet, $0.003/run.
 
 const REPLICATE_BASE = 'https://api.replicate.com/v1';
 const DEFAULT_TXT2IMG_MODEL = 'black-forest-labs/flux-schnell';
@@ -49,16 +51,28 @@ function parseRetryAfter(headers, message) {
 	return 10;
 }
 
-// Generate a single image from a text prompt. Uses Replicate's synchronous
-// prediction mode (`Prefer: wait`) so the caller gets a URL back in one round
-// trip — flux-schnell is fast enough that the request returns within the MCP
-// tool-call window without needing a separate poll.
+// Generate a single image from a text prompt.
+//
+// Prefers Vertex AI Imagen when GOOGLE_CLOUD_PROJECT is configured (free with
+// GCP credits, higher quality). Falls back to Replicate flux-schnell otherwise.
 export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
+	// ── Vertex AI Imagen path ────────────────────────────────────────────────
+	if (readEnv('GOOGLE_CLOUD_PROJECT')) {
+		const { generateImage, isConfigured } = await import('./vertex-imagen.js');
+		if (isConfigured()) {
+			return generateImage(prompt, { aspectRatio });
+		}
+	}
+
+	// ── Replicate fallback ───────────────────────────────────────────────────
 	const token = readEnv('REPLICATE_API_TOKEN');
 	if (!token) {
-		throw Object.assign(new Error('text-to-3D is not configured (REPLICATE_API_TOKEN missing)'), {
-			code: 'unconfigured',
-		});
+		throw Object.assign(
+			new Error(
+				'text-to-image is not configured: set GOOGLE_CLOUD_PROJECT (Vertex AI) or REPLICATE_API_TOKEN (Replicate)',
+			),
+			{ code: 'unconfigured' },
+		);
 	}
 
 	const modelRef = readEnv('REPLICATE_TXT2IMG_MODEL') || DEFAULT_TXT2IMG_MODEL;

@@ -425,16 +425,18 @@
 				padding: 0; text-decoration: underline; text-underline-offset: 2px; width: auto;
 			}
 			.privy-back-link:hover { color: #888; }
-			.privy-wallet-divider { margin: 10px 0 8px; text-align: center; font-size: 11px; color: #555; letter-spacing: 0.04em; }
-			#privy-wallet-btn {
-				width: 100%; margin: 0; padding: 10px 16px;
+			.privy-wallet-divider { margin: 10px 0 8px; text-align: center; font-size: 11px; color: #999; letter-spacing: 0.04em; }
+			.privy-chain-btns { display: flex; gap: 8px; }
+			.privy-chain-btn {
+				flex: 1; margin: 0; padding: 10px 12px;
 				background: transparent; border: 1px solid rgba(0,0,0,0.12);
-				border-radius: 10px; color: #444; font-size: 14px; font-weight: 500;
+				border-radius: 10px; color: #555; font-size: 13px; font-weight: 500;
 				cursor: pointer; display: flex; align-items: center; justify-content: center;
-				gap: 8px; transition: background 0.12s, border-color 0.12s, color 0.12s;
+				gap: 7px; transition: background 0.12s, border-color 0.12s, color 0.12s;
+				white-space: nowrap;
 			}
-			#privy-wallet-btn:hover:not(:disabled) { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.22); color: #000; }
-			#privy-wallet-btn:disabled { opacity: 0.4; cursor: default; }
+			.privy-chain-btn:hover:not(:disabled) { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.22); color: #000; }
+			.privy-chain-btn:disabled { opacity: 0.4; cursor: default; }
 			#privy-wallet-status { margin: 6px 0 0; font-size: 12px; color: #888; }
 		</style>
 	
@@ -481,11 +483,17 @@
 						</div>
 					</div>
 					<div id="privy-wallet-wrap">
-						<p class="privy-wallet-divider">or</p>
-						<button type="button" id="privy-wallet-btn">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-							Connect Wallet
-						</button>
+						<p class="privy-wallet-divider">or connect wallet</p>
+						<div class="privy-chain-btns">
+							<button type="button" id="privy-evm-btn" class="privy-chain-btn">
+								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2L4 16.5 16 22l12-5.5L16 2z" fill="#627EEA" opacity=".6"/><path d="M16 2v12.5L4 16.5 16 2z" fill="#627EEA"/><path d="M16 22v8l12-11L16 22z" fill="#627EEA" opacity=".6"/><path d="M16 22L4 19l12 11V22z" fill="#627EEA"/><path d="M16 14.5v5.5L4 16.5l12-2z" fill="#627EEA" opacity=".2"/><path d="M28 16.5l-12 3.5v-5.5l12 2z" fill="#627EEA"/></svg>
+								EVM
+							</button>
+							<button type="button" id="privy-solana-btn" class="privy-chain-btn">
+								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 22.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M6 13.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M26.3 18H6a.6.6 0 0 0-.5.3l-2 3.5a.6.6 0 0 0 .4.7h20.3c.2 0 .4-.1.5-.3l2-3.5a.6.6 0 0 0-.4-.7z" fill="#14F195"/></svg>
+								Solana
+							</button>
+						</div>
 						<p id="privy-wallet-status" hidden></p>
 					</div>
 					<p id="privy-inline-err" hidden></p>
