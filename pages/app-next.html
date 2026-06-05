@@ -242,6 +242,10 @@
 				</div>
 			</aside>
 
+			<!-- Switchable scene backdrop — bottommost layer behind the transparent canvas.
+			     Painted by app-next-overlay.js (saved preset, picker, or agent chat). -->
+			<div class="nxt-stage-backdrop" id="nxt-stage-backdrop" aria-hidden="true"></div>
+
 			<!-- The 3D viewer (required by app.js) -->
 			<div class="viewer-container nxt-viewer" id="viewer-container"></div>
 
@@ -376,6 +380,43 @@
 					<span>Animations</span>
 					<kbd>A</kbd>
 				</button>
+
+				<button
+					class="nxt-action nxt-action--ghost"
+					id="nxt-avatar-btn"
+					type="button"
+					title="Switch avatar from the gallery"
+				>
+					<svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+						<circle cx="10" cy="7" r="3.2" stroke="currentColor" stroke-width="1.5" fill="none" />
+						<path d="M4.5 16c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" />
+					</svg>
+					<span>Avatar</span>
+				</button>
+
+				<div class="nxt-backdrop-wrap">
+					<button
+						class="nxt-action nxt-action--ghost"
+						id="nxt-backdrop-btn"
+						type="button"
+						aria-haspopup="true"
+						aria-expanded="false"
+						aria-controls="nxt-backdrop-popover"
+						title="Change the scene backdrop"
+					>
+						<svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+							<rect x="3" y="4" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5" fill="none" />
+							<circle cx="7.5" cy="8" r="1.4" fill="currentColor" />
+							<path d="M4 14l3.5-3.5L11 14l2.5-2.5L16 14" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+						</svg>
+						<span>Backdrop</span>
+					</button>
+
+					<div class="nxt-backdrop-popover" id="nxt-backdrop-popover" role="menu" aria-label="Scene backdrops" hidden>
+						<div class="nxt-backdrop-popover__head">Backdrop</div>
+						<div class="nxt-backdrop-grid" id="nxt-backdrop-grid"></div>
+					</div>
+				</div>
 
 				<label class="nxt-action nxt-action--ghost" for="file-input" title="Drop or pick a GLB/glTF (U)">
 					<svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">

@@ -1,5 +1,7 @@
 # ── TripoSR (VAST-AI / Stability AI) ──────────────────────────────────────────
-tsr @ git+https://github.com/VAST-AI-Research/TripoSR.git@main
+# The `tsr` package is NOT pip-installable (no setup.py/pyproject); the Dockerfile
+# clones the repo to /opt/triposr and puts it on PYTHONPATH instead. Its own deps
+# (incl. the CUDA-compiled torchmcubes) come from /opt/triposr/requirements.txt.
 
 torch>=2.3.0
 trimesh>=4.4.0
