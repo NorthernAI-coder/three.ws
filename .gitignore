@@ -179,3 +179,6 @@ docs/3d-generation-api/texture/texture-model-v3-0-20250812.md
 # Snapshot day-exports — recoverable from git history, never commit
 snapshots/exported/
 docs/ibm.md
+
+# Vanity keypair files — contain private keys, never commit
+.keys/

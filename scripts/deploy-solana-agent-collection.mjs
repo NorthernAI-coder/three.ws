@@ -19,14 +19,19 @@
  *   CONFIRM_MAINNET_DEPLOY=yes \
  *     node scripts/deploy-solana-agent-collection.mjs --network mainnet
  *
+ *   # use a pre-ground vanity keypair as the collection address (recommended)
+ *   ... --collection-keypair .keys/collection-THREE.json
+ *
  * After it prints the collection address, set it in the environment:
  *   SOLANA_AGENT_COLLECTION_DEVNET=<addr>   (or _MAINNET)
  * so the live mint/edit flows start using the collection.
  *
- * Prereqs: the authority keypair must hold a little SOL on the target network
- * (collection rent + fee). On devnet you can airdrop; on mainnet fund it first.
+ * Prereqs: the authority keypair must hold SOL on the target network
+ * (collection rent ~0.003 SOL + fee). On devnet you can airdrop; on mainnet
+ * fund it first.
  */
 
+import { readFileSync } from 'node:fs';
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
@@ -84,12 +89,22 @@ async function main() {
 	);
 	umi.use(signerIdentity(authority));
 
-	const collectionSigner = generateSigner(umi);
+	// Use a pre-ground vanity keypair if provided, otherwise generate fresh.
+	let collectionSigner;
+	const collectionKeyPath = arg('--collection-keypair');
+	if (collectionKeyPath) {
+		const bytes = new Uint8Array(JSON.parse(readFileSync(collectionKeyPath, 'utf8')));
+		collectionSigner = createSignerFromKeypair(umi, umi.eddsa.createKeypairFromSecretKey(bytes));
+		console.log(`Collection keypair: loaded from ${collectionKeyPath}`);
+	} else {
+		collectionSigner = generateSigner(umi);
+		console.log('Collection keypair: freshly generated (pass --collection-keypair to use a vanity address)');
+	}
 
 	console.log(`Network:           ${network}`);
 	console.log(`RPC:               ${rpc.replace(/api-key=[^&]+/i, 'api-key=***')}`);
 	console.log(`Authority:         ${authority.publicKey}`);
-	console.log(`Collection (new):  ${collectionSigner.publicKey}`);
+	console.log(`Collection:        ${collectionSigner.publicKey}`);
 	console.log(`Collection URI:    ${collectionUri}`);
 	console.log('Creating collection…');
 
@@ -97,8 +112,6 @@ async function main() {
 		collection: collectionSigner,
 		name: 'three.ws Agents',
 		uri: collectionUri,
-		// Authority-managed Attributes on the collection itself, so the brand and
-		// $THREE linkage are real on-chain bytes at the collection level too.
 		plugins: [
 			{
 				type: 'Attributes',
@@ -107,12 +120,12 @@ async function main() {
 					{ key: 'url', value: appOrigin },
 					{ key: 'standard', value: 'metaplex-core' },
 					{ key: 'schema', value: 'agent-manifest/0.1' },
+					{ key: 'chain', value: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' },
 				],
 			},
 		],
 	}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
 
-	// Verify it landed.
 	const collection = await fetchCollection(umi, collectionSigner.publicKey);
 
 	const envKey =
@@ -124,8 +137,10 @@ async function main() {
 	console.log(`   name:      ${collection.name}`);
 	console.log(`   address:   ${collectionSigner.publicKey}`);
 	console.log(`   authority: ${authority.publicKey}`);
-	console.log('\nSet this in your environment to activate authority-managed agent mints:');
-	console.log(`   ${envKey}=${collectionSigner.publicKey}`);
+	console.log('\nNext steps:');
+	console.log(`  1. Set ${envKey}=${collectionSigner.publicKey} in Vercel + .env`);
+	console.log(`  2. Set SOLANA_AGENT_COLLECTION_AUTHORITY_KEY=<bs58 secret of authority>`);
+	console.log(`  3. Run: node scripts/batch-mint-agents.mjs --network ${network}`);
 }
 
 main().catch((err) => {
