@@ -61,6 +61,9 @@ vi.mock('../../api/_lib/avatars.js', () => ({
 const ORIGINAL_FETCH = globalThis.fetch;
 const SCOPED_FETCH = vi.fn(async () => ({
 	ok: true,
+	status: 200,
+	// reconstruct-finalize reads resp.headers.get('content-length') for its size guard.
+	headers: { get: () => null },
 	arrayBuffer: async () => new Uint8Array(Buffer.alloc(256)).buffer,
 }));
 
@@ -119,6 +122,9 @@ beforeEach(() => {
 	globalThis.fetch = SCOPED_FETCH;
 	if (ORIGINAL_SIGNING_KEY === undefined) delete process.env.REPLICATE_WEBHOOK_SIGNING_KEY;
 	else process.env.REPLICATE_WEBHOOK_SIGNING_KEY = ORIGINAL_SIGNING_KEY;
+	// The handler fails closed on unsigned webhooks unless this dev opt-in is set.
+	// Reset it each test so only the cases that explicitly opt in get the bypass.
+	delete process.env.ALLOW_UNSIGNED_WEBHOOKS;
 });
 
 afterEach(() => {
@@ -128,6 +134,8 @@ afterEach(() => {
 describe('POST /api/webhooks/replicate', () => {
 	it('accepts unsigned webhook when no signing key is configured (dev)', async () => {
 		delete process.env.REPLICATE_WEBHOOK_SIGNING_KEY;
+		// The endpoint fails closed on unsigned webhooks; dev must opt in explicitly.
+		process.env.ALLOW_UNSIGNED_WEBHOOKS = '1';
 		jobsByExtId.set('pred-1', { job_id: 'job-1', user_id: 'u1', status: 'running', mode: 'restyle' });
 
 		const body = JSON.stringify({ id: 'pred-1', status: 'succeeded', output: 'https://x/a.glb' });
@@ -187,7 +195,8 @@ describe('POST /api/webhooks/replicate', () => {
 	});
 
 	it('materializes the avatar when status flips to done for a reconstruct job', async () => {
-		delete process.env.REPLICATE_WEBHOOK_SIGNING_KEY;
+		const key = Buffer.from('e-secret-32-byte-symmetric-key__').toString('base64');
+		process.env.REPLICATE_WEBHOOK_SIGNING_KEY = `whsec_${key}`;
 		jobsByExtId.set('pred-5', {
 			job_id: 'job-5',
 			user_id: 'u1',
@@ -196,8 +205,11 @@ describe('POST /api/webhooks/replicate', () => {
 			params: { name: 'Selfie cool', visibility: 'private' },
 		});
 
-		const body = JSON.stringify({ id: 'pred-5', status: 'succeeded', output: 'https://x/recon.glb' });
-		const { res, body: out } = await callWebhook(makeReq({ body }), makeRes());
+		// Must be a real Replicate delivery host — the handler pins the GLB fetch
+		// to those (SSRF guard) before finalizing the reconstruct stage.
+		const body = JSON.stringify({ id: 'pred-5', status: 'succeeded', output: 'https://pbxt.replicate.delivery/abc/recon.glb' });
+		const headers = signed({ signingKey: key, body });
+		const { res, body: out } = await callWebhook(makeReq({ body, headers }), makeRes());
 
 		expect(res.statusCode).toBe(200);
 		expect(out.status).toBe('done');
@@ -208,9 +220,11 @@ describe('POST /api/webhooks/replicate', () => {
 	});
 
 	it('ignores predictions that do not match any job row (other apps in same account)', async () => {
-		delete process.env.REPLICATE_WEBHOOK_SIGNING_KEY;
+		const key = Buffer.from('f-secret-32-byte-symmetric-key__').toString('base64');
+		process.env.REPLICATE_WEBHOOK_SIGNING_KEY = `whsec_${key}`;
 		const body = JSON.stringify({ id: 'pred-unrelated', status: 'succeeded' });
-		const { res, body: out } = await callWebhook(makeReq({ body }), makeRes());
+		const headers = signed({ signingKey: key, body });
+		const { res, body: out } = await callWebhook(makeReq({ body, headers }), makeRes());
 		expect(res.statusCode).toBe(200);
 		expect(out.ignored).toBeDefined();
 		expect(putObjectMock).not.toHaveBeenCalled();

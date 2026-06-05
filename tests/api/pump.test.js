@@ -239,10 +239,34 @@ describe('POST /api/pump/accept-payment-confirm', () => {
 
 	it('marks payment confirmed when tx verifies', async () => {
 		authState.session = { id: 'user-1' };
+		const currencyMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 		sqlState.queue = [
-			[{ id: 'pay-1', mint: mintB58, network: 'devnet', invoice_id: '1234', status: 'pending' }],
-			[], // update
+			// payment + joined mint row
+			[{
+				id: 'pay-1', mint: mintB58, network: 'devnet', invoice_id: '1234',
+				status: 'pending', payer_wallet: walletB58,
+				currency_mint: currencyMint, amount_atomics: '1000000',
+			}],
+			[], // sig dupe check
+			[], // update confirmed
 		];
+		const pumpMod = await import('../../api/_lib/pump.js');
+		pumpMod.verifySignature.mockResolvedValueOnce({
+			transaction: { message: { accountKeys: [
+				{ pubkey: { toString: () => mintB58 }, signer: false },
+				{ pubkey: { toString: () => walletB58 }, signer: true },
+			] } },
+			meta: {
+				postTokenBalances: [{
+					accountIndex: 0, mint: currencyMint, owner: 'AgentPda',
+					uiTokenAmount: { amount: '2000000' },
+				}],
+				preTokenBalances: [{
+					accountIndex: 0, mint: currencyMint, owner: 'AgentPda',
+					uiTokenAmount: { amount: '1000000' },
+				}],
+			},
+		});
 		const { default: handler } = await import('../../api/pump/accept-payment-confirm.js');
 		const { res, json } = await invoke(handler, {
 			method: 'POST', url: '/api/pump/accept-payment-confirm',

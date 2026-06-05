@@ -3,6 +3,23 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ── Env (lazy env.* access in shared helpers) ───────────────────────────────
 process.env.PUBLIC_APP_ORIGIN ||= 'https://app.test';
 
+// ── SSRF guard (DNS resolution breaks on fake test hostnames) ───────────────
+vi.mock('../../api/_lib/ssrf-guard.js', async (importOriginal) => {
+	const mod = await importOriginal();
+	const { SsrfBlockedError } = mod;
+	return {
+		...mod,
+		assertSafePublicUrl: vi.fn(async (url, opts = {}) => {
+			const parsed = new URL(url);
+			if (parsed.protocol === 'http:' && !opts.allowHttp)
+				throw new SsrfBlockedError('http:// not allowed — use https://');
+			if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
+				throw new SsrfBlockedError('host resolves to a blocked range');
+			return parsed;
+		}),
+	};
+});
+
 // ── Replicate provider (the real GPU backend) ───────────────────────────────
 const providerState = {
 	submit: vi.fn(async () => ({ extJobId: 'pred_123', eta: 45 })),

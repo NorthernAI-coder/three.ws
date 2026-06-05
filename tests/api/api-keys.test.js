@@ -40,6 +40,11 @@ vi.mock('../../api/_lib/rate-limit.js', () => ({
 	clientIp: vi.fn(() => '127.0.0.1'),
 }));
 
+vi.mock('../../api/_lib/csrf.js', () => ({
+	requireCsrf: vi.fn(async () => true),
+	issueCsrf: vi.fn(async () => ({ token: 'mock-csrf', expiresIn: 3600 })),
+}));
+
 const { default: handler } = await import('../../api/api-keys.js');
 
 // ── Helpers ───────────────────────────────────────────────────────────────

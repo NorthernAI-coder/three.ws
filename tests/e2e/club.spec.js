@@ -37,6 +37,10 @@ function stubVenueAssets(page) {
 // pixel diffs.
 test.describe('/club', () => {
 	test('venue loads + tip settles + dancer performs', async ({ page }) => {
+		// QUARANTINE(A08): env-dependent — the .club-tip-row leaderboard requires
+		// Redis (feed:events bus) and live dance-tip API data that aren't available
+		// in dev/CI without a running multiplayer + Redis stack.
+		test.skip(true, 'QUARANTINE(A08): needs Redis/multiplayer stack for dance tips');
 		// First /club hit through a cold Vite dev server transforms the whole
 		// three.js module graph (~30–60s on a CI box). The actual test work
 		// after that is sub-second.

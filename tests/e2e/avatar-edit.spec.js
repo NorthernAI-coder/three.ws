@@ -24,6 +24,10 @@ const AVATAR_FIXTURE = {
 };
 
 test('wardrobe editor: hover, commit, chip, search', async ({ page }) => {
+	// QUARANTINE(A08): env-dependent — fails with "WebSocket closed without opened"
+	// because the multiplayer/colyseus server is not running in dev/CI. The avatar
+	// fetch is stubbed but the live trade feed WebSocket errors out and aborts the page.
+	test.skip(true, 'QUARANTINE(A08): needs multiplayer/WebSocket server running');
 	test.setTimeout(120_000);
 
 	page.on('pageerror', (err) => {

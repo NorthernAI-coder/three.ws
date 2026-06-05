@@ -15,16 +15,22 @@ vi.mock('../api/_lib/auth.js', () => ({
 	extractBearer: vi.fn(() => null),
 }));
 
-vi.mock('../api/_lib/db.js', () => ({
-	sql: vi.fn(async (strings, ...values) => {
+vi.mock('../api/_lib/db.js', () => {
+	const sql = vi.fn(async (strings, ...values) => {
 		if (typeof strings === 'string') {
 			sqlState.calls.push({ query: strings, values: values[0] ?? [] });
 		} else {
 			sqlState.calls.push({ query: strings.join('?'), values });
 		}
 		return sqlState.queue.length ? sqlState.queue.shift() : [];
-	}),
-}));
+	});
+	// postgres.js array-form transaction: `sql.transaction([q1, q2])` runs the
+	// queries atomically and resolves to their results in order. In this mock the
+	// tagged-template calls have already executed (each shifting the queue) by the
+	// time the array literal is built, so awaiting them in order is faithful.
+	sql.transaction = (queries) => Promise.all(queries);
+	return { sql };
+});
 
 vi.mock('../api/_lib/rate-limit.js', () => ({
 	limits: {

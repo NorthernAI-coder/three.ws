@@ -4,6 +4,19 @@ import { Readable } from 'node:stream';
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
+// /api/pump/deliver-telegram now requires an authenticated caller (committed in
+// the "webhook hardening" pass — the bot speaks under the platform's verified
+// identity and must never be driven anonymously). Mock auth so the delivery
+// tests exercise the handler body; the 401 gate gets its own dedicated test.
+const { getSessionUserMock } = vi.hoisted(() => ({
+	getSessionUserMock: vi.fn(async () => ({ id: 'u-test' })),
+}));
+vi.mock('../api/_lib/auth.js', () => ({
+	getSessionUser: getSessionUserMock,
+	authenticateBearer: async () => null,
+	extractBearer: () => null,
+}));
+
 // ── helpers ────────────────────────────────────────────────────────────────
 function makeReq(body) {
 	const stream = body
@@ -48,6 +61,8 @@ const SIGNAL = {
 beforeEach(() => {
 	fetchMock.mockReset();
 	delete process.env.TELEGRAM_BOT_TOKEN;
+	// Default to an authenticated caller; individual tests can override.
+	getSessionUserMock.mockResolvedValue({ id: 'u-test' });
 });
 
 // ── sendTelegramSignal ─────────────────────────────────────────────────────
@@ -92,6 +107,14 @@ describe('sendTelegramSignal', () => {
 // ── POST /api/pump/deliver-telegram ────────────────────────────────────────
 
 describe('POST /api/pump/deliver-telegram', () => {
+	it('returns 401 when the caller is not authenticated', async () => {
+		getSessionUserMock.mockResolvedValueOnce(null);
+		process.env.TELEGRAM_BOT_TOKEN = 'test-token';
+		const { res, json } = await callEndpoint({ chatId: '123', signal: SIGNAL });
+		expect(res.statusCode).toBe(401);
+		expect(json.error).toBe('unauthorized');
+	});
+
 	it('returns 500 when TELEGRAM_BOT_TOKEN is not set', async () => {
 		const { res, json } = await callEndpoint({ chatId: '123', signal: SIGNAL });
 		expect(res.statusCode).toBe(500);
