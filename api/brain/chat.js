@@ -75,7 +75,7 @@ const PROVIDERS = {
 		maxOutput: 16384,
 		description: 'OpenAI flagship. Strong multimodal reasoning.',
 		build: () => {
-			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY })('gpt-4o');
+			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('gpt-4o');
 			if (env.OPENROUTER_API_KEY) return openrouter()('openai/gpt-4o');
 			return null;
 		},
@@ -87,7 +87,7 @@ const PROVIDERS = {
 		maxOutput: 16384,
 		description: 'Fast, affordable GPT. Great for simple tasks.',
 		build: () => {
-			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY })('gpt-4o-mini');
+			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('gpt-4o-mini');
 			if (env.OPENROUTER_API_KEY) return openrouter()('openai/gpt-4o-mini');
 			return null;
 		},
@@ -99,7 +99,7 @@ const PROVIDERS = {
 		maxOutput: 16384,
 		description: 'Reasoning-optimized. Fast chain-of-thought.',
 		build: () => {
-			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY })('o3-mini');
+			if (env.OPENAI_API_KEY) return createOpenAI({ apiKey: env.OPENAI_API_KEY }).chat('o3-mini');
 			if (env.OPENROUTER_API_KEY) return openrouter()('openai/o3-mini');
 			return null;
 		},
@@ -115,7 +115,7 @@ const PROVIDERS = {
 				return createOpenAI({
 					apiKey: env.GROQ_API_KEY,
 					baseURL: 'https://api.groq.com/openai/v1',
-				})('llama-3.3-70b-versatile');
+				}).chat('llama-3.3-70b-versatile');
 			}
 			if (env.OPENROUTER_API_KEY) return openrouter()('meta-llama/llama-3.3-70b-instruct');
 			return null;
@@ -144,7 +144,7 @@ const PROVIDERS = {
 				return createOpenAI({
 					apiKey: env.MODELSCOPE_API_KEY,
 					baseURL: 'https://api-inference.modelscope.cn/v1',
-				})('Qwen/Qwen3-Coder-480B-A35B-Instruct');
+				}).chat('Qwen/Qwen3-Coder-480B-A35B-Instruct');
 			}
 			if (env.OPENROUTER_API_KEY) return openrouter()('qwen/qwen3-coder');
 			return null;
@@ -161,7 +161,7 @@ const PROVIDERS = {
 				return createOpenAI({
 					apiKey: env.DEEPSEEK_API_KEY,
 					baseURL: 'https://api.deepseek.com/v1',
-				})('deepseek-reasoner');
+				}).chat('deepseek-reasoner');
 			}
 			if (env.OPENROUTER_API_KEY) return openrouter()('deepseek/deepseek-r1');
 			return null;
@@ -359,19 +359,16 @@ export default wrap(async function handler(req, res) {
 
 	let firstTokenMs = null;
 
-	try {
-		// watsonx.ai isn't an AI SDK model — stream it through the shared client,
-		// emitting the same first/chunk/done event protocol the page expects.
-		if (spec.watsonx) {
-			await streamWatsonx(res, { messages, system, maxTokens, t0 });
-			return;
-		}
-
+	// Drains one streamText attempt to the SSE response. Returns true on success.
+	// firstTokenMs is set on the first delta; once tokens have been written we are
+	// committed and can no longer transparently retry (the client already has
+	// partial output).
+	const streamOnce = async (budget) => {
 		const result = streamText({
 			model,
 			system,
 			messages,
-			maxOutputTokens: maxTokens,
+			maxOutputTokens: budget,
 		});
 
 		for await (const delta of result.textStream) {
@@ -395,6 +392,32 @@ export default wrap(async function handler(req, res) {
 		})}\n\n`);
 		res.write('data: [DONE]\n\n');
 		res.end();
+	};
+
+	try {
+		// watsonx.ai isn't an AI SDK model — stream it through the shared client,
+		// emitting the same first/chunk/done event protocol the page expects.
+		if (spec.watsonx) {
+			await streamWatsonx(res, { messages, system, maxTokens, t0 });
+			return;
+		}
+
+		try {
+			await streamOnce(maxTokens);
+		} catch (err) {
+			// OpenRouter free tier: "requires more credits, or fewer max_tokens.
+			// You requested up to 1024 tokens, but can only afford 788." The
+			// upstream tells us the affordable ceiling — retry once at that budget
+			// (with a small safety margin) instead of hard-failing. Only safe
+			// before any token has been streamed.
+			const m = /can only afford (\d+)/i.exec(err?.message || '');
+			if (m && firstTokenMs === null && !res.writableEnded) {
+				const affordable = Math.max(64, Math.floor(Number(m[1]) * 0.9));
+				await streamOnce(affordable);
+			} else {
+				throw err;
+			}
+		}
 	} catch (err) {
 		const elapsedMs = Date.now() - t0;
 		if (!res.writableEnded) {

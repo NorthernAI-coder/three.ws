@@ -1549,6 +1549,68 @@ html, body {
     .cc-st-piece { min-width: 46px; }
 }
 
+/* ---------------- build props palette (R18) ---------------- */
+/* Rides just above the structures toolbar while build mode is on: a horizontal
+   scroll-row of placeable props. Arming a prop switches build clicks to the R01
+   object channel; break mode + a tap removes one you placed. */
+#cc-props {
+    position: fixed; left: 50%; bottom: 156px; transform: translateX(-50%);
+    z-index: 22; display: flex; flex-direction: column; gap: 6px;
+    width: min(560px, 94vw); pointer-events: none;
+    font: 13px/1.3 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    animation: cc-build-in 0.16s ease;
+}
+#cc-props[hidden] { display: none; }
+#cc-props button { pointer-events: auto; }
+.cc-prop-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 0 2px;
+}
+.cc-prop-title {
+    color: var(--cc-dim); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+}
+.cc-prop-rotate {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: var(--cc-radius-sm);
+    border: 1px solid var(--cc-edge); background: var(--cc-panel); color: var(--cc-text);
+    font-size: 15px; cursor: pointer;
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    transition: background 0.12s, border-color 0.12s, opacity 0.12s, transform 0.08s;
+}
+.cc-prop-rotate:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--cc-edge-hi); }
+.cc-prop-rotate:active { transform: translateY(1px) rotate(90deg); }
+.cc-prop-rotate:focus-visible { outline: 2px solid #66ff8c; outline-offset: 2px; }
+.cc-prop-rotate:disabled { opacity: 0.4; cursor: not-allowed; }
+.cc-prop-row {
+    display: flex; align-items: stretch; gap: 6px; padding: 7px;
+    background: var(--cc-panel); border: 1px solid var(--cc-edge);
+    border-radius: var(--cc-radius); box-shadow: var(--cc-shadow);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    overflow-x: auto; scrollbar-width: thin; scroll-snap-type: x proximity;
+}
+.cc-prop-row::-webkit-scrollbar { height: 6px; }
+.cc-prop-row::-webkit-scrollbar-thumb { background: var(--cc-edge); border-radius: 3px; }
+.cc-prop {
+    flex: 0 0 auto; scroll-snap-align: start;
+    display: inline-flex; flex-direction: column; align-items: center; gap: 3px;
+    min-width: 54px; padding: 6px 8px; border-radius: var(--cc-radius-sm);
+    border: 1px solid transparent; background: rgba(255, 255, 255, 0.04);
+    color: var(--cc-dim); cursor: pointer; font-weight: 600;
+    transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.08s;
+}
+.cc-prop:hover { background: rgba(255, 255, 255, 0.1); color: var(--cc-text); transform: translateY(-2px); }
+.cc-prop:focus-visible { outline: 2px solid #66ff8c; outline-offset: 2px; }
+.cc-prop.cc-on { background: #f4f5f7; color: var(--cc-ink); border-color: #f4f5f7; }
+.cc-prop-ico { font-size: 19px; line-height: 1; }
+.cc-prop-name { font-size: 10px; letter-spacing: 0.02em; white-space: nowrap; }
+
+@media (pointer: coarse) { #cc-props { bottom: 150px; } }
+@media (max-width: 560px) {
+    #cc-props { bottom: 156px; width: 96vw; }
+    .cc-prop { min-width: 48px; }
+}
+
 /* ---------------- share-a-build sheet (R20) ---------------- */
 #cc-share, #cc-featured {
     position: fixed; inset: 0; z-index: 120; display: grid; place-items: center;
@@ -1650,7 +1712,7 @@ html, body {
 .cc-fb-retry:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--cc-edge-hi); }
 .cc-fb-retry:focus-visible { outline: 2px solid #66ff8c; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
-    #cc-structures, #cc-share, #cc-featured, .cc-share-card, .cc-fb-card, .cc-fb-skel::after { animation: none; transition: none; }
+    #cc-structures, #cc-props, #cc-share, #cc-featured, .cc-share-card, .cc-fb-card, .cc-fb-skel::after { animation: none; transition: none; }
 }
 
 /* ---------------- play gate (wallet sign-in) ----------------

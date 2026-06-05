@@ -191,19 +191,17 @@ export default async function handler(req, res) {
 	}
 	const svg = record ? svgFor(record, tx) : fallbackSvg();
 
-	try {
-		const png = await sharp(Buffer.from(svg)).png({ compressionLevel: 6 }).toBuffer();
-		res.statusCode = 200;
-		res.setHeader('content-type', 'image/png');
-		res.setHeader('cache-control', 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400');
-		return res.end(png);
-	} catch (err) {
-		// Graceful fallback to SVG if sharp can't render (some envs — e.g.
-		// missing libvips). Surface why so we notice if sharp regresses.
-		log.warn('og_png_render_failed', { message: err?.message });
-		res.statusCode = 200;
-		res.setHeader('content-type', 'image/svg+xml');
-		res.setHeader('cache-control', 'public, max-age=300');
-		return res.end(svg);
-	}
+	// Serve the card as SVG directly. The previous sharp→PNG raster relied on
+	// libvips' text shaping, which needs a system fontconfig that doesn't exist
+	// on the Vercel serverless runtime — so every render logged
+	// "Fontconfig error: Cannot load default config file" and produced
+	// glyph-less text before falling back to SVG anyway. SVG is the right output
+	// here: it's resolution-independent, needs no native font stack, and every
+	// major unfurler (X, Discord, Slack, Telegram) accepts image/svg+xml OG
+	// images — the same approach api/agent-og.js already uses. The SVG specifies
+	// system-font fallback stacks so the consumer renders it with its own fonts.
+	res.statusCode = 200;
+	res.setHeader('content-type', 'image/svg+xml; charset=utf-8');
+	res.setHeader('cache-control', 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400');
+	return res.end(svg);
 }

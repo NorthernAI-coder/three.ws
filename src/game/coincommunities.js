@@ -261,6 +261,9 @@ export class CoinCommunities {
 			// screenshot of the build, or open this coin's featured builds.
 			onPickPiece: (id) => this._pickPiece(id),
 			onRotateBuild: () => this._rotateBuild(),
+			// Build props (R18): arm/disarm a placeable prop and rotate the armed one.
+			onPickProp: (id) => this._pickProp(id),
+			onRotateProp: () => this._rotateProp(),
 			onShareBuild: () => this._shareBuild(),
 			onOpenFeatured: () => this._openFeatured(),
 			onPublishBuild: (meta) => this._publishBuild(meta),
@@ -1160,6 +1163,8 @@ export class CoinCommunities {
 		this.ui.setBuildPiece(null);
 		this.ui.setPropSelected(null);
 		this.ui.setBuildToolsVisible(false);
+		this.ui.setPropPaletteVisible(false);
+		this.propGhost?.hide();
 		this.ui.closeShareSheet();
 		this.ui.closeFeatured();
 		try { this.localCosmetics?.dispose(); } catch {}
@@ -1597,6 +1602,9 @@ export class CoinCommunities {
 	_pickPiece(id) {
 		this.buildPiece = COMPOSITE_PIECES.some((p) => p.id === id) ? id : null;
 		this.buildRot = 0;
+		// Arming a voxel tool disarms the prop layer — the two placement modes are
+		// mutually exclusive so a build click is never ambiguous.
+		if (this.buildProp) { this.buildProp = null; this.ui.setPropSelected(null); this.propGhost?.hide(); }
 		this.ui.setBuildPiece(this.buildPiece);
 		this.ui.setBuildRotation(this.buildRot);
 		this._refreshGhost();
@@ -1608,6 +1616,118 @@ export class CoinCommunities {
 		this.buildRot = (this.buildRot + 1) % 4;
 		this.ui.setBuildRotation(this.buildRot);
 		this._refreshGhost();
+	}
+
+	// ── Props build layer (R18) ───────────────────────────────────────────────
+	// Arm a placeable prop (or null to return to the voxel layer). Disarms any voxel
+	// composite so the two placement modes never both fire on a click. Resets the
+	// prop's rotation so each newly-picked prop starts square-on, and primes the
+	// ghost so the preview appears without waiting for pointer motion.
+	_pickProp(id) {
+		const def = id ? propDef(id) : null;
+		this.buildProp = def ? def.id : null;
+		this.buildPropRot = 0;
+		if (this.buildProp) {
+			// Leaving the voxel layer: clear any armed composite + hide the voxel ghost.
+			this.buildPiece = null; this.buildRot = 0;
+			this.ui.setBuildPiece(null);
+			this.voxels?.hideGhost(); this.voxels?.hideFootprint();
+			this.propGhost?.setType(this.buildProp);
+		} else {
+			this.propGhost?.hide();
+		}
+		this.ui.setPropSelected(this.buildProp);
+		this._refreshGhost();
+	}
+
+	// Rotate the armed prop a quarter-turn and re-preview it in place.
+	_rotateProp() {
+		if (!this.buildProp) return;
+		this.buildPropRot = (this.buildPropRot + 1) % 4;
+		this._refreshGhost();
+	}
+
+	// Where, in world space, is the player aiming a prop? A prop drops onto the
+	// ground plane (props stand on the floor, they don't stack on cells), snapped to
+	// a half-block grid so neighbouring props line up. Returns the snapped point + a
+	// validity flag (inside the build radius), or null when aiming at the sky.
+	_propTarget(clientX, clientY) {
+		const ray = this._pointerRay(clientX, clientY).ray;
+		if (ray.direction.y >= -1e-4) return null; // looking up / parallel — no floor
+		const t = -ray.origin.y / ray.direction.y;
+		if (t <= 0) return null;
+		const px = ray.origin.x + ray.direction.x * t;
+		const pz = ray.origin.z + ray.direction.z * t;
+		const snap = BLOCK / 2;
+		const x = Math.round(px / snap) * snap;
+		const z = Math.round(pz / snap) * snap;
+		const valid = Math.hypot(x, z) <= WORLD_RADIUS;
+		return { x, y: 0, z, valid };
+	}
+
+	// Place or delete a prop under the pointer. Placing sends obj:spawn kind:'block'
+	// (durable, server-persisted via R17); the prop appears for everyone when the
+	// server echoes its objects state back. Right-click / hold deletes a prop YOU own
+	// (server enforces ownership; we only offer it on your own pieces — R19 hardens it).
+	_buildPropAt(clientX, clientY, forceRemove) {
+		const removing = forceRemove || this.buildHud.mode === 'remove';
+		if (removing) { this._deleteOwnPropAt(clientX, clientY); return; }
+		const target = this._propTarget(clientX, clientY);
+		if (!target) return;
+		if (!target.valid) { this._updatePropGhost(clientX, clientY); return; }
+		const online = this.net?.status === 'online';
+		if (!online) {
+			// Solo: there's no shared object channel to place into, so be honest rather
+			// than faking a local-only prop that no one else will ever see.
+			this.ui.toast('Props need a live connection — reconnect to place them.', 'warn');
+			return;
+		}
+		const yaw = this.buildPropRot * (Math.PI / 2);
+		this.net.spawnObject('block', { type: this.buildProp, x: target.x, y: target.y, z: target.z, yaw, scale: this.buildPropScale });
+		// A short haptic tick confirms the place on touch devices.
+		if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(12);
+		this._updatePropGhost(clientX, clientY);
+	}
+
+	// Delete the nearest prop under the pointer that this client owns. Raycasts only
+	// owned object nodes, so a click never offers to delete someone else's build.
+	_deleteOwnPropAt(clientX, clientY) {
+		if (!this.worldObjects) return;
+		const owned = this.worldObjects.ownedNodes(this._ownedScratch || (this._ownedScratch = []));
+		if (!owned.length) { this.ui.toast('Nothing of yours to remove here.', 'info'); return; }
+		const hits = this._pointerRay(clientX, clientY).intersectObjects(owned, true);
+		const id = hits.length ? this.worldObjects.idForHit(hits[0].object) : null;
+		if (!id) return;
+		this.net?.removeObject(id);
+		if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(20);
+	}
+
+	// Drive the prop ghost: in place mode show the translucent prop at the snapped
+	// pose (green valid / red blocked); in remove mode highlight nothing (the delete
+	// raycast is per-click) and hide the place ghost.
+	_updatePropGhost(clientX, clientY) {
+		if (!this.propGhost || !this.buildProp) return;
+		if (this.buildHud.mode === 'remove') { this.propGhost.hide(); return; }
+		const target = this._propTarget(clientX, clientY);
+		if (!target) { this.propGhost.hide(); return; }
+		this.propGhost.setType(this.buildProp);
+		this.propGhost.setPose(target.x, target.y, target.z, this.buildPropRot * (Math.PI / 2), this.buildPropScale);
+		this.propGhost.setValid(target.valid && this.net?.status === 'online');
+		this.propGhost.show();
+	}
+
+	// Explain a server-refused spawn (room full, or this player's object cap hit) so a
+	// prop that never appeared isn't a silent mystery. Throttled like edit rejects.
+	_onObjectReject(reason) {
+		const now = performance.now();
+		this._objRejectAt ||= {};
+		if (now - (this._objRejectAt[reason] || 0) < 4000) return;
+		this._objRejectAt[reason] = now;
+		const msg = {
+			world_full: 'This world is full of props — remove some to place more.',
+			player_full: 'You’ve hit your prop limit for this world — remove some to place more.',
+		}[reason] || 'That prop couldn’t be placed.';
+		this.ui.toast(msg, 'warn');
 	}
 
 	// Arm a hold-to-break timer for the current press. If the player keeps the

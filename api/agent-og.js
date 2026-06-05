@@ -16,13 +16,20 @@ import { cors, wrap } from './_lib/http.js';
 const CACHE_CARD = 'public, max-age=3600, s-maxage=86400';
 const CACHE_REDIR = 'public, max-age=3600';
 
+// agent_identities.id is a uuid column. Crawlers and broken share links hit this
+// public route with a literal ":id" placeholder (when a page template forgets to
+// interpolate the real id) or other junk; passing that straight to Postgres throws
+// `invalid input syntax for type uuid` (22P02) and 500s. Validate the shape up
+// front so any non-uuid degrades to a clean 404 instead of an unhandled error.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('id');
 
-	if (!agentId) return sendNotFound(res);
+	if (!agentId || !UUID_RE.test(agentId)) return sendNotFound(res);
 
 	const [agent] = await sql`
 		SELECT id, name, description, avatar_id

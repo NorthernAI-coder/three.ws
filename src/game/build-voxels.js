@@ -118,11 +118,13 @@ export function parseKey(key) { const p = key.split(','); return [+p[0], +p[1], 
 // Rotate a horizontal footprint offset by a quarter-turn step (0–3 = 0/90/180/270°)
 // about the anchor. Integer-only so a rotated piece stays perfectly grid-aligned.
 export function rotateXZ(dx, dz, rot) {
+	// `|| 0` folds negative zero (e.g. -dx when dx===0) back to +0 so rotated
+	// offsets compare cleanly and never key a cell as "-0".
 	switch (((rot % 4) + 4) % 4) {
-		case 1: return [dz, -dx];
-		case 2: return [-dx, -dz];
-		case 3: return [-dz, dx];
-		default: return [dx, dz];
+		case 1: return [dz || 0, -dx || 0];
+		case 2: return [-dx || 0, -dz || 0];
+		case 3: return [-dz || 0, dx || 0];
+		default: return [dx || 0, dz || 0];
 	}
 }
 

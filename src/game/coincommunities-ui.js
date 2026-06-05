@@ -14,6 +14,7 @@ import { resolveAvatarUrl } from './avatar-rig.js';
 import { validateGlb, uploadGlb } from './avatar-upload.js';
 import { GUEST_SENTINEL, playAs } from './play-handoff.js';
 import { COMPOSITE_PIECES } from './build-voxels.js';
+import { PROP_CATALOG } from './world-objects.js';
 import { log } from '../shared/log.js';
 
 // Degrees shown on the rotate button for each quarter-turn step (0–3).
@@ -78,6 +79,7 @@ export class CommunityUI {
 		this._buildLobby();
 		this._buildHud();
 		this._buildStructures();
+		this._buildPropPalette();
 	}
 
 	// ---------------------------------------------------------------- lobby
@@ -1248,6 +1250,61 @@ export class CommunityUI {
 	/** Reflect the current quarter-turn rotation on the rotate button. */
 	setBuildRotation(rot) {
 		this.rotateBtn.querySelector('.cc-st-rotate-deg').textContent = ROT_DEG[((rot % 4) + 4) % 4];
+	}
+
+	// ---------------------------------------------------------------- build props (R18)
+	// The props palette that rides beside the structures toolbar in build mode: a
+	// scroll-row of placeable props (crates, lamps, arches, a stage…) plus a rotate
+	// button for touch (desktop also has the R key). Selecting a prop arms the object
+	// placement layer; selecting it again returns to voxel building. Deleting your own
+	// props reuses the build HUD's place/break toggle (break + tap removes).
+	_buildPropPalette() {
+		this._activeProp = null;
+		this._propBtns = new Map();
+
+		const items = PROP_CATALOG.map((p) => {
+			const btn = el('button', {
+				class: 'cc-prop', type: 'button',
+				role: 'radio', 'aria-checked': 'false',
+				title: `${p.name} — place a prop (R rotates, break mode removes yours)`,
+				'aria-label': p.name,
+				onclick: () => this.h.onPickProp?.(this._activeProp === p.id ? null : p.id),
+			}, [
+				el('span', { class: 'cc-prop-ico', 'aria-hidden': 'true', text: p.icon || '◆' }),
+				el('span', { class: 'cc-prop-name', text: p.name }),
+			]);
+			this._propBtns.set(p.id, btn);
+			return btn;
+		});
+		const row = el('div', { class: 'cc-prop-row', role: 'radiogroup', 'aria-label': 'Place a prop' }, items);
+
+		this.propRotateBtn = el('button', {
+			class: 'cc-prop-rotate', type: 'button', disabled: true,
+			title: 'Rotate the prop a quarter-turn (R)', 'aria-label': 'Rotate prop',
+			onclick: () => this.h.onRotateProp?.(),
+		}, [el('span', { 'aria-hidden': 'true', text: '⟳' })]);
+
+		const head = el('div', { class: 'cc-prop-head' }, [
+			el('span', { class: 'cc-prop-title', text: 'Props' }),
+			this.propRotateBtn,
+		]);
+
+		this.propPalette = el('div', { id: 'cc-props', hidden: true, 'aria-label': 'Build props' }, [head, row]);
+		document.body.appendChild(this.propPalette);
+	}
+
+	/** Show/hide the props palette with build mode. */
+	setPropPaletteVisible(on) { if (this.propPalette) this.propPalette.hidden = !on; }
+
+	/** Reflect the armed prop (null = voxel layer); toggles the rotate button. */
+	setPropSelected(id) {
+		this._activeProp = id ?? null;
+		for (const [pid, btn] of this._propBtns) {
+			const on = pid === this._activeProp;
+			btn.classList.toggle('cc-on', on);
+			btn.setAttribute('aria-checked', on ? 'true' : 'false');
+		}
+		if (this.propRotateBtn) this.propRotateBtn.disabled = this._activeProp == null;
 	}
 
 	// ---------------------------------------------------------------- share sheet (R20)

@@ -17,6 +17,7 @@ globalThis.self = globalThis;
 import {
 	VoxelWorld, keyOf, parseKey, cellToWorld, cellInBounds,
 	BLOCK, MAX_GRID_XZ, MAX_GRID_Y, MAX_BLOCKS, BLOCK_TYPE_COUNT, BLOCK_TYPES,
+	COMPOSITE_PIECES, MAX_COMPOSITE_CELLS, rotateXZ, compositeCells,
 } from '../src/game/build-voxels.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -166,6 +167,61 @@ describe('VoxelWorld', () => {
 	});
 });
 
+describe('composite pieces (R20)', () => {
+	it('rotateXZ is a pure quarter-turn that round-trips after 4 steps', () => {
+		expect(rotateXZ(1, 0, 0)).toEqual([1, 0]);
+		expect(rotateXZ(1, 0, 1)).toEqual([0, -1]);
+		expect(rotateXZ(1, 0, 2)).toEqual([-1, 0]);
+		expect(rotateXZ(1, 0, 3)).toEqual([0, 1]);
+		// Negative + wrapping rotations normalise to the same four orientations.
+		expect(rotateXZ(2, 3, -1)).toEqual(rotateXZ(2, 3, 3));
+		expect(rotateXZ(2, 3, 4)).toEqual([2, 3]);
+	});
+
+	it('every piece resolves to in-pool, integer, type-bearing cells', () => {
+		for (const piece of COMPOSITE_PIECES) {
+			const cells = compositeCells(piece.id, [5, 0, 5], 0, 3);
+			expect(cells.length).toBeGreaterThan(0);
+			expect(cells.length).toBeLessThanOrEqual(MAX_COMPOSITE_CELLS);
+			for (const c of cells) {
+				expect(Number.isInteger(c.x) && Number.isInteger(c.y) && Number.isInteger(c.z)).toBe(true);
+				expect(c.t).toBe(3); // inherits the selected block type
+			}
+			// No piece repeats a cell within itself.
+			const keys = new Set(cells.map((c) => keyOf(c.x, c.y, c.z)));
+			expect(keys.size).toBe(cells.length);
+		}
+	});
+
+	it('rotation preserves a piece\'s cell count and keeps it on the grid', () => {
+		for (const piece of COMPOSITE_PIECES) {
+			const base = compositeCells(piece.id, [0, 0, 0], 0, 0).length;
+			for (let rot = 1; rot < 4; rot++) {
+				expect(compositeCells(piece.id, [0, 0, 0], rot, 0).length).toBe(base);
+			}
+		}
+	});
+
+	it('an unknown piece id yields no cells (safe no-op)', () => {
+		expect(compositeCells('nope', [0, 0, 0], 0, 0)).toEqual([]);
+		expect(compositeCells('wall', null, 0, 0)).toEqual([]);
+	});
+
+	it('VoxelWorld.canPlaceAll gates on bounds, occupancy, and budget', () => {
+		const w = new VoxelWorld(fakeScene());
+		const cells = compositeCells('wall', [4, 0, 4], 0, 0);
+		expect(w.canPlaceAll(cells, MAX_BLOCKS)).toBe(true);
+		// Out of bounds (beyond the circular plaza) → rejected wholesale.
+		expect(w.canPlaceAll(compositeCells('wall', [MAX_GRID_XZ + 5, 0, 0], 0, 0), MAX_BLOCKS)).toBe(false);
+		// Budget that can't fit the fresh cells → rejected.
+		expect(w.canPlaceAll(cells, 3)).toBe(false);
+		// Already-occupied cells don't count against a fresh budget.
+		for (const c of cells) w.setBlock(c.x, c.y, c.z, c.t);
+		expect(w.canPlaceAll(cells, w.count)).toBe(true); // repaint-in-place fits exactly
+		w.dispose();
+	});
+});
+
 describe('client ↔ server constant parity', () => {
 	// The server validates every edit against its own copies of these caps. If the
 	// client's diverge, players get a build experience that lies (placeable cells
@@ -183,5 +239,12 @@ describe('client ↔ server constant parity', () => {
 		expect(MAX_BLOCKS).toBe(num('MAX_BLOCKS'));
 		expect(BLOCK_TYPE_COUNT).toBe(num('BLOCK_TYPE_COUNT'));
 		expect(BLOCK_TYPES.length).toBe(BLOCK_TYPE_COUNT);
+	});
+
+	it('the largest composite piece fits the server\'s place-batch cap', () => {
+		// The server rejects any batch larger than MAX_BATCH_CELLS, so the biggest
+		// piece the client can stamp must never exceed it — else a legit piece would
+		// be silently refused.
+		expect(MAX_COMPOSITE_CELLS).toBeLessThanOrEqual(num('MAX_BATCH_CELLS'));
 	});
 });
