@@ -909,11 +909,6 @@ function makeSnsResolver(inputEl, statusEl) {
 					credentials: 'include',
 				});
 				if (myId !== seq) return null; // superseded
-				if (r.status === 404) {
-					setStatus('warn', `${name} does not resolve`);
-					lastResolved = null;
-					return null;
-				}
 				if (!r.ok) {
 					const j = await r.json().catch(() => ({}));
 					setStatus('warn', j?.error_description || `lookup failed (${r.status})`);
@@ -922,6 +917,12 @@ function makeSnsResolver(inputEl, statusEl) {
 				}
 				const { data } = await r.json();
 				if (myId !== seq) return null;
+				// A miss is now a 200 with `resolved: false` / `address: null`, not a 404.
+				if (!data?.address) {
+					setStatus('warn', `${name} does not resolve`);
+					lastResolved = null;
+					return null;
+				}
 				setStatus('ok', `→ ${data.address}`);
 				lastResolved = { name: data.name, address: data.address };
 				return lastResolved;

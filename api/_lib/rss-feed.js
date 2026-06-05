@@ -11,7 +11,6 @@ const DATA_ROOT = path.resolve(fileURLToPath(import.meta.url), '..', '..', '..',
 const ARCHIVES_DIR = path.join(DATA_ROOT, 'archives');
 const CURATED_FILE = path.join(DATA_ROOT, 'rss', 'items.json');
 const MIN_LENGTH = 140;
-const MAX_ITEMS = 50;
 
 export const SITE_ORIGIN = 'https://three.ws';
 export const NEWS_PATH_PREFIX = '/news';
@@ -83,7 +82,7 @@ export async function loadCuratedItems({ includeDrafts = false } = {}) {
 		});
 	}
 	items.sort((a, b) => b.timestamp - a.timestamp);
-	return items.slice(0, MAX_ITEMS);
+	return items;
 }
 
 function deriveSummary(html) {
@@ -138,7 +137,6 @@ export async function loadAnnouncementItems({ source = 'all' } = {}) {
 		if (seen.has(it.id)) continue;
 		seen.add(it.id);
 		deduped.push(it);
-		if (deduped.length >= MAX_ITEMS) break;
 	}
 	return deduped;
 }

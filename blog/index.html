@@ -41,6 +41,14 @@
 	.bl-tag { padding: 2px 8px; border-radius: 999px; background: rgba(154,212,255,.08); color: #9ad4ff; font-size: 11px; font-weight: 500; letter-spacing: 0.02em; text-transform: uppercase; }
 	.bl-title { font-size: 22px; font-weight: 600; margin: 0 0 10px; letter-spacing: -0.01em; line-height: 1.25; color: #fff; }
 	.bl-summary { color: #b6b6cf; font-size: 15px; line-height: 1.55; margin: 0; }
+	.bl-press { margin-top: 64px; padding-top: 48px; border-top: 1px solid rgba(255,255,255,.08); }
+	.bl-press-heading { font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: 0.12em; color: #7a85a8; margin: 0 0 20px; }
+	.bl-press-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+	.bl-press-card { display: flex; flex-direction: column; gap: 8px; padding: 20px 22px; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: rgba(255,255,255,.015); color: inherit; text-decoration: none; transition: background .15s, border-color .15s, transform .15s; position: relative; }
+	.bl-press-card:hover { background: rgba(120,140,255,.06); border-color: rgba(150,170,255,.3); transform: translateY(-1px); }
+	.bl-press-outlet { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #9ad4ff; }
+	.bl-press-title { font-size: 15px; font-weight: 500; color: #e7e7f5; line-height: 1.4; }
+	.bl-press-arrow { position: absolute; top: 20px; right: 20px; font-size: 14px; color: #7a85a8; }
 </style>
 </head>
 <body>
@@ -326,7 +334,25 @@
 			</li>
 
 		</ul>
+
+		<section class="bl-press">
+			<h2 class="bl-press-heading">In the press</h2>
+			<div class="bl-press-grid">
+				<a class="bl-press-card" href="https://markets.businessinsider.com/news/stocks/three-ws-and-ibm-announce-strategic-partnership-to-advance-ai-powered-3d-agent-technology-1036222181" target="_blank" rel="noopener">
+					<span class="bl-press-outlet">Business Insider</span>
+					<span class="bl-press-title">three.ws and IBM Announce Strategic Partnership to Advance AI-Powered 3D Agent Technology</span>
+					<span class="bl-press-arrow">↗</span>
+				</a>
+				<a class="bl-press-card" href="https://finance.yahoo.com/sectors/technology/articles/ibm-extends-ai-narrative-three-010650764.html" target="_blank" rel="noopener">
+					<span class="bl-press-outlet">Yahoo Finance</span>
+					<span class="bl-press-title">IBM Extends AI Narrative with three.ws Partnership</span>
+					<span class="bl-press-arrow">↗</span>
+				</a>
+			</div>
+		</section>
 	</main>
+	<div id="footer-container"></div>
 	<script src="/nav.js"></script>
+	<script src="/footer.js"></script>
 </body>
 </html>

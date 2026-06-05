@@ -56,7 +56,7 @@ describe('GET /api/sns?name=…', () => {
 		resolveSnsName.mockResolvedValue(ADDR);
 		const { res, body } = await call('/api/sns?name=bonfida.sol');
 		expect(res.statusCode).toBe(200);
-		expect(body.data).toEqual({ name: 'bonfida.sol', address: ADDR, network: 'solana' });
+		expect(body.data).toEqual({ name: 'bonfida.sol', address: ADDR, network: 'solana', resolved: true });
 		expect(res.getHeader('cache-control')).toMatch(/max-age=300/);
 		expect(resolveSnsName).toHaveBeenCalledWith('bonfida');
 	});

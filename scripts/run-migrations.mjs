@@ -71,12 +71,17 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dir, '../api/_lib/migrations');
 
 async function main() {
-	// Ensure tracking table exists.
+	// Ensure tracking table exists (sha256 column aligns with apply-migrations.mjs schema).
 	await sql`
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			filename   text        PRIMARY KEY,
+			sha256     text,
 			applied_at timestamptz NOT NULL DEFAULT now()
 		)
+	`;
+	// Add sha256 column to pre-existing tables that were created without it.
+	await sql`
+		ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS sha256 text
 	`;
 
 	const applied = new Set(

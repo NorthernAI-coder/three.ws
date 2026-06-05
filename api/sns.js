@@ -1,6 +1,13 @@
 // GET /api/sns?name=<label>[.sol]      → resolve .sol → owner base58
 // GET /api/sns?address=<base58>        → reverse-lookup wallet → primary .sol
 //
+// Both directions always answer 200 with a `{ data: { name, address, network,
+// resolved } }` envelope. A miss is `resolved: false` with the unresolved side
+// set to null — NOT a 404. A reverse lookup ("does this wallet have a favorite
+// .sol?") runs automatically on page load for any wallet, so "no domain" is an
+// expected, routine answer; surfacing it as a 404 only spammed the browser
+// console with phantom failures. Malformed input is still a 400.
+//
 // Public, rate-limited per IP. Both directions are cached in-process for
 // 5 minutes (negative results for 60s) so repeated UX previews don't hammer
 // the Bonfida RPC pool. Mainnet only — SNS is not deployed on devnet.
@@ -69,12 +76,11 @@ export default wrap(async (req, res) => {
 			setCached(forwardCache, bare, address);
 		}
 		if (!address) {
-			return json(res, 404, {
-				error: 'not_found',
-				error_description: `${domain} does not resolve`,
+			return json(res, 200, {
+				data: { name: domain, address: null, network: 'solana', resolved: false },
 			}, { 'cache-control': 'public, max-age=30' });
 		}
-		return json(res, 200, { data: { name: domain, address, network: 'solana' } }, {
+		return json(res, 200, { data: { name: domain, address, network: 'solana', resolved: true } }, {
 			'cache-control': 'public, max-age=300',
 		});
 	}
@@ -88,12 +94,11 @@ export default wrap(async (req, res) => {
 			setCached(reverseCache, addr, name);
 		}
 		if (!name) {
-			return json(res, 404, {
-				error: 'not_found',
-				error_description: 'no primary .sol domain set for this address',
+			return json(res, 200, {
+				data: { name: null, address: addr, network: 'solana', resolved: false },
 			}, { 'cache-control': 'public, max-age=30' });
 		}
-		return json(res, 200, { data: { name, address: addr, network: 'solana' } }, {
+		return json(res, 200, { data: { name, address: addr, network: 'solana', resolved: true } }, {
 			'cache-control': 'public, max-age=300',
 		});
 	}

@@ -108,7 +108,10 @@ const EXTERNALS = [
 	// font read ENOENTs at load. External keeps the package (and its font assets)
 	// resolvable from node_modules at runtime.
 	'@vercel/og',
-	'jsdom',
+	// jsdom removed: api/_lib/text-extract.js now uses node-html-parser, so
+	// no API route imports jsdom. Keeping it external caused NFT to bundle the
+	// jsdom→html-encoding-sniffer@6→@exodus/bytes (ESM-only) chain into every
+	// widgets function, crashing them with ERR_REQUIRE_ESM at cold start.
 	'ethers',
 	'@elevenlabs/elevenlabs-js',
 	'playwright',

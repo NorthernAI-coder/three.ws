@@ -554,9 +554,9 @@ async function renderSns(host, wallets) {
 		solanaWallets.map(async (w) => {
 			try {
 				const r = await get(`/api/sns?address=${encodeURIComponent(w.address)}`);
-				return { wallet: w, domain: r?.data?.name || null, status: 'Active' };
-			} catch (err) {
-				return { wallet: w, domain: null, status: err?.status === 404 ? null : 'error' };
+				return { wallet: w, domain: r?.data?.name || null };
+			} catch {
+				return { wallet: w, domain: null };
 			}
 		}),
 	);

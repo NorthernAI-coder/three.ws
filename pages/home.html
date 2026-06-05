@@ -1029,6 +1029,16 @@
 			color: var(--text-4); font-size: 13px; font-family: var(--font-mono);
 			letter-spacing: 0.04em;
 		}
+		.foot-ca {
+			display: flex; align-items: center; gap: 8px;
+			background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+			border-radius: 999px; padding: 5px 12px; cursor: pointer;
+			font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
+			transition: background .15s, border-color .15s, color .15s;
+		}
+		.foot-ca:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: var(--text); }
+		.foot-ca-label { color: #9ad4ff; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+		.foot-ca-addr { opacity: .7; }
 
 		/* ── MOBILE NAV ─────────────────────────────────────────── */
 		.nav-toggle {
@@ -3931,6 +3941,10 @@
 		</nav>
 		<div class="foot-inner">
 			<div>© 2026 · three.ws · the 3D agent layer of the internet</div>
+			<button class="foot-ca" id="foot-ca-btn" title="Copy contract address">
+				<span class="foot-ca-label">$THREE</span>
+				<span class="foot-ca-addr" id="foot-ca-addr">FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump</span>
+			</button>
 		</div>
 	</div>
 </footer>
@@ -6093,5 +6107,20 @@
 </script>
 	<script src="/brand.js" defer></script>
 	<script src="/getting-started.js" defer></script>
+	<script>
+		(function () {
+			var btn = document.getElementById('foot-ca-btn');
+			var addr = document.getElementById('foot-ca-addr');
+			if (!btn || !addr) return;
+			var CA = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+			btn.addEventListener('click', function () {
+				navigator.clipboard.writeText(CA).then(function () {
+					var orig = addr.textContent;
+					addr.textContent = 'Copied!';
+					setTimeout(function () { addr.textContent = orig; }, 1500);
+				});
+			});
+		})();
+	</script>
 </body>
 </html>

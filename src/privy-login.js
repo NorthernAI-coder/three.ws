@@ -1,5 +1,5 @@
-// Privy headless email-OTP auth for login and register pages.
-// Wires up the #privy-section UI block that both pages include.
+// Privy headless auth for login and register pages.
+// Handles email-OTP and EVM wallet (SIWE via Privy).
 // On success POSTs the Privy identity_token to /api/auth/privy/verify
 // which issues our standard session cookie, then redirects.
 
@@ -38,10 +38,32 @@ if (!appId) {
 	mountPrivyUI(privy);
 }
 
+// ── Shared backend verify ─────────────────────────────────────────────────────
+
+async function verifyWithBackend(identity_token) {
+	const res = await fetch('/api/auth/privy/verify', {
+		method: 'POST',
+		credentials: 'include',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ token: identity_token }),
+	});
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok) throw new Error(data.error_description || 'Sign-in failed.');
+
+	try {
+		localStorage.setItem(
+			'3dagent:auth-hint',
+			JSON.stringify({ authed: true, name: data.user?.display_name || '', ts: Date.now() }),
+		);
+	} catch { /* ignore */ }
+
+	location.href = next;
+}
+
 // ── UI ───────────────────────────────────────────────────────────────────────
 
 function mountPrivyUI(privy) {
-	// Elements
+	// Elements — email OTP
 	const toggleBtn    = document.getElementById('privy-toggle-btn');
 	const expandedArea = document.getElementById('privy-expanded');
 	const stepEmail    = document.getElementById('privy-step-email');
@@ -52,6 +74,11 @@ function mountPrivyUI(privy) {
 	const verifyBtn    = document.getElementById('privy-verify-btn');
 	const backBtn      = document.getElementById('privy-back-btn');
 	const errEl        = document.getElementById('privy-inline-err');
+
+	// Elements — wallet
+	const walletWrap   = document.getElementById('privy-wallet-wrap');
+	const walletBtn    = document.getElementById('privy-wallet-btn');
+	const walletStatus = document.getElementById('privy-wallet-status');
 
 	if (!toggleBtn || !expandedArea) return;
 
@@ -76,19 +103,23 @@ function mountPrivyUI(privy) {
 		clearErr();
 		if (emailInput) emailInput.value = '';
 		if (codeInput) codeInput.value = '';
+		if (walletStatus) { walletStatus.textContent = ''; walletStatus.hidden = true; }
 	}
 
 	function showStep(step) {
 		clearErr();
-		stepEmail.hidden  = step !== 'email';
-		stepCode.hidden   = step !== 'code';
+		stepEmail.hidden = step !== 'email';
+		stepCode.hidden  = step !== 'code';
+		// Wallet option only shown on email step
+		if (walletWrap) walletWrap.hidden = step !== 'email';
 	}
 
 	// Open / close
 	toggleBtn.addEventListener('click', expand);
 	backBtn?.addEventListener('click', collapse);
 
-	// Send OTP code
+	// ── Email OTP ──────────────────────────────────────────────────────────────
+
 	sendBtn?.addEventListener('click', async () => {
 		const email = emailInput?.value.trim();
 		if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -109,12 +140,10 @@ function mountPrivyUI(privy) {
 		}
 	});
 
-	// Keyboard submit on email field
 	emailInput?.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter') { e.preventDefault(); sendBtn?.click(); }
 	});
 
-	// Verify OTP code
 	verifyBtn?.addEventListener('click', async () => {
 		const code = codeInput?.value.trim();
 		if (!code || code.length < 4) {
@@ -126,25 +155,8 @@ function mountPrivyUI(privy) {
 		try {
 			const { identity_token } = await privy.auth.email.loginWithCode(pendingEmail, code);
 			if (!identity_token) throw new Error('No identity token returned.');
-
 			verifyBtn.textContent = 'Signing in…';
-			const res = await fetch('/api/auth/privy/verify', {
-				method: 'POST',
-				credentials: 'include',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ token: identity_token }),
-			});
-			const data = await res.json().catch(() => ({}));
-			if (!res.ok) throw new Error(data.error_description || 'Sign-in failed.');
-
-			try {
-				localStorage.setItem(
-					'3dagent:auth-hint',
-					JSON.stringify({ authed: true, name: data.user?.display_name || '', ts: Date.now() }),
-				);
-			} catch { /* ignore */ }
-
-			location.href = next;
+			await verifyWithBackend(identity_token);
 		} catch (e) {
 			showErr(e?.message || 'Verification failed. Check the code and try again.');
 			verifyBtn.disabled = false;
@@ -152,13 +164,61 @@ function mountPrivyUI(privy) {
 		}
 	});
 
-	// Keyboard submit on code field
 	codeInput?.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter') { e.preventDefault(); verifyBtn?.click(); }
 	});
 
-	// Auto-format OTP (digits only)
 	codeInput?.addEventListener('input', () => {
 		codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+	});
+
+	// ── EVM Wallet (SIWE via Privy) ────────────────────────────────────────────
+
+	walletBtn?.addEventListener('click', async () => {
+		if (!window.ethereum) {
+			showErr('No wallet detected. Install MetaMask or another browser wallet.');
+			return;
+		}
+		walletBtn.disabled = true;
+		walletBtn.textContent = 'Connecting…';
+		if (walletStatus) { walletStatus.textContent = 'Requesting accounts…'; walletStatus.hidden = false; }
+		clearErr();
+
+		try {
+			const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+			const address  = accounts[0];
+			if (!address) throw new Error('No account returned from wallet.');
+
+			const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+			const chainId    = parseInt(chainIdHex, 16);
+
+			if (walletStatus) walletStatus.textContent = 'Generating sign-in message…';
+			const { message } = await privy.auth.siwe.init(
+				{ address, chainId },
+				location.hostname,
+				location.origin,
+			);
+
+			if (walletStatus) walletStatus.textContent = 'Sign the message in your wallet…';
+			const signature = await window.ethereum.request({
+				method: 'personal_sign',
+				params: [message, address],
+			});
+
+			if (walletStatus) walletStatus.textContent = 'Signing in…';
+			const { identity_token } = await privy.auth.siwe.loginWithSiwe(signature);
+			if (!identity_token) throw new Error('No identity token returned.');
+
+			await verifyWithBackend(identity_token);
+		} catch (e) {
+			const raw = e?.message || '';
+			const msg = /reject|denied|cancel|user refused/i.test(raw)
+				? 'Signature cancelled.'
+				: raw || 'Wallet sign-in failed.';
+			showErr(msg);
+			walletBtn.disabled = false;
+			walletBtn.textContent = 'Connect Wallet';
+			if (walletStatus) { walletStatus.textContent = ''; walletStatus.hidden = true; }
+		}
 	});
 }

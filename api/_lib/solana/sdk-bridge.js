@@ -31,6 +31,11 @@ async function fetchState(connection, mint) {
 		sdk.fetchFeeConfig(),
 		sdk.fetchBondingCurve(mint),
 	]);
+	// A graduated coin has virtualTokenReserves = 0 (fully migrated to a DEX).
+	// All SDK price/quote helpers divide by this value, so guard here once.
+	if (bondingCurve.virtualTokenReserves.isZero()) {
+		throw Object.assign(new Error('coin is graduated — no bonding curve price'), { graduated: true });
+	}
 	const mintSupply = bondingCurve.tokenTotalSupply.sub(bondingCurve.virtualTokenReserves);
 	return { sdk, global, feeConfig, bondingCurve, mintSupply };
 }
