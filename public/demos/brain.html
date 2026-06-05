@@ -53,7 +53,7 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
 .md-name{font-size:13px;font-weight:600;color:var(--t0);display:flex;align-items:center;gap:6px}
 .md-badge{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:1px 5px;border-radius:4px}
 .badge-flagship{background:rgba(212,168,122,.15);color:#d4a87a}.badge-balanced{background:var(--accent-dim);color:var(--accent)}
-.badge-fast{background:var(--ok-dim);color:var(--ok)}.badge-reasoning{background:rgba(167,139,250,.15);color:#a78bfa}
+.badge-fast{background:var(--ok-dim);color:var(--ok)}.badge-reasoning{background:rgba(255,255,255,.07);color:var(--ink-dim)}
 .md-desc{font-size:11.5px;color:var(--t2);margin-top:1px}
 .mode-tabs{display:flex;background:var(--s1);border:1px solid var(--b0);border-radius:7px;padding:2px;gap:1px}
 .mode-tab{padding:5px 16px;border-radius:5px;font-size:12.5px;font-weight:500;color:var(--t2);transition:background .12s,color .12s}
@@ -92,7 +92,7 @@ a{color:inherit;text-decoration:none}button{font-family:inherit;cursor:pointer;b
 .msg-act{padding:3px 8px;border-radius:5px;font-size:11px;color:var(--t2);transition:color .12s,background .12s}
 .msg-act:hover{color:var(--t0);background:var(--s2)}.msg-act.copied{color:var(--ok)}
 .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 24px}
-.empty-orb{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--accent-dim),transparent 70%),radial-gradient(circle at 65% 65%,rgba(167,139,250,.08),transparent 70%),var(--s1);border:1px solid var(--b0);margin-bottom:18px;animation:orbPulse 4s ease-in-out infinite}
+.empty-orb{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--accent-dim),transparent 70%),radial-gradient(circle at 65% 65%,rgba(255,255,255,.04),transparent 70%),var(--s1);border:1px solid var(--b0);margin-bottom:18px;animation:orbPulse 4s ease-in-out infinite}
 @keyframes orbPulse{0%,100%{box-shadow:0 0 0 0 var(--accent-dim)}50%{box-shadow:0 0 30px 4px var(--accent-dim)}}
 .empty-title{font-size:18px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
 .empty-sub{font-size:13.5px;color:var(--t2);max-width:400px;line-height:1.6;margin-bottom:20px}
@@ -204,7 +204,7 @@ const MODELS=[
 {key:'gpt-4o',label:'GPT-4o',network:'OpenAI',tier:'flagship',color:'#74aa82',desc:'OpenAI flagship. Strong reasoning.',cmpDefault:false},
 {key:'gpt-4o-mini',label:'GPT-4o-mini',network:'OpenAI',tier:'fast',color:'#74c0fc',desc:'Fast, affordable GPT.',cmpDefault:true},
 {key:'o3-mini',label:'o3-mini',network:'OpenAI',tier:'reasoning',color:'#a0d8ff',desc:'Reasoning-optimized. Chain-of-thought.',cmpDefault:false},
-{key:'groq-llama',label:'Llama 3.3 70B',network:'Groq',tier:'fast',color:'#a78bfa',desc:'Open-weight. Extremely fast.',cmpDefault:true},
+{key:'groq-llama',label:'Llama 3.3 70B',network:'Groq',tier:'fast',color:'#888888',desc:'Open-weight. Extremely fast.',cmpDefault:true},
 {key:'deepseek-r1',label:'DeepSeek R1',network:'DeepSeek',tier:'reasoning',color:'#60b8ff',desc:'Open reasoning model. Math and code.',cmpDefault:false},
 {key:'qwen-plus',label:'Qwen Plus',network:'DashScope',tier:'balanced',color:'#ff6a3d',desc:'Qwen on DashScope. Strong multilingual.',cmpDefault:false},
 {key:'modelscope-qwen',label:'Qwen3-Coder 480B',network:'ModelScope',tier:'flagship',color:'#5b8def',desc:'Largest Qwen coder.',cmpDefault:false},

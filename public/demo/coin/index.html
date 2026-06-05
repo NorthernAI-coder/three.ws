@@ -71,7 +71,7 @@
 		.pot .value .sol { font-size: 14px; color: var(--muted); font-weight: 500; margin-left: 4px; }
 		.pot.lottery { background: linear-gradient(180deg, rgba(255,186,46,0.08), rgba(255,186,46,0.02)); border-color: rgba(255,186,46,0.25); }
 		.pot.lottery .value { color: var(--accent-3); }
-		.pot.reflection { background: linear-gradient(180deg, rgba(106,92,255,0.08), rgba(106,92,255,0.02)); border-color: rgba(106,92,255,0.25); }
+		.pot.reflection { background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)); border-color: rgba(255,255,255,0.12); }
 		.pot.reflection .value { color: var(--accent); }
 
 		.next-draw { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px;
@@ -112,8 +112,8 @@
 			letter-spacing: 0.05em; padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 600; }
 		table td { padding: 10px 12px; border-bottom: 1px solid #15151e; font-variant-numeric: tabular-nums; }
 		table td.wallet { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
-		table tr:hover td { background: rgba(106,92,255,0.04); }
-		table tr.you td { background: rgba(106,92,255,0.08); }
+		table tr:hover td { background: rgba(255,255,255,0.02); }
+		table tr.you td { background: rgba(255,255,255,0.04); }
 		table tr.you td:first-child::before { content: '★ '; color: var(--accent-3); }
 		table a { color: var(--accent); text-decoration: none; }
 		table a:hover { text-decoration: underline; }
@@ -262,5 +262,7 @@
 	<footer id="site-footer"></footer>
 	<script type="module" src="/demo/coin/dashboard.js"></script>
 	<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

@@ -136,8 +136,8 @@ a:hover {
 	cursor: not-allowed;
 }
 .btn-primary {
-	background: linear-gradient(135deg, #ffffff, #e8e8e8);
-	color: #0a0a0a;
+	background: linear-gradient(135deg, #ffffff, var(--ink));
+	color: var(--bg-0);
 	border-color: transparent;
 	font-weight: 600;
 }

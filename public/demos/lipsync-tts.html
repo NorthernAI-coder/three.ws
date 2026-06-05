@@ -41,7 +41,17 @@
 			.log .err { color: #ff8a8a; }
 			.log .info { color: #9ad4ff; }
 		</style>
-	</head>
+	
+	<meta property="og:type" content="website">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:image" content="https://three.ws/og-image.png">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta name="twitter:title" content="Lipsync (TTS) · three.ws">
+	<meta name="twitter:description" content="Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.">
+	<meta name="twitter:image" content="https://three.ws/og-image.png">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Lipsync (TTS)","description":"Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.","url":"https://three.ws/lipsync","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body>
 		<header><div id="nav-container"></div></header>
 
@@ -332,5 +342,7 @@
 			stopBtn.addEventListener('click', stop);
 		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>
