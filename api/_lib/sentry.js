@@ -119,7 +119,8 @@ function send(event) {
 
 export function captureException(err, context = {}) {
 	if (!dsn()) return;
-	const error = err instanceof Error ? err : new Error(typeof err === 'string' ? err : JSON.stringify(err));
+	const error =
+		err instanceof Error ? err : new Error(typeof err === 'string' ? err : JSON.stringify(err));
 	send({
 		...baseEvent('error'),
 		exception: {

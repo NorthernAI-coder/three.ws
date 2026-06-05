@@ -4784,14 +4784,16 @@
 	(function () {
 		const SHOWCASE_ANIMS = ['idle', 'dance', 'wave', 'celebrate', 'capoeira', 'thriller'];
 		const SHOWCASE_TAGS = ['3D', 'animated', 'rigged', 'ERC-8004', 'pay-per-call', 'community'];
-		const EXPLORE_SHOWCASE_URL = '/api/explore?source=all&limit=6&quality=high';
+		// Pull real public 3D avatars (each a distinct GLB). source=all is dominated
+		// by GLB-less on-chain registrations, which would fall through to duplicated
+		// placeholder models — so we ask the avatar source for 3D rows only, then
+		// dedupe by model + name and take the first 6 unique ones.
+		const EXPLORE_SHOWCASE_URL = '/api/explore?source=avatar&only3d=1&limit=24&quality=high';
 		const FALLBACK_AGENTS = [
 			{ name: 'CZ', description: 'Stylized humanoid', glbUrl: '/avatars/cz.glb', viewerUrl: '/avatars/avatar_demo_disk_cz', kind: 'avatar' },
-			{ name: 'Ansem', description: 'CT legend', glbUrl: '/avatars/default.glb', viewerUrl: '/avatars/avatar_demo_disk_ansem', kind: 'avatar' },
-			{ name: 'Boss Vernington', description: 'Degen sovereign', glbUrl: '/animations/soldier.glb', viewerUrl: '/avatars/avatar_demo_disk_boss_vernington', kind: 'avatar' },
-			{ name: 'Goblin', description: 'Anon deployer', glbUrl: '/animations/robotexpressive.glb', viewerUrl: '/avatars/avatar_demo_disk_goblin', kind: 'avatar' },
-			{ name: 'Agent', description: 'Autonomous operative', glbUrl: '/animations/soldier.glb', viewerUrl: '/avatars/avatar_demo_disk_agent', kind: 'avatar' },
-			{ name: 'Claude', description: 'AI persona', glbUrl: '/avatars/default.glb', viewerUrl: '/avatars/avatar_demo_disk_claude', kind: 'avatar' },
+			{ name: 'Ansem', description: 'Trader persona', glbUrl: '/avatars/default.glb', viewerUrl: '/avatars/avatar_demo_disk_ansem', kind: 'avatar' },
+			{ name: 'Saga', description: 'Expressive robot rig', glbUrl: '/animations/robotexpressive.glb', viewerUrl: '/avatars/avatar_demo_disk_saga', kind: 'avatar' },
+			{ name: 'Boss Vernington', description: 'Soldier rig with locomotion', glbUrl: '/animations/soldier.glb', viewerUrl: '/avatars/avatar_demo_disk_boss', kind: 'avatar' },
 		];
 		const grid = document.getElementById('showcase-3d-grid');
 		if (!grid) return;
@@ -4902,6 +4904,21 @@
 			return d.innerHTML;
 		}
 
+		// Drop repeats so every showcase card is a distinct character: collapse on
+		// both the underlying model (glbUrl/avatarId) and the display name.
+		function dedupeAgents(list) {
+			var seen = Object.create(null);
+			return list.filter(function (it) {
+				var modelKey = String(it.glbUrl || it.avatarId || '').toLowerCase();
+				var nameKey = String(it.name || '').trim().toLowerCase();
+				if (modelKey && seen['m:' + modelKey]) return false;
+				if (nameKey && seen['n:' + nameKey]) return false;
+				if (modelKey) seen['m:' + modelKey] = true;
+				if (nameKey) seen['n:' + nameKey] = true;
+				return true;
+			});
+		}
+
 		function renderShowcase(agentItems) {
 			agentItems.forEach(function (item, i) {
 				grid.appendChild(makeAgentCard(item, i));
@@ -4920,7 +4937,7 @@
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
 					var items = Array.isArray(data.items) ? data.items : [];
-					var agentItems = items.filter(function (it) { return it.glbUrl || it.avatarId; }).slice(0, 6);
+					var agentItems = dedupeAgents(items.filter(function (it) { return it.glbUrl || it.avatarId; })).slice(0, 6);
 					renderShowcase(agentItems.length >= 3 ? agentItems : FALLBACK_AGENTS);
 				})
 				.catch(function () {

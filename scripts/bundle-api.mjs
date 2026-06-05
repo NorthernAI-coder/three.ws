@@ -35,7 +35,7 @@ const isCiBuild =
 	process.env.CI === '1';
 if (!isCiBuild && process.env.FORCE_BUNDLE_API !== '1') {
 	console.log(
-		'[bundle-api] Skipping — not on Vercel/CI. This script overwrites api/*.js in place; running it locally destroys route sources. Set FORCE_BUNDLE_API=1 to override (preferably in a throwaway worktree).'
+		'[bundle-api] Skipping — not on Vercel/CI. This script overwrites api/*.js in place; running it locally destroys route sources. Set FORCE_BUNDLE_API=1 to override (preferably in a throwaway worktree).',
 	);
 	process.exit(0);
 }
@@ -60,11 +60,15 @@ async function collectRouteFiles(dir, out = []) {
 // or lazy-loaded deps as external so:
 //   1. The bundle stays small (faster Vercel function packaging).
 //   2. Dynamic imports stay dynamic at runtime instead of being inlined.
-//      @sentry/node is the biggest offender — sentry.js uses `await import(...)`
-//      to defer the ~15 MB OpenTelemetry instrumentation tree, but esbuild's
-//      --bundle inlines dynamic imports unless the target is external.
+// Caveat: an external is left as a bare import, so NFT DOES trace it — once per
+// function that imports it. Keep this list to deps that are genuinely heavy AND
+// narrowly imported. A heavy external pulled in by a widely-shared module (e.g.
+// _lib/http.js → ~360 routes) multiplies into a build-timeout; that is exactly
+// why @sentry/node was removed from the http.js path (see api/_lib/sentry.js).
 const EXTERNALS = [
-	'sharp', 'canvas', 'fsevents',
+	'sharp',
+	'canvas',
+	'fsevents',
 	'@ipshipyard/node-datachannel',
 	'@three-ws/solana-agent',
 	'@solana/*',
@@ -202,8 +206,15 @@ for (let i = 0; i < routeFiles.length; i += BATCH_SIZE) {
 		process.stdout.write('!');
 		batchErrors++;
 		const stderr = err.stderr?.toString().trim() || err.message || '';
-		const short = stderr.split('\n').filter((l) => l.includes('ERROR')).slice(0, 5).join('\n  ') || stderr.slice(0, 400);
-		console.error(`\n[bundle-api] Batch ${batchIdx}/${totalBatches} failed — retrying individually:\n  ${short}`);
+		const short =
+			stderr
+				.split('\n')
+				.filter((l) => l.includes('ERROR'))
+				.slice(0, 5)
+				.join('\n  ') || stderr.slice(0, 400);
+		console.error(
+			`\n[bundle-api] Batch ${batchIdx}/${totalBatches} failed — retrying individually:\n  ${short}`,
+		);
 		// Retry each file in the failed batch on its own so one bad file
 		// doesn't poison the other 19. Anything still failing is definitively
 		// unbundled and will block the build below.
@@ -213,7 +224,12 @@ for (let i = 0; i < routeFiles.length; i += BATCH_SIZE) {
 				runEsbuild([file], 30_000);
 			} catch (singleErr) {
 				const ss = singleErr.stderr?.toString().trim() || singleErr.message || '';
-				const sshort = ss.split('\n').filter((l) => l.includes('ERROR')).slice(0, 3).join('\n    ') || ss.slice(0, 300);
+				const sshort =
+					ss
+						.split('\n')
+						.filter((l) => l.includes('ERROR'))
+						.slice(0, 3)
+						.join('\n    ') || ss.slice(0, 300);
 				individualFailures.push({ file: relative(ROOT, file), error: sshort });
 			}
 		}
@@ -234,21 +250,28 @@ const sizes = await Promise.all(routeFiles.map(async (f) => (await stat(f)).size
 const totalKB = (sizes.reduce((s, n) => s + n, 0) / 1024).toFixed(0);
 console.log(
 	`\n[bundle-api] Done in ${elapsed}s — ${routeFiles.length} files, ${totalKB} KB` +
-		(batchErrors ? `, ${batchErrors}/${totalBatches} batch errors (${individualRetries} individual retries)` : '') +
+		(batchErrors
+			? `, ${batchErrors}/${totalBatches} batch errors (${individualRetries} individual retries)`
+			: '') +
 		(individualFailures.length ? `, ${individualFailures.length} routes still failing` : '') +
-		(stillRaw.length ? `, ${stillRaw.length} routes left as raw source` : '')
+		(stillRaw.length ? `, ${stillRaw.length} routes left as raw source` : ''),
 );
 
 if (individualFailures.length) {
-	console.error(`\n[bundle-api] FAILED — ${individualFailures.length} routes could not be bundled:`);
+	console.error(
+		`\n[bundle-api] FAILED — ${individualFailures.length} routes could not be bundled:`,
+	);
 	for (const { file, error } of individualFailures.slice(0, 25)) {
 		console.error(`  ${file}\n    ${error}`);
 	}
-	if (individualFailures.length > 25) console.error(`  …and ${individualFailures.length - 25} more`);
+	if (individualFailures.length > 25)
+		console.error(`  …and ${individualFailures.length - 25} more`);
 }
 
 if (stillRaw.length) {
-	console.error(`\n[bundle-api] FAILED — ${stillRaw.length} routes left as raw source (NFT would scan full node_modules):`);
+	console.error(
+		`\n[bundle-api] FAILED — ${stillRaw.length} routes left as raw source (NFT would scan full node_modules):`,
+	);
 	for (const f of stillRaw.slice(0, 25)) console.error(`  ${f}`);
 	if (stillRaw.length > 25) console.error(`  …and ${stillRaw.length - 25} more`);
 }
