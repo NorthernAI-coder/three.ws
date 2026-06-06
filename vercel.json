@@ -2259,7 +2259,7 @@
 			"dest": "/agents/index.html"
 		},
 		{
-			"src": "/agents/([^/]+)",
+			"src": "/agents/([^/.]+)",
 			"has": [
 				{
 					"type": "header",
@@ -2270,7 +2270,7 @@
 			"dest": "/api/agent-detail-og?id=$1"
 		},
 		{
-			"src": "/agents/([^/]+)",
+			"src": "/agents/([^/.]+)",
 			"dest": "/agent-detail.html"
 		},
 		{
