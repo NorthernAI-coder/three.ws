@@ -82,10 +82,18 @@ function buildWorkerRequest(request) {
 		const photos = Array.isArray(params?.images) && params.images.length
 			? params.images
 			: [sourceUrl].filter(Boolean);
+		const body = { images: photos, body_type: params?.bodyType || 'neutral' };
+		// Quality-tier provenance + poly budget for the self-host high-detail path.
+		// Only forwarded when set, so the default request shape is unchanged.
+		if (Number.isFinite(Number(params?.target_polycount))) {
+			body.target_polycount = Math.round(Number(params.target_polycount));
+		}
+		if (params?.tier) body.tier = params.tier;
+		if (params?.path) body.path = params.path;
 		return {
 			path: '/reconstruct',
 			resultKey: 'glb_url',
-			body: { images: photos, body_type: params?.bodyType || 'neutral' },
+			body,
 		};
 	}
 

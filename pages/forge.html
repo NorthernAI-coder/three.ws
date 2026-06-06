@@ -164,6 +164,79 @@
 				box-shadow: none;
 			}
 
+			/* Quality tier + engine + BYOK --------------------------------- */
+			.forge-quality {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-sm);
+				margin-top: var(--space-sm);
+				padding-top: var(--space-sm);
+				border-top: 1px solid var(--stroke);
+			}
+			.fq-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-sm);
+				flex-wrap: wrap;
+			}
+			.fq-label {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+				color: var(--ink-dim);
+				min-width: 4.2rem;
+			}
+			.byok-row {
+				display: flex;
+				align-items: center;
+				gap: var(--space-sm);
+				flex-wrap: wrap;
+			}
+			.byok-input {
+				flex: 1 1 16rem;
+				min-width: 0;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: var(--text-sm);
+				padding: 0.5rem 0.7rem;
+				outline: none;
+				transition: border-color 0.15s, box-shadow 0.15s;
+			}
+			.byok-input:focus-visible {
+				border-color: var(--accent);
+				box-shadow: 0 0 0 3px var(--accent-soft);
+			}
+			.byok-input[aria-invalid='true'] {
+				border-color: var(--danger);
+			}
+			.byok-hint {
+				flex-basis: 100%;
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
+			.byok-hint a {
+				color: var(--accent);
+				text-decoration: none;
+			}
+			.byok-hint a:hover {
+				text-decoration: underline;
+			}
+			.fq-estimate {
+				margin: 0;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				min-height: 1.1em;
+			}
+			.fq-estimate strong {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
 			/* Mode switch -------------------------------------------------- */
 			.mode-switch-wrap {
 				display: flex;
@@ -1093,6 +1166,37 @@
 						Add 1–4 views of the <strong>same</strong> object (front · back · left · right).
 						Drag to drop, click to browse, drag a thumbnail to reorder. PNG/JPG/WebP, up to 8&nbsp;MB each.
 					</p>
+				</div>
+
+				<!-- Quality tier + generation engine + BYOK key -->
+				<div class="forge-quality" id="forge-quality">
+					<div class="fq-row">
+						<span class="fq-label" id="tier-label">Quality</span>
+						<div class="aspect" role="group" aria-labelledby="tier-label" id="tier">
+							<button type="button" data-tier="draft" aria-pressed="false">Draft</button>
+							<button type="button" data-tier="standard" aria-pressed="true">Standard</button>
+							<button type="button" data-tier="high" aria-pressed="false">High</button>
+						</div>
+					</div>
+					<div class="fq-row">
+						<span class="fq-label" id="engine-label">Engine</span>
+						<div class="aspect" role="group" aria-labelledby="engine-label" id="engine"></div>
+					</div>
+					<div class="byok-row is-hidden" id="byok-row">
+						<label class="fq-label" for="provider-key" id="byok-label">API key</label>
+						<input
+							class="byok-input"
+							id="provider-key"
+							type="password"
+							autocomplete="off"
+							autocapitalize="off"
+							spellcheck="false"
+							placeholder="Your provider API key (kept in this browser)"
+							aria-describedby="byok-hint"
+						/>
+						<span class="byok-hint" id="byok-hint"></span>
+					</div>
+					<p class="fq-estimate" id="estimate" aria-live="polite"></p>
 				</div>
 
 				<div class="composer-row">

@@ -168,9 +168,12 @@ export class AnimationLibrary {
 		});
 		const grid = el('div', { class: 'al-grid' });
 		const empty = el('div', { class: 'al-empty' });
-		const transport = this._renderTransport();
 
-		this._refs = { search, chips, grid, empty, transport };
+		// Shell refs first; _renderTransport() merges its own sub-refs (label,
+		// speed, export button) into this._refs, so it must run after this assign.
+		this._refs = { search, chips, grid, empty };
+		const transport = this._renderTransport();
+		this._refs.transport = transport;
 
 		this.host.appendChild(search);
 		this.host.appendChild(chips);
