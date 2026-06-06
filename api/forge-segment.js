@@ -1,19 +1,20 @@
 /**
- * /api/forge-remesh — mesh processing for the forge pipeline.
+ * /api/forge-segment — split a 3D model into named, addressable parts.
  *
- *   POST /api/forge-remesh  {
+ *   POST /api/forge-segment  {
  *     mesh_url: string,
- *     remesh_mode?: "triangle"|"quad"|"lowpoly",
- *     operation?: "full"|"simplify"|"repair"|"convert",   // triangle mode only
- *     target_faces?: number,
- *     texture_size?: 512|1024|2048,
- *     output_format?: "glb"|"obj"|"stl"|"ply"|"usdz"|"3mf"
+ *     method?: "auto"|"connected"|"crease",
+ *     max_parts?: number,        // 2–64
+ *     min_part_faces?: number,   // 4–100000
+ *     crease_angle?: number,     // 5–170 (degrees)
+ *     only_part?: string         // export just this part id/name (e.g. "part_03")
  *   } → 202 { job_id, status }
  *
- *   GET  /api/forge-remesh?job=<id>
- *     → { job_id, status, result_url?, texture_url?, face_count?, quad_ratio?, textured?, mode?, error? }
+ *   GET  /api/forge-segment?job=<id>
+ *     → { job_id, status, result_url?, manifest_url?, parts?, part_count?,
+ *         source_faces?, method?, warnings?, error? }
  *
- * Routes to workers/remesh (GCP Cloud Run) when GCP_REMESH_URL is set.
+ * Routes to workers/segment (GCP Cloud Run) when GCP_SEGMENT_URL is set.
  */
 
 import { cors, json, method, readJson, wrap } from './_lib/http.js';
@@ -21,17 +22,15 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { createRegenProvider } from './_providers/gcp.js';
 
 const JOB_ID_RE = /^[A-Za-z0-9_-]{20,64}$/;
-const VALID_OPERATIONS = new Set(['full', 'simplify', 'repair', 'convert']);
-const VALID_FORMATS = new Set(['glb', 'obj', 'stl', 'ply', 'usdz', '3mf']);
-const VALID_MODES = new Set(['triangle', 'quad', 'lowpoly']);
-const VALID_TEXTURE_SIZES = new Set([512, 1024, 2048]);
+const VALID_METHODS = new Set(['auto', 'connected', 'crease']);
+const PART_REF_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 function unconfigured(res) {
 	return json(res, 503, {
 		error: 'unconfigured',
 		message:
-			'Mesh processing is not configured. Set GCP_REMESH_URL and GCP_RECONSTRUCTION_KEY ' +
-			'to the URL and bearer secret of your deployed workers/remesh Cloud Run service.',
+			'Part segmentation is not configured. Set GCP_SEGMENT_URL and GCP_RECONSTRUCTION_KEY ' +
+			'to the URL and bearer secret of your deployed workers/segment Cloud Run service.',
 	});
 }
 
@@ -51,44 +50,43 @@ async function startJob(req, res) {
 		return json(res, 400, { error: 'invalid_mesh_url', message: 'mesh_url must be a public https URL.' });
 	}
 
-	const remeshMode = VALID_MODES.has(body?.remesh_mode) ? body.remesh_mode : 'triangle';
-	const operation = VALID_OPERATIONS.has(body?.operation) ? body.operation : 'full';
-	const outputFormat = VALID_FORMATS.has(body?.output_format) ? body.output_format : 'glb';
-	const targetFaces = Math.max(1_000, Math.min(500_000, Number(body?.target_faces) || 50_000));
-	const textureSize = VALID_TEXTURE_SIZES.has(Number(body?.texture_size))
-		? Number(body.texture_size)
-		: 1024;
+	const segMethod = VALID_METHODS.has(body?.method) ? body.method : 'auto';
+	const maxParts = Math.max(2, Math.min(64, Number(body?.max_parts) || 24));
+	const minPartFaces = Math.max(4, Math.min(100_000, Number(body?.min_part_faces) || 64));
+	const creaseAngle = Math.max(5, Math.min(170, Number(body?.crease_angle) || 40));
+	const onlyPart =
+		typeof body?.only_part === 'string' && PART_REF_RE.test(body.only_part.trim())
+			? body.only_part.trim()
+			: undefined;
 
 	let provider;
 	try {
 		provider = createRegenProvider();
-		if (!provider.supportsMode('remesh')) return unconfigured(res);
+		if (!provider.supportsMode('segment')) return unconfigured(res);
 	} catch {
 		return unconfigured(res);
 	}
 
 	try {
 		const job = await provider.submit({
-			mode: 'remesh',
+			mode: 'segment',
 			sourceUrl: meshUrl,
 			params: {
-				remesh_mode: remeshMode,
-				operation,
-				target_faces: targetFaces,
-				texture_size: textureSize,
-				output_format: outputFormat,
+				method: segMethod,
+				max_parts: maxParts,
+				min_part_faces: minPartFaces,
+				crease_angle: creaseAngle,
+				only_part: onlyPart,
 			},
 		});
 		return json(res, 202, {
 			job_id: job.extJobId,
 			status: 'queued',
-			remesh_mode: remeshMode,
-			operation,
-			output_format: outputFormat,
+			method: segMethod,
 			eta_seconds: job.eta,
 		});
 	} catch (err) {
-		return json(res, 502, { error: 'remesh_failed', message: err?.message || 'Mesh processing could not start.' });
+		return json(res, 502, { error: 'segment_failed', message: err?.message || 'Segmentation could not start.' });
 	}
 }
 
@@ -114,11 +112,12 @@ async function pollJob(req, res, jobId) {
 		job_id: jobId,
 		status: result.status,
 		result_url: result.resultGlbUrl || null,
-		texture_url: result.textureUrl || null,
-		face_count: typeof result.faceCount === 'number' ? result.faceCount : null,
-		quad_ratio: typeof result.quadRatio === 'number' ? result.quadRatio : null,
-		textured: typeof result.textured === 'boolean' ? result.textured : null,
-		mode: result.mode || null,
+		manifest_url: result.manifestUrl || null,
+		parts: result.parts || null,
+		part_count: result.partCount ?? null,
+		source_faces: result.sourceFaces ?? null,
+		method: result.segmentMethod || null,
+		warnings: result.warnings || null,
 		error: result.error || null,
 	});
 }

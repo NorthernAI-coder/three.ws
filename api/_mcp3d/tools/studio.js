@@ -152,16 +152,23 @@ export const toolDefs = [
 	},
 	{
 		name: 'image_to_3d',
-		title: 'Reconstruct a 3D model from an image',
+		title: 'Reconstruct a 3D model from one or more images',
 		description:
-			'Reconstruct a textured 3D model (GLB) from a single reference image URL using Microsoft TRELLIS. Returns a job_id to poll with generation_status. The cleaner the input — one subject, plain background, even lighting — the better the mesh.',
+			'Reconstruct a textured 3D model (GLB) from a reference image using Microsoft TRELLIS. Pass a single image_url, or image_urls (2–4 views of the SAME object from different angles — front/back/left/right) for multi-view reconstruction, which removes the back-of-object hallucination of single-image reconstruction. Returns a job_id to poll with generation_status, plus how many views were fused and which backend handled it. The cleaner the inputs — one subject, plain background, even lighting — the better the mesh.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				image_url: {
 					type: 'string',
 					format: 'uri',
-					description: 'Public https URL of the reference image (PNG/JPG/WebP).',
+					description: 'Public https URL of the reference image (PNG/JPG/WebP). Use image_urls for multi-view.',
+				},
+				image_urls: {
+					type: 'array',
+					items: { type: 'string', format: 'uri' },
+					minItems: 1,
+					maxItems: 4,
+					description: '1–4 public https URLs of the same object from different angles. Takes precedence over image_url; >1 enables multi-view reconstruction.',
 				},
 				prompt: {
 					type: 'string',
@@ -169,33 +176,78 @@ export const toolDefs = [
 					description: 'Optional text hint passed to the reconstruction model.',
 				},
 			},
-			required: ['image_url'],
 			additionalProperties: false,
 		},
 		async handler(args, auth) {
 			await enforce(limits.mcp3dGenerate, auth);
-			if (!(await isPublicHttpsUrl(args.image_url))) {
+
+			// Merge the multi-view array form with the single image_url, de-duped
+			// and order-preserving. image_urls wins when both are present.
+			const rawViews = Array.isArray(args.image_urls)
+				? args.image_urls
+				: typeof args.image_url === 'string'
+					? [args.image_url]
+					: [];
+			const seen = new Set();
+			const views = [];
+			for (const v of rawViews) {
+				if (typeof v !== 'string') continue;
+				const t = v.trim();
+				if (!t || seen.has(t)) continue;
+				seen.add(t);
+				views.push(t);
+			}
+			if (views.length === 0) {
 				return {
-					content: [{ type: 'text', text: 'Error: image_url must be a public https URL.' }],
+					content: [{ type: 'text', text: 'Error: provide image_url or image_urls (1–4).' }],
 					isError: true,
 				};
 			}
+			if (views.length > 4) {
+				return {
+					content: [{ type: 'text', text: 'Error: provide between 1 and 4 images.' }],
+					isError: true,
+				};
+			}
+			for (const v of views) {
+				if (!(await isPublicHttpsUrl(v))) {
+					return {
+						content: [
+							{ type: 'text', text: 'Error: every image URL must be a public https URL.' },
+						],
+						isError: true,
+					};
+				}
+			}
+
 			const provider = regenProvider();
 			const job = await provider.submit({
 				mode: 'reconstruct',
-				params: { image: args.image_url, prompt: args.prompt },
+				sourceUrl: views[0],
+				params: { images: views, prompt: args.prompt },
 			});
+			const viewsUsed = typeof job.viewsUsed === 'number' ? job.viewsUsed : views.length;
+			const multiview = Boolean(job.multiview);
+			const summary =
+				views.length > 1
+					? `Started multi-view reconstruction from ${views.length} views (${viewsUsed} fused${multiview ? '' : ', single-view fallback'}).`
+					: 'Started reconstructing a 3D model from the image.';
 			return {
 				content: [
 					{
 						type: 'text',
-						text: `Started reconstructing a 3D model from the image.\nJob ID: ${job.extJobId}\n${POLL_HINT}`,
+						text: `${summary}\nJob ID: ${job.extJobId}\n${POLL_HINT}`,
 					},
 				],
 				structuredContent: {
 					job_id: job.extJobId,
 					status: 'queued',
-					source_image_url: args.image_url,
+					source_image_url: views[0],
+					source_image_urls: views,
+					views_requested: views.length,
+					views_used: viewsUsed,
+					multiview,
+					backend: job.backend ?? null,
 					eta_seconds: job.eta,
 				},
 			};
@@ -428,6 +480,84 @@ export const toolDefs = [
 					status: 'queued',
 					source_mesh_url: args.mesh_url,
 					operation: args.operation || 'full',
+					eta_seconds: job.eta,
+				},
+			};
+		},
+	},
+	{
+		name: 'stylize_model',
+		title: 'Apply a one-click geometric stylization filter to a 3D model',
+		description:
+			'Transform any GLB/OBJ/STL/PLY mesh into a stylized variant with a single geometry pass — ' +
+			'no model inference, fast and cheap. Styles: "voxel" (blocky cubes on a grid), "brick" ' +
+			'(voxels + studs, LEGO-like), "voronoi" (open strut-and-node lattice shell), "lowpoly" ' +
+			'(decimated + hard flat-shaded facets). Source color is preserved where the style allows. ' +
+			'Returns a job_id to poll with generation_status; typically completes in 10–40 seconds.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				mesh_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the source mesh (GLB/OBJ/FBX/STL/PLY).',
+				},
+				style: {
+					type: 'string',
+					enum: ['voxel', 'brick', 'voronoi', 'lowpoly'],
+					default: 'voxel',
+					description:
+						'voxel = blocky cubes; brick = voxels + studs (LEGO-like); voronoi = open lattice shell; lowpoly = faceted flat-shaded.',
+				},
+				resolution: {
+					type: 'integer',
+					minimum: 8,
+					maximum: 120,
+					description:
+						'Style-specific density (clamped per style): voxel/brick = grid resolution, voronoi = cell density, lowpoly = detail level. Omit for a sensible per-style default.',
+				},
+				output_format: {
+					type: 'string',
+					enum: ['glb', 'obj', 'stl', 'ply'],
+					default: 'glb',
+				},
+			},
+			required: ['mesh_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.mesh_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			const provider = regenProvider('stylize');
+			const style = args.style || 'voxel';
+			const job = await provider.submit({
+				mode: 'stylize',
+				sourceUrl: args.mesh_url,
+				params: {
+					style,
+					resolution: Number.isInteger(args.resolution) ? args.resolution : null,
+					output_format: args.output_format || 'glb',
+				},
+			});
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Stylization started (${style}).\nJob ID: ${job.extJobId}\n` +
+							'Poll with generation_status. Typically completes in 10–40 seconds.',
+					},
+				],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_mesh_url: args.mesh_url,
+					style,
 					eta_seconds: job.eta,
 				},
 			};

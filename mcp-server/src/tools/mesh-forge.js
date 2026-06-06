@@ -39,7 +39,7 @@ import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'mesh_forge';
 const TOOL_DESCRIPTION =
-	'Generate a textured 3D GLB model from a text prompt OR a reference image. In text mode, a chain of specialist models runs: an IBM Granite "prompt director" rewrites the prompt into an optimized 3D spec, FLUX renders a reference image, then Microsoft TRELLIS / Tencent Hunyuan3D reconstruct the mesh. In image mode, a supplied image_url is reconstructed directly. Returns the GLB URL, a three.ws viewer link, the directed prompt (text mode), and timing. Feed the GLB to rig_mesh for a rigged, animation-ready model. Paid: $0.25 USDC.';
+	'Generate a textured 3D GLB model from a text prompt, a single reference image, OR 2–4 reference views of the same object. In text mode, a chain of specialist models runs: an IBM Granite "prompt director" rewrites the prompt into an optimized 3D spec, FLUX renders a reference image, then Microsoft TRELLIS / Tencent Hunyuan3D reconstruct the mesh. In image mode, a supplied image_url is reconstructed directly. In multi-view mode, pass image_urls (1–4 angles such as front/back/left/right) and the backend fuses them for a higher-fidelity mesh with no hallucinated back. Returns the GLB URL, a three.ws viewer link, how many views were fused, which backend handled it, the directed prompt (text mode), and timing. Feed the GLB to rig_mesh for a rigged, animation-ready model. Paid: $0.25 USDC.';
 
 const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 
@@ -120,11 +120,15 @@ async function directPrompt(rawPrompt) {
 	return refined.length >= 3 && refined.length <= 1000 ? refined : null;
 }
 
-async function startForge({ prompt, aspect, imageUrl }) {
+async function startForge({ prompt, aspect, imageUrls }) {
 	const base = apiBase();
-	const payload = imageUrl
-		? { image_url: imageUrl, prompt: prompt || undefined, aspect_ratio: aspect }
-		: { prompt, aspect_ratio: aspect };
+	// Multi-view: send all supplied views as image_urls[]; the three.ws pipeline
+	// routes >1 view to a multi-view-capable backend (and reports a downgrade if
+	// the configured backend can't fuse them). Text mode sends just the prompt.
+	const payload =
+		Array.isArray(imageUrls) && imageUrls.length
+			? { image_urls: imageUrls, prompt: prompt || undefined, aspect_ratio: aspect }
+			: { prompt, aspect_ratio: aspect };
 	const res = await fetch(`${base}/api/forge`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -201,6 +205,12 @@ const inputZodShape = {
 		.url()
 		.describe('Image→3D: an http(s) URL to a reference image to reconstruct directly. When set, the prompt-director and text-to-image stages are skipped.')
 		.optional(),
+	image_urls: z
+		.array(z.string().url())
+		.min(1)
+		.max(4)
+		.describe('Multi-view → 3D: 1–4 http(s) URLs of the SAME object from different angles (e.g. front, back, left, right). More than one view enables multi-view reconstruction, which removes the back-of-object guesswork of single-image reconstruction. Takes precedence over image_url.')
+		.optional(),
 	aspect_ratio: z
 		.enum(['1:1', '4:3', '3:4', '16:9', '9:16'])
 		.describe('Reference image aspect ratio (text mode). Default 1:1 (best for isolated objects).')
@@ -227,6 +237,11 @@ export async function buildMeshForgeTool() {
 				glbUrl: 'https://three.ws/cdn/creations/abc123/mesh.glb',
 				preview: 'https://three.ws/viewer?src=https%3A%2F%2Fthree.ws%2Fcdn%2F...',
 				prompt: 'a worn leather armchair, brass studs',
+				imageUrls: null,
+				viewsRequested: 0,
+				viewsUsed: 1,
+				multiview: false,
+				backend: 'replicate',
 				directedPrompt: 'A single worn brown leather wingback armchair with brass stud trim...',
 				directed: true,
 				jobId: 'k7m2q9x4',
@@ -235,13 +250,33 @@ export async function buildMeshForgeTool() {
 				durationMs: 96000,
 			},
 		},
-		async ({ prompt, image_url, aspect_ratio, direct }) => {
+		async ({ prompt, image_url, image_urls, aspect_ratio, direct }) => {
 			const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
-			const imageMode = typeof image_url === 'string' && image_url.trim().length > 0;
+
+			// Merge the multi-view array form with the legacy single image_url,
+			// de-duplicating while preserving order. image_urls wins when present.
+			const rawViews = Array.isArray(image_urls)
+				? image_urls
+				: typeof image_url === 'string'
+					? [image_url]
+					: [];
+			const seenViews = new Set();
+			const views = [];
+			for (const v of rawViews) {
+				if (typeof v !== 'string') continue;
+				const t = v.trim();
+				if (!t || seenViews.has(t)) continue;
+				seenViews.add(t);
+				views.push(t);
+			}
+			if (views.length > 4) {
+				return toolError('invalid_input', 'Provide between 1 and 4 reference images.');
+			}
+			const imageMode = views.length > 0;
 			if (!imageMode && trimmedPrompt.length < 3) {
 				return toolError(
 					'invalid_input',
-					'Provide a prompt (3+ chars) for text→3D, or an image_url for image→3D.',
+					'Provide a prompt (3+ chars) for text→3D, or 1–4 image_urls for image/multi-view→3D.',
 				);
 			}
 			const aspect = VALID_ASPECT.has(aspect_ratio) ? aspect_ratio : '1:1';
@@ -261,7 +296,7 @@ export async function buildMeshForgeTool() {
 				job = await startForge({
 					prompt: effectivePrompt || undefined,
 					aspect,
-					imageUrl: imageMode ? image_url.trim() : undefined,
+					imageUrls: imageMode ? views : undefined,
 				});
 			} catch (err) {
 				return toolError(err.code || 'provider_error', err.message, {
@@ -305,7 +340,15 @@ export async function buildMeshForgeTool() {
 				glbUrl,
 				preview,
 				prompt: trimmedPrompt || null,
-				imageUrl: imageMode ? image_url.trim() : null,
+				imageUrl: imageMode ? views[0] : null,
+				imageUrls: imageMode ? views : null,
+				viewsRequested: imageMode ? views.length : 0,
+				// How the backend actually conditioned the mesh — surfaced from the
+				// submit + poll responses so a multi-view downgrade is never silent.
+				viewsUsed:
+					(typeof final.views_used === 'number' ? final.views_used : job.views_used) ?? null,
+				multiview: (final.multiview ?? job.multiview) ?? null,
+				backend: (final.backend ?? job.backend) ?? null,
 				directedPrompt: directedPrompt || null,
 				directed: Boolean(directedPrompt),
 				jobId: job.job_id,

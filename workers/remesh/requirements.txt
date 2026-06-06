@@ -3,6 +3,10 @@ uvicorn[standard]==0.32.1
 trimesh[easy]==4.5.3
 open3d==0.18.0
 numpy==1.26.4
+# Quad/low-poly UV atlas generation (re-unwrap before texture re-bake). MIT.
+xatlas==0.0.9
+# Texture atlas read/write for the re-bake step.
+Pillow==11.0.0
 google-cloud-storage==2.19.0
 httpx==0.27.2
 pydantic==2.10.3

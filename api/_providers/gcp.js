@@ -9,8 +9,10 @@
 //                  POST /reconstruct → { job_id }  GET /jobs/:id → { status, glb_url }
 //
 //   remesh       → GCP_REMESH_URL           (workers/remesh)
+//   stylize      → GCP_STYLIZE_URL          (workers/stylize)
 //   retex        → GCP_TEXTURE_URL          (workers/texture)
 //   rembg        → GCP_REMBG_URL            (workers/rembg)
+//   segment      → GCP_SEGMENT_URL          (workers/segment)
 //   rerig        → GCP_RECONSTRUCTION_URL   (avatar-pipeline-controller, /rig endpoint)
 //
 // All workers share the same bearer secret (GCP_RECONSTRUCTION_KEY).
@@ -54,10 +56,14 @@ function serviceUrlForMode(mode) {
 			return readEnv('GCP_RECONSTRUCTION_URL');
 		case 'remesh':
 			return readEnv('GCP_REMESH_URL');
+		case 'stylize':
+			return readEnv('GCP_STYLIZE_URL');
 		case 'retex':
 			return readEnv('GCP_TEXTURE_URL');
 		case 'rembg':
 			return readEnv('GCP_REMBG_URL');
+		case 'segment':
+			return readEnv('GCP_SEGMENT_URL');
 		case 'rerig':
 			// Rigging is handled by the pipeline controller via its /rig endpoint.
 			return readEnv('GCP_RECONSTRUCTION_URL');
@@ -87,8 +93,23 @@ function buildWorkerRequest(request) {
 			resultKey: 'result_url',
 			body: {
 				mesh: sourceUrl,
+				remesh_mode: params?.remesh_mode || 'triangle',
 				operation: params?.operation || 'full',
 				target_faces: params?.target_faces || 50_000,
+				texture_size: params?.texture_size || 1024,
+				output_format: params?.output_format || 'glb',
+			},
+		};
+	}
+
+	if (mode === 'stylize') {
+		return {
+			path: '/process',
+			resultKey: 'result_url',
+			body: {
+				mesh: sourceUrl,
+				style: params?.style || 'voxel',
+				resolution: params?.resolution ?? null,
 				output_format: params?.output_format || 'glb',
 			},
 		};
@@ -119,6 +140,21 @@ function buildWorkerRequest(request) {
 		};
 	}
 
+	if (mode === 'segment') {
+		return {
+			path: '/segment',
+			resultKey: 'result_url',
+			body: {
+				mesh: sourceUrl,
+				method: params?.method || 'auto',
+				max_parts: params?.max_parts || 24,
+				min_part_faces: params?.min_part_faces || 64,
+				crease_angle: params?.crease_angle ?? 40,
+				...(params?.only_part ? { only_part: params.only_part } : {}),
+			},
+		};
+	}
+
 	if (mode === 'rerig') {
 		return {
 			path: '/rig',
@@ -138,8 +174,10 @@ function buildWorkerRequest(request) {
 const MODE_ETA = {
 	reconstruct: 120,
 	remesh: 30,
+	stylize: 25,
 	retex: 180,
 	rembg: 5,
+	segment: 45,
 	rerig: 45,
 };
 
@@ -157,6 +195,13 @@ export function createRegenProvider() {
 	return {
 		supportsMode(mode) {
 			return Boolean(serviceUrlForMode(mode));
+		},
+
+		// The reconstruction worker accepts an `images` array and fuses every
+		// supplied view, so multi-view conditioning is available whenever the
+		// reconstruct service is configured.
+		supportsMultiview() {
+			return Boolean(serviceUrlForMode('reconstruct'));
 		},
 
 		async submit(request) {
@@ -209,9 +254,19 @@ export function createRegenProvider() {
 				);
 			}
 
+			// Report how the job was conditioned. For reconstruct the worker fuses
+			// every image in the body; other modes are single-source.
+			const viewsUsed =
+				mode === 'reconstruct' && Array.isArray(workerReq.body.images)
+					? workerReq.body.images.length
+					: 0;
+
 			return {
 				extJobId: packJobId({ mode, taskId, baseUrl, resultKey: workerReq.resultKey }),
 				eta: MODE_ETA[mode] ?? 60,
+				backend: 'gcp',
+				multiview: viewsUsed > 1,
+				viewsUsed,
 			};
 		},
 
@@ -263,6 +318,24 @@ export function createRegenProvider() {
 					result.resultImageUrl = url;
 				} else {
 					result.resultGlbUrl = url;
+				}
+				// Surface remesh telemetry so callers can show topology stats.
+				if (mode === 'remesh') {
+					if (typeof data.face_count === 'number') result.faceCount = data.face_count;
+					if (typeof data.quad_ratio === 'number') result.quadRatio = data.quad_ratio;
+					if (typeof data.textured === 'boolean') result.textured = data.textured;
+					if (data.texture_url) result.textureUrl = data.texture_url;
+					if (data.mode) result.mode = data.mode;
+				}
+				// Surface the parts manifest so callers can render a selectable
+				// part list without a second fetch.
+				if (mode === 'segment') {
+					if (data.manifest_url) result.manifestUrl = data.manifest_url;
+					if (Array.isArray(data.parts)) result.parts = data.parts;
+					if (typeof data.part_count === 'number') result.partCount = data.part_count;
+					if (typeof data.source_faces === 'number') result.sourceFaces = data.source_faces;
+					if (data.method) result.segmentMethod = data.method;
+					if (Array.isArray(data.warnings) && data.warnings.length) result.warnings = data.warnings;
 				}
 			}
 

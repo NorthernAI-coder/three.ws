@@ -1,29 +1,45 @@
 """
-Mesh processing service — remesh, simplify, repair, and convert 3D files.
+Mesh processing service — remesh, simplify, repair, retopologize, and convert 3D files.
 
-Wraps trimesh + open3d. No GPU required; runs on CPU. Handles:
+Wraps trimesh + open3d + QuadriFlow + xatlas. No GPU required; runs on CPU. Handles:
   - Format conversion (GLB ↔ OBJ ↔ FBX ↔ STL ↔ PLY ↔ USDZ ↔ 3MF)
-  - Face count reduction (quadric decimation via open3d)
+  - Triangle decimation (quadric error metric via open3d)
+  - Quad remeshing (field-aligned quad-dominant topology via QuadriFlow, MIT)
+  - Smart low-poly (silhouette-preserving decimation + UV re-unwrap + texture re-bake)
   - Mesh repair (fill holes, remove degenerate faces, fix normals)
   - Vertex deduplication and cleaning
-  - UV unwrapping for meshes without UV maps
+
+Tooling / licensing:
+  - QuadriFlow (https://github.com/hjwdzh/QuadriFlow) — MIT, commercial-OK. A scalable,
+    robust field-aligned quadrangulation method. Invoked as a separate CLI process
+    (built from source in the Dockerfile) so its permissively-licensed transitive deps
+    never link into our code. Chosen over Instant Meshes (GPLv3) and Exoside Quad
+    Remesher (paid, closed) precisely because MIT is unambiguously commercial-safe.
+  - xatlas (https://github.com/jpcy/xatlas, via xatlas-python) — MIT. UV atlas
+    generation used to re-unwrap remeshed geometry so a baked texture maps cleanly.
 
 API contract:
   POST /process  {
     mesh: url,                       # https GLB/OBJ/FBX/STL URL (required)
-    operation: "convert"|"simplify"|"repair"|"full",   # default: "full"
+    remesh_mode: "triangle"|"quad"|"lowpoly",   # default: "triangle"
+    operation: "convert"|"simplify"|"repair"|"full",   # default: "full" (triangle mode only)
     target_faces?: int,              # default: 50000, range: 1000–500000
+    texture_size?: int,              # 512|1024|2048, default 1024 (bake atlas size)
     output_format?: "glb"|"obj"|"stl"|"ply"|"usdz"|"3mf",  # default: "glb"
   } → 202 { task_id, status }
 
-  GET /tasks/:id → { task_id, status, result_url?, face_count?, error? }
+  GET /tasks/:id → {
+    task_id, status, result_url?, texture_url?, mtl_url?,
+    face_count?, quad_ratio?, mode?, textured?, error?
+  }
 
   GET /health    → { ok }
 
 Environment variables:
-  API_KEY     — bearer secret (required)
-  GCS_BUCKET  — output bucket (required)
+  API_KEY        — bearer secret (required)
+  GCS_BUCKET     — output bucket (required)
   MAX_CONCURRENT — default 2
+  QUADRIFLOW_BIN — path to the quadriflow executable (default: "quadriflow")
 """
 
 from __future__ import annotations
@@ -32,6 +48,8 @@ import asyncio
 import io
 import logging
 import os
+import shutil
+import subprocess
 import tempfile
 import time
 import uuid
@@ -59,6 +77,7 @@ log = logging.getLogger("remesh")
 API_KEY = os.environ["API_KEY"]
 GCS_BUCKET = os.environ["GCS_BUCKET"]
 MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT", "2"))
+QUADRIFLOW_BIN = os.environ.get("QUADRIFLOW_BIN", "quadriflow")
 
 _bucket: Optional[storage.Bucket] = None
 _sem: Optional[asyncio.Semaphore] = None
@@ -66,6 +85,8 @@ _tasks: dict[str, dict] = {}
 
 SUPPORTED_INPUT_FORMATS = {".glb", ".gltf", ".obj", ".stl", ".ply", ".fbx", ".off", ".dae"}
 SUPPORTED_OUTPUT_FORMATS = {"glb", "obj", "stl", "ply", "usdz", "3mf"}
+VALID_MODES = {"triangle", "quad", "lowpoly"}
+VALID_TEXTURE_SIZES = {512, 1024, 2048}
 MAX_MESH_BYTES = 128 * 1024 * 1024
 
 
@@ -76,7 +97,11 @@ async def lifespan(app: FastAPI):
     _sem = asyncio.Semaphore(MAX_CONCURRENT)
     import trimesh
     import open3d
-    log.info("remesh service ready — trimesh %s, open3d %s", trimesh.__version__, open3d.__version__)
+    quad = shutil.which(QUADRIFLOW_BIN) or QUADRIFLOW_BIN
+    log.info(
+        "remesh service ready — trimesh %s, open3d %s, quadriflow=%s",
+        trimesh.__version__, open3d.__version__, quad,
+    )
     yield
 
 
@@ -90,6 +115,8 @@ def _require_api_key(authorization: str) -> None:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
+# ── Loading ──────────────────────────────────────────────────────────────────
+
 def _fetch_mesh(url: str) -> tuple[bytes, str]:
     try:
         data = fetch_remote_bytes(url, timeout=60, max_bytes=MAX_MESH_BYTES)
@@ -101,34 +128,81 @@ def _fetch_mesh(url: str) -> tuple[bytes, str]:
     return data, suffix
 
 
-def _load_mesh(data: bytes, suffix: str):
+def _load_concatenated(data: bytes, suffix: str):
+    """Load a mesh, flattening any scene into one Trimesh. Drops materials —
+    used by the triangle pipeline where texture transfer is not performed."""
     import trimesh
-    return trimesh.load(
-        io.BytesIO(data),
-        file_type=suffix.lstrip("."),
-        force="mesh",
-        process=False,
+    mesh = trimesh.load(
+        io.BytesIO(data), file_type=suffix.lstrip("."), force="mesh", process=False,
     )
+    if isinstance(mesh, trimesh.Scene):
+        meshes = [g for g in mesh.geometry.values() if isinstance(g, trimesh.Trimesh)]
+        if not meshes:
+            raise ValueError("no renderable geometry found in scene")
+        mesh = trimesh.util.concatenate(meshes)
+    return mesh
 
+
+def _load_textured(data: bytes, suffix: str):
+    """Load preserving UVs + texture for the quad/lowpoly pipelines. When the
+    asset is a multi-mesh scene we keep the single largest textured submesh so
+    its UV/material survives (concatenation would discard per-mesh textures)."""
+    import trimesh
+    loaded = trimesh.load(io.BytesIO(data), file_type=suffix.lstrip("."), process=False)
+
+    if isinstance(loaded, trimesh.Trimesh):
+        return loaded
+
+    if isinstance(loaded, trimesh.Scene):
+        meshes = [g for g in loaded.geometry.values() if isinstance(g, trimesh.Trimesh)]
+        if not meshes:
+            raise ValueError("no renderable geometry found in scene")
+        textured = [m for m in meshes if _source_texture(m)[1] is not None]
+        if textured:
+            return max(textured, key=lambda m: len(m.faces))
+        # No textures anywhere — concatenating is lossless for geometry.
+        return trimesh.util.concatenate(meshes)
+
+    raise ValueError("unsupported mesh container")
+
+
+def _source_texture(mesh):
+    """Return (uv ndarray | None, PIL.Image | None) for a mesh's base texture."""
+    import numpy as np
+    visual = getattr(mesh, "visual", None)
+    uv = getattr(visual, "uv", None)
+    if uv is not None:
+        uv = np.asarray(uv)
+        if uv.ndim != 2 or len(uv) != len(mesh.vertices):
+            uv = None
+    image = None
+    material = getattr(visual, "material", None)
+    if material is not None:
+        image = (
+            getattr(material, "baseColorTexture", None)
+            or getattr(material, "image", None)
+        )
+    return uv, image
+
+
+# ── Repair / triangle decimation (existing behaviour) ────────────────────────
 
 def _repair_mesh(mesh):
     import trimesh
-    # Fill holes
     trimesh.repair.fill_holes(mesh)
-    # Remove degenerate faces (zero-area)
     mask = mesh.nondegenerate_faces()
     mesh.update_faces(mask)
-    # Fix normals
     trimesh.repair.fix_normals(mesh)
-    # Merge duplicate vertices
     mesh.merge_vertices()
-    # Remove unreferenced vertices
     mesh.remove_unreferenced_vertices()
     return mesh
 
 
-def _simplify_mesh(mesh, target_faces: int):
-    """Quadric decimation via open3d, fallback to trimesh."""
+def _decimate(mesh, target_faces: int):
+    """Quadric (QEM) triangle decimation via open3d, trimesh fallback.
+
+    QEM preserves the silhouette far better than uniform clustering, which is
+    exactly the property the low-poly preset relies on."""
     import open3d as o3d
     import numpy as np
 
@@ -136,117 +210,483 @@ def _simplify_mesh(mesh, target_faces: int):
         return mesh
 
     try:
-        # Convert trimesh → open3d
         o3d_mesh = o3d.geometry.TriangleMesh()
         o3d_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices.astype(np.float64))
         o3d_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces.astype(np.int32))
-        if mesh.vertex_normals is not None and len(mesh.vertex_normals):
-            o3d_mesh.vertex_normals = o3d.utility.Vector3dVector(mesh.vertex_normals.astype(np.float64))
-
-        # Quadric decimation
-        simplified = o3d_mesh.simplify_quadric_decimation(target_faces)
+        simplified = o3d_mesh.simplify_quadric_decimation(int(target_faces))
+        simplified.remove_unreferenced_vertices()
         simplified.compute_vertex_normals()
 
-        # Convert back to trimesh
         import trimesh
-        result = trimesh.Trimesh(
+        return trimesh.Trimesh(
             vertices=np.asarray(simplified.vertices),
             faces=np.asarray(simplified.triangles),
             vertex_normals=np.asarray(simplified.vertex_normals),
             process=False,
         )
-        return result
     except Exception as exc:
-        log.warning("open3d simplification failed (%s), using trimesh fallback", exc)
-        # trimesh built-in simplification (less accurate but always works)
-        return mesh.simplify_quadric_decimation(target_faces)
+        log.warning("open3d decimation failed (%s), using trimesh fallback", exc)
+        return mesh.simplify_quadric_decimation(int(target_faces))
 
 
-def _export_mesh(mesh, output_format: str, task_id: str) -> tuple[bytes, str]:
+# ── Quad remeshing (QuadriFlow) ──────────────────────────────────────────────
+
+def _write_obj_geometry(mesh, path: Path) -> None:
+    """Write a minimal v/f OBJ — QuadriFlow only consumes geometry."""
+    import numpy as np
+    v = np.asarray(mesh.vertices)
+    f = np.asarray(mesh.faces)
+    lines = [f"v {x:.6f} {y:.6f} {z:.6f}" for x, y, z in v]
+    lines += [f"f {a + 1} {b + 1} {c + 1}" for a, b, c in f]
+    path.write_text("\n".join(lines) + "\n")
+
+
+def _parse_obj(path: Path):
+    """Parse an OBJ into (vertices, faces) where faces preserve quad arity.
+
+    Returns (np.ndarray[V,3], list[list[int]] 0-based). Polygons with >4 sides
+    are fan-triangulated; tris and quads are kept verbatim so quad_ratio is real."""
+    import numpy as np
+    verts: list[list[float]] = []
+    faces: list[list[int]] = []
+    for raw in path.read_text().splitlines():
+        if raw.startswith("v "):
+            _, x, y, z = raw.split()[:4]
+            verts.append([float(x), float(y), float(z)])
+        elif raw.startswith("f "):
+            idx = [int(tok.split("/")[0]) - 1 for tok in raw.split()[1:]]
+            if len(idx) <= 4:
+                faces.append(idx)
+            else:
+                for i in range(1, len(idx) - 1):
+                    faces.append([idx[0], idx[i], idx[i + 1]])
+    return np.asarray(verts, dtype=np.float64), faces
+
+
+def _quad_remesh(mesh, target_faces: int):
+    """Run QuadriFlow to produce quad-dominant topology.
+
+    Returns (verts, polys, quad_ratio) where polys is a list of 0-based index
+    lists (length 3 or 4). Raises with an actionable message if the binary or
+    the run fails — we never silently fall back to triangle soup for a quad
+    request, which would mislead the caller."""
+    binary = shutil.which(QUADRIFLOW_BIN) or QUADRIFLOW_BIN
+    if shutil.which(QUADRIFLOW_BIN) is None and not os.path.isfile(binary):
+        raise RuntimeError(
+            "quad remesher unavailable: the quadriflow binary was not found. "
+            "Build it from https://github.com/hjwdzh/QuadriFlow and set QUADRIFLOW_BIN."
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "in.obj"
+        dst = Path(tmp) / "out.obj"
+        _write_obj_geometry(mesh, src)
+
+        cmd = [
+            binary,
+            "-i", str(src),
+            "-o", str(dst),
+            "-f", str(max(1000, int(target_faces))),
+            "-mcf",     # minimum-cost-flow solver: fewer singularities, cleaner loops
+            "-sharp",   # preserve sharp feature edges
+        ]
+        try:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=600, check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("quad remesh timed out after 600s") from exc
+
+        if proc.returncode != 0 or not dst.exists():
+            tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-5:]
+            raise RuntimeError("quad remesh failed: " + " | ".join(tail))
+
+        verts, polys = _parse_obj(dst)
+
+    if not polys:
+        raise RuntimeError("quad remesh produced empty output")
+    quads = sum(1 for p in polys if len(p) == 4)
+    quad_ratio = quads / len(polys)
+    return verts, polys, quad_ratio
+
+
+def _triangulate_polys(verts, polys):
+    """Triangulate a mixed tri/quad polygon list into a Trimesh (for GLB export
+    and texture baking — glTF has no native quads)."""
+    import numpy as np
+    import trimesh
+    tris: list[list[int]] = []
+    for p in polys:
+        if len(p) == 3:
+            tris.append(p)
+        elif len(p) == 4:
+            tris.append([p[0], p[1], p[2]])
+            tris.append([p[0], p[2], p[3]])
+    mesh = trimesh.Trimesh(vertices=verts, faces=np.asarray(tris), process=False)
+    mesh.remove_unreferenced_vertices()
+    return mesh
+
+
+# ── UV unwrap + texture baking ───────────────────────────────────────────────
+
+def _unwrap(mesh):
+    """Generate a clean UV atlas for `mesh` with xatlas.
+
+    Returns (vertices, faces, uv) on xatlas' (possibly re-indexed) vertex set,
+    or None if xatlas is unavailable."""
+    try:
+        import xatlas
+    except Exception as exc:  # pragma: no cover - import guard
+        log.warning("xatlas unavailable (%s); skipping UV unwrap", exc)
+        return None
+    import numpy as np
+    vmapping, indices, uvs = xatlas.parametrize(
+        np.asarray(mesh.vertices, dtype=np.float32),
+        np.asarray(mesh.faces, dtype=np.uint32),
+    )
+    new_vertices = np.asarray(mesh.vertices)[vmapping]
+    return new_vertices, np.asarray(indices, dtype=np.int64), np.asarray(uvs, dtype=np.float64)
+
+
+def _dilate(img, mask, iters: int = 6):
+    """Edge-pad a baked atlas so bilinear sampling at UV-island borders doesn't
+    bleed background. Iteratively fills empty texels from filled 4-neighbours."""
+    import numpy as np
+    img = img.copy()
+    mask = mask.copy()
+    for _ in range(iters):
+        if mask.all():
+            break
+        filled = mask
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            shifted = np.roll(filled, (dy, dx), axis=(0, 1))
+            shifted_img = np.roll(img, (dy, dx), axis=(0, 1))
+            take = shifted & ~mask
+            img[take] = shifted_img[take]
+            mask = mask | take
+    return img
+
+
+def _bake_texture(source_mesh, src_uv, src_img, verts, faces, uvs, tex_size: int):
+    """Re-project the source texture onto a remeshed target's new UV atlas.
+
+    For every texel covered by a target triangle we find its 3D position, query
+    the closest point on the original textured surface, read the original UV
+    there, and sample the original texture. This transfers the appearance even
+    though topology and UVs changed completely."""
+    import numpy as np
+    import trimesh
+    from PIL import Image
+
+    src_arr = np.asarray(src_img.convert("RGB"))
+    sh, sw = src_arr.shape[:2]
+    src_faces = np.asarray(source_mesh.faces)
+    src_tris = source_mesh.triangles  # (F,3,3)
+    prox = trimesh.proximity.ProximityQuery(source_mesh)
+
+    atlas = np.zeros((tex_size, tex_size, 3), dtype=np.uint8)
+    written = np.zeros((tex_size, tex_size), dtype=bool)
+
+    sample_pts: list = []
+    sample_px: list = []  # (row, col)
+
+    uv_px = uvs.copy()
+    uv_px[:, 0] = np.clip(uvs[:, 0], 0.0, 1.0) * (tex_size - 1)
+    uv_px[:, 1] = (1.0 - np.clip(uvs[:, 1], 0.0, 1.0)) * (tex_size - 1)
+
+    for tri in faces:
+        p = uv_px[tri]                       # 3×(col,row)
+        v3 = verts[tri]                      # 3×3 world
+        min_c = int(np.floor(p[:, 0].min())); max_c = int(np.ceil(p[:, 0].max()))
+        min_r = int(np.floor(p[:, 1].min())); max_r = int(np.ceil(p[:, 1].max()))
+        min_c = max(0, min_c); min_r = max(0, min_r)
+        max_c = min(tex_size - 1, max_c); max_r = min(tex_size - 1, max_r)
+        if max_c < min_c or max_r < min_r:
+            continue
+
+        cols, rows = np.meshgrid(
+            np.arange(min_c, max_c + 1), np.arange(min_r, max_r + 1)
+        )
+        cols = cols.ravel(); rows = rows.ravel()
+
+        # Barycentric coords of each texel centre against the UV triangle.
+        x1, y1 = p[0]; x2, y2 = p[1]; x3, y3 = p[2]
+        det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3)
+        if abs(det) < 1e-9:
+            continue
+        px = cols + 0.5; py = rows + 0.5
+        a = ((y2 - y3) * (px - x3) + (x3 - x2) * (py - y3)) / det
+        b = ((y3 - y1) * (px - x3) + (x1 - x3) * (py - y3)) / det
+        c = 1.0 - a - b
+        inside = (a >= -1e-4) & (b >= -1e-4) & (c >= -1e-4)
+        if not inside.any():
+            continue
+
+        bary = np.stack([a[inside], b[inside], c[inside]], axis=1)  # (k,3)
+        pts3d = bary @ v3                                            # (k,3)
+        sample_pts.append(pts3d)
+        sample_px.append(np.stack([rows[inside], cols[inside]], axis=1))
+
+    if not sample_pts:
+        return uvs, None
+
+    pts = np.concatenate(sample_pts, axis=0)
+    px_idx = np.concatenate(sample_px, axis=0)
+
+    closest, _dist, tri_ids = prox.on_surface(pts)
+    closest_tris = src_tris[tri_ids]                                # (k,3,3)
+    bary_src = trimesh.triangles.points_to_barycentric(closest_tris, closest)
+    face_uv = src_uv[src_faces[tri_ids]]                            # (k,3,2)
+    samp_uv = np.einsum("ij,ijk->ik", bary_src, face_uv)           # (k,2)
+
+    sx = np.clip(samp_uv[:, 0], 0.0, 1.0) * (sw - 1)
+    sy = (1.0 - np.clip(samp_uv[:, 1], 0.0, 1.0)) * (sh - 1)
+    colors = src_arr[np.rint(sy).astype(int), np.rint(sx).astype(int)]
+
+    atlas[px_idx[:, 0], px_idx[:, 1]] = colors
+    written[px_idx[:, 0], px_idx[:, 1]] = True
+    atlas = _dilate(atlas, written)
+
+    return uvs, Image.fromarray(atlas, mode="RGB")
+
+
+# ── Export ───────────────────────────────────────────────────────────────────
+
+class Artifact:
+    __slots__ = ("name", "data", "content_type", "role")
+
+    def __init__(self, name: str, data: bytes, content_type: str, role: str):
+        self.name = name
+        self.data = data
+        self.content_type = content_type
+        self.role = role  # "model" | "texture" | "material"
+
+
+def _build_textured_trimesh(verts, faces, uvs, image):
+    import trimesh
+    mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
+    if uvs is not None and image is not None:
+        mesh.visual = trimesh.visual.TextureVisuals(
+            uv=uvs, image=image, material=trimesh.visual.material.SimpleMaterial(image=image),
+        )
+    return mesh
+
+
+def _write_textured_quad_obj(verts, polys, uvs, image, task_id: str) -> list:
+    """Write a true-quad OBJ that keeps quad faces and references a baked texture
+    via a sibling .mtl + .png (relative names resolve from the same GCS prefix)."""
+    import numpy as np
+    mtl_name = f"{task_id}.mtl"
+    png_name = f"{task_id}.png"
+
+    lines = [f"mtllib {mtl_name}", "o remesh", "usemtl baked"]
+    for x, y, z in verts:
+        lines.append(f"v {x:.6f} {y:.6f} {z:.6f}")
+    has_uv = uvs is not None and image is not None
+    if has_uv:
+        for u, v in uvs:
+            lines.append(f"vt {u:.6f} {v:.6f}")
+    for poly in polys:
+        if has_uv:
+            lines.append("f " + " ".join(f"{i + 1}/{i + 1}" for i in poly))
+        else:
+            lines.append("f " + " ".join(str(i + 1) for i in poly))
+    obj_bytes = ("\n".join(lines) + "\n").encode("utf-8")
+
+    artifacts = [Artifact(f"{task_id}.obj", obj_bytes, "model/obj", "model")]
+    if has_uv:
+        mtl = (
+            "newmtl baked\nKa 1 1 1\nKd 1 1 1\nKs 0 0 0\n"
+            f"map_Kd {png_name}\n"
+        ).encode("utf-8")
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        artifacts.append(Artifact(mtl_name, mtl, "text/plain", "material"))
+        artifacts.append(Artifact(png_name, buf.getvalue(), "image/png", "texture"))
+    return artifacts
+
+
+def _export_simple(mesh, output_format: str, task_id: str) -> list:
+    """Export a Trimesh to a single self-contained file (GLB embeds textures)."""
     import trimesh
     fmt = output_format.lower()
     with tempfile.TemporaryDirectory() as tmpdir:
-        out_path = Path(tmpdir) / f"output.{fmt}"
-        if fmt == "glb":
-            scene = trimesh.scene.scene.Scene(geometry={"mesh": mesh})
-            scene.export(str(out_path))
-        elif fmt == "usdz":
-            scene = trimesh.scene.scene.Scene(geometry={"mesh": mesh})
-            scene.export(str(out_path))
+        out_path = Path(tmpdir) / f"{task_id}.{fmt}"
+        if fmt in ("glb", "usdz"):
+            trimesh.scene.scene.Scene(geometry={"mesh": mesh}).export(str(out_path))
         else:
             mesh.export(str(out_path))
         data = out_path.read_bytes()
-        return data, f"model/{'gltf-binary' if fmt == 'glb' else 'octet-stream'}"
+    ct = "model/gltf-binary" if fmt == "glb" else (
+        "model/vnd.usdz+zip" if fmt == "usdz" else "application/octet-stream"
+    )
+    return [Artifact(f"{task_id}.{fmt}", data, ct, "model")]
+
+
+# ── Pipelines ────────────────────────────────────────────────────────────────
+
+def _process_triangle(mesh, operation: str, target_faces: int):
+    if operation in ("repair", "full"):
+        mesh = _repair_mesh(mesh)
+    if operation in ("simplify", "full") and len(mesh.faces) > target_faces:
+        mesh = _decimate(mesh, target_faces)
+    return mesh, {"quad_ratio": 0.0, "textured": False}
+
+
+def _process_quad(source, target_faces: int, output_format: str, tex_size: int, task_id: str):
+    import trimesh
+    src_uv, src_img = _source_texture(source)
+    # QuadriFlow wants a clean watertight-ish triangle mesh as input.
+    geom = source.copy()
+    _repair_mesh(geom)
+    verts, polys, quad_ratio = _quad_remesh(geom, target_faces)
+
+    tri_mesh = _triangulate_polys(verts, polys)
+    unwrap = _unwrap(tri_mesh)
+    baked_uv = baked_img = None
+    if unwrap is not None and src_uv is not None and src_img is not None:
+        u_verts, u_faces, u_uv = unwrap
+        baked_uv, baked_img = _bake_texture(
+            source, src_uv, src_img, u_verts, u_faces, u_uv, tex_size,
+        )
+        tri_mesh = trimesh.Trimesh(vertices=u_verts, faces=u_faces, process=False)
+
+    # OBJ output preserves the true quad faces (geometry only — the re-unwrapped
+    # UVs live on the triangulated atlas, not the quads, so a textured atlas is
+    # delivered via GLB). Every other format triangulates and carries the bake.
+    if output_format == "obj":
+        meta = {
+            "quad_ratio": round(quad_ratio, 4),
+            "textured": False,
+            "face_count": len(polys),
+        }
+        return _write_textured_quad_obj(verts, polys, None, None, task_id), meta
+
+    meta = {
+        "quad_ratio": round(quad_ratio, 4),
+        "textured": baked_img is not None,
+        "face_count": len(polys),
+    }
+    mesh = _build_textured_trimesh(
+        tri_mesh.vertices, tri_mesh.faces, baked_uv, baked_img,
+    )
+    return _export_simple(mesh, output_format, task_id), meta
+
+
+def _process_lowpoly(source, target_faces: int, output_format: str, tex_size: int, task_id: str):
+    import trimesh
+    src_uv, src_img = _source_texture(source)
+    geom = source.copy()
+    _repair_mesh(geom)
+    low = _decimate(geom, target_faces)
+
+    unwrap = _unwrap(low)
+    baked_uv = baked_img = None
+    if unwrap is not None and src_uv is not None and src_img is not None:
+        u_verts, u_faces, u_uv = unwrap
+        baked_uv, baked_img = _bake_texture(
+            source, src_uv, src_img, u_verts, u_faces, u_uv, tex_size,
+        )
+        low = trimesh.Trimesh(vertices=u_verts, faces=u_faces, process=False)
+
+    low.fix_normals()
+    meta = {
+        "quad_ratio": 0.0,
+        "textured": baked_img is not None,
+        "face_count": len(low.faces),
+    }
+
+    if output_format == "obj" and baked_img is not None:
+        polys = [list(map(int, f)) for f in low.faces]
+        return _write_textured_quad_obj(low.vertices, polys, baked_uv, baked_img, task_id), meta
+
+    mesh = _build_textured_trimesh(low.vertices, low.faces, baked_uv, baked_img)
+    return _export_simple(mesh, output_format, task_id), meta
 
 
 def _run_processing(
     mesh_url: str,
+    remesh_mode: str,
     operation: str,
     target_faces: int,
     output_format: str,
-) -> tuple[bytes, int, str]:
+    texture_size: int,
+    task_id: str,
+) -> tuple[list, dict]:
     data, suffix = _fetch_mesh(mesh_url)
-    mesh = _load_mesh(data, suffix)
 
-    # Handle scene (multi-mesh) → combine into single mesh
-    import trimesh
-    if isinstance(mesh, trimesh.Scene):
-        meshes = [g for g in mesh.geometry.values() if isinstance(g, trimesh.Trimesh)]
-        if not meshes:
-            raise ValueError("no renderable geometry found in scene")
-        mesh = trimesh.util.concatenate(meshes)
+    if remesh_mode == "quad":
+        source = _load_textured(data, suffix)
+        return _process_quad(source, target_faces, output_format, texture_size, task_id)
 
-    if operation in ("repair", "full"):
-        mesh = _repair_mesh(mesh)
+    if remesh_mode == "lowpoly":
+        source = _load_textured(data, suffix)
+        return _process_lowpoly(source, target_faces, output_format, texture_size, task_id)
 
-    if operation in ("simplify", "full") and len(mesh.faces) > target_faces:
-        mesh = _simplify_mesh(mesh, target_faces)
+    # triangle (default) — legacy behaviour, geometry only.
+    mesh = _load_concatenated(data, suffix)
+    mesh, meta = _process_triangle(mesh, operation, target_faces)
+    meta["face_count"] = len(mesh.faces)
+    return _export_simple(mesh, output_format, task_id), meta
 
-    out_bytes, content_type = _export_mesh(mesh, output_format, "")
-    return out_bytes, len(mesh.faces), content_type
 
+# ── Task orchestration ───────────────────────────────────────────────────────
 
 async def _process(
     task_id: str,
     mesh_url: str,
+    remesh_mode: str,
     operation: str,
     target_faces: int,
     output_format: str,
+    texture_size: int,
 ) -> None:
     async with _sem:
         _tasks[task_id]["status"] = "running"
         loop = asyncio.get_event_loop()
         t0 = time.time()
         try:
-            out_bytes, face_count, content_type = await loop.run_in_executor(
+            artifacts, meta = await loop.run_in_executor(
                 None,
                 _run_processing,
                 mesh_url,
+                remesh_mode,
                 operation,
                 target_faces,
                 output_format,
+                texture_size,
+                task_id,
             )
 
-            blob_name = f"remesh/{task_id}.{output_format}"
-            blob = _bucket.blob(blob_name)
-            await loop.run_in_executor(
-                None,
-                lambda: blob.upload_from_string(out_bytes, content_type=content_type),
-            )
-            result_url = f"https://storage.googleapis.com/{GCS_BUCKET}/{blob_name}"
+            urls: dict[str, str] = {}
+            for art in artifacts:
+                blob = _bucket.blob(f"remesh/{art.name}")
+                await loop.run_in_executor(
+                    None,
+                    lambda b=blob, a=art: b.upload_from_string(a.data, content_type=a.content_type),
+                )
+                url = f"https://storage.googleapis.com/{GCS_BUCKET}/remesh/{art.name}"
+                urls[art.role] = url
 
+            total_bytes = sum(len(a.data) for a in artifacts)
             elapsed = time.time() - t0
             _tasks[task_id].update({
                 "status": "done",
-                "result_url": result_url,
-                "face_count": face_count,
+                "result_url": urls.get("model"),
+                "texture_url": urls.get("texture"),
+                "mtl_url": urls.get("material"),
+                "face_count": meta.get("face_count"),
+                "quad_ratio": meta.get("quad_ratio"),
+                "textured": meta.get("textured"),
+                "mode": remesh_mode,
                 "output_format": output_format,
-                "bytes": len(out_bytes),
+                "bytes": total_bytes,
                 "elapsed_ms": int(elapsed * 1000),
             })
             log.info(
-                "[%s] done in %.2fs — %d faces, %d bytes → %s",
-                task_id, elapsed, face_count, len(out_bytes), result_url,
+                "[%s] done in %.2fs — mode=%s, %s faces, quad_ratio=%s, textured=%s → %s",
+                task_id, elapsed, remesh_mode, meta.get("face_count"),
+                meta.get("quad_ratio"), meta.get("textured"), urls.get("model"),
             )
 
         except Exception as exc:
@@ -259,8 +699,10 @@ async def _process(
 
 class ProcessRequest(BaseModel):
     mesh: str = Field(..., description="https URL to input mesh (GLB/OBJ/FBX/STL/PLY)")
+    remesh_mode: str = Field(default="triangle", description="triangle|quad|lowpoly")
     operation: str = Field(default="full", description="convert|simplify|repair|full")
     target_faces: int = Field(default=50_000, ge=1_000, le=500_000)
+    texture_size: int = Field(default=1024)
     output_format: str = Field(default="glb")
 
     @field_validator("output_format")
@@ -279,6 +721,21 @@ class ProcessRequest(BaseModel):
             raise ValueError(f"operation must be one of {sorted(allowed)}")
         return v
 
+    @field_validator("remesh_mode")
+    @classmethod
+    def validate_mode(cls, v: str) -> str:
+        v = (v or "triangle").lower()
+        if v not in VALID_MODES:
+            raise ValueError(f"remesh_mode must be one of {sorted(VALID_MODES)}")
+        return v
+
+    @field_validator("texture_size")
+    @classmethod
+    def validate_texture_size(cls, v: int) -> int:
+        if v not in VALID_TEXTURE_SIZES:
+            raise ValueError(f"texture_size must be one of {sorted(VALID_TEXTURE_SIZES)}")
+        return v
+
 
 @app.post("/process", status_code=202)
 async def process_mesh(
@@ -291,6 +748,7 @@ async def process_mesh(
     _tasks[task_id] = {
         "task_id": task_id,
         "status": "queued",
+        "mode": body.remesh_mode,
         "operation": body.operation,
         "output_format": body.output_format,
     }
@@ -298,11 +756,13 @@ async def process_mesh(
         _process,
         task_id,
         body.mesh,
+        body.remesh_mode,
         body.operation,
         body.target_faces,
         body.output_format,
+        body.texture_size,
     )
-    return {"task_id": task_id, "status": "queued"}
+    return {"task_id": task_id, "status": "queued", "mode": body.remesh_mode}
 
 
 @app.get("/tasks/{task_id}")
