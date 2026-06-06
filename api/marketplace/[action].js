@@ -764,19 +764,31 @@ async function handlePreview(req, res, id) {
 	const history = body.history.map((m) => ({ role: m.role, content: m.content }));
 	history.push({ role: 'user', content: body.message });
 
+	// Bound the entire handler — failover attempts AND the token stream — to a
+	// budget safely under Vercel's 30s function timeout. Without this, a slow
+	// failover (one upstream times out, the next starts) or a slow-streaming
+	// model pushes the request past 30s and Vercel kills it with a "Task timed
+	// out" error instead of us flushing a clean `done`.
+	const HANDLER_DEADLINE = Date.now() + 27_000;
+	const budgetLeft = () => HANDLER_DEADLINE - Date.now();
+
 	// Try each configured provider in order; fail over on rate-limit (429) or
-	// provider errors (5xx). Each attempt is capped at 22s so a hung upstream
-	// can never push the request into Vercel's 30s function timeout.
+	// provider errors (5xx). Each attempt is capped at 22s OR the remaining
+	// handler budget, whichever is smaller.
 	let upstream;
 	let route;
 	for (let i = 0; i < routes.length; i++) {
 		route = routes[i];
+		if (budgetLeft() <= 2_000) {
+			if (!upstream) return error(res, 504, 'preview_timeout', 'preview timed out — try again');
+			break;
+		}
 		try {
 			upstream = await fetch(route.url, {
 				method: 'POST',
 				headers: route.headers,
 				body: JSON.stringify(route.buildPayload({ systemPrompt, history })),
-				signal: AbortSignal.timeout(22_000),
+				signal: AbortSignal.timeout(Math.min(22_000, budgetLeft())),
 			});
 		} catch (fetchErr) {
 			const reason = fetchErr?.name === 'TimeoutError' ? 'timed out' : fetchErr.message;
@@ -805,8 +817,8 @@ async function handlePreview(req, res, id) {
 
 	const started = Date.now();
 	const out = route.style === 'anthropic'
-		? await streamAnthropicPreview(upstream, sendSSE)
-		: await streamOpenAIPreview(upstream, sendSSE);
+		? await streamAnthropicPreview(upstream, sendSSE, HANDLER_DEADLINE)
+		: await streamOpenAIPreview(upstream, sendSSE, HANDLER_DEADLINE);
 
 	if (out.error) {
 		sendSSE({ type: 'error', code: 'stream_error', message: 'stream interrupted' });
@@ -879,13 +891,19 @@ function buildPreviewRoutes() {
 	return routes;
 }
 
-async function streamAnthropicPreview(upstream, sendSSE) {
+async function streamAnthropicPreview(upstream, sendSSE, deadline = Infinity) {
 	const reader = upstream.body.getReader();
 	const decoder = new TextDecoder();
 	let buf = '';
 	let reply = '';
 	try {
 		while (true) {
+			// Stop reading before the handler's deadline so we can flush a clean
+			// `done` instead of being hard-killed at the Vercel function timeout.
+			if (Date.now() >= deadline) {
+				reader.cancel().catch(() => {});
+				break;
+			}
 			const { value, done } = await reader.read();
 			if (done) break;
 			buf += decoder.decode(value, { stream: true });
@@ -909,13 +927,19 @@ async function streamAnthropicPreview(upstream, sendSSE) {
 	return { reply };
 }
 
-async function streamOpenAIPreview(upstream, sendSSE) {
+async function streamOpenAIPreview(upstream, sendSSE, deadline = Infinity) {
 	const reader = upstream.body.getReader();
 	const decoder = new TextDecoder();
 	let buf = '';
 	let reply = '';
 	try {
 		while (true) {
+			// Stop reading before the handler's deadline so we can flush a clean
+			// `done` instead of being hard-killed at the Vercel function timeout.
+			if (Date.now() >= deadline) {
+				reader.cancel().catch(() => {});
+				break;
+			}
 			const { value, done } = await reader.read();
 			if (done) break;
 			buf += decoder.decode(value, { stream: true });

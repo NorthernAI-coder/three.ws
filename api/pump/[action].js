@@ -58,7 +58,7 @@ import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
 import { putObject, publicUrl as r2PublicUrl } from '../_lib/r2.js';
 import { env } from '../_lib/env.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { parse } from '../_lib/validate.js';
+import { parse, isUuid } from '../_lib/validate.js';
 import { randomToken } from '../_lib/crypto.js';
 import { publishFeedEvent } from '../_lib/feed.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
@@ -1824,6 +1824,7 @@ async function handlePortfolio(req, res) {
 	const agentId = url.searchParams.get('agentId');
 	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
 	if (!agentId) return error(res, 400, 'validation_error', 'agentId required');
+	if (!isUuid(agentId)) return error(res, 404, 'not_found', 'agent not found');
 
 	const [agent] = await sql`
 		SELECT user_id, meta FROM agent_identities
@@ -1925,6 +1926,8 @@ async function handleByAgent(req, res) {
 	const avatarId = url.searchParams.get('avatar_id');
 	if (!agentId && !avatarId)
 		return error(res, 400, 'validation_error', 'agent_id or avatar_id required');
+	if (agentId && !isUuid(agentId)) return error(res, 404, 'not_found', 'agent not found');
+	if (avatarId && !isUuid(avatarId)) return error(res, 404, 'not_found', 'agent not found');
 
 	let row;
 	if (agentId) {
@@ -2584,17 +2587,28 @@ async function handleLiveStream(req, res) {
 	res.setHeader('connection', 'keep-alive');
 	res.setHeader('x-accel-buffering', 'no');
 
+	// EventSource auto-reconnects when the stream ends; hint a 1s backoff so the
+	// rotation below is near-seamless rather than the browser's ~3s default.
+	res.write('retry: 1000\n\n');
+
 	const ping = setInterval(() => {
 		if (!res.writableEnded) res.write(': ping\n\n');
 	}, 15_000);
 
+	// Rotate the stream a few seconds BEFORE the Vercel function maxDuration
+	// (60s — see vercel.json → functions["api/pump/[action].js"]). Ending the
+	// response ourselves emits a clean `end` event and lets EventSource
+	// reconnect; letting Vercel hit the hard limit instead kills the function
+	// and logs a "Task timed out" error on every long-lived client connection.
+	const STREAM_BUDGET_MS = 55_000;
 	const maxDuration = setTimeout(() => {
 		clearInterval(ping);
+		stop?.();
 		if (!res.writableEnded) {
-			res.write(`event: end\ndata: ${JSON.stringify({ reason: 'max-duration' })}\n\n`);
+			res.write(`event: end\ndata: ${JSON.stringify({ reason: 'rotate' })}\n\n`);
 			res.end();
 		}
-	}, 60 * 60 * 1_000);
+	}, STREAM_BUDGET_MS);
 
 	const stop = connectPumpFunFeed({
 		kind,

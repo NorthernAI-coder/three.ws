@@ -1,5 +1,6 @@
 import { sql } from '../_lib/db.js';
 import { cors, json, error, wrap, method } from '../_lib/http.js';
+import { isUuid } from '../_lib/validate.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -7,6 +8,10 @@ export default wrap(async (req, res) => {
 
 	const id = req.query?.id || req.url?.split('/').pop()?.split('?')[0];
 	if (!id) return error(res, 400, 'bad_request', 'bounty id required');
+	// Non-UUID segments (scanner junk, or sibling routes like /leaderboard that
+	// resolve here when their own file is missing) must not reach a uuid-typed
+	// query — that throws NeonDbError and 500s. Treat non-uuid ids as not found.
+	if (!isUuid(id)) return error(res, 404, 'not_found', 'bounty not found');
 
 	const [bounty] = await sql`
 		SELECT b.*,
