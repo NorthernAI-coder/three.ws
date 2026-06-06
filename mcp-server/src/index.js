@@ -31,6 +31,7 @@ import { buildAgentReputationTool } from './tools/agent-reputation.js';
 import { buildVanityGrinderTool } from './tools/vanity-grinder.js';
 import { buildTextToAvatarTool } from './tools/text-to-avatar.js';
 import { buildMeshForgeTool } from './tools/mesh-forge.js';
+import { buildRigMeshTool } from './tools/rig-mesh.js';
 import { buildSentimentPulseTool } from './tools/sentiment-pulse.js';
 import { buildEnsSnsResolveTool } from './tools/ens-sns-resolve.js';
 import { buildAgentDelegateActionTool } from './tools/agent-delegate-action.js';
@@ -42,7 +43,8 @@ const SERVER_INSTRUCTIONS =
 	'Paid x402 MCP tools from three.ws. Each tool quotes its USDC price in its description. ' +
 	'Tool calls without an x402 payment payload in _meta return a PaymentRequired structuredContent ' +
 	'(v2 MCP transport spec). Tools cover: 3D avatar generation (text_to_avatar), ' +
-	'text-to-3D mesh generation via a Granite-directed model chain (mesh_forge), ' +
+	'text/image-to-3D mesh generation via a Granite-directed model chain (mesh_forge), ' +
+	'auto-rigging a GLB into an animation-ready model (rig_mesh), ' +
 	'ENS + SNS name resolution ' +
 	'(ens_sns_resolve), agent-to-agent delegation (agent_delegate_action), token sentiment pulse ' +
 	'(sentiment_pulse), pose generation (get_pose_seed), Solana token snapshots (pump_snapshot), ' +
@@ -57,6 +59,7 @@ const SERVER_INSTRUCTIONS =
 const TOOL_BUILDERS = [
 	buildTextToAvatarTool,
 	buildMeshForgeTool,
+	buildRigMeshTool,
 	buildEnsSnsResolveTool,
 	buildAgentDelegateActionTool,
 	buildSentimentPulseTool,
