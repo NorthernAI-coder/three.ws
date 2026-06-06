@@ -16,7 +16,7 @@ import { CID } from 'multiformats/cid';
 import * as raw from 'multiformats/codecs/raw';
 import { sha256 } from 'multiformats/hashes/sha2';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { mplCore, create, createCollection, ruleSet } from '@metaplex-foundation/mpl-core';
+import { mplCore, create, createCollection, fetchCollection, ruleSet } from '@metaplex-foundation/mpl-core';
 import {
 	generateSigner,
 	publicKey as umiPublicKey,
@@ -36,6 +36,7 @@ import { getAgentCollection } from './solana-collection.js';
 import { solanaRpcEndpoints } from './solana/connection.js';
 import { generateSolanaAgentWallet } from './agent-wallet.js';
 import { publishFeedEvent } from './feed.js';
+import { pinToIPFS } from './ipfs-pin.js';
 
 // Genesis-hash chain refs (CAIP-2), mirroring api/agents/onchain/[action].js.
 export const SOLANA_REFS = {
@@ -88,28 +89,15 @@ export async function funderLamports(umi, pubkey) {
 	}
 }
 
-// Pin the manifest. Try web3.storage for true IPFS pinning; otherwise fall back
-// to R2 while computing the real CIDv1 (raw codec, sha2-256) from the bytes, so
-// the content is verifiable content-addressing and the returned HTTPS URL is
-// real and resolvable — never a stub. Mirrors api/agents/onchain/[action].js.
+// Pin the manifest. Prefer real IPFS pinning (Pinata → web3.storage, via the
+// shared ipfs-pin helper); otherwise fall back to R2 while computing the real
+// CIDv1 (raw codec, sha2-256) from the bytes, so the content is verifiable
+// content-addressing and the returned HTTPS URL is real and resolvable — never a
+// stub. Mirrors api/agents/onchain/[action].js.
 export async function pinManifest(manifest, agentId) {
 	const bytes = Buffer.from(JSON.stringify(manifest), 'utf-8');
-	const token = process.env.WEB3_STORAGE_TOKEN;
-	if (token) {
-		try {
-			const r = await fetch('https://api.web3.storage/upload', {
-				method: 'POST',
-				headers: { Authorization: `Bearer ${token}` },
-				body: bytes,
-			});
-			if (r.ok) {
-				const data = await r.json();
-				if (data.cid) return { cid: data.cid, uri: `ipfs://${data.cid}` };
-			}
-		} catch {
-			/* fall through to R2 */
-		}
-	}
+	const pinned = await pinToIPFS(bytes, `agent-${agentId}.json`).catch(() => null);
+	if (pinned?.cid) return { cid: pinned.cid, uri: pinned.uri };
 	const digest = await sha256.digest(bytes);
 	const cid = CID.create(1, raw.code, digest).toString();
 	const key = `agent-manifests/bulk/${agentId}.json`;
@@ -209,33 +197,55 @@ export async function resolveAgentCollection({ umi, authoritySigner, network, on
 }
 
 /**
+ * Fetch the on-chain CollectionV1 once per run. The Core `create` helper reads
+ * `collection.publicKey` (and oracles/lifecycleHooks) off this object — passing a
+ * bare publicKey silently mints a STANDALONE asset, so the real object is required
+ * to actually bind the asset into the collection. Returns null for no collection.
+ */
+export async function loadCollectionAsset(umi, collectionAddr) {
+	if (!collectionAddr) return null;
+	return fetchCollection(umi, umiPublicKey(collectionAddr));
+}
+
+/**
  * Deploy a single agent on-chain: ensure its owner wallet, pin its manifest,
  * mint the Core asset into the collection, and persist the result. Returns
  * { asset, signature, metadataUri, ownerAddress, image }. Pure of UI concerns —
  * pass `onEvent` to receive a 'wallet' event when a custodial wallet is created.
+ * `collectionAsset` is the fetched CollectionV1 (from loadCollectionAsset).
  */
-export async function deployAgentOnce({ umi, authoritySigner, collectionAddr, collectionPk, agent, network, onEvent }) {
+export async function deployAgentOnce({ umi, authoritySigner, collectionAddr, collectionAsset, agent, network, onEvent }) {
 	const agentName = agent.name || 'Agent';
 
-	// 1. Owner = the agent's own custodial Solana wallet (generate if missing).
+	// 1. Resolve the owner. Prefer the agent's existing Solana wallet. If it has
+	//    none: give it its own custodial wallet when the platform key is present
+	//    (so the secret can be encrypted at rest and recovered later); otherwise
+	//    custody the asset under the collection authority — transferable to the
+	//    agent/user on claim. The owner never signs the mint, so it needs no SOL.
+	const authorityAddress = authoritySigner.publicKey.toString();
 	let meta = { ...(agent.meta || {}) };
 	let ownerAddress = meta.solana_address;
 	if (!ownerAddress) {
-		const wallet = await generateSolanaAgentWallet();
-		meta = {
-			...meta,
-			solana_address: wallet.address,
-			encrypted_solana_secret: wallet.encrypted_secret,
-			solana_wallet_source: 'bulk_onchain',
-		};
-		ownerAddress = wallet.address;
-		await sql`
-			UPDATE agent_identities
-			SET meta = ${JSON.stringify(meta)}::jsonb, updated_at = NOW()
-			WHERE id = ${agent.id}
-		`;
-		onEvent?.('wallet', { agent_id: agent.id, name: agentName, owner: ownerAddress });
+		if (process.env.JWT_SECRET) {
+			const wallet = await generateSolanaAgentWallet();
+			meta = {
+				...meta,
+				solana_address: wallet.address,
+				encrypted_solana_secret: wallet.encrypted_secret,
+				solana_wallet_source: 'bulk_onchain',
+			};
+			ownerAddress = wallet.address;
+			await sql`
+				UPDATE agent_identities
+				SET meta = ${JSON.stringify(meta)}::jsonb, updated_at = NOW()
+				WHERE id = ${agent.id}
+			`;
+			onEvent?.('wallet', { agent_id: agent.id, name: agentName, owner: ownerAddress });
+		} else {
+			ownerAddress = authorityAddress;
+		}
 	}
+	const custody = ownerAddress === authorityAddress;
 
 	// 2. Media + manifest.
 	const image = agent.thumbnail_key ? r2PublicUrl(agent.thumbnail_key) : '';
@@ -279,8 +289,8 @@ export async function deployAgentOnce({ umi, authoritySigner, collectionAddr, co
 				: []),
 		],
 	};
-	if (collectionPk) {
-		createArgs.collection = collectionPk;
+	if (collectionAsset) {
+		createArgs.collection = collectionAsset;
 		createArgs.authority = authoritySigner;
 	}
 	const result = await create(umi, createArgs).sendAndConfirm(umi, {
@@ -300,7 +310,7 @@ export async function deployAgentOnce({ umi, authoritySigner, collectionAddr, co
 		contract_or_mint: asset,
 		metadata_uri: metadataUri,
 		owner: ownerAddress,
-		custody: true,
+		custody,
 		tx_hash: signature,
 		...(collectionAddr ? { collection: collectionAddr } : {}),
 		confirmed_at: new Date().toISOString(),

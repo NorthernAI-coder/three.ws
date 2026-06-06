@@ -992,6 +992,43 @@ const appConfig = {
 			},
 		},
 		{
+			// Vercel Web Analytics. The script is auto-served at
+			// /_vercel/insights/script.js by Vercel once Web Analytics is enabled
+			// for the project; it auto-captures pageviews (incl. client-side nav
+			// via the History API). No npm dependency or React component is needed —
+			// this is the framework-agnostic install for a vanilla multipage site,
+			// injected the same way as the PostHog snippet above so every
+			// Vite-processed page gets it. The `va` queue stub buffers any track()
+			// calls fired before the deferred script loads. Embed pages (iframes)
+			// are skipped to match PostHog's coverage and avoid double-counting
+			// host-page traffic. In dev the script 404s harmlessly (defer, no thrown
+			// error) — analytics only land in prod once enabled in the dashboard.
+			name: 'vercel-analytics',
+			transformIndexHtml: {
+				order: 'pre',
+				handler(_html, ctx) {
+					const EMBED_FILES = new Set([
+						'widget.html', 'embed.html', 'avatar-embed.html',
+						'agent-embed.html', 'a-embed.html',
+					]);
+					const filename = (ctx.filename || ctx.path || '').replace(/\\/g, '/').split('/').pop();
+					if (EMBED_FILES.has(filename)) return [];
+					return [
+						{
+							tag: 'script',
+							children: 'window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};',
+							injectTo: 'head',
+						},
+						{
+							tag: 'script',
+							attrs: { defer: true, src: '/_vercel/insights/script.js' },
+							injectTo: 'head',
+						},
+					];
+				},
+			},
+		},
+		{
 			// Native View Transitions for internal nav. Chrome/Safari ship it,
 			// Firefox falls back to a normal location change (no UX regression).
 			// Skip on embed pages — they're iframes and shouldn't intercept clicks.
