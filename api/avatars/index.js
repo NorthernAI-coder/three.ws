@@ -116,20 +116,14 @@ async function handleCreate(req, res) {
 		`;
 	}
 
-	// Auto-link selfie-derived avatars to the user's primary agent if it has no avatar yet.
-	// Fire-and-forget — if this UPDATE fails, the 201 still returns.
-	const providerHint = body.source_meta && typeof body.source_meta === 'object'
-		? String(body.source_meta.provider || '').toLowerCase()
-		: '';
-	const autoLink = body.source === 'avaturn'
-		|| body.source === 'readyplayer'
-		|| providerHint === 'readyplayer'
-		|| providerHint === 'readyplayerme'
-		|| providerHint === 'avaturn';
-	if (autoLink && auth.source === 'session') {
+	// Every new avatar gets an agent. Skip if this is a re-upload of an existing avatar
+	// (parent_avatar_id set) — the re-point above already handled that case.
+	// Fire-and-forget — 201 returns regardless.
+	if (!body.parent_avatar_id) {
 		queueMicrotask(async () => {
 			try {
-				await sql`
+				// First try to claim an existing agent that has no avatar yet.
+				const linked = await sql`
 					WITH agent_to_update AS (
 						SELECT id FROM agent_identities
 						WHERE user_id = ${auth.userId}
@@ -139,12 +133,27 @@ async function handleCreate(req, res) {
 						LIMIT 1
 					)
 					UPDATE agent_identities
-					SET avatar_id = ${avatar.id}
+					SET avatar_id = ${avatar.id}, updated_at = NOW()
 					FROM agent_to_update
 					WHERE agent_identities.id = agent_to_update.id
+					RETURNING agent_identities.id
 				`;
+				// No existing agent to claim — create a default one.
+				if (!linked.length) {
+					await sql`
+						INSERT INTO agent_identities (user_id, name, avatar_id, is_public, created_at, updated_at)
+						VALUES (
+							${auth.userId},
+							${avatar.name || 'My Agent'},
+							${avatar.id},
+							false,
+							NOW(),
+							NOW()
+						)
+					`;
+				}
 			} catch (err) {
-				console.error('[avatars] auto-link to agent_identities failed', {
+				console.error('[avatars] auto-agent failed', {
 					avatarId: avatar.id,
 					userId: auth.userId,
 					error: err?.message,

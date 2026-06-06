@@ -119,8 +119,14 @@ function initState() {
 
 const templatesScreen = document.getElementById('templates-screen');
 const wizardEl = document.getElementById('wizard');
+const startFreshBtn = document.getElementById('btn-start-fresh');
 
-function showWizard() {
+function showWizard({ fromTemplate = false } = {}) {
+	// Show "← Templates" button only when the gallery was bypassed (stale state).
+	// When triggered by a template card click, the gallery is already visible so
+	// no need to offer a way back.
+	if (startFreshBtn) startFreshBtn.style.display = fromTemplate ? 'none' : '';
+
 	if (templatesScreen) {
 		templatesScreen.classList.add('tpl-exit');
 		setTimeout(() => {
@@ -136,6 +142,13 @@ function showWizard() {
 	}
 }
 
+if (startFreshBtn) {
+	startFreshBtn.addEventListener('click', () => {
+		try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+		location.reload();
+	});
+}
+
 function applyTemplate(tpl) {
 	state.description = tpl.bio;
 	state.enabledSkills = [...tpl.skills];
@@ -144,7 +157,7 @@ function applyTemplate(tpl) {
 	// Jump to step 2 (Name & Brain) so the user immediately sees the prefilled persona
 	state.step = 2;
 	saveState(state);
-	showWizard();
+	showWizard({ fromTemplate: true });
 	renderStep();
 }
 
@@ -183,8 +196,9 @@ function initTemplateGallery() {
 	}
 
 	// If there's an in-progress wizard session, skip the gallery and let caller renderStep.
+	// Show "← Templates" so the user can always reset back to the template gallery.
 	if (hasSavedState) {
-		showWizard();
+		showWizard({ fromTemplate: false });
 		return false;
 	}
 
@@ -198,7 +212,8 @@ function initTemplateGallery() {
 
 	const blankBtn = document.getElementById('btn-blank-start');
 	if (blankBtn) {
-		blankBtn.addEventListener('click', () => showWizard());
+		// Gallery is visible; "Start from scratch" comes from within it, so no back-button needed.
+		blankBtn.addEventListener('click', () => showWizard({ fromTemplate: true }));
 	}
 
 	return false;

@@ -12,6 +12,19 @@
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { rpcFallbackFromEnv, getBondingCurveState, getTokenPrice, getGraduationProgress } from '../_lib/solana/index.js';
 
+async function jupiterPriceFallback(mint) {
+	try {
+		const r = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`);
+		if (!r.ok) return null;
+		const data = await r.json();
+		const usd = data?.[mint]?.usdPrice ?? data?.[mint]?.price;
+		const n = Number(usd);
+		return Number.isFinite(n) && n > 0 ? { priceUsd: n, source: 'jupiter' } : null;
+	} catch {
+		return null;
+	}
+}
+
 function readMint(req) {
 	try {
 		const u = new URL(req.url, 'http://x');
@@ -51,13 +64,21 @@ export default wrap(async (req, res) => {
 		return error(res, 404, 'no_curve', 'no bonding curve found for that mint');
 	}
 
+	// Graduated coins have no bonding-curve price. Fall back to Jupiter so callers
+	// always get a usable price even after migration to a DEX.
+	let pricePayload = result.price ? serializeBNs(result.price) : null;
+	let graduatedPrice = null;
+	if (!pricePayload && result.curve?.complete) {
+		graduatedPrice = await jupiterPriceFallback(mint);
+	}
+
 	return json(res, 200, {
 		mint,
 		network,
-		...result,
-		// price/graduation values from the SDK contain BNs — stringify them for JSON wire safety
-		price: result.price ? serializeBNs(result.price) : null,
+		curve: result.curve,
+		price: pricePayload,
 		graduation: result.graduation ? serializeBNs(result.graduation) : null,
+		...(graduatedPrice ? { graduatedPrice } : {}),
 	}, { 'cache-control': 'public, max-age=5, s-maxage=10, stale-while-revalidate=30' });
 });
 
