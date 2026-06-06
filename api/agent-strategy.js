@@ -42,8 +42,9 @@ export default wrap(async (req, res) => {
 		const rl = await limits.widgetRead(clientIp(req));
 		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 
+		// "no strategy set" is a valid empty state, not an error — return null with
+		// 200 so owners viewing an un-configured agent don't generate console 404s.
 		const strategy = agent.meta?.strategy ?? null;
-		if (strategy === null) return error(res, 404, 'not_found', 'no strategy set');
 		return json(res, 200, { data: { strategy } });
 	}
 
