@@ -1,21 +1,29 @@
 /**
  * Forge — browser-facing text/image → 3D model generator + auto-rigger.
  *
- *   POST /api/forge             { prompt, aspect_ratio? }   → text→3D job
- *   POST /api/forge             { image_url, prompt? }      → image→3D job
- *   POST /api/forge?action=rig  { glb_url }                 → auto-rig a GLB
- *   GET  /api/forge?job=<id>                                → poll any job
+ *   POST /api/forge   { prompt, aspect_ratio?, path?, tier?, backend? }  → text→3D
+ *   POST /api/forge   { image_urls[], prompt?, path?, tier?, backend? }  → image→3D
+ *   POST /api/forge?action=rig  { glb_url }                              → auto-rig
+ *   GET  /api/forge?job=<id>                                             → poll a job
+ *   GET  /api/forge?catalog                                              → tier/backend/cost matrix
  *
- * This is the public, auth-free twin of the 3D Studio MCP server
- * (api/mcp-3d.js): it drives the exact same real pipeline — a flux-schnell
- * text-to-image pass, then Microsoft TRELLIS mesh reconstruction on Replicate —
- * but over plain JSON so the /forge page can drive it straight from the
- * browser. There is no shared MCP/OAuth context here, so requests are rate
- * limited by client IP using the same generation/status limiters.
+ * Two request axes select how a mesh is produced (see api/_lib/forge-tiers.js):
+ *   • path  — "image" (image-intermediate: text→image→mesh via FLUX + TRELLIS,
+ *             the fast default; or Hunyuan3D self-host) vs "geometry" (geometry-
+ *             first: native text→mesh / image→mesh via Meshy or Tripo, no
+ *             synthesized intermediate view, higher geometric ceiling).
+ *   • tier  — draft | standard | high — the target polygon budget + texture
+ *             richness. The high tier yields a visibly denser mesh.
+ * Every job result reports the path + tier + backend that produced it.
  *
- * No mock paths: if REPLICATE_API_TOKEN is absent the endpoint returns a clean
- * 503 with a configuration message and the page renders a designed "not
- * configured" state — it never fabricates a model.
+ * The geometry providers are BYOK: the caller supplies their own Meshy/Tripo key
+ * (request header `x-forge-provider-key`, or the signed-in user's stored key).
+ * Without one, the geometry path returns a designed `needs_key` state.
+ *
+ * This is the public, auth-free twin of the 3D Studio MCP server (api/mcp-3d.js).
+ * No mock paths: if a selected backend isn't configured the endpoint returns a
+ * clean 503/501 and the page renders a designed state — it never fabricates a
+ * model.
  */
 
 import { cors, json, method, readJson, wrap } from './_lib/http.js';
@@ -33,7 +41,6 @@ import {
 	BACKENDS,
 	resolveTier,
 	resolveBackendId,
-	backendIsConfigured,
 	estimateEtaSeconds,
 	estimateCredits,
 	buildCatalog,

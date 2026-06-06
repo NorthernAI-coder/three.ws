@@ -183,14 +183,129 @@ function setMode(next) {
 	mode = next;
 	els.textPane.classList.toggle('is-hidden', mode !== 'text');
 	els.imagePane.classList.toggle('is-hidden', mode !== 'image');
-	// Aspect ratio only shapes the synthesized reference image — irrelevant when
-	// the user supplies their own photos.
-	els.aspect.classList.toggle('is-hidden', mode !== 'text');
 	els.examples.classList.toggle('is-hidden', mode !== 'text');
 	for (const b of els.modeSwitch.querySelectorAll('button')) {
 		b.setAttribute('aria-selected', String(b.dataset.mode === mode));
 	}
+	updateAspectVisibility();
 	if (mode === 'text') els.prompt.focus();
+}
+
+// Aspect ratio only shapes the synthesized reference image — irrelevant when
+// the user supplies their own photos OR uses the geometry-first path (which
+// never paints an intermediate image).
+function updateAspectVisibility() {
+	if (!els.aspect) return;
+	const relevant = mode === 'text' && selectedEngine.path === 'image';
+	els.aspect.classList.toggle('is-hidden', !relevant);
+}
+
+// Quality tier + engine ------------------------------------------------------
+
+// Fetch the tier/backend/cost catalog once, then build the engine selector from
+// the backends that are live (platform-configured) or BYOK (always selectable).
+async function loadCatalog() {
+	try {
+		const res = await fetch('/api/forge?catalog=1', { headers: CLIENT_HEADERS });
+		catalog = await res.json().catch(() => null);
+	} catch {
+		catalog = null;
+	}
+	if (!catalog || !Array.isArray(catalog.backends)) {
+		// No catalog (older deploy) — hide the controls; defaults still work.
+		els.engine?.closest('#forge-quality')?.classList.add('is-hidden');
+		return;
+	}
+	buildEngineButtons();
+	selectTier(selectedTier);
+}
+
+function buildEngineButtons() {
+	if (!els.engine) return;
+	const usable = catalog.backends.filter((b) => b.configured || b.byok);
+	els.engine.innerHTML = '';
+	for (const b of usable) {
+		// Each backend exposes the geometry-first path when it supports it; the
+		// image-intermediate engines (TRELLIS, Hunyuan3D) keep the image path.
+		const path = b.paths.includes('geometry') ? 'geometry' : 'image';
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.dataset.engine = b.id;
+		btn.dataset.path = path;
+		btn.dataset.backend = b.id;
+		btn.dataset.byok = b.byok || '';
+		btn.dataset.poly = String(Boolean(b.poly_control));
+		btn.textContent = ENGINE_LABELS[b.id] || b.label;
+		btn.title = `${b.label} — ${b.blurb}`;
+		btn.setAttribute('aria-pressed', String(b.id === selectedEngine.backend));
+		els.engine.appendChild(btn);
+	}
+	// If the previously-selected engine isn't usable, fall back to the first.
+	if (!usable.some((b) => b.id === selectedEngine.backend)) {
+		const first = els.engine.querySelector('button');
+		if (first) selectEngine(first, true);
+	}
+}
+
+function selectEngine(btn, silent) {
+	if (!btn) return;
+	selectedEngine = {
+		id: btn.dataset.engine,
+		path: btn.dataset.path,
+		backend: btn.dataset.backend,
+		byok: btn.dataset.byok || null,
+		polyControl: btn.dataset.poly === 'true',
+	};
+	for (const b of els.engine.querySelectorAll('button')) {
+		b.setAttribute('aria-pressed', String(b === btn));
+	}
+	updateByokRow();
+	updateAspectVisibility();
+	if (!silent) updateEstimate();
+}
+
+// Show the key field only for BYOK engines, with provider-specific hint + link.
+function updateByokRow() {
+	if (!els.byokRow) return;
+	const byok = selectedEngine.byok;
+	els.byokRow.classList.toggle('is-hidden', !byok);
+	if (!byok) return;
+	const hint = KEY_HINTS[byok];
+	els.byokLabel.textContent = `${hint?.label || byok} key`;
+	els.providerKey.placeholder = `Your ${hint?.label || byok} API key (kept in this browser)`;
+	els.byokHint.innerHTML = hint
+		? `Geometry-first uses your own ${hint.label} key. <a href="${hint.url}" target="_blank" rel="noopener">Get a key →</a> Signed-in users can save it in Account instead.`
+		: 'This engine needs your own API key.';
+}
+
+function selectTier(tierId) {
+	if (!['draft', 'standard', 'high'].includes(tierId)) return;
+	selectedTier = tierId;
+	for (const b of els.tier.querySelectorAll('button')) {
+		b.setAttribute('aria-pressed', String(b.dataset.tier === tierId));
+	}
+	updateEstimate();
+}
+
+// Render the honest time/cost/poly estimate for the current engine + tier from
+// the catalog. No fabricated numbers — everything comes from /api/forge?catalog.
+function updateEstimate() {
+	if (!els.estimate || !catalog) return;
+	const backend = catalog.backends.find((b) => b.id === selectedEngine.backend);
+	const tierMeta = catalog.tiers.find((t) => t.id === selectedTier);
+	if (!backend || !tierMeta) {
+		els.estimate.textContent = '';
+		return;
+	}
+	const est = (backend.estimates?.[selectedEngine.path] || []).find((e) => e.tier === selectedTier);
+	const parts = [`<strong>${tierMeta.label}</strong>`];
+	if (est?.eta_seconds) parts.push(`~${est.eta_seconds}s`);
+	if (est && est.credits != null) parts.push(`~${est.credits} credits`);
+	if (backend.poly_control) parts.push(`up to ${tierMeta.polycount.toLocaleString()} polys`);
+	else parts.push('image-intermediate · no poly target');
+	const pathLabel = selectedEngine.path === 'geometry' ? 'geometry-first' : 'fast path';
+	parts.push(pathLabel);
+	els.estimate.innerHTML = parts.join(' · ');
 }
 
 // View slots ------------------------------------------------------------------
@@ -437,21 +552,47 @@ function firstPreviewUrl() {
 
 // Job submission --------------------------------------------------------------
 
+// Headers for a forge request, including the BYOK provider key (geometry path)
+// when the user has entered one. The key rides a header, never the URL.
+function forgeHeaders(extra) {
+	const h = { ...CLIENT_HEADERS, ...extra };
+	if (providerKey) h['x-forge-provider-key'] = providerKey;
+	return h;
+}
+
 async function startJob({ prompt, imageUrls }) {
+	const base = { path: selectedEngine.path, tier: selectedTier, backend: selectedEngine.backend };
 	const body =
 		Array.isArray(imageUrls) && imageUrls.length
-			? { image_urls: imageUrls, prompt: prompt || undefined }
-			: { prompt, aspect_ratio: aspectRatio };
+			? { image_urls: imageUrls, prompt: prompt || undefined, ...base }
+			: { prompt, aspect_ratio: aspectRatio, ...base };
 
 	const res = await fetch('/api/forge', {
 		method: 'POST',
-		headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
+		headers: forgeHeaders({ 'content-type': 'application/json' }),
 		body: JSON.stringify(body),
 	});
 	const data = await res.json().catch(() => ({}));
 	if (res.status === 503 || data.error === 'unconfigured') {
 		const e = new Error(data.message || 'unconfigured');
 		e.kind = 'unconfigured';
+		throw e;
+	}
+	// Geometry path needs a BYOK key we don't have — a recoverable, designed state.
+	if (data.error === 'needs_key') {
+		const e = new Error(data.message || 'An API key is required for this engine.');
+		e.kind = 'needs_key';
+		e.provider = data.provider;
+		throw e;
+	}
+	if (data.error === 'invalid_key') {
+		const e = new Error(data.message || 'The provider rejected this API key.');
+		e.kind = 'invalid_key';
+		throw e;
+	}
+	if (data.error === 'insufficient_credits') {
+		const e = new Error(data.message || 'The provider account is out of credits.');
+		e.kind = 'credits';
 		throw e;
 	}
 	if (res.status === 429 || data.error === 'rate_limited') {
@@ -474,7 +615,7 @@ async function pollUntilDone(jobId) {
 		await sleep(POLL_INTERVAL_MS);
 		if (pollAbort) return null;
 		const res = await fetch(`/api/forge?job=${encodeURIComponent(jobId)}`, {
-			headers: CLIENT_HEADERS,
+			headers: forgeHeaders(),
 		});
 		const data = await res.json().catch(() => ({}));
 		if (data.error === 'unconfigured') {
@@ -510,18 +651,25 @@ function resetVerdict() {
 	}
 }
 
-// Render the small "N views · backend" badge from job metadata.
+// Render the provenance badge from job metadata: how the mesh was produced
+// (engine + tier + path) plus any multi-view conditioning. Shows whatever is
+// known — the geometry-first path has no reference views, the image path does.
 function setViewsBadge(meta) {
 	if (!els.resultViews) return;
+	const parts = [];
 	const used = Number(meta?.views_used);
-	if (!Number.isFinite(used) || used < 1) {
+	if (Number.isFinite(used) && used >= 1) {
+		parts.push(`${used} ${used === 1 ? 'view' : 'views'}`);
+		if (meta.multiview) parts.push('multi-view');
+	}
+	if (meta?.backend) parts.push(ENGINE_LABELS[meta.backend] || meta.backend);
+	if (meta?.tier) parts.push(meta.tier);
+	if (meta?.path === 'geometry') parts.push('geometry-first');
+	if (parts.length === 0) {
 		els.resultViews.classList.add('is-hidden');
 		els.resultViews.textContent = '';
 		return;
 	}
-	const parts = [`${used} ${used === 1 ? 'view' : 'views'}`];
-	if (meta.multiview) parts.push('multi-view');
-	if (meta.backend) parts.push(meta.backend);
 	els.resultViews.textContent = parts.join(' · ');
 	els.resultViews.classList.remove('is-hidden');
 }
@@ -623,6 +771,18 @@ async function loadGallery() {
 			card.appendChild(mv);
 		}
 
+		// Engine · tier provenance, so the gallery reflects how each was made.
+		if (c.backend || c.tier) {
+			const prov = document.createElement('span');
+			prov.className = 'badge';
+			prov.style.left = '6px';
+			prov.style.right = 'auto';
+			prov.style.top = Number(c.views_used) > 1 ? '28px' : '6px';
+			prov.textContent = [ENGINE_LABELS[c.backend] || c.backend, c.tier].filter(Boolean).join(' ');
+			prov.title = `${c.path === 'geometry' ? 'Geometry-first' : 'Image path'} · ${c.backend || ''} · ${c.tier || ''}`.trim();
+			card.appendChild(prov);
+		}
+
 		const meta = document.createElement('span');
 		meta.className = 'meta';
 		meta.textContent = c.prompt || 'Untitled';
@@ -635,6 +795,8 @@ async function loadGallery() {
 				views_used: c.views_used,
 				multiview: c.multiview,
 				backend: c.backend,
+				tier: c.tier,
+				path: c.path,
 			});
 			if (els.verdict) {
 				for (const b of els.verdict.querySelectorAll('button')) {
@@ -664,11 +826,14 @@ async function run(cfg) {
 	setBusy(true);
 
 	const isImage = Array.isArray(cfg.imageUrls) && cfg.imageUrls.length > 0;
+	const isGeometry = selectedEngine.path === 'geometry';
+	const meshLabel = `Generating ${selectedTier} mesh`;
 
-	// Reset the generating panel to its real starting state for this mode.
+	// Reset the generating panel to its real starting state for this run.
 	if (isImage) {
 		const n = cfg.imageUrls.length;
 		setStepLabel('image', `Conditioning on ${n} ${n === 1 ? 'view' : 'views'}`);
+		setStepLabel('mesh', isGeometry ? meshLabel : 'Reconstructing textured mesh');
 		setStep('image', 'done');
 		setStep('mesh', 'active');
 		const preview = firstPreviewUrl();
@@ -679,8 +844,17 @@ async function run(cfg) {
 			img.src = preview;
 			els.genPreview.appendChild(img);
 		}
+	} else if (isGeometry) {
+		// Geometry-first: no reference image is painted — the model emits geometry
+		// straight from the prompt, so the first step is already complete.
+		setStepLabel('image', 'Geometry-first — no reference image');
+		setStepLabel('mesh', meshLabel);
+		setStep('image', 'done');
+		setStep('mesh', 'active');
+		els.genPreview.innerHTML = '<div class="shimmer" aria-hidden="true"></div>';
 	} else {
 		setStepLabel('image', 'Painting reference image');
+		setStepLabel('mesh', 'Reconstructing textured mesh');
 		els.genPreview.innerHTML = '<div class="shimmer" aria-hidden="true"></div>';
 		setStep('image', 'active');
 		setStep('mesh', 'pending');
@@ -719,6 +893,8 @@ async function run(cfg) {
 			views_used: done.views_used ?? job.views_used,
 			multiview: done.multiview ?? job.multiview,
 			backend: done.backend ?? job.backend,
+			tier: done.tier ?? job.tier,
+			path: done.path ?? job.path,
 		});
 		loadGallery();
 	} catch (err) {
@@ -726,6 +902,23 @@ async function run(cfg) {
 		if (err.kind === 'unconfigured') {
 			stopElapsed();
 			showState('unconfigured');
+			return;
+		}
+		// Recoverable BYOK problems — reveal + focus the key field so the user can
+		// fix it and hit Retry, rather than hitting a dead end.
+		if (err.kind === 'needs_key' || err.kind === 'invalid_key') {
+			stopElapsed();
+			els.byokRow?.classList.remove('is-hidden');
+			if (els.providerKey) {
+				els.providerKey.setAttribute('aria-invalid', 'true');
+				els.providerKey.focus();
+			}
+			showError(err.message || 'Add your API key to use this engine, then retry.');
+			return;
+		}
+		if (err.kind === 'credits') {
+			stopElapsed();
+			showError(err.message || 'The provider account is out of credits.');
 			return;
 		}
 		showError(
@@ -815,6 +1008,20 @@ els.examples.addEventListener('click', (e) => {
 	submit();
 });
 
+// Quality tier + engine + BYOK key wiring.
+els.tier?.addEventListener('click', (e) => {
+	const btn = e.target.closest('button[data-tier]');
+	if (btn) selectTier(btn.dataset.tier);
+});
+els.engine?.addEventListener('click', (e) => {
+	const btn = e.target.closest('button[data-engine]');
+	if (btn) selectEngine(btn);
+});
+els.providerKey?.addEventListener('input', () => {
+	providerKey = els.providerKey.value.trim();
+	els.providerKey.removeAttribute('aria-invalid');
+});
+
 els.cancel.addEventListener('click', () => {
 	pollAbort = true;
 	stopElapsed();
@@ -894,6 +1101,10 @@ if (els.forgeShareBtn) {
 		window.__forgeShareId = shareParam;
 	}
 })();
+
+// Build the quality/engine controls from the live catalog (tiers, backends,
+// cost/time matrix). Falls back silently to the defaults if it can't load.
+loadCatalog();
 
 // Surface any previously forged models for this browser on load.
 loadGallery().then(() => {
