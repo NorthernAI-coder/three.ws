@@ -47,7 +47,9 @@ export async function getTokenPrice(connection, mint) {
 		const { global, feeConfig, bondingCurve, mintSupply } = await fetchState(connection, pk);
 		return sdkGetTokenPrice({ global, feeConfig, mintSupply, bondingCurve });
 	} catch (err) {
-		console.warn('[sdk-bridge] getTokenPrice failed: %s', String(err).slice(0, 120));
+		if (!err?.graduated) {
+			console.warn('[sdk-bridge] getTokenPrice failed: %s', String(err).slice(0, 120));
+		}
 		return null;
 	}
 }
