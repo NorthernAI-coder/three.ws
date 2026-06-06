@@ -17,6 +17,7 @@
 //      (payer, created_at), and (event_type, created_at).
 
 import { sql } from '../db.js';
+import { withDbRetry } from '../db-retry.js';
 
 /**
  * Fire-and-forget audit log write. Swallows all errors.
@@ -40,7 +41,9 @@ import { sql } from '../db.js';
 export function logPaymentEvent(event) {
 	queueMicrotask(async () => {
 		try {
-			await sql`
+			// A transient Neon "fetch failed" must not silently drop a payment
+			// event — retry the connection-level blip (the write never committed).
+			await withDbRetry(() => sql`
 				INSERT INTO x402_audit_log
 					(event_type, route, resource_url, payer, network, amount_atomics,
 					 asset, tx_hash, settlement_status, facilitator_response,
@@ -60,7 +63,7 @@ export function logPaymentEvent(event) {
 					 ${event.ipAddress ?? null},
 					 ${event.userAgent ?? null},
 					 ${event.metadata ? JSON.stringify(event.metadata) : null})
-			`;
+			`);
 		} catch (err) {
 			console.error('[x402-audit] insert failed', {
 				eventType: event.eventType,

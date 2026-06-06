@@ -4,6 +4,8 @@ Register an agent on Solana as a Metaplex Core NFT. The flow mirrors the [ERC-80
 
 This document covers what is supported today, the end-to-end registration flow, and what is intentionally **not** on Solana yet.
 
+> Deploying many agents at once (server-side, into the three.ws Agents collection, with a live dashboard)? See [Deploy agents on-chain (bulk)](onchain-agents.md).
+
 ---
 
 ## What's supported today
