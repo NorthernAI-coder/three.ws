@@ -204,6 +204,14 @@
 			"headers": { "Location": "/ibm/galaxy" }
 		},
 		{
+			"src": "/support",
+			"dest": "/support.html"
+		},
+		{
+			"src": "/support/",
+			"dest": "/support.html"
+		},
+		{
 			"src": "/rss/announcements\\.xml",
 			"dest": "/api/rss/announcements"
 		},
@@ -1737,6 +1745,13 @@
 		},
 		{
 			"src": "/avatars/([^/]+\\.glb)",
+			"headers": {
+				"cache-control": "public, max-age=604800, stale-while-revalidate=2592000",
+				"access-control-allow-origin": "*",
+				"access-control-allow-methods": "GET, HEAD, OPTIONS",
+				"cross-origin-resource-policy": "cross-origin",
+				"timing-allow-origin": "*"
+			},
 			"dest": "/avatars/$1"
 		},
 		{
@@ -2363,7 +2378,7 @@
 		{
 			"src": "/agent-3d/(latest|[0-9]+|[0-9]+\\.[0-9]+)/(.*)",
 			"headers": {
-				"cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=86400",
+				"cache-control": "public, max-age=3600, s-maxage=300, stale-while-revalidate=86400",
 				"access-control-allow-origin": "*",
 				"access-control-allow-methods": "GET, HEAD, OPTIONS",
 				"cross-origin-resource-policy": "cross-origin",
@@ -2384,9 +2399,20 @@
 			"dest": "/agent-3d/versions.json"
 		},
 		{
+			"src": "/animations/(.*)",
+			"headers": {
+				"cache-control": "public, max-age=604800, stale-while-revalidate=2592000",
+				"access-control-allow-origin": "*",
+				"access-control-allow-methods": "GET, HEAD, OPTIONS",
+				"cross-origin-resource-policy": "cross-origin",
+				"timing-allow-origin": "*"
+			},
+			"dest": "/animations/$1"
+		},
+		{
 			"src": "/assets/(.*)",
 			"headers": {
-				"cache-control": "max-age=604800, public",
+				"cache-control": "public, max-age=31536000, immutable",
 				"cross-origin-resource-policy": "cross-origin"
 			},
 			"dest": "/assets/$1"
@@ -2840,6 +2866,14 @@
 		{
 			"src": "/api/agents/endpoint-shopper-run",
 			"dest": "/api/agents/endpoint-shopper-run.js"
+		},
+		{
+			"src": "/(.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2|woff|ttf|otf|glb|gltf|hdr|exr|ktx2|basis|bin))$",
+			"headers": {
+				"cache-control": "public, max-age=604800, stale-while-revalidate=2592000",
+				"cross-origin-resource-policy": "cross-origin"
+			},
+			"dest": "/$1"
 		},
 		{
 			"src": "/(.*)",

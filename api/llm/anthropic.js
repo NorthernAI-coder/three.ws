@@ -127,30 +127,61 @@ function buildCorsAllowlist(policy) {
 	return Array.from(out);
 }
 
+// A Redis outage hits every request, so unthrottled logging would itself storm
+// the logs. Warn at most once per cooldown, mirroring rate-limit.js's degrade
+// throttle.
+let _quotaWarnedAt = 0;
+function warnQuotaDegraded(err) {
+	const t = Date.now();
+	if (t - _quotaWarnedAt < 60_000) return;
+	_quotaWarnedAt = t;
+	console.warn('[llm/anthropic] quota-counter redis degraded, failing open:', err?.message || err);
+}
+
 async function incrementMonthlyQuota(agentId) {
 	const r = getRedis();
 	if (!r) return 0;
 	const key = `llm:quota:${agentId}:${monthKey()}`;
-	const count = await r.incr(key);
-	if (count === 1) await r.expire(key, 40 * 24 * 3600);
-	return count;
+	try {
+		const count = await r.incr(key);
+		if (count === 1) await r.expire(key, 40 * 24 * 3600);
+		return count;
+	} catch (err) {
+		// Fail open like the per-IP/per-agent limiters this handler already uses:
+		// a counter-store outage must not 500 the proxy. Spend stays bounded by
+		// those (resilient) limiters during the outage window.
+		warnQuotaDegraded(err);
+		return 0;
+	}
 }
 
 async function getMonthlyTokens(agentId) {
 	const r = getRedis();
 	if (!r) return 0;
 	const key = `llm:tokens:${agentId}:${monthKey()}`;
-	const v = await r.get(key);
-	return typeof v === 'number' ? v : parseInt(v || '0', 10) || 0;
+	try {
+		const v = await r.get(key);
+		return typeof v === 'number' ? v : parseInt(v || '0', 10) || 0;
+	} catch (err) {
+		warnQuotaDegraded(err);
+		return 0;
+	}
 }
 
 async function addMonthlyTokens(agentId, delta) {
 	const r = getRedis();
 	if (!r || !delta) return 0;
 	const key = `llm:tokens:${agentId}:${monthKey()}`;
-	const total = await r.incrby(key, delta);
-	if (total === delta) await r.expire(key, 40 * 24 * 3600);
-	return total;
+	try {
+		const total = await r.incrby(key, delta);
+		if (total === delta) await r.expire(key, 40 * 24 * 3600);
+		return total;
+	} catch (err) {
+		// Best-effort post-call accounting — the response was already streamed, so
+		// a failed write must never throw into the (finished) request.
+		warnQuotaDegraded(err);
+		return 0;
+	}
 }
 
 // ── Request schema ────────────────────────────────────────────────────────────

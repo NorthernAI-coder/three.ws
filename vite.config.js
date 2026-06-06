@@ -387,6 +387,7 @@ const appConfig = {
 				'ibm-proof':               resolve(__dirname, 'pages/ibm/proof.html'),
 				'ibm-twin':                resolve(__dirname, 'pages/ibm/twin.html'),
 				'ibm-identity':            resolve(__dirname, 'pages/ibm/identity.html'),
+				support:                   resolve(__dirname, 'pages/support.html'),
 				// dashboard-next prototype — sub-pages auto-discovered so the parallel
 				// agents that land new pages/dashboard-next/*.html files don't have to
 				// touch this config to register them as Rollup inputs.
@@ -636,6 +637,8 @@ const appConfig = {
 					'/ibm/twin/': resolve(root, 'pages/ibm/twin.html'),
 					'/ibm/identity': resolve(root, 'pages/ibm/identity.html'),
 					'/ibm/identity/': resolve(root, 'pages/ibm/identity.html'),
+					'/support': resolve(root, 'pages/support.html'),
+					'/support/': resolve(root, 'pages/support.html'),
 					// Top-level galaxy/constellation are routed in vercel.json (prod) and
 					// linked from the global nav — mirror them here so local dev matches prod
 					// instead of 404ing.

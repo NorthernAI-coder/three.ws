@@ -89,27 +89,38 @@ export default wrap(async (req, res) => {
 	let rKey = null;
 	if (redis) {
 		const hourBucket = Math.floor(Date.now() / 3_600_000);
-		rKey = `tts:chars:${userId}:${hourBucket}`;
-		const used = Number((await redis.get(rKey)) || 0);
-		if (used + text.length > CHARS_PER_HOUR) {
-			return error(
-				res,
-				429,
-				'rate_limited',
-				`TTS character limit (${CHARS_PER_HOUR}/hr) reached. Try again next hour.`,
-			);
-		}
-		// Increment before synthesis to prevent parallel races from blowing past limit.
-		const newTotal = await redis.incrby(rKey, text.length);
-		await redis.expire(rKey, 7200);
-		if (newTotal > CHARS_PER_HOUR) {
-			await redis.decrby(rKey, text.length).catch(() => {});
-			return error(
-				res,
-				429,
-				'rate_limited',
-				`TTS character limit (${CHARS_PER_HOUR}/hr) reached. Try again next hour.`,
-			);
+		const key = `tts:chars:${userId}:${hourBucket}`;
+		try {
+			const used = Number((await redis.get(key)) || 0);
+			if (used + text.length > CHARS_PER_HOUR) {
+				return error(
+					res,
+					429,
+					'rate_limited',
+					`TTS character limit (${CHARS_PER_HOUR}/hr) reached. Try again next hour.`,
+				);
+			}
+			// Increment before synthesis to prevent parallel races from blowing past limit.
+			const newTotal = await redis.incrby(key, text.length);
+			await redis.expire(key, 7200);
+			// Only arm the refund path once the reservation actually landed.
+			rKey = key;
+			if (newTotal > CHARS_PER_HOUR) {
+				await redis.decrby(key, text.length).catch(() => {});
+				rKey = null;
+				return error(
+					res,
+					429,
+					'rate_limited',
+					`TTS character limit (${CHARS_PER_HOUR}/hr) reached. Try again next hour.`,
+				);
+			}
+		} catch (err) {
+			// Redis outage / over-quota: fail open rather than 500 the synth, matching
+			// the shared limiter's non-critical behavior. ElevenLabs' own account quota
+			// stays the hard ceiling, so an unmetered call here can't run away on cost.
+			console.warn('[tts/eleven] char-limit redis degraded, allowing:', err?.message || err);
+			rKey = null;
 		}
 	}
 
