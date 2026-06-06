@@ -60,6 +60,24 @@ function regenProvider(mode = 'reconstruct') {
 	}
 }
 
+// Region (magic-brush) edits MUST run on the GCP texture worker — the Replicate
+// path has no masked-inpaint model, so we never silently fall back to it and
+// drop the mask. Require GCP explicitly and fail with a clear message otherwise.
+function regionProvider() {
+	if (process.env?.GCP_RECONSTRUCTION_KEY) {
+		try {
+			const gcp = createGcpProvider();
+			if (gcp.supportsMode('retex_region')) return gcp;
+		} catch {
+			// fall through to the explicit error below
+		}
+	}
+	throw rpcError(
+		-32000,
+		'Region retexture requires the GCP texture worker (set GCP_RECONSTRUCTION_KEY and GCP_TEXTURE_URL).',
+	);
+}
+
 // Validate via the shared DNS-resolving SSRF guard: https-only, the hostname is
 // resolved and every A/AAAA record is checked against the full private/loopback/
 // link-local/ULA/IPv4-mapped/metadata blocklist (covering 172.16/12, [::1],
@@ -848,7 +866,7 @@ export const toolDefs = [
 					isError: true,
 				};
 			}
-			const provider = regenProvider('retex_region');
+			const provider = regionProvider();
 			const job = await provider.submit({
 				mode: 'retex_region',
 				sourceUrl: args.mesh_url,

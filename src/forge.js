@@ -64,14 +64,39 @@ const els = {
 	creations: document.getElementById('creations'),
 	creationsGrid: document.getElementById('creations-grid'),
 	creationsCount: document.getElementById('creations-count'),
+	// Quality tier + generation engine + BYOK key.
+	tier: document.getElementById('tier'),
+	engine: document.getElementById('engine'),
+	byokRow: document.getElementById('byok-row'),
+	byokLabel: document.getElementById('byok-label'),
+	byokHint: document.getElementById('byok-hint'),
+	providerKey: document.getElementById('provider-key'),
+	estimate: document.getElementById('estimate'),
 };
 
 let aspectRatio = '1:1';
 let elapsedTimer = null;
 let pollAbort = false;
-let mode = 'text'; // 'text' | 'image'
+let mode = 'text'; // 'text' | 'image' — input mode (prompt vs photos)
 let lastJob = null; // { prompt, imageUrls } — for retry
 let currentCreationId = null;
+
+// Generation route + quality. `genPath` is the task's image|geometry axis;
+// `genBackend` names the provider; both come from the selected engine button.
+// The catalog (tiers + backends + cost/time matrix) is fetched once on load.
+let catalog = null;
+let selectedTier = 'standard';
+let selectedEngine = { id: 'trellis', path: 'image', backend: 'trellis', byok: null, polyControl: false };
+// BYOK key held only in memory for this session — sent per request, never stored
+// by the page. Signed-in users can instead save it server-side in Account.
+let providerKey = '';
+
+// Friendly engine labels + where to mint a key, keyed by backend id.
+const ENGINE_LABELS = { trellis: 'Fast', meshy: 'Meshy', tripo: 'Tripo', hunyuan3d: 'Hunyuan3D' };
+const KEY_HINTS = {
+	meshy: { label: 'Meshy AI', url: 'https://www.meshy.ai/settings/api' },
+	tripo: { label: 'Tripo AI', url: 'https://platform.tripo3d.ai/api-keys' },
+};
 
 // One entry per reference-view slot. `state` drives the slot's rendered region;
 // `url` is the durable public URL (what we send); `objectUrl` is the local

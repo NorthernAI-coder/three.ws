@@ -196,6 +196,7 @@ function loadSegmentedModel(glbUrl, manifest) {
 					if (!o.isMesh) return;
 					o.material = o.material.clone();
 					o.material.vertexColors = true;
+					o.material.needsUpdate = true; // force a shader recompile so the per-part tint shows
 					const id = partIdFor(o);
 					if (!byId.has(id)) {
 						const man = manifestById.get(id);
@@ -539,6 +540,9 @@ function onPointerMove(e) {
 }
 function onPointerUp(e) {
 	if (!parts.length) return;
+	// Only the canvas selects — a release on a parts-panel button (or anywhere
+	// else) must not clobber the current selection.
+	if (e.target !== renderer.domElement) return;
 	// Ignore drags (orbit) — only treat a near-stationary release as a click.
 	if (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4) return;
 	setPointer(e);

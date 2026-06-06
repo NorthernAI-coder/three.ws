@@ -156,6 +156,9 @@ def _run_segmentation(
         manifest["parts"] = [p.manifest() for p in parts]
         manifest["part_count"] = len(parts)
         manifest["only_part"] = f"part_{parts[0].index:02d}"
+        # The cap/merge warning describes the full run, not this single-part
+        # export — drop it so the response isn't misleading.
+        manifest["warnings"] = []
 
     return glb_bytes, manifest
 

@@ -167,6 +167,7 @@ async def _run_pipeline(
     images: list[str],
     body_type: str,
     model_name: str,
+    target_polycount: int | None = None,
 ) -> None:
     t0 = time.time()
     backend_url = BACKENDS[model_name]
@@ -174,11 +175,17 @@ async def _run_pipeline(
     try:
         # ── Stage 1: Mesh generation ──────────────────────────────────────
         _set_job(job_id, {"status": "running", "stage": "mesh_generation"})
-        log.info("[%s] submitting to %s", job_id, model_name)
+        log.info("[%s] submitting to %s (target_polycount=%s)", job_id, model_name, target_polycount)
+
+        infer_payload = {"images": images, "body_type": body_type, "job_id": job_id}
+        # Forward the tier's poly budget to backends that support it; omitted when
+        # unset so a backend that ignores it sees the original request shape.
+        if target_polycount:
+            infer_payload["target_polycount"] = int(target_polycount)
 
         resp = await _http.post(
             f"{backend_url}/infer",
-            json={"images": images, "body_type": body_type, "job_id": job_id},
+            json=infer_payload,
             headers={"authorization": f"Bearer {API_KEY}"},
         )
         if resp.status_code != 202:
@@ -320,6 +327,12 @@ class ReconstructRequest(BaseModel):
     job_id: str | None = None
     body_type: str = "neutral"
     model: str | None = None
+    # Quality-tier provenance + target polygon budget (see api/_lib/forge-tiers.js).
+    # Recorded on the job and forwarded to the backend so the high tier yields a
+    # denser mesh. All optional — the default request shape is unchanged.
+    tier: str | None = None
+    path: str | None = None
+    target_polycount: int | None = Field(default=None, ge=100, le=1_000_000)
 
 
 @app.post("/reconstruct", status_code=202)
@@ -340,10 +353,17 @@ async def reconstruct(
         "model": model_name,
         "image_count": len(body.images),
         "body_type": body.body_type,
+        # Provenance: which generation path + quality tier produced this job, so
+        # GET /jobs reports tier + backend + path back to the caller.
+        "tier": body.tier,
+        "path": body.path or "image",
+        "target_polycount": body.target_polycount,
         "created_at": datetime.now(timezone.utc),
     })
 
-    background_tasks.add_task(_run_pipeline, job_id, body.images, body.body_type, model_name)
+    background_tasks.add_task(
+        _run_pipeline, job_id, body.images, body.body_type, model_name, body.target_polycount,
+    )
     return {"job_id": job_id, "status": "queued", "model": model_name}
 
 
