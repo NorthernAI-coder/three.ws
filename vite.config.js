@@ -286,6 +286,7 @@ const appConfig = {
 				shopper: resolve(__dirname, 'pages/shopper.html'),
 				go: resolve(__dirname, 'pages/go.html'),
 				'pump-live': resolve(__dirname, 'pages/pump-live.html'),
+				'bulk-launch': resolve(__dirname, 'pages/bulk-launch.html'),
 				'pump-dashboard': resolve(__dirname, 'pages/pump-dashboard.html'),
 				autopilot: resolve(__dirname, 'pages/autopilot.html'),
 				'pump-visualizer': resolve(__dirname, 'pages/pump-visualizer.html'),

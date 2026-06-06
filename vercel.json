@@ -440,6 +440,10 @@
 			"dest": "/pump-live.html"
 		},
 		{
+			"src": "/admin/bulk-launch/?",
+			"dest": "/bulk-launch.html"
+		},
+		{
 			"src": "/pump-dashboard/?",
 			"dest": "/pump-dashboard.html"
 		},

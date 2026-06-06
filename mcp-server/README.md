@@ -33,6 +33,8 @@ Restart Claude Desktop. The four tools appear immediately — no install step re
 
 | Tool | Price | What it returns |
 |------|-------|-----------------|
+| `mesh_forge` | $0.25 | Textured 3D GLB from a text prompt via a chain of specialist models — an IBM Granite "prompt director" rewrites the prompt into an optimized single-subject 3D spec, FLUX renders a reference image, and Microsoft TRELLIS / Tencent Hunyuan3D reconstruct the mesh. Returns the durable `glbUrl`, a three.ws viewer `preview`, the `directedPrompt`, and timing. |
+| `text_to_avatar` | $0.15 | Textured 3D GLB avatar from a text prompt or reference image URLs, driving Replicate (Hunyuan-3D 3.1 by default). Returns the GLB URL, model version, prediction id, and timing. |
 | `get_pose_seed` | $0.001 | Deterministic seed + full Euler-rotation pose map (radians) for the three.ws pose-studio mannequin, matched from the in-repo preset library. Includes a `previewUrl` at `https://three.ws/pose?seed=…&preset=…`. |
 | `pump_snapshot` | $0.005 | Live token snapshot — USD price (Jupiter), 24h volume + pair (Dexscreener), mint metadata + image (pump.fun frontend-api-v3), and on-chain top-holder distribution (Solana RPC). Adds Helius DAS data when `HELIUS_API_KEY` is set. |
 | `agent_reputation` | $0.01 | ERC-8004 reputation: `getReputation`, `getTotalStake`, and the latest `ReputationSubmitted` / `ReputationStaked` events from the canonical ReputationRegistry on the requested chain (default Base). Resolves `agentId` from a wallet address automatically. |
