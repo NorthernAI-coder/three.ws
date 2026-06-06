@@ -27,6 +27,14 @@ const readMemo = new Map();
 const MEMO_TTL_MS = 2_000;
 const MEMO_MAX_ENTRIES = 5_000; // backstop against unbounded key cardinality
 
+// In-flight GET coalescing. The read-memo above only collapses *sequential*
+// reads; under a burst (the exact load that exhausts the Upstash request quota)
+// N concurrent reads of the same hot key all miss the not-yet-populated memo and
+// each fire their own Redis GET. Single-flight makes those N callers await one
+// shared round-trip instead. Self-bounded: an entry lives only while its GET is
+// in flight and is removed in `finally`.
+const inflightGets = new Map();
+
 function memoGet(key) {
 	const hit = readMemo.get(key);
 	if (!hit) return undefined; // undefined = no memo; null is a cached "miss"
@@ -81,15 +89,24 @@ export async function cacheGet(key) {
 	if (!redisConfigured()) return memGet(key);
 	const memo = memoGet(key);
 	if (memo !== undefined) return memo;
-	try {
-		const raw = await redisCmd(['GET', key]);
-		const value = raw == null ? null : JSON.parse(raw);
-		memoPut(key, value);
-		return value;
-	} catch (err) {
-		console.warn('[cache] redis GET failed, using memory fallback:', err?.message);
-		return memGet(key);
-	}
+	// Join an in-flight GET for this key rather than issuing a duplicate.
+	const pending = inflightGets.get(key);
+	if (pending) return pending;
+	const p = (async () => {
+		try {
+			const raw = await redisCmd(['GET', key]);
+			const value = raw == null ? null : JSON.parse(raw);
+			memoPut(key, value);
+			return value;
+		} catch (err) {
+			console.warn('[cache] redis GET failed, using memory fallback:', err?.message);
+			return memGet(key);
+		} finally {
+			inflightGets.delete(key);
+		}
+	})();
+	inflightGets.set(key, p);
+	return p;
 }
 
 export async function cacheSet(key, value, ttlSeconds = 60) {
