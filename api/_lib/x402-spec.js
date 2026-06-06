@@ -327,7 +327,8 @@ const FACILITATOR_TIMEOUT_MS_DEFAULT = (() => {
 const TRANSIENT_FACILITATOR_STATUS = new Set([502, 503, 504]);
 
 function summarizeUpstream(data, text) {
-	return String(data.error || data.message || data.invalidReason || text.slice(0, 200) || '').slice(0, 300);
+	// CDP surfaces the reason under `errorMessage`; PayAI under `error`/`message`.
+	return String(data.error || data.message || data.errorMessage || data.invalidReason || text.slice(0, 200) || '').slice(0, 300);
 }
 
 async function callFacilitator(network, path, body, { timeoutMs, idempotencyKey, retries = 1 } = {}) {
@@ -401,6 +402,17 @@ async function callFacilitator(network, path, body, { timeoutMs, idempotencyKey,
 			// pass through so verifyPayment can emit a clean 402 to the caller.
 			if (path === '/verify' && data.isValid === false) return data;
 			const detail = summarizeUpstream(data, text);
+			// A 400 from /verify means the facilitator rejected the *payment
+			// payload itself* (malformed X-PAYMENT header, wrong scheme, etc.) —
+			// that's a client error, not an upstream outage. CDP signals it with
+			// an `errorMessage` and no `isValid` field, so the PayAI passthrough
+			// above misses it and we'd otherwise 502. Normalize to an
+			// invalid-payment result so verifyPayment emits a clean 402 and the
+			// caller is re-prompted to pay, instead of seeing a server error.
+			if (path === '/verify' && res.status === 400) {
+				console.warn(`[x402] facilitator /verify rejected payload (host=${host}, network=${network}): ${detail}`);
+				return { isValid: false, invalidReason: detail || 'payment payload rejected by facilitator' };
+			}
 			// Transient upstream 5xx — the payment network or settlement service
 			// blinked. Retry once for idempotent calls; the Idempotency-Key keeps
 			// a re-sent settle from double-paying.

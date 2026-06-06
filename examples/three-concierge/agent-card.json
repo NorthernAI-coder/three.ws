@@ -5,7 +5,7 @@
 	],
 	"name": "Trinity",
 	"description": "The three.ws concierge. Guides you through the platform, launches and trades $three on pump.fun, and lives as a 3D avatar you can talk to.",
-	"image": "/avatars/thumbs/default.webp",
+	"image": "/avatars/thumbs/default.png",
 	"active": true,
 	"x402Support": true,
 	"services": [
