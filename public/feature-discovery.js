@@ -72,6 +72,12 @@
 			{ route: '/launchpad', label: 'Deploy onchain' },
 			{ route: '/play',     label: 'Drop it in a world' },
 		] },
+		segment: { kicker: 'Parts split — what now?', links: [
+			{ route: '/studio',   label: 'Open Studio', primary: true },
+			{ route: '/forge',    label: 'Forge another model' },
+			{ route: '/play',     label: 'Drop it in a world' },
+			{ route: '/docs',     label: 'Read the docs' },
+		] },
 		scan: { kicker: 'Avatar ready — what now?', links: [
 			{ route: '/studio',   label: 'Open Studio', primary: true },
 			{ route: '/walk',     label: 'Walk your avatar' },
