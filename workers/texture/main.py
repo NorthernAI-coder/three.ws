@@ -1,17 +1,38 @@
 """
 Text-guided texture generation service.
 
-Takes an untextured (or poorly-textured) GLB and a text prompt, renders the
-mesh from N viewpoints, generates coherent texture views with SDXL + ControlNet
-(depth), and back-projects them onto the UV map.
+Two capabilities share one model server:
 
-Pipeline:
+  • Full retexture (/texture) — takes an untextured (or poorly-textured) GLB and
+    a text prompt, renders the mesh from N viewpoints, generates coherent texture
+    views with SDXL + ControlNet (depth), and back-projects them onto the UV map.
+
+  • Magic-brush region retexture (/retexture_region) — repaints ONLY a masked
+    region of an existing texture from a prompt/colour, preserving the rest
+    pixel-for-pixel and feathering the seam so the edit is invisible. This is the
+    surgical counterpart to the all-or-nothing /texture pass and is safe to run
+    repeatedly (each pass operates on the latest texture).
+
+Full-retexture pipeline:
   1. Load mesh (trimesh), ensure UV mapping exists (auto-unwrap if missing)
   2. Render depth maps from 8 canonical viewpoints using pyrender
   3. For each view: run SDXL Img2Img + ControlNet-Depth to generate textures
   4. Back-project each generated image onto the mesh UV map (pytorch3d)
   5. Blend overlapping UV regions by confidence (distance-weighted)
   6. Bake final texture atlas and export as textured GLB
+
+Region-retexture pipeline (UV-space inpainting):
+  1. Load the GLB WITHOUT repacking UVs and pull out its existing baseColour
+     atlas — the frontend painted the mask in exactly this UV space, so we must
+     not unwrap/concatenate or the mask would no longer align.
+  2. Decode the caller's UV-space mask (white = repaint, black = keep).
+  3. Run real SDXL inpainting on the atlas, regenerating only the masked region
+     (optionally pre-tinted toward a target colour).
+  4. Composite the inpaint output back over the original atlas through a
+     feathered alpha so untouched texels are bit-identical and the seam ramps
+     smoothly — invisible blend, no global quality loss across repeated passes.
+  5. Re-export the GLB with the same mesh, UVs, and material (only baseColour
+     swapped).
 
 API contract:
   POST /texture  {
@@ -20,6 +41,19 @@ API contract:
     negative_prompt?: str,
     num_views?: int,   # 4 or 8 (default: 8)
     texture_size?: int # 512|1024|2048 (default: 1024)
+  } → 202 { task_id, status }
+
+  POST /retexture_region {
+    mesh: url,          # https GLB URL with an existing texture (required)
+    prompt: str,        # what to paint into the region (required unless color set)
+    mask_b64?: str,     # UV-space mask PNG, base64 (white = edit). Either this …
+    mask?: url,         # … or a public https URL to the mask PNG.
+    color?: str,        # optional "#rrggbb" target colour for the region
+    negative_prompt?: str,
+    texture_size?: int, # 512|1024|2048 working/output atlas size (default: 1024)
+    strength?: float,   # inpaint denoise strength 0.2–1.0 (default 0.85)
+    feather?: int,      # seam feather radius in atlas px (default 24)
+    seed?: int
   } → 202 { task_id, status }
 
   GET /tasks/:id → { task_id, status, result_url?, error? }
@@ -31,6 +65,8 @@ Environment variables:
   SDXL_MODEL           — HuggingFace model id (default: stabilityai/stable-diffusion-xl-base-1.0)
   CONTROLNET_MODEL     — ControlNet depth model id
                          (default: diffusers/controlnet-depth-sdxl-1.0)
+  SDXL_INPAINT_MODEL   — SDXL inpainting checkpoint for the magic brush
+                         (default: diffusers/stable-diffusion-xl-1.0-inpainting-0.1)
   WEIGHTS_DIR          — local cache dir for model weights (default: /weights)
   MAX_CONCURRENT       — default 1 (GPU-bound)
 """
@@ -39,21 +75,22 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import io
 import logging
 import os
-import tempfile
+import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import torch
 from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from google.cloud import storage
-from PIL import Image
+from PIL import Image, ImageFilter
 from pydantic import BaseModel, Field, field_validator
 
 from worker_security import (
@@ -76,9 +113,21 @@ SDXL_MODEL = os.environ.get("SDXL_MODEL", "stabilityai/stable-diffusion-xl-base-
 CONTROLNET_MODEL = os.environ.get(
     "CONTROLNET_MODEL", "diffusers/controlnet-depth-sdxl-1.0"
 )
+SDXL_INPAINT_MODEL = os.environ.get(
+    "SDXL_INPAINT_MODEL", "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
+)
 MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT", "1"))
 
+# Hard caps for the region-retexture mask payload — a UV mask is a small 1-channel
+# PNG; anything larger is malformed or hostile.
+MAX_MASK_BYTES = 8 * 1024 * 1024
+# SDXL inpainting is trained at 1024²; we always run inference there and resample
+# to the working atlas size so fine texture detail outside the region survives.
+INPAINT_INFER_SIZE = 1024
+
 _pipe = None
+_inpaint_pipe = None
+_inpaint_lock = threading.Lock()
 _bucket: Optional[storage.Bucket] = None
 _sem: Optional[asyncio.Semaphore] = None
 _tasks: dict[str, dict] = {}
@@ -127,6 +176,45 @@ def _load_pipeline() -> None:
     _pipe.enable_model_cpu_offload()
     _pipe.enable_xformers_memory_efficient_attention()
     log.info("Texture pipeline loaded")
+
+
+def _load_inpaint_pipeline() -> None:
+    """Lazily load the SDXL inpainting pipeline used by the magic brush.
+
+    Kept separate from the depth-ControlNet text pipeline so the existing
+    /texture path pays no extra startup cost or VRAM until a region edit is
+    actually requested. Guarded by a lock — under the default MAX_CONCURRENT=1
+    only one request runs at a time, but the lock keeps a future bump safe.
+    """
+    global _inpaint_pipe
+    if _inpaint_pipe is not None:
+        return
+    with _inpaint_lock:
+        if _inpaint_pipe is not None:
+            return
+        from diffusers import StableDiffusionXLInpaintPipeline, AutoencoderKL
+
+        log.info("Loading SDXL inpaint model: %s", SDXL_INPAINT_MODEL)
+        vae = AutoencoderKL.from_pretrained(
+            "madebyollin/sdxl-vae-fp16-fix",
+            torch_dtype=torch.float16,
+            cache_dir=WEIGHTS_DIR,
+        )
+        pipe = StableDiffusionXLInpaintPipeline.from_pretrained(
+            SDXL_INPAINT_MODEL,
+            vae=vae,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            cache_dir=WEIGHTS_DIR,
+        )
+        pipe.to("cuda")
+        pipe.enable_model_cpu_offload()
+        try:
+            pipe.enable_xformers_memory_efficient_attention()
+        except Exception as exc:  # xformers is optional — never fatal
+            log.warning("xformers unavailable for inpaint pipe: %s", exc)
+        _inpaint_pipe = pipe
+        log.info("Inpaint pipeline loaded")
 
 
 @asynccontextmanager

@@ -66,6 +66,44 @@ function modelForMode(mode) {
 	return readEnv(envName) || DEFAULT_MODELS[mode] || null;
 }
 
+// Models known to fuse more than one conditioning image into a single mesh
+// (true multi-view reconstruction). `firtoz/trellis` (Microsoft TRELLIS) takes
+// an `images` array and reconstructs from all supplied views; the Tencent
+// Hunyuan3D multi-view variants do the same. Slug-matched (the :version suffix
+// is ignored) so a pinned build of a known model still counts.
+const MULTIVIEW_CAPABLE_SLUGS = Object.freeze([
+	'firtoz/trellis',
+	'tencent/hunyuan3d-2mv',
+	'tencent/hunyuan-3d-2mv',
+]);
+
+// A dedicated multi-view model can be configured explicitly; when set it is
+// assumed multi-view capable and preferred for >1-view reconstructions.
+function multiviewModel() {
+	return readEnv('REPLICATE_MULTIVIEW_MODEL') || null;
+}
+
+function isMultiviewCapable(modelRef) {
+	if (!modelRef) return false;
+	const slug = String(modelRef).split(':')[0].toLowerCase();
+	return MULTIVIEW_CAPABLE_SLUGS.includes(slug);
+}
+
+// Pick the reconstruction model + whether it can fuse multiple views, given how
+// many views the caller supplied. A dedicated REPLICATE_MULTIVIEW_MODEL wins for
+// >1 view; otherwise the standard reconstruct model is used and multi-view is
+// claimed only when that model is actually capable of it (so a single-view model
+// like TripoSR never silently pretends to fuse views).
+function resolveReconstruct(imageCount) {
+	const reconstruct = modelForMode('reconstruct');
+	if (imageCount > 1) {
+		const mv = multiviewModel();
+		if (mv) return { modelRef: mv, multiview: true };
+		return { modelRef: reconstruct, multiview: isMultiviewCapable(reconstruct) };
+	}
+	return { modelRef: reconstruct, multiview: false };
+}
+
 // Keys that belong to OUR job/contract envelope and must never be forwarded to
 // a Replicate model. Replicate validates prediction input against each model's
 // OpenAPI schema; leaking these (or the multi-MB base64 image list) risks a 422
@@ -100,15 +138,20 @@ function stripInternal(params) {
 // For `reconstruct` (image-to-3D) the canonical input across the Hunyuan3D
 // family, TRELLIS and TripoSR is an `images` array of URIs — we always send
 // that and never the singular `image`/`mode` fields the old payload leaked.
-function buildInput({ mode, sourceUrl, params }) {
+function buildInput({ mode, sourceUrl, params, images }) {
 	const clean = stripInternal(params);
 	if (mode === 'reconstruct') {
-		const photos = Array.isArray(params?.images)
-			? params.images.filter((u) => typeof u === 'string' && u.length > 0)
-			: [];
+		// `images` is the already-resolved view list (trimmed to what the chosen
+		// model can fuse). Fall back to params.images / the source url so callers
+		// that don't pre-resolve still work.
+		const photos = Array.isArray(images)
+			? images.filter((u) => typeof u === 'string' && u.length > 0)
+			: Array.isArray(params?.images)
+				? params.images.filter((u) => typeof u === 'string' && u.length > 0)
+				: [];
 		const primary = photos[0] || (typeof params?.image === 'string' ? params.image : sourceUrl);
-		const images = photos.length ? photos : primary ? [primary] : [];
-		return { images, ...clean };
+		const finalImages = photos.length ? photos : primary ? [primary] : [];
+		return { images: finalImages, ...clean };
 	}
 	// remesh / retex / rerig / restyle operate on an existing GLB. Send the
 	// source under the two field names cog GLB-pipelines commonly accept.
@@ -185,8 +228,38 @@ export function createRegenProvider() {
 			return !!modelForMode(mode);
 		},
 
+		// True when this provider can fuse >1 reference image into one mesh —
+		// either a dedicated REPLICATE_MULTIVIEW_MODEL is set, or the configured
+		// reconstruct model is itself multi-view capable (TRELLIS by default).
+		supportsMultiview() {
+			return Boolean(multiviewModel()) || isMultiviewCapable(modelForMode('reconstruct'));
+		},
+
 		async submit(request) {
-			const modelRef = modelForMode(request.mode);
+			// Resolve the model + view handling. For reconstruct, the model and
+			// whether multi-view is honored depends on how many views were supplied;
+			// other modes map straight to their configured model.
+			let modelRef;
+			let multiview = false;
+			let viewsUsed = 0;
+			let images;
+			if (request.mode === 'reconstruct') {
+				const supplied = Array.isArray(request.params?.images)
+					? request.params.images.filter((u) => typeof u === 'string' && u.length > 0)
+					: [];
+				const requested = supplied.length || (request.sourceUrl ? 1 : 0);
+				const resolved = resolveReconstruct(requested);
+				modelRef = resolved.modelRef;
+				multiview = resolved.multiview;
+				// When the chosen model can't fuse views, condition on the primary
+				// image only — never feed extra views a single-view model will ignore
+				// or reject. This is the graceful downgrade the caller surfaces.
+				images = multiview ? supplied : supplied.slice(0, 1);
+				viewsUsed = images.length || (request.sourceUrl ? 1 : 0);
+			} else {
+				modelRef = modelForMode(request.mode);
+			}
+
 			if (!modelRef) {
 				throw Object.assign(
 					new Error(
@@ -200,6 +273,7 @@ export function createRegenProvider() {
 				mode: request.mode,
 				sourceUrl: request.sourceUrl,
 				params: request.params,
+				images,
 			});
 
 			// Two Replicate API shapes:
@@ -266,6 +340,10 @@ export function createRegenProvider() {
 				extJobId: data.id,
 				eta: typeof data.eta === 'number' ? data.eta : undefined,
 				rawStatus: data.status,
+				backend: 'replicate',
+				model: modelRef,
+				multiview,
+				viewsUsed,
 			};
 		},
 

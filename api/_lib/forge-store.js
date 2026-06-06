@@ -67,6 +67,10 @@ export async function createCreation({
 	previewImageUrl,
 	replicateJobId,
 	textToImageModel,
+	viewsRequested,
+	viewsUsed,
+	multiview,
+	backend,
 }) {
 	if (!forgeStoreEnabled()) return null;
 	const id = randomUUID();
@@ -74,11 +78,14 @@ export async function createCreation({
 		await sql`
 			insert into forge_creations
 				(id, client_key, ip_hash, prompt, aspect, preview_image_url,
-				 replicate_job_id, text_to_image_model, status, outcome)
+				 replicate_job_id, text_to_image_model, views_requested, views_used,
+				 multiview, backend, status, outcome)
 			values
 				(${id}, ${clientKey}, ${ipHash ?? null}, ${prompt}, ${aspect ?? null},
 				 ${previewImageUrl ?? null}, ${replicateJobId ?? null},
-				 ${textToImageModel ?? null}, 'generating', 'generated')
+				 ${textToImageModel ?? null}, ${viewsRequested ?? null}, ${viewsUsed ?? null},
+				 ${typeof multiview === 'boolean' ? multiview : null}, ${backend ?? null},
+				 'generating', 'generated')
 		`;
 		return id;
 	} catch (err) {
@@ -93,7 +100,8 @@ export async function findByJob({ replicateJobId, clientKey }) {
 	if (!forgeStoreEnabled() || !replicateJobId) return null;
 	try {
 		const rows = await sql`
-			select id, status, glb_url, glb_key, prompt, preview_image_url
+			select id, status, glb_url, glb_key, prompt, preview_image_url,
+				views_requested, views_used, multiview, backend
 			from forge_creations
 			where replicate_job_id = ${replicateJobId} and client_key = ${clientKey}
 			limit 1
@@ -232,7 +240,8 @@ export async function listCreations({ clientKey, limit = 24 }) {
 	const capped = Math.min(Math.max(Number(limit) || 24, 1), 48);
 	try {
 		const rows = await sql`
-			select id, prompt, aspect, glb_url, preview_image_url, outcome, downloaded, created_at
+			select id, prompt, aspect, glb_url, preview_image_url, outcome, downloaded,
+				views_used, multiview, backend, created_at
 			from forge_creations
 			where client_key = ${clientKey} and status = 'done' and glb_url is not null
 			order by created_at desc
@@ -246,6 +255,9 @@ export async function listCreations({ clientKey, limit = 24 }) {
 			preview_image_url: r.preview_image_url,
 			outcome: r.outcome,
 			downloaded: r.downloaded,
+			views_used: r.views_used ?? null,
+			multiview: r.multiview ?? null,
+			backend: r.backend ?? null,
 			created_at: r.created_at,
 		}));
 	} catch (err) {

@@ -58,6 +58,7 @@ import {
 	DEFAULT_EASING,
 } from './pose-animation.js';
 import { PoseLibrary } from './pose-library.js';
+import { AnimationLibrary } from './animation-library.js';
 import { log } from './shared/log.js';
 
 // ─── DOM helpers ────────────────────────────────────────────────────────
@@ -349,6 +350,7 @@ function boot() {
 		renderBoneList();
 		updateSelectionLabel();
 		timeline?.onRigChanged();
+		state.animLibrary?.onRigChanged();
 	}
 
 	const mannequinRig = new MannequinRig({ build: 'male', color: '#d4d4d8' });
@@ -367,7 +369,10 @@ function boot() {
 		const dt = Math.min((now - lastFrameMs) / 1000, 0.1); // cap to avoid tab-switch jumps
 		lastFrameMs = now;
 		controls.update();
-		timeline?.update(dt);
+		// A preset preview owns the figure while it runs; the keyframe timeline
+		// yields so the two never fight over bone transforms.
+		if (state.animLibrary?.isPreviewing()) state.animLibrary.update(dt);
+		else timeline?.update(dt);
 		if (state.poseMode === 'ik' && !state.draggingIK) syncIKHandles();
 		renderer.render(scene, camera);
 	}
@@ -1284,6 +1289,7 @@ function boot() {
 
 		return {
 			update: advance,
+			pause,
 			onRigChanged: () => { if (doc.keyframes.length) applyPreview(); },
 			bake: () => bakeClip(doc, { resolveBoneName: (k) => k, rootName: 'Hips' }),
 			serialize: () => serializeClip(doc, { resolveBoneName: (k) => k, rootName: 'Hips' }),

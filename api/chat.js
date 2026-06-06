@@ -568,12 +568,21 @@ export default wrap(async (req, res) => {
 		// The frontend renders `error_description` directly in the chat UI. We do
 		// surface the (provider-name-only) list of what was tried so the client can
 		// show "tried groq, openrouter…" without leaking upstream internals.
+		//
+		// Status semantics: when the chain gave up because every route was
+		// *rate-limited* (429 — the common free-tier exhaustion in prod), that's
+		// capacity, not breakage. Return 503 with Retry-After so the client backs
+		// off and retries instead of treating it as a hard upstream failure (502).
+		const rateLimited = upstream.status === 429;
+		if (rateLimited) res.setHeader('Retry-After', '20');
 		return error(
 			res,
-			502,
-			'upstream_error',
-			'The AI chat provider is temporarily unavailable. Please try again in a moment.',
-			{ providers_tried: providersTried(attempted) },
+			rateLimited ? 503 : 502,
+			rateLimited ? 'rate_limited' : 'upstream_error',
+			rateLimited
+				? 'The AI chat is at capacity right now. Please try again in a few seconds.'
+				: 'The AI chat provider is temporarily unavailable. Please try again in a moment.',
+			{ providers_tried: providersTried(attempted), ...(rateLimited ? { retry_after: 20 } : {}) },
 		);
 	}
 
