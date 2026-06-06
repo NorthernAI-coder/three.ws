@@ -432,7 +432,18 @@ const PUBLIC_RPCS = {
 
 function idxRpcUrls(chainId) {
 	const envUrl = process.env[`RPC_URL_${chainId}`];
-	const fallbacks = PUBLIC_RPCS[chainId] ?? [];
+	const ankrKey = process.env.ANKR_API_KEY;
+	// Ankr sunset keyless access: every https://rpc.ankr.com/<chain> call now
+	// returns "Unauthorized: authenticate with an API key", so a keyless entry
+	// is a guaranteed failed attempt + error log each run. With a key, rewrite
+	// to Ankr's authenticated form (…/<chain>/<KEY>); without one, drop it so
+	// failover lands on a working public node instead.
+	const fallbacks = (PUBLIC_RPCS[chainId] ?? [])
+		.map((url) => {
+			if (!url.startsWith('https://rpc.ankr.com/')) return url;
+			return ankrKey ? `${url}/${ankrKey}` : null;
+		})
+		.filter(Boolean);
 	return envUrl ? [envUrl, ...fallbacks] : fallbacks;
 }
 
