@@ -20,7 +20,7 @@ export function rpcError(code, message, data) {
 	return e;
 }
 
-export async function dispatch(msg, auth, _req) {
+export async function dispatch(msg, auth, req) {
 	const started = Date.now();
 	const id = msg.id;
 	const isNotification = id === undefined;
@@ -64,7 +64,8 @@ export async function dispatch(msg, auth, _req) {
 					};
 				}),
 			});
-		if (method === 'tools/call') return ok(id, await onToolCall(msg.params, auth, started));
+		if (method === 'tools/call')
+			return ok(id, await onToolCall(msg.params, auth, started, req));
 		if (method === 'resources/list') return ok(id, { resources: [] });
 		if (method === 'resources/templates/list') return ok(id, { resourceTemplates: [] });
 		if (method === 'prompts/list') return ok(id, { prompts: [] });
@@ -111,7 +112,7 @@ async function onInitialize(_params, _auth) {
 	};
 }
 
-async function onToolCall(params, auth, started) {
+async function onToolCall(params, auth, started, req) {
 	const { name, arguments: args = {} } = params || {};
 	const tool = TOOLS[name];
 	if (!tool) throw rpcError(-32602, `unknown tool: ${name}`);
@@ -159,8 +160,7 @@ async function onToolCall(params, auth, started) {
 					amount_usdc: price.amount_usdc,
 					recipient_mint: billingMint,
 					prep_endpoint: '/api/pump/accept-payment-prep',
-					hint:
-						'POST a confirmed acceptPayment whose end_time > now() and tool_name matches this tool, then retry.',
+					hint: 'POST a confirmed acceptPayment whose end_time > now() and tool_name matches this tool, then retry.',
 				});
 			}
 			auth.subscription = sub;
@@ -178,7 +178,7 @@ async function onToolCall(params, auth, started) {
 	}
 
 	try {
-		const result = await tool.handler(args, auth);
+		const result = await tool.handler(args, auth, req);
 		recordEvent({
 			userId: auth.userId,
 			apiKeyId: auth.apiKeyId,

@@ -11,6 +11,7 @@ import { EditorSession } from './session.js';
 import { MaterialEditor } from './material-editor.js';
 import { SceneExplorer } from './scene-explorer.js';
 import { TextureInspector } from './texture-inspector.js';
+import { MagicBrush } from './magic-brush.js';
 import { exportEditedGLB, downloadGLB } from './glb-export.js';
 import { log } from '../shared/log.js';
 
@@ -21,6 +22,7 @@ export class Editor {
 		this.materialEditor = new MaterialEditor(viewer, this.session);
 		this.textureInspector = new TextureInspector(viewer, this.session);
 		this.sceneExplorer = new SceneExplorer(viewer, this.session);
+		this.magicBrush = new MagicBrush(viewer, this.session, this);
 		this.exportFolder = null;
 		this._exportCtrl = null;
 		this._publishCtrl = null;
@@ -35,6 +37,7 @@ export class Editor {
 		this._attached = true;
 		this.sceneExplorer.attach();
 		this._addExportFolder();
+		this.magicBrush.attach();
 		this.session.onChange(() => {
 			this._updateExportLabel();
 			this._updateExportEnabled();
@@ -47,6 +50,7 @@ export class Editor {
 		this.materialEditor.rebuild();
 		this.textureInspector.rebuild();
 		this.sceneExplorer.rebuild();
+		this.magicBrush.rebuild();
 		this._updateExportLabel();
 	}
 
@@ -228,6 +232,7 @@ export class Editor {
 		this.materialEditor.dispose();
 		this.textureInspector.dispose();
 		this.sceneExplorer.detach();
+		this.magicBrush.dispose();
 		if (this.exportFolder && this.viewer.gui) {
 			try {
 				this.viewer.gui.removeFolder(this.exportFolder);

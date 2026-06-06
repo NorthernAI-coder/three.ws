@@ -480,6 +480,10 @@
 			"dest": "/forge.html"
 		},
 		{
+			"src": "/segment/?",
+			"dest": "/segment.html"
+		},
+		{
 			"src": "/xr/?",
 			"dest": "/xr.html"
 		},

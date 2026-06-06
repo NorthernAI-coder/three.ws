@@ -45,6 +45,7 @@ const MODE_TO_ENV = Object.freeze({
 	restyle: 'REPLICATE_RESTYLE_MODEL',
 	remesh: 'REPLICATE_REMESH_MODEL',
 	retex: 'REPLICATE_RETEX_MODEL',
+	retex_region: 'REPLICATE_RETEX_REGION_MODEL',
 	rerig: 'REPLICATE_RERIG_MODEL',
 });
 

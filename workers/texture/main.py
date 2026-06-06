@@ -442,34 +442,261 @@ def _run_texturing(
     return buf.getvalue()
 
 
-async def _process(
-    task_id: str,
+# ── Region retexture (magic brush) ───────────────────────────────────────────────
+
+def _parse_hex_color(value: Optional[str]) -> Optional[tuple[int, int, int]]:
+    """Parse "#rrggbb" / "rrggbb" → (r, g, b). Returns None for falsy/invalid."""
+    if not value:
+        return None
+    s = value.strip().lstrip("#")
+    if len(s) == 3:
+        s = "".join(c * 2 for c in s)
+    if len(s) != 6:
+        return None
+    try:
+        return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+    except ValueError:
+        return None
+
+
+def _decode_mask_bytes(mask_b64: Optional[str], mask_url: Optional[str]) -> bytes:
+    """Resolve the UV mask payload from inline base64 or a public URL."""
+    if mask_b64:
+        raw = mask_b64.strip()
+        # Tolerate a data: URL prefix from the browser canvas toDataURL().
+        if raw.startswith("data:"):
+            raw = raw.split(",", 1)[-1]
+        try:
+            data = base64.b64decode(raw, validate=False)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("mask_b64 is not valid base64") from exc
+        if not data:
+            raise ValueError("mask_b64 decoded to empty bytes")
+        if len(data) > MAX_MASK_BYTES:
+            raise ValueError("mask exceeds size limit")
+        return data
+    if mask_url:
+        return fetch_remote_bytes(mask_url, timeout=30, max_bytes=MAX_MASK_BYTES)
+    raise ValueError("a region mask is required (mask_b64 or mask)")
+
+
+def _build_masks(
+    mask_bytes: bytes, size: tuple[int, int], feather: int
+) -> tuple[Image.Image, Image.Image]:
+    """Turn a raw mask PNG into (inpaint_mask, blend_alpha) at `size`.
+
+    inpaint_mask — a slightly dilated hard mask (white = regenerate). The dilation
+      gives SDXL a margin past the painted edge so the new content transitions
+      into the surrounding texture instead of butting hard against it.
+    blend_alpha  — a feathered 0–255 ramp used to composite the inpaint result
+      back over the untouched base, so the interior is fully replaced and the
+      boundary fades out smoothly (invisible seam). Texels at alpha 0 are left
+      bit-identical.
+    """
+    src = Image.open(io.BytesIO(mask_bytes)).convert("L").resize(size, Image.LANCZOS)
+    arr = np.asarray(src, dtype=np.uint8)
+    hard = (arr > 127).astype(np.uint8) * 255
+    if not hard.any():
+        raise ValueError("mask is empty — paint a region before applying")
+
+    feather = max(1, int(feather))
+    hard_img = Image.fromarray(hard, mode="L")
+
+    # Dilate via MaxFilter (odd kernel) then a light blur for the inpaint mask.
+    k = max(3, (feather // 2) * 2 + 1)
+    inpaint_mask = hard_img.filter(ImageFilter.MaxFilter(min(k, 25)))
+    inpaint_mask = inpaint_mask.point(lambda p: 255 if p > 40 else 0)
+
+    # Feathered alpha for the final composite.
+    blend_alpha = hard_img.filter(ImageFilter.GaussianBlur(radius=feather))
+    return inpaint_mask, blend_alpha
+
+
+def _load_textured_mesh(url: str):
+    """Load a GLB preserving its original UVs/material (no unwrap, no repack).
+
+    Region edits must operate in the exact UV space the caller painted against,
+    so we deliberately avoid trimesh's processing/concatenation here. Returns
+    (scene, geometry_name, mesh) — for a bare mesh we wrap it in a one-item
+    scene so the export path is uniform.
+    """
+    import trimesh
+
+    data = fetch_remote_bytes(url, timeout=60, max_bytes=128 * 1024 * 1024)
+    suffix = Path(url.split("?")[0]).suffix.lower() or ".glb"
+    loaded = trimesh.load(
+        io.BytesIO(data), file_type=suffix.lstrip("."), process=False
+    )
+
+    if isinstance(loaded, trimesh.Scene):
+        geoms = [
+            (name, g)
+            for name, g in loaded.geometry.items()
+            if isinstance(g, trimesh.Trimesh)
+        ]
+        if not geoms:
+            raise ValueError("GLB contains no mesh geometry")
+        # Prefer a geometry that already carries UVs + a texture; among those
+        # (or all, as a fallback) pick the largest by face count.
+        textured = [
+            (n, g)
+            for n, g in geoms
+            if getattr(g.visual, "uv", None) is not None
+        ]
+        name, mesh = max(textured or geoms, key=lambda ng: len(ng[1].faces))
+        return loaded, name, mesh
+
+    scene = trimesh.Scene(geometry={"mesh": loaded})
+    return scene, "mesh", loaded
+
+
+def _existing_base_texture(mesh, texture_size: int) -> Image.Image:
+    """Pull the mesh's baseColour texture, or synthesize a flat base from its
+    base-colour factor / vertex colours so unmasked regions stay coherent."""
+    visual = mesh.visual
+    mat = getattr(visual, "material", None)
+    base_img = None
+    if mat is not None:
+        base_img = getattr(mat, "baseColorTexture", None) or getattr(mat, "image", None)
+
+    if base_img is not None:
+        return base_img.convert("RGB")
+
+    # No texture present — fall back to a solid base from the material factor.
+    color = (180, 180, 180)
+    factor = getattr(mat, "baseColorFactor", None) if mat is not None else None
+    if factor is not None and len(factor) >= 3:
+        color = tuple(int(max(0.0, min(1.0, float(c))) * 255) for c in factor[:3])
+    return Image.new("RGB", (texture_size, texture_size), color)
+
+
+def _inpaint_region(
+    base_rgb: Image.Image,
+    inpaint_mask: Image.Image,
+    blend_alpha: Image.Image,
+    prompt: str,
+    negative_prompt: str,
+    color: Optional[tuple[int, int, int]],
+    strength: float,
+    seed: int,
+) -> Image.Image:
+    """Run SDXL inpainting on the masked region and composite it back over the
+    base atlas through the feathered alpha. Returns the new full-size atlas."""
+    work_size = base_rgb.size  # (w, h) of the working atlas
+
+    init = base_rgb.copy()
+    # A colour hint primes the region so SDXL respects the requested hue.
+    if color is not None:
+        tint = Image.new("RGB", work_size, color)
+        init = Image.composite(tint, init, inpaint_mask)
+
+    infer = (INPAINT_INFER_SIZE, INPAINT_INFER_SIZE)
+    init_small = init.resize(infer, Image.LANCZOS)
+    mask_small = inpaint_mask.resize(infer, Image.NEAREST)
+
+    generator = torch.Generator(device="cuda").manual_seed(seed)
+    result = _inpaint_pipe(
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        image=init_small,
+        mask_image=mask_small,
+        strength=float(strength),
+        num_inference_steps=30,
+        guidance_scale=7.5,
+        width=infer[0],
+        height=infer[1],
+        generator=generator,
+    )
+    painted = result.images[0].resize(work_size, Image.LANCZOS).convert("RGB")
+
+    # Composite: interior fully painted, boundary ramps, exterior untouched.
+    return Image.composite(painted, base_rgb, blend_alpha.resize(work_size, Image.LANCZOS))
+
+
+def _run_region_texturing(
     mesh_url: str,
     prompt: str,
     negative_prompt: str,
-    num_views: int,
+    mask_b64: Optional[str],
+    mask_url: Optional[str],
+    color_hex: Optional[str],
     texture_size: int,
-) -> None:
+    strength: float,
+    feather: int,
+    seed: int,
+) -> bytes:
+    import trimesh
+
+    color = _parse_hex_color(color_hex)
+    if not prompt and color is None:
+        raise ValueError("provide a prompt and/or a color for the region")
+
+    scene, geom_name, mesh = _load_textured_mesh(mesh_url)
+
+    uv = getattr(mesh.visual, "uv", None)
+    base_rgb = _existing_base_texture(mesh, texture_size)
+    # Work at the larger of the requested size and the existing texture so we
+    # never throw away detail the source already has outside the edit region.
+    work = max(texture_size, min(max(base_rgb.size), 2048))
+    base_rgb = base_rgb.resize((work, work), Image.LANCZOS)
+
+    if uv is None:
+        # No UVs at all — we can still texture, but the painted mask can't be
+        # trusted to align, so unwrap and treat this as a flat fill of the region.
+        mesh = mesh.unwrap()
+        uv = mesh.visual.uv
+
+    mask_bytes = _decode_mask_bytes(mask_b64, mask_url)
+    inpaint_mask, blend_alpha = _build_masks(mask_bytes, (work, work), feather)
+
+    log.info(
+        "Region inpaint: atlas=%dpx feather=%d strength=%.2f color=%s",
+        work, feather, strength, color_hex or "none",
+    )
+    _load_inpaint_pipeline()
+    full_prompt = prompt
+    if color is not None and prompt:
+        full_prompt = f"{prompt}, predominantly {color_hex} colour"
+    new_atlas = _inpaint_region(
+        base_rgb, inpaint_mask, blend_alpha, full_prompt, negative_prompt,
+        color, strength, seed,
+    )
+
+    # Preserve the existing material; swap only the baseColour texture.
+    mat = getattr(mesh.visual, "material", None)
+    if isinstance(mat, trimesh.visual.material.PBRMaterial):
+        mat.baseColorTexture = new_atlas
+    else:
+        mat = trimesh.visual.material.PBRMaterial(
+            baseColorTexture=new_atlas, metallicFactor=0.0, roughnessFactor=0.9
+        )
+    mesh.visual = trimesh.visual.TextureVisuals(uv=uv, material=mat)
+    scene.geometry[geom_name] = mesh
+
+    buf = io.BytesIO()
+    scene.export(buf, file_type="glb")
+    return buf.getvalue()
+
+
+# ── Task runner ───────────────────────────────────────────────────────────────────
+
+async def _run_task(task_id: str, runner: Callable[[], bytes], label: str) -> None:
+    """Shared async wrapper: run a blocking GLB-producing job on the executor,
+    upload the result to GCS, and record terminal status on the task."""
     async with _sem:
         _tasks[task_id]["status"] = "running"
         loop = asyncio.get_event_loop()
         t0 = time.time()
         try:
-            glb_bytes = await loop.run_in_executor(
-                None,
-                _run_texturing,
-                mesh_url,
-                prompt,
-                negative_prompt,
-                num_views,
-                texture_size,
-            )
+            glb_bytes = await loop.run_in_executor(None, runner)
 
             blob_name = f"textured/{task_id}.glb"
             blob = _bucket.blob(blob_name)
             await loop.run_in_executor(
                 None,
-                lambda: blob.upload_from_string(glb_bytes, content_type="model/gltf-binary"),
+                lambda: blob.upload_from_string(
+                    glb_bytes, content_type="model/gltf-binary"
+                ),
             )
             result_url = f"https://storage.googleapis.com/{GCS_BUCKET}/{blob_name}"
 
@@ -480,14 +707,52 @@ async def _process(
                 "bytes": len(glb_bytes),
                 "elapsed_ms": int(elapsed * 1000),
             })
-            log.info("[%s] done in %.1fs — %d bytes", task_id, elapsed, len(glb_bytes))
+            log.info("[%s] %s done in %.1fs — %d bytes", task_id, label, elapsed, len(glb_bytes))
 
         except Exception as exc:
             _tasks[task_id].update({
                 "status": "failed",
-                "error": safe_error(exc, context=f"[{task_id}] texture"),
+                "error": safe_error(exc, context=f"[{task_id}] {label}"),
                 "elapsed_ms": int((time.time() - t0) * 1000),
             })
+
+
+async def _process(
+    task_id: str,
+    mesh_url: str,
+    prompt: str,
+    negative_prompt: str,
+    num_views: int,
+    texture_size: int,
+) -> None:
+    await _run_task(
+        task_id,
+        lambda: _run_texturing(mesh_url, prompt, negative_prompt, num_views, texture_size),
+        label="texture",
+    )
+
+
+async def _process_region(
+    task_id: str,
+    mesh_url: str,
+    prompt: str,
+    negative_prompt: str,
+    mask_b64: Optional[str],
+    mask_url: Optional[str],
+    color_hex: Optional[str],
+    texture_size: int,
+    strength: float,
+    feather: int,
+    seed: int,
+) -> None:
+    await _run_task(
+        task_id,
+        lambda: _run_region_texturing(
+            mesh_url, prompt, negative_prompt, mask_b64, mask_url,
+            color_hex, texture_size, strength, feather, seed,
+        ),
+        label="retexture_region",
+    )
 
 
 class TextureRequest(BaseModel):
@@ -530,6 +795,61 @@ async def texture_mesh(
     return {"task_id": task_id, "status": "queued"}
 
 
+class RegionTextureRequest(BaseModel):
+    mesh: str = Field(..., description="https URL to a textured GLB mesh")
+    prompt: str = Field(default="", max_length=500, description="What to paint into the region")
+    negative_prompt: str = Field(default="blurry, low quality, distorted, watermark, seam")
+    mask_b64: Optional[str] = Field(default=None, description="UV-space mask PNG, base64 (white = edit)")
+    mask: Optional[str] = Field(default=None, description="Public https URL to the UV mask PNG")
+    color: Optional[str] = Field(default=None, max_length=9, description='Target colour "#rrggbb"')
+    texture_size: int = Field(default=1024)
+    strength: float = Field(default=0.85, ge=0.2, le=1.0)
+    feather: int = Field(default=24, ge=1, le=128)
+    seed: int = Field(default=0, ge=0)
+
+    @field_validator("texture_size")
+    @classmethod
+    def validate_size(cls, v: int) -> int:
+        if v not in (512, 1024, 2048):
+            raise ValueError("texture_size must be 512, 1024, or 2048")
+        return v
+
+
+@app.post("/retexture_region", status_code=202)
+async def retexture_region(
+    body: RegionTextureRequest,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(...),
+) -> dict:
+    _require_api_key(authorization)
+    if not body.mask_b64 and not body.mask:
+        raise HTTPException(status_code=400, detail="a region mask is required (mask_b64 or mask)")
+    if not body.prompt and not _parse_hex_color(body.color):
+        raise HTTPException(status_code=400, detail="provide a prompt and/or a valid color")
+    task_id = str(uuid.uuid4())
+    _tasks[task_id] = {
+        "task_id": task_id,
+        "status": "queued",
+        "prompt": body.prompt,
+        "kind": "region",
+    }
+    background_tasks.add_task(
+        _process_region,
+        task_id,
+        body.mesh,
+        body.prompt,
+        body.negative_prompt,
+        body.mask_b64,
+        body.mask,
+        body.color,
+        body.texture_size,
+        body.strength,
+        body.feather,
+        body.seed,
+    )
+    return {"task_id": task_id, "status": "queued"}
+
+
 @app.get("/tasks/{task_id}")
 async def get_task(task_id: str, authorization: str = Header(...)) -> dict:
     _require_api_key(authorization)
@@ -546,4 +866,5 @@ async def health() -> dict:
         "service": "texture",
         "gpu_available": torch.cuda.is_available(),
         "model_loaded": _pipe is not None,
+        "inpaint_loaded": _inpaint_pipe is not None,
     }

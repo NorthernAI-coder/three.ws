@@ -9,6 +9,7 @@
 
 import { openTalkMode } from './voice/talk-mode.js';
 import { downloadAvatar } from './avatar-export.js';
+import { fbxFromUrl } from './remesh-convert.js';
 import { log } from './shared/log.js';
 import { emptyStateHTML } from './shared/state-kit.js';
 
@@ -380,6 +381,10 @@ function openDownloadMenu(ev) {
 			<strong>GLB</strong>
 			<span>Universal — game engines, Blender, browsers</span>
 		</button>
+		<button type="button" role="menuitem" data-format="fbx">
+			<strong>FBX</strong>
+			<span>Unity &amp; Unreal — keeps the skeleton</span>
+		</button>
 		<button type="button" role="menuitem" data-format="vrm">
 			<strong>VRM</strong>
 			<span>VRChat, Resonite, Hubs, VTube Studio</span>
@@ -410,6 +415,15 @@ function openDownloadMenu(ev) {
 					statusEl.dataset.tone = 'ok';
 				} else if (format === 'usdz' && usdzUrl) {
 					triggerLink(usdzUrl, `${fileBase}.usdz`);
+					statusEl.textContent = 'Download started.';
+					statusEl.dataset.tone = 'ok';
+				} else if (format === 'fbx') {
+					// FBX is built server-side from the GLB so the skeleton survives.
+					if (!glbUrl) throw new Error('No source GLB to convert.');
+					const fbxUrl = await fbxFromUrl(glbUrl, {
+						onStatus: (msg) => { statusEl.textContent = msg; },
+					});
+					triggerLink(fbxUrl, `${fileBase}.fbx`);
 					statusEl.textContent = 'Download started.';
 					statusEl.dataset.tone = 'ok';
 				} else {

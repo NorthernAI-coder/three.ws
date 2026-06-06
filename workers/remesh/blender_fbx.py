@@ -29,10 +29,11 @@ from pathlib import Path
 
 import bpy
 
-# Input extensions Blender can import directly (preserving rig where present).
-# `.off` is intentionally excluded — Blender has no OFF importer, so the worker
-# round-trips those through trimesh → GLB before calling us.
-_IMPORTERS = {".glb", ".gltf", ".fbx", ".obj", ".stl", ".ply", ".dae"}
+# Input extensions whose importers ship in the standalone `bpy` wheel. `.dae`
+# (Collada) and `.off` are excluded — the wheel doesn't bundle the Collada
+# importer and has no OFF importer, so the worker bridges those through a
+# trimesh-written GLB before calling us.
+_IMPORTERS = {".glb", ".gltf", ".fbx", ".obj", ".stl", ".ply"}
 
 
 def _reset_scene() -> None:
@@ -63,8 +64,6 @@ def _import_source(path: Path) -> None:
         bpy.ops.wm.stl_import(filepath=str(path))
     elif suffix == ".ply":
         bpy.ops.wm.ply_import(filepath=str(path))
-    elif suffix == ".dae":
-        bpy.ops.wm.collada_import(filepath=str(path))
     else:
         raise SystemExit(f"blender_fbx: unsupported input format '{suffix}'")
 

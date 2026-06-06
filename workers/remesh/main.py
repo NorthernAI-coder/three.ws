@@ -1,8 +1,13 @@
 """
 Mesh processing service — remesh, simplify, repair, retopologize, and convert 3D files.
 
-Wraps trimesh + open3d + QuadriFlow + xatlas. No GPU required; runs on CPU. Handles:
+Wraps trimesh + open3d + QuadriFlow + xatlas, with Blender (bpy) for FBX export.
+No GPU required; runs on CPU. Handles:
   - Format conversion (GLB ↔ OBJ ↔ FBX ↔ STL ↔ PLY ↔ USDZ ↔ 3MF)
+  - FBX export with skeletons — a `convert` of a rigged GLB keeps its bone
+    hierarchy, skin weights, and blendshapes (via headless Blender; see
+    blender_fbx.py). trimesh has no FBX writer, so this is the only path that
+    round-trips a rig.
   - Triangle decimation (quadric error metric via open3d)
   - Quad remeshing (field-aligned quad-dominant topology via QuadriFlow, MIT)
   - Smart low-poly (silhouette-preserving decimation + UV re-unwrap + texture re-bake)
@@ -25,7 +30,7 @@ API contract:
     operation: "convert"|"simplify"|"repair"|"full",   # default: "full" (triangle mode only)
     target_faces?: int,              # default: 50000, range: 1000–500000
     texture_size?: int,              # 512|1024|2048, default 1024 (bake atlas size)
-    output_format?: "glb"|"obj"|"stl"|"ply"|"usdz"|"3mf",  # default: "glb"
+    output_format?: "glb"|"obj"|"stl"|"ply"|"usdz"|"3mf"|"fbx",  # default: "glb"
   } → 202 { task_id, status }
 
   GET /tasks/:id → {
@@ -40,6 +45,7 @@ Environment variables:
   GCS_BUCKET     — output bucket (required)
   MAX_CONCURRENT — default 2
   QUADRIFLOW_BIN — path to the quadriflow executable (default: "quadriflow")
+  BLENDER_TIMEOUT — seconds before a Blender FBX export is killed (default: 300)
 """
 
 from __future__ import annotations
@@ -50,6 +56,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -84,10 +91,23 @@ _sem: Optional[asyncio.Semaphore] = None
 _tasks: dict[str, dict] = {}
 
 SUPPORTED_INPUT_FORMATS = {".glb", ".gltf", ".obj", ".stl", ".ply", ".fbx", ".off", ".dae"}
-SUPPORTED_OUTPUT_FORMATS = {"glb", "obj", "stl", "ply", "usdz", "3mf"}
+SUPPORTED_OUTPUT_FORMATS = {"glb", "obj", "stl", "ply", "usdz", "3mf", "fbx"}
 VALID_MODES = {"triangle", "quad", "lowpoly"}
 VALID_TEXTURE_SIZES = {512, 1024, 2048}
 MAX_MESH_BYTES = 128 * 1024 * 1024
+
+# Headless-Blender FBX export. Blender is the only tool here that writes an FBX
+# with a real skeleton; we run it as a one-shot subprocess (bpy holds global,
+# non-thread-safe state — a fresh process per job is the safe pattern).
+BLENDER_FBX_SCRIPT = Path(__file__).parent / "blender_fbx.py"
+BLENDER_TIMEOUT = int(os.environ.get("BLENDER_TIMEOUT", "300"))
+# Formats the `bpy` wheel imports reliably as a single self-contained file, so
+# Blender can read (and keep) their rig directly. Excluded and bridged through a
+# trimesh-written GLB instead:
+#   .gltf — JSON with external .bin/texture refs a single fetched file can't carry
+#   .dae  — Collada importer isn't bundled in the standalone bpy wheel
+#   .off  — Blender has no OFF importer at all
+BLENDER_IMPORT_FORMATS = {".glb", ".fbx", ".obj", ".stl", ".ply"}
 
 
 @asynccontextmanager
@@ -506,20 +526,85 @@ def _write_textured_quad_obj(verts, polys, uvs, image, task_id: str) -> list:
     return artifacts
 
 
+def _blender_to_fbx(in_path: Path, out_path: Path, static: bool) -> int:
+    """Convert a local model file to FBX via headless Blender, preserving the
+    skeleton, skin weights, and blendshapes when the input carries them.
+
+    Returns the exported polygon count. Raises RuntimeError with a clipped log
+    tail on failure. `static=True` skips animation baking (used when the upstream
+    geometry op already discarded any rig)."""
+    cmd = [sys.executable, str(BLENDER_FBX_SCRIPT), str(in_path), str(out_path)]
+    if static:
+        cmd.append("--static")
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=BLENDER_TIMEOUT, check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"FBX export timed out after {BLENDER_TIMEOUT}s") from exc
+
+    if proc.returncode != 0 or not out_path.exists():
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-6:]
+        raise RuntimeError("FBX export failed: " + " | ".join(tail))
+
+    faces = 0
+    for line in proc.stdout.splitlines():
+        if line.startswith("FACE_COUNT:"):
+            try:
+                faces = int(line.split(":", 1)[1].strip())
+            except ValueError:
+                faces = 0
+    return faces
+
+
+def _convert_to_fbx_preserving_rig(data: bytes, suffix: str, task_id: str) -> tuple[list, dict]:
+    """`convert` → FBX without touching geometry, so a rigged GLB keeps its bone
+    hierarchy, skin weights, and blendshapes. Blender imports the source
+    directly when it can read it as one self-contained file; the rest
+    (`.gltf`/`.dae`/`.off` — see BLENDER_IMPORT_FORMATS) are bridged through a
+    trimesh-written GLB, which yields a static FBX."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out_path = Path(tmp) / f"{task_id}.fbx"
+        if suffix in BLENDER_IMPORT_FORMATS:
+            src_path = Path(tmp) / f"input{suffix}"
+            src_path.write_bytes(data)
+            faces = _blender_to_fbx(src_path, out_path, static=False)
+        else:
+            import trimesh
+            mesh = _load_concatenated(data, suffix)
+            glb_path = Path(tmp) / "bridge.glb"
+            trimesh.scene.scene.Scene(geometry={"mesh": mesh}).export(str(glb_path))
+            faces = _blender_to_fbx(glb_path, out_path, static=True)
+        fbx_bytes = out_path.read_bytes()
+    meta = {"quad_ratio": 0.0, "textured": False, "face_count": faces}
+    return [Artifact(f"{task_id}.fbx", fbx_bytes, "application/octet-stream", "model")], meta
+
+
 def _export_simple(mesh, output_format: str, task_id: str) -> list:
-    """Export a Trimesh to a single self-contained file (GLB embeds textures)."""
+    """Export a Trimesh to a single self-contained file (GLB embeds textures).
+
+    FBX has no trimesh writer, so it is bridged through a temp GLB and handed to
+    Blender. This path always yields a static FBX — the Trimesh has already lost
+    any rig by the time geometry ops produce it; the rig-preserving route is
+    `_convert_to_fbx_preserving_rig`."""
     import trimesh
     fmt = output_format.lower()
     with tempfile.TemporaryDirectory() as tmpdir:
         out_path = Path(tmpdir) / f"{task_id}.{fmt}"
-        if fmt in ("glb", "usdz"):
+        if fmt == "fbx":
+            glb_path = Path(tmpdir) / f"{task_id}.glb"
+            trimesh.scene.scene.Scene(geometry={"mesh": mesh}).export(str(glb_path))
+            _blender_to_fbx(glb_path, out_path, static=True)
+        elif fmt in ("glb", "usdz"):
             trimesh.scene.scene.Scene(geometry={"mesh": mesh}).export(str(out_path))
         else:
             mesh.export(str(out_path))
         data = out_path.read_bytes()
-    ct = "model/gltf-binary" if fmt == "glb" else (
-        "model/vnd.usdz+zip" if fmt == "usdz" else "application/octet-stream"
-    )
+    ct = {
+        "glb": "model/gltf-binary",
+        "usdz": "model/vnd.usdz+zip",
+        "fbx": "application/octet-stream",
+    }.get(fmt, "application/octet-stream")
     return [Artifact(f"{task_id}.{fmt}", data, ct, "model")]
 
 
@@ -614,6 +699,13 @@ def _run_processing(
     task_id: str,
 ) -> tuple[list, dict]:
     data, suffix = _fetch_mesh(mesh_url)
+
+    # A plain `convert` to FBX must keep the skeleton, so it never enters the
+    # trimesh pipelines (which flatten the scene and drop the rig) — Blender
+    # reads the source directly. Geometry-changing FBX requests fall through to
+    # the pipelines below and emit a static FBX via _export_simple.
+    if output_format == "fbx" and remesh_mode == "triangle" and operation == "convert":
+        return _convert_to_fbx_preserving_rig(data, suffix, task_id)
 
     if remesh_mode == "quad":
         source = _load_textured(data, suffix)

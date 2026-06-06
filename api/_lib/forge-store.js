@@ -71,6 +71,8 @@ export async function createCreation({
 	viewsUsed,
 	multiview,
 	backend,
+	tier,
+	path,
 }) {
 	if (!forgeStoreEnabled()) return null;
 	const id = randomUUID();
@@ -79,13 +81,13 @@ export async function createCreation({
 			insert into forge_creations
 				(id, client_key, ip_hash, prompt, aspect, preview_image_url,
 				 replicate_job_id, text_to_image_model, views_requested, views_used,
-				 multiview, backend, status, outcome)
+				 multiview, backend, tier, path, status, outcome)
 			values
 				(${id}, ${clientKey}, ${ipHash ?? null}, ${prompt}, ${aspect ?? null},
 				 ${previewImageUrl ?? null}, ${replicateJobId ?? null},
 				 ${textToImageModel ?? null}, ${viewsRequested ?? null}, ${viewsUsed ?? null},
 				 ${typeof multiview === 'boolean' ? multiview : null}, ${backend ?? null},
-				 'generating', 'generated')
+				 ${tier ?? null}, ${path ?? null}, 'generating', 'generated')
 		`;
 		return id;
 	} catch (err) {
@@ -101,7 +103,7 @@ export async function findByJob({ replicateJobId, clientKey }) {
 	try {
 		const rows = await sql`
 			select id, status, glb_url, glb_key, prompt, preview_image_url,
-				views_requested, views_used, multiview, backend
+				views_requested, views_used, multiview, backend, tier, path
 			from forge_creations
 			where replicate_job_id = ${replicateJobId} and client_key = ${clientKey}
 			limit 1
@@ -241,7 +243,7 @@ export async function listCreations({ clientKey, limit = 24 }) {
 	try {
 		const rows = await sql`
 			select id, prompt, aspect, glb_url, preview_image_url, outcome, downloaded,
-				views_used, multiview, backend, created_at
+				views_used, multiview, backend, tier, path, created_at
 			from forge_creations
 			where client_key = ${clientKey} and status = 'done' and glb_url is not null
 			order by created_at desc
@@ -258,6 +260,8 @@ export async function listCreations({ clientKey, limit = 24 }) {
 			views_used: r.views_used ?? null,
 			multiview: r.multiview ?? null,
 			backend: r.backend ?? null,
+			tier: r.tier ?? null,
+			path: r.path ?? null,
 			created_at: r.created_at,
 		}));
 	} catch (err) {

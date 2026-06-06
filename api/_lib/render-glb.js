@@ -72,6 +72,9 @@ function viewerHtml({ glbUrl, width, height, background }) {
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 window.__renderDone = false;
 window.__renderError = null;
@@ -96,7 +99,22 @@ const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(2, 3, 4)
 const fill = new THREE.DirectionalLight(0xbfd6ff, 0.6); fill.position.set(-3, 1, 2); scene.add(fill);
 const rim = new THREE.DirectionalLight(0xc7a8ff, 0.5); rim.position.set(0, 2, -4); scene.add(rim);
 
-new GLTFLoader().load(${JSON.stringify(glbUrl)}, (gltf) => {
+// Avatars from the forge/remesh/texture pipeline ship Draco-compressed
+// geometry, Meshopt-packed buffers, and KTX2 (Basis) textures. A bare
+// GLTFLoader throws "No DRACOLoader instance provided" on the first such
+// model — register every standard compression decoder so the renderer
+// handles optimized GLBs instead of falling back to the SVG card. Decoder
+// assets load from the same pinned three.js release as the loaders.
+const ADDONS = 'https://unpkg.com/three@${THREE_VERSION}/examples/jsm/';
+const dracoLoader = new DRACOLoader().setDecoderPath(ADDONS + 'libs/draco/');
+const ktx2Loader = new KTX2Loader().setTranscoderPath(ADDONS + 'libs/basis/').detectSupport(renderer);
+
+const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
+loader.setKTX2Loader(ktx2Loader);
+loader.setMeshoptDecoder(MeshoptDecoder);
+
+loader.load(${JSON.stringify(glbUrl)}, (gltf) => {
 	try {
 		const root = gltf.scene;
 		scene.add(root);

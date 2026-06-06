@@ -119,9 +119,25 @@ describe('3D Studio MCP', () => {
 
 		const ok = await call('image_to_3d', { image_url: 'https://img.test/in.png' });
 		expect(ok.result.structuredContent.job_id).toBe('pred_123');
+		expect(ok.result.structuredContent.views_requested).toBe(1);
 		expect(providerState.submit).toHaveBeenCalledWith({
 			mode: 'reconstruct',
-			params: { image: 'https://img.test/in.png', prompt: undefined },
+			sourceUrl: 'https://img.test/in.png',
+			params: { images: ['https://img.test/in.png'], prompt: undefined },
+		});
+	});
+
+	it('image_to_3d accepts multiple views for multi-view reconstruction', async () => {
+		providerState.submit.mockClear();
+		const views = ['https://img.test/front.png', 'https://img.test/back.png'];
+		const ok = await call('image_to_3d', { image_urls: views });
+		expect(ok.result.structuredContent.job_id).toBe('pred_123');
+		expect(ok.result.structuredContent.views_requested).toBe(2);
+		expect(ok.result.structuredContent.source_image_urls).toEqual(views);
+		expect(providerState.submit).toHaveBeenCalledWith({
+			mode: 'reconstruct',
+			sourceUrl: views[0],
+			params: { images: views, prompt: undefined },
 		});
 	});
 
@@ -164,5 +180,63 @@ describe('3D Studio MCP', () => {
 		const r = await call('preview_3d', { glb_url: 'https://cdn.test/x.glb' });
 		const resource = r.result.content.find((c) => c.type === 'resource');
 		expect(resource.resource.text).toContain('https://cdn.test/x.glb');
+	});
+
+	it('segment_model requires a public https url', async () => {
+		const bad = await call('segment_model', { mesh_url: 'http://localhost/m.glb' });
+		expect(bad.result.isError).toBe(true);
+		expect(providerState.submit).not.toHaveBeenCalled();
+	});
+
+	it('segment_model submits a segment job with the resolved params', async () => {
+		const r = await call('segment_model', {
+			mesh_url: 'https://cdn.test/m.glb',
+			method: 'crease',
+			max_parts: 12,
+		});
+		expect(providerState.submit).toHaveBeenCalledWith({
+			mode: 'segment',
+			sourceUrl: 'https://cdn.test/m.glb',
+			params: {
+				method: 'crease',
+				max_parts: 12,
+				min_part_faces: 64,
+				crease_angle: 40,
+				only_part: undefined,
+			},
+		});
+		expect(r.result.structuredContent).toMatchObject({
+			job_id: 'pred_123',
+			status: 'queued',
+			method: 'crease',
+		});
+	});
+
+	it('generation_status surfaces the parts manifest for a segmentation job', async () => {
+		providerState.status.mockResolvedValue({
+			status: 'done',
+			resultGlbUrl: 'https://cdn.test/seg.glb',
+			manifestUrl: 'https://cdn.test/seg.parts.json',
+			partCount: 2,
+			sourceFaces: 1500,
+			segmentMethod: 'auto',
+			parts: [
+				{ id: 'part_01', name: 'top', face_count: 1280, color: '#f2a45c' },
+				{ id: 'part_02', name: 'core', face_count: 220, color: '#785cf2' },
+			],
+		});
+		const r = await call('generation_status', { job_id: 'pred_123' });
+		expect(r.result.structuredContent).toMatchObject({
+			status: 'done',
+			glb_url: 'https://cdn.test/seg.glb',
+			manifest_url: 'https://cdn.test/seg.parts.json',
+			part_count: 2,
+			method: 'auto',
+		});
+		expect(r.result.structuredContent.parts).toHaveLength(2);
+		// The named parts are listed in the human-readable text, too.
+		const text = r.result.content.find((c) => c.type === 'text').text;
+		expect(text).toContain('part_01');
+		expect(text).toContain('top');
 	});
 });

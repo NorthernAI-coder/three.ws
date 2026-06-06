@@ -68,7 +68,8 @@ const el = (tag, attrs = {}, children = []) => {
 	for (const [k, v] of Object.entries(attrs)) {
 		if (k === 'class') node.className = v;
 		else if (k === 'text') node.textContent = v;
-		else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+		else if (k.startsWith('on') && typeof v === 'function')
+			node.addEventListener(k.slice(2), v);
 		else if (v !== false && v != null) node.setAttribute(k, v);
 	}
 	for (const child of children) {
@@ -92,7 +93,12 @@ const FLOOR_PROPS = {
 			seat.receiveShadow = true;
 			g.add(seat);
 			const legGeom = new BoxGeometry(0.05, 0.45, 0.05);
-			for (const [x, z] of [[+0.19, +0.19], [+0.19, -0.19], [-0.19, +0.19], [-0.19, -0.19]]) {
+			for (const [x, z] of [
+				[+0.19, +0.19],
+				[+0.19, -0.19],
+				[-0.19, +0.19],
+				[-0.19, -0.19],
+			]) {
 				const leg = new Mesh(legGeom, wood);
 				leg.position.set(x, 0.225, z);
 				leg.castShadow = true;
@@ -121,7 +127,7 @@ const FLOOR_PROPS = {
 			post.position.y = 0.21;
 			post.castShadow = true;
 			g.add(post);
-			const base = new Mesh(new CylinderGeometry(0.18, 0.20, 0.03, 24), mat);
+			const base = new Mesh(new CylinderGeometry(0.18, 0.2, 0.03, 24), mat);
 			base.position.y = 0.015;
 			base.receiveShadow = true;
 			g.add(base);
@@ -171,7 +177,12 @@ const FLOOR_PROPS = {
 
 // Shared IK target-handle assets (cloned per handle for per-instance opacity).
 const handleGeom = new SphereGeometry(0.045, 16, 12);
-const handleMat = new MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.9, depthTest: false });
+const handleMat = new MeshBasicMaterial({
+	color: '#22d3ee',
+	transparent: true,
+	opacity: 0.9,
+	depthTest: false,
+});
 
 // ─── Scene setup ────────────────────────────────────────────────────────
 function setupScene(canvas, hudStatus) {
@@ -268,15 +279,27 @@ function setupScene(canvas, hudStatus) {
 		hudStatus.dataset.kind = kind;
 	}
 
-	return { scene, camera, renderer, controls, gizmo, key, hemi, ambient, propLayer, ikLayer, setStatus };
+	return {
+		scene,
+		camera,
+		renderer,
+		controls,
+		gizmo,
+		key,
+		hemi,
+		ambient,
+		propLayer,
+		ikLayer,
+		setStatus,
+	};
 }
 
 // ─── State ──────────────────────────────────────────────────────────────
 const state = {
-	rig: null,            // current Rig (MannequinRig | GltfRig)
-	selectedBone: null,   // canonical bone key
-	poseMode: 'fk',       // 'fk' (gizmo + sliders) | 'ik' (drag end-effectors)
-	avatar: null,         // { id, name } when a GLB is loaded, else null
+	rig: null, // current Rig (MannequinRig | GltfRig)
+	selectedBone: null, // canonical bone key
+	poseMode: 'fk', // 'fk' (gizmo + sliders) | 'ik' (drag end-effectors)
+	avatar: null, // { id, name } when a GLB is loaded, else null
 	loadingAvatar: false,
 	prop: 'none',
 	propGroup: null,
@@ -285,26 +308,45 @@ const state = {
 	keyElevation: 0.95,
 	keyDistance: 5.8,
 	ikHandles: new Map(), // effectorKey → Mesh
-	draggingIK: null,     // { effectorKey, plane }
-	anim: null,           // timeline controller handle (set on boot)
+	draggingIK: null, // { effectorKey, plane }
+	anim: null, // timeline controller handle (set on boot)
+	animLibrary: null, // AnimationLibrary (preset gallery) handle (set on boot)
 };
 
 // Studio handle exposed for later tasks (save/library/monetize) to share the
 // rig, scene, and the current animation document without re-importing internals.
 export const studio = {
-	get rig() { return state.rig; },
-	get scene() { return state.ctx?.scene || null; },
-	get camera() { return state.ctx?.camera || null; },
-	get renderer() { return state.ctx?.renderer || null; },
-	get avatar() { return state.avatar; },
+	get rig() {
+		return state.rig;
+	},
+	get scene() {
+		return state.ctx?.scene || null;
+	},
+	get camera() {
+		return state.ctx?.camera || null;
+	},
+	get renderer() {
+		return state.ctx?.renderer || null;
+	},
+	get avatar() {
+		return state.avatar;
+	},
 	// ── Animation handoff API (Task 4/5/6) ───────────────────────────────────
-	get document() { return state.anim?.doc || null; },
+	get document() {
+		return state.anim?.doc || null;
+	},
 	/** Bake the current document to a THREE.AnimationClip (canonical bone names). */
-	bake() { return state.anim ? state.anim.bake() : null; },
+	bake() {
+		return state.anim ? state.anim.bake() : null;
+	},
 	/** The documented clip-JSON ({ name, duration, tracks }). */
-	serializeClip() { return state.anim ? state.anim.serialize() : null; },
+	serializeClip() {
+		return state.anim ? state.anim.serialize() : null;
+	},
 	/** PNG data URL of the current viewport (reuses the screenshot pipeline). */
-	captureThumbnail() { return state.anim ? state.anim.captureThumbnail() : null; },
+	captureThumbnail() {
+		return state.anim ? state.anim.captureThumbnail() : null;
+	},
 };
 
 // ─── App boot ───────────────────────────────────────────────────────────
@@ -433,7 +475,10 @@ function boot() {
 			const sx = (_v.x * 0.5 + 0.5) * rect.width;
 			const sy = (-_v.y * 0.5 + 0.5) * rect.height;
 			const d = Math.hypot(sx - px, sy - py);
-			if (d < bestDist) { bestDist = d; best = key; }
+			if (d < bestDist) {
+				bestDist = d;
+				best = key;
+			}
 		}
 		return bestDist < 80 ? best : null;
 	}
@@ -469,7 +514,9 @@ function boot() {
 
 	function endIKDrag(ev) {
 		if (!state.draggingIK) return;
-		try { canvas.releasePointerCapture(ev.pointerId); } catch {}
+		try {
+			canvas.releasePointerCapture(ev.pointerId);
+		} catch {}
 		state.draggingIK = null;
 		controls.enabled = true;
 		syncIKHandles();
@@ -590,7 +637,11 @@ function boot() {
 			return;
 		}
 		const rot = state.rig.getBoneEuler(key);
-		const AXES = [['x', 'Bend / Pitch'], ['y', 'Twist / Yaw'], ['z', 'Tilt / Roll']];
+		const AXES = [
+			['x', 'Bend / Pitch'],
+			['y', 'Twist / Yaw'],
+			['z', 'Tilt / Roll'],
+		];
 		for (const [axis, label] of AXES) {
 			const value = rot[axis];
 			const row = el('div', { class: 'pose-slider-row' }, [
@@ -619,7 +670,9 @@ function boot() {
 			row.appendChild(slider);
 			sliderHost.appendChild(row);
 		}
-		const resetBtn = el('button', { class: 'pose-btn pose-btn-ghost', type: 'button' }, ['Reset this bone']);
+		const resetBtn = el('button', { class: 'pose-btn pose-btn-ghost', type: 'button' }, [
+			'Reset this bone',
+		]);
 		resetBtn.addEventListener('click', () => {
 			state.rig.setBoneEuler(key, { x: 0, y: 0, z: 0 });
 			renderControlsPanel();
@@ -632,20 +685,30 @@ function boot() {
 		if (!boneListHost) return;
 		const q = (boneSearch?.value || '').trim().toLowerCase();
 		boneListHost.innerHTML = '';
-		const bones = state.rig.getBones().filter(({ key, label }) =>
-			!q || key.toLowerCase().includes(q) || label.toLowerCase().includes(q));
+		const bones = state.rig
+			.getBones()
+			.filter(
+				({ key, label }) =>
+					!q || key.toLowerCase().includes(q) || label.toLowerCase().includes(q),
+			);
 		if (!bones.length) {
-			boneListHost.appendChild(el('p', { class: 'pose-hint' }, ['No bones match your search.']));
+			boneListHost.appendChild(
+				el('p', { class: 'pose-hint' }, ['No bones match your search.']),
+			);
 			return;
 		}
 		const row = el('div', { class: 'pose-joint-row' }, []);
 		for (const { key, label } of bones) {
-			const btn = el('button', {
-				class: 'pose-joint-btn',
-				type: 'button',
-				'data-bone': key,
-				'aria-pressed': String(state.selectedBone === key),
-			}, [label]);
+			const btn = el(
+				'button',
+				{
+					class: 'pose-joint-btn',
+					type: 'button',
+					'data-bone': key,
+					'aria-pressed': String(state.selectedBone === key),
+				},
+				[label],
+			);
 			btn.addEventListener('click', () => selectBone(key));
 			row.appendChild(btn);
 		}
@@ -662,7 +725,11 @@ function boot() {
 			presetHost.appendChild(el('div', { class: 'pose-preset-group' }, [groupName]));
 			const wrap = el('div', { class: 'pose-preset-grid' }, []);
 			for (const preset of presets) {
-				const btn = el('button', { class: 'pose-preset-btn', type: 'button', 'data-preset': preset.id }, [preset.label]);
+				const btn = el(
+					'button',
+					{ class: 'pose-preset-btn', type: 'button', 'data-preset': preset.id },
+					[preset.label],
+				);
 				btn.addEventListener('click', () => {
 					state.rig.applyPose(poseFromMannequinPreset(preset.pose));
 					if (state.poseMode === 'fk') attachGizmo();
@@ -712,7 +779,9 @@ function boot() {
 		const scn = gltf.scene || gltf.scenes?.[0];
 		const rig = scn && makeGltfRig(scn);
 		if (!rig) {
-			throw new Error('That model has no recognizable humanoid skeleton — pick a rigged avatar.');
+			throw new Error(
+				'That model has no recognizable humanoid skeleton — pick a rigged avatar.',
+			);
 		}
 		mountRig(rig);
 		state.avatar = { id: meta.id || null, name: meta.name || 'Avatar', model_url: modelUrl };
@@ -723,8 +792,11 @@ function boot() {
 
 	async function loadAvatarById(id) {
 		setStatus('Resolving avatar…');
-		const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`, { credentials: 'include' });
-		if (!res.ok) throw new Error(`Couldn't load avatar (${res.status}). It may be private or removed.`);
+		const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`, {
+			credentials: 'include',
+		});
+		if (!res.ok)
+			throw new Error(`Couldn't load avatar (${res.status}). It may be private or removed.`);
 		const { avatar } = await res.json();
 		const url = avatar?.model_url || avatar?.url;
 		if (!url) throw new Error('That avatar has no downloadable model.');
@@ -859,16 +931,24 @@ function boot() {
 	$('#pose-constraints')?.addEventListener('change', (ev) => {
 		if (state.rig.kind !== 'mannequin') return;
 		state.rig.setConstraintsEnabled(ev.target.checked);
-		setStatus(ev.target.checked ? 'Biological constraints on.' : 'Constraints off — full rotation allowed.');
+		setStatus(
+			ev.target.checked
+				? 'Biological constraints on.'
+				: 'Constraints off — full rotation allowed.',
+		);
 	});
 
-	$('#pose-bg')?.addEventListener('input', (ev) => { scene.background = new Color(ev.target.value); });
+	$('#pose-bg')?.addEventListener('input', (ev) => {
+		scene.background = new Color(ev.target.value);
+	});
 	$('#pose-fov')?.addEventListener('input', (ev) => {
 		camera.fov = parseFloat(ev.target.value);
 		camera.updateProjectionMatrix();
 	});
 	$('#pose-grid')?.addEventListener('change', (ev) => {
-		scene.traverse((o) => { if (o.isGridHelper) o.visible = ev.target.checked; });
+		scene.traverse((o) => {
+			if (o.isGridHelper) o.visible = ev.target.checked;
+		});
 	});
 
 	function syncKeyLight() {
@@ -881,20 +961,43 @@ function boot() {
 		state.keyLight.target.updateMatrixWorld();
 	}
 	syncKeyLight();
-	$('#pose-light-azimuth')?.addEventListener('input', (ev) => { state.keyAzimuth = (parseFloat(ev.target.value) / 180) * Math.PI; syncKeyLight(); });
-	$('#pose-light-elevation')?.addEventListener('input', (ev) => { state.keyElevation = (parseFloat(ev.target.value) / 180) * Math.PI; syncKeyLight(); });
-	$('#pose-light-intensity')?.addEventListener('input', (ev) => { state.keyLight.intensity = parseFloat(ev.target.value); });
+	$('#pose-light-azimuth')?.addEventListener('input', (ev) => {
+		state.keyAzimuth = (parseFloat(ev.target.value) / 180) * Math.PI;
+		syncKeyLight();
+	});
+	$('#pose-light-elevation')?.addEventListener('input', (ev) => {
+		state.keyElevation = (parseFloat(ev.target.value) / 180) * Math.PI;
+		syncKeyLight();
+	});
+	$('#pose-light-intensity')?.addEventListener('input', (ev) => {
+		state.keyLight.intensity = parseFloat(ev.target.value);
+	});
 
 	// ── Floor props ────────────────────────────────────────────────────────
 	const propHost = $('#pose-prop-host');
 	if (propHost) {
 		for (const [id, def] of Object.entries(FLOOR_PROPS)) {
-			const btn = el('button', { class: 'pose-prop-btn', type: 'button', 'data-prop': id, 'aria-pressed': String(state.prop === id) }, [def.label]);
+			const btn = el(
+				'button',
+				{
+					class: 'pose-prop-btn',
+					type: 'button',
+					'data-prop': id,
+					'aria-pressed': String(state.prop === id),
+				},
+				[def.label],
+			);
 			btn.addEventListener('click', () => {
 				state.prop = id;
 				propLayer.clear();
-				if (def.build) { const g = def.build(); propLayer.add(g); state.propGroup = g; }
-				document.querySelectorAll('[data-prop]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.prop === id)));
+				if (def.build) {
+					const g = def.build();
+					propLayer.add(g);
+					state.propGroup = g;
+				}
+				document
+					.querySelectorAll('[data-prop]')
+					.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.prop === id)));
 			});
 			propHost.appendChild(btn);
 		}
@@ -904,10 +1007,27 @@ function boot() {
 	window.addEventListener('keydown', (ev) => {
 		if (ev.target.matches('input, textarea, select')) return;
 		const k = ev.key.toLowerCase();
-		if (k === 'f') { state.poseMode = 'fk'; applyPoseMode(); renderControlsPanel(); }
-		else if (k === 'i') { const b = document.querySelector('[data-posemode="ik"]'); if (b && !b.disabled) { state.poseMode = 'ik'; applyPoseMode(); renderControlsPanel(); } }
-		else if (k === 'r' && state.selectedBone) { state.rig.setBoneEuler(state.selectedBone, { x: 0, y: 0, z: 0 }); renderControlsPanel(); }
-		else if (k === 'escape') { state.selectedBone = null; gizmo.detach(); renderControlsPanel(); renderBoneList(); updateSelectionLabel(); }
+		if (k === 'f') {
+			state.poseMode = 'fk';
+			applyPoseMode();
+			renderControlsPanel();
+		} else if (k === 'i') {
+			const b = document.querySelector('[data-posemode="ik"]');
+			if (b && !b.disabled) {
+				state.poseMode = 'ik';
+				applyPoseMode();
+				renderControlsPanel();
+			}
+		} else if (k === 'r' && state.selectedBone) {
+			state.rig.setBoneEuler(state.selectedBone, { x: 0, y: 0, z: 0 });
+			renderControlsPanel();
+		} else if (k === 'escape') {
+			state.selectedBone = null;
+			gizmo.detach();
+			renderControlsPanel();
+			renderBoneList();
+			updateSelectionLabel();
+		}
 	});
 
 	// ── Animation timeline ───────────────────────────────────────────────────
@@ -916,18 +1036,57 @@ function boot() {
 	// keyframes and plays the result; export bakes a THREE.AnimationClip.
 	timeline = setupTimeline();
 
+	// ── Animation preset library ─────────────────────────────────────────────
+	// A curated gallery of ready-to-apply motion clips. Picking one retargets it
+	// onto the loaded rig and plays it live in this same viewport, then offers an
+	// animated-GLB export. While a preset previews it drives the figure, so we
+	// pause the keyframe timeline and stow the FK gizmo.
+	const animLibraryHost = $('#pose-anim-library');
+	if (animLibraryHost) {
+		const animLibrary = new AnimationLibrary({
+			host: animLibraryHost,
+			getRig: () => state.rig,
+			setStatus,
+			onPreviewStart: () => {
+				timeline?.pause?.();
+				gizmo.detach();
+				gizmo.enabled = false;
+				gizmo.visible = false;
+			},
+			onPreviewStop: () => {
+				if (state.poseMode === 'fk' && state.selectedBone) attachGizmo();
+				renderControlsPanel();
+			},
+		});
+		state.animLibrary = animLibrary;
+		animLibrary.mount();
+	}
+
 	function setupTimeline() {
 		const doc = createDocument();
 		const anim = { doc, playing: false, playhead: 0, selectedId: null };
 		state.anim = anim;
 
 		const tl = {
-			track: $('#tl-track'), lane: $('#tl-lane'), ruler: $('#tl-ruler'),
-			playhead: $('#tl-playhead'), empty: $('#tl-empty'), time: $('#tl-time'),
-			play: $('#tl-play'), stop: $('#tl-stop'), start: $('#tl-start'), end: $('#tl-end'),
-			loop: $('#tl-loop'), add: $('#tl-add-key'), del: $('#tl-del-key'),
-			easing: $('#tl-easing'), name: $('#tl-name'), duration: $('#tl-duration'), fps: $('#tl-fps'),
-			exportJson: $('#tl-export-json'), exportGlb: $('#tl-export-glb'),
+			track: $('#tl-track'),
+			lane: $('#tl-lane'),
+			ruler: $('#tl-ruler'),
+			playhead: $('#tl-playhead'),
+			empty: $('#tl-empty'),
+			time: $('#tl-time'),
+			play: $('#tl-play'),
+			stop: $('#tl-stop'),
+			start: $('#tl-start'),
+			end: $('#tl-end'),
+			loop: $('#tl-loop'),
+			add: $('#tl-add-key'),
+			del: $('#tl-del-key'),
+			easing: $('#tl-easing'),
+			name: $('#tl-name'),
+			duration: $('#tl-duration'),
+			fps: $('#tl-fps'),
+			exportJson: $('#tl-export-json'),
+			exportGlb: $('#tl-export-glb'),
 		};
 		if (!tl.track) return null; // page without the timeline markup — no-op
 
@@ -939,7 +1098,11 @@ function boot() {
 			return clamp((clientX - rect.left) / rect.width, 0, 1) * doc.duration;
 		};
 		const safeName = () =>
-			(doc.name || 'animation').replace(/[^a-z0-9._-]+/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'animation';
+			(doc.name || 'animation')
+				.replace(/[^a-z0-9._-]+/gi, '-')
+				.replace(/-+/g, '-')
+				.replace(/^-|-$/g, '')
+				.slice(0, 60) || 'animation';
 
 		// Sync the static control values from the document defaults.
 		tl.name.value = doc.name;
@@ -969,7 +1132,10 @@ function boot() {
 
 		// ── Transport ────────────────────────────────────────────────────────────
 		function play() {
-			if (!doc.keyframes.length) { setStatus('Add a keyframe first, then play.', 'error'); return; }
+			if (!doc.keyframes.length) {
+				setStatus('Add a keyframe first, then play.', 'error');
+				return;
+			}
 			if (!doc.loop && anim.playhead >= doc.duration - 1e-3) anim.playhead = 0;
 			anim.playing = true;
 			tl.play.textContent = '⏸';
@@ -980,15 +1146,24 @@ function boot() {
 			tl.play.textContent = '▶';
 			tl.play.setAttribute('aria-pressed', 'false');
 		}
-		function toggle() { anim.playing ? pause() : play(); }
-		function stop() { pause(); setPlayhead(0, { render: true }); }
+		function toggle() {
+			anim.playing ? pause() : play();
+		}
+		function stop() {
+			pause();
+			setPlayhead(0, { render: true });
+		}
 
 		function advance(dt) {
 			if (!anim.playing) return;
 			let t = anim.playhead + dt;
 			if (t >= doc.duration) {
 				if (doc.loop) t = doc.duration > 0 ? t % doc.duration : 0;
-				else { setPlayhead(doc.duration); pause(); return; }
+				else {
+					setPlayhead(doc.duration);
+					pause();
+					return;
+				}
 			}
 			setPlayhead(t);
 		}
@@ -1004,7 +1179,11 @@ function boot() {
 			for (let t = 0; t <= doc.duration + 1e-6; t += step) {
 				const left = pct(t);
 				tl.ruler.appendChild(el('div', { class: 'tl-tick', style: `left:${left}%` }));
-				tl.ruler.appendChild(el('div', { class: 'tl-tick-label', style: `left:${left}%` }, [`${(+t.toFixed(3))}s`]));
+				tl.ruler.appendChild(
+					el('div', { class: 'tl-tick-label', style: `left:${left}%` }, [
+						`${+t.toFixed(3)}s`,
+					]),
+				);
 			}
 		}
 
@@ -1040,8 +1219,14 @@ function boot() {
 				});
 				diamond.addEventListener('pointerdown', (ev) => startKeyDrag(ev, kf, diamond));
 				diamond.addEventListener('keydown', (ev) => {
-					if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); select(kf.id); deleteSelected(); }
-					else if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(kf.id); }
+					if (ev.key === 'Delete' || ev.key === 'Backspace') {
+						ev.preventDefault();
+						select(kf.id);
+						deleteSelected();
+					} else if (ev.key === 'Enter' || ev.key === ' ') {
+						ev.preventDefault();
+						select(kf.id);
+					}
 				});
 				tl.lane.appendChild(diamond);
 			}
@@ -1063,9 +1248,11 @@ function boot() {
 			const kf = upsertKeyframe(doc, anim.playhead, state.rig.getPose(), DEFAULT_EASING);
 			anim.selectedId = kf.id;
 			renderKeyframes();
-			setStatus(existed
-				? `Keyframe updated at ${kf.time.toFixed(2)}s.`
-				: `Keyframe added at ${kf.time.toFixed(2)}s · ${doc.keyframes.length} total.`);
+			setStatus(
+				existed
+					? `Keyframe updated at ${kf.time.toFixed(2)}s.`
+					: `Keyframe added at ${kf.time.toFixed(2)}s · ${doc.keyframes.length} total.`,
+			);
 		}
 
 		function deleteSelected() {
@@ -1096,7 +1283,9 @@ function boot() {
 				diamond.removeEventListener('pointermove', onMove);
 				diamond.removeEventListener('pointerup', onUp);
 				diamond.removeEventListener('pointercancel', onUp);
-				try { diamond.releasePointerCapture(e.pointerId); } catch {}
+				try {
+					diamond.releasePointerCapture(e.pointerId);
+				} catch {}
 				renderKeyframes();
 				if (state.selectedBone) renderControlsPanel();
 			};
@@ -1120,24 +1309,43 @@ function boot() {
 		const endScrub = (ev) => {
 			if (!scrubbing) return;
 			scrubbing = false;
-			try { tl.track.releasePointerCapture(ev.pointerId); } catch {}
+			try {
+				tl.track.releasePointerCapture(ev.pointerId);
+			} catch {}
 			if (state.selectedBone) renderControlsPanel();
 		};
 		tl.track.addEventListener('pointerup', endScrub);
 		tl.track.addEventListener('pointercancel', endScrub);
 		tl.track.addEventListener('keydown', (ev) => {
 			const stepDt = 1 / clamp(doc.fps || 30, 1, 120);
-			if (ev.key === 'ArrowLeft') { ev.preventDefault(); pause(); setPlayhead(anim.playhead - stepDt, { render: true }); }
-			else if (ev.key === 'ArrowRight') { ev.preventDefault(); pause(); setPlayhead(anim.playhead + stepDt, { render: true }); }
-			else if (ev.key === 'Home') { ev.preventDefault(); setPlayhead(0, { render: true }); }
-			else if (ev.key === 'End') { ev.preventDefault(); setPlayhead(doc.duration, { render: true }); }
+			if (ev.key === 'ArrowLeft') {
+				ev.preventDefault();
+				pause();
+				setPlayhead(anim.playhead - stepDt, { render: true });
+			} else if (ev.key === 'ArrowRight') {
+				ev.preventDefault();
+				pause();
+				setPlayhead(anim.playhead + stepDt, { render: true });
+			} else if (ev.key === 'Home') {
+				ev.preventDefault();
+				setPlayhead(0, { render: true });
+			} else if (ev.key === 'End') {
+				ev.preventDefault();
+				setPlayhead(doc.duration, { render: true });
+			}
 		});
 
 		// ── Controls ────────────────────────────────────────────────────────────────
 		tl.play.addEventListener('click', toggle);
 		tl.stop.addEventListener('click', stop);
-		tl.start.addEventListener('click', () => { pause(); setPlayhead(0, { render: true }); });
-		tl.end.addEventListener('click', () => { pause(); setPlayhead(doc.duration, { render: true }); });
+		tl.start.addEventListener('click', () => {
+			pause();
+			setPlayhead(0, { render: true });
+		});
+		tl.end.addEventListener('click', () => {
+			pause();
+			setPlayhead(doc.duration, { render: true });
+		});
 		tl.loop.addEventListener('click', () => {
 			doc.loop = !doc.loop;
 			tl.loop.setAttribute('aria-pressed', String(doc.loop));
@@ -1151,7 +1359,9 @@ function boot() {
 			applyPreview();
 			setStatus(`Easing set to ${tl.easing.value}.`);
 		});
-		tl.name.addEventListener('input', () => { doc.name = tl.name.value.trim() || 'animation'; });
+		tl.name.addEventListener('input', () => {
+			doc.name = tl.name.value.trim() || 'animation';
+		});
 		tl.duration.addEventListener('change', () => {
 			doc.duration = clamp(parseFloat(tl.duration.value) || 4, 0.25, 120);
 			tl.duration.value = String(doc.duration);
@@ -1193,7 +1403,10 @@ function boot() {
 				btn.textContent = 'Failed';
 				setStatus(`${label} failed: ${err.message}`, 'error');
 			} finally {
-				setTimeout(() => { btn.classList.remove('is-ok', 'is-err'); btn.textContent = original; }, 2200);
+				setTimeout(() => {
+					btn.classList.remove('is-ok', 'is-err');
+					btn.textContent = original;
+				}, 2200);
 			}
 		}
 
@@ -1201,7 +1414,11 @@ function boot() {
 			pause();
 			withBusy(tl.exportJson, 'Clip JSON', async () => {
 				const json = serializeClip(doc, { resolveBoneName: (k) => k, rootName: 'Hips' });
-				downloadBlob(JSON.stringify(json, null, 2), `${safeName()}.json`, 'application/json');
+				downloadBlob(
+					JSON.stringify(json, null, 2),
+					`${safeName()}.json`,
+					'application/json',
+				);
 			});
 		});
 		tl.exportGlb.addEventListener('click', () => {
@@ -1224,12 +1441,21 @@ function boot() {
 
 		// ── Keyboard (timeline) ──────────────────────────────────────────────────────
 		window.addEventListener('keydown', (ev) => {
-			if (ev.target.matches('input, textarea, select') || ev.target.closest('.tl-key')) return;
-			if (ev.key === ' ') { ev.preventDefault(); toggle(); }
-			else if (ev.key === 'k' || ev.key === 'K') { captureKeyframe(); }
-			else if ((ev.key === 'Delete' || ev.key === 'Backspace') && anim.selectedId) { ev.preventDefault(); deleteSelected(); }
-			else if (ev.key === 'Home') { setPlayhead(0, { render: true }); }
-			else if (ev.key === 'End') { setPlayhead(doc.duration, { render: true }); }
+			if (ev.target.matches('input, textarea, select') || ev.target.closest('.tl-key'))
+				return;
+			if (ev.key === ' ') {
+				ev.preventDefault();
+				toggle();
+			} else if (ev.key === 'k' || ev.key === 'K') {
+				captureKeyframe();
+			} else if ((ev.key === 'Delete' || ev.key === 'Backspace') && anim.selectedId) {
+				ev.preventDefault();
+				deleteSelected();
+			} else if (ev.key === 'Home') {
+				setPlayhead(0, { render: true });
+			} else if (ev.key === 'End') {
+				setPlayhead(doc.duration, { render: true });
+			}
 		});
 
 		// ── Init ────────────────────────────────────────────────────────────────────
@@ -1272,7 +1498,10 @@ function boot() {
 					easing: EASINGS[k.easing] ? k.easing : DEFAULT_EASING,
 					pose:
 						k.pose && k.pose.bones
-							? { bones: { ...k.pose.bones }, rootPosition: k.pose.rootPosition || { x: 0, y: 0, z: 0 } }
+							? {
+									bones: { ...k.pose.bones },
+									rootPosition: k.pose.rootPosition || { x: 0, y: 0, z: 0 },
+								}
 							: { bones: {} },
 				}))
 				.sort((a, b) => a.time - b.time);
@@ -1290,10 +1519,15 @@ function boot() {
 		return {
 			update: advance,
 			pause,
-			onRigChanged: () => { if (doc.keyframes.length) applyPreview(); },
+			onRigChanged: () => {
+				if (doc.keyframes.length) applyPreview();
+			},
 			bake: () => bakeClip(doc, { resolveBoneName: (k) => k, rootName: 'Hips' }),
 			serialize: () => serializeClip(doc, { resolveBoneName: (k) => k, rootName: 'Hips' }),
-			captureThumbnail: () => { renderer.render(scene, camera); return renderer.domElement.toDataURL('image/png'); },
+			captureThumbnail: () => {
+				renderer.render(scene, camera);
+				return renderer.domElement.toDataURL('image/png');
+			},
 			getDocument,
 			loadDocument,
 			keyframeCount: () => doc.keyframes.length,
