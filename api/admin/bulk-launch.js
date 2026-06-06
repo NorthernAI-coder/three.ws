@@ -31,7 +31,6 @@
 //   done        { deployed, errors, skipped }
 
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { publicKey as umiPublicKey } from '@metaplex-foundation/umi';
 import { cors, method, error } from '../_lib/http.js';
 import { requireAdmin } from '../_lib/admin.js';
 import {
@@ -40,6 +39,7 @@ import {
 	funderLamports,
 	fetchUndeployedAgents,
 	resolveAgentCollection,
+	loadCollectionAsset,
 	deployAgentOnce,
 	explorerUrl,
 	EST_MINT_LAMPORTS,
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
 		sse(res, 'done', { deployed: 0, errors: 1, skipped: 0 });
 		return res.end();
 	}
-	const collectionPk = collectionAddr ? umiPublicKey(collectionAddr) : null;
+	const collectionAsset = dryRun ? null : await loadCollectionAsset(umi, collectionAddr);
 
 	let deployed = 0;
 	let errors = 0;
@@ -158,7 +158,7 @@ export default async function handler(req, res) {
 				umi,
 				authoritySigner,
 				collectionAddr,
-				collectionPk,
+				collectionAsset,
 				agent,
 				network,
 				onEvent: (type, data) => sse(res, type, data),

@@ -21,13 +21,13 @@
  */
 
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { publicKey as umiPublicKey } from '@metaplex-foundation/umi';
 import {
 	authoritySecret,
 	buildAuthorityUmi,
 	funderLamports,
 	fetchUndeployedAgents,
 	resolveAgentCollection,
+	loadCollectionAsset,
 	deployAgentOnce,
 	explorerUrl,
 	EST_MINT_LAMPORTS,
@@ -89,7 +89,7 @@ async function main() {
 		network,
 		onEvent: (_t, d) => console.log(`Collection [${d.source}]: ${d.address}${d.signature ? `  (deploy sig ${d.signature.slice(0, 12)}…)` : ''}`),
 	});
-	const collectionPk = umiPublicKey(collectionAddr);
+	const collectionAsset = await loadCollectionAsset(umi, collectionAddr);
 	console.log('');
 
 	let deployed = 0, errors = 0;
@@ -102,7 +102,7 @@ async function main() {
 		}
 		process.stdout.write(`[${deployed + errors + 1}/${agents.length}] ${name} … `);
 		try {
-			const r = await deployAgentOnce({ umi, authoritySigner, collectionAddr, collectionPk, agent, network });
+			const r = await deployAgentOnce({ umi, authoritySigner, collectionAddr, collectionAsset, agent, network });
 			deployed++;
 			console.log(`✓ ${r.asset}`);
 			console.log(`        ${explorerUrl(r.asset, network)}`);
