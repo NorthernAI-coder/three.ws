@@ -54,6 +54,7 @@ export const BYOK_PROVIDERS = {
 	anthropic: { label: 'Anthropic', prefix: 'sk-ant-', hint: 'console.anthropic.com/settings/keys' },
 	openai:    { label: 'OpenAI',    prefix: 'sk-',     hint: 'platform.openai.com/api-keys' },
 	meshy:     { label: 'Meshy AI',  prefix: 'msy_',    hint: 'www.meshy.ai/settings/api' },
+	tripo:     { label: 'Tripo AI',  prefix: 'tsk_',    hint: 'platform.tripo3d.ai/api-keys' },
 };
 
 // Load and decrypt all stored provider keys for a user.

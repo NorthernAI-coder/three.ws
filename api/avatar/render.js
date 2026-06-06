@@ -285,6 +285,9 @@ function sceneViewerHtml({ glbUrl, width, height, background, pose, cameraOrbit,
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 window.__renderDone = false;
 window.__renderError = null;
@@ -393,7 +396,19 @@ const poseMap = ${poseJson};
 const expression = ${expressionJson};
 const preset = ${presetJson};
 
-new GLTFLoader().load(${JSON.stringify(glbUrl)}, (gltf) => {
+// Pipeline GLBs ship Draco geometry, Meshopt buffers, and KTX2 textures;
+// a bare GLTFLoader throws "No DRACOLoader instance provided". Register
+// every standard compression decoder from the pinned three.js release.
+const ADDONS = 'https://unpkg.com/three@${THREE_VERSION}/examples/jsm/';
+const dracoLoader = new DRACOLoader().setDecoderPath(ADDONS + 'libs/draco/');
+const ktx2Loader = new KTX2Loader().setTranscoderPath(ADDONS + 'libs/basis/').detectSupport(renderer);
+
+const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
+loader.setKTX2Loader(ktx2Loader);
+loader.setMeshoptDecoder(MeshoptDecoder);
+
+loader.load(${JSON.stringify(glbUrl)}, (gltf) => {
 	try {
 		const root = gltf.scene;
 		scene.add(root);

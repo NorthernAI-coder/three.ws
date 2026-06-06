@@ -13,6 +13,7 @@
 
 import { openTalkMode } from './voice/talk-mode.js';
 import { downloadAvatar } from './avatar-export.js';
+import { fbxFromBlob, downloadUrl } from './remesh-convert.js';
 import { log } from './shared/log.js';
 
 // ── Feature-preview modal ────────────────────────────────────────────────────
@@ -630,6 +631,13 @@ const DOWNLOAD_FORMATS = [
 		size: 'original',
 	},
 	{
+		id: 'fbx',
+		label: 'FBX',
+		blurb: 'Game-engine interchange. Imports into Unity and Unreal with the bone hierarchy, skin weights, and blendshapes intact.',
+		ext: '.fbx',
+		size: 'similar to GLB',
+	},
+	{
 		id: 'vrm',
 		label: 'VRM',
 		blurb: 'Humanoid avatar standard. Plug into VRChat, Resonite, Mozilla Hubs, Warudo, VTube Studio, TalkingHead.',
@@ -668,7 +676,7 @@ export function openDownloadModal(ctx) {
 			`,
 			).join('')}
 		</ul>
-		<p class="fm-note">All conversion runs in your browser — no upload, no server.</p>
+		<p class="fm-note">GLB, VRM, and USDZ convert in your browser. FBX renders on our servers (keeps the skeleton for Unity/Unreal) — a few seconds.</p>
 	`;
 
 	openFeatureModal({
@@ -688,6 +696,17 @@ export function openDownloadModal(ctx) {
 			statusEl.textContent = 'Preparing…';
 			statusEl.dataset.tone = 'busy';
 			try {
+				if (format === 'fbx') {
+					// FBX is built server-side from the GLB so the skeleton survives.
+					const fbxUrl = await fbxFromBlob(ctx.blob, {
+						filename: safeName,
+						onStatus: (msg) => { statusEl.textContent = msg; },
+					});
+					downloadUrl(fbxUrl, `${safeName}.fbx`);
+					statusEl.textContent = 'FBX ready — download started.';
+					statusEl.dataset.tone = 'ok';
+					return;
+				}
 				const result = await downloadAvatar(ctx.blob, {
 					format,
 					filename: safeName,

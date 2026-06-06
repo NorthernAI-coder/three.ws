@@ -97,7 +97,8 @@ export function hipRestHeight(rig) {
 // was authored around. The retarget scales other-height rigs by target/source.
 function clipHipBaselineY(clip) {
 	const track = clip.tracks.find(
-		(t) => t.name.endsWith('.position') && canonicalizeBoneName(t.name.split('.')[0]) === 'Hips',
+		(t) =>
+			t.name.endsWith('.position') && canonicalizeBoneName(t.name.split('.')[0]) === 'Hips',
 	);
 	if (!track || track.values.length < 3) return 0;
 	return track.values[1]; // [x, y, z, …] — Y of the first keyframe

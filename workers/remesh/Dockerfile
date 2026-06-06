@@ -19,11 +19,15 @@ RUN git clone --depth 1 --recursive https://github.com/hjwdzh/QuadriFlow /tmp/qu
     && install -m 0755 /tmp/quadriflow/build/quadriflow /usr/local/bin/quadriflow \
     && rm -rf /tmp/quadriflow
 
-# ── Runtime deps for trimesh / open3d / assimp / usd ─────────────────────────
+# ── Runtime deps for trimesh / open3d / assimp / usd / Blender ───────────────
+# The X11/GL libs are for the `bpy` (Blender) module, which links against them
+# even when running headless for FBX export.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1 libglib2.0-0 libgomp1 \
         libassimp-dev libassimp5 \
         libopenblas-dev \
+        libegl1 libxrender1 libxi6 libxxf86vm1 libxfixes3 libxkbcommon0 \
+        libxrandr2 libxcursor1 libxinerama1 libsm6 libice6 libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/requirements.txt
@@ -31,6 +35,8 @@ RUN pip install -r /app/requirements.txt
 
 WORKDIR /app
 COPY worker_security.py /app/worker_security.py
+COPY blender_fbx.py /app/blender_fbx.py
+COPY verify_fbx.py /app/verify_fbx.py
 COPY main.py /app/main.py
 
 EXPOSE 8080

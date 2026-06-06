@@ -4,7 +4,9 @@
 // generation_status polls that job. preview_3d renders any GLB inline.
 // remove_background strips image backgrounds (rembg/BRIA RMBG-2.0).
 // remesh_model converts, simplifies, and repairs meshes.
+// stylize_model applies one-click geometric filters (voxel/brick/voronoi/lowpoly).
 // retexture_model paints a new texture onto a mesh from a text prompt.
+// retexture_region (magic brush) repaints only a masked UV region, preserving the rest.
 
 import { limits } from '../../_lib/rate-limit.js';
 import { assertSafePublicUrl } from '../../_lib/ssrf-guard.js';
@@ -278,6 +280,37 @@ export const toolDefs = [
 
 			if (result.status === 'done' && result.resultGlbUrl) {
 				const glbUrl = result.resultGlbUrl;
+				// A segmentation job carries a parts manifest — surface the named,
+				// addressable parts (and where to inspect them) alongside the GLB.
+				if (Array.isArray(result.parts) && result.parts.length) {
+					const partLines = result.parts
+						.map((p) => `  • ${p.id} — ${p.name} (${p.face_count} faces, ${p.color})`)
+						.join('\n');
+					return {
+						content: [
+							{
+								type: 'text',
+								text:
+									`Segmented into ${result.partCount || result.parts.length} parts.\n` +
+									`Segmented GLB (each part is a named node): ${glbUrl}\n` +
+									(result.manifestUrl ? `Parts manifest: ${result.manifestUrl}\n` : '') +
+									`Parts:\n${partLines}\n` +
+									'Display the attached text/html resource as an inline 3D artifact.',
+							},
+							viewerArtifact({ glbUrl, name: 'Segmented 3D model' }),
+						],
+						structuredContent: {
+							job_id: args.job_id,
+							status: 'done',
+							glb_url: glbUrl,
+							manifest_url: result.manifestUrl || null,
+							part_count: result.partCount || result.parts.length,
+							parts: result.parts,
+							source_faces: result.sourceFaces ?? null,
+							method: result.segmentMethod || null,
+						},
+					};
+				}
 				return {
 					content: [
 						{
@@ -417,7 +450,7 @@ export const toolDefs = [
 		name: 'remesh_model',
 		title: 'Remesh, simplify, repair, or convert a 3D model',
 		description:
-			'Process an existing GLB/OBJ/STL/PLY mesh: fix holes and degenerate geometry, reduce face count via quadric decimation, or convert to a different format. Returns a clean GLB (or the requested format) job_id to poll with generation_status.',
+			'Process an existing GLB/OBJ/STL/PLY mesh: fix holes and degenerate geometry, reduce face count via quadric decimation, or convert to a different format (including FBX with skeleton for Unity/Unreal — a convert of a rigged GLB keeps its bones, skin weights, and blendshapes). Returns a clean GLB (or the requested format) job_id to poll with generation_status.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -441,8 +474,9 @@ export const toolDefs = [
 				},
 				output_format: {
 					type: 'string',
-					enum: ['glb', 'obj', 'stl', 'ply', 'usdz', '3mf'],
+					enum: ['glb', 'obj', 'stl', 'ply', 'usdz', '3mf', 'fbx'],
 					default: 'glb',
+					description: 'Target format. fbx + operation=convert preserves a rigged GLB\'s skeleton, skin weights, and blendshapes (for Unity/Unreal); other operations produce a static fbx.',
 				},
 			},
 			required: ['mesh_url'],
@@ -564,6 +598,95 @@ export const toolDefs = [
 		},
 	},
 	{
+		name: 'segment_model',
+		title: 'Split a 3D model into named, separable parts',
+		description:
+			'Segment a GLB/OBJ/STL/PLY mesh into meaningful parts with clean boundaries — head/torso/limbs on a character, body/wheels on a vehicle. Splits at physically disconnected shells and at concave creases (the minima rule), then names each part by region and tints it a distinct colour. Returns a GLB whose nodes ARE the parts (so each can be hidden, recoloured, replaced, or exported on its own) plus a parts manifest. Poll with generation_status; the result lists every part with its id, name, face count, and colour. Pass only_part to export a single part on its own.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				mesh_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the source mesh (GLB/OBJ/FBX/STL/PLY).',
+				},
+				method: {
+					type: 'string',
+					enum: ['auto', 'connected', 'crease'],
+					default: 'auto',
+					description:
+						'auto = disconnected shells + concave-crease splitting inside each shell (best); connected = split only at disconnected shells; crease = minima-rule crease splitting over the whole mesh.',
+				},
+				max_parts: {
+					type: 'integer',
+					minimum: 2,
+					maximum: 64,
+					default: 24,
+					description: 'Upper bound on parts. Smaller fragments are merged into neighbours until the count fits.',
+				},
+				min_part_faces: {
+					type: 'integer',
+					minimum: 4,
+					maximum: 100000,
+					default: 64,
+					description: 'Parts smaller than this many faces are merged into their largest neighbour.',
+				},
+				crease_angle: {
+					type: 'number',
+					minimum: 5,
+					maximum: 170,
+					default: 40,
+					description: 'Dihedral angle (degrees) above which a concave edge is treated as a part boundary. Lower = more parts.',
+				},
+				only_part: {
+					type: 'string',
+					maxLength: 64,
+					description: 'Optional: export just this part by id ("part_03") or name ("upper-left"). Run once without it to discover part ids.',
+				},
+			},
+			required: ['mesh_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.mesh_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			const provider = regenProvider('segment');
+			const job = await provider.submit({
+				mode: 'segment',
+				sourceUrl: args.mesh_url,
+				params: {
+					method: args.method || 'auto',
+					max_parts: args.max_parts || 24,
+					min_part_faces: args.min_part_faces || 64,
+					crease_angle: args.crease_angle ?? 40,
+					only_part: args.only_part,
+				},
+			});
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Segmentation started (${args.method || 'auto'}).\nJob ID: ${job.extJobId}\n` +
+							'Poll with generation_status — when done it lists every named part. Typically completes in 10–60 seconds.',
+					},
+				],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_mesh_url: args.mesh_url,
+					method: args.method || 'auto',
+					eta_seconds: job.eta,
+				},
+			};
+		},
+	},
+	{
 		name: 'retexture_model',
 		title: 'Paint a new texture onto a 3D model from a text prompt',
 		description:
@@ -635,6 +758,128 @@ export const toolDefs = [
 					status: 'queued',
 					source_mesh_url: args.mesh_url,
 					prompt: args.prompt,
+					eta_seconds: job.eta,
+				},
+			};
+		},
+	},
+	{
+		name: 'retexture_region',
+		title: 'Repaint one masked region of a model\'s texture (magic brush)',
+		description:
+			'Surgically repaint ONLY a region of an existing texture from a prompt and/or colour, ' +
+			'leaving the rest of the surface untouched and feathering the seam so the edit is invisible. ' +
+			'Real SDXL inpainting in UV space — fix a seam, recolour one panel, add a logo to a chest plate. ' +
+			'Supply mask_url: a UV-space mask PNG in the model\'s own UV layout where WHITE marks the area to ' +
+			'repaint and black is preserved. Safe to run repeatedly — chain passes by feeding the previous ' +
+			'result GLB back in as mesh_url. Returns a job_id to poll with generation_status.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				mesh_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the textured GLB to edit.',
+				},
+				mask_url: {
+					type: 'string',
+					format: 'uri',
+					description:
+						'Public https URL of the UV-space mask PNG (white = repaint, black = keep), ' +
+						'in the same UV layout as the mesh.',
+				},
+				prompt: {
+					type: 'string',
+					maxLength: 500,
+					description: 'What to paint into the masked region, e.g. "weathered copper plate".',
+				},
+				color: {
+					type: 'string',
+					pattern: '^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$',
+					description: 'Optional target colour as a hex value, e.g. "#1e90ff".',
+				},
+				negative_prompt: {
+					type: 'string',
+					maxLength: 300,
+					default: 'blurry, low quality, distorted, watermark, seam',
+				},
+				texture_size: {
+					type: 'integer',
+					enum: [512, 1024, 2048],
+					default: 1024,
+				},
+				strength: {
+					type: 'number',
+					minimum: 0.2,
+					maximum: 1,
+					default: 0.85,
+					description: 'How aggressively to regenerate the region (higher = more change).',
+				},
+				feather: {
+					type: 'integer',
+					minimum: 1,
+					maximum: 128,
+					default: 24,
+					description: 'Seam feather radius in atlas pixels — larger blends softer.',
+				},
+			},
+			required: ['mesh_url', 'mask_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.mesh_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			if (!(await isPublicHttpsUrl(args.mask_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: mask_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			if (!args.prompt && !args.color) {
+				return {
+					content: [
+						{ type: 'text', text: 'Error: provide a prompt and/or a color for the region.' },
+					],
+					isError: true,
+				};
+			}
+			const provider = regenProvider('retex_region');
+			const job = await provider.submit({
+				mode: 'retex_region',
+				sourceUrl: args.mesh_url,
+				params: {
+					prompt: args.prompt || '',
+					negative_prompt: args.negative_prompt,
+					mask: args.mask_url,
+					color: args.color || null,
+					texture_size: args.texture_size || 1024,
+					strength: args.strength ?? 0.85,
+					feather: args.feather ?? 24,
+				},
+			});
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Region retexture started${args.prompt ? ` for "${args.prompt}"` : ''}.\n` +
+							`Job ID: ${job.extJobId}\n` +
+							'Poll with generation_status. Typically completes in 30–90 seconds. ' +
+							'To stack edits, feed the resulting GLB back in as mesh_url.',
+					},
+				],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_mesh_url: args.mesh_url,
+					mask_url: args.mask_url,
+					prompt: args.prompt || null,
+					color: args.color || null,
 					eta_seconds: job.eta,
 				},
 			};

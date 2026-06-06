@@ -520,8 +520,11 @@ describe('Tool: render_avatar', () => {
 	it('returns an HTML snippet containing <model-viewer>', async () => {
 		authState.extracted = 'valid-token';
 		authState.bearer = FULL_AUTH;
+		// render_avatar's inputSchema requires id to match uuid format — real
+		// avatar ids are uuids, so the fixture must be one too.
+		const avatarId = '11111111-1111-4111-8111-111111111111';
 		avatarState.avatar = {
-			id: 'avatar-1',
+			id: avatarId,
 			name: 'Test Avatar',
 			slug: 'test',
 			visibility: 'public',
@@ -530,7 +533,7 @@ describe('Tool: render_avatar', () => {
 		// sql returns [] by default → _readMcpPolicyByAvatar returns null (no restriction)
 
 		const { body } = await invoke(
-			rpc('tools/call', { name: 'render_avatar', arguments: { id: 'avatar-1' } }),
+			rpc('tools/call', { name: 'render_avatar', arguments: { id: avatarId } }),
 		);
 
 		expect(body.result).toBeDefined();

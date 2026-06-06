@@ -3,7 +3,13 @@
 This file records the upstream source and license for every clip in
 `/public/animations/clips/`. Each entry uses the canonical-skeleton JSON
 emitted by [`scripts/build-animations.mjs`](../../scripts/build-animations.mjs)
-from a source FBX.
+from a source FBX or GLB.
+
+This is the same library exposed one-click in the `/pose` **Animation presets**
+gallery (preview + animated-GLB export) and through the `apply_animation` MCP
+tool. Every clip here is retargetable onto an arbitrary rigged humanoid via
+[`src/animation-retarget.js`](../../src/animation-retarget.js); nothing in the
+gallery is a placeholder or empty clip.
 
 ## Mixamo (commercial use OK)
 
@@ -13,42 +19,45 @@ commercial use of exported animations as part of a product (Mixamo Terms of
 Use §2 — characters and animations may be used in personal, commercial, or
 non-profit projects).
 
-| Clip name in manifest | Mixamo source | Notes |
-|---|---|---|
-| `idle` | Idle | trim |
-| `walk` | Walking | trim |
-| `dance` | Hip Hop Dancing | loop |
-| `rumba` | Rumba Dancing | loop |
-| `silly` | Silly Dancing | loop |
-| `thriller` | Thriller Part 2 | loop |
-| `capoeira` | Capoeira | loop |
-| `kiss` | Blow A Kiss | — |
-| `pray` | Praying | — |
-| `wave` | Waving | — |
-| `taunt` | Taunt | — |
-| `angry` | Angry Gesture | — |
-| `celebrate` | Cheering | — |
-| `reaction` | Surprised | — |
-| `defeated` | Defeated | — |
-| `dying` | Dying | — |
-| `falling` | Falling | — |
-| `falltolanding` | Falling To Landing | — |
-| `jump` | Jumping | — |
-| `jumpdown` | Jump Down | — |
-| `jumpdown2` | Jump Down (Light) | — |
-| `jumpdown3` | Jump Down (Heavy) | — |
-| `header` | Soccer Header | — |
-| `goalkeeper` | Goalkeeper Save | — |
-| `dodge` | Dodging | — |
-| `stepback` | Step Back | — |
-| `shoved` | Pushed To Floor | — |
-| `coverstand` | Cover Stand | — |
-| `removing` | Standup Cover | — |
-| `standup` | Standing Up | — |
-| `sitclap` | Sitting Clap | — |
-| `sitidle` | Sitting Idle | — |
-| `sitlaugh` | Sitting Laughing | — |
-| `downdog` | Down Dog | — |
+| Clip name in manifest | Mixamo source      | Notes |
+| --------------------- | ------------------ | ----- |
+| `idle`                | Idle               | trim  |
+| `walk`                | Walking            | trim  |
+| `dance`               | Hip Hop Dancing    | loop  |
+| `rumba`               | Rumba Dancing      | loop  |
+| `silly`               | Silly Dancing      | loop  |
+| `thriller`            | Thriller Part 2    | loop  |
+| `capoeira`            | Capoeira           | loop  |
+| `kiss`                | Blow A Kiss        | —     |
+| `pray`                | Praying            | —     |
+| `wave`                | Waving             | —     |
+| `taunt`               | Taunt              | —     |
+| `angry`               | Angry Gesture      | —     |
+| `celebrate`           | Cheering           | —     |
+| `reaction`            | Surprised          | —     |
+| `defeated`            | Defeated           | —     |
+| `dying`               | Dying              | —     |
+| `falling`             | Falling            | —     |
+| `falltolanding`       | Falling To Landing | —     |
+| `jump`                | Jumping            | —     |
+| `jumpdown`            | Jump Down          | —     |
+| `jumpdown2`           | Jump Down (Light)  | —     |
+| `jumpdown3`           | Jump Down (Heavy)  | —     |
+| `header`              | Soccer Header      | —     |
+| `goalkeeper`          | Goalkeeper Save    | —     |
+| `dodge`               | Dodging            | —     |
+| `stepback`            | Step Back          | —     |
+| `shoved`              | Pushed To Floor    | —     |
+| `coverstand`          | Cover Stand        | —     |
+| `removing`            | Standup Cover      | —     |
+| `standup`             | Standing Up        | —     |
+| `sitclap`             | Sitting Clap       | —     |
+| `sitidle`             | Sitting Idle       | —     |
+| `sitlaugh`            | Sitting Laughing   | —     |
+| `downdog`             | Down Dog           | —     |
+| `av-listening-music`  | Listening To Music | —     |
+| `av-leaning-wall`     | Leaning On A Wall  | —     |
+| `av-rap-dance`        | Rap Dancing        | —     |
 
 To add a new Mixamo clip:
 
@@ -61,6 +70,55 @@ To add a new Mixamo clip:
 4. Register the clip in [`/public/animations/manifest.json`](./manifest.json)
    with a `name`, `url`, `label`, `icon`, and `loop` flag.
 5. Add a row to the table above with the Mixamo source name.
+
+## Avaturn animation library (GLB packs)
+
+The `av-*` clips (plus `facepalm`) below are retargeted from GLB animation packs
+produced through the project's Avaturn avatar pipeline — the `Standard_*`,
+`Idle_*`, and named-action GLBs that ship with Avaturn-exported avatars. They
+are used under the Avaturn platform terms accepted at avatar export and are
+retargeted to the canonical three.ws rig by
+[`scripts/build-animations.mjs`](../../scripts/build-animations.mjs).
+
+> **License note:** these clips are cleared for use _within three.ws products_
+> as part of the Avaturn export pipeline. Before redistributing any single clip
+> as a standalone asset, confirm its upstream terms — packs whose individual
+> provenance is unverified should be treated as internal-only until checked.
+
+| Clip name in manifest   | Source GLB                            | Label              |
+| ----------------------- | ------------------------------------- | ------------------ |
+| `facepalm`              | Facepalm.glb                          | Facepalm           |
+| `av-idle-breath`        | Idle_Breath.glb                       | Idle Breath        |
+| `av-waiting`            | Standard_Waiting.glb                  | Waiting            |
+| `av-superhero-jump`     | Suoerhero_Jump.glb                    | Superhero Jump     |
+| `av-walk-crouching`     | Standard_Walk_Crouching.glb           | Walk Crouching     |
+| `av-arm-flex`           | Arm_Flex.glb                          | Arm Flex           |
+| `av-boxer-dance`        | Boxers_dance.glb                      | Boxer Dance        |
+| `av-brag-claps`         | Brag_n_Claps.glb                      | Brag & Clap        |
+| `av-flexing-arm`        | Flexing_Arm.glb                       | Flex Arm           |
+| `av-vtubing`            | Standard_Vtubing_Movement.glb         | VTubing            |
+| `av-stand-crouch-stand` | Standard_Stand_To_Crouch_To_Stand.glb | Stand-Crouch-Stand |
+| `av-smoking`            | Standard_Smoking.glb                  | Smoking            |
+| `av-gymnastics-aerial`  | Gymnastics_Aerial.glb                 | Gymnastics         |
+| `av-idle-anim`          | idle_anim.glb                         | Idle (Avaturn)     |
+| `av-back-flip`          | back_flip.glb                         | Back Flip          |
+| `av-idle-male`          | idle_male_jan25.glb                   | Male Idle          |
+| `av-idle-female`        | idle_female_jan25.glb                 | Female Idle        |
+| `av-chest-bump`         | Gorilla_chest_bump.glb                | Chest Bump         |
+| `av-walk-feminine`      | Standard_Walk_Cycle_Feminine.glb      | Feminine Walk      |
+| `av-push-block`         | Standard_Push_Block_Variation.glb     | Push Block         |
+| `av-dance-shuffle`      | dance_shuffle.glb                     | Shuffle Dance      |
+| `av-headbang`           | Dance_Head_Banging_V03.glb            | Head Banging       |
+| `av-call-me`            | Call_Me.glb                           | Call Me            |
+| `av-chilling`           | Just_chilling.glb                     | Chilling           |
+| `av-pose1`              | pose1.glb                             | Pose               |
+| `av-muay-thai`          | Arm_Combo_Muay_Thai.glb               | Muay Thai Combo    |
+| `av-banging-tunes`      | Banging_Tunes_left.glb                | Banging Tunes      |
+| `av-celebrating`        | Celebrating.glb                       | Celebrating        |
+| `av-spy`                | Cheap_Spy.glb                         | Spy                |
+| `av-cheering`           | Cheering.glb                          | Cheering           |
+| `av-joy`                | Expressing_joy.glb                    | Joy                |
+| `av-conductor`          | Energic_conductor.glb                 | Conductor          |
 
 ## Custom mocap
 

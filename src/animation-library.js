@@ -35,10 +35,11 @@ const el = (tag, attrs = {}, children = []) => {
 		if (k === 'class') node.className = v;
 		else if (k === 'text') node.textContent = v;
 		else if (k === 'html') node.innerHTML = v;
-		else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+		else if (k.startsWith('on') && typeof v === 'function')
+			node.addEventListener(k.slice(2), v);
 		else if (v !== false && v != null) node.setAttribute(k, v);
 	}
-	for (const child of (Array.isArray(children) ? children : [children])) {
+	for (const child of Array.isArray(children) ? children : [children]) {
 		if (child == null) continue;
 		node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
 	}
@@ -91,10 +92,13 @@ export class AnimationLibrary {
 			const res = await fetch(MANIFEST_URL, { cache: 'no-cache' });
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const manifest = await res.json();
-			if (!Array.isArray(manifest) || manifest.length === 0) throw new Error('empty manifest');
+			if (!Array.isArray(manifest) || manifest.length === 0)
+				throw new Error('empty manifest');
 			this._curated = curate(manifest);
-			this._defs = [this._curated.featured, this._curated.groups.flatMap((g) => g.items)]
-				.flat();
+			this._defs = [
+				this._curated.featured,
+				this._curated.groups.flatMap((g) => g.items),
+			].flat();
 			this._buildCategoryChips();
 			this._evaluateRig();
 		} catch (err) {
@@ -146,15 +150,22 @@ export class AnimationLibrary {
 	_renderShell() {
 		this.host.innerHTML = '';
 		const search = el('input', {
-			type: 'search', class: 'al-search', placeholder: 'Search animations…',
-			'aria-label': 'Search animations', autocomplete: 'off',
+			type: 'search',
+			class: 'al-search',
+			placeholder: 'Search animations…',
+			'aria-label': 'Search animations',
+			autocomplete: 'off',
 		});
 		search.addEventListener('input', () => {
 			this._query = search.value.trim().toLowerCase();
 			if (this._state === 'ready') this._renderGallery();
 		});
 
-		const chips = el('div', { class: 'al-chips', role: 'tablist', 'aria-label': 'Animation categories' });
+		const chips = el('div', {
+			class: 'al-chips',
+			role: 'tablist',
+			'aria-label': 'Animation categories',
+		});
 		const grid = el('div', { class: 'al-grid' });
 		const empty = el('div', { class: 'al-empty' });
 		const transport = this._renderTransport();
@@ -187,21 +198,40 @@ export class AnimationLibrary {
 			if (action) empty.appendChild(action);
 		};
 		if (state === 'loading') {
-			empty.appendChild(el('div', { class: 'al-skeleton-grid' },
-				Array.from({ length: 6 }, () => el('div', { class: 'al-skeleton' }))));
+			empty.appendChild(
+				el(
+					'div',
+					{ class: 'al-skeleton-grid' },
+					Array.from({ length: 6 }, () => el('div', { class: 'al-skeleton' })),
+				),
+			);
 		} else if (state === 'error-load') {
 			const retry = el('button', { class: 'al-cta', type: 'button' }, ['Retry']);
 			retry.addEventListener('click', () => this.mount());
-			make('⚠️', 'Couldn’t load the animation library',
-				'The clip manifest failed to load. Check your connection and try again.', retry);
+			make(
+				'⚠️',
+				'Couldn’t load the animation library',
+				'The clip manifest failed to load. Check your connection and try again.',
+				retry,
+			);
 		} else if (state === 'no-rig') {
 			const cta = el('button', { class: 'al-cta', type: 'button' }, ['Load a rigged avatar']);
-			cta.addEventListener('click', () => document.querySelector('#pose-load-avatar')?.click());
-			make('🦴', 'Load a rigged avatar to animate',
-				'Animation presets apply to a rigged model. Load one of your avatars (or a public avatar) and the full gallery unlocks here.', cta);
+			cta.addEventListener('click', () =>
+				document.querySelector('#pose-load-avatar')?.click(),
+			);
+			make(
+				'🦴',
+				'Load a rigged avatar to animate',
+				'Animation presets apply to a rigged model. Load one of your avatars (or a public avatar) and the full gallery unlocks here.',
+				cta,
+			);
 		} else if (state === 'incompatible') {
-			make('🚫', 'This rig can’t be retargeted',
-				`The loaded model exposes only ${this._rigBoneCount()} recognizable humanoid bones — too few to drive the preset library. Try a standard humanoid avatar.`, null);
+			make(
+				'🚫',
+				'This rig can’t be retargeted',
+				`The loaded model exposes only ${this._rigBoneCount()} recognizable humanoid bones — too few to drive the preset library. Try a standard humanoid avatar.`,
+				null,
+			);
 		}
 	}
 
@@ -210,14 +240,22 @@ export class AnimationLibrary {
 		const { chips } = this._refs;
 		chips.innerHTML = '';
 		const mk = (key, label) => {
-			const b = el('button', {
-				class: 'al-chip', type: 'button', role: 'tab',
-				'data-cat': key, 'aria-selected': String(this._filterCat === key),
-			}, [label]);
+			const b = el(
+				'button',
+				{
+					class: 'al-chip',
+					type: 'button',
+					role: 'tab',
+					'data-cat': key,
+					'aria-selected': String(this._filterCat === key),
+				},
+				[label],
+			);
 			b.addEventListener('click', () => {
 				this._filterCat = key;
-				chips.querySelectorAll('.al-chip').forEach((c) =>
-					c.setAttribute('aria-selected', String(c.dataset.cat === key)));
+				chips
+					.querySelectorAll('.al-chip')
+					.forEach((c) => c.setAttribute('aria-selected', String(c.dataset.cat === key)));
 				this._renderGallery();
 			});
 			return b;
@@ -251,33 +289,43 @@ export class AnimationLibrary {
 		for (const group of this._curated.groups) {
 			const items = group.items.filter((d) => this._matches(d));
 			if (!items.length) continue;
-			grid.appendChild(el('div', { class: 'al-section-label' }, [`${group.icon} ${group.label}`]));
+			grid.appendChild(
+				el('div', { class: 'al-section-label' }, [`${group.icon} ${group.label}`]),
+			);
 			const row = el('div', { class: 'al-cards' });
 			for (const def of items) row.appendChild(this._card(def));
 			grid.appendChild(row);
 		}
 
 		if (!grid.querySelector('.al-card')) {
-			grid.appendChild(el('p', { class: 'al-no-match' },
-				[`No animations match “${this._query}”.`]));
+			grid.appendChild(
+				el('p', { class: 'al-no-match' }, [`No animations match “${this._query}”.`]),
+			);
 		}
 	}
 
 	_card(def) {
 		const isActive = def.name === this._activeName;
-		const card = el('button', {
-			class: `al-card${isActive ? ' is-active' : ''}`,
-			type: 'button',
-			'data-name': def.name,
-			'aria-pressed': String(isActive),
-			title: `${def.label || def.name}${def.loop === false ? '' : ' · loops'}`,
-		}, [
-			el('span', { class: 'al-card-icon' }, [def.icon || '🎬']),
-			el('span', { class: 'al-card-label' }, [def.label || def.name]),
-			el('span', { class: 'al-card-badge' }, [def.loop === false ? 'once' : 'loop']),
-			el('span', { class: 'al-card-eq', 'aria-hidden': 'true' },
-				[el('i'), el('i'), el('i')]),
-		]);
+		const card = el(
+			'button',
+			{
+				class: `al-card${isActive ? ' is-active' : ''}`,
+				type: 'button',
+				'data-name': def.name,
+				'aria-pressed': String(isActive),
+				title: `${def.label || def.name}${def.loop === false ? '' : ' · loops'}`,
+			},
+			[
+				el('span', { class: 'al-card-icon' }, [def.icon || '🎬']),
+				el('span', { class: 'al-card-label' }, [def.label || def.name]),
+				el('span', { class: 'al-card-badge' }, [def.loop === false ? 'once' : 'loop']),
+				el('span', { class: 'al-card-eq', 'aria-hidden': 'true' }, [
+					el('i'),
+					el('i'),
+					el('i'),
+				]),
+			],
+		);
 		card.addEventListener('click', () => this.preview(def));
 		return card;
 	}
@@ -325,7 +373,13 @@ export class AnimationLibrary {
 			return;
 		}
 
-		const { clip: retargeted, matched, total, coverage, dropped } = retargetClipToRig(clip, rig);
+		const {
+			clip: retargeted,
+			matched,
+			total,
+			coverage,
+			dropped,
+		} = retargetClipToRig(clip, rig);
 		if (!retargeted) {
 			this.setStatus(
 				`“${def.label || def.name}” can’t retarget to this rig — only ${matched}/${total} tracks mapped (need ${Math.round(MIN_COVERAGE * 100)}%).`,
@@ -372,7 +426,11 @@ export class AnimationLibrary {
 		this._markActiveCard?.();
 		if (this._refs.transport) this._refs.transport.root.style.display = 'none';
 		// Hand the figure back to the host in a clean rest pose.
-		try { this.getRig()?.resetPose?.(); } catch { /* rig may be gone */ }
+		try {
+			this.getRig()?.resetPose?.();
+		} catch {
+			/* rig may be gone */
+		}
 		this.onPreviewStop();
 		if (!silent) this.setStatus('Preview stopped.');
 	}
@@ -388,30 +446,46 @@ export class AnimationLibrary {
 		const label = el('span', { class: 'al-now-label' });
 		const speedVal = el('span', { class: 'al-speed-val' }, ['1.0×']);
 		const speed = el('input', {
-			type: 'range', min: '0.25', max: '2.5', step: '0.05', value: '1',
-			class: 'al-speed', 'aria-label': 'Playback speed',
+			type: 'range',
+			min: '0.25',
+			max: '2.5',
+			step: '0.05',
+			value: '1',
+			class: 'al-speed',
+			'aria-label': 'Playback speed',
 		});
 		speed.addEventListener('input', () => {
 			this._setSpeed(parseFloat(speed.value));
 		});
-		const stop = el('button', { class: 'al-tbtn', type: 'button', title: 'Stop preview' }, ['⏹ Stop']);
+		const stop = el('button', { class: 'al-tbtn', type: 'button', title: 'Stop preview' }, [
+			'⏹ Stop',
+		]);
 		stop.addEventListener('click', () => this.stopPreview());
 
-		const exportBtn = el('button', {
-			class: 'al-export', type: 'button',
-			title: 'Download a GLB with this animation baked in',
-		}, ['Export animated GLB']);
+		const exportBtn = el(
+			'button',
+			{
+				class: 'al-export',
+				type: 'button',
+				title: 'Download a GLB with this animation baked in',
+			},
+			['Export animated GLB'],
+		);
 		exportBtn.addEventListener('click', () => this._exportGLB(exportBtn));
 
 		const root = el('div', { class: 'al-transport', style: 'display:none' }, [
 			el('div', { class: 'al-now' }, [el('span', { class: 'al-now-dot' }), label]),
-			el('div', { class: 'al-speed-row' }, [
-				el('label', {}, ['Speed']), speed, speedVal,
-			]),
+			el('div', { class: 'al-speed-row' }, [el('label', {}, ['Speed']), speed, speedVal]),
 			el('div', { class: 'al-transport-actions' }, [stop, exportBtn]),
 		]);
 
-		this._refs = { ...this._refs, transportLabel: label, transportSpeedVal: speedVal, transportSpeed: speed, exportBtn };
+		this._refs = {
+			...this._refs,
+			transportLabel: label,
+			transportSpeedVal: speedVal,
+			transportSpeed: speed,
+			exportBtn,
+		};
 		return { root };
 	}
 
@@ -432,7 +506,10 @@ export class AnimationLibrary {
 			btn.classList.remove('is-busy', 'is-ok', 'is-err');
 			if (cls) btn.classList.add(cls);
 			btn.textContent = txt;
-			setTimeout(() => { btn.classList.remove('is-ok', 'is-err'); btn.textContent = original; }, 2400);
+			setTimeout(() => {
+				btn.classList.remove('is-ok', 'is-err');
+				btn.textContent = original;
+			}, 2400);
 		};
 		btn.classList.add('is-busy');
 		btn.textContent = 'Baking…';
@@ -445,7 +522,10 @@ export class AnimationLibrary {
 
 			// Park the figure on the clip's first frame so the exported rest pose
 			// is the animation's start, not wherever the live preview paused.
-			if (this._action) { this._action.time = 0; this._mixer.update(0); }
+			if (this._action) {
+				this._action.time = 0;
+				this._mixer.update(0);
+			}
 
 			const exporter = new GLTFExporter();
 			const buffer = await exporter.parseAsync(rig.root, {
@@ -453,10 +533,14 @@ export class AnimationLibrary {
 				animations: [exportClip],
 				embedImages: true,
 			});
-			const safeRig = (rig.root?.name || 'avatar').replace(/[^a-z0-9._-]+/gi, '-').slice(0, 40) || 'avatar';
+			const safeRig =
+				(rig.root?.name || 'avatar').replace(/[^a-z0-9._-]+/gi, '-').slice(0, 40) ||
+				'avatar';
 			this._download(buffer, `${safeRig}-${this._activeDef.name}.glb`);
 			done('Saved ✓', 'is-ok');
-			this.setStatus(`Exported animated GLB: ${this._activeDef.label || this._activeDef.name}.`);
+			this.setStatus(
+				`Exported animated GLB: ${this._activeDef.label || this._activeDef.name}.`,
+			);
 		} catch (err) {
 			log.warn('[AnimationLibrary] export failed:', err);
 			done('Failed', 'is-err');
@@ -465,7 +549,8 @@ export class AnimationLibrary {
 	}
 
 	_download(buffer, filename) {
-		const blob = buffer instanceof Blob ? buffer : new Blob([buffer], { type: 'model/gltf-binary' });
+		const blob =
+			buffer instanceof Blob ? buffer : new Blob([buffer], { type: 'model/gltf-binary' });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
@@ -479,7 +564,11 @@ export class AnimationLibrary {
 	_disposeMixer() {
 		if (this._mixer) {
 			this._mixer.stopAllAction();
-			try { this._mixer.uncacheRoot(this._mixerRoot); } catch { /* root already gone */ }
+			try {
+				this._mixer.uncacheRoot(this._mixerRoot);
+			} catch {
+				/* root already gone */
+			}
 		}
 		this._mixer = null;
 		this._mixerRoot = null;

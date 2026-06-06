@@ -32,6 +32,16 @@ Standalone face-to-avatar service running InstantMesh: accepts 1–6 face photos
 ### `longcat/` (GPU L4)
 FastAPI service running LongCat-Video-Avatar-1.5 (MIT). Takes a reference image + audio URL and renders a lip-synced talking-avatar MP4 to Cloud Storage. API: `POST /generate` -> `202 { job_id }`, `GET /jobs/:id`, `GET /health`; bearer-auth on every request. Full deploy + cost guide in `longcat/README.md`.
 
+## Mesh stylization (Cloud Run, CPU)
+
+### `stylize/` (CPU)
+One-click geometric stylization filters — turns any mesh into a stylized variant with pure geometry processing (trimesh + numpy + scipy; no GPU, no model inference). Filters: `voxel` (blocky cubes on a grid), `brick` (voxels + studs, LEGO-like), `voronoi` (open strut-and-node lattice shell), `lowpoly` (decimated + hard flat-shaded facets). Source color is preserved per output element where the style allows. API: `POST /process` (`{ mesh, style, resolution?, output_format? }`) -> `202 { task_id }`, `GET /tasks/:id`, `GET /styles` (filter catalog for the UI), `GET /health`; bearer-auth on `/process` + `/tasks`. Routed via `api/_providers/gcp.js` (`stylize` mode, `GCP_STYLIZE_URL`); exposed to the web at `/api/forge-stylize` and to agents over MCP as `stylize_model`.
+
+## Part segmentation (Cloud Run, CPU)
+
+### `segment/` (CPU)
+Splits a 3D model into meaningful, separable parts with clean boundaries (head/torso/limbs on a character; body/wheels/glass on a vehicle) using pure geometry — trimesh + numpy + scipy, no GPU, no model inference. The engine combines connected-component splitting (physically disjoint shells become parts immediately) with the **minima rule** — region growing that cuts the face-adjacency graph at concave creases, where human perception sees part seams — then merges shards and caps the part count to a meaningful handful. Each part is named by its spatial region, tinted a distinct colour, and emitted as a separate named node in the output GLB so it can be hidden, recoloured, replaced, or exported individually. `POST /segment` (`{ mesh, method?, max_parts?, min_part_faces?, crease_angle?, only_part? }`) -> `202 { task_id }`, `GET /tasks/:id` -> `{ status, result_url?, manifest_url?, parts?, part_count?, source_faces?, method?, error? }` (the parts manifest carries each part's id, name, region, bbox, centroid, face/vertex counts, and colour), `GET /health`; bearer-auth on `/segment` + `/tasks`. Routed via `api/_providers/gcp.js` (`segment` mode, `GCP_SEGMENT_URL`); exposed to the web at `/api/forge-segment` (and the `/segment` Parts Studio viewer) and to agents over MCP as the x402-priced `segment_model`.
+
 ## Cloudflare Worker
 
 ### `pump-fun-mcp/`

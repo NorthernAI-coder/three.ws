@@ -17,11 +17,21 @@ import { sql } from './db.js';
 
 export const TOOL_PRICING = Object.freeze({
 	// Heavy compute or external calls — priced.
-	optimize_model:    { amount_usdc: 0.05, description: 'Per call' },
-	inspect_model:     { amount_usdc: 0.01, description: 'Per call' },
-	validate_model:    { amount_usdc: 0.01, description: 'Per call' },
-	render_avatar:     { amount_usdc: 0.005, description: 'Per call' },
-	// Discovery / lookups — free
+	optimize_model: { amount_usdc: 0.05, description: 'Per call' },
+	segment_model: { amount_usdc: 0.04, description: 'Per call — split a mesh into named parts' },
+	inspect_model: { amount_usdc: 0.01, description: 'Per call' },
+	validate_model: { amount_usdc: 0.01, description: 'Per call' },
+	render_avatar: { amount_usdc: 0.005, description: 'Per call' },
+	apply_animation: {
+		amount_usdc: 0.02,
+		description: 'Per call — retarget + bake an animated GLB',
+	},
+	// 3D Studio generation tools — GPU-bound, priced per call. A full surface
+	// retexture regenerates every viewpoint (minutes of GPU); the magic-brush
+	// region edit only inpaints one masked patch, so it is priced well below it.
+	retexture_model: { amount_usdc: 0.1, description: 'Per full retexture' },
+	retexture_region: { amount_usdc: 0.03, description: 'Per region edit (magic brush)' },
+	// Discovery / lookups (incl. list_animations) — free
 });
 
 export function priceFor(toolName) {

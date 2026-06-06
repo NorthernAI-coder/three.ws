@@ -182,3 +182,7 @@ docs/ibm.md
 
 # Vanity keypair files — contain private keys, never commit
 .keys/
+
+# Python bytecode (workers/)
+__pycache__/
+*.pyc

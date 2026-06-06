@@ -251,6 +251,7 @@ const appConfig = {
 			create: resolve(__dirname, 'pages/create.html'),
 				'create-agent': resolve(__dirname, 'pages/create-agent.html'),
 				forge: resolve(__dirname, 'pages/forge.html'),
+				segment: resolve(__dirname, 'pages/segment.html'),
 				'create-selfie': resolve(__dirname, 'pages/create-selfie.html'),
 				'create-prompt': resolve(__dirname, 'pages/create-prompt.html'),
 				'create-character': resolve(__dirname, 'pages/create-character.html'),

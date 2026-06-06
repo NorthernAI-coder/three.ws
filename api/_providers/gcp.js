@@ -59,6 +59,8 @@ function serviceUrlForMode(mode) {
 		case 'stylize':
 			return readEnv('GCP_STYLIZE_URL');
 		case 'retex':
+		case 'retex_region':
+			// Region (magic-brush) edits run on the same texture worker.
 			return readEnv('GCP_TEXTURE_URL');
 		case 'rembg':
 			return readEnv('GCP_REMBG_URL');
@@ -129,6 +131,28 @@ function buildWorkerRequest(request) {
 		};
 	}
 
+	if (mode === 'retex_region') {
+		// Magic brush: repaint only the masked UV region of the existing texture.
+		// The mask arrives as inline base64 (browser canvas) or a public URL.
+		return {
+			path: '/retexture_region',
+			resultKey: 'result_url',
+			body: {
+				mesh: sourceUrl,
+				prompt: params?.prompt || '',
+				negative_prompt:
+					params?.negative_prompt || 'blurry, low quality, distorted, watermark, seam',
+				mask_b64: params?.mask_b64 || null,
+				mask: params?.mask || null,
+				color: params?.color || null,
+				texture_size: params?.texture_size || 1024,
+				strength: params?.strength ?? 0.85,
+				feather: params?.feather ?? 24,
+				seed: params?.seed ?? 0,
+			},
+		};
+	}
+
 	if (mode === 'rembg') {
 		return {
 			path: '/remove',
@@ -176,6 +200,7 @@ const MODE_ETA = {
 	remesh: 30,
 	stylize: 25,
 	retex: 180,
+	retex_region: 60,
 	rembg: 5,
 	segment: 45,
 	rerig: 45,

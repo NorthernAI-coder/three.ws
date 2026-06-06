@@ -22,6 +22,25 @@ import { cors, json, method, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { textToImage } from './_mcp3d/text-to-image.js';
 import { createRegenProvider } from './_providers/replicate.js';
+import { createRegenProvider as createGcpProvider } from './_providers/gcp.js';
+import { createMeshyProvider } from './_providers/meshy.js';
+import { createTripoProvider } from './_providers/tripo.js';
+import {
+	PATHS,
+	DEFAULT_PATH,
+	TIER_IDS,
+	DEFAULT_TIER,
+	BACKENDS,
+	resolveTier,
+	resolveBackendId,
+	backendIsConfigured,
+	estimateEtaSeconds,
+	estimateCredits,
+	buildCatalog,
+} from './_lib/forge-tiers.js';
+import { getSessionUser } from './_lib/auth.js';
+import { sql } from './_lib/db.js';
+import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import {
 	hashClient,
 	hashIp,
@@ -53,6 +72,76 @@ const JOB_ID_RE = /^[a-z0-9]{16,64}$/;
 function clientKeyFrom(req) {
 	const raw = req.headers['x-forge-client'];
 	return hashClient(Array.isArray(raw) ? raw[0] : raw);
+}
+
+// Resolve the requested generation path + quality tier from the body, falling
+// back to the existing fast defaults (image-intermediate, standard tier).
+function parsePath(body) {
+	const p = typeof body?.path === 'string' ? body.path.trim() : '';
+	return PATHS.includes(p) ? p : DEFAULT_PATH;
+}
+function parseTier(body) {
+	const t = typeof body?.tier === 'string' ? body.tier.trim() : '';
+	return TIER_IDS.includes(t) ? t : DEFAULT_TIER;
+}
+
+// BYOK key resolution for the geometry providers (Meshy / Tripo). No platform
+// key exists for these, so the key must come from the caller. Two real sources,
+// in priority order:
+//   1. An inline key on the request — header `x-forge-provider-key` (preferred,
+//      kept out of URLs/logs) or `provider_key` in the POST body. Used
+//      transiently and never persisted.
+//   2. The signed-in user's stored, encrypted key (the dashboard BYOK store),
+//      when the request carries a session cookie.
+// Returns the plaintext key or null when none is available.
+async function resolveProviderKey(req, body, providerName) {
+	const header = req.headers['x-forge-provider-key'];
+	const inline =
+		(typeof header === 'string' && header) ||
+		(Array.isArray(header) && header[0]) ||
+		(typeof body?.provider_key === 'string' ? body.provider_key : '');
+	if (inline && inline.trim()) return inline.trim();
+
+	try {
+		const session = await getSessionUser(req);
+		if (session?.id) {
+			const [row] = await sql`SELECT provider_keys FROM users WHERE id = ${session.id}`;
+			const keys = await loadUserProviderKeys(row?.provider_keys);
+			if (keys[providerName]) return keys[providerName];
+		}
+	} catch {
+		// No DB / no session — fall through to "no key".
+	}
+	return null;
+}
+
+// Jobs from the geometry providers are polled on a different upstream than the
+// default Replicate path, so we hand the browser an opaque token that records
+// which provider + task-kind to poll. The legacy Replicate path keeps returning
+// its bare prediction id (it matches JOB_ID_RE), so old links never break.
+function encodeJobToken({ provider, kind, taskId }) {
+	return `f1.${Buffer.from(JSON.stringify({ p: provider, k: kind, t: taskId }), 'utf8').toString('base64url')}`;
+}
+function decodeJobToken(token) {
+	if (typeof token !== 'string' || !token.startsWith('f1.')) return null;
+	try {
+		const obj = JSON.parse(Buffer.from(token.slice(3), 'base64url').toString('utf8'));
+		if (!obj?.p || !obj?.t) return null;
+		return { provider: obj.p, kind: obj.k || null, taskId: String(obj.t) };
+	} catch {
+		return null;
+	}
+}
+
+// "needs a BYOK key" — a designed, branchable state (mirrors rig_unconfigured)
+// rather than a generic error, so the page can prompt for the key inline.
+function needsKey(res, providerName) {
+	const meta = BACKENDS[providerName];
+	return json(res, 501, {
+		error: 'needs_key',
+		provider: providerName,
+		message: `The geometry path uses ${meta?.label || providerName}, which needs your own API key. Add a ${meta?.byok || providerName} key to use it.`,
+	});
 }
 
 // Normalize the caller's reference image input into an ordered, de-duplicated
@@ -140,14 +229,94 @@ async function startJob(req, res) {
 	}
 	const aspect = VALID_ASPECT.has(body?.aspect_ratio) ? body.aspect_ratio : '1:1';
 
-	let provider;
-	try {
-		provider = createRegenProvider();
-	} catch {
-		return unconfigured(res);
-	}
+	// Two request axes beyond input mode: which generation path (image-
+	// intermediate vs geometry-first) and which quality tier (poly budget).
+	const path = parsePath(body);
+	const tier = resolveTier(parseTier(body));
+	const backendId = resolveBackendId({ path, backend: body?.backend });
 
 	try {
+		// ── Geometry-first path (Meshy / Tripo, BYOK) ───────────────────────────
+		// A native 3D model emits mesh geometry directly — from the prompt
+		// (text→geometry) or a single photo (image→3D) — with no synthesized
+		// intermediate view, so detail isn't capped by one image. These backends
+		// have no platform key; the caller supplies their own.
+		if (path === 'geometry') {
+			const providerName = BACKENDS[backendId].byok; // 'meshy' | 'tripo'
+			const key = await resolveProviderKey(req, body, providerName);
+			if (!key) return needsKey(res, backendId);
+
+			let gp;
+			try {
+				gp = backendId === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+			} catch {
+				return needsKey(res, backendId);
+			}
+
+			let submitted;
+			let previewImageUrl = null;
+			if (isImageMode) {
+				// The native image→3D endpoints reconstruct from a single primary
+				// view; multi-view fusion stays on the image/TRELLIS path.
+				previewImageUrl = imageUrls[0];
+				submitted = await gp.imageTo3d({ imageUrl: previewImageUrl, prompt: prompt || undefined, tier });
+			} else {
+				submitted = await gp.textToGeometry({ prompt, tier });
+			}
+
+			const token = encodeJobToken({ provider: providerName, kind: submitted.kind, taskId: submitted.taskId });
+
+			// Store the upstream task id as the job handle so findByJob/materialize
+			// resolve it on poll, exactly like the Replicate path.
+			const creationId = await createCreation({
+				clientKey: clientKeyFrom(req),
+				ipHash: hashIp(ip),
+				prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
+				aspect: isImageMode ? null : aspect,
+				previewImageUrl,
+				replicateJobId: submitted.taskId,
+				textToImageModel: null,
+				viewsRequested: isImageMode ? imageUrls.length : 0,
+				viewsUsed: isImageMode ? 1 : null,
+				multiview: false,
+				backend: backendId,
+				tier: tier.id,
+				path,
+			});
+
+			return json(res, 200, {
+				job_id: token,
+				creation_id: creationId,
+				status: 'queued',
+				mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+				path,
+				tier: tier.id,
+				backend: backendId,
+				prompt: prompt || null,
+				preview_image_url: previewImageUrl,
+				reference_image_urls: isImageMode ? [imageUrls[0]] : [],
+				eta_seconds: estimateEtaSeconds({ backendId, tier }),
+				estimated_credits: estimateCredits({ backendId, path, tier }),
+			});
+		}
+
+		// ── Image-intermediate path (TRELLIS default, or Hunyuan3D self-host) ────
+		let provider;
+		try {
+			provider = backendId === 'hunyuan3d' ? createGcpProvider() : createRegenProvider();
+		} catch {
+			// A selected-but-unconfigured self-host backend gets a branchable 501;
+			// the default TRELLIS path keeps its existing "not configured" 503.
+			if (backendId === 'hunyuan3d') {
+				return json(res, 501, {
+					error: 'backend_unconfigured',
+					backend: 'hunyuan3d',
+					message: 'Hunyuan3D self-host is not configured on this deployment.',
+				});
+			}
+			return unconfigured(res);
+		}
+
 		// Resolve the reference views: supplied directly (image→3D) or a single
 		// view synthesized from the prompt (text→3D). `referenceImageUrl` is the
 		// primary view — the durable preview + the synthesis target.
@@ -165,10 +334,20 @@ async function startJob(req, res) {
 			views = [referenceImageUrl];
 		}
 
+		// Only poly-aware backends (Hunyuan3D self-host) accept a target budget;
+		// TRELLIS validates its input schema and would 422 on an unknown field, so
+		// the tier rides along as the recorded provenance only.
+		const reconstructParams = { images: views, prompt: prompt || undefined };
+		if (BACKENDS[backendId].polyControl) {
+			reconstructParams.target_polycount = tier.polycount;
+			reconstructParams.tier = tier.id;
+			reconstructParams.path = path;
+		}
+
 		const job = await provider.submit({
 			mode: 'reconstruct',
 			sourceUrl: referenceImageUrl,
-			params: { images: views, prompt: prompt || undefined },
+			params: reconstructParams,
 		});
 
 		// How the job was actually conditioned. The provider reports back which
@@ -178,7 +357,15 @@ async function startJob(req, res) {
 		const viewsRequested = views.length;
 		const viewsUsed = typeof job.viewsUsed === 'number' ? job.viewsUsed : viewsRequested;
 		const multiview = Boolean(job.multiview);
-		const backend = job.backend || 'replicate';
+
+		// TRELLIS returns a bare Replicate prediction id (kept as the job handle
+		// for backward compatibility); the GCP/Hunyuan3D provider returns its own
+		// opaque envelope, which we wrap in a forge token so polling routes back to
+		// the GCP provider. Either way the upstream id is what the store keys on.
+		const jobHandle =
+			backendId === 'hunyuan3d'
+				? encodeJobToken({ provider: 'gcp', kind: null, taskId: job.extJobId })
+				: job.extJobId;
 
 		// Record the generation the moment it starts so the prompt + reference
 		// image survive even if the mesh step later fails. Fail-soft: a missing
@@ -194,29 +381,45 @@ async function startJob(req, res) {
 			viewsRequested,
 			viewsUsed,
 			multiview,
-			backend,
+			backend: backendId,
+			tier: tier.id,
+			path,
 		});
 
 		return json(res, 200, {
-			job_id: job.extJobId,
+			job_id: jobHandle,
 			creation_id: creationId,
 			status: 'queued',
 			mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+			path,
+			tier: tier.id,
+			backend: backendId,
 			prompt: prompt || null,
 			preview_image_url: referenceImageUrl,
 			reference_image_urls: views,
 			views_requested: viewsRequested,
 			views_used: viewsUsed,
 			multiview,
-			backend,
 			text_to_image_model: textToImageModel,
-			eta_seconds: typeof job.eta === 'number' ? job.eta : null,
+			eta_seconds: estimateEtaSeconds({ backendId, tier }),
+			estimated_credits: estimateCredits({ backendId, path, tier }),
 		});
 	} catch (err) {
 		if (err?.code === 'unconfigured') return unconfigured(res);
-		// Upstream (Replicate) throttling is a transient 429, not a server fault —
-		// return it as such with a retry hint so the page can show a "busy, try
-		// again shortly" state instead of a hard error.
+		if (err?.code === 'invalid_key') {
+			return json(res, 401, {
+				error: 'invalid_key',
+				message: err.message || 'The provider rejected this API key.',
+			});
+		}
+		if (err?.code === 'insufficient_credits') {
+			return json(res, 402, {
+				error: 'insufficient_credits',
+				message: err.message || 'The provider account is out of credits.',
+			});
+		}
+		// Upstream throttling is a transient 429, not a server fault — return it as
+		// such with a retry hint so the page can show a "busy, try again" state.
 		if (err?.code === 'rate_limited' || err?.providerStatus === 429) {
 			return json(res, 429, {
 				error: 'rate_limited',
@@ -310,7 +513,11 @@ async function startRigJob(req, res) {
 }
 
 async function pollJob(req, res, jobId) {
-	if (!JOB_ID_RE.test(jobId)) {
+	// A job handle is either a bare Replicate prediction id (legacy / image-
+	// TRELLIS path) or a forge token encoding the geometry/GCP provider + the
+	// upstream task id. Decode to learn which provider to poll.
+	const token = decodeJobToken(jobId);
+	if (!token && !JOB_ID_RE.test(jobId)) {
 		return json(res, 400, { error: 'invalid_job', message: 'Malformed job id.' });
 	}
 
@@ -322,41 +529,79 @@ async function pollJob(req, res, jobId) {
 		});
 	}
 
-	let provider;
-	try {
-		provider = createRegenProvider();
-	} catch {
-		return unconfigured(res);
-	}
-
+	const provider = token?.provider || 'replicate';
+	const upstreamId = token?.taskId || jobId;
 	const clientKey = clientKeyFrom(req);
 
-	// How this job was conditioned (view count + backend), recorded at submit
-	// time. Surfaced on every poll so a caller that only polls still learns
-	// whether multi-view was honored. Fail-soft: absent when the store is off.
-	const meta = await findByJob({ replicateJobId: jobId, clientKey });
+	// How this job was conditioned (path + tier + backend + view count), recorded
+	// at submit time. Surfaced on every poll so a caller that only polls still
+	// learns the provenance. Fail-soft: absent when the store is off.
+	const meta = await findByJob({ replicateJobId: upstreamId, clientKey });
 	const metaFields = meta
 		? {
 				views_requested: meta.views_requested ?? null,
 				views_used: meta.views_used ?? null,
 				multiview: meta.multiview ?? null,
 				backend: meta.backend ?? null,
+				tier: meta.tier ?? null,
+				path: meta.path ?? null,
 			}
 		: {};
 
-	const result = await provider.status(jobId);
+	// Poll the provider that owns this job. BYOK providers re-resolve the key per
+	// poll (the client resends it, or it loads from the session store).
+	let result;
+	try {
+		if (provider === 'meshy' || provider === 'tripo') {
+			const key = await resolveProviderKey(req, null, provider);
+			if (!key) {
+				return json(res, 200, {
+					job_id: jobId,
+					status: 'failed',
+					error: 'Your API key is required to check this job. Re-enter it and retry.',
+					...metaFields,
+				});
+			}
+			const gp = provider === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+			result = await gp.status({ kind: token.kind, taskId: upstreamId });
+		} else if (provider === 'gcp') {
+			let gcp;
+			try {
+				gcp = createGcpProvider();
+			} catch {
+				return json(res, 501, {
+					error: 'backend_unconfigured',
+					message: 'Hunyuan3D self-host is not configured on this deployment.',
+				});
+			}
+			result = await gcp.status(upstreamId);
+		} else {
+			let rep;
+			try {
+				rep = createRegenProvider();
+			} catch {
+				return unconfigured(res);
+			}
+			result = await rep.status(jobId);
+		}
+	} catch {
+		// A transient poll error shouldn't fail the job — report running so the
+		// client's loop retries.
+		return json(res, 200, { job_id: jobId, status: 'running', ...metaFields });
+	}
+
 	if (result.status === 'done' && result.resultGlbUrl) {
-		// Copy the mesh + reference image into our own storage so the model is
-		// permanent (Replicate delivery URLs expire in ~1h) and serve the durable
-		// CDN url. Falls back to the provider url where the store is unavailable.
+		// Copy the mesh into our own storage so the model is permanent (provider
+		// delivery URLs expire) and serve the durable CDN url. Falls back to the
+		// provider url where the store is unavailable.
 		const durable = await materializeCreation({
-			replicateJobId: jobId,
+			replicateJobId: upstreamId,
 			clientKey,
 			glbUrl: result.resultGlbUrl,
 		});
 		return json(res, 200, {
 			job_id: jobId,
-			creation_id: durable?.id ?? null,
+			creation_id: durable?.id ?? meta?.id ?? null,
 			status: 'done',
 			glb_url: durable?.glbUrl ?? result.resultGlbUrl,
 			durable: Boolean(durable),
@@ -364,7 +609,7 @@ async function pollJob(req, res, jobId) {
 		});
 	}
 	if (result.status === 'failed') {
-		await markFailed({ replicateJobId: jobId, clientKey, error: result.error });
+		await markFailed({ replicateJobId: upstreamId, clientKey, error: result.error });
 		return json(res, 200, {
 			job_id: jobId,
 			status: 'failed',
@@ -388,6 +633,13 @@ export default wrap(async (req, res) => {
 			return startRigJob(req, res);
 		}
 		return startJob(req, res);
+	}
+
+	// ?catalog — the tier + backend + cost/time matrix the composer renders.
+	// Public, no secrets; lets the UI communicate the time/cost trade-off and
+	// which backends are live before the user commits.
+	if (url.searchParams.has('catalog')) {
+		return json(res, 200, buildCatalog());
 	}
 
 	const jobId = (url.searchParams.get('job') || '').trim();

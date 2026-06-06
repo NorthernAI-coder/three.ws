@@ -10,7 +10,11 @@ Pillow==11.0.0
 google-cloud-storage==2.19.0
 httpx==0.27.2
 pydantic==2.10.3
-# FBX support via assimp python bindings
+# FBX/DAE input loading via the assimp python bindings (trimesh backend).
 pyassimp==5.2.5
 # USD / USDZ support
 usd-core==24.11
+# FBX *export* with skeletons via headless Blender (io_scene_fbx). trimesh/assimp
+# can't write a rigged FBX; Blender 4.2 LTS ships the Python 3.11 ABI this image
+# uses. See blender_fbx.py and output_format=fbx.
+bpy==4.2.0

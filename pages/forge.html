@@ -608,6 +608,295 @@
 				color: var(--danger);
 			}
 
+			/* Optimize / retopology panel --------------------------------- */
+			.optimize {
+				border-top: 1px solid var(--stroke);
+			}
+			.optimize-toggle {
+				width: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--space-sm);
+				background: transparent;
+				border: none;
+				color: var(--ink);
+				font-family: var(--font-display);
+				font-weight: 600;
+				font-size: var(--text-sm);
+				padding: var(--space-sm) var(--space-md);
+				cursor: pointer;
+			}
+			.optimize-toggle:hover {
+				background: var(--surface-2);
+			}
+			.optimize-toggle:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: -2px;
+			}
+			.optimize-toggle .chev {
+				transition: transform 0.18s ease;
+				color: var(--ink-dim);
+			}
+			.optimize[data-open='true'] .optimize-toggle .chev {
+				transform: rotate(180deg);
+			}
+			.optimize-body {
+				display: none;
+				flex-direction: column;
+				gap: var(--space-md);
+				padding: 0 var(--space-md) var(--space-md);
+			}
+			.optimize[data-open='true'] .optimize-body {
+				display: flex;
+			}
+			.opt-field {
+				display: flex;
+				flex-direction: column;
+				gap: 0.4rem;
+			}
+			.opt-field > span {
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				font-family: var(--font-mono);
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+			}
+			.seg {
+				display: inline-flex;
+				flex-wrap: wrap;
+				gap: 2px;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: 2px;
+			}
+			.seg button {
+				flex: 1 1 auto;
+				background: transparent;
+				border: none;
+				color: var(--ink-dim);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				padding: 0.4rem 0.7rem;
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				transition: background 0.15s, color 0.15s;
+			}
+			.seg button:hover {
+				color: var(--ink);
+			}
+			.seg button[aria-pressed='true'] {
+				background: var(--surface-3);
+				color: var(--ink);
+			}
+			.seg button:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.opt-mode-hint {
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				line-height: 1.4;
+				min-height: 1.4em;
+			}
+			.opt-row {
+				display: flex;
+				gap: var(--space-md);
+				flex-wrap: wrap;
+			}
+			.opt-row .opt-field {
+				flex: 1 1 140px;
+			}
+			.opt-select {
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				padding: 0.45rem 0.6rem;
+			}
+			.opt-select:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 1px;
+			}
+			.opt-actions {
+				display: flex;
+				align-items: center;
+				gap: var(--space-md);
+				flex-wrap: wrap;
+			}
+			.opt-status {
+				font-size: var(--text-xs);
+				font-family: var(--font-mono);
+				color: var(--ink-dim);
+			}
+			.opt-status[data-kind='error'] {
+				color: var(--danger);
+			}
+			.opt-status[data-kind='done'] {
+				color: var(--success);
+			}
+			.opt-stats {
+				display: flex;
+				gap: var(--space-md);
+				flex-wrap: wrap;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
+			.opt-stats strong {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			/* Stylize — one-click geometric filters ----------------------- */
+			.stylize {
+				border-top: 1px solid var(--stroke);
+				padding: var(--space-md);
+			}
+			.stylize-head h3 {
+				font-family: var(--font-display);
+				font-size: var(--text-base);
+				margin: 0 0 0.15rem;
+			}
+			.stylize-sub {
+				color: var(--ink-dim);
+				font-size: var(--text-sm);
+				line-height: var(--leading-normal);
+				margin: 0 0 var(--space-md);
+				max-width: 60ch;
+			}
+			.stylize-gallery {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+				gap: var(--space-sm);
+			}
+			.stylize-card {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 0.35rem;
+				text-align: left;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: var(--space-sm);
+				cursor: pointer;
+				color: var(--ink);
+				font: inherit;
+				transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s, background 0.15s;
+			}
+			.stylize-card:hover {
+				border-color: var(--stroke-strong);
+				transform: translateY(-2px);
+				box-shadow: 0 16px 36px -26px rgba(0, 0, 0, 0.9);
+			}
+			.stylize-card:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.stylize-card:active {
+				transform: translateY(0);
+			}
+			.stylize-card[aria-pressed='true'] {
+				border-color: var(--accent);
+				background: var(--accent-soft);
+			}
+			.stylize-card[disabled] {
+				opacity: 0.5;
+				cursor: not-allowed;
+				transform: none;
+				box-shadow: none;
+			}
+			.stylize-thumb {
+				width: 100%;
+				aspect-ratio: 16 / 10;
+				display: grid;
+				place-items: center;
+				border-radius: var(--radius-sm);
+				background: radial-gradient(120% 120% at 50% 0%, #161616 0%, #0c0c0c 75%);
+				color: var(--ink-dim);
+				transition: color 0.15s, transform 0.2s ease;
+			}
+			.stylize-thumb svg {
+				width: 58%;
+				height: 58%;
+			}
+			.stylize-card:hover .stylize-thumb,
+			.stylize-card[aria-pressed='true'] .stylize-thumb {
+				color: var(--accent);
+			}
+			.stylize-card:hover .stylize-thumb svg {
+				transform: scale(1.08) rotate(-4deg);
+			}
+			.stylize-name {
+				font-family: var(--font-display);
+				font-weight: 600;
+				font-size: var(--text-sm);
+			}
+			.stylize-blurb {
+				color: var(--ink-dim);
+				font-size: var(--text-xs);
+				line-height: var(--leading-snug);
+			}
+			.stylize-controls {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--space-md);
+				margin-top: var(--space-md);
+				flex-wrap: wrap;
+			}
+			.stylize-slider {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-sm);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
+			.stylize-slider input[type='range'] {
+				accent-color: var(--accent);
+				width: 160px;
+				cursor: pointer;
+			}
+			.stylize-slider input[type='range']:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 3px;
+			}
+			.stylize-slider output {
+				color: var(--ink);
+				min-width: 2.5ch;
+				text-align: right;
+			}
+			.stylize-actions {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-xs);
+				flex-wrap: wrap;
+			}
+			.stylize-status {
+				margin-top: var(--space-sm);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				min-height: 1.2em;
+			}
+			.stylize-status[data-kind='busy'] {
+				color: var(--accent);
+			}
+			.stylize-status[data-kind='error'] {
+				color: var(--danger);
+			}
+			.stylize-status[data-kind='done'] {
+				color: var(--success);
+			}
+			.stylize[data-busy='true'] .stylize-thumb svg {
+				animation: spin 1.1s linear infinite;
+			}
+
 			/* Your creations gallery -------------------------------------- */
 			.creations {
 				margin-top: var(--space-2xl);
@@ -746,23 +1035,66 @@
 
 		<main class="forge-main">
 			<header class="forge-head">
-				<span class="forge-eyebrow">Text → 3D · live</span>
-				<h1>Forge a 3D model from words</h1>
+				<span class="forge-eyebrow">Text · Image · Multi-view → 3D · live</span>
+				<h1>Forge a 3D model from words or photos</h1>
 				<p>
-					Describe one object clearly. Forge paints a reference image, then reconstructs a
-					textured mesh you can orbit, view in AR, and download as GLB.
+					Describe an object, or upload up to four photos of it from different angles. Forge
+					reconstructs a textured mesh you can orbit, view in AR, and download as GLB — and
+					more views mean a sharper model with no guessed-at back.
 				</p>
 			</header>
 
+			<div class="mode-switch-wrap">
+				<div class="mode-switch" role="tablist" aria-label="Generation mode" id="mode-switch">
+					<button type="button" role="tab" data-mode="text" aria-selected="true">
+						Describe it
+					</button>
+					<button type="button" role="tab" data-mode="image" aria-selected="false">
+						From photos
+					</button>
+				</div>
+			</div>
+
 			<form class="composer" id="composer" autocomplete="off">
-				<label for="prompt" class="is-hidden">Describe the object to generate</label>
-				<textarea
-					id="prompt"
-					name="prompt"
-					maxlength="1000"
-					placeholder="a worn leather armchair, studio lighting, plain background"
-					aria-describedby="prompt-hint"
-				></textarea>
+				<!-- Text → 3D -->
+				<div id="text-pane">
+					<label for="prompt" class="is-hidden">Describe the object to generate</label>
+					<textarea
+						id="prompt"
+						name="prompt"
+						maxlength="1000"
+						placeholder="a worn leather armchair, studio lighting, plain background"
+						aria-describedby="prompt-hint"
+					></textarea>
+				</div>
+
+				<!-- Image / multi-view → 3D -->
+				<div id="image-pane" class="image-pane is-hidden">
+					<div
+						class="views-grid"
+						id="views-grid"
+						aria-label="Reference views — add up to four photos of the same object"
+					></div>
+					<input
+						type="file"
+						id="view-file-input"
+						accept="image/png,image/jpeg,image/webp"
+						multiple
+						hidden
+					/>
+					<label for="image-prompt" class="is-hidden">Optional guidance for reconstruction</label>
+					<textarea
+						id="image-prompt"
+						class="image-prompt"
+						maxlength="1000"
+						placeholder="Optional guidance — e.g. “matte plastic, neutral pose, no background”"
+					></textarea>
+					<p class="views-hint">
+						Add 1–4 views of the <strong>same</strong> object (front · back · left · right).
+						Drag to drop, click to browse, drag a thumbnail to reorder. PNG/JPG/WebP, up to 8&nbsp;MB each.
+					</p>
+				</div>
+
 				<div class="composer-row">
 					<div
 						class="aspect"
@@ -795,8 +1127,9 @@
 					<span class="glyph" aria-hidden="true">◳</span>
 					<h3>Nothing forged yet</h3>
 					<p>
-						Type a description above or tap an example. Generation runs a fast image pass,
-						then a mesh reconstruction — usually 30–90 seconds.
+						Type a description and tap an example, or switch to <strong>From photos</strong> and
+						drop in up to four views of one object. Generation reconstructs a textured mesh —
+						usually 30–90 seconds.
 					</p>
 				</div>
 
@@ -842,6 +1175,7 @@
 					></model-viewer>
 					<div class="result-bar">
 						<span class="label" id="result-label"></span>
+						<span class="views-badge is-hidden" id="result-views" title="Reference views fused"></span>
 						<div class="actions">
 							<div
 								class="verdict"
@@ -870,9 +1204,129 @@
 										<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
 										Share
 									</button>
+									<a class="btn btn-ghost" id="forge-segment-btn" title="Split this model into selectable parts">Split into parts</a>
 									<a class="btn btn-ghost" id="download" download>Download GLB</a>
 							<button class="btn" type="button" id="again">Make another</button>
 						</div>
+					</div>
+
+					<!-- Optimize topology: triangle / quad / low-poly remesh -->
+					<div class="optimize" id="optimize" data-open="false">
+						<button
+							class="optimize-toggle"
+							type="button"
+							id="optimize-toggle"
+							aria-expanded="false"
+							aria-controls="optimize-body"
+						>
+							<span>Optimize topology — quad remesh &amp; game-ready low-poly</span>
+							<svg
+								class="chev"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<polyline points="6 9 12 15 18 9" />
+							</svg>
+						</button>
+						<div class="optimize-body" id="optimize-body">
+							<div class="opt-field">
+								<span>Mode</span>
+								<div class="seg" id="opt-mode" role="group" aria-label="Remesh mode">
+									<button type="button" data-mode="triangle" aria-pressed="false">
+										Triangle
+									</button>
+									<button type="button" data-mode="quad" aria-pressed="true">
+										Quad retopo
+									</button>
+									<button type="button" data-mode="lowpoly" aria-pressed="false">
+										Low-poly
+									</button>
+								</div>
+								<p class="opt-mode-hint" id="opt-mode-hint"></p>
+							</div>
+
+							<div class="opt-row">
+								<label class="opt-field">
+									<span id="opt-target-label">Target faces</span>
+									<select class="opt-select" id="opt-target"></select>
+								</label>
+								<label class="opt-field">
+									<span>Format</span>
+									<select class="opt-select" id="opt-format">
+										<option value="glb">GLB (textured)</option>
+										<option value="obj">OBJ (true quads)</option>
+										<option value="fbx">FBX</option>
+										<option value="stl">STL</option>
+										<option value="ply">PLY</option>
+										<option value="usdz">USDZ</option>
+										<option value="3mf">3MF</option>
+									</select>
+								</label>
+								<label class="opt-field" id="opt-texsize-field">
+									<span>Texture</span>
+									<select class="opt-select" id="opt-texsize">
+										<option value="512">512px</option>
+										<option value="1024" selected>1024px</option>
+										<option value="2048">2048px</option>
+									</select>
+								</label>
+							</div>
+
+							<div class="opt-actions">
+								<button class="btn" type="button" id="opt-run">
+									<span id="opt-run-label">Optimize</span>
+								</button>
+								<span class="opt-status" id="opt-status" role="status" aria-live="polite"></span>
+							</div>
+
+							<div class="opt-stats is-hidden" id="opt-stats"></div>
+						</div>
+					</div>
+
+					<!-- Stylize — one-click geometric filters on the current model -->
+					<div class="stylize" id="stylize-panel" data-busy="false" hidden>
+						<div class="stylize-head">
+							<h3>Stylize</h3>
+							<p class="stylize-sub">
+								One-click geometric filters. Restyle this model as voxels, bricks, an open
+								lattice, or low-poly — source color is carried over where the style allows.
+							</p>
+						</div>
+						<div
+							class="stylize-gallery"
+							id="stylize-gallery"
+							role="group"
+							aria-label="Stylization filters"
+						></div>
+						<div class="stylize-controls is-hidden" id="stylize-controls">
+							<div class="stylize-slider">
+								<label id="stylize-res-label" for="stylize-res">Resolution</label>
+								<input type="range" id="stylize-res" min="8" max="96" value="32" />
+								<output id="stylize-res-val" for="stylize-res">32</output>
+							</div>
+							<div class="stylize-actions">
+								<button class="btn btn-ghost" type="button" id="stylize-apply">Re-apply</button>
+								<a class="btn btn-ghost" id="stylize-download" download hidden
+									>Download stylized GLB</a
+								>
+								<button class="btn btn-ghost" type="button" id="stylize-revert" hidden>
+									Revert to original
+								</button>
+							</div>
+						</div>
+						<div
+							class="stylize-status"
+							id="stylize-status"
+							role="status"
+							aria-live="polite"
+						></div>
 					</div>
 				</div>
 
@@ -908,14 +1362,17 @@
 			</section>
 
 			<p class="hint-foot">
-				Powered by flux-schnell + Microsoft TRELLIS on Replicate. Best results come from one
-				clearly described subject. The same pipeline is available to agents over MCP at
-				<a href="/docs">/api/mcp-3d</a>.
+				Powered by flux-schnell + Microsoft TRELLIS on Replicate, with multi-view conditioning
+				when you supply more than one photo. Best results: one clearly described subject, or
+				clean evenly-lit views from distinct angles. The same pipeline is available to agents
+				over MCP at <a href="/docs">/api/mcp-3d</a>.
 			</p>
 		</main>
 
 		<script src="/nav.js" defer></script>
 		<script type="module" src="/src/forge.js"></script>
+		<script type="module" src="/src/forge-stylize.js"></script>
+		<script type="module" src="/src/forge-optimize.js"></script>
 	<div id="footer-container"></div>
 	<script src="/footer.js"></script>
 	</body>
