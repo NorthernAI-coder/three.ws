@@ -8,20 +8,22 @@
 // holds the Replicate / watsonx keys). The x402 USDC payment is what gates the
 // call.
 //
-// The pipeline is a chain of specialist models, each doing one job:
-//   1. Prompt director (IBM Granite via /api/chat, provider=watsonx) — rewrites
-//      the caller's rough idea into an optimized 3D-generation spec (subject,
-//      style, materials, single-subject framing). Fail-soft: if the director is
-//      unreachable or disabled, the original prompt is forwarded unchanged and
-//      `directed:false` is reported — never a fabricated result.
-//   2. Reference synthesis + reconstruction (/api/forge) — FLUX renders a clean
-//      reference image, then Microsoft TRELLIS / Tencent Hunyuan3D reconstructs
-//      a textured GLB. This tool submits the job and polls to a terminal state.
-//   3. Delivery — returns the durable GLB URL and a three.ws viewer link.
+// Two modes:
+//   • text→3D — a chain of specialist models, each doing one job:
+//       1. Prompt director (IBM Granite via /api/chat, provider=watsonx) —
+//          rewrites the caller's rough idea into an optimized 3D-generation spec
+//          (subject, style, materials, single-subject framing). Fail-soft: if
+//          the director is unreachable or disabled, the original prompt is
+//          forwarded unchanged and `directed:false` is reported — never faked.
+//       2. Reference synthesis + reconstruction (/api/forge) — FLUX renders a
+//          clean reference image, then TRELLIS / Hunyuan3D reconstruct a
+//          textured GLB.
+//   • image→3D — a caller-supplied image_url is reconstructed directly
+//          (/api/forge with image_url); the prompt-director stage is skipped.
 //
-// Image→3D and auto-rigging are deliberately NOT exposed yet: no public prod
-// endpoint reconstructs an arbitrary caller-supplied image into a riggable mesh
-// today, and this tool never advertises an input it can't honor.
+// Either mode returns a textured GLB URL and a three.ws viewer link. Rigging is
+// a separate composable step — feed the returned glbUrl to the `rig_mesh` tool
+// for a skeleton + skin weights (animation-ready) GLB.
 //
 // Environment (all optional — sensible prod defaults):
 //   MESH_FORGE_API_BASE    — three.ws origin. Default https://three.ws
@@ -37,7 +39,7 @@ import { jsonSchemaFromZod } from './_shared.js';
 
 const TOOL_NAME = 'mesh_forge';
 const TOOL_DESCRIPTION =
-	'Generate a textured 3D GLB model from a text prompt through a chain of specialist models: an IBM Granite "prompt director" rewrites the prompt into an optimized 3D spec, FLUX renders a reference image, and Microsoft TRELLIS / Tencent Hunyuan3D reconstruct the mesh. Returns the GLB URL, a three.ws viewer link, the directed prompt, and timing. Paid: $0.25 USDC.';
+	'Generate a textured 3D GLB model from a text prompt OR a reference image. In text mode, a chain of specialist models runs: an IBM Granite "prompt director" rewrites the prompt into an optimized 3D spec, FLUX renders a reference image, then Microsoft TRELLIS / Tencent Hunyuan3D reconstruct the mesh. In image mode, a supplied image_url is reconstructed directly. Returns the GLB URL, a three.ws viewer link, the directed prompt (text mode), and timing. Feed the GLB to rig_mesh for a rigged, animation-ready model. Paid: $0.25 USDC.';
 
 const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 
@@ -118,12 +120,15 @@ async function directPrompt(rawPrompt) {
 	return refined.length >= 3 && refined.length <= 1000 ? refined : null;
 }
 
-async function startForge(prompt, aspect) {
+async function startForge({ prompt, aspect, imageUrl }) {
 	const base = apiBase();
+	const payload = imageUrl
+		? { image_url: imageUrl, prompt: prompt || undefined, aspect_ratio: aspect }
+		: { prompt, aspect_ratio: aspect };
 	const res = await fetch(`${base}/api/forge`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ prompt, aspect_ratio: aspect }),
+		body: JSON.stringify(payload),
 		signal: AbortSignal.timeout(30_000),
 	});
 	const data = await res.json().catch(() => ({}));
@@ -189,14 +194,20 @@ const inputZodShape = {
 		.string()
 		.min(3)
 		.max(1000)
-		.describe('Natural-language description of the single object to model, e.g. "a worn leather armchair".'),
+		.describe('Text→3D: natural-language description of the single object to model, e.g. "a worn leather armchair". Optional when image_url is provided (then used only as guidance).')
+		.optional(),
+	image_url: z
+		.string()
+		.url()
+		.describe('Image→3D: an http(s) URL to a reference image to reconstruct directly. When set, the prompt-director and text-to-image stages are skipped.')
+		.optional(),
 	aspect_ratio: z
 		.enum(['1:1', '4:3', '3:4', '16:9', '9:16'])
-		.describe('Reference image aspect ratio. Default 1:1 (best for isolated objects).')
+		.describe('Reference image aspect ratio (text mode). Default 1:1 (best for isolated objects).')
 		.optional(),
 	direct: z
 		.boolean()
-		.describe('Run the IBM Granite prompt-director stage to optimize the prompt before generation. Default true.')
+		.describe('Run the IBM Granite prompt-director stage to optimize the prompt before generation (text mode only). Default true.')
 		.optional(),
 };
 
@@ -224,20 +235,34 @@ export async function buildMeshForgeTool() {
 				durationMs: 96000,
 			},
 		},
-		async ({ prompt, aspect_ratio, direct }) => {
+		async ({ prompt, image_url, aspect_ratio, direct }) => {
+			const trimmedPrompt = typeof prompt === 'string' ? prompt.trim() : '';
+			const imageMode = typeof image_url === 'string' && image_url.trim().length > 0;
+			if (!imageMode && trimmedPrompt.length < 3) {
+				return toolError(
+					'invalid_input',
+					'Provide a prompt (3+ chars) for text→3D, or an image_url for image→3D.',
+				);
+			}
 			const aspect = VALID_ASPECT.has(aspect_ratio) ? aspect_ratio : '1:1';
 			const started = Date.now();
 
-			// Stage 1 — Granite prompt director (fail-soft, opt-out).
-			const runDirector = direct !== false && env('MESH_FORGE_DIRECTOR', '1') !== '0';
+			// Stage 1 — Granite prompt director (text mode only; fail-soft, opt-out).
+			const runDirector =
+				!imageMode && trimmedPrompt && direct !== false && env('MESH_FORGE_DIRECTOR', '1') !== '0';
 			let directedPrompt = null;
-			if (runDirector) directedPrompt = await directPrompt(prompt);
-			const effectivePrompt = directedPrompt || prompt;
+			if (runDirector) directedPrompt = await directPrompt(trimmedPrompt);
+			const effectivePrompt = directedPrompt || trimmedPrompt;
 
-			// Stage 2 — submit reference synthesis + reconstruction.
+			// Stage 2 — submit reference synthesis + reconstruction (or direct
+			// image reconstruction when an image_url was supplied).
 			let job;
 			try {
-				job = await startForge(effectivePrompt, aspect);
+				job = await startForge({
+					prompt: effectivePrompt || undefined,
+					aspect,
+					imageUrl: imageMode ? image_url.trim() : undefined,
+				});
 			} catch (err) {
 				return toolError(err.code || 'provider_error', err.message, {
 					...(err.retryAfter ? { retryAfter: err.retryAfter } : {}),
@@ -276,9 +301,11 @@ export async function buildMeshForgeTool() {
 
 			return {
 				ok: true,
+				mode: imageMode ? 'image_to_3d' : 'text_to_3d',
 				glbUrl,
 				preview,
-				prompt,
+				prompt: trimmedPrompt || null,
+				imageUrl: imageMode ? image_url.trim() : null,
 				directedPrompt: directedPrompt || null,
 				directed: Boolean(directedPrompt),
 				jobId: job.job_id,
