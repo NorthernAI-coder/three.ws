@@ -36,6 +36,7 @@
 		"packages/viewer-presets",
 		"packages/pumpfun-mcp",
 		"packages/ibm-watsonx-mcp",
+		"packages/ibm-x402-mcp",
 		"packages/threews-avatar-mcp"
 	],
 	"main": "src/app.js",
