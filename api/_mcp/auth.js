@@ -33,14 +33,18 @@ export function send401(res, msg) {
 // so x402-aware clients and Bazaar validators can still read the price/accepts
 // from this same response. (Previously this path returned a bare 402, which
 // OAuth clients couldn't interpret — the connector probe just spun.)
-export function sendAuthChallenge(res, { resourceUrl, requirements }) {
+export function sendAuthChallenge(res, { resourceUrl, requirements, challenge }) {
 	const resource = env.MCP_RESOURCE;
 	res.statusCode = 401;
 	res.setHeader(
 		'www-authenticate',
 		`Bearer resource_metadata=${quoteString(`${env.APP_ORIGIN}/.well-known/oauth-protected-resource`)}, resource=${quoteString(resource)}`,
 	);
-	const body = build402Body({ resourceUrl, accepts: requirements });
+	// `challenge` (optional) lets a dedicated MCP endpoint advertise its own
+	// service metadata + bazaar discovery in the 402 envelope (e.g. the Granite
+	// server at /api/ibm-mcp). Omitted → build402Body's defaults, unchanged for
+	// the main /api/mcp and /api/mcp-3d servers.
+	const body = build402Body({ resourceUrl, accepts: requirements, ...(challenge || {}) });
 	res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
@@ -60,7 +64,11 @@ export function sendJsonRpcError(res, id, code, message, data) {
 // 402 challenge AND in the requirements used to verify the X-PAYMENT, so the
 // advertised price and the charged price agree. null = use the flat default
 // (initialize / tools/list / free tools / mixed batches).
-export async function authenticateRequest(req, res, { x402Amount } = {}) {
+export async function authenticateRequest(
+	req,
+	res,
+	{ x402Amount, resourcePath = '/api/mcp', challenge } = {},
+) {
 	const bearer = extractBearer(req);
 	const paymentHeader = req.headers['x-payment'];
 
@@ -73,7 +81,7 @@ export async function authenticateRequest(req, res, { x402Amount } = {}) {
 		return { auth, x402Ctx: null };
 	}
 
-	const resourceUrl = resolveResourceUrl(req, '/api/mcp');
+	const resourceUrl = resolveResourceUrl(req, resourcePath);
 	const requirements = paymentRequirements(
 		resourceUrl,
 		x402Amount != null ? { amount: x402Amount } : {},
@@ -120,11 +128,11 @@ export async function authenticateRequest(req, res, { x402Amount } = {}) {
 		}
 	}
 
-	sendAuthChallenge(res, { resourceUrl, requirements });
+	sendAuthChallenge(res, { resourceUrl, requirements, challenge });
 	return null;
 }
 
-export async function handleSse(req, res) {
+export async function handleSse(req, res, { resourcePath = '/api/mcp', challenge } = {}) {
 	// We don't hold long-lived server→client subscriptions yet; respond politely.
 	const bearer = extractBearer(req);
 	// Unauthenticated callers without an X-PAYMENT header get a 401 +
@@ -132,10 +140,11 @@ export async function handleSse(req, res) {
 	// server, with the x402 envelope still attached for x402 clients. Invalid
 	// bearers also get 401 with WWW-Authenticate so they can re-auth correctly.
 	if (!bearer && !req.headers['x-payment']) {
-		const sseResourceUrl = resolveResourceUrl(req, '/api/mcp');
+		const sseResourceUrl = resolveResourceUrl(req, resourcePath);
 		return sendAuthChallenge(res, {
 			resourceUrl: sseResourceUrl,
 			requirements: paymentRequirements(sseResourceUrl),
+			challenge,
 		});
 	}
 	const auth = await authenticateBearer(bearer, { audience: env.MCP_RESOURCE });
