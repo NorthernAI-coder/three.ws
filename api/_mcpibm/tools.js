@@ -1,0 +1,525 @@
+// IBM Granite MCP tool implementations for the hosted Streamable HTTP server.
+//
+// These are the same five tools shipped by the @three-ws/ibm-x402-mcp npm
+// package (stdio transport) — chat, code, embed, analyze, forecast — re-bound to
+// the platform's proven server-side watsonx.ai clients (api/_lib/watsonx.js and
+// api/_lib/watsonx-forecast.js). Prompts, input schemas, prices, and output
+// shapes are kept identical to the package so the two transports behave the
+// same; the package remains the canonical reference for tool semantics.
+//
+// The server operator supplies WATSONX_* credentials; end users pay USDC per
+// call via x402 (gated in api/ibm-mcp.js) and never need an IBM Cloud account.
+
+import { watsonxConfig, watsonxChatComplete, watsonxEmbed } from '../_lib/watsonx.js';
+import { watsonxForecast } from '../_lib/watsonx-forecast.js';
+
+function rpcError(code, message, data) {
+	const e = new Error(message);
+	e.code = code;
+	e.data = data;
+	return e;
+}
+
+// Resolve watsonx config or fail with a clear, secret-free message. The hosted
+// endpoint is operator-funded: when credentials are absent the whole server is
+// unusable, so we surface that plainly rather than letting an IAM call fail deep
+// in a tool handler.
+function graniteConfig() {
+	const cfg = watsonxConfig();
+	if (!cfg.configured) {
+		throw new Error(
+			'IBM watsonx.ai credentials are not configured on this server (set WATSONX_API_KEY and WATSONX_PROJECT_ID).',
+		);
+	}
+	return cfg;
+}
+
+// MCP tool result helper. structuredContent carries the full machine-readable
+// object (the same shape the npm package returns); content[0].text is a concise
+// human-readable view for clients that render text.
+function toolResult(humanText, structured) {
+	return {
+		content: [{ type: 'text', text: humanText }],
+		structuredContent: structured,
+	};
+}
+
+// ───────────────────────────────── chat ─────────────────────────────────────
+
+const CHAT_DESCRIPTION =
+	'Chat completion powered by IBM Granite foundation models (default: ibm/granite-3-8b-instruct). ' +
+	'Send a conversation as role/content message pairs and receive the assistant reply with token usage. ' +
+	'No IBM Cloud account required — pay $0.02 USDC per call via x402.';
+
+const chatTool = {
+	name: 'ibm_granite_chat',
+	title: 'IBM Granite Chat ($0.02)',
+	description: CHAT_DESCRIPTION,
+	inputSchema: {
+		type: 'object',
+		properties: {
+			messages: {
+				type: 'array',
+				minItems: 1,
+				maxItems: 50,
+				description: 'Conversation history. Must include at least one user message.',
+				items: {
+					type: 'object',
+					properties: {
+						role: {
+							type: 'string',
+							enum: ['system', 'user', 'assistant'],
+							description: 'Message role.',
+						},
+						content: {
+							type: 'string',
+							minLength: 1,
+							maxLength: 32_000,
+							description: 'Message text.',
+						},
+					},
+					required: ['role', 'content'],
+					additionalProperties: false,
+				},
+			},
+			model: {
+				type: 'string',
+				description:
+					'Override the Granite model id (e.g. ibm/granite-3-2b-instruct). Defaults to ibm/granite-3-8b-instruct.',
+			},
+			max_new_tokens: {
+				type: 'integer',
+				minimum: 1,
+				maximum: 4096,
+				description: 'Maximum tokens to generate. Defaults to 1024.',
+			},
+			temperature: {
+				type: 'number',
+				minimum: 0,
+				maximum: 2,
+				description: 'Sampling temperature (0 = deterministic). Defaults to 0.7.',
+			},
+		},
+		required: ['messages'],
+		additionalProperties: false,
+	},
+	example: {
+		messages: [{ role: 'user', content: 'Explain quantum entanglement in two sentences.' }],
+	},
+	output: {
+		example: {
+			ok: true,
+			text: 'Quantum entanglement is a phenomenon where two particles...',
+			finishReason: 'stop',
+			usage: { prompt_tokens: 14, completion_tokens: 38 },
+			model: 'ibm/granite-3-8b-instruct',
+		},
+	},
+	async handler({ messages, model, max_new_tokens, temperature }) {
+		const cfg = graniteConfig();
+		const result = await watsonxChatComplete(cfg, {
+			messages,
+			model,
+			maxTokens: max_new_tokens ?? 1024,
+			temperature: temperature ?? 0.7,
+		});
+		return toolResult(result.text, { ok: true, ...result });
+	},
+};
+
+// ───────────────────────────────── code ─────────────────────────────────────
+
+const CODE_DESCRIPTION =
+	'Code generation, review, refactoring, and explanation via IBM Granite instruct models. ' +
+	'Provide a task type and code/prompt; receive the generated or reviewed code with explanation. ' +
+	'No IBM Cloud account required — pay $0.025 USDC per call via x402.';
+
+const TASK_DESCRIPTIONS = {
+	generate: 'Generate new code from the prompt description.',
+	review: 'Review the provided code for bugs, security issues, and improvements.',
+	refactor: 'Refactor the code for clarity, performance, and best practices.',
+	explain: 'Explain what the code does in plain language.',
+	test: 'Generate unit tests for the provided code.',
+	document: 'Add inline documentation and docstrings to the code.',
+};
+
+function buildCodeSystemPrompt(task, language) {
+	const lang = language ? ` in ${language}` : '';
+	const base = `You are an expert software engineer${lang}. ${TASK_DESCRIPTIONS[task]}`;
+	const format =
+		task === 'review'
+			? ' Structure your response as: FINDINGS (bulleted issues with severity), then RECOMMENDATIONS.'
+			: task === 'explain'
+				? ' Be concise and clear. Use plain language suitable for a code review.'
+				: ' Return only the code block, then a brief explanation of key decisions.';
+	return base + format;
+}
+
+const codeTool = {
+	name: 'ibm_granite_code',
+	title: 'IBM Granite Code ($0.025)',
+	description: CODE_DESCRIPTION,
+	inputSchema: {
+		type: 'object',
+		properties: {
+			task: {
+				type: 'string',
+				enum: ['generate', 'review', 'refactor', 'explain', 'test', 'document'],
+				description:
+					'Code task: generate (new code from description), review (bugs/security), refactor (quality), explain (plain language), test (unit tests), or document (add docstrings).',
+			},
+			prompt: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 16_000,
+				description:
+					'For "generate": describe what to build. For all others: paste the code to process.',
+			},
+			language: {
+				type: 'string',
+				description:
+					'Target programming language (e.g. "TypeScript", "Python", "Rust"). Optional for explain/review.',
+			},
+			context: {
+				type: 'string',
+				maxLength: 4_000,
+				description:
+					'Additional context: architecture notes, constraints, or example usage.',
+			},
+		},
+		required: ['task', 'prompt'],
+		additionalProperties: false,
+	},
+	example: {
+		task: 'generate',
+		prompt: 'A debounce function with TypeScript generics and a cancel method.',
+		language: 'TypeScript',
+	},
+	output: {
+		example: {
+			ok: true,
+			task: 'generate',
+			text: 'function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number) { ... }',
+			model: 'ibm/granite-3-8b-instruct',
+		},
+	},
+	async handler({ task, prompt, language, context }) {
+		const cfg = graniteConfig();
+		const systemContent = buildCodeSystemPrompt(task, language);
+		const userContent = context ? `${prompt}\n\nContext: ${context}` : prompt;
+		const result = await watsonxChatComplete(cfg, {
+			messages: [
+				{ role: 'system', content: systemContent },
+				{ role: 'user', content: userContent },
+			],
+			maxTokens: 2048,
+			temperature: task === 'generate' ? 0.3 : 0.1,
+		});
+		return toolResult(result.text, { ok: true, task, ...result });
+	},
+};
+
+// ──────────────────────────────── embed ─────────────────────────────────────
+
+const EMBED_DESCRIPTION =
+	'Generate embedding vectors for one or more texts using IBM Granite ' +
+	'(default: ibm/granite-embedding-278m-multilingual). Returns one float array per input, ' +
+	'suitable for semantic search, RAG retrieval, and similarity scoring. ' +
+	'Up to 64 texts per call. No IBM Cloud account required — pay $0.005 USDC per call via x402.';
+
+const embedTool = {
+	name: 'ibm_granite_embed',
+	title: 'IBM Granite Embed ($0.005)',
+	description: EMBED_DESCRIPTION,
+	inputSchema: {
+		type: 'object',
+		properties: {
+			inputs: {
+				type: 'array',
+				minItems: 1,
+				maxItems: 64,
+				items: { type: 'string', minLength: 1, maxLength: 8_000 },
+				description: 'Texts to embed. 1–64 strings per call, up to 8,000 characters each.',
+			},
+			model: {
+				type: 'string',
+				description:
+					'Override the embedding model id (e.g. ibm/granite-embedding-125m-english). Defaults to ibm/granite-embedding-278m-multilingual.',
+			},
+		},
+		required: ['inputs'],
+		additionalProperties: false,
+	},
+	example: { inputs: ['enterprise AI platform', 'cloud-native machine learning'] },
+	output: {
+		example: {
+			ok: true,
+			model: 'ibm/granite-embedding-278m-multilingual',
+			inputCount: 2,
+			dimensions: 768,
+			vectors: [
+				[0.012, -0.034, 0.091],
+				[0.008, -0.027, 0.088],
+			],
+		},
+	},
+	async handler({ inputs, model }) {
+		const cfg = graniteConfig();
+		const result = await watsonxEmbed(cfg, { inputs, model });
+		const summary = `Embedded ${result.inputCount} input${result.inputCount === 1 ? '' : 's'} → ${result.inputCount}×${result.dimensions} vectors (${result.model}).`;
+		return toolResult(summary, { ok: true, ...result });
+	},
+};
+
+// ─────────────────────────────── analyze ────────────────────────────────────
+
+const ANALYZE_DESCRIPTION =
+	'Structured document analysis powered by IBM Granite: extract entities, sentiment, risk signals, ' +
+	'a concise summary, and recommended next steps from any text (contracts, reports, emails, code reviews, etc.). ' +
+	'Returns a machine-readable JSON analysis. ' +
+	'No IBM Cloud account required — pay $0.04 USDC per call via x402.';
+
+function buildAnalysisPrompt(analysis_type, language) {
+	const langHint = language ? ` The document is written in ${language}.` : '';
+
+	const typeInstructions = {
+		general:
+			'Identify key entities (people, organizations, places, dates), overall sentiment (positive/neutral/negative), ' +
+			'main topics, critical risk flags, a 3-sentence summary, and 3 actionable next steps.',
+		contract:
+			'Extract: parties involved, effective date, termination clauses, obligations per party, ' +
+			'penalty/liability clauses, renewal terms, risk flags (one-sided terms, missing protections), ' +
+			'a 3-sentence summary, and 3 recommended legal review steps.',
+		financial:
+			'Extract: key financial metrics and figures, growth indicators, risk factors, market signals, ' +
+			'forward-looking statements, red flags (inconsistencies, unusual items), ' +
+			'a 3-sentence summary, and 3 investment/operational recommendations.',
+		technical:
+			'Extract: technologies mentioned, architecture patterns, identified issues or bugs, ' +
+			'security concerns, performance risks, dependencies, ' +
+			'a 3-sentence technical summary, and 3 engineering recommendations.',
+		medical:
+			'Extract: clinical entities (diagnoses, medications, procedures, lab values), ' +
+			'findings and observations, risk factors, contraindications, ' +
+			'a 3-sentence clinical summary, and 3 recommended follow-up actions.',
+		sentiment:
+			'Analyze: overall sentiment score (-1.0 to 1.0), emotion breakdown (joy, anger, fear, sadness, surprise, disgust), ' +
+			'sentiment per paragraph or section, strongest positive and negative signals, ' +
+			'a 3-sentence sentiment summary, and 3 communication recommendations.',
+	};
+
+	return (
+		`You are an expert document analyst specializing in ${analysis_type} analysis.${langHint}\n\n` +
+		`Analyze the provided document and return a JSON object with these exact keys:\n` +
+		`- "summary": string (3 concise sentences)\n` +
+		`- "entities": array of { name, type, relevance } objects\n` +
+		`- "sentiment": { overall: string, score: number -1.0 to 1.0 }\n` +
+		`- "key_findings": array of strings (top 5 findings)\n` +
+		`- "risk_flags": array of { flag: string, severity: "low"|"medium"|"high" }\n` +
+		`- "next_steps": array of strings (top 3 actionable recommendations)\n` +
+		`- "analysis_type": "${analysis_type}"\n\n` +
+		`${typeInstructions[analysis_type]}\n\n` +
+		`Return ONLY valid JSON. No markdown code blocks, no prose outside the JSON.`
+	);
+}
+
+const analyzeTool = {
+	name: 'ibm_granite_analyze',
+	title: 'IBM Granite Analyze ($0.04)',
+	description: ANALYZE_DESCRIPTION,
+	inputSchema: {
+		type: 'object',
+		properties: {
+			document: {
+				type: 'string',
+				minLength: 1,
+				maxLength: 24_000,
+				description: 'The document, report, email, or text to analyze.',
+			},
+			analysis_type: {
+				type: 'string',
+				enum: ['general', 'contract', 'financial', 'technical', 'medical', 'sentiment'],
+				default: 'general',
+				description:
+					'Analysis focus: general (universal), contract (legal terms, obligations), ' +
+					'financial (metrics, risks, forecasts), technical (architecture, issues), ' +
+					'medical (clinical entities, findings), or sentiment (tone, emotions).',
+			},
+			language: {
+				type: 'string',
+				description:
+					'Document language hint (e.g. "Spanish", "French"). Defaults to auto-detect.',
+			},
+		},
+		required: ['document'],
+		additionalProperties: false,
+	},
+	example: {
+		document:
+			'This Services Agreement is entered into between Acme Corp and Vendor Inc effective January 1, 2026...',
+		analysis_type: 'contract',
+	},
+	output: {
+		example: {
+			ok: true,
+			analysis_type: 'contract',
+			summary:
+				'This agreement establishes a 12-month SaaS subscription between Acme Corp and Vendor Inc...',
+			entities: [{ name: 'Acme Corp', type: 'organization', relevance: 'party' }],
+			sentiment: { overall: 'neutral', score: 0.1 },
+			key_findings: ['Auto-renewal clause on 60-day notice'],
+			risk_flags: [{ flag: 'One-sided IP assignment clause', severity: 'high' }],
+			next_steps: ['Legal review of IP assignment clause section 8.2'],
+			model: 'ibm/granite-3-8b-instruct',
+		},
+	},
+	async handler({ document, analysis_type = 'general', language }) {
+		const cfg = graniteConfig();
+		const systemPrompt = buildAnalysisPrompt(analysis_type, language);
+		const result = await watsonxChatComplete(cfg, {
+			messages: [
+				{ role: 'system', content: systemPrompt },
+				{ role: 'user', content: document },
+			],
+			maxTokens: 2048,
+			temperature: 0.1,
+		});
+
+		let parsed;
+		try {
+			const raw = result.text.trim();
+			// Strip any accidental markdown code fence.
+			const jsonStr = raw.startsWith('```')
+				? raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+				: raw;
+			parsed = JSON.parse(jsonStr);
+		} catch {
+			// Granite didn't return clean JSON — surface text so the client can decide.
+			const fallback = {
+				ok: true,
+				analysis_type,
+				raw_response: result.text,
+				usage: result.usage,
+				model: result.model,
+				parse_error: 'Model returned non-JSON response; see raw_response.',
+			};
+			return toolResult(result.text, fallback);
+		}
+
+		const structured = {
+			ok: true,
+			analysis_type,
+			...parsed,
+			usage: result.usage,
+			model: result.model,
+		};
+		return toolResult(JSON.stringify(structured, null, 2), structured);
+	},
+};
+
+// ─────────────────────────────── forecast ───────────────────────────────────
+
+const FORECAST_DESCRIPTION =
+	'Zero-shot time-series forecasting via IBM Granite TTM (Tiny Time Mixer). ' +
+	'Provide a numeric series with ISO-8601 timestamps and a cadence, receive the forecast horizon. ' +
+	'No training required. Suitable for revenue, traffic, sensor, energy, and financial series. ' +
+	'No IBM Cloud account required — pay $0.05 USDC per call via x402.';
+
+const FREQ_EXAMPLES = '1min, 5min, 15min, 30min, 1h, 2h, 4h, 12h, 1D, 1W, 1ME';
+
+const forecastTool = {
+	name: 'ibm_granite_forecast',
+	title: 'IBM Granite Forecast ($0.05)',
+	description: FORECAST_DESCRIPTION,
+	inputSchema: {
+		type: 'object',
+		properties: {
+			timestamps: {
+				type: 'array',
+				minItems: 64,
+				maxItems: 1024,
+				items: { type: 'string', minLength: 1 },
+				description:
+					'ISO-8601 timestamps at a uniform cadence, oldest to newest (e.g. ["2025-01-01T00:00:00Z", ...]).',
+			},
+			values: {
+				type: 'array',
+				minItems: 64,
+				maxItems: 1024,
+				items: { type: 'number' },
+				description:
+					'Numeric series aligned to timestamps, oldest to newest. Must be the same length as timestamps.',
+			},
+			freq: {
+				type: 'string',
+				minLength: 1,
+				description: `Cadence of the series as a pandas-style frequency string. Examples: ${FREQ_EXAMPLES}.`,
+			},
+			prediction_length: {
+				type: 'integer',
+				minimum: 1,
+				maximum: 96,
+				description:
+					'Number of steps to forecast ahead. Defaults to the model horizon (typically 96 for 1h data).',
+			},
+			label: {
+				type: 'string',
+				maxLength: 64,
+				description:
+					'Human label for the series (e.g. "daily_revenue_usd"). Returned in output for traceability.',
+			},
+		},
+		required: ['timestamps', 'values', 'freq'],
+		additionalProperties: false,
+	},
+	example: {
+		timestamps: ['2025-01-01T00:00:00Z', '2025-01-02T00:00:00Z'],
+		values: [1200, 1350],
+		freq: '1D',
+		prediction_length: 7,
+		label: 'daily_revenue_usd',
+	},
+	output: {
+		example: {
+			ok: true,
+			label: 'daily_revenue_usd',
+			model: 'ibm/granite-ttm-512-96-r2',
+			inputWindow: 512,
+			forecastSteps: 7,
+			forecast: [{ timestamp: '2025-06-07T00:00:00Z', value: 1420 }],
+		},
+	},
+	async handler({ timestamps, values, freq, prediction_length, label }) {
+		if (timestamps.length !== values.length) {
+			throw rpcError(
+				-32602,
+				`timestamps and values must have equal length (got ${timestamps.length} timestamps, ${values.length} values).`,
+			);
+		}
+		const cfg = graniteConfig();
+		const result = await watsonxForecast(cfg, {
+			timestamps,
+			values,
+			freq,
+			predictionLength: prediction_length,
+		});
+
+		const forecast = result.timestamps.map((ts, i) => ({
+			timestamp: ts,
+			value: result.values[i] ?? null,
+		}));
+
+		const structured = {
+			ok: true,
+			...(label ? { label } : {}),
+			model: result.model,
+			inputWindow: result.inputWindow,
+			forecastSteps: forecast.length,
+			forecast,
+		};
+		const summary = `Forecast ${forecast.length} step${forecast.length === 1 ? '' : 's'} ahead from ${result.inputWindow} points (${result.model}).`;
+		return toolResult(summary, structured);
+	},
+};
+
+export const toolDefs = [chatTool, codeTool, embedTool, analyzeTool, forecastTool];
