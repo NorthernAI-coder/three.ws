@@ -142,6 +142,7 @@
 		"@neynar/nodejs-sdk": "^3.175.0",
 		"@nirholas/pump-sdk": "^1.0.0",
 		"@noble/curves": "^2.2.0",
+		"@node-saml/node-saml": "^5.1.0",
 		"@octokit/rest": "^22.0.1",
 		"@pixiv/three-vrm": "^3.5.3",
 		"@privy-io/js-sdk-core": "^0.67.0",

@@ -1434,6 +1434,22 @@
 			"dest": "/api/auth/x/[action]?action=callback"
 		},
 		{
+			"src": "/api/auth/saml/metadata",
+			"dest": "/api/auth/saml/[action]?action=metadata"
+		},
+		{
+			"src": "/api/auth/saml/login",
+			"dest": "/api/auth/saml/[action]?action=login"
+		},
+		{
+			"src": "/api/auth/saml/acs",
+			"dest": "/api/auth/saml/[action]?action=acs"
+		},
+		{
+			"src": "/api/auth/saml/logout",
+			"dest": "/api/auth/saml/[action]?action=logout"
+		},
+		{
 			"src": "/api/auth/wallets",
 			"dest": "/api/auth/wallets/[action]"
 		},
@@ -1730,6 +1746,10 @@
 		{
 			"src": "/api/avatars/([^/]+)/og",
 			"dest": "/api/avatar-og?id=$1"
+		},
+		{
+			"src": "/api/avatars/([^/]+)/[^/]+\\.glb",
+			"dest": "/api/avatars/$1/glb"
 		},
 		{
 			"src": "/api/a/(\\d+)/(\\d+)/og",

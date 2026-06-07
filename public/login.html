@@ -338,6 +338,9 @@
 			.privy-chain-btn:disabled { opacity: 0.4; cursor: default; }
 			#privy-wallet-status { margin: 6px 0 0; font-size: 12px; color: #888; }
 
+			/* ── Enterprise SSO (SAML) button ── */
+			.sso-btn { width: 100%; margin-top: 10px; }
+
 			/* ── No-wallet welcome banner ── */
 			.no-wallet-hint {
 				display: none;
@@ -556,6 +559,14 @@
 					</div>
 					<p id="privy-inline-err" hidden></p>
 				</div>
+
+				<!-- Enterprise SSO (SAML). Revealed by the script below only when an
+				     identity provider is configured (GET /api/config → samlEnabled). -->
+				<button type="button" id="sso-btn" class="privy-chain-btn sso-btn" hidden>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+					<span id="sso-btn-label">Single sign-on (SSO)</span>
+				</button>
+
 				<div class="or-divider" id="privy-or-divider">or</div>
 
 				<label for="email">Email or username</label>
@@ -718,6 +729,51 @@
 		</footer>
 		<script type="module" src="/wallet-login.js"></script>
 		<script type="module" src="/src/privy-login.js"></script>
+		<script type="module">
+			// Reveal the enterprise SSO button only when an IdP is configured, and
+			// surface any ?error / ?signed_out the SAML endpoints redirected back with.
+			(async () => {
+				const params = new URLSearchParams(location.search);
+				const errEl = document.getElementById('err');
+				const SSO_MESSAGES = {
+					sso_unavailable: 'Single sign-on is not available right now.',
+					saml_invalid: 'Single sign-on could not be verified. Please try again.',
+					saml_no_response: 'No response received from your identity provider.',
+					saml_no_subject:
+						'Your identity provider returned no identity. Contact your administrator.',
+					saml_error: 'Something went wrong completing single sign-on.',
+					account_deleted: 'This account has been deleted.',
+					rate_limited: 'Too many attempts. Please try again in a moment.',
+				};
+				const errCode = params.get('error');
+				if (errEl && errCode && SSO_MESSAGES[errCode]) {
+					errEl.textContent = SSO_MESSAGES[errCode];
+					errEl.style.display = 'block';
+				} else if (errEl && params.get('signed_out')) {
+					errEl.textContent = 'You have been signed out.';
+					errEl.style.color = '#9fd09f';
+					errEl.style.display = 'block';
+				}
+
+				const ssoBtn = document.getElementById('sso-btn');
+				if (!ssoBtn) return;
+				let cfg;
+				try {
+					cfg = await (await fetch('/api/config')).json();
+				} catch {
+					return; // config unreachable — leave SSO hidden
+				}
+				if (!cfg?.samlEnabled) return;
+				if (cfg.samlLabel) {
+					document.getElementById('sso-btn-label').textContent = cfg.samlLabel;
+				}
+				ssoBtn.hidden = false;
+				ssoBtn.addEventListener('click', () => {
+					const next = window.__loginNext || params.get('next') || '/dashboard';
+					window.location.href = '/api/auth/saml/login?next=' + encodeURIComponent(next);
+				});
+			})();
+		</script>
 		<script>
 			(function () {
 				const form = document.getElementById('f');

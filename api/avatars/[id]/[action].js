@@ -30,7 +30,15 @@ const PINATA_ENDPOINT = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default wrap(async (req, res) => {
-	const action = req.query?.action;
+	let action = req.query?.action;
+	// Expose the GLB proxy at a `.glb`-terminating URL as well. Standard glTF
+	// viewers, NFT marketplaces, and third-party avatar renderers sniff the URL
+	// extension rather than the `model/gltf-binary` Content-Type, and reject the
+	// bare `/api/avatars/:id/glb` for not ending in `.glb`. Routing any
+	// `/api/avatars/:id/<name>.glb` to the same handler makes our avatars load in
+	// those tools unchanged. (`glb-versions` has no `.glb` suffix, so it's never
+	// caught here.)
+	if (typeof action === 'string' && /\.glb$/i.test(action)) action = 'glb';
 	// Every sub-action below ends up querying `WHERE id = $1` against a uuid
 	// column. A malformed id leaks Postgres 22P02 to the caller as a 500;
 	// short-circuit with a clean 404 unless it's a demo-fixture id.
@@ -589,10 +597,10 @@ async function handleGlb(req, res) {
 
 	if (String(id).startsWith('avatar_demo_')) {
 		const demo = DEMO_AVATARS.find((a) => a.avatarId === id);
-		if (!demo?.url) return error(res, 404, 'not_found', 'demo avatar has no glb');
+		if (!demo?.glbUrl) return error(res, 404, 'not_found', 'demo avatar has no glb');
 		// Demo avatars live in /public so the redirect target is same-origin
 		// and already CORS-clean.
-		return redirect(res, demo.url);
+		return redirect(res, demo.glbUrl);
 	}
 
 	const avatar = await getAvatar({ id, requesterId: null });

@@ -16,6 +16,15 @@ function trimSlash(s) {
 	return s ? s.replace(/\/$/, '') : s;
 }
 
+// PEM / certificate env values are frequently stored with literal "\n" escapes
+// (Vercel/IBM/Okta dashboards collapse real newlines). Restore them so the
+// crypto libraries get a valid multi-line PEM. Returns undefined when unset.
+function pem(name) {
+	const v = process.env[name];
+	if (!v) return undefined;
+	return v.includes('\\n') ? v.replace(/\\n/g, '\n') : v;
+}
+
 export const env = {
 	get APP_ORIGIN() {
 		return trimSlash(opt('PUBLIC_APP_ORIGIN', 'https://three.ws/'));
@@ -814,6 +823,80 @@ export const env = {
 	},
 	get AIXBT_ENABLED() {
 		return Boolean(this.AIXBT_API_KEY);
+	},
+
+	// ── SAML 2.0 SSO (three.ws as Service Provider) ───────────────────────────
+	// Lets platform users sign in through an enterprise IdP (IBM Cloud App ID,
+	// Okta, Azure AD, …). Two ways to point at the IdP:
+	//   1. Paste its metadata URL  → SAML_IDP_METADATA_URL (sso url + signing
+	//      cert are fetched + cached server-side).
+	//   2. Set the fields directly → SAML_IDP_SSO_URL + SAML_IDP_CERT (+ entity
+	//      id / slo url). Explicit fields win when both are present.
+	// Unset → /api/auth/saml/* returns "not configured" and the SSO button is
+	// hidden on /login. See .env.example for the full setup walkthrough.
+	get SAML_IDP_ENTITY_ID() {
+		return opt('SAML_IDP_ENTITY_ID');
+	},
+	get SAML_IDP_SSO_URL() {
+		return opt('SAML_IDP_SSO_URL');
+	},
+	get SAML_IDP_SLO_URL() {
+		return opt('SAML_IDP_SLO_URL');
+	},
+	// IdP signing certificate. Accepts a PEM block or a bare base64 body, with
+	// literal "\n" escapes (common in dashboard-pasted env vars) normalized to
+	// real newlines; api/_lib/saml.js strips it back to base64 for node-saml.
+	get SAML_IDP_CERT() {
+		return pem('SAML_IDP_CERT');
+	},
+	get SAML_IDP_METADATA_URL() {
+		return opt('SAML_IDP_METADATA_URL');
+	},
+
+	// SP (our) identity advertised to the IdP. EntityID defaults to our metadata
+	// URL; the ACS + SLO URLs are derived from APP_ORIGIN in api/_lib/saml.js.
+	get SAML_SP_ENTITY_ID() {
+		return opt('SAML_SP_ENTITY_ID', `${this.APP_ORIGIN}/api/auth/saml/metadata`);
+	},
+	// Optional SP keypair. When set, AuthnRequests are signed and encrypted
+	// assertions can be decrypted. PEM, with "\n" escapes tolerated.
+	get SAML_SP_PRIVATE_KEY() {
+		return pem('SAML_SP_PRIVATE_KEY');
+	},
+	get SAML_SP_CERT() {
+		return pem('SAML_SP_CERT');
+	},
+
+	// Security posture. The assertion (which carries identity) must be signed by
+	// default; the response envelope signature is opt-in since many IdPs only
+	// sign the assertion. Both can be required for stricter deployments.
+	get SAML_WANT_ASSERTIONS_SIGNED() {
+		return opt('SAML_WANT_ASSERTIONS_SIGNED', 'true') !== 'false';
+	},
+	get SAML_WANT_RESPONSE_SIGNED() {
+		return opt('SAML_WANT_RESPONSE_SIGNED', 'false') === 'true';
+	},
+	get SAML_SIGNATURE_ALGORITHM() {
+		return opt('SAML_SIGNATURE_ALGORITHM', 'sha256');
+	},
+	// NameID format requested in the AuthnRequest. Default: unspecified (omit the
+	// Format so the IdP returns whatever it's configured for — broadest compat).
+	// Set to e.g. urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress to pin it.
+	get SAML_IDENTIFIER_FORMAT() {
+		const v = opt('SAML_IDENTIFIER_FORMAT');
+		return v && v !== 'none' && v !== 'unspecified' ? v : null;
+	},
+	get SAML_CLOCK_SKEW_MS() {
+		return parseInt(opt('SAML_CLOCK_SKEW_MS', '5000'), 10);
+	},
+	// SP-initiated only by default (InResponseTo enforced → replay-resistant).
+	// Set true to also accept unsolicited IdP-initiated responses.
+	get SAML_ALLOW_IDP_INITIATED() {
+		return opt('SAML_ALLOW_IDP_INITIATED', 'false') === 'true';
+	},
+	// Label shown on the /login SSO button (e.g. "Sign in with Acme SSO").
+	get SAML_BUTTON_LABEL() {
+		return opt('SAML_BUTTON_LABEL', 'Single sign-on (SSO)');
 	},
 
 	getRpcUrl(chainId) {

@@ -23,6 +23,16 @@ function toPubkey(mint) {
 	return mint instanceof PublicKey ? mint : new PublicKey(String(mint));
 }
 
+// "Account does not exist or has no data" is the SDK's signal that a mint has no
+// bonding-curve account — the expected, documented result for any non-pump mint
+// (USDC, wSOL, a plain SPL token). Callers already turn that into a clean "no
+// curve" 404, so it is not a warning-worthy event. Logging it once per poll
+// turned a single curve-less mint into thousands of warning lines. Treat it as
+// benign and stay quiet; genuine RPC/parse failures still warn below.
+function isMissingAccount(err) {
+	return /account does not exist|has no data|could not find/i.test(String(err));
+}
+
 async function fetchState(connection, mint) {
 	const { OnlinePumpSdk } = await loadSdk();
 	const sdk = new OnlinePumpSdk(connection);
@@ -47,7 +57,7 @@ export async function getTokenPrice(connection, mint) {
 		const { global, feeConfig, bondingCurve, mintSupply } = await fetchState(connection, pk);
 		return sdkGetTokenPrice({ global, feeConfig, mintSupply, bondingCurve });
 	} catch (err) {
-		if (!err?.graduated) {
+		if (!err?.graduated && !isMissingAccount(err)) {
 			console.warn('[sdk-bridge] getTokenPrice failed: %s', String(err).slice(0, 120));
 		}
 		return null;
@@ -65,7 +75,9 @@ export async function getGraduationProgress(connection, mint) {
 		]);
 		return sdkGetGrad(global, bondingCurve);
 	} catch (err) {
-		console.warn('[sdk-bridge] getGraduationProgress failed: %s', String(err).slice(0, 120));
+		if (!isMissingAccount(err)) {
+			console.warn('[sdk-bridge] getGraduationProgress failed: %s', String(err).slice(0, 120));
+		}
 		return null;
 	}
 }
@@ -84,7 +96,9 @@ export async function getBuyQuote(connection, mint, solAmount) {
 		const impact = calculateBuyPriceImpact({ global, feeConfig, mintSupply, bondingCurve, solAmount: amount });
 		return { tokens, priceImpact: impact.impactBps / 100 };
 	} catch (err) {
-		console.warn('[sdk-bridge] getBuyQuote failed: %s', String(err).slice(0, 120));
+		if (!isMissingAccount(err)) {
+			console.warn('[sdk-bridge] getBuyQuote failed: %s', String(err).slice(0, 120));
+		}
 		return null;
 	}
 }
@@ -103,7 +117,9 @@ export async function getSellQuote(connection, mint, tokenAmount) {
 		const impact = calculateSellPriceImpact({ global, feeConfig, mintSupply, bondingCurve, tokenAmount: amount });
 		return { sol, priceImpact: impact.impactBps / 100 };
 	} catch (err) {
-		console.warn('[sdk-bridge] getSellQuote failed: %s', String(err).slice(0, 120));
+		if (!isMissingAccount(err)) {
+			console.warn('[sdk-bridge] getSellQuote failed: %s', String(err).slice(0, 120));
+		}
 		return null;
 	}
 }
@@ -125,7 +141,9 @@ export async function getBondingCurveState(connection, mint) {
 			isMayhemMode: Boolean(bc.isMayhemMode),
 		};
 	} catch (err) {
-		console.warn('[sdk-bridge] getBondingCurveState failed: %s', String(err).slice(0, 120));
+		if (!isMissingAccount(err)) {
+			console.warn('[sdk-bridge] getBondingCurveState failed: %s', String(err).slice(0, 120));
+		}
 		return null;
 	}
 }

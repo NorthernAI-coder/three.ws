@@ -195,7 +195,7 @@ function renderShowcase(w) {
 			w.type === 'live-trades-canvas'
 				? 'So11111111111111111111111111111111111111112'
 				: w.type === 'kol-trades'
-					? 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+					? 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump'
 					: '',
 		kind: 'all',
 		format: 'iframe',
@@ -623,7 +623,7 @@ function renderShowcase(w) {
 
 function defaultMint(type) {
 	if (type === 'live-trades-canvas') return 'So11111111111111111111111111111111111111112';
-	if (type === 'kol-trades') return 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+	if (type === 'kol-trades') return 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 	return '';
 }
 

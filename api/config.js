@@ -24,9 +24,19 @@ export default wrap(async (req, res) => {
 
 	const videoAvatarEnabled = !!(process.env.LONGCAT_WORKER_URL || '').trim();
 
+	// Enterprise SAML SSO — true when an IdP is wired (explicit cert + SSO URL,
+	// or a metadata URL to fetch them from). Drives the SSO button on /login.
+	// Cheap env-only check so this hot endpoint doesn't pull in the SAML lib.
+	const samlEnabled = Boolean(
+		(process.env.SAML_IDP_CERT && process.env.SAML_IDP_SSO_URL) ||
+			process.env.SAML_IDP_METADATA_URL,
+	);
+
 	return json(res, 200, {
 		walletConnectProjectId: process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
 		privyAppId: process.env.VITE_PRIVY_APP_ID || process.env.PRIVY_APP_ID || '',
+		samlEnabled,
+		samlLabel: process.env.SAML_BUTTON_LABEL || 'Single sign-on (SSO)',
 		features: {
 			// /create/selfie + /scan use /api/avatars/reconstruct, which 501s
 			// unless an ML backend is wired. The pages read this to either show the
