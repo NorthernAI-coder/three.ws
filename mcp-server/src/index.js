@@ -38,6 +38,8 @@ import { buildAgentDelegateActionTool } from './tools/agent-delegate-action.js';
 import { buildAgenCListTasksTool } from './tools/agenc-list-tasks.js';
 import { buildAgenCGetTaskTool } from './tools/agenc-get-task.js';
 import { buildAgenCGetAgentTool } from './tools/agenc-get-agent.js';
+import { buildAixbtIntelTool } from './tools/aixbt-intel.js';
+import { buildAixbtProjectsTool } from './tools/aixbt-projects.js';
 
 const SERVER_INSTRUCTIONS =
 	'Paid x402 MCP tools from three.ws. Each tool quotes its USDC price in its description. ' +
@@ -51,7 +53,9 @@ const SERVER_INSTRUCTIONS =
 	'ERC-8004 agent reputation (agent_reputation), Solana vanity address mining ' +
 	'(vanity_grinder, upto-priced), and AgenC coordination protocol reads — ' +
 	'task discovery, task status + lifecycle, and agent registry lookup ' +
-	'(agenc_list_tasks, agenc_get_task, agenc_get_agent).';
+	'(agenc_list_tasks, agenc_get_task, agenc_get_agent), and aixbt market ' +
+	'intelligence — narrative intel feed and momentum-ranked project scans ' +
+	'(aixbt_intel, aixbt_projects).';
 
 // Every tool builder. Each returns a descriptor
 // { name, title, description, inputSchema (Zod shape), handler }. None of these
@@ -70,6 +74,8 @@ const TOOL_BUILDERS = [
 	buildAgenCListTasksTool,
 	buildAgenCGetTaskTool,
 	buildAgenCGetAgentTool,
+	buildAixbtIntelTool,
+	buildAixbtProjectsTool,
 ];
 
 /**

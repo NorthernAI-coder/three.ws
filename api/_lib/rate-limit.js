@@ -166,6 +166,11 @@ export const limits = {
 	pumpMetaIp: (ip) => getLimiter('pump:meta:ip', { limit: 60, window: '10 m' }).limit(ip),
 	oauthRegisterIp: (ip) =>
 		getLimiter('oauth:register:ip', { limit: 10, window: '1 h' }).limit(ip),
+	// aixbt intelligence bridge (api/aixbt/*). Each call may fall through to the
+	// upstream aixbt REST API, which is rate-limited per key — cap per IP so one
+	// caller can't drain the shared key's budget. Reads are cached, so this is
+	// generous enough for an interactive feed.
+	aixbtIp: (ip) => getLimiter('aixbt:ip', { limit: 90, window: '1 m' }).limit(ip),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
 	// Paid MCP tools — each call runs real compute (glTF validation / inspection

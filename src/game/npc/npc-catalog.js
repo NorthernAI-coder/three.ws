@@ -15,9 +15,11 @@
 
 import { isHomeTown } from '../home-town.js';
 import { openChat } from './npc-chat.js';
+import { openAixbtTerminal } from './npc-aixbt.js';
 
 const AVATAR_A = '/avatars/default.glb';
 const AVATAR_B = '/avatars/cz.glb';
+const AVATAR_AIXBT = '/avatars/michelle.glb';
 
 // Bind an NPC to a conversation. On interact the NPC greets in-world, plays a
 // beat, and opens a real chat: it answers in character, live from the same models
@@ -38,6 +40,26 @@ export function npcCatalogFor(world) {
 	const home = isHomeTown(world?.mint);
 
 	if (home) {
+		// AIXBT — the intelligence terminal. Walk up, press E, and he pulls the
+		// live aixbt feed (narrative intel + momentum movers) into a terminal
+		// panel. Not a one-shot counter: he's the wired-in oracle, backed by the
+		// three.ws ⇄ aixbt bridge (/api/aixbt/*). Stands center-plaza facing spawn.
+		list.push({
+			id: 'npc-aixbt',
+			name: 'AIXBT · Intel',
+			role: 'vendor',
+			avatar: AVATAR_AIXBT,
+			pos: { x: 0, z: 8 },
+			yaw: Math.PI,
+			range: 5,
+			prompt: 'Pull market intel',
+			onInteract: ({ npc, ui }) => {
+				npc.say('Reading the feed — narratives and momentum, live.');
+				npc.emote('av-call-me');
+				openAixbtTerminal(npc, { ui });
+			},
+		});
+
 		// Marisol — the trading desk. Sells live market signals (crypto-intel).
 		list.push({
 			id: 'svc-crypto-intel',

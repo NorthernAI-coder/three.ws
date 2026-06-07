@@ -1,6 +1,7 @@
 // dashboard-next — API & Embed page.
 //
-// Four sections:
+// Five sections:
+//   0. Agent Toolkit      — Connect to Claude (one-click MCP), Skill/CLI/MCP resources
 //   1. API keys           — list, create (with one-shot secret reveal), revoke
 //   2. MCP setup          — Claude Desktop / Cursor / Generic JSON configs
 //   3. Embed snippets     — Script tag / iframe / web-component with live preview
@@ -43,8 +44,9 @@ const KEY_PLACEHOLDER = 'YOUR_API_KEY';
 
 	main.innerHTML = `
 		<h1 class="dn-h1">API & embed</h1>
-		<p class="dn-h1-sub">Issue keys, configure MCP clients, embed agents anywhere.</p>
+		<p class="dn-h1-sub">Connect your agent, issue keys, configure MCP clients, embed agents anywhere.</p>
 		<div class="dn-stack" data-slot="content">
+			<div class="dn-panel dn-toolkit-panel" data-section="toolkit"><div class="dn-skeleton" style="height:220px"></div></div>
 			<div class="dn-panel" data-section="keys"><div class="dn-skeleton" style="height:180px"></div></div>
 			<div class="dn-panel" data-section="mcp"><div class="dn-skeleton" style="height:180px"></div></div>
 			<div class="dn-panel" data-section="embed"><div class="dn-skeleton" style="height:240px"></div></div>
@@ -75,10 +77,11 @@ const KEY_PLACEHOLDER = 'YOUR_API_KEY';
 
 	const content = main.querySelector('[data-slot="content"]');
 	const sections = {
-		keys:   content.querySelector('[data-section="keys"]'),
-		mcp:    content.querySelector('[data-section="mcp"]'),
-		embed:  content.querySelector('[data-section="embed"]'),
-		policy: content.querySelector('[data-section="policy"]'),
+		toolkit: content.querySelector('[data-section="toolkit"]'),
+		keys:    content.querySelector('[data-section="keys"]'),
+		mcp:     content.querySelector('[data-section="mcp"]'),
+		embed:   content.querySelector('[data-section="embed"]'),
+		policy:  content.querySelector('[data-section="policy"]'),
 	};
 
 	// Fetch the four data sources concurrently. Each one is optional —
@@ -99,6 +102,7 @@ const KEY_PLACEHOLDER = 'YOUR_API_KEY';
 	state.selectedKeyForMcp = pickDisplayKey(state.keys);
 	state.embed.selection = pickDefaultEmbedTarget(state.avatars, state.widgets, state.agents);
 
+	renderToolkit(sections.toolkit, state);
 	renderKeys(sections.keys, state);
 	renderMcp(sections.mcp, state);
 	renderEmbed(sections.embed, state);
@@ -193,6 +197,166 @@ function openModal(html) {
 
 function origin() {
 	return location.origin.replace(/\/$/, '');
+}
+
+// ── Section 0: Agent Toolkit ──────────────────────────────────────────────
+//
+// The "connect your agent" front door — mirrors the way other agent platforms
+// surface a one-click client hookup plus the three install surfaces (Skill,
+// CLI, MCP). Every command here is real and copy-paste runnable:
+//   Skill → `/plugin marketplace add nirholas/three.ws`  (Claude Code plugins)
+//   CLI   → `npm i -g @three-ws/avatar-cli`              (the three-ws-avatar bin)
+//   MCP   → https://<host>/api/mcp                       (hosted streamable HTTP)
+// "Connect to Claude" opens a modal with the exact `claude mcp add` one-liner
+// and the Claude Desktop config, pre-filled with the active key prefix.
+
+function toolkitResources() {
+	return [
+		{
+			id: 'skill',
+			tag: 'Skill',
+			title: 'Claude plugins',
+			desc: 'Install the three.ws skill pack — wallet, payments, pump.fun, and agent scaffolding.',
+			cmd: '/plugin marketplace add nirholas/three.ws',
+			doc: { href: '/docs/quick-start', label: 'Skill docs' },
+		},
+		{
+			id: 'cli',
+			tag: 'CLI',
+			title: 'Command line',
+			desc: 'Drive avatars and agents from your terminal or CI with the three-ws-avatar binary.',
+			cmd: 'npm i -g @three-ws/avatar-cli',
+			doc: { href: '/docs/quick-start', label: 'CLI docs' },
+		},
+		{
+			id: 'mcp',
+			tag: 'MCP',
+			title: 'MCP server',
+			desc: 'Point Claude, Cursor, or any MCP host at your agents over streamable HTTP.',
+			cmd: `${origin()}/api/mcp`,
+			doc: { href: '/docs/mcp', label: 'MCP setup' },
+		},
+	];
+}
+
+function renderToolkit(host, state) {
+	const resources = toolkitResources();
+	host.innerHTML = `
+		<div class="dn-toolkit-hero">
+			<div class="dn-toolkit-copy">
+				<div class="dn-toolkit-eyebrow">Agent Toolkit</div>
+				<h2 class="dn-toolkit-h">Connect your agent to three.ws.</h2>
+				<p class="dn-toolkit-sub">Drive 3D avatars, query live market intel, and pay per call — straight from Claude, Cursor, your CLI, or any MCP client.</p>
+				<div class="dn-toolkit-cta">
+					<button class="dn-btn primary dn-connect-claude" data-act="connect-claude">
+						<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4.7 16.6 9 5.4h2.1l4.3 11.2h-2.05l-1-2.74H7.7l-1 2.74H4.7Zm3.55-4.4h3.4L10 7.2l-1.75 5Zm9.05 4.4V5.4h1.95v11.2H17.3Z"/></svg>
+						Connect to Claude
+					</button>
+					<a class="dn-btn" href="/docs/mcp">Builder docs <span aria-hidden="true">→</span></a>
+				</div>
+			</div>
+		</div>
+
+		<div class="dn-toolkit-grid">
+			${resources.map((r) => `
+				<div class="dn-toolkit-card">
+					<div class="dn-toolkit-card-head">
+						<span class="dn-toolkit-card-tag">${esc(r.tag)}</span>
+						<span class="dn-toolkit-card-title">${esc(r.title)}</span>
+					</div>
+					<p class="dn-toolkit-card-desc">${esc(r.desc)}</p>
+					<div class="dn-toolkit-cmd">
+						<code data-snippet="toolkit-${esc(r.id)}">${esc(r.cmd)}</code>
+						<button type="button" class="dn-code-copy dn-toolkit-copy" data-copy="toolkit-${esc(r.id)}" aria-label="Copy ${esc(r.title)} command">Copy</button>
+					</div>
+					<a class="dn-toolkit-card-doc" href="${esc(r.doc.href)}">${esc(r.doc.label)} <span aria-hidden="true">↗</span></a>
+				</div>
+			`).join('')}
+		</div>
+
+		<div class="dn-toolkit-foot">
+			<a class="dn-link" href="/docs">Builder docs</a>
+			<a class="dn-link" href="/docs/api-reference">API docs</a>
+			<a class="dn-link" href="/docs/mcp">MCP setup</a>
+			<button type="button" class="dn-link" data-act="jump-keys">API keys</button>
+		</div>
+	`;
+
+	host.querySelector('[data-act="connect-claude"]').addEventListener('click', () => openConnectClaudeModal(state));
+	host.querySelector('[data-act="jump-keys"]').addEventListener('click', () => {
+		document.querySelector('[data-section="keys"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	});
+	host.querySelectorAll('[data-copy]').forEach((b) => {
+		b.addEventListener('click', () => {
+			const code = host.querySelector(`[data-snippet="${b.dataset.copy}"]`)?.textContent || '';
+			copyToClipboard(code, b);
+		});
+	});
+}
+
+function openConnectClaudeModal(state) {
+	const live = state.keys.filter((k) => !k.revoked_at);
+	const selected = (state.selectedKeyForMcp && live.find((k) => k.id === state.selectedKeyForMcp.id)) || live[0] || null;
+	const token = selected ? `${selected.prefix}…` : KEY_PLACEHOLDER;
+	const mcpUrl = `${origin()}/api/mcp`;
+
+	const cliCmd = `claude mcp add --transport http three-ws ${mcpUrl} --header "Authorization: Bearer ${token}"`;
+	const desktopCfg = JSON.stringify({
+		mcpServers: {
+			'three-ws': {
+				url: mcpUrl,
+				headers: { authorization: `Bearer ${token}` },
+			},
+		},
+	}, null, 2);
+
+	const { el } = openModal(`
+		<div class="dn-modal-head">
+			<h2>Connect to Claude</h2>
+			<button type="button" class="dn-btn ghost" data-modal-close aria-label="Close">×</button>
+		</div>
+		${selected
+			? `<p class="dn-modal-body" style="margin-bottom:14px">Using key <strong>${esc(selected.name)}</strong> (<code>${esc(selected.prefix)}…</code>). Swap the prefix for your full secret — the one shown once at creation.</p>`
+			: `<div class="dn-warn-banner"><strong>No API key yet.</strong>These snippets use the <code>${esc(KEY_PLACEHOLDER)}</code> placeholder. Create a key first, then paste it in.</div>`}
+
+		<div class="dn-modal-block">
+			<div class="dn-modal-block-label">Claude Code — one command</div>
+			<div class="dn-code-block">
+				<pre><code data-snippet="cc-cli">${esc(cliCmd)}</code></pre>
+				<button type="button" class="dn-code-copy" data-copy="cc-cli">Copy</button>
+			</div>
+		</div>
+
+		<div class="dn-modal-block">
+			<div class="dn-modal-block-label">Claude Desktop — config</div>
+			<p class="dn-modal-hint">Add to <code>claude_desktop_config.json</code>, then restart Claude Desktop.</p>
+			<div class="dn-code-block">
+				<pre><code data-snippet="cc-desktop">${esc(desktopCfg)}</code></pre>
+				<button type="button" class="dn-code-copy" data-copy="cc-desktop">Copy</button>
+			</div>
+		</div>
+
+		<div class="dn-modal-foot">
+			${!selected ? `<button type="button" class="dn-btn primary" data-act="make-key">Create an API key</button>` : ''}
+			<a class="dn-btn ghost" href="/docs/mcp">Full MCP setup ↗</a>
+			<button type="button" class="dn-btn ${selected ? 'primary' : ''}" data-modal-close data-autofocus>Done</button>
+		</div>
+	`);
+
+	el.querySelectorAll('[data-copy]').forEach((b) => {
+		b.addEventListener('click', () => {
+			const code = el.querySelector(`[data-snippet="${b.dataset.copy}"]`)?.textContent || '';
+			copyToClipboard(code, b);
+		});
+	});
+	const makeKeyBtn = el.querySelector('[data-act="make-key"]');
+	if (makeKeyBtn) {
+		makeKeyBtn.addEventListener('click', () => {
+			el.closest('.dn-modal-backdrop')?.remove();
+			document.querySelector('[data-section="keys"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			document.querySelector('[data-act="new-key"]')?.click();
+		});
+	}
 }
 
 // ── Section 1: API keys ───────────────────────────────────────────────────
@@ -1058,6 +1222,38 @@ function injectStyles() {
 		.dn-code-block:hover .dn-code-copy { opacity: 1; }
 		.dn-code-copy:hover { color: var(--nxt-ink); }
 		.dn-code-copy.copied { color: var(--nxt-success); }
+
+		/* Agent Toolkit */
+		.dn-toolkit-panel { background: radial-gradient(120% 140% at 0% 0%, var(--nxt-accent-soft, rgba(255,255,255,0.06)) 0%, transparent 55%), var(--nxt-panel, rgba(255,255,255,0.02)); }
+		.dn-toolkit-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+		.dn-toolkit-copy { max-width: 560px; }
+		.dn-toolkit-eyebrow { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--nxt-ink-fade); margin-bottom: 8px; }
+		.dn-toolkit-h { margin: 0 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--nxt-ink); }
+		.dn-toolkit-sub { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--nxt-ink-dim); }
+		.dn-toolkit-cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+		.dn-connect-claude { display: inline-flex; align-items: center; gap: 7px; }
+		.dn-connect-claude svg { flex-shrink: 0; }
+
+		.dn-toolkit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+		@media (max-width: 820px) { .dn-toolkit-grid { grid-template-columns: 1fr; } }
+		.dn-toolkit-card { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius-sm); background: rgba(255,255,255,0.015); transition: border-color 0.14s ease, transform 0.14s ease; }
+		.dn-toolkit-card:hover { border-color: var(--nxt-accent, rgba(255,255,255,0.25)); transform: translateY(-1px); }
+		.dn-toolkit-card-head { display: flex; align-items: center; gap: 8px; }
+		.dn-toolkit-card-tag { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--nxt-ink); background: var(--nxt-accent-soft, rgba(255,255,255,0.08)); padding: 2px 7px; border-radius: var(--nxt-radius-pill); }
+		.dn-toolkit-card-title { font-size: 13.5px; font-weight: 500; color: var(--nxt-ink); }
+		.dn-toolkit-card-desc { margin: 0; font-size: 12px; line-height: 1.5; color: var(--nxt-ink-fade); flex: 1; }
+		.dn-toolkit-cmd { position: relative; display: flex; align-items: center; }
+		.dn-toolkit-cmd code { display: block; width: 100%; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #d8dbe5; background: #0a0a10; border: 1px solid var(--nxt-stroke); border-left: 2px solid var(--nxt-accent); border-radius: var(--nxt-radius-sm); padding: 9px 52px 9px 11px; overflow-x: auto; white-space: nowrap; }
+		.dn-toolkit-copy { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); opacity: 0.5; }
+		.dn-toolkit-cmd:hover .dn-toolkit-copy { opacity: 1; }
+		.dn-toolkit-card-doc { font-size: 11.5px; color: var(--nxt-ink-dim); text-decoration: none; transition: color 0.12s ease; }
+		.dn-toolkit-card-doc:hover { color: var(--nxt-ink); }
+		.dn-toolkit-foot { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--nxt-stroke); }
+
+		.dn-modal-block { margin-bottom: 16px; }
+		.dn-modal-block-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--nxt-ink-fade); margin-bottom: 7px; }
+		.dn-modal-hint { margin: 0 0 7px; font-size: 12px; color: var(--nxt-ink-dim); }
+		.dn-modal-hint code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; padding: 1px 5px; background: rgba(255,255,255,0.06); border-radius: 4px; }
 
 		/* MCP */
 		.dn-mcp-key-picker { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; }
