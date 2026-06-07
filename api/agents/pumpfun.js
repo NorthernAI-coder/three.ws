@@ -191,7 +191,9 @@ async function handleMetadata(req, res) {
 	if (!a) return error(res, 404, 'not_found', 'agent not found');
 	const origin = _env.APP_ORIGIN;
 	const image = a.meta?.image_url || `${origin}/api/agents/${a.id}/og`;
-	const animation = a.avatar_id ? `${origin}/api/avatars/${a.avatar_id}/glb` : null;
+	// `.glb`-terminating proxy URL: marketplaces and glTF viewers that key off
+	// the file extension (not the Content-Type) need the trailing `.glb`.
+	const animation = a.avatar_id ? `${origin}/api/avatars/${a.avatar_id}/model.glb` : null;
 	const symbol = String(a.name || 'AGENT').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) || 'AGENT';
 	return json(res, 200, {
 		name: a.name, symbol,

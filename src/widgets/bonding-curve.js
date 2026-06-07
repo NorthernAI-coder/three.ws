@@ -433,6 +433,7 @@ export function mountBondingCurve(rootEl, opts = {}) {
 	rootEl.appendChild(wrap);
 
 	let destroyed = false;
+	let stopped = false; // set once a mint is known to have no bonding curve (404)
 	let timer = null;
 	let raf = null;
 	let displayedProgress = 0; // currently-rendered marker/percent position
@@ -492,7 +493,7 @@ export function mountBondingCurve(rootEl, opts = {}) {
 	}
 
 	async function poll() {
-		if (destroyed || !mint) return;
+		if (destroyed || stopped || !mint) return;
 		try {
 			const [resp, solUsd] = await Promise.all([
 				fetch(`/api/pump/curve?mint=${encodeURIComponent(mint)}&network=${network}`),
@@ -500,12 +501,17 @@ export function mountBondingCurve(rootEl, opts = {}) {
 			]);
 			if (destroyed) return;
 			if (resp.status === 404) {
+				// A 404 is terminal: this mint has no bonding curve (graduated or
+				// not a pump.fun token) and never will. Stop the interval instead
+				// of re-polling forever — an interval against a curve-less mint is
+				// exactly what turned a misconfigured demo into a 404 storm.
 				view = computeView(null);
 				applyEmptyState(
 					card,
 					els,
 					'No active bonding curve — this token may have graduated or isn’t a pump.fun mint.',
 				);
+				stopPolling();
 				return;
 			}
 			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -522,8 +528,16 @@ export function mountBondingCurve(rootEl, opts = {}) {
 		}
 	}
 
+	function stopPolling() {
+		stopped = true;
+		if (timer) {
+			clearInterval(timer);
+			timer = null;
+		}
+	}
+
 	poll();
-	timer = setInterval(poll, refreshMs);
+	if (!stopped) timer = setInterval(poll, refreshMs);
 
 	return {
 		destroy() {

@@ -176,7 +176,7 @@ export const DEMO_WIDGETS = {
 			showControls: false,
 			autoRotate: false,
 			envPreset: 'neutral',
-			mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+			mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 			limit: 20,
 			refreshMs: 30_000,
 		},
@@ -214,7 +214,10 @@ export const DEMO_WIDGETS = {
 			autoRotate: true,
 			rotationSpeed: 0.4,
 			envPreset: 'neutral',
-			mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+			// $three — the platform token and a real pump.fun mint, so the demo
+			// shows a live bonding curve. A non-pump mint here has no curve and
+			// makes the widget poll /api/pump/curve into a permanent 404 loop.
+			mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 			network: 'mainnet',
 			refreshMs: 15_000,
 			showUsd: true,

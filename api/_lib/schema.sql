@@ -30,6 +30,28 @@ create unique index if not exists users_wallet_unique on users(wallet_address) w
 create unique index if not exists users_username_unique on users(lower(username)) where username is not null;
 create unique index if not exists users_privy_did_unique on users(privy_did) where privy_did is not null;
 
+-- SAML SSO subject link (set when a user signs in via an enterprise IdP).
+alter table users add column if not exists saml_name_id text;
+alter table users add column if not exists saml_issuer text;
+-- A SAML subject is unique per (IdP issuer, NameID). Partial unique so the same
+-- NameID from two different IdPs never collides and non-SSO users (null
+-- saml_name_id) are unconstrained.
+create unique index if not exists users_saml_subject_unique
+    on users(saml_issuer, saml_name_id) where saml_name_id is not null;
+
+-- ── saml_request_ids — SAML SSO InResponseTo replay protection ──────────────
+-- The /api/auth/saml/login lambda records each AuthnRequest ID here; the
+-- /api/auth/saml/acs lambda (a separate serverless instance) confirms the IdP's
+-- response echoes one we issued, then deletes it. Lives in Postgres rather than
+-- process memory so it survives across instances. Rows are swept on insert and
+-- removed on successful validation; abandoned logins expire by created_at.
+create table if not exists saml_request_ids (
+    request_id text primary key,
+    value      text not null,
+    created_at timestamptz not null default now()
+);
+create index if not exists saml_request_ids_created on saml_request_ids(created_at);
+
 -- ── user_subdomains — tracks `<label>.threews.sol` SNS claims ───────────────
 -- Populated by /api/threews/subdomain POST; read by /api/threews/* + a few
 -- on-ramp endpoints (u-og, x402/pay-by-name). Without it every /threews/claim
