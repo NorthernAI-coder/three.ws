@@ -82,6 +82,7 @@ class HomeLiveToken {
 		this.seen = new Set();
 		this.pollTimer = null;
 		this.tickTimer = null;
+		this.fetching = false;
 		this.failCount = 0;
 		this.visible = false;
 		this.destroyed = false;
@@ -129,9 +130,16 @@ class HomeLiveToken {
 	// ── Polling ─────────────────────────────────────────────────────────────────
 
 	_poll() {
-		if (this.destroyed || !this.coin) return;
+		// In-flight guard: a visibility toggle (IntersectionObserver crossing the
+		// scroll boundary) re-enters _poll(), which would stack a second fetch on
+		// top of one already running and fork the poll loop. Only ever one fetch
+		// and one pending timer at a time.
+		if (this.destroyed || !this.coin || this.fetching) return;
 		clearTimeout(this.pollTimer);
+		this.pollTimer = null;
+		this.fetching = true;
 		this._fetchTrades().finally(() => {
+			this.fetching = false;
 			if (this.destroyed || !this.visible) return;
 			this.pollTimer = setTimeout(() => this._poll(), POLL_MS);
 		});
