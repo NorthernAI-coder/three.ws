@@ -368,6 +368,25 @@ export class ConnectWalletController extends EventTarget {
 	}
 }
 
+/**
+ * Live connect buttons, tracked so we can dispose controllers whose mount
+ * element has left the DOM. Without this, each SPA navigation that re-mounts
+ * the button on a fresh element leaks two `window.ethereum` listeners, which
+ * eventually trips MetaMask's MaxListenersExceededWarning (warns at 10+).
+ * @type {Set<{ ctrl: ConnectWalletController, mountEl: HTMLElement }>}
+ */
+const _liveButtons = new Set();
+
+/** Dispose controllers whose mount element is no longer in the document. */
+function disposeDetachedButtons() {
+	for (const rec of _liveButtons) {
+		if (!rec.mountEl.isConnected) {
+			rec.ctrl.dispose();
+			_liveButtons.delete(rec);
+		}
+	}
+}
+
 let _pickerStylesInjected = false;
 
 function ensurePickerStyles() {
@@ -492,14 +511,23 @@ const LABEL_DEFAULTS = {
  * @returns {ConnectWalletController}
  */
 export function createConnectWalletButton(mountEl, opts = {}) {
-	// Dispose any previous controller on this mount point (handles HMR remounts).
-	mountEl._cwbCtrl?.dispose();
+	// Dispose any previous controller on this mount point (handles HMR remounts)
+	// and sweep controllers whose mount element has left the DOM (SPA navigations)
+	// so their window.ethereum listeners can't accumulate.
+	if (mountEl._cwbCtrl) {
+		mountEl._cwbCtrl.dispose();
+		for (const rec of _liveButtons) {
+			if (rec.ctrl === mountEl._cwbCtrl) _liveButtons.delete(rec);
+		}
+	}
+	disposeDetachedButtons();
 
 	const labels = { ...LABEL_DEFAULTS, ...(opts.labels || {}) };
 	const allowedChainIds = opts.allowedChainIds || DEFAULT_CHAIN_IDS;
 	const wcProjectId = opts.wcProjectId || import.meta.env?.VITE_WALLETCONNECT_PROJECT_ID || null;
 	const ctrl = new ConnectWalletController({ ...opts, allowedChainIds, wcProjectId });
 	mountEl._cwbCtrl = ctrl;
+	_liveButtons.add({ ctrl, mountEl });
 
 	const btn = document.createElement('button');
 	btn.type = 'button';
