@@ -800,6 +800,22 @@ export const env = {
 	get CZ_AGENT_ID() { return opt('CZ_AGENT_ID', 'cz-preview'); },
 	get CZ_AGENT_NAME() { return opt('CZ_AGENT_NAME', 'CZ Agent'); },
 
+	// ── aixbt intelligence bridge (api/_lib/aixbt.js) ─────────────────────
+	// REST v2 API key for aixbt.tech. Powers /api/aixbt/* and the aixbt agent
+	// skills + MCP tools. Without it the endpoints return a designed
+	// "not configured" 503 (never fake data). Obtain a key with a full
+	// aixbt.tech subscription or by paying for a time-boxed x402 key pass at
+	// POST https://api.aixbt.tech/x402/v2/api-keys/{1d|1w|4w} (USDC on Base).
+	get AIXBT_API_KEY() {
+		return opt('AIXBT_API_KEY', '');
+	},
+	get AIXBT_API_BASE() {
+		return trimSlash(opt('AIXBT_API_BASE', 'https://api.aixbt.tech/v2'));
+	},
+	get AIXBT_ENABLED() {
+		return Boolean(this.AIXBT_API_KEY);
+	},
+
 	getRpcUrl(chainId) {
 		return (
 			opt(`RPC_URL_${chainId}`) ||
