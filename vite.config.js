@@ -1,6 +1,14 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { readFileSync, readdirSync, cpSync, createReadStream, existsSync, statSync, rmSync } from 'fs';
+import {
+	readFileSync,
+	readdirSync,
+	cpSync,
+	createReadStream,
+	existsSync,
+	statSync,
+	rmSync,
+} from 'fs';
 import { extname, basename } from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
@@ -54,10 +62,10 @@ function discoverDashboardNextInputs() {
 const CODESPACE_HMR =
 	process.env.CODESPACE_NAME && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
 		? {
-			host: `${process.env.CODESPACE_NAME}-3000.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`,
-			protocol: 'wss',
-			clientPort: 443,
-		}
+				host: `${process.env.CODESPACE_NAME}-3000.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`,
+				protocol: 'wss',
+				clientPort: 443,
+			}
 		: undefined;
 
 const appConfig = {
@@ -97,23 +105,25 @@ const appConfig = {
 			},
 			...(X402_PAY_DEV_URL
 				? {
-					'/api/x402-pay': {
-						target: X402_PAY_DEV_URL,
-						changeOrigin: true,
-						secure: false,
-						configure: (proxy) => {
-							proxy.on('error', (err, _req, res) => {
-								if (!res || res.headersSent || res.writableEnded) return;
-								res.statusCode = 502;
-								res.setHeader('content-type', 'application/json');
-								res.end(JSON.stringify({
-									error: 'bad_gateway',
-									message: `x402-pay dev helper unreachable at ${X402_PAY_DEV_URL}: ${err.message}`,
-								}));
-							});
+						'/api/x402-pay': {
+							target: X402_PAY_DEV_URL,
+							changeOrigin: true,
+							secure: false,
+							configure: (proxy) => {
+								proxy.on('error', (err, _req, res) => {
+									if (!res || res.headersSent || res.writableEnded) return;
+									res.statusCode = 502;
+									res.setHeader('content-type', 'application/json');
+									res.end(
+										JSON.stringify({
+											error: 'bad_gateway',
+											message: `x402-pay dev helper unreachable at ${X402_PAY_DEV_URL}: ${err.message}`,
+										}),
+									);
+								});
+							},
 						},
-					},
-				}
+					}
 				: {}),
 			'/api': {
 				target: DEV_API_PROXY,
@@ -146,10 +156,12 @@ const appConfig = {
 						}
 						res.statusCode = 502;
 						res.setHeader('content-type', 'application/json');
-						res.end(JSON.stringify({
-							error: 'bad_gateway',
-							message: `api proxy → ${DEV_API_PROXY} failed: ${err.message}`,
-						}));
+						res.end(
+							JSON.stringify({
+								error: 'bad_gateway',
+								message: `api proxy → ${DEV_API_PROXY} failed: ${err.message}`,
+							}),
+						);
 					});
 				},
 			},
@@ -200,29 +212,42 @@ const appConfig = {
 		// large bundles (Three.js, ethers) without affecting the output.
 		reportCompressedSize: false,
 		rollupOptions: {
-			external: ['/studio/launch-panel.js', '/studio/fees-panel.js', './fees-panel.js', '/crypto-optional.js', /^@pump-fun\/agent-payments-sdk(\/.*)?$/],
+			external: [
+				'/studio/launch-panel.js',
+				'/studio/fees-panel.js',
+				'./fees-panel.js',
+				'/crypto-optional.js',
+				/^@pump-fun\/agent-payments-sdk(\/.*)?$/,
+			],
 			output: {
 				manualChunks(id) {
 					if (id.includes('node_modules/three/')) {
-						if (id.includes('three/examples/') || id.includes('three/addons/')) return 'three-addons';
+						if (id.includes('three/examples/') || id.includes('three/addons/'))
+							return 'three-addons';
 						return 'three-core';
 					}
 					if (id.includes('node_modules/ethers/')) return 'ethers';
-					if (id.includes('node_modules/@solana/') || id.includes('node_modules/@coral-xyz/')) return 'solana';
+					if (
+						id.includes('node_modules/@solana/') ||
+						id.includes('node_modules/@coral-xyz/')
+					)
+						return 'solana';
 					if (id.includes('node_modules/@mediapipe/')) return 'mediapipe';
 				},
 				// A few entries need stable, unhashed filenames so plain public/
 				// scripts can load them by a predictable URL without knowing the
 				// build hash: footer.js → /footer-bot.js, nav.js → /walk-companion.js.
 				entryFileNames: (chunk) =>
-					chunk.name === 'footer-bot' || chunk.name === 'walk-companion' || chunk.name === 'notifications'
+					chunk.name === 'footer-bot' ||
+					chunk.name === 'walk-companion' ||
+					chunk.name === 'notifications'
 						? `${chunk.name}.js`
 						: 'assets/[name]-[hash].js',
 			},
 			input: {
 				'footer-bot': resolve(__dirname, 'src/footer-bot.js'),
 				'walk-companion': resolve(__dirname, 'src/walk-companion.js'),
-				'notifications': resolve(__dirname, 'src/notifications.js'),
+				notifications: resolve(__dirname, 'src/notifications.js'),
 				app: resolve(__dirname, 'pages/app.html'),
 				'app-demo': resolve(__dirname, 'pages/app-demo.html'),
 				'app-next': resolve(__dirname, 'pages/app-next.html'),
@@ -248,7 +273,7 @@ const appConfig = {
 				widget: resolve(__dirname, 'pages/widget.html'),
 				launchpad: resolve(__dirname, 'pages/launchpad.html'),
 				start: resolve(__dirname, 'pages/start.html'),
-			create: resolve(__dirname, 'pages/create.html'),
+				create: resolve(__dirname, 'pages/create.html'),
 				'create-agent': resolve(__dirname, 'pages/create-agent.html'),
 				forge: resolve(__dirname, 'pages/forge.html'),
 				segment: resolve(__dirname, 'pages/segment.html'),
@@ -262,18 +287,18 @@ const appConfig = {
 				'import-rpm': resolve(__dirname, 'pages/import-rpm.html'),
 				marketplace: resolve(__dirname, 'pages/marketplace.html'),
 				'agent-edit': resolve(__dirname, 'pages/agent-edit.html'),
-					'avatar-edit': resolve(__dirname, 'pages/avatar-edit.html'),
-					'create-video': resolve(__dirname, 'pages/create/video.html'),
-					'extension-privacy': resolve(__dirname, 'pages/extension-privacy.html'),
-					'extension-terms': resolve(__dirname, 'pages/extension-terms.html'),
-					'embed-walk': resolve(__dirname, 'pages/embed-walk.html'),
+				'avatar-edit': resolve(__dirname, 'pages/avatar-edit.html'),
+				'create-video': resolve(__dirname, 'pages/create/video.html'),
+				'extension-privacy': resolve(__dirname, 'pages/extension-privacy.html'),
+				'extension-terms': resolve(__dirname, 'pages/extension-terms.html'),
+				'embed-walk': resolve(__dirname, 'pages/embed-walk.html'),
 				'agent-embed': resolve(__dirname, 'pages/agent-embed.html'),
 				'agent-detail': resolve(__dirname, 'pages/agent-detail.html'),
 				'avatar-embed': resolve(__dirname, 'pages/avatar-embed.html'),
 				'avatar-wallet-chat': resolve(__dirname, 'pages/avatar-wallet-chat.html'),
-				'agent-exchange':     resolve(__dirname, 'pages/agent-exchange.html'),
+				'agent-exchange': resolve(__dirname, 'pages/agent-exchange.html'),
 				'demo-economy': resolve(__dirname, 'pages/demo-economy.html'),
-				'live': resolve(__dirname, 'pages/live.html'),
+				live: resolve(__dirname, 'pages/live.html'),
 				'agent-economy': resolve(__dirname, 'pages/agent-economy.html'),
 				'overlay-control': resolve(__dirname, 'pages/overlay-control.html'),
 				'mocap-studio': resolve(__dirname, 'pages/mocap-studio.html'),
@@ -286,6 +311,8 @@ const appConfig = {
 				unstoppable: resolve(__dirname, 'pages/unstoppable.html'),
 				shopper: resolve(__dirname, 'pages/shopper.html'),
 				go: resolve(__dirname, 'pages/go.html'),
+				bounties: resolve(__dirname, 'pages/bounties.html'),
+				bounty: resolve(__dirname, 'pages/bounty.html'),
 				'pump-live': resolve(__dirname, 'pages/pump-live.html'),
 				'bulk-launch': resolve(__dirname, 'pages/bulk-launch.html'),
 				'pump-dashboard': resolve(__dirname, 'pages/pump-dashboard.html'),
@@ -303,7 +330,7 @@ const appConfig = {
 				brain: resolve(__dirname, 'pages/brain.html'),
 				voice: resolve(__dirname, 'pages/voice.html'),
 				galaxy: resolve(__dirname, 'pages/galaxy.html'),
-				'ar-page':     resolve(__dirname, 'pages/ar.html'),
+				'ar-page': resolve(__dirname, 'pages/ar.html'),
 				creating: resolve(__dirname, 'pages/creating.html'),
 				pricing: resolve(__dirname, 'pages/pricing.html'),
 				'x-pricing': resolve(__dirname, 'pages/x-pricing.html'),
@@ -360,35 +387,50 @@ const appConfig = {
 				'demos-3d-home': resolve(__dirname, 'public/demos/3d-home.html'),
 				'demos-halfbody-xr': resolve(__dirname, 'public/demos/halfbody-xr.html'),
 				// /demos/agents/* — agent interaction lab.
-				'agents-index':            resolve(__dirname, 'public/demos/agents/index.html'),
-				'agents-cursor-follower':  resolve(__dirname, 'public/demos/agents/cursor-follower.html'),
-				'agents-high-five':        resolve(__dirname, 'public/demos/agents/high-five.html'),
-				'agents-pickup-drop':      resolve(__dirname, 'public/demos/agents/pickup-drop.html'),
-				'agents-fall-from-top':    resolve(__dirname, 'public/demos/agents/fall-from-top.html'),
-				'agents-trampoline':       resolve(__dirname, 'public/demos/agents/trampoline.html'),
-				'agents-wrecking-ball':    resolve(__dirname, 'public/demos/agents/wrecking-ball.html'),
-				'agents-climb-title':      resolve(__dirname, 'public/demos/agents/climb-title.html'),
-				'agents-skateboard':       resolve(__dirname, 'public/demos/agents/skateboard.html'),
-				'agents-sit-in-body':      resolve(__dirname, 'public/demos/agents/sit-in-body.html'),
-				'agents-scroll-inertia':   resolve(__dirname, 'public/demos/agents/scroll-inertia.html'),
-				'agents-walks-gutter':     resolve(__dirname, 'public/demos/agents/walks-gutter.html'),
-				'agents-holds-cta':        resolve(__dirname, 'public/demos/agents/holds-cta.html'),
-				'agents-falls-asleep':     resolve(__dirname, 'public/demos/agents/falls-asleep.html'),
-				'agents-builds-button':    resolve(__dirname, 'public/demos/agents/builds-button.html'),
-				'agents-face-mocap':       resolve(__dirname, 'public/demos/agents/face-mocap.html'),
-				'agents-gemini-live':      resolve(__dirname, 'public/demos/agents/gemini-live.html'),
-				'agents-auto-rig':         resolve(__dirname, 'public/demos/agents/auto-rig.html'),
+				'agents-index': resolve(__dirname, 'public/demos/agents/index.html'),
+				'agents-cursor-follower': resolve(
+					__dirname,
+					'public/demos/agents/cursor-follower.html',
+				),
+				'agents-high-five': resolve(__dirname, 'public/demos/agents/high-five.html'),
+				'agents-pickup-drop': resolve(__dirname, 'public/demos/agents/pickup-drop.html'),
+				'agents-fall-from-top': resolve(
+					__dirname,
+					'public/demos/agents/fall-from-top.html',
+				),
+				'agents-trampoline': resolve(__dirname, 'public/demos/agents/trampoline.html'),
+				'agents-wrecking-ball': resolve(
+					__dirname,
+					'public/demos/agents/wrecking-ball.html',
+				),
+				'agents-climb-title': resolve(__dirname, 'public/demos/agents/climb-title.html'),
+				'agents-skateboard': resolve(__dirname, 'public/demos/agents/skateboard.html'),
+				'agents-sit-in-body': resolve(__dirname, 'public/demos/agents/sit-in-body.html'),
+				'agents-scroll-inertia': resolve(
+					__dirname,
+					'public/demos/agents/scroll-inertia.html',
+				),
+				'agents-walks-gutter': resolve(__dirname, 'public/demos/agents/walks-gutter.html'),
+				'agents-holds-cta': resolve(__dirname, 'public/demos/agents/holds-cta.html'),
+				'agents-falls-asleep': resolve(__dirname, 'public/demos/agents/falls-asleep.html'),
+				'agents-builds-button': resolve(
+					__dirname,
+					'public/demos/agents/builds-button.html',
+				),
+				'agents-face-mocap': resolve(__dirname, 'public/demos/agents/face-mocap.html'),
+				'agents-gemini-live': resolve(__dirname, 'public/demos/agents/gemini-live.html'),
+				'agents-auto-rig': resolve(__dirname, 'public/demos/agents/auto-rig.html'),
 				'aws-marketplace-welcome': resolve(__dirname, 'pages/aws-marketplace/welcome.html'),
-				'aws':                     resolve(__dirname, 'pages/aws/index.html'),
-				'agent-trade':             resolve(__dirname, 'pages/agent-trade.html'),
-				'ibm-galaxy':              resolve(__dirname, 'pages/ibm/galaxy.html'),
-				'ibm-trust-layer':         resolve(__dirname, 'pages/ibm/trust-layer.html'),
-				'ibm-oracle':              resolve(__dirname, 'pages/ibm/oracle.html'),
-				'ibm-vision':              resolve(__dirname, 'pages/ibm/vision.html'),
-				'ibm-proof':               resolve(__dirname, 'pages/ibm/proof.html'),
-				'ibm-twin':                resolve(__dirname, 'pages/ibm/twin.html'),
-				'ibm-identity':            resolve(__dirname, 'pages/ibm/identity.html'),
-				support:                   resolve(__dirname, 'pages/support.html'),
+				aws: resolve(__dirname, 'pages/aws/index.html'),
+				'agent-trade': resolve(__dirname, 'pages/agent-trade.html'),
+				'ibm-galaxy': resolve(__dirname, 'pages/ibm/galaxy.html'),
+				'ibm-trust-layer': resolve(__dirname, 'pages/ibm/trust-layer.html'),
+				'ibm-oracle': resolve(__dirname, 'pages/ibm/oracle.html'),
+				'ibm-vision': resolve(__dirname, 'pages/ibm/vision.html'),
+				'ibm-proof': resolve(__dirname, 'pages/ibm/proof.html'),
+				'ibm-twin': resolve(__dirname, 'pages/ibm/twin.html'),
+				'ibm-identity': resolve(__dirname, 'pages/ibm/identity.html'),
+				support: resolve(__dirname, 'pages/support.html'),
 				// dashboard-next prototype — sub-pages auto-discovered so the parallel
 				// agents that land new pages/dashboard-next/*.html files don't have to
 				// touch this config to register them as Rollup inputs.
@@ -426,7 +468,8 @@ const appConfig = {
 						'a-embed.html',
 						'agent-token-page.html',
 					]);
-					const RE = /<script[^>]*id=["']vite-plugin-pwa:register-sw["'][^>]*><\/script>\s*/g;
+					const RE =
+						/<script[^>]*id=["']vite-plugin-pwa:register-sw["'][^>]*><\/script>\s*/g;
 					const outDir = resolvePath(__dirname, 'dist');
 					const stripped = [];
 					const walk = (dir) => {
@@ -500,25 +543,25 @@ const appConfig = {
 					'/agents': resolve(root, 'public/agents/index.html'),
 					'/agents/': resolve(root, 'public/agents/index.html'),
 					'/start': resolve(root, 'pages/start.html'),
-				'/start/': resolve(root, 'pages/start.html'),
-				'/create': resolve(root, 'pages/create.html'),
+					'/start/': resolve(root, 'pages/start.html'),
+					'/create': resolve(root, 'pages/create.html'),
 					'/create-agent': resolve(root, 'pages/create-agent.html'),
 					'/create/selfie': resolve(root, 'pages/create-selfie.html'),
 					'/create/selfie/': resolve(root, 'pages/create-selfie.html'),
 					'/create/prompt': resolve(root, 'pages/create-prompt.html'),
 					'/create/prompt/': resolve(root, 'pages/create-prompt.html'),
-						'/create/character': resolve(root, 'pages/create-character.html'),
-						'/create/character/': resolve(root, 'pages/create-character.html'),
-						'/create/video': resolve(root, 'pages/create/video.html'),
-						'/create/video/': resolve(root, 'pages/create/video.html'),
-						'/extension/privacy': resolve(root, 'pages/extension-privacy.html'),
-						'/extension/privacy/': resolve(root, 'pages/extension-privacy.html'),
-						'/extension/terms': resolve(root, 'pages/extension-terms.html'),
-						'/extension/terms/': resolve(root, 'pages/extension-terms.html'),
-						'/embed/walk': resolve(root, 'pages/embed-walk.html'),
-						'/embed/walk/': resolve(root, 'pages/embed-walk.html'),
-						'/paywall': resolve(root, 'public/paywall.html'),
-						'/paywall/': resolve(root, 'public/paywall.html'),
+					'/create/character': resolve(root, 'pages/create-character.html'),
+					'/create/character/': resolve(root, 'pages/create-character.html'),
+					'/create/video': resolve(root, 'pages/create/video.html'),
+					'/create/video/': resolve(root, 'pages/create/video.html'),
+					'/extension/privacy': resolve(root, 'pages/extension-privacy.html'),
+					'/extension/privacy/': resolve(root, 'pages/extension-privacy.html'),
+					'/extension/terms': resolve(root, 'pages/extension-terms.html'),
+					'/extension/terms/': resolve(root, 'pages/extension-terms.html'),
+					'/embed/walk': resolve(root, 'pages/embed-walk.html'),
+					'/embed/walk/': resolve(root, 'pages/embed-walk.html'),
+					'/paywall': resolve(root, 'public/paywall.html'),
+					'/paywall/': resolve(root, 'public/paywall.html'),
 					'/scan': resolve(root, 'pages/scan.html'),
 					'/scan/': resolve(root, 'pages/scan.html'),
 					'/worlds': resolve(root, 'pages/worlds.html'),
@@ -586,6 +629,8 @@ const appConfig = {
 					'/glossary/': resolve(root, 'pages/glossary.html'),
 					'/go': resolve(root, 'pages/go.html'),
 					'/go/': resolve(root, 'pages/go.html'),
+					'/bounties': resolve(root, 'pages/bounties.html'),
+					'/bounties/': resolve(root, 'pages/bounties.html'),
 					'/pump-live': resolve(root, 'pages/pump-live.html'),
 					'/pump-live/': resolve(root, 'pages/pump-live.html'),
 					'/pump-dashboard': resolve(root, 'pages/pump-dashboard.html'),
@@ -623,7 +668,10 @@ const appConfig = {
 					'/agenc/room': resolve(root, 'pages/agenc/room.html'),
 					'/agenc/room/': resolve(root, 'pages/agenc/room.html'),
 					'/aws-marketplace/welcome': resolve(root, 'pages/aws-marketplace/welcome.html'),
-					'/aws-marketplace/welcome/': resolve(root, 'pages/aws-marketplace/welcome.html'),
+					'/aws-marketplace/welcome/': resolve(
+						root,
+						'pages/aws-marketplace/welcome.html',
+					),
 					'/aws-marketplace/error': resolve(root, 'pages/aws-marketplace/welcome.html'),
 					'/aws-marketplace/error/': resolve(root, 'pages/aws-marketplace/welcome.html'),
 					'/aws': resolve(root, 'pages/aws/index.html'),
@@ -661,7 +709,7 @@ const appConfig = {
 					'/lipsync/': resolve(root, 'public/demos/lipsync-tts.html'),
 					'/lipsync/mic': resolve(root, 'public/demos/lipsync-mic.html'),
 					'/lipsync/mic/': resolve(root, 'public/demos/lipsync-mic.html'),
-'/launch-week': resolve(root, 'pages/three-ws-launch-week.html'),
+					'/launch-week': resolve(root, 'pages/three-ws-launch-week.html'),
 					'/launch-week/': resolve(root, 'pages/three-ws-launch-week.html'),
 					'/launchpad': resolve(root, 'pages/launchpad.html'),
 					'/launchpad/': resolve(root, 'pages/launchpad.html'),
@@ -726,7 +774,11 @@ const appConfig = {
 					const url = req.url || '/';
 					// Don't intercept Vite's internal html-proxy / module requests —
 					// it needs to serve the inline-script content for our HTML.
-					if (url.includes('html-proxy') || url.includes('@id/') || url.includes('@vite/'))
+					if (
+						url.includes('html-proxy') ||
+						url.includes('@id/') ||
+						url.includes('@vite/')
+					)
 						return next();
 					const path = url.split('?')[0];
 					// /api/* is handled by the http proxy in server.proxy above —
@@ -812,19 +864,28 @@ const appConfig = {
 					}
 					// /demos/<slug> or /demos/<slug>.html → resolves to public/demos/<slug>.html on disk
 					else if (!filePath && /^\/demos\/[a-z0-9-]+(\.html)?\/?$/.test(path)) {
-						const slug = path.replace(/^\/demos\//, '').replace(/\.html$/, '').replace(/\/$/, '');
+						const slug = path
+							.replace(/^\/demos\//, '')
+							.replace(/\.html$/, '')
+							.replace(/\/$/, '');
 						filePath = resolve(root, `public/demos/${slug}.html`);
 					}
 					// /demos/agents/<slug>(.html)? → public/demos/agents/<slug>.html.
 					// Goes through transformIndexHtml so the inline `'three'` imports
 					// inside each demo's <script type="module"> get bundled.
 					else if (!filePath && /^\/demos\/agents\/[a-z0-9-]+(\.html)?\/?$/.test(path)) {
-						const slug = path.replace(/^\/demos\/agents\//, '').replace(/\.html$/, '').replace(/\/$/, '');
+						const slug = path
+							.replace(/^\/demos\/agents\//, '')
+							.replace(/\.html$/, '')
+							.replace(/\/$/, '');
 						filePath = resolve(root, `public/demos/agents/${slug}.html`);
 					}
 					// /demo/coin/<base58 mint> → demo/coin index hydrates from the
 					// mint address in the URL path. Mirrors vercel.json.
-					else if (!filePath && /^\/demo\/coin\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path)) {
+					else if (
+						!filePath &&
+						/^\/demo\/coin\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path)
+					) {
 						filePath = resolve(root, 'public/demo/coin/index.html');
 					}
 					// /tutorials/<slug>  → dedicated tutorial viewer template
@@ -841,9 +902,14 @@ const appConfig = {
 						filePath = resolve(root, 'pages/marketplace.html');
 					else if (!filePath && /^\/marketplace\/avatars\/[^/]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/marketplace.html');
-					else if (!filePath && /^\/marketplace\/(tools|skills|animations|onchain)\/[^/]+\/?$/.test(path))
+					else if (
+						!filePath &&
+						/^\/marketplace\/(tools|skills|animations|onchain)\/[^/]+\/?$/.test(path)
+					)
 						filePath = resolve(root, 'pages/marketplace.html');
 					// /agents/:id  → rich detail page (UUID expected, validated client-side)
+					else if (!filePath && /^\/bounty\/[^/]+\/?$/.test(path))
+						filePath = resolve(root, 'pages/bounty.html');
 					else if (!filePath && /^\/agents\/[^/]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/agent-detail.html');
 					else if (!filePath && /^\/agent\/[^/]+\/edit$/.test(path))
@@ -876,7 +942,10 @@ const appConfig = {
 					else if (!filePath && /^\/town\/?$/.test(path))
 						filePath = resolve(root, 'pages/communities.html');
 					// /communities/:mint  → coin profile deep link
-					else if (!filePath && /^\/communities\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path))
+					else if (
+						!filePath &&
+						/^\/communities\/[1-9A-HJ-NP-Za-km-z]{32,44}\/?$/.test(path)
+					)
 						filePath = resolve(root, 'pages/communities.html');
 					// /@<handle>  → public live profile page
 					else if (!filePath && /^\/@[a-z0-9_-]{3,30}\/?$/i.test(path))
@@ -923,28 +992,31 @@ const appConfig = {
 					// Catches the long tail of bundled root-level pages (community,
 					// playground, embed, profile, …) without bloating fileMap.
 					else if (!filePath && /^\/[a-z0-9][a-z0-9-]*(\.html)?\/?$/.test(path)) {
-						const slug = path.replace(/^\//, '').replace(/\.html$/, '').replace(/\/$/, '');
+						const slug = path
+							.replace(/^\//, '')
+							.replace(/\.html$/, '')
+							.replace(/\/$/, '');
 						const candidate = resolve(root, `pages/${slug}.html`);
 						if (existsSync(candidate)) filePath = candidate;
 					}
 					// /footer-bot.js — serve the Vite-processed src/footer-bot.js at a
-				// stable URL in dev so footer.js can load it without knowing the hash.
-				if (path === '/footer-bot.js') {
-					req.url = '/src/footer-bot.js';
-					return next();
-				}
-				// /walk-companion.js — same trick for nav.js's Walk Companion module
-				// (built to a stable, unhashed name in prod; served from src in dev).
-				if (path === '/walk-companion.js') {
-					req.url = '/src/walk-companion.js';
-					return next();
-				}
-				// /notifications.js — nav.js loads this module for the per-user inbox.
-				if (path === '/notifications.js') {
-					req.url = '/src/notifications.js';
-					return next();
-				}
-				// Avatar Studio (rebranded Character Studio fork) — serve the
+					// stable URL in dev so footer.js can load it without knowing the hash.
+					if (path === '/footer-bot.js') {
+						req.url = '/src/footer-bot.js';
+						return next();
+					}
+					// /walk-companion.js — same trick for nav.js's Walk Companion module
+					// (built to a stable, unhashed name in prod; served from src in dev).
+					if (path === '/walk-companion.js') {
+						req.url = '/src/walk-companion.js';
+						return next();
+					}
+					// /notifications.js — nav.js loads this module for the per-user inbox.
+					if (path === '/notifications.js') {
+						req.url = '/src/notifications.js';
+						return next();
+					}
+					// Avatar Studio (rebranded Character Studio fork) — serve the
 					// production build out of character-studio/build/ at /avatar-studio/*
 					// so the demo iframe works in dev. Run `npm run build --prefix
 					// character-studio` first to populate the build dir.
@@ -955,11 +1027,36 @@ const appConfig = {
 							return createReadStream(indexPath).pipe(res);
 						}
 						res.statusCode = 503;
-						return res.end('Avatar Studio build missing — run `npm run build --prefix character-studio`');
+						return res.end(
+							'Avatar Studio build missing — run `npm run build --prefix character-studio`',
+						);
 					}
 					if (path.startsWith('/avatar-studio/')) {
 						const ext = path.split('.').pop().toLowerCase();
-						const mimes = { js: 'application/javascript', map: 'application/json', css: 'text/css', json: 'application/json', html: 'text/html', ogg: 'audio/ogg', mp3: 'audio/mpeg', wav: 'audio/wav', glb: 'model/gltf-binary', gltf: 'model/gltf+json', vrm: 'application/octet-stream', obj: 'text/plain', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon', woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', wasm: 'application/wasm' };
+						const mimes = {
+							js: 'application/javascript',
+							map: 'application/json',
+							css: 'text/css',
+							json: 'application/json',
+							html: 'text/html',
+							ogg: 'audio/ogg',
+							mp3: 'audio/mpeg',
+							wav: 'audio/wav',
+							glb: 'model/gltf-binary',
+							gltf: 'model/gltf+json',
+							vrm: 'application/octet-stream',
+							obj: 'text/plain',
+							png: 'image/png',
+							jpg: 'image/jpeg',
+							jpeg: 'image/jpeg',
+							svg: 'image/svg+xml',
+							ico: 'image/x-icon',
+							woff2: 'font/woff2',
+							woff: 'font/woff',
+							ttf: 'font/ttf',
+							otf: 'font/otf',
+							wasm: 'application/wasm',
+						};
 						const rel = path.slice('/avatar-studio/'.length);
 						const fileDisk = resolve(root, 'character-studio/build', rel);
 						if (existsSync(fileDisk) && statSync(fileDisk).isFile()) {
@@ -992,10 +1089,16 @@ const appConfig = {
 				order: 'pre',
 				handler(_html, ctx) {
 					const EMBED_FILES = new Set([
-						'widget.html', 'embed.html', 'avatar-embed.html',
-						'agent-embed.html', 'a-embed.html',
+						'widget.html',
+						'embed.html',
+						'avatar-embed.html',
+						'agent-embed.html',
+						'a-embed.html',
 					]);
-					const filename = (ctx.filename || ctx.path || '').replace(/\\/g, '/').split('/').pop();
+					const filename = (ctx.filename || ctx.path || '')
+						.replace(/\\/g, '/')
+						.split('/')
+						.pop();
 					if (EMBED_FILES.has(filename)) return [];
 					const SNIPPET = `!function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",p.onerror=function(){window.__posthog_blocked=!0},(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias set_config reset opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_distinct_id get_session_id get_session_replay_url register register_once unregister on onFeatureFlags reloadFeatureFlags getFeatureFlag getFeatureFlagPayload isFeatureEnabled addExceptionStep captureException".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init('phc_kvi8nrXqrNkLNy2NhaiwkbGyj77XpSJo54P5k2ZHYo9n',{api_host:'/ingest',ui_host:'https://us.posthog.com',defaults:'2026-01-30',person_profiles:'identified_only'})`;
 					return [{ tag: 'script', children: SNIPPET, injectTo: 'head' }];
@@ -1019,15 +1122,22 @@ const appConfig = {
 				order: 'pre',
 				handler(_html, ctx) {
 					const EMBED_FILES = new Set([
-						'widget.html', 'embed.html', 'avatar-embed.html',
-						'agent-embed.html', 'a-embed.html',
+						'widget.html',
+						'embed.html',
+						'avatar-embed.html',
+						'agent-embed.html',
+						'a-embed.html',
 					]);
-					const filename = (ctx.filename || ctx.path || '').replace(/\\/g, '/').split('/').pop();
+					const filename = (ctx.filename || ctx.path || '')
+						.replace(/\\/g, '/')
+						.split('/')
+						.pop();
 					if (EMBED_FILES.has(filename)) return [];
 					return [
 						{
 							tag: 'script',
-							children: 'window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};',
+							children:
+								'window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};',
 							injectTo: 'head',
 						},
 						{
@@ -1048,17 +1158,25 @@ const appConfig = {
 				order: 'pre',
 				handler(_html, ctx) {
 					const EMBED_FILES = new Set([
-						'widget.html', 'embed.html', 'avatar-embed.html',
-						'agent-embed.html', 'a-embed.html',
+						'widget.html',
+						'embed.html',
+						'avatar-embed.html',
+						'agent-embed.html',
+						'a-embed.html',
 					]);
-					const filename = (ctx.filename || ctx.path || '').replace(/\\/g, '/').split('/').pop();
+					const filename = (ctx.filename || ctx.path || '')
+						.replace(/\\/g, '/')
+						.split('/')
+						.pop();
 					if (EMBED_FILES.has(filename)) return [];
-					return [{
-						tag: 'script',
-						attrs: { type: 'module' },
-						children: `import('/src/view-transitions.js').then(m=>m.enableViewTransitions()).catch(()=>{});`,
-						injectTo: 'head',
-					}];
+					return [
+						{
+							tag: 'script',
+							attrs: { type: 'module' },
+							children: `import('/src/view-transitions.js').then(m=>m.enableViewTransitions()).catch(()=>{});`,
+							injectTo: 'head',
+						},
+					];
 				},
 			},
 		},
@@ -1069,7 +1187,13 @@ const appConfig = {
 			transformIndexHtml: {
 				order: 'pre',
 				handler() {
-					return [{ tag: 'meta', attrs: { name: 'has-three-bundle', content: 'true' }, injectTo: 'head' }];
+					return [
+						{
+							tag: 'meta',
+							attrs: { name: 'has-three-bundle', content: 'true' },
+							injectTo: 'head',
+						},
+					];
 				},
 			},
 		},
@@ -1081,7 +1205,8 @@ const appConfig = {
 			// getter always returns undefined and whose setter is a no-op — every
 			// three.js instance's check then passes silently. Runs in head-prepend
 			// so it executes before model-viewer's bundled three or our app bundle.
-			const GUARD = 'try{Object.defineProperty(window,"__THREE__",{configurable:true,get:function(){return undefined},set:function(){}})}catch(_){}';
+			const GUARD =
+				'try{Object.defineProperty(window,"__THREE__",{configurable:true,get:function(){return undefined},set:function(){}})}catch(_){}';
 			return {
 				name: 'three-multi-instance-guard',
 				transformIndexHtml: {
@@ -1102,24 +1227,33 @@ const appConfig = {
 					sequential: true,
 					order: 'post',
 					async handler() {
-						const { readdirSync, statSync, readFileSync, writeFileSync } = await import('fs');
+						const { readdirSync, statSync, readFileSync, writeFileSync } =
+							await import('fs');
 						const { join } = await import('path');
 						const distDir = resolve(__dirname, 'dist');
 						if (!existsSync(distDir)) return;
 						const MARKER = 'Object.defineProperty(window,"__THREE__"';
-						const LEGACY = /<script>\s*window\.__THREE__\s*=\s*window\.__THREE__\s*\|\|\s*["'][^"']+["']\s*;?\s*<\/script>\s*/g;
+						const LEGACY =
+							/<script>\s*window\.__THREE__\s*=\s*window\.__THREE__\s*\|\|\s*["'][^"']+["']\s*;?\s*<\/script>\s*/g;
 						const tag = `<script>${GUARD}</script>`;
 						const walk = (dir) => {
 							for (const entry of readdirSync(dir)) {
 								const full = join(dir, entry);
 								let stat;
-								try { stat = statSync(full); } catch { continue; }
+								try {
+									stat = statSync(full);
+								} catch {
+									continue;
+								}
 								if (stat.isDirectory()) walk(full);
 								else if (entry.endsWith('.html')) {
 									const html = readFileSync(full, 'utf8');
 									let next = html.replace(LEGACY, '');
 									if (!next.includes(MARKER)) {
-										next = next.replace(/<head(\s[^>]*)?>/i, (m) => `${m}\n\t\t${tag}`);
+										next = next.replace(
+											/<head(\s[^>]*)?>/i,
+											(m) => `${m}\n\t\t${tag}`,
+										);
 									}
 									if (next !== html) writeFileSync(full, next);
 								}
@@ -1157,9 +1291,13 @@ const appConfig = {
 				cpSync(resolve(__dirname, 'src'), resolve(__dirname, 'dist/src'), {
 					recursive: true,
 				});
-				cpSync(resolve(__dirname, 'pump-fun-skills'), resolve(__dirname, 'dist/pump-fun-skills'), {
-					recursive: true,
-				});
+				cpSync(
+					resolve(__dirname, 'pump-fun-skills'),
+					resolve(__dirname, 'dist/pump-fun-skills'),
+					{
+						recursive: true,
+					},
+				);
 			},
 		},
 		{
@@ -1172,7 +1310,9 @@ const appConfig = {
 			closeBundle() {
 				const src = resolve(__dirname, 'character-studio/build');
 				if (!existsSync(src)) {
-					console.warn('[copy-avatar-studio] character-studio/build/ missing — run `npm run build --prefix character-studio` first');
+					console.warn(
+						'[copy-avatar-studio] character-studio/build/ missing — run `npm run build --prefix character-studio` first',
+					);
 					return;
 				}
 				cpSync(src, resolve(__dirname, 'dist/avatar-studio'), { recursive: true });
@@ -1198,7 +1338,10 @@ const appConfig = {
 						const text = await resp.text();
 						const rewritten = text.replace(R2_PUBLIC_RE, '/r2-proxy/');
 						res.statusCode = resp.status;
-						res.setHeader('content-type', resp.headers.get('content-type') || 'application/json');
+						res.setHeader(
+							'content-type',
+							resp.headers.get('content-type') || 'application/json',
+						);
 						res.end(rewritten);
 					} catch (err) {
 						next();
@@ -1219,14 +1362,14 @@ const appConfig = {
 					const m = url.match(/^\/api\/widgets\/(wdgt_demo_[A-Za-z0-9_-]+)(?:[?#]|$)/);
 					if (!m) return next();
 					try {
-						const mod = await server.ssrLoadModule(
-							'/api/widgets/_demo-fixtures.js',
-						);
+						const mod = await server.ssrLoadModule('/api/widgets/_demo-fixtures.js');
 						const widget = mod.getDemoWidget(m[1]);
 						if (!widget) {
 							res.statusCode = 404;
 							res.setHeader('content-type', 'application/json');
-							res.end(JSON.stringify({ error: 'not_found', message: 'widget not found' }));
+							res.end(
+								JSON.stringify({ error: 'not_found', message: 'widget not found' }),
+							);
 							return;
 						}
 						res.statusCode = 200;
@@ -1236,7 +1379,9 @@ const appConfig = {
 					} catch (err) {
 						res.statusCode = 500;
 						res.setHeader('content-type', 'application/json');
-						res.end(JSON.stringify({ error: 'fixture_load_failed', message: err.message }));
+						res.end(
+							JSON.stringify({ error: 'fixture_load_failed', message: err.message }),
+						);
 					}
 				});
 			},
@@ -1363,7 +1508,12 @@ const appConfig = {
 				icons: [
 					{ src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
 					{ src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-					{ src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+					{
+						src: 'pwa-512x512.png',
+						sizes: '512x512',
+						type: 'image/png',
+						purpose: 'maskable',
+					},
 				],
 				shortcuts: [
 					{
@@ -1463,7 +1613,8 @@ const appConfig = {
 						handler: 'NetworkOnly',
 					},
 					{
-						urlPattern: /^https?:\/\/[^/]+\/(embed|a-embed|agent-embed|avatar-embed)(\/.*|\?.*|#.*|$)/i,
+						urlPattern:
+							/^https?:\/\/[^/]+\/(embed|a-embed|agent-embed|avatar-embed)(\/.*|\?.*|#.*|$)/i,
 						handler: 'NetworkOnly',
 					},
 					{
