@@ -20,7 +20,7 @@ avatar customization, and living NPCs — wallet-native to `$THREE`.
 |-------|---------|------------|
 | [W01](W01-open-world-foundation.md) | Open-world foundation (drivable, physics, day/night) | — |
 | [W02](W02-vehicles-and-driving.md) | Vehicles & driving (Rapier raycast vehicle, networked) | W01 |
-| [W03](W03-character-avatar-customization.md) | Character & avatar customization (RPM + selfie→3D + wardrobe) | — |
+| [W03](W03-character-avatar-customization.md) | Character & avatar customization (avatar creator + selfie→3D + wardrobe) | — |
 | [W04](W04-economy-and-money.md) | Economy & money (cash, bank/ATM, vendors, `$THREE` bridge) | — |
 | [W05](W05-jobs-missions-heists.md) | Jobs, missions & heists (data-driven quest engine) | W04 |
 | [W06](W06-activities-and-minigames.md) | Activities & minigames (gather/craft loop, races, arcade) | W04 (W02 for races) |

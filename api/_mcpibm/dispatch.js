@@ -9,6 +9,7 @@ export { PROTOCOL_VERSION };
 
 const INSTRUCTIONS = [
 	'x402 pay-per-use IBM Granite AI from three.ws — each tool lists its USDC price; pay per call on Base or Solana, no IBM Cloud account required.',
+	'New here? Call ibm_granite_getting_started — FREE, no payment or account — for an overview, prices, and the payment flow.',
 	'ibm_granite_chat(messages) — conversational AI ($0.02).',
 	'ibm_granite_code(task, prompt) — generate/review/refactor/explain/test/document code ($0.025).',
 	'ibm_granite_embed(inputs) — batch multilingual embeddings for RAG/search ($0.005).',

@@ -32,6 +32,21 @@ if (typeof URL.createObjectURL !== 'function' || URL.createObjectURL.toString().
 	URL.revokeObjectURL = (id) => { _objectUrlMap.delete(id); };
 }
 
+// jsdom's Blob lacks the standard async `arrayBuffer()` method that the SUT
+// (and the test's own blobBytes helper) rely on. Polyfill it via FileReader,
+// which jsdom does implement. Browser/runtime Blobs already have it, so this
+// only fills the jsdom gap — the source stays untouched per the contract above.
+if (typeof Blob !== 'undefined' && typeof Blob.prototype.arrayBuffer !== 'function') {
+	Blob.prototype.arrayBuffer = function () {
+		return new Promise((resolve, reject) => {
+			const fr = new FileReader();
+			fr.onload = () => resolve(fr.result);
+			fr.onerror = () => reject(fr.error);
+			fr.readAsArrayBuffer(this);
+		});
+	};
+}
+
 // jsdom's HTMLImageElement does not actually load `blob:` URLs — onload
 // never fires, which deadlocks GLTFLoader's TextureLoader (which awaits
 // an Image() per texture). Patch the src setter so it fires onload on

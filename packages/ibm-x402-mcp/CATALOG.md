@@ -32,7 +32,9 @@ Source of truth for the published listing — keep in sync with `server.json`, `
 
 three.ws x402 MCP turns IBM Granite foundation models into pay-per-use tools any AI agent or MCP client (Claude Desktop, Claude Code, Cursor, watsonx Orchestrate) can call. Every call is settled in USDC on Solana via the open x402 payment protocol — end users need no IBM Cloud account and no subscription. The server operator supplies IBM watsonx.ai credentials and a receiving wallet; callers pay only for what they use. When a tool is called without payment, the server returns an x402 PaymentRequired envelope quoting the exact USDC price; x402-capable clients pay and retry automatically.
 
-Five tools, each independently priced:
+Six tools — one free entry point plus five independently-priced inference tools:
+
+0. **ibm_granite_getting_started — Free, no payment or account.** Start here. Returns a machine-readable overview of the server: every tool with its per-call USDC price, the step-by-step x402 payment flow, setup requirements, and runnable example calls. Optional `section` parameter (overview, pricing, payment, tools, setup) focuses the response. Lets any client — including non-x402 hosts like watsonx Orchestrate — discover the server before paying.
 
 1. **ibm_granite_chat — Conversational AI ($0.02/call).** General-purpose chat completion powered by IBM Granite 3 8B Instruct. Send a conversation as an ordered array of role/content messages (system, user, assistant) and receive the assistant reply plus token usage. Parameters: messages (1–50), optional model override, max_new_tokens (1–4096, default 1024), temperature (0–2, default 0.7). Use for Q&A, drafting, reasoning, and instruction following.
 

@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EmbedHostBridge } from '../src/embed-host-bridge.js';
 import { EmbedActionBridge } from '../src/embed-action-bridge.js';
+import { log } from '../src/shared/log.js';
 
 // ── Tiny fakes ──────────────────────────────────────────────────────────────
 
@@ -204,7 +205,7 @@ describe('EmbedActionBridge — origin lockdown (iframe side)', () => {
 		const win = makeFakeWindow();
 		win.document.referrer = ''; // no seed
 		win.parent = win; // simulate top-level (not actually iframed)
-		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
 		// Restore parent to a proper poster but keep referrer empty for the seed.
 		win.parent = {
 			postMessage(data, targetOrigin) { win._postedToParent.push({ data, targetOrigin }); },

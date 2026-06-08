@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { log } from '../src/shared/log.js';
 
 // localStorage shim — the file-based Memory persists synchronously to
 // localStorage for `local` mode, so the Node test env needs a stand-in.
@@ -135,7 +136,7 @@ describe('Memory.load — remote', () => {
 
 describe('Memory.load — unknown mode fallback', () => {
 	it('warns once and returns a usable local-mode memory', async () => {
-		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const warn = vi.spyOn(log, 'warn').mockImplementation(() => {});
 		const mem = await Memory.load({ mode: 'who-knows', namespace: 'agent-uuid' });
 		expect(mem.mode).toBe('local');
 		expect(warn).toHaveBeenCalledOnce();

@@ -165,13 +165,19 @@ function friendlyJobError(raw) {
 }
 
 function mapSubmitError(status, data) {
-	const code = data?.error?.code || data?.code;
+	// The API error envelope is { error: <code string>, error_description: <message> }
+	// (see api/_lib/http.js error()). Read those fields directly — older code that
+	// reached for data.error.code / data.message never matched and collapsed every
+	// failure into the generic fallback, hiding the real reason from the user.
+	const code = typeof data?.error === 'string' ? data.error : data?.code;
+	const description = data?.error_description;
 	if (status === 429) return 'You\'re generating too fast — wait a moment and try again.';
 	if (code === 'regen_unconfigured' || code === 'txt2img_unconfigured') {
 		return 'The avatar generator isn\'t configured on this deployment yet. Try the <a href="/scan">selfie scanner</a> instead.';
 	}
 	if (code === 'txt2img_error') return 'Couldn\'t render a reference image from that prompt. Try rewording it.';
-	return data?.error?.message || data?.message || `The avatar engine returned ${status}. Try again.`;
+	if (code === 'regen_provider_error') return 'The avatar engine rejected this job. Try again in a moment.';
+	return description || `The avatar engine returned ${status}. Try again.`;
 }
 
 async function pollUntilDone(jobId) {
@@ -188,7 +194,7 @@ async function pollUntilDone(jobId) {
 				throw new ApiError('redirecting');
 			}
 			data = await res.json().catch(() => ({}));
-			if (!res.ok) throw new ApiError(data?.error?.message || `status ${res.status}`);
+			if (!res.ok) throw new ApiError(data?.error_description || `status ${res.status}`);
 		} catch (err) {
 			if (err instanceof ApiError) throw err;
 			// Transient network blip — keep polling until the deadline.

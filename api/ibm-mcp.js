@@ -3,8 +3,10 @@
 //
 // The hosted (remote) transport for the @three-ws/ibm-x402-mcp tool suite: five
 // IBM Granite tools (chat, code, embed, analyze, forecast) gated by per-call
-// x402 payments. End users pay USDC on Base or Solana per call — no IBM Cloud
-// account required; the operator funds watsonx.ai via WATSONX_* env vars.
+// x402 payments, plus a free ibm_granite_getting_started tool served without any
+// payment or token so any client can discover the server first. End users pay
+// USDC on Base or Solana per paid call — no IBM Cloud account required; the
+// operator funds watsonx.ai via WATSONX_* env vars.
 // Authenticated three.ws principals (Bearer / OAuth) call without per-call
 // payment — the operator-funded path for watsonx Orchestrate connections.
 // Registered with the MCP Registry as io.github.nirholas/ibm-x402-mcp-remote
@@ -14,6 +16,7 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { PROTOCOL_VERSION, dispatch } from './_mcpibm/dispatch.js';
 import { graniteX402Amount } from './_mcpibm/pricing.js';
+import { isFreeTool } from './_mcpibm/catalog.js';
 import { GRANITE_CHALLENGE } from './_mcpibm/discovery.js';
 import {
 	send401,
@@ -57,6 +60,27 @@ export default wrap(async (req, res) => {
 	// discovery path never actually charges.
 	const { toolName } = peekCalledTool(body);
 	const x402Amount = toolName ? graniteX402Amount(toolName) : null;
+
+	// Free, public entry point: a single tools/call to a registered free tool
+	// (ibm_granite_getting_started) skips the x402/OAuth gate so any client —
+	// including non-x402 hosts like watsonx Orchestrate — can discover the server
+	// before paying. IP rate-limited like every other path so it can't be abused.
+	if (toolName && isFreeTool(toolName)) {
+		const ipRl = await limits.mcpIp(clientIp(req));
+		if (!ipRl.success)
+			return sendJsonRpcError(res, null, -32000, 'rate_limited', {
+				retry_after: Math.ceil((ipRl.reset - Date.now()) / 1000),
+			});
+
+		const auth = { userId: null, rateKey: `free:${clientIp(req)}`, scope: '', source: 'free' };
+		const r = await dispatch(Array.isArray(body) ? body[0] : body, auth, req);
+
+		res.statusCode = 200;
+		res.setHeader('content-type', 'application/json; charset=utf-8');
+		res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
+		res.end(JSON.stringify(Array.isArray(body) ? [r].filter((x) => x !== null) : (r ?? null)));
+		return;
+	}
 
 	const result = await authenticateRequest(req, res, {
 		x402Amount,

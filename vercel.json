@@ -70,7 +70,7 @@
 	},
 	"routes": [
 		{
-			"src": "/(login|register|forgot-password|reset-password|account|settings|wallet|pay|paywall|vanity-wallet|eth-vanity|dashboard|dashboard-next|dashboard-classic)(/.*)?$",
+			"src": "/(login|register|forgot-password|reset-password|account|settings|wallet|pay|paywall|vanity-wallet|eth-vanity|evm-wallet|dashboard|dashboard-next|dashboard-classic)(/.*)?$",
 			"headers": {
 				"content-security-policy": "frame-ancestors 'self'",
 				"x-frame-options": "SAMEORIGIN"
@@ -199,13 +199,11 @@
 		},
 		{
 			"src": "/ibm",
-			"status": 308,
-			"headers": { "Location": "/ibm/galaxy" }
+			"dest": "/ibm/index.html"
 		},
 		{
 			"src": "/ibm/",
-			"status": 308,
-			"headers": { "Location": "/ibm/galaxy" }
+			"dest": "/ibm/index.html"
 		},
 		{
 			"src": "/support",
@@ -434,6 +432,14 @@
 		{
 			"src": "/eth-vanity/",
 			"dest": "/eth-vanity.html"
+		},
+		{
+			"src": "/evm-wallet",
+			"dest": "/evm-wallet.html"
+		},
+		{
+			"src": "/evm-wallet/",
+			"dest": "/evm-wallet.html"
 		},
 		{
 			"src": "/strategy-lab",
