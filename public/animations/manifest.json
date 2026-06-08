@@ -488,5 +488,138 @@
 		"label": "Downward Dog",
 		"icon": "🧘",
 		"loop": true
+	},
+	{
+		"name": "digging",
+		"url": "/animations/clips/digging.json",
+		"label": "Digging",
+		"icon": "⛏️",
+		"loop": true
+	},
+	{
+		"name": "farm-box-idle",
+		"url": "/animations/clips/farm-box-idle.json",
+		"label": "Box Idle",
+		"icon": "📦",
+		"loop": true
+	},
+	{
+		"name": "farm-box-walk",
+		"url": "/animations/clips/farm-box-walk.json",
+		"label": "Box Walk",
+		"icon": "📦",
+		"loop": true
+	},
+	{
+		"name": "farm-box-turn",
+		"url": "/animations/clips/farm-box-turn.json",
+		"label": "Box Turn",
+		"icon": "📦",
+		"loop": false
+	},
+	{
+		"name": "farm-kneeling-idle",
+		"url": "/animations/clips/farm-kneeling-idle.json",
+		"label": "Kneeling Idle",
+		"icon": "🧎",
+		"loop": true
+	},
+	{
+		"name": "farm-dig-plant",
+		"url": "/animations/clips/farm-dig-plant.json",
+		"label": "Dig & Plant Seeds",
+		"icon": "🌱",
+		"loop": false
+	},
+	{
+		"name": "farm-pull-plant",
+		"url": "/animations/clips/farm-pull-plant.json",
+		"label": "Pull Plant",
+		"icon": "🌿",
+		"loop": false
+	},
+	{
+		"name": "farm-plant-tree",
+		"url": "/animations/clips/farm-plant-tree.json",
+		"label": "Plant Tree",
+		"icon": "🌳",
+		"loop": false
+	},
+	{
+		"name": "farm-plant-a-plant",
+		"url": "/animations/clips/farm-plant-a-plant.json",
+		"label": "Plant a Plant",
+		"icon": "🪴",
+		"loop": false
+	},
+	{
+		"name": "farm-holding-walk",
+		"url": "/animations/clips/farm-holding-walk.json",
+		"label": "Holding Walk",
+		"icon": "🤲",
+		"loop": true
+	},
+	{
+		"name": "farm-holding-turn-left",
+		"url": "/animations/clips/farm-holding-turn-left.json",
+		"label": "Holding Turn Left",
+		"icon": "↩️",
+		"loop": false
+	},
+	{
+		"name": "farm-holding-turn-right",
+		"url": "/animations/clips/farm-holding-turn-right.json",
+		"label": "Holding Turn Right",
+		"icon": "↪️",
+		"loop": false
+	},
+	{
+		"name": "farm-watering",
+		"url": "/animations/clips/farm-watering.json",
+		"label": "Watering",
+		"icon": "💧",
+		"loop": false
+	},
+	{
+		"name": "farm-pick-fruit",
+		"url": "/animations/clips/farm-pick-fruit.json",
+		"label": "Pick Fruit",
+		"icon": "🍎",
+		"loop": false
+	},
+	{
+		"name": "farm-cow-milking",
+		"url": "/animations/clips/farm-cow-milking.json",
+		"label": "Cow Milking",
+		"icon": "🐄",
+		"loop": false
+	},
+	{
+		"name": "farm-wheelbarrow-idle",
+		"url": "/animations/clips/farm-wheelbarrow-idle.json",
+		"label": "Wheelbarrow Idle",
+		"icon": "🛒",
+		"loop": true
+	},
+	{
+		"name": "farm-wheelbarrow-walk",
+		"url": "/animations/clips/farm-wheelbarrow-walk.json",
+		"label": "Wheelbarrow Walk",
+		"icon": "🛒",
+		"loop": true
+	},
+	{
+		"name": "farm-wheelbarrow-turn",
+		"url": "/animations/clips/farm-wheelbarrow-turn.json",
+		"label": "Wheelbarrow Turn",
+		"icon": "🛒",
+		"loop": false
+	},
+	{
+		"name": "farm-wheelbarrow-dump",
+		"url": "/animations/clips/farm-wheelbarrow-dump.json",
+		"label": "Wheelbarrow Dump",
+		"icon": "🛒",
+		"loop": false
 	}
 ]
