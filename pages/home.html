@@ -392,6 +392,38 @@
 		}
 		.logo-row .logo:hover { opacity: 1; }
 
+		/* ── PARTNER / PRESS STRIP ───────────────────────────────── */
+		.press-strip { padding: 38px 0 42px; }
+		.press-strip-cap {
+			font-family: var(--font-mono); font-size: 10.5px;
+			letter-spacing: 0.2em; text-transform: uppercase;
+			color: var(--text-4); text-align: center; margin-bottom: 24px;
+		}
+		.press-row {
+			display: flex; flex-wrap: wrap; justify-content: center;
+			gap: 18px 38px; align-items: center; max-width: 1000px; margin: 0 auto;
+		}
+		.press-logo {
+			display: inline-flex; align-items: center; gap: 9px;
+			color: var(--text-3); text-decoration: none; opacity: 0.7;
+			font-family: var(--font-display); font-size: 15px; font-weight: 500;
+			letter-spacing: -0.02em;
+			transition: opacity 0.15s, color 0.15s;
+		}
+		.press-logo:hover, .press-logo:focus-visible { opacity: 1; color: var(--text); }
+		.press-logo:focus-visible {
+			outline: 1px solid var(--hairline-strong); outline-offset: 4px; border-radius: 4px;
+		}
+		.press-logo .ico {
+			width: 17px; height: 17px; flex: 0 0 auto; background: currentColor;
+			-webkit-mask: var(--logo) center / contain no-repeat;
+			mask: var(--logo) center / contain no-repeat;
+		}
+		@media (max-width: 720px) {
+			.press-row { gap: 16px 26px; }
+			.press-logo { font-size: 13.5px; }
+		}
+
 		/* ── SECTION FRAME ───────────────────────────────────────── */
 		section.block { padding: 112px 0; border-top: 1px solid var(--hairline); }
 		@media (max-width: 720px) { section.block { padding: 72px 0; } }
@@ -2432,7 +2464,7 @@
 	<noscript><style>.reveal{opacity:1!important;transform:none!important}.hero-text>*{opacity:1!important;transform:none!important}</style></noscript>
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
 
-	<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://three.ws/#organization","name":"three.ws","url":"https://three.ws","logo":"https://three.ws/og-image.png","description":"three.ws is the AI-agent layer for the open web: build, embed, monetize, and trade autonomous agents with real 3D avatars, on-chain identity (ERC-8004), pay-per-call (x402), and pump.fun token launches.","sameAs":["https://x.com/trythreews","https://github.com/nirholas/three.ws","https://www.coingecko.com/en/coins/three-ws","https://www.npmjs.com/package/three.ws","https://registry.modelcontextprotocol.io/?q=threews","https://coinmarketcap.com/community/profile/three_ws","https://hackernoon.com/u/three-ws"]},{"@type":"WebSite","@id":"https://three.ws/#website","name":"three.ws","url":"https://three.ws","description":"Give your AI a body.","publisher":{"@id":"https://three.ws/#organization"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://three.ws/discover?q={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>
+	<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://three.ws/#organization","name":"three.ws","url":"https://three.ws","logo":"https://three.ws/og-image.png","description":"three.ws is the AI-agent layer for the open web: build, embed, monetize, and trade autonomous agents with real 3D avatars, on-chain identity (ERC-8004), pay-per-call (x402), and pump.fun token launches.","sameAs":["https://x.com/trythreews","https://github.com/nirholas/three.ws","https://www.coingecko.com/en/coins/three-ws","https://www.npmjs.com/package/three.ws","https://registry.modelcontextprotocol.io/?q=threews","https://coinmarketcap.com/community/profile/three_ws","https://hackernoon.com/u/three-ws","https://t.me/three_ws"]},{"@type":"WebSite","@id":"https://three.ws/#website","name":"three.ws","url":"https://three.ws","description":"Give your AI a body.","publisher":{"@id":"https://three.ws/#organization"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://three.ws/discover?q={search_term_string}"},"query-input":"required name=search_term_string"}}]}</script>
 </head>
 <body>
 
@@ -2849,6 +2881,24 @@
 			<span class="logo">metaplex</span>
 			<span class="logo">erc-8004</span>
 			<span class="logo">pay-per-call</span>
+		</div>
+	</div>
+</div>
+
+<div class="press-strip">
+	<div class="wrap-1280">
+		<div class="press-strip-cap">Partnered with &amp; featured in</div>
+		<div class="press-row">
+			<a class="press-logo" href="https://registry.modelcontextprotocol.io/?q=threews" target="_blank" rel="noopener"><span class="ico" style="--logo:url(/featured-logos/anthropic.svg)"></span><span class="lbl">Anthropic</span></a>
+			<a class="press-logo" href="/news/mcp-servers-x402-bazaar-coinbase"><span class="ico" style="--logo:url(/featured-logos/coinbase.svg)"></span><span class="lbl">Coinbase</span></a>
+			<a class="press-logo" href="/news/ibm-collaboration-showcase"><span class="lbl">IBM</span></a>
+			<a class="press-logo" href="/news/aws-marketplace-live-may29"><span class="lbl">AWS</span></a>
+			<a class="press-logo" href="/news/2059675892981633179"><span class="ico" style="--logo:url(/featured-logos/googlecloud.svg)"></span><span class="lbl">Google Cloud</span></a>
+			<a class="press-logo" href="/news/live-on-alibaba-cloud-marketplace"><span class="ico" style="--logo:url(/featured-logos/alibabacloud.svg)"></span><span class="lbl">Alibaba Cloud</span></a>
+			<a class="press-logo" href="https://solana.com" target="_blank" rel="noopener"><span class="ico" style="--logo:url(/featured-logos/solana.svg)"></span><span class="lbl">Solana</span></a>
+			<a class="press-logo" href="https://coinmarketcap.com/community/articles/6a226647c17eac2629024fc8/" target="_blank" rel="noopener"><span class="ico" style="--logo:url(/featured-logos/coinmarketcap.svg)"></span><span class="lbl">CoinMarketCap</span></a>
+			<a class="press-logo" href="https://www.coingecko.com/en/coins/three-ws" target="_blank" rel="noopener"><span class="lbl">CoinGecko</span></a>
+			<a class="press-logo" href="https://hackernoon.com/threews-earns-a-781-proof-of-usefulness-score-by-building-embeddable-3d-ai-agents" target="_blank" rel="noopener"><span class="ico" style="--logo:url(/featured-logos/hackernoon.svg)"></span><span class="lbl">HackerNoon</span></a>
 		</div>
 	</div>
 </div>

@@ -102,7 +102,13 @@ async function main() {
 		}
 		process.stdout.write(`[${deployed + errors + 1}/${agents.length}] ${name} … `);
 		try {
-			const r = await deployAgentOnce({ umi, authoritySigner, collectionAddr, collectionAsset, agent, network });
+			const r = await deployAgentOnce({
+				umi, authoritySigner, collectionAddr, collectionAsset, agent, network,
+				onEvent: (type, d) => {
+					if (type === 'registered') console.log(`        ↳ registry: ${d.identity_pda}${d.already_registered ? ' (already)' : ''}`);
+					else if (type === 'registry_error') console.log(`        ↳ registry skipped: ${d.error} (back-fill later)`);
+				},
+			});
 			deployed++;
 			console.log(`✓ ${r.asset}`);
 			console.log(`        ${explorerUrl(r.asset, network)}`);
