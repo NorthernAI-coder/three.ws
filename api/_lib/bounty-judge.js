@@ -29,10 +29,8 @@ export function buildJudgePrompt(bounty, subs) {
 			? `[${s.media_type || 'link'} attached: ${String(s.media_url).slice(0, 300)}]`
 			: '[no media attached]';
 		const text =
-			(s.content || '')
-				.replace(/\s+/g, ' ')
-				.trim()
-				.slice(0, CONTENT_CAP) || '(no description)';
+			(s.content || '').replace(/\s+/g, ' ').trim().slice(0, CONTENT_CAP) ||
+			'(no description)';
 		return [
 			`Submission ${i + 1}`,
 			`id: ${s.id}`,
@@ -66,7 +64,10 @@ export function extractJson(text) {
 	if (!text) return null;
 	let t = String(text).trim();
 	// Strip a leading/trailing markdown code fence if present.
-	t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+	t = t
+		.replace(/^```(?:json)?\s*/i, '')
+		.replace(/\s*```$/i, '')
+		.trim();
 	try {
 		return JSON.parse(t);
 	} catch {
@@ -112,7 +113,8 @@ export function normalizeJudgement(rawText, validIds) {
 	let recommendedId = typeof parsed.recommended_id === 'string' ? parsed.recommended_id : '';
 	if (!valid.has(recommendedId)) recommendedId = rankings[0].submission_id;
 
-	const summary = typeof parsed.summary === 'string' ? parsed.summary.trim().slice(0, SUMMARY_CAP) : '';
+	const summary =
+		typeof parsed.summary === 'string' ? parsed.summary.trim().slice(0, SUMMARY_CAP) : '';
 
 	return { summary, recommended_id: recommendedId, rankings };
 }

@@ -8,7 +8,11 @@
 import { describe, it, expect } from 'vitest';
 import { buildJudgePrompt, normalizeJudgement, extractJson } from '../api/_lib/bounty-judge.js';
 
-const IDS = ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'cccccccc-cccc-cccc-cccc-cccccccccccc'];
+const IDS = [
+	'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+	'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+	'cccccccc-cccc-cccc-cccc-cccccccccccc',
+];
 
 describe('extractJson', () => {
 	it('parses a bare JSON object', () => {
@@ -39,7 +43,11 @@ describe('normalizeJudgement', () => {
 			rankings: [
 				{ submission_id: IDS[0], score: 40, verdict: 'ok' },
 				{ submission_id: IDS[1], score: 150, verdict: 'great' }, // clamps to 100
-				{ submission_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', score: 99, verdict: 'fake' }, // dropped
+				{
+					submission_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+					score: 99,
+					verdict: 'fake',
+				}, // dropped
 				{ submission_id: IDS[2], score: -5, verdict: 'bad' }, // clamps to 0
 			],
 		});
@@ -74,7 +82,9 @@ describe('normalizeJudgement', () => {
 	});
 
 	it('handles non-numeric scores as 0', () => {
-		const raw = JSON.stringify({ rankings: [{ submission_id: IDS[0], score: 'not a number' }] });
+		const raw = JSON.stringify({
+			rankings: [{ submission_id: IDS[0], score: 'not a number' }],
+		});
 		const out = normalizeJudgement(raw, valid);
 		expect(out.rankings[0].score).toBe(0);
 	});
@@ -84,15 +94,27 @@ describe('normalizeJudgement', () => {
 	});
 
 	it('throws when no rankings reference a real submission', () => {
-		const raw = JSON.stringify({ rankings: [{ submission_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', score: 90 }] });
+		const raw = JSON.stringify({
+			rankings: [{ submission_id: 'ffffffff-ffff-ffff-ffff-ffffffffffff', score: 90 }],
+		});
 		expect(() => normalizeJudgement(raw, valid)).toThrow();
 	});
 });
 
 describe('buildJudgePrompt', () => {
-	const bounty = { title: 'Do a backflip on camera', description: 'Must be one continuous shot.' };
+	const bounty = {
+		title: 'Do a backflip on camera',
+		description: 'Must be one continuous shot.',
+	};
 	const subs = [
-		{ id: IDS[0], username: 'alice', content: 'Here is my flip', media_url: 'https://x.com/a', media_type: 'link', like_count: 3 },
+		{
+			id: IDS[0],
+			username: 'alice',
+			content: 'Here is my flip',
+			media_url: 'https://x.com/a',
+			media_type: 'link',
+			like_count: 3,
+		},
 		{ id: IDS[1], username: 'bob', content: '', media_url: null, like_count: 0 },
 	];
 

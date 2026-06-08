@@ -106,15 +106,26 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'POST') {
 		let user;
-		try { user = await getSessionUser(req); } catch {
+		try {
+			user = await getSessionUser(req);
+		} catch {
 			return error(res, 401, 'unauthorized', 'sign in to post a bounty');
 		}
 
 		const body = await readJson(req);
-		const { title, description, reward_sol, reward_tokens, coin_symbol, coin_mint, expires_in_days } = body;
+		const {
+			title,
+			description,
+			reward_sol,
+			reward_tokens,
+			coin_symbol,
+			coin_mint,
+			expires_in_days,
+		} = body;
 
 		if (!title?.trim()) return error(res, 400, 'bad_request', 'title is required');
-		if (!reward_sol && !reward_tokens) return error(res, 400, 'bad_request', 'set a reward (SOL or tokens)');
+		if (!reward_sol && !reward_tokens)
+			return error(res, 400, 'bad_request', 'set a reward (SOL or tokens)');
 
 		const rewardSol = reward_sol ? parseFloat(reward_sol) : null;
 		const rewardUsd = rewardSol ? parseFloat((rewardSol * SOL_USD_FALLBACK).toFixed(2)) : null;
