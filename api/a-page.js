@@ -189,7 +189,12 @@ ${escapeJsonLd({
 			'@type': 'BreadcrumbList',
 			itemListElement: [
 				{ '@type': 'ListItem', position: 1, name: 'Home', item: 'https://three.ws/' },
-				{ '@type': 'ListItem', position: 2, name: 'Discover', item: 'https://three.ws/discover' },
+				{
+					'@type': 'ListItem',
+					position: 2,
+					name: 'Discover',
+					item: 'https://three.ws/discover',
+				},
 				{ '@type': 'ListItem', position: 3, name: p.title, item: p.pageUrl },
 			],
 		},

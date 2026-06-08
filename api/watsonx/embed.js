@@ -111,8 +111,12 @@ export default wrap(async function handler(req, res) {
 	if (!cfg.configured && !openaiReady) {
 		// No provider at all. No fabricated vectors — tell the client exactly
 		// what's missing so the UI can render an honest "not configured" state.
-		return error(res, 503, 'embed_unconfigured',
-			'No embedding provider is configured. Set WATSONX_API_KEY + WATSONX_PROJECT_ID (IBM Granite) or OPENAI_API_KEY (fallback) to enable embeddings.');
+		return error(
+			res,
+			503,
+			'embed_unconfigured',
+			'No embedding provider is configured. Set WATSONX_API_KEY + WATSONX_PROJECT_ID (IBM Granite) or OPENAI_API_KEY (fallback) to enable embeddings.',
+		);
 	}
 
 	// Provider chain: Granite (primary) → OpenAI (fallback). The first provider
@@ -122,9 +126,10 @@ export default wrap(async function handler(req, res) {
 	let lastError = null;
 
 	if (cfg.configured) {
-		const model = typeof body.model === 'string' && body.model.trim()
-			? body.model.trim()
-			: cfg.embedModel;
+		const model =
+			typeof body.model === 'string' && body.model.trim()
+				? body.model.trim()
+				: cfg.embedModel;
 		try {
 			result = await embedBatch(texts, model, (inputs) =>
 				watsonxEmbed(cfg, { inputs, model }).then((r) => ({
@@ -183,7 +188,10 @@ async function embedBatch(texts, model, fetcher) {
 	for (let i = 0; i < texts.length; i++) {
 		const hit = cacheGet(cacheKey(model, texts[i]));
 		if (hit) vectors[i] = hit;
-		else { missIdx.push(i); missText.push(texts[i]); }
+		else {
+			missIdx.push(i);
+			missText.push(texts[i]);
+		}
 	}
 
 	let dimensions = vectors.find((v) => v)?.length ?? 0;

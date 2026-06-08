@@ -1,0 +1,60 @@
+# Full-site page audit — drives a real Chromium across every public route on
+# the Vercel preview deploy and fails the check on any error-severity finding:
+# console errors, uncaught exceptions, failed requests, HTTP >= 500, and broken
+# navigation. This is the automated version of opening the dev console on every
+# page — it stops console/network regressions before they reach production
+# instead of a human finding them later.
+#
+# Mirrors lighthouse.yml: triggered by the Vercel deployment-status event so it
+# tests the actual artifact bound for prod, not a fresh local build. Runs only
+# against preview deploys (never production) so a red gate blocks the PR, not a
+# live site.
+
+name: Page audit
+
+on:
+  deployment_status:
+
+jobs:
+  page-audit:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment != 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # The audit harness only needs Playwright + its Chromium; install just
+      # that rather than the full workspace to keep the gate fast.
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@^1
+          npx playwright install --with-deps chromium
+
+      - name: Audit Vercel preview
+        env:
+          BASE_URL: ${{ github.event.deployment_status.target_url }}
+        # --strict exits 1 on any error-severity finding, failing the check.
+        run: node scripts/page-audit.mjs --strict
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: page-audit-report
+          path: reports/page-audit-*.md
+          if-no-files-found: ignore
+
+      - name: Comment result on PR
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v3
+        continue-on-error: true
+        with:
+          header: page-audit
+          message: |
+            🖥️ **Page audit** ran against the preview deploy — full console / network / error sweep across every public route.
+            ${{ job.status == 'success' && '✅ No error-severity findings.' || '🔴 Error-severity findings detected — download the `page-audit-report` artifact for the per-page detail.' }}

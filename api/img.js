@@ -79,7 +79,10 @@ export default wrap(async function handler(req, res) {
 	let image = null;
 	for (const candidate of candidates(target)) {
 		try {
-			const result = await fetchModel(candidate, { maxBytes: MAX_BYTES, timeoutMs: TIMEOUT_MS });
+			const result = await fetchModel(candidate, {
+				maxBytes: MAX_BYTES,
+				timeoutMs: TIMEOUT_MS,
+			});
 			if (!result.contentType.startsWith('image/')) continue; // HTML error page etc. — try next
 			image = result;
 			break;

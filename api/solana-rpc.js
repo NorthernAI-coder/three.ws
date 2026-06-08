@@ -20,7 +20,7 @@ import { cors, method, wrap, readJson, error, rateLimited } from './_lib/http.js
 import { limits, clientIp } from './_lib/rate-limit.js';
 
 const PUBLIC_MAINNET = 'https://api.mainnet-beta.solana.com';
-const PUBLIC_DEVNET  = 'https://api.devnet.solana.com';
+const PUBLIC_DEVNET = 'https://api.devnet.solana.com';
 
 // Methods a browser Connection needs to read balances/accounts, build, simulate,
 // send, and confirm transactions. Deliberately excludes getProgramAccounts and

@@ -102,14 +102,20 @@ function syncRunning() {
 	const next = onScreen && document.visibilityState !== 'hidden';
 	if (next === running) return;
 	running = next;
-	if (running) { clock.getDelta(); animate(); }
+	if (running) {
+		clock.getDelta();
+		animate();
+	}
 }
 
 if (typeof IntersectionObserver !== 'undefined') {
-	new IntersectionObserver((entries) => {
-		onScreen = entries[0].isIntersecting;
-		syncRunning();
-	}, { threshold: 0 }).observe(canvas);
+	new IntersectionObserver(
+		(entries) => {
+			onScreen = entries[0].isIntersecting;
+			syncRunning();
+		},
+		{ threshold: 0 },
+	).observe(canvas);
 } else {
 	onScreen = true;
 }
