@@ -15,6 +15,7 @@
 import { limits } from '../../_lib/rate-limit.js';
 import { resolveOrigin } from '../origin.js';
 import { fetchModel, FetchModelError } from '../../_lib/fetch-model.js';
+import { createRegenProvider } from '../../_providers/gcp.js';
 import {
 	canonicalNodeMapFromObject,
 	retargetClip,
@@ -353,4 +354,196 @@ export const toolDefs = [
 			};
 		},
 	},
+	{
+		name: 'text_to_animation',
+		title: 'Generate an animation from a text prompt and retarget it onto a model',
+		description:
+			'Generate a brand-new motion from a natural-language prompt (e.g. "waving confidently", "a slow tai-chi sweep") with a motion-diffusion model, then retarget it onto a caller-supplied rigged humanoid GLB — the same retarget engine apply_animation uses. Returns the retargeted three.js AnimationClip JSON (or a baked animated GLB) plus a report. Unlike preset libraries, the motion does not pre-exist: it is synthesized for the prompt. Requires the text2motion worker configured on the deployment.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				prompt: {
+					type: 'string',
+					minLength: 3,
+					maxLength: 1000,
+					description: 'Describe the motion to generate (e.g. "a celebratory jump", "waving hello").',
+				},
+				model_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of a rigged humanoid .glb to animate.',
+				},
+				duration_seconds: {
+					type: 'number',
+					minimum: 1,
+					maximum: 10,
+					default: 4,
+					description: 'Length of the generated motion in seconds.',
+				},
+				format: {
+					type: 'string',
+					enum: ['glb', 'clip'],
+					default: 'clip',
+					description: 'clip = retargeted AnimationClip JSON (reliable); glb = also attempt a baked animated GLB.',
+				},
+				speed: {
+					type: 'number',
+					minimum: 0.25,
+					maximum: 2.5,
+					default: 1,
+					description: 'Playback-speed multiplier baked into the result.',
+				},
+			},
+			required: ['prompt', 'model_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth, req) {
+			const rl = await limits.mcpOptimize?.(auth.userId || auth.rateKey);
+			if (rl && !rl.success)
+				throw rpcError(-32000, 'rate_limited', {
+					retry_after: Math.ceil((rl.reset - Date.now()) / 1000),
+				});
+
+			// The motion model runs on the GPU worker (workers/model-text2motion),
+			// reached through the gcp provider's text2motion mode. Without it
+			// configured, fail clean rather than fabricate motion.
+			let provider;
+			try {
+				provider = createRegenProvider();
+			} catch {
+				throw rpcError(-32001, 'text-to-animation is not configured on this deployment');
+			}
+			if (!provider.supportsMode('text2motion')) {
+				throw rpcError(-32001, 'text-to-animation is not configured (GCP_TEXT2MOTION_URL unset)');
+			}
+
+			const duration = Math.max(1, Math.min(10, Number(args.duration_seconds) || 4));
+			const clipJSON = await generateMotionClip(provider, {
+				prompt: args.prompt,
+				duration_seconds: duration,
+			});
+
+			installDomShims();
+			const baseClip = parseClipJSON(clipJSON, clipJSON.name || 'generated');
+
+			const { bytes, url, filename } = await safeFetchModel(args.model_url);
+			let gltf;
+			try {
+				gltf = await parseGLB(bytes);
+			} catch (e) {
+				throw new Error(`could not parse the rigged GLB: ${e.message || e}`);
+			}
+			const scene = gltf.scene || gltf.scenes?.[0];
+			if (!scene) throw new Error('the model has no scene to animate');
+
+			const map = canonicalNodeMapFromObject(scene);
+			if (map.size === 0) {
+				throw new Error('no recognizable humanoid skeleton found — text_to_animation needs a rigged GLB');
+			}
+			const hipScale = await computeHipScale(scene, baseClip);
+			const result = retargetClip(baseClip, map, { hipScale });
+
+			const report = {
+				prompt: args.prompt,
+				source_model: url,
+				filename,
+				bones_matched: result.matched,
+				bones_total: result.total,
+				coverage: Number(result.coverage.toFixed(3)),
+				bones_unmapped: [...new Set(result.dropped)],
+				hip_scale: Number(result.hipScale.toFixed(3)),
+				speed: args.speed || 1,
+			};
+
+			if (!result.clip) {
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Generated the motion but could not retarget it: only ${result.matched}/${result.total} tracks mapped (need ${Math.round(MIN_COVERAGE * 100)}%). The skeleton is too different from the canonical humanoid rig.`,
+						},
+					],
+					structuredContent: { ok: false, ...report },
+				};
+			}
+
+			const finalClip = scaleClipSpeed(result.clip, args.speed || 1);
+			finalClip.name = baseClip.name;
+			const { AnimationClip } = await import('three');
+
+			const clipResult = (note) => ({
+				content: [
+					{
+						type: 'text',
+						text: `Generated "${args.prompt}" → retargeted onto ${filename}: ${report.bones_matched}/${report.bones_total} bones (${Math.round(report.coverage * 100)}%), hip scale ${report.hip_scale}×.${note ? ' ' + note : ''} Returning AnimationClip JSON — load it alongside the model and play.`,
+					},
+				],
+				structuredContent: {
+					ok: true,
+					...report,
+					format: note ? 'clip-fallback' : 'clip',
+					clip: AnimationClip.toJSON(finalClip),
+				},
+			});
+
+			if (args.format !== 'glb') return clipResult();
+
+			let glbBytes;
+			try {
+				glbBytes = Buffer.from(await exportGLB(scene, finalClip));
+			} catch (e) {
+				return clipResult(`Server-side GLB bake unavailable (${e.message || e}); use the /pose gallery to export in-browser.`);
+			}
+			if (glbBytes.length > MAX_INLINE_GLB_BYTES) {
+				return clipResult(`Animated GLB is ${(glbBytes.length / 1024 / 1024).toFixed(1)} MB — too large to inline.`);
+			}
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Generated "${args.prompt}" and baked it onto ${filename}: ${report.bones_matched}/${report.bones_total} bones, ${(glbBytes.length / 1024).toFixed(0)} KB animated GLB.`,
+					},
+				],
+				structuredContent: {
+					ok: true,
+					...report,
+					format: 'glb',
+					glb_bytes: glbBytes.length,
+					glb_base64: glbBytes.toString('base64'),
+					mime_type: 'model/gltf-binary',
+				},
+			};
+		},
+	},
 ];
+
+// Submit a text→motion job to the worker and poll to completion, returning the
+// generated AnimationClip JSON. Bounded so a stuck worker can't hang the tool.
+const MOTION_POLL_INTERVAL_MS = 2500;
+const MOTION_POLL_TIMEOUT_MS = 60_000;
+
+async function generateMotionClip(provider, { prompt, duration_seconds }) {
+	const job = await provider.submit({
+		mode: 'text2motion',
+		sourceUrl: null,
+		params: { prompt, duration_seconds, fps: 30 },
+	});
+	const deadline = Date.now() + MOTION_POLL_TIMEOUT_MS;
+	let clipUrl = null;
+	while (Date.now() < deadline) {
+		await new Promise((r) => setTimeout(r, MOTION_POLL_INTERVAL_MS));
+		const st = await provider.status(job.extJobId);
+		if (st.status === 'done') {
+			clipUrl = st.resultClipUrl;
+			break;
+		}
+		if (st.status === 'failed') {
+			throw rpcError(-32000, `motion generation failed: ${st.error || 'unknown error'}`);
+		}
+	}
+	if (!clipUrl) throw rpcError(-32000, 'motion generation timed out');
+
+	const res = await fetch(clipUrl);
+	if (!res.ok) throw rpcError(-32000, `could not fetch generated clip (HTTP ${res.status})`);
+	return res.json();
+}
