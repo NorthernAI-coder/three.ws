@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { cors, json, method, readJson, wrap } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { presignUpload, publicUrl } from './_lib/r2.js';
 import { hashClient } from './_lib/forge-store.js';
@@ -63,11 +63,7 @@ export default wrap(async (req, res) => {
 	const ip = clientIp(req);
 	const rl = await limits.upload(`forge:${ip}`);
 	if (!rl.success) {
-		return json(res, 429, {
-			error: 'rate_limited',
-			message: 'Upload limit reached. Try again shortly.',
-			retry_after: Math.ceil((rl.reset - Date.now()) / 1000),
-		});
+		rateLimited(res, rl, 'Upload limit reached. Try again shortly.');
 	}
 
 	const body = await readJson(req, 2_000).catch(() => null);

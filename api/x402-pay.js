@@ -32,7 +32,7 @@ import {
 import bs58 from 'bs58';
 
 import { Redis } from '@upstash/redis';
-import { cors, json, readJson, wrap } from './_lib/http.js';
+import { cors, json, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import {
 	paymentRequirements,
@@ -571,10 +571,7 @@ export default wrap(async (req, res) => {
 	const ip = clientIp(req);
 	const ipRl = await limits.x402PayIp(ip);
 	if (!ipRl.success) {
-		return json(res, 429, {
-			error: 'rate_limited',
-			retry_after: Math.ceil((ipRl.reset - Date.now()) / 1000),
-		});
+		rateLimited(res, ipRl);
 	}
 	const globalRl = await limits.x402PayGlobal();
 	if (!globalRl.success) {

@@ -14,7 +14,7 @@
  * a clean { ok: false, stored: false } instead of failing.
  */
 
-import { cors, json, method, readJson, wrap } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { hashClient, recordFeedback, forgeStoreEnabled } from './_lib/forge-store.js';
 
@@ -26,10 +26,7 @@ export default wrap(async (req, res) => {
 
 	const rl = await limits.mcp3dStatus(clientIp(req));
 	if (!rl.success) {
-		return json(res, 429, {
-			error: 'rate_limited',
-			retry_after: Math.ceil((rl.reset - Date.now()) / 1000),
-		});
+		rateLimited(res, rl);
 	}
 
 	if (!forgeStoreEnabled()) {
