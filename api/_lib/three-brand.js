@@ -219,9 +219,14 @@ export function buildAgentOnchainAttributes(a) {
  * agent discoverable in Metaplex's on-chain Agent Registry the asset needs an
  * Agent Identity PDA whose `agentRegistrationUri` points at this JSON.
  *
- * Shape matches the SDK's `AgentMetadata` interface exactly:
- *   { type, name, description, services[], registrations[], supportedTrust[] }
- * so the registry indexer and any registry-aware client read it without coercion.
+ * Superset of the SDK's `AgentMetadata` interface — the six required fields
+ * (type/name/description/services/registrations/supportedTrust) are all present,
+ * so SDK-strict consumers read it without coercion. We additionally emit the
+ * EIP-8004 registration-v1 signals that Metaplex's Agent Registry indexes
+ * (`active`, `x402Support`, `x402Endpoints`, `agentMetadataUri`); without them the
+ * registry defaults the agent to "x402 Not Supported" / inactive even though every
+ * three.ws agent settles calls over x402. Mirrors the canonical served doc at
+ * /.well-known/agent-registration.json so on- and off-chain metadata agree.
  *
  * @param {object} a
  * @param {string|number} a.agentId    three.ws agent id (for the cross-registry link)
@@ -234,21 +239,43 @@ export function buildAgentRegistrationMetadata(a) {
 	const home = a.agentUrl || agentHomeUrl(a.agentId);
 	const description =
 		a.description?.trim() || `${a.name} — an autonomous agent on ${THREE_WS.name}.`;
+	const origin = env.APP_ORIGIN;
+	const cardUrl = `${origin}/.well-known/agent-card.json`;
 
+	// Real, reachable endpoints. `endpoint` is the SDK's field; the extra `version`
+	// keys are ignored by strict consumers and used by richer registry indexers.
 	const services = [
-		{ name: 'profile', endpoint: home },
-		{ name: 'agent-card', endpoint: `${env.APP_ORIGIN}/.well-known/agent-card.json` },
+		{ name: 'web', endpoint: home },
+		{ name: 'A2A', endpoint: cardUrl, version: '0.3.0' },
+		{ name: 'MCP', endpoint: `${origin}/.well-known/openapi.yaml`, version: '2025-06-18' },
 	];
 
 	return {
-		type: 'agent',
+		type: [
+			'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+			'https://three.ws/specs/3d-agent-card-v1',
+		],
 		name: a.name,
 		description,
+		active: true,
 		services,
-		// Point back at the three.ws registry so the two identities resolve to each
-		// other — Metaplex's `AgentRegistration` shape: { agentId, agentRegistry }.
+		x402Support: true,
+		x402Endpoints: [
+			{
+				url: `${origin}/api/mcp`,
+				method: 'POST',
+				description:
+					'MCP tool call — 3D avatar viewer, glTF model validation/inspection/optimization, and Solana agent data',
+				networks: ['solana', 'base'],
+				scheme: 'exact',
+				priceUsdc: '0.001',
+			},
+		],
+		// Cross-link back to the three.ws registry so the two identities resolve to
+		// each other — Metaplex's `AgentRegistration` shape: { agentId, agentRegistry }.
 		registrations: [{ agentId: String(a.agentId), agentRegistry: THREE_WS.website }],
-		supportedTrust: [],
+		supportedTrust: ['reputation'],
+		agentMetadataUri: cardUrl,
 	};
 }
 
