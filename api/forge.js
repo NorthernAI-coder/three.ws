@@ -136,7 +136,7 @@ async function startJob(req, res) {
 	const ip = clientIp(req);
 	const rl = await limits.mcp3dGenerate(ip);
 	if (!rl.success) {
-		rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
+		return rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
 	}
 
 	const body = await readJson(req, 8_000).catch(() => null);
@@ -404,7 +404,7 @@ async function startRigJob(req, res) {
 	const ip = clientIp(req);
 	const rl = await limits.mcp3dGenerate(ip);
 	if (!rl.success) {
-		rateLimited(res, rl, 'Rigging limit reached. Try again shortly.');
+		return rateLimited(res, rl, 'Rigging limit reached. Try again shortly.');
 	}
 
 	const body = await readJson(req, 8_000).catch(() => null);
@@ -481,7 +481,7 @@ async function pollJob(req, res, jobId) {
 
 	const rl = await limits.mcp3dStatus(clientIp(req));
 	if (!rl.success) {
-		rateLimited(res, rl);
+		return rateLimited(res, rl);
 	}
 
 	const provider = token?.provider || 'replicate';
