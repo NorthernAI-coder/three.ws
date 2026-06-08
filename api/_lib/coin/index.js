@@ -16,6 +16,16 @@ export {
 	readEligibleHolders,
 } from './holders.js';
 export {
+	COHORTS,
+	listCohorts,
+	isCohortId,
+	cohortSpec,
+	cohortCounts,
+	queryCohort,
+	sampleBucket,
+	inSample,
+} from './cohorts.js';
+export {
 	DRAND,
 	roundForTime,
 	timeForRound,

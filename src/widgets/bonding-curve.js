@@ -25,6 +25,24 @@
 const LAMPORTS_PER_SOL = 1_000_000_000;
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
+// Settlement / native tokens that can never carry a pump.fun bonding curve.
+// Listed only to *exclude* them from curve lookups — never to promote them.
+const NON_CURVE_MINTS = new Set([
+	'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC (mainnet)
+	'4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // USDC (devnet)
+	SOL_MINT, // wrapped SOL
+	'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+]);
+
+// Every pump.fun mint is ground to end in the literal suffix "pump". A mint that
+// doesn't end in "pump" (or that is a known settlement token) has no bonding
+// curve — so the widget can skip the network request entirely and show its empty
+// state, never contributing to the /api/pump/curve 404 storm on a misconfigured
+// (e.g. USDC) mount.
+export function isPumpMint(mint) {
+	return typeof mint === 'string' && mint.endsWith('pump') && !NON_CURVE_MINTS.has(mint);
+}
+
 // SVG geometry. viewBox is fixed; the element scales to its container.
 const VB = Object.freeze({ w: 320, h: 150, pl: 14, pr: 14, pt: 18, pb: 18 });
 const CURVE_EXP = 1.85; // convex/accelerating — mirrors the pump.fun price curve
@@ -421,6 +439,10 @@ export function mountBondingCurve(rootEl, opts = {}) {
 	injectStyles(doc);
 
 	const mint = String(opts.mint || '').trim();
+	// A mint that can't have a bonding curve (settlement token / non-"pump" mint)
+	// is treated like no mint at all: paint the empty state, never poll. This stops
+	// a misconfigured mount from firing /api/pump/curve requests that can only 404.
+	const pollable = Boolean(mint) && isPumpMint(mint);
 	const network = opts.network === 'devnet' ? 'devnet' : 'mainnet';
 	const refreshMs = Math.max(5_000, Number(opts.refreshMs) || 15_000);
 	const showUsd = opts.showUsd !== false;
@@ -437,14 +459,20 @@ export function mountBondingCurve(rootEl, opts = {}) {
 	let timer = null;
 	let raf = null;
 	let displayedProgress = 0; // currently-rendered marker/percent position
-	let view = { status: mint ? 'loading' : 'empty', progress: 0 };
+	let view = { status: pollable ? 'loading' : 'empty', progress: 0 };
 
 	// Initial paint — shell + empty/loading state.
 	wrap.innerHTML = renderCardShell(view, { mint, network, showPoweredBy: opts.showPoweredBy });
 	const card = wrap.querySelector('.bcw-card');
-	if (mint) card.classList.add('is-loading');
+	if (pollable) card.classList.add('is-loading');
 	const els = grab(wrap);
-	if (!mint) applyEmptyState(card, els);
+	if (!pollable) {
+		applyEmptyState(
+			card,
+			els,
+			mint ? 'No bonding curve — this isn’t a pump.fun mint.' : undefined,
+		);
+	}
 	paintGeometry(els, 0);
 
 	function setText(el, text) {
@@ -493,7 +521,7 @@ export function mountBondingCurve(rootEl, opts = {}) {
 	}
 
 	async function poll() {
-		if (destroyed || stopped || !mint) return;
+		if (destroyed || stopped || !pollable) return;
 		try {
 			const [resp, solUsd] = await Promise.all([
 				fetch(`/api/pump/curve?mint=${encodeURIComponent(mint)}&network=${network}`),
@@ -536,8 +564,10 @@ export function mountBondingCurve(rootEl, opts = {}) {
 		}
 	}
 
-	poll();
-	if (!stopped) timer = setInterval(poll, refreshMs);
+	if (pollable) {
+		poll();
+		if (!stopped) timer = setInterval(poll, refreshMs);
+	}
 
 	return {
 		destroy() {

@@ -12,6 +12,7 @@ import {
 	areaPathFor,
 	computeView,
 	renderCardShell,
+	isPumpMint,
 } from './bonding-curve.js';
 
 const LAMPORTS = 1_000_000_000;
@@ -86,6 +87,24 @@ describe('shortMint', () => {
 	it('leaves short strings intact', () => {
 		expect(shortMint('abc')).toBe('abc');
 		expect(shortMint('')).toBe('');
+	});
+});
+
+describe('isPumpMint', () => {
+	it('accepts mints ending in the pump suffix', () => {
+		expect(isPumpMint('FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump')).toBe(true);
+	});
+	it('rejects settlement / native tokens', () => {
+		expect(isPumpMint('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')).toBe(false); // USDC
+		expect(isPumpMint('So11111111111111111111111111111111111111112')).toBe(false); // wSOL
+		expect(isPumpMint('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB')).toBe(false); // USDT
+		expect(isPumpMint('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU')).toBe(false); // USDC devnet
+	});
+	it('rejects any mint that does not end in "pump"', () => {
+		expect(isPumpMint('So11111111111111111111111111111111111111112')).toBe(false);
+		expect(isPumpMint('')).toBe(false);
+		expect(isPumpMint(null)).toBe(false);
+		expect(isPumpMint(undefined)).toBe(false);
 	});
 });
 
