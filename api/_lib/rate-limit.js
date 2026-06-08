@@ -321,7 +321,8 @@ export const limits = {
 	// On-chain agent registration (register_agent MCP tool). Each call may mint a
 	// Core asset + Agent Identity PDA — real SOL spend — so this is deliberately
 	// tight, keyed per authenticated user.
-	agentRegister: (userId) => getLimiter('agent:register', { limit: 12, window: '1 h' }).limit(userId),
+	agentRegister: (userId) =>
+		getLimiter('agent:register', { limit: 12, window: '1 h' }).limit(userId),
 	read: (ip) => getLimiter('permissions:read', { limit: 300, window: '1 m' }).limit(ip),
 	permissionsGrant: (userId) =>
 		getLimiter('permissions:grant', { limit: 10, window: '1 h' }).limit(userId),
