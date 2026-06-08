@@ -36,6 +36,7 @@ import {
 	USDC_MAINNET_MINT,
 } from './shared/skill-purchase.js';
 import { log } from './shared/log.js';
+import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 
 const API = '/api';
 const $ = (id) => document.getElementById(id);
@@ -103,6 +104,7 @@ export async function enrichAgentDetail(baseAgent) {
 	});
 
 	render3DAvatar(market);
+	upgradeSee3d(market);
 	renderMeta(market);
 	renderHeroActions(baseAgent, market);
 	renderSalePanel(baseAgent, market);
@@ -170,6 +172,16 @@ function render3DAvatar(a) {
 	if (a.thumbnail_url) mv.setAttribute('poster', a.thumbnail_url);
 	img.dataset.mv = '1';
 	img.replaceWith(mv);
+}
+
+// Upgrade the always-present "See in 3D" link once the marketplace record (with
+// its custom avatar_glb_url) is in hand — so agents that ship their own avatar
+// walk into the world as themselves rather than the base mannequin.
+function upgradeSee3d(a) {
+	const see3d = $('ad-see-3d');
+	if (!see3d) return;
+	see3d.href = seeInWorldHref(a);
+	if (hasCustomAvatar(a)) see3d.setAttribute('title', `See ${a.name || 'this agent'} in the three.ws world`);
 }
 
 // ── Hero metadata ─────────────────────────────────────────────────────────────

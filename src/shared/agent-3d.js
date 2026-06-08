@@ -25,10 +25,12 @@ export function agentAvatarGlb(agent) {
 	const direct = agent.avatar_glb_url || agent.base_model_url || agent.glb_url || agent.model_url;
 	if (typeof direct === 'string' && GLB_RE.test(direct)) return direct;
 
-	// ERC-8004 on-chain agents expose their model through registration metadata.
+	// ERC-8004 on-chain agents expose their model through registration metadata
+	// (surfaced as `metadata` on the directory, `rawMetadata` on the detail page).
 	try {
-		if (agent.metadata) {
-			const fromMeta = findAvatar3D(agent.metadata);
+		const meta = agent.metadata || agent.rawMetadata;
+		if (meta) {
+			const fromMeta = findAvatar3D(meta);
 			if (fromMeta) return fromMeta;
 		}
 	} catch { /* metadata malformed — fall through to the base avatar */ }

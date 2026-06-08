@@ -26,6 +26,7 @@ const solanaWeb3 = {
 };
 import { openSwapModal } from './swap-jupiter.js';
 import { onchainBadgeEl } from './shared/onchain-badge.js';
+import { seeInWorldHref } from './shared/agent-3d.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
 import { Modal } from './shared/modal.js';
@@ -285,6 +286,13 @@ function render(agent) {
 		$('ad-avatar').src = avatarDataUri(agent.name);
 	};
 	$('ad-name').textContent = agent.name;
+
+	// "See in 3D" drops this agent's avatar into the live $three world. Every
+	// agent has one — its own GLB if attached, the base mannequin otherwise — so
+	// the button is always live. Marketplace enrichment upgrades the href to a
+	// richer custom GLB if the agent ships one.
+	const see3d = $('ad-see-3d');
+	if (see3d) see3d.href = seeInWorldHref(agent);
 
 	const status = $('ad-status');
 	status.textContent = agent.active ? 'Active' : 'Inactive';

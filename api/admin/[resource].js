@@ -84,6 +84,121 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { users, total, page, limit });
 	}
 
+	// LLM spend ledger — what the platform's inference (incl. Anthropic credits)
+	// is costing, and where it's going. Cost is micro-USD ($0.000001); the UI
+	// divides by 1e6. Free providers (groq/openrouter) price to 0 by design, so
+	// `paid_calls` vs `total_calls` shows the paid-vs-free split.
+	if (resource === 'llm-spend') {
+		const [totals] = await sql`
+			select
+				count(*)::int                                                                          as total_calls,
+				count(*) filter (where created_at > now() - interval '24 hours')::int                 as calls_24h,
+				count(*) filter (where created_at > now() - interval '7 days')::int                   as calls_7d,
+				coalesce(sum(cost_micro_usd),0)::bigint                                                as cost_micro_usd_30d,
+				coalesce(sum(cost_micro_usd) filter (where created_at > now() - interval '24 hours'),0)::bigint as cost_micro_usd_24h,
+				coalesce(sum(cost_micro_usd) filter (where created_at > now() - interval '7 days'),0)::bigint   as cost_micro_usd_7d,
+				count(*) filter (where coalesce(cost_micro_usd,0) > 0)::int                            as paid_calls,
+				coalesce(sum(input_tokens),0)::bigint                                                  as input_tokens,
+				coalesce(sum(output_tokens),0)::bigint                                                 as output_tokens
+			from usage_events
+			where kind = 'llm' and created_at > now() - interval '30 days'
+		`;
+
+		const byProvider = await sql`
+			select coalesce(provider,'unknown') as provider,
+				count(*)::int as calls,
+				coalesce(sum(cost_micro_usd),0)::bigint as cost_micro_usd,
+				coalesce(sum(input_tokens),0)::bigint as input_tokens,
+				coalesce(sum(output_tokens),0)::bigint as output_tokens
+			from usage_events
+			where kind = 'llm' and created_at > now() - interval '30 days'
+			group by provider order by cost_micro_usd desc, calls desc
+		`;
+
+		const byModel = await sql`
+			select coalesce(model,'unknown') as model,
+				count(*)::int as calls,
+				coalesce(sum(cost_micro_usd),0)::bigint as cost_micro_usd
+			from usage_events
+			where kind = 'llm' and created_at > now() - interval '30 days'
+			group by model order by cost_micro_usd desc, calls desc limit 20
+		`;
+
+		const byDay = await sql`
+			select date_trunc('day', created_at)::date as day,
+				count(*)::int as calls,
+				coalesce(sum(cost_micro_usd),0)::bigint as cost_micro_usd
+			from usage_events
+			where kind = 'llm' and created_at > now() - interval '30 days'
+			group by 1 order by 1
+		`;
+
+		return json(res, 200, { totals, byProvider, byModel, byDay });
+	}
+
+	// Feature adoption — which capabilities users actually exercise, by event
+	// kind and tool, plus a daily activity trend across all event kinds.
+	if (resource === 'features') {
+		const byKind = await sql`
+			select kind, count(*)::int as events,
+				count(distinct user_id)::int as users,
+				count(distinct agent_id)::int as agents
+			from usage_events
+			where created_at > now() - interval '30 days'
+			group by kind order by events desc
+		`;
+
+		const byTool = await sql`
+			select coalesce(tool,'(none)') as tool, kind, count(*)::int as events
+			from usage_events
+			where created_at > now() - interval '30 days' and tool is not null
+			group by tool, kind order by events desc limit 25
+		`;
+
+		const byDay = await sql`
+			select date_trunc('day', created_at)::date as day, kind, count(*)::int as events
+			from usage_events
+			where created_at > now() - interval '30 days'
+			group by 1, 2 order by 1
+		`;
+
+		return json(res, 200, { byKind, byTool, byDay });
+	}
+
+	// x402 payment activity — the revenue side. amount_atomics is raw token
+	// units (text); we sum as numeric. The UI converts to USDC (6 decimals).
+	if (resource === 'x402') {
+		const [totals] = await sql`
+			select
+				count(*) filter (where event_type = 'payment_settled')::int                 as settled,
+				count(*) filter (where event_type = 'payment_failed')::int                  as failed,
+				count(distinct payer) filter (where event_type = 'payment_settled')::int    as unique_payers,
+				coalesce(sum((amount_atomics)::numeric) filter (where event_type = 'payment_settled'),0)::text as volume_atomics
+			from x402_audit_log
+			where created_at > now() - interval '30 days'
+		`;
+
+		const byRoute = await sql`
+			select coalesce(route,'(unknown)') as route,
+				count(*)::int as payments,
+				coalesce(sum((amount_atomics)::numeric),0)::text as volume_atomics
+			from x402_audit_log
+			where event_type = 'payment_settled' and created_at > now() - interval '30 days'
+			group by route order by payments desc limit 20
+		`;
+
+		const byDay = await sql`
+			select date_trunc('day', created_at)::date as day,
+				count(*)::int as payments,
+				coalesce(sum((amount_atomics)::numeric),0)::text as volume_atomics
+			from x402_audit_log
+			where event_type = 'payment_settled' and created_at > now() - interval '30 days'
+			group by 1 order by 1
+		`;
+
+		return json(res, 200, { totals, byRoute, byDay });
+	}
+
 	res.statusCode = 404;
 	return res.end();
 });
