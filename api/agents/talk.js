@@ -81,7 +81,16 @@ export default wrap(async (req, res) => {
 	const started = Date.now();
 	let result;
 	try {
-		result = await llmComplete({ system: systemPrompt, user: message, maxTokens: 1024, anthropicModel: model });
+		result = await llmComplete({
+			system: systemPrompt,
+			user: message,
+			maxTokens: 1024,
+			anthropicModel: model,
+			// Lead with Claude on the platform key; falls back to the free
+			// providers automatically if it's unset or Anthropic errors.
+			serverAnthropic: true,
+			track: { agentId: agent.id, tool: 'agent.talk' },
+		});
 	} catch (err) {
 		if (err instanceof LlmUnavailableError) {
 			return error(res, 503, 'llm_unavailable', 'agent delegation is not available right now');

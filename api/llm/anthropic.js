@@ -17,6 +17,7 @@ import { cors, error, method, wrap, readJson, json, rateLimited } from '../_lib/
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { recordEvent, logger } from '../_lib/usage.js';
+import { costMicroUsd } from '../_lib/llm-pricing.js';
 import { readEmbedPolicy } from '../_lib/embed-policy.js';
 
 const log = logger('llm.anthropic');
@@ -466,6 +467,11 @@ export default wrap(async (req, res) => {
 			bytes: 0,
 			latencyMs,
 			status: 'ok',
+			provider: route.provider || 'anthropic',
+			model: usedModel,
+			inputTokens,
+			outputTokens,
+			costMicroUsd: costMicroUsd({ provider: route.provider || 'anthropic', model: usedModel, input: inputTokens, output: outputTokens }),
 			meta: { model: usedModel, requested_model: requestedModel, input_tokens: inputTokens, output_tokens: outputTokens, upstream_status: upstream.status },
 		});
 		return;
@@ -513,6 +519,11 @@ export default wrap(async (req, res) => {
 		bytes: upstreamText.length,
 		latencyMs,
 		status: 'ok',
+		provider: route.provider || 'anthropic',
+		model: usedModel,
+		inputTokens,
+		outputTokens,
+		costMicroUsd: costMicroUsd({ provider: route.provider || 'anthropic', model: usedModel, input: inputTokens, output: outputTokens }),
 		meta: { model: usedModel, requested_model: requestedModel, input_tokens: inputTokens, output_tokens: outputTokens, upstream_status: upstream.status },
 	});
 

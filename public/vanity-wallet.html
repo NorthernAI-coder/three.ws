@@ -74,6 +74,42 @@
 		.chip:hover { background: #242424; border-color: rgba(255,255,255,0.2); }
 		.chip-est { color: #555; margin-left: .35rem; font-family: system-ui, sans-serif; }
 
+		/* ── Compute / core selector ── */
+		.cores { margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+		.cores .cores-head { display: flex; justify-content: space-between; align-items: baseline; }
+		.cores .cores-head label { margin: 0; }
+		.cores .cores-val { font-family: ui-monospace, monospace; font-size: .85rem; color: var(--fg); }
+		.cores .cores-val b { color: #fff; font-size: 1rem; }
+		.cores-row { display: flex; align-items: center; gap: .75rem; margin-top: .55rem; }
+		.cores-row input[type=range] {
+			flex: 1; -webkit-appearance: none; appearance: none; height: 5px; border-radius: 999px;
+			background: #2a2a2a; outline: none; cursor: pointer; margin: 0;
+		}
+		.cores-row input[type=range]::-webkit-slider-thumb {
+			-webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%;
+			background: #fff; cursor: pointer; border: 3px solid #000; box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+			transition: transform .1s;
+		}
+		.cores-row input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+		.cores-row input[type=range]::-moz-range-thumb {
+			width: 18px; height: 18px; border-radius: 50%; background: #fff; cursor: pointer;
+			border: 3px solid #000; box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+		}
+		.cores-row input[type=range]:disabled { opacity: .4; cursor: not-allowed; }
+		.cores-row input[type=range]:focus-visible { box-shadow: 0 0 0 2px rgba(255,255,255,0.35); }
+		.cores .cores-hint { font-size: .72rem; color: var(--muted); margin-top: .45rem; }
+		.cores-ticks { display: flex; gap: .35rem; margin-top: .55rem; }
+		.cores-ticks button {
+			font: inherit; font-size: .72rem; padding: .2rem .55rem; border-radius: 999px;
+			border: 1px solid rgba(255,255,255,0.1); background: #1a1a1a; color: #bbb; cursor: pointer;
+		}
+		.cores-ticks button:hover { background: #242424; border-color: rgba(255,255,255,0.2); }
+		.cores-ticks button[aria-pressed=true] { background: #fff; color: #000; border-color: #fff; font-weight: 600; }
+
+		.progress.paused { opacity: .75; }
+		.paused-tag { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .7rem; font-weight: 600;
+			background: var(--warn-bg); color: var(--warn-fg); border: 1px solid rgba(251,191,36,0.2); margin-left: .5rem; vertical-align: middle; }
+
 		.actions { display: flex; gap: .55rem; margin-top: 1.25rem; align-items: center; flex-wrap: wrap; }
 		.btn { font: inherit; padding: .55rem 1.1rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: #1a1a1a; color: var(--fg); cursor: pointer; }
 		.btn:hover { background: #222; }
@@ -184,16 +220,30 @@
 				<button class="chip" data-prefix="NPC"  type="button">NPC<span class="chip-est"></span></button>
 			</div>
 
+			<div class="cores">
+				<div class="cores-head">
+					<label for="core-count">Compute — CPU cores to use</label>
+					<span class="cores-val"><b id="core-count-val">4</b> / <span id="core-max">8</span></span>
+				</div>
+				<div class="cores-row">
+					<input id="core-count" type="range" min="1" max="8" value="4" step="1"
+						aria-label="Number of CPU cores to use for grinding" />
+				</div>
+				<div class="cores-ticks" id="core-ticks" aria-label="Quick core presets"></div>
+				<div class="cores-hint" id="cores-hint">More cores = faster, but a heavier load on your machine. Pause anytime to free them.</div>
+			</div>
+
 			<div class="actions">
 				<button id="grind" class="btn primary" type="button" disabled>Generate wallet</button>
-				<button id="cancel" class="btn" type="button" hidden>Cancel</button>
+				<button id="pause" class="btn" type="button" hidden>Pause</button>
+				<button id="stop" class="btn" type="button" hidden>Stop</button>
 			</div>
 
 			<div id="progress" hidden class="progress">
 				<div class="live">
 					<div>
 						<div class="stat" id="rate">0/s</div>
-						<div style="font-size:.75rem;color:#555">tries/sec across <span id="cores">?</span> cores</div>
+						<div style="font-size:.75rem;color:#555">tries/sec across <span id="cores">?</span> cores<span id="paused-tag" class="paused-tag" hidden>paused</span></div>
 					</div>
 					<div style="text-align:right">
 						<div class="stat"><span id="attempts">0</span></div>
@@ -321,8 +371,50 @@
 		const $ = (id) => document.getElementById(id);
 		const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 		const RATE_PER_CORE = 5000;
-		const cores = Math.max(1, Math.min(navigator.hardwareConcurrency || 4, 8));
-		$('cores').textContent = cores;
+
+		// ── Core selection ─────────────────────────────────────────────────
+		// The machine's logical core count is the ceiling; default to a
+		// conservative half (min 1) so we don't peg the whole CPU by surprise.
+		const HW_CORES = Math.max(1, navigator.hardwareConcurrency || 4);
+		const DEFAULT_CORES = Math.max(1, Math.min(HW_CORES, Math.round(HW_CORES / 2) || 1));
+		let cores = DEFAULT_CORES;
+
+		const coreSlider = $('core-count');
+		coreSlider.max = String(HW_CORES);
+		coreSlider.value = String(DEFAULT_CORES);
+		$('core-max').textContent = HW_CORES;
+		$('core-count-val').textContent = DEFAULT_CORES;
+		$('cores').textContent = DEFAULT_CORES;
+
+		// Quick presets: 1, half, max — deduped for low-core machines.
+		const presetVals = [...new Set([1, DEFAULT_CORES, HW_CORES])].sort((a, b) => a - b);
+		const presetLabel = (n) => n === 1 ? '1 core' : n === HW_CORES ? `Max (${n})` : `${n}`;
+		$('core-ticks').innerHTML = presetVals
+			.map((n) => `<button type="button" data-cores="${n}" aria-pressed="${n === DEFAULT_CORES}">${presetLabel(n)}</button>`)
+			.join('');
+
+		function setCores(n) {
+			cores = Math.max(1, Math.min(HW_CORES, n | 0));
+			coreSlider.value = String(cores);
+			$('core-count-val').textContent = cores;
+			$('core-ticks').querySelectorAll('button').forEach((b) => {
+				b.setAttribute('aria-pressed', String(Number(b.dataset.cores) === cores));
+			});
+			refreshChipEstimates();
+			update();
+		}
+
+		function refreshChipEstimates() {
+			document.querySelectorAll('.chip').forEach((c) => {
+				const est = c.querySelector('.chip-est');
+				if (est) est.textContent = ' ' + fmtTime(estSeconds(c.dataset.prefix.length));
+			});
+		}
+
+		coreSlider.addEventListener('input', () => setCores(Number(coreSlider.value)));
+		$('core-ticks').querySelectorAll('button').forEach((b) => {
+			b.addEventListener('click', () => setCores(Number(b.dataset.cores)));
+		});
 
 		function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
 		function sample(prefix = '') {
@@ -403,6 +495,30 @@
 
 		// ── Grind ──────────────────────────────────────────────────────────
 		let abort = null;
+		let controls = null;   // GrindController for pause/resume/stop
+		let scanLoop = null;
+
+		// Toggle the core controls — they can only change between runs, since
+		// the worker pool size is fixed for the lifetime of a grind.
+		function setCoreControlsDisabled(disabled) {
+			coreSlider.disabled = disabled;
+			$('core-ticks').querySelectorAll('button').forEach((b) => { b.disabled = disabled; });
+		}
+
+		function setPaused(paused) {
+			$('pause').textContent = paused ? 'Resume' : 'Pause';
+			$('pause').classList.toggle('primary', paused);
+			$('paused-tag').hidden = !paused;
+			$('progress').classList.toggle('paused', paused);
+		}
+
+		function endGrindUI() {
+			if (scanLoop) { clearInterval(scanLoop); scanLoop = null; }
+			$('pause').hidden = true;
+			$('stop').hidden = true;
+			setPaused(false);
+			setCoreControlsDisabled(false);
+		}
 
 		$('grind').addEventListener('click', async () => {
 			const prefix = $('prefix').value.trim();
@@ -414,52 +530,66 @@
 			}
 
 			$('grind').hidden = true;
-			$('cancel').hidden = false;
+			$('pause').hidden = false;
+			$('stop').hidden = false;
+			setPaused(false);
+			setCoreControlsDisabled(true);
 			$('progress').hidden = false;
 			$('result').hidden = true;
 			$('error').hidden = true;
 			$('attempts').textContent = '0';
 			$('rate').textContent = '0/s';
+			$('cores').textContent = cores;
 			$('eta').textContent = fmtTime(estSeconds(prefix.length));
 			$('scan').innerHTML = `<span class="pfx" style="background:linear-gradient(90deg,#ffd54f,#ff8a65);padding:0 3px;border-radius:3px;font-weight:700;color:var(--bg-1)">${esc(prefix)}</span><span style="color:#555">${esc(sample(prefix).slice(prefix.length))}</span>`;
 			stopPreviewLoop();
 
-			// Animate the scan line during grind.
-			const scanLoop = setInterval(() => {
+			// Animate the scan line during grind (frozen while paused).
+			scanLoop = setInterval(() => {
+				if (controls?.paused) return;
 				const restNode = $('scan').lastElementChild;
 				if (restNode) restNode.textContent = sample(prefix).slice(prefix.length);
 			}, 100);
 
 			abort = new AbortController();
+			controls = {};
 			try {
 				const result = await grindVanity({
 					prefix,
+					maxWorkers: cores,
+					controller: controls,
 					signal: abort.signal,
-					onProgress: ({ attempts, rate, eta }) => {
+					onProgress: ({ attempts, rate, eta, paused }) => {
 						$('attempts').textContent = attempts.toLocaleString();
-						$('rate').textContent = `${Math.round(rate).toLocaleString()}/s`;
+						$('rate').textContent = paused ? 'paused' : `${Math.round(rate).toLocaleString()}/s`;
 						$('eta').textContent = eta;
 					},
 				});
-				clearInterval(scanLoop);
 				renderResult(result, prefix);
 			} catch (err) {
-				clearInterval(scanLoop);
+				endGrindUI();
 				if (err?.name !== 'AbortError') {
 					$('error').textContent = `Grind failed: ${err.message || err}`;
 					$('error').hidden = false;
 				}
 				$('grind').hidden = false;
-				$('cancel').hidden = true;
 				$('progress').hidden = true;
 				startPreviewLoop();
+			} finally {
+				controls = null;
 			}
 		});
 
-		$('cancel').addEventListener('click', () => abort?.abort());
+		$('pause').addEventListener('click', () => {
+			if (!controls) return;
+			if (controls.paused) { controls.resume(); setPaused(false); }
+			else { controls.pause(); setPaused(true); }
+		});
+
+		$('stop').addEventListener('click', () => abort?.abort());
 
 		function renderResult(result, prefix) {
-			$('cancel').hidden = true;
+			endGrindUI();
 			$('grind').hidden = false;
 			$('grind').textContent = 'Generate another';
 			$('progress').hidden = true;
@@ -557,6 +687,7 @@
 						<option value="">— select an agent —</option>
 						${agents.map((a) => `<option value="${esc(a.id)}">${esc(a.name)} ${a.meta?.solana_address ? '(already has wallet)' : ''}</option>`).join('')}
 					</select>
+					<div id="assign-replace-warn" hidden style="margin-top:.5rem;padding:.5rem .65rem;border:1px solid var(--danger);border-radius:8px;background:rgba(255,90,90,.06);font-size:.78rem;line-height:1.45"></div>
 					<div class="custody">
 						<label>
 							<input type="checkbox" id="assign-ack" />
@@ -574,16 +705,49 @@
 			const ack    = document.getElementById('assign-ack');
 			const btn    = document.getElementById('assign-btn');
 			const status = document.getElementById('assign-status');
+			const warn   = document.getElementById('assign-replace-warn');
 
-			function refresh() { btn.disabled = !sel.value || !ack.checked; }
+			// Existing Solana address per agent, so selecting an agent that already
+			// has a wallet switches the flow to an explicit replace instead of
+			// dead-ending on a 409 from POST /api/agents/:id/solana.
+			const walletByAgent = Object.fromEntries(agents.map((a) => [a.id, a.meta?.solana_address || null]));
+			const truncAddr = (a) => `${a.slice(0, 4)}…${a.slice(-4)}`;
+
+			function refresh() {
+				const existing = sel.value ? walletByAgent[sel.value] : null;
+				if (existing) {
+					warn.innerHTML = `<strong style="color:var(--danger)">This agent already has a wallet</strong> (<code style="font-family:ui-monospace,monospace">${esc(truncAddr(existing))}</code>). Assigning will <strong>replace</strong> it — the old wallet is detached and can no longer sign for this agent. Make sure you have its key backed up.`;
+					warn.hidden = false;
+					btn.textContent = 'Replace wallet';
+				} else {
+					warn.hidden = true;
+					btn.textContent = 'Assign to agent';
+				}
+				btn.disabled = !sel.value || !ack.checked;
+			}
 			sel.addEventListener('change', refresh);
 			ack.addEventListener('change', refresh);
 
 			btn.addEventListener('click', async () => {
+				const replacing = !!walletByAgent[sel.value];
 				btn.disabled = true;
-				status.textContent = 'assigning…';
+				status.textContent = replacing ? 'replacing…' : 'assigning…';
 				status.style.color = '#888';
 				try {
+					// Replacing an existing wallet: detach it first so the POST below
+					// provisions cleanly instead of being rejected with a 409.
+					if (replacing) {
+						const del = await fetch(`/api/agents/${encodeURIComponent(sel.value)}/solana`, {
+							method: 'DELETE',
+							credentials: 'include',
+						});
+						if (!del.ok) {
+							const delData = await del.json().catch(() => ({}));
+							status.innerHTML = `<span style="color:var(--danger)">Could not remove the existing wallet: ${esc(delData.error_description || del.status)}</span>`;
+							btn.disabled = false;
+							return;
+						}
+					}
 					const r = await fetch(`/api/agents/${encodeURIComponent(sel.value)}/solana`, {
 						method: 'POST',
 						credentials: 'include',
@@ -603,6 +767,7 @@
 						btn.disabled = false;
 						return;
 					}
+					walletByAgent[sel.value] = addr;
 					const agentName = sel.options[sel.selectedIndex].text.replace(/\s*\(already.*\)$/, '');
 					host.innerHTML = `
 						<div class="assigned-ok">
