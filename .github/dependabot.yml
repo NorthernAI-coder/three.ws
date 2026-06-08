@@ -31,6 +31,16 @@ updates:
       # ethers v6 → v7 will need a code sweep when the time comes.
       - dependency-name: ethers
         update-types: [version-update:semver-major]
+      # Colyseus is 0.x, so a "minor" bump is breaking: 0.16 → 0.17 requires
+      # @colyseus/schema v4 (new wire format + API), but we pin schema at 3.0.76
+      # because multiplayer/src/schemas.js uses the v3 defineTypes/positional-
+      # field encoding. Allow only 0.16.x patches until we migrate to schema v4
+      # deliberately. (Grouping a core@0.17 bump with a pinned schema@3 yields an
+      # unsatisfiable peer dep — schema@^4.0.7 — and breaks `npm install`.)
+      - dependency-name: "@colyseus/*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-major
     labels:
       - dependencies
       - automerge-eligible
