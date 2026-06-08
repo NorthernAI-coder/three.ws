@@ -12,6 +12,7 @@
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { sql } from './_lib/db.js';
 import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { requireCsrf } from './_lib/csrf.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', credentials: true })) return;
@@ -80,6 +81,7 @@ async function handleList(req, res) {
 async function handleUpsert(req, res) {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const body = await readJson(req);
 	const agentId = body.agentId || body.agent_id;
@@ -158,6 +160,7 @@ async function handleUpsert(req, res) {
 async function handleDelete(req, res, memoryId) {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const [row] = await sql`
 		SELECT m.id, a.user_id

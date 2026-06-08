@@ -11,7 +11,9 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { sql } from './_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
+import { requireCsrf } from './_lib/csrf.js';
+import { limits } from './_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
@@ -68,8 +70,13 @@ async function handleList(req, res) {
 async function handleAppend(req, res) {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+	// Cookie sessions need a CSRF token; bearer callers are exempt inside requireCsrf.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
-	const body = await readJson(req);
+	const rl = await limits.agentActionAppend(auth.userId);
+	if (!rl.success) return rateLimited(res, rl, 'too many actions, slow down');
+
+	const body = await readJson(req, 32_000);
 
 	if (!body.agent_id) return error(res, 400, 'validation_error', 'agent_id required');
 	if (!body.type) return error(res, 400, 'validation_error', 'type required');

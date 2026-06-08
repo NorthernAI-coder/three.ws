@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { sql } from './_lib/db.js';
 import { getSessionUser } from './_lib/auth.js';
 import { cors, json, error, wrap, readJson, method, rateLimited } from './_lib/http.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 
@@ -41,6 +42,11 @@ export default wrap(async (req, res) => {
 
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// State-changing methods on a cookie session require a CSRF token. These
+	// strategies move real funds on a schedule, so a forged create/cancel is
+	// high-impact — gate every non-GET method.
+	if (req.method !== 'GET' && !(await requireCsrf(req, res, session.id))) return;
 
 	const url = new URL(req.url, 'http://x');
 

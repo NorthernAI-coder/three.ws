@@ -18,6 +18,7 @@ import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { logAudit } from '../../_lib/audit.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { parse } from '../../_lib/validate.js';
 import { parseSiweMessage } from '../../_lib/siwe.js';
 import { parseSiwsMessage, verifySiwsSignature } from '../../_lib/siws.js';
@@ -496,6 +497,7 @@ async function handleSetPrimary(req, res) {
 
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, session.id))) return;
 
 	const body = await readJson(req).catch(() => null);
 	const rawAddress = body?.address;

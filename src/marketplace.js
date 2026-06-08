@@ -17,6 +17,7 @@ import {
 	bindDetailExtras,
 } from './marketplace-detail.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { coinChipHTML } from './shared/agent-coin.js';
 import { skeletonHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { log } from './shared/log.js';
@@ -3915,7 +3916,13 @@ function renderCard(a) {
 		</div>
 		<div class="footer">
 			<span>${date}</span>
-			<span class="cat-pill">${CATEGORY_LABELS[a.category] || a.category || ''}</span>
+			<span class="footer-right">
+				<a class="card-see3d" href="${escapeHtml(seeInWorldHref(a))}" aria-label="${hasCustomAvatar(a) ? 'See' : 'View'} ${escapeHtml(a.name || 'agent')} in 3D in the three.ws world">
+					<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+					<span>${hasCustomAvatar(a) ? 'See in 3D' : 'View in 3D'}</span>
+				</a>
+				<span class="cat-pill">${CATEGORY_LABELS[a.category] || a.category || ''}</span>
+			</span>
 		</div>
 	</div>`;
 }
