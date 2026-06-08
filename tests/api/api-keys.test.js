@@ -46,6 +46,7 @@ vi.mock('../../api/_lib/csrf.js', () => ({
 }));
 
 const { default: handler } = await import('../../api/api-keys.js');
+const { default: revokeHandler } = await import('../../api/api-keys/[id].js');
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -81,6 +82,17 @@ async function invoke(reqOpts) {
 	const req = makeReq(reqOpts);
 	const res = makeRes();
 	await handler(req, res);
+	const payload = res.body ? JSON.parse(res.body) : null;
+	return { res, status: res.statusCode, body: payload };
+}
+
+// Revoke lives at api/api-keys/[id].js. Vercel populates req.query from the
+// dynamic route segment; replicate that here since makeReq only models the body.
+async function invokeRevoke({ id, ...reqOpts } = {}) {
+	const req = makeReq({ method: 'DELETE', url: `/api/api-keys/${id}`, ...reqOpts });
+	req.query = { id };
+	const res = makeRes();
+	await revokeHandler(req, res);
 	const payload = res.body ? JSON.parse(res.body) : null;
 	return { res, status: res.statusCode, body: payload };
 }
@@ -204,6 +216,93 @@ describe('method routing', () => {
 	});
 });
 
-// Revoke lives at api/api-keys/[id].js — out of scope for this file's tests.
-describe.todo('DELETE /api/api-keys/:id — revoke 200');
-describe.todo('DELETE /api/api-keys/:id — 404 unknown id');
+describe('DELETE /api/api-keys/:id — revoke 200', () => {
+	it('returns 401 when unauthenticated', async () => {
+		const { status, body } = await invokeRevoke({ id: 'k1' });
+		expect(status).toBe(401);
+		expect(body.error).toBe('unauthorized');
+	});
+
+	it('revokes the owner’s live key and returns { id, revoked: true }', async () => {
+		authState.session = { id: 'user-1' };
+		// UPDATE ... returning id — one row means the live key was found + revoked.
+		sqlState.queue.push([{ id: 'k1' }]);
+
+		const { status, body } = await invokeRevoke({ id: 'k1' });
+
+		expect(status).toBe(200);
+		expect(body.data).toEqual({ id: 'k1', revoked: true });
+
+		// The UPDATE must scope to the owner and only touch live keys, so a key
+		// can't be revoked by a non-owner or revoked twice.
+		const updateCall = sqlState.calls.find((c) => /update api_keys/i.test(c.query));
+		expect(updateCall).toBeTruthy();
+		expect(updateCall.query).toMatch(/set revoked_at = now\(\)/i);
+		expect(updateCall.query).toMatch(/user_id =/i);
+		expect(updateCall.query).toMatch(/revoked_at is null/i);
+		expect(updateCall.values).toContain('k1');
+		expect(updateCall.values).toContain('user-1');
+	});
+
+	it('omits the revoked key from the subsequent list (filtered by revoked_at is null)', async () => {
+		authState.session = { id: 'user-1' };
+
+		// Revoke the live key.
+		sqlState.queue.push([{ id: 'k1' }]);
+		const revoke = await invokeRevoke({ id: 'k1' });
+		expect(revoke.status).toBe(200);
+
+		// The list endpoint filters on `revoked_at is null`, so the revoked key
+		// no longer comes back.
+		sqlState.queue.push([]);
+		const list = await invoke({ method: 'GET' });
+		expect(list.status).toBe(200);
+		expect(list.body.data).toEqual([]);
+
+		const selectCall = sqlState.calls.find((c) => /select[\s\S]*from api_keys/i.test(c.query));
+		expect(selectCall).toBeTruthy();
+		expect(selectCall.query).toMatch(/revoked_at is null/i);
+	});
+
+	it('returns 404 when the same key is revoked again', async () => {
+		authState.session = { id: 'user-1' };
+
+		// First revoke succeeds.
+		sqlState.queue.push([{ id: 'k1' }]);
+		const first = await invokeRevoke({ id: 'k1' });
+		expect(first.status).toBe(200);
+
+		// Second revoke: the `revoked_at is null` guard matches nothing → no row.
+		sqlState.queue.push([]);
+		const second = await invokeRevoke({ id: 'k1' });
+		expect(second.status).toBe(404);
+		expect(second.body.error).toBe('not_found');
+	});
+});
+
+describe('DELETE /api/api-keys/:id — 404 unknown id', () => {
+	it('returns 404 for a well-formed but non-existent id', async () => {
+		authState.session = { id: 'user-1' };
+		// UPDATE matches no row → empty result.
+		sqlState.queue.push([]);
+
+		const { status, body } = await invokeRevoke({ id: 'does-not-exist' });
+		expect(status).toBe(404);
+		expect(body.error).toBe('not_found');
+	});
+
+	it('returns 404 for another user’s key (ownership scoping)', async () => {
+		// user-2 attempts to revoke a key owned by user-1: the `user_id` predicate
+		// excludes it, so the UPDATE affects no row.
+		authState.session = { id: 'user-2' };
+		sqlState.queue.push([]);
+
+		const { status, body } = await invokeRevoke({ id: 'k1' });
+		expect(status).toBe(404);
+		expect(body.error).toBe('not_found');
+
+		// Confirm the requester's id (not the owner's) scopes the query.
+		const updateCall = sqlState.calls.find((c) => /update api_keys/i.test(c.query));
+		expect(updateCall.values).toContain('user-2');
+	});
+});
