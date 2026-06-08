@@ -45,9 +45,8 @@ import {
 	estimateCredits,
 	buildCatalog,
 } from './_lib/forge-tiers.js';
-import { getSessionUser } from './_lib/auth.js';
-import { sql } from './_lib/db.js';
-import { loadUserProviderKeys } from './_lib/provider-keys.js';
+import { resolveProviderKey } from './_lib/forge-provider-key.js';
+import { encodeJobToken, decodeJobToken } from './_lib/forge-job-token.js';
 import {
 	hashClient,
 	hashIp,
@@ -90,54 +89,6 @@ function parsePath(body) {
 function parseTier(body) {
 	const t = typeof body?.tier === 'string' ? body.tier.trim() : '';
 	return TIER_IDS.includes(t) ? t : DEFAULT_TIER;
-}
-
-// BYOK key resolution for the geometry providers (Meshy / Tripo). No platform
-// key exists for these, so the key must come from the caller. Two real sources,
-// in priority order:
-//   1. An inline key on the request — header `x-forge-provider-key` (preferred,
-//      kept out of URLs/logs) or `provider_key` in the POST body. Used
-//      transiently and never persisted.
-//   2. The signed-in user's stored, encrypted key (the dashboard BYOK store),
-//      when the request carries a session cookie.
-// Returns the plaintext key or null when none is available.
-async function resolveProviderKey(req, body, providerName) {
-	const header = req.headers['x-forge-provider-key'];
-	const inline =
-		(typeof header === 'string' && header) ||
-		(Array.isArray(header) && header[0]) ||
-		(typeof body?.provider_key === 'string' ? body.provider_key : '');
-	if (inline && inline.trim()) return inline.trim();
-
-	try {
-		const session = await getSessionUser(req);
-		if (session?.id) {
-			const [row] = await sql`SELECT provider_keys FROM users WHERE id = ${session.id}`;
-			const keys = await loadUserProviderKeys(row?.provider_keys);
-			if (keys[providerName]) return keys[providerName];
-		}
-	} catch {
-		// No DB / no session — fall through to "no key".
-	}
-	return null;
-}
-
-// Jobs from the geometry providers are polled on a different upstream than the
-// default Replicate path, so we hand the browser an opaque token that records
-// which provider + task-kind to poll. The legacy Replicate path keeps returning
-// its bare prediction id (it matches JOB_ID_RE), so old links never break.
-function encodeJobToken({ provider, kind, taskId }) {
-	return `f1.${Buffer.from(JSON.stringify({ p: provider, k: kind, t: taskId }), 'utf8').toString('base64url')}`;
-}
-function decodeJobToken(token) {
-	if (typeof token !== 'string' || !token.startsWith('f1.')) return null;
-	try {
-		const obj = JSON.parse(Buffer.from(token.slice(3), 'base64url').toString('utf8'));
-		if (!obj?.p || !obj?.t) return null;
-		return { provider: obj.p, kind: obj.k || null, taskId: String(obj.t) };
-	} catch {
-		return null;
-	}
 }
 
 // "needs a BYOK key" — a designed, branchable state (mirrors rig_unconfigured)

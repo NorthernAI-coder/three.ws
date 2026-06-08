@@ -1,18 +1,42 @@
 // three.ws 3D Studio MCP — generation tools.
 //
 // text_to_3d / image_to_3d submit a reconstruction job and return a job handle.
-// generation_status polls that job. preview_3d renders any GLB inline.
-// remove_background strips image backgrounds (rembg/BRIA RMBG-2.0).
+//   Both accept a quality tier (draft/standard/high) and a generation path:
+//   "image" (FLUX→TRELLIS, the platform-keyed default) or "geometry" (native
+//   text/image→mesh via Meshy/Tripo, BYOK). generation_status polls any job —
+//   it is provider-aware, decoding the forge job token to route geometry jobs.
+// auto_rig_model adds a skeleton + skin weights to a static mesh (rerig).
+// preview_3d renders any GLB inline. remove_background strips image backgrounds.
 // remesh_model converts, simplifies, and repairs meshes.
 // stylize_model applies one-click geometric filters (voxel/brick/voronoi/lowpoly).
 // retexture_model paints a new texture onto a mesh from a text prompt.
 // retexture_region (magic brush) repaints only a masked UV region, preserving the rest.
+// pose_model maps a prompt to a deterministic pose-studio seed + joint rotations.
+// direct_prompt (IBM Granite) rewrites a rough idea into an optimized 3D spec.
+// generate_material (IBM Granite) emits a glTF PBR material from a description.
 
 import { limits } from '../../_lib/rate-limit.js';
 import { assertSafePublicUrl } from '../../_lib/ssrf-guard.js';
 import { createRegenProvider as createReplicateProvider } from '../../_providers/replicate.js';
 import { createRegenProvider as createGcpProvider } from '../../_providers/gcp.js';
+import { createMeshyProvider } from '../../_providers/meshy.js';
+import { createTripoProvider } from '../../_providers/tripo.js';
 import { textToImage } from '../text-to-image.js';
+import {
+	PATHS,
+	DEFAULT_PATH,
+	TIER_IDS,
+	DEFAULT_TIER,
+	BACKENDS,
+	resolveTier,
+	resolveBackendId,
+	estimateEtaSeconds,
+	estimateCredits,
+} from '../../_lib/forge-tiers.js';
+import { resolveProviderKey } from '../../_lib/forge-provider-key.js';
+import { encodeJobToken, decodeJobToken } from '../../_lib/forge-job-token.js';
+import { watsonxConfig, watsonxChatComplete } from '../../_lib/watsonx.js';
+import { PRESETS, PRESET_GROUPS } from '../../../src/pose-presets.js';
 import {
 	renderModelViewerHtml,
 	safeCssValue,
@@ -111,6 +135,105 @@ function viewerArtifact({ glbUrl, name, options = {} }) {
 	return {
 		type: 'resource',
 		resource: { uri: glbUrl, mimeType: 'text/html', text: html },
+	};
+}
+
+// ── Quality tier + generation path/backend (shared by text_to_3d/image_to_3d) ──
+// Mirrors the /api/forge axes: `path` ("image" vs "geometry"), `tier`
+// (draft/standard/high poly budget), `backend` (trellis/meshy/tripo/hunyuan3d).
+// The default — path "image", backend "trellis" — keeps the existing fast
+// platform-keyed reconstruction untouched.
+function parsePathArg(args) {
+	const p = typeof args?.path === 'string' ? args.path.trim() : '';
+	return PATHS.includes(p) ? p : DEFAULT_PATH;
+}
+function parseTierArg(args) {
+	const t = typeof args?.tier === 'string' ? args.tier.trim() : '';
+	return TIER_IDS.includes(t) ? t : DEFAULT_TIER;
+}
+
+const TIER_PROP = {
+	type: 'string',
+	enum: TIER_IDS,
+	default: DEFAULT_TIER,
+	description:
+		'Quality tier: draft (~12k poly, fast), standard (~30k, balanced), high (~200k + PBR, slower). Honoured by poly-aware backends (Meshy/Tripo/Hunyuan3D); the TRELLIS default records it as provenance.',
+};
+const PATH_PROP = {
+	type: 'string',
+	enum: PATHS,
+	default: DEFAULT_PATH,
+	description:
+		'Generation path: "image" (FLUX→TRELLIS reference-image reconstruction, the platform-keyed default) or "geometry" (native text/image→mesh via Meshy/Tripo — cleaner topology, but BYOK: needs your own provider key).',
+};
+const BACKEND_PROP = {
+	type: 'string',
+	enum: Object.keys(BACKENDS),
+	description:
+		'Force a specific backend (trellis, meshy, tripo, hunyuan3d). Defaults to the best one for the chosen path. Backends outside the path are ignored.',
+};
+
+// "needs a BYOK key" — a designed, branchable result (mirrors /api/forge's
+// needs_key state), not an error: the geometry providers have no platform key,
+// so a caller without one is told exactly how to enable the path.
+function needsKeyResult(backendId) {
+	const meta = BACKENDS[backendId];
+	return {
+		content: [
+			{
+				type: 'text',
+				text:
+					`The geometry path uses ${meta?.label || backendId}, which needs your own API key. ` +
+					`Send it as the "x-forge-provider-key" request header (or store a ${meta?.byok || backendId} key on your three.ws account) and retry, ` +
+					'or use the default image path (omit "path", or set path="image").',
+			},
+		],
+		structuredContent: { status: 'needs_key', backend: backendId, provider: meta?.byok || backendId },
+		isError: true,
+	};
+}
+
+// Submit a native geometry-first job (Meshy/Tripo, BYOK) and shape the MCP
+// response. Returns a needs_key result when no key is available. The job handle
+// is a forge token so generation_status routes the poll back to this provider.
+async function submitGeometryJob({ req, args, backendId, isImageMode, prompt, primaryImage, tier, path }) {
+	const providerName = BACKENDS[backendId].byok; // 'meshy' | 'tripo'
+	const key = await resolveProviderKey(req, args, providerName);
+	if (!key) return needsKeyResult(backendId);
+
+	let gp;
+	try {
+		gp = backendId === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+	} catch {
+		return needsKeyResult(backendId);
+	}
+
+	const submitted = isImageMode
+		? await gp.imageTo3d({ imageUrl: primaryImage, prompt: prompt || undefined, tier })
+		: await gp.textToGeometry({ prompt, tier });
+	const token = encodeJobToken({ provider: providerName, kind: submitted.kind, taskId: submitted.taskId });
+
+	return {
+		content: [
+			{
+				type: 'text',
+				text:
+					`Started ${isImageMode ? 'image-to-3D' : 'text-to-3D'} on ${BACKENDS[backendId].label} ` +
+					`(${path} path, ${tier.id} tier).\nJob ID: ${token}\n${POLL_HINT}`,
+			},
+		],
+		structuredContent: {
+			job_id: token,
+			status: 'queued',
+			mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+			path,
+			tier: tier.id,
+			backend: backendId,
+			prompt: prompt || null,
+			source_image_url: isImageMode ? primaryImage : null,
+			eta_seconds: estimateEtaSeconds({ backendId, tier }),
+			estimated_credits: estimateCredits({ backendId, path, tier }),
+		},
 	};
 }
 

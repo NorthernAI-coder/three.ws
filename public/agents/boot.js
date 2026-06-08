@@ -10,7 +10,9 @@ import { AgentsDirectory } from '../../src/agents-directory.js';
 const idParam = new URLSearchParams(window.location.search).get('id');
 if (idParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)) {
   window.location.replace(`/agents/${idParam}`);
-  throw new Error('redirecting to agent detail'); // halt directory boot
+  // Halt the rest of the directory boot while the browser navigates away —
+  // avoids a wasted list fetch and a flash of the empty directory.
+  await new Promise(() => {});
 }
 
 const directory = new AgentsDirectory('#agents');

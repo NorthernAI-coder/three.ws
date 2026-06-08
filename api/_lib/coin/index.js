@@ -26,6 +26,12 @@ export {
 	inSample,
 } from './cohorts.js';
 export {
+	isLiveCohort,
+	liveHolderSet,
+	liveCohortCounts,
+	liveCohortMembers,
+} from './cohorts-live.js';
+export {
 	DRAND,
 	roundForTime,
 	timeForRound,
