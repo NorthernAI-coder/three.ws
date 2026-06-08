@@ -224,28 +224,72 @@ function initActivePage(root) {
 }
 
 // ── Auth-aware CTAs ──────────────────────────────────────────────────────────
-// When a signed-in hint exists, swap "Sign in" for the dashboard/My Agents
-// entry points. Mirrors the hint written by the account layer.
-function initAuthHint(root) {
+// Swap "Sign in" for the dashboard / My Agents entry points when the visitor is
+// authenticated. The localStorage hint (written by the login flows) gives an
+// instant, flicker-free first paint for returning users; the server session at
+// /api/auth/me is the source of truth and reconciles the UI afterwards. That
+// reconciliation is what fixes the "I'm signed in but the nav still says Sign
+// in" case — any session without a local hint (Google/SAML redirect, a fresh
+// browser or device, cleared storage) is now resolved against the real cookie.
+const AUTH_HINT_KEY = '3dagent:auth-hint';
+
+function applyAuthState(root, { authed, name }) {
+	const signIn = root.querySelector('#home-nav-cta');
+	if (signIn) signIn.hidden = authed;
+	const myAgents = root.querySelector('#home-nav-my-agents-li');
+	if (myAgents) myAgents.hidden = !authed;
+	const console = root.querySelector('#home-nav-user');
+	if (console) console.textContent = authed && name ? name : 'Console →';
+
+	// Mobile drawer equivalents.
+	const drawerSignIn = root.querySelector('#home-nav-drawer-cta');
+	if (drawerSignIn) drawerSignIn.hidden = authed;
+	const drawerMyAgents = root.querySelector('#home-nav-drawer-my-agents');
+	if (drawerMyAgents) drawerMyAgents.hidden = !authed;
+}
+
+function readAuthHint() {
 	try {
-		const raw = localStorage.getItem('3dagent:auth-hint');
-		if (!raw) return;
-		const { authed, name } = JSON.parse(raw);
-		if (!authed) return;
+		const raw = localStorage.getItem(AUTH_HINT_KEY);
+		if (!raw) return null;
+		return JSON.parse(raw);
+	} catch (_) {
+		return null;
+	}
+}
 
-		const signIn = root.querySelector('#home-nav-cta');
-		if (signIn) signIn.hidden = true;
-		const myAgents = root.querySelector('#home-nav-my-agents-li');
-		if (myAgents) myAgents.hidden = false;
-		const console = root.querySelector('#home-nav-user');
-		if (console && name) console.textContent = name;
-
-		// Mobile drawer equivalents.
-		const drawerSignIn = root.querySelector('#home-nav-drawer-cta');
-		if (drawerSignIn) drawerSignIn.hidden = true;
-		const drawerMyAgents = root.querySelector('#home-nav-drawer-my-agents');
-		if (drawerMyAgents) drawerMyAgents.hidden = false;
+function writeAuthHint(hint) {
+	try {
+		if (hint) localStorage.setItem(AUTH_HINT_KEY, JSON.stringify(hint));
+		else localStorage.removeItem(AUTH_HINT_KEY);
 	} catch (_) {}
+}
+
+function initAuthHint(root) {
+	// 1. Instant first paint from the local hint, if any — no network wait.
+	const hint = readAuthHint();
+	if (hint && hint.authed) applyAuthState(root, { authed: true, name: hint.name });
+
+	// 2. Reconcile against the real session. /api/auth/me returns { user } when
+	//    signed in and { user: null } (or 401 for a stale cookie) otherwise.
+	fetch('/api/auth/me', { credentials: 'include' })
+		.then((r) => (r.ok ? r.json() : null))
+		.then((data) => {
+			const user = data && data.user;
+			if (user) {
+				const name = user.display_name || user.username || hint?.name || null;
+				applyAuthState(root, { authed: true, name });
+				writeAuthHint({ authed: true, name });
+			} else {
+				// No live session — revert any optimistic swap and drop the stale hint.
+				applyAuthState(root, { authed: false });
+				writeAuthHint(null);
+			}
+		})
+		.catch(() => {
+			// Network/transient failure: leave the optimistic hint paint untouched
+			// rather than flashing the visitor back to a signed-out nav.
+		});
 }
 
 // ── Walk Companion toggle ─────────────────────────────────────────────────────

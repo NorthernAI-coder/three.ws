@@ -120,4 +120,27 @@ Rails:
 - The chromium binary (`@sparticuz/chromium-min`) is downloaded from GitHub at first cold start in each Vercel container and cached in `/tmp`. The default URL in `render-glb.js` points at the v148.0.0 Sparticuz release that matches the npm version pinned in `package.json`. When bumping the npm package, also bump `DEFAULT_CHROMIUM_PACK` (or set `CHROMIUM_PACK_URL` in env) — otherwise puppeteer.launch() will fail to find the matching binary.
 - three.js is loaded into the viewer page from `unpkg.com/three@0.176.0/build/three.module.js` via importmap. If the in-app three.js version bumps, also bump `THREE_VERSION` in `render-glb.js` so the server-rendered preview stays faithful to what the customizer shows.
 - The in-memory render lock is per-lambda-container. Two Vercel containers seeing the same first-crawl request will each render once, then both write `thumbnail_key`. The `WHERE thumbnail_key IS NULL` guard makes the second write a no-op; the redundant R2 object is overwritten in place. Acceptable redundancy for the cold-start case.
+
+## Item 6 — Blender add-on + ComfyUI nodes for Forge generation ✅
+
+**What:** First-party DCC plugins under `integrations/` that drive the public Forge pipeline (`/api/forge`) from inside the tools artists already use — closing the distribution gap vs Tripo, which ships Blender/Unity/Unreal/ComfyUI plugins while we shipped none. An artist generates a three.ws model (text→3D or image→3D) without leaving Blender or ComfyUI; the GLB imports into the scene / lands in the graph.
+
+**Why this shape:** The Forge endpoints (`api/forge.js`, `api/forge-upload.js`) are already auth-free (IP rate-limited, anonymous `x-forge-client` handle; geometry path BYOK via `x-forge-provider-key`), so the plugins need no new API-key surface — they call the existing public contract directly. The image pipeline (FLUX→TRELLIS) is free; the geometry pipeline (Meshy/Tripo) uses the user's own provider key.
+
+**Files added:**
+- `integrations/_pyclient/three_ws_client.py` — single source of truth for the Forge contract. Stdlib-only (`urllib`) so it runs in Blender's bundled Python and in ComfyUI with no `pip install`. Wraps submit (text/image), presigned image upload, job polling, and download, with a typed `ThreeWSError` and honest progress callbacks.
+- `integrations/blender/three_ws/__init__.py` — Blender 4.0+ add-on. Preferences (API URL + provider key), a `View3D` sidebar panel (text/image mode, tier/pipeline/backend/aspect), and a modal operator that runs networking on a worker thread while polling a queue on Blender's main timer; the GLB import (`bpy.ops.import_scene.gltf`) runs on the main thread (bpy is not thread-safe), then selects + frames the new objects. Esc cancels. "Test connection" lists live backends from `?catalog`.
+- `integrations/comfyui/three_ws_nodes/` — `nodes.py` (ThreeWSTextTo3D, ThreeWSImageTo3D), `__init__.py` exporting `NODE_CLASS_MAPPINGS`/`NODE_DISPLAY_NAME_MAPPINGS`, `requirements.txt`. Both nodes submit→poll→download a real GLB to ComfyUI's output dir and short-circuit to the cached file on identical inputs. IMAGE tensor → PNG via lazy numpy/Pillow.
+- `three_ws_client.py` is vendored byte-for-byte into each plugin package (so each is self-contained/distributable); `integrations/_pyclient/test_no_drift.py` fails if a copy drifts from canonical.
+
+**Tests added (no live network — in-process Forge stub):**
+- `integrations/_pyclient/test_three_ws_client.py` — 10 tests: catalog, text→3D end-to-end (asserts submit body + client-handle scoping on polls), image→3D upload→submit, provider-key header, `needs_key`/short-prompt errors, poll-failure surfacing, download bytes, content-type mapping, poll timeout.
+- `integrations/_pyclient/test_no_drift.py` — vendored copies are byte-identical to canonical.
+- `integrations/comfyui/three_ws_nodes/test_nodes.py` — 3 tests: text node end-to-end + on-disk cache hit (no second submit), image node tensor→PNG→generate, node mappings.
+
+**Tests:** `python -m unittest` → shared client 11/11, ComfyUI 3/3, all green. Blender add-on is `bpy`-only at runtime; CI validates its syntax via `ast.parse`. Vitest scope (`tests/**`, `src/**`, `api/_lib/coin/**`) excludes `integrations/`, so the JS suite is unaffected (zero JS changes).
+
+**Caveats:**
+- The image pipeline requires object storage configured on the deployment (`/api/forge-upload` 503s otherwise); the plugins report that clearly and the geometry/text paths still work.
+- The Blender add-on must be zipped so the archive contains the `three_ws/` directory; the ComfyUI nodes are copied into `custom_nodes/`. Both documented in their READMEs.
 - Private avatars (visibility=`private`) have no public `model_url`, so the renderer is skipped and the SVG card is served instead — the public OG endpoint never holds a presigned URL.

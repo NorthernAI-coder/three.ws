@@ -30,6 +30,11 @@ export const DEFAULT_TIER = 'standard';
 // poly-aware backends (Meshy, Tripo) decimate toward — 100–300k is Meshy's
 // accepted range; we stay inside it. `pbr`/`hd` only apply where the backend
 // produces textures (the geometry path's optional refine, or image-to-3D).
+// `priceUsdcAtomics` is the retail price of one generation at this tier when
+// billed directly in USDC (6 decimals) — the single source of truth for the
+// x402 paid generation endpoint (api/x402/forge.js) and the public catalog.
+// It is a flat per-call price, independent of the BYOK vendor `credits` above
+// (which estimate Meshy/Tripo spend on the bring-your-own-key path).
 export const TIERS = Object.freeze({
 	draft: Object.freeze({
 		id: 'draft',
@@ -39,6 +44,7 @@ export const TIERS = Object.freeze({
 		pbr: false,
 		hd: false,
 		etaMultiplier: 0.6,
+		priceUsdcAtomics: 50_000, // $0.05
 	}),
 	standard: Object.freeze({
 		id: 'standard',
@@ -48,6 +54,7 @@ export const TIERS = Object.freeze({
 		pbr: false,
 		hd: false,
 		etaMultiplier: 1,
+		priceUsdcAtomics: 150_000, // $0.15
 	}),
 	high: Object.freeze({
 		id: 'high',
@@ -57,11 +64,24 @@ export const TIERS = Object.freeze({
 		pbr: true,
 		hd: true,
 		etaMultiplier: 2.2,
+		priceUsdcAtomics: 500_000, // $0.50
 	}),
 });
 
 export function resolveTier(id) {
 	return TIERS[id] || TIERS[DEFAULT_TIER];
+}
+
+// USDC atomic price (6 decimals) for a generation at the given tier — the
+// amount the x402 endpoint quotes in its 402 challenge.
+export function priceAtomicsForTier(tier) {
+	return resolveTier(tier?.id || tier).priceUsdcAtomics;
+}
+
+// Human-readable USD price (e.g. "0.15") derived from the atomic price, so the
+// catalog and docs never hardcode a second copy of the number.
+export function priceUsdcForTier(tier) {
+	return (priceAtomicsForTier(tier) / 1_000_000).toFixed(2);
 }
 
 // Generation backends. `provider` selects the api/_providers/* client that
@@ -204,6 +224,8 @@ export function buildCatalog() {
 				polycount: t.polycount,
 				pbr: t.pbr,
 				hd: t.hd,
+				price_usdc_atomics: t.priceUsdcAtomics,
+				price_usdc: (t.priceUsdcAtomics / 1_000_000).toFixed(2),
 			};
 		}),
 		backends: Object.values(BACKENDS).map((b) => ({
