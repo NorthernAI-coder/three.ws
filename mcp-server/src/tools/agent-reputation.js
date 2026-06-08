@@ -18,11 +18,12 @@
 // All numeric responses are returned both as decimal strings (for safe
 // integer transport) and as parsed Number where the value fits in float64.
 
-import { JsonRpcProvider, Contract, isAddress, ZeroAddress } from 'ethers';
+import { Contract, isAddress, ZeroAddress } from 'ethers';
 import { z } from 'zod';
 
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
+import { makeEvmProvider, getEvmRpcUrls } from '../lib/evm-rpc.js';
 
 const TOOL_NAME = 'agent_reputation';
 const TOOL_DESCRIPTION =
@@ -73,11 +74,6 @@ function resolveChain(input) {
 	}
 	if (typeof input === 'number' && CHAIN_BY_ID[input]) return CHAIN_BY_ID[input];
 	throw new Error(`unsupported chain "${input}" — known: ${Object.keys(CHAINS).join(', ')}`);
-}
-
-function rpcUrlFor(chain) {
-	const envKey = `MCP_AGENT_REP_RPC_${chain.id}`;
-	return process.env[envKey] || chain.rpc;
 }
 
 // Parse the agent identifier. Accepts: numeric ID, EVM wallet, or CAIP-10
@@ -212,9 +208,12 @@ export async function buildAgentReputationTool() {
 		async ({ address, chain }) => {
 			const defaultChain = resolveChain(chain);
 			const parsed = parseAgentInput(address, defaultChain);
-			const provider = new JsonRpcProvider(rpcUrlFor(parsed.chain), parsed.chain.id, {
-				staticNetwork: true,
-			});
+			// Endpoint failover: an operator override (MCP_AGENT_REP_RPC_<id>) is
+			// tried first, then the chain's built-in redundant public endpoints,
+			// each with a bounded request timeout. A single RPC outage no longer
+			// fails the lookup or hangs the paid call.
+			const overrides = [process.env[`MCP_AGENT_REP_RPC_${parsed.chain.id}`]].filter(Boolean);
+			const provider = makeEvmProvider(parsed.chain.id, { overrides, timeoutMs: 12_000 });
 
 			let agentId = parsed.kind === 'agentId' ? parsed.agentId : null;
 			let walletResolved = parsed.kind === 'wallet' ? parsed.wallet : null;
@@ -252,7 +251,7 @@ export async function buildAgentReputationTool() {
 				identity: isZero ? null : identity,
 				reputation,
 				events,
-				rpc: rpcUrlFor(parsed.chain),
+				rpc: getEvmRpcUrls(parsed.chain.id, overrides),
 				fetchedAt: new Date().toISOString(),
 			};
 		},

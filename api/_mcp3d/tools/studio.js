@@ -140,7 +140,10 @@ async function fetchGlbBuffer(url) {
 	}
 	const buf = Buffer.from(await resp.arrayBuffer());
 	if (buf.length > MAX_GLB_BYTES) {
-		throw rpcError(-32000, `GLB too large to save (${buf.length} bytes; max ${MAX_GLB_BYTES}).`);
+		throw rpcError(
+			-32000,
+			`GLB too large to save (${buf.length} bytes; max ${MAX_GLB_BYTES}).`,
+		);
 	}
 	return buf;
 }
@@ -413,7 +416,6 @@ export const toolDefs = [
 				tier: TIER_PROP,
 				path: PATH_PROP,
 				backend: BACKEND_PROP,
-				__ASPECT_CLOSE__: {},
 			},
 			required: ['prompt'],
 			additionalProperties: false,
@@ -1538,7 +1540,8 @@ export const toolDefs = [
 				glb_url: {
 					type: 'string',
 					format: 'uri',
-					description: 'Public https URL of the GLB to save (e.g. from generation_status).',
+					description:
+						'Public https URL of the GLB to save (e.g. from generation_status).',
 				},
 				name: {
 					type: 'string',
@@ -1556,7 +1559,8 @@ export const toolDefs = [
 				source_prompt: {
 					type: 'string',
 					maxLength: 1000,
-					description: 'Optional: the prompt that generated this model, kept as provenance.',
+					description:
+						'Optional: the prompt that generated this model, kept as provenance.',
 				},
 				tags: {
 					type: 'array',
@@ -1626,7 +1630,10 @@ export const toolDefs = [
 			});
 
 			const tags = Array.isArray(args.tags)
-				? args.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 20)
+				? args.tags
+						.map((t) => String(t).trim())
+						.filter(Boolean)
+						.slice(0, 20)
 				: [];
 
 			const avatar = await createAvatar({
