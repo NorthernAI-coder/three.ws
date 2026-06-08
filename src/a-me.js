@@ -249,7 +249,7 @@ function renderAgentCards(host, agents, avatars) {
 
 				<div class="ame-agent-actions">
 					<div class="ame-actions-row">
-						${avatarId ? `<a class="ame-btn primary small" href="/agents/${encodeURIComponent(avatarId)}" target="_blank">View Live</a>` : ''}
+						${avatarId ? `<a class="ame-btn primary small" href="/avatars/${encodeURIComponent(avatarId)}" target="_blank">View Live</a>` : ''}
 						${avatarId ? `<button class="ame-btn small" data-action="share" data-avatar-id="${esc(avatarId)}" data-name="${name}">Share</button>` : ''}
 						${avatarId ? `<button class="ame-btn small" data-action="embed" data-avatar-id="${esc(avatarId)}">Embed</button>` : ''}
 						<a class="ame-btn small" href="/dashboard/monetize">Monetize</a>
@@ -303,7 +303,7 @@ function renderAvatarCards(host, avatars, agents) {
 
 		return `
 			<div class="ame-avatar-card">
-				<a class="ame-avatar-preview" href="/agents/${encodeURIComponent(av.id)}">
+				<a class="ame-avatar-preview" href="/avatars/${encodeURIComponent(av.id)}">
 					${thumb
 						? `<img src="${esc(thumb)}" alt="${name}" loading="lazy" />`
 						: `<div class="ame-avatar-placeholder">
