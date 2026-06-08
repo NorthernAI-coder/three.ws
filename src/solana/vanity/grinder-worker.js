@@ -4,8 +4,15 @@
  * Loops keypair generation inside a WASM module (Rust + ed25519-dalek)
  * and reports matches + progress back to the host. The hot loop runs
  * entirely inside WASM in fixed-size batches; between batches the worker
- * yields to its event loop so 'stop' messages from the host can be
- * processed promptly (bounded abort latency).
+ * yields to its event loop so 'stop'/'pause' messages from the host get
+ * processed promptly (bounded latency, one batch).
+ *
+ * Control messages from the host:
+ *   - start  : begin a fresh grind (resets the attempt counter)
+ *   - pause  : exit the hot loop, freeing the core, but keep the worker and
+ *              its accumulated attempt count alive
+ *   - resume : re-enter the hot loop, continuing the attempt count
+ *   - stop   : exit the hot loop for good (host terminates the worker)
  *
  * Algorithm parity with nirholas/solana-wallet-toolkit
  * (typescript/src/lib/generator.ts). The WASM module is built from
@@ -15,11 +22,17 @@
 import init, { grind } from './wasm/vanity_grinder.js';
 
 // Keep batches small enough that one WASM call returns within ~200 ms even
-// on slow CPUs — abort latency is bounded by one batch.
+// on slow CPUs — pause/abort latency is bounded by one batch.
 const BATCH_SIZE = 5000;
 const PROGRESS_INTERVAL_MS = 250;
 
 let running = false;
+// Guards against two grindLoop()s racing if 'resume' arrives before the
+// previous loop has fully unwound.
+let looping = false;
+// Survives pause/resume so the host's per-worker totals stay monotonic.
+let attempts = 0;
+let cfg = { prefix: '', suffix: '', ignoreCase: false };
 let wasmReady = null;
 
 function ensureWasm() {
@@ -38,34 +51,40 @@ function ensureWasm() {
 self.onmessage = (e) => {
 	const msg = e.data;
 	if (msg?.type === 'start') {
+		cfg = { prefix: msg.prefix || '', suffix: msg.suffix || '', ignoreCase: !!msg.ignoreCase };
+		attempts = 0;
 		running = true;
-		grindLoop(msg.prefix || '', msg.suffix || '', !!msg.ignoreCase);
-	} else if (msg?.type === 'stop') {
+		kick();
+	} else if (msg?.type === 'resume') {
+		running = true;
+		kick();
+	} else if (msg?.type === 'pause' || msg?.type === 'stop') {
 		running = false;
 	}
 };
 
-/**
- * @param {string} prefix
- * @param {string} suffix
- * @param {boolean} ignoreCase
- */
-async function grindLoop(prefix, suffix, ignoreCase) {
+/** Start the hot loop unless one is already in flight. */
+function kick() {
+	if (!looping) grindLoop();
+}
+
+async function grindLoop() {
+	looping = true;
 	try {
 		await ensureWasm();
 	} catch (err) {
 		self.postMessage({ type: 'error', message: String(err?.message || err) });
+		looping = false;
 		return;
 	}
 
-	let attempts = 0;
 	let lastProgress = performance.now();
-	let lastProgressAttempts = 0;
+	let lastProgressAttempts = attempts;
 	const seed = new Uint8Array(32);
 
 	while (running) {
 		crypto.getRandomValues(seed);
-		const hit = grind(prefix, suffix, ignoreCase, BATCH_SIZE, seed);
+		const hit = grind(cfg.prefix, cfg.suffix, cfg.ignoreCase, BATCH_SIZE, seed);
 		attempts += BATCH_SIZE;
 
 		if (hit) {
@@ -76,7 +95,7 @@ async function grindLoop(prefix, suffix, ignoreCase) {
 				attempts,
 			}, [hit.secretKey.buffer]);
 			running = false;
-			return;
+			break;
 		}
 
 		const now = performance.now();
@@ -86,8 +105,10 @@ async function grindLoop(prefix, suffix, ignoreCase) {
 			self.postMessage({ type: 'progress', attempts, rate });
 			lastProgress = now;
 			lastProgressAttempts = attempts;
-			// Yield to the event loop so 'stop' messages get processed.
+			// Yield to the event loop so 'pause'/'stop' messages get processed.
 			await new Promise((r) => setTimeout(r, 0));
 		}
 	}
+
+	looping = false;
 }

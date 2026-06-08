@@ -1,0 +1,55 @@
+// LLM cost model. Converts a provider/model/token-usage triple into a cost in
+// micro-USD (1 unit = $0.000001) so usage_events.cost_micro_usd can be summed
+// without float drift. This is the single source of truth for "what did that
+// call cost us" — the admin spend dashboard reads the events this priced.
+//
+// Anthropic prices are list price per 1M tokens (input / output), current as of
+// the Claude model catalog. Groq and OpenRouter are platform-funded free tiers
+// (we hold the key, callers pay nothing), so their marginal cost to us is $0 —
+// they are intentionally priced at zero, not omitted, so the dashboard can show
+// "calls served free" alongside paid spend.
+
+// USD per 1,000,000 tokens, [input, output]. Keys are matched by prefix so a
+// dated alias (claude-haiku-4-5-20251001) resolves to its family price.
+const PRICE_PER_MTOK = {
+	'claude-opus-4-8': [5, 25],
+	'claude-opus-4-7': [5, 25],
+	'claude-opus-4-6': [5, 25],
+	'claude-opus-4-5': [5, 25],
+	'claude-sonnet-4-6': [3, 15],
+	'claude-sonnet-4-5': [3, 15],
+	'claude-haiku-4-5': [1, 5],
+};
+
+// Providers whose marginal cost to the platform is zero (platform-funded keys).
+const FREE_PROVIDERS = new Set(['groq', 'openrouter', 'nvidia']);
+
+function priceForModel(model) {
+	if (!model) return null;
+	// Longest-prefix match so 'claude-haiku-4-5-20251001' hits 'claude-haiku-4-5'
+	// and never a shorter, wrong family.
+	let best = null;
+	for (const key of Object.keys(PRICE_PER_MTOK)) {
+		if (model.startsWith(key) && (!best || key.length > best.length)) best = key;
+	}
+	return best ? PRICE_PER_MTOK[best] : null;
+}
+
+// Compute the cost of one completion in micro-USD. Returns an integer (rounded)
+// or 0 when the provider is free or the model is unpriced — never null, so the
+// caller can always record a numeric cost.
+export function costMicroUsd({ provider, model, input = 0, output = 0 } = {}) {
+	if (provider && FREE_PROVIDERS.has(provider)) return 0;
+	const price = priceForModel(model);
+	if (!price) return 0;
+	const [inPerM, outPerM] = price;
+	// tokens / 1e6 * usdPerM * 1e6 micro-usd  ==  tokens * usdPerM
+	const usdMicros = input * inPerM + output * outPerM;
+	return Math.round(usdMicros);
+}
+
+// Whether we have a real price for this model (vs. defaulting to 0). Lets the
+// dashboard distinguish "free provider" from "paid provider we can't price yet".
+export function isPriced(model) {
+	return priceForModel(model) != null;
+}

@@ -25,7 +25,7 @@ import {
 	AVATAR_DEFAULT, loadManifest, getLocomotionDefs, CLIP_IDLE,
 	resolveAvatarUrl, dracoLoader,
 } from './avatar-rig.js';
-import { getPlayAvatar } from './play-handoff.js';
+import { getRequestedAvatar } from './play-handoff.js';
 import { log } from '../shared/log.js';
 
 const REDUCED_MOTION = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -65,14 +65,16 @@ function boot() {
 
 	window.addEventListener('resize', sizeToBox, { passive: true });
 
-	// Preview the avatar the player has actually chosen (persisted in cc-avatar by
-	// the lobby / a create→play handoff), not a generic default — so the first
-	// character they see while the scene loads is *theirs*. DRACO is wired in
+	// Preview the avatar this session should show — an `?avatar=` deep link (an
+	// agent's GLB via a "See in 3D" link) if present, otherwise the one the player
+	// chose (persisted in cc-avatar by the lobby / a create→play handoff) — not a
+	// generic default, so the first character they see while the scene loads is the
+	// right one. DRACO is wired in
 	// because most avatar GLBs are compressed. Falls back to the default on any
 	// resolve/load failure so a broken pick never wedges the loader.
 	const loader = new GLTFLoader();
 	loader.setDRACOLoader(dracoLoader);
-	resolveAvatarUrl(getPlayAvatar())
+	resolveAvatarUrl(getRequestedAvatar())
 		.then((chosen) => loader.loadAsync(chosen).catch(() => loader.loadAsync(AVATAR_DEFAULT)))
 		.then(async (gltf) => {
 		if (!alive) return;

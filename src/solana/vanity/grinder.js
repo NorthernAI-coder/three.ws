@@ -29,9 +29,23 @@ const DEFAULT_MAX_WORKERS = 8;
  * @property {string} [prefix]                   - Base58 prefix to match.
  * @property {string} [suffix]                   - Base58 suffix to match.
  * @property {boolean} [ignoreCase=false]        - Case-insensitive match.
- * @property {number} [maxWorkers]               - Cap on workers (defaults to hardwareConcurrency).
+ * @property {number} [maxWorkers]               - Number of workers to spawn (1..hardwareConcurrency). Defaults to min(hardwareConcurrency, 8).
  * @property {AbortSignal} [signal]              - Cancel the grind.
- * @property {(p: { attempts: number, rate: number, eta: string }) => void} [onProgress]
+ * @property {GrindController} [controller]      - Opt-in handle for pause/resume/stop. Methods are wired in once workers spawn.
+ * @property {(p: { attempts: number, rate: number, eta: string, paused?: boolean }) => void} [onProgress]
+ */
+
+/**
+ * @typedef {object} GrindController
+ * Pass a plain object as `opts.controller`; grindVanity attaches the methods
+ * below once the worker pool is live. Pausing exits each worker's hot loop —
+ * the cores are genuinely freed — while preserving accumulated attempts so
+ * resume picks up where it left off.
+ * @property {() => void} [pause]   - Suspend all workers (no-op if already paused/finished).
+ * @property {() => void} [resume]  - Resume all workers (no-op if not paused).
+ * @property {() => void} [stop]    - Abort the grind (rejects the promise with AbortError).
+ * @property {boolean} [paused]     - Current paused state.
+ * @property {number} [workers]     - Number of workers actually spawned.
  */
 
 /**
@@ -63,10 +77,12 @@ export function grindVanity(opts = {}) {
 		if (!v.valid) return Promise.reject(new Error(`invalid suffix: ${v.errors.join('; ')}`));
 	}
 
-	const cores = Math.max(1, Math.min(
-		opts.maxWorkers || (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4,
-		DEFAULT_MAX_WORKERS,
-	));
+	const hardware = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
+	// An explicit maxWorkers is honored up to the machine's core count;
+	// without one we default to a conservative min(hardware, 8) so we don't
+	// peg every core by surprise.
+	const requested = opts.maxWorkers || Math.min(hardware, DEFAULT_MAX_WORKERS);
+	const cores = Math.max(1, Math.min(requested, hardware));
 	const expected = estimateAttempts((prefix?.length || 0) + (suffix?.length || 0));
 	const startedAt = performance.now();
 
