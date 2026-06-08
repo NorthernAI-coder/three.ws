@@ -32,7 +32,7 @@ import {
 import bs58 from 'bs58';
 
 import { Redis } from '@upstash/redis';
-import { cors, json, readJson, wrap, rateLimited } from './_lib/http.js';
+import { cors, json, readJson, wrap, rateLimited, setRateLimitHeaders } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import {
 	paymentRequirements,
@@ -575,10 +575,12 @@ export default wrap(async (req, res) => {
 	}
 	const globalRl = await limits.x402PayGlobal();
 	if (!globalRl.success) {
-		return json(res, 429, {
-			error: 'rate_limited_global',
-			retry_after: Math.ceil((globalRl.reset - Date.now()) / 1000),
-		});
+		// Distinct code from the per-IP limit so the demo UI can tell a global
+		// budget exhaustion apart from a single caller's burst. Headers are the
+		// same standard shape as rateLimited().
+		const retryAfter = Math.max(1, setRateLimitHeaders(res, globalRl));
+		res.setHeader('retry-after', String(retryAfter));
+		return json(res, 429, { error: 'rate_limited_global', retry_after: retryAfter });
 	}
 
 	const input = await readJson(req, 50_000);

@@ -10,7 +10,7 @@
 // a recipient are configured; simulation mode otherwise (no real money,
 // full UI still plays).
 
-import { cors, method, wrap } from './_lib/http.js';
+import { cors, method, wrap, setRateLimitHeaders } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { Bazaar } from './_lib/x402/bazaar-client.js';
 
@@ -100,6 +100,8 @@ export default wrap(async (req, res) => {
 
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) {
+		const retryAfter = Math.max(1, setRateLimitHeaders(res, rl));
+		res.setHeader('retry-after', String(retryAfter));
 		res.statusCode = 429;
 		res.end('rate limited');
 		return;
