@@ -57,7 +57,11 @@ const DEFAULT_AVATAR = STARTERS[0];
 const CORE_SKILLS = [
 	{ id: 'greet', name: 'Greet', desc: 'Welcomes visitors and opens the conversation.' },
 	{ id: 'present-model', name: 'Present model', desc: 'Shows off and explains its own 3D body.' },
-	{ id: 'validate-model', name: 'Validate model', desc: 'Checks rig and animation health on load.' },
+	{
+		id: 'validate-model',
+		name: 'Validate model',
+		desc: 'Checks rig and animation health on load.',
+	},
 	{ id: 'remember', name: 'Remember', desc: 'Keeps memory across a conversation.' },
 	{ id: 'think', name: 'Think', desc: 'Reasons step by step before answering.' },
 ];
@@ -222,7 +226,9 @@ function showStep(n) {
 
 	// Move focus to the first field of the step for keyboard users.
 	const panel = el.panels.find((p) => Number(p.dataset.step) === n);
-	const focusable = panel?.querySelector('input, textarea, select, button.opt, .starter, .dropzone');
+	const focusable = panel?.querySelector(
+		'input, textarea, select, button.opt, .starter, .dropzone',
+	);
 	requestAnimationFrame(() => focusable?.focus?.({ preventScroll: true }));
 	el.body.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -277,9 +283,15 @@ function validateStep(n) {
 		const acknowledgedSkip = state.model.mode === 'none' && state.model.skipAck;
 		if (!hasStarter && !hasUpload && !hasLibrary && !acknowledgedSkip) {
 			if (state.model.mode === 'none') {
-				setMsg('Tick the box to confirm you want to launch with the default 3D body for now.', 'err');
+				setMsg(
+					'Tick the box to confirm you want to launch with the default 3D body for now.',
+					'err',
+				);
 			} else {
-				setMsg('Pick a starter avatar or upload a 3D model — or choose “Add later” and confirm.', 'err');
+				setMsg(
+					'Pick a starter avatar or upload a 3D model — or choose “Add later” and confirm.',
+					'err',
+				);
 			}
 			return false;
 		}
@@ -403,10 +415,20 @@ function renderStarters() {
 function selectStarter(id) {
 	const s = STARTERS.find((x) => x.id === id);
 	if (!s) return;
-	state.model = { mode: 'starter', starterId: id, starterUrl: s.url, file: null, fileName: '' };
-	document.querySelectorAll('.starter').forEach((c) =>
-		c.classList.toggle('is-selected', c.dataset.starter === id),
-	);
+	state.model = {
+		mode: 'starter',
+		starterId: id,
+		starterUrl: s.url,
+		file: null,
+		fileName: '',
+		skipAck: false,
+		avatarId: '',
+		avatarUrl: '',
+		avatarName: '',
+	};
+	document
+		.querySelectorAll('.starter')
+		.forEach((c) => c.classList.toggle('is-selected', c.dataset.starter === id));
 	syncModelPreview();
 }
 
@@ -414,6 +436,10 @@ function selectStarter(id) {
 
 let libraryState = 'idle'; // idle | loading | loaded | error
 let libraryAvatars = [];
+
+// The avatars API exposes the GLB as model_url (public/unlisted) or
+// base_model_url; private avatars have neither. Resolve a renderable URL or ''.
+const avatarModelUrl = (av) => av?.model_url || av?.base_model_url || '';
 
 async function loadLibraryAvatars() {
 	if (libraryState === 'loaded' || libraryState === 'loading') {
@@ -426,7 +452,10 @@ async function loadLibraryAvatars() {
 		const res = await apiFetch('/api/avatars?limit=50', { credentials: 'include' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const data = await res.json();
-		libraryAvatars = (data.avatars || []).filter((a) => a && a.id && a.url);
+		// Selection only needs an id — the agent links by avatar_id. A renderable
+		// URL (model_url for public/unlisted, base_model_url, or thumbnail_url) is
+		// used for the tile when present; private avatars without one still list.
+		libraryAvatars = (data.avatars || []).filter((a) => a && a.id);
 		libraryState = 'loaded';
 	} catch (err) {
 		log.warn('[create-agent] avatar library load failed', err?.message);
@@ -466,12 +495,15 @@ function renderLibrary() {
 		card.className = 'starter';
 		card.dataset.avatar = av.id;
 		card.setAttribute('aria-label', `Use your avatar ${name}`);
+		const modelUrl = avatarModelUrl(av);
 		const thumb = av.thumbnail_url
 			? `<img src="${escapeHtml(av.thumbnail_url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" />`
-			: `<model-viewer src="${escapeHtml(av.url)}" alt="${escapeHtml(name)} preview" auto-rotate
-				auto-rotate-delay="0" rotation-per-second="22deg" interaction-prompt="none" disable-zoom disable-pan
-				disable-tap shadow-intensity="0.3" exposure="0.95" environment-image="neutral"
-				camera-orbit="15deg 82deg auto" loading="lazy"></model-viewer>`;
+			: modelUrl
+				? `<model-viewer src="${escapeHtml(modelUrl)}" alt="${escapeHtml(name)} preview" auto-rotate
+					auto-rotate-delay="0" rotation-per-second="22deg" interaction-prompt="none" disable-zoom disable-pan
+					disable-tap shadow-intensity="0.3" exposure="0.95" environment-image="neutral"
+					camera-orbit="15deg 82deg auto" loading="lazy"></model-viewer>`
+				: '<span class="lib-noprev">3D</span>';
 		card.innerHTML = `<span class="starter-thumb">${thumb}</span><span class="starter-name">${escapeHtml(name)}</span>`;
 		card.addEventListener('click', () => selectLibraryAvatar(av.id));
 		grid.appendChild(card);
@@ -479,9 +511,9 @@ function renderLibrary() {
 
 	// Re-apply the highlight when re-rendering with an active selection.
 	if (state.model.mode === 'library' && state.model.avatarId) {
-		grid
-			.querySelectorAll('.starter')
-			.forEach((c) => c.classList.toggle('is-selected', c.dataset.avatar === state.model.avatarId));
+		grid.querySelectorAll('.starter').forEach((c) =>
+			c.classList.toggle('is-selected', c.dataset.avatar === state.model.avatarId),
+		);
 	}
 }
 
@@ -496,7 +528,7 @@ function selectLibraryAvatar(id) {
 		fileName: '',
 		skipAck: false,
 		avatarId: av.id,
-		avatarUrl: av.url,
+		avatarUrl: avatarModelUrl(av),
 		avatarName: av.name || 'Untitled',
 	};
 	$('library-grid')
@@ -516,9 +548,9 @@ function wireModel() {
 				t.classList.toggle('is-active', on);
 				t.setAttribute('aria-selected', on ? 'true' : 'false');
 			});
-			document.querySelectorAll('.model-pane').forEach((p) =>
-				p.classList.toggle('is-active', p.dataset.pane === pane),
-			);
+			document
+				.querySelectorAll('.model-pane')
+				.forEach((p) => p.classList.toggle('is-active', p.dataset.pane === pane));
 			if (pane === 'skip') {
 				state.model = {
 					mode: 'none',
@@ -531,7 +563,9 @@ function wireModel() {
 					avatarUrl: '',
 					avatarName: '',
 				};
-				document.querySelectorAll('.starter').forEach((c) => c.classList.remove('is-selected'));
+				document
+					.querySelectorAll('.starter')
+					.forEach((c) => c.classList.remove('is-selected'));
 				syncModelPreview();
 			} else if (pane === 'library') {
 				loadLibraryAvatars();
@@ -600,6 +634,10 @@ async function acceptFile(file) {
 		starterUrl: '',
 		file,
 		fileName: file.name.replace(/\.glb$/i, ''),
+		skipAck: false,
+		avatarId: '',
+		avatarUrl: '',
+		avatarName: '',
 	};
 	$('dropzone-title').innerHTML = `<span class="file-name">${escapeHtml(file.name)}</span> ready`;
 	$('dropzone-sub').textContent = 'Click to choose a different file';
@@ -742,9 +780,7 @@ function renderReview() {
 		{
 			key: 'Name',
 			step: 0,
-			html: state.name.trim()
-				? escapeHtml(state.name)
-				: '<span class="dim">Unnamed</span>',
+			html: state.name.trim() ? escapeHtml(state.name) : '<span class="dim">Unnamed</span>',
 		},
 		{
 			key: 'About',
@@ -776,7 +812,9 @@ function renderReview() {
 		{
 			key: 'Greeting',
 			step: 3,
-			html: state.greeting.trim() ? escapeHtml(state.greeting) : '<span class="dim">Default</span>',
+			html: state.greeting.trim()
+				? escapeHtml(state.greeting)
+				: '<span class="dim">Default</span>',
 		},
 		{
 			key: 'Profile',
@@ -785,7 +823,11 @@ function renderReview() {
 				? escapeHtml(truncate(state.persona, 160))
 				: '<span class="dim">Not set</span>',
 		},
-		{ key: 'Voice', step: 3, html: state.voice === 'browser' ? 'Built-in voice' : 'Custom (set up later)' },
+		{
+			key: 'Voice',
+			step: 3,
+			html: state.voice === 'browser' ? 'Built-in voice' : 'Custom (set up later)',
+		},
 	];
 
 	const grid = $('review-grid');
@@ -823,7 +865,8 @@ function updatePublishNote() {
 	if (missing.length) {
 		note.innerHTML = `Add ${missing.join(' and ')} (step 4) to list it. Otherwise it'll be created privately.`;
 	} else {
-		note.textContent = 'Discoverable on the marketplace right after creation. You can unlist anytime.';
+		note.textContent =
+			'Discoverable on the marketplace right after creation. You can unlist anytime.';
 	}
 }
 
@@ -914,12 +957,17 @@ async function submit() {
 				nameEl.classList.add('is-invalid');
 				nameEl.focus();
 				setMsg(
-					createData.error_description || 'That identity conflicts with an existing agent. Try a different name.',
+					createData.error_description ||
+						'That identity conflicts with an existing agent. Try a different name.',
 					'err',
 				);
 				return;
 			}
-			throw new Error(createData.error_description || createData.error || `Create failed (${createRes.status})`);
+			throw new Error(
+				createData.error_description ||
+					createData.error ||
+					`Create failed (${createRes.status})`,
+			);
 		}
 		const agent = createData.agent;
 		if (!agent?.id) throw new Error('Create succeeded but no agent was returned.');
@@ -945,13 +993,16 @@ async function submit() {
 					const pj = await pubRes.json().catch(() => ({}));
 					// Non-fatal: the agent exists. Surface a soft warning on success.
 					log.warn('[create-agent] publish failed', pj);
-					agent._publishWarning = pj.error_description || 'Created, but listing on the marketplace failed — you can publish from the editor.';
+					agent._publishWarning =
+						pj.error_description ||
+						'Created, but listing on the marketplace failed — you can publish from the editor.';
 				} else {
 					agent._published = true;
 				}
 			} catch (err) {
 				log.warn('[create-agent] publish error', err);
-				agent._publishWarning = 'Created, but listing on the marketplace failed — you can publish from the editor.';
+				agent._publishWarning =
+					'Created, but listing on the marketplace failed — you can publish from the editor.';
 			}
 		}
 
@@ -1020,7 +1071,10 @@ function clearMsg() {
 	setMsg('', '');
 }
 function escapeHtml(s) {
-	return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+	return String(s).replace(
+		/[&<>"']/g,
+		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+	);
 }
 function truncate(s, n) {
 	const t = String(s);

@@ -91,7 +91,11 @@
 				z-index: -1;
 				pointer-events: none;
 				background:
-					radial-gradient(820px 520px at 50% -120px, rgba(255, 255, 255, 0.035) 0, transparent 70%),
+					radial-gradient(
+						820px 520px at 50% -120px,
+						rgba(255, 255, 255, 0.035) 0,
+						transparent 70%
+					),
 					#000;
 			}
 			.skip-link {
@@ -541,7 +545,11 @@
 				border: 1px solid var(--border);
 				border-radius: 14px;
 				background:
-					radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.05) 0, transparent 60%),
+					radial-gradient(
+						circle at 50% 28%,
+						rgba(255, 255, 255, 0.05) 0,
+						transparent 60%
+					),
 					rgba(255, 255, 255, 0.015);
 				overflow: hidden;
 				position: relative;
@@ -606,7 +614,11 @@
 				aspect-ratio: 1;
 				border-radius: 8px;
 				background:
-					radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.06) 0, transparent 65%),
+					radial-gradient(
+						circle at 50% 35%,
+						rgba(255, 255, 255, 0.06) 0,
+						transparent 65%
+					),
 					rgba(255, 255, 255, 0.02);
 				display: grid;
 				place-items: center;
@@ -623,6 +635,12 @@
 			}
 			.starter.is-selected .starter-name {
 				color: var(--text);
+			}
+			.lib-noprev {
+				font-size: 12px;
+				font-weight: 600;
+				letter-spacing: 0.04em;
+				color: var(--faint);
 			}
 			.dropzone {
 				margin-top: 6px;
@@ -1038,7 +1056,10 @@
 		<main class="stage" id="main-content">
 			<div class="wizard-head">
 				<h1 class="wizard-title">Create an agent</h1>
-				<p class="wizard-sub">Five quick steps — name it, give it a body, pick its skills, set its voice, ship it.</p>
+				<p class="wizard-sub">
+					Five quick steps — name it, give it a body, pick its skills, set its voice, ship
+					it.
+				</p>
 			</div>
 
 			<ol class="stepper" id="stepper" aria-label="Progress"></ol>
@@ -1046,13 +1067,28 @@
 			<div class="wizard-card">
 				<!-- Auth gate (shown when not signed in) -->
 				<div class="auth-gate" id="auth-gate">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.6"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
 						<rect x="3" y="11" width="18" height="11" rx="2" />
 						<path d="M7 11V7a5 5 0 0 1 10 0v4" />
 					</svg>
 					<h2>Sign in to create your agent</h2>
-					<p>Your agent gets its own wallet and on-chain identity, so we need an account to anchor it to. It takes a few seconds.</p>
-					<a class="btn btn--primary btn--lg" id="auth-gate-signin" href="/login?next=%2Fcreate-agent">Sign in to continue</a>
+					<p>
+						Your agent gets its own wallet and on-chain identity, so we need an account
+						to anchor it to. It takes a few seconds.
+					</p>
+					<a
+						class="btn btn--primary btn--lg"
+						id="auth-gate-signin"
+						href="/login?next=%2Fcreate-agent"
+						>Sign in to continue</a
+					>
 				</div>
 
 				<!-- Wizard form -->
@@ -1062,15 +1098,31 @@
 						<section class="panel is-active" data-step="0" aria-label="Basic info">
 							<p class="panel-eyebrow">Step 1 of 5</p>
 							<h2 class="panel-title">The basics</h2>
-							<p class="panel-help">Give your agent a name and a short description. This is what people see first in the marketplace and on its profile.</p>
+							<p class="panel-help">
+								Give your agent a name and a short description. This is what people
+								see first in the marketplace and on its profile.
+							</p>
 
 							<div class="field">
 								<label class="field-label" for="f-name">
-									<span>Agent name <span class="req" aria-hidden="true">*</span></span>
+									<span
+										>Agent name
+										<span class="req" aria-hidden="true">*</span></span
+									>
 									<span class="count" id="name-count">0 / 60</span>
 								</label>
-								<input class="input" id="f-name" type="text" maxlength="60" autocomplete="off" placeholder="e.g. Nova, Atlas, Market Oracle" aria-required="true" />
-								<p class="field-error" id="name-error">Please enter a name for your agent.</p>
+								<input
+									class="input"
+									id="f-name"
+									type="text"
+									maxlength="60"
+									autocomplete="off"
+									placeholder="e.g. Nova, Atlas, Market Oracle"
+									aria-required="true"
+								/>
+								<p class="field-error" id="name-error">
+									Please enter a name for your agent.
+								</p>
 							</div>
 
 							<div class="field">
@@ -1078,16 +1130,34 @@
 									<span>Description</span>
 									<span class="count" id="desc-count">0 / 280</span>
 								</label>
-								<textarea class="textarea" id="f-description" maxlength="280" placeholder="What does this agent do? Who is it for?"></textarea>
-								<p class="field-hint">One or two sentences. You can refine this later.</p>
+								<textarea
+									class="textarea"
+									id="f-description"
+									maxlength="280"
+									placeholder="What does this agent do? Who is it for?"
+								></textarea>
+								<p class="field-hint">
+									One or two sentences. You can refine this later.
+								</p>
 							</div>
 
 							<div class="field">
-								<label class="field-label" for="f-tags-input"><span>Tags</span></label>
+								<label class="field-label" for="f-tags-input"
+									><span>Tags</span></label
+								>
 								<div class="tagbox" id="tagbox">
-									<input id="f-tags-input" type="text" autocomplete="off" placeholder="Type a tag and press Enter" aria-describedby="tags-hint" />
+									<input
+										id="f-tags-input"
+										type="text"
+										autocomplete="off"
+										placeholder="Type a tag and press Enter"
+										aria-describedby="tags-hint"
+									/>
 								</div>
-								<p class="field-hint" id="tags-hint">Press Enter or comma to add. Tags help people discover your agent. Up to 8.</p>
+								<p class="field-hint" id="tags-hint">
+									Press Enter or comma to add. Tags help people discover your
+									agent. Up to 8.
+								</p>
 							</div>
 						</section>
 
@@ -1095,13 +1165,48 @@
 						<section class="panel" data-step="1" aria-label="3D model">
 							<p class="panel-eyebrow">Step 2 of 5</p>
 							<h2 class="panel-title">Give it a body</h2>
-							<p class="panel-help">Every agent gets a 3D avatar. Pick a ready-made character or upload your own glTF model — you can always swap it later.</p>
+							<p class="panel-help">
+								Every agent gets a 3D avatar. Pick a ready-made character or upload
+								your own glTF model — you can always swap it later.
+							</p>
 
 							<div class="model-tabs" role="tablist">
-								<button type="button" class="model-tab is-active" data-pane="starter" role="tab" aria-selected="true">Starter library</button>
-								<button type="button" class="model-tab" data-pane="library" role="tab" aria-selected="false">My avatars</button>
-								<button type="button" class="model-tab" data-pane="upload" role="tab" aria-selected="false">Upload your own</button>
-								<button type="button" class="model-tab" data-pane="skip" role="tab" aria-selected="false">Add later</button>
+								<button
+									type="button"
+									class="model-tab is-active"
+									data-pane="starter"
+									role="tab"
+									aria-selected="true"
+								>
+									Starter library
+								</button>
+								<button
+									type="button"
+									class="model-tab"
+									data-pane="library"
+									role="tab"
+									aria-selected="false"
+								>
+									My avatars
+								</button>
+								<button
+									type="button"
+									class="model-tab"
+									data-pane="upload"
+									role="tab"
+									aria-selected="false"
+								>
+									Upload your own
+								</button>
+								<button
+									type="button"
+									class="model-tab"
+									data-pane="skip"
+									role="tab"
+									aria-selected="false"
+								>
+									Add later
+								</button>
 							</div>
 
 							<div class="model-pane is-active" data-pane="starter">
@@ -1109,25 +1214,55 @@
 							</div>
 
 							<div class="model-pane" data-pane="library">
-								<div class="starter-grid" id="library-grid" aria-live="polite"></div>
+								<div
+									class="starter-grid"
+									id="library-grid"
+									aria-live="polite"
+								></div>
 							</div>
 
 							<div class="model-pane" data-pane="upload">
-								<div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload a GLB file">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+								<div
+									class="dropzone"
+									id="dropzone"
+									role="button"
+									tabindex="0"
+									aria-label="Upload a GLB file"
+								>
+									<svg
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.6"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
 										<polyline points="16 16 12 12 8 16" />
 										<line x1="12" y1="12" x2="12" y2="21" />
-										<path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+										<path
+											d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"
+										/>
 									</svg>
-									<div class="dropzone-title" id="dropzone-title">Drop a .glb file or click to browse</div>
-									<div class="dropzone-sub" id="dropzone-sub">Any glTF 2.0 binary model, up to 16 MB</div>
+									<div class="dropzone-title" id="dropzone-title">
+										Drop a .glb file or click to browse
+									</div>
+									<div class="dropzone-sub" id="dropzone-sub">
+										Any glTF 2.0 binary model, up to 16 MB
+									</div>
 								</div>
-								<input type="file" id="glb-input" accept=".glb,model/gltf-binary" hidden />
+								<input
+									type="file"
+									id="glb-input"
+									accept=".glb,model/gltf-binary"
+									hidden
+								/>
 							</div>
 
 							<div class="model-pane" data-pane="skip">
 								<p class="panel-help" style="margin: 6px 0 0">
-									A 3D avatar is how people recognize and connect with your agent across three.ws — we strongly recommend giving it one now from the Starter library or your own upload.
+									A 3D avatar is how people recognize and connect with your agent
+									across three.ws — we strongly recommend giving it one now from
+									the Starter library or your own upload.
 								</p>
 								<div class="publish-box" style="margin-top: 14px">
 									<label class="toggle">
@@ -1136,16 +1271,31 @@
 										<span class="knob"></span>
 									</label>
 									<div class="publish-text">
-										<strong>Don't pick an avatar — use the default body for now</strong>
-										<span>My agent will launch with our default 3D character. I can pick or upload my own anytime from its editor.</span>
+										<strong
+											>Don't pick an avatar — use the default body for
+											now</strong
+										>
+										<span
+											>My agent will launch with our default 3D character. I
+											can pick or upload my own anytime from its editor.</span
+										>
 									</div>
 								</div>
 							</div>
 
 							<div class="model-preview" id="model-preview">
 								<div class="model-preview-empty" id="model-preview-empty">
-									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-										<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+									<svg
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.4"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path
+											d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+										/>
 										<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
 										<line x1="12" y1="22.08" x2="12" y2="12" />
 									</svg>
@@ -1158,7 +1308,10 @@
 						<section class="panel" data-step="2" aria-label="Skills">
 							<p class="panel-eyebrow">Step 3 of 5</p>
 							<h2 class="panel-title">Pick its skills</h2>
-							<p class="panel-help">Every agent ships with a core set. Toggle on extra capabilities to extend what yours can do.</p>
+							<p class="panel-help">
+								Every agent ships with a core set. Toggle on extra capabilities to
+								extend what yours can do.
+							</p>
 
 							<div id="core-skills" aria-label="Core skills"></div>
 							<div id="optional-skills" aria-label="Optional skills"></div>
@@ -1169,14 +1322,21 @@
 						<section class="panel" data-step="3" aria-label="Personality and voice">
 							<p class="panel-eyebrow">Step 4 of 5</p>
 							<h2 class="panel-title">Personality &amp; voice</h2>
-							<p class="panel-help">Shape how your agent talks. A category and a profile prompt are what publish it to the marketplace.</p>
+							<p class="panel-help">
+								Shape how your agent talks. A category and a profile prompt are what
+								publish it to the marketplace.
+							</p>
 
 							<div class="field">
-								<label class="field-label" for="f-category"><span>Category</span></label>
+								<label class="field-label" for="f-category"
+									><span>Category</span></label
+								>
 								<select class="select" id="f-category">
 									<option value="">Choose a category…</option>
 								</select>
-								<p class="field-hint">Required to list on the marketplace. Pick the closest fit.</p>
+								<p class="field-hint">
+									Required to list on the marketplace. Pick the closest fit.
+								</p>
 							</div>
 
 							<div class="field">
@@ -1184,8 +1344,16 @@
 									<span>Greeting</span>
 									<span class="count" id="greet-count">0 / 200</span>
 								</label>
-								<input class="input" id="f-greeting" type="text" maxlength="200" placeholder="Hey, I'm Nova — ask me anything about pump.fun." />
-								<p class="field-hint">The first line your agent says when someone opens a chat.</p>
+								<input
+									class="input"
+									id="f-greeting"
+									type="text"
+									maxlength="200"
+									placeholder="Hey, I'm Nova — ask me anything about pump.fun."
+								/>
+								<p class="field-hint">
+									The first line your agent says when someone opens a chat.
+								</p>
 							</div>
 
 							<div class="field">
@@ -1193,36 +1361,84 @@
 									<span>Profile &amp; instructions</span>
 									<span class="count" id="persona-count">0 / 2000</span>
 								</label>
-								<textarea class="textarea" id="f-persona" maxlength="2000" style="min-height: 120px" placeholder="Describe who your agent is and how it should behave. e.g. 'You are Nova, a sharp, friendly Solana market analyst. Be concise, cite on-chain data, and never give financial advice.'"></textarea>
-								<p class="field-hint">This becomes the agent's system prompt — its personality and rules.</p>
+								<textarea
+									class="textarea"
+									id="f-persona"
+									maxlength="2000"
+									style="min-height: 120px"
+									placeholder="Describe who your agent is and how it should behave. e.g. 'You are Nova, a sharp, friendly Solana market analyst. Be concise, cite on-chain data, and never give financial advice.'"
+								></textarea>
+								<p class="field-hint">
+									This becomes the agent's system prompt — its personality and
+									rules.
+								</p>
 							</div>
 
 							<div class="field">
 								<label class="field-label"><span>Voice</span></label>
 								<div class="opt-grid cols-2">
-									<button type="button" class="opt is-selected" id="voice-browser" data-voice="browser" aria-pressed="true">
+									<button
+										type="button"
+										class="opt is-selected"
+										id="voice-browser"
+										data-voice="browser"
+										aria-pressed="true"
+									>
 										<div class="opt-icon">
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-												<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+											<svg
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="1.6"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<polygon
+													points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"
+												/>
 												<path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
 											</svg>
 										</div>
 										<span class="opt-name">Built-in voice</span>
-										<span class="opt-desc">Free browser text-to-speech. Works instantly, no setup.</span>
+										<span class="opt-desc"
+											>Free browser text-to-speech. Works instantly, no
+											setup.</span
+										>
 									</button>
-									<button type="button" class="opt" id="voice-custom" data-voice="custom" aria-pressed="false">
+									<button
+										type="button"
+										class="opt"
+										id="voice-custom"
+										data-voice="custom"
+										aria-pressed="false"
+									>
 										<div class="opt-icon">
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+											<svg
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="1.6"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+											>
+												<path
+													d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+												/>
 												<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
 												<line x1="12" y1="19" x2="12" y2="23" />
 											</svg>
 										</div>
 										<span class="opt-name">Custom voice</span>
-										<span class="opt-desc">Pick or clone a premium voice in the editor after creating.</span>
+										<span class="opt-desc"
+											>Pick or clone a premium voice in the editor after
+											creating.</span
+										>
 									</button>
 								</div>
-								<p class="field-hint">Starts on the built-in voice — you can upgrade to a premium or cloned voice anytime.</p>
+								<p class="field-hint">
+									Starts on the built-in voice — you can upgrade to a premium or
+									cloned voice anytime.
+								</p>
 							</div>
 						</section>
 
@@ -1230,7 +1446,10 @@
 						<section class="panel" data-step="4" aria-label="Review and create">
 							<p class="panel-eyebrow">Step 5 of 5</p>
 							<h2 class="panel-title">Review &amp; create</h2>
-							<p class="panel-help">Here's the agent you're about to ship. Edit any step, then create it.</p>
+							<p class="panel-help">
+								Here's the agent you're about to ship. Edit any step, then create
+								it.
+							</p>
 
 							<div class="review-grid" id="review-grid"></div>
 
@@ -1242,7 +1461,10 @@
 								</label>
 								<div class="publish-text">
 									<strong>List on the agent marketplace</strong>
-									<span id="publish-note">Make your agent discoverable. Requires a category and a profile prompt. You can unlist anytime.</span>
+									<span id="publish-note"
+										>Make your agent discoverable. Requires a category and a
+										profile prompt. You can unlist anytime.</span
+									>
 								</div>
 							</div>
 						</section>
@@ -1250,17 +1472,33 @@
 						<!-- Success -->
 						<section class="success" id="success" aria-live="polite">
 							<div class="success-badge">
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+								<svg
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2.4"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
 									<polyline points="20 6 9 17 4 12" />
 								</svg>
 							</div>
 							<h2 id="success-title">Your agent is live</h2>
-							<p id="success-sub">It now has its own wallet and on-chain identity. Open it to chat, customize, or share.</p>
+							<p id="success-sub">
+								It now has its own wallet and on-chain identity. Open it to chat,
+								customize, or share.
+							</p>
 							<div class="success-preview" id="success-preview" hidden></div>
 							<div class="success-actions">
-								<a class="btn btn--primary btn--lg" id="success-open" href="#">Open agent</a>
-								<a class="btn btn--secondary btn--lg" id="success-edit" href="#">Customize further</a>
-								<a class="btn btn--ghost btn--lg" href="/create-agent">Create another</a>
+								<a class="btn btn--primary btn--lg" id="success-open" href="#"
+									>Open agent</a
+								>
+								<a class="btn btn--secondary btn--lg" id="success-edit" href="#"
+									>Customize further</a
+								>
+								<a class="btn btn--ghost btn--lg" href="/create-agent"
+									>Create another</a
+								>
 							</div>
 						</section>
 					</div>
@@ -1268,9 +1506,21 @@
 					<div class="wizard-foot" id="wizard-foot">
 						<div class="foot-msg" id="foot-msg" role="status" aria-live="polite"></div>
 						<div class="foot-actions">
-							<button type="button" class="btn btn--ghost" id="btn-back" hidden>Back</button>
-							<button type="button" class="btn btn--primary" id="btn-next">Next</button>
-							<button type="submit" class="btn btn--primary" id="btn-create" hidden aria-label="Create agent">Create agent</button>
+							<button type="button" class="btn btn--ghost" id="btn-back" hidden>
+								Back
+							</button>
+							<button type="button" class="btn btn--primary" id="btn-next">
+								Next
+							</button>
+							<button
+								type="submit"
+								class="btn btn--primary"
+								id="btn-create"
+								hidden
+								aria-label="Create agent"
+							>
+								Create agent
+							</button>
 						</div>
 					</div>
 				</form>

@@ -23,19 +23,23 @@ const FIXTURE_USER = {
 	plan: 'free',
 };
 
-// Synthetic avatars — real shipped GLBs for the model URL, a real served PNG
-// for the thumbnail so tiles render as <img> without booting model-viewer.
+// Synthetic avatars matching the real /api/avatars payload shape (model_url /
+// base_model_url / thumbnail_url — there is no `url` field). The second avatar
+// mimics a private one: no model_url, only a thumbnail. Both must still render
+// and be selectable, since the agent links by id.
 const FIXTURE_AVATARS = [
 	{
 		id: 'ava-e2e-one',
 		name: 'Test Avatar One',
-		url: '/avatars/default.glb',
+		model_url: '/avatars/default.glb',
+		base_model_url: '/avatars/default.glb',
 		thumbnail_url: '/favicon-32x32.png',
 	},
 	{
 		id: 'ava-e2e-two',
 		name: 'Test Avatar Two',
-		url: '/avatars/cz.glb',
+		model_url: null,
+		base_model_url: null,
 		thumbnail_url: '/favicon-32x32.png',
 	},
 ];

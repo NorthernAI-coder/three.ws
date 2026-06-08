@@ -124,6 +124,22 @@ All tools return `{ content: [{ type, text }], structuredContent: {...} }`. On e
 
 ---
 
+### `getting_started`
+
+**Free — no OAuth token or x402 payment required.** The one public entry point: call it first to get a machine-readable overview of the server — every tool with a one-line summary (and per-call price where applicable), how to authenticate or pay, and useful links. Optional `section` (`overview`, `tools`, `access`, `links`) focuses the response. Every hosted three.ws MCP server (`/api/mcp`, `/api/mcp-3d`, `/api/mcp-bazaar`, `/api/mcp-agent`, `/api/ibm-mcp`) exposes this tool, so an unauthenticated client can always discover what a server does before connecting.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "section": { "type": "string", "enum": ["overview", "tools", "access", "links"], "default": "overview" }
+  },
+  "additionalProperties": false
+}
+```
+
+---
+
 ### `list_my_avatars`
 
 Paginated list of the authenticated user's avatars.

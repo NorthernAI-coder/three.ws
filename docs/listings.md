@@ -13,7 +13,7 @@ Cloud marketplaces are the procurement flow enterprises use to acquire software 
 | Cloud | Status | Links |
 |---|---|---|
 | **AWS** Marketplace | Live | three.ws is an AWS Partner. Subscribe via AWS Marketplace to consolidate billing on your AWS account; subscriptions auto-issue an x402 API key via the marketplace entitlement service. See [aws-marketplace.md](./aws-marketplace.md). |
-| **Alibaba Cloud** International Marketplace | Live | [Product listing](https://marketplace.alibabacloud.com/products/56724001/sgcmfw00036800.html) · [Storefront](https://marketplace.alibabacloud.com/store/3247293.html) · [Announcement](/blog/three-ws-on-alibaba-cloud-marketplace.html) |
+| **Alibaba Cloud** International Marketplace | Live | [Product listing](https://marketplace.alibabacloud.com/products/56724001/sgcmfw00036800.html) · [Storefront](https://marketplace.alibabacloud.com/store/3247293.html) · [Announcement](/blog/three-ws-on-alibaba-cloud-marketplace.html) · [Marketplace blog feature](https://marketplace.alibabacloud.com/doc/blog/detail/mplace-sgcmfw00036800.html) |
 | **Google Cloud** Marketplace | Open to partnership | three.ws runs on WebGL, Vercel edge, and EVM — a natural fit for Vertex AI and GCP's global CDN. Reach out for co-listing, credits, and joint GTM. |
 | **Microsoft Azure** Marketplace | On roadmap | Targeted alongside the AWS/Alibaba rollout. |
 
@@ -36,6 +36,7 @@ Dappbay is BNB Chain's official dApp directory. The listing is about distributio
 | Partner | Status | Links |
 |---|---|---|
 | **HackerNoon** | Live | [hackernoon.com/u/three-ws](https://hackernoon.com/u/three-ws) — three.ws posts auto-import from the RSS feed. Announcement: [three.ws Partners with HackerNoon](/news/partnered-with-hackernoon) |
+| **Alibaba Cloud Marketplace Blog** | Live | [Editorial feature](https://marketplace.alibabacloud.com/doc/blog/detail/mplace-sgcmfw00036800.html) — Alibaba Cloud Marketplace published an editorial introducing three.ws. Announcement: [three.ws Featured on the Alibaba Cloud Marketplace Blog](/blog/three-ws-featured-on-alibaba-cloud-marketplace-blog) |
 
 HackerNoon is one of the world's largest independent tech publications, read by millions of developers and founders monthly. Every three.ws announcement is pulled automatically from [`three.ws/rss/announcements.xml`](https://three.ws/rss/announcements.xml) into the HackerNoon drafts queue, then published with canonical URLs pointing back to three.ws. See [syndication setup](/docs/syndication#hackernoon) for technical details.
 

@@ -335,6 +335,7 @@ describe('Protocol layer', () => {
 
 		expect(status).toBe(200);
 		const names = body.result.tools.map((t) => t.name);
+		expect(names).toContain('getting_started');
 		expect(names).toContain('search_public_avatars');
 		expect(names).toContain('validate_model');
 		expect(names).toContain('render_avatar');
@@ -406,6 +407,24 @@ describe('Authentication', () => {
 		expect(status).toBe(401);
 		expect(res.headers['www-authenticate']).toMatch(/resource_metadata=/);
 		expect(body.x402Version).toBe(2);
+	});
+
+	it('POST getting_started with no bearer and no X-PAYMENT succeeds (free public tool)', async () => {
+		// no bearer, no payment → allowFree bypass → 200 with the server overview,
+		// while a scoped tool on the same path still 401s (test above).
+		const { status, body } = await invoke({
+			body: {
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'getting_started', arguments: {} },
+			},
+		});
+
+		expect(status).toBe(200);
+		expect(body.result.structuredContent.server).toBe('three.ws');
+		expect(body.result.structuredContent.tools.length).toBeGreaterThan(0);
+		expect(body.result.content[0].text).toContain('Getting Started');
 	});
 
 	it('POST with a bearer that fails authentication returns 401', async () => {

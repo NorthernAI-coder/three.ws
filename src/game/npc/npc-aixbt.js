@@ -92,7 +92,28 @@ const CHOICES = [
 		desc: 'Type a ticker, I dig in',
 		say: 'Name the token and I will scan it.',
 	},
+	{
+		id: 'pay',
+		icon: '⚡',
+		title: 'Watch a live payment',
+		desc: 'Real USDC settled on-chain, right now',
+		say: 'Watch this — I will pay for a live read, on-chain.',
+		wide: true,
+	},
 ];
+
+// The on-chain payment read maps /api/x402-pay's SSE lifecycle to a five-step
+// stepper. Each id matches an event the endpoint emits; `done` is the terminal
+// settled+confirmed state.
+const PAY_STAGES = [
+	{ id: 'challenge', label: '402' },
+	{ id: 'built', label: 'Sign' },
+	{ id: 'verified', label: 'Verify' },
+	{ id: 'settled', label: 'Settle' },
+	{ id: 'done', label: 'Confirmed' },
+];
+const fmtUsdc = (micro) => `${((Number(micro) || 0) / 1e6).toFixed(4)} USDC`;
+const shortAddr = (a) => (a ? `${String(a).slice(0, 6)}…${String(a).slice(-4)}` : '—');
 
 function injectStyles() {
 	if (document.getElementById('aixbt-term-styles')) return;
@@ -113,9 +134,36 @@ function injectStyles() {
 	.aixbt-choice:focus-visible { outline:2px solid #27e0c4; outline-offset:2px; }
 	.aixbt-choice-ic { font-size:20px; line-height:1; margin-top:1px; }
 	.aixbt-choice-key { position:absolute; }
-	.aixbt-choice-t { font-weight:800; font-size:14px; letter-spacing:0.01em; }
-	.aixbt-choice-d { font-size:11.5px; color:var(--cc-muted,#9a9aa2); margin-top:3px; line-height:1.35; }
-	.aixbt-num { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; font-size:10px; font-weight:800; color:#9ff4e6; background:rgba(39,224,196,0.16); margin-right:6px; vertical-align:1px; }
+	.aixbt-choice-body { display:flex; flex-direction:column; min-width:0; gap:3px; }
+	.aixbt-choice-t { display:flex; align-items:center; font-weight:800; font-size:14px; letter-spacing:0.01em; }
+	.aixbt-choice-d { font-size:11.5px; color:var(--cc-muted,#9a9aa2); line-height:1.35; }
+	.aixbt-num { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; font-size:10px; font-weight:800; color:#9ff4e6; background:rgba(39,224,196,0.16); margin-right:6px; flex:0 0 auto; }
+	/* the on-chain payment card spans both columns and reads as the showcase */
+	.aixbt-choice.is-wide { grid-column:1 / -1; align-items:center; background:linear-gradient(100deg, rgba(39,224,196,0.1), rgba(122,168,255,0.07)); border-color:rgba(39,224,196,0.32); }
+	.aixbt-choice.is-wide:hover { border-color:rgba(39,224,196,0.7); background:linear-gradient(100deg, rgba(39,224,196,0.16), rgba(122,168,255,0.12)); }
+	.aixbt-choice.is-wide .aixbt-choice-ic { font-size:22px; }
+	.aixbt-choice.is-wide .aixbt-num { color:#06201c; background:#27e0c4; }
+	/* live payment stepper + receipt */
+	.aixbt-pay-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:14px 0 12px; }
+	.aixbt-pay-who { font-size:13px; color:var(--cc-text,#e9e9ec); }
+	.aixbt-pay-who b { font-weight:800; }
+	.aixbt-pay-amt { font-size:12px; font-weight:800; font-variant-numeric:tabular-nums; color:#9ff4e6; }
+	.aixbt-steps { display:flex; gap:7px; margin-bottom:6px; }
+	.aixbt-step { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; font-size:10px; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#5a5a60; }
+	.aixbt-step .aixbt-step-dot { width:100%; height:3px; border-radius:2px; background:rgba(255,255,255,0.08); transition:background .2s ease; }
+	.aixbt-step.is-active { color:#9a9aa2; }
+	.aixbt-step.is-active .aixbt-step-dot { background:rgba(39,224,196,0.5); animation:aixbt-step-pulse 1s ease-in-out infinite; }
+	.aixbt-step.is-done { color:var(--cc-text,#e9e9ec); }
+	.aixbt-step.is-done .aixbt-step-dot { background:#27e0c4; box-shadow:0 0 8px rgba(39,224,196,0.6); }
+	.aixbt-step.is-err .aixbt-step-dot { background:#ff7a8a; box-shadow:0 0 8px rgba(255,122,138,0.5); }
+	@keyframes aixbt-step-pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+	.aixbt-receipt { margin-top:14px; padding-top:13px; border-top:1px solid var(--cc-edge, rgba(255,255,255,0.08)); }
+	.aixbt-rrow { display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:12.5px; color:var(--cc-muted,#9a9aa2); }
+	.aixbt-rrow .aixbt-rv { color:var(--cc-text,#e9e9ec); font-variant-numeric:tabular-nums; }
+	.aixbt-rrow a { color:#9ff4e6; text-decoration:none; border-bottom:1px solid rgba(159,244,230,0.4); }
+	.aixbt-rrow a:hover { border-bottom-color:#9ff4e6; }
+	.aixbt-pay-note { margin-top:11px; font-size:12px; line-height:1.45; color:var(--cc-text,#e9e9ec); }
+	.aixbt-pay-note.is-err { color:#ffb4be; }
 	/* chips + back + scan form */
 	.aixbt-toolbar { display:flex; align-items:center; gap:10px; margin:2px 0 14px; flex-wrap:wrap; }
 	.aixbt-back { flex:0 0 auto; border:1px solid var(--cc-edge, rgba(255,255,255,0.14)); background:rgba(255,255,255,0.04); color:var(--cc-text,#e9e9ec); font-weight:700; font-size:12px; border-radius:var(--cc-radius,4px); padding:5px 11px; cursor:pointer; transition:background .15s ease; }
@@ -191,6 +239,53 @@ async function fetchJson(path) {
 		throw err;
 	}
 	return body;
+}
+
+// Read an SSE response body, yielding { event, data } per framed chunk — same
+// framing /api/x402-pay speaks.
+async function* sseEvents(res) {
+	const reader = res.body.getReader();
+	const dec = new TextDecoder();
+	let buf = '';
+	while (true) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		buf += dec.decode(value, { stream: true });
+		const chunks = buf.split('\n\n');
+		buf = chunks.pop();
+		for (const chunk of chunks) {
+			if (!chunk.trim()) continue;
+			let event = 'message', data = {};
+			for (const line of chunk.split('\n')) {
+				if (line.startsWith('event:')) event = line.slice(6).trim();
+				if (line.startsWith('data:')) { try { data = JSON.parse(line.slice(5).trim()); } catch { /* ignore */ } }
+			}
+			yield { event, data };
+		}
+	}
+}
+
+// The on-chain receipt for a settled x402 payment: payer→payee, amount, and the
+// Solana tx hash linked out to Solscan so anyone can verify it on-chain.
+function renderPaymentReceipt(payment) {
+	const tx = payment.tx;
+	return el('div', { class: 'aixbt-receipt' }, [
+		el('div', { class: 'aixbt-rrow' }, [
+			el('span', { text: 'Payer → payee' }),
+			el('span', { class: 'aixbt-rv', text: `${shortAddr(payment.payer)} → ${shortAddr(payment.payTo)}` }),
+		]),
+		el('div', { class: 'aixbt-rrow' }, [
+			el('span', { text: 'Amount · network' }),
+			el('span', { class: 'aixbt-rv', text: `${payment.amount != null ? fmtUsdc(payment.amount) : '—'} · Solana` }),
+		]),
+		tx ? el('div', { class: 'aixbt-rrow' }, [
+			el('span', { text: 'Transaction' }),
+			el('span', { class: 'aixbt-rv' }, [
+				el('a', { href: `https://solscan.io/tx/${tx}`, target: '_blank', rel: 'noopener', text: `${tx.slice(0, 8)}…${tx.slice(-6)} ↗` }),
+			]),
+		]) : null,
+		el('div', { class: 'aixbt-pay-note', text: 'A real USDC micropayment — settled on Solana mainnet, verifiable on-chain.' }),
+	]);
 }
 
 function renderIntel(items) {
@@ -447,6 +542,85 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 		} finally { busy = false; }
 	}
 
+	// ── live on-chain payment (the showcase read) ──────────────────────────────
+	// Streams /api/x402-pay's real settlement lifecycle straight into the terminal:
+	// the platform pays for its own tools/list MCP call (the simplest paid read) in
+	// USDC on Solana, and the confirmed tx is surfaced with a Solscan link. No
+	// simulation — if the payer isn't configured the endpoint says so and we relay
+	// that honestly.
+	async function runPayment() {
+		if (busy) return;
+		busy = true;
+		body.textContent = '';
+		body.appendChild(backBar());
+		body.appendChild(el('div', { class: 'aixbt-section-h', text: 'Live on-chain payment' }));
+		const amtEl = el('span', { class: 'aixbt-pay-amt', text: '— USDC' });
+		body.appendChild(el('div', { class: 'aixbt-pay-head' }, [
+			el('span', { class: 'aixbt-pay-who', html: '<b>three.ws</b> pays for a live read' }),
+			amtEl,
+		]));
+		const stepsEl = el('div', { class: 'aixbt-steps' });
+		const tail = el('div', {});
+		body.appendChild(stepsEl);
+		body.appendChild(tail);
+
+		let amount = null;
+		const paint = (activeId, errId = null) => {
+			const ai = PAY_STAGES.findIndex((s) => s.id === activeId);
+			stepsEl.textContent = '';
+			PAY_STAGES.forEach((s, i) => {
+				let cls = '';
+				if (errId === s.id) cls = 'is-err';
+				else if (activeId === 'done' || i < ai) cls = 'is-done';
+				else if (i === ai) cls = 'is-active';
+				stepsEl.appendChild(el('div', { class: `aixbt-step ${cls}` }, [el('span', { class: 'aixbt-step-dot' }), s.label]));
+			});
+			if (amount != null) amtEl.textContent = fmtUsdc(amount);
+		};
+
+		let active = 'challenge';
+		paint(active);
+
+		let settled = null, result = null;
+		try {
+			const res = await fetch('/api/x402-pay', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+				body: JSON.stringify({ tool: 'tools/list', args: {} }),
+			});
+			if (!res.ok || !res.body) {
+				const txt = await res.text().catch(() => '');
+				let msg = `payment service unavailable (${res.status})`, code = null;
+				try { const j = JSON.parse(txt); msg = j.error_description || j.error || msg; code = j.error; } catch { /* ignore */ }
+				const notWired = res.status === 404 || code === 'config_missing';
+				throw Object.assign(new Error(msg), { code: notWired ? 'pay_not_configured' : `http_${res.status}` });
+			}
+			for await (const { event, data } of sseEvents(res)) {
+				if (event === 'challenge') { amount = data.amount; active = 'built'; paint(active); npc?.say?.('Challenge issued — signing the transfer.'); }
+				else if (event === 'built') { active = 'verified'; paint(active); npc?.say?.('Signed. Sent to the facilitator.'); }
+				else if (event === 'verified') { active = 'settled'; paint(active); npc?.say?.('Verified — waiting on settlement.'); }
+				else if (event === 'settled') { settled = data; active = 'done'; paint(active); }
+				else if (event === 'result') { result = data; }
+				else if (event === 'error') { throw new Error(data.error || 'payment failed'); }
+			}
+			if (!settled) throw new Error('incomplete response from payment service');
+			const payment = { ...(result?.payment || {}), ...settled };
+			paint('done');
+			tail.appendChild(renderPaymentReceipt(payment));
+			npc?.say?.('Settled on Solana — open it on Solscan.');
+		} catch (err) {
+			paint(active, active);
+			tail.textContent = '';
+			const configErr = err?.code === 'pay_not_configured';
+			tail.appendChild(el('div', { class: 'aixbt-pay-note is-err', text: configErr
+				? "The on-chain payer isn't wired up on this deployment yet."
+				: `Payment didn't go through: ${err.message}. No funds moved.` }));
+			if (!configErr) tail.appendChild(el('button', { class: 'aixbt-go', type: 'button', text: 'Try again', style: 'margin-top:10px', onclick: runPayment }));
+			npc?.say?.(configErr ? "My wallet isn't funded here yet." : 'That one rolled back — wallet unchanged.');
+			ui?.toast?.(configErr ? 'x402 payer not configured' : 'x402 payment failed', 'warn');
+		} finally { busy = false; }
+	}
+
 	// ── scan sub-form (the "type what you want" step) ──────────────────────────
 	function showScan(prevToken, prevChain) {
 		body.textContent = '';
@@ -474,15 +648,16 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 		else if (choice.id === 'narratives') runNarratives('');
 		else if (choice.id === 'macro') runMacro();
 		else if (choice.id === 'scan') showScan('', '');
+		else if (choice.id === 'pay') runPayment();
 	}
 
 	function showMenu() {
 		body.textContent = '';
-		body.appendChild(el('p', { class: 'aixbt-ask', text: 'What do you want to see? Pick a read — or press 1–4.' }));
+		body.appendChild(el('p', { class: 'aixbt-ask', text: 'What do you want to see? Pick a read — or press 1–5.' }));
 		const menu = el('div', { class: 'aixbt-menu' }, CHOICES.map((c, idx) =>
-			el('button', { class: 'aixbt-choice', type: 'button', onclick: () => pick(c), 'aria-label': c.title }, [
+			el('button', { class: `aixbt-choice${c.wide ? ' is-wide' : ''}`, type: 'button', onclick: () => pick(c), 'aria-label': c.title }, [
 				el('span', { class: 'aixbt-choice-ic', text: c.icon }),
-				el('span', {}, [
+				el('span', { class: 'aixbt-choice-body' }, [
 					el('span', { class: 'aixbt-choice-t' }, [el('span', { class: 'aixbt-num', text: String(idx + 1) }), c.title]),
 					el('span', { class: 'aixbt-choice-d', text: c.desc }),
 				]),
