@@ -191,7 +191,7 @@
 		"colyseus.js": "0.16.22",
 		"dat.gui": "^0.7.9",
 		"ethers": "^6.16.0",
-		"express": "^4.22.1",
+		"express": "^5.2.1",
 		"fast-check": "^4.8.0",
 		"gltf-validator": "^2.0.0-dev.3.10",
 		"graphql": "^16.14.0",

@@ -28,7 +28,7 @@
 		"@upstash/redis": "^1.38.0",
 		"agent0-sdk": "^1.7.1",
 		"ethers": "^6.16.0",
-		"express": "^4.21.2",
+		"express": "^5.2.1",
 		"livepeer": "3.2.4",
 		"short-uuid": "6.0.3"
 	}
