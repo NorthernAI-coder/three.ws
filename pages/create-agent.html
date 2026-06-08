@@ -1099,12 +1099,17 @@
 
 							<div class="model-tabs" role="tablist">
 								<button type="button" class="model-tab is-active" data-pane="starter" role="tab" aria-selected="true">Starter library</button>
+								<button type="button" class="model-tab" data-pane="library" role="tab" aria-selected="false">My avatars</button>
 								<button type="button" class="model-tab" data-pane="upload" role="tab" aria-selected="false">Upload your own</button>
 								<button type="button" class="model-tab" data-pane="skip" role="tab" aria-selected="false">Add later</button>
 							</div>
 
 							<div class="model-pane is-active" data-pane="starter">
 								<div class="starter-grid" id="starter-grid"></div>
+							</div>
+
+							<div class="model-pane" data-pane="library">
+								<div class="starter-grid" id="library-grid" aria-live="polite"></div>
 							</div>
 
 							<div class="model-pane" data-pane="upload">
@@ -1131,8 +1136,8 @@
 										<span class="knob"></span>
 									</label>
 									<div class="publish-text">
-										<strong>Create without a 3D avatar for now</strong>
-										<span>I understand my agent will use a neutral placeholder until I attach a model from its editor.</span>
+										<strong>Don't pick an avatar — use the default body for now</strong>
+										<span>My agent will launch with our default 3D character. I can pick or upload my own anytime from its editor.</span>
 									</div>
 								</div>
 							</div>

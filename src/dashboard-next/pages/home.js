@@ -194,7 +194,7 @@ function renderHero(host, avatars, err) {
 
 	if (!avatars.length) {
 		host.innerHTML = `
-			<a href="/create/selfie" class="dn-panel dnx-create-cta">
+			<a href="/create" class="dn-panel dnx-create-cta">
 				<div class="dnx-create-icon">+</div>
 				<div>
 					<div class="dn-panel-title" style="margin:0 0 4px;font-size:16px">Create your first avatar</div>
@@ -295,7 +295,7 @@ async function refreshKpis(host, ctx) {
 			numeric: avatarTotal,
 			series: avatarSeries,
 			empty: avatarTotal === 0,
-			emptyCta: { label: 'Create from selfie', href: '/create/selfie' },
+			emptyCta: { label: 'Create from selfie', href: '/create' },
 		},
 	];
 
@@ -487,8 +487,8 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 			id: 'avatar',
 			label: 'Create your first avatar',
 			sub: 'Snap a selfie — your 3D agent is ready in under 60 seconds.',
-			href: avatars.length === 0 ? '/create/selfie' : '/create',
-			cta: avatars.length === 0 ? 'Snap a selfie →' : 'Create another',
+			href: avatars.length === 0 ? '/start' : '/create',
+			cta: avatars.length === 0 ? 'Start wizard →' : 'Create another',
 			done: avatars.length > 0,
 		},
 		{
@@ -587,7 +587,7 @@ function renderQuickActions(host, { avatars = [], agents = [] } = {}) {
 	if (firstAvatar) {
 		defaults.push({ href: `/agents/${encodeURIComponent(firstAvatar.id)}`, title: 'View live agent page', sub: 'See how visitors experience your agent', iconKey: '/dashboard/agents', cat: 'Agents & Identity' });
 	} else {
-		defaults.push({ href: '/create/selfie', title: 'Create avatar from selfie', sub: 'Snap a photo, get a 3D agent in 60 seconds', iconKey: '/create', cat: 'Create & Build' });
+		defaults.push({ href: '/create', title: 'Create avatar from selfie', sub: 'Snap a photo, get a 3D agent in 60 seconds', iconKey: '/create', cat: 'Create & Build' });
 	}
 	if (firstAgent) {
 		defaults.push({ href: `/app?agent=${encodeURIComponent(firstAgent.id)}`, title: 'Open 3D studio', sub: 'Edit, animate, and customize in 3D', iconKey: '/app', cat: '3D & Immersive' });

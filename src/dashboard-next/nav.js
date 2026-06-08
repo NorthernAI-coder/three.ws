@@ -50,6 +50,7 @@ export const NAV = [
 
 	// ── Account ─────────────────────────────────────────────────────────
 	{ path: '/dashboard/account',     label: 'Account',         icon: 'user',      group: 'Account',    tags: ['wallets', 'sns', 'delegation', 'profile', 'action log', 'provider keys'] },
+	{ path: '/dashboard/wallet-grinder', label: 'Wallet Grinder', icon: 'sparkle',  group: 'Account',    tags: ['vanity', 'grind', 'keypair', 'wallet', 'solana', 'evm', 'ethereum', 'base', 'polygon', 'address', 'prefix', 'suffix'] },
 	{ path: '/dashboard/settings',    label: 'Settings',        icon: 'settings',  group: 'Account',    tags: ['sessions', 'notifications', 'preferences', 'storage', 'llm usage', 'vanity'] },
 	{ path: '/onchain',               label: 'On-chain (ERC-8004)', icon: 'chain', group: 'Account',    tags: ['erc8004', 'registry', 'onchain', 'identity'], external: true },
 ];
