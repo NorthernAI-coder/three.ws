@@ -42,6 +42,21 @@ One-click geometric stylization filters — turns any mesh into a stylized varia
 ### `segment/` (CPU)
 Splits a 3D model into meaningful, separable parts with clean boundaries (head/torso/limbs on a character; body/wheels/glass on a vehicle) using pure geometry — trimesh + numpy + scipy, no GPU, no model inference. The engine combines connected-component splitting (physically disjoint shells become parts immediately) with the **minima rule** — region growing that cuts the face-adjacency graph at concave creases, where human perception sees part seams — then merges shards and caps the part count to a meaningful handful. Each part is named by its spatial region, tinted a distinct colour, and emitted as a separate named node in the output GLB so it can be hidden, recoloured, replaced, or exported individually. `POST /segment` (`{ mesh, method?, max_parts?, min_part_faces?, crease_angle?, only_part? }`) -> `202 { task_id }`, `GET /tasks/:id` -> `{ status, result_url?, manifest_url?, parts?, part_count?, source_faces?, method?, error? }` (the parts manifest carries each part's id, name, region, bbox, centroid, face/vertex counts, and colour), `GET /health`; bearer-auth on `/segment` + `/tasks`. Routed via `api/_providers/gcp.js` (`segment` mode, `GCP_SEGMENT_URL`); exposed to the web at `/api/forge-segment` (and the `/segment` Parts Studio viewer) and to agents over MCP as the x402-priced `segment_model`.
 
+## Text-guided texturing (Cloud Run, GPU L4)
+
+### `texture/`
+Two capabilities on one model server. **Full retexture** (`POST /texture`): takes an untextured or poorly-textured GLB plus a text prompt, renders depth maps from 8 canonical viewpoints (pyrender), generates coherent texture views with SDXL Img2Img + ControlNet-Depth, back-projects them onto the UV map (pytorch3d), blends overlaps by distance-weighted confidence, and bakes a final textured GLB. **Magic-brush region retexture** (`POST /retexture_region`): SDXL inpainting of only a UV-space masked region of an existing atlas, feathering the seam so untouched texels stay bit-identical across repeated passes. API: `POST /texture` (`{ mesh, prompt, negative_prompt?, num_views?, texture_size? }`) and `POST /retexture_region` (`{ mesh, prompt, mask_b64?|mask?, color?, strength?, feather?, seed? }`) -> `202 { task_id }`, `GET /tasks/:id`, `GET /health`; bearer-auth via `API_KEY`. Env: `API_KEY`, `GCS_BUCKET` (required), `SDXL_MODEL`, `CONTROLNET_MODEL`. Routed via `api/_providers/gcp.js` (`retex` / `retex_region` modes, `GCP_TEXTURE_URL`); exposed to the web at `/api/studio/retexture-region`, to agents over MCP as the studio retexture tool, and x402-priced in `api/_lib/pump-pricing.js`.
+
+## Mesh processing (Cloud Run, CPU)
+
+### `remesh/`
+Mesh processing — remesh, simplify, repair, retopologize, and convert 3D files. Wraps trimesh + open3d + QuadriFlow + xatlas, with headless Blender (`bpy`) for FBX export. Handles format conversion (GLB ↔ OBJ ↔ FBX ↔ STL ↔ PLY ↔ USDZ ↔ 3MF); a `convert` of a rigged GLB keeps its bone hierarchy, skin weights, and blendshapes (Blender path — trimesh has no FBX writer). No GPU. `GET /tasks/:id`, `GET /health`; routed via `api/_providers/gcp.js` (`remesh` mode, `GCP_REMESH_URL`).
+
+## Image preprocessing (Cloud Run, CPU)
+
+### `rembg/`
+Background removal — strips backgrounds from images using BRIA RMBG-2.0 (Apache-2.0) with rembg's U2Net as a fast CPU fallback. `POST /remove` (`{ image: data-uri|url, model?: "rmbg2"|"u2net"|"isnet" }`) -> `202 { task_id, status }`, `GET /tasks/:id`, `GET /health`. Routed via `api/_providers/gcp.js` (`rembg` mode, `GCP_REMBG_URL`); used to clean source photos before reconstruction.
+
 ## Cloudflare Worker
 
 ### `pump-fun-mcp/`
