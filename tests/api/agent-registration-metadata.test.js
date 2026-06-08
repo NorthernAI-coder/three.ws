@@ -4,7 +4,10 @@
 // this doc omitted the EIP-8004 signals. These tests lock the truthful shape in.
 
 import { describe, it, expect } from 'vitest';
-import { buildAgentRegistrationMetadata } from '../../api/_lib/three-brand.js';
+import {
+	buildAgentRegistrationMetadata,
+	erc8004RegistryFields,
+} from '../../api/_lib/three-brand.js';
 
 const agent = {
 	agentId: 'abc123',
@@ -63,5 +66,26 @@ describe('buildAgentRegistrationMetadata', () => {
 		const m = buildAgentRegistrationMetadata({ agentId: 7, name: 'Solo' });
 		expect(m.description).toContain('Solo');
 		expect(m.services.find((s) => s.name === 'web').endpoint).toMatch(/\/agent\/7$/);
+	});
+});
+
+describe('erc8004RegistryFields', () => {
+	// These flat field names must match exactly what the registry subgraph reads in
+	// api/agents/8004/agent.js — a rename there silently drops the value to its
+	// `?? false` / null default, which is the bug this guards against.
+	it('emits active + x402Support so the EVM registry does not show "Not Supported"', () => {
+		const f = erc8004RegistryFields('https://three.ws');
+		expect(f.active).toBe(true);
+		expect(f.x402Support).toBe(true);
+		expect(f.supportedTrusts).toContain('reputation');
+	});
+
+	it('exposes absolute web/a2a/mcp endpoints under the given origin', () => {
+		const f = erc8004RegistryFields('https://three.ws/');
+		expect(f.webEndpoint).toBe('https://three.ws');
+		expect(f.a2aEndpoint).toBe('https://three.ws/.well-known/agent-card.json');
+		expect(f.mcpEndpoint).toBe('https://three.ws/api/mcp');
+		expect(f.a2aVersion).toBe('0.3.0');
+		expect(f.mcpVersion).toBe('2025-06-18');
 	});
 });

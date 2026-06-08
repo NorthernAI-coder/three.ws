@@ -299,6 +299,32 @@ export function buildAgentRegistrationMetadata(a) {
 	};
 }
 
+/**
+ * ERC-8004 registration-file fields that the Agent Registry subgraph indexes
+ * (see api/agents/8004/agent.js `registrationFile { active x402Support mcpEndpoint
+ * a2aEndpoint webEndpoint supportedTrusts ... }`). The EVM registration flow
+ * (api/agents/register) pins an agent-manifest JSON whose base shape lacks these
+ * flat fields, so the indexer defaults `x402Support` to false and shows three.ws
+ * agents as inactive / "x402 Not Supported". Spread these in to advertise the
+ * truth: every three.ws agent settles calls over x402. Mirrors the Solana
+ * registry doc above so on- and cross-chain registries agree.
+ *
+ * @param {string} [origin] public app origin (defaults to env.APP_ORIGIN)
+ */
+export function erc8004RegistryFields(origin = env.APP_ORIGIN) {
+	const o = String(origin || env.APP_ORIGIN).replace(/\/$/, '');
+	return {
+		active: true,
+		x402Support: true,
+		webEndpoint: o,
+		a2aEndpoint: `${o}/.well-known/agent-card.json`,
+		a2aVersion: '0.3.0',
+		mcpEndpoint: `${o}/api/mcp`,
+		mcpVersion: '2025-06-18',
+		supportedTrusts: ['reputation'],
+	};
+}
+
 // ── Agent token (pump.fun) ───────────────────────────────────────────────────
 
 /**
