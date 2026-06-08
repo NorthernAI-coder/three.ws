@@ -42,13 +42,15 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         state = self.server.state
         parsed = urllib.parse.urlparse(self.path)
-        qs = urllib.parse.parse_qs(parsed.query)
+        qs = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
         if parsed.path == "/api/forge" and "catalog" in qs:
             return self._send(200, {"tiers": [{"id": "standard"}], "backends": []})
         if parsed.path == "/api/forge" and "job" in qs:
             state["poll_count"] += 1
             # Record the client handle so the test can assert scoping.
             state["last_client_handle"] = self.headers.get("x-forge-client")
+            if state.get("fail_poll"):
+                return self._send(200, {"job_id": qs["job"][0], "status": "failed", "error": "render exploded"})
             if state["poll_count"] >= state["done_after"]:
                 return self._send(200, {"job_id": qs["job"][0], "status": "done", "glb_url": state["glb_url"]})
             return self._send(200, {"job_id": qs["job"][0], "status": "running"})
@@ -116,6 +118,7 @@ class ForgeClientTest(unittest.TestCase):
 
     def tearDown(self):
         self.server.shutdown()
+        self.server.server_close()
         self.thread.join(timeout=2)
 
     def test_catalog(self):
@@ -151,11 +154,14 @@ class ForgeClientTest(unittest.TestCase):
             self.client.submit_text_to_3d("a model", backend="meshy")
         self.assertEqual(ctx.exception.code, "needs_key")
 
-    def test_failed_job_raises(self):
-        self.server.state["submit_error"] = {"job_id": "j", "status": "failed", "error": "boom"}
-        # submit returns ok (has job_id), poll surfaces the failure
-        job = self.client._submit({"prompt": "x"})
-        self.assertEqual(job["job_id"], "j")
+    def test_failed_job_raises_at_poll(self):
+        # Submit succeeds (job queued); the failure surfaces during polling.
+        self.server.state["fail_poll"] = True
+        job = self.client.submit_text_to_3d("a model that will fail")
+        with self.assertRaises(ThreeWSError) as ctx:
+            self.client.poll(job["job_id"], interval=0.01, timeout=5)
+        self.assertEqual(ctx.exception.code, "failed")
+        self.assertIn("render exploded", ctx.exception.message)
 
     def test_short_prompt_rejected(self):
         with self.assertRaises(ThreeWSError) as ctx:
