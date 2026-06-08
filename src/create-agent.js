@@ -49,6 +49,10 @@ const STARTERS = [
 	{ id: 'soldier', name: 'Boss', url: '/animations/soldier.glb' },
 ];
 
+// Every agent gets a real 3D body. If the user opts to "Add later", we still
+// assign this real default starter on create — an agent is never bodiless.
+const DEFAULT_AVATAR = STARTERS[0];
+
 // Core skills every agent gets — matches the API default set. Locked on.
 const CORE_SKILLS = [
 	{ id: 'greet', name: 'Greet', desc: 'Welcomes visitors and opens the conversation.' },
@@ -83,7 +87,17 @@ const state = {
 	name: '',
 	description: '',
 	tags: [],
-	model: { mode: 'starter', starterId: '', starterUrl: '', file: null, fileName: '', skipAck: false },
+	model: {
+		mode: 'starter',
+		starterId: '',
+		starterUrl: '',
+		file: null,
+		fileName: '',
+		skipAck: false,
+		avatarId: '',
+		avatarUrl: '',
+		avatarName: '',
+	},
 	skills: new Set(CORE_SKILLS.map((s) => s.id)),
 	category: '',
 	greeting: '',
@@ -259,10 +273,11 @@ function validateStep(n) {
 		// upload, or an explicit acknowledgment that they're skipping for now.
 		const hasStarter = state.model.mode === 'starter' && !!state.model.starterUrl;
 		const hasUpload = state.model.mode === 'upload' && !!state.model.file;
+		const hasLibrary = state.model.mode === 'library' && !!state.model.avatarId;
 		const acknowledgedSkip = state.model.mode === 'none' && state.model.skipAck;
-		if (!hasStarter && !hasUpload && !acknowledgedSkip) {
+		if (!hasStarter && !hasUpload && !hasLibrary && !acknowledgedSkip) {
 			if (state.model.mode === 'none') {
-				setMsg('Tick the box to confirm you want to create this agent without a 3D avatar.', 'err');
+				setMsg('Tick the box to confirm you want to launch with the default 3D body for now.', 'err');
 			} else {
 				setMsg('Pick a starter avatar or upload a 3D model — or choose “Add later” and confirm.', 'err');
 			}
@@ -395,6 +410,102 @@ function selectStarter(id) {
 	syncModelPreview();
 }
 
+// ── Step 2 (alt): connect an avatar you already own ──────────────────────────
+
+let libraryState = 'idle'; // idle | loading | loaded | error
+let libraryAvatars = [];
+
+async function loadLibraryAvatars() {
+	if (libraryState === 'loaded' || libraryState === 'loading') {
+		renderLibrary();
+		return;
+	}
+	libraryState = 'loading';
+	renderLibrary();
+	try {
+		const res = await apiFetch('/api/avatars?limit=50', { credentials: 'include' });
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const data = await res.json();
+		libraryAvatars = (data.avatars || []).filter((a) => a && a.id && a.url);
+		libraryState = 'loaded';
+	} catch (err) {
+		log.warn('[create-agent] avatar library load failed', err?.message);
+		libraryState = 'error';
+	}
+	renderLibrary();
+}
+
+function renderLibrary() {
+	const grid = $('library-grid');
+	if (!grid) return;
+	const note = (msg) =>
+		`<p class="panel-help" style="grid-column:1/-1;margin:6px 0 0">${msg}</p>`;
+
+	if (libraryState === 'loading') {
+		grid.innerHTML = note('Loading your avatars…');
+		return;
+	}
+	if (libraryState === 'error') {
+		grid.innerHTML = note(
+			"Couldn't load your avatars. Pick a starter or upload instead — you can connect one later from the editor.",
+		);
+		return;
+	}
+	if (!libraryAvatars.length) {
+		grid.innerHTML = note(
+			"You don't own any avatars yet. Choose a starter or upload your own — it's saved to your library automatically.",
+		);
+		return;
+	}
+
+	grid.innerHTML = '';
+	libraryAvatars.forEach((av) => {
+		const name = av.name || 'Untitled';
+		const card = document.createElement('button');
+		card.type = 'button';
+		card.className = 'starter';
+		card.dataset.avatar = av.id;
+		card.setAttribute('aria-label', `Use your avatar ${name}`);
+		const thumb = av.thumbnail_url
+			? `<img src="${escapeHtml(av.thumbnail_url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" />`
+			: `<model-viewer src="${escapeHtml(av.url)}" alt="${escapeHtml(name)} preview" auto-rotate
+				auto-rotate-delay="0" rotation-per-second="22deg" interaction-prompt="none" disable-zoom disable-pan
+				disable-tap shadow-intensity="0.3" exposure="0.95" environment-image="neutral"
+				camera-orbit="15deg 82deg auto" loading="lazy"></model-viewer>`;
+		card.innerHTML = `<span class="starter-thumb">${thumb}</span><span class="starter-name">${escapeHtml(name)}</span>`;
+		card.addEventListener('click', () => selectLibraryAvatar(av.id));
+		grid.appendChild(card);
+	});
+
+	// Re-apply the highlight when re-rendering with an active selection.
+	if (state.model.mode === 'library' && state.model.avatarId) {
+		grid
+			.querySelectorAll('.starter')
+			.forEach((c) => c.classList.toggle('is-selected', c.dataset.avatar === state.model.avatarId));
+	}
+}
+
+function selectLibraryAvatar(id) {
+	const av = libraryAvatars.find((x) => x.id === id);
+	if (!av) return;
+	state.model = {
+		mode: 'library',
+		starterId: '',
+		starterUrl: '',
+		file: null,
+		fileName: '',
+		skipAck: false,
+		avatarId: av.id,
+		avatarUrl: av.url,
+		avatarName: av.name || 'Untitled',
+	};
+	$('library-grid')
+		.querySelectorAll('.starter')
+		.forEach((c) => c.classList.toggle('is-selected', c.dataset.avatar === id));
+	clearMsg();
+	syncModelPreview();
+}
+
 function wireModel() {
 	// Tabs
 	document.querySelectorAll('.model-tab').forEach((tab) => {
@@ -416,9 +527,14 @@ function wireModel() {
 					file: null,
 					fileName: '',
 					skipAck: !!$('f-skip-ack')?.checked,
+					avatarId: '',
+					avatarUrl: '',
+					avatarName: '',
 				};
 				document.querySelectorAll('.starter').forEach((c) => c.classList.remove('is-selected'));
 				syncModelPreview();
+			} else if (pane === 'library') {
+				loadLibraryAvatars();
 			} else if (pane === 'starter' && state.model.mode !== 'starter') {
 				// re-entering starter tab with nothing chosen — leave unselected
 			}
@@ -494,9 +610,11 @@ function syncModelPreview() {
 	const url =
 		state.model.mode === 'starter'
 			? state.model.starterUrl
-			: state.model.mode === 'upload' && state.model.file
-				? URL.createObjectURL(state.model.file)
-				: '';
+			: state.model.mode === 'library'
+				? state.model.avatarUrl
+				: state.model.mode === 'upload' && state.model.file
+					? URL.createObjectURL(state.model.file)
+					: '';
 
 	// Clear any previous viewer.
 	el.preview.querySelector('model-viewer')?.remove();
@@ -610,9 +728,11 @@ function renderReview() {
 	const modelLabel =
 		state.model.mode === 'starter'
 			? `${STARTERS.find((s) => s.id === state.model.starterId)?.name || 'Starter'} (starter)`
-			: state.model.mode === 'upload'
-				? `${state.model.fileName}.glb (upload)`
-				: 'Add later';
+			: state.model.mode === 'library'
+				? `${state.model.avatarName || 'Avatar'} (your library)`
+				: state.model.mode === 'upload'
+					? `${state.model.fileName}.glb (upload)`
+					: `${DEFAULT_AVATAR.name} (default — add your own later)`;
 
 	const skillNames = [...CORE_SKILLS, ...OPTIONAL_SKILLS]
 		.filter((s) => state.skills.has(s.id))
@@ -738,6 +858,27 @@ async function submit() {
 			const av = await saveRemoteGlbToAccount(state.model.file, {
 				source: 'upload',
 				name: state.model.fileName || state.name.trim(),
+				visibility: 'public',
+			});
+			avatarId = av?.id || null;
+		} else if (state.model.mode === 'library' && state.model.avatarId) {
+			// Already an owned avatar — connect it directly, no copy needed.
+			avatarId = state.model.avatarId;
+		}
+
+		// Every agent gets a real 3D body. If the user skipped (or a save above
+		// silently returned nothing), assign the default starter so the agent is
+		// never bodiless — no placeholder, a real owned avatar.
+		if (!avatarId) {
+			setMsg('Setting up a 3D body…', '');
+			const av = await saveRemoteGlbToAccount(DEFAULT_AVATAR.url, {
+				source: 'import',
+				name: state.name.trim(),
+				source_meta: {
+					provider: 'starter-library',
+					source_url: DEFAULT_AVATAR.url,
+					default_assigned: true,
+				},
 				visibility: 'public',
 			});
 			avatarId = av?.id || null;

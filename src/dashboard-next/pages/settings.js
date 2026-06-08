@@ -370,13 +370,13 @@ function renderVanityTools() {
 		</div>
 		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
 			<div style="padding:16px;border:1px solid var(--nxt-stroke);border-radius:10px">
-				<div style="font-weight:600;margin-bottom:6px">Solana vanity ✦</div>
-				<div style="font-size:13px;color:var(--nxt-ink-dim);margin-bottom:12px">Generate a Solana keypair where the address starts with text you choose.</div>
-				<a class="dn-btn primary" href="/vanity-wallet" target="_blank" rel="noopener">Open tool ↗</a>
+				<div style="font-weight:600;margin-bottom:6px">Solana &amp; EVM wallets ✦</div>
+				<div style="font-size:13px;color:var(--nxt-ink-dim);margin-bottom:12px">Grind a Solana or EVM keypair whose address starts or ends with text you choose — right in the dashboard.</div>
+				<a class="dn-btn primary" href="/dashboard/wallet-grinder">Open grinder →</a>
 			</div>
 			<div style="padding:16px;border:1px solid var(--nxt-stroke);border-radius:10px">
-				<div style="font-weight:600;margin-bottom:6px">ETH vanity (CREATE2) ✦</div>
-				<div style="font-size:13px;color:var(--nxt-ink-dim);margin-bottom:12px">Mine an Ethereum contract address with a custom prefix using CREATE2.</div>
+				<div style="font-weight:600;margin-bottom:6px">ETH contract (CREATE2) ✦</div>
+				<div style="font-size:13px;color:var(--nxt-ink-dim);margin-bottom:12px">Mine an Ethereum contract address with a custom prefix using a CREATE2 salt.</div>
 				<a class="dn-btn primary" href="/eth-vanity" target="_blank" rel="noopener">Open tool ↗</a>
 			</div>
 		</div>

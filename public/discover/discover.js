@@ -534,7 +534,7 @@ function renderAvatarCard(item) {
 		.join('');
 
 	const viewerUrl = item.viewerUrl || '#';
-	const detailUrl = `/agents/${encodeURIComponent(item.avatarId)}`;
+	const detailUrl = `/avatars/${encodeURIComponent(item.avatarId)}`;
 
 	card.innerHTML = `
 		<a class="explore-card-thumb" href="${escapeAttr(detailUrl)}">
@@ -553,7 +553,7 @@ function renderAvatarCard(item) {
 					${item.viewCount ? `<span class="explore-card-views">${escapeHtml(formatCompact(item.viewCount))} views</span>` : `@${escapeHtml(item.slug || 'avatar')}`}
 				</span>
 				<div class="explore-card-actions">
-					<a class="explore-card-link" href="${escapeAttr(detailUrl)}">View agent</a>
+					<a class="explore-card-link" href="${escapeAttr(detailUrl)}">View avatar</a>
 					<button type="button" class="explore-card-link explore-card-link--ghost" data-role="card-embed"
 						data-kind="avatar"
 						data-avatar-id="${escapeAttr(String(item.avatarId))}"

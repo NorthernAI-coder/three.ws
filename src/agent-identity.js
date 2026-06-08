@@ -185,20 +185,23 @@ export class AgentIdentity {
 	 * Fire-and-forget — never blocks the caller.
 	 * @param {import('./agent-protocol.js').ActionPayload} action
 	 */
-	recordAction(action) {
+	async recordAction(action) {
 		if (!this._backendConfirmed) return; // no session — skip to avoid 401 noise
 		if (!this._owned) return; // viewing someone else's agent — backend would 403
-		fetch('/api/agent-actions', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			credentials: 'include',
-			body: JSON.stringify({
-				agent_id: this.id,
-				type: action.type,
-				payload: action.payload,
-				source_skill: action.sourceSkill || null,
-			}),
-		}).catch(() => {}); // non-critical
+		try {
+			const csrf = await csrfHeaders(); // cookie sessions require a CSRF token
+			await fetch('/api/agent-actions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', ...csrf },
+				credentials: 'include',
+				body: JSON.stringify({
+					agent_id: this.id,
+					type: action.type,
+					payload: action.payload,
+					source_skill: action.sourceSkill || null,
+				}),
+			});
+		} catch {} // non-critical — fire-and-forget
 	}
 
 	/**
