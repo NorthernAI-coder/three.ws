@@ -1,6 +1,7 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
+import { buildGettingStartedTool } from '../_lib/mcp-getting-started.js';
 import { toolDefs as studioDefs } from './tools/studio.js';
 import { toolDefs as modelDefs } from '../_mcp/tools/models.js';
 import { toolDefs as animationDefs } from '../_mcp/tools/animations.js';
@@ -16,7 +17,21 @@ const reusedModelDefs = modelDefs.filter(
 // The animation library (list_animations + apply_animation) completes the
 // pipeline: text_to_3d → auto_rig_model → apply_animation. Same retarget engine
 // the main server exposes — reused here, not duplicated.
-const allDefs = [...studioDefs, ...reusedModelDefs, ...animationDefs];
+const baseDefs = [...studioDefs, ...reusedModelDefs, ...animationDefs];
+
+// Free, public entry point — listed first so discovery clients see it up top.
+const gettingStarted = buildGettingStartedTool({
+	server: 'three.ws 3D Studio',
+	tagline: 'Turn text or images into interactive, animation-ready 3D models.',
+	tools: baseDefs,
+	access: [
+		'Connect with a three.ws account (OAuth) or an x402 wallet — most studio tools just need a connected client.',
+		'Generation tools (text_to_3d, image_to_3d) run async jobs; poll generation_status for the GLB and an inline <model-viewer> artifact.',
+	],
+	links: { homepage: 'https://three.ws', source: 'https://github.com/nirholas/three.ws' },
+});
+
+const allDefs = [gettingStarted, ...baseDefs];
 
 // Schema objects for tools/list — strip internal fields (scope, handler).
 export const TOOL_CATALOG = allDefs.map(({ scope: _s, handler: _h, ...schema }) => schema);

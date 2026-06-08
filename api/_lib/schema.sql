@@ -463,6 +463,17 @@ create index if not exists agent_memories_agent_type
     on agent_memories(agent_id, type, created_at desc)
     where expires_at is null;
 
+-- Memories are owner-only by default. `is_public` is an explicit opt-in that
+-- lets an owner surface a memory on their public profile (/u/<username>).
+-- Default false so nothing is ever exposed without a deliberate toggle.
+alter table agent_memories add column if not exists is_public boolean not null default false;
+
+-- Partial index for the public-profile read path: public, non-expired memories
+-- for a given agent, newest first.
+create index if not exists agent_memories_public
+    on agent_memories(agent_id, created_at desc)
+    where is_public = true and expires_at is null;
+
 do $$ begin
     create trigger agent_memories_set_updated_at before update on agent_memories
         for each row execute function set_updated_at();

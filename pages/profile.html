@@ -841,7 +841,7 @@
 					return;
 				}
 				const data = await res.json();
-				const { user, stats = {}, social = {}, avatars = [], agents = [], widgets = [], skills = [], plugins = [] } = data;
+				const { user, stats = {}, social = {}, avatars = [], agents = [], widgets = [], skills = [], plugins = [], coins = [], memories = [] } = data;
 
 				// Update page meta
 				const display = user.display_name || user.username;

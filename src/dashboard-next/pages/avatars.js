@@ -277,7 +277,7 @@ function avatarCard(root, a) {
 		<div class="dn-av-thumb">
 			<threews-avatar avatar-id="${esc(a.id)}" hide-chrome bg="transparent"></threews-avatar>
 			<div class="dn-av-hover-actions">
-				<a class="dn-av-hover-btn" href="/agents/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">Live page</a>
+				<a class="dn-av-hover-btn" href="/avatars/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">Live page</a>
 				<a class="dn-av-hover-btn" href="/app#avatar=${encodeURIComponent(a.id)}">3D Studio</a>
 			</div>
 			<button type="button" class="dn-av-more" data-more aria-haspopup="menu" aria-label="More actions">
@@ -395,7 +395,7 @@ function openMoreMenu(root, anchor, card, a) {
 	menu.dataset.for = a.id;
 	menu.setAttribute('role', 'menu');
 	const items = [
-		{ label: 'View live page', run: () => { window.open(`/agents/${encodeURIComponent(a.id)}`, '_blank'); } },
+		{ label: 'View live page', run: () => { window.open(`/avatars/${encodeURIComponent(a.id)}`, '_blank'); } },
 		{ label: 'Update from selfie', run: async () => {
 			const result = await openSelfieModal({ existingAvatarId: a.id });
 			if (result?.avatarId) {

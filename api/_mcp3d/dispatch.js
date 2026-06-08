@@ -4,6 +4,7 @@ import { makeDispatcher, PROTOCOL_VERSION } from '../_lib/mcp-dispatch.js';
 import { TOOL_CATALOG, TOOLS } from './catalog.js';
 
 export { PROTOCOL_VERSION };
+export { isPublicTool } from '../_lib/mcp-getting-started.js';
 
 const INSTRUCTIONS = [
 	'three.ws 3D Studio turns text or images into interactive, animation-ready 3D models.',

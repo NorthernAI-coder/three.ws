@@ -9,6 +9,21 @@ import { sanitizeToolError } from './mcp-error-sanitize.js';
 
 export const PROTOCOL_VERSION = '2025-06-18';
 
+// Peek the single called tool from a (possibly batched) JSON-RPC body. Used by
+// the HTTP endpoints to (a) price the x402 challenge per tool and (b) decide
+// whether a request targets a public/free tool. Only a request calling exactly
+// ONE tool is reported; mixed batches and non-tools/call messages (initialize,
+// tools/list, ping) yield { toolName: null } so they take the default path.
+export function peekCalledTool(body) {
+	const batch = Array.isArray(body) ? body : [body];
+	const calls = batch.filter((m) => m && m.method === 'tools/call');
+	if (calls.length === 1) {
+		const name = calls[0]?.params?.name;
+		return { toolName: typeof name === 'string' ? name : null };
+	}
+	return { toolName: null };
+}
+
 function ok(id, result) {
 	return { jsonrpc: '2.0', id, result };
 }

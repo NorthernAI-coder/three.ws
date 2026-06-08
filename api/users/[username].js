@@ -29,6 +29,8 @@ export default wrap(async (req, res) => {
 		widgetRows,
 		skillRows,
 		pluginRows,
+		coinRows,
+		memoryRows,
 		socialRows,
 		statsRow,
 	] = await Promise.all([
@@ -85,6 +87,36 @@ export default wrap(async (req, res) => {
 			order by install_count desc, created_at desc
 			limit 24
 		`,
+		// Coins the user has launched. Each launch is recorded on the agent that
+		// minted it, in meta.token. Surface only public agents with a confirmed
+		// mint, newest first.
+		sql`
+			select id as agent_id, name as agent_name, profile_image_url, avatar_url,
+			       meta->'token' as token
+			from agent_identities
+			where user_id = ${user.id}
+			  and is_public = true
+			  and deleted_at is null
+			  and meta->'token'->>'mint' is not null
+			order by coalesce(meta->'token'->>'launched_at', created_at::text) desc
+			limit 48
+		`,
+		// Public memories the owner has explicitly opted to showcase, surfaced
+		// through their public agents. Private memories (the default) never leave
+		// the owner's own view.
+		sql`
+			select m.id, m.type, m.content, m.tags, m.created_at,
+			       a.id as agent_id, a.name as agent_name
+			from agent_memories m
+			join agent_identities a on a.id = m.agent_id
+			where a.user_id = ${user.id}
+			  and a.is_public = true
+			  and a.deleted_at is null
+			  and m.is_public = true
+			  and (m.expires_at is null or m.expires_at > now())
+			order by m.created_at desc
+			limit 48
+		`,
 		sql`
 			select provider, username
 			from social_connections
@@ -103,6 +135,13 @@ export default wrap(async (req, res) => {
 			    where author_id = ${user.id} and is_public = true) as skills_count,
 			  (select count(*)::int from plugins
 			    where author_id = ${user.id} and is_public = true and deleted_at is null) as plugins_count,
+			  (select count(*)::int from agent_identities
+			    where user_id = ${user.id} and is_public = true and deleted_at is null
+			      and meta->'token'->>'mint' is not null) as coins_count,
+			  (select count(*)::int from agent_memories m
+			    join agent_identities a on a.id = m.agent_id
+			    where a.user_id = ${user.id} and a.is_public = true and a.deleted_at is null
+			      and m.is_public = true and (m.expires_at is null or m.expires_at > now())) as memories_count,
 			  (select coalesce(sum(view_count), 0)::bigint from widgets
 			    where user_id = ${user.id} and is_public = true and deleted_at is null) as total_widget_views
 		`,
@@ -177,6 +216,38 @@ export default wrap(async (req, res) => {
 		created_at: p.created_at,
 	}));
 
+	// Coins: the launch record lives in agent_identities.meta.token. Pass through
+	// only display-safe fields; the mint/links are user-supplied launch data.
+	const coins = coinRows
+		.map((c) => {
+			const t = c.token || {};
+			if (!t.mint) return null;
+			return {
+				mint: t.mint,
+				name: t.name || c.agent_name,
+				symbol: t.symbol || null,
+				description: t.description || null,
+				image: t.image || null,
+				cluster: t.cluster || 'mainnet',
+				launched_at: t.launched_at || null,
+				url: t.pumpfun_url || t.explorer_url || null,
+				agent_id: c.agent_id,
+				agent_name: c.agent_name,
+				agent_image: c.profile_image_url || c.avatar_url || null,
+			};
+		})
+		.filter(Boolean);
+
+	const memories = memoryRows.map((m) => ({
+		id: m.id,
+		type: m.type,
+		content: m.content,
+		tags: m.tags || [],
+		created_at: m.created_at,
+		agent_id: m.agent_id,
+		agent_name: m.agent_name,
+	}));
+
 	const social = {};
 	for (const row of socialRows) {
 		social[row.provider] = row.username;
@@ -188,6 +259,8 @@ export default wrap(async (req, res) => {
 		widgets: statsRow?.widgets_count ?? 0,
 		skills: statsRow?.skills_count ?? 0,
 		plugins: statsRow?.plugins_count ?? 0,
+		coins: statsRow?.coins_count ?? 0,
+		memories: statsRow?.memories_count ?? 0,
 		widget_views: Number(statsRow?.total_widget_views ?? 0),
 	};
 
@@ -207,5 +280,7 @@ export default wrap(async (req, res) => {
 		widgets,
 		skills,
 		plugins,
+		coins,
+		memories,
 	});
 });

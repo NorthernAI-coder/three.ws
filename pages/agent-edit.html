@@ -893,6 +893,28 @@
 			.mem-item-type { font-size: 0.618rem; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; margin-bottom: 0.25rem; }
 			.mem-item-content { font-size: 0.875rem; color: rgba(255, 255, 255, 0.85); white-space: pre-wrap; word-break: break-word; }
 			.mem-item-tags { font-size: 0.618rem; color: rgba(255, 255, 255, 0.4); margin-top: 0.25rem; }
+			.mem-item-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+			.mem-vis-toggle {
+				background: transparent;
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				color: rgba(255, 255, 255, 0.45);
+				font-size: 0.618rem;
+				font-family: inherit;
+				letter-spacing: 0.03em;
+				padding: 0.2rem 0.5rem;
+				border-radius: 999px;
+				cursor: pointer;
+				white-space: nowrap;
+				transition: color 0.15s, border-color 0.15s, background 0.15s;
+			}
+			.mem-vis-toggle:hover { color: rgba(255, 255, 255, 0.8); border-color: rgba(255, 255, 255, 0.25); }
+			.mem-vis-toggle:focus-visible { outline: 2px solid rgba(255, 215, 0, 0.5); outline-offset: 1px; }
+			.mem-vis-toggle.is-public {
+				color: #ffd700;
+				border-color: rgba(255, 215, 0, 0.4);
+				background: rgba(255, 215, 0, 0.08);
+			}
+			.mem-vis-toggle:disabled { opacity: 0.5; cursor: progress; }
 
 			/* Chip list */
 			.chip-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }

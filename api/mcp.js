@@ -4,7 +4,7 @@ import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { x402AmountForTool } from './_lib/pump-pricing.js';
-import { PROTOCOL_VERSION, dispatch } from './_mcp/dispatch.js';
+import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcp/dispatch.js';
 import { send401, sendJsonRpcError, authenticateRequest, handleSse, handleTerminate } from './_mcp/auth.js';
 import { sendX402Error } from './_mcp/payments.js';
 
@@ -40,7 +40,12 @@ export default wrap(async (req, res) => {
 	const { toolName } = peekCalledTool(body);
 	const x402Amount = toolName ? x402AmountForTool(toolName) : null;
 
-	const result = await authenticateRequest(req, res, { x402Amount });
+	// A call to the free public getting_started tool is served without an OAuth
+	// token or x402 payment so any client can discover the server first.
+	const result = await authenticateRequest(req, res, {
+		x402Amount,
+		allowFree: Boolean(toolName && isPublicTool(toolName)),
+	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;
 

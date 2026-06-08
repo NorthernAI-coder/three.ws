@@ -1333,6 +1333,18 @@ a {
 	white-space: pre;
 }
 
+/* Brief highlight when the ?view=embed deep-link scrolls to the embed card. */
+.ad-embed-card.ad-embed-flash {
+	animation: ad-embed-flash 1.6s ease-out;
+}
+@keyframes ad-embed-flash {
+	0%, 15% { box-shadow: 0 0 0 2px var(--ad-accent, #6366f1), 0 0 22px rgba(99, 102, 241, 0.55); }
+	100% { box-shadow: 0 0 0 0 transparent, 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.ad-embed-card.ad-embed-flash { animation: none; }
+}
+
 /* ── Version history ───────────────────────────────────────────────────── */
 .ad-versions {
 	list-style: none;

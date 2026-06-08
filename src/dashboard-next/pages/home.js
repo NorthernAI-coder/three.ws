@@ -585,7 +585,7 @@ function renderQuickActions(host, { avatars = [], agents = [] } = {}) {
 
 	const defaults = [];
 	if (firstAvatar) {
-		defaults.push({ href: `/agents/${encodeURIComponent(firstAvatar.id)}`, title: 'View live agent page', sub: 'See how visitors experience your agent', iconKey: '/dashboard/agents', cat: 'Agents & Identity' });
+		defaults.push({ href: `/avatars/${encodeURIComponent(firstAvatar.id)}`, title: 'View live avatar page', sub: 'See how visitors experience your avatar', iconKey: '/dashboard/agents', cat: 'Agents & Identity' });
 	} else {
 		defaults.push({ href: '/create', title: 'Create avatar from selfie', sub: 'Snap a photo, get a 3D agent in 60 seconds', iconKey: '/create', cat: 'Create & Build' });
 	}

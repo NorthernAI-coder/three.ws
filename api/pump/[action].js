@@ -2878,6 +2878,15 @@ async function handleCoinTrades(req, res) {
 	if (!MINT_RE.test(mint)) return error(res, 400, 'invalid_mint', 'mint must be a base58 address');
 	const limit = Math.min(Math.max(1, Number(url.searchParams.get('limit') || 30)), 100);
 	const upstream = `${PUMP_SWAP_BASE}/v2/coins/${mint}/trades?limit=${limit}`;
+	// "Recent trades" is a soft, continuously-polled feed (the homepage live card
+	// re-fetches every ~4s). A transient pump.fun swap-API blip means "no new data
+	// right now", not a hard error — so degrade to an empty 200 with `no-store`
+	// rather than a 5xx the browser console logs on every poll. The next poll
+	// retries immediately and the card recovers the moment upstream is back.
+	const stale = (extra = {}) => {
+		res.setHeader('cache-control', 'no-store');
+		return json(res, 200, { mint, trades: [], stale: true, ...extra });
+	};
 	let resp;
 	try {
 		resp = await fetch(upstream, {
@@ -2885,10 +2894,15 @@ async function handleCoinTrades(req, res) {
 			signal: AbortSignal.timeout(8000),
 		});
 	} catch {
-		return error(res, 504, 'upstream_timeout', 'pump.fun swap API did not respond');
+		return stale({ reason: 'upstream_timeout' });
 	}
-	if (!resp.ok) return error(res, 502, 'upstream_failed', `pump.fun returned ${resp.status}`);
-	const body = await resp.json();
+	if (!resp.ok) return stale({ reason: `upstream_${resp.status}` });
+	let body;
+	try {
+		body = await resp.json();
+	} catch {
+		return stale({ reason: 'upstream_unparseable' });
+	}
 	const raw = Array.isArray(body) ? body : Array.isArray(body?.trades) ? body.trades : [];
 	const trades = raw
 		.map((t) => ({

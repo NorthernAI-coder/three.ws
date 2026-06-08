@@ -379,11 +379,16 @@ const memoryBodySchema = z.object({
 	tags: z.array(z.string().trim().max(100)).max(20).optional().default([]),
 	salience: z.number().min(0).max(1).optional(),
 	expiresAt: z.string().datetime().optional().nullable(),
+	isPublic: z.boolean().optional().default(false),
+});
+
+const memoryPatchSchema = z.object({
+	isPublic: z.boolean(),
 });
 
 export const handleMemories = wrap(async (req, res, id, memoryId) => {
-	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', credentials: true })) return;
-	if (!method(req, res, ['GET', 'POST', 'DELETE'])) return;
+	if (cors(req, res, { methods: 'GET,POST,PATCH,DELETE,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'POST', 'PATCH', 'DELETE'])) return;
 
 	const session = await getSessionUser(req);
 	const bearer = session ? null : await authenticateBearer(extractBearer(req));
@@ -403,7 +408,7 @@ export const handleMemories = wrap(async (req, res, id, memoryId) => {
 
 	if (req.method === 'GET') {
 		const rows = await sql`
-			SELECT id, type, content, tags, salience, expires_at, created_at
+			SELECT id, type, content, tags, salience, expires_at, created_at, is_public
 			FROM agent_memories
 			WHERE agent_id = ${id}
 				AND (expires_at IS NULL OR expires_at > now())
@@ -419,14 +424,29 @@ export const handleMemories = wrap(async (req, res, id, memoryId) => {
 		return json(res, 200, { deleted: true });
 	}
 
+	// PATCH /memories/:id — toggle a single memory's public visibility. Scoped
+	// to this agent so a caller can't flip a memory belonging to another agent.
+	if (req.method === 'PATCH') {
+		if (!memoryId) return error(res, 400, 'bad_request', 'memory id required');
+		const body = parse(memoryPatchSchema, await readJson(req));
+		const [row] = await sql`
+			UPDATE agent_memories
+			SET is_public = ${body.isPublic}
+			WHERE id = ${memoryId} AND agent_id = ${id}
+			RETURNING id, is_public
+		`;
+		if (!row) return error(res, 404, 'not_found', 'memory not found');
+		return json(res, 200, { id: row.id, isPublic: row.is_public });
+	}
+
 	// POST
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(memoryBodySchema, await readJson(req));
 	const [row] = await sql`
-		INSERT INTO agent_memories (id, agent_id, type, content, tags, salience, expires_at)
-		VALUES (gen_random_uuid(), ${id}, ${body.type}, ${body.content}, ${body.tags}, ${body.salience ?? 0.5}, ${body.expiresAt ?? null})
+		INSERT INTO agent_memories (id, agent_id, type, content, tags, salience, expires_at, is_public)
+		VALUES (gen_random_uuid(), ${id}, ${body.type}, ${body.content}, ${body.tags}, ${body.salience ?? 0.5}, ${body.expiresAt ?? null}, ${body.isPublic})
 		RETURNING id
 	`;
 	return json(res, 201, { id: row.id });

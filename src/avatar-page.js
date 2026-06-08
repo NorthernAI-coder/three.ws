@@ -117,10 +117,31 @@ async function init() {
 async function fetchAvatar(id) {
 	const r = await fetch(`/api/avatars/${encodeURIComponent(id)}`);
 	if (!r.ok) {
+		// A 404 may mean this id is actually an agent shared (or old-linked) as
+		// /avatars/:id. agent-detail.js does the reverse for avatar ids landing
+		// on /agents/:id — keep that symmetry so neither page dead-ends a valid
+		// entity behind "not found".
+		if (r.status === 404 && (await resolveAsAgent(id))) {
+			location.replace(`/agents/${encodeURIComponent(id)}`);
+			return new Promise(() => {}); // navigating away; never resolve
+		}
 		const j = await r.json().catch(() => ({}));
 		throw new Error(j.error_description || `Avatar not found (${r.status})`);
 	}
 	return (await r.json()).avatar;
+}
+
+// Probe the agent store so a misrouted agent id can be handed back to the
+// agent detail page instead of rendering a dead "Avatar not found".
+async function resolveAsAgent(id) {
+	try {
+		const r = await fetch(`/api/agents/${encodeURIComponent(id)}`);
+		if (!r.ok) return false;
+		const j = await r.json();
+		return !!(j && j.agent);
+	} catch {
+		return false;
+	}
 }
 
 async function fetchRelated() {
@@ -572,10 +593,12 @@ function renderEmbedPanel(glbUrl) {
 // ── View switcher ─────────────────────────────────────────────────────
 
 // Surface the page-level views (3D · Chat · AR · Embed) in the action bar.
-// "Chat" is the active view when the page is opened on ?view=chat.
+// The active view tracks ?view= so Chat/Embed deep-links light up the right
+// segment; the bare page is the 3D view.
 function mountSwitcher() {
 	if (isEmbed) return;
-	const active = new URLSearchParams(location.search).get('view') === 'chat' ? 'chat' : '3d';
+	const view = new URLSearchParams(location.search).get('view');
+	const active = view === 'chat' || view === 'embed' ? view : '3d';
 	mountViewSwitcher($('view-switch-slot'), { kind: 'avatar', id: avatar.id || avatarId, active });
 }
 

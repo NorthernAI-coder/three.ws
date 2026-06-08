@@ -10,30 +10,16 @@
  */
 
 import { AgentMemory } from './agent-memory.js';
+import { apiFetch } from './api.js';
 
 const STORAGE_KEY = 'agent_identity';
 
-// Single-use CSRF token cache. Required by /api/agents PUT/PATCH/DELETE +
-// /api/agents/:id/wallet on the server. Token is burned on consumption.
-let _csrfToken = null;
-async function getCsrfToken() {
-	if (_csrfToken) return _csrfToken;
-	try {
-		const r = await fetch('/api/csrf-token', { credentials: 'include' });
-		if (!r.ok) return null;
-		const j = await r.json();
-		_csrfToken = j?.data?.token || null;
-		return _csrfToken;
-	} catch {
-		return null;
-	}
-}
-
-async function csrfHeaders() {
-	const csrf = await getCsrfToken();
-	_csrfToken = null;
-	return csrf ? { 'x-csrf-token': csrf } : {};
-}
+// All /api traffic goes through apiFetch (src/api.js): it issues a fresh
+// single-use CSRF token for every mutation, carries the session cookie, and
+// retries transient 5xx on safe methods. We pass allowAnonymous:true on every
+// call — this module routinely runs for signed-out widget visitors, and a 401
+// must surface as "no backend identity", never hijack the page to /login.
+const ANON = { allowAnonymous: true };
 
 /**
  * @typedef {Object} AgentRecord
@@ -118,11 +104,10 @@ export class AgentIdentity {
 		if (!this._record) return;
 		this._persist();
 		try {
-			const csrf = await csrfHeaders();
-			const resp = await fetch(`/api/agents/${this._record.id}`, {
+			const resp = await apiFetch(`/api/agents/${this._record.id}`, {
 				method: 'PUT',
-				headers: { 'content-type': 'application/json', ...csrf },
-				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				...ANON,
 				body: JSON.stringify({
 					name: this._record.name,
 					description: this._record.description,
@@ -156,11 +141,10 @@ export class AgentIdentity {
 	async linkWallet(address, chainId) {
 		await this.update({ walletAddress: address, chainId });
 		try {
-			const csrf = await csrfHeaders();
-			await fetch(`/api/agents/${this.id}/wallet`, {
+			await apiFetch(`/api/agents/${this.id}/wallet`, {
 				method: 'POST',
-				headers: { 'content-type': 'application/json', ...csrf },
-				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				...ANON,
 				body: JSON.stringify({ wallet_address: address, chain_id: chainId }),
 			});
 		} catch {}
@@ -169,12 +153,7 @@ export class AgentIdentity {
 	async unlinkWallet() {
 		await this.update({ walletAddress: null, chainId: null });
 		try {
-			const csrf = await csrfHeaders();
-			await fetch(`/api/agents/${this.id}/wallet`, {
-				method: 'DELETE',
-				headers: csrf,
-				credentials: 'include',
-			});
+			await apiFetch(`/api/agents/${this.id}/wallet`, { method: 'DELETE', ...ANON });
 		} catch {}
 	}
 
@@ -189,11 +168,10 @@ export class AgentIdentity {
 		if (!this._backendConfirmed) return; // no session — skip to avoid 401 noise
 		if (!this._owned) return; // viewing someone else's agent — backend would 403
 		try {
-			const csrf = await csrfHeaders(); // cookie sessions require a CSRF token
-			await fetch('/api/agent-actions', {
+			await apiFetch('/api/agent-actions', {
 				method: 'POST',
-				headers: { 'content-type': 'application/json', ...csrf },
-				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				...ANON,
 				body: JSON.stringify({
 					agent_id: this.id,
 					type: action.type,
@@ -214,7 +192,7 @@ export class AgentIdentity {
 		try {
 			const params = new URLSearchParams({ agent_id: this.id, limit: String(limit) });
 			if (cursor) params.set('cursor', cursor);
-			const resp = await fetch(`/api/agent-actions?${params}`, { credentials: 'include' });
+			const resp = await apiFetch(`/api/agent-actions?${params}`, ANON);
 			if (!resp.ok) return [];
 			const { actions } = await resp.json();
 			return actions || [];
@@ -270,7 +248,7 @@ export class AgentIdentity {
 			const agentId = this._agentId;
 			const storedConfirmed = this._record?.backendConfirmed;
 			const url = (agentId && storedConfirmed) ? `/api/agents/${agentId}` : '/api/agents/me';
-			const resp = await fetch(url, { credentials: 'include' });
+			const resp = await apiFetch(url, ANON);
 
 			if (resp.ok) {
 				const { agent } = await resp.json();
@@ -347,10 +325,10 @@ export class AgentIdentity {
 
 function _makeEmbedFn(agentId) {
 	return async (text) => {
-		const resp = await fetch(`/api/agents/${agentId}/embed`, {
+		const resp = await apiFetch(`/api/agents/${agentId}/embed`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			credentials: 'include',
+			...ANON,
 			body: JSON.stringify({ text }),
 		});
 		if (!resp.ok) throw new Error(`embed ${resp.status}`);

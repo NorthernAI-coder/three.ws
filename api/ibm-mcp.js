@@ -61,31 +61,15 @@ export default wrap(async (req, res) => {
 	const { toolName } = peekCalledTool(body);
 	const x402Amount = toolName ? graniteX402Amount(toolName) : null;
 
-	// Free, public entry point: a single tools/call to a registered free tool
-	// (ibm_granite_getting_started) skips the x402/OAuth gate so any client —
-	// including non-x402 hosts like watsonx Orchestrate — can discover the server
-	// before paying. IP rate-limited like every other path so it can't be abused.
-	if (toolName && isFreeTool(toolName)) {
-		const ipRl = await limits.mcpIp(clientIp(req));
-		if (!ipRl.success)
-			return sendJsonRpcError(res, null, -32000, 'rate_limited', {
-				retry_after: Math.ceil((ipRl.reset - Date.now()) / 1000),
-			});
-
-		const auth = { userId: null, rateKey: `free:${clientIp(req)}`, scope: '', source: 'free' };
-		const r = await dispatch(Array.isArray(body) ? body[0] : body, auth, req);
-
-		res.statusCode = 200;
-		res.setHeader('content-type', 'application/json; charset=utf-8');
-		res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
-		res.end(JSON.stringify(Array.isArray(body) ? [r].filter((x) => x !== null) : (r ?? null)));
-		return;
-	}
-
+	// A call to the free public ibm_granite_getting_started tool is served without
+	// an x402 payment or OAuth token so any client — including non-x402 hosts like
+	// watsonx Orchestrate — can discover the server before paying. isFreeTool is
+	// strict: only the registered, unpriced getting_started tool qualifies.
 	const result = await authenticateRequest(req, res, {
 		x402Amount,
 		resourcePath: RESOURCE_PATH,
 		challenge: GRANITE_CHALLENGE,
+		allowFree: Boolean(toolName && isFreeTool(toolName)),
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;
