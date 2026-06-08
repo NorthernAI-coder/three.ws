@@ -1816,11 +1816,8 @@
 			"dest": "/ar.html"
 		},
 		{
-			"src": "/avatars/([^/]+)",
-			"status": 301,
-			"headers": {
-				"Location": "/agents/$1"
-			}
+			"src": "/avatars/([^/.]+)",
+			"dest": "/avatar-page.html"
 		},
 		{
 			"src": "/api/characters",

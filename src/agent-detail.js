@@ -1500,6 +1500,20 @@ function normalize(rec, avatar) {
 	};
 }
 
+// Agents and avatars live in separate tables with separate UUIDs — an agent
+// merely references an avatar via avatar_id. So an id that 404s as an agent may
+// actually be an avatar shared (or old-linked) as /agents/:id. Probe the avatar
+// store; if it resolves, the caller redirects to the avatar page instead of
+// showing a dead "not found".
+async function resolveAsAvatar(id) {
+	try {
+		const json = await fetchJson(`/api/avatars/${encodeURIComponent(id)}`);
+		return !!(json && json.avatar);
+	} catch {
+		return false;
+	}
+}
+
 async function loadAgent(id) {
 	if (!id) return { error: 'missing id', agent: null, notFound: true };
 	if (!UUID_RE.test(id))
@@ -1513,13 +1527,23 @@ async function loadAgent(id) {
 		// A 404 is genuinely "no such agent"; anything else (offline, 5xx) is a
 		// transient load failure the user should be able to retry.
 		const notFound = e.status === 404;
+		if (notFound && (await resolveAsAvatar(id))) {
+			location.replace(`/avatars/${encodeURIComponent(id)}`);
+			return { agent: null, error: null, redirecting: true };
+		}
 		return {
 			error: notFound ? 'No agent with id' : e,
 			agent: null,
 			notFound,
 		};
 	}
-	if (!rec) return { error: 'No agent with id', agent: null, notFound: true };
+	if (!rec) {
+		if (await resolveAsAvatar(id)) {
+			location.replace(`/avatars/${encodeURIComponent(id)}`);
+			return { agent: null, error: null, redirecting: true };
+		}
+		return { error: 'No agent with id', agent: null, notFound: true };
+	}
 
 	let avatar = null;
 	if (rec.avatar_id) {
@@ -1577,7 +1601,8 @@ const id =
 
 function runLoad() {
 	loadAgent(id)
-		.then(({ agent, error, notFound }) => {
+		.then(({ agent, error, notFound, redirecting }) => {
+			if (redirecting) return;
 			if (agent) return render(agent);
 			if (notFound) return renderNotFound(id, typeof error === 'string' ? error : '');
 			renderLoadError(error);
