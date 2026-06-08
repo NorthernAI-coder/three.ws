@@ -12,6 +12,8 @@ import { parse } from '../../_lib/validate.js';
 import { recoverAgentKey } from '../../_lib/agent-wallet.js';
 import { readEmbedPolicy, validateEmbedPolicy } from '../../_lib/embed-policy.js';
 import { resolveAvatarUrl } from '../../_lib/avatars.js';
+import { buildAgentRegistrationMetadata } from '../../_lib/three-brand.js';
+import { publicUrl as r2PublicUrl } from '../../_lib/r2.js';
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);

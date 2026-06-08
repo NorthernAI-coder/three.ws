@@ -18,15 +18,21 @@ export default wrap(async (req, res) => {
 	if (depth > 0)
 		return error(res, 400, 'recursion_denied', 'nested agent delegation is not allowed');
 
-	const body = await readJson(req);
-	const { fromAgentId, toAgentId, message } = body || {};
+	const body = await readJson(req, 32_000);
+	const { toAgentId, message } = body || {};
 	if (!toAgentId || typeof toAgentId !== 'string')
 		return error(res, 400, 'validation_error', 'toAgentId required');
 	if (!message || typeof message !== 'string')
 		return error(res, 400, 'validation_error', 'message required');
+	// Each delegation runs a real LLM completion on the platform key — cap the
+	// prompt so one call can't carry a maximal payload into paid inference.
+	if (message.length > 8000)
+		return error(res, 400, 'validation_error', 'message exceeds 8000 characters');
 
-	// Rate limit per calling agent (or user session as fallback)
-	const rl = await limits.agentDelegate(fromAgentId || userId || 'anon');
+	// Rate limit by the AUTHENTICATED principal, never a client-supplied id. Keying
+	// on body.fromAgentId let a caller mint a fresh bucket per request (rotating the
+	// id) and bypass the cap entirely — an unbounded LLM-cost amplification vector.
+	const rl = await limits.agentDelegate(userId);
 	if (!rl.success) return rateLimited(res, rl, 'delegate rate limit exceeded');
 
 	try {

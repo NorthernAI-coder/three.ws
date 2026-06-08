@@ -15,6 +15,7 @@
 
 import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
+import { assertPublicHttpsUrl, SsrfError } from './_lib/ssrf.js';
 import { createRegenProvider } from './_providers/gcp.js';
 
 const JOB_ID_RE = /^[A-Za-z0-9_-]{20,64}$/;
@@ -37,9 +38,18 @@ async function startJob(req, res) {
 	}
 
 	const body = await readJson(req, 4_000).catch(() => null);
-	const imageUrl = typeof body?.image_url === 'string' ? body.image_url.trim() : '';
-	if (!imageUrl.startsWith('https://')) {
-		return json(res, 400, { error: 'invalid_image_url', message: 'image_url must be a public https URL.' });
+	const rawImageUrl = typeof body?.image_url === 'string' ? body.image_url.trim() : '';
+	// Resolve + validate the host our side (rejects private/loopback/metadata IPs)
+	// before handing the URL to the worker — defense in depth against SSRF rather
+	// than trusting the worker's egress posture.
+	let imageUrl;
+	try {
+		imageUrl = await assertPublicHttpsUrl(rawImageUrl);
+	} catch (err) {
+		return json(res, 400, {
+			error: 'invalid_image_url',
+			message: err instanceof SsrfError ? `image_url rejected: ${err.message}` : 'image_url must be a public https URL.',
+		});
 	}
 
 	const model = VALID_MODELS.has(body?.model) ? body.model : 'rmbg2';

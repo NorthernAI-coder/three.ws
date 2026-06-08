@@ -1,6 +1,7 @@
 import { sql } from './_lib/db.js';
-import { cors, json, error, readJson, wrap, method } from './_lib/http.js';
+import { cors, json, error, readJson, wrap, method, rateLimited } from './_lib/http.js';
 import { getSessionUser } from './_lib/auth.js';
+import { limits } from './_lib/rate-limit.js';
 import { enrichLikes } from './_lib/bounty-likes.js';
 
 const SOL_USD_FALLBACK = 160;
@@ -111,8 +112,12 @@ export default wrap(async (req, res) => {
 		} catch {
 			return error(res, 401, 'unauthorized', 'sign in to post a bounty');
 		}
+		if (!user) return error(res, 401, 'unauthorized', 'sign in to post a bounty');
 
-		const body = await readJson(req);
+		const rl = await limits.bountyCreate(user.id);
+		if (!rl.success) return rateLimited(res, rl, 'too many bounties, slow down');
+
+		const body = await readJson(req, 16_000);
 		const {
 			title,
 			description,
@@ -124,6 +129,15 @@ export default wrap(async (req, res) => {
 		} = body;
 
 		if (!title?.trim()) return error(res, 400, 'bad_request', 'title is required');
+		// Bound the free-text and identifier fields so a single bounty can't carry a
+		// near-1MB payload into a public, everyone-reads table.
+		if (title.trim().length > 200) return error(res, 400, 'bad_request', 'title too long (max 200)');
+		if (typeof description === 'string' && description.length > 4000)
+			return error(res, 400, 'bad_request', 'description too long (max 4000)');
+		if (typeof coin_symbol === 'string' && coin_symbol.length > 32)
+			return error(res, 400, 'bad_request', 'coin_symbol too long');
+		if (typeof coin_mint === 'string' && coin_mint.length > 64)
+			return error(res, 400, 'bad_request', 'coin_mint too long');
 		if (!reward_sol && !reward_tokens)
 			return error(res, 400, 'bad_request', 'set a reward (SOL or tokens)');
 

@@ -13,6 +13,21 @@ export function randomToken(bytes = 32) {
 	return base64url(randomBytes(bytes));
 }
 
+// Cryptographically-secure zero-padded numeric code (e.g. for email
+// verification). Uses rejection sampling over the CSPRNG so the distribution is
+// uniform (no modulo bias) and unpredictable — never Math.random(), whose output
+// is guessable and reduces the effective keyspace well below 10**digits.
+export function randomDigits(digits = 6) {
+	const max = 10 ** digits;
+	const limit = Math.floor(0xffffffff / max) * max; // reject above to kill bias
+	let n;
+	do {
+		const b = randomBytes(4);
+		n = ((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3]) >>> 0;
+	} while (n >= limit);
+	return (n % max).toString().padStart(digits, '0');
+}
+
 export async function sha256(input) {
 	const data = typeof input === 'string' ? new TextEncoder().encode(input) : input;
 	const hash = await subtle.digest('SHA-256', data);

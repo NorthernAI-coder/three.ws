@@ -9,7 +9,7 @@ import {
 	verifyPassword, hashPassword, createSession, destroySession, sessionCookie,
 	getSessionUser, hasSessionCookie, revokeRefreshToken,
 } from '../_lib/auth.js';
-import { randomToken, sha256 } from '../_lib/crypto.js';
+import { randomToken, randomDigits, sha256 } from '../_lib/crypto.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse, loginBody, registerBody, usernameRegisterBody, username as usernameValidator, displayName, email, password } from '../_lib/validate.js';
@@ -286,7 +286,7 @@ async function handleResendVerification(req, res) {
 	if (!rows[0]) return error(res, 401, 'unauthorized', 'sign in required');
 	if (rows[0].email_verified) return json(res, 200, { success: true, already_verified: true });
 	await sql`update email_verifications set consumed_at = now() where user_id = ${session.id} and consumed_at is null`;
-	const code = Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0');
+	const code = randomDigits(6);
 	const codeHash = await sha256(code);
 	const expiresAt = new Date(Date.now() + 30 * 60_000);
 	await sql`insert into email_verifications (user_id, code_hash, expires_at) values (${session.id}, ${codeHash}, ${expiresAt.toISOString()})`;

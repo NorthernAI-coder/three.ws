@@ -15,8 +15,26 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createQwen } from 'qwen-ai-provider';
 import { env } from '../_lib/env.js';
-import { cors, method, readJson, error, wrap } from '../_lib/http.js';
+import { cors, method, readJson, error, wrap, rateLimited } from '../_lib/http.js';
+import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatRequest } from '../_lib/watsonx.js';
+
+// Providers an anonymous (signed-out) caller may use: only the genuinely free
+// tiers — the OpenRouter-routed open-weight default and the free NVIDIA NIM
+// models. Every paid first-party model (Claude, GPT-4o, o3, DashScope, DeepSeek)
+// requires sign-in so an unauthenticated script can't drain the server's billed
+// API keys. Mirrors the anon-provider gate in api/chat.js.
+const ANON_BRAIN_PROVIDERS = new Set([
+	'gpt-oss-120b',
+	'nvidia-nemotron-120b',
+	'nvidia-nemotron-super-49b',
+	'nvidia-nemotron-nano',
+	'nvidia-deepseek-v4',
+	'nvidia-kimi-k2',
+	'nvidia-llama4-maverick',
+	'nvidia-minimax-m2',
+]);
 
 export const maxDuration = 120;
 
@@ -373,6 +391,21 @@ export default wrap(async function handler(req, res) {
 
 	if (!method(req, res, ['POST'])) return;
 
+	// Auth + rate limiting. The paid flagship models run on the server's billed
+	// API keys, so an unmetered, unauthenticated proxy is a direct financial-drain
+	// vector. Authenticated callers get a generous per-user budget; anonymous
+	// callers a tight per-IP one and access only to the free-tier providers.
+	const session = await getSessionUser(req);
+	const bearer = session ? null : await authenticateBearer(extractBearer(req));
+	const userId = session?.id ?? bearer?.userId ?? null;
+	if (userId) {
+		const rl = await limits.brainChatUser(userId);
+		if (!rl.success) return rateLimited(res, rl, 'too many chat requests, slow down');
+	} else {
+		const rl = await limits.brainChatIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl, 'too many anonymous chat requests, try again shortly');
+	}
+
 	let body;
 	try {
 		body = await readJson(req, 200_000);
@@ -386,6 +419,11 @@ export default wrap(async function handler(req, res) {
 		return error(res, 400, 'unknown_provider', `unknown provider: ${providerKey}`, {
 			available: Object.keys(PROVIDERS),
 		});
+	}
+	// Paid first-party models are sign-in only — anonymous callers are clamped to
+	// the free tiers so they can't burn the server's billed Anthropic/OpenAI keys.
+	if (!userId && !ANON_BRAIN_PROVIDERS.has(providerKey)) {
+		return error(res, 401, 'unauthorized', 'sign in to use this model');
 	}
 
 	const primary = buildPrimary(spec);

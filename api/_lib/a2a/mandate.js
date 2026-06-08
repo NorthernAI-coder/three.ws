@@ -26,15 +26,24 @@ import { env } from '../env.js';
 export const MANDATE_TYPE = 'a2a-intent-mandate';
 export const MANDATE_VERSION = 1;
 
-// Networks an agent may be authorized to pay over. Mirrors the EVM `exact`
-// schemes the A2A x402 client supports (see api/_lib/x402/a2a-client.js).
+// Networks an agent may be authorized to pay over, in preference order. Solana
+// is the primary A2A settlement rail — USDC SPL TransferChecked, sub-cent fees,
+// sub-second finality — and is what the client picks first (see
+// api/_lib/x402/a2a-client.js). The EVM `exact` schemes remain authorizable for
+// peers that only accept Base/Ethereum.
 export const SUPPORTED_NETWORKS = [
+	'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', // Solana mainnet (CAIP-2)
+	'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', // Solana devnet (CAIP-2)
 	'eip155:8453', // Base mainnet
 	'eip155:84532', // Base Sepolia
 	'eip155:1', // Ethereum mainnet
 	'eip155:137', // Polygon
 	'eip155:42161', // Arbitrum One
 ];
+
+// Default rail when a mandate is issued without an explicit network list:
+// Solana mainnet.
+export const DEFAULT_NETWORK = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 
 // Upper bound on mandate lifetime — a budgeted authorization should be
 // short-lived; 90 days is the ceiling, callers pick shorter.
@@ -111,7 +120,7 @@ export async function issueIntentMandate({
 		throw new MandateError('invalid_amount', 'perCallAtomics cannot exceed maxAtomics');
 	}
 
-	const nets = Array.isArray(networks) && networks.length ? networks : ['eip155:8453'];
+	const nets = Array.isArray(networks) && networks.length ? networks : [DEFAULT_NETWORK];
 	const unsupported = nets.filter((n) => !SUPPORTED_NETWORKS.includes(n));
 	if (unsupported.length) {
 		throw new MandateError('unsupported_network', `unsupported network(s): ${unsupported.join(', ')}`);

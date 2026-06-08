@@ -4,8 +4,8 @@
   "description": "The 3D agent layer of the internet — living 3D AI agents you can embed anywhere.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050510",
-  "theme_color": "#050510",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "icons": [
     {
       "src": "/favicon.svg",
@@ -16,13 +16,25 @@
       "src": "/pwa-192x192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     },
     {
       "src": "/pwa-512x512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ]
 }
