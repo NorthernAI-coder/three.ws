@@ -1121,6 +1121,9 @@ function renderGrid() {
 			navTo(`/marketplace/agents/${card.dataset.id}`);
 		});
 		card.addEventListener('keydown', (e) => {
+			// A focused inner link (See in 3D, on-chain badge) handles its own
+			// activation — don't hijack Enter/Space to the detail page.
+			if (e.target.closest('a')) return;
 			if (e.key === 'Enter' || e.key === ' ') {
 				e.preventDefault();
 				navTo(`/marketplace/agents/${card.dataset.id}`);

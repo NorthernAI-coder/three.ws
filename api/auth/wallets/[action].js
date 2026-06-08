@@ -544,6 +544,7 @@ async function handleUnlinkWallet(req, res, address) {
 
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!(await requireCsrf(req, res, session.id))) return;
 
 	if (!address) return error(res, 400, 'missing_address', 'address required');
 

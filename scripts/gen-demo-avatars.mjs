@@ -31,7 +31,7 @@ const ON_DISK = [
 	{ name: 'CZ', slug: 'cz', path: '/avatars/cz.glb', tags: ['humanoid', 'character', 'community'], desc: 'CZ — stylized humanoid with idle pose, ready for chat overlays.' },
 	{ name: 'Ansem', slug: 'ansem', path: '/avatars/default.glb', tags: ['humanoid', 'community', 'trader'], desc: 'Ansem — trader persona for chart-watchers and crypto Twitter.' },
 	{ name: 'Boss', slug: 'boss', path: '/animations/soldier.glb', tags: ['humanoid', 'rigged', 'animated', 'community'], desc: 'Boss — for the one running the room. Soldier rig with locomotion.', attr: 'threejs' },
-	{ name: 'Vernington', slug: 'vernington', path: '/avatars/readyplayerme.glb', tags: ['humanoid', 'rigged', 'avatar', 'community'], desc: 'Vernington — the senior of the Vern lineage, full-body ready-player rig.', attr: 'threejs' },
+	{ name: 'Vernington', slug: 'vernington', path: '/avatars/readyplayerme.glb', tags: ['humanoid', 'rigged', 'avatar', 'community'], desc: 'Vernington — the senior of the Vern lineage, full-body humanoid rig.', attr: 'threejs' },
 	{ name: 'Saga', slug: 'saga', path: '/animations/robotexpressive.glb', tags: ['robot', 'animated', 'rigged', 'community'], desc: 'Saga — mobile-native, expressive robot rig with idle, walk, jump, dance clips.', attr: 'threejs' },
 	{ name: 'Claude', slug: 'claude', path: '/avatars/cesium-man.glb', tags: ['humanoid', 'rigged', 'animated', 'community', 'ai'], desc: 'Claude — calm, thoughtful AI persona on a clean walking rig.', attr: 'khronos' },
 	{ name: '3D', slug: '3d', path: '/avatars/brainstem.glb', tags: ['robot', 'rigged', 'animated', 'community', 'meta'], desc: '3D — meta avatar for the platform itself, fully articulated sci-fi rig.', attr: 'khronos' },
