@@ -114,7 +114,9 @@ function initDropdowns(root) {
 		if (t) t.setAttribute('aria-expanded', on ? 'true' : 'false');
 	}
 	function closeAll(except) {
-		groups.forEach((g) => { if (g !== except) setOpen(g, false); });
+		groups.forEach((g) => {
+			if (g !== except) setOpen(g, false);
+		});
 	}
 
 	groups.forEach((grp) => {
@@ -157,7 +159,9 @@ function initDropdowns(root) {
 					(items[(idx + 1) % items.length] || items[0])?.focus({ preventScroll: true });
 				} else if (e.key === 'ArrowUp') {
 					e.preventDefault();
-					(items[(idx - 1 + items.length) % items.length] || items[0])?.focus({ preventScroll: true });
+					(items[(idx - 1 + items.length) % items.length] || items[0])?.focus({
+						preventScroll: true,
+					});
 				} else if (e.key === 'Escape') {
 					setOpen(grp, false);
 					trigger.focus({ preventScroll: true });
@@ -203,7 +207,10 @@ function initDrawer(root) {
 		if (e.target.closest('a')) setOpen(false);
 	});
 	document.addEventListener('keydown', (e) => {
-		if (e.key === 'Escape' && isOpen()) { setOpen(false); toggle.focus(); }
+		if (e.key === 'Escape' && isOpen()) {
+			setOpen(false);
+			toggle.focus();
+		}
 	});
 	window.addEventListener('resize', () => {
 		if (window.innerWidth > 880 && isOpen()) setOpen(false);
@@ -272,7 +279,11 @@ function initAuthHint(root) {
 
 	// 2. Reconcile against the real session. /api/auth/me returns { user } when
 	//    signed in and { user: null } (or 401 for a stale cookie) otherwise.
-	fetch('/api/auth/me', { credentials: 'include' })
+	//    A hung endpoint must not wedge the nav, so the request self-aborts after
+	//    6s and falls through to the optimistic paint left by the hint.
+	const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+	const timer = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
+	fetch('/api/auth/me', { credentials: 'include', signal: ctrl?.signal })
 		.then((r) => (r.ok ? r.json() : null))
 		.then((data) => {
 			const user = data && data.user;
@@ -287,8 +298,11 @@ function initAuthHint(root) {
 			}
 		})
 		.catch(() => {
-			// Network/transient failure: leave the optimistic hint paint untouched
-			// rather than flashing the visitor back to a signed-out nav.
+			// Network/transient failure or timeout: leave the optimistic hint paint
+			// untouched rather than flashing the visitor back to a signed-out nav.
+		})
+		.finally(() => {
+			if (timer) clearTimeout(timer);
 		});
 }
 
@@ -330,7 +344,9 @@ function initWalkToggle(root) {
 
 	// An explicit ?walk= override decides the initial state; otherwise restore.
 	if (override === '1' || override === '0') {
-		try { localStorage.setItem(WALK_ENABLED_KEY, override); } catch (_) {}
+		try {
+			localStorage.setItem(WALK_ENABLED_KEY, override);
+		} catch (_) {}
 	}
 	sync();
 
@@ -344,7 +360,9 @@ function initWalkToggle(root) {
 		if (window.__walkCompanion) {
 			window.__walkCompanion.toggle();
 		} else {
-			try { localStorage.setItem(WALK_ENABLED_KEY, '1'); } catch (_) {}
+			try {
+				localStorage.setItem(WALK_ENABLED_KEY, '1');
+			} catch (_) {}
 			ensureWalkCompanion();
 		}
 		sync();

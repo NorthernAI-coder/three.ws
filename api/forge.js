@@ -383,10 +383,12 @@ async function startJob(req, res) {
 		// Upstream throttling is a transient 429, not a server fault — return it as
 		// such with a retry hint so the page can show a "busy, try again" state.
 		if (err?.code === 'rate_limited' || err?.providerStatus === 429) {
+			const retryAfter = typeof err?.retryAfter === 'number' ? err.retryAfter : 10;
+			res.setHeader('retry-after', String(retryAfter));
 			return json(res, 429, {
 				error: 'rate_limited',
 				message: 'The 3D generator is busy right now. Try again in a few seconds.',
-				retry_after: typeof err?.retryAfter === 'number' ? err.retryAfter : 10,
+				retry_after: retryAfter,
 			});
 		}
 		return json(res, 502, {
@@ -457,6 +459,7 @@ async function startRigJob(req, res) {
 			return json(res, 501, { error: 'rig_unconfigured', message: err.message });
 		}
 		if (err?.code === 'rate_limited' || err?.providerStatus === 429) {
+			res.setHeader('retry-after', '10');
 			return json(res, 429, {
 				error: 'rate_limited',
 				message: 'The rigger is busy right now. Try again in a few seconds.',
