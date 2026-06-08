@@ -38,7 +38,7 @@ vi.mock('../../api/_lib/usage.js', () => ({
 	logger: () => ({ info: () => {}, warn: () => {}, error: () => {} }),
 }));
 
-const { dispatch } = await import('../../api/_mcpbazaar/dispatch.js');
+const { dispatch, isPublicTool } = await import('../../api/_mcpbazaar/dispatch.js');
 
 const AUTH = { userId: null, rateKey: 'test', scope: '', source: 'x402' };
 const call = (name, args) =>
@@ -83,13 +83,27 @@ beforeEach(() => {
 });
 
 describe('x402 Bazaar MCP', () => {
-	it('exposes the discovery toolset', async () => {
+	it('exposes the discovery toolset behind a free getting_started tool', async () => {
 		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, AUTH);
 		expect(r.result.tools.map((t) => t.name)).toEqual([
+			'getting_started',
 			'search_services',
 			'browse_services',
 			'get_service',
 		]);
+	});
+
+	it('getting_started is free and callable with no auth', async () => {
+		expect(isPublicTool('getting_started')).toBe(true);
+		expect(isPublicTool('search_services')).toBe(false);
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'getting_started', arguments: {} } },
+			{ userId: null, rateKey: null, scope: '', source: 'free' },
+		);
+		expect(r.result.structuredContent.server).toBe('three.ws x402 Bazaar');
+		expect(r.result.structuredContent.tools.map((t) => t.name)).toEqual(
+			expect.arrayContaining(['search_services', 'get_service']),
+		);
 	});
 
 	it('search_services returns ranked, slimmed services', async () => {

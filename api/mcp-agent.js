@@ -5,7 +5,8 @@
 // Registered with the MCP Registry as io.github.nirholas/threews-agent.
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
-import { PROTOCOL_VERSION, dispatch } from './_mcpagent/dispatch.js';
+import { peekCalledTool } from './_lib/mcp-dispatch.js';
+import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcpagent/dispatch.js';
 import { send401, sendJsonRpcError, authenticateRequest, handleSse, handleTerminate } from './_mcp/auth.js';
 
 export default wrap(async (req, res) => {
@@ -15,7 +16,14 @@ export default wrap(async (req, res) => {
 	if (req.method === 'DELETE') return handleTerminate(req, res);
 	if (req.method !== 'POST') return send401(res, 'method not supported');
 
-	const result = await authenticateRequest(req, res);
+	// Read + parse the body before auth so a call to the free public
+	// getting_started tool can be served without an OAuth token or x402 payment.
+	const body = await readJson(req, 1_000_000);
+	const { toolName } = peekCalledTool(body);
+
+	const result = await authenticateRequest(req, res, {
+		allowFree: Boolean(toolName && isPublicTool(toolName)),
+	});
 	if (!result) return;
 	const { auth } = result;
 
@@ -30,7 +38,6 @@ export default wrap(async (req, res) => {
 			retry_after: Math.ceil((userRl.reset - Date.now()) / 1000),
 		});
 
-	const body = await readJson(req, 1_000_000);
 	const batch = Array.isArray(body) ? body : [body];
 	if (batch.length > 16) return sendJsonRpcError(res, null, -32600, 'batch too large (max 16)');
 

@@ -555,9 +555,10 @@ function bindPurchaseDelegation() {
 
 // ── Embed snippets ────────────────────────────────────────────────────────────
 
-function renderEmbed(a) {
+export function renderEmbed(a) {
 	const card = $('ad-embed-card');
 	if (!card) return;
+	if (card.dataset.embedDisabled === '1') return; // policy: embedding turned off
 	card.hidden = false;
 	const agentId = a.id;
 	const glbUrl = a.avatar_glb_url || '';

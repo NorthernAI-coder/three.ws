@@ -36,7 +36,7 @@ function avatarViews(id) {
 		{ key: '3d', label: '3D', href: `/avatars/${e}`, title: '3D body & details' },
 		{ key: 'chat', label: 'Chat', href: `/avatars/${e}?view=chat`, title: 'Talk to this avatar' },
 		{ key: 'ar', label: 'AR', href: `/avatars/${e}/ar`, title: 'View in your space (AR)' },
-		{ key: 'embed', label: 'Embed', href: `/studio?avatar=${e}`, title: 'Build an embeddable widget' },
+		{ key: 'embed', label: 'Embed', href: `/avatars/${e}?view=embed`, title: 'Embed this avatar anywhere' },
 	];
 }
 
@@ -47,7 +47,7 @@ function agentViews(id, { worldHref } = {}) {
 	const e = encodeURIComponent(id);
 	const views = [{ key: 'detail', label: 'Detail', href: `/agents/${e}`, title: 'Agent profile & details' }];
 	if (worldHref) views.push({ key: '3d', label: '3D', href: worldHref, title: 'See this agent in 3D' });
-	views.push({ key: 'embed', label: 'Embed', href: `/agent/${e}/embed`, title: 'Embeddable agent widget' });
+	views.push({ key: 'embed', label: 'Embed', href: `/agents/${e}?view=embed`, title: 'Embed this agent anywhere' });
 	return views;
 }
 

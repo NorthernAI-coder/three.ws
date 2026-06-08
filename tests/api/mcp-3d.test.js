@@ -56,7 +56,7 @@ vi.mock('../../api/_lib/usage.js', () => ({
 	logger: () => ({ info: () => {}, warn: () => {}, error: () => {} }),
 }));
 
-const { dispatch } = await import('../../api/_mcp3d/dispatch.js');
+const { dispatch, isPublicTool } = await import('../../api/_mcp3d/dispatch.js');
 
 const AUTH = { userId: null, rateKey: 'test', scope: '', source: 'x402' };
 const call = (name, args) =>
@@ -91,6 +91,27 @@ describe('3D Studio MCP', () => {
 		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'initialize' }, AUTH);
 		expect(r.result.serverInfo.name).toBe('three-ws-3d-studio');
 		expect(r.result.protocolVersion).toBe('2025-06-18');
+	});
+
+	it('exposes a free getting_started tool with no scope or pricing', async () => {
+		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, AUTH);
+		const gs = r.result.tools.find((t) => t.name === 'getting_started');
+		expect(gs).toBeTruthy();
+		expect(gs.pricing).toBeUndefined();
+		expect(isPublicTool('getting_started')).toBe(true);
+		expect(isPublicTool('text_to_3d')).toBe(false);
+	});
+
+	it('getting_started returns an overview listing the studio tools — no auth needed', async () => {
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'getting_started', arguments: {} } },
+			{ userId: null, rateKey: null, scope: '', source: 'free' },
+		);
+		const out = r.result.structuredContent;
+		expect(out.ok).toBe(true);
+		expect(out.server).toBe('three.ws 3D Studio');
+		expect(out.tools.map((t) => t.name)).toEqual(expect.arrayContaining(['text_to_3d', 'image_to_3d']));
+		expect(r.result.content[0].text).toContain('Getting Started');
 	});
 
 	it('text_to_3d runs text→image then submits a reconstruction job', async () => {

@@ -41,7 +41,7 @@ vi.mock('../../api/_lib/usage.js', () => ({
 }));
 
 const payer = await import('../../api/_lib/x402-user-payer.js');
-const { dispatch } = await import('../../api/_mcpagent/dispatch.js');
+const { dispatch, isPublicTool } = await import('../../api/_mcpagent/dispatch.js');
 
 const ANON = { userId: null, rateKey: 'x402:anon', scope: '', source: 'x402' };
 const USER = { userId: 'user-1', rateKey: 'user-1', scope: 'wallet:read', source: 'bearer' };
@@ -61,15 +61,29 @@ beforeEach(() => {
 });
 
 describe('threews-agent MCP', () => {
-	it('lists the wallet toolset', async () => {
+	it('lists the wallet toolset behind a free getting_started tool', async () => {
 		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, USER);
 		expect(r.result.tools.map((t) => t.name)).toEqual([
+			'getting_started',
 			'wallet_status',
 			'find_services',
 			'pay_and_call',
 			'provision_wallet',
 			'monetize_endpoint',
 		]);
+	});
+
+	it('getting_started is free and callable with no sign-in', async () => {
+		expect(isPublicTool('getting_started')).toBe(true);
+		expect(isPublicTool('pay_and_call')).toBe(false);
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'getting_started', arguments: {} } },
+			{ userId: null, rateKey: null, scope: '', source: 'free' },
+		);
+		expect(r.result.structuredContent.server).toBe('three.ws Agent');
+		expect(r.result.structuredContent.tools.map((t) => t.name)).toEqual(
+			expect.arrayContaining(['wallet_status', 'pay_and_call']),
+		);
 	});
 
 	it('wallet_status requires sign-in', async () => {

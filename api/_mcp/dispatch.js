@@ -5,6 +5,8 @@ import { declareMcpDiscovery } from '../_lib/x402/bazaar-helpers.js';
 import { sanitizeToolError } from '../_lib/mcp-error-sanitize.js';
 import { TOOL_CATALOG, TOOLS } from './catalog.js';
 
+export { isPublicTool } from '../_lib/mcp-getting-started.js';
+
 export const PROTOCOL_VERSION = '2025-06-18';
 const SERVER_INFO = { name: '3d-agent-mcp', version: '1.0.0' };
 const log = logger('mcp');

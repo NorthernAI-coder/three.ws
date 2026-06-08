@@ -1,6 +1,8 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
+import { buildGettingStartedTool } from '../_lib/mcp-getting-started.js';
+import { priceFor } from '../_lib/pump-pricing.js';
 import { toolDefs as avatarDefs } from './tools/avatars.js';
 import { toolDefs as modelDefs } from './tools/models.js';
 import { toolDefs as solanaDefs } from './tools/solana.js';
@@ -10,7 +12,7 @@ import { toolDefs as animationDefs } from './tools/animations.js';
 import { toolDefs as memoryDefs } from './tools/memory.js';
 import { toolDefs as embedDefs } from './tools/embed.js';
 
-const allDefs = [
+const baseDefs = [
 	...avatarDefs,
 	...embedDefs,
 	...modelDefs,
@@ -20,6 +22,23 @@ const allDefs = [
 	...agentDefs,
 	...memoryDefs,
 ];
+
+// Free, public entry point — listed first so discovery clients see it up top.
+// priceFor annotates the per-call price of the paid tools in the overview.
+const gettingStarted = buildGettingStartedTool({
+	server: 'three.ws',
+	tagline:
+		'The main three.ws MCP server: render and manage 3D avatars and models, animations, an agent registry, agent memory, and live pump.fun market data.',
+	tools: baseDefs,
+	priceFor,
+	access: [
+		'Connect with a three.ws account (OAuth) for your account-scoped avatars, agents, and memory.',
+		'Or pay per call via x402 (USDC) for the public tools — each priced tool shows its price in tools/list.',
+	],
+	links: { homepage: 'https://three.ws', source: 'https://github.com/nirholas/three.ws' },
+});
+
+const allDefs = [gettingStarted, ...baseDefs];
 
 // Schema objects for tools/list — strip internal fields (scope, handler).
 export const TOOL_CATALOG = allDefs.map(({ scope: _s, handler: _h, ...schema }) => schema);

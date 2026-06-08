@@ -26,12 +26,12 @@ const solanaWeb3 = {
 };
 import { openSwapModal } from './swap-jupiter.js';
 import { onchainBadgeEl } from './shared/onchain-badge.js';
-import { seeInWorldHref } from './shared/agent-3d.js';
+import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
 import { Modal } from './shared/modal.js';
 import { showSharePanel } from './shared/share.js';
-import { enrichAgentDetail } from './agent-detail-market.js';
+import { enrichAgentDetail, renderEmbed as renderAgentEmbed } from './agent-detail-market.js';
 import { log } from './shared/log.js';
 import { mountViewSwitcher } from './view-switcher.js';
 
@@ -300,9 +300,14 @@ function render(agent) {
 	mountViewSwitcher($('view-switch-slot'), {
 		kind: 'agent',
 		id: agent.id,
-		active: 'detail',
+		active: new URLSearchParams(location.search).get('view') === 'embed' ? 'embed' : 'detail',
 		worldHref: seeInWorldHref(agent),
 	});
+
+	// Embed snippets work for every agent, not just marketplace-published ones,
+	// so the "Embed" view always lands on real, copyable code. Marketplace
+	// enrichment later refreshes this with the canonical GLB if it differs.
+	renderAgentEmbed({ ...agent, avatar_glb_url: agent.avatar_glb_url || agentAvatarGlb(agent) });
 
 	const status = $('ad-status');
 	status.textContent = agent.active ? 'Active' : 'Inactive';
@@ -483,7 +488,23 @@ function render(agent) {
 	// preview, creator profile, skill pricing, sale panel, embed, similar,
 	// versions) onto the canonical page. No-ops if the agent isn't published to
 	// the marketplace, so the base page is never blocked.
-	enrichAgentDetail(agent).catch((e) => log.warn('[agent-detail] enrich failed:', e?.message));
+	enrichAgentDetail(agent)
+		.then(() => {
+			// Embed view (from the view switcher): reveal and highlight the embed
+			// snippets once enrichment has populated them.
+			if (new URLSearchParams(location.search).get('view') === 'embed') focusEmbedSection();
+		})
+		.catch((e) => log.warn('[agent-detail] enrich failed:', e?.message));
+}
+
+// Scroll to the embed snippets and flash them — used by the ?view=embed
+// deep-link so the switcher's "Embed" view lands on something concrete.
+function focusEmbedSection() {
+	const card = document.getElementById('ad-embed-card');
+	if (!card || card.hidden) return;
+	card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	card.classList.add('ad-embed-flash');
+	setTimeout(() => card.classList.remove('ad-embed-flash'), 1600);
 }
 
 async function loadExtraSections(agentId, rec, isOwner) {
@@ -1043,6 +1064,14 @@ function renderEmbedPolicy(p) {
 	const allowEmbed = p.allow_embed === false ? 'No' : 'Yes';
 	const allowedOrigins = Array.isArray(p.allowed_origins) ? p.allowed_origins : [];
 	const monthlyQuota = p?.brain?.monthly_quota;
+
+	// Respect the owner's embed policy: if embedding is turned off, hide the
+	// snippet card (and keep enrichment from re-revealing it).
+	const embedCard = document.getElementById('ad-embed-card');
+	if (embedCard && p.allow_embed === false) {
+		embedCard.dataset.embedDisabled = '1';
+		embedCard.hidden = true;
+	}
 
 	host.appendChild(
 		el('div', { class: 'ad-row ad-row-split' }, [

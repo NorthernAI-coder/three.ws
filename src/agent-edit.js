@@ -1416,19 +1416,62 @@ function renderMemories(rows) {
     container.innerHTML = '<div class="muted">No memories yet.</div>';
     return;
   }
-  container.innerHTML = rows.map((m) => `
+  container.innerHTML = rows.map((m) => {
+    const isPublic = m.is_public === true;
+    return `
     <div class="mem-item" data-id="${escapeHtml(m.id)}">
       <div class="mem-item-body">
         <div class="mem-item-type">${escapeHtml(m.type)}</div>
         <div class="mem-item-content">${escapeHtml(m.content)}</div>
         ${m.tags?.length ? `<div class="mem-item-tags">${m.tags.map(escapeHtml).join(' · ')}</div>` : ''}
       </div>
-      <button class="chip-remove" data-del="${escapeHtml(m.id)}" title="Delete">×</button>
+      <div class="mem-item-actions">
+        <button
+          class="mem-vis-toggle${isPublic ? ' is-public' : ''}"
+          data-vis="${escapeHtml(m.id)}"
+          aria-pressed="${isPublic}"
+          title="${isPublic ? 'Public — shown on your profile. Click to make private.' : 'Private — only you can see this. Click to show it on your profile.'}"
+        >${isPublic ? '◉ Public' : '○ Private'}</button>
+        <button class="chip-remove" data-del="${escapeHtml(m.id)}" title="Delete">×</button>
+      </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   container.querySelectorAll('[data-del]').forEach((btn) => {
     btn.addEventListener('click', () => deleteMemory(btn.dataset.del));
   });
+  container.querySelectorAll('[data-vis]').forEach((btn) => {
+    btn.addEventListener('click', () => toggleMemoryVisibility(btn));
+  });
+}
+
+async function toggleMemoryVisibility(btn) {
+  const id = btn.dataset.vis;
+  const makePublic = btn.getAttribute('aria-pressed') !== 'true';
+  btn.disabled = true;
+  try {
+    const r = await apiFetch(`${API_BASE}/agents/${agentId}/memories/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ isPublic: makePublic }),
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
+    }
+    btn.setAttribute('aria-pressed', String(makePublic));
+    btn.classList.toggle('is-public', makePublic);
+    btn.textContent = makePublic ? '◉ Public' : '○ Private';
+    btn.title = makePublic
+      ? 'Public — shown on your profile. Click to make private.'
+      : 'Private — only you can see this. Click to show it on your profile.';
+  } catch (err) {
+    $('mem-status').textContent = `Could not update visibility: ${err.message}`;
+    $('mem-status').className = 'form-status err';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function deleteMemory(id) {

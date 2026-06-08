@@ -67,7 +67,7 @@ export function sendJsonRpcError(res, id, code, message, data) {
 export async function authenticateRequest(
 	req,
 	res,
-	{ x402Amount, resourcePath = '/api/mcp', challenge } = {},
+	{ x402Amount, resourcePath = '/api/mcp', challenge, allowFree = false } = {},
 ) {
 	const bearer = extractBearer(req);
 	const paymentHeader = req.headers['x-payment'];
@@ -79,6 +79,19 @@ export async function authenticateRequest(
 			return null;
 		}
 		return { auth, x402Ctx: null };
+	}
+
+	// Free, public entry point. When the caller has no bearer/payment AND the
+	// request targets an explicitly-public tool (the endpoint passes
+	// allowFree=true only for those — never for merely-unpriced scoped tools), we
+	// serve as an anonymous principal instead of issuing the OAuth/x402 challenge.
+	// scope '' means scoped tools stay locked; rateKey null so per-user limits key
+	// off the caller IP. This is what lets getting_started work with no credentials.
+	if (allowFree) {
+		return {
+			auth: { userId: null, rateKey: null, scope: '', source: 'free' },
+			x402Ctx: null,
+		};
 	}
 
 	const resourceUrl = resolveResourceUrl(req, resourcePath);

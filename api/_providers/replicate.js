@@ -132,6 +132,29 @@ function stripInternal(params) {
 	return out;
 }
 
+// TRELLIS-family detection (firtoz/trellis and pinned-version variants). The
+// :version suffix is ignored; a bare 64-hex version hash won't match, so an
+// operator who pins TRELLIS by raw hash should also pass generate_model via
+// params — the slug default below handles every normal case.
+function isTrellisModel(modelRef) {
+	const slug = String(modelRef || '').split(':')[0].toLowerCase();
+	return /(^|\/)trellis$/.test(slug) || slug === 'firtoz/trellis';
+}
+
+// TRELLIS gates GLB extraction behind `generate_model`, which DEFAULTS TO FALSE
+// — so the model "succeeds" yet returns no mesh unless we ask for one. It also
+// renders a color video by default (we never consume it), so we disable the
+// video/ply outputs to roughly halve GPU time and cost. These are defaults only:
+// any caller-supplied param (texture_size, mesh_simplify, seed, …) overrides.
+function trellisReconstructDefaults() {
+	return {
+		generate_model: true,
+		generate_color: false,
+		generate_normal: false,
+		save_gaussian_ply: false,
+	};
+}
+
 // Map our modes onto the input shape each model expects. Caller-supplied
 // generation params (seed, texture_size, …) survive and win; internal envelope
 // keys are stripped so they never reach the model schema.
@@ -139,7 +162,7 @@ function stripInternal(params) {
 // For `reconstruct` (image-to-3D) the canonical input across the Hunyuan3D
 // family, TRELLIS and TripoSR is an `images` array of URIs — we always send
 // that and never the singular `image`/`mode` fields the old payload leaked.
-function buildInput({ mode, sourceUrl, params, images }) {
+function buildInput({ mode, sourceUrl, params, images, modelRef }) {
 	const clean = stripInternal(params);
 	if (mode === 'reconstruct') {
 		// `images` is the already-resolved view list (trimmed to what the chosen
@@ -152,7 +175,11 @@ function buildInput({ mode, sourceUrl, params, images }) {
 				: [];
 		const primary = photos[0] || (typeof params?.image === 'string' ? params.image : sourceUrl);
 		const finalImages = photos.length ? photos : primary ? [primary] : [];
-		return { images: finalImages, ...clean };
+		// Apply TRELLIS-only GLB-extraction flags when the chosen model is TRELLIS.
+		// Sending these to a non-TRELLIS model (e.g. Hunyuan3D) would 422 against
+		// its OpenAPI schema, so they're gated on the model slug. Caller params win.
+		const modelDefaults = isTrellisModel(modelRef) ? trellisReconstructDefaults() : {};
+		return { images: finalImages, ...modelDefaults, ...clean };
 	}
 	// remesh / retex / rerig / restyle operate on an existing GLB. Send the
 	// source under the two field names cog GLB-pipelines commonly accept.
@@ -196,7 +223,9 @@ function extractGlbUrl(output) {
 		}
 	}
 	if (typeof output === 'object') {
-		for (const key of ['glb', 'mesh', 'mesh_url', 'output_url', 'url', 'model']) {
+		// `model_file` is TRELLIS's GLB key and must come first; the rest cover the
+		// Hunyuan3D / TripoSR / generic cog shapes we also target.
+		for (const key of ['model_file', 'glb', 'mesh', 'mesh_url', 'output_url', 'url', 'model']) {
 			if (typeof output[key] === 'string') return output[key];
 		}
 	}
@@ -275,6 +304,7 @@ export function createRegenProvider() {
 				sourceUrl: request.sourceUrl,
 				params: request.params,
 				images,
+				modelRef,
 			});
 
 			// Two Replicate API shapes:
