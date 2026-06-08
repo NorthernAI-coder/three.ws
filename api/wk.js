@@ -130,6 +130,12 @@ function handleOauthAuthServer(req, res) {
 				'avatars:delete',
 				'profile',
 				'offline_access',
+				// Agent memory MCP tools (remember / recall / forget).
+				'memory:read',
+				'memory:write',
+				// On-chain agent identity MCP tools (register_agent / identity_check).
+				'agents:read',
+				'agents:write',
 				// USE-21 auth-hints: paid endpoints advertise these scopes for
 				// Bearer-token bypass via the auth-hints extension.
 				'read:agent-reputation',
@@ -153,7 +159,16 @@ function handleOauthProtectedResource(req, res) {
 			authorization_servers: [env.APP_ORIGIN],
 			bearer_methods_supported: ['header'],
 			resource_documentation: `${env.APP_ORIGIN}/docs/mcp`,
-			scopes_supported: ['avatars:read', 'avatars:write', 'avatars:delete', 'profile'],
+			scopes_supported: [
+				'avatars:read',
+				'avatars:write',
+				'avatars:delete',
+				'profile',
+				'memory:read',
+				'memory:write',
+				'agents:read',
+				'agents:write',
+			],
 		},
 		{ 'cache-control': 'public, max-age=300' },
 	);

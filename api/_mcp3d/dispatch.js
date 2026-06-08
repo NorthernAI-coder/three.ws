@@ -13,7 +13,9 @@ const INSTRUCTIONS = [
 	'auto_rig_model(glb_url) adds a skeleton; apply_animation(model_url, animation) and pose_model(prompt)',
 	'drive the rigged result; list_animations enumerates clips. Mesh ops: remesh_model, stylize_model,',
 	'segment_model, retexture_model, retexture_region, generate_material. preview_3d(glb_url) renders any',
-	'GLB; inspect_model / optimize_model analyze one. Always display returned text/html resources as inline 3D artifacts.',
+	'GLB; inspect_model / optimize_model analyze one. save_avatar(glb_url, name) persists a generated GLB as a',
+	'durable, named avatar you own (then render_avatar_image / get_avatar on the main server work on it).',
+	'Always display returned text/html resources as inline 3D artifacts.',
 ].join(' ');
 
 export const dispatch = makeDispatcher({

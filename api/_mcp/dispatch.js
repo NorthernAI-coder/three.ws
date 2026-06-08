@@ -108,6 +108,7 @@ async function onInitialize(_params, _auth) {
 			'Render 3D avatars stored on three.ws as <model-viewer> HTML artifacts.',
 			"Use list_my_avatars to see the user's avatars and render_avatar to get embeddable viewer HTML.",
 			'Public avatars can be discovered via search_public_avatars.',
+			'Give an agent persistent memory: remember stores a memory for an agent you own, recall retrieves the most relevant memories for a query, and forget deletes one.',
 		].join(' '),
 	};
 }
