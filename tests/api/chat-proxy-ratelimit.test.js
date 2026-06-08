@@ -86,7 +86,9 @@ describe('POST /api/chat/proxy — per-IP rate limit', () => {
 		expect(res.statusCode).toBe(429);
 		const body = JSON.parse(res.body);
 		expect(body.error).toBe('rate_limited');
-		expect(res.getHeader('retry-after')).toBe('60');
+		// rateLimited() derives Retry-After from the limiter result, flooring at 1s
+		// when the mock provides no reset window.
+		expect(res.getHeader('retry-after')).toBe('1');
 		// Upstream fetch must NOT have been called.
 		expect(fetchMock).not.toHaveBeenCalled();
 	});

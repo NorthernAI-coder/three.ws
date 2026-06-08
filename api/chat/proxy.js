@@ -17,7 +17,7 @@ export default wrap(async (req, res) => {
 	const ip = clientIp(req);
 	const rl = await limits.chatIp(ip);
 	if (!rl.success) {
-		res.setHeader('retry-after', '60');
+		// rateLimited() sets a standards-correct Retry-After from the limiter result.
 		return rateLimited(res, rl);
 	}
 

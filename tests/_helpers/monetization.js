@@ -4,7 +4,10 @@ let counter = 0;
 
 export function createTestAgent(overrides = {}) {
 	const userId = `user-${++counter}`;
-	const agentId = `agent-${counter}-test-0000-0000-000000000000`;
+	// Must be a real UUID — the x402 handlers guard agent_id with isUuid() and
+	// 404 on anything that doesn't parse, so a synthetic "agent-N-…" id never
+	// reaches the manifest/invoke logic under test.
+	const agentId = `00000000-0000-4000-8000-${String(counter).padStart(12, '0')}`;
 	const agent = {
 		id: agentId,
 		user_id: userId,

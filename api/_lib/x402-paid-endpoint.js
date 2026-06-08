@@ -657,7 +657,7 @@ export function paidEndpoint(spec) {
 		// for our GET-only paid endpoints — none of them read request bodies.
 		// When/if a POST endpoint joins the family, the handler can buffer
 		// `req.body` and pass it in here.
-		const paymentId = extractIdFromHeader(paymentHeader);
+		const clientPaymentId = extractIdFromHeader(paymentHeader);
 		const payloadHash = hashRequestPayload({
 			method: req.method,
 			url: req.url,
@@ -666,6 +666,20 @@ export function paidEndpoint(spec) {
 		// Bind the idempotency cache to the signed payment proof so a stolen or
 		// guessed payment-identifier can't redeem a prior paid response for free.
 		const paymentHash = hashPaymentProof(paymentHeader);
+		// Always-on replay guard. The payment-identifier extension is client-
+		// opt-in, so a payer who omits it would otherwise get NO server-side
+		// replay protection: a captured X-PAYMENT header could be replayed to
+		// re-run the handler (re-delivering the paid good, with side effects) and
+		// re-hit /settle. The flow delivers BEFORE settling, so we can't lean on
+		// on-chain nonce reuse to stop the re-delivery, and we don't trust the
+		// external facilitator to reject the replay -- same defense-in-depth
+		// stance as the amount/recipient/network checks in x402-spec.js. When the
+		// client sends no id we fall back to the proof hash itself as the dedup
+		// key (reproducible only by the original payer), making replay protection
+		// unconditional. Entries are written only AFTER a successful settle, so a
+		// transient verify/settle failure never locks a legitimate payer out of
+		// retrying the same payment.
+		const paymentId = clientPaymentId || (paymentHash ? `proof:${paymentHash}` : null);
 		if (paymentId) {
 			const lookup = await checkCache({ route, paymentId, payloadHash, paymentHash });
 			if (lookup.kind === 'hit') {

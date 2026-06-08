@@ -83,7 +83,7 @@ const state = {
 	name: '',
 	description: '',
 	tags: [],
-	model: { mode: 'starter', starterId: '', starterUrl: '', file: null, fileName: '' },
+	model: { mode: 'starter', starterId: '', starterUrl: '', file: null, fileName: '', skipAck: false },
 	skills: new Set(CORE_SKILLS.map((s) => s.id)),
 	category: '',
 	greeting: '',
@@ -254,6 +254,21 @@ function validateStep(n) {
 			return false;
 		}
 	}
+	if (n === 1) {
+		// Every agent gets a 3D avatar. Require a real choice — a starter, an
+		// upload, or an explicit acknowledgment that they're skipping for now.
+		const hasStarter = state.model.mode === 'starter' && !!state.model.starterUrl;
+		const hasUpload = state.model.mode === 'upload' && !!state.model.file;
+		const acknowledgedSkip = state.model.mode === 'none' && state.model.skipAck;
+		if (!hasStarter && !hasUpload && !acknowledgedSkip) {
+			if (state.model.mode === 'none') {
+				setMsg('Tick the box to confirm you want to create this agent without a 3D avatar.', 'err');
+			} else {
+				setMsg('Pick a starter avatar or upload a 3D model — or choose “Add later” and confirm.', 'err');
+			}
+			return false;
+		}
+	}
 	if (n === 3 && state.publish) {
 		// Publishing needs a category + profile prompt. Don't hard-block the step —
 		// just warn; the review step lets them turn off publishing instead.
@@ -394,13 +409,26 @@ function wireModel() {
 				p.classList.toggle('is-active', p.dataset.pane === pane),
 			);
 			if (pane === 'skip') {
-				state.model = { mode: 'none', starterId: '', starterUrl: '', file: null, fileName: '' };
+				state.model = {
+					mode: 'none',
+					starterId: '',
+					starterUrl: '',
+					file: null,
+					fileName: '',
+					skipAck: !!$('f-skip-ack')?.checked,
+				};
 				document.querySelectorAll('.starter').forEach((c) => c.classList.remove('is-selected'));
 				syncModelPreview();
 			} else if (pane === 'starter' && state.model.mode !== 'starter') {
 				// re-entering starter tab with nothing chosen — leave unselected
 			}
 		});
+	});
+
+	// "Add later" acknowledgment — required to advance without an avatar.
+	$('f-skip-ack')?.addEventListener('change', (e) => {
+		state.model.skipAck = e.target.checked;
+		if (state.step === 1) clearMsg();
 	});
 
 	// Dropzone + file input
