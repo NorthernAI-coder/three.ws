@@ -51,6 +51,10 @@
 			"includeFiles": "examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json",
 			"maxDuration": 60
 		},
+		"api/x402/forge.js": {
+			"includeFiles": "examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json",
+			"maxDuration": 60
+		},
 		"api/brain/chat.js": {
 			"includeFiles": "examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json",
 			"maxDuration": 120

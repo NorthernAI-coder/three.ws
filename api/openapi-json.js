@@ -523,6 +523,71 @@ export default wrap(async (req, res) => {
 						},
 					},
 				},
+				'/api/x402/forge': {
+					post: {
+						operationId: 'x402_forge_generate',
+						summary: 'Paid: text→3D / image→3D generation (returns a job token)',
+						description:
+							'Pay per quality tier in USDC ($0.05 draft / $0.15 standard / $0.50 high) to generate a 3D model. Submit a prompt for text→3D, or up to four public https reference views of one object for image→3D. Runs the FLUX→TRELLIS pipeline. The response returns a job token; poll it for FREE at GET /api/forge?job=<id> to retrieve the finished GLB URL. The 402 challenge quotes the exact price for the requested tier.',
+						requestBody: {
+							required: false,
+							content: {
+								'application/json': {
+									schema: {
+										type: 'object',
+										properties: {
+											prompt: {
+												type: 'string',
+												minLength: 3,
+												maxLength: 1000,
+												description: 'Describe one subject for text→3D. Omit when supplying image_urls.',
+											},
+											image_urls: {
+												type: 'array',
+												items: { type: 'string', format: 'uri' },
+												minItems: 1,
+												maxItems: 4,
+												description: 'Up to four public https reference views of one object for image→3D.',
+											},
+											tier: { type: 'string', enum: ['draft', 'standard', 'high'], default: 'standard' },
+											aspect_ratio: { type: 'string', enum: ['1:1', '4:3', '3:4', '16:9', '9:16'], default: '1:1' },
+										},
+									},
+								},
+							},
+						},
+						responses: {
+							200: {
+								description: 'Generation job accepted; poll poll_url for the GLB',
+								content: {
+									'application/json': {
+										schema: {
+											type: 'object',
+											required: ['job_id', 'status', 'poll_url'],
+											properties: {
+												job_id: { type: 'string' },
+												status: { type: 'string' },
+												poll_url: { type: 'string', description: 'Free, provider-aware status endpoint.' },
+												mode: { type: 'string', enum: ['text_to_3d', 'image_to_3d'] },
+												tier: { type: 'string' },
+												backend: { type: 'string' },
+												eta_seconds: { type: 'integer' },
+												price_usdc: { type: 'string' },
+											},
+										},
+									},
+								},
+							},
+							400: { description: 'Missing or invalid input' },
+							402: { description: 'Payment Required (x402)' },
+							503: { description: 'Generation backend not configured' },
+						},
+						'x-payment-info': {
+							price: { mode: 'fixed', currency: 'USD', amount: '0.15' },
+							protocols: X402_PROTOCOLS,
+						},
+					},
+				},
 				'/api/insights/revenue-vision': {
 					get: {
 						operationId: 'insights_revenue_vision',
