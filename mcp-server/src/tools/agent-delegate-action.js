@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
+import { resilientFetch } from '../lib/resilient-fetch.js';
 
 const TOOL_NAME = 'agent_delegate_action';
 const TOOL_DESCRIPTION =
@@ -66,11 +67,19 @@ export async function buildAgentDelegateActionTool() {
 			const endpoint = env('MCP_AGENT_TALK_ENDPOINT', 'https://three.ws/api/agents/talk');
 			let res;
 			try {
-				res = await fetch(endpoint, {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ agentId, message, model }),
-				});
+				// Bounded timeout but NO retry: delivering a message to an agent is
+				// not idempotent, so a replay could double-send / double-bill the
+				// target. A long brain response is expected, so the timeout is
+				// generous.
+				res = await resilientFetch(
+					endpoint,
+					{
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ agentId, message, model }),
+					},
+					{ timeoutMs: 60_000, retries: 0, label: 'agent-delegate' },
+				);
 			} catch (err) {
 				return toolError('upstream_unreachable', err?.message || 'fetch failed');
 			}

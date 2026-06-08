@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
+import { resilientFetch } from '../lib/resilient-fetch.js';
 
 const TOOL_NAME = 'sentiment_pulse';
 const TOOL_DESCRIPTION =
@@ -69,11 +70,16 @@ export async function buildSentimentPulseTool() {
 			const endpoint = env('MCP_SENTIMENT_PULSE_ENDPOINT', 'https://three.ws/api/social/sentiment-pulse');
 			let res;
 			try {
-				res = await fetch(endpoint, {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ token, limit, extraTexts }),
-				});
+				// Read-only scoring computation — safe to retry on a transient blip.
+				res = await resilientFetch(
+					endpoint,
+					{
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ token, limit, extraTexts }),
+					},
+					{ timeoutMs: 15_000, retries: 2, retryNonIdempotent: true, label: 'sentiment-pulse' },
+				);
 			} catch (err) {
 				return toolError('upstream_unreachable', err?.message || 'fetch failed');
 			}

@@ -1,15 +1,18 @@
-# Fork notes — `agent-payments-sdk` (local, version 3.1.0)
+# Fork notes — `@three-ws/agent-payments` (dir: `agent-payments-sdk/`, version 3.1.0)
 
-This directory is a **deliberate, value-added three.ws fork** of pump.fun's
+This package is a **deliberate, value-added three.ws fork** of pump.fun's
 `@pump-fun/agent-payments-sdk`. It is the on-chain engine behind our **agent
 tokens** product — the flow where a user launches a pump.fun token for their
 agent ([api/pump/launch-agent.js](../api/pump/launch-agent.js)) and then charges
 users who pay that agent in its token, with buyback and shareholder distribution
 ([api/agents/payments/[action].js](../api/agents/payments/[action].js)).
 
-It is wired as a local npm workspace (its dir is in the root `package.json`
-`workspaces`), so in-repo installs resolve `@pump-fun/agent-payments-sdk` to this
-source and the published npm release is never fetched.
+It is wired as a local npm workspace (this dir is in the root `package.json`
+`workspaces`, scope `@three-ws/*` like our other workspace SDKs), so in-repo
+imports of `@three-ws/agent-payments` resolve to this source. The real public
+`@pump-fun/agent-payments-sdk` (3.0.3) is a *separate* dependency used only by
+external-facing skill templates (`pump-fun-skills/**`) and the published
+`publish/` bundle — see "Naming" below.
 
 ## TL;DR decision
 
@@ -20,9 +23,9 @@ public version would *regress* live agent-token payments. The on-chain program i
 pump.fun's; when they publish program changes we port them *into* this fork,
 re-applying our patches — we never replace our copy with theirs.
 
-The one thing that is *not* intentional is the **name/version squat** (we ship
-under pump.fun's package name at a version that doesn't exist on npm). See
-"Known issue" below.
+This package is named under our own scope (`@three-ws/agent-payments`) so the
+manifest is honest — it no longer squats pump.fun's package name. See "Naming"
+below.
 
 ## Evidence — local 3.1.0 vs published 3.0.3
 
@@ -94,20 +97,31 @@ into `src/solana/` (and `src/solana/idl/`), keep our USDC/token-2022/v2 patches 
 top, re-run `npm run build`, and bump the local version. Leave the EVM/x402/a2a
 layers untouched.
 
-## Known issue — name/version squat (recommended follow-up)
+## Naming (resolved)
 
-We ship under **`@pump-fun/agent-payments-sdk@3.1.0`** — a scope we don't own and a
-version that doesn't exist on npm. It resolves only because the workspace shadows
-the registry. This is the one genuinely confusing part of the setup: a reader of
-the manifest, or any fresh consumer outside the workspace, will be misled.
+Previously this package squatted **`@pump-fun/agent-payments-sdk@3.1.0`** — a scope
+we don't own and a version that doesn't exist on npm; it resolved only because the
+workspace shadowed the registry, which misled anyone reading the manifest.
 
-The clean long-term fix is to **rename this package to our own scope**
-(`@three-ws/agent-payments`) and repoint *internal* consumers to it, while leaving
-*external* skill templates (`pump-fun-skills/**`, which ship their own lockfiles)
-on the real public `@pump-fun/agent-payments-sdk`. That rename is non-trivial — it
-also touches the separately-published `publish/` bundle and the `src/` ↔
-`publish/src/` duplication — so it is best done as its own focused pass, not folded
-into this reconcile. Tracked as a follow-up.
+It is now named **`@three-ws/agent-payments`** (matching our other workspace SDKs:
+`@three-ws/avatar`, `@three-ws/agent-ui`, …). The split is:
+
+- **Internal runtime** (`api/**`, `src/agent-skills-*`, `scripts/`, `tests/`,
+  `vite.config.js`) imports **`@three-ws/agent-payments`** — this fork, with the
+  USDC/token-2022/v2 extensions. No regression.
+- **External-facing** templates (`pump-fun-skills/**`, shipped to users who
+  `npm install`) and the separately-published `publish/` bundle reference the real
+  **`@pump-fun/agent-payments-sdk@^3.0.3`** from npm — correct, since external
+  users get the public package. `publish/` uses only the core `PumpAgent`, which
+  3.0.3 provides.
+
+The root `package.json` therefore depends on the real `@pump-fun/agent-payments-sdk@^3.0.3`
+(for those external/published references), while `@three-ws/agent-payments`
+auto-links from the `workspaces` array.
+
+> Note: `src/agent-skills-*.js` is duplicated into `publish/src/` (the published
+> bundle keeps its own copy on the public package). That duplication predates this
+> work and is a separate cleanup; it is not a blocker here.
 
 ## Consumers (repo-wide, excluding the fork itself)
 
