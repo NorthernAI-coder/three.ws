@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Bounties · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta
+			name="description"
+			content="Browse live pump.fun GO bounties — rewards, submissions, and on-chain escrow — on three.ws."
+		/>
+		<meta name="theme-color" content="#0a0a0f" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Bounties · three.ws" />
+		<meta
+			property="og:description"
+			content="Live pump.fun GO bounties — rewards, submissions, on-chain escrow."
+		/>
+		<meta property="og:url" content="https://three.ws/bounties" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<link rel="stylesheet" href="/pump-bounties.css" />
+	</head>
+	<body>
+		<header class="topbar">
+			<a href="/" class="brand">
+				<span class="dot"></span>
+				three.ws
+				<span class="badge-go">Bounties</span>
+			</a>
+			<div class="topbar-right">
+				<a href="/go" class="btn btn-ghost btn-sm">$THREE board</a>
+				<a
+					href="https://pump.fun/go/bounties"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="btn btn-primary btn-sm"
+					>Open on pump.fun ↗</a
+				>
+			</div>
+		</header>
+
+		<main class="wrap">
+			<div class="page-head">
+				<h1>Bounty Board <span class="src-tag">Live · pump.fun GO</span></h1>
+				<p>
+					Every open bounty on pump.fun GO — task, reward, submissions, and the on-chain
+					escrow backing it. Read-only and live; click any bounty for the full brief and
+					proof feed.
+				</p>
+			</div>
+
+			<div class="controls">
+				<div class="seg" id="sort-seg" role="tablist" aria-label="Sort bounties">
+					<button data-sort="reward" class="active">Top reward</button>
+					<button data-sort="newest">Newest</button>
+					<button data-sort="submissions">Most subs</button>
+					<button data-sort="likes">Most liked</button>
+				</div>
+				<div class="spacer"></div>
+				<button id="refresh-btn" class="btn btn-ghost btn-sm" aria-label="Refresh">
+					↻ Refresh
+				</button>
+			</div>
+
+			<div class="grid" id="grid"></div>
+		</main>
+
+		<script type="module" src="/src/bounties.js"></script>
+	</body>
+</html>

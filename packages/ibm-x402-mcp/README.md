@@ -5,6 +5,7 @@
 An [MCP](https://modelcontextprotocol.io) server that exposes IBM Granite foundation models as pay-per-use tools via the [x402](https://x402.org) payment protocol. End users pay **USDC on Solana** per call — no IBM Cloud account required.
 
 > Built by [three.ws](https://three.ws). Listed on IBM Cloud Partner Center.
+> Full developer guide: **[docs/ibm-x402-mcp.md](https://github.com/nirholas/three.ws/blob/main/docs/ibm-x402-mcp.md)**.
 
 ---
 
@@ -63,6 +64,8 @@ npx @three-ws/ibm-x402-mcp
 | `WATSONX_EMBED_MODEL_ID` | `ibm/granite-embedding-278m-multilingual` | Default embedding model |
 | `X402_FEE_PAYER_SOLANA` | three.ws fee payer | Solana account sponsoring tx fees |
 | `X402_FACILITATOR_URL` | `https://facilitator.payai.network` | x402 payment facilitator |
+| `X402_FACILITATOR_TOKEN` | — | Bearer token for the facilitator |
+| `X402_ASSET_MINT_SOLANA` | USDC mainnet mint | USDC mint override |
 
 Regional hosts: `us-south`, `eu-de`, `eu-gb`, `jp-tok`, `au-syd`, `ca-tor`
 → e.g. `https://eu-de.ml.cloud.ibm.com`

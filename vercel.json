@@ -456,6 +456,14 @@
 			"dest": "/go.html"
 		},
 		{
+			"src": "/bounties/?",
+			"dest": "/bounties.html"
+		},
+		{
+			"src": "/bounty/([^/]+)/?",
+			"dest": "/bounty.html"
+		},
+		{
 			"src": "/pump-live/?",
 			"dest": "/pump-live.html"
 		},

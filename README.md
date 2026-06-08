@@ -404,6 +404,20 @@ three.ws is an **IBM Business Partner**, and the agent runtime runs on **IBM Gra
 
 Six showcase surfaces put it on screen, cross-linked by an in-page suite switcher: the [Agent Galaxy](https://three.ws/ibm/galaxy) (semantic 3D star-map), the [Granite Oracle](https://three.ws/ibm/oracle) (narrated forecast), the [Digital Twin](https://three.ws/ibm/twin) (back-test + what-if), the [Trust Layer](https://three.ws/ibm/trust-layer) (Guardian + hash-chained audit ledger), [Granite Proof](https://three.ws/ibm/proof) (a Guardian-governed forecast notarized on Solana), and [Granite Vision](https://three.ws/ibm/vision). The standalone connector [`@three-ws/ibm-watsonx-mcp`](packages/ibm-watsonx-mcp/) exposes watsonx.ai to any MCP host — it is community-built and not an IBM product; the hosted platform integration is what runs on IBM watsonx.ai.
 
+### Pay-per-call Granite over MCP (x402)
+
+The world's first **x402-enabled MCP server on IBM Cloud**: [`@three-ws/ibm-x402-mcp`](packages/ibm-x402-mcp/) turns IBM Granite into a metered utility any AI agent can call. The operator holds the IBM credentials and funds inference; the caller pays **a few cents of USDC per call** — no IBM Cloud account, no subscription, no API-key signup. Full guide: **[docs/ibm-x402-mcp.md](docs/ibm-x402-mcp.md)**.
+
+| Tool | What it does | Price |
+| ---- | ------------ | ----- |
+| `ibm_granite_chat` | Conversational AI — Q&A, drafting, reasoning | $0.02 |
+| `ibm_granite_code` | Generate / review / refactor / explain / test / document code | $0.025 |
+| `ibm_granite_embed` | Batch text embeddings (1–64) for RAG, search, clustering | $0.005 |
+| `ibm_granite_analyze` | Structured doc analysis — entities, sentiment, risk, next steps | $0.04 |
+| `ibm_granite_forecast` | Zero-shot time-series forecasting via Granite TTM | $0.05 |
+
+The same five tools ship over two transports: **stdio** (`npx @three-ws/ibm-x402-mcp`, for Claude Desktop / Code / Cursor, paid on Solana) and **Streamable HTTP** (`https://three.ws/api/ibm-mcp`, for hosted clients and watsonx Orchestrate, paid on Base or Solana). An unpaid `tools/call` returns a `402` quoting the exact USDC price; x402-capable clients pay and retry automatically, settling on-chain only after the tool succeeds. Independent project integrating IBM Granite via watsonx.ai — not an IBM product.
+
 ---
 
 ## Screenshots

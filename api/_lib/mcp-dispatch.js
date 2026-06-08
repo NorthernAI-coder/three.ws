@@ -37,7 +37,7 @@ function summarize(args) {
 export function makeDispatcher({ serverInfo, instructions, catalog, tools, logName }) {
 	const log = logger(logName);
 
-	async function onToolCall(params, auth, started) {
+	async function onToolCall(params, auth, started, req) {
 		const { name, arguments: args = {} } = params || {};
 		const tool = tools[name];
 		if (!tool) throw rpcError(-32602, `unknown tool: ${name}`);
@@ -60,7 +60,7 @@ export function makeDispatcher({ serverInfo, instructions, catalog, tools, logNa
 			tool: name,
 		};
 		try {
-			const result = await tool.handler(args, auth);
+			const result = await tool.handler(args, auth, req);
 			recordEvent({
 				...event,
 				latencyMs: Date.now() - started,
@@ -86,7 +86,7 @@ export function makeDispatcher({ serverInfo, instructions, catalog, tools, logNa
 		}
 	}
 
-	return async function dispatch(msg, auth, _req) {
+	return async function dispatch(msg, auth, req) {
 		const started = Date.now();
 		const id = msg.id;
 		const isNotification = id === undefined;
@@ -110,7 +110,8 @@ export function makeDispatcher({ serverInfo, instructions, catalog, tools, logNa
 			if (method === 'ping') return ok(id, {});
 			if (method === 'notifications/initialized') return null;
 			if (method === 'tools/list') return ok(id, { tools: catalog });
-			if (method === 'tools/call') return ok(id, await onToolCall(msg.params, auth, started));
+			if (method === 'tools/call')
+				return ok(id, await onToolCall(msg.params, auth, started, req));
 			if (method === 'resources/list') return ok(id, { resources: [] });
 			if (method === 'resources/templates/list') return ok(id, { resourceTemplates: [] });
 			if (method === 'prompts/list') return ok(id, { prompts: [] });
@@ -123,7 +124,11 @@ export function makeDispatcher({ serverInfo, instructions, catalog, tools, logNa
 			return {
 				jsonrpc: '2.0',
 				id,
-				error: { code: err.code || -32603, message: err.message || 'internal error', data: err.data },
+				error: {
+					code: err.code || -32603,
+					message: err.message || 'internal error',
+					data: err.data,
+				},
 			};
 		}
 	};
