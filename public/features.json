@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-08T04:53:56.117Z",
+	"generated_at": "2026-06-08T05:24:40.143Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1149,6 +1149,16 @@
 					"path": "/news/",
 					"title": "News & Announcements",
 					"description": "Product launches, integrations, and announcements from three.ws.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/news/three-ws-first-month-3d-agent-layer",
+					"title": "One Month In: How three.ws Built the 3D Agent Layer of the Internet",
+					"description": "In one month, three.ws went from launch to global coverage: browser-native 3D AI agents listed across major exchanges and data platforms, deployed on four hyperscale clouds, live in Anthropic's MCP Registry, and covered from CoinMarketCap to Vogue. A look back at 30 days of shipping.",
 					"added": null,
 					"auth": null,
 					"indexable": true,

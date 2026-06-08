@@ -193,46 +193,151 @@
 		});
 	}
 
-	// ── Wallet click ───────────────────────────────────────────────────────
+	// ── Wallet click — real x402 payment flow ───────────────────────────────
+
+	var paymentInFlight = false;
+
+	var PHASE_TEXT = {
+		connecting: 'Connecting wallet…',
+		building: 'Building payment…',
+		signing: 'Waiting for signature…',
+		confirming: 'Confirming on-chain…',
+	};
+
+	function spinnerSvg() {
+		return '<svg class="pw-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+			'<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" stroke-opacity="0.25" />' +
+			'<path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round" />' +
+			'</svg>';
+	}
+
+	function setWalletStatus(statusEl, phase, text) {
+		statusEl.classList.add('visible');
+		statusEl.classList.remove('pw-status-error');
+		statusEl.setAttribute('role', 'status');
+		var msg = text || PHASE_TEXT[phase] || 'Working…';
+		statusEl.innerHTML =
+			'<span class="pw-status-row">' + spinnerSvg() + '<span>' + escHtml(msg) + '</span></span>';
+	}
+
+	function setWalletError(statusEl, message) {
+		statusEl.classList.add('visible');
+		statusEl.classList.add('pw-status-error');
+		statusEl.setAttribute('role', 'alert');
+		statusEl.innerHTML = '<strong>Payment failed.</strong> ' + escHtml(message);
+	}
+
+	function setButtonsDisabled(disabled) {
+		document.querySelectorAll('.wallet-btn').forEach(function (b) {
+			b.disabled = disabled;
+		});
+	}
 
 	/**
-	 * Show an "Opening wallet…" message with the raw payment requirements.
-	 * Full on-chain wallet integration is browser-wallet-specific; this UI
-	 * explains what would happen and surfaces the requirements for dev use.
+	 * Connect the chosen wallet, build + sign the x402 payment per the surfaced
+	 * requirement, settle on-chain, retry the gated resource with the proof, and
+	 * reveal the unlocked content. Drives real connecting/signing/confirming
+	 * states throughout — no fake progress.
 	 */
 	function handleWalletClick(walletName, net, requirements) {
-		var statusId = 'wallet-status-' + net;
-		var statusEl = document.getElementById(statusId);
+		if (paymentInFlight) return;
+		var statusEl = document.getElementById('wallet-status-' + net);
 		if (!statusEl) return;
 
-		var req = (requirements || []).find(function (r) {
-			return net === 'solana' ? isSolana(r.network) : isBase(r.network);
-		});
-
-		statusEl.classList.add('visible');
-
-		if (walletName === 'metamask' || walletName === 'coinbase' || walletName === 'walletconnect') {
-			statusEl.innerHTML =
-				'<strong>Opening ' + escHtml(walletName.charAt(0).toUpperCase() + walletName.slice(1)) + ' Wallet…</strong><br />' +
-				'Full browser wallet integration is coming to three.ws. To pay manually as a developer, ' +
-				'use the x402 CLI or SDK with the requirements shown in the Advanced panel below.' +
-				(req ? '<br /><br /><strong>Pay to:</strong> <code>' + escHtml(req.payTo || '') + '</code>' +
-					'<br /><strong>Amount:</strong> ' + escHtml(formatAmount(req.amount, (req.extra && req.extra.decimals) || 6)) +
-					'<br /><strong>Asset:</strong> <code>' + escHtml(req.asset || '') + '</code>' : '');
-		} else if (walletName === 'phantom' || walletName === 'solflare') {
-			statusEl.innerHTML =
-				'<strong>Opening ' + escHtml(walletName.charAt(0).toUpperCase() + walletName.slice(1)) + '…</strong><br />' +
-				'Solana wallet signing is coming soon. Use the x402 Solana SDK to pay programmatically.' +
-				(req ? '<br /><br /><strong>Pay to:</strong> <code>' + escHtml(req.payTo || '') + '</code>' +
-					'<br /><strong>Amount:</strong> ' + escHtml(formatAmount(req.amount, 6)) : '');
+		var api = window.PaywallWallet;
+		if (!api || typeof api.pay !== 'function') {
+			setWalletError(statusEl, 'Payment module failed to load. Reload the page and try again.');
+			return;
 		}
 
-		// Open the accordion automatically so the developer sees the raw requirements
-		var advBody = document.getElementById('adv-body');
-		var advToggle = document.getElementById('adv-toggle');
-		if (advBody && !advBody.classList.contains('open')) {
-			advBody.classList.add('open');
-			if (advToggle) advToggle.classList.add('open');
+		var accept = (requirements || []).find(function (r) {
+			return net === 'solana' ? isSolana(r.network) : isBase(r.network);
+		});
+		if (!accept) {
+			setWalletError(statusEl, 'No payment option is available for this network.');
+			return;
+		}
+
+		var resourceUrl = api.resolveResourceUrl(accept, getReturnUrl());
+
+		paymentInFlight = true;
+		setButtonsDisabled(true);
+		setWalletStatus(statusEl, 'connecting');
+
+		api.pay({
+			accept: accept,
+			resourceUrl: resourceUrl,
+			walletName: walletName,
+			onStatus: function (phase, text) {
+				if (phase === 'error') setWalletError(statusEl, text);
+				else if (phase !== 'done') setWalletStatus(statusEl, phase, text);
+			},
+		}).then(function (outcome) {
+			paymentInFlight = false;
+			revealUnlocked(outcome, accept);
+		}).catch(function (err) {
+			paymentInFlight = false;
+			setButtonsDisabled(false);
+			setWalletError(statusEl, (err && err.message) || 'Payment failed. Please try again.');
+		});
+	}
+
+	// ── Unlocked state ───────────────────────────────────────────────────────
+
+	function receiptRow(label, valueHtml, isRaw) {
+		return '<div class="pw-receipt-row"><span class="pw-k">' + escHtml(label) + '</span>' +
+			'<span class="pw-v">' + (isRaw ? valueHtml : escHtml(valueHtml)) + '</span></div>';
+	}
+
+	function shortId(value, head, tail) {
+		if (!value) return '—';
+		return value.slice(0, head) + '…' + value.slice(-tail);
+	}
+
+	function revealUnlocked(outcome, accept) {
+		var card = document.getElementById('pay-card');
+		if (!card) return;
+		var net = accept.network;
+		var explorer = window.PaywallWallet.explorerUrl(net, outcome.transaction);
+		var txCell = null;
+		if (outcome.transaction) {
+			var txShort = escHtml(shortId(outcome.transaction, 10, 8));
+			txCell = explorer
+				? '<a href="' + escHtml(explorer) + '" target="_blank" rel="noopener">' + txShort + ' ↗</a>'
+				: txShort;
+		}
+
+		var isHtml = (outcome.contentType || '').indexOf('html') !== -1 && typeof outcome.result === 'string';
+		var contentHtml = isHtml
+			? '<iframe id="pw-content-frame" class="pw-content-frame" sandbox="allow-same-origin" title="Unlocked content"></iframe>'
+			: '<pre class="pw-content-pre">' + escHtml(
+				typeof outcome.result === 'string' ? outcome.result : JSON.stringify(outcome.result, null, 2)
+			) + '</pre>';
+
+		card.innerHTML =
+			'<div class="card-head">' +
+				'<div class="service-row">' +
+					'<div class="service-icon pw-ok-icon">✓</div>' +
+					'<div><div class="service-name">Payment confirmed</div>' +
+					'<div class="service-desc">Content unlocked — settled on-chain via x402.</div></div>' +
+				'</div>' +
+				'<div class="pw-receipt">' +
+					receiptRow('Network', networkLabel(net)) +
+					receiptRow('Payer', shortId(outcome.payer, 6, 4)) +
+					(txCell ? receiptRow('Transaction', txCell, true) : '') +
+				'</div>' +
+			'</div>' +
+			'<div class="card-body">' +
+				'<div class="pw-unlocked-label">Unlocked content</div>' +
+				contentHtml +
+			'</div>' +
+			'<div class="card-foot">' +
+				'<span class="foot-text">Settled on ' + escHtml(networkLabel(net)) + ' · powered by x402</span>' +
+			'</div>';
+
+		if (isHtml) {
+			var frame = document.getElementById('pw-content-frame');
+			if (frame) frame.srcdoc = outcome.result;
 		}
 	}
 

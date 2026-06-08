@@ -482,9 +482,21 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 			`;
 		} else if (step === 2) {
 			const initialBuyVal = formData?.initialBuy || inner._formCache?.buyin || 0;
+			// Quote pair. USDC-paired is the default for agent coins: the agent
+			// earns USDC, and its buyback swaps that USDC → token & burns in the
+			// same currency. SOL-paired is the classic pump.fun curve.
+			const quoteCur = inner._formCache?.quoteCurrency || 'usdc';
+			const buyMax = quoteCur === 'usdc' ? 100000 : 50;
+			const buyStep = quoteCur === 'usdc' ? 1 : 0.1;
 			body.innerHTML = `
-				<label>Buyback share</label>
-				<input type="range" min="0" max="5000" step="50" value="500" id="pmodal-launch-bps" />
+				<label>Quote pair</label>
+				<div class="pmodal-quote-toggle" role="radiogroup" aria-label="Quote currency">
+					<button type="button" class="pmodal-quote-opt${quoteCur === 'usdc' ? ' active' : ''}" data-quote="usdc" role="radio" aria-checked="${quoteCur === 'usdc'}">USDC</button>
+					<button type="button" class="pmodal-quote-opt${quoteCur === 'sol' ? ' active' : ''}" data-quote="sol" role="radio" aria-checked="${quoteCur === 'sol'}">SOL</button>
+				</div>
+				<div class="pmodal-sub" id="pmodal-quote-note" style="margin-top:0.4rem"></div>
+				<label style="margin-top:0.8rem">Buyback share</label>
+				<input type="range" min="0" max="5000" step="50" value="${inner._formCache?.bps ?? 500}" id="pmodal-launch-bps" />
 				<div class="pmodal-slider-label">
 					<span>0%</span>
 					<b id="pmodal-launch-bps-val">5.0%</b>
@@ -494,10 +506,10 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 					<span>If this agent earns $10/mo:</span>
 					<b id="pmodal-launch-projection">$0.50/mo burned</b>
 				</div>
-				<label>Creator initial buy (SOL, optional)</label>
-				<input type="number" id="pmodal-launch-buyin" value="${Number(initialBuyVal) || 0}" min="0" max="50" step="0.1" />
+				<label>Creator initial buy (<span id="pmodal-buyin-unit">${quoteCur.toUpperCase()}</span>, optional)</label>
+				<input type="number" id="pmodal-launch-buyin" value="${Number(initialBuyVal) || 0}" min="0" max="${buyMax}" step="${buyStep}" />
 				<div class="pmodal-sub" style="margin-top:0.7rem">
-					Buyback share is locked at launch — choose carefully.
+					Buyback share and quote pair are locked at launch — choose carefully.
 				</div>
 			`;
 			const bps = body.querySelector('#pmodal-launch-bps');
@@ -509,16 +521,49 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 				proj.textContent = `$${((10 * pct) / 100).toFixed(2)}/mo burned`;
 			};
 			bps.addEventListener('input', update);
+			update();
+
+			const note = body.querySelector('#pmodal-quote-note');
+			const buyUnit = body.querySelector('#pmodal-buyin-unit');
+			const buyInput = body.querySelector('#pmodal-launch-buyin');
+			const symForNote = inner._formCache?.symbol || symbolDefault;
+			const renderQuote = (cur) => {
+				if (note)
+					note.innerHTML =
+						cur === 'usdc'
+							? `USDC-paired — the agent's USDC earnings buy back &amp; burn $${esc(symForNote)} in the same currency it earns.`
+							: `SOL-paired — the classic pump.fun curve. Buyback burns are funded by swapping the agent's USDC earnings into SOL first.`;
+				if (buyUnit) buyUnit.textContent = cur.toUpperCase();
+				if (buyInput) {
+					buyInput.max = cur === 'usdc' ? 100000 : 50;
+					buyInput.step = cur === 'usdc' ? 1 : 0.1;
+				}
+			};
+			renderQuote(quoteCur);
+			body.querySelectorAll('.pmodal-quote-opt').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const cur = btn.dataset.quote;
+					inner._formCache = { ...(inner._formCache || {}), quoteCurrency: cur };
+					body.querySelectorAll('.pmodal-quote-opt').forEach((b) => {
+						const on = b === btn;
+						b.classList.toggle('active', on);
+						b.setAttribute('aria-checked', String(on));
+					});
+					renderQuote(cur);
+				});
+			});
 		} else if (step === 3) {
 			const f = inner._formCache || {};
 			const name = f.name || nameDefault;
 			const symbol = f.symbol || symbolDefault;
+			const cur = (f.quoteCurrency || 'usdc').toUpperCase();
 			body.innerHTML = `
 				<div class="pmodal-row"><span>Name</span><b>${esc(name)}</b></div>
 				<div class="pmodal-row"><span>Symbol</span><b>$${esc(symbol)}</b></div>
+				<div class="pmodal-row"><span>Quote pair</span><b>${esc(cur)}</b></div>
 				<div class="pmodal-row"><span>Mint mark</span><b><code>3ws</code>…</b></div>
 				<div class="pmodal-row"><span>Buyback</span><b>${((f.bps || 500) / 100).toFixed(1)}%</b></div>
-				<div class="pmodal-row"><span>Initial buy</span><b>${f.buyin || 0} SOL</b></div>
+				<div class="pmodal-row"><span>Initial buy</span><b>${f.buyin || 0} ${esc(cur)}</b></div>
 				<div class="pmodal-row"><span>Tx</span><b>createInstruction + PumpAgent.create</b></div>
 				<div class="pmodal-sub" style="margin-top:0.7rem">
 					Every three.ws coin is stamped <code>3ws…</code> on-chain. We grind the mark in your browser, then you sign once — the mint keypair and your wallet co-sign.
@@ -575,7 +620,8 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 			} else if (step === 2) {
 				const bps = parseInt(inner.querySelector('#pmodal-launch-bps').value, 10);
 				const buyin = parseFloat(inner.querySelector('#pmodal-launch-buyin').value || '0');
-				inner._formCache = { ...(inner._formCache || {}), bps, buyin };
+				const quoteCurrency = inner._formCache?.quoteCurrency || 'usdc';
+				inner._formCache = { ...(inner._formCache || {}), bps, buyin, quoteCurrency };
 				step = 3;
 				render();
 			} else {
@@ -639,7 +685,12 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 							symbol: f.symbol,
 							uri: f.uri,
 							buyback_bps: f.bps || 0,
-							sol_buy_in: f.buyin || 0,
+							// USDC-paired by default so the buyback swaps in the same
+							// currency the agent earns; the server resolves the mint.
+							quote_currency: f.quoteCurrency || 'usdc',
+							...((f.quoteCurrency || 'usdc') === 'usdc'
+								? { usdc_buy_in: f.buyin || 0 }
+								: { sol_buy_in: f.buyin || 0 }),
 							mint_address: mintKp.publicKey.toBase58(),
 							network: 'mainnet',
 						}),

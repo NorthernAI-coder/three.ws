@@ -152,7 +152,7 @@ A successful response looks like:
 
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsImtpZCI6ImsxIiwidHlwIjoiSldUIn0…",
+  "token": "eyJhbGciOiJFUzI1NiIsImtpZCI6InBlcnNvbmEtMjAyNi0wNS0yMCIsInR5cCI6IkpXVCJ9…",
   "expires_in": 86400,
   "avatar": {
     "id": "a-1",

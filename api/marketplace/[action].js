@@ -836,13 +836,16 @@ async function handlePreview(req, res, id) {
 	res.end();
 }
 
-// Build an ordered list of all configured preview routes. Priority:
-//   1. groq       — free, fast, first-attempt reliable (per-minute caps only)
-//   2. openrouter — free Llama fallback
-//   3. anthropic  — paid server key; reliable but costs money
+// Build an ordered list of all configured preview routes. Priority mirrors the
+// chat ladder (api/_lib/chat-models.js → DEFAULT_PROVIDER_ORDER): Anthropic-first
+// so the common path resolves on attempt 0 instead of burning the rate-limited
+// free tiers, then the free fallbacks, with the over-quota OpenAI account last.
+//   1. anthropic  — paid server key; keyed in prod, most reliable first attempt
+//   2. groq       — free, fast, first-attempt reliable (per-minute caps only)
+//   3. openrouter — free Llama fallback
 //   4. openai     — paid; last resort (account may be over quota)
 function buildPreviewRoutes() {
-	const order = ['groq', 'openrouter', 'anthropic', 'openai'];
+	const order = ['anthropic', 'groq', 'openrouter', 'openai'];
 	const routes = [];
 	for (const name of order) {
 		const cfg = PREVIEW_PROVIDERS[name];

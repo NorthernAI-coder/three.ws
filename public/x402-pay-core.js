@@ -1,0 +1,490 @@
+// x402-pay-core.js — browser-native wallet payment core for the three.ws paywall.
+//
+// The full-page paywall (paywall.html / paywall.js) lists wallet buttons but
+// historically dead-ended on click. This module performs the real x402 payment
+// flow, driving each wallet button from connect → sign → settle → unlock with
+// no fake progress. It mirrors the proven flow already shipped in the drop-in
+// modal (public/x402.js): Solana wallets sign a server-prepared SPL transfer
+// (via /api/x402-checkout), EVM wallets sign EIP-3009 transferWithAuthorization
+// typed data locally. The signed payload is base64-encoded into the X-PAYMENT
+// header, the original gated resource is retried, and the unlocked content +
+// settlement receipt are returned to the caller.
+//
+// Loaded as a native ES module (`<script type="module">`); it attaches
+// `window.PaywallWallet` for the classic paywall.js controller, and exports its
+// pure helpers as named exports so the payment-building logic is unit-testable
+// without a browser or a wallet.
+
+// ──────────────────────────────────────────────────────── network helpers ────
+
+// USDC EIP-3009 typed-data domains, keyed by CAIP-2 network id. `version` must
+// match the deployed USDC implementation's EIP712 domain version — Base USDC is
+// at "2"; signing with the wrong version yields a domain hash the facilitator
+// rejects.
+export const EVM_NETWORKS = {
+	'eip155:8453': { chainId: 8453, name: 'Base', explorer: 'https://basescan.org/tx/' },
+	'eip155:84532': {
+		chainId: 84532,
+		name: 'Base Sepolia',
+		explorer: 'https://sepolia.basescan.org/tx/',
+	},
+	'eip155:42161': { chainId: 42161, name: 'Arbitrum', explorer: 'https://arbiscan.io/tx/' },
+	'eip155:10': { chainId: 10, name: 'Optimism', explorer: 'https://optimistic.etherscan.io/tx/' },
+};
+
+export function isSolanaNetwork(net) {
+	return typeof net === 'string' && (net === 'solana' || net.startsWith('solana:'));
+}
+
+export function isEvmNetwork(net) {
+	return typeof net === 'string' && net.startsWith('eip155:');
+}
+
+// The paywall only signs EIP-3009 transferWithAuthorization for EVM. When the
+// server publishes both an EIP-3009 entry and a Permit2 sibling (the
+// gas-sponsoring path used by SDK clients), pick the EIP-3009 one — signing
+// typed-data against the Permit2 entry builds a payload the facilitator rejects.
+export function isEip3009Accept(accept) {
+	if (!isEvmNetwork(accept?.network)) return false;
+	const m = accept?.extra?.assetTransferMethod;
+	return !m || m === 'eip3009';
+}
+
+export function explorerUrl(network, tx) {
+	if (!tx) return null;
+	if (isSolanaNetwork(network)) return `https://solscan.io/tx/${tx}`;
+	const meta = EVM_NETWORKS[network];
+	return meta ? `${meta.explorer}${tx}` : null;
+}
+
+// The x402 spec's canonical atomic-price field is `maxAmountRequired`; our
+// server (and many merchants) emit `amount`. We read `amount` everywhere
+// downstream, so coerce once at ingestion.
+export function normalizeAccept(accept) {
+	if (!accept || typeof accept !== 'object') return accept;
+	const amount = accept.amount ?? accept.maxAmountRequired;
+	return amount != null && accept.amount == null ? { ...accept, amount: String(amount) } : accept;
+}
+
+// Resolve the absolute URL of the gated resource to retry after payment. Each
+// 402 `accept` entry carries the resource URL server-side; fall back to the
+// paywall's `?return=` URL (made absolute) when it doesn't.
+export function resolveResourceUrl(accept, fallbackUrl, origin) {
+	const base = origin || (typeof location !== 'undefined' ? location.origin : 'https://three.ws');
+	const candidate = accept?.resource || fallbackUrl || '/';
+	try {
+		return new URL(candidate, base).href;
+	} catch {
+		return new URL('/', base).href;
+	}
+}
+
+// ─────────────────────────────────────────────────────────── encoding ────────
+
+export function b64encode(obj) {
+	const json = JSON.stringify(obj);
+	if (typeof Buffer !== 'undefined') return Buffer.from(json, 'utf8').toString('base64');
+	return btoa(unescape(encodeURIComponent(json)));
+}
+
+export function b64decode(str) {
+	if (!str) return null;
+	try {
+		const bin =
+			typeof Buffer !== 'undefined'
+				? Buffer.from(str, 'base64').toString('utf8')
+				: decodeURIComponent(escape(atob(str)));
+		return JSON.parse(bin);
+	} catch {
+		return null;
+	}
+}
+
+export function base64ToUint8Array(b64) {
+	if (typeof Buffer !== 'undefined') return new Uint8Array(Buffer.from(b64, 'base64'));
+	const bin = atob(b64);
+	const arr = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+	return arr;
+}
+
+export function uint8ArrayToBase64(arr) {
+	if (typeof Buffer !== 'undefined') return Buffer.from(arr).toString('base64');
+	let bin = '';
+	for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+	return btoa(bin);
+}
+
+export function randomHex(bytes) {
+	const arr = new Uint8Array(bytes);
+	(globalThis.crypto || crypto).getRandomValues(arr);
+	return Array.from(arr)
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+export function friendlyError(err) {
+	const msg = err?.shortMessage || err?.message || String(err);
+	if (/user rejected|user denied|reject|cancell?ed/i.test(msg)) return 'Cancelled in wallet';
+	return msg.slice(0, 240);
+}
+
+// ──────────────────────────────────────────── payment payload builders ────────
+
+// Body for POST /api/x402-checkout?action=prepare. The server returns a
+// partially-signed v0 SPL transfer for the buyer's wallet to co-sign.
+export function buildPrepareBody(accept, buyer) {
+	return { accept: normalizeAccept(accept), buyer };
+}
+
+// EIP-3009 transferWithAuthorization typed data for an EVM USDC payment.
+// `nowSeconds` is injectable so the build is deterministic under test.
+export function buildEip3009TypedData({ accept, payerAddress, chainId, nowSeconds, nonce }) {
+	const now = nowSeconds != null ? nowSeconds : Math.floor(Date.now() / 1000);
+	const validAfter = 0;
+	const validBefore = now + (accept.maxTimeoutSeconds || 600);
+	const authNonce = nonce || '0x' + randomHex(32);
+	const domain = {
+		name: accept.extra?.name || 'USD Coin',
+		version: accept.extra?.version || '2',
+		chainId,
+		verifyingContract: accept.asset,
+	};
+	const types = {
+		EIP712Domain: [
+			{ name: 'name', type: 'string' },
+			{ name: 'version', type: 'string' },
+			{ name: 'chainId', type: 'uint256' },
+			{ name: 'verifyingContract', type: 'address' },
+		],
+		TransferWithAuthorization: [
+			{ name: 'from', type: 'address' },
+			{ name: 'to', type: 'address' },
+			{ name: 'value', type: 'uint256' },
+			{ name: 'validAfter', type: 'uint256' },
+			{ name: 'validBefore', type: 'uint256' },
+			{ name: 'nonce', type: 'bytes32' },
+		],
+	};
+	const message = {
+		from: payerAddress,
+		to: accept.payTo,
+		value: accept.amount,
+		validAfter,
+		validBefore,
+		nonce: authNonce,
+	};
+	return {
+		typedData: { primaryType: 'TransferWithAuthorization', types, domain, message },
+		authorization: {
+			from: payerAddress,
+			to: accept.payTo,
+			value: accept.amount,
+			validAfter,
+			validBefore,
+			nonce: authNonce,
+		},
+	};
+}
+
+// Assemble the x402 PaymentPayload for an EVM EIP-3009 signature.
+export function buildEvmPaymentPayload({ accept, signature, authorization, resourceUrl }) {
+	return {
+		x402Version: 2,
+		scheme: 'exact',
+		network: accept.network,
+		resource: { url: resourceUrl, mimeType: 'application/json' },
+		accepted: accept,
+		payload: { signature, authorization },
+	};
+}
+
+// ──────────────────────────────────────────────────── runtime dependencies ────
+
+let _solanaWeb3 = null;
+async function loadSolanaWeb3() {
+	if (_solanaWeb3) return _solanaWeb3;
+	// Dynamic import from esm.sh keeps the paywall tiny — web3.js is only fetched
+	// when a Solana payment is actually attempted. Mirrors public/x402.js.
+	_solanaWeb3 = await import('https://esm.sh/@solana/web3.js@1.95.3?bundle');
+	return _solanaWeb3;
+}
+
+async function postJson(url, body) {
+	const res = await fetch(url, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(body),
+	});
+	const text = await res.text();
+	let data;
+	try {
+		data = JSON.parse(text);
+	} catch {
+		data = { error: 'parse_error', error_description: text.slice(0, 200) };
+	}
+	if (!res.ok) {
+		const err = new Error(data.error_description || data.error || `HTTP ${res.status}`);
+		err.status = res.status;
+		err.data = data;
+		throw err;
+	}
+	return data;
+}
+
+// ───────────────────────────────────────────────────── provider detection ────
+
+export function getSolanaProvider(walletName) {
+	if (typeof window === 'undefined') return null;
+	if (walletName === 'solflare') {
+		// Solflare injects window.solflare; some builds also flag window.solana.
+		if (window.solflare?.isSolflare || window.solflare) return window.solflare;
+		if (window.solana?.isSolflare) return window.solana;
+		return null;
+	}
+	// Phantom (default Solana wallet).
+	if (window.phantom?.solana) return window.phantom.solana;
+	if (window.solana?.isPhantom) return window.solana;
+	return window.solana || null;
+}
+
+// Pick the injected EVM provider matching the requested wallet. EIP-6963 / legacy
+// multi-provider environments expose siblings under window.ethereum.providers.
+export function getEvmProvider(walletName) {
+	if (typeof window === 'undefined') return null;
+	const eth = window.ethereum;
+	if (!eth) return null;
+	const list = Array.isArray(eth.providers) && eth.providers.length ? eth.providers : [eth];
+	const pick = (pred) => list.find(pred);
+	if (walletName === 'coinbase') {
+		return (
+			pick((p) => p.isCoinbaseWallet) ||
+			window.coinbaseWalletExtension ||
+			(eth.isCoinbaseWallet ? eth : null)
+		);
+	}
+	if (walletName === 'metamask') {
+		return pick((p) => p.isMetaMask && !p.isCoinbaseWallet) || (eth.isMetaMask ? eth : null);
+	}
+	// Generic injected fallback.
+	return eth;
+}
+
+const WALLET_LABELS = {
+	phantom: 'Phantom',
+	solflare: 'Solflare',
+	metamask: 'MetaMask',
+	coinbase: 'Coinbase Wallet',
+	walletconnect: 'WalletConnect',
+};
+
+function walletNotFound(walletName) {
+	const label = WALLET_LABELS[walletName] || 'Wallet';
+	const err = new Error(
+		`${label} not detected. Install the ${label} extension, then reload this page.`,
+	);
+	err.code = 'wallet_not_found';
+	return err;
+}
+
+// ─────────────────────────────────────────────────────── settle + retry ──────
+
+// Retry the gated resource with the X-PAYMENT proof and return the unlocked
+// content plus the decoded settlement receipt.
+async function executePaid({ xPayment, resourceUrl, onStatus, accept, payerAddress }) {
+	onStatus?.('confirming', 'Unlocking content…');
+	const res = await fetch(resourceUrl, {
+		method: 'GET',
+		headers: { 'X-PAYMENT': xPayment, Accept: '*/*' },
+	});
+	const ct = res.headers.get('content-type') || '';
+	const text = await res.text();
+	let result;
+	if (ct.includes('json')) {
+		try {
+			result = JSON.parse(text);
+		} catch {
+			result = text;
+		}
+	} else {
+		result = text;
+	}
+	if (!res.ok) {
+		const msg =
+			(result && typeof result === 'object' && (result.error_description || result.error)) ||
+			`HTTP ${res.status}`;
+		throw new Error(msg);
+	}
+	const payment = b64decode(res.headers.get('x-payment-response')) || {};
+	onStatus?.('done', 'Unlocked');
+	return {
+		ok: true,
+		result,
+		payment,
+		contentType: ct,
+		status: res.status,
+		network: payment.network || accept?.network || null,
+		payer: payment.payer || payerAddress || null,
+		transaction: payment.transaction || null,
+	};
+}
+
+// ────────────────────────────────────────────────────────────── Solana pay ───
+
+export async function paySolana({ accept, resourceUrl, walletName, onStatus, origin }) {
+	accept = normalizeAccept(accept);
+	const apiOrigin = origin || (typeof location !== 'undefined' ? location.origin : '');
+	const label = walletName === 'solflare' ? 'Solflare' : 'Phantom';
+	const provider = getSolanaProvider(walletName);
+	if (!provider || typeof provider.connect !== 'function') throw walletNotFound(walletName);
+
+	onStatus?.('connecting', `Opening ${label}…`);
+	const conn = await provider.connect();
+	const payerAddress = (conn?.publicKey || provider.publicKey)?.toString();
+	if (!payerAddress) throw new Error(`${label} did not return a public key`);
+
+	onStatus?.('building', 'Building payment…');
+	const prep = await postJson(
+		`${apiOrigin}/api/x402-checkout?action=prepare`,
+		buildPrepareBody(accept, payerAddress),
+	);
+
+	onStatus?.('signing', `Approve the payment in ${label}…`);
+	const txBytes = base64ToUint8Array(prep.tx_base64);
+	const web3 = await loadSolanaWeb3();
+	const tx = web3.VersionedTransaction.deserialize(txBytes);
+	// The wallet adds the buyer's signature; the facilitator's fee-payer signature
+	// is added during /settle.
+	const signed = await provider.signTransaction(tx);
+	const signedB64 = uint8ArrayToBase64(signed.serialize());
+
+	onStatus?.('confirming', 'Settling on-chain…');
+	const enc = await postJson(`${apiOrigin}/api/x402-checkout?action=encode`, {
+		accept,
+		signed_tx_base64: signedB64,
+		resource_url: resourceUrl,
+	});
+
+	return executePaid({ xPayment: enc.x_payment, resourceUrl, onStatus, accept, payerAddress });
+}
+
+// ───────────────────────────────────────────────────────────────── EVM pay ───
+
+async function resolveEvmProvider(walletName, onStatus) {
+	if (walletName === 'walletconnect') {
+		const projectId = getWcProjectId();
+		if (!projectId) {
+			const err = new Error(
+				'WalletConnect is not configured here. Use MetaMask or Coinbase Wallet, or pay with a Solana wallet.',
+			);
+			err.code = 'wc_unconfigured';
+			throw err;
+		}
+		onStatus?.('connecting', 'Opening WalletConnect…');
+		// WalletConnect glue is a public/ runtime asset, not a bundled module.
+		// Keep the specifier non-static (+ @vite-ignore) so Vite's import-analysis
+		// doesn't try to resolve a /public path at build/test time; the browser
+		// loads it from the served URL at runtime only.
+		const wcProviderUrl = '/wallet/wc-provider.js';
+		const { initWCProvider } = await import(/* @vite-ignore */ wcProviderUrl);
+		const wc = await initWCProvider({
+			projectId,
+			optionalChains: Object.values(EVM_NETWORKS).map((n) => n.chainId),
+		});
+		await wc.enable();
+		return wc;
+	}
+	const provider = getEvmProvider(walletName);
+	if (!provider || typeof provider.request !== 'function') throw walletNotFound(walletName);
+	return provider;
+}
+
+function getWcProjectId() {
+	if (typeof document !== 'undefined') {
+		const meta = document.querySelector('meta[name="x402-wc-project-id"]');
+		if (meta?.content) return meta.content;
+	}
+	if (typeof window !== 'undefined' && window.WALLETCONNECT_PROJECT_ID) {
+		return window.WALLETCONNECT_PROJECT_ID;
+	}
+	return null;
+}
+
+export async function payEvm({ accept, resourceUrl, walletName, onStatus }) {
+	accept = normalizeAccept(accept);
+	const meta = EVM_NETWORKS[accept.network];
+	if (!meta) throw new Error(`Unsupported EVM network ${accept.network}`);
+	const label = WALLET_LABELS[walletName] || 'wallet';
+
+	const eth = await resolveEvmProvider(walletName, onStatus);
+	onStatus?.('connecting', `Opening ${label}…`);
+	const accounts = await eth.request({ method: 'eth_requestAccounts' });
+	const payerAddress = accounts?.[0];
+	if (!payerAddress) throw new Error(`${label} did not return an account`);
+
+	// Switch to the required chain if the wallet is elsewhere.
+	const currentChainHex = await eth.request({ method: 'eth_chainId' });
+	const desiredChainHex = '0x' + meta.chainId.toString(16);
+	if (currentChainHex !== desiredChainHex) {
+		onStatus?.('connecting', `Switch ${label} to ${meta.name}…`);
+		try {
+			await eth.request({
+				method: 'wallet_switchEthereumChain',
+				params: [{ chainId: desiredChainHex }],
+			});
+		} catch {
+			throw new Error(`Switch ${label} to ${meta.name} (${desiredChainHex}) and try again`);
+		}
+	}
+
+	onStatus?.('signing', `Authorize payment in ${label}…`);
+	const { typedData, authorization } = buildEip3009TypedData({
+		accept,
+		payerAddress,
+		chainId: meta.chainId,
+	});
+	const signature = await eth.request({
+		method: 'eth_signTypedData_v4',
+		params: [payerAddress, JSON.stringify(typedData)],
+	});
+
+	onStatus?.('confirming', 'Settling on-chain…');
+	const paymentPayload = buildEvmPaymentPayload({
+		accept,
+		signature,
+		authorization,
+		resourceUrl,
+	});
+	const xPayment = b64encode(paymentPayload);
+	return executePaid({ xPayment, resourceUrl, onStatus, accept, payerAddress });
+}
+
+// ─────────────────────────────────────────────────────────── dispatcher ──────
+
+// Single entry point for the paywall controller. Routes a wallet button to the
+// correct chain-specific payer based on the network of the matching `accept`.
+export async function pay({ accept, resourceUrl, walletName, onStatus, origin }) {
+	if (isSolanaNetwork(accept?.network)) {
+		return paySolana({ accept, resourceUrl, walletName, onStatus, origin });
+	}
+	if (isEvmNetwork(accept?.network)) {
+		return payEvm({ accept, resourceUrl, walletName, onStatus });
+	}
+	throw new Error(`Unsupported network ${accept?.network}`);
+}
+
+// Attach to window for the classic paywall.js controller.
+if (typeof window !== 'undefined') {
+	window.PaywallWallet = Object.freeze({
+		pay,
+		paySolana,
+		payEvm,
+		isSolanaNetwork,
+		isEvmNetwork,
+		isEip3009Accept,
+		resolveResourceUrl,
+		explorerUrl,
+		getSolanaProvider,
+		getEvmProvider,
+	});
+}

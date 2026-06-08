@@ -72,9 +72,15 @@ describe('usableModels (route selector)', () => {
 });
 
 describe('reliability-first ordering', () => {
-	it('ranks groq first and openai last (over-quota tier)', () => {
-		expect(DEFAULT_PROVIDER_ORDER[0]).toBe('groq');
+	it('ranks anthropic first (keyed paid tier) and openai last (over-quota tier)', () => {
+		// Anthropic leads so the happy path resolves on attempt 0 when keyed,
+		// instead of burning the rate-limited free tiers first. When Anthropic is
+		// unkeyed it's skipped, so the effective lead becomes groq (the free tier).
+		expect(DEFAULT_PROVIDER_ORDER[0]).toBe('anthropic');
 		expect(DEFAULT_PROVIDER_ORDER[DEFAULT_PROVIDER_ORDER.length - 1]).toBe('openai');
+		// Free tiers still rank ahead of the over-quota OpenAI account.
+		expect(DEFAULT_PROVIDER_ORDER.indexOf('groq')).toBeLessThan(DEFAULT_PROVIDER_ORDER.indexOf('openai'));
+		expect(DEFAULT_PROVIDER_ORDER.indexOf('openrouter')).toBeLessThan(DEFAULT_PROVIDER_ORDER.indexOf('openai'));
 	});
 
 	it('does not lead the free tier with the moderation-gated model', () => {

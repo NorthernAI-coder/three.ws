@@ -109,17 +109,21 @@ export const PROVIDER_MODEL_DEFAULTS = {
 /**
  * Provider order to try when none is explicitly requested ("auto"), ranked by
  * first-attempt reliability under current operating conditions:
- *   1. groq       — fast free tier that answers on the first attempt; the
- *                   common-case primary. Per-minute caps only.
- *   2. openrouter — free fallback (reliable Llama 3.3 70B; see DEFAULT_FREE_MODEL).
- *   3. anthropic  — paid, highly reliable, but only present when a key is
- *                   configured (BYOK / host we-pay); skipped otherwise.
+ *   1. anthropic  — paid, highly reliable, keyed in prod (host we-pay / BYOK).
+ *                   Leads the ladder so the common path resolves on attempt 0
+ *                   instead of burning the free tiers' rate limits first. Only
+ *                   present when a key is configured; skipped otherwise, which
+ *                   transparently falls back to the free-tier ordering below.
+ *   2. groq       — fast free tier that answers on the first attempt. Per-minute
+ *                   caps only; the primary for anonymous/free traffic.
+ *   3. openrouter — free fallback (reliable Llama 3.3 70B; see DEFAULT_FREE_MODEL).
  *   4. openai     — LAST. Account is over quota (see operational note); only
  *                   reached after everything else is exhausted.
  * Providers without a configured key are skipped, so the effective ladder is
- * short in the common case.
+ * short in the common case. A provider in a health cooldown (see
+ * api/_lib/provider-health.js) is also skipped for the cooldown window.
  */
-export const DEFAULT_PROVIDER_ORDER = ['groq', 'openrouter', 'anthropic', 'openai'];
+export const DEFAULT_PROVIDER_ORDER = ['anthropic', 'groq', 'openrouter', 'openai'];
 
 /**
  * OpenRouter sibling models for per-model rate-limit failover. OpenRouter's

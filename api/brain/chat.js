@@ -348,6 +348,18 @@ export default wrap(async function handler(req, res) {
 		tier: spec.tier,
 	})}\n\n`);
 
+	// Per-attempt abort budget. A hung native provider must not silently consume
+	// the whole maxDuration; cap each streamText attempt at the smaller of
+	// PER_ATTEMPT_MS or the remaining wall-clock so it aborts fast and hands off
+	// to the OpenRouter fallback while time remains. Mirrors the timeout-budget
+	// pattern in api/chat.js. TOTAL_BUDGET_MS leaves headroom under maxDuration=120
+	// so a primary-then-fallback pair both fit; PER_ATTEMPT_MS stays under the
+	// ~30s hang that previously near-timed-out the function.
+	const TOTAL_BUDGET_MS = 110_000;
+	const PER_ATTEMPT_MS = 25_000;
+	const deadline = t0 + TOTAL_BUDGET_MS;
+	const attemptBudgetMs = () => Math.max(1_000, Math.min(PER_ATTEMPT_MS, deadline - Date.now()));
+
 	let firstTokenMs = null;
 
 	// Drains one streamText attempt to the SSE response. firstTokenMs is set on
@@ -369,6 +381,10 @@ export default wrap(async function handler(req, res) {
 			// default of 2 means a quota-exhausted or credits-depleted key burns
 			// ~10–20s retrying before surfacing the error we already know to route around.
 			maxRetries: 0,
+			// Bound this attempt by the remaining wall-clock so a hung provider
+			// aborts fast and the outer chain can fall back while time remains. The
+			// abort surfaces as a thrown error (or via onError) handled below.
+			abortSignal: AbortSignal.timeout(attemptBudgetMs()),
 			onError: ({ error }) => {
 				streamErr = error;
 			},
@@ -472,8 +488,13 @@ function affordableBudget(err) {
 function isProviderOutage(err) {
 	const status = Number(err?.statusCode || err?.cause?.statusCode || 0);
 	if (status === 429 || status === 402 || status >= 500) return true;
+	// An aborted attempt — our per-attempt timeout budget firing on a hung
+	// provider — is route-around-able: hand off to the OpenRouter fallback rather
+	// than surfacing a dead-air error to the user.
+	const name = err?.name || err?.cause?.name || '';
+	if (name === 'AbortError' || name === 'TimeoutError') return true;
 	const msg = `${err?.message || ''} ${err?.cause?.message || ''}`;
-	return /quota|insufficient_quota|rate.?limit|too many requests|billing|exceeded your current|requires more credits|overloaded|temporarily unavailable|maxRetriesExceeded/i.test(msg);
+	return /quota|insufficient_quota|rate.?limit|too many requests|billing|exceeded your current|requires more credits|overloaded|temporarily unavailable|maxRetriesExceeded|abort|timed out|timeout/i.test(msg);
 }
 
 // One-line, length-capped error summary for server logs.

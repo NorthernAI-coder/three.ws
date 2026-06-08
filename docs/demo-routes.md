@@ -1,24 +1,31 @@
 # Demo routes
 
 The canonical map of every `/demo/*` and `/demos/*` route as of
-2026-05-27. Update whenever a route is added, removed, or moved.
+2026-06-08. Update whenever a route is added, removed, or moved.
 
 The demo namespace splits in two:
 
-- `/demo/<slug>/` — full standalone demos that own their URL space
-  (multiple sub-pages, dynamic segments). Each lives in
+- `/demo` and `/demo/<slug>/` — full standalone demos that own their URL
+  space (multiple sub-pages, dynamic segments). `/demo` (no slug) is the
+  agent-economy demo (`pages/demo-economy.html`); the rest live in
   `public/demo/<slug>/`.
-- `/demos/<slug>` — single-page lab demos. Index hub is
-  `/demos/`. Each lives in `public/demos/<slug>.html`.
+- `/demos/<slug>` — single-page lab demos. Index hub is `/demos/`; the
+  agent-interaction sub-lab is `/demos/agents/`. Each lives in
+  `public/demos/<slug>.html`.
 
 Production routing is in [vercel.json](../vercel.json); the matching
 Vite dev-server middleware is in [vite.config.js](../vite.config.js).
 Both must be kept in sync.
 
+Every row below was verified against the live Vite dev server
+(`npm run dev`, port 3000) with `curl -sIL`, not read from config alone.
+See [Verification notes](#verification-notes-2026-06-08) at the end.
+
 ## Routes
 
 | Route | Page file | What it does |
 |---|---|---|
+| `/demo` | `pages/demo-economy.html` | Agent Economy demo — two AI agents pay each other on-chain. |
 | `/demo/coin` | `public/demo/coin/index.html` | Lottery + reflection demo on a single Pump.fun coin (real-time holder feed, payout history). |
 | `/demo/coin/<mint>` | `public/demo/coin/index.html` | Same page hydrated for a specific base58 mint address (32–44 chars). |
 | `/demo/avatar-os/` | `public/demo/avatar-os/index.html` | OSS avatar pipeline hub linking to the four sub-pages below. |
@@ -54,10 +61,55 @@ Both must be kept in sync.
 | `/demos/voice-clone` | `public/demos/voice-clone.html` | Voice cloning demo. |
 | `/demos/walk-embed-sdk` | `public/demos/walk-embed-sdk.html` | Walk animation embed via SDK. |
 
-The legacy `/brain`, `/lipsync`, `/lipsync/mic`
-shortcuts in `vercel.json` still resolve to the `/demos/*.html` files
-above. They predate the `/demos/` namespace and are kept for backward
-compatibility — prefer the `/demos/<slug>` form for new links.
+`public/demos/404.html` (`/demos/404`) is the lab's designed not-found
+page, not a content demo — the `/demos/` index also embeds it as a
+hidden empty-state. It is intentionally omitted from the table above.
+
+The legacy `/lipsync`, `/lipsync/mic` shortcuts in `vercel.json` still
+resolve to the `/demos/lipsync-*.html` files above. They predate the
+`/demos/` namespace and are kept for backward compatibility — prefer the
+`/demos/<slug>` form for new links.
+
+### Agent interaction lab — `/demos/agents/*`
+
+Single-purpose demos of an avatar reacting to the page. Index hub is
+`/demos/agents/` (`public/demos/agents/index.html`), linked from the main
+`/demos/` index. Each page lives at `public/demos/agents/<slug>.html` and
+is served by the `/demos/agents/<slug>` rewrite.
+
+| Route | Page file | What it does |
+|---|---|---|
+| `/demos/agents/auto-rig` | `public/demos/agents/auto-rig.html` | Auto-rigging an imported mesh. |
+| `/demos/agents/builds-button` | `public/demos/agents/builds-button.html` | Agent assembles a CTA button. |
+| `/demos/agents/climb-title` | `public/demos/agents/climb-title.html` | Agent climbs the page title. |
+| `/demos/agents/cursor-follower` | `public/demos/agents/cursor-follower.html` | Agent tracks the cursor. |
+| `/demos/agents/face-mocap` | `public/demos/agents/face-mocap.html` | Webcam face mocap drives the avatar. |
+| `/demos/agents/fall-from-top` | `public/demos/agents/fall-from-top.html` | Agent drops in from the top of the viewport. |
+| `/demos/agents/falls-asleep` | `public/demos/agents/falls-asleep.html` | Idle agent falls asleep. |
+| `/demos/agents/gemini-live` | `public/demos/agents/gemini-live.html` | Live conversation via Gemini. |
+| `/demos/agents/high-five` | `public/demos/agents/high-five.html` | Agent high-fives on click. |
+| `/demos/agents/holds-cta` | `public/demos/agents/holds-cta.html` | Agent holds up the call-to-action. |
+| `/demos/agents/pickup-drop` | `public/demos/agents/pickup-drop.html` | Pick up and drop the agent. |
+| `/demos/agents/scroll-inertia` | `public/demos/agents/scroll-inertia.html` | Agent reacts to scroll inertia. |
+| `/demos/agents/sit-in-body` | `public/demos/agents/sit-in-body.html` | Agent sits inside body copy. |
+| `/demos/agents/skateboard` | `public/demos/agents/skateboard.html` | Agent skateboards across the page. |
+| `/demos/agents/trampoline` | `public/demos/agents/trampoline.html` | Agent bounces on a trampoline. |
+| `/demos/agents/walks-gutter` | `public/demos/agents/walks-gutter.html` | Agent walks the page gutter. |
+| `/demos/agents/wrecking-ball` | `public/demos/agents/wrecking-ball.html` | Wrecking-ball physics demo. |
+
+## Related demo pages (outside `/demo` and `/demos`)
+
+Page files that carry a `demo-`/`coin` name or alias into the lab but
+live at their own top-level URLs:
+
+| Route | Page file | What it does |
+|---|---|---|
+| `/coin3d` | `pages/coin3d.html` | Token-in-3D visualizer. |
+| `/app-demo` | `pages/app-demo.html` | Viewer with the studio skin (studio-skin demo). |
+| `/embed-demo` | `pages/embed-demo.html` | Avatar embed demo. |
+| `/avatar-studio-demo` | `pages/avatar-studio-demo.html` | Avatar Studio demo. |
+| `/lipsync` | `public/demos/lipsync-tts.html` | Alias into the lab — TTS-driven lipsync. |
+| `/lipsync/mic` | `public/demos/lipsync-mic.html` | Alias into the lab — mic/audio-driven lipsync. |
 
 ## Legacy redirects
 
@@ -66,10 +118,9 @@ compatibility — prefer the `/demos/<slug>` form for new links.
 | `/coin` | `/demo/coin` | `vercel.json` (301), mirrored in `vite.config.js` middleware for dev. |
 | `/coin/` | `/demo/coin` | `vercel.json` (301), mirrored in `vite.config.js` middleware for dev. |
 
-`pages/pump-coin-page.html` predates the `/demo/coin` rewrite and is
-not wired into the canonical demo nav. It still resolves at
-`/pump-coin-page` via the generic `pages/<slug>.html` fallback in the
-Vite middleware, but new links should point at `/demo/coin`.
+Both redirects land on a `200` (`/demo/coin/`) after following the
+30x. The legacy `pages/pump-coin-page.html` has been removed —
+`/pump-coin-page` now `404`s and `/demo/coin` is the only coin demo URL.
 
 ## Adding a new demo
 
@@ -102,3 +153,24 @@ Vite middleware, but new links should point at `/demo/coin`.
 
    The route must return `200` (or `301` → 200 for a documented
    legacy redirect).
+
+## Verification notes (2026-06-08)
+
+Verified on the live Vite dev server (`npm run dev`, port 3000):
+
+- Every route in the tables above returns **200**. `/coin` and `/coin/`
+  return **301 → `/demo/coin/` → 200**.
+- All 27 `/demos/<slug>` pages and all 17 `/demos/agents/<slug>` pages
+  return 200 (extensionless and `.html` forms both resolve; in-page links
+  use `.html`).
+- Each page renders a real, non-placeholder `<title>` and loads its JS
+  modules with **200** responses.
+- `/_vercel/insights/script.js` 404s on the dev server on every page —
+  that is Vercel Web Analytics, injected by the Vercel platform only in
+  production. It is not a route regression.
+- `/demo/avatar-os/studio` (no `.html`) 404s in dev and is **not** a
+  supported URL — the avatar-os hub links its sub-pages with the `.html`
+  extension, which is the canonical form. Same for the other avatar-os
+  sub-pages.
+- No `vercel.json` or `vite.config.js` changes were needed; all routes
+  were already wired correctly.
