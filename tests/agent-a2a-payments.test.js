@@ -252,6 +252,14 @@ vi.mock('../api/_lib/x402/a2a-client.js', () => ({
 	submitPayment: vi.fn(async () => clientState.submit),
 	buildEvmExactPayload: vi.fn(async () => ({ scheme: 'exact', payload: {} })),
 	createPrivateKeySigner: vi.fn(async () => ({ address: '0xPayer', signAuthorization: vi.fn() })),
+	buildSolanaExactPayload: vi.fn(async () => ({ scheme: 'exact', payload: { transaction: 'base64tx' } })),
+	createSolanaSigner: vi.fn(async () => ({ address: 'SoLPayer1111111111111111111111111111111111' })),
+	NETWORK_SOLANA_MAINNET: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+	NETWORK_SOLANA_DEVNET: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+	isSolanaNetwork: (network) =>
+		network === 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' ||
+		network === 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' ||
+		network === 'solana',
 }));
 
 const { invoke } = await import('./_helpers/monetization.js');
