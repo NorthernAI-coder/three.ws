@@ -21,7 +21,7 @@
  * this is the differentiating capability, reusing our rig + retarget + library.
  */
 
-import { cors, json, method, readJson, wrap } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { createRegenProvider } from './_providers/gcp.js';
 
@@ -42,10 +42,7 @@ async function startJob(req, res) {
 	const ip = clientIp(req);
 	const rl = await limits.mcp3dGenerate(ip);
 	if (!rl.success) {
-		return json(res, 429, {
-			error: 'rate_limited',
-			retry_after: Math.ceil((rl.reset - Date.now()) / 1000),
-		});
+		rateLimited(res, rl);
 	}
 
 	const body = await readJson(req, 4_000).catch(() => null);
@@ -90,7 +87,7 @@ async function pollJob(req, res, jobId) {
 
 	const rl = await limits.mcp3dStatus(clientIp(req));
 	if (!rl.success) {
-		return json(res, 429, { error: 'rate_limited', retry_after: Math.ceil((rl.reset - Date.now()) / 1000) });
+		rateLimited(res, rl);
 	}
 
 	let provider;
