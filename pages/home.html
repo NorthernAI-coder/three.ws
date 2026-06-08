@@ -383,14 +383,19 @@
 		}
 		.logo-row {
 			display: flex; flex-wrap: wrap; justify-content: center;
-			gap: 48px; align-items: center;
+			gap: 10px 12px; align-items: center; max-width: 760px; margin: 0 auto;
 		}
 		.logo-row .logo {
-			font-family: var(--font-display); font-size: 15px; font-weight: 500;
-			letter-spacing: -0.02em; color: var(--text-3); opacity: 0.65;
-			transition: opacity 0.15s;
+			font-family: var(--font-mono); font-size: 12.5px; font-weight: 500;
+			letter-spacing: -0.01em; color: var(--text-3); opacity: 0.8;
+			padding: 6px 14px; border: 1px solid var(--hairline);
+			border-radius: 999px;
+			transition: opacity 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
 		}
-		.logo-row .logo:hover { opacity: 1; }
+		.logo-row .logo:hover {
+			opacity: 1; color: var(--text); border-color: var(--hairline-strong);
+			transform: translateY(-1px);
+		}
 
 		/* ── PARTNER / PRESS STRIP ───────────────────────────────── */
 		.press-strip { padding: 38px 0 42px; }
