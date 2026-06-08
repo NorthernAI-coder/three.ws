@@ -42,6 +42,10 @@ export async function runAgentDelegation({ toAgentId, message }) {
 		user: message,
 		maxTokens: 1024,
 		anthropicModel: model,
+		// Lead with the agent's chosen Claude model on the platform key, then
+		// degrade to the free providers if it's unset or Anthropic is down.
+		serverAnthropic: true,
+		track: { agentId: toAgentId, tool: 'agent.delegate' },
 	});
 	return { response: result.text, agentId: toAgentId, model: result.model };
 }

@@ -149,5 +149,31 @@ export function grindVanity(opts = {}) {
 
 			w.postMessage({ type: 'start', prefix, suffix, ignoreCase });
 		}
+
+		// Wire the opt-in controller now that the pool is live.
+		const controller = opts.controller;
+		if (controller) {
+			controller.paused = false;
+			controller.workers = cores;
+			controller.pause = () => {
+				if (controller.paused || workers.length === 0) return;
+				controller.paused = true;
+				for (const w of workers) {
+					try { w.postMessage({ type: 'pause' }); } catch {}
+				}
+				if (onProgress) {
+					const totalAttempts = attemptsByWorker.reduce((a, b) => a + b, 0);
+					onProgress({ attempts: totalAttempts, rate: 0, eta: 'paused', paused: true });
+				}
+			};
+			controller.resume = () => {
+				if (!controller.paused || workers.length === 0) return;
+				controller.paused = false;
+				for (const w of workers) {
+					try { w.postMessage({ type: 'resume' }); } catch {}
+				}
+			};
+			controller.stop = onAbort;
+		}
 	});
 }

@@ -996,6 +996,7 @@
 
 			agent.standOn(avatarWrap, { anchor: 'bottom-center', offsetY: -50 });
 			avatarWrap?.classList.remove('loading');
+			window.__agent = agent; /* TEMP probe */
 
 			window.addEventListener('resize', () => {
 				agent.standOn(avatarWrap, { anchor: 'bottom-center', offsetY: -50 });

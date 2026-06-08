@@ -20,6 +20,9 @@ export const ACTION_TYPES = {
 	SENTIMENT_ANALYZED: 'sentiment-analyzed', // sentiment analysis was performed
 	REMEMBER: 'remember', // agent stored a memory
 	SIGN: 'sign', // agent signs an action with its wallet
+	PAY_INTENT: 'pay-intent', // agent is about to pay a peer agent for a skill
+	PAY_SETTLED: 'pay-settled', // an agent-to-agent payment settled on-chain
+	PAY_FAILED: 'pay-failed', // an agent-to-agent payment attempt failed
 	LOAD_START: 'load-start', // model/asset loading started
 	LOAD_PROGRESS: 'load-progress', // model/asset download progress (bytes)
 	LOAD_END: 'load-end', // model/asset loading finished
