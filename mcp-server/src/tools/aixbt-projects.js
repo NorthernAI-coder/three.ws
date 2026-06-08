@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
+import { resilientFetch } from '../lib/resilient-fetch.js';
 
 const TOOL_NAME = 'aixbt_projects';
 const TOOL_DESCRIPTION =
@@ -71,7 +72,11 @@ export async function buildAixbtProjectsTool() {
 
 			let res;
 			try {
-				res = await fetch(url, { headers: { accept: 'application/json' } });
+				res = await resilientFetch(
+					url,
+					{ headers: { accept: 'application/json' } },
+					{ timeoutMs: 12_000, retries: 2, label: 'aixbt-projects' },
+				);
 			} catch (err) {
 				return toolError('upstream_unreachable', err?.message || 'fetch failed');
 			}

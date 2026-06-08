@@ -14,11 +14,12 @@
 // Inputs accepting "foo" or "foo.eth/.sol" disambiguate via the suffix.
 // Inputs ending in neither are tried against both — whichever resolves wins.
 
-import { ethers } from 'ethers';
 import { z } from 'zod';
 
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
+import { resilientFetch } from '../lib/resilient-fetch.js';
+import { makeEvmProvider } from '../lib/evm-rpc.js';
 
 const TOOL_NAME = 'ens_sns_resolve';
 const TOOL_DESCRIPTION =

@@ -20,13 +20,12 @@ import { z } from 'zod';
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
 import { fetchJson as resilientFetchJson } from '../lib/resilient-fetch.js';
-import { withSolanaConnection } from '../lib/solana-rpc.js';
+import { withSolanaConnection, getSolanaEndpoints } from '../lib/solana-rpc.js';
 
 const TOOL_NAME = 'pump_snapshot';
 const TOOL_DESCRIPTION =
 	'Live snapshot for a Solana SPL or pump.fun token: USD price (Jupiter), 24h volume + DEX pair (Dexscreener), mint metadata + image (pump.fun frontend-api-v3), and on-chain top-holder distribution from Solana RPC getTokenLargestAccounts. Optional Helius DAS holder count when HELIUS_API_KEY is configured. Paid: $0.005 USDC.';
 
-const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY || '';
 
 function isValidSolanaPubkey(s) {
@@ -128,8 +127,11 @@ async function getPumpFunMeta(mint) {
 
 async function getTopHolders(mint) {
 	try {
-		const conn = new Connection(SOLANA_RPC_URL, 'confirmed');
-		const res = await conn.getTokenLargestAccounts(new PublicKey(mint));
+		// Failover across the configured Solana endpoints: if the primary RPC is
+		// throttling or down, the next endpoint answers instead of failing.
+		const res = await withSolanaConnection((conn) =>
+			conn.getTokenLargestAccounts(new PublicKey(mint)),
+		);
 		const top = (res?.value || []).map((acct) => ({
 			address: acct.address.toBase58(),
 			uiAmount: acct.uiAmount,
@@ -216,10 +218,17 @@ export async function buildPumpSnapshotTool() {
 				getTopHolders(token),
 				getHeliusHolderCount(token),
 			]);
+			// Price fallback: if Jupiter is unavailable but Dexscreener returned a
+			// pair price, surface it rather than leaving price null — two
+			// independent sources back the single most important field.
+			const priceUsd = price?.usdPrice ?? ds?.priceUsd ?? null;
+			const priceSource = price?.usdPrice != null ? 'jupiter' : ds?.priceUsd != null ? 'dexscreener' : null;
 			return {
 				token,
 				fetchedAt: new Date().toISOString(),
 				price,
+				priceUsd,
+				priceSource,
 				volume24h: ds,
 				meta,
 				holders,
@@ -229,7 +238,7 @@ export async function buildPumpSnapshotTool() {
 					price: 'https://lite-api.jup.ag/price/v3',
 					volume24h: 'https://api.dexscreener.com',
 					meta: 'https://frontend-api-v3.pump.fun',
-					holders: SOLANA_RPC_URL,
+					holders: getSolanaEndpoints(),
 					helius: HELIUS_API_KEY ? 'https://mainnet.helius-rpc.com' : null,
 				},
 			};

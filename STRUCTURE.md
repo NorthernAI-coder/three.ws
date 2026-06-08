@@ -32,7 +32,7 @@ bottom.
 Declared in [package.json](package.json):
 
 ```
-agent-payments-sdk/      → @pump-fun/agent-payments-sdk
+agent-payments-sdk/      → @three-ws/agent-payments (fork of @pump-fun/agent-payments-sdk@3.0.3)
 agent-ui-sdk/            → @three-ws/agent-ui
 avatar-sdk/              → @three-ws/avatar
 character-studio/        → @m3-org/characterstudio (fork)
