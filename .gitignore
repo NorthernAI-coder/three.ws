@@ -99,6 +99,15 @@ threews-launch-week-case-study.html
 # Temp working directories
 .tmp/
 
+# Editor/tool temp copies (e.g. activities.js.tmp.4033808.adac1fce2562)
+*.tmp.[0-9]*
+
+# Backup files (never commit backups)
+*.bak
+
+# Debug screenshot output from automation scripts (any directory)
+debug-screenshots/
+
 # GLB optimization backups (see scripts/optimize-glb.mjs)
 *.glb.bak
 .secrets/
