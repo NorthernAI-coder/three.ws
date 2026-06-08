@@ -22,6 +22,7 @@ import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.
 import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
+import { markProviderCooldown } from '../_lib/provider-health.js';
 import { z } from 'zod';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -793,16 +794,32 @@ async function handlePreview(req, res, id) {
 		} catch (fetchErr) {
 			const reason = fetchErr?.name === 'TimeoutError' ? 'timed out' : fetchErr.message;
 			console.warn(`[preview:${route.name}] fetch failed: ${reason}`);
+			// Unreachable upstream is a transient capacity/health problem — cool the
+			// provider down so the shared breaker steers other requests away from it.
+			void markProviderCooldown(route.name);
 			if (i + 1 < routes.length) continue;
-			return error(res, 502, 'upstream_unavailable', 'preview backend unreachable');
+			// Chain exhausted on an unreachable backend: 503 + Retry-After so the
+			// client backs off and retries, never a hard 502 (matches /api/chat).
+			res.setHeader('Retry-After', '20');
+			return error(res, 503, 'rate_limited', 'Agent preview is briefly at capacity. Please try again in a few seconds.');
 		}
 
 		if (upstream.ok) break;
 
 		const text = await upstream.text().catch(() => '');
 		console.warn(`[preview:${route.name}] ${upstream.status} — ${text.slice(0, 200)}`);
-		const canFailOver = i + 1 < routes.length && (upstream.status === 429 || upstream.status >= 500);
+		// 429 / 5xx are capacity or transient upstream failures — record a cooldown
+		// for the shared provider-health breaker before failing over.
+		const transient = upstream.status === 429 || upstream.status >= 500;
+		if (transient) void markProviderCooldown(route.name);
+		const canFailOver = i + 1 < routes.length && transient;
 		if (canFailOver) continue;
+		// Chain exhausted. A capacity/transient terminal failure degrades to
+		// 503 + Retry-After (client backs off); a genuine bad status stays a 502.
+		if (transient) {
+			res.setHeader('Retry-After', '20');
+			return error(res, 503, 'rate_limited', 'Agent preview is briefly at capacity. Please try again in a few seconds.');
+		}
 		return error(res, 502, 'upstream_error', `preview backend returned ${upstream.status}`);
 	}
 
