@@ -5,6 +5,8 @@
 // breakdown, the on-chain escrow bridge (program / vault / creator → Solscan),
 // and the public submission feed. Read-only.
 
+import { mdToHtml } from './md.js';
+
 const SOLSCAN = 'https://solscan.io/account/';
 
 const taskId = (() => {
@@ -40,7 +42,7 @@ function render(b, submissions) {
 
 			<div class="detail-section">
 				<h2>The brief</h2>
-				<div class="body-md">${esc(b.bodyMarkdown) || '<span style="color:var(--muted)">No description provided.</span>'}</div>
+				<div class="body-md md">${b.bodyMarkdown ? mdToHtml(b.bodyMarkdown) : '<span style="color:var(--muted)">No description provided.</span>'}</div>
 			</div>
 
 			${
@@ -142,7 +144,7 @@ function submission(s) {
 			<span>· ${esc(timeAgo(s.createdAt))}</span>
 			<span class="sub-likes">♥ ${s.likeCount}</span>
 		</div>
-		${s.body ? `<div class="sub-body">${esc(s.body)}</div>` : ''}
+		${s.body ? `<div class="sub-body md">${mdToHtml(s.body)}</div>` : ''}
 		${
 			img.length
 				? `<div class="gallery" style="margin-top:10px">${img
