@@ -7,7 +7,7 @@
  *   POST /api/agents/:id/pumpfun/sell      — bonding-curve sell
  *   GET  /api/agents/:id/pumpfun/portfolio — aggregated positions + live PnL
  *   POST /api/agents/:id/pumpfun/swap      — AMM swap (graduated tokens)
- *   POST /api/agents/:id/pumpfun/pay       — @pump-fun/agent-payments-sdk surface
+ *   POST /api/agents/:id/pumpfun/pay       — @three-ws/agent-payments surface
  *
  * One bundle so Vercel doesn't re-bundle @solana/web3.js + @pump-fun/* per file.
  */
@@ -436,7 +436,7 @@ async function handlePay(req, res, id) {
 	const conn = solanaConnection(body.network);
 	const tokenMint = new PublicKey(body.tokenMint);
 	const currencyMint = new PublicKey(body.currencyMint);
-	const { PumpAgent } = await import('@pump-fun/agent-payments-sdk');
+	const { PumpAgent } = await import('@three-ws/agent-payments');
 	const agent = new PumpAgent(tokenMint, body.network, conn);
 
 	// ── Read-only ──────────────────────────────────────────────────────────

@@ -52,7 +52,7 @@ async function loadAmm() {
 
 async function loadAgentPayments() {
 	const [pay, web3] = await Promise.all([
-		import('@pump-fun/agent-payments-sdk'),
+		import('@three-ws/agent-payments'),
 		import('@solana/web3.js'),
 	]);
 	return { pay, web3 };
@@ -943,7 +943,7 @@ export function registerPumpFunSkills(skills) {
 	skills.register({
 		name: 'pumpfun-accept-payment',
 		description:
-			'Accept a paid invocation of this agent via @pump-fun/agent-payments-sdk. Splits revenue per the on-chain sharing config.',
+			'Accept a paid invocation of this agent via @three-ws/agent-payments. Splits revenue per the on-chain sharing config.',
 		instruction:
 			'Builds an accept_payment tx for a fixed price in a given currency mint. Caller signs as `user`.',
 		animationHint: 'gesture',
@@ -1115,7 +1115,7 @@ export function registerPumpFunSkills(skills) {
 		description:
 			'Derive the deterministic on-chain Invoice ID PDA. Use before building a payment tx to pre-check duplicate invoices.',
 		instruction:
-			'Calls getInvoiceIdPDA from @pump-fun/agent-payments-sdk. Pure offline computation — no wallet or network call.',
+			'Calls getInvoiceIdPDA from @three-ws/agent-payments. Pure offline computation — no wallet or network call.',
 		animationHint: 'inspect',
 		voicePattern: 'Deriving invoice PDA…',
 		mcpExposed: true,

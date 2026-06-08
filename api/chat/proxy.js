@@ -57,6 +57,7 @@ export default wrap(async (req, res) => {
 
 	if (upstream.status === 429) {
 		const retryAfter = upstream.headers.get('retry-after') || upstream.headers.get('x-ratelimit-reset-requests');
+		if (retryAfter) res.setHeader('retry-after', String(retryAfter));
 		return json(res, 429, {
 			error: 'rate_limited',
 			error_description: 'The built-in model is rate-limited. Please wait a moment and try again.',

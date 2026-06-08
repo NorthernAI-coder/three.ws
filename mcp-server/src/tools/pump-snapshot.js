@@ -14,11 +14,13 @@
 //   - Solana RPC getTokenLargestAccounts                         → top holder distribution
 //   - Helius DAS getAsset (if HELIUS_API_KEY is set)             → exact holder count when available
 
-import { Connection, PublicKey } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { z } from 'zod';
 
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
+import { fetchJson as resilientFetchJson } from '../lib/resilient-fetch.js';
+import { withSolanaConnection } from '../lib/solana-rpc.js';
 
 const TOOL_NAME = 'pump_snapshot';
 const TOOL_DESCRIPTION =
@@ -36,16 +38,16 @@ function isValidSolanaPubkey(s) {
 	}
 }
 
+// Every upstream read goes through the shared resilient layer: an 8s per-attempt
+// timeout plus jittered retries on transient 429/5xx and network blips. These
+// are all idempotent GETs (or a read-only JSON-RPC POST), so retrying is safe.
 async function fetchJson(url, init = {}, timeoutMs = 8000) {
-	const controller = new AbortController();
-	const t = setTimeout(() => controller.abort(), timeoutMs);
-	try {
-		const res = await fetch(url, { ...init, signal: controller.signal });
-		if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
-		return await res.json();
-	} finally {
-		clearTimeout(t);
-	}
+	return resilientFetchJson(url, init, {
+		timeoutMs,
+		retries: 2,
+		retryNonIdempotent: init.method && init.method.toUpperCase() !== 'GET',
+		label: url,
+	});
 }
 
 async function getJupiterPrice(mint) {

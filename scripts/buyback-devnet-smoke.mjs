@@ -45,7 +45,7 @@ console.log(`mode:        ${fullSwap ? 'full-swap' : 'burn-only'}`);
 console.log(`slippageBps: ${slippageBps}`);
 console.log('');
 
-const { PUMP_PROGRAM_ID } = await import('@pump-fun/agent-payments-sdk');
+const { PUMP_PROGRAM_ID } = await import('@three-ws/agent-payments');
 const {
 	getConnection,
 	getPumpAgent,

@@ -65,15 +65,35 @@ function svmFeePayer() {
 	return env('X402_FEE_PAYER_SOLANA', '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4');
 }
 
-function buildPayAiSolanaFacilitator() {
-	const url = env('X402_FACILITATOR_URL_SOLANA') || env('X402_FACILITATOR_URL', 'https://facilitator.payai.network');
+// Resolve the ordered facilitator URL list. A comma-separated
+// X402_FACILITATOR_URLS_SOLANA configures redundancy; the single-URL env vars
+// are kept for back-compat, and PayAI is the last-resort default. Earlier URLs
+// get precedence at init — if the primary's /supported fetch is unreachable, a
+// later facilitator that responded takes over the Solana `exact` kind, so a
+// facilitator outage no longer leaves the server unable to settle.
+function solanaFacilitatorUrls() {
+	const list = env('X402_FACILITATOR_URLS_SOLANA', '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+	const single = env('X402_FACILITATOR_URL_SOLANA') || env('X402_FACILITATOR_URL');
+	const ordered = [];
+	const seen = new Set();
+	for (const url of [...list, single, 'https://facilitator.payai.network']) {
+		if (url && !seen.has(url)) {
+			seen.add(url);
+			ordered.push(url);
+		}
+	}
+	return ordered;
+}
+
+function buildSolanaFacilitators() {
 	const token = env('X402_FACILITATOR_TOKEN_SOLANA') || env('X402_FACILITATOR_TOKEN');
-	return new HTTPFacilitatorClient({
-		url,
-		createAuthHeaders: token
-			? async () => ({ headers: { Authorization: `Bearer ${token}` } })
-			: undefined,
-	});
+	const createAuthHeaders = token
+		? async () => ({ headers: { Authorization: `Bearer ${token}` } })
+		: undefined;
+	return solanaFacilitatorUrls().map((url) => new HTTPFacilitatorClient({ url, createAuthHeaders }));
 }
 
 let resourceServerPromise = null;
@@ -90,7 +110,7 @@ let lastInitError = null;
 export function getResourceServer() {
 	if (resourceServerPromise) return resourceServerPromise;
 	resourceServerPromise = (async () => {
-		const server = new x402ResourceServer([buildPayAiSolanaFacilitator()]);
+		const server = new x402ResourceServer(buildSolanaFacilitators());
 		registerExactSvmScheme(server, {});
 		try {
 			await server.initialize();

@@ -18,6 +18,7 @@ import { ImageResponse } from '@vercel/og';
 
 import { sql } from '../../_lib/db.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
+import { setRateLimitHeaders } from '../../_lib/http.js';
 import { loadCoinByMint, listActiveCoins } from '../../_lib/coin/index.js';
 
 const WIDTH = 1200;
@@ -447,8 +448,9 @@ export default async function handler(req, res) {
 	// burn through downstream RPC.
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) {
+		const retryAfter = Math.max(1, setRateLimitHeaders(res, rl));
 		res.statusCode = 429;
-		res.setHeader('retry-after', Math.ceil((rl.reset - Date.now()) / 1000));
+		res.setHeader('retry-after', String(retryAfter));
 		res.setHeader('content-type', 'application/json');
 		res.end(JSON.stringify({ error: 'rate_limited', limit: rl.limit, reset: rl.reset }));
 		return;

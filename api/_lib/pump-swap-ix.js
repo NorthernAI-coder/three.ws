@@ -40,7 +40,7 @@ import {
 	getBuyTokenAmountFromSolAmount,
 	userVolumeAccumulatorPda,
 } from '@pump-fun/pump-sdk';
-import { getBuybackAuthorityPDA } from '@pump-fun/agent-payments-sdk';
+import { getBuybackAuthorityPDA } from '@three-ws/agent-payments';
 
 import { getConnection } from './pump.js';
 

@@ -1,7 +1,7 @@
 /**
  * Agent Payments Skills
  * ---------------------
- * Full lifecycle skills for on-chain agent payments via @pump-fun/agent-payments-sdk.
+ * Full lifecycle skills for on-chain agent payments via @three-ws/agent-payments.
  * Extends the basic accept/verify skills in agent-skills-pumpfun.js with:
  *
  *   agent-payments-register        — register agent on-chain (one-time setup)
@@ -28,7 +28,7 @@ const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 async function loadPayments() {
 	const [pay, web3, BN] = await Promise.all([
-		import('@pump-fun/agent-payments-sdk'),
+		import('@three-ws/agent-payments'),
 		import('@solana/web3.js'),
 		import('bn.js').then((m) => m.default || m),
 	]);
@@ -374,7 +374,7 @@ export function registerAgentPaymentSkills(skills) {
 			required: ['agentToken', 'chainId', 'currencyToken', 'amount', 'payer'],
 		},
 		handler: async (args, _ctx) => {
-			const { EvmAgentOffline } = await import('@pump-fun/agent-payments-sdk/evm');
+			const { EvmAgentOffline } = await import('@three-ws/agent-payments/evm');
 			const agent = new EvmAgentOffline(args.agentToken, args.chainId);
 			const { bundle, memo, invoiceId } = agent.buildAcceptPaymentInstructions({
 				agentToken: args.agentToken,
@@ -421,7 +421,7 @@ export function registerAgentPaymentSkills(skills) {
 			required: ['agentToken', 'chainId', 'currencyToken', 'amount', 'memo', 'startTime', 'endTime'],
 		},
 		handler: async (args, _ctx) => {
-			const { EvmAgent } = await import('@pump-fun/agent-payments-sdk/evm');
+			const { EvmAgent } = await import('@three-ws/agent-payments/evm');
 			const agent = new EvmAgent(args.agentToken, args.chainId);
 			const result = await agent.validateInvoicePayment({
 				currencyToken: args.currencyToken,

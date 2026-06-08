@@ -24,7 +24,7 @@ import {
 	PumpAgent,
 	PUMP_AGENT_PAYMENTS_PROGRAM_ID,
 	getTokenAgentPaymentsPDA,
-} from '@pump-fun/agent-payments-sdk';
+} from '@three-ws/agent-payments';
 import { OnlinePumpSdk } from '@pump-fun/pump-sdk';
 import BN from 'bn.js';
 import { sql } from '../../_lib/db.js';

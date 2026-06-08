@@ -129,7 +129,7 @@ export async function getPumpSdkV2({ network = 'mainnet' } = {}) {
 
 export async function getPumpTradeClient({ network = 'mainnet' } = {}) {
 	const [{ PumpTradeClient }, web3, BN] = await Promise.all([
-		import('@pump-fun/agent-payments-sdk'),
+		import('@three-ws/agent-payments'),
 		import('@solana/web3.js'),
 		import('bn.js').then((m) => m.default || m),
 	]);
@@ -153,7 +153,7 @@ export async function getPumpSwapSdk({ network = 'mainnet' } = {}) {
 export async function getPumpAgent({ network = 'mainnet', mint } = {}) {
 	if (!mint) throw Object.assign(new Error('mint required'), { status: 400 });
 	const [{ PumpAgent, getTokenAgentPaymentsPDA }, web3, BN] = await Promise.all([
-		import('@pump-fun/agent-payments-sdk'),
+		import('@three-ws/agent-payments'),
 		import('@solana/web3.js'),
 		import('bn.js').then((m) => m.default || m),
 	]);
@@ -170,7 +170,7 @@ export async function getPumpAgentOffline({ network = 'mainnet', mint } = {}) {
 	if (!mint) throw Object.assign(new Error('mint required'), { status: 400 });
 	const [{ PumpAgentOffline, getTokenAgentPaymentsPDA, getInvoiceIdPDA }, web3, BN] =
 		await Promise.all([
-			import('@pump-fun/agent-payments-sdk'),
+			import('@three-ws/agent-payments'),
 			import('@solana/web3.js'),
 			import('bn.js').then((m) => m.default || m),
 		]);

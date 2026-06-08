@@ -204,7 +204,7 @@ const appConfig = {
 			'three/addons/environments/RoomEnvironment.js',
 			'three/addons/libs/meshopt_decoder.module.js',
 		],
-		exclude: ['@pump-fun/agent-payments-sdk'],
+		exclude: ['@three-ws/agent-payments'],
 	},
 	build: {
 		chunkSizeWarningLimit: 1000,
@@ -217,7 +217,7 @@ const appConfig = {
 				'/studio/fees-panel.js',
 				'./fees-panel.js',
 				'/crypto-optional.js',
-				/^@pump-fun\/agent-payments-sdk(\/.*)?$/,
+				/^@three-ws\/agent-payments(\/.*)?$/,
 			],
 			output: {
 				manualChunks(id) {
@@ -361,6 +361,14 @@ const appConfig = {
 				// instead of shipping an unresolvable bare import.
 				login: resolve(__dirname, 'public/login.html'),
 				register: resolve(__dirname, 'public/register.html'),
+				// /agents and /validation live in public/ and load module
+				// scripts that pull bare npm specifiers (`ethers`, JSX
+				// components). Registering them as inputs bundles those graphs
+				// so resolved /assets/* chunks ship instead of raw /src/* refs
+				// that throw "Failed to resolve module specifier" / "text/jsx"
+				// in production. Promoted over the raw publicDir copy below.
+				'agents-directory': resolve(__dirname, 'public/agents/index.html'),
+				validation: resolve(__dirname, 'public/validation/index.html'),
 				// BEGIN:DISCOVER_ROUTE
 				'my-agents': resolve(__dirname, 'public/my-agents/index.html'),
 				discover: resolve(__dirname, 'public/discover/index.html'),
@@ -1435,6 +1443,10 @@ const appConfig = {
 				const pairs = [
 					['dist/public/agent/index.html', 'dist/agent/index.html'],
 					['dist/public/login.html', 'dist/login.html'],
+					['dist/public/register.html', 'dist/register.html'],
+					['dist/public/agents/index.html', 'dist/agents/index.html'],
+					['dist/public/validation/index.html', 'dist/validation/index.html'],
+					['dist/public/gallery/index.html', 'dist/gallery/index.html'],
 					['dist/public/demos/brain.html', 'dist/demos/brain.html'],
 					['dist/public/demos/lipsync-tts.html', 'dist/demos/lipsync-tts.html'],
 					['dist/public/demos/lipsync-mic.html', 'dist/demos/lipsync-mic.html'],
