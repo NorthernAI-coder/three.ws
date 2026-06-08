@@ -8,6 +8,7 @@
 // function is a no-op. Safe to call from any signup path (email, SIWE, SIWS).
 
 import { sql } from './db.js';
+import { withDbRetry } from './db-retry.js';
 
 const DEFAULT_NAME = 'My First Agent';
 const DEFAULT_DESCRIPTION =
@@ -21,38 +22,12 @@ export async function seedDefaultAgent(userId) {
 	if (!userId) return null;
 
 	try {
-		const existing = await sql`
-			SELECT 1 AS x FROM agent_identities
-			WHERE user_id = ${userId} AND deleted_at IS NULL
-			LIMIT 1
-		`;
-		if (existing.length) return null;
-
-		const [agent] = await sql`
-			INSERT INTO agent_identities (
-				user_id, name, description, system_prompt, greeting,
-				category, tags, capabilities, is_published, published_at
-			) VALUES (
-				${userId},
-				${DEFAULT_NAME},
-				${DEFAULT_DESCRIPTION},
-				${DEFAULT_PROMPT},
-				${DEFAULT_GREETING},
-				'general',
-				ARRAY['starter']::text[],
-				'{"bullets": ["Answers questions","Helps with writing","Suggests next steps"], "skills": [], "library": []}'::jsonb,
-				false,
-				null
-			)
-			RETURNING id
-		`;
-		return agent?.id || null;
-	} catch (err) {
-		// One retry after 1 s — transient Neon cold-start failures recover quickly.
-		// Never block signup regardless; both paths log and return null on failure.
-		console.warn('[seed-default-agent] first attempt failed, retrying', { userId, error: err?.message });
-		await new Promise((r) => setTimeout(r, 1000));
-		try {
+		// withDbRetry retries transient Neon cold-start / connection blips (a failed
+		// connect commits nothing, so a retry is safe). The insert is idempotent via
+		// WHERE NOT EXISTS, so a retry — or a racing concurrent signup path — can
+		// never seed a second "My First Agent". Constraint/SQL errors propagate and
+		// are caught below.
+		return await withDbRetry(async () => {
 			const [agent] = await sql`
 				INSERT INTO agent_identities (
 					user_id, name, description, system_prompt, greeting,
@@ -68,9 +43,10 @@ export async function seedDefaultAgent(userId) {
 				RETURNING id
 			`;
 			return agent?.id || null;
-		} catch (err2) {
-			console.error('[seed-default-agent] failed', { userId, error: err2?.message });
-			return null;
-		}
+		});
+	} catch (err) {
+		// Never block signup — log and move on. The agent can be created later.
+		console.error('[seed-default-agent] failed', { userId, error: err?.message });
+		return null;
 	}
 }

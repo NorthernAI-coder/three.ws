@@ -5,6 +5,7 @@
  * GET /api/three-token/revenue-share  — authenticated user's revenue share position
  * GET /api/three-token/burns          — deploy-to-burn ledger (per-deploy burns)
  * GET /api/three-token/activity       — protocol activity feed
+ * GET /api/three-token/leaderboard    — ranked $THREE holders (public, paginated)
  *
  * Market data (price, market cap, supply, holders) comes from the shared market
  * module — Birdeye → DexScreener → GeckoTerminal failover with a stale cache —
@@ -19,6 +20,13 @@ import { getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, wrap } from '../_lib/http.js';
 import { TOKEN_MINT as THREE_MINT } from '../_lib/token/config.js';
 import { fetchTokenMarketData } from '../_lib/market/token-market.js';
+import { fetchHolderBalances } from '../_lib/coin/holders.js';
+
+// Truncate a base58 wallet for display: "FeMb…Jpump".
+function shortWallet(addr) {
+	const s = String(addr || '');
+	return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+}
 
 // Protocol tokenomics (fixed parameters of the $THREE protocol).
 // AGENT_DEPLOY_BURN: $THREE permanently burned each time an agent is deployed.
@@ -181,6 +189,64 @@ export default wrap(async (req, res) => {
 				created_at: e.created_at,
 			})),
 		});
+	}
+
+	if (action === 'leaderboard') {
+		const url = new URL(req.url, 'http://x');
+		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 50));
+		const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+
+		try {
+			// Real holder set from Helius (every $THREE holder, all token programs)
+			// plus market data for supply → % of supply. Both are independently
+			// resilient; a market-data blip just nulls the percentages.
+			const [balances, market] = await Promise.all([
+				fetchHolderBalances({ mint: THREE_MINT }),
+				fetchTokenMarketData(THREE_MINT).catch(() => null),
+			]);
+
+			const decimals = Number(market?.decimals ?? 6);
+			const atomicsPerToken = 10 ** decimals;
+			const supply = market?.supply != null ? Number(market.supply) : null;
+
+			// Rank by exact atomic balance (BigInt) so huge holders order correctly
+			// even past Number's 2^53 precision; only convert to a display Number
+			// for the page slice we actually return.
+			const ranked = [...balances.entries()]
+				.filter(([, atomic]) => atomic > 0n)
+				.sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0));
+
+			const total = ranked.length;
+			const holders = ranked.slice(offset, offset + limit).map(([wallet, atomic], i) => {
+				const amount = Number(atomic) / atomicsPerToken;
+				return {
+					rank: offset + i + 1,
+					wallet,
+					wallet_short: shortWallet(wallet),
+					amount,
+					pct_of_supply: supply ? amount / supply : null,
+				};
+			});
+
+			return json(
+				res,
+				200,
+				{ holders, total, limit, offset, supply, mint: THREE_MINT, decimals },
+				// Holder sets change slowly; cache at the edge so the Helius scan
+				// (seconds, thousands of accounts) runs at most once a minute.
+				{ 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' },
+			);
+		} catch (err) {
+			// Never 500 a public board — Helius unconfigured / rate-limited returns an
+			// empty board so the page renders its empty state instead of an error.
+			console.error('[three-token/leaderboard]', err?.message || err);
+			return json(
+				res,
+				200,
+				{ holders: [], total: 0, limit, offset, supply: null, mint: THREE_MINT },
+				{ 'cache-control': 'public, s-maxage=30' },
+			);
+		}
 	}
 
 	return error(res, 404, 'not_found', `unknown action: ${action}`);

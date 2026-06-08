@@ -1,8 +1,23 @@
 # three.ws   
 
+[**Website**](https://three.ws) · [**X / Twitter**](https://x.com/trythreews) · [**GitHub**](https://github.com/nirholas/three.ws) · [**$THREE on pump.fun**](https://pump.fun/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump)
+
 https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 
 **Give your AI a body.** three.ws is an open-source, browser-native 3D AI agent platform. Drop a GLB file, add an LLM brain, register on-chain, and embed anywhere — no plugins, no server uploads, no installs required.
+
+### $THREE
+
+`$THREE` is the native token of the three.ws ecosystem — the one and only coin of the platform.
+
+| | |
+| --- | --- |
+| **Token** | `$THREE` |
+| **Contract Address (CA)** | `FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump` |
+| **Network** | Solana |
+| **Trade** | [pump.fun](https://pump.fun/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump) |
+
+> Always verify the contract address above before trading. `$THREE` is the only token associated with three.ws.
 
 ---
 
