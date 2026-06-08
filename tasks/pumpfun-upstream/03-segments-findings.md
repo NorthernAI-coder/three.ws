@@ -44,4 +44,13 @@ Raised use case: we let users launch tokens for their agents, so segment *those 
 - **Its real value is a backend we can't touch.** The "segments" are materialized by Pump.fun's private Lambda from their internal `pump-data-production` BigQuery, keyed by *pump.fun app `user_id`* — not Solana wallets, not our mints. Even pointed at our own DynamoDB table, every method returns empty until we build the entire cohort-materializer ourselves — which we already 80% have in `holders.js`.
 - **Reusable surface ≈ 40 lines.** Only the base64 cursor pagination and the `imurmurhash` deterministic sampling (`bucket = hash % 10000`) are worth borrowing as a *pattern*. Trivial to write natively against `coin_holders`.
 
-**Revised recommendation:** **Do not adopt the SDK** (unchanged), but **do build native agent-token holder cohorts** on top of `coin_holders` — a small, high-leverage feature. Sketch: a `coin_holder_cohorts` definition (SQL predicate over `coin_holders` joined with priced balances), a refresh that runs alongside the existing snapshot, deterministic sampling for "pick N% of whales," and exports the bounty board / communities can target. This is our build, against our data — borrow the *idea*, not the dependency.
+**Revised recommendation:** **Do not adopt the SDK** (unchanged), but **do build native agent-token holder cohorts** on top of `coin_holders` — a small, high-leverage feature. Borrow the *idea* (named cohorts + deterministic sampling), not the dependency.
+
+## Shipped
+
+Built natively, dependency-free, against our own holder set — no DynamoDB, no SDK:
+
+- [`api/_lib/coin/cohorts.js`](../../api/_lib/coin/cohorts.js) — cohort registry (`holders`, `whales`, `diamond-hands`, `new-buyers`, `exited`), each a parameterized keyset query over `coin_holders` (no second pipeline; always as fresh as the snapshot cron). Deterministic FNV-1a sampling (`bucket % 10000`, salted per-coin) replaces the SDK's `imurmurhash`. `cohortCounts`, `queryCohort` (cursor-paginated, optional sampling).
+- [`api/coin/[mint]/cohorts.js`](../../api/coin/[mint]/cohorts.js) — public definitions+counts; creator-gated member export for airdrop/bounty targeting.
+- [`2026-06-08-coin-holder-cohorts.sql`](../../api/_lib/migrations/2026-06-08-coin-holder-cohorts.sql) — `first_seen` / `last_seen` partial indexes; re-export in `coin/index.js`.
+- Tests: [`cohorts.test.js`](../../api/_lib/coin/cohorts.test.js) (14, passing) — sampling determinism/distribution, spec bounds, registry. Wired into `npm test` via `vitest.config.js`. SQL paths need a live DB to exercise (none locally).
