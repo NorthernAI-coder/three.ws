@@ -1716,6 +1716,14 @@
 			"dest": "/api/agents/[id]"
 		},
 		{
+			"src": "/api/agents/unstoppable-status",
+			"dest": "/api/agents/unstoppable-status"
+		},
+		{
+			"src": "/api/agents/endpoint-shopper-run",
+			"dest": "/api/agents/endpoint-shopper-run"
+		},
+		{
 			"src": "/api/agents/([^/]+)",
 			"dest": "/api/agents/[id]"
 		},
@@ -2902,14 +2910,6 @@
 		{
 			"src": "/api/tutor/session",
 			"dest": "/api/tutor/session.js"
-		},
-		{
-			"src": "/api/agents/unstoppable-status",
-			"dest": "/api/agents/unstoppable-status.js"
-		},
-		{
-			"src": "/api/agents/endpoint-shopper-run",
-			"dest": "/api/agents/endpoint-shopper-run.js"
 		},
 		{
 			"src": "/(.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2|woff|ttf|otf|glb|gltf|hdr|exr|ktx2|basis|bin))$",
