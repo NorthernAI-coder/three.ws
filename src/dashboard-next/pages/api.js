@@ -718,15 +718,20 @@ async function runMcpTest(host, key) {
 	result.innerHTML = '<span class="dn-tag">Testing…</span>';
 	btn.disabled = true;
 	try {
+		// The plaintext key is hashed server-side and can't be replayed, so the
+		// test endpoint validates this key by id (ownership, revoked, expired) and
+		// runs the initialize → tools/list handshake with its real scope.
 		const res = await fetch('/api/developer/mcp-test', {
 			method: 'POST',
 			credentials: 'include',
-			headers: { accept: 'application/json' },
+			headers: { accept: 'application/json', 'content-type': 'application/json' },
+			body: JSON.stringify({ keyId: key.id }),
 		});
 		const data = await res.json().catch(() => null);
-		if (res.ok && data?.result?.tools) {
-			const tools = data.result.tools;
-			result.innerHTML = `<span class="dn-tag success">OK · ${tools.length} tool${tools.length === 1 ? '' : 's'}</span>`;
+		if (res.ok && data?.ok) {
+			const toolCount = data.tools?.length || 0;
+			const scopes = data.scopes?.length ? ` · ${data.scopes.join(', ')}` : '';
+			result.innerHTML = `<span class="dn-tag success">OK · ${toolCount} tool${toolCount === 1 ? '' : 's'}${esc(scopes)}</span>`;
 		} else {
 			const msg = data?.error?.message || data?.error_description || `HTTP ${res.status}`;
 			result.innerHTML = `<span class="dn-tag danger">Failed: ${esc(msg)}</span>`;
