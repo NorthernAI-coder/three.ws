@@ -22,6 +22,8 @@ import {
 	uint8ArrayToBase64,
 	explorerUrl,
 	friendlyError,
+	isMobileBrowser,
+	walletDeeplink,
 } from '../../public/x402-pay-core.js';
 
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
@@ -206,5 +208,52 @@ describe('friendlyError', () => {
 	it('passes through and truncates other messages', () => {
 		expect(friendlyError(new Error('boom'))).toBe('boom');
 		expect(friendlyError(new Error('x'.repeat(500))).length).toBe(240);
+	});
+});
+
+describe('isMobileBrowser', () => {
+	it('detects mobile user agents', () => {
+		const iphone =
+			'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
+		const android =
+			'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Mobile Safari/537.36';
+		expect(isMobileBrowser(iphone)).toBe(true);
+		expect(isMobileBrowser(android)).toBe(true);
+	});
+
+	it('treats desktop user agents as non-mobile', () => {
+		const mac =
+			'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36';
+		expect(isMobileBrowser(mac)).toBe(false);
+		expect(isMobileBrowser('')).toBe(false);
+	});
+});
+
+describe('walletDeeplink', () => {
+	const page = 'https://three.ws/paywall.html?req=abc&return=%2Fapi%2Fpaid';
+
+	it('builds Phantom/Solflare universal browse links carrying the page url', () => {
+		const enc = encodeURIComponent(page);
+		expect(walletDeeplink('phantom', page, 'https://three.ws')).toBe(
+			`https://phantom.app/ul/browse/${enc}?ref=${encodeURIComponent('https://three.ws')}`,
+		);
+		expect(walletDeeplink('solflare', page)).toBe(`https://solflare.com/ul/v1/browse/${enc}`);
+	});
+
+	it('builds MetaMask dapp links from host + path (no scheme)', () => {
+		expect(walletDeeplink('metamask', page)).toBe(
+			'https://metamask.app.link/dapp/three.ws/paywall.html?req=abc&return=%2Fapi%2Fpaid',
+		);
+	});
+
+	it('builds a Coinbase Wallet dapp link', () => {
+		expect(walletDeeplink('coinbase', page)).toBe(
+			`https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(page)}`,
+		);
+	});
+
+	it('returns null for WalletConnect (its own modal handles mobile) and missing urls', () => {
+		expect(walletDeeplink('walletconnect', page)).toBe(null);
+		expect(walletDeeplink('phantom', '')).toBe(null);
 	});
 });
