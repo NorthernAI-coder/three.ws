@@ -44,6 +44,16 @@ const M_STYLES = `
 	color: rgba(255,255,255,0.6); margin-top: 0.4rem;
 }
 .pmodal-slider-label b { color: #a4f0bc; font-weight: 500; }
+.pmodal-quote-toggle { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
+.pmodal-quote-opt {
+	flex: 1; padding: 0.5rem 0.7rem; border-radius: 8px; cursor: pointer;
+	background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+	color: rgba(255,255,255,0.7); font-size: 0.84rem; font-weight: 600; transition: 0.15s;
+}
+.pmodal-quote-opt:hover { background: rgba(255,255,255,0.08); }
+.pmodal-quote-opt.active {
+	background: rgba(120,200,140,0.18); border-color: rgba(120,200,140,0.4); color: #d8f5e2;
+}
 .pmodal-actions { display: flex; gap: 0.5rem; margin-top: 1.2rem; }
 .pmodal-btn {
 	flex: 1; padding: 0.6rem 0.9rem; border-radius: 8px; cursor: pointer;
@@ -398,8 +408,6 @@ function openLaunch({ identity, agentId, avatarId, formData }) {
 	let step = 1;
 	// Aborts the in-browser 3ws-mark grind if the user backs out mid-stamp.
 	let launchGrindAbort = null;
-	// USDC mainnet mint — pump.fun v2 quote when the user picks USDC pair.
-	const USDC_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 	async function buildMetadata(name, symbol, description) {
 		let imageDataUrl = null;
