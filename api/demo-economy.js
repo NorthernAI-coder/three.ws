@@ -55,7 +55,7 @@ async function fetchMarketBriefing() {
 			headline: 'Solana market briefing',
 			pools: [
 				{ name: 'SOL/USDC', price: '148.20', change24h: '+3.4%', vol24h: '$82M', up: true },
-				{ name: 'JUP/SOL', price: '0.9812', change24h: '-1.2%', vol24h: '$14M', up: false },
+				{ name: 'THREE/SOL', price: '0.00042', change24h: '+5.1%', vol24h: '$9M', up: true },
 			],
 			fetchedAt: new Date().toISOString(),
 		};

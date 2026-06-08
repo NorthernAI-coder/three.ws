@@ -455,7 +455,7 @@ async function handleBalances(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	const body = parse(balancesSchema, { ...req.query });
 	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
-	const agent = new PumpAgent(new PublicKey(body.mint), conn);
+	const agent = new PumpAgent(new PublicKey(body.mint), body.cluster, conn);
 	const balances = await agent.getBalances(new PublicKey(body.currency_mint));
 	return json(res, 200, {
 		paymentVault: { address: balances.paymentVault.address.toBase58(), balance: balances.paymentVault.balance.toString() },

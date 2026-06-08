@@ -2,7 +2,7 @@
  * Jupiter Swap + Pyth Oracle skills
  * ----------------------------------
  * Jupiter:  quote-only and full swap for any Solana SPL token pair.
- * Pyth:     live USD prices for SOL, BTC, ETH, USDC, BONK, WIF, JUP, PYTH.
+ * Pyth:     live USD prices for SOL, BTC, ETH, USDC.
  *
  * Skills registered:
  *   jupiter-quote   — read-only quote, no signing
@@ -65,7 +65,7 @@ export function registerJupiterSkills(skills) {
 			properties: {
 				symbolIn: {
 					type: 'string',
-					description: 'Input token symbol (SOL, USDC, BONK, …) or raw mint address',
+					description: 'Input token symbol (SOL, USDC, …) or raw mint address',
 				},
 				symbolOut: {
 					type: 'string',
@@ -192,7 +192,7 @@ export function registerJupiterSkills(skills) {
 			type: 'object',
 			required: ['symbol'],
 			properties: {
-				symbol: { type: 'string', description: 'Token symbol to look up (e.g. BONK, WIF)' },
+				symbol: { type: 'string', description: 'Token symbol to look up (e.g. SOL, USDC)' },
 			},
 		},
 		handler: async (args, _ctx) => {

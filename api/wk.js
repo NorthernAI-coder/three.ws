@@ -609,7 +609,7 @@ function handleX402Discovery(req, res) {
 					extensions: extensionsForAccepts(mintToMeshAccepts, {
 						method: 'GET',
 						discoverable: true,
-						input: { mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
+						input: { mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
 						inputSchema: {
 							type: 'object',
 							required: ['mint'],

@@ -20,22 +20,22 @@ import {
 } from '@solana/web3.js';
 import { log } from './shared/log.js';
 
-// Solana mint constants used as built-in defaults / quick picks.
+// Solana mint constants used as built-in defaults / quick picks. SOL and USDC
+// are coin-agnostic settlement / quote assets (the default swap pair); $THREE is
+// the one and only project token. No other coin is ever surfaced here.
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
-// Curated quick-pick list. Token picker also accepts any mint via paste.
-// Decimals + symbols are baked in so the modal still works if Jupiter's
-// /tokens endpoint is rate-limited or offline.
+// Curated quick-pick list — SOL/USDC quote assets plus $THREE. The token picker
+// also accepts ANY mint via paste, so swapping other tokens still works; we just
+// never promote a coin other than $THREE as a built-in tile. Decimals + symbols
+// are baked in so the modal still works if Jupiter's /tokens endpoint is
+// rate-limited or offline.
 const QUICK_TOKENS = [
-	{ symbol: 'SOL',  name: 'Solana',          mint: SOL_MINT,                                            decimals: 9, logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' },
-	{ symbol: 'USDC', name: 'USD Coin',        mint: USDC_MINT,                                           decimals: 6, logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' },
-	{ symbol: 'USDT', name: 'USDT',            mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',     decimals: 6, logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.svg' },
-	{ symbol: 'BONK', name: 'Bonk',            mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',     decimals: 5, logoURI: 'https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I' },
-	{ symbol: 'JUP',  name: 'Jupiter',         mint: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',     decimals: 6, logoURI: 'https://static.jup.ag/jup/icon.png' },
-	{ symbol: 'WIF',  name: 'dogwifhat',       mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',     decimals: 6, logoURI: 'https://bafkreibk3covs5ltyqxa272uodhculbr6kea6betidfwy3ajsav2vjzyum.ipfs.nftstorage.link' },
-	{ symbol: 'PYTH', name: 'Pyth Network',    mint: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',     decimals: 6, logoURI: 'https://pyth.network/token.svg' },
-	{ symbol: 'JTO',  name: 'Jito',            mint: 'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL',      decimals: 9, logoURI: 'https://metadata.jito.network/token/jto/image' },
+	{ symbol: 'SOL',   name: 'Solana',   mint: SOL_MINT,   decimals: 9, logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' },
+	{ symbol: 'USDC',  name: 'USD Coin', mint: USDC_MINT,  decimals: 6, logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png' },
+	{ symbol: 'THREE', name: 'three',    mint: THREE_MINT, decimals: 6, logoURI: '' },
 ];
 
 const SOLANA_MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;

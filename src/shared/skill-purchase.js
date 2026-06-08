@@ -115,7 +115,6 @@ export function formatAssetPrice(price) {
 
 export function shortMintLabel(mint) {
 	if (mint === USDC_MAINNET_MINT) return 'USDC';
-	if (mint === 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB') return 'USDT';
 	return (mint || '').slice(0, 4) + '…';
 }
 

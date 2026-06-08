@@ -9,16 +9,15 @@ import { HermesClient } from '@pythnetwork/hermes-client';
 
 const HERMES_URL = 'https://hermes.pyth.network';
 
-// Curated feed IDs for tokens commonly used in this platform
+// Reference price-feed IDs for the major assets used as pricing/settlement
+// context (native SOL, BTC/ETH market references, USDC stable). We never list
+// other project tokens or memecoins here — the only coin this platform promotes
+// is $THREE. Callers can still resolve any Pyth feed id directly if needed.
 export const PRICE_FEED_IDS = {
 	SOL:  'ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
 	BTC:  'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
 	ETH:  'ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
 	USDC: 'eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
-	BONK: '72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419',
-	WIF:  '4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc',
-	JUP:  '0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996',
-	PYTH: '0bbf28e9a841a1cc788f6a361b17ca072d0ea3098a1e5df1c3922d06719579ff',
 };
 
 let _client = null;

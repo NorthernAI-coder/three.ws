@@ -466,7 +466,7 @@ function renderGraduation(ev) {
 			['AXI', `https://axiom.trade/meme/${mint}`],
 			['GMG', `https://gmgn.ai/sol/token/${mint}`],
 			['PDR', `https://trade.padre.gg/trade/solana/${mint}`],
-			['PHO', `https://photon-sol.tinyastro.io/en/r/@bonk/${mint}`],
+			['PHO', `https://photon-sol.tinyastro.io/en/lp/${mint}`],
 			['BLX', `https://bullx.io/terminal?chainId=1399811149&address=${mint}`],
 		].map(([l, u]) => `<a href="${attrEsc(u)}" target="_blank" rel="noopener" style="color:#888888">${l}</a>`).join('⋅')
 		: '';
