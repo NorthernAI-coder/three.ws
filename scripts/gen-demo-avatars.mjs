@@ -18,26 +18,35 @@ const THREEJS = fs.readFileSync(path.join(HERE, 'threejs-glbs.txt'), 'utf8').tri
 	.map((s) => s.replace(/\.glb$/, '')).filter(Boolean);
 
 // Curated community-avatar lineup. Each entry is a named identity rendered with
-// a real GLB shipped under /public. The mapping from name → GLB is intentional:
-// soldier-rigs go to operative/military-leaning personas, the expressive robot
-// goes to AI/protocol personas, the default humanoid covers the rest.
+// a real GLB shipped under /public, and every persona maps to a *visually
+// distinct* model — no two share a silhouette unless the personas are thematic
+// siblings (Boss/Agent/Spartian all run the soldier rig on purpose). Soldier
+// rigs go to operative personas, robot rigs to AI/protocol personas, and the
+// human rigs are spread across the rest so the gallery reads as a real roster.
+//
+// `attr` selects the license/attribution block (see *_ATTR below): 'threejs'
+// for MIT three.js example models, 'khronos' for CC-BY 4.0 Khronos sample
+// assets, and the default (omitted) for first-party three.ws starter assets.
 const ON_DISK = [
 	{ name: 'CZ', slug: 'cz', path: '/avatars/cz.glb', tags: ['humanoid', 'character', 'community'], desc: 'CZ — stylized humanoid with idle pose, ready for chat overlays.' },
 	{ name: 'Ansem', slug: 'ansem', path: '/avatars/default.glb', tags: ['humanoid', 'community', 'trader'], desc: 'Ansem — trader persona for chart-watchers and crypto Twitter.' },
-	{ name: 'Boss', slug: 'boss', path: '/animations/soldier.glb', tags: ['humanoid', 'rigged', 'animated', 'community'], desc: 'Boss — for the one running the room. Soldier rig with locomotion.' },
-	{ name: 'Vernington', slug: 'vernington', path: '/avatars/default.glb', tags: ['humanoid', 'community'], desc: 'Vernington — the senior of the Vern lineage.' },
-	{ name: 'Saga', slug: 'saga', path: '/animations/robotexpressive.glb', tags: ['robot', 'animated', 'rigged', 'community'], desc: 'Saga — mobile-native, expressive robot rig with idle, walk, jump, dance clips.' },
-	{ name: 'Claude', slug: 'claude', path: '/avatars/default.glb', tags: ['humanoid', 'community', 'ai'], desc: 'Claude — calm, thoughtful AI persona.' },
-	{ name: '3D', slug: '3d', path: '/avatars/default.glb', tags: ['humanoid', 'community', 'meta'], desc: '3D — meta avatar representing the platform itself.' },
-	{ name: 'AI', slug: 'ai', path: '/animations/robotexpressive.glb', tags: ['robot', 'animated', 'rigged', 'community', 'ai'], desc: 'AI — generic agent stand-in, expressive robot rig.' },
-	{ name: 'Agent', slug: 'agent', path: '/animations/soldier.glb', tags: ['humanoid', 'rigged', 'animated', 'community', 'agent'], desc: 'Agent — operative ready for autonomous on-chain work.' },
-	{ name: 'Vern', slug: 'vern', path: '/avatars/default.glb', tags: ['humanoid', 'community'], desc: 'Vern — base form, before the Vernington promotion.' },
-	{ name: 'Crossinger', slug: 'crossinger', path: '/avatars/default.glb', tags: ['humanoid', 'community'], desc: 'Crossinger — chain-hopper, multi-network identity.' },
-	{ name: 'Spartian', slug: 'spartian', path: '/animations/soldier.glb', tags: ['humanoid', 'rigged', 'animated', 'community'], desc: 'Spartian — disciplined, armored, never folds.' },
+	{ name: 'Boss', slug: 'boss', path: '/animations/soldier.glb', tags: ['humanoid', 'rigged', 'animated', 'community'], desc: 'Boss — for the one running the room. Soldier rig with locomotion.', attr: 'threejs' },
+	{ name: 'Vernington', slug: 'vernington', path: '/avatars/readyplayerme.glb', tags: ['humanoid', 'rigged', 'avatar', 'community'], desc: 'Vernington — the senior of the Vern lineage, full-body ready-player rig.', attr: 'threejs' },
+	{ name: 'Saga', slug: 'saga', path: '/animations/robotexpressive.glb', tags: ['robot', 'animated', 'rigged', 'community'], desc: 'Saga — mobile-native, expressive robot rig with idle, walk, jump, dance clips.', attr: 'threejs' },
+	{ name: 'Claude', slug: 'claude', path: '/avatars/cesium-man.glb', tags: ['humanoid', 'rigged', 'animated', 'community', 'ai'], desc: 'Claude — calm, thoughtful AI persona on a clean walking rig.', attr: 'khronos' },
+	{ name: '3D', slug: '3d', path: '/avatars/brainstem.glb', tags: ['robot', 'rigged', 'animated', 'community', 'meta'], desc: '3D — meta avatar for the platform itself, fully articulated sci-fi rig.', attr: 'khronos' },
+	{ name: 'AI', slug: 'ai', path: '/avatars/xbot.glb', tags: ['robot', 'rigged', 'animated', 'community', 'ai'], desc: 'AI — clean rigged android stand-in, ready for animation retargeting.', attr: 'threejs' },
+	{ name: 'Agent', slug: 'agent', path: '/animations/soldier.glb', tags: ['humanoid', 'rigged', 'animated', 'community', 'agent'], desc: 'Agent — operative ready for autonomous on-chain work.', attr: 'threejs' },
+	{ name: 'Vern', slug: 'vern', path: '/avatars/rigged-figure.glb', tags: ['humanoid', 'rigged', 'community'], desc: 'Vern — base form, before the Vernington promotion.', attr: 'khronos' },
+	{ name: 'Crossinger', slug: 'crossinger', path: '/avatars/michelle.glb', tags: ['humanoid', 'rigged', 'character', 'community'], desc: 'Crossinger — chain-hopper, multi-network identity.', attr: 'threejs' },
+	{ name: 'Spartian', slug: 'spartian', path: '/animations/soldier.glb', tags: ['humanoid', 'rigged', 'animated', 'community'], desc: 'Spartian — disciplined, armored, never folds.', attr: 'threejs' },
 	// Name surfaced as "Tester" because the marketplace UI auto-name filter
 	// strips entries whose name is exactly "test" (see AVATAR_AUTONAMED_RE in
 	// src/marketplace.js). Slug stays `test` to preserve the requested handle.
 	{ name: 'Tester', slug: 'test', path: '/avatars/default.glb', tags: ['humanoid', 'community'], desc: 'Tester — kicks the tires on every release before anyone else.' },
+	// New distinct characters that widen the gallery beyond the starter trio.
+	{ name: 'Nova', slug: 'nova', path: '/avatars/selfie-girl.glb', tags: ['humanoid', 'character', 'community'], desc: 'Nova — high-detail portrait avatar with an expressive face, built for streams and overlays.' },
+	{ name: 'Foxy', slug: 'foxy', path: '/avatars/fox.glb', tags: ['animal', 'mascot', 'rigged', 'animated', 'community'], desc: 'Foxy — stylized fox mascot with survey, walk, and run animations.', attr: 'khronos' },
 ];
 
 // Curated metadata for well-known Khronos models. Anything not listed here gets
@@ -260,6 +269,7 @@ const THREEJS_ATTR = { handle: 'threejs', displayName: 'three.js examples', url:
 const ONDISK_ATTR = { handle: 'three.ws', displayName: 'three.ws starter', url: 'https://three.ws', license: 'CC-BY 4.0' };
 
 // On-disk first
+const ATTR_BY_KEY = { khronos: KHRONOS_ATTR, threejs: THREEJS_ATTR, ondisk: ONDISK_ATTR };
 for (const m of ON_DISK) {
 	addItem({
 		id: `avatar_demo_disk_${m.slug}`,
@@ -269,7 +279,7 @@ for (const m of ON_DISK) {
 		image: null,
 		tags: m.tags,
 		desc: m.desc,
-		attribution: ONDISK_ATTR,
+		attribution: ATTR_BY_KEY[m.attr] || ONDISK_ATTR,
 	});
 }
 

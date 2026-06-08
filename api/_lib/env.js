@@ -109,6 +109,16 @@ export const env = {
 		return opt('GROQ_API_KEY');
 	},
 
+	// NVIDIA NIM API key (build.nvidia.com) — free OpenAI-compatible inference for
+	// 100+ hosted models (Nemotron, DeepSeek, Kimi, GLM, Llama 4, Qwen). Used by
+	// brain/chat as selectable native providers and by the embed we-pay proxy
+	// (api/llm/anthropic.js) as a free fallback tier. Endpoint:
+	// https://integrate.api.nvidia.com/v1 — rate-limited free tier, no SLA, so it
+	// is positioned as a budget/fallback lane that degrades back to paid providers.
+	get NVIDIA_API_KEY() {
+		return opt('NVIDIA_API_KEY');
+	},
+
 	// IBM watsonx.ai (Granite foundation models) — selectable brain in
 	// /api/chat and /api/brain/chat. Requires the API key AND a project (or
 	// space) id; the shared client in _lib/watsonx.js exchanges the key for an

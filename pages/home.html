@@ -3245,15 +3245,23 @@
 	#home-pose .hp-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; border-radius: 50%; background: var(--text); border: 2px solid #09090a; box-shadow: 0 0 0 1px var(--hairline-strong); cursor: grab; transition: transform .12s; }
 	#home-pose .hp-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
 	#home-pose .hp-slider::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%; background: var(--text); border: 2px solid #09090a; cursor: grab; }
-	#home-pose .hp-actions { display: flex; gap: 10px; margin-top: 4px; }
+	#home-pose .hp-mini-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 	#home-pose .hp-btn {
-		flex: 1; text-align: center; font-family: var(--font-mono); font-size: 12.5px; padding: 11px 14px;
+		text-align: center; font-family: var(--font-mono); font-size: 12.5px; padding: 11px 14px;
 		border-radius: 10px; border: 1px solid var(--hairline); background: transparent; color: var(--text-2);
 		cursor: pointer; text-decoration: none; transition: border-color .16s, color .16s, background .16s;
 	}
 	#home-pose .hp-btn:hover { color: var(--text); border-color: var(--hairline-strong); }
-	#home-pose .hp-btn-primary { background: var(--text); color: #09090a; border-color: var(--text); font-weight: 600; }
+	#home-pose .hp-btn:focus-visible { outline: 2px solid #4fc3ff; outline-offset: 2px; }
+	#home-pose .hp-btn-primary { display: block; background: var(--text); color: #09090a; border-color: var(--text); font-weight: 600; }
 	#home-pose .hp-btn-primary:hover { color: #09090a; background: #e2e2e2; }
+	#home-pose .hp-toast {
+		position: absolute; left: 50%; top: 16px; transform: translateX(-50%) translateY(-8px);
+		font-family: var(--font-mono); font-size: 12px; color: #061015; background: #4fc3ff;
+		padding: 7px 14px; border-radius: 999px; opacity: 0; pointer-events: none;
+		transition: opacity .2s, transform .2s; z-index: 4;
+	}
+	#home-pose .hp-toast.is-show { opacity: 1; transform: translateX(-50%) translateY(0); }
 	@media (max-width: 880px) {
 		#home-pose .hp-wrap { grid-template-columns: 1fr; }
 		#home-pose .hp-stage-card { min-height: 400px; }
@@ -3272,7 +3280,8 @@
 			<div class="hp-stage-card">
 				<div data-pose-stage></div>
 				<div class="hp-stage-hud"><span class="dot"></span>Live rig</div>
-				<p class="hp-hint" data-pose-hint>Drag to orbit &middot; click a body part to pose it</p>
+				<p class="hp-hint" data-pose-hint>Grab a limb to pose it &middot; drag the floor to orbit</p>
+				<div class="hp-toast" data-pose-toast aria-live="polite"></div>
 				<div class="hp-chips" data-pose-chips role="group" aria-label="Preset poses"></div>
 			</div>
 			<div class="hp-panel">
@@ -3281,10 +3290,12 @@
 					<p class="hp-panel-sel" data-pose-selected>&mdash;</p>
 					<div class="hp-sliders" data-pose-sliders></div>
 				</div>
-				<div class="hp-actions">
-					<button type="button" class="hp-btn" data-pose-reset>Reset pose</button>
-					<a class="hp-btn hp-btn-primary" href="/pose">Open full studio &rarr;</a>
+				<div class="hp-mini-actions">
+					<button type="button" class="hp-btn" data-pose-reset>Reset</button>
+					<button type="button" class="hp-btn" data-pose-copy>Copy link</button>
+					<button type="button" class="hp-btn" data-pose-snap>Snapshot</button>
 				</div>
+				<a class="hp-btn hp-btn-primary" href="/pose" data-pose-studio>Open this pose in the full studio &rarr;</a>
 			</div>
 		</div>
 	</div>

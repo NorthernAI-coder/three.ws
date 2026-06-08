@@ -43,6 +43,7 @@ import {
 	poseFromMannequinPreset,
 } from './pose-rig.js';
 import { PRESETS, getPresetsByGroup, getPresetById } from './pose-presets.js';
+import { decodePoseFromLocation } from './pose-share.js';
 import { AvatarGalleryPicker } from './avatar-gallery-picker.js';
 import {
 	createDocument,
@@ -399,9 +400,16 @@ function boot() {
 	mountRig(mannequinRig);
 	state.avatar = null;
 
-	// Pick a reasonable starting pose so the figure looks alive on load.
-	const intro = getPresetById('contrapposto');
-	if (intro) state.rig.applyPose(poseFromMannequinPreset(intro.pose));
+	// A pose handed over from elsewhere (the homepage demo's "Open full studio"
+	// link / share URL) wins; otherwise pick a reasonable starting pose so the
+	// figure looks alive on load.
+	const sharedPose = decodePoseFromLocation();
+	if (sharedPose) {
+		state.rig.applyPose(sharedPose);
+	} else {
+		const intro = getPresetById('contrapposto');
+		if (intro) state.rig.applyPose(poseFromMannequinPreset(intro.pose));
+	}
 
 	// ── Render loop ──────────────────────────────────────────────────────
 	let lastFrameMs = performance.now();
