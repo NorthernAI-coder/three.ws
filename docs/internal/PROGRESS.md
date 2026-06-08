@@ -144,3 +144,55 @@ Rails:
 - The image pipeline requires object storage configured on the deployment (`/api/forge-upload` 503s otherwise); the plugins report that clearly and the geometry/text paths still work.
 - The Blender add-on must be zipped so the archive contains the `three_ws/` directory; the ComfyUI nodes are copied into `custom_nodes/`. Both documented in their READMEs.
 - Private avatars (visibility=`private`) have no public `model_url`, so the renderer is skipped and the SVG card is served instead — the public OG endpoint never holds a presigned URL.
+
+## Item 7 — Paid x402 generation endpoint + OpenAPI docs ✅
+
+**What:** `POST /api/x402/forge` — the pay-per-call twin of the free, browser-facing `/api/forge`. AI agents settle in USDC autonomously (Base or Solana mainnet, no API key/account) to run text→3D or image→3D, then poll for free on the existing `/api/forge?job=<id>`. Closes the monetization gap vs Tripo's credit API; the agent-payments angle is one Tripo's billing can't copy. The MCP-3D layer (`api/_mcp3d/`, `text_to_3d`/`image_to_3d` + 13 more tools) already existed and is payment-free for in-conversation use — this adds the *paid REST surface* for autonomous agents.
+
+**Why this shape:** The TRELLIS job handle issued by the free endpoint is already pollable on `/api/forge?job=`, so the paid endpoint reuses the same lower-level libs (`textToImage`, the replicate provider, `forge-job-token`) and delegates polling — one source of truth for the pipeline, no risky refactor of the central `forge.js`, and no duplicate poll logic. Generation is submitted **after verify but before settle**, so a failed submit never charges (same ordering as the vanity grinder).
+
+**Files touched:**
+- `api/x402/forge.js` — new paid endpoint. Models the established x402 pattern (vanity.js): public rate-limit → parse/validate → price → `buildRequirements` → 402 challenge with Bazaar schema → access-control bypass → `send402` when unpaid → idempotency cache → `verifyPayment` → submit generation → `settlePayment` → respond. Reads the raw body once (needed for idempotency hashing), SSRF-guards caller-supplied `image_urls`. `GET` returns the free pricing catalog.
+- `api/_lib/forge-tiers.js` — added `priceUsdcAtomics` per tier (draft $0.05 / standard $0.15 / high $0.50) as the single price source, plus `priceAtomicsForTier()` / `priceUsdcForTier()` helpers; `buildCatalog()` now advertises `price_usdc(_atomics)`.
+- `api/wk.js` — registered `/api/x402/forge` in the hand-maintained x402 discovery catalog (required by the `x402-discovery-parity` guardrail — any `send402` route must appear there). Price sourced from `priceAtomicsForTier('standard')`, not hardcoded.
+- `api/openapi-json.js` — added the `POST /api/x402/forge` operation with request/response schemas + `x-payment-info`.
+- `vercel.json` — `api/x402/forge.js` at `maxDuration: 60` (FLUX synth + submit), matching sibling x402 routes.
+- `docs/api/forge-x402.md` — developer doc: pricing, request/response, the verify→submit→settle flow, idempotency, an `@x402/fetch` example.
+
+**Tests added:**
+- `tests/api/x402-forge.test.js` — 7 tests with payment verify/settle, `textToImage`, and the replicate submit stubbed at module boundaries: GET pricing (asserts per-tier USDC from forge-tiers), 402 challenge quoting the requested tier price (high=500000, default=150000), prompt + image_urls validation, the full paid path (verify→submit→settle, asserts `job_id`/`poll_url`/`x-payment-response`), and the paid-but-empty-input rejection.
+
+**Tests:** `npx vitest run tests/api/x402-forge.test.js tests/api/x402-discovery-parity.test.js tests/api/x402-gas-sponsoring.test.js` → 20 passed. The discovery-parity guardrail (every paid route catalogued) stays green with the new route registered.
+
+**Caveats:**
+- Only the platform image pipeline (FLUX→TRELLIS) is sold via x402; the BYOK geometry backends (Meshy/Tripo) bill through the caller's own key on the free `/api/forge` and are intentionally not monetized here.
+- The polled `glb_url` is the provider delivery URL (short-lived) when no durable store row exists — documented as "fetch promptly". Parity with the free endpoint's store-unavailable behavior.
+
+## Item 8 — Text-to-animation (generate motion from a prompt) ✅ (core; UI button is the remaining surface)
+
+**What:** Generate a brand-new animation from a natural-language prompt ("waving confidently", "a slow tai-chi sweep") and retarget it onto any rigged avatar. The capability Tripo and the rest of the field lack — they only *apply preset* clips; this *synthesizes* motion that doesn't pre-exist. Reuses every downstream piece we already own: the Wolf3D rig, the retarget engine, and the animation library format.
+
+**Architecture (maximal reuse):** the motion-diffusion worker emits a three.js `AnimationClip.toJSON()` on canonical Wolf3D bone names — the *exact* format the curated library serves — so a generated clip is retargeted onto an avatar by the same engine (`src/animation-retarget.js`) as a preset, with no new consumer logic.
+
+**Files added — GPU worker `workers/model-text2motion/`:**
+- `smpl_to_clip.py` — the deterministic bridge: SMPL axis-angle joint rotations + root translation → three.js AnimationClip JSON (SMPL→Wolf3D bone map, axis-angle→quaternion, `Hips.position`). Pure NumPy; an optional per-bone `rest_offsets` hook for rig calibration.
+- `main.py` — FastAPI service matching the `model-*` contract exactly (POST /infer → 202 {task_id}; GET /tasks/:id; queued-job dict; API-key auth; GCS upload of the clip JSON).
+- `mdm_sampler.py` — MDM (Motion Diffusion Model, **MIT**) adapter; GPU imports kept lazy so the module imports without torch. Model swap touches only this file.
+- `worker_security.py` (copied), `requirements.txt`, `Dockerfile` (clones MDM, mirrors model-triposr), `cloudbuild.yaml` (L4 GPU, weights-bucket mount), `README.md`.
+
+**Files added/edited — JS wiring:**
+- `api/_providers/gcp.js` — new `text2motion` mode: `serviceUrlForMode` (`GCP_TEXT2MOTION_URL`), `buildWorkerRequest` (POST /infer with prompt/duration/fps), `MODE_ETA`, and `status()` surfacing `resultClipUrl` + frames/fps (a clip JSON, not a GLB).
+- `api/forge-motion.js` — REST endpoint: `POST /api/forge-motion {prompt,duration_seconds?,fps?}` → 202 {job_id}; `GET ?job=<id>` → {status, clip_url, frames, fps}. Rate-limited, validated, modeled on forge-remesh.
+- `api/_mcp/tools/animations.js` — new `text_to_animation` MCP tool: generate via the worker (submit + bounded poll), then retarget onto a `model_url` reusing apply_animation's exact internal helpers. Auto-registers in both the main MCP server and the `api/_mcp3d` 3D catalog.
+
+**Tests added:**
+- `workers/model-text2motion/test_smpl_to_clip.py` — 16 NumPy tests: axis-angle→quaternion (known rotations, unit-norm, batched), quat compose, clip JSON shape (track names per mapped bone, value lengths, monotonic times, duration), unit quaternions in output, translation→Hips.position, flattened-pose input, single-frame/static, rest-offset premultiply, deterministic uuid, input-validation rejects.
+- `tests/api/forge-motion.test.js` — 7 tests with the worker stubbed at the provider boundary: queued submit (asserts prompt/mode forwarded), duration clamp, prompt validation, unconfigured 503, poll returns the retargetable clip URL + frames/fps, missing/malformed job id.
+
+**Tests:** JS `npx vitest run tests/api/forge-motion.test.js tests/animations.test.js` + Python `python -m unittest test_smpl_to_clip` → all green (7 + 7 + 16).
+
+**What is verified vs deploy-validated (honest boundary):**
+- *Verified here:* the SMPL→clip conversion (the keystone), the provider mode, the REST endpoint, and the MCP tool registration — all with tests.
+- *Deploy-validated (GPU, like every other `model-*` worker — none run in-repo/CI):* MDM inference. Specifically `mdm_sampler._decode_to_smpl()` (HumanML3D representation → SMPL axis-angle) is the integration point to confirm against the deployed checkpoint, and the SMPL→Wolf3D **rest-pose offset** defaults to identity and should be calibrated on first deploy for best fidelity (bone-name + hip-scale alignment already handled by the retarget engine).
+
+**Remaining surface:** a browser "Generate from text" button in the pose/animation studio (the REST + MCP agent surfaces are wired and tested now; the in-browser button is the one consumer not yet added — it would call `/api/forge-motion`, poll, then apply the returned clip via the existing `animation-library` retarget path, exactly like selecting a preset).

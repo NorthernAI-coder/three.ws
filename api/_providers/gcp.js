@@ -66,6 +66,8 @@ function serviceUrlForMode(mode) {
 			return readEnv('GCP_REMBG_URL');
 		case 'segment':
 			return readEnv('GCP_SEGMENT_URL');
+		case 'text2motion':
+			return readEnv('GCP_TEXT2MOTION_URL');
 		case 'rerig':
 			// Rigging is handled by the pipeline controller via its /rig endpoint.
 			return readEnv('GCP_RECONSTRUCTION_URL');
@@ -198,6 +200,20 @@ function buildWorkerRequest(request) {
 		};
 	}
 
+	if (mode === 'text2motion') {
+		// Text→motion has no source mesh: the prompt rides in params. The worker
+		// returns a three.js AnimationClip JSON URL (result_url), not a GLB.
+		return {
+			path: '/infer',
+			resultKey: 'result_url',
+			body: {
+				prompt: params?.prompt || '',
+				duration_seconds: params?.duration_seconds ?? 4,
+				fps: params?.fps ?? 30,
+			},
+		};
+	}
+
 	return null;
 }
 
@@ -211,6 +227,7 @@ const MODE_ETA = {
 	retex_region: 60,
 	rembg: 5,
 	segment: 45,
+	text2motion: 30,
 	rerig: 45,
 };
 
@@ -349,6 +366,11 @@ export function createRegenProvider() {
 					result.error = `${mode} finished but no result URL in response`;
 				} else if (mode === 'rembg') {
 					result.resultImageUrl = url;
+				} else if (mode === 'text2motion') {
+					// The result is a three.js AnimationClip JSON, not a mesh.
+					result.resultClipUrl = url;
+					if (typeof data.frames === 'number') result.frames = data.frames;
+					if (typeof data.fps === 'number') result.fps = data.fps;
 				} else {
 					result.resultGlbUrl = url;
 				}
