@@ -1122,3 +1122,167 @@ a { color: inherit; text-decoration: none; }
 	.ad-version-row { grid-template-columns: auto 1fr; }
 	.ad-version-when { grid-column: 2; }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Holder cohorts panel (agent-detail.js → renderHolderCohorts)
+   Live audience segmentation under an agent token: size cohorts, whale share,
+   and concentration. Tokens mirror :root; cyan→green fill, no new chroma.
+─────────────────────────────────────────────────────────────────────────── */
+.ad-cohorts {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid var(--ad-line);
+}
+.ad-cohorts-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+}
+.ad-cohorts-title {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.14em;
+	color: var(--ad-muted);
+}
+.ad-cohorts-count {
+	font-size: 15px;
+	font-weight: 700;
+	color: var(--ad-text);
+	font-variant-numeric: tabular-nums;
+}
+.ad-cohorts-body {
+	margin-top: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.ad-cohort-row {
+	display: grid;
+	grid-template-columns: minmax(86px, auto) 1fr auto;
+	align-items: center;
+	gap: 10px;
+	font-size: 12px;
+}
+.ad-cohort-name {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--ad-text);
+	white-space: nowrap;
+}
+.ad-cohort-icon { font-size: 12px; line-height: 1; }
+.ad-cohort-bar {
+	height: 6px;
+	min-width: 40px;
+	border-radius: 999px;
+	background: var(--ad-line);
+	overflow: hidden;
+}
+.ad-cohort-fill {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: linear-gradient(90deg, var(--ad-cyan), var(--ad-green));
+	transition: width 0.5s ease;
+}
+.ad-cohort-val {
+	color: var(--ad-muted);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.ad-cohorts-conc {
+	margin-top: 12px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.ad-conc-chip {
+	font-size: 10.5px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	padding: 2px 8px;
+	border-radius: 999px;
+	border: 1px solid var(--ad-line-2);
+	color: var(--ad-muted);
+}
+.ad-conc-healthy {
+	color: var(--ad-green);
+	border-color: rgba(74, 222, 128, 0.35);
+	background: rgba(74, 222, 128, 0.10);
+}
+.ad-conc-moderate {
+	color: var(--ad-cyan);
+	border-color: rgba(87, 199, 255, 0.35);
+	background: rgba(87, 199, 255, 0.10);
+}
+.ad-conc-high {
+	color: var(--ad-amber);
+	border-color: rgba(245, 165, 36, 0.35);
+	background: rgba(245, 165, 36, 0.10);
+}
+.ad-conc-very-high {
+	color: #f87171;
+	border-color: rgba(248, 113, 113, 0.35);
+	background: rgba(248, 113, 113, 0.10);
+}
+.ad-cohorts-conc-detail {
+	color: var(--ad-muted);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+.ad-cohorts-note {
+	margin-top: 8px;
+	font-size: 10.5px;
+	line-height: 1.4;
+	color: var(--ad-dim);
+}
+.ad-cohorts-empty {
+	margin-top: 10px;
+	font-size: 12px;
+	color: var(--ad-muted);
+}
+.ad-cohorts-err {
+	margin-top: 10px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 12px;
+}
+.ad-cohorts-retry {
+	background: none;
+	border: 1px solid var(--ad-line-2);
+	color: var(--ad-text);
+	border-radius: 7px;
+	padding: 3px 10px;
+	font-size: 11px;
+	cursor: pointer;
+	transition: background 0.15s, border-color 0.15s;
+}
+.ad-cohorts-retry:hover {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: var(--ad-line-2);
+}
+.ad-skel {
+	position: relative;
+	overflow: hidden;
+	background: var(--skeleton-base);
+	border-radius: var(--skeleton-radius);
+}
+.ad-skel::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	transform: translateX(-100%);
+	background: linear-gradient(90deg, transparent, var(--skeleton-sheen), transparent);
+	animation: ad-cohort-shimmer 1.4s infinite;
+}
+.ad-skel-count { display: inline-block; width: 44px; height: 16px; }
+.ad-skel-row { height: 18px; width: 100%; }
+@keyframes ad-cohort-shimmer { 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+	.ad-skel::after { animation: none; }
+	.ad-cohort-fill { transition: none; }
+}

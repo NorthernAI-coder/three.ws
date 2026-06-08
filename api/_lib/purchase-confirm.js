@@ -23,6 +23,7 @@ import BigNumber from 'bignumber.js';
 import { sql } from './db.js';
 import { rpcFallbackFromEnv } from './solana/rpc-fallback.js';
 import { insertNotification } from './notify.js';
+import { verifyEvmUsdcPayment, evmChainId } from './evm-payment-verify.js';
 
 let _rpc;
 function rpc() {
@@ -154,20 +155,24 @@ async function findReferencedTransferAmount(txSignature, recipient, splTokenMint
  * @returns {Promise<{ status: 'pending' | 'confirmed' | 'tipped' | 'mismatch' | 'expired',
  *                     tx_signature?: string, tipped_amount?: string, message?: string }>}
  */
-export async function confirmSkillPurchase(pur) {
+export async function confirmSkillPurchase(pur, opts = {}) {
 	if (pur.status === 'confirmed') {
 		return { status: 'confirmed', tx_signature: pur.tx_signature };
 	}
 	if (pur.status === 'expired' || (pur.expires_at && new Date(pur.expires_at) < new Date())) {
 		return { status: 'expired' };
 	}
-	if (pur.chain !== 'solana') {
-		throw new Error(`chain '${pur.chain}' not supported`);
-	}
 
 	const payoutAddress = await resolvePayoutAddress(pur.agent_id, pur.chain);
 	if (!payoutAddress) throw new Error('payout wallet not configured');
 
+	if (pur.chain === 'solana') return confirmSolanaSkill(pur, payoutAddress);
+	if (evmChainId(pur.chain)) return confirmEvmSkill(pur, payoutAddress, opts.txHash);
+	throw new Error(`chain '${pur.chain}' not supported`);
+}
+
+// Solana path: locate the tx via Solana-Pay reference, then validateTransfer.
+async function confirmSolanaSkill(pur, payoutAddress) {
 	const refKey = new PublicKey(pur.reference);
 	const recipient = new PublicKey(payoutAddress);
 	const splToken = new PublicKey(pur.currency_mint);
@@ -199,45 +204,87 @@ export async function confirmSkillPurchase(pur) {
 			),
 		);
 	} catch (e) {
-		// 2a. Mismatch — but the transfer happened. Mark as tipped if we can pin down
-		//     the actual amount that hit the seller's wallet.
+		// Mismatch — but the transfer happened. Mark as tipped if we can pin down
+		// the actual amount that hit the seller's wallet; else mark failed.
 		const actual = await findReferencedTransferAmount(txSignature, recipient, splToken);
-		if (actual !== null) {
-			await sql`
-				UPDATE skill_purchases
-				SET status = 'tipped', tx_signature = ${txSignature},
-				    tipped_amount = ${actual.toString()}, confirmed_at = now()
-				WHERE id = ${pur.id} AND status = 'pending'
-			`;
-			await emitReceipt(pur, txSignature, payoutAddress, 'tipped');
-			await logEvent(pur.id, 'tipped', { actual: actual.toString(), expected: pur.amount, reason: e.message });
-			// Notify seller — they got SOMETHING; let them know it was a mismatch
-			// so they can decide whether to grant access manually.
-			await getSellerUserId(pur.agent_id).then((sellerId) => {
-				if (!sellerId) return;
-				return insertNotification(sellerId, 'skill_payment_mismatch', {
-					agent_id: pur.agent_id,
-					skill: pur.skill,
-					expected_amount: String(pur.amount),
-					actual_amount: actual.toString(),
-					tx_signature: txSignature,
-					purchase_id: pur.id,
-				});
-			});
-			return { status: 'tipped', tx_signature: txSignature, tipped_amount: actual.toString(), message: e.message };
-		}
-
-		// 2b. No matching transfer at all — mark failed, no on-chain side effect.
-		await sql`
-			UPDATE skill_purchases
-			SET status = 'failed', tx_signature = ${txSignature}
-			WHERE id = ${pur.id} AND status = 'pending'
-		`;
-		await logEvent(pur.id, 'mismatch_no_transfer', { reason: e.message });
-		return { status: 'mismatch', message: e.message };
+		if (actual !== null) return markSkillTipped(pur, txSignature, actual.toString(), e.message, payoutAddress);
+		return markSkillMismatch(pur, txSignature, e.message);
 	}
 
-	// 3. Match. Atomic confirm + ledger writes.
+	return finalizeSkillConfirmation(pur, txSignature, payoutAddress);
+}
+
+// EVM path: the buyer submits the settlement tx hash; verify a USDC transfer of
+// at least the price reached the seller's payout wallet on Base.
+async function confirmEvmSkill(pur, payoutAddress, txHash) {
+	if (!txHash) return { status: 'pending' }; // buyer hasn't broadcast / submitted yet
+
+	// Idempotency: one settlement tx can confirm at most one purchase.
+	const [dupe] = await sql`
+		SELECT id FROM skill_purchases
+		WHERE tx_signature = ${txHash} AND status IN ('confirmed', 'tipped') AND id != ${pur.id}
+		LIMIT 1
+	`;
+	if (dupe) return { status: 'mismatch', message: 'this transaction has already been used for another purchase' };
+
+	const result = await verifyEvmUsdcPayment({
+		txHash,
+		chain: pur.chain,
+		recipient: payoutAddress,
+		expectedAmount: pur.amount,
+	});
+	if (result.status === 'pending') return { status: 'pending' };
+	if (result.status === 'mismatch') {
+		// A short-but-real transfer is a tip; nothing on-chain at all is a mismatch.
+		if (result.actualAmount && BigInt(result.actualAmount) > 0n) {
+			return markSkillTipped(pur, txHash, result.actualAmount, result.message || 'amount mismatch', payoutAddress);
+		}
+		return markSkillMismatch(pur, txHash, result.message || 'no matching transfer');
+	}
+	return finalizeSkillConfirmation(pur, txHash, payoutAddress);
+}
+
+// Seller received some funds against this purchase, but not the exact expected
+// amount — record it as 'tipped' so the money is acknowledged and the seller can
+// grant access manually. Shared by both chains.
+async function markSkillTipped(pur, txSignature, actualAmount, reason, payoutAddress) {
+	await sql`
+		UPDATE skill_purchases
+		SET status = 'tipped', tx_signature = ${txSignature},
+		    tipped_amount = ${actualAmount}, confirmed_at = now()
+		WHERE id = ${pur.id} AND status = 'pending'
+	`;
+	await emitReceipt(pur, txSignature, payoutAddress, 'tipped');
+	await logEvent(pur.id, 'tipped', { actual: actualAmount, expected: pur.amount, reason });
+	const sellerId = await getSellerUserId(pur.agent_id);
+	if (sellerId) {
+		await insertNotification(sellerId, 'skill_payment_mismatch', {
+			agent_id: pur.agent_id,
+			skill: pur.skill,
+			expected_amount: String(pur.amount),
+			actual_amount: actualAmount,
+			tx_signature: txSignature,
+			purchase_id: pur.id,
+		});
+	}
+	return { status: 'tipped', tx_signature: txSignature, tipped_amount: actualAmount, message: reason };
+}
+
+// No matching transfer at all — mark failed, no on-chain side effect.
+async function markSkillMismatch(pur, txSignature, reason) {
+	await sql`
+		UPDATE skill_purchases
+		SET status = 'failed', tx_signature = ${txSignature}
+		WHERE id = ${pur.id} AND status = 'pending'
+	`;
+	await logEvent(pur.id, 'mismatch_no_transfer', { reason });
+	return { status: 'mismatch', message: reason };
+}
+
+// Atomic confirm + ledger writes. Identical for Solana and EVM once a valid
+// payment is proven, so both chains converge here. `txSignature` is the Solana
+// signature or the EVM tx hash.
+async function finalizeSkillConfirmation(pur, txSignature, payoutAddress) {
 	const intentId = `sp_${pur.id}`;
 	const updated = await sql`
 		UPDATE skill_purchases
@@ -253,7 +300,7 @@ export async function confirmSkillPurchase(pur) {
 			VALUES
 				(${intentId}, ${pur.user_id}, ${pur.agent_id}, ${pur.currency_mint},
 				 ${String(pur.amount)}, 'confirmed', now() + interval '30 days',
-				 'mainnet', ${txSignature}, now(),
+				 ${pur.chain === 'solana' ? 'mainnet' : pur.chain}, ${txSignature}, now(),
 				 ${JSON.stringify({ kind: 'skill_purchase', skill: pur.skill, reference: pur.reference })}::jsonb)
 			ON CONFLICT (id) DO NOTHING
 		`;

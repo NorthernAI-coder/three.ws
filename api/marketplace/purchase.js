@@ -255,11 +255,16 @@ async function handleConfirm(req, res, reference) {
 	if (pur.status === 'expired' || (pur.expires_at && new Date(pur.expires_at) < new Date())) {
 		return error(res, 410, 'purchase_expired', 'this pending purchase expired; please start a new one');
 	}
+	// EVM purchases settle by a tx hash the buyer submits in the confirm body;
+	// Solana scans the chain by reference and needs no body.
+	let txHash = null;
 	if (pur.chain !== 'solana') {
-		return error(res, 501, 'not_implemented', `chain '${pur.chain}' confirmation not yet supported`);
+		const body = await readJson(req).catch(() => null);
+		txHash = body?.tx_hash || body?.txHash || null;
+		if (!txHash) return error(res, 400, 'tx_hash_required', 'tx_hash is required to confirm an EVM purchase');
 	}
 
-	const result = await confirmSkillPurchase({ ...pur, reference });
+	const result = await confirmSkillPurchase({ ...pur, reference }, { txHash });
 	if (result.status === 'pending') {
 		return json(res, 200, { data: { status: 'pending' } });
 	}
