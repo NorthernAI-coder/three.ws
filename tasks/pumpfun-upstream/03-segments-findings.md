@@ -33,4 +33,15 @@ Pre-release and effectively private: unpublished on npm, `access: restricted` (i
 
 **Not relevant — do not adopt, do not watch for an npm release.** This is internal growth tooling Pump.fun is unlikely to expose, and the model (read their warehouse cohorts) has no public surface we could call.
 
-**Optional, separate idea (our own build, not this SDK):** the *pattern* — defining named, versioned cohorts and sampling them deterministically — could be worth borrowing for $THREE community features (e.g. cohorting $THREE holders for the `/go` bounty board or `coin-communities.js`: "top traders," "diamond hands," "new this week"). If we ever want that, we'd build it natively against our own Solana holder data and `imurmurhash`-style bucketing — no need to depend on this repo. Track that under a fresh task only if product demand appears; it is not a reason to adopt `pump-segments-sdk`.
+## Addendum — re-evaluated for agent-token holder segmentation
+
+Raised use case: we let users launch tokens for their agents, so segment *those token holders* into cohorts (whales, diamond hands, new buyers, dormant) and wire them into the `/go` bounty board, communities, and holder worlds.
+
+**The product instinct is right; this SDK is the wrong vehicle.** Verified against our actual code:
+
+- **We already own the data plane this SDK lacks.** [`api/_lib/coin/holders.js`](../../api/_lib/coin/holders.js) snapshots every agent-token holder on-chain via Helius `getTokenAccounts` (Token-2022) into a **Neon Postgres** `coin_holders` table — `persistHolderSnapshot({coinId, balances})`, `readEligibleHolders({coinId, minBalance})`. [`api/_lib/holder-pass.js`](../../api/_lib/holder-pass.js) already does USD-tiered gating. The segments-sdk computes *none* of this — it is a pure read proxy over a table someone else populates.
+- **Datastore mismatch.** The SDK is hardwired to **DynamoDB** (`@aws-sdk/lib-dynamodb`). Our store is Neon Postgres (`sql` tagged template). Adopting it means standing up a second datastore for zero benefit.
+- **Its real value is a backend we can't touch.** The "segments" are materialized by Pump.fun's private Lambda from their internal `pump-data-production` BigQuery, keyed by *pump.fun app `user_id`* — not Solana wallets, not our mints. Even pointed at our own DynamoDB table, every method returns empty until we build the entire cohort-materializer ourselves — which we already 80% have in `holders.js`.
+- **Reusable surface ≈ 40 lines.** Only the base64 cursor pagination and the `imurmurhash` deterministic sampling (`bucket = hash % 10000`) are worth borrowing as a *pattern*. Trivial to write natively against `coin_holders`.
+
+**Revised recommendation:** **Do not adopt the SDK** (unchanged), but **do build native agent-token holder cohorts** on top of `coin_holders` — a small, high-leverage feature. Sketch: a `coin_holder_cohorts` definition (SQL predicate over `coin_holders` joined with priced balances), a refresh that runs alongside the existing snapshot, deterministic sampling for "pick N% of whales," and exports the bounty board / communities can target. This is our build, against our data — borrow the *idea*, not the dependency.

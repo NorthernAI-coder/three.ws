@@ -22,7 +22,12 @@ const MAX_FORKS = _cpus <= 3 ? 2 : Math.min(6, _cpus);
 export default defineConfig({
 	test: {
 		environment: 'node',
-		include: ['tests/**/*.test.js', 'tests/**/*.test.mjs', 'src/**/*.test.js'],
+		include: [
+			'tests/**/*.test.js',
+			'tests/**/*.test.mjs',
+			'src/**/*.test.js',
+			'api/_lib/coin/**/*.test.js',
+		],
 		testTimeout: 45_000,
 		hookTimeout: 45_000,
 		// Vitest 4 hoisted poolOptions.forks.* to top-level.

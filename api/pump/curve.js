@@ -12,6 +12,23 @@
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { rpcFallbackFromEnv, getBondingCurveState, getTokenPrice, getGraduationProgress } from '../_lib/solana/index.js';
 
+// Mints that can never carry a pump.fun bonding curve. These are coin-agnostic
+// settlement / native tokens, listed only so we can *exclude* them from curve
+// lookups — never to promote them. (USDC mainnet+devnet, wrapped SOL, USDT.)
+const NON_CURVE_MINTS = new Set([
+	'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC (mainnet)
+	'4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // USDC (devnet)
+	'So11111111111111111111111111111111111111112',  // wrapped SOL
+	'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+]);
+
+// Every pump.fun mint keypair is ground to end in the literal suffix "pump". A
+// mint that does not end in "pump" (or that is a known settlement token) has no
+// bonding curve and never will — so we can reject it without touching RPC.
+function isPumpMint(mint) {
+	return typeof mint === 'string' && mint.endsWith('pump') && !NON_CURVE_MINTS.has(mint);
+}
+
 async function jupiterPriceFallback(mint) {
 	try {
 		const r = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`);
@@ -48,6 +65,21 @@ export default wrap(async (req, res) => {
 	const { mint, network } = readMint(req);
 	if (!mint || !isPlausibleMint(mint)) {
 		return error(res, 400, 'bad_mint', 'mint query param must be a base58 Solana address');
+	}
+
+	// Short-circuit mints that cannot have a bonding curve (settlement tokens,
+	// non-"pump" mints) *before* any Solana RPC call. This kills the 404 + RPC-429
+	// storm a misconfigured (e.g. USDC) widget mount would otherwise trigger: no
+	// cold start, no RPC reads, no warning spam. The negative-cache header lets the
+	// CDN edge serve repeat probes so the function isn't hit at all. The client's
+	// existing stop-on-404 path fires on this exactly as it does for a real 404.
+	if (!isPumpMint(mint)) {
+		return json(
+			res,
+			404,
+			{ error: 'not_a_pump_mint', error_description: 'mint has no pump.fun bonding curve' },
+			{ 'cache-control': 'public, s-maxage=300, max-age=300' },
+		);
 	}
 
 	const rpc = rpcFallbackFromEnv({ network });

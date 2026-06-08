@@ -6,11 +6,9 @@
 // examples — example-based tests can't catch a 0.5% bias toward index N.
 //
 // NOTE: this file lives next to the source rather than under /tests/* because
-// the autonomy guardrails for the demo-coin work restrict edits to the coin
-// module. Vitest's include glob (vitest.config.js) does not currently pick
-// it up automatically — when graduating the demo to production, add
-// `api/_lib/coin/**/*.test.js` to the include[] array. Until then, run with:
-//   npx vitest run api/_lib/coin/randomness.test.js
+// it co-locates with the coin module it covers. Vitest's include glob
+// (vitest.config.js) picks up `api/_lib/coin/**/*.test.js`, so `npm test` runs
+// it automatically alongside the rest of the suite.
 
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
