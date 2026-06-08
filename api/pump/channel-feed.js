@@ -1,4 +1,4 @@
-import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
+import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getMints, getWhales, getClaims } from '../_lib/channel-feed-sources.js';
 

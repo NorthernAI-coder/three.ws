@@ -132,6 +132,7 @@ function toast(msg) {
 
 		host.appendChild(renderHeroMetrics(stats));
 		host.appendChild(renderPositionWidget(store));
+		host.appendChild(renderAccruedRewards(store));
 		host.appendChild(renderUtilityPillars(stats));
 		host.appendChild(renderLiveConverter(tokenConfig));
 		host.appendChild(renderRevenueShare(stats, revenueShare));
@@ -304,6 +305,76 @@ function positionEmpty(message, ctaLabel, href, external = false) {
 		<span style="color:var(--nxt-ink-fade);font-size:13.5px">${esc(message)}</span>
 		<a class="dn-btn" href="${esc(href)}" ${external ? 'target="_blank" rel="noopener"' : ''} style="font-size:12.5px;white-space:nowrap">${esc(ctaLabel)}</a>
 	</div>`;
+}
+
+// ── Accrued revenue share (the holder's estimated slice) ────────────────────────
+
+// Reactive panel: the signed-in holder's ESTIMATED revenue-share accrual, driven
+// by their real position (from the store) × the protocol's per-token yield. This
+// is honest by construction — there is no on-chain claim program yet, so it shows
+// an accrual estimate and labels distribution as "coming". No claim button does
+// anything it can't back (that would violate the no-fake-actions rule).
+function renderAccruedRewards(store) {
+	const section = document.createElement('div');
+	section.className = 'dn-panel';
+	section.setAttribute('aria-label', 'Your revenue share');
+	section.innerHTML = `
+		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px">
+			<div style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.06em">Your Revenue Share</div>
+			<span style="font-size:10.5px;color:var(--nxt-ink-fade);border:1px solid var(--nxt-line);border-radius:999px;padding:2px 8px">Estimated</span>
+		</div>
+		<p style="margin:0 0 12px;font-size:12px;color:var(--nxt-ink-fade)">Your pro-rata slice of the holder revenue-share pool, based on your live balance. On-chain distribution is coming — this is an accrual estimate, not a claimable balance.</p>
+		<div data-slot="rewards-body"></div>
+	`;
+	const body = section.querySelector('[data-slot="rewards-body"]');
+
+	const render = (state) => {
+		body.innerHTML = accruedBody(state.position, state.revenueShare, state.protocol.token || {});
+	};
+	const unsub = store.subscribe(render);
+	new MutationObserver((_m, obs) => {
+		if (!section.isConnected) { unsub(); obs.disconnect(); }
+	}).observe(document.body, { childList: true, subtree: true });
+
+	return section;
+}
+
+function accruedBody(pos, rev, token) {
+	if (pos.status === 'idle' || pos.status === 'loading' || rev.status === 'loading') {
+		return `<div class="dn-skeleton" style="height:64px;border-radius:10px" aria-busy="true"></div>`;
+	}
+	if (pos.status === 'unauthenticated') {
+		return positionEmpty('Sign in to see your accrued revenue share.', 'Sign in', `/login?return=${encodeURIComponent(location.pathname)}`);
+	}
+	if (pos.status === 'no_wallet') {
+		return positionEmpty('Link a Solana wallet to start accruing revenue share.', 'Link wallet', '/dashboard/account');
+	}
+	if (pos.status === 'zero') {
+		return positionEmpty('Hold $THREE to earn a share of protocol revenue.', 'Get $THREE', `https://pump.fun/coin/${esc(token.mint || '')}`, true);
+	}
+	if (pos.status === 'error' || rev.status === 'error') {
+		return `<span style="color:var(--nxt-ink-fade);font-size:13.5px">Couldn’t load your revenue share right now.</span>`;
+	}
+
+	// status ok. per_token_yield is USD/token from the revenue-share pool snapshot.
+	const perToken = Number(rev.per_token_yield);
+	const accrued = Number.isFinite(perToken) && pos.amount != null ? pos.amount * perToken : null;
+	const pool = rev.revenue_share_pool_usd != null ? Number(rev.revenue_share_pool_usd) : null;
+	const poolPct = rev.revenue_share_pool_pct != null ? Number(rev.revenue_share_pool_pct) : 10;
+
+	const cells = [
+		{ label: 'Your est. accrual', value: accrued != null ? fmtUsd(accrued) : '—', strong: true },
+		{ label: 'Holder pool', value: pool != null ? fmtUsd(pool) : '—' },
+		{ label: 'Pool share of revenue', value: `${poolPct}%` },
+	];
+	return `
+		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:12px">
+			${cells.map((c) => `<div>
+				<div style="font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${esc(c.label)}</div>
+				<div style="font-size:${c.strong ? '24px' : '19px'};font-weight:700;font-family:${MONO};color:${c.strong ? '#4ade80' : 'inherit'}">${c.value}</div>
+			</div>`).join('')}
+		</div>
+		<button class="dn-btn" disabled title="On-chain revenue-share distribution is coming" style="font-size:12.5px;opacity:0.6;cursor:not-allowed">Claim — coming soon</button>`;
 }
 
 // ── Four utility pillars ──────────────────────────────────────────────────────

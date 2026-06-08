@@ -13,7 +13,7 @@
 //
 // Response: { data: [ { mint, symbol, name, logo, price_usd, rank } ] }
 
-import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
+import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
 

@@ -2,7 +2,7 @@
 // timeline of a single AgenC task. Useful for any agent that wants to decide
 // whether to bid/claim, or for monitoring an in-flight job.
 //
-// Pricing: $0.001 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.001 USDC, settled `exact` in USDC on Solana mainnet.
 
 import { z } from 'zod';
 import { PublicKey } from '@solana/web3.js';

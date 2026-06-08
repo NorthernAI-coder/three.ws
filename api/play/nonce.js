@@ -5,7 +5,7 @@
 // active (required) and what it demands (mint + minBalance) so the gate UI can
 // state the exact requirement and skip the whole flow when the platform hasn't
 // pinned a game token yet.
-import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
+import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { issueNonce, PLAY_GATE_MINT, PLAY_GATE_MIN, PLAY_GATE_SYMBOL } from '../_lib/play-pass.js';
 

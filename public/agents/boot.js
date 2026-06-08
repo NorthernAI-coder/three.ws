@@ -4,6 +4,15 @@
 
 import { AgentsDirectory } from '../../src/agents-directory.js';
 
+// A bare `?id=<uuid>` link points at a single agent — redirect to the
+// canonical detail route (`/agents/<id>`) which renders the detail view.
+// Without this the directory ignores `id` and shows an empty-looking list.
+const idParam = new URLSearchParams(window.location.search).get('id');
+if (idParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)) {
+  window.location.replace(`/agents/${idParam}`);
+  throw new Error('redirecting to agent detail'); // halt directory boot
+}
+
 const directory = new AgentsDirectory('#agents');
 
 // Decode URL params

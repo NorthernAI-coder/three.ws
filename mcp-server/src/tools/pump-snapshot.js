@@ -1,7 +1,7 @@
 // `pump_snapshot` — paid MCP tool returning a real-time market snapshot for a
 // Solana token (pump.fun or any SPL mint).
 //
-// Pricing: $0.005 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.005 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // All data is fetched live from public APIs and Solana RPC. No fallback
 // arrays, no mocked numbers. If a source is unreachable the field is null

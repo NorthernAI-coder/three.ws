@@ -2,7 +2,7 @@
 // a deterministic seed + a complete joint-rotation map for the three.ws
 // pose-studio mannequin.
 //
-// Pricing: $0.001 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.001 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // Output (real, not synthetic): the picked preset's full Euler rotation set
 // from src/pose-presets.js (the same data the public /pose page renders),

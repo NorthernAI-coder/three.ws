@@ -518,13 +518,13 @@ function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Pay-As-You-Learn Tutor',
 			tags: ['tutor', 'education', 'llm', 'explain', 'pay-per-call'],
 		}),
-			cryptoIntel: withService({
-				serviceName: 'three.ws Crypto Intel',
-				tags: ['crypto', 'market', 'signal', 'agent-exchange', 'solana'],
+		cryptoIntel: withService({
+			serviceName: 'three.ws Crypto Intel',
+			tags: ['crypto', 'market', 'signal', 'agent-exchange', 'solana'],
 		}),
-			avatarShop: withService({
-				serviceName: 'three.ws Avatar Shop',
-				tags: ['3d', 'avatar', 'cosmetic', 'shop', 'wearable'],
+		avatarShop: withService({
+			serviceName: 'three.ws Avatar Shop',
+			tags: ['3d', 'avatar', 'cosmetic', 'shop', 'wearable'],
 		}),
 	};
 
