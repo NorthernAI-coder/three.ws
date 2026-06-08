@@ -16,11 +16,16 @@ const _cache = new Map(); // address → { data, ts }
 function _getCached(addr) {
 	const entry = _cache.get(addr);
 	if (!entry) return null;
-	if (Date.now() - entry.ts > CACHE_TTL_MS) { _cache.delete(addr); return null; }
+	if (Date.now() - entry.ts > CACHE_TTL_MS) {
+		_cache.delete(addr);
+		return null;
+	}
 	return entry.data;
 }
 
-function _setCache(addr, data) { _cache.set(addr, { data, ts: Date.now() }); }
+function _setCache(addr, data) {
+	_cache.set(addr, { data, ts: Date.now() });
+}
 
 async function _fetchBirdeye(addr, apiKey) {
 	const url = `${BIRDEYE_BASE}/v1/wallet/portfolio?wallet=${encodeURIComponent(addr)}&chain=solana`;
@@ -43,14 +48,17 @@ function _normalizePortfolio(addr, portfolio) {
 	let maxVal = 0;
 	for (const item of items) {
 		const val = item.valueUsd ?? 0;
-		if (val > maxVal) { maxVal = val; topToken = { symbol: item.symbol ?? '?', pnl: val }; }
+		if (val > maxVal) {
+			maxVal = val;
+			topToken = { symbol: item.symbol ?? '?', pnl: val };
+		}
 	}
 	return {
 		address: addr,
-		realizedPnl:   portfolio?.realizedPnl   ?? 0,
-		unrealizedPnl: portfolio?.unrealizedPnl  ?? (portfolio?.totalUsd ?? 0),
-		winRate:       portfolio?.winRate        ?? 0,
-		totalTrades:   portfolio?.totalTrades    ?? 0,
+		realizedPnl: portfolio?.realizedPnl ?? 0,
+		unrealizedPnl: portfolio?.unrealizedPnl ?? portfolio?.totalUsd ?? 0,
+		winRate: portfolio?.winRate ?? 0,
+		totalTrades: portfolio?.totalTrades ?? 0,
 		topToken,
 	};
 }
@@ -67,21 +75,27 @@ async function handleWallets(req, res) {
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const addresses = (url.searchParams.get('addresses') ?? '')
-		.split(',').map((s) => s.trim()).filter(Boolean).slice(0, MAX_ADDRESSES);
-	if (addresses.length === 0) return error(res, 400, 'validation_error', 'addresses query param is required');
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean)
+		.slice(0, MAX_ADDRESSES);
+	if (addresses.length === 0)
+		return error(res, 400, 'validation_error', 'addresses query param is required');
 
 	const uncached = addresses.filter((a) => _getCached(a) === null);
 	const cacheHit = uncached.length === 0;
 
 	if (uncached.length > 0) {
-		await Promise.allSettled(uncached.map(async (addr) => {
-			try {
-				const portfolio = await _fetchBirdeye(addr, apiKey);
-				_setCache(addr, _normalizePortfolio(addr, portfolio));
-			} catch {
-				_setCache(addr, _normalizePortfolio(addr, null));
-			}
-		}));
+		await Promise.allSettled(
+			uncached.map(async (addr) => {
+				try {
+					const portfolio = await _fetchBirdeye(addr, apiKey);
+					_setCache(addr, _normalizePortfolio(addr, portfolio));
+				} catch {
+					_setCache(addr, _normalizePortfolio(addr, null));
+				}
+			}),
+		);
 	}
 
 	const data = addresses.map((a) => _getCached(a)).filter(Boolean);
@@ -89,10 +103,17 @@ async function handleWallets(req, res) {
 	return json(res, 200, { data });
 }
 
-const WALLETS_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../src/kol/wallets.json');
+const WALLETS_PATH = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	'../../src/kol/wallets.json',
+);
 
 async function loadWallets() {
-	try { return JSON.parse(await readFile(WALLETS_PATH, 'utf8')); } catch { return []; }
+	try {
+		return JSON.parse(await readFile(WALLETS_PATH, 'utf8'));
+	} catch {
+		return [];
+	}
 }
 
 // ── import-gmgn ───────────────────────────────────────────────────────────────
@@ -103,11 +124,15 @@ async function handleImportGmgn(req, res) {
 	const rl = await limits.mcpIp(clientIp(req));
 	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
 	const body = await readJson(req);
-	if (!body || body.rawJson == null) return error(res, 400, 'validation_error', 'body.rawJson is required');
+	if (!body || body.rawJson == null)
+		return error(res, 400, 'validation_error', 'body.rawJson is required');
 	const { parseGmgnSmartWallets } = await import('../../src/kol/gmgn-parser.js');
 	let parsed;
-	try { parsed = parseGmgnSmartWallets(body.rawJson); }
-	catch (err) { return error(res, 400, 'validation_error', err.message); }
+	try {
+		parsed = parseGmgnSmartWallets(body.rawJson);
+	} catch (err) {
+		return error(res, 400, 'validation_error', err.message);
+	}
 	const existing = await loadWallets();
 	const byWallet = new Map(existing.map((w) => [w.wallet, w]));
 	for (const entry of parsed) byWallet.set(entry.wallet, entry);
@@ -129,8 +154,12 @@ async function handleLeaderboard(req, res) {
 	const limit = limitRaw != null ? Number(limitRaw) : 25;
 	const { getLeaderboard } = await import('../../src/kol/leaderboard.js');
 	let items;
-	try { items = await getLeaderboard({ window, limit }); }
-	catch (err) { if (err.status === 400) return error(res, 400, err.code || 'validation_error', err.message); throw err; }
+	try {
+		items = await getLeaderboard({ window, limit });
+	} catch (err) {
+		if (err.status === 400) return error(res, 400, err.code || 'validation_error', err.message);
+		throw err;
+	}
 	return json(res, 200, { items });
 }
 
@@ -144,16 +173,29 @@ async function handleTrades(req, res) {
 	const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || '20')));
 	if (!mint) return error(res, 400, 'validation_error', 'mint is required');
 	const { KOL_WALLETS } = await import('../../src/kol/wallets.js');
-	return json(res, 200, { mint, trades: [], wallets: KOL_WALLETS.length });
+	const { fetchKolTrades } = await import('../../src/kol/trades.js');
+	let result;
+	try {
+		result = await fetchKolTrades({ mint, limit });
+	} catch (err) {
+		return error(
+			res,
+			err.status || 502,
+			err.code || 'provider_unavailable',
+			err.message || 'provider error',
+		);
+	}
+	res.setHeader('x-kol-source', result.source || 'unconfigured');
+	return json(res, 200, { mint, trades: result.trades, wallets: KOL_WALLETS.length });
 }
 
 // ── dispatcher ────────────────────────────────────────────────────────────────
 
 const DISPATCH = {
 	'import-gmgn': handleImportGmgn,
-	leaderboard:   handleLeaderboard,
-	trades:        handleTrades,
-	wallets:       handleWallets,
+	leaderboard: handleLeaderboard,
+	trades: handleTrades,
+	wallets: handleWallets,
 };
 
 export default wrap(async (req, res) => {
