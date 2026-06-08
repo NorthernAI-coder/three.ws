@@ -859,11 +859,36 @@ const handleReconstruct = wrap(async (req, res) => {
 			referenceImageUrl = generated.imageUrl;
 			photos = [generated.imageUrl];
 		} catch (err) {
-			const unconfigured = err?.code === 'unconfigured';
+			// Map the reference-image failure to the most accurate status so the
+			// symptom is self-explanatory instead of a blank 502. textToImage tags
+			// its errors: 'unconfigured' (no provider), 'rate_limited' (Replicate
+			// throttle — common when account credit is low, carries retryAfter),
+			// 'provider_unreachable' (network), or a raw providerStatus (e.g. 402
+			// billing). Anything else is a genuine upstream 5xx.
+			if (err?.code === 'unconfigured') {
+				return error(res, 501, 'txt2img_unconfigured', err.message);
+			}
+			if (err?.code === 'rate_limited') {
+				const retryAfter = Number(err.retryAfter) || 10;
+				res.setHeader('retry-after', String(retryAfter));
+				return error(
+					res,
+					429,
+					'txt2img_rate_limited',
+					err.message || 'the image provider is throttling requests — try again shortly',
+					{ retry_after: retryAfter },
+				);
+			}
+			if (err?.code === 'provider_unreachable') {
+				return error(res, 503, 'txt2img_unreachable', err.message);
+			}
+			if (err?.providerStatus === 402) {
+				return error(res, 402, 'txt2img_billing', err.message || 'image provider billing error');
+			}
 			return error(
 				res,
-				unconfigured ? 501 : 502,
-				unconfigured ? 'txt2img_unconfigured' : 'txt2img_error',
+				502,
+				'txt2img_error',
 				err?.message || 'could not generate a reference image from your prompt',
 			);
 		}
