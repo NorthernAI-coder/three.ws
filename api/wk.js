@@ -18,6 +18,7 @@ import {
 import { declareMcpDiscovery, withService } from './_lib/x402/bazaar-helpers.js';
 import { TOOL_CATALOG } from './_mcp/catalog.js';
 import { priceFor } from './_lib/pump-pricing.js';
+import { priceAtomicsForTier } from './_lib/forge-tiers.js';
 import { listBazaarServices, serviceResourceUrl } from './_lib/agent-paid-services.js';
 
 // ── agent-attestation-schemas ─────────────────────────────────────────────────
@@ -628,6 +629,10 @@ async function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Avatar Shop',
 			tags: ['3d', 'avatar', 'cosmetic', 'shop', 'wearable'],
 		}),
+		forge: withService({
+			serviceName: 'three.ws Forge — text/image → 3D',
+			tags: ['3d', 'generation', 'text-to-3d', 'image-to-3d', 'glb', 'mesh'],
+		}),
 	};
 
 	// USE-13: per-tool MCP catalog entries. Each priced tool is its own
@@ -913,6 +918,51 @@ async function handleX402Discovery(req, res) {
 									creator: { type: 'string', minLength: 32, maxLength: 44 },
 									vanityPrefix: { type: 'string', maxLength: 5 },
 									vanitySuffix: { type: 'string', maxLength: 5 },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					// Forge generation is tier-priced ($0.05 draft / $0.15 standard /
+					// $0.50 high). The catalog advertises the standard tier (sourced
+					// from forge-tiers.js — the single price source); the live 402
+					// quotes the exact price for the requested tier.
+					const url = `${origin}/api/x402/forge`;
+					const accepts = acceptsForPrice(String(priceAtomicsForTier('standard')), url);
+					return {
+						path: '/api/x402/forge',
+						url,
+						method: 'POST',
+						description:
+							'Forge — pay-per-call text→3D and image→3D. Submit a prompt (or up to four reference views of one object) and receive a job token; poll it for free at GET /api/forge?job=<id> for the finished GLB. Runs the FLUX→TRELLIS pipeline (text→image→mesh, or image→mesh). Priced per quality tier in USDC ($0.05 draft / $0.15 standard / $0.50 high). Pay autonomously on Base or Solana mainnet — no API key, no account.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.forge.serviceName,
+						tags: routeMeta.forge.tags,
+						iconUrl: routeMeta.forge.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { prompt: 'a brass steampunk owl, full body', tier: 'standard', aspect_ratio: '1:1' },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									prompt: {
+										type: 'string',
+										minLength: 3,
+										maxLength: 1000,
+										description: 'Describe one subject for text→3D. Omit when supplying image_urls.',
+									},
+									image_urls: {
+										type: 'array',
+										items: { type: 'string', format: 'uri' },
+										minItems: 1,
+										maxItems: 4,
+										description: 'Up to four public https reference views of one object for image→3D.',
+									},
+									tier: { type: 'string', enum: ['draft', 'standard', 'high'] },
+									aspect_ratio: { type: 'string', enum: ['1:1', '4:3', '3:4', '16:9', '9:16'] },
 								},
 							},
 						}),
