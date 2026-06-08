@@ -44,3 +44,16 @@ CREATE INDEX IF NOT EXISTS bs_bounty_idx  ON bounty_submissions(bounty_id);
 CREATE INDEX IF NOT EXISTS bs_user_idx    ON bounty_submissions(user_id);
 CREATE INDEX IF NOT EXISTS bs_created_idx ON bounty_submissions(created_at DESC);
 CREATE INDEX IF NOT EXISTS bs_status_idx  ON bounty_submissions(status);
+
+-- Submission upvotes ("likes"). Counts are computed on read; one row per
+-- (submission, user). See api/_lib/bounty-likes.js and the dated migration
+-- api/_lib/migrations/2026-06-08-bounty-likes.sql (the canonical runner path).
+CREATE TABLE IF NOT EXISTS bounty_submission_likes (
+  submission_id UUID        NOT NULL REFERENCES bounty_submissions(id) ON DELETE CASCADE,
+  user_id       UUID        NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (submission_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS bsl_submission_idx ON bounty_submission_likes(submission_id);
+CREATE INDEX IF NOT EXISTS bsl_user_idx       ON bounty_submission_likes(user_id);

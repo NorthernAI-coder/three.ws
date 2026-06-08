@@ -1,6 +1,7 @@
 import { sql } from './_lib/db.js';
 import { cors, json, error, readJson, wrap, method } from './_lib/http.js';
 import { getSessionUser } from './_lib/auth.js';
+import { enrichLikes } from './_lib/bounty-likes.js';
 
 const SOL_USD_FALLBACK = 160;
 
@@ -12,6 +13,8 @@ export default wrap(async (req, res) => {
 		const tab = url.searchParams.get('tab') || 'trending';
 		const limit = Math.min(parseInt(url.searchParams.get('limit') || '30', 10), 50);
 		const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10), 0);
+		// Optional: identify the caller so submission cards know what they've liked.
+		const userId = (await getSessionUser(req).catch(() => null))?.id || null;
 
 		if (tab === 'feed') {
 			// Mixed feed: interleave recent submissions and open bounties
@@ -51,6 +54,10 @@ export default wrap(async (req, res) => {
 				const subs = subsByBounty[b.id] || [];
 				for (const s of subs.slice(0, 2)) feed.push(s);
 			}
+			await enrichLikes(
+				feed.filter((x) => x._type === 'submission'),
+				{ userId },
+			);
 			return json(res, 200, { feed, tab });
 		}
 
@@ -66,6 +73,7 @@ export default wrap(async (req, res) => {
 				ORDER BY bs.created_at DESC
 				LIMIT ${limit} OFFSET ${offset}
 			`;
+			await enrichLikes(rows, { userId });
 			return json(res, 200, { submissions: rows, tab });
 		}
 

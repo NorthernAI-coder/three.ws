@@ -1,6 +1,7 @@
 import { sql } from '../../_lib/db.js';
 import { cors, json, error, readJson, wrap, method } from '../../_lib/http.js';
 import { getSessionUser } from '../../_lib/auth.js';
+import { enrichLikes } from '../../_lib/bounty-likes.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -21,6 +22,8 @@ export default wrap(async (req, res) => {
 			ORDER BY created_at DESC
 			LIMIT ${limit} OFFSET ${offset}
 		`;
+		const userId = (await getSessionUser(req).catch(() => null))?.id || null;
+		await enrichLikes(rows, { userId });
 		return json(res, 200, { submissions: rows });
 	}
 

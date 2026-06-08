@@ -7,6 +7,7 @@ let feedOffset = 0;
 let activeBountyId = null;
 let resolveSubmissions = [];
 let selectedSubmissionId = null;
+let aiRecommendedId = null;
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,10 @@ function renderSubmissionCard(s) {
 					<div class="time-left">${esc(ago)}</div>
 					${s.status === 'accepted' ? `<span class="badge badge-open" style="font-size:10px;">✓ WINNER</span>` : ''}
 					${s.reward_sol ? `<div class="reward">◎ ${parseFloat(s.reward_sol).toFixed(2)} SOL</div>` : ''}
+					<button class="like-btn ${s.liked_by_me ? 'liked' : ''}" data-action="like" data-id="${esc(s.id)}" data-bounty="${esc(s.bounty_id)}" aria-pressed="${s.liked_by_me ? 'true' : 'false'}" aria-label="Like submission" style="margin-left:auto;">
+						${heartSvg()}
+						<span class="like-count">${s.like_count || 0}</span>
+					</button>
 				</div>
 			</div>
 		</div>
@@ -278,6 +283,10 @@ function bindModals() {
 		const btn = e.target.closest('[data-action]');
 		if (!btn) return;
 		if (!currentUser) { location.href = '/login'; return; }
+		if (btn.dataset.action === 'like') {
+			toggleLike(btn);
+			return;
+		}
 		if (btn.dataset.action === 'submit') {
 			openSubmitModal(btn.dataset.id, btn.dataset.title);
 		}
@@ -398,8 +407,15 @@ async function openResolveModal(bountyId) {
 	activeBountyId = bountyId;
 	selectedSubmissionId = null;
 	resolveSubmissions = [];
+	aiRecommendedId = null;
 	document.getElementById('resolve-error').style.display = 'none';
 	document.getElementById('r-tx').value = '';
+	const summary = document.getElementById('ai-summary');
+	summary.style.display = 'none';
+	summary.innerHTML = '';
+	const judgeBtn = document.getElementById('ai-judge-btn');
+	judgeBtn.disabled = false;
+	judgeBtn.textContent = '✨ Rank with AI';
 	document.getElementById('resolve-subs').innerHTML = '<div style="color:var(--muted);font-size:13px;">Loading submissions…</div>';
 	openModal('resolve-modal');
 
@@ -419,12 +435,24 @@ function renderResolveSubs() {
 		el.innerHTML = '<div style="color:var(--muted);font-size:13px;">No submissions yet</div>';
 		return;
 	}
-	el.innerHTML = resolveSubmissions.map(s => `
-		<div class="sub-pick ${s.id === selectedSubmissionId ? 'selected' : ''}" data-sid="${esc(s.id)}">
-			<div class="sub-pick-user">${esc(s.username || 'anon')} · ${timeAgo(s.created_at)}</div>
+	el.innerHTML = resolveSubmissions.map(s => {
+		const ai = s._ai;
+		const isRec = aiRecommendedId && s.id === aiRecommendedId;
+		const likes = s.like_count ? `<span class="sp-likes">♥ ${s.like_count}</span>` : '';
+		const score = ai ? `<span class="ai-score" style="--s:${ai.score}">${ai.score}</span>` : '';
+		const verdict = ai?.verdict ? `<div class="ai-verdict">${esc(ai.verdict)}</div>` : '';
+		const recBadge = isRec ? `<div class="sub-pick-rec">★ AI pick</div>` : '';
+		return `
+		<div class="sub-pick ${s.id === selectedSubmissionId ? 'selected' : ''} ${isRec ? 'recommended' : ''}" data-sid="${esc(s.id)}">
+			<div class="sub-pick-head">
+				<div class="sub-pick-user">${esc(s.username || 'anon')} · ${timeAgo(s.created_at)}${likes}</div>
+				${score}
+			</div>
 			<div class="sub-pick-content">${esc(s.content || s.media_url || '(media only)')}</div>
-		</div>
-	`).join('');
+			${verdict}
+			${recBadge}
+		</div>`;
+	}).join('');
 
 	el.querySelectorAll('.sub-pick').forEach(div => {
 		div.addEventListener('click', () => {
@@ -436,6 +464,8 @@ function renderResolveSubs() {
 }
 
 function bindResolve() {
+	document.getElementById('ai-judge-btn').addEventListener('click', runJudge);
+
 	document.getElementById('resolve-submit').addEventListener('click', async () => {
 		const errEl = document.getElementById('resolve-error');
 		if (!selectedSubmissionId) { showErr(errEl, 'Select a winning submission'); return; }
@@ -465,6 +495,87 @@ function bindResolve() {
 			btn.disabled = false;
 		}
 	});
+}
+
+// ── Likes ─────────────────────────────────────────────────────────────────────
+
+function heartSvg() {
+	return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.2 8 2 4.5 5.2 4.5 7 4.5 8.5 5.6 12 8c3.5-2.4 5-3.5 6.8-3.5C22 4.5 23.8 8 22 11.7 19.5 16.4 12 21 12 21z"/></svg>`;
+}
+
+async function toggleLike(btn) {
+	if (!currentUser) { location.href = '/login'; return; }
+	const sid = btn.dataset.id;
+	const bid = btn.dataset.bounty;
+	if (!sid || !bid) return;
+
+	const countEl = btn.querySelector('.like-count');
+	const wasLiked = btn.classList.contains('liked');
+	const prevCount = parseInt(countEl.textContent, 10) || 0;
+
+	// Optimistic toggle — revert on failure.
+	btn.classList.toggle('liked', !wasLiked);
+	btn.setAttribute('aria-pressed', String(!wasLiked));
+	countEl.textContent = String(Math.max(0, prevCount + (wasLiked ? -1 : 1)));
+	btn.disabled = true;
+
+	try {
+		const r = await fetch(`${API}/${bid}/likes`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ submission_id: sid }),
+		});
+		const data = await r.json();
+		if (!r.ok) throw new Error(data.error_description || data.error || 'failed');
+		btn.classList.toggle('liked', !!data.liked);
+		btn.setAttribute('aria-pressed', String(!!data.liked));
+		countEl.textContent = String(data.like_count);
+	} catch (err) {
+		btn.classList.toggle('liked', wasLiked);
+		btn.setAttribute('aria-pressed', String(wasLiked));
+		countEl.textContent = String(prevCount);
+		toast(err.message || 'Could not like', 'fail');
+	} finally {
+		btn.disabled = false;
+	}
+}
+
+// ── AI judge ──────────────────────────────────────────────────────────────────
+
+async function runJudge() {
+	if (!resolveSubmissions.length) { toast('No submissions to rank yet'); return; }
+	const btn = document.getElementById('ai-judge-btn');
+	const banner = document.getElementById('ai-summary');
+	const prevLabel = btn.textContent;
+	btn.disabled = true;
+	btn.textContent = '✨ Judging…';
+
+	try {
+		const r = await fetch(`${API}/${activeBountyId}/judge`, { method: 'POST', credentials: 'include' });
+		const data = await r.json();
+		if (!r.ok) throw new Error(data.error_description || data.error || 'failed');
+
+		const byId = new Map((data.rankings || []).map(x => [x.submission_id, x]));
+		resolveSubmissions = resolveSubmissions
+			.map(s => ({ ...s, _ai: byId.get(s.id) || null }))
+			.sort((a, b) => (b._ai?.score ?? -1) - (a._ai?.score ?? -1));
+
+		aiRecommendedId = data.recommended_id || null;
+		if (aiRecommendedId) selectedSubmissionId = aiRecommendedId;
+		renderResolveSubs();
+
+		banner.style.display = '';
+		banner.innerHTML = `<span class="ai-badge">AI</span>${esc(data.summary || 'Ranked by how well each submission fits the task.')} <span class="ai-meta">· ${data.judged_count || resolveSubmissions.length} judged${data.cached ? ' · cached' : ''}</span>`;
+		btn.textContent = '✨ Re-rank';
+		toast('AI ranked the submissions', 'success');
+	} catch (err) {
+		const msg = /unavailable/i.test(err.message) ? 'AI judge is unavailable right now' : (err.message || 'Judge failed');
+		toast(msg, 'fail');
+		btn.textContent = prevLabel;
+	} finally {
+		btn.disabled = false;
+	}
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

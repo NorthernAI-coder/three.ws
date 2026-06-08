@@ -1,6 +1,8 @@
 import { sql } from '../_lib/db.js';
 import { cors, json, error, wrap, method } from '../_lib/http.js';
 import { isUuid } from '../_lib/validate.js';
+import { getSessionUser } from '../_lib/auth.js';
+import { enrichLikes } from '../_lib/bounty-likes.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -33,5 +35,9 @@ export default wrap(async (req, res) => {
 	`;
 
 	if (!bounty) return error(res, 404, 'not_found', 'bounty not found');
+
+	const userId = (await getSessionUser(req).catch(() => null))?.id || null;
+	await enrichLikes(bounty.submissions, { userId });
+
 	return json(res, 200, { bounty });
 });
