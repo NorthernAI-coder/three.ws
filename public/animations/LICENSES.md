@@ -120,6 +120,35 @@ retargeted to the canonical three.ws rig by
 | `av-joy`                | Expressing_joy.glb                    | Joy                |
 | `av-conductor`          | Energic_conductor.glb                 | Conductor          |
 
+### Farming & chores pack
+
+Sourced from the Mixamo "Farming Pack" and the standalone "Digging" clip,
+exported under the same authenticated Adobe Creative Cloud account and terms
+as the clips above. The pack's bundled character mesh (`Ch17_nonPBR.fbx`) is
+not shipped — only the animation clips, retargeted onto the canonical rig.
+
+| Clip name in manifest      | Mixamo source         | Notes |
+| -------------------------- | --------------------- | ----- |
+| `digging`                  | Digging               | loop  |
+| `farm-dig-plant`           | dig and plant seeds   | —     |
+| `farm-pull-plant`          | pull plant            | —     |
+| `farm-plant-tree`          | plant tree            | —     |
+| `farm-plant-a-plant`       | plant a plant         | —     |
+| `farm-watering`            | watering              | —     |
+| `farm-pick-fruit`          | pick fruit            | —     |
+| `farm-cow-milking`         | cow milking           | —     |
+| `farm-kneeling-idle`       | kneeling idle         | loop  |
+| `farm-box-idle`            | box idle              | loop  |
+| `farm-box-walk`            | box walk arc          | loop  |
+| `farm-box-turn`            | box turn              | —     |
+| `farm-holding-walk`        | holding walk          | loop  |
+| `farm-holding-turn-left`   | holding turn left     | —     |
+| `farm-holding-turn-right`  | holding turn right    | —     |
+| `farm-wheelbarrow-idle`    | wheelbarrow idle      | loop  |
+| `farm-wheelbarrow-walk`    | wheelbarrow walk      | loop  |
+| `farm-wheelbarrow-turn`    | wheelbarrow walk turn | —     |
+| `farm-wheelbarrow-dump`    | wheelbarrow dump      | —     |
+
 ## Custom mocap
 
 > _No custom-mocap clips have shipped yet._

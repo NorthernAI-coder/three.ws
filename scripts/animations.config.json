@@ -260,5 +260,24 @@
 		"label": "Pole Bow",
 		"icon": "🪩",
 		"loop": false
-	}
+	},
+	{ "name": "digging", "source": "Digging.fbx", "label": "Digging", "icon": "⛏️", "loop": true },
+	{ "name": "farm-box-idle", "source": "box idle.fbx", "label": "Box Idle", "icon": "📦", "loop": true },
+	{ "name": "farm-box-walk", "source": "box walk arc.fbx", "label": "Box Walk", "icon": "📦", "loop": true },
+	{ "name": "farm-box-turn", "source": "box turn.fbx", "label": "Box Turn", "icon": "📦", "loop": false },
+	{ "name": "farm-kneeling-idle", "source": "kneeling idle.fbx", "label": "Kneeling Idle", "icon": "🧎", "loop": true },
+	{ "name": "farm-dig-plant", "source": "dig and plant seeds.fbx", "label": "Dig & Plant Seeds", "icon": "🌱", "loop": false },
+	{ "name": "farm-pull-plant", "source": "pull plant.fbx", "label": "Pull Plant", "icon": "🌿", "loop": false },
+	{ "name": "farm-plant-tree", "source": "plant tree.fbx", "label": "Plant Tree", "icon": "🌳", "loop": false },
+	{ "name": "farm-plant-a-plant", "source": "plant a plant.fbx", "label": "Plant a Plant", "icon": "🪴", "loop": false },
+	{ "name": "farm-holding-walk", "source": "holding walk.fbx", "label": "Holding Walk", "icon": "🤲", "loop": true },
+	{ "name": "farm-holding-turn-left", "source": "holding turn left.fbx", "label": "Holding Turn Left", "icon": "↩️", "loop": false },
+	{ "name": "farm-holding-turn-right", "source": "holding turn right.fbx", "label": "Holding Turn Right", "icon": "↪️", "loop": false },
+	{ "name": "farm-watering", "source": "watering.fbx", "label": "Watering", "icon": "💧", "loop": false },
+	{ "name": "farm-pick-fruit", "source": "pick fruit.fbx", "label": "Pick Fruit", "icon": "🍎", "loop": false },
+	{ "name": "farm-cow-milking", "source": "cow milking.fbx", "label": "Cow Milking", "icon": "🐄", "loop": false },
+	{ "name": "farm-wheelbarrow-idle", "source": "wheelbarrow idle.fbx", "label": "Wheelbarrow Idle", "icon": "🛒", "loop": true },
+	{ "name": "farm-wheelbarrow-walk", "source": "wheelbarrow walk.fbx", "label": "Wheelbarrow Walk", "icon": "🛒", "loop": true },
+	{ "name": "farm-wheelbarrow-turn", "source": "wheelbarrow walk turn.fbx", "label": "Wheelbarrow Turn", "icon": "🛒", "loop": false },
+	{ "name": "farm-wheelbarrow-dump", "source": "wheelbarrow dump.fbx", "label": "Wheelbarrow Dump", "icon": "🛒", "loop": false }
 ]

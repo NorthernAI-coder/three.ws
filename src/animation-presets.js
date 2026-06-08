@@ -18,6 +18,7 @@ export const CATEGORIES = [
 	{ key: 'sport', label: 'Sports', icon: '⚽' },
 	{ key: 'reaction', label: 'Reactions & Falls', icon: '😲' },
 	{ key: 'fitness', label: 'Fitness & Yoga', icon: '🧘' },
+	{ key: 'farming', label: 'Farming & Chores', icon: '🌱' },
 	{ key: 'more', label: 'More', icon: '✨' },
 ];
 
@@ -102,6 +103,26 @@ export const CLIP_CATEGORIES = Object.freeze({
 	sitlaugh: 'reaction',
 	// Fitness & yoga
 	downdog: 'fitness',
+	// Farming & chores
+	digging: 'farming',
+	'farm-dig-plant': 'farming',
+	'farm-pull-plant': 'farming',
+	'farm-plant-tree': 'farming',
+	'farm-plant-a-plant': 'farming',
+	'farm-watering': 'farming',
+	'farm-pick-fruit': 'farming',
+	'farm-cow-milking': 'farming',
+	'farm-kneeling-idle': 'farming',
+	'farm-box-idle': 'farming',
+	'farm-box-walk': 'farming',
+	'farm-box-turn': 'farming',
+	'farm-holding-walk': 'farming',
+	'farm-holding-turn-left': 'farming',
+	'farm-holding-turn-right': 'farming',
+	'farm-wheelbarrow-idle': 'farming',
+	'farm-wheelbarrow-walk': 'farming',
+	'farm-wheelbarrow-turn': 'farming',
+	'farm-wheelbarrow-dump': 'farming',
 });
 
 // The headline actions. Order is intentional — it's the row users see first.
