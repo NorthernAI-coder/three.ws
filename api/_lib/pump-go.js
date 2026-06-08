@@ -81,7 +81,6 @@ export function normalizeTask(t) {
 		amount: fromAtomic(l.amountAtomic, l.decimalsSnapshot),
 		remaining: fromAtomic(l.remainingAmountAtomic, l.decimalsSnapshot),
 		amountAtomic: l.amountAtomic,
-		remainingAtomic: l.remainingAmountAtomic ?? null,
 		isSol: l.mintAddress === WSOL_MINT,
 		vault: l.rewardVaultAddress,
 		usd: legUsd(legsUsd, l.mintAddress),
@@ -185,86 +184,4 @@ export async function getSubmissions(taskId, { limit = 30 } = {}) {
 		nextCursor: data.nextCursor || null,
 	};
 }
-
-// ── On-chain escrow verification ───────────────────────────────────────────────
-//
-// Each reward leg names its on-chain RewardVault (an SPL token account owned by
-// the bounty PDA). The REST listing is just content — to prove the reward is real
-// we read the vault's token balance straight from the chain and check it covers
-// the remaining reward. This is trustless: it doesn't rely on pump.fun's API
-// being honest, only on a Solana RPC.
-
-const RPC_URL =
-	process.env.SOLANA_RPC_URL ||
-	process.env.SOLANA_MAINNET_RPC ||
-	'https://api.mainnet-beta.solana.com';
-
-// Pure: given a leg's expected remaining atomic amount and the on-chain atomic
-// balance, decide whether the escrow covers it. Exported for unit testing.
-export function legFunded(expectedAtomic, onChainAtomic) {
-	if (onChainAtomic == null) return false;
-	let have, need;
-	try {
-		have = BigInt(onChainAtomic);
-		need = BigInt(expectedAtomic ?? 0);
-	} catch {
-		return false;
-	}
-	return have >= need && have > 0n;
-}
-
-async function getTokenAccountBalanceAtomic(vault) {
-	const res = await fetch(RPC_URL, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			jsonrpc: '2.0',
-			id: 1,
-			method: 'getTokenAccountBalance',
-			params: [vault, { commitment: 'confirmed' }],
-		}),
-		signal: AbortSignal.timeout(TIMEOUT_MS),
-	});
-	if (!res.ok) throw new PumpGoError(`solana rpc ${res.status}`, 502);
-	const data = await res.json();
-	// A closed/nonexistent vault errors here — surface as null (unfunded), not a throw.
-	if (data.error) return null;
-	return data.result?.value?.amount ?? null;
-}
-
-// Verify every reward leg's vault on-chain. Returns a per-leg report plus an
-// overall `verified` (true only when every leg with a positive remaining reward
-// is covered by its vault balance).
-export async function verifyEscrow(bounty) {
-	const legs = (bounty?.reward?.legs || []).filter((l) => l.vault);
-	if (!legs.length) {
-		return { verified: false, checkedAt: null, legs: [], reason: 'no_vaults' };
-	}
-	const reports = await Promise.all(
-		legs.map(async (l) => {
-			let onChainAtomic = null;
-			let error = null;
-			try {
-				onChainAtomic = await getTokenAccountBalanceAtomic(l.vault);
-			} catch (e) {
-				error = e?.message || 'rpc_error';
-			}
-			const expectedAtomic = l.remainingAtomic ?? l.amountAtomic ?? '0';
-			return {
-				mint: l.mint,
-				isSol: l.isSol,
-				vault: l.vault,
-				decimals: l.decimals,
-				expectedAtomic: String(expectedAtomic),
-				onChainAtomic: onChainAtomic != null ? String(onChainAtomic) : null,
-				funded: error ? false : legFunded(expectedAtomic, onChainAtomic),
-				error,
-			};
-		}),
-	);
-	const anyError = reports.some((r) => r.error);
-	const verified = reports.length > 0 && reports.every((r) => r.funded);
-	return { verified, checkedAt: null, degraded: anyError, legs: reports };
-}
-
 export { REST_BASE, PROGRAM_ID, WSOL_MINT };
