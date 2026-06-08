@@ -11,8 +11,9 @@
 //   GET /api/three-token/activity       { events }
 
 import { mountShell } from '../shell.js';
-import { requireUser, get, esc, relTime, ApiError } from '../api.js';
+import { requireUser, esc, relTime, ApiError } from '../api.js';
 import { fetchTokenConfig, fetchTokenPrice } from '../../token-pay.js';
+import { createThreeTokenData } from '../../pump/three-token-data.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 // THREE_MINT is fetched live from /api/token/config below. This fallback is
@@ -75,14 +76,6 @@ function toast(msg) {
 	}, 1800);
 }
 
-async function safeGet(url) {
-	try {
-		return await get(url);
-	} catch {
-		return null;
-	}
-}
-
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 (async function boot() {
@@ -109,25 +102,46 @@ async function safeGet(url) {
 
 		const host = main.querySelector('[data-slot="content"]');
 
-		const [stats, revenueShare, activity, tokenConfig] = await Promise.all([
-			safeGet('/api/three-token/stats'),
-			safeGet('/api/three-token/revenue-share'),
-			safeGet('/api/three-token/activity'),
+		// Single source of truth for all $THREE data — price, protocol metrics,
+		// revenue share, activity, burns, and the signed-in holder's live position.
+		// The store wraps the same /api/three-token/* endpoints this page used to
+		// fetch inline; centralising them keeps every section (and the new position
+		// widget) reading one consistent snapshot. It polls protocol + activity and
+		// tears itself down when `host` leaves the DOM.
+		const store = createThreeTokenData({ pollMs: 30_000, anchorEl: host, autoStart: false });
+		const [, tokenConfig] = await Promise.all([
+			store.refresh(),
 			fetchTokenConfig().catch(() => null),
 		]);
 
-		// Update THREE_MINT from live config so external links stay correct.
-		if (tokenConfig?.mint) THREE_MINT = tokenConfig.mint;
+		const snap = store.getState();
+		const stats = snap.protocol.status === 'ok'
+			? { token: snap.protocol.token, protocol: snap.protocol.protocol }
+			: null;
+		const revenueShare = snap.revenueShare.status === 'ok' && !snap.revenueShare.unauthenticated
+			? snap.revenueShare
+			: null;
+		const activity = snap.activity.status === 'ok' ? { events: snap.activity.events } : null;
+
+		// Canonical mint comes from the store's /stats payload (single source);
+		// fall back to /api/token/config only if stats didn't resolve.
+		if (snap.protocol.token?.mint) THREE_MINT = snap.protocol.token.mint;
+		else if (tokenConfig?.mint) THREE_MINT = tokenConfig.mint;
 
 		host.innerHTML = '';
 
 		host.appendChild(renderHeroMetrics(stats));
+		host.appendChild(renderPositionWidget(store));
 		host.appendChild(renderUtilityPillars(stats));
 		host.appendChild(renderLiveConverter(tokenConfig));
 		host.appendChild(renderRevenueShare(stats, revenueShare));
 		host.appendChild(renderDeployBurn(stats));
 		host.appendChild(renderActivityFeed(activity));
 		host.appendChild(renderTokenInfo());
+
+		// Resolve the holder's on-chain position now that the widget is mounted; it
+		// subscribes to the store and renders the result (or its empty/error state).
+		store.refreshPosition();
 	} catch (err) {
 		if (err instanceof ApiError && err.status === 401) {
 			location.href = `/login?return=${encodeURIComponent(location.pathname)}`;
@@ -197,6 +211,99 @@ function renderHeroMetrics(stats) {
 	});
 
 	return wrap;
+}
+
+// ── Your position (signed-in holder's live $THREE balance) ──────────────────────
+
+// A reactive panel showing the connected wallet's real $THREE holding. Subscribes
+// to the shared store, so it updates whenever the position refreshes (initial
+// load, the Refresh button, a tab refocus after a trade) and whenever the price
+// moves. Renders an independent state for every case: loading, signed-out,
+// no-wallet, zero-balance, populated, and error — never a blank void.
+function renderPositionWidget(store) {
+	const section = document.createElement('div');
+	section.className = 'dn-panel';
+	section.setAttribute('aria-label', 'Your $THREE position');
+	section.style.cssText = 'position:relative;overflow:hidden';
+	section.innerHTML = `
+		<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
+			<div style="font-size:11.5px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.06em">Your Position</div>
+			<button data-action="refresh-position" class="dn-btn" aria-label="Refresh your position" style="font-size:12px;padding:4px 10px">Refresh</button>
+		</div>
+		<div data-slot="position-body"></div>
+	`;
+
+	const body = section.querySelector('[data-slot="position-body"]');
+	const render = (state) => { body.innerHTML = positionBody(state.position, state.protocol.token || {}); };
+
+	// Delegated so the inline Retry button (re-rendered on each state change) works
+	// the same as the header Refresh button.
+	section.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-action="refresh-position"]');
+		if (!btn) return;
+		btn.disabled = true;
+		Promise.resolve(store.refreshPosition()).finally(() => { btn.disabled = false; });
+	});
+
+	// Cheap freshness: re-pull the position when the tab regains focus (e.g. after
+	// the user buys/sells $THREE elsewhere). Position-only — never the heavy feeds.
+	const onVisible = () => { if (document.visibilityState === 'visible') store.refreshPosition(); };
+	document.addEventListener('visibilitychange', onVisible);
+
+	const unsub = store.subscribe(render);
+
+	// Tear down listeners when the panel leaves the DOM.
+	new MutationObserver((_m, obs) => {
+		if (!section.isConnected) {
+			unsub();
+			document.removeEventListener('visibilitychange', onVisible);
+			obs.disconnect();
+		}
+	}).observe(document.body, { childList: true, subtree: true });
+
+	return section;
+}
+
+function positionBody(pos, token) {
+	switch (pos.status) {
+		case 'idle':
+		case 'loading':
+			return `<div class="dn-skeleton" style="height:64px;border-radius:10px" aria-busy="true" aria-label="Loading your position"></div>`;
+		case 'unauthenticated':
+			return positionEmpty('Sign in to see your $THREE position.', 'Sign in', `/login?return=${encodeURIComponent(location.pathname)}`);
+		case 'no_wallet':
+			return positionEmpty('Link a Solana wallet to track your $THREE holdings.', 'Link wallet', '/dashboard/account');
+		case 'zero':
+			return positionEmpty('You don’t hold $THREE yet.', 'Get $THREE', `https://pump.fun/coin/${THREE_MINT}`, true);
+		case 'error':
+			return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+				<span style="color:var(--nxt-ink-fade);font-size:13.5px">Couldn’t load your position right now.</span>
+				<button data-action="refresh-position" class="dn-btn" style="font-size:12px;padding:4px 10px">Retry</button>
+			</div>`;
+		case 'ok': {
+			const amount = pos.amount ?? 0;
+			const cells = [
+				{ label: 'Balance', value: `${fmtCompact(amount)} <span style="font-size:13px;color:var(--nxt-ink-fade)">$THREE</span>` },
+				{ label: 'Value', value: pos.usd != null ? fmtUsd(pos.usd) : '—' },
+				{ label: 'Share of supply', value: pos.pctOfSupply != null ? fmtPct(pos.pctOfSupply * 100) : '—' },
+			];
+			return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+				${cells.map((c) => `<div>
+					<div style="font-size:11px;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px">${esc(c.label)}</div>
+					<div style="font-size:20px;font-weight:700;font-family:${MONO}">${c.value}</div>
+				</div>`).join('')}
+			</div>`;
+		}
+		default:
+			return '';
+	}
+}
+
+function positionEmpty(message, ctaLabel, href, external = false) {
+	return `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+		<span style="color:var(--nxt-ink-fade);font-size:13.5px">${esc(message)}</span>
+		<a class="dn-btn" href="${esc(href)}" ${external ? 'target="_blank" rel="noopener"' : ''} style="font-size:12.5px;white-space:nowrap">${esc(ctaLabel)}</a>
+	</div>`;
 }
 
 // ── Four utility pillars ──────────────────────────────────────────────────────

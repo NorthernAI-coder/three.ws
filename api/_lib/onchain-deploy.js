@@ -29,9 +29,11 @@ import { putObject, publicUrl as r2PublicUrl } from './r2.js';
 import {
 	buildAgentManifest,
 	buildAgentOnchainAttributes,
+	buildAgentRegistrationMetadata,
 	agentRoyaltyConfig,
 	agentHomeUrl,
 } from './three-brand.js';
+import { registerAgentIdentity, MPL_AGENT_IDENTITY_PROGRAM_ID } from './agent-registry.js';
 import { getAgentCollection } from './solana-collection.js';
 import { solanaRpcEndpoints } from './solana/connection.js';
 import { generateSolanaAgentWallet } from './agent-wallet.js';
@@ -48,6 +50,8 @@ export const SOLANA_REFS = {
 // the Collection account on first run costs ~0.003 SOL rent + fee.
 export const EST_MINT_LAMPORTS = Math.floor(0.004 * LAMPORTS_PER_SOL);
 export const EST_COLLECTION_LAMPORTS = Math.floor(0.005 * LAMPORTS_PER_SOL);
+// Registering an asset's Agent Identity PDA costs ~0.0025 SOL rent + fee.
+export const EST_REGISTER_LAMPORTS = Math.floor(0.003 * LAMPORTS_PER_SOL);
 
 export function explorerUrl(asset, network) {
 	const suffix = network === 'devnet' ? '?cluster=devnet' : '';
@@ -103,6 +107,33 @@ export async function pinManifest(manifest, agentId) {
 	const key = `agent-manifests/bulk/${agentId}.json`;
 	await putObject({ key, body: bytes, contentType: 'application/json' });
 	return { cid, uri: r2PublicUrl(key) };
+}
+
+/**
+ * Agents that are minted as Core assets on this network but are NOT yet in the
+ * Metaplex Agent Registry (no `agent_registry.identity_pda`). This is the
+ * back-fill set — the already-minted agents Metaplex asks us to register.
+ */
+export async function fetchUnregisteredAgents(network, limit) {
+	return network === 'mainnet'
+		? sql`
+			SELECT ai.id, ai.user_id, ai.name, ai.description, ai.meta, ai.avatar_id
+			FROM agent_identities ai
+			WHERE ai.deleted_at IS NULL
+			  AND ai.meta->>'sol_mint_address' IS NOT NULL
+			  AND ai.meta->'agent_registry'->>'identity_pda' IS NULL
+			ORDER BY ai.created_at ASC
+			LIMIT ${limit}
+		`
+		: sql`
+			SELECT ai.id, ai.user_id, ai.name, ai.description, ai.meta, ai.avatar_id
+			FROM agent_identities ai
+			WHERE ai.deleted_at IS NULL
+			  AND ai.meta->'devnet'->>'sol_mint_address' IS NOT NULL
+			  AND ai.meta->'devnet'->'agent_registry'->>'identity_pda' IS NULL
+			ORDER BY ai.created_at ASC
+			LIMIT ${limit}
+		`;
 }
 
 /** Agents still missing an on-chain identity on this network. */
@@ -355,5 +386,113 @@ export async function deployAgentOnce({ umi, authoritySigner, collectionAddr, co
 		}).catch(() => {});
 	}
 
-	return { asset, signature, metadataUri, ownerAddress, image };
+	// 5. Enrol the freshly-minted asset in the Metaplex Agent Registry. The mint
+	//    already succeeded and is persisted, so a transient registry failure must
+	//    not unwind it — record the error and let the back-fill retry. The owner
+	//    never signs (the collection authority is the asset's update authority).
+	let registry = null;
+	try {
+		registry = await registerAgentOnce({
+			umi,
+			authoritySigner,
+			agent: { ...agent, meta: merged },
+			asset,
+			collectionAddr,
+			network,
+			onEvent,
+		});
+	} catch (err) {
+		onEvent?.('registry_error', { agent_id: agent.id, name: agentName, error: err.message });
+	}
+
+	return { asset, signature, metadataUri, ownerAddress, image, registry };
+}
+
+/**
+ * Enrol a Core-minted agent in the Metaplex Agent Registry (Agent Identity PDA).
+ * Shared by the post-mint step above and the back-fill of already-minted agents.
+ * Resolves the asset/collection from explicit args or the agent's persisted meta,
+ * pins the registration document, sends `registerIdentityV1` (authority-signed,
+ * no owner signature), and persists an `agent_registry` block. Idempotent:
+ * already-registered assets short-circuit without a tx.
+ *
+ * @returns {Promise<{ asset, identityPda, registrationUri, signature, alreadyRegistered }>}
+ */
+export async function registerAgentOnce({ umi, authoritySigner, agent, asset, collectionAddr, network, onEvent }) {
+	const agentName = agent.name || 'Agent';
+	const meta = agent.meta || {};
+	const isMainnet = network === 'mainnet';
+	const net = isMainnet ? meta : meta.devnet || {};
+
+	const resolvedAsset = asset || net.sol_mint_address;
+	if (!resolvedAsset) {
+		throw new Error('agent has no Core asset on this network — mint it before registering');
+	}
+	const resolvedCollection = collectionAddr || net.collection || null;
+
+	// Build + pin the registry document (distinct artifact from the asset manifest).
+	const registration = buildAgentRegistrationMetadata({
+		agentId: agent.id,
+		name: agentName,
+		description: agent.description || '',
+		agentUrl: agentHomeUrl(agent.id),
+		skills: Array.isArray(meta.skills) ? meta.skills : undefined,
+	});
+	const { uri: registrationUri } = await pinManifest(registration, `${agent.id}-registry`);
+
+	const { identityPda, signature, alreadyRegistered } = await registerAgentIdentity({
+		umi,
+		authoritySigner,
+		asset: resolvedAsset,
+		collectionAddr: resolvedCollection,
+		registrationUri,
+	});
+
+	const registryBlock = {
+		standard: 'metaplex-agent-registry',
+		program: MPL_AGENT_IDENTITY_PROGRAM_ID.toString(),
+		identity_pda: identityPda,
+		asset: resolvedAsset,
+		...(resolvedCollection ? { collection: resolvedCollection } : {}),
+		authority: authoritySigner.publicKey.toString(),
+		registration_uri: registrationUri,
+		network,
+		...(signature ? { tx_hash: signature } : {}),
+		registered_at: new Date().toISOString(),
+	};
+
+	// Merge only the registry block — read current meta so we never clobber a
+	// concurrent mint/edit, then write back the canonical (mainnet) or devnet path.
+	const [row] = await sql`SELECT meta FROM agent_identities WHERE id = ${agent.id}`;
+	const current = row?.meta || meta;
+	const nextMeta = isMainnet
+		? { ...current, agent_registry: registryBlock }
+		: { ...current, devnet: { ...(current.devnet || {}), agent_registry: registryBlock } };
+	await sql`
+		UPDATE agent_identities
+		SET meta = ${JSON.stringify(nextMeta)}::jsonb, updated_at = NOW()
+		WHERE id = ${agent.id}
+	`;
+
+	await sql`
+		INSERT INTO agent_actions (agent_id, type, payload, source_skill)
+		VALUES (
+			${agent.id},
+			${'solana.register'},
+			${JSON.stringify({ asset: resolvedAsset, network, identity_pda: identityPda, signature, collection: resolvedCollection, already: alreadyRegistered, source: 'agent_registry' })}::jsonb,
+			${'agent_registry'}
+		)
+	`.catch(() => {});
+
+	onEvent?.('registered', {
+		agent_id: agent.id,
+		name: agentName,
+		asset: resolvedAsset,
+		identity_pda: identityPda,
+		signature,
+		already_registered: alreadyRegistered,
+		explorer_url: explorerUrl(identityPda, network),
+	});
+
+	return { asset: resolvedAsset, identityPda, registrationUri, signature, alreadyRegistered };
 }

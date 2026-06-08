@@ -212,6 +212,46 @@ export function buildAgentOnchainAttributes(a) {
 	return pairs.map(([key, value]) => ({ key, value: String(value) }));
 }
 
+/**
+ * Off-chain registration document for the Metaplex Agent Registry
+ * (`@metaplex-foundation/mpl-agent-registry`). This is a DIFFERENT artifact from
+ * the Core asset manifest: minting a Core asset only creates the NFT — to make an
+ * agent discoverable in Metaplex's on-chain Agent Registry the asset needs an
+ * Agent Identity PDA whose `agentRegistrationUri` points at this JSON.
+ *
+ * Shape matches the SDK's `AgentMetadata` interface exactly:
+ *   { type, name, description, services[], registrations[], supportedTrust[] }
+ * so the registry indexer and any registry-aware client read it without coercion.
+ *
+ * @param {object} a
+ * @param {string|number} a.agentId    three.ws agent id (for the cross-registry link)
+ * @param {string} a.name
+ * @param {string} [a.description]
+ * @param {string} [a.agentUrl]        public agent profile page
+ * @param {string[]} [a.skills]
+ */
+export function buildAgentRegistrationMetadata(a) {
+	const home = a.agentUrl || agentHomeUrl(a.agentId);
+	const description =
+		a.description?.trim() || `${a.name} — an autonomous agent on ${THREE_WS.name}.`;
+
+	const services = [
+		{ name: 'profile', endpoint: home },
+		{ name: 'agent-card', endpoint: `${env.APP_ORIGIN}/.well-known/agent-card.json` },
+	];
+
+	return {
+		type: 'agent',
+		name: a.name,
+		description,
+		services,
+		// Point back at the three.ws registry so the two identities resolve to each
+		// other — Metaplex's `AgentRegistration` shape: { agentId, agentRegistry }.
+		registrations: [{ agentId: String(a.agentId), agentRegistry: THREE_WS.website }],
+		supportedTrust: [],
+	};
+}
+
 // ── Agent token (pump.fun) ───────────────────────────────────────────────────
 
 /**
