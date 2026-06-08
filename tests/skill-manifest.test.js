@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildSkillManifest } from '../src/skill-manifest.js';
+import { log } from '../src/shared/log.js';
 
 // Mock the pumpfun skill registrars so the test doesn't need Solana SDK deps
 vi.mock('../src/agent-skills-pumpfun.js', () => ({ registerPumpFunSkills: () => {} }));
@@ -51,7 +52,7 @@ describe('buildSkillManifest', () => {
 	});
 
 	it('omits skills without a description and emits a warning', () => {
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {});
 		const manifest = buildSkillManifest({
 			agentId: 'test-agent',
 			version: '1.0.0',

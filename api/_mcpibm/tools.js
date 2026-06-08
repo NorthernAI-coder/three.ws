@@ -44,6 +44,111 @@ function toolResult(humanText, structured) {
 	};
 }
 
+// ──────────────────────── getting started (FREE) ────────────────────────────
+//
+// The one tool with no price. It is deliberately excluded from TOOL_PRICING so
+// graniteX402Amount() returns null and api/ibm-mcp.js serves it without an x402
+// payment or OAuth token — a public entry point any client (including non-x402
+// hosts like watsonx Orchestrate) can call to discover the server before paying.
+// Mirrors the npm package's ibm_granite_getting_started tool.
+
+const GETTING_STARTED_DESCRIPTION =
+	'FREE — start here. Returns an overview of this server: the IBM Granite tools available, ' +
+	'their per-call USDC prices, how the x402 pay-per-call flow works, and runnable example calls. ' +
+	'No payment or account required. Call this first to orient before invoking a paid tool.';
+
+const GS_TOOLS = [
+	{ name: 'ibm_granite_chat', price: '$0.02', summary: 'Conversational AI via IBM Granite 3 8B Instruct.' },
+	{ name: 'ibm_granite_code', price: '$0.025', summary: 'Code generate / review / refactor / explain / test / document.' },
+	{ name: 'ibm_granite_embed', price: '$0.005', summary: 'Batch multilingual text embeddings for RAG and search.' },
+	{ name: 'ibm_granite_analyze', price: '$0.04', summary: 'Structured document analysis: entities, sentiment, risk, summary, next steps.' },
+	{ name: 'ibm_granite_forecast', price: '$0.05', summary: 'Zero-shot time-series forecasting via IBM Granite TTM.' },
+];
+
+const GS_PAYMENT_FLOW = [
+	'Call any ibm_granite_* tool. With no payment, the server returns an x402 PaymentRequired envelope quoting the exact USDC price and a pay-to address (Base or Solana).',
+	'Your x402 client signs a USDC transfer for that amount and retries with the payment attached.',
+	'The server verifies + settles the payment, runs the IBM watsonx.ai inference, and returns the result with a settlement receipt. x402-capable clients do this automatically.',
+	'Authenticated three.ws principals (Bearer/OAuth) call the paid tools without per-call payment — the operator-funded path for watsonx Orchestrate connections.',
+];
+
+const GS_LINKS = {
+	homepage: 'https://three.ws',
+	npm: 'https://www.npmjs.com/package/@three-ws/ibm-x402-mcp',
+	source: 'https://github.com/nirholas/three.ws/tree/main/packages/ibm-x402-mcp',
+	support: 'https://three.ws/support',
+	x402: 'https://x402.org',
+};
+
+function gettingStartedPayload(section) {
+	const full = {
+		ok: true,
+		server: 'ibm-x402-mcp',
+		version: '1.0.0',
+		transport: 'streamable-http',
+		overview:
+			'x402 pay-per-use IBM Granite AI over MCP. Five inference tools, each settled in USDC on ' +
+			'Base or Solana via the x402 protocol — no IBM Cloud account required for callers. This tool ' +
+			'is free; every other tool quotes its price below.',
+		tools: GS_TOOLS,
+		pricing: GS_TOOLS.map((t) => `${t.name}: ${t.price}/call`),
+		payment_flow: GS_PAYMENT_FLOW,
+		links: GS_LINKS,
+		next_step:
+			'Pick a tool, send its arguments, and your x402 client handles the USDC payment automatically. ' +
+			'Or authenticate with a three.ws Bearer token for the operator-funded path.',
+	};
+	if (section === 'pricing') return { ok: true, pricing: full.pricing, tools: GS_TOOLS };
+	if (section === 'payment') return { ok: true, payment_flow: GS_PAYMENT_FLOW };
+	if (section === 'tools') return { ok: true, tools: GS_TOOLS };
+	if (section === 'links') return { ok: true, links: GS_LINKS };
+	return full;
+}
+
+function gettingStartedText(p) {
+	if (!p.overview) return JSON.stringify(p, null, 2);
+	return [
+		'# IBM Granite x402 MCP — Getting Started',
+		'',
+		p.overview,
+		'',
+		'## Tools (this getting_started tool is free; the rest are pay-per-call)',
+		...p.tools.map((t) => `- ${t.name} — ${t.price}/call — ${t.summary}`),
+		'',
+		'## How payment works (x402)',
+		...p.payment_flow.map((s, i) => `${i + 1}. ${s}`),
+		'',
+		'## Links',
+		...Object.entries(p.links).map(([k, v]) => `- ${k}: ${v}`),
+		'',
+		`Next: ${p.next_step}`,
+	].join('\n');
+}
+
+const gettingStartedTool = {
+	name: 'ibm_granite_getting_started',
+	title: 'Getting Started (free)',
+	description: GETTING_STARTED_DESCRIPTION,
+	inputSchema: {
+		type: 'object',
+		additionalProperties: false,
+		properties: {
+			section: {
+				type: 'string',
+				enum: ['overview', 'pricing', 'payment', 'tools', 'links'],
+				default: 'overview',
+				description:
+					'Which part to return. Defaults to "overview" (everything). Use "pricing", "payment", "tools", or "links" to focus.',
+			},
+		},
+	},
+	example: { section: 'overview' },
+	async handler({ section = 'overview' } = {}) {
+		const payload = gettingStartedPayload(section);
+		return toolResult(gettingStartedText(payload), payload);
+	},
+};
+
 // ───────────────────────────────── chat ─────────────────────────────────────
 
 const CHAT_DESCRIPTION =
@@ -522,4 +627,11 @@ const forecastTool = {
 	},
 };
 
-export const toolDefs = [chatTool, codeTool, embedTool, analyzeTool, forecastTool];
+export const toolDefs = [
+	gettingStartedTool,
+	chatTool,
+	codeTool,
+	embedTool,
+	analyzeTool,
+	forecastTool,
+];

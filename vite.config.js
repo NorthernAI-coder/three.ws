@@ -376,6 +376,7 @@ const appConfig = {
 				// END:DISCOVER_ROUTE
 				'vanity-wallet': resolve(__dirname, 'public/vanity-wallet.html'),
 				'eth-vanity': resolve(__dirname, 'public/eth-vanity.html'),
+				'evm-wallet': resolve(__dirname, 'public/evm-wallet.html'),
 				pay: resolve(__dirname, 'public/pay/index.html'),
 				'pay-calls': resolve(__dirname, 'public/pay/calls/index.html'),
 				'pay-checkout': resolve(__dirname, 'public/pay/c/index.html'),
@@ -431,6 +432,7 @@ const appConfig = {
 				'aws-marketplace-welcome': resolve(__dirname, 'pages/aws-marketplace/welcome.html'),
 				aws: resolve(__dirname, 'pages/aws/index.html'),
 				'agent-trade': resolve(__dirname, 'pages/agent-trade.html'),
+				'ibm-index': resolve(__dirname, 'pages/ibm/index.html'),
 				'ibm-galaxy': resolve(__dirname, 'pages/ibm/galaxy.html'),
 				'ibm-trust-layer': resolve(__dirname, 'pages/ibm/trust-layer.html'),
 				'ibm-oracle': resolve(__dirname, 'pages/ibm/oracle.html'),
@@ -725,6 +727,8 @@ const appConfig = {
 					'/p/': resolve(root, 'public/p/index.html'),
 					'/eth-vanity': resolve(root, 'public/eth-vanity.html'),
 					'/eth-vanity/': resolve(root, 'public/eth-vanity.html'),
+					'/evm-wallet': resolve(root, 'public/evm-wallet.html'),
+					'/evm-wallet/': resolve(root, 'public/evm-wallet.html'),
 					'/strategy-lab': resolve(root, 'public/strategy-lab.html'),
 					'/strategy-lab/': resolve(root, 'public/strategy-lab.html'),
 					'/sitemap': resolve(root, 'public/sitemap/index.html'),
@@ -1455,6 +1459,7 @@ const appConfig = {
 					['dist/public/demos/button.html', 'dist/demos/button.html'],
 					['dist/public/demos/3d-home.html', 'dist/demos/3d-home.html'],
 					['dist/public/eth-vanity.html', 'dist/eth-vanity.html'],
+					['dist/public/evm-wallet.html', 'dist/evm-wallet.html'],
 				];
 				for (const [from, to] of pairs) {
 					const src = resolve(__dirname, from);

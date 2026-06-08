@@ -51,6 +51,15 @@ export const TOOL_CATALOG = toolDefs.map((def) => {
 	return entry;
 });
 
+// Registered tools that carry no price — callable with neither an x402 payment
+// nor an OAuth token. Currently just ibm_granite_getting_started. api/ibm-mcp.js
+// reads this to serve a free, public entry point without the auth/payment gate.
+const FREE_TOOLS = new Set(toolDefs.filter((def) => !priceFor(def.name)).map((def) => def.name));
+
+export function isFreeTool(toolName) {
+	return FREE_TOOLS.has(toolName);
+}
+
 // Handler + compiled validator lookup for tools/call.
 export const TOOLS = Object.fromEntries(
 	toolDefs.map((def) => [

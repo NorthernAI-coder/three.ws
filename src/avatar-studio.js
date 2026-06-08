@@ -25,6 +25,7 @@ import { IdleAnimation } from './idle-animation.js';
 import { renderSculptPanel, applyMorphsToRoot } from './avatar-sculpt.js';
 import { saveRemoteGlbToAccount, apiFetch } from './account.js';
 import { uploadAvatarSnapshot } from './voice/avatar-snapshot.js';
+import { optimizeAndValidateGlb } from './avatar-studio-optimize.js';
 import {
 	collapseAppearance,
 	hydrateAppearance,
@@ -1148,7 +1149,18 @@ async function saveAvatar() {
 		// This captures all colours, morphs, and accessories already applied
 		// to the Three.js scene — no server-side bake needed.
 		updateSaveOverlay('Exporting model...', 'Capturing colours and accessories');
-		const glbBlob = await exportSceneGlb();
+		const rawGlbBlob = await exportSceneGlb();
+		updateProgress(15);
+
+		// ── Step 1b: Compress + validate before upload ──────────────
+		// GLTFExporter output is correct but heavy (uncompressed buffers,
+		// re-embedded textures). Run the same conservative glTF-Transform passes
+		// the server bake uses, then validate. Non-fatal: on any failure this
+		// returns the original export untouched, so the save always completes.
+		updateSaveOverlay('Optimizing model...', 'Compressing geometry for fast loads');
+		const { blob: glbBlob } = await optimizeAndValidateGlb(rawGlbBlob, {
+			onStatus: (sub) => updateSaveOverlay('Optimizing model...', sub),
+		});
 		updateProgress(20);
 
 		// ── Step 2: Upload the GLB + create/update the DB record ────

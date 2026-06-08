@@ -134,11 +134,17 @@ export function grindEoaVanity(opts = {}) {
 					stopAll();
 					if (signal) signal.removeEventListener('abort', onAbort);
 					const totalAttempts = attemptsByWorker.reduce((a, b) => a + b, 0) + msg.attempts;
-					const priv = new Uint8Array(msg.privateKey?.buffer ? msg.privateKey : []);
+					// The worker already self-verifies the key against the address;
+					// re-assert the shape here so a malformed message can never reach
+					// the UI as a "wallet". privateKey is always a 0x 32-byte string.
+					if (!/^0x[0-9a-f]{64}$/i.test(msg.privateKey || '') || !/^0x[0-9a-f]{40}$/i.test(msg.address || '')) {
+						reject(new Error('vanity worker returned a malformed key'));
+						return;
+					}
 					resolve({
 						address:         msg.address,
 						addressChecksum: msg.addressChecksum || ('0x' + eip55Checksum(msg.address.slice(2))),
-						privateKey:      typeof msg.privateKey === 'string' ? msg.privateKey : ('0x' + bytesToHex(priv)),
+						privateKey:      msg.privateKey,
 						caseSensitive,
 						attempts:        totalAttempts,
 						durationMs:      performance.now() - startedAt,
@@ -199,12 +205,6 @@ export function grindEoaVanity(opts = {}) {
 			controller.stop = onAbort;
 		}
 	});
-}
-
-function bytesToHex(bytes) {
-	let s = '';
-	for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
-	return s;
 }
 
 export { validatePattern, estimateAttempts, formatTimeEstimate, letterCount, eip55Checksum };

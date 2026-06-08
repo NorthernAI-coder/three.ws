@@ -26,12 +26,15 @@ import { buildGraniteCodeTool } from './tools/granite-code.js';
 import { buildGraniteEmbedTool } from './tools/granite-embed.js';
 import { buildGraniteAnalyzeTool } from './tools/granite-analyze.js';
 import { buildGraniteForecastTool } from './tools/granite-forecast.js';
+import { buildGettingStartedTool } from './tools/getting-started.js';
 
 const SERVER_INSTRUCTIONS =
 	'x402 pay-per-use IBM Granite AI tools from three.ws. Each tool lists its USDC price. ' +
+	'New here? Call ibm_granite_getting_started (free, no payment) for an overview, prices, and the payment flow. ' +
 	'Tool calls without an x402 payment payload in _meta return a PaymentRequired envelope ' +
 	'(v2 MCP transport spec). ' +
-	'Tools: ibm_granite_chat ($0.02 — conversational AI), ' +
+	'Tools: ibm_granite_getting_started (FREE — overview & how to pay), ' +
+	'ibm_granite_chat ($0.02 — conversational AI), ' +
 	'ibm_granite_code ($0.025 — generate/review/refactor/explain/test/document code), ' +
 	'ibm_granite_embed ($0.005 — batch embeddings for RAG/search), ' +
 	'ibm_granite_analyze ($0.04 — structured document analysis), ' +
@@ -52,6 +55,7 @@ export async function buildServer(client) {
 	);
 
 	const tools = await Promise.all([
+		buildGettingStartedTool(),
 		buildGraniteChatTool(client),
 		buildGraniteCodeTool(client),
 		buildGraniteEmbedTool(client),
@@ -101,7 +105,7 @@ async function main() {
 	await server.connect(transport);
 
 	console.error(
-		`[ibm-x402-mcp] ready — 5 IBM Granite x402 tools registered over stdio ` +
+		`[ibm-x402-mcp] ready — 1 free + 5 paid IBM Granite tools registered over stdio ` +
 			`(model: ${config.chatModel} @ ${config.url})`,
 	);
 }

@@ -60,7 +60,7 @@ justification in your brief's PR.
 | Authoritative multiplayer | `colyseus` / `@colyseus/schema` | Already in `multiplayer/`. Extend WalkRoom or add sibling rooms. |
 | Fast world collision / raycast | `three-mesh-bvh` | For large static world meshes (streets, buildings). |
 | NPC navigation | `three-pathfinding` (donmccurdy) | Navmesh for pedestrians, traffic, quest NPCs, mob AI. |
-| Customizable full-body avatars | **Ready Player Me** SDK + our existing GLB/VRM pipeline + `/scan` selfie→3D | We already load GLB/VRM and have a selfie→3D pipeline (memory `scan-to-3d-pipeline`). RPM adds a wardrobe. |
+| Customizable full-body avatars | A third-party full-body avatar SDK + our existing GLB/VRM pipeline + `/scan` selfie→3D | We already load GLB/VRM and have a selfie→3D pipeline (memory `scan-to-3d-pipeline`). The SDK adds a wardrobe. |
 | Character animation | three.js `AnimationMixer` + Mixamo clips (already wired in `avatar-rig.js`) | Reuse the emote/anim manifest system. |
 | Reference architecture (vehicles + ECS netcode) | [iErcann/Notblox](https://github.com/iErcann/Notblox) | three.js + Node + Rapier + ECS, cars/city/players, GTA/Roblox-like. **Read it for patterns; do not fork wholesale.** |
 
@@ -144,7 +144,7 @@ Build roughly in this order; later briefs assume earlier foundations.
 |-------|---------|------------|
 | **W01** | Open-world foundation (drivable streamed world, physics, day/night) | — |
 | **W02** | Vehicles & driving (Rapier raycast vehicle, enter/exit, networked) | W01 |
-| **W03** | Character & avatar customization (Ready Player Me + selfie→3D + wardrobe) | — |
+| **W03** | Character & avatar customization (avatar creator + selfie→3D + wardrobe) | — |
 | **W04** | Economy & money (cash, bank/ATM, sell/buy vendors, `$THREE` sink/faucet) | — |
 | **W05** | Jobs, missions & heists (data-driven quest engine, solo + co-op) | W04 |
 | **W06** | Activities & minigames (gather/craft loop, races, arcade) | W04 (W02 for races) |

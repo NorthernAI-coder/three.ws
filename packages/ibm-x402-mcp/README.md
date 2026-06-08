@@ -25,6 +25,7 @@ The server operator supplies IBM credentials (`WATSONX_*`) and a receiving Solan
 
 | Tool | What it does | Price |
 |---|---|---|
+| `ibm_granite_getting_started` | **Start here** — overview, prices, and the x402 payment flow. No payment or IBM account required. | **Free** |
 | `ibm_granite_chat` | Conversational AI via IBM Granite 3 8B Instruct | $0.02 USDC |
 | `ibm_granite_code` | Code generation, review, refactoring, testing, and documentation | $0.025 USDC |
 | `ibm_granite_embed` | Batch text embeddings for RAG, semantic search, and clustering (up to 64 texts) | $0.005 USDC |

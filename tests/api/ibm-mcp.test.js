@@ -56,6 +56,7 @@ vi.mock('../../api/_lib/usage.js', () => ({
 
 const { dispatch, PROTOCOL_VERSION } = await import('../../api/_mcpibm/dispatch.js');
 const { graniteX402Amount, priceFor } = await import('../../api/_mcpibm/pricing.js');
+const { isFreeTool } = await import('../../api/_mcpibm/catalog.js');
 
 const AUTH = { userId: null, rateKey: 'test', scope: '', source: 'x402', x402Paid: true };
 const call = (name, args) =>
@@ -82,10 +83,11 @@ beforeEach(() => {
 });
 
 describe('IBM Granite MCP — dispatch', () => {
-	it('lists the five Granite tools with per-call pricing', async () => {
+	it('lists the free getting-started tool plus the five paid Granite tools', async () => {
 		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, AUTH);
 		const names = r.result.tools.map((t) => t.name);
 		expect(names).toEqual([
+			'ibm_granite_getting_started',
 			'ibm_granite_chat',
 			'ibm_granite_code',
 			'ibm_granite_embed',
@@ -96,6 +98,40 @@ describe('IBM Granite MCP — dispatch', () => {
 		expect(chat.pricing).toMatchObject({ amount_usdc: 0.02, currency: 'USDC', scheme: 'x402' });
 		expect(chat.extensions.bazaar.discoverable).toBe(true);
 		expect(chat.inputSchema.required).toContain('messages');
+	});
+
+	it('getting_started is free: no pricing and no bazaar discovery extension', async () => {
+		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, AUTH);
+		const gs = r.result.tools.find((t) => t.name === 'ibm_granite_getting_started');
+		expect(gs).toBeTruthy();
+		expect(gs.pricing).toBeUndefined();
+		expect(gs.extensions).toBeUndefined();
+	});
+
+	it('isFreeTool flags only the getting-started tool', () => {
+		expect(isFreeTool('ibm_granite_getting_started')).toBe(true);
+		expect(isFreeTool('ibm_granite_chat')).toBe(false);
+		expect(isFreeTool('nonexistent_tool')).toBe(false);
+		expect(graniteX402Amount('ibm_granite_getting_started')).toBeNull();
+	});
+
+	it('getting_started returns the overview with tools, prices, and payment flow — no payment', async () => {
+		const r = await call('ibm_granite_getting_started', {});
+		const out = r.result.structuredContent;
+		expect(out.ok).toBe(true);
+		expect(out.server).toBe('ibm-x402-mcp');
+		expect(out.pricing).toContain('ibm_granite_chat: $0.02/call');
+		expect(out.payment_flow.length).toBeGreaterThan(0);
+		expect(r.result.content[0].text).toContain('Getting Started');
+		// No watsonx call — this tool never touches IBM inference.
+		expect(wx.chat).not.toHaveBeenCalled();
+	});
+
+	it('getting_started focuses on a requested section', async () => {
+		const r = await call('ibm_granite_getting_started', { section: 'pricing' });
+		const out = r.result.structuredContent;
+		expect(out.pricing).toBeTruthy();
+		expect(out.overview).toBeUndefined();
 	});
 
 	it('initialize advertises the ibm-x402-mcp server', async () => {

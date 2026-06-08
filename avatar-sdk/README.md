@@ -1,6 +1,6 @@
 # @three-ws/avatar
 
-3D avatar viewer, creator iframe, and emotion + lipsync runtime — a drop-in replacement for the Ready Player Me SDK now that RPM was acquired and is no longer accepting new accounts.
+3D avatar viewer, creator iframe, and emotion + lipsync runtime — a drop-in replacement for legacy hosted avatar SDKs that are winding down or no longer accepting new accounts.
 
 Includes:
 
@@ -53,9 +53,9 @@ creator.open();
 
 If you have a previously created avatar and want to re-open it for editing, first call your backend's `/api/avatars/:id/session` (which POSTs to Avaturn under the hood) and pass `avaturnSessionUrl` to the constructor.
 
-## What this gives you that Ready Player Me did
+## What this gives you that legacy avatar SDKs did
 
-| RPM feature | `@three-ws/avatar` equivalent |
+| Legacy SDK feature | `@three-ws/avatar` equivalent |
 |---|---|
 | Photo → 3D avatar | `AvatarCreator` → Avaturn pipeline |
 | In-browser avatar editor | `AvatarCreator` → [Character Studio](https://studio.three.ws) |

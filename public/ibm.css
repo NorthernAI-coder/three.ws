@@ -87,6 +87,26 @@
 	--focus-ring-color:  var(--brand-blue-light);
 	--focus-ring-width:  2px;
 	--focus-ring-offset: 2px;
+
+	/* ---- Canonical IBM Carbon tokens ---------------------------------------
+	 * The explicit `--ibm-*` names that pages and the design-system guard pin
+	 * to. They map onto the canonical monochrome system + the --brand-blue-*
+	 * accent above, so tuning either layer flows through here. */
+	--ibm-bg:          #070707;
+	--ibm-panel:       var(--surface-1);
+	--ibm-border:      var(--stroke);
+	--ibm-text:        var(--ink);
+	--ibm-muted:       var(--ink-dim);
+	--ibm-blue:        var(--brand-blue);
+	--ibm-blue-light:  var(--brand-blue-light);
+	--ibm-green:       var(--success);
+	--ibm-red:         var(--danger);
+	--ibm-amber:       var(--warn);
+
+	/* Short blue aliases legacy pages reference as var(--ibm) / --ibm-light. */
+	--ibm:             var(--brand-blue);
+	--ibm-light:       var(--brand-blue-light);
+	--ibm-dim:         var(--brand-blue-dim);
 }
 
 /* =============================================================================
