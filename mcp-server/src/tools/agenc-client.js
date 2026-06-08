@@ -12,6 +12,8 @@ import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import { AGENC_COORDINATION_IDL } from '@tetsuo-ai/protocol';
 import { DEVNET_RPC, MAINNET_RPC, PROGRAM_ID } from '@tetsuo-ai/sdk';
 
+import { resilientFetch } from '../lib/resilient-fetch.js';
+
 // Devnet program ID validated by the AgenC team on 2026-03-22.
 // Source: https://docs.agenc.tech/docs/runtime/api/.
 export const AGENC_DEVNET_PROGRAM_ID = new PublicKey(
@@ -57,7 +59,19 @@ function buildReadOnlyWallet() {
 export function getAgenCClient(cluster = 'mainnet') {
 	const c = cluster === 'devnet' ? 'devnet' : 'mainnet';
 	const rpcUrl = pickRpc(c);
-	const connection = new Connection(rpcUrl, 'confirmed');
+	const connection = new Connection(rpcUrl, {
+		commitment: 'confirmed',
+		// Bound every RPC call (web3.js otherwise inherits Node's unbounded
+		// default — the source of indefinite hangs) and replay a single
+		// transient blip. AgenC reads are idempotent queries, so retry is safe.
+		fetch: (url, init) =>
+			resilientFetch(url, init, {
+				timeoutMs: 12_000,
+				retries: 1,
+				retryNonIdempotent: true,
+				label: `agenc-rpc ${rpcUrl}`,
+			}),
+	});
 	const provider = new AnchorProvider(connection, buildReadOnlyWallet(), {
 		commitment: 'confirmed',
 		preflightCommitment: 'confirmed',

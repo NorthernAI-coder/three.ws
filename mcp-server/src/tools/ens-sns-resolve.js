@@ -40,10 +40,13 @@ async function withTimeout(promise, ms, label) {
 }
 
 async function resolveEns(name) {
-	const rpcUrl = env('MCP_ENS_RPC_URL') || env('MAINNET_RPC_URL');
-	const provider = rpcUrl
-		? new ethers.JsonRpcProvider(rpcUrl)
-		: ethers.getDefaultProvider('mainnet');
+	// Ethereum mainnet (chainId 1) with endpoint failover: any operator override
+	// is tried first, then the built-in redundant public endpoints. Every RPC
+	// call is timeout-bounded inside the provider, and the outer withTimeout
+	// races the whole resolution as a final guard.
+	const overrides = [env('MCP_ENS_RPC_URL'), env('MAINNET_RPC_URL')].filter(Boolean);
+	const provider = makeEvmProvider(1, { overrides, timeoutMs: 8000 });
+	const rpcUrl = overrides[0] || 'failover:ethereum';
 	const address = await withTimeout(provider.resolveName(name), 4000, 'ens');
 	if (!address) return null;
 	let reverseName = null;
@@ -58,7 +61,11 @@ async function resolveEns(name) {
 async function resolveSns(name) {
 	const bare = name.toLowerCase().replace(/\.sol$/, '');
 	if (!/^[a-z0-9-]{1,63}$/.test(bare)) return null;
-	const lookup = await fetch(`${SNS_API}/v2/domain/lookup/${bare}.sol`).catch(() => null);
+	const lookup = await resilientFetch(
+		`${SNS_API}/v2/domain/lookup/${bare}.sol`,
+		{},
+		{ timeoutMs: 6000, retries: 2, label: 'sns-lookup' },
+	).catch(() => null);
 	if (!lookup || !lookup.ok) return null;
 	const data = await lookup.json().catch(() => null);
 	const owner = data?.owner || data?.[bare + '.sol']?.owner || data?.data?.owner || null;
@@ -67,7 +74,11 @@ async function resolveSns(name) {
 	// Reverse fetch: other domains the owner holds.
 	let allDomains = [];
 	try {
-		const r = await fetch(`${SNS_API}/v2/user/domains/${owner}`);
+		const r = await resilientFetch(
+			`${SNS_API}/v2/user/domains/${owner}`,
+			{},
+			{ timeoutMs: 6000, retries: 1, label: 'sns-domains' },
+		);
 		if (r.ok) {
 			const body = await r.json();
 			const list = body?.[owner] || body?.data?.[owner] || [];
@@ -83,7 +94,11 @@ async function resolveSns(name) {
 
 	let favoriteDomain = null;
 	try {
-		const r = await fetch(`${SNS_API}/v2/user/fav-domains/${owner}`);
+		const r = await resilientFetch(
+			`${SNS_API}/v2/user/fav-domains/${owner}`,
+			{},
+			{ timeoutMs: 6000, retries: 1, label: 'sns-fav' },
+		);
 		if (r.ok) {
 			const body = await r.json();
 			favoriteDomain = body?.[owner] || body?.data?.[owner] || null;
