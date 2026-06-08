@@ -470,7 +470,7 @@ function agentCard(a, avatars) {
 
 			<div class="dn-agent-actions">
 				<div class="dn-agent-actions-primary">
-					${a.avatar_id ? `<a class="dn-btn" href="/agents/${encodeURIComponent(a.avatar_id)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:12px">Live page ↗</a>` : ''}
+					${a.avatar_id ? `<a class="dn-btn" href="/avatars/${encodeURIComponent(a.avatar_id)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:12px">Live page ↗</a>` : ''}
 					<a class="dn-btn" href="/app?agent=${encodeURIComponent(a.id)}" target="_blank" rel="noopener" style="padding:5px 10px;font-size:12px">3D Studio ↗</a>
 				</div>
 				<div class="dn-agent-actions-secondary">
