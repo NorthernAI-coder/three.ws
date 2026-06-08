@@ -23,7 +23,7 @@ export default wrap(async (req, res) => {
 
 	const rl = await limits.mcp3dStatus(clientIp(req));
 	if (!rl.success) {
-		rateLimited(res, rl);
+		return rateLimited(res, rl);
 	}
 
 	if (!forgeStoreEnabled()) {

@@ -63,7 +63,7 @@ export default wrap(async (req, res) => {
 	const ip = clientIp(req);
 	const rl = await limits.upload(`forge:${ip}`);
 	if (!rl.success) {
-		rateLimited(res, rl, 'Upload limit reached. Try again shortly.');
+		return rateLimited(res, rl, 'Upload limit reached. Try again shortly.');
 	}
 
 	const body = await readJson(req, 2_000).catch(() => null);

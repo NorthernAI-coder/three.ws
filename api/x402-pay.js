@@ -571,7 +571,7 @@ export default wrap(async (req, res) => {
 	const ip = clientIp(req);
 	const ipRl = await limits.x402PayIp(ip);
 	if (!ipRl.success) {
-		rateLimited(res, ipRl);
+		return rateLimited(res, ipRl);
 	}
 	const globalRl = await limits.x402PayGlobal();
 	if (!globalRl.success) {

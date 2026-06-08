@@ -46,7 +46,7 @@ async function startJob(req, res) {
 	const ip = clientIp(req);
 	const rl = await limits.mcp3dGenerate(ip);
 	if (!rl.success) {
-		rateLimited(res, rl);
+		return rateLimited(res, rl);
 	}
 
 	const body = await readJson(req, 4_000).catch(() => null);
@@ -97,7 +97,7 @@ async function pollJob(req, res, jobId) {
 
 	const rl = await limits.mcp3dStatus(clientIp(req));
 	if (!rl.success) {
-		rateLimited(res, rl);
+		return rateLimited(res, rl);
 	}
 
 	let provider;
