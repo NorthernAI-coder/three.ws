@@ -4586,6 +4586,8 @@
 			if (state.mode !== 'inline') attrs.push('mode="' + state.mode + '"');
 			if (state.background !== 'transparent') attrs.push('background="' + state.background + '"');
 			for (const [k, v] of Object.entries(state.options)) {
+				// responsive defaults on, so disabling it must be explicit.
+				if (k === 'responsive') { attrs.push(v ? 'responsive' : 'responsive="false"'); continue; }
 				if (!v || v === 'off') continue;
 				attrs.push(typeof v === 'string' ? k + '="' + v + '"' : k);
 			}
@@ -4630,21 +4632,44 @@
 			return bg;
 		}
 
+		function setLiveOption(k, v) {
+			// String-valued options (name-plate, avatar-chat) must be reflected
+			// explicitly — the component hides the plate only on `name-plate="off"`,
+			// not on the attribute's absence, so removing it would leave it visible.
+			if (typeof v === 'string') liveAgent.setAttribute(k, v);
+			else if (v) liveAgent.setAttribute(k, '');
+			else liveAgent.removeAttribute(k);
+		}
+
 		function updatePreview() {
 			if (!state.glbUrl) return;
-			if (!liveAgent) {
+			// `kiosk` and `eager` are read once at boot (not observed attributes),
+			// so a change to either requires recreating the element. kiosk is tied
+			// to the chat toggle: with chat on we drop kiosk so the chat chrome
+			// renders; with chat off we keep kiosk for a clean avatar-only tile.
+			var wantKiosk = state.options['avatar-chat'] !== 'on';
+			var wantEager = !!state.options.eager;
+			var needsRebuild = !liveAgent
+				|| liveAgent.hasAttribute('kiosk') !== wantKiosk
+				|| liveAgent.hasAttribute('eager') !== wantEager;
+			if (needsRebuild) {
+				if (liveAgent) liveAgent.remove();
 				liveAgent = document.createElement('agent-3d');
-				liveAgent.setAttribute('kiosk', '');
+				if (wantKiosk) liveAgent.setAttribute('kiosk', '');
+				if (wantEager) liveAgent.setAttribute('eager', '');
+				liveAgent.setAttribute('body', state.glbUrl);
 				preview.appendChild(liveAgent);
+			} else {
+				liveAgent.setAttribute('body', state.glbUrl);
 			}
-			liveAgent.setAttribute('body', state.glbUrl);
 			liveAgent.setAttribute('mode', state.mode);
 			liveAgent.setAttribute('background', state.background);
-			for (var entry of Object.entries(state.options)) {
-				var k = entry[0], v = entry[1];
-				if (v && v !== 'off') liveAgent.setAttribute(k, typeof v === 'string' ? v : '');
-				else liveAgent.removeAttribute(k);
-			}
+			// Runtime-observed surface attributes — applied live without a reboot.
+			// `responsive` is off only when explicitly "false"; an absent attribute
+			// defaults to responsive-on, so we must set the literal value.
+			liveAgent.setAttribute('responsive', state.options.responsive ? '' : 'false');
+			setLiveOption('name-plate', state.options['name-plate']);
+			setLiveOption('avatar-chat', state.options['avatar-chat']);
 			preview.style.backgroundColor = resolvePreviewBg(state.background);
 		}
 
@@ -4885,7 +4910,7 @@
 				if (mode && mode !== state.mode) state.mode = mode;
 				var bg = ga('background');
 				if (bg !== null) state.background = bg;
-				state.options.responsive = ha('responsive');
+				state.options.responsive = ga('responsive') !== 'false';
 				state.options['name-plate'] = ga('name-plate') === 'on' ? 'on' : 'off';
 				state.options['avatar-chat'] = ga('avatar-chat') === 'on' ? 'on' : 'off';
 				state.options.eager = ha('eager');

@@ -1038,6 +1038,8 @@
 					['widgets', 'Widgets'],
 					['skills', 'Skills'],
 					['plugins', 'Plugins'],
+					['coins', 'Coins'],
+					['memories', 'Memories'],
 				];
 				if (stats.widget_views > 0) statDefs.push(['widget_views', 'Widget Views']);
 				const statsHtml = statDefs.map(([key, label]) => `
@@ -1054,6 +1056,8 @@
 					{ key: 'widgets', label: 'Widgets', count: widgets.length },
 					{ key: 'skills', label: 'Skills', count: skills.length },
 					{ key: 'plugins', label: 'Plugins', count: plugins.length },
+					{ key: 'coins', label: 'Coins', count: coins.length },
+					{ key: 'memories', label: 'Memories', count: memories.length },
 				];
 				const visibleTabs = tabs.filter((t) => t.count > 0);
 				const defaultTab = visibleTabs[0]?.key || 'avatars';
@@ -1098,6 +1102,12 @@
 					</section>
 					<section class="up-section" data-section="plugins"${defaultTab === 'plugins' ? '' : ' hidden'}>
 						${renderPluginsList(plugins)}
+					</section>
+					<section class="up-section" data-section="coins"${defaultTab === 'coins' ? '' : ' hidden'}>
+						${renderCoinsGrid(coins)}
+					</section>
+					<section class="up-section" data-section="memories"${defaultTab === 'memories' ? '' : ' hidden'}>
+						${renderMemoriesList(memories)}
 					</section>
 				`;
 
@@ -1258,6 +1268,65 @@
 									<span>${esc(p.identifier)}</span>
 									<span>${formatStat(p.install_count)} install${p.install_count === 1 ? '' : 's'}</span>
 									<span>${esc(rating)}</span>
+								</div>
+							</div>
+						</div>
+					`;
+				}).join('');
+				return `<div class="up-list up-list-cols-2">${cards}</div>`;
+			}
+
+			function renderCoinsGrid(coins) {
+				if (!coins.length) return `<p class="up-empty">No coins launched yet.</p>`;
+				const cards = coins.map((c) => {
+					const thumb = c.image
+						? `<img src="${attr(c.image)}" alt="${attr(c.name)}" style="width:100%;height:100%;object-fit:cover" referrerpolicy="no-referrer">`
+						: `<div class="up-card-thumb-placeholder">◎</div>`;
+					const symbol = c.symbol ? `<span class="up-card-chain">$${esc(c.symbol.replace(/^\$/, ''))}</span>` : '';
+					const devnet = c.cluster && c.cluster !== 'mainnet'
+						? `<span class="up-card-id">${esc(c.cluster)}</span>` : '';
+					const inner = `
+						<div class="up-card-thumb">${thumb}</div>
+						<div class="up-card-body">
+							${symbol}
+							<span class="up-card-name">${esc(c.name)}</span>
+							${c.description ? `<p class="up-card-desc">${esc(c.description)}</p>` : ''}
+							<div class="up-card-footer">
+								<span class="up-card-id" title="${attr(c.mint)}">${esc(c.mint.slice(0, 4))}…${esc(c.mint.slice(-4))}</span>
+								${devnet}
+							</div>
+						</div>`;
+					// Link out to the live coin page when present; otherwise fall back to
+					// the launching agent so the card is never a dead end.
+					return c.url
+						? `<a class="up-card" href="${attr(c.url)}" target="_blank" rel="noopener" style="text-decoration:none">${inner}</a>`
+						: `<a class="up-card" href="/agent/${attr(c.agent_id)}" style="text-decoration:none">${inner}</a>`;
+				}).join('');
+				return `<div class="up-grid">${cards}</div>`;
+			}
+
+			function renderMemoriesList(memories) {
+				if (!memories.length) return `<p class="up-empty">No public memories yet.</p>`;
+				const cards = memories.map((m) => {
+					const tags = (m.tags || []).slice(0, 4).map((t) => `<span class="up-tag">#${esc(t)}</span>`).join('');
+					const when = m.created_at
+						? new Date(m.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+						: '';
+					const agent = m.agent_name
+						? `<a href="/agent/${attr(m.agent_id)}">${esc(m.agent_name)}</a>`
+						: '';
+					return `
+						<div class="up-card-row">
+							<div class="up-card-row-thumb">◇</div>
+							<div class="up-card-row-body">
+								<div class="up-card-row-head">
+									<span class="up-card-row-pill">${esc(m.type)}</span>
+								</div>
+								<p class="up-card-row-desc" style="-webkit-line-clamp:4">${esc(m.content)}</p>
+								<div class="up-card-row-meta">
+									${agent ? `<span>${agent}</span>` : ''}
+									${when ? `<span>${esc(when)}</span>` : ''}
+									${tags ? `<span>${tags}</span>` : ''}
 								</div>
 							</div>
 						</div>

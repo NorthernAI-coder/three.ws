@@ -113,6 +113,11 @@ export async function buildAvatar(rig, url, anim) {
 		model.position.y -= box.min.y;
 		rig.add(model);
 		anim.attach(model);
+		// Ensure the clip manifest is loaded before posing — callers often kick off
+		// loadManifest() without awaiting it (see agent-commerce.js), so without this
+		// the idle crossfade can run with no defs and leave the avatar in its raw
+		// T-pose bind pose. loadManifest is idempotent + cached, so this is cheap.
+		if (!_animDefs) await loadManifest();
 		if (_animDefs?.length) { anim.setAnimationDefs(_animDefs); await anim.loadAll(); await anim.crossfadeTo(CLIP_IDLE, 0); }
 		return { height: headAnchorHeight(box), fallback: false };
 	} catch (err) {
