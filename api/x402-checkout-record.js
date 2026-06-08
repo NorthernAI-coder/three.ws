@@ -11,8 +11,9 @@
 
 import { z } from 'zod';
 import { sql } from './_lib/db.js';
-import { cors, json, readJson, wrap, error } from './_lib/http.js';
+import { cors, json, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { parse } from './_lib/validate.js';
+import { limits, clientIp } from './_lib/rate-limit.js';
 
 const recordSchema = z.object({
 	sku_id: z.string().uuid(),
@@ -29,6 +30,11 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { origins: '*', methods: 'POST,OPTIONS' })) return;
 	if (req.method !== 'POST') return error(res, 405, 'method_not_allowed', 'use POST');
 
+	// Public + write endpoint — bound per IP so it can't be scripted into a flood
+	// of fabricated revenue rows.
+	const rl = await limits.x402RecordIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl, 'too many checkout records, slow down');
+
 	const body = parse(recordSchema, await readJson(req));
 
 	// Confirm the SKU exists (and is active) before inserting — keeps the table
@@ -36,11 +42,26 @@ export default wrap(async (req, res) => {
 	const [sku] = await sql`select id from x402_skus where id = ${body.sku_id} and archived_at is null limit 1`;
 	if (!sku) return error(res, 404, 'sku_not_found', 'no active SKU with that id');
 
+	// Replay guard: a given on-chain tx may only be recorded once per SKU.
+	// Without this, replaying one real payment header inflates the merchant's
+	// revenue/conversion analytics arbitrarily. Idempotently return the existing
+	// row instead of erroring so a legitimate double-submit is a no-op. The
+	// (sku_id, tx_signature) unique index makes this race-safe under concurrency.
+	if (body.tx_signature) {
+		const [existing] = await sql`
+			select id, paid_at from x402_checkout_calls
+			where sku_id = ${body.sku_id} and tx_signature = ${body.tx_signature} limit 1
+		`;
+		if (existing) return json(res, 200, { ok: true, id: existing.id, paid_at: existing.paid_at, deduped: true });
+	}
+
 	const ip = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString().split(',')[0].trim();
 	const ipHash = ip ? simpleHash(ip) : null;
 	const ua = (req.headers['user-agent'] || '').toString().slice(0, 240);
 
-	const [row] = await sql`
+	let row;
+	try {
+		[row] = await sql`
 		insert into x402_checkout_calls (
 			sku_id, network, tx_signature, payer_address,
 			amount_atomics, asset, response_status, error_code,
@@ -52,8 +73,20 @@ export default wrap(async (req, res) => {
 			${body.response_status}, ${body.error_code ?? null},
 			${ipHash}, ${ua}
 		)
-		returning id, paid_at
-	`;
+			returning id, paid_at
+		`;
+	} catch (err) {
+		// Lost the race to a concurrent record of the same tx — the unique index
+		// rejected the duplicate. Return the row that won, idempotently.
+		if (body.tx_signature && /duplicate key|unique/i.test(err?.message || '')) {
+			const [existing] = await sql`
+				select id, paid_at from x402_checkout_calls
+				where sku_id = ${body.sku_id} and tx_signature = ${body.tx_signature} limit 1
+			`;
+			if (existing) return json(res, 200, { ok: true, id: existing.id, paid_at: existing.paid_at, deduped: true });
+		}
+		throw err;
+	}
 	return json(res, 201, { ok: true, id: row.id, paid_at: row.paid_at });
 });
 

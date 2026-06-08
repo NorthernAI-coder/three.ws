@@ -225,6 +225,10 @@ export const limits = {
 	// without Redis in prod rather than allowing unbounded paid inference.
 	bountyJudge: (userId) =>
 		getLimiter('bounty:judge:user', { limit: 30, window: '1 h', critical: true }).limit(userId),
+	// Agent action-log append (api/agent-actions POST). Append-only, never-deleted
+	// table, so cap per user to prevent unbounded storage growth from a script.
+	agentActionAppend: (userId) =>
+		getLimiter('agent:action:append', { limit: 120, window: '1 m' }).limit(userId),
 	// Bounty creation + submission. Both are authenticated writes to public,
 	// everyone-reads tables, so cap per user to stop one account scripting spam
 	// that pollutes the feed and bloats storage.
