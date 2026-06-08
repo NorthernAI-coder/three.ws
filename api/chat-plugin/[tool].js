@@ -11,7 +11,7 @@
 //   speak        → /api/chat-plugin/speak
 //   gesture      → /api/chat-plugin/gesture
 //   emote        → /api/chat-plugin/emote
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 
 const GESTURES = ['wave', 'nod', 'point', 'shrug'];
@@ -51,7 +51,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const tool = String(req.query?.tool || '').toLowerCase();
 	const args = readArgs(await readJson(req, 64_000));

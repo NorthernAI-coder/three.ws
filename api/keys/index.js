@@ -5,7 +5,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { randomToken, sha256 } from '../_lib/crypto.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { limits } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
@@ -32,7 +32,7 @@ export default wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in to manage API keys');
 
 	const rl = await limits.apiKeyManage(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'GET') {
 		const rows = await sql`

@@ -3,7 +3,7 @@
 // signature over the message from /wallet/challenge. Lets the user post from
 // that wallet (subject to the community's token-balance gate).
 import { z } from 'zod';
-import { cors, error, json, method, readJson, wrap } from '../../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
 import { cc, userAuthHeaders, UnconfiguredError } from '../../_lib/coin-communities.js';
 
@@ -17,7 +17,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const headers = userAuthHeaders(req);
 	if (!headers) return error(res, 401, 'unauthorized', 'sign in with X first');

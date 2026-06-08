@@ -19,7 +19,7 @@ import { createPublicClient } from 'viem';
 import { mainnet } from 'viem/chains';
 import { evmTransport } from '../_lib/evm/rpc.js';
 
-import { cors, error, json, method } from '../_lib/http.js';
+import { cors, error, json, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { listReceiptsForPayer } from '../_lib/x402/receipt-storage.js';
 import { verifySiwsSignature } from '../_lib/siws.js';
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const address = String(url.searchParams.get('address') || '').trim();

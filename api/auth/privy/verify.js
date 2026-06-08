@@ -17,7 +17,7 @@ import {
 } from '../../_lib/auth.js';
 import { fetchPrivyWallets, extractIdentity } from '../../_lib/privy.js';
 import { env } from '../../_lib/env.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 import { seedDefaultAgent } from '../../_lib/seed-default-agent.js';
@@ -33,7 +33,7 @@ export default wrap(async (req, res) => {
 
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many attempts');
+	if (!rl.success) return rateLimited(res, rl, 'too many attempts');
 
 	if (!env.PRIVY_APP_ID) return error(res, 503, 'not_configured', 'Privy is not configured on this server');
 

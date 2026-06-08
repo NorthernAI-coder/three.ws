@@ -22,7 +22,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { z } from 'zod';
 
@@ -109,7 +109,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many publish attempts — try again soon');
+	if (!rl.success) return rateLimited(res, rl, 'too many publish attempts — try again soon');
 
 	const body = await readJson(req).catch(() => null);
 	if (!body) return error(res, 400, 'validation_error', 'request body required');

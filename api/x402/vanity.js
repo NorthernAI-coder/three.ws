@@ -22,7 +22,7 @@
 // (USDC). verifyPayment / settlePayment in x402-spec.js route per network. The
 // Solana entry is omitted when X402_PAY_TO_SOLANA is unset so the 402 stays valid.
 
-import { wrap, cors, error } from '../_lib/http.js';
+import { wrap, cors, error, rateLimited } from '../_lib/http.js';
 import {
 	NETWORK_BASE_MAINNET,
 	NETWORK_SOLANA_MAINNET,
@@ -277,7 +277,7 @@ export default wrap(async (req, res) => {
 	// Light rate limit on the public (pre-payment) path so the 402 challenge
 	// and parameter validation can't be hammered. The grind itself is paywalled.
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	// Validate the pattern up front so a malformed request is rejected before we
 	// ever quote a price. A pattern-free probe is allowed (combinedLength 0).

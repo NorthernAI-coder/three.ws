@@ -28,7 +28,7 @@ import {
 
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { confirmSkillPurchase, resolvePayoutAddress, logEvent } from '../_lib/purchase-confirm.js';
@@ -64,7 +64,7 @@ export default wrap(async (req, res) => {
 
 	// Per-IP rate limit (coarse gate)
 	const rlIp = await limits.authIp(clientIp(req));
-	if (!rlIp.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rlIp.success) return rateLimited(res, rlIp);
 
 	const body = await readJson(req).catch(() => null);
 	const parsed = bodySchema.safeParse(body);
@@ -81,7 +81,7 @@ export default wrap(async (req, res) => {
 	const rlAgent = await limits.agentBuy(buyer_agent_id);
 	if (!rlAgent.success) {
 		log('purchase_as_agent.rate_limited', { buyer_agent_id, seller_agent_id, skill });
-		return error(res, 429, 'rate_limited', 'too many autonomous purchases — try again later');
+		return rateLimited(res, rlAgent, 'too many autonomous purchases — try again later');
 	}
 
 	// Verify caller owns the buyer agent

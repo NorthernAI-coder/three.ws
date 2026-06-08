@@ -222,10 +222,7 @@ export function paid(cfg, handler) {
 
 			return wrap(async (args, context) => {
 				const result = await handler(args, context);
-				const text = typeof result === 'string' ? result : JSON.stringify(result);
-				return {
-					content: [{ type: 'text', text }],
-				};
+				return buildToolResult(result);
 			});
 		})();
 		return wrapperPromise;
@@ -237,6 +234,44 @@ export function paid(cfg, handler) {
 		const wrapped = await getWrapper();
 		return wrapped(args, context);
 	};
+}
+
+/**
+ * Build the MCP `CallToolResult` envelope from a handler's return value.
+ *
+ * This is the single place every paid tool's output is shaped, so all 15 tools
+ * get the same modern MCP contract for free:
+ *
+ *   - `content[0].text` — the JSON (or raw string) blob. Always present, so
+ *     pre-2025-06-18 clients that only read text keep working unchanged.
+ *   - `structuredContent` — the handler's object verbatim, surfaced as MCP
+ *     structured tool output (spec 2025-06-18). Clients that support it get a
+ *     ready-to-use object and skip the `JSON.parse(content[0].text)` dance.
+ *     Only emitted for plain objects (the spec requires an object, not an
+ *     array or scalar); string/array returns fall back to text-only.
+ *   - `isError: true` — set ONLY for the explicit `toolError()` envelope
+ *     (`ok === false`). This flags the failure to the LLM AND, via the x402
+ *     payment wrapper, cancels the payment instead of settling it — so a caller
+ *     is never charged for an invalid-input / provider / timeout error. It is
+ *     deliberately NOT set for partial-data successes (e.g. a snapshot whose
+ *     `price` sub-field carries `{ error }` but whose overall call succeeded),
+ *     which have no top-level `ok: false`.
+ *
+ * @param {unknown} result  — whatever the tool handler returned
+ * @returns {{ content: Array<{type:'text',text:string}>, structuredContent?: object, isError?: true }}
+ */
+export function buildToolResult(result) {
+	const text = typeof result === 'string' ? result : JSON.stringify(result);
+	const envelope = { content: [{ type: 'text', text }] };
+	const isPlainObject =
+		result !== null && typeof result === 'object' && !Array.isArray(result);
+	if (isPlainObject) {
+		envelope.structuredContent = result;
+		if (result.ok === false) {
+			envelope.isError = true;
+		}
+	}
+	return envelope;
 }
 
 /**

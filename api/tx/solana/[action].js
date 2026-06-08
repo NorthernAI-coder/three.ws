@@ -8,7 +8,7 @@ import {
 	createTransferInstruction, getMint, getAssociatedTokenAddress,
 	createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
@@ -34,7 +34,7 @@ async function handleBuildTransfer(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const { sender, recipient, amount, token, memo, network } = parse(transferSchema, await readJson(req));
 
@@ -104,7 +104,7 @@ async function handleBuildSwap(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const { sender, inputMint, outputMint, amount, slippageBps } = parse(swapSchema, await readJson(req));
 

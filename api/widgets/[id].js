@@ -15,7 +15,7 @@ import { z } from 'zod';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { decorate } from './index.js';
@@ -41,7 +41,7 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'GET') {
 		const rl = await limits.widgetRead(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		// Public showcase fixtures — short-circuit DB lookup so the gallery
 		// renders without seeded rows in any environment.
@@ -84,7 +84,7 @@ export default wrap(async (req, res) => {
 	}
 
 	const rl = await limits.widgetWrite(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'PATCH') {
 		const patch = parse(patchSchema, await readJson(req));

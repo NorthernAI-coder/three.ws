@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, error, method, readJson, wrap } from '../_lib/http.js';
+import { cors, json, error, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 
@@ -116,7 +116,7 @@ async function handleList(req, res) {
 	}
 
 	const rl = await limits.skillsBrowse(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const auth = await resolveOptionalAuth(req);
 	const userId = auth?.userId ?? null;
@@ -327,7 +327,7 @@ async function handlePublish(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.chatUser(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(publishSchema, await readJson(req));
 

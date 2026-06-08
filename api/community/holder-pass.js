@@ -17,7 +17,7 @@
 // Auth/wallet problems are real errors the gate UI routes on:
 //   401 auth_required   — not signed in to CoinCommunities
 //   403 wallet_required — signed in but no linked Solana wallet
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { cc, userAuthHeaders, isValidToken, UnconfiguredError } from '../_lib/coin-communities.js';
 import { getBalances, solanaMintUsdPrice } from '../_lib/balances.js';
@@ -37,7 +37,7 @@ export default wrap(async (req, res) => {
 	res.setHeader('cache-control', 'no-store');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const token = new URL(req.url, 'http://x').searchParams.get('token');
 	if (!isValidToken(token)) {

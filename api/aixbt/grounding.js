@@ -5,7 +5,7 @@
 //
 // Response: { grounding, source } | { error, error_description }
 
-import { wrap, cors, method, json, error } from '../_lib/http.js';
+import { wrap, cors, method, json, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getGrounding } from '../_lib/aixbt.js';
 import { respondAixbtError } from './_shared.js';
@@ -15,7 +15,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.aixbtIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	try {
 		const result = await getGrounding();

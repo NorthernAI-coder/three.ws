@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { parse } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { captureException } from '../../_lib/sentry.js';
@@ -194,11 +194,7 @@ async function handleChat(req, res) {
 		const ip = clientIp(req);
 		const rl = await limits.widgetChat({ ip, widgetId, perMinute });
 		if (!rl.success) {
-			const retryAfter = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
-			res.setHeader('retry-after', String(retryAfter));
-			return error(res, 429, 'rate_limited', 'too many messages — slow down', {
-				retry_after: retryAfter,
-			});
+			return rateLimited(res, rl, 'too many messages — slow down');
 		}
 	}
 
@@ -848,7 +844,7 @@ async function handleDuplicate(req, res) {
 	}
 
 	const rl = await limits.widgetWrite(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [src] = await sql`
 		select id, type, name, config, avatar_id, is_public
@@ -1360,7 +1356,7 @@ async function handleKnowledge(req, res) {
 	}
 
 	const rl = await limits.upload(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many uploads — try again later');
+	if (!rl.success) return rateLimited(res, rl, 'too many uploads — try again later');
 
 	let body;
 	try {

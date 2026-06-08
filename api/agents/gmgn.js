@@ -8,7 +8,7 @@
  *   minSmartBuys  number                     (default: 2)
  */
 
-import { cors, method, error } from '../_lib/http.js';
+import { cors, method, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { connectGmgnFeed, recentGmgnBuffered } from '../_lib/gmgn-feed.js';
 
@@ -28,7 +28,7 @@ async function handleFeed(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many feed connections');
+	if (!rl.success) return rateLimited(res, rl, 'too many feed connections');
 
 	const url = new URL(req.url, 'http://x');
 	const chain = url.searchParams.get('chain') || 'sol';

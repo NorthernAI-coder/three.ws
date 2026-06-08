@@ -5,7 +5,7 @@
 
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
@@ -18,7 +18,7 @@ export default wrap(async (req, res) => {
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('agent_id');

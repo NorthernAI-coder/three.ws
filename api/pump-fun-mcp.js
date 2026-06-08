@@ -16,7 +16,7 @@
 // Methods: initialize, tools/list, tools/call. CORS open (read-only data).
 // Rate-limited by IP via limits.mcpIp.
 
-import { cors, json, method, wrap, readJson, error } from './_lib/http.js';
+import { cors, json, method, wrap, readJson, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { extractBearer, authenticateBearer } from './_lib/auth.js';
 import { verifyPayment, resolveResourceUrl, paymentRequirements } from './_lib/x402-spec.js';
@@ -764,7 +764,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
 	try {

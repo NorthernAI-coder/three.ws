@@ -25,7 +25,7 @@ import { createHash } from 'node:crypto';
 // puppeteer-core + @sparticuz/chromium-min are loaded lazily inside getBrowser()
 // so Vercel's NFT does not statically trace the chromium binary tree on every
 // route in this function package — that trace was the 45-min build timeout.
-import { cors, error, json, wrap } from '../_lib/http.js';
+import { cors, error, json, wrap, rateLimited } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { getAvatar } from '../_lib/avatars.js';
 import { publicUrl, putObject, headObject } from '../_lib/r2.js';
@@ -54,12 +54,13 @@ const FORMAT_TYPES = {
 
 const rateMap = new Map();
 function rateCheck(ip) {
-	if (!ip) return true;
 	const now = Date.now();
+	if (!ip)
+		return { success: true, limit: RATE_LIMIT_MAX, remaining: RATE_LIMIT_MAX, reset: now + RATE_LIMIT_WINDOW_MS };
 	const arr = (rateMap.get(ip) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
 	if (arr.length >= RATE_LIMIT_MAX) {
 		rateMap.set(ip, arr);
-		return false;
+		return { success: false, limit: RATE_LIMIT_MAX, remaining: 0, reset: arr[0] + RATE_LIMIT_WINDOW_MS };
 	}
 	arr.push(now);
 	rateMap.set(ip, arr);
@@ -68,7 +69,7 @@ function rateCheck(ip) {
 			if (v.every((t) => now - t >= RATE_LIMIT_WINDOW_MS)) rateMap.delete(k);
 		}
 	}
-	return true;
+	return { success: true, limit: RATE_LIMIT_MAX, remaining: RATE_LIMIT_MAX - arr.length, reset: now + RATE_LIMIT_WINDOW_MS };
 }
 
 function cacheKey(avatarId, paramsHash, format) {
@@ -88,8 +89,9 @@ export default wrap(async function handler(req, res) {
 	}
 
 	const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress;
-	if (!rateCheck(ip)) {
-		return error(res, 429, 'rate_limited', `Limit: ${RATE_LIMIT_MAX} renders per ${RATE_LIMIT_WINDOW_MS / 60000}m`);
+	const rl = rateCheck(ip);
+	if (!rl.success) {
+		return rateLimited(res, rl, `Limit: ${RATE_LIMIT_MAX} renders per ${RATE_LIMIT_WINDOW_MS / 60000}m`);
 	}
 
 	const url = new URL(req.url, 'http://x');

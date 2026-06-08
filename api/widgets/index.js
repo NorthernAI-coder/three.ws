@@ -13,7 +13,7 @@ import { z } from 'zod';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { publicUrl } from '../_lib/r2.js';
@@ -36,7 +36,7 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'GET') {
 		const rl = await limits.widgetRead(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		const rows = await sql`
 			select w.id, w.user_id, w.avatar_id, w.type, w.name, w.config, w.is_public,
@@ -54,7 +54,7 @@ export default wrap(async (req, res) => {
 
 	// POST
 	const rl = await limits.widgetWrite(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(createBody, await readJson(req));
 

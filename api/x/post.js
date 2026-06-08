@@ -3,7 +3,7 @@
 // One of `text` (single tweet) or `thread_parts` (array → thread) is required.
 
 import { getSessionUser } from '../_lib/auth.js';
-import { cors, method, wrap, error, readJson, json } from '../_lib/http.js';
+import { cors, method, wrap, error, readJson, json, rateLimited } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { publishTweet, XPostError } from '../_lib/x-post.js';
@@ -21,7 +21,7 @@ export default wrap(async (req, res) => {
 	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	const text = typeof body?.text === 'string' ? body.text : '';

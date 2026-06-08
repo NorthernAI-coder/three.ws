@@ -15,7 +15,7 @@
 
 import { sql } from './_lib/db.js';
 import { getSessionUser } from './_lib/auth.js';
-import { cors, error, json, method, wrap } from './_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from './_lib/http.js';
 import { limits } from './_lib/rate-limit.js';
 
 const DEFAULT_LIMIT = 50;
@@ -58,7 +58,7 @@ export default wrap(async (req, res) => {
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.auditLogRead(session.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const format = (url.searchParams.get('format') || '').toLowerCase();

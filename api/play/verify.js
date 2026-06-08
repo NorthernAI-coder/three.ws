@@ -21,7 +21,7 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import bs58mod from 'bs58';
 import { z } from 'zod';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { getBalances } from '../_lib/balances.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
@@ -56,7 +56,7 @@ export default wrap(async (req, res) => {
 	res.setHeader('cache-control', 'no-store');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (!PLAY_GATE_MINT) {
 		return error(res, 400, 'gate_disabled', 'the token gate is not active');

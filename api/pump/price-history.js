@@ -5,7 +5,7 @@
 //
 // Response: { data: [ { t, o, h, l, c, v }, ... ] }  (t = unix seconds)
 
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { fetchBirdeyeOhlcv, birdeyeConfigured } from '../_lib/birdeye.js';
 
@@ -58,7 +58,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const params = new URL(req.url, 'http://x').searchParams;
 	const mint = (params.get('mint') || '').trim();

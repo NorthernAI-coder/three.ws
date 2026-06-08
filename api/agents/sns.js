@@ -26,7 +26,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, error, readJson } from '../_lib/http.js';
+import { cors, json, method, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 import { loadAgentForSigning, solanaConnection } from '../_lib/agent-pumpfun.js';
@@ -283,7 +283,7 @@ export default async function handler(req, res, id, action) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (action === 'check') return handleCheck(req, res);
 	if (action === 'register') return handleRegisterAgent(req, res, id, auth);

@@ -14,7 +14,7 @@ import {
 import { bakeAndUploadAppearance, isBakeable } from '../_lib/bake.js';
 import { sql } from '../_lib/db.js';
 import { logAudit } from '../_lib/audit.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { headObject } from '../_lib/r2.js';
 import { limits } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
@@ -222,7 +222,7 @@ const VALID_GLB_TYPES = new Set(['model/gltf-binary', 'application/octet-stream'
 
 async function handleGlbPatch(res, auth, id, glbUrl) {
 	const rl = await limits.avatarPatch(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many patch requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many patch requests');
 
 	if (!/^u\/[^/]+\/.+\.glb$/.test(glbUrl)) {
 		return error(

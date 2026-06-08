@@ -17,7 +17,7 @@
 //   401 pass_invalid    — missing/expired/forged pass → fall back to a full sign-in
 //   502 balance_unavailable — RPC/price feed down
 import { z } from 'zod';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { getBalances } from '../_lib/balances.js';
 import { verifyPlayPass, signPlayPass, PLAY_GATE_MINT, PLAY_GATE_MIN } from '../_lib/play-pass.js';
@@ -34,7 +34,7 @@ export default wrap(async (req, res) => {
 	res.setHeader('cache-control', 'no-store');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (!PLAY_GATE_MINT) {
 		return error(res, 400, 'gate_disabled', 'the token gate is not active');

@@ -3,7 +3,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const NAME_RE = /^[a-zA-Z0-9_-]{3,32}$/;
@@ -30,7 +30,7 @@ export default wrap(async (req, res) => {
 	const userId = session?.id ?? bearer.userId;
 
 	const rl = await limits.checkName(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const name = (url.searchParams.get('name') || '').trim();

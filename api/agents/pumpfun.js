@@ -17,7 +17,7 @@
  */
 
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, error, wrap } from '../_lib/http.js';
+import { cors, json, method, error, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { pumpfunMcp, pumpfunBotEnabled } from '../_lib/pumpfun-mcp.js';
 
@@ -39,7 +39,7 @@ export default wrap(async (req, res) => {
 
 	const userId = session?.id ?? bearer.userId;
 	const rl = await limits.mcpUser(String(userId));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const op = url.searchParams.get('op') || 'claims';
@@ -97,7 +97,7 @@ async function handleFeed(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many feed connections');
+	if (!rl.success) return rateLimited(res, rl, 'too many feed connections');
 	const url = new URL(req.url, 'http://x');
 	const kind = url.searchParams.get('kind') || 'all';
 	const mintParam = url.searchParams.get('mint');

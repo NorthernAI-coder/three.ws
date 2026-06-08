@@ -3,7 +3,7 @@
 // Used by AgentMemory.recall() for semantic similarity search.
 
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../../_lib/auth.js';
-import { cors, json, method, readJson, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, error, rateLimited } from '../../_lib/http.js';
 import { limits } from '../../_lib/rate-limit.js';
 import { sql } from '../../_lib/db.js';
 import { env } from '../../_lib/env.js';
@@ -35,7 +35,7 @@ export async function handleEmbed(req, res, id) {
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	const rl = await limits.embedUser(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	const text = body?.text;

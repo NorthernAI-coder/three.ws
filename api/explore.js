@@ -25,7 +25,7 @@ function isAutoNamed(name) {
 }
 
 import { sql } from './_lib/db.js';
-import { cors, json, method, wrap, error } from './_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
 import { publicUrl } from './_lib/r2.js';
@@ -36,7 +36,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const only3d = url.searchParams.get('only3d') === '1';

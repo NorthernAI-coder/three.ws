@@ -11,7 +11,7 @@
 // caps worst-case spend.
 
 import { sql } from '../../_lib/db.js';
-import { cors, json, error, wrap, method } from '../../_lib/http.js';
+import { cors, json, error, wrap, method, rateLimited } from '../../_lib/http.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { isUuid } from '../../_lib/validate.js';
 import { llmComplete, LlmUnavailableError } from '../../_lib/llm.js';
@@ -35,7 +35,7 @@ export default wrap(async (req, res) => {
 
 	const rl = await limits.bountyJudge(user.id);
 	if (!rl.success)
-		return error(res, 429, 'rate_limited', 'AI judge limit reached — try again later');
+		return rateLimited(res, rl, 'AI judge limit reached — try again later');
 
 	const [bounty] = await sql`
 		SELECT id, user_id, title, description, status

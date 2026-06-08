@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve as pathResolve } from 'node:path';
 import { sql } from './_lib/db.js';
-import { error, wrap } from './_lib/http.js';
+import { error, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getObjectBuffer } from './_lib/r2.js';
 import { assertSafePublicUrl } from './_lib/ssrf-guard.js';
@@ -213,7 +213,7 @@ export default wrap(async (req, res) => {
 
 	const ip = clientIp(req);
 	const rl = await limits.widgetRead(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const params = new URL(req.url, 'http://x').searchParams;
 	const agentId = params.get('agent');

@@ -21,7 +21,7 @@
 // `guardian_unconfigured` so the caller renders an honest state instead of a
 // fabricated verdict. Every score is a real Granite Guardian classifier pass.
 
-import { cors, method, readJson, error, json, wrap } from '../_lib/http.js';
+import { cors, method, readJson, error, json, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
 import {
@@ -102,13 +102,11 @@ export default wrap(async function handler(req, res) {
 	const ip = clientIp(req);
 	const perIp = await limits.guardianIp(ip);
 	if (!perIp.success) {
-		return error(res, 429, 'rate_limited', 'too many governance requests — slow down', {
-			retryAfter: Math.ceil((perIp.reset - Date.now()) / 1000),
-		});
+		return rateLimited(res, perIp, 'too many governance requests — slow down');
 	}
 	const globalLimit = await limits.guardianGlobal();
 	if (!globalLimit.success) {
-		return error(res, 429, 'rate_limited', 'governance capacity reached — try again shortly');
+		return rateLimited(res, globalLimit, 'governance capacity reached — try again shortly');
 	}
 
 	let body;

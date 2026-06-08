@@ -15,7 +15,7 @@
 // governance appear only when watsonx.ai is reachable. There is no mock path: a
 // scenario forecast is the real Granite model evaluating a transformed-but-real
 // input series, clearly labelled as a counterfactual.
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
 import { watsonxForecast, forecastModelFor } from '../_lib/watsonx-forecast.js';
@@ -504,7 +504,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'POST') return handlePost(req, res);
 	return handleGet(req, res);

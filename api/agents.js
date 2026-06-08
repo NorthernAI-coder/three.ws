@@ -13,7 +13,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from './_lib/auth.js';
 import { sql } from './_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { requireCsrf } from './_lib/csrf.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { generateAgentWallet, generateSolanaAgentWallet } from './_lib/agent-wallet.js';
@@ -311,7 +311,7 @@ export async function handleGetOne(req, res, id) {
 
 	if (req.method === 'GET') {
 		const rl = await limits.publicIp(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		// Single roundtrip: pull skill_prices as a JSON-aggregated subquery
 		// instead of a follow-up SELECT. Saves a second DB hop per GET on

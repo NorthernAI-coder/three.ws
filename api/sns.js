@@ -12,7 +12,7 @@
 // 5 minutes (negative results for 60s) so repeated UX previews don't hammer
 // the Bonfida RPC pool. Mainnet only — SNS is not deployed on devnet.
 
-import { cors, error, json, method, wrap } from './_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { resolveSnsName, reverseLookupAddress } from '../src/solana/sns.js';
 
@@ -56,7 +56,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.snsResolve(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const rawName = url.searchParams.get('name');

@@ -941,6 +941,10 @@
 			"dest": "/dashboard-next/three-token.html"
 		},
 		{
+			"src": "/dashboard/holders/?",
+			"dest": "/dashboard-next/holders.html"
+		},
+		{
 			"src": "/dashboard/analytics/?",
 			"dest": "/dashboard-next/analytics.html"
 		},

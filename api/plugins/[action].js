@@ -4,7 +4,7 @@
  * GET  /api/plugins/categories
  * GET  /api/plugins/list          ?category=&q=&sort=&cursor=&limit=
  * GET  /api/plugins/:id
- * POST /api/plugins/import        { manifest_url }   — fetch + validate + optionally save
+ * POST /api/plugins/import { manifest_url }   — fetch + validate + optionally save
  * POST /api/plugins/publish       { manifest_json }  — publish plugin to marketplace
  * POST /api/plugins/:id/install   — increment install_count (called client-side on install)
  */
@@ -12,7 +12,7 @@
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -109,7 +109,7 @@ async function handleCategories(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const rows = await sql`
 		SELECT category, count(*)::int AS count
@@ -135,7 +135,7 @@ async function handleList(req, res, url) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const q = (url.searchParams.get('q') || '').trim().slice(0, 80) || null;
 	const category = url.searchParams.get('category') || null;
@@ -185,7 +185,7 @@ async function handleDetail(req, res, id) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [row] = await sql`
 		SELECT p.*, u.display_name AS author_display_name,
@@ -211,7 +211,7 @@ async function handleImport(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	const manifestUrl = (body?.manifest_url || '').trim();
@@ -272,7 +272,7 @@ async function handlePublish(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'authentication required');
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const raw = await readJson(req);
 	let body;
@@ -332,7 +332,7 @@ async function handleInstall(req, res, id) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	await sql`
 		UPDATE plugins SET install_count = install_count + 1 WHERE id = ${id} AND deleted_at IS NULL

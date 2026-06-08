@@ -3,7 +3,7 @@
 
 import { sql } from '../_lib/db.js';
 import { publicUrl } from '../_lib/r2.js';
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const Q_RE = /[^a-zA-Z0-9_-]/g;
@@ -13,7 +13,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.agentSuggest(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const raw = (url.searchParams.get('q') || '').trim();

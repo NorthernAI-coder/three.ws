@@ -32,6 +32,7 @@ export const NAV = [
 
 	// ── Monetize ────────────────────────────────────────────────────────
 	{ path: '/dashboard/three-token', label: '$THREE',          icon: 'three',     group: 'Monetize',   tags: ['token', 'utility', 'burn', 'revenue share', 'protocol', '$three', 'economy', 'holders'] },
+	{ path: '/dashboard/holders',     label: 'Holders',         icon: 'three',     group: 'Monetize',   tags: ['leaderboard', 'holders', 'rank', 'badge', '$three', 'whale', 'top holders', 'standing'] },
 	{ path: '/dashboard/analytics',   label: 'Analytics',       icon: 'chart',     group: 'Monetize',   tags: ['revenue', 'charts', 'metrics', 'funnel', 'performance', 'views', 'engagement'] },
 	{ path: '/dashboard/monetize',    label: 'Monetize',        icon: 'coin',      group: 'Monetize',   tags: ['revenue', 'payments', 'subscriptions', 'withdrawals', 'earnings', 'plan', 'billing'] },
 	{ path: '/dashboard/tokens',      label: 'Tokens',          icon: 'token',     group: 'Monetize',   tags: ['pump.fun', 'launch', 'bonding curve', 'royalties', 'trade'] },

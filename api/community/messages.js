@@ -8,7 +8,7 @@
 //          Neither available → 403 posting_locked, which the composer renders
 //          as its designed locked state rather than a broken submit.
 import { z } from 'zod';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import {
 	cc,
@@ -43,7 +43,7 @@ function getApi(res) {
 
 async function handleGet(req, res, token) {
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const api = getApi(res);
 	if (!api) return;
@@ -67,7 +67,7 @@ async function handleGet(req, res, token) {
 
 async function handlePost(req, res, token) {
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const userHeaders = userAuthHeaders(req);
 	if (!userHeaders && !canPostServer()) {

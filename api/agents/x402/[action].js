@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse, isUuid } from '../../_lib/validate.js';
 import { emit402, verifyPaid, consumeIntent, manifestOnly } from '../../_lib/x402.js';
@@ -53,7 +53,7 @@ async function handleInvoke(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in or provide a bearer token');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(invokeSchema, await readJson(req));
 	if (!isUuid(body.agent_id)) return error(res, 404, 'not_found', 'agent not found');
@@ -115,7 +115,7 @@ async function handleManifest(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const agent_id = url.searchParams.get('agent_id');

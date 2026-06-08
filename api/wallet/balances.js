@@ -2,7 +2,7 @@
 // body: { chain: 'solana'|'evm', address: string }
 // → { chain, address, native: {symbol, amount, usd}, tokens: [{symbol, amount, usd, logo}] }
 
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getBalances } from '../_lib/balances.js';
 import { z } from 'zod';
@@ -17,7 +17,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
 	try {

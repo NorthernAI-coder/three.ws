@@ -4,7 +4,7 @@
 // Backs the analyze-sentiment skill in src/agent-skills-sentiment.js.
 // Deterministic lexicon scorer — same one used by /api/social/sentiment.
 
-import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { scoreSentiment } from '../src/social/sentiment.js';
 
@@ -13,7 +13,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
 	try {

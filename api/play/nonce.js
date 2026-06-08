@@ -5,7 +5,7 @@
 // active (required) and what it demands (mint + minBalance) so the gate UI can
 // state the exact requirement and skip the whole flow when the platform hasn't
 // pinned a game token yet.
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { issueNonce, PLAY_GATE_MINT, PLAY_GATE_MIN, PLAY_GATE_SYMBOL } from '../_lib/play-pass.js';
 
@@ -15,7 +15,7 @@ export default wrap(async (req, res) => {
 	res.setHeader('cache-control', 'no-store');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const { nonce, exp } = issueNonce();
 	return json(res, 200, {

@@ -3,7 +3,7 @@
 // annotated with the caller's existing relationship so the UI renders the right
 // action inline (Add / Pending / Friends).
 
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { resolveAccount } from '../_lib/account-auth.js';
 import { searchUsers } from '../_lib/friends-store.js';
@@ -13,7 +13,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const auth = await resolveAccount(req, res);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');

@@ -19,7 +19,7 @@
 
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { markProviderCooldown } from '../_lib/provider-health.js';
@@ -131,7 +131,7 @@ async function handleCategories(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const rows = await sql`
 		SELECT category, count(*)::int AS count
@@ -175,7 +175,7 @@ async function handleTheme(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const weekNum = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
 	const cat = THEME_CATEGORIES[weekNum % THEME_CATEGORIES.length];
@@ -292,7 +292,7 @@ async function handleCreate(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body = await readJson(req).catch(() => null);
 	if (!body) return error(res, 400, 'validation_error', 'request body required');
@@ -376,7 +376,7 @@ async function handleMine(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const rows = await sql`
 		SELECT ai.id, ai.name, ai.description, ai.category, ai.tags, ai.avatar_id, ai.user_id,
@@ -411,7 +411,7 @@ async function handleList(req, res, url) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const category = url.searchParams.get('category') || null;
 	const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
@@ -555,7 +555,7 @@ async function handleDetail(req, res, id) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let row;
 	try {
@@ -731,9 +731,9 @@ async function handlePreview(req, res, id) {
 
 	const ip = clientIp(req);
 	const ipRl = await limits.previewIp(ip);
-	if (!ipRl.success) return error(res, 429, 'rate_limited', 'too many preview messages — try again later');
+	if (!ipRl.success) return rateLimited(res, ipRl, 'too many preview messages — try again later');
 	const agentRl = await limits.previewAgent(id);
-	if (!agentRl.success) return error(res, 429, 'rate_limited', 'this agent is at capacity right now');
+	if (!agentRl.success) return rateLimited(res, agentRl, 'this agent is at capacity right now');
 
 	const raw = await readJson(req).catch(() => null);
 	if (!raw) return error(res, 400, 'validation_error', 'request body required');
@@ -991,7 +991,7 @@ async function handleVersions(req, res, id) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const rows = await sql`
 		SELECT id, version, changelog, category, tags, created_at
@@ -1010,7 +1010,7 @@ async function handleSimilar(req, res, id) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [base] = await sql`
 		SELECT id, name, description, category, tags FROM agent_identities
@@ -1051,7 +1051,7 @@ async function handleFork(req, res, id) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [src] = await sql`
 		SELECT * FROM agent_identities
@@ -1097,7 +1097,7 @@ async function handleBookmark(req, res, id) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'DELETE') {
 		await sql`DELETE FROM agent_bookmarks WHERE user_id = ${auth.userId} AND agent_id = ${id}`;
@@ -1122,7 +1122,7 @@ async function handlePublish(req, res, id) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req).catch(() => ({}));
 

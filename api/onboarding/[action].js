@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 import { env } from '../_lib/env.js';
@@ -31,9 +31,9 @@ async function handleAvaturnSession(req, res) {
 	const userId = await resolveAvaturnUser(req);
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in to create an avatar');
 	const rlUser = await limits.upload(userId);
-	if (!rlUser.success) return error(res, 429, 'rate_limited', 'too many avatar attempts, try again later');
+	if (!rlUser.success) return rateLimited(res, rlUser, 'too many avatar attempts, try again later');
 	const rlIp = await limits.authIp(clientIp(req));
-	if (!rlIp.success) return error(res, 429, 'rate_limited', 'too many requests from this network');
+	if (!rlIp.success) return rateLimited(res, rlIp, 'too many requests from this network');
 	if (!env.AVATURN_API_KEY) return error(res, 501, 'not_configured', 'Avatar editor is not available right now. Please try again later.');
 	const body = parse(avaturnSchema, await readJson(req, 8_000_000));
 	try {

@@ -13,7 +13,7 @@
  *                                        this account has purchased read as owned.
  */
 
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { buildCatalog, RARITIES } from '../_lib/cosmetics.js';
 import { readOwnedCosmetics, normalizeAccountId } from '../_lib/cosmetics-ownership.js';
@@ -23,7 +23,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const rarity = url.searchParams.get('rarity');

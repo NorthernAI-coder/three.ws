@@ -26,7 +26,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { sql } from './_lib/db.js';
-import { cors, json, method, error, readJson, wrap } from './_lib/http.js';
+import { cors, json, method, error, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import {
 	PARENT_LABEL,
@@ -59,7 +59,7 @@ function slugifyName(name) {
 
 async function handleCheck(req, res) {
 	const rl = await limits.snsResolve(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const label = normalizeLabel(url.searchParams.get('label'));
@@ -181,7 +181,7 @@ export default wrap(async (req, res) => {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in or provide a bearer token');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	return handleMint(req, res, auth);
 });

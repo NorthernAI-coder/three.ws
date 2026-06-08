@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { TOKEN_MINT as THREE_MINT } from '../_lib/token/config.js';
 const TOKEN_PROGRAM = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -11,7 +11,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const address = req.query?.address?.trim();
 	if (!address) return error(res, 400, 'validation_error', 'address required');

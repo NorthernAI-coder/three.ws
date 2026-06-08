@@ -1,7 +1,7 @@
 // Consolidated SAS credential endpoints (credentials + issue-credential).
 
 import { sql } from '../../_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { parse } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireAdmin } from '../../_lib/admin.js';
@@ -15,7 +15,7 @@ async function handleCredentials(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const subject = url.searchParams.get('subject');
@@ -52,7 +52,7 @@ async function handleIssueCredential(req, res) {
 	if (!admin) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(issueSchema, await readJson(req));
 	const def = SAS_CONFIG.schemas[body.kind];

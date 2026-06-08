@@ -20,7 +20,7 @@ import { Keypair } from '@solana/web3.js';
 
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { confirmSkillPurchase, logEvent, resolvePayoutAddress } from '../_lib/purchase-confirm.js';
 import { requireCsrf } from '../_lib/csrf.js';
@@ -69,7 +69,7 @@ async function handleCreate(req, res) {
 	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req).catch(() => null);
 	const agentId = body?.agent_id;
@@ -211,7 +211,7 @@ async function handleStatus(req, res, reference) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [row] = await sql`
 		SELECT reference, agent_id, skill, status, tx_signature, confirmed_at,
@@ -236,7 +236,7 @@ async function handleConfirm(req, res, reference) {
 	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [pur] = await sql`
 		SELECT sp.id, sp.user_id, sp.agent_id, sp.skill, sp.status,

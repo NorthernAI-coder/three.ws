@@ -5,7 +5,7 @@
 // when accessed via a SNS-resolved Brave URL.
 
 import { sql } from '../_lib/db.js';
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { PARENT_LABEL, normalizeLabel } from '../_lib/threews-sns.js';
 
@@ -14,7 +14,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.snsResolve(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const label = normalizeLabel(url.searchParams.get('label'));

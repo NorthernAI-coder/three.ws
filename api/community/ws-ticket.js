@@ -3,7 +3,7 @@
 // then opens the realtime socket to CoinCommunities directly with this ticket
 // (the API key never leaves the server). Returns the CC origin too so the
 // client knows where to connect.
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { cc, ccBaseUrl, isValidToken, UnconfiguredError } from '../_lib/coin-communities.js';
 
@@ -12,7 +12,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const token = new URL(req.url, 'http://x').searchParams.get('token');
 	if (!isValidToken(token)) {

@@ -2,7 +2,7 @@
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
@@ -13,7 +13,7 @@ export default wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.notificationsRead(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const params = new URL(req.url, 'http://x').searchParams;
 	const limit = Math.min(50, Math.max(1, parseInt(params.get('limit') || '20', 10)));

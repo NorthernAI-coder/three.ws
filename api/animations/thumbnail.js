@@ -6,7 +6,7 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { putObject, deleteObject, publicUrl } from '../_lib/r2.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
 
 const MAX_PNG_BYTES = 1_500_000;
@@ -20,7 +20,7 @@ export default wrap(async (req, res) => {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 
 	const rl = await limits.upload(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'thumbnail upload rate exceeded');
+	if (!rl.success) return rateLimited(res, rl, 'thumbnail upload rate exceeded');
 
 	const body = await readJson(req).catch(() => null);
 	const id = body?.id;

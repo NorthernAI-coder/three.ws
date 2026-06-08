@@ -8,7 +8,7 @@
 // them on next login. If the recipient has muted the sender the message is
 // silently dropped (Task 14). Rate-limited and length-capped like world chat.
 
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { resolveAccount } from '../_lib/account-auth.js';
 import { notifyMultiplayer } from '../_lib/presence-store.js';
@@ -36,7 +36,7 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'GET') {
 		const rl = await limits.publicIp(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		const url = new URL(req.url, 'http://x');
 		const other = url.searchParams.get('with');
@@ -55,7 +55,7 @@ export default wrap(async (req, res) => {
 
 	// POST — send a DM.
 	const rl = await limits.dmSend(me);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'you are sending messages too fast');
+	if (!rl.success) return rateLimited(res, rl, 'you are sending messages too fast');
 
 	const payload = await readJson(req).catch(() => ({}));
 	const to = payload.to;

@@ -32,7 +32,7 @@ import { PublicKey } from '@solana/web3.js';
 import { createHash } from 'node:crypto';
 import { getTask, getTaskLifecycleSummary, getTasksByCreator, getAgent, deriveTaskPda, deriveAgentPda } from '@tetsuo-ai/sdk';
 
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { Bazaar, filterByExtension, filterByMaxPrice, filterByNetwork } from '../_lib/x402/bazaar-client.js';
 import {
@@ -414,7 +414,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, route.methods)) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	try {
 		return await route.fn(req, res);

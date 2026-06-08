@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sql } from '../_lib/db.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 
 let pluginManifest;
@@ -50,7 +50,7 @@ export default wrap(async (req, res) => {
 		if (!method(req, res, ['POST'])) return;
 
 		const rl = await limits.widgetRead(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		const body = await readJson(req);
 		const agentId = body?.agentId;

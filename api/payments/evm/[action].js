@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 import { randomToken } from '../../_lib/crypto.js';
@@ -23,7 +23,7 @@ async function handleCheckout(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(checkoutSchema, await readJson(req));
 	const { plan, chain_id } = body;
 	if (!EVM_USDC[chain_id]) return error(res, 400, 'unsupported_chain', `chain ${chain_id} is not supported for payments`);
@@ -57,7 +57,7 @@ async function handleConfirm(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(confirmSchema, await readJson(req));
 	const { intent_id, tx_hash } = body;
 	const [intent] = await sql`select * from plan_payment_intents where id = ${intent_id} and user_id = ${user.id} limit 1`;

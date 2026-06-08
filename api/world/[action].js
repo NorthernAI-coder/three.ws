@@ -14,7 +14,7 @@
 //
 // Storage lives in api/_lib/world-store.js (Postgres index + R2 blob offload).
 
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { extractBearer } from '../_lib/auth.js';
 import { resolveAccount } from '../_lib/account-auth.js';
@@ -50,7 +50,7 @@ async function handleLoad(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const worldId = new URL(req.url, 'http://x').searchParams.get('worldId') || '';
 	if (!isValidWorldId(worldId)) return error(res, 400, 'validation_error', 'invalid or missing worldId');
@@ -85,7 +85,7 @@ async function handleSave(req, res) {
 		if (!account) return error(res, 401, 'unauthorized', 'authentication required to write a world');
 		writer = account.userId;
 		const rl = await limits.prefsWrite(account.userId);
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many world saves');
+		if (!rl.success) return rateLimited(res, rl, 'too many world saves');
 	}
 
 	let body;

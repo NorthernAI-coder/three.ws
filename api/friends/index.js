@@ -12,7 +12,7 @@
 // Validates the caller owns the account (session or bearer). Guards self-add,
 // duplicates, and unknown targets in the store layer; rate-limited per account.
 
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { resolveAccount } from '../_lib/account-auth.js';
 import { readPresence, notifyMultiplayer } from '../_lib/presence-store.js';
@@ -40,13 +40,13 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'GET') {
 		const rl = await limits.publicIp(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 		return json(res, 200, { data: await graphWithPresence(me) });
 	}
 
 	// POST — a graph mutation. Tighter limit: 60 actions/min per account.
 	const rl = await limits.chatUser(me);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'slow down');
+	if (!rl.success) return rateLimited(res, rl, 'slow down');
 
 	const body = await readJson(req).catch(() => ({}));
 	const action = String(body.action || '');

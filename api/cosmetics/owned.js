@@ -12,7 +12,7 @@
  *   account (required) — a Solana wallet address or a guest id (g_…).
  */
 
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getCosmetic, priceOf, priceUsdcAtomicsOf, priceUsdcDisplayOf } from '../_lib/cosmetics.js';
 import { readOwnedCosmetics, normalizeAccountId } from '../_lib/cosmetics-ownership.js';
@@ -22,7 +22,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const account = normalizeAccountId(url.searchParams.get('account'));

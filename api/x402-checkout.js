@@ -37,7 +37,7 @@ import {
 	createTransferCheckedInstruction,
 	getMint,
 } from '@solana/spl-token';
-import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import {
@@ -140,7 +140,7 @@ async function handlePrepare(req, res) {
 	// throttle anonymous callers to stop quota-drain / cost amplification against
 	// the (potentially paid) upstream RPC.
 	const rl = await limits.x402PayIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many prepare requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many prepare requests');
 
 	const body = parse(prepareSchema, await readJson(req));
 	const { accept, buyer } = body;

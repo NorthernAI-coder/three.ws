@@ -4,7 +4,7 @@
 // landing surface. Auth-optional — a crew roster is public, like the agent
 // gallery, but never leaks private member state (handled in crews-store).
 
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { readPresence } from '../_lib/presence-store.js';
 import { getCrewByTag, normalizeTag } from '../_lib/crews-store.js';
@@ -14,7 +14,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const raw = url.searchParams.get('tag') || url.pathname.split('/').pop() || '';

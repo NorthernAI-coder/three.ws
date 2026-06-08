@@ -19,7 +19,7 @@
 // unconfigured the endpoint says so (503) instead of inventing a description.
 
 import { sql } from '../_lib/db.js';
-import { cors, method, readJson, error, json, wrap } from '../_lib/http.js';
+import { cors, method, readJson, error, json, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { publicUrl } from '../_lib/r2.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
@@ -91,7 +91,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'GET') return handleSubjects(req, res);
 	return handleVision(req, res);

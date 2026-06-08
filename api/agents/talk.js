@@ -17,7 +17,7 @@
 
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { normalizeLegacyPolicy } from '../_lib/embed-policy.js';
 import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
@@ -45,7 +45,7 @@ export default wrap(async (req, res) => {
 	}
 
 	const rl = await limits.agentDelegate(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'agent delegate rate limit');
+	if (!rl.success) return rateLimited(res, rl, 'agent delegate rate limit');
 
 	let raw;
 	try {

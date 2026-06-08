@@ -26,7 +26,7 @@ import {
 	LAMPORTS_PER_SOL,
 } from '../_lib/avatar-wallet.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
-import { cors, method, json, error, wrap } from '../_lib/http.js';
+import { cors, method, json, error, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const DEFAULT_PRICE_SOL = 0.001;
@@ -126,7 +126,7 @@ export default wrap(async (req, res) => {
 
 	// Rate-limit the live demo (it moves real SOL).
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many demo requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many demo requests');
 
 	const topic = (url.searchParams.get('topic') || 'crypto markets').trim().slice(0, 200);
 

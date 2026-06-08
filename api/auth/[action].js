@@ -10,7 +10,7 @@ import {
 	getSessionUser, hasSessionCookie, revokeRefreshToken,
 } from '../_lib/auth.js';
 import { randomToken, sha256 } from '../_lib/crypto.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse, loginBody, registerBody, usernameRegisterBody, username as usernameValidator, displayName, email, password } from '../_lib/validate.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../_lib/email.js';
@@ -33,7 +33,7 @@ async function handleLogin(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many attempts; try again later');
+	if (!rl.success) return rateLimited(res, rl, 'too many attempts; try again later');
 	const body = parse(loginBody, await readJson(req));
 	const isEmail = body.email.includes('@');
 	const rows = isEmail
@@ -76,7 +76,7 @@ async function handleLogoutEverywhere(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthenticated', 'not signed in');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const sessionResult = await sql`update sessions set revoked_at = now() where user_id = ${user.id} and revoked_at is null`;
 	await sql`update oauth_refresh_tokens set revoked_at = now() where user_id = ${user.id} and revoked_at is null`;
 	const clearCookies = sessionCookie('', { clear: true });
@@ -118,7 +118,7 @@ async function handleRegister(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const ip = clientIp(req);
 	const rl = await limits.registerIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many signups from this IP');
+	if (!rl.success) return rateLimited(res, rl, 'too many signups from this IP');
 	const raw = await readJson(req);
 	let email_val, displayName_val, passwordVal, referralCode;
 	if (raw.username && !raw.email) {
@@ -193,7 +193,7 @@ async function handleProfile(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthenticated', 'not signed in');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(profileSchema, await readJson(req));
 	if (body.username) {
 		const taken = await sql`select id from users where lower(username) = ${body.username.toLowerCase()} and id != ${user.id} and deleted_at is null limit 1`;
@@ -243,7 +243,7 @@ async function handleResetPassword(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many attempts; try again later');
+	if (!rl.success) return rateLimited(res, rl, 'too many attempts; try again later');
 	const body = parse(resetSchema, await readJson(req));
 	const tokenHash = await sha256(body.token);
 	const rows = await sql`select r.id, r.user_id from password_resets r join users u on u.id = r.user_id where r.token_hash = ${tokenHash} and r.consumed_at is null and r.expires_at > now() and u.deleted_at is null limit 1`;
@@ -263,7 +263,7 @@ async function handleVerifyEmail(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 	const rl = await limits.verifyEmailIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many attempts; try again later');
+	if (!rl.success) return rateLimited(res, rl, 'too many attempts; try again later');
 	const body = parse(verifyEmailSchema, await readJson(req));
 	const codeHash = await sha256(body.code);
 	const rows = await sql`select v.id, v.user_id from email_verifications v join users u on u.id = v.user_id where v.code_hash = ${codeHash} and v.consumed_at is null and v.expires_at > now() and u.deleted_at is null limit 1`;
@@ -281,7 +281,7 @@ async function handleResendVerification(req, res) {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.resendVerifyUser(session.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'please wait before requesting again');
+	if (!rl.success) return rateLimited(res, rl, 'please wait before requesting again');
 	const rows = await sql`select email, email_verified from users where id = ${session.id} and deleted_at is null limit 1`;
 	if (!rows[0]) return error(res, 401, 'unauthorized', 'sign in required');
 	if (rows[0].email_verified) return json(res, 200, { success: true, already_verified: true });

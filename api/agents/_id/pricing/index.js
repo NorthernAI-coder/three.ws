@@ -1,5 +1,5 @@
 import { sql } from '../../../_lib/db.js';
-import { cors, json, method, wrap, error } from '../../../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../../../_lib/http.js';
 import { limits, clientIp } from '../../../_lib/rate-limit.js';
 
 // GET /api/agents/:id/pricing — public for all agents (x402 manifest reads this)
@@ -12,7 +12,7 @@ export default wrap(async (req, res) => {
 	if (!id) return error(res, 400, 'bad_request', 'missing agent id');
 
 	const rl = await limits.pricingPerIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [agent] = await sql`
 		SELECT id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL

@@ -25,7 +25,7 @@
  * Errors: 400 invalid_caip, 404 not_found, 502 upstream, 429 rate_limited.
  */
 
-import { wrap, cors, method, json, error } from '../../_lib/http.js';
+import { wrap, cors, method, json, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { resolveOnChainAgent, resolveURI } from '../../_lib/onchain.js';
 
@@ -40,7 +40,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const raw = decodeURIComponent(req.query?.caip || '');
 	const m = CAIP_RE.exec(raw);

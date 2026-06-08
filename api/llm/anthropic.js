@@ -13,7 +13,7 @@
 import { z } from 'zod';
 import { Redis } from '@upstash/redis';
 import { env } from '../_lib/env.js';
-import { cors, error, method, wrap, readJson, json } from '../_lib/http.js';
+import { cors, error, method, wrap, readJson, json, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { recordEvent, logger } from '../_lib/usage.js';
@@ -242,12 +242,12 @@ export default wrap(async (req, res) => {
 	}
 
 	const ipRl = await limits.embedLlmIp(clientIp(req));
-	if (!ipRl.success) return error(res, 429, 'rate_limited', 'too many requests from this IP');
+	if (!ipRl.success) return rateLimited(res, ipRl, 'too many requests from this IP');
 
 	const perMin = policy.brain?.rate_limit_per_min;
 	if (perMin && perMin > 0) {
 		const agentRl = await limits.embedLlmAgent(agentId, perMin);
-		if (!agentRl.success) return error(res, 429, 'rate_limited', 'agent rate limit exceeded');
+		if (!agentRl.success) return rateLimited(res, agentRl, 'agent rate limit exceeded');
 	}
 
 	const quota = policy.brain?.monthly_quota;

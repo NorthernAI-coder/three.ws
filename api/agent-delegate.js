@@ -1,5 +1,5 @@
 import { authenticateBearer, extractBearer, getSessionUser } from './_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from './_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from './_lib/http.js';
 import { limits } from './_lib/rate-limit.js';
 import { LlmUnavailableError } from './_lib/llm.js';
 import { runAgentDelegation, AgentNotFoundError } from './_lib/agent-delegate.js';
@@ -27,7 +27,7 @@ export default wrap(async (req, res) => {
 
 	// Rate limit per calling agent (or user session as fallback)
 	const rl = await limits.agentDelegate(fromAgentId || userId || 'anon');
-	if (!rl.success) return error(res, 429, 'rate_limited', 'delegate rate limit exceeded');
+	if (!rl.success) return rateLimited(res, rl, 'delegate rate limit exceeded');
 
 	try {
 		const out = await runAgentDelegation({ toAgentId, message });

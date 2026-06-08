@@ -9,7 +9,7 @@
 // memoized for 60s in-process to shield Helius/Alchemy/CoinGecko from
 // per-page-load fan-out.
 
-import { cors, json, method, readJson, wrap, error, validationError } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, validationError, rateLimited } from '../_lib/http.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { evmFallbackProvider } from '../_lib/evm/rpc.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -101,7 +101,7 @@ async function handleSummary(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.walletRead(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://localhost');
 	const wantSnapshot = url.searchParams.get('snapshot') === '1';
@@ -185,7 +185,7 @@ async function handleHistory(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.walletRead(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://localhost');
 	const days = Math.min(365, Math.max(1, parseInt(url.searchParams.get('days') || '90', 10)));
@@ -361,7 +361,7 @@ async function handleSend(req, res) {
 	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const rl = await limits.strict(`portfolio:send:${user.id}`);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many sends');
+	if (!rl.success) return rateLimited(res, rl, 'too many sends');
 
 	let body;
 	try {
@@ -438,7 +438,7 @@ async function handleAsset(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.walletRead(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://localhost');
 	const chain = String(url.searchParams.get('chain') || '').toLowerCase();

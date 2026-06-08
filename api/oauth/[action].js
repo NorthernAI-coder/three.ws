@@ -9,7 +9,7 @@ import {
 	revokeRefreshToken, authenticateBearer, verifyAccessToken,
 } from '../_lib/auth.js';
 import { randomToken, sha256, sha256Base64Url, constantTimeEquals } from '../_lib/crypto.js';
-import { cors, method, wrap, error, redirect, readForm, readJson, json } from '../_lib/http.js';
+import { cors, method, wrap, error, redirect, readForm, readJson, json, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 import { z } from 'zod';
@@ -134,7 +134,7 @@ async function handleToken(req, res) {
 	const clientId = form.client_id || basicAuthUser(req);
 	if (!clientId) return error(res, 400, 'invalid_client', 'client_id required');
 	const rl = await limits.oauthToken(clientId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many token requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many token requests');
 	const rows = await sql`select * from oauth_clients where client_id = ${clientId} limit 1`;
 	const client = rows[0];
 	if (!client) return error(res, 400, 'invalid_client', 'unknown client');
@@ -196,7 +196,7 @@ async function handleRegister(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
 	if (!method(req, res, ['POST'])) return;
 	const rl = await limits.oauthRegisterIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many registrations from this IP');
+	if (!rl.success) return rateLimited(res, rl, 'too many registrations from this IP');
 	const body = parse(registerSchema, await readJson(req));
 	for (const uri of body.redirect_uris) {
 		const u = new URL(uri);

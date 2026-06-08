@@ -17,7 +17,7 @@
 // the JSON wire (Number can't safely represent values > 2^53).
 
 import { sql } from '../../_lib/db.js';
-import { cors, error, json, method, wrap } from '../../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { listActiveCoins, loadCoinByMint } from '../../_lib/coin/index.js';
 
@@ -362,12 +362,7 @@ export default wrap(async (req, res) => {
 	// share-bot calling /og also needs.
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) {
-		res.setHeader('retry-after', Math.ceil((rl.reset - Date.now()) / 1000));
-		return error(res, 429, 'rate_limited', 'too many requests', {
-			limit: rl.limit,
-			remaining: rl.remaining,
-			reset: rl.reset,
-		});
+		return rateLimited(res, rl);
 	}
 
 	const action = req.query?.action;

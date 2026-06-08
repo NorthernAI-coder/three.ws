@@ -14,7 +14,7 @@
 // instead of inventing vectors. Every successful vector is a real Granite call.
 
 import { createHash } from 'node:crypto';
-import { cors, method, readJson, error, json, wrap } from '../_lib/http.js';
+import { cors, method, readJson, error, json, wrap, rateLimited } from '../_lib/http.js';
 import { watsonxConfig, watsonxEmbed } from '../_lib/watsonx.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
@@ -77,13 +77,11 @@ export default wrap(async function handler(req, res) {
 	const ip = clientIp(req);
 	const perIp = await limits.watsonxEmbedIp(ip);
 	if (!perIp.success) {
-		return error(res, 429, 'rate_limited', 'too many embedding requests — slow down', {
-			retryAfter: Math.ceil((perIp.reset - Date.now()) / 1000),
-		});
+		return rateLimited(res, perIp, 'too many embedding requests — slow down');
 	}
 	const global = await limits.watsonxEmbedGlobal();
 	if (!global.success) {
-		return error(res, 429, 'rate_limited', 'embedding capacity reached — try again shortly');
+		return rateLimited(res, global, 'embedding capacity reached — try again shortly');
 	}
 
 	let body;

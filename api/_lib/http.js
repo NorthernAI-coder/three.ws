@@ -70,6 +70,35 @@ export function respondError(res, status, code, err, extra = {}) {
 	return serverError(res, status, code, err, extra);
 }
 
+// Advertise the limiter budget on the response using the conventional
+// `RateLimit-*` headers (the shape GitHub/Stripe and the IETF
+// draft-ietf-httpapi-ratelimit-headers converge on). `result` is the object
+// returned by api/_lib/rate-limit.js limiters: { success, limit, remaining,
+// reset } where `reset` is an absolute epoch-ms timestamp. Returns the
+// seconds-until-reset so callers can reuse it for Retry-After.
+export function setRateLimitHeaders(res, result) {
+	if (!result) return 0;
+	const now = Date.now();
+	const resetSec = Math.max(0, Math.ceil(((result.reset ?? now) - now) / 1000));
+	if (Number.isFinite(result.limit)) res.setHeader('ratelimit-limit', String(result.limit));
+	if (Number.isFinite(result.remaining)) {
+		res.setHeader('ratelimit-remaining', String(Math.max(0, result.remaining)));
+	}
+	res.setHeader('ratelimit-reset', String(resetSec));
+	return resetSec;
+}
+
+// Standard 429 response. Given a limiter result, set the RateLimit-* budget
+// headers plus Retry-After (RFC 9110 §10.2.3) so well-behaved clients — and the
+// paying agents this platform is built for — back off by the exact window
+// instead of hammering or giving up blind. `retry_after` is mirrored into the
+// JSON body for clients that read the envelope rather than headers.
+export function rateLimited(res, result, message = 'too many requests', extra = {}) {
+	const retryAfter = Math.max(1, setRateLimitHeaders(res, result));
+	res.setHeader('retry-after', String(retryAfter));
+	return error(res, 429, 'rate_limited', message, { retry_after: retryAfter, ...extra });
+}
+
 // Response shape used for zod validation errors so clients can render
 // field-level feedback. Mirrors RFC 9457-style problem details (lite).
 export function validationError(res, err) {

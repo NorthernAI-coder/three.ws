@@ -7,7 +7,7 @@
 // Query: ?limit=20&category=<cat>&chain=<chain>
 // Response: { intel: [...], pagination } | { error, error_description, setup? }
 
-import { wrap, cors, method, json, error } from '../_lib/http.js';
+import { wrap, cors, method, json, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getIntel } from '../_lib/aixbt.js';
 import { respondAixbtError } from './_shared.js';
@@ -17,7 +17,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.aixbtIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const limit = Number(url.searchParams.get('limit')) || 20;

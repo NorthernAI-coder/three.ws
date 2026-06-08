@@ -21,7 +21,7 @@
 // OpenAI stream reader handles them verbatim.
 
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { parse } from './_lib/validate.js';
 import { recordEvent } from './_lib/usage.js';
 import { captureException } from './_lib/sentry.js';
@@ -324,7 +324,7 @@ export default wrap(async (req, res) => {
 		const ip = clientIp(req);
 		const rl = await limits.chatIp(ip);
 		if (!rl.success) {
-			return error(res, 429, 'rate_limited', 'too many anonymous chat requests, try again shortly');
+			return rateLimited(res, rl, 'too many anonymous chat requests, try again shortly');
 		}
 		const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
 		const hasGroq = !!process.env.GROQ_API_KEY;

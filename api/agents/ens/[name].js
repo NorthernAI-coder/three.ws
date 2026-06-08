@@ -4,7 +4,7 @@
 
 import { evmFallbackProvider } from '../../_lib/evm/rpc.js';
 import { sql } from '../../_lib/db.js';
-import { cors, error, json, method, wrap } from '../../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 
@@ -72,7 +72,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.ensResolve(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const name = (req.query?.name || '').trim().toLowerCase();
 

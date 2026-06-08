@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import { z } from 'zod';
-import { cors, json, method, wrap, error, readJson } from './_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from './_lib/http.js';
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { captureException } from './_lib/sentry.js';
@@ -20,7 +20,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.newsletterIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const { email } = parse(bodySchema, await readJson(req));
 

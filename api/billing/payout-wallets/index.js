@@ -1,6 +1,6 @@
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
 import { parse, isValidSolanaAddress, isValidEvmAddress } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireCsrf } from '../../_lib/csrf.js';
@@ -21,7 +21,7 @@ export default wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'GET') {
 		const wallets = await sql`

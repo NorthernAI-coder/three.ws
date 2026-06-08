@@ -8,7 +8,7 @@
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
@@ -58,7 +58,7 @@ export default wrap(async (req, res) => {
 	// GET is public for listed agents
 	if (req.method === 'GET') {
 		const rl = await limits.pricingPerIp(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		const params = new URL(req.url, 'http://x').searchParams;
 		const agentId = params.get('agent_id');
@@ -92,7 +92,7 @@ export default wrap(async (req, res) => {
 	if (!(await requireCsrf(req, res, userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'PUT') {
 		const body = parse(putBody, await readJson(req));
