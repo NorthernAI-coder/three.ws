@@ -119,10 +119,6 @@ export function openTemplatePicker() {
 					<span class="twtpl-footer-hint">Want more options?</span>
 					<button type="button" class="twtpl-browse" data-role="browse-gallery">Browse the full gallery →</button>
 				</div>
-				<div class="twtpl-busy" hidden aria-live="polite">
-					<span class="twtpl-spinner" aria-hidden="true"></span>
-					<span class="twtpl-busy-label">Preparing your avatar…</span>
-				</div>
 			</div>
 		`;
 
