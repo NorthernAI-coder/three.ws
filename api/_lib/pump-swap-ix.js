@@ -50,9 +50,13 @@ const BUY_EXACT_QUOTE_IN_V2_DISCRIMINATOR = Buffer.from([
 	194, 171, 28, 70, 104, 77, 91, 47,
 ]);
 
-// Static buyback-fee-recipient pool. Mirrors
-// `BUYBACK_FEE_RECIPIENTS` in agent-payments-sdk/src/solana/constants.ts
-// (not re-exported from the SDK index, so duplicated here verbatim).
+// Static buyback-fee-recipient pool used as a fallback only. The bonding-curve
+// program validates `buyback_fee_recipient` against the live on-chain Global
+// config (`global.buybackFeeRecipients`), which is the authoritative source —
+// see `pickBuybackFeeRecipient`. This list mirrors `BUYBACK_FEE_RECIPIENTS` in
+// agent-payments-sdk/src/solana/constants.ts (not re-exported from the SDK
+// index) and docs/pumpfun-program/docs/FEE_RECIPIENTS.md, and is only consulted
+// when an older Global account layout omits the field.
 const BUYBACK_FEE_RECIPIENTS = [
 	'5YxQFdt3Tr9zJLvkFccqXVUwhdTWJQc1fFg2YPbxvxeD',
 	'9M4giFFMxmFGXtc3feFzRai56WbBqehoSeRE5GK7gf7',
@@ -97,8 +101,16 @@ function pickFeeRecipient(global, mayhemMode) {
 	return pickRandom(pool);
 }
 
-function pickBuybackFeeRecipient() {
-	return pickRandom(BUYBACK_FEE_RECIPIENTS);
+function pickBuybackFeeRecipient(global) {
+	// Prefer the live on-chain list from the decoded Global — the program checks
+	// `buyback_fee_recipient` against it, so a rotated/extended set must come from
+	// chain, not a vendored constant. Fall back to the static list only when an
+	// older Global layout omits `buybackFeeRecipients`.
+	const pool =
+		global && Array.isArray(global.buybackFeeRecipients) && global.buybackFeeRecipients.length
+			? global.buybackFeeRecipients
+			: BUYBACK_FEE_RECIPIENTS;
+	return pickRandom(pool);
 }
 
 /**
@@ -236,7 +248,7 @@ export async function buildPumpSwapInnerIx({
 
 	const mayhemMode = bondingCurve.isMayhemMode ?? false;
 	const feeRecipient = pickFeeRecipient(global, mayhemMode);
-	const buybackFeeRecipient = pickBuybackFeeRecipient();
+	const buybackFeeRecipient = pickBuybackFeeRecipient(global);
 	const creatorVault = creatorVaultPda(bondingCurve.creator);
 	const userVolAcc = userVolumeAccumulatorPda(burnAuthority);
 

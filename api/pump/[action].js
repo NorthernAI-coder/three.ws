@@ -270,6 +270,10 @@ async function handleBuyPrep(req, res) {
 		if (!quoteMintPk) quoteMintPk = solanaPubkey(WSOL_MINT);
 
 		const isUsdcQuote = !isLegacyQuoteMint(quoteMintPk);
+		// On-chain SOL curves store quoteMint as PublicKey.default (all-zeros).
+		// Surface wrapped SOL in the API response instead of the zero pubkey so
+		// clients see a real, usable mint for every coin type.
+		const quoteMintDisplay = isUsdcQuote ? quoteMintPk.toString() : WSOL_MINT;
 
 		if (buyState && buyState.bondingCurve && !buyState.bondingCurve.complete) {
 			const global = await sdk.fetchGlobal();
@@ -297,7 +301,7 @@ async function handleBuyPrep(req, res) {
 					route: 'bonding_curve',
 					mint: body.mint,
 					network: body.network,
-					quote_mint: quoteMintPk.toString(),
+					quote_mint: quoteMintDisplay,
 					usdc_in: body.usdc_amount,
 					slippage_bps: body.slippage_bps,
 					tx_base64,
@@ -326,7 +330,7 @@ async function handleBuyPrep(req, res) {
 				route: 'bonding_curve',
 				mint: body.mint,
 				network: body.network,
-				quote_mint: quoteMintPk.toString(),
+				quote_mint: quoteMintDisplay,
 				sol_in: body.sol,
 				slippage_bps: body.slippage_bps,
 				tx_base64,
@@ -357,7 +361,7 @@ async function handleBuyPrep(req, res) {
 			pool: amm.poolKey.toString(),
 			mint: body.mint,
 			network: body.network,
-			quote_mint: quoteMintPk.toString(),
+			quote_mint: quoteMintDisplay,
 			...(isUsdcQuote ? { usdc_in: body.usdc_amount } : { sol_in: body.sol }),
 			slippage_bps: body.slippage_bps,
 			tx_base64,
@@ -374,15 +378,24 @@ async function handleBuyPrep(req, res) {
 
 // ── buy-confirm ────────────────────────────────────────────────────────────
 
-const buyConfirmSchema = z.object({
-	mint: z.string().min(32).max(44),
-	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
-	tx_signature: z.string().min(80).max(100),
-	wallet_address: z.string().min(32).max(44),
-	sol: z.number().positive().max(50),
-	route: z.enum(['bonding_curve', 'amm']),
-	slippage_bps: z.number().int().min(0).max(5000).optional(),
-});
+const buyConfirmSchema = z
+	.object({
+		mint: z.string().min(32).max(44),
+		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+		tx_signature: z.string().min(80).max(100),
+		wallet_address: z.string().min(32).max(44),
+		// SOL-paired coins record `sol`; USDC-paired (v2) coins record `usdc_amount`.
+		// Both optional so either quote asset can confirm; the tx itself is the
+		// source of truth (verified on-chain below), these only label the trade row.
+		sol: z.number().nonnegative().max(50).optional(),
+		usdc_amount: z.number().nonnegative().max(1_000_000).optional(),
+		route: z.enum(['bonding_curve', 'amm']),
+		slippage_bps: z.number().int().min(0).max(5000).optional(),
+	})
+	.refine((v) => (v.sol ?? 0) > 0 || (v.usdc_amount ?? 0) > 0, {
+		message: 'sol or usdc_amount required',
+		path: ['sol'],
+	});
 
 async function handleBuyConfirm(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -414,13 +427,16 @@ async function handleBuyConfirm(req, res) {
 		return error(res, 422, 'wallet_not_in_tx', 'wallet not in tx');
 
 	if (mintId) {
-		const lamports = BigInt(Math.floor(body.sol * 1_000_000_000));
+		// `sol_amount` is a lamports column — only set for SOL-paired buys. USDC
+		// buys leave it null (no quote-amount column yet; see AUDIT follow-ups).
+		const lamports =
+			body.sol && body.sol > 0 ? BigInt(Math.floor(body.sol * 1_000_000_000)) : null;
 		await sql`
 			insert into pump_agent_trades
 				(mint_id, user_id, wallet, direction, route, sol_amount, slippage_bps, tx_signature, network)
 			values
 				(${mintId}, ${user.id}, ${body.wallet_address}, 'buy', ${body.route},
-				 ${lamports.toString()}, ${body.slippage_bps ?? null}, ${body.tx_signature}, ${body.network})
+				 ${lamports != null ? lamports.toString() : null}, ${body.slippage_bps ?? null}, ${body.tx_signature}, ${body.network})
 			on conflict (tx_signature, network) do nothing
 		`;
 	}
@@ -433,7 +449,8 @@ async function handleBuyConfirm(req, res) {
 		ts: Date.now(),
 		actor: shortAddr(body.wallet_address),
 		mint: body.mint,
-		sol: body.sol,
+		...(body.sol && body.sol > 0 ? { sol: body.sol } : {}),
+		...(body.usdc_amount && body.usdc_amount > 0 ? { usdc: body.usdc_amount } : {}),
 		network: body.network,
 	}).catch(() => {});
 
@@ -500,6 +517,8 @@ async function handleSellPrep(req, res) {
 		if (!quoteMintPk) quoteMintPk = solanaPubkey(WSOL_MINT);
 
 		const isUsdcQuote = !isLegacyQuoteMint(quoteMintPk);
+		// SOL curves store quoteMint as PublicKey.default — surface wrapped SOL.
+		const quoteMintDisplay = isUsdcQuote ? quoteMintPk.toString() : WSOL_MINT;
 
 		if (sellState && sellState.bondingCurve && !sellState.bondingCurve.complete) {
 			const global = await sdk.fetchGlobal();
@@ -537,7 +556,7 @@ async function handleSellPrep(req, res) {
 				route: 'bonding_curve',
 				mint: body.mint,
 				network: body.network,
-				quote_mint: quoteMintPk.toString(),
+				quote_mint: quoteMintDisplay,
 				tokens_in: body.tokens,
 				slippage_bps: body.slippage_bps,
 				tx_base64,
@@ -560,7 +579,7 @@ async function handleSellPrep(req, res) {
 			pool: amm.poolKey.toString(),
 			mint: body.mint,
 			network: body.network,
-			quote_mint: quoteMintPk.toString(),
+			quote_mint: quoteMintDisplay,
 			tokens_in: body.tokens,
 			slippage_bps: body.slippage_bps,
 			tx_base64,
@@ -798,8 +817,12 @@ async function buildLaunchInstructions({
 		const pumpSdk  = await import('@pump-fun/pump-sdk');
 		if (hasBuy) {
 			const quoteAmount   = new BN(Math.round(usdcBuyIn * 1_000_000));
+			// Pass `quoteMint` so the SDK seeds a fresh curve from
+			// `initial_virtual_quote_reserves` (USDC) rather than the SOL reserves —
+			// otherwise the base-token estimate is priced against the wrong pool and
+			// the create+buy can over/under-spend or revert on max_quote_cost.
 			const tokenAmount   = pumpSdk.getBuyTokenAmountFromSolAmount({
-				global, feeConfig: null, mintSupply: null, bondingCurve: null, amount: quoteAmount,
+				global, feeConfig: null, mintSupply: null, bondingCurve: null, amount: quoteAmount, quoteMint,
 			});
 			const ixs = await sdk.createV2AndBuyV2Instructions({
 				global, mint, name, symbol, uri,
@@ -2076,7 +2099,8 @@ async function handleQuote(req, res) {
 				mint: mintStr,
 				network,
 				graduated: false,
-				quote_mint: quoteMintPk.toString(),
+				// SOL curves store quoteMint as PublicKey.default — surface wSOL.
+				quote_mint: isUsdcQuote ? quoteMintPk.toString() : WSOL_MINT,
 				bonding_curve: {
 					real_quote_reserves: curve.realQuoteReserves?.toString?.() ?? curve.realSolReserves?.toString?.() ?? null,
 					real_token_reserves: curve.realTokenReserves?.toString?.() ?? null,

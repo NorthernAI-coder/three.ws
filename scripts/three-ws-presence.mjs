@@ -37,7 +37,17 @@ const ENV_PATH = path.join(ROOT, '.env');
 const SITE = 'three.ws';
 const HANDLE = 'trythreews';
 const CONTRACT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
-const DEFAULT_QUERIES = [`"${SITE}"`, HANDLE, `"3D AI agent" ${SITE}`, CONTRACT];
+// The brand filter (keepBrand) cleans junk downstream, so queries can be broad enough
+// to surface the site + press without an exact-token match (quoting "three.ws" is too
+// strict for a .ws domain and hides the homepage). The handle stays quoted because
+// unquoted Google reads "trythreews" as "try three ws" and floods music/gov results.
+const DEFAULT_QUERIES = [
+	SITE,
+	`"${HANDLE}"`,
+	`${SITE} 3D AI agent Solana`,
+	`${SITE} $THREE token`,
+	CONTRACT,
+];
 const NPM_PACKAGES = ['three.ws', '@three-ws/avatar-agent'];
 const GITHUB_REPO = 'nirholas/three.ws';
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -118,6 +128,14 @@ function hostOf(url) {
 	} catch {
 		return '';
 	}
+}
+
+// Web-search engines fuzzy-match the brand into unrelated tokens (try, three, ws),
+// so keep only SERP hits that actually name three.ws, the $three coin, the contract,
+// or the product category. Deliberately does NOT match bare "three" (catches songs).
+const BRAND = /three\.ws|trythreews|\$three\b|3d\s*ai\s*agent|3d\s*agent|FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump/i;
+function keepBrand(h) {
+	return BRAND.test(`${h.url} ${h.title} ${h.snippet}`);
 }
 
 function hit({ url, title, snippet, date, source }) {
@@ -355,7 +373,7 @@ async function providerSerper(queries) {
 			const body = await getJson('https://google.serper.dev/search', {
 				method: 'POST',
 				headers: { 'x-api-key': key, 'content-type': 'application/json' },
-				body: JSON.stringify({ q, num: 20 }),
+				body: JSON.stringify({ q, num: 30 }),
 			});
 			for (const r of body.organic || [])
 				hits.push(hit({ url: r.link, title: r.title, snippet: r.snippet, date: r.date, source: 'serper' }));
@@ -365,7 +383,7 @@ async function providerSerper(queries) {
 			if (process.env.DEBUG) console.error(`  serper "${q}": ${err.message}`);
 		}
 	}
-	return { name: 'serper', ran: true, hits };
+	return { name: 'serper', ran: true, hits: hits.filter(keepBrand) };
 }
 
 async function providerExa(queries) {
@@ -387,7 +405,7 @@ async function providerExa(queries) {
 			if (process.env.DEBUG) console.error(`  exa "${q}": ${err.message}`);
 		}
 	}
-	return { name: 'exa', ran: true, hits };
+	return { name: 'exa', ran: true, hits: hits.filter(keepBrand) };
 }
 
 async function providerBrave(queries) {
@@ -408,7 +426,7 @@ async function providerBrave(queries) {
 			if (process.env.DEBUG) console.error(`  brave "${q}": ${err.message}`);
 		}
 	}
-	return { name: 'brave', ran: true, hits };
+	return { name: 'brave', ran: true, hits: hits.filter(keepBrand) };
 }
 
 async function providerTavily(queries) {
@@ -428,7 +446,7 @@ async function providerTavily(queries) {
 			if (process.env.DEBUG) console.error(`  tavily "${q}": ${err.message}`);
 		}
 	}
-	return { name: 'tavily', ran: true, hits };
+	return { name: 'tavily', ran: true, hits: hits.filter(keepBrand) };
 }
 
 async function providerSerpApi(queries) {
@@ -447,7 +465,7 @@ async function providerSerpApi(queries) {
 			if (process.env.DEBUG) console.error(`  serpapi "${q}": ${err.message}`);
 		}
 	}
-	return { name: 'serpapi', ran: true, hits };
+	return { name: 'serpapi', ran: true, hits: hits.filter(keepBrand) };
 }
 
 // ── Dedupe + grouping ─────────────────────────────────────────────────────────

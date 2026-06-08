@@ -36,6 +36,7 @@ vi.mock('@pump-fun/pump-sdk', async (importOriginal) => {
 const {
 	buildPumpSwapInnerIx,
 	BUY_EXACT_QUOTE_IN_V2_DISCRIMINATOR,
+	BUYBACK_FEE_RECIPIENTS,
 	PUMP_PROGRAM_ID,
 } = await import('../api/_lib/pump-swap-ix.js');
 const {
@@ -253,6 +254,46 @@ describe('buildPumpSwapInnerIx', () => {
 			.map((a, i) => (a.isSigner ? i : -1))
 			.filter((i) => i >= 0);
 		expect(signerIdxs).toEqual([13]);
+	});
+
+	it('selects the buyback fee recipient from on-chain global.buybackFeeRecipients when present', async () => {
+		// The program validates `buyback_fee_recipient` against the live Global
+		// config, so a single-entry on-chain list must win over the static fallback.
+		const onchainBuyback = new PublicKey('3BpXnfJaUTiwXnJNe7Ej1rcbzqTTQUvLShZaWazebsVR');
+		mockDecodeGlobal.mockReturnValueOnce({
+			feeRecipient: FEE_RECIPIENT,
+			feeRecipients: [],
+			reservedFeeRecipient: FEE_RECIPIENT,
+			reservedFeeRecipients: [],
+			buybackFeeRecipients: [onchainBuyback],
+		});
+		const { accounts } = await buildPumpSwapInnerIx({
+			mint: MINT,
+			currency: CURRENCY,
+			amountIn: 1_000_000n,
+			minAmountOut: 0n,
+			cluster: 'devnet',
+			connection: fakeConnection(),
+		});
+		// account 8 (0-based) = buyback_fee_recipient per the buy_exact_quote_in_v2 IDL.
+		expect(accounts[8].pubkey.equals(onchainBuyback)).toBe(true);
+		// account 9 = its associated quote ATA, owned by that same recipient.
+		const expectedAta = getAssociatedTokenAddressSync(CURRENCY, onchainBuyback, true, TOKEN_PROGRAM_ID);
+		expect(accounts[9].pubkey.equals(expectedAta)).toBe(true);
+	});
+
+	it('falls back to the static buyback list when global omits buybackFeeRecipients', async () => {
+		// setDecodedDefaults() (beforeEach) provides no buybackFeeRecipients and
+		// Math.random is pinned to 0, so the fallback picks BUYBACK_FEE_RECIPIENTS[0].
+		const { accounts } = await buildPumpSwapInnerIx({
+			mint: MINT,
+			currency: CURRENCY,
+			amountIn: 1_000_000n,
+			minAmountOut: 0n,
+			cluster: 'devnet',
+			connection: fakeConnection(),
+		});
+		expect(accounts[8].pubkey.equals(BUYBACK_FEE_RECIPIENTS[0])).toBe(true);
 	});
 
 	it('throws when the bonding curve has graduated', async () => {
