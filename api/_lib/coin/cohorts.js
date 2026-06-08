@@ -91,22 +91,53 @@ function daysAgo(days) {
 export function cohortSpec(cohortId, params = {}) {
 	switch (cohortId) {
 		case 'holders':
-			return { minBalance: 1n, maxBalance: null, firstSeenBefore: null, firstSeenAfter: null, lastSeenBefore: null };
+			return {
+				minBalance: 1n,
+				maxBalance: null,
+				firstSeenBefore: null,
+				firstSeenAfter: null,
+				lastSeenBefore: null,
+			};
 		case 'whales': {
 			const topPct = Math.min(Math.max(num(params.topPct, 0.1), 0.0001), 1);
-			return { minBalance: 1n, maxBalance: null, firstSeenBefore: null, firstSeenAfter: null, lastSeenBefore: null, topPct };
+			return {
+				minBalance: 1n,
+				maxBalance: null,
+				firstSeenBefore: null,
+				firstSeenAfter: null,
+				lastSeenBefore: null,
+				topPct,
+			};
 		}
 		case 'diamond-hands': {
 			const minHoldDays = Math.max(num(params.minHoldDays, 30), 0);
-			return { minBalance: 1n, maxBalance: null, firstSeenBefore: daysAgo(minHoldDays), firstSeenAfter: null, lastSeenBefore: null };
+			return {
+				minBalance: 1n,
+				maxBalance: null,
+				firstSeenBefore: daysAgo(minHoldDays),
+				firstSeenAfter: null,
+				lastSeenBefore: null,
+			};
 		}
 		case 'new-buyers': {
 			const windowDays = Math.max(num(params.windowDays, 7), 0);
-			return { minBalance: 1n, maxBalance: null, firstSeenBefore: null, firstSeenAfter: daysAgo(windowDays), lastSeenBefore: null };
+			return {
+				minBalance: 1n,
+				maxBalance: null,
+				firstSeenBefore: null,
+				firstSeenAfter: daysAgo(windowDays),
+				lastSeenBefore: null,
+			};
 		}
 		case 'exited': {
 			const idleDays = Math.max(num(params.idleDays, 0), 0);
-			return { minBalance: 0n, maxBalance: 0n, firstSeenBefore: null, firstSeenAfter: null, lastSeenBefore: idleDays > 0 ? daysAgo(idleDays) : null };
+			return {
+				minBalance: 0n,
+				maxBalance: 0n,
+				firstSeenBefore: null,
+				firstSeenAfter: null,
+				lastSeenBefore: idleDays > 0 ? daysAgo(idleDays) : null,
+			};
 		}
 		default:
 			throw new Error(`unknown cohort: ${cohortId}`);
@@ -192,7 +223,9 @@ export async function cohortCounts({ coinId, params = {} }) {
 // ─── Cursor (keyset over balance desc, id asc) ───────────────────────────────
 
 function encodeCursor(row) {
-	return Buffer.from(JSON.stringify({ b: row.balance, id: row.id }), 'utf-8').toString('base64url');
+	return Buffer.from(JSON.stringify({ b: row.balance, id: row.id }), 'utf-8').toString(
+		'base64url',
+	);
 }
 
 function decodeCursor(cursor) {
@@ -222,7 +255,15 @@ function decodeCursor(cursor) {
  * @param {string} [opts.salt]     sampling salt (defaults to coinId)
  * @returns {Promise<{members: Array, nextCursor: string|null, sampled: boolean}>}
  */
-export async function queryCohort({ coinId, cohortId, params = {}, limit = 200, cursor, sample, salt }) {
+export async function queryCohort({
+	coinId,
+	cohortId,
+	params = {},
+	limit = 200,
+	cursor,
+	sample,
+	salt,
+}) {
 	if (!isCohortId(cohortId)) throw new Error(`unknown cohort: ${cohortId}`);
 	const pageSize = Math.min(Math.max(Math.floor(limit) || 200, 1), 1000);
 	const spec = cohortSpec(cohortId, params);
