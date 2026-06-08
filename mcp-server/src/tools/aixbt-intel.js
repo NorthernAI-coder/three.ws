@@ -32,7 +32,11 @@ const inputZodShape = {
 		.describe('Max intel items to return (default 20).')
 		.optional(),
 	category: z.string().max(64).describe('Filter to a single aixbt intel category.').optional(),
-	chain: z.string().max(32).describe('Filter to a chain (e.g. solana, base, ethereum).').optional(),
+	chain: z
+		.string()
+		.max(32)
+		.describe('Filter to a chain (e.g. solana, base, ethereum).')
+		.optional(),
 };
 
 const inputJsonSchema = jsonSchemaFromZod(inputZodShape);

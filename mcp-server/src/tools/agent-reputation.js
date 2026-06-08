@@ -95,7 +95,9 @@ function parseAgentInput(raw, defaultChain) {
 	if (isAddress(value)) {
 		return { kind: 'wallet', wallet: value, chain: defaultChain };
 	}
-	throw new Error(`could not parse agent identifier "${value}" — expected uint, EVM wallet, or eip155:<chain>:<addr>`);
+	throw new Error(
+		`could not parse agent identifier "${value}" — expected uint, EVM wallet, or eip155:<chain>:<addr>`,
+	);
 }
 
 async function resolveAgentId(provider, wallet) {
@@ -125,7 +127,10 @@ async function readIdentity(provider, agentId) {
 
 async function readReputationAggregate(provider, agentId) {
 	const rep = new Contract(REPUTATION_REGISTRY_MAINNET, REPUTATION_REGISTRY_ABI, provider);
-	const [agg, totalStake] = await Promise.all([rep.getReputation(agentId), rep.getTotalStake(agentId)]);
+	const [agg, totalStake] = await Promise.all([
+		rep.getReputation(agentId),
+		rep.getTotalStake(agentId),
+	]);
 	const [totalScore, count] = agg;
 	const totalScoreNum = Number(totalScore);
 	const countNum = Number(count);
@@ -170,7 +175,9 @@ async function readRecentEvents(provider, agentId) {
 		windowBlocks: LOG_WINDOW_BLOCKS,
 		fromBlock: from,
 		toBlock: latest,
-		events: [...submittedDecoded, ...stakedDecoded].sort((a, b) => b.blockNumber - a.blockNumber).slice(0, 25),
+		events: [...submittedDecoded, ...stakedDecoded]
+			.sort((a, b) => b.blockNumber - a.blockNumber)
+			.slice(0, 25),
 	};
 }
 
@@ -179,10 +186,14 @@ const inputZodShape = {
 	address: z
 		.string()
 		.min(1)
-		.describe('ERC-8004 agentId (uint), EVM wallet address (0x...), or CAIP-10 "eip155:<chainId>:<wallet>".'),
+		.describe(
+			'ERC-8004 agentId (uint), EVM wallet address (0x...), or CAIP-10 "eip155:<chainId>:<wallet>".',
+		),
 	chain: z
 		.string()
-		.describe('Chain to query (default: base). Accepts name or numeric chainId. Overridden by CAIP-10 input.')
+		.describe(
+			'Chain to query (default: base). Accepts name or numeric chainId. Overridden by CAIP-10 input.',
+		)
 		.optional(),
 };
 

@@ -222,7 +222,8 @@ export async function buildPumpSnapshotTool() {
 			// pair price, surface it rather than leaving price null — two
 			// independent sources back the single most important field.
 			const priceUsd = price?.usdPrice ?? ds?.priceUsd ?? null;
-			const priceSource = price?.usdPrice != null ? 'jupiter' : ds?.priceUsd != null ? 'dexscreener' : null;
+			const priceSource =
+				price?.usdPrice != null ? 'jupiter' : ds?.priceUsd != null ? 'dexscreener' : null;
 			return {
 				token,
 				fetchedAt: new Date().toISOString(),

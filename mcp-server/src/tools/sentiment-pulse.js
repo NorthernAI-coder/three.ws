@@ -67,7 +67,10 @@ export async function buildSentimentPulseTool() {
 			},
 		},
 		async ({ token, limit, extraTexts }) => {
-			const endpoint = env('MCP_SENTIMENT_PULSE_ENDPOINT', 'https://three.ws/api/social/sentiment-pulse');
+			const endpoint = env(
+				'MCP_SENTIMENT_PULSE_ENDPOINT',
+				'https://three.ws/api/social/sentiment-pulse',
+			);
 			let res;
 			try {
 				// Read-only scoring computation — safe to retry on a transient blip.
@@ -78,7 +81,12 @@ export async function buildSentimentPulseTool() {
 						headers: { 'content-type': 'application/json' },
 						body: JSON.stringify({ token, limit, extraTexts }),
 					},
-					{ timeoutMs: 15_000, retries: 2, retryNonIdempotent: true, label: 'sentiment-pulse' },
+					{
+						timeoutMs: 15_000,
+						retries: 2,
+						retryNonIdempotent: true,
+						label: 'sentiment-pulse',
+					},
 				);
 			} catch (err) {
 				return toolError('upstream_unreachable', err?.message || 'fetch failed');

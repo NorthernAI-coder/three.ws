@@ -69,13 +69,16 @@ Then replace `"command": "npx", "args": ["-y", "@3d-agent/mcp-server"]` with `"c
 | Var | Default | Description |
 |-----|---------|-------------|
 | `HELIUS_API_KEY` | unset | Adds Helius DAS enrichment to `pump_snapshot` |
-| `SOLANA_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana RPC endpoint for `pump_snapshot` and `vanity_grinder` |
-| `X402_FACILITATOR_URL_SOLANA` | `https://facilitator.payai.network` | PayAI Solana facilitator that verifies + settles payments |
+| `SOLANA_RPC_URL` | `https://api.mainnet-beta.solana.com` | Primary Solana RPC for `pump_snapshot` / AgenC reads |
+| `SOLANA_RPC_URLS` | built-in public set | **Failover** — comma-separated Solana RPCs tried in order; first healthy one answers |
+| `MCP_EVM_RPC_<chainId>` | built-in public set | **Failover** — comma-separated EVM RPCs for that chain (`agent_reputation`, ENS uses chain 1) |
+| `X402_FACILITATOR_URL_SOLANA` | `https://facilitator.payai.network` | Primary PayAI Solana facilitator that verifies + settles payments |
+| `X402_FACILITATOR_URLS_SOLANA` | unset | **Failover** — comma-separated facilitators; earlier entries take precedence at init, a later one covers an outage |
 | `X402_FACILITATOR_TOKEN_SOLANA` | unset | Bearer token for the Solana facilitator, if required |
 | `X402_FEE_PAYER_SOLANA` | three.ws default | Fee payer for the settlement transaction |
 | `MCP_VANITY_PRICE_USD` | `$0.05` | Flat price for `vanity_grinder` |
 | `MCP_POSE_PREVIEW_BASE` | `https://three.ws/pose` | Base URL for `get_pose_seed` preview links |
-| `MCP_AGENT_REP_RPC_<chainId>` | public RPC | Per-chain RPC override for `agent_reputation` |
+| `MCP_AGENT_REP_RPC_<chainId>` | public RPC | Per-chain RPC override for `agent_reputation` (tried before the failover set) |
 | `MCP_AGENT_REP_LOG_WINDOW` | `200000` | Block window for `agent_reputation` event scan |
 
 ---
@@ -181,6 +184,26 @@ The server is the x402 **resource server**. On each tool call:
 Every tool settles in USDC on **Solana mainnet** with the `exact` scheme (`@x402/svm` ships no `upto`/metered scheme). Each tool quotes a fixed price; there is no post-hoc metering.
 
 A successful result carries the tool's JSON in two forms: `content[0].text` (for text-only clients) and `structuredContent` (MCP 2025-06-18 structured output — a ready-to-use object). A tool-level error sets `isError: true`, and the x402 wrapper **cancels rather than settles** the payment, so failed calls do not bill the caller.
+
+---
+
+## Reliability & failover
+
+Every external dependency has a backup path, so a single provider blip doesn't take a tool down — and no call can hang a paid request indefinitely.
+
+- **Every outbound HTTP call** runs through a shared resilient layer (`src/lib/resilient-fetch.js`): a hard per-attempt timeout plus jittered exponential-backoff retries on transient `429`/`5xx`/network errors, honoring `Retry-After`. Retries are restricted to idempotent reads by default — a non-idempotent action like `agent_delegate_action` gets the timeout but is **never** silently replayed.
+- **Solana RPC** (`src/lib/solana-rpc.js`) fails over across an ordered endpoint list (`SOLANA_RPC_URLS`, else the primary, else a built-in public set). A throttling or down endpoint rotates to the back and the next one answers.
+- **EVM RPC** (`src/lib/evm-rpc.js`) uses an ethers `FallbackProvider` (quorum 1) over multiple endpoints per chain (`MCP_EVM_RPC_<chainId>` or built-in redundancy), each request timeout-bounded.
+- **The x402 facilitator** accepts a comma-separated `X402_FACILITATOR_URLS_SOLANA`: earlier entries take precedence at init, and a later facilitator covers the Solana `exact` kind if the primary's `/supported` is unreachable.
+- **Data fallback:** `pump_snapshot` cross-fills its USD price from Dexscreener when Jupiter is unavailable, and each upstream fails soft to a `null`/`{ error }` field rather than failing the whole snapshot.
+
+For maximum redundancy, set dedicated endpoints rather than relying on the public defaults:
+
+```bash
+SOLANA_RPC_URLS="https://your-primary-rpc,https://your-secondary-rpc"
+MCP_EVM_RPC_8453="https://your-base-rpc,https://base-rpc.publicnode.com"
+X402_FACILITATOR_URLS_SOLANA="https://facilitator.payai.network,https://your-backup-facilitator"
+```
 
 ---
 

@@ -46,10 +46,12 @@ describe('resilientFetch — timeout + safe retries', () => {
 	});
 
 	it('retries a GET on a 503 then succeeds', async () => {
-		fetchMock
-			.mockResolvedValueOnce(res(503))
-			.mockResolvedValueOnce(res(200, { ok: true }));
-		const r = await resilientFetch('https://x.test', {}, { retries: 2, baseDelayMs: 1, maxDelayMs: 2 });
+		fetchMock.mockResolvedValueOnce(res(503)).mockResolvedValueOnce(res(200, { ok: true }));
+		const r = await resilientFetch(
+			'https://x.test',
+			{},
+			{ retries: 2, baseDelayMs: 1, maxDelayMs: 2 },
+		);
 		expect(r.status).toBe(200);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
@@ -58,22 +60,28 @@ describe('resilientFetch — timeout + safe retries', () => {
 		fetchMock
 			.mockRejectedValueOnce(new Error('ECONNRESET'))
 			.mockResolvedValueOnce(res(200, { ok: true }));
-		const r = await resilientFetch('https://x.test', {}, { retries: 2, baseDelayMs: 1, maxDelayMs: 2 });
+		const r = await resilientFetch(
+			'https://x.test',
+			{},
+			{ retries: 2, baseDelayMs: 1, maxDelayMs: 2 },
+		);
 		expect(r.status).toBe(200);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
 	it('does NOT retry a non-idempotent POST by default (no double-send)', async () => {
 		fetchMock.mockResolvedValueOnce(res(503));
-		const r = await resilientFetch('https://x.test', { method: 'POST' }, { retries: 3, baseDelayMs: 1 });
+		const r = await resilientFetch(
+			'https://x.test',
+			{ method: 'POST' },
+			{ retries: 3, baseDelayMs: 1 },
+		);
 		expect(r.status).toBe(503);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
 	it('retries a POST when the caller opts in with retryNonIdempotent', async () => {
-		fetchMock
-			.mockResolvedValueOnce(res(500))
-			.mockResolvedValueOnce(res(200, { ok: true }));
+		fetchMock.mockResolvedValueOnce(res(500)).mockResolvedValueOnce(res(200, { ok: true }));
 		const r = await resilientFetch(
 			'https://x.test',
 			{ method: 'POST' },
@@ -85,7 +93,11 @@ describe('resilientFetch — timeout + safe retries', () => {
 
 	it('returns the last response (not throw) when retries are exhausted on status', async () => {
 		fetchMock.mockResolvedValue(res(429));
-		const r = await resilientFetch('https://x.test', {}, { retries: 2, baseDelayMs: 1, maxDelayMs: 2 });
+		const r = await resilientFetch(
+			'https://x.test',
+			{},
+			{ retries: 2, baseDelayMs: 1, maxDelayMs: 2 },
+		);
 		expect(r.status).toBe(429);
 		expect(fetchMock).toHaveBeenCalledTimes(3); // 1 + 2 retries
 	});
@@ -112,7 +124,9 @@ describe('resilientFetch — timeout + safe retries', () => {
 
 	it('fetchJson returns parsed JSON on success', async () => {
 		fetchMock.mockResolvedValueOnce(res(200, { hello: 'world' }));
-		await expect(fetchJson('https://x.test', {}, { retries: 0 })).resolves.toEqual({ hello: 'world' });
+		await expect(fetchJson('https://x.test', {}, { retries: 0 })).resolves.toEqual({
+			hello: 'world',
+		});
 	});
 });
 

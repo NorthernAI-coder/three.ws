@@ -91,6 +91,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@pump-fun/agent-payments-sdk-legacy": "npm:@pump-fun/agent-payments-sdk@1.0.7",
     "@types/bn.js": "^5.2.0",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",

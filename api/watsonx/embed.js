@@ -9,14 +9,22 @@
 // lay them out in semantic space (e.g. the watsonx Constellation at
 // /constellation). Inference runs on watsonx.ai with the server's IBM Cloud key.
 //
-// There is no mock path. When watsonx is unconfigured the endpoint returns 503
-// `watsonx_unconfigured` so the client can show an honest "not configured" state
-// instead of inventing vectors. Every successful vector is a real Granite call.
+// There is no mock path — every vector is a real embedding call. The provider
+// chain degrades gracefully so a watsonx outage never blanks the page:
+//   1. IBM Granite on watsonx.ai (primary, when WATSONX_* is configured)
+//   2. OpenAI text-embedding-3-small (fallback, when OPENAI_API_KEY is set)
+//   3. 503 `embed_unconfigured` only when NEITHER provider is available, so the
+//      client can show an honest "not configured" state instead of inventing
+//      vectors. Within a single response all vectors come from one provider, so
+//      `dimensions` is uniform regardless of which tier served the request.
 
 import { createHash } from 'node:crypto';
 import { cors, method, readJson, error, json, wrap, rateLimited } from '../_lib/http.js';
 import { watsonxConfig, watsonxEmbed } from '../_lib/watsonx.js';
+import { embed as openaiEmbed, embeddingsConfigured } from '../_lib/embeddings.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+
+const OPENAI_EMBED_MODEL = 'text-embedding-3-small';
 
 // watsonx accepts many inputs per call; cap a single request so one caller can't
 // submit an unbounded batch. Matches the chunk size used by agent-embeddings.
@@ -99,18 +107,76 @@ export default wrap(async function handler(req, res) {
 	}
 
 	const cfg = watsonxConfig();
-	if (!cfg.configured) {
-		// No fabricated vectors. Tell the client exactly what's missing so the UI
-		// can render a real "IBM watsonx not configured" state.
-		return error(res, 503, 'watsonx_unconfigured',
-			'IBM watsonx is not configured. Set WATSONX_API_KEY and WATSONX_PROJECT_ID to enable Granite embeddings.');
+	const openaiReady = embeddingsConfigured();
+	if (!cfg.configured && !openaiReady) {
+		// No provider at all. No fabricated vectors — tell the client exactly
+		// what's missing so the UI can render an honest "not configured" state.
+		return error(res, 503, 'embed_unconfigured',
+			'No embedding provider is configured. Set WATSONX_API_KEY + WATSONX_PROJECT_ID (IBM Granite) or OPENAI_API_KEY (fallback) to enable embeddings.');
 	}
 
-	const model = typeof body.model === 'string' && body.model.trim()
-		? body.model.trim()
-		: cfg.embedModel;
+	// Provider chain: Granite (primary) → OpenAI (fallback). The first provider
+	// that returns a full batch wins; a watsonx outage transparently falls
+	// through so /constellation keeps rendering.
+	let result = null;
+	let lastError = null;
 
-	// Resolve from cache first; only the genuinely-uncached texts hit watsonx.
+	if (cfg.configured) {
+		const model = typeof body.model === 'string' && body.model.trim()
+			? body.model.trim()
+			: cfg.embedModel;
+		try {
+			result = await embedBatch(texts, model, (inputs) =>
+				watsonxEmbed(cfg, { inputs, model }).then((r) => ({
+					vectors: r.vectors,
+					dimensions: r.dimensions,
+				})),
+			);
+		} catch (e) {
+			// Hold the cause; if OpenAI can cover we still serve a 200.
+			lastError = e;
+		}
+	}
+
+	if (!result && openaiReady) {
+		try {
+			result = await embedBatch(texts, OPENAI_EMBED_MODEL, async (inputs) => {
+				const vecs = await openaiEmbed(inputs);
+				return {
+					vectors: vecs.map((v) => Array.from(v)),
+					dimensions: vecs[0]?.length ?? 0,
+				};
+			});
+		} catch (e) {
+			lastError = e;
+		}
+	}
+
+	if (!result) {
+		// Both tiers failed at the network level — surface the real upstream cause.
+		return error(res, 502, 'embed_error', lastError?.message || 'embeddings failed');
+	}
+
+	// json() defaults to no-store, which is correct here: this is a POST whose
+	// body varies per request, so it must not be shared-cached. Determinism is
+	// exploited by the process-local `cache` above, not by HTTP caches.
+	return json(res, 200, {
+		model: result.model,
+		dimensions: result.dimensions,
+		count: result.vectors.length,
+		cachedHits: result.cachedHits,
+		vectors: result.vectors,
+	});
+});
+
+/**
+ * Embed `texts` with a single provider, reusing the process-local cache for
+ * already-seen (model, text) pairs so repeat lookups cost nothing. `fetcher`
+ * receives the genuinely-uncached inputs and returns { vectors, dimensions }.
+ * Caching is keyed by model, so Granite and OpenAI vectors never mix — every
+ * returned batch is uniform in dimensionality.
+ */
+async function embedBatch(texts, model, fetcher) {
 	const vectors = new Array(texts.length).fill(null);
 	const missIdx = [];
 	const missText = [];
@@ -123,30 +189,15 @@ export default wrap(async function handler(req, res) {
 	let dimensions = vectors.find((v) => v)?.length ?? 0;
 
 	if (missText.length) {
-		let result;
-		try {
-			result = await watsonxEmbed(cfg, { inputs: missText, model });
-		} catch (e) {
-			// Surface the real upstream cause (auth, quota, unsupported model).
-			return error(res, 502, 'watsonx_error', e.message || 'watsonx embeddings failed');
-		}
-		dimensions = result.dimensions || dimensions;
+		const fetched = await fetcher(missText);
+		dimensions = fetched.dimensions || dimensions;
 		for (let k = 0; k < missIdx.length; k++) {
-			const vec = result.vectors[k];
+			const vec = fetched.vectors[k];
 			if (!vec?.length) continue;
 			vectors[missIdx[k]] = vec;
 			cacheSet(cacheKey(model, missText[k]), vec);
 		}
 	}
 
-	// json() defaults to no-store, which is correct here: this is a POST whose
-	// body varies per request, so it must not be shared-cached. Determinism is
-	// exploited by the process-local `cache` above, not by HTTP caches.
-	return json(res, 200, {
-		model,
-		dimensions,
-		count: vectors.length,
-		cachedHits: texts.length - missText.length,
-		vectors,
-	});
-});
+	return { model, dimensions, vectors, cachedHits: texts.length - missText.length };
+}

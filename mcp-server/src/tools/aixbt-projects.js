@@ -36,7 +36,11 @@ const inputZodShape = {
 		.max(256)
 		.describe('Comma-separated project names/tickers to filter to.')
 		.optional(),
-	chain: z.string().max(32).describe('Filter to a chain (e.g. solana, base, ethereum).').optional(),
+	chain: z
+		.string()
+		.max(32)
+		.describe('Filter to a chain (e.g. solana, base, ethereum).')
+		.optional(),
 };
 
 const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
@@ -57,7 +61,12 @@ export async function buildAixbtProjectsTool() {
 						ticker: 'THREE',
 						chain: 'solana',
 						scores: { spiking: 0.91, climbing: 0.74, active: 0.88 },
-						market: { price_usd: 0.00464, market_cap: null, volume_24h: null, change_24h: 45.9 },
+						market: {
+							price_usd: 0.00464,
+							market_cap: null,
+							volume_24h: null,
+							change_24h: 45.9,
+						},
 						source: 'aixbt',
 					},
 				],

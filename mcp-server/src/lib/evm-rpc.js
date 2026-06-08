@@ -22,13 +22,24 @@ import { FallbackProvider, FetchRequest, JsonRpcProvider, Network } from 'ethers
 // single provider outage is survivable out of the box. Operators who need
 // guaranteed throughput should pin dedicated endpoints via MCP_EVM_RPC_<id>.
 const BUILTIN_RPCS = {
-	1: ['https://eth.llamarpc.com', 'https://ethereum-rpc.publicnode.com', 'https://cloudflare-eth.com'],
-	8453: ['https://mainnet.base.org', 'https://base-rpc.publicnode.com', 'https://base.llamarpc.com'],
+	1: [
+		'https://eth.llamarpc.com',
+		'https://ethereum-rpc.publicnode.com',
+		'https://cloudflare-eth.com',
+	],
+	8453: [
+		'https://mainnet.base.org',
+		'https://base-rpc.publicnode.com',
+		'https://base.llamarpc.com',
+	],
 	42161: ['https://arb1.arbitrum.io/rpc', 'https://arbitrum-one-rpc.publicnode.com'],
 	10: ['https://mainnet.optimism.io', 'https://optimism-rpc.publicnode.com'],
 	137: ['https://polygon-rpc.com', 'https://polygon-bor-rpc.publicnode.com'],
 	56: ['https://bsc-dataseed1.binance.org', 'https://bsc-rpc.publicnode.com'],
-	43114: ['https://api.avax.network/ext/bc/C/rpc', 'https://avalanche-c-chain-rpc.publicnode.com'],
+	43114: [
+		'https://api.avax.network/ext/bc/C/rpc',
+		'https://avalanche-c-chain-rpc.publicnode.com',
+	],
 	42220: ['https://forno.celo.org'],
 	59144: ['https://rpc.linea.build'],
 	534352: ['https://rpc.scroll.io'],
