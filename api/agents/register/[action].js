@@ -8,6 +8,7 @@ import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_l
 import { parse } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
+import { erc8004RegistryFields } from '../../_lib/three-brand.js';
 import { r2, publicUrl } from '../../_lib/r2.js';
 import { SERVER_CHAIN_META } from '../../_lib/onchain.js';
 import { publishFeedEvent } from '../../_lib/feed.js';
@@ -99,6 +100,9 @@ async function handlePrep(req, res) {
 		$schema: 'https://3d-agent.io/schemas/manifest/0.1.json', spec: 'agent-manifest/0.1',
 		name: body.name, description: body.description, image: '', tags: [],
 		body: { uri: '', format: 'gltf-binary' }, _baseURI: `ipfs://`,
+		// ERC-8004 registration-file fields the registry subgraph indexes — without
+		// them the agent shows as inactive / "x402 Not Supported".
+		...erc8004RegistryFields(env.APP_ORIGIN),
 		...(body.brain && { brain: body.brain }),
 		...(body.skills?.length > 0 && { skills: body.skills }),
 		...(body.embedPolicy && { embedPolicy: body.embedPolicy }),
