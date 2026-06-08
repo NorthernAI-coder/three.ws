@@ -243,6 +243,9 @@ export const limits = {
 		getLimiter('x402:pay:global', { limit: 600, window: '1 h', critical: true }).limit(
 			'global',
 		),
+	// x402 checkout analytics record (api/x402-checkout-record). Public + write,
+	// so bound per-IP to stop an attacker scripting fabricated revenue rows.
+	x402RecordIp: (ip) => getLimiter('x402:record:ip', { limit: 30, window: '1 m' }).limit(ip),
 	checkName: (ip) => getLimiter('check-name:ip', { limit: 60, window: '1 m' }).limit(ip),
 	ensResolve: (ip) => getLimiter('ens:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),

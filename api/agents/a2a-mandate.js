@@ -12,7 +12,7 @@
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, rateLimited, readJson, wrap } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
-import { issueIntentMandate, MandateError, MAX_TTL_SECONDS, SUPPORTED_NETWORKS } from '../_lib/a2a/mandate.js';
+import { DEFAULT_NETWORK, issueIntentMandate, MandateError, MAX_TTL_SECONDS, SUPPORTED_NETWORKS } from '../_lib/a2a/mandate.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -32,7 +32,7 @@ export default wrap(async (req, res) => {
 		maxAtomics,
 		perCallAtomics,
 		currency = 'USDC',
-		networks = ['eip155:8453'],
+		networks = [DEFAULT_NETWORK],
 		resources = [],
 		purpose = '',
 		ttlSec = 24 * 60 * 60,

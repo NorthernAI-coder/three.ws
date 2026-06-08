@@ -1,6 +1,7 @@
 import { sql } from '../../_lib/db.js';
-import { cors, json, error, readJson, wrap, method } from '../../_lib/http.js';
+import { cors, json, error, readJson, wrap, method, rateLimited } from '../../_lib/http.js';
 import { getSessionUser } from '../../_lib/auth.js';
+import { limits } from '../../_lib/rate-limit.js';
 import { enrichLikes } from '../../_lib/bounty-likes.js';
 
 export default wrap(async (req, res) => {
@@ -34,6 +35,10 @@ export default wrap(async (req, res) => {
 		} catch {
 			return error(res, 401, 'unauthorized', 'sign in to submit');
 		}
+		if (!user) return error(res, 401, 'unauthorized', 'sign in to submit');
+
+		const rl = await limits.bountySubmit(user.id);
+		if (!rl.success) return rateLimited(res, rl, 'too many submissions, slow down');
 
 		const [bounty] = await sql`
 			SELECT id, status, expires_at FROM bounties
@@ -45,10 +50,19 @@ export default wrap(async (req, res) => {
 			return error(res, 409, 'bounty_expired', 'bounty has expired');
 		}
 
-		const body = await readJson(req);
+		const body = await readJson(req, 16_000);
 		const { content, media_url, media_type } = body;
 		if (!content?.trim() && !media_url?.trim()) {
 			return error(res, 400, 'bad_request', 'provide a description or media URL');
+		}
+		// Bound free-text and validate the media URL shape — it's rendered to every
+		// other user, so reject oversized content and non-http(s) links.
+		if (typeof content === 'string' && content.length > 4000)
+			return error(res, 400, 'bad_request', 'content too long (max 4000)');
+		if (typeof media_url === 'string' && media_url.trim()) {
+			const u = media_url.trim();
+			if (u.length > 2000 || !/^https?:\/\//i.test(u))
+				return error(res, 400, 'bad_request', 'media_url must be a valid http(s) URL');
 		}
 
 		const validTypes = ['image', 'video', 'link'];

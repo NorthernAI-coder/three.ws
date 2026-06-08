@@ -14,7 +14,9 @@
 //      trust bar? Opt-in per call.
 //
 // Settlement itself reuses the existing A2A x402 client (api/_lib/x402/a2a-client.js)
-// so this inherits the spec-compliant two-leg handshake and EIP-3009 signing.
+// so this inherits the spec-compliant two-leg handshake. Solana is the primary
+// rail — USDC SPL TransferChecked, partially signed by the platform payer and
+// co-signed by the peer's facilitator fee payer — with EVM EIP-3009 as fallback.
 
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, rateLimited, readJson, respondError, wrap } from '../_lib/http.js';
@@ -27,27 +29,40 @@ import { assertReputationOk, ReputationError } from '../_lib/a2a/reputation-gate
 import {
 	A2AClientError,
 	buildEvmExactPayload,
+	buildSolanaExactPayload,
 	createPrivateKeySigner,
+	createSolanaSigner,
+	isSolanaNetwork,
+	NETWORK_SOLANA_MAINNET,
 	requestQuote,
 	submitPayment,
 } from '../_lib/x402/a2a-client.js';
 
-const DEFAULT_NETWORK_PREFERENCE = ['eip155:8453', 'eip155:84532', 'eip155:1'];
+// Solana is the primary settlement rail; EVM chains are the fallback.
+const DEFAULT_NETWORK_PREFERENCE = [
+	NETWORK_SOLANA_MAINNET,
+	'eip155:8453',
+	'eip155:84532',
+	'eip155:1',
+];
 
 // Choose the accept entry to pay against, honoring the caller's network
-// preference and only ever picking an EVM `exact` scheme (what the client signs).
+// preference and only ever picking a `scheme=exact` entry on a rail we can
+// settle — Solana SPL or an EVM chain. Solana is preferred when both are
+// offered without an explicit preference.
 function pickAccept(accepts, preference) {
 	const order = preference?.length ? preference : DEFAULT_NETWORK_PREFERENCE;
 	for (const net of order) {
 		const match = accepts.find((a) => a.network === net && a.scheme === 'exact');
 		if (match) return match;
 	}
-	for (const a of accepts) {
-		if (a.scheme === 'exact' && /^eip155:\d+$/.test(a.network)) return a;
-	}
+	const solana = accepts.find((a) => a.scheme === 'exact' && isSolanaNetwork(a.network));
+	if (solana) return solana;
+	const evm = accepts.find((a) => a.scheme === 'exact' && /^eip155:\d+$/.test(a.network));
+	if (evm) return evm;
 	throw new A2AClientError(
 		'no_supported_accept',
-		'peer offered no supported (scheme=exact, EVM) accept entry',
+		'peer offered no supported (scheme=exact) accept entry on Solana or EVM',
 		{ accepts: accepts.map(({ network, scheme }) => ({ network, scheme })) },
 	);
 }
@@ -171,21 +186,43 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── Settle ──────────────────────────────────────────────────────────────
-	const payerKey = env.A2A_PAYER_PRIVATE_KEY;
+	// Pick the payer wallet for the chosen rail. Solana is primary (SPL
+	// TransferChecked co-signed by the peer's facilitator fee payer); EVM is the
+	// fallback (EIP-3009 transferWithAuthorization).
+	const onSolana = isSolanaNetwork(network);
+	const payerKey = onSolana ? env.A2A_PAYER_SOLANA_SECRET : env.A2A_PAYER_PRIVATE_KEY;
 	if (!payerKey) {
 		await release(mandate.mandateId, amount);
 		return error(
 			res,
 			501,
 			'payer_not_configured',
-			'autonomous payer wallet is not configured (set A2A_PAYER_PRIVATE_KEY)',
+			onSolana
+				? 'autonomous Solana payer wallet is not configured (set A2A_PAYER_SOLANA_SECRET)'
+				: 'autonomous EVM payer wallet is not configured (set A2A_PAYER_PRIVATE_KEY)',
+			{ network },
 		);
 	}
 
 	try {
-		const signer = await createPrivateKeySigner(payerKey);
 		const resource = quote.required.resource || { url: safeEndpoint, mimeType: 'application/json' };
-		const paymentPayload = await buildEvmExactPayload({ accept, signer, resource });
+		let signer;
+		let paymentPayload;
+		let payerAddress;
+		if (onSolana) {
+			signer = await createSolanaSigner(payerKey);
+			payerAddress = signer.address;
+			paymentPayload = await buildSolanaExactPayload({
+				accept,
+				signer,
+				resource,
+				rpcUrl: env.SOLANA_RPC_URL,
+			});
+		} else {
+			signer = await createPrivateKeySigner(payerKey);
+			payerAddress = signer.address;
+			paymentPayload = await buildEvmExactPayload({ accept, signer, resource });
+		}
 		const result = await submitPayment({
 			endpoint: safeEndpoint,
 			taskId: quote.taskId,
@@ -208,7 +245,7 @@ export default wrap(async (req, res) => {
 			amount,
 			network,
 			currency: currencyOf(accept) || null,
-			payer: signer.address,
+			payer: payerAddress,
 			spent: reservation.spent,
 			cap: reservation.cap,
 			receipts: result.receipts || [],

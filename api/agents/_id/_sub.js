@@ -271,6 +271,50 @@ export const handleManifest = wrap(async (req, res, id) => {
 	return json(res, 200, manifest, { 'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400', 'access-control-allow-origin': '*' });
 });
 
+// ── registration (Metaplex / EIP-8004 agent registry document) ─────────────────
+
+// Public EIP-8004 registration-v1 document for the agent. This is the URI the
+// agent's on-chain Agent Identity PDA (Metaplex Agent Registry) points at — the
+// program has no instruction to change the URI after registration, so it must be
+// a stable, MUTABLE endpoint: serving it live keeps `active`, services, the 3D
+// model, and any future token link current without re-registering on-chain.
+export const handleRegistration = wrap(async (req, res, id) => {
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: false })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	if (!/^[0-9a-f-]{36}$/i.test(id)) return error(res, 400, 'invalid_request', 'agent id required');
+
+	const [row] = await sql`select a.id, a.name, a.description, a.skills, a.deleted_at, a.chain_id, a.erc8004_agent_id, a.erc8004_registry, av.id as avatar_db_id, av.storage_key, av.thumbnail_key, av.content_type from agent_identities a left join avatars av on av.id = a.avatar_id and av.deleted_at is null where a.id = ${id} and a.deleted_at is null limit 1`;
+	if (!row) return error(res, 404, 'not_found', 'agent not found');
+
+	let modelUri = '';
+	if (row.avatar_db_id) {
+		try { const u = await resolveAvatarUrl({ storage_key: row.storage_key, visibility: 'public' }); modelUri = u?.url || ''; } catch {}
+	}
+	const image = row.thumbnail_key ? r2PublicUrl(row.thumbnail_key) : '';
+
+	const proto = req.headers['x-forwarded-proto'] || 'https';
+	const host = req.headers['x-forwarded-host'] || req.headers.host || 'three.ws';
+	const origin = process.env.PUBLIC_APP_ORIGIN?.replace(/\/$/, '') || `${proto}://${host}`;
+
+	const doc = buildAgentRegistrationMetadata({
+		agentId: row.id,
+		name: row.name || 'Agent',
+		description: row.description || '',
+		image,
+		modelUri,
+		modelFormat: row.content_type || 'gltf-binary',
+		agentUrl: `${origin}/agent/${row.id}`,
+		origin,
+		skills: Array.isArray(row.skills) ? row.skills : [],
+		erc8004: row.chain_id && row.erc8004_agent_id
+			? { chainId: row.chain_id, agentId: row.erc8004_agent_id, registry: row.erc8004_registry }
+			: null,
+	});
+
+	return json(res, 200, doc, { 'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400', 'access-control-allow-origin': '*' });
+});
+
 // ── sign ──────────────────────────────────────────────────────────────────────
 
 const signBody = z.object({ message: z.string().min(1).max(8192), kind: z.enum(['personal']).default('personal') });
