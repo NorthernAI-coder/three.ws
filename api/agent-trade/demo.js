@@ -26,7 +26,7 @@ import {
 	LAMPORTS_PER_SOL,
 } from '../_lib/avatar-wallet.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
-import { cors, method, json, error, wrap, rateLimited } from '../_lib/http.js';
+import { cors, method, json, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const DEFAULT_PRICE_SOL = 0.001;

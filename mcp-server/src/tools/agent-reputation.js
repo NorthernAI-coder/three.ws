@@ -1,7 +1,7 @@
 // `agent_reputation` — paid MCP tool that reads ERC-8004 reputation for an
 // agent (by agentId, EVM wallet, or "eip155:<chain>:<wallet>" CAIP-10 ID).
 //
-// Pricing: $0.01 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.01 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // All reads are made directly against the canonical ERC-8004 reference
 // deployments via ethers JsonRpcProvider — no third-party indexers, no

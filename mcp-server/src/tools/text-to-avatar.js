@@ -3,7 +3,7 @@
 // Replicate's text-to-3D / image-to-3D pipeline (Tencent Hunyuan-3D 3.1 by
 // default, configurable via REPLICATE_TEXT_TO_AVATAR_MODEL).
 //
-// Pricing: $0.15 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.15 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // Behavior: synchronously submits a Replicate prediction and polls until the
 // prediction reaches a terminal state or the configured timeout fires. The

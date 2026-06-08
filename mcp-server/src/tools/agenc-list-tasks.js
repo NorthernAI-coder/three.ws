@@ -1,7 +1,7 @@
 // `agenc_list_tasks` — paid MCP tool that lists every public AgenC task
 // created by a given Solana wallet on the AgenC coordination protocol.
 //
-// Pricing: $0.001 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.001 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // AgenC = agenc.tech (Tetsuo Corp). Coordination protocol on Solana. This tool
 // surfaces the on-chain task marketplace so any MCP client (Claude Desktop,

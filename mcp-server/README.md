@@ -15,7 +15,6 @@ Paste this into your **Claude Desktop** config (`~/Library/Application Support/C
       "command": "npx",
       "args": ["-y", "@3d-agent/mcp-server"],
       "env": {
-        "MCP_EVM_PAYMENT_ADDRESS": "0xYourBaseWallet",
         "MCP_SVM_PAYMENT_ADDRESS": "YourSolanaWallet"
       }
     }
@@ -23,7 +22,7 @@ Paste this into your **Claude Desktop** config (`~/Library/Application Support/C
 }
 ```
 
-Restart Claude Desktop. The four tools appear immediately — no install step required.
+Restart Claude Desktop. All tools appear immediately — no install step required.
 
 **Using Claude Code?** Run `/setup-mcp` in any project that includes this repo and Claude will detect your OS, collect your wallet addresses, and write the config for you.
 
@@ -59,12 +58,11 @@ Then replace `"command": "npx", "args": ["-y", "@3d-agent/mcp-server"]` with `"c
 
 ## Environment variables
 
-### Required (at least one)
+### Required
 
 | Var | Description |
 |-----|-------------|
-| `MCP_EVM_PAYMENT_ADDRESS` | Base USDC payout address (`0x...`) |
-| `MCP_SVM_PAYMENT_ADDRESS` | Solana USDC payout address (base58) |
+| `MCP_SVM_PAYMENT_ADDRESS` | Solana USDC payout address (base58) where tools receive payment. Falls back to `X402_PAY_TO_SOLANA` / `X402_PAY_TO`. |
 
 ### Optional
 
@@ -72,9 +70,10 @@ Then replace `"command": "npx", "args": ["-y", "@3d-agent/mcp-server"]` with `"c
 |-----|---------|-------------|
 | `HELIUS_API_KEY` | unset | Adds Helius DAS enrichment to `pump_snapshot` |
 | `SOLANA_RPC_URL` | `https://api.mainnet-beta.solana.com` | Solana RPC endpoint for `pump_snapshot` and `vanity_grinder` |
-| `CDP_API_KEY_ID` | unset | Coinbase CDP facilitator — recommended for Base + Bazaar discovery |
-| `CDP_API_KEY_SECRET` | unset | Coinbase CDP facilitator secret |
-| `X402_CDP_FACILITATOR_URL` | CDP default | Override CDP facilitator URL |
+| `X402_FACILITATOR_URL_SOLANA` | `https://facilitator.payai.network` | PayAI Solana facilitator that verifies + settles payments |
+| `X402_FACILITATOR_TOKEN_SOLANA` | unset | Bearer token for the Solana facilitator, if required |
+| `X402_FEE_PAYER_SOLANA` | three.ws default | Fee payer for the settlement transaction |
+| `MCP_VANITY_PRICE_USD` | `$0.05` | Flat price for `vanity_grinder` |
 | `MCP_POSE_PREVIEW_BASE` | `https://three.ws/pose` | Base URL for `get_pose_seed` preview links |
 | `MCP_AGENT_REP_RPC_<chainId>` | public RPC | Per-chain RPC override for `agent_reputation` |
 | `MCP_AGENT_REP_LOG_WINDOW` | `200000` | Block window for `agent_reputation` event scan |
@@ -102,27 +101,32 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { wrapMCPClientWithPayment } from '@x402/mcp';
 import { x402Client } from '@x402/core/client';
-import { ExactEvmScheme } from '@x402/evm/exact/client';
-import { privateKeyToAccount } from 'viem/accounts';
+import { registerExactSvmScheme } from '@x402/svm/exact/client';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 const transport = new StdioClientTransport({
   command: 'npx',
   args: ['-y', '@3d-agent/mcp-server'],
   env: {
-    MCP_EVM_PAYMENT_ADDRESS: process.env.MCP_EVM_PAYMENT_ADDRESS,
-    MCP_SVM_PAYMENT_ADDRESS: process.env.MCP_SVM_PAYMENT_ADDRESS ?? '',
+    // Where the server receives USDC. Your client funds payments from the
+    // Solana keypair below.
+    MCP_SVM_PAYMENT_ADDRESS: process.env.MCP_SVM_PAYMENT_ADDRESS,
   },
 });
 
 const mcp = new Client({ name: 'agent', version: '1.0.0' });
 await mcp.connect(transport);
 
-const account = privateKeyToAccount(process.env.AGENT_EVM_PRIVATE_KEY);
-const x402 = new x402Client().register('eip155:8453', new ExactEvmScheme(account));
+// Solana mainnet, `exact` scheme — the only network/scheme these tools accept.
+const payer = Keypair.fromSecretKey(bs58.decode(process.env.AGENT_SOLANA_SECRET_KEY));
+const x402 = new x402Client();
+registerExactSvmScheme(x402, { signer: payer });
 const paid = wrapMCPClientWithPayment(mcp, x402, { autoPayment: true });
 
 const result = await paid.callTool('get_pose_seed', { prompt: 'warrior stance' });
-console.log(JSON.parse(result.content[0].text));
+// Prefer MCP structured output; fall back to the text mirror for older servers.
+console.log(result.structuredContent ?? JSON.parse(result.content[0].text));
 ```
 
 ---
@@ -138,7 +142,6 @@ In Cursor's MCP settings (`Cursor > Settings > Features > MCP`):
       "command": "npx",
       "args": ["-y", "@3d-agent/mcp-server"],
       "env": {
-        "MCP_EVM_PAYMENT_ADDRESS": "0xYourBaseWallet",
         "MCP_SVM_PAYMENT_ADDRESS": "YourSolanaWallet"
       }
     }

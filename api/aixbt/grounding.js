@@ -5,7 +5,7 @@
 //
 // Response: { grounding, source } | { error, error_description }
 
-import { wrap, cors, method, json, error, rateLimited } from '../_lib/http.js';
+import { wrap, cors, method, json, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getGrounding } from '../_lib/aixbt.js';
 import { respondAixbtError } from './_shared.js';

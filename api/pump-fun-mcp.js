@@ -16,7 +16,7 @@
 // Methods: initialize, tools/list, tools/call. CORS open (read-only data).
 // Rate-limited by IP via limits.mcpIp.
 
-import { cors, json, method, wrap, readJson, error, rateLimited } from './_lib/http.js';
+import { cors, json, method, wrap, readJson, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { extractBearer, authenticateBearer } from './_lib/auth.js';
 import { verifyPayment, resolveResourceUrl, paymentRequirements } from './_lib/x402-spec.js';

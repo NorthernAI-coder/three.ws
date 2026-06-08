@@ -1,7 +1,7 @@
 // `ens_sns_resolve` — paid MCP tool that resolves a human-readable name
 // to one or more on-chain addresses across ENS (Ethereum) and SNS (Solana).
 //
-// Pricing: $0.0005 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.0005 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // Resolution paths:
 //   - ENS  (foo.eth, sub.foo.eth) → Ethereum mainnet via the configured

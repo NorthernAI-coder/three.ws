@@ -15,7 +15,7 @@
 // governance appear only when watsonx.ai is reachable. There is no mock path: a
 // scenario forecast is the real Granite model evaluating a transformed-but-real
 // input series, clearly labelled as a counterfactual.
-import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
+import { cors, json, method, wrap, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
 import { watsonxForecast, forecastModelFor } from '../_lib/watsonx-forecast.js';

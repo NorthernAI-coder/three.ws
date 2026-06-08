@@ -1,7 +1,7 @@
 // `agent_delegate_action` — paid MCP tool that lets an external agent
 // send a message to any three.ws-registered agent and get its reply.
 //
-// Pricing: $0.01 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.01 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // Implementation: calls POST /api/agents/talk with the target agentId
 // and message. The target's brain is driven by its embed_policy.brain

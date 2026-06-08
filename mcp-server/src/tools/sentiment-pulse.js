@@ -4,7 +4,7 @@
 // additional texts (e.g. X posts they have collected) to fold into the
 // overall score.
 //
-// Pricing: $0.003 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.003 USDC, settled `exact` in USDC on Solana mainnet.
 //
 // Implementation: calls POST /api/social/sentiment-pulse on the three.ws
 // API surface. No keys are required — the endpoint relies on the public

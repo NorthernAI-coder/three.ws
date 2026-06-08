@@ -6,7 +6,7 @@
 // number is read straight from the settled-sale ledger — nothing simulated. Public
 // + briefly cached so the /play flex panel and any embed can poll it cheaply.
 
-import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
+import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { cosmeticsLeaderboard } from '../_lib/cosmetics-economy.js';
 

@@ -2,7 +2,7 @@
 // registration. Returns capability bitmask, status, endpoint, reputation,
 // stake, and active-task count.
 //
-// Pricing: $0.001 USDC, settled `exact` on Base or Solana.
+// Pricing: $0.001 USDC, settled `exact` in USDC on Solana mainnet.
 
 import { z } from 'zod';
 import { PublicKey } from '@solana/web3.js';
