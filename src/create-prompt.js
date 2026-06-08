@@ -171,10 +171,14 @@ function mapSubmitError(status, data) {
 	// failure into the generic fallback, hiding the real reason from the user.
 	const code = typeof data?.error === 'string' ? data.error : data?.code;
 	const description = data?.error_description;
-	if (status === 429) return 'You\'re generating too fast — wait a moment and try again.';
+	if (code === 'txt2img_rate_limited' || status === 429) {
+		return 'The image engine is busy right now — wait a moment and try again.';
+	}
 	if (code === 'regen_unconfigured' || code === 'txt2img_unconfigured') {
 		return 'The avatar generator isn\'t configured on this deployment yet. Try the <a href="/scan">selfie scanner</a> instead.';
 	}
+	if (code === 'txt2img_billing') return 'The image engine is temporarily unavailable (provider billing). Try again later.';
+	if (code === 'txt2img_unreachable') return 'Couldn\'t reach the image engine. Check your connection and try again.';
 	if (code === 'txt2img_error') return 'Couldn\'t render a reference image from that prompt. Try rewording it.';
 	if (code === 'regen_provider_error') return 'The avatar engine rejected this job. Try again in a moment.';
 	return description || `The avatar engine returned ${status}. Try again.`;
