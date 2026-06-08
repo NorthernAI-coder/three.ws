@@ -18,6 +18,7 @@ import {
 import { declareMcpDiscovery, withService } from './_lib/x402/bazaar-helpers.js';
 import { TOOL_CATALOG } from './_mcp/catalog.js';
 import { priceFor } from './_lib/pump-pricing.js';
+import { listBazaarServices, serviceResourceUrl } from './_lib/agent-paid-services.js';
 
 // ── agent-attestation-schemas ─────────────────────────────────────────────────
 
@@ -140,6 +141,11 @@ function handleOauthAuthServer(req, res) {
 				// Bearer-token bypass via the auth-hints extension.
 				'read:agent-reputation',
 				'x402:bypass',
+				// Agent wallet MCP (api/mcp-agent): read status, provision a wallet,
+				// and publish a paid endpoint to earn USDC.
+				'wallet:read',
+				'wallet:write',
+				'services:write',
 			],
 			service_documentation: `${base}/docs/mcp`,
 			ui_locales_supported: ['en'],
@@ -352,7 +358,88 @@ function exampleArgsForTool(tool) {
 	return out;
 }
 
-function handleX402Discovery(req, res) {
+// Agent-published paid services (the `monetize_endpoint` tool). Each active,
+// bazaar-listed row in agent_paid_services becomes a discovery catalog entry so
+// facilitators — and therefore find_services / the bazaar — index the agent's
+// endpoint the moment it's published. The advertised payTo is the agent's OWN
+// payout wallet, mirroring the live 402 that api/x402/service.js serves.
+//
+// Never throws: a DB hiccup (or no DB, as in unit tests) yields an empty list so
+// the static catalog still renders. Capped by listBazaarServices().
+async function buildAgentServiceItems(origin) {
+	let rows;
+	try {
+		rows = await listBazaarServices({ limit: 200 });
+	} catch (err) {
+		console.error('[wk/x402-discovery] agent services unavailable', err?.message || err);
+		return [];
+	}
+
+	const items = [];
+	for (const row of rows) {
+		const url = serviceResourceUrl(row.slug);
+		const price = RAW_AMOUNT_TO_USDC(row.price_atomics);
+		const accepts = [];
+		if (row.network === 'base' && row.payout_address && env.X402_ASSET_ADDRESS_BASE) {
+			pushAcceptWithPermit2Sibling(accepts, {
+				scheme: 'exact',
+				network: NETWORK_BASE_MAINNET,
+				network_label: 'base-mainnet',
+				amount: String(row.price_atomics),
+				price,
+				payTo: row.payout_address,
+				asset: env.X402_ASSET_ADDRESS_BASE,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: url,
+				extra: { name: 'USD Coin', version: '2', decimals: 6 },
+			});
+		} else if (
+			row.network === 'solana' &&
+			row.payout_address &&
+			env.X402_ASSET_MINT_SOLANA &&
+			env.X402_FEE_PAYER_SOLANA
+		) {
+			accepts.push({
+				scheme: 'exact',
+				network: NETWORK_SOLANA_MAINNET,
+				network_label: 'solana-mainnet',
+				amount: String(row.price_atomics),
+				price,
+				payTo: row.payout_address,
+				asset: env.X402_ASSET_MINT_SOLANA,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: url,
+				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
+			});
+		}
+		// No advertisable accept (missing payout / env for this network) → skip,
+		// matching the live 402 which would also refuse to advertise it.
+		if (!accepts.length) continue;
+
+		const inputSchema = row.input_schema || { type: 'object', additionalProperties: true };
+		items.push({
+			path: `/api/x402/service/${row.slug}`,
+			url,
+			method: row.target_method,
+			description: row.description,
+			mimeType: 'application/json',
+			serviceName: row.name,
+			tags: ['agent', 'monetized', row.network],
+			accepts,
+			extensions: extensionsForAccepts(accepts, {
+				method: row.target_method,
+				discoverable: true,
+				input: {},
+				inputSchema,
+			}),
+		});
+	}
+	return items;
+}
+
+async function handleX402Discovery(req, res) {
 	const origin = env.APP_ORIGIN;
 	const mcpUrl = `${origin}/api/mcp`;
 	const modelCheckUrl = `${origin}/api/x402/model-check`;
@@ -549,6 +636,9 @@ function handleX402Discovery(req, res) {
 	// Built from the live TOOL_CATALOG so adding a new priced tool only
 	// requires a pricing entry; the discovery shape follows automatically.
 	const mcpToolItems = buildMcpToolItems({ mcpUrl, mcpAccepts, mcpService: routeMeta.mcp });
+
+	// Agent-published paid services — dynamic, one entry per active listing.
+	const agentServiceItems = await buildAgentServiceItems(origin);
 
 	return json(
 		res,
@@ -1307,6 +1397,9 @@ function handleX402Discovery(req, res) {
 				// `/api/mcp` resource above is the transport entry; these are
 				// the individual paid tools facilitators index by toolName.
 				...mcpToolItems,
+				// Agent-published paid endpoints (monetize_endpoint). Dynamic —
+				// one entry per active agent_paid_services listing.
+				...agentServiceItems,
 			].filter(Boolean),
 		},
 		{ 'cache-control': 'public, max-age=300' },

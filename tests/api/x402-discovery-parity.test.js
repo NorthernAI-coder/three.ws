@@ -27,6 +27,13 @@ const EXCLUSIONS = new Map([
 			'returns null without CDP creds, so the live 402 (and thus the catalog) ' +
 			'omits the route entirely in non-CDP environments.',
 	],
+	[
+		'/api/x402/service',
+		'Dynamic dispatcher, not a single fixed-price route: it serves the paywall ' +
+			'for every agent-published listing at /api/x402/service/<slug>. Each ' +
+			'concrete listing is cataloged dynamically from agent_paid_services by ' +
+			"handleX402Discovery's buildAgentServiceItems(), not as a static entry.",
+	],
 ]);
 
 function paidRoutesFromFiles() {

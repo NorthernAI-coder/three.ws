@@ -165,7 +165,7 @@ export async function listBazaarServices({ limit = 200 } = {}) {
 	const capped = Math.min(Math.max(1, limit | 0 || 200), 500);
 	const rows = await sql`
 		SELECT slug, name, description, price_atomics, target_method,
-		       input_schema, network
+		       input_schema, network, payout_address
 		FROM agent_paid_services
 		WHERE archived_at IS NULL AND bazaar_listed = true
 		ORDER BY created_at DESC

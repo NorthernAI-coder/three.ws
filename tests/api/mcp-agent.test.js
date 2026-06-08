@@ -63,7 +63,13 @@ beforeEach(() => {
 describe('threews-agent MCP', () => {
 	it('lists the wallet toolset', async () => {
 		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, USER);
-		expect(r.result.tools.map((t) => t.name)).toEqual(['wallet_status', 'find_services', 'pay_and_call']);
+		expect(r.result.tools.map((t) => t.name)).toEqual([
+			'wallet_status',
+			'find_services',
+			'pay_and_call',
+			'provision_wallet',
+			'monetize_endpoint',
+		]);
 	});
 
 	it('wallet_status requires sign-in', async () => {

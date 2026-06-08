@@ -1613,10 +1613,9 @@ export const toolDefs = [
 				? args.visibility
 				: 'unlisted';
 			const name = String(args.name).trim().slice(0, 80);
-			const slug = `studio-${createHash('sha256')
-				.update(`${auth.userId}|${name}|${args.glb_url}`)
-				.digest('hex')
-				.slice(0, 8)}`;
+			// Random suffix (matches the reconstruct pipeline) so re-saving the same
+			// model never collides on the per-owner unique slug constraint.
+			const slug = `studio-${Math.random().toString(36).slice(2, 8)}`;
 			const storageKey = storageKeyFor({ userId: auth.userId, slug });
 
 			await putObject({

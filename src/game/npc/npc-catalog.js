@@ -54,7 +54,7 @@ export function npcCatalogFor(world) {
 			range: 5,
 			prompt: 'Pull market intel',
 			onInteract: ({ npc, ui }) => {
-				npc.say('Reading the feed — narratives and momentum, live.');
+				npc.say('What do you want to see? Movers, narratives, the macro read, or a token scan.');
 				npc.emote('av-call-me');
 				openAixbtTerminal(npc, { ui });
 			},

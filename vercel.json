@@ -2884,6 +2884,10 @@
 			"dest": "/paywall.html"
 		},
 		{
+			"src": "/api/x402/service/([^/?]+)",
+			"dest": "/api/x402/service.js?slug=$1"
+		},
+		{
 			"src": "/api/x402/fact-check",
 			"dest": "/api/x402/fact-check.js"
 		},

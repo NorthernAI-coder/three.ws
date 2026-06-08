@@ -9,10 +9,12 @@ export { PROTOCOL_VERSION };
 
 const INSTRUCTIONS = [
 	'three.ws Agent gives this assistant a real on-chain wallet on the x402 network.',
-	'wallet_status shows the balance and spending caps; find_services discovers paid services;',
-	'pay_and_call(resource_url) calls a paid x402 endpoint and settles the USDC payment from the',
-	"user's own three.ws agent wallet, within caps. Always check wallet_status before spending, and",
-	'confirm the price with the user when it is non-trivial.',
+	'wallet_status shows the balance and spending caps; provision_wallet creates a custodial wallet',
+	'for one of your agents; find_services discovers paid services; pay_and_call(resource_url) calls a',
+	"paid x402 endpoint and settles the USDC payment from the user's own three.ws agent wallet, within",
+	'caps; monetize_endpoint publishes one of your agent endpoints as a priced x402 service so other',
+	'agents can pay it and you earn USDC. Always check wallet_status before spending, and confirm the',
+	'price with the user when it is non-trivial.',
 ].join(' ');
 
 export const dispatch = makeDispatcher({
