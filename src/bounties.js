@@ -19,6 +19,31 @@ const grid = () => document.getElementById('grid');
 function init() {
 	bindControls();
 	load(true);
+	loadStats();
+}
+
+// ── Board stats strip ─────────────────────────────────────────────────────────
+
+async function loadStats() {
+	try {
+		const r = await fetch(`${API}/stats`);
+		if (!r.ok) throw new Error(String(r.status));
+		const s = await r.json();
+		setStat('s-count', fmtCompact(s.count) + (s.truncated ? '+' : ''));
+		setStat('s-usd', '$' + fmtCompact(s.totalRewardUsd));
+		setStat('s-subs', fmtCompact(s.totalSubmissions));
+	} catch {
+		// Non-critical — hide the strip rather than show broken numbers.
+		const el = document.getElementById('stats');
+		if (el) el.style.display = 'none';
+	}
+}
+
+function setStat(id, text) {
+	const el = document.getElementById(id);
+	if (!el) return;
+	el.textContent = text;
+	el.classList.remove('skeleton');
 }
 
 function bindControls() {
@@ -195,6 +220,12 @@ function fmtNum(n) {
 	if (x >= 1000) return x.toLocaleString('en-US', { maximumFractionDigits: 0 });
 	if (x >= 1) return x.toLocaleString('en-US', { maximumFractionDigits: 2 });
 	return x.toLocaleString('en-US', { maximumFractionDigits: 4 });
+}
+function fmtCompact(n) {
+	const x = Number(n) || 0;
+	if (x >= 1_000_000) return (x / 1_000_000).toFixed(x % 1_000_000 === 0 ? 0 : 1) + 'M';
+	if (x >= 1000) return (x / 1000).toFixed(x % 1000 === 0 ? 0 : 1) + 'K';
+	return x.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 function timeLeft(iso) {
 	if (!iso) return '';
