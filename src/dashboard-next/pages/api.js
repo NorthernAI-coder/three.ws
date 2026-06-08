@@ -718,24 +718,17 @@ async function runMcpTest(host, key) {
 	result.innerHTML = '<span class="dn-tag">Testing…</span>';
 	btn.disabled = true;
 	try {
-		// We can't ship the user's plaintext key (it's hashed server-side after
-		// creation), so we exercise the MCP endpoint with the session cookie
-		// — same auth path the dashboard's own MCP integration uses.
-		const res = await fetch('/api/mcp', {
+		const res = await fetch('/api/developer/mcp-test', {
 			method: 'POST',
 			credentials: 'include',
-			headers: {
-				accept: 'application/json',
-				'content-type': 'application/json',
-			},
-			body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+			headers: { accept: 'application/json' },
 		});
 		const data = await res.json().catch(() => null);
-		if (res.ok && data && (data.result || Array.isArray(data))) {
-			const tools = data.result?.tools || [];
+		if (res.ok && data?.result?.tools) {
+			const tools = data.result.tools;
 			result.innerHTML = `<span class="dn-tag success">OK · ${tools.length} tool${tools.length === 1 ? '' : 's'}</span>`;
 		} else {
-			const msg = data?.error?.message || `HTTP ${res.status}`;
+			const msg = data?.error?.message || data?.error_description || `HTTP ${res.status}`;
 			result.innerHTML = `<span class="dn-tag danger">Failed: ${esc(msg)}</span>`;
 		}
 	} catch (err) {
