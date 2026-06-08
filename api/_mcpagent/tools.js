@@ -13,12 +13,26 @@
 // to returning the exact payment requirements + a pay link rather than failing.
 import { limits } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
+import { sql } from '../_lib/db.js';
 import { Bazaar, filterByMaxPrice, filterByNetwork } from '../_lib/x402/bazaar-client.js';
 import {
 	getUserWalletStatus,
 	payExternalX402,
 	resolveSpendEnabled,
 } from '../_lib/x402-user-payer.js';
+import {
+	getOrCreateAgentSolanaWallet,
+	getSolanaAddressBalances,
+} from '../_lib/agent-wallet.js';
+import {
+	createPaidService,
+	validateTargetUrl,
+	resolvePayoutAddress,
+	serviceResourceUrl,
+	atomicsToUsdc,
+	usdcToAtomics,
+	MonetizeError,
+} from '../_lib/agent-paid-services.js';
 
 function rpcError(code, message, data) {
 	const e = new Error(message);

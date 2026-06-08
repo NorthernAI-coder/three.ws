@@ -14,6 +14,7 @@ import {
 	safeHttpsUrl,
 } from '../render.js';
 import { readMcpPolicyByAvatar } from '../embed-policy.js';
+import { resolveRenderParams, renderAvatarImage } from '../../_lib/avatar-render.js';
 import { logAudit } from '../../_lib/audit.js';
 
 function rpcError(code, message, data) {
@@ -203,6 +204,122 @@ export const toolDefs = [
 					},
 				],
 				structuredContent: { html, avatar: { ...avatar, ...urlInfo } },
+			};
+		},
+	},
+	{
+		name: 'render_avatar_image',
+		title: 'Render an avatar to an image',
+		description:
+			'Render a stored avatar to a real PNG/JPEG/WebP image (headless three.js) and ' +
+			'return its URL — ready for an <img> tag, social card, or game loader. Choose a ' +
+			'camera framing (scene), an optional pose preset and ARKit-52 expression. Renders ' +
+			'are cached, so repeat calls with the same parameters return instantly. Works on ' +
+			'your own avatars (any visibility) and on public avatars.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				avatar_id: { type: 'string', format: 'uuid', description: 'The avatar to render.' },
+				scene: {
+					type: 'string',
+					enum: ['full-body', 'upper-body', 'portrait', 'headshot'],
+					default: 'upper-body',
+					description: 'Camera framing preset.',
+				},
+				pose: {
+					type: 'string',
+					description: 'Optional pose preset id (see pose_model / the render catalog).',
+				},
+				expression: {
+					type: 'object',
+					description: 'Optional ARKit-52 morph map, e.g. {"mouthSmile":0.6}.',
+					additionalProperties: { type: 'number' },
+				},
+				size: {
+					type: 'integer',
+					minimum: 64,
+					maximum: 2048,
+					default: 512,
+					description: 'Square pixel dimension.',
+				},
+				bg: {
+					type: 'string',
+					default: 'transparent',
+					description: 'Background: a CSS color or "transparent".',
+				},
+				format: {
+					type: 'string',
+					enum: ['png', 'jpeg', 'webp'],
+					default: 'png',
+				},
+			},
+			required: ['avatar_id'],
+			additionalProperties: false,
+		},
+		scope: 'avatars:read',
+		async handler(args, auth) {
+			// Same visibility gate as get_avatar: an owner sees any visibility; a
+			// non-owner sees only public/unlisted; private-not-yours reads as missing.
+			const avatar = await getAvatar({ id: args.avatar_id, requesterId: auth.userId });
+			if (!avatar) throw new Error('avatar not found');
+
+			const urlInfo = await resolveAvatarUrl(avatar);
+			if (!urlInfo?.url) {
+				return {
+					content: [
+						{ type: 'text', text: 'Error: this avatar has no model to render yet.' },
+					],
+					isError: true,
+				};
+			}
+
+			const resolved = resolveRenderParams({
+				scene: args.scene,
+				size: args.size,
+				bg: args.bg,
+				format: args.format,
+				pose: args.pose,
+				expression: args.expression,
+			});
+			if (resolved.error) {
+				return {
+					content: [{ type: 'text', text: `Error: ${resolved.error.message}` }],
+					isError: true,
+				};
+			}
+
+			let out;
+			try {
+				out = await renderAvatarImage({
+					avatar,
+					glbUrl: urlInfo.url,
+					params: resolved.params,
+					awaitUpload: true,
+				});
+			} catch (err) {
+				return {
+					content: [
+						{
+							type: 'text',
+							text: `Render failed: ${err?.message || 'the avatar could not be rendered'}.`,
+						},
+					],
+					isError: true,
+				};
+			}
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Rendered "${avatar.name}" (${resolved.params.scene}).\n${out.imageUrl}`,
+					},
+				],
+				structuredContent: {
+					image_url: out.imageUrl,
+					scene: resolved.params.scene,
+					cached: out.cached,
+				},
 			};
 		},
 	},

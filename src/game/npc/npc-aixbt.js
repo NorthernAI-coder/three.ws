@@ -1,11 +1,10 @@
 // AIXBT — the town's intelligence terminal.
 //
-// Unlike the vendor counters (npc-services.js), aixbt doesn't sell a one-shot
-// paid call: he's the wired-in oracle. Walk up, press E, and he immediately
-// pulls the live aixbt feed — narrative intel + momentum-ranked movers — and
-// reads it back in a terminal panel. A query bar re-runs the feed for a token
-// or chain. Data is the three.ws ⇄ aixbt bridge (/api/aixbt/*); the upstream
-// aixbt key stays server-side.
+// Walk up, press E, and aixbt asks what you want to see — a game-style dialogue
+// wheel with four reads. You pick one (and, for a scan, type the token), and the
+// terminal runs the live aixbt feed for exactly that: momentum movers, narrative
+// intel, a macro read, or a single-token scan. Data is the three.ws ⇄ aixbt
+// bridge (/api/aixbt/*); the upstream aixbt key stays server-side.
 //
 // Free at the counter because three.ws already pays aixbt upstream; the paid
 // layer lives on the MCP tools (aixbt_intel / aixbt_projects) for other agents.
@@ -62,6 +61,39 @@ const CHAINS = [
 	{ value: 'ethereum', label: 'Ethereum' },
 ];
 
+// The dialogue wheel. Each choice maps to a live aixbt read. `say` is the
+// in-world line aixbt speaks the moment you pick it.
+const CHOICES = [
+	{
+		id: 'movers',
+		icon: '📈',
+		title: "What's moving?",
+		desc: 'Momentum-ranked movers, live',
+		say: 'Pulling the movers — highest momentum first.',
+	},
+	{
+		id: 'narratives',
+		icon: '📰',
+		title: "What's the story?",
+		desc: 'Narrative intel forming now',
+		say: 'Reading the narratives forming right now.',
+	},
+	{
+		id: 'macro',
+		icon: '🌐',
+		title: 'Read the market',
+		desc: 'Hourly macro context',
+		say: 'Here is the macro read — crypto and tradfi.',
+	},
+	{
+		id: 'scan',
+		icon: '🔍',
+		title: 'Scan a token',
+		desc: 'Type a ticker, I dig in',
+		say: 'Name the token and I will scan it.',
+	},
+];
+
 function injectStyles() {
 	if (document.getElementById('aixbt-term-styles')) return;
 	const s = document.createElement('style');
@@ -72,14 +104,36 @@ function injectStyles() {
 	.aixbt-live { display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:800; letter-spacing:0.08em; color:#27e0c4; }
 	.aixbt-live::before { content:''; width:7px; height:7px; border-radius:50%; background:#27e0c4; box-shadow:0 0 8px #27e0c4; animation:aixbt-pulse 1.6s ease-in-out infinite; }
 	@keyframes aixbt-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-	.aixbt-bar { display:flex; gap:8px; margin:4px 0 14px; }
-	.aixbt-bar .npc-svc-input { margin:0; }
-	.aixbt-bar .aixbt-token { flex:1 1 auto; }
-	.aixbt-bar .aixbt-chain { flex:0 0 130px; }
-	.aixbt-refresh { flex:0 0 auto; border:1px solid var(--cc-edge, rgba(255,255,255,0.14)); background:rgba(39,224,196,0.12); color:#9ff4e6; font-weight:700; border-radius:var(--cc-radius,4px); padding:0 14px; cursor:pointer; transition:background .15s ease; }
-	.aixbt-refresh:hover { background:rgba(39,224,196,0.22); }
-	.aixbt-refresh:disabled { opacity:0.5; cursor:default; }
+	/* dialogue wheel */
+	.aixbt-ask { font-size:13px; color:var(--cc-text,#e9e9ec); margin:2px 0 12px; }
+	.aixbt-menu { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:4px; }
+	.aixbt-choice { display:flex; align-items:flex-start; gap:11px; text-align:left; padding:13px 14px; border:1px solid var(--cc-edge, rgba(255,255,255,0.14)); border-radius:var(--cc-radius,6px); background:rgba(255,255,255,0.03); color:var(--cc-text,#e9e9ec); cursor:pointer; transition:border-color .15s ease, background .15s ease, transform .12s ease; }
+	.aixbt-choice:hover { border-color:rgba(39,224,196,0.55); background:rgba(39,224,196,0.08); transform:translateY(-1px); }
+	.aixbt-choice:active { transform:translateY(0); }
+	.aixbt-choice:focus-visible { outline:2px solid #27e0c4; outline-offset:2px; }
+	.aixbt-choice-ic { font-size:20px; line-height:1; margin-top:1px; }
+	.aixbt-choice-key { position:absolute; }
+	.aixbt-choice-t { font-weight:800; font-size:14px; letter-spacing:0.01em; }
+	.aixbt-choice-d { font-size:11.5px; color:var(--cc-muted,#9a9aa2); margin-top:3px; line-height:1.35; }
+	.aixbt-num { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:3px; font-size:10px; font-weight:800; color:#9ff4e6; background:rgba(39,224,196,0.16); margin-right:6px; vertical-align:1px; }
+	/* chips + back + scan form */
+	.aixbt-toolbar { display:flex; align-items:center; gap:10px; margin:2px 0 14px; flex-wrap:wrap; }
+	.aixbt-back { flex:0 0 auto; border:1px solid var(--cc-edge, rgba(255,255,255,0.14)); background:rgba(255,255,255,0.04); color:var(--cc-text,#e9e9ec); font-weight:700; font-size:12px; border-radius:var(--cc-radius,4px); padding:5px 11px; cursor:pointer; transition:background .15s ease; }
+	.aixbt-back:hover { background:rgba(255,255,255,0.09); }
+	.aixbt-chips { display:flex; gap:6px; flex-wrap:wrap; }
+	.aixbt-chip { border:1px solid var(--cc-edge, rgba(255,255,255,0.14)); background:transparent; color:var(--cc-muted,#9a9aa2); font-size:11.5px; font-weight:700; border-radius:999px; padding:4px 11px; cursor:pointer; transition:all .15s ease; }
+	.aixbt-chip:hover { color:var(--cc-text,#e9e9ec); border-color:rgba(255,255,255,0.3); }
+	.aixbt-chip.is-on { color:#06201c; background:#27e0c4; border-color:#27e0c4; }
+	.aixbt-scan-form { display:flex; gap:8px; margin:2px 0 14px; }
+	.aixbt-scan-form .npc-svc-input { margin:0; }
+	.aixbt-scan-form .aixbt-token { flex:1 1 auto; }
+	.aixbt-scan-form .aixbt-chain { flex:0 0 130px; }
+	.aixbt-go { flex:0 0 auto; border:1px solid var(--cc-edge, rgba(255,255,255,0.14)); background:rgba(39,224,196,0.14); color:#9ff4e6; font-weight:800; border-radius:var(--cc-radius,4px); padding:0 16px; cursor:pointer; transition:background .15s ease; }
+	.aixbt-go:hover { background:rgba(39,224,196,0.24); }
+	.aixbt-go:disabled { opacity:0.5; cursor:default; }
+	/* result rows */
 	.aixbt-section-h { font-size:11px; font-weight:800; letter-spacing:0.07em; text-transform:uppercase; color:var(--cc-muted,#9a9aa2); margin:16px 0 8px; }
+	.aixbt-section-h:first-child { margin-top:4px; }
 	.aixbt-row { padding:10px 0; border-top:1px solid var(--cc-edge, rgba(255,255,255,0.08)); }
 	.aixbt-row:first-of-type { border-top:0; }
 	.aixbt-row-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -96,6 +150,13 @@ function injectStyles() {
 	.aixbt-score-track { height:5px; border-radius:3px; background:rgba(255,255,255,0.08); overflow:hidden; }
 	.aixbt-score-fill { display:block; height:100%; background:linear-gradient(90deg,#27e0c4,#7aa8ff); border-radius:3px; transition:width .4s ease; }
 	.aixbt-score-v { font-size:11px; text-align:right; color:var(--cc-text,#e9e9ec); font-variant-numeric:tabular-nums; }
+	/* macro grounding */
+	.aixbt-ground-sec { margin-top:14px; }
+	.aixbt-ground-sec:first-child { margin-top:4px; }
+	.aixbt-ground-k { font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#9ff4e6; margin-bottom:6px; }
+	.aixbt-ground-p { font-size:13px; line-height:1.5; color:var(--cc-text,#e9e9ec); margin:0 0 6px; }
+	.aixbt-ground-list { margin:0; padding-left:18px; }
+	.aixbt-ground-list li { font-size:13px; line-height:1.5; color:var(--cc-text,#e9e9ec); margin-bottom:4px; }
 	.aixbt-skel { height:54px; border-radius:6px; background:linear-gradient(90deg,rgba(255,255,255,0.05),rgba(255,255,255,0.11),rgba(255,255,255,0.05)); background-size:200% 100%; animation:aixbt-shimmer 1.2s linear infinite; margin-bottom:8px; }
 	@keyframes aixbt-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 	.aixbt-empty, .aixbt-error { color:var(--cc-muted,#9a9aa2); font-size:13px; padding:14px 0; }
@@ -168,8 +229,75 @@ function renderProjects(items) {
 	}));
 }
 
-// Open aixbt's intelligence terminal. Auto-loads the live feed; the query bar
-// re-runs it. Manages its own lifecycle (no return value).
+// Grounding comes back as aixbt-shaped structured context. We render it
+// defensively: strings become paragraphs, arrays become bullet lists, nested
+// objects become titled sections — never fabricating a field that isn't there.
+function humanizeKey(k) {
+	return String(k)
+		.replace(/[_-]+/g, ' ')
+		.replace(/([a-z])([A-Z])/g, '$1 $2')
+		.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function groundingItemText(v) {
+	if (v == null) return null;
+	if (typeof v === 'string' || typeof v === 'number') return String(v);
+	if (typeof v === 'object') {
+		return v.description || v.summary || v.text || v.title || v.name || v.headline || null;
+	}
+	return null;
+}
+
+function renderGroundingValue(value) {
+	if (value == null) return null;
+	if (typeof value === 'string' || typeof value === 'number') {
+		return el('p', { class: 'aixbt-ground-p', text: String(value) });
+	}
+	if (Array.isArray(value)) {
+		const texts = value.map(groundingItemText).filter(Boolean);
+		if (!texts.length) return null;
+		return el('ul', { class: 'aixbt-ground-list' }, texts.slice(0, 12).map((t) => el('li', { text: t })));
+	}
+	if (typeof value === 'object') {
+		// One level of nesting: render child keys as paragraphs/lists.
+		const kids = Object.entries(value)
+			.map(([k, v]) => {
+				const inner = Array.isArray(v)
+					? renderGroundingValue(v)
+					: (typeof v === 'string' || typeof v === 'number')
+						? el('p', { class: 'aixbt-ground-p' }, [el('strong', { text: `${humanizeKey(k)}: ` }), String(v)])
+						: null;
+				return inner;
+			})
+			.filter(Boolean);
+		return kids.length ? el('div', {}, kids) : null;
+	}
+	return null;
+}
+
+function renderGrounding(grounding) {
+	if (grounding == null || (typeof grounding === 'object' && !Object.keys(grounding).length)) {
+		return el('div', { class: 'aixbt-empty', text: 'No macro read available right now.' });
+	}
+	if (typeof grounding === 'string') {
+		return el('p', { class: 'aixbt-ground-p', text: grounding });
+	}
+	const sections = Object.entries(grounding)
+		.map(([k, v]) => {
+			const rendered = renderGroundingValue(v);
+			if (!rendered) return null;
+			return el('div', { class: 'aixbt-ground-sec' }, [
+				el('div', { class: 'aixbt-ground-k', text: humanizeKey(k) }),
+				rendered,
+			]);
+		})
+		.filter(Boolean);
+	if (!sections.length) return el('div', { class: 'aixbt-empty', text: 'No macro read available right now.' });
+	return el('div', {}, sections);
+}
+
+// Open aixbt's intelligence terminal. Opens to the dialogue wheel; each choice
+// runs the matching live read. Manages its own lifecycle (no return value).
 export function openAixbtTerminal(npc, { ui } = {}) {
 	injectStyles();
 	closePanel();
@@ -187,86 +315,200 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 		]),
 		close,
 	]));
-	card.appendChild(el('p', { class: 'npc-svc-intro', text: 'Live aixbt feed — narrative intel and momentum movers. Filter by token or chain.' }));
-
-	// Query bar.
-	const tokenInput = el('input', { class: 'npc-svc-input aixbt-token', type: 'text', placeholder: 'Token or ticker (optional)' });
-	const chainSelect = el('select', { class: 'npc-svc-input aixbt-chain' }, CHAINS.map((c) =>
-		el('option', { value: c.value }, [c.label])));
-	const refreshBtn = el('button', { class: 'aixbt-refresh', type: 'button', text: 'Refresh' });
-	// Keep typing out of the world's movement handlers (window-level keydown).
-	for (const node of [tokenInput, chainSelect]) {
-		node.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); run(); } });
-		node.addEventListener('keyup', (e) => e.stopPropagation());
-	}
-	card.appendChild(el('div', { class: 'aixbt-bar' }, [tokenInput, chainSelect, refreshBtn]));
 
 	const body = el('div', { class: 'npc-svc-result', style: 'display:block' });
 	card.appendChild(body);
 
-	function skeleton() {
+	let busy = false;
+
+	function skeleton(label) {
 		body.textContent = '';
-		body.appendChild(el('div', { class: 'aixbt-section-h', text: 'Narratives' }));
+		body.appendChild(el('div', { class: 'aixbt-section-h', text: label }));
 		for (let i = 0; i < 3; i++) body.appendChild(el('div', { class: 'aixbt-skel' }));
 	}
 
-	let busy = false;
-	async function run() {
-		if (busy) return;
-		busy = true;
-		refreshBtn.disabled = true;
-		refreshBtn.textContent = 'Loading…';
-		skeleton();
-		const token = tokenInput.value.trim();
-		const chain = chainSelect.value;
-		const intelQs = new URLSearchParams({ limit: '6' });
-		if (chain) intelQs.set('chain', chain);
-		const projQs = new URLSearchParams({ limit: '6' });
-		if (chain) projQs.set('chain', chain);
-		if (token) projQs.set('names', token);
+	function backBar(extra) {
+		return el('div', { class: 'aixbt-toolbar' }, [
+			el('button', { class: 'aixbt-back', type: 'button', text: '← Ask again', onclick: showMenu }),
+			extra || null,
+		]);
+	}
 
-		try {
-			const [intelRes, projRes] = await Promise.all([
-				fetchJson(`/api/aixbt/intel?${intelQs}`),
-				fetchJson(`/api/aixbt/projects?${projQs}`),
-			]);
-			body.textContent = '';
-			body.appendChild(el('div', { class: 'aixbt-section-h', text: token ? `Momentum · ${token.toUpperCase()}` : 'Momentum' }));
-			body.appendChild(renderProjects(projRes.projects || []));
-			body.appendChild(el('div', { class: 'aixbt-section-h', text: 'Narratives' }));
-			body.appendChild(renderIntel(intelRes.intel || []));
-			npc?.say?.(
-				(projRes.projects || []).length || (intelRes.intel || []).length
-					? 'Here\'s what the feed is showing right now.'
-					: 'Quiet on that filter — try a broader chain.',
-			);
-		} catch (err) {
-			body.textContent = '';
-			if (err?.code === 'aixbt_not_configured') {
-				body.appendChild(el('div', { class: 'aixbt-error', text: 'aixbt isn\'t connected on this deployment yet.' }));
-				if (err.setup) body.appendChild(el('div', { class: 'aixbt-setup', text: err.setup }));
-				npc?.say?.('My feed isn\'t wired up here yet.');
-			} else {
-				body.appendChild(el('div', { class: 'aixbt-error', text: `Couldn't reach the aixbt feed: ${err.message}` }));
-				body.appendChild(el('button', { class: 'aixbt-refresh', type: 'button', text: 'Retry', style: 'margin-top:10px', onclick: run }));
-				ui?.toast?.('aixbt feed unavailable', 'warn');
-			}
-		} finally {
-			busy = false;
-			refreshBtn.disabled = false;
-			refreshBtn.textContent = 'Refresh';
+	function chainChips(active, onPick) {
+		return el('div', { class: 'aixbt-chips' }, CHAINS.map((c) =>
+			el('button', {
+				class: `aixbt-chip${c.value === active ? ' is-on' : ''}`,
+				type: 'button',
+				text: c.label,
+				onclick: () => { if (c.value !== active && !busy) onPick(c.value); },
+			})));
+	}
+
+	function showError(err, retry) {
+		body.textContent = '';
+		body.appendChild(backBar());
+		if (err?.code === 'aixbt_not_configured') {
+			body.appendChild(el('div', { class: 'aixbt-error', text: "aixbt isn't connected on this deployment yet." }));
+			if (err.setup) body.appendChild(el('div', { class: 'aixbt-setup', text: err.setup }));
+			npc?.say?.('My feed isn\'t wired up here yet.');
+		} else if (err?.code === 'aixbt_unauthorized') {
+			body.appendChild(el('div', { class: 'aixbt-error', text: 'That read needs a higher aixbt plan than this key has.' }));
+			npc?.say?.('My key can\'t reach that one.');
+		} else {
+			body.appendChild(el('div', { class: 'aixbt-error', text: `Couldn't reach the aixbt feed: ${err.message}` }));
+			if (retry) body.appendChild(el('button', { class: 'aixbt-go', type: 'button', text: 'Retry', style: 'margin-top:10px', onclick: retry }));
+			ui?.toast?.('aixbt feed unavailable', 'warn');
 		}
 	}
-	refreshBtn.addEventListener('click', run);
 
-	// Mount + ESC + autoload.
+	// ── reads ─────────────────────────────────────────────────────────────────
+	async function runMovers(chain) {
+		if (busy) return;
+		busy = true;
+		skeleton('Momentum');
+		const qs = new URLSearchParams({ limit: '8' });
+		if (chain) qs.set('chain', chain);
+		try {
+			const { projects = [] } = await fetchJson(`/api/aixbt/projects?${qs}`);
+			body.textContent = '';
+			body.appendChild(backBar(chainChips(chain, runMovers)));
+			body.appendChild(el('div', { class: 'aixbt-section-h', text: chain ? `Momentum · ${chain}` : 'Momentum' }));
+			body.appendChild(renderProjects(projects));
+			npc?.say?.(projects.length ? `Top mover is ${projects[0].ticker ? '$' + projects[0].ticker : projects[0].name}.` : 'Quiet on that chain — try another.');
+		} catch (err) {
+			showError(err, () => runMovers(chain));
+		} finally { busy = false; }
+	}
+
+	async function runNarratives(chain) {
+		if (busy) return;
+		busy = true;
+		skeleton('Narratives');
+		const qs = new URLSearchParams({ limit: '8' });
+		if (chain) qs.set('chain', chain);
+		try {
+			const { intel = [] } = await fetchJson(`/api/aixbt/intel?${qs}`);
+			body.textContent = '';
+			body.appendChild(backBar(chainChips(chain, runNarratives)));
+			body.appendChild(el('div', { class: 'aixbt-section-h', text: chain ? `Narratives · ${chain}` : 'Narratives' }));
+			body.appendChild(renderIntel(intel));
+			npc?.say?.(intel.length ? `Tracking ${intel.length} narrative${intel.length === 1 ? '' : 's'} right now.` : 'No fresh narratives on that filter.');
+		} catch (err) {
+			showError(err, () => runNarratives(chain));
+		} finally { busy = false; }
+	}
+
+	async function runMacro() {
+		if (busy) return;
+		busy = true;
+		skeleton('Macro');
+		try {
+			const { grounding } = await fetchJson('/api/aixbt/grounding');
+			body.textContent = '';
+			body.appendChild(backBar());
+			body.appendChild(el('div', { class: 'aixbt-section-h', text: 'Market context' }));
+			body.appendChild(renderGrounding(grounding));
+			npc?.say?.('That\'s the read across crypto and tradfi.');
+		} catch (err) {
+			showError(err, runMacro);
+		} finally { busy = false; }
+	}
+
+	async function runScan(token, chain) {
+		if (busy) return;
+		const q = (token || '').trim();
+		if (!q) { showScan(token, chain); return; }
+		busy = true;
+		skeleton(`Scanning ${q.toUpperCase()}`);
+		const projQs = new URLSearchParams({ limit: '6', names: q });
+		const intelQs = new URLSearchParams({ limit: '6' });
+		if (chain) { projQs.set('chain', chain); intelQs.set('chain', chain); }
+		try {
+			const [projRes, intelRes] = await Promise.all([
+				fetchJson(`/api/aixbt/projects?${projQs}`),
+				fetchJson(`/api/aixbt/intel?${intelQs}`),
+			]);
+			const projects = projRes.projects || [];
+			// Intel isn't name-filterable upstream; keep items that mention the token.
+			const ql = q.toLowerCase();
+			const intel = (intelRes.intel || []).filter((i) =>
+				(i.ticker && i.ticker.toLowerCase() === ql) ||
+				(i.project && i.project.toLowerCase().includes(ql)) ||
+				(i.description && i.description.toLowerCase().includes(ql)));
+			body.textContent = '';
+			body.appendChild(backBar());
+			body.appendChild(el('div', { class: 'aixbt-section-h', text: `Momentum · ${q.toUpperCase()}` }));
+			body.appendChild(renderProjects(projects));
+			body.appendChild(el('div', { class: 'aixbt-section-h', text: `Narratives · ${q.toUpperCase()}` }));
+			body.appendChild(renderIntel(intel));
+			npc?.say?.(projects.length || intel.length ? `Here's what I have on ${q.toUpperCase()}.` : `Nothing surfacing on ${q.toUpperCase()} yet.`);
+		} catch (err) {
+			showError(err, () => runScan(q, chain));
+		} finally { busy = false; }
+	}
+
+	// ── scan sub-form (the "type what you want" step) ──────────────────────────
+	function showScan(prevToken, prevChain) {
+		body.textContent = '';
+		body.appendChild(backBar());
+		body.appendChild(el('p', { class: 'aixbt-ask', text: 'Which token should I scan?' }));
+		const tokenInput = el('input', { class: 'npc-svc-input aixbt-token', type: 'text', placeholder: 'Token or ticker (e.g. SOL)', value: prevToken || '' });
+		const chainSelect = el('select', { class: 'npc-svc-input aixbt-chain' }, CHAINS.map((c) =>
+			el('option', { value: c.value, selected: c.value === (prevChain || '') ? true : null }, [c.label])));
+		const goBtn = el('button', { class: 'aixbt-go', type: 'button', text: 'Scan' });
+		// Keep typing out of the world's movement handlers (window-level keydown).
+		for (const node of [tokenInput, chainSelect]) {
+			node.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); runScan(tokenInput.value, chainSelect.value); } });
+			node.addEventListener('keyup', (e) => e.stopPropagation());
+		}
+		goBtn.addEventListener('click', () => runScan(tokenInput.value, chainSelect.value));
+		body.appendChild(el('div', { class: 'aixbt-scan-form' }, [tokenInput, chainSelect, goBtn]));
+		requestAnimationFrame(() => tokenInput.focus());
+	}
+
+	// ── the dialogue wheel ─────────────────────────────────────────────────────
+	function pick(choice) {
+		if (busy) return;
+		npc?.say?.(choice.say);
+		if (choice.id === 'movers') runMovers('');
+		else if (choice.id === 'narratives') runNarratives('');
+		else if (choice.id === 'macro') runMacro();
+		else if (choice.id === 'scan') showScan('', '');
+	}
+
+	function showMenu() {
+		body.textContent = '';
+		body.appendChild(el('p', { class: 'aixbt-ask', text: 'What do you want to see? Pick a read — or press 1–4.' }));
+		const menu = el('div', { class: 'aixbt-menu' }, CHOICES.map((c, idx) =>
+			el('button', { class: 'aixbt-choice', type: 'button', onclick: () => pick(c), 'aria-label': c.title }, [
+				el('span', { class: 'aixbt-choice-ic', text: c.icon }),
+				el('span', {}, [
+					el('span', { class: 'aixbt-choice-t' }, [el('span', { class: 'aixbt-num', text: String(idx + 1) }), c.title]),
+					el('span', { class: 'aixbt-choice-d', text: c.desc }),
+				]),
+			])));
+		body.appendChild(menu);
+		requestAnimationFrame(() => { const first = menu.querySelector('.aixbt-choice'); if (first) first.focus(); });
+	}
+
+	// Number-key shortcuts (1–4) while the menu is the active view.
+	const onKey = (e) => {
+		if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closePanel(); return; }
+		if (busy) return;
+		const onMenu = body.querySelector('.aixbt-menu');
+		if (onMenu && e.key >= '1' && e.key <= String(CHOICES.length)) {
+			e.stopPropagation(); e.preventDefault();
+			pick(CHOICES[Number(e.key) - 1]);
+		}
+	};
+
+	// Mount + ESC + open to the dialogue wheel.
 	const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-	const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closePanel(); } };
 	document.addEventListener('keydown', onKey, true);
 	document.body.appendChild(overlay);
 	openPanel = { overlay, onKey, opener };
 	requestAnimationFrame(() => {
 		overlay.classList.add('is-in');
-		run();
+		showMenu();
 	});
 }

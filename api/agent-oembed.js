@@ -12,11 +12,16 @@ import { sql } from './_lib/db.js';
 import { env } from './_lib/env.js';
 import { cors, wrap, error } from './_lib/http.js';
 import { resolveOnChainAgent, SERVER_CHAIN_META } from './_lib/onchain.js';
+import {
+	buildEmbedIframe,
+	clampEmbedDim,
+	agentEmbedTarget,
+	onchainEmbedTarget,
+	EMBED_THUMB,
+} from './_lib/embed.js';
 
 const DEFAULT_WIDTH = 420;
 const DEFAULT_HEIGHT = 520;
-const THUMB_WIDTH = 1200;
-const THUMB_HEIGHT = 630;
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -25,13 +30,13 @@ export default wrap(async (req, res) => {
 	const target = url.searchParams.get('url');
 	const format = (url.searchParams.get('format') || 'json').toLowerCase();
 
-	const WIDTH  = clampDim(url.searchParams.get('maxwidth'),  DEFAULT_WIDTH,  100, 2000);
-	const HEIGHT = clampDim(url.searchParams.get('maxheight'), DEFAULT_HEIGHT, 100, 2000);
+	const width  = clampEmbedDim(url.searchParams.get('maxwidth'),  DEFAULT_WIDTH,  100, 2000);
+	const height = clampEmbedDim(url.searchParams.get('maxheight'), DEFAULT_HEIGHT, 100, 2000);
 
 	if (!target) return error(res, 400, 'invalid_request', 'url parameter required');
 
 	const onchain = extractOnChain(target);
-	if (onchain) return sendOnChain(res, format, onchain);
+	if (onchain) return sendOnChain(res, format, { ...onchain, width, height });
 
 	const agentId = extractAgentId(target);
 	if (!agentId) return error(res, 404, 'not_found', 'url is not a recognised agent url');
@@ -45,12 +50,8 @@ export default wrap(async (req, res) => {
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	const origin = env.APP_ORIGIN;
-	const embedUrl = `${origin}/agent/${agent.id}/embed`;
-	const agentUrl = `${origin}/agent/${agent.id}`;
-	const thumbUrl = `${origin}/api/agent/${agent.id}/og`;
+	const { embedUrl, shareUrl, thumbnailUrl } = agentEmbedTarget(origin, agent.id);
 	const title = agent.name || 'Agent';
-
-	const iframe = `<iframe src="${escapeAttr(embedUrl)}" width="${WIDTH}" height="${HEIGHT}" style="border:0;border-radius:12px" allow="autoplay; xr-spatial-tracking" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>`;
 
 	const payload = {
 		type: 'rich',
@@ -59,13 +60,13 @@ export default wrap(async (req, res) => {
 		provider_url: origin,
 		title,
 		author_name: title,
-		author_url: agentUrl,
-		html: iframe,
-		width: WIDTH,
-		height: HEIGHT,
-		thumbnail_url: thumbUrl,
-		thumbnail_width: THUMB_WIDTH,
-		thumbnail_height: THUMB_HEIGHT,
+		author_url: shareUrl,
+		html: buildEmbedIframe({ src: embedUrl, width, height, title }),
+		width,
+		height,
+		thumbnail_url: thumbnailUrl,
+		thumbnail_width: EMBED_THUMB.width,
+		thumbnail_height: EMBED_THUMB.height,
 	};
 
 	res.setHeader('cache-control', 'public, max-age=900');
@@ -120,19 +121,15 @@ function extractOnChain(target) {
 	return { chainId, agentId };
 }
 
-async function sendOnChain(res, format, { chainId, agentId }) {
+async function sendOnChain(res, format, { chainId, agentId, width, height }) {
 	const agent = await resolveOnChainAgent({ chainId, agentId });
 	if (agent.error && agent.error.startsWith('chain_read')) {
 		return error(res, 404, 'not_found', `agent #${agentId} not found on chain ${chainId}`);
 	}
 
 	const origin = env.APP_ORIGIN;
-	const pageUrl = `${origin}/a/${chainId}/${agentId}`;
-	const embedUrl = `${origin}/a/${chainId}/${agentId}/embed`;
-	const thumbUrl = `${origin}/api/a-og?chain=${chainId}&id=${encodeURIComponent(agentId)}`;
+	const { embedUrl, shareUrl, thumbnailUrl } = onchainEmbedTarget(origin, chainId, agentId);
 	const title = agent.name || `Agent #${agentId}`;
-
-	const iframe = `<iframe src="${escapeAttr(embedUrl)}" width="${WIDTH}" height="${HEIGHT}" style="border:0;border-radius:12px" allow="autoplay; xr-spatial-tracking" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>`;
 
 	const payload = {
 		type: 'rich',
@@ -141,13 +138,13 @@ async function sendOnChain(res, format, { chainId, agentId }) {
 		provider_url: origin,
 		title,
 		author_name: title,
-		author_url: pageUrl,
-		html: iframe,
-		width: WIDTH,
-		height: HEIGHT,
-		thumbnail_url: thumbUrl,
-		thumbnail_width: THUMB_WIDTH,
-		thumbnail_height: THUMB_HEIGHT,
+		author_url: shareUrl,
+		html: buildEmbedIframe({ src: embedUrl, width, height, title }),
+		width,
+		height,
+		thumbnail_url: thumbnailUrl,
+		thumbnail_width: EMBED_THUMB.width,
+		thumbnail_height: EMBED_THUMB.height,
 	};
 
 	res.setHeader('cache-control', 'public, max-age=900');
@@ -175,18 +172,4 @@ function escapeXml(s) {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&apos;');
-}
-
-function escapeAttr(s) {
-	return String(s)
-		.replace(/&/g, '&amp;')
-		.replace(/"/g, '&quot;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;');
-}
-
-function clampDim(raw, def, min, max) {
-	const n = raw != null ? parseInt(raw, 10) : NaN;
-	if (!Number.isFinite(n) || n <= 0) return def;
-	return Math.max(min, Math.min(max, n));
 }

@@ -282,6 +282,84 @@ export async function generateSolanaAgentWallet() {
 	return { address: kp.publicKey.toBase58(), encrypted_secret };
 }
 
+// Circle USDC mints — the x402 settlement asset, per cluster. Used for the
+// USDC balance readout on a freshly provisioned wallet (not a coin token; $THREE
+// is the only coin, USDC is the payment rail).
+const USDC_MINT_BY_CLUSTER = {
+	mainnet: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+	devnet: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+};
+
+/**
+ * Idempotently provision a custodial Solana wallet for an agent.
+ *
+ * Mirrors the POST branch of api/agents/solana-wallet.js: generate a keypair via
+ * generateSolanaAgentWallet(), store the address + encrypted secret in agent
+ * meta, and never re-create if one already exists. Returns { address, created }.
+ */
+export async function getOrCreateAgentSolanaWallet(agentId) {
+	const { sql } = await import('./db.js');
+	const [row] = await sql`
+		select id, meta from agent_identities
+		where id = ${agentId} and deleted_at is null
+		limit 1
+	`;
+	if (!row) throw new Error('agent not found');
+
+	let meta = { ...(row.meta || {}) };
+	if (meta.solana_address) {
+		return { address: meta.solana_address, created: false };
+	}
+
+	const sol = await generateSolanaAgentWallet();
+	meta = {
+		...meta,
+		solana_address: sol.address,
+		encrypted_solana_secret: sol.encrypted_secret,
+		solana_wallet_source: 'generated',
+	};
+	await sql`update agent_identities set meta = ${JSON.stringify(meta)}::jsonb where id = ${agentId}`;
+	return { address: sol.address, created: true };
+}
+
+/**
+ * Read the live SOL + USDC balances for a Solana address on the given cluster.
+ * Never throws — an RPC failure returns nulls so a provision call still succeeds
+ * with the wallet address (balances can be re-read later via wallet_status).
+ * @returns {Promise<{ sol: number|null, usdc: number|null }>}
+ */
+export async function getSolanaAddressBalances(address, cluster = 'mainnet') {
+	const net = cluster === 'devnet' ? 'devnet' : 'mainnet';
+	let sol = null;
+	let usdc = null;
+	try {
+		const { PublicKey } = await import('@solana/web3.js');
+		const { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } =
+			await import('@solana/spl-token');
+		const { solanaConnection } = await import('./agent-pumpfun.js');
+		const conn = solanaConnection(net);
+		const owner = new PublicKey(address);
+		const lamports = await conn.getBalance(owner);
+		sol = lamports / 1e9;
+		try {
+			const ata = getAssociatedTokenAddressSync(
+				new PublicKey(USDC_MINT_BY_CLUSTER[net]),
+				owner,
+				false,
+				TOKEN_PROGRAM_ID,
+				ASSOCIATED_TOKEN_PROGRAM_ID,
+			);
+			const bal = await conn.getTokenAccountBalance(ata);
+			usdc = bal?.value?.uiAmount ?? 0;
+		} catch {
+			usdc = 0; // no ATA yet → zero USDC
+		}
+	} catch {
+		// RPC failure — report nulls rather than throw.
+	}
+	return { sol, usdc };
+}
+
 /**
  * Recover a Solana Keypair from its encrypted form.
  * Only call this when the agent needs to sign a transaction.

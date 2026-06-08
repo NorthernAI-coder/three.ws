@@ -3,22 +3,17 @@
 // Arbitrary URL fetching from a server reachable by the internet is a classic
 // SSRF vector: an attacker can point "url" at internal metadata endpoints
 // (169.254.169.254 on AWS/GCP), private RFC1918 ranges, or loopback and we'd
-// happily proxy the response back to them. Defenses here:
-//   1. Scheme allowlist — only https by default (http permitted in dev).
-//   2. DNS resolution happens on OUR side, and the resolved address is
-//      checked against an IP blocklist before the connection is opened.
-//   3. Follow redirects manually, re-validating the target host each hop.
-//   4. Size limit — we stop reading after N bytes.
-//   5. Timeout — total request + streaming is bounded.
+// happily proxy the response back to them. The SSRF policy (scheme allowlist,
+// our-side DNS resolution + IP blocklist, connection pinning, per-hop redirect
+// re-validation) lives in api/_lib/ssrf.js and is shared with the x402 monetize
+// proxy. This fetcher adds the model-specific concerns on top: a byte size cap
+// and a total request/streaming timeout.
 
-import { lookup } from 'node:dns/promises';
-import { Agent } from 'undici';
+import { SsrfError, pinnedAgent, resolvePublicHost, validatePublicUrl } from './ssrf.js';
 
 const DEFAULT_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 const DEFAULT_TIMEOUT_MS = 20_000;
 const MAX_REDIRECTS = 3;
-
-const IS_DEV = process.env.NODE_ENV !== 'production';
 
 export class FetchModelError extends Error {
 	constructor(message, code = 'fetch_failed') {
@@ -27,107 +22,19 @@ export class FetchModelError extends Error {
 	}
 }
 
-function isPrivateIPv4(ip) {
-	const p = ip.split('.').map(Number);
-	if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true;
-	if (p[0] === 10) return true;
-	if (p[0] === 127) return true;
-	if (p[0] === 0) return true;
-	if (p[0] === 169 && p[1] === 254) return true; // link-local, cloud metadata
-	if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
-	if (p[0] === 192 && p[1] === 168) return true;
-	if (p[0] === 192 && p[1] === 0 && p[2] === 0) return true; // IETF
-	if (p[0] === 192 && p[1] === 0 && p[2] === 2) return true; // docs
-	if (p[0] === 198 && (p[1] === 18 || p[1] === 19)) return true; // benchmark
-	if (p[0] === 198 && p[1] === 51 && p[2] === 100) return true; // docs
-	if (p[0] === 203 && p[1] === 0 && p[2] === 113) return true; // docs
-	if (p[0] >= 224) return true; // multicast + reserved
-	return false;
-}
-
-function isPrivateIPv6(ip) {
-	const lower = ip.toLowerCase();
-	if (lower === '::' || lower === '::1') return true;
-	if (lower.startsWith('fe80:') || lower.startsWith('fe80::')) return true; // link-local
-	if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // ULA fc00::/7
-	if (lower.startsWith('::ffff:')) {
-		const mapped = lower.replace(/^::ffff:/, '');
-		if (/^\d+\.\d+\.\d+\.\d+$/.test(mapped)) return isPrivateIPv4(mapped);
-	}
-	if (lower.startsWith('2001:db8:')) return true; // docs
-	return false;
-}
-
-function isPrivateAddress(address, family) {
-	if (family === 4) return isPrivateIPv4(address);
-	if (family === 6) return isPrivateIPv6(address);
-	// Unknown family — treat as unsafe.
-	return true;
-}
-
-// Resolve `host` once, reject if ANY resolved address is private, and return the
-// validated address list. The caller pins the connection to exactly these
-// addresses (via a custom undici `lookup`) so a DNS-rebinding attacker who
-// returns a public IP at validation time and a private IP at connect time
-// cannot reach internal services — we never re-resolve through the OS.
-async function resolvePublicHost(host) {
-	if (!host) throw new FetchModelError('missing host', 'invalid_url');
-	let resolved;
-	try {
-		resolved = await lookup(host, { all: true });
-	} catch (e) {
-		throw new FetchModelError(`DNS lookup failed for ${host}`, 'dns_failed');
-	}
-	const addrs = Array.isArray(resolved) ? resolved : [resolved];
-	if (!addrs.length) throw new FetchModelError(`DNS lookup failed for ${host}`, 'dns_failed');
-	for (const { address, family } of addrs) {
-		if (isPrivateAddress(address, family)) {
-			throw new FetchModelError(
-				`host resolves to private address: ${address}`,
-				'private_address',
-			);
-		}
-	}
-	return addrs;
-}
-
-// Build an undici Agent whose DNS `lookup` only ever yields the pre-validated
-// addresses for `expectedHost`. Any connect attempt to a different host (e.g.
-// after an internal redirect we didn't re-pin) or with no validated address is
-// refused. This closes the check-then-connect TOCTOU: the address the socket
-// connects to is byte-for-byte one we already asserted is public.
-function pinnedAgent(expectedHost, addrs) {
-	return new Agent({
-		connect: {
-			lookup(hostname, _opts, cb) {
-				if (hostname !== expectedHost) {
-					cb(new FetchModelError(`unexpected connect host: ${hostname}`, 'host_pin_mismatch'));
-					return;
-				}
-				// undici accepts an array of { address, family } entries. Re-assert
-				// here as defense-in-depth in case a resolver returned mixed records.
-				const safe = addrs.filter((a) => !isPrivateAddress(a.address, a.family));
-				if (!safe.length) {
-					cb(new FetchModelError('no public address to connect to', 'private_address'));
-					return;
-				}
-				cb(null, safe.map((a) => ({ address: a.address, family: a.family })));
-			},
-		},
-	});
+// Map a shared SsrfError to the FetchModelError shape callers already expect, so
+// existing { code: 'private_address' } / 'scheme_not_allowed' assertions hold.
+function asFetchModelError(err) {
+	if (err instanceof SsrfError) return new FetchModelError(err.message, err.code);
+	return err;
 }
 
 function validateUrl(rawUrl) {
-	let url;
 	try {
-		url = new URL(rawUrl);
-	} catch {
-		throw new FetchModelError('invalid URL', 'invalid_url');
+		return validatePublicUrl(rawUrl);
+	} catch (err) {
+		throw asFetchModelError(err);
 	}
-	if (url.protocol !== 'https:' && !(IS_DEV && url.protocol === 'http:')) {
-		throw new FetchModelError(`scheme not allowed: ${url.protocol}`, 'scheme_not_allowed');
-	}
-	return url;
 }
 
 /**

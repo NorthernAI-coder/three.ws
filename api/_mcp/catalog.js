@@ -7,14 +7,18 @@ import { toolDefs as solanaDefs } from './tools/solana.js';
 import { toolDefs as pumpfunDefs } from './tools/pumpfun.js';
 import { toolDefs as agentDefs } from './tools/agents.js';
 import { toolDefs as animationDefs } from './tools/animations.js';
+import { toolDefs as memoryDefs } from './tools/memory.js';
+import { toolDefs as embedDefs } from './tools/embed.js';
 
 const allDefs = [
 	...avatarDefs,
+	...embedDefs,
 	...modelDefs,
 	...animationDefs,
 	...solanaDefs,
 	...pumpfunDefs,
 	...agentDefs,
+	...memoryDefs,
 ];
 
 // Schema objects for tools/list — strip internal fields (scope, handler).

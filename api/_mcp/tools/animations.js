@@ -13,6 +13,7 @@
 // addon is dynamically imported inside the handler.
 
 import { limits } from '../../_lib/rate-limit.js';
+import { resolveOrigin } from '../origin.js';
 import { fetchModel, FetchModelError } from '../../_lib/fetch-model.js';
 import {
 	canonicalNodeMapFromObject,
@@ -34,17 +35,7 @@ function rpcError(code, message, data) {
 	return e;
 }
 
-// ── Origin + catalogue helpers ────────────────────────────────────────────
-function resolveOrigin(req) {
-	const env =
-		process.env.APP_ORIGIN || process.env.PUBLIC_ORIGIN || process.env.PUBLIC_APP_ORIGIN;
-	if (env) return env.replace(/\/$/, '');
-	const host = req?.headers?.host;
-	if (host) return `${/^localhost|127\.0\.0\.1/.test(host) ? 'http' : 'https'}://${host}`;
-	if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-	throw new Error('cannot resolve site origin to load the animation catalogue');
-}
-
+// ── Catalogue helpers ────────────────────────────────────────────────────────
 async function loadManifest(origin) {
 	const res = await fetch(`${origin}/animations/manifest.json`, { cache: 'no-store' });
 	if (!res.ok) throw new Error(`manifest fetch failed (HTTP ${res.status})`);

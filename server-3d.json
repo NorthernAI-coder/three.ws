@@ -1,7 +1,7 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/threews-3d-studio",
-	"description": "Turn text or an image into an interactive, animation-ready 3D model (GLB): generate (text/image→3D, quality tiers + geometry backends), auto-rig, animate, pose, remesh, segment, retexture, and IBM Granite prompt-direction + material generation. By three.ws.",
+	"description": "Turn text or an image into an interactive, animation-ready 3D model (GLB): generate (text/image→3D, quality tiers + geometry backends), auto-rig, animate, pose, remesh, segment, retexture, save generated models as durable named avatars, and IBM Granite prompt-direction + material generation. By three.ws.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github"

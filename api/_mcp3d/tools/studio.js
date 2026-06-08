@@ -37,6 +37,10 @@ import {
 import { resolveProviderKey } from '../../_lib/forge-provider-key.js';
 import { encodeJobToken, decodeJobToken } from '../../_lib/forge-job-token.js';
 import { watsonxConfig, watsonxChatComplete } from '../../_lib/watsonx.js';
+import { createAvatar, storageKeyFor } from '../../_lib/avatars.js';
+import { putObject } from '../../_lib/r2.js';
+import { isValidGlbHeader, inspectGlb } from '../../_lib/glb-inspect.js';
+import { env } from '../../_lib/env.js';
 import { PRESETS, PRESET_GROUPS } from '../../../src/pose-presets.js';
 import {
 	renderModelViewerHtml,
@@ -120,6 +124,26 @@ async function isPublicHttpsUrl(s) {
 const POLL_HINT =
 	'Call generation_status with this job_id to check progress. ' +
 	'Reconstruction typically finishes in 30–90 seconds.';
+
+// Ceiling on a GLB copied into durable storage by save_avatar. Matches the
+// reconstruct + forge pipelines so a runaway model can't ingest an unbounded blob.
+const MAX_GLB_BYTES = 64 * 1024 * 1024;
+
+// Fetch a provider GLB into a Buffer with a hard size cap, so save_avatar can
+// persist its own durable copy before the provider's delivery URL expires.
+async function fetchGlbBuffer(url) {
+	const resp = await fetch(url);
+	if (!resp.ok) throw rpcError(-32000, `Could not fetch the GLB (${resp.status}).`);
+	const declared = Number(resp.headers.get('content-length') || 0);
+	if (declared && declared > MAX_GLB_BYTES) {
+		throw rpcError(-32000, `GLB too large to save (${declared} bytes; max ${MAX_GLB_BYTES}).`);
+	}
+	const buf = Buffer.from(await resp.arrayBuffer());
+	if (buf.length > MAX_GLB_BYTES) {
+		throw rpcError(-32000, `GLB too large to save (${buf.length} bytes; max ${MAX_GLB_BYTES}).`);
+	}
+	return buf;
+}
 
 function viewerArtifact({ glbUrl, name, options = {} }) {
 	const html = renderModelViewerHtml({
@@ -1500,6 +1524,154 @@ export const toolDefs = [
 					},
 				],
 				structuredContent: { ok: true, material, model: result.model, usage: result.usage },
+			};
+		},
+	},
+	{
+		name: 'save_avatar',
+		title: 'Save a generated GLB as a durable, named avatar',
+		description:
+			'Persist a generated GLB (e.g. the glb_url returned by generation_status) as a durable avatar in your three.ws library. The mesh is copied into our own storage so it survives the provider URL expiring, then registered as a named avatar you own. Returns avatar_id, slug, model_url, and a view_url. This is the bridge from the studio to the avatar system: after saving, get_avatar, render_avatar_image, embeds, and on-chain identity all work on the result. Requires you to be signed in.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				glb_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the GLB to save (e.g. from generation_status).',
+				},
+				name: {
+					type: 'string',
+					minLength: 1,
+					maxLength: 80,
+					description: 'A name for the avatar, 1–80 characters.',
+				},
+				visibility: {
+					type: 'string',
+					enum: ['public', 'unlisted', 'private'],
+					default: 'unlisted',
+					description:
+						'public = listed in the gallery; unlisted = anyone with the link; private = only you.',
+				},
+				source_prompt: {
+					type: 'string',
+					maxLength: 1000,
+					description: 'Optional: the prompt that generated this model, kept as provenance.',
+				},
+				tags: {
+					type: 'array',
+					items: { type: 'string', minLength: 1, maxLength: 40 },
+					maxItems: 20,
+					description: 'Optional tags for organizing and searching your library.',
+				},
+			},
+			required: ['glb_url', 'name'],
+			additionalProperties: false,
+		},
+		scope: 'avatars:write',
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+
+			if (!auth.userId) {
+				return {
+					content: [
+						{
+							type: 'text',
+							text:
+								'Sign in to save an avatar. Saving writes to your three.ws library, ' +
+								'so it needs a signed-in account (an OAuth bearer token), not an ' +
+								'anonymous pay-per-call session.',
+						},
+					],
+					structuredContent: { status: 'sign_in_required' },
+					isError: true,
+				};
+			}
+
+			if (!(await isPublicHttpsUrl(args.glb_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: glb_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+
+			const buf = await fetchGlbBuffer(args.glb_url);
+			const info = isValidGlbHeader(buf) ? inspectGlb(buf) : null;
+			if (!info) {
+				return {
+					content: [
+						{
+							type: 'text',
+							text: 'Error: that URL did not return a valid GLB (binary glTF). Pass a .glb model URL.',
+						},
+					],
+					isError: true,
+				};
+			}
+
+			const visibility = ['public', 'unlisted', 'private'].includes(args.visibility)
+				? args.visibility
+				: 'unlisted';
+			const name = String(args.name).trim().slice(0, 80);
+			const slug = `studio-${createHash('sha256')
+				.update(`${auth.userId}|${name}|${args.glb_url}`)
+				.digest('hex')
+				.slice(0, 8)}`;
+			const storageKey = storageKeyFor({ userId: auth.userId, slug });
+
+			await putObject({
+				key: storageKey,
+				body: buf,
+				contentType: 'model/gltf-binary',
+				metadata: { source: 'studio', user_id: auth.userId },
+			});
+
+			const tags = Array.isArray(args.tags)
+				? args.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 20)
+				: [];
+
+			const avatar = await createAvatar({
+				userId: auth.userId,
+				storageKey,
+				input: {
+					slug,
+					name,
+					description: null,
+					size_bytes: buf.length,
+					content_type: 'model/gltf-binary',
+					source: 'studio',
+					source_meta: {
+						source_glb_url: args.glb_url,
+						source_prompt: args.source_prompt ?? null,
+						is_rigged: info.isRigged ?? null,
+						mesh_count: info.meshCount ?? null,
+						animation_count: info.animationCount ?? null,
+					},
+					visibility,
+					tags,
+					checksum_sha256: null,
+					parent_avatar_id: null,
+				},
+			});
+
+			const viewUrl = `${env.APP_ORIGIN}/discover/avatar/${avatar.id}`;
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Saved "${avatar.name}" to your library (${visibility}).\n` +
+							`Avatar ID: ${avatar.id}\nView: ${viewUrl}\n` +
+							'Render it with render_avatar_image, or fetch it with get_avatar.',
+					},
+				],
+				structuredContent: {
+					avatar_id: avatar.id,
+					slug: avatar.slug,
+					model_url: avatar.model_url,
+					view_url: viewUrl,
+					visibility,
+				},
 			};
 		},
 	},

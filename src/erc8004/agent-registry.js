@@ -9,8 +9,14 @@
  */
 
 import { BrowserProvider, Contract } from 'ethers';
-import { IDENTITY_REGISTRY_ABI, REGISTRY_DEPLOYMENTS, agentRegistryId } from './abi.js';
+import { IDENTITY_REGISTRY_ABI, REGISTRY_DEPLOYMENTS } from './abi.js';
 import { glbFileToThumbnail } from './thumbnail.js';
+import { buildRegistrationJSON } from './registration-json.js';
+
+// Re-exported so existing browser callers (src/mint/index.js) keep their import
+// path. The builder itself lives in registration-json.js — a dependency-light
+// module server-side code can import without the ethers/Three.js stack.
+export { buildRegistrationJSON };
 
 // ---------------------------------------------------------------------------
 // Wallet
@@ -273,104 +279,6 @@ export async function pinFile(blob, apiToken) {
 	}
 	const data = await res.json();
 	return data.url;
-}
-
-// ---------------------------------------------------------------------------
-// Registration JSON builder
-// ---------------------------------------------------------------------------
-
-/**
- * Build an ERC-8004 agent registration JSON.
- *
- * @param {object} opts
- * @param {string} opts.name          Agent display name
- * @param {string} opts.description   Natural-language description
- * @param {string} opts.imageUrl      URL of the 3D GLB model (HTTPS or ipfs://)
- * @param {number} opts.agentId       Token ID from the registry (filled after mint)
- * @param {number} opts.chainId       Chain ID where registered
- * @param {string} opts.registryAddr  Identity Registry contract address
- * @param {string[]} [opts.services]  Additional service objects
- * @returns {object}
- */
-/**
- * Build a spec-compliant ERC-8004 registration JSON.
- *
- * `imageUrl` is the 2D thumbnail (per NFT convention). `glbUrl` is optional —
- * when present, the GLB is surfaced as a dedicated `avatar` service entry and
- * a companion `3D` renderer service pointing at 3dagent so other apps can load
- * the body in-browser without coupling to our domain.
- *
- * @param {object} opts
- * @param {string} opts.name
- * @param {string} opts.description
- * @param {string} [opts.imageUrl]     2D thumbnail URL (PNG/JPG) — used for `image`
- * @param {string} [opts.glbUrl]       Optional GLB URL — emitted as an `avatar` service
- * @param {number} opts.agentId
- * @param {number} opts.chainId
- * @param {string} opts.registryAddr
- * @param {Array}  [opts.services]     Extra service entries
- * @param {boolean}[opts.x402Support]
- * @param {Array<{name:string,url:string,loop?:boolean,clipName?:string,source?:string}>} [opts.animations]
- *   Optional animation clip list — emitted as a top-level `animations` extension
- *   field (ERC-8004 permits extensions). Viewers that understand the field can
- *   attach extra clips; others ignore it harmlessly.
- */
-export function buildRegistrationJSON({
-	name,
-	description,
-	imageUrl,
-	glbUrl,
-	agentId,
-	chainId,
-	registryAddr,
-	services = [],
-	x402Support = false,
-	animations,
-}) {
-	const baseServices = [];
-	if (glbUrl) {
-		baseServices.push({
-			name: 'avatar',
-			endpoint: glbUrl,
-			version: 'gltf-2.0',
-		});
-		baseServices.push({
-			name: '3D',
-			endpoint: `https://three.ws/app#model=${encodeURIComponent(glbUrl)}`,
-			version: '1.0',
-		});
-	}
-
-	const json = {
-		type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-		name,
-		description,
-		image: imageUrl || '',
-		active: true,
-		x402Support,
-		services: [...baseServices, ...services],
-		registrations: [
-			{
-				agentId,
-				agentRegistry: agentRegistryId(chainId, registryAddr),
-			},
-		],
-		supportedTrust: ['reputation'],
-	};
-
-	// Top-level `body` field follows specs/AGENT_MANIFEST.md convention and is
-	// read directly by src/manifest.js → normalize(). Spec-permitted (extension
-	// fields MAY be added). Redundant with the `avatar` service entry above but
-	// keeps this repo's manifest resolver happy without forcing it to grep services.
-	if (glbUrl) {
-		json.body = { uri: glbUrl, format: 'gltf-binary' };
-	}
-
-	if (Array.isArray(animations) && animations.length > 0) {
-		json.animations = animations;
-	}
-
-	return json;
 }
 
 // ---------------------------------------------------------------------------

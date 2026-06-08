@@ -38,7 +38,7 @@ function intersectScopes(requested, allowed) {
 }
 
 function scopeLabel(s) {
-	const labels = { 'avatars:read': 'Read your avatars', 'avatars:write': 'Create and update avatars', 'avatars:delete': 'Delete your avatars', profile: 'See your name and email', offline_access: 'Stay signed in across sessions' };
+	const labels = { 'avatars:read': 'Read your avatars', 'avatars:write': 'Create and update avatars', 'avatars:delete': 'Delete your avatars', profile: 'See your name and email', offline_access: 'Stay signed in across sessions', 'memory:read': 'Recall your agents’ memories', 'memory:write': 'Store and forget your agents’ memories', 'agents:read': 'Screen your agents’ identities', 'agents:write': 'Register your agents on-chain' };
 	return labels[s] || esc(s);
 }
 
