@@ -320,15 +320,6 @@
 					"changefreq": "monthly"
 				},
 				{
-					"path": "/rider",
-					"title": "Rider (VR)",
-					"description": "A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.",
-					"priority": 0.6,
-					"changefreq": "monthly",
-					"added": "2026-05-25",
-					"indexable": false
-				},
-				{
 					"path": "/playground",
 					"title": "Playground",
 					"description": "Sandbox for experimenting with agents, prompts, and 3D scenes.",
