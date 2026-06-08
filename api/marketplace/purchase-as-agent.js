@@ -131,21 +131,32 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'unsupported_chain', `only solana auto-purchase supported, got '${price.chain}'`);
 	}
 
-	// Daily spending cap check
+	// Daily spending cap — fast pre-check. This is a cheap early rejection; the
+	// authoritative, race-safe enforcement happens AFTER the pending row is
+	// inserted (see below). On its own this check is a TOCTOU: concurrent
+	// purchases all read the same pre-spend SUM and each pass, collectively
+	// blowing past the cap and spending real funds beyond the user's limit.
 	const limitUsdc = buyer.meta?.auto_purchase_daily_limit_usdc;
-	if (typeof limitUsdc === 'number' && limitUsdc > 0) {
-		const limitAtomics = BigInt(Math.round(limitUsdc * 10 ** USDC_DECIMALS));
-		const todayStart = new Date();
-		todayStart.setUTCHours(0, 0, 0, 0);
+	const capEnabled = typeof limitUsdc === 'number' && limitUsdc > 0;
+	const limitAtomics = capEnabled ? BigInt(Math.round(limitUsdc * 10 ** USDC_DECIMALS)) : 0n;
+	const dayStart = () => {
+		const d = new Date();
+		d.setUTCHours(0, 0, 0, 0);
+		return d.toISOString();
+	};
+	const sumSpentAtomics = async () => {
 		const [spent] = await sql`
 			SELECT COALESCE(SUM(amount), 0)::bigint AS total
 			FROM skill_purchases
 			WHERE user_id = ${auth.userId}
-			  AND created_at >= ${todayStart.toISOString()}
+			  AND created_at >= ${dayStart()}
 			  AND currency_mint = ${price.currency_mint}
 			  AND status NOT IN ('failed', 'expired')
 		`;
-		const spentAtomics = BigInt(spent?.total ?? 0);
+		return BigInt(spent?.total ?? 0);
+	};
+	if (capEnabled) {
+		const spentAtomics = await sumSpentAtomics();
 		if (spentAtomics + BigInt(price.amount) > limitAtomics) {
 			log('purchase_as_agent.spend_cap_exceeded', {
 				buyer_agent_id, skill, spent: spentAtomics.toString(),
@@ -203,6 +214,26 @@ export default wrap(async (req, res) => {
 		purchase_id: pur.id, buyer_agent_id, seller_agent_id, skill,
 		amount: price.amount, is_self_dealing: isSelfDealing,
 	});
+
+	// Authoritative, race-safe spend-cap enforcement. Our pending row is now
+	// persisted and counted by sumSpentAtomics(), so re-reading the SUM here
+	// includes every concurrent in-flight purchase. If the total (already
+	// including this row) exceeds the cap we void this row and abort BEFORE
+	// broadcasting any transaction — concurrent requests can no longer each pass
+	// a stale pre-check and overspend. Fails safe: under a tie, contending
+	// requests abort rather than risk exceeding the user's configured limit.
+	if (capEnabled) {
+		const spentAtomics = await sumSpentAtomics();
+		if (spentAtomics > limitAtomics) {
+			await sql`UPDATE skill_purchases SET status = 'failed' WHERE id = ${pur.id} AND status = 'pending'`;
+			log('purchase_as_agent.spend_cap_exceeded_reserved', {
+				purchase_id: pur.id, buyer_agent_id, skill,
+				spent: spentAtomics.toString(), limit_atomics: limitAtomics.toString(),
+			});
+			return error(res, 402, 'spend_cap_exceeded',
+				`daily spend cap of ${limitUsdc} USDC reached — increase meta.auto_purchase_daily_limit_usdc or wait until UTC midnight`);
+		}
+	}
 
 	// Build, sign, and submit the SPL transferChecked
 	const connection = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
