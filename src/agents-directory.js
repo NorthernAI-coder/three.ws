@@ -14,6 +14,7 @@ import {
 import { CHAIN_META } from './erc8004/chain-meta.js';
 import { REGISTRY_DEPLOYMENTS } from './erc8004/abi.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
+import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { log } from './shared/log.js';
 
 const CACHE_TTL_MS = 60000;
@@ -288,6 +289,11 @@ export class AgentsDirectory {
 		// ERC-8004 shape uses `id`/`chainId`; map `id` → `agentId` for detection.
 		const onchainBadge = onchainBadgeHTML({ ...agent, agentId: agent.id });
 
+		// "See in 3D" drops this agent's avatar into the live $three world — its own
+		// GLB if it ships one, the base mannequin otherwise — so every card has it.
+		const see3dHref = this._escapeHtml(seeInWorldHref(agent));
+		const see3dLabel = hasCustomAvatar(agent) ? 'See in 3D' : 'View in 3D';
+
 		return `
 			<div class="agent-card" data-agent-id="${agent.id}" data-chain-id="${agent.chainId}">
 				<div class="card-head">
@@ -315,6 +321,12 @@ export class AgentsDirectory {
 						? `<div class="card-owner"><span class="owner-addr" data-copy="${ownerFull}" title="${ownerFull}">${this._escapeHtml(ownerShort)}</span><button class="owner-copy" data-copy="${ownerFull}" aria-label="Copy address">⎘</button></div>`
 						: ''
 				}
+					<div class="card-actions">
+						<a class="card-see3d" href="${see3dHref}" aria-label="${see3dLabel}: ${cleanName} in the three.ws world">
+							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+							<span>${see3dLabel}</span>
+						</a>
+					</div>
 			</div>
 		`;
 	}
@@ -333,9 +345,10 @@ export class AgentsDirectory {
 	_attachEventListeners() {
 		this.container.querySelectorAll('.agent-card').forEach((card) => {
 			card.addEventListener('click', (e) => {
-				// Let the on-chain badge open the block explorer without also
-				// triggering card navigation.
+				// Let the on-chain badge open the block explorer, and the "See in 3D"
+				// link open the world, without also triggering card navigation.
 				if (e.target.closest('a.tws-ocb')) return;
+				if (e.target.closest('a.card-see3d')) return;
 				const copyTarget = e.target.closest('[data-copy]');
 				if (copyTarget) {
 					e.stopPropagation();
