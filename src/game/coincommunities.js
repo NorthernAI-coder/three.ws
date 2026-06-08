@@ -36,7 +36,7 @@ import {
 	loadManifest, getEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
 	CLIP_IDLE, CLIP_WALK,
 } from './avatar-rig.js';
-import { GUEST_SENTINEL, uploadPendingGuestAvatar, getPlayCosmetics, setPlayCosmetics } from './play-handoff.js';
+import { GUEST_SENTINEL, uploadPendingGuestAvatar, getPlayCosmetics, setPlayCosmetics, getRequestedAvatar } from './play-handoff.js';
 import { applyLoadout } from './cosmetics-loadout.js';
 import { serializeLoadout } from '../../multiplayer/src/cosmetics-catalog.js';
 import { AccessoryManager } from '../agent-accessories.js';
@@ -723,7 +723,10 @@ export class CoinCommunities {
 		this._accessoryMgr = null;
 		this._previewItem = null;
 		this.localAnim = new AnimationManager();
-		const avatarInput = this.ui.getAvatar();
+		// An `?avatar=` deep link (a "See in 3D" link carrying an agent's GLB) shows
+		// that avatar for the session without overwriting the player's saved pick;
+		// otherwise use whatever they selected in the lobby.
+		const avatarInput = getRequestedAvatar() || this.ui.getAvatar();
 		const url = await resolveAvatarUrl(avatarInput);
 		const { height: localHeight, fallback: avatarFallback } = await buildAvatar(this.localRig, url, this.localAnim);
 		// Backed out while the avatar GLB was loading — stop before we open a room.

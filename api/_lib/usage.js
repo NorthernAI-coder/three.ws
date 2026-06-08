@@ -8,7 +8,7 @@ export function recordEvent(evt) {
 	queueMicrotask(async () => {
 		try {
 			await withDbRetry(() => sql`
-				insert into usage_events (user_id, api_key_id, client_id, avatar_id, agent_id, kind, tool, status, bytes, latency_ms, meta)
+				insert into usage_events (user_id, api_key_id, client_id, avatar_id, agent_id, kind, tool, status, bytes, latency_ms, meta, provider, model, input_tokens, output_tokens, cost_micro_usd)
 				values (
 					${evt.userId ?? null},
 					${evt.apiKeyId ?? null},
@@ -20,7 +20,12 @@ export function recordEvent(evt) {
 					${evt.status ?? 'ok'},
 					${evt.bytes ?? null},
 					${evt.latencyMs ?? null},
-					${JSON.stringify(evt.meta ?? {})}::jsonb
+					${JSON.stringify(evt.meta ?? {})}::jsonb,
+					${evt.provider ?? null},
+					${evt.model ?? null},
+					${evt.inputTokens ?? null},
+					${evt.outputTokens ?? null},
+					${evt.costMicroUsd ?? null}
 				)
 			`);
 		} catch (err) {

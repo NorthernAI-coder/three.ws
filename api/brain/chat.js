@@ -171,9 +171,9 @@ const PROVIDERS = {
 	'nvidia-nemotron-nano': {
 		label: 'Nemotron Nano 9B',
 		network: 'NVIDIA NIM',
-		tier: 'fast',
+		tier: 'balanced',
 		maxOutput: 8192,
-		description: 'Compact, low-latency Nemotron. Great default for simple agent turns.',
+		description: 'Compact Nemotron with built-in reasoning. Strong quality per token.',
 		native: () => (env.NVIDIA_API_KEY ? nvidia('nvidia/nvidia-nemotron-nano-9b-v2') : null),
 	},
 	'nvidia-deepseek-v4': {

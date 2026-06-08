@@ -36,6 +36,18 @@ export function getPlayAvatar() {
 	try { return localStorage.getItem(CC_AVATAR_KEY) || ''; } catch { return ''; }
 }
 
+// The avatar a world should actually show this session. An `?avatar=<glb|id>`
+// URL param wins over the saved pick — that's how "See in 3D" links drop an
+// agent's avatar into a world without overwriting the visitor's own cc-avatar.
+// Falls back to the persisted avatar (and that to the default) when absent.
+export function getRequestedAvatar() {
+	try {
+		const fromUrl = new URLSearchParams(location.search).get('avatar');
+		if (fromUrl && fromUrl.trim()) return fromUrl.trim();
+	} catch { /* no URL access — fall through to the saved avatar */ }
+	return getPlayAvatar();
+}
+
 // Persist the avatar every world reads. Prefer a canonical id; fall back to a
 // loadable URL/path or the guest sentinel. Returns the stored value.
 export function setPlayAvatar(value) {

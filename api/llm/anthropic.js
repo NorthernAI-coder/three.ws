@@ -278,12 +278,19 @@ export default wrap(async (req, res) => {
 
 	// Ordered fallback chain for 429 / 5xx from OpenRouter free tier:
 	//   1. Requested model (e.g. llama-3.3-70b:free)
-	//   2. meta-llama/llama-3.1-8b-instruct:free  (smaller free model)
-	//   3. claude-haiku-4-5-20251001              (paid Anthropic — last resort)
+	//   2. meta-llama/llama-3.1-8b-instruct:free      (smaller free model)
+	//   3. meta/llama-4-maverick-17b-128e-instruct    (free NVIDIA NIM tier)
+	//   4. claude-haiku-4-5-20251001                  (paid Anthropic — last resort)
+	// The NVIDIA free tier sits ahead of paid Anthropic so a rate-limited OpenRouter
+	// free model exhausts every free option before any per-token cost is incurred.
+	// A non-reasoning model is used here on purpose: a reasoning model can spend a
+	// small max_tokens budget entirely on (dropped) reasoning_content and return an
+	// empty completion to the embedded agent.
 	const modelFallbacks = [
 		requestedModel,
 		...([
 			'meta-llama/llama-3.1-8b-instruct:free',
+			'meta/llama-4-maverick-17b-128e-instruct',
 			'claude-haiku-4-5-20251001',
 		].filter((m) => m !== requestedModel)),
 	];

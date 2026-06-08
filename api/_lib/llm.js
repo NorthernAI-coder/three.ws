@@ -16,6 +16,8 @@
 // api/persona/extract.js and api/persona/preview.js.
 
 import { env } from './env.js';
+import { recordEvent } from './usage.js';
+import { costMicroUsd } from './llm-pricing.js';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct';
@@ -122,12 +124,21 @@ export function llmConfigured(opts = {}) {
 // Returns { text, provider, model, usage:{input,output}, raw }.
 // Throws LlmUnavailableError when no provider is configured, or the last
 // upstream error (with .status = 502) when every provider failed.
-export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, serverAnthropic = false, timeoutMs = 30_000 }) {
+//
+// `track` is optional attribution for the spend ledger. When supplied, every
+// successful completion records a kind:'llm' usage event carrying the provider,
+// model, token counts, and computed cost (micro-USD) — this is what makes
+// platform LLM spend visible on the admin dashboard. The fields it accepts —
+// { userId, agentId, avatarId, clientId, apiKeyId, tool } — are all optional;
+// pass whatever the call site knows. Recording is fire-and-forget (see
+// recordEvent), so it never delays or fails the completion.
+export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, serverAnthropic = false, timeoutMs = 30_000, track = null }) {
 	const chain = providerChain({ anthropicKey, anthropicModel, serverAnthropic });
 	if (!chain.length) throw new LlmUnavailableError();
 
 	let lastErr;
 	for (const p of chain) {
+		const startedAt = Date.now();
 		let upstream;
 		try {
 			upstream = await fetch(p.url, {
@@ -146,13 +157,39 @@ export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey
 			continue;
 		}
 		const data = await upstream.json();
+		const usage = p.extractUsage(data);
+		recordLlmSpend(p, usage, Date.now() - startedAt, track);
 		return {
 			text: (p.extractText(data) || '').trim(),
 			provider: p.name,
 			model: p.model,
-			usage: p.extractUsage(data),
+			usage,
 			raw: data,
 		};
 	}
 	throw lastErr || new LlmUnavailableError();
+}
+
+// Fire-and-forget spend ledger write for one completion. Attribution comes from
+// the caller's optional `track`; the cost is derived from the provider/model
+// (free providers price to 0). Never throws — recordEvent swallows its own
+// errors and the cost math is total.
+function recordLlmSpend(provider, usage, latencyMs, track) {
+	const input = usage?.input ?? 0;
+	const output = usage?.output ?? 0;
+	recordEvent({
+		kind: 'llm',
+		provider: provider.name,
+		model: provider.model,
+		inputTokens: input,
+		outputTokens: output,
+		costMicroUsd: costMicroUsd({ provider: provider.name, model: provider.model, input, output }),
+		latencyMs,
+		userId: track?.userId ?? null,
+		agentId: track?.agentId ?? null,
+		avatarId: track?.avatarId ?? null,
+		clientId: track?.clientId ?? null,
+		apiKeyId: track?.apiKeyId ?? null,
+		tool: track?.tool ?? null,
+	});
 }
