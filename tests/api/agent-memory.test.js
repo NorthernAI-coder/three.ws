@@ -14,6 +14,10 @@ vi.mock('../../api/_lib/auth.js', () => ({
 	extractBearer: (...a) => extractBearerMock(...a),
 }));
 
+// CSRF gating is enforced on the mutating routes; its behavior is covered by
+// tests/api/security-csrf-gates.test.js. Here it's a pass-through.
+vi.mock('../../api/_lib/csrf.js', () => ({ requireCsrf: vi.fn(async () => true) }));
+
 vi.mock('../../api/_lib/env.js', () => ({
 	env: {
 		APP_ORIGIN: 'http://localhost:3000',

@@ -127,6 +127,10 @@ const { default: adminWithdrawalsHandler } = await import(
 	'../../api/admin/withdrawals/[id].js'
 );
 const { default: adminRiderPassesHandler } = await import('../../api/admin/rider-passes.js');
+const { default: agentActionsHandler } = await import('../../api/agent-actions.js');
+const { default: agentMemoryHandler } = await import('../../api/agent-memory.js');
+const { default: subscriptionsHandler } = await import('../../api/subscriptions.js');
+const { default: dcaHandler } = await import('../../api/dca-strategies.js');
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -462,5 +466,102 @@ describe('POST /api/agents — creation path remains unchanged', () => {
 		const res = makeRes();
 		await agentsRoot(req, res);
 		expect(res.statusCode).toBe(201);
+	});
+});
+
+// ── Newly-gated cookie-session mutations ───────────────────────────────────
+// These endpoints mutate user-owned state on a cookie session and were
+// previously ungated. Each must reject a session-authed mutation that omits a
+// CSRF token, and (for bearer-auth machine callers) stay exempt.
+
+describe('POST /api/agent-actions — CSRF gate', () => {
+	it('rejects session-authed POST without X-CSRF-Token (403 csrf_missing)', async () => {
+		authState.session = { id: 'user-1' };
+		const req = makeReq({
+			method: 'POST',
+			url: '/api/agent-actions',
+			body: { agent_id: 'ag1', type: 'note' },
+		});
+		const res = makeRes();
+		await agentActionsHandler(req, res);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+
+	it('exempts bearer-auth callers (no CSRF needed)', async () => {
+		authState.bearer = { userId: 'user-1', source: 'bearer' };
+		// requireCsrf returns true for Bearer; handler then verifies ownership.
+		sqlState.queue.push([{ user_id: 'user-1' }]); // agent ownership lookup
+		sqlState.queue.push([{ id: 1, agent_id: 'ag1', type: 'note', payload: {}, created_at: 'x' }]);
+		const req = makeReq({
+			method: 'POST',
+			url: '/api/agent-actions',
+			headers: { authorization: 'Bearer tok' },
+			body: { agent_id: 'ag1', type: 'note' },
+		});
+		const res = makeRes();
+		await agentActionsHandler(req, res);
+		expect(res.statusCode).not.toBe(403);
+	});
+});
+
+describe('POST/DELETE /api/agent-memory — CSRF gate', () => {
+	it('rejects session-authed POST without X-CSRF-Token (403 csrf_missing)', async () => {
+		authState.session = { id: 'user-1' };
+		const req = makeReq({
+			method: 'POST',
+			url: '/api/agent-memory',
+			body: { agentId: 'ag1', entry: { content: 'hi' } },
+		});
+		const res = makeRes();
+		await agentMemoryHandler(req, res);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+
+	it('rejects session-authed DELETE without X-CSRF-Token (403 csrf_missing)', async () => {
+		authState.session = { id: 'user-1' };
+		const req = makeReq({
+			method: 'DELETE',
+			url: '/api/agent-memory/mem-1',
+		});
+		const res = makeRes();
+		await agentMemoryHandler(req, res);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+});
+
+describe('POST/DELETE /api/subscriptions — CSRF gate', () => {
+	it('rejects session-authed POST without X-CSRF-Token (403 csrf_missing)', async () => {
+		authState.session = { id: 'user-1' };
+		const req = makeReq({
+			method: 'POST',
+			url: '/api/subscriptions',
+			body: {
+				agentId: '11111111-1111-1111-1111-111111111111',
+				delegationId: '22222222-2222-2222-2222-222222222222',
+				periodSeconds: 86400,
+				amountPerPeriod: '1000000',
+			},
+		});
+		const res = makeRes();
+		await subscriptionsHandler(req, res);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+});
+
+describe('POST/DELETE /api/dca-strategies — CSRF gate', () => {
+	it('rejects session-authed DELETE without X-CSRF-Token (403 csrf_missing)', async () => {
+		authState.session = { id: 'user-1' };
+		const req = makeReq({
+			method: 'DELETE',
+			url: '/api/dca-strategies/33333333-3333-3333-3333-333333333333',
+		});
+		const res = makeRes();
+		await dcaHandler(req, res);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
 	});
 });
