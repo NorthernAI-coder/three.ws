@@ -3,6 +3,7 @@ import addFormats from 'ajv-formats';
 
 import { toolDefs as studioDefs } from './tools/studio.js';
 import { toolDefs as modelDefs } from '../_mcp/tools/models.js';
+import { toolDefs as animationDefs } from '../_mcp/tools/animations.js';
 
 // Reuse the battle-tested inspect/optimize tools from the main MCP server so a
 // generated model can be analyzed in the same conversation — no duplicated
@@ -10,7 +11,10 @@ import { toolDefs as modelDefs } from '../_mcp/tools/models.js';
 // covers "what is this mesh", and optimize covers "how do I ship it".
 const reusedModelDefs = modelDefs.filter((d) => d.name === 'inspect_model' || d.name === 'optimize_model');
 
-const allDefs = [...studioDefs, ...reusedModelDefs];
+// The animation library (list_animations + apply_animation) completes the
+// pipeline: text_to_3d → auto_rig_model → apply_animation. Same retarget engine
+// the main server exposes — reused here, not duplicated.
+const allDefs = [...studioDefs, ...reusedModelDefs, ...animationDefs];
 
 // Schema objects for tools/list — strip internal fields (scope, handler).
 export const TOOL_CATALOG = allDefs.map(({ scope: _s, handler: _h, ...schema }) => schema);

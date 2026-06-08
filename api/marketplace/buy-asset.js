@@ -27,6 +27,7 @@ import { clientIp, limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { rpcFallbackFromEnv } from '../_lib/solana/rpc-fallback.js';
 import { insertNotification } from '../_lib/notify.js';
+import { verifyEvmUsdcPayment, evmChainId } from '../_lib/evm-payment-verify.js';
 
 const REFERENCE_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const ITEM_TYPES = ['avatar', 'agent', 'plugin'];
@@ -250,7 +251,7 @@ async function handleConfirm(req, res, reference) {
 		return error(res, 410, 'purchase_expired', 'this pending purchase expired; please start a new one');
 	}
 	if (pur.chain !== 'solana') {
-		return error(res, 501, 'not_implemented', `chain '${pur.chain}' confirmation not yet supported`);
+		return handleEvmAssetConfirm(req, res, pur);
 	}
 
 	const refKey = new PublicKey(pur.reference);
@@ -301,6 +302,13 @@ async function handleConfirm(req, res, reference) {
 		});
 	}
 
+	return finalizeAssetConfirm(res, pur, txSignature);
+}
+
+// Atomic confirm + receipt + notifications for a verified asset payment. Shared
+// by the Solana and EVM confirm paths; `txSignature` is the Solana signature or
+// the EVM tx hash.
+async function finalizeAssetConfirm(res, pur, txSignature) {
 	const updated = await sql`
 		UPDATE asset_purchases
 		SET status = 'confirmed', tx_signature = ${txSignature}, confirmed_at = now(), updated_at = now()
@@ -353,6 +361,59 @@ async function handleConfirm(req, res, reference) {
 	}
 
 	return json(res, 200, { data: { status: 'confirmed', tx_signature: txSignature } });
+}
+
+// EVM asset confirm: the buyer submits the settlement tx hash; verify a USDC
+// transfer of at least the price reached the seller's payout wallet on Base,
+// then finalize through the same path as Solana.
+async function handleEvmAssetConfirm(req, res, pur) {
+	if (!evmChainId(pur.chain)) {
+		return error(res, 400, 'unsupported_chain', `chain '${pur.chain}' is not supported`);
+	}
+	const body = await readJson(req).catch(() => null);
+	const txHash = body?.tx_hash || body?.txHash || null;
+	if (!txHash) return error(res, 400, 'tx_hash_required', 'tx_hash is required to confirm an EVM purchase');
+
+	// Idempotency: one settlement tx can confirm at most one purchase.
+	const [dupe] = await sql`
+		SELECT id FROM asset_purchases
+		WHERE tx_signature = ${txHash} AND status IN ('confirmed', 'tipped') AND id != ${pur.id}
+		LIMIT 1
+	`;
+	if (dupe) return error(res, 409, 'transfer_mismatch', 'this transaction has already been used for another purchase');
+
+	const result = await verifyEvmUsdcPayment({
+		txHash,
+		chain: pur.chain,
+		recipient: pur.payout_address,
+		expectedAmount: pur.amount,
+	});
+	if (result.status === 'pending') return json(res, 200, { data: { status: 'pending' } });
+	if (result.status === 'mismatch') {
+		// A short-but-real transfer is a tip; nothing on-chain is a hard mismatch.
+		if (result.actualAmount && BigInt(result.actualAmount) > 0n) {
+			await sql`
+				UPDATE asset_purchases
+				SET status = 'tipped', tx_signature = ${txHash}, confirmed_at = now(), updated_at = now()
+				WHERE id = ${pur.id} AND status = 'pending'
+			`;
+			await insertNotification(pur.seller_user_id, 'asset_payment_mismatch', {
+				item_type: pur.item_type,
+				item_id: pur.item_id,
+				expected_amount: String(pur.amount),
+				actual_amount: result.actualAmount,
+				tx_signature: txHash,
+				purchase_id: pur.id,
+				reason: result.message,
+			});
+			return error(res, 409, 'transfer_mismatch', result.message || 'on-chain transfer did not match expected', {
+				status: 'tipped',
+				tx_signature: txHash,
+			});
+		}
+		return error(res, 409, 'transfer_mismatch', result.message || 'no matching transfer found');
+	}
+	return finalizeAssetConfirm(res, pur, txHash);
 }
 
 // Resolve the inviting user from a ?ref=<code> query or users.referred_by_id.

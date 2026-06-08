@@ -6,11 +6,14 @@ import { TOOL_CATALOG, TOOLS } from './catalog.js';
 export { PROTOCOL_VERSION };
 
 const INSTRUCTIONS = [
-	'three.ws 3D Studio turns text or images into interactive 3D models.',
-	'text_to_3d(prompt) and image_to_3d(image_url) start a generation job and return a job_id;',
-	'poll generation_status(job_id) until it returns a GLB and an inline <model-viewer> artifact.',
-	'preview_3d(glb_url) renders any GLB as an artifact; inspect_model / optimize_model analyze one.',
-	'Always display returned text/html resources as inline 3D artifacts.',
+	'three.ws 3D Studio turns text or images into interactive, animation-ready 3D models.',
+	'Pipeline: optionally direct_prompt(idea) to sharpen a vague prompt, then text_to_3d(prompt) or',
+	'image_to_3d(image_url) to generate (tier=draft|standard|high, path=image|geometry); poll',
+	'generation_status(job_id) until it returns a GLB and an inline <model-viewer> artifact.',
+	'auto_rig_model(glb_url) adds a skeleton; apply_animation(model_url, animation) and pose_model(prompt)',
+	'drive the rigged result; list_animations enumerates clips. Mesh ops: remesh_model, stylize_model,',
+	'segment_model, retexture_model, retexture_region, generate_material. preview_3d(glb_url) renders any',
+	'GLB; inspect_model / optimize_model analyze one. Always display returned text/html resources as inline 3D artifacts.',
 ].join(' ');
 
 export const dispatch = makeDispatcher({

@@ -93,6 +93,143 @@ function pill(text, accent = '') {
 	return el('span', { class: `ad-pill ${accent ? `ad-pill-${accent}` : ''}`, text });
 }
 
+// ── Holder cohorts panel ─────────────────────────────────────────────────────
+// Renders the live holder segmentation for an agent token from
+// GET /api/coin/:mint/cohorts. Self-manages loading / empty / error / populated
+// states so the caller just hands it a container and a mint.
+
+const COHORT_ICONS = {
+	holders: '👥',
+	whales: '🐋',
+	'diamond-hands': '💎',
+	'new-buyers': '🌱',
+	exited: '🚪',
+};
+
+const CONC_LABELS = {
+	healthy: 'Healthy spread',
+	moderate: 'Moderate',
+	high: 'Concentrated',
+	'very-high': 'Highly concentrated',
+	none: '—',
+};
+
+function fmtInt(n) {
+	return Number(n || 0).toLocaleString('en-US');
+}
+
+function fmtPct(frac) {
+	const v = Number(frac || 0) * 100;
+	return `${v >= 10 || v === 0 ? v.toFixed(0) : v.toFixed(1)}%`;
+}
+
+function cohortsSkeleton() {
+	return el('div', {}, [
+		el('div', { class: 'ad-cohorts-head' }, [
+			el('span', { class: 'ad-cohorts-title', text: 'HOLDERS' }),
+			el('span', { class: 'ad-skel ad-skel-count' }),
+		]),
+		el('div', { class: 'ad-cohorts-body' }, [
+			el('div', { class: 'ad-skel ad-skel-row' }),
+			el('div', { class: 'ad-skel ad-skel-row' }),
+		]),
+	]);
+}
+
+function cohortsErrorState(retry) {
+	const btn = el('button', { class: 'ad-cohorts-retry', type: 'button', text: 'Retry' });
+	btn.addEventListener('click', retry);
+	return el('div', { class: 'ad-cohorts-err' }, [
+		el('span', { class: 'ad-muted', text: 'Couldn’t load holder cohorts.' }),
+		btn,
+	]);
+}
+
+function cohortRow(c, frac) {
+	const pct = Math.max(0, Math.min(1, frac));
+	return el('div', { class: 'ad-cohort-row', title: c.description || c.name }, [
+		el('span', { class: 'ad-cohort-name' }, [
+			el('span', { class: 'ad-cohort-icon', text: COHORT_ICONS[c.id] || '•' }),
+			el('span', { text: c.name }),
+		]),
+		el('span', { class: 'ad-cohort-bar' }, [
+			el('span', { class: 'ad-cohort-fill', style: `width:${(pct * 100).toFixed(1)}%` }),
+		]),
+		el('span', { class: 'ad-cohort-val', text: `${fmtInt(c.count)} · ${fmtPct(frac)}` }),
+	]);
+}
+
+function cohortsView(data) {
+	const holderCount =
+		data.holderCount ?? (data.cohorts || []).find((c) => c.id === 'holders')?.count ?? 0;
+	const nodes = [
+		el('div', { class: 'ad-cohorts-head' }, [
+			el('span', { class: 'ad-cohorts-title', text: 'HOLDERS' }),
+			el('span', { class: 'ad-cohorts-count', text: fmtInt(holderCount) }),
+		]),
+	];
+
+	if (!holderCount) {
+		nodes.push(el('div', { class: 'ad-cohorts-empty', text: 'No holders yet — be the first.' }));
+		return nodes;
+	}
+
+	const locked = [];
+	const body = el('div', { class: 'ad-cohorts-body' });
+	for (const c of data.cohorts || []) {
+		if (c.id === 'holders') continue; // the header already shows the total
+		if (c.count == null) {
+			locked.push(c.name);
+			continue;
+		}
+		body.appendChild(cohortRow(c, holderCount ? c.count / holderCount : 0));
+	}
+	if (body.childNodes.length) nodes.push(body);
+
+	const con = data.concentration;
+	if (con) {
+		nodes.push(
+			el('div', { class: 'ad-cohorts-conc' }, [
+				el('span', {
+					class: `ad-conc-chip ad-conc-${con.label || 'none'}`,
+					text: CONC_LABELS[con.label] || con.label || '—',
+				}),
+				el('span', {
+					class: 'ad-cohorts-conc-detail',
+					text: `Top holder ${fmtPct(con.top1Share)} · Top 10 ${fmtPct(con.top10Share)}`,
+				}),
+			]),
+		);
+	}
+
+	if (locked.length) {
+		nodes.push(
+			el('div', {
+				class: 'ad-cohorts-note',
+				text: `${locked.join(' · ')} unlock once holder history is recorded.`,
+			}),
+		);
+	}
+	return nodes;
+}
+
+async function renderHolderCohorts(box, mint) {
+	box.classList.add('ad-cohorts');
+	box.replaceChildren(cohortsSkeleton());
+	let data;
+	try {
+		const r = await fetch(`/api/coin/${encodeURIComponent(mint)}/cohorts`, {
+			credentials: 'include',
+		});
+		if (!r.ok) throw new Error(String(r.status));
+		data = await r.json();
+	} catch {
+		box.replaceChildren(cohortsErrorState(() => renderHolderCohorts(box, mint)));
+		return;
+	}
+	box.replaceChildren(...cohortsView(data));
+}
+
 function renderService(svc) {
 	const meta = SERVICE_TYPES[svc.type] || { tag: (svc.type || '').toUpperCase() };
 	const head = el('div', { class: 'ad-svc-head' }, [
@@ -202,6 +339,12 @@ function render(agent) {
 			text: `View on ${agent.token.cluster === 'devnet' ? 'Solana Explorer' : 'pump.fun'} →`,
 		});
 		$('ad-token-body').appendChild(viewBtn);
+
+		// Live holder segmentation for this token — fire-and-forget; the panel
+		// renders its own loading / empty / error / populated states.
+		const cohortsBox = el('div', { class: 'ad-cohorts' });
+		$('ad-token-body').appendChild(cohortsBox);
+		renderHolderCohorts(cohortsBox, agent.token.mint);
 	} else if (agent.isOwner) {
 		$('ad-token-body').classList.remove('ad-muted');
 		$('ad-token-body').textContent = '';

@@ -15,6 +15,7 @@
 // direct_prompt (IBM Granite) rewrites a rough idea into an optimized 3D spec.
 // generate_material (IBM Granite) emits a glTF PBR material from a description.
 
+import { createHash } from 'node:crypto';
 import { limits } from '../../_lib/rate-limit.js';
 import { assertSafePublicUrl } from '../../_lib/ssrf-guard.js';
 import { createRegenProvider as createReplicateProvider } from '../../_providers/replicate.js';
@@ -237,6 +238,94 @@ async function submitGeometryJob({ req, args, backendId, isImageMode, prompt, pr
 	};
 }
 
+// Poll whichever upstream owns a job. A bare id (legacy / image-TRELLIS path)
+// polls Replicate. A forge token (f1.*) decodes to the geometry provider
+// (Meshy/Tripo, BYOK re-resolved per poll) or the self-hosted GCP backend.
+async function pollAnyProvider(req, jobId) {
+	const token = decodeJobToken(jobId);
+	if (token) {
+		if (token.provider === 'meshy' || token.provider === 'tripo') {
+			const key = await resolveProviderKey(req, null, token.provider);
+			if (!key) {
+				return {
+					status: 'failed',
+					error:
+						'Your provider API key is required to check this job. Send it as the x-forge-provider-key header and retry.',
+				};
+			}
+			const gp = token.provider === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+			return gp.status({ kind: token.kind, taskId: token.taskId });
+		}
+		if (token.provider === 'gcp') {
+			let gcp;
+			try {
+				gcp = createGcpProvider();
+			} catch {
+				return { status: 'failed', error: 'The self-hosted reconstruction backend is not configured.' };
+			}
+			return gcp.status(token.taskId);
+		}
+		return regenProvider().status(token.taskId);
+	}
+	return regenProvider().status(jobId);
+}
+
+// ── pose_model: deterministic preset selection (ported from the pose-seed tool) ─
+function poseTokensOf(str) {
+	return String(str || '').toLowerCase().split(/[^a-z0-9]+/g).filter(Boolean);
+}
+const POSE_INDEX = PRESETS.map((preset) => {
+	const idTokens = poseTokensOf(preset.id);
+	const labelTokens = poseTokensOf(preset.label);
+	const groupTokens = poseTokensOf(preset.group);
+	return { preset, all: new Set([...idTokens, ...labelTokens, ...groupTokens]), idTokens, labelTokens };
+});
+function scorePosePreset(promptTokens, entry) {
+	let score = 0;
+	for (const t of promptTokens) {
+		if (entry.all.has(t)) score += 3;
+		else {
+			for (const tok of [...entry.idTokens, ...entry.labelTokens]) {
+				if (tok.includes(t) || t.includes(tok)) { score += 1; break; }
+			}
+		}
+	}
+	return score;
+}
+function pickPosePreset(prompt) {
+	const tokens = poseTokensOf(prompt);
+	const deterministic = () => {
+		const hash = createHash('sha256').update(String(prompt)).digest();
+		return { entry: POSE_INDEX[hash.readUInt32BE(0) % POSE_INDEX.length], score: 0, reason: 'no-match-deterministic-pick' };
+	};
+	if (tokens.length === 0) return deterministic();
+	let best = null;
+	let bestScore = -1;
+	for (const entry of POSE_INDEX) {
+		const sc = scorePosePreset(tokens, entry);
+		if (sc > bestScore) { best = entry; bestScore = sc; }
+	}
+	if (bestScore <= 0) return deterministic();
+	return { entry: best, score: bestScore, reason: 'token-match' };
+}
+const POSE_PREVIEW_BASE = process.env.MCP_POSE_PREVIEW_BASE || 'https://three.ws/pose';
+
+// ── IBM Granite (watsonx.ai) config guard for direct_prompt / generate_material ─
+function graniteConfigOrThrow() {
+	const cfg = watsonxConfig();
+	if (!cfg.configured) {
+		throw rpcError(
+			-32000,
+			'IBM watsonx.ai is not configured on this server (set WATSONX_API_KEY and WATSONX_PROJECT_ID).',
+		);
+	}
+	return cfg;
+}
+function stripJsonFence(text) {
+	const raw = String(text || '').trim();
+	return raw.startsWith('```') ? raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '') : raw;
+}
+
 export const toolDefs = [
 	{
 		name: 'text_to_3d',
@@ -256,28 +345,56 @@ export const toolDefs = [
 					type: 'string',
 					enum: ['1:1', '4:3', '3:4', '16:9', '9:16'],
 					default: '1:1',
-					description: 'Aspect ratio of the intermediate reference image.',
+					description: 'Aspect ratio of the intermediate reference image (image path only).',
+					},
+					tier: TIER_PROP,
+					path: PATH_PROP,
+					backend: BACKEND_PROP,
+					__ASPECT_CLOSE__: {
 				},
 			},
 			required: ['prompt'],
 			additionalProperties: false,
 		},
-		async handler(args, auth) {
+		async handler(args, auth, req) {
 			await enforce(limits.mcp3dGenerate, auth);
+			const path = parsePathArg(args);
+			const tier = resolveTier(parseTierArg(args));
+			const backendId = resolveBackendId({ path, backend: args.backend });
+
+			// Geometry-first path (Meshy/Tripo, BYOK) — native text→mesh.
+			if (path === 'geometry') {
+				return submitGeometryJob({
+					req,
+					args,
+					backendId,
+					isImageMode: false,
+					prompt: args.prompt,
+					primaryImage: null,
+					tier,
+					path,
+				});
+			}
+
+			// Image path (default): synthesize a reference image, then reconstruct.
 			const provider = regenProvider();
 			const { imageUrl, model } = await textToImage(args.prompt, {
 				aspectRatio: args.aspect_ratio || '1:1',
 			});
-			const job = await provider.submit({
-				mode: 'reconstruct',
-				params: { image: imageUrl, prompt: args.prompt },
-			});
+			// Only poly-aware backends accept a budget; TRELLIS would 422 on an
+			// unknown field, so the tier rides along as provenance only there.
+			const params = { image: imageUrl, prompt: args.prompt };
+			if (BACKENDS[backendId].polyControl) {
+				params.target_polycount = tier.polycount;
+				params.tier = tier.id;
+			}
+			const job = await provider.submit({ mode: 'reconstruct', params });
 			return {
 				content: [
 					{
 						type: 'text',
 						text:
-							`Started generating a 3D model for "${args.prompt}".\n` +
+							`Started generating a 3D model for "${args.prompt}" (${tier.id} tier).\n` +
 							`Reference image: ${imageUrl}\n` +
 							`Job ID: ${job.extJobId}\n${POLL_HINT}`,
 					},
@@ -286,6 +403,9 @@ export const toolDefs = [
 					job_id: job.extJobId,
 					status: 'queued',
 					prompt: args.prompt,
+					path,
+					tier: tier.id,
+					backend: backendId,
 					preview_image_url: imageUrl,
 					text_to_image_model: model,
 					eta_seconds: job.eta,
@@ -318,10 +438,13 @@ export const toolDefs = [
 					maxLength: 1000,
 					description: 'Optional text hint passed to the reconstruction model.',
 				},
+				tier: TIER_PROP,
+				path: PATH_PROP,
+				backend: BACKEND_PROP,
 			},
 			additionalProperties: false,
 		},
-		async handler(args, auth) {
+		async handler(args, auth, req) {
 			await enforce(limits.mcp3dGenerate, auth);
 
 			// Merge the multi-view array form with the single image_url, de-duped
@@ -363,11 +486,35 @@ export const toolDefs = [
 				}
 			}
 
+			const path = parsePathArg(args);
+			const tier = resolveTier(parseTierArg(args));
+			const backendId = resolveBackendId({ path, backend: args.backend });
+
+			// Geometry-first path (Meshy/Tripo, BYOK) reconstructs from the primary
+			// view; multi-view fusion stays on the image/TRELLIS path below.
+			if (path === 'geometry') {
+				return submitGeometryJob({
+					req,
+					args,
+					backendId,
+					isImageMode: true,
+					prompt: args.prompt,
+					primaryImage: views[0],
+					tier,
+					path,
+				});
+			}
+
 			const provider = regenProvider();
+			const reconstructParams = { images: views, prompt: args.prompt };
+			if (BACKENDS[backendId].polyControl) {
+				reconstructParams.target_polycount = tier.polycount;
+				reconstructParams.tier = tier.id;
+			}
 			const job = await provider.submit({
 				mode: 'reconstruct',
 				sourceUrl: views[0],
-				params: { images: views, prompt: args.prompt },
+				params: reconstructParams,
 			});
 			const viewsUsed = typeof job.viewsUsed === 'number' ? job.viewsUsed : views.length;
 			const multiview = Boolean(job.multiview);
@@ -390,7 +537,9 @@ export const toolDefs = [
 					views_requested: views.length,
 					views_used: viewsUsed,
 					multiview,
-					backend: job.backend ?? null,
+					path,
+					tier: tier.id,
+					backend: job.backend ?? backendId ?? null,
 					eta_seconds: job.eta,
 				},
 			};
@@ -414,10 +563,9 @@ export const toolDefs = [
 			required: ['job_id'],
 			additionalProperties: false,
 		},
-		async handler(args, auth) {
+		async handler(args, auth, req) {
 			await enforce(limits.mcp3dStatus, auth);
-			const provider = regenProvider();
-			const result = await provider.status(args.job_id);
+			const result = await pollAnyProvider(req, args.job_id);
 
 			if (result.status === 'done' && result.resultGlbUrl) {
 				const glbUrl = result.resultGlbUrl;
@@ -1023,6 +1171,211 @@ export const toolDefs = [
 					color: args.color || null,
 					eta_seconds: job.eta,
 				},
+			};
+		},
+	},
+	{
+		name: 'auto_rig_model',
+		title: 'Auto-rig a static 3D model (skeleton + skin weights)',
+		description:
+			'Turn a static GLB mesh into an animation-ready character: adds a humanoid skeleton and per-vertex skin weights via the three.ws rig pipeline (VAST-AI UniRig). Pairs with text_to_3d / image_to_3d — generate a mesh, then rig it, then drive it with apply_animation or pose_model. Returns a job_id; poll generation_status for the rigged GLB.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				glb_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the static GLB mesh to rig.',
+				},
+			},
+			required: ['glb_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.glb_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: glb_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			const provider = regenProvider('rerig');
+			if (!provider.supportsMode('rerig')) {
+				return {
+					content: [{ type: 'text', text: 'Auto-rigging is not configured on this deployment.' }],
+					isError: true,
+				};
+			}
+			const job = await provider.submit({ mode: 'rerig', sourceUrl: args.glb_url, params: {} });
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Auto-rigging started.\nJob ID: ${job.extJobId}\n` +
+							'Poll with generation_status — when done it returns a rigged, animation-ready GLB. Typically completes in 30–90 seconds.',
+					},
+				],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_glb_url: args.glb_url,
+					eta_seconds: typeof job.eta === 'number' ? job.eta : null,
+				},
+			};
+		},
+	},
+	{
+		name: 'pose_model',
+		title: 'Resolve a text prompt to a pose-studio seed + joint rotations',
+		description:
+			'Map a natural-language pose description to a deterministic pose-studio seed and the full Euler joint-rotation map for the three.ws humanoid mannequin, picked from the in-repo preset library. Returns the preset id, the complete pose (radians per joint), a stable seed, and a previewUrl on three.ws/pose. Deterministic and free — the same prompt always yields the same pose. Pair with auto_rig_model to pose a rigged character.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				prompt: {
+					type: 'string',
+					minLength: 1,
+					maxLength: 500,
+					description: 'Pose description, e.g. "warrior stance", "wave hello", "sitting cross-legged".',
+				},
+			},
+			required: ['prompt'],
+			additionalProperties: false,
+		},
+		async handler(args) {
+			const picked = pickPosePreset(args.prompt);
+			const preset = picked.entry.preset;
+			const seed = createHash('sha256').update(`${args.prompt}|${preset.id}`).digest('hex').slice(0, 16);
+			const previewUrl = `${POSE_PREVIEW_BASE}?seed=${encodeURIComponent(seed)}&preset=${encodeURIComponent(preset.id)}`;
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `Pose "${preset.label}" (${preset.group}) — seed ${seed}.\nPreview: ${previewUrl}`,
+					},
+				],
+				structuredContent: {
+					seed,
+					preset_id: preset.id,
+					preset_label: preset.label,
+					group: preset.group,
+					parameters: preset.pose,
+					preview_url: previewUrl,
+					match: { score: picked.score, reason: picked.reason },
+					groups: PRESET_GROUPS,
+				},
+			};
+		},
+	},
+	{
+		name: 'direct_prompt',
+		title: 'Optimize a rough idea into a 3D-generation prompt (IBM Granite)',
+		description:
+			'Rewrite a rough idea into an optimized text_to_3d prompt using IBM Granite. Returns one clean single-subject description plus structured directives (subject, style, materials, colors, detail) that produce cleaner meshes. Run before text_to_3d when a prompt is vague, conflicting, or multi-subject. Requires IBM watsonx.ai credentials on the server.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				idea: {
+					type: 'string',
+					minLength: 1,
+					maxLength: 2000,
+					description: 'The rough idea or prompt to optimize, e.g. "some kind of cool dragon thing".',
+				},
+				style: {
+					type: 'string',
+					maxLength: 200,
+					description: 'Optional style hint, e.g. "low-poly", "realistic", "stylized PBR".',
+				},
+			},
+			required: ['idea'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			const cfg = graniteConfigOrThrow();
+			const system =
+				'You are a 3D-generation prompt director. Given a rough idea, produce a prompt that yields a single, clearly-described object for image-to-3D reconstruction. Return ONLY valid JSON with keys: "prompt" (one concise sentence describing ONE subject), "subject", "style", "materials" (array), "colors" (array), "detail" (one of draft|standard|high), "notes". No markdown, no prose outside the JSON.';
+			const user = args.style ? `${args.idea}\n\nPreferred style: ${args.style}` : args.idea;
+			const result = await watsonxChatComplete(cfg, {
+				messages: [
+					{ role: 'system', content: system },
+					{ role: 'user', content: user },
+				],
+				maxTokens: 700,
+				temperature: 0.3,
+			});
+			let parsed = null;
+			try {
+				parsed = JSON.parse(stripJsonFence(result.text));
+			} catch {
+				// Granite didn't return clean JSON — surface the raw text below.
+			}
+			if (!parsed || typeof parsed.prompt !== 'string') {
+				return {
+					content: [{ type: 'text', text: result.text }],
+					structuredContent: { ok: true, optimized_prompt: null, raw_response: result.text, model: result.model },
+				};
+			}
+			return {
+				content: [{ type: 'text', text: `Optimized prompt: ${parsed.prompt}` }],
+				structuredContent: { ok: true, optimized_prompt: parsed.prompt, spec: parsed, model: result.model, usage: result.usage },
+			};
+		},
+	},
+	{
+		name: 'generate_material',
+		title: 'Generate a glTF PBR material from a description (IBM Granite)',
+		description:
+			'Generate a physically-based (PBR) glTF 2.0 material from a text description using IBM Granite — base color, metallic, roughness, and emissive factors. Returns a pbrMetallicRoughness material object you can attach to a generated mesh. Requires IBM watsonx.ai credentials on the server.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				description: {
+					type: 'string',
+					minLength: 3,
+					maxLength: 500,
+					description: 'Material to describe, e.g. "worn copper, scratched, slightly oxidized".',
+				},
+				name: {
+					type: 'string',
+					maxLength: 100,
+					description: 'Optional material name.',
+				},
+			},
+			required: ['description'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			const cfg = graniteConfigOrThrow();
+			const system =
+				'You are a 3D material author. Given a description, return ONLY a valid glTF 2.0 material JSON object with keys: "name", "pbrMetallicRoughness" { "baseColorFactor": [r,g,b,a] (0-1), "metallicFactor" (0-1), "roughnessFactor" (0-1) }, "emissiveFactor": [r,g,b] (0-1), "doubleSided" (bool), and a "_notes" string. No markdown, no prose outside the JSON.';
+			const user = args.name ? `Name: ${args.name}\nMaterial: ${args.description}` : args.description;
+			const result = await watsonxChatComplete(cfg, {
+				messages: [
+					{ role: 'system', content: system },
+					{ role: 'user', content: user },
+				],
+				maxTokens: 600,
+				temperature: 0.2,
+			});
+			let material = null;
+			try {
+				material = JSON.parse(stripJsonFence(result.text));
+			} catch {
+				// Fall through to raw text when Granite returns non-JSON.
+			}
+			if (!material || typeof material !== 'object') {
+				return {
+					content: [{ type: 'text', text: result.text }],
+					structuredContent: { ok: true, material: null, raw_response: result.text, model: result.model },
+				};
+			}
+			if (args.name && !material.name) material.name = args.name;
+			return {
+				content: [{ type: 'text', text: `Generated glTF material${material.name ? ` "${material.name}"` : ''}.` }],
+				structuredContent: { ok: true, material, model: result.model, usage: result.usage },
 			};
 		},
 	},
