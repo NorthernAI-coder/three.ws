@@ -448,6 +448,10 @@
 			"dest": "/three-live.html"
 		},
 		{
+			"src": "/three-token/?",
+			"dest": "/three-token.html"
+		},
+		{
 			"src": "/go/?",
 			"dest": "/go.html"
 		},

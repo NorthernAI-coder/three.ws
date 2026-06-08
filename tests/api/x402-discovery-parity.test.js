@@ -24,8 +24,8 @@ const EXCLUSIONS = new Map([
 	[
 		'/api/x402/permit2-paid-demo',
 		'CDP-only: its sole accept is a Permit2 sibling that permit2VariantOf() ' +
-			'returns null for without CDP creds, so the live 402 (and thus the catalog) ' +
-			'catalog) omits the route entirely in non-CDP environments.',
+			'returns null without CDP creds, so the live 402 (and thus the catalog) ' +
+			'omits the route entirely in non-CDP environments.',
 	],
 ]);
 

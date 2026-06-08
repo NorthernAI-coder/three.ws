@@ -163,6 +163,11 @@ export const limits = {
 	// `authIp` budget shared by on-chain buy/sell/launch actions. Iterating in
 	// the launch wizard would otherwise lock the user out of trading for 10 min.
 	pumpMetaIp: (ip) => getLimiter('pump:meta:ip', { limit: 60, window: '10 m' }).limit(ip),
+	// Live holder-cohort reads (api/coin/:mint/cohorts for un-snapshotted agent
+	// tokens) fan out to a paid Helius getTokenAccounts walk. Responses are CDN-
+	// cached, so this only gates cache-miss origin hits — generous for an
+	// interactive panel, tight enough that one IP can't run up the Helius bill.
+	cohortsIp: (ip) => getLimiter('cohorts:ip', { limit: 45, window: '5 m' }).limit(ip),
 	oauthRegisterIp: (ip) =>
 		getLimiter('oauth:register:ip', { limit: 10, window: '1 h' }).limit(ip),
 	// aixbt intelligence bridge (api/aixbt/*). Each call may fall through to the
