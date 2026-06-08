@@ -149,7 +149,7 @@
 		"@octokit/rest": "^22.0.1",
 		"@pixiv/three-vrm": "^3.5.3",
 		"@privy-io/js-sdk-core": "^0.67.0",
-		"@pump-fun/agent-payments-sdk": "^3.1.0",
+		"@pump-fun/agent-payments-sdk": "^3.0.3",
 		"@pump-fun/pump-sdk": "^1.36.0",
 		"@pump-fun/pump-swap-sdk": "^1.17.0",
 		"@pythnetwork/hermes-client": "^3.1.0",

@@ -1490,7 +1490,7 @@ async function handleRunBuyback(req, res) {
 
 			const { offline } = await getPumpAgentOffline({ network: m.network, mint: m.mint });
 			const [{ PUMP_PROGRAM_ID }] = await Promise.all([
-				import('@pump-fun/agent-payments-sdk'),
+				import('@three-ws/agent-payments'),
 			]);
 
 			const payerPk = relayer ? relayer.publicKey : solanaPubkey(m.mint);

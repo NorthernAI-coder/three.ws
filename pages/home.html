@@ -2560,8 +2560,9 @@
 			<a href="/pricing">Pricing</a>
 		</nav>
 		<div class="nav-end">
-			<a href="/login">Sign in</a>
-			<a class="console" href="/dashboard">Console →</a>
+			<a href="/my-agents" data-auth="in" hidden>My Agents</a>
+			<a href="/login" data-auth="out">Sign in</a>
+			<a class="console" href="/dashboard" data-auth-name>Console →</a>
 		</div>
 		<button class="nav-toggle" aria-label="Menu" aria-expanded="false" id="nav-toggle">
 			<svg class="open" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>
@@ -2628,7 +2629,8 @@
 	<div class="dr-h">More</div>
 	<a href="/pricing">Pricing</a>
 	<div class="sep"></div>
-	<a href="/login">Sign in</a>
+	<a href="/my-agents" data-auth="in" hidden>My Agents</a>
+	<a href="/login" data-auth="out">Sign in</a>
 	<a class="btn btn--primary" href="/dashboard" style="margin-top:4px;">Console →</a>
 </nav>
 <script>
@@ -2653,6 +2655,23 @@
 		window.addEventListener('resize', function () {
 			if (window.innerWidth > 880 && isOpen()) setOpen(false);
 		});
+	})();
+
+	// Auth-aware nav: swap "Sign in" for the account entry points when the visitor
+	// is signed in. Shared with the site-wide header (public/nav.js) via
+	// /nav-auth.js so the two navs never drift — see that module for the
+	// hint-then-reconcile-against-/api/auth/me strategy and data-auth contract.
+	(function () {
+		if (typeof window.initNavAuth === 'function') {
+			window.initNavAuth(document);
+			return;
+		}
+		var s = document.createElement('script');
+		s.src = '/nav-auth.js';
+		s.addEventListener('load', function () {
+			if (typeof window.initNavAuth === 'function') window.initNavAuth(document);
+		});
+		document.head.appendChild(s);
 	})();
 
 		// Desktop nav dropdowns — hover to open, click/keyboard for touch + a11y

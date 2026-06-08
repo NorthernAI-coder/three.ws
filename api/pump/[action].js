@@ -1866,7 +1866,7 @@ async function handlePaymentsList(req, res) {
 	if (needsPda.length > 0) {
 		try {
 			const [{ getInvoiceIdPDA }, { PublicKey }] = await Promise.all([
-				import('@pump-fun/agent-payments-sdk'),
+				import('@three-ws/agent-payments'),
 				import('@solana/web3.js'),
 			]);
 			const BN = (await import('bn.js')).default || (await import('bn.js'));

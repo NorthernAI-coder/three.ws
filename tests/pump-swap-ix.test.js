@@ -50,7 +50,7 @@ const {
 	feeSharingConfigPda,
 	userVolumeAccumulatorPda,
 } = await import('@pump-fun/pump-sdk');
-const { getBuybackAuthorityPDA } = await import('@pump-fun/agent-payments-sdk');
+const { getBuybackAuthorityPDA } = await import('@three-ws/agent-payments');
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 

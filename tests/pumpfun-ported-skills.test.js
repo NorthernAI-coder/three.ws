@@ -6,7 +6,7 @@ const { mockValidateInvoicePayment, mockGetInvoiceIdPDA } = vi.hoisted(() => ({
 	mockGetInvoiceIdPDA: vi.fn(),
 }));
 
-vi.mock('@pump-fun/agent-payments-sdk', () => {
+vi.mock('@three-ws/agent-payments', () => {
 	class PumpAgent {
 		validateInvoicePayment(...args) { return mockValidateInvoicePayment(...args); }
 		buildAcceptPaymentInstructions() { return Promise.resolve([]); }
