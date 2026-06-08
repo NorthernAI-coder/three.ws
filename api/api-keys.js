@@ -1,7 +1,7 @@
 import { randomToken, sha256 } from './_lib/crypto.js';
 import { sql } from './_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from './_lib/auth.js';
-import { cors, json, error, wrap, method, readJson } from './_lib/http.js';
+import { cors, json, error, wrap, method, readJson, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { requireCsrf } from './_lib/csrf.js';
 import { parse } from './_lib/validate.js';
@@ -31,7 +31,7 @@ export default wrap(async (req, res) => {
 	const userId = session?.id ?? bearer.userId;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'GET') {
 		const rows = await sql`

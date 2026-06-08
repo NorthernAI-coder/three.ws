@@ -4,7 +4,7 @@
 import { createHash, createHmac } from 'node:crypto';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 import { llmComplete, LlmUnavailableError } from '../../_lib/llm.js';
@@ -56,7 +56,7 @@ export const handlePersona = wrap(async (req, res, id, action) => {
 	if (req.method === 'POST' && action === 'extract') {
 		const rl = await limits.personaExtract(auth.userId);
 		if (!rl.success)
-			return error(res, 429, 'rate_limited', 'persona extraction limit reached (5 per day)');
+			return rateLimited(res, rl, 'persona extraction limit reached (5 per day)');
 
 		const body = parse(extractBody, await readJson(req));
 		const { answers } = body;

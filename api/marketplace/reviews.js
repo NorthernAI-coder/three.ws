@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 
@@ -63,7 +63,7 @@ async function handleList(req, res, agentId) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [agent] = await sql`
 		SELECT id FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL
@@ -146,7 +146,7 @@ async function handleUpsert(req, res, agentId) {
 	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [agent] = await sql`
 		SELECT id, user_id FROM agent_identities
@@ -202,7 +202,7 @@ async function handleDelete(req, res, agentId) {
 	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	await sql`DELETE FROM agent_reviews WHERE agent_id = ${agentId} AND user_id = ${auth.userId}`;
 	return json(res, 200, { data: { deleted: true } });

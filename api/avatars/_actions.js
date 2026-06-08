@@ -7,7 +7,7 @@ import { storageKeyFor, enforceQuotas, searchPublicAvatars, stripOwnerFor } from
 import { listAvatars } from '../_lib/avatars.js';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { parse, presignUploadBody, slug as slugSchema, createAvatarBody } from '../_lib/validate.js';
 import { recordEvent } from '../_lib/usage.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -35,7 +35,7 @@ const handlePresign = wrap(async (req, res) => {
 	const userId = await resolvePresignUser(req, 'avatars:write');
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 	const rl = await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'upload rate exceeded');
+	if (!rl.success) return rateLimited(res, rl, 'upload rate exceeded');
 	const body = parse(presignUploadBody, await readJson(req));
 	try { await enforceQuotas(userId, body.size_bytes); }
 	catch (err) { return error(res, err.status || 402, err.code || 'plan_limit', err.message); }
@@ -74,7 +74,7 @@ const handleUpload = wrap(async (req, res) => {
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 	if (!(await requireCsrf(req, res, userId))) return;
 	const rl = await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'upload rate exceeded');
+	if (!rl.success) return rateLimited(res, rl, 'upload rate exceeded');
 
 	const url = new URL(req.url, 'http://x');
 	const rawContentType = url.searchParams.get('content_type') || req.headers['content-type'] || 'model/gltf-binary';
@@ -347,7 +347,7 @@ const handleRegenerate = wrap(async (req, res) => {
 	const userId = await resolveRegenUser(req);
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 	const rl = await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(regenerateSchema, await readJson(req));
 	const rows = await sql`select id, name, storage_key from avatars where id = ${body.sourceAvatarId} and owner_id = ${userId} and deleted_at is null limit 1`;
 	if (!rows[0]) return error(res, 404, 'not_found', 'source avatar not found or not owned');
@@ -828,7 +828,7 @@ const handleReconstruct = wrap(async (req, res) => {
 	const userId = await resolveRegenUser(req);
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 	const rl = await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(reconstructSchema, await readJson(req));
 
 	let provider;

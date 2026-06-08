@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { sql } from '../../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../../_lib/http.js';
 import { limits, clientIp } from '../../../_lib/rate-limit.js';
 import { parse } from '../../../_lib/validate.js';
 
@@ -54,7 +54,7 @@ export default wrap(async (req, res) => {
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	const rl = await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'upload rate exceeded');
+	if (!rl.success) return rateLimited(res, rl, 'upload rate exceeded');
 
 	const body = parse(bodySchema, await readJson(req));
 

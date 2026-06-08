@@ -13,7 +13,7 @@
  * Requires HELIUS_API_KEY env var.
  */
 
-import { cors, json, method, error, wrap } from '../_lib/http.js';
+import { cors, json, method, error, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 
@@ -40,7 +40,7 @@ export default wrap(async (req, res) => {
 	}
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const op = req.query.op || 'portfolio';
 

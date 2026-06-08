@@ -6,7 +6,7 @@ import { Wallet } from 'ethers';
 import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 import { recoverAgentKey } from '../../_lib/agent-wallet.js';
@@ -281,7 +281,7 @@ export const handleSign = wrap(async (req, res, id) => {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many sign requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many sign requests');
 
 	const [row] = await sql`SELECT id, user_id, wallet_address, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL LIMIT 1`;
 	if (!row) return error(res, 404, 'not_found', 'agent not found');
@@ -375,7 +375,7 @@ export const handleMemories = wrap(async (req, res, id, memoryId) => {
 
 	// POST
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(memoryBodySchema, await readJson(req));
 	const [row] = await sql`

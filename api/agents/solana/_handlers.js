@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { PublicKey } from '@solana/web3.js';
 import { solanaConnection } from '../../_lib/solana/connection.js';
 import { sql } from '../../_lib/db.js';
-import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { parse } from '../../_lib/validate.js';
@@ -57,7 +57,7 @@ export const handleAttestations = wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url     = new URL(req.url, `http://${req.headers.host}`);
 	const asset   = url.searchParams.get('asset');
@@ -116,7 +116,7 @@ export const handleAttestEvent = wrap(async (req, res) => {
 
 	const startedAt = Date.now();
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const secret = process.env.PUMPKIT_WEBHOOK_SECRET;
 	if (!secret) return error(res, 500, 'internal', 'webhook secret not configured');
@@ -344,7 +344,7 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(registerPrepSchema, await readJson(req));
 	const { name, description, avatar_id, wallet_address, network, asset_pubkey, vanity_prefix } = body;
@@ -499,7 +499,7 @@ export const handleRegisterConfirm = wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(registerConfirmSchema, await readJson(req));
 	const { tx_signature, asset_pubkey, wallet_address, network } = body;
@@ -601,7 +601,7 @@ export const handleEdit = wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(editSchema, await readJson(req));
 	const { asset_pubkey, network } = body;
@@ -711,7 +711,7 @@ export const handleReputation = wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const asset = url.searchParams.get('asset');
@@ -832,7 +832,7 @@ export const handleReputationHistory = wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url   = new URL(req.url, `http://${req.headers.host}`);
 	const asset = url.searchParams.get('asset');

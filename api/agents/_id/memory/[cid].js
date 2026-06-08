@@ -1,6 +1,6 @@
 import { sql } from '../../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../../_lib/auth.js';
-import { cors, method, wrap, error } from '../../../_lib/http.js';
+import { cors, method, wrap, error, rateLimited } from '../../../_lib/http.js';
 import { limits, clientIp } from '../../../_lib/rate-limit.js';
 
 const IPFS_GATEWAYS = [
@@ -55,7 +55,7 @@ export default wrap(async (req, res) => {
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	// Bind the CID to this agent's own pinned set. Owning the agent is not enough
 	// — without this the route is a generic authenticated IPFS fetch proxy for any

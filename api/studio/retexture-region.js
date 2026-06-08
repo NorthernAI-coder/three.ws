@@ -14,7 +14,7 @@
 // we actually configured before polling — so a forged token can never steer the
 // server's fetch at an attacker-chosen host (no SSRF, no DB row needed).
 
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { limits } from '../_lib/rate-limit.js';
 import { assertSafePublicUrl } from '../_lib/ssrf-guard.js';
@@ -93,7 +93,7 @@ async function handleSubmit(req, res) {
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 
 	const rl = await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests — try again shortly');
+	if (!rl.success) return rateLimited(res, rl, 'too many requests — try again shortly');
 
 	const body = parse(submitSchema, await readJson(req, 12 * 1024 * 1024));
 

@@ -518,6 +518,14 @@ function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Pay-As-You-Learn Tutor',
 			tags: ['tutor', 'education', 'llm', 'explain', 'pay-per-call'],
 		}),
+			cryptoIntel: withService({
+				serviceName: 'three.ws Crypto Intel',
+				tags: ['crypto', 'market', 'signal', 'agent-exchange', 'solana'],
+		}),
+			avatarShop: withService({
+				serviceName: 'three.ws Avatar Shop',
+				tags: ['3d', 'avatar', 'cosmetic', 'shop', 'wearable'],
+		}),
 	};
 
 	// USE-13: per-tool MCP catalog entries. Each priced tool is its own
@@ -1197,6 +1205,83 @@ function handleX402Discovery(req, res) {
 										enum: ['beginner', 'intermediate', 'expert'],
 										description:
 											'Target expertise level — controls depth and assumed background.',
+									},
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/crypto-intel`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/crypto-intel',
+						url,
+						method: 'POST',
+						description:
+							'three.ws Crypto Intel — Agent-to-Agent crypto intelligence feed. Pay $0.01 USDC per call to receive a live market signal (bullish / bearish / neutral) with current price, 24 h change, and a two-sentence rationale. Powered by CoinGecko live prices. Powers the three.ws agent-exchange demo where two 3D avatars trade real intel for real USDC settled on-chain.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.cryptoIntel.serviceName,
+						tags: routeMeta.cryptoIntel.tags,
+						iconUrl: routeMeta.cryptoIntel.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { topic: 'sol' },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									topic: {
+										type: 'string',
+										description:
+											'Token ticker or CoinGecko id: btc, sol, eth, doge, …',
+										default: 'sol',
+									},
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					// Avatar Shop pricing is per-rarity ($0.25 common → $3.00
+					// legendary). The catalog advertises the rare tier ('500000' =
+					// $0.50) as a representative price; the live 402 challenge always
+					// quotes the exact USDC amount for the requested cosmetic id.
+					const url = `${origin}/api/x402/cosmetic-purchase`;
+					const accepts = acceptsForPrice('500000', url);
+					return {
+						path: '/api/x402/cosmetic-purchase',
+						url,
+						method: 'GET',
+						description:
+							'three.ws Avatar Shop — pay once in USDC to unlock a premium avatar cosmetic (skin or emote) for an account. Pay on Base or Solana; the cosmetic is recorded to the buyer-specified account and is wearable across /play and /walk. Wallets that already purchased an item re-confirm for free by signing in with SIWX (CAIP-122). Price varies by rarity ($0.25–$3.00 USDC).',
+						mimeType: 'application/json',
+						serviceName: routeMeta.avatarShop.serviceName,
+						tags: routeMeta.avatarShop.tags,
+						iconUrl: routeMeta.avatarShop.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { id: 'skin-midnight', account: 'g_5f3c9a21b8' },
+							inputSchema: {
+								type: 'object',
+								required: ['id', 'account'],
+								properties: {
+									id: {
+										type: 'string',
+										minLength: 1,
+										maxLength: 64,
+										description:
+											'Premium cosmetic id from /api/cosmetics/catalog.',
+									},
+									account: {
+										type: 'string',
+										minLength: 3,
+										maxLength: 64,
+										description:
+											'Account the cosmetic is granted to — a Solana wallet address or a guest id (g_…).',
 									},
 								},
 							},

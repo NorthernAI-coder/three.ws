@@ -15,7 +15,7 @@ import {
 	LAMPORTS_PER_SOL,
 } from '../_lib/avatar-wallet.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
-import { cors, method, json, error, wrap } from '../_lib/http.js';
+import { cors, method, json, error, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const DEFAULT_PRICE_SOL = 0.001;
@@ -157,7 +157,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const cfg = skillConfig();
 	if (!cfg.configured) {

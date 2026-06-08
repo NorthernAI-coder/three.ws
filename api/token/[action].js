@@ -14,7 +14,7 @@
 import { z } from 'zod';
 import { env } from '../_lib/env.js';
 import { getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 import { publicConfig } from '../_lib/token/config.js';
@@ -52,7 +52,7 @@ async function handlePrice(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.tokenPriceIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, 'http://x');
 	const price = await getTokenPriceUsd();
 	const usdParam = url.searchParams.get('usd');
@@ -87,7 +87,7 @@ async function handleQuote(req, res) {
 	const user = await getSessionUser(req, res);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.tokenQuote(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(quoteSchema, await readJson(req));
 	const purpose = PURPOSES[body.purpose];
@@ -146,7 +146,7 @@ async function handleSettle(req, res) {
 	const user = await getSessionUser(req, res);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.tokenSettle(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(settleSchema, await readJson(req));
 	const result = await verifyAndSettlePayment({

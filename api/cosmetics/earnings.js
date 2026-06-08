@@ -6,7 +6,7 @@
 // earnings view in the dashboard. Public read keyed on the wallet (the numbers are
 // derived from public on-chain settlements); no secrets are exposed.
 
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { creatorEarnings, isWallet } from '../_lib/cosmetics-economy.js';
 
@@ -15,7 +15,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const creator = String(url.searchParams.get('creator') || '').trim();

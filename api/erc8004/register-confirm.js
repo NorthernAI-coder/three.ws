@@ -2,7 +2,7 @@ import { id as keccakId, getAddress } from 'ethers';
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { CHAIN_BY_ID } from '../_lib/erc8004-chains.js';
@@ -26,7 +26,7 @@ export default wrap(async (req, res) => {
 	if (bearer && !hasScope(bearer.scope, 'avatars:write'))
 		return error(res, 403, 'insufficient_scope', 'avatars:write scope required');
 	const rl = await limits.registerIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(bodySchema, await readJson(req));
 	const chain = CHAIN_BY_ID[body.chainId];
 	if (!chain) return error(res, 400, 'bad_request', `unsupported chain ${body.chainId}`);

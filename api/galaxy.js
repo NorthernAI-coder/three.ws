@@ -19,7 +19,7 @@
  */
 
 import { sql } from './_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { publicUrl } from './_lib/r2.js';
 import { watsonxConfig, watsonxEmbed, watsonxChatComplete } from './_lib/watsonx.js';
@@ -60,7 +60,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const cfg = watsonxConfig();
 	if (!cfg.configured) {

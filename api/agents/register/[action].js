@@ -4,7 +4,7 @@
 
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
 import { parse } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
@@ -91,7 +91,7 @@ async function handlePrep(req, res) {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(prepSchema, await readJson(req));
 	const [avatar] = await sql`select id from avatars where id = ${body.avatarId} and owner_id = ${session.id} and deleted_at is null limit 1`;
 	if (!avatar) return error(res, 404, 'not_found', 'avatar not found');
@@ -145,7 +145,7 @@ async function handleConfirm(req, res) {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(confirmSchema, await readJson(req));
 	const chainMeta = SERVER_CHAIN_META[body.chainId];
 	if (!chainMeta) return error(res, 400, 'bad_request', `unsupported chain ${body.chainId}`);

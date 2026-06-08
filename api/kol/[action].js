@@ -3,7 +3,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 // ── wallets (Birdeye P&L proxy) ───────────────────────────────────────────────
@@ -71,7 +71,7 @@ async function handleWallets(req, res) {
 	if (!apiKey) return error(res, 503, 'birdeye_not_configured', 'Birdeye API key not configured');
 
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const addresses = (url.searchParams.get('addresses') ?? '')
@@ -122,7 +122,7 @@ async function handleImportGmgn(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['POST'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const body = await readJson(req);
 	if (!body || body.rawJson == null)
 		return error(res, 400, 'validation_error', 'body.rawJson is required');
@@ -147,7 +147,7 @@ async function handleLeaderboard(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const window = url.searchParams.get('window') || '7d';
 	const limitRaw = url.searchParams.get('limit');

@@ -10,7 +10,7 @@
 // handleAutoTag for the Anthropic call.
 
 import { z } from 'zod';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
@@ -104,7 +104,7 @@ export default wrap(async (req, res) => {
 		return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many synthesis requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many synthesis requests');
 
 	const body = parse(bodySchema, await readJson(req));
 

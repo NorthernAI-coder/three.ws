@@ -13,7 +13,7 @@ import {
 	hasScope,
 } from '../../_lib/auth.js';
 import { sql } from '../../_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse, isUuid } from '../../_lib/validate.js';
 import {
@@ -84,7 +84,7 @@ async function handleAgentsByAvatar(req, res) {
 	if (!id) return error(res, 400, 'invalid_request', 'id required');
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (String(id).startsWith('avatar_demo_')) {
 		return json(res, 200, { agents: [] });
@@ -259,7 +259,7 @@ async function handleRollback(req, res) {
 	const userId = session?.id ?? bearer.userId;
 
 	const rl = await limits.avatarRollback(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const { versionId } = parse(rollbackBodySchema, await readJson(req));
 
@@ -311,7 +311,7 @@ async function handleSession(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.upload(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests, try again later');
+	if (!rl.success) return rateLimited(res, rl, 'too many requests, try again later');
 
 	// 404 (not 403) when not found or not owned — mirrors [id].js.
 	const avatar = await getAvatar({ id, requesterId: auth.userId });

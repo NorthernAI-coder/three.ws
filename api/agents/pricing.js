@@ -6,7 +6,7 @@
  */
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { z } from 'zod';
 
@@ -33,7 +33,7 @@ export default wrap(async (req, res) => {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const parts = url.pathname.split('/').filter(Boolean);

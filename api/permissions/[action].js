@@ -18,7 +18,7 @@ import { evmFallbackProvider } from '../_lib/evm/rpc.js';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
 import { env } from '../_lib/env.js';
@@ -109,7 +109,7 @@ async function handleGrant(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.permissionsGrant(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const raw = await readJson(req);
 	const parsed = grantBodySchema.safeParse(raw);
@@ -317,7 +317,7 @@ async function handleList(req, res) {
 	}
 
 	const rl = await limits.read(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('agentId') || null;
@@ -489,7 +489,7 @@ async function handleMetadata(req, res) {
 	}
 
 	const rl = await limits.read(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('agentId');
@@ -688,7 +688,7 @@ async function handleRedeem(req, res) {
 	// Rate limit — strict bucket since each request costs gas
 	const ip = clientIp(req);
 	const rl = await limits.strict(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	// Auth — agent bearer only (no user sessions on this machine endpoint)
 	const token = extractBearer(req);
@@ -973,7 +973,7 @@ async function handleRevoke(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.permissionsRevoke(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const raw = await readJson(req);
 	const parsed = revokeBodySchema.safeParse(raw);
@@ -1116,7 +1116,7 @@ async function handleVerify(req, res) {
 	}
 
 	const rl = await limits.read(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const hash = url.searchParams.get('hash');

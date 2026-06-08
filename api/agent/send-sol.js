@@ -13,7 +13,7 @@
 // IP rate-limit, optional shared-secret header (AVATAR_DEMO_TOKEN).
 
 import { z } from 'zod';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import {
@@ -67,7 +67,7 @@ export default wrap(async (req, res) => {
 	}
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many payout requests, try again shortly');
+	if (!rl.success) return rateLimited(res, rl, 'too many payout requests, try again shortly');
 
 	const body = parse(bodySchema, await readJson(req));
 

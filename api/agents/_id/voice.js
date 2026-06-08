@@ -8,7 +8,7 @@
 
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
 import { limits } from '../../_lib/rate-limit.js';
 import {
 	isConfigured,
@@ -224,7 +224,7 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 		// Rate limit: 3 clones per user per day.
 		const rl = await limits.voiceClone(auth.userId);
 		if (!rl.success)
-			return error(res, 429, 'rate_limited', 'voice clone limit reached (3 per day)');
+			return rateLimited(res, rl, 'voice clone limit reached (3 per day)');
 
 		// Client can send recording duration in seconds so we can reject short clips
 		// without decoding the audio.

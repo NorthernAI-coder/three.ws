@@ -16,7 +16,7 @@ import {
 	hmacSha256,
 	constantTimeEquals,
 } from '../../_lib/crypto.js';
-import { cors, method, wrap, error, redirect } from '../../_lib/http.js';
+import { cors, method, wrap, error, redirect, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 
@@ -118,7 +118,7 @@ async function handleConnect(req, res) {
 	}
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');

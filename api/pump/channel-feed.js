@@ -1,4 +1,4 @@
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getMints, getWhales, getClaims } from '../_lib/channel-feed-sources.js';
 
@@ -7,7 +7,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const kindsParam = url.searchParams.get('kinds');

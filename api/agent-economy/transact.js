@@ -17,7 +17,7 @@
 // The caller UI degrades gracefully: it shows the conversation without the tx.
 
 import { z } from 'zod';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import {
@@ -80,7 +80,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.agentEconomyIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(bodySchema, await readJson(req));
 	const svc = SERVICES[body.service];

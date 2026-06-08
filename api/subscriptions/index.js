@@ -11,7 +11,7 @@
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { chargeSubscription } from '../_lib/subscription-billing.js';
@@ -42,7 +42,7 @@ async function handleMine(req, res) {
 
 	const ip = clientIp(req);
 	const rl = await limits.publicIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const rows = await sql`
 		SELECT
@@ -66,7 +66,7 @@ async function handleSubscribe(req, res) {
 
 	const ip = clientIp(req);
 	const rl = await limits.publicIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(subscribeSchema, await readJson(req));
 

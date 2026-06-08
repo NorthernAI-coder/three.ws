@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { sql } from './_lib/db.js';
 import { getSessionUser } from './_lib/auth.js';
-import { cors, json, error, wrap, readJson, method } from './_lib/http.js';
+import { cors, json, error, wrap, readJson, method, rateLimited } from './_lib/http.js';
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 
@@ -56,7 +56,7 @@ export default wrap(async (req, res) => {
 
 		const ip = clientIp(req);
 		const rl = await limits.authIp(ip);
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		// Verify ownership via agent_id → user_id chain
 		const [row] = await sql`
@@ -88,7 +88,7 @@ export default wrap(async (req, res) => {
 
 		const ip = clientIp(req);
 		const rl = await limits.authIp(ip);
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		// Confirm session user owns this agent
 		const [agent] = await sql`
@@ -128,7 +128,7 @@ export default wrap(async (req, res) => {
 
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
 	try {

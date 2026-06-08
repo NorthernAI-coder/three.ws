@@ -16,7 +16,7 @@
 // (getProgramAccounts, getBlock*) that would let an anonymous caller drain the
 // upstream quota.
 
-import { cors, method, wrap, readJson, error } from './_lib/http.js';
+import { cors, method, wrap, readJson, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 
 const PUBLIC_MAINNET = 'https://api.mainnet-beta.solana.com';
@@ -83,7 +83,7 @@ export default wrap(async function handler(req, res) {
 	const ip = clientIp(req);
 	const [ipRl, globalRl] = await Promise.all([limits.solanaRpcIp(ip), limits.solanaRpcGlobal()]);
 	if (!ipRl.success || !globalRl.success) {
-		return error(res, 429, 'rate_limited', 'too many RPC requests');
+		return rateLimited(res, ipRl, 'too many RPC requests');
 	}
 
 	const url = new URL(req.url, 'http://x');

@@ -1,5 +1,5 @@
 import { env } from '../_lib/env.js';
-import { cors, error, json, method, wrap, readJson } from '../_lib/http.js';
+import { cors, error, json, method, wrap, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const UPGRADE_URL = `${env.APP_ORIGIN}/pricing`;
@@ -18,7 +18,7 @@ export default wrap(async (req, res) => {
 	const rl = await limits.chatIp(ip);
 	if (!rl.success) {
 		res.setHeader('retry-after', '60');
-		return error(res, 429, 'rate_limited', 'too many requests');
+		return rateLimited(res, rl);
 	}
 
 	let body;

@@ -54,7 +54,7 @@ import { z } from 'zod';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { putObject, publicUrl as r2PublicUrl } from '../_lib/r2.js';
 import { env } from '../_lib/env.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -177,7 +177,7 @@ async function handleBalances(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mintStr = url.searchParams.get('mint');
@@ -244,7 +244,7 @@ async function handleBuyPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(buyPrepSchema, await readJson(req));
 	const userPk = solanaPubkey(body.wallet_address);
@@ -406,7 +406,7 @@ async function handleBuyConfirm(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(buyConfirmSchema, await readJson(req));
 
@@ -491,7 +491,7 @@ async function handleSellPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(sellPrepSchema, await readJson(req));
 	const userPk = solanaPubkey(body.wallet_address);
@@ -615,7 +615,7 @@ async function handleSellConfirm(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(sellConfirmSchema, await readJson(req));
 
@@ -680,7 +680,7 @@ async function handleBuildMetadata(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.pumpMetaIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
 	try {
@@ -987,7 +987,7 @@ async function handleLaunchPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(launchPrepSchema, await readJson(req));
 	const signer = solanaPubkey(body.wallet_address);
@@ -1175,7 +1175,7 @@ async function handleLaunchConfirm(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(launchConfirmSchema, await readJson(req));
 
@@ -1270,7 +1270,7 @@ async function handleAgentWallet(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(agentWalletSchema, await readJson(req));
 
@@ -1352,7 +1352,7 @@ async function handleLaunchAgent(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(launchAgentSchema, await readJson(req));
 
@@ -1631,7 +1631,7 @@ async function handleAcceptPaymentPrep(req, res) {
 	const userId = session?.id ?? bearer?.userId ?? null;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(acceptPaymentPrepSchema, await readJson(req));
 	const payer = solanaPubkey(body.payer_wallet);
@@ -1731,7 +1731,7 @@ async function handleAcceptPaymentConfirm(req, res) {
 	if (!session && !bearer) return error(res, 401, 'unauthorized', 'auth required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(acceptPaymentConfirmSchema, await readJson(req));
 	const [payment] = await sql`
@@ -1825,7 +1825,7 @@ async function handlePaymentsList(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mint = url.searchParams.get('mint');
@@ -1912,7 +1912,7 @@ async function handlePortfolio(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const agentId = url.searchParams.get('agentId');
@@ -2013,7 +2013,7 @@ async function handleByAgent(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const agentId  = url.searchParams.get('agent_id');
@@ -2091,7 +2091,7 @@ async function handleQuote(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mintStr = url.searchParams.get('mint');
@@ -2296,7 +2296,7 @@ async function handleGovernancePrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(governancePrepSchema, await readJson(req));
 	const authority = solanaPubkey(body.authority_wallet);
@@ -2353,7 +2353,7 @@ async function handleWithdrawPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(withdrawPrepSchema, await readJson(req));
 	const authority = solanaPubkey(body.authority_wallet);
@@ -2423,7 +2423,7 @@ async function handleWithdrawConfirm(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(withdrawConfirmSchema, await readJson(req));
 
@@ -2477,7 +2477,7 @@ async function handleStrategyBacktest(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	if (!body?.strategy) return error(res, 400, 'validation_error', 'strategy required');
@@ -2510,7 +2510,7 @@ async function handleStrategyCloseAll(req, res) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	if (!body?.agentId) return error(res, 400, 'validation_error', 'agentId required');
@@ -2566,7 +2566,7 @@ async function handleStrategyRun(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
 	try { body = await readJson(req); }
@@ -2666,7 +2666,7 @@ async function handleLiveStream(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	let kind;
@@ -2729,7 +2729,7 @@ async function handleStrategyValidate(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	if (!body?.strategy || typeof body.strategy !== 'object') {
@@ -2748,7 +2748,7 @@ async function handleChannelFeed(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const limit = Math.min(Math.max(1, Number(url.searchParams.get('limit') || 50)), 200);
 	const kinds = url.searchParams.get('kinds') || null;
@@ -2783,7 +2783,7 @@ async function handleTrending(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const now = Date.now();
 	if (TRENDING_CACHE.body && now - TRENDING_CACHE.at < TRENDING_TTL_MS) {
 		res.setHeader('cache-control', 'public, max-age=15');
@@ -2820,7 +2820,7 @@ async function handleCoin(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mint = (url.searchParams.get('mint') || '').trim();
 	if (!MINT_RE.test(mint)) return error(res, 400, 'invalid_mint', 'mint must be a base58 address');
@@ -2872,7 +2872,7 @@ async function handleCoinTrades(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mint = (url.searchParams.get('mint') || '').trim();
 	if (!MINT_RE.test(mint)) return error(res, 400, 'invalid_mint', 'mint must be a base58 address');
@@ -2909,7 +2909,7 @@ async function handleSearch(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const q = (url.searchParams.get('q') || '').trim();
 	if (!q) return json(res, 200, []);
@@ -2974,7 +2974,7 @@ async function handleRecentGraduations(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, 'http://x');
 	const limit = Math.max(1, Math.min(100, Number(url.searchParams.get('limit')) || 20));
 	try {
@@ -2991,7 +2991,7 @@ async function handleFirstClaims(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, 'http://x');
 	const limit = Math.max(1, Math.min(50, Number(url.searchParams.get('limit')) || 50));
 	let sinceTs;
@@ -3079,7 +3079,7 @@ async function handleVanityKeygen(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
 	if (req.method !== 'POST') { res.setHeader('allow', 'POST'); return error(res, 405, 'method_not_allowed', 'method POST required'); }
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 	let body;
 	try { body = await readJson(req); } catch (e) { return error(res, e.status || 400, 'bad_request', e.message); }
 	const { suffix = '', prefix = '', caseSensitive = false, maxAttempts = 5_000_000 } = body || {};
@@ -3127,7 +3127,7 @@ async function handleCollectCreatorFeePrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(collectCreatorFeePrepSchema, await readJson(req));
 	const creatorPk = solanaPubkey(body.creator_address);
@@ -3183,7 +3183,7 @@ async function handleDistributeCreatorFeesPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(distributeCreatorFeesPrepSchema, await readJson(req));
 	const mintPk  = solanaPubkey(body.mint);
@@ -3258,7 +3258,7 @@ async function handleUpdateFeeSharesPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(updateFeeSharesSchema, await readJson(req));
 	const mintPk    = solanaPubkey(body.mint);
@@ -3339,7 +3339,7 @@ async function handleCreateFeeSharingPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(createFeeSharingPrepSchema, await readJson(req));
 	const mintPk    = solanaPubkey(body.mint);
@@ -3435,7 +3435,7 @@ async function handleResolveGithubShareholder(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(resolveGithubShareholderSchema, await readJson(req));
 	const login = body.github_username ? body.github_username.replace(/^@/, '') : null;
@@ -3525,7 +3525,7 @@ async function handleCreateSocialFeePdaPrep(req, res) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(createSocialFeePdaPrepSchema, await readJson(req));
 	const payerPk = solanaPubkey(body.wallet_address);
@@ -3578,7 +3578,7 @@ async function handleFeeInfo(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mintStr = url.searchParams.get('mint');
@@ -3763,7 +3763,7 @@ async function handleCollectCreatorFeeAgent(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(collectFeeAgentSchema, await readJson(req));
 	const ctx = await resolveAgentFeeContext(req, res, body);
@@ -3805,7 +3805,7 @@ async function handleDistributeCreatorFeesAgent(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(collectFeeAgentSchema, await readJson(req));
 	const ctx = await resolveAgentFeeContext(req, res, body);
@@ -3861,7 +3861,7 @@ async function handleFeeSharingAgent(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(feeSharingAgentSchema, await readJson(req));
 	const ctx = await resolveAgentFeeContext(req, res, body);
@@ -3968,7 +3968,7 @@ async function handleGithubResolve(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const handle = (url.searchParams.get('handle') || '').replace(/^@/, '').trim();
@@ -4028,7 +4028,7 @@ async function handleSocialFeeClaimStatus(req, res) {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const userId = (url.searchParams.get('user_id') || '').trim();

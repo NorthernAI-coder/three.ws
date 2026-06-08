@@ -28,7 +28,7 @@
 //   }
 
 import { z } from 'zod';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const PUMPFUN_BASE = 'https://frontend-api-v3.pump.fun';
@@ -76,7 +76,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.mcpIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let raw;
 	try {

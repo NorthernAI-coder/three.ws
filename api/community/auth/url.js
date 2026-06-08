@@ -3,7 +3,7 @@
 // CoinCommunities. The redirect lands on our same-origin callback, which
 // completes the exchange and sets the session cookie. The redirect URL must be
 // whitelisted in the CoinCommunities dashboard.
-import { cors, error, json, method, wrap } from '../../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 import { cc, UnconfiguredError } from '../../_lib/coin-communities.js';
@@ -13,7 +13,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	let api;
 	try {

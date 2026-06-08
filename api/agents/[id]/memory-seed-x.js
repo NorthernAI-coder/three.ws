@@ -6,7 +6,7 @@
 
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
-import { cors, json, method, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 import { llmComplete } from '../../_lib/llm.js';
@@ -124,7 +124,7 @@ async function handlePost(req, res, agentId) {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.xSeed(agentId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'agent can only be re-seeded every 6 hours');
+	if (!rl.success) return rateLimited(res, rl, 'agent can only be re-seeded every 6 hours');
 
 	const [agent] = await sql`
 		SELECT id, user_id FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL

@@ -1,6 +1,6 @@
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 
 async function resolveAuth(req) {
@@ -19,7 +19,7 @@ export const handlePayments = wrap(async (req, res, id) => {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [agent] = await sql`
 		select id, user_id from agent_identities

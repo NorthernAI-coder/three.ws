@@ -11,7 +11,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { putObject, publicUrl } from '../_lib/r2.js';
 import { limits } from '../_lib/rate-limit.js';
 import { z } from 'zod';
@@ -155,7 +155,7 @@ async function handleList(req, res, auth) {
 
 async function handleCreate(req, res, auth) {
 	const rl = await limits.avatarPatch(auth.userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many animation saves');
+	if (!rl.success) return rateLimited(res, rl, 'too many animation saves');
 
 	const body = await readJson(req);
 	if (!body) return error(res, 400, 'invalid_request', 'body required');

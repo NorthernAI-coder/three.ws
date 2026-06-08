@@ -2,7 +2,7 @@
 // Requests a sign-in challenge to link a Solana wallet (chainType 'svm') to the
 // signed-in CoinCommunities user. Returns the message the wallet must sign.
 import { z } from 'zod';
-import { cors, error, json, method, readJson, wrap } from '../../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
 import { cc, userAuthHeaders, UnconfiguredError } from '../../_lib/coin-communities.js';
 
@@ -13,7 +13,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const headers = userAuthHeaders(req);
 	if (!headers) return error(res, 401, 'unauthorized', 'sign in with X first');

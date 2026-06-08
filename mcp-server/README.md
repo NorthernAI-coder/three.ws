@@ -39,7 +39,7 @@ Restart Claude Desktop. The four tools appear immediately — no install step re
 | `get_pose_seed` | $0.001 | Deterministic seed + full Euler-rotation pose map (radians) for the three.ws pose-studio mannequin, matched from the in-repo preset library. Includes a `previewUrl` at `https://three.ws/pose?seed=…&preset=…`. |
 | `pump_snapshot` | $0.005 | Live token snapshot — USD price (Jupiter), 24h volume + pair (Dexscreener), mint metadata + image (pump.fun frontend-api-v3), and on-chain top-holder distribution (Solana RPC). Adds Helius DAS data when `HELIUS_API_KEY` is set. |
 | `agent_reputation` | $0.01 | ERC-8004 reputation: `getReputation`, `getTotalStake`, and the latest `ReputationSubmitted` / `ReputationStaked` events from the canonical ReputationRegistry on the requested chain (default Base). Resolves `agentId` from a wallet address automatically. |
-| `vanity_grinder` | up to $0.50 | Solana keypair whose base58 address starts with `prefix` (and optionally ends with `suffix`). Returns the full base58 secret key — treat as a secret. Actual settled USDC scales with iterations: `$0.01 base + $0.0000001/attempt`, capped at $0.50. |
+| `vanity_grinder` | $0.05 | Solana keypair whose base58 address starts with `prefix` (and optionally ends with `suffix`). Returns the full base58 secret key — treat as a secret. Flat `exact` price (override with `MCP_VANITY_PRICE_USD`); a difficulty guard rejects prefixes too long to mine within the iteration cap. |
 
 ---
 
@@ -175,7 +175,9 @@ The server is the x402 **resource server**. On each tool call:
 4. Client retries the `tools/call` with `_meta["x402/payment"]` attached.
 5. Server verifies + settles via the configured facilitator, runs the tool, and returns the result with `_meta["x402/payment-response"]`.
 
-`vanity_grinder` uses the x402 `upto` scheme — the client authorizes up to $0.50 and the server settles the actual metered amount after mining completes.
+Every tool settles in USDC on **Solana mainnet** with the `exact` scheme (`@x402/svm` ships no `upto`/metered scheme). Each tool quotes a fixed price; there is no post-hoc metering.
+
+A successful result carries the tool's JSON in two forms: `content[0].text` (for text-only clients) and `structuredContent` (MCP 2025-06-18 structured output — a ready-to-use object). A tool-level error sets `isError: true`, and the x402 wrapper **cancels rather than settles** the payment, so failed calls do not bill the caller.
 
 ---
 
@@ -184,8 +186,8 @@ The server is the x402 **resource server**. On each tool call:
 ```
 ┌─────────────────┐     ┌─────────────────────┐     ┌──────────────────────┐
 │ Claude Desktop  │────▶│  @3d-agent/mcp      │────▶│  x402 facilitator    │
-│  / Cursor /     │     │   (stdio transport) │     │  (CDP for Base,      │
-│  your agent     │     │                     │     │   PayAI for Solana)  │
+│  / Cursor /     │     │   (stdio transport) │     │  (PayAI — Solana     │
+│  your agent     │     │                     │     │   USDC, exact)       │
 └─────────────────┘     └─────────────────────┘     └──────────────────────┘
 ```
 

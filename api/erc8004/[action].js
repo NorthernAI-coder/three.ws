@@ -13,7 +13,7 @@ import { z } from 'zod';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { resolveOnChainAgent, SERVER_CHAIN_META } from '../_lib/onchain.js';
@@ -46,7 +46,7 @@ async function handleHydrate(req, res) {
 
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	// Get user's linked wallets.
 	const wallets = await sql`
@@ -118,7 +118,7 @@ async function handleImport(req, res) {
 
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(importBodySchema, await readJson(req));
 	const chainMeta = SERVER_CHAIN_META[body.chainId];
@@ -234,7 +234,7 @@ async function handlePin(req, res) {
 
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many uploads');
+	if (!rl.success) return rateLimited(res, rl, 'too many uploads');
 
 	const ct = (req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim();
 	if (!ALLOWED.has(ct))

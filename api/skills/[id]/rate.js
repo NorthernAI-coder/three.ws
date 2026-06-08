@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, error, method, readJson, wrap } from '../../_lib/http.js';
+import { cors, json, error, method, readJson, wrap, rateLimited } from '../../_lib/http.js';
 import { limits } from '../../_lib/rate-limit.js';
 import { parse } from '../../_lib/validate.js';
 
@@ -24,7 +24,7 @@ export default wrap(async (req, res) => {
 	const userId = session?.id ?? bearer.userId;
 
 	const rl = await limits.chatUser(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [skill] = await sql`SELECT id FROM marketplace_skills WHERE id = ${id} AND is_public = true`;
 	if (!skill) return error(res, 404, 'not_found', 'skill not found');

@@ -1,6 +1,6 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const MAX_R2_BYTES = 50 * 1024 * 1024;
@@ -82,7 +82,7 @@ export default wrap(async (req, res) => {
 		const userId = session?.id ?? bearer.userId;
 
 		const rl = await limits.pinUser(userId);
-		if (!rl.success) return error(res, 429, 'rate_limited', 'pinning rate exceeded (30/hour)');
+		if (!rl.success) return rateLimited(res, rl, 'pinning rate exceeded (30/hour)');
 
 		const body = await readJson(req);
 		const { sourceUrl, kind } = body || {};
@@ -165,7 +165,7 @@ export default wrap(async (req, res) => {
 
 		const ip = clientIp(req);
 		const rl = await limits.pinStatusIp(ip);
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		const cid = req.query?.cid || new URL(req.url, 'http://x').searchParams.get('cid');
 		if (!cid || !CID_RE.test(cid)) {

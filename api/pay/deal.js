@@ -17,7 +17,7 @@
 //   event: done   data: {}
 //
 // No mock paths. Every run executes a real on-chain SOL transfer.
-import { cors, method, wrap, error } from '../_lib/http.js';
+import { cors, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import {
 	avatarWalletConfig,
@@ -158,7 +158,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	// Wallet A
 	const cfg = avatarWalletConfig();

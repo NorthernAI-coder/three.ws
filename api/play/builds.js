@@ -9,7 +9,7 @@
 // lives in the /play client (coincommunities-ui.js); each card links back into
 // the coin's world.
 import { z } from 'zod';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { listBuilds, publishBuild } from '../_lib/builds-store.js';
 
@@ -38,7 +38,7 @@ export default wrap(async (req, res) => {
 	if (req.method === 'GET') {
 		res.setHeader('cache-control', 'public, max-age=15, stale-while-revalidate=60');
 		const rl = await limits.publicIp(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 		const mint = String(req.query?.mint || '').trim();
 		if (!mint || mint.length < 32 || mint.length > 64) {
 			return error(res, 400, 'bad_mint', 'a valid coin mint is required');
@@ -55,7 +55,7 @@ export default wrap(async (req, res) => {
 	// POST — publish a build.
 	res.setHeader('cache-control', 'no-store');
 	const rl = await limits.buildPublishIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'sharing too fast — try again shortly');
+	if (!rl.success) return rateLimited(res, rl, 'sharing too fast — try again shortly');
 
 	// Read a little past the thumb cap so a modestly-oversized screenshot is
 	// rejected by the schema (a clean 413) rather than the raw byte limit, while

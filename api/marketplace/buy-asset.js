@@ -22,7 +22,7 @@ import crypto from 'node:crypto';
 
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { rpcFallbackFromEnv } from '../_lib/solana/rpc-fallback.js';
@@ -107,7 +107,7 @@ async function handleCreate(req, res) {
 	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req).catch(() => null);
 	const itemType = String(body?.item_type || '').trim();
@@ -209,7 +209,7 @@ async function handleStatus(req, res, reference) {
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.widgetRead(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [row] = await sql`
 		SELECT reference, item_type, item_id, status, tx_signature, confirmed_at,
@@ -232,7 +232,7 @@ async function handleConfirm(req, res, reference) {
 	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [pur] = await sql`
 		SELECT id, buyer_user_id, item_type, item_id, seller_user_id, status,

@@ -1,6 +1,6 @@
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, error, method, wrap } from '../_lib/http.js';
+import { cors, json, error, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
@@ -13,7 +13,7 @@ export default wrap(async (req, res) => {
 	const userId = session?.id ?? bearer.userId;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [user] = await sql`
 		SELECT

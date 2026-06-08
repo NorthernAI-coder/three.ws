@@ -6,7 +6,7 @@
 // without that, anyone on the internet could turn the bot into a spam/phishing
 // relay (a direct server-to-server POST is not subject to browser CORS).
 
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { z } from 'zod';
@@ -60,7 +60,7 @@ export default wrap(async (req, res) => {
 	if (!authed) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many delivery requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many delivery requests');
 
 	const token = process.env.TELEGRAM_BOT_TOKEN;
 	if (!token) return error(res, 500, 'misconfigured', 'TELEGRAM_BOT_TOKEN is not set');

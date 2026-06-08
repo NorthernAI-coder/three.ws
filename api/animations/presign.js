@@ -5,7 +5,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { presignUpload } from '../_lib/r2.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { z } from 'zod';
 
@@ -37,7 +37,7 @@ export default wrap(async (req, res) => {
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in or provide a valid bearer token');
 
 	const rl = await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'upload rate exceeded');
+	if (!rl.success) return rateLimited(res, rl, 'upload rate exceeded');
 
 	const raw = await readJson(req);
 	const parsed = bodySchema.safeParse(raw);

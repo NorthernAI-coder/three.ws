@@ -10,7 +10,7 @@
  */
 
 import { sql } from '../_lib/db.js';
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 
@@ -24,7 +24,7 @@ export default wrap(async (req, res) => {
 	if (!UUID_RE.test(id)) return error(res, 404, 'not_found', 'creator not found');
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [user] = await sql`
 		SELECT id, display_name, username, avatar_url, created_at

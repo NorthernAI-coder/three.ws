@@ -1,5 +1,5 @@
 import { env } from '../_lib/env.js';
-import { wrap, cors, error, json, readJson, method } from '../_lib/http.js';
+import { wrap, cors, error, json, readJson, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplCore, createV1 } from '@metaplex-foundation/mpl-core';
@@ -39,7 +39,7 @@ export default wrap(async (req, res) => {
 		return error(res, 503, 'not_configured', 'NFT_STORAGE_TOKEN not configured');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	const { ownerPubkey, glbBase64, thumbnailBase64, name, description } = body || {};

@@ -6,7 +6,7 @@
 import { webcrypto } from 'node:crypto';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
-import { cors, json, method, error } from '../../_lib/http.js';
+import { cors, json, method, error, rateLimited } from '../../_lib/http.js';
 import { env } from '../../_lib/env.js';
 import { llmComplete } from '../../_lib/llm.js';
 import { limits } from '../../_lib/rate-limit.js';
@@ -147,7 +147,7 @@ export default async function handleMemorySeed(req, res, agentId) {
 	// Rate limit: 1 seed per agent per 24 hours
 	const rl = await limits.memorySeed(agentId);
 	if (!rl.success) {
-		return error(res, 429, 'rate_limited', 'memory seeding is limited to once per 24 hours');
+		return rateLimited(res, rl, 'memory seeding is limited to once per 24 hours');
 	}
 
 	let accessToken;

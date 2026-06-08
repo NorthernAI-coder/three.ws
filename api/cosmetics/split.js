@@ -13,7 +13,7 @@
 // from launch records / on-chain — only HOW MUCH of each sale they take, up to the
 // cap. So a config write can't redirect another coin's revenue.
 
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSplitConfig, setSplitConfig, splitConfigMessage, isMint, MAX_CREATOR_BPS } from '../_lib/cosmetics-economy.js';
 
@@ -23,7 +23,7 @@ export default wrap(async (req, res) => {
 	if (req.method === 'GET') {
 		if (!method(req, res, ['GET'])) return;
 		const rl = await limits.publicIp(clientIp(req));
-		if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+		if (!rl.success) return rateLimited(res, rl);
 
 		const url = new URL(req.url, 'http://x');
 		const mint = String(url.searchParams.get('mint') || '').trim();
@@ -47,7 +47,7 @@ export default wrap(async (req, res) => {
 
 	if (!method(req, res, ['POST'])) return;
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests — slow down');
+	if (!rl.success) return rateLimited(res, rl, 'too many requests — slow down');
 
 	let body;
 	try { body = await readJson(req); } catch { return error(res, 400, 'bad_json', 'invalid request body'); }

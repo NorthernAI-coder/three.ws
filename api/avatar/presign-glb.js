@@ -21,7 +21,7 @@
 //     storage_key:  string,   // R2 key, for reference
 //   }
 
-import { cors, error, json, wrap } from '../_lib/http.js';
+import { cors, error, json, wrap, rateLimited } from '../_lib/http.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { presignUpload, publicUrl } from '../_lib/r2.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -53,7 +53,7 @@ export default wrap(async (req, res) => {
 	const rl = userId === 'anon'
 		? await limits.publicIp(clientIp(req))
 		: await limits.upload(userId);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many upload requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many upload requests');
 
 	const body = req.body || {};
 	const contentType = (body.content_type || 'model/gltf-binary').toLowerCase().trim();

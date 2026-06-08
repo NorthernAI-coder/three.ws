@@ -10,7 +10,7 @@
 //
 // Response: { data: [ { mint, symbol, name, logo, price_usd, rank } ] }
 
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { normalizeGatewayURL } from '../../src/ipfs.js';
 
@@ -93,7 +93,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const raw = Number(new URL(req.url, 'http://x').searchParams.get('limit') || '25');
 	const limit = Math.min(50, Math.max(1, Number.isFinite(raw) ? Math.floor(raw) : 25));

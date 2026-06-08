@@ -15,7 +15,7 @@
 
 import WebSocket from 'ws';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
 import { sha256 } from '../_lib/crypto.js';
 import { headObject, getObjectBuffer, putObject } from '../_lib/r2.js';
@@ -142,7 +142,7 @@ export default wrap(async (req, res) => {
 	if (!rl.success) {
 		const retryAfter = Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000));
 		res.setHeader('retry-after', String(retryAfter));
-		return error(res, 429, 'rate_limited', 'Too many TTS requests', { retry_after: retryAfter });
+		return rateLimited(res, rl, 'Too many TTS requests', { retry_after: retryAfter });
 	}
 
 	const body = await readJson(req);

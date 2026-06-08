@@ -1,5 +1,5 @@
 import { sql } from '../../_lib/db.js';
-import { cors, json, error, method, wrap } from '../../_lib/http.js';
+import { cors, json, error, method, wrap, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 
@@ -32,7 +32,7 @@ export const handleReputation = wrap(async (req, res, agentId) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.publicIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const [agent] = await sql`
 		SELECT erc8004_agent_id, chain_id

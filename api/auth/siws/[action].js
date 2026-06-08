@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { createSession, sessionCookie, destroySession } from '../../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 import { parse } from '../../_lib/validate.js';
@@ -40,7 +40,7 @@ async function handleNonce(req, res) {
 
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many nonce requests');
+	if (!rl.success) return rateLimited(res, rl, 'too many nonce requests');
 
 	// 22 alphanumeric chars ≈ 131 bits of entropy.
 	let nonce = '';
@@ -107,7 +107,7 @@ async function handleVerify(req, res) {
 
 	const ip = clientIp(req);
 	const rl = await limits.authIp(ip);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many attempts');
+	if (!rl.success) return rateLimited(res, rl, 'too many attempts');
 
 	const body = parse(verifyBody, await readJson(req));
 

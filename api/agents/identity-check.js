@@ -12,7 +12,7 @@
 // status:'unavailable' } and the client treats the identity as allowed.
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { checkIdentityIntegrity } from '../_lib/identity-integrity.js';
 
@@ -36,7 +36,7 @@ export default wrap(async (req, res) => {
 		limits.identityCheckGlobal(),
 	]);
 	if (!ipRl.success || !globalRl.success) {
-		return error(res, 429, 'rate_limited', 'too many identity checks; try again shortly');
+		return rateLimited(res, ipRl, 'too many identity checks; try again shortly');
 	}
 
 	let body;

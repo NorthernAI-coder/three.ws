@@ -14,7 +14,7 @@
 import { randomBytes } from 'crypto';
 import { verifyMessage, Interface } from 'ethers';
 import { sql } from '../_lib/db.js';
-import { cors, json, error, wrap, readJson } from '../_lib/http.js';
+import { cors, json, error, wrap, readJson, rateLimited } from '../_lib/http.js';
 import { clientIp } from '../_lib/rate-limit.js';
 import { env } from '../_lib/env.js';
 
@@ -36,10 +36,10 @@ function checkRate(ip) {
 	const now = Date.now();
 	const window = 60 * 60 * 1000;
 	const kept = (_buckets.get(ip) || []).filter((t) => t > now - window);
-	if (kept.length >= 5) return false;
+	if (kept.length >= 5) return { success: false, limit: 5, remaining: 0, reset: kept[0] + window };
 	kept.push(now);
 	_buckets.set(ip, kept);
-	return true;
+	return { success: true, limit: 5, remaining: 5 - kept.length, reset: now + window };
 }
 
 function claimMessage(nonce) {
@@ -62,8 +62,9 @@ export default wrap(async (req, res) => {
 				'address must be a 0x-prefixed Ethereum address',
 			);
 
-		if (!checkRate(ip))
-			return error(res, 429, 'rate_limited', 'too many requests — try again in an hour');
+		const rl = checkRate(ip);
+		if (!rl.success)
+			return rateLimited(res, rl, 'too many requests — try again in an hour');
 
 		const nonce = randomBytes(16).toString('hex');
 		await sql`
@@ -93,8 +94,9 @@ export default wrap(async (req, res) => {
 		if (!/^0x[0-9a-fA-F]{40}$/.test(signerAddress))
 			return error(res, 400, 'validation_error', 'invalid signerAddress format');
 
-		if (!checkRate(ip))
-			return error(res, 429, 'rate_limited', 'too many requests — try again in an hour');
+		const rl = checkRate(ip);
+		if (!rl.success)
+			return rateLimited(res, rl, 'too many requests — try again in an hour');
 
 		const rows = await sql`
 			select id, address, status from cz_claims where nonce = ${nonce} limit 1

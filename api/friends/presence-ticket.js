@@ -4,7 +4,7 @@
 // publishes the bearer's presence — so a client can never claim to be online as
 // another account. The client refreshes the ticket before it expires.
 
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { resolveAccount } from '../_lib/account-auth.js';
 import { signPresenceTicket } from '../_lib/presence-store.js';
@@ -14,7 +14,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const auth = await resolveAccount(req, res);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');

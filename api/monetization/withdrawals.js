@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse, isValidSolanaAddress, isValidEvmAddress } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
@@ -40,7 +40,7 @@ export default wrap(async (req, res) => {
 	const { userId } = auth;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'GET') {
 		const params = new URL(req.url, 'http://x').searchParams;
@@ -122,7 +122,7 @@ export default wrap(async (req, res) => {
 	if (!csrfOk) return;
 
 	const rlUser = await limits.withdrawalPerUser(userId);
-	if (!rlUser.success) return error(res, 429, 'rate_limited', 'too many withdrawal requests');
+	if (!rlUser.success) return rateLimited(res, rlUser, 'too many withdrawal requests');
 
 	const body = parse(postBody, await readJson(req));
 	const { agent_id, amount_usdc } = body;

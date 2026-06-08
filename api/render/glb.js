@@ -18,7 +18,7 @@
 //   - In-memory IP rate limit (60 renders / 10 min / IP) to keep chromium
 //     warm-up costs bounded under abuse.
 
-import { cors, error, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { renderGlbToPng } from '../_lib/render-glb.js';
 import { assertSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
 import { clientIp } from '../_lib/rate-limit.js';
@@ -33,16 +33,17 @@ const RATE_LIMIT_MAX = 60;
 
 const rateMap = new Map();
 function rateCheck(ip) {
-	if (!ip) return true;
 	const now = Date.now();
+	const full = { limit: RATE_LIMIT_MAX, remaining: RATE_LIMIT_MAX, reset: now + RATE_LIMIT_WINDOW_MS };
+	if (!ip) return { success: true, ...full };
 	const arr = (rateMap.get(ip) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
 	if (arr.length >= RATE_LIMIT_MAX) {
 		rateMap.set(ip, arr);
-		return false;
+		return { success: false, limit: RATE_LIMIT_MAX, remaining: 0, reset: arr[0] + RATE_LIMIT_WINDOW_MS };
 	}
 	arr.push(now);
 	rateMap.set(ip, arr);
-	return true;
+	return { success: true, limit: RATE_LIMIT_MAX, remaining: RATE_LIMIT_MAX - arr.length, reset: now + RATE_LIMIT_WINDOW_MS };
 }
 
 async function preflightSize(url) {
@@ -67,8 +68,9 @@ export default wrap(async function handler(req, res) {
 	if (!method(req, res, ['POST'])) return;
 
 	const ip = clientIp(req);
-	if (!rateCheck(ip)) {
-		return error(res, 429, 'rate_limited', `Too many render requests. Limit: ${RATE_LIMIT_MAX} per ${RATE_LIMIT_WINDOW_MS / 60000}m.`);
+	const rl = rateCheck(ip);
+	if (!rl.success) {
+		return rateLimited(res, rl, `Too many render requests. Limit: ${RATE_LIMIT_MAX} per ${RATE_LIMIT_WINDOW_MS / 60000}m.`);
 	}
 
 	let body;

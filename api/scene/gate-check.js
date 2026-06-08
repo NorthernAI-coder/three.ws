@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { verifyMessage } from 'ethers';
 import { sql } from '../_lib/db.js';
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { randomToken } from '../_lib/crypto.js';
 import { verifySiwsSignature } from '../_lib/siws.js';
@@ -26,7 +26,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const raw = await readJson(req);
 

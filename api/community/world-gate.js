@@ -16,7 +16,7 @@
 //   401 auth_required     — POST without a CoinCommunities session
 //   403 not_creator       — signed in, but not this coin's creator
 //   403 wallet_required   — signed in, but no linked Solana wallet to match
-import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
+import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { cc, userAuthHeaders, isValidToken, UnconfiguredError } from '../_lib/coin-communities.js';
 import { readWorldGate, writeWorldGate, normalizeMinTokens } from '../_lib/world-gate.js';
@@ -59,7 +59,7 @@ export default wrap(async (req, res) => {
 	res.setHeader('cache-control', 'no-store');
 
 	const rl = await limits.authIp(clientIp(req));
-	if (!rl.success) return error(res, 429, 'rate_limited', 'too many requests');
+	if (!rl.success) return rateLimited(res, rl);
 
 	const mint = new URL(req.url, 'http://x').searchParams.get('token');
 	if (!isValidToken(mint)) {
