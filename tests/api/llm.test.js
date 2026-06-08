@@ -125,6 +125,46 @@ describe('llmComplete — Anthropic is BYOK-only', () => {
 	});
 });
 
+describe('llmComplete — opt-in server Anthropic (serverAnthropic)', () => {
+	it('uses the server ANTHROPIC_API_KEY first when serverAnthropic is set', async () => {
+		process.env.ANTHROPIC_API_KEY = 'sk-server';
+		process.env.GROQ_API_KEY = 'g';
+		const calls = installFetch({ [ANTHROPIC_HOST]: anthropicShape('server claude') });
+		const out = await llm.llmComplete({ system: 's', user: 'u', serverAnthropic: true });
+		expect(out.provider).toBe('anthropic');
+		expect(out.text).toBe('server claude');
+		expect(calls[0].headers['x-api-key']).toBe('sk-server');
+	});
+
+	it('still ignores the server key when serverAnthropic is NOT set (default policy)', async () => {
+		process.env.ANTHROPIC_API_KEY = 'sk-server';
+		process.env.GROQ_API_KEY = 'g';
+		const calls = installFetch({ [GROQ_HOST]: openaiShape('groq wins') });
+		const out = await llm.llmComplete({ system: 's', user: 'u' });
+		expect(out.provider).toBe('groq');
+		expect(calls.every((c) => !c.url.includes(ANTHROPIC_HOST))).toBe(true);
+	});
+
+	it('falls over from server Anthropic to a free provider when Anthropic errors', async () => {
+		process.env.ANTHROPIC_API_KEY = 'sk-server';
+		process.env.GROQ_API_KEY = 'g';
+		const calls = installFetch({
+			[ANTHROPIC_HOST]: errResp(429),
+			[GROQ_HOST]: openaiShape('groq fallback'),
+		});
+		const out = await llm.llmComplete({ system: 's', user: 'u', serverAnthropic: true });
+		expect(out.provider).toBe('groq');
+		expect(out.text).toBe('groq fallback');
+		expect(calls.map((c) => (c.url.includes(ANTHROPIC_HOST) ? 'anthropic' : 'groq'))).toEqual(['anthropic', 'groq']);
+	});
+
+	it('llmConfigured reflects serverAnthropic when only the server key is present', () => {
+		process.env.ANTHROPIC_API_KEY = 'sk-server';
+		expect(llm.llmConfigured()).toBe(false); // default policy ignores server key
+		expect(llm.llmConfigured({ serverAnthropic: true })).toBe(true);
+	});
+});
+
 describe('llmComplete — failure modes', () => {
 	it('throws LlmUnavailableError (503) when no provider is configured', async () => {
 		installFetch({});

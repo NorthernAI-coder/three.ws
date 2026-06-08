@@ -370,6 +370,16 @@ export class NichAgent {
 			}
 			if (res.status === 503) {
 				streamEl.remove();
+				// A 503 carrying retry_after is transient capacity exhaustion (every
+				// upstream provider was rate-limited / briefly down), not a missing
+				// config. Back off and retry like a 429 — do NOT disable the API path,
+				// or one throttle window would permanently fall the agent back to the
+				// offline pattern-matcher. A 503 without retry_after is a genuine
+				// "no provider configured" and still disables.
+				const data = await res.json().catch(() => ({}));
+				if (data.retry_after != null) {
+					return { ok: false, rateLimited: true, retryAfter: data.retry_after };
+				}
 				return { ok: false, disable: true, reason: 'unconfigured' };
 			}
 			if (res.status === 429) {

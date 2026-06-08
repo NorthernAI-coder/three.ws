@@ -31,6 +31,7 @@ import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
 import { orchestrateConfig } from './_lib/orchestrate.js';
 import { guardianConfig, governSend, sendCapUsd } from './_lib/granite-guardian.js';
+import { markProviderCooldown, providersInCooldown } from './_lib/provider-health.js';
 import {
 	DEFAULT_FREE_MODEL,
 	PROVIDER_MODEL_DEFAULTS,
@@ -350,7 +351,13 @@ export default wrap(async (req, res) => {
 		userProviderKeys = await loadUserProviderKeys(urow?.provider_keys);
 	}
 
-	let route = pickProvider(body.provider, body.model, userProviderKeys);
+	// Health cooldowns: a provider that recently 429'd / 5xx'd is skipped while it
+	// recovers, so a single throttle window doesn't cascade into request after
+	// request re-hitting the same dead provider. Best-effort — an unreadable
+	// cache yields an empty set (pre-breaker behaviour).
+	const cooldown = await providersInCooldown(Object.keys(PROVIDERS));
+
+	let route = pickProvider(body.provider, body.model, userProviderKeys, cooldown);
 	if (!route) {
 		return error(res, 503, 'chat_unavailable', 'no chat provider is configured');
 	}
@@ -382,7 +389,7 @@ export default wrap(async (req, res) => {
 	// Provider/model failover chain. The first entry is the picked route; if it
 	// returns 429 (rate-limit) or 5xx (provider down) we cycle through a
 	// pre-built fallback list before surfacing an error.
-	let fallbackRoutes = buildFallbackChain(route, userProviderKeys);
+	let fallbackRoutes = buildFallbackChain(route, userProviderKeys, cooldown);
 	// Anonymous traffic must never fail over onto paid providers (OpenAI/
 	// Anthropic). Clamp the whole chain to the free-tier anon providers so a
 	// rate-limited free model degrades to another free model, never paid keys.
@@ -435,6 +442,9 @@ export default wrap(async (req, res) => {
 			captureException(err, { route: 'chat', stage: 'fetch', provider: route.name });
 			const reason = err?.name === 'AbortError' ? 'timed out' : err.message;
 			console.error(`[chat:${route.name}] upstream fetch failed:`, reason);
+			// An unreachable/timed-out provider is unhealthy — cool it down so the
+			// next request skips it instead of waiting on the same dead socket.
+			void markProviderCooldown(route.name);
 			// Network blip — try next route if one exists and time remains.
 			routeIdx++;
 			if (routeIdx < fallbackRoutes.length && Date.now() < deadline) {
@@ -443,8 +453,13 @@ export default wrap(async (req, res) => {
 				retriedTransient = false;
 				continue;
 			}
-			return error(res, 502, 'upstream_unavailable', 'chat backend unreachable', {
+			// Every route was unreachable/timed out — that's transient capacity, not a
+			// permanent breakage. 503 + Retry-After so the client backs off and retries
+			// (the same contract as the rate-limit terminal below), never a hard 502.
+			res.setHeader('Retry-After', '20');
+			return error(res, 503, 'rate_limited', 'The AI chat is at capacity right now. Please try again in a few seconds.', {
 				providers_tried: providersTried(attempted),
+				retry_after: 20,
 			});
 		}
 
@@ -516,6 +531,8 @@ export default wrap(async (req, res) => {
 		if ((upstream.status === 429 || upstream.status >= 500) && canFailOver()) {
 			const text = await upstream.text().catch(() => '');
 			console.warn(`[chat:${route.name}] ${upstream.status} — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`);
+			// Rate-limited or erroring upstream — cool it down for subsequent requests.
+			void markProviderCooldown(route.name);
 			routeIdx++;
 			route = fallbackRoutes[routeIdx];
 			includeTools = true;
@@ -569,20 +586,30 @@ export default wrap(async (req, res) => {
 		// surface the (provider-name-only) list of what was tried so the client can
 		// show "tried groq, openrouter…" without leaking upstream internals.
 		//
-		// Status semantics: when the chain gave up because every route was
-		// *rate-limited* (429 — the common free-tier exhaustion in prod), that's
-		// capacity, not breakage. Return 503 with Retry-After so the client backs
-		// off and retries instead of treating it as a hard upstream failure (502).
-		const rateLimited = upstream.status === 429;
-		if (rateLimited) res.setHeader('Retry-After', '20');
+		// Status semantics: an exhausted chain almost always means *capacity*, not
+		// a caller error. Broaden beyond a bare 429 — treat any all-routes-exhausted
+		// outcome that reads as throttling or an upstream outage (429, any 5xx, or a
+		// "Provider returned error" / overloaded / quota body) as capacity and return
+		// 503 + Retry-After so the client backs off and retries, never a hard 502.
+		// Only a genuine non-429 4xx (a request the next provider would also reject)
+		// stays a 502.
+		const atCapacity =
+			upstream.status === 429 ||
+			upstream.status >= 500 ||
+			/provider returned error|rate.?limit|over.?loaded|capacity|temporarily unavailable|quota|exceeded your current/i.test(
+				`${upstreamMessage} ${text}`,
+			);
+		// The final route failed too — cool it down so the next request skips it.
+		if (atCapacity) void markProviderCooldown(route.name);
+		if (atCapacity) res.setHeader('Retry-After', '20');
 		return error(
 			res,
-			rateLimited ? 503 : 502,
-			rateLimited ? 'rate_limited' : 'upstream_error',
-			rateLimited
+			atCapacity ? 503 : 502,
+			atCapacity ? 'rate_limited' : 'upstream_error',
+			atCapacity
 				? 'The AI chat is at capacity right now. Please try again in a few seconds.'
 				: 'The AI chat provider is temporarily unavailable. Please try again in a moment.',
-			{ providers_tried: providersTried(attempted), ...(rateLimited ? { retry_after: 20 } : {}) },
+			{ providers_tried: providersTried(attempted), ...(atCapacity ? { retry_after: 20 } : {}) },
 		);
 	}
 
@@ -708,30 +735,38 @@ async function governActions(actions, userMessage) {
 
 // ── Provider selection ───────────────────────────────────────────────────────
 
-function pickProvider(requested, model, userKeys = {}) {
+function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
 	const order = requested
 		? [requested, ...Object.keys(PROVIDERS).filter((p) => p !== requested)]
 		: DEFAULT_PROVIDER_ORDER;
 
-	for (const name of order) {
-		const cfg = PROVIDERS[name];
-		const apiKey = userKeys[name] || process.env[cfg.envKey];
-		if (!apiKey) continue;
-		// watsonx needs both a key and a project/space scope to serve a model;
-		// Orchestrate needs both a key and its endpoint URL.
-		if (name === 'watsonx' && !watsonxConfig().configured) continue;
-		if (name === 'orchestrate' && !orchestrateConfig().configured) continue;
-		// CHAT_MODEL is an Anthropic-style id; it must not leak into a watsonx or
-		// Orchestrate request (which expect their own model/agent ids). Those
-		// providers use the client-named value or their own default.
-		const chosenModel =
-			(requested === name && model) ||
-			(name === 'watsonx' || name === 'orchestrate'
-				? cfg.defaultModel
-				: process.env.CHAT_MODEL || cfg.defaultModel);
-		return makeRoute(name, cfg, apiKey, chosenModel);
-	}
-	return null;
+	// Two passes: first skip providers in a health cooldown, then — only if that
+	// leaves nothing configured — ignore cooldowns so a request never 503s purely
+	// because every healthy provider happens to be cooling down. An explicitly
+	// requested provider is never cooldown-skipped (the caller asked for it).
+	const resolve = (skipCooldown) => {
+		for (const name of order) {
+			const cfg = PROVIDERS[name];
+			const apiKey = userKeys[name] || process.env[cfg.envKey];
+			if (!apiKey) continue;
+			if (skipCooldown && name !== requested && cooldown.has(name)) continue;
+			// watsonx needs both a key and a project/space scope to serve a model;
+			// Orchestrate needs both a key and its endpoint URL.
+			if (name === 'watsonx' && !watsonxConfig().configured) continue;
+			if (name === 'orchestrate' && !orchestrateConfig().configured) continue;
+			// CHAT_MODEL is an Anthropic-style id; it must not leak into a watsonx or
+			// Orchestrate request (which expect their own model/agent ids). Those
+			// providers use the client-named value or their own default.
+			const chosenModel =
+				(requested === name && model) ||
+				(name === 'watsonx' || name === 'orchestrate'
+					? cfg.defaultModel
+					: process.env.CHAT_MODEL || cfg.defaultModel);
+			return makeRoute(name, cfg, apiKey, chosenModel);
+		}
+		return null;
+	};
+	return resolve(true) || resolve(false);
 }
 
 // Build an ordered failover list starting with the primary route. Cycles
@@ -744,9 +779,14 @@ function pickProvider(requested, model, userKeys = {}) {
 // model. Falling over from llama-3.3-70b:free → mistral-7b:free recovers
 // from a single upstream burst without paying. Last resort is paid Anthropic
 // so the user still gets a response.
+// Note: Groq deliberately has NO sibling beyond its own default. A second Groq
+// model is the *same account*, so when Groq throttles (the common prod failure)
+// a sibling slot is wasted re-hitting the throttled account instead of giving
+// the fallback slot to a different provider. Anthropic/OpenRouter siblings are
+// kept — those are per-model rate limits where a sibling model genuinely helps.
 const FALLBACK_SIBLINGS = {
 	openrouter: OPENROUTER_SIBLINGS,
-	groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+	groq: ['llama-3.3-70b-versatile'],
 	anthropic: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
 	openai: ['gpt-4o-mini'],
 };
@@ -767,7 +807,7 @@ function eligibleAsFallback(modelId) {
 	return meta.tools === true && !meta.moderationGated;
 }
 
-function buildFallbackChain(primary, userKeys = {}) {
+function buildFallbackChain(primary, userKeys = {}, cooldown = new Set()) {
 	const chain = [primary];
 	const seen = new Set([`${primary.name}:${primary.model}`]);
 
@@ -790,8 +830,12 @@ function buildFallbackChain(primary, userKeys = {}) {
 	for (const m of FALLBACK_SIBLINGS[primary.name] || []) tryAdd(primary.name, m);
 
 	// (b) Other providers, in reliability order, at their configured default.
+	// Skip providers in a health cooldown so a globally-throttling provider isn't
+	// re-hit on every request — that's the mechanism that turns one throttle
+	// window into dozens of failures. The primary is always kept (position 0).
 	for (const name of DEFAULT_PROVIDER_ORDER) {
 		if (name === primary.name) continue;
+		if (cooldown.has(name)) continue;
 		tryAdd(name, PROVIDERS[name].defaultModel);
 	}
 

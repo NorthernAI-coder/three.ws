@@ -93,6 +93,7 @@ import {
 	SOLANA_USDC_MINT_DEVNET,
 	toUsdcAtomics,
 } from '../payments/_config.js';
+import { classifyLaunchQuote, usdcMintFor } from '../_lib/pump-quote.js';
 
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 
@@ -893,9 +894,12 @@ const launchPrepSchema = z
 		buyback_bps: z.number().int().min(0).max(10_000).default(0),
 		sol_buy_in: z.number().nonnegative().max(50).default(0), // SOL-paired initial buy, capped 50 SOL
 		usdc_buy_in: z.number().nonnegative().max(1_000_000).default(0), // USDC-paired initial buy
-		// Optional quote mint — when provided and non-WSOL (e.g. USDC), the coin
-		// is created as a USDC-paired V2 coin using createV2AndBuyV2Instructions.
-		// When omitted, the coin is SOL-paired (existing behaviour).
+		// Quote currency for the coin. `quote_currency: 'usdc'` is the friendly
+		// form — the server resolves the network-correct USDC mint. `quote_mint`
+		// is the explicit form (any non-WSOL mint → stable-paired v2 coin via
+		// createV2AndBuyV2Instructions). When neither is set, the coin is
+		// SOL-paired (existing behaviour). quote_currency wins when both appear.
+		quote_currency: z.enum(['sol', 'usdc']).optional(),
 		quote_mint: z.string().min(32).max(44).optional(),
 		// Optional client-ground vanity mint address. When provided, the client
 		// already holds the secret key locally and will co-sign in the wallet —
@@ -1067,7 +1071,18 @@ async function handleLaunchPrep(req, res) {
 	const isAgent  = body.coin_type === 'agent';
 	const effBuyback = isAgent ? body.buyback_bps : 0;
 
-	const launchQuoteMint = body.quote_mint ? solanaPubkey(body.quote_mint) : null;
+	// Resolve the quote pairing: null → SOL-paired; an explicit mint (e.g. USDC)
+	// → stable-paired so the agent's USDC buyback can swap+burn natively. The
+	// friendly `quote_currency` ('sol'|'usdc') wins and resolves the
+	// network-correct USDC mint; otherwise an explicit `quote_mint` is used.
+	const requestedQuoteMint =
+		body.quote_currency === 'usdc'
+			? usdcMintFor(body.network)
+			: body.quote_currency === 'sol'
+				? null
+				: body.quote_mint;
+	const quote = classifyLaunchQuote({ quoteMint: requestedQuoteMint, network: body.network });
+	const launchQuoteMint = quote.quoteMint ? solanaPubkey(quote.quoteMint) : null;
 	const instructions = await buildLaunchInstructions({
 		sdk, BN, mint, creator, signer,
 		name: body.name, symbol: body.symbol, uri: body.uri,
@@ -1116,6 +1131,7 @@ async function handleLaunchPrep(req, res) {
 				network: body.network,
 				buyback_bps: effBuyback,
 				coin_type: body.coin_type,
+				quote_mint: quote.quoteMint,   // null = SOL-paired; else the stable quote mint
 				prep_id: prepId,
 			})}::jsonb,
 			${expiresAt}
@@ -1135,6 +1151,8 @@ async function handleLaunchPrep(req, res) {
 		network: body.network,
 		buyback_bps: effBuyback,
 		coin_type: body.coin_type,
+		quote_mint: quote.quoteMint,
+		quote_currency: quote.label,
 		expires_at: expiresAt.toISOString(),
 		instructions: mintKeypair
 			? 'Decode tx_base64 as VersionedTransaction. Sign with the mint keypair (mint_secret_key_b64) AND the user wallet, submit, then POST /api/pump/launch-confirm with the tx_signature.'
@@ -1199,11 +1217,11 @@ async function handleLaunchConfirm(req, res) {
 	const agentAuthority = p.creator_address || p.wallet_address;
 	const [row] = await sql`
 		insert into pump_agent_mints
-			(agent_id, user_id, network, mint, name, symbol, metadata_uri, agent_authority, buyback_bps)
+			(agent_id, user_id, network, mint, name, symbol, metadata_uri, agent_authority, buyback_bps, quote_mint)
 		values
 			(${p.agent_id}, ${user.id}, ${p.network}, ${p.mint},
-			 ${p.name}, ${p.symbol}, ${metadataUri}, ${agentAuthority}, ${p.buyback_bps})
-		returning id, mint, network, buyback_bps, created_at
+			 ${p.name}, ${p.symbol}, ${metadataUri}, ${agentAuthority}, ${p.buyback_bps}, ${p.quote_mint ?? null})
+		returning id, mint, network, buyback_bps, quote_mint, created_at
 	`;
 
 	await sql`delete from agent_registrations_pending where id=${pending.id}`;
@@ -1307,6 +1325,12 @@ const launchAgentSchema = z
 		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 		buyback_bps: z.number().int().min(0).max(10_000).default(0),
 		sol_buy_in: z.number().nonnegative().max(50).default(0),
+		// USDC-paired agent coins: pass `quote_mint` (the USDC mint) to create a
+		// stable-paired curve, and `usdc_buy_in` for an optional USDC dev buy. The
+		// agent custodial wallet must hold that USDC (checked in the preflight).
+		usdc_buy_in: z.number().nonnegative().max(1_000_000).default(0),
+		quote_currency: z.enum(['sol', 'usdc']).optional(),
+		quote_mint: z.string().min(32).max(44).optional(),
 		mint_address: z.string().min(32).max(44).optional(),
 		mint_secret_key_b64: z.string().min(20).optional(),
 		coin_type: z.enum(['regular', 'mayhem', 'agent']).default('agent'),
@@ -1390,10 +1414,27 @@ async function handleLaunchAgent(req, res) {
 	`;
 	if (existing) return error(res, 409, 'conflict', 'mint already registered');
 
+	// Resolve the quote pairing. Agent coins are SOL-paired by default; pass
+	// `quote_currency: 'usdc'` (or an explicit `quote_mint`) to launch a
+	// stable-paired coin whose USDC buyback swaps natively.
+	const requestedQuoteMint =
+		body.quote_currency === 'usdc'
+			? usdcMintFor(body.network)
+			: body.quote_currency === 'sol'
+				? null
+				: body.quote_mint;
+	const quote = classifyLaunchQuote({ quoteMint: requestedQuoteMint, network: body.network });
+	const launchQuoteMint = quote.quoteMint ? solanaPubkey(quote.quoteMint) : null;
+
 	// Pre-flight: make sure the agent wallet can afford the launch.
 	const conn = solanaConnection(body.network);
 	const PUMP_BASE_LAMPORTS = Math.floor(0.022 * LAMPORTS_PER_SOL);
-	const initialBuyLamports = Math.floor((body.sol_buy_in || 0) * LAMPORTS_PER_SOL);
+	// SOL always covers rent + fees. A SOL dev buy adds to the requirement; a USDC
+	// dev buy is funded from the wallet's USDC balance (checked separately), so it
+	// does not add to the SOL requirement.
+	const initialBuyLamports = quote.isUsdc
+		? 0
+		: Math.floor((body.sol_buy_in || 0) * LAMPORTS_PER_SOL);
 	const requiredLamports = PUMP_BASE_LAMPORTS + initialBuyLamports;
 	let balanceLamports = 0;
 	try {
@@ -1410,6 +1451,29 @@ async function handleLaunchAgent(req, res) {
 		);
 	}
 
+	// USDC dev buy: the custodial wallet must hold the USDC it will spend, or the
+	// create+buy reverts on-chain. Verify up front so it fails cleanly here.
+	if (quote.isUsdc && body.usdc_buy_in > 0) {
+		const needAtomics = BigInt(Math.round(body.usdc_buy_in * 1_000_000));
+		let haveAtomics = 0n;
+		try {
+			const { getAssociatedTokenAddressSync } = await import('@solana/spl-token');
+			const usdcAta = getAssociatedTokenAddressSync(launchQuoteMint, creator, true);
+			const bal = await conn.getTokenAccountBalance(usdcAta);
+			haveAtomics = BigInt(bal?.value?.amount ?? 0);
+		} catch {
+			haveAtomics = 0n; // missing/closed ATA → treat as zero balance
+		}
+		if (haveAtomics < needAtomics) {
+			return error(
+				res,
+				402,
+				'insufficient_usdc',
+				`agent wallet holds ${(Number(haveAtomics) / 1e6).toFixed(2)} USDC, needs ${body.usdc_buy_in.toFixed(2)} USDC for the dev buy — deposit USDC to ${creator.toBase58()} or set usdc_buy_in to 0`,
+			);
+		}
+	}
+
 	const { sdk, BN } = await getPumpSdk({ network: body.network });
 
 	const isMayhem = body.coin_type === 'mayhem';
@@ -1420,6 +1484,8 @@ async function handleLaunchAgent(req, res) {
 		sdk, BN, mint, creator,
 		name: body.name, symbol: body.symbol, uri: body.uri,
 		solBuyIn: body.sol_buy_in,
+		usdcBuyIn: body.usdc_buy_in,
+		quoteMint: launchQuoteMint,
 		isMayhem,
 	});
 
@@ -1475,12 +1541,12 @@ async function handleLaunchAgent(req, res) {
 	const mintAddr = mint.toBase58();
 	const [row] = await sql`
 		insert into pump_agent_mints
-			(agent_id, user_id, network, mint, name, symbol, metadata_uri, agent_authority, buyback_bps)
+			(agent_id, user_id, network, mint, name, symbol, metadata_uri, agent_authority, buyback_bps, quote_mint)
 		values
 			(${resolvedAgentId}, ${user.id}, ${body.network}, ${mintAddr},
-			 ${body.name}, ${body.symbol}, ${body.uri}, ${creator.toBase58()}, ${effBuyback})
+			 ${body.name}, ${body.symbol}, ${body.uri}, ${creator.toBase58()}, ${effBuyback}, ${quote.quoteMint ?? null})
 		on conflict (mint, network) do nothing
-		returning id, mint, network, buyback_bps, created_at
+		returning id, mint, network, buyback_bps, quote_mint, created_at
 	`;
 
 	await sql`
@@ -1496,6 +1562,9 @@ async function handleLaunchAgent(req, res) {
 				signature,
 				network: body.network,
 				sol_buy_in: body.sol_buy_in || 0,
+				usdc_buy_in: body.usdc_buy_in || 0,
+				quote_mint: quote.quoteMint,
+				quote_currency: quote.label,
 				buyback_bps: effBuyback,
 				coin_type: body.coin_type,
 				source: 'studio_agent_wallet',
@@ -1523,6 +1592,8 @@ async function handleLaunchAgent(req, res) {
 		network: body.network,
 		buyback_bps: effBuyback,
 		coin_type: body.coin_type,
+		quote_mint: quote.quoteMint,
+		quote_currency: quote.label,
 		pump_agent_mint: row || null,
 		explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		pumpfun_url: `https://pump.fun/coin/${mintAddr}`,

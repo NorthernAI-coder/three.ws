@@ -5,10 +5,12 @@
 //   • Groq and OpenRouter are PLATFORM-FUNDED. The server holds those keys and
 //     callers use them for free. They are the default providers, tried in order.
 //
-//   • Anthropic is BYOK (bring-your-own-key). It is used ONLY when the caller
-//     passes an explicit `anthropicKey` (e.g. an agent owner's own key). The
-//     platform never depends on a server-side ANTHROPIC_API_KEY and never
-//     hard-fails when it is absent — every flow degrades to the free providers.
+//   • Anthropic is used when the caller passes an explicit BYOK `anthropicKey`
+//     (e.g. an agent owner's own key), OR when the caller opts in with
+//     `serverAnthropic: true` and a server `ANTHROPIC_API_KEY` is configured.
+//     Both are OFF by default: a caller that passes neither never touches
+//     Anthropic, and no flow hard-fails when the key is absent — every flow
+//     still degrades to the free providers.
 //
 // Consolidated from the multi-provider fallback that already lived in
 // api/persona/extract.js and api/persona/preview.js.
@@ -71,11 +73,19 @@ function openaiCompatProvider({ name, key, url, model, extraHeaders = {} }) {
 	};
 }
 
-// Build the ordered provider chain for a request. BYOK Anthropic (when the
-// caller brings a key) is preferred, then the free platform providers.
-function providerChain({ anthropicKey, anthropicModel } = {}) {
+// Build the ordered provider chain for a request. Anthropic leads when keyed —
+// a caller-supplied BYOK key always, or the server `ANTHROPIC_API_KEY` when the
+// caller opts in with `serverAnthropic: true`. After that come the free platform
+// providers (Groq, then OpenRouter).
+//
+// `serverAnthropic` is opt-in (default off) so the historical BYOK-only policy
+// is unchanged for existing callers: the platform never *depends* on a server
+// Anthropic key and still degrades to the free providers when it's absent. The
+// persona endpoints opt in to get Anthropic-first ordered failover.
+function providerChain({ anthropicKey, anthropicModel, serverAnthropic = false } = {}) {
 	const chain = [];
 	if (anthropicKey) chain.push(anthropicProvider(anthropicKey, anthropicModel));
+	else if (serverAnthropic && env.ANTHROPIC_API_KEY) chain.push(anthropicProvider(env.ANTHROPIC_API_KEY, anthropicModel));
 	if (env.GROQ_API_KEY) {
 		chain.push(openaiCompatProvider({
 			name: 'groq',
@@ -112,8 +122,8 @@ export function llmConfigured(opts = {}) {
 // Returns { text, provider, model, usage:{input,output}, raw }.
 // Throws LlmUnavailableError when no provider is configured, or the last
 // upstream error (with .status = 502) when every provider failed.
-export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, timeoutMs = 30_000 }) {
-	const chain = providerChain({ anthropicKey, anthropicModel });
+export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, serverAnthropic = false, timeoutMs = 30_000 }) {
+	const chain = providerChain({ anthropicKey, anthropicModel, serverAnthropic });
 	if (!chain.length) throw new LlmUnavailableError();
 
 	let lastErr;

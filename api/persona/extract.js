@@ -1,93 +1,15 @@
 // POST /api/persona/extract
 // Synthesizes a structured persona JSON from a short onboarding interview.
-// Prefers Anthropic direct, falls back to OpenRouter then Groq so the
-// feature works regardless of which API keys are configured.
+// Runs through the shared LLM helper (api/_lib/llm.js) for Anthropic-first
+// ordered failover: server Anthropic → Groq → OpenRouter, so a single upstream
+// 429/5xx fails over to the next provider instead of returning a hard 502.
 
 import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
+import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
 
 const MAX_ANSWERS = 12;
 const MAX_QA_CHARS = 1200;
-
-function resolveProvider() {
-	const anthropicKey = process.env.ANTHROPIC_API_KEY;
-	if (anthropicKey) {
-		return {
-			name: 'anthropic',
-			model: 'claude-haiku-4-5-20251001',
-			url: 'https://api.anthropic.com/v1/messages',
-			headers: {
-				'content-type': 'application/json',
-				'x-api-key': anthropicKey,
-				'anthropic-version': '2023-06-01',
-			},
-			buildBody: (system, userMessage) => ({
-				model: 'claude-haiku-4-5-20251001',
-				max_tokens: 800,
-				system,
-				messages: [{ role: 'user', content: userMessage }],
-			}),
-			extractText: (r) => r.content?.[0]?.text || '',
-			extractUsage: (r) => ({
-				input: r.usage?.input_tokens ?? 0,
-				output: r.usage?.output_tokens ?? 0,
-			}),
-		};
-	}
-	const orKey = process.env.OPENROUTER_API_KEY;
-	if (orKey) {
-		return {
-			name: 'openrouter',
-			model: 'anthropic/claude-3.5-haiku',
-			url: 'https://openrouter.ai/api/v1/chat/completions',
-			headers: {
-				'content-type': 'application/json',
-				authorization: `Bearer ${orKey}`,
-				'HTTP-Referer': 'https://three.ws',
-				'X-Title': 'three.ws persona',
-			},
-			buildBody: (system, userMessage) => ({
-				model: 'anthropic/claude-3.5-haiku',
-				max_tokens: 800,
-				messages: [
-					{ role: 'system', content: system },
-					{ role: 'user', content: userMessage },
-				],
-			}),
-			extractText: (r) => r.choices?.[0]?.message?.content || '',
-			extractUsage: (r) => ({
-				input: r.usage?.prompt_tokens ?? 0,
-				output: r.usage?.completion_tokens ?? 0,
-			}),
-		};
-	}
-	const groqKey = process.env.GROQ_API_KEY;
-	if (groqKey) {
-		return {
-			name: 'groq',
-			model: 'llama-3.3-70b-versatile',
-			url: 'https://api.groq.com/openai/v1/chat/completions',
-			headers: {
-				'content-type': 'application/json',
-				authorization: `Bearer ${groqKey}`,
-			},
-			buildBody: (system, userMessage) => ({
-				model: 'llama-3.3-70b-versatile',
-				max_tokens: 800,
-				messages: [
-					{ role: 'system', content: system },
-					{ role: 'user', content: userMessage },
-				],
-			}),
-			extractText: (r) => r.choices?.[0]?.message?.content || '',
-			extractUsage: (r) => ({
-				input: r.usage?.prompt_tokens ?? 0,
-				output: r.usage?.completion_tokens ?? 0,
-			}),
-		};
-	}
-	return null;
-}
 
 async function resolveUser(req) {
 	const session = await getSessionUser(req);
@@ -167,16 +89,6 @@ const handler = wrap(async (req, res) => {
 	const body = await readJson(req);
 	const input = validateInput(body);
 
-	const provider = resolveProvider();
-	if (!provider) {
-		return error(
-			res,
-			503,
-			'config_missing',
-			'Persona extraction is not available right now. Please try again later.',
-		);
-	}
-
 	let userMessage;
 	if (input.mode === 'freeform') {
 		userMessage = `Analyze the following text and synthesize a persona JSON that captures the voice, personality, and communication patterns present in it.\n\n---\n${input.text}\n---`;
@@ -188,20 +100,24 @@ const handler = wrap(async (req, res) => {
 	}
 
 	const t0 = Date.now();
-	const llmRes = await fetch(provider.url, {
-		method: 'POST',
-		headers: provider.headers,
-		body: JSON.stringify(provider.buildBody(SYSTEM_PROMPT, userMessage)),
-	});
-
-	if (!llmRes.ok) {
-		const detail = await llmRes.text();
-		console.error(`[persona/extract] ${provider.name} error`, llmRes.status, detail);
-		return error(res, 502, 'upstream_error', `${provider.name} API ${llmRes.status}`);
+	let completion;
+	try {
+		completion = await llmComplete({
+			system: SYSTEM_PROMPT,
+			user: userMessage,
+			maxTokens: 800,
+			serverAnthropic: true,
+		});
+	} catch (err) {
+		if (err instanceof LlmUnavailableError) {
+			return error(res, 503, 'config_missing',
+				'Persona extraction is not available right now. Please try again later.');
+		}
+		console.error('[persona/extract] all providers failed', err?.status, err?.message);
+		return error(res, err?.status || 502, 'upstream_error', 'Persona extraction is briefly unavailable. Please try again.');
 	}
 
-	const result = await llmRes.json();
-	const raw = provider.extractText(result);
+	const raw = completion.text;
 	let persona;
 	try {
 		const stripped = raw
@@ -245,11 +161,11 @@ const handler = wrap(async (req, res) => {
 				: '',
 	};
 
-	const usage = provider.extractUsage(result);
+	const usage = completion.usage;
 
 	return json(res, 200, {
 		persona: normalized,
-		model: provider.model,
+		model: completion.model,
 		tokens_used: usage.input + usage.output,
 		tokens_in: usage.input,
 		tokens_out: usage.output,

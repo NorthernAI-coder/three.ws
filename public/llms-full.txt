@@ -716,6 +716,12 @@ URL: https://three.ws/news/
 
 Product launches, integrations, and announcements from three.ws.
 
+### One Month In: How three.ws Built the 3D Agent Layer of the Internet
+
+URL: https://three.ws/news/three-ws-first-month-3d-agent-layer
+
+In one month, three.ws went from launch to global coverage: browser-native 3D AI agents listed across major exchanges and data platforms, deployed on four hyperscale clouds, live in Anthropic's MCP Registry, and covered from CoinMarketCap to Vogue. A look back at 30 days of shipping.
+
 ### three.ws Brings Autonomous Payments and 3D Generation to Anthropic's Official MCP Registry
 
 URL: https://three.ws/news/cmc-mcp-registry-article

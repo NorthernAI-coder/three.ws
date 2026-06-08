@@ -3,8 +3,9 @@
  * GLB compression pipeline.
  *
  * Reads GLB files with @gltf-transform, applies a lossless-perceptual transform
- * chain (dedup → prune → resample → quantize → EXT_meshopt_compression) and
- * writes the result back in place — but only if the output is actually smaller.
+ * chain (dedup → prune → resample → quantize → EXT_meshopt_compression →
+ * WebP texture recompression via EXT_texture_webp) and writes the result back
+ * in place — but only if the output is actually smaller.
  *
  *   node scripts/compress-glbs.mjs                       # scan public/ + rider/assets/
  *   node scripts/compress-glbs.mjs public/avatars/x.glb  # explicit file list
@@ -24,8 +25,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, prune, resample, quantize, meshopt } from '@gltf-transform/functions';
+import { dedup, prune, resample, quantize, meshopt, textureCompress } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer';
+import sharp from 'sharp';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '../..');
 const DEFAULT_SCAN_DIRS = ['public', 'rider/assets'];
@@ -108,8 +110,7 @@ async function main() {
 				resample(),
 				quantize(),
 				meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
-				// TODO: add textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 85 })
-				// once sharp is wired into the asset pipeline (it needs a native binary).
+				textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 85 }),
 			);
 
 			const bytes = await io.writeBinary(document);
