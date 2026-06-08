@@ -15,7 +15,8 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['POST'])) return;
 
 	const bountyId = req.query?.id;
-	if (!bountyId || !isUuid(bountyId)) return error(res, 400, 'bad_request', 'valid bounty id required');
+	if (!bountyId || !isUuid(bountyId))
+		return error(res, 400, 'bad_request', 'valid bounty id required');
 
 	const user = await getSessionUser(req).catch(() => null);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in to like submissions');

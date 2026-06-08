@@ -29,7 +29,9 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'POST') {
 		let user;
-		try { user = await getSessionUser(req); } catch {
+		try {
+			user = await getSessionUser(req);
+		} catch {
 			return error(res, 401, 'unauthorized', 'sign in to submit');
 		}
 
@@ -50,7 +52,8 @@ export default wrap(async (req, res) => {
 		}
 
 		const validTypes = ['image', 'video', 'link'];
-		const mtype = media_type && validTypes.includes(media_type) ? media_type : (media_url ? 'link' : null);
+		const mtype =
+			media_type && validTypes.includes(media_type) ? media_type : media_url ? 'link' : null;
 		const username = user.display_name || user.email?.split('@')[0] || 'anon';
 
 		const [submission] = await sql`

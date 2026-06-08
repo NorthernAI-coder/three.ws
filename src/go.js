@@ -28,9 +28,12 @@ async function loadUser() {
 		if (r.ok) {
 			currentUser = await r.json();
 			const btn = document.getElementById('user-btn');
-			btn.textContent = currentUser.display_name || currentUser.email?.split('@')[0] || 'account';
+			btn.textContent =
+				currentUser.display_name || currentUser.email?.split('@')[0] || 'account';
 			btn.style.display = '';
-			btn.addEventListener('click', () => { location.href = '/dashboard'; });
+			btn.addEventListener('click', () => {
+				location.href = '/dashboard';
+			});
 		}
 	} catch {
 		// unauthenticated — fine
@@ -40,9 +43,9 @@ async function loadUser() {
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 
 function bindTabs() {
-	document.querySelectorAll('.tab-btn').forEach(btn => {
+	document.querySelectorAll('.tab-btn').forEach((btn) => {
 		btn.addEventListener('click', () => {
-			document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+			document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
 			btn.classList.add('active');
 			currentTab = btn.dataset.tab;
 			feedOffset = 0;
@@ -129,7 +132,9 @@ function renderSubmissions(el, subs) {
 // ── Card renderers ────────────────────────────────────────────────────────────
 
 function renderBountyCard(b) {
-	const statusClass = { open: 'badge-open', resolving: 'badge-resolving', closed: 'badge-closed' }[b.status] || 'badge-open';
+	const statusClass =
+		{ open: 'badge-open', resolving: 'badge-resolving', closed: 'badge-closed' }[b.status] ||
+		'badge-open';
 	const statusLabel = b.status?.toUpperCase() || 'OPEN';
 	const reward = b.reward_sol ? `◎ ${parseFloat(b.reward_sol).toFixed(2)} SOL` : '';
 	const rewardUsd = b.reward_usd ? `$${parseFloat(b.reward_usd).toFixed(2)}` : '';
@@ -168,11 +173,12 @@ function renderBountyCard(b) {
 function renderSubmissionCard(s) {
 	const initial = (s.username || '?')[0].toUpperCase();
 	const ago = timeAgo(s.created_at);
-	const mediaEl = s.media_url && isImageUrl(s.media_url)
-		? `<img class="sub-media" src="${esc(s.media_url)}" alt="submission media" loading="lazy" />`
-		: s.media_url
-			? `<a href="${esc(s.media_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="display:inline-flex;gap:6px;margin-bottom:8px;">🔗 View proof</a>`
-			: '';
+	const mediaEl =
+		s.media_url && isImageUrl(s.media_url)
+			? `<img class="sub-media" src="${esc(s.media_url)}" alt="submission media" loading="lazy" />`
+			: s.media_url
+				? `<a href="${esc(s.media_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="display:inline-flex;gap:6px;margin-bottom:8px;">🔗 View proof</a>`
+				: '';
 
 	return `
 	<article class="card sub-card" data-id="${esc(s.id)}">
@@ -212,8 +218,15 @@ async function loadTopBounties() {
 	try {
 		const r = await fetch(`${API}?tab=open&limit=5`);
 		const { bounties } = await r.json();
-		if (!bounties?.length) { el.innerHTML = '<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">No open bounties yet</div>'; return; }
-		el.innerHTML = bounties.slice(0, 5).map((b, i) => `
+		if (!bounties?.length) {
+			el.innerHTML =
+				'<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">No open bounties yet</div>';
+			return;
+		}
+		el.innerHTML = bounties
+			.slice(0, 5)
+			.map(
+				(b, i) => `
 			<div class="top-bounty-row">
 				<div class="tb-rank">${i + 1}</div>
 				<div class="tb-info">
@@ -222,9 +235,12 @@ async function loadTopBounties() {
 				</div>
 				${b.reward_usd ? `<div class="tb-reward">$${parseFloat(b.reward_usd).toFixed(0)}</div>` : ''}
 			</div>
-		`).join('');
+		`,
+			)
+			.join('');
 	} catch {
-		el.innerHTML = '<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">—</div>';
+		el.innerHTML =
+			'<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">—</div>';
 	}
 }
 
@@ -241,48 +257,66 @@ async function loadLeaderboards() {
 			spendersEl.innerHTML = renderLeaderboard(spenders);
 			return;
 		}
-	} catch { /* fall through to placeholder */ }
+	} catch {
+		/* fall through to placeholder */
+	}
 
 	// Placeholder until leaderboard endpoint exists
-	earnersEl.innerHTML = '<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">Data loading…</div>';
-	spendersEl.innerHTML = '<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">Data loading…</div>';
+	earnersEl.innerHTML =
+		'<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">Data loading…</div>';
+	spendersEl.innerHTML =
+		'<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">Data loading…</div>';
 }
 
 function renderLeaderboard(rows) {
-	if (!rows?.length) return '<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">No data yet</div>';
+	if (!rows?.length)
+		return '<div class="leaderboard-row" style="color:var(--muted-2);font-size:12px;">No data yet</div>';
 	const medals = ['gold', 'silver', 'bronze'];
-	return rows.slice(0, 3).map((r, i) => `
+	return rows
+		.slice(0, 3)
+		.map(
+			(r, i) =>
+				`
 		<div class="leaderboard-row">
-			<div class="rank ${medals[i] || ''}">🥇🥈🥉`.split('').filter((_, ii) => ii < 2)[i] + `</div>
+			<div class="rank ${medals[i] || ''}">🥇🥈🥉`
+					.split('')
+					.filter((_, ii) => ii < 2)[i] +
+				`</div>
 			<div class="lb-info">
 				<div class="lb-name">${esc(r.username || shortAddr(r.user_id))}</div>
 				<div class="lb-sub">${r.payout_count} payout${r.payout_count !== 1 ? 's' : ''}</div>
 			</div>
 			<div class="lb-amount">$${parseFloat(r.total_usd || 0).toFixed(2)}</div>
 		</div>
-	`).join('');
+	`,
+		)
+		.join('');
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
 
 function bindModals() {
-	document.querySelectorAll('[data-close]').forEach(btn => {
+	document.querySelectorAll('[data-close]').forEach((btn) => {
 		btn.addEventListener('click', () => closeModal(btn.dataset.close));
 	});
-	document.querySelectorAll('.modal-overlay').forEach(overlay => {
-		overlay.addEventListener('click', e => {
+	document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+		overlay.addEventListener('click', (e) => {
 			if (e.target === overlay) closeModal(overlay.id);
 		});
 	});
-	document.addEventListener('keydown', e => {
-		if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape')
+			document.querySelectorAll('.modal-overlay.open').forEach((m) => closeModal(m.id));
 	});
 
 	// Delegate submit/resolve buttons in feed
-	document.getElementById('feed').addEventListener('click', e => {
+	document.getElementById('feed').addEventListener('click', (e) => {
 		const btn = e.target.closest('[data-action]');
 		if (!btn) return;
-		if (!currentUser) { location.href = '/login'; return; }
+		if (!currentUser) {
+			location.href = '/login';
+			return;
+		}
 		if (btn.dataset.action === 'like') {
 			toggleLike(btn);
 			return;
@@ -307,7 +341,10 @@ function closeModal(id) {
 
 function bindCreate() {
 	document.getElementById('create-btn').addEventListener('click', () => {
-		if (!currentUser) { location.href = '/login'; return; }
+		if (!currentUser) {
+			location.href = '/login';
+			return;
+		}
 		openModal('create-modal');
 	});
 
@@ -318,8 +355,14 @@ function bindCreate() {
 		const days = parseInt(document.getElementById('c-days').value, 10);
 		const errEl = document.getElementById('create-error');
 
-		if (!title) { showErr(errEl, 'Title is required'); return; }
-		if (!sol) { showErr(errEl, 'Set a SOL reward'); return; }
+		if (!title) {
+			showErr(errEl, 'Title is required');
+			return;
+		}
+		if (!sol) {
+			showErr(errEl, 'Set a SOL reward');
+			return;
+		}
 		errEl.style.display = 'none';
 
 		const btn = document.getElementById('create-submit');
@@ -331,7 +374,12 @@ function bindCreate() {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ title, description: desc || undefined, reward_sol: sol, expires_in_days: days }),
+				body: JSON.stringify({
+					title,
+					description: desc || undefined,
+					reward_sol: sol,
+					expires_in_days: days,
+				}),
 			});
 			const data = await r.json();
 			if (!r.ok) throw new Error(data.error_description || data.error || 'failed');
@@ -350,7 +398,9 @@ function bindCreate() {
 }
 
 function resetCreateForm() {
-	['c-title', 'c-desc', 'c-sol'].forEach(id => { document.getElementById(id).value = ''; });
+	['c-title', 'c-desc', 'c-sol'].forEach((id) => {
+		document.getElementById(id).value = '';
+	});
 	document.getElementById('c-days').value = '7';
 	document.getElementById('create-error').style.display = 'none';
 }
@@ -372,7 +422,10 @@ function bindSubmit() {
 		const url = document.getElementById('s-url').value.trim();
 		const errEl = document.getElementById('submit-error');
 
-		if (!content && !url) { showErr(errEl, 'Add a description or media URL'); return; }
+		if (!content && !url) {
+			showErr(errEl, 'Add a description or media URL');
+			return;
+		}
 		errEl.style.display = 'none';
 
 		const mediaType = url ? guessMediaType(url) : null;
@@ -385,7 +438,11 @@ function bindSubmit() {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ content: content || undefined, media_url: url || undefined, media_type: mediaType }),
+				body: JSON.stringify({
+					content: content || undefined,
+					media_url: url || undefined,
+					media_type: mediaType,
+				}),
 			});
 			const data = await r.json();
 			if (!r.ok) throw new Error(data.error_description || data.error || 'failed');
@@ -416,16 +473,20 @@ async function openResolveModal(bountyId) {
 	const judgeBtn = document.getElementById('ai-judge-btn');
 	judgeBtn.disabled = false;
 	judgeBtn.textContent = '✨ Rank with AI';
-	document.getElementById('resolve-subs').innerHTML = '<div style="color:var(--muted);font-size:13px;">Loading submissions…</div>';
+	document.getElementById('resolve-subs').innerHTML =
+		'<div style="color:var(--muted);font-size:13px;">Loading submissions…</div>';
 	openModal('resolve-modal');
 
 	try {
-		const r = await fetch(`${API}/${bountyId}/submissions?limit=50`, { credentials: 'include' });
+		const r = await fetch(`${API}/${bountyId}/submissions?limit=50`, {
+			credentials: 'include',
+		});
 		const data = await r.json();
 		resolveSubmissions = data.submissions || [];
 		renderResolveSubs();
 	} catch {
-		document.getElementById('resolve-subs').innerHTML = '<div style="color:#f87171;font-size:13px;">Failed to load submissions</div>';
+		document.getElementById('resolve-subs').innerHTML =
+			'<div style="color:#f87171;font-size:13px;">Failed to load submissions</div>';
 	}
 }
 
@@ -435,14 +496,17 @@ function renderResolveSubs() {
 		el.innerHTML = '<div style="color:var(--muted);font-size:13px;">No submissions yet</div>';
 		return;
 	}
-	el.innerHTML = resolveSubmissions.map(s => {
-		const ai = s._ai;
-		const isRec = aiRecommendedId && s.id === aiRecommendedId;
-		const likes = s.like_count ? `<span class="sp-likes">♥ ${s.like_count}</span>` : '';
-		const score = ai ? `<span class="ai-score" style="--s:${ai.score}">${ai.score}</span>` : '';
-		const verdict = ai?.verdict ? `<div class="ai-verdict">${esc(ai.verdict)}</div>` : '';
-		const recBadge = isRec ? `<div class="sub-pick-rec">★ AI pick</div>` : '';
-		return `
+	el.innerHTML = resolveSubmissions
+		.map((s) => {
+			const ai = s._ai;
+			const isRec = aiRecommendedId && s.id === aiRecommendedId;
+			const likes = s.like_count ? `<span class="sp-likes">♥ ${s.like_count}</span>` : '';
+			const score = ai
+				? `<span class="ai-score" style="--s:${ai.score}">${ai.score}</span>`
+				: '';
+			const verdict = ai?.verdict ? `<div class="ai-verdict">${esc(ai.verdict)}</div>` : '';
+			const recBadge = isRec ? `<div class="sub-pick-rec">★ AI pick</div>` : '';
+			return `
 		<div class="sub-pick ${s.id === selectedSubmissionId ? 'selected' : ''} ${isRec ? 'recommended' : ''}" data-sid="${esc(s.id)}">
 			<div class="sub-pick-head">
 				<div class="sub-pick-user">${esc(s.username || 'anon')} · ${timeAgo(s.created_at)}${likes}</div>
@@ -452,12 +516,13 @@ function renderResolveSubs() {
 			${verdict}
 			${recBadge}
 		</div>`;
-	}).join('');
+		})
+		.join('');
 
-	el.querySelectorAll('.sub-pick').forEach(div => {
+	el.querySelectorAll('.sub-pick').forEach((div) => {
 		div.addEventListener('click', () => {
 			selectedSubmissionId = div.dataset.sid;
-			el.querySelectorAll('.sub-pick').forEach(d => d.classList.remove('selected'));
+			el.querySelectorAll('.sub-pick').forEach((d) => d.classList.remove('selected'));
 			div.classList.add('selected');
 		});
 	});
@@ -468,7 +533,10 @@ function bindResolve() {
 
 	document.getElementById('resolve-submit').addEventListener('click', async () => {
 		const errEl = document.getElementById('resolve-error');
-		if (!selectedSubmissionId) { showErr(errEl, 'Select a winning submission'); return; }
+		if (!selectedSubmissionId) {
+			showErr(errEl, 'Select a winning submission');
+			return;
+		}
 		const tx = document.getElementById('r-tx').value.trim();
 		errEl.style.display = 'none';
 
@@ -481,7 +549,10 @@ function bindResolve() {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ submission_id: selectedSubmissionId, tx_hash: tx || undefined }),
+				body: JSON.stringify({
+					submission_id: selectedSubmissionId,
+					tx_hash: tx || undefined,
+				}),
 			});
 			const data = await r.json();
 			if (!r.ok) throw new Error(data.error_description || data.error || 'failed');
@@ -504,7 +575,10 @@ function heartSvg() {
 }
 
 async function toggleLike(btn) {
-	if (!currentUser) { location.href = '/login'; return; }
+	if (!currentUser) {
+		location.href = '/login';
+		return;
+	}
 	const sid = btn.dataset.id;
 	const bid = btn.dataset.bounty;
 	if (!sid || !bid) return;
@@ -544,7 +618,10 @@ async function toggleLike(btn) {
 // ── AI judge ──────────────────────────────────────────────────────────────────
 
 async function runJudge() {
-	if (!resolveSubmissions.length) { toast('No submissions to rank yet'); return; }
+	if (!resolveSubmissions.length) {
+		toast('No submissions to rank yet');
+		return;
+	}
 	const btn = document.getElementById('ai-judge-btn');
 	const banner = document.getElementById('ai-summary');
 	const prevLabel = btn.textContent;
@@ -552,13 +629,16 @@ async function runJudge() {
 	btn.textContent = '✨ Judging…';
 
 	try {
-		const r = await fetch(`${API}/${activeBountyId}/judge`, { method: 'POST', credentials: 'include' });
+		const r = await fetch(`${API}/${activeBountyId}/judge`, {
+			method: 'POST',
+			credentials: 'include',
+		});
 		const data = await r.json();
 		if (!r.ok) throw new Error(data.error_description || data.error || 'failed');
 
-		const byId = new Map((data.rankings || []).map(x => [x.submission_id, x]));
+		const byId = new Map((data.rankings || []).map((x) => [x.submission_id, x]));
 		resolveSubmissions = resolveSubmissions
-			.map(s => ({ ...s, _ai: byId.get(s.id) || null }))
+			.map((s) => ({ ...s, _ai: byId.get(s.id) || null }))
 			.sort((a, b) => (b._ai?.score ?? -1) - (a._ai?.score ?? -1));
 
 		aiRecommendedId = data.recommended_id || null;
@@ -570,7 +650,9 @@ async function runJudge() {
 		btn.textContent = '✨ Re-rank';
 		toast('AI ranked the submissions', 'success');
 	} catch (err) {
-		const msg = /unavailable/i.test(err.message) ? 'AI judge is unavailable right now' : (err.message || 'Judge failed');
+		const msg = /unavailable/i.test(err.message)
+			? 'AI judge is unavailable right now'
+			: err.message || 'Judge failed';
 		toast(msg, 'fail');
 		btn.textContent = prevLabel;
 	} finally {
@@ -581,24 +663,34 @@ async function runJudge() {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function renderSkeletons(n) {
-	return Array.from({ length: n }, () => `
+	return Array.from(
+		{ length: n },
+		() => `
 		<div class="skel-card">
 			<div class="skeleton skel-block" style="width:60px;height:18px;margin-bottom:12px;"></div>
 			<div class="skeleton skel-block" style="width:80%;height:16px;"></div>
 			<div class="skeleton skel-block" style="width:55%;height:13px;"></div>
 			<div class="skeleton skel-block" style="width:40%;height:12px;"></div>
 		</div>
-	`).join('');
+	`,
+	).join('');
 }
 
 function renderEmpty() {
-	const label = { feed: 'No bounties yet', open: 'No open bounties', submissions: 'No submissions yet' }[currentTab] || 'Nothing here yet';
+	const label =
+		{ feed: 'No bounties yet', open: 'No open bounties', submissions: 'No submissions yet' }[
+			currentTab
+		] || 'Nothing here yet';
 	return `<div class="empty"><div class="empty-icon">🎯</div><h3>${label}</h3><p>Be the first to post a bounty and get community members competing.</p></div>`;
 }
 
 function esc(str) {
 	if (str == null) return '';
-	return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	return String(str)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
 }
 
 function timeLeftStr(iso) {
@@ -649,7 +741,9 @@ function toast(msg, type = '') {
 	el.textContent = msg;
 	el.className = `toast${type ? ' ' + type : ''} show`;
 	clearTimeout(toastTimer);
-	toastTimer = setTimeout(() => { el.classList.remove('show'); }, 3000);
+	toastTimer = setTimeout(() => {
+		el.classList.remove('show');
+	}, 3000);
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────

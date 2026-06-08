@@ -60,8 +60,7 @@ function getLimiter(name, opts) {
 	const key = `${name}:${opts.limit}:${opts.window}`;
 	if (limiters.has(key)) return limiters.get(key);
 	if (!redis) {
-		const lim =
-			opts.critical && IS_PRODUCTION ? failClosedLimiter(opts) : memoryLimiter(opts);
+		const lim = opts.critical && IS_PRODUCTION ? failClosedLimiter(opts) : memoryLimiter(opts);
 		limiters.set(key, lim);
 		return lim;
 	}
@@ -176,21 +175,28 @@ export const limits = {
 	// Paid MCP tools — each call runs real compute (glTF validation / inspection
 	// / optimization on a fetched model). Marked critical so they fail closed in
 	// prod without Redis rather than allowing unbounded paid work per instance.
-	mcpValidate: (key) => getLimiter('mcp:validate', { limit: 10, window: '1 m', critical: true }).limit(key),
-	mcpInspect: (key) => getLimiter('mcp:inspect', { limit: 30, window: '1 m', critical: true }).limit(key),
-	mcpOptimize: (key) => getLimiter('mcp:optimize', { limit: 10, window: '1 m', critical: true }).limit(key),
+	mcpValidate: (key) =>
+		getLimiter('mcp:validate', { limit: 10, window: '1 m', critical: true }).limit(key),
+	mcpInspect: (key) =>
+		getLimiter('mcp:inspect', { limit: 30, window: '1 m', critical: true }).limit(key),
+	mcpOptimize: (key) =>
+		getLimiter('mcp:optimize', { limit: 10, window: '1 m', critical: true }).limit(key),
 	// 3D Studio MCP. Generation submits a real GPU job on Replicate (text→image
 	// and/or image→3D reconstruction) that costs real money, so it gets a hard
 	// hourly ceiling per principal. Status polling is cheap and frequent.
-	mcp3dGenerate: (key) => getLimiter('mcp3d:generate', { limit: 12, window: '1 h', critical: true }).limit(key),
+	mcp3dGenerate: (key) =>
+		getLimiter('mcp3d:generate', { limit: 12, window: '1 h', critical: true }).limit(key),
 	mcp3dStatus: (key) => getLimiter('mcp3d:status', { limit: 240, window: '1 m' }).limit(key),
 	// x402 Bazaar MCP. Discovery calls fan out to external facilitators, so cap
 	// per principal to keep that egress bounded without throttling normal use.
-	mcpBazaar: (key) => getLimiter('mcp:bazaar', { limit: 60, window: '1 m', critical: true }).limit(key),
+	mcpBazaar: (key) =>
+		getLimiter('mcp:bazaar', { limit: 60, window: '1 m', critical: true }).limit(key),
 	// threews-agent MCP. Read/discovery calls are cheap; pay_and_call moves real
 	// money, so it gets a much tighter ceiling on top of the per-spend caps.
-	mcpAgent: (key) => getLimiter('mcp:agent', { limit: 60, window: '1 m', critical: true }).limit(key),
-	mcpAgentPay: (key) => getLimiter('mcp:agent:pay', { limit: 20, window: '1 m', critical: true }).limit(key),
+	mcpAgent: (key) =>
+		getLimiter('mcp:agent', { limit: 60, window: '1 m', critical: true }).limit(key),
+	mcpAgentPay: (key) =>
+		getLimiter('mcp:agent:pay', { limit: 20, window: '1 m', critical: true }).limit(key),
 	oauthToken: (clientId) =>
 		getLimiter('oauth:token', { limit: 120, window: '1 m' }).limit(clientId),
 	upload: (userId) => getLimiter('upload', { limit: 60, window: '1 h' }).limit(userId),
@@ -218,7 +224,9 @@ export const limits = {
 	// balance as the global ceiling.
 	x402PayIp: (ip) => getLimiter('x402:pay:ip', { limit: 6, window: '1 m' }).limit(ip),
 	x402PayGlobal: () =>
-		getLimiter('x402:pay:global', { limit: 600, window: '1 h', critical: true }).limit('global'),
+		getLimiter('x402:pay:global', { limit: 600, window: '1 h', critical: true }).limit(
+			'global',
+		),
 	checkName: (ip) => getLimiter('check-name:ip', { limit: 60, window: '1 m' }).limit(ip),
 	ensResolve: (ip) => getLimiter('ens:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
@@ -252,11 +260,13 @@ export const limits = {
 	// to one Granite Guardian classifier pass per risk against the server watsonx
 	// key, so cap the per-IP burst and keep a global hourly ceiling as a cost cap.
 	guardianIp: (ip) => getLimiter('guardian:ip', { limit: 30, window: '1 m' }).limit(ip),
-	guardianGlobal: () => getLimiter('guardian:global', { limit: 1200, window: '1 h' }).limit('global'),
+	guardianGlobal: () =>
+		getLimiter('guardian:global', { limit: 1200, window: '1 h' }).limit('global'),
 	// Granite identity-integrity check (api/agents/identity-check). Each call does
 	// one Granite embedding + a fan-out of Guardian passes against the server key,
 	// so keep the per-IP burst tight and add a global hourly ceiling as a cost cap.
-	identityCheckIp: (ip) => getLimiter('identity-check:ip', { limit: 20, window: '1 m' }).limit(ip),
+	identityCheckIp: (ip) =>
+		getLimiter('identity-check:ip', { limit: 20, window: '1 m' }).limit(ip),
 	identityCheckGlobal: () =>
 		getLimiter('identity-check:global', { limit: 600, window: '1 h' }).limit('global'),
 	// Skills marketplace browse — isolated bucket so traffic on other public endpoints
@@ -285,7 +295,8 @@ export const limits = {
 		}).limit(agentId),
 	// Autonomous agent skill purchases: 10 per hour per buyer agent to prevent runaway spending.
 	// Critical (moves real money) — fail closed in prod without Redis.
-	agentBuy: (agentId) => getLimiter('agent:buy', { limit: 10, window: '1 h', critical: true }).limit(agentId),
+	agentBuy: (agentId) =>
+		getLimiter('agent:buy', { limit: 10, window: '1 h', critical: true }).limit(agentId),
 	// Gas-spending endpoints: 10 redeems per 5 minutes per IP
 	strict: (key) =>
 		getLimiter('permissions:redeem:strict', { limit: 10, window: '5 m' }).limit(key),
@@ -313,7 +324,8 @@ export const limits = {
 	newsletterIp: (ip) => getLimiter('newsletter:ip', { limit: 5, window: '1 h' }).limit(ip),
 	// Voice cloning: expensive ElevenLabs API call — 3 per user per day.
 	// Critical (real per-call cost) — fail closed in prod without Redis.
-	voiceClone: (userId) => getLimiter('voice:clone', { limit: 3, window: '1 d', critical: true }).limit(userId),
+	voiceClone: (userId) =>
+		getLimiter('voice:clone', { limit: 3, window: '1 d', critical: true }).limit(userId),
 	// Persona extraction: Claude API call — 5 per user per day.
 	personaExtract: (userId) =>
 		getLimiter('persona:extract', { limit: 5, window: '1 d' }).limit(userId),

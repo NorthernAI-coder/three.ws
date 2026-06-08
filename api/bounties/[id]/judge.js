@@ -34,7 +34,8 @@ export default wrap(async (req, res) => {
 	if (!user) return error(res, 401, 'unauthorized', 'sign in to use the AI judge');
 
 	const rl = await limits.bountyJudge(user.id);
-	if (!rl.success) return error(res, 429, 'rate_limited', 'AI judge limit reached — try again later');
+	if (!rl.success)
+		return error(res, 429, 'rate_limited', 'AI judge limit reached — try again later');
 
 	const [bounty] = await sql`
 		SELECT id, user_id, title, description, status
@@ -67,7 +68,12 @@ export default wrap(async (req, res) => {
 	let result;
 	try {
 		const { system, user: userPrompt } = buildJudgePrompt(bounty, subs);
-		const out = await llmComplete({ system, user: userPrompt, maxTokens: 1400, timeoutMs: 30_000 });
+		const out = await llmComplete({
+			system,
+			user: userPrompt,
+			maxTokens: 1400,
+			timeoutMs: 30_000,
+		});
 		result = normalizeJudgement(out.text, validIds);
 		result.model = out.model;
 		result.provider = out.provider;
@@ -75,7 +81,12 @@ export default wrap(async (req, res) => {
 		if (e instanceof LlmUnavailableError) {
 			return error(res, 503, 'llm_unavailable', 'AI judge is unavailable right now');
 		}
-		return error(res, 502, 'judge_failed', e?.message || 'the judge could not score this field');
+		return error(
+			res,
+			502,
+			'judge_failed',
+			e?.message || 'the judge could not score this field',
+		);
 	}
 
 	// Decorate each ranking with display context the client needs (author,
