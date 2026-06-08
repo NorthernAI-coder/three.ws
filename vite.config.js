@@ -944,6 +944,9 @@ const appConfig = {
 					// /embed/avatar/:handle  → portable avatar embed by handle
 					else if (!filePath && /^\/embed\/avatar(\/[a-z0-9_-]{3,30})?\/?$/i.test(path))
 						filePath = resolve(root, 'pages/avatar-embed.html');
+					// /avatars/:id/ar  → dedicated AR experience (mirrors vercel.json rewrite)
+					else if (!filePath && /^\/avatars\/[^/.]+\/ar\/?$/.test(path))
+						filePath = resolve(root, 'pages/ar.html');
 					// /avatars/:id/edit  → avatar customize page (mirrors vercel.json rewrite)
 					else if (!filePath && /^\/avatars\/[^/.]+\/edit\/?$/.test(path))
 						filePath = resolve(root, 'pages/avatar-edit.html');

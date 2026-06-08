@@ -1239,7 +1239,7 @@
 			"src": "/marketplace/avatars/([^/]+)",
 			"status": 301,
 			"headers": {
-				"Location": "/agents/$1"
+				"Location": "/avatars/$1"
 			}
 		},
 		{

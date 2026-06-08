@@ -86,6 +86,16 @@
 				font-size: 13px;
 			}
 			.av-back:hover { color: var(--text); }
+			.av-actionbar-center {
+				flex: 1 1 auto;
+				display: flex;
+				justify-content: center;
+				min-width: 0;
+			}
+			.av-actionbar-center:empty { display: none; }
+			@media (max-width: 600px) {
+				.av-actionbar-center { order: 3; flex-basis: 100%; margin-top: 10px; }
+			}
 			.av-share-group {
 				display: inline-flex;
 				gap: 6px;
@@ -1088,7 +1098,7 @@
 				.av-stage { min-height: 420px; }
 			}
 			@media (max-width: 600px) {
-				.av-actionbar { padding: 10px 14px; }
+				.av-actionbar { padding: 10px 14px; flex-wrap: wrap; }
 				.av-side-head, .av-cta-row { padding-left: 16px; padding-right: 16px; }
 				.av-panel { padding: 16px; }
 				.av-related { padding: 16px; }
@@ -1102,6 +1112,7 @@
 
 		<header class="av-actionbar">
 			<a class="av-back" href="/marketplace">← Marketplace</a>
+			<div class="av-actionbar-center" id="view-switch-slot"></div>
 			<div class="av-share-group">
 				<button class="av-share-btn" id="share-link">Copy link</button>
 				<a class="av-share-btn" id="share-twitter" target="_blank" rel="noopener">Share on X</a>
