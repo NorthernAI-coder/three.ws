@@ -93,7 +93,9 @@ function buildSolanaFacilitators() {
 	const createAuthHeaders = token
 		? async () => ({ headers: { Authorization: `Bearer ${token}` } })
 		: undefined;
-	return solanaFacilitatorUrls().map((url) => new HTTPFacilitatorClient({ url, createAuthHeaders }));
+	return solanaFacilitatorUrls().map(
+		(url) => new HTTPFacilitatorClient({ url, createAuthHeaders }),
+	);
 }
 
 let resourceServerPromise = null;
@@ -132,7 +134,14 @@ export function getLastFacilitatorInitError() {
 
 // Build the per-tool `accepts` list. Every paid tool settles in USDC on Solana
 // mainnet via the `exact` scheme.
-async function buildAcceptsForTool({ resourceServer, scheme, priceUsd, networks, resourceUrl, extra }) {
+async function buildAcceptsForTool({
+	resourceServer,
+	scheme,
+	priceUsd,
+	networks,
+	resourceUrl,
+	extra,
+}) {
 	const opts = [];
 	for (const net of networks) {
 		if (net !== NETWORK_SOLANA_MAINNET) {
@@ -283,8 +292,7 @@ export function paid(cfg, handler) {
 export function buildToolResult(result) {
 	const text = typeof result === 'string' ? result : JSON.stringify(result);
 	const envelope = { content: [{ type: 'text', text }] };
-	const isPlainObject =
-		result !== null && typeof result === 'object' && !Array.isArray(result);
+	const isPlainObject = result !== null && typeof result === 'object' && !Array.isArray(result);
 	if (isPlainObject) {
 		envelope.structuredContent = result;
 		if (result.ok === false) {

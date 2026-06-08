@@ -43,6 +43,8 @@ const ALLOWED_METHODS = new Set([
 	'getTokenAccountBalance',
 	'getTokenAccountsByOwner',
 	'getTokenSupply',
+	// Inherently bounded — returns at most the top 20 holders of one mint.
+	'getTokenLargestAccounts',
 	'getEpochInfo',
 	'getSlot',
 	'getBlockHeight',
@@ -50,6 +52,18 @@ const ALLOWED_METHODS = new Set([
 	'getHealth',
 	'getVersion',
 ]);
+
+// getProgramAccounts is an unbounded scan in the general case — the prime
+// vector for draining the keyed upstream — so it is NOT in ALLOWED_METHODS.
+// We permit it ONLY when the caller supplies a `filters` array that bounds the
+// result set (e.g. a memcmp on a specific mint, as the pump dashboard's bonding
+// curve probe does). A filtered, slice-limited query is cheap; a bare scan is
+// still refused.
+function isBoundedProgramScan(entry) {
+	if (entry.method !== 'getProgramAccounts') return false;
+	const opts = Array.isArray(entry.params) ? entry.params[1] : null;
+	return !!(opts && Array.isArray(opts.filters) && opts.filters.length > 0);
+}
 
 // Cap batch requests so a single POST can't fan out into hundreds of upstream
 // calls and sidestep the per-request rate limit.
@@ -71,7 +85,10 @@ function rejectReason(body) {
 	for (const e of entries) {
 		if (!e || typeof e !== 'object') return 'malformed_request';
 		if (typeof e.method !== 'string') return 'malformed_request';
-		if (!ALLOWED_METHODS.has(e.method)) return 'method_not_allowed';
+		if (ALLOWED_METHODS.has(e.method)) continue;
+		if (isBoundedProgramScan(e)) continue; // filtered getProgramAccounts is allowed
+		if (e.method === 'getProgramAccounts') return 'unbounded_scan';
+		return 'method_not_allowed';
 	}
 	return null;
 }
@@ -101,10 +118,13 @@ export default wrap(async function handler(req, res) {
 		const msg =
 			reason === 'method_not_allowed'
 				? 'this RPC method is not permitted through the proxy'
-				: reason === 'batch_too_large'
-					? `batch exceeds ${MAX_BATCH} requests`
-					: 'malformed JSON-RPC request';
-		return error(res, reason === 'method_not_allowed' ? 403 : 400, reason, msg);
+				: reason === 'unbounded_scan'
+					? 'getProgramAccounts requires a bounding `filters` array through this proxy'
+					: reason === 'batch_too_large'
+						? `batch exceeds ${MAX_BATCH} requests`
+						: 'malformed JSON-RPC request';
+		const status = reason === 'method_not_allowed' || reason === 'unbounded_scan' ? 403 : 400;
+		return error(res, status, reason, msg);
 	}
 
 	let upstream;

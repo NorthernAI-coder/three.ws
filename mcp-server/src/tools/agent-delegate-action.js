@@ -36,7 +36,9 @@ const inputZodShape = {
 		.string()
 		.min(1)
 		.max(100)
-		.describe('Optional Claude model override (e.g. claude-sonnet-4-6). Must be in the allowlist.')
+		.describe(
+			'Optional Claude model override (e.g. claude-sonnet-4-6). Must be in the allowlist.',
+		)
 		.optional(),
 };
 

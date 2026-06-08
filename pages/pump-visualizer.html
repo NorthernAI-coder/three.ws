@@ -822,6 +822,19 @@
 		const textureLoader = new THREE.TextureLoader();
 		textureLoader.crossOrigin = 'anonymous';
 
+		// Route remote token art through the same-origin proxy (/api/img) so the
+		// browser never makes a cross-origin image request — this eliminates the
+		// CORS / ERR_BLOCKED_BY_ORB failures that blanked token textures (one per
+		// token in the cloud). data: URIs and already-same-origin paths pass
+		// through untouched; the proxy itself falls back to a placeholder on any
+		// upstream failure, so a returned src always resolves.
+		function proxiedImg(uri, seed) {
+			if (!uri || typeof uri !== 'string') return null;
+			if (uri.startsWith('data:') || uri.startsWith('/')) return uri;
+			const s = seed ? `&seed=${encodeURIComponent(seed)}` : '';
+			return `/api/img?url=${encodeURIComponent(uri)}${s}`;
+		}
+
 		function fibonacciSphere(n) {
 			const points = [];
 			const phi = Math.PI * (Math.sqrt(5) - 1);
@@ -952,7 +965,7 @@
 
 			// Swap to real artwork asynchronously; keeps fallback if it fails.
 			if (token.image_uri) {
-				loadTokenTexture(token.image_uri, null).then((tex) => {
+				loadTokenTexture(proxiedImg(token.image_uri, token.mint || token.symbol), null).then((tex) => {
 					if (tex) {
 						material.map = tex;
 						material.needsUpdate = true;
@@ -1210,7 +1223,7 @@
 		function renderDetail(token) {
 			const avatar = document.getElementById('vz-detail-avatar');
 			const fallbackAvatar = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(token.mint || token.symbol || 'x')}`;
-			avatar.src = token.image_uri || fallbackAvatar;
+			avatar.src = proxiedImg(token.image_uri, token.mint || token.symbol) || fallbackAvatar;
 			avatar.onerror = () => { avatar.onerror = null; avatar.src = fallbackAvatar; };
 
 			document.getElementById('vz-detail-name').textContent = token.name || 'Unknown';
@@ -1306,7 +1319,7 @@
 				thumb.alt = '';
 				thumb.loading = 'lazy';
 				thumb.referrerPolicy = 'no-referrer';
-				thumb.src = token.image_uri || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(token.mint || token.symbol || 'x')}`;
+				thumb.src = proxiedImg(token.image_uri, token.mint || token.symbol) || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(token.mint || token.symbol || 'x')}`;
 				thumb.onerror = () => { thumb.onerror = null; thumb.src = `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(token.mint || 'x')}`; };
 
 				const name = document.createElement('span');

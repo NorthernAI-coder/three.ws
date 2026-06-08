@@ -23,7 +23,7 @@ import { makeEvmProvider } from '../lib/evm-rpc.js';
 
 const TOOL_NAME = 'ens_sns_resolve';
 const TOOL_DESCRIPTION =
-	'Resolve a human-readable name to addresses across ENS (Ethereum) and SNS (Solana). For .eth: returns Ethereum address via ethers. For .sol: returns Solana owner wallet via Bonfida SNS plus the wallet\'s other owned .sol domains. Names without a suffix are tried against both registries. Paid: $0.0005 USDC.';
+	"Resolve a human-readable name to addresses across ENS (Ethereum) and SNS (Solana). For .eth: returns Ethereum address via ethers. For .sol: returns Solana owner wallet via Bonfida SNS plus the wallet's other owned .sol domains. Names without a suffix are tried against both registries. Paid: $0.0005 USDC.";
 
 const ENS_RE = /^(?:[a-z0-9-]+\.)*[a-z0-9-]+\.eth$/i;
 const SOL_RE = /^[a-z0-9-]{1,63}(?:\.sol)?$/i;
@@ -35,7 +35,9 @@ function env(k, def) {
 }
 
 async function withTimeout(promise, ms, label) {
-	const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms));
+	const timeout = new Promise((_, rej) =>
+		setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms),
+	);
 	return Promise.race([promise, timeout]);
 }
 
@@ -123,7 +125,9 @@ const inputZodShape = {
 		.string()
 		.min(1)
 		.max(253)
-		.describe('Name to resolve (e.g. "vitalik.eth", "bonfida.sol", or bare "vitalik" which is tried in both).'),
+		.describe(
+			'Name to resolve (e.g. "vitalik.eth", "bonfida.sol", or bare "vitalik" which is tried in both).',
+		),
 };
 
 const inputJsonSchema = jsonSchemaFromZod(inputZodShape);
@@ -140,20 +144,38 @@ export async function buildEnsSnsResolveTool() {
 			outputExample: {
 				ok: true,
 				input: 'vitalik.eth',
-				ens: { network: 'ethereum', name: 'vitalik.eth', address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', reverseName: 'vitalik.eth' },
+				ens: {
+					network: 'ethereum',
+					name: 'vitalik.eth',
+					address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+					reverseName: 'vitalik.eth',
+				},
 				sns: null,
 			},
 		},
 		async ({ name }) => {
-			const trimmed = String(name || '').trim().toLowerCase();
+			const trimmed = String(name || '')
+				.trim()
+				.toLowerCase();
 			const isEns = ENS_RE.test(trimmed);
 			const isSol = /\.sol$/.test(trimmed) || (!isEns && SOL_RE.test(trimmed));
 
 			const tasks = [];
-			if (isEns) tasks.push(['ens', resolveEns(trimmed).catch((e) => ({ error: e?.message || 'ens failed' }))]);
-			if (isSol) tasks.push(['sns', resolveSns(trimmed).catch((e) => ({ error: e?.message || 'sns failed' }))]);
+			if (isEns)
+				tasks.push([
+					'ens',
+					resolveEns(trimmed).catch((e) => ({ error: e?.message || 'ens failed' })),
+				]);
+			if (isSol)
+				tasks.push([
+					'sns',
+					resolveSns(trimmed).catch((e) => ({ error: e?.message || 'sns failed' })),
+				]);
 			if (!isEns && !isSol) {
-				return toolError('invalid_name', 'name does not look like a .eth, .sol, or bare label');
+				return toolError(
+					'invalid_name',
+					'name does not look like a .eth, .sol, or bare label',
+				);
 			}
 			const results = await Promise.all(tasks.map((t) => t[1]));
 			const out = { ok: false, input: trimmed, ens: null, sns: null };

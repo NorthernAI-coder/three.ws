@@ -29,11 +29,15 @@ export default wrap(async (req, res) => {
 
 	const agent = await resolveOnChainAgent({ chainId, agentId });
 
-	// Hard 404 only when the on-chain read itself failed (token likely doesn't
-	// exist). Manifest fetch failures still render a card so the link shares.
-	if (agent.error && agent.error.startsWith('chain_read')) {
-		return notFound(res, `Agent #${agentId} not found on ${agent.chainName}`);
-	}
+	// A `chain_read` error is ambiguous: it fires both for a genuinely
+	// nonexistent token (ERC-721 reverts on tokenURI) AND for a transient RPC
+	// read failure. We must NOT hard-404 the second case — the SPA viewer
+	// resolves the agent client-side and renders fine, so a server-side RPC
+	// hiccup would otherwise turn a working agent into a dead 404. Instead we
+	// degrade: render the card with fallback metadata, mark it `noindex` so a
+	// truly-phantom agent never pollutes search, and let the inline script send
+	// real browsers on to the viewer. Crawlers get a shareable (un-indexed) card.
+	const unverified = !!(agent.error && agent.error.startsWith('chain_read'));
 
 	const origin = env.APP_ORIGIN;
 	const pageUrl = `${origin}/a/${chainId}/${agentId}`;
@@ -60,6 +64,7 @@ export default wrap(async (req, res) => {
 			chainId,
 			agentId,
 			ownerShort,
+			noindex: unverified,
 			pageUrl,
 			embedUrl,
 			viewerUrl,
@@ -95,7 +100,7 @@ function renderHtml(p) {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 	<meta name="description" content="${d}">
 	<meta name="theme-color" content="#0a0a0a">
-
+${p.noindex ? '\t<meta name="robots" content="noindex, nofollow">\n' : ''}
 	<meta property="og:type" content="profile">
 	<meta property="og:site_name" content="three.ws">
 	<meta property="og:title" content="${t}">

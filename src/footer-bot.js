@@ -51,14 +51,34 @@ let mixer = null;
 const clock = new Clock();
 let robot = null;
 
-new GLTFLoader().load('/animations/robotexpressive.glb', (gltf) => {
+// The footer bot is decorative: a transient CDN/network blip on the primary
+// asset must never leave an empty canvas or throw. Walk a fallback chain —
+// the expressive robot, retried once for transient failures, then a static
+// avatar that ships in the same bundle — and give up silently only if every
+// source is unreachable. A model with no clips simply renders without motion.
+const BOT_ASSETS = ['/animations/robotexpressive.glb', '/avatars/default.glb'];
+
+function mountBot(gltf) {
 	robot = gltf.scene;
 	scene.add(robot);
 	if (gltf.animations.length > 0) {
 		mixer = new AnimationMixer(robot);
 		mixer.clipAction(gltf.animations[0]).play();
 	}
-});
+}
+
+function loadBot(index = 0, retried = false) {
+	if (index >= BOT_ASSETS.length) return; // every source exhausted — leave the canvas empty
+	const url = BOT_ASSETS[index];
+	new GLTFLoader().load(url, mountBot, undefined, () => {
+		// Retry the same source once (transient fetch failures usually clear),
+		// then advance to the next fallback asset.
+		if (!retried) loadBot(index, true);
+		else loadBot(index + 1, false);
+	});
+}
+
+loadBot();
 
 // 20deg/sec auto-rotate, matching model-viewer rotation-per-second="20deg"
 const rotSpeed = MathUtils.degToRad(20);

@@ -704,7 +704,7 @@
 							<div class="pd-panel-body">
 								<div class="pd-form-group">
 									<label>RPC endpoint <span class="pd-probe" id="pd-probe-rpc"></span></label>
-									<input class="pd-input" type="text" id="pd-cfg-rpc-url" value="https://api.mainnet-beta.solana.com" />
+									<input class="pd-input" type="text" id="pd-cfg-rpc-url" value="/api/solana-rpc" placeholder="/api/solana-rpc or your own RPC URL" />
 								</div>
 								<div class="pd-form-group">
 									<label>Commitment level</label>
@@ -867,7 +867,17 @@
 				apiUrl: localStorage.getItem('pumpbot-api-url') || location.origin,
 				wsUrl: localStorage.getItem('pumpbot-ws-url') || 'wss://pumpportal.fun/api/data',
 				apiKey: localStorage.getItem('pumpbot-api-key') || '',
-				rpcUrl: localStorage.getItem('pumpbot-rpc-url') || 'https://api.mainnet-beta.solana.com',
+				// Default to the same-origin proxy (/api/solana-rpc), which forwards
+				// to a keyed Helius upstream server-side. The public RPC 403s
+				// browser requests, so we also migrate anyone whose stored value is
+				// that old broken default onto the proxy; genuine custom RPCs are
+				// preserved untouched.
+				rpcUrl: (() => {
+					const stored = localStorage.getItem('pumpbot-rpc-url');
+					return stored && stored !== 'https://api.mainnet-beta.solana.com'
+						? stored
+						: '/api/solana-rpc';
+				})(),
 				currentPage: 'dashboard',
 				currentFilter: 'all',
 				ws: null,
@@ -2160,7 +2170,7 @@
 				state.apiUrl = $('pd-cfg-api-url').value.trim() || location.origin;
 				state.wsUrl = $('pd-cfg-ws-url').value.trim() || 'wss://pumpportal.fun/api/data';
 				state.apiKey = $('pd-cfg-api-key').value.trim();
-				state.rpcUrl = $('pd-cfg-rpc-url').value.trim() || 'https://api.mainnet-beta.solana.com';
+				state.rpcUrl = $('pd-cfg-rpc-url').value.trim() || '/api/solana-rpc';
 				localStorage.setItem('pumpbot-api-url', state.apiUrl);
 				localStorage.setItem('pumpbot-ws-url', state.wsUrl);
 				localStorage.setItem('pumpbot-api-key', state.apiKey);
