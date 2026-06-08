@@ -33,6 +33,7 @@ import { Modal } from './shared/modal.js';
 import { showSharePanel } from './shared/share.js';
 import { enrichAgentDetail } from './agent-detail-market.js';
 import { log } from './shared/log.js';
+import { mountViewSwitcher } from './view-switcher.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -293,6 +294,15 @@ function render(agent) {
 	// richer custom GLB if the agent ships one.
 	const see3d = $('ad-see-3d');
 	if (see3d) see3d.href = seeInWorldHref(agent);
+
+	// View switcher: flip this agent between its detail, 3D world, and embed
+	// presentations. Every agent has a 3D body (custom GLB or mannequin).
+	mountViewSwitcher($('view-switch-slot'), {
+		kind: 'agent',
+		id: agent.id,
+		active: 'detail',
+		worldHref: seeInWorldHref(agent),
+	});
 
 	const status = $('ad-status');
 	status.textContent = agent.active ? 'Active' : 'Inactive';

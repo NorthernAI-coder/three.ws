@@ -12,6 +12,7 @@ import { downloadAvatar } from './avatar-export.js';
 import { fbxFromUrl } from './remesh-convert.js';
 import { log } from './shared/log.js';
 import { emptyStateHTML } from './shared/state-kit.js';
+import { mountViewSwitcher } from './view-switcher.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -99,6 +100,7 @@ async function init() {
 
 	updateOg();
 	renderShell(glbUrl);
+	mountSwitcher();
 	bindShareButtons();
 	bindTabs();
 	bindChat();
@@ -567,19 +569,38 @@ function renderEmbedPanel(glbUrl) {
 	`;
 }
 
+// ── View switcher ─────────────────────────────────────────────────────
+
+// Surface the page-level views (3D · Chat · AR · Embed) in the action bar.
+// "Chat" is the active view when the page is opened on ?view=chat.
+function mountSwitcher() {
+	if (isEmbed) return;
+	const active = new URLSearchParams(location.search).get('view') === 'chat' ? 'chat' : '3d';
+	mountViewSwitcher($('view-switch-slot'), { kind: 'avatar', id: avatar.id || avatarId, active });
+}
+
 // ── Tabs ──────────────────────────────────────────────────────────────
+
+function activateTab(tab) {
+	const btn = document.querySelector(`.av-tab[data-tab="${tab}"]`);
+	if (!btn) return false;
+	document.querySelectorAll('.av-tab').forEach((b) => b.classList.remove('active'));
+	btn.classList.add('active');
+	document.querySelectorAll('.av-panel').forEach((p) => {
+		p.classList.toggle('active', p.dataset.panel === tab);
+	});
+	return true;
+}
 
 function bindTabs() {
 	document.querySelectorAll('.av-tab').forEach((btn) => {
-		btn.addEventListener('click', () => {
-			document.querySelectorAll('.av-tab').forEach((b) => b.classList.remove('active'));
-			btn.classList.add('active');
-			const tab = btn.dataset.tab;
-			document.querySelectorAll('.av-panel').forEach((p) => {
-				p.classList.toggle('active', p.dataset.panel === tab);
-			});
-		});
+		btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 	});
+
+	// Deep-link a tab from the view switcher: /avatars/:id?view=chat focuses the
+	// Chat panel on load so each switcher view lands on a real, shareable URL.
+	const view = new URLSearchParams(location.search).get('view');
+	if (view && view !== 'overview') activateTab(view);
 
 	// Embed copy buttons
 	document.body.addEventListener('click', async (e) => {
@@ -727,7 +748,10 @@ async function openLaunchPumpFun() {
 	try {
 		const user = await fetchCurrentUser();
 		const { inner } = openPumpModal('Launch on Pump.fun');
-		const { mountLaunchPanel } = await import(/* @vite-ignore */ '/studio/launch-panel.js');
+		// Path held in a variable so Vite's import-analysis treats this as a
+		// runtime-only dynamic import and doesn't try to bundle a /public asset.
+		const launchPanelUrl = '/studio/launch-panel.js';
+		const { mountLaunchPanel } = await import(/* @vite-ignore */ launchPanelUrl);
 		mountLaunchPanel(inner, {
 			getAvatar: () => ({ ...avatar, id: avatar.id || avatarId }),
 			getUser: () => user,
@@ -757,7 +781,8 @@ async function openFeesPanel() {
 		if (!avatarCoin?.mint) { alert('No coin launched for this avatar yet — launch one first.'); return; }
 		const user = await fetchCurrentUser();
 		const { inner } = openPumpModal('Fees & rewards');
-		const { mountFeesPanel } = await import(/* @vite-ignore */ '/studio/fees-panel.js');
+		const feesPanelUrl = '/studio/fees-panel.js';
+		const { mountFeesPanel } = await import(/* @vite-ignore */ feesPanelUrl);
 		mountFeesPanel(inner, {
 			mint: avatarCoin.mint,
 			network: avatarCoin.network || 'mainnet',

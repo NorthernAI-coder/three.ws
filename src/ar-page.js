@@ -9,6 +9,7 @@
 
 import { glbBlobToUsdzBlob } from './usdz-pipeline.js';
 import { log } from './shared/log.js';
+import { mountViewSwitcher } from './view-switcher.js';
 
 const segments = location.pathname.split('/').filter(Boolean);
 // /avatars/:id/ar → segments = ['avatars', 'uuid', 'ar']
@@ -73,7 +74,9 @@ function renderPage(avatar, glbUrl) {
 		viewer.setAttribute('ios-src', avatar.usdz_url);
 	}
 
-	$('ar-back-link').href = `/agents/${encodeURIComponent(avatar.id || avatarId)}`;
+	const id = avatar.id || avatarId;
+	$('ar-back-link').href = `/avatars/${encodeURIComponent(id)}`;
+	mountViewSwitcher($('view-switch-slot'), { kind: 'avatar', id, active: 'ar' });
 
 	$('ar-share-btn').addEventListener('click', () => shareAvatar(avatar));
 }
