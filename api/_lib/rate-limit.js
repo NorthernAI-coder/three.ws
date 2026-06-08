@@ -205,6 +205,11 @@ export const limits = {
 		getLimiter('avatar:rollback', { limit: 10, window: '1 h' }).limit(userId),
 	chatUser: (userId) => getLimiter('chat:user', { limit: 40, window: '1 m' }).limit(userId),
 	chatIp: (ip) => getLimiter('chat:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// AI bounty judge (api/bounties/:id/judge). Each run spends real LLM tokens
+	// scoring a whole field of submissions, so cap per poster and fail closed
+	// without Redis in prod rather than allowing unbounded paid inference.
+	bountyJudge: (userId) =>
+		getLimiter('bounty:judge:user', { limit: 30, window: '1 h', critical: true }).limit(userId),
 	// Direct messages between friends — its own bucket so DM spam can't starve
 	// world-chat posting and vice versa. Mirrors world chat's order of magnitude.
 	dmSend: (userId) => getLimiter('dm:send', { limit: 30, window: '1 m' }).limit(userId),
