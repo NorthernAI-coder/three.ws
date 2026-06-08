@@ -36,7 +36,9 @@ function inline(s) {
 	s = s.replace(
 		/\[([^\]]+)\]\((https?:\/\/[^\s)]+|mailto:[^\s)]+|\/[^\s)]*)\)/g,
 		(_, label, url) =>
-			stash(`<a href="${url}" target="_blank" rel="noopener noreferrer nofollow">${label}</a>`),
+			stash(
+				`<a href="${url}" target="_blank" rel="noopener noreferrer nofollow">${label}</a>`,
+			),
 	);
 	// `inline code`
 	s = s.replace(/`([^`]+)`/g, (_, code) => stash(`<code>${code}</code>`));
@@ -79,9 +81,7 @@ function startsBlock(line) {
 
 export function mdToHtml(src) {
 	if (src == null) return '';
-	const lines = String(src)
-		.replace(/\r\n?/g, '\n')
-		.split('\n');
+	const lines = String(src).replace(/\r\n?/g, '\n').split('\n');
 	const out = [];
 	let i = 0;
 
@@ -114,19 +114,24 @@ export function mdToHtml(src) {
 		}
 		if (RE_QUOTE.test(line)) {
 			const buf = [];
-			while (i < lines.length && RE_QUOTE.test(lines[i])) buf.push(lines[i++].replace(RE_QUOTE, ''));
-			out.push(`<blockquote>${inline(esc(buf.join('\n'))).replace(/\n/g, '<br/>')}</blockquote>`);
+			while (i < lines.length && RE_QUOTE.test(lines[i]))
+				buf.push(lines[i++].replace(RE_QUOTE, ''));
+			out.push(
+				`<blockquote>${inline(esc(buf.join('\n'))).replace(/\n/g, '<br/>')}</blockquote>`,
+			);
 			continue;
 		}
 		if (RE_UL.test(line)) {
 			const buf = [];
-			while (i < lines.length && RE_UL.test(lines[i])) buf.push(lines[i++].replace(RE_UL, ''));
+			while (i < lines.length && RE_UL.test(lines[i]))
+				buf.push(lines[i++].replace(RE_UL, ''));
 			out.push(`<ul>${buf.map((li) => `<li>${inline(esc(li))}</li>`).join('')}</ul>`);
 			continue;
 		}
 		if (RE_OL.test(line)) {
 			const buf = [];
-			while (i < lines.length && RE_OL.test(lines[i])) buf.push(lines[i++].replace(RE_OL, ''));
+			while (i < lines.length && RE_OL.test(lines[i]))
+				buf.push(lines[i++].replace(RE_OL, ''));
 			out.push(`<ol>${buf.map((li) => `<li>${inline(esc(li))}</li>`).join('')}</ol>`);
 			continue;
 		}

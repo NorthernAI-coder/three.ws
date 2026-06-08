@@ -250,13 +250,6 @@ URL: https://three.ws/avatar-artifact
 
 Standalone Three.js viewer for avatar artifacts — embeddable and shareable without any wrapper page.
 
-### Rider (VR)
-
-URL: https://three.ws/rider
-Indexable: no (excluded from sitemap)
-
-A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.
-
 ### Playground
 
 URL: https://three.ws/playground
