@@ -1,12 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	COHORTS,
-	listCohorts,
-	isCohortId,
-	cohortSpec,
-	sampleBucket,
-	inSample,
-} from './cohorts.js';
+import { COHORTS, listCohorts, isCohortId, cohortSpec, sampleBucket, inSample } from './cohorts.js';
 
 describe('cohort registry', () => {
 	it('exposes a stable set of cohort ids', () => {
