@@ -53,6 +53,10 @@ function explorer(addr, network) {
 async function main() {
 	const network = arg('--network', 'devnet') === 'mainnet' ? 'mainnet' : 'devnet';
 	const count = Math.min(5, Math.max(1, Number(arg('--count', '2'))));
+	// The registry reads this URI live; the canonical EIP-8004 doc has active:true +
+	// x402Support:true, so the agent renders "Active" (vs the agent-card.json which
+	// lacks those fields and shows "Inactive"). Override with --uri.
+	const registrationUri = arg('--uri', 'https://three.ws/.well-known/agent-registration.json');
 
 	const kp = Keypair.fromSecretKey(bs58.decode(loadTestSecret()));
 	const address = kp.publicKey.toString();
@@ -97,7 +101,7 @@ async function main() {
 				asset,
 				owner: signer.publicKey,
 				name: `Registry Canary ${i}`,
-				uri: 'https://three.ws/.well-known/agent-card.json',
+				uri: registrationUri,
 			}).sendAndConfirm(umi, { confirm: { commitment: 'confirmed' } });
 			const assetAddr = asset.publicKey.toString();
 			console.log(`        asset:    ${assetAddr}`);
@@ -109,7 +113,7 @@ async function main() {
 				authoritySigner: signer,
 				asset: assetAddr,
 				// standalone asset — no collection; the wallet is its own update authority
-				registrationUri: 'https://three.ws/.well-known/agent-card.json',
+				registrationUri,
 			});
 			ok++;
 			console.log(`        ✓ identity PDA: ${r.identityPda}${r.alreadyRegistered ? ' (already)' : ''}`);

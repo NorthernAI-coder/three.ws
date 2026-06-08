@@ -9,6 +9,7 @@
  * /api/agents/:id/animations      — owner-only: replace meta.animations
  * /api/agents/:id/embed-policy    — read/write embed policy
  * /api/agents/:id/manifest        — public canonical manifest JSON
+ * /api/agents/:id/registration    — public EIP-8004 registry document (Metaplex Agent Registry URI)
  * /api/agents/:id/sign            — owner-only: sign message with server wallet
  * /api/agents/:id/usage           — owner-only: LLM usage stats
  *
@@ -79,6 +80,11 @@ export default wrap(async function handler(req, res) {
 	if (sub === 'manifest') {
 		const mod = await import('./_id/_sub.js');
 		return mod.handleManifest(req, res, id);
+	}
+
+	if (sub === 'registration') {
+		const mod = await import('./_id/_sub.js');
+		return mod.handleRegistration(req, res, id);
 	}
 
 	if (sub === 'sign') {

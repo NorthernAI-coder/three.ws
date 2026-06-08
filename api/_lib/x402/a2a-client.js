@@ -4,17 +4,19 @@
 //   1. POST `{ method: "message/send", params: { message: { … } } }` to the
 //      peer's A2A endpoint with the X-A2A-Extensions header. The peer replies
 //      with a task in state `input-required` carrying `x402.payment.required`.
-//   2. Build a `PaymentPayload` (EIP-3009 transferWithAuthorization for EVM
-//      `exact` scheme), POST it back with the same `taskId` and
+//   2. Build a `PaymentPayload`, POST it back with the same `taskId` and
 //      `x402.payment.status: payment-submitted`. The peer verifies, runs the
 //      handler, settles, and replies with state `completed` +
 //      `x402.payment.receipts`.
 //
-// Sign function:
-//   The client takes a pluggable `signer` so callers can wire in a viem
-//   wallet, a hardware wallet, or a custodial signer. We provide
-//   `createPrivateKeySigner(privateKey)` as a default that uses viem's
-//   accounts API for Base / EVM `exact` scheme.
+// Rails:
+//   • Solana (primary) — `exact` scheme as an SPL TransferChecked, built via the
+//     official @x402/svm ExactSvmScheme, partially signed by the payer and
+//     co-signed by the peer's facilitator fee payer. `createSolanaSigner(secret)`
+//     yields the @solana/kit signer; `buildSolanaExactPayload()` the payload.
+//   • EVM (fallback) — `exact` scheme as an EIP-3009 transferWithAuthorization.
+//     `createPrivateKeySigner(privateKey)` uses viem's accounts API for Base /
+//     other EVM chains; `buildEvmExactPayload()` builds the payload.
 
 import { randomBytes, randomUUID } from 'node:crypto';
 
@@ -399,15 +401,19 @@ export async function submitPayment({
 export async function payA2A({
 	endpoint,
 	signer,
+	solanaSigner,
+	rpcUrl,
 	text,
 	networkPreference,
 	onQuote,
 }) {
 	if (!endpoint) throw new A2AClientError('invalid_args', 'payA2A: endpoint is required');
-	if (!signer || typeof signer.signAuthorization !== 'function') {
+	const hasEvmSigner = signer && typeof signer.signAuthorization === 'function';
+	const hasSolanaSigner = solanaSigner && typeof solanaSigner.address === 'string';
+	if (!hasEvmSigner && !hasSolanaSigner) {
 		throw new A2AClientError(
 			'invalid_signer',
-			'payA2A: signer with signAuthorization() is required (try createPrivateKeySigner)',
+			'payA2A: a Solana signer (createSolanaSigner) or EVM signer (createPrivateKeySigner) is required',
 		);
 	}
 
@@ -420,9 +426,23 @@ export async function payA2A({
 		}
 	}
 
-	const accept = pickAccept(required.accepts, networkPreference);
+	// Restrict selection to rails we actually hold a signer for, so we never
+	// pick a Solana accept with only an EVM signer in hand (or vice-versa).
+	const payable = required.accepts.filter((a) =>
+		isSolanaNetwork(a.network) ? hasSolanaSigner : hasEvmSigner,
+	);
+	if (!payable.length) {
+		throw new A2AClientError(
+			'no_supported_accept',
+			'payA2A: no peer accept matches an available signer',
+			{ accepts: required.accepts.map(({ network, scheme }) => ({ network, scheme })) },
+		);
+	}
+	const accept = pickAccept(payable, networkPreference);
 	const resource = required.resource || { url: endpoint, mimeType: 'application/json' };
-	const paymentPayload = await buildEvmExactPayload({ accept, signer, resource });
+	const paymentPayload = isSolanaNetwork(accept.network)
+		? await buildSolanaExactPayload({ accept, signer: solanaSigner, resource, rpcUrl })
+		: await buildEvmExactPayload({ accept, signer, resource });
 
 	const result = await submitPayment({ endpoint, taskId, paymentPayload });
 

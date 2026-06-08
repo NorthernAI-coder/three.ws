@@ -29,7 +29,6 @@ import { putObject, publicUrl as r2PublicUrl } from './r2.js';
 import {
 	buildAgentManifest,
 	buildAgentOnchainAttributes,
-	buildAgentRegistrationMetadata,
 	agentRoyaltyConfig,
 	agentHomeUrl,
 } from './three-brand.js';
@@ -430,15 +429,12 @@ export async function registerAgentOnce({ umi, authoritySigner, agent, asset, co
 	}
 	const resolvedCollection = collectionAddr || net.collection || null;
 
-	// Build + pin the registry document (distinct artifact from the asset manifest).
-	const registration = buildAgentRegistrationMetadata({
-		agentId: agent.id,
-		name: agentName,
-		description: agent.description || '',
-		agentUrl: agentHomeUrl(agent.id),
-		skills: Array.isArray(meta.skills) ? meta.skills : undefined,
-	});
-	const { uri: registrationUri } = await pinManifest(registration, `${agent.id}-registry`);
+	// The Agent Identity PDA stores this URI permanently — the registry program has
+	// no instruction to change it later. So point it at the agent's live, MUTABLE
+	// registration endpoint (served by api/agents/[id]/registration.js from current
+	// data) rather than an immutable pinned snapshot: that keeps `active`, services,
+	// the 3D model, and any future token link accurate without re-registering.
+	const registrationUri = `${env.APP_ORIGIN}/api/agents/${agent.id}/registration`;
 
 	const { identityPda, signature, alreadyRegistered } = await registerAgentIdentity({
 		umi,
