@@ -58,11 +58,13 @@ export async function presignUpload({ key, contentType, checksumSha256 }) {
 
 // Signed URL for GET (used for private avatars or temporary shares).
 export async function presignGet({ key, expiresIn = 600 }) {
+	if (isAbsoluteUrl(key)) return key; // first-party/externally-hosted: already a public URL
 	const cmd = new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key });
 	return getSignedUrl(r2, cmd, { expiresIn });
 }
 
 export async function headObject(key) {
+	if (isAbsoluteUrl(key)) return null; // not a bucket object
 	try {
 		return await r2.send(new HeadObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
 	} catch (err) {
@@ -72,6 +74,7 @@ export async function headObject(key) {
 }
 
 export async function deleteObject(key) {
+	if (isAbsoluteUrl(key)) return; // externally-hosted asset — nothing in our bucket to delete
 	await r2.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
 }
 
@@ -95,8 +98,20 @@ export async function getObjectBuffer(key) {
 }
 
 // Public CDN URL for objects served via R2 custom domain / r2.dev.
+//
+// First-party / externally-hosted avatars store an absolute URL in their
+// `storage_key` (e.g. https://three.ws/avatars/realistic-male.glb) rather than
+// an R2 object key — these models live outside the bucket and are already
+// fully-qualified, so they pass through untouched. Every bucket-backed key
+// (the `u/{ownerId}/…` form) resolves against the CDN domain exactly as before,
+// so existing avatars are unaffected.
 export function publicUrl(key) {
+	if (isAbsoluteUrl(key)) return key;
 	return `${env.S3_PUBLIC_DOMAIN}/${encodeR2Key(key)}`;
+}
+
+function isAbsoluteUrl(key) {
+	return typeof key === 'string' && /^https?:\/\//i.test(key);
 }
 
 function encodeR2Key(key) {

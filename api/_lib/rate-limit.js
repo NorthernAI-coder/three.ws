@@ -225,6 +225,13 @@ export const limits = {
 	// without Redis in prod rather than allowing unbounded paid inference.
 	bountyJudge: (userId) =>
 		getLimiter('bounty:judge:user', { limit: 30, window: '1 h', critical: true }).limit(userId),
+	// Bounty creation + submission. Both are authenticated writes to public,
+	// everyone-reads tables, so cap per user to stop one account scripting spam
+	// that pollutes the feed and bloats storage.
+	bountyCreate: (userId) =>
+		getLimiter('bounty:create', { limit: 15, window: '1 h' }).limit(userId),
+	bountySubmit: (userId) =>
+		getLimiter('bounty:submit', { limit: 40, window: '1 h' }).limit(userId),
 	// Direct messages between friends — its own bucket so DM spam can't starve
 	// world-chat posting and vice versa. Mirrors world chat's order of magnitude.
 	dmSend: (userId) => getLimiter('dm:send', { limit: 30, window: '1 m' }).limit(userId),
@@ -348,6 +355,22 @@ export const limits = {
 	memorySeed: (agentId) => getLimiter('memory:seed', { limit: 1, window: '1 d' }).limit(agentId),
 	// Edge TTS: free upstream but cached in R2 — limit unique synthesis requests per user/min.
 	ttsEdge: (userId) => getLimiter('tts:edge', { limit: 20, window: '1 m' }).limit(userId),
+	// OpenAI TTS (api/tts/speak) — paid per-character against the server key. Per
+	// user, and critical so it fails closed in prod without Redis rather than
+	// allowing unbounded paid synthesis. Anonymous callers (keyed by IP) get a
+	// much tighter bucket since they share no accountable identity.
+	ttsSpeakUser: (userId) =>
+		getLimiter('tts:speak:user', { limit: 40, window: '1 h', critical: true }).limit(userId),
+	ttsSpeakIp: (ip) =>
+		getLimiter('tts:speak:ip', { limit: 10, window: '1 h', critical: true }).limit(ip),
+	// /brain multi-LLM proxy. Paid flagship models (Claude/GPT-4o) run on the
+	// server keys, so meter per principal: authenticated users get a generous
+	// per-user bucket, anonymous callers a tighter per-IP one. Both critical so a
+	// missing Redis in prod fails closed instead of opening the paid floodgate.
+	brainChatUser: (userId) =>
+		getLimiter('brain:chat:user', { limit: 60, window: '1 m', critical: true }).limit(userId),
+	brainChatIp: (ip) =>
+		getLimiter('brain:chat:ip', { limit: 20, window: '1 m', critical: true }).limit(ip),
 	// X (Twitter) memory seeding: 1 seed per agent per 6 hours.
 	xSeed: (agentId) => getLimiter('memory:seed:x', { limit: 1, window: '6 h' }).limit(agentId),
 	// Withdrawal requests: 5 per user per day to prevent spam.

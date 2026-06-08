@@ -29,6 +29,12 @@ const MANIFEST_URL = '/animations/manifest.json';
 // performances rather than twitches. Mirrors AnimationManager's bar.
 const MIN_RIG_BONES = 8;
 
+// Text-to-animation job polling (POST /api/forge-motion → poll until the clip
+// is ready). The motion model runs ~10–30s on a warm GPU container.
+const GEN_POLL_INTERVAL_MS = 2500;
+const GEN_MAX_POLL_MS = 90 * 1000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 const el = (tag, attrs = {}, children = []) => {
 	const node = document.createElement(tag);
 	for (const [k, v] of Object.entries(attrs)) {
@@ -80,6 +86,10 @@ export class AnimationLibrary {
 		this._previewing = false;
 		this._state = 'loading';
 
+		// Text-to-animation job state (token-based abort like the forge panels).
+		this._genToken = 0;
+		this._genTimer = null;
+
 		// Resolved DOM refs (built in _renderShell).
 		this._refs = {};
 	}
@@ -109,6 +119,9 @@ export class AnimationLibrary {
 
 	/** Called by the host when the active rig changes (avatar load / mannequin). */
 	onRigChanged() {
+		this._genToken++; // a generation in flight was for the previous rig
+		this._stopGenTimer();
+		this._setGenBusy(false);
 		this.stopPreview({ silent: true });
 		this._disposeMixer();
 		if (this._defs.length) this._evaluateRig();
@@ -124,6 +137,8 @@ export class AnimationLibrary {
 	}
 
 	dispose() {
+		this._genToken++; // abort any in-flight generation poll
+		this._stopGenTimer();
 		this.stopPreview({ silent: true });
 		this._disposeMixer();
 		this._clipCache.clear();
@@ -149,6 +164,33 @@ export class AnimationLibrary {
 	// ── Shell + states ──────────────────────────────────────────────────────
 	_renderShell() {
 		this.host.innerHTML = '';
+
+		// Generate-from-text: synthesize a brand-new motion from a prompt and play
+		// it on the rig exactly like a preset. The capability the preset library
+		// can't offer — motion that doesn't pre-exist.
+		const genInput = el('input', {
+			type: 'text',
+			class: 'al-gen-input',
+			placeholder: 'Generate a motion — “waving confidently”',
+			'aria-label': 'Generate an animation from a text description',
+			autocomplete: 'off',
+			maxlength: '200',
+		});
+		const genBtn = el(
+			'button',
+			{ class: 'al-gen-btn', type: 'button', title: 'Generate a motion from your description' },
+			['✨ Generate'],
+		);
+		const submitGen = () => this.generateFromText(genInput.value);
+		genBtn.addEventListener('click', submitGen);
+		genInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				submitGen();
+			}
+		});
+		const gen = el('div', { class: 'al-gen' }, [genInput, genBtn]);
+
 		const search = el('input', {
 			type: 'search',
 			class: 'al-search',
@@ -171,10 +213,11 @@ export class AnimationLibrary {
 
 		// Shell refs first; _renderTransport() merges its own sub-refs (label,
 		// speed, export button) into this._refs, so it must run after this assign.
-		this._refs = { search, chips, grid, empty };
+		this._refs = { gen, genInput, genBtn, search, chips, grid, empty };
 		const transport = this._renderTransport();
 		this._refs.transport = transport;
 
+		this.host.appendChild(gen);
 		this.host.appendChild(search);
 		this.host.appendChild(chips);
 		this.host.appendChild(empty);
@@ -184,8 +227,9 @@ export class AnimationLibrary {
 
 	_setState(state) {
 		this._state = state;
-		const { search, chips, grid, empty, transport } = this._refs;
+		const { gen, search, chips, grid, empty, transport } = this._refs;
 		const ready = state === 'ready';
+		if (gen) gen.style.display = ready ? '' : 'none';
 		search.style.display = ready ? '' : 'none';
 		chips.style.display = ready ? '' : 'none';
 		grid.style.display = ready ? '' : 'none';
@@ -375,6 +419,21 @@ export class AnimationLibrary {
 			this.setStatus(`Couldn’t load “${def.label || def.name}”: ${err.message}`, 'error');
 			return;
 		}
+		this._playClip(clip, def);
+	}
+
+	/**
+	 * Retarget an already-resolved canonical clip onto the current rig and play
+	 * it. Shared by preset preview() and text-to-animation generateFromText() —
+	 * one apply path, so a generated motion behaves exactly like a preset
+	 * (transport, speed, loop, export all work identically). Returns true on play.
+	 */
+	_playClip(clip, def) {
+		const rig = this.getRig();
+		if (!rig || rig.kind === 'mannequin') {
+			this.setStatus('Load a rigged avatar to apply animations.', 'error');
+			return false;
+		}
 
 		const {
 			clip: retargeted,
@@ -388,7 +447,7 @@ export class AnimationLibrary {
 				`“${def.label || def.name}” can’t retarget to this rig — only ${matched}/${total} tracks mapped (need ${Math.round(MIN_COVERAGE * 100)}%).`,
 				'error',
 			);
-			return;
+			return false;
 		}
 
 		const mixer = this._ensureMixer(rig);
@@ -417,6 +476,112 @@ export class AnimationLibrary {
 			? ` (${matched}/${total} bones · ${dropped.length} not on this rig)`
 			: ` (${matched}/${total} bones matched)`;
 		this.setStatus(`Playing “${def.label || def.name}” — ${pct}% retargeted${note}.`);
+		return true;
+	}
+
+	// ── Generate from text ──────────────────────────────────────────────────
+	/**
+	 * Synthesize a brand-new motion from a prompt (workers/model-text2motion via
+	 * /api/forge-motion), then retarget + play it through the same path as a
+	 * preset. Token-based abort so a newer request supersedes an in-flight one.
+	 */
+	async generateFromText(prompt) {
+		prompt = (prompt || '').trim();
+		if (prompt.length < 3) {
+			this.setStatus('Describe the motion in a few words first.', 'error');
+			return;
+		}
+		const rig = this.getRig();
+		if (!rig || rig.kind === 'mannequin') {
+			this.setStatus('Load a rigged avatar before generating a motion.', 'error');
+			return;
+		}
+
+		const token = ++this._genToken;
+		this._setGenBusy(true);
+		const t0 = performance.now();
+		const tick = () => {
+			if (token !== this._genToken) return;
+			const s = Math.floor((performance.now() - t0) / 1000);
+			this.setStatus(`Generating “${prompt}” — ${s}s`, 'busy');
+		};
+		tick();
+		this._genTimer = setInterval(tick, 1000);
+
+		try {
+			const clipJSON = await this._runMotionJob(prompt, token);
+			if (token !== this._genToken || !clipJSON) return; // superseded / aborted
+			this._stopGenTimer();
+			const name = `gen_${Date.now().toString(36)}`;
+			const clip = parseClipJSON(clipJSON, name);
+			this._clipCache.set(name, clip);
+			const def = {
+				name,
+				label: prompt.length > 28 ? `${prompt.slice(0, 27)}…` : prompt,
+				icon: '✨',
+				loop: true,
+				generated: true,
+			};
+			this._playClip(clip, def);
+		} catch (err) {
+			if (token !== this._genToken) return;
+			this._stopGenTimer();
+			const msg =
+				err?.kind === 'unconfigured'
+					? 'Text-to-animation isn’t enabled on this deployment yet.'
+					: err?.message || 'Generation failed.';
+			this.setStatus(msg, 'error');
+		} finally {
+			if (token === this._genToken) this._setGenBusy(false);
+		}
+	}
+
+	/** Submit a motion job and poll until the clip JSON is ready. */
+	async _runMotionJob(prompt, token) {
+		const submit = await fetch('/api/forge-motion', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ prompt }),
+		});
+		const sub = await submit.json().catch(() => ({}));
+		if (submit.status === 503 || sub.error === 'unconfigured') {
+			throw Object.assign(new Error(sub.message || 'unconfigured'), { kind: 'unconfigured' });
+		}
+		if (submit.status === 429) throw new Error('The motion generator is busy. Try again shortly.');
+		if (!submit.ok || !sub.job_id) throw new Error(sub.message || `Generator returned ${submit.status}.`);
+
+		const deadline = performance.now() + GEN_MAX_POLL_MS;
+		while (token === this._genToken && performance.now() < deadline) {
+			await sleep(GEN_POLL_INTERVAL_MS);
+			if (token !== this._genToken) return null;
+			const res = await fetch(`/api/forge-motion?job=${encodeURIComponent(sub.job_id)}`);
+			const data = await res.json().catch(() => ({}));
+			if (data.status === 'done' && data.clip_url) {
+				const cr = await fetch(data.clip_url);
+				if (!cr.ok) throw new Error(`Couldn’t fetch the generated clip (HTTP ${cr.status}).`);
+				return cr.json();
+			}
+			if (data.status === 'failed') throw new Error(data.error || 'Generation failed.');
+		}
+		if (token !== this._genToken) return null;
+		throw new Error('Generation timed out. Try a shorter prompt.');
+	}
+
+	_stopGenTimer() {
+		if (this._genTimer) {
+			clearInterval(this._genTimer);
+			this._genTimer = null;
+		}
+	}
+
+	_setGenBusy(busy) {
+		const { gen, genInput, genBtn } = this._refs;
+		if (genInput) genInput.disabled = busy;
+		if (genBtn) {
+			genBtn.disabled = busy;
+			genBtn.textContent = busy ? '✨ Generating…' : '✨ Generate';
+		}
+		if (gen) gen.dataset.busy = busy ? 'true' : 'false';
 	}
 
 	stopPreview({ silent = false } = {}) {

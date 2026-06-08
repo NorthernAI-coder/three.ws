@@ -994,13 +994,41 @@
 				},
 			});
 
-			agent.standOn(avatarWrap, { anchor: 'bottom-center', offsetY: -50 });
-			avatarWrap?.classList.remove('loading');
-			window.__agent = agent; /* TEMP probe */
+			const AVATAR_ANCHOR = { anchor: 'bottom-center', offsetY: -50 };
 
-			window.addEventListener('resize', () => {
-				agent.standOn(avatarWrap, { anchor: 'bottom-center', offsetY: -50 });
-			});
+			// Park him on his mark in the idle pose for the initial frame.
+			agent.standOn(avatarWrap, AVATAR_ANCHOR);
+			avatarWrap?.classList.remove('loading');
+
+			// The avatar lives on a viewport-fixed overlay canvas, so left alone he
+			// would stay glued to the screen and trail the viewport down into the
+			// footer as you scroll. Re-pin him to his anchor in the panel on every
+			// scroll/resize so he holds his place in the login card and slides away
+			// with it instead. Only his position is updated — the active clip is left
+			// untouched so idle / cover-eyes / facepalm / celebrate keep playing.
+			function repinAvatar() {
+				if (!agent.avatar) return;
+				// When the panel is collapsed (short-viewport breakpoint hides it)
+				// the wrap has no layout box — leave him where he is rather than
+				// snapping to the corner.
+				if (!avatarWrap.offsetParent) return;
+				const target = agent.worldOfElement(avatarWrap, AVATAR_ANCHOR);
+				agent.avatar.position.x = target.x;
+				agent.avatar.position.y = target.y;
+			}
+
+			let repinQueued = false;
+			function scheduleRepin() {
+				if (repinQueued) return;
+				repinQueued = true;
+				requestAnimationFrame(() => {
+					repinQueued = false;
+					repinAvatar();
+				});
+			}
+
+			window.addEventListener('scroll', scheduleRepin, { passive: true });
+			window.addEventListener('resize', scheduleRepin);
 
 			// The avatar shields its eyes whenever the user is typing a
 			// credential — email or password — so it never "peeks" at what

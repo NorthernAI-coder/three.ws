@@ -18,6 +18,7 @@
 
 import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
+import { assertPublicHttpsUrl, SsrfError } from './_lib/ssrf.js';
 import { createRegenProvider } from './_providers/gcp.js';
 
 const JOB_ID_RE = /^[A-Za-z0-9_-]{20,64}$/;
@@ -43,9 +44,17 @@ async function startJob(req, res) {
 	}
 
 	const body = await readJson(req, 4_000).catch(() => null);
-	const meshUrl = typeof body?.mesh_url === 'string' ? body.mesh_url.trim() : '';
-	if (!meshUrl.startsWith('https://')) {
-		return json(res, 400, { error: 'invalid_mesh_url', message: 'mesh_url must be a public https URL.' });
+	const rawMeshUrl = typeof body?.mesh_url === 'string' ? body.mesh_url.trim() : '';
+	// Resolve + validate the host our side (rejects private/loopback/metadata IPs)
+	// before handing the URL to the worker — SSRF defense in depth.
+	let meshUrl;
+	try {
+		meshUrl = await assertPublicHttpsUrl(rawMeshUrl);
+	} catch (err) {
+		return json(res, 400, {
+			error: 'invalid_mesh_url',
+			message: err instanceof SsrfError ? `mesh_url rejected: ${err.message}` : 'mesh_url must be a public https URL.',
+		});
 	}
 
 	const remeshMode = VALID_MODES.has(body?.remesh_mode) ? body.remesh_mode : 'triangle';

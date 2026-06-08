@@ -168,7 +168,7 @@ Rails:
 - Only the platform image pipeline (FLUX→TRELLIS) is sold via x402; the BYOK geometry backends (Meshy/Tripo) bill through the caller's own key on the free `/api/forge` and are intentionally not monetized here.
 - The polled `glb_url` is the provider delivery URL (short-lived) when no durable store row exists — documented as "fetch promptly". Parity with the free endpoint's store-unavailable behavior.
 
-## Item 8 — Text-to-animation (generate motion from a prompt) ✅ (core; UI button is the remaining surface)
+## Item 8 — Text-to-animation (generate motion from a prompt) ✅
 
 **What:** Generate a brand-new animation from a natural-language prompt ("waving confidently", "a slow tai-chi sweep") and retarget it onto any rigged avatar. The capability Tripo and the rest of the field lack — they only *apply preset* clips; this *synthesizes* motion that doesn't pre-exist. Reuses every downstream piece we already own: the Wolf3D rig, the retarget engine, and the animation library format.
 
@@ -195,4 +195,4 @@ Rails:
 - *Verified here:* the SMPL→clip conversion (the keystone), the provider mode, the REST endpoint, and the MCP tool registration — all with tests.
 - *Deploy-validated (GPU, like every other `model-*` worker — none run in-repo/CI):* MDM inference. Specifically `mdm_sampler._decode_to_smpl()` (HumanML3D representation → SMPL axis-angle) is the integration point to confirm against the deployed checkpoint, and the SMPL→Wolf3D **rest-pose offset** defaults to identity and should be calibrated on first deploy for best fidelity (bone-name + hip-scale alignment already handled by the retarget engine).
 
-**Remaining surface:** a browser "Generate from text" button in the pose/animation studio (the REST + MCP agent surfaces are wired and tested now; the in-browser button is the one consumer not yet added — it would call `/api/forge-motion`, poll, then apply the returned clip via the existing `animation-library` retarget path, exactly like selecting a preset).
+**Browser surface (shipped):** the pose-studio animation library (`src/animation-library.js`) gained a "✨ Generate" input above the preset gallery. `generateFromText()` POSTs `/api/forge-motion`, polls with a token-based abort + elapsed counter (mirrors forge-stylize), fetches the returned clip JSON, and plays it through the **same** apply path as a preset — `preview()` was refactored to share a new `_playClip(clip, def)` core, so a generated motion gets the identical transport/speed/loop/export behavior. Busy/error/unconfigured states designed; the control + cyan-accented styles live in `pages/pose.html` and only show once a rigged avatar is loaded. In-flight generations abort on rig change / dispose. `npx vite build` ✓; `tests/animations.test.js` (manifest/clip invariants) stays green.

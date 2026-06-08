@@ -18,12 +18,31 @@
 
 import { randomBytes, randomUUID } from 'node:crypto';
 
+import bs58 from 'bs58';
+
 import {
 	A2A_EXTENSIONS_HEADER,
 	A2A_X402_EXTENSION_URI,
 } from './a2a-server.js';
 
 export { A2A_EXTENSIONS_HEADER, A2A_X402_EXTENSION_URI };
+
+// Solana is the primary A2A settlement rail. CAIP-2 ids must match what the
+// server advertises (api/_lib/x402/a2a-server.js → NETWORK_SOLANA_*).
+export const NETWORK_SOLANA_MAINNET = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+export const NETWORK_SOLANA_DEVNET = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
+
+export function isSolanaNetwork(network) {
+	return (
+		network === NETWORK_SOLANA_MAINNET ||
+		network === NETWORK_SOLANA_DEVNET ||
+		network === 'solana'
+	);
+}
+
+function isEvmExactNetwork(network) {
+	return /^eip155:\d+$/.test(network);
+}
 
 // ── Errors ────────────────────────────────────────────────────────────────
 
@@ -72,10 +91,90 @@ export async function createPrivateKeySigner(privateKey) {
 	};
 }
 
+// Decode a Solana secret key from any of the encodings used across this
+// codebase: a JSON byte array (solana-keygen), base58 (Phantom export), or
+// base64. Returns the 64-byte expanded secret key.
+function decodeSolanaSecret(secret) {
+	const trimmed = String(secret).trim();
+	if (trimmed.startsWith('[')) {
+		try {
+			const bytes = Uint8Array.from(JSON.parse(trimmed));
+			if (bytes.length === 64) return bytes;
+		} catch {
+			/* fall through to the error below */
+		}
+		throw new A2AClientError('invalid_signer', 'Solana secret: malformed 64-byte JSON array');
+	}
+	for (const decode of [() => bs58.decode(trimmed), () => new Uint8Array(Buffer.from(trimmed, 'base64'))]) {
+		try {
+			const bytes = decode();
+			if (bytes.length === 64) return bytes;
+		} catch {
+			/* try the next encoding */
+		}
+	}
+	throw new A2AClientError(
+		'invalid_signer',
+		'Solana secret must be a 64-byte key encoded as base58, base64, or a JSON array',
+	);
+}
+
+// Build a Solana @solana/kit signer from a platform-funded payer secret. The
+// returned signer carries `.address` (the payer's base58 pubkey) and signs the
+// SPL TransferChecked payment built by buildSolanaExactPayload().
+export async function createSolanaSigner(secret) {
+	if (!secret || typeof secret !== 'string') {
+		throw new A2AClientError('invalid_signer', 'createSolanaSigner: secret key string required');
+	}
+	const { createKeyPairSignerFromBytes } = await import('@solana/kit');
+	return createKeyPairSignerFromBytes(decodeSolanaSecret(secret));
+}
+
 // ── Payload builders ──────────────────────────────────────────────────────
 
 function randomHex32() {
 	return `0x${randomBytes(32).toString('hex')}`;
+}
+
+// Build a Solana `exact` PaymentPayload for a Solana `accepts` entry, using the
+// official @x402/svm scheme. It constructs an SPL TransferChecked from the
+// payer's USDC ATA to the peer's, with the peer-advertised `extra.feePayer` as
+// the transaction fee payer (co-signed by the facilitator on /settle), and
+// partially signs it with `signer`. The base64 wire transaction lands in
+// `payload.transaction` — exactly what the server's confirmSolanaPayment decodes
+// and PayAI settles. Shape mirrors buildEvmExactPayload so the A2A submit leg is
+// rail-agnostic.
+export async function buildSolanaExactPayload({ accept, signer, resource, rpcUrl }) {
+	if (accept.scheme !== 'exact') {
+		throw new A2AClientError(
+			'unsupported_scheme',
+			`a2a-client: only exact scheme supported on Solana, got ${accept.scheme}`,
+		);
+	}
+	if (!accept.extra?.feePayer) {
+		throw new A2AClientError(
+			'missing_fee_payer',
+			'a2a-client: Solana accept entry is missing extra.feePayer (facilitator co-signer)',
+			{ network: accept.network },
+		);
+	}
+	if (!signer || typeof signer.address !== 'string') {
+		throw new A2AClientError(
+			'invalid_signer',
+			'buildSolanaExactPayload: a @solana/kit signer is required (try createSolanaSigner)',
+		);
+	}
+	const { ExactSvmScheme } = await import('@x402/svm');
+	const scheme = new ExactSvmScheme(signer, rpcUrl ? { rpcUrl } : undefined);
+	const built = await scheme.createPaymentPayload(2, accept);
+	return {
+		x402Version: built.x402Version || 2,
+		scheme: 'exact',
+		network: accept.network,
+		resource,
+		accepted: accept,
+		payload: built.payload,
+	};
 }
 
 const CHAIN_ID_BY_NETWORK = {
@@ -218,9 +317,14 @@ function readReceipts(task) {
 	};
 }
 
-// Default network preference list. Callers can override by passing
-// `networkPreference` to `payA2A`.
-const DEFAULT_NETWORK_PREFERENCE = ['eip155:8453', 'eip155:84532', 'eip155:1'];
+// Default network preference list — Solana first, EVM fallback. Callers can
+// override by passing `networkPreference` to `payA2A`.
+const DEFAULT_NETWORK_PREFERENCE = [
+	NETWORK_SOLANA_MAINNET,
+	'eip155:8453',
+	'eip155:84532',
+	'eip155:1',
+];
 
 function pickAccept(accepts, preference) {
 	const order = preference?.length ? preference : DEFAULT_NETWORK_PREFERENCE;
@@ -228,13 +332,15 @@ function pickAccept(accepts, preference) {
 		const match = accepts.find((a) => a.network === net && a.scheme === 'exact');
 		if (match) return match;
 	}
-	// Fall back to the first `exact` EVM accept on a chain we recognise.
-	for (const a of accepts) {
-		if (a.scheme === 'exact' && /^eip155:\d+$/.test(a.network)) return a;
-	}
+	// Fall back to the first `exact` accept on any rail we can settle — Solana
+	// preferred over EVM when both are offered without an explicit preference.
+	const solana = accepts.find((a) => a.scheme === 'exact' && isSolanaNetwork(a.network));
+	if (solana) return solana;
+	const evm = accepts.find((a) => a.scheme === 'exact' && isEvmExactNetwork(a.network));
+	if (evm) return evm;
 	throw new A2AClientError(
 		'no_supported_accept',
-		'a2a-client: peer offered no supported (scheme=exact, EVM) accept',
+		'a2a-client: peer offered no supported scheme=exact accept on Solana or EVM',
 		{ accepts: accepts.map(({ network, scheme }) => ({ network, scheme })) },
 	);
 }

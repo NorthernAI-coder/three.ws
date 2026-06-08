@@ -233,13 +233,20 @@ export function buildAgentOnchainAttributes(a) {
  * @param {string} a.name
  * @param {string} [a.description]
  * @param {string} [a.agentUrl]        public agent profile page
+ * @param {string} [a.image]           resolvable avatar thumbnail (https/ipfs)
+ * @param {string} [a.modelUri]        the agent's 3D avatar GLB (https/ipfs)
+ * @param {string} [a.modelFormat]     defaults to 'gltf-binary'
+ * @param {string} [a.origin]          public origin override (defaults to env.APP_ORIGIN)
+ * @param {boolean} [a.active]         defaults true; pass false to mark inactive
+ * @param {{chainId:string|number,agentId:string|number,registry?:string}} [a.erc8004]
  * @param {string[]} [a.skills]
  */
 export function buildAgentRegistrationMetadata(a) {
+	const origin = (a.origin || env.APP_ORIGIN).replace(/\/$/, '');
 	const home = a.agentUrl || agentHomeUrl(a.agentId);
 	const description =
 		a.description?.trim() || `${a.name} — an autonomous agent on ${THREE_WS.name}.`;
-	const origin = env.APP_ORIGIN;
+	const image = a.image || THREE_WS.ogImage;
 	const cardUrl = `${origin}/.well-known/agent-card.json`;
 
 	// Real, reachable endpoints. `endpoint` is the SDK's field; the extra `version`
@@ -257,7 +264,11 @@ export function buildAgentRegistrationMetadata(a) {
 		],
 		name: a.name,
 		description,
-		active: true,
+		image,
+		active: a.active === false ? false : true,
+		// The 3D avatar is the three.ws differentiator — surface it so the registry
+		// can render the agent's body, not just a flat thumbnail.
+		...(a.modelUri ? { model: { uri: a.modelUri, format: a.modelFormat || 'gltf-binary' } } : {}),
 		services,
 		x402Support: true,
 		x402Endpoints: [
@@ -271,9 +282,18 @@ export function buildAgentRegistrationMetadata(a) {
 				priceUsdc: '0.001',
 			},
 		],
-		// Cross-link back to the three.ws registry so the two identities resolve to
+		// Cross-link to other registries this agent lives in so identities resolve to
 		// each other — Metaplex's `AgentRegistration` shape: { agentId, agentRegistry }.
-		registrations: [{ agentId: String(a.agentId), agentRegistry: THREE_WS.website }],
+		// Always the three.ws handle; plus an ERC-8004 entry when the agent has one.
+		registrations: [
+			{ agentId: String(a.agentId), agentRegistry: THREE_WS.website },
+			...(a.erc8004?.chainId && a.erc8004?.agentId
+				? [{
+						agentRegistry: `eip155:${a.erc8004.chainId}:${a.erc8004.registry || ''}`.replace(/:$/, ''),
+						agentId: String(a.erc8004.agentId),
+					}]
+				: []),
+		],
 		supportedTrust: ['reputation'],
 		agentMetadataUri: cardUrl,
 	};

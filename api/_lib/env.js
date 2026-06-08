@@ -94,6 +94,16 @@ export const env = {
 	get A2A_PAYER_PRIVATE_KEY() {
 		return opt('A2A_PAYER_PRIVATE_KEY');
 	},
+	// Solana secret key for the autonomous payer wallet that signs SPL
+	// TransferChecked payments when an agent pays a peer under a mandate on
+	// Solana — the primary A2A settlement rail. Accepts the same encodings as
+	// every other Solana secret in this codebase: base58 (Phantom export),
+	// base64, or a JSON byte array. MUST be a platform-funded wallet holding
+	// USDC, never a payment-receiving X402_PAY_TO_* key. Unset → the a2a-call
+	// endpoint returns a designed 501 for Solana payments instead of paying.
+	get A2A_PAYER_SOLANA_SECRET() {
+		return opt('A2A_PAYER_SOLANA_SECRET') || opt('A2A_PAYER_SOLANA_PRIVATE_KEY');
+	},
 	// RPC URL used for read-only ERC-8004 reputation lookups when gating which
 	// peers an agent is allowed to pay. Optional — reputation gating is opt-in
 	// per call and skipped when no RPC is configured and no threshold is set.

@@ -8,7 +8,9 @@
 // audio analysis required.
 
 import { env } from '../_lib/env.js';
-import { cors, method, readJson, error, wrap } from '../_lib/http.js';
+import { cors, method, readJson, error, wrap, rateLimited } from '../_lib/http.js';
+import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 
 export const maxDuration = 60;
 
@@ -32,6 +34,20 @@ export default wrap(async function handler(req, res) {
 
 	const key = env.OPENAI_API_KEY;
 	if (!key) return error(res, 503, 'not_configured', 'OPENAI_API_KEY not set');
+
+	// OpenAI TTS bills per character against the server key, so meter every call.
+	// Authenticated callers get a per-user budget; anonymous callers a tight
+	// per-IP one. Without this the endpoint is an open, unbounded paid-API drain.
+	const session = await getSessionUser(req);
+	const bearer = session ? null : await authenticateBearer(extractBearer(req));
+	const userId = session?.id ?? bearer?.userId ?? null;
+	if (userId) {
+		const rl = await limits.ttsSpeakUser(userId);
+		if (!rl.success) return rateLimited(res, rl, 'TTS rate limit exceeded, try again later');
+	} else {
+		const rl = await limits.ttsSpeakIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl, 'TTS rate limit exceeded, sign in for a higher limit');
+	}
 
 	let body;
 	try {

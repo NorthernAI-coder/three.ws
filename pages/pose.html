@@ -34,6 +34,14 @@
 			content="Free 3D pose-reference studio. Click body parts to pose them, pick from preset poses, export PNG."
 		/>
 		<meta property="og:url" content="https://three.ws/pose" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:site" content="@trythreews" />
+	<meta name="twitter:title" content="Pose Studio · three.ws" />
+	<meta name="twitter:description" content="Create and save custom poses for any three.ws avatar. Export as animation clips or share with your community." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
 
 		<style>
 			:root {
@@ -552,6 +560,61 @@
 				color: var(--text-3);
 				line-height: 1.45;
 				margin: -2px 0 10px;
+			}
+			.al-gen {
+				display: flex;
+				gap: 6px;
+				margin-bottom: 9px;
+			}
+			.al-gen-input {
+				flex: 1 1 auto;
+				min-width: 0;
+				box-sizing: border-box;
+				background: rgba(34, 211, 238, 0.06);
+				border: 1px solid rgba(34, 211, 238, 0.4);
+				color: var(--text);
+				font: inherit;
+				font-size: 12px;
+				padding: 7px 10px;
+				border-radius: 8px;
+			}
+			.al-gen-input::placeholder {
+				color: var(--text-3);
+			}
+			.al-gen-input:focus {
+				outline: none;
+				border-color: rgba(34, 211, 238, 0.75);
+			}
+			.al-gen-btn {
+				flex: 0 0 auto;
+				appearance: none;
+				border: 1px solid rgba(34, 211, 238, 0.4);
+				background: rgba(34, 211, 238, 0.14);
+				color: #cffafe;
+				font: inherit;
+				font-size: 12px;
+				font-weight: 600;
+				padding: 7px 12px;
+				border-radius: 8px;
+				cursor: pointer;
+				white-space: nowrap;
+				transition: background 0.12s ease, border-color 0.12s ease;
+			}
+			.al-gen-btn:hover:not(:disabled) {
+				background: rgba(34, 211, 238, 0.24);
+				border-color: rgba(34, 211, 238, 0.7);
+			}
+			.al-gen-btn:focus-visible {
+				outline: none;
+				border-color: rgba(34, 211, 238, 0.85);
+				box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3);
+			}
+			.al-gen-btn:disabled {
+				opacity: 0.6;
+				cursor: default;
+			}
+			.al-gen[data-busy='true'] .al-gen-input {
+				opacity: 0.6;
 			}
 			.al-search {
 				width: 100%;
@@ -1745,9 +1808,10 @@
 			<!-- RIGHT PANEL -->
 			<aside id="pose-right">
 				<section class="pose-section pose-section-anim">
-					<h2>Animation presets</h2>
+					<h2>Animation</h2>
 					<p class="pose-section-sub">
-						Load a rigged avatar, click a motion to preview it live, then export an
+						Load a rigged avatar, then <strong>generate a motion from a text
+						prompt</strong> or pick a preset — preview it live and export an
 						animated GLB.
 					</p>
 					<div id="pose-anim-library"></div>
