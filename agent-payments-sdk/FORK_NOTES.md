@@ -1,84 +1,121 @@
-# Fork notes — `@pump-fun/agent-payments-sdk` (local 3.1.0)
+# Fork notes — `agent-payments-sdk` (local, version 3.1.0)
 
-This directory is a **deliberate three.ws fork** of `@pump-fun/agent-payments-sdk`,
-not a stale copy. It is wired as a local npm workspace (listed in the root
-`package.json` `workspaces`), so in-repo installs always resolve `^3.1.0` to this
+This directory is a **deliberate, value-added three.ws fork** of pump.fun's
+`@pump-fun/agent-payments-sdk`. It is the on-chain engine behind our **agent
+tokens** product — the flow where a user launches a pump.fun token for their
+agent ([api/pump/launch-agent.js](../api/pump/launch-agent.js)) and then charges
+users who pay that agent in its token, with buyback and shareholder distribution
+([api/agents/payments/[action].js](../api/agents/payments/[action].js)).
+
+It is wired as a local npm workspace (its dir is in the root `package.json`
+`workspaces`), so in-repo installs resolve `@pump-fun/agent-payments-sdk` to this
 source and the published npm release is never fetched.
 
-## Relationship to upstream
+## TL;DR decision
 
-| | Upstream npm `3.0.3` (`latest`) | This fork `3.1.0` |
+**Keep the fork. Do NOT downgrade to the published release.** Our local copy is
+materially *ahead* of upstream — it already implements the USDC-quote / token-2022
+/ `buy_v2`/`sell_v2` migration that the published package lacks. Pinning to the
+public version would *regress* live agent-token payments. The on-chain program is
+pump.fun's; when they publish program changes we port them *into* this fork,
+re-applying our patches — we never replace our copy with theirs.
+
+The one thing that is *not* intentional is the **name/version squat** (we ship
+under pump.fun's package name at a version that doesn't exist on npm). See
+"Known issue" below.
+
+## Evidence — local 3.1.0 vs published 3.0.3
+
+Published `@pump-fun/agent-payments-sdk` tops out at **3.0.3** (`npm view … version`
+→ `3.0.3`; there is no `3.1.0`). Comparison of `npm pack @pump-fun/agent-payments-sdk@3.0.3`
+against this source:
+
+| | Published `3.0.3` (`latest`) | This fork `3.1.0` |
 |---|---|---|
 | Author | Pump Fun | nirholas |
-| Scope | Solana only | Solana **+ EVM + cross-chain** |
-| Ship shape | single bundle (`dist/index.*`) | 7 export subpaths |
+| Scope | Solana agent-payments only | Solana **+ EVM + cross-chain** |
+| Ship shape | single bundle, 1 export (`.`) | 7 export subpaths |
 | Runtime deps | 3 | 13 |
-| Source | not published (`files: ["dist"]`) | full `src/` tree (~14.8k LOC) |
+| Source | not published (`files: ["dist"]`, minified) | full `src/` (~14.8k LOC) |
+| Quote assets | SOL only | **SOL + USDC + token-2022** |
+| Bonding-curve trades | none | `PumpTradeClient` (`buy_v2`/`sell_v2`/`buyExactQuoteIn`) |
 
-Upstream `3.0.3` exports a single Solana surface: `PumpAgent`, `PumpAgentOffline`,
-the PDA helpers, account decoders, and the program constants/types for the agent
-payments program (`AgenTMiC2hvxGebTsgmsD4HHBa8WEcqGFf87iwRRxLo7`). The published
-package is restricted/private and ships only `dist`; there is no public upstream
-source repo to diff against, so the Solana core here was **reverse-engineered**
-from the published bundle (see `README.md`).
+Symbols present here and **absent from published 3.0.3** (verified by grepping the
+3.0.3 bundle — all returned 0):
 
-> Note: npm `latest` tops out at `3.0.3`. There is **no published `3.1.0`** — the
-> `3.1.0` version number is ours and signals "upstream Solana core + three.ws
-> extensions." This is intentional; do not "fix" the `^3.1.0` pin as if it were
-> a broken/missing version.
+- Protocol v2 / new accounts: `buy_v2`, `sell_v2`, `buyExactQuoteIn`,
+  `userVolumeAccumulator`, `fee_config`, `sharing_config`.
+- USDC / token-2022: `USDC_MINT`, `decodeBondingCurveQuoteMint`,
+  `resolveTokenProgramForMint`.
+- Trading: `PumpTradeClient` and its `BuyQuote`/`SellQuote`/`ExactQuoteResult`,
+  `CurrencyNotSupportedError`, `JupiterUnavailableError`.
+- Fee routing: `pickFeeRecipient`, `pickBuybackFeeRecipient`.
 
-## What we add on top of the upstream Solana core
+What the **published 3.0.3 core does** provide (and we keep faithful to): the
+agent-payments program (`AgenTMiC2hvxGebTsgmsD4HHBa8WEcqGFf87iwRRxLo7`) bindings —
+`PumpAgent`/`PumpAgentOffline` (`create`, `acceptPayment`,
+`buildAcceptPaymentInstructions`, `distributePayments`, `withdraw`,
+`extendAccount`, `updateAuthority`, `updateBuybackBps`, `buybackTrigger`,
+`getBalances`, `validateInvoicePayment`), the PDA helpers, decoders, and program
+constants. Both share the same program IDs (`AgenTMiC2…`, pump `6EF8rrec…`) and
+the same `PumpAgent` constructor `(mint, environment?, connection?)`, so our core
+is binary-compatible with the deployed program; we have simply extended it.
 
-Everything below is **net-new in this fork** and has no equivalent in upstream
-`3.0.3`. All of it is consumed elsewhere in the repo (see "Consumers"):
+These extensions are **woven into the core files** (e.g. USDC/token-2022 handling
+lives inside `PumpAgentOffline.ts`; `types.ts` mixes upstream param types with our
+`BuyQuote`/`SellQuote`). The fork is therefore *not* cleanly separable into
+"upstream core + our add-ons" — another reason a drop-in swap to 3.0.3 is unsafe.
 
-- **EVM** (`./evm`) — `EvmAgent`, `EvmAgentOffline`, ABI, addresses, on-chain
-  events, invoice/quote/transaction builders, validation.
-- **x402** — HTTP 402 payment protocol on both chains:
-  - `./x402` (EVM): client + facilitator.
-  - `./solana/x402`: client, facilitator, header codecs, types.
-- **a2a** (`./a2a`) — agent-to-agent payment helpers.
-- **Cross-chain** — `CrossChainPaymentClient` tying the Solana and EVM agents
-  together behind one client.
-- **solana-agent-kit** (`./solana/solana-agent-kit`) — action adapters for the
-  solana-agent-kit runtime.
-- **legacy-agent-payments** (`./solana/legacy-agent-payments`) — the prior
-  program variant, kept (with tests) for back-compat.
-- **Event subscriptions** — `events.ts` / `pump-events.ts` WebSocket decoding and
-  live subscriptions over the Solana core.
+## Why not "track upstream" (and what we add)
 
-## Why we keep it as a fork (not "track upstream")
+Switching the dependency to published `^3.0.3` would drop every extension above —
+USDC/token-2022 agent payments, the v2 trade client, plus EVM (`./evm`), x402 on
+both chains (`./x402`, `./solana/x402`), a2a (`./a2a`), `CrossChainPaymentClient`,
+solana-agent-kit actions, and the legacy program (`./solana/legacy-agent-payments`).
+All are imported by `api/` routes and SDKs today. "Tracking upstream" is not a
+drop-in; it is a feature *and* protocol regression.
 
-Switching the dependency to the published `^3.0.3` would drop every extension
-above — EVM, x402, a2a, cross-chain, solana-agent-kit, legacy — all of which are
-imported by `api/` routes and skills today. There is no upstream artifact that
-provides them, so "tracking upstream" is not a drop-in; it would be a feature
-regression. The fork is the right call.
+## Keeping the core in sync with upstream
 
-## Keeping the Solana core in sync with upstream
-
-Because upstream ships no source, sync is a manual, periodic check of the
-**Solana core only** (PumpAgent / PDAs / decoders / program constants):
+Upstream ships no source (only a minified bundle), so sync is a periodic manual
+check of the **agent-payments core** — and a *forward port*, never a replace:
 
 ```bash
-# Is there a release newer than what we forked from?
-npm view @pump-fun/agent-payments-sdk dist-tags version
+# Newer release than 3.0.3?
+npm view @pump-fun/agent-payments-sdk version
 
-# Pull the published bundle and diff its public surface against ours.
+# Diff the published public surface against ours.
 cd "$(mktemp -d)" && npm pack @pump-fun/agent-payments-sdk@latest \
   && tar xzf *.tgz && grep -E '^export' package/dist/index.d.ts
 ```
 
-If upstream changes the program ID, PDA seeds, IDL, or account layouts, port those
-into `src/solana/` (and `src/solana/idl/`) and re-run `npm run build`. Leave the
-extensions untouched. Bump our local version (e.g. `3.1.1`) when we port a sync.
+If pump.fun changes the program ID, PDA seeds, IDL, or account layouts, port those
+into `src/solana/` (and `src/solana/idl/`), keep our USDC/token-2022/v2 patches on
+top, re-run `npm run build`, and bump the local version. Leave the EVM/x402/a2a
+layers untouched.
+
+## Known issue — name/version squat (recommended follow-up)
+
+We ship under **`@pump-fun/agent-payments-sdk@3.1.0`** — a scope we don't own and a
+version that doesn't exist on npm. It resolves only because the workspace shadows
+the registry. This is the one genuinely confusing part of the setup: a reader of
+the manifest, or any fresh consumer outside the workspace, will be misled.
+
+The clean long-term fix is to **rename this package to our own scope**
+(`@three-ws/agent-payments`) and repoint *internal* consumers to it, while leaving
+*external* skill templates (`pump-fun-skills/**`, which ship their own lockfiles)
+on the real public `@pump-fun/agent-payments-sdk`. That rename is non-trivial — it
+also touches the separately-published `publish/` bundle and the `src/` ↔
+`publish/src/` duplication — so it is best done as its own focused pass, not folded
+into this reconcile. Tracked as a follow-up.
 
 ## Consumers (repo-wide, excluding the fork itself)
 
-`api/pump/[action].js`, `api/_lib/pump.js`, `api/_lib/pump-swap-ix.js`,
-`api/agents/payments/[action].js`, `api/agents/pumpfun/[action].js`,
-`api/cron/[name].js`, `scripts/buyback-devnet-smoke.mjs`,
-`pump-fun-skills/create-coin/`, `pump-fun-skills/tokenized-agents/`,
-`solana-agent-sdk/`, plus `src/agent-skills-*.js`. All resolve via the workspace
-symlink; `npm run build` here regenerates `dist/` (the root `postinstall`
-rebuilds it on demand via `scripts/build-cache.mjs`).
+Core (agent-payments program): `api/agents/payments/[action].js`,
+`api/agents/pumpfun/[action].js`, `api/pump/[action].js`, `api/cron/[name].js`,
+`api/_lib/pump-swap-ix.js`, `scripts/buyback-devnet-smoke.mjs`,
+`pump-fun-skills/create-coin/`.
+Extensions: `api/_lib/pump.js` (`PumpTradeClient`), `src/agent-skills-agent-payments.js`
+(EVM), `solana-agent-sdk/` (x402 types). All resolve via the workspace symlink;
+`npm run build` regenerates `dist/` (root `postinstall` rebuilds on demand via
+`scripts/build-cache.mjs`).

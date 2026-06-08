@@ -39,6 +39,9 @@ import curveHandler from '../../api/pump/curve.js';
 import quoteSdkHandler from '../../api/pump/quote-sdk.js';
 
 const VALID_MINT = 'So11111111111111111111111111111111111111112';
+// A pump.fun mint (vanity-ground to end in "pump") — required to pass curve.js's
+// non-pump short-circuit and reach the (mocked) RPC layer. Uses the $THREE mint.
+const CURVE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
 function makeReq({ url = '/', method = 'GET', headers = {} } = {}) {
 	return { url, method, headers };
@@ -72,12 +75,23 @@ describe('GET /api/pump/curve', () => {
 		expect(res.statusCode).toBe(400);
 	});
 
-	it('404 when no bonding curve found', async () => {
+	it('404 not_a_pump_mint for a non-pump mint, without touching RPC', async () => {
+		const res = makeRes();
+		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${VALID_MINT}` }), res);
+		expect(res.statusCode).toBe(404);
+		expect(getJson(res).error).toBe('not_a_pump_mint');
+		// Short-circuit must happen before any bonding-curve RPC read.
+		expect(getBondingCurveState).not.toHaveBeenCalled();
+		// Negative-cacheable so repeat probes are served from the edge.
+		expect(res.getHeader('cache-control')).toMatch(/s-maxage=300/);
+	});
+
+	it('404 when no bonding curve found for a real pump mint', async () => {
 		getBondingCurveState.mockResolvedValueOnce(null);
 		getTokenPrice.mockResolvedValueOnce(null);
 		getGraduationProgress.mockResolvedValueOnce(null);
 		const res = makeRes();
-		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${VALID_MINT}` }), res);
+		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${CURVE_MINT}` }), res);
 		expect(res.statusCode).toBe(404);
 		expect(getJson(res).error).toBe('no_curve');
 	});
@@ -92,10 +106,10 @@ describe('GET /api/pump/curve', () => {
 		getTokenPrice.mockResolvedValueOnce({ priceSol: '0.0001', marketCapSol: '1000' });
 		getGraduationProgress.mockResolvedValueOnce({ progressBps: 4500 });
 		const res = makeRes();
-		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${VALID_MINT}` }), res);
+		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${CURVE_MINT}` }), res);
 		expect(res.statusCode).toBe(200);
 		const body = getJson(res);
-		expect(body.mint).toBe(VALID_MINT);
+		expect(body.mint).toBe(CURVE_MINT);
 		expect(body.curve.creator).toBe('CRE');
 		expect(body.price.priceSol).toBe('0.0001');
 		expect(body.graduation.progressBps).toBe(4500);
@@ -107,7 +121,7 @@ describe('GET /api/pump/curve', () => {
 		getTokenPrice.mockResolvedValueOnce(null);
 		getGraduationProgress.mockResolvedValueOnce(null);
 		const res = makeRes();
-		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${VALID_MINT}&network=devnet` }), res);
+		await curveHandler(makeReq({ url: `/api/pump/curve?mint=${CURVE_MINT}&network=devnet` }), res);
 		expect(getJson(res).network).toBe('devnet');
 	});
 });

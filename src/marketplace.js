@@ -5610,7 +5610,6 @@ function closePaymentModal() {
 
 function shortMintLabel(mint) {
 	if (mint === 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v') return 'USDC';
-	if (mint === 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB') return 'USDT';
 	return mint.slice(0, 4) + '…';
 }
 

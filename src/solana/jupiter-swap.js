@@ -135,7 +135,7 @@ export async function getJupiterTopTokens() {
 }
 
 /**
- * Resolve a token symbol (e.g. "BONK") to its mint address.
+ * Resolve a token symbol (e.g. "SOL") to its mint address.
  * Returns null if not found.
  * @param {string} symbol
  * @returns {Promise<string|null>}

@@ -63,7 +63,7 @@ const ROUTE_DESCRIPTION =
 	'previews). Pay-per-call in USDC on Base mainnet.';
 
 const DISCOVERY_INPUT_EXAMPLE = {
-	mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+	mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 };
 
 const DISCOVERY_INPUT_SCHEMA = {
@@ -81,13 +81,12 @@ const DISCOVERY_INPUT_SCHEMA = {
 };
 
 const DISCOVERY_OUTPUT_EXAMPLE = {
-	mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+	mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 	theme: {
-		name: 'Bonk',
-		symbol: 'Bonk',
+		name: 'three',
+		symbol: 'THREE',
 		color: [0.92, 0.45, 0.18],
-		imageUrl: 'https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I',
-		hasImage: true,
+		hasImage: false,
 	},
 	glb: {
 		mimeType: 'model/gltf-binary',
