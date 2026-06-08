@@ -146,6 +146,68 @@ const PROVIDERS = {
 		description: 'IBM’s open, enterprise-governed foundation model on watsonx.ai.',
 		watsonx: true,
 	},
+
+	// ── NVIDIA NIM (build.nvidia.com) — free hosted inference ────────────────────
+	// One free `nvapi-...` key (NVIDIA_API_KEY) unlocks all of these. NVIDIA-hosted,
+	// so there is no first-party-vs-OpenRouter split: `native` is the only route and
+	// the provider simply shows unavailable until the key is set. Rate-limited free
+	// tier — great for experimentation, not a guaranteed-uptime production path.
+	'nvidia-nemotron-120b': {
+		label: 'Nemotron 3 Super 120B',
+		network: 'NVIDIA NIM',
+		tier: 'flagship',
+		maxOutput: 16384,
+		description: 'NVIDIA’s flagship Nemotron MoE. Strong agentic reasoning, free on NIM.',
+		native: () => (env.NVIDIA_API_KEY ? nvidia('nvidia/nemotron-3-super-120b-a12b') : null),
+	},
+	'nvidia-nemotron-super-49b': {
+		label: 'Llama-Nemotron Super 49B',
+		network: 'NVIDIA NIM',
+		tier: 'reasoning',
+		maxOutput: 16384,
+		description: 'Nemotron reasoning model tuned on Llama 3.3. Math, code, planning.',
+		native: () => (env.NVIDIA_API_KEY ? nvidia('nvidia/llama-3.3-nemotron-super-49b-v1.5') : null),
+	},
+	'nvidia-nemotron-nano': {
+		label: 'Nemotron Nano 9B',
+		network: 'NVIDIA NIM',
+		tier: 'fast',
+		maxOutput: 8192,
+		description: 'Compact, low-latency Nemotron. Great default for simple agent turns.',
+		native: () => (env.NVIDIA_API_KEY ? nvidia('nvidia/nvidia-nemotron-nano-9b-v2') : null),
+	},
+	'nvidia-deepseek-v4': {
+		label: 'DeepSeek V4 Pro',
+		network: 'NVIDIA NIM',
+		tier: 'reasoning',
+		maxOutput: 16384,
+		description: 'DeepSeek V4 Pro hosted on NVIDIA NIM. Deep reasoning, free tier.',
+		native: () => (env.NVIDIA_API_KEY ? nvidia('deepseek-ai/deepseek-v4-pro') : null),
+	},
+	'nvidia-kimi-k2': {
+		label: 'Kimi K2.6',
+		network: 'NVIDIA NIM',
+		tier: 'flagship',
+		maxOutput: 16384,
+		description: 'Moonshot Kimi K2.6 on NIM. Long-context agentic model, free tier.',
+		native: () => (env.NVIDIA_API_KEY ? nvidia('moonshotai/kimi-k2.6') : null),
+	},
+	'nvidia-llama4-maverick': {
+		label: 'Llama 4 Maverick',
+		network: 'NVIDIA NIM',
+		tier: 'balanced',
+		maxOutput: 8192,
+		description: 'Meta Llama 4 Maverick (128-expert MoE) on NIM. Fast, multimodal-capable.',
+		native: () => (env.NVIDIA_API_KEY ? nvidia('meta/llama-4-maverick-17b-128e-instruct') : null),
+	},
+	'nvidia-minimax-m2': {
+		label: 'MiniMax M2.7',
+		network: 'NVIDIA NIM',
+		tier: 'balanced',
+		maxOutput: 8192,
+		description: 'MiniMax M2.7 on NIM. Strong general reasoning and chat, free tier.',
+		native: () => (env.NVIDIA_API_KEY ? nvidia('minimaxai/minimax-m2.7') : null),
+	},
 };
 
 // Resolve the primary route for a spec: native first-party model when its key is
@@ -169,6 +231,16 @@ function buildPrimary(spec) {
 function buildFallback(spec, primary) {
 	if (primary?.via !== 'native' || !spec.openrouterModel || !env.OPENROUTER_API_KEY) return null;
 	return openrouter()(spec.openrouterModel);
+}
+
+// NVIDIA NIM (build.nvidia.com) is OpenAI-*compatible* (Chat Completions, not the
+// Responses API), so — like Groq, ModelScope and OpenRouter — we force the
+// `.chat()` surface. One free `nvapi-...` key unlocks every hosted model.
+function nvidia(modelId) {
+	return createOpenAI({
+		apiKey: env.NVIDIA_API_KEY,
+		baseURL: 'https://integrate.api.nvidia.com/v1',
+	}).chat(modelId);
 }
 
 function openrouter() {

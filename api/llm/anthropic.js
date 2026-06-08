@@ -57,12 +57,20 @@ const MODELS = {
 	// Groq free tier (sub-second latency; per-IP+per-key minute caps).
 	'llama-3.3-70b-versatile':    { kind: 'openai', provider: 'groq', envKey: 'GROQ_API_KEY' },
 	'llama-3.1-8b-instant':       { kind: 'openai', provider: 'groq', envKey: 'GROQ_API_KEY' },
+
+	// NVIDIA NIM free tier (build.nvidia.com). One nvapi key, OpenAI-compatible,
+	// tool-call capable. Used both as directly-selectable models and as a free
+	// fallback ahead of paid Anthropic in the chain below.
+	'nvidia/llama-3.3-nemotron-super-49b-v1.5':  { kind: 'openai', provider: 'nvidia', envKey: 'NVIDIA_API_KEY' },
+	'nvidia/nvidia-nemotron-nano-9b-v2':         { kind: 'openai', provider: 'nvidia', envKey: 'NVIDIA_API_KEY' },
+	'meta/llama-4-maverick-17b-128e-instruct':   { kind: 'openai', provider: 'nvidia', envKey: 'NVIDIA_API_KEY' },
 };
 
 const UPSTREAM_URL = {
 	anthropic:  'https://api.anthropic.com/v1/messages',
 	openrouter: 'https://openrouter.ai/api/v1/chat/completions',
 	groq:       'https://api.groq.com/openai/v1/chat/completions',
+	nvidia:     'https://integrate.api.nvidia.com/v1/chat/completions',
 };
 
 const FIRST_PARTY = ['three.ws', 'localhost'];
