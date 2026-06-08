@@ -59,3 +59,21 @@ rg -n views_used api src
 No code changes were needed — the migration SQL and the reading code
 ([api/forge.js](../../api/forge.js#L407), [src/forge.js](../../src/forge.js#L660),
 [api/_lib/forge-store.js](../../api/_lib/forge-store.js#L246)) already agree on the column names.
+
+## Pre-verified end-to-end against a real Postgres 16
+
+Because no prod DB was reachable, the full chain was reproduced and fixed against a throwaway
+Postgres 16 container (the migration `.sql` is plain DDL — `psql` runs the exact file body the
+runner's `pool.query(body)` would, so the SQL semantics are identical):
+
+1. Applied only the **base** `20260604000000_forge_creations.sql`, inserted a `done` row, and ran
+   the **exact** `listCreations` SELECT → reproduced prod's `ERROR: column "views_used" does not exist`.
+2. Applied `20260606000000_forge_multiview.sql` then `20260607000000_forge_tier_path.sql` → all six
+   columns present with correct types (`views_requested`/`views_used` smallint, `multiview` boolean,
+   `backend`/`tier`/`path` text).
+3. Re-ran the exact `listCreations` SELECT → **succeeds**, returns the row (no 500).
+4. Re-applying both migrations → no-op (`add column if not exists`), confirming idempotency.
+5. Exercised the **write/poll** paths too: `createCreation` insert (all columns) and `findByJob`
+   SELECT both succeed against the migrated schema → no submit/poll regression.
+
+So the documented commands are known-good; the only remaining variable is prod connectivity.
