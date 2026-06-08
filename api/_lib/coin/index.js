@@ -10,11 +10,7 @@ export {
 	sendSolTransfer,
 	sendSolBatched,
 } from './treasury.js';
-export {
-	fetchHolderBalances,
-	persistHolderSnapshot,
-	readEligibleHolders,
-} from './holders.js';
+export { fetchHolderBalances, persistHolderSnapshot, readEligibleHolders } from './holders.js';
 export {
 	COHORTS,
 	listCohorts,

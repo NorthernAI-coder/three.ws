@@ -217,12 +217,20 @@ async function startJob(req, res) {
 				// The native image→3D endpoints reconstruct from a single primary
 				// view; multi-view fusion stays on the image/TRELLIS path.
 				previewImageUrl = imageUrls[0];
-				submitted = await gp.imageTo3d({ imageUrl: previewImageUrl, prompt: prompt || undefined, tier });
+				submitted = await gp.imageTo3d({
+					imageUrl: previewImageUrl,
+					prompt: prompt || undefined,
+					tier,
+				});
 			} else {
 				submitted = await gp.textToGeometry({ prompt, tier });
 			}
 
-			const token = encodeJobToken({ provider: providerName, kind: submitted.kind, taskId: submitted.taskId });
+			const token = encodeJobToken({
+				provider: providerName,
+				kind: submitted.kind,
+				taskId: submitted.taskId,
+			});
 
 			// Store the upstream task id as the job handle so findByJob/materialize
 			// resolve it on poll, exactly like the Replicate path.
