@@ -267,7 +267,7 @@ function renderToolkit(host, state) {
 					<p class="dn-toolkit-card-desc">${esc(r.desc)}</p>
 					<div class="dn-toolkit-cmd">
 						<code data-snippet="toolkit-${esc(r.id)}">${esc(r.cmd)}</code>
-						<button type="button" class="dn-code-copy dn-toolkit-copy" data-copy="toolkit-${esc(r.id)}" aria-label="Copy ${esc(r.title)} command">Copy</button>
+						<button type="button" class="dn-code-copy dn-toolkit-cmd-copy" data-copy="toolkit-${esc(r.id)}" aria-label="Copy ${esc(r.title)} command">Copy</button>
 					</div>
 					<a class="dn-toolkit-card-doc" href="${esc(r.doc.href)}">${esc(r.doc.label)} <span aria-hidden="true">↗</span></a>
 				</div>
@@ -1244,8 +1244,8 @@ function injectStyles() {
 		.dn-toolkit-card-desc { margin: 0; font-size: 12px; line-height: 1.5; color: var(--nxt-ink-fade); flex: 1; }
 		.dn-toolkit-cmd { position: relative; display: flex; align-items: center; }
 		.dn-toolkit-cmd code { display: block; width: 100%; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #d8dbe5; background: #0a0a10; border: 1px solid var(--nxt-stroke); border-left: 2px solid var(--nxt-accent); border-radius: var(--nxt-radius-sm); padding: 9px 52px 9px 11px; overflow-x: auto; white-space: nowrap; }
-		.dn-toolkit-copy { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); opacity: 0.5; }
-		.dn-toolkit-cmd:hover .dn-toolkit-copy { opacity: 1; }
+		.dn-toolkit-cmd-copy { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); opacity: 0.5; }
+		.dn-toolkit-cmd:hover .dn-toolkit-cmd-copy { opacity: 1; }
 		.dn-toolkit-card-doc { font-size: 11.5px; color: var(--nxt-ink-dim); text-decoration: none; transition: color 0.12s ease; }
 		.dn-toolkit-card-doc:hover { color: var(--nxt-ink); }
 		.dn-toolkit-foot { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--nxt-stroke); }

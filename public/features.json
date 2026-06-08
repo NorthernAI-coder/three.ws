@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-08T09:44:54.867Z",
+	"generated_at": "2026-06-08T10:39:06.879Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -406,16 +406,6 @@
 					"added": null,
 					"auth": null,
 					"indexable": true,
-					"tags": [],
-					"showcase": false
-				},
-				{
-					"path": "/rider",
-					"title": "Rider (VR)",
-					"description": "A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.",
-					"added": "2026-05-25",
-					"auth": null,
-					"indexable": false,
 					"tags": [],
 					"showcase": false
 				},

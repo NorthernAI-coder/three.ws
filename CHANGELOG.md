@@ -50,7 +50,6 @@ Public feature history for [three.ws](https://three.ws), newest first. Feature d
 - **Import an avatar URL** (`/import/rpm`) — Import any GLB or glTF avatar into three.ws and give it an agent brain.
 - **New Agent** (`/agent/new`) — Create a new agent from scratch — avatar, brain, skills, and on-chain identity.
 - **Playground** (`/playground`) — Sandbox for experimenting with agents, prompts, and 3D scenes.
-- **Rider (VR)** (`/rider`) — A free, open-source VR music visualization — surf the musical road among the stars, moon, and lights.
 - **Selfie to Avatar** (`/create/selfie`) — One selfie. About a minute. A rigged 3D avatar that works everywhere.
 - **x402 Bazaar** (`/bazaar`) — Search and browse the x402 facilitator catalog. Filter by network, price, and extensions. Pay any service in one click.
 

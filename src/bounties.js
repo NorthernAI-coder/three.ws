@@ -1,25 +1,67 @@
 // Bounties list — three.ws/bounties
 //
 // Mirrors pump.fun GO's public bounty board via our cached proxy
-// (/api/pump-bounties). Cursor-paginated; sort is applied client-side over the
-// loaded set. Read-only.
+// (/api/pump-bounties). Cursor-paginated; sort + search run client-side over the
+// loaded set. When a search is active we progressively scan the rest of the
+// board (cheap server cache makes this cheap) so search covers every open
+// bounty, not just the first page. Sort + query are reflected in the URL so a
+// view is shareable and survives refresh. Read-only.
 
 const API = '/api/pump-bounties';
 const PAGE = 30;
+const MAX_SCAN_PAGES = 24; // safety ceiling on the full-board search scan
+
+const SORTS = {
+	reward: (a, b) => (b.reward.totalUsd || 0) - (a.reward.totalUsd || 0),
+	newest: (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+	submissions: (a, b) => (b.counts.submissions || 0) - (a.counts.submissions || 0),
+	likes: (a, b) => (b.likeCount || 0) - (a.likeCount || 0),
+};
 
 let items = [];
 let nextCursor = null;
-let loading = false;
+let pagesLoaded = 0;
+let inflight = null;
+let scanning = false;
 let sortKey = 'reward';
+let query = '';
 
 const grid = () => document.getElementById('grid');
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 function init() {
+	readUrl();
+	reflectControls();
 	bindControls();
 	load(true);
 	loadStats();
+}
+
+// ── URL state ─────────────────────────────────────────────────────────────────
+
+function readUrl() {
+	const p = new URLSearchParams(location.search);
+	const s = p.get('sort');
+	if (s && SORTS[s]) sortKey = s;
+	query = (p.get('q') || '').trim();
+}
+
+function writeUrl() {
+	const p = new URLSearchParams();
+	if (sortKey !== 'reward') p.set('sort', sortKey);
+	if (query) p.set('q', query);
+	const qs = p.toString();
+	history.replaceState(null, '', qs ? `${location.pathname}?${qs}` : location.pathname);
+}
+
+function reflectControls() {
+	document.querySelectorAll('#sort-seg button').forEach((b) => {
+		b.classList.toggle('active', b.dataset.sort === sortKey);
+	});
+	const input = document.getElementById('q');
+	input.value = query;
+	document.getElementById('q-clear').hidden = !query;
 }
 
 // ── Board stats strip ─────────────────────────────────────────────────────────
@@ -46,67 +88,131 @@ function setStat(id, text) {
 	el.classList.remove('skeleton');
 }
 
+// ── Controls ──────────────────────────────────────────────────────────────────
+
 function bindControls() {
 	document.getElementById('sort-seg').addEventListener('click', (e) => {
 		const btn = e.target.closest('button[data-sort]');
-		if (!btn) return;
-		document.querySelectorAll('#sort-seg button').forEach((b) => b.classList.remove('active'));
-		btn.classList.add('active');
+		if (!btn || btn.dataset.sort === sortKey) return;
 		sortKey = btn.dataset.sort;
+		reflectControls();
+		writeUrl();
 		renderGrid();
 	});
+
 	document.getElementById('refresh-btn').addEventListener('click', () => load(true));
+
+	const input = document.getElementById('q');
+	let debounce;
+	input.addEventListener('input', () => {
+		clearTimeout(debounce);
+		debounce = setTimeout(() => onSearch(input.value), 180);
+	});
+	input.addEventListener('search', () => onSearch(input.value)); // native clear (×)
+
+	document.getElementById('q-clear').addEventListener('click', () => {
+		input.value = '';
+		onSearch('');
+		input.focus();
+	});
+
 	grid().addEventListener('click', (e) => {
 		const card = e.target.closest('.card[data-id]');
 		if (card) location.href = `/bounty/${card.dataset.id}`;
 	});
 }
 
+function onSearch(value) {
+	const next = value.trim();
+	if (next === query) return;
+	query = next;
+	document.getElementById('q-clear').hidden = !query;
+	writeUrl();
+	renderGrid();
+	renderMeta();
+	if (query && nextCursor && !scanning) scanForSearch();
+}
+
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-async function load(reset = false) {
-	if (loading) return;
-	loading = true;
-	if (reset) {
-		items = [];
-		nextCursor = null;
-		grid().innerHTML = skeletons(8);
-	} else {
-		setLoadMore('Loading…', true);
-	}
-
-	try {
+// Single-flight page fetch. `reset` starts the board over from the first page.
+async function fetchNext(reset) {
+	if (inflight) return inflight;
+	inflight = (async () => {
 		const url = new URL(API, location.origin);
 		url.searchParams.set('limit', String(PAGE));
 		if (!reset && nextCursor) url.searchParams.set('cursor', nextCursor);
 		const r = await fetch(url);
 		const data = await r.json();
 		if (!r.ok) throw new Error(data.error_description || data.error || `HTTP ${r.status}`);
-
-		items = reset ? data.items || [] : items.concat(data.items || []);
+		const batch = data.items || [];
+		items = reset ? batch : items.concat(batch);
 		nextCursor = data.nextCursor || null;
-		renderGrid();
-	} catch (err) {
-		if (reset) {
-			grid().innerHTML = errorState(err.message);
-		} else {
-			setLoadMore('Retry', false);
-		}
+		pagesLoaded = reset ? 1 : pagesLoaded + 1;
+		return batch.length;
+	})();
+	try {
+		return await inflight;
 	} finally {
-		loading = false;
+		inflight = null;
+	}
+}
+
+async function load(reset = false) {
+	if (reset) {
+		items = [];
+		nextCursor = null;
+		pagesLoaded = 0;
+		grid().innerHTML = skeletons(8);
+	} else {
+		setLoadMore('Loading…', true);
+	}
+	try {
+		await fetchNext(reset);
+		renderGrid();
+		renderMeta();
+		if (query && nextCursor && !scanning) scanForSearch();
+	} catch (err) {
+		if (reset) grid().innerHTML = errorState(err.message);
+		else setLoadMore('Retry', false);
+	}
+}
+
+// Walk the remaining pages so a search covers the whole open board. The proxy
+// caches each page, so repeated searches stay cheap. Re-renders as it goes.
+async function scanForSearch() {
+	if (scanning) return;
+	scanning = true;
+	renderMeta();
+	try {
+		while (query && nextCursor && pagesLoaded < MAX_SCAN_PAGES) {
+			await fetchNext(false);
+			renderGrid();
+			renderMeta();
+		}
+	} catch {
+		// Keep whatever we already scanned; meta reflects partial coverage.
+	} finally {
+		scanning = false;
+		renderMeta();
 	}
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
-function sorted() {
-	const by = {
-		reward: (a, b) => (b.reward.totalUsd || 0) - (a.reward.totalUsd || 0),
-		newest: (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
-		submissions: (a, b) => (b.counts.submissions || 0) - (a.counts.submissions || 0),
-		likes: (a, b) => (b.likeCount || 0) - (a.likeCount || 0),
-	}[sortKey];
-	return [...items].sort(by);
+function matches(b) {
+	if (!query) return true;
+	const q = query.toLowerCase();
+	return (
+		(b.title || '').toLowerCase().includes(q) ||
+		(b.bodyMarkdown || '').toLowerCase().includes(q) ||
+		(b.creator?.address || '').toLowerCase().includes(q) ||
+		(b.taskId || '').toLowerCase().includes(q)
+	);
+}
+
+function visible() {
+	return items.filter(matches).sort(SORTS[sortKey]);
 }
 
 function renderGrid() {
@@ -115,8 +221,14 @@ function renderGrid() {
 		el.innerHTML = emptyState();
 		return;
 	}
-	el.innerHTML = sorted().map(card).join('');
-	if (nextCursor) {
+	const list = visible();
+	if (!list.length) {
+		el.innerHTML = query && scanning ? scanningState() : noMatchState();
+		return;
+	}
+	el.innerHTML = list.map(card).join('');
+	// "Load more" only in browse mode — search auto-scans the whole board.
+	if (!query && nextCursor) {
 		const btn = document.createElement('button');
 		btn.className = 'load-more';
 		btn.id = 'load-more';
@@ -124,6 +236,29 @@ function renderGrid() {
 		btn.addEventListener('click', () => load(false));
 		el.appendChild(btn);
 	}
+}
+
+function renderMeta() {
+	const el = document.getElementById('result-meta');
+	if (!el) return;
+	if (!query) {
+		el.hidden = true;
+		el.innerHTML = '';
+		return;
+	}
+	const n = items.filter(matches).length;
+	const scanned = items.length;
+	const safeQ = esc(query);
+	let tail;
+	if (scanning) {
+		tail = `scanning the board… <strong>${n}</strong> match${n === 1 ? '' : 'es'} so far`;
+	} else if (nextCursor && pagesLoaded >= MAX_SCAN_PAGES) {
+		tail = `<strong>${n}</strong> match${n === 1 ? '' : 'es'} in the first ${scanned} bounties (board is larger)`;
+	} else {
+		tail = `<strong>${n}</strong> bount${n === 1 ? 'y' : 'ies'} match “${safeQ}” · searched all ${scanned} open`;
+	}
+	el.hidden = false;
+	el.innerHTML = `${scanning ? '<span class="scan-dot"></span>' : ''}${tail}`;
 }
 
 function card(b) {
@@ -192,6 +327,12 @@ function skeletons(n) {
 }
 function emptyState() {
 	return `<div class="empty"><div class="ico">🎯</div><h3>No open bounties right now</h3><p>The pump.fun GO board is quiet at the moment. Check back shortly.</p></div>`;
+}
+function noMatchState() {
+	return `<div class="empty"><div class="ico">🔍</div><h3>No bounties match “${esc(query)}”</h3><p>Try a different keyword, a creator address, or clear the search to browse the full board.</p></div>`;
+}
+function scanningState() {
+	return `<div class="empty"><div class="ico">🔍</div><h3>Searching the board…</h3><p>Scanning every open bounty for “${esc(query)}”.</p></div>`;
 }
 function errorState(msg) {
 	return `<div class="errbox"><div class="ico">⚠️</div><h3>Couldn't load bounties</h3><p>${esc(msg)}</p><button class="btn btn-ghost btn-sm" onclick="location.reload()">Try again</button></div>`;
