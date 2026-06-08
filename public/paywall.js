@@ -276,6 +276,10 @@
 			paymentInFlight = false;
 			revealUnlocked(outcome, accept);
 		}).catch(function (err) {
+			// On mobile with no injected wallet, pay() redirects into the wallet's
+			// in-app browser — the page is unloading, so keep the "Opening…" status
+			// instead of flashing a failure.
+			if (err && err.code === 'mobile_redirect') return;
 			paymentInFlight = false;
 			setButtonsDisabled(false);
 			setWalletError(statusEl, (err && err.message) || 'Payment failed. Please try again.');

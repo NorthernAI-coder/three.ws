@@ -287,6 +287,65 @@ function walletNotFound(walletName) {
 	return err;
 }
 
+// ──────────────────────────────────────────────────────────────── mobile ──────
+
+// Mobile browsers have no injected wallet extension — the wallet app instead
+// reopens the page inside its own in-app browser (where the provider IS
+// injected) via a universal link. Detect the mobile case so we deep-link the
+// user into their wallet instead of telling them to "install the extension",
+// which is meaningless on a phone. `ua` is injectable so this is unit-testable.
+export function isMobileBrowser(ua) {
+	const s = ua != null ? ua : typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+	return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|BlackBerry|Opera Mini|IEMobile/i.test(s);
+}
+
+// Universal/deep link that reopens `targetUrl` inside the wallet's in-app
+// browser. The paywall passes its own page URL so the gated request (carried in
+// `?req=`/`?return=`) is preserved and payment completes after the redirect.
+export function walletDeeplink(walletName, targetUrl, ref) {
+	if (!targetUrl) return null;
+	const enc = encodeURIComponent(targetUrl);
+	const refQ = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+	switch (walletName) {
+		case 'phantom':
+			return `https://phantom.app/ul/browse/${enc}${refQ}`;
+		case 'solflare':
+			return `https://solflare.com/ul/v1/browse/${enc}${refQ}`;
+		case 'coinbase':
+			return `https://go.cb-w.com/dapp?cb_url=${enc}`;
+		case 'metamask':
+			try {
+				const u = new URL(targetUrl);
+				return `https://metamask.app.link/dapp/${u.host}${u.pathname}${u.search}`;
+			} catch {
+				return `https://metamask.app.link/dapp/${enc}`;
+			}
+		default:
+			return null; // WalletConnect already handles mobile via its own modal.
+	}
+}
+
+// On mobile with no injected provider, navigate to the wallet's in-app browser.
+// Returns true if a redirect was initiated (the caller should then stop, since
+// the page is unloading). Side-effecting + window-guarded; the pure pieces above
+// are what tests exercise.
+function initiateMobileRedirect(walletName, label, onStatus) {
+	if (typeof window === 'undefined' || !isMobileBrowser()) return false;
+	const link = walletDeeplink(walletName, window.location.href, window.location.origin);
+	if (!link) return false;
+	onStatus?.('connecting', `Opening ${label}…`);
+	window.location.href = link;
+	return true;
+}
+
+// Thrown after a mobile redirect is initiated so the controller can distinguish
+// "navigating to the wallet app" from a real failure and suppress the error UI.
+function mobileRedirectError() {
+	const err = new Error('Opening your wallet app…');
+	err.code = 'mobile_redirect';
+	return err;
+}
+
 // ─────────────────────────────────────────────────────── settle + retry ──────
 
 // Retry the gated resource with the X-PAYMENT proof and return the unlocked
@@ -336,7 +395,10 @@ export async function paySolana({ accept, resourceUrl, walletName, onStatus, ori
 	const apiOrigin = origin || (typeof location !== 'undefined' ? location.origin : '');
 	const label = walletName === 'solflare' ? 'Solflare' : 'Phantom';
 	const provider = getSolanaProvider(walletName);
-	if (!provider || typeof provider.connect !== 'function') throw walletNotFound(walletName);
+	if (!provider || typeof provider.connect !== 'function') {
+		if (initiateMobileRedirect(walletName, label, onStatus)) throw mobileRedirectError();
+		throw walletNotFound(walletName);
+	}
 
 	onStatus?.('connecting', `Opening ${label}…`);
 	const conn = await provider.connect();
@@ -395,7 +457,11 @@ async function resolveEvmProvider(walletName, onStatus) {
 		return wc;
 	}
 	const provider = getEvmProvider(walletName);
-	if (!provider || typeof provider.request !== 'function') throw walletNotFound(walletName);
+	if (!provider || typeof provider.request !== 'function') {
+		const label = WALLET_LABELS[walletName] || 'wallet';
+		if (initiateMobileRedirect(walletName, label, onStatus)) throw mobileRedirectError();
+		throw walletNotFound(walletName);
+	}
 	return provider;
 }
 
