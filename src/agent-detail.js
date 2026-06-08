@@ -170,7 +170,9 @@ function cohortsView(data) {
 	];
 
 	if (!holderCount) {
-		nodes.push(el('div', { class: 'ad-cohorts-empty', text: 'No holders yet — be the first.' }));
+		nodes.push(
+			el('div', { class: 'ad-cohorts-empty', text: 'No holders yet — be the first.' }),
+		);
 		return nodes;
 	}
 
@@ -520,7 +522,8 @@ function starsHtml(rating, size = 'sm') {
 	let html = '';
 	for (let i = 1; i <= 5; i++) {
 		if (i <= full) html += `<span class="ad-star filled" aria-hidden="true">★</span>`;
-		else if (i === full + 1 && half) html += `<span class="ad-star half" aria-hidden="true">★</span>`;
+		else if (i === full + 1 && half)
+			html += `<span class="ad-star half" aria-hidden="true">★</span>`;
 		else html += `<span class="ad-star" aria-hidden="true">★</span>`;
 	}
 	return html;
@@ -594,9 +597,14 @@ async function loadReviews(agentId, agentRec) {
 					class: 'ad-reviews-stars',
 					'aria-label': `${avgDisplay} out of 5 stars`,
 				}),
-				el('div', { class: 'ad-reviews-total', text: `${summary.rating_count} review${summary.rating_count !== 1 ? 's' : ''}` }),
+				el('div', {
+					class: 'ad-reviews-total',
+					text: `${summary.rating_count} review${summary.rating_count !== 1 ? 's' : ''}`,
+				}),
 			]),
-			el('div', { class: 'ad-reviews-bars' },
+			el(
+				'div',
+				{ class: 'ad-reviews-bars' },
 				[5, 4, 3, 2, 1].map((star) => {
 					const count = summary.breakdown?.[star] || 0;
 					const pct = Math.round((count / total) * 100);
@@ -617,7 +625,9 @@ async function loadReviews(agentId, agentRec) {
 
 	// Write / edit form (skip if owner)
 	if (!isOwner) {
-		body.appendChild(buildReviewForm(agentId, my_review, (updated) => loadReviews(agentId, agentRec)));
+		body.appendChild(
+			buildReviewForm(agentId, my_review, (updated) => loadReviews(agentId, agentRec)),
+		);
 	}
 
 	// Reviews list
@@ -625,7 +635,11 @@ async function loadReviews(agentId, agentRec) {
 		body.appendChild(
 			el('div', { class: 'ad-reviews-empty' }, [
 				el('strong', { text: 'No reviews yet' }),
-				el('span', { text: isOwner ? 'Reviews from users will appear here.' : 'Be the first to review this agent.' }),
+				el('span', {
+					text: isOwner
+						? 'Reviews from users will appear here.'
+						: 'Be the first to review this agent.',
+				}),
 			]),
 		);
 		return;
@@ -642,9 +656,10 @@ function buildReviewForm(agentId, existing, onSuccess) {
 	let selectedRating = existing?.rating || 0;
 	let submitting = false;
 
-
-
-	const formTitle = el('div', { class: 'ad-review-form-title', text: existing ? 'Your Review' : 'Write a Review' });
+	const formTitle = el('div', {
+		class: 'ad-review-form-title',
+		text: existing ? 'Your Review' : 'Write a Review',
+	});
 
 	const starPicker = el('div', {
 		class: 'ad-review-star-picker',
@@ -661,7 +676,12 @@ function buildReviewForm(agentId, existing, onSuccess) {
 			text: '★',
 		});
 		s.addEventListener('click', () => setRating(n));
-		s.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRating(n); } });
+		s.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				setRating(n);
+			}
+		});
 		starPicker.appendChild(s);
 		return s;
 	});
@@ -683,7 +703,10 @@ function buildReviewForm(agentId, existing, onSuccess) {
 	});
 	textarea.value = existing?.body || '';
 
-	const charCount = el('span', { class: 'ad-review-char-count', text: `${textarea.value.length}/2000` });
+	const charCount = el('span', {
+		class: 'ad-review-char-count',
+		text: `${textarea.value.length}/2000`,
+	});
 	textarea.addEventListener('input', () => {
 		charCount.textContent = `${textarea.value.length}/2000`;
 	});
@@ -709,16 +732,23 @@ function buildReviewForm(agentId, existing, onSuccess) {
 			const headers = { 'content-type': 'application/json' };
 			if (csrf) headers['x-csrf-token'] = csrf;
 
-			const r = await fetch(`/api/marketplace/agents/${encodeURIComponent(agentId)}/reviews`, {
-				method: 'POST',
-				credentials: 'include',
-				headers,
-				body: JSON.stringify({ rating: selectedRating, body: textarea.value.trim() || null }),
-			});
+			const r = await fetch(
+				`/api/marketplace/agents/${encodeURIComponent(agentId)}/reviews`,
+				{
+					method: 'POST',
+					credentials: 'include',
+					headers,
+					body: JSON.stringify({
+						rating: selectedRating,
+						body: textarea.value.trim() || null,
+					}),
+				},
+			);
 			const json = await r.json();
 			if (!r.ok) {
 				if (r.status === 401) {
-					statusEl.innerHTML = '<a href="/sign-in" style="color:var(--ad-violet)">Sign in</a> to leave a review';
+					statusEl.innerHTML =
+						'<a href="/sign-in" style="color:var(--ad-violet)">Sign in</a> to leave a review';
 				} else {
 					statusEl.textContent = json.error?.message || 'Save failed';
 				}
@@ -740,7 +770,11 @@ function buildReviewForm(agentId, existing, onSuccess) {
 
 	const actions = el('div', { class: 'ad-review-form-actions' });
 	if (existing) {
-		const deleteBtn = el('button', { class: 'ad-review-delete', type: 'button', text: 'Delete' });
+		const deleteBtn = el('button', {
+			class: 'ad-review-delete',
+			type: 'button',
+			text: 'Delete',
+		});
 		deleteBtn.addEventListener('click', async () => {
 			if (submitting) return;
 			submitting = true;
@@ -808,7 +842,11 @@ function buildReviewItem(r, agentId, onRefresh) {
 			const form = buildReviewForm(agentId, r, onRefresh);
 			item.replaceWith(form);
 		});
-		const delBtn = el('button', { class: 'ad-review-mine-btn danger', type: 'button', text: 'Delete' });
+		const delBtn = el('button', {
+			class: 'ad-review-mine-btn danger',
+			type: 'button',
+			text: 'Delete',
+		});
 		delBtn.addEventListener('click', async () => {
 			delBtn.disabled = true;
 			delBtn.textContent = 'Deleting…';
@@ -1221,11 +1259,11 @@ function bindWalletActions(isOwner) {
 		actions: actionsEl,
 	});
 
-	const withdrawAmountInput   = withdrawModal.bodyEl.querySelector('#withdraw-amount');
+	const withdrawAmountInput = withdrawModal.bodyEl.querySelector('#withdraw-amount');
 	const recipientAddressInput = withdrawModal.bodyEl.querySelector('#recipient-address');
-	const recipientResolvedEl   = withdrawModal.bodyEl.querySelector('#recipient-resolved');
-	const cancelWithdrawBtn     = withdrawModal.actionsEl.querySelector('#cancel-withdraw-btn');
-	const confirmWithdrawBtn    = withdrawModal.actionsEl.querySelector('#confirm-withdraw-btn');
+	const recipientResolvedEl = withdrawModal.bodyEl.querySelector('#recipient-resolved');
+	const cancelWithdrawBtn = withdrawModal.actionsEl.querySelector('#cancel-withdraw-btn');
+	const confirmWithdrawBtn = withdrawModal.actionsEl.querySelector('#confirm-withdraw-btn');
 	const snsResolver = makeSnsResolver(recipientAddressInput, recipientResolvedEl);
 
 	withdrawBtn.addEventListener('click', () => {

@@ -189,7 +189,11 @@ function needsKeyResult(backendId) {
 					'or use the default image path (omit "path", or set path="image").',
 			},
 		],
-		structuredContent: { status: 'needs_key', backend: backendId, provider: meta?.byok || backendId },
+		structuredContent: {
+			status: 'needs_key',
+			backend: backendId,
+			provider: meta?.byok || backendId,
+		},
 		isError: true,
 	};
 }
@@ -197,7 +201,16 @@ function needsKeyResult(backendId) {
 // Submit a native geometry-first job (Meshy/Tripo, BYOK) and shape the MCP
 // response. Returns a needs_key result when no key is available. The job handle
 // is a forge token so generation_status routes the poll back to this provider.
-async function submitGeometryJob({ req, args, backendId, isImageMode, prompt, primaryImage, tier, path }) {
+async function submitGeometryJob({
+	req,
+	args,
+	backendId,
+	isImageMode,
+	prompt,
+	primaryImage,
+	tier,
+	path,
+}) {
 	const providerName = BACKENDS[backendId].byok; // 'meshy' | 'tripo'
 	const key = await resolveProviderKey(req, args, providerName);
 	if (!key) return needsKeyResult(backendId);
@@ -212,7 +225,11 @@ async function submitGeometryJob({ req, args, backendId, isImageMode, prompt, pr
 	const submitted = isImageMode
 		? await gp.imageTo3d({ imageUrl: primaryImage, prompt: prompt || undefined, tier })
 		: await gp.textToGeometry({ prompt, tier });
-	const token = encodeJobToken({ provider: providerName, kind: submitted.kind, taskId: submitted.taskId });
+	const token = encodeJobToken({
+		provider: providerName,
+		kind: submitted.kind,
+		taskId: submitted.taskId,
+	});
 
 	return {
 		content: [
@@ -249,11 +266,11 @@ async function pollAnyProvider(req, jobId) {
 			if (!key) {
 				return {
 					status: 'failed',
-					error:
-						'Your provider API key is required to check this job. Send it as the x-forge-provider-key header and retry.',
+					error: 'Your provider API key is required to check this job. Send it as the x-forge-provider-key header and retry.',
 				};
 			}
-			const gp = token.provider === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+			const gp =
+				token.provider === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
 			return gp.status({ kind: token.kind, taskId: token.taskId });
 		}
 		if (token.provider === 'gcp') {
@@ -261,7 +278,10 @@ async function pollAnyProvider(req, jobId) {
 			try {
 				gcp = createGcpProvider();
 			} catch {
-				return { status: 'failed', error: 'The self-hosted reconstruction backend is not configured.' };
+				return {
+					status: 'failed',
+					error: 'The self-hosted reconstruction backend is not configured.',
+				};
 			}
 			return gcp.status(token.taskId);
 		}
@@ -272,13 +292,21 @@ async function pollAnyProvider(req, jobId) {
 
 // ── pose_model: deterministic preset selection (ported from the pose-seed tool) ─
 function poseTokensOf(str) {
-	return String(str || '').toLowerCase().split(/[^a-z0-9]+/g).filter(Boolean);
+	return String(str || '')
+		.toLowerCase()
+		.split(/[^a-z0-9]+/g)
+		.filter(Boolean);
 }
 const POSE_INDEX = PRESETS.map((preset) => {
 	const idTokens = poseTokensOf(preset.id);
 	const labelTokens = poseTokensOf(preset.label);
 	const groupTokens = poseTokensOf(preset.group);
-	return { preset, all: new Set([...idTokens, ...labelTokens, ...groupTokens]), idTokens, labelTokens };
+	return {
+		preset,
+		all: new Set([...idTokens, ...labelTokens, ...groupTokens]),
+		idTokens,
+		labelTokens,
+	};
 });
 function scorePosePreset(promptTokens, entry) {
 	let score = 0;
@@ -286,7 +314,10 @@ function scorePosePreset(promptTokens, entry) {
 		if (entry.all.has(t)) score += 3;
 		else {
 			for (const tok of [...entry.idTokens, ...entry.labelTokens]) {
-				if (tok.includes(t) || t.includes(tok)) { score += 1; break; }
+				if (tok.includes(t) || t.includes(tok)) {
+					score += 1;
+					break;
+				}
 			}
 		}
 	}
@@ -296,14 +327,21 @@ function pickPosePreset(prompt) {
 	const tokens = poseTokensOf(prompt);
 	const deterministic = () => {
 		const hash = createHash('sha256').update(String(prompt)).digest();
-		return { entry: POSE_INDEX[hash.readUInt32BE(0) % POSE_INDEX.length], score: 0, reason: 'no-match-deterministic-pick' };
+		return {
+			entry: POSE_INDEX[hash.readUInt32BE(0) % POSE_INDEX.length],
+			score: 0,
+			reason: 'no-match-deterministic-pick',
+		};
 	};
 	if (tokens.length === 0) return deterministic();
 	let best = null;
 	let bestScore = -1;
 	for (const entry of POSE_INDEX) {
 		const sc = scorePosePreset(tokens, entry);
-		if (sc > bestScore) { best = entry; bestScore = sc; }
+		if (sc > bestScore) {
+			best = entry;
+			bestScore = sc;
+		}
 	}
 	if (bestScore <= 0) return deterministic();
 	return { entry: best, score: bestScore, reason: 'token-match' };
@@ -345,13 +383,13 @@ export const toolDefs = [
 					type: 'string',
 					enum: ['1:1', '4:3', '3:4', '16:9', '9:16'],
 					default: '1:1',
-					description: 'Aspect ratio of the intermediate reference image (image path only).',
-					},
-					tier: TIER_PROP,
-					path: PATH_PROP,
-					backend: BACKEND_PROP,
-					__ASPECT_CLOSE__: {
+					description:
+						'Aspect ratio of the intermediate reference image (image path only).',
 				},
+				tier: TIER_PROP,
+				path: PATH_PROP,
+				backend: BACKEND_PROP,
+				__ASPECT_CLOSE__: {},
 			},
 			required: ['prompt'],
 			additionalProperties: false,
@@ -424,14 +462,16 @@ export const toolDefs = [
 				image_url: {
 					type: 'string',
 					format: 'uri',
-					description: 'Public https URL of the reference image (PNG/JPG/WebP). Use image_urls for multi-view.',
+					description:
+						'Public https URL of the reference image (PNG/JPG/WebP). Use image_urls for multi-view.',
 				},
 				image_urls: {
 					type: 'array',
 					items: { type: 'string', format: 'uri' },
 					minItems: 1,
 					maxItems: 4,
-					description: '1–4 public https URLs of the same object from different angles. Takes precedence over image_url; >1 enables multi-view reconstruction.',
+					description:
+						'1–4 public https URLs of the same object from different angles. Takes precedence over image_url; >1 enables multi-view reconstruction.',
 				},
 				prompt: {
 					type: 'string',
@@ -465,7 +505,9 @@ export const toolDefs = [
 			}
 			if (views.length === 0) {
 				return {
-					content: [{ type: 'text', text: 'Error: provide image_url or image_urls (1–4).' }],
+					content: [
+						{ type: 'text', text: 'Error: provide image_url or image_urls (1–4).' },
+					],
 					isError: true,
 				};
 			}
@@ -479,7 +521,10 @@ export const toolDefs = [
 				if (!(await isPublicHttpsUrl(v))) {
 					return {
 						content: [
-							{ type: 'text', text: 'Error: every image URL must be a public https URL.' },
+							{
+								type: 'text',
+								text: 'Error: every image URL must be a public https URL.',
+							},
 						],
 						isError: true,
 					};
@@ -582,7 +627,9 @@ export const toolDefs = [
 								text:
 									`Segmented into ${result.partCount || result.parts.length} parts.\n` +
 									`Segmented GLB (each part is a named node): ${glbUrl}\n` +
-									(result.manifestUrl ? `Parts manifest: ${result.manifestUrl}\n` : '') +
+									(result.manifestUrl
+										? `Parts manifest: ${result.manifestUrl}\n`
+										: '') +
 									`Parts:\n${partLines}\n` +
 									'Display the attached text/html resource as an inline 3D artifact.',
 							},
@@ -617,9 +664,16 @@ export const toolDefs = [
 			if (result.status === 'failed') {
 				return {
 					content: [
-						{ type: 'text', text: `Generation failed: ${result.error || 'unknown error'}` },
+						{
+							type: 'text',
+							text: `Generation failed: ${result.error || 'unknown error'}`,
+						},
 					],
-					structuredContent: { job_id: args.job_id, status: 'failed', error: result.error || null },
+					structuredContent: {
+						job_id: args.job_id,
+						status: 'failed',
+						error: result.error || null,
+					},
 					isError: true,
 				};
 			}
@@ -643,7 +697,11 @@ export const toolDefs = [
 		inputSchema: {
 			type: 'object',
 			properties: {
-				glb_url: { type: 'string', format: 'uri', description: 'Public https URL of a .glb file.' },
+				glb_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of a .glb file.',
+				},
 				auto_rotate: { type: 'boolean', default: true },
 				ar: { type: 'boolean', default: true },
 				background: {
@@ -697,7 +755,8 @@ export const toolDefs = [
 					type: 'string',
 					enum: ['rmbg2', 'u2net', 'isnet', 'u2net_human_seg', 'silueta'],
 					default: 'rmbg2',
-					description: 'Background removal model. rmbg2 is highest quality; u2net_human_seg is optimised for people.',
+					description:
+						'Background removal model. rmbg2 is highest quality; u2net_human_seg is optimised for people.',
 				},
 			},
 			required: ['image_url'],
@@ -707,7 +766,9 @@ export const toolDefs = [
 			await enforce(limits.mcp3dGenerate, auth);
 			if (!(await isPublicHttpsUrl(args.image_url))) {
 				return {
-					content: [{ type: 'text', text: 'Error: image_url must be a public https URL.' }],
+					content: [
+						{ type: 'text', text: 'Error: image_url must be a public https URL.' },
+					],
 					isError: true,
 				};
 			}
@@ -752,7 +813,8 @@ export const toolDefs = [
 					type: 'string',
 					enum: ['full', 'simplify', 'repair', 'convert'],
 					default: 'full',
-					description: 'full = repair + simplify; simplify = face reduction only; repair = hole-fill + normal fix; convert = format change only.',
+					description:
+						'full = repair + simplify; simplify = face reduction only; repair = hole-fill + normal fix; convert = format change only.',
 				},
 				target_faces: {
 					type: 'integer',
@@ -765,7 +827,8 @@ export const toolDefs = [
 					type: 'string',
 					enum: ['glb', 'obj', 'stl', 'ply', 'usdz', '3mf', 'fbx'],
 					default: 'glb',
-					description: 'Target format. fbx + operation=convert preserves a rigged GLB\'s skeleton, skin weights, and blendshapes (for Unity/Unreal); other operations produce a static fbx.',
+					description:
+						"Target format. fbx + operation=convert preserves a rigged GLB's skeleton, skin weights, and blendshapes (for Unity/Unreal); other operations produce a static fbx.",
 				},
 			},
 			required: ['mesh_url'],
@@ -775,7 +838,9 @@ export const toolDefs = [
 			await enforce(limits.mcp3dGenerate, auth);
 			if (!(await isPublicHttpsUrl(args.mesh_url))) {
 				return {
-					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					content: [
+						{ type: 'text', text: 'Error: mesh_url must be a public https URL.' },
+					],
 					isError: true,
 				};
 			}
@@ -852,7 +917,9 @@ export const toolDefs = [
 			await enforce(limits.mcp3dGenerate, auth);
 			if (!(await isPublicHttpsUrl(args.mesh_url))) {
 				return {
-					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					content: [
+						{ type: 'text', text: 'Error: mesh_url must be a public https URL.' },
+					],
 					isError: true,
 				};
 			}
@@ -911,26 +978,30 @@ export const toolDefs = [
 					minimum: 2,
 					maximum: 64,
 					default: 24,
-					description: 'Upper bound on parts. Smaller fragments are merged into neighbours until the count fits.',
+					description:
+						'Upper bound on parts. Smaller fragments are merged into neighbours until the count fits.',
 				},
 				min_part_faces: {
 					type: 'integer',
 					minimum: 4,
 					maximum: 100000,
 					default: 64,
-					description: 'Parts smaller than this many faces are merged into their largest neighbour.',
+					description:
+						'Parts smaller than this many faces are merged into their largest neighbour.',
 				},
 				crease_angle: {
 					type: 'number',
 					minimum: 5,
 					maximum: 170,
 					default: 40,
-					description: 'Dihedral angle (degrees) above which a concave edge is treated as a part boundary. Lower = more parts.',
+					description:
+						'Dihedral angle (degrees) above which a concave edge is treated as a part boundary. Lower = more parts.',
 				},
 				only_part: {
 					type: 'string',
 					maxLength: 64,
-					description: 'Optional: export just this part by id ("part_03") or name ("upper-left"). Run once without it to discover part ids.',
+					description:
+						'Optional: export just this part by id ("part_03") or name ("upper-left"). Run once without it to discover part ids.',
 				},
 			},
 			required: ['mesh_url'],
@@ -940,7 +1011,9 @@ export const toolDefs = [
 			await enforce(limits.mcp3dGenerate, auth);
 			if (!(await isPublicHttpsUrl(args.mesh_url))) {
 				return {
-					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					content: [
+						{ type: 'text', text: 'Error: mesh_url must be a public https URL.' },
+					],
 					isError: true,
 				};
 			}
@@ -992,7 +1065,8 @@ export const toolDefs = [
 					type: 'string',
 					minLength: 3,
 					maxLength: 500,
-					description: 'Texture description, e.g. "worn leather armour, dark brown, scratched metal buckles".',
+					description:
+						'Texture description, e.g. "worn leather armour, dark brown, scratched metal buckles".',
 				},
 				negative_prompt: {
 					type: 'string',
@@ -1018,7 +1092,9 @@ export const toolDefs = [
 			await enforce(limits.mcp3dGenerate, auth);
 			if (!(await isPublicHttpsUrl(args.mesh_url))) {
 				return {
-					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					content: [
+						{ type: 'text', text: 'Error: mesh_url must be a public https URL.' },
+					],
 					isError: true,
 				};
 			}
@@ -1054,12 +1130,12 @@ export const toolDefs = [
 	},
 	{
 		name: 'retexture_region',
-		title: 'Repaint one masked region of a model\'s texture (magic brush)',
+		title: "Repaint one masked region of a model's texture (magic brush)",
 		description:
 			'Surgically repaint ONLY a region of an existing texture from a prompt and/or colour, ' +
 			'leaving the rest of the surface untouched and feathering the seam so the edit is invisible. ' +
 			'Real SDXL inpainting in UV space — fix a seam, recolour one panel, add a logo to a chest plate. ' +
-			'Supply mask_url: a UV-space mask PNG in the model\'s own UV layout where WHITE marks the area to ' +
+			"Supply mask_url: a UV-space mask PNG in the model's own UV layout where WHITE marks the area to " +
 			'repaint and black is preserved. Safe to run repeatedly — chain passes by feeding the previous ' +
 			'result GLB back in as mesh_url. Returns a job_id to poll with generation_status.',
 		inputSchema: {
@@ -1080,7 +1156,8 @@ export const toolDefs = [
 				prompt: {
 					type: 'string',
 					maxLength: 500,
-					description: 'What to paint into the masked region, e.g. "weathered copper plate".',
+					description:
+						'What to paint into the masked region, e.g. "weathered copper plate".',
 				},
 				color: {
 					type: 'string',
@@ -1102,7 +1179,8 @@ export const toolDefs = [
 					minimum: 0.2,
 					maximum: 1,
 					default: 0.85,
-					description: 'How aggressively to regenerate the region (higher = more change).',
+					description:
+						'How aggressively to regenerate the region (higher = more change).',
 				},
 				feather: {
 					type: 'integer',
@@ -1119,20 +1197,27 @@ export const toolDefs = [
 			await enforce(limits.mcp3dGenerate, auth);
 			if (!(await isPublicHttpsUrl(args.mesh_url))) {
 				return {
-					content: [{ type: 'text', text: 'Error: mesh_url must be a public https URL.' }],
+					content: [
+						{ type: 'text', text: 'Error: mesh_url must be a public https URL.' },
+					],
 					isError: true,
 				};
 			}
 			if (!(await isPublicHttpsUrl(args.mask_url))) {
 				return {
-					content: [{ type: 'text', text: 'Error: mask_url must be a public https URL.' }],
+					content: [
+						{ type: 'text', text: 'Error: mask_url must be a public https URL.' },
+					],
 					isError: true,
 				};
 			}
 			if (!args.prompt && !args.color) {
 				return {
 					content: [
-						{ type: 'text', text: 'Error: provide a prompt and/or a color for the region.' },
+						{
+							type: 'text',
+							text: 'Error: provide a prompt and/or a color for the region.',
+						},
 					],
 					isError: true,
 				};
@@ -1202,11 +1287,20 @@ export const toolDefs = [
 			const provider = regenProvider('rerig');
 			if (!provider.supportsMode('rerig')) {
 				return {
-					content: [{ type: 'text', text: 'Auto-rigging is not configured on this deployment.' }],
+					content: [
+						{
+							type: 'text',
+							text: 'Auto-rigging is not configured on this deployment.',
+						},
+					],
 					isError: true,
 				};
 			}
-			const job = await provider.submit({ mode: 'rerig', sourceUrl: args.glb_url, params: {} });
+			const job = await provider.submit({
+				mode: 'rerig',
+				sourceUrl: args.glb_url,
+				params: {},
+			});
 			return {
 				content: [
 					{
@@ -1237,7 +1331,8 @@ export const toolDefs = [
 					type: 'string',
 					minLength: 1,
 					maxLength: 500,
-					description: 'Pose description, e.g. "warrior stance", "wave hello", "sitting cross-legged".',
+					description:
+						'Pose description, e.g. "warrior stance", "wave hello", "sitting cross-legged".',
 				},
 			},
 			required: ['prompt'],
@@ -1246,7 +1341,10 @@ export const toolDefs = [
 		async handler(args) {
 			const picked = pickPosePreset(args.prompt);
 			const preset = picked.entry.preset;
-			const seed = createHash('sha256').update(`${args.prompt}|${preset.id}`).digest('hex').slice(0, 16);
+			const seed = createHash('sha256')
+				.update(`${args.prompt}|${preset.id}`)
+				.digest('hex')
+				.slice(0, 16);
 			const previewUrl = `${POSE_PREVIEW_BASE}?seed=${encodeURIComponent(seed)}&preset=${encodeURIComponent(preset.id)}`;
 			return {
 				content: [
@@ -1280,12 +1378,14 @@ export const toolDefs = [
 					type: 'string',
 					minLength: 1,
 					maxLength: 2000,
-					description: 'The rough idea or prompt to optimize, e.g. "some kind of cool dragon thing".',
+					description:
+						'The rough idea or prompt to optimize, e.g. "some kind of cool dragon thing".',
 				},
 				style: {
 					type: 'string',
 					maxLength: 200,
-					description: 'Optional style hint, e.g. "low-poly", "realistic", "stylized PBR".',
+					description:
+						'Optional style hint, e.g. "low-poly", "realistic", "stylized PBR".',
 				},
 			},
 			required: ['idea'],
@@ -1314,12 +1414,23 @@ export const toolDefs = [
 			if (!parsed || typeof parsed.prompt !== 'string') {
 				return {
 					content: [{ type: 'text', text: result.text }],
-					structuredContent: { ok: true, optimized_prompt: null, raw_response: result.text, model: result.model },
+					structuredContent: {
+						ok: true,
+						optimized_prompt: null,
+						raw_response: result.text,
+						model: result.model,
+					},
 				};
 			}
 			return {
 				content: [{ type: 'text', text: `Optimized prompt: ${parsed.prompt}` }],
-				structuredContent: { ok: true, optimized_prompt: parsed.prompt, spec: parsed, model: result.model, usage: result.usage },
+				structuredContent: {
+					ok: true,
+					optimized_prompt: parsed.prompt,
+					spec: parsed,
+					model: result.model,
+					usage: result.usage,
+				},
 			};
 		},
 	},
@@ -1335,7 +1446,8 @@ export const toolDefs = [
 					type: 'string',
 					minLength: 3,
 					maxLength: 500,
-					description: 'Material to describe, e.g. "worn copper, scratched, slightly oxidized".',
+					description:
+						'Material to describe, e.g. "worn copper, scratched, slightly oxidized".',
 				},
 				name: {
 					type: 'string',
@@ -1351,7 +1463,9 @@ export const toolDefs = [
 			const cfg = graniteConfigOrThrow();
 			const system =
 				'You are a 3D material author. Given a description, return ONLY a valid glTF 2.0 material JSON object with keys: "name", "pbrMetallicRoughness" { "baseColorFactor": [r,g,b,a] (0-1), "metallicFactor" (0-1), "roughnessFactor" (0-1) }, "emissiveFactor": [r,g,b] (0-1), "doubleSided" (bool), and a "_notes" string. No markdown, no prose outside the JSON.';
-			const user = args.name ? `Name: ${args.name}\nMaterial: ${args.description}` : args.description;
+			const user = args.name
+				? `Name: ${args.name}\nMaterial: ${args.description}`
+				: args.description;
 			const result = await watsonxChatComplete(cfg, {
 				messages: [
 					{ role: 'system', content: system },
@@ -1369,12 +1483,22 @@ export const toolDefs = [
 			if (!material || typeof material !== 'object') {
 				return {
 					content: [{ type: 'text', text: result.text }],
-					structuredContent: { ok: true, material: null, raw_response: result.text, model: result.model },
+					structuredContent: {
+						ok: true,
+						material: null,
+						raw_response: result.text,
+						model: result.model,
+					},
 				};
 			}
 			if (args.name && !material.name) material.name = args.name;
 			return {
-				content: [{ type: 'text', text: `Generated glTF material${material.name ? ` "${material.name}"` : ''}.` }],
+				content: [
+					{
+						type: 'text',
+						text: `Generated glTF material${material.name ? ` "${material.name}"` : ''}.`,
+					},
+				],
 				structuredContent: { ok: true, material, model: result.model, usage: result.usage },
 			};
 		},

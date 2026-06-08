@@ -9,7 +9,9 @@ import { toolDefs as animationDefs } from '../_mcp/tools/animations.js';
 // generated model can be analyzed in the same conversation — no duplicated
 // glTF logic. validate_model is omitted: in the studio context inspect already
 // covers "what is this mesh", and optimize covers "how do I ship it".
-const reusedModelDefs = modelDefs.filter((d) => d.name === 'inspect_model' || d.name === 'optimize_model');
+const reusedModelDefs = modelDefs.filter(
+	(d) => d.name === 'inspect_model' || d.name === 'optimize_model',
+);
 
 // The animation library (list_animations + apply_animation) completes the
 // pipeline: text_to_3d → auto_rig_model → apply_animation. Same retarget engine

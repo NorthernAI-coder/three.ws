@@ -136,7 +136,10 @@ export function liveCohortCounts(set, params = {}) {
  * @param {string} [opts.salt]    sampling salt (defaults to the mint)
  * @returns {{members: Array, sampled: boolean, total: number, truncated: boolean}}
  */
-export function liveCohortMembers(set, { cohortId, params = {}, limit = 200, sample, salt = 'live' }) {
+export function liveCohortMembers(
+	set,
+	{ cohortId, params = {}, limit = 200, sample, salt = 'live' },
+) {
 	if (!isLiveCohort(cohortId)) {
 		const err = new Error(`cohort "${cohortId}" requires a holder snapshot`);
 		err.code = 'snapshot_required';

@@ -110,7 +110,12 @@ async function serveLiveCohorts(req, res, { mint, agentToken }) {
 		set = await liveHolderSet({ mint, network });
 	} catch (e) {
 		// Helius unconfigured / RPC blip — typed, not a 500.
-		return error(res, 503, 'holders_unavailable', e?.message || 'holder data is temporarily unavailable');
+		return error(
+			res,
+			503,
+			'holders_unavailable',
+			e?.message || 'holder data is temporarily unavailable',
+		);
 	}
 
 	// ── Overview: definitions + counts + concentration (public) ──────────────
