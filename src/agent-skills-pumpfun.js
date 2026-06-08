@@ -390,7 +390,9 @@ export function registerPumpFunSkills(skills) {
 						mint: args.mint,
 						network,
 						wallet_address: pk.toBase58(),
-						sol: solAmount ?? 0,
+						// Record whichever quote asset funded the buy. USDC-paired v2
+						// coins have no `sol`, so sending `sol: 0` would 400 at confirm.
+						...(usdcAmount != null ? { usdc_amount: usdcAmount } : { sol: solAmount }),
 						slippage_bps: slippageBps,
 						route: prep.route,
 					}),
