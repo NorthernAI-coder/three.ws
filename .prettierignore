@@ -7,6 +7,7 @@ dist-artifact/
 # Vendored / external library code
 contracts/lib/
 character-studio/
+docs/pumpfun-program/
 
 # Build artifacts
 *.min.js

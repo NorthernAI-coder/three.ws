@@ -195,3 +195,7 @@ docs/ibm.md
 # Python bytecode (workers/)
 __pycache__/
 *.pyc
+
+# three.ws presence sweep — regenerate with `npm run presence`
+three-ws-presence.json
+three-ws-presence.md
