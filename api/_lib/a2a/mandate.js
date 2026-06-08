@@ -141,6 +141,11 @@ export async function issueIntentMandate({
 	}
 
 	const nowSec = Math.floor(Date.now() / 1000);
+	// Generate the jti up-front so the returned mandate carries the SAME id the
+	// signed token (and thus verifyIntentMandate / the spend ledger) will use.
+	// setJti() stamps the JWT but does not mutate `claims`, so we must thread the
+	// value through explicitly rather than read it back off `claims`.
+	const mandateId = jti();
 	const claims = {
 		typ: MANDATE_TYPE,
 		ver: MANDATE_VERSION,
@@ -162,10 +167,13 @@ export async function issueIntentMandate({
 		.setIssuer(env.APP_ORIGIN)
 		.setIssuedAt(nowSec)
 		.setExpirationTime(nowSec + ttl)
-		.setJti(jti())
+		.setJti(mandateId)
 		.sign(secretKey());
 
-	return { jws, mandate: decodeFromClaims(claims, { sub: subjectAgentId, exp: nowSec + ttl, iat: nowSec, jti: claims.jti }) };
+	return {
+		jws,
+		mandate: decodeFromClaims(claims, { sub: subjectAgentId, exp: nowSec + ttl, iat: nowSec, jti: mandateId }),
+	};
 }
 
 function jti() {

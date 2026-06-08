@@ -9,6 +9,7 @@
 import { sql } from './_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from './_lib/http.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { z } from 'zod';
 import { parse } from './_lib/validate.js';
@@ -33,6 +34,11 @@ export default wrap(async (req, res) => {
 
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
+
+	// State-changing methods on a cookie session require a CSRF token (bearer
+	// callers are exempt inside requireCsrf). Without this, a cross-origin script
+	// could cancel a victim's subscriptions on their behalf.
+	if (req.method !== 'GET' && !(await requireCsrf(req, res, userId))) return;
 
 	// ── POST: create subscription ─────────────────────────────────────────────
 

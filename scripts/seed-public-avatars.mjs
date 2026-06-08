@@ -77,6 +77,12 @@ const THREE_GLTF = (file) =>
 const CATALOG = [
 	// ── local repo GLBs ─────────────────────────────────────────────────────
 	{
+		source: 'local', name: 'Mannequin', slug: 'mannequin',
+		description: 'The three.ws base avatar — a clean articulated mannequin every agent wears until it gets a custom look. Baked straight from the /pose rig.',
+		tags: ['humanoid', 'base', 'mannequin'],
+		file: 'public/avatars/mannequin.glb', license: 'internal',
+	},
+	{
 		source: 'local', name: 'CZ', slug: 'cz',
 		description: 'Stylized humanoid avatar (CZ).',
 		tags: ['humanoid', 'character'],

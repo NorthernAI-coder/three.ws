@@ -51,12 +51,12 @@ export function hasCustomAvatar(agent) {
 // Build the /play deep link that drops the agent's avatar into the $three world.
 // The avatar rides in `?avatar=` and is shown for the session only — it never
 // overwrites the visitor's saved avatar (see play-handoff.getRequestedAvatar).
+// Only `coin` (the $three mint) is passed; the world backfills the community's
+// real name/symbol/art from the mint, so we never mislabel it with agent data.
 export function seeInWorldHref(agent) {
 	const q = new URLSearchParams({
 		avatar: agentAvatarGlb(agent),
 		coin: THREE_MINT,
-		name: (agent?.name || 'three.ws').toString().slice(0, 40),
-		symbol: 'three',
 	});
 	return `/play?${q.toString()}`;
 }

@@ -11,6 +11,7 @@ import {
 } from '../_lib/auth.js';
 import { randomToken, randomDigits, sha256 } from '../_lib/crypto.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse, loginBody, registerBody, usernameRegisterBody, username as usernameValidator, displayName, email, password } from '../_lib/validate.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../_lib/email.js';
@@ -75,6 +76,7 @@ async function handleLogoutEverywhere(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthenticated', 'not signed in');
+	if (!(await requireCsrf(req, res, user.id))) return;
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 	const sessionResult = await sql`update sessions set revoked_at = now() where user_id = ${user.id} and revoked_at is null`;
@@ -192,6 +194,7 @@ async function handleProfile(req, res) {
 	if (!method(req, res, ['PATCH'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthenticated', 'not signed in');
+	if (!(await requireCsrf(req, res, user.id))) return;
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(profileSchema, await readJson(req));
