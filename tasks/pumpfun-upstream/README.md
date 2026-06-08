@@ -22,12 +22,12 @@ conversation context.
 
 ## Open tasks
 
-| #   | File                                     | Priority | What                                                                                                                              |
-| --- | ---------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 01  | `01-v2-trade-instructions-usdc-audit.md` | **High** | Audit our buy/sell instruction building against the new `buy_v2`/`sell_v2` interface + decide/implement USDC-quoted-coin support. |
-| 02  | `02-pump-fun-skills-upstream-sync.md`    | Medium   | Diff our vendored `pump-fun-skills/` against the official repo's latest; sync drift while preserving our additions.               |
-| 03  | `03-pump-segments-sdk-investigation.md`  | Low      | Figure out what `pump-segments-sdk` (new, unpublished) is and whether three.ws should adopt it.                                   |
-| 04  | `04-agent-payments-sdk-reconcile.md`     | Low      | Decide how to handle our local `agent-payments-sdk@3.1.0` vs upstream's published 3.0.3.                                          |
+| #   | File                                     | Priority | What                                                                                                                                                                                                                                  |
+| --- | ---------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | `01-v2-trade-instructions-usdc-audit.md` | **High** | Audit our buy/sell instruction building against the new `buy_v2`/`sell_v2` interface + decide/implement USDC-quoted-coin support.                                                                                                     |
+| 02  | `02-pump-fun-skills-upstream-sync.md`    | ✅ Done  | Diff our vendored `pump-fun-skills/` against the official repo's latest; sync drift while preserving our additions. Outcome: we're at/ahead of upstream — nothing to pull → [`02-skills-drift-report.md`](02-skills-drift-report.md). |
+| 03  | `03-pump-segments-sdk-investigation.md`  | Low      | Figure out what `pump-segments-sdk` (new, unpublished) is and whether three.ws should adopt it.                                                                                                                                       |
+| 04  | `04-agent-payments-sdk-reconcile.md`     | Low      | Decide how to handle our local `agent-payments-sdk@3.1.0` vs upstream's published 3.0.3.                                                                                                                                              |
 
 ## Constraints that apply to every task (from CLAUDE.md)
 
