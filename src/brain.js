@@ -5,6 +5,8 @@ import { sanitizeUrl } from './shared/sanitize-url.js';
 // ── Provider registry ────────────────────────────────────────────────────────
 const PROVIDERS = [
 	{ key: 'gpt-oss-120b',      label: 'GPT-OSS 120B',       short: 'GPT-OSS',     network: 'OpenAI · OpenRouter', color: '#a5b4fc', ctx: '128K', tier: 'Default'  },
+	{ key: 'claude-fable-5',    label: 'Claude Fable 5',     short: 'Fable 5',     network: 'Anthropic',  color: '#caa24f', ctx: '200K', tier: 'Flagship' },
+	{ key: 'claude-mythos-5',   label: 'Claude Mythos 5',    short: 'Mythos 5',    network: 'Anthropic',  color: '#b8923f', ctx: '200K', tier: 'Flagship' },
 	{ key: 'claude-opus-4-7',   label: 'Claude Opus 4.7',    short: 'Opus 4.7',    network: 'Anthropic',  color: '#c8a96e', ctx: '200K', tier: 'Flagship' },
 	{ key: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6',  short: 'Sonnet 4.6',  network: 'Anthropic',  color: '#d4b87a', ctx: '200K', tier: 'Balanced' },
 	{ key: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',   short: 'Haiku 4.5',   network: 'Anthropic',  color: '#e0c88a', ctx: '200K', tier: 'Fast'     },

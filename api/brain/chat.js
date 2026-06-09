@@ -53,6 +53,26 @@ const PROVIDERS = {
 		// OpenRouter-only — no first-party key for the free tier.
 		openrouterModel: 'openai/gpt-oss-120b:free',
 	},
+	'claude-fable-5': {
+		label: 'Claude Fable 5',
+		network: 'Anthropic',
+		tier: 'flagship',
+		maxOutput: 16384,
+		description: 'Mythos-class flagship. State-of-the-art software engineering, knowledge work, vision, and science.',
+		// First-party Anthropic only — not yet mirrored on OpenRouter, so there is
+		// no openrouterModel fallback route (shows unavailable without the host key).
+		native: () => (env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-fable-5') : null),
+	},
+	'claude-mythos-5': {
+		label: 'Claude Mythos 5',
+		network: 'Anthropic',
+		tier: 'flagship',
+		maxOutput: 16384,
+		description: 'Mythos-class flagship — same capabilities as Fable 5. Restricted-access; first-party Anthropic key only.',
+		// First-party Anthropic only — no OpenRouter mirror, so there is no
+		// openrouterModel fallback route (shows unavailable without the host key).
+		native: () => (env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })('claude-mythos-5') : null),
+	},
 	'claude-opus-4-7': {
 		label: 'Claude Opus 4.7',
 		network: 'Anthropic',
