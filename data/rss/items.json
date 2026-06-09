@@ -2,6 +2,19 @@
   "_readme": "Curated RSS items for https://three.ws/rss/announcements.xml. Edit this file to control exactly what HackerNoon (and any RSS reader) sees. Each entry needs: id (stable slug), title, date (ISO 8601), body_html. Optional: link, author, summary, tags. Items are served newest-first by date; cap is 80. Last merged from data/archives/trythreews_tweets_2026-06-03.json on 2026-06-05 (102 total items, merged June 2026 posts).",
   "items": [
     {
+      "id": "dextools-social-boost-buyback",
+      "slug": "three-ws-dextools-social-boost-buyback",
+      "title": "three.ws Wins DEXTools Social Boost — $5,543 $three Buyback",
+      "date": "2026-06-08T16:00:00.000Z",
+      "author": "three.ws",
+      "link": "https://three.ws/blog/three-ws-dextools-social-boost-buyback",
+      "external_link": "https://x.com/DEXToolsApp/status/2064037499060555807",
+      "summary": "three.ws is DEXTools' Social Boost winner of the week, earning a $5,543 buyback of $three. The DEXTools wallet now holds a total of 2.47M $three.",
+      "body_html": "<p><strong>three.ws is DEXTools' Social Boost winner of the week.</strong> <a href=\"https://x.com/DEXToolsApp/status/2064037499060555807\" rel=\"noopener\">DEXTools announced</a> that the three.ws community earned a <strong>$5,543 buyback</strong>, and that the DEXTools wallet is now holding a total of <strong>2.47M $three</strong>.</p>\n<blockquote>\"Our Social Boost winner this week is @trythreews, who has received a $5,543 buyback! Congrats, guys! Our wallet is currently holding a total of 2.47M $three.\" &mdash; @DEXToolsApp</blockquote>\n<h2>What Social Boost is</h2>\n<p>DEXTools is one of the most-used real-time trading and analytics platforms in DeFi, tracking pairs across every major chain. Its <a href=\"https://www.dextools.io/app/social-boost\" rel=\"noopener\">Social Boost</a> program rewards the projects with the strongest community engagement each week with a buyback executed directly by DEXTools, which acquires and holds the project's token. This week, that community is three.ws &mdash; a $5,543 buyback of <strong>$three</strong> and a DEXTools wallet position that now totals 2.47M tokens.</p>\n<h2>Why it matters</h2>\n<p>A buyback driven by a third-party platform like DEXTools is a signal: it reflects measurable community activity around three.ws across DeFi's most-watched analytics surface, and puts three.ws on the <a href=\"https://www.dextools.io/app/social-boost\" rel=\"noopener\">Social Boost leaderboard</a> in front of the traders and builders who use DEXTools to find what's moving. It builds on the buyback-and-burn mechanism at the core of the three.ws economy.</p>\n<h2>Links</h2>\n<ul>\n<li>DEXTools announcement: <a href=\"https://x.com/DEXToolsApp/status/2064037499060555807\" rel=\"noopener\">@DEXToolsApp</a></li>\n<li>Social Boost leaderboard: <a href=\"https://www.dextools.io/app/social-boost\" rel=\"noopener\">dextools.io/app/social-boost</a></li>\n<li>Full announcement on the three.ws blog: <a href=\"https://three.ws/blog/three-ws-dextools-social-boost-buyback\" rel=\"noopener\">three.ws/blog</a></li>\n</ul>",
+      "tags": ["community", "dextools", "buyback", "social-boost", "solana", "three"],
+      "published": true
+    },
+    {
       "id": "featured-on-alibaba-cloud-marketplace-blog",
       "slug": "three-ws-featured-on-alibaba-cloud-marketplace-blog",
       "title": "three.ws Featured on the Alibaba Cloud Marketplace Blog",

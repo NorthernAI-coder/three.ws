@@ -22,7 +22,7 @@ import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
-import { markProviderCooldown } from '../_lib/provider-health.js';
+import { markProviderCooldown, AUTH_COOLDOWN_SECONDS } from '../_lib/provider-health.js';
 import { z } from 'zod';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -808,15 +808,25 @@ async function handlePreview(req, res, id) {
 
 		const text = await upstream.text().catch(() => '');
 		console.warn(`[preview:${route.name}] ${upstream.status} — ${text.slice(0, 200)}`);
-		// 429 / 5xx are capacity or transient upstream failures — record a cooldown
-		// for the shared provider-health breaker before failing over.
+		// Fail over on rate-limit (429), transient upstream errors (5xx), AND
+		// auth/billing failures (401 bad/expired key, 403 forbidden, 402 out of
+		// credits). The auth/billing group is what used to hard-fail this endpoint:
+		// a bad server ANTHROPIC_API_KEY returned 502 to every preview without ever
+		// trying the healthy free tiers. These are provider-down conditions for the
+		// whole deploy, so cool the provider down — a long window for auth/billing
+		// (the key won't recover in 45s), the default window for a transient blip —
+		// and move to the next provider.
+		const authBilling = upstream.status === 401 || upstream.status === 403 || upstream.status === 402;
 		const transient = upstream.status === 429 || upstream.status >= 500;
-		if (transient) void markProviderCooldown(route.name);
-		const canFailOver = i + 1 < routes.length && transient;
+		const failable = transient || authBilling;
+		if (authBilling) void markProviderCooldown(route.name, AUTH_COOLDOWN_SECONDS);
+		else if (transient) void markProviderCooldown(route.name);
+		const canFailOver = i + 1 < routes.length && failable;
 		if (canFailOver) continue;
-		// Chain exhausted. A capacity/transient terminal failure degrades to
-		// 503 + Retry-After (client backs off); a genuine bad status stays a 502.
-		if (transient) {
+		// Chain exhausted. A capacity/transient/auth terminal failure degrades to
+		// 503 + Retry-After (client backs off); only a genuine non-failable bad
+		// status stays a 502.
+		if (failable) {
 			res.setHeader('Retry-After', '20');
 			return error(res, 503, 'rate_limited', 'Agent preview is briefly at capacity. Please try again in a few seconds.');
 		}

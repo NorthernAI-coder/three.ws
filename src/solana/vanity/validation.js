@@ -61,6 +61,54 @@ export function estimateAttempts(length) {
 }
 
 /**
+ * How many of the 58 Base58 characters satisfy a single requested character.
+ *
+ * Case-sensitive matching: exactly one. Case-insensitive matching: two when
+ * the character is a letter whose other case is *also* a valid Base58 symbol
+ * (the alphabet drops `0 O I l`, so e.g. `o`/`O`, `i`/`I`, `L`/`l` only have a
+ * single valid case and stay at one).
+ * @param {string} ch
+ * @param {boolean} ignoreCase
+ * @returns {number}
+ */
+function matchesPerChar(ch, ignoreCase) {
+	if (!ignoreCase) return 1;
+	const lower = ch.toLowerCase();
+	const upper = ch.toUpperCase();
+	if (lower !== upper && BASE58_CHARS.has(lower) && BASE58_CHARS.has(upper)) return 2;
+	return 1;
+}
+
+/**
+ * Expected attempts to grind an address that starts with `prefix` and ends
+ * with `suffix`, accounting for case-insensitivity per character. This is the
+ * mean of a geometric distribution: the reciprocal of the per-address match
+ * probability.
+ * @param {string} [prefix]
+ * @param {string} [suffix]
+ * @param {boolean} [ignoreCase=false]
+ * @returns {number}
+ */
+export function expectedAttempts(prefix = '', suffix = '', ignoreCase = false) {
+	let attempts = 1;
+	for (const ch of (prefix || '') + (suffix || '')) {
+		attempts *= 58 / matchesPerChar(ch, ignoreCase);
+	}
+	return attempts;
+}
+
+/**
+ * The case-sensitive prefix length whose difficulty matches the given
+ * expected-attempts count — i.e. log₅₈(attempts). Used to tier patterns
+ * (fast vs. slow) consistently whether or not case-insensitivity is on.
+ * @param {number} attempts
+ * @returns {number}
+ */
+export function effectiveLength(attempts) {
+	return attempts <= 1 ? 0 : Math.log(attempts) / Math.log(58);
+}
+
+/**
  * Format a duration estimate (seconds) as a human string.
  * @param {number} attempts expected attempts
  * @param {number} ratePerSecond combined rate across worker pool

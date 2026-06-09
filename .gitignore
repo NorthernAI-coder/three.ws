@@ -199,3 +199,7 @@ __pycache__/
 # three.ws presence sweep — regenerate with `npm run presence`
 three-ws-presence.json
 three-ws-presence.md
+
+# Exported custodial wallet backups — never commit
+agent-wallets.*
+blog/3d-ai-crypto-convergence.md

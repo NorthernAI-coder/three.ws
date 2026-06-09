@@ -338,6 +338,7 @@ async function handleWallet(req, res, id) {
 		delete meta.solana_address;
 		delete meta.encrypted_solana_secret;
 		delete meta.solana_vanity_prefix;
+		delete meta.solana_vanity_suffix;
 		delete meta.solana_wallet_source;
 		await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;
 		return json(res, 200, { data: { ok: true } });
@@ -345,7 +346,7 @@ async function handleWallet(req, res, id) {
 
 	if (req.method === 'POST') {
 		const body = await readJson(req).catch(() => ({}));
-		const importing = body && (body.secret_key || body.vanity_prefix);
+		const importing = body && (body.secret_key || body.vanity_prefix || body.vanity_suffix);
 
 		if (importing) {
 			const sk = body.secret_key;
@@ -360,9 +361,20 @@ async function handleWallet(req, res, id) {
 				if (!BASE58_RE.test(body.vanity_prefix) || body.vanity_prefix.length > 6) return error(res, 400, 'validation_error', 'vanity_prefix is not valid base58 (max 6 chars)');
 				if (!address.startsWith(body.vanity_prefix)) return error(res, 400, 'validation_error', 'vanity_prefix does not match the keypair address');
 			}
+			if (body.vanity_suffix) {
+				if (!BASE58_RE.test(body.vanity_suffix) || body.vanity_suffix.length > 6) return error(res, 400, 'validation_error', 'vanity_suffix is not valid base58 (max 6 chars)');
+				if (!address.endsWith(body.vanity_suffix)) return error(res, 400, 'validation_error', 'vanity_suffix does not match the keypair address');
+			}
 			if (meta.solana_address) return error(res, 409, 'conflict', 'agent already has a Solana wallet — DELETE /api/agents/:id/solana first to replace');
 			const encrypted_secret = await _encryptSecret(Buffer.from(kp.secretKey).toString('base64'));
-			meta = { ...meta, solana_address: address, encrypted_solana_secret: encrypted_secret, solana_wallet_source: 'imported_vanity', ...(body.vanity_prefix ? { solana_vanity_prefix: body.vanity_prefix } : {}) };
+			meta = {
+				...meta,
+				solana_address: address,
+				encrypted_solana_secret: encrypted_secret,
+				solana_wallet_source: 'imported_vanity',
+				...(body.vanity_prefix ? { solana_vanity_prefix: body.vanity_prefix } : {}),
+				...(body.vanity_suffix ? { solana_vanity_suffix: body.vanity_suffix } : {}),
+			};
 			await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;
 		} else if (!meta.solana_address) {
 			const sol = await generateSolanaAgentWallet();
@@ -410,6 +422,7 @@ async function handleWallet(req, res, id) {
 			sol: lamports == null ? null : lamports / 1e9,
 			...(balanceError ? { balance_error: balanceError } : {}),
 			vanity_prefix: meta.solana_vanity_prefix || null,
+			vanity_suffix: meta.solana_vanity_suffix || null,
 			source: meta.solana_wallet_source || (meta.encrypted_solana_secret ? 'generated' : null),
 			sns_domain: attachedSns || favoriteSns,
 			sns_source: attachedSns ? 'attached' : (favoriteSns ? 'favorite' : null),

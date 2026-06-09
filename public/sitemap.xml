@@ -271,9 +271,15 @@
 	</url>
 	<url>
 		<loc>https://three.ws/blog</loc>
-		<lastmod>2026-05-17</lastmod>
+		<lastmod>2026-06-08</lastmod>
 		<changefreq>weekly</changefreq>
 		<priority>0.7</priority>
+	</url>
+	<url>
+		<loc>https://three.ws/blog/three-ws-dextools-social-boost-buyback</loc>
+		<lastmod>2026-06-08</lastmod>
+		<changefreq>monthly</changefreq>
+		<priority>0.6</priority>
 	</url>
 	<url>
 		<loc>https://three.ws/blog/three-ws-on-alibaba-cloud-marketplace</loc>
