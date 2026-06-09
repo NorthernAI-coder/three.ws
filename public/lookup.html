@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Agent lookup · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta
+			name="description"
+			content="Resolve any three.ws agent by mint, ID, or slug — its 3D avatar and on-chain identity."
+		/>
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+		></script>
+		<style>
+			* {
+				box-sizing: border-box;
+			}
+			:root {
+				--fg: #111;
+				--muted: #555;
+				--border: #e5e5e5;
+				--bg: #fafafa;
+				--ok-bg: #e7f5e9;
+				--ok-fg: #1b5e20;
+				--warn-bg: #fff3cd;
+				--warn-fg: #855008;
+				--bad-bg: #fce8e8;
+				--bad-fg: #b71c1c;
+				--info-bg: #e3f2fd;
+				--info-fg: #0d47a1;
+			}
+			body {
+				font:
+					14px/1.5 system-ui,
+					-apple-system,
+					sans-serif;
+				max-width: 880px;
+				margin: 1.5rem auto;
+				padding: 0 1rem;
+				color: var(--fg);
+			}
+			h1 {
+				font-size: 1.4rem;
+				margin: 0 0 0.25rem;
+			}
+			h2 {
+				font-size: 1rem;
+				margin: 1.5rem 0 0.5rem;
+				display: flex;
+				align-items: baseline;
+				gap: 0.5rem;
+			}
+			.muted {
+				color: var(--muted);
+			}
+			.row {
+				display: flex;
+				gap: 0.5rem;
+				align-items: center;
+				flex-wrap: wrap;
+				margin: 0.5rem 0 1rem;
+			}
+			.row input {
+				font: inherit;
+				padding: 0.45rem 0.6rem;
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				flex: 1 1 360px;
+				min-width: 0;
+			}
+			.row input:focus-visible {
+				outline: 2px solid var(--info-fg);
+				outline-offset: 1px;
+			}
+			.row button {
+				font: inherit;
+				padding: 0.45rem 0.8rem;
+				border: 1px solid #ccc;
+				background: #fff;
+				border-radius: 6px;
+				cursor: pointer;
+			}
+			.row button.primary {
+				background: #111;
+				color: #fff;
+				border-color: #111;
+			}
+			.row button:disabled {
+				opacity: 0.5;
+				cursor: wait;
+			}
+
+			.layout {
+				display: grid;
+				grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+				gap: 1rem;
+				align-items: start;
+			}
+			@media (max-width: 640px) {
+				.layout {
+					grid-template-columns: 1fr;
+				}
+			}
+
+			.stage {
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				background: radial-gradient(circle at 50% 30%, #fff, #f1f1f3);
+				aspect-ratio: 1 / 1;
+				position: relative;
+				overflow: hidden;
+			}
+			.stage model-viewer {
+				width: 100%;
+				height: 100%;
+				--poster-color: transparent;
+				background: transparent;
+			}
+			.stage .placeholder {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 0.4rem;
+				text-align: center;
+				padding: 1rem;
+				color: var(--muted);
+			}
+			.stage .placeholder .big {
+				font-size: 2rem;
+				opacity: 0.5;
+			}
+			.stage img.thumb {
+				width: 100%;
+				height: 100%;
+				object-fit: contain;
+				display: block;
+			}
+
+			.identity-card,
+			.panel {
+				border: 1px solid var(--border);
+				border-radius: 10px;
+				padding: 1rem 1.1rem;
+				background: #fff;
+			}
+			.panel {
+				margin-top: 0.75rem;
+			}
+			.identity-row {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				flex-wrap: wrap;
+			}
+			.identity-name {
+				font-size: 1.25rem;
+				font-weight: 600;
+			}
+			.genesis {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.3rem;
+				padding: 0.15rem 0.6rem;
+				border-radius: 999px;
+				font-size: 0.75rem;
+				font-weight: 600;
+				background: linear-gradient(90deg, #ffd54f, #ff8a65);
+				color: #1a1a1a;
+			}
+			.identity-desc {
+				margin-top: 0.5rem;
+				color: var(--muted);
+			}
+
+			.pill {
+				display: inline-block;
+				padding: 0.12rem 0.6rem;
+				border-radius: 999px;
+				font-size: 0.72rem;
+				line-height: 1.5;
+			}
+			.ok {
+				background: var(--ok-bg);
+				color: var(--ok-fg);
+			}
+			.warn {
+				background: var(--warn-bg);
+				color: var(--warn-fg);
+			}
+			.info {
+				background: var(--info-bg);
+				color: var(--info-fg);
+			}
+			.bad {
+				background: var(--bad-bg);
+				color: var(--bad-fg);
+			}
+
+			.kv {
+				display: grid;
+				grid-template-columns: 92px 1fr;
+				gap: 0.4rem 0.75rem;
+				align-items: baseline;
+				margin-top: 0.6rem;
+			}
+			.kv .k {
+				font-size: 0.75rem;
+				color: var(--muted);
+			}
+			.kv .v {
+				display: flex;
+				align-items: center;
+				gap: 0.4rem;
+				flex-wrap: wrap;
+				min-width: 0;
+			}
+			.kv code {
+				background: #f3f3f3;
+				padding: 0.1rem 0.4rem;
+				border-radius: 4px;
+				font-size: 0.75rem;
+				word-break: break-all;
+			}
+			.copy-btn {
+				padding: 0.1rem 0.4rem;
+				font-size: 0.7rem;
+				line-height: 1.4;
+				cursor: pointer;
+				border: 1px solid var(--border);
+				background: #fff;
+				border-radius: 4px;
+			}
+			.copy-btn:hover {
+				background: #f3f3f3;
+			}
+			.links {
+				display: flex;
+				gap: 0.4rem;
+				flex-wrap: wrap;
+				margin-top: 0.9rem;
+			}
+			.links a {
+				text-decoration: none;
+				font-size: 0.78rem;
+				padding: 0.35rem 0.7rem;
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				color: var(--fg);
+				background: var(--bg);
+				transition:
+					background 0.15s ease,
+					border-color 0.15s ease;
+			}
+			.links a:hover {
+				background: #fff;
+				border-color: #bbb;
+			}
+
+			.pills {
+				display: flex;
+				gap: 0.4rem;
+				flex-wrap: wrap;
+				margin-top: 0.2rem;
+			}
+
+			.skeleton {
+				background: linear-gradient(90deg, #eee 0%, #f6f6f6 50%, #eee 100%);
+				background-size: 200% 100%;
+				animation: shimmer 1.2s infinite;
+				border-radius: 6px;
+			}
+			@keyframes shimmer {
+				0% {
+					background-position: 200% 0;
+				}
+				100% {
+					background-position: -200% 0;
+				}
+			}
+			.sk-line {
+				height: 1rem;
+				margin: 0.5rem 0;
+			}
+			.sk-line.w60 {
+				width: 60%;
+			}
+			.sk-line.w40 {
+				width: 40%;
+			}
+
+			.notice {
+				border: 1px dashed var(--border);
+				border-radius: 10px;
+				padding: 1.25rem;
+				text-align: center;
+				color: var(--muted);
+			}
+			.notice .big {
+				font-size: 1.6rem;
+				margin-bottom: 0.35rem;
+			}
+			a.link {
+				color: var(--info-fg);
+			}
+			[hidden] {
+				display: none !important;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Agent lookup</h1>
+		<p class="muted">
+			Resolve any three.ws agent by mint, agent ID, avatar ID, or slug — see its 3D body and
+			on-chain identity.
+		</p>
+
+		<div class="row">
+			<input
+				id="q"
+				placeholder="Paste a Solana mint, agent ID, avatar ID, or slug…"
+				autocomplete="off"
+				spellcheck="false"
+				aria-label="Agent lookup query"
+			/>
+			<button id="go" class="primary">Look up</button>
+			<button id="share" title="Copy shareable link">Share</button>
+		</div>
+
+		<div id="result"></div>
+
+		<script type="module">
+			const $ = (id) => document.getElementById(id);
+			const params = new URLSearchParams(location.search);
+			$('q').value = params.get('q') || '';
+
+			function escapeHtml(s) {
+				return String(s ?? '').replace(
+					/[&<>"']/g,
+					(c) =>
+						({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[
+							c
+						],
+				);
+			}
+			function shortKey(k) {
+				return k ? `${k.slice(0, 4)}…${k.slice(-4)}` : '';
+			}
+
+			function showSkeleton() {
+				$('result').innerHTML = `
+					<div class="layout">
+						<div class="stage"><div class="placeholder skeleton"></div></div>
+						<div>
+							<div class="identity-card">
+								<div class="skeleton sk-line w60"></div>
+								<div class="skeleton sk-line w40"></div>
+								<div class="skeleton sk-line"></div>
+							</div>
+							<div class="panel">
+								<div class="skeleton sk-line w40"></div>
+								<div class="skeleton sk-line"></div>
+								<div class="skeleton sk-line w60"></div>
+							</div>
+						</div>
+					</div>`;
+			}
+
+			function showNotFound(q) {
+				$('result').innerHTML = `
+					<div class="notice">
+						<div class="big">🔍</div>
+						<div><strong>No agent found</strong> for ${q ? `“${escapeHtml(q)}”` : 'that input'}.</div>
+						<p class="muted" style="margin:.5rem 0 0">
+							Try a Solana asset mint, an agent ID, an avatar ID, or an avatar slug.
+							Browse the <a class="link" href="/explore">explore feed</a> to find one.
+						</p>
+					</div>`;
+			}
+
+			function copyBtn(value) {
+				return value
+					? `<button class="copy-btn" data-copy="${escapeHtml(value)}">copy</button>`
+					: '';
+			}
+
+			function stageHtml(data) {
+				if (data.modelUrl) {
+					return `
+						<div class="stage">
+							<model-viewer
+								src="${escapeHtml(data.modelUrl)}"
+								camera-controls
+								auto-rotate
+								auto-rotate-delay="1500"
+								rotation-per-second="18deg"
+								interaction-prompt="none"
+								shadow-intensity="0.6"
+								shadow-softness="0.8"
+								exposure="1.0"
+								environment-image="neutral"
+								camera-orbit="0deg 75deg 105%"
+								min-camera-orbit="auto auto 50%"
+								max-camera-orbit="auto auto 200%"
+								field-of-view="auto"
+								bounds="tight"
+								loading="eager"
+								aria-label="3D avatar of ${escapeHtml(data.name || 'agent')}"
+							></model-viewer>
+						</div>`;
+				}
+				if (data.state === 'private') {
+					return `
+						<div class="stage">
+							<div class="placeholder">
+								<div class="big">🔒</div>
+								<div>Model not public</div>
+								<div class="muted" style="font-size:.75rem">
+									This agent's 3D body is private.
+								</div>
+							</div>
+						</div>`;
+				}
+				if (data.imageUrl) {
+					return `<div class="stage"><img class="thumb" src="${escapeHtml(data.imageUrl)}" alt="${escapeHtml(data.name || 'agent')}" /></div>`;
+				}
+				return `
+					<div class="stage">
+						<div class="placeholder">
+							<div class="big">🤖</div>
+							<div>No 3D model yet</div>
+						</div>
+					</div>`;
+			}
+
+			function onchainHtml(oc) {
+				if (!oc) {
+					return `
+						<div class="panel">
+							<h2 style="margin-top:0">On-chain</h2>
+							<p class="muted" style="margin:0">Not deployed on-chain yet.</p>
+						</div>`;
+				}
+				const links = oc.links || {};
+				const linkBtns = [
+					links.metaplex
+						? `<a href="${escapeHtml(links.metaplex)}" target="_blank" rel="noopener">Metaplex ↗</a>`
+						: '',
+					links.solscan
+						? `<a href="${escapeHtml(links.solscan)}" target="_blank" rel="noopener">Solscan ↗</a>`
+						: '',
+					links.magiceden
+						? `<a href="${escapeHtml(links.magiceden)}" target="_blank" rel="noopener">Magic Eden ↗</a>`
+						: '',
+				].join('');
+				return `
+					<div class="panel">
+						<h2 style="margin-top:0">On-chain identity</h2>
+						<div class="pills">
+							<span class="pill ${oc.active ? 'ok' : 'warn'}">${oc.active ? 'Active' : 'Inactive'}</span>
+							<span class="pill ${oc.x402Support ? 'info' : 'warn'}">${oc.x402Support ? 'x402 supported' : 'no x402'}</span>
+						</div>
+						<div class="kv">
+							<span class="k">Mint</span>
+							<span class="v"><code>${escapeHtml(oc.mint)}</code>${copyBtn(oc.mint)}</span>
+							${oc.collection ? `<span class="k">Collection</span><span class="v"><code title="${escapeHtml(oc.collection)}">${escapeHtml(shortKey(oc.collection))}</code>${copyBtn(oc.collection)}</span>` : ''}
+							${oc.owner ? `<span class="k">Owner</span><span class="v"><code title="${escapeHtml(oc.owner)}">${escapeHtml(shortKey(oc.owner))}</code>${copyBtn(oc.owner)}</span>` : ''}
+							${oc.assetSignerWallet ? `<span class="k">Agent wallet</span><span class="v"><code title="${escapeHtml(oc.assetSignerWallet)}">${escapeHtml(shortKey(oc.assetSignerWallet))}</code>${copyBtn(oc.assetSignerWallet)}</span>` : ''}
+						</div>
+						<div class="links">${linkBtns}</div>
+					</div>`;
+			}
+
+			function render(data) {
+				if (data.state === 'not_found') {
+					showNotFound($('q').value.trim());
+					return;
+				}
+				const genesis =
+					typeof data.genesisRank === 'number'
+						? `<span class="genesis" title="Deployment order on-chain">✦ Genesis #${data.genesisRank}</span>`
+						: '';
+				$('result').innerHTML = `
+					<div class="layout">
+						${stageHtml(data)}
+						<div>
+							<div class="identity-card">
+								<div class="identity-row">
+									<span class="identity-name">${escapeHtml(data.name || 'Untitled agent')}</span>
+									${genesis}
+									${data.state === 'private' ? '<span class="pill warn">private</span>' : ''}
+								</div>
+								${data.description ? `<div class="identity-desc">${escapeHtml(data.description)}</div>` : ''}
+							</div>
+							${onchainHtml(data.onchain)}
+						</div>
+					</div>`;
+				$('result')
+					.querySelectorAll('[data-copy]')
+					.forEach((b) => b.addEventListener('click', () => copyText(b.dataset.copy, b)));
+			}
+
+			async function copyText(text, btn) {
+				try {
+					await navigator.clipboard.writeText(text);
+					const prev = btn.textContent;
+					btn.textContent = 'copied';
+					setTimeout(() => {
+						btn.textContent = prev;
+					}, 1200);
+				} catch {}
+			}
+
+			async function lookup() {
+				const q = $('q').value.trim();
+				if (!q) {
+					$('result').innerHTML = '';
+					history.replaceState({}, '', location.pathname);
+					return;
+				}
+				history.replaceState({}, '', `?q=${encodeURIComponent(q)}`);
+				$('go').disabled = true;
+				showSkeleton();
+				try {
+					const res = await fetch(`/api/registry/resolve?q=${encodeURIComponent(q)}`);
+					if (!res.ok) throw new Error(`lookup failed (${res.status})`);
+					const data = await res.json();
+					render(data);
+				} catch (e) {
+					$('result').innerHTML = `
+						<div class="notice">
+							<div class="big">⚠️</div>
+							<div><strong>Something went wrong.</strong></div>
+							<p class="muted" style="margin:.5rem 0 0">${escapeHtml(e.message || 'Try again in a moment.')}</p>
+						</div>`;
+				} finally {
+					$('go').disabled = false;
+				}
+			}
+
+			$('go').onclick = lookup;
+			$('q').addEventListener('keydown', (e) => {
+				if (e.key === 'Enter') lookup();
+			});
+			$('share').onclick = () => copyText(location.href, $('share'));
+
+			if ($('q').value.trim()) lookup();
+		</script>
+		<script src="/brand.js" defer></script>
+	</body>
+</html>

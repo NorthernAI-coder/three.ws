@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-08T16:28:41.723Z",
+	"generated_at": "2026-06-09T00:40:41.715Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -531,6 +531,16 @@
 					"title": "x402 Bazaar",
 					"description": "Search and browse the x402 facilitator catalog. Filter by network, price, and extensions. Pay any service in one click.",
 					"added": "2026-05-25",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/lookup",
+					"title": "Agent Lookup",
+					"description": "Resolve any three.ws agent by Solana mint, agent ID, avatar ID, or slug — renders its interactive 3D avatar alongside its on-chain identity (collection, owner, agent wallet, Active/x402 status, Metaplex/Solscan/Magic Eden links).",
+					"added": "2026-06-09",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
@@ -1139,6 +1149,16 @@
 					"path": "/news/",
 					"title": "News & Announcements",
 					"description": "Product launches, integrations, and announcements from three.ws.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/news/three-ws-featured-on-alibaba-cloud-marketplace-blog",
+					"title": "three.ws Featured on the Alibaba Cloud Marketplace Blog",
+					"description": "Alibaba Cloud Marketplace published an editorial introducing three.ws — Render, Embody, Register, Embed: browser-native 3D AI agents deployed with a single <agent-3d> tag, with a Claude-powered runtime, ERC-8004 identity, and an Apache 2.0 open-source stack.",
 					"added": null,
 					"auth": null,
 					"indexable": true,

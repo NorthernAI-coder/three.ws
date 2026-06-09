@@ -415,6 +415,16 @@
 					"added": "2026-05-25"
 				},
 				{
+					"path": "/lookup",
+					"title": "Agent Lookup",
+					"description": "Resolve any three.ws agent by Solana mint, agent ID, avatar ID, or slug — renders its interactive 3D avatar alongside its on-chain identity (collection, owner, agent wallet, Active/x402 status, Metaplex/Solscan/Magic Eden links).",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"auth": null,
+					"indexable": true,
+					"added": "2026-06-09"
+				},
+				{
 					"path": "/arbitrage",
 					"title": "x402 Arbitrage",
 					"description": "Cross-provider price disparities surfaced live from the merged x402 facilitator catalog. Find the cheapest endpoint for any capability.",

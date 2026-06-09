@@ -4,6 +4,10 @@
 
 Public feature history for [three.ws](https://three.ws), newest first. Feature dates are tracked from 2026-05-25 forward; earlier pages are omitted.
 
+## 2026-06-09
+
+- **Agent Lookup** (`/lookup`) — Resolve any three.ws agent by Solana mint, agent ID, avatar ID, or slug — renders its interactive 3D avatar alongside its on-chain identity (collection, owner, agent wallet, Active/x402 status, Metaplex/Solscan/Magic Eden links).
+
 ## 2026-06-05
 
 - **Agent Exchange — AI Agents Paying Each Other** (`/features/agent-exchange`) — Watch two AI agents with 3D avatars autonomously negotiate and pay each other for crypto intelligence via x402 micropayments on Solana.

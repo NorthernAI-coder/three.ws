@@ -118,6 +118,14 @@
 			"dest": "/agent-economy.html"
 		},
 		{
+			"src": "/lookup",
+			"dest": "/lookup.html"
+		},
+		{
+			"src": "/lookup/",
+			"dest": "/lookup.html"
+		},
+		{
 			"src": "/demo",
 			"dest": "/demo-economy.html"
 		},
