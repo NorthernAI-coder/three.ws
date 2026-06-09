@@ -20,6 +20,8 @@ const FREE_MODELS = [
 ];
 const ANTHROPIC_MODELS = [
 	{ id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+	{ id: 'claude-fable-5', label: 'Claude Fable 5' },
+	{ id: 'claude-mythos-5', label: 'Claude Mythos 5' },
 	{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
 	{ id: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
 	{ id: 'claude-opus-4-7', label: 'Claude Opus 4.7' },

@@ -42,6 +42,11 @@
  */
 export const MODEL_CATALOG = {
 	// ── Anthropic (paid; host or BYOK key) — most reliable when keyed ──────────
+	'claude-fable-5':             { provider: 'anthropic', tools: true },
+	// Mythos 5 shares Fable 5's underlying capabilities but is a restricted-access
+	// model — it is never auto-selected into a fallback chain, only used when a
+	// caller names it explicitly (modeled with the same `moderationGated` gate).
+	'claude-mythos-5':            { provider: 'anthropic', tools: true, moderationGated: true },
 	'claude-opus-4-7':            { provider: 'anthropic', tools: true },
 	'claude-opus-4-6':            { provider: 'anthropic', tools: true },
 	'claude-sonnet-4-6':          { provider: 'anthropic', tools: true },

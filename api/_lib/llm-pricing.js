@@ -12,6 +12,8 @@
 // USD per 1,000,000 tokens, [input, output]. Keys are matched by prefix so a
 // dated alias (claude-haiku-4-5-20251001) resolves to its family price.
 const PRICE_PER_MTOK = {
+	'claude-fable-5': [10, 50],
+	'claude-mythos-5': [10, 50],
 	'claude-opus-4-8': [5, 25],
 	'claude-opus-4-7': [5, 25],
 	'claude-opus-4-6': [5, 25],
