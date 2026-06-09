@@ -20,7 +20,7 @@
  * change to refresh `src/solana/vanity/wasm/`.
  */
 
-import { validatePattern, estimateAttempts, formatTimeEstimate } from './validation.js';
+import { validatePattern, expectedAttempts, formatTimeEstimate } from './validation.js';
 
 const DEFAULT_MAX_WORKERS = 8;
 
@@ -83,7 +83,7 @@ export function grindVanity(opts = {}) {
 	// peg every core by surprise.
 	const requested = opts.maxWorkers || Math.min(hardware, DEFAULT_MAX_WORKERS);
 	const cores = Math.max(1, Math.min(requested, hardware));
-	const expected = estimateAttempts((prefix?.length || 0) + (suffix?.length || 0));
+	const expected = expectedAttempts(prefix, suffix, ignoreCase);
 	const startedAt = performance.now();
 
 	/** @type {Worker[]} */

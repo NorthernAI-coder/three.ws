@@ -31,7 +31,7 @@ import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
 import { orchestrateConfig } from './_lib/orchestrate.js';
 import { guardianConfig, governSend, sendCapUsd } from './_lib/granite-guardian.js';
-import { markProviderCooldown, providersInCooldown } from './_lib/provider-health.js';
+import { markProviderCooldown, providersInCooldown, AUTH_COOLDOWN_SECONDS } from './_lib/provider-health.js';
 import {
 	DEFAULT_FREE_MODEL,
 	PROVIDER_MODEL_DEFAULTS,
@@ -523,6 +523,43 @@ export default wrap(async (req, res) => {
 			console.warn(`[chat:${route.name}] ${upstream.status} — retrying once after 500ms: ${text.slice(0, 120)}`);
 			await new Promise((r) => setTimeout(r, 500));
 			continue;
+		}
+
+		// Auth / billing failures (401 invalid-or-expired key, 403 forbidden, 402
+		// out of credits) are NOT transient and NOT a per-call caller mistake — the
+		// provider is misconfigured or unfunded for the whole deploy, so every
+		// request hits the identical wall. The generic branch below only fails over
+		// on 429/5xx, so a bad server ANTHROPIC_API_KEY used to hard-fail chat for
+		// signed-in users even while Groq/OpenRouter were healthy. Treat these as
+		// provider-down: cool the provider for a long window (the key won't fix
+		// itself in 45s), skip its remaining sibling routes (same dead key → same
+		// 401), and fail over to the next provider.
+		if (upstream.status === 401 || upstream.status === 403 || upstream.status === 402) {
+			const text = await upstream.text().catch(() => '');
+			void markProviderCooldown(route.name, AUTH_COOLDOWN_SECONDS);
+			let next = routeIdx + 1;
+			while (next < fallbackRoutes.length && fallbackRoutes[next].name === route.name) next++;
+			if (next < fallbackRoutes.length && Date.now() < deadline) {
+				console.warn(`[chat:${route.name}] ${upstream.status} (auth/billing) — cooling ${AUTH_COOLDOWN_SECONDS}s, failing over to ${fallbackRoutes[next].name}/${fallbackRoutes[next].model}: ${text.slice(0, 120)}`);
+				routeIdx = next;
+				route = fallbackRoutes[routeIdx];
+				includeTools = true;
+				retriedTransient = false;
+				continue;
+			}
+			// Every remaining route is the same misconfigured provider (or the time
+			// budget is spent) — surface a terminal error here. The body is already
+			// consumed, so we can't fall through to the generic `!upstream.ok` block
+			// (it would re-read an empty stream); build the response inline instead.
+			captureException(new Error(`${route.name} upstream ${upstream.status}`), {
+				route: 'chat', provider: route.name, status: upstream.status, body: text.slice(0, 400),
+			});
+			console.error(`[chat:${route.name}] ${upstream.status} (auth/billing, final — no healthy provider left)`, text.slice(0, 200));
+			res.setHeader('Retry-After', '20');
+			return error(res, 503, 'rate_limited', 'The AI chat is at capacity right now. Please try again in a few seconds.', {
+				providers_tried: providersTried(attempted),
+				retry_after: 20,
+			});
 		}
 
 		// Fall over on rate-limit (429) and transient gateway errors (502/503/504).

@@ -258,10 +258,13 @@ export function buildAgentRegistrationMetadata(a) {
 	];
 
 	return {
-		type: [
-			'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-			'https://three.ws/specs/3d-agent-card-v1',
-		],
+		// Metaplex's Agent Registry indexer requires `type` to be a STRING matching
+		// the EIP-8004 registration-v1 URL. An array here makes the indexer reject
+		// the registration-v1 shape and fall back to a name/description/image-only
+		// record — silently dropping active/x402Support/services/supportedTrust from
+		// the agent page. Keep `type` a string; carry the three.ws spec separately.
+		type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+		additionalTypes: ['https://three.ws/specs/3d-agent-card-v1'],
 		name: a.name,
 		description,
 		image,

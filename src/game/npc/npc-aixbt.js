@@ -12,6 +12,8 @@
 // Self-contained: reuses the .npc-svc-* panel chrome for native look + the
 // shared overlay lifecycle, plus a small .aixbt-* stylesheet injected once.
 
+import { aixbtPayHud } from './aixbt-pay-hud.js';
+
 // ── tiny DOM helper (mirrors npc-services.js conventions) ─────────────────────
 function el(tag, attrs, kids) {
 	const node = document.createElement(tag);
@@ -21,7 +23,8 @@ function el(tag, attrs, kids) {
 			if (k === 'class') node.className = v;
 			else if (k === 'text') node.textContent = v;
 			else if (k === 'html') node.innerHTML = v;
-			else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2).toLowerCase(), v);
+			else if (k.startsWith('on') && typeof v === 'function')
+				node.addEventListener(k.slice(2).toLowerCase(), v);
 			else node.setAttribute(k, v === true ? '' : v);
 		}
 	}
@@ -216,7 +219,9 @@ function injectStyles() {
 // ── panel lifecycle (single instance, ESC, overlay click) ─────────────────────
 let openPanel = null;
 
-export function isAixbtPanelOpen() { return !!openPanel; }
+export function isAixbtPanelOpen() {
+	return !!openPanel;
+}
 
 function closePanel() {
 	if (!openPanel) return;
@@ -255,10 +260,17 @@ async function* sseEvents(res) {
 		buf = chunks.pop();
 		for (const chunk of chunks) {
 			if (!chunk.trim()) continue;
-			let event = 'message', data = {};
+			let event = 'message',
+				data = {};
 			for (const line of chunk.split('\n')) {
 				if (line.startsWith('event:')) event = line.slice(6).trim();
-				if (line.startsWith('data:')) { try { data = JSON.parse(line.slice(5).trim()); } catch { /* ignore */ } }
+				if (line.startsWith('data:')) {
+					try {
+						data = JSON.parse(line.slice(5).trim());
+					} catch {
+						/* ignore */
+					}
+				}
 			}
 			yield { event, data };
 		}
@@ -272,56 +284,99 @@ function renderPaymentReceipt(payment) {
 	return el('div', { class: 'aixbt-receipt' }, [
 		el('div', { class: 'aixbt-rrow' }, [
 			el('span', { text: 'Payer → payee' }),
-			el('span', { class: 'aixbt-rv', text: `${shortAddr(payment.payer)} → ${shortAddr(payment.payTo)}` }),
+			el('span', {
+				class: 'aixbt-rv',
+				text: `${shortAddr(payment.payer)} → ${shortAddr(payment.payTo)}`,
+			}),
 		]),
 		el('div', { class: 'aixbt-rrow' }, [
 			el('span', { text: 'Amount · network' }),
-			el('span', { class: 'aixbt-rv', text: `${payment.amount != null ? fmtUsdc(payment.amount) : '—'} · Solana` }),
+			el('span', {
+				class: 'aixbt-rv',
+				text: `${payment.amount != null ? fmtUsdc(payment.amount) : '—'} · Solana`,
+			}),
 		]),
-		tx ? el('div', { class: 'aixbt-rrow' }, [
-			el('span', { text: 'Transaction' }),
-			el('span', { class: 'aixbt-rv' }, [
-				el('a', { href: `https://solscan.io/tx/${tx}`, target: '_blank', rel: 'noopener', text: `${tx.slice(0, 8)}…${tx.slice(-6)} ↗` }),
-			]),
-		]) : null,
-		el('div', { class: 'aixbt-pay-note', text: 'A real USDC micropayment — settled on Solana mainnet, verifiable on-chain.' }),
+		tx
+			? el('div', { class: 'aixbt-rrow' }, [
+					el('span', { text: 'Transaction' }),
+					el('span', { class: 'aixbt-rv' }, [
+						el('a', {
+							href: `https://solscan.io/tx/${tx}`,
+							target: '_blank',
+							rel: 'noopener',
+							text: `${tx.slice(0, 8)}…${tx.slice(-6)} ↗`,
+						}),
+					]),
+				])
+			: null,
+		el('div', {
+			class: 'aixbt-pay-note',
+			text: 'A real USDC micropayment — settled on Solana mainnet, verifiable on-chain.',
+		}),
 	]);
 }
 
 function renderIntel(items) {
-	if (!items.length) return el('div', { class: 'aixbt-empty', text: 'No fresh narratives for that filter.' });
-	return el('div', {}, items.map((i) => el('div', { class: 'aixbt-row' }, [
-		el('div', { class: 'aixbt-row-top' }, [
-			i.ticker ? el('span', { class: 'aixbt-tkr', text: `$${i.ticker}` }) : (i.project ? el('span', { class: 'aixbt-tkr', text: i.project }) : null),
-			i.category ? el('span', { class: 'aixbt-cat', text: i.category }) : null,
-		]),
-		i.description ? el('p', { class: 'aixbt-desc', text: i.description }) : null,
-		el('div', { class: 'aixbt-meta' }, [
-			i.observations != null ? el('span', { text: `${i.observations} observation${i.observations === 1 ? '' : 's'}` }) : null,
-			i.official_source ? el('span', { class: 'aixbt-official', text: '✓ official source' }) : null,
-		]),
-	])));
+	if (!items.length)
+		return el('div', { class: 'aixbt-empty', text: 'No fresh narratives for that filter.' });
+	return el(
+		'div',
+		{},
+		items.map((i) =>
+			el('div', { class: 'aixbt-row' }, [
+				el('div', { class: 'aixbt-row-top' }, [
+					i.ticker
+						? el('span', { class: 'aixbt-tkr', text: `$${i.ticker}` })
+						: i.project
+							? el('span', { class: 'aixbt-tkr', text: i.project })
+							: null,
+					i.category ? el('span', { class: 'aixbt-cat', text: i.category }) : null,
+				]),
+				i.description ? el('p', { class: 'aixbt-desc', text: i.description }) : null,
+				el('div', { class: 'aixbt-meta' }, [
+					i.observations != null
+						? el('span', {
+								text: `${i.observations} observation${i.observations === 1 ? '' : 's'}`,
+							})
+						: null,
+					i.official_source
+						? el('span', { class: 'aixbt-official', text: '✓ official source' })
+						: null,
+				]),
+			]),
+		),
+	);
 }
 
 function renderProjects(items) {
-	if (!items.length) return el('div', { class: 'aixbt-empty', text: 'No projects matched that filter.' });
-	return el('div', {}, items.map((p) => {
-		const chg = p.market?.change_24h;
-		const tone = chg == null ? 'flat' : chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
-		return el('div', { class: 'aixbt-row' }, [
-			el('div', { class: 'aixbt-row-top' }, [
-				el('span', { class: 'aixbt-tkr', text: p.ticker ? `$${p.ticker}` : (p.name || 'unknown') }),
-				p.chain ? el('span', { class: 'aixbt-cat', text: p.chain }) : null,
-				el('span', { class: `aixbt-chg ${tone}`, text: fmtPct(chg) }),
-				p.market?.price_usd != null ? el('span', { class: 'aixbt-meta', text: fmtUsd(p.market.price_usd) }) : null,
-			]),
-			el('div', { class: 'aixbt-scores' }, [
-				scoreBar('Spiking', p.scores?.spiking),
-				scoreBar('Climbing', p.scores?.climbing),
-				scoreBar('Active', p.scores?.active),
-			]),
-		]);
-	}));
+	if (!items.length)
+		return el('div', { class: 'aixbt-empty', text: 'No projects matched that filter.' });
+	return el(
+		'div',
+		{},
+		items.map((p) => {
+			const chg = p.market?.change_24h;
+			const tone = chg == null ? 'flat' : chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+			return el('div', { class: 'aixbt-row' }, [
+				el('div', { class: 'aixbt-row-top' }, [
+					el('span', {
+						class: 'aixbt-tkr',
+						text: p.ticker ? `$${p.ticker}` : p.name || 'unknown',
+					}),
+					p.chain ? el('span', { class: 'aixbt-cat', text: p.chain }) : null,
+					el('span', { class: `aixbt-chg ${tone}`, text: fmtPct(chg) }),
+					p.market?.price_usd != null
+						? el('span', { class: 'aixbt-meta', text: fmtUsd(p.market.price_usd) })
+						: null,
+				]),
+				el('div', { class: 'aixbt-scores' }, [
+					scoreBar('Spiking', p.scores?.spiking),
+					scoreBar('Climbing', p.scores?.climbing),
+					scoreBar('Active', p.scores?.active),
+				]),
+			]);
+		}),
+	);
 }
 
 // Grounding comes back as aixbt-shaped structured context. We render it
@@ -351,7 +406,11 @@ function renderGroundingValue(value) {
 	if (Array.isArray(value)) {
 		const texts = value.map(groundingItemText).filter(Boolean);
 		if (!texts.length) return null;
-		return el('ul', { class: 'aixbt-ground-list' }, texts.slice(0, 12).map((t) => el('li', { text: t })));
+		return el(
+			'ul',
+			{ class: 'aixbt-ground-list' },
+			texts.slice(0, 12).map((t) => el('li', { text: t })),
+		);
 	}
 	if (typeof value === 'object') {
 		// One level of nesting: render child keys as paragraphs/lists.
@@ -359,8 +418,11 @@ function renderGroundingValue(value) {
 			.map(([k, v]) => {
 				const inner = Array.isArray(v)
 					? renderGroundingValue(v)
-					: (typeof v === 'string' || typeof v === 'number')
-						? el('p', { class: 'aixbt-ground-p' }, [el('strong', { text: `${humanizeKey(k)}: ` }), String(v)])
+					: typeof v === 'string' || typeof v === 'number'
+						? el('p', { class: 'aixbt-ground-p' }, [
+								el('strong', { text: `${humanizeKey(k)}: ` }),
+								String(v),
+							])
 						: null;
 				return inner;
 			})
@@ -387,7 +449,8 @@ function renderGrounding(grounding) {
 			]);
 		})
 		.filter(Boolean);
-	if (!sections.length) return el('div', { class: 'aixbt-empty', text: 'No macro read available right now.' });
+	if (!sections.length)
+		return el('div', { class: 'aixbt-empty', text: 'No macro read available right now.' });
 	return el('div', {}, sections);
 }
 
@@ -398,18 +461,36 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 	closePanel();
 
 	const titleId = 'aixbt-term-title';
-	const card = el('div', { class: 'npc-svc-card is-aixbt', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId });
+	const card = el('div', {
+		class: 'npc-svc-card is-aixbt',
+		role: 'dialog',
+		'aria-modal': 'true',
+		'aria-labelledby': titleId,
+	});
 	const overlay = el('div', { class: 'npc-svc-overlay' }, [card]);
-	overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) closePanel(); });
+	overlay.addEventListener('mousedown', (e) => {
+		if (e.target === overlay) closePanel();
+	});
 
-	const close = el('button', { class: 'npc-svc-close', type: 'button', 'aria-label': 'Close', text: '✕', onclick: closePanel });
-	card.appendChild(el('header', { class: 'npc-svc-head' }, [
-		el('div', {}, [
-			npc?.def?.name ? el('div', { class: 'npc-svc-who', text: npc.def.name }) : null,
-			el('h2', { id: titleId, class: 'npc-svc-title' }, ['Intelligence Terminal', el('span', { class: 'aixbt-live', text: 'LIVE' })]),
+	const close = el('button', {
+		class: 'npc-svc-close',
+		type: 'button',
+		'aria-label': 'Close',
+		text: '✕',
+		onclick: closePanel,
+	});
+	card.appendChild(
+		el('header', { class: 'npc-svc-head' }, [
+			el('div', {}, [
+				npc?.def?.name ? el('div', { class: 'npc-svc-who', text: npc.def.name }) : null,
+				el('h2', { id: titleId, class: 'npc-svc-title' }, [
+					'Intelligence Terminal',
+					el('span', { class: 'aixbt-live', text: 'LIVE' }),
+				]),
+			]),
+			close,
 		]),
-		close,
-	]));
+	);
 
 	const body = el('div', { class: 'npc-svc-result', style: 'display:block' });
 	card.appendChild(body);
@@ -424,34 +505,70 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 
 	function backBar(extra) {
 		return el('div', { class: 'aixbt-toolbar' }, [
-			el('button', { class: 'aixbt-back', type: 'button', text: '← Ask again', onclick: showMenu }),
+			el('button', {
+				class: 'aixbt-back',
+				type: 'button',
+				text: '← Ask again',
+				onclick: showMenu,
+			}),
 			extra || null,
 		]);
 	}
 
 	function chainChips(active, onPick) {
-		return el('div', { class: 'aixbt-chips' }, CHAINS.map((c) =>
-			el('button', {
-				class: `aixbt-chip${c.value === active ? ' is-on' : ''}`,
-				type: 'button',
-				text: c.label,
-				onclick: () => { if (c.value !== active && !busy) onPick(c.value); },
-			})));
+		return el(
+			'div',
+			{ class: 'aixbt-chips' },
+			CHAINS.map((c) =>
+				el('button', {
+					class: `aixbt-chip${c.value === active ? ' is-on' : ''}`,
+					type: 'button',
+					text: c.label,
+					onclick: () => {
+						if (c.value !== active && !busy) onPick(c.value);
+					},
+				}),
+			),
+		);
 	}
 
 	function showError(err, retry) {
 		body.textContent = '';
 		body.appendChild(backBar());
 		if (err?.code === 'aixbt_not_configured') {
-			body.appendChild(el('div', { class: 'aixbt-error', text: "aixbt isn't connected on this deployment yet." }));
+			body.appendChild(
+				el('div', {
+					class: 'aixbt-error',
+					text: "aixbt isn't connected on this deployment yet.",
+				}),
+			);
 			if (err.setup) body.appendChild(el('div', { class: 'aixbt-setup', text: err.setup }));
-			npc?.say?.('My feed isn\'t wired up here yet.');
+			npc?.say?.("My feed isn't wired up here yet.");
 		} else if (err?.code === 'aixbt_unauthorized') {
-			body.appendChild(el('div', { class: 'aixbt-error', text: 'That read needs a higher aixbt plan than this key has.' }));
-			npc?.say?.('My key can\'t reach that one.');
+			body.appendChild(
+				el('div', {
+					class: 'aixbt-error',
+					text: 'That read needs a higher aixbt plan than this key has.',
+				}),
+			);
+			npc?.say?.("My key can't reach that one.");
 		} else {
-			body.appendChild(el('div', { class: 'aixbt-error', text: `Couldn't reach the aixbt feed: ${err.message}` }));
-			if (retry) body.appendChild(el('button', { class: 'aixbt-go', type: 'button', text: 'Retry', style: 'margin-top:10px', onclick: retry }));
+			body.appendChild(
+				el('div', {
+					class: 'aixbt-error',
+					text: `Couldn't reach the aixbt feed: ${err.message}`,
+				}),
+			);
+			if (retry)
+				body.appendChild(
+					el('button', {
+						class: 'aixbt-go',
+						type: 'button',
+						text: 'Retry',
+						style: 'margin-top:10px',
+						onclick: retry,
+					}),
+				);
 			ui?.toast?.('aixbt feed unavailable', 'warn');
 		}
 	}
@@ -467,12 +584,23 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 			const { projects = [] } = await fetchJson(`/api/aixbt/projects?${qs}`);
 			body.textContent = '';
 			body.appendChild(backBar(chainChips(chain, runMovers)));
-			body.appendChild(el('div', { class: 'aixbt-section-h', text: chain ? `Momentum · ${chain}` : 'Momentum' }));
+			body.appendChild(
+				el('div', {
+					class: 'aixbt-section-h',
+					text: chain ? `Momentum · ${chain}` : 'Momentum',
+				}),
+			);
 			body.appendChild(renderProjects(projects));
-			npc?.say?.(projects.length ? `Top mover is ${projects[0].ticker ? '$' + projects[0].ticker : projects[0].name}.` : 'Quiet on that chain — try another.');
+			npc?.say?.(
+				projects.length
+					? `Top mover is ${projects[0].ticker ? '$' + projects[0].ticker : projects[0].name}.`
+					: 'Quiet on that chain — try another.',
+			);
 		} catch (err) {
 			showError(err, () => runMovers(chain));
-		} finally { busy = false; }
+		} finally {
+			busy = false;
+		}
 	}
 
 	async function runNarratives(chain) {
@@ -485,12 +613,23 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 			const { intel = [] } = await fetchJson(`/api/aixbt/intel?${qs}`);
 			body.textContent = '';
 			body.appendChild(backBar(chainChips(chain, runNarratives)));
-			body.appendChild(el('div', { class: 'aixbt-section-h', text: chain ? `Narratives · ${chain}` : 'Narratives' }));
+			body.appendChild(
+				el('div', {
+					class: 'aixbt-section-h',
+					text: chain ? `Narratives · ${chain}` : 'Narratives',
+				}),
+			);
 			body.appendChild(renderIntel(intel));
-			npc?.say?.(intel.length ? `Tracking ${intel.length} narrative${intel.length === 1 ? '' : 's'} right now.` : 'No fresh narratives on that filter.');
+			npc?.say?.(
+				intel.length
+					? `Tracking ${intel.length} narrative${intel.length === 1 ? '' : 's'} right now.`
+					: 'No fresh narratives on that filter.',
+			);
 		} catch (err) {
 			showError(err, () => runNarratives(chain));
-		} finally { busy = false; }
+		} finally {
+			busy = false;
+		}
 	}
 
 	async function runMacro() {
@@ -503,21 +642,29 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 			body.appendChild(backBar());
 			body.appendChild(el('div', { class: 'aixbt-section-h', text: 'Market context' }));
 			body.appendChild(renderGrounding(grounding));
-			npc?.say?.('That\'s the read across crypto and tradfi.');
+			npc?.say?.("That's the read across crypto and tradfi.");
 		} catch (err) {
 			showError(err, runMacro);
-		} finally { busy = false; }
+		} finally {
+			busy = false;
+		}
 	}
 
 	async function runScan(token, chain) {
 		if (busy) return;
 		const q = (token || '').trim();
-		if (!q) { showScan(token, chain); return; }
+		if (!q) {
+			showScan(token, chain);
+			return;
+		}
 		busy = true;
 		skeleton(`Scanning ${q.toUpperCase()}`);
 		const projQs = new URLSearchParams({ limit: '6', names: q });
 		const intelQs = new URLSearchParams({ limit: '6' });
-		if (chain) { projQs.set('chain', chain); intelQs.set('chain', chain); }
+		if (chain) {
+			projQs.set('chain', chain);
+			intelQs.set('chain', chain);
+		}
 		try {
 			const [projRes, intelRes] = await Promise.all([
 				fetchJson(`/api/aixbt/projects?${projQs}`),
@@ -526,20 +673,32 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 			const projects = projRes.projects || [];
 			// Intel isn't name-filterable upstream; keep items that mention the token.
 			const ql = q.toLowerCase();
-			const intel = (intelRes.intel || []).filter((i) =>
-				(i.ticker && i.ticker.toLowerCase() === ql) ||
-				(i.project && i.project.toLowerCase().includes(ql)) ||
-				(i.description && i.description.toLowerCase().includes(ql)));
+			const intel = (intelRes.intel || []).filter(
+				(i) =>
+					(i.ticker && i.ticker.toLowerCase() === ql) ||
+					(i.project && i.project.toLowerCase().includes(ql)) ||
+					(i.description && i.description.toLowerCase().includes(ql)),
+			);
 			body.textContent = '';
 			body.appendChild(backBar());
-			body.appendChild(el('div', { class: 'aixbt-section-h', text: `Momentum · ${q.toUpperCase()}` }));
+			body.appendChild(
+				el('div', { class: 'aixbt-section-h', text: `Momentum · ${q.toUpperCase()}` }),
+			);
 			body.appendChild(renderProjects(projects));
-			body.appendChild(el('div', { class: 'aixbt-section-h', text: `Narratives · ${q.toUpperCase()}` }));
+			body.appendChild(
+				el('div', { class: 'aixbt-section-h', text: `Narratives · ${q.toUpperCase()}` }),
+			);
 			body.appendChild(renderIntel(intel));
-			npc?.say?.(projects.length || intel.length ? `Here's what I have on ${q.toUpperCase()}.` : `Nothing surfacing on ${q.toUpperCase()} yet.`);
+			npc?.say?.(
+				projects.length || intel.length
+					? `Here's what I have on ${q.toUpperCase()}.`
+					: `Nothing surfacing on ${q.toUpperCase()} yet.`,
+			);
 		} catch (err) {
 			showError(err, () => runScan(q, chain));
-		} finally { busy = false; }
+		} finally {
+			busy = false;
+		}
 	}
 
 	// ── live on-chain payment (the showcase read) ──────────────────────────────
@@ -555,10 +714,15 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 		body.appendChild(backBar());
 		body.appendChild(el('div', { class: 'aixbt-section-h', text: 'Live on-chain payment' }));
 		const amtEl = el('span', { class: 'aixbt-pay-amt', text: '— USDC' });
-		body.appendChild(el('div', { class: 'aixbt-pay-head' }, [
-			el('span', { class: 'aixbt-pay-who', html: '<b>three.ws</b> pays for a live read' }),
-			amtEl,
-		]));
+		body.appendChild(
+			el('div', { class: 'aixbt-pay-head' }, [
+				el('span', {
+					class: 'aixbt-pay-who',
+					html: '<b>three.ws</b> pays for a live read',
+				}),
+				amtEl,
+			]),
+		);
 		const stepsEl = el('div', { class: 'aixbt-steps' });
 		const tail = el('div', {});
 		body.appendChild(stepsEl);
@@ -573,15 +737,25 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 				if (errId === s.id) cls = 'is-err';
 				else if (activeId === 'done' || i < ai) cls = 'is-done';
 				else if (i === ai) cls = 'is-active';
-				stepsEl.appendChild(el('div', { class: `aixbt-step ${cls}` }, [el('span', { class: 'aixbt-step-dot' }), s.label]));
+				stepsEl.appendChild(
+					el('div', { class: `aixbt-step ${cls}` }, [
+						el('span', { class: 'aixbt-step-dot' }),
+						s.label,
+					]),
+				);
 			});
 			if (amount != null) amtEl.textContent = fmtUsdc(amount);
 		};
 
 		let active = 'challenge';
 		paint(active);
+		// Mirror the same lifecycle on the small left-edge HUD so the payment is
+		// visible (and lands its receipt) from the corner of the screen even if the
+		// player closes this terminal mid-settlement.
+		aixbtPayHud.begin();
 
-		let settled = null, result = null;
+		let settled = null,
+			result = null;
 		try {
 			const res = await fetch('/api/x402-pay', {
 				method: 'POST',
@@ -590,35 +764,91 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 			});
 			if (!res.ok || !res.body) {
 				const txt = await res.text().catch(() => '');
-				let msg = `payment service unavailable (${res.status})`, code = null;
-				try { const j = JSON.parse(txt); msg = j.error_description || j.error || msg; code = j.error; } catch { /* ignore */ }
+				let msg = `payment service unavailable (${res.status})`,
+					code = null;
+				try {
+					const j = JSON.parse(txt);
+					msg = j.error_description || j.error || msg;
+					code = j.error;
+				} catch {
+					/* ignore */
+				}
 				const notWired = res.status === 404 || code === 'config_missing';
-				throw Object.assign(new Error(msg), { code: notWired ? 'pay_not_configured' : `http_${res.status}` });
+				throw Object.assign(new Error(msg), {
+					code: notWired ? 'pay_not_configured' : `http_${res.status}`,
+				});
 			}
 			for await (const { event, data } of sseEvents(res)) {
-				if (event === 'challenge') { amount = data.amount; active = 'built'; paint(active); npc?.say?.('Challenge issued — signing the transfer.'); }
-				else if (event === 'built') { active = 'verified'; paint(active); npc?.say?.('Signed. Sent to the facilitator.'); }
-				else if (event === 'verified') { active = 'settled'; paint(active); npc?.say?.('Verified — waiting on settlement.'); }
-				else if (event === 'settled') { settled = data; active = 'done'; paint(active); }
-				else if (event === 'result') { result = data; }
-				else if (event === 'error') { throw new Error(data.error || 'payment failed'); }
+				if (event === 'challenge') {
+					amount = data.amount;
+					active = 'built';
+					paint(active);
+					aixbtPayHud.setStage(active, amount);
+					npc?.say?.('Challenge issued — signing the transfer.');
+				} else if (event === 'built') {
+					active = 'verified';
+					paint(active);
+					aixbtPayHud.setStage(active);
+					npc?.say?.('Signed. Sent to the facilitator.');
+				} else if (event === 'verified') {
+					active = 'settled';
+					paint(active);
+					aixbtPayHud.setStage(active);
+					npc?.say?.('Verified — waiting on settlement.');
+				} else if (event === 'settled') {
+					settled = data;
+					active = 'done';
+					paint(active);
+					aixbtPayHud.setStage(active);
+				} else if (event === 'result') {
+					result = data;
+				} else if (event === 'error') {
+					throw new Error(data.error || 'payment failed');
+				}
 			}
 			if (!settled) throw new Error('incomplete response from payment service');
 			const payment = { ...(result?.payment || {}), ...settled };
 			paint('done');
 			tail.appendChild(renderPaymentReceipt(payment));
+			aixbtPayHud.settle(payment);
 			npc?.say?.('Settled on Solana — open it on Solscan.');
 		} catch (err) {
 			paint(active, active);
 			tail.textContent = '';
 			const configErr = err?.code === 'pay_not_configured';
-			tail.appendChild(el('div', { class: 'aixbt-pay-note is-err', text: configErr
-				? "The on-chain payer isn't wired up on this deployment yet."
-				: `Payment didn't go through: ${err.message}. No funds moved.` }));
-			if (!configErr) tail.appendChild(el('button', { class: 'aixbt-go', type: 'button', text: 'Try again', style: 'margin-top:10px', onclick: runPayment }));
-			npc?.say?.(configErr ? "My wallet isn't funded here yet." : 'That one rolled back — wallet unchanged.');
+			aixbtPayHud.fail(
+				configErr
+					? 'Payer not wired up on this deployment.'
+					: `Rolled back: ${err.message}. No funds moved.`,
+				active,
+			);
+			tail.appendChild(
+				el('div', {
+					class: 'aixbt-pay-note is-err',
+					text: configErr
+						? "The on-chain payer isn't wired up on this deployment yet."
+						: `Payment didn't go through: ${err.message}. No funds moved.`,
+				}),
+			);
+			if (!configErr)
+				tail.appendChild(
+					el('button', {
+						class: 'aixbt-go',
+						type: 'button',
+						text: 'Try again',
+						style: 'margin-top:10px',
+						onclick: runPayment,
+					}),
+				);
+			npc?.say?.(
+				configErr
+					? "My wallet isn't funded here yet."
+					: 'That one rolled back — wallet unchanged.',
+			);
 			ui?.toast?.(configErr ? 'x402 payer not configured' : 'x402 payment failed', 'warn');
-		} finally { busy = false; }
+		} finally {
+			busy = false;
+		}
 	}
 
 	// ── scan sub-form (the "type what you want" step) ──────────────────────────
@@ -626,13 +856,33 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 		body.textContent = '';
 		body.appendChild(backBar());
 		body.appendChild(el('p', { class: 'aixbt-ask', text: 'Which token should I scan?' }));
-		const tokenInput = el('input', { class: 'npc-svc-input aixbt-token', type: 'text', placeholder: 'Token or ticker (e.g. SOL)', value: prevToken || '' });
-		const chainSelect = el('select', { class: 'npc-svc-input aixbt-chain' }, CHAINS.map((c) =>
-			el('option', { value: c.value, selected: c.value === (prevChain || '') ? true : null }, [c.label])));
+		const tokenInput = el('input', {
+			class: 'npc-svc-input aixbt-token',
+			type: 'text',
+			placeholder: 'Token or ticker (e.g. SOL)',
+			value: prevToken || '',
+		});
+		const chainSelect = el(
+			'select',
+			{ class: 'npc-svc-input aixbt-chain' },
+			CHAINS.map((c) =>
+				el(
+					'option',
+					{ value: c.value, selected: c.value === (prevChain || '') ? true : null },
+					[c.label],
+				),
+			),
+		);
 		const goBtn = el('button', { class: 'aixbt-go', type: 'button', text: 'Scan' });
 		// Keep typing out of the world's movement handlers (window-level keydown).
 		for (const node of [tokenInput, chainSelect]) {
-			node.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); runScan(tokenInput.value, chainSelect.value); } });
+			node.addEventListener('keydown', (e) => {
+				e.stopPropagation();
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					runScan(tokenInput.value, chainSelect.value);
+				}
+			});
 			node.addEventListener('keyup', (e) => e.stopPropagation());
 		}
 		goBtn.addEventListener('click', () => runScan(tokenInput.value, chainSelect.value));
@@ -653,26 +903,57 @@ export function openAixbtTerminal(npc, { ui } = {}) {
 
 	function showMenu() {
 		body.textContent = '';
-		body.appendChild(el('p', { class: 'aixbt-ask', text: 'What do you want to see? Pick a read — or press 1–5.' }));
-		const menu = el('div', { class: 'aixbt-menu' }, CHOICES.map((c, idx) =>
-			el('button', { class: `aixbt-choice${c.wide ? ' is-wide' : ''}`, type: 'button', onclick: () => pick(c), 'aria-label': c.title }, [
-				el('span', { class: 'aixbt-choice-ic', text: c.icon }),
-				el('span', { class: 'aixbt-choice-body' }, [
-					el('span', { class: 'aixbt-choice-t' }, [el('span', { class: 'aixbt-num', text: String(idx + 1) }), c.title]),
-					el('span', { class: 'aixbt-choice-d', text: c.desc }),
-				]),
-			])));
+		body.appendChild(
+			el('p', {
+				class: 'aixbt-ask',
+				text: 'What do you want to see? Pick a read — or press 1–5.',
+			}),
+		);
+		const menu = el(
+			'div',
+			{ class: 'aixbt-menu' },
+			CHOICES.map((c, idx) =>
+				el(
+					'button',
+					{
+						class: `aixbt-choice${c.wide ? ' is-wide' : ''}`,
+						type: 'button',
+						onclick: () => pick(c),
+						'aria-label': c.title,
+					},
+					[
+						el('span', { class: 'aixbt-choice-ic', text: c.icon }),
+						el('span', { class: 'aixbt-choice-body' }, [
+							el('span', { class: 'aixbt-choice-t' }, [
+								el('span', { class: 'aixbt-num', text: String(idx + 1) }),
+								c.title,
+							]),
+							el('span', { class: 'aixbt-choice-d', text: c.desc }),
+						]),
+					],
+				),
+			),
+		);
 		body.appendChild(menu);
-		requestAnimationFrame(() => { const first = menu.querySelector('.aixbt-choice'); if (first) first.focus(); });
+		requestAnimationFrame(() => {
+			const first = menu.querySelector('.aixbt-choice');
+			if (first) first.focus();
+		});
 	}
 
 	// Number-key shortcuts (1–4) while the menu is the active view.
 	const onKey = (e) => {
-		if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closePanel(); return; }
+		if (e.key === 'Escape') {
+			e.stopPropagation();
+			e.preventDefault();
+			closePanel();
+			return;
+		}
 		if (busy) return;
 		const onMenu = body.querySelector('.aixbt-menu');
 		if (onMenu && e.key >= '1' && e.key <= String(CHOICES.length)) {
-			e.stopPropagation(); e.preventDefault();
+			e.stopPropagation();
+			e.preventDefault();
 			pick(CHOICES[Number(e.key) - 1]);
 		}
 	};
