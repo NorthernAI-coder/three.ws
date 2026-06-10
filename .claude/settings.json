@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(node --check *)",
+      "Bash(npx vitest run *)",
+      "Bash(npx prettier --check *)"
+    ]
+  },
   "extraKnownMarketplaces": {
     "three-ws": {
       "source": {
