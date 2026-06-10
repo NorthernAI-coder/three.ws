@@ -208,3 +208,6 @@ scripts/test-deploy-one.mjs
 scripts/genesis-deploy.mjs
 scripts/genesis-photos.mjs
 scripts/genesis-results.json
+
+# local test wallet (never commit)
+.wallet-test.json
