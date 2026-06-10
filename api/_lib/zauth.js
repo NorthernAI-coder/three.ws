@@ -99,9 +99,9 @@ function buildMiddleware() {
 				enabled: refundEnabled,
 				privateKey: evmKey,
 				solanaPrivateKey: solKey,
-				maxRefundUsd: Number(process.env.ZAUTH_REFUND_MAX_USD) || 0.10,
-				dailyCapUsd: Number(process.env.ZAUTH_REFUND_DAILY_CAP_USD) || 25.00,
-				monthlyCapUsd: Number(process.env.ZAUTH_REFUND_MONTHLY_CAP_USD) || 250.00,
+				maxRefundUsd: Number(process.env.ZAUTH_REFUND_MAX_USD) || 0.1,
+				dailyCapUsd: Number(process.env.ZAUTH_REFUND_DAILY_CAP_USD) || 25.0,
+				monthlyCapUsd: Number(process.env.ZAUTH_REFUND_MONTHLY_CAP_USD) || 250.0,
 				triggers: {
 					serverError: true,
 					emptyResponse: true,
@@ -155,12 +155,25 @@ function buildMiddleware() {
 	}
 }
 
+// Paid x402 surfaces, by path. Three groups:
+//   1. MCP servers + payer/dispatcher routes (each one settles x402 payments).
+//   2. /api/x402/* paid services — every route here 402-challenges EXCEPT the
+//      free metadata/read endpoints (admin console, DID document, buyer
+//      receipt lookup), which must not pollute the public zauth registry.
+//   3. Agent payment routes (delegated x402 calls + invoice payments).
+const MONITORED_SERVERS =
+	/\/api\/(wk-x402|mcp|mcp-3d|mcp-agent|mcp-bazaar|pump-fun-mcp|ibm-mcp|x402-pay)(\/|$)/;
+const MONITORED_X402_FREE = /\/api\/x402\/(admin(\/|$)|did$|my-receipts$)/;
+const MONITORED_X402 = /\/api\/x402\/[^/]/;
+const MONITORED_AGENTS =
+	/\/api\/agents\/x402\/|\/api\/agents\/[^/]+\/x402\/|\/api\/agents\/payments\//;
+
 function shouldMonitorReq(req) {
 	if (req.headers?.['x-payment-intent'] || req.headers?.['x-payment']) return true;
 	const p = req.path || '';
-	return /\/api\/(wk-x402|mcp)(\/|$)|\/api\/agents\/x402\/|\/api\/agents\/[^/]+\/x402\/|\/api\/agents\/payments\//.test(
-		p,
-	);
+	if (MONITORED_SERVERS.test(p)) return true;
+	if (MONITORED_X402.test(p) && !MONITORED_X402_FREE.test(p)) return true;
+	return MONITORED_AGENTS.test(p);
 }
 
 function getMiddleware() {
@@ -248,11 +261,18 @@ function shimRequest(req) {
 export function instrument(req, res) {
 	const mw = getMiddleware();
 	if (!mw) return false;
+	// Idempotency: dispatcher routes (wk.js, x402/service.js) run wrap() at the
+	// top level AND invoke paidEndpoint-built handlers (also wrap()-ed) inside —
+	// without this guard the SDK middleware would observe and report the same
+	// request twice.
+	if (req.__zauthInstrumented) return req.__zauthMonitored === true;
+	req.__zauthInstrumented = true;
 	try {
 		shimRequest(req);
 		shimResponse(res);
 		const monitored = shouldMonitorReq(req);
 		mw(req, res, () => {});
+		req.__zauthMonitored = monitored;
 		return monitored;
 	} catch (err) {
 		console.error('[zauth] middleware error:', err.message);

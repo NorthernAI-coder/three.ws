@@ -28,7 +28,7 @@
 // helper. Missing keys fall back to env (so a single override doesn't
 // disable the other networks).
 
-import { cors, error, respondError } from './http.js';
+import { cors, error, respondError, wrap } from './http.js';
 import { env } from './env.js';
 import { clientIp } from './rate-limit.js';
 import { logPaymentEvent } from './x402/audit-log.js';
@@ -59,16 +59,9 @@ import {
 	writeCachedResponse,
 	writeConflict,
 } from './x402/payment-identifier-server.js';
-import {
-	authenticateSiwx,
-	declareSiwxExtensionFor,
-	recordSiwxPayment,
-} from './siwx-server.js';
+import { authenticateSiwx, declareSiwxExtensionFor, recordSiwxPayment } from './siwx-server.js';
 import { normalizeAddress } from './siwx-storage.js';
-import {
-	buildOffersExtension,
-	buildReceiptExtension,
-} from './x402/offer-receipt-server.js';
+import { buildOffersExtension, buildReceiptExtension } from './x402/offer-receipt-server.js';
 import { recordReceipt } from './x402/receipt-storage.js';
 import {
 	authenticateAuthHintsRequest,
@@ -281,7 +274,12 @@ export function paidEndpoint(spec) {
 	const pidTtlSeconds = paymentIdentifier.ttlSeconds;
 	const pidExtension = paymentIdentifierExtension(pidRequired);
 
-	return async function paidHandler(req, res) {
+	// wrap() instruments the request for zauth Provider Hub telemetry (every
+	// paidEndpoint route is a monitored x402 surface) and converts any uncaught
+	// handler throw into the standard JSON error envelope. instrument() is
+	// idempotent, so dispatchers that are already wrap()-ed (wk.js,
+	// x402/service.js) don't double-report.
+	return wrap(async function paidHandler(req, res) {
 		const requestStartTime = Date.now();
 		if (cors(req, res, { methods: allowMethods, origins: '*' })) return;
 		if (req.method !== method.toUpperCase()) {
@@ -479,12 +477,7 @@ export function paidEndpoint(spec) {
 					if (err instanceof X402Error && err.status === 402) {
 						return send402(res, { ...challenge, error: err.message });
 					}
-					return respondError(
-						res,
-						err.status || 500,
-						err.code || 'internal_error',
-						err,
-					);
+					return respondError(res, err.status || 500, err.code || 'internal_error', err);
 				}
 				if (res.writableEnded) return;
 				res.setHeader('x-payment-bypass', `auth-hints:${result.principal.method}`);
@@ -552,12 +545,7 @@ export function paidEndpoint(spec) {
 					if (err instanceof X402Error && err.status === 402) {
 						return send402(res, { ...challenge, error: err.message });
 					}
-					return respondError(
-						res,
-						err.status || 500,
-						err.code || 'internal_error',
-						err,
-					);
+					return respondError(res, err.status || 500, err.code || 'internal_error', err);
 				}
 				if (res.writableEnded) return;
 				if (acResult.headers) {
@@ -605,12 +593,7 @@ export function paidEndpoint(spec) {
 					if (err instanceof X402Error && err.status === 402) {
 						return send402(res, { ...challenge, error: err.message });
 					}
-					return respondError(
-						res,
-						err.status || 500,
-						err.code || 'internal_error',
-						err,
-					);
+					return respondError(res, err.status || 500, err.code || 'internal_error', err);
 				}
 				if (res.writableEnded) return;
 				res.setHeader('x-siwx-address', auth.address);
@@ -830,5 +813,5 @@ export function paidEndpoint(spec) {
 				ttlSeconds: pidTtlSeconds,
 			});
 		}
-	};
+	});
 }
