@@ -185,6 +185,14 @@ export const limits = {
 	// shared key's quota from being drained by one caller. Generous enough for an
 	// interactive dashboard; reads are not cached so this gates every origin hit.
 	sdpIp: (ip) => getLimiter('sdp:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// Avatar custodial-wallet payouts (api/agent/send-sol). The per-send USD cap
+	// and per-IP limit bound a single call, but neither bounds total daily outflow
+	// if the demo token leaks or many IPs are used. This wallet-wide daily ceiling
+	// (keyed on the wallet pubkey, not the caller) caps aggregate payouts to
+	// N × per-send-cap per day. Critical → fails closed in prod without Redis so a
+	// missing limiter can never silently uncap a money-moving endpoint.
+	avatarPayoutDaily: (walletAddr) =>
+		getLimiter('avatar:payout:daily', { limit: 50, window: '24 h', critical: true }).limit(walletAddr),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
 	// Paid MCP tools — each call runs real compute (glTF validation / inspection

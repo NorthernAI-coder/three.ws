@@ -64,9 +64,16 @@ export default wrap(async (req, res) => {
 	// an actual PNG/JPG (better social preview than SVG text card).
 	// Only redirect for http(s) URLs — crawlers won't follow ipfs:// or
 	// gateway URLs from random hosts reliably.
+	//
+	// Route through our same-origin image proxy (api/img) rather than 302-ing
+	// straight to the manifest host. agent.image comes from on-chain metadata an
+	// attacker controls, so a direct redirect is an open redirect (phishing under
+	// our domain) and an unguarded fetch target. /api/img re-fetches through the
+	// SSRF-pinned fetcher and only serves responses whose content-type is image/*,
+	// so the browser only ever lands on three.ws and never on an arbitrary host.
 	if (agent.image && /^https?:\/\//i.test(agent.image)) {
 		res.statusCode = 302;
-		res.setHeader('location', agent.image);
+		res.setHeader('location', `/api/img?url=${encodeURIComponent(agent.image)}`);
 		res.setHeader('cache-control', CACHE_REDIR);
 		res.end();
 		return;

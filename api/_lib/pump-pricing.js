@@ -67,11 +67,25 @@ export function x402AmountForTool(toolName) {
 
 /**
  * Returns the active subscription row for (mint, payerWallet, toolName) if one
- * exists and has not expired. `toolName=null` matches any unrestricted
- * subscription. Returns null otherwise.
+ * exists, has not expired, AND was paid at least `minAmountAtomics`.
+ * `toolName=null` matches any unrestricted subscription. Returns null otherwise.
+ *
+ * The amount floor is essential: the payer chooses both `amount_usdc` and
+ * `duration_seconds` when prepping an invoice, so without it a caller could pay
+ * a fraction of a cent and unlock a tool priced per-call for as long as they
+ * like. Callers MUST pass the tool's advertised price (as an atomic-unit string)
+ * so a confirmed-but-underpaid invoice never satisfies the gate. Defaults to '0'
+ * only for callers that have no price (free tools), which never reach this path.
  */
-export async function findActiveSubscription({ mint, network = 'mainnet', payerWallet, toolName }) {
+export async function findActiveSubscription({
+	mint,
+	network = 'mainnet',
+	payerWallet,
+	toolName,
+	minAmountAtomics = '0',
+}) {
 	if (!mint || !payerWallet) return null;
+	const floor = String(minAmountAtomics ?? '0');
 	const [row] = await sql`
 		select p.id, p.invoice_id, p.amount_atomics, p.end_time, p.tool_name
 		from pump_agent_payments p
@@ -81,6 +95,7 @@ export async function findActiveSubscription({ mint, network = 'mainnet', payerW
 		  and p.payer_wallet = ${payerWallet}
 		  and p.status = 'confirmed'
 		  and p.end_time > now()
+		  and p.amount_atomics >= ${floor}::numeric
 		  and (p.tool_name is null or p.tool_name = ${toolName || null})
 		order by p.end_time desc
 		limit 1

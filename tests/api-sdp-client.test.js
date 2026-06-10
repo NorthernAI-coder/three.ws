@@ -62,8 +62,8 @@ describe('path allowlist', () => {
 			'v1/wallets',
 			'v1/wallets/abc-123',
 			'v1/issuance',
-			'v1/payments',
-			'v1/compliance/screen',
+			'v1/payments/transfers',
+			'v1/compliance/address-screenings',
 			'v1/projects',
 		]) {
 			expect(isSdpAllowedPath(p), p).toBe(true);
