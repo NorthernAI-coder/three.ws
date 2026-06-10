@@ -118,6 +118,58 @@ results.push(
 		expectMonitored: true,
 	}),
 );
+// Paid x402 service WITHOUT a payment header — path-matched since the
+// /api/x402/* monitor expansion (previously only header-matched).
+results.push(
+	await runCase({
+		name: '402 challenge on /api/x402/tutor (path-matched, no header)',
+		req: { url: '/api/x402/tutor', method: 'POST' },
+		statusCode: 402,
+		expectMonitored: true,
+	}),
+);
+// Paid MCP variants are their own endpoints, not sub-paths of /api/mcp.
+results.push(
+	await runCase({
+		name: '402 challenge on /api/mcp-bazaar (paid MCP variant)',
+		req: { url: '/api/mcp-bazaar', method: 'POST' },
+		statusCode: 402,
+		expectMonitored: true,
+	}),
+);
+results.push(
+	await runCase({
+		name: '402 challenge on /api/pump-fun-mcp (paid MCP variant)',
+		req: { url: '/api/pump-fun-mcp', method: 'POST' },
+		statusCode: 402,
+		expectMonitored: true,
+	}),
+);
+// Free x402 metadata/read endpoints must NOT pollute the registry.
+results.push(
+	await runCase({
+		name: 'free GET /api/x402/my-receipts (must be ignored)',
+		req: { url: '/api/x402/my-receipts?address=0xabc', method: 'GET' },
+		statusCode: 200,
+		expectMonitored: false,
+	}),
+);
+results.push(
+	await runCase({
+		name: 'free GET /api/x402/did (must be ignored)',
+		req: { url: '/api/x402/did', method: 'GET' },
+		statusCode: 200,
+		expectMonitored: false,
+	}),
+);
+results.push(
+	await runCase({
+		name: 'admin GET /api/x402/admin/skus (must be ignored)',
+		req: { url: '/api/x402/admin/skus', method: 'GET' },
+		statusCode: 200,
+		expectMonitored: false,
+	}),
+);
 // Unrelated traffic must NOT be reported.
 results.push(
 	await runCase({
@@ -129,5 +181,8 @@ results.push(
 );
 
 const allPass = initOk && results.every(Boolean);
-console.log('\nRESULT:', allPass ? 'PASS ✓ — telemetry fires for monitored x402 traffic' : 'FAIL ✗');
+console.log(
+	'\nRESULT:',
+	allPass ? 'PASS ✓ — telemetry fires for monitored x402 traffic' : 'FAIL ✗',
+);
 process.exitCode = allPass ? 0 : 1;
