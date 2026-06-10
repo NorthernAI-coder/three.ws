@@ -289,3 +289,6 @@ lerna-debug.log
 
 # Docusaurus build output
 .docusaurus/
+
+# TLS material — never commit; generate locally at dev time
+*.pem

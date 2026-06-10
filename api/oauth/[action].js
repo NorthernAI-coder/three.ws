@@ -37,6 +37,20 @@ function intersectScopes(requested, allowed) {
 	return requested.split(/\s+/).filter((s) => a.has(s)).join(' ') || allowed;
 }
 
+// Scopes a dynamically-registered client may request. Anything outside this set
+// (notably privileged scopes like `permissions:redeem`, which authorizes
+// gas-spending on-chain redemption) is silently dropped at registration so a
+// self-registering client can never mint a token carrying it.
+const REGISTERABLE_SCOPES = new Set([
+	'avatars:read', 'avatars:write', 'avatars:delete', 'profile',
+	'memory:read', 'memory:write', 'agents:read', 'agents:write', 'offline_access',
+]);
+
+function filterRegisterableScope(requested) {
+	const kept = String(requested || '').split(/\s+/).filter((s) => REGISTERABLE_SCOPES.has(s));
+	return kept.length ? kept.join(' ') : 'avatars:read';
+}
+
 function scopeLabel(s) {
 	const labels = { 'avatars:read': 'Read your avatars', 'avatars:write': 'Create and update avatars', 'avatars:delete': 'Delete your avatars', profile: 'See your name and email', offline_access: 'Stay signed in across sessions', 'memory:read': 'Recall your agents’ memories', 'memory:write': 'Store and forget your agents’ memories', 'agents:read': 'Screen your agents’ identities', 'agents:write': 'Register your agents on-chain' };
 	return labels[s] || esc(s);
@@ -207,7 +221,7 @@ async function handleRegister(req, res) {
 	const clientId = `mcp_${randomToken(18)}`;
 	let clientSecret = null, secretHash = null;
 	if (clientType === 'confidential') { clientSecret = randomToken(32); secretHash = await sha256(clientSecret); }
-	const scope = body.scope ?? 'avatars:read';
+	const scope = filterRegisterableScope(body.scope ?? 'avatars:read');
 	const grantTypes = body.grant_types ?? ['authorization_code', 'refresh_token'];
 	const responseTypes = body.response_types ?? ['code'];
 	await sql`insert into oauth_clients (client_id, client_secret_hash, client_type, name, logo_uri, client_uri, redirect_uris, grant_types, response_types, token_endpoint_auth, scope, software_id, software_version, dynamically_registered) values (${clientId}, ${secretHash}, ${clientType}, ${body.client_name ?? 'MCP Client'}, ${body.logo_uri ?? null}, ${body.client_uri ?? null}, ${body.redirect_uris}, ${grantTypes}, ${responseTypes}, ${authMethod}, ${scope}, ${body.software_id ?? null}, ${body.software_version ?? null}, true)`;

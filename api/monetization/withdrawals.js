@@ -175,13 +175,47 @@ export default wrap(async (req, res) => {
 		return error(res, 422, 'insufficient_balance', `Insufficient balance for withdrawal. Available: ${(balance.available / 1_000_000).toFixed(6)} USDC`);
 	}
 
-	const [withdrawal] = await sql`
-		INSERT INTO agent_withdrawals
-			(user_id, agent_id, amount, currency_mint, chain, to_address, status)
-		VALUES
-			(${userId}, ${agent_id}, ${amountAtomic}, ${currencyMint}, ${wallet.chain}, ${wallet.address}, 'pending')
-		RETURNING id, agent_id, amount, currency_mint, chain, to_address, status, tx_signature, created_at, updated_at
-	`;
+	// Reserve the withdrawal atomically. The available-balance check above is a
+	// fast/UX pre-check only — on its own it's a TOCTOU hole: N concurrent
+	// requests all read the same `available` and all insert, over-withdrawing
+	// past the real balance (the per-user rate limit admits several before any
+	// pending row is committed, so it can't guarantee integrity).
+	//
+	// pg_advisory_xact_lock serializes concurrent requests for the same
+	// (user, mint); the conditional INSERT…SELECT then re-derives available
+	// (earned − pending/processing/completed, mirroring getAvailableBalance)
+	// inside the locked transaction and refuses to insert when the amount
+	// exceeds it. Matches api/billing/withdrawals/index.js.
+	const lockKey = `withdrawal:${userId}:${currencyMint}`;
+	const [, inserted] = await sql.transaction([
+		sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+		sql`
+			INSERT INTO agent_withdrawals
+				(user_id, agent_id, amount, currency_mint, chain, to_address, status)
+			SELECT ${userId}, ${agent_id}, ${amountAtomic}, ${currencyMint}, ${wallet.chain}, ${wallet.address}, 'pending'
+			WHERE ${amountAtomic} <= (
+				(
+					SELECT COALESCE(SUM(re.net_amount), 0)::bigint
+					FROM agent_revenue_events re
+					JOIN agent_identities ai ON ai.id = re.agent_id
+					WHERE ai.user_id = ${userId}
+					  AND re.currency_mint = ${currencyMint}
+				) - (
+					SELECT COALESCE(SUM(w2.amount), 0)::bigint
+					FROM agent_withdrawals w2
+					WHERE w2.user_id = ${userId}
+					  AND w2.currency_mint = ${currencyMint}
+					  AND w2.status IN ('pending', 'processing', 'completed')
+				)
+			)
+			RETURNING id, agent_id, amount, currency_mint, chain, to_address, status, tx_signature, created_at, updated_at
+		`,
+	]);
+
+	const withdrawal = inserted?.[0];
+	if (!withdrawal) {
+		return error(res, 422, 'insufficient_balance', `Insufficient balance for withdrawal. Available: ${(balance.available / 1_000_000).toFixed(6)} USDC`);
+	}
 
 	return json(res, 201, {
 		withdrawal: formatWithdrawal(withdrawal),

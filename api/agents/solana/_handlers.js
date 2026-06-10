@@ -201,6 +201,15 @@ export const handleMetadata = wrap(async (req, res) => {
 		}
 	}
 
+	// Prep bakes the resolved avatar media into the mint URI (img/anim) so the
+	// manifest is complete on the FIRST fetch — before the agent row above
+	// exists. The live DB values (when present) win; these are the fallback.
+	// Only http(s)/ipfs URLs are honoured: they are echoed into JSON, never
+	// fetched server-side, so this can't be turned into an SSRF vector.
+	const SAFE_MEDIA = /^(https?:|ipfs:)/i;
+	if (!image) { const q = url.searchParams.get('img'); if (q && SAFE_MEDIA.test(q)) image = q; }
+	if (!animationUrl) { const q = url.searchParams.get('anim'); if (q && SAFE_MEDIA.test(q)) animationUrl = q; }
+
 	const manifest = buildAgentManifest({
 		name,
 		description,
@@ -352,9 +361,18 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 	const [walletRow] = await sql`select id from user_wallets where user_id = ${user.id} and address = ${wallet_address} and chain_type = 'solana' limit 1`;
 	if (!walletRow) return error(res, 403, 'forbidden', 'wallet not linked to your account');
 
+	// Resolve the avatar's media up front so it can be baked into the metadata
+	// URI as query-param fallbacks (img/anim). This makes the off-chain JSON
+	// complete from the very FIRST indexer fetch — before solana-register-confirm
+	// writes the agent row that handleMetadata normally joins against — closing
+	// the race where a DAS provider caches a body-less, image-less manifest.
+	let avatarImg = null;
+	let avatarAnim = null;
 	if (avatar_id) {
-		const [av] = await sql`select id from avatars where id=${avatar_id} and owner_id=${user.id} and deleted_at is null limit 1`;
+		const [av] = await sql`select id, storage_key, thumbnail_key from avatars where id=${avatar_id} and owner_id=${user.id} and deleted_at is null limit 1`;
 		if (!av) return error(res, 404, 'not_found', 'avatar not found');
+		if (av.thumbnail_key) avatarImg = publicUrl(av.thumbnail_key);
+		if (av.storage_key) avatarAnim = publicUrl(av.storage_key);
 	}
 
 	if (vanity_prefix && !asset_pubkey) return error(res, 400, 'validation_error', 'vanity_prefix requires asset_pubkey');
@@ -391,7 +409,10 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 
 	const passportUrl = `${appOrigin}/agent-passport.html?asset=${assetPubkey}&network=${network}`;
 	const metadataUri = body.metadata_uri
-		|| `${appOrigin}/api/agents/solana-metadata?asset=${assetPubkey}&network=${network}&name=${encodeURIComponent(name)}&desc=${encodeURIComponent(description)}`;
+		|| `${appOrigin}/api/agents/solana-metadata?asset=${assetPubkey}&network=${network}`
+			+ `&name=${encodeURIComponent(name)}&desc=${encodeURIComponent(description)}`
+			+ (avatarImg ? `&img=${encodeURIComponent(avatarImg)}` : '')
+			+ (avatarAnim ? `&anim=${encodeURIComponent(avatarAnim)}` : '');
 
 	// On-chain brand written into the asset account itself: three.ws identity,
 	// our links, and the $THREE mint (Attributes plugin) + an enforced 5%

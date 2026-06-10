@@ -3,7 +3,11 @@
 // inspection JSON.
 import { Wallet, randomBytes, hexlify } from 'ethers';
 
-const PRIVATE_KEY = '0x5e306b436ea9cf2e9840eb9922094cc4a32beebc23588a8856ab75aab3f3f7b5';
+const PRIVATE_KEY = process.env.X402_PAYER_PRIVATE_KEY;
+if (!PRIVATE_KEY) {
+	console.error('Set X402_PAYER_PRIVATE_KEY to a funded Base wallet key before running.');
+	process.exit(1);
+}
 const ENDPOINT = 'https://three.ws/api/x402/model-check?url=https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb';
 
 const wallet = new Wallet(PRIVATE_KEY);

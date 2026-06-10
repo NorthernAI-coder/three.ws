@@ -27,6 +27,19 @@ import { resolveUsdcAta, signAndSendVTx } from './pump-modals.js';
 
 const POLL_MS = 10_000;
 
+// HTML-escape untrusted strings before interpolating into innerHTML. Token
+// symbol/name and the payments feed (tool_name, skill_id, invoice_pda) all
+// originate from pump.fun token creators / agent-supplied invoices, so they are
+// attacker-controlled and must be escaped at every sink.
+function esc(s) {
+	return String(s == null ? '' : s)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 function fmtUsdc(atomics) {
 	const n = Number(BigInt(atomics || '0')) / 1_000_000;
 	if (n === 0) return '$0.00';
@@ -492,7 +505,7 @@ export class AgentTokenWidget {
 		const t = this.token;
 		const b = this.balances || {};
 		const q = this.quote || {};
-		const symbol = t.symbol || 'AGENT';
+		const symbol = esc(t.symbol || 'AGENT');
 		const graduated = q.graduated === true;
 		const buybackBps = t.buyback_bps || 0;
 		const buybackPct = buybackBps / 100;
@@ -539,16 +552,16 @@ export class AgentTokenWidget {
 			.slice(0, 5)
 			.map((p) => {
 				const why = p.tool_name
-					? `<code>${p.tool_name}</code>`
+					? `<code>${esc(p.tool_name)}</code>`
 					: p.skill_id
-						? `<code>${p.skill_id}</code>`
+						? `<code>${esc(p.skill_id)}</code>`
 						: 'paid call';
 				const buybackShare = (BigInt(p.amount_atomics || '0') * BigInt(buybackBps)) / 10_000n;
 				const pdaLink = p.invoice_pda
-					? `<a href="https://solscan.io/account/${p.invoice_pda}${solscanCluster}" target="_blank" rel="noopener" title="Open on-chain invoice receipt" style="color:rgba(180,210,255,0.7);text-decoration:none;font-size:0.7rem;">PDA↗</a>`
+					? `<a href="https://solscan.io/account/${encodeURIComponent(p.invoice_pda)}${solscanCluster}" target="_blank" rel="noopener" title="Open on-chain invoice receipt" style="color:rgba(180,210,255,0.7);text-decoration:none;font-size:0.7rem;">PDA↗</a>`
 					: '';
 				const txLink = p.tx_signature
-					? `<a href="https://solscan.io/tx/${p.tx_signature}${solscanCluster}" target="_blank" rel="noopener" title="Open settlement tx" style="color:rgba(180,210,255,0.7);text-decoration:none;font-size:0.7rem;">tx↗</a>`
+					? `<a href="https://solscan.io/tx/${encodeURIComponent(p.tx_signature)}${solscanCluster}" target="_blank" rel="noopener" title="Open settlement tx" style="color:rgba(180,210,255,0.7);text-decoration:none;font-size:0.7rem;">tx↗</a>`
 					: '';
 				return `
 					<div class="atok-feed-row">
@@ -572,7 +585,7 @@ export class AgentTokenWidget {
 					<div>🔥 burn</div>
 					<div style="display:flex;gap:0.5rem;align-items:center;">
 						<span>${fmtUsdc(b.burn_amount || '0')}</span>
-						${b.tx_signature ? `<a href="https://solscan.io/tx/${b.tx_signature}${solscanCluster}" target="_blank" rel="noopener" style="color:rgba(180,210,255,0.7);text-decoration:none;font-size:0.7rem;">tx↗</a>` : ''}
+						${b.tx_signature ? `<a href="https://solscan.io/tx/${encodeURIComponent(b.tx_signature)}${solscanCluster}" target="_blank" rel="noopener" style="color:rgba(180,210,255,0.7);text-decoration:none;font-size:0.7rem;">tx↗</a>` : ''}
 						<span style="color:rgba(255,255,255,0.35);font-size:0.7rem;">${timeAgo(b.created_at)}</span>
 					</div>
 				</div>`)

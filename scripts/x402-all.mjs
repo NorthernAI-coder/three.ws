@@ -3,14 +3,20 @@
 // TransferWithAuthorization, retry with X-PAYMENT, capture the response +
 // settlement receipt. Prints a summary table at the end.
 //
-// Costs are billed in USDC on Base (eip155:8453) — the funded vanity wallet
-// 0x33369135724F53521dF38e69262792a1EC068cd7 holds the USDC; the facilitator
-// covers ETH gas. The handler runs BEFORE settle, so a 4xx from the route's
-// validation logic means no USDC was moved.
+// Costs are billed in USDC on Base (eip155:8453) — a funded payer wallet holds
+// the USDC; the facilitator covers ETH gas. The handler runs BEFORE settle, so
+// a 4xx from the route's validation logic means no USDC was moved.
+//
+// Provide the payer key via the X402_PAYER_PRIVATE_KEY env var — never hardcode
+// it here (a committed key is a leaked key).
 
 import { Wallet, randomBytes, hexlify } from 'ethers';
 
-const PRIVATE_KEY = '0x5e306b436ea9cf2e9840eb9922094cc4a32beebc23588a8856ab75aab3f3f7b5';
+const PRIVATE_KEY = process.env.X402_PAYER_PRIVATE_KEY;
+if (!PRIVATE_KEY) {
+	console.error('Set X402_PAYER_PRIVATE_KEY to a funded Base wallet key before running.');
+	process.exit(1);
+}
 const BASE = 'https://three.ws';
 const wallet = new Wallet(PRIVATE_KEY);
 

@@ -8,6 +8,7 @@ import { sql } from '../_lib/db.js';
 import { requireAdmin } from '../_lib/admin.js';
 import { cors, json, method, wrap } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
+import { constantTimeEquals } from '../_lib/crypto.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
@@ -17,7 +18,8 @@ export default wrap(async (req, res) => {
 	// be a real admin. The previous `user.plan === 'admin'` check was dead — there
 	// is no 'admin' plan (free|pro|team|enterprise) — so it rejected every admin.
 	const auth = req.headers.authorization || '';
-	const isCron = env.CRON_SECRET && auth === `Bearer ${env.CRON_SECRET}`;
+	const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+	const isCron = !!env.CRON_SECRET && constantTimeEquals(bearer, env.CRON_SECRET);
 	if (!isCron) {
 		const admin = await requireAdmin(req, res);
 		if (!admin) return;

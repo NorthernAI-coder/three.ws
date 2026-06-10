@@ -40,21 +40,6 @@ function rateCheck(ip) {
 	return { success: true, limit: RATE_LIMIT_MAX, remaining: RATE_LIMIT_MAX - arr.length, reset: now + RATE_LIMIT_WINDOW_MS };
 }
 
-async function preflightSize(url) {
-	try {
-		const r = await fetch(url, { method: 'HEAD' });
-		const lenHeader = r.headers.get('content-length');
-		if (!lenHeader) return { ok: true, size: null };
-		const size = Number(lenHeader);
-		if (Number.isFinite(size) && size > MAX_GLB_BYTES) {
-			return { ok: false, code: 'glb_too_large', size, limit: MAX_GLB_BYTES };
-		}
-		return { ok: true, size };
-	} catch {
-		return { ok: true, size: null };
-	}
-}
-
 export default wrap(async function handler(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
@@ -85,8 +70,8 @@ export default wrap(async function handler(req, res) {
 
 	const glbUrl = typeof body.glbUrl === 'string' ? body.glbUrl.trim() : '';
 	if (!glbUrl) return error(res, 400, 'bad_request', 'glbUrl is required');
-	// DNS-resolving SSRF guard (see render/glb.js) — headless chromium loads this
-	// URL inside the function, so a prefix denylist was bypassable.
+	// Fast pre-check before booting chromium. The authoritative SSRF boundary is
+	// renderClip → fetchModel (DNS-pinned per hop, redirects re-validated, capped).
 	try {
 		await assertSafePublicUrl(glbUrl, { allowHttp: true });
 	} catch (e) {
@@ -117,14 +102,9 @@ export default wrap(async function handler(req, res) {
 
 	const expression = body.expression && typeof body.expression === 'object' ? body.expression : null;
 
-	const pre = await preflightSize(glbUrl);
-	if (!pre.ok) {
-		return error(res, 413, pre.code, `GLB is ${pre.size} bytes; limit is ${pre.limit}`, { size: pre.size, limit: pre.limit });
-	}
-
 	let result;
 	try {
-		result = await renderClip({ glbUrl, width, height, background, posePresetId, cameraOrbit, expression });
+		result = await renderClip({ glbUrl, width, height, background, posePresetId, cameraOrbit, expression, maxBytes: MAX_GLB_BYTES });
 	} catch (err) {
 		const status = err?.status || 502;
 		return error(res, status, err?.code || 'render_failed', err?.message || 'render failed');

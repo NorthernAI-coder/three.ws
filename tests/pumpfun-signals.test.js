@@ -74,9 +74,11 @@ describe('pumpfun-signals cron', () => {
 		// Subsequent sql calls: insert returning [{id}] for each insert.
 		sqlMock.mockResolvedValue([{ id: 1 }]);
 
-		// Real Vercel cron requests carry `x-vercel-cron: 1`; without it the
-		// handler now fails closed when CRON_SECRET is unset.
-		const req = { headers: { 'x-vercel-cron': '1' }, method: 'POST' };
+		// Vercel cron sends `Authorization: Bearer $CRON_SECRET`; the handler now
+		// requires a valid secret unconditionally (the `x-vercel-cron` header is no
+		// longer trusted as an auth bypass).
+		process.env.CRON_SECRET = 'topsecret';
+		const req = { headers: { authorization: 'Bearer topsecret' }, method: 'POST' };
 		const res = mockRes();
 		await handler(req, res);
 

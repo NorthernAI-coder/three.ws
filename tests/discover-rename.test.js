@@ -161,14 +161,16 @@ describe('discover/my-agents rename — vercel.json routing', () => {
 	// Vercel evaluates `routes` top-to-bottom; a permissive earlier rule (e.g. a
 	// catch-all `(.*)`) would prevent /discover and /my-agents from ever being
 	// reached. Lock this in so a future re-order can't silently shadow them.
-	it('no catch-all rule sits before /discover or /my-agents rewrites', () => {
+	// A `continue: true` catch-all (e.g. the global security-headers route) is
+	// exempt — it only attaches headers and falls through, so it shadows nothing.
+	it('no terminating catch-all rule sits before /discover or /my-agents rewrites', () => {
 		const idx = (src) => routes.findIndex((x) => x.src === src);
 		const discoverAt = idx('/discover');
 		const myAgentsAt = idx('/my-agents');
 		const earliestProtected = Math.min(discoverAt, myAgentsAt);
 		const catchAllBefore = routes
 			.slice(0, earliestProtected)
-			.some((r) => r.src === '/(.*)' || r.src === '(.*)');
+			.some((r) => (r.src === '/(.*)' || r.src === '(.*)') && !r.continue);
 		expect(catchAllBefore).toBe(false);
 	});
 });

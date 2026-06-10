@@ -179,6 +179,12 @@ export const limits = {
 	// caller can't drain the shared key's budget. Reads are cached, so this is
 	// generous enough for an interactive feed.
 	aixbtIp: (ip) => getLimiter('aixbt:ip', { limit: 90, window: '1 m' }).limit(ip),
+	// Solana Developer Platform proxy (api/sdp/*). Each call fronts the SDP API
+	// under our server-side key, and writes (wallet create / issuance / payment)
+	// move real value, so cap per IP to keep that egress bounded and prevent the
+	// shared key's quota from being drained by one caller. Generous enough for an
+	// interactive dashboard; reads are not cached so this gates every origin hit.
+	sdpIp: (ip) => getLimiter('sdp:ip', { limit: 60, window: '1 m' }).limit(ip),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
 	// Paid MCP tools — each call runs real compute (glTF validation / inspection

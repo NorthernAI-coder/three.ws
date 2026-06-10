@@ -384,7 +384,7 @@ export class RegisterUI {
 			glbUrl: initial.glbUrl || '',
 			glbFile: null,
 			pastedGlbUrl: '',
-			savedAvatar: null, // { id, name, url, thumbnailUrl }
+			savedAvatar: null, // { id, name, modelUrl, thumbnailUrl }
 			defaultAvatarId: null, // id of a pre-pinned DEFAULT_AVATARS entry
 			avatarSource: initial.glbUrl ? 'current' : 'upload',
 			services: [], // [{ name, type, endpoint }]
@@ -1786,6 +1786,183 @@ export class RegisterUI {
 		);
 	}
 
+	// -----------------------------------------------------------------------
+	// Avatar persistence — turn the chosen Step-3 source into a REAL avatars
+	// row (GLB stored in R2 + a rendered poster) so the minted asset resolves a
+	// 3D body and an image. The mint pipeline keys everything off a real
+	// avatar_id; a session/draft GLB that only ever lived in the viewer has no
+	// row, so without this the asset mints hollow (generic logo, empty body) —
+	// the exact bug being fixed. Returns { avatarId, modelUrl, imageUrl }, or
+	// null for the explicit metadata-only ("skip") choice.
+	// -----------------------------------------------------------------------
+
+	async _ensurePersistedAvatar(say = () => {}) {
+		const f = this.form;
+		const src = f.avatarSource;
+		if (src === 'skip') return null;
+
+		// Already a persisted row (saved-avatar pick, or a current-session avatar
+		// that was loaded from one). Reuse it — but guarantee it has a poster so
+		// the NFT image isn't blank.
+		const existingId =
+			(src === 'saved' && f.savedAvatar?.id) ? f.savedAvatar.id
+			: (src === 'current' && this._avatarId) ? this._avatarId
+			: null;
+
+		if (existingId) {
+			// The row already exists; prep resolves its poster + body server-side
+			// from thumbnail_key/storage_key by avatar_id, so no client fetch is
+			// needed. Pass through whatever URLs we have for the live preview.
+			const imageUrl = (src === 'saved' ? f.savedAvatar?.thumbnailUrl : null) || f.imageUrl || null;
+			const modelUrl = (src === 'saved' ? f.savedAvatar?.modelUrl : null) || f.glbUrl || null;
+			return { avatarId: existingId, modelUrl, imageUrl };
+		}
+
+		// A new row is required (current-draft / upload / pasted-url / default).
+		const { blob, filename } = await this._acquireGlbBlob(say);
+		say('Saving your avatar…');
+		const { storageKey, sizeBytes } = await this._ensureOwnedGlb(blob, filename, say);
+		const avatar = await this._createAvatarRow({ storageKey, sizeBytes, name: f.name, blob });
+		const imageUrl = await this._renderAndAttachThumbnail(avatar.id, blob, say);
+
+		// Cache so a back-and-retry doesn't re-upload the same bytes.
+		this._avatarId = avatar.id;
+		f.savedAvatar = { id: avatar.id, name: avatar.name, modelUrl: avatar.model_url || null, thumbnailUrl: imageUrl };
+		return { avatarId: avatar.id, modelUrl: avatar.model_url || null, imageUrl };
+	}
+
+	/** Fetch the chosen source's GLB bytes (needed for upload + poster render). */
+	async _acquireGlbBlob(say = () => {}) {
+		const f = this.form;
+		const src = f.avatarSource;
+		if (src === 'upload' && f.glbFile) {
+			return { blob: f.glbFile, filename: f.glbFile.name || 'avatar.glb' };
+		}
+		let url = '';
+		if (src === 'current') url = f.glbUrl;
+		else if (src === 'url') url = (f.pastedGlbUrl || '').trim();
+		else if (src === 'default') url = getDefaultAvatar(f.defaultAvatarId)?.url || '';
+		else url = f.glbUrl || (f.pastedGlbUrl || '').trim();
+		if (!url) throw new Error('No 3D model to attach — choose an avatar in the Avatar step first.');
+
+		const fetchUrl = url.startsWith('ipfs://')
+			? url.replace('ipfs://', 'https://ipfs.io/ipfs/')
+			: url;
+		const sameOrigin = (() => { try { return new URL(fetchUrl, location.href).origin === location.origin; } catch { return false; } })();
+		say('Fetching 3D model…');
+		let resp;
+		try {
+			resp = await fetch(fetchUrl, { credentials: sameOrigin ? 'include' : 'omit' });
+		} catch {
+			throw new Error('Could not fetch the 3D model (network or CORS). Re-upload the GLB and retry.');
+		}
+		if (!resp.ok) throw new Error(`Could not fetch the 3D model (HTTP ${resp.status}).`);
+		const blob = await resp.blob();
+		if (!blob.size) throw new Error('The 3D model is empty.');
+		const base = (url.split('/').pop() || 'avatar.glb').split('?')[0];
+		return { blob, filename: base.toLowerCase().endsWith('.glb') ? base : 'avatar.glb' };
+	}
+
+	/**
+	 * Return a caller-owned R2 storage key for the GLB. Reuses an already-uploaded
+	 * draft when the current source points straight at our bucket (no re-upload);
+	 * otherwise uploads the bytes via the presign+PUT path.
+	 */
+	async _ensureOwnedGlb(blob, filename, say = () => {}) {
+		const derived = this.form.avatarSource === 'current' ? this._deriveOwnedGlbKey(this.form.glbUrl) : null;
+		if (derived) return { storageKey: derived, sizeBytes: blob.size };
+		return this._uploadGlb(blob, filename, say);
+	}
+
+	/** Map a public R2 URL back to its `u/<userId>/…/*.glb` object key, or null. */
+	_deriveOwnedGlbKey(url) {
+		if (!url) return null;
+		let path;
+		try { path = new URL(url, location.href).pathname; } catch { return null; }
+		const key = decodeURIComponent(path.replace(/^\/+/, ''));
+		return /^u\/[^/]+\/.+\.glb$/i.test(key) ? key : null;
+	}
+
+	/** Upload GLB bytes to R2 via a presigned PUT; returns the owned storage key. */
+	async _uploadGlb(blob, filename, say = () => {}) {
+		say('Uploading 3D model…');
+		const presignRes = await fetch('/api/avatar/presign-glb', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ filename: filename || 'avatar.glb', content_type: 'model/gltf-binary', bytes: blob.size }),
+		});
+		if (!presignRes.ok) {
+			const e = await presignRes.json().catch(() => ({}));
+			throw new Error(e.error_description || `Could not presign upload (HTTP ${presignRes.status}).`);
+		}
+		const { upload_url, storage_key } = await presignRes.json();
+		const put = await fetch(upload_url, {
+			method: 'PUT',
+			headers: { 'content-type': 'model/gltf-binary' },
+			body: blob,
+		});
+		if (!put.ok) throw new Error(`Upload to storage failed (HTTP ${put.status}).`);
+		return { storageKey: storage_key, sizeBytes: blob.size };
+	}
+
+	/** Create the avatars row from an owned storage key. Re-uploads + retries once
+	 *  if a reused draft key fails server validation. */
+	async _createAvatarRow({ storageKey, sizeBytes, name, blob }) {
+		const res = await fetch('/api/avatars', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				name: (name || 'Agent').trim().slice(0, 80) || 'Agent',
+				storage_key: storageKey,
+				size_bytes: sizeBytes,
+				content_type: 'model/gltf-binary',
+				source: 'upload',
+				visibility: 'unlisted',
+			}),
+		});
+		if (res.ok) return (await res.json()).avatar;
+
+		const e = await res.json().catch(() => ({}));
+		if (blob && ['size_mismatch', 'upload_missing', 'invalid_storage_key'].includes(e.error)) {
+			const fresh = await this._uploadGlb(blob, 'avatar.glb');
+			return this._createAvatarRow({ storageKey: fresh.storageKey, sizeBytes: fresh.sizeBytes, name });
+		}
+		throw new Error(e.error_description || `Could not save avatar (HTTP ${res.status}).`);
+	}
+
+	/** Render a 512² poster from the GLB and attach it to the avatar row. A missing
+	 *  poster never blocks the mint — the body still resolves and the manifest
+	 *  falls back to the brand image. */
+	async _renderAndAttachThumbnail(avatarId, blob, say = () => {}) {
+		try {
+			say('Rendering preview image…');
+			const png = await glbFileToThumbnail(blob, { size: 512 });
+			const b64 = await this._blobToDataUrl(png);
+			const res = await fetch('/api/avatars/thumbnail', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ avatar_id: avatarId, png_base64: b64 }),
+			});
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			return (await res.json())?.data?.thumbnail_url || null;
+		} catch (err) {
+			say(`Preview image skipped (${err.message}) — minting with the brand image.`);
+			return null;
+		}
+	}
+
+	_blobToDataUrl(blob) {
+		return new Promise((resolve, reject) => {
+			const r = new FileReader();
+			r.onload = () => resolve(r.result);
+			r.onerror = reject;
+			r.readAsDataURL(blob);
+		});
+	}
+
 	async _doSolanaDeploy(body) {
 		const log = body.querySelector('[data-role="log"]');
 		const say = (msg, err = false) => {
@@ -1809,16 +1986,36 @@ export class RegisterUI {
 		setPhase('prepare');
 
 		const network = _solanaNetwork(this.selectedChainId);
-		const synthAgent = {
-			id: this._backendAgentId || 'wizard',
-			name: this.form.name,
-			description: this.form.description,
-			avatarId: this.form.savedAvatar?.id || undefined,
-		};
 
-		say(`Connecting Solana wallet…`);
-		setPhase('sign');
 		try {
+			// Persist the chosen avatar into a real avatars row (GLB + rendered
+			// poster) BEFORE spending SOL, so the minted asset resolves a 3D body
+			// and an image. The prior code forwarded only a saved-avatar id and
+			// silently dropped the live session/draft avatar — minting a hollow
+			// asset (generic logo, empty body). A metadata-only deploy is only ever
+			// the explicit "Skip — no 3D body" choice; any other source that can't
+			// be saved aborts here instead of writing an empty NFT.
+			let avatar = null;
+			if (this.form.avatarSource !== 'skip') {
+				avatar = await this._ensurePersistedAvatar(say);
+				if (!avatar?.avatarId) {
+					throw new Error('Could not prepare your avatar — fix the Avatar step and retry, or choose “Skip — no 3D body”.');
+				}
+				if (avatar.imageUrl) {
+					this.form.imageUrl = avatar.imageUrl;
+					try { this._refreshPreview(); } catch { /* preview is best-effort */ }
+				}
+			}
+
+			const synthAgent = {
+				id: this._backendAgentId || 'wizard',
+				name: this.form.name,
+				description: this.form.description,
+				avatarId: avatar?.avatarId || undefined,
+			};
+
+			say(avatar ? 'Avatar saved — connecting Solana wallet…' : 'Connecting Solana wallet…');
+			setPhase('sign');
 			const result = await runSolanaDeploy({ agent: synthAgent, network });
 			setPhase('confirm');
 			say(`Minted asset ${result.assetPubkey}`);
@@ -1872,17 +2069,24 @@ export class RegisterUI {
 	 */
 	_avatarSummary() {
 		const s = this.form.avatarSource;
+		// On Solana, a source that still needs a row gets saved + rendered into a
+		// poster at deploy time — say so, so "✓ Avatar" doesn't imply it's already
+		// attached. (EVM pins its own registration JSON via a different path.)
+		const willSave = _isSolana(this.selectedChainId)
+			? ' <span class="erc8004-muted">· saved &amp; rendered on deploy</span>'
+			: '';
 		if (s === 'current' && this.form.glbUrl) {
-			return `Current session avatar — <code>${esc(this.form.glbUrl)}</code>`;
+			const saved = this._avatarId ? '' : willSave;
+			return `Current session avatar — <code>${esc(this.form.glbUrl)}</code>${saved}`;
 		}
 		if (s === 'saved' && this.form.savedAvatar) {
 			return `Saved: ${esc(this.form.savedAvatar.name)}`;
 		}
 		if (s === 'upload' && this.form.glbFile) {
-			return `Uploaded: ${esc(this.form.glbFile.name)} (${(this.form.glbFile.size / 1024).toFixed(1)} KB)`;
+			return `Uploaded: ${esc(this.form.glbFile.name)} (${(this.form.glbFile.size / 1024).toFixed(1)} KB)${willSave}`;
 		}
 		if (s === 'url' && this.form.pastedGlbUrl) {
-			return `URL: <code>${esc(this.form.pastedGlbUrl)}</code>`;
+			return `URL: <code>${esc(this.form.pastedGlbUrl)}</code>${willSave}`;
 		}
 		if (s === 'default' && this.form.defaultAvatarId) {
 			const def = getDefaultAvatar(this.form.defaultAvatarId);

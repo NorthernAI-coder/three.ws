@@ -18,7 +18,11 @@
 // so Vercel's NFT doesn't statically trace the chromium tree for every route
 // that transitively imports this module — that trace caused 45-min build hangs.
 import { env } from './env.js';
+import { fetchModel } from './fetch-model.js';
 import { PRESETS } from '../../src/pose-presets.js';
+
+// Cap on GLB bytes pulled into the renderer (OOM / render-budget guard).
+const DEFAULT_MAX_GLB_BYTES = 25 * 1024 * 1024;
 
 const DEFAULT_CHROMIUM_PACK =
 	'https://github.com/Sparticuz/chromium/releases/download/v148.0.0/chromium-v148.0.0-pack.x64.tar';
@@ -53,7 +57,7 @@ function poseById(id) {
 	return found ? { id: found.id, label: found.label, pose: found.pose } : null;
 }
 
-function viewerHtml({ glbUrl, width, height, background, pose, cameraOrbit, expression }) {
+function viewerHtml({ glbBase64, width, height, background, pose, cameraOrbit, expression }) {
 	const bg = background === 'transparent' ? 'null' : JSON.stringify(background || '#0a0a0a');
 	const poseJson = pose ? JSON.stringify(pose.pose) : 'null';
 	const orbitJson = JSON.stringify(cameraOrbit || { theta: 0, phi: 80, radius: null });
@@ -63,6 +67,7 @@ function viewerHtml({ glbUrl, width, height, background, pose, cameraOrbit, expr
 <style>html,body{margin:0;padding:0;background:transparent;overflow:hidden}</style>
 </head><body>
 <canvas id="c" width="${width}" height="${height}" style="display:block;width:${width}px;height:${height}px"></canvas>
+<script>window.__GLB_B64=${JSON.stringify(glbBase64)};</script>
 <script type="importmap">{ "imports": {
 	"three": "https://unpkg.com/three@${THREE_VERSION}/build/three.module.js",
 	"three/addons/": "https://unpkg.com/three@${THREE_VERSION}/examples/jsm/"
@@ -179,7 +184,10 @@ loader.setDRACOLoader(dracoLoader);
 loader.setKTX2Loader(ktx2Loader);
 loader.setMeshoptDecoder(MeshoptDecoder);
 
-loader.load(${JSON.stringify(glbUrl)}, (gltf) => {
+// GLB bytes are fetched server-side via the SSRF-pinned fetchModel path and
+// embedded as base64, so chromium never fetches the user-supplied URL (no
+// DNS-rebinding / redirect-to-internal SSRF).
+function onLoaded(gltf) {
 	try {
 		const root = gltf.scene;
 		scene.add(root);
@@ -194,9 +202,18 @@ loader.load(${JSON.stringify(glbUrl)}, (gltf) => {
 	} catch (err) {
 		window.__renderError = err.message || String(err);
 	}
-}, undefined, (err) => {
-	window.__renderError = 'glb load failed: ' + (err?.message || err);
-});
+}
+
+(async () => {
+	try {
+		const buf = await (await fetch('data:application/octet-stream;base64,' + window.__GLB_B64)).arrayBuffer();
+		loader.parse(buf, '', onLoaded, (err) => {
+			window.__renderError = 'glb parse failed: ' + (err?.message || err);
+		});
+	} catch (err) {
+		window.__renderError = 'glb decode failed: ' + (err?.message || String(err));
+	}
+})();
 </script></body></html>`;
 }
 
@@ -221,6 +238,7 @@ export async function renderClip({
 	posePresetId = null,
 	cameraOrbit = null,
 	expression = null,
+	maxBytes = DEFAULT_MAX_GLB_BYTES,
 } = {}) {
 	if (!glbUrl || typeof glbUrl !== 'string') {
 		throw Object.assign(new Error('glbUrl required'), { status: 400, code: 'invalid_args' });
@@ -228,11 +246,23 @@ export async function renderClip({
 	const W = Math.max(64, Math.min(2048, Number(width) || 1024));
 	const H = Math.max(64, Math.min(2048, Number(height) || 1024));
 	const pose = poseById(posePresetId);
+	// Pull the GLB through the SSRF-pinned fetcher (DNS-pinned per hop, redirects
+	// re-validated, byte cap enforced) so chromium never fetches the untrusted URL.
+	let glbBase64;
+	try {
+		const { bytes } = await fetchModel(glbUrl, { maxBytes });
+		glbBase64 = Buffer.from(bytes).toString('base64');
+	} catch (err) {
+		throw Object.assign(new Error(`glb fetch failed: ${err?.message || err}`), {
+			status: err?.code === 'file_too_large' ? 413 : 400,
+			code: err?.code || 'glb_fetch_failed',
+		});
+	}
 	const browser = await getBrowser();
 	const page = await browser.newPage();
 	try {
 		await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
-		const html = viewerHtml({ glbUrl, width: W, height: H, background, pose, cameraOrbit, expression });
+		const html = viewerHtml({ glbBase64, width: W, height: H, background, pose, cameraOrbit, expression });
 		await page.setContent(html, { waitUntil: 'domcontentloaded' });
 		await page.waitForFunction(
 			'window.__renderDone === true || window.__renderError !== null',
