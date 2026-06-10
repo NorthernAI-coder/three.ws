@@ -46,23 +46,6 @@ function rateCheck(ip) {
 	return { success: true, limit: RATE_LIMIT_MAX, remaining: RATE_LIMIT_MAX - arr.length, reset: now + RATE_LIMIT_WINDOW_MS };
 }
 
-async function preflightSize(url) {
-	try {
-		const r = await fetch(url, { method: 'HEAD' });
-		const lenHeader = r.headers.get('content-length');
-		if (!lenHeader) return { ok: true, size: null };
-		const size = Number(lenHeader);
-		if (Number.isFinite(size) && size > MAX_GLB_BYTES) {
-			return { ok: false, code: 'glb_too_large', size, limit: MAX_GLB_BYTES };
-		}
-		return { ok: true, size };
-	} catch {
-		// Origins that don't support HEAD will still be filtered by chromium's
-		// 15s render budget. Don't fail closed on a HEAD timeout.
-		return { ok: true, size: null };
-	}
-}
-
 export default wrap(async function handler(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
 	if (!method(req, res, ['POST'])) return;
@@ -82,10 +65,10 @@ export default wrap(async function handler(req, res) {
 
 	const glbUrl = typeof body.glbUrl === 'string' ? body.glbUrl.trim() : '';
 	if (!glbUrl) return error(res, 400, 'bad_request', 'glbUrl is required');
-	// DNS-resolving SSRF guard: rejects any host that resolves to a private,
-	// loopback, link-local, or cloud-metadata range. The headless chromium that
-	// loads this URL runs inside the function, so a naive prefix denylist (the
-	// previous check) was bypassable via DNS rebinding, 172.16/12, IPv6, etc.
+	// Fast, cheap rejection before booting chromium. The authoritative SSRF
+	// boundary is renderGlbToPng → fetchModel, which pins DNS per hop and
+	// re-validates every redirect; this pre-check just avoids the chromium spin-up
+	// for an obviously-private host. allowHttp mirrors the renderer's fetcher.
 	try {
 		await assertSafePublicUrl(glbUrl, { allowHttp: true });
 	} catch (e) {
@@ -97,14 +80,9 @@ export default wrap(async function handler(req, res) {
 	const height = Math.max(MIN_DIM, Math.min(MAX_DIM, Number(body.height) || 1024));
 	const background = body.background === 'transparent' ? 'transparent' : (typeof body.background === 'string' && body.background ? body.background : '#0a0a0a');
 
-	const pre = await preflightSize(glbUrl);
-	if (!pre.ok) {
-		return error(res, 413, pre.code, `GLB is ${pre.size} bytes; limit is ${pre.limit}`, { size: pre.size, limit: pre.limit });
-	}
-
 	let png;
 	try {
-		png = await renderGlbToPng({ glbUrl, width, height, background });
+		png = await renderGlbToPng({ glbUrl, width, height, background, maxBytes: MAX_GLB_BYTES });
 	} catch (err) {
 		const status = err?.status || 502;
 		return error(res, status, err?.code || 'render_failed', err?.message || 'render failed');

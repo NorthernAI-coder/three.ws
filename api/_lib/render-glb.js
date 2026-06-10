@@ -13,6 +13,11 @@
 // so Vercel's NFT doesn't statically trace the chromium tree for every route
 // that transitively imports this module — that trace caused 45-min build hangs.
 import { env } from './env.js';
+import { fetchModel } from './fetch-model.js';
+
+// Cap on GLB bytes pulled into the renderer. Anything larger risks OOM /
+// blowing the render budget; callers may tighten this via `maxBytes`.
+const DEFAULT_MAX_GLB_BYTES = 25 * 1024 * 1024;
 
 // The "-min" build of @sparticuz/chromium ships without the chromium binary
 // to keep the function bundle small. The binary is downloaded on first use
@@ -58,13 +63,14 @@ async function getBrowser() {
 // Inline viewer HTML — bundled into the function so the renderer needs no
 // extra static assets. three.js + GLTFLoader load from unpkg pinned to the
 // installed version. window.__renderDone signals readiness to puppeteer.
-function viewerHtml({ glbUrl, width, height, background }) {
+function viewerHtml({ glbBase64, width, height, background }) {
 	const bg = background === 'transparent' ? 'null' : JSON.stringify(background || '#0a0a0a');
 	return `<!doctype html>
 <html><head><meta charset="utf-8" />
 <style>html,body{margin:0;padding:0;background:transparent;overflow:hidden}</style>
 </head><body>
 <canvas id="c" width="${width}" height="${height}" style="display:block;width:${width}px;height:${height}px"></canvas>
+<script>window.__GLB_B64=${JSON.stringify(glbBase64)};</script>
 <script type="importmap">{ "imports": {
 	"three": "https://unpkg.com/three@${THREE_VERSION}/build/three.module.js",
 	"three/addons/": "https://unpkg.com/three@${THREE_VERSION}/examples/jsm/"
@@ -114,7 +120,10 @@ loader.setDRACOLoader(dracoLoader);
 loader.setKTX2Loader(ktx2Loader);
 loader.setMeshoptDecoder(MeshoptDecoder);
 
-loader.load(${JSON.stringify(glbUrl)}, (gltf) => {
+// The GLB bytes are fetched server-side through the SSRF-pinned fetchModel
+// path and embedded here as base64, so chromium never makes a network
+// request for the user-supplied URL (no DNS-rebinding / redirect SSRF).
+function onLoaded(gltf) {
 	try {
 		const root = gltf.scene;
 		scene.add(root);
@@ -140,9 +149,18 @@ loader.load(${JSON.stringify(glbUrl)}, (gltf) => {
 	} catch (err) {
 		window.__renderError = err.message || String(err);
 	}
-}, undefined, (err) => {
-	window.__renderError = 'glb load failed: ' + (err?.message || err);
-});
+}
+
+(async () => {
+	try {
+		const buf = await (await fetch('data:application/octet-stream;base64,' + window.__GLB_B64)).arrayBuffer();
+		loader.parse(buf, '', onLoaded, (err) => {
+			window.__renderError = 'glb parse failed: ' + (err?.message || err);
+		});
+	} catch (err) {
+		window.__renderError = 'glb decode failed: ' + (err?.message || String(err));
+	}
+})();
 </script></body></html>`;
 }
 
@@ -156,15 +174,29 @@ loader.load(${JSON.stringify(glbUrl)}, (gltf) => {
  * @param {string} [opts.background='#0a0a0a'] - 'transparent' or hex color
  * @returns {Promise<Buffer>} PNG buffer
  */
-export async function renderGlbToPng({ glbUrl, width = 1200, height = 630, background = '#0a0a0a' } = {}) {
+export async function renderGlbToPng({ glbUrl, width = 1200, height = 630, background = '#0a0a0a', maxBytes = DEFAULT_MAX_GLB_BYTES } = {}) {
 	if (!glbUrl || typeof glbUrl !== 'string') {
 		throw Object.assign(new Error('glbUrl required'), { status: 400, code: 'invalid_args' });
+	}
+	// Pull the GLB through the SSRF-pinned fetcher (DNS-pinned per hop, redirects
+	// re-validated, byte cap enforced during download) so chromium never fetches
+	// the untrusted URL itself. This is the single boundary where the user URL
+	// touches the network — defeating DNS-rebinding and redirect-to-internal SSRF.
+	let glbBase64;
+	try {
+		const { bytes } = await fetchModel(glbUrl, { maxBytes });
+		glbBase64 = Buffer.from(bytes).toString('base64');
+	} catch (err) {
+		throw Object.assign(new Error(`glb fetch failed: ${err?.message || err}`), {
+			status: err?.code === 'file_too_large' ? 413 : 400,
+			code: err?.code || 'glb_fetch_failed',
+		});
 	}
 	const browser = await getBrowser();
 	const page = await browser.newPage();
 	try {
 		await page.setViewport({ width, height, deviceScaleFactor: 1 });
-		const html = viewerHtml({ glbUrl, width, height, background });
+		const html = viewerHtml({ glbBase64, width, height, background });
 		// data: URL avoids needing a network fetch for the bootstrap page itself.
 		// importmap dependencies (three, GLTFLoader) still come from unpkg.
 		await page.setContent(html, { waitUntil: 'domcontentloaded' });

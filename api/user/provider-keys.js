@@ -5,6 +5,7 @@
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { cors, json, error, wrap, method, readJson } from '../_lib/http.js';
 import { encryptProviderKey, BYOK_PROVIDERS } from '../_lib/provider-keys.js';
 import { z } from 'zod';
@@ -34,7 +35,10 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { keys: status });
 	}
 
-	// PATCH
+	// PATCH — state-changing write of sensitive provider credentials; require a
+	// CSRF token bound to the session, matching the other session-auth writers.
+	if (!(await requireCsrf(req, res, session.id))) return;
+
 	const body = parse(patchSchema, await readJson(req));
 
 	const [row] = await sql`SELECT provider_keys FROM users WHERE id = ${session.id}`;

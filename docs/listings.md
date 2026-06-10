@@ -35,6 +35,7 @@ Dappbay is BNB Chain's official dApp directory. The listing is about distributio
 
 | Partner | Status | Links |
 |---|---|---|
+| **IBM Community** | Live | [Embodied, Intelligent, and Self-Custodied: three.ws and the 3D AI Agent Stack](https://community.ibm.com/community/user/blogs/nich8/2026/06/08/3d-ai-web3-just-converge-threews-shipped-the-whole) — IBM Community blog covering the convergence of 3D, AI agents, and web3 in the three.ws stack. |
 | **HackerNoon** | Live | [hackernoon.com/u/three-ws](https://hackernoon.com/u/three-ws) — three.ws posts auto-import from the RSS feed. Announcement: [three.ws Partners with HackerNoon](/news/partnered-with-hackernoon) |
 | **Alibaba Cloud Marketplace Blog** | Live | [Editorial feature](https://marketplace.alibabacloud.com/doc/blog/detail/mplace-sgcmfw00036800.html) — Alibaba Cloud Marketplace published an editorial introducing three.ws. Announcement: [three.ws Featured on the Alibaba Cloud Marketplace Blog](/blog/three-ws-featured-on-alibaba-cloud-marketplace-blog) |
 

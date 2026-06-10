@@ -49,6 +49,31 @@ import { SOLANA_USDC_MINT, SOLANA_USDC_MINT_DEVNET } from '../payments/_config.j
 import { chargeSubscription, failPayment } from '../_lib/subscription-billing.js';
 import { sendEmail } from '../_lib/email.js';
 import { fetchSafePublicUrl } from '../_lib/ssrf-guard.js';
+import { constantTimeEquals } from '../_lib/crypto.js';
+
+// ─── Cron auth ───────────────────────────────────────────────────────────────
+//
+// Every cron handler is privileged (some move funds). Vercel's scheduler always
+// sends `Authorization: Bearer $CRON_SECRET` on its invocations, so we require a
+// valid secret UNCONDITIONALLY and compare it constant-time. The presence of the
+// `x-vercel-cron` header is NOT trusted as authorization on its own — an inbound
+// request header is spoofable if it ever reaches the function unstripped, and
+// must never be allowed to skip the secret. Returns true on success; on failure
+// it writes the response and returns false (caller must `return`).
+function requireCron(req, res) {
+	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
+	if (!secret) {
+		error(res, 503, 'not_configured', 'CRON_SECRET unset');
+		return false;
+	}
+	const auth = req.headers['authorization'] || '';
+	const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+	if (!constantTimeEquals(token, secret)) {
+		error(res, 401, 'unauthorized', 'cron secret required');
+		return false;
+	}
+	return true;
+}
 
 // ─── Dispatcher ──────────────────────────────────────────────────────────────
 
@@ -120,12 +145,7 @@ const CRAWL_BUDGET_MS = 240_000;
 async function handleErc8004Crawl(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const crawlStart = Date.now();
 	const report = { chains: [], enriched: 0, errors: [] };
@@ -450,12 +470,7 @@ function idxRpcUrls(chainId) {
 async function handleIndexDelegations(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const started = Date.now();
 	const report = { chains: [], expiredSwept: 0, errors: [] };
@@ -748,13 +763,7 @@ async function handlePumpAgentStats(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
 
-	const auth = req.headers.authorization || '';
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron) {
-		if (!env.CRON_SECRET) return error(res, 503, 'not_configured', 'CRON_SECRET unset');
-		if (auth !== `Bearer ${env.CRON_SECRET}`)
-			return error(res, 401, 'unauthorized', 'cron auth required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const mints = await sql`
 		select id, mint, network from pump_agent_mints
@@ -993,12 +1002,7 @@ const WHALE_TRADE_USD_FLOOR = 1_000;
 async function handlePumpfunMonitor(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	// Heartbeat + per-user alert evaluation run on every tick regardless of
 	// attester provisioning, so /api/healthz reports real bot status and the
@@ -1293,12 +1297,7 @@ const SIGNAL_WEIGHT = {
 async function handlePumpfunSignals(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	if (!pumpfunBotEnabled()) {
 		return json(res, 200, { skipped: 'pumpfun bot not configured' });
@@ -1440,11 +1439,7 @@ async function handleRunBuyback(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
 
-	const auth = req.headers.authorization || '';
-	if (!env.CRON_SECRET) return error(res, 503, 'not_configured', 'CRON_SECRET unset');
-	if (auth !== `Bearer ${env.CRON_SECRET}`) {
-		return error(res, 401, 'unauthorized', 'cron auth required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const relayer = await buybackLoadRelayer();
 
@@ -1867,13 +1862,7 @@ async function dcaOnPeriod(strategy) {
 
 async function handleRunDca(req, res) {
 	// Vercel cron passes Authorization: Bearer $CRON_SECRET
-	const cronSecret = env.CRON_SECRET;
-	if (cronSecret) {
-		const auth = req.headers.authorization || '';
-		if (auth !== `Bearer ${cronSecret}`) {
-			return error(res, 401, 'unauthorized', 'invalid cron secret');
-		}
-	}
+	if (!requireCron(req, res)) return;
 
 	const runId = globalThis.crypto?.randomUUID?.() ?? `run_${Date.now()}`;
 	dcaLog('info', 'tick_start', { run_id: runId });
@@ -2054,13 +2043,8 @@ async function handleRunDistributePayments(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
 
-	// Auth: cron secret OR admin bearer.
-	const auth = req.headers.authorization || '';
-	const cronSecret = env.CRON_SECRET;
-	if (!cronSecret) return error(res, 503, 'not_configured', 'CRON_SECRET unset');
-	if (auth !== `Bearer ${cronSecret}`) {
-		return error(res, 401, 'unauthorized', 'cron auth required');
-	}
+	// Auth: Vercel cron secret (constant-time, unconditional).
+	if (!requireCron(req, res)) return;
 
 	// Pick mints to consider: those with confirmed payments since last
 	// distribute run, or never run before.
@@ -2238,20 +2222,13 @@ function subWithTimeout(promise, ms, label) {
 async function handleRunSubscriptions(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	// Auth: Vercel Cron header OR explicit Bearer $CRON_SECRET.
-	// If neither is configured AND no Vercel cron header is present, reject.
-	const auth = req.headers['authorization'] ?? '';
-	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
-	const fromVercelCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromVercelCron) {
-		if (!expected || auth !== expected) {
-			return error(res, 401, 'unauthorized', 'cron secret required');
-		}
-	}
+	// Auth: Vercel cron secret (constant-time, unconditional — the scheduler
+	// always sends Authorization: Bearer $CRON_SECRET).
+	if (!requireCron(req, res)) return;
 
 	const runId = `sub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 	const runStart = Date.now();
-	subLog('subscription_cron.start', { runId, fromVercelCron });
+	subLog('subscription_cron.start', { runId });
 
 	const origin = env.APP_ORIGIN;
 	const relayerToken = env.CRON_SECRET ?? '';
@@ -2523,12 +2500,7 @@ const STALE_AFTER_SECS = 60 * 60; // 1 hour
 async function handleSolanaAttestEventCleanup(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const result = await sql`
 		delete from solana_attest_event_claims
@@ -2553,12 +2525,7 @@ const SOL_ATTEST_PER_RUN_MAX = 50; // bound RPC fan-out per cron tick
 async function handleSolanaAttestationsCrawl(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	// Pull Solana agents, oldest-cursor first.
 	const agents = await sql`
@@ -2601,12 +2568,7 @@ async function handleSolanaAttestationsCrawl(req, res) {
 async function handleProcessSubscriptions(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const cronSecret = env.CRON_SECRET;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const runId = `psub-${Date.now()}`;
 	const report = {
@@ -2726,12 +2688,7 @@ async function handleProcessSubscriptions(req, res) {
 async function handleSettleRoyalties(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const cronSecret = env.CRON_SECRET;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const { settleAllPendingRoyalties } = await import('../_lib/royalty.js');
 	const report = await settleAllPendingRoyalties();
@@ -2747,12 +2704,7 @@ const AUDIT_LOG_RETENTION_DAYS = 365;
 async function handleAuditLogCleanup(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const cronSecret = env.CRON_SECRET;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const result = await sql`
 		delete from audit_log
@@ -2770,12 +2722,7 @@ async function handleAuditLogCleanup(req, res) {
 
 async function handleExpirePendingPurchases(req, res) {
 	if (!method(req, res, ['GET'])) return;
-	const auth = req.headers['authorization'] || '';
-	const cronSecret = env.CRON_SECRET;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 	const result = await sql`
 		UPDATE skill_purchases
 		SET status = 'expired', updated_at = now()
@@ -2791,12 +2738,7 @@ async function handleExpirePendingPurchases(req, res) {
 
 async function handleCleanupCsrfTokens(req, res) {
 	if (!method(req, res, ['GET'])) return;
-	const auth = req.headers['authorization'] || '';
-	const cronSecret = env.CRON_SECRET;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 	const result = await sql`DELETE FROM csrf_tokens WHERE expires_at < now() RETURNING token`;
 	return json(res, 200, { deleted: result.length });
 }
@@ -2811,12 +2753,7 @@ async function handleCleanupCsrfTokens(req, res) {
 async function handleSiwxGc(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const { pruneOldNonces, pruneExpiredPayments } = await import('../_lib/siwx-storage.js');
 
@@ -2846,12 +2783,7 @@ const WITHDRAWALS_BATCH = 20;
 async function handleProcessWithdrawals(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 
-	const auth = req.headers['authorization'] || '';
-	const cronSecret = env.CRON_SECRET;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && cronSecret && auth !== `Bearer ${cronSecret}`) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const treasuryKeypair = process.env.TREASURY_KEYPAIR || process.env.PLATFORM_TREASURY_KEYPAIR;
 	const evmTreasuryKey = process.env.EVM_TREASURY_PRIVATE_KEY;
@@ -3020,12 +2952,7 @@ async function handleProcessWithdrawals(req, res) {
 
 async function handleRunXScheduledPosts(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
-	const auth = req.headers['authorization'] || '';
-	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const { publishTweet, XPostError } = await import('../_lib/x-post.js');
 
@@ -3088,12 +3015,7 @@ const SOL_USD_FALLBACK = 150;
 
 async function handleRunXTriggers(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
-	const auth = req.headers['authorization'] || '';
-	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const started = Date.now();
 	let rows;
@@ -3395,12 +3317,7 @@ async function evalPaymentReceived(t) {
 
 async function handleFetchXMetrics(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
-	const auth = req.headers['authorization'] || '';
-	const expected = env.CRON_SECRET ? `Bearer ${env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const { decryptToken } = await import('../auth/x/[action].js');
 
@@ -3482,12 +3399,7 @@ async function handleRunCoinCycle(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	// Demo gate: cron is wired in vercel.json but stays a no-op until the
 	// operator opts in by setting COIN_DEMO_ENABLED=true in env. Until then
@@ -3585,12 +3497,7 @@ async function handleRunCoinPayouts(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	// Demo gate — see handleRunCoinCycle. Until COIN_DEMO_ENABLED=true is set,
 	// the payout drainer cannot fire even if rows are pending.
@@ -3622,12 +3529,7 @@ async function handleClubPayouts(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	const { runClubPayoutSweep, expireStaleClaims } = await import('../_lib/club/sweep.js');
 
@@ -3651,12 +3553,7 @@ async function handleUnstoppableTick(req, res) {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
 
-	const auth = req.headers['authorization'] || '';
-	const expected = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-	const fromCron = req.headers['x-vercel-cron'] === '1';
-	if (!fromCron && (!expected || auth !== expected)) {
-		return error(res, 401, 'unauthorized', 'cron secret required');
-	}
+	if (!requireCron(req, res)) return;
 
 	try {
 		const { tick } = await import('../../agents/unstoppable/src/loop.js');

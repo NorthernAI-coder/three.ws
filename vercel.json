@@ -70,6 +70,15 @@
 	},
 	"routes": [
 		{
+			"src": "/(.*)",
+			"headers": {
+				"strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+				"x-content-type-options": "nosniff",
+				"referrer-policy": "strict-origin-when-cross-origin"
+			},
+			"continue": true
+		},
+		{
 			"src": "/(login|register|forgot-password|reset-password|account|settings|wallet|pay|paywall|vanity-wallet|eth-vanity|evm-wallet|dashboard|dashboard-next|dashboard-classic)(/.*)?$",
 			"headers": {
 				"content-security-policy": "frame-ancestors 'self'",

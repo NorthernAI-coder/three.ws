@@ -80,6 +80,19 @@ export default wrap(async (req, res) => {
 		}
 		recipient = cfg.defaultRecipient;
 	} else {
+		// Sending to a client-supplied address that isn't the configured default is
+		// the drain vector: without a gate, anyone (rotating IPs past the per-IP
+		// limit) can repeatedly pay themselves up to the per-send cap until the
+		// wallet is empty. Require the demo-token gate to be configured before
+		// honoring an arbitrary `to`; otherwise the wallet can only pay its default.
+		if (body.to && body.to !== cfg.defaultRecipient && !cfg.demoToken) {
+			return error(
+				res,
+				403,
+				'recipient_not_allowed',
+				'sends to arbitrary recipients require AVATAR_DEMO_TOKEN; otherwise set AVATAR_LOCK_RECIPIENT to pin payouts to AVATAR_DEFAULT_RECIPIENT',
+			);
+		}
 		recipient = body.to || cfg.defaultRecipient;
 	}
 	if (!recipient) {

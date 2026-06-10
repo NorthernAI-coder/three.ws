@@ -731,6 +731,21 @@ async function handleRedeem(req, res) {
 	`;
 	if (!row) return error(res, 404, 'delegation_not_found', 'delegation not found');
 
+	// Ownership binding: the bearer principal must own the agent this delegation
+	// belongs to. Without this, any token carrying the `permissions:redeem` scope
+	// could force redemption of ANY delegation by id (enumerating UUIDs) — spending
+	// the platform relayer's gas and triggering transfers the delegator didn't
+	// initiate. Mirror the owner gate used by the grant path.
+	const [owner] = await sql`
+		SELECT user_id FROM agent_identities
+		WHERE id = ${row.agent_id} AND deleted_at IS NULL
+		LIMIT 1
+	`;
+	if (!owner || owner.user_id !== bearer.userId) {
+		// 404 (not 403) so a caller can't probe which delegation ids exist.
+		return error(res, 404, 'delegation_not_found', 'delegation not found');
+	}
+
 	// Check status
 	if (row.status === 'revoked') {
 		return error(res, 409, 'delegation_revoked', 'delegation has been revoked');

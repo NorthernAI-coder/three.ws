@@ -472,7 +472,7 @@ function render(agent) {
 	if (voiceProvider && voiceProvider !== 'browser') {
 		document.getElementById('ad-voice-row').style.display = '';
 		document.getElementById('ad-voice').innerHTML =
-			`<span class="ad-pill ad-pill-green">cloned · ${voiceProvider}</span>`;
+			`<span class="ad-pill ad-pill-green">cloned · ${escapeText(voiceProvider)}</span>`;
 	} else if (voiceProvider === 'browser') {
 		document.getElementById('ad-voice-row').style.display = '';
 		document.getElementById('ad-voice').textContent = 'browser TTS';
@@ -911,8 +911,16 @@ function buildReviewItem(r, agentId, onRefresh) {
 	return item;
 }
 
+// HTML-escape untrusted text before interpolating it into an innerHTML string.
+// Covers the five significant characters so attacker-controlled values (URL
+// params, on-chain metadata, API fields) can't break out into markup.
 function escapeText(s) {
-	return String(s == null ? '' : s);
+	return String(s == null ? '' : s)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
 }
 
 function fmtRelTime(iso) {
@@ -1396,7 +1404,7 @@ function renderNotFound(id, reason) {
 		<div style="padding:60px 24px;text-align:center;">
 			<h1 style="margin:0 0 8px;font-size:22px;font-weight:600;">Agent not found</h1>
 			<p style="color:rgba(231,233,238,0.55);font-size:14px;margin:0 0 22px;">
-				${reason || 'No agent registered with id'} <code style="font-family:ui-monospace,monospace;color:#e7e9ee;">${id || '(none)'}</code>.
+				${escapeText(reason || 'No agent registered with id')} <code style="font-family:ui-monospace,monospace;color:#e7e9ee;">${escapeText(id || '(none)')}</code>.
 			</p>
 			<a class="ad-cta" style="display:inline-block;padding:10px 22px;" href="/agents">← Back to Registry</a>
 		</div>

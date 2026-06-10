@@ -1,8 +1,11 @@
 import { neon } from '@neondatabase/serverless';
 
-const sql = neon(
-	'postgresql://neondb_owner:npg_4nWXZhq2Hjse@ep-rapid-surf-ak9p7occ-pooler.c-3.us-west-2.aws.neon.tech/neondb?channel_binding=require&sslmode=require',
-);
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+	console.error('Set DATABASE_URL to your Neon connection string before running.');
+	process.exit(1);
+}
+const sql = neon(DATABASE_URL);
 
 const [user] = await sql`
 	INSERT INTO users (email, display_name, email_verified)
