@@ -1,6 +1,6 @@
 import { hasScope } from '../_lib/auth.js';
 import { recordEvent, logger } from '../_lib/usage.js';
-import { priceFor, findActiveSubscription, resolveBillingMint } from '../_lib/pump-pricing.js';
+import { priceFor, findActiveSubscription, resolveBillingMint, x402AmountForTool } from '../_lib/pump-pricing.js';
 import { declareMcpDiscovery } from '../_lib/x402/bazaar-helpers.js';
 import { sanitizeToolError } from '../_lib/mcp-error-sanitize.js';
 import { TOOL_CATALOG, TOOLS } from './catalog.js';
@@ -155,6 +155,9 @@ async function onToolCall(params, auth, started, req) {
 				network: process.env.PUMP_DEFAULT_NETWORK || 'mainnet',
 				payerWallet,
 				toolName: name,
+				// Only a subscription that paid at least this tool's advertised
+				// price counts — a confirmed-but-underpaid invoice must not unlock it.
+				minAmountAtomics: x402AmountForTool(name) || '0',
 			});
 			if (!sub) {
 				throw rpcError(-32402, 'payment required for this tool', {

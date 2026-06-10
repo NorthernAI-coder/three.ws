@@ -378,10 +378,12 @@ export const priorityOrder = [
 	},
 	{
 		exactly: [
-			'claude-3-7-sonnet-20250219',
-			'claude-3-5-sonnet-20241022',
-			'claude-3-5-haiku-20241022',
-			'claude-3-opus-20240229',
+			'claude-fable-5',
+			'claude-mythos-5',
+			'claude-opus-4-7',
+			'claude-opus-4-6',
+			'claude-sonnet-4-6',
+			'claude-haiku-4-5-20251001',
 		],
 	},
 	{ exactly: ['deepseek/deepseek-r1', 'deepseek/deepseek-chat'] },

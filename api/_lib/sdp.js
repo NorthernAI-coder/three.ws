@@ -180,31 +180,32 @@ export function sdpCreateWallet(payload, idempotencyKey) {
 	});
 }
 
-export function sdpListIssuances(query) {
-	return sdpCall('v1/issuance', { query });
+export function sdpListTokens(query) {
+	return sdpCall('v1/issuance/tokens', { query });
 }
 
-export function sdpCreateIssuance(payload, idempotencyKey) {
-	return sdpCall('v1/issuance', {
+export function sdpCreateToken(payload, idempotencyKey) {
+	return sdpCall('v1/issuance/tokens', {
 		method: 'POST',
 		body: payload,
 		headers: idempotencyKey ? { 'idempotency-key': idempotencyKey } : {},
 	});
 }
 
-export function sdpListPayments(query) {
-	return sdpCall('v1/payments', { query });
+export function sdpListTransfers(query) {
+	return sdpCall('v1/payments/transfers', { query });
 }
 
-export function sdpCreatePayment(payload, idempotencyKey) {
-	return sdpCall('v1/payments', {
+export function sdpCreateTransfer(payload, idempotencyKey) {
+	return sdpCall('v1/payments/transfers', {
 		method: 'POST',
 		body: payload,
 		headers: idempotencyKey ? { 'idempotency-key': idempotencyKey } : {},
 	});
 }
 
-// Screen an address or transaction against the SDP compliance providers.
-export function sdpScreenCompliance(payload) {
-	return sdpCall('v1/compliance/screen', { method: 'POST', body: payload });
+// Screen a Solana address against the SDP compliance providers.
+// payload: { address, network?, intent? }.
+export function sdpScreenAddress(payload) {
+	return sdpCall('v1/compliance/address-screenings', { method: 'POST', body: payload });
 }

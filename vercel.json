@@ -74,14 +74,15 @@
 			"headers": {
 				"strict-transport-security": "max-age=63072000; includeSubDomains; preload",
 				"x-content-type-options": "nosniff",
-				"referrer-policy": "strict-origin-when-cross-origin"
+				"referrer-policy": "strict-origin-when-cross-origin",
+				"content-security-policy": "base-uri 'self'; object-src 'none'"
 			},
 			"continue": true
 		},
 		{
 			"src": "/(login|register|forgot-password|reset-password|account|settings|wallet|pay|paywall|vanity-wallet|eth-vanity|evm-wallet|dashboard|dashboard-next|dashboard-classic)(/.*)?$",
 			"headers": {
-				"content-security-policy": "frame-ancestors 'self'",
+				"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
 				"x-frame-options": "SAMEORIGIN"
 			},
 			"continue": true
@@ -499,6 +500,10 @@
 			"dest": "/bulk-launch.html"
 		},
 		{
+			"src": "/admin/sdp/?",
+			"dest": "/admin/sdp.html"
+		},
+		{
 			"src": "/pump-dashboard/?",
 			"dest": "/pump-dashboard.html"
 		},
@@ -579,7 +584,7 @@
 		{
 			"src": "/walk-embed/?",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"cross-origin-resource-policy": "cross-origin"
@@ -696,7 +701,7 @@
 		{
 			"src": "/embed/avatar",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*",
@@ -707,7 +712,7 @@
 		{
 			"src": "/embed/avatar/([a-z0-9_-]{3,30})",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*",
@@ -742,7 +747,7 @@
 		{
 			"src": "/widget",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*, autoplay=*",
@@ -753,7 +758,7 @@
 		{
 			"src": "/widget/",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*, autoplay=*",
@@ -764,7 +769,7 @@
 		{
 			"src": "/widget\\.html$",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*, autoplay=*",
@@ -1915,7 +1920,7 @@
 		{
 			"src": "/agent/([^/]+)/embed",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*",
@@ -2851,7 +2856,7 @@
 		{
 			"src": "/a/(\\d+)/(\\d+)/embed",
 			"headers": {
-				"content-security-policy": "frame-ancestors *",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*"

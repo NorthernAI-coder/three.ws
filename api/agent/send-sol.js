@@ -125,6 +125,15 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'amount_too_small', 'amount rounds to zero lamports');
 	}
 
+	// Wallet-wide daily payout ceiling (defense in depth on top of the per-send
+	// cap + per-IP limit): bounds total outflow if the demo token leaks or a
+	// caller rotates IPs. Keyed on the wallet pubkey so it's a single shared
+	// budget. Checked here — after all validation — so failed requests don't burn it.
+	const daily = await limits.avatarPayoutDaily(cfg.address);
+	if (!daily.success) {
+		return rateLimited(res, daily, 'avatar wallet has hit its daily payout limit, try again later');
+	}
+
 	const connection = getConnection(cfg.rpcUrl);
 	const keypair = loadAvatarKeypair(process.env.AVATAR_WALLET_SECRET);
 
