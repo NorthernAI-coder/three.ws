@@ -55,6 +55,14 @@
 			<description>$THREE market stats (price, holders, liquidity) are flowing again from our primary data source — a missing request header had been silently failing it to backups for days. Live trade streams no longer cut out after 30 seconds; they now run their full duration. The Pay-As-You-Learn Tutor no longer errors when resuming a session — running tabs persist correctly across questions — and Fact Checker results are cached properly so repeat checks of the same claim return instantly.</description>
 		</item>
 		<item>
+			<title>MetaMask Agent Wallet skills for every agent</title>
+			<link>https://three.ws/skills</link>
+			<guid isPermaLink="false">2026-06-11:MetaMask Agent Wallet skills for every agent</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Two new skills in the marketplace under the new Wallet category: MetaMask Agent Wallet and MetaMask Agent Workflows. Install them on any agent to let it check balances, transfer tokens, swap, bridge across chains, trade perps and prediction markets, and manage Aave positions through MetaMask's mm CLI — each user signs in with their own MetaMask Agent Wallet, so keys stay with you, never with three.ws. Platform chat agents pick the skills up automatically.</description>
+		</item>
+		<item>
 			<title>Scheduled jobs restored after dependency outage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Scheduled jobs restored after dependency outage</guid>
