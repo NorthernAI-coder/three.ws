@@ -11,7 +11,6 @@ import {
 	resolveAvatarUrl,
 	stripOwnerFor,
 } from '../_lib/avatars.js';
-import { bakeAndUploadAppearance, isBakeable } from '../_lib/bake.js';
 import { sql } from '../_lib/db.js';
 import { logAudit } from '../_lib/audit.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
@@ -154,6 +153,10 @@ export default wrap(async (req, res) => {
 		// baked GLB so the base is served again.
 		if (appearanceChanged) {
 			try {
+				// Lazy import: bake.js pulls in sharp (native libvips). Loading it
+				// only on the appearance-change path keeps GET/DELETE alive even if
+				// the native module fails to load in this runtime.
+				const { bakeAndUploadAppearance, isBakeable } = await import('../_lib/bake.js');
 				if (isBakeable(patch.appearance)) {
 					const result = await bakeAndUploadAppearance({
 						baseStorageKey: avatar.storage_key,

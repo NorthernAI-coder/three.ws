@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Avatar pages back online after image-engine outage</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-11:Avatar pages back online after image-engine outage</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fetching an individual avatar was failing with a server error, which also broke the walking avatar on the home page. The image-processing engine the avatar dress-up baker relies on failed to load in production and took the whole endpoint down with it. Avatar lookups now load independently of the baker, and the missing image libraries ship with the deployment, so avatar pages and the home hero are back.</description>
+		</item>
+		<item>
 			<title>Faster, quieter agents directory and site-wide page polish</title>
 			<link>https://three.ws/agents</link>
 			<guid isPermaLink="false">2026-06-11:Faster, quieter agents directory and site-wide page polish</guid>

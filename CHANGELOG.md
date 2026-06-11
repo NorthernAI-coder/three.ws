@@ -6,6 +6,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 ## 2026-06-11
 
+- **Avatar pages back online after image-engine outage** — Fetching an individual avatar was failing with a server error, which also broke the walking avatar on the home page. The image-processing engine the avatar dress-up baker relies on failed to load in production and took the whole endpoint down with it. Avatar lookups now load independently of the baker, and the missing image libraries ship with the deployment, so avatar pages and the home hero are back. `[fix, infra]`
 - **Faster, quieter agents directory and site-wide page polish** — The on-chain agents directory now loads from our server-side index instead of contacting every agent's metadata host from your browser — pages render faster and no longer spray network errors. Also: the pump.fun cockpit's sidebar pages are now shareable deep links, mobile nav and footer links meet touch-target guidelines, anonymous visitors no longer trigger failed sign-in requests on Walk and Create, and assorted dead links were removed. (`/agents`) `[improvement, fix]`
 - **Text-to-3D and image-to-3D generation restored** — Fixed two provider regressions that blocked Forge generation: model submissions now pin the latest published model version automatically, and the text-to-image step falls back to a healthy provider instead of failing when the preferred one is misconfigured. (`/forge`) `[fix]`
 
