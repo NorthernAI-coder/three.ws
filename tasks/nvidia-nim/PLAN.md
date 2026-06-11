@@ -49,7 +49,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 - [ ] **T2.2** [21-tts-verify.md](21-tts-verify.md) — every speech surface verified in prod + changelog
 
 ### Phase 3 — Widget RAG back online
-- [ ] **T3.1** [30-embeddings-multiprovider.md](30-embeddings-multiprovider.md) — multi-provider embeddings, vector-space tagging
+- [x] **T3.1** [30-embeddings-multiprovider.md](30-embeddings-multiprovider.md) — multi-provider embeddings, vector-space tagging (NIM free primary, OpenAI backstop, per-doc-set tag; same-space query routing + cross-space refusal; 47 tests green — see Worklog 2026-06-11)
 - [ ] **T3.2** [31-reembed-migration.md](31-reembed-migration.md) — re-embed migration script + run (+ optional reranker)
 - [ ] **T3.3** [32-rag-verify.md](32-rag-verify.md) — RAG verified end-to-end in prod + changelog
 
@@ -100,6 +100,44 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T3.1 (multi-provider embeddings + vector-space tagging) — DONE,
+  audited & tests green.** Widget RAG was silently broken (OpenAI-only embedder, prod key
+  over quota); the retrieval lane is now free-first via NIM and, critically, can never mix
+  vector spaces. **`api/_lib/embeddings.js`** is a zero-dep multi-provider module: a frozen
+  `EMBEDDERS` registry keyed by tag (`<model>@<dim>`) — `nvidia/nv-embedqa-e5-v5@1024`
+  (free, default) and `text-embedding-3-small@256` (paid backstop, and the
+  `LEGACY_EMBED_TAG` every pre-tagging row lives in). Provider choice is **per document
+  set, not per call**: `defaultIngestEmbedderTag()` picks the free NIM lane when its key is
+  present (OpenAI otherwise), the chosen tag is stamped on the doc + every chunk at ingest,
+  and `scoreRowsBySpace()` groups stored rows by tag, embeds the query **once per servable
+  space** (`input_type:query` vs `passage` — NIM's asymmetric models require it; OpenAI
+  ignores it), and runs cosine strictly within each space. Rows whose space no configured
+  provider can serve are returned in `needsReembed` — reported, never silently compared.
+  `cosine()` scores mismatched dimensions as 0 (different dim ⇒ different space, no
+  shared-prefix garbage). `embeddingsConfigured()` is true iff at least one provider can
+  actually serve, so feature gates stay truthful. **Schema change** (the SoT addition):
+  migration `api/_lib/migrations/2026-06-11-knowledge-embedder-tag.sql` adds an `embedder
+  text` column to BOTH `widget_knowledge_docs` and `widget_knowledge_chunks`
+  (`add column if not exists`, idempotent) and backfills every existing row to
+  `text-embedding-3-small@256` — encoding the "untagged legacy rows are OpenAI" assumption
+  explicitly in the migration default; `schema.sql` carries the same column + alter-guards
+  for fresh installs (lines 613/647). **Consumers** (`api/widgets/[id]/_knowledge.js`):
+  `ingestKnowledge` stamps `defaultIngestEmbedderTag()` on the doc + chunks; `testRetrieval`
+  routes via `scoreRowsBySpace` and 503s with an actionable `needs_reembed` message when no
+  stored space is servable; `processQueuedDoc` re-resolves the embedder at worker time
+  (keeps the queued tag if still servable, else re-embeds with the current default — safe
+  because partial chunks are wiped first). Optional free NIM reranker
+  (`api/_lib/rerank.js`, fail-open behind `KNOWLEDGE_RERANK_ENABLED=1`) sits behind cosine.
+  **Tests:** `tests/api/embeddings.test.js` + `tests/api/widget-knowledge-embedder.test.js`
+  + `tests/api/embed-policy.test.js` — **47 green**, covering the four mandated scenarios:
+  tagging on ingest, same-space query routing, cross-space refusal (`needsReembed`/503),
+  and fallback (free-first selection, worker re-resolve, no-provider 503). **State note:**
+  the code/migration/tests were landed by the concurrent coordinator session (committed in
+  `0e19dec7` / `7fae0b27` — shared worktree); this entry + the T3.1 tick are the remaining
+  bookkeeping. Changelog deferred to **T3.3** (prod RAG verification owns the holder-visible
+  announcement, mirroring T2.1→T2.2). T3.2 (re-embed migration script) is the next unchecked
+  task and is being worked concurrently (uncommitted `scripts/reembed-widget-knowledge.mjs`
+  + `tests/reembed-widget-knowledge.test.js` in the worktree — left untouched here).
 - **2026-06-11** — **T2.1 (free NIM TTS lane) — DONE, live-verified end-to-end.** Decision
   gate per the probe: gRPC-only is fine — built the Node gRPC client. **Dependency/bundling
   decision:** added `@grpc/grpc-js` + `@grpc/proto-loader` (pure JS, no native addon) to
