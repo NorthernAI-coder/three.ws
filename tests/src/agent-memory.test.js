@@ -296,3 +296,100 @@ describe('AgentMemory.forget() / clear()', () => {
 		expect(mem.query()).toHaveLength(0);
 	});
 });
+
+// ── recall() — vector-space safety ───────────────────────────────────────────
+//
+// The platform embed endpoint is a provider chain, so the embedding model can
+// change between calls (and across sessions for localStorage-persisted
+// entries). recall() must only cosine-compare entries embedded by the SAME
+// model as the query — vectors from different models are different spaces and
+// produce plausible-looking garbage similarities.
+
+describe('AgentMemory.recall() — same-space rule', () => {
+	const flushEmbeds = () => new Promise((r) => setTimeout(r, 0));
+
+	it('cosine-matches entries embedded by the same model as the query', async () => {
+		const embedFn = vi.fn(async (text) => ({
+			vector: text.includes('solana') ? [1, 0] : [0, 1],
+			model: 'baai/bge-m3',
+		}));
+		const mem = new AgentMemory('agent-1', { embedFn });
+		mem.add({ type: MEMORY_TYPES.PROJECT, content: 'solana wallet integration notes' });
+		mem.add({ type: MEMORY_TYPES.PROJECT, content: 'unrelated themes' });
+		await flushEmbeds();
+
+		const hits = await mem.recall('solana question', { minScore: 0.5 });
+		expect(hits).toHaveLength(1);
+		expect(hits[0].content).toBe('solana wallet integration notes');
+	});
+
+	it('never cosine-compares entries from a different model — substring fallback instead', async () => {
+		let model = 'voyage-3-lite';
+		// Identical vectors every call: a cross-space comparison would score a
+		// perfect 1.0 — exactly the garbage match the rule must prevent.
+		const embedFn = vi.fn(async () => ({ vector: [1, 0], model }));
+		const mem = new AgentMemory('agent-1', { embedFn });
+		mem.add({ type: MEMORY_TYPES.PROJECT, content: 'completely unrelated topic' });
+		await flushEmbeds();
+
+		model = 'baai/bge-m3'; // provider failed over between add() and recall()
+		const hits = await mem.recall('quarterly report', { minScore: 0 });
+		// Not vector-matched (different space) and no substring match → no hit.
+		expect(hits).toHaveLength(0);
+
+		// The entry is still reachable through the substring path.
+		const substringHits = await mem.recall('unrelated', { minScore: 0 });
+		expect(substringHits).toHaveLength(1);
+	});
+
+	it('treats persisted pre-tagging entries as voyage-3-lite (the legacy embedder)', async () => {
+		// Seed localStorage with an entry shaped exactly like the old code wrote
+		// it: embedding present, no embeddingModel field.
+		localStorage.setItem(
+			'agent_memory_agent-1',
+			JSON.stringify([
+				{
+					id: 'legacy-1',
+					type: MEMORY_TYPES.PROJECT,
+					content: 'legacy entry about pricing',
+					tags: [],
+					context: {},
+					salience: 0.5,
+					createdAt: Date.now(),
+					updatedAt: Date.now(),
+					expiresAt: null,
+					embedding: [1, 0],
+				},
+			]),
+		);
+
+		// Same model as the legacy endpoint → still cosine-comparable.
+		const voyageFn = vi.fn(async () => ({ vector: [1, 0], model: 'voyage-3-lite' }));
+		const memSame = new AgentMemory('agent-1', { embedFn: voyageFn });
+		const sameSpace = await memSame.recall('anything at all', { minScore: 0.5 });
+		expect(sameSpace.map((e) => e.id)).toEqual(['legacy-1']);
+
+		// Different model → the perfect-looking vector match must NOT count.
+		const nimFn = vi.fn(async () => ({ vector: [1, 0], model: 'baai/bge-m3' }));
+		const memCross = new AgentMemory('agent-1', { embedFn: nimFn });
+		const crossSpace = await memCross.recall('anything at all', { minScore: 0 });
+		expect(crossSpace).toHaveLength(0);
+	});
+
+	it('supports custom embedFns returning bare vectors (one consistent unnamed space)', async () => {
+		const embedFn = vi.fn(async (text) => (text.includes('alpha') ? [1, 0] : [0, 1]));
+		const mem = new AgentMemory('agent-1', { embedFn });
+		mem.add({ type: MEMORY_TYPES.PROJECT, content: 'alpha release checklist' });
+		await flushEmbeds();
+
+		const hits = await mem.recall('alpha launch', { minScore: 0.5 });
+		expect(hits).toHaveLength(1);
+	});
+
+	it('cosineSim refuses mismatched dimensions and zero vectors', async () => {
+		const { cosineSim } = await import('../../src/agent-memory.js');
+		expect(cosineSim([1, 0, 0], [1, 0])).toBe(0); // different dims = different spaces
+		expect(cosineSim([0, 0], [1, 1])).toBe(0); // no direction, not NaN
+		expect(cosineSim([1, 0], [1, 0])).toBeCloseTo(1, 6);
+	});
+});

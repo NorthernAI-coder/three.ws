@@ -35,6 +35,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
+// Env loading happens inside main() (not at import time) so the exported
+// functions stay side-effect-free for unit tests.
 function loadEnvFile(path) {
 	let raw;
 	try {
@@ -50,8 +52,6 @@ function loadEnvFile(path) {
 		process.env[k] = v.replace(/^["']|["']$/g, '');
 	}
 }
-loadEnvFile(resolve(root, '.env.local'));
-loadEnvFile(resolve(root, '.env'));
 
 const { NIM_EMBED_TAG, embedderConfigured, embedPassages } = await import(
 	'../api/_lib/embeddings.js'
@@ -198,6 +198,9 @@ export function summarizePlan(plan, { batch = DEFAULT_BATCH, throttleMs = DEFAUL
 }
 
 async function main() {
+	loadEnvFile(resolve(root, '.env.local'));
+	loadEnvFile(resolve(root, '.env'));
+
 	const args = parseCliArgs(process.argv.slice(2));
 	const targetTag = NIM_EMBED_TAG;
 
