@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Forge checks your photo before spending a generation — plus image-aware fact-checks and accessible galleries",
+			"summary": "A new free image-understanding layer (running on NVIDIA's free models, so it costs you nothing) now powers three things across three.ws. In Forge, when you upload a photo to turn into 3D, it's checked first: if it's a screenshot of text, a cluttered scene with no clear subject, or too dark to reconstruct, you get a clear heads-up and a fix before a generation slot is spent — with a one-click 'Generate anyway' if you disagree. The Fact Checker can now take an image alongside a claim: it reads the picture, transcribes any text in it, and weighs that as evidence in the verdict. And every avatar in the public gallery now gets a real, descriptive alt text written from its thumbnail, so screen-reader users hear what each avatar actually looks like instead of just its name. All three quietly switch off if the vision service is ever unavailable — nothing ever blocks or breaks.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-11",
+			"title": "Create an avatar from a template or from scratch, right from the dashboard",
+			"summary": "The dashboard's Avatars page only offered selfie and GLB-upload as ways to make a new avatar — the two fastest paths, starting from a ready-made template or sculpting one from scratch, were buried elsewhere. The '+ New avatar' menu now groups every option clearly: Build (start from a template, or build from scratch in the studio), From you (snap a selfie, full selfie flow, or describe it as a prompt), and Import (upload a GLB, copy an existing avatar, or browse the public gallery). 'Start from a template' opens a picker with live 3D previews and stages your pick straight into the save step. The empty state leads with the same three quick starts.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/dashboard/avatars"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Free 3D draft generations no longer get blocked by the paid rate limit",
 			"summary": "Generating a 3D model from a text prompt on the Draft tier runs on a free engine — no key, no cost. But it was sharing the same hourly limit as the paid lanes, so a few quick iterations (or several people on the same office or campus network) could hit a 'generator is busy, try again later' wall even though nothing was being charged. The free draft lane now has its own, far more generous allowance and never blocks you because of a backend hiccup. Heavy paid generations keep their tighter limit. Iterate on prompts freely.",
 			"tags": [
