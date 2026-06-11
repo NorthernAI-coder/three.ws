@@ -47,6 +47,22 @@
 			<description>The on-chain agents directory now loads from our server-side index instead of contacting every agent's metadata host from your browser — pages render faster and no longer spray network errors. Also: the pump.fun cockpit's sidebar pages are now shareable deep links, mobile nav and footer links meet touch-target guidelines, anonymous visitors no longer trigger failed sign-in requests on Walk and Create, and assorted dead links were removed.</description>
 		</item>
 		<item>
+			<title>Free 3D drafts on Forge</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-11:Free 3D drafts on Forge</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Draft generations on Forge now run on a free NVIDIA-hosted TRELLIS engine by default — type a prompt or drop in a photo and your first 3D model costs nothing and arrives in about 15 seconds, several times faster than the previous default. Every existing engine (TRELLIS on Replicate, Meshy, Tripo) remains selectable at every quality tier, and deployments without the free lane configured keep their current behavior unchanged.</description>
+		</item>
+		<item>
+			<title>Hardened the explore feed and marketplace pricing against bad requests</title>
+			<link>https://three.ws/explore</link>
+			<guid isPermaLink="false">2026-06-11:Hardened the explore feed and marketplace pricing against bad requests</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The explore discovery feed and marketplace asset-pricing lookup now reject malformed query parameters with a clear 400 instead of failing with a server error. A non-numeric page size on explore, or a malformed asset id on a price lookup, no longer surfaces a 500 — the endpoints validate input up front and respond cleanly.</description>
+		</item>
+		<item>
 			<title>Live $THREE market data, longer trade streams, and tutor session fixes</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Live $THREE market data, longer trade streams, and tutor session fixes</guid>
