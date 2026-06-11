@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-11T02:00:24.965Z",
+	"generated_at": "2026-06-11T03:08:12.992Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Avatar pages back online after image-engine outage",
+			"summary": "Fetching an individual avatar was failing with a server error, which also broke the walking avatar on the home page. The image-processing engine the avatar dress-up baker relies on failed to load in production and took the whole endpoint down with it. Avatar lookups now load independently of the baker, and the missing image libraries ship with the deployment, so avatar pages and the home hero are back.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
 		{
 			"date": "2026-06-11",
 			"type": "update",
