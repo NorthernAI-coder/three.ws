@@ -145,6 +145,23 @@ export async function reserve({ address, microUsd, timestamp = now() }) {
 	return { hour, day };
 }
 
+// Atomic floor-at-zero decrement. The memory path clamps negative totals to 0
+// (see memoryIncr); without the same clamp here a double-rollback (or a
+// rollback racing bucket expiry) would drive the Redis counter negative,
+// letting subsequent spend exceed the cap by the deficit. DECRBY + conditional
+// INCRBY-back runs as one Lua script so concurrent reserves can't observe (or
+// be clobbered by) the intermediate negative value. INCRBY preserves the TTL.
+const ROLLBACK_FLOOR_LUA = `local v = redis.call('DECRBY', KEYS[1], ARGV[1])
+if v < 0 then
+  redis.call('INCRBY', KEYS[1], -v)
+  v = 0
+end
+return v`;
+
+function redisDecrbyFloored(redis, key, delta) {
+	return redis.eval(ROLLBACK_FLOOR_LUA, [key], [String(delta)]);
+}
+
 // Inverse of reserve(). Decrements the same buckets by the same amount.
 // Used by the cap hook when admission passed but the payment subsequently
 // failed (signing rejected, facilitator returned 402, network error, etc.)
@@ -165,7 +182,10 @@ export async function rollback({ address, microUsd, timestamp = now() }) {
 		memoryIncr(dKey, -delta, DAY_TTL_SECONDS);
 		return;
 	}
-	await Promise.all([redis.incrby(hKey, -Number(delta)), redis.incrby(dKey, -Number(delta))]);
+	await Promise.all([
+		redisDecrbyFloored(redis, hKey, delta),
+		redisDecrbyFloored(redis, dKey, delta),
+	]);
 }
 
 // Snapshot of the current hour + day spend without modifying. Used by

@@ -953,6 +953,9 @@ const appConfig = {
 					// /avatars/:id  → avatar studio page (mirrors vercel.json rewrite)
 					else if (!filePath && /^\/avatars\/[^/.]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/avatar-page.html');
+					// /changelog → public changelog page (mirrors vercel.json rewrite)
+					else if (!filePath && /^\/changelog\/?$/.test(path))
+						filePath = resolve(root, 'public/changelog/index.html');
 					// /town  → communities (alias; mirrors vercel.json rewrite)
 					else if (!filePath && /^\/town\/?$/.test(path))
 						filePath = resolve(root, 'pages/communities.html');

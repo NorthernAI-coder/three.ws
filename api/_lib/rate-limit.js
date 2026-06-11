@@ -127,11 +127,31 @@ function resilientLimiter(rl, name, opts) {
 	};
 }
 
+// Eviction for the in-memory fallback. The map otherwise grows one entry per
+// distinct key forever (a scanner rotating IPs would balloon a long-lived dev
+// process). Only sweeps when the map is over the cap, so the amortized cost on
+// the hot path is O(1); the sweep itself drops every bucket whose newest
+// timestamp predates the largest window any memory limiter uses (conservative
+// — never evicts an entry a live limiter could still count).
+const MEMORY_BUCKETS_MAX = 10_000;
+let maxMemoryWindowMs = 60_000;
+function sweepMemoryBuckets(now) {
+	if (memoryBuckets.size <= MEMORY_BUCKETS_MAX) return;
+	const cutoff = now - maxMemoryWindowMs;
+	for (const [id, timestamps] of memoryBuckets) {
+		if (!timestamps.length || timestamps[timestamps.length - 1] <= cutoff) {
+			memoryBuckets.delete(id);
+		}
+	}
+}
+
 function memoryLimiter({ limit, window }) {
 	const ms = parseWindowMs(window);
+	if (ms > maxMemoryWindowMs) maxMemoryWindowMs = ms;
 	return {
 		async limit(id) {
 			const now = Date.now();
+			sweepMemoryBuckets(now);
 			const bucket = memoryBuckets.get(id) || [];
 			const cutoff = now - ms;
 			const kept = bucket.filter((t) => t > cutoff);
@@ -156,8 +176,13 @@ function parseWindowMs(w) {
 
 // Preset limiters. Tune once viral traffic shape is known.
 export const limits = {
-	authIp: (ip) => getLimiter('auth:ip', { limit: 30, window: '10 m' }).limit(ip),
-	registerIp: (ip) => getLimiter('register:ip', { limit: 5, window: '1 h' }).limit(ip),
+	// Auth-critical buckets gate credential guessing / account-creation spam.
+	// Marked critical so a Redis outage in prod fails closed (deny) instead of
+	// degrading to the per-instance memory map — across serverless fan-out that
+	// fallback is effectively no limit at all on a brute-force attempt.
+	authIp: (ip) => getLimiter('auth:ip', { limit: 30, window: '10 m', critical: true }).limit(ip),
+	registerIp: (ip) =>
+		getLimiter('register:ip', { limit: 5, window: '1 h', critical: true }).limit(ip),
 	// pump.fun coin metadata upload (name/symbol/image → R2 JSON). Cheap and
 	// idempotent, so it gets its own bucket instead of draining the strict
 	// `authIp` budget shared by on-chain buy/sell/launch actions. Iterating in
@@ -192,7 +217,9 @@ export const limits = {
 	// N × per-send-cap per day. Critical → fails closed in prod without Redis so a
 	// missing limiter can never silently uncap a money-moving endpoint.
 	avatarPayoutDaily: (walletAddr) =>
-		getLimiter('avatar:payout:daily', { limit: 50, window: '24 h', critical: true }).limit(walletAddr),
+		getLimiter('avatar:payout:daily', { limit: 50, window: '24 h', critical: true }).limit(
+			walletAddr,
+		),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
 	// Paid MCP tools — each call runs real compute (glTF validation / inspection
@@ -232,8 +259,19 @@ export const limits = {
 	embedUser: (userId) => getLimiter('embed:user', { limit: 120, window: '1 m' }).limit(userId),
 	avatarRollback: (userId) =>
 		getLimiter('avatar:rollback', { limit: 10, window: '1 h' }).limit(userId),
-	chatUser: (userId) => getLimiter('chat:user', { limit: 40, window: '1 m' }).limit(userId),
-	chatIp: (ip) => getLimiter('chat:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// Chat inference spends real money on the host's LLM keys, so these are
+	// critical: a Redis outage in prod fails closed (deny) rather than handing out
+	// unbounded paid inference. chatUser/chatIp bound a single account/IP.
+	chatUser: (userId) =>
+		getLimiter('chat:user', { limit: 40, window: '1 m', critical: true }).limit(userId),
+	chatIp: (ip) => getLimiter('chat:ip', { limit: 60, window: '1 m', critical: true }).limit(ip),
+	// Global ceiling on inference billed to the HOST's provider keys (i.e. callers
+	// who supplied no key of their own). Stops distributed abuse — many accounts
+	// each under their per-user limit collectively draining the platform's quota.
+	chatHostKeyGlobal: () =>
+		getLimiter('chat:hostkey:global', { limit: 1200, window: '1 m', critical: true }).limit(
+			'global',
+		),
 	// AI bounty judge (api/bounties/:id/judge). Each run spends real LLM tokens
 	// scoring a whole field of submissions, so cap per poster and fail closed
 	// without Redis in prod rather than allowing unbounded paid inference.
@@ -358,11 +396,18 @@ export const limits = {
 		getLimiter('permissions:revoke', { limit: 20, window: '1 h' }).limit(userId),
 	apiKeyManage: (userId) =>
 		getLimiter('api-key:manage', { limit: 30, window: '1 h' }).limit(userId),
-	verifyEmailIp: (ip) => getLimiter('verify-email:ip', { limit: 10, window: '15 m' }).limit(ip),
+	// Auth-critical (see authIp/registerIp above): brute-forcing verification
+	// codes / spamming reset+verify emails must fail closed when Redis is down.
+	verifyEmailIp: (ip) =>
+		getLimiter('verify-email:ip', { limit: 10, window: '15 m', critical: true }).limit(ip),
 	forgotPasswordEmail: (email) =>
-		getLimiter('forgot-password:email', { limit: 3, window: '15 m' }).limit(email),
+		getLimiter('forgot-password:email', { limit: 3, window: '15 m', critical: true }).limit(
+			email,
+		),
 	resendVerifyUser: (userId) =>
-		getLimiter('resend-verify:user', { limit: 2, window: '10 m' }).limit(userId),
+		getLimiter('resend-verify:user', { limit: 2, window: '10 m', critical: true }).limit(
+			userId,
+		),
 	newsletterIp: (ip) => getLimiter('newsletter:ip', { limit: 5, window: '1 h' }).limit(ip),
 	// Voice cloning: expensive ElevenLabs API call — 3 per user per day.
 	// Critical (real per-call cost) — fail closed in prod without Redis.
@@ -421,13 +466,23 @@ export const limits = {
 };
 
 // Trust only proxy headers that Vercel itself sets and signs. Naively reading
-// X-Forwarded-For lets clients supply it directly on direct invocations, which
-// trivially bypasses per-IP rate limits by rotating the claimed address.
+// X-Forwarded-For (or X-Real-IP, which clients can also supply directly) lets
+// callers bypass per-IP rate limits by rotating the claimed address.
+//
+// Order of trust:
+//   1. x-vercel-forwarded-for — set by the Vercel edge on every proxied
+//      request; clients cannot inject it past the platform.
+//   2. socket remote address — authoritative on direct connections (local
+//      dev / tests, where no Vercel headers exist).
+//   3. x-real-ip — last resort only, for non-Vercel reverse-proxy setups where
+//      the socket address is the proxy's. Client-settable on direct hits, but
+//      by this point there is no better signal.
 export function clientIp(req) {
 	const vercel = req.headers['x-vercel-forwarded-for'];
 	if (vercel) return String(vercel).split(',')[0].trim();
+	const sock = req.socket?.remoteAddress;
+	if (sock) return sock;
 	const real = req.headers['x-real-ip'];
-	if (real) return String(real).trim();
-	// Last resort — socket address (only meaningful on direct connections).
-	return req.socket?.remoteAddress || '0.0.0.0';
+	if (real) return String(real).split(',')[0].trim();
+	return '0.0.0.0';
 }

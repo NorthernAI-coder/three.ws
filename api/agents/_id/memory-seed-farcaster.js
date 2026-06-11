@@ -54,7 +54,10 @@ async function distillFacts(profile, casts, apiKey) {
 	});
 
 	try {
-		const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+		const stripped = raw
+			.replace(/^```(?:json)?\s*/i, '')
+			.replace(/\s*```$/i, '')
+			.trim();
 		const facts = JSON.parse(stripped);
 		return Array.isArray(facts) ? facts.filter((f) => typeof f === 'string').slice(0, 15) : [];
 	} catch {
@@ -107,8 +110,22 @@ export default wrap(async (req, res) => {
 
 	if (agent.farcaster_seeded_at) {
 		const elapsed = Date.now() - new Date(agent.farcaster_seeded_at).getTime();
-		if (elapsed < SEED_COOLDOWN_MS)
-			return rateLimited(res, rl, 'farcaster seed cooldown: try again in 6 hours');
+		if (elapsed < SEED_COOLDOWN_MS) {
+			// Plain 429: this is a per-agent cooldown, not the IP limiter above —
+			// reusing rateLimited(res, rl) here would emit RateLimit-* headers from
+			// a limiter result that actually succeeded, misleading clients.
+			const retryAfter = Math.max(1, Math.ceil((SEED_COOLDOWN_MS - elapsed) / 1000));
+			res.setHeader('retry-after', String(retryAfter));
+			return error(
+				res,
+				429,
+				'cooldown_active',
+				'farcaster seed cooldown: try again in 6 hours',
+				{
+					retry_after: retryAfter,
+				},
+			);
+		}
 	}
 
 	const body = parse(bodySchema, await readJson(req));
@@ -135,10 +152,7 @@ export default wrap(async (req, res) => {
 
 	// Fetch casts and profile in parallel
 	const [castsData, profileData] = await Promise.all([
-		neynarGet(
-			`/feed/user/casts?fid=${fid}&limit=50&include_replies=false`,
-			env.NEYNAR_API_KEY,
-		),
+		neynarGet(`/feed/user/casts?fid=${fid}&limit=50&include_replies=false`, env.NEYNAR_API_KEY),
 		neynarGet(`/user?fid=${fid}`, env.NEYNAR_API_KEY),
 	]);
 

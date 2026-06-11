@@ -21,10 +21,7 @@ import {
 	payExternalX402,
 	resolveSpendEnabled,
 } from '../_lib/x402-user-payer.js';
-import {
-	getOrCreateAgentSolanaWallet,
-	getSolanaAddressBalances,
-} from '../_lib/agent-wallet.js';
+import { getOrCreateAgentSolanaWallet, getSolanaAddressBalances } from '../_lib/agent-wallet.js';
 import {
 	createPaidService,
 	validateTargetUrl,
@@ -74,7 +71,10 @@ function signInRequired(text) {
 function scopeRequired(scope) {
 	return {
 		content: [
-			{ type: 'text', text: `This action needs the ${scope} scope. Re-authorize with it granted.` },
+			{
+				type: 'text',
+				text: `This action needs the ${scope} scope. Re-authorize with it granted.`,
+			},
 		],
 		structuredContent: { ok: false, reason: 'insufficient_scope', required: scope },
 		isError: true,
@@ -159,7 +159,9 @@ export const toolDefs = [
 						`Spending caps: $${status.caps.max_per_call_usdc}/call, $${status.caps.max_per_hour_usdc}/hr, $${status.caps.max_per_day_usdc}/day`,
 						`Autonomous spend: ${status.spend_enabled ? 'enabled' : 'disabled'}`,
 					]
-				: ['No agent wallet is provisioned for this account yet. Create one on three.ws to enable payments.'];
+				: [
+						'No agent wallet is provisioned for this account yet. Create one on three.ws to enable payments.',
+					];
 			return {
 				content: [{ type: 'text', text: lines.join('\n') }],
 				structuredContent: { signed_in: true, ...status },
@@ -174,9 +176,15 @@ export const toolDefs = [
 		inputSchema: {
 			type: 'object',
 			properties: {
-				query: { type: 'string', description: 'What you need, e.g. "weather", "image upscale".' },
+				query: {
+					type: 'string',
+					description: 'What you need, e.g. "weather", "image upscale".',
+				},
 				type: { type: 'string', enum: ['http', 'mcp'], default: 'http' },
-				network: { type: 'string', description: 'CAIP-2 network filter, e.g. "solana:*" or "eip155:8453".' },
+				network: {
+					type: 'string',
+					description: 'CAIP-2 network filter, e.g. "solana:*" or "eip155:8453".',
+				},
 				max_price_usdc: { type: 'number', minimum: 0 },
 				limit: { type: 'integer', minimum: 1, maximum: 50, default: 15 },
 			},
@@ -201,7 +209,10 @@ export const toolDefs = [
 			}));
 			const text = services.length
 				? services
-						.map((s, i) => `${i + 1}. ${s.name || s.resource}${s.price ? ` — ${s.price}` : ''}\n   ${s.resource}`)
+						.map(
+							(s, i) =>
+								`${i + 1}. ${s.name || s.resource}${s.price ? ` — ${s.price}` : ''}\n   ${s.resource}`,
+						)
 						.join('\n')
 				: `No services matched "${args.query}".`;
 			return {
@@ -218,13 +229,18 @@ export const toolDefs = [
 		inputSchema: {
 			type: 'object',
 			properties: {
-				resource_url: { type: 'string', format: 'uri', description: 'The x402 endpoint to call.' },
+				resource_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'The x402 endpoint to call.',
+				},
 				method: { type: 'string', enum: ['GET', 'POST'], default: 'GET' },
 				body: { type: 'object', description: 'JSON body for POST requests.' },
 				max_usd: {
 					type: 'number',
 					minimum: 0,
-					description: 'Hard ceiling for THIS call in USD. Can only lower the server caps, never raise them.',
+					description:
+						'Hard ceiling for THIS call in USD. Can only lower the server caps, never raise them.',
 				},
 			},
 			required: ['resource_url'],
@@ -285,6 +301,9 @@ export const toolDefs = [
 					auth_required: 'Sign in to pay from your wallet.',
 					no_wallet: 'No agent wallet found for your account — create one on three.ws.',
 					no_solana_wallet: 'Your agent has no Solana wallet provisioned.',
+					invalid_url: 'That resource URL is not a permitted public https endpoint.',
+					blocked_url:
+						'That resource URL resolves to a non-public address and was blocked.',
 				};
 				const msg = friendly[err.code] || `Payment failed: ${err.message}`;
 				return {
@@ -304,11 +323,15 @@ export const toolDefs = [
 		name: 'provision_wallet',
 		title: "Create the agent's wallet",
 		description:
-			"Create (or return) the custodial Solana wallet for one of your agents so it can hold and earn USDC. Idempotent — if the agent already has a wallet, its address and live SOL/USDC balances are returned unchanged. On devnet you can request a 1 SOL airdrop for testing; mainnet wallets are never airdropped. Requires sign-in; you can only provision wallets for agents on your own account.",
+			'Create (or return) the custodial Solana wallet for one of your agents so it can hold and earn USDC. Idempotent — if the agent already has a wallet, its address and live SOL/USDC balances are returned unchanged. On devnet you can request a 1 SOL airdrop for testing; mainnet wallets are never airdropped. Requires sign-in; you can only provision wallets for agents on your own account.',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				agent_id: { type: 'string', format: 'uuid', description: 'The agent to provision a wallet for.' },
+				agent_id: {
+					type: 'string',
+					format: 'uuid',
+					description: 'The agent to provision a wallet for.',
+				},
 				cluster: { type: 'string', enum: ['mainnet', 'devnet'], default: 'mainnet' },
 				airdrop: {
 					type: 'boolean',
@@ -381,14 +404,22 @@ export const toolDefs = [
 				agent_id: { type: 'string', format: 'uuid' },
 				name: { type: 'string', minLength: 1, maxLength: 120 },
 				description: { type: 'string', minLength: 1, maxLength: 2000 },
-				price_usdc: { type: 'number', exclusiveMinimum: 0, description: 'Price per call in USDC.' },
+				price_usdc: {
+					type: 'number',
+					exclusiveMinimum: 0,
+					description: 'Price per call in USDC.',
+				},
 				target_url: {
 					type: 'string',
 					format: 'uri',
-					description: 'The public https upstream you already serve, called after payment settles.',
+					description:
+						'The public https upstream you already serve, called after payment settles.',
 				},
 				method: { type: 'string', enum: ['GET', 'POST'], default: 'POST' },
-				input_schema: { type: 'object', description: 'Optional JSON Schema for the request body.' },
+				input_schema: {
+					type: 'object',
+					description: 'Optional JSON Schema for the request body.',
+				},
 				network: { type: 'string', enum: ['base', 'solana'], default: 'base' },
 			},
 			required: ['agent_id', 'name', 'description', 'price_usdc', 'target_url'],
@@ -427,7 +458,10 @@ export const toolDefs = [
 						: `This agent needs ${need} (registered at agent creation) before it can earn on Base.`;
 				return {
 					content: [
-						{ type: 'text', text: `This agent has no payout wallet on ${network}. ${hint}` },
+						{
+							type: 'text',
+							text: `This agent has no payout wallet on ${network}. ${hint}`,
+						},
 					],
 					structuredContent: { ok: false, reason: 'no_payout_wallet', network },
 					isError: true,
@@ -439,7 +473,10 @@ export const toolDefs = [
 			try {
 				targetUrl = await validateTargetUrl(args.target_url);
 			} catch (err) {
-				const message = err instanceof MonetizeError ? err.message : `target_url rejected: ${err?.message || err}`;
+				const message =
+					err instanceof MonetizeError
+						? err.message
+						: `target_url rejected: ${err?.message || err}`;
 				return {
 					content: [{ type: 'text', text: message }],
 					structuredContent: { ok: false, reason: 'invalid_target_url' },

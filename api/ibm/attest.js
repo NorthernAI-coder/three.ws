@@ -70,9 +70,20 @@ async function verifyOnChain(signature, wallet) {
 	try {
 		tx = await conn.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 });
 	} catch (e) {
-		return { signature, found: false, network: wallet.network, reason: String(e?.message || e) };
+		return {
+			signature,
+			found: false,
+			network: wallet.network,
+			reason: String(e?.message || e),
+		};
 	}
-	if (!tx) return { signature, found: false, network: wallet.network, reason: 'transaction not found on this network' };
+	if (!tx)
+		return {
+			signature,
+			found: false,
+			network: wallet.network,
+			reason: 'transaction not found on this network',
+		};
 
 	const instructions = tx.transaction?.message?.instructions || [];
 	let memo = null;
@@ -150,14 +161,22 @@ async function graniteGuardian(cfg, text) {
 	});
 	const verdict = (out || '').trim().toLowerCase();
 	const flagged = verdict.startsWith('yes');
-	return { flagged, risk: 'harm', label: flagged ? 'Harm' : 'Safe', verdict: flagged ? 'Yes' : 'No', model: model || GUARDIAN_MODEL };
+	return {
+		flagged,
+		risk: 'harm',
+		label: flagged ? 'Harm' : 'Safe',
+		verdict: flagged ? 'Yes' : 'No',
+		model: model || GUARDIAN_MODEL,
+	};
 }
 
 // Build the on-chain memo for a claim — kept compact (the SPL-memo write is
 // truncated at 180 bytes by the wallet layer; we stay well under).
 function memoFor({ symbol, stats, governance, digest, tsModel }) {
 	const arrow = stats.direction === 'up' ? '+' : stats.direction === 'down' ? '-' : '~';
-	const ts = String(tsModel || '').replace('ibm/granite-ttm-', 'ttm-').replace('-r2', '');
+	const ts = String(tsModel || '')
+		.replace('ibm/granite-ttm-', 'ttm-')
+		.replace('-r2', '');
 	const gd = governance?.passed === false ? 'flag' : governance?.passed === true ? 'ok' : 'na';
 	return (
 		`three.ws granite-proof/1 ${symbol || '?'} ${arrow}${Math.abs(stats.changePct).toFixed(1)}% ` +
@@ -172,16 +191,34 @@ async function loadMarket(params) {
 	let pool = (params.pool || '').trim();
 	const token = (params.token || '').trim();
 	if (!pool && token) {
-		if (!isBase58(token)) throw { status: 400, code: 'bad_token', message: 'token must be a base58 mint' };
+		if (!isBase58(token))
+			throw { status: 400, code: 'bad_token', message: 'token must be a base58 mint' };
 		pool = await topPoolForToken(token, network);
 	}
 	if (!pool || !isBase58(pool)) {
-		throw { status: 400, code: 'bad_request', message: 'provide ?pool=<addr> or ?token=<mint>, or ?list=trending' };
+		throw {
+			status: 400,
+			code: 'bad_request',
+			message: 'provide ?pool=<addr> or ?token=<mint>, or ?list=trending',
+		};
 	}
-	const timeframe = ['minute', 'hour', 'day'].includes(params.timeframe) ? params.timeframe : 'hour';
+	const timeframe = ['minute', 'hour', 'day'].includes(params.timeframe)
+		? params.timeframe
+		: 'hour';
 	const aggregate = Math.max(1, Math.min(60, parseInt(params.aggregate || '1', 10) || 1));
-	const { candles, base, quote, freq } = await fetchOhlcv({ pool, network, timeframe, aggregate, limit: 1000 });
-	if (candles.length < 64) throw { status: 422, code: 'insufficient_history', message: 'not enough candle history to chart this pool' };
+	const { candles, base, quote, freq } = await fetchOhlcv({
+		pool,
+		network,
+		timeframe,
+		aggregate,
+		limit: 1000,
+	});
+	if (candles.length < 64)
+		throw {
+			status: 422,
+			code: 'insufficient_history',
+			message: 'not enough candle history to chart this pool',
+		};
 	return { network, pool, timeframe, aggregate, candles, base, quote, freq };
 }
 
@@ -196,7 +233,10 @@ async function runGranite(out, market, attesterAddress) {
 		return out;
 	}
 	if (candles.length < 512) {
-		out.ibm = { configured: true, error: `need ≥512 candles for Granite TimeSeries, have ${candles.length}` };
+		out.ibm = {
+			configured: true,
+			error: `need ≥512 candles for Granite TimeSeries, have ${candles.length}`,
+		};
 		return out;
 	}
 
@@ -219,7 +259,10 @@ async function runGranite(out, market, attesterAddress) {
 		return out;
 	}
 
-	const forecast = fc.timestamps.map((iso, i) => ({ t: Math.floor(Date.parse(iso) / 1000), c: Number(fc.values[i]) }));
+	const forecast = fc.timestamps.map((iso, i) => ({
+		t: Math.floor(Date.parse(iso) / 1000),
+		c: Number(fc.values[i]),
+	}));
 	const currentPrice = values[values.length - 1];
 	const forecastEnd = forecast[forecast.length - 1]?.c ?? currentPrice;
 	const fVals = forecast.map((p) => p.c).filter(Number.isFinite);
@@ -274,7 +317,12 @@ async function runGranite(out, market, attesterAddress) {
 	const claim = {
 		v: 'granite-proof/1',
 		domain: 'three.ws',
-		token: { symbol: out.token.symbol, name: out.token.name, pool: out.token.pool, network: out.token.network },
+		token: {
+			symbol: out.token.symbol,
+			name: out.token.name,
+			pool: out.token.pool,
+			network: out.token.network,
+		},
 		price: { current: Number(currentPrice), quote: out.token.quoteSymbol },
 		forecast: {
 			end: Number(forecastEnd),
@@ -284,7 +332,11 @@ async function runGranite(out, market, attesterAddress) {
 			direction: stats.direction,
 			horizonHours: stats.horizonHours,
 		},
-		models: { timeseries: fc.model, narrator: narration?.model || null, guardian: governance?.model || null },
+		models: {
+			timeseries: fc.model,
+			narrator: narration?.model || null,
+			guardian: governance?.model || null,
+		},
 		governance: { risk: governance?.risk || null, passed: governance?.passed ?? null },
 		attester: attesterAddress || null,
 		issuedAt: out.generatedAt,
@@ -331,6 +383,16 @@ export default wrap(async (req, res) => {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
+	// Global hourly ceiling on the shared watsonx server key (same bucket as
+	// api/watsonx/embed) — a hard aggregate cost cap independent of any one IP.
+	// Only consumed when watsonx is configured; the unconfigured fallback path
+	// stays unaffected.
+	if (watsonxConfig().configured) {
+		const global = await limits.watsonxEmbedGlobal();
+		if (!global.success)
+			return rateLimited(res, global, 'watsonx capacity reached — try again shortly');
+	}
+
 	const url = new URL(req.url, 'http://x');
 	const wallet = avatarWalletConfig();
 
@@ -344,7 +406,12 @@ export default wrap(async (req, res) => {
 	if (req.method === 'GET' && url.searchParams.get('verify')) {
 		const sig = url.searchParams.get('verify').trim();
 		if (!/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(sig)) {
-			return error(res, 400, 'bad_signature', 'verify expects a base58 transaction signature');
+			return error(
+				res,
+				400,
+				'bad_signature',
+				'verify expects a base58 transaction signature',
+			);
 		}
 		const result = await verifyOnChain(sig, wallet);
 		return json(res, 200, result, { 'cache-control': 'public, max-age=60' });
@@ -378,7 +445,11 @@ export default wrap(async (req, res) => {
 
 	const out = baseRecord(market);
 	out.attester = wallet.configured
-		? { address: wallet.address, network: wallet.network, explorer: explorerAccountUrl(wallet.address, wallet.network) }
+		? {
+				address: wallet.address,
+				network: wallet.network,
+				explorer: explorerAccountUrl(wallet.address, wallet.network),
+			}
 		: { address: null, network: wallet.network, configured: false };
 
 	await runGranite(out, market, wallet.address);

@@ -202,7 +202,6 @@ export const NAV_GROUPS = [
 					{ title: 'OBS Overlay', href: '/overlay-control', desc: 'Stream deck — emote hotkeys, mic' },
 					{ title: 'Walk', href: '/walk', desc: 'Walk your avatar — multiplayer + AR' },
 					{ title: 'XR', href: '/xr', desc: 'Place your avatar in the real world' },
-					{ title: 'Rider (VR)', href: '/rider', desc: 'Open-source VR music visualization' },
 				],
 			},
 			{

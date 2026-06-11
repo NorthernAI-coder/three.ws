@@ -10,6 +10,7 @@ import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
 import { limits } from '../../_lib/rate-limit.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import {
 	isConfigured,
 	listVoices,
@@ -18,6 +19,15 @@ import {
 	isValidModel,
 	normalizeVoiceSettings,
 } from '../../_lib/elevenlabs.js';
+
+// Fire-and-forget ElevenLabs voice deletion. The clone slot is best-effort
+// cleanup — a failure must be logged, never crash the process as an
+// unhandled rejection.
+function deleteVoiceBestEffort(voiceId) {
+	deleteVoice(voiceId).catch((err) =>
+		console.warn('[voice] deleteVoice failed for', voiceId, err?.message || err),
+	);
+}
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
 const MIN_DURATION_SEC = 30;
@@ -65,6 +75,9 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (req.method !== 'GET' && !(await requireCsrf(req, res, auth.userId))) return;
 
 	const [agent] =
 		await sql`SELECT id, user_id, name FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
@@ -160,7 +173,8 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 						'voice_id is not in the available library',
 					);
 
-				if (wasCloned && oldVoiceId && oldVoiceId !== nextVoiceId) deleteVoice(oldVoiceId);
+				if (wasCloned && oldVoiceId && oldVoiceId !== nextVoiceId)
+					deleteVoiceBestEffort(oldVoiceId);
 
 				const [row] = await sql`
 					UPDATE agent_identities
@@ -173,7 +187,7 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 			}
 
 			// Clear to browser — resets every voice column.
-			if (wasCloned && oldVoiceId) deleteVoice(oldVoiceId);
+			if (wasCloned && oldVoiceId) deleteVoiceBestEffort(oldVoiceId);
 			const [row] = await sql`
 				UPDATE agent_identities
 				SET voice_provider = 'browser', voice_id = NULL, voice_cloned_at = NULL,
@@ -201,7 +215,7 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 			await sql`SELECT voice_id, voice_cloned_at FROM agent_identities WHERE id = ${id}`;
 		// Only free *cloned* voices on ElevenLabs — library voices are shared
 		// across the account and must never be deleted here.
-		if (row?.voice_id && row?.voice_cloned_at) deleteVoice(row.voice_id);
+		if (row?.voice_id && row?.voice_cloned_at) deleteVoiceBestEffort(row.voice_id);
 		await sql`
 			UPDATE agent_identities
 			SET voice_provider = 'browser', voice_id = NULL, voice_cloned_at = NULL
@@ -223,8 +237,7 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 
 		// Rate limit: 3 clones per user per day.
 		const rl = await limits.voiceClone(auth.userId);
-		if (!rl.success)
-			return rateLimited(res, rl, 'voice clone limit reached (3 per day)');
+		if (!rl.success) return rateLimited(res, rl, 'voice clone limit reached (3 per day)');
 
 		// Client can send recording duration in seconds so we can reject short clips
 		// without decoding the audio.
@@ -312,7 +325,13 @@ export const handleVoice = wrap(async (req, res, id, action) => {
 			`;
 		} catch (dbErr) {
 			console.error('[voice/clone] DB persist failed, rolling back clone', dbErr);
-			await deleteVoice(voiceId);
+			await deleteVoice(voiceId).catch((err) =>
+				console.warn(
+					'[voice/clone] rollback deleteVoice failed for',
+					voiceId,
+					err?.message || err,
+				),
+			);
 			return error(res, 500, 'internal_error', 'failed to save cloned voice');
 		}
 

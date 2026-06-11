@@ -24,20 +24,22 @@
 		<script
 			type="module"
 			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
 		></script>
 
 		<meta property="og:type" content="profile" />
-		<meta property="og:site_name" content="three.ws">
-		<meta property="og:url" content="" id="og-url">
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="" id="og-url" />
 		<meta property="og:title" content="Agent Profile" id="og-title" />
 		<meta property="og:description" content="On-chain agent identity." id="og-description" />
-		<meta property="og:image" content="https://three.ws/og-image.png" id="og-image">
-		<meta property="og:image:width" content="1200">
-		<meta property="og:image:height" content="630">
-		<meta name="twitter:card" content="summary_large_image">
-		<meta name="twitter:title" content="Agent Profile" id="tw-title">
-		<meta name="twitter:description" content="On-chain agent identity." id="tw-description">
-		<meta name="twitter:image" content="https://three.ws/og-image.png" id="tw-image">
+		<meta property="og:image" content="https://three.ws/og-image.png" id="og-image" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Agent Profile" id="tw-title" />
+		<meta name="twitter:description" content="On-chain agent identity." id="tw-description" />
+		<meta name="twitter:image" content="https://three.ws/og-image.png" id="tw-image" />
 
 		<style>
 			body {
@@ -86,7 +88,11 @@
 				height: 72px;
 				border-radius: 50%;
 				border: 1px solid rgba(255, 255, 255, 0.12);
-				background: radial-gradient(ellipse at center, rgba(255, 215, 0, 0.06) 0%, transparent 70%);
+				background: radial-gradient(
+					ellipse at center,
+					rgba(255, 215, 0, 0.06) 0%,
+					transparent 70%
+				);
 				display: flex;
 				align-items: center;
 				justify-content: center;
@@ -136,7 +142,10 @@
 				border-radius: 999px;
 				cursor: pointer;
 				font-family: inherit;
-				transition: color 0.15s, border-color 0.15s, background 0.15s;
+				transition:
+					color 0.15s,
+					border-color 0.15s,
+					background 0.15s;
 			}
 
 			.up-chain-pill:hover {
@@ -180,7 +189,9 @@
 				border: 1px solid rgba(255, 255, 255, 0.07);
 				border-radius: 12px;
 				overflow: hidden;
-				transition: border-color 0.15s, background 0.15s;
+				transition:
+					border-color 0.15s,
+					background 0.15s;
 				display: flex;
 				flex-direction: column;
 			}
@@ -198,7 +209,11 @@
 			.up-card-thumb {
 				width: 100%;
 				aspect-ratio: 1;
-				background: radial-gradient(ellipse at center, rgba(255, 215, 0, 0.03) 0%, transparent 70%);
+				background: radial-gradient(
+					ellipse at center,
+					rgba(255, 215, 0, 0.03) 0%,
+					transparent 70%
+				);
 				overflow: hidden;
 				position: relative;
 			}
@@ -299,7 +314,9 @@
 				border-radius: 6px;
 				cursor: pointer;
 				font-family: inherit;
-				transition: color 0.15s, border-color 0.15s;
+				transition:
+					color 0.15s,
+					border-color 0.15s;
 			}
 
 			.profile-copy-btn:hover {
@@ -466,7 +483,9 @@
 				font-size: 0.764rem;
 				padding: 0.618rem 1rem;
 				cursor: pointer;
-				transition: color 0.15s, border-color 0.15s;
+				transition:
+					color 0.15s,
+					border-color 0.15s;
 				display: inline-flex;
 				align-items: center;
 				gap: 0.382rem;
@@ -512,7 +531,9 @@
 				background: rgba(255, 255, 255, 0.02);
 				border: 1px solid rgba(255, 255, 255, 0.07);
 				border-radius: 12px;
-				transition: border-color 0.15s, background 0.15s;
+				transition:
+					border-color 0.15s,
+					background 0.15s;
 				text-decoration: none;
 				color: inherit;
 			}
@@ -527,7 +548,11 @@
 				height: 56px;
 				flex-shrink: 0;
 				border-radius: 50%;
-				background: radial-gradient(ellipse at center, rgba(255, 215, 0, 0.06) 0%, transparent 70%);
+				background: radial-gradient(
+					ellipse at center,
+					rgba(255, 215, 0, 0.06) 0%,
+					transparent 70%
+				);
 				display: flex;
 				align-items: center;
 				justify-content: center;
@@ -628,7 +653,12 @@
 			}
 
 			.up-loading-shimmer {
-				background: linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.02) 100%);
+				background: linear-gradient(
+					90deg,
+					rgba(255, 255, 255, 0.02) 0%,
+					rgba(255, 255, 255, 0.05) 50%,
+					rgba(255, 255, 255, 0.02) 100%
+				);
 				background-size: 200% 100%;
 				animation: up-shimmer 1.4s infinite;
 				border-radius: 12px;
@@ -636,8 +666,12 @@
 			}
 
 			@keyframes up-shimmer {
-				0% { background-position: 200% 0; }
-				100% { background-position: -200% 0; }
+				0% {
+					background-position: 200% 0;
+				}
+				100% {
+					background-position: -200% 0;
+				}
 			}
 
 			@media (max-width: 720px) {
@@ -673,8 +707,8 @@
 				}
 			}
 		</style>
-			<link rel="stylesheet" href="/nav.css" />
-			<link rel="stylesheet" href="/mobile.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/mobile.css" />
 	</head>
 	<body>
 		<header><div id="nav-container"></div></header>
@@ -729,8 +763,21 @@
 							autocomplete="email"
 							required
 						/>
-						<button type="submit" class="h-footer-newsletter-btn" aria-label="Subscribe">
-							<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2 8h11m0 0L9 4m4 4l-4 4"/></svg>
+						<button
+							type="submit"
+							class="h-footer-newsletter-btn"
+							aria-label="Subscribe"
+						>
+							<svg viewBox="0 0 16 16" aria-hidden="true">
+								<path
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.6"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M2 8h11m0 0L9 4m4 4l-4 4"
+								/>
+							</svg>
 						</button>
 					</form>
 					<p class="h-footer-newsletter-msg" data-newsletter-msg aria-live="polite"></p>
@@ -738,8 +785,18 @@
 				<div class="h-footer-community">
 					<h3>Join the community</h3>
 					<p>Follow along for builds, demos, and conversations with the team.</p>
-					<a class="h-footer-community-btn" href="https://x.com/trythreews" target="_blank" rel="noopener">
-						<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+					<a
+						class="h-footer-community-btn"
+						href="https://x.com/trythreews"
+						target="_blank"
+						rel="noopener"
+					>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path
+								fill="currentColor"
+								d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+							/>
+						</svg>
 						Follow on X
 					</a>
 				</div>
@@ -753,11 +810,33 @@
 					</div>
 					<p class="h-footer-tagline">Give your AI a body.</p>
 					<div class="h-footer-socials">
-						<a class="h-footer-social" href="https://x.com/trythreews" target="_blank" rel="noopener" aria-label="three.ws on X">
-							<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+						<a
+							class="h-footer-social"
+							href="https://x.com/trythreews"
+							target="_blank"
+							rel="noopener"
+							aria-label="three.ws on X"
+						>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									fill="currentColor"
+									d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+								/>
+							</svg>
 						</a>
-						<a class="h-footer-social" href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener" aria-label="three.ws on GitHub">
-							<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+						<a
+							class="h-footer-social"
+							href="https://github.com/nirholas/three.ws"
+							target="_blank"
+							rel="noopener"
+							aria-label="three.ws on GitHub"
+						>
+							<svg viewBox="0 0 16 16" aria-hidden="true">
+								<path
+									fill="currentColor"
+									d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+								/>
+							</svg>
 						</a>
 					</div>
 				</div>
@@ -772,8 +851,18 @@
 					<div class="h-footer-link-col">
 						<h4 class="h-footer-link-heading">Developers</h4>
 						<a href="/docs">Docs</a>
-						<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener">GitHub</a>
-						<a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank" rel="noopener">ERC-8004</a>
+						<a
+							href="https://github.com/nirholas/three.ws"
+							target="_blank"
+							rel="noopener"
+							>GitHub</a
+						>
+						<a
+							href="https://eips.ethereum.org/EIPS/eip-8004"
+							target="_blank"
+							rel="noopener"
+							>ERC-8004</a
+						>
 					</div>
 					<div class="h-footer-link-col">
 						<h4 class="h-footer-link-heading">Resources</h4>
@@ -798,7 +887,10 @@
 			const esc = (s) =>
 				String(s ?? '').replace(
 					/[&<>"']/g,
-					(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+					(c) =>
+						({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[
+							c
+						],
 				);
 			const attr = (s) => esc(s).replace(/"/g, '&quot;');
 
@@ -816,10 +908,14 @@
 				document.title = `${short} — Agents`;
 				const profileUrl = `${location.origin}/u/${slug}`;
 				document.querySelector('#og-title')?.setAttribute('content', `${short} — Agents`);
-				document.querySelector('#og-description')?.setAttribute('content', `On-chain agent identity profile for ${slug}`);
+				document
+					.querySelector('#og-description')
+					?.setAttribute('content', `On-chain agent identity profile for ${slug}`);
 				document.querySelector('#og-url')?.setAttribute('content', profileUrl);
 				document.querySelector('#tw-title')?.setAttribute('content', `${short} — Agents`);
-				document.querySelector('#tw-description')?.setAttribute('content', `On-chain agent identity profile for ${slug}`);
+				document
+					.querySelector('#tw-description')
+					?.setAttribute('content', `On-chain agent identity profile for ${slug}`);
 				mountUserProfile(root, slug).catch((err) => {
 					root.innerHTML = `<div class="up-error">Could not load profile: ${esc(err.message)}</div>`;
 				});
@@ -836,21 +932,39 @@
 				const res = await fetch(`/api/users/${encodeURIComponent(username)}`);
 				if (!res.ok) {
 					const data = await res.json().catch(() => ({}));
-					const msg = res.status === 404 ? 'User not found.' : (data.error_description || res.statusText);
+					const msg =
+						res.status === 404
+							? 'User not found.'
+							: data.error_description || res.statusText;
 					rootEl.innerHTML = `<div class="up-error">${esc(msg)}</div>`;
 					return;
 				}
 				const data = await res.json();
-				const { user, stats = {}, social = {}, avatars = [], agents = [], widgets = [], skills = [], plugins = [], coins = [], memories = [] } = data;
+				const {
+					user,
+					stats = {},
+					social = {},
+					avatars = [],
+					agents = [],
+					widgets = [],
+					skills = [],
+					plugins = [],
+					coins = [],
+					memories = [],
+				} = data;
 
 				// Update page meta
 				const display = user.display_name || user.username;
 				const title = `@${user.username} — three.ws`;
 				const summaryParts = [];
-				if (stats.avatars) summaryParts.push(`${stats.avatars} avatar${stats.avatars === 1 ? '' : 's'}`);
-				if (stats.agents) summaryParts.push(`${stats.agents} agent${stats.agents === 1 ? '' : 's'}`);
-				if (stats.widgets) summaryParts.push(`${stats.widgets} widget${stats.widgets === 1 ? '' : 's'}`);
-				if (stats.skills) summaryParts.push(`${stats.skills} skill${stats.skills === 1 ? '' : 's'}`);
+				if (stats.avatars)
+					summaryParts.push(`${stats.avatars} avatar${stats.avatars === 1 ? '' : 's'}`);
+				if (stats.agents)
+					summaryParts.push(`${stats.agents} agent${stats.agents === 1 ? '' : 's'}`);
+				if (stats.widgets)
+					summaryParts.push(`${stats.widgets} widget${stats.widgets === 1 ? '' : 's'}`);
+				if (stats.skills)
+					summaryParts.push(`${stats.skills} skill${stats.skills === 1 ? '' : 's'}`);
 				const desc = `${display} on three.ws — ${summaryParts.join(' · ') || 'on-chain agent identity'}.`;
 				document.title = title;
 				const profileUrl = `${location.origin}/u/${encodeURIComponent(user.username)}`;
@@ -881,14 +995,16 @@
 						loading="lazy"
 					></model-viewer>`
 					: heroAvatar?.thumbnail_url
-					? `<img src="${attr(heroAvatar.thumbnail_url)}" alt="${attr(heroAvatar?.name || display)}">`
-					: `<div class="up-hero-3d-empty">◎</div>`;
+						? `<img src="${attr(heroAvatar.thumbnail_url)}" alt="${attr(heroAvatar?.name || display)}">`
+						: `<div class="up-hero-3d-empty">◎</div>`;
 
 				// Meta line: joined date + social
 				const metaBits = [];
 				if (user.created_at) {
 					const joined = new Date(user.created_at);
-					metaBits.push(`Joined ${joined.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`);
+					metaBits.push(
+						`Joined ${joined.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
+					);
 				}
 				if (social.twitter || social.x) {
 					const x = social.twitter || social.x;
@@ -898,7 +1014,9 @@
 					</a>`);
 				}
 				if (social.farcaster) {
-					metaBits.push(`<a href="https://warpcast.com/${attr(social.farcaster)}" target="_blank" rel="noopener">@${esc(social.farcaster)} on Farcaster</a>`);
+					metaBits.push(
+						`<a href="https://warpcast.com/${attr(social.farcaster)}" target="_blank" rel="noopener">@${esc(social.farcaster)} on Farcaster</a>`,
+					);
 				}
 
 				const walletPill = user.wallet_address
@@ -916,7 +1034,9 @@
 				(async () => {
 					try {
 						const [snsRes, meRes] = await Promise.all([
-							fetch(`/api/threews/subdomain?label=${encodeURIComponent(user.username)}`),
+							fetch(
+								`/api/threews/subdomain?label=${encodeURIComponent(user.username)}`,
+							),
 							fetch('/api/auth/me', { credentials: 'include' }).catch(() => null),
 						]);
 						const viewerId = meRes?.ok ? (await meRes.json())?.user?.id : null;
@@ -938,7 +1058,11 @@
 									paySlot.outerHTML = `<button class="up-wallet-pill" id="up-pay-btn" style="cursor:pointer;border:0;font-family:inherit" data-name="${attr(d.full)}" data-handle="${attr(user.username)}">
 										Pay @${esc(user.username)} in USDC
 									</button>`;
-									document.getElementById('up-pay-btn')?.addEventListener('click', () => openPayModal(d.full, user.username));
+									document
+										.getElementById('up-pay-btn')
+										?.addEventListener('click', () =>
+											openPayModal(d.full, user.username),
+										);
 								}
 								return;
 							}
@@ -963,7 +1087,8 @@
 					modal.id = 'up-pay-modal';
 					modal.setAttribute('role', 'dialog');
 					modal.setAttribute('aria-modal', 'true');
-					modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem;backdrop-filter:blur(6px)';
+					modal.style.cssText =
+						'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem;backdrop-filter:blur(6px)';
 					modal.innerHTML = `
 						<div class="up-pay-card" style="background:var(--bg-0);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:1.5rem;max-width:420px;width:100%;color:rgba(255,255,255,.95)">
 							<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
@@ -983,9 +1108,16 @@
 					`;
 					document.body.appendChild(modal);
 					const close = () => modal.remove();
-					modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+					modal.addEventListener('click', (e) => {
+						if (e.target === modal) close();
+					});
 					modal.querySelector('#up-pay-close').addEventListener('click', close);
-					document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+					document.addEventListener('keydown', function esc(e) {
+						if (e.key === 'Escape') {
+							close();
+							document.removeEventListener('keydown', esc);
+						}
+					});
 
 					const goBtn = modal.querySelector('#up-pay-go');
 					const statusEl = modal.querySelector('#up-pay-status');
@@ -1004,7 +1136,9 @@
 							const result = await payByName({
 								name,
 								amount,
-								onStatus: (s) => { statusEl.textContent = s; },
+								onStatus: (s) => {
+									statusEl.textContent = s;
+								},
 							});
 							statusEl.textContent = '';
 							resultEl.style.display = 'block';
@@ -1020,7 +1154,8 @@
 						} catch (err) {
 							statusEl.style.color = '#ff7a7a';
 							if (err?.code === 'no_wallet') {
-								statusEl.innerHTML = 'Install <a href="https://phantom.app/" target="_blank" rel="noopener" style="color:#ab9ff2">Phantom</a> or another Solana wallet, then retry.';
+								statusEl.innerHTML =
+									'Install <a href="https://phantom.app/" target="_blank" rel="noopener" style="color:#ab9ff2">Phantom</a> or another Solana wallet, then retry.';
 							} else if (err?.code === 'confirm_timeout' && err.signature) {
 								statusEl.innerHTML = `Submitted but not confirmed in window. <a href="https://solscan.io/tx/${encodeURIComponent(err.signature)}" target="_blank" rel="noopener" style="color:#69e16f">Check Solscan ↗</a>`;
 							} else {
@@ -1042,12 +1177,16 @@
 					['memories', 'Memories'],
 				];
 				if (stats.widget_views > 0) statDefs.push(['widget_views', 'Widget Views']);
-				const statsHtml = statDefs.map(([key, label]) => `
+				const statsHtml = statDefs
+					.map(
+						([key, label]) => `
 					<div class="up-stat">
 						<span class="up-stat-num">${formatStat(stats[key] || 0)}</span>
 						<span class="up-stat-label">${label}</span>
 					</div>
-				`).join('');
+				`,
+					)
+					.join('');
 
 				// Tabs: only show those with content; default to first non-empty
 				const tabs = [
@@ -1062,16 +1201,21 @@
 				const visibleTabs = tabs.filter((t) => t.count > 0);
 				const defaultTab = visibleTabs[0]?.key || 'avatars';
 
-				const tabBar = (visibleTabs.length > 1)
-					? `<div class="up-tabs" role="tablist">
-						${visibleTabs.map((t) => `
+				const tabBar =
+					visibleTabs.length > 1
+						? `<div class="up-tabs" role="tablist">
+						${visibleTabs
+							.map(
+								(t) => `
 							<button class="up-tab${t.key === defaultTab ? ' up-tab--active' : ''}" role="tab" data-tab="${t.key}" aria-selected="${t.key === defaultTab}">
 								${esc(t.label)}
 								<span class="up-tab-badge">${t.count}</span>
 							</button>
-						`).join('')}
+						`,
+							)
+							.join('')}
 					</div>`
-					: '';
+						: '';
 
 				rootEl.innerHTML = `
 					<div class="up-hero-rich">
@@ -1137,14 +1281,19 @@
 				if (!avatars.length) {
 					return `<p class="up-empty">No public avatars yet.</p>`;
 				}
-				const cards = avatars.map((a) => {
-					const thumb = a.thumbnail_url
-						? `<img src="${attr(a.thumbnail_url)}" alt="${attr(a.name)}" style="width:100%;height:100%;object-fit:cover">`
-						: `<div class="up-card-thumb-placeholder">◎</div>`;
-					const tags = (a.tags || []).slice(0, 3).map((t) => `<span class="up-tag">#${esc(t)}</span>`).join('');
-					const sizeKB = a.size_bytes ? Math.round(a.size_bytes / 1024) : 0;
-					const sizeLabel = sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
-					return `
+				const cards = avatars
+					.map((a) => {
+						const thumb = a.thumbnail_url
+							? `<img src="${attr(a.thumbnail_url)}" alt="${attr(a.name)}" style="width:100%;height:100%;object-fit:cover">`
+							: `<div class="up-card-thumb-placeholder">◎</div>`;
+						const tags = (a.tags || [])
+							.slice(0, 3)
+							.map((t) => `<span class="up-tag">#${esc(t)}</span>`)
+							.join('');
+						const sizeKB = a.size_bytes ? Math.round(a.size_bytes / 1024) : 0;
+						const sizeLabel =
+							sizeKB >= 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+						return `
 						<article class="up-card">
 							<a href="/avatars/${attr(a.id)}" class="up-card-thumb-link" tabindex="-1" aria-hidden="true">
 								<div class="up-card-thumb">${thumb}</div>
@@ -1159,24 +1308,41 @@
 							</div>
 						</article>
 					`;
-				}).join('');
+					})
+					.join('');
 				return `<div class="up-grid">${cards}</div>`;
 			}
 
 			function renderAgentsList(agents) {
 				if (!agents.length) return `<p class="up-empty">No public agents yet.</p>`;
-				const cards = agents.map((a) => {
-					const img = a.profile_image_url || a.avatar_url;
-					const thumb = img
-						? `<img src="${attr(img)}" alt="${attr(a.name)}">`
-						: `<span>◎</span>`;
-					const meta = [];
-					if (a.sns_domain) meta.push(`<a href="https://www.sns.id/domain?domain=${attr(a.sns_domain)}" target="_blank" rel="noopener">◎ ${esc(a.sns_domain)}</a>`);
-					if (a.erc8004_agent_id && a.chain_id) meta.push(`ERC-8004 #${esc(a.erc8004_agent_id)} · chain ${esc(String(a.chain_id))}`);
-					if (a.wallet_address) meta.push(`${esc(a.wallet_address.slice(0, 6))}…${esc(a.wallet_address.slice(-4))}`);
-					if (a.x_username) meta.push(`<a href="https://x.com/${attr(a.x_username)}" target="_blank" rel="noopener">@${esc(a.x_username)}</a>`);
-					if (a.farcaster_fname) meta.push(`<a href="https://warpcast.com/${attr(a.farcaster_fname)}" target="_blank" rel="noopener">/${esc(a.farcaster_fname)}</a>`);
-					return `
+				const cards = agents
+					.map((a) => {
+						const img = a.profile_image_url || a.avatar_url;
+						const thumb = img
+							? `<img src="${attr(img)}" alt="${attr(a.name)}">`
+							: `<span>◎</span>`;
+						const meta = [];
+						if (a.sns_domain)
+							meta.push(
+								`<a href="https://www.sns.id/domain?domain=${attr(a.sns_domain)}" target="_blank" rel="noopener">◎ ${esc(a.sns_domain)}</a>`,
+							);
+						if (a.erc8004_agent_id && a.chain_id)
+							meta.push(
+								`ERC-8004 #${esc(a.erc8004_agent_id)} · chain ${esc(String(a.chain_id))}`,
+							);
+						if (a.wallet_address)
+							meta.push(
+								`${esc(a.wallet_address.slice(0, 6))}…${esc(a.wallet_address.slice(-4))}`,
+							);
+						if (a.x_username)
+							meta.push(
+								`<a href="https://x.com/${attr(a.x_username)}" target="_blank" rel="noopener">@${esc(a.x_username)}</a>`,
+							);
+						if (a.farcaster_fname)
+							meta.push(
+								`<a href="https://warpcast.com/${attr(a.farcaster_fname)}" target="_blank" rel="noopener">/${esc(a.farcaster_fname)}</a>`,
+							);
+						return `
 						<a class="up-card-row" href="/agent/${attr(a.id)}">
 							<div class="up-card-row-thumb">${thumb}</div>
 							<div class="up-card-row-body">
@@ -1189,12 +1355,14 @@
 							</div>
 						</a>
 					`;
-				}).join('');
+					})
+					.join('');
 				return `<div class="up-list up-list-cols-2">${cards}</div>`;
 			}
 
 			function renderWidgetsList(widgets) {
-				if (!widgets.length) return `<p class="up-empty">No public widgets yet. <a href="/widgets">Build one →</a></p>`;
+				if (!widgets.length)
+					return `<p class="up-empty">No public widgets yet. <a href="/widgets">Build one →</a></p>`;
 				const typeIcons = {
 					turntable: '◐',
 					'animation-gallery': '▶',
@@ -1202,9 +1370,10 @@
 					passport: '◉',
 					'hotspot-tour': '⊙',
 				};
-				const cards = widgets.map((w) => {
-					const icon = typeIcons[w.type] || '◎';
-					return `
+				const cards = widgets
+					.map((w) => {
+						const icon = typeIcons[w.type] || '◎';
+						return `
 						<a class="up-card-row" href="/w/${attr(w.id)}">
 							<div class="up-card-row-thumb">${icon}</div>
 							<div class="up-card-row-body">
@@ -1219,18 +1388,24 @@
 							</div>
 						</a>
 					`;
-				}).join('');
+					})
+					.join('');
 				return `<div class="up-list up-list-cols-2">${cards}</div>`;
 			}
 
 			function renderSkillsList(skills) {
 				if (!skills.length) return `<p class="up-empty">No published skills yet.</p>`;
-				const cards = skills.map((s) => {
-					const tags = (s.tags || []).slice(0, 3).map((t) => `<span class="up-tag">#${esc(t)}</span>`).join('');
-					const price = s.price_per_call_usd > 0
-						? `$${Number(s.price_per_call_usd).toFixed(4)}/call`
-						: 'free';
-					return `
+				const cards = skills
+					.map((s) => {
+						const tags = (s.tags || [])
+							.slice(0, 3)
+							.map((t) => `<span class="up-tag">#${esc(t)}</span>`)
+							.join('');
+						const price =
+							s.price_per_call_usd > 0
+								? `$${Number(s.price_per_call_usd).toFixed(4)}/call`
+								: 'free';
+						return `
 						<a class="up-card-row" href="/marketplace#${attr(s.slug)}">
 							<div class="up-card-row-thumb">⚡</div>
 							<div class="up-card-row-body">
@@ -1247,15 +1422,20 @@
 							</div>
 						</a>
 					`;
-				}).join('');
+					})
+					.join('');
 				return `<div class="up-list up-list-cols-2">${cards}</div>`;
 			}
 
 			function renderPluginsList(plugins) {
 				if (!plugins.length) return `<p class="up-empty">No published plugins yet.</p>`;
-				const cards = plugins.map((p) => {
-					const rating = p.rating_count > 0 ? `★ ${Number(p.avg_rating).toFixed(1)} (${p.rating_count})` : 'unrated';
-					return `
+				const cards = plugins
+					.map((p) => {
+						const rating =
+							p.rating_count > 0
+								? `★ ${Number(p.avg_rating).toFixed(1)} (${p.rating_count})`
+								: 'unrated';
+						return `
 						<div class="up-card-row">
 							<div class="up-card-row-thumb">◈</div>
 							<div class="up-card-row-body">
@@ -1272,20 +1452,26 @@
 							</div>
 						</div>
 					`;
-				}).join('');
+					})
+					.join('');
 				return `<div class="up-list up-list-cols-2">${cards}</div>`;
 			}
 
 			function renderCoinsGrid(coins) {
 				if (!coins.length) return `<p class="up-empty">No coins launched yet.</p>`;
-				const cards = coins.map((c) => {
-					const thumb = c.image
-						? `<img src="${attr(c.image)}" alt="${attr(c.name)}" style="width:100%;height:100%;object-fit:cover" referrerpolicy="no-referrer">`
-						: `<div class="up-card-thumb-placeholder">◎</div>`;
-					const symbol = c.symbol ? `<span class="up-card-chain">$${esc(c.symbol.replace(/^\$/, ''))}</span>` : '';
-					const devnet = c.cluster && c.cluster !== 'mainnet'
-						? `<span class="up-card-id">${esc(c.cluster)}</span>` : '';
-					const inner = `
+				const cards = coins
+					.map((c) => {
+						const thumb = c.image
+							? `<img src="${attr(c.image)}" alt="${attr(c.name)}" style="width:100%;height:100%;object-fit:cover" referrerpolicy="no-referrer">`
+							: `<div class="up-card-thumb-placeholder">◎</div>`;
+						const symbol = c.symbol
+							? `<span class="up-card-chain">$${esc(c.symbol.replace(/^\$/, ''))}</span>`
+							: '';
+						const devnet =
+							c.cluster && c.cluster !== 'mainnet'
+								? `<span class="up-card-id">${esc(c.cluster)}</span>`
+								: '';
+						const inner = `
 						<div class="up-card-thumb">${thumb}</div>
 						<div class="up-card-body">
 							${symbol}
@@ -1296,26 +1482,35 @@
 								${devnet}
 							</div>
 						</div>`;
-					// Link out to the live coin page when present; otherwise fall back to
-					// the launching agent so the card is never a dead end.
-					return c.url
-						? `<a class="up-card" href="${attr(c.url)}" target="_blank" rel="noopener" style="text-decoration:none">${inner}</a>`
-						: `<a class="up-card" href="/agent/${attr(c.agent_id)}" style="text-decoration:none">${inner}</a>`;
-				}).join('');
+						// Link out to the live coin page when present; otherwise fall back to
+						// the launching agent so the card is never a dead end.
+						return c.url
+							? `<a class="up-card" href="${attr(c.url)}" target="_blank" rel="noopener" style="text-decoration:none">${inner}</a>`
+							: `<a class="up-card" href="/agent/${attr(c.agent_id)}" style="text-decoration:none">${inner}</a>`;
+					})
+					.join('');
 				return `<div class="up-grid">${cards}</div>`;
 			}
 
 			function renderMemoriesList(memories) {
 				if (!memories.length) return `<p class="up-empty">No public memories yet.</p>`;
-				const cards = memories.map((m) => {
-					const tags = (m.tags || []).slice(0, 4).map((t) => `<span class="up-tag">#${esc(t)}</span>`).join('');
-					const when = m.created_at
-						? new Date(m.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-						: '';
-					const agent = m.agent_name
-						? `<a href="/agent/${attr(m.agent_id)}">${esc(m.agent_name)}</a>`
-						: '';
-					return `
+				const cards = memories
+					.map((m) => {
+						const tags = (m.tags || [])
+							.slice(0, 4)
+							.map((t) => `<span class="up-tag">#${esc(t)}</span>`)
+							.join('');
+						const when = m.created_at
+							? new Date(m.created_at).toLocaleDateString(undefined, {
+									month: 'short',
+									day: 'numeric',
+									year: 'numeric',
+								})
+							: '';
+						const agent = m.agent_name
+							? `<a href="/agent/${attr(m.agent_id)}">${esc(m.agent_name)}</a>`
+							: '';
+						return `
 						<div class="up-card-row">
 							<div class="up-card-row-thumb">◇</div>
 							<div class="up-card-row-body">
@@ -1331,7 +1526,8 @@
 							</div>
 						</div>
 					`;
-				}).join('');
+					})
+					.join('');
 				return `<div class="up-list up-list-cols-2">${cards}</div>`;
 			}
 
@@ -1351,5 +1547,5 @@
 		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
-</body>
+	</body>
 </html>

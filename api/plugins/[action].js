@@ -14,6 +14,7 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { fetchSafePublicUrl, SsrfBlockedError } from '../_lib/ssrf-guard.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -53,14 +54,15 @@ async function resolveAuth(req) {
 // ── Row → API shape ───────────────────────────────────────────────────────────
 
 function toPlugin(row) {
-	const price = row.asset_price_amount != null
-		? {
-			amount: String(row.asset_price_amount),
-			currency_mint: row.asset_price_currency_mint,
-			chain: row.asset_price_chain,
-			mint_decimals: row.asset_price_mint_decimals ?? 6,
-		}
-		: null;
+	const price =
+		row.asset_price_amount != null
+			? {
+					amount: String(row.asset_price_amount),
+					currency_mint: row.asset_price_currency_mint,
+					chain: row.asset_price_chain,
+					mint_decimals: row.asset_price_mint_decimals ?? 6,
+				}
+			: null;
 	return {
 		id: row.id,
 		identifier: row.identifier,
@@ -72,9 +74,7 @@ function toPlugin(row) {
 		tags: row.tags || [],
 		install_count: row.install_count || 0,
 		avg_rating: Number(row.avg_rating) || 0,
-		author: row.author_id
-			? { id: row.author_id, display_name: row.author_display_name }
-			: null,
+		author: row.author_id ? { id: row.author_id, display_name: row.author_display_name } : null,
 		created_at: row.created_at,
 		price,
 	};
@@ -226,19 +226,32 @@ async function handleImport(req, res) {
 	if (!['https:', 'http:'].includes(parsed.protocol))
 		return error(res, 400, 'validation_error', 'manifest_url must be http or https');
 
-	// Fetch the manifest server-side to avoid CORS issues
+	// Fetch the manifest server-side to avoid CORS issues. fetchSafePublicUrl
+	// DNS-resolves the host (and every redirect hop) and rejects private,
+	// loopback, link-local, and cloud-metadata ranges so a user-supplied
+	// manifest_url can't be used to probe internal services (SSRF).
 	let manifest;
 	try {
 		const ac = new AbortController();
 		const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
-		const resp = await fetch(manifestUrl, { signal: ac.signal });
-		clearTimeout(timer);
+		let resp;
+		try {
+			resp = await fetchSafePublicUrl(
+				manifestUrl,
+				{ signal: ac.signal },
+				{ allowHttp: true },
+			);
+		} finally {
+			clearTimeout(timer);
+		}
 		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 		const text = await resp.text();
 		if (text.length > MAX_MANIFEST_BYTES)
 			throw new Error(`Manifest exceeds ${MAX_MANIFEST_BYTES / 1024}KB limit`);
 		manifest = JSON.parse(text);
 	} catch (err) {
+		if (err instanceof SsrfBlockedError)
+			return error(res, 400, 'validation_error', `manifest_url rejected: ${err.message}`);
 		return error(res, 422, 'fetch_failed', `Could not fetch manifest: ${err.message}`);
 	}
 

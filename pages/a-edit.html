@@ -18,6 +18,8 @@
 		<script
 			type="module"
 			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
 		></script>
 
 		<style>
@@ -201,7 +203,10 @@
 				font-weight: 500;
 				cursor: pointer;
 				border: 1px solid transparent;
-				transition: background 0.15s, border-color 0.15s, color 0.15s;
+				transition:
+					background 0.15s,
+					border-color 0.15s,
+					color 0.15s;
 			}
 
 			.ce-btn:disabled {
@@ -242,10 +247,10 @@
 				text-align: center;
 			}
 		</style>
-			<link rel="stylesheet" href="/nav.css" />
-			<link rel="stylesheet" href="/footer.css" />
-			<link rel="stylesheet" href="/mobile.css" />
-			<script defer src="/footer-newsletter.js"></script>
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+		<script defer src="/footer-newsletter.js"></script>
 	</head>
 	<body>
 		<header><div id="nav-container"></div></header>
@@ -284,9 +289,9 @@
 				});
 			}
 		</script>
-	
+
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
-	<script src="/brand.js" defer></script>
-</body>
+		<script src="/brand.js" defer></script>
+	</body>
 </html>

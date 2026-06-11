@@ -506,6 +506,16 @@ export default wrap(async (req, res) => {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
+	// Global hourly ceiling on the shared watsonx server key (same bucket as
+	// api/watsonx/embed) — a hard aggregate cost cap independent of any one IP.
+	// Only consumed when watsonx is configured; the keyless candles-only path
+	// stays unaffected.
+	if (watsonxConfig().configured) {
+		const global = await limits.watsonxEmbedGlobal();
+		if (!global.success)
+			return rateLimited(res, global, 'watsonx capacity reached — try again shortly');
+	}
+
 	if (req.method === 'POST') return handlePost(req, res);
 	return handleGet(req, res);
 });

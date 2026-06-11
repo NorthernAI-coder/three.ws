@@ -401,7 +401,11 @@ async function handleList(req, res) {
 				LIMIT 1
 			`;
 		} catch (err) {
-			console.error('[permissions/list] wallet ownership query failed', err?.code, err?.message || err);
+			console.error(
+				'[permissions/list] wallet ownership query failed',
+				err?.code,
+				err?.message || err,
+			);
 			return error(res, 500, 'db_error', 'Failed to list delegations');
 		}
 		if (!wallet) {
@@ -494,6 +498,11 @@ async function handleMetadata(req, res) {
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('agentId');
 	if (!agentId) return error(res, 400, 'missing_param', 'agentId is required');
+
+	const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	if (!UUID_RE.test(agentId)) {
+		return error(res, 400, 'invalid_id', 'agentId must be a valid UUID');
+	}
 
 	const chainIdParam = url.searchParams.get('chainId');
 	const chainId = chainIdParam ? parseInt(chainIdParam, 10) : null;
@@ -657,11 +666,11 @@ function periodStart(period) {
 }
 
 const PERMISSIONS_PUBLIC_RPCS = {
-	1:        'https://cloudflare-eth.com',
-	8453:     'https://mainnet.base.org',
-	84532:    'https://sepolia.base.org',
+	1: 'https://cloudflare-eth.com',
+	8453: 'https://mainnet.base.org',
+	84532: 'https://sepolia.base.org',
 	11155111: 'https://rpc.sepolia.org',
-	421614:   'https://sepolia-rollup.arbitrum.io/rpc',
+	421614: 'https://sepolia-rollup.arbitrum.io/rpc',
 	11155420: 'https://sepolia.optimism.io',
 };
 
@@ -804,15 +813,17 @@ async function handleRedeem(req, res) {
 		// Sum ETH values in this request
 		const requestAmount = calls.reduce((s, c) => s + BigInt(c.value), 0n);
 
-		// Query period history
+		// Query period history. Sum as numeric, truncate to an integer, and return
+		// as text so the cap check stays BigInt end-to-end — Number round-trips
+		// lose precision above 2^53 (routine for 18-decimal tokens).
 		const [histRow] = await sql`
-			SELECT COALESCE(SUM((meta->>'amount')::numeric), 0) AS spent
+			SELECT trunc(COALESCE(SUM((meta->>'amount')::numeric), 0))::text AS spent
 			FROM usage_events
 			WHERE kind = 'permissions.redeem'
 			  AND meta->>'delegation_id' = ${id}
 			  AND created_at >= ${pStart.toISOString()}
 		`;
-		const historicalSpend = BigInt(Math.floor(Number(histRow?.spent ?? '0')));
+		const historicalSpend = BigInt(histRow?.spent ?? '0');
 
 		if (requestAmount + historicalSpend > maxAmount) {
 			return error(
@@ -843,14 +854,16 @@ async function handleRedeem(req, res) {
 			requestAmount += decoded;
 		}
 
+		// Sum as numeric → trunc → text so the cap check stays BigInt end-to-end
+		// (Number loses precision above 2^53 — routine for 18-decimal tokens).
 		const [histRow] = await sql`
-			SELECT COALESCE(SUM((meta->>'amount')::numeric), 0) AS spent
+			SELECT trunc(COALESCE(SUM((meta->>'amount')::numeric), 0))::text AS spent
 			FROM usage_events
 			WHERE kind = 'permissions.redeem'
 			  AND meta->>'delegation_id' = ${id}
 			  AND created_at >= ${pStart.toISOString()}
 		`;
-		const historicalSpend = BigInt(Math.floor(Number(histRow?.spent ?? '0')));
+		const historicalSpend = BigInt(histRow?.spent ?? '0');
 
 		if (requestAmount + historicalSpend > maxAmount) {
 			return error(
@@ -959,7 +972,10 @@ const revokeBodySchema = z.object({
 
 const revokeIface = new Interface(DELEGATION_MANAGER_ABI);
 const _revokeEvent = revokeIface.getEvent('DisabledDelegation');
-if (!_revokeEvent) throw new Error('DisabledDelegation event not found in DELEGATION_MANAGER_ABI — check src/erc7710/abi.js');
+if (!_revokeEvent)
+	throw new Error(
+		'DisabledDelegation event not found in DELEGATION_MANAGER_ABI — check src/erc7710/abi.js',
+	);
 const DISABLED_TOPIC = _revokeEvent.topicHash;
 
 const RPC_TIMEOUT_MS = 5000;
@@ -1184,7 +1200,13 @@ async function handleVerify(req, res) {
 		res.setHeader('cache-control', 'no-store');
 		// Don't leak the upstream error string to the client — log it (above) and
 		// return a stable code. The internal message goes to server logs only.
-		res.end(JSON.stringify({ ok: false, error: 'rpc_error', error_description: 'on-chain verification failed' }));
+		res.end(
+			JSON.stringify({
+				ok: false,
+				error: 'rpc_error',
+				error_description: 'on-chain verification failed',
+			}),
+		);
 		return;
 	}
 

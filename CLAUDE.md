@@ -114,6 +114,16 @@ Fix every issue found. Then report complete.
 - Use TodoWrite for any task with 3+ steps. Mark items complete in real time.
 - Communication: short. State what you did, what's next. No trailing recaps.
 
+## Changelog: every user-visible change gets an entry
+
+$THREE holders follow the public changelog (three.ws/changelog, RSS, JSON, Telegram). Keep it alive:
+
+- **New page?** Nothing extra — the `added` date in `data/pages.json` feeds the changelog automatically.
+- **Everything else users would notice** (feature, improvement, fix, SDK release, security work): append an entry to `data/changelog.json` — date, holder-readable title + summary (plain language, no commit jargon), tags from: feature, improvement, fix, sdk, infra, docs, security. Optional `link` must be a live page path.
+- `npm run build:pages` regenerates CHANGELOG.md, public/changelog.json, and public/changelog.xml — it also validates your entry and fails the build on a malformed one.
+- After the change is deployed, `npm run changelog:push` posts new entries to the holders' Telegram channel (needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHANGELOG_CHAT_ID`; use `--dry-run` to preview). Skip silently if creds are absent locally.
+- Internal-only chores (CI, lockfiles, refactors with no visible effect) do NOT get entries.
+
 ## Commit & push: do it immediately, no questions
 
 When the user says commit and/or push, execute it right away. Do NOT run the completionist subagent, audits, tests, diff reviews, scans, or any other pre-commit step first. Do NOT ask clarifying questions or pause for confirmation — staging, committing, and pushing IS the explicit approval. Just run the git commands and report the result.

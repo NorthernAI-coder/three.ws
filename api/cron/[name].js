@@ -162,7 +162,10 @@ async function handleErc8004Crawl(req, res) {
 
 	if (Date.now() - crawlStart <= CRAWL_BUDGET_MS) {
 		try {
-			report.enriched = await erc8004EnrichMetadata(ERC8004_METADATA_BATCH, crawlStart + CRAWL_BUDGET_MS);
+			report.enriched = await erc8004EnrichMetadata(
+				ERC8004_METADATA_BATCH,
+				crawlStart + CRAWL_BUDGET_MS,
+			);
 		} catch (err) {
 			report.errors.push({ stage: 'metadata', error: err.message || String(err) });
 		}
@@ -208,7 +211,11 @@ async function erc8004CrawlChain(chain) {
 		await Promise.all(
 			uniqueBlockHexes.map(async (bn) => {
 				try {
-					const block = await erc8004RpcCall(chain.rpcUrls ?? chain.rpcUrl, 'eth_getBlockByNumber', [bn, false]);
+					const block = await erc8004RpcCall(
+						chain.rpcUrls ?? chain.rpcUrl,
+						'eth_getBlockByNumber',
+						[bn, false],
+					);
 					blockTimes[bn] = block ? Number.parseInt(block.timestamp, 16) : null;
 				} catch {
 					// registered_at will be null for this block
@@ -354,7 +361,11 @@ async function erc8004FetchAgentMetadata(uri) {
 	const url = erc8004ResolveGateway(uri);
 	if (!url) return null;
 	try {
-		const res = await fetch(url, { signal: AbortSignal.timeout(ERC8004_METADATA_TIMEOUT_MS) });
+		// agentURI is attacker-controllable on-chain data — SSRF-guard the fetch
+		// (and every redirect hop) exactly like the alert-webhook path below.
+		const res = await fetchSafePublicUrl(url, {
+			signal: AbortSignal.timeout(ERC8004_METADATA_TIMEOUT_MS),
+		});
 		if (!res.ok) return null;
 		return await res.json();
 	} catch {
@@ -417,11 +428,7 @@ const BLOCKS_PER_DAY = {
 // Removed: cloudflare-eth.com (endpoint sunset — always failed, wasting the
 // first attempt + timeout each run) and 1rpc.io/* (chronic 429 in prod logs).
 const PUBLIC_RPCS = {
-	1: [
-		'https://eth.llamarpc.com',
-		'https://rpc.ankr.com/eth',
-		'https://ethereum.publicnode.com',
-	],
+	1: ['https://eth.llamarpc.com', 'https://rpc.ankr.com/eth', 'https://ethereum.publicnode.com'],
 	8453: [
 		'https://mainnet.base.org',
 		'https://base.llamarpc.com',
@@ -710,7 +717,14 @@ async function idxIndexChain(chainId, contract, cronStart = Date.now()) {
 		fromBlock = toBlock + 1;
 	}
 
-	return { fromBlock: initialFrom, toBlock, revokedCount, redeemedCount, logErrorCount, earlyExit };
+	return {
+		fromBlock: initialFrom,
+		toBlock,
+		revokedCount,
+		redeemedCount,
+		logErrorCount,
+		earlyExit,
+	};
 }
 
 async function idxRpc(urls, method, params) {
@@ -771,7 +785,15 @@ async function handlePumpAgentStats(req, res) {
 	`;
 
 	const DEADLINE = Date.now() + 22_000;
-	const report = { scanned: mints.length, updated: 0, errors: 0, graduations: 0, timeouts: 0, rate_limited: 0, skipped: 0 };
+	const report = {
+		scanned: mints.length,
+		updated: 0,
+		errors: 0,
+		graduations: 0,
+		timeouts: 0,
+		rate_limited: 0,
+		skipped: 0,
+	};
 	let consecutiveRateLimit = 0;
 
 	for (const m of mints) {
@@ -781,7 +803,12 @@ async function handlePumpAgentStats(req, res) {
 		}
 		if (consecutiveRateLimit >= 3) {
 			report.skipped += mints.length - mints.indexOf(m);
-			console.log(JSON.stringify({ event: 'pump_agent_stats.circuit_open', consecutive_429: consecutiveRateLimit }));
+			console.log(
+				JSON.stringify({
+					event: 'pump_agent_stats.circuit_open',
+					consecutive_429: consecutiveRateLimit,
+				}),
+			);
 			break;
 		}
 
@@ -789,7 +816,11 @@ async function handlePumpAgentStats(req, res) {
 			const stats = await Promise.race([
 				pumpStatsSnapshotMint(m),
 				new Promise((_, rej) =>
-					setTimeout(() => rej(Object.assign(new Error('snapshot timeout'), { code: 'TIMEOUT' })), PUMP_STATS_MINT_TIMEOUT_MS),
+					setTimeout(
+						() =>
+							rej(Object.assign(new Error('snapshot timeout'), { code: 'TIMEOUT' })),
+						PUMP_STATS_MINT_TIMEOUT_MS,
+					),
 				),
 			]);
 
@@ -1008,7 +1039,9 @@ async function handlePumpfunMonitor(req, res) {
 	// attester provisioning, so /api/healthz reports real bot status and the
 	// dashboard's server-side alerts fire even when no tab is open.
 	await writeBotHeartbeat();
-	const alertReport = await evaluateUserAlerts().catch((e) => ({ error: e?.message || String(e) }));
+	const alertReport = await evaluateUserAlerts().catch((e) => ({
+		error: e?.message || String(e),
+	}));
 
 	if (!process.env.ATTEST_AGENT_SECRET_KEY) {
 		// Skip the attestation work cleanly when the attester key isn't
@@ -1057,7 +1090,14 @@ async function handlePumpfunMonitor(req, res) {
 	`;
 
 	const attester = loadAttesterKeypair();
-	const report = { scanned: rows.length, minted: 0, deduped: 0, in_progress: 0, errors: 0, events: [] };
+	const report = {
+		scanned: rows.length,
+		minted: 0,
+		deduped: 0,
+		in_progress: 0,
+		errors: 0,
+		events: [],
+	};
 
 	for (const r of rows) {
 		const events = detectEvents(r);
@@ -1066,21 +1106,30 @@ async function handlePumpfunMonitor(req, res) {
 				const result = await mintAttestation({
 					...ev,
 					agent_asset: r.agent_asset,
-					network:     r.network,
-					token_mint:  r.token_mint,
+					network: r.network,
+					token_mint: r.token_mint,
 					attester,
 				});
-				report[result.status === 'minted' ? 'minted'
-					: result.status === 'deduped' ? 'deduped' : 'in_progress']++;
+				report[
+					result.status === 'minted'
+						? 'minted'
+						: result.status === 'deduped'
+							? 'deduped'
+							: 'in_progress'
+				]++;
 				report.events.push({
-					mint: r.token_mint, type: ev.event_type, status: result.status,
+					mint: r.token_mint,
+					type: ev.event_type,
+					status: result.status,
 					signature: result.signature,
 				});
 			} catch (e) {
 				report.errors++;
 				report.events.push({
-					mint: r.token_mint, type: ev.event_type,
-					status: 'error', error: e?.message || String(e),
+					mint: r.token_mint,
+					type: ev.event_type,
+					status: 'error',
+					error: e?.message || String(e),
 				});
 			}
 		}
@@ -1213,7 +1262,11 @@ async function evaluateUserAlerts() {
 			`;
 		} catch (e) {
 			report.errors++;
-			console.error('[pumpfun-monitor] alert eval failed for user', cfg.user_id, e?.message || e);
+			console.error(
+				'[pumpfun-monitor] alert eval failed for user',
+				cfg.user_id,
+				e?.message || e,
+			);
 		}
 	}
 
@@ -1243,18 +1296,20 @@ async function postAlertWebhook(url, payload) {
 /** Map a single (stats, cursor) row to the attestation events to emit. */
 function detectEvents(r) {
 	const out = [];
-	const slot_or_ts = r.last_signature_at
-		? new Date(r.last_signature_at).getTime()
-		: Date.now();
+	const slot_or_ts = r.last_signature_at ? new Date(r.last_signature_at).getTime() : Date.now();
 
 	// Graduation flip false -> true.
 	if (r.graduated === true && r.last_graduated !== true) {
 		out.push({
 			event_type: 'graduation',
-			source:     'pumpfun.graduation',
-			event_id:   deriveEventId({ event_type: 'graduation', mint: r.token_mint, slot_or_ts: 'final' }),
-			task_id:    `pumpfun:${r.token_mint}:graduation`,
-			detail:     { network: r.network },
+			source: 'pumpfun.graduation',
+			event_id: deriveEventId({
+				event_type: 'graduation',
+				mint: r.token_mint,
+				slot_or_ts: 'final',
+			}),
+			task_id: `pumpfun:${r.token_mint}:graduation`,
+			detail: { network: r.network },
 		});
 	}
 
@@ -1262,14 +1317,14 @@ function detectEvents(r) {
 	if (r.agent_authority && r.last_authority && r.agent_authority !== r.last_authority) {
 		out.push({
 			event_type: 'cto_detected',
-			source:     'pumpfun.cto',
-			event_id:   deriveEventId({
+			source: 'pumpfun.cto',
+			event_id: deriveEventId({
 				event_type: 'cto',
-				mint:       r.token_mint,
+				mint: r.token_mint,
 				slot_or_ts: `${r.last_authority}->${r.agent_authority}`,
 			}),
-			task_id:    `pumpfun:${r.token_mint}:cto:${slot_or_ts}`,
-			detail:     { from: r.last_authority, to: r.agent_authority, network: r.network },
+			task_id: `pumpfun:${r.token_mint}:cto:${slot_or_ts}`,
+			detail: { from: r.last_authority, to: r.agent_authority, network: r.network },
 		});
 	}
 
@@ -1484,16 +1539,14 @@ async function handleRunBuyback(req, res) {
 			}
 
 			const { offline } = await getPumpAgentOffline({ network: m.network, mint: m.mint });
-			const [{ PUMP_PROGRAM_ID }] = await Promise.all([
-				import('@three-ws/agent-payments'),
-			]);
+			const [{ PUMP_PROGRAM_ID }] = await Promise.all([import('@three-ws/agent-payments')]);
 
 			const payerPk = relayer ? relayer.publicKey : solanaPubkey(m.mint);
 			const params = {
-				globalBuybackAuthority: payerPk,                  // gated by globalConfig — for skipped-swap form, can be relayer
+				globalBuybackAuthority: payerPk, // gated by globalConfig — for skipped-swap form, can be relayer
 				currencyMint: currency,
-				swapProgramToInvoke: PUMP_PROGRAM_ID,             // pump bonding-curve program (same for burn-only and full-swap)
-				swapInstructionData: Buffer.alloc(0),             // empty = skip swap, just burn
+				swapProgramToInvoke: PUMP_PROGRAM_ID, // pump bonding-curve program (same for burn-only and full-swap)
+				swapInstructionData: Buffer.alloc(0), // empty = skip swap, just burn
 				remainingAccounts: [],
 			};
 
@@ -1534,7 +1587,12 @@ async function handleRunBuyback(req, res) {
 					values (${m.id}, ${currencyStr}, ${PUMP_PROGRAM_ID.toBase58()}, 'pending', ${buyback.toString()})
 					returning id
 				`;
-				results.push({ mint: m.mint, status: 'pending', run_id: run.id, tx_base64: txBase64 });
+				results.push({
+					mint: m.mint,
+					status: 'pending',
+					run_id: run.id,
+					tx_base64: txBase64,
+				});
 				continue;
 			}
 
@@ -1885,7 +1943,10 @@ async function handleRunDca(req, res) {
 		`;
 	} catch (err) {
 		if (isTableMissing(err)) {
-			dcaLog('info', 'tick_skip', { run_id: runId, reason: 'dca_strategies table not yet created' });
+			dcaLog('info', 'tick_skip', {
+				run_id: runId,
+				reason: 'dca_strategies table not yet created',
+			});
 			return json(res, 200, { ok: true, skipped: true, reason: 'table_not_ready' });
 		}
 		dcaLog('error', 'fetch_due_failed', { run_id: runId, message: err?.message });
@@ -2114,7 +2175,12 @@ async function handleRunDistributePayments(req, res) {
 					values (${m.id}, ${currencyStr}, 'pending', ${JSON.stringify({ payment: paymentBalance.toString() })}::jsonb)
 					returning id
 				`;
-				results.push({ mint: m.mint, status: 'pending', run_id: run.id, tx_base64: txBase64 });
+				results.push({
+					mint: m.mint,
+					status: 'pending',
+					run_id: run.id,
+					tx_base64: txBase64,
+				});
 				continue;
 			}
 
@@ -2144,9 +2210,9 @@ async function handleRunDistributePayments(req, res) {
 					(${m.id}, ${currencyStr}, ${sig}, 'confirmed',
 					 ${JSON.stringify({ payment: paymentBalance.toString() })}::jsonb,
 					 ${JSON.stringify({
-						buyback: balancesAfter.buybackVault?.balance?.toString?.(),
-						withdraw: balancesAfter.withdrawVault?.balance?.toString?.(),
-					})}::jsonb)
+							buyback: balancesAfter.buybackVault?.balance?.toString?.(),
+							withdraw: balancesAfter.withdrawVault?.balance?.toString?.(),
+						})}::jsonb)
 				returning id
 			`;
 			results.push({ mint: m.mint, status: 'confirmed', tx_signature: sig, run_id: run.id });
@@ -2277,7 +2343,10 @@ async function handleRunSubscriptions(req, res) {
 		`;
 	} catch (err) {
 		if (isTableMissing(err)) {
-			subLog('subscription_cron.skip', { runId, reason: 'agent_subscriptions table not yet created' });
+			subLog('subscription_cron.skip', {
+				runId,
+				reason: 'agent_subscriptions table not yet created',
+			});
 			return json(res, 200, { ok: true, skipped: true, reason: 'table_not_ready' });
 		}
 		subLogError('subscription_cron.select_failed', { runId, message: err.message });
@@ -2450,7 +2519,11 @@ async function handleRunSubscriptions(req, res) {
 			});
 			report.errors.push({ id: row.id, reason: 'unhandled', message: err.message });
 			// Best-effort pause so we don't loop on the same broken row next hour.
-			await subSafePause(row.id, `unhandled: ${(err.message ?? 'unknown').slice(0, 480)}`, ctx);
+			await subSafePause(
+				row.id,
+				`unhandled: ${(err.message ?? 'unknown').slice(0, 480)}`,
+				ctx,
+			);
 			report.paused++;
 		}
 	}
@@ -2548,8 +2621,8 @@ async function handleSolanaAttestationsCrawl(req, res) {
 	for (const row of agents) {
 		try {
 			const r = await crawlAgentAttestations({
-				agentAsset:  row.agent_asset,
-				network:     row.network,
+				agentAsset: row.agent_asset,
+				network: row.network,
 				ownerWallet: row.owner_wallet,
 			});
 			report.agents.push({ asset: row.agent_asset, ...r });
@@ -2574,7 +2647,7 @@ async function handleProcessSubscriptions(req, res) {
 	const report = {
 		runId,
 		processed: 0,
-		charged: 0,        // succeeded outright (instantaneous settlement)
+		charged: 0, // succeeded outright (instantaneous settlement)
 		pendingApproval: 0, // payment intent created; subscriber must approve
 		pastDue: 0,
 		errors: [],
@@ -2615,12 +2688,14 @@ async function handleProcessSubscriptions(req, res) {
 					WHERE id = ${row.id} AND status = 'active'
 				`;
 				report.pastDue++;
-				console.log(JSON.stringify({
-					event: 'process_subscriptions.past_due',
-					runId,
-					subscriptionId: row.id,
-					failCount,
-				}));
+				console.log(
+					JSON.stringify({
+						event: 'process_subscriptions.past_due',
+						runId,
+						subscriptionId: row.id,
+						failCount,
+					}),
+				);
 				// Fire-and-forget email notification.
 				sendEmail({
 					to: row.subscriber_email,
@@ -2629,11 +2704,15 @@ async function handleProcessSubscriptions(req, res) {
 <p>We were unable to process your subscription payment of $${row.price_usd}. Your subscription has been paused. Please update your payment method to continue.</p>
 <p><a href="${env.APP_ORIGIN}/dashboard#subscriptions">Manage subscriptions</a></p>`,
 					text: `Your subscription payment of $${row.price_usd} could not be processed. Visit ${env.APP_ORIGIN}/dashboard#subscriptions to manage your subscriptions.`,
-				}).catch((e) => console.error(JSON.stringify({
-					event: 'process_subscriptions.email_failed',
-					subscriptionId: row.id,
-					error: e.message,
-				})));
+				}).catch((e) =>
+					console.error(
+						JSON.stringify({
+							event: 'process_subscriptions.email_failed',
+							subscriptionId: row.id,
+							error: e.message,
+						}),
+					),
+				);
 				continue;
 			}
 
@@ -2654,11 +2733,15 @@ async function handleProcessSubscriptions(req, res) {
 <p>Your subscription is up for renewal. The amount is $${result.amount_usd?.toFixed(2) || row.price_usd}.</p>
 <p><a href="${result.payUrl}">Approve renewal payment</a></p>`,
 						text: `Your subscription renewal of $${result.amount_usd?.toFixed(2) || row.price_usd} is ready. Approve at ${result.payUrl}`,
-					}).catch((e) => console.error(JSON.stringify({
-						event: 'process_subscriptions.email_failed',
-						subscriptionId: row.id,
-						error: e.message,
-					})));
+					}).catch((e) =>
+						console.error(
+							JSON.stringify({
+								event: 'process_subscriptions.email_failed',
+								subscriptionId: row.id,
+								error: e.message,
+							}),
+						),
+					);
 				}
 			} else {
 				if (result.paymentId) {
@@ -2668,12 +2751,14 @@ async function handleProcessSubscriptions(req, res) {
 			}
 		} catch (e) {
 			report.errors.push({ id: row.id, error: e.message || String(e) });
-			console.error(JSON.stringify({
-				event: 'process_subscriptions.row_error',
-				runId,
-				subscriptionId: row.id,
-				error: e.message,
-			}));
+			console.error(
+				JSON.stringify({
+					event: 'process_subscriptions.row_error',
+					runId,
+					subscriptionId: row.id,
+					error: e.message,
+				}),
+			);
 		}
 	}
 
@@ -2803,7 +2888,23 @@ async function handleProcessWithdrawals(req, res) {
 	// once an operator wires the key.
 	const supportedChains = [];
 	if (treasuryKeypair) supportedChains.push('solana');
-	if (evmTreasuryKey) supportedChains.push('ethereum', 'base', 'optimism', 'arbitrum', 'polygon', 'sepolia', 'base-sepolia', '1', '8453', '10', '42161', '137', '11155111', '84532');
+	if (evmTreasuryKey)
+		supportedChains.push(
+			'ethereum',
+			'base',
+			'optimism',
+			'arbitrum',
+			'polygon',
+			'sepolia',
+			'base-sepolia',
+			'1',
+			'8453',
+			'10',
+			'42161',
+			'137',
+			'11155111',
+			'84532',
+		);
 
 	// Fetch pending withdrawals across all supported chains, join user earnings
 	// to verify available balance.
@@ -2966,7 +3067,13 @@ async function handleRunXScheduledPosts(req, res) {
 	`;
 
 	const report = { processed: 0, posted: 0, errored: 0 };
-	const TERMINAL = new Set(['quota_exceeded', 'duplicate', 'not_connected', 'validation_error', 'reauth_required']);
+	const TERMINAL = new Set([
+		'quota_exceeded',
+		'duplicate',
+		'not_connected',
+		'validation_error',
+		'reauth_required',
+	]);
 
 	for (const row of due) {
 		report.processed++;
@@ -3061,16 +3168,22 @@ async function handleRunXTriggers(req, res) {
 }
 
 async function evalTrigger(t) {
-	if (t.kind === 'daily_persona')    return await evalDailyPersona(t);
-	if (t.kind === 'weekly_digest')    return await evalWeeklyDigest(t);
-	if (t.kind === 'price_milestone')  return await evalPriceMilestone(t);
+	if (t.kind === 'daily_persona') return await evalDailyPersona(t);
+	if (t.kind === 'weekly_digest') return await evalWeeklyDigest(t);
+	if (t.kind === 'price_milestone') return await evalPriceMilestone(t);
 	if (t.kind === 'payment_received') return await evalPaymentReceived(t);
 	return false;
 }
 
-function utcHour(d) { return d.getUTCHours(); }
-function utcDay(d)  { return d.getUTCDay(); }
-function ymdUTC(d)  { return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`; }
+function utcHour(d) {
+	return d.getUTCHours();
+}
+function utcDay(d) {
+	return d.getUTCDay();
+}
+function ymdUTC(d) {
+	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
 
 // Either enqueue for immediate publish (auto_publish=true) or stash in the
 // pending-review queue for the user to approve (auto_publish=false).
@@ -3155,7 +3268,11 @@ async function anthropicDraft({ system, user, max }) {
 async function openaiCompatDraft({ url, key, model, system, user, max, extraHeaders = {} }) {
 	const r = await fetch(url, {
 		method: 'POST',
-		headers: { 'content-type': 'application/json', authorization: `Bearer ${key}`, ...extraHeaders },
+		headers: {
+			'content-type': 'application/json',
+			authorization: `Bearer ${key}`,
+			...extraHeaders,
+		},
 		body: JSON.stringify({
 			model,
 			max_tokens: max,
@@ -3179,14 +3296,18 @@ async function llmDraft({ system, user, max = 200 }) {
 			url: 'https://api.groq.com/openai/v1/chat/completions',
 			key: env.GROQ_API_KEY,
 			model: 'llama-3.3-70b-versatile',
-			system, user, max,
+			system,
+			user,
+			max,
 		});
 	} else if (env.OPENROUTER_API_KEY) {
 		text = await openaiCompatDraft({
 			url: 'https://openrouter.ai/api/v1/chat/completions',
 			key: env.OPENROUTER_API_KEY,
 			model: 'meta-llama/llama-3.3-70b-instruct',
-			system, user, max,
+			system,
+			user,
+			max,
 			extraHeaders: { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws agent' },
 		});
 	} else if (env.ANTHROPIC_API_KEY) {
@@ -3210,8 +3331,13 @@ async function evalDailyPersona(t) {
 	const ctx = avatar
 		? `Agent name: ${avatar.name || 'Unnamed'}\nAgent description: ${avatar.description || '(none)'}`
 		: '';
-	const topic = t.config.topic ? `Topic for today: ${t.config.topic}` : 'Write something engaging and in-character about being an autonomous AI agent today.';
-	const text = await llmDraft({ system: DRAFT_SYSTEM, user: [ctx, topic].filter(Boolean).join('\n\n') });
+	const topic = t.config.topic
+		? `Topic for today: ${t.config.topic}`
+		: 'Write something engaging and in-character about being an autonomous AI agent today.';
+	const text = await llmDraft({
+		system: DRAFT_SYSTEM,
+		user: [ctx, topic].filter(Boolean).join('\n\n'),
+	});
 	await enqueueTriggerPost(t, text);
 	await setTriggerState(t, { fired_ymd: today });
 	return true;
@@ -3219,20 +3345,29 @@ async function evalDailyPersona(t) {
 
 async function evalWeeklyDigest(t) {
 	const now = new Date();
-	if (utcDay(now) !== Number(t.config.day_of_week) || utcHour(now) !== Number(t.config.hour_utc)) return false;
-	const week = `${now.getUTCFullYear()}-W${Math.floor((now.getUTCDate()+6)/7)}`;
+	if (utcDay(now) !== Number(t.config.day_of_week) || utcHour(now) !== Number(t.config.hour_utc))
+		return false;
+	const week = `${now.getUTCFullYear()}-W${Math.floor((now.getUTCDate() + 6) / 7)}`;
 	if (t.last_state?.fired_week === week) return false;
 
 	const avatar = await loadAvatarFromAgent(t.agent_id);
-	const mint = avatar ? (await sql`
+	const mint = avatar
+		? (
+				await sql`
 		select m.symbol, m.name, s.recent_tx_count
 		from pump_agent_mints m left join pump_agent_stats s on s.mint_id = m.id
 		where m.agent_id::text = ${avatar.agent_id ?? null} or m.agent_id::text = ${avatar.id}
 		order by m.created_at desc limit 1
-	`)[0] : null;
+	`
+			)[0]
+		: null;
 
-	const ctx = avatar ? `Agent name: ${avatar.name || 'Unnamed'}\nDescription: ${avatar.description || '(none)'}` : '';
-	const stats = mint ? `\nToken: $${mint.symbol || 'TOKEN'} on pump.fun. Recent transactions: ${mint.recent_tx_count || 0}.` : '';
+	const ctx = avatar
+		? `Agent name: ${avatar.name || 'Unnamed'}\nDescription: ${avatar.description || '(none)'}`
+		: '';
+	const stats = mint
+		? `\nToken: $${mint.symbol || 'TOKEN'} on pump.fun. Recent transactions: ${mint.recent_tx_count || 0}.`
+		: '';
 	const text = await llmDraft({
 		system: DRAFT_SYSTEM,
 		user: `${ctx}${stats}\n\nWrite a weekly recap tweet covering the agent's progress this week. If token stats are present, mention them naturally.`,
@@ -3247,7 +3382,8 @@ async function evalPriceMilestone(t) {
 	if (!thresholds.length) return false;
 	const avatar = await loadAvatarFromAgent(t.agent_id);
 	if (!avatar) return false;
-	const mintRow = (await sql`
+	const mintRow = (
+		await sql`
 		select m.id as mint_id, m.symbol, p.market_cap_lamports
 		from pump_agent_mints m
 		left join lateral (
@@ -3256,7 +3392,8 @@ async function evalPriceMilestone(t) {
 		) p on true
 		where m.agent_id::text = ${avatar.agent_id ?? null} or m.agent_id::text = ${avatar.id}
 		order by m.created_at desc limit 1
-	`)[0];
+	`
+	)[0];
 	if (!mintRow || !mintRow.market_cap_lamports) return false;
 
 	const solUsd = Number(t.config.sol_usd) || SOL_USD_FALLBACK;
@@ -3295,8 +3432,15 @@ async function evalPaymentReceived(t) {
 	let lastId = null;
 	for (const p of payments) {
 		const approxUsd = Number(p.amount_atomics) / 1e6;
-		if (approxUsd < minUsd) { lastId = p.id; continue; }
-		const label = p.tool_name ? `for "${p.tool_name}"` : (p.skill_id ? `for skill ${p.skill_id}` : 'for a paid action');
+		if (approxUsd < minUsd) {
+			lastId = p.id;
+			continue;
+		}
+		const label = p.tool_name
+			? `for "${p.tool_name}"`
+			: p.skill_id
+				? `for skill ${p.skill_id}`
+				: 'for a paid action';
 		const text = await llmDraft({
 			system: DRAFT_SYSTEM,
 			user: `Agent name: ${avatar.name || 'Unnamed'}\nDescription: ${avatar.description || '(none)'}\nA user just paid ~$${approxUsd.toFixed(2)} ${label}.\n\nWrite a short thank-you tweet in the agent's voice.`,
@@ -3333,15 +3477,21 @@ async function handleFetchXMetrics(req, res) {
 	const report = { users: 0, fetched: 0, errors: 0 };
 	for (const u of users) {
 		report.users++;
-		const conn = (await sql`
+		const conn = (
+			await sql`
 			select access_token, expires_at, refresh_token, id
 			from social_connections
 			where user_id = ${u.user_id} and provider = 'x' and disconnected_at is null
 			limit 1
-		`)[0];
+		`
+		)[0];
 		if (!conn || !conn.access_token) continue;
 		let accessToken;
-		try { accessToken = decryptToken(conn.access_token); } catch { continue; }
+		try {
+			accessToken = decryptToken(conn.access_token);
+		} catch {
+			continue;
+		}
 
 		const posts = await sql`
 			select id, tweet_id from x_posts
@@ -3355,10 +3505,16 @@ async function handleFetchXMetrics(req, res) {
 
 		// X allows up to 100 ids per /2/tweets lookup.
 		const ids = posts.map((p) => p.tweet_id).join(',');
-		const r = await fetch(`https://api.twitter.com/2/tweets?ids=${ids}&tweet.fields=public_metrics`, {
-			headers: { authorization: `Bearer ${accessToken}` },
-		});
-		if (!r.ok) { report.errors++; continue; }
+		const r = await fetch(
+			`https://api.twitter.com/2/tweets?ids=${ids}&tweet.fields=public_metrics`,
+			{
+				headers: { authorization: `Bearer ${accessToken}` },
+			},
+		);
+		if (!r.ok) {
+			report.errors++;
+			continue;
+		}
 		const { data = [] } = await r.json();
 		const byId = new Map(data.map((d) => [d.id, d.public_metrics]));
 
@@ -3405,7 +3561,11 @@ async function handleRunCoinCycle(req, res) {
 	// operator opts in by setting COIN_DEMO_ENABLED=true in env. Until then
 	// neither Vercel cron nor a manual call can touch any coin_launches row.
 	if (process.env.COIN_DEMO_ENABLED !== 'true') {
-		return json(res, 200, { ok: true, disabled: true, hint: 'set COIN_DEMO_ENABLED=true to enable' });
+		return json(res, 200, {
+			ok: true,
+			disabled: true,
+			hint: 'set COIN_DEMO_ENABLED=true to enable',
+		});
 	}
 
 	const coinLib = await import('../_lib/coin/index.js');
@@ -3413,7 +3573,12 @@ async function handleRunCoinCycle(req, res) {
 
 	const phaseFilter = (req.query?.phase || '').toString();
 	const onlyPhase = phaseFilter
-		? new Set(phaseFilter.split(',').map((s) => s.trim()).filter(Boolean))
+		? new Set(
+				phaseFilter
+					.split(',')
+					.map((s) => s.trim())
+					.filter(Boolean),
+			)
 		: null;
 	const wantPhase = (name) => !onlyPhase || onlyPhase.has(name);
 
@@ -3427,7 +3592,11 @@ async function handleRunCoinCycle(req, res) {
 			}
 		} catch (err) {
 			result.steps.snapshot = { error: err.message || String(err) };
-			report.errors.push({ mint: coin.mint, step: 'snapshot', error: result.steps.snapshot.error });
+			report.errors.push({
+				mint: coin.mint,
+				step: 'snapshot',
+				error: result.steps.snapshot.error,
+			});
 		}
 
 		// Refresh row after snapshot so we have current last_snapshot_at.
@@ -3452,7 +3621,11 @@ async function handleRunCoinCycle(req, res) {
 			}
 		} catch (err) {
 			result.steps.commit_lottery = { error: err.message || String(err) };
-			report.errors.push({ mint: coin.mint, step: 'commit_lottery', error: result.steps.commit_lottery.error });
+			report.errors.push({
+				mint: coin.mint,
+				step: 'commit_lottery',
+				error: result.steps.commit_lottery.error,
+			});
 		}
 
 		try {
@@ -3461,7 +3634,11 @@ async function handleRunCoinCycle(req, res) {
 			}
 		} catch (err) {
 			result.steps.resolve_lottery = { error: err.message || String(err) };
-			report.errors.push({ mint: coin.mint, step: 'resolve_lottery', error: result.steps.resolve_lottery.error });
+			report.errors.push({
+				mint: coin.mint,
+				step: 'resolve_lottery',
+				error: result.steps.resolve_lottery.error,
+			});
 		}
 
 		const refreshed3 = await coinLib.loadCoinById(coin.id);
@@ -3473,7 +3650,11 @@ async function handleRunCoinCycle(req, res) {
 			}
 		} catch (err) {
 			result.steps.reflection = { error: err.message || String(err) };
-			report.errors.push({ mint: coin.mint, step: 'reflection', error: result.steps.reflection.error });
+			report.errors.push({
+				mint: coin.mint,
+				step: 'reflection',
+				error: result.steps.reflection.error,
+			});
 		}
 
 		report.coins.push(result);
@@ -3502,7 +3683,11 @@ async function handleRunCoinPayouts(req, res) {
 	// Demo gate — see handleRunCoinCycle. Until COIN_DEMO_ENABLED=true is set,
 	// the payout drainer cannot fire even if rows are pending.
 	if (process.env.COIN_DEMO_ENABLED !== 'true') {
-		return json(res, 200, { ok: true, disabled: true, hint: 'set COIN_DEMO_ENABLED=true to enable' });
+		return json(res, 200, {
+			ok: true,
+			disabled: true,
+			hint: 'set COIN_DEMO_ENABLED=true to enable',
+		});
 	}
 
 	const coinLib = await import('../_lib/coin/index.js');

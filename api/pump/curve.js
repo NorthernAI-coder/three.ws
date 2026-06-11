@@ -10,16 +10,20 @@
 // seconds of staleness is acceptable and keeps RPC cost down on hot mints.
 
 import { cors, json, method, wrap, error } from '../_lib/http.js';
-import { rpcFallbackFromEnv, getBondingCurveState, getTokenPrice, getGraduationProgress } from '../_lib/solana/index.js';
+import {
+	rpcFallbackFromEnv,
+	getBondingCurveState,
+	getTokenPrice,
+	getGraduationProgress,
+} from '../_lib/solana/index.js';
 
 // Mints that can never carry a pump.fun bonding curve. These are coin-agnostic
-// settlement / native tokens, listed only so we can *exclude* them from curve
-// lookups — never to promote them. (USDC mainnet+devnet, wrapped SOL, USDT.)
+// payment-rail / native tokens, listed only so we can *exclude* them from curve
+// lookups — never to promote them. (USDC mainnet+devnet, wrapped SOL.)
 const NON_CURVE_MINTS = new Set([
 	'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC (mainnet)
 	'4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // USDC (devnet)
-	'So11111111111111111111111111111111111111112',  // wrapped SOL
-	'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+	'So11111111111111111111111111111111111111112', // wrapped SOL
 ]);
 
 // Every pump.fun mint keypair is ground to end in the literal suffix "pump". A
@@ -104,21 +108,31 @@ export default wrap(async (req, res) => {
 		graduatedPrice = await jupiterPriceFallback(mint);
 	}
 
-	return json(res, 200, {
-		mint,
-		network,
-		curve: result.curve,
-		price: pricePayload,
-		graduation: result.graduation ? serializeBNs(result.graduation) : null,
-		...(graduatedPrice ? { graduatedPrice } : {}),
-	}, { 'cache-control': 'public, max-age=5, s-maxage=10, stale-while-revalidate=30' });
+	return json(
+		res,
+		200,
+		{
+			mint,
+			network,
+			curve: result.curve,
+			price: pricePayload,
+			graduation: result.graduation ? serializeBNs(result.graduation) : null,
+			...(graduatedPrice ? { graduatedPrice } : {}),
+		},
+		{ 'cache-control': 'public, max-age=5, s-maxage=10, stale-while-revalidate=30' },
+	);
 });
 
 function serializeBNs(obj) {
 	if (obj == null || typeof obj !== 'object') return obj;
 	const out = Array.isArray(obj) ? [] : {};
 	for (const [k, v] of Object.entries(obj)) {
-		if (v && typeof v === 'object' && typeof v.toString === 'function' && (v.constructor?.name === 'BN' || typeof v.toNumber === 'function')) {
+		if (
+			v &&
+			typeof v === 'object' &&
+			typeof v.toString === 'function' &&
+			(v.constructor?.name === 'BN' || typeof v.toNumber === 'function')
+		) {
 			out[k] = v.toString();
 		} else if (v && typeof v === 'object') {
 			out[k] = serializeBNs(v);

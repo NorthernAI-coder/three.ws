@@ -12,6 +12,7 @@ import { sql } from '../../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { z } from 'zod';
 
 const upsertSchema = z.object({
@@ -45,6 +46,9 @@ export default wrap(async (req, res) => {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
@@ -66,7 +70,12 @@ export default wrap(async (req, res) => {
 	if (req.method === 'POST') {
 		const parsed = upsertSchema.safeParse(body);
 		if (!parsed.success) {
-			return error(res, 400, 'validation_error', parsed.error.issues[0]?.message || 'invalid');
+			return error(
+				res,
+				400,
+				'validation_error',
+				parsed.error.issues[0]?.message || 'invalid',
+			);
 		}
 		const { skill, amount, currency_mint, chain } = parsed.data;
 		await sql`
@@ -85,7 +94,12 @@ export default wrap(async (req, res) => {
 	if (req.method === 'PUT') {
 		const parsed = updateSchema.safeParse(body);
 		if (!parsed.success) {
-			return error(res, 400, 'validation_error', parsed.error.issues[0]?.message || 'invalid');
+			return error(
+				res,
+				400,
+				'validation_error',
+				parsed.error.issues[0]?.message || 'invalid',
+			);
 		}
 		const { skill, amount } = parsed.data;
 		const r = await sql`

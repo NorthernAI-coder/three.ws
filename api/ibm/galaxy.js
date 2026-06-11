@@ -20,8 +20,19 @@ import { cors, method, readJson, error, json, wrap, rateLimited } from '../_lib/
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { publicUrl } from '../_lib/r2.js';
 import { watsonxConfig, watsonxEmbed, watsonxChatComplete } from '../_lib/watsonx.js';
-import { ensureAgentEmbeddings, readAgentVectors, agentEmbedText } from '../_lib/agent-embeddings.js';
-import { projectTo3D, kmeans, suggestClusterCount, cosineSimilarity, unit, dot } from '../_lib/embedding-math.js';
+import {
+	ensureAgentEmbeddings,
+	readAgentVectors,
+	agentEmbedText,
+} from '../_lib/agent-embeddings.js';
+import {
+	projectTo3D,
+	kmeans,
+	suggestClusterCount,
+	cosineSimilarity,
+	unit,
+	dot,
+} from '../_lib/embedding-math.js';
 import { createHash } from 'node:crypto';
 
 // Hard cap on agents in one galaxy — keeps embedding cost bounded and the scene
@@ -38,8 +49,14 @@ const NEIGHBOR_K = 6;
 
 // IBM Carbon-derived palette — distinct, accessible hues for up to 8 themes.
 const CLUSTER_COLORS = [
-	'#4589ff', '#08bdba', '#a56eff', '#ff7eb6',
-	'#fa4d56', '#f1c21b', '#42be65', '#82cfff',
+	'#4589ff',
+	'#08bdba',
+	'#a56eff',
+	'#ff7eb6',
+	'#fa4d56',
+	'#f1c21b',
+	'#42be65',
+	'#82cfff',
 ];
 
 let _cacheReady = null;
@@ -85,7 +102,11 @@ function dataVersion(agents, model) {
 }
 
 function agentImage(a) {
-	return a.profile_image_url || a.avatar_url || (a.avatar_storage_key ? publicUrl(a.avatar_storage_key) : null);
+	return (
+		a.profile_image_url ||
+		a.avatar_url ||
+		(a.avatar_storage_key ? publicUrl(a.avatar_storage_key) : null)
+	);
 }
 
 function agentUrl(a) {
@@ -95,8 +116,10 @@ function agentUrl(a) {
 // ── Cluster naming ───────────────────────────────────────────────────────────
 
 const STOPWORDS = new Set(
-	('a an the and or of to for with in on at by from your you our we is are be this that ' +
-		'agent agents ai assistant bot help can will your their it its as your into about').split(' '),
+	(
+		'a an the and or of to for with in on at by from your you our we is are be this that ' +
+		'agent agents ai assistant bot help can will your their it its as your into about'
+	).split(' '),
 );
 
 // Deterministic fallback theme name derived from the most frequent meaningful
@@ -112,7 +135,10 @@ function keywordLabel(members) {
 			counts.set(w, (counts.get(w) || 0) + 1);
 		}
 	}
-	const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([w]) => w);
+	const top = [...counts.entries()]
+		.sort((a, b) => b[1] - a[1])
+		.slice(0, 2)
+		.map(([w]) => w);
 	if (!top.length) return 'Mixed';
 	return top.map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 }
@@ -130,10 +156,13 @@ function sanitizeLabel(text) {
 // Title-Case label; throws are caught by the caller, which falls back to
 // keywordLabel.
 async function graniteThemeLabel(cfg, members) {
-	const sample = members.slice(0, 8).map((m) => {
-		const desc = (m.description || '').replace(/\s+/g, ' ').slice(0, 120);
-		return `- ${m.name}: ${desc}`;
-	}).join('\n');
+	const sample = members
+		.slice(0, 8)
+		.map((m) => {
+			const desc = (m.description || '').replace(/\s+/g, ' ').slice(0, 120);
+			return `- ${m.name}: ${desc}`;
+		})
+		.join('\n');
 	const messages = [
 		{
 			role: 'system',
@@ -202,7 +231,11 @@ async function buildGalaxy(cfg) {
 	// Group members per cluster for naming + centroid placement.
 	const groups = Array.from({ length: k }, () => []);
 	for (let i = 0; i < kept.length; i++) {
-		groups[assignments[i]].push({ index: i, name: kept[i].name, description: kept[i].description });
+		groups[assignments[i]].push({
+			index: i,
+			name: kept[i].name,
+			description: kept[i].description,
+		});
 	}
 
 	// Name every theme with Granite in parallel; degrade per-cluster to a
@@ -324,7 +357,10 @@ async function handleGet(req, res) {
 			const ageMs = Date.now() - new Date(cached.computed_at).getTime();
 			if (ageMs < CACHE_TTL_MS) {
 				res.setHeader('x-galaxy-cache', 'hit');
-				return json(res, 200, { ...cached.payload, meta: { ...cached.payload.meta, cache: 'hit' } });
+				return json(res, 200, {
+					...cached.payload,
+					meta: { ...cached.payload.meta, cache: 'hit' },
+				});
 			}
 		}
 	}
@@ -343,7 +379,10 @@ async function handleGet(req, res) {
 		`;
 	}
 	res.setHeader('x-galaxy-cache', forceRefresh ? 'refresh' : 'miss');
-	return json(res, 200, { ...payload, meta: { ...payload.meta, cache: forceRefresh ? 'refresh' : 'miss' } });
+	return json(res, 200, {
+		...payload,
+		meta: { ...payload.meta, cache: forceRefresh ? 'refresh' : 'miss' },
+	});
 }
 
 // ── POST: semantic search ────────────────────────────────────────────────────
@@ -351,7 +390,12 @@ async function handleGet(req, res) {
 async function handleSearch(req, res) {
 	const cfg = watsonxConfig();
 	if (!cfg.configured) {
-		return error(res, 503, 'watsonx_not_configured', 'IBM watsonx.ai is not configured on this deployment.');
+		return error(
+			res,
+			503,
+			'watsonx_not_configured',
+			'IBM watsonx.ai is not configured on this deployment.',
+		);
 	}
 
 	let body;
@@ -370,7 +414,8 @@ async function handleSearch(req, res) {
 	const vectorMap = await readAgentVectors(ids, { model: cfg.embedModel });
 	const { vectors, model } = await watsonxEmbed(cfg, { inputs: [query] });
 	const qvec = vectors[0];
-	if (!qvec?.length) return error(res, 502, 'embed_failed', 'watsonx returned no query embedding');
+	if (!qvec?.length)
+		return error(res, 502, 'embed_failed', 'watsonx returned no query embedding');
 
 	const ranked = [];
 	for (const [id, vec] of vectorMap) {
@@ -395,6 +440,16 @@ export default wrap(async (req, res) => {
 
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
+
+	// Global hourly ceiling on the shared watsonx server key (same bucket as
+	// api/watsonx/embed) — a hard aggregate cost cap independent of any one IP.
+	// Only consumed when watsonx is configured, i.e. when a request can
+	// actually bill Granite inference.
+	if (watsonxConfig().configured) {
+		const global = await limits.watsonxEmbedGlobal();
+		if (!global.success)
+			return rateLimited(res, global, 'watsonx capacity reached — try again shortly');
+	}
 
 	if (req.method === 'POST') return handleSearch(req, res);
 	return handleGet(req, res);

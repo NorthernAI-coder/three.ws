@@ -22,11 +22,11 @@ export class ScreenshotModal {
 					<img src="" alt="Screenshot preview" />
 				</div>
 				<div class="screenshot-modal-footer">
-					<button class="btn-secondary screenshot-modal-copy">Copy</button>
+					<button class="btn screenshot-modal-copy">Copy</button>
 					<a href="https://x.com/intent/tweet?text=Check%20out%20my%203D%20Agent!&url=${encodeURIComponent(
 						window.location.href,
-					)}" target="_blank" rel="noopener noreferrer" class="btn-secondary screenshot-modal-share">Share on X</a>
-					<button class="btn-primary screenshot-modal-download">Download</button>
+					)}" target="_blank" rel="noopener noreferrer" class="btn screenshot-modal-share">Share on X</a>
+					<button class="btn btn--primary screenshot-modal-download">Download</button>
 				</div>
 			</div>
 		`;

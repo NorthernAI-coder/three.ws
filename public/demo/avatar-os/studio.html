@@ -11,9 +11,7 @@
 	</head>
 	<body>
 		<header class="os-header">
-			<div class="brand">
-				three.ws<span class="tag">avatar-os · studio</span>
-			</div>
+			<div class="brand">three.ws<span class="tag">avatar-os · studio</span></div>
 			<nav>
 				<a href="/demo/avatar-os/">overview</a>
 				<a href="/demo/avatar-os/studio.html" class="active">studio</a>
@@ -23,9 +21,8 @@
 		</header>
 		<main class="os-main">
 			<div class="banner">
-				<strong>CharacterStudio editor.</strong> Open-source customization
-				editor (M3-org). Built on @pixiv/three-vrm. Replaces the Avaturn iframe
-				editor.
+				<strong>CharacterStudio editor.</strong> Open-source customization editor (M3-org).
+				Built on @pixiv/three-vrm. Replaces the Avaturn iframe editor.
 			</div>
 
 			<div class="os-grid">
@@ -33,16 +30,16 @@
 					<div class="os-card">
 						<h2>1 · Open editor</h2>
 						<p>
-							Loads CharacterStudio in an iframe. Configure the dev server URL
-							or use the public CharacterStudio build.
+							Loads the three.ws Avatar Studio in an iframe — served same-origin at
+							<span class="kbd">/avatar-studio</span> (override with
+							<span class="kbd">VITE_CHARACTER_STUDIO_URL</span>) — or use the public
+							CharacterStudio build.
 						</p>
 						<div class="btn-row">
-							<button id="btn-open-local" class="btn btn-primary">
-								Open localhost:5173
+							<button id="btn-open-studio" class="btn btn-primary">
+								Open Avatar Studio
 							</button>
-							<button id="btn-open-public" class="btn">
-								Open public build
-							</button>
+							<button id="btn-open-public" class="btn">Open public build</button>
 						</div>
 						<div class="status" id="studio-status">idle</div>
 					</div>
@@ -51,17 +48,12 @@
 						<h2>2 · Export</h2>
 						<p>
 							In CharacterStudio, click <span class="kbd">Export</span> ·
-							<span class="kbd">VRM</span> or <span class="kbd">GLB</span>.
-							This page listens for the export message and renders the result
-							below.
+							<span class="kbd">VRM</span> or <span class="kbd">GLB</span>. This page
+							listens for the export message and renders the result below.
 						</p>
 						<div class="btn-row">
-							<button id="btn-download" class="btn" disabled>
-								Download GLB
-							</button>
-							<button id="btn-save" class="btn" disabled>
-								Save to my avatars
-							</button>
+							<button id="btn-download" class="btn" disabled>Download GLB</button>
+							<button id="btn-save" class="btn" disabled>Save to my avatars</button>
 						</div>
 						<div class="status" id="export-status">no export yet</div>
 					</div>
@@ -79,13 +71,9 @@
 				</aside>
 
 				<section>
-					<div
-						id="iframe-host"
-						class="viewer"
-						style="min-height: 600px; padding: 0"
-					>
+					<div id="iframe-host" class="viewer" style="min-height: 600px; padding: 0">
 						<div class="overlay" id="iframe-empty">
-							Click <span class="kbd">Open localhost:5173</span> to start
+							Click <span class="kbd">Open Avatar Studio</span> to start
 						</div>
 					</div>
 
@@ -101,5 +89,5 @@
 		</main>
 		<script type="module" src="/src/demo/os-studio.js"></script>
 		<script src="/brand.js" defer></script>
-</body>
+	</body>
 </html>

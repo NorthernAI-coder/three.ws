@@ -17,6 +17,7 @@
 
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
+import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { normalizeLegacyPolicy } from '../_lib/embed-policy.js';
@@ -29,6 +30,8 @@ const ALLOWED_MODELS = new Set([
 	'claude-opus-4-7',
 	'claude-3-5-haiku-20241022',
 ]);
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const bodySchema = z.object({
 	agentId: z.string().min(1).max(120),
@@ -44,6 +47,12 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'recursion_denied', 'nested agent delegation is not allowed');
 	}
 
+	// Each call burns platform LLM credit, so require an authenticated principal.
+	// The x402-paid public path lives in the MCP tool, not here.
+	const session = await getSessionUser(req);
+	const principal = session ?? (await authenticateBearer(extractBearer(req)));
+	if (!principal) return error(res, 401, 'unauthorized', 'sign in required');
+
 	const rl = await limits.agentDelegate(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl, 'agent delegate rate limit');
 
@@ -55,9 +64,18 @@ export default wrap(async (req, res) => {
 	}
 	const parsed = bodySchema.safeParse(raw);
 	if (!parsed.success) {
-		return error(res, 400, 'validation_error', parsed.error.issues[0]?.message ?? 'invalid body');
+		return error(
+			res,
+			400,
+			'validation_error',
+			parsed.error.issues[0]?.message ?? 'invalid body',
+		);
 	}
 	const { agentId, message, model: requestedModel } = parsed.data;
+
+	// agent_identities.id is a uuid column — a malformed id otherwise leaks
+	// Postgres error 22P02 to the caller as a 500. Return a clean 404 instead.
+	if (!UUID_RE.test(agentId)) return error(res, 404, 'agent_not_found', 'agent not found');
 
 	const [agent] = await sql`
 		SELECT id, name, description, embed_policy, meta
@@ -72,7 +90,8 @@ export default wrap(async (req, res) => {
 	}
 
 	const defaultModel = policy?.brain?.model || 'claude-haiku-4-5-20251001';
-	const model = requestedModel && ALLOWED_MODELS.has(requestedModel) ? requestedModel : defaultModel;
+	const model =
+		requestedModel && ALLOWED_MODELS.has(requestedModel) ? requestedModel : defaultModel;
 
 	const systemPrompt =
 		agent.meta?.brain?.instructions ||
@@ -93,7 +112,12 @@ export default wrap(async (req, res) => {
 		});
 	} catch (err) {
 		if (err instanceof LlmUnavailableError) {
-			return error(res, 503, 'llm_unavailable', 'agent delegation is not available right now');
+			return error(
+				res,
+				503,
+				'llm_unavailable',
+				'agent delegation is not available right now',
+			);
 		}
 		return error(res, 502, 'upstream_error', `LLM call failed: ${err.message}`);
 	}

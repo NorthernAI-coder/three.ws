@@ -96,3 +96,30 @@ dependency on the lottery/reflection plumbing.
 Net: snapshot coins get full cohorts incl. tenure; agent tokens get
 size/concentration cohorts immediately, and gain tenure automatically if/when a
 mint is ever registered + snapshotted.
+
+## Re-verification (2026-06-11)
+
+Re-checked every upstream signal; **nothing has changed — recommendation stands
+(do not adopt; native cohorts already shipped).**
+
+- **npm: still unpublished under every plausible name.** `npm view` → E404 for
+  `@pump-fun/segments-sdk` (the name in its manifest), `pump-segments-sdk`, and
+  `@pump-fun/pump-segments-sdk`.
+- **Maintainer accounts publish no segments package.** npm registry search
+  `maintainer:oussama-baton` and `maintainer:security-baton` each return exactly
+  the four known packages: `@pump-fun/pump-sdk` 1.36.0,
+  `@pump-fun/pump-swap-sdk` 1.17.0, `@pump-fun/agent-payments-sdk` 3.0.3,
+  `@pump-fun/shared-contracts` 0.2.2.
+- **Repo is dormant.** Full history is still the same 12 commits by "sharuk",
+  all 2025-11-25/26 ("Init skeleton" → "update version"). `pushed_at`
+  2026-04-16 corresponds to bot branches only
+  (`socket/autopatch-…`, `dependabot/npm_and_yarn-…`); the only open PRs remain
+  #2 (Dependabot `fast-xml-parser` bump, 2026-02-11) and #3 (Socket patch for
+  CVE-2026-25896, 2026-04-16). Branches: `devnet` + the two bot branches. No
+  human activity in over six months.
+- **Org recon:** the only newer pump-fun org repo since the prior pass is
+  `carbon` (pushed 2026-05-28) — a Rust Solana indexing framework, unrelated to
+  segments.
+- **Our native replacement is intact and green.** All shipped files present
+  (`api/_lib/coin/cohorts.js`, `cohorts-live.js`, `api/coin/[mint]/cohorts.js`,
+  migration, tests); `npx vitest run` on both cohort suites → **24/24 passing**.

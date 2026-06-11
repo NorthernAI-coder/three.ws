@@ -66,10 +66,16 @@ export const env = {
 	},
 
 	get UPSTASH_REDIS_REST_URL() {
-		return opt('UPSTASH_REDIS_REST_URL') || opt('three_KV_REST_API_URL') || opt('KV_REST_API_URL');
+		return (
+			opt('UPSTASH_REDIS_REST_URL') || opt('three_KV_REST_API_URL') || opt('KV_REST_API_URL')
+		);
 	},
 	get UPSTASH_REDIS_REST_TOKEN() {
-		return opt('UPSTASH_REDIS_REST_TOKEN') || opt('three_KV_REST_API_TOKEN') || opt('KV_REST_API_TOKEN');
+		return (
+			opt('UPSTASH_REDIS_REST_TOKEN') ||
+			opt('three_KV_REST_API_TOKEN') ||
+			opt('KV_REST_API_TOKEN')
+		);
 	},
 
 	get JWT_SECRET() {
@@ -275,10 +281,11 @@ export const env = {
 	// api/_lib/siwx-server.js) to validate EIP-1271 / EIP-6492 smart-contract
 	// wallet signatures via viem's publicClient.verifyMessage. Without this,
 	// SIWX falls back to EOA-only verification (still works for MetaMask /
-	// Phantom EOAs; rejects Coinbase Smart Wallet, Safe, etc.). Defaults to
-	// the same RPC the club-payouts cron uses so a single env var works.
+	// Phantom EOAs; rejects Coinbase Smart Wallet, Safe, etc.). Falls back to
+	// the club-payouts cron RPC, then the per-chain RPC_URL_8453 the delegation
+	// + indexing crons use, so one provisioned Base RPC serves all of them.
 	get BASE_RPC_URL() {
-		return opt('BASE_RPC_URL', opt('CLUB_BASE_RPC_URL'));
+		return opt('BASE_RPC_URL', opt('CLUB_BASE_RPC_URL', opt('RPC_URL_8453')));
 	},
 
 	// ── ERC-7710 Delegation Relayer ──────────────────────────────────────────
@@ -853,9 +860,15 @@ export const env = {
 	// CZ Agent campaign — on-chain registry contract for the transfer flow.
 	// Set CZ_REGISTRY_CONTRACT to the deployed identity registry address.
 	// CZ_AGENT_ID and CZ_AGENT_NAME can override the defaults.
-	get CZ_REGISTRY_CONTRACT() { return opt('CZ_REGISTRY_CONTRACT', '0x0000000000000000000000000000000000000000'); },
-	get CZ_AGENT_ID() { return opt('CZ_AGENT_ID', 'cz-preview'); },
-	get CZ_AGENT_NAME() { return opt('CZ_AGENT_NAME', 'CZ Agent'); },
+	get CZ_REGISTRY_CONTRACT() {
+		return opt('CZ_REGISTRY_CONTRACT', '0x0000000000000000000000000000000000000000');
+	},
+	get CZ_AGENT_ID() {
+		return opt('CZ_AGENT_ID', 'cz-preview');
+	},
+	get CZ_AGENT_NAME() {
+		return opt('CZ_AGENT_NAME', 'CZ Agent');
+	},
 
 	// ── aixbt intelligence bridge (api/_lib/aixbt.js) ─────────────────────
 	// REST v2 API key for aixbt.tech. Powers /api/aixbt/* and the aixbt agent

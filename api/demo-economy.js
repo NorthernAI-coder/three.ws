@@ -6,11 +6,12 @@
 //   and receives a live crypto market briefing in return.
 //
 // Streams structured SSE events so the frontend can animate each step
-// in real time. Real blockchain transaction when AVATAR_WALLET_SECRET +
-// a recipient are configured; simulation mode otherwise (no real money,
-// full UI still plays).
+// in real time. Real blockchain transaction only for authenticated callers
+// when AVATAR_WALLET_SECRET + a recipient are configured; explicit simulation
+// mode otherwise (no real money, no fabricated tx data, full UI still plays).
 
 import { cors, method, wrap, setRateLimitHeaders } from './_lib/http.js';
+import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { Bazaar } from './_lib/x402/bazaar-client.js';
 
@@ -38,11 +39,16 @@ async function fetchMarketBriefing() {
 				name: attr.name || p.id,
 				price: priceUsd < 0.0001 ? priceUsd.toExponential(2) : priceUsd.toFixed(6),
 				change24h: (change24 >= 0 ? '+' : '') + change24.toFixed(1) + '%',
-				vol24h: vol24 > 1e6 ? '$' + (vol24 / 1e6).toFixed(1) + 'M' : '$' + (vol24 / 1e3).toFixed(0) + 'K',
+				vol24h:
+					vol24 > 1e6
+						? '$' + (vol24 / 1e6).toFixed(1) + 'M'
+						: '$' + (vol24 / 1e3).toFixed(0) + 'K',
 				up: change24 >= 0,
 			};
 		});
-		const topGainer = pools.filter((p) => p.up).sort((a, b) => parseFloat(b.change24h) - parseFloat(a.change24h))[0];
+		const topGainer = pools
+			.filter((p) => p.up)
+			.sort((a, b) => parseFloat(b.change24h) - parseFloat(a.change24h))[0];
 		return {
 			headline: topGainer
 				? `${topGainer.name} leads Solana with ${topGainer.change24h} in 24h`
@@ -51,14 +57,9 @@ async function fetchMarketBriefing() {
 			fetchedAt: new Date().toISOString(),
 		};
 	} catch {
-		return {
-			headline: 'Solana market briefing',
-			pools: [
-				{ name: 'SOL/USDC', price: '148.20', change24h: '+3.4%', vol24h: '$82M', up: true },
-				{ name: 'THREE/SOL', price: '0.00042', change24h: '+5.1%', vol24h: '$9M', up: true },
-			],
-			fetchedAt: new Date().toISOString(),
-		};
+		// No invented market data: a GeckoTerminal failure degrades to an explicit
+		// "unavailable" signal handled by the caller — never fabricated numbers.
+		return null;
 	}
 }
 
@@ -74,13 +75,35 @@ async function discoverServices() {
 			network: r.network || 'base',
 		}));
 		if (top.length) return top;
-	} catch { /* fall through to demo data */ }
+	} catch {
+		/* fall through to demo data */
+	}
 	// Demo services (shown when bazaar is unreachable)
 	return [
-		{ name: 'Solana market briefing (live)', resource: 'https://three.ws/api/demo-economy', price: '0.001 SOL', network: 'solana' },
-		{ name: 'Token price oracle', resource: 'https://three.ws/api/agents/x402/price', price: '0.50 USDC', network: 'base' },
-		{ name: 'On-chain sentiment feed', resource: 'https://three.ws/api/sentiment', price: '0.25 USDC', network: 'base' },
-		{ name: 'Pump.fun trending coins', resource: 'https://three.ws/api/pump/trending', price: '0.10 USDC', network: 'solana' },
+		{
+			name: 'Solana market briefing (live)',
+			resource: 'https://three.ws/api/demo-economy',
+			price: '0.001 SOL',
+			network: 'solana',
+		},
+		{
+			name: 'Token price oracle',
+			resource: 'https://three.ws/api/agents/x402/price',
+			price: '0.50 USDC',
+			network: 'base',
+		},
+		{
+			name: 'On-chain sentiment feed',
+			resource: 'https://three.ws/api/sentiment',
+			price: '0.25 USDC',
+			network: 'base',
+		},
+		{
+			name: 'Pump.fun trending coins',
+			resource: 'https://three.ws/api/pump/trending',
+			price: '0.10 USDC',
+			network: 'solana',
+		},
 	];
 }
 
@@ -105,6 +128,18 @@ export default wrap(async (req, res) => {
 		res.statusCode = 429;
 		res.end('rate limited');
 		return;
+	}
+
+	// The live branch sends REAL SOL from the platform wallet, so it is reserved
+	// for authenticated callers (session or bearer). Anonymous visitors still get
+	// the full narrated demo on the explicit-simulation path. Best-effort: any
+	// auth-resolution failure is treated as anonymous.
+	let authed = false;
+	try {
+		const session = await getSessionUser(req);
+		authed = !!session || !!(await authenticateBearer(extractBearer(req)));
+	} catch {
+		authed = false;
 	}
 
 	// SSE setup
@@ -160,79 +195,107 @@ export default wrap(async (req, res) => {
 		});
 		await sleep(pace * 0.5);
 
-		// Attempt real transfer
+		// Attempt real transfer — authenticated callers only. Anonymous callers
+		// always take the explicit-simulation path (no SOL ever leaves the wallet).
 		let payment = null;
-		let sim = false;
-		try {
-			const {
-				avatarWalletConfig,
-				loadAvatarKeypair,
-				getConnection,
-				getSolBalance,
-				sendSol,
-				explorerTxUrl,
-				LAMPORTS_PER_SOL,
-				isValidPubkey,
-			} = await walletDeps();
+		let sim = !authed;
+		const simReason = authed ? 'wallet_not_configured' : 'auth_required';
+		if (!sim) {
+			try {
+				const {
+					avatarWalletConfig,
+					loadAvatarKeypair,
+					getConnection,
+					getSolBalance,
+					sendSol,
+					explorerTxUrl,
+					LAMPORTS_PER_SOL,
+					isValidPubkey,
+				} = await walletDeps();
 
-			const cfg = avatarWalletConfig();
-			const recipient = (process.env.DEMO_AGENT_B_ADDRESS || cfg.defaultRecipient || '').trim();
+				const cfg = avatarWalletConfig();
+				const recipient = (
+					process.env.DEMO_AGENT_B_ADDRESS ||
+					cfg.defaultRecipient ||
+					''
+				).trim();
 
-			if (!cfg.configured || !recipient || !isValidPubkey(recipient)) {
+				if (!cfg.configured || !recipient || !isValidPubkey(recipient)) {
+					sim = true;
+				} else {
+					const connection = getConnection(cfg.rpcUrl);
+					const keypair = loadAvatarKeypair(process.env.AVATAR_WALLET_SECRET);
+					const sender = keypair.publicKey.toBase58();
+					const DEMO_LAMPORTS = 1000; // 0.000001 SOL — ~$0.0002, trivially cheap
+					const { lamports: balBefore } = await getSolBalance(
+						connection,
+						keypair.publicKey,
+					);
+
+					sseWrite(res, 'wallet', {
+						agentA: {
+							name: 'NOVA',
+							address: sender,
+							balance_sol: (balBefore / LAMPORTS_PER_SOL).toFixed(6),
+						},
+						agentB: { name: 'ORACLE', address: recipient },
+					});
+
+					const sig = await sendSol({
+						connection,
+						fromKeypair: keypair,
+						to: recipient,
+						lamports: DEMO_LAMPORTS,
+						memo: 'three.ws agent economy demo',
+					});
+					const { lamports: balAfter } = await getSolBalance(
+						connection,
+						keypair.publicKey,
+					);
+
+					payment = {
+						signature: sig,
+						explorer_url: explorerTxUrl(sig, cfg.network),
+						amount_sol: (DEMO_LAMPORTS / LAMPORTS_PER_SOL).toFixed(6),
+						amount_usd: '~$0.0002',
+						sender,
+						recipient,
+						balance_before: (balBefore / LAMPORTS_PER_SOL).toFixed(6),
+						balance_after: (balAfter / LAMPORTS_PER_SOL).toFixed(6),
+					};
+				}
+			} catch (err) {
 				sim = true;
-			} else {
-				const connection = getConnection(cfg.rpcUrl);
-				const keypair = loadAvatarKeypair(process.env.AVATAR_WALLET_SECRET);
-				const sender = keypair.publicKey.toBase58();
-				const DEMO_LAMPORTS = 1000; // 0.000001 SOL — ~$0.0002, trivially cheap
-				const { lamports: balBefore } = await getSolBalance(connection, keypair.publicKey);
-
-				sseWrite(res, 'wallet', {
-					agentA: { name: 'NOVA', address: sender, balance_sol: (balBefore / LAMPORTS_PER_SOL).toFixed(6) },
-					agentB: { name: 'ORACLE', address: recipient },
-				});
-
-				const sig = await sendSol({ connection, fromKeypair: keypair, to: recipient, lamports: DEMO_LAMPORTS, memo: 'three.ws agent economy demo' });
-				const { lamports: balAfter } = await getSolBalance(connection, keypair.publicKey);
-
-				payment = {
-					signature: sig,
-					explorer_url: explorerTxUrl(sig, cfg.network),
-					amount_sol: (DEMO_LAMPORTS / LAMPORTS_PER_SOL).toFixed(6),
-					amount_usd: '~$0.0002',
-					sender,
-					recipient,
-					balance_before: (balBefore / LAMPORTS_PER_SOL).toFixed(6),
-					balance_after: (balAfter / LAMPORTS_PER_SOL).toFixed(6),
-				};
+				console.warn('[demo-economy] wallet not configured or send failed:', err.message);
 			}
-		} catch (err) {
-			sim = true;
-			console.warn('[demo-economy] wallet not configured or send failed:', err.message);
 		}
 
 		if (sim) {
-			// Simulation: show a plausible fake tx for demo purposes
-			const fakeSig = Array.from({ length: 88 }, () => '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'[Math.floor(Math.random() * 58)]).join('');
+			// Explicit simulation: no fabricated signature, explorer link, addresses,
+			// or balances. The client renders this as "simulated / not configured".
 			payment = {
-				signature: fakeSig,
-				explorer_url: `https://solscan.io/tx/${fakeSig}`,
-				amount_sol: '0.001000',
-				amount_usd: '~$0.15',
-				sender: 'NOVA••••••••••••••demo',
-				recipient: 'ORACLE••••••••••••demo',
 				simulated: true,
+				reason: simReason,
+				signature: null,
+				explorer_url: null,
 			};
 			sseWrite(res, 'wallet', {
-				agentA: { name: 'NOVA', address: 'Fund with AVATAR_WALLET_SECRET', balance_sol: '0.50' },
-				agentB: { name: 'ORACLE', address: 'Fund with DEMO_AGENT_B_ADDRESS', balance_sol: '0.00' },
+				configured: false,
+				simulated: true,
+				reason: simReason,
+				agentA: { name: 'NOVA' },
+				agentB: { name: 'ORACLE' },
 			});
 		}
 
 		sseWrite(res, 'step', {
 			id: 'payment_sent',
 			label: sim ? 'Payment (simulated)' : 'Transaction submitted',
-			detail: sim ? 'Simulated: set AVATAR_WALLET_SECRET + DEMO_AGENT_B_ADDRESS for live transfers' : `Tx broadcast to Solana mainnet`,
+			detail: sim
+				? simReason === 'auth_required'
+					? 'Simulated: sign in to run the live on-chain transfer'
+					: 'Simulated: set AVATAR_WALLET_SECRET + DEMO_AGENT_B_ADDRESS for live transfers'
+				: `Tx broadcast to Solana mainnet`,
 			icon: '📡',
 		});
 		sseWrite(res, 'payment', payment);
@@ -240,8 +303,10 @@ export default wrap(async (req, res) => {
 
 		sseWrite(res, 'step', {
 			id: 'payment_confirmed',
-			label: sim ? 'Demo confirmed' : 'On-chain confirmed',
-			detail: sim ? 'Demo payment complete' : `${payment.amount_sol} SOL transferred · view on Solscan`,
+			label: sim ? 'Simulation complete' : 'On-chain confirmed',
+			detail: sim
+				? 'Simulated payment — no funds moved'
+				: `${payment.amount_sol} SOL transferred · view on Solscan`,
 			icon: '⛓️',
 		});
 		await sleep(pace * 0.6);
@@ -257,14 +322,25 @@ export default wrap(async (req, res) => {
 		const briefing = await fetchMarketBriefing();
 		await sleep(pace * 0.5);
 
-		sseWrite(res, 'content', briefing);
-
-		sseWrite(res, 'step', {
-			id: 'done',
-			label: 'Briefing received',
-			detail: `"${briefing.headline}"`,
-			icon: '📺',
-		});
+		if (briefing) {
+			sseWrite(res, 'content', briefing);
+			sseWrite(res, 'step', {
+				id: 'done',
+				label: 'Briefing received',
+				detail: `"${briefing.headline}"`,
+				icon: '📺',
+			});
+		} else {
+			// Degraded: market data source did not respond — say so explicitly
+			// instead of inventing numbers.
+			sseWrite(res, 'content', { type: 'market_unavailable' });
+			sseWrite(res, 'step', {
+				id: 'done',
+				label: 'Market data unavailable',
+				detail: 'Live market data is unavailable right now — try again shortly',
+				icon: '📡',
+			});
+		}
 
 		sseWrite(res, 'done', {
 			sim,

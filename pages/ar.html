@@ -19,28 +19,37 @@
 		<script
 			type="module"
 			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
 		></script>
 		<script type="module" src="/src/ar-page.js"></script>
 
 		<style>
 			:root {
-				--bg:       #000000;
-				--bg2:      #0a0a0a;
-				--text:     #e8e8e8;
-				--text-2:   #888888;
-				--text-3:   #555555;
-				--accent:   #ffffff;
+				--bg: #000000;
+				--bg2: #0a0a0a;
+				--text: #e8e8e8;
+				--text-2: #888888;
+				--text-3: #555555;
+				--accent: #ffffff;
 				--accent-2: #ffffff;
-				--panel:    rgba(255,255,255,0.04);
-				--border:   rgba(255,255,255,0.08);
-				--radius:   14px;
+				--panel: rgba(255, 255, 255, 0.04);
+				--border: rgba(255, 255, 255, 0.08);
+				--radius: 14px;
 			}
 
-			*, *::before, *::after { box-sizing: border-box; }
+			*,
+			*::before,
+			*::after {
+				box-sizing: border-box;
+			}
 
-			html, body {
-				margin: 0; padding: 0;
-				width: 100%; height: 100%;
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
 				overflow: hidden;
 				background: var(--bg);
 				color: var(--text);
@@ -60,9 +69,21 @@
 				position: absolute;
 				inset: 0;
 				background:
-					radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,255,0.03) 0%, transparent 65%),
-					radial-gradient(ellipse 60% 50% at 80% 80%, rgba(255,255,255,0.02) 0%, transparent 60%),
-					radial-gradient(ellipse 50% 40% at 20% 70%, rgba(255,255,255,0.02) 0%, transparent 55%);
+					radial-gradient(
+						ellipse 80% 60% at 50% 0%,
+						rgba(255, 255, 255, 0.03) 0%,
+						transparent 65%
+					),
+					radial-gradient(
+						ellipse 60% 50% at 80% 80%,
+						rgba(255, 255, 255, 0.02) 0%,
+						transparent 60%
+					),
+					radial-gradient(
+						ellipse 50% 40% at 20% 70%,
+						rgba(255, 255, 255, 0.02) 0%,
+						transparent 55%
+					);
 			}
 
 			/* ── Layout shell ────────────────────────────── */
@@ -90,7 +111,7 @@
 				padding-right: 16px;
 				padding-top: calc(env(safe-area-inset-top, 0px) + 14px);
 				padding-bottom: 14px;
-				background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%);
+				background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
 				backdrop-filter: blur(0px);
 			}
 			.ar-back {
@@ -104,8 +125,12 @@
 				transition: color 0.15s;
 				padding: 6px 0;
 			}
-			.ar-back:hover { color: var(--text); }
-			.ar-back svg { flex-shrink: 0; }
+			.ar-back:hover {
+				color: var(--text);
+			}
+			.ar-back svg {
+				flex-shrink: 0;
+			}
 
 			.ar-topbar-center {
 				position: absolute;
@@ -123,8 +148,8 @@
 				letter-spacing: 0.08em;
 				text-transform: uppercase;
 				color: var(--accent);
-				background: rgba(255,255,255,0.08);
-				border: 1px solid rgba(255,255,255,0.2);
+				background: rgba(255, 255, 255, 0.08);
+				border: 1px solid rgba(255, 255, 255, 0.2);
 				border-radius: 999px;
 				padding: 4px 10px;
 			}
@@ -136,8 +161,15 @@
 				animation: ar-pulse 2s ease-in-out infinite;
 			}
 			@keyframes ar-pulse {
-				0%, 100% { opacity: 1; transform: scale(1); }
-				50%       { opacity: 0.5; transform: scale(0.75); }
+				0%,
+				100% {
+					opacity: 1;
+					transform: scale(1);
+				}
+				50% {
+					opacity: 0.5;
+					transform: scale(0.75);
+				}
 			}
 
 			.ar-share-btn {
@@ -150,9 +182,14 @@
 				font-family: inherit;
 				cursor: pointer;
 				padding: 6px 14px;
-				transition: border-color 0.15s, color 0.15s;
+				transition:
+					border-color 0.15s,
+					color 0.15s;
 			}
-			.ar-share-btn:hover { border-color: var(--text-3); color: var(--text); }
+			.ar-share-btn:hover {
+				border-color: var(--text-3);
+				color: var(--text);
+			}
 
 			/* ── Model viewer ────────────────────────────── */
 			model-viewer {
@@ -176,14 +213,21 @@
 				z-index: 10;
 				padding: 0 20px;
 				padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
-				background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+				background: linear-gradient(
+					to top,
+					rgba(0, 0, 0, 0.92) 0%,
+					rgba(0, 0, 0, 0.6) 60%,
+					transparent 100%
+				);
 				display: flex;
 				flex-direction: column;
 				align-items: center;
 				gap: 10px;
 				pointer-events: none;
 			}
-			.ar-bottom > * { pointer-events: auto; }
+			.ar-bottom > * {
+				pointer-events: auto;
+			}
 
 			.ar-avatar-name {
 				font-size: 22px;
@@ -212,17 +256,23 @@
 				align-items: center;
 				gap: 6px;
 			}
-			.ar-status.is-error { color: #f87171; }
+			.ar-status.is-error {
+				color: #f87171;
+			}
 			.ar-status-spinner {
 				width: 13px;
 				height: 13px;
 				border-radius: 50%;
-				border: 2px solid rgba(255,255,255,0.25);
+				border: 2px solid rgba(255, 255, 255, 0.25);
 				border-top-color: var(--accent-2);
 				animation: ar-spin 0.7s linear infinite;
 				flex-shrink: 0;
 			}
-			@keyframes ar-spin { to { transform: rotate(360deg); } }
+			@keyframes ar-spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
 
 			.ar-launch-btn {
 				width: 100%;
@@ -241,8 +291,13 @@
 				align-items: center;
 				justify-content: center;
 				gap: 10px;
-				transition: transform 0.12s, box-shadow 0.2s, opacity 0.15s;
-				box-shadow: 0 8px 32px -8px rgba(255,255,255,0.2), 0 0 0 1px rgba(255,255,255,0.08) inset;
+				transition:
+					transform 0.12s,
+					box-shadow 0.2s,
+					opacity 0.15s;
+				box-shadow:
+					0 8px 32px -8px rgba(255, 255, 255, 0.2),
+					0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 				position: relative;
 				overflow: hidden;
 			}
@@ -250,19 +305,29 @@
 				content: '';
 				position: absolute;
 				inset: 0;
-				background: linear-gradient(to bottom, rgba(255,255,255,0.12) 0%, transparent 50%);
+				background: linear-gradient(
+					to bottom,
+					rgba(255, 255, 255, 0.12) 0%,
+					transparent 50%
+				);
 				pointer-events: none;
 			}
 			.ar-launch-btn:hover:not(:disabled) {
 				transform: translateY(-2px);
-				box-shadow: 0 14px 40px -8px rgba(255,255,255,0.25), 0 0 0 1px rgba(255,255,255,0.1) inset;
+				box-shadow:
+					0 14px 40px -8px rgba(255, 255, 255, 0.25),
+					0 0 0 1px rgba(255, 255, 255, 0.1) inset;
 			}
-			.ar-launch-btn:active:not(:disabled) { transform: translateY(0); }
+			.ar-launch-btn:active:not(:disabled) {
+				transform: translateY(0);
+			}
 			.ar-launch-btn:disabled {
 				opacity: 0.45;
 				cursor: not-allowed;
 			}
-			.ar-launch-btn svg { flex-shrink: 0; }
+			.ar-launch-btn svg {
+				flex-shrink: 0;
+			}
 
 			/* ── Loading / error fallback ─────────────────── */
 			.ar-error {
@@ -301,7 +366,19 @@
 
 			<header class="ar-topbar">
 				<a class="ar-back" id="ar-back-link" href="/marketplace">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+					<svg
+						width="18"
+						height="18"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<polyline points="15 18 9 12 15 6" />
+					</svg>
 					Back
 				</a>
 				<div class="ar-topbar-center" id="view-switch-slot">
@@ -310,7 +387,9 @@
 						AR Ready
 					</span>
 				</div>
-				<button class="ar-share-btn" id="ar-share-btn" type="button" aria-label="Share">Share</button>
+				<button class="ar-share-btn" id="ar-share-btn" type="button" aria-label="Share">
+					Share
+				</button>
 			</header>
 
 			<footer class="ar-bottom">
@@ -320,14 +399,32 @@
 					<span class="ar-status-spinner" aria-hidden="true"></span>
 					<span id="ar-status-text"></span>
 				</p>
-				<button class="ar-launch-btn" id="ar-launch-btn" type="button" disabled aria-busy="true">
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-						<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+				<button
+					class="ar-launch-btn"
+					id="ar-launch-btn"
+					type="button"
+					disabled
+					aria-busy="true"
+				>
+					<svg
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path
+							d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+						/>
 					</svg>
 					Place in your space
 				</button>
 			</footer>
 		</div>
 		<script src="/brand.js" defer></script>
-</body>
+	</body>
 </html>

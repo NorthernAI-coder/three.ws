@@ -7,9 +7,17 @@
 // Registry as io.github.nirholas/three-ws-x402-bazaar (see server-bazaar.json).
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
+import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { peekCalledTool } from './_lib/mcp-dispatch.js';
 import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcpbazaar/dispatch.js';
-import { send401, sendJsonRpcError, authenticateRequest, handleSse, handleTerminate } from './_mcp/auth.js';
+import {
+	send401,
+	sendJsonRpcError,
+	authenticateRequest,
+	handleSse,
+	handleTerminate,
+} from './_mcp/auth.js';
+import { sendX402Error } from './_mcp/payments.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
@@ -27,7 +35,7 @@ export default wrap(async (req, res) => {
 		allowFree: Boolean(toolName && isPublicTool(toolName)),
 	});
 	if (!result) return;
-	const { auth } = result;
+	const { auth, x402Ctx } = result;
 
 	const ipRl = await limits.mcpIp(clientIp(req));
 	if (!ipRl.success)
@@ -47,6 +55,26 @@ export default wrap(async (req, res) => {
 	for (const msg of batch) {
 		const r = await dispatch(msg, auth, req);
 		if (r !== null) responses.push(r);
+	}
+
+	// When the caller presented an x402 payment, settle it AFTER the work
+	// succeeded — same atomic verify → work → settle sequence as /api/mcp. The
+	// advertised 402 price is only ever charged once useful work was delivered;
+	// a wholesale failure leaves the payer's signed payload un-broadcast.
+	if (x402Ctx) {
+		const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+		if (anySuccess) {
+			try {
+				const settled = await settlePayment({ verified: x402Ctx.verified });
+				res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+			} catch (err) {
+				return sendX402Error(
+					res,
+					{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
+					err,
+				);
+			}
+		}
 	}
 
 	res.statusCode = 200;

@@ -12,7 +12,8 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 
 	const url = new URL(req.url, 'http://x');
-	const limit = Number(url.searchParams.get('limit')) || 30;
+	const rawLimit = Number(url.searchParams.get('limit'));
+	const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 100) : 30;
 	const events = await readFeedEvents(limit);
 
 	return json(

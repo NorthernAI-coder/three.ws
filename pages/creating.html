@@ -5,7 +5,10 @@
 		<title>Your three.ws avatar is ready</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="theme-color" content="#060606" />
-		<meta name="description" content="Preview the avatar three.ws generated from your selfies, then mint it on-chain." />
+		<meta
+			name="description"
+			content="Preview the avatar three.ws generated from your selfies, then mint it on-chain."
+		/>
 		<meta name="robots" content="noindex" />
 		<link rel="icon" href="/favicon.ico" sizes="any" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -20,102 +23,231 @@
 		<script
 			type="module"
 			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
 		></script>
 		<style>
-			:root { color-scheme: dark; }
-			html, body { height: 100%; }
-			body {
-				background: #060606; color: #eee;
-				font: 15px/1.5 -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
-				margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+			:root {
+				color-scheme: dark;
 			}
-			.crumb { padding: 14px 22px; font-size: 13px; color: #8a8d98; }
-			.crumb a { color: #8a8d98; text-decoration: none; }
-			.crumb a:hover { color: #ffffff; }
+			html,
+			body {
+				height: 100%;
+			}
+			body {
+				background: #060606;
+				color: #eee;
+				font:
+					15px/1.5 -apple-system,
+					system-ui,
+					'Segoe UI',
+					Roboto,
+					sans-serif;
+				margin: 0;
+				min-height: 100vh;
+				display: flex;
+				flex-direction: column;
+			}
+			.crumb {
+				padding: 14px 22px;
+				font-size: 13px;
+				color: #8a8d98;
+			}
+			.crumb a {
+				color: #8a8d98;
+				text-decoration: none;
+			}
+			.crumb a:hover {
+				color: #ffffff;
+			}
 			h1 {
-				font-size: 28px; font-weight: 600; letter-spacing: -0.015em;
+				font-size: 28px;
+				font-weight: 600;
+				letter-spacing: -0.015em;
 				margin: 0 0 6px;
 			}
-			.sub { color: #8a8d98; margin: 0 0 24px; max-width: 64ch; }
+			.sub {
+				color: #8a8d98;
+				margin: 0 0 24px;
+				max-width: 64ch;
+			}
 			.stage {
-				flex: 1; max-width: 1100px; width: 100%; margin: 0 auto;
-				padding: 16px 22px 80px; box-sizing: border-box;
+				flex: 1;
+				max-width: 1100px;
+				width: 100%;
+				margin: 0 auto;
+				padding: 16px 22px 80px;
+				box-sizing: border-box;
 			}
 			.grid {
-				display: grid; grid-template-columns: minmax(0, 1fr) 380px;
-				gap: 28px; align-items: start;
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) 380px;
+				gap: 28px;
+				align-items: start;
 			}
-			@media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+			@media (max-width: 880px) {
+				.grid {
+					grid-template-columns: 1fr;
+				}
+			}
 			.viewer {
-				background: #101010; border: 1.5px solid #202020; border-radius: 14px;
-				aspect-ratio: 4 / 5; min-height: 480px; position: relative; overflow: hidden;
+				background: #101010;
+				border: 1.5px solid #202020;
+				border-radius: 14px;
+				aspect-ratio: 4 / 5;
+				min-height: 480px;
+				position: relative;
+				overflow: hidden;
 			}
 			.viewer model-viewer {
-				width: 100%; height: 100%; background: transparent;
+				width: 100%;
+				height: 100%;
+				background: transparent;
 				--poster-color: transparent;
 			}
 			.viewer .skel {
-				position: absolute; inset: 0; display: flex; align-items: center;
-				justify-content: center; color: #6a6d7c; font-size: 13px;
+				position: absolute;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: #6a6d7c;
+				font-size: 13px;
 			}
 			.panel {
-				background: #101010; border: 1.5px solid #202020; border-radius: 14px;
-				padding: 22px; display: flex; flex-direction: column; gap: 14px;
+				background: #101010;
+				border: 1.5px solid #202020;
+				border-radius: 14px;
+				padding: 22px;
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
 			}
-			.panel h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.005em; }
+			.panel h2 {
+				margin: 0;
+				font-size: 18px;
+				font-weight: 600;
+				letter-spacing: -0.005em;
+			}
 			.panel .label {
-				display: block; font-size: 12px; color: #8a8d98;
-				text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+				display: block;
+				font-size: 12px;
+				color: #8a8d98;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				margin-bottom: 6px;
 			}
-			.panel input, .panel textarea, .panel select {
-				width: 100%; box-sizing: border-box;
-				background: #080808; color: #eee;
-				border: 1.5px solid #202020; border-radius: 9px;
-				padding: 10px 12px; font: inherit;
+			.panel input,
+			.panel textarea,
+			.panel select {
+				width: 100%;
+				box-sizing: border-box;
+				background: #080808;
+				color: #eee;
+				border: 1.5px solid #202020;
+				border-radius: 9px;
+				padding: 10px 12px;
+				font: inherit;
 			}
-			.panel input:focus, .panel textarea:focus, .panel select:focus {
-				outline: none; border-color: #ffffff;
+			.panel input:focus,
+			.panel textarea:focus,
+			.panel select:focus {
+				outline: none;
+				border-color: #ffffff;
 			}
-			.panel textarea { resize: vertical; min-height: 64px; }
+			.panel textarea {
+				resize: vertical;
+				min-height: 64px;
+			}
 			.cta {
-				background: #ffffff; color: #0a0a0a; border: none; border-radius: 10px;
-				padding: 11px 16px; font: inherit; font-weight: 600; cursor: pointer;
+				background: #ffffff;
+				color: #0a0a0a;
+				border: none;
+				border-radius: 10px;
+				padding: 11px 16px;
+				font: inherit;
+				font-weight: 600;
+				cursor: pointer;
 				transition: filter 0.15s;
 			}
-			.cta:hover { filter: brightness(1.04); }
-			.cta:disabled { opacity: 0.35; cursor: not-allowed; }
+			.cta:hover {
+				filter: brightness(1.04);
+			}
+			.cta:disabled {
+				opacity: 0.35;
+				cursor: not-allowed;
+			}
 			.secondary {
-				background: transparent; color: #eee;
-				border: 1.5px solid #202020; border-radius: 10px;
-				padding: 10px 14px; font: inherit; cursor: pointer;
-				text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+				background: transparent;
+				color: #eee;
+				border: 1.5px solid #202020;
+				border-radius: 10px;
+				padding: 10px 14px;
+				font: inherit;
+				cursor: pointer;
+				text-decoration: none;
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
 			}
-			.secondary:hover { border-color: #2e2e2e; }
-			.row { display: flex; gap: 10px; flex-wrap: wrap; }
-			.row > * { flex: 1; min-width: 0; }
+			.secondary:hover {
+				border-color: #2e2e2e;
+			}
+			.row {
+				display: flex;
+				gap: 10px;
+				flex-wrap: wrap;
+			}
+			.row > * {
+				flex: 1;
+				min-width: 0;
+			}
 			.log {
-				background: #080808; border: 1px solid #202020; border-radius: 9px;
-				padding: 10px 12px; font-family: ui-monospace, monospace;
-				font-size: 11.5px; color: #8a8d98; max-height: 140px;
-				overflow: auto; line-height: 1.5;
+				background: #080808;
+				border: 1px solid #202020;
+				border-radius: 9px;
+				padding: 10px 12px;
+				font-family: ui-monospace, monospace;
+				font-size: 11.5px;
+				color: #8a8d98;
+				max-height: 140px;
+				overflow: auto;
+				line-height: 1.5;
 			}
-			.log .ok  { color: #ffffff; }
-			.log .err { color: #ff6b6b; }
+			.log .ok {
+				color: #ffffff;
+			}
+			.log .err {
+				color: #ff6b6b;
+			}
 			.empty {
-				background: #101010; border: 1.5px solid #202020; border-radius: 14px;
-				padding: 32px; text-align: center; color: #8a8d98;
+				background: #101010;
+				border: 1.5px solid #202020;
+				border-radius: 14px;
+				padding: 32px;
+				text-align: center;
+				color: #8a8d98;
 			}
-			.empty a { color: #ffffff; }
+			.empty a {
+				color: #ffffff;
+			}
 			.meta-tag {
-				display: inline-block; background: #202020; color: #8a8d98;
-				padding: 2px 8px; border-radius: 6px; font-size: 11px;
+				display: inline-block;
+				background: #202020;
+				color: #8a8d98;
+				padding: 2px 8px;
+				border-radius: 6px;
+				font-size: 11px;
 				margin-right: 6px;
 			}
 			.banner {
 				background: rgba(255, 255, 255, 0.08);
 				border: 1px solid rgba(255, 255, 255, 0.25);
-				color: #ffffff; border-radius: 9px;
-				padding: 8px 12px; font-size: 12px; margin-bottom: 16px;
+				color: #ffffff;
+				border-radius: 9px;
+				padding: 8px 12px;
+				font-size: 12px;
+				margin-bottom: 16px;
 			}
 		</style>
 	</head>
@@ -128,22 +260,22 @@
 
 		<main class="stage">
 			<div class="banner">
-				Sandbox flow at <code>/creating</code> — once this path is proven end-to-end
-				it will graduate to the main <code>/create</code> editor.
+				Sandbox flow at <code>/creating</code> — once this path is proven end-to-end it will
+				graduate to the main <code>/create</code> editor.
 			</div>
 
 			<h1 id="heading">Your three.ws avatar is ready</h1>
 			<p class="sub" id="subhead">
-				Reconstructed from your three selfies. Preview below, then mint it as a
-				draft ERC-8004 agent or refine it in the editor.
+				Reconstructed from your three selfies. Preview below, then mint it as a draft
+				ERC-8004 agent or refine it in the editor.
 			</p>
 
-			<div id="error-card" class="empty" style="display:none">
+			<div id="error-card" class="empty" style="display: none">
 				<p id="error-msg">Something went wrong.</p>
 				<p><a href="/demos/selfie-fit">← Try again with new selfies</a></p>
 			</div>
 
-			<div id="content" class="grid" style="display:none">
+			<div id="content" class="grid" style="display: none">
 				<div class="viewer">
 					<div class="skel" id="viewer-skel">Loading 3D model…</div>
 					<model-viewer
@@ -154,7 +286,7 @@
 						rotation-per-second="20deg"
 						exposure="1"
 						environment-image="neutral"
-						style="display:none"
+						style="display: none"
 					></model-viewer>
 				</div>
 
@@ -172,7 +304,11 @@
 					</div>
 					<div>
 						<label class="label" for="f-desc">Description (optional)</label>
-						<textarea id="f-desc" maxlength="500" placeholder="Short bio for the agent"></textarea>
+						<textarea
+							id="f-desc"
+							maxlength="500"
+							placeholder="Short bio for the agent"
+						></textarea>
 					</div>
 					<div>
 						<label class="label" for="f-vis">Visibility</label>
@@ -245,20 +381,32 @@
 					: '—';
 				$('#edit-link').href = `/create?avatarId=${encodeURIComponent(a.id)}`;
 
-				const glbUrl = a.url || a.signed_url || (a.storage_key ? `/api/avatars/${a.id}/glb` : null);
+				const glbUrl =
+					a.url || a.signed_url || (a.storage_key ? `/api/avatars/${a.id}/glb` : null);
 				if (!glbUrl) throw new Error('no GLB URL in avatar payload');
 				log(`✓ metadata loaded`, 'ok');
 
 				const mv = $('#mv');
 				mv.src = glbUrl;
-				mv.addEventListener('load', () => {
-					$('#viewer-skel').style.display = 'none';
-					mv.style.display = '';
-					log('✓ 3D model loaded', 'ok');
-				}, { once: true });
-				mv.addEventListener('error', (e) => {
-					log(`model-viewer error: ${e.detail?.sourceError?.message || 'unknown'}`, 'err');
-				}, { once: true });
+				mv.addEventListener(
+					'load',
+					() => {
+						$('#viewer-skel').style.display = 'none';
+						mv.style.display = '';
+						log('✓ 3D model loaded', 'ok');
+					},
+					{ once: true },
+				);
+				mv.addEventListener(
+					'error',
+					(e) => {
+						log(
+							`model-viewer error: ${e.detail?.sourceError?.message || 'unknown'}`,
+							'err',
+						);
+					},
+					{ once: true },
+				);
 
 				$('#save-btn').addEventListener('click', () => savePatch(a.id));
 				$('#mint-btn').addEventListener('click', () => mint(a.id));
@@ -293,7 +441,10 @@
 					log(`save failed: ${err.message}`, 'err');
 					btn.textContent = original;
 				} finally {
-					setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+					setTimeout(() => {
+						btn.textContent = original;
+						btn.disabled = false;
+					}, 1200);
 				}
 			}
 
@@ -336,5 +487,5 @@
 			}
 		</script>
 		<script src="/brand.js" defer></script>
-</body>
+	</body>
 </html>

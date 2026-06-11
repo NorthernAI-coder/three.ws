@@ -21,6 +21,8 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { extractBearer, authenticateBearer } from './_lib/auth.js';
 import {
 	verifyPayment,
+	settlePayment,
+	encodePaymentResponseHeader,
 	resolveResourceUrl,
 	paymentRequirements,
 	build402Body,
@@ -131,7 +133,9 @@ async function handleGetTokenDetails({ mint, network = 'mainnet' }) {
 		uri,
 		decimals,
 		supply,
-		mintAuthority: mintAccount.mintAuthorityOption ? mintAccount.mintAuthority.toString() : null,
+		mintAuthority: mintAccount.mintAuthorityOption
+			? mintAccount.mintAuthority.toString()
+			: null,
 		freezeAuthority: mintAccount.freezeAuthorityOption
 			? mintAccount.freezeAuthority.toString()
 			: null,
@@ -205,7 +209,10 @@ function indexerOrUnavailable(name) {
 		// Map our tool names to the upstream bot's tool surface.
 		const upstreamMap = {
 			searchTokens: { tool: 'searchTokens', args: { query: args.query, limit: args.limit } },
-			getTokenTrades: { tool: 'getTokenTrades', args: { mint: args.mint, limit: args.limit } },
+			getTokenTrades: {
+				tool: 'getTokenTrades',
+				args: { mint: args.mint, limit: args.limit },
+			},
 			getTrendingTokens: { tool: 'getTrendingTokens', args: { limit: args.limit } },
 			getNewTokens: { tool: 'getNewTokens', args: { limit: args.limit } },
 			getGraduatedTokens: { tool: 'getGraduatedTokens', args: { limit: args.limit } },
@@ -276,9 +283,17 @@ const VANITY_MAX_ATTEMPTS_CEILING = 1_500_000;
 // hit astronomically unlikely within the budget and just burns CPU.
 const VANITY_MAX_PATTERN_LEN = 4;
 
-async function handleVanityMint({ suffix = '', prefix = '', caseSensitive = false, maxAttempts = 1_500_000 }) {
+async function handleVanityMint({
+	suffix = '',
+	prefix = '',
+	caseSensitive = false,
+	maxAttempts = 1_500_000,
+}) {
 	if (!suffix && !prefix) throw rpcError(-32602, 'at least one of suffix or prefix is required');
-	if (String(suffix).length > VANITY_MAX_PATTERN_LEN || String(prefix).length > VANITY_MAX_PATTERN_LEN)
+	if (
+		String(suffix).length > VANITY_MAX_PATTERN_LEN ||
+		String(prefix).length > VANITY_MAX_PATTERN_LEN
+	)
 		throw rpcError(-32602, `suffix/prefix must each be ≤ ${VANITY_MAX_PATTERN_LEN} characters`);
 	const budget = Math.min(
 		VANITY_MAX_ATTEMPTS_CEILING,
@@ -288,7 +303,13 @@ async function handleVanityMint({ suffix = '', prefix = '', caseSensitive = fals
 	const timer = setTimeout(() => ac.abort(), 58_000);
 	let result;
 	try {
-		result = await generateVanityKey({ suffix, prefix, caseSensitive, maxAttempts: budget, signal: ac.signal });
+		result = await generateVanityKey({
+			suffix,
+			prefix,
+			caseSensitive,
+			maxAttempts: budget,
+			signal: ac.signal,
+		});
 	} finally {
 		clearTimeout(timer);
 	}
@@ -303,7 +324,6 @@ async function handleVanityMint({ suffix = '', prefix = '', caseSensitive = fals
 		ms: result.ms,
 	};
 }
-
 
 // ── Claims handlers (on-chain) ─────────────────────────────────────────────
 
@@ -328,7 +348,9 @@ async function _fetchClaimsFromChain({ creator, limit = 20, network = 'mainnet',
 				maxSupportedTransactionVersion: 0,
 				commitment: 'confirmed',
 			});
-		} catch { continue; }
+		} catch {
+			continue;
+		}
 		if (!tx) continue;
 		const allIxs = [
 			...(tx.transaction.message.instructions ?? []),
@@ -363,9 +385,9 @@ async function handleWatchClaims({ creator, durationMs = 300_000, network = 'mai
 	return { creator, network, windowMs: window, claims };
 }
 
-
 async function handleSocialCashtagSentiment({ posts }) {
-	if (!Array.isArray(posts) || posts.length === 0) throw rpcError(-32602, 'posts must be a non-empty array');
+	if (!Array.isArray(posts) || posts.length === 0)
+		throw rpcError(-32602, 'posts must be a non-empty array');
 	const { scoreSentiment } = await import('../src/social/sentiment.js');
 	return scoreSentiment(posts);
 }
@@ -376,7 +398,13 @@ async function handleGetFirstClaims({ sinceMinutes = 60, limit = 20 }) {
 	return { items };
 }
 
-async function handleQuoteSwap({ inputMint, outputMint, amountIn, slippageBps, network = 'mainnet' }) {
+async function handleQuoteSwap({
+	inputMint,
+	outputMint,
+	amountIn,
+	slippageBps,
+	network = 'mainnet',
+}) {
 	if (!solanaPubkey(inputMint)) throw rpcError(-32602, 'invalid inputMint');
 	if (!solanaPubkey(outputMint)) throw rpcError(-32602, 'invalid outputMint');
 	const WSOL = 'So11111111111111111111111111111111111111112';
@@ -393,9 +421,11 @@ async function handleQuoteSwap({ inputMint, outputMint, amountIn, slippageBps, n
 	const { buyQuoteInput, sellBaseInput } = await import('@pump-fun/pump-swap-sdk');
 	const BNMod = await import('bn.js');
 	const BN = BNMod.default || BNMod;
-	const { poolKey, pool, baseReserve, quoteReserve, baseMintAccount, globalConfig, feeConfig } = state;
+	const { poolKey, pool, baseReserve, quoteReserve, baseMintAccount, globalConfig, feeConfig } =
+		state;
 	const amountBn = new BN(String(amountIn));
-	const slip = (slippageBps ?? 100) / 10_000;
+	// pump-swap-sdk takes slippage as a PERCENT (1 = 1%): `1 ± slippage / 100`.
+	const slip = (slippageBps ?? 100) / 100;
 	const shared = {
 		slippage: slip,
 		baseReserve,
@@ -413,13 +443,17 @@ async function handleQuoteSwap({ inputMint, outputMint, amountIn, slippageBps, n
 		amountOut = r.base;
 		const num = amountBn.mul(baseReserve);
 		const denom = amountOut.mul(quoteReserve);
-		priceImpactBps = denom.isZero() ? 0 : Math.max(0, num.muln(10_000).div(denom).subn(10_000).toNumber());
+		priceImpactBps = denom.isZero()
+			? 0
+			: Math.max(0, num.muln(10_000).div(denom).subn(10_000).toNumber());
 	} else {
 		const r = sellBaseInput({ base: amountBn, ...shared });
 		amountOut = r.uiQuote;
 		const spot = quoteReserve.mul(amountBn);
 		const exec = amountOut.mul(baseReserve);
-		priceImpactBps = spot.isZero() ? 0 : Math.max(0, spot.sub(exec).muln(10_000).div(spot).toNumber());
+		priceImpactBps = spot.isZero()
+			? 0
+			: Math.max(0, spot.sub(exec).muln(10_000).div(spot).toNumber());
 	}
 	return {
 		amountOut: amountOut.toString(),
@@ -448,7 +482,11 @@ async function handleSocialXPostImpact({ postUrl, mint, windowMin = 30, network 
 				id: postId,
 				ts,
 				author: od.author_name ?? null,
-				text: od.html?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() ?? null,
+				text:
+					od.html
+						?.replace(/<[^>]*>/g, ' ')
+						.replace(/\s+/g, ' ')
+						.trim() ?? null,
 			};
 		}
 	} catch {}
@@ -484,7 +522,6 @@ async function handleSocialXPostImpact({ postUrl, mint, windowMin = 30, network 
 		note: 'priceBefore/After reflect current bonding curve state; historical delta requires trade data.',
 	};
 }
-
 
 // ── pumpfun_watch_whales ───────────────────────────────────────────────────
 
@@ -728,33 +765,43 @@ const AUTH_REQUIRED_TOOLS = new Set([
 	'pumpfun_watch_claims',
 ]);
 
-// Verify the request is authenticated for a gated tool. Returns true on success;
-// on failure it writes the JSON-RPC error envelope and returns false. Accepts a
-// bearer (API key / OAuth JWT) or a verified X-PAYMENT header.
+// Verify the request is authenticated for a gated tool. Returns
+// `{ x402Ctx }` on success — x402Ctx is null for bearer auth, and carries the
+// verified payment envelope for x402 callers so the dispatcher can settle it
+// AFTER the tool succeeds (verify → work → settle, same sequence as /api/mcp).
+// On failure it writes the JSON-RPC error envelope and returns null.
 async function authorizeGatedTool(req, res, id) {
 	const bearer = extractBearer(req);
 	if (bearer) {
 		const auth = await authenticateBearer(bearer).catch(() => null);
-		if (auth) return true;
-		json(res, 401, rpcEnvelope(id, null, {
-			code: -32001,
-			message: 'authentication required: invalid or expired bearer token',
-		}));
-		return false;
+		if (auth) return { x402Ctx: null };
+		json(
+			res,
+			401,
+			rpcEnvelope(id, null, {
+				code: -32001,
+				message: 'authentication required: invalid or expired bearer token',
+			}),
+		);
+		return null;
 	}
 	const paymentHeader = req.headers['x-payment'];
 	if (paymentHeader) {
 		const resourceUrl = resolveResourceUrl(req, '/api/pump-fun-mcp');
 		const requirements = paymentRequirements(resourceUrl);
 		try {
-			await verifyPayment({ paymentHeader, requirements });
-			return true;
+			const verified = await verifyPayment({ paymentHeader, requirements });
+			return { x402Ctx: { resourceUrl, requirements, verified } };
 		} catch (err) {
-			json(res, 402, rpcEnvelope(id, null, {
-				code: -32402,
-				message: `payment verification failed: ${err?.message || 'invalid payment'}`,
-			}));
-			return false;
+			json(
+				res,
+				402,
+				rpcEnvelope(id, null, {
+					code: -32402,
+					message: `payment verification failed: ${err?.message || 'invalid payment'}`,
+				}),
+			);
+			return null;
 		}
 	}
 	// No bearer, no payment: answer 402 Payment Required with the full x402
@@ -772,12 +819,17 @@ async function authorizeGatedTool(req, res, id) {
 		'PAYMENT-REQUIRED',
 		Buffer.from(JSON.stringify(envelope), 'utf8').toString('base64'),
 	);
-	json(res, 402, rpcEnvelope(id, null, {
-		code: -32402,
-		message: 'payment or authentication required for this tool (provide a Bearer token or X-PAYMENT)',
-		data: envelope,
-	}));
-	return false;
+	json(
+		res,
+		402,
+		rpcEnvelope(id, null, {
+			code: -32402,
+			message:
+				'payment or authentication required for this tool (provide a Bearer token or X-PAYMENT)',
+			data: envelope,
+		}),
+	);
+	return null;
 }
 
 export default wrap(async (req, res) => {
@@ -815,7 +867,10 @@ export default wrap(async (req, res) => {
 	if (rpcMethod === 'tools/call') {
 		const name = params?.name;
 		const args = params?.arguments || {};
-		const handler = HANDLERS[name];
+		// Own-property lookup only so "__proto__"/"constructor" can't resolve an
+		// inherited member and pass the !handler guard.
+		const handler =
+			typeof name === 'string' && Object.hasOwn(HANDLERS, name) ? HANDLERS[name] : null;
 		if (!handler) {
 			return json(
 				res,
@@ -825,13 +880,40 @@ export default wrap(async (req, res) => {
 		}
 		// Auth gate: expensive (vanity grind, long-lived RPC watch) and sensitive
 		// (returns a secret key) tools require a bearer or verified x402 payment.
-		// authorizeGatedTool writes the 401/402 envelope and returns false on deny.
+		// authorizeGatedTool writes the 401/402 envelope and returns null on deny.
+		let x402Ctx = null;
 		if (AUTH_REQUIRED_TOOLS.has(name)) {
-			const okAuth = await authorizeGatedTool(req, res, id);
-			if (!okAuth) return;
+			const authz = await authorizeGatedTool(req, res, id);
+			if (!authz) return;
+			x402Ctx = authz.x402Ctx;
 		}
 		try {
 			const data = await handler(args);
+			// Settle the verified x402 payment AFTER the tool succeeded — atomic
+			// from the payer's perspective (verify → work → settle, mirroring
+			// /api/mcp): a failed tool never broadcasts the payment, and a
+			// successful one is always captured so the gated work can't be
+			// delivered free or the same signed payload replayed.
+			if (x402Ctx) {
+				try {
+					const settled = await settlePayment({ verified: x402Ctx.verified });
+					res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+				} catch (settleErr) {
+					return json(
+						res,
+						402,
+						rpcEnvelope(id, null, {
+							code: -32402,
+							message: `payment settlement failed: ${settleErr?.message || 'settle error'}`,
+							data: build402Body({
+								resourceUrl: x402Ctx.resourceUrl,
+								accepts: x402Ctx.requirements,
+								error: settleErr?.message || 'settle error',
+							}),
+						}),
+					);
+				}
+			}
 			// Mirror MCP content shape so existing skill clients can unwrap text.
 			return json(
 				res,

@@ -16,7 +16,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/au
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { loadAgentForSigning, solanaConnection } from '../../_lib/agent-pumpfun.js';
-import { checkBuyAllowed } from '../../_lib/agent-spend-policy.js';
+import { reserveSpend, finalizeSpend, releaseSpend } from '../../_lib/agent-spend-policy.js';
 import { grindMintKeypair } from '../../_lib/pump-vanity.js';
 import { sql } from '../../_lib/db.js';
 import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
@@ -90,20 +90,13 @@ async function handleBuy(req, res, id) {
 	if (loaded.error) return error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
 	const { keypair, meta } = loaded;
 
-	const blocked = await checkBuyAllowed({
-		agentId: id,
-		meta,
-		mint: body.mint,
-		solAmount: body.solAmount,
-	});
-	if (blocked) return error(res, blocked.status, blocked.code, blocked.msg);
-
-	const [{ PumpSdk, OnlinePumpSdk, getBuyTokenAmountFromSolAmount }, BN, splToken] =
+	const [{ PumpSdk, OnlinePumpSdk, getBuyTokenAmountFromSolAmount, isLegacyQuoteMint }, BN] =
 		await Promise.all([
 			import('@pump-fun/pump-sdk'),
 			import('bn.js').then((m) => m.default || m),
-			import('@solana/spl-token'),
 		]);
+	const { slippagePercentFromBps, resolveTokenProgramForMintOwner } =
+		await import('../../_lib/pump-trade-args.js');
 
 	const conn = solanaConnection(body.network);
 	const online = new OnlinePumpSdk(conn);
@@ -113,18 +106,41 @@ async function handleBuy(req, res, id) {
 
 	let instructions;
 	try {
-		const [global, state] = await Promise.all([
+		// base_token_program must match the mint owner — Token-2022 for create_v2
+		// coins (every coin pump.fun mints today), SPL Token for legacy coins.
+		const mintInfo = await conn.getAccountInfo(mint);
+		if (!mintInfo) return error(res, 404, 'mint_not_found', 'mint not found on this network');
+		const tokenProgram = resolveTokenProgramForMintOwner(mintInfo.owner);
+
+		const [global, feeConfig, state] = await Promise.all([
 			online.fetchGlobal(),
-			online.fetchBuyState(mint, keypair.publicKey),
+			online.fetchFeeConfig().catch(() => null),
+			online.fetchBuyState(mint, keypair.publicKey, tokenProgram),
 		]);
+		// This endpoint spends the custodial wallet's SOL — a USDC-paired coin
+		// cannot be bought with solAmount. Reject cleanly instead of building a
+		// transaction the program will refuse.
+		if (state.bondingCurve.quoteMint && !isLegacyQuoteMint(state.bondingCurve.quoteMint)) {
+			return error(
+				res,
+				409,
+				'usdc_paired_coin',
+				'coin is stable-paired (non-SOL quote) — custodial buys are SOL-denominated; use /api/pump/buy-prep with usdc_amount',
+			);
+		}
 		const expected = getBuyTokenAmountFromSolAmount({
 			global,
-			feeConfig: null,
+			feeConfig,
 			mintSupply: state.bondingCurve.tokenTotalSupply,
 			bondingCurve: state.bondingCurve,
 			amount: solLamports,
 		});
-		instructions = await sdk.buyInstructions({
+		if (!expected.gt(new BN(0)))
+			return error(res, 400, 'amount_too_small', 'solAmount too small to buy any tokens');
+		// Unified v2 buy (UPSTREAM-buy-sell-v2-announcement.md): works for all
+		// coins, SDK derives the wSOL quote from the curve, applies the percent
+		// slippage pad to max_quote_cost, and handles the mayhem fee pool.
+		instructions = await sdk.buyV2Instructions({
 			global,
 			bondingCurveAccountInfo: state.bondingCurveAccountInfo,
 			bondingCurve: state.bondingCurve,
@@ -132,14 +148,31 @@ async function handleBuy(req, res, id) {
 			mint,
 			user: keypair.publicKey,
 			amount: expected,
-			solAmount: solLamports,
-			slippage: body.slippageBps / 10_000,
-			tokenProgram: splToken.TOKEN_PROGRAM_ID,
+			quoteAmount: solLamports,
+			slippage: slippagePercentFromBps(body.slippageBps, { defaultBps: 500 }),
+			tokenProgram,
 		});
 	} catch (err) {
 		console.error('[pumpfun/buy] build failed', err);
-		return error(res, 422, 'build_failed', err.message || 'could not build buy ix');
+		return error(
+			res,
+			err.status || 422,
+			err.code || 'build_failed',
+			err.message || 'could not build buy ix',
+		);
 	}
+
+	// Atomically reserve this spend against the daily cap BEFORE sending so two
+	// concurrent buys on a stolen session can't both slip past the limit.
+	const reservation = await reserveSpend({
+		agentId: id,
+		meta,
+		mint: body.mint,
+		solAmount: body.solAmount,
+		type: 'pumpfun.buy',
+		payload: { slippageBps: body.slippageBps, network: body.network },
+	});
+	if (!reservation.ok) return error(res, reservation.status, reservation.code, reservation.msg);
 
 	const tx = new Transaction().add(...instructions);
 	tx.feePayer = keypair.publicKey;
@@ -153,24 +186,17 @@ async function handleBuy(req, res, id) {
 		await conn.confirmTransaction(signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/buy] send failed', err);
+		await releaseSpend(reservation.reservationId);
 		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
 	}
 
-	await sql`
-		INSERT INTO agent_actions (agent_id, type, payload, source_skill)
-		VALUES (
-			${id},
-			${'pumpfun.buy'},
-			${JSON.stringify({
-				mint: body.mint,
-				solAmount: body.solAmount,
-				slippageBps: body.slippageBps,
-				signature,
-				network: body.network,
-			})}::jsonb,
-			${'pumpfun'}
-		)
-	`.catch((e) => console.error('[pumpfun/buy] log failed', e));
+	await finalizeSpend(reservation.reservationId, {
+		mint: body.mint,
+		solAmount: body.solAmount,
+		slippageBps: body.slippageBps,
+		signature,
+		network: body.network,
+	});
 
 	// Mirror into pump_agent_trades for cross-feature analytics (reputation,
 	// admin health, strategy backtests). Best-effort — agent may not have a
@@ -238,7 +264,7 @@ async function handleLaunch(req, res, id) {
 
 	const loaded = await loadAgentForSigning(id, auth.userId);
 	if (loaded.error) return error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
-	const { keypair } = loaded;
+	const { keypair, meta } = loaded;
 
 	const { PumpSdk, OnlinePumpSdk } = await import('@pump-fun/pump-sdk');
 	const BN = (await import('bn.js')).default;
@@ -253,7 +279,12 @@ async function handleLaunch(req, res, id) {
 		try {
 			mint = Keypair.fromSecretKey(Uint8Array.from(body.mintSecretKey));
 		} catch (e) {
-			return error(res, 400, 'validation_error', 'mintSecretKey did not parse as a valid Solana keypair');
+			return error(
+				res,
+				400,
+				'validation_error',
+				'mintSecretKey did not parse as a valid Solana keypair',
+			);
 		}
 		const addr = mint.publicKey.toBase58();
 		const ic = !!body.vanityIgnoreCase;
@@ -309,6 +340,32 @@ async function handleLaunch(req, res, id) {
 		instructions = [ix];
 	}
 
+	const mintAddr = mint.publicKey.toBase58();
+
+	// Gate the launch's initial buy against the agent's spend policy. Previously
+	// a launch could spend up to 1000 SOL with no per-tx or daily cap, so a stolen
+	// session could drain the custodial wallet through a single large initial buy.
+	// A create-only launch (solAmount 0) passes the cap and is still recorded.
+	const reservation = await reserveSpend({
+		agentId: id,
+		meta,
+		mint: mintAddr,
+		solAmount: body.solAmount || 0,
+		type: 'pumpfun.launch',
+		payload: {
+			name: body.name,
+			symbol: body.symbol,
+			uri: body.uri,
+			network: body.network,
+			vanity_prefix: body.vanityPrefix || null,
+			vanity_suffix: body.vanitySuffix || null,
+			vanity_ignore_case: body.vanityIgnoreCase || false,
+			vanity_iterations: vanityIterations,
+			vanity_duration_ms: vanityDurationMs,
+		},
+	});
+	if (!reservation.ok) return error(res, reservation.status, reservation.code, reservation.msg);
+
 	const tx = new Transaction().add(...instructions);
 	tx.feePayer = keypair.publicKey;
 	const { blockhash } = await conn.getLatestBlockhash();
@@ -321,32 +378,11 @@ async function handleLaunch(req, res, id) {
 		await conn.confirmTransaction(signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/launch] send failed', err);
+		await releaseSpend(reservation.reservationId);
 		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
 	}
 
-	const mintAddr = mint.publicKey.toBase58();
-	await sql`
-		INSERT INTO agent_actions (agent_id, type, payload, source_skill)
-		VALUES (
-			${id},
-			${'pumpfun.launch'},
-			${JSON.stringify({
-				mint: mintAddr,
-				name: body.name,
-				symbol: body.symbol,
-				uri: body.uri,
-				signature,
-				network: body.network,
-				solAmount: body.solAmount || 0,
-				vanity_prefix: body.vanityPrefix || null,
-				vanity_suffix: body.vanitySuffix || null,
-				vanity_ignore_case: body.vanityIgnoreCase || false,
-				vanity_iterations: vanityIterations,
-				vanity_duration_ms: vanityDurationMs,
-			})}::jsonb,
-			${'pumpfun'}
-		)
-	`.catch((e) => console.error('[pumpfun/launch] log failed', e));
+	await finalizeSpend(reservation.reservationId, { mint: mintAddr, signature });
 
 	// Register the mint in the indexer table so pump-agent-stats cron picks it up.
 	await sql`
@@ -647,7 +683,11 @@ async function handlePortfolio(req, res, id) {
 		const mint = p.mint;
 		if (!mint) continue;
 		const e = byMint.get(mint) || { mint, sol_in: 0, sol_out: 0 };
-		if (row.type === 'pumpfun.buy' || row.type === 'pumpfun.launch' || row.type === 'pumpfun.swap.buy') {
+		if (
+			row.type === 'pumpfun.buy' ||
+			row.type === 'pumpfun.launch' ||
+			row.type === 'pumpfun.swap.buy'
+		) {
 			e.sol_in += Number(p.solAmount) || 0;
 		} else if (row.type === 'pumpfun.sell' || row.type === 'pumpfun.swap.sell') {
 			e.sol_out += lamportsToSol(p.expectedSolLamports);
@@ -687,7 +727,13 @@ async function handlePortfolio(req, res, id) {
 
 	const positions = await Promise.all(
 		[...byMint.values()].map(async (pos) => {
-			const out = { ...pos, token_balance: '0', estimated_sol_value: null, unrealized_pnl_sol: null, graduated: null };
+			const out = {
+				...pos,
+				token_balance: '0',
+				estimated_sol_value: null,
+				unrealized_pnl_sol: null,
+				graduated: null,
+			};
 			let mintPk;
 			try {
 				mintPk = new PublicKey(pos.mint);
@@ -696,10 +742,30 @@ async function handlePortfolio(req, res, id) {
 				return out;
 			}
 
+			let positionTokenProgram = splToken.TOKEN_PROGRAM_ID;
 			try {
-				const ata = await splToken.getAssociatedTokenAddress(mintPk, keypair.publicKey);
-				const bal = await conn.getTokenAccountBalance(ata).catch(() => null);
-				out.token_balance = bal?.value?.amount || '0';
+				// A mint is owned by exactly one token program; create_v2 coins are
+				// Token-2022, legacy coins are SPL. Check both ATAs and use the one
+				// that exists so v2 positions don't read as zero.
+				const ataLegacy = splToken.getAssociatedTokenAddressSync(
+					mintPk,
+					keypair.publicKey,
+					true,
+					splToken.TOKEN_PROGRAM_ID,
+				);
+				const ata2022 = splToken.getAssociatedTokenAddressSync(
+					mintPk,
+					keypair.publicKey,
+					true,
+					splToken.TOKEN_2022_PROGRAM_ID,
+				);
+				const [balLegacy, bal2022] = await Promise.all([
+					conn.getTokenAccountBalance(ataLegacy).catch(() => null),
+					conn.getTokenAccountBalance(ata2022).catch(() => null),
+				]);
+				if (bal2022?.value?.amount != null)
+					positionTokenProgram = splToken.TOKEN_2022_PROGRAM_ID;
+				out.token_balance = bal2022?.value?.amount ?? balLegacy?.value?.amount ?? '0';
 			} catch (err) {
 				out.error = 'balance_fetch_failed';
 			}
@@ -711,7 +777,11 @@ async function handlePortfolio(req, res, id) {
 			}
 
 			try {
-				const state = await online.fetchSellState(mintPk, keypair.publicKey);
+				const state = await online.fetchSellState(
+					mintPk,
+					keypair.publicKey,
+					positionTokenProgram,
+				);
 				out.graduated = !!state.bondingCurve.complete;
 				if (!out.graduated) {
 					const expectedSol = getSellSolAmountFromTokenAmount({
@@ -727,9 +797,16 @@ async function handlePortfolio(req, res, id) {
 					// AMM quote: simulate sellBaseInput to get expected SOL out.
 					try {
 						const poolKey = ammMod.canonicalPumpPoolPda(mintPk);
-						const swapState = await onlineAmm.swapSolanaState(poolKey, keypair.publicKey);
+						const swapState = await onlineAmm.swapSolanaState(
+							poolKey,
+							keypair.publicKey,
+						);
 						const result = ammSdk.sellAutocompleteQuoteFromBase
-							? ammSdk.sellAutocompleteQuoteFromBase(swapState, new BN(out.token_balance), 0)
+							? ammSdk.sellAutocompleteQuoteFromBase(
+									swapState,
+									new BN(out.token_balance),
+									0,
+								)
 							: null;
 						if (result && result.uiQuote != null) {
 							out.estimated_sol_value = lamportsToSol(result.uiQuote);
@@ -770,7 +847,8 @@ async function handlePortfolio(req, res, id) {
 		(acc, p) => {
 			acc.sol_in += p.sol_in;
 			acc.sol_out += p.sol_out;
-			if (typeof p.estimated_sol_value === 'number') acc.estimated_value_sol += p.estimated_sol_value;
+			if (typeof p.estimated_sol_value === 'number')
+				acc.estimated_value_sol += p.estimated_sol_value;
 			return acc;
 		},
 		{ sol_in: 0, sol_out: 0, estimated_value_sol: 0 },
@@ -816,12 +894,13 @@ async function handleSell(req, res, id) {
 	if (loaded.error) return error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
 	const { keypair } = loaded;
 
-	const [{ PumpSdk, OnlinePumpSdk, getSellSolAmountFromTokenAmount }, BN, splToken] =
+	const [{ PumpSdk, OnlinePumpSdk, getSellSolAmountFromTokenAmount, isLegacyQuoteMint }, BN] =
 		await Promise.all([
 			import('@pump-fun/pump-sdk'),
 			import('bn.js').then((m) => m.default || m),
-			import('@solana/spl-token'),
 		]);
+	const { slippagePercentFromBps, resolveTokenProgramForMintOwner } =
+		await import('../../_lib/pump-trade-args.js');
 
 	const conn = solanaConnection(body.network);
 	const online = new OnlinePumpSdk(conn);
@@ -832,33 +911,55 @@ async function handleSell(req, res, id) {
 	let instructions;
 	let expectedSolStr;
 	try {
-		const [global, state] = await Promise.all([
+		const mintInfo = await conn.getAccountInfo(mint);
+		if (!mintInfo) return error(res, 404, 'mint_not_found', 'mint not found on this network');
+		const tokenProgram = resolveTokenProgramForMintOwner(mintInfo.owner);
+
+		const [global, feeConfig, state] = await Promise.all([
 			online.fetchGlobal(),
-			online.fetchSellState(mint, keypair.publicKey),
+			online.fetchFeeConfig().catch(() => null),
+			online.fetchSellState(mint, keypair.publicKey, tokenProgram),
 		]);
+		// Custodial sells are SOL-denominated; stable-paired proceeds would land
+		// as USDC the endpoint does not account for. Reject cleanly.
+		if (state.bondingCurve.quoteMint && !isLegacyQuoteMint(state.bondingCurve.quoteMint)) {
+			return error(
+				res,
+				409,
+				'usdc_paired_coin',
+				'coin is stable-paired (non-SOL quote) — custodial sells are SOL-denominated; use /api/pump/sell-prep',
+			);
+		}
 		const expectedSol = getSellSolAmountFromTokenAmount({
 			global,
-			feeConfig: null,
+			feeConfig,
 			mintSupply: state.bondingCurve.tokenTotalSupply,
 			bondingCurve: state.bondingCurve,
 			amount: tokenAmount,
 		});
 		expectedSolStr = expectedSol.toString();
-		instructions = await sdk.sellInstructions({
+		// Unified v2 sell: percent slippage shaves the expected output into a
+		// real min_sol_output floor, and the SDK reads the curve's mayhem flag
+		// for fee-recipient selection (the legacy builder needed it passed in).
+		instructions = await sdk.sellV2Instructions({
 			global,
 			bondingCurveAccountInfo: state.bondingCurveAccountInfo,
 			bondingCurve: state.bondingCurve,
 			mint,
 			user: keypair.publicKey,
 			amount: tokenAmount,
-			solAmount: expectedSol,
-			slippage: body.slippageBps / 10_000,
-			tokenProgram: splToken.TOKEN_PROGRAM_ID,
-			mayhemMode: false,
+			quoteAmount: expectedSol,
+			slippage: slippagePercentFromBps(body.slippageBps, { defaultBps: 500 }),
+			tokenProgram,
 		});
 	} catch (err) {
 		console.error('[pumpfun/sell] build failed', err);
-		return error(res, 422, 'build_failed', err.message || 'could not build sell ix');
+		return error(
+			res,
+			err.status || 422,
+			err.code || 'build_failed',
+			err.message || 'could not build sell ix',
+		);
 	}
 
 	const tx = new Transaction().add(...instructions);
@@ -961,18 +1062,11 @@ async function handleSwap(req, res, id) {
 	if (loaded.error) return error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
 	const { keypair, meta } = loaded;
 
-	if (body.side === 'buy') {
-		const blocked = await checkBuyAllowed({
-			agentId: id, meta, mint: body.mint, solAmount: body.solAmount,
-		});
-		if (blocked) return error(res, blocked.status, blocked.code, blocked.msg);
-	}
-
 	const conn = solanaConnection(body.network);
 	const mint = new PublicKey(body.mint);
 
 	// Detect graduation. If still on bonding curve, delegate to /buy or /sell.
-	const { PumpSdk, bondingCurvePda } = await import('@pump-fun/pump-sdk');
+	const { PumpSdk, bondingCurvePda, isLegacyQuoteMint } = await import('@pump-fun/pump-sdk');
 	const pumpSdk = new PumpSdk();
 	const bcInfo = await conn.getAccountInfo(bondingCurvePda(mint));
 	const bc = bcInfo ? pumpSdk.decodeBondingCurveNullable(bcInfo) : null;
@@ -988,21 +1082,35 @@ async function handleSwap(req, res, id) {
 	}
 
 	// AMM path.
-	const { PumpAmmSdk, OnlinePumpAmmSdk, canonicalPumpPoolPda } = await import(
-		'@pump-fun/pump-swap-sdk'
-	);
+	const { PumpAmmSdk, OnlinePumpAmmSdk, canonicalPumpPoolPda } =
+		await import('@pump-fun/pump-swap-sdk');
 	const BN = (await import('bn.js')).default;
 	const amm = new PumpAmmSdk();
 	const online = new OnlinePumpAmmSdk(conn);
 
+	// The canonical pool PDA is keyed by quote mint. SOL curves store the
+	// default pubkey; stable-paired coins carry their real quote mint, which a
+	// SOL-denominated custodial swap cannot trade — reject those cleanly.
+	if (bc?.quoteMint && !isLegacyQuoteMint(bc.quoteMint)) {
+		return error(
+			res,
+			409,
+			'usdc_paired_coin',
+			'pool is stable-paired (non-SOL quote) — custodial swaps are SOL-denominated; use /api/pump/buy-prep or sell-prep',
+		);
+	}
 	const poolKey = canonicalPumpPoolPda(mint);
-	const swapState = await online.swapSolanaState(poolKey, keypair.publicKey).catch(async (err) => {
-		// Fall back: pool account may not be initialized (race after graduation).
-		console.error('[pumpfun/swap] swapSolanaState failed', err);
-		return online.swapSolanaStateNoPool(poolKey, keypair.publicKey);
-	});
+	const swapState = await online
+		.swapSolanaState(poolKey, keypair.publicKey)
+		.catch(async (err) => {
+			// Fall back: pool account may not be initialized (race after graduation).
+			console.error('[pumpfun/swap] swapSolanaState failed', err);
+			return online.swapSolanaStateNoPool(poolKey, keypair.publicKey);
+		});
 
-	const slippage = body.slippageBps / 10_000;
+	// AMM SDK takes slippage as a PERCENT (1 = 1%) — api/_lib/pump-trade-args.js.
+	const { slippagePercentFromBps } = await import('../../_lib/pump-trade-args.js');
+	const slippage = slippagePercentFromBps(body.slippageBps, { defaultBps: 500 });
 
 	let instructions;
 	let quotedAmount;
@@ -1033,6 +1141,23 @@ async function handleSwap(req, res, id) {
 		return error(res, 422, 'build_failed', err.message || 'could not build swap ix');
 	}
 
+	// A swap-buy is a SOL outflow — reserve it against the daily cap atomically
+	// before sending (closes the concurrent-spend TOCTOU). A swap-sell is an
+	// inflow and is recorded after the fact, no reservation needed.
+	let reservation = null;
+	if (body.side === 'buy') {
+		reservation = await reserveSpend({
+			agentId: id,
+			meta,
+			mint: body.mint,
+			solAmount: body.solAmount,
+			type: 'pumpfun.swap.buy',
+			payload: { slippageBps: body.slippageBps, network: body.network, venue: 'amm' },
+		});
+		if (!reservation.ok)
+			return error(res, reservation.status, reservation.code, reservation.msg);
+	}
+
 	const tx = new Transaction().add(...instructions);
 	tx.feePayer = keypair.publicKey;
 	const { blockhash } = await conn.getLatestBlockhash();
@@ -1045,29 +1170,41 @@ async function handleSwap(req, res, id) {
 		await conn.confirmTransaction(signature, 'confirmed');
 	} catch (err) {
 		console.error('[pumpfun/swap] send failed', err);
+		if (reservation) await releaseSpend(reservation.reservationId);
 		return error(res, 502, 'rpc_error', err.message || 'transaction failed');
 	}
 
-	await sql`
-		INSERT INTO agent_actions (agent_id, type, payload, source_skill)
-		VALUES (
-			${id},
-			${`pumpfun.swap.${body.side}`},
-			${JSON.stringify({
-				mint: body.mint,
-				side: body.side,
-				...(body.side === 'buy'
-					? { solAmount: body.solAmount }
-					: { tokenAmount: body.tokenAmount }),
-				slippageBps: body.slippageBps,
-				signature,
-				network: body.network,
-				venue: 'amm',
-				...quotedAmount,
-			})}::jsonb,
-			${'pumpfun'}
-		)
-	`.catch((e) => console.error('[pumpfun/swap] log failed', e));
+	if (reservation) {
+		await finalizeSpend(reservation.reservationId, {
+			mint: body.mint,
+			side: 'buy',
+			solAmount: body.solAmount,
+			slippageBps: body.slippageBps,
+			signature,
+			network: body.network,
+			venue: 'amm',
+			...quotedAmount,
+		});
+	} else {
+		await sql`
+			INSERT INTO agent_actions (agent_id, type, payload, source_skill)
+			VALUES (
+				${id},
+				${`pumpfun.swap.${body.side}`},
+				${JSON.stringify({
+					mint: body.mint,
+					side: body.side,
+					tokenAmount: body.tokenAmount,
+					slippageBps: body.slippageBps,
+					signature,
+					network: body.network,
+					venue: 'amm',
+					...quotedAmount,
+				})}::jsonb,
+				${'pumpfun'}
+			)
+		`.catch((e) => console.error('[pumpfun/swap] log failed', e));
+	}
 
 	return json(res, 200, {
 		data: {

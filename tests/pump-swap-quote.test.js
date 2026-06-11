@@ -61,7 +61,12 @@ describe('quoteSwap', () => {
 		mockSwapSolanaState.mockResolvedValueOnce(fakeState());
 		mockBuyQuoteInput.mockReturnValueOnce({ base: new BN(9_900), maxQuote: new BN(10_200) });
 
-		const result = await quoteSwap({ inputMint: WSOL, outputMint: TOKEN, amountIn: 10_000, slippageBps: 100 });
+		const result = await quoteSwap({
+			inputMint: WSOL,
+			outputMint: TOKEN,
+			amountIn: 10_000,
+			slippageBps: 100,
+		});
 
 		expect(result.amountOut).toBe('9900');
 		expect(typeof result.priceImpactBps).toBe('number');
@@ -80,7 +85,8 @@ describe('quoteSwap', () => {
 		expect(mockBuyQuoteInput).toHaveBeenCalledOnce();
 		const call = mockBuyQuoteInput.mock.calls[0][0];
 		expect(call.quote.toString()).toBe('10000');
-		expect(call.slippage).toBeCloseTo(0.01);
+		// pump-swap-sdk slippage is a PERCENT (1 = 1%): 100 bps -> 1.
+		expect(call.slippage).toBeCloseTo(1);
 		expect(call.globalConfig).toEqual({ mock: true });
 	});
 
@@ -99,7 +105,12 @@ describe('quoteSwap', () => {
 		mockSwapSolanaState.mockResolvedValueOnce(fakeState());
 		mockSellBaseInput.mockReturnValueOnce({ uiQuote: new BN(9_800), minQuote: new BN(9_700) });
 
-		const result = await quoteSwap({ inputMint: TOKEN, outputMint: WSOL, amountIn: 10_000, slippageBps: 50 });
+		const result = await quoteSwap({
+			inputMint: TOKEN,
+			outputMint: WSOL,
+			amountIn: 10_000,
+			slippageBps: 50,
+		});
 
 		expect(result.amountOut).toBe('9800');
 		expect(result.priceImpactBps).toBeGreaterThanOrEqual(0);
@@ -115,7 +126,8 @@ describe('quoteSwap', () => {
 		expect(mockSellBaseInput).toHaveBeenCalledOnce();
 		const call = mockSellBaseInput.mock.calls[0][0];
 		expect(call.base.toString()).toBe('10000');
-		expect(call.slippage).toBeCloseTo(0.005);
+		// 50 bps -> 0.5 percent (the SDK's unit).
+		expect(call.slippage).toBeCloseTo(0.5);
 	});
 
 	it('sell direction: computes priceImpactBps correctly', async () => {
@@ -137,7 +149,8 @@ describe('quoteSwap', () => {
 		await quoteSwap({ inputMint: WSOL, outputMint: TOKEN, amountIn: 5_000 });
 
 		const call = mockBuyQuoteInput.mock.calls[0][0];
-		expect(call.slippage).toBeCloseTo(0.01);
+		// Default 100 bps -> 1 percent.
+		expect(call.slippage).toBeCloseTo(1);
 	});
 
 	it('throws with clean message on invalid inputMint', async () => {

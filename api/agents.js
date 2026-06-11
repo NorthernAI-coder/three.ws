@@ -202,6 +202,11 @@ async function handleGetOrCreateMe(req, res, auth) {
 async function handleCreate(req, res) {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in or provide a bearer token');
+	// Creation mints real wallets — same CSRF gate as PUT/PATCH/DELETE (bearer
+	// callers are exempt inside requireCsrf) plus a per-IP rate limit.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const scopeErr = requireScopeForMutation(auth, res, 'avatars:write');
 	if (scopeErr) return scopeErr;
 
@@ -215,7 +220,8 @@ async function handleCreate(req, res) {
 	let avatarId = null;
 	if (body.avatar_id) {
 		const raw = String(body.avatar_id);
-		if (!UUID_RE.test(raw)) return error(res, 400, 'validation_error', 'avatar_id must be a UUID');
+		if (!UUID_RE.test(raw))
+			return error(res, 400, 'validation_error', 'avatar_id must be a UUID');
 		const [av] = await sql`
 			SELECT id FROM avatars
 			 WHERE id = ${raw} AND owner_id = ${auth.userId} AND deleted_at IS NULL
@@ -264,7 +270,9 @@ async function handleCreate(req, res) {
 			status: integrity.status,
 			uniqueness: integrity.uniqueness,
 			guardian: integrity.guardian ? integrity.guardian.decision : null,
-			closest: integrity.similar[0] ? { name: integrity.similar[0].name, score: integrity.similar[0].score } : null,
+			closest: integrity.similar[0]
+				? { name: integrity.similar[0].name, score: integrity.similar[0].score }
+				: null,
 			checked_at: new Date().toISOString(),
 		};
 	}
@@ -357,7 +365,10 @@ export async function handleGetOne(req, res, id) {
 			`;
 			row.chat_count = chatRow?.total ?? 0;
 		} catch (err) {
-			console.warn('[agents] chat_count usage_events query failed, defaulting to 0:', err?.message);
+			console.warn(
+				'[agents] chat_count usage_events query failed, defaulting to 0:',
+				err?.message,
+			);
 			row.chat_count = 0;
 		}
 
@@ -396,19 +407,39 @@ async function handleUpdate(req, res, id, auth) {
 	const scopeErr = requireScopeForMutation(auth, res, 'avatars:write');
 	if (scopeErr) return scopeErr;
 	const [existing] = await sql`
-		SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
+		SELECT id, user_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL
 	`;
 	if (!existing) return error(res, 404, 'not_found', 'agent not found');
 	if (existing.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
 
 	const body = await readJson(req);
+
+	// Server-side meta merge. GET strips encrypted_wallet_key /
+	// encrypted_solana_secret before returning meta, so a client read-modify-write
+	// must never be able to wipe (or set) them: merge the client's meta over the
+	// stored row and always carry the stored encrypted_* keys through unchanged.
+	let mergedMeta = null;
+	if (body.meta && typeof body.meta === 'object' && !Array.isArray(body.meta)) {
+		const existingMeta = existing.meta || {};
+		const clientMeta = { ...body.meta };
+		delete clientMeta.encrypted_wallet_key;
+		delete clientMeta.encrypted_solana_secret;
+		mergedMeta = { ...existingMeta, ...clientMeta };
+		if ('encrypted_wallet_key' in existingMeta) {
+			mergedMeta.encrypted_wallet_key = existingMeta.encrypted_wallet_key;
+		}
+		if ('encrypted_solana_secret' in existingMeta) {
+			mergedMeta.encrypted_solana_secret = existingMeta.encrypted_solana_secret;
+		}
+	}
+
 	const [updated] = await sql`
 		UPDATE agent_identities SET
 			name         = COALESCE(${body.name || null}, name),
 			description  = COALESCE(${body.description || null}, description),
 			avatar_id    = COALESCE(${body.avatar_id || null}, avatar_id),
 			skills       = COALESCE(${body.skills || null}, skills),
-			meta         = COALESCE(${body.meta ? JSON.stringify(body.meta) : null}::jsonb, meta),
+			meta         = COALESCE(${mergedMeta ? JSON.stringify(mergedMeta) : null}::jsonb, meta),
 			home_url     = COALESCE(${body.home_url || null}, home_url)
 		WHERE id = ${id}
 		RETURNING *
@@ -473,7 +504,20 @@ export async function handleWallet(req, res, id) {
 	const address = String(body.wallet_address || '').trim();
 	const chainId = Number(body.chain_id) || null;
 	// Optional: post-mint, the client can patch in the minted ERC-8004 agent id.
-	const erc8004 = body.erc8004_agent_id != null ? BigInt(body.erc8004_agent_id).toString() : null;
+	// Validate before BigInt() — a malformed value would otherwise throw a 500.
+	let erc8004 = null;
+	if (body.erc8004_agent_id != null) {
+		const rawId = String(body.erc8004_agent_id).trim();
+		if (!/^\d+$/.test(rawId)) {
+			return error(
+				res,
+				400,
+				'validation_error',
+				'erc8004_agent_id must be a non-negative integer',
+			);
+		}
+		erc8004 = BigInt(rawId).toString();
+	}
 	if (!address) return error(res, 400, 'validation_error', 'wallet_address required');
 
 	const [updated] = await sql`
@@ -499,8 +543,9 @@ async function healStaleAvatarId(row) {
 	if (!av) {
 		const staleId = row.avatar_id;
 		row.avatar_id = null;
-		sql`UPDATE agent_identities SET avatar_id = NULL WHERE id = ${row.id} AND avatar_id = ${staleId}`
-			.catch((e) => console.error('[agents] healStaleAvatarId failed', e));
+		sql`UPDATE agent_identities SET avatar_id = NULL WHERE id = ${row.id} AND avatar_id = ${staleId}`.catch(
+			(e) => console.error('[agents] healStaleAvatarId failed', e),
+		);
 	}
 }
 
@@ -547,15 +592,15 @@ function decorate(row, isOwner = true) {
 		: null;
 
 	const avatarVisibility = row.avatar_visibility || null;
-	const avatarPubliclyReadable =
-		avatarVisibility === 'public' || avatarVisibility === 'unlisted';
+	const avatarPubliclyReadable = avatarVisibility === 'public' || avatarVisibility === 'unlisted';
 	const avatarModelUrl =
-		row.avatar_storage_key && avatarPubliclyReadable
-			? publicUrl(row.avatar_storage_key)
+		row.avatar_storage_key && avatarPubliclyReadable ? publicUrl(row.avatar_storage_key) : null;
+	// Thumbnails get the same public/unlisted gate as model URLs (mirrors
+	// characters.js / galaxy.js) — private avatars must not leak via thumbnails.
+	const avatarThumbnailUrl =
+		row.avatar_thumbnail_key && avatarPubliclyReadable
+			? publicUrl(row.avatar_thumbnail_key)
 			: null;
-	const avatarThumbnailUrl = row.avatar_thumbnail_key
-		? publicUrl(row.avatar_thumbnail_key)
-		: null;
 
 	const base = {
 		id: row.id,

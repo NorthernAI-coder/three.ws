@@ -82,7 +82,11 @@ const ROUTE_DESCRIPTION =
 	'($0.05 draft / $0.15 standard / $0.50 high). Pay autonomously on Base or ' +
 	'Solana mainnet — no API key, no account.';
 
-const INPUT_EXAMPLE = { prompt: 'a brass steampunk owl, full body', tier: 'standard', aspect_ratio: '1:1' };
+const INPUT_EXAMPLE = {
+	prompt: 'a brass steampunk owl, full body',
+	tier: 'standard',
+	aspect_ratio: '1:1',
+};
 
 const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -305,8 +309,14 @@ export default wrap(async (req, res) => {
 	// Internal / subscription / OAuth callers bypass payment.
 	const acResult = await accessControl(req, routeConfig);
 	if (acResult?.abort) {
-		if (acResult.headers) for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
-		return error(res, acResult.status || 403, acResult.code || 'access_denied', acResult.reason || 'access denied');
+		if (acResult.headers)
+			for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
+		return error(
+			res,
+			acResult.status || 403,
+			acResult.code || 'access_denied',
+			acResult.reason || 'access denied',
+		);
 	}
 	if (acResult?.grantAccess) {
 		let result;
@@ -315,7 +325,8 @@ export default wrap(async (req, res) => {
 		} catch (err) {
 			return error(res, err.status || 500, err.code || 'internal_error', err.message);
 		}
-		if (acResult.headers) for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
+		if (acResult.headers)
+			for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
 		res.setHeader('x-payment-bypass', acResult.reason || 'granted');
 		res.setHeader('cache-control', 'no-store');
 		res.setHeader('content-type', 'application/json; charset=utf-8');
@@ -333,9 +344,14 @@ export default wrap(async (req, res) => {
 
 	// Idempotency: a retried payment (same id, same body) returns the SAME job
 	// token instead of submitting a second generation and double-charging.
-	const paymentId = extractIdFromHeader(paymentHeader);
+	const clientPaymentId = extractIdFromHeader(paymentHeader);
 	const payloadHash = hashRequestPayload({ method: 'POST', url: ROUTE, body: rawBody });
 	const paymentHash = hashPaymentProof(paymentHeader);
+	// Always-on replay guard: the payment-identifier extension is client-opt-in,
+	// so when the client omits it we fall back to the proof hash itself as the
+	// dedup key (reproducible only by the original payer), making replay
+	// protection unconditional. Same idiom as api/_lib/x402-paid-endpoint.js.
+	const paymentId = clientPaymentId || (paymentHash ? `proof:${paymentHash}` : null);
 	if (paymentId) {
 		const lookup = await checkCache({ route: ROUTE, paymentId, payloadHash, paymentHash });
 		if (lookup.kind === 'hit') return writeCachedResponse(res, lookup.entry);
@@ -405,18 +421,25 @@ async function parseRequestFromObject(body) {
 	let imageUrls = [];
 	if (Array.isArray(body.image_urls)) imageUrls = body.image_urls;
 	else if (typeof body.image_url === 'string') imageUrls = [body.image_url];
-	const rawImageCount = Array.isArray(body.image_urls) ? body.image_urls.length : imageUrls.length;
-	imageUrls = imageUrls.filter((u) => typeof u === 'string' && HTTP_URL_RE.test(u)).slice(0, MAX_VIEWS);
+	const rawImageCount = Array.isArray(body.image_urls)
+		? body.image_urls.length
+		: imageUrls.length;
+	imageUrls = imageUrls
+		.filter((u) => typeof u === 'string' && HTTP_URL_RE.test(u))
+		.slice(0, MAX_VIEWS);
 	const isImageMode = imageUrls.length > 0;
 
 	const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
 	const isProbe = !prompt && !isImageMode;
 
 	if (!isImageMode && !isProbe && (prompt.length < 3 || prompt.length > 1000)) {
-		throw Object.assign(new Error('Describe one subject in 3–1000 characters, or pass image_urls.'), {
-			status: 400,
-			code: 'invalid_prompt',
-		});
+		throw Object.assign(
+			new Error('Describe one subject in 3–1000 characters, or pass image_urls.'),
+			{
+				status: 400,
+				code: 'invalid_prompt',
+			},
+		);
 	}
 	if (rawImageCount > 0 && imageUrls.length === 0) {
 		throw Object.assign(new Error('image_urls must be public https URLs.'), {

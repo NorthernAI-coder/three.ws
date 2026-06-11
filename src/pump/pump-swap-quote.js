@@ -77,7 +77,8 @@ export async function quoteSwap({ inputMint, outputMint, amountIn, slippageBps =
 	}
 
 	const { globalConfig, feeConfig, pool, poolBaseAmount, poolQuoteAmount, baseMintAccount } = state;
-	const slippage = slippageBps / 10_000;
+	// pump-swap-sdk takes slippage as a PERCENT (1 = 1%): `1 ± slippage / 100`.
+	const slippage = slippageBps / 100;
 	const shared = {
 		slippage,
 		baseReserve: poolBaseAmount,

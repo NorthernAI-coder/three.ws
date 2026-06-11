@@ -116,7 +116,9 @@ async function fetchExternalGlb(url) {
 		if (!res.ok) throw new Error(`upstream ${res.status}`);
 		const len = Number(res.headers.get('content-length') || 0);
 		if (len && len > MAX_GLB_BYTES) {
-			throw new Error(`model ${(len / 1024 / 1024).toFixed(1)} MB exceeds ${MAX_GLB_BYTES / 1024 / 1024} MB limit`);
+			throw new Error(
+				`model ${(len / 1024 / 1024).toFixed(1)} MB exceeds ${MAX_GLB_BYTES / 1024 / 1024} MB limit`,
+			);
 		}
 		const buf = Buffer.from(await res.arrayBuffer());
 		if (buf.byteLength > MAX_GLB_BYTES) {
@@ -159,7 +161,9 @@ async function loadAgentArtifactConfig(agentId, opts) {
 			a.id, a.name,
 			av.storage_key
 		FROM agent_identities a
-		LEFT JOIN avatars av ON av.id = a.avatar_id AND av.deleted_at IS NULL
+		LEFT JOIN avatars av ON av.id = a.avatar_id
+			AND av.deleted_at IS NULL
+			AND av.visibility IN ('public', 'unlisted')
 		WHERE a.id = ${agentId} AND a.deleted_at IS NULL
 		LIMIT 1
 	`;
@@ -223,7 +227,12 @@ export default wrap(async (req, res) => {
 	const bg = (params.get('bg') || '').replace(/^#/, '').match(/^[0-9a-f]{6}$/i)?.[0] || '';
 
 	if ((agentId === null) === (modelUrl === null)) {
-		return error(res, 400, 'invalid_request', 'provide exactly one of ?agent=<id> or ?model=<url>');
+		return error(
+			res,
+			400,
+			'invalid_request',
+			'provide exactly one of ?agent=<id> or ?model=<url>',
+		);
 	}
 
 	const opts = { theme, idle, bg };
@@ -231,13 +240,23 @@ export default wrap(async (req, res) => {
 
 	if (agentId !== null) {
 		if (!AGENT_ID_RE.test(agentId)) {
-			return error(res, 400, 'invalid_request', 'agent id must be 3–64 alphanumeric/hyphen/underscore chars');
+			return error(
+				res,
+				400,
+				'invalid_request',
+				'agent id must be 3–64 alphanumeric/hyphen/underscore chars',
+			);
 		}
 		result = await loadAgentArtifactConfig(agentId, opts);
 	} else {
 		const safeUrl = validateModelUrl(modelUrl);
 		if (!safeUrl) {
-			return error(res, 400, 'invalid_request', 'model must be an https URL from a whitelisted origin');
+			return error(
+				res,
+				400,
+				'invalid_request',
+				'model must be an https URL from a whitelisted origin',
+			);
 		}
 		try {
 			result = await loadModelArtifactConfig(safeUrl, opts);

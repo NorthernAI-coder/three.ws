@@ -9,6 +9,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse, isValidSolanaAddress, isValidEvmAddress } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { requireCsrf } from '../_lib/csrf.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -52,7 +53,8 @@ export default wrap(async (req, res) => {
 				WHERE id = ${agentId} AND deleted_at IS NULL
 			`;
 			if (!agent) return error(res, 404, 'not_found', 'Agent not found');
-			if (agent.user_id !== userId) return error(res, 403, 'forbidden', 'You don\'t own this agent');
+			if (agent.user_id !== userId)
+				return error(res, 403, 'forbidden', "You don't own this agent");
 		}
 
 		// Fetch all wallets for the user, optionally filtered by agent_id
@@ -72,7 +74,9 @@ export default wrap(async (req, res) => {
 
 		// Also build a summary view: resolve which addresses would be used for each chain
 		const evmWallet = wallets.find(
-			(w) => (w.chain === 'base' || w.chain === 'evm') && (agentId ? w.agent_id === agentId : true),
+			(w) =>
+				(w.chain === 'base' || w.chain === 'evm') &&
+				(agentId ? w.agent_id === agentId : true),
 		);
 		const solanaWallet = wallets.find(
 			(w) => w.chain === 'solana' && (agentId ? w.agent_id === agentId : true),
@@ -89,6 +93,10 @@ export default wrap(async (req, res) => {
 	}
 
 	// PUT — set/update payout addresses
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt
+	// (the token itself proves intent and isn't auto-attached by browsers).
+	if (!(await requireCsrf(req, res, userId))) return;
+
 	const body = parse(putBody, await readJson(req));
 	const { agent_id, evm_address, solana_address, preferred_network } = body;
 
@@ -98,18 +106,33 @@ export default wrap(async (req, res) => {
 		WHERE id = ${agent_id} AND deleted_at IS NULL
 	`;
 	if (!agent) return error(res, 404, 'not_found', 'Agent not found');
-	if (agent.user_id !== userId) return error(res, 403, 'forbidden', 'You don\'t own this agent');
+	if (agent.user_id !== userId) return error(res, 403, 'forbidden', "You don't own this agent");
 
 	// Validate addresses if provided
 	if (evm_address && !isValidEvmAddress(evm_address)) {
-		return error(res, 400, 'validation_error', 'Invalid EVM address (must start with 0x, 42 characters)');
+		return error(
+			res,
+			400,
+			'validation_error',
+			'Invalid EVM address (must start with 0x, 42 characters)',
+		);
 	}
 	if (solana_address && !isValidSolanaAddress(solana_address)) {
-		return error(res, 400, 'validation_error', 'Invalid Solana address (must be base58, 32-44 characters)');
+		return error(
+			res,
+			400,
+			'validation_error',
+			'Invalid Solana address (must be base58, 32-44 characters)',
+		);
 	}
 
 	if (!evm_address && !solana_address) {
-		return error(res, 400, 'validation_error', 'At least one address (evm_address or solana_address) is required');
+		return error(
+			res,
+			400,
+			'validation_error',
+			'At least one address (evm_address or solana_address) is required',
+		);
 	}
 
 	const results = [];

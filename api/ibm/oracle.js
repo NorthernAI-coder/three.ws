@@ -59,7 +59,11 @@ function marketUpstreamError(res, err) {
 	const upstream = err?.status;
 	const status = upstream === 429 ? 503 : upstream === 404 ? 404 : 502;
 	const code =
-		status === 503 ? 'upstream_rate_limited' : status === 404 ? 'pool_not_found' : 'upstream_error';
+		status === 503
+			? 'upstream_rate_limited'
+			: status === 404
+				? 'pool_not_found'
+				: 'upstream_error';
 	return error(res, status, code, `market data upstream: ${err?.message || 'unavailable'}`, {
 		retryable: status === 503,
 	});
@@ -72,13 +76,28 @@ export default wrap(async (req, res) => {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
+	// Global hourly ceiling on the shared watsonx server key (same bucket as
+	// api/watsonx/embed) — a hard aggregate cost cap independent of any one IP.
+	// Only consumed when watsonx is configured, i.e. when a request can
+	// actually bill Granite inference.
+	if (watsonxConfig().configured) {
+		const global = await limits.watsonxEmbedGlobal();
+		if (!global.success)
+			return rateLimited(res, global, 'watsonx capacity reached — try again shortly');
+	}
+
 	const params = new URL(req.url, 'http://x').searchParams;
 
 	// ── Picker: trending Solana pools ────────────────────────────────────────
 	if (params.get('list') === 'trending') {
 		try {
 			const pools = await trendingPools('solana', 8);
-			return json(res, 200, { pools }, { 'cache-control': 'public, max-age=30, s-maxage=60' });
+			return json(
+				res,
+				200,
+				{ pools },
+				{ 'cache-control': 'public, max-age=30, s-maxage=60' },
+			);
 		} catch (err) {
 			return marketUpstreamError(res, err);
 		}

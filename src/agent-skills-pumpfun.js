@@ -31,6 +31,29 @@ import { correlateXPost } from './social/x-post-impact.js';
 const DEFAULT_NETWORK = 'mainnet';
 const DEFAULT_SLIPPAGE_BPS = 500;
 
+// Every @pump-fun SDK builder takes slippage as a PERCENT (`slippage: 1` = 1%):
+// pump-sdk pads via `amount * floor(slippage * 10) / 1000`, pump-swap-sdk via
+// `1 ± slippage / 100`. Convert user-facing bps accordingly (100 bps -> 1).
+function slippagePct(bps) {
+	const n = Number(bps);
+	return Math.max(0, Math.min(10_000, Number.isFinite(n) ? n : DEFAULT_SLIPPAGE_BPS)) / 100;
+}
+
+// base_token_program must match the mint account's owner — Token-2022 for
+// create_v2 coins (every coin pump.fun mints today), SPL Token for legacy
+// coins (docs/pumpfun-program/docs/instructions/BUY.md #4).
+const TOKEN_2022_PROGRAM_B58 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+const SPL_TOKEN_PROGRAM_B58 = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+async function detectBaseTokenProgram(connection, mint) {
+	const info = await connection.getAccountInfo(mint);
+	if (!info) throw new Error(`Mint ${mint.toBase58()} not found on this network.`);
+	const owner = info.owner.toBase58();
+	if (owner !== TOKEN_2022_PROGRAM_B58 && owner !== SPL_TOKEN_PROGRAM_B58) {
+		throw new Error(`Mint is owned by unknown token program ${owner} — not a pump.fun coin.`);
+	}
+	return info.owner;
+}
+
 async function loadCore() {
 	const [pump, web3, BN, splToken] = await Promise.all([
 		import('@pump-fun/pump-sdk'),
@@ -240,6 +263,15 @@ export function registerPumpFunSkills(skills) {
 				const onlineSdk = new pump.OnlinePumpSdk(connection);
 				const global = await onlineSdk.fetchGlobal();
 				const solLamports = new BN(Math.floor(args.initialBuySol * web3.LAMPORTS_PER_SOL));
+				// buy's `amount` arg is the base-token quantity and must be > 0 —
+				// derive it from the dev-buy SOL against the fresh-curve reserves.
+				const tokenAmount = pump.getBuyTokenAmountFromSolAmount({
+					global,
+					feeConfig: null,
+					mintSupply: null,
+					bondingCurve: null,
+					amount: solLamports,
+				});
 				instructions = await offline.createV2AndBuyInstructions({
 					global,
 					mint: mintKeypair.publicKey,
@@ -248,7 +280,7 @@ export function registerPumpFunSkills(skills) {
 					uri: args.uri,
 					creator: pubkey,
 					user: pubkey,
-					amount: new BN(0),
+					amount: tokenAmount,
 					solAmount: solLamports,
 					mayhemMode: false,
 				});
@@ -423,8 +455,12 @@ export function registerPumpFunSkills(skills) {
 			const onlineSdk = new pump.OnlinePumpSdk(connection);
 			const offline = new pump.PumpSdk();
 
-			const global = await onlineSdk.fetchGlobal();
-			const state = await onlineSdk.fetchBuyState(mint, pubkey);
+			const tokenProgram = await detectBaseTokenProgram(connection, mint);
+			const [global, feeConfig, state] = await Promise.all([
+				onlineSdk.fetchGlobal(),
+				onlineSdk.fetchFeeConfig().catch(() => null),
+				onlineSdk.fetchBuyState(mint, pubkey, tokenProgram),
+			]);
 
 			// Resolve quoteMint: explicit override > on-chain curve > WSOL fallback.
 			const WSOL = new web3.PublicKey('So11111111111111111111111111111111111111112');
@@ -433,50 +469,42 @@ export function registerPumpFunSkills(skills) {
 				: (state.bondingCurve?.quoteMint || WSOL);
 			const isUsdcQuote = !pump.isLegacyQuoteMint(quoteMintPk);
 
-			let buyIxs;
-			if (isUsdcQuote) {
-				if (usdcAmount == null) {
-					return { success: false, output: 'USDC-paired coin: pass usdcAmount.', sentiment: -0.2 };
-				}
-				const quoteAtomics = new BN(Math.round(usdcAmount * 1_000_000));
-				buyIxs = await offline.buyV2Instructions({
-					global,
-					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
-					bondingCurve: state.bondingCurve,
-					associatedUserAccountInfo: state.associatedUserAccountInfo,
-					mint,
-					user: pubkey,
-					amount: new BN(0),
-					quoteAmount: quoteAtomics,
-					slippage: slippageBps / 10_000,
-					quoteMint: quoteMintPk,
-				});
-			} else {
-				if (solAmount == null) {
-					return { success: false, output: 'SOL-paired coin: pass solAmount.', sentiment: -0.2 };
-				}
-				const solLamports = new BN(Math.floor(solAmount * web3.LAMPORTS_PER_SOL));
-				const expected = pump.getBuyTokenAmountFromSolAmount({
-					global,
-					feeConfig: null,
-					mintSupply: state.bondingCurve.tokenTotalSupply,
-					bondingCurve: state.bondingCurve,
-					amount: solLamports,
-				});
-				buyIxs = await offline.buyInstructions({
-					global,
-					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
-					bondingCurve: state.bondingCurve,
-					associatedUserAccountInfo: state.associatedUserAccountInfo,
-					mint,
-					user: pubkey,
-					amount: expected,
-					solAmount: solLamports,
-					slippage: slippageBps / 10_000,
-					tokenProgram:
-						web3.TOKEN_PROGRAM_ID || (await import('@solana/spl-token')).TOKEN_PROGRAM_ID,
-				});
+			if (isUsdcQuote && usdcAmount == null) {
+				return { success: false, output: 'USDC-paired coin: pass usdcAmount.', sentiment: -0.2 };
 			}
+			if (!isUsdcQuote && solAmount == null) {
+				return { success: false, output: 'SOL-paired coin: pass solAmount.', sentiment: -0.2 };
+			}
+			const quoteAtomics = isUsdcQuote
+				? new BN(Math.round(usdcAmount * 1_000_000))
+				: new BN(Math.floor(solAmount * web3.LAMPORTS_PER_SOL));
+			// buy_v2's `amount` arg is the base-token quantity to buy (must be > 0);
+			// the SDK pads `quoteAmount` into max_quote_cost with percent slippage.
+			const expected = pump.getBuyTokenAmountFromSolAmount({
+				global,
+				feeConfig,
+				mintSupply: state.bondingCurve.tokenTotalSupply,
+				bondingCurve: state.bondingCurve,
+				amount: quoteAtomics,
+				quoteMint: quoteMintPk,
+			});
+			if (!expected.gt(new BN(0))) {
+				return { success: false, output: 'Amount too small to buy any tokens.', sentiment: -0.2 };
+			}
+			// Unified v2 buy for every coin type (SOL/USDC quotes, SPL/Token-2022
+			// base mints) per the upstream migration guidance.
+			const buyIxs = await offline.buyV2Instructions({
+				global,
+				bondingCurveAccountInfo: state.bondingCurveAccountInfo,
+				bondingCurve: state.bondingCurve,
+				associatedUserAccountInfo: state.associatedUserAccountInfo,
+				mint,
+				user: pubkey,
+				amount: expected,
+				quoteAmount: quoteAtomics,
+				slippage: slippagePct(slippageBps),
+				tokenProgram,
+			});
 
 			const sig = await sendIxs({
 				web3,
@@ -558,60 +586,72 @@ export function registerPumpFunSkills(skills) {
 				};
 			}
 
-			const { pump, web3, BN } = await loadCore();
+			const { pump, web3, BN, splToken } = await loadCore();
 			const { wallet, pubkey } = await requireWallet();
 			const connection = getConnection(web3, network);
 
 			const mint = new web3.PublicKey(args.mint);
 			const onlineSdk = new pump.OnlinePumpSdk(connection);
 			const offline = new pump.PumpSdk();
-			const global = await onlineSdk.fetchGlobal();
-			const state = await onlineSdk.fetchSellState(mint, pubkey);
+			const tokenProgram = await detectBaseTokenProgram(connection, mint);
+			const [global, feeConfig, state] = await Promise.all([
+				onlineSdk.fetchGlobal(),
+				onlineSdk.fetchFeeConfig().catch(() => null),
+				onlineSdk.fetchSellState(mint, pubkey, tokenProgram),
+			]);
 
 			const tokenAmount = new BN(args.tokenAmount);
+			// Expected quote output: the SDK shaves it by the percent slippage to
+			// produce a real min_sol_output floor (passing 0 disables protection).
 			const expectedSol = pump.getSellSolAmountFromTokenAmount({
 				global,
-				feeConfig: null,
+				feeConfig,
 				mintSupply: state.bondingCurve.tokenTotalSupply,
 				bondingCurve: state.bondingCurve,
 				amount: tokenAmount,
 			});
 
-			// Route based on the on-chain quote mint. USDC-paired v2 coins go
-			// through sellV2Instructions; SOL-paired stays on the legacy path.
+			// Resolve the on-chain quote mint (default pubkey = SOL-paired).
 			const WSOL = new web3.PublicKey('So11111111111111111111111111111111111111112');
 			const quoteMintPk = args.quoteMint
 				? new web3.PublicKey(args.quoteMint)
 				: (state.bondingCurve?.quoteMint || WSOL);
 			const isUsdcQuote = !pump.isLegacyQuoteMint(quoteMintPk);
 
-			let sellIxs;
-			if (isUsdcQuote) {
-				sellIxs = await offline.sellV2Instructions({
-					global,
-					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
-					bondingCurve: state.bondingCurve,
-					mint,
-					user: pubkey,
-					amount: tokenAmount,
-					quoteAmount: new BN(0),
-					slippage: slippageBps / 10_000,
-					quoteMint: quoteMintPk,
-				});
-			} else {
-				sellIxs = await offline.sellInstructions({
-					global,
-					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
-					bondingCurve: state.bondingCurve,
-					mint,
-					user: pubkey,
-					amount: tokenAmount,
-					solAmount: expectedSol,
-					slippage: slippageBps / 10_000,
-					tokenProgram: (await import('@solana/spl-token')).TOKEN_PROGRAM_ID,
-					mayhemMode: false,
-				});
+			// Unified v2 sell for every coin type. For stable quotes the program
+			// pays proceeds into the seller's quote ATA, which sell_v2 does NOT
+			// init — create it idempotently first.
+			const sellIxs = [];
+			if (isUsdcQuote && splToken) {
+				const userQuoteAta = splToken.getAssociatedTokenAddressSync(
+					quoteMintPk,
+					pubkey,
+					true,
+					splToken.TOKEN_PROGRAM_ID,
+				);
+				sellIxs.push(
+					splToken.createAssociatedTokenAccountIdempotentInstruction(
+						pubkey,
+						userQuoteAta,
+						pubkey,
+						quoteMintPk,
+						splToken.TOKEN_PROGRAM_ID,
+					),
+				);
 			}
+			sellIxs.push(
+				...(await offline.sellV2Instructions({
+					global,
+					bondingCurveAccountInfo: state.bondingCurveAccountInfo,
+					bondingCurve: state.bondingCurve,
+					mint,
+					user: pubkey,
+					amount: tokenAmount,
+					quoteAmount: expectedSol,
+					slippage: slippagePct(slippageBps),
+					tokenProgram,
+				})),
+			);
 
 			const sig = await sendIxs({
 				web3,
@@ -653,12 +693,16 @@ export function registerPumpFunSkills(skills) {
 			const mint = new web3.PublicKey(args.mint);
 
 			const curve = await onlineSdk.fetchBondingCurve(mint);
-			const global = await onlineSdk.fetchGlobal();
 			const graduated = !!curve.complete;
-			const marketCap = pump.bondingCurveMarketCap({
-				global,
-				bondingCurve: curve,
-			});
+			// Graduated curves have zero virtual token reserves, which the SDK
+			// helper rejects — report the curve's last market cap as null there.
+			const marketCap = curve.virtualTokenReserves.isZero()
+				? null
+				: pump.bondingCurveMarketCap({
+						mintSupply: curve.tokenTotalSupply,
+						virtualQuoteReserves: curve.virtualQuoteReserves ?? curve.virtualSolReserves,
+						virtualTokenReserves: curve.virtualTokenReserves,
+					});
 
 			let userBalance = '0';
 			let owner = null;
@@ -666,21 +710,25 @@ export function registerPumpFunSkills(skills) {
 				const wallet = detectSolanaWallet();
 				if (wallet?.publicKey && splToken) {
 					owner = wallet.publicKey;
-					const ata = await splToken.getAssociatedTokenAddress(mint, owner);
+					// Token-2022 coins (create_v2) live at a different ATA than SPL —
+					// derive with the mint's real token program.
+					const tokenProgram = await detectBaseTokenProgram(connection, mint);
+					const ata = splToken.getAssociatedTokenAddressSync(mint, owner, true, tokenProgram);
 					const acct = await connection.getTokenAccountBalance(ata).catch(() => null);
 					userBalance = acct?.value?.amount ?? '0';
 				}
 			} catch {}
 
+			const marketCapStr = marketCap ? marketCap.toString() : null;
 			return {
 				success: true,
 				output: graduated
-					? `Graduated to AMM. Market cap ~${marketCap.toString()} lamports.`
-					: `On bonding curve. Market cap ~${marketCap.toString()} lamports.`,
+					? `Graduated to AMM — price now set by the pool${marketCapStr ? `. Last curve market cap ~${marketCapStr} quote units.` : '.'}`
+					: `On bonding curve. Market cap ~${marketCapStr} quote units.`,
 				sentiment: graduated ? 0.7 : 0.2,
 				data: {
 					mint: args.mint,
-					marketCap: marketCap.toString(),
+					marketCap: marketCapStr,
 					graduated,
 					userBalance,
 					owner: owner ? owner.toBase58() : null,
@@ -710,29 +758,31 @@ export function registerPumpFunSkills(skills) {
 		},
 		handler: async (args, _ctx) => {
 			const network = args.network || DEFAULT_NETWORK;
-			const slippage = (args.slippageBps ?? DEFAULT_SLIPPAGE_BPS) / 10_000;
 			const { amm, web3, BN } = await loadAmm();
 			const { wallet, pubkey } = await requireWallet();
 			const connection = getConnection(web3, network);
 
 			const mint = new web3.PublicKey(args.mint);
-			const sdk = new amm.OnlinePumpAmmSdk(connection);
+			const online = new amm.OnlinePumpAmmSdk(connection);
+			const offline = new amm.PumpAmmSdk();
 			const solLamports = new BN(Math.floor(args.solAmount * web3.LAMPORTS_PER_SOL));
 
-			const ixs = await sdk.swapAutocompleteBaseFromQuote({
-				pool: amm.canonicalPumpPoolPda(mint)[0],
-				quote: solLamports,
-				slippage,
-				direction: 'quoteToBase',
-				user: pubkey,
-			});
+			// canonicalPumpPoolPda returns the pool PublicKey directly (keyed to
+			// the wSOL quote — this skill is SOL-denominated).
+			const poolKey = amm.canonicalPumpPoolPda(mint);
+			const swapState = await online.swapSolanaState(poolKey, pubkey);
+			const ixs = await offline.buyQuoteInput(
+				swapState,
+				solLamports,
+				slippagePct(args.slippageBps),
+			);
 
 			const sig = await sendIxs({
 				web3,
 				connection,
 				wallet,
 				payer: pubkey,
-				instructions: Array.isArray(ixs) ? ixs : ixs.instructions || [],
+				instructions: ixs,
 			});
 
 			return {
@@ -764,29 +814,29 @@ export function registerPumpFunSkills(skills) {
 		},
 		handler: async (args, _ctx) => {
 			const network = args.network || DEFAULT_NETWORK;
-			const slippage = (args.slippageBps ?? DEFAULT_SLIPPAGE_BPS) / 10_000;
 			const { amm, web3, BN } = await loadAmm();
 			const { wallet, pubkey } = await requireWallet();
 			const connection = getConnection(web3, network);
 
 			const mint = new web3.PublicKey(args.mint);
-			const sdk = new amm.OnlinePumpAmmSdk(connection);
+			const online = new amm.OnlinePumpAmmSdk(connection);
+			const offline = new amm.PumpAmmSdk();
 			const tokenAmount = new BN(args.tokenAmount);
 
-			const ixs = await sdk.swapAutocompleteQuoteFromBase({
-				pool: amm.canonicalPumpPoolPda(mint)[0],
-				base: tokenAmount,
-				slippage,
-				direction: 'baseToQuote',
-				user: pubkey,
-			});
+			const poolKey = amm.canonicalPumpPoolPda(mint);
+			const swapState = await online.swapSolanaState(poolKey, pubkey);
+			const ixs = await offline.sellBaseInput(
+				swapState,
+				tokenAmount,
+				slippagePct(args.slippageBps),
+			);
 
 			const sig = await sendIxs({
 				web3,
 				connection,
 				wallet,
 				payer: pubkey,
-				instructions: Array.isArray(ixs) ? ixs : ixs.instructions || [],
+				instructions: ixs,
 			});
 
 			return {

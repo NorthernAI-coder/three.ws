@@ -13,12 +13,7 @@
 
 import { z } from 'zod';
 import { solanaConnection } from '../../_lib/solana/connection.js';
-import {
-	Connection,
-	PublicKey,
-	Transaction,
-	ComputeBudgetProgram,
-} from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import {
 	PumpAgentOffline,
 	PumpAgent,
@@ -379,7 +374,8 @@ async function handlePayConfirm(req, res) {
 		where id = ${body.intent_id} and payer_user_id = ${user.id} limit 1
 	`;
 	if (!intent) return error(res, 404, 'not_found', 'intent not found');
-	if (intent.status === 'paid') return json(res, 200, { ok: true, intent_id: intent.id, status: 'paid' });
+	if (intent.status === 'paid')
+		return json(res, 200, { ok: true, intent_id: intent.id, status: 'paid' });
 	if (intent.payload?.wallet_address !== body.wallet_address) {
 		return error(res, 400, 'validation_error', 'wallet mismatch');
 	}
@@ -428,7 +424,7 @@ async function handlePayConfirm(req, res) {
 	sql`select user_id from agent_identities where id = ${updated.agent_id} and deleted_at is null limit 1`
 		.then(([row]) => {
 			if (row?.user_id) {
-				insertNotification(row.user_id, 'payment-earned', {
+				insertNotification(row.user_id, 'payment_received', {
 					agent_id: updated.agent_id,
 					amount: updated.amount.toString(),
 					currency_mint: updated.currency_mint,
@@ -453,18 +449,44 @@ const balancesSchema = z.object({
 
 async function handleBalances(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
+	if (!method(req, res, ['GET'])) return;
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(balancesSchema, { ...req.query });
 	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
 	const agent = new PumpAgent(new PublicKey(body.mint), body.cluster, conn);
 	const balances = await agent.getBalances(new PublicKey(body.currency_mint));
 	return json(res, 200, {
-		paymentVault: { address: balances.paymentVault.address.toBase58(), balance: balances.paymentVault.balance.toString() },
-		buybackVault: { address: balances.buybackVault.address.toBase58(), balance: balances.buybackVault.balance.toString() },
-		withdrawVault: { address: balances.withdrawVault.address.toBase58(), balance: balances.withdrawVault.balance.toString() },
+		paymentVault: {
+			address: balances.paymentVault.address.toBase58(),
+			balance: balances.paymentVault.balance.toString(),
+		},
+		buybackVault: {
+			address: balances.buybackVault.address.toBase58(),
+			balance: balances.buybackVault.balance.toString(),
+		},
+		withdrawVault: {
+			address: balances.withdrawVault.address.toBase58(),
+			balance: balances.withdrawVault.balance.toString(),
+		},
 	});
 }
 
 // ── distribute-prep / confirm ─────────────────────────────────────────────────
+
+// payment_configs_pending.agent_id is a NOT NULL uuid FK, but distribute/withdraw
+// callers identify the agent by its token mint. Resolve via the partial index on
+// meta.payments.mint (only payments-configured, non-deleted agents qualify).
+async function resolveAgentByPaymentsMint(mint) {
+	const [agent] = await sql`
+		select id from agent_identities
+		where (meta->'payments'->>'mint') = ${mint}
+		  and (meta->'payments'->>'configured') = 'true'
+		  and deleted_at is null
+		limit 1
+	`;
+	return agent || null;
+}
 
 const distributePrepSchema = z.object({
 	mint: z.string().min(32).max(44),
@@ -476,21 +498,30 @@ const distributePrepSchema = z.object({
 async function handleDistributePrep(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const body = parse(distributePrepSchema, await readJson(req));
+	const agent = await resolveAgentByPaymentsMint(body.mint);
+	if (!agent) return error(res, 404, 'not_found', 'no payments-enabled agent for this mint');
 	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
-	const user = new PublicKey(body.wallet_address);
+	const wallet = new PublicKey(body.wallet_address);
 	const offline = PumpAgentOffline.load(new PublicKey(body.mint), conn);
-	const ix = await offline.distributePayments({ user, currencyMint: new PublicKey(body.currency_mint) });
+	const ix = await offline.distributePayments({
+		user: wallet,
+		currencyMint: new PublicKey(body.currency_mint),
+	});
 	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-	const tx = new Transaction({ feePayer: user, blockhash, lastValidBlockHeight }).add(
+	const tx = new Transaction({ feePayer: wallet, blockhash, lastValidBlockHeight }).add(
 		ComputeBudgetProgram.setComputeUnitLimit({ units: 120_000 }),
 		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }),
 		ix,
 	);
-	const txBase64 = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
+	const txBase64 = tx
+		.serialize({ requireAllSignatures: false, verifySignatures: false })
+		.toString('base64');
 	const prepId = await randomToken(24);
 	await sql`insert into payment_configs_pending (id, user_id, agent_id, cluster, mint, payload, expires_at)
-		values (${prepId}, ${(await getSessionUser(req))?.id ?? 'anon'}, ${body.mint}, ${body.cluster}, ${body.mint},
+		values (${prepId}, ${user.id}, ${agent.id}, ${body.cluster}, ${body.mint},
 		${JSON.stringify({ wallet_address: body.wallet_address, action: 'distribute', currency_mint: body.currency_mint })}::jsonb,
 		${new Date(Date.now() + 10 * 60 * 1000)})
 		on conflict (id) do nothing`;
@@ -500,14 +531,23 @@ async function handleDistributePrep(req, res) {
 async function handleDistributeConfirm(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
-	const body = parse(z.object({ prep_id: z.string(), tx_signature: z.string() }), await readJson(req));
-	const [prep] = await sql`select * from payment_configs_pending where id = ${body.prep_id} and expires_at > now() limit 1`;
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const body = parse(
+		z.object({ prep_id: z.string(), tx_signature: z.string() }),
+		await readJson(req),
+	);
+	const [prep] =
+		await sql`select * from payment_configs_pending where id = ${body.prep_id} and user_id = ${user.id} and expires_at > now() limit 1`;
 	if (!prep) return error(res, 404, 'not_found', 'prep expired');
 	const conn = solanaConnection({ url: rpcUrl(prep.cluster), commitment: 'confirmed' });
 	let tx;
 	const deadline = Date.now() + 20_000;
 	while (Date.now() < deadline) {
-		tx = await conn.getParsedTransaction(body.tx_signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' });
+		tx = await conn.getParsedTransaction(body.tx_signature, {
+			maxSupportedTransactionVersion: 0,
+			commitment: 'confirmed',
+		});
 		if (tx) break;
 		await new Promise((r) => setTimeout(r, 1500));
 	}
@@ -533,6 +573,8 @@ async function handleWithdrawPrep(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 	const body = parse(withdrawPrepSchema, await readJson(req));
+	const agent = await resolveAgentByPaymentsMint(body.mint);
+	if (!agent) return error(res, 404, 'not_found', 'no payments-enabled agent for this mint');
 	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
 	const spl = await import('@solana/spl-token');
 	const authority = new PublicKey(body.wallet_address);
@@ -548,10 +590,12 @@ async function handleWithdrawPrep(req, res) {
 		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }),
 		ix,
 	);
-	const txBase64 = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
+	const txBase64 = tx
+		.serialize({ requireAllSignatures: false, verifySignatures: false })
+		.toString('base64');
 	const prepId = await randomToken(24);
 	await sql`insert into payment_configs_pending (id, user_id, agent_id, cluster, mint, payload, expires_at)
-		values (${prepId}, ${user.id}, ${body.mint}, ${body.cluster}, ${body.mint},
+		values (${prepId}, ${user.id}, ${agent.id}, ${body.cluster}, ${body.mint},
 		${JSON.stringify({ wallet_address: body.wallet_address, action: 'withdraw', currency_mint: body.currency_mint })}::jsonb,
 		${new Date(Date.now() + 10 * 60 * 1000)})
 		on conflict (id) do nothing`;
@@ -561,14 +605,23 @@ async function handleWithdrawPrep(req, res) {
 async function handleWithdrawConfirm(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
-	const body = parse(z.object({ prep_id: z.string(), tx_signature: z.string() }), await readJson(req));
-	const [prep] = await sql`select * from payment_configs_pending where id = ${body.prep_id} and expires_at > now() limit 1`;
+	const user = await getSessionUser(req);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const body = parse(
+		z.object({ prep_id: z.string(), tx_signature: z.string() }),
+		await readJson(req),
+	);
+	const [prep] =
+		await sql`select * from payment_configs_pending where id = ${body.prep_id} and user_id = ${user.id} and expires_at > now() limit 1`;
 	if (!prep) return error(res, 404, 'not_found', 'prep expired');
 	const conn = solanaConnection({ url: rpcUrl(prep.cluster), commitment: 'confirmed' });
 	let tx;
 	const deadline = Date.now() + 20_000;
 	while (Date.now() < deadline) {
-		tx = await conn.getParsedTransaction(body.tx_signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' });
+		tx = await conn.getParsedTransaction(body.tx_signature, {
+			maxSupportedTransactionVersion: 0,
+			commitment: 'confirmed',
+		});
 		if (tx) break;
 		await new Promise((r) => setTimeout(r, 1500));
 	}

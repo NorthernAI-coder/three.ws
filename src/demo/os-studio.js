@@ -23,13 +23,27 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const PUBLIC_STUDIO = 'https://m3-org.github.io/CharacterStudio';
-const LOCAL_STUDIO = 'http://localhost:5173';
+
+// Same resolution as getStudioUrl() in src/avatar-creator.js: an explicit
+// VITE_CHARACTER_STUDIO_URL override wins (e.g. a standalone studio dev server
+// on :5173 during character-studio development); otherwise the Avatar Studio is
+// served same-origin under /avatar-studio — by the Vite dev middleware in dev
+// and the copy-avatar-studio build step in prod (see vite.config.js) — so this
+// resolves to a live URL on every deployment instead of a dead localhost.
+function resolveStudioUrl() {
+	try {
+		const override = import.meta.env?.VITE_CHARACTER_STUDIO_URL;
+		if (override) return String(override).trim().replace(/\/$/, '');
+	} catch (_) {}
+	return `${location.origin}/avatar-studio`;
+}
+const STUDIO_URL = resolveStudioUrl();
 
 const iframeHost = document.getElementById('iframe-host');
 const iframeEmpty = document.getElementById('iframe-empty');
 const previewViewer = document.getElementById('preview-viewer');
 const previewBadge = document.getElementById('preview-badge');
-const btnLocal = document.getElementById('btn-open-local');
+const btnStudio = document.getElementById('btn-open-studio');
 const btnPublic = document.getElementById('btn-open-public');
 const btnDownload = document.getElementById('btn-download');
 const btnSave = document.getElementById('btn-save');
@@ -53,8 +67,7 @@ function openStudio(url) {
 	const frame = document.createElement('iframe');
 	frame.className = 'studio-frame';
 	frame.allow = 'camera *; microphone *; clipboard-write';
-	frame.sandbox =
-		'allow-scripts allow-same-origin allow-forms allow-popups allow-downloads';
+	frame.sandbox = 'allow-scripts allow-same-origin allow-forms allow-popups allow-downloads';
 	frame.src = url;
 	frame.style.minHeight = '600px';
 	try {
@@ -72,7 +85,7 @@ function openStudio(url) {
 	});
 }
 
-btnLocal.addEventListener('click', () => openStudio(LOCAL_STUDIO));
+btnStudio.addEventListener('click', () => openStudio(STUDIO_URL));
 btnPublic.addEventListener('click', () => openStudio(PUBLIC_STUDIO));
 
 // ── Listen for export from CharacterStudio iframe ──────────────────────────
@@ -185,7 +198,7 @@ function fitToObject({ camera, controls }, obj) {
 	box.getSize(size);
 	box.getCenter(center);
 	const maxDim = Math.max(size.x, size.y, size.z);
-	const dist = (maxDim / Math.tan((Math.PI / 180) * camera.fov / 2)) * 1.3;
+	const dist = (maxDim / Math.tan(((Math.PI / 180) * camera.fov) / 2)) * 1.3;
 	camera.position.set(center.x, center.y + size.y * 0.2, center.z + dist);
 	controls.target.copy(center);
 	controls.update();

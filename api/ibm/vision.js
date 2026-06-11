@@ -27,7 +27,8 @@ import { assertSafePublicUrl } from '../_lib/ssrf-guard.js';
 
 // Granite Vision 3.2 (2B) is the default multimodal model on watsonx.ai. Override
 // per account/region with WATSONX_VISION_MODEL_ID.
-export const VISION_MODEL = process.env.WATSONX_VISION_MODEL_ID?.trim() || 'ibm/granite-vision-3-2-2b';
+export const VISION_MODEL =
+	process.env.WATSONX_VISION_MODEL_ID?.trim() || 'ibm/granite-vision-3-2-2b';
 
 // The exact watsonx.ai chat payload for a Granite Vision read: a system message
 // plus a user message whose content is the multimodal block array Granite expects
@@ -92,6 +93,16 @@ export default wrap(async (req, res) => {
 
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
+
+	// Global hourly ceiling on the shared watsonx server key (same bucket as
+	// api/watsonx/embed) — a hard aggregate cost cap independent of any one IP.
+	// Only consumed when watsonx is configured, i.e. when a request can
+	// actually bill Granite inference.
+	if (watsonxConfig().configured) {
+		const global = await limits.watsonxEmbedGlobal();
+		if (!global.success)
+			return rateLimited(res, global, 'watsonx capacity reached — try again shortly');
+	}
 
 	if (req.method === 'GET') return handleSubjects(req, res);
 	return handleVision(req, res);
@@ -181,7 +192,9 @@ async function handleVision(req, res) {
 		// model_unavailable gives the operator a clear signal to check WATSONX_VISION_MODEL_ID
 		// or the regional model catalogue; vision_failed covers everything else.
 		const msg = String(e?.message || 'watsonx vision request failed');
-		const code = /not.*found|not.*deployed|unsupported.*model/i.test(msg) ? 'model_unavailable' : 'vision_failed';
+		const code = /not.*found|not.*deployed|unsupported.*model/i.test(msg)
+			? 'model_unavailable'
+			: 'vision_failed';
 		return error(res, 502, code, msg);
 	}
 
@@ -206,7 +219,8 @@ async function resolveImage(body) {
 		const commaAt = image.indexOf(',');
 		const b64 = commaAt >= 0 ? image.slice(commaAt + 1) : '';
 		if (!b64) throw fail(400, 'bad_image', 'image data URL is empty');
-		if (b64.length * 0.75 > MAX_IMAGE_BYTES) throw fail(413, 'image_too_large', 'image exceeds 6MB');
+		if (b64.length * 0.75 > MAX_IMAGE_BYTES)
+			throw fail(413, 'image_too_large', 'image exceeds 6MB');
 		return image;
 	}
 
@@ -238,7 +252,11 @@ async function fetchImageAsDataUrl(url) {
 		while (true) {
 			const host = hostOf(current);
 			if (!/^https:\/\//i.test(current) || !host || !allowedImageHost(host)) {
-				throw fail(400, 'image_host_not_allowed', 'image redirect target host is not allowed');
+				throw fail(
+					400,
+					'image_host_not_allowed',
+					'image redirect target host is not allowed',
+				);
 			}
 			await assertSafePublicUrl(current);
 			resp = await fetch(current, { signal: controller.signal, redirect: 'manual' });
@@ -259,7 +277,8 @@ async function fetchImageAsDataUrl(url) {
 	}
 	if (!resp.ok) throw fail(502, 'image_fetch_failed', `image fetch returned ${resp.status}`);
 	const ct = (resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-	if (!ct.startsWith('image/')) throw fail(415, 'not_an_image', `unexpected content-type: ${ct || 'unknown'}`);
+	if (!ct.startsWith('image/'))
+		throw fail(415, 'not_an_image', `unexpected content-type: ${ct || 'unknown'}`);
 	const len = Number(resp.headers.get('content-length') || 0);
 	if (len && len > MAX_IMAGE_BYTES) throw fail(413, 'image_too_large', 'image exceeds 6MB');
 	const buf = Buffer.from(await resp.arrayBuffer());
@@ -277,7 +296,9 @@ function fail(status, code, message) {
 // ── Prompting ────────────────────────────────────────────────────────────────
 
 export function buildPrompt(subject, hint) {
-	const hintLine = hint ? `\nThe person who made it adds: "${hint}". Take it into account but trust your eyes first.` : '';
+	const hintLine = hint
+		? `\nThe person who made it adds: "${hint}". Take it into account but trust your eyes first.`
+		: '';
 	if (subject === 'token') {
 		return {
 			system:
@@ -352,9 +373,16 @@ export function parseVision(text) {
 	out.bio = str(obj.bio).slice(0, 200);
 	out.voice = str(obj.voice).slice(0, 120);
 	out.tone_tags = Array.isArray(obj.tone_tags)
-		? obj.tone_tags.map((t) => str(t).toLowerCase().slice(0, 24)).filter(Boolean).slice(0, 8)
+		? obj.tone_tags
+				.map((t) => str(t).toLowerCase().slice(0, 24))
+				.filter(Boolean)
+				.slice(0, 8)
 		: typeof obj.tone_tags === 'string'
-			? obj.tone_tags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 8)
+			? obj.tone_tags
+					.split(',')
+					.map((t) => t.trim().toLowerCase())
+					.filter(Boolean)
+					.slice(0, 8)
 			: [];
 	return out;
 }

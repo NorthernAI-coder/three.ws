@@ -14,6 +14,7 @@
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
+import { priceBatch } from './_lib/mcp-batch-price.js';
 import { PROTOCOL_VERSION, dispatch } from './_mcpibm/dispatch.js';
 import { graniteX402Amount } from './_mcpibm/pricing.js';
 import { isFreeTool } from './_mcpibm/catalog.js';
@@ -29,20 +30,6 @@ import { sendX402Error } from './_mcp/payments.js';
 
 const RESOURCE_PATH = '/api/ibm-mcp';
 
-// Peek the single called tool from a (possibly batched) JSON-RPC body so the
-// x402 challenge advertises — and the settle path charges — exactly the per-tool
-// price. Only a request calling ONE tool is priced per-tool; mixed batches and
-// non-tools/call requests (initialize, tools/list, ping) yield null → no charge.
-function peekCalledTool(body) {
-	const batch = Array.isArray(body) ? body : [body];
-	const calls = batch.filter((m) => m && m.method === 'tools/call');
-	if (calls.length === 1) {
-		const name = calls[0]?.params?.name;
-		return { toolName: typeof name === 'string' ? name : null };
-	}
-	return { toolName: null };
-}
-
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
 
@@ -55,21 +42,23 @@ export default wrap(async (req, res) => {
 	// tool actually being called. Malformed JSON throws (status 400) → wrap().
 	const body = await readJson(req, 2_000_000);
 
-	// Per-tool x402 price. A non-tools/call request (initialize, tools/list) or a
-	// mixed batch yields null → the flat env default, which the auth-gated
-	// discovery path never actually charges.
-	const { toolName } = peekCalledTool(body);
-	const x402Amount = toolName ? graniteX402Amount(toolName) : null;
+	// x402 price for the WHOLE request — the sum of every priced Granite
+	// tools/call in the (possibly batched) body. Charging the per-request total
+	// (not just a lone call) stops a multi-call batch from running several billed
+	// inferences for one tool's price. A discovery-only batch yields null.
+	const { totalAmount: x402Amount, allFree } = priceBatch(body, {
+		priceForTool: graniteX402Amount,
+		isFreeName: isFreeTool,
+	});
 
-	// A call to the free public ibm_granite_getting_started tool is served without
-	// an x402 payment or OAuth token so any client — including non-x402 hosts like
-	// watsonx Orchestrate — can discover the server before paying. isFreeTool is
-	// strict: only the registered, unpriced getting_started tool qualifies.
+	// A batch composed solely of the free public ibm_granite_getting_started tool
+	// is served without an x402 payment or OAuth token so any client — including
+	// non-x402 hosts like watsonx Orchestrate — can discover the server first.
 	const result = await authenticateRequest(req, res, {
 		x402Amount,
 		resourcePath: RESOURCE_PATH,
 		challenge: GRANITE_CHALLENGE,
-		allowFree: Boolean(toolName && isFreeTool(toolName)),
+		allowFree: allFree,
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;
@@ -98,8 +87,12 @@ export default wrap(async (req, res) => {
 
 	// Settle the x402 payment AFTER the work succeeded — atomic from the caller's
 	// perspective: if settle fails, the payer's signed payload is not broadcast
-	// and they get an error instead of having paid for nothing.
-	if (x402Ctx) {
+	// and they get an error instead of having paid for nothing. Only settle when
+	// at least one call produced a result; a wholesale failure (every call errored
+	// or returned isError) charges nothing. A partial failure still settles in
+	// full so a single failing call can't reclaim the calls that succeeded.
+	const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+	if (x402Ctx && anySuccess) {
 		try {
 			const settled = await settlePayment({ verified: x402Ctx.verified });
 			res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));

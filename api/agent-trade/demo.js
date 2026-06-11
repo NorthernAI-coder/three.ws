@@ -47,7 +47,9 @@ function tradeEnv() {
 	const buyer = loadWallet('AGENT_BUYER_SECRET');
 	const seller = loadWallet('AGENT_SELLER_SECRET');
 	const network =
-		(process.env.AGENT_TRADE_NETWORK || 'mainnet').toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
+		(process.env.AGENT_TRADE_NETWORK || 'mainnet').toLowerCase() === 'devnet'
+			? 'devnet'
+			: 'mainnet';
 	const rpcUrl =
 		network === 'devnet'
 			? process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com'
@@ -69,7 +71,11 @@ async function generateAnalysis(topic) {
 				content: `Provide a concise 2–3 sentence crypto market insight on: ${topic}. Be specific, data-driven, and actionable.`,
 			},
 		];
-		const { text } = await watsonxChatComplete(wx, { messages, maxTokens: 200, temperature: 0.7 });
+		const { text } = await watsonxChatComplete(wx, {
+			messages,
+			maxTokens: 200,
+			temperature: 0.7,
+		});
 		return {
 			content: text?.trim() || '',
 			model: wx.chatModel || 'ibm/granite-3-8b-instruct',
@@ -193,7 +199,9 @@ export default wrap(async (req, res) => {
 
 		// Bail early if buyer can't cover the trade + fees.
 		if (buyerBal.lamports < env.priceLamports + FEE_BUFFER_LAMPORTS) {
-			const needed = ((env.priceLamports + FEE_BUFFER_LAMPORTS) / LAMPORTS_PER_SOL).toFixed(5);
+			const needed = ((env.priceLamports + FEE_BUFFER_LAMPORTS) / LAMPORTS_PER_SOL).toFixed(
+				5,
+			);
 			emit('error', {
 				code: 'insufficient_funds',
 				message: `Nexus has ${buyerBal.sol.toFixed(5)} SOL — needs ~${needed} SOL. Fund: ${env.buyer.address}`,
@@ -233,6 +241,24 @@ export default wrap(async (req, res) => {
 
 		await sleep(1100);
 
+		// Global daily spend ceiling, keyed by the demo wallet itself (not the
+		// caller), so IP rotation can't drain it. Reuses the critical
+		// avatarPayoutDaily bucket: 50 payouts per wallet per day, fail-closed
+		// in prod without Redis. Consumed only when a payment is about to fire.
+		const dailyBudget = await limits.avatarPayoutDaily(env.buyer.address);
+		if (!dailyBudget.success) {
+			emit('error', {
+				code: 'daily_budget_exhausted',
+				message: 'The demo wallet has reached its daily spend limit. Try again tomorrow.',
+				retryAfterSec: Math.max(
+					1,
+					Math.ceil(((dailyBudget.reset ?? Date.now()) - Date.now()) / 1000),
+				),
+			});
+			res.end();
+			return;
+		}
+
 		// ── Step 4: Nexus pays ────────────────────────────────────────────
 		emit('paying', {
 			from: env.buyer.address,
@@ -259,7 +285,9 @@ export default wrap(async (req, res) => {
 
 		// ── Step 5: Confirmed on-chain ────────────────────────────────────
 		const explorer = explorerTxUrl(signature, env.network);
-		const newBuyerBal = await getSolBalance(connection, env.buyer.address).catch(() => buyerBal);
+		const newBuyerBal = await getSolBalance(connection, env.buyer.address).catch(
+			() => buyerBal,
+		);
 
 		emit('confirmed', {
 			signature,

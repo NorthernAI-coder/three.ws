@@ -766,6 +766,90 @@
 	transform: translateX(3px);
 }
 
+/* ── Microinteractions (B11) — press feedback, focus rings, motion ─────── */
+
+/* Tier cards rise in on load — staggered, transform/opacity only. */
+.pricing-tier-card {
+	animation: pricing-rise var(--duration-slow, 420ms) var(--ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+.pricing-tier-card:nth-child(2) { animation-delay: 70ms; }
+.pricing-tier-card:nth-child(3) { animation-delay: 140ms; }
+@keyframes pricing-rise {
+	from { opacity: 0; transform: translateY(12px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Billing toggle — keyboard ring + press feedback */
+.billing-toggle span:hover { color: rgba(255, 255, 255, 0.78); }
+.billing-toggle span.is-active:hover { color: #fff; }
+.billing-toggle .toggle-track:active { background: rgba(255, 255, 255, 0.18); }
+.billing-toggle .toggle-track:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+	outline-offset: var(--focus-ring-offset, 2px);
+}
+
+/* Price figures crossfade when the billing cycle flips (class set by JS). */
+.price-swap {
+	animation: pricing-price-swap var(--duration-base, 220ms) var(--ease-standard, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+@keyframes pricing-price-swap {
+	from { opacity: 0; transform: translateY(4px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* CTAs — press + focus */
+.pricing-cta { transition: background var(--duration-fast, 140ms) var(--ease-standard, ease), border-color var(--duration-fast, 140ms) var(--ease-standard, ease), transform var(--duration-fast, 140ms) var(--ease-standard, ease), box-shadow var(--duration-fast, 140ms) var(--ease-standard, ease); }
+.pricing-cta:active {
+	transform: translateY(0) scale(0.98);
+}
+.pricing-cta.primary:active { background: #e4e4e4; }
+.pricing-cta:focus-visible,
+.upgrade-banner-btn:focus-visible,
+.pricing-embed-cta a:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+	outline-offset: var(--focus-ring-offset, 2px);
+}
+.upgrade-banner-btn:active { background: rgba(255, 255, 255, 0.16); }
+.pricing-embed-cta a:active { color: rgba(255, 255, 255, 0.78); }
+
+/* FAQ — answers ease in instead of popping; summary gets ring + press */
+.pricing-faq details[open] p {
+	animation: pricing-faq-open var(--duration-base, 220ms) var(--ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+@keyframes pricing-faq-open {
+	from { opacity: 0; transform: translateY(-4px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+.pricing-faq summary:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+	outline-offset: var(--focus-ring-offset, 2px);
+	border-radius: var(--radius-sm, 6px);
+}
+.pricing-faq summary:active::after { background: rgba(255, 255, 255, 0.14); }
+
+/* Reduced motion: this sheet uses literal durations, so disable explicitly. */
+@media (prefers-reduced-motion: reduce) {
+	.pricing-tier-card,
+	.pricing-faq details[open] p,
+	.price-swap {
+		animation: none !important;
+	}
+	.pricing-hero *,
+	.pricing-tier-card,
+	.pricing-cta,
+	.billing-toggle *,
+	.upgrade-banner,
+	.upgrade-banner-btn,
+	.pricing-embed-card,
+	.pricing-embed-cta a,
+	.pricing-faq summary,
+	.pricing-faq summary::after {
+		transition-duration: 0ms !important;
+	}
+	.pricing-cta:hover,
+	.pricing-cta.primary:hover { transform: none; }
+}
+
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
 @media (max-width: 860px) {

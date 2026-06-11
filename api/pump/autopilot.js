@@ -13,8 +13,9 @@
  * caller owns (pump_agent_mints.user_id).
  */
 
-import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
 import { z } from 'zod';
 
@@ -57,6 +58,9 @@ export default wrap(async (req, res) => {
 
 	const userId = await resolveUserId(req);
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in to manage autopilot');
+
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (req.method === 'POST') return upsertPolicy(req, res, userId);
 	return listCoins(req, res, userId);
@@ -134,7 +138,8 @@ async function listCoins(req, res, userId) {
 			mint_id: d.mint_id,
 			kind: 'distribute',
 			status: d.status,
-			amount_atomics: d.balances_before?.payment != null ? String(d.balances_before.payment) : null,
+			amount_atomics:
+				d.balances_before?.payment != null ? String(d.balances_before.payment) : null,
 			tx_signature: d.tx_signature || null,
 			error: d.error || null,
 			at: d.created_at,

@@ -6,21 +6,12 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { z } from 'zod';
 
-import {
-	getSessionUser,
-	authenticateBearer,
-	extractBearer,
-	hasScope,
-} from '../../_lib/auth.js';
+import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../../_lib/auth.js';
 import { sql } from '../../_lib/db.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { parse, isUuid } from '../../_lib/validate.js';
-import {
-	readStorageMode,
-	storageModeSchema,
-	defaultStorageMode,
-} from '../../_lib/storage-mode.js';
+import { readStorageMode, storageModeSchema, defaultStorageMode } from '../../_lib/storage-mode.js';
 import { getAvatar, resolveAvatarUrl } from '../../_lib/avatars.js';
 import { r2, publicUrl } from '../../_lib/r2.js';
 import { env } from '../../_lib/env.js';
@@ -137,8 +128,12 @@ async function handleGlbVersions(req, res) {
 	`;
 	if (!avatar) return error(res, 404, 'not_found', 'avatar not found');
 
+	// Version rows are written by two paths: the GLB PATCH handler populates
+	// `storage_key` (an R2 key) while the rollback handler populates `glb_url`.
+	// Read both and resolve whichever is present to a fetchable URL — bare R2
+	// keys go through publicUrl(), same as the main avatar GLB read path.
 	const rows = await sql`
-		select id, glb_url, created_at, metadata
+		select id, glb_url, storage_key, created_at, metadata
 		from avatar_versions
 		where avatar_id = ${id}
 		order by created_at desc
@@ -146,12 +141,16 @@ async function handleGlbVersions(req, res) {
 	`;
 
 	return json(res, 200, {
-		versions: rows.map((v) => ({
-			id: v.id,
-			glbUrl: v.glb_url,
-			createdAt: v.created_at,
-			metadata: v.metadata ?? null,
-		})),
+		versions: rows.map((v) => {
+			const ref = v.glb_url || v.storage_key || null;
+			const glbUrl = ref ? (/^https?:\/\//i.test(ref) ? ref : publicUrl(ref)) : null;
+			return {
+				id: v.id,
+				glbUrl,
+				createdAt: v.created_at,
+				metadata: v.metadata ?? null,
+			};
+		}),
 	});
 }
 
@@ -161,8 +160,7 @@ async function handlePinIpfs(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	const id =
-		req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
+	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
 	if (!id) return error(res, 400, 'validation_error', 'avatar id required');
 
 	const session = await getSessionUser(req);
@@ -405,8 +403,7 @@ async function handleStorageMode(req, res) {
 	if (cors(req, res, { methods: 'GET,PUT,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'PUT'])) return;
 
-	const id =
-		req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
+	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
 	if (!id) return error(res, 400, 'validation_error', 'avatar id required');
 
 	const [row] = await sql`
@@ -530,8 +527,7 @@ async function handleThumbnail(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	const id =
-		req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
+	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
 	if (!id) return error(res, 400, 'invalid_request', 'avatar id required');
 
 	if (id.startsWith('avatar_demo_')) {
@@ -588,11 +584,13 @@ async function handleGlb(req, res) {
 	res.setHeader('access-control-allow-methods', 'GET,OPTIONS');
 	res.setHeader('access-control-allow-headers', 'range,accept');
 	res.setHeader('access-control-expose-headers', 'content-length,content-range,etag');
-	if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
+	if (req.method === 'OPTIONS') {
+		res.statusCode = 204;
+		return res.end();
+	}
 	if (!method(req, res, ['GET'])) return;
 
-	const id =
-		req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
+	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
 	if (!id) return error(res, 400, 'invalid_request', 'avatar id required');
 
 	if (String(id).startsWith('avatar_demo_')) {
@@ -616,9 +614,10 @@ async function handleGlb(req, res) {
 	// from R2 directly with the S3 SDK avoids a second hop through the
 	// public CDN — and gives us a Node readable stream we can pipe straight
 	// into res with no buffer-the-whole-thing memory blow-up.
-	const key = avatar.baked_storage_key && avatar.appearance_hash
-		? (avatar.baked_storage_key)
-		: avatar.storage_key;
+	const key =
+		avatar.baked_storage_key && avatar.appearance_hash
+			? avatar.baked_storage_key
+			: avatar.storage_key;
 	if (!key) return error(res, 404, 'not_found', 'avatar has no glb');
 
 	try {
@@ -636,7 +635,9 @@ async function handleGlb(req, res) {
 		Body.pipe(res);
 		Body.on('error', (err) => {
 			console.error('[avatars/glb] stream error:', err);
-			try { res.destroy(err); } catch {}
+			try {
+				res.destroy(err);
+			} catch {}
 		});
 	} catch (err) {
 		// 404 if R2 doesn't know the key (deleted out-of-band); 502 otherwise.

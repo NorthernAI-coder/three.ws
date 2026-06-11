@@ -9,7 +9,7 @@ import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_l
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { env } from '../../_lib/env.js';
 import { parse } from '../../_lib/validate.js';
-import { randomToken, hmacSha256, constantTimeEquals } from '../../_lib/crypto.js';
+import { randomToken, hmacSha256, sha256, constantTimeEquals } from '../../_lib/crypto.js';
 import { parseSiwsMessage, verifySiwsSignature } from '../../_lib/siws.js';
 import { seedDefaultAgent } from '../../_lib/seed-default-agent.js';
 
@@ -200,7 +200,11 @@ async function handleVerify(req, res) {
 			where address = ${addr}
 		`;
 	} else {
-		const placeholderEmail = `sol-${addr.slice(0, 8).toLowerCase()}@wallet.local`;
+		// Hash of the FULL address — a truncated-prefix scheme would collapse two
+		// addresses sharing a prefix into one account. Existing users are unaffected:
+		// returning wallets are matched by address in user_wallets above, never by
+		// this synthetic email (which is only used to create brand-new rows).
+		const placeholderEmail = `sol-${(await sha256(addr)).slice(0, 16)}@wallet.local`;
 		const [existingUser] = await sql`
 			select id, deleted_at from users
 			where email = ${placeholderEmail}

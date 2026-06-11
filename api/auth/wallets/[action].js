@@ -548,12 +548,15 @@ async function handleUnlinkWallet(req, res, address) {
 
 	if (!address) return error(res, 400, 'missing_address', 'address required');
 
-	const addrLower = address.toLowerCase();
+	// EVM addresses are stored lowercased; Solana base58 is case-sensitive — try
+	// the literal address first, then the lowercased form (same approach as
+	// handleSetPrimary).
+	const candidates = [address, address.toLowerCase()].filter((v, i, a) => a.indexOf(v) === i);
 
 	// 1. Check that this wallet belongs to the user.
 	const [wallet] = await sql`
-		select id from user_wallets
-		where user_id = ${session.id} and address = ${addrLower}
+		select id, address from user_wallets
+		where user_id = ${session.id} and address = any(${candidates}::text[])
 		limit 1
 	`;
 	if (!wallet) return error(res, 404, 'not_found', 'wallet not found');
@@ -581,8 +584,8 @@ async function handleUnlinkWallet(req, res, address) {
 	}
 
 	// 4. Delete the wallet.
-	await sql`delete from user_wallets where user_id = ${session.id} and address = ${addrLower}`;
-	logAudit({ userId: session.id, action: 'unlink_wallet', resourceId: addrLower, req });
+	await sql`delete from user_wallets where id = ${wallet.id} and user_id = ${session.id}`;
+	logAudit({ userId: session.id, action: 'unlink_wallet', resourceId: wallet.address, req });
 
 	return json(res, 200, { removed: true });
 }

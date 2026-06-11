@@ -20,10 +20,13 @@ export async function issueCsrf(userId) {
 }
 
 // Middleware: returns true on success (handler may proceed), or sends a 403
-// and returns false. Skips enforcement if CSRF_DISABLED=1 (escape hatch for
-// machine-to-machine bearer auth which can't carry a CSRF token).
+// and returns false. The CSRF_DISABLED=1 escape hatch is honored ONLY outside
+// production — a misconfigured env must not silently disable CSRF platform-wide
+// on the live site. Machine-to-machine bearer auth is exempted below regardless.
+const IS_PROD = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+
 export async function requireCsrf(req, res, userId) {
-	if (process.env.CSRF_DISABLED === '1') return true;
+	if (!IS_PROD && process.env.CSRF_DISABLED === '1') return true;
 
 	// Bearer-token requests are exempt: the token itself is the proof of intent
 	// and bearer tokens aren't auto-attached by browsers like cookies are.
@@ -39,16 +42,20 @@ export async function requireCsrf(req, res, userId) {
 		return false;
 	}
 
+	// One-time use, atomically: consume the token in the same statement that
+	// validates it. A fire-and-forget DELETE after a SELECT lets two concurrent
+	// requests both observe the token before either delete lands — the
+	// DELETE … RETURNING makes exactly one request win. The token is valid iff
+	// an unexpired row bound to this user came back; a wrong-user token is left
+	// in place for its rightful owner.
 	const [row] = await sql`
-		SELECT user_id FROM csrf_tokens
-		WHERE token = ${sent} AND expires_at > now()
+		DELETE FROM csrf_tokens
+		WHERE token = ${sent} AND user_id = ${userId} AND expires_at > now()
+		RETURNING user_id
 	`;
-	if (!row || row.user_id !== userId) {
+	if (!row) {
 		error(res, 403, 'csrf_invalid', 'CSRF token invalid or expired');
 		return false;
 	}
-
-	// One-time use: best-effort delete (don't fail the request if delete has issues)
-	sql`DELETE FROM csrf_tokens WHERE token = ${sent}`.catch(() => {});
 	return true;
 }

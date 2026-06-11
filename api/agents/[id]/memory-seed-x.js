@@ -17,9 +17,9 @@ import { decryptToken, encryptToken } from '../../auth/x/[action].js';
 async function refreshXToken(conn) {
 	if (!conn.refresh_token) throw Object.assign(new Error('no refresh token'), { status: 400 });
 	const decRefresh = decryptToken(conn.refresh_token);
-	const creds = Buffer.from(
-		`${env.X_OAUTH_CLIENT_ID}:${env.X_OAUTH_CLIENT_SECRET}`,
-	).toString('base64');
+	const creds = Buffer.from(`${env.X_OAUTH_CLIENT_ID}:${env.X_OAUTH_CLIENT_SECRET}`).toString(
+		'base64',
+	);
 	const res = await fetch('https://api.twitter.com/2/oauth2/token', {
 		method: 'POST',
 		headers: {
@@ -39,7 +39,9 @@ async function refreshXToken(conn) {
 	const tokens = await res.json();
 	const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 7200) * 1000).toISOString();
 	const encAccess = encryptToken(tokens.access_token);
-	const encRefresh = tokens.refresh_token ? encryptToken(tokens.refresh_token) : conn.refresh_token;
+	const encRefresh = tokens.refresh_token
+		? encryptToken(tokens.refresh_token)
+		: conn.refresh_token;
 	await sql`
 		UPDATE social_connections
 		SET access_token = ${encAccess},
@@ -76,7 +78,10 @@ async function distilFacts(profile, tweets) {
 	});
 
 	try {
-		const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+		const stripped = raw
+			.replace(/^```(?:json)?\s*/i, '')
+			.replace(/\s*```$/i, '')
+			.trim();
 		const facts = JSON.parse(stripped);
 		return Array.isArray(facts) ? facts.filter((f) => typeof f === 'string').slice(0, 15) : [];
 	} catch {
@@ -123,14 +128,16 @@ async function handlePost(req, res, agentId) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const rl = await limits.xSeed(agentId);
-	if (!rl.success) return rateLimited(res, rl, 'agent can only be re-seeded every 6 hours');
-
 	const [agent] = await sql`
 		SELECT id, user_id FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL
 	`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 	if (agent.user_id !== user.id) return error(res, 403, 'forbidden', 'not your agent');
+
+	// Consume the per-agent seed budget only AFTER ownership is proven —
+	// otherwise any signed-in user could burn another agent's 6-hour window.
+	const rl = await limits.xSeed(agentId);
+	if (!rl.success) return rateLimited(res, rl, 'agent can only be re-seeded every 6 hours');
 
 	const [conn] = await sql`
 		SELECT id, username, access_token, refresh_token, expires_at FROM social_connections

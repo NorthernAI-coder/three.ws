@@ -48,31 +48,47 @@
 		<script
 			type="module"
 			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
 		></script>
 		<script defer src="/footer-newsletter.js"></script>
-	
-	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Features","description":"Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.","url":"https://three.ws/features","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
-</head>
+
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "WebPage",
+				"name": "Features",
+				"description": "Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.",
+				"url": "https://three.ws/features",
+				"isPartOf": { "@type": "WebSite", "name": "three.ws", "url": "https://three.ws" }
+			}
+		</script>
+	</head>
 	<body class="features-page">
 		<a href="#main-content" class="skip-link">Skip to main content</a>
 		<header><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
 
 		<main id="main-content" class="features-main">
-
 			<!-- ── Page hero ── -->
 			<section class="feat-hero scroll-reveal">
 				<div class="feat-hero-inner">
 					<p class="feat-eyebrow">Everything three.ws does</p>
-					<h1 class="feat-hero-title">Start free.<br />Add crypto only if you want it.</h1>
+					<h1 class="feat-hero-title">
+						Start free.<br />Add crypto only if you want it.
+					</h1>
 					<p class="feat-hero-sub">
 						The whole product — making avatars, building AI agents, embedding them
 						anywhere — works with nothing but an email. The on-chain features below are
 						optional extras you can switch on later.
 					</p>
 					<nav class="feat-goal-nav" aria-label="Jump to a section">
-						<a href="#core" class="feat-goal-pill feat-goal-pill--core">Core — free, no crypto</a>
-						<a href="#optional" class="feat-goal-pill feat-goal-pill--optional">Optional — on-chain &amp; payments</a>
+						<a href="#core" class="feat-goal-pill feat-goal-pill--core"
+							>Core — free, no crypto</a
+						>
+						<a href="#optional" class="feat-goal-pill feat-goal-pill--optional"
+							>Optional — on-chain &amp; payments</a
+						>
 					</nav>
 				</div>
 			</section>
@@ -85,7 +101,10 @@
 					<span class="feat-goal-num">01</span>
 					<div>
 						<h2 id="goal-core-label" class="feat-goal-title">Core</h2>
-						<p class="feat-goal-desc">Make avatars, build AI agents, and put them anywhere. Free to start, no wallet required.</p>
+						<p class="feat-goal-desc">
+							Make avatars, build AI agents, and put them anywhere. Free to start, no
+							wallet required.
+						</p>
 					</div>
 				</div>
 
@@ -93,18 +112,30 @@
 				<div class="feat-tier-banner feat-tier-banner--core scroll-reveal" role="note">
 					<span class="feat-tier-banner-icon" aria-hidden="true">
 						<svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-							<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.6"/>
-							<path d="M8 12.5l2.5 2.5 5-5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+							<circle
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="1.6"
+							/>
+							<path
+								d="M8 12.5l2.5 2.5 5-5.5"
+								stroke="currentColor"
+								stroke-width="1.8"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
 						</svg>
 					</span>
 					<p class="feat-tier-banner-text">
-						<strong>No crypto needed.</strong> Everything in this section works with just an
-						email — no wallet, no tokens, no blockchain. Sign up and start in minutes.
+						<strong>No crypto needed.</strong> Everything in this section works with
+						just an email — no wallet, no tokens, no blockchain. Sign up and start in
+						minutes.
 					</p>
 				</div>
 
 				<div class="feat-cards">
-
 					<!-- Selfie → 3D Avatar -->
 					<article class="feat-card scroll-reveal" aria-label="Selfie to 3D Avatar">
 						<div class="feat-card-preview feat-card-preview--avatar">
@@ -129,13 +160,17 @@
 							<span class="feat-card-tag">Create</span>
 							<h3 class="feat-card-title">Selfie to 3D Avatar</h3>
 							<p class="feat-card-what">
-								Take one photo and get back a fully rigged 3D avatar in about 60 seconds.
+								Take one photo and get back a fully rigged 3D avatar in about 60
+								seconds.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> creators who want a personal avatar without hiring a 3D artist.
+								<strong>For:</strong> creators who want a personal avatar without
+								hiring a 3D artist.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> The rig is animation-ready — you can load it straight into the viewer and trigger any animation immediately.
+								<strong>Why it's better:</strong> The rig is animation-ready — you
+								can load it straight into the viewer and trigger any animation
+								immediately.
 							</p>
 							<a href="/create/selfie" class="btn-primary feat-card-cta">
 								Try selfie → avatar <span class="btn-arrow">→</span>
@@ -149,7 +184,9 @@
 							<div class="feat-forge-demo" aria-hidden="true">
 								<div class="feat-forge-prompt">
 									<span class="feat-forge-cursor"></span>
-									<span class="feat-forge-text">a crystal wizard with glowing staff</span>
+									<span class="feat-forge-text"
+										>a crystal wizard with glowing staff</span
+									>
 								</div>
 								<div class="feat-forge-arrow">→</div>
 								<model-viewer
@@ -174,13 +211,18 @@
 							<span class="feat-card-tag">Create</span>
 							<h3 class="feat-card-title">Text to 3D — Forge</h3>
 							<p class="feat-card-what">
-								Describe a character in plain English. Forge generates a 3D model using a flux→TRELLIS pipeline, with every output stored in the gallery.
+								Describe a character in plain English. Forge generates a 3D model
+								using a flux→TRELLIS pipeline, with every output stored in the
+								gallery.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> builders who need original 3D characters fast, without Blender.
+								<strong>For:</strong> builders who need original 3D characters fast,
+								without Blender.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> Outputs are GLB-ready — load them straight into the viewer, deploy, or embed without any conversion step.
+								<strong>Why it's better:</strong> Outputs are GLB-ready — load them
+								straight into the viewer, deploy, or embed without any conversion
+								step.
 							</p>
 							<a href="/forge" class="btn-primary feat-card-cta">
 								Open Forge <span class="btn-arrow">→</span>
@@ -189,7 +231,10 @@
 					</article>
 
 					<!-- Build an Agent -->
-					<article class="feat-card feat-card--wide scroll-reveal" aria-label="Build an Agent">
+					<article
+						class="feat-card feat-card--wide scroll-reveal"
+						aria-label="Build an Agent"
+					>
 						<div class="feat-card-preview feat-card-preview--agent-build">
 							<div class="feat-agent-build-visual" aria-hidden="true">
 								<div class="feat-agent-step feat-agent-step--done">
@@ -217,13 +262,16 @@
 							<span class="feat-card-tag">Create</span>
 							<h3 class="feat-card-title">Build a Complete Agent</h3>
 							<p class="feat-card-what">
-								Combine a 3D avatar with an LLM brain, voice, and persona into a single agent — ready to chat, answer questions, and take actions.
+								Combine a 3D avatar with an LLM brain, voice, and persona into a
+								single agent — ready to chat, answer questions, and take actions.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> developers and creators who want a conversational AI with a real visual presence.
+								<strong>For:</strong> developers and creators who want a
+								conversational AI with a real visual presence.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> Any LLM works via MCP or A2A — Claude, GPT, Gemini, or your own. No vendor lock-in.
+								<strong>Why it's better:</strong> Any LLM works via MCP or A2A —
+								Claude, GPT, Gemini, or your own. No vendor lock-in.
 							</p>
 							<a href="/create" class="btn-primary feat-card-cta">
 								Start building <span class="btn-arrow">→</span>
@@ -241,7 +289,9 @@
 									<span class="feat-code-dot"></span>
 									<span class="feat-code-label">your-site.html</span>
 								</div>
-								<pre class="feat-code-body"><code><span class="feat-c">&lt;!-- 1. load --&gt;</span>
+								<pre
+									class="feat-code-body"
+								><code><span class="feat-c">&lt;!-- 1. load --&gt;</span>
 <span class="feat-tag">&lt;script</span> <span class="feat-attr">src</span>=<span class="feat-val">"https://three.ws/embed.js"</span><span class="feat-tag">&gt;&lt;/script&gt;</span>
 
 <span class="feat-c">&lt;!-- 2. drop the tag --&gt;</span>
@@ -255,13 +305,16 @@
 							<span class="feat-card-tag">Embed</span>
 							<h3 class="feat-card-title">Widget Studio</h3>
 							<p class="feat-card-what">
-								Pick an avatar, configure size and style, then copy a single script tag. Paste it into Notion, Ghost, WordPress, Framer — anywhere.
+								Pick an avatar, configure size and style, then copy a single script
+								tag. Paste it into Notion, Ghost, WordPress, Framer — anywhere.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> site owners who want a 3D AI assistant on their page without touching backend code.
+								<strong>For:</strong> site owners who want a 3D AI assistant on
+								their page without touching backend code.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> No SDK required on the consumer side — one tag, any page, no build step.
+								<strong>Why it's better:</strong> No SDK required on the consumer
+								side — one tag, any page, no build step.
 							</p>
 							<a href="/studio" class="btn-primary feat-card-cta">
 								Open Widget Studio <span class="btn-arrow">→</span>
@@ -286,11 +339,42 @@
 									<div class="feat-walk-joystick-thumb"></div>
 								</div>
 								<div class="feat-walk-ar-toggle" aria-label="AR toggle">
-									<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none">
-										<rect x="2" y="6" width="16" height="10" rx="2" stroke="rgba(255,255,255,0.5)" stroke-width="1.4"/>
-										<circle cx="7" cy="11" r="2" stroke="rgba(255,255,255,0.5)" stroke-width="1.2"/>
-										<circle cx="13" cy="11" r="2" stroke="rgba(255,255,255,0.5)" stroke-width="1.2"/>
-										<path d="M7 6V4M13 6V4" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" stroke-linecap="round"/>
+									<svg
+										viewBox="0 0 20 20"
+										width="16"
+										height="16"
+										aria-hidden="true"
+										fill="none"
+									>
+										<rect
+											x="2"
+											y="6"
+											width="16"
+											height="10"
+											rx="2"
+											stroke="rgba(255,255,255,0.5)"
+											stroke-width="1.4"
+										/>
+										<circle
+											cx="7"
+											cy="11"
+											r="2"
+											stroke="rgba(255,255,255,0.5)"
+											stroke-width="1.2"
+										/>
+										<circle
+											cx="13"
+											cy="11"
+											r="2"
+											stroke="rgba(255,255,255,0.5)"
+											stroke-width="1.2"
+										/>
+										<path
+											d="M7 6V4M13 6V4"
+											stroke="rgba(255,255,255,0.3)"
+											stroke-width="1.2"
+											stroke-linecap="round"
+										/>
 									</svg>
 									<span>AR mode</span>
 								</div>
@@ -300,13 +384,18 @@
 							<span class="feat-card-tag">Play</span>
 							<h3 class="feat-card-title">Walk + AR</h3>
 							<p class="feat-card-what">
-								Drive your avatar around a 3D scene with WASD or a touch joystick. Flip to back-camera mode and your avatar walks through your real environment.
+								Drive your avatar around a 3D scene with WASD or a touch joystick.
+								Flip to back-camera mode and your avatar walks through your real
+								environment.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> anyone who wants to experience their avatar in the real world, or demo an agent at an event.
+								<strong>For:</strong> anyone who wants to experience their avatar in
+								the real world, or demo an agent at an event.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> No app install — it runs in the browser with real physics (Rapier) and real terrain, not a flat plane.
+								<strong>Why it's better:</strong> No app install — it runs in the
+								browser with real physics (Rapier) and real terrain, not a flat
+								plane.
 							</p>
 							<a href="/walk" class="btn-primary feat-card-cta">
 								Start walking <span class="btn-arrow">→</span>
@@ -319,12 +408,27 @@
 						<div class="feat-card-preview feat-card-preview--dashboard">
 							<div class="feat-dash-visual" aria-hidden="true">
 								<div class="feat-dash-tiles">
-									<div class="feat-dash-tile"><span class="feat-dash-tile-num">4</span><span class="feat-dash-tile-label">Agents</span></div>
-									<div class="feat-dash-tile"><span class="feat-dash-tile-num">128</span><span class="feat-dash-tile-label">Chats today</span></div>
-									<div class="feat-dash-tile"><span class="feat-dash-tile-num">12</span><span class="feat-dash-tile-label">Embeds live</span></div>
+									<div class="feat-dash-tile">
+										<span class="feat-dash-tile-num">4</span
+										><span class="feat-dash-tile-label">Agents</span>
+									</div>
+									<div class="feat-dash-tile">
+										<span class="feat-dash-tile-num">128</span
+										><span class="feat-dash-tile-label">Chats today</span>
+									</div>
+									<div class="feat-dash-tile">
+										<span class="feat-dash-tile-num">12</span
+										><span class="feat-dash-tile-label">Embeds live</span>
+									</div>
 								</div>
 								<div class="feat-dash-bars">
-									<span style="height:42%"></span><span style="height:66%"></span><span style="height:50%"></span><span style="height:81%"></span><span style="height:58%"></span><span style="height:93%"></span><span style="height:71%"></span>
+									<span style="height: 42%"></span
+									><span style="height: 66%"></span
+									><span style="height: 50%"></span
+									><span style="height: 81%"></span
+									><span style="height: 58%"></span
+									><span style="height: 93%"></span
+									><span style="height: 71%"></span>
 								</div>
 							</div>
 						</div>
@@ -332,59 +436,103 @@
 							<span class="feat-card-tag">Dashboard</span>
 							<h3 class="feat-card-title">Your Dashboard</h3>
 							<p class="feat-card-what">
-								One home for everything you have made — edit each agent's persona, swap its animations, copy embed codes, and watch chat activity roll in as it happens.
+								One home for everything you have made — edit each agent's persona,
+								swap its animations, copy embed codes, and watch chat activity roll
+								in as it happens.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> anyone running one or more agents who wants a single control panel instead of a pile of scattered links.
+								<strong>For:</strong> anyone running one or more agents who wants a
+								single control panel instead of a pile of scattered links.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> Every avatar and agent you create shows up here automatically — nothing to wire up, one login for all of it.
+								<strong>Why it's better:</strong> Every avatar and agent you create
+								shows up here automatically — nothing to wire up, one login for all
+								of it.
 							</p>
 							<a href="/dashboard" class="btn-primary feat-card-cta">
 								Open your dashboard <span class="btn-arrow">→</span>
 							</a>
 						</div>
 					</article>
+				</div>
+			</section>
 
-					</div>
-				</section>
-
-				<!-- ══ OPTIONAL / ADVANCED — on-chain, payments, tokens ══ -->
-				<section class="feat-goal-section feat-goal-section--alt" id="optional" aria-labelledby="goal-optional-label">
-					<div class="feat-goal-header scroll-reveal">
-						<span class="feat-goal-num">02</span>
-						<div>
-							<h2 id="goal-optional-label" class="feat-goal-title">Optional &middot; Advanced</h2>
-							<p class="feat-goal-desc">Put agents on-chain, charge for what they do, and launch a token. Powerful, but never required.</p>
-						</div>
-					</div>
-
-					<!-- Crypto-requirements banner -->
-					<div class="feat-tier-banner feat-tier-banner--optional scroll-reveal" role="note">
-						<span class="feat-tier-banner-icon" aria-hidden="true">
-							<svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-								<path d="M12 3l7 3.5v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9v-5L12 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-								<path d="M9 12l2 2 4-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-						</span>
-						<p class="feat-tier-banner-text">
-							<strong>These features use crypto.</strong> To switch them on you'll need a
-							<span class="tws-tt" data-term="wallet" tabindex="0">wallet</span> and a small amount of
-							<span class="tws-tt" data-term="usdc" tabindex="0">USDC</span> or
-							<span class="tws-tt" data-term="sol" tabindex="0">SOL</span>. Skip them entirely and the Core product above still works in full.
+			<!-- ══ OPTIONAL / ADVANCED — on-chain, payments, tokens ══ -->
+			<section
+				class="feat-goal-section feat-goal-section--alt"
+				id="optional"
+				aria-labelledby="goal-optional-label"
+			>
+				<div class="feat-goal-header scroll-reveal">
+					<span class="feat-goal-num">02</span>
+					<div>
+						<h2 id="goal-optional-label" class="feat-goal-title">
+							Optional &middot; Advanced
+						</h2>
+						<p class="feat-goal-desc">
+							Put agents on-chain, charge for what they do, and launch a token.
+							Powerful, but never required.
 						</p>
 					</div>
+				</div>
 
-					<div class="feat-cards">
+				<!-- Crypto-requirements banner -->
+				<div class="feat-tier-banner feat-tier-banner--optional scroll-reveal" role="note">
+					<span class="feat-tier-banner-icon" aria-hidden="true">
+						<svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+							<path
+								d="M12 3l7 3.5v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9v-5L12 3z"
+								stroke="currentColor"
+								stroke-width="1.5"
+								stroke-linejoin="round"
+							/>
+							<path
+								d="M9 12l2 2 4-4.5"
+								stroke="currentColor"
+								stroke-width="1.6"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					</span>
+					<p class="feat-tier-banner-text">
+						<strong>These features use crypto.</strong> To switch them on you'll need a
+						<span class="tws-tt" data-term="wallet" tabindex="0">wallet</span> and a
+						small amount of
+						<span class="tws-tt" data-term="usdc" tabindex="0">USDC</span> or
+						<span class="tws-tt" data-term="sol" tabindex="0">SOL</span>. Skip them
+						entirely and the Core product above still works in full.
+					</p>
+				</div>
 
+				<div class="feat-cards">
 					<!-- On-Chain Identity / Deploy -->
 					<article class="feat-card scroll-reveal" aria-label="On-Chain Identity">
 						<div class="feat-card-preview feat-card-preview--onchain">
 							<div class="feat-onchain-visual" aria-hidden="true">
 								<div class="feat-onchain-badge">
-									<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-										<circle cx="12" cy="12" r="10" fill="none" stroke="rgba(74,222,128,0.6)" stroke-width="1.5"/>
-										<path d="M8 12l3 3 5-5" fill="none" stroke="#4ade80" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+									<svg
+										viewBox="0 0 24 24"
+										width="28"
+										height="28"
+										aria-hidden="true"
+									>
+										<circle
+											cx="12"
+											cy="12"
+											r="10"
+											fill="none"
+											stroke="rgba(74,222,128,0.6)"
+											stroke-width="1.5"
+										/>
+										<path
+											d="M8 12l3 3 5-5"
+											fill="none"
+											stroke="#4ade80"
+											stroke-width="1.8"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										/>
 									</svg>
 									<span class="feat-onchain-label">Verified on Solana</span>
 								</div>
@@ -413,13 +561,18 @@
 							<span class="feat-req">Needs: a wallet · ~$0.01 network fee</span>
 							<h3 class="feat-card-title">Deploy to the Blockchain</h3>
 							<p class="feat-card-what">
-								One transaction on Solana gives your agent a permanent, verifiable identity — a Metaplex Core asset that any A2A or MCP client can discover and trust.
+								One transaction on Solana gives your agent a permanent, verifiable
+								identity — a Metaplex Core asset that any A2A or MCP client can
+								discover and trust.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> builders who want their agent to be portable, transferable, and findable by other AI systems.
+								<strong>For:</strong> builders who want their agent to be portable,
+								transferable, and findable by other AI systems.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> Sub-cent fees. You hold the keys. The agent card is a public JSON URL — nothing is locked to this site.
+								<strong>Why it's better:</strong> Sub-cent fees. You hold the keys.
+								The agent card is a public JSON URL — nothing is locked to this
+								site.
 							</p>
 							<a href="/deploy" class="btn-primary feat-card-cta">
 								Deploy your agent <span class="btn-arrow">→</span>
@@ -437,10 +590,23 @@
 										<span class="feat-launch-token-name">Your token</span>
 										<span class="feat-launch-token-ticker">$TICKER</span>
 									</span>
-									<span class="feat-launch-live"><span class="feat-launch-live-dot"></span>Live</span>
+									<span class="feat-launch-live"
+										><span class="feat-launch-live-dot"></span>Live</span
+									>
 								</div>
-								<svg class="feat-launch-curve" viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden="true">
-									<path d="M2 42 C 38 40, 66 22, 118 5" fill="none" stroke="rgba(74,222,128,0.65)" stroke-width="2" stroke-linecap="round"/>
+								<svg
+									class="feat-launch-curve"
+									viewBox="0 0 120 44"
+									preserveAspectRatio="none"
+									aria-hidden="true"
+								>
+									<path
+										d="M2 42 C 38 40, 66 22, 118 5"
+										fill="none"
+										stroke="rgba(74,222,128,0.65)"
+										stroke-width="2"
+										stroke-linecap="round"
+									/>
 								</svg>
 							</div>
 						</div>
@@ -449,13 +615,18 @@
 							<span class="feat-req">Needs: a wallet · SOL</span>
 							<h3 class="feat-card-title">Launch a Token</h3>
 							<p class="feat-card-what">
-								Give your agent a community token in a couple of clicks — set a name and image, and it goes live on a pump.fun bonding-curve market that anyone can trade.
+								Give your agent a community token in a couple of clicks — set a name
+								and image, and it goes live on a pump.fun bonding-curve market that
+								anyone can trade.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> creators who want a community and a live market around their agent.
+								<strong>For:</strong> creators who want a community and a live
+								market around their agent.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> It's a real launch with live trading from the first second — you supply the details, we handle the on-chain mechanics.
+								<strong>Why it's better:</strong> It's a real launch with live
+								trading from the first second — you supply the details, we handle
+								the on-chain mechanics.
 							</p>
 							<a href="/launchpad" class="btn-primary feat-card-cta">
 								Open the launchpad <span class="btn-arrow">→</span>
@@ -470,7 +641,9 @@
 								<div class="feat-mkt-listing">
 									<div class="feat-mkt-listing-icon">🧠</div>
 									<div class="feat-mkt-listing-info">
-										<span class="feat-mkt-listing-name">Research Assistant</span>
+										<span class="feat-mkt-listing-name"
+											>Research Assistant</span
+										>
 										<span class="feat-mkt-listing-price">$0.05 / call</span>
 									</div>
 									<span class="feat-mkt-listing-badge">Listed</span>
@@ -489,7 +662,9 @@
 										<span class="feat-mkt-listing-name">Market Analyst</span>
 										<span class="feat-mkt-listing-price">$0.10 / call</span>
 									</div>
-									<span class="feat-mkt-listing-badge feat-mkt-listing-badge--new">New</span>
+									<span class="feat-mkt-listing-badge feat-mkt-listing-badge--new"
+										>New</span
+									>
 								</div>
 							</div>
 						</div>
@@ -498,13 +673,18 @@
 							<span class="feat-req">Earns: USDC · pay-per-call</span>
 							<h3 class="feat-card-title">Marketplace</h3>
 							<p class="feat-card-what">
-								List your agent's skills for others to buy. Each call settles in USDC (a $1 digital dollar) via pay-per-call — payment goes straight to your wallet.
+								List your agent's skills for others to buy. Each call settles in
+								USDC (a $1 digital dollar) via pay-per-call — payment goes straight
+								to your wallet.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> creators who have built something useful and want to charge for it without building billing infrastructure.
+								<strong>For:</strong> creators who have built something useful and
+								want to charge for it without building billing infrastructure.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> Pay-per-call means no subscriptions to manage — buyers pay exactly what they use, and you get paid per call.
+								<strong>Why it's better:</strong> Pay-per-call means no
+								subscriptions to manage — buyers pay exactly what they use, and you
+								get paid per call.
 							</p>
 							<a href="/marketplace" class="btn-primary feat-card-cta">
 								Browse the marketplace <span class="btn-arrow">→</span>
@@ -513,7 +693,10 @@
 					</article>
 
 					<!-- Agent Exchange -->
-					<article class="feat-card scroll-reveal" aria-label="Agent Exchange — Agents Paying Agents">
+					<article
+						class="feat-card scroll-reveal"
+						aria-label="Agent Exchange — Agents Paying Agents"
+					>
 						<div class="feat-card-preview feat-card-preview--exchange">
 							<div class="feat-exchange-visual" aria-hidden="true">
 								<div class="feat-exchange-agent feat-exchange-agent--a">
@@ -534,13 +717,19 @@
 							<span class="feat-req">Uses: USDC · x402 micropayments</span>
 							<h3 class="feat-card-title">Agent Exchange</h3>
 							<p class="feat-card-what">
-								Watch two AI agents — ORACLE and NOVA — negotiate, invoke each other's skills, and settle payments on-chain automatically. No humans in the loop.
+								Watch two AI agents — ORACLE and NOVA — negotiate, invoke each
+								other's skills, and settle payments on-chain automatically. No
+								humans in the loop.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> builders curious about autonomous agent economies, or anyone who wants to offer a service that other AI systems can pay for.
+								<strong>For:</strong> builders curious about autonomous agent
+								economies, or anyone who wants to offer a service that other AI
+								systems can pay for.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> Real on-chain settlement via pay-per-call (micropayments) — every transaction is verifiable, not simulated.
+								<strong>Why it's better:</strong> Real on-chain settlement via
+								pay-per-call (micropayments) — every transaction is verifiable, not
+								simulated.
 							</p>
 							<a href="/agent-exchange" class="btn-primary feat-card-cta">
 								See agents pay agents <span class="btn-arrow">→</span>
@@ -549,7 +738,10 @@
 					</article>
 
 					<!-- Play — Coin Worlds -->
-					<article class="feat-card feat-card--wide scroll-reveal" aria-label="Coin Worlds">
+					<article
+						class="feat-card feat-card--wide scroll-reveal"
+						aria-label="Coin Worlds"
+					>
 						<div class="feat-card-preview feat-card-preview--play">
 							<model-viewer
 								src="/avatars/cz.glb"
@@ -579,13 +771,18 @@
 							<span class="feat-req">Reads live market prices on-chain</span>
 							<h3 class="feat-card-title">Coin Worlds</h3>
 							<p class="feat-card-what">
-								Walk your avatar through 3D worlds tied to live crypto prices. The terrain shifts with the market — each world is a different token's landscape.
+								Walk your avatar through 3D worlds tied to live crypto prices. The
+								terrain shifts with the market — each world is a different token's
+								landscape.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> crypto enthusiasts who want a more visceral way to follow the market.
+								<strong>For:</strong> crypto enthusiasts who want a more visceral
+								way to follow the market.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> Agents in the world pay each other on-chain in real time — you can watch live x402 micropayment transactions happen as you walk.
+								<strong>Why it's better:</strong> Agents in the world pay each other
+								on-chain in real time — you can watch live x402 micropayment
+								transactions happen as you walk.
 							</p>
 							<a href="/play" class="btn-primary feat-card-cta">
 								Enter the world <span class="btn-arrow">→</span>
@@ -594,13 +791,37 @@
 					</article>
 
 					<!-- IBM / Granite -->
-					<article class="feat-card feat-card--wide scroll-reveal" aria-label="IBM Granite on watsonx.ai">
+					<article
+						class="feat-card feat-card--wide scroll-reveal"
+						aria-label="IBM Granite on watsonx.ai"
+					>
 						<div class="feat-card-preview feat-card-preview--ibm">
 							<div class="feat-ibm-visual" aria-hidden="true">
 								<div class="feat-ibm-badge">
-									<svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true" fill="none">
-										<rect width="40" height="40" rx="8" fill="rgba(30,80,200,0.12)"/>
-										<text x="20" y="26" text-anchor="middle" font-size="14" font-weight="700" fill="#5b8fff" font-family="sans-serif">IBM</text>
+									<svg
+										viewBox="0 0 40 40"
+										width="36"
+										height="36"
+										aria-hidden="true"
+										fill="none"
+									>
+										<rect
+											width="40"
+											height="40"
+											rx="8"
+											fill="rgba(30,80,200,0.12)"
+										/>
+										<text
+											x="20"
+											y="26"
+											text-anchor="middle"
+											font-size="14"
+											font-weight="700"
+											fill="#5b8fff"
+											font-family="sans-serif"
+										>
+											IBM
+										</text>
 									</svg>
 									<div class="feat-ibm-badge-text">
 										<span class="feat-ibm-badge-title">watsonx.ai</span>
@@ -620,35 +841,48 @@
 							<span class="feat-req">Enterprise · advanced demo</span>
 							<h3 class="feat-card-title">IBM Granite on watsonx.ai</h3>
 							<p class="feat-card-what">
-								A suite of demos showing IBM Granite models — time-series forecasting, semantic agent mapping, AI governance, and on-chain proof of AI decisions — all rendered in 3D.
+								A suite of demos showing IBM Granite models — time-series
+								forecasting, semantic agent mapping, AI governance, and on-chain
+								proof of AI decisions — all rendered in 3D.
 							</p>
 							<p class="feat-card-who">
-								<strong>For:</strong> enterprise teams evaluating IBM watsonx, or developers who want to see what Granite models can do inside a live 3D environment.
+								<strong>For:</strong> enterprise teams evaluating IBM watsonx, or
+								developers who want to see what Granite models can do inside a live
+								3D environment.
 							</p>
 							<p class="feat-card-why">
-								<strong>Why it's better:</strong> These are real Granite API calls — not mocked — with every decision anchored to a Solana transaction as an immutable record.
+								<strong>Why it's better:</strong> These are real Granite API calls —
+								not mocked — with every decision anchored to a Solana transaction as
+								an immutable record.
 							</p>
 							<a href="/ibm/galaxy" class="btn-primary feat-card-cta">
 								Explore the IBM suite <span class="btn-arrow">→</span>
 							</a>
 						</div>
 					</article>
+				</div>
+			</section>
 
-					</div>
-				</section>
-
-				<!-- ── Cross-cutting / developer row ── -->
+			<!-- ── Cross-cutting / developer row ── -->
 			<section class="feat-dev-section scroll-reveal">
 				<div class="feat-dev-inner">
 					<div class="feat-dev-text">
 						<p class="feat-dev-eyebrow">For developers</p>
 						<h2 class="feat-dev-title">One tag. Zero dependencies.</h2>
 						<p class="feat-dev-sub">
-							The <code>&lt;agent-3d&gt;</code> web component lazy-loads, renders on any device, and connects to your existing AI stack via MCP or A2A. No framework. No build step.
+							The <code>&lt;agent-3d&gt;</code> web component lazy-loads, renders on
+							any device, and connects to your existing AI stack via MCP or A2A. No
+							framework. No build step.
 						</p>
 						<div class="feat-dev-links">
 							<a href="/docs" class="btn-ghost">Read the docs →</a>
-							<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener noreferrer" class="btn-ghost">GitHub →</a>
+							<a
+								href="https://github.com/nirholas/three.ws"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="btn-ghost"
+								>GitHub →</a
+							>
 						</div>
 					</div>
 					<div class="feat-dev-standards">
@@ -844,8 +1078,22 @@
 					<div class="h-footer-badges">
 						<a href="/pay" class="h-footer-badge" aria-label="Built with x402 payments">
 							<svg viewBox="0 0 16 16" aria-hidden="true">
-								<circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.3"/>
-								<path d="M8 4v8M5.5 6h3.5a1.5 1.5 0 010 3H6.5a1.5 1.5 0 000 3H11" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+								<circle
+									cx="8"
+									cy="8"
+									r="7"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.3"
+								/>
+								<path
+									d="M8 4v8M5.5 6h3.5a1.5 1.5 0 010 3H6.5a1.5 1.5 0 000 3H11"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								/>
 							</svg>
 							Built with x402
 						</a>
@@ -878,7 +1126,9 @@
 					{ root: null, threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
 				);
 				els.forEach((el, i) => {
-					const siblings = Array.from(el.parentElement.querySelectorAll('.scroll-reveal'));
+					const siblings = Array.from(
+						el.parentElement.querySelectorAll('.scroll-reveal'),
+					);
 					const idx = siblings.indexOf(el);
 					el.style.transitionDelay = idx * 0.07 + 's';
 					observer.observe(el);
@@ -886,7 +1136,7 @@
 			})();
 		</script>
 		<script src="/brand.js" defer></script>
-	<div id="footer-container"></div>
-	<script src="/footer.js"></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 	</body>
 </html>

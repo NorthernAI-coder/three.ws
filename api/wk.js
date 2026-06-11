@@ -494,32 +494,36 @@ async function handleX402Discovery(req, res) {
 	const ARB_USDC = env.X402_ASSET_ADDRESS_ARBITRUM;
 	function buildBazaarAccepts(resourceUrl) {
 		const out = [];
-		pushAcceptWithPermit2Sibling(out, {
-			scheme: 'exact',
-			network: NETWORK_BASE_MAINNET,
-			network_label: 'base-mainnet',
-			amount: env.X402_MAX_AMOUNT_REQUIRED,
-			price,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: env.X402_ASSET_ADDRESS_BASE,
-			asset_symbol: 'USDC',
-			maxTimeoutSeconds: 60,
-			resource: resourceUrl,
-			extra: { name: 'USDC', version: '2', decimals: 6 },
-		});
-		pushAcceptWithPermit2Sibling(out, {
-			scheme: 'exact',
-			network: 'eip155:42161',
-			network_label: 'arbitrum-one',
-			amount: env.X402_MAX_AMOUNT_REQUIRED,
-			price,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: ARB_USDC,
-			asset_symbol: 'USDC',
-			maxTimeoutSeconds: 60,
-			resource: resourceUrl,
-			extra: { name: 'USDC', version: '2', decimals: 6 },
-		});
+		if (env.X402_PAY_TO_BASE) {
+			pushAcceptWithPermit2Sibling(out, {
+				scheme: 'exact',
+				network: NETWORK_BASE_MAINNET,
+				network_label: 'base-mainnet',
+				amount: env.X402_MAX_AMOUNT_REQUIRED,
+				price,
+				payTo: env.X402_PAY_TO_BASE,
+				asset: env.X402_ASSET_ADDRESS_BASE,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				extra: { name: 'USDC', version: '2', decimals: 6 },
+			});
+		}
+		if (env.X402_PAY_TO_BASE && ARB_USDC) {
+			pushAcceptWithPermit2Sibling(out, {
+				scheme: 'exact',
+				network: 'eip155:42161',
+				network_label: 'arbitrum-one',
+				amount: env.X402_MAX_AMOUNT_REQUIRED,
+				price,
+				payTo: env.X402_PAY_TO_BASE,
+				asset: ARB_USDC,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				extra: { name: 'USDC', version: '2', decimals: 6 },
+			});
+		}
 		if (env.X402_PAY_TO_SOLANA) {
 			out.push({
 				scheme: 'exact',
@@ -944,7 +948,11 @@ async function handleX402Discovery(req, res) {
 						extensions: extensionsForAccepts(accepts, {
 							method: 'POST',
 							discoverable: true,
-							input: { prompt: 'a brass steampunk owl, full body', tier: 'standard', aspect_ratio: '1:1' },
+							input: {
+								prompt: 'a brass steampunk owl, full body',
+								tier: 'standard',
+								aspect_ratio: '1:1',
+							},
 							inputSchema: {
 								type: 'object',
 								properties: {
@@ -952,17 +960,22 @@ async function handleX402Discovery(req, res) {
 										type: 'string',
 										minLength: 3,
 										maxLength: 1000,
-										description: 'Describe one subject for text→3D. Omit when supplying image_urls.',
+										description:
+											'Describe one subject for text→3D. Omit when supplying image_urls.',
 									},
 									image_urls: {
 										type: 'array',
 										items: { type: 'string', format: 'uri' },
 										minItems: 1,
 										maxItems: 4,
-										description: 'Up to four public https reference views of one object for image→3D.',
+										description:
+											'Up to four public https reference views of one object for image→3D.',
 									},
 									tier: { type: 'string', enum: ['draft', 'standard', 'high'] },
-									aspect_ratio: { type: 'string', enum: ['1:1', '4:3', '3:4', '16:9', '9:16'] },
+									aspect_ratio: {
+										type: 'string',
+										enum: ['1:1', '4:3', '3:4', '16:9', '9:16'],
+									},
 								},
 							},
 						}),

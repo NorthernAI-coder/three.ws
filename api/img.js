@@ -73,8 +73,16 @@ export default wrap(async function handler(req, res) {
 	const seed = url.searchParams.get('seed') || target || '';
 	if (!target) return error(res, 400, 'missing_url', 'url query parameter is required');
 
-	// data: URIs are already inline and same-origin-safe — nothing to proxy.
-	if (target.startsWith('data:')) return redirect(res, target, 302);
+	// data: URIs are not proxyable targets — redirecting to attacker-supplied
+	// data: content is an open-redirect/content-injection vector. Reject.
+	if (/^data:/i.test(target.trim())) {
+		return error(
+			res,
+			400,
+			'invalid_url',
+			'data: URIs cannot be proxied — pass an http(s) or ipfs URL',
+		);
+	}
 
 	let image = null;
 	for (const candidate of candidates(target)) {

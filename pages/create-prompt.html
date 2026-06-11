@@ -1,359 +1,651 @@
 <!doctype html>
 <html lang="en">
-<head>
-	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-	<title>Describe it to 3D · three.ws</title>
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+		<title>Describe it to 3D · three.ws</title>
 		<link rel="icon" href="/favicon.ico" sizes="any" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<link rel="manifest" href="/site.webmanifest" />
-	<meta name="description" content="Type a description. About a minute later: a rigged 3D avatar you can animate and download." />
-	<meta name="robots" content="index, follow" />
+		<meta
+			name="description"
+			content="Type a description. About a minute later: a rigged 3D avatar you can animate and download."
+		/>
+		<meta name="robots" content="index, follow" />
 
-	<meta property="og:type" content="website" />
-	<meta property="og:site_name" content="three.ws" />
-	<meta property="og:url" content="https://three.ws/create/prompt" />
-	<meta property="og:title" content="Describe it to 3D · three.ws" />
-	<meta property="og:description" content="Type a description. About a minute later: a rigged 3D avatar you can animate and download." />
-	<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/create/prompt" />
+		<meta property="og:title" content="Describe it to 3D · three.ws" />
+		<meta
+			property="og:description"
+			content="Type a description. About a minute later: a rigged 3D avatar you can animate and download."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
 
-	<style>
-		:root {
-			color-scheme: dark;
-			--bg: #000000;
-			--panel: #0a0a0a;
-			--panel-elev: #111111;
-			--border: #1a1a1a;
-			--border-strong: #2a2a2a;
-			--text: #e8e8e8;
-			--muted: #888888;
-			--accent: #ffffff;
-			--accent-ink: #000000;
-			--danger: #f87171;
-			--danger-dim: #4a1a1a;
-		}
-		* { box-sizing: border-box; }
-		html, body { margin: 0; padding: 0; }
-		body {
-			font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-			color: var(--text);
-			background: var(--bg);
-			min-height: 100vh;
-			overflow-x: hidden;
-		}
-		.skip-link {
-			position: absolute; left: -999px; top: 0;
-			background: var(--accent); color: var(--accent-ink);
-			padding: 8px 14px; border-radius: 8px; z-index: 100;
-		}
-		.skip-link:focus { left: 12px; top: 12px; }
+		<style>
+			:root {
+				color-scheme: dark;
+				--bg: #000000;
+				--panel: #0a0a0a;
+				--panel-elev: #111111;
+				--border: #1a1a1a;
+				--border-strong: #2a2a2a;
+				--text: #e8e8e8;
+				--muted: #888888;
+				--accent: #ffffff;
+				--accent-ink: #000000;
+				--danger: #f87171;
+				--danger-dim: #4a1a1a;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				font:
+					15px/1.55 -apple-system,
+					BlinkMacSystemFont,
+					'Segoe UI',
+					Roboto,
+					sans-serif;
+				color: var(--text);
+				background: var(--bg);
+				min-height: 100vh;
+				overflow-x: hidden;
+			}
+			.skip-link {
+				position: absolute;
+				left: -999px;
+				top: 0;
+				background: var(--accent);
+				color: var(--accent-ink);
+				padding: 8px 14px;
+				border-radius: 8px;
+				z-index: 100;
+			}
+			.skip-link:focus {
+				left: 12px;
+				top: 12px;
+			}
 
-		.stage {
-			max-width: 760px;
-			margin: 0 auto;
-			padding: 0 20px 80px;
-			min-height: 100vh;
-			display: flex;
-			flex-direction: column;
-		}
-		.topbar {
-			display: flex; align-items: center; gap: 12px;
-			padding: 18px 0;
-		}
-		.back {
-			display: inline-flex; align-items: center; justify-content: center;
-			width: 38px; height: 38px;
-			border-radius: 10px;
-			border: 1px solid var(--border-strong);
-			background: var(--panel);
-			color: var(--text);
-			cursor: pointer;
-			transition: border-color .15s, background .15s, transform .12s;
-		}
-		.back:hover { border-color: #444; background: var(--panel-elev); }
-		.back:active { transform: translateY(1px); }
-		.back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-		.label { color: var(--muted); font-size: 13px; letter-spacing: .01em; }
-		.label strong { color: var(--text); font-weight: 600; }
+			.stage {
+				max-width: 760px;
+				margin: 0 auto;
+				padding: 0 20px 80px;
+				min-height: 100vh;
+				display: flex;
+				flex-direction: column;
+			}
+			.topbar {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 18px 0;
+			}
+			.back {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 38px;
+				height: 38px;
+				border-radius: 10px;
+				border: 1px solid var(--border-strong);
+				background: var(--panel);
+				color: var(--text);
+				cursor: pointer;
+				transition:
+					border-color 0.15s,
+					background 0.15s,
+					transform 0.12s;
+			}
+			.back:hover {
+				border-color: #444;
+				background: var(--panel-elev);
+			}
+			.back:active {
+				transform: translateY(1px);
+			}
+			.back:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.label {
+				color: var(--muted);
+				font-size: 13px;
+				letter-spacing: 0.01em;
+			}
+			.label strong {
+				color: var(--text);
+				font-weight: 600;
+			}
 
-		/* ── Steps ─────────────────────────────────────────────────────────── */
-		.step { display: none; flex: 1; flex-direction: column; }
-		.step.active { display: flex; animation: fade .35s ease; }
-		@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+			/* ── Steps ─────────────────────────────────────────────────────────── */
+			.step {
+				display: none;
+				flex: 1;
+				flex-direction: column;
+			}
+			.step.active {
+				display: flex;
+				animation: fade 0.35s ease;
+			}
+			@keyframes fade {
+				from {
+					opacity: 0;
+					transform: translateY(6px);
+				}
+				to {
+					opacity: 1;
+					transform: none;
+				}
+			}
 
-		h1 { font-size: clamp(26px, 5vw, 36px); line-height: 1.1; margin: 12px 0 8px; letter-spacing: -0.02em; }
-		.sub { color: var(--muted); margin: 0 0 24px; max-width: 56ch; }
+			h1 {
+				font-size: clamp(26px, 5vw, 36px);
+				line-height: 1.1;
+				margin: 12px 0 8px;
+				letter-spacing: -0.02em;
+			}
+			.sub {
+				color: var(--muted);
+				margin: 0 0 24px;
+				max-width: 56ch;
+			}
 
-		/* ── Compose ───────────────────────────────────────────────────────── */
-		.composer {
-			border: 1px solid var(--border-strong);
-			border-radius: 16px;
-			background: var(--panel);
-			padding: 6px 6px 14px;
-			transition: border-color .15s;
-		}
-		.composer:focus-within { border-color: #3a3a3a; }
-		textarea#prompt {
-			width: 100%;
-			min-height: 120px;
-			resize: vertical;
-			border: 0;
-			background: transparent;
-			color: var(--text);
-			font: inherit;
-			line-height: 1.5;
-			padding: 14px 14px 6px;
-			outline: none;
-		}
-		textarea#prompt::placeholder { color: #555; }
-		.composer-foot {
-			display: flex; align-items: center; justify-content: space-between;
-			gap: 12px; padding: 0 10px;
-		}
-		.counter { color: #555; font-size: 12px; font-variant-numeric: tabular-nums; }
-		.counter.warn { color: var(--danger); }
+			/* ── Compose ───────────────────────────────────────────────────────── */
+			.composer {
+				border: 1px solid var(--border-strong);
+				border-radius: 16px;
+				background: var(--panel);
+				padding: 6px 6px 14px;
+				transition: border-color 0.15s;
+			}
+			.composer:focus-within {
+				border-color: #3a3a3a;
+			}
+			textarea#prompt {
+				width: 100%;
+				min-height: 120px;
+				resize: vertical;
+				border: 0;
+				background: transparent;
+				color: var(--text);
+				font: inherit;
+				line-height: 1.5;
+				padding: 14px 14px 6px;
+				outline: none;
+			}
+			textarea#prompt::placeholder {
+				color: #555;
+			}
+			.composer-foot {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 0 10px;
+			}
+			.counter {
+				color: #555;
+				font-size: 12px;
+				font-variant-numeric: tabular-nums;
+			}
+			.counter.warn {
+				color: var(--danger);
+			}
 
-		.examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
-		.example {
-			border: 1px solid var(--border-strong);
-			background: var(--panel);
-			color: var(--muted);
-			border-radius: 999px;
-			padding: 7px 13px;
-			font-size: 13px;
-			cursor: pointer;
-			transition: border-color .15s, color .15s, background .15s, transform .12s;
-		}
-		.example:hover { border-color: #444; color: var(--text); background: var(--panel-elev); }
-		.example:active { transform: translateY(1px); }
-		.example:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			.examples {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin: 16px 0 4px;
+			}
+			.example {
+				border: 1px solid var(--border-strong);
+				background: var(--panel);
+				color: var(--muted);
+				border-radius: 999px;
+				padding: 7px 13px;
+				font-size: 13px;
+				cursor: pointer;
+				transition:
+					border-color 0.15s,
+					color 0.15s,
+					background 0.15s,
+					transform 0.12s;
+			}
+			.example:hover {
+				border-color: #444;
+				color: var(--text);
+				background: var(--panel-elev);
+			}
+			.example:active {
+				transform: translateY(1px);
+			}
+			.example:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
 
-		.actions { display: flex; align-items: center; gap: 14px; margin-top: 22px; }
-		.btn-primary {
-			display: inline-flex; align-items: center; gap: 9px;
-			background: var(--accent); color: var(--accent-ink);
-			border: 0; border-radius: 12px;
-			padding: 13px 22px;
-			font-size: 15px; font-weight: 600;
-			cursor: pointer;
-			transition: opacity .15s, transform .12s;
-		}
-		.btn-primary:hover { opacity: .9; }
-		.btn-primary:active { transform: translateY(1px); }
-		.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
-		.btn-primary:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-		.hint { color: #666; font-size: 12.5px; }
-		.hint .chip-auth { color: var(--muted); }
+			.actions {
+				display: flex;
+				align-items: center;
+				gap: 14px;
+				margin-top: 22px;
+			}
+			.btn-primary {
+				display: inline-flex;
+				align-items: center;
+				gap: 9px;
+				background: var(--accent);
+				color: var(--accent-ink);
+				border: 0;
+				border-radius: 12px;
+				padding: 13px 22px;
+				font-size: 15px;
+				font-weight: 600;
+				cursor: pointer;
+				transition:
+					opacity 0.15s,
+					transform 0.12s;
+			}
+			.btn-primary:hover {
+				opacity: 0.9;
+			}
+			.btn-primary:active {
+				transform: translateY(1px);
+			}
+			.btn-primary:disabled {
+				opacity: 0.4;
+				cursor: not-allowed;
+			}
+			.btn-primary:focus-visible {
+				outline: 2px solid #fff;
+				outline-offset: 3px;
+			}
+			.hint {
+				color: #666;
+				font-size: 12.5px;
+			}
+			.hint .chip-auth {
+				color: var(--muted);
+			}
 
-		.note {
-			margin-top: 28px;
-			color: #666; font-size: 12.5px;
-			border-top: 1px solid var(--border);
-			padding-top: 16px;
-			max-width: 60ch;
-		}
+			.note {
+				margin-top: 28px;
+				color: #666;
+				font-size: 12.5px;
+				border-top: 1px solid var(--border);
+				padding-top: 16px;
+				max-width: 60ch;
+			}
 
-		/* ── Building ──────────────────────────────────────────────────────── */
-		.build-wrap { align-items: center; text-align: center; padding-top: 24px; }
-		.orb {
-			width: 132px; height: 132px; border-radius: 50%;
-			margin: 8px auto 26px;
-			background:
-				radial-gradient(circle at 32% 30%, #2a2a2a, #0c0c0c 70%);
-			border: 1px solid var(--border-strong);
-			position: relative;
-			overflow: hidden;
-		}
-		.orb::after {
-			content: ''; position: absolute; inset: -40%;
-			background: conic-gradient(from 0deg, transparent 0 70%, rgba(255,255,255,.14) 85%, transparent 100%);
-			animation: spin 1.5s linear infinite;
-		}
-		.orb::before {
-			content: ''; position: absolute; inset: 0; border-radius: 50%;
-			box-shadow: inset 0 0 30px rgba(255,255,255,.05);
-			z-index: 1;
-		}
-		@keyframes spin { to { transform: rotate(360deg); } }
-		.build-prompt {
-			color: var(--text); font-size: 16px; max-width: 46ch;
-			margin: 0 auto 6px; font-style: italic;
-		}
-		.build-status { color: var(--muted); font-size: 14px; margin-top: 12px; min-height: 20px; }
-		.progress-track {
-			width: min(420px, 90%); height: 4px; border-radius: 4px;
-			background: var(--border-strong); margin: 22px auto 0; overflow: hidden;
-		}
-		.progress-fill {
-			height: 100%; width: 8%; border-radius: 4px;
-			background: var(--accent);
-			transition: width .8s cubic-bezier(.4,0,.2,1);
-		}
-		.elapsed { color: #555; font-size: 12px; margin-top: 14px; font-variant-numeric: tabular-nums; }
+			/* ── Building ──────────────────────────────────────────────────────── */
+			.build-wrap {
+				align-items: center;
+				text-align: center;
+				padding-top: 24px;
+			}
+			.orb {
+				width: 132px;
+				height: 132px;
+				border-radius: 50%;
+				margin: 8px auto 26px;
+				background: radial-gradient(circle at 32% 30%, #2a2a2a, #0c0c0c 70%);
+				border: 1px solid var(--border-strong);
+				position: relative;
+				overflow: hidden;
+			}
+			.orb::after {
+				content: '';
+				position: absolute;
+				inset: -40%;
+				background: conic-gradient(
+					from 0deg,
+					transparent 0 70%,
+					rgba(255, 255, 255, 0.14) 85%,
+					transparent 100%
+				);
+				animation: spin 1.5s linear infinite;
+			}
+			.orb::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				border-radius: 50%;
+				box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.05);
+				z-index: 1;
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+			.build-prompt {
+				color: var(--text);
+				font-size: 16px;
+				max-width: 46ch;
+				margin: 0 auto 6px;
+				font-style: italic;
+			}
+			.build-status {
+				color: var(--muted);
+				font-size: 14px;
+				margin-top: 12px;
+				min-height: 20px;
+			}
+			.progress-track {
+				width: min(420px, 90%);
+				height: 4px;
+				border-radius: 4px;
+				background: var(--border-strong);
+				margin: 22px auto 0;
+				overflow: hidden;
+			}
+			.progress-fill {
+				height: 100%;
+				width: 8%;
+				border-radius: 4px;
+				background: var(--accent);
+				transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+			}
+			.elapsed {
+				color: #555;
+				font-size: 12px;
+				margin-top: 14px;
+				font-variant-numeric: tabular-nums;
+			}
 
-		/* ── Done ──────────────────────────────────────────────────────────── */
-		.done-wrap { align-items: center; text-align: center; padding-top: 8px; }
-		.done-viewer {
-			width: 100%; max-width: 460px; aspect-ratio: 4/5;
-			margin: 18px auto 0;
-			border: 1px solid var(--border-strong); border-radius: 16px;
-			background: var(--panel); overflow: hidden;
-		}
-		.done-viewer model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
-		.done-tags { display: flex; gap: 8px; justify-content: center; margin: 16px 0 0; flex-wrap: wrap; }
-		.tag {
-			font-size: 12px; color: var(--muted);
-			border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 11px;
-		}
-		.tag.ok { color: #6ee7a8; border-color: #1f3a2a; }
-		.done-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
-		.btn-ghost {
-			display: inline-flex; align-items: center; gap: 8px;
-			background: var(--panel); color: var(--text);
-			border: 1px solid var(--border-strong); border-radius: 12px;
-			padding: 12px 20px; font-size: 15px; font-weight: 500; cursor: pointer;
-			transition: border-color .15s, background .15s, transform .12s;
-			text-decoration: none;
-		}
-		.btn-ghost:hover { border-color: #444; background: var(--panel-elev); }
-		.btn-ghost:active { transform: translateY(1px); }
-		.btn-ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			/* ── Done ──────────────────────────────────────────────────────────── */
+			.done-wrap {
+				align-items: center;
+				text-align: center;
+				padding-top: 8px;
+			}
+			.done-viewer {
+				width: 100%;
+				max-width: 460px;
+				aspect-ratio: 4/5;
+				margin: 18px auto 0;
+				border: 1px solid var(--border-strong);
+				border-radius: 16px;
+				background: var(--panel);
+				overflow: hidden;
+			}
+			.done-viewer model-viewer {
+				width: 100%;
+				height: 100%;
+				--poster-color: transparent;
+			}
+			.done-tags {
+				display: flex;
+				gap: 8px;
+				justify-content: center;
+				margin: 16px 0 0;
+				flex-wrap: wrap;
+			}
+			.tag {
+				font-size: 12px;
+				color: var(--muted);
+				border: 1px solid var(--border-strong);
+				border-radius: 999px;
+				padding: 5px 11px;
+			}
+			.tag.ok {
+				color: #6ee7a8;
+				border-color: #1f3a2a;
+			}
+			.done-actions {
+				display: flex;
+				gap: 12px;
+				justify-content: center;
+				margin-top: 24px;
+				flex-wrap: wrap;
+			}
+			.btn-ghost {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				background: var(--panel);
+				color: var(--text);
+				border: 1px solid var(--border-strong);
+				border-radius: 12px;
+				padding: 12px 20px;
+				font-size: 15px;
+				font-weight: 500;
+				cursor: pointer;
+				transition:
+					border-color 0.15s,
+					background 0.15s,
+					transform 0.12s;
+				text-decoration: none;
+			}
+			.btn-ghost:hover {
+				border-color: #444;
+				background: var(--panel-elev);
+			}
+			.btn-ghost:active {
+				transform: translateY(1px);
+			}
+			.btn-ghost:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
 
-		/* ── Error ─────────────────────────────────────────────────────────── */
-		.error-box {
-			display: none;
-			margin-top: 18px;
-			border: 1px solid var(--danger-dim);
-			background: rgba(248,113,113,.06);
-			border-radius: 12px;
-			padding: 14px 16px;
-			color: #f3b4b4;
-			font-size: 14px;
-		}
-		.error-box.show { display: block; animation: fade .25s ease; }
-		.error-box strong { color: var(--danger); }
+			/* ── Error ─────────────────────────────────────────────────────────── */
+			.error-box {
+				display: none;
+				margin-top: 18px;
+				border: 1px solid var(--danger-dim);
+				background: rgba(248, 113, 113, 0.06);
+				border-radius: 12px;
+				padding: 14px 16px;
+				color: #f3b4b4;
+				font-size: 14px;
+			}
+			.error-box.show {
+				display: block;
+				animation: fade 0.25s ease;
+			}
+			.error-box strong {
+				color: var(--danger);
+			}
 
-		@media (max-width: 520px) {
-			.actions { flex-direction: column; align-items: stretch; }
-			.btn-primary { justify-content: center; }
-			.hint { text-align: center; }
-		}
-	</style>
+			@media (max-width: 520px) {
+				.actions {
+					flex-direction: column;
+					align-items: stretch;
+				}
+				.btn-primary {
+					justify-content: center;
+				}
+				.hint {
+					text-align: center;
+				}
+			}
+		</style>
 
-	<script
-		type="module"
-		src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
-	></script>
-	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Describe it to 3D","description":"Type a description. About a minute later: a rigged 3D avatar you can animate and download.","url":"https://three.ws/create/prompt","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
-</head>
-<body>
-	<a href="#prompt" class="skip-link">Skip to the prompt box</a>
-	<main class="stage">
-		<div class="topbar">
-			<button class="back" id="back-btn" aria-label="Back to create" type="button">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-					<line x1="19" y1="12" x2="5" y2="12" />
-					<polyline points="12 19 5 12 12 5" />
-				</svg>
-			</button>
-			<div class="label"><strong>three.ws</strong> · Describe it to 3D</div>
-		</div>
-
-		<!-- Step 1: compose -->
-		<section class="step active" data-step="compose" aria-label="Describe your avatar">
-			<h1>Describe it. Get a rigged 3D avatar.</h1>
-			<p class="sub">
-				Type what you want — a character, a creature, a style. We render a clean
-				reference, reconstruct it into 3D, and add a skeleton so it can move.
-			</p>
-
-			<div class="composer">
-				<textarea
-					id="prompt"
-					maxlength="600"
-					placeholder="A cyberpunk street samurai in a worn red coat, neon trim, calm expression…"
-					aria-label="Describe the avatar you want to generate"
-				></textarea>
-				<div class="composer-foot">
-					<span class="hint" id="cost-hint">Single subject, full body works best.</span>
-					<span class="counter" id="counter">0 / 600</span>
-				</div>
-			</div>
-
-			<div class="examples" role="group" aria-label="Example prompts">
-				<button class="example" type="button">A friendly robot mascot, rounded white shell, glowing blue eyes</button>
-				<button class="example" type="button">A medieval knight in battered steel plate, weathered cape</button>
-				<button class="example" type="button">A fox-eared ranger in green leather, bow on the back</button>
-				<button class="example" type="button">An astronaut in a sleek matte-black suit, gold visor</button>
-			</div>
-
-			<div class="actions">
-				<button class="btn-primary" id="generate-btn" type="button" disabled>
-					<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-						<path d="M12 3l1.9 5.3L19 10l-5.1 1.7L12 17l-1.9-5.3L5 10l5.1-1.7z" />
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "WebPage",
+				"name": "Describe it to 3D",
+				"description": "Type a description. About a minute later: a rigged 3D avatar you can animate and download.",
+				"url": "https://three.ws/create/prompt",
+				"isPartOf": { "@type": "WebSite", "name": "three.ws", "url": "https://three.ws" }
+			}
+		</script>
+	</head>
+	<body>
+		<a href="#prompt" class="skip-link">Skip to the prompt box</a>
+		<main class="stage">
+			<div class="topbar">
+				<button class="back" id="back-btn" aria-label="Back to create" type="button">
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<line x1="19" y1="12" x2="5" y2="12" />
+						<polyline points="12 19 5 12 12 5" />
 					</svg>
-					Generate avatar
 				</button>
-				<span class="hint"><span class="chip-auth">Sign-in required</span> · ~1 min · rigged GLB</span>
+				<div class="label"><strong>three.ws</strong> · Describe it to 3D</div>
 			</div>
 
-			<div class="error-box" id="compose-error" role="alert"></div>
+			<!-- Step 1: compose -->
+			<section class="step active" data-step="compose" aria-label="Describe your avatar">
+				<h1>Describe it. Get a rigged 3D avatar.</h1>
+				<p class="sub">
+					Type what you want — a character, a creature, a style. We render a clean
+					reference, reconstruct it into 3D, and add a skeleton so it can move.
+				</p>
 
-			<p class="note">
-				Avatars come out best with a single, clearly described subject. Abstract
-				scenes or multiple characters reconstruct poorly. You can refine the face,
-				outfit, and animations in the editor afterward.
-			</p>
-		</section>
+				<div class="composer">
+					<textarea
+						id="prompt"
+						maxlength="600"
+						placeholder="A cyberpunk street samurai in a worn red coat, neon trim, calm expression…"
+						aria-label="Describe the avatar you want to generate"
+					></textarea>
+					<div class="composer-foot">
+						<span class="hint" id="cost-hint"
+							>Single subject, full body works best.</span
+						>
+						<span class="counter" id="counter">0 / 600</span>
+					</div>
+				</div>
 
-		<!-- Step 2: building -->
-		<section class="step build-wrap" data-step="building" aria-label="Building your avatar" aria-live="polite">
-			<div class="orb" aria-hidden="true"></div>
-			<p class="build-prompt" id="build-prompt"></p>
-			<div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progress-fill"></div></div>
-			<p class="build-status" id="build-status">Rendering a reference image…</p>
-			<p class="elapsed" id="elapsed">0:00</p>
-			<div class="error-box" id="build-error" role="alert"></div>
-		</section>
+				<div class="examples" role="group" aria-label="Example prompts">
+					<button class="example" type="button">
+						A friendly robot mascot, rounded white shell, glowing blue eyes
+					</button>
+					<button class="example" type="button">
+						A medieval knight in battered steel plate, weathered cape
+					</button>
+					<button class="example" type="button">
+						A fox-eared ranger in green leather, bow on the back
+					</button>
+					<button class="example" type="button">
+						An astronaut in a sleek matte-black suit, gold visor
+					</button>
+				</div>
 
-		<!-- Step 3: done -->
-		<section class="step done-wrap" data-step="done" aria-label="Your avatar is ready">
-			<h1>Your avatar is ready</h1>
-			<p class="sub" style="margin-bottom:0">Open it in the editor to animate, dress, and export.</p>
-			<div class="done-viewer">
-				<model-viewer
-					id="done-model"
-					auto-rotate
-					rotation-per-second="14deg"
-					interaction-prompt="none"
-					camera-controls
-					shadow-intensity="0.7"
-					shadow-softness="0.8"
-					environment-image="neutral"
-					exposure="0.95"
-					camera-orbit="0deg 80deg auto"
-					loading="eager"
-					alt="Your newly generated 3D avatar"
-				></model-viewer>
-			</div>
-			<div class="done-tags" id="done-tags"></div>
-			<div class="done-actions">
-				<a class="btn-primary" id="open-editor" href="#">
-					Open in editor
-					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-						<line x1="5" y1="12" x2="19" y2="12" />
-						<polyline points="12 5 19 12 12 19" />
-					</svg>
-				</a>
-				<button class="btn-ghost" id="make-another" type="button">Make another</button>
-			</div>
-		</section>
-	</main>
+				<div class="actions">
+					<button class="btn-primary" id="generate-btn" type="button" disabled>
+						<svg
+							width="17"
+							height="17"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="M12 3l1.9 5.3L19 10l-5.1 1.7L12 17l-1.9-5.3L5 10l5.1-1.7z" />
+						</svg>
+						Generate avatar
+					</button>
+					<span class="hint"
+						><span class="chip-auth">Sign-in required</span> · ~1 min · rigged GLB</span
+					>
+				</div>
 
-	<script type="module" src="/src/create-prompt.js"></script>
-	<script src="/brand.js" defer></script>
-</body>
+				<div class="error-box" id="compose-error" role="alert"></div>
+
+				<p class="note">
+					Avatars come out best with a single, clearly described subject. Abstract scenes
+					or multiple characters reconstruct poorly. You can refine the face, outfit, and
+					animations in the editor afterward.
+				</p>
+			</section>
+
+			<!-- Step 2: building -->
+			<section
+				class="step build-wrap"
+				data-step="building"
+				aria-label="Building your avatar"
+				aria-live="polite"
+			>
+				<div class="orb" aria-hidden="true"></div>
+				<p class="build-prompt" id="build-prompt"></p>
+				<div class="progress-track" aria-hidden="true">
+					<div class="progress-fill" id="progress-fill"></div>
+				</div>
+				<p class="build-status" id="build-status">Rendering a reference image…</p>
+				<p class="elapsed" id="elapsed">0:00</p>
+				<div class="error-box" id="build-error" role="alert"></div>
+			</section>
+
+			<!-- Step 3: done -->
+			<section class="step done-wrap" data-step="done" aria-label="Your avatar is ready">
+				<h1>Your avatar is ready</h1>
+				<p class="sub" style="margin-bottom: 0">
+					Open it in the editor to animate, dress, and export.
+				</p>
+				<div class="done-viewer">
+					<model-viewer
+						id="done-model"
+						auto-rotate
+						rotation-per-second="14deg"
+						interaction-prompt="none"
+						camera-controls
+						shadow-intensity="0.7"
+						shadow-softness="0.8"
+						environment-image="neutral"
+						exposure="0.95"
+						camera-orbit="0deg 80deg auto"
+						loading="eager"
+						alt="Your newly generated 3D avatar"
+					></model-viewer>
+				</div>
+				<div class="done-tags" id="done-tags"></div>
+				<div class="done-actions">
+					<a class="btn-primary" id="open-editor" href="#">
+						Open in editor
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<line x1="5" y1="12" x2="19" y2="12" />
+							<polyline points="12 5 19 12 12 19" />
+						</svg>
+					</a>
+					<button class="btn-ghost" id="make-another" type="button">Make another</button>
+				</div>
+			</section>
+		</main>
+
+		<script type="module" src="/src/create-prompt.js"></script>
+		<script src="/brand.js" defer></script>
+	</body>
 </html>

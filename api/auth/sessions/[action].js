@@ -10,6 +10,7 @@
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, rotateSession, sessionCookie } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error, rateLimited } from '../../_lib/http.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -60,6 +61,8 @@ async function handleIndex(req, res) {
 
 	// DELETE — revoke all other sessions, then rotate the current one so the user
 	// stays signed in on this device with a fresh cookie ("log out everywhere else").
+	if (!(await requireCsrf(req, res, user.id))) return;
+
 	const ua = req.headers['user-agent'] || null;
 	const result = await sql`
 		update sessions
@@ -91,6 +94,7 @@ async function handleRevokeOne(req, res, sessionIdFromAction) {
 
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthenticated', 'not signed in');
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const sessionId = req.query.id || sessionIdFromAction || req.url.split('/').pop();
 	if (!UUID_REGEX.test(sessionId))

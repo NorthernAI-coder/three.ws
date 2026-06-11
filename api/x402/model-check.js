@@ -332,13 +332,18 @@ export default wrap(async (req, res) => {
 	if (!paymentHeader) return send402(res, challenge);
 
 	// USE-15: idempotency cache lookup before paying for /verify.
-	const paymentId = extractIdFromHeader(paymentHeader);
+	const clientPaymentId = extractIdFromHeader(paymentHeader);
 	const payloadHash = hashRequestPayload({
 		method: req.method,
 		url: req.url,
 		body: null,
 	});
 	const paymentHash = hashPaymentProof(paymentHeader);
+	// Always-on replay guard: the payment-identifier extension is client-opt-in,
+	// so when the client omits it we fall back to the proof hash itself as the
+	// dedup key (reproducible only by the original payer), making replay
+	// protection unconditional. Same idiom as api/_lib/x402-paid-endpoint.js.
+	const paymentId = clientPaymentId || (paymentHash ? `proof:${paymentHash}` : null);
 	if (paymentId) {
 		const lookup = await checkCache({ route: ROUTE, paymentId, payloadHash, paymentHash });
 		if (lookup.kind === 'hit') return writeCachedResponse(res, lookup.entry);

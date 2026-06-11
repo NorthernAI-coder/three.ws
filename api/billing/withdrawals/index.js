@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { sql } from '../../_lib/db.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../../_lib/http.js';
-import { parse } from '../../_lib/validate.js';
+import { parse, isValidSolanaAddress, isValidEvmAddress } from '../../_lib/validate.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { requireCsrf } from '../../_lib/csrf.js';
 
@@ -84,6 +84,13 @@ export default wrap(async (req, res) => {
 		return error(res, 422, 'below_minimum', 'Minimum withdrawal is 1 USDC');
 	}
 
+	if (chain === 'solana' && !isValidSolanaAddress(to_address)) {
+		return error(res, 400, 'validation_error', 'invalid Solana address');
+	}
+	if ((chain === 'base' || chain === 'evm') && !isValidEvmAddress(to_address)) {
+		return error(res, 400, 'validation_error', 'invalid EVM address');
+	}
+
 	// Verify agent_id belongs to this user if provided
 	if (agent_id) {
 		const [agent] = await sql`
@@ -94,7 +101,8 @@ export default wrap(async (req, res) => {
 	}
 
 	// Reserve the withdrawal atomically. The available balance (earned minus
-	// in-flight withdrawals) must be re-derived and compared *inside* the same
+	// pending/processing/completed withdrawals, mirroring getAvailableBalance in
+	// api/_lib/monetization.js) must be re-derived and compared *inside* the same
 	// statement that inserts the new pending row — a read-then-insert pair is a
 	// TOCTOU hole: N concurrent requests all read pending=0 and all insert,
 	// over-withdrawing past the real balance (the per-user rate limit admits up
@@ -122,7 +130,7 @@ export default wrap(async (req, res) => {
 					select coalesce(sum(w2.amount), 0)::bigint
 					from agent_withdrawals w2
 					where w2.user_id = ${user.id}
-					  and w2.status in ('pending', 'processing')
+					  and w2.status in ('pending', 'processing', 'completed')
 					  and w2.currency_mint = ${currency_mint}
 				)
 			)
@@ -132,7 +140,12 @@ export default wrap(async (req, res) => {
 
 	const withdrawal = inserted?.[0];
 	if (!withdrawal) {
-		return error(res, 422, 'insufficient_balance', 'requested amount exceeds available balance');
+		return error(
+			res,
+			422,
+			'insufficient_balance',
+			'requested amount exceeds available balance',
+		);
 	}
 
 	return json(res, 201, { withdrawal });

@@ -87,13 +87,18 @@ import { solanaConnection, loadAgentForSigning } from '../_lib/agent-pumpfun.js'
 import { connectPumpFunFeed } from '../_lib/pumpfun-ws-feed.js';
 import { makeRuntime } from '../_lib/skill-runtime.js';
 import { loadWallet } from '../_lib/solana-wallet.js';
-import { checkBuyAllowed } from '../_lib/agent-spend-policy.js';
 import {
-	SOLANA_USDC_MINT,
-	SOLANA_USDC_MINT_DEVNET,
-	toUsdcAtomics,
-} from '../payments/_config.js';
+	checkBuyAllowed,
+	reserveSpend,
+	finalizeSpend,
+	releaseSpend,
+} from '../_lib/agent-spend-policy.js';
+import { SOLANA_USDC_MINT, SOLANA_USDC_MINT_DEVNET, toUsdcAtomics } from '../payments/_config.js';
 import { classifyLaunchQuote, usdcMintFor } from '../_lib/pump-quote.js';
+import {
+	slippagePercentFromBps,
+	resolveTokenProgramForMintOwner,
+} from '../_lib/pump-trade-args.js';
 
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 
@@ -113,48 +118,90 @@ async function resolveAuth(req) {
 const wrapped = wrap(async (req, res) => {
 	const action = req.query?.action;
 	switch (action) {
-		case 'balances':                return handleBalances(req, res);
-		case 'buy-prep':                return handleBuyPrep(req, res);
-		case 'buy-confirm':             return handleBuyConfirm(req, res);
-		case 'sell-prep':               return handleSellPrep(req, res);
-		case 'sell-confirm':            return handleSellConfirm(req, res);
-		case 'build-metadata':          return handleBuildMetadata(req, res);
-		case 'launch-prep':             return handleLaunchPrep(req, res);
-		case 'launch-confirm':          return handleLaunchConfirm(req, res);
-		case 'launch-agent':            return handleLaunchAgent(req, res);
-		case 'agent-wallet':            return handleAgentWallet(req, res);
-		case 'accept-payment-prep':     return handleAcceptPaymentPrep(req, res);
-		case 'accept-payment-confirm':  return handleAcceptPaymentConfirm(req, res);
-		case 'payments-list':           return handlePaymentsList(req, res);
-		case 'portfolio':               return handlePortfolio(req, res);
-		case 'by-agent':                return handleByAgent(req, res);
-		case 'quote':                   return handleQuote(req, res);
-		case 'governance-prep':         return handleGovernancePrep(req, res);
-		case 'withdraw-prep':           return handleWithdrawPrep(req, res);
-		case 'withdraw-confirm':        return handleWithdrawConfirm(req, res);
-		case 'strategy-backtest':       return handleStrategyBacktest(req, res);
-		case 'strategy-close-all':      return handleStrategyCloseAll(req, res);
-		case 'strategy-validate':       return handleStrategyValidate(req, res);
-		case 'channel-feed':            return handleChannelFeed(req, res);
-		case 'deliver-telegram':        return handleDeliverTelegram(req, res);
-		case 'first-claims':            return handleFirstClaims(req, res);
-		case 'recent-graduations':            return handleRecentGraduations(req, res);
-		case 'trending':                      return handleTrending(req, res);
-		case 'coin':                          return handleCoin(req, res);
-		case 'coin-trades':                   return handleCoinTrades(req, res);
-		case 'search':                        return handleSearch(req, res);
-		case 'collect-creator-fee-prep':      return handleCollectCreatorFeePrep(req, res);
-		case 'distribute-creator-fees-prep':  return handleDistributeCreatorFeesPrep(req, res);
-		case 'create-fee-sharing-prep':       return handleCreateFeeSharingPrep(req, res);
-		case 'update-fee-shares-prep':        return handleUpdateFeeSharesPrep(req, res);
-		case 'fee-info':                      return handleFeeInfo(req, res);
-		case 'resolve-github-shareholder':    return handleResolveGithubShareholder(req, res);
-		case 'create-social-fee-pda-prep':    return handleCreateSocialFeePdaPrep(req, res);
-		case 'github-resolve':                return handleGithubResolve(req, res);
-		case 'social-fee-claim-status':       return handleSocialFeeClaimStatus(req, res);
-		case 'collect-creator-fee-agent':     return handleCollectCreatorFeeAgent(req, res);
-		case 'distribute-creator-fees-agent': return handleDistributeCreatorFeesAgent(req, res);
-		case 'fee-sharing-agent':             return handleFeeSharingAgent(req, res);
+		case 'balances':
+			return handleBalances(req, res);
+		case 'buy-prep':
+			return handleBuyPrep(req, res);
+		case 'buy-confirm':
+			return handleBuyConfirm(req, res);
+		case 'sell-prep':
+			return handleSellPrep(req, res);
+		case 'sell-confirm':
+			return handleSellConfirm(req, res);
+		case 'build-metadata':
+			return handleBuildMetadata(req, res);
+		case 'launch-prep':
+			return handleLaunchPrep(req, res);
+		case 'launch-confirm':
+			return handleLaunchConfirm(req, res);
+		case 'launch-agent':
+			return handleLaunchAgent(req, res);
+		case 'agent-wallet':
+			return handleAgentWallet(req, res);
+		case 'accept-payment-prep':
+			return handleAcceptPaymentPrep(req, res);
+		case 'accept-payment-confirm':
+			return handleAcceptPaymentConfirm(req, res);
+		case 'payments-list':
+			return handlePaymentsList(req, res);
+		case 'portfolio':
+			return handlePortfolio(req, res);
+		case 'by-agent':
+			return handleByAgent(req, res);
+		case 'quote':
+			return handleQuote(req, res);
+		case 'governance-prep':
+			return handleGovernancePrep(req, res);
+		case 'withdraw-prep':
+			return handleWithdrawPrep(req, res);
+		case 'withdraw-confirm':
+			return handleWithdrawConfirm(req, res);
+		case 'strategy-backtest':
+			return handleStrategyBacktest(req, res);
+		case 'strategy-close-all':
+			return handleStrategyCloseAll(req, res);
+		case 'strategy-validate':
+			return handleStrategyValidate(req, res);
+		case 'channel-feed':
+			return handleChannelFeed(req, res);
+		case 'deliver-telegram':
+			return handleDeliverTelegram(req, res);
+		case 'first-claims':
+			return handleFirstClaims(req, res);
+		case 'recent-graduations':
+			return handleRecentGraduations(req, res);
+		case 'trending':
+			return handleTrending(req, res);
+		case 'coin':
+			return handleCoin(req, res);
+		case 'coin-trades':
+			return handleCoinTrades(req, res);
+		case 'search':
+			return handleSearch(req, res);
+		case 'collect-creator-fee-prep':
+			return handleCollectCreatorFeePrep(req, res);
+		case 'distribute-creator-fees-prep':
+			return handleDistributeCreatorFeesPrep(req, res);
+		case 'create-fee-sharing-prep':
+			return handleCreateFeeSharingPrep(req, res);
+		case 'update-fee-shares-prep':
+			return handleUpdateFeeSharesPrep(req, res);
+		case 'fee-info':
+			return handleFeeInfo(req, res);
+		case 'resolve-github-shareholder':
+			return handleResolveGithubShareholder(req, res);
+		case 'create-social-fee-pda-prep':
+			return handleCreateSocialFeePdaPrep(req, res);
+		case 'github-resolve':
+			return handleGithubResolve(req, res);
+		case 'social-fee-claim-status':
+			return handleSocialFeeClaimStatus(req, res);
+		case 'collect-creator-fee-agent':
+			return handleCollectCreatorFeeAgent(req, res);
+		case 'distribute-creator-fees-agent':
+			return handleDistributeCreatorFeesAgent(req, res);
+		case 'fee-sharing-agent':
+			return handleFeeSharingAgent(req, res);
 		default:
 			return error(res, 404, 'not_found', 'unknown pump action');
 	}
@@ -219,22 +266,24 @@ async function handleBalances(req, res) {
 
 // ── buy-prep ───────────────────────────────────────────────────────────────
 
-const buyPrepSchema = z.object({
-	mint: z.string().min(32).max(44),
-	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
-	// For SOL-paired coins pass `sol`; for USDC-paired coins pass `usdc_amount`.
-	// Exactly one must be provided — validation enforced below.
-	sol: z.number().positive().max(50).optional(),
-	usdc_amount: z.number().positive().max(1_000_000).optional(),
-	// Optional explicit quote mint. When omitted the server auto-detects from
-	// the on-chain bonding curve (quote_mint field added in pump.fun V2).
-	quote_mint: z.string().min(32).max(44).optional(),
-	slippage_bps: z.number().int().min(0).max(5000).default(100),
-	wallet_address: z.string().min(32).max(44),
-}).refine((v) => v.sol != null || v.usdc_amount != null, {
-	message: 'sol or usdc_amount required',
-	path: ['sol'],
-});
+const buyPrepSchema = z
+	.object({
+		mint: z.string().min(32).max(44),
+		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+		// For SOL-paired coins pass `sol`; for USDC-paired coins pass `usdc_amount`.
+		// Exactly one must be provided — validation enforced below.
+		sol: z.number().positive().max(50).optional(),
+		usdc_amount: z.number().positive().max(1_000_000).optional(),
+		// Optional explicit quote mint. When omitted the server auto-detects from
+		// the on-chain bonding curve (quote_mint field added in pump.fun V2).
+		quote_mint: z.string().min(32).max(44).optional(),
+		slippage_bps: z.number().int().min(0).max(5000).default(100),
+		wallet_address: z.string().min(32).max(44),
+	})
+	.refine((v) => v.sol != null || v.usdc_amount != null, {
+		message: 'sol or usdc_amount required',
+		path: ['sol'],
+	});
 
 async function handleBuyPrep(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -252,14 +301,32 @@ async function handleBuyPrep(req, res) {
 	if (!userPk || !mintPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
 	try {
-		const { sdk, BN, web3 } = await getPumpSdk({ network: body.network });
-		const { isLegacyQuoteMint } = await import('@pump-fun/pump-sdk');
-		const slippage = body.slippage_bps / 10_000;
+		const { sdk, BN, web3, connection } = await getPumpSdk({ network: body.network });
+		const { isLegacyQuoteMint, getBuyTokenAmountFromSolAmount } =
+			await import('@pump-fun/pump-sdk');
+		// @pump-fun SDK builders take slippage as a PERCENT (1 = 1%), not a
+		// fraction — see api/_lib/pump-trade-args.js for the unit derivation.
+		const slippagePct = slippagePercentFromBps(body.slippage_bps);
+
+		// The base mint's owner decides base_token_program: create_v2 coins are
+		// Token-2022, legacy coins are SPL Token (docs/instructions/BUY.md #4).
+		const mintInfo = await connection.getAccountInfo(mintPk);
+		if (!mintInfo)
+			return error(
+				res,
+				404,
+				'mint_not_found',
+				`mint ${body.mint} not found on ${body.network}`,
+			);
+		const baseTokenProgram = resolveTokenProgramForMintOwner(mintInfo.owner);
 
 		// Fetch bonding curve state — also gives us the on-chain quote_mint.
+		// Pass the real token program so the user-ATA existence check resolves
+		// the correct (possibly Token-2022) associated account.
 		let buyState = null;
 		try {
-			if (sdk.fetchBuyState) buyState = await sdk.fetchBuyState(mintPk, userPk);
+			if (sdk.fetchBuyState)
+				buyState = await sdk.fetchBuyState(mintPk, userPk, baseTokenProgram);
 		} catch {
 			buyState = null;
 		}
@@ -276,86 +343,101 @@ async function handleBuyPrep(req, res) {
 		// clients see a real, usable mint for every coin type.
 		const quoteMintDisplay = isUsdcQuote ? quoteMintPk.toString() : WSOL_MINT;
 
-		if (buyState && buyState.bondingCurve && !buyState.bondingCurve.complete) {
-			const global = await sdk.fetchGlobal();
-			let tx_base64;
-			if (isUsdcQuote) {
-				if (body.usdc_amount == null)
-					return error(res, 400, 'validation_error', 'usdc_amount required for USDC-paired coin');
-				const quoteAtomics = new BN(Math.round(body.usdc_amount * 1_000_000));
-				const ixs = await sdk.buyV2Instructions({
-					global,
-					bondingCurveAccountInfo: buyState.bondingCurveAccountInfo,
-					bondingCurve: buyState.bondingCurve,
-					associatedUserAccountInfo: buyState.associatedUserAccountInfo,
-					mint: mintPk,
-					user: userPk,
-					amount: new BN(0),
-					quoteAmount: quoteAtomics,
-					slippage,
-					quoteMint: quoteMintPk,
-				});
-				tx_base64 = await buildUnsignedTxBase64({
-					network: body.network, payer: userPk, instructions: ixs,
-				});
-				return json(res, 201, {
-					route: 'bonding_curve',
-					mint: body.mint,
-					network: body.network,
-					quote_mint: quoteMintDisplay,
-					usdc_in: body.usdc_amount,
-					slippage_bps: body.slippage_bps,
-					tx_base64,
-				});
-			}
+		// quote_token_program must match the quote mint's owner (wSOL/USDC are
+		// SPL Token today; read it from chain so a future quote can't break us).
+		let quoteTokenProgram = TOKEN_PROGRAM_ID;
+		if (isUsdcQuote) {
+			const quoteInfo = await connection.getAccountInfo(quoteMintPk);
+			if (!quoteInfo)
+				return error(
+					res,
+					404,
+					'quote_mint_not_found',
+					`quote mint ${quoteMintPk.toBase58()} not found`,
+				);
+			quoteTokenProgram = resolveTokenProgramForMintOwner(quoteInfo.owner);
+		}
 
-			// SOL-paired (legacy)
-			if (body.sol == null)
-				return error(res, 400, 'validation_error', 'sol required for SOL-paired coin');
-			const lamports = new BN(Math.floor(body.sol * web3.LAMPORTS_PER_SOL));
-			const ixs = await sdk.buyInstructions({
+		// Validate the quote-asset amount up front for both routes.
+		if (isUsdcQuote && body.usdc_amount == null)
+			return error(res, 400, 'validation_error', 'usdc_amount required for USDC-paired coin');
+		if (!isUsdcQuote && body.sol == null)
+			return error(res, 400, 'validation_error', 'sol required for SOL-paired coin');
+		const quoteAtomics = isUsdcQuote
+			? new BN(Math.round(body.usdc_amount * 1_000_000))
+			: new BN(Math.floor(body.sol * web3.LAMPORTS_PER_SOL));
+
+		if (buyState && buyState.bondingCurve && !buyState.bondingCurve.complete) {
+			// Unified v2 interface for every coin type (SOL- and USDC-paired,
+			// SPL and Token-2022 base mints) per the upstream migration guidance —
+			// docs/pumpfun-program/UPSTREAM-buy-sell-v2-announcement.md.
+			const [global, feeConfig] = await Promise.all([
+				sdk.fetchGlobal(),
+				sdk.fetchFeeConfig().catch(() => null),
+			]);
+			// buy_v2's `amount` arg is the base-token quantity to buy and must be
+			// > 0 (docs/instructions/BUY.md) — derive it from the quote input.
+			const tokenAmount = getBuyTokenAmountFromSolAmount({
+				global,
+				feeConfig,
+				mintSupply: buyState.bondingCurve.tokenTotalSupply,
+				bondingCurve: buyState.bondingCurve,
+				amount: quoteAtomics,
+				quoteMint: quoteMintPk,
+			});
+			if (!tokenAmount.gt(new BN(0)))
+				return error(
+					res,
+					400,
+					'amount_too_small',
+					'quote amount too small to buy any tokens',
+				);
+			const ixs = await sdk.buyV2Instructions({
 				global,
 				bondingCurveAccountInfo: buyState.bondingCurveAccountInfo,
 				bondingCurve: buyState.bondingCurve,
 				associatedUserAccountInfo: buyState.associatedUserAccountInfo,
 				mint: mintPk,
 				user: userPk,
-				amount: new BN(0),
-				solAmount: lamports,
-				slippage,
+				amount: tokenAmount,
+				quoteAmount: quoteAtomics,
+				slippage: slippagePct,
+				tokenProgram: baseTokenProgram,
+				quoteTokenProgram,
 			});
-			tx_base64 = await buildUnsignedTxBase64({
-				network: body.network, payer: userPk, instructions: ixs,
+			const tx_base64 = await buildUnsignedTxBase64({
+				network: body.network,
+				payer: userPk,
+				instructions: ixs,
 			});
 			return json(res, 201, {
 				route: 'bonding_curve',
 				mint: body.mint,
 				network: body.network,
 				quote_mint: quoteMintDisplay,
-				sol_in: body.sol,
+				...(isUsdcQuote ? { usdc_in: body.usdc_amount } : { sol_in: body.sol }),
+				expected_tokens_out: tokenAmount.toString(),
 				slippage_bps: body.slippage_bps,
 				tx_base64,
 			});
 		}
 
 		// AMM (post-graduation)
-		const amm = await getAmmPoolState({ network: body.network, mint: mintPk, quoteMint: isUsdcQuote ? quoteMintPk : null });
+		const amm = await getAmmPoolState({
+			network: body.network,
+			mint: mintPk,
+			quoteMint: isUsdcQuote ? quoteMintPk : null,
+		});
 		const ammMod = await import('@pump-fun/pump-swap-sdk');
 		const offline = new ammMod.PumpAmmSdk();
 		const onlineAmm = new ammMod.OnlinePumpAmmSdk(getConnection({ network: body.network }));
 		const swapState = await onlineAmm.swapSolanaState(amm.poolKey, userPk);
 
-		const quoteIn = isUsdcQuote
-			? new BN(Math.round(body.usdc_amount * 1_000_000))
-			: new BN(Math.floor(body.sol * web3.LAMPORTS_PER_SOL));
-		if (body.usdc_amount == null && isUsdcQuote)
-			return error(res, 400, 'validation_error', 'usdc_amount required for USDC AMM pool');
-		if (body.sol == null && !isUsdcQuote)
-			return error(res, 400, 'validation_error', 'sol required for SOL AMM pool');
-
-		const ixs = await offline.buyQuoteInput(swapState, quoteIn, slippage);
+		const ixs = await offline.buyQuoteInput(swapState, quoteAtomics, slippagePct);
 		const tx_base64 = await buildUnsignedTxBase64({
-			network: body.network, payer: userPk, instructions: ixs,
+			network: body.network,
+			payer: userPk,
+			instructions: ixs,
 		});
 		return json(res, 201, {
 			route: 'amm',
@@ -499,14 +581,29 @@ async function handleSellPrep(req, res) {
 	if (!userPk || !mintPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
 	try {
-		const { sdk, BN } = await getPumpSdk({ network: body.network });
-		const { isLegacyQuoteMint } = await import('@pump-fun/pump-sdk');
+		const { sdk, BN, connection } = await getPumpSdk({ network: body.network });
+		const { isLegacyQuoteMint, getSellSolAmountFromTokenAmount } =
+			await import('@pump-fun/pump-sdk');
 		const tokens = new BN(body.tokens);
-		const slippage = body.slippage_bps / 10_000;
+		// SDK builders take slippage as a PERCENT — see api/_lib/pump-trade-args.js.
+		const slippagePct = slippagePercentFromBps(body.slippage_bps);
+
+		// base_token_program must match the mint owner (Token-2022 for create_v2
+		// coins, SPL for legacy) — docs/instructions/SELL.md #4.
+		const mintInfo = await connection.getAccountInfo(mintPk);
+		if (!mintInfo)
+			return error(
+				res,
+				404,
+				'mint_not_found',
+				`mint ${body.mint} not found on ${body.network}`,
+			);
+		const baseTokenProgram = resolveTokenProgramForMintOwner(mintInfo.owner);
 
 		let sellState = null;
 		try {
-			if (sdk.fetchSellState) sellState = await sdk.fetchSellState(mintPk, userPk);
+			if (sdk.fetchSellState)
+				sellState = await sdk.fetchSellState(mintPk, userPk, baseTokenProgram);
 		} catch {
 			sellState = null;
 		}
@@ -521,33 +618,71 @@ async function handleSellPrep(req, res) {
 		// SOL curves store quoteMint as PublicKey.default — surface wrapped SOL.
 		const quoteMintDisplay = isUsdcQuote ? quoteMintPk.toString() : WSOL_MINT;
 
+		// quote_token_program must match the quote mint's owner.
+		let quoteTokenProgram = TOKEN_PROGRAM_ID;
+		if (isUsdcQuote) {
+			const quoteInfo = await connection.getAccountInfo(quoteMintPk);
+			if (!quoteInfo)
+				return error(
+					res,
+					404,
+					'quote_mint_not_found',
+					`quote mint ${quoteMintPk.toBase58()} not found`,
+				);
+			quoteTokenProgram = resolveTokenProgramForMintOwner(quoteInfo.owner);
+		}
+
 		if (sellState && sellState.bondingCurve && !sellState.bondingCurve.complete) {
-			const global = await sdk.fetchGlobal();
-			let ixs;
+			// Unified v2 sell for every coin type. sell_v2 reads the fee-recipient
+			// pool from the curve's mayhem flag inside the SDK builder, and the
+			// expected quote output below gives the program a real min_sol_output
+			// floor (expected minus slippage) instead of 0.
+			const [global, feeConfig] = await Promise.all([
+				sdk.fetchGlobal(),
+				sdk.fetchFeeConfig().catch(() => null),
+			]);
+			const expectedQuoteOut = getSellSolAmountFromTokenAmount({
+				global,
+				feeConfig,
+				mintSupply: sellState.bondingCurve.tokenTotalSupply,
+				bondingCurve: sellState.bondingCurve,
+				amount: tokens,
+			});
+			const ixs = [];
 			if (isUsdcQuote) {
-				ixs = await sdk.sellV2Instructions({
-					global,
-					bondingCurveAccountInfo: sellState.bondingCurveAccountInfo,
-					bondingCurve: sellState.bondingCurve,
-					mint: mintPk,
-					user: userPk,
-					amount: tokens,
-					quoteAmount: new BN(0),
-					slippage,
-					quoteMint: quoteMintPk,
-				});
-			} else {
-				ixs = await sdk.sellInstructions({
-					global,
-					bondingCurveAccountInfo: sellState.bondingCurveAccountInfo,
-					bondingCurve: sellState.bondingCurve,
-					mint: mintPk,
-					user: userPk,
-					amount: tokens,
-					solAmount: new BN(0),
-					slippage,
-				});
+				// sell_v2 pays proceeds into the seller's quote ATA, which the
+				// program does NOT init (SELL.md #16) — create it idempotently.
+				const spl = await import('@solana/spl-token');
+				const userQuoteAta = spl.getAssociatedTokenAddressSync(
+					quoteMintPk,
+					userPk,
+					true,
+					quoteTokenProgram,
+				);
+				ixs.push(
+					spl.createAssociatedTokenAccountIdempotentInstruction(
+						userPk,
+						userQuoteAta,
+						userPk,
+						quoteMintPk,
+						quoteTokenProgram,
+					),
+				);
 			}
+			ixs.push(
+				...(await sdk.sellV2Instructions({
+					global,
+					bondingCurveAccountInfo: sellState.bondingCurveAccountInfo,
+					bondingCurve: sellState.bondingCurve,
+					mint: mintPk,
+					user: userPk,
+					amount: tokens,
+					quoteAmount: expectedQuoteOut,
+					slippage: slippagePct,
+					tokenProgram: baseTokenProgram,
+					quoteTokenProgram,
+				})),
+			);
 			const tx_base64 = await buildUnsignedTxBase64({
 				network: body.network,
 				payer: userPk,
@@ -559,17 +694,24 @@ async function handleSellPrep(req, res) {
 				network: body.network,
 				quote_mint: quoteMintDisplay,
 				tokens_in: body.tokens,
+				...(isUsdcQuote
+					? { expected_usdc_out: Number(expectedQuoteOut.toString()) / 1_000_000 }
+					: { expected_sol_out: Number(expectedQuoteOut.toString()) / 1_000_000_000 }),
 				slippage_bps: body.slippage_bps,
 				tx_base64,
 			});
 		}
 
-		const amm = await getAmmPoolState({ network: body.network, mint: mintPk, quoteMint: isUsdcQuote ? quoteMintPk : null });
+		const amm = await getAmmPoolState({
+			network: body.network,
+			mint: mintPk,
+			quoteMint: isUsdcQuote ? quoteMintPk : null,
+		});
 		const ammMod = await import('@pump-fun/pump-swap-sdk');
 		const offline = new ammMod.PumpAmmSdk();
 		const onlineAmm = new ammMod.OnlinePumpAmmSdk(getConnection({ network: body.network }));
 		const swapState = await onlineAmm.swapSolanaState(amm.poolKey, userPk);
-		const ixs = await offline.sellBaseInput(swapState, tokens, slippage);
+		const ixs = await offline.sellBaseInput(swapState, tokens, slippagePct);
 		const tx_base64 = await buildUnsignedTxBase64({
 			network: body.network,
 			payer: userPk,
@@ -718,7 +860,8 @@ async function handleBuildMetadata(req, res) {
 			return error(res, 413, 'payload_too_large', 'image must be under 4 MB');
 		}
 		imageContentType = meta.match(/data:([^;,]+)/)?.[1] || 'image/png';
-		imageExt = imageContentType.includes('jpeg') || imageContentType.includes('jpg') ? 'jpg' : 'png';
+		imageExt =
+			imageContentType.includes('jpeg') || imageContentType.includes('jpg') ? 'jpg' : 'png';
 	} else if (body.avatar_id) {
 		const [av] = await sql`
 			select thumbnail_key from avatars
@@ -733,7 +876,10 @@ async function handleBuildMetadata(req, res) {
 				if (resp.ok) {
 					imageBuf = Buffer.from(await resp.arrayBuffer());
 					imageContentType = resp.headers.get('content-type') || 'image/png';
-					imageExt = imageContentType.includes('jpeg') || imageContentType.includes('jpg') ? 'jpg' : 'png';
+					imageExt =
+						imageContentType.includes('jpeg') || imageContentType.includes('jpg')
+							? 'jpg'
+							: 'png';
 				}
 			} catch {
 				/* fall through to direct URL */
@@ -804,38 +950,67 @@ async function handleBuildMetadata(req, res) {
 // so a treasury / DAO wallet can be the creator while a contributor wallet
 // signs and pays.
 async function buildLaunchInstructions({
-	sdk, BN, mint, creator, signer, name, symbol, uri, solBuyIn, usdcBuyIn, quoteMint, isMayhem,
+	sdk,
+	BN,
+	mint,
+	creator,
+	signer,
+	name,
+	symbol,
+	uri,
+	solBuyIn,
+	usdcBuyIn,
+	quoteMint,
+	isMayhem,
 }) {
 	const LAMPORTS = 1_000_000_000;
-	const user     = signer || creator;
+	const user = signer || creator;
 	const { isLegacyQuoteMint } = await import('@pump-fun/pump-sdk');
 	const isUsdcQuote = quoteMint && !isLegacyQuoteMint(quoteMint);
 
 	if (isUsdcQuote) {
 		// USDC-paired: use V2 buy path regardless of whether there's an initial buy.
-		const hasBuy   = usdcBuyIn > 0;
-		const global   = await sdk.fetchGlobal();
-		const pumpSdk  = await import('@pump-fun/pump-sdk');
+		const hasBuy = usdcBuyIn > 0;
+		const global = await sdk.fetchGlobal();
+		const pumpSdk = await import('@pump-fun/pump-sdk');
 		if (hasBuy) {
-			const quoteAmount   = new BN(Math.round(usdcBuyIn * 1_000_000));
+			const quoteAmount = new BN(Math.round(usdcBuyIn * 1_000_000));
 			// Pass `quoteMint` so the SDK seeds a fresh curve from
 			// `initial_virtual_quote_reserves` (USDC) rather than the SOL reserves —
 			// otherwise the base-token estimate is priced against the wrong pool and
 			// the create+buy can over/under-spend or revert on max_quote_cost.
-			const tokenAmount   = pumpSdk.getBuyTokenAmountFromSolAmount({
-				global, feeConfig: null, mintSupply: null, bondingCurve: null, amount: quoteAmount, quoteMint,
+			const tokenAmount = pumpSdk.getBuyTokenAmountFromSolAmount({
+				global,
+				feeConfig: null,
+				mintSupply: null,
+				bondingCurve: null,
+				amount: quoteAmount,
+				quoteMint,
 			});
 			const ixs = await sdk.createV2AndBuyV2Instructions({
-				global, mint, name, symbol, uri,
-				creator, user,
-				quoteAmount, amount: tokenAmount,
+				global,
+				mint,
+				name,
+				symbol,
+				uri,
+				creator,
+				user,
+				quoteAmount,
+				amount: tokenAmount,
 				mayhemMode: !!isMayhem,
 				quoteMint,
 			});
 			return Array.isArray(ixs) ? [...ixs] : [ixs];
 		}
 		const ix = await sdk.createV2Instruction({
-			mint, name, symbol, uri, creator, user, mayhemMode: !!isMayhem, quoteMint,
+			mint,
+			name,
+			symbol,
+			uri,
+			creator,
+			user,
+			mayhemMode: !!isMayhem,
+			quoteMint,
 		});
 		return [ix];
 	}
@@ -843,9 +1018,9 @@ async function buildLaunchInstructions({
 	// SOL-paired (original behaviour)
 	const hasBuy = solBuyIn > 0;
 	if (hasBuy) {
-		const global    = await sdk.fetchGlobal();
+		const global = await sdk.fetchGlobal();
 		const solAmount = new BN(Math.floor(solBuyIn * LAMPORTS));
-		const pumpSdk   = await import('@pump-fun/pump-sdk');
+		const pumpSdk = await import('@pump-fun/pump-sdk');
 		const tokenAmount = pumpSdk.getBuyTokenAmountFromSolAmount({
 			global,
 			feeConfig: null,
@@ -854,16 +1029,28 @@ async function buildLaunchInstructions({
 			amount: solAmount,
 		});
 		const ixs = await sdk.createV2AndBuyInstructions({
-			global, mint, name, symbol, uri,
-			creator, user,
-			solAmount, amount: tokenAmount,
+			global,
+			mint,
+			name,
+			symbol,
+			uri,
+			creator,
+			user,
+			solAmount,
+			amount: tokenAmount,
 			mayhemMode: !!isMayhem,
 		});
 		return Array.isArray(ixs) ? [...ixs] : [ixs];
 	}
 
 	const ix = await sdk.createV2Instruction({
-		mint, name, symbol, uri, creator, user, mayhemMode: !!isMayhem,
+		mint,
+		name,
+		symbol,
+		uri,
+		creator,
+		user,
+		mayhemMode: !!isMayhem,
 	});
 	return [ix];
 }
@@ -1015,7 +1202,12 @@ async function handleLaunchPrep(req, res) {
 			limit 1
 		`;
 		if (!creatorWallet) {
-			return error(res, 403, 'forbidden', 'creator_address must be a solana wallet linked to your account');
+			return error(
+				res,
+				403,
+				'forbidden',
+				'creator_address must be a solana wallet linked to your account',
+			);
 		}
 		creator = creatorPk;
 	}
@@ -1039,8 +1231,12 @@ async function handleLaunchPrep(req, res) {
 		const supplied = solanaPubkey(body.mint_address);
 		if (!supplied) return error(res, 400, 'validation_error', 'invalid mint_address');
 		if (enforceMark && !hasThreeWsMark(supplied.toBase58())) {
-			return error(res, 400, 'unbranded_mint',
-				'three.ws launches must use a mint address carrying the "3ws" mark — grind one client-side or omit mint_address to let the server stamp it');
+			return error(
+				res,
+				400,
+				'unbranded_mint',
+				'three.ws launches must use a mint address carrying the "3ws" mark — grind one client-side or omit mint_address to let the server stamp it',
+			);
 		}
 		mint = supplied;
 	} else if (enforceMark) {
@@ -1048,10 +1244,19 @@ async function handleLaunchPrep(req, res) {
 			const ground = await grindVanityNode({ ...THREE_WS_VANITY }); // ~49k attempts, sub-second
 			mintKeypair = Keypair.fromSecretKey(ground.secretKey);
 			mint = mintKeypair.publicKey;
-			log.info('mint_mark_stamped', { publicKey: ground.publicKey, attempts: ground.attempts, durationMs: Math.round(ground.durationMs) });
+			log.info('mint_mark_stamped', {
+				publicKey: ground.publicKey,
+				attempts: ground.attempts,
+				durationMs: Math.round(ground.durationMs),
+			});
 		} catch (err) {
 			if (err instanceof GrindExhaustedError) {
-				return error(res, 503, 'mark_grind_failed', 'could not stamp the three.ws mark — retry');
+				return error(
+					res,
+					503,
+					'mark_grind_failed',
+					'could not stamp the three.ws mark — retry',
+				);
 			}
 			throw err;
 		}
@@ -1068,7 +1273,7 @@ async function handleLaunchPrep(req, res) {
 	//   agent  → V1 path + on-chain agent (PumpAgent.create with buyback_bps)
 	//   regular→ V1 path, no agent binding
 	const isMayhem = body.coin_type === 'mayhem';
-	const isAgent  = body.coin_type === 'agent';
+	const isAgent = body.coin_type === 'agent';
 	const effBuyback = isAgent ? body.buyback_bps : 0;
 
 	// Resolve the quote pairing: null → SOL-paired; an explicit mint (e.g. USDC)
@@ -1084,8 +1289,14 @@ async function handleLaunchPrep(req, res) {
 	const quote = classifyLaunchQuote({ quoteMint: requestedQuoteMint, network: body.network });
 	const launchQuoteMint = quote.quoteMint ? solanaPubkey(quote.quoteMint) : null;
 	const instructions = await buildLaunchInstructions({
-		sdk, BN, mint, creator, signer,
-		name: body.name, symbol: body.symbol, uri: body.uri,
+		sdk,
+		BN,
+		mint,
+		creator,
+		signer,
+		name: body.name,
+		symbol: body.symbol,
+		uri: body.uri,
 		solBuyIn: body.sol_buy_in,
 		usdcBuyIn: body.usdc_buy_in,
 		quoteMint: launchQuoteMint,
@@ -1123,15 +1334,15 @@ async function handleLaunchPrep(req, res) {
 			${JSON.stringify({
 				kind: 'pump_launch',
 				agent_id: resolvedAgentId,
-				wallet_address: body.wallet_address,    // signer (pays gas, funds initial buy)
-				creator_address: creator.toBase58(),    // on-chain creator (royalty recipient)
+				wallet_address: body.wallet_address, // signer (pays gas, funds initial buy)
+				creator_address: creator.toBase58(), // on-chain creator (royalty recipient)
 				mint: mint.toBase58(),
 				name: body.name,
 				symbol: body.symbol,
 				network: body.network,
 				buyback_bps: effBuyback,
 				coin_type: body.coin_type,
-				quote_mint: quote.quoteMint,   // null = SOL-paired; else the stable quote mint
+				quote_mint: quote.quoteMint, // null = SOL-paired; else the stable quote mint
 				prep_id: prepId,
 			})}::jsonb,
 			${expiresAt}
@@ -1145,7 +1356,9 @@ async function handleLaunchPrep(req, res) {
 		// Mint keypair must co-sign the tx. When server-generated, we hand
 		// the secret to the frontend; when client-supplied (vanity), the
 		// client already holds it and the server never sees it.
-		mint_secret_key_b64: mintKeypair ? Buffer.from(mintKeypair.secretKey).toString('base64') : null,
+		mint_secret_key_b64: mintKeypair
+			? Buffer.from(mintKeypair.secretKey).toString('base64')
+			: null,
 		client_supplied_mint: !mintKeypair,
 		tx_base64: txBase64,
 		network: body.network,
@@ -1199,9 +1412,7 @@ async function handleLaunchConfirm(req, res) {
 	} catch (e) {
 		return error(res, e.status || 422, e.code || 'tx_failed', e.message);
 	}
-	const accountKeys = tx.transaction.message.accountKeys.map((k) =>
-		(k.pubkey || k).toString(),
-	);
+	const accountKeys = tx.transaction.message.accountKeys.map((k) => (k.pubkey || k).toString());
 	if (!accountKeys.includes(p.mint)) {
 		return error(res, 422, 'mint_not_in_tx', 'mint pubkey not present in tx');
 	}
@@ -1281,7 +1492,9 @@ async function handleAgentWallet(req, res) {
 	});
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
-	const loaded = await loadAgentForSigning(agent.id, user.id, { reason: 'studio_launch_prepare' });
+	const loaded = await loadAgentForSigning(agent.id, user.id, {
+		reason: 'studio_launch_prepare',
+	});
 	if (loaded.error) return error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
 
 	const address = loaded.keypair.publicKey.toBase58();
@@ -1389,17 +1602,30 @@ async function handleLaunchAgent(req, res) {
 			return error(res, 400, 'validation_error', 'mint_address does not match secret key');
 		}
 		if (enforceMark && !hasThreeWsMark(mintKeypair.publicKey.toBase58())) {
-			return error(res, 400, 'unbranded_mint',
-				'three.ws launches must use a mint carrying the "3ws" mark — omit mint_address to let the server stamp it');
+			return error(
+				res,
+				400,
+				'unbranded_mint',
+				'three.ws launches must use a mint carrying the "3ws" mark — omit mint_address to let the server stamp it',
+			);
 		}
 	} else if (enforceMark) {
 		try {
 			const ground = await grindVanityNode({ ...THREE_WS_VANITY }); // ~49k attempts, sub-second
 			mintKeypair = Keypair.fromSecretKey(ground.secretKey);
-			log.info('mint_mark_stamped', { publicKey: ground.publicKey, attempts: ground.attempts, durationMs: Math.round(ground.durationMs) });
+			log.info('mint_mark_stamped', {
+				publicKey: ground.publicKey,
+				attempts: ground.attempts,
+				durationMs: Math.round(ground.durationMs),
+			});
 		} catch (err) {
 			if (err instanceof GrindExhaustedError) {
-				return error(res, 503, 'mark_grind_failed', 'could not stamp the three.ws mark — retry');
+				return error(
+					res,
+					503,
+					'mark_grind_failed',
+					'could not stamp the three.ws mark — retry',
+				);
 			}
 			throw err;
 		}
@@ -1477,12 +1703,17 @@ async function handleLaunchAgent(req, res) {
 	const { sdk, BN } = await getPumpSdk({ network: body.network });
 
 	const isMayhem = body.coin_type === 'mayhem';
-	const isAgent  = body.coin_type === 'agent';
+	const isAgent = body.coin_type === 'agent';
 	const effBuyback = isAgent ? body.buyback_bps : 0;
 
 	const instructions = await buildLaunchInstructions({
-		sdk, BN, mint, creator,
-		name: body.name, symbol: body.symbol, uri: body.uri,
+		sdk,
+		BN,
+		mint,
+		creator,
+		name: body.name,
+		symbol: body.symbol,
+		uri: body.uri,
 		solBuyIn: body.sol_buy_in,
 		usdcBuyIn: body.usdc_buy_in,
 		quoteMint: launchQuoteMint,
@@ -1529,12 +1760,36 @@ async function handleLaunchAgent(req, res) {
 		throw err;
 	}
 
+	// Spend-policy gate: this path signs server-side with the agent's custodial
+	// wallet, so a stolen session could otherwise drive an arbitrarily large SOL
+	// dev-buy (up to the schema max) to drain the wallet. Reserve the SOL outflow
+	// against the agent's per-tx + rolling-24h caps BEFORE broadcasting — atomic,
+	// so concurrent launches can't both pass, and the launch is recorded toward
+	// the daily cap. A USDC-paired dev buy moves no SOL (amount 0). Released on
+	// send failure, finalized with the signature on success.
+	const launchSolOutflow = quote.isUsdc ? 0 : body.sol_buy_in || 0;
+	const reservation = await reserveSpend({
+		agentId: resolvedAgentId,
+		meta: loaded.meta,
+		mint: mint.toBase58(),
+		solAmount: launchSolOutflow,
+		type: 'pumpfun.launch',
+		payload: {
+			name: body.name,
+			symbol: body.symbol,
+			network: body.network,
+			source: 'studio_agent_wallet',
+		},
+	});
+	if (!reservation.ok) return error(res, reservation.status, reservation.code, reservation.msg);
+
 	let signature;
 	try {
 		signature = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: false });
 		await conn.confirmTransaction(signature, 'confirmed');
 	} catch (err) {
 		console.error('[pump/launch-agent] send failed', err);
+		await releaseSpend(reservation.reservationId);
 		return error(res, 502, 'rpc_error', err?.message || 'transaction failed');
 	}
 
@@ -1549,29 +1804,26 @@ async function handleLaunchAgent(req, res) {
 		returning id, mint, network, buyback_bps, quote_mint, created_at
 	`;
 
-	await sql`
-		insert into agent_actions (agent_id, type, payload, source_skill)
-		values (
-			${resolvedAgentId},
-			${'pumpfun.launch'},
-			${JSON.stringify({
-				mint: mintAddr,
-				name: body.name,
-				symbol: body.symbol,
-				uri: body.uri,
-				signature,
-				network: body.network,
-				sol_buy_in: body.sol_buy_in || 0,
-				usdc_buy_in: body.usdc_buy_in || 0,
-				quote_mint: quote.quoteMint,
-				quote_currency: quote.label,
-				buyback_bps: effBuyback,
-				coin_type: body.coin_type,
-				source: 'studio_agent_wallet',
-			})}::jsonb,
-			${'pumpfun'}
-		)
-	`.catch((e) => console.error('[pump/launch-agent] log failed', e?.message));
+	// Finalize the spend reservation in place: merge the launch metadata + tx
+	// signature into the reserved row and mark it confirmed. This replaces the
+	// previous standalone insert — the reserved row already carries `solAmount`
+	// (so the launch counts toward the daily cap, which the old `sol_buy_in`-keyed
+	// row never did), and reusing it avoids double-recording the launch.
+	await finalizeSpend(reservation.reservationId, {
+		mint: mintAddr,
+		name: body.name,
+		symbol: body.symbol,
+		uri: body.uri,
+		signature,
+		network: body.network,
+		sol_buy_in: body.sol_buy_in || 0,
+		usdc_buy_in: body.usdc_buy_in || 0,
+		quote_mint: quote.quoteMint,
+		quote_currency: quote.label,
+		buyback_bps: effBuyback,
+		coin_type: body.coin_type,
+		source: 'studio_agent_wallet',
+	});
 
 	// Surface the confirmed agent-wallet launch on the site-wide live activity ticker.
 	publishFeedEvent({
@@ -1608,10 +1860,15 @@ const acceptPaymentPrepSchema = z.object({
 	amount_usdc: z.number().positive().max(100_000),
 	currency_mint: z.string().min(32).max(44).optional(), // defaults to USDC
 	currency_token_program: z.string().min(32).max(44).optional(),
-	user_token_account: z.string().min(32).max(44),         // payer ATA
+	user_token_account: z.string().min(32).max(44), // payer ATA
 	skill_id: z.string().max(100).optional(),
 	tool_name: z.string().max(100).optional(),
-	duration_seconds: z.number().int().positive().max(60 * 60 * 24 * 365).default(60),
+	duration_seconds: z
+		.number()
+		.int()
+		.positive()
+		.max(60 * 60 * 24 * 365)
+		.default(60),
 	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 });
 
@@ -1750,7 +2007,13 @@ async function handleAcceptPaymentConfirm(req, res) {
 		select id from pump_agent_payments
 		where tx_signature=${body.tx_signature} and status='confirmed' and id != ${payment.id} limit 1
 	`;
-	if (sigDupe) return error(res, 409, 'tx_already_used', 'this transaction already confirmed another payment');
+	if (sigDupe)
+		return error(
+			res,
+			409,
+			'tx_already_used',
+			'this transaction already confirmed another payment',
+		);
 
 	let tx;
 	try {
@@ -1760,9 +2023,7 @@ async function handleAcceptPaymentConfirm(req, res) {
 		return error(res, e.status || 422, e.code || 'tx_failed', e.message);
 	}
 
-	const accountKeys = tx.transaction.message.accountKeys.map((k) =>
-		(k.pubkey || k).toString(),
-	);
+	const accountKeys = tx.transaction.message.accountKeys.map((k) => (k.pubkey || k).toString());
 	if (!accountKeys.includes(payment.mint)) {
 		return error(res, 422, 'mint_not_in_tx', 'agent mint not in tx accounts');
 	}
@@ -1772,15 +2033,24 @@ async function handleAcceptPaymentConfirm(req, res) {
 	const signed = tx.transaction.message.accountKeys.some(
 		(k) => (k.pubkey || k).toString() === payment.payer_wallet && k.signer === true,
 	);
-	if (!signed) return error(res, 422, 'payer_not_signer', 'declared payer did not sign the transaction');
+	if (!signed)
+		return error(res, 422, 'payer_not_signer', 'declared payer did not sign the transaction');
 
 	// Verify the agent's payment vault was actually credited the invoiced amount
 	// of the invoiced currency. Without this, "the mint pubkey appears in the tx"
 	// is not proof of payment — any cheap unrelated tx referencing the mint would
 	// pass. The vault is the ATA owned by the TokenAgentPayments PDA for this mint.
-	const { agentPda } = await getPumpAgentOffline({ network: payment.network, mint: payment.mint });
+	const { agentPda } = await getPumpAgentOffline({
+		network: payment.network,
+		mint: payment.mint,
+	});
 	if (!agentPda) {
-		return error(res, 503, 'verification_unavailable', 'unable to derive agent payment vault for verification');
+		return error(
+			res,
+			503,
+			'verification_unavailable',
+			'unable to derive agent payment vault for verification',
+		);
 	}
 	const vaultOwner = agentPda.toString();
 	const expectedAtomics = BigInt(payment.amount_atomics);
@@ -1791,12 +2061,18 @@ async function handleAcceptPaymentConfirm(req, res) {
 		if (p.mint !== payment.currency_mint) continue;
 		if (p.owner !== vaultOwner) continue;
 		const before = pre.find((b) => b.accountIndex === p.accountIndex);
-		const delta = BigInt(p.uiTokenAmount?.amount ?? '0') - BigInt(before?.uiTokenAmount?.amount ?? '0');
+		const delta =
+			BigInt(p.uiTokenAmount?.amount ?? '0') - BigInt(before?.uiTokenAmount?.amount ?? '0');
 		if (delta > credited) credited = delta;
 	}
 	if (credited < expectedAtomics) {
 		await sql`update pump_agent_payments set status='failed' where id=${payment.id}`;
-		return error(res, 422, 'amount_not_credited', 'transaction did not credit the invoiced amount to the agent payment vault');
+		return error(
+			res,
+			422,
+			'amount_not_credited',
+			'transaction did not credit the invoiced amount to the agent payment vault',
+		);
 	}
 
 	try {
@@ -1806,7 +2082,13 @@ async function handleAcceptPaymentConfirm(req, res) {
 			where id=${payment.id} and status != 'confirmed'
 		`;
 	} catch (e) {
-		if (e?.code === '23505') return error(res, 409, 'tx_already_used', 'this transaction already confirmed another payment');
+		if (e?.code === '23505')
+			return error(
+				res,
+				409,
+				'tx_already_used',
+				'this transaction already confirmed another payment',
+			);
 		throw e;
 	}
 
@@ -1968,24 +2250,32 @@ async function handlePortfolio(req, res) {
 
 	// Live price per holding via the read-only pump-fun MCP (parallelized).
 	const rt = makeRuntime();
-	const priced = await Promise.all(holdings.map(async (h) => {
-		const [curve, basis] = [
-			await rt.invoke('pump-fun.getBondingCurve', { mint: h.mint }).catch(() => ({ ok: false })),
-			basisByMint.get(h.mint),
-		];
-		const priceSol = curve?.ok ? (curve.data?.priceSol ?? curve.data?.price ?? null) : null;
-		const valueSol = priceSol != null ? priceSol * h.amount : null;
-		const costBasisSol = basis ? basis.sol : null;
-		const unrealizedSol = valueSol != null && costBasisSol != null ? valueSol - costBasisSol : null;
-		return {
-			...h,
-			priceSol,
-			valueSol,
-			costBasisSol,
-			unrealizedPnlSol: unrealizedSol,
-			unrealizedPnlPct: unrealizedSol != null && costBasisSol > 0 ? (unrealizedSol / costBasisSol) * 100 : null,
-		};
-	}));
+	const priced = await Promise.all(
+		holdings.map(async (h) => {
+			const [curve, basis] = [
+				await rt
+					.invoke('pump-fun.getBondingCurve', { mint: h.mint })
+					.catch(() => ({ ok: false })),
+				basisByMint.get(h.mint),
+			];
+			const priceSol = curve?.ok ? (curve.data?.priceSol ?? curve.data?.price ?? null) : null;
+			const valueSol = priceSol != null ? priceSol * h.amount : null;
+			const costBasisSol = basis ? basis.sol : null;
+			const unrealizedSol =
+				valueSol != null && costBasisSol != null ? valueSol - costBasisSol : null;
+			return {
+				...h,
+				priceSol,
+				valueSol,
+				costBasisSol,
+				unrealizedPnlSol: unrealizedSol,
+				unrealizedPnlPct:
+					unrealizedSol != null && costBasisSol > 0
+						? (unrealizedSol / costBasisSol) * 100
+						: null,
+			};
+		}),
+	);
 
 	const totalValueSol = priced.reduce((s, p) => s + (p.valueSol ?? 0), 0);
 	const totalCostBasisSol = priced.reduce((s, p) => s + (p.costBasisSol ?? 0), 0);
@@ -2001,7 +2291,8 @@ async function handlePortfolio(req, res) {
 			totalValueSol,
 			totalCostBasisSol,
 			unrealizedPnlSol,
-			unrealizedPnlPct: totalCostBasisSol > 0 ? (unrealizedPnlSol / totalCostBasisSol) * 100 : null,
+			unrealizedPnlPct:
+				totalCostBasisSol > 0 ? (unrealizedPnlSol / totalCostBasisSol) * 100 : null,
 		},
 	});
 }
@@ -2016,7 +2307,7 @@ async function handleByAgent(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host}`);
-	const agentId  = url.searchParams.get('agent_id');
+	const agentId = url.searchParams.get('agent_id');
 	const avatarId = url.searchParams.get('avatar_id');
 	if (!agentId && !avatarId)
 		return error(res, 400, 'validation_error', 'agent_id or avatar_id required');
@@ -2078,7 +2369,7 @@ async function handleByAgent(req, res) {
 		data: {
 			...row,
 			stats: stats || { confirmed_payments: 0, unique_payers: 0, total_atomics: '0' },
-			burns:  burnRow || { runs: 0, total_burned: '0' },
+			burns: burnRow || { runs: 0, total_burned: '0' },
 			burns_feed: burnsFeed,
 		},
 	});
@@ -2105,15 +2396,19 @@ async function handleQuote(req, res) {
 	const slippageBps = Number.isFinite(Number(slippageRaw))
 		? Math.max(0, Math.min(5000, Number(slippageRaw)))
 		: 100;
-	const slippage = slippageBps / 10_000;
+	// AMM SDK pricing takes slippage as a PERCENT (1 = 1%) — pump-trade-args.js.
+	const slippagePct = slippagePercentFromBps(slippageBps);
 
 	const mint = solanaPubkey(mintStr);
 	if (!mint) return error(res, 400, 'validation_error', 'invalid mint');
 
 	try {
 		const { sdk, BN, web3 } = await getPumpSdk({ network });
-		const { isLegacyQuoteMint, getBuyTokenAmountFromSolAmount, getSellSolAmountFromTokenAmount } =
-			await import('@pump-fun/pump-sdk');
+		const {
+			isLegacyQuoteMint,
+			getBuyTokenAmountFromSolAmount,
+			getSellSolAmountFromTokenAmount,
+		} = await import('@pump-fun/pump-sdk');
 		const LAMPORTS_PER_SOL_Q = web3.LAMPORTS_PER_SOL || 1_000_000_000;
 
 		// Fetch bonding curve — exposes on-chain quote_mint for V2 coins.
@@ -2139,31 +2434,67 @@ async function handleQuote(req, res) {
 
 		if (curve && !curve.complete) {
 			const global = typeof sdk.fetchGlobal === 'function' ? await sdk.fetchGlobal() : null;
+			const feeConfig =
+				typeof sdk.fetchFeeConfig === 'function'
+					? await sdk.fetchFeeConfig().catch(() => null)
+					: null;
 			let quote = null;
 
 			if (direction === 'buy') {
 				const quoteAmountRaw = isUsdcQuote ? usdcRaw : solRaw;
 				if (quoteAmountRaw) {
 					const quoteNum = Number(quoteAmountRaw);
-					if (!(quoteNum > 0)) return error(res, 400, 'validation_error', `${isUsdcQuote ? 'usdc' : 'sol'} must be > 0`);
-					const atomics = new BN(isUsdcQuote
-						? Math.round(quoteNum * USDC_DECIMALS)
-						: Math.floor(quoteNum * LAMPORTS_PER_SOL_Q));
+					if (!(quoteNum > 0))
+						return error(
+							res,
+							400,
+							'validation_error',
+							`${isUsdcQuote ? 'usdc' : 'sol'} must be > 0`,
+						);
+					const atomics = new BN(
+						isUsdcQuote
+							? Math.round(quoteNum * USDC_DECIMALS)
+							: Math.floor(quoteNum * LAMPORTS_PER_SOL_Q),
+					);
 					const tokens = getBuyTokenAmountFromSolAmount({
-						global, feeConfig: null, mintSupply: null, bondingCurve: curve, amount: atomics,
+						global,
+						feeConfig,
+						mintSupply: curve.tokenTotalSupply,
+						bondingCurve: curve,
+						amount: atomics,
 					});
 					quote = isUsdcQuote
-						? { usdc_in: quoteNum, tokens_out: tokens.toString(), source: 'bonding_curve' }
-						: { sol_in: quoteNum, tokens_out: tokens.toString(), source: 'bonding_curve' };
+						? {
+								usdc_in: quoteNum,
+								tokens_out: tokens.toString(),
+								source: 'bonding_curve',
+							}
+						: {
+								sol_in: quoteNum,
+								tokens_out: tokens.toString(),
+								source: 'bonding_curve',
+							};
 				}
 			} else if (direction === 'sell' && tokenRaw) {
 				const tokens = new BN(tokenRaw);
 				const atomicsOut = getSellSolAmountFromTokenAmount({
-					global, feeConfig: null, mintSupply: null, bondingCurve: curve, amount: tokens,
+					global,
+					feeConfig,
+					mintSupply: curve.tokenTotalSupply,
+					bondingCurve: curve,
+					amount: tokens,
 				});
 				quote = isUsdcQuote
-					? { tokens_in: tokenRaw, usdc_out: Number(atomicsOut.toString()) / USDC_DECIMALS, source: 'bonding_curve' }
-					: { tokens_in: tokenRaw, sol_out: Number(atomicsOut.toString()) / LAMPORTS_PER_SOL_Q, source: 'bonding_curve' };
+					? {
+							tokens_in: tokenRaw,
+							usdc_out: Number(atomicsOut.toString()) / USDC_DECIMALS,
+							source: 'bonding_curve',
+						}
+					: {
+							tokens_in: tokenRaw,
+							sol_out: Number(atomicsOut.toString()) / LAMPORTS_PER_SOL_Q,
+							source: 'bonding_curve',
+						};
 			}
 
 			return json(res, 200, {
@@ -2173,9 +2504,15 @@ async function handleQuote(req, res) {
 				// SOL curves store quoteMint as PublicKey.default — surface wSOL.
 				quote_mint: isUsdcQuote ? quoteMintPk.toString() : WSOL_MINT,
 				bonding_curve: {
-					real_quote_reserves: curve.realQuoteReserves?.toString?.() ?? curve.realSolReserves?.toString?.() ?? null,
+					real_quote_reserves:
+						curve.realQuoteReserves?.toString?.() ??
+						curve.realSolReserves?.toString?.() ??
+						null,
 					real_token_reserves: curve.realTokenReserves?.toString?.() ?? null,
-					virtual_quote_reserves: curve.virtualQuoteReserves?.toString?.() ?? curve.virtualSolReserves?.toString?.() ?? null,
+					virtual_quote_reserves:
+						curve.virtualQuoteReserves?.toString?.() ??
+						curve.virtualSolReserves?.toString?.() ??
+						null,
 					virtual_token_reserves: curve.virtualTokenReserves?.toString?.() ?? null,
 					complete: curve.complete ?? false,
 				},
@@ -2186,7 +2523,11 @@ async function handleQuote(req, res) {
 		// Post-graduation: canonical AMM pool. For USDC pairs use the quote-keyed PDA.
 		let amm;
 		try {
-			amm = await getAmmPoolState({ network, mint, quoteMint: isUsdcQuote ? quoteMintPk : null });
+			amm = await getAmmPoolState({
+				network,
+				mint,
+				quoteMint: isUsdcQuote ? quoteMintPk : null,
+			});
 		} catch (e) {
 			if (e.code === 'pool_not_found') {
 				return json(res, 200, {
@@ -2201,7 +2542,15 @@ async function handleQuote(req, res) {
 			throw e;
 		}
 
-		const { pool, poolKey, baseReserve, quoteReserve, baseMintAccount, globalConfig, feeConfig } = amm;
+		const {
+			pool,
+			poolKey,
+			baseReserve,
+			quoteReserve,
+			baseMintAccount,
+			globalConfig,
+			feeConfig,
+		} = amm;
 		const ammSdk = await import('@pump-fun/pump-swap-sdk');
 		// Resolved pool quoteMint tells us the definitive quote currency.
 		const resolvedQuoteMintStr = pool.quoteMint?.toString?.() ?? quoteMintPk.toString();
@@ -2213,20 +2562,34 @@ async function handleQuote(req, res) {
 			const quoteRaw = resolvedIsUsdc ? usdcRaw : solRaw;
 			if (quoteRaw) {
 				const quoteNum = Number(quoteRaw);
-				if (!(quoteNum > 0)) return error(res, 400, 'validation_error', `${resolvedIsUsdc ? 'usdc' : 'sol'} must be > 0`);
+				if (!(quoteNum > 0))
+					return error(
+						res,
+						400,
+						'validation_error',
+						`${resolvedIsUsdc ? 'usdc' : 'sol'} must be > 0`,
+					);
 				const atomics = new BN(Math.round(quoteNum * QUOTE_UNIT));
 				const r = ammSdk.buyQuoteInput({
-					quote: atomics, slippage, baseReserve, quoteReserve,
-					globalConfig, baseMintAccount,
+					quote: atomics,
+					slippage: slippagePct,
+					baseReserve,
+					quoteReserve,
+					globalConfig,
+					baseMintAccount,
 					baseMint: pool.baseMint,
 					coinCreator: pool.coinCreator,
 					creator: pool.creator,
 					feeConfig,
 				});
+				// buyQuoteInput is a quote-input swap: slippage widens the max quote
+				// spend (maxQuote), not a token floor — surface that real bound.
+				const maxQuoteIn =
+					r.maxQuote != null ? Number(r.maxQuote.toString()) / QUOTE_UNIT : null;
 				quote = {
 					...(resolvedIsUsdc ? { usdc_in: quoteNum } : { sol_in: quoteNum }),
 					tokens_out: r.base?.toString?.() ?? null,
-					min_tokens_out: r.uiBase?.toString?.() ?? r.minBase?.toString?.() ?? null,
+					...(resolvedIsUsdc ? { max_usdc_in: maxQuoteIn } : { max_sol_in: maxQuoteIn }),
 					slippage_bps: slippageBps,
 					source: 'amm',
 				};
@@ -2234,16 +2597,20 @@ async function handleQuote(req, res) {
 		} else if (direction === 'sell' && tokenRaw) {
 			const tokens = new BN(tokenRaw);
 			const r = ammSdk.sellBaseInput({
-				base: tokens, slippage, baseReserve, quoteReserve,
-				globalConfig, baseMintAccount,
+				base: tokens,
+				slippage: slippagePct,
+				baseReserve,
+				quoteReserve,
+				globalConfig,
+				baseMintAccount,
 				baseMint: pool.baseMint,
 				coinCreator: pool.coinCreator,
 				creator: pool.creator,
 				feeConfig,
 			});
-			const atomicsOut = r.quote ?? r.uiQuote ?? r.minQuote;
+			const atomicsOut = r.uiQuote ?? r.minQuote;
 			const minAtomicsOut = r.minQuote ?? r.uiQuote;
-			const toUnit = (v) => v != null ? Number(v.toString()) / QUOTE_UNIT : null;
+			const toUnit = (v) => (v != null ? Number(v.toString()) / QUOTE_UNIT : null);
 			quote = {
 				tokens_in: tokenRaw,
 				...(resolvedIsUsdc
@@ -2358,8 +2725,7 @@ async function handleWithdrawPrep(req, res) {
 	const body = parse(withdrawPrepSchema, await readJson(req));
 	const authority = solanaPubkey(body.authority_wallet);
 	const receiverAta = solanaPubkey(body.receiver_ata);
-	if (!authority || !receiverAta)
-		return error(res, 400, 'validation_error', 'invalid pubkeys');
+	if (!authority || !receiverAta) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
 	const [row] = await sql`
 		select m.id, m.mint, m.user_id, m.agent_authority, m.network from pump_agent_mints m
@@ -2491,7 +2857,8 @@ async function handleStrategyBacktest(req, res) {
 	}
 	if (!mints.length) return error(res, 422, 'no_candidates', 'no mints to backtest');
 
-	const { backtestStrategy } = await import('../../examples/skills/pump-fun-strategy/handlers.js');
+	const { backtestStrategy } =
+		await import('../../examples/skills/pump-fun-strategy/handlers.js');
 	const result = await backtestStrategy(
 		{ strategy: body.strategy, mints, sinceMs: body.sinceMs ?? 0 },
 		{ skills: { invoke: rt.invoke }, memory: { note: () => {} } },
@@ -2536,7 +2903,8 @@ async function handleStrategyCloseAll(req, res) {
 		},
 	});
 
-	const { closeAllPositions } = await import('../../examples/skills/pump-fun-strategy/handlers.js');
+	const { closeAllPositions } =
+		await import('../../examples/skills/pump-fun-strategy/handlers.js');
 	const result = await closeAllPositions(
 		{ mints: body.mints, simulate: !!body.simulate },
 		{ skills: { invoke: rt.invoke }, wallet, memory: { note: () => {} } },
@@ -2556,7 +2924,11 @@ async function loadAgentWalletForStrategy(agentId, userId) {
 	if (!row) throw Object.assign(new Error('agent not found'), { status: 404 });
 	if (row.user_id !== userId) throw Object.assign(new Error('not your agent'), { status: 403 });
 	const enc = row.meta?.encrypted_solana_secret;
-	if (!enc) throw Object.assign(new Error('agent has no solana wallet — provision via /api/agents/:id/solana'), { status: 409 });
+	if (!enc)
+		throw Object.assign(
+			new Error('agent has no solana wallet — provision via /api/agents/:id/solana'),
+			{ status: 409 },
+		);
 	const wallet = await loadWallet(enc);
 	return { wallet, address: wallet.publicKey.toBase58(), meta: row.meta };
 }
@@ -2569,26 +2941,37 @@ async function handleStrategyRun(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
-	try { body = await readJson(req); }
-	catch (e) { return error(res, 400, 'validation_error', e.message); }
+	try {
+		body = await readJson(req);
+	} catch (e) {
+		return error(res, 400, 'validation_error', e.message);
+	}
 
 	if (!body?.strategy) return error(res, 400, 'validation_error', 'strategy required');
 	const durationSec = Math.max(5, Math.min(600, Number(body.durationSec) || 30));
 	const mode = body.mode === 'live' ? 'live' : 'simulate';
 	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
 
-	let wallet = null, walletAddress = null, agentMeta = null;
+	let wallet = null,
+		walletAddress = null,
+		agentMeta = null;
 	if (mode === 'live') {
 		const auth = await resolveAuth(req);
 		if (!auth) return error(res, 401, 'unauthorized', 'sign in required for live mode');
-		if (!body.agentId) return error(res, 400, 'validation_error', 'agentId required for live mode');
+		if (!body.agentId)
+			return error(res, 400, 'validation_error', 'agentId required for live mode');
 		try {
 			const r = await loadAgentWalletForStrategy(body.agentId, auth.userId);
 			wallet = r.wallet;
 			walletAddress = r.address;
 			agentMeta = r.meta;
 		} catch (e) {
-			return error(res, e.status ?? 500, e.status === 409 ? 'conflict' : 'unauthorized', e.message);
+			return error(
+				res,
+				e.status ?? 500,
+				e.status === 409 ? 'conflict' : 'unauthorized',
+				e.message,
+			);
 		}
 	}
 
@@ -2603,7 +2986,9 @@ async function handleStrategyRun(req, res) {
 	};
 
 	let aborted = false;
-	req.on('close', () => { aborted = true; });
+	req.on('close', () => {
+		aborted = true;
+	});
 
 	const rt = makeRuntime({
 		wallet,
@@ -2626,12 +3011,18 @@ async function handleStrategyRun(req, res) {
 		wallet,
 	};
 
-	const policyGuard = mode === 'live'
-		? async ({ mint, amountSol }) => {
-			const block = await checkBuyAllowed({ agentId: body.agentId, meta: agentMeta, mint, solAmount: amountSol });
-			return block ? { code: block.code, msg: block.msg } : null;
-		}
-		: null;
+	const policyGuard =
+		mode === 'live'
+			? async ({ mint, amountSol }) => {
+					const block = await checkBuyAllowed({
+						agentId: body.agentId,
+						meta: agentMeta,
+						mint,
+						solAmount: amountSol,
+					});
+					return block ? { code: block.code, msg: block.msg } : null;
+				}
+			: null;
 
 	const abortController = new AbortController();
 	req.on('close', () => abortController.abort());
@@ -2642,7 +3033,9 @@ async function handleStrategyRun(req, res) {
 				strategy: body.strategy,
 				durationSec,
 				simulate: mode === 'simulate',
-				onLog: (entry) => { if (!aborted) send('log', entry); },
+				onLog: (entry) => {
+					if (!aborted) send('log', entry);
+				},
 				policyGuard,
 				abortSignal: abortController.signal,
 			},
@@ -2754,8 +3147,19 @@ async function handleChannelFeed(req, res) {
 	const kinds = url.searchParams.get('kinds') || null;
 	const { getMints, getWhales, getClaims } = await import('../_lib/channel-feed-sources.js');
 	const { buildFeed } = await import('../../src/pump/channel-feed.js');
-	const [mints, whales, claims] = await Promise.all([getMints(limit), getWhales(limit), getClaims(limit)]);
-	const items = buildFeed([{ kind: 'mint', items: mints }, { kind: 'whale', items: whales }, { kind: 'claim', items: claims }], { limit, kinds });
+	const [mints, whales, claims] = await Promise.all([
+		getMints(limit),
+		getWhales(limit),
+		getClaims(limit),
+	]);
+	const items = buildFeed(
+		[
+			{ kind: 'mint', items: mints },
+			{ kind: 'whale', items: whales },
+			{ kind: 'claim', items: claims },
+		],
+		{ limit, kinds },
+	);
 	return json(res, 200, { items });
 }
 
@@ -2797,10 +3201,15 @@ async function handleTrending(req, res) {
 	upstream.searchParams.set('sort', 'market_cap');
 	upstream.searchParams.set('order', 'DESC');
 	upstream.searchParams.set('includeNsfw', 'false');
-	const resp = await fetch(upstream, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+	const resp = await fetch(upstream, {
+		headers: { accept: 'application/json' },
+		signal: AbortSignal.timeout(8000),
+	});
 	if (!resp.ok) return error(res, 502, 'upstream_failed', `pump.fun returned ${resp.status}`);
 	const body = await resp.json();
-	const arr = repairCoinImages(Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : []);
+	const arr = repairCoinImages(
+		Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : [],
+	);
 	TRENDING_CACHE.at = now;
 	TRENDING_CACHE.body = arr;
 	res.setHeader('cache-control', 'public, max-age=15');
@@ -2823,7 +3232,8 @@ async function handleCoin(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mint = (url.searchParams.get('mint') || '').trim();
-	if (!MINT_RE.test(mint)) return error(res, 400, 'invalid_mint', 'mint must be a base58 address');
+	if (!MINT_RE.test(mint))
+		return error(res, 400, 'invalid_mint', 'mint must be a base58 address');
 
 	const now = Date.now();
 	const hit = COIN_CACHE.get(mint);
@@ -2875,7 +3285,8 @@ async function handleCoinTrades(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const mint = (url.searchParams.get('mint') || '').trim();
-	if (!MINT_RE.test(mint)) return error(res, 400, 'invalid_mint', 'mint must be a base58 address');
+	if (!MINT_RE.test(mint))
+		return error(res, 400, 'invalid_mint', 'mint must be a base58 address');
 	const limit = Math.min(Math.max(1, Number(url.searchParams.get('limit') || 30)), 100);
 	const upstream = `${PUMP_SWAP_BASE}/v2/coins/${mint}/trades?limit=${limit}`;
 	// "Recent trades" is a soft, continuously-polled feed (the homepage live card
@@ -2934,10 +3345,15 @@ async function handleSearch(req, res) {
 	upstream.searchParams.set('sort', 'market_cap');
 	upstream.searchParams.set('order', 'DESC');
 	upstream.searchParams.set('includeNsfw', 'false');
-	const resp = await fetch(upstream, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+	const resp = await fetch(upstream, {
+		headers: { accept: 'application/json' },
+		signal: AbortSignal.timeout(8000),
+	});
 	if (!resp.ok) return error(res, 502, 'upstream_failed', `pump.fun returned ${resp.status}`);
 	const body = await resp.json();
-	const arr = repairCoinImages(Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : []);
+	const arr = repairCoinImages(
+		Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : [],
+	);
 	return json(res, 200, arr);
 }
 
@@ -2946,7 +3362,13 @@ async function handleSearch(req, res) {
 import { z as _z } from 'zod';
 const _deliverSchema = _z.object({
 	chatId: _z.union([_z.string(), _z.number()]),
-	signal: _z.object({ kind: _z.enum(['mint', 'whale', 'claim', 'graduation']), mint: _z.string(), summary: _z.string(), refs: _z.array(_z.string()).optional(), ts: _z.number().optional() }),
+	signal: _z.object({
+		kind: _z.enum(['mint', 'whale', 'claim', 'graduation']),
+		mint: _z.string(),
+		summary: _z.string(),
+		refs: _z.array(_z.string()).optional(),
+		ts: _z.number().optional(),
+	}),
 });
 
 async function handleDeliverTelegram(req, res) {
@@ -2971,8 +3393,11 @@ const LOOKBACK_MULT = 8;
 
 export async function scanFirstClaims({ sinceTs, limit }) {
 	const lim = Math.max(1, Math.min(50, limit));
-	const lookbackTs = sinceTs - Math.max(3600, (Math.floor(Date.now() / 1000) - sinceTs) * LOOKBACK_MULT);
-	const allClaims = process.env.PUMPFUN_BOT_URL ? await _fetchFromBot(lookbackTs, lim * LOOKBACK_MULT) : await _fetchFromRpc(lookbackTs, lim * LOOKBACK_MULT);
+	const lookbackTs =
+		sinceTs - Math.max(3600, (Math.floor(Date.now() / 1000) - sinceTs) * LOOKBACK_MULT);
+	const allClaims = process.env.PUMPFUN_BOT_URL
+		? await _fetchFromBot(lookbackTs, lim * LOOKBACK_MULT)
+		: await _fetchFromRpc(lookbackTs, lim * LOOKBACK_MULT);
 	return filterFirstClaims(allClaims, sinceTs, lim);
 }
 
@@ -3009,9 +3434,17 @@ async function handleFirstClaims(req, res) {
 	const url = new URL(req.url, 'http://x');
 	const limit = Math.max(1, Math.min(50, Number(url.searchParams.get('limit')) || 50));
 	let sinceTs;
-	if (url.searchParams.has('sinceTs')) { sinceTs = Number(url.searchParams.get('sinceTs')); }
-	else { const sinceMinutes = Math.max(1, Math.min(1440, Number(url.searchParams.get('sinceMinutes')) || 60)); sinceTs = Math.floor(Date.now() / 1000) - sinceMinutes * 60; }
-	if (!Number.isFinite(sinceTs) || sinceTs <= 0) return error(res, 400, 'validation_error', 'invalid sinceTs');
+	if (url.searchParams.has('sinceTs')) {
+		sinceTs = Number(url.searchParams.get('sinceTs'));
+	} else {
+		const sinceMinutes = Math.max(
+			1,
+			Math.min(1440, Number(url.searchParams.get('sinceMinutes')) || 60),
+		);
+		sinceTs = Math.floor(Date.now() / 1000) - sinceMinutes * 60;
+	}
+	if (!Number.isFinite(sinceTs) || sinceTs <= 0)
+		return error(res, 400, 'validation_error', 'invalid sinceTs');
 	const items = await scanFirstClaims({ sinceTs, limit });
 	return json(res, 200, { items });
 }
@@ -3027,61 +3460,112 @@ async function _botCall(tool, args) {
 	const url = process.env.PUMPFUN_BOT_URL;
 	if (!url) return { ok: false };
 	const headers = { 'content-type': 'application/json', accept: 'application/json' };
-	if (process.env.PUMPFUN_BOT_TOKEN) headers.authorization = `Bearer ${process.env.PUMPFUN_BOT_TOKEN}`;
+	if (process.env.PUMPFUN_BOT_TOKEN)
+		headers.authorization = `Bearer ${process.env.PUMPFUN_BOT_TOKEN}`;
 	const ctrl = new AbortController();
 	const t = setTimeout(() => ctrl.abort(), 8000);
 	try {
-		const resp = await fetch(url.replace(/\/$/, ''), { method: 'POST', headers, signal: ctrl.signal, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: tool, arguments: args || {} } }) });
+		const resp = await fetch(url.replace(/\/$/, ''), {
+			method: 'POST',
+			headers,
+			signal: ctrl.signal,
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: tool, arguments: args || {} },
+			}),
+		});
 		if (!resp.ok) return { ok: false, error: `bot ${resp.status}` };
 		const j = await resp.json();
 		if (j.error) return { ok: false, error: j.error.message || 'rpc error' };
 		const data = j.result?.structuredContent ?? j.result?.content ?? j.result;
 		return { ok: true, data: Array.isArray(data) ? data : (data?.items ?? []) };
-	} catch (err) { return { ok: false, error: err?.message || 'fetch failed' }; }
-	finally { clearTimeout(t); }
+	} catch (err) {
+		return { ok: false, error: err?.message || 'fetch failed' };
+	} finally {
+		clearTimeout(t);
+	}
 }
 function _normalise(items) {
-	return (items || []).map((x) => ({ creator: String(x.claimerWallet || x.creator || x.wallet || ''), mint: String(x.tokenMint || x.mint || ''), signature: String(x.txSignature || x.tx_signature || x.signature || ''), lamports: Number(x.amountLamports || x.lamports || 0), ts: Number(x.timestamp || x.ts || 0) })).filter((x) => x.creator && x.signature && x.ts > 0);
+	return (items || [])
+		.map((x) => ({
+			creator: String(x.claimerWallet || x.creator || x.wallet || ''),
+			mint: String(x.tokenMint || x.mint || ''),
+			signature: String(x.txSignature || x.tx_signature || x.signature || ''),
+			lamports: Number(x.amountLamports || x.lamports || 0),
+			ts: Number(x.timestamp || x.ts || 0),
+		}))
+		.filter((x) => x.creator && x.signature && x.ts > 0);
 }
 async function _fetchFromRpc(lookbackTs, maxItems) {
 	try {
 		const connection = getConnection({ network: 'mainnet' });
 		const { PublicKey } = await import('@solana/web3.js');
-		const sigs = await connection.getSignaturesForAddress(new PublicKey(PUMP_PROGRAM), { limit: 200 });
-		const inWindow = sigs.filter((s) => s.blockTime != null && s.blockTime >= lookbackTs && !s.err);
+		const sigs = await connection.getSignaturesForAddress(new PublicKey(PUMP_PROGRAM), {
+			limit: 200,
+		});
+		const inWindow = sigs.filter(
+			(s) => s.blockTime != null && s.blockTime >= lookbackTs && !s.err,
+		);
 		if (!inWindow.length) return [];
 		const toFetch = inWindow.slice(0, Math.min(30, maxItems * 2));
-		const settled = await Promise.allSettled(toFetch.map((s) => connection.getParsedTransaction(s.signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' })));
+		const settled = await Promise.allSettled(
+			toFetch.map((s) =>
+				connection.getParsedTransaction(s.signature, {
+					maxSupportedTransactionVersion: 0,
+					commitment: 'confirmed',
+				}),
+			),
+		);
 		const claims = [];
 		for (let i = 0; i < settled.length; i++) {
 			if (settled[i].status !== 'fulfilled' || !settled[i].value) continue;
-			const claim = _parseClaim(settled[i].value, toFetch[i].signature, toFetch[i].blockTime ?? 0);
+			const claim = _parseClaim(
+				settled[i].value,
+				toFetch[i].signature,
+				toFetch[i].blockTime ?? 0,
+			);
 			if (claim) claims.push(claim);
 		}
 		return claims;
-	} catch { return []; }
+	} catch {
+		return [];
+	}
 }
 function _parseClaim(tx, signature, ts) {
 	if (tx?.meta?.err) return null;
 	const ixs = tx?.transaction?.message?.instructions ?? [];
 	const accountKeys = tx?.transaction?.message?.accountKeys ?? [];
-	const pre = tx?.meta?.preBalances ?? [], post = tx?.meta?.postBalances ?? [];
+	const pre = tx?.meta?.preBalances ?? [],
+		post = tx?.meta?.postBalances ?? [];
 	for (const ix of ixs) {
 		if (!ix.data || typeof ix.data !== 'string') continue;
 		const progKey = accountKeys[ix.programIdIndex];
 		const progId = progKey?.pubkey?.toString?.() ?? String(progKey ?? '');
 		if (progId !== PUMP_PROGRAM) continue;
 		let bytes;
-		try { bytes = bs58.decode(ix.data); } catch { continue; }
+		try {
+			bytes = bs58.decode(ix.data);
+		} catch {
+			continue;
+		}
 		if (bytes.length < 8) continue;
 		const disc = Buffer.from(bytes.subarray(0, 8)).toString('hex');
 		if (!CLAIM_DISCS.has(disc)) continue;
-		const creator = (accountKeys[0]?.pubkey?.toString?.() ?? String(accountKeys[0] ?? ''));
+		const creator = accountKeys[0]?.pubkey?.toString?.() ?? String(accountKeys[0] ?? '');
 		if (!creator) continue;
 		let lamports = 0;
-		for (let i = 0; i < accountKeys.length; i++) { const delta = (post[i] ?? 0) - (pre[i] ?? 0); if (delta > lamports) lamports = delta; }
+		for (let i = 0; i < accountKeys.length; i++) {
+			const delta = (post[i] ?? 0) - (pre[i] ?? 0);
+			if (delta > lamports) lamports = delta;
+		}
 		let mint = '';
-		if (disc === 'a537817004b3ca28' && bytes.length >= 48) { try { mint = bs58.encode(bytes.slice(16, 48)); } catch {} }
+		if (disc === 'a537817004b3ca28' && bytes.length >= 48) {
+			try {
+				mint = bs58.encode(bytes.slice(16, 48));
+			} catch {}
+		}
 		return { creator, mint, signature, lamports, ts };
 	}
 	return null;
@@ -3091,33 +3575,76 @@ function _parseClaim(tx, signature, ts) {
 
 async function handleVanityKeygen(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
-	if (req.method !== 'POST') { res.setHeader('allow', 'POST'); return error(res, 405, 'method_not_allowed', 'method POST required'); }
+	if (req.method !== 'POST') {
+		res.setHeader('allow', 'POST');
+		return error(res, 405, 'method_not_allowed', 'method POST required');
+	}
 	const rl = await limits.mcpIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 	let body;
-	try { body = await readJson(req); } catch (e) { return error(res, e.status || 400, 'bad_request', e.message); }
+	try {
+		body = await readJson(req);
+	} catch (e) {
+		return error(res, e.status || 400, 'bad_request', e.message);
+	}
 	const { suffix = '', prefix = '', caseSensitive = false, maxAttempts = 5_000_000 } = body || {};
-	if (!suffix && !prefix) return error(res, 400, 'validation_error', 'at least one of suffix or prefix is required');
+	if (!suffix && !prefix)
+		return error(res, 400, 'validation_error', 'at least one of suffix or prefix is required');
 	res.statusCode = 200;
 	res.setHeader('content-type', 'text/event-stream; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
 	res.setHeader('connection', 'keep-alive');
 	res.setHeader('x-accel-buffering', 'no');
 	const ac = new AbortController();
-	const timeout = setTimeout(() => { ac.abort(); _sse(res, 'error', { error: 'request_timeout', error_description: 'vanity search exceeded 60 s limit' }); res.statusCode = 408; res.end(); }, 60_000);
+	const timeout = setTimeout(() => {
+		ac.abort();
+		_sse(res, 'error', {
+			error: 'request_timeout',
+			error_description: 'vanity search exceeded 60 s limit',
+		});
+		res.statusCode = 408;
+		res.end();
+	}, 60_000);
 	req.on('close', () => ac.abort());
-	const progressInterval = setInterval(() => { if (ac.signal.aborted) return clearInterval(progressInterval); _sse(res, 'progress', { elapsed: Date.now() }); }, 2_000);
+	const progressInterval = setInterval(() => {
+		if (ac.signal.aborted) return clearInterval(progressInterval);
+		_sse(res, 'progress', { elapsed: Date.now() });
+	}, 2_000);
 	try {
 		const { generateVanityKey } = await import('../../src/pump/vanity-keygen.js');
 		const _bs58 = (await import('bs58')).default;
-		const result = await generateVanityKey({ suffix, prefix, caseSensitive, maxAttempts, signal: ac.signal });
-		clearTimeout(timeout); clearInterval(progressInterval);
-		if (!result) _sse(res, 'error', { error: 'max_attempts_reached', error_description: `no match found in ${maxAttempts} attempts` });
-		else _sse(res, 'result', { publicKey: result.publicKey, secretKey: _bs58.encode(result.secretKey), attempts: result.attempts, ms: result.ms });
+		const result = await generateVanityKey({
+			suffix,
+			prefix,
+			caseSensitive,
+			maxAttempts,
+			signal: ac.signal,
+		});
+		clearTimeout(timeout);
+		clearInterval(progressInterval);
+		if (!result)
+			_sse(res, 'error', {
+				error: 'max_attempts_reached',
+				error_description: `no match found in ${maxAttempts} attempts`,
+			});
+		else
+			_sse(res, 'result', {
+				publicKey: result.publicKey,
+				secretKey: _bs58.encode(result.secretKey),
+				attempts: result.attempts,
+				ms: result.ms,
+			});
 	} catch (err) {
-		clearTimeout(timeout); clearInterval(progressInterval);
-		if (!res.writableEnded) _sse(res, 'error', { error: 'internal_error', error_description: err.message || 'unexpected error' });
-	} finally { if (!res.writableEnded) res.end(); }
+		clearTimeout(timeout);
+		clearInterval(progressInterval);
+		if (!res.writableEnded)
+			_sse(res, 'error', {
+				error: 'internal_error',
+				error_description: err.message || 'unexpected error',
+			});
+	} finally {
+		if (!res.writableEnded) res.end();
+	}
 }
 
 // ── collect-creator-fee-prep ───────────────────────────────────────────────
@@ -3145,7 +3672,7 @@ async function handleCollectCreatorFeePrep(req, res) {
 
 	const body = parse(collectCreatorFeePrepSchema, await readJson(req));
 	const creatorPk = solanaPubkey(body.creator_address);
-	const feePayer  = solanaPubkey(body.wallet_address);
+	const feePayer = solanaPubkey(body.wallet_address);
 	if (!creatorPk || !feePayer) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
 	try {
@@ -3164,7 +3691,12 @@ async function handleCollectCreatorFeePrep(req, res) {
 			tx_base64,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build collect-creator-fee tx');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'pump_sdk_error',
+			e.message || 'failed to build collect-creator-fee tx',
+		);
 	}
 }
 
@@ -3200,7 +3732,7 @@ async function handleDistributeCreatorFeesPrep(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(distributeCreatorFeesPrepSchema, await readJson(req));
-	const mintPk  = solanaPubkey(body.mint);
+	const mintPk = solanaPubkey(body.mint);
 	const payerPk = solanaPubkey(body.wallet_address);
 	if (!mintPk || !payerPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
@@ -3208,7 +3740,8 @@ async function handleDistributeCreatorFeesPrep(req, res) {
 		const { connection } = await getPumpSdk({ network: body.network });
 		const { OnlinePumpSdk } = await import('@pump-fun/pump-sdk');
 		const onlineSdk = new OnlinePumpSdk(connection);
-		const { instructions, isGraduated } = await onlineSdk.buildDistributeCreatorFeesInstructions(mintPk);
+		const { instructions, isGraduated } =
+			await onlineSdk.buildDistributeCreatorFeesInstructions(mintPk);
 		const tx_base64 = await buildUnsignedTxBase64({
 			network: body.network,
 			payer: payerPk,
@@ -3221,7 +3754,12 @@ async function handleDistributeCreatorFeesPrep(req, res) {
 			tx_base64,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build distribute-creator-fees tx');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'pump_sdk_error',
+			e.message || 'failed to build distribute-creator-fees tx',
+		);
 	}
 }
 
@@ -3254,14 +3792,12 @@ const updateFeeSharesSchema = z.object({
 		)
 		.min(1)
 		.max(10)
-		.refine(
-			(arr) => arr.reduce((s, x) => s + x.share_bps, 0) === 10_000,
-			{ message: 'share_bps must sum to 10000' },
-		)
-		.refine(
-			(arr) => new Set(arr.map((x) => x.address)).size === arr.length,
-			{ message: 'duplicate shareholder addresses' },
-		),
+		.refine((arr) => arr.reduce((s, x) => s + x.share_bps, 0) === 10_000, {
+			message: 'share_bps must sum to 10000',
+		})
+		.refine((arr) => new Set(arr.map((x) => x.address)).size === arr.length, {
+			message: 'duplicate shareholder addresses',
+		}),
 });
 
 async function handleUpdateFeeSharesPrep(req, res) {
@@ -3275,16 +3811,25 @@ async function handleUpdateFeeSharesPrep(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(updateFeeSharesSchema, await readJson(req));
-	const mintPk    = solanaPubkey(body.mint);
-	const payerPk   = solanaPubkey(body.wallet_address);
+	const mintPk = solanaPubkey(body.mint);
+	const payerPk = solanaPubkey(body.wallet_address);
 	if (!mintPk || !payerPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
 
-	const guard = await assertCoinNotOwnedByOther({ userId: user.id, mint: body.mint, network: body.network, res });
+	const guard = await assertCoinNotOwnedByOther({
+		userId: user.id,
+		mint: body.mint,
+		network: body.network,
+		res,
+	});
 	if (guard.blocked) return;
 
 	const newShareholders = body.new_shareholders.map((s) => {
 		const addr = solanaPubkey(s.address);
-		if (!addr) throw Object.assign(new Error(`invalid shareholder ${s.address}`), { status: 400, code: 'validation_error' });
+		if (!addr)
+			throw Object.assign(new Error(`invalid shareholder ${s.address}`), {
+				status: 400,
+				code: 'validation_error',
+			});
 		return { address: addr, shareBps: s.share_bps };
 	});
 
@@ -3298,14 +3843,23 @@ async function handleUpdateFeeSharesPrep(req, res) {
 		if (body.current_shareholders?.length) {
 			currentShareholders = body.current_shareholders.map((s) => {
 				const pk = solanaPubkey(s);
-				if (!pk) throw Object.assign(new Error(`invalid current shareholder ${s}`), { status: 400, code: 'validation_error' });
+				if (!pk)
+					throw Object.assign(new Error(`invalid current shareholder ${s}`), {
+						status: 400,
+						code: 'validation_error',
+					});
 				return pk;
 			});
 		} else {
 			const { feeSharingConfigPda } = await import('@pump-fun/pump-sdk');
 			const cfgInfo = await connection.getAccountInfo(feeSharingConfigPda(mintPk));
 			if (!cfgInfo) {
-				return error(res, 409, 'no_sharing_config', 'no fee-sharing config for this coin — create one first via create-fee-sharing-prep');
+				return error(
+					res,
+					409,
+					'no_sharing_config',
+					'no fee-sharing config for this coin — create one first via create-fee-sharing-prep',
+				);
 			}
 			const cfg = sdk.decodeSharingConfig(cfgInfo);
 			currentShareholders = cfg.shareholders.map((s) => new PublicKey(s.address));
@@ -3329,7 +3883,12 @@ async function handleUpdateFeeSharesPrep(req, res) {
 			tx_base64,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build update-fee-shares tx');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'pump_sdk_error',
+			e.message || 'failed to build update-fee-shares tx',
+		);
 	}
 }
 
@@ -3356,12 +3915,18 @@ async function handleCreateFeeSharingPrep(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(createFeeSharingPrepSchema, await readJson(req));
-	const mintPk    = solanaPubkey(body.mint);
+	const mintPk = solanaPubkey(body.mint);
 	const creatorPk = solanaPubkey(body.creator_address);
-	const payerPk   = solanaPubkey(body.wallet_address);
-	if (!mintPk || !creatorPk || !payerPk) return error(res, 400, 'validation_error', 'invalid pubkeys');
+	const payerPk = solanaPubkey(body.wallet_address);
+	if (!mintPk || !creatorPk || !payerPk)
+		return error(res, 400, 'validation_error', 'invalid pubkeys');
 
-	const guard = await assertCoinNotOwnedByOther({ userId: user.id, mint: body.mint, network: body.network, res });
+	const guard = await assertCoinNotOwnedByOther({
+		userId: user.id,
+		mint: body.mint,
+		network: body.network,
+		res,
+	});
 	if (guard.blocked) return;
 
 	try {
@@ -3369,19 +3934,23 @@ async function handleCreateFeeSharingPrep(req, res) {
 		const { bondingCurvePda } = await import('@pump-fun/pump-sdk');
 		const { isLegacyQuoteMint } = await getPumpSdkV2({ network: body.network });
 		const { sdk, connection } = await getPumpSdk({ network: body.network });
-		
+
 		const bcPda = bondingCurvePda(mintPk);
 		const bcInfo = await connection.getAccountInfo(bcPda);
 		const bc = bcInfo ? sdk.decodeBondingCurve(bcInfo) : null;
-		
+
 		let poolPk;
 		if (bc && bc.quoteMint && !isLegacyQuoteMint(bc.quoteMint)) {
 			poolPk = canonicalPumpPoolPda(mintPk, bc.quoteMint);
 		} else {
 			poolPk = canonicalPumpPoolPda(mintPk);
 		}
-		
-		const ix = await sdk.createFeeSharingConfig({ creator: creatorPk, mint: mintPk, pool: poolPk });
+
+		const ix = await sdk.createFeeSharingConfig({
+			creator: creatorPk,
+			mint: mintPk,
+			pool: poolPk,
+		});
 		const tx_base64 = await buildUnsignedTxBase64({
 			network: body.network,
 			payer: payerPk,
@@ -3395,7 +3964,12 @@ async function handleCreateFeeSharingPrep(req, res) {
 			tx_base64,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build create-fee-sharing tx');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'pump_sdk_error',
+			e.message || 'failed to build create-fee-sharing tx',
+		);
 	}
 }
 
@@ -3434,7 +4008,11 @@ const SOCIAL_PLATFORM_ID = { pump: 0, x: 1, github: 2 };
 const resolveGithubShareholderSchema = z
 	.object({
 		github_username: z.string().trim().min(1).max(40).optional(),
-		github_user_id: z.string().trim().regex(/^\d{1,20}$/).optional(),
+		github_user_id: z
+			.string()
+			.trim()
+			.regex(/^\d{1,20}$/)
+			.optional(),
 		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 	})
 	.refine((b) => b.github_username || b.github_user_id, {
@@ -3546,7 +4124,12 @@ async function handleCreateSocialFeePdaPrep(req, res) {
 	if (!payerPk) return error(res, 400, 'validation_error', 'invalid wallet_address');
 
 	if (body.mint) {
-		const guard = await assertCoinNotOwnedByOther({ userId: user.id, mint: body.mint, network: body.network, res });
+		const guard = await assertCoinNotOwnedByOther({
+			userId: user.id,
+			mint: body.mint,
+			network: body.network,
+			res,
+		});
 		if (guard.blocked) return;
 	}
 
@@ -3573,7 +4156,12 @@ async function handleCreateSocialFeePdaPrep(req, res) {
 			tx_base64,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to build create-social-fee-pda tx');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'pump_sdk_error',
+			e.message || 'failed to build create-social-fee-pda tx',
+		);
 	}
 }
 // ── fee-info ───────────────────────────────────────────────────────────────
@@ -3628,12 +4216,17 @@ async function handleFeeInfo(req, res) {
 			try {
 				const pool = await new OnlinePumpAmmSdk(connection).fetchPool(poolPda);
 				poolCoinCreator = pool.coinCreator;
-				isCashbackCoin = pool.isCashbackCoin === true
-					|| (Array.isArray(pool.is_cashback_coin) && pool.is_cashback_coin[0] === true);
-			} catch { /* pool not fully initialized */ }
+				isCashbackCoin =
+					pool.isCashbackCoin === true ||
+					(Array.isArray(pool.is_cashback_coin) && pool.is_cashback_coin[0] === true);
+			} catch {
+				/* pool not fully initialized */
+			}
 		} else {
-			isCashbackCoin = bondingCurve.isCashbackCoin === true
-				|| (Array.isArray(bondingCurve.is_cashback_coin) && bondingCurve.is_cashback_coin[0] === true);
+			isCashbackCoin =
+				bondingCurve.isCashbackCoin === true ||
+				(Array.isArray(bondingCurve.is_cashback_coin) &&
+					bondingCurve.is_cashback_coin[0] === true);
 		}
 
 		const effectiveCreator = poolCoinCreator ?? new PublicKey(bondingCurve.creator);
@@ -3681,14 +4274,24 @@ async function handleFeeInfo(req, res) {
 				const ammInfo = await connection.getAccountInfo(ammAta);
 				if (ammInfo) {
 					const parsed = AccountLayout.decode(
-						new Uint8Array(ammInfo.data.buffer, ammInfo.data.byteOffset, ammInfo.data.byteLength),
+						new Uint8Array(
+							ammInfo.data.buffer,
+							ammInfo.data.byteOffset,
+							ammInfo.data.byteLength,
+						),
 					);
 					claimableLamports += BigInt(parsed.amount.toString());
 				}
-			} catch { /* no AMM vault yet */ }
+			} catch {
+				/* no AMM vault yet */
+			}
 		}
 
-		const feeDestination = isCashbackCoin ? 'cashback' : hasSharingConfig ? 'sharing_config' : 'creator';
+		const feeDestination = isCashbackCoin
+			? 'cashback'
+			: hasSharingConfig
+				? 'sharing_config'
+				: 'creator';
 
 		return json(res, 200, {
 			mint: mintPk.toBase58(),
@@ -3703,7 +4306,12 @@ async function handleFeeInfo(req, res) {
 			sharing_config: sharingConfig,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to read fee info');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'pump_sdk_error',
+			e.message || 'failed to read fee info',
+		);
 	}
 }
 
@@ -3731,12 +4339,20 @@ async function signSendWithAgent({ network, agentKeypair, instructions, extraSig
 // { agent, mintRow, loaded, creator } or sends an error and returns null.
 async function resolveAgentFeeContext(req, res, body) {
 	const user = await getSessionUser(req);
-	if (!user) { error(res, 401, 'unauthorized', 'sign in required'); return null; }
+	if (!user) {
+		error(res, 401, 'unauthorized', 'sign in required');
+		return null;
+	}
 
 	const agent = await resolveLaunchAgentId({
-		userId: user.id, agentId: body.agent_id, avatarId: body.avatar_id,
+		userId: user.id,
+		agentId: body.agent_id,
+		avatarId: body.avatar_id,
 	});
-	if (!agent) { error(res, 404, 'not_found', 'agent not found'); return null; }
+	if (!agent) {
+		error(res, 404, 'not_found', 'agent not found');
+		return null;
+	}
 
 	const [mintRow] = await sql`
 		select id, mint, network, agent_authority, sharing_config
@@ -3744,18 +4360,28 @@ async function resolveAgentFeeContext(req, res, body) {
 		where agent_id=${agent.id} and mint=${body.mint} and network=${body.network}
 		limit 1
 	`;
-	if (!mintRow) { error(res, 404, 'not_found', 'coin not found for this agent'); return null; }
+	if (!mintRow) {
+		error(res, 404, 'not_found', 'coin not found for this agent');
+		return null;
+	}
 
 	const loaded = await loadAgentForSigning(agent.id, user.id, {
 		reason: 'studio_fee_action',
 		meta: { mint: body.mint, network: body.network },
 	});
-	if (loaded.error) { error(res, loaded.error.status, loaded.error.code, loaded.error.msg); return null; }
+	if (loaded.error) {
+		error(res, loaded.error.status, loaded.error.code, loaded.error.msg);
+		return null;
+	}
 
 	const creator = loaded.keypair.publicKey.toBase58();
 	if (mintRow.agent_authority && mintRow.agent_authority !== creator) {
-		error(res, 409, 'creator_mismatch',
-			'this coin was launched from a connected wallet — claim with that wallet instead of the agent wallet');
+		error(
+			res,
+			409,
+			'creator_mismatch',
+			'this coin was launched from a connected wallet — claim with that wallet instead of the agent wallet',
+		);
 		return null;
 	}
 	return { user, agent, mintRow, loaded, creator };
@@ -3765,12 +4391,14 @@ async function resolveAgentFeeContext(req, res, body) {
 // Server-signs the creator-fee collection with the agent custodial wallet. Use
 // for coins launched from the agent wallet (agent_authority == agent wallet).
 
-const collectFeeAgentSchema = z.object({
-	agent_id: z.string().uuid().optional(),
-	avatar_id: z.string().uuid().optional(),
-	mint: z.string().min(32).max(44),
-	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
-}).refine((b) => b.agent_id || b.avatar_id, { message: 'agent_id or avatar_id required' });
+const collectFeeAgentSchema = z
+	.object({
+		agent_id: z.string().uuid().optional(),
+		avatar_id: z.string().uuid().optional(),
+		mint: z.string().min(32).max(44),
+		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+	})
+	.refine((b) => b.agent_id || b.avatar_id, { message: 'agent_id or avatar_id required' });
 
 async function handleCollectCreatorFeeAgent(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -3801,7 +4429,10 @@ async function handleCollectCreatorFeeAgent(req, res) {
 				${'pumpfun'})
 		`.catch((e) => console.error('[pump/collect-creator-fee-agent] log failed', e?.message));
 		return json(res, 201, {
-			ok: true, mint: body.mint, network: body.network, signature,
+			ok: true,
+			mint: body.mint,
+			network: body.network,
+			signature,
 			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		});
 	} catch (e) {
@@ -3829,7 +4460,9 @@ async function handleDistributeCreatorFeesAgent(req, res) {
 		const { connection } = await getPumpSdk({ network: body.network });
 		const { OnlinePumpSdk } = await import('@pump-fun/pump-sdk');
 		const onlineSdk = new OnlinePumpSdk(connection);
-		const { instructions } = await onlineSdk.buildDistributeCreatorFeesInstructions(new PublicKey(body.mint));
+		const { instructions } = await onlineSdk.buildDistributeCreatorFeesInstructions(
+			new PublicKey(body.mint),
+		);
 		const signature = await signSendWithAgent({
 			network: body.network,
 			agentKeypair: ctx.loaded.keypair,
@@ -3842,7 +4475,10 @@ async function handleDistributeCreatorFeesAgent(req, res) {
 				${'pumpfun'})
 		`.catch((e) => console.error('[pump/distribute-creator-fees-agent] log failed', e?.message));
 		return json(res, 201, {
-			ok: true, mint: body.mint, network: body.network, signature,
+			ok: true,
+			mint: body.mint,
+			network: body.network,
+			signature,
 			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		});
 	} catch (e) {
@@ -3857,18 +4493,29 @@ async function handleDistributeCreatorFeesAgent(req, res) {
 // list of delegated wallets (e.g. GitHub contributors) who can each claim their
 // share via distribute. Shares are basis points and must sum to 10000.
 
-const feeSharingAgentSchema = z.object({
-	agent_id: z.string().uuid().optional(),
-	avatar_id: z.string().uuid().optional(),
-	mint: z.string().min(32).max(44),
-	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
-	shareholders: z.array(z.object({
-		address: z.string().min(32).max(44),
-		share_bps: z.number().int().min(1).max(10_000),
-	})).min(1).max(10)
-		.refine((arr) => arr.reduce((s, x) => s + x.share_bps, 0) === 10_000, { message: 'share_bps must sum to 10000' })
-		.refine((arr) => new Set(arr.map((x) => x.address)).size === arr.length, { message: 'duplicate shareholder addresses' }),
-}).refine((b) => b.agent_id || b.avatar_id, { message: 'agent_id or avatar_id required' });
+const feeSharingAgentSchema = z
+	.object({
+		agent_id: z.string().uuid().optional(),
+		avatar_id: z.string().uuid().optional(),
+		mint: z.string().min(32).max(44),
+		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
+		shareholders: z
+			.array(
+				z.object({
+					address: z.string().min(32).max(44),
+					share_bps: z.number().int().min(1).max(10_000),
+				}),
+			)
+			.min(1)
+			.max(10)
+			.refine((arr) => arr.reduce((s, x) => s + x.share_bps, 0) === 10_000, {
+				message: 'share_bps must sum to 10000',
+			})
+			.refine((arr) => new Set(arr.map((x) => x.address)).size === arr.length, {
+				message: 'duplicate shareholder addresses',
+			}),
+	})
+	.refine((b) => b.agent_id || b.avatar_id, { message: 'agent_id or avatar_id required' });
 
 async function handleFeeSharingAgent(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -3883,7 +4530,11 @@ async function handleFeeSharingAgent(req, res) {
 
 	const newShareholders = body.shareholders.map((s) => {
 		const pk = solanaPubkey(s.address);
-		if (!pk) throw Object.assign(new Error(`invalid shareholder ${s.address}`), { status: 400, code: 'validation_error' });
+		if (!pk)
+			throw Object.assign(new Error(`invalid shareholder ${s.address}`), {
+				status: 400,
+				code: 'validation_error',
+			});
 		return { address: pk, shareBps: s.share_bps };
 	});
 
@@ -3899,12 +4550,12 @@ async function handleFeeSharingAgent(req, res) {
 			getPumpSdkV2({ network: body.network }),
 		]);
 
-		const mintPk   = new PublicKey(body.mint);
-		const creator  = ctx.loaded.keypair.publicKey;
+		const mintPk = new PublicKey(body.mint);
+		const creator = ctx.loaded.keypair.publicKey;
 
 		// The sharing-config account existing on-chain means the split has already
 		// been initialized — skip creation and go straight to updating shares.
-		const cfgPda  = feeSharingConfigPda(mintPk);
+		const cfgPda = feeSharingConfigPda(mintPk);
 		const cfgInfo = await connection.getAccountInfo(cfgPda);
 		const configExists = !!cfgInfo;
 
@@ -3915,13 +4566,22 @@ async function handleFeeSharingAgent(req, res) {
 		if (!configExists) {
 			const bcInfo = await connection.getAccountInfo(bondingCurvePda(mintPk));
 			const bc = bcInfo ? sdk.decodeBondingCurve(bcInfo) : null;
-			const poolPk = (bc && bc.quoteMint && !isLegacyQuoteMint(bc.quoteMint))
-				? canonicalPumpPoolPda(mintPk, bc.quoteMint)
-				: canonicalPumpPoolPda(mintPk);
-			const createIx = await sdk.createFeeSharingConfig({ creator, mint: mintPk, pool: poolPk });
-			signatures.push(await signSendWithAgent({
-				network: body.network, agentKeypair: ctx.loaded.keypair, instructions: [createIx],
-			}));
+			const poolPk =
+				bc && bc.quoteMint && !isLegacyQuoteMint(bc.quoteMint)
+					? canonicalPumpPoolPda(mintPk, bc.quoteMint)
+					: canonicalPumpPoolPda(mintPk);
+			const createIx = await sdk.createFeeSharingConfig({
+				creator,
+				mint: mintPk,
+				pool: poolPk,
+			});
+			signatures.push(
+				await signSendWithAgent({
+					network: body.network,
+					agentKeypair: ctx.loaded.keypair,
+					instructions: [createIx],
+				}),
+			);
 		}
 
 		// Step 2 — set the shareholder split. Right after creation the current set
@@ -3929,15 +4589,23 @@ async function handleFeeSharingAgent(req, res) {
 		const cached = Array.isArray(ctx.mintRow.sharing_config?.shareholders)
 			? ctx.mintRow.sharing_config.shareholders
 			: null;
-		const currentShareholders = (configExists && cached?.length)
-			? cached.map((s) => new PublicKey(s.address))
-			: [creator];
+		const currentShareholders =
+			configExists && cached?.length
+				? cached.map((s) => new PublicKey(s.address))
+				: [creator];
 		const updateIx = await sdk.updateFeeShares({
-			authority: creator, mint: mintPk, currentShareholders, newShareholders,
+			authority: creator,
+			mint: mintPk,
+			currentShareholders,
+			newShareholders,
 		});
-		signatures.push(await signSendWithAgent({
-			network: body.network, agentKeypair: ctx.loaded.keypair, instructions: [updateIx],
-		}));
+		signatures.push(
+			await signSendWithAgent({
+				network: body.network,
+				agentKeypair: ctx.loaded.keypair,
+				instructions: [updateIx],
+			}),
+		);
 
 		// Cache the split so the next update knows the current shareholder set and
 		// the UI reflects delegation immediately. On-chain fee-info remains the
@@ -3960,13 +4628,21 @@ async function handleFeeSharingAgent(req, res) {
 		`.catch((e) => console.error('[pump/fee-sharing-agent] log failed', e?.message));
 
 		return json(res, 201, {
-			ok: true, mint: body.mint, network: body.network,
-			created: !configExists, signatures,
+			ok: true,
+			mint: body.mint,
+			network: body.network,
+			created: !configExists,
+			signatures,
 			sharing_config: sharingConfig,
 			explorer: `https://solscan.io/tx/${signatures[signatures.length - 1]}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'rpc_error', e.message || 'fee sharing failed');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'rpc_error',
+			e.message || 'fee sharing failed',
+		);
 	}
 }
 
@@ -3993,16 +4669,20 @@ async function handleGithubResolve(req, res) {
 	try {
 		const headers = { 'user-agent': 'three.ws', accept: 'application/vnd.github+json' };
 		if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-		const gh = await fetch(`https://api.github.com/users/${encodeURIComponent(handle)}`, { headers });
-		if (gh.status === 404) return error(res, 404, 'github_user_not_found', `@${handle} not found on GitHub`);
-		if (gh.status === 403) return error(res, 429, 'github_rate_limited', 'GitHub rate limit — try again shortly');
+		const gh = await fetch(`https://api.github.com/users/${encodeURIComponent(handle)}`, {
+			headers,
+		});
+		if (gh.status === 404)
+			return error(res, 404, 'github_user_not_found', `@${handle} not found on GitHub`);
+		if (gh.status === 403)
+			return error(res, 429, 'github_rate_limited', 'GitHub rate limit — try again shortly');
 		if (!gh.ok) return error(res, 502, 'github_error', `github responded ${gh.status}`);
 		const j = await gh.json();
 		if (!j?.id) return error(res, 502, 'github_error', 'github id missing');
 		return json(res, 200, {
 			ok: true,
 			login: j.login,
-			id: String(j.id),          // social-fee user_id (≤20 chars, fits u64)
+			id: String(j.id), // social-fee user_id (≤20 chars, fits u64)
 			name: j.name || null,
 			avatar_url: j.avatar_url || null,
 			html_url: j.html_url || `https://github.com/${j.login}`,
@@ -4026,7 +4706,9 @@ async function readSocialClaimAuthority(connection) {
 		if (!info?.data || info.data.length < 8 + 1 + 32 + 1 + 32) return null;
 		const off = 8 + 1 + 32 + 1;
 		return new PublicKey(info.data.subarray(off, off + 32)).toBase58();
-	} catch { return null; }
+	} catch {
+		return null;
+	}
 }
 
 // ── social-fee-claim-status ────────────────────────────────────────────────
@@ -4048,8 +4730,10 @@ async function handleSocialFeeClaimStatus(req, res) {
 	const userId = (url.searchParams.get('user_id') || '').trim();
 	const platform = Number(url.searchParams.get('platform') ?? '2'); // 0=pump 1=X 2=GitHub
 	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
-	if (!/^\d{1,20}$/.test(userId)) return error(res, 400, 'validation_error', 'numeric user_id required');
-	if (![0, 1, 2].includes(platform)) return error(res, 400, 'validation_error', 'platform must be 0,1,2');
+	if (!/^\d{1,20}$/.test(userId))
+		return error(res, 400, 'validation_error', 'numeric user_id required');
+	if (![0, 1, 2].includes(platform))
+		return error(res, 400, 'validation_error', 'platform must be 0,1,2');
 
 	try {
 		const connection = getConnection({ network });
@@ -4070,7 +4754,9 @@ async function handleSocialFeeClaimStatus(req, res) {
 					total_claimed_lamports: d.totalClaimed?.toString?.() ?? '0',
 					last_claimed: d.lastClaimed?.toString?.() ?? '0',
 				};
-			} catch { /* layout drift — still return the balance */ }
+			} catch {
+				/* layout drift — still return the balance */
+			}
 		}
 
 		const social_claim_authority = await readSocialClaimAuthority(connection);
@@ -4089,8 +4775,15 @@ async function handleSocialFeeClaimStatus(req, res) {
 			claim_url: 'https://pump.fun/profile',
 		});
 	} catch (e) {
-		return error(res, e.status || 502, e.code || 'pump_sdk_error', e.message || 'failed to read social fee status');
+		return error(
+			res,
+			e.status || 502,
+			e.code || 'pump_sdk_error',
+			e.message || 'failed to read social fee status',
+		);
 	}
 }
 
-function _sse(res, event, data) { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); }
+function _sse(res, event, data) {
+	res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}

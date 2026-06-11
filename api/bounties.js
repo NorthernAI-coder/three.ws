@@ -1,10 +1,10 @@
 import { sql } from './_lib/db.js';
 import { cors, json, error, readJson, wrap, method, rateLimited } from './_lib/http.js';
 import { getSessionUser } from './_lib/auth.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { limits } from './_lib/rate-limit.js';
 import { enrichLikes } from './_lib/bounty-likes.js';
-
-const SOL_USD_FALLBACK = 160;
+import { solUsdPrice } from './_lib/avatar-wallet.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res)) return;
@@ -113,6 +113,7 @@ export default wrap(async (req, res) => {
 			return error(res, 401, 'unauthorized', 'sign in to post a bounty');
 		}
 		if (!user) return error(res, 401, 'unauthorized', 'sign in to post a bounty');
+		if (!(await requireCsrf(req, res, user.id))) return;
 
 		const rl = await limits.bountyCreate(user.id);
 		if (!rl.success) return rateLimited(res, rl, 'too many bounties, slow down');
@@ -131,7 +132,8 @@ export default wrap(async (req, res) => {
 		if (!title?.trim()) return error(res, 400, 'bad_request', 'title is required');
 		// Bound the free-text and identifier fields so a single bounty can't carry a
 		// near-1MB payload into a public, everyone-reads table.
-		if (title.trim().length > 200) return error(res, 400, 'bad_request', 'title too long (max 200)');
+		if (title.trim().length > 200)
+			return error(res, 400, 'bad_request', 'title too long (max 200)');
 		if (typeof description === 'string' && description.length > 4000)
 			return error(res, 400, 'bad_request', 'description too long (max 4000)');
 		if (typeof coin_symbol === 'string' && coin_symbol.length > 32)
@@ -141,9 +143,44 @@ export default wrap(async (req, res) => {
 		if (!reward_sol && !reward_tokens)
 			return error(res, 400, 'bad_request', 'set a reward (SOL or tokens)');
 
-		const rewardSol = reward_sol ? parseFloat(reward_sol) : null;
-		const rewardUsd = rewardSol ? parseFloat((rewardSol * SOL_USD_FALLBACK).toFixed(2)) : null;
-		const days = Math.min(parseInt(expires_in_days || '7', 10), 30);
+		let rewardSol = null;
+		if (reward_sol) {
+			rewardSol = parseFloat(reward_sol);
+			if (!Number.isFinite(rewardSol) || rewardSol <= 0)
+				return error(res, 400, 'bad_request', 'reward_sol must be a positive number');
+		}
+		let rewardTokens = null;
+		if (reward_tokens) {
+			const rawTokens = String(reward_tokens).trim();
+			if (!/^\d+$/.test(rawTokens))
+				return error(
+					res,
+					400,
+					'bad_request',
+					'reward_tokens must be a non-negative integer',
+				);
+			rewardTokens = BigInt(rawTokens);
+		}
+
+		// reward_usd is a real quote or nothing — never a number derived from a
+		// hardcoded fallback price. Sorting treats missing values as NULLS LAST.
+		let rewardUsd = null;
+		if (rewardSol) {
+			try {
+				const solUsd = await solUsdPrice();
+				rewardUsd = parseFloat((rewardSol * solUsd).toFixed(2));
+			} catch (err) {
+				console.warn(
+					'[bounties] SOL/USD quote unavailable, storing reward_usd=null:',
+					err?.message,
+				);
+			}
+		}
+
+		const parsedDays = parseInt(expires_in_days ?? '7', 10);
+		const days = Number.isFinite(parsedDays)
+			? Math.min(Math.max(Math.floor(parsedDays), 1), 30)
+			: 7;
 		const expiresAt = new Date(Date.now() + days * 86400000).toISOString();
 		const username = user.display_name || user.email?.split('@')[0] || 'anon';
 		const symbol = coin_symbol?.trim() || '$THREE';
@@ -154,7 +191,7 @@ export default wrap(async (req, res) => {
 			  (user_id, username, title, description, reward_sol, reward_tokens, reward_usd, coin_symbol, coin_mint, expires_at)
 			VALUES
 			  (${user.id}, ${username}, ${title.trim()}, ${description?.trim() || null},
-			   ${rewardSol}, ${reward_tokens ? BigInt(reward_tokens) : null}, ${rewardUsd},
+			   ${rewardSol}, ${rewardTokens}, ${rewardUsd},
 			   ${symbol}, ${mint}, ${expiresAt})
 			RETURNING *
 		`;

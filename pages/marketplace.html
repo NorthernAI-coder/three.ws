@@ -20,7 +20,7 @@
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<link rel="manifest" href="/site.webmanifest" />
 		<link rel="canonical" href="https://three.ws/marketplace" />
-<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/style.css" />
 		<link rel="stylesheet" href="/footer.css" />
 		<link rel="stylesheet" href="/marketplace.css" />
 		<link rel="stylesheet" href="/marketplace-v2.css" />
@@ -30,7 +30,9 @@
 			   [hidden] { display: none } default, so `<div … hidden>` was still
 			   rendering as a grid/flex container — taking up body-grid cells and
 			   blocking page scroll. Force display:none whenever hidden is set. */
-			[hidden] { display: none !important; }
+			[hidden] {
+				display: none !important;
+			}
 
 			/* Screen-reader-only utility: visible to assistive tech, hidden visually.
 			   Used to label search/sort controls without changing the topbar layout. */
@@ -52,7 +54,11 @@
 				gap: 10px;
 				margin: 12px 24px 0;
 				padding: 8px 14px;
-				background: linear-gradient(90deg, rgba(253, 224, 71, 0.07), rgba(253, 224, 71, 0.02));
+				background: linear-gradient(
+					90deg,
+					rgba(253, 224, 71, 0.07),
+					rgba(253, 224, 71, 0.02)
+				);
 				border: 1px solid rgba(253, 224, 71, 0.18);
 				border-radius: 10px;
 				color: #fde68a;
@@ -88,7 +94,9 @@
 				border-radius: var(--radius-card);
 				overflow: hidden;
 				cursor: pointer;
-				transition: border-color 0.15s ease, transform 0.15s ease;
+				transition:
+					border-color 0.15s ease,
+					transform 0.15s ease;
 			}
 			.market-card-avatar:hover {
 				border-color: var(--stroke-strong);
@@ -204,8 +212,16 @@
 				margin: 16px 24px 0;
 				padding: 28px;
 				background:
-					radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.08), transparent 60%),
-					radial-gradient(ellipse at bottom left, rgba(255, 255, 255, 0.04), transparent 50%),
+					radial-gradient(
+						ellipse at top right,
+						rgba(255, 255, 255, 0.08),
+						transparent 60%
+					),
+					radial-gradient(
+						ellipse at bottom left,
+						rgba(255, 255, 255, 0.04),
+						transparent 50%
+					),
 					linear-gradient(180deg, #0e0e0e, #0a0a0a);
 				border: 1px solid #1f1f1f;
 				border-radius: 20px;
@@ -259,14 +275,23 @@
 				content: '';
 				position: absolute;
 				inset: 0;
-				background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.03) 50%, transparent 70%);
+				background: linear-gradient(
+					110deg,
+					transparent 30%,
+					rgba(255, 255, 255, 0.03) 50%,
+					transparent 70%
+				);
 				background-size: 200% 100%;
 				animation: hero-shimmer 2.4s ease-in-out infinite;
 				pointer-events: none;
 			}
 			@keyframes hero-shimmer {
-				0%   { background-position: 200% 0; }
-				100% { background-position: -200% 0; }
+				0% {
+					background-position: 200% 0;
+				}
+				100% {
+					background-position: -200% 0;
+				}
 			}
 			.market-hero-slide.mv-loaded .market-hero-placeholder {
 				opacity: 0;
@@ -275,7 +300,11 @@
 				font-size: 80px;
 				font-weight: 700;
 				line-height: 1;
-				background: linear-gradient(180deg, rgba(244,244,245,0.5), rgba(161,161,170,0.35));
+				background: linear-gradient(
+					180deg,
+					rgba(244, 244, 245, 0.5),
+					rgba(161, 161, 170, 0.35)
+				);
 				-webkit-background-clip: text;
 				background-clip: text;
 				color: transparent;
@@ -357,7 +386,9 @@
 				font-weight: 600;
 				font-size: 13px;
 				cursor: pointer;
-				transition: transform 0.15s ease, box-shadow 0.15s ease;
+				transition:
+					transform 0.15s ease,
+					box-shadow 0.15s ease;
 			}
 			.market-hero-cta:hover {
 				transform: translateY(-1px);
@@ -483,8 +514,13 @@
 
 			/* ── Skeleton loading ─────────────────────────────────────────── */
 			@keyframes mk-skeleton-pulse {
-				0%,100% { opacity: 0.4; }
-				50% { opacity: 0.7; }
+				0%,
+				100% {
+					opacity: 0.4;
+				}
+				50% {
+					opacity: 0.7;
+				}
 			}
 			.market-skeleton {
 				background: linear-gradient(90deg, #111 0%, #1a1a1a 50%, #111 100%);
@@ -534,7 +570,9 @@
 				align-items: center;
 				justify-content: center;
 			}
-			.market-lobby-overlay[hidden] { display: none; }
+			.market-lobby-overlay[hidden] {
+				display: none;
+			}
 			.market-lobby-canvas {
 				width: 100%;
 				height: 100%;
@@ -584,7 +622,12 @@
 				gap: 12px;
 				margin: 14px 24px 0;
 				padding: 12px 16px;
-				background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06) 60%, transparent);
+				background: linear-gradient(
+					90deg,
+					rgba(255, 255, 255, 0.06),
+					rgba(255, 255, 255, 0.06) 60%,
+					transparent
+				);
 				border: 1px solid rgba(255, 255, 255, 0.12);
 				border-radius: 12px;
 				font-size: 13px;
@@ -641,7 +684,9 @@
 				scrollbar-width: thin;
 				scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 			}
-			.market-theme-picks::-webkit-scrollbar { height: 6px; }
+			.market-theme-picks::-webkit-scrollbar {
+				height: 6px;
+			}
 			.market-theme-picks::-webkit-scrollbar-thumb {
 				background: rgba(255, 255, 255, 0.18);
 				border-radius: 99px;
@@ -656,7 +701,10 @@
 				overflow: hidden;
 				cursor: pointer;
 				scroll-snap-align: start;
-				transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+				transition:
+					border-color 0.18s ease,
+					transform 0.18s ease,
+					box-shadow 0.18s ease;
 				text-align: left;
 				appearance: none;
 				color: inherit;
@@ -671,7 +719,9 @@
 				outline: none;
 			}
 			.market-theme-pick:focus-visible {
-				box-shadow: 0 0 0 2px var(--accent, #8b5cf6), 0 8px 22px rgba(0, 0, 0, 0.45);
+				box-shadow:
+					0 0 0 2px var(--accent, #8b5cf6),
+					0 8px 22px rgba(0, 0, 0, 0.45);
 			}
 			.market-theme-pick-stage {
 				position: relative;
@@ -749,7 +799,9 @@
 				transition: opacity 0.4s ease;
 				pointer-events: none;
 			}
-			.market-theme-pick.mv-loaded .market-theme-pick-placeholder { opacity: 0; }
+			.market-theme-pick.mv-loaded .market-theme-pick-placeholder {
+				opacity: 0;
+			}
 			/* Skeleton shimmer while the lineup loads. */
 			.market-theme-pick.is-skeleton {
 				cursor: default;
@@ -762,15 +814,25 @@
 				animation: market-pick-shimmer 1.2s ease-in-out infinite;
 			}
 			@keyframes market-pick-shimmer {
-				0% { background-position: 200% 0; }
-				100% { background-position: -200% 0; }
+				0% {
+					background-position: 200% 0;
+				}
+				100% {
+					background-position: -200% 0;
+				}
 			}
 			@media (prefers-reduced-motion: reduce) {
-				.market-theme-pick { transition: border-color 0.18s ease; }
+				.market-theme-pick {
+					transition: border-color 0.18s ease;
+				}
 				.market-theme-pick:hover,
-				.market-theme-pick:focus-visible { transform: none; }
+				.market-theme-pick:focus-visible {
+					transform: none;
+				}
 				.market-theme-pick.is-skeleton .market-theme-pick-stage,
-				.market-theme-pick.is-skeleton .market-theme-pick-meta { animation: none; }
+				.market-theme-pick.is-skeleton .market-theme-pick-meta {
+					animation: none;
+				}
 			}
 
 			/* ── Onchain card variants ────────────────────────────────────── */
@@ -817,7 +879,10 @@
 			.market-card-avatar .card-tags .tag-pill {
 				cursor: pointer;
 				font-family: inherit;
-				transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+				transition:
+					background 0.15s ease,
+					color 0.15s ease,
+					border-color 0.15s ease;
 			}
 			.market-card-avatar .card-tags .tag-pill:hover {
 				background: rgba(255, 255, 255, 0.18);
@@ -855,7 +920,7 @@
 				color: #fde047;
 				border-color: rgba(253, 224, 71, 0.32);
 			}
-/* Featured-curated badge over the avatar thumbnail (gold star, top-left) */
+			/* Featured-curated badge over the avatar thumbnail (gold star, top-left) */
 			.market-card-avatar.featured {
 				border-color: rgba(253, 224, 71, 0.25);
 				box-shadow: 0 0 0 1px rgba(253, 224, 71, 0.05);
@@ -940,7 +1005,9 @@
 				font-weight: 500;
 				font-size: 11px;
 				opacity: 0.6;
-				transition: opacity 0.15s ease, transform 0.15s ease;
+				transition:
+					opacity 0.15s ease,
+					transform 0.15s ease;
 			}
 			.market-card-avatar:hover .footer .open-cta {
 				opacity: 1;
@@ -1107,8 +1174,8 @@
 				font-size: 11px;
 				color: #a1a1aa;
 			}
-			.avatar-modal-sale input[type="number"],
-			.avatar-modal-sale input[type="text"] {
+			.avatar-modal-sale input[type='number'],
+			.avatar-modal-sale input[type='text'] {
 				background: #0a0a0a;
 				border: 1px solid #2a2a2a;
 				border-radius: 8px;
@@ -1119,8 +1186,8 @@
 				outline: none;
 				transition: border-color 0.15s;
 			}
-			.avatar-modal-sale input[type="number"]:focus,
-			.avatar-modal-sale input[type="text"]:focus {
+			.avatar-modal-sale input[type='number']:focus,
+			.avatar-modal-sale input[type='text']:focus {
 				border-color: #ffffff;
 			}
 			.avatar-modal-sale .sale-row {
@@ -1128,7 +1195,9 @@
 				gap: 8px;
 				align-items: flex-end;
 			}
-			.avatar-modal-sale .sale-row label { flex: 1; }
+			.avatar-modal-sale .sale-row label {
+				flex: 1;
+			}
 			.avatar-modal-sale .sale-row .sale-currency {
 				background: #1a1a1a;
 				border: 1px solid #2a2a2a;
@@ -1173,15 +1242,24 @@
 				color: #a1a1aa;
 				min-height: 14px;
 			}
-			.avatar-modal-sale .sale-status.ok { color: #ffffff; }
-			.avatar-modal-sale .sale-status.err { color: #f43f5e; }
+			.avatar-modal-sale .sale-status.ok {
+				color: #ffffff;
+			}
+			.avatar-modal-sale .sale-status.err {
+				color: #f43f5e;
+			}
 			.avatar-modal-sale .sale-hint {
 				font-size: 11px;
 				color: #71717a;
 				line-height: 1.5;
 			}
-			.avatar-modal-sale .sale-hint a { color: #ffffff; text-decoration: none; }
-			.avatar-modal-sale .sale-hint a:hover { text-decoration: underline; }
+			.avatar-modal-sale .sale-hint a {
+				color: #ffffff;
+				text-decoration: none;
+			}
+			.avatar-modal-sale .sale-hint a:hover {
+				text-decoration: underline;
+			}
 			.avatar-modal-actions button,
 			.avatar-modal-actions a {
 				width: 100%;
@@ -1194,7 +1272,9 @@
 				text-align: center;
 				text-decoration: none;
 				display: block;
-				transition: transform 0.15s ease, background 0.15s ease;
+				transition:
+					transform 0.15s ease,
+					background 0.15s ease;
 			}
 			.avatar-modal-actions .btn-primary {
 				background: #fafafa;
@@ -1474,7 +1554,9 @@
 				flex-direction: column;
 				gap: 10px;
 				cursor: pointer;
-				transition: border-color 0.15s ease, transform 0.15s ease;
+				transition:
+					border-color 0.15s ease,
+					transform 0.15s ease;
 			}
 			.market-skill-card:hover {
 				border-color: var(--stroke-strong);
@@ -1487,7 +1569,9 @@
 				transform: translateY(-1px);
 			}
 			/* "Details →" affordance — dim at rest, resolves on card hover/focus */
-			.market-skill-card .skill-foot { justify-content: space-between; }
+			.market-skill-card .skill-foot {
+				justify-content: space-between;
+			}
 			.market-skill-card .open-cta {
 				color: #fafafa;
 				font-weight: 500;
@@ -1499,9 +1583,13 @@
 				transition: transform 0.15s ease;
 			}
 			.market-skill-card:hover .open-cta,
-			.market-skill-card:focus-visible .open-cta { opacity: 1; }
+			.market-skill-card:focus-visible .open-cta {
+				opacity: 1;
+			}
 			.market-skill-card:hover .open-cta-arrow,
-			.market-skill-card:focus-visible .open-cta-arrow { transform: translateX(2px); }
+			.market-skill-card:focus-visible .open-cta-arrow {
+				transform: translateX(2px);
+			}
 			.market-skill-card .skill-head {
 				display: flex;
 				justify-content: space-between;
@@ -1601,7 +1689,9 @@
 				font-weight: 500;
 				font-size: 13px;
 				cursor: pointer;
-				transition: background 0.15s ease, border-color 0.15s ease;
+				transition:
+					background 0.15s ease,
+					border-color 0.15s ease;
 				font-family: inherit;
 			}
 			.market-empty-cta-btn:hover {
@@ -1710,8 +1800,12 @@
 				text-align: center;
 				min-height: 1.2em;
 			}
-			.payment-status.ok { color: #86efac; }
-			.payment-status.err { color: #fca5a5; }
+			.payment-status.ok {
+				color: #86efac;
+			}
+			.payment-status.err {
+				color: #fca5a5;
+			}
 
 			.payment-qr {
 				display: flex;
@@ -1720,14 +1814,21 @@
 				gap: 8px;
 				margin-top: 14px;
 			}
-			.payment-qr:empty { display: none; }
+			.payment-qr:empty {
+				display: none;
+			}
 			.payment-qr canvas {
 				background: #fff;
 				border-radius: 8px;
 				padding: 8px;
 			}
-			.payment-qr .muted { color: #9ca3af; }
-			.payment-qr .small { font-size: 11px; text-align: center; }
+			.payment-qr .muted {
+				color: #9ca3af;
+			}
+			.payment-qr .small {
+				font-size: 11px;
+				text-align: center;
+			}
 
 			.payment-chain-picker {
 				display: flex;
@@ -1745,7 +1846,9 @@
 				cursor: pointer;
 				transition: all 0.15s;
 			}
-			.payment-chain-pill:hover { border-color: #404040; }
+			.payment-chain-pill:hover {
+				border-color: #404040;
+			}
 			.payment-chain-pill.active {
 				background: #ffffff;
 				border-color: #ffffff;
@@ -1760,7 +1863,7 @@
 			.payment-modal-badge {
 				margin: -6px 0 14px;
 				padding: 8px 12px;
-				background: rgba(255, 255, 255, 0.10);
+				background: rgba(255, 255, 255, 0.1);
 				border: 1px solid rgba(255, 255, 255, 0.32);
 				border-radius: 8px;
 				font-size: 12px;
@@ -1779,7 +1882,7 @@
 			}
 			.payment-modal-badge.warn {
 				background: rgba(253, 224, 71, 0.08);
-				border-color: rgba(253, 224, 71, 0.30);
+				border-color: rgba(253, 224, 71, 0.3);
 				color: #fde68a;
 			}
 
@@ -1799,7 +1902,7 @@
 				height: 56px;
 				border-radius: 50%;
 				background: rgba(134, 239, 172, 0.16);
-				border: 1px solid rgba(134, 239, 172, 0.40);
+				border: 1px solid rgba(134, 239, 172, 0.4);
 				color: #86efac;
 				display: flex;
 				align-items: center;
@@ -1842,7 +1945,9 @@
 				background: #ffffff;
 				color: #fff;
 			}
-			.payment-modal-success .ps-actions .btn-primary:hover { background: #4f46e5; }
+			.payment-modal-success .ps-actions .btn-primary:hover {
+				background: #4f46e5;
+			}
 			.payment-modal-success .ps-actions .btn-secondary {
 				background: transparent;
 				color: rgba(255, 255, 255, 0.78);
@@ -1879,7 +1984,9 @@
 				color: rgba(255, 255, 255, 0.55);
 				word-break: break-all;
 			}
-			.payment-modal-retry .retry-tx a { color: #93c5fd; }
+			.payment-modal-retry .retry-tx a {
+				color: #93c5fd;
+			}
 			.payment-modal-retry .retry-actions {
 				display: flex;
 				gap: 8px;
@@ -1930,15 +2037,23 @@
 
 			/* ── Card entry animations ────────────────────────────────────── */
 			@keyframes mk-card-in {
-				from { opacity: 0; transform: translateY(14px); }
-				to   { opacity: 1; transform: translateY(0); }
+				from {
+					opacity: 0;
+					transform: translateY(14px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
 			}
 			.mk-card-enter {
 				animation: mk-card-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
 				animation-delay: var(--card-delay, 0s);
 			}
 			@media (prefers-reduced-motion: reduce) {
-				.mk-card-enter { animation: none; }
+				.mk-card-enter {
+					animation: none;
+				}
 			}
 
 			/* ── Animations tab ───────────────────────────────────────────── */
@@ -1954,7 +2069,10 @@
 				align-items: center;
 				gap: 12px;
 				cursor: pointer;
-				transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+				transition:
+					border-color 0.15s ease,
+					transform 0.15s ease,
+					box-shadow 0.15s ease;
 			}
 			.market-anim-card:hover {
 				border-color: rgba(255, 255, 255, 0.18);
@@ -2032,16 +2150,33 @@
 			/* Animation detail page stage */
 			.anim-detail-stage {
 				position: relative;
-				background: radial-gradient(circle at 50% 60%, rgba(255,255,255,0.05), transparent 70%), linear-gradient(180deg, #050505, #0a0a0a);
+				background:
+					radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.05), transparent 70%),
+					linear-gradient(180deg, #050505, #0a0a0a);
 				border: 1px solid var(--stroke);
 				border-radius: 18px;
 				min-height: 420px;
 				overflow: hidden;
 				margin: 8px 0 4px;
 			}
-			.anim-detail-stage agent-3d { width: 100%; height: 100%; display: block; }
-			.anim-detail-stage-load { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-			@media (max-width: 600px) { .anim-detail-stage { min-height: 300px; } }
+			.anim-detail-stage agent-3d {
+				width: 100%;
+				height: 100%;
+				display: block;
+			}
+			.anim-detail-stage-load {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				pointer-events: none;
+			}
+			@media (max-width: 600px) {
+				.anim-detail-stage {
+					min-height: 300px;
+				}
+			}
 
 			/* ── Memory tab ───────────────────────────────────────────────── */
 			.market-memory-body {
@@ -2055,13 +2190,22 @@
 				gap: 24px;
 				align-items: flex-start;
 				padding: 28px;
-				background: radial-gradient(ellipse at top right, rgba(255,255,255,0.05), transparent 60%), linear-gradient(180deg, #0e0e0e, #0a0a0a);
+				background:
+					radial-gradient(
+						ellipse at top right,
+						rgba(255, 255, 255, 0.05),
+						transparent 60%
+					),
+					linear-gradient(180deg, #0e0e0e, #0a0a0a);
 				border: 1px solid #1f1f1f;
 				border-radius: 18px;
 				margin-top: 4px;
 				flex-wrap: wrap;
 			}
-			.memory-intro-text { flex: 1; min-width: 280px; }
+			.memory-intro-text {
+				flex: 1;
+				min-width: 280px;
+			}
 			.memory-intro-title {
 				font-family: var(--font-display);
 				font-size: 24px;
@@ -2089,12 +2233,14 @@
 				font-weight: 600;
 				font-size: 13px;
 				text-decoration: none;
-				transition: transform 0.15s ease, box-shadow 0.15s ease;
+				transition:
+					transform 0.15s ease,
+					box-shadow 0.15s ease;
 				white-space: nowrap;
 			}
 			.market-memory-cta-btn:hover {
 				transform: translateY(-1px);
-				box-shadow: 0 8px 20px rgba(255,255,255,0.08);
+				box-shadow: 0 8px 20px rgba(255, 255, 255, 0.08);
 			}
 			.market-memory-section-title {
 				font-family: var(--font-display);
@@ -2117,10 +2263,12 @@
 				padding: 20px;
 				display: flex;
 				gap: 14px;
-				transition: border-color 0.15s ease, transform 0.15s ease;
+				transition:
+					border-color 0.15s ease,
+					transform 0.15s ease;
 			}
 			.market-memory-type-card:hover {
-				border-color: rgba(255,255,255,0.15);
+				border-color: rgba(255, 255, 255, 0.15);
 				transform: translateY(-2px);
 			}
 			.memory-type-icon {
@@ -2132,10 +2280,13 @@
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				background: rgba(255,255,255,0.05);
+				background: rgba(255, 255, 255, 0.05);
 				border-radius: 12px;
 			}
-			.memory-type-body { min-width: 0; flex: 1; }
+			.memory-type-body {
+				min-width: 0;
+				flex: 1;
+			}
 			.memory-type-title {
 				font-size: 14px;
 				font-weight: 700;
@@ -2164,17 +2315,25 @@
 				line-height: 1.4;
 				margin: 0;
 				padding: 8px 10px;
-				background: rgba(255,255,255,0.03);
-				border: 1px solid rgba(255,255,255,0.06);
+				background: rgba(255, 255, 255, 0.03);
+				border: 1px solid rgba(255, 255, 255, 0.06);
 				border-radius: 8px;
-				border-left: 3px solid rgba(255,255,255,0.18);
+				border-left: 3px solid rgba(255, 255, 255, 0.18);
 			}
 
 			/* Memory type accent colors */
-			.market-memory-type-card[data-memory-type="user"] .memory-type-icon { background: rgba(59,130,246,0.1); }
-			.market-memory-type-card[data-memory-type="feedback"] .memory-type-icon { background: rgba(234,179,8,0.1); }
-			.market-memory-type-card[data-memory-type="project"] .memory-type-icon { background: rgba(34,197,94,0.1); }
-			.market-memory-type-card[data-memory-type="reference"] .memory-type-icon { background: rgba(255,255,255,0.06); }
+			.market-memory-type-card[data-memory-type='user'] .memory-type-icon {
+				background: rgba(59, 130, 246, 0.1);
+			}
+			.market-memory-type-card[data-memory-type='feedback'] .memory-type-icon {
+				background: rgba(234, 179, 8, 0.1);
+			}
+			.market-memory-type-card[data-memory-type='project'] .memory-type-icon {
+				background: rgba(34, 197, 94, 0.1);
+			}
+			.market-memory-type-card[data-memory-type='reference'] .memory-type-icon {
+				background: rgba(255, 255, 255, 0.06);
+			}
 
 			/* How memory works section */
 			.market-memory-how {
@@ -2198,12 +2357,14 @@
 				background: var(--surface-1);
 				transition: background 0.15s ease;
 			}
-			.memory-step:hover { background: #141414; }
+			.memory-step:hover {
+				background: #141414;
+			}
 			.memory-step-num {
 				width: 28px;
 				height: 28px;
 				border-radius: 50%;
-				background: rgba(255,255,255,0.08);
+				background: rgba(255, 255, 255, 0.08);
 				color: #a1a1aa;
 				font-family: var(--font-display);
 				font-weight: 700;
@@ -2219,7 +2380,10 @@
 				line-height: 1.55;
 				padding-top: 3px;
 			}
-			.memory-step-text strong { color: #fafafa; font-weight: 600; }
+			.memory-step-text strong {
+				color: #fafafa;
+				font-weight: 600;
+			}
 
 			/* Memory live feed */
 			.market-memory-live {
@@ -2252,7 +2416,10 @@
 				font-size: 14px;
 				flex-shrink: 0;
 			}
-			.memory-feed-body { min-width: 0; flex: 1; }
+			.memory-feed-body {
+				min-width: 0;
+				flex: 1;
+			}
 			.memory-feed-type {
 				font-size: 10px;
 				font-weight: 700;
@@ -2273,7 +2440,7 @@
 				font-size: 13px;
 			}
 			.market-memory-live-cta {
-				background: rgba(255,255,255,0.04);
+				background: rgba(255, 255, 255, 0.04);
 				border: 1px solid #2a2a2a;
 				border-radius: 10px;
 				padding: 16px 20px;
@@ -2281,8 +2448,13 @@
 				color: #a1a1aa;
 				font-size: 13px;
 			}
-			.market-memory-live-cta a { color: #ffffff; text-decoration: none; }
-			.market-memory-live-cta a:hover { text-decoration: underline; }
+			.market-memory-live-cta a {
+				color: #ffffff;
+				text-decoration: none;
+			}
+			.market-memory-live-cta a:hover {
+				text-decoration: underline;
+			}
 		</style>
 		<meta property="og:type" content="website" />
 		<meta property="og:title" content="Agent Marketplace · three.ws" />
@@ -2294,19 +2466,36 @@
 		<meta property="og:image" content="https://three.ws/og-image.png" />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content="Agent Marketplace · three.ws" />
-		<meta name="twitter:description" content="Discover, fork, and chat with community-published AI agents." />
+		<meta
+			name="twitter:description"
+			content="Discover, fork, and chat with community-published AI agents."
+		/>
 		<meta name="twitter:image" content="https://three.ws/og-image.png" />
 
-		<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
 		<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
-			<link rel="stylesheet" href="/nav.css" />
-			<link rel="stylesheet" href="/footer.css" />
-			<link rel="stylesheet" href="/mobile.css" />
-			<script defer src="/footer-newsletter.js"></script>
-	
-	<meta property="og:site_name" content="three.ws">
-	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Marketplace","description":"Buy access to agents, skills, and avatars from other creators.","url":"https://three.ws/marketplace","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
-</head>
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+		<script defer src="/footer-newsletter.js"></script>
+
+		<meta property="og:site_name" content="three.ws" />
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "WebPage",
+				"name": "Marketplace",
+				"description": "Buy access to agents, skills, and avatars from other creators.",
+				"url": "https://three.ws/marketplace",
+				"isPartOf": { "@type": "WebSite", "name": "three.ws", "url": "https://three.ws" }
+			}
+		</script>
+	</head>
 	<body class="market-page">
 		<header><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
@@ -2318,18 +2507,42 @@
 			</a>
 			<nav class="market-nav">
 				<a href="/" data-nav="home"><span class="ico">⌂</span> <span>Home</span></a>
-				<a href="/marketplace" data-nav="agent" class="active"><span class="ico">▣</span> <span>Agent</span><span class="nav-count" id="nav-count-agent" hidden></span></a>
-				<a href="/marketplace?tab=avatars" data-nav="avatars"><span class="ico">◉</span> <span>Avatars</span><span class="nav-count hot" id="nav-count-avatar" hidden></span></a>
-				<a href="/marketplace?tab=tools" data-nav="tools"><span class="ico">⚙</span> <span>Tools</span></a>
-				<a href="/marketplace?tab=skills" data-nav="skills"><span class="ico">≡</span> <span>Skills</span></a>
-				<a href="/create/studio" data-nav="studio"><span class="ico">◆</span> <span>Studio</span></a>
-				<a href="/marketplace?tab=mine" data-nav="mine"><span class="ico">◱</span> <span>My Agents</span></a>
-				<a href="/marketplace?tab=purchases" data-nav="purchases"><span class="ico">✓</span> <span>My Purchases</span></a>
-				<a href="/marketplace?tab=earn" data-nav="earn"><span class="ico">$</span> <span>Earn</span></a>
-				<a href="/marketplace?tab=animations" data-nav="animations"><span class="ico">▶</span> <span>Animations</span></a>
-				<a href="/marketplace?tab=memory" data-nav="memory"><span class="ico">◎</span> <span>Memory</span></a>
+				<a href="/marketplace" data-nav="agent" class="active"
+					><span class="ico">▣</span> <span>Agent</span
+					><span class="nav-count" id="nav-count-agent" hidden></span
+				></a>
+				<a href="/marketplace?tab=avatars" data-nav="avatars"
+					><span class="ico">◉</span> <span>Avatars</span
+					><span class="nav-count hot" id="nav-count-avatar" hidden></span
+				></a>
+				<a href="/marketplace?tab=tools" data-nav="tools"
+					><span class="ico">⚙</span> <span>Tools</span></a
+				>
+				<a href="/marketplace?tab=skills" data-nav="skills"
+					><span class="ico">≡</span> <span>Skills</span></a
+				>
+				<a href="/create/studio" data-nav="studio"
+					><span class="ico">◆</span> <span>Studio</span></a
+				>
+				<a href="/marketplace?tab=mine" data-nav="mine"
+					><span class="ico">◱</span> <span>My Agents</span></a
+				>
+				<a href="/marketplace?tab=purchases" data-nav="purchases"
+					><span class="ico">✓</span> <span>My Purchases</span></a
+				>
+				<a href="/marketplace?tab=earn" data-nav="earn"
+					><span class="ico">$</span> <span>Earn</span></a
+				>
+				<a href="/marketplace?tab=animations" data-nav="animations"
+					><span class="ico">▶</span> <span>Animations</span></a
+				>
+				<a href="/marketplace?tab=memory" data-nav="memory"
+					><span class="ico">◎</span> <span>Memory</span></a
+				>
 			</nav>
-			<button class="market-submit-btn market-sidebar-submit" id="market-submit-btn">+ Submit Agent</button>
+			<button class="market-submit-btn market-sidebar-submit" id="market-submit-btn">
+				+ Submit Agent
+			</button>
 		</aside>
 
 		<main class="market-main" id="market-main">
@@ -2346,38 +2559,76 @@
 						<span class="market-theme-eyebrow">This week</span>
 						<strong class="market-theme-title" id="market-theme-title">—</strong>
 						<span class="market-theme-blurb" id="market-theme-blurb">—</span>
-						<button class="market-theme-cta" id="market-theme-cta" hidden>Browse →</button>
+						<button class="market-theme-cta" id="market-theme-cta" hidden>
+							Browse →
+						</button>
 					</div>
-					<div class="market-theme-picks" id="market-theme-picks" role="list" aria-label="Top picks this week" hidden></div>
+					<div
+						class="market-theme-picks"
+						id="market-theme-picks"
+						role="list"
+						aria-label="Top picks this week"
+						hidden
+					></div>
 				</aside>
 				<!-- Live 3D hero carousel -->
-				<section class="market-hero" id="market-hero" hidden aria-label="Featured 3D avatars">
+				<section
+					class="market-hero"
+					id="market-hero"
+					hidden
+					aria-label="Featured 3D avatars"
+				>
 					<div class="market-hero-stage" id="market-hero-stage"></div>
 					<div class="market-hero-meta">
 						<div class="market-hero-eyebrow">
 							Featured · Community Avatars
-							<span class="market-hero-beta-pill" aria-label="Marketplace is in beta">BETA</span>
+							<span class="market-hero-beta-pill" aria-label="Marketplace is in beta"
+								>BETA</span
+							>
 						</div>
 						<h2 class="market-hero-title" id="market-hero-title">—</h2>
 						<p class="market-hero-desc" id="market-hero-desc">—</p>
 						<div class="market-hero-actions">
-							<button class="market-hero-cta" id="market-hero-view">View in 3D →</button>
-							<button class="market-hero-secondary" id="market-hero-lobby">Open 3D Lobby</button>
-							<button class="market-hero-secondary" id="market-hero-fork" hidden>Fork agent</button>
+							<button class="market-hero-cta" id="market-hero-view">
+								View in 3D →
+							</button>
+							<button class="market-hero-secondary" id="market-hero-lobby">
+								Open 3D Lobby
+							</button>
+							<button class="market-hero-secondary" id="market-hero-fork" hidden>
+								Fork agent
+							</button>
 						</div>
 						<div class="market-hero-dots" id="market-hero-dots"></div>
 					</div>
 				</section>
 
 				<!-- Three.js multi-avatar lobby (opt-in fullscreen overlay). -->
-				<div class="market-lobby-overlay" id="market-lobby-overlay" hidden aria-modal="true" role="dialog" aria-label="3D Lobby">
-					<button class="market-lobby-close" id="market-lobby-close" aria-label="Close lobby">×</button>
+				<div
+					class="market-lobby-overlay"
+					id="market-lobby-overlay"
+					hidden
+					aria-modal="true"
+					role="dialog"
+					aria-label="3D Lobby"
+				>
+					<button
+						class="market-lobby-close"
+						id="market-lobby-close"
+						aria-label="Close lobby"
+					>
+						×
+					</button>
 					<canvas class="market-lobby-canvas" id="market-lobby-canvas"></canvas>
-					<div class="market-lobby-hint">Move your mouse · Click an avatar to inspect</div>
+					<div class="market-lobby-hint">
+						Move your mouse · Click an avatar to inspect
+					</div>
 				</div>
 
 				<header class="market-topbar">
-					<label class="market-visually-hidden" for="market-search">Search agents and avatars</label>
+					<label class="market-visually-hidden" for="market-search"
+						>Search agents and avatars</label
+					>
 					<input
 						id="market-search"
 						type="search"
@@ -2385,29 +2636,100 @@
 						autocomplete="off"
 						aria-label="Search agents and avatars"
 					/>
-					<div class="market-filter-chips" id="market-filter-chips" role="tablist" aria-label="Filter agents and avatars">
-						<button class="market-chip active" data-filter="all" role="tab" aria-selected="true">All</button>
-						<button class="market-chip" data-filter="agents" role="tab" aria-selected="false">Agents</button>
-						<button class="market-chip" data-filter="avatars" role="tab" aria-selected="false">Avatars</button>
-						<button class="market-chip" data-filter="onchain" role="tab" aria-selected="false" title="ERC-8004 agents indexed onchain across Base, Polygon, and Solana" aria-label="Onchain — ERC-8004 agents indexed across all supported chains">Onchain <span class="chip-count" id="chip-count-onchain"></span></button>
+					<div
+						class="market-filter-chips"
+						id="market-filter-chips"
+						role="tablist"
+						aria-label="Filter agents and avatars"
+					>
+						<button
+							class="market-chip active"
+							data-filter="all"
+							role="tab"
+							aria-selected="true"
+						>
+							All
+						</button>
+						<button
+							class="market-chip"
+							data-filter="agents"
+							role="tab"
+							aria-selected="false"
+						>
+							Agents
+						</button>
+						<button
+							class="market-chip"
+							data-filter="avatars"
+							role="tab"
+							aria-selected="false"
+						>
+							Avatars
+						</button>
+						<button
+							class="market-chip"
+							data-filter="onchain"
+							role="tab"
+							aria-selected="false"
+							title="ERC-8004 agents indexed onchain across Base, Polygon, and Solana"
+							aria-label="Onchain — ERC-8004 agents indexed across all supported chains"
+						>
+							Onchain <span class="chip-count" id="chip-count-onchain"></span>
+						</button>
 					</div>
-					<div class="market-filter-chips" id="market-price-filter-chips" role="group" aria-label="Filter by price">
+					<div
+						class="market-filter-chips"
+						id="market-price-filter-chips"
+						role="group"
+						aria-label="Filter by price"
+					>
 						<button class="market-chip active" data-price-filter="all">Any</button>
-						<button class="market-chip" data-price-filter="free" title="Show only free listings">Free</button>
-						<button class="market-chip" data-price-filter="paid" title="Show only paid listings">Paid</button>
+						<button
+							class="market-chip"
+							data-price-filter="free"
+							title="Show only free listings"
+						>
+							Free
+						</button>
+						<button
+							class="market-chip"
+							data-price-filter="paid"
+							title="Show only paid listings"
+						>
+							Paid
+						</button>
 					</div>
-					<label class="market-visually-hidden" for="market-sort">Sort marketplace results</label>
-					<select id="market-sort" class="market-sort" aria-label="Sort marketplace results">
+					<label class="market-visually-hidden" for="market-sort"
+						>Sort marketplace results</label
+					>
+					<select
+						id="market-sort"
+						class="market-sort"
+						aria-label="Sort marketplace results"
+					>
 						<option value="recommended">Recommended</option>
 						<option value="recent">Recent</option>
 						<option value="popular">Popular</option>
 						<option value="top_rated">Top Rated</option>
 					</select>
-					<a class="market-submit-avatar-btn" href="/create" id="market-submit-avatar-btn">+ Create Avatar</a>
+					<a class="market-submit-avatar-btn" href="/create" id="market-submit-avatar-btn"
+						>+ Create Avatar</a
+					>
 				</header>
-				<div id="market-result-count" class="market-visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+				<div
+					id="market-result-count"
+					class="market-visually-hidden"
+					role="status"
+					aria-live="polite"
+					aria-atomic="true"
+				></div>
 
-				<div class="market-cat-chips" id="market-cat-chips" role="navigation" aria-label="Categories"></div>
+				<div
+					class="market-cat-chips"
+					id="market-cat-chips"
+					role="navigation"
+					aria-label="Categories"
+				></div>
 
 				<div class="market-tag-banner" id="market-tag-banner" role="status" hidden></div>
 
@@ -2424,7 +2746,13 @@
 				<!-- Loading / not-found / error state, overlaid on the detail content.
 				     Shown when a deep-linked agent is missing, unpublished, private,
 				     or fails to load. Replaces the old dead-end "Agent not found". -->
-				<div class="market-detail-state" id="d-state" role="alert" aria-live="polite" hidden>
+				<div
+					class="market-detail-state"
+					id="d-state"
+					role="alert"
+					aria-live="polite"
+					hidden
+				>
 					<div class="market-detail-state-inner">
 						<div class="md-state-icon" id="d-state-icon" aria-hidden="true">◍</div>
 						<h2 class="md-state-title" id="d-state-title">Loading agent…</h2>
@@ -2434,7 +2762,9 @@
 				</div>
 
 				<div class="market-detail-head">
-					<div class="market-detail-avatar" id="d-avatar"><span class="d-avatar-fallback">▣</span></div>
+					<div class="market-detail-avatar" id="d-avatar">
+						<span class="d-avatar-fallback">▣</span>
+					</div>
 					<div class="market-detail-meta">
 						<h1 id="d-name">—</h1>
 						<div class="market-detail-author">
@@ -2472,35 +2802,109 @@
 							</div>
 
 							<!-- Ratings & reviews -->
-							<section class="d-rating-widget" id="d-rating-widget" aria-label="Ratings and reviews">
+							<section
+								class="d-rating-widget"
+								id="d-rating-widget"
+								aria-label="Ratings and reviews"
+							>
 								<div class="d-rating-summary" id="d-rating-summary">
 									<span class="avg" id="d-rating-avg">—</span>
 									<span class="stars" id="d-rating-stars">☆☆☆☆☆</span>
 									<span class="count" id="d-rating-count">No reviews yet</span>
 								</div>
 								<div class="d-rating-input" id="d-rating-input" hidden>
-									<span style="font-size:12px;color:var(--ink-dim)">Your rating:</span>
-									<span class="stars" id="d-rating-pick" role="radiogroup" aria-label="Pick a rating">
-										<button type="button" class="star-pick" data-rating="1" aria-label="1 star">☆</button>
-										<button type="button" class="star-pick" data-rating="2" aria-label="2 stars">☆</button>
-										<button type="button" class="star-pick" data-rating="3" aria-label="3 stars">☆</button>
-										<button type="button" class="star-pick" data-rating="4" aria-label="4 stars">☆</button>
-										<button type="button" class="star-pick" data-rating="5" aria-label="5 stars">☆</button>
+									<span style="font-size: 12px; color: var(--ink-dim)"
+										>Your rating:</span
+									>
+									<span
+										class="stars"
+										id="d-rating-pick"
+										role="radiogroup"
+										aria-label="Pick a rating"
+									>
+										<button
+											type="button"
+											class="star-pick"
+											data-rating="1"
+											aria-label="1 star"
+										>
+											☆
+										</button>
+										<button
+											type="button"
+											class="star-pick"
+											data-rating="2"
+											aria-label="2 stars"
+										>
+											☆
+										</button>
+										<button
+											type="button"
+											class="star-pick"
+											data-rating="3"
+											aria-label="3 stars"
+										>
+											☆
+										</button>
+										<button
+											type="button"
+											class="star-pick"
+											data-rating="4"
+											aria-label="4 stars"
+										>
+											☆
+										</button>
+										<button
+											type="button"
+											class="star-pick"
+											data-rating="5"
+											aria-label="5 stars"
+										>
+											☆
+										</button>
 									</span>
-									<textarea id="d-review-body" placeholder="Write a short review (optional)" maxlength="2000"></textarea>
-									<button type="button" class="submit-review" id="d-review-submit" disabled>Submit review</button>
+									<textarea
+										id="d-review-body"
+										placeholder="Write a short review (optional)"
+										maxlength="2000"
+									></textarea>
+									<button
+										type="button"
+										class="submit-review"
+										id="d-review-submit"
+										disabled
+									>
+										Submit review
+									</button>
 								</div>
-								<div class="d-rating-msg" id="d-rating-msg" role="status" aria-live="polite"></div>
+								<div
+									class="d-rating-msg"
+									id="d-rating-msg"
+									role="status"
+									aria-live="polite"
+								></div>
 								<div class="d-reviews-list" id="d-reviews-list"></div>
 							</section>
 
 							<div class="market-preview-card" id="d-preview-card">
 								<div class="market-preview-head">
-									<h2 class="market-section-title" style="margin:0">Try it now</h2>
-									<span class="market-preview-hint">Send a message — no fork required</span>
+									<h2 class="market-section-title" style="margin: 0">
+										Try it now
+									</h2>
+									<span class="market-preview-hint"
+										>Send a message — no fork required</span
+									>
 								</div>
-								<div class="market-preview-thread" id="d-preview-thread" aria-live="polite"></div>
-								<form class="market-preview-form" id="d-preview-form" autocomplete="off">
+								<div
+									class="market-preview-thread"
+									id="d-preview-thread"
+									aria-live="polite"
+								></div>
+								<form
+									class="market-preview-form"
+									id="d-preview-form"
+									autocomplete="off"
+								>
 									<input
 										type="text"
 										id="d-preview-input"
@@ -2509,7 +2913,13 @@
 										maxlength="2000"
 										required
 									/>
-									<button type="submit" class="market-preview-send" id="d-preview-send">Send</button>
+									<button
+										type="submit"
+										class="market-preview-send"
+										id="d-preview-send"
+									>
+										Send
+									</button>
 								</form>
 								<div class="market-preview-footer" id="d-preview-footer"></div>
 							</div>
@@ -2523,7 +2933,9 @@
 						</div>
 
 						<div data-panel="capabilities" class="market-panel">
-							<h2>Built-in Skills <span class="muted" id="d-skills-count">0</span></h2>
+							<h2>
+								Built-in Skills <span class="muted" id="d-skills-count">0</span>
+							</h2>
 							<div id="d-skills" class="market-skills"></div>
 							<h2>Library <span class="muted" id="d-library-count">0</span></h2>
 							<div id="d-library" class="market-library"></div>
@@ -2531,7 +2943,13 @@
 
 						<div data-panel="embed" class="market-panel">
 							<h2>Embed this Agent</h2>
-							<p class="market-prose" style="font-size:13px;color:var(--ink-dim);margin:0 0 18px">Drop the agent anywhere — as a web component, iframe, or direct link.</p>
+							<p
+								class="market-prose"
+								style="font-size: 13px; color: var(--ink-dim); margin: 0 0 18px"
+							>
+								Drop the agent anywhere — as a web component, iframe, or direct
+								link.
+							</p>
 							<div class="d-embed-section">
 								<div class="d-embed-label">
 									<span>Web component</span>
@@ -2573,8 +2991,20 @@
 							<div class="d-token-eyebrow">On-chain token</div>
 							<div class="d-token-mint" id="d-token-mint"></div>
 							<div class="d-token-actions">
-								<a class="d-token-btn" id="d-token-pump" target="_blank" rel="noopener">View on pump.fun</a>
-								<a class="d-token-btn d-token-btn-sec" id="d-token-jup" target="_blank" rel="noopener">Trade on Jupiter</a>
+								<a
+									class="d-token-btn"
+									id="d-token-pump"
+									target="_blank"
+									rel="noopener"
+									>View on pump.fun</a
+								>
+								<a
+									class="d-token-btn d-token-btn-sec"
+									id="d-token-jup"
+									target="_blank"
+									rel="noopener"
+									>Trade on Jupiter</a
+								>
 							</div>
 						</div>
 						<div class="d-reputation-card" id="d-reputation-card" hidden>
@@ -2622,9 +3052,13 @@
 				<header class="market-topbar">
 					<div class="market-mine-head">
 						<h2 class="market-section-heading">Earn</h2>
-						<span class="market-mine-sub" id="earn-subtitle">Revenue from your published agents and skills</span>
+						<span class="market-mine-sub" id="earn-subtitle"
+							>Revenue from your published agents and skills</span
+						>
 					</div>
-					<button class="market-submit-btn" id="earn-publish-skill-btn">+ Publish Skill</button>
+					<button class="market-submit-btn" id="earn-publish-skill-btn">
+						+ Publish Skill
+					</button>
 				</header>
 				<div class="earn-body">
 					<div id="earn-content"></div>
@@ -2636,19 +3070,27 @@
 				<header class="market-topbar">
 					<div class="market-mine-head">
 						<h2 class="market-section-heading">Skills Marketplace</h2>
-						<span class="market-mine-sub" id="skills-subtitle">Browse capabilities you can unlock or fork</span>
+						<span class="market-mine-sub" id="skills-subtitle"
+							>Browse capabilities you can unlock or fork</span
+						>
 					</div>
 					<input
 						id="skills-search"
 						type="search"
 						placeholder="Search skills…"
 						autocomplete="off"
-						style="flex:1;max-width:320px"
+						style="flex: 1; max-width: 320px"
 					/>
 					<div class="market-filter-chips" role="tablist" aria-label="Skill filter">
-						<button class="market-chip active" data-skill-filter="all" role="tab">All</button>
-						<button class="market-chip" data-skill-filter="free" role="tab">Free</button>
-						<button class="market-chip" data-skill-filter="paid" role="tab">Paid</button>
+						<button class="market-chip active" data-skill-filter="all" role="tab">
+							All
+						</button>
+						<button class="market-chip" data-skill-filter="free" role="tab">
+							Free
+						</button>
+						<button class="market-chip" data-skill-filter="paid" role="tab">
+							Paid
+						</button>
 					</div>
 					<select id="skills-sort" class="market-sort" aria-label="Sort skills">
 						<option value="popular">Popular</option>
@@ -2657,7 +3099,12 @@
 					</select>
 				</header>
 				<div class="market-skills-tab">
-					<div class="market-cat-chips" id="skills-cat-chips" role="navigation" aria-label="Skill categories"></div>
+					<div
+						class="market-cat-chips"
+						id="skills-cat-chips"
+						role="navigation"
+						aria-label="Skill categories"
+					></div>
 					<div class="market-grid" id="skills-grid">
 						<div class="market-empty">Loading skills…</div>
 					</div>
@@ -2682,8 +3129,12 @@
 					/>
 				</header>
 				<div class="market-body">
-					<aside class="market-cats" id="plugin-cats" aria-label="Plugin Categories"></aside>
-					<div style="flex:1;min-width:0">
+					<aside
+						class="market-cats"
+						id="plugin-cats"
+						aria-label="Plugin Categories"
+					></aside>
+					<div style="flex: 1; min-width: 0">
 						<div class="plugin-grid" id="plugin-grid">
 							<div class="market-empty">Loading…</div>
 						</div>
@@ -2695,11 +3146,18 @@
 			</section>
 
 			<!-- Add by URL modal -->
-			<div class="plugin-modal-overlay" id="plugin-url-modal" hidden aria-modal="true" role="dialog">
+			<div
+				class="plugin-modal-overlay"
+				id="plugin-url-modal"
+				hidden
+				aria-modal="true"
+				role="dialog"
+			>
 				<div class="plugin-modal">
 					<h3>Add Plugin by URL</h3>
 					<p class="plugin-modal-hint">
-						Paste the URL of a hosted <code>plugin/1.0</code> JSON manifest to add a custom plugin.
+						Paste the URL of a hosted <code>plugin/1.0</code> JSON manifest to add a
+						custom plugin.
 					</p>
 					<input
 						type="url"
@@ -2712,29 +3170,54 @@
 					<div class="plugin-modal-preview" id="plugin-url-preview" hidden></div>
 					<div class="plugin-modal-actions">
 						<button id="plugin-url-cancel" class="plugin-modal-btn">Cancel</button>
-						<button id="plugin-url-fetch" class="plugin-modal-btn plugin-modal-btn-primary">Fetch &amp; Validate</button>
+						<button
+							id="plugin-url-fetch"
+							class="plugin-modal-btn plugin-modal-btn-primary"
+						>
+							Fetch &amp; Validate
+						</button>
 					</div>
 				</div>
 			</div>
 
 			<!-- Avatar deep-link detail page — mirrors market-detail for agents -->
-			<section class="market-avatar-detail" id="market-avatar-detail" hidden aria-label="Avatar detail">
+			<section
+				class="market-avatar-detail"
+				id="market-avatar-detail"
+				hidden
+				aria-label="Avatar detail"
+			>
 				<div class="market-avatar-detail-inner">
-					<button class="market-back" id="avatar-detail-back" aria-label="Back to marketplace">←</button>
+					<button
+						class="market-back"
+						id="avatar-detail-back"
+						aria-label="Back to marketplace"
+					>
+						←
+					</button>
 					<div class="market-avatar-detail-layout">
 						<!-- Left: interactive 3D stage -->
 						<div class="market-avatar-detail-stage" id="avatar-detail-stage">
 							<div class="avatar-detail-load-wrap" id="avatar-detail-load-wrap">
 								<div class="avatar-detail-load-bar-outer">
-									<div class="avatar-detail-load-bar" id="avatar-detail-load-bar"></div>
+									<div
+										class="avatar-detail-load-bar"
+										id="avatar-detail-load-bar"
+									></div>
 								</div>
 								<span class="avatar-detail-load-label">Loading 3D…</span>
 							</div>
 							<div class="avatar-detail-empty" id="avatar-detail-empty" hidden>
 								<span class="avatar-detail-empty-glyph" aria-hidden="true">◌</span>
 								<h2 class="avatar-detail-empty-title">Avatar not found</h2>
-								<p class="avatar-detail-empty-msg">This avatar may have been removed or the link is wrong.</p>
-								<a class="btn-secondary avatar-detail-empty-cta" href="/marketplace?tab=avatars">Browse avatars</a>
+								<p class="avatar-detail-empty-msg">
+									This avatar may have been removed or the link is wrong.
+								</p>
+								<a
+									class="btn-secondary avatar-detail-empty-cta"
+									href="/marketplace?tab=avatars"
+									>Browse avatars</a
+								>
 							</div>
 						</div>
 						<!-- Right: meta + actions -->
@@ -2745,32 +3228,56 @@
 							<p class="market-avatar-detail-desc" id="avatar-detail-desc"></p>
 							<div class="market-avatar-detail-pills" id="avatar-detail-pills"></div>
 							<div class="market-avatar-detail-actions">
-								<button class="btn-primary market-avatar-detail-cta" id="avatar-detail-use">
+								<button
+									class="btn-primary market-avatar-detail-cta"
+									id="avatar-detail-use"
+								>
 									Start agent with this avatar →
 								</button>
-								<a class="btn-secondary" id="avatar-detail-view" href="#" target="_blank" rel="noopener">
+								<a
+									class="btn-secondary"
+									id="avatar-detail-view"
+									href="#"
+									target="_blank"
+									rel="noopener"
+								>
 									Open in 3D viewer ↗
 								</a>
 								<a class="btn-secondary" id="avatar-detail-download" href="#">
 									Download GLB
 								</a>
-								<button type="button" class="btn-secondary" id="avatar-detail-share">
+								<button
+									type="button"
+									class="btn-secondary"
+									id="avatar-detail-share"
+								>
 									Share
 								</button>
 							</div>
 						</aside>
 					</div>
 					<!-- Similar avatars grid -->
-					<div class="market-avatar-detail-similar" id="avatar-detail-similar-wrap" hidden>
+					<div
+						class="market-avatar-detail-similar"
+						id="avatar-detail-similar-wrap"
+						hidden
+					>
 						<h2 class="market-section-heading">Similar avatars</h2>
 						<div class="market-grid" id="avatar-detail-similar-grid"></div>
 					</div>
 				</div>
 			</section>
 			<!-- Tool/plugin deep-link detail page — mirrors avatar detail for plugins -->
-			<section class="market-tool-detail" id="market-tool-detail" hidden aria-label="Plugin detail">
+			<section
+				class="market-tool-detail"
+				id="market-tool-detail"
+				hidden
+				aria-label="Plugin detail"
+			>
 				<div class="market-tool-detail-inner">
-					<button class="market-back" id="tool-detail-back" aria-label="Back to plugins">←</button>
+					<button class="market-back" id="tool-detail-back" aria-label="Back to plugins">
+						←
+					</button>
 
 					<!-- Loading skeleton -->
 					<div class="tool-detail-skeleton" id="tool-detail-skeleton">
@@ -2791,16 +3298,24 @@
 					<div class="tool-detail-empty" id="tool-detail-empty" hidden>
 						<span class="tool-detail-empty-glyph" aria-hidden="true">◌</span>
 						<h2 class="tool-detail-empty-title">Plugin not found</h2>
-						<p class="tool-detail-empty-msg">This plugin may have been removed or the link is wrong.</p>
-						<a class="btn-secondary tool-detail-empty-cta" href="/marketplace?tab=tools">Browse plugins</a>
+						<p class="tool-detail-empty-msg">
+							This plugin may have been removed or the link is wrong.
+						</p>
+						<a class="btn-secondary tool-detail-empty-cta" href="/marketplace?tab=tools"
+							>Browse plugins</a
+						>
 					</div>
 
 					<!-- Loaded content -->
 					<div class="tool-detail-body" id="tool-detail-body" hidden>
 						<header class="tool-detail-hero">
-							<div class="tool-detail-icon" id="tool-detail-icon" aria-hidden="true">?</div>
+							<div class="tool-detail-icon" id="tool-detail-icon" aria-hidden="true">
+								?
+							</div>
 							<div class="tool-detail-hero-text">
-								<div class="market-detail-eyebrow" id="tool-detail-eyebrow">Plugin</div>
+								<div class="market-detail-eyebrow" id="tool-detail-eyebrow">
+									Plugin
+								</div>
 								<h1 class="tool-detail-name" id="tool-detail-name">—</h1>
 								<p class="tool-detail-id" id="tool-detail-id"></p>
 								<p class="tool-detail-author" id="tool-detail-author" hidden></p>
@@ -2813,10 +3328,30 @@
 						<p class="tool-detail-desc" id="tool-detail-desc"></p>
 
 						<div class="tool-detail-actions" id="tool-detail-actions">
-							<button class="btn-primary tool-detail-cta" id="tool-detail-install">Add to Agent</button>
-							<button type="button" class="btn-secondary" id="tool-detail-share">Share</button>
-							<a class="btn-secondary" id="tool-detail-homepage" href="#" target="_blank" rel="noopener" hidden>Homepage ↗</a>
-							<a class="btn-secondary" id="tool-detail-manifest" href="#" target="_blank" rel="noopener" hidden>View manifest ↗</a>
+							<button class="btn-primary tool-detail-cta" id="tool-detail-install">
+								Add to Agent
+							</button>
+							<button type="button" class="btn-secondary" id="tool-detail-share">
+								Share
+							</button>
+							<a
+								class="btn-secondary"
+								id="tool-detail-homepage"
+								href="#"
+								target="_blank"
+								rel="noopener"
+								hidden
+								>Homepage ↗</a
+							>
+							<a
+								class="btn-secondary"
+								id="tool-detail-manifest"
+								href="#"
+								target="_blank"
+								rel="noopener"
+								hidden
+								>View manifest ↗</a
+							>
 						</div>
 
 						<!-- System role / instructions -->
@@ -2829,7 +3364,10 @@
 						<section class="tool-detail-block" id="tool-detail-tools-wrap">
 							<div class="tool-detail-block-head">
 								<h2 class="tool-detail-block-title">Tools</h2>
-								<span class="tool-detail-block-count" id="tool-detail-tools-count"></span>
+								<span
+									class="tool-detail-block-count"
+									id="tool-detail-tools-count"
+								></span>
 							</div>
 							<div class="tool-detail-tools" id="tool-detail-tools"></div>
 						</section>
@@ -2837,13 +3375,23 @@
 				</div>
 			</section>
 			<!-- Skill deep-link detail page -->
-			<section class="market-tool-detail market-skill-detail" id="market-skill-detail" hidden aria-label="Skill detail">
+			<section
+				class="market-tool-detail market-skill-detail"
+				id="market-skill-detail"
+				hidden
+				aria-label="Skill detail"
+			>
 				<div class="market-tool-detail-inner">
-					<button class="market-back" id="skill-detail-back" aria-label="Back to skills">←</button>
+					<button class="market-back" id="skill-detail-back" aria-label="Back to skills">
+						←
+					</button>
 					<div class="tool-detail-skeleton" id="skill-detail-skeleton">
 						<div class="tool-skel-head">
 							<div class="tool-skel-icon"></div>
-							<div class="tool-skel-lines"><div class="tool-skel-line w60"></div><div class="tool-skel-line w30"></div></div>
+							<div class="tool-skel-lines">
+								<div class="tool-skel-line w60"></div>
+								<div class="tool-skel-line w30"></div>
+							</div>
 						</div>
 						<div class="tool-skel-line w90"></div>
 						<div class="tool-skel-line w80"></div>
@@ -2852,14 +3400,24 @@
 					<div class="tool-detail-empty" id="skill-detail-empty" hidden>
 						<span class="tool-detail-empty-glyph" aria-hidden="true">◌</span>
 						<h2 class="tool-detail-empty-title">Skill not found</h2>
-						<p class="tool-detail-empty-msg">This skill may have been removed or the link is wrong.</p>
-						<a class="btn-secondary tool-detail-empty-cta" href="/marketplace?tab=skills">Browse skills</a>
+						<p class="tool-detail-empty-msg">
+							This skill may have been removed or the link is wrong.
+						</p>
+						<a
+							class="btn-secondary tool-detail-empty-cta"
+							href="/marketplace?tab=skills"
+							>Browse skills</a
+						>
 					</div>
 					<div class="tool-detail-body" id="skill-detail-body" hidden>
 						<header class="tool-detail-hero">
-							<div class="tool-detail-icon" id="skill-detail-icon" aria-hidden="true">?</div>
+							<div class="tool-detail-icon" id="skill-detail-icon" aria-hidden="true">
+								?
+							</div>
 							<div class="tool-detail-hero-text">
-								<div class="market-detail-eyebrow" id="skill-detail-eyebrow">Skill</div>
+								<div class="market-detail-eyebrow" id="skill-detail-eyebrow">
+									Skill
+								</div>
 								<h1 class="tool-detail-name" id="skill-detail-name">—</h1>
 								<p class="tool-detail-author" id="skill-detail-author" hidden></p>
 							</div>
@@ -2868,9 +3426,18 @@
 						<div class="tool-detail-pills" id="skill-detail-pills"></div>
 						<p class="tool-detail-desc" id="skill-detail-desc"></p>
 						<div class="tool-detail-actions" id="skill-detail-actions">
-							<button class="btn-primary tool-detail-cta" id="skill-detail-install">Install</button>
-							<button type="button" class="btn-secondary" id="skill-detail-share">Share</button>
-							<button type="button" class="btn-secondary" id="skill-detail-author-btn" hidden></button>
+							<button class="btn-primary tool-detail-cta" id="skill-detail-install">
+								Install
+							</button>
+							<button type="button" class="btn-secondary" id="skill-detail-share">
+								Share
+							</button>
+							<button
+								type="button"
+								class="btn-secondary"
+								id="skill-detail-author-btn"
+								hidden
+							></button>
 						</div>
 						<section class="tool-detail-block" id="skill-detail-rating-wrap" hidden>
 							<h2 class="tool-detail-block-title">Rate this skill</h2>
@@ -2879,7 +3446,10 @@
 						<section class="tool-detail-block" id="skill-detail-tools-wrap" hidden>
 							<div class="tool-detail-block-head">
 								<h2 class="tool-detail-block-title">Tools provided</h2>
-								<span class="tool-detail-block-count" id="skill-detail-tools-count"></span>
+								<span
+									class="tool-detail-block-count"
+									id="skill-detail-tools-count"
+								></span>
 							</div>
 							<div class="tool-detail-tools" id="skill-detail-tools"></div>
 						</section>
@@ -2887,20 +3457,46 @@
 							<h2 class="tool-detail-block-title">Instructions</h2>
 							<pre class="skill-detail-content" id="skill-detail-content"></pre>
 						</section>
-						<section class="tool-detail-block skill-x402-block" id="skill-detail-x402-wrap" hidden>
+						<section
+							class="tool-detail-block skill-x402-block"
+							id="skill-detail-x402-wrap"
+							hidden
+						>
 							<div class="tool-detail-block-head">
-								<h2 class="tool-detail-block-title">Call this skill · pay-per-call</h2>
+								<h2 class="tool-detail-block-title">
+									Call this skill · pay-per-call
+								</h2>
 								<span class="skill-x402-price" id="skill-detail-x402-price"></span>
 							</div>
-							<p class="skill-x402-lead">Pay per call in <span data-term="usdc">USDC (a $1 digital dollar)</span> on Base or Solana and get the skill's tool schema and instructions back. Payment goes straight to the creator — no account needed, just a wallet.</p>
+							<p class="skill-x402-lead">
+								Pay per call in
+								<span data-term="usdc">USDC (a $1 digital dollar)</span> on Base or
+								Solana and get the skill's tool schema and instructions back.
+								Payment goes straight to the creator — no account needed, just a
+								wallet.
+							</p>
 							<div class="skill-x402-endpoint">
 								<code id="skill-detail-x402-url"></code>
-								<button type="button" class="btn-secondary skill-x402-copy" id="skill-detail-x402-copy-url" aria-label="Copy endpoint URL">Copy</button>
+								<button
+									type="button"
+									class="btn-secondary skill-x402-copy"
+									id="skill-detail-x402-copy-url"
+									aria-label="Copy endpoint URL"
+								>
+									Copy
+								</button>
 							</div>
 							<div class="skill-x402-snippet">
 								<div class="skill-x402-snippet-head">
 									<span>Call with x402-fetch (pay-per-call client)</span>
-									<button type="button" class="btn-secondary skill-x402-copy" id="skill-detail-x402-copy-code" aria-label="Copy code snippet">Copy code</button>
+									<button
+										type="button"
+										class="btn-secondary skill-x402-copy"
+										id="skill-detail-x402-copy-code"
+										aria-label="Copy code snippet"
+									>
+										Copy code
+									</button>
 								</div>
 								<pre id="skill-detail-x402-code"></pre>
 							</div>
@@ -2913,21 +3509,42 @@
 				</div>
 			</section>
 			<!-- Animation deep-link detail page -->
-			<section class="market-tool-detail market-anim-detail" id="market-anim-detail" hidden aria-label="Animation detail">
+			<section
+				class="market-tool-detail market-anim-detail"
+				id="market-anim-detail"
+				hidden
+				aria-label="Animation detail"
+			>
 				<div class="market-tool-detail-inner">
-					<button class="market-back" id="anim-detail-back" aria-label="Back to animations">←</button>
+					<button
+						class="market-back"
+						id="anim-detail-back"
+						aria-label="Back to animations"
+					>
+						←
+					</button>
 					<div class="tool-detail-empty" id="anim-detail-empty" hidden>
 						<span class="tool-detail-empty-glyph" aria-hidden="true">◌</span>
 						<h2 class="tool-detail-empty-title">Animation not found</h2>
-						<p class="tool-detail-empty-msg">This clip may have been renamed or removed.</p>
-						<a class="btn-secondary tool-detail-empty-cta" href="/marketplace?tab=animations">Browse animations</a>
+						<p class="tool-detail-empty-msg">
+							This clip may have been renamed or removed.
+						</p>
+						<a
+							class="btn-secondary tool-detail-empty-cta"
+							href="/marketplace?tab=animations"
+							>Browse animations</a
+						>
 					</div>
 					<div class="tool-detail-body" id="anim-detail-body" hidden>
 						<div class="anim-detail-stage" id="anim-detail-stage">
-							<div class="anim-detail-stage-load" id="anim-detail-stage-load"><span class="avatar-detail-load-label">Loading preview…</span></div>
+							<div class="anim-detail-stage-load" id="anim-detail-stage-load">
+								<span class="avatar-detail-load-label">Loading preview…</span>
+							</div>
 						</div>
 						<header class="tool-detail-hero">
-							<div class="tool-detail-icon" id="anim-detail-icon" aria-hidden="true">▶</div>
+							<div class="tool-detail-icon" id="anim-detail-icon" aria-hidden="true">
+								▶
+							</div>
 							<div class="tool-detail-hero-text">
 								<div class="market-detail-eyebrow">Animation clip</div>
 								<h1 class="tool-detail-name" id="anim-detail-name">—</h1>
@@ -2936,36 +3553,81 @@
 						</header>
 						<div class="tool-detail-pills" id="anim-detail-pills"></div>
 						<div class="tool-detail-actions" id="anim-detail-actions">
-							<button class="btn-primary tool-detail-cta" id="anim-detail-replay">Replay</button>
-							<button type="button" class="btn-secondary" id="anim-detail-copy">Copy clip name</button>
-							<button type="button" class="btn-secondary" id="anim-detail-share">Share</button>
-							<a class="btn-secondary" id="anim-detail-raw" href="#" target="_blank" rel="noopener">View clip JSON ↗</a>
+							<button class="btn-primary tool-detail-cta" id="anim-detail-replay">
+								Replay
+							</button>
+							<button type="button" class="btn-secondary" id="anim-detail-copy">
+								Copy clip name
+							</button>
+							<button type="button" class="btn-secondary" id="anim-detail-share">
+								Share
+							</button>
+							<a
+								class="btn-secondary"
+								id="anim-detail-raw"
+								href="#"
+								target="_blank"
+								rel="noopener"
+								>View clip JSON ↗</a
+							>
 						</div>
 						<section class="tool-detail-block" id="anim-detail-related-wrap" hidden>
 							<h2 class="tool-detail-block-title">More animations</h2>
-							<div class="market-grid market-anim-grid" id="anim-detail-related"></div>
+							<div
+								class="market-grid market-anim-grid"
+								id="anim-detail-related"
+							></div>
 						</section>
 					</div>
 				</div>
 			</section>
 			<!-- Onchain (ERC-8004) agent deep-link detail page -->
-			<section class="market-tool-detail market-onchain-detail" id="market-onchain-detail" hidden aria-label="Onchain agent detail">
+			<section
+				class="market-tool-detail market-onchain-detail"
+				id="market-onchain-detail"
+				hidden
+				aria-label="Onchain agent detail"
+			>
 				<div class="market-tool-detail-inner">
-					<button class="market-back" id="onchain-detail-back" aria-label="Back to onchain agents">←</button>
+					<button
+						class="market-back"
+						id="onchain-detail-back"
+						aria-label="Back to onchain agents"
+					>
+						←
+					</button>
 					<div class="tool-detail-skeleton" id="onchain-detail-skeleton">
-						<div class="tool-skel-card" style="height:320px"></div>
-						<div class="tool-skel-head"><div class="tool-skel-icon"></div><div class="tool-skel-lines"><div class="tool-skel-line w60"></div><div class="tool-skel-line w30"></div></div></div>
+						<div class="tool-skel-card" style="height: 320px"></div>
+						<div class="tool-skel-head">
+							<div class="tool-skel-icon"></div>
+							<div class="tool-skel-lines">
+								<div class="tool-skel-line w60"></div>
+								<div class="tool-skel-line w30"></div>
+							</div>
+						</div>
 					</div>
 					<div class="tool-detail-empty" id="onchain-detail-empty" hidden>
 						<span class="tool-detail-empty-glyph" aria-hidden="true">◌</span>
 						<h2 class="tool-detail-empty-title">Agent not found</h2>
-						<p class="tool-detail-empty-msg">This onchain agent is no longer indexed, or the link is wrong.</p>
-						<a class="btn-secondary tool-detail-empty-cta" href="/marketplace?tab=onchain">Browse onchain agents</a>
+						<p class="tool-detail-empty-msg">
+							This onchain agent is no longer indexed, or the link is wrong.
+						</p>
+						<a
+							class="btn-secondary tool-detail-empty-cta"
+							href="/marketplace?tab=onchain"
+							>Browse onchain agents</a
+						>
 					</div>
 					<div class="tool-detail-body" id="onchain-detail-body" hidden>
 						<div class="onchain-detail-stage" id="onchain-detail-stage" hidden></div>
 						<header class="tool-detail-hero">
-							<div class="tool-detail-icon" id="onchain-detail-icon" aria-hidden="true">?</div>
+							<div
+								class="tool-detail-icon"
+								id="onchain-detail-icon"
+								aria-hidden="true"
+							>
+								?
+							</div>
 							<div class="tool-detail-hero-text">
 								<div class="market-detail-eyebrow">ERC-8004 onchain agent</div>
 								<h1 class="tool-detail-name" id="onchain-detail-name">—</h1>
@@ -2975,15 +3637,36 @@
 						<div class="tool-detail-pills" id="onchain-detail-pills"></div>
 						<p class="tool-detail-desc" id="onchain-detail-desc"></p>
 						<div class="tool-detail-actions" id="onchain-detail-actions">
-							<a class="btn-primary tool-detail-cta" id="onchain-detail-view" href="#">Open in 3D viewer ↗</a>
-							<a class="btn-secondary" id="onchain-detail-token" href="#" target="_blank" rel="noopener">View token on explorer ↗</a>
-							<a class="btn-secondary" id="onchain-detail-owner-link" href="#" target="_blank" rel="noopener">View owner ↗</a>
-							<button type="button" class="btn-secondary" id="onchain-detail-share">Share</button>
+							<a class="btn-primary tool-detail-cta" id="onchain-detail-view" href="#"
+								>Open in 3D viewer ↗</a
+							>
+							<a
+								class="btn-secondary"
+								id="onchain-detail-token"
+								href="#"
+								target="_blank"
+								rel="noopener"
+								>View token on explorer ↗</a
+							>
+							<a
+								class="btn-secondary"
+								id="onchain-detail-owner-link"
+								href="#"
+								target="_blank"
+								rel="noopener"
+								>View owner ↗</a
+							>
+							<button type="button" class="btn-secondary" id="onchain-detail-share">
+								Share
+							</button>
 						</div>
 						<section class="tool-detail-block" id="onchain-detail-services-wrap" hidden>
 							<div class="tool-detail-block-head">
 								<h2 class="tool-detail-block-title">Services</h2>
-								<span class="tool-detail-block-count" id="onchain-detail-services-count"></span>
+								<span
+									class="tool-detail-block-count"
+									id="onchain-detail-services-count"
+								></span>
 							</div>
 							<div class="tool-detail-tools" id="onchain-detail-services"></div>
 						</section>
@@ -2999,10 +3682,22 @@
 				<header class="market-topbar">
 					<div class="market-mine-head">
 						<h2 class="market-section-heading">Animations</h2>
-						<span class="market-mine-sub" id="animations-subtitle">Browse avatar animation clips</span>
+						<span class="market-mine-sub" id="animations-subtitle"
+							>Browse avatar animation clips</span
+						>
 					</div>
-					<input id="animations-search" type="search" placeholder="Search animations…" autocomplete="off" style="flex:1;max-width:280px" />
-					<div class="market-filter-chips" role="group" aria-label="Animation type filter">
+					<input
+						id="animations-search"
+						type="search"
+						placeholder="Search animations…"
+						autocomplete="off"
+						style="flex: 1; max-width: 280px"
+					/>
+					<div
+						class="market-filter-chips"
+						role="group"
+						aria-label="Animation type filter"
+					>
 						<button class="market-chip active" data-anim-filter="all">All</button>
 						<button class="market-chip" data-anim-filter="loop">Ambient</button>
 						<button class="market-chip" data-anim-filter="action">Actions</button>
@@ -3020,121 +3715,218 @@
 				<header class="market-topbar">
 					<div class="market-mine-head">
 						<h2 class="market-section-heading">Agent Memory</h2>
-						<span class="market-mine-sub" id="memory-subtitle">Persistent context that makes agents smarter</span>
+						<span class="market-mine-sub" id="memory-subtitle"
+							>Persistent context that makes agents smarter</span
+						>
 					</div>
-					<a href="/agent/new" class="market-submit-btn" style="text-decoration:none">+ Create Agent</a>
+					<a href="/agent/new" class="market-submit-btn" style="text-decoration: none"
+						>+ Create Agent</a
+					>
 				</header>
 				<div class="market-memory-body" id="market-memory-body">
 					<div class="market-empty">Loading…</div>
 				</div>
 			</section>
-
 		</main>
 
 		<!-- Submit Agent Modal -->
-	<div class="market-modal-overlay" id="market-submit-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="market-submit-title">
-		<div class="market-modal">
-			<div class="market-modal-head">
-				<h2 id="market-submit-title">Submit an Agent</h2>
-				<button class="market-modal-close" id="market-submit-close" aria-label="Close">×</button>
-			</div>
+		<div
+			class="market-modal-overlay"
+			id="market-submit-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="market-submit-title"
+		>
+			<div class="market-modal">
+				<div class="market-modal-head">
+					<h2 id="market-submit-title">Submit an Agent</h2>
+					<button class="market-modal-close" id="market-submit-close" aria-label="Close">
+						×
+					</button>
+				</div>
 
-			<div class="market-modal-import">
-				<button type="button" id="market-import-toggle" class="market-import-btn">Import from JSON ↓</button>
-				<div id="market-import-area" hidden>
-					<textarea id="market-import-json" class="market-json-input" rows="5"
-						placeholder='Paste LobeHub-compatible agent JSON: { "config": { "systemRole": "…" }, "meta": { "title": "…" } }'></textarea>
-					<button type="button" id="market-import-apply" class="market-btn-sec" style="margin-top:6px">Apply JSON</button>
+				<div class="market-modal-import">
+					<button type="button" id="market-import-toggle" class="market-import-btn">
+						Import from JSON ↓
+					</button>
+					<div id="market-import-area" hidden>
+						<textarea
+							id="market-import-json"
+							class="market-json-input"
+							rows="5"
+							placeholder='Paste LobeHub-compatible agent JSON: { "config": { "systemRole": "…" }, "meta": { "title": "…" } }'
+						></textarea>
+						<button
+							type="button"
+							id="market-import-apply"
+							class="market-btn-sec"
+							style="margin-top: 6px"
+						>
+							Apply JSON
+						</button>
+					</div>
 				</div>
-			</div>
 
-			<form id="market-submit-form" class="market-submit-form" novalidate>
-				<div class="market-field">
-					<label for="sf-name">Name <span class="req">*</span></label>
-					<input id="sf-name" type="text" maxlength="100" placeholder="My Helpful Agent" autocomplete="off" />
-				</div>
-				<div class="market-field">
-					<label for="sf-description">Description <span class="req">*</span></label>
-					<input id="sf-description" type="text" maxlength="500" placeholder="A short description of what this agent does" />
-				</div>
-				<div class="market-field-row">
+				<form id="market-submit-form" class="market-submit-form" novalidate>
 					<div class="market-field">
-						<label for="sf-category">Category <span class="req">*</span></label>
-						<select id="sf-category">
-							<option value="">Select…</option>
-							<option value="academic">Academic</option>
-							<option value="career">Career</option>
-							<option value="copywriting">Copywriting</option>
-							<option value="design">Design</option>
-							<option value="education">Education</option>
-							<option value="emotions">Emotions</option>
-							<option value="entertainment">Entertainment</option>
-							<option value="games">Games</option>
-							<option value="general">General</option>
-							<option value="life">Life</option>
-							<option value="marketing">Marketing</option>
-							<option value="office">Office</option>
-							<option value="programming">Programming</option>
-							<option value="translation">Translation</option>
-						</select>
+						<label for="sf-name">Name <span class="req">*</span></label>
+						<input
+							id="sf-name"
+							type="text"
+							maxlength="100"
+							placeholder="My Helpful Agent"
+							autocomplete="off"
+						/>
 					</div>
 					<div class="market-field">
-						<label for="sf-tags">Tags <span class="field-hint">(comma-separated)</span></label>
-						<input id="sf-tags" type="text" maxlength="200" placeholder="helpful, writing, code" />
+						<label for="sf-description">Description <span class="req">*</span></label>
+						<input
+							id="sf-description"
+							type="text"
+							maxlength="500"
+							placeholder="A short description of what this agent does"
+						/>
 					</div>
-				</div>
-				<div class="market-field">
-					<label for="sf-prompt">System Prompt <span class="req">*</span></label>
-					<textarea id="sf-prompt" rows="6" maxlength="16000"
-						placeholder="You are a helpful AI assistant specialized in…"></textarea>
-				</div>
-				<div class="market-field">
-					<label for="sf-greeting">Greeting Message</label>
-					<input id="sf-greeting" type="text" maxlength="1000" placeholder="Hello! I'm here to help you with…" />
-				</div>
-
-				<details class="market-field-group">
-					<summary class="market-field-group-title">Monetize <span class="field-hint">(optional)</span></summary>
-					<div class="market-field" style="margin-top:0.75rem">
-						<label for="sf-payout-wallet">Payout wallet address <span class="field-hint">(Solana)</span></label>
-						<input id="sf-payout-wallet" type="text" maxlength="100" placeholder="Your Solana address for receiving payments" autocomplete="off" />
-					</div>
-					<div class="sf-skill-prices" id="sf-skill-prices">
-						<div class="sf-skill-prices-label">Skill prices <span class="field-hint">(USDC per call)</span></div>
-						<div id="sf-price-rows"></div>
-						<div class="agent-pricing-add-row">
-							<input id="sf-new-skill" type="text" maxlength="100" placeholder="skill-name" autocomplete="off" />
-							<button type="button" id="sf-add-skill" class="market-btn-sec">+ Add Skill</button>
+					<div class="market-field-row">
+						<div class="market-field">
+							<label for="sf-category">Category <span class="req">*</span></label>
+							<select id="sf-category">
+								<option value="">Select…</option>
+								<option value="academic">Academic</option>
+								<option value="career">Career</option>
+								<option value="copywriting">Copywriting</option>
+								<option value="design">Design</option>
+								<option value="education">Education</option>
+								<option value="emotions">Emotions</option>
+								<option value="entertainment">Entertainment</option>
+								<option value="games">Games</option>
+								<option value="general">General</option>
+								<option value="life">Life</option>
+								<option value="marketing">Marketing</option>
+								<option value="office">Office</option>
+								<option value="programming">Programming</option>
+								<option value="translation">Translation</option>
+							</select>
+						</div>
+						<div class="market-field">
+							<label for="sf-tags"
+								>Tags <span class="field-hint">(comma-separated)</span></label
+							>
+							<input
+								id="sf-tags"
+								type="text"
+								maxlength="200"
+								placeholder="helpful, writing, code"
+							/>
 						</div>
 					</div>
-				</details>
+					<div class="market-field">
+						<label for="sf-prompt">System Prompt <span class="req">*</span></label>
+						<textarea
+							id="sf-prompt"
+							rows="6"
+							maxlength="16000"
+							placeholder="You are a helpful AI assistant specialized in…"
+						></textarea>
+					</div>
+					<div class="market-field">
+						<label for="sf-greeting">Greeting Message</label>
+						<input
+							id="sf-greeting"
+							type="text"
+							maxlength="1000"
+							placeholder="Hello! I'm here to help you with…"
+						/>
+					</div>
 
-				<div id="market-submit-error" class="market-form-error" hidden></div>
+					<details class="market-field-group">
+						<summary class="market-field-group-title">
+							Monetize <span class="field-hint">(optional)</span>
+						</summary>
+						<div class="market-field" style="margin-top: 0.75rem">
+							<label for="sf-payout-wallet"
+								>Payout wallet address
+								<span class="field-hint">(Solana)</span></label
+							>
+							<input
+								id="sf-payout-wallet"
+								type="text"
+								maxlength="100"
+								placeholder="Your Solana address for receiving payments"
+								autocomplete="off"
+							/>
+						</div>
+						<div class="sf-skill-prices" id="sf-skill-prices">
+							<div class="sf-skill-prices-label">
+								Skill prices <span class="field-hint">(USDC per call)</span>
+							</div>
+							<div id="sf-price-rows"></div>
+							<div class="agent-pricing-add-row">
+								<input
+									id="sf-new-skill"
+									type="text"
+									maxlength="100"
+									placeholder="skill-name"
+									autocomplete="off"
+								/>
+								<button type="button" id="sf-add-skill" class="market-btn-sec">
+									+ Add Skill
+								</button>
+							</div>
+						</div>
+					</details>
 
-				<div class="market-submit-actions">
-					<button type="button" id="sf-save-draft" class="market-btn-sec">Save Draft</button>
-					<button type="button" id="sf-publish" class="market-btn-pri">Publish</button>
-				</div>
-			</form>
+					<div id="market-submit-error" class="market-form-error" hidden></div>
+
+					<div class="market-submit-actions">
+						<button type="button" id="sf-save-draft" class="market-btn-sec">
+							Save Draft
+						</button>
+						<button type="button" id="sf-publish" class="market-btn-pri">
+							Publish
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
-	</div>
 
 		<!-- Publish Skill Modal -->
-		<div class="market-modal-overlay" id="skill-publish-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="skill-publish-title">
+		<div
+			class="market-modal-overlay"
+			id="skill-publish-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="skill-publish-title"
+		>
 			<div class="market-modal">
 				<div class="market-modal-head">
 					<h2 id="skill-publish-title">Publish a Skill</h2>
-					<button class="market-modal-close" id="skill-publish-close" aria-label="Close">×</button>
+					<button class="market-modal-close" id="skill-publish-close" aria-label="Close">
+						×
+					</button>
 				</div>
 				<form id="skill-publish-form" novalidate>
 					<div class="market-field">
 						<label for="sp-name">Name <span class="req">*</span></label>
-						<input id="sp-name" type="text" maxlength="100" placeholder="web-search" autocomplete="off" />
+						<input
+							id="sp-name"
+							type="text"
+							maxlength="100"
+							placeholder="web-search"
+							autocomplete="off"
+						/>
 						<span class="field-hint">Lowercase slug, e.g. <code>web-search</code></span>
 					</div>
 					<div class="market-field">
 						<label for="sp-description">Description <span class="req">*</span></label>
-						<input id="sp-description" type="text" maxlength="500" placeholder="Search the web for current information" />
+						<input
+							id="sp-description"
+							type="text"
+							maxlength="500"
+							placeholder="Search the web for current information"
+						/>
 					</div>
 					<div class="market-field-row">
 						<div class="market-field">
@@ -3151,34 +3943,73 @@
 							</select>
 						</div>
 						<div class="market-field">
-							<label for="sp-price">Price per call (USD) <span class="field-hint">0 = free</span></label>
-							<input id="sp-price" type="number" min="0" max="10" step="0.001" placeholder="0.001" value="0" />
+							<label for="sp-price"
+								>Price per call (USD)
+								<span class="field-hint">0 = free</span></label
+							>
+							<input
+								id="sp-price"
+								type="number"
+								min="0"
+								max="10"
+								step="0.001"
+								placeholder="0.001"
+								value="0"
+							/>
 						</div>
 					</div>
 					<div class="market-field">
-						<label for="sp-tags">Tags <span class="field-hint">(comma-separated)</span></label>
-						<input id="sp-tags" type="text" maxlength="200" placeholder="search, web, realtime" />
+						<label for="sp-tags"
+							>Tags <span class="field-hint">(comma-separated)</span></label
+						>
+						<input
+							id="sp-tags"
+							type="text"
+							maxlength="200"
+							placeholder="search, web, realtime"
+						/>
 					</div>
 					<div class="market-field">
-						<label for="sp-schema">Tool definitions <span class="field-hint">(JSON array — optional)</span></label>
-						<textarea id="sp-schema" rows="6" placeholder='[{"name":"search","description":"Search the web","input_schema":{"type":"object","properties":{"query":{"type":"string","description":"Search query"}},"required":["query"]}}]'></textarea>
+						<label for="sp-schema"
+							>Tool definitions
+							<span class="field-hint">(JSON array — optional)</span></label
+						>
+						<textarea
+							id="sp-schema"
+							rows="6"
+							placeholder='[{"name":"search","description":"Search the web","input_schema":{"type":"object","properties":{"query":{"type":"string","description":"Search query"}},"required":["query"]}}]'
+						></textarea>
 					</div>
 					<div id="skill-publish-error" class="market-form-error" hidden></div>
 					<div class="market-submit-actions">
-						<button type="button" id="sp-publish" class="market-btn-pri">Publish Skill</button>
+						<button type="button" id="sp-publish" class="market-btn-pri">
+							Publish Skill
+						</button>
 					</div>
 				</form>
 			</div>
 		</div>
 
 		<!-- Payout Wallet Modal -->
-		<div class="market-modal-overlay" id="wallet-setup-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="wallet-setup-title">
-			<div class="market-modal" style="max-width:420px">
+		<div
+			class="market-modal-overlay"
+			id="wallet-setup-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="wallet-setup-title"
+		>
+			<div class="market-modal" style="max-width: 420px">
 				<div class="market-modal-head">
 					<h2 id="wallet-setup-title">Payout Wallet</h2>
-					<button class="market-modal-close" id="wallet-setup-close" aria-label="Close">×</button>
+					<button class="market-modal-close" id="wallet-setup-close" aria-label="Close">
+						×
+					</button>
 				</div>
-				<p style="color:#a1a1aa;font-size:0.875rem;margin:0 0 1.25rem">Payments from buyers go directly to this wallet. You can use a Solana or Base wallet address.</p>
+				<p style="color: #a1a1aa; font-size: 0.875rem; margin: 0 0 1.25rem">
+					Payments from buyers go directly to this wallet. You can use a Solana or Base
+					wallet address.
+				</p>
 				<div class="market-field">
 					<label for="ws-chain">Chain</label>
 					<select id="ws-chain">
@@ -3188,7 +4019,13 @@
 				</div>
 				<div class="market-field">
 					<label for="ws-address">Wallet address <span class="req">*</span></label>
-					<input id="ws-address" type="text" maxlength="100" placeholder="Solana or wallet address" autocomplete="off" />
+					<input
+						id="ws-address"
+						type="text"
+						maxlength="100"
+						placeholder="Solana or wallet address"
+						autocomplete="off"
+					/>
 				</div>
 				<div id="wallet-setup-error" class="market-form-error" hidden></div>
 				<div class="market-submit-actions">
@@ -3198,17 +4035,40 @@
 		</div>
 
 		<!-- Agent Pricing Modal -->
-		<div class="market-modal-overlay" id="agent-pricing-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="agent-pricing-title">
-			<div class="market-modal" style="max-width:480px">
+		<div
+			class="market-modal-overlay"
+			id="agent-pricing-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="agent-pricing-title"
+		>
+			<div class="market-modal" style="max-width: 480px">
 				<div class="market-modal-head">
 					<h2 id="agent-pricing-title">Set Skill Prices</h2>
-					<button class="market-modal-close" id="agent-pricing-close" aria-label="Close">×</button>
+					<button class="market-modal-close" id="agent-pricing-close" aria-label="Close">
+						×
+					</button>
 				</div>
-				<p style="color:#a1a1aa;font-size:0.875rem;margin:0 0 1rem" id="agent-pricing-hint">Set a USDC (a $1 digital dollar) price for each skill. Leave blank or 0 to keep it free.</p>
+				<p
+					style="color: #a1a1aa; font-size: 0.875rem; margin: 0 0 1rem"
+					id="agent-pricing-hint"
+				>
+					Set a USDC (a $1 digital dollar) price for each skill. Leave blank or 0 to keep
+					it free.
+				</p>
 				<div id="agent-pricing-rows" class="agent-pricing-rows"></div>
 				<div class="agent-pricing-add-row">
-					<input id="ap-new-skill" type="text" maxlength="100" placeholder="skill-name" autocomplete="off" />
-					<button type="button" id="ap-add-skill" class="market-btn-sec">+ Add Skill</button>
+					<input
+						id="ap-new-skill"
+						type="text"
+						maxlength="100"
+						placeholder="skill-name"
+						autocomplete="off"
+					/>
+					<button type="button" id="ap-add-skill" class="market-btn-sec">
+						+ Add Skill
+					</button>
 				</div>
 				<div id="agent-pricing-error" class="market-form-error" hidden></div>
 				<div class="market-submit-actions">
@@ -3217,13 +4077,22 @@
 			</div>
 		</div>
 
-	    <script src="/src/marketplace.js" type="module"></script>
+		<script src="/src/marketplace.js" type="module"></script>
 
 		<!-- Avatar Detail Modal -->
-		<div class="avatar-modal-overlay" id="avatar-modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="avatar-modal-title">
+		<div
+			class="avatar-modal-overlay"
+			id="avatar-modal-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="avatar-modal-title"
+		>
 			<div class="avatar-modal" role="document">
 				<div class="avatar-modal-stage" id="avatar-modal-stage">
-					<button class="avatar-modal-close" id="avatar-modal-close" aria-label="Close">×</button>
+					<button class="avatar-modal-close" id="avatar-modal-close" aria-label="Close">
+						×
+					</button>
 				</div>
 				<div class="avatar-modal-side">
 					<div class="avatar-modal-eyebrow">Community Avatar</div>
@@ -3232,9 +4101,20 @@
 					<div class="avatar-modal-meta" id="avatar-modal-meta"></div>
 					<div class="avatar-modal-sale" id="avatar-modal-sale" hidden></div>
 					<div class="avatar-modal-actions">
-						<button class="btn-primary" id="avatar-modal-use">Start an agent with this avatar</button>
-						<a class="btn-secondary" id="avatar-modal-view" href="#" target="_blank" rel="noopener">Open in 3D viewer</a>
-						<a class="btn-secondary" id="avatar-modal-download" href="#" download>Download GLB</a>
+						<button class="btn-primary" id="avatar-modal-use">
+							Start an agent with this avatar
+						</button>
+						<a
+							class="btn-secondary"
+							id="avatar-modal-view"
+							href="#"
+							target="_blank"
+							rel="noopener"
+							>Open in 3D viewer</a
+						>
+						<a class="btn-secondary" id="avatar-modal-download" href="#" download
+							>Download GLB</a
+						>
 						<button id="avatar-modal-bookmark" aria-pressed="false">Bookmark</button>
 					</div>
 				</div>
@@ -3242,9 +4122,18 @@
 		</div>
 
 		<!-- Creator Profile Modal -->
-		<div class="creator-modal-overlay" id="creator-modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="creator-modal-title">
+		<div
+			class="creator-modal-overlay"
+			id="creator-modal-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="creator-modal-title"
+		>
 			<div class="creator-modal" role="document">
-				<button class="creator-modal-close" id="creator-modal-close" aria-label="Close">×</button>
+				<button class="creator-modal-close" id="creator-modal-close" aria-label="Close">
+					×
+				</button>
 				<header class="creator-modal-head">
 					<div class="creator-modal-avatar" id="creator-modal-avatar"></div>
 					<div class="creator-modal-meta">
@@ -3256,13 +4145,17 @@
 				</header>
 				<div class="creator-modal-body">
 					<section>
-						<h3 class="creator-modal-sectiontitle">Published agents <span id="creator-agents-count" class="muted"></span></h3>
+						<h3 class="creator-modal-sectiontitle">
+							Published agents <span id="creator-agents-count" class="muted"></span>
+						</h3>
 						<div class="creator-modal-grid" id="creator-agents-grid">
 							<div class="market-empty">Loading…</div>
 						</div>
 					</section>
 					<section>
-						<h3 class="creator-modal-sectiontitle">Public avatars <span id="creator-avatars-count" class="muted"></span></h3>
+						<h3 class="creator-modal-sectiontitle">
+							Public avatars <span id="creator-avatars-count" class="muted"></span>
+						</h3>
 						<div class="creator-modal-grid" id="creator-avatars-grid">
 							<div class="market-empty">Loading…</div>
 						</div>
@@ -3272,49 +4165,83 @@
 		</div>
 
 		<!-- Mobile sidebar backdrop + toggle -->
-		<button class="market-sidebar-toggle" id="market-sidebar-toggle" aria-label="Open menu" hidden>☰</button>
+		<button
+			class="market-sidebar-toggle"
+			id="market-sidebar-toggle"
+			aria-label="Open menu"
+			hidden
+		>
+			☰
+		</button>
 		<div class="market-sidebar-backdrop" id="market-sidebar-backdrop" hidden></div>
 
-	<!-- Payment Modal -->
-	<div class="market-modal-overlay" id="payment-modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="payment-modal-title">
+		<!-- Payment Modal -->
+		<div
+			class="market-modal-overlay"
+			id="payment-modal-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="payment-modal-title"
+		>
 			<div class="market-modal">
-					<div class="market-modal-head">
-							<h2 id="payment-modal-title">Unlock Skill</h2>
-							<button class="market-modal-close" id="payment-modal-close" aria-label="Close">×</button>
+				<div class="market-modal-head">
+					<h2 id="payment-modal-title">Unlock Skill</h2>
+					<button class="market-modal-close" id="payment-modal-close" aria-label="Close">
+						×
+					</button>
+				</div>
+				<div class="payment-modal-body" id="payment-modal-body">
+					<div class="payment-modal-badge" id="payment-modal-badge" hidden></div>
+
+					<p id="payment-modal-lede">You are purchasing access to the following skill:</p>
+					<div class="payment-item">
+						<strong id="payment-skill-name"></strong>
+						<span id="payment-item-from">from agent</span>
+						<em id="payment-agent-name"></em>
 					</div>
-					<div class="payment-modal-body" id="payment-modal-body">
-							<div class="payment-modal-badge" id="payment-modal-badge" hidden></div>
 
-							<p id="payment-modal-lede">You are purchasing access to the following skill:</p>
-							<div class="payment-item">
-									<strong id="payment-skill-name"></strong>
-									<span id="payment-item-from">from agent</span>
-									<em id="payment-agent-name"></em>
-							</div>
-
-							<div class="payment-price">
-									<span>Total</span>
-									<strong id="payment-price-display"></strong>
-							</div>
-
-							<div class="payment-wallet-area" id="payment-wallet-area">
-									<!-- Wallet connection status and button will be rendered here by JS -->
-									<button class="btn-primary" id="payment-connect-wallet-btn">Connect Wallet</button>
-							</div>
-
-							<button class="btn-primary payment-confirm-btn" id="payment-confirm-btn" disabled>Confirm Purchase</button>
-
-							<div class="payment-qr" id="payment-qr" aria-live="polite"></div>
-
-							<div class="payment-status" id="payment-status" role="status" aria-live="polite"></div>
+					<div class="payment-price">
+						<span>Total</span>
+						<strong id="payment-price-display"></strong>
 					</div>
-					<div class="payment-modal-success" id="payment-modal-success" hidden role="status" aria-live="polite"></div>
+
+					<div class="payment-wallet-area" id="payment-wallet-area">
+						<!-- Wallet connection status and button will be rendered here by JS -->
+						<button class="btn-primary" id="payment-connect-wallet-btn">
+							Connect Wallet
+						</button>
+					</div>
+
+					<button
+						class="btn-primary payment-confirm-btn"
+						id="payment-confirm-btn"
+						disabled
+					>
+						Confirm Purchase
+					</button>
+
+					<div class="payment-qr" id="payment-qr" aria-live="polite"></div>
+
+					<div
+						class="payment-status"
+						id="payment-status"
+						role="status"
+						aria-live="polite"
+					></div>
+				</div>
+				<div
+					class="payment-modal-success"
+					id="payment-modal-success"
+					hidden
+					role="status"
+					aria-live="polite"
+				></div>
 			</div>
-	</div>
-  
+		</div>
+
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
-	<script src="/brand.js" defer></script>
-</body>
+		<script src="/brand.js" defer></script>
+	</body>
 </html>
-

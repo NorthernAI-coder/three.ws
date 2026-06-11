@@ -146,6 +146,16 @@
 	--ease-standard:   cubic-bezier(0.2, 0.8, 0.2, 1);  /* default UI motion */
 	--ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);  /* expressive enter/reveal */
 	--ease-out:        cubic-bezier(0, 0, 0.2, 1);       /* decelerate-only */
+
+	/* Interactive states (B11) — shared focus-ring + disabled vocabulary.
+	   Every :focus-visible outline and disabled control on the platform
+	   references these (buttons.css re-declares them with identical literal
+	   fallbacks so it stays portable on pages that load it standalone). */
+	--focus-ring-color:  var(--accent);
+	--focus-ring-width:  2px;
+	--focus-ring-offset: 2px;
+	--disabled-opacity:  0.4;
+	--disabled-cursor:   not-allowed;
 }
 
 @media (prefers-reduced-motion: reduce) {

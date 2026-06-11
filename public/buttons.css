@@ -95,12 +95,12 @@
 	position: relative;
 	overflow: hidden;
 	transition:
-		background 0.18s ease,
-		border-color 0.18s ease,
-		color 0.18s ease,
-		opacity 0.18s ease,
-		transform 0.1s ease,
-		box-shadow 0.18s ease;
+		background var(--duration-fast, 140ms) var(--ease-standard, ease),
+		border-color var(--duration-fast, 140ms) var(--ease-standard, ease),
+		color var(--duration-fast, 140ms) var(--ease-standard, ease),
+		opacity var(--duration-fast, 140ms) var(--ease-standard, ease),
+		transform var(--duration-instant, 80ms) var(--ease-standard, ease),
+		box-shadow var(--duration-fast, 140ms) var(--ease-standard, ease);
 }
 
 /* ── Hover ────────────────────────────────────────────────────────────────── */
@@ -232,7 +232,7 @@
 }
 
 /* ── Optional arrow microinteraction — a trailing → that slides on hover ───── */
-.btn .arrow { transition: transform 0.18s ease; }
+.btn .arrow { transition: transform var(--duration-fast, 140ms) var(--ease-standard, ease); }
 .btn:hover .arrow { transform: translateX(3px); }
 
 @media (prefers-reduced-motion: reduce) {

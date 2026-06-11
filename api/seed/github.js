@@ -10,7 +10,8 @@
 // works against unauthenticated GitHub in development.
 
 import { Octokit } from '@octokit/rest';
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 
 const HANDLE_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 
@@ -25,6 +26,9 @@ function octokit() {
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const handle = (url.searchParams.get('handle') || '').trim();

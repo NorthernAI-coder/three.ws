@@ -45,7 +45,10 @@ function decodeCursor(cursor) {
 
 function csvEscape(value) {
 	if (value === null || value === undefined) return '';
-	const s = typeof value === 'string' ? value : JSON.stringify(value);
+	let s = typeof value === 'string' ? value : JSON.stringify(value);
+	// Neutralize spreadsheet formula injection: Excel/Sheets execute cells that
+	// start with = + - @ — prefix with a quote so they render as text.
+	if (/^[=+\-@]/.test(s)) s = `'${s}`;
 	if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
 	return s;
 }
@@ -69,7 +72,10 @@ export default wrap(async (req, res) => {
 
 async function handleList(userId, url, res) {
 	const rawLimit = parseInt(url.searchParams.get('limit') || String(DEFAULT_LIMIT), 10);
-	const limit = Math.min(MAX_LIMIT, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : DEFAULT_LIMIT));
+	const limit = Math.min(
+		MAX_LIMIT,
+		Math.max(1, Number.isFinite(rawLimit) ? rawLimit : DEFAULT_LIMIT),
+	);
 	const cursor = decodeCursor(url.searchParams.get('cursor'));
 
 	const rows = cursor
@@ -122,14 +128,16 @@ async function handleCsv(userId, res) {
 	const header = ['when', 'action', 'resource_id', 'ip', 'user_agent', 'meta'];
 	const lines = [header.join(',')];
 	for (const r of rows) {
-		lines.push([
-			csvEscape(new Date(r.created_at).toISOString()),
-			csvEscape(r.action),
-			csvEscape(r.resource_id),
-			csvEscape(r.ip),
-			csvEscape(r.user_agent),
-			csvEscape(r.meta),
-		].join(','));
+		lines.push(
+			[
+				csvEscape(new Date(r.created_at).toISOString()),
+				csvEscape(r.action),
+				csvEscape(r.resource_id),
+				csvEscape(r.ip),
+				csvEscape(r.user_agent),
+				csvEscape(r.meta),
+			].join(','),
+		);
 	}
 
 	const filename = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;

@@ -8,7 +8,8 @@
 // so a `mint` is required to receive trade events; without one we degrade to the
 // public mint/graduation feed rather than emitting an empty stream.
 
-import { cors, method } from '../_lib/http.js';
+import { cors, method, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { connectPumpFunFeed } from '../_lib/pumpfun-ws-feed.js';
 
 const MAX_DURATION_MS = 90_000;
@@ -18,6 +19,11 @@ const MAX_MINTS = 20;
 export default async function handleTradesStream(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
+
+	// Each client connection opens an upstream PumpPortal WS — same bucket as
+	// the [action].js live-stream path so one IP can't fan out connections.
+	const rl = await limits.mcpIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, `http://${req.headers.host || 'x'}`);
 	const mints = (url.searchParams.get('mint') || '')
@@ -60,7 +66,9 @@ export default async function handleTradesStream(req, res) {
 		clearTimeout(durationTimer);
 		abort.abort();
 		stop();
-		try { res.end(); } catch {}
+		try {
+			res.end();
+		} catch {}
 	};
 
 	const durationTimer = setTimeout(() => {

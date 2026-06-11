@@ -2,6 +2,7 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
 import { logAudit } from '../_lib/audit.js';
 import { cors, json, error, wrap, method, rateLimited } from '../_lib/http.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
 export default wrap(async (req, res) => {
@@ -14,6 +15,7 @@ export default wrap(async (req, res) => {
 	if (bearer && !hasScope(bearer.scope, 'profile'))
 		return error(res, 403, 'insufficient_scope', 'requires profile scope');
 	const userId = session?.id ?? bearer.userId;
+	if (session && !(await requireCsrf(req, res, session.id))) return;
 
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);

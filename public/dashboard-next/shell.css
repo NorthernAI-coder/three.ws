@@ -620,6 +620,12 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 		transform 100ms ease-out;
 }
 .dn-btn:active { transform: scale(0.98); }
+.dn-topbar-btn:active { transform: scale(0.96); }
+.dn-topbar-search:active { background: rgba(255, 255, 255, 0.09); }
+.dn-topbar-user { transition: background 120ms ease, border-color 120ms ease; }
+.dn-topbar-user:active { background: rgba(255, 255, 255, 0.09); }
+.dn-rail-item:active { background: rgba(255, 255, 255, 0.07); color: var(--nxt-ink); }
+.dn-rail-mobile-slot:active { background: var(--nxt-accent-soft); }
 
 /* ── Sidebar collapse animation ───────────────────────────────────────── */
 .dn-shell {
@@ -666,6 +672,14 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 	}
 	.dn-panel:hover { transform: none; }
 	.dn-btn:active { transform: none; }
+	.dn-topbar-btn:active { transform: none; }
+	.dn-topbar-search,
+	.dn-topbar-user,
+	.dn-rail-item,
+	.dn-rail-mobile-slot,
+	.dn-mobile-sheet-item {
+		transition: none !important;
+	}
 }
 
 /* ── Focus rings ──────────────────────────────────────────────────────── */

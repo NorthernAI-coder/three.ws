@@ -240,7 +240,11 @@ function facilitatorFor(network) {
 		if (env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET) {
 			return { url: env.X402_CDP_FACILITATOR_URL, cdp: true };
 		}
-		if (network === NETWORK_BASE_MAINNET || network === NETWORK_BASE_SEPOLIA || network === 'base') {
+		if (
+			network === NETWORK_BASE_MAINNET ||
+			network === NETWORK_BASE_SEPOLIA ||
+			network === 'base'
+		) {
 			return { url: env.X402_FACILITATOR_URL_BASE, token: env.X402_FACILITATOR_TOKEN_BASE };
 		}
 		throw new X402Error(
@@ -329,10 +333,22 @@ const TRANSIENT_FACILITATOR_STATUS = new Set([502, 503, 504]);
 
 function summarizeUpstream(data, text) {
 	// CDP surfaces the reason under `errorMessage`; PayAI under `error`/`message`.
-	return String(data.error || data.message || data.errorMessage || data.invalidReason || text.slice(0, 200) || '').slice(0, 300);
+	return String(
+		data.error ||
+			data.message ||
+			data.errorMessage ||
+			data.invalidReason ||
+			text.slice(0, 200) ||
+			'',
+	).slice(0, 300);
 }
 
-async function callFacilitator(network, path, body, { timeoutMs, idempotencyKey, retries = 1 } = {}) {
+async function callFacilitator(
+	network,
+	path,
+	body,
+	{ timeoutMs, idempotencyKey, retries = 1 } = {},
+) {
 	const config = facilitatorFor(network);
 	const url = `${config.url}${path}`;
 	const host = hostOf(config.url);
@@ -371,13 +387,17 @@ async function callFacilitator(network, path, body, { timeoutMs, idempotencyKey,
 			// calls before giving up.
 			if (retryable && attempt < retries) {
 				attempt += 1;
-				console.warn(`[x402] facilitator ${path} unreachable (host=${host}, network=${network}): ${err.message} — retry ${attempt}/${retries} in 500ms`);
+				console.warn(
+					`[x402] facilitator ${path} unreachable (host=${host}, network=${network}): ${err.message} — retry ${attempt}/${retries} in 500ms`,
+				);
 				await new Promise((r) => setTimeout(r, 500));
 				continue;
 			}
 			// Server logs keep the host for diagnosis; user-facing X402Error message
 			// omits it so we don't leak internal facilitator topology to clients.
-			console.warn(`[x402] facilitator ${path} unreachable (host=${host}, network=${network}): ${err.message}`);
+			console.warn(
+				`[x402] facilitator ${path} unreachable (host=${host}, network=${network}): ${err.message}`,
+			);
 			throw new X402Error(
 				'facilitator_unreachable',
 				`facilitator ${path} (network=${network}) fetch failed: ${err.message}`,
@@ -390,7 +410,9 @@ async function callFacilitator(network, path, body, { timeoutMs, idempotencyKey,
 			try {
 				data = JSON.parse(text);
 			} catch {
-				console.warn(`[x402] facilitator ${path} non-JSON (host=${host}, network=${network}, status=${res.status})`);
+				console.warn(
+					`[x402] facilitator ${path} non-JSON (host=${host}, network=${network}, status=${res.status})`,
+				);
 				throw new X402Error(
 					'facilitator_bad_response',
 					`facilitator ${path} (network=${network}) returned non-JSON (status ${res.status})`,
@@ -411,19 +433,28 @@ async function callFacilitator(network, path, body, { timeoutMs, idempotencyKey,
 			// invalid-payment result so verifyPayment emits a clean 402 and the
 			// caller is re-prompted to pay, instead of seeing a server error.
 			if (path === '/verify' && res.status === 400) {
-				console.warn(`[x402] facilitator /verify rejected payload (host=${host}, network=${network}): ${detail}`);
-				return { isValid: false, invalidReason: detail || 'payment payload rejected by facilitator' };
+				console.warn(
+					`[x402] facilitator /verify rejected payload (host=${host}, network=${network}): ${detail}`,
+				);
+				return {
+					isValid: false,
+					invalidReason: detail || 'payment payload rejected by facilitator',
+				};
 			}
 			// Transient upstream 5xx — the payment network or settlement service
 			// blinked. Retry once for idempotent calls; the Idempotency-Key keeps
 			// a re-sent settle from double-paying.
 			if (retryable && TRANSIENT_FACILITATOR_STATUS.has(res.status) && attempt < retries) {
 				attempt += 1;
-				console.warn(`[x402] facilitator ${path} ${res.status} (host=${host}, network=${network}): ${detail} — retry ${attempt}/${retries} in 500ms`);
+				console.warn(
+					`[x402] facilitator ${path} ${res.status} (host=${host}, network=${network}): ${detail} — retry ${attempt}/${retries} in 500ms`,
+				);
 				await new Promise((r) => setTimeout(r, 500));
 				continue;
 			}
-			console.warn(`[x402] facilitator ${path} ${res.status} (host=${host}, network=${network}): ${detail}`);
+			console.warn(
+				`[x402] facilitator ${path} ${res.status} (host=${host}, network=${network}): ${detail}`,
+			);
 			throw new X402Error(
 				'facilitator_error',
 				`facilitator ${path} (network=${network}) ${res.status}: ${detail}`,
@@ -444,9 +475,10 @@ async function callFacilitator(network, path, body, { timeoutMs, idempotencyKey,
 // the status surface needs to confirm the facilitator supports each of those
 // networks. Without CDP creds, Base is the only EVM we can actually settle.
 export async function probeFacilitators() {
-	const evmNetworks = env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET
-		? [...CDP_EVM_NETWORKS].filter((n) => n !== NETWORK_BASE_SEPOLIA)
-		: [NETWORK_BASE_MAINNET];
+	const evmNetworks =
+		env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET
+			? [...CDP_EVM_NETWORKS].filter((n) => n !== NETWORK_BASE_SEPOLIA)
+			: [NETWORK_BASE_MAINNET];
 	const targets = [
 		...evmNetworks.map((network) => ({ network, ...facilitatorFor(network) })),
 		{ network: NETWORK_SOLANA_MAINNET, ...facilitatorFor(NETWORK_SOLANA_MAINNET) },
@@ -522,7 +554,9 @@ export async function probeFacilitators() {
 				: `facilitator does NOT advertise scheme=exact network=${t.network} (configure X402_FACILITATOR_URL_${t.network.toUpperCase()} to a facilitator that does)`,
 			extensions: [...advertisedExtensions],
 			supportsEip2612GasSponsoring: advertisedExtensions.has(EIP2612_EXTENSION_KEY),
-			supportsErc20ApprovalGasSponsoring: advertisedExtensions.has(ERC20_APPROVAL_EXTENSION_KEY),
+			supportsErc20ApprovalGasSponsoring: advertisedExtensions.has(
+				ERC20_APPROVAL_EXTENSION_KEY,
+			),
 		});
 	}
 	return results;
@@ -540,6 +574,22 @@ function detectAssetTransferMethod(paymentPayload) {
 	if (inner.permit2Authorization) return 'permit2';
 	if (inner.authorization) return 'eip3009';
 	return null;
+}
+
+// True for accepts[] entries that exist only to advertise an authentication
+// alternative (USE-21 auth-hints): zero-amount placeholders flagged with
+// `extra.authRequired`. They are redeemed by presenting the matching auth
+// header (Authorization / SIGN-IN-WITH-X) BEFORE the payment dance — never by
+// an X-PAYMENT header. verifyPayment must exclude them from requirement
+// matching so the invariant is enforced structurally rather than relying on
+// the real entries happening to sort first: otherwise a crafted payload (e.g.
+// a Base payment against a Solana-only paid route that still advertises a
+// Base auth-hint entry) could select the amount="0" requirement and obtain
+// the resource for a zero-value settlement.
+function isAuthHintAccept(requirement) {
+	if (!requirement || typeof requirement !== 'object') return false;
+	if (requirement.extra?.authRequired != null) return true;
+	return String(requirement.amount) === '0';
 }
 
 // Match the decoded payload to one of the offered requirements. The match is
@@ -594,7 +644,11 @@ function decodeSignedAmount(paymentPayload) {
 	if (inner.authorization && typeof inner.authorization === 'object') {
 		const v = inner.authorization.value;
 		if (typeof v === 'string' || typeof v === 'number' || typeof v === 'bigint') {
-			try { return BigInt(v); } catch { return null; }
+			try {
+				return BigInt(v);
+			} catch {
+				return null;
+			}
 		}
 	}
 	// Permit2 PermitWitnessTransferFrom — `permitted.amount` is what the user
@@ -603,12 +657,20 @@ function decodeSignedAmount(paymentPayload) {
 		const permitted = inner.permit2Authorization?.permit?.permitted;
 		const v = permitted?.amount;
 		if (typeof v === 'string' || typeof v === 'number' || typeof v === 'bigint') {
-			try { return BigInt(v); } catch { return null; }
+			try {
+				return BigInt(v);
+			} catch {
+				return null;
+			}
 		}
 		// Some clients flatten to `permit2Authorization.amount`.
 		const flat = inner.permit2Authorization.amount;
 		if (typeof flat === 'string' || typeof flat === 'number' || typeof flat === 'bigint') {
-			try { return BigInt(flat); } catch { return null; }
+			try {
+				return BigInt(flat);
+			} catch {
+				return null;
+			}
 		}
 	}
 	return null;
@@ -636,11 +698,7 @@ function decodeSignedRecipient(paymentPayload) {
 	// (null = facilitator-trusted) rather than guess when none are present.
 	if (inner.permit2Authorization && typeof inner.permit2Authorization === 'object') {
 		const p2 = inner.permit2Authorization;
-		const candidate =
-			p2.transferDetails?.to ??
-			p2.witness?.to ??
-			p2.spender ??
-			p2.to;
+		const candidate = p2.transferDetails?.to ?? p2.witness?.to ?? p2.spender ?? p2.to;
 		if (typeof candidate === 'string' && candidate) return candidate.toLowerCase();
 	}
 	return null;
@@ -686,8 +744,22 @@ function buildIdempotencyKey({ paymentPayload, requirement }) {
 // explicitly to opt out (e.g. test harnesses).
 export async function verifyPayment({ paymentHeader, requirements, builderCode }) {
 	const all = Array.isArray(requirements) ? requirements : [requirements];
+	// Auth-hint placeholder entries (amount="0" / extra.authRequired) are never
+	// payable via X-PAYMENT — drop them before matching so the zero-amount
+	// bypass can't be reached regardless of accepts[] ordering. The auth-hint
+	// redemption path never calls verifyPayment (it short-circuits on the auth
+	// header in x402-paid-endpoint.js), so this filter only ever removes
+	// entries an X-PAYMENT was forbidden from matching in the first place.
+	const payable = all.filter((r) => !isAuthHintAccept(r));
+	if (!payable.length) {
+		throw new X402Error(
+			'invalid_payment',
+			'this resource has no payable accepts[] entries — use the advertised authentication method instead of X-PAYMENT',
+			402,
+		);
+	}
 	const paymentPayload = decodePaymentHeader(paymentHeader);
-	const requirement = selectRequirement(paymentPayload, all);
+	const requirement = selectRequirement(paymentPayload, payable);
 	const effectiveBuilderCode =
 		builderCode === undefined && env.X402_BUILDER_CODE_APP
 			? declareBuilderCodeExtension({ a: env.X402_BUILDER_CODE_APP })
@@ -709,9 +781,14 @@ export async function verifyPayment({ paymentHeader, requirements, builderCode }
 	const signedAmount = decodeSignedAmount(paymentPayload);
 	if (signedAmount !== null) {
 		let required;
-		try { required = BigInt(requirement.amount); }
-		catch {
-			throw new X402Error('invalid_requirement', `requirement.amount must parse as BigInt, got "${requirement.amount}"`, 500);
+		try {
+			required = BigInt(requirement.amount);
+		} catch {
+			throw new X402Error(
+				'invalid_requirement',
+				`requirement.amount must parse as BigInt, got "${requirement.amount}"`,
+				500,
+			);
 		}
 		if (signedAmount < required) {
 			throw new X402Error(
@@ -768,7 +845,11 @@ export async function verifyPayment({ paymentHeader, requirements, builderCode }
 			502,
 		);
 	}
-	if (result.asset && requirement.asset && String(result.asset).toLowerCase() !== String(requirement.asset).toLowerCase()) {
+	if (
+		result.asset &&
+		requirement.asset &&
+		String(result.asset).toLowerCase() !== String(requirement.asset).toLowerCase()
+	) {
 		throw new X402Error(
 			'facilitator_bad_response',
 			`facilitator /verify asset mismatch: requested ${requirement.asset}, got ${result.asset}`,
@@ -810,7 +891,11 @@ export async function settlePayment(args) {
 	const verifiedPayer = verified?.payer || args?.verifiedPayer || null;
 
 	if (!requirement) {
-		throw new X402Error('settle_failed', 'settlePayment requires `verified` or `requirement`', 500);
+		throw new X402Error(
+			'settle_failed',
+			'settlePayment requires `verified` or `requirement`',
+			500,
+		);
 	}
 
 	const config = facilitatorFor(requirement.network);
@@ -854,7 +939,11 @@ export async function settlePayment(args) {
 			502,
 		);
 	}
-	if (verifiedPayer && result.payer && String(result.payer).toLowerCase() !== String(verifiedPayer).toLowerCase()) {
+	if (
+		verifiedPayer &&
+		result.payer &&
+		String(result.payer).toLowerCase() !== String(verifiedPayer).toLowerCase()
+	) {
 		throw new X402Error(
 			'facilitator_bad_response',
 			`facilitator /settle payer mismatch: verified ${verifiedPayer}, settled ${result.payer}`,
@@ -896,7 +985,13 @@ export const RESOURCE_DESCRIPTION =
 // from it causes agentic.market's parser to reject the endpoint with
 // "v2 discovery extension validation failed" even when all surface-level
 // checks (Transport, Payment Requirements, Bazaar Extension) pass.
-export function buildBazaarSchema({ method, queryParamsSchema, bodyType, bodySchema, outputSchema }) {
+export function buildBazaarSchema({
+	method,
+	queryParamsSchema,
+	bodyType,
+	bodySchema,
+	outputSchema,
+}) {
 	const upperMethod = String(method || 'GET').toUpperCase();
 	const isBodyMethod = ['POST', 'PUT', 'PATCH'].includes(upperMethod);
 	const inputProperties = {
@@ -909,7 +1004,8 @@ export function buildBazaarSchema({ method, queryParamsSchema, bodyType, bodySch
 	const inputRequired = ['type', 'method'];
 	if (isBodyMethod) {
 		inputProperties.bodyType = { type: 'string', enum: ['json', 'form-data', 'text'] };
-		inputProperties.body = bodySchema && typeof bodySchema === 'object' ? bodySchema : { type: 'object' };
+		inputProperties.body =
+			bodySchema && typeof bodySchema === 'object' ? bodySchema : { type: 'object' };
 		inputRequired.push('bodyType', 'body');
 	} else if (queryParamsSchema && typeof queryParamsSchema === 'object') {
 		inputProperties.queryParams = { type: 'object', ...queryParamsSchema };

@@ -40,10 +40,7 @@ import {
 import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
-import {
-	NETWORK_SOLANA_MAINNET,
-	NETWORK_SOLANA_DEVNET,
-} from './_lib/x402-spec.js';
+import { NETWORK_SOLANA_MAINNET, NETWORK_SOLANA_DEVNET } from './_lib/x402-spec.js';
 
 const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const SOLANA_DEVNET_RPC = process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com';
@@ -98,8 +95,14 @@ const prepareSchema = z.object({
 const builderCodeBlockSchema = z
 	.object({
 		a: z.string().regex(/^[a-z0-9_]{1,32}$/),
-		w: z.string().regex(/^[a-z0-9_]{1,32}$/).optional(),
-		s: z.array(z.string().regex(/^[a-z0-9_]{1,32}$/)).max(32).optional(),
+		w: z
+			.string()
+			.regex(/^[a-z0-9_]{1,32}$/)
+			.optional(),
+		s: z
+			.array(z.string().regex(/^[a-z0-9_]{1,32}$/))
+			.max(32)
+			.optional(),
 	})
 	.optional();
 
@@ -224,6 +227,10 @@ async function handlePrepare(req, res) {
 }
 
 async function handleEncode(req, res) {
+	// Per-IP rate limit — same anonymous, cross-origin surface as prepare.
+	const rl = await limits.x402PayIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl, 'too many encode requests');
+
 	const body = parse(encodeSchema, await readJson(req));
 	const { accept, signed_tx_base64, resource_url, builder_code } = body;
 	const payload = {

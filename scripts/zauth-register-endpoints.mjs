@@ -31,7 +31,19 @@ const ENDPOINTS = [
 	{ path: '/api/mcp-3d', method: 'POST', body: MCP_BODY, json: true },
 	{ path: '/api/mcp-agent', method: 'POST', body: MCP_BODY, json: true },
 	{ path: '/api/mcp-bazaar', method: 'POST', body: MCP_BODY, json: true },
-	{ path: '/api/pump-fun-mcp', method: 'POST', body: MCP_BODY, json: true },
+	// pump-fun-mcp: tools/list is free by design — only a gated tools/call
+	// draws the 402 that carries pricing for the registry.
+	{
+		path: '/api/pump-fun-mcp',
+		method: 'POST',
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			id: 1,
+			method: 'tools/call',
+			params: { name: 'pumpfun_vanity_mint', arguments: {} },
+		}),
+		json: true,
+	},
 	{ path: '/api/ibm-mcp', method: 'POST', body: MCP_BODY, json: true },
 	// Worker dispatcher x402 surface.
 	{ path: '/api/wk-x402', method: 'GET' },

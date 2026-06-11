@@ -1,6 +1,11 @@
 import { hasScope } from '../_lib/auth.js';
 import { recordEvent, logger } from '../_lib/usage.js';
-import { priceFor, findActiveSubscription, resolveBillingMint, x402AmountForTool } from '../_lib/pump-pricing.js';
+import {
+	priceFor,
+	findActiveSubscription,
+	resolveBillingMint,
+	x402AmountForTool,
+} from '../_lib/pump-pricing.js';
 import { declareMcpDiscovery } from '../_lib/x402/bazaar-helpers.js';
 import { sanitizeToolError } from '../_lib/mcp-error-sanitize.js';
 import { TOOL_CATALOG, TOOLS } from './catalog.js';
@@ -117,7 +122,9 @@ async function onInitialize(_params, _auth) {
 
 async function onToolCall(params, auth, started, req) {
 	const { name, arguments: args = {} } = params || {};
-	const tool = TOOLS[name];
+	// Own-property lookup only: a name like "__proto__" or "constructor" would
+	// otherwise resolve an inherited Object member and slip past the !tool guard.
+	const tool = typeof name === 'string' && Object.hasOwn(TOOLS, name) ? TOOLS[name] : null;
 	if (!tool) throw rpcError(-32602, `unknown tool: ${name}`);
 	if (tool.scope && !hasScope(auth.scope, tool.scope)) {
 		throw rpcError(-32002, `insufficient scope, requires ${tool.scope}`);

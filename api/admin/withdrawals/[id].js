@@ -26,7 +26,10 @@ export default wrap(async (req, res) => {
 	if (!admin) return;
 	if (!(await requireCsrf(req, res, admin.id))) return;
 
+	const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 	const id = req.query?.id;
+	if (!id || !UUID_REGEX.test(id))
+		return error(res, 400, 'invalid_id', 'withdrawal id must be a valid UUID');
 	const body = parse(patchBody, await readJson(req));
 	const { status, tx_signature } = body;
 
@@ -47,7 +50,12 @@ export default wrap(async (req, res) => {
 	}
 
 	if (status === 'processing' && !tx_signature) {
-		return error(res, 400, 'validation_error', 'tx_signature required when advancing to processing');
+		return error(
+			res,
+			400,
+			'validation_error',
+			'tx_signature required when advancing to processing',
+		);
 	}
 
 	const [withdrawal] = await sql`

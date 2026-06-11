@@ -58,9 +58,20 @@ vi.mock('../../api/_lib/db.js', () => ({
 				if (row && row.expires_at > Date.now()) return [{ user_id: row.user_id }];
 				return [];
 			}
-			// CSRF burn: `DELETE FROM csrf_tokens WHERE token = ${sent}`
+			// CSRF consume: `DELETE FROM csrf_tokens WHERE token = ${sent} AND user_id = ${userId}
+			// AND expires_at > now() RETURNING user_id` — atomic validate-and-burn; a
+			// wrong-user token is left in place for its rightful owner.
 			if (/from csrf_tokens/i.test(q) && /^\s*delete/i.test(q)) {
-				sqlState.csrfRows.delete(values[0]);
+				const [submitted, uid] = values;
+				const row = sqlState.csrfRows.get(submitted);
+				if (
+					row &&
+					(uid === undefined || row.user_id === uid) &&
+					row.expires_at > Date.now()
+				) {
+					sqlState.csrfRows.delete(submitted);
+					return [{ user_id: row.user_id }];
+				}
 				return [];
 			}
 
@@ -117,15 +128,11 @@ vi.mock('../../api/_lib/r2.js', () => ({
 }));
 
 // Import the handlers under test AFTER mocks are wired.
-const { default: agentsRoot, handleGetOne, handleWallet } = await import(
-	'../../api/agents.js'
-);
+const { default: agentsRoot, handleGetOne, handleWallet } = await import('../../api/agents.js');
 const { default: keysHandler } = await import('../../api/keys/index.js');
 const { default: keyByIdHandler } = await import('../../api/keys/[id].js');
 const { default: adminUserHandler } = await import('../../api/admin/user/[id].js');
-const { default: adminWithdrawalsHandler } = await import(
-	'../../api/admin/withdrawals/[id].js'
-);
+const { default: adminWithdrawalsHandler } = await import('../../api/admin/withdrawals/[id].js');
 const { default: adminRiderPassesHandler } = await import('../../api/admin/rider-passes.js');
 const { default: agentActionsHandler } = await import('../../api/agent-actions.js');
 const { default: agentMemoryHandler } = await import('../../api/agent-memory.js');
@@ -135,9 +142,7 @@ const { default: dcaHandler } = await import('../../api/dca-strategies.js');
 // ── helpers ───────────────────────────────────────────────────────────────
 
 function makeReq({ method = 'GET', url = '/', headers = {}, body = null, query = {} } = {}) {
-	const stream = body
-		? Readable.from([Buffer.from(JSON.stringify(body))])
-		: Readable.from([]);
+	const stream = body ? Readable.from([Buffer.from(JSON.stringify(body))]) : Readable.from([]);
 	stream.method = method;
 	stream.url = url;
 	stream.query = query;
@@ -255,16 +260,35 @@ describe('POST /api/keys — CSRF gate', () => {
 	it('burns the CSRF token (single-use)', async () => {
 		authState.session = { id: 'user-3' };
 		const token = issueCsrfFor('user-3');
-		sqlState.queue.push([{ id: 'k1', name: 'k', prefix: 'sk_live_x', scope: 'avatars:read', expires_at: null, created_at: '2024-01-01T00:00:00Z' }]);
+		sqlState.queue.push([
+			{
+				id: 'k1',
+				name: 'k',
+				prefix: 'sk_live_x',
+				scope: 'avatars:read',
+				expires_at: null,
+				created_at: '2024-01-01T00:00:00Z',
+			},
+		]);
 
-		const req1 = makeReq({ method: 'POST', url: '/api/keys', headers: { 'x-csrf-token': token }, body: { name: 'k' } });
+		const req1 = makeReq({
+			method: 'POST',
+			url: '/api/keys',
+			headers: { 'x-csrf-token': token },
+			body: { name: 'k' },
+		});
 		await keysHandler(req1, makeRes());
 
 		// Give the fire-and-forget DELETE a tick to settle.
 		await new Promise((r) => setImmediate(r));
 
 		// Second use of the same token must be rejected.
-		const req2 = makeReq({ method: 'POST', url: '/api/keys', headers: { 'x-csrf-token': token }, body: { name: 'k' } });
+		const req2 = makeReq({
+			method: 'POST',
+			url: '/api/keys',
+			headers: { 'x-csrf-token': token },
+			body: { name: 'k' },
+		});
 		const res2 = makeRes();
 		await keysHandler(req2, res2);
 		expect(res2.statusCode).toBe(403);
@@ -368,21 +392,22 @@ describe('PATCH /api/admin/user/:id — CSRF gate', () => {
 	});
 
 	it('proceeds when a valid CSRF token is presented', async () => {
+		const userId = '11111111-2222-4333-8444-555555555555';
 		authState.session = { id: 'admin-1', is_admin: true };
 		const token = issueCsrfFor('admin-1');
 		sqlState.queue.push([
-			{ id: 'u1', email: 'a@b.com', plan: 'pro', is_admin: false, deleted_at: null },
+			{ id: userId, email: 'a@b.com', plan: 'pro', is_admin: false, deleted_at: null },
 		]);
 		const req = makeReq({
 			method: 'PATCH',
-			url: '/api/admin/user/u1',
+			url: `/api/admin/user/${userId}`,
 			headers: { 'x-csrf-token': token },
 			body: { plan: 'pro' },
 		});
 		const res = makeRes();
 		await adminUserHandler(req, res);
 		expect(res.statusCode).toBe(200);
-		expect(parseRes(res).user.id).toBe('u1');
+		expect(parseRes(res).user.id).toBe(userId);
 	});
 });
 
@@ -443,11 +468,25 @@ describe('POST/DELETE /api/admin/rider-passes — CSRF gate', () => {
 	});
 });
 
-// ── /api/agents (root) is unaffected ──────────────────────────────────────
+// ── /api/agents (root) — creation is CSRF-gated like its sibling mutations ─
 
-describe('POST /api/agents — creation path remains unchanged', () => {
-	it('POST without CSRF still works (root endpoint not gated)', async () => {
+describe('POST /api/agents — CSRF gate on creation', () => {
+	it('rejects session-authed POST without X-CSRF-Token (403 csrf_missing)', async () => {
 		authState.session = { id: 'user-7' };
+		const req = makeReq({
+			method: 'POST',
+			url: '/api/agents',
+			body: { name: 'A' },
+		});
+		const res = makeRes();
+		await agentsRoot(req, res);
+		expect(res.statusCode).toBe(403);
+		expect(parseRes(res).error).toBe('csrf_missing');
+	});
+
+	it('proceeds when a valid CSRF token is presented', async () => {
+		authState.session = { id: 'user-7' };
+		const token = issueCsrfFor('user-7');
 		sqlState.queue.push([
 			{
 				id: 'a1',
@@ -461,6 +500,7 @@ describe('POST /api/agents — creation path remains unchanged', () => {
 		const req = makeReq({
 			method: 'POST',
 			url: '/api/agents',
+			headers: { 'x-csrf-token': token },
 			body: { name: 'A' },
 		});
 		const res = makeRes();
@@ -492,7 +532,9 @@ describe('POST /api/agent-actions — CSRF gate', () => {
 		authState.bearer = { userId: 'user-1', source: 'bearer' };
 		// requireCsrf returns true for Bearer; handler then verifies ownership.
 		sqlState.queue.push([{ user_id: 'user-1' }]); // agent ownership lookup
-		sqlState.queue.push([{ id: 1, agent_id: 'ag1', type: 'note', payload: {}, created_at: 'x' }]);
+		sqlState.queue.push([
+			{ id: 1, agent_id: 'ag1', type: 'note', payload: {}, created_at: 'x' },
+		]);
 		const req = makeReq({
 			method: 'POST',
 			url: '/api/agent-actions',

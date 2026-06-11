@@ -23,13 +23,7 @@ const TEXT_TYPES = new Set([
 
 // Whitelist of upstream prefixes we're willing to mirror. Anything else gets
 // a 404 — prevents this endpoint from being abused as an open proxy.
-const ALLOWED_PREFIXES = [
-	'anata/',
-	'0N1/',
-	'tubbycats/',
-	'animations/',
-	'loot/',
-];
+const ALLOWED_PREFIXES = ['anata/', '0N1/', 'tubbycats/', 'animations/', 'loot/'];
 
 function isAllowed(path) {
 	return ALLOWED_PREFIXES.some((p) => path === p.slice(0, -1) || path.startsWith(p));
@@ -55,9 +49,23 @@ export default wrap(async (req, res) => {
 	}
 
 	const rawPath = joinPath(req.query?.path);
-	const path = decodeURIComponent(rawPath).replace(/^\/+/, '');
+	// Loop-decode until stable (capped) so double-encoded traversal sequences
+	// (%252e%252e → %2e%2e → ..) can't slip past a single-decode '..' check.
+	let path = rawPath;
+	for (let i = 0; i < 3; i++) {
+		let decoded;
+		try {
+			decoded = decodeURIComponent(path);
+		} catch {
+			return error(res, 404, 'not_found', 'asset not in studio mirror whitelist');
+		}
+		if (decoded === path) break;
+		path = decoded;
+	}
+	path = path.replace(/^\/+/, '');
 
-	if (!path || path.includes('..') || !isAllowed(path)) {
+	// Anything still percent-encoded after 3 decode passes is hostile noise.
+	if (!path || path.includes('%') || path.includes('..') || !isAllowed(path)) {
 		return error(res, 404, 'not_found', 'asset not in studio mirror whitelist');
 	}
 
@@ -78,7 +86,10 @@ export default wrap(async (req, res) => {
 	const isText = TEXT_TYPES.has(baseType);
 
 	res.setHeader('content-type', contentType);
-	res.setHeader('cache-control', 'public, max-age=604800, s-maxage=86400, stale-while-revalidate=86400');
+	res.setHeader(
+		'cache-control',
+		'public, max-age=604800, s-maxage=86400, stale-while-revalidate=86400',
+	);
 	res.setHeader('access-control-allow-origin', '*');
 
 	if (req.method === 'HEAD') {

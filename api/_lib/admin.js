@@ -3,8 +3,41 @@
 
 import { getSessionUser } from './auth.js';
 import { sql } from './db.js';
-import { env } from './env.js';
 import { error } from './http.js';
+
+// Mirrors BUILT_IN_ADMIN_ADDRESSES in env.js (public platform-owner addresses,
+// safe to commit). env.js's ADMIN_ADDRESSES getter lower-cases every entry —
+// correct for EVM hex but wrong for Solana base58, which is case-sensitive:
+// lowercasing widens the match to any address that case-folds to the same
+// string. env.js can't hand us the raw values without changing its surface, so
+// the case-preserving list is reconstructed here from the raw env var plus the
+// same built-ins env.js bakes in.
+const BUILT_IN_ADMIN_ADDRESSES = ['9MjzHaTB6Jko4YKo9mDzJSaGnktzhbebgsnqPpYWnXC7'];
+
+const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+function adminAddressList() {
+	const raw = process.env.ADMIN_ADDRESSES || '';
+	return [...BUILT_IN_ADMIN_ADDRESSES, ...raw.split(',')].map((a) => a.trim()).filter(Boolean);
+}
+
+// EVM (0x…) entries compare case-insensitively — checksum casing varies per
+// wallet but identifies the same account. Everything else (Solana base58)
+// compares as the literal string.
+function isAdminAddress(address) {
+	if (!address || typeof address !== 'string') return false;
+	const candidate = address.trim();
+	if (!candidate) return false;
+	const candidateIsEvm = EVM_ADDRESS_RE.test(candidate);
+	for (const entry of adminAddressList()) {
+		if (EVM_ADDRESS_RE.test(entry)) {
+			if (candidateIsEvm && entry.toLowerCase() === candidate.toLowerCase()) return true;
+		} else if (entry === candidate) {
+			return true;
+		}
+	}
+	return false;
+}
 
 export async function requireAdmin(req, res) {
 	const user = await getSessionUser(req);
@@ -14,7 +47,7 @@ export async function requireAdmin(req, res) {
 	}
 
 	// Fast path: env-based admin list (wallet address match).
-	if (user.wallet_address && env.ADMIN_ADDRESSES.has(user.wallet_address.toLowerCase())) {
+	if (isAdminAddress(user.wallet_address)) {
 		return user;
 	}
 
@@ -22,12 +55,12 @@ export async function requireAdmin(req, res) {
 	if (user.is_admin) return user;
 
 	// Check wallet addresses linked to this user against env list.
-	if (env.ADMIN_ADDRESSES.size > 0) {
+	if (adminAddressList().length > 0) {
 		const wallets = await sql`
 			select address from user_wallets where user_id = ${user.id}
 		`;
 		for (const w of wallets) {
-			if (env.ADMIN_ADDRESSES.has(w.address.toLowerCase())) return user;
+			if (isAdminAddress(w.address)) return user;
 		}
 	}
 

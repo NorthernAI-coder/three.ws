@@ -6,13 +6,19 @@
 		<title>three.ws — Tutorial</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="author" content="nirholas" />
-		<meta name="description" content="Step-by-step tutorials for building, embedding, and shipping 3D agents with three.ws." />
+		<meta
+			name="description"
+			content="Step-by-step tutorials for building, embedding, and shipping 3D agents with three.ws."
+		/>
 		<meta name="theme-color" content="#000000" />
 
 		<meta property="og:type" content="article" />
 		<meta property="og:site_name" content="three.ws" />
 		<meta property="og:title" content="three.ws — Tutorial" />
-		<meta property="og:description" content="Step-by-step tutorials for building, embedding, and shipping 3D agents with three.ws." />
+		<meta
+			property="og:description"
+			content="Step-by-step tutorials for building, embedding, and shipping 3D agents with three.ws."
+		/>
 		<meta property="og:image" content="https://three.ws/og-image.png" />
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
@@ -37,12 +43,25 @@
 			href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
 		/>
 		<link rel="stylesheet" href="/mobile.css" />
-		<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+		<script
+			src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"
+			integrity="sha384-odPBjvtXVM/5hOYIr3A1dB+flh0c3wAT3bSesIOqEGmyUA4JoKf/YTWy0XKOYAY7"
+			crossorigin="anonymous"
+		></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
+			integrity="sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp"
+			crossorigin="anonymous"
+		></script>
 		<script defer src="/nav.js"></script>
 		<script defer src="/footer-newsletter.js"></script>
 		<script defer src="/tutorials-manifest.js"></script>
-		<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
 
 		<style>
 			html.tutorial-page,
@@ -87,8 +106,16 @@
 				position: absolute;
 				inset: 0;
 				background:
-					radial-gradient(ellipse 60% 80% at 15% 50%, var(--tdoc-glow, rgba(255, 255, 255, 0.12)) 0%, transparent 60%),
-					radial-gradient(ellipse 50% 60% at 85% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 55%);
+					radial-gradient(
+						ellipse 60% 80% at 15% 50%,
+						var(--tdoc-glow, rgba(255, 255, 255, 0.12)) 0%,
+						transparent 60%
+					),
+					radial-gradient(
+						ellipse 50% 60% at 85% 20%,
+						rgba(255, 255, 255, 0.05) 0%,
+						transparent 55%
+					);
 				pointer-events: none;
 			}
 
@@ -115,9 +142,17 @@
 				transition: color 0.15s ease;
 			}
 
-			.tdoc-back-link:hover { color: rgba(255, 255, 255, 0.85); }
-			.tdoc-back-link svg { width: 12px; height: 12px; transition: transform 0.15s ease; }
-			.tdoc-back-link:hover svg { transform: translateX(-2px); }
+			.tdoc-back-link:hover {
+				color: rgba(255, 255, 255, 0.85);
+			}
+			.tdoc-back-link svg {
+				width: 12px;
+				height: 12px;
+				transition: transform 0.15s ease;
+			}
+			.tdoc-back-link:hover svg {
+				transform: translateX(-2px);
+			}
 
 			.tdoc-tier-row {
 				display: flex;
@@ -165,7 +200,11 @@
 				color: rgba(255, 255, 255, 0.6);
 			}
 
-			.tdoc-meta-chip svg { width: 11px; height: 11px; opacity: 0.7; }
+			.tdoc-meta-chip svg {
+				width: 11px;
+				height: 11px;
+				opacity: 0.7;
+			}
 
 			.tdoc-hero h1 {
 				font-family: var(--font-display);
@@ -251,7 +290,11 @@
 
 			.tdoc-article {
 				min-width: 0;
-				font-family: 'Inter', system-ui, -apple-system, sans-serif;
+				font-family:
+					'Inter',
+					system-ui,
+					-apple-system,
+					sans-serif;
 				font-size: 1rem;
 				line-height: 1.72;
 				color: rgba(224, 224, 224, 0.86);
@@ -275,8 +318,15 @@
 			}
 
 			@keyframes tdoc-pulse {
-				0%, 100% { opacity: 0.3; transform: scale(0.8); }
-				50% { opacity: 1; transform: scale(1.1); }
+				0%,
+				100% {
+					opacity: 0.3;
+					transform: scale(0.8);
+				}
+				50% {
+					opacity: 1;
+					transform: scale(1.1);
+				}
 			}
 
 			.tdoc-article h1 {
@@ -322,7 +372,9 @@
 				scroll-margin-top: 80px;
 			}
 
-			.tdoc-article p { margin: 0 0 1.1rem; }
+			.tdoc-article p {
+				margin: 0 0 1.1rem;
+			}
 
 			.tdoc-article a {
 				color: var(--tdoc-accent, #ffffff);
@@ -331,9 +383,14 @@
 				transition: border-color 0.15s ease;
 			}
 
-			.tdoc-article a:hover { border-bottom-color: currentColor; }
+			.tdoc-article a:hover {
+				border-bottom-color: currentColor;
+			}
 
-			.tdoc-article strong { color: #fff; font-weight: 600; }
+			.tdoc-article strong {
+				color: #fff;
+				font-weight: 600;
+			}
 
 			.tdoc-article ul,
 			.tdoc-article ol {
@@ -341,8 +398,12 @@
 				padding-left: 1.4rem;
 			}
 
-			.tdoc-article li { margin-bottom: 0.4rem; }
-			.tdoc-article li > p { margin-bottom: 0.4rem; }
+			.tdoc-article li {
+				margin-bottom: 0.4rem;
+			}
+			.tdoc-article li > p {
+				margin-bottom: 0.4rem;
+			}
 
 			.tdoc-article hr {
 				border: none;
@@ -359,7 +420,9 @@
 				color: rgba(255, 255, 255, 0.78);
 			}
 
-			.tdoc-article blockquote p:last-child { margin-bottom: 0; }
+			.tdoc-article blockquote p:last-child {
+				margin-bottom: 0;
+			}
 
 			.tdoc-article code {
 				font-family: var(--font-mono);
@@ -384,8 +447,13 @@
 				scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 			}
 
-			.tdoc-article pre::-webkit-scrollbar { height: 6px; }
-			.tdoc-article pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+			.tdoc-article pre::-webkit-scrollbar {
+				height: 6px;
+			}
+			.tdoc-article pre::-webkit-scrollbar-thumb {
+				background: rgba(255, 255, 255, 0.1);
+				border-radius: 3px;
+			}
 
 			.tdoc-article pre code {
 				padding: 0;
@@ -472,7 +540,9 @@
 				padding-left: 0.7rem;
 			}
 
-			.tdoc-toc a:hover { color: rgba(255, 255, 255, 0.95); }
+			.tdoc-toc a:hover {
+				color: rgba(255, 255, 255, 0.95);
+			}
 
 			.tdoc-toc a.is-active {
 				color: var(--tdoc-accent, #ffffff);
@@ -505,7 +575,9 @@
 				border: 1px solid rgba(255, 255, 255, 0.07);
 				border-radius: 10px;
 				text-decoration: none;
-				transition: border-color 0.2s ease, transform 0.2s ease;
+				transition:
+					border-color 0.2s ease,
+					transform 0.2s ease;
 				min-height: 70px;
 			}
 
@@ -514,7 +586,9 @@
 				transform: translateY(-1px);
 			}
 
-			.tdoc-pager-btn.next { text-align: right; }
+			.tdoc-pager-btn.next {
+				text-align: right;
+			}
 
 			.tdoc-pager-btn.placeholder {
 				background: transparent;
@@ -543,9 +617,16 @@
 			/* ── Responsive ──────────────────────────────────────────────── */
 
 			@media (max-width: 880px) {
-				.tdoc-hero-inner { grid-template-columns: 1fr; }
-				.tdoc-hero-viewer model-viewer { height: 200px; }
-				.tdoc-body-inner { grid-template-columns: 1fr; gap: 1.5rem; }
+				.tdoc-hero-inner {
+					grid-template-columns: 1fr;
+				}
+				.tdoc-hero-viewer model-viewer {
+					height: 200px;
+				}
+				.tdoc-body-inner {
+					grid-template-columns: 1fr;
+					gap: 1.5rem;
+				}
 				.tdoc-toc {
 					position: static;
 					max-height: none;
@@ -555,16 +636,34 @@
 					padding-top: 1.5rem;
 					order: 99;
 				}
-				.tdoc-toc ol { flex-direction: row; flex-wrap: wrap; gap: 0.5rem 1rem; }
-				.tdoc-toc a { padding-left: 0; border-left: none; }
-				.tdoc-toc a.is-h3 { display: none; }
-				.tdoc-pager { grid-template-columns: 1fr; }
+				.tdoc-toc ol {
+					flex-direction: row;
+					flex-wrap: wrap;
+					gap: 0.5rem 1rem;
+				}
+				.tdoc-toc a {
+					padding-left: 0;
+					border-left: none;
+				}
+				.tdoc-toc a.is-h3 {
+					display: none;
+				}
+				.tdoc-pager {
+					grid-template-columns: 1fr;
+				}
 			}
 
 			@media (max-width: 540px) {
-				.tdoc-article { font-size: 0.95rem; }
-				.tdoc-article h2 { font-size: 1.25rem; }
-				.tdoc-article pre { font-size: 0.78rem; padding: 0.9rem 1rem; }
+				.tdoc-article {
+					font-size: 0.95rem;
+				}
+				.tdoc-article h2 {
+					font-size: 1.25rem;
+				}
+				.tdoc-article pre {
+					font-size: 0.78rem;
+					padding: 0.9rem 1rem;
+				}
 			}
 		</style>
 	</head>
@@ -579,13 +678,30 @@
 				<div class="tdoc-hero-inner">
 					<div>
 						<a href="/tutorials" class="tdoc-back-link">
-							<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 6H2M6 2 2 6l4 4"/></svg>
+							<svg
+								viewBox="0 0 12 12"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.6"
+								aria-hidden="true"
+							>
+								<path d="M10 6H2M6 2 2 6l4 4" />
+							</svg>
 							All tutorials
 						</a>
 						<div class="tdoc-tier-row">
 							<span class="tdoc-tier-chip" id="tdoc-tier-chip"></span>
 							<span class="tdoc-meta-chip">
-								<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="6" cy="6" r="4.5"/><path d="M6 3v3l2 1.5"/></svg>
+								<svg
+									viewBox="0 0 12 12"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.4"
+									aria-hidden="true"
+								>
+									<circle cx="6" cy="6" r="4.5" />
+									<path d="M6 3v3l2 1.5" />
+								</svg>
 								<span id="tdoc-time"></span>
 							</span>
 						</div>
@@ -603,7 +719,9 @@
 			<div class="tdoc-body">
 				<div class="tdoc-body-inner">
 					<article class="tdoc-article" id="tdoc-article">
-						<span class="tdoc-loading"><span class="tdoc-loading-dot"></span> Loading tutorial…</span>
+						<span class="tdoc-loading"
+							><span class="tdoc-loading-dot"></span> Loading tutorial…</span
+						>
 					</article>
 					<aside class="tdoc-toc" id="tdoc-toc" hidden>
 						<p class="tdoc-toc-heading">On this page</p>
@@ -640,10 +758,29 @@
 					<h3>Stay in the loop</h3>
 					<p>Get updates on new features, agent tooling, and protocol changes.</p>
 					<form class="h-footer-newsletter-form" data-newsletter-form novalidate>
-						<input type="email" class="h-footer-newsletter-input" name="email" placeholder="Enter your email" aria-label="Email address" autocomplete="email" required />
-						<button type="submit" class="h-footer-newsletter-btn" aria-label="Subscribe">
+						<input
+							type="email"
+							class="h-footer-newsletter-input"
+							name="email"
+							placeholder="Enter your email"
+							aria-label="Email address"
+							autocomplete="email"
+							required
+						/>
+						<button
+							type="submit"
+							class="h-footer-newsletter-btn"
+							aria-label="Subscribe"
+						>
 							<svg viewBox="0 0 16 16" aria-hidden="true">
-								<path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2 8h11m0 0L9 4m4 4l-4 4" />
+								<path
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.6"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M2 8h11m0 0L9 4m4 4l-4 4"
+								/>
 							</svg>
 						</button>
 					</form>
@@ -652,9 +789,17 @@
 				<div class="h-footer-community">
 					<h3>Join the community</h3>
 					<p>Follow along for builds, demos, and conversations with the team.</p>
-					<a class="h-footer-community-btn" href="https://x.com/trythreews" target="_blank" rel="noopener">
+					<a
+						class="h-footer-community-btn"
+						href="https://x.com/trythreews"
+						target="_blank"
+						rel="noopener"
+					>
 						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+							<path
+								fill="currentColor"
+								d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+							/>
 						</svg>
 						Follow on X
 					</a>
@@ -669,14 +814,32 @@
 					</div>
 					<p class="h-footer-tagline">Give your AI a body.</p>
 					<div class="h-footer-socials">
-						<a class="h-footer-social" href="https://x.com/trythreews" target="_blank" rel="noopener" aria-label="three.ws on X">
+						<a
+							class="h-footer-social"
+							href="https://x.com/trythreews"
+							target="_blank"
+							rel="noopener"
+							aria-label="three.ws on X"
+						>
 							<svg viewBox="0 0 24 24" aria-hidden="true">
-								<path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+								<path
+									fill="currentColor"
+									d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+								/>
 							</svg>
 						</a>
-						<a class="h-footer-social" href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener" aria-label="three.ws on GitHub">
+						<a
+							class="h-footer-social"
+							href="https://github.com/nirholas/three.ws"
+							target="_blank"
+							rel="noopener"
+							aria-label="three.ws on GitHub"
+						>
 							<svg viewBox="0 0 16 16" aria-hidden="true">
-								<path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+								<path
+									fill="currentColor"
+									d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+								/>
 							</svg>
 						</a>
 					</div>
@@ -692,8 +855,18 @@
 					<div class="h-footer-link-col">
 						<h4 class="h-footer-link-heading">Developers</h4>
 						<a href="/docs">Docs</a>
-						<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener">GitHub</a>
-						<a href="https://eips.ethereum.org/EIPS/eip-8004" target="_blank" rel="noopener">ERC-8004</a>
+						<a
+							href="https://github.com/nirholas/three.ws"
+							target="_blank"
+							rel="noopener"
+							>GitHub</a
+						>
+						<a
+							href="https://eips.ethereum.org/EIPS/eip-8004"
+							target="_blank"
+							rel="noopener"
+							>ERC-8004</a
+						>
 					</div>
 					<div class="h-footer-link-col">
 						<h4 class="h-footer-link-heading">Resources</h4>
@@ -717,8 +890,14 @@
 			(function () {
 				const cursor = document.getElementById('cursor');
 				if (!cursor || !window.matchMedia('(hover: hover)').matches) return;
-				let x = 0, y = 0, tx = 0, ty = 0;
-				document.addEventListener('mousemove', (e) => { tx = e.clientX; ty = e.clientY; });
+				let x = 0,
+					y = 0,
+					tx = 0,
+					ty = 0;
+				document.addEventListener('mousemove', (e) => {
+					tx = e.clientX;
+					ty = e.clientY;
+				});
 				(function loop() {
 					x += (tx - x) * 0.18;
 					y += (ty - y) * 0.18;
@@ -727,7 +906,9 @@
 				})();
 				document.querySelectorAll('a,button').forEach((el) => {
 					el.addEventListener('mouseenter', () => cursor.classList.add('cursor--hover'));
-					el.addEventListener('mouseleave', () => cursor.classList.remove('cursor--hover'));
+					el.addEventListener('mouseleave', () =>
+						cursor.classList.remove('cursor--hover'),
+					);
 				});
 			})();
 
@@ -738,9 +919,17 @@
 			}
 
 			function escapeHtml(s) {
-				return String(s).replace(/[&<>"']/g, (c) => ({
-					'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-				}[c]));
+				return String(s).replace(
+					/[&<>"']/g,
+					(c) =>
+						({
+							'&': '&amp;',
+							'<': '&lt;',
+							'>': '&gt;',
+							'"': '&quot;',
+							"'": '&#39;',
+						})[c],
+				);
 			}
 
 			function renderMissing() {
@@ -792,7 +981,10 @@
 			}
 
 			function slugifyHeading(text) {
-				return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+				return text
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, '-')
+					.replace(/^-|-$/g, '');
 			}
 
 			function buildToc(article) {
@@ -823,9 +1015,7 @@
 
 				// Scroll-spy
 				const links = list.querySelectorAll('a');
-				const linkByTarget = new Map(
-					Array.from(links).map((a) => [a.dataset.target, a]),
-				);
+				const linkByTarget = new Map(Array.from(links).map((a) => [a.dataset.target, a]));
 				const observer = new IntersectionObserver(
 					(entries) => {
 						entries.forEach((entry) => {
@@ -849,21 +1039,31 @@
 				const pager = document.createElement('div');
 				pager.className = 'tdoc-pager';
 				pager.innerHTML = `
-					${prev
-						? `<a href="/tutorials/${prev.slug}" class="tdoc-pager-btn prev"><span class="tdoc-pager-dir">← Previous</span><span class="tdoc-pager-title">${escapeHtml(prev.title)}</span></a>`
-						: '<div class="tdoc-pager-btn placeholder"></div>'}
-					${next
-						? `<a href="/tutorials/${next.slug}" class="tdoc-pager-btn next"><span class="tdoc-pager-dir">Next →</span><span class="tdoc-pager-title">${escapeHtml(next.title)}</span></a>`
-						: '<div class="tdoc-pager-btn placeholder"></div>'}
+					${
+						prev
+							? `<a href="/tutorials/${prev.slug}" class="tdoc-pager-btn prev"><span class="tdoc-pager-dir">← Previous</span><span class="tdoc-pager-title">${escapeHtml(prev.title)}</span></a>`
+							: '<div class="tdoc-pager-btn placeholder"></div>'
+					}
+					${
+						next
+							? `<a href="/tutorials/${next.slug}" class="tdoc-pager-btn next"><span class="tdoc-pager-dir">Next →</span><span class="tdoc-pager-title">${escapeHtml(next.title)}</span></a>`
+							: '<div class="tdoc-pager-btn placeholder"></div>'
+					}
 				`;
 				article.appendChild(pager);
 			}
 
 			async function loadTutorial() {
 				const slug = currentSlug();
-				if (!slug) { renderMissing(); return; }
+				if (!slug) {
+					renderMissing();
+					return;
+				}
 				const entry = window.tutorialBySlug(slug);
-				if (!entry) { renderMissing(); return; }
+				if (!entry) {
+					renderMissing();
+					return;
+				}
 
 				setHeroFromManifest(entry);
 
@@ -890,7 +1090,13 @@
 					// Rewrite internal .md links and /docs/* refs so they navigate cleanly
 					article.querySelectorAll('a[href]').forEach((a) => {
 						const h = a.getAttribute('href');
-						if (!h || h.startsWith('http') || h.startsWith('#') || h.startsWith('mailto:')) return;
+						if (
+							!h ||
+							h.startsWith('http') ||
+							h.startsWith('#') ||
+							h.startsWith('mailto:')
+						)
+							return;
 						if (h.endsWith('.md')) {
 							const rel = h.replace(/^\/docs\//, '').replace(/\.md$/, '');
 							if (rel.startsWith('tutorials/')) {
@@ -923,5 +1129,5 @@
 		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
-</body>
+	</body>
 </html>

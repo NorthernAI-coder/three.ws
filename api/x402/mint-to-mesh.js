@@ -48,7 +48,11 @@ import { withService } from '../_lib/x402/bazaar-helpers.js';
 
 const REQUIRED_SCOPE = 'x402:bypass';
 const accessControl = installAccessControl({ requiredScope: REQUIRED_SCOPE });
-const routeConfig = { path: '/api/x402/mint-to-mesh', method: 'GET', requiredScope: REQUIRED_SCOPE };
+const routeConfig = {
+	path: '/api/x402/mint-to-mesh',
+	method: 'GET',
+	requiredScope: REQUIRED_SCOPE,
+};
 
 const ROUTE = '/api/x402/mint-to-mesh';
 
@@ -271,7 +275,12 @@ export default wrap(async (req, res) => {
 		const mint = String(req.query?.mint || '').trim();
 		if (!mint) return error(res, 400, 'missing_mint', 'query param "mint" is required');
 		if (!BASE58_RE.test(mint))
-			return error(res, 400, 'invalid_mint', 'mint must be a base58 SPL address (32–44 chars)');
+			return error(
+				res,
+				400,
+				'invalid_mint',
+				'mint must be a base58 SPL address (32–44 chars)',
+			);
 		let result;
 		try {
 			result = await buildMesh(mint);
@@ -292,13 +301,18 @@ export default wrap(async (req, res) => {
 	if (!paymentHeader) return send402(res, challenge);
 
 	// USE-15: idempotency cache lookup before paying for /verify.
-	const paymentId = extractIdFromHeader(paymentHeader);
+	const clientPaymentId = extractIdFromHeader(paymentHeader);
 	const payloadHash = hashRequestPayload({
 		method: req.method,
 		url: req.url,
 		body: null,
 	});
 	const paymentHash = hashPaymentProof(paymentHeader);
+	// Always-on replay guard: the payment-identifier extension is client-opt-in,
+	// so when the client omits it we fall back to the proof hash itself as the
+	// dedup key (reproducible only by the original payer), making replay
+	// protection unconditional. Same idiom as api/_lib/x402-paid-endpoint.js.
+	const paymentId = clientPaymentId || (paymentHash ? `proof:${paymentHash}` : null);
 	if (paymentId) {
 		const lookup = await checkCache({ route: ROUTE, paymentId, payloadHash, paymentHash });
 		if (lookup.kind === 'hit') return writeCachedResponse(res, lookup.entry);

@@ -1,230 +1,376 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Forge — Turn Any Text into a 3D Model · three.ws</title>
-  <meta name="description" content="Type a description, get a downloadable 3D model. Forge runs Flux + TRELLIS to produce a textured GLB you can inspect in AR, embed anywhere, and attach to your AI agent." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://three.ws/features/forge" />
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Forge — Turn Any Text into a 3D Model · three.ws</title>
+		<meta
+			name="description"
+			content="Type a description, get a downloadable 3D model. Forge runs Flux + TRELLIS to produce a textured GLB you can inspect in AR, embed anywhere, and attach to your AI agent."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://three.ws/features/forge" />
 
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="three.ws" />
-  <meta property="og:title" content="Forge — Turn Any Text into a 3D Model · three.ws" />
-  <meta property="og:description" content="Type a description, get a downloadable 3D model. Flux + TRELLIS in one click." />
-  <meta property="og:url" content="https://three.ws/features/forge" />
-  <meta property="og:image" content="https://three.ws/api/feature-og?feature=forge&title=Type+a+description.+Get+a+3D+model.&sub=Forge+turns+text+into+a+downloadable+GLB+in+seconds." />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Forge — Turn Any Text into a 3D Model · three.ws" />
-  <meta name="twitter:description" content="Type a description, get a downloadable 3D model. Flux + TRELLIS in one click." />
-  <meta name="twitter:image" content="https://three.ws/api/feature-og?feature=forge&title=Type+a+description.+Get+a+3D+model.&sub=Forge+turns+text+into+a+downloadable+GLB+in+seconds." />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Forge — Turn Any Text into a 3D Model · three.ws" />
+		<meta
+			property="og:description"
+			content="Type a description, get a downloadable 3D model. Flux + TRELLIS in one click."
+		/>
+		<meta property="og:url" content="https://three.ws/features/forge" />
+		<meta
+			property="og:image"
+			content="https://three.ws/api/feature-og?feature=forge&title=Type+a+description.+Get+a+3D+model.&sub=Forge+turns+text+into+a+downloadable+GLB+in+seconds."
+		/>
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Forge — Turn Any Text into a 3D Model · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Type a description, get a downloadable 3D model. Flux + TRELLIS in one click."
+		/>
+		<meta
+			name="twitter:image"
+			content="https://three.ws/api/feature-og?feature=forge&title=Type+a+description.+Get+a+3D+model.&sub=Forge+turns+text+into+a+downloadable+GLB+in+seconds."
+		/>
 
-  <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="apple-touch-icon" href="/pwa-192x192.png" />
-  <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/nav.css" />
-  <link rel="stylesheet" href="/features-landing.css" />
-  <link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="shortcut icon" href="/favicon.ico" />
+		<link rel="apple-touch-icon" href="/pwa-192x192.png" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/features-landing.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
 
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
 
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "SoftwareApplication",
-        "name": "Forge — Text to 3D",
-        "url": "https://three.ws/forge",
-        "applicationCategory": "DesignApplication",
-        "description": "Generate textured 3D models from text descriptions using Flux image generation and TRELLIS 3D reconstruction.",
-        "operatingSystem": "Web",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-      },
-      {
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "How long does Forge take to generate a model?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Most models generate in 30–90 seconds. Flux creates the texture image first, then TRELLIS reconstructs the 3D mesh from it." }
-          },
-          {
-            "@type": "Question",
-            "name": "What file format does Forge output?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Forge outputs a GLB (binary glTF) file — the industry-standard 3D format readable by Blender, Unity, Unreal, and every major 3D viewer." }
-          },
-          {
-            "@type": "Question",
-            "name": "Can I use the model commercially?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Models you generate with Forge are yours to use, modify, and ship in any project including commercial work." }
-          }
-        ]
-      }
-    ]
-  }
-  </script>
-</head>
-<body class="fl-page">
-  <header><div id="nav-container"></div></header>
-  <script src="/nav.js"></script>
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@graph": [
+					{
+						"@type": "SoftwareApplication",
+						"name": "Forge — Text to 3D",
+						"url": "https://three.ws/forge",
+						"applicationCategory": "DesignApplication",
+						"description": "Generate textured 3D models from text descriptions using Flux image generation and TRELLIS 3D reconstruction.",
+						"operatingSystem": "Web",
+						"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+					},
+					{
+						"@type": "FAQPage",
+						"mainEntity": [
+							{
+								"@type": "Question",
+								"name": "How long does Forge take to generate a model?",
+								"acceptedAnswer": {
+									"@type": "Answer",
+									"text": "Most models generate in 30–90 seconds. Flux creates the texture image first, then TRELLIS reconstructs the 3D mesh from it."
+								}
+							},
+							{
+								"@type": "Question",
+								"name": "What file format does Forge output?",
+								"acceptedAnswer": {
+									"@type": "Answer",
+									"text": "Forge outputs a GLB (binary glTF) file — the industry-standard 3D format readable by Blender, Unity, Unreal, and every major 3D viewer."
+								}
+							},
+							{
+								"@type": "Question",
+								"name": "Can I use the model commercially?",
+								"acceptedAnswer": {
+									"@type": "Answer",
+									"text": "Yes. Models you generate with Forge are yours to use, modify, and ship in any project including commercial work."
+								}
+							}
+						]
+					}
+				]
+			}
+		</script>
+	</head>
+	<body class="fl-page">
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
 
-  <main class="fl-main" id="main-content">
-    <nav class="fl-breadcrumb" aria-label="Breadcrumb">
-      <a href="/">three.ws</a>
-      <span class="fl-breadcrumb-sep" aria-hidden="true">/</span>
-      <a href="/features">Features</a>
-      <span class="fl-breadcrumb-sep" aria-hidden="true">/</span>
-      <span class="fl-breadcrumb-current">Forge</span>
-    </nav>
+		<main class="fl-main" id="main-content">
+			<nav class="fl-breadcrumb" aria-label="Breadcrumb">
+				<a href="/">three.ws</a>
+				<span class="fl-breadcrumb-sep" aria-hidden="true">/</span>
+				<a href="/features">Features</a>
+				<span class="fl-breadcrumb-sep" aria-hidden="true">/</span>
+				<span class="fl-breadcrumb-current">Forge</span>
+			</nav>
 
-    <!-- Hero -->
-    <section class="fl-hero" aria-labelledby="forge-hero-h1">
-      <div class="fl-hero-inner">
-        <div class="fl-hero-copy">
-          <span class="fl-eyebrow"><span class="fl-eyebrow-dot" aria-hidden="true"></span>Text to 3D</span>
-          <h1 id="forge-hero-h1">Type a description.<br>Get a 3D model.</h1>
-          <p class="fl-hero-sub">Forge runs Flux image generation and TRELLIS 3D reconstruction back-to-back. Describe any object and walk away with a textured GLB you can orbit in AR, embed anywhere, or attach to your AI agent.</p>
-          <div class="fl-hero-actions">
-            <a href="/forge" class="fl-btn-primary">Open Forge →</a>
-            <a href="/features" class="fl-btn-ghost">All features</a>
-          </div>
-        </div>
-        <div class="fl-hero-preview" aria-label="3D model preview — robot expressive sample">
-          <model-viewer
-            src="/animations/robotexpressive.glb"
-            alt="Sample 3D model generated by Forge — robot character"
-            auto-rotate
-            auto-rotate-delay="500"
-            rotation-per-second="12deg"
-            camera-controls
-            shadow-intensity="0.4"
-            environment-image="neutral"
-            style="background:transparent;width:100%;height:100%;"
-          ></model-viewer>
-          <span class="fl-preview-label">Sample GLB · drag to orbit</span>
-        </div>
-      </div>
-    </section>
+			<!-- Hero -->
+			<section class="fl-hero" aria-labelledby="forge-hero-h1">
+				<div class="fl-hero-inner">
+					<div class="fl-hero-copy">
+						<span class="fl-eyebrow"
+							><span class="fl-eyebrow-dot" aria-hidden="true"></span>Text to 3D</span
+						>
+						<h1 id="forge-hero-h1">Type a description.<br />Get a 3D model.</h1>
+						<p class="fl-hero-sub">
+							Forge runs Flux image generation and TRELLIS 3D reconstruction
+							back-to-back. Describe any object and walk away with a textured GLB you
+							can orbit in AR, embed anywhere, or attach to your AI agent.
+						</p>
+						<div class="fl-hero-actions">
+							<a href="/forge" class="fl-btn-primary">Open Forge →</a>
+							<a href="/features" class="fl-btn-ghost">All features</a>
+						</div>
+					</div>
+					<div
+						class="fl-hero-preview"
+						aria-label="3D model preview — robot expressive sample"
+					>
+						<model-viewer
+							src="/animations/robotexpressive.glb"
+							alt="Sample 3D model generated by Forge — robot character"
+							auto-rotate
+							auto-rotate-delay="500"
+							rotation-per-second="12deg"
+							camera-controls
+							shadow-intensity="0.4"
+							environment-image="neutral"
+							style="background: transparent; width: 100%; height: 100%"
+						></model-viewer>
+						<span class="fl-preview-label">Sample GLB · drag to orbit</span>
+					</div>
+				</div>
+			</section>
 
-    <!-- How it works -->
-    <section class="fl-how fl-section" aria-labelledby="forge-how-h2">
-      <p class="fl-section-label">How it works</p>
-      <h2 id="forge-how-h2">Three steps from prompt to model</h2>
-      <div class="fl-steps" role="list">
-        <article class="fl-step" role="listitem">
-          <span class="fl-step-num">01</span>
-          <h3>Write your prompt</h3>
-          <p>Describe what you want — "a ceramic coffee mug with blue glaze," "a rusted iron sword," anything. Be specific about material and style for best results.</p>
-        </article>
-        <article class="fl-step" role="listitem">
-          <span class="fl-step-num">02</span>
-          <h3>Flux + TRELLIS generate it</h3>
-          <p>Flux renders a detailed texture image from your text. TRELLIS lifts that image into a full 3D mesh with UV-mapped textures, all in one pipeline run.</p>
-        </article>
-        <article class="fl-step" role="listitem">
-          <span class="fl-step-num">03</span>
-          <h3>Download, embed, or attach</h3>
-          <p>Inspect the result in the in-browser viewer, download the GLB, share a link, or pin it to your AI agent as its 3D body — all from the same page.</p>
-        </article>
-      </div>
-    </section>
+			<!-- How it works -->
+			<section class="fl-how fl-section" aria-labelledby="forge-how-h2">
+				<p class="fl-section-label">How it works</p>
+				<h2 id="forge-how-h2">Three steps from prompt to model</h2>
+				<div class="fl-steps" role="list">
+					<article class="fl-step" role="listitem">
+						<span class="fl-step-num">01</span>
+						<h3>Write your prompt</h3>
+						<p>
+							Describe what you want — "a ceramic coffee mug with blue glaze," "a
+							rusted iron sword," anything. Be specific about material and style for
+							best results.
+						</p>
+					</article>
+					<article class="fl-step" role="listitem">
+						<span class="fl-step-num">02</span>
+						<h3>Flux + TRELLIS generate it</h3>
+						<p>
+							Flux renders a detailed texture image from your text. TRELLIS lifts that
+							image into a full 3D mesh with UV-mapped textures, all in one pipeline
+							run.
+						</p>
+					</article>
+					<article class="fl-step" role="listitem">
+						<span class="fl-step-num">03</span>
+						<h3>Download, embed, or attach</h3>
+						<p>
+							Inspect the result in the in-browser viewer, download the GLB, share a
+							link, or pin it to your AI agent as its 3D body — all from the same
+							page.
+						</p>
+					</article>
+				</div>
+			</section>
 
-    <!-- Highlight cards -->
-    <section class="fl-highlights fl-section" aria-labelledby="forge-highlights-h2">
-      <h2 id="forge-highlights-h2">What you can do with it</h2>
-      <div class="fl-cards">
-        <div class="fl-card">
-          <span class="fl-card-icon" aria-hidden="true">⬡</span>
-          <h3>AR inspection</h3>
-          <p>Every generated model opens in WebXR AR mode with one tap — place it on your real desk or floor and walk around it.</p>
-        </div>
-        <div class="fl-card">
-          <span class="fl-card-icon" aria-hidden="true">⬡</span>
-          <h3>Agent avatar</h3>
-          <p>Attach the GLB to any AI agent on three.ws so the agent gets a custom 3D body instead of a default avatar.</p>
-        </div>
-        <div class="fl-card">
-          <span class="fl-card-icon" aria-hidden="true">⬡</span>
-          <h3>Shareable link</h3>
-          <p>Each generated model gets a permanent URL you can share — it loads in any browser without plugins or app installs.</p>
-        </div>
-        <div class="fl-card">
-          <span class="fl-card-icon" aria-hidden="true">⬡</span>
-          <h3>Data flywheel</h3>
-          <p>All forge generations feed the three.ws training flywheel — improving model quality for every creator over time.</p>
-        </div>
-      </div>
-    </section>
+			<!-- Highlight cards -->
+			<section class="fl-highlights fl-section" aria-labelledby="forge-highlights-h2">
+				<h2 id="forge-highlights-h2">What you can do with it</h2>
+				<div class="fl-cards">
+					<div class="fl-card">
+						<span class="fl-card-icon" aria-hidden="true">⬡</span>
+						<h3>AR inspection</h3>
+						<p>
+							Every generated model opens in WebXR AR mode with one tap — place it on
+							your real desk or floor and walk around it.
+						</p>
+					</div>
+					<div class="fl-card">
+						<span class="fl-card-icon" aria-hidden="true">⬡</span>
+						<h3>Agent avatar</h3>
+						<p>
+							Attach the GLB to any AI agent on three.ws so the agent gets a custom 3D
+							body instead of a default avatar.
+						</p>
+					</div>
+					<div class="fl-card">
+						<span class="fl-card-icon" aria-hidden="true">⬡</span>
+						<h3>Shareable link</h3>
+						<p>
+							Each generated model gets a permanent URL you can share — it loads in
+							any browser without plugins or app installs.
+						</p>
+					</div>
+					<div class="fl-card">
+						<span class="fl-card-icon" aria-hidden="true">⬡</span>
+						<h3>Data flywheel</h3>
+						<p>
+							All forge generations feed the three.ws training flywheel — improving
+							model quality for every creator over time.
+						</p>
+					</div>
+				</div>
+			</section>
 
-    <!-- FAQ -->
-    <section class="fl-faq fl-section" aria-labelledby="forge-faq-h2">
-      <h2 id="forge-faq-h2">Frequently asked questions</h2>
-      <div class="fl-faq-list">
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-1">
-            How long does generation take?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="forge-faq-1" role="region">Most models complete in 30–90 seconds. Flux renders the texture image first, then TRELLIS reconstructs the mesh — the progress bar shows both stages.</div>
-        </div>
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-2">
-            What file format does Forge export?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="forge-faq-2" role="region">GLB (binary glTF 2.0) — the industry-standard format supported by Blender, Unity, Unreal Engine, and every major 3D viewer including Apple Quick Look.</div>
-        </div>
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-3">
-            Can I use generated models commercially?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="forge-faq-3" role="region">Yes. Models you generate are yours to use, modify, and ship in any project, including commercial products.</div>
-        </div>
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-4">
-            What prompts work best?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="forge-faq-4" role="region">Isolated objects with clear material descriptions generate the cleanest meshes. "A ceramic mug with blue glaze" outperforms "a mug." Avoid scenes with multiple objects or complex backgrounds — those compress poorly into a single mesh.</div>
-        </div>
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-5">
-            Is this different from the selfie scanner?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="forge-faq-5" role="region">Yes. <a href="/features/scan" style="color:var(--ink)">Scan</a> reconstructs a 3D avatar from a real photo of your face. Forge generates any object from a text description — they serve different use cases.</div>
-        </div>
-      </div>
-    </section>
+			<!-- FAQ -->
+			<section class="fl-faq fl-section" aria-labelledby="forge-faq-h2">
+				<h2 id="forge-faq-h2">Frequently asked questions</h2>
+				<div class="fl-faq-list">
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-1">
+							How long does generation take?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="forge-faq-1" role="region">
+							Most models complete in 30–90 seconds. Flux renders the texture image
+							first, then TRELLIS reconstructs the mesh — the progress bar shows both
+							stages.
+						</div>
+					</div>
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-2">
+							What file format does Forge export?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="forge-faq-2" role="region">
+							GLB (binary glTF 2.0) — the industry-standard format supported by
+							Blender, Unity, Unreal Engine, and every major 3D viewer including Apple
+							Quick Look.
+						</div>
+					</div>
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-3">
+							Can I use generated models commercially?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="forge-faq-3" role="region">
+							Yes. Models you generate are yours to use, modify, and ship in any
+							project, including commercial products.
+						</div>
+					</div>
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-4">
+							What prompts work best?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="forge-faq-4" role="region">
+							Isolated objects with clear material descriptions generate the cleanest
+							meshes. "A ceramic mug with blue glaze" outperforms "a mug." Avoid
+							scenes with multiple objects or complex backgrounds — those compress
+							poorly into a single mesh.
+						</div>
+					</div>
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="forge-faq-5">
+							Is this different from the selfie scanner?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="forge-faq-5" role="region">
+							Yes.
+							<a href="/features/scan" style="color: var(--ink)">Scan</a> reconstructs
+							a 3D avatar from a real photo of your face. Forge generates any object
+							from a text description — they serve different use cases.
+						</div>
+					</div>
+				</div>
+			</section>
 
-    <!-- Final CTA -->
-    <section class="fl-cta-band" aria-labelledby="forge-cta-h2">
-      <div class="fl-cta-inner">
-        <h2 id="forge-cta-h2">Start generating in 30 seconds</h2>
-        <p>No account required for your first model. Type a description, watch it appear.</p>
-        <div class="fl-cta-actions">
-          <a href="/forge" class="fl-btn-primary">Open Forge →</a>
-          <a href="/features/scan" class="fl-btn-ghost">Try Scan instead</a>
-        </div>
-      </div>
-    </section>
-  </main>
+			<!-- Final CTA -->
+			<section class="fl-cta-band" aria-labelledby="forge-cta-h2">
+				<div class="fl-cta-inner">
+					<h2 id="forge-cta-h2">Start generating in 30 seconds</h2>
+					<p>
+						No account required for your first model. Type a description, watch it
+						appear.
+					</p>
+					<div class="fl-cta-actions">
+						<a href="/forge" class="fl-btn-primary">Open Forge →</a>
+						<a href="/features/scan" class="fl-btn-ghost">Try Scan instead</a>
+					</div>
+				</div>
+			</section>
+		</main>
 
-  <script>
-    document.querySelectorAll('.fl-faq-q').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const expanded = btn.getAttribute('aria-expanded') === 'true';
-        btn.setAttribute('aria-expanded', String(!expanded));
-        const panel = document.getElementById(btn.getAttribute('aria-controls'));
-        if (panel) panel.classList.toggle('open', !expanded);
-      });
-    });
-  </script>
+		<script>
+			document.querySelectorAll('.fl-faq-q').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const expanded = btn.getAttribute('aria-expanded') === 'true';
+					btn.setAttribute('aria-expanded', String(!expanded));
+					const panel = document.getElementById(btn.getAttribute('aria-controls'));
+					if (panel) panel.classList.toggle('open', !expanded);
+				});
+			});
+		</script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
-</body>
+	</body>
 </html>

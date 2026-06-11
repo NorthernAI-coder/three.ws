@@ -311,11 +311,13 @@ export function paidEndpoint(spec) {
 		// USE-21 auth-hints: append zero-amount accept entries for each declared
 		// auth method and build the auth-hints extension. The free entries
 		// reuse the Base USDC asset block so schema-checking clients accept
-		// them; amount="0" is the actual paywall bypass — these entries can
-		// only be "settled" by presenting the matching auth header, never via
-		// X-PAYMENT. The auth-hints extension maps each method to the index
-		// of its free entry so the buyer client knows which entry corresponds
-		// to which auth method.
+		// them; amount="0" entries can only be redeemed by presenting the
+		// matching auth header, never via X-PAYMENT — verifyPayment enforces
+		// this structurally (it excludes amount-0 / extra.authRequired entries
+		// from requirement matching), so the guarantee does not depend on
+		// these entries being appended after the payable ones. The auth-hints
+		// extension maps each method to the index of its free entry so the
+		// buyer client knows which entry corresponds to which auth method.
 		let authHintsExtension = null;
 		if (authHints) {
 			const baseTo = payTo?.base || env.X402_PAY_TO_BASE;
