@@ -1,0 +1,33 @@
+# Dependency vulnerability scanning. OSV-Scanner checks every lockfile in the
+# monorepo against the OSV database (npm advisories, GHSA, CVEs) on each push,
+# PR, and a weekly schedule — so a vulnerable transitive dependency becomes a
+# red check instead of a silent liability. Complements (does not replace)
+# updating dependencies: Renovate proposes the bumps, this catches the gaps.
+
+name: Security scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly sweep: catches advisories published against versions already
+    # pinned in the lockfiles, with no commit needed to trigger it.
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  osv-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2
+        with:
+          scan-args: |-
+            --recursive
+            ./

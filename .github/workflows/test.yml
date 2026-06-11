@@ -1,0 +1,93 @@
+# CI test gate — the check that keeps main shippable.
+#
+# Lighthouse/page-audit run against Vercel preview deploys *after* a build;
+# this workflow is the pre-merge gate that runs the actual test suites on
+# every push and PR, so a commit that breaks a handler, an SDK, or an e2e
+# flow fails a required check instead of reaching production. With multiple
+# concurrent agents committing to main, this is the only thing that makes
+# "tests pass" a property of the repo rather than of whoever last ran them.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      # Root install also builds agent-payments-sdk via postinstall.
+      - name: Install dependencies
+        run: npm ci
+
+      # solana-agent-sdk is file:-linked but not an npm workspace, so the root
+      # install neither installs its devDependencies nor builds its dist/ —
+      # both are required before any test that imports @three-ws/solana-agent.
+      - name: Build solana-agent-sdk
+        run: |
+          npm ci --prefix solana-agent-sdk
+          npm run build --prefix solana-agent-sdk
+
+      # data/_generated/* is gitignored build output that several api/ handlers
+      # read at import time. Only the network-free generators are needed here.
+      - name: Generate data artifacts
+        run: |
+          node scripts/build-skill-metadata.mjs
+          node scripts/build-local-skill-packs.mjs
+
+      - name: Run vitest
+        run: npx vitest run
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build solana-agent-sdk
+        run: |
+          npm ci --prefix solana-agent-sdk
+          npm run build --prefix solana-agent-sdk
+
+      - name: Generate data artifacts
+        run: |
+          node scripts/build-skill-metadata.mjs
+          node scripts/build-local-skill-packs.mjs
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.js starts the Vite dev server itself (webServer) and
+      # budgets for the cold three.js transform on a CI box.
+      - name: Run Playwright e2e
+        run: npx playwright test
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: test-results/
+          if-no-files-found: ignore

@@ -28,8 +28,17 @@ import { sql } from './_lib/db.js';
 import { cors, json, method, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
-import { publicUrl } from './_lib/r2.js';
+import { publicUrl, isLegacyOgThumbnailKey } from './_lib/r2.js';
 import { DEMO_AVATARS } from './_lib/demo-avatars.js';
+
+// A stored thumbnail_key only resolves to a real image when it's a relative R2
+// key. Legacy poisoned keys (absolute, origin-pointing `*_og.png`) 404, so drop
+// them rather than surface a broken <img>; the avatar self-heals on its next OG
+// crawl, after which a corrected thumbnail appears.
+function thumbnailUrl(thumbnailKey) {
+	if (!thumbnailKey || isLegacyOgThumbnailKey(thumbnailKey)) return null;
+	return publicUrl(thumbnailKey);
+}
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
@@ -51,7 +60,11 @@ export default wrap(async (req, res) => {
 		.trim()
 		.slice(0, 80);
 	const cursor = url.searchParams.get('cursor');
-	const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '24', 10), 1), 250);
+	// parseInt('test') is NaN, and Math.min/max propagate NaN — which then reaches
+	// the LIMIT bigint parameter and throws 22P02 ("invalid input syntax for type
+	// bigint: NaN") on this public endpoint. Coerce non-numeric input to the default.
+	const limitRaw = parseInt(url.searchParams.get('limit') || '24', 10);
+	const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 250) : 24;
 	const sourceFilter = url.searchParams.get('source') || 'all';
 	const quality = url.searchParams.get('quality') === 'all' ? 'all' : 'high';
 
@@ -208,7 +221,7 @@ export default wrap(async (req, res) => {
 			slug: r.slug,
 			name: r.name,
 			description: r.description || '',
-			image: r.thumbnail_key ? publicUrl(r.thumbnail_key) : null,
+			image: thumbnailUrl(r.thumbnail_key),
 			glbUrl: glb,
 			has3d: true,
 			tags: r.tags || [],

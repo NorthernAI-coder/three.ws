@@ -434,6 +434,7 @@ function agentCard(a, avatars) {
 	const avatarThumb = avatar?.thumbnail_url || avatar?.url || '';
 	const created = a.created_at ? relTime(a.created_at) : '—';
 	const onchainBadge = onchainBadgeHTML(a);
+	const onchain = a.onchain || a.meta?.onchain || null;
 	const pumpMint = a.meta?.pumpfun?.mint || a.meta?.token?.mint || a.meta?.token?.ca;
 	const brain = brainLabel(a);
 

@@ -16,7 +16,11 @@ const publicUrlMock = vi.fn((k) => `https://cdn.test/${k}`);
 vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
 vi.mock('../../api/_lib/avatars.js', () => ({ getAvatar: getAvatarMock }));
 vi.mock('../../api/_lib/render-glb.js', () => ({ renderGlbToPng: renderGlbToPngMock }));
-vi.mock('../../api/_lib/r2.js', () => ({ putObject: putObjectMock, publicUrl: publicUrlMock }));
+vi.mock('../../api/_lib/r2.js', () => ({
+	putObject: putObjectMock,
+	publicUrl: publicUrlMock,
+	isLegacyOgThumbnailKey: (k) => /^https?:\/\/.*_og\.png$/i.test(String(k || '')),
+}));
 
 vi.mock('../../api/_lib/env.js', () => ({
 	env: { APP_ORIGIN: 'http://localhost:3000' },
@@ -127,6 +131,40 @@ describe('GET /api/avatar/:id/og — cached thumbnail path', () => {
 		expect(res._h.location).toBe('https://cdn.test/u/uid/x/abc_thumb.jpg');
 		expect(renderGlbToPngMock).not.toHaveBeenCalled();
 		expect(putObjectMock).not.toHaveBeenCalled();
+	});
+
+	it('self-heals a legacy poisoned thumbnail_url instead of 302-ing to a 404', async () => {
+		// Stub the GLB HEAD request so the fall-through render path can run.
+		globalThis.fetch = vi.fn(async () => ({
+			ok: true,
+			headers: { get: (h) => (h.toLowerCase() === 'content-length' ? '1024' : null) },
+		}));
+		const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+		getAvatarMock.mockResolvedValueOnce({
+			id: 'a9',
+			name: 'Michelle',
+			// Absolute, origin-pointing _og.png — the pre-fix poisoned key.
+			thumbnail_url: 'https://three.ws/avatars/michelle_og.png',
+			model_url: 'https://three.ws/avatars/michelle.glb',
+			storage_key: 'https://three.ws/avatars/michelle.glb',
+			tags: [],
+		});
+		renderGlbToPngMock.mockResolvedValueOnce(PNG);
+
+		const req = mkReq({ url: '/api/avatar/a9/og' });
+		const res = mkRes();
+		await handler(req, res);
+
+		// No 302 to the dead URL — it renders fresh and streams the PNG.
+		expect(res.statusCode).toBe(200);
+		expect(res._body).toEqual(PNG);
+		// The poisoned key was cleared, then the corrected bucket key was written.
+		const clearCall = sqlMock.mock.calls.find(
+			(c) => c[0].join('?').match(/thumbnail_key = null/) && c.includes('a9'),
+		);
+		expect(clearCall).toBeTruthy();
+		expect(putObjectMock).toHaveBeenCalledTimes(1);
+		expect(putObjectMock.mock.calls[0][0].key).toBe('og/avatar/a9.png');
 	});
 });
 

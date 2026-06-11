@@ -613,7 +613,13 @@ export class CommunityUI {
 			onclick: () => this._setAvatar(value, false),
 		}, [
 			a.thumbnail_url
-				? el('img', { src: a.thumbnail_url, alt: a.name || 'Avatar', loading: 'lazy' })
+				? el('img', {
+						src: a.thumbnail_url, alt: a.name || 'Avatar', loading: 'lazy',
+						// A stale thumbnail (e.g. a legacy OG key that 404s before the
+						// avatar self-heals) shouldn't leave a broken-image icon — drop
+						// it; _renderChipPreview paints the live model over this anyway.
+						onerror: (e) => e.target.remove(),
+					})
 				: el('span', { class: 'cc-avatar-glyph', text: '🧑' }),
 		]);
 		chip._url = value;
@@ -643,7 +649,10 @@ export class CommunityUI {
 			// emoji) so the chip is never empty, then render the real model and swap
 			// it in. The chip carries a loading shimmer until a preview resolves.
 			const fallback = p.thumb
-				? el('img', { src: p.thumb, alt: p.label, loading: 'lazy' })
+				? el('img', {
+						src: p.thumb, alt: p.label, loading: 'lazy',
+						onerror: (e) => e.target.remove(), // broken thumb → let the model preview stand in
+					})
 				: el('span', { class: 'cc-avatar-glyph', text: p.icon || '🙂' });
 			const chip = el('button', {
 				class: 'cc-avatar-chip cc-avatar-loading' + (p.url === this.avatar ? ' cc-on' : ''),

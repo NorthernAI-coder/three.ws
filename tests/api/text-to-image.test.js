@@ -52,7 +52,11 @@ function stubFetch(routes) {
 	return calls;
 }
 
-function nimSuccessResponse(b64 = Buffer.from('nim-png-bytes').toString('base64')) {
+// NIM FLUX artifacts are JPEG (probed live — tasks/nvidia-nim/probes/flux.md),
+// so the fixture carries real JPEG magic bytes (ff d8 ff) for the format sniff.
+const NIM_JPEG_BYTES = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('nim-jpeg-bytes')]);
+
+function nimSuccessResponse(b64 = NIM_JPEG_BYTES.toString('base64')) {
 	return new Response(JSON.stringify({ artifacts: [{ base64: b64, finishReason: 'SUCCESS' }] }), {
 		status: 200,
 		headers: { 'content-type': 'application/json' },
@@ -99,13 +103,21 @@ describe('textToImage — NIM FLUX free lane (first)', () => {
 		const result = await textToImage('a red teapot');
 
 		expect(result.model).toBe('black-forest-labs/flux.1-schnell');
-		expect(result.imageUrl).toMatch(/^https:\/\/cdn\.example\/forge\/refs\/.+\.png$/);
+		// NIM output is JPEG — persisted bytes, key extension, and Content-Type
+		// must all say jpeg, not png (regression cover for the probe finding).
+		expect(result.imageUrl).toMatch(/^https:\/\/cdn\.example\/forge\/refs\/.+\.jpg$/);
 		// NIM artifact persisted to R2; Vertex and Replicate left untouched.
 		expect(r2State.puts).toHaveLength(1);
+		expect(r2State.puts[0].contentType).toBe('image/jpeg');
+		expect(r2State.puts[0].key).toMatch(/\.jpg$/);
+		expect(Buffer.compare(r2State.puts[0].body, NIM_JPEG_BYTES)).toBe(0);
 		expect(vertexState.generate).not.toHaveBeenCalled();
 		expect(calls).toHaveLength(1);
 		expect(calls[0].url).toContain('flux.1-schnell');
 		expect(calls[0].body).toMatchObject({ prompt: 'a red teapot', steps: 4 });
+		// schnell is guidance-distilled: the endpoint 422s on cfg_scale > 0
+		// (verified live), so the request must not send it at all.
+		expect(calls[0].body).not.toHaveProperty('cfg_scale');
 	});
 
 	it('maps aspect ratio to FLUX pixel dimensions', async () => {
