@@ -52,13 +52,13 @@ async function redisSet(key, value, ttlSeconds) {
 	const { url, token } = getRedisCredentials();
 	if (!url || !token) return;
 	try {
-		await fetch(`${url}/set/${encodeURIComponent(key)}`, {
+		// Upstash REST: the raw request body IS the stored value; TTL goes in the
+		// query string. A JSON envelope body would be stored verbatim and corrupt
+		// every subsequent read.
+		await fetch(`${url}/set/${encodeURIComponent(key)}?EX=${ttlSeconds}`, {
 			method: 'POST',
-			headers: {
-				authorization: `Bearer ${token}`,
-				'content-type': 'application/json',
-			},
-			body: JSON.stringify({ value: JSON.stringify(value), ex: ttlSeconds }),
+			headers: { authorization: `Bearer ${token}` },
+			body: JSON.stringify(value),
 		});
 	} catch {
 		// Cache write failure is non-fatal.
@@ -354,10 +354,12 @@ export default paidEndpoint({
 			? body.strictness
 			: 'medium';
 
-		// Idempotency cache — 7-day TTL.
+		// Idempotency cache — 7-day TTL. Shape-check the hit: records written by
+		// the old envelope-body redisSet parse to `{value, ex}` and must be
+		// treated as misses, not served as verdicts.
 		const key = cacheKey(claim, strictness);
 		const cached = await redisGet(key);
-		if (cached) {
+		if (cached && typeof cached.verdict === 'string') {
 			return { ...cached, cachedAt: cached.cachedAt || new Date().toISOString() };
 		}
 

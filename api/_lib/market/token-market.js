@@ -36,7 +36,10 @@ async function fetchJson(url, opts = {}) {
 	const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
 	try {
 		const r = await fetch(url, { ...opts, signal: ctrl.signal });
-		if (!r.ok) throw new Error(`${r.status}`);
+		if (!r.ok) {
+			const body = (await r.text().catch(() => '')).slice(0, 200);
+			throw new Error(body ? `${r.status} ${body}` : `${r.status}`);
+		}
 		return await r.json();
 	} finally {
 		clearTimeout(timer);
@@ -66,8 +69,9 @@ const num = (v) => {
 async function fromBirdeye(mint) {
 	const key = process.env.BIRDEYE_API_KEY;
 	if (!key) return null;
+	// Birdeye requires the x-chain header; omitting it is a 400, not a default.
 	const data = await fetchJson(`${BIRDEYE_BASE}/defi/token_overview?address=${mint}`, {
-		headers: { 'X-API-KEY': key, accept: 'application/json' },
+		headers: { 'X-API-KEY': key, 'x-chain': 'solana', accept: 'application/json' },
 	});
 	const ov = data?.data;
 	if (!ov || !(num(ov.price) > 0)) return null;

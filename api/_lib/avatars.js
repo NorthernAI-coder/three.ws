@@ -148,7 +148,8 @@ export async function updateAvatar({ id, userId, patch }) {
 			update avatars set
 				baked_storage_key = ${patch.baked_storage_key ?? null},
 				appearance_hash   = ${patch.appearance_hash ?? null},
-				baked_at          = ${patch.baked_storage_key ? sql`now()` : null},
+				baked_at          = case when ${patch.baked_storage_key ?? null}::text is not null
+				                         then now() else null end,
 				updated_at        = now()
 			where id = ${id} and owner_id = ${userId} and deleted_at is null
 			returning *

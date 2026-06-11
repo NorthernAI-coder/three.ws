@@ -49,10 +49,13 @@ async function kvSet(key, value, ttlSeconds) {
 	const { url, token } = kvCredentials();
 	if (!url || !token) return;
 	try {
-		await fetch(`${url}/set/${encodeURIComponent(key)}`, {
+		// Upstash REST: the raw request body IS the stored value; TTL goes in the
+		// query string. A JSON envelope body would be stored verbatim and corrupt
+		// every subsequent read.
+		await fetch(`${url}/set/${encodeURIComponent(key)}?EX=${ttlSeconds}`, {
 			method: 'POST',
-			headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-			body: JSON.stringify({ value: JSON.stringify(value), ex: ttlSeconds }),
+			headers: { authorization: `Bearer ${token}` },
+			body: JSON.stringify(value),
 		});
 	} catch {
 		// Non-fatal — session simply won't persist.
@@ -70,7 +73,12 @@ function emptySession(sessionId) {
 /** Load a session, or a fresh empty one when absent/unstored. */
 export async function loadSession(sessionId) {
 	const existing = await kvGet(sessionKey(sessionId));
-	return existing || emptySession(sessionId);
+	// Records written by the old envelope-body kvSet (or any foreign value under
+	// our key) lack the session shape — treat them as absent rather than crashing
+	// the charge path on `entries.push`.
+	if (!existing || !Array.isArray(existing.entries)) return emptySession(sessionId);
+	if (!Number.isFinite(existing.totalAtomics)) existing.totalAtomics = 0;
+	return existing;
 }
 
 /**

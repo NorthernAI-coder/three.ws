@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T03:18:03.085Z",
+	"generated_at": "2026-06-11T03:28:03.199Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -26,6 +26,17 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Live $THREE market data, longer trade streams, and tutor session fixes",
+			"summary": "$THREE market stats (price, holders, liquidity) are flowing again from our primary data source — a missing request header had been silently failing it to backups for days. Live trade streams no longer cut out after 30 seconds; they now run their full duration. The Pay-As-You-Learn Tutor no longer errors when resuming a session — running tabs persist correctly across questions — and Fact Checker results are cached properly so repeat checks of the same claim return instantly.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{
