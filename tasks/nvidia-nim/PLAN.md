@@ -55,8 +55,8 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ### Phase 4 — Expansion lanes (after 1–3)
 - [ ] **T4.1** [40-vision-lane.md](40-vision-lane.md) — vision helper + forge validation, fact-checker, alt text
-- [ ] **T4.2** [41-moderation-prefilter.md](41-moderation-prefilter.md) — fail-open moderation for anonymous chat
-- [ ] **T4.3** [42-audio2face-spike.md](42-audio2face-spike.md) — Audio2Face-3D go/no-go spike (research only)
+- [x] **T4.2** [41-moderation-prefilter.md](41-moderation-prefilter.md) — fail-open moderation for anonymous chat (NemoGuard pre-filter on all 3 anon surfaces; fail-open + kill-switch live-verified; gpt-oss stays demoted — see Worklog 2026-06-11)
+- [x] **T4.3** [42-audio2face-spike.md](42-audio2face-spike.md) — Audio2Face-3D go/no-go spike (research only) — **NO-GO**: hosted A2F-3D functions exist but are not entitled to this free account; client-side lip-sync already covers it for free (see `probes/audio2face.md` + Worklog 2026-06-11)
 
 ---
 
@@ -100,6 +100,70 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T4.3 (Audio2Face-3D feasibility spike) — DONE; recommendation NO-GO
+  (conditional revisit).** Full findings + live transcripts in `probes/audio2face.md`.
+  **Invocability:** A2F-3D IS published as hosted NVCF gRPC functions (Claire
+  `0961a6da…`, Mark `8efc55f5…`, James `9327c39f…`) on the *same* transport Phase 2 TTS
+  uses (`grpc.nvcf.nvidia.com:443`, Bearer key + `function-id` metadata) — but it is
+  **not entitled to this free Developer account.** Proved it with a live `@grpc/grpc-js`
+  gate probe (NVCF validates function-id+auth at stream setup, before the backend
+  handler): good key + A2F ids → `NotFound … for account` (identical to a nonexistent
+  UUID); bad key → `PermissionDenied`; and a **control** against the account's entitled
+  functions (Magpie TTS `877104f7…`, Parakeet `22164014…`) → `Unimplemented`/
+  `DeadlineExceeded`, i.e. routed *past* the gate. So the key authenticates fine; the A2F
+  functions sit behind an NVAIE (AI Enterprise Essentials) evaluation entitlement, not the
+  free NIM tier. Self-host is out too — it needs a datacenter GPU (A10G/L40S/…) this
+  platform doesn't run. **Output mapping:** A2F emits ARKit-52 blendshapes @30fps + emotion
+  — and our flagship rigs already carry them: parsed the *served* GLBs, `default.glb` has
+  **67** morph targets (full ARKit + 15 visemes), `realistic-female.glb` **60**; both drop
+  straight into the existing `src/runtime/arkit52.js` resolve/apply path with ~zero
+  remapping. (But `readyplayerme.glb` has only 2 morphs and the Mixamo/stylized rigs —
+  michelle/fox/xbot — have 0, so A2F is not a universal upgrade.) **Architecture/redundancy:**
+  the platform ALREADY ships free, instant, zero-infra client-side lip-sync writing the same
+  morphs (`src/lip-sync-analyser.js` freq→viseme off the live TTS audio, `src/runtime/lipsync.js`
+  text fallback, composited with the 6-emotion layer in `src/agent-avatar.js`). A2F would
+  add realism but at real cost — entitlement, a stateful gRPC streaming worker, per-utterance
+  latency on top of TTS, credits — for a capability that's already "good enough" and free,
+  violating the plan's free-first/never-the-only-lane doctrine. **Recommendation: NO-GO now**;
+  revisit only if an NVAIE evaluation unlocks the functions (re-run the gate probe) AND there's
+  product demand for film-grade lip-sync. A ~4–5 day effort breakdown is recorded in the probe
+  file for that future Phase 5 (deliberately NOT added to the live checklist). No code touched
+  in api/ or src/; probe scripts were temporary (run from `scripts/`, deleted). Key never written
+  to any committed file.
+- **2026-06-11** — **T4.2 (free fail-open moderation pre-filter for anonymous chat) —
+  DONE, live-verified.** **Probe** (`probes/moderation.md`): two safety classifiers are
+  invocable on the free tier over the OpenAI-compatible chat endpoint —
+  `nvidia/llama-3.1-nemoguard-8b-content-safety` (chosen: clean JSON
+  `{"User Safety":"safe|unsafe","Safety Categories":"…"}`, **median ~337 ms**, ~680 ms tail)
+  and `meta/llama-guard-4-12b` (terser `safe`/`unsafe\nS#` backstop); `meta/llama-guard-3-8b`
+  404s. **Key scope finding:** NemoGuard is a CONTENT-safety model, NOT a jailbreak detector
+  — `"ignore your instructions…"` and a DAN roleplay both classify *safe*, so prompt-injection
+  + autonomous-send governance stays with Granite Guardian (complementary, not redundant).
+  **Built** `api/_lib/moderation.js` (zero-dep): `moderationConfig`/`moderationEnabled`
+  (enabled iff `NVIDIA_API_KEY` set AND kill-switch off), `moderateAnonInput` (2 s abort
+  budget via `ANON_MODERATION_TIMEOUT_MS`, **fail-open on EVERY error path** — non-200,
+  timeout, network, garbage → `flagged:false`; only a parsed `unsafe` blocks), `parseVerdict`
+  (NemoGuard JSON + Llama-Guard text, unknown→safe), `lastUserMessage`, and a short
+  non-preachy `refusalReply`. **Wired into all three anonymous surfaces only:** the anon path
+  in `api/chat.js` (signed-in callers skipped), public widget chat in
+  `api/widgets/[id]/[action].js` (owner Studio preview `isOwner` skipped; refused turn
+  persisted with `provider:'moderation'`), and `api/chat/proxy.js` (refusal emitted in the
+  OpenAI completion/SSE shape the /chat app already renders). A block is always an in-band
+  refusal in the normal reply format, never an HTTP error. **Kill switch:**
+  `ANON_MODERATION_DISABLED=true` (mirrors `GUARDIAN_DISABLE`), disables instantly without a
+  code change; model + timeout overridable via env. **gpt-oss re-promotion: DECLINED.**
+  OpenRouter's 403 "requires moderation" on `openai/gpt-oss-120b:free` is an account-level
+  policy toggle on OpenRouter's side — it fires *before* our verdict is ever relevant, so our
+  pre-filter does not unlock it; left demoted in `chat-models.js` with the reasoning in-code
+  (also un-testable here: no `OPENROUTER_API_KEY` in this Codespace). **Tests:**
+  `tests/api/moderation.test.js` — 22 green, covering the four mandated scenarios (block,
+  allow, outage fail-open ×3, flag-off bypass) plus parse/config/request-shape. Existing
+  chat/widget/chat-models suites still green (81). **Live-verified** with the real key through
+  the actual module: BLOCK → `flagged:true` + categories (`Guns and Illegal Weapons,
+  Criminal Planning/Confessions`, ~1.0 s); ALLOW → `flagged:false` (~0.4 s); FAIL-OPEN on a
+  forced bad key → `flagged:false, error:'moderation 403'` in 63 ms (chat would proceed
+  un-moderated). Remaining T4.2 leg: prod deploy + the "force a moderation failure and watch
+  chat keep working" prod smoke (the local fail-open + kill-switch are already proven).
 - **2026-06-11** — **T2.2 (avatar speech verified on every prod surface) — DONE.**
   Changelog was already shipped by the concurrent committer in `f4e779e4` ("Avatar
   voices can speak out loud again", tag `fix`, link `/lipsync`) and `npm run build:pages`
