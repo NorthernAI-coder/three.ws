@@ -40,7 +40,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 ### Phase 1 — Free 3D lane in /forge (top priority)
 - [ ] **T1.1** [10-trellis-provider.md](10-trellis-provider.md) — `api/_providers/nvidia.js` (submit / poll / GLB→R2)
 - [ ] **T1.2** [11-register-backend.md](11-register-backend.md) — backend in `forge-tiers.js`; draft-tier default
-- [ ] **T1.3** [12-flux-lane.md](12-flux-lane.md) — NIM FLUX lane in `api/_mcp3d/text-to-image.js`
+- [~] **T1.3** [12-flux-lane.md](12-flux-lane.md) — NIM FLUX lane in `api/_mcp3d/text-to-image.js` (code + tests done; live image pending key — see Worklog 2026-06-11)
 - [ ] **T1.4** [13-tests.md](13-tests.md) — `tests/api/providers-nvidia.test.js` + registration coverage
 - [ ] **T1.5** [14-deploy-smoke-changelog.md](14-deploy-smoke-changelog.md) — deploy + prod smoke + changelog
 
@@ -100,6 +100,24 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T1.3 (NIM FLUX lane) — code + tests complete, live run blocked.**
+  Added FLUX.1-schnell on NVIDIA NIM as the FIRST lane in `api/_mcp3d/text-to-image.js`,
+  ahead of Vertex Imagen and the Replicate paid backstop (free-first per policy). Built
+  against NVIDIA's documented synchronous `genai` invoke —
+  `POST https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell`, body
+  `{prompt, mode:"base", cfg_scale:3.5, width, height, seed:0, steps:4}`, response
+  `{artifacts:[{base64,…}]}` (no 202/poll — returns inline). Reused the R2 persist path
+  (refactored `persistDataUriImage` to share a new `persistPngBase64` helper the NIM lane
+  also calls). Per-attempt 60s AbortController timeout so a hung free lane hands off
+  instead of stalling; 429 surfaced as `rate_limited`. Aspect ratio → FLUX pixel dims map.
+  Fallthrough wired so NIM→Vertex→Replicate degrades on any failure, and the last
+  configured lane's error surfaces only when nothing is left. Extended
+  `tests/api/text-to-image.test.js` with 5 NIM cases (serves-and-skips-others, aspect
+  mapping, NIM→Vertex, full NIM→Vertex→Replicate, NIM-only error surface) — **9/9 green**.
+  BLOCKED on live verification: no `NVIDIA_API_KEY` in this Codespace (no `.env`; T0.1 not
+  done) and `probes/flux.md` (T0.3) was never committed, so the documented recipe is
+  unverified against the live endpoint. Once a key lands, run a real generation and a
+  force-fail-NIM degrade check, then flip T1.3 to `[x]`.
 - **2026-06-11** — Plan split into one self-contained prompt file per task
   (00–42, linked in the checklist); paste a whole task file to a fresh agent to run it.
 - **2026-06-11** — Plan created. Context: chat-side free-first failover (Groq → OpenRouter

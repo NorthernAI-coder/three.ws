@@ -28,7 +28,7 @@ vi.mock('../../api/_lib/r2.js', () => ({
 }));
 
 const ORIGINAL_FETCH = globalThis.fetch;
-const ENV_KEYS = ['GOOGLE_CLOUD_PROJECT', 'GCP_SERVICE_ACCOUNT_JSON', 'REPLICATE_API_TOKEN'];
+const ENV_KEYS = ['NVIDIA_API_KEY', 'GOOGLE_CLOUD_PROJECT', 'GCP_SERVICE_ACCOUNT_JSON', 'REPLICATE_API_TOKEN'];
 const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
 
 async function freshTextToImage() {
@@ -36,16 +36,38 @@ async function freshTextToImage() {
 	return mod.textToImage;
 }
 
-function stubFluxSuccess() {
+// Route a mocked fetch by host so a single test can exercise the full fallback
+// chain (NIM → Vertex → Replicate) and assert which lanes were actually hit.
+// Each route is [substringMatch, () => Response]; the first match wins.
+function stubFetch(routes) {
 	const calls = [];
 	globalThis.fetch = vi.fn(async (url, opts = {}) => {
-		calls.push({ url: String(url), body: opts.body ? JSON.parse(opts.body) : null });
-		return new Response(
-			JSON.stringify({ id: 'pred_flux', status: 'succeeded', output: ['https://replicate.delivery/out.png'] }),
-			{ status: 201, headers: { 'content-type': 'application/json' } },
-		);
+		const u = String(url);
+		calls.push({ url: u, body: opts.body ? JSON.parse(opts.body) : null });
+		for (const [match, responder] of routes) {
+			if (u.includes(match)) return responder();
+		}
+		throw new Error(`unexpected fetch in test: ${u}`);
 	});
 	return calls;
+}
+
+function nimSuccessResponse(b64 = Buffer.from('nim-png-bytes').toString('base64')) {
+	return new Response(JSON.stringify({ artifacts: [{ base64: b64, finishReason: 'SUCCESS' }] }), {
+		status: 200,
+		headers: { 'content-type': 'application/json' },
+	});
+}
+
+function replicateSuccessResponse(url = 'https://replicate.delivery/out.png') {
+	return new Response(JSON.stringify({ id: 'pred_flux', status: 'succeeded', output: [url] }), {
+		status: 201,
+		headers: { 'content-type': 'application/json' },
+	});
+}
+
+function stubFluxSuccess() {
+	return stubFetch([['api.replicate.com', () => replicateSuccessResponse()]]);
 }
 
 beforeEach(() => {
@@ -62,6 +84,91 @@ afterEach(() => {
 		else process.env[k] = ORIGINAL_ENV[k];
 	}
 	vi.restoreAllMocks();
+});
+
+describe('textToImage — NIM FLUX free lane (first)', () => {
+	it('serves from NIM and never touches Vertex or Replicate', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		vertexState.configured = true;
+		vertexState.generate = vi.fn(async () => ({ imageUrl: 'data:image/png;base64,AAAA' }));
+		const calls = stubFetch([['ai.api.nvidia.com', () => nimSuccessResponse()]]);
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot');
+
+		expect(result.model).toBe('black-forest-labs/flux.1-schnell');
+		expect(result.imageUrl).toMatch(/^https:\/\/cdn\.example\/forge\/refs\/.+\.png$/);
+		// NIM artifact persisted to R2; Vertex and Replicate left untouched.
+		expect(r2State.puts).toHaveLength(1);
+		expect(vertexState.generate).not.toHaveBeenCalled();
+		expect(calls).toHaveLength(1);
+		expect(calls[0].url).toContain('flux.1-schnell');
+		expect(calls[0].body).toMatchObject({ prompt: 'a red teapot', steps: 4 });
+	});
+
+	it('maps aspect ratio to FLUX pixel dimensions', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		const calls = stubFetch([['ai.api.nvidia.com', () => nimSuccessResponse()]]);
+
+		const textToImage = await freshTextToImage();
+		await textToImage('a wide vista', { aspectRatio: '16:9' });
+
+		expect(calls[0].body).toMatchObject({ width: 1344, height: 768 });
+	});
+
+	it('falls through to Vertex when NIM fails', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
+		vertexState.configured = true;
+		const png = Buffer.from('vertex-png').toString('base64');
+		vertexState.generate = vi.fn(async () => ({
+			imageUrl: `data:image/png;base64,${png}`,
+			model: 'vertex-ai/imagen-3.0-generate-001',
+		}));
+		const calls = stubFetch([['ai.api.nvidia.com', () => new Response('upstream boom', { status: 500 })]]);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot');
+
+		expect(result.model).toBe('vertex-ai/imagen-3.0-generate-001');
+		expect(vertexState.generate).toHaveBeenCalledOnce();
+		expect(calls).toHaveLength(1); // NIM was attempted exactly once before handoff
+		expect(Buffer.compare(r2State.puts[0].body, Buffer.from('vertex-png'))).toBe(0);
+	});
+
+	it('falls all the way through NIM → Vertex → Replicate', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		vertexState.configured = true;
+		vertexState.generate = vi.fn(async () => {
+			throw Object.assign(new Error('vertex down'), { code: 'unconfigured' });
+		});
+		const calls = stubFetch([
+			['ai.api.nvidia.com', () => new Response('boom', { status: 503 })],
+			['api.replicate.com', () => replicateSuccessResponse()],
+		]);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot');
+
+		expect(result.imageUrl).toBe('https://replicate.delivery/out.png');
+		expect(vertexState.generate).toHaveBeenCalledOnce();
+		expect(calls.some((c) => c.url.includes('ai.api.nvidia.com'))).toBe(true);
+		expect(calls.some((c) => c.url.includes('api.replicate.com'))).toBe(true);
+	});
+
+	it('surfaces the NIM error when it is the only configured lane', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		stubFetch([['ai.api.nvidia.com', () => new Response('nope', { status: 401 })]]);
+
+		const textToImage = await freshTextToImage();
+		await expect(textToImage('a red teapot')).rejects.toThrow(/nim flux returned 401/);
+	});
 });
 
 describe('textToImage — Vertex → Replicate fallback', () => {
