@@ -190,8 +190,12 @@ try {
 	// @three-ws/agent-payments (not in its EXTERNALS), so the SDK dist must
 	// exist before esbuild resolves it — sdk-dist gates bundle-api; prebuild
 	// stays parallel.
-	phase(1, 'prebuild ∥ (sdk-dist → bundle-api)');
+	phase(1, 'audit:deploy ∥ prebuild ∥ (sdk-dist → bundle-api)');
 	await Promise.all([
+		// Fails in seconds on committed symlinks, unsatisfied peer deps, or
+		// undeclared api/ imports — the classes behind the 2026-06-11 outage —
+		// instead of 18 minutes into NFT tracing or, worse, at runtime.
+		run('audit:deploy', 'node scripts/audit-deploy-artifacts.mjs'),
 		prebuild(),
 		ensureSDKDist().then(bundleApi),
 	]);
