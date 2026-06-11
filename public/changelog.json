@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T03:08:12.992Z",
+	"generated_at": "2026-06-11T03:18:03.085Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -26,6 +26,17 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Scheduled jobs restored after dependency outage",
+			"summary": "Every background job — pump.fun monitoring, coin payouts, club payouts, scheduled X posts, DCA runs, subscription billing, and the rest — had been failing since a recent dependency upgrade left a required Solana staking library out of the deployment. The missing library now ships with every deploy, and the image-processing engine behind avatar baking was rolled back to its proven version so it loads reliably in production. All scheduled jobs run again.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{
