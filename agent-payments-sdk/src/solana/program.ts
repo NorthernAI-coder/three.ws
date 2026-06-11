@@ -32,8 +32,8 @@ export function getPumpProgram(
  * Offline program instance (no connection required).
  * Useful for instruction building and account decoding without RPC.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const OFFLINE_PUMP_PROGRAM: Program<PumpAgentPayments> =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- offline mode passes no connection
   getPumpProgram(null as any);
 
 /**

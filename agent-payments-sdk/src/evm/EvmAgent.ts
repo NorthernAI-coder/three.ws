@@ -149,11 +149,13 @@ export class EvmAgent extends EvmAgentOffline {
     try {
       const logs = await this.client.getLogs({
         address: this.contractAddress,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem narrows event types from a const ABI; ours is built dynamically
         event: AGENT_PAYMENTS_ABI.find((x) => x.type === "event" && x.name === "PaymentAccepted") as any,
         args: { agentToken: this.agentToken, payer: params.payer },
         fromBlock: "earliest",
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem log generics don't unify with our decoder input
       const events = parseEvmAgentEvents(logs as any);
       const match = events.find(
         (e): e is EvmPaymentAcceptedEvent =>
@@ -188,6 +190,7 @@ export class EvmAgent extends EvmAgentOffline {
   } = {}) {
     const logs = await this.client.getLogs({
       address: this.contractAddress,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem narrows event types from a const ABI; ours is built dynamically
       event: AGENT_PAYMENTS_ABI.find((x) => x.type === "event" && x.name === "PaymentAccepted") as any,
       args: {
         agentToken: this.agentToken,
@@ -197,6 +200,7 @@ export class EvmAgent extends EvmAgentOffline {
       toBlock: opts.toBlock ?? "latest",
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem log generics don't unify with our decoder input
     return parseEvmAgentEvents(logs as any).filter(
       (e): e is EvmPaymentAcceptedEvent =>
         e.name === "PaymentAccepted" &&
