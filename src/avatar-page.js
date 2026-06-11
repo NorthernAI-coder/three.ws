@@ -11,7 +11,7 @@ import { openTalkMode } from './voice/talk-mode.js';
 import { downloadAvatar } from './avatar-export.js';
 import { fbxFromUrl } from './remesh-convert.js';
 import { log } from './shared/log.js';
-import { emptyStateHTML } from './shared/state-kit.js';
+import { emptyStateHTML, errorStateHTML } from './shared/state-kit.js';
 import { mountViewSwitcher } from './view-switcher.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
@@ -975,7 +975,17 @@ function playClipByHint(hints, { loop = false } = {}) {
 async function loadPlugins() {
 	const list = $('av-plugins-list');
 	if (!list) return;
-	const plugins = await fetchPlugins();
+	let plugins;
+	try {
+		plugins = await fetchPlugins();
+	} catch {
+		list.innerHTML = errorStateHTML({
+			title: 'Plugins unavailable',
+			body: 'The plugin list could not be loaded. Check your connection and try again.',
+		});
+		list.querySelector('[data-sk-retry]')?.addEventListener('click', loadPlugins, { once: true });
+		return;
+	}
 	if (!plugins.length) {
 		list.innerHTML = emptyStateHTML({
 			compact: true,
@@ -1375,9 +1385,14 @@ async function loadUsedBy() {
 	const section = $('av-used-by');
 	if (!grid || !section) return;
 
-	const r = await fetch(`/api/avatars/${encodeURIComponent(avatarId)}/agents`);
-	if (!r.ok) return;
-	const { agents } = await r.json();
+	let agents;
+	try {
+		const r = await fetch(`/api/avatars/${encodeURIComponent(avatarId)}/agents`);
+		if (!r.ok) return;
+		({ agents } = await r.json());
+	} catch {
+		return; // optional section — stays hidden on network failure
+	}
 	if (!Array.isArray(agents) || agents.length === 0) return;
 
 	section.hidden = false;
@@ -1403,7 +1418,12 @@ async function loadUsedBy() {
 // ── Related avatars ───────────────────────────────────────────────────
 
 async function loadRelated() {
-	const items = await fetchRelated();
+	let items;
+	try {
+		items = await fetchRelated();
+	} catch {
+		return; // optional below-the-fold section — stays hidden on network failure
+	}
 	if (!items.length) return;
 	const grid = $('av-related-grid');
 	if (!grid) return;

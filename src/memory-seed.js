@@ -311,9 +311,13 @@ export function mountSeedWidget(host, opts = {}) {
 
 	q('[data-copy]')?.addEventListener('click', async () => {
 		if (!state.seedMarkdown) return;
-		await navigator.clipboard.writeText(state.seedMarkdown);
 		const btn = q('[data-copy]');
-		btn.textContent = 'Copied';
+		try {
+			await navigator.clipboard.writeText(state.seedMarkdown);
+			btn.textContent = 'Copied';
+		} catch {
+			btn.textContent = 'Copy failed'; // clipboard blocked (permissions / unfocused doc)
+		}
 		setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
 	});
 
@@ -400,7 +404,14 @@ export function mountMemoryBrowser(host, opts = {}) {
 
 	async function load() {
 		if (!state.agentId) { render([]); return; }
-		state.memories = await loadAgentMemories(state.agentId);
+		try {
+			state.memories = await loadAgentMemories(state.agentId);
+		} catch {
+			q('[data-grid]').innerHTML =
+				'<div class="mmb-empty"><h4>Could not load memories</h4><p>Check your connection, then <a href="#" data-mmb-retry>retry</a>.</p></div>';
+			q('[data-mmb-retry]')?.addEventListener('click', (e) => { e.preventDefault(); load(); }, { once: true });
+			return;
+		}
 		render(state.memories);
 	}
 
@@ -491,7 +502,13 @@ export function mountMemoryBrowser(host, opts = {}) {
 	q('[data-grid]').addEventListener('click', async e => {
 		const del = e.target.closest('[data-del]');
 		if (del && state.agentId) {
-			await deleteAgentMemory(state.agentId, del.dataset.del);
+			del.disabled = true;
+			try {
+				await deleteAgentMemory(state.agentId, del.dataset.del);
+			} catch {
+				del.disabled = false;
+				return; // network failure — keep the row so the user can retry
+			}
 			state.memories = state.memories.filter(m => m.id !== del.dataset.del);
 			render(state.memories);
 		}

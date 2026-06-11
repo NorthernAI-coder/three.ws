@@ -1267,14 +1267,20 @@ async function loadXReviews(host) {
 			btn.addEventListener('click', async () => {
 				const id = btn.getAttribute('data-approve');
 				btn.disabled = true;
-				const r = await fetch(`/api/x/reviews?id=${encodeURIComponent(id)}`, {
-					method: 'PATCH',
-					credentials: 'include',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ action: 'approve', append_link: true }),
-				});
-				if (!r.ok) {
-					alert((await r.json()).error_description || 'approve failed');
+				try {
+					const r = await fetch(`/api/x/reviews?id=${encodeURIComponent(id)}`, {
+						method: 'PATCH',
+						credentials: 'include',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ action: 'approve', append_link: true }),
+					});
+					if (!r.ok) {
+						alert((await r.json().catch(() => ({}))).error_description || 'approve failed');
+						btn.disabled = false;
+						return;
+					}
+				} catch {
+					alert('Network error — could not approve. Check your connection and try again.');
 					btn.disabled = false;
 					return;
 				}
@@ -1284,10 +1290,17 @@ async function loadXReviews(host) {
 		host.querySelectorAll('[data-reject]').forEach((btn) => {
 			btn.addEventListener('click', async () => {
 				const id = btn.getAttribute('data-reject');
-				await fetch(`/api/x/reviews?id=${encodeURIComponent(id)}`, {
-					method: 'DELETE',
-					credentials: 'include',
-				});
+				btn.disabled = true;
+				try {
+					await fetch(`/api/x/reviews?id=${encodeURIComponent(id)}`, {
+						method: 'DELETE',
+						credentials: 'include',
+					});
+				} catch {
+					alert('Network error — could not reject. Check your connection and try again.');
+					btn.disabled = false;
+					return;
+				}
 				loadXReviews(host);
 			});
 		});
@@ -1547,10 +1560,17 @@ async function loadScheduledPosts(host) {
 		host.querySelectorAll('[data-cancel]').forEach((btn) => {
 			btn.addEventListener('click', async () => {
 				const id = btn.getAttribute('data-cancel');
-				await fetch(`/api/x/schedule?id=${encodeURIComponent(id)}`, {
-					method: 'DELETE',
-					credentials: 'include',
-				});
+				btn.disabled = true;
+				try {
+					await fetch(`/api/x/schedule?id=${encodeURIComponent(id)}`, {
+						method: 'DELETE',
+						credentials: 'include',
+					});
+				} catch {
+					alert('Network error — could not cancel this post. Check your connection and try again.');
+					btn.disabled = false;
+					return;
+				}
 				loadScheduledPosts(host);
 			});
 		});
@@ -3403,11 +3423,14 @@ async function renderSubscriptions(root) {
 		btn.addEventListener('click', async () => {
 			if (!confirm('Remove this plan?')) return;
 			btn.disabled = true;
-			const r = await fetch(`/api/subscriptions/plans/${btn.dataset.id}`, {
-				method: 'DELETE',
-				credentials: 'include',
-			});
-			if (r.ok) renderSubscriptions(root);
+			let r = null;
+			try {
+				r = await fetch(`/api/subscriptions/plans/${btn.dataset.id}`, {
+					method: 'DELETE',
+					credentials: 'include',
+				});
+			} catch { /* network failure — handled below */ }
+			if (r?.ok) renderSubscriptions(root);
 			else {
 				btn.disabled = false;
 				alert('Failed to remove plan');
@@ -3420,11 +3443,14 @@ async function renderSubscriptions(root) {
 		btn.addEventListener('click', async () => {
 			if (!confirm('Cancel this subscription?')) return;
 			btn.disabled = true;
-			const r = await fetch(`/api/subscriptions/${btn.dataset.id}`, {
-				method: 'DELETE',
-				credentials: 'include',
-			});
-			if (r.ok) renderSubscriptions(root);
+			let r = null;
+			try {
+				r = await fetch(`/api/subscriptions/${btn.dataset.id}`, {
+					method: 'DELETE',
+					credentials: 'include',
+				});
+			} catch { /* network failure — handled below */ }
+			if (r?.ok) renderSubscriptions(root);
 			else {
 				btn.disabled = false;
 				alert('Failed to cancel subscription');
@@ -3455,17 +3481,20 @@ async function renderSubscriptions(root) {
 			}
 			createBtn.disabled = true;
 			msg.textContent = 'Creating…';
-			const r = await fetch('/api/subscriptions/plans', {
-				method: 'POST',
-				credentials: 'include',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ name, price_usd: price, interval, perks }),
-			});
-			if (r.ok) {
+			let r = null;
+			try {
+				r = await fetch('/api/subscriptions/plans', {
+					method: 'POST',
+					credentials: 'include',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ name, price_usd: price, interval, perks }),
+				});
+			} catch { /* network failure — handled below */ }
+			if (r?.ok) {
 				renderSubscriptions(root);
 			} else {
-				const d = await r.json().catch(() => ({}));
-				msg.textContent = d.error_description || 'Failed to create plan';
+				const d = r ? await r.json().catch(() => ({})) : {};
+				msg.textContent = d.error_description || 'Failed to create plan — check your connection and try again.';
 				createBtn.disabled = false;
 			}
 		});

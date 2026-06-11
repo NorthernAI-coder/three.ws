@@ -336,11 +336,15 @@ function renderAvatarCards(host, avatars, agents) {
 		if (!btn) return;
 		if (btn.dataset.action === 'share') handleShare(btn.dataset.avatarId, btn.dataset.name);
 		if (btn.dataset.action === 'selfie') {
-			const { openSelfieModal } = await import('./selfie-modal.js');
-			const result = await openSelfieModal({ existingAvatarId: btn.dataset.avatarId });
-			if (result?.avatarId) {
-				toast('Avatar updated from selfie');
-				setTimeout(() => location.reload(), 1200);
+			try {
+				const { openSelfieModal } = await import('./selfie-modal.js');
+				const result = await openSelfieModal({ existingAvatarId: btn.dataset.avatarId });
+				if (result?.avatarId) {
+					toast('Avatar updated from selfie');
+					setTimeout(() => location.reload(), 1200);
+				}
+			} catch {
+				toast('Could not open the selfie tool — check your connection and try again.');
 			}
 		}
 	});
