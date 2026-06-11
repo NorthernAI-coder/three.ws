@@ -33,7 +33,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 ## Checklist (current state at a glance)
 
 ### Phase 0 — Key + live API probes
-- [ ] **T0.1** [00-key-setup.md](00-key-setup.md) — NVIDIA_API_KEY in Codespace `.env` and verified in Vercel prod
+- [x] **T0.1** [00-key-setup.md](00-key-setup.md) — NVIDIA_API_KEY in Codespace `.env.local` and verified in Vercel prod (live prod completion proven — see Worklog 2026-06-11)
 - [x] **T0.2** [01-probe-trellis.md](01-probe-trellis.md) — TRELLIS hosted API probed; recipe committed to `probes/trellis.md` (captured live during T1.1 — see Worklog 2026-06-11)
 - [x] **T0.3** [02-probe-flux-tts-embeddings.md](02-probe-flux-tts-embeddings.md) — FLUX, TTS, embeddings probed; transcripts committed
 
@@ -100,6 +100,16 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T0.1 (key verification) — DONE.** Working `nvapi-…` key confirmed in
+  `.env.local` (HTTP 200 on integrate.api.nvidia.com chat, llama-3.3-70b). Vercel REST API
+  (project `prj_IWZmEnqR1pCZRCRuvhCFCDcOx5Wc`, team `team_zRpaxHPiMnQGXurBbegM3PCA`, token
+  from the CLI auth.json): `NVIDIA_API_KEY` present targets=preview,production
+  type=sensitive (updated 2026-06-08). Because sensitive values can't be read back (and the
+  CLI empty-write trap exists), proved the prod VALUE works end-to-end: anonymous POST to
+  prod `/api/brain/chat` with `nvidia-nemotron-nano` returned a completed stream served by
+  NIM (1.1 s, 79 tokens). Phase 0 fully complete; T1.5 deploy gate is unblocked from the
+  key side. Coordinator session also launched T1.3-finish, T2.1, and T3.1-audit/T3.2 in
+  parallel (worklog entries to follow from each).
 - **2026-06-11** — **T1.4 (NVIDIA provider + registration test suite) — DONE.** Added
   `tests/api/providers-nvidia.test.js` (28 cases, all green), mirroring
   `providers-replicate.test.js`: global `fetch` stubbed, `api/_lib/r2.js` mocked via
