@@ -537,12 +537,13 @@ window.addEventListener('resize', () => {
 });
 
 // ── Animation loop ─────────────────────────────────────────────────────────────
-const clock = new THREE.Clock();
+const clock = new THREE.Timer();
 
 (function animate() {
   requestAnimationFrame(animate);
+  clock.update();
   const dt = Math.min(clock.getDelta(), 0.1);
-  const t  = clock.elapsedTime;
+  const t  = clock.getElapsed();
 
   // Idle avatar breath
   if (buyerMesh)  buyerMesh.position.y  = Math.sin(t * 0.75) * 0.022;

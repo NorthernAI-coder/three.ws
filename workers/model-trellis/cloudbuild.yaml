@@ -45,8 +45,8 @@ steps:
       - --gpu-type=nvidia-l4
       - --no-gpu-zonal-redundancy
       - --no-cpu-throttling
-      - --cpu=4
-      - --memory=16Gi
+      - --cpu=8
+      - --memory=32Gi
       - --min-instances=${_MIN_INSTANCES}
       - --max-instances=${_MAX_INSTANCES}
       - --timeout=300

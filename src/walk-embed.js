@@ -16,7 +16,7 @@ import {
 	AmbientLight,
 	Box3,
 	CircleGeometry,
-	Clock,
+	Timer,
 	Color,
 	DirectionalLight,
 	Fog,
@@ -405,7 +405,7 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
 
 // ── Main loop ─────────────────────────────────────────────────────────────
-const clock = new Clock();
+const clock = new Timer();
 const moveWorld = new Vector3();
 const moveForward = new Vector3();
 const moveRight = new Vector3();
@@ -436,6 +436,7 @@ let lastBroadcastZ = 0;
 const BROADCAST_EPSILON = 0.02; // metres — skip duplicate post messages
 
 function tick() {
+	clock.update();
 	const dt = Math.min(clock.getDelta(), 0.05);
 
 	const { ix, iy } = readMoveInput(dt);

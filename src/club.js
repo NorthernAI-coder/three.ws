@@ -12,7 +12,7 @@ import {
 	Box3,
 	BufferAttribute,
 	BufferGeometry,
-	Clock,
+	Timer,
 	Color,
 	EquirectangularReflectionMapping,
 	Fog,
@@ -1419,11 +1419,12 @@ const watchdog = createFrameWatchdog({
 });
 
 // ── Render loop ──────────────────────────────────────────────────────────
-const clock = new Clock();
+const clock = new Timer();
 let rafId = null;
 function animate() {
+	clock.update();
 	const dt = Math.min(clock.getDelta(), 0.066);
-	const t = clock.getElapsedTime();
+	const t = clock.getElapsed();
 
 	watchdog.tick(dt);
 
@@ -1604,7 +1605,7 @@ document.addEventListener('visibilitychange', () => {
 		startLeaderboardPolling();
 		// Discard the gap delta so the watchdog doesn't see one huge frame
 		// (which would immediately count as "slow") on resume.
-		clock.getDelta();
+		clock.update();
 		if (rafId == null) animate();
 	}
 });

@@ -101,6 +101,18 @@ async function main() {
 
 	console.log(`Found ${pending.length} pending migration(s):\n`);
 
+	if (DRY_RUN || CHECK) {
+		for (const file of pending) console.log(`  • ${file}`);
+		console.log(
+			DRY_RUN
+				? `\nDry run — no migrations applied. Re-run without --dry-run to apply.`
+				: `\n${pending.length} migration(s) pending.`,
+		);
+		// --check signals "DB is behind" with a non-zero exit so CI can gate on it.
+		if (CHECK) process.exit(1);
+		return;
+	}
+
 	for (const file of pending) {
 		const path = join(MIGRATIONS_DIR, file);
 		const sqlText = await readFile(path, 'utf8');

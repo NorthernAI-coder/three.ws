@@ -8,11 +8,21 @@
 //   values            : 'dark' | 'light' | 'auto'   ('auto' follows the OS)
 //   unset             : treated as 'dark' (the platform's brand default)
 //
-// An inline boot script (injected by scripts/inject-theme-boot.mjs) applies the
-// resolved theme to <html data-theme> before first paint, so this module never
-// causes a flash — it re-applies idempotently, wires the nav toggle, keeps the
-// button in sync, follows the system in 'auto' mode, and mirrors changes across
-// tabs. Everything is exposed on window.threeTheme for other surfaces (e.g. the
+// Capability gating — the platform is dark-first and many bespoke pages still
+// hardcode their own dark backgrounds instead of consuming the design tokens.
+// Forcing light on those would float a light header over a black body. So this
+// module probes, with NO visible flash, whether the current page actually
+// honours the light palette (its <body> goes light when data-theme='light').
+// If it does not, the page is pinned dark and the toggle is hidden — light is
+// simply "not available here yet". The probe is synchronous (it reads computed
+// style without yielding a paint), so it costs nothing visually. The instant a
+// page migrates its colours to tokens, the probe passes and light turns on
+// there automatically — no list to maintain.
+//
+// An inline boot script (scripts/inject-theme-boot.mjs) applies the stored
+// theme to <html data-theme> before first paint; this module then gates,
+// wires the nav toggle, syncs across tabs, and follows the OS in 'auto' mode.
+// Everything is exposed on window.threeTheme for other surfaces (e.g. the
 // dashboard settings panel) to drive the same single source of truth.
 
 (function () {
@@ -22,6 +32,7 @@
 	var STORAGE_KEY = 'twx_theme';
 	var prefersLight =
 		window.matchMedia && window.matchMedia('(prefers-color-scheme: light)');
+	var islandCache = null; // memoised capability result for this page
 
 	function getMode() {
 		try {
@@ -40,23 +51,61 @@
 		return m === 'light' ? 'light' : 'dark';
 	}
 
-	function applyEffective(effective) {
-		document.documentElement.setAttribute('data-theme', effective);
-		syncToggle(effective);
-		window.dispatchEvent(
-			new CustomEvent('themechange', { detail: { mode: getMode(), effective: effective } }),
-		);
+	// Is <body> dark right now? (Opaque + low luminance.) A transparent body
+	// (shows the html canvas, which is token-driven) counts as light-capable.
+	function bodyIsDark() {
+		if (!document.body) return false;
+		var bg = getComputedStyle(document.body).backgroundColor;
+		var m = bg.match(/(\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/);
+		if (!m) return false;
+		var alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
+		if (alpha < 0.5) return false;
+		var lum = 0.299 * +m[1] + 0.587 * +m[2] + 0.114 * +m[3];
+		return lum < 140;
+	}
+
+	// Does this page honour the light palette? Probe synchronously: flip the
+	// attribute to 'light', read the body (forces a style recalc, NOT a paint),
+	// then restore — all in one JS turn, so nothing flashes on screen.
+	function pageSupportsLight() {
+		if (islandCache !== null) return !islandCache;
+		if (!document.body) return true; // can't tell yet — assume capable
+		var el = document.documentElement;
+		var prev = el.getAttribute('data-theme');
+		el.setAttribute('data-theme', 'light');
+		var dark = bodyIsDark();
+		el.setAttribute('data-theme', prev || 'dark');
+		islandCache = dark; // true ⇒ island (light not supported)
+		return !dark;
+	}
+
+	function setToggleVisible(on) {
+		var btn = document.getElementById('nav-theme-toggle');
+		if (btn) btn.hidden = !on;
 	}
 
 	// Reflect the live theme onto the nav toggle button (label + pressed state).
-	// Safe to call before the nav is injected — it just no-ops until the button
-	// exists, and the MutationObserver below replays it once it appears.
 	function syncToggle(effective) {
 		var btn = document.getElementById('nav-theme-toggle');
 		if (!btn) return;
 		var isLight = effective === 'light';
 		btn.setAttribute('aria-pressed', isLight ? 'true' : 'false');
 		btn.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
+	}
+
+	// Apply the resolved theme, honouring page capability. Islands are pinned
+	// dark with the toggle hidden; capable pages flip and show the toggle.
+	function applyResolved() {
+		var capable = pageSupportsLight();
+		var effective = capable ? resolve() : 'dark';
+		document.documentElement.setAttribute('data-theme', effective);
+		setToggleVisible(capable);
+		syncToggle(effective);
+		window.dispatchEvent(
+			new CustomEvent('themechange', {
+				detail: { mode: getMode(), effective: effective, capable: capable },
+			}),
+		);
 	}
 
 	// Persist + apply a mode. 'dark'/'light' are explicit; 'auto' follows the OS.
@@ -67,16 +116,16 @@
 		} catch (e) {
 			/* persistence unavailable — still apply for this session */
 		}
-		applyEffective(resolve(next));
+		applyResolved();
 		return next;
 	}
 
 	// The nav button is a simple binary flip between the two visible themes,
 	// writing an explicit choice (never 'auto'); the tri-state lives in settings.
+	// It is only reachable on capable pages (hidden elsewhere).
 	function toggle() {
 		var nextEffective = resolve() === 'light' ? 'dark' : 'light';
-		setMode(nextEffective);
-		return nextEffective;
+		return setMode(nextEffective);
 	}
 
 	window.threeTheme = {
@@ -85,11 +134,12 @@
 		resolve: resolve,
 		set: setMode,
 		toggle: toggle,
+		supportsLight: pageSupportsLight,
 	};
 
-	// Apply immediately so direct module loads (or a missing boot script) still
-	// land on the right theme without waiting for the nav.
-	applyEffective(resolve());
+	// Apply immediately (gates this page right away, correcting the boot script's
+	// pre-paint guess on islands before the page is interactive).
+	applyResolved();
 
 	// Delegated click — independent of when the async-injected nav button mounts.
 	document.addEventListener('click', function (e) {
@@ -103,7 +153,7 @@
 	// When the OS scheme changes, follow it only if the user is in 'auto'.
 	if (prefersLight) {
 		var onScheme = function () {
-			if (getMode() === 'auto') applyEffective(resolve());
+			if (getMode() === 'auto') applyResolved();
 		};
 		if (prefersLight.addEventListener) prefersLight.addEventListener('change', onScheme);
 		else if (prefersLight.addListener) prefersLight.addListener(onScheme);
@@ -111,19 +161,20 @@
 
 	// Mirror changes made in other tabs/windows.
 	window.addEventListener('storage', function (e) {
-		if (e.key === STORAGE_KEY) applyEffective(resolve());
+		if (e.key === STORAGE_KEY) applyResolved();
 	});
 
 	// The nav header is injected asynchronously by nav.js; once the toggle
-	// button appears, replay the current state onto it, then stop observing.
-	if (document.getElementById('nav-theme-toggle')) {
-		syncToggle(resolve());
-	} else if (window.MutationObserver) {
+	// button appears, set its visibility + state, then stop observing.
+	function bindToggle() {
+		if (!document.getElementById('nav-theme-toggle')) return false;
+		setToggleVisible(pageSupportsLight());
+		syncToggle(document.documentElement.getAttribute('data-theme') || 'dark');
+		return true;
+	}
+	if (!bindToggle() && window.MutationObserver) {
 		var obs = new MutationObserver(function () {
-			if (document.getElementById('nav-theme-toggle')) {
-				syncToggle(resolve());
-				obs.disconnect();
-			}
+			if (bindToggle()) obs.disconnect();
 		});
 		obs.observe(document.documentElement, { childList: true, subtree: true });
 	}

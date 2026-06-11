@@ -159,6 +159,14 @@
 			<description>Two new skills in the marketplace under the new Wallet category: MetaMask Agent Wallet and MetaMask Agent Workflows. Install them on any agent to let it check balances, transfer tokens, swap, bridge across chains, trade perps and prediction markets, and manage Aave positions through MetaMask's mm CLI — each user signs in with their own MetaMask Agent Wallet, so keys stay with you, never with three.ws. Platform chat agents pick the skills up automatically.</description>
 		</item>
 		<item>
+			<title>More paid 3D generations per hour before you hit the limit</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-11:More paid 3D generations per hour before you hit the limit</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The paid text-to-3D and image-to-3D lane in Forge had an hourly ceiling of 12 generations per person — tight enough that a focused iteration session, or a few people sharing the same office or campus network, could run into a 'generation limit reached, try again shortly' wall mid-flow. That ceiling is now 30 per hour. You can push through far more revisions in one sitting, while the limit still protects against runaway GPU spend. The free Draft lane keeps its own, even more generous allowance.</description>
+		</item>
+		<item>
 			<title>Pick a username on your account page — even if you signed in with a wallet</title>
 			<link>https://three.ws/dashboard/account</link>
 			<guid isPermaLink="false">2026-06-11:Pick a username on your account page — even if you signed in with a wallet</guid>

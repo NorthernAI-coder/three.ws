@@ -1,5 +1,5 @@
 import { VRMExpressionPresetName } from "@pixiv/three-vrm";
-import { Clock } from "three";
+import { Timer } from "three";
 
 /**
  * @typedef {import('@pixiv/three-vrm').VRMExpressionPresetName} VRMExpressionPresetName
@@ -17,7 +17,7 @@ export class EmotionManager {
    */
   mode
   /**
-   * @type {Clock}
+   * @type {Timer}
    */
   clock
   continuous = false;
@@ -66,7 +66,7 @@ export class EmotionManager {
     this.vrmEmotion = [];
     this.mode = 'ready';
     
-    this.clock = new Clock();
+    this.clock = new Timer();
     
     this.isTakingScreenShot = false;
     
@@ -193,6 +193,7 @@ export class EmotionManager {
       if (this.isTakingScreenShot) {
         return;
       }
+      this.clock.update()
       const deltaTime = this.clock.getDelta()
       switch (this.mode){
         

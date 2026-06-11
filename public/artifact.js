@@ -131,11 +131,12 @@ function loadAvatar(glbUrl, scene, onError) {
 }
 
 function startLoop(renderer, scene, camera, avatar) {
-	const clock = new THREE.Clock();
+	const clock = new THREE.Timer();
 	let t = 0;
 
 	function tick() {
 		requestAnimationFrame(tick);
+		clock.update();
 		const dt = clock.getDelta();
 		t += dt;
 

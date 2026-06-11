@@ -16,7 +16,7 @@
  */
 
 import {
-	Clock,
+	Timer,
 	WebGLRenderer,
 	SRGBColorSpace,
 	ACESFilmicToneMapping,
@@ -47,7 +47,7 @@ export class TalkScene {
 		this.mixer = null;
 		this._clips = [];
 		this._currentAction = null;
-		this._clock = new Clock();
+		this._clock = new Timer();
 		this._rafId = 0;
 		this._running = false;
 		this._resizeObserver = null;
@@ -326,6 +326,7 @@ export class TalkScene {
 		this._running = true;
 		const tick = () => {
 			if (!this._running) return;
+			this._clock.update();
 			const dt = this._clock.getDelta();
 			this.controls?.update();
 			this.mixer?.update(dt);

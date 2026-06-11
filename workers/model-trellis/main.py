@@ -31,6 +31,13 @@ import logging
 import os
 import time
 import uuid
+
+# TRELLIS reads its attention + sparse-conv backends from the environment at
+# import time. The Dockerfile sets these as ENV; default them here too so the
+# service still loads correctly if deployed with a bare env. xformers is chosen
+# over flash-attn (no source compile) and runs well on the L4.
+os.environ.setdefault("ATTN_BACKEND", "xformers")
+os.environ.setdefault("SPCONV_ALGO", "native")
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -70,7 +77,8 @@ def _load_pipeline():
 
     log.info("Loading TRELLIS pipeline from %s", WEIGHTS_DIR)
     _pipeline = TrellisImageTo3DPipeline.from_pretrained(WEIGHTS_DIR)
-    _pipeline = _pipeline.to("cuda")
+    # TRELLIS exposes .cuda() (not .to()) to move every sub-model to the GPU.
+    _pipeline.cuda()
     log.info("TRELLIS pipeline loaded")
 
 
