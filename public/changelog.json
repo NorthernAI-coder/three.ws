@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T14:09:13.221Z",
+	"generated_at": "2026-06-11T14:27:17.492Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -173,6 +173,17 @@
 			"link": "/skills",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Pick a username on your account page — even if you signed in with a wallet",
+			"summary": "You can now set and change your username right from the account page. If you signed up with a wallet, you previously had no way to claim a handle — your profile just showed a shortened wallet address. Now there's a '+ Set a username' button under your name; tap it, type a handle (3–30 characters, letters, numbers, _ or -), and save. Usernames are checked for availability as you save, so you'll get a clear message if one's already taken. Wallet sign-ins also no longer display the internal placeholder email on your profile.",
+			"link": "/dashboard/account",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
