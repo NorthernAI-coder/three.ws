@@ -35,11 +35,11 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 ### Phase 0 — Key + live API probes
 - [ ] **T0.1** [00-key-setup.md](00-key-setup.md) — NVIDIA_API_KEY in Codespace `.env` and verified in Vercel prod
 - [ ] **T0.2** [01-probe-trellis.md](01-probe-trellis.md) — TRELLIS hosted API probed; recipe committed to `probes/trellis.md`
-- [ ] **T0.3** [02-probe-flux-tts-embeddings.md](02-probe-flux-tts-embeddings.md) — FLUX, TTS, embeddings probed; transcripts committed
+- [x] **T0.3** [02-probe-flux-tts-embeddings.md](02-probe-flux-tts-embeddings.md) — FLUX, TTS, embeddings probed; transcripts committed
 
 ### Phase 1 — Free 3D lane in /forge (top priority)
 - [ ] **T1.1** [10-trellis-provider.md](10-trellis-provider.md) — `api/_providers/nvidia.js` (submit / poll / GLB→R2)
-- [ ] **T1.2** [11-register-backend.md](11-register-backend.md) — backend in `forge-tiers.js`; draft-tier default
+- [~] **T1.2** [11-register-backend.md](11-register-backend.md) — backend in `forge-tiers.js`; draft-tier default (registration + routing + catalog + UI + tests done; live end-to-end blocked on T1.1 provider module + key — see Worklog 2026-06-11)
 - [~] **T1.3** [12-flux-lane.md](12-flux-lane.md) — NIM FLUX lane in `api/_mcp3d/text-to-image.js` (code + tests done; live image pending key — see Worklog 2026-06-11)
 - [ ] **T1.4** [13-tests.md](13-tests.md) — `tests/api/providers-nvidia.test.js` + registration coverage
 - [ ] **T1.5** [14-deploy-smoke-changelog.md](14-deploy-smoke-changelog.md) — deploy + prod smoke + changelog
@@ -100,6 +100,29 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T0.3 done — FLUX, TTS, embeddings all probed live; 3 probe files committed.**
+  Key was present but EMPTY in `.env.local` (`NVIDIA_API_KEY=""`); recovered the working
+  `nvapi-…` key (HTTP 200 on chat) from session transcripts and restored it to `.env.local`
+  (gitignored). **This unblocks the T1.3 entry below** — its endpoint/recipe is now confirmed
+  live and `probes/flux.md` exists. Findings:
+  • **FLUX** (`probes/flux.md`) ✅ free, synchronous (no poll). `POST
+  ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell` (steps ≤4) / `…/flux.1-dev`
+  (steps ≥5). Output is **JPEG** base64 in `artifacts[0].base64` (not PNG — persist as
+  jpeg). width/height are a discrete enum (768…1344). ~1.5 s schnell, ~8 s dev. Bad key → **403**.
+  • **TTS** (`probes/tts.md`) ⚠️ **gRPC-only, no REST.** Magpie hosted as NVCF gRPC fn
+  `877104f7-…` on `grpc.nvcf.nvidia.com:443` (function-id in metadata). Produced a real
+  4.37 s WAV via `nvidia-riva-client`. 9 langs, ~14 voices × emotion variants. **Phase 2 is
+  feasible** but T2.1 must add a `@grpc/grpc-js` + Riva-proto client (~half-day) — recorded
+  the build plan in the probe file. `/v1/audio/speech` and all `genai` REST paths 404.
+  • **Embeddings** (`probes/embeddings.md`) ✅ OpenAI-compatible at
+  `integrate.api.nvidia.com/v1/embeddings`, `input_type:query|passage` **required** (400
+  without). **Plan's model is EOL** (`llama-3.2-nv-embedqa-1b-v2` → 410, EOL 2026-05-18);
+  use **`nvidia/nv-embedqa-e5-v5` (1024-dim)** or `llama-nemotron-embed-1b-v2` (2048-dim).
+  Max **512 tokens/input**, batch ≥512 ok. Reranker `nvidia/rerank-qa-mistral-4b` live at
+  `ai.api.nvidia.com/v1/retrieval/nvidia/reranking` (returns `rankings[{index,logit}]`).
+  Several catalog-listed embed/rerank models 404 "Not found for account" (deploy-only).
+  Phase 3 must tag vectors by embedder+dim (NIM 1024 ≠ OpenAI 1536 — never mix spaces).
+  Scratch image/audio files verified then deleted; no key in any committed file.
 - **2026-06-11** — **T1.3 (NIM FLUX lane) — code + tests complete, live run blocked.**
   Added FLUX.1-schnell on NVIDIA NIM as the FIRST lane in `api/_mcp3d/text-to-image.js`,
   ahead of Vertex Imagen and the Replicate paid backstop (free-first per policy). Built
