@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T10:55:52.340Z",
+	"generated_at": "2026-06-11T11:16:55.409Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -54,6 +54,16 @@
 			"title": "Avatar preview images load reliably",
 			"summary": "Fixed a bug where some community avatars — including the pinned home-town cast — showed a broken preview image in the /play lobby and gallery instead of their portrait. The shareable social-card image for those avatars now generates and serves correctly too, so links posted to X and Discord render a proper preview.",
 			"link": "/play",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Avatar voices can speak out loud again",
+			"summary": "Talking avatars are back. Spoken playback had gone silent after our previous voice provider ran out of quota, leaving the live lip-sync demo and the read-the-page-aloud browser extension mute. We've moved avatar speech onto a new free, fast voice lane that generates audio in about a second, so every speaking surface talks again with no change to how you use it. Nothing to update — pick a voice and press play.",
+			"link": "/lipsync",
 			"tags": [
 				"fix"
 			]

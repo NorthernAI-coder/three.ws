@@ -236,7 +236,7 @@ Send one prompt to Claude, GPT, Qwen, ModelScope, and Groq simultaneously. Side-
 
 URL: https://three.ws/lipsync
 
-Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.
+Type text, stream it through the avatar's voice, and the mouth animates in real time via wawa-lipsync viseme detection.
 
 ### Lipsync (Mic)
 

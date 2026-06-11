@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Avatar voices can speak out loud again",
+			"summary": "Talking avatars are back. Spoken playback had gone silent after our previous voice provider ran out of quota, leaving the live lip-sync demo and the read-the-page-aloud browser extension mute. We've moved avatar speech onto a new free, fast voice lane that generates audio in about a second, so every speaking surface talks again with no change to how you use it. Nothing to update — pick a voice and press play.",
+			"tags": [
+				"fix"
+			],
+			"link": "/lipsync"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Public status page with live uptime monitoring",
 			"summary": "three.ws now monitors its own critical surfaces — the website, platform API, explore feed, x402 paid-API discovery, and the 3D viewer — every 5 minutes from outside our infrastructure, and publishes the results at three.ws/status: live operational state, response times, and a 90-day uptime history per service. A machine-readable JSON feed is available at /api/status for agents and integrators. Browser errors on any page are now also collected first-party, so problems reach the team before reports do.",
 			"tags": [
