@@ -64,6 +64,14 @@ export const MODEL_CATALOG = {
 	// endpoint is intermittently moderation-gated (403 "requires moderation on
 	// OpenInference"). Kept usable for explicit callers (e.g. the /chat app), but
 	// never auto-selected for the primary path or auto-built fallback chains.
+	//
+	// T4.2 (anon moderation pre-filter) evaluated re-promoting this route and
+	// DECLINED: OpenRouter's "requires moderation" gate is an account-level
+	// policy toggle on OpenRouter's side — it is NOT satisfied by us pre-moderating
+	// upstream of the call (the gate fires before our verdict is ever relevant).
+	// Our NemoGuard pre-filter therefore does not unlock this endpoint; it stays
+	// demoted until the OpenRouter account's data/moderation setting is verified.
+	// (tasks/nvidia-nim/probes/moderation.md)
 	'openai/gpt-oss-120b:free':   { provider: 'openrouter', tools: true, moderationGated: true },
 
 	// ── NVIDIA NIM free tier — one nvapi key, OpenAI-compatible ───────────────

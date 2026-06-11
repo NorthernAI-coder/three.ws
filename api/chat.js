@@ -33,6 +33,7 @@ import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
 import { orchestrateConfig } from './_lib/orchestrate.js';
 import { guardianConfig, governSend, sendCapUsd } from './_lib/granite-guardian.js';
+import { moderateAnonInput, refusalReply } from './_lib/moderation.js';
 import {
 	markProviderCooldown,
 	providersInCooldown,
@@ -366,6 +367,34 @@ export default wrap(async (req, res) => {
 		const rl = await limits.chatUser(auth.userId || `ip:${clientIp(req)}`);
 		if (!rl.success) {
 			return rateLimited(res, rl, 'too many chat requests, slow down');
+		}
+	}
+
+	// Anonymous pre-moderation (FAIL-OPEN). Signed-in callers are attributable
+	// and rate-limited, so only anon traffic is screened. A confirmed-unsafe
+	// message gets a normal in-band refusal over the SSE stream — never an HTTP
+	// error — and any moderation failure proceeds un-moderated (the filter can
+	// never take chat down). See api/_lib/moderation.js.
+	if (anonymous) {
+		const verdict = await moderateAnonInput(body.message);
+		if (verdict.flagged) {
+			res.writeHead(200, {
+				'Content-Type': 'text/event-stream; charset=utf-8',
+				'Cache-Control': 'no-cache, no-transform',
+				'X-Accel-Buffering': 'no',
+			});
+			res.write(
+				`data: ${JSON.stringify({ type: 'done', reply: refusalReply(), actions: [], moderated: true })}\n\n`,
+			);
+			res.end();
+			recordEvent({
+				userId: null,
+				kind: 'chat',
+				tool: 'moderation',
+				latencyMs: verdict.latencyMs ?? 0,
+				meta: { moderated: true, categories: verdict.categories ?? [], anonymous: true },
+			});
+			return;
 		}
 	}
 
