@@ -526,6 +526,15 @@
 		grid-template-columns: repeat(2, 1fr);
 		gap: 1.25rem 1rem;
 	}
+	/* 44px minimum touch targets (WCAG 2.5.8) without changing desktop rhythm */
+	.h-footer-link-col {
+		gap: 0.25rem;
+	}
+	.h-footer-links a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
 	.h-footer-bottom {
 		flex-direction: column;
 		align-items: flex-start;

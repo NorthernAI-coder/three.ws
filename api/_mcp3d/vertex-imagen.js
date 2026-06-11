@@ -59,8 +59,8 @@ async function getAccessToken() {
   }
 
   const saJson = readEnv('GCP_SERVICE_ACCOUNT_JSON');
-  if (saJson) {
-    return _tokenFromServiceAccount(JSON.parse(saJson));
+  if (saJson && saJson.trim() && saJson.trim() !== '""') {
+    return _tokenFromServiceAccount(parseServiceAccount(saJson));
   }
 
   // Fall back to the metadata server (Cloud Run / GCE)
@@ -79,6 +79,40 @@ async function getAccessToken() {
   throw Object.assign(
     new Error(
       'No GCP credentials found. Set GCP_SERVICE_ACCOUNT_JSON or run on GCE/Cloud Run.',
+    ),
+    { code: 'unconfigured' },
+  );
+}
+
+// Service-account JSON pasted into a secrets UI routinely arrives mangled:
+// wrapped in an extra layer of quotes, with escaped inner quotes (`{\"type\"…}`),
+// or base64-encoded. Accept every common mangling; reject with a designed
+// `unconfigured` error (instead of a raw JSON.parse crash) so callers can
+// branch to a fallback provider.
+function parseServiceAccount(raw) {
+  let v = raw.trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1).trim();
+  }
+  const candidates = [v, v.replace(/\\"/g, '"')];
+  if (/^[A-Za-z0-9+/=\s]+$/.test(v)) {
+    try {
+      candidates.push(Buffer.from(v, 'base64').toString('utf8'));
+    } catch {
+      // not base64 — fall through to the error below
+    }
+  }
+  for (const candidate of candidates) {
+    try {
+      const sa = JSON.parse(candidate);
+      if (sa && typeof sa === 'object' && sa.client_email && sa.private_key) return sa;
+    } catch {
+      // try the next decoding
+    }
+  }
+  throw Object.assign(
+    new Error(
+      'GCP_SERVICE_ACCOUNT_JSON is set but is not a valid service-account JSON object (expected client_email + private_key). Re-paste the raw key file contents.',
     ),
     { code: 'unconfigured' },
   );

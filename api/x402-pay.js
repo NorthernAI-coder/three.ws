@@ -542,7 +542,7 @@ export default wrap(async (req, res) => {
 				// the demo UI can render "wallet not configured" instead of a
 				// red console error. Other failures still bubble as 500.
 				if (err.code === 'wallet_misconfigured' || err.code === 'wallet_unconfigured') {
-					return json(res, 200, { configured: false, error: err.message, address: null, sol: 0, usdc: 0 });
+					return json(res, 200, { configured: false, code: err.code, error: err.message, address: null, sol: 0, usdc: 0 });
 				}
 				return json(res, err.status || 500, { error: err.message });
 			}

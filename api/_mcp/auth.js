@@ -24,18 +24,33 @@ export function send401(res, msg) {
 	res.end(JSON.stringify({ error: 'unauthorized', error_description: msg }));
 }
 
-// Challenge for an unauthenticated request with no payment. Returns 401 with a
-// WWW-Authenticate header so MCP/OAuth clients (claude.ai connectors, the MCP
-// TS SDK) can discover the protected-resource metadata and start the OAuth
-// flow — they require status 401 per the MCP authorization spec (RFC 9728).
+// MCP clients speaking Streamable HTTP MUST advertise SSE support in Accept
+// (spec 2025-06-18 §Transports), and post-initialize requests carry the
+// MCP-Protocol-Version / Mcp-Session-Id headers. x402 agents, Bazaar
+// validators, and registry crawlers (zauth) send none of these — they expect
+// a plain 402 Payment Required.
+function isMcpProtocolClient(req) {
+	const h = req?.headers || {};
+	if (h['mcp-protocol-version'] || h['mcp-session-id']) return true;
+	const accept = String(h.accept || '');
+	return accept.includes('text/event-stream');
+}
+
+// Challenge for an unauthenticated request with no payment. MCP/OAuth clients
+// (claude.ai connectors, the MCP TS SDK) get 401 with a WWW-Authenticate
+// header so they can discover the protected-resource metadata and start the
+// OAuth flow — they require status 401 per the MCP authorization spec
+// (RFC 9728). Everything else (x402 agents, Bazaar validators, the zauth
+// registry) gets the same envelope as a proper 402 Payment Required, which is
+// what x402 tooling keys on. (A bare 402 for everyone made the connector
+// probe spin; a blanket 401 made x402 crawlers misclassify the endpoints.)
 //
-// We ALSO ship the x402 payment envelope in the body + PAYMENT-REQUIRED header,
-// so x402-aware clients and Bazaar validators can still read the price/accepts
-// from this same response. (Previously this path returned a bare 402, which
-// OAuth clients couldn't interpret — the connector probe just spun.)
-export function sendAuthChallenge(res, { resourceUrl, requirements, challenge }) {
+// Both shapes ship the x402 payment envelope in the body + PAYMENT-REQUIRED
+// header, and both carry WWW-Authenticate, so either kind of client can
+// recover from a mismatched guess.
+export function sendAuthChallenge(res, { req, resourceUrl, requirements, challenge }) {
 	const resource = env.MCP_RESOURCE;
-	res.statusCode = 401;
+	res.statusCode = isMcpProtocolClient(req) ? 401 : 402;
 	res.setHeader(
 		'www-authenticate',
 		`Bearer resource_metadata=${quoteString(`${env.APP_ORIGIN}/.well-known/oauth-protected-resource`)}, resource=${quoteString(resource)}`,
@@ -141,7 +156,7 @@ export async function authenticateRequest(
 		}
 	}
 
-	sendAuthChallenge(res, { resourceUrl, requirements, challenge });
+	sendAuthChallenge(res, { req, resourceUrl, requirements, challenge });
 	return null;
 }
 
@@ -155,6 +170,7 @@ export async function handleSse(req, res, { resourcePath = '/api/mcp', challenge
 	if (!bearer && !req.headers['x-payment']) {
 		const sseResourceUrl = resolveResourceUrl(req, resourcePath);
 		return sendAuthChallenge(res, {
+			req,
 			resourceUrl: sseResourceUrl,
 			requirements: paymentRequirements(sseResourceUrl),
 			challenge,

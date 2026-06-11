@@ -42,7 +42,7 @@ const bs58encode = bs58.default ? bs58.default.encode : bs58.encode;
 // A curated menu of live, GET-able paid services with a tangible result.
 const SERVICES = {
 	'agent-reputation': { url: '/api/x402/agent-reputation?agent_id=76bca598-103f-4e3a-8c95-b0d64993258a', blurb: 'an on-chain reputation score for another agent' },
-	'pump-agent-audit': { url: '/api/x402/pump-agent-audit?mint=Aodd9LBDCue4HN6KyhpSai7yudFCoEWJ3FLHdgYajQzb', blurb: "an audit of a live pump.fun agent's token" },
+	'pump-agent-audit': { url: '/api/x402/pump-agent-audit?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump', blurb: "an audit of a live pump.fun agent's token" },
 	'symbol-availability': { url: '/api/x402/symbol-availability?ticker=WWWTEST', blurb: 'whether a token ticker is still available' },
 };
 

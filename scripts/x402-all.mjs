@@ -28,8 +28,8 @@ const ENDPOINTS = [
 	{ name: 'onchain-identity-verify',path: '/api/x402/onchain-identity-verify?address=0x33369135724F53521dF38e69262792a1EC068cd7', method: 'GET' },
 	{ name: 'agent-reputation',       path: '/api/x402/agent-reputation?agent_id=7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55', method: 'GET' },
 	{ name: 'pump-agent-audit',       path: '/api/x402/pump-agent-audit?mint=C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi', method: 'GET' },
-	{ name: 'mint-to-mesh',           path: '/api/x402/mint-to-mesh?mint=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', method: 'GET' },
-	{ name: 'mint-to-mesh-batch',     path: '/api/x402/mint-to-mesh-batch', method: 'POST', body: { mints: ['DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263'] } },
+	{ name: 'mint-to-mesh',           path: '/api/x402/mint-to-mesh?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump', method: 'GET' },
+	{ name: 'mint-to-mesh-batch',     path: '/api/x402/mint-to-mesh-batch', method: 'POST', body: { mints: ['FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump'] } },
 ];
 
 const results = [];

@@ -1,11 +1,13 @@
 // three.ws shared site navigation loader.
 //
 // Injects the global header (public/nav.html) into any page that includes a
-// `<div id="nav-container"></div>` and `<script src="/nav.js">`, then wires the
-// homepage nav behavior: hover/click dropdowns, the mobile drawer, the Walk
-// Companion toggle, auth-aware CTAs, and active-page highlighting. The markup,
-// styles (public/nav.css) and behavior here mirror pages/home.html so every
-// page reads as the same site.
+// `<div id="nav-container"></div>` and `<script src="/nav.js">`, renders every
+// menu (desktop dropdowns + mobile drawer) from public/nav-data.js — the
+// single source of truth for menu items — then wires the behavior:
+// hover/click dropdowns, the mobile drawer, the Walk Companion toggle,
+// auth-aware CTAs, and active-page highlighting. The homepage
+// (pages/home.html) consumes this same loader, so every page reads as the
+// same site by construction.
 
 // Load the site-wide glossary tooltip system (public/glossary.js) on every
 // page. Self-mounting + idempotent; honours <html data-glossary="off">.
@@ -77,14 +79,14 @@ function boot() {
 		link.href = '/nav.css';
 		document.head.appendChild(link);
 	}
-	fetch('/nav.html')
-		.then((response) => response.text())
-		.then((data) => {
-			navContainer.innerHTML = data;
+	Promise.all([fetch('/nav.html').then((response) => response.text()), import('/nav-data.js')])
+		.then(([html, navData]) => {
+			navContainer.innerHTML = html;
+			renderMenus(navContainer, navData);
 			initNav(navContainer);
 			loadNotificationsInbox();
 		})
-		.catch(() => {});
+		.catch((err) => console.error('nav: failed to load shared navigation', err));
 }
 
 if (document.readyState === 'loading') {
@@ -99,6 +101,102 @@ function initNav(root) {
 	initWalkToggle(root);
 	initAuthHint(root);
 	initActivePage(root);
+}
+
+// ── Menu rendering ──────────────────────────────────────────────────────────
+// The desktop dropdowns and the mobile drawer are both rendered from
+// nav-data.js so a menu item can only ever exist in one place.
+function escHtml(s) {
+	return String(s == null ? '' : s)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
+}
+
+function attrString(attrs) {
+	if (!attrs) return '';
+	return Object.keys(attrs)
+		.map((key) => ` ${key}="${escHtml(attrs[key])}"`)
+		.join('');
+}
+
+function renderMenuItem(item) {
+	const badge = item.badge ? ` <span class="nav-pill-sm">${escHtml(item.badge)}</span>` : '';
+	return (
+		`<a class="nav-mi" href="${escHtml(item.href)}" role="menuitem"${attrString(item.attrs)}>` +
+		`<span class="nav-mi-t">${escHtml(item.title)}${badge}</span>` +
+		`<span class="nav-mi-d">${escHtml(item.desc)}</span></a>`
+	);
+}
+
+function renderGroup(group) {
+	const badge = group.badge
+		? `<span class="nav-pill-sm" aria-hidden="true">${escHtml(group.badge)}</span>`
+		: '';
+	const popClass =
+		group.layout === 'mega' ? 'nav-pop mega' : group.layout === 'wide' ? 'nav-pop wide' : 'nav-pop';
+	const note = group.note ? `<div class="nav-pop-note">${escHtml(group.note)}</div>` : '';
+	const body = group.columns
+		? group.columns
+				.map(
+					(col) =>
+						`<div class="nav-col" role="group" aria-label="${escHtml(col.label)}">` +
+						`<div class="nav-col-h">${escHtml(col.label)}</div>` +
+						col.items.map(renderMenuItem).join('') +
+						`</div>`,
+				)
+				.join('')
+		: (group.items || []).map(renderMenuItem).join('');
+	return (
+		`<div class="nav-grp">` +
+		`<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">` +
+		`${escHtml(group.label)}${badge}<span class="nav-caret" aria-hidden="true">▾</span></button>` +
+		`<div class="${popClass}" role="menu" aria-label="${escHtml(group.label)}">${note}${body}</div>` +
+		`</div>`
+	);
+}
+
+function renderTopLink(link) {
+	return `<a href="${escHtml(link.href)}">${escHtml(link.label)}</a>`;
+}
+
+function renderDrawerLink(item) {
+	return `<a href="${escHtml(item.href)}"${attrString(item.attrs)}>${escHtml(item.title)}</a>`;
+}
+
+function renderDrawer(navData) {
+	let html = '';
+	navData.NAV_GROUPS.forEach((group) => {
+		if (group.columns) {
+			group.columns.forEach((col) => {
+				html += `<div class="dr-h">${escHtml(group.label)} · ${escHtml(col.label)}</div>`;
+				html += col.items.map(renderDrawerLink).join('');
+			});
+		} else {
+			html += `<div class="dr-h">${escHtml(group.label)}</div>`;
+			html += (group.items || []).map(renderDrawerLink).join('');
+		}
+	});
+	html += `<div class="dr-h">Legal</div>`;
+	html += navData.DRAWER_LEGAL.map(renderDrawerLink).join('');
+	html += `<div class="dr-h">More</div>`;
+	html += navData.NAV_LINKS.map(renderTopLink).join('');
+	html += `<a href="/my-agents" id="home-nav-drawer-my-agents" data-auth="in" hidden>My Agents</a>`;
+	html += `<div class="sep"></div>`;
+	html += `<a href="/login" id="home-nav-drawer-cta" data-auth="out">Sign in</a>`;
+	html += `<a class="btn primary btn--primary" href="/dashboard" style="margin-top: 4px">Console →</a>`;
+	return html;
+}
+
+function renderMenus(root, navData) {
+	const main = root.querySelector('.nav-main');
+	if (main) {
+		main.innerHTML =
+			navData.NAV_GROUPS.map(renderGroup).join('') + navData.NAV_LINKS.map(renderTopLink).join('');
+	}
+	const drawer = root.querySelector('#nav-drawer');
+	if (drawer) drawer.innerHTML = renderDrawer(navData);
 }
 
 // ── Desktop dropdowns ──────────────────────────────────────────────────────

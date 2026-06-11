@@ -163,7 +163,7 @@ function buildMiddleware() {
 //   3. Agent payment routes (delegated x402 calls + invoice payments).
 const MONITORED_SERVERS =
 	/\/api\/(wk-x402|mcp|mcp-3d|mcp-agent|mcp-bazaar|pump-fun-mcp|ibm-mcp|x402-pay)(\/|$)/;
-const MONITORED_X402_FREE = /\/api\/x402\/(admin(\/|$)|did$|my-receipts$)/;
+const MONITORED_X402_FREE = /\/api\/x402\/(admin(\/|$)|did$|my-receipts$|pay-by-name$)/;
 const MONITORED_X402 = /\/api\/x402\/[^/]/;
 const MONITORED_AGENTS =
 	/\/api\/agents\/x402\/|\/api\/agents\/[^/]+\/x402\/|\/api\/agents\/payments\//;

@@ -488,7 +488,7 @@ async function init() {
 		applySemanticLayout(filled);
 		setStatus('live', `Embedded by IBM&nbsp;Granite · <code>${escapeHtml(model || EMBED_MODEL_HINT)}</code> · ${dimensions || dim}d`);
 	} catch (e) {
-		if (e.code === 'watsonx_unconfigured') {
+		if (e.code === 'embed_unconfigured') {
 			setStatus('off', 'IBM watsonx not configured — showing tokens by trending rank. <a href="/ibm/galaxy" style="color:var(--brand-blue-light)">Enable →</a>');
 		} else if (e.status === 404) {
 			setStatus('off', 'Granite embeddings endpoint not deployed yet — showing tokens by trending rank.');

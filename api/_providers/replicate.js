@@ -84,6 +84,29 @@ function multiviewModel() {
 	return readEnv('REPLICATE_MULTIVIEW_MODEL') || null;
 }
 
+// Replicate serves the unversioned /models/{owner}/{name}/predictions endpoint
+// for official models, but community models (firtoz/trellis included) 404 there
+// unless a version is pinned. Resolve the model's latest published version once
+// per process and retry through the version-pinned /predictions endpoint.
+const _latestVersionCache = new Map();
+
+async function resolveLatestVersion(owner, name, authHeaders) {
+	const slug = `${owner}/${name}`;
+	if (_latestVersionCache.has(slug)) return _latestVersionCache.get(slug);
+	const res = await fetch(`${REPLICATE_BASE}/models/${owner}/${name}`, { headers: authHeaders });
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok || !data?.latest_version?.id) {
+		throw Object.assign(
+			new Error(
+				data?.detail || `replicate model ${slug} not found or has no published version`,
+			),
+			{ code: 'mode_unconfigured', status: 502, providerStatus: res.status },
+		);
+	}
+	_latestVersionCache.set(slug, data.latest_version.id);
+	return data.latest_version.id;
+}
+
 function isMultiviewCapable(modelRef) {
 	if (!modelRef) return false;
 	const slug = String(modelRef).split(':')[0].toLowerCase();
@@ -359,7 +382,29 @@ export function createRegenProvider() {
 				});
 			}
 
-			const data = await response.json().catch(() => ({}));
+			let data = await response.json().catch(() => ({}));
+
+			// Community models 404 on the unversioned model-level endpoint even
+			// though the model exists — resolve the latest published version and
+			// retry through the version-pinned predictions endpoint.
+			if (response.status === 404 && slugMatch && !isVersionHash) {
+				const [, owner, name, pinnedVersion] = slugMatch;
+				const version = pinnedVersion || (await resolveLatestVersion(owner, name, authHeaders));
+				try {
+					response = await fetch(`${REPLICATE_BASE}/predictions`, {
+						method: 'POST',
+						headers: authHeaders,
+						body: JSON.stringify({ ...requestBody, version }),
+					});
+				} catch (err) {
+					throw Object.assign(new Error(`replicate submit failed: ${err?.message}`), {
+						code: 'provider_unreachable',
+						status: 502,
+					});
+				}
+				data = await response.json().catch(() => ({}));
+			}
+
 			if (!response.ok) {
 				throw Object.assign(
 					new Error(data?.detail || data?.title || `replicate returned ${response.status}`),

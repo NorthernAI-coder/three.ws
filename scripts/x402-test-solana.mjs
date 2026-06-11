@@ -54,8 +54,7 @@ const ENDPOINTS = [
 	{ name: 'symbol-availability', method: 'GET', url: '/api/x402/symbol-availability?ticker=WWWTEST' },
 	{ name: 'skill-marketplace', method: 'GET', url: `/api/x402/skill-marketplace?agent_id=${REAL_AGENT_ID}` },
 	{ name: 'agent-reputation', method: 'GET', url: `/api/x402/agent-reputation?agent_id=${REAL_AGENT_ID}` },
-	// Aodd9L... is a real pump-agent mint (from skill-marketplace listing).
-	{ name: 'pump-agent-audit', method: 'GET', url: `/api/x402/pump-agent-audit?mint=Aodd9LBDCue4HN6KyhpSai7yudFCoEWJ3FLHdgYajQzb` },
+	{ name: 'pump-agent-audit', method: 'GET', url: `/api/x402/pump-agent-audit?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump` },
 	{
 		name: 'mint-to-mesh-batch',
 		method: 'POST',
@@ -65,7 +64,7 @@ const ENDPOINTS = [
 	{
 		name: 'onchain-identity-verify',
 		method: 'GET',
-		url: `/api/x402/onchain-identity-verify?agent_id=${REAL_AGENT_ID}&chain=solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp&contract_or_mint=Aodd9LBDCue4HN6KyhpSai7yudFCoEWJ3FLHdgYajQzb`,
+		url: `/api/x402/onchain-identity-verify?agent_id=${REAL_AGENT_ID}&chain=solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp&contract_or_mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`,
 	},
 ];
 
