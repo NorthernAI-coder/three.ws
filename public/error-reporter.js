@@ -32,6 +32,12 @@
 		'ResizeObserver loop limit exceeded',
 		'ResizeObserver loop completed with undelivered notifications.',
 	];
+	// Analytics/telemetry endpoints that privacy extensions (uBlock, Brave,
+	// Ghostery…) routinely block. A blocked tracker is the client's choice, not
+	// a site fault — the underlying SDKs degrade silently, so the only artifact
+	// is a noisy "failed to load script" we don't want flooding the logs.
+	const IGNORED_RESOURCE_SOURCES =
+		/\/_vercel\/(insights|speed-insights)\/|\/ingest\/|\.i\.posthog\.com\//;
 
 	const truncate = (value, max) => {
 		if (typeof value !== 'string' || !value) return undefined;
@@ -103,7 +109,22 @@
 			return true;
 		}
 		if (report.message && IGNORED_MESSAGES.includes(report.message)) return true;
+		if (report.type === 'resource' && report.source) {
+			// Privacy-blocker-killed analytics — expected, not actionable.
+			if (IGNORED_RESOURCE_SOURCES.test(report.source)) return true;
+			// An <img src=""> (or a src that resolves to the page itself) is an
+			// element with no real source, not a missing asset. The browser still
+			// fires a load error for it; classify it as benign rather than a 404.
+			if (isCurrentPage(report.source)) return true;
+		}
 		return false;
+	}
+
+	// True when `url` is the current document URL ignoring the fragment — the
+	// resolved value of an element whose src/href attribute is empty.
+	function isCurrentPage(url) {
+		const strip = (u) => String(u).split('#')[0];
+		return strip(url) === strip(location.href);
 	}
 
 	function enqueue(report) {

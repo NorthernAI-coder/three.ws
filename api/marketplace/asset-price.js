@@ -71,6 +71,11 @@ async function handleGet(req, res) {
 	if (!ITEM_TYPES.includes(itemType) || !itemId) {
 		return error(res, 400, 'validation_error', 'item_type and item_id required');
 	}
+	// item_id is a uuid column — reject malformed ids here so the query never
+	// reaches Postgres with bad input (which throws 22P02 → an unhandled 500).
+	if (!postBody.shape.item_id.safeParse(itemId).success) {
+		return error(res, 400, 'validation_error', 'item_id must be a valid uuid');
+	}
 
 	const rl = await limits.widgetRead(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);

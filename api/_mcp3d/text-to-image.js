@@ -15,7 +15,7 @@
 //   REPLICATE_TXT2IMG_MODEL — optional Replicate model override
 //
 // NIM lane: black-forest-labs/flux.1-schnell — Apache-2.0, commercial-OK, served
-// free on the NVIDIA NIM catalog as a base64 PNG (no poll; returns inline).
+// free on the NVIDIA NIM catalog as base64 JPEG (no poll; returns inline).
 // Replicate backstop: black-forest-labs/flux-schnell — same family, $0.003/run.
 
 const REPLICATE_BASE = 'https://api.replicate.com/v1';
@@ -74,14 +74,22 @@ function parseRetryAfter(headers, message) {
 	return 10;
 }
 
-// Persist a base64 PNG to object storage and return a durable https URL.
+// Persist a base64 image to object storage and return a durable https URL.
 // Downstream image-to-3D providers take URLs (Replicate caps inline data URIs at
-// ~256 KB — a 1024px PNG blows straight past that), so neither the Vertex inline
+// ~256 KB — a 1024px image blows straight past that), so neither the Vertex inline
 // data URI nor the NIM base64 artifact can be forwarded as-is.
-async function persistPngBase64(b64) {
+//
+// Format is sniffed from the magic bytes so the object key extension and
+// Content-Type always match the real payload: NIM FLUX returns JPEG artifacts
+// (probed live — see tasks/nvidia-nim/probes/flux.md) while Vertex Imagen
+// returns PNG. Unknown bytes keep the PNG label (legacy behavior).
+async function persistImageBase64(b64) {
 	const { putObject, publicUrl } = await import('../_lib/r2.js');
-	const key = `forge/refs/${globalThis.crypto.randomUUID()}.png`;
-	await putObject({ key, body: Buffer.from(b64, 'base64'), contentType: 'image/png' });
+	const body = Buffer.from(b64, 'base64');
+	const isJpeg = body.length > 2 && body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff;
+	const ext = isJpeg ? 'jpg' : 'png';
+	const key = `forge/refs/${globalThis.crypto.randomUUID()}.${ext}`;
+	await putObject({ key, body, contentType: isJpeg ? 'image/jpeg' : 'image/png' });
 	return publicUrl(key);
 }
 
@@ -90,7 +98,7 @@ async function persistPngBase64(b64) {
 async function persistDataUriImage(result) {
 	if (!result?.imageUrl?.startsWith('data:')) return result;
 	const b64 = result.imageUrl.split(',')[1] || '';
-	return { ...result, imageUrl: await persistPngBase64(b64) };
+	return { ...result, imageUrl: await persistImageBase64(b64) };
 }
 
 // Free lane: FLUX.1-schnell on NVIDIA NIM. Synchronous invoke — the artifact
@@ -112,10 +120,11 @@ async function nimFluxImage(prompt, aspectRatio) {
 				accept: 'application/json',
 				'content-type': 'application/json',
 			},
+			// No cfg_scale: schnell is guidance-distilled and the endpoint enforces
+			// cfg_scale <= 0 for it (sending 3.5 422s — verified live 2026-06-11).
 			body: JSON.stringify({
 				prompt,
 				mode: 'base',
-				cfg_scale: 3.5,
 				width,
 				height,
 				seed: 0,
@@ -147,7 +156,7 @@ async function nimFluxImage(prompt, aspectRatio) {
 	const data = await res.json().catch(() => ({}));
 	const b64 = data?.artifacts?.[0]?.base64;
 	if (!b64) throw new Error('nim flux finished but produced no image');
-	return { imageUrl: await persistPngBase64(b64), model: NIM_FLUX_MODEL };
+	return { imageUrl: await persistImageBase64(b64), model: NIM_FLUX_MODEL };
 }
 
 // Generate a single image from a text prompt.

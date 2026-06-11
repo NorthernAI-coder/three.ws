@@ -114,6 +114,15 @@ function isAbsoluteUrl(key) {
 	return typeof key === 'string' && /^https?:\/\//i.test(key);
 }
 
+// A thumbnail_key written by the pre-fix avatar-OG cache (it derived `_og.png`
+// from an absolute storage_key, so the "key" was a full origin URL that
+// publicUrl() passes through verbatim — pointing at the site instead of the R2
+// CDN, where no object exists). Such keys 404; callers use this to drop or
+// self-heal them rather than surface a broken image.
+export function isLegacyOgThumbnailKey(thumbnailKey) {
+	return /^https?:\/\/.*_og\.png$/i.test(String(thumbnailKey || ''));
+}
+
 function encodeR2Key(key) {
 	return key.split('/').map(encodeURIComponent).join('/');
 }

@@ -5,7 +5,6 @@
 // proxy (api/tts/*) and the agent-voice endpoints (api/agents/:id/voice) don't
 // each reimplement them. Lazy: nothing here touches the network at import time.
 
-import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { env } from './env.js';
 
 export const ELEVEN_BASE = 'https://api.elevenlabs.io/v1';
@@ -130,6 +129,10 @@ export async function createClonedVoice({ name, description, files }) {
 	const apiKey = elevenApiKey();
 	if (!apiKey) throw upstreamError('ElevenLabs is not configured', 503);
 
+	// Dynamic import: the official SDK's module graph takes ~5s to evaluate,
+	// which would otherwise be paid on every cold start of every handler that
+	// imports this lib — only the clone path actually needs it.
+	const { ElevenLabsClient } = await import('@elevenlabs/elevenlabs-js');
 	const client = new ElevenLabsClient({ apiKey });
 	let result;
 	try {

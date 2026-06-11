@@ -140,6 +140,8 @@
     "@gltf-transform/core": "^4.4.0",
     "@gltf-transform/extensions": "^4.4.0",
     "@gltf-transform/functions": "^4.4.0",
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1",
     "@jup-ag/api": "^6.0.48",
     "@mediapipe/tasks-vision": "^0.10.35",
     "@metaplex-foundation/js": "^0.20.1",

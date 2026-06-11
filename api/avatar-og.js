@@ -23,7 +23,7 @@ import { sql } from './_lib/db.js';
 import { getAvatar } from './_lib/avatars.js';
 import { DEMO_AVATARS } from './_lib/demo-avatars.js';
 import { cors, wrap } from './_lib/http.js';
-import { publicUrl, putObject } from './_lib/r2.js';
+import { publicUrl, putObject, isLegacyOgThumbnailKey } from './_lib/r2.js';
 import { renderGlbToPng } from './_lib/render-glb.js';
 
 const CACHE_CARD_OK = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
@@ -84,12 +84,22 @@ export default wrap(async (req, res) => {
 
 	// Cached thumbnail — either client-uploaded (customizer save) or a
 	// previous server render. Either way it's a real R2 object; redirect.
+	// Exception: a legacy poisoned key (absolute, origin-pointing, written by the
+	// pre-fix ogKeyFor) would 302 to a 404, so clear it and fall through to a
+	// fresh render that writes the corrected bucket key.
 	if (avatar.thumbnail_url) {
-		res.statusCode = 302;
-		res.setHeader('location', avatar.thumbnail_url);
-		res.setHeader('cache-control', CACHE_REDIR);
-		res.end();
-		return;
+		if (isLegacyOgThumbnailKey(avatar.thumbnail_url)) {
+			await sql`
+				update avatars set thumbnail_key = null, updated_at = now()
+				where id = ${avatar.id} and deleted_at is null
+			`.catch(() => {});
+		} else {
+			res.statusCode = 302;
+			res.setHeader('location', avatar.thumbnail_url);
+			res.setHeader('cache-control', CACHE_REDIR);
+			res.end();
+			return;
+		}
 	}
 
 	// Private avatars have no public model_url, so headless chromium can't
@@ -178,10 +188,21 @@ async function renderAndCache({ avatar }) {
 	}
 }
 
-// OG cache key: lives alongside the GLB in the user's namespace so it
-// shares lifetime + deletion semantics. _og.png distinguishes from
-// _thumb.jpg (the client-uploaded customizer snapshot).
+// OG cache key. For bucket-backed avatars (the `u/{owner}/…/file.glb` form) it
+// lives alongside the GLB so it shares lifetime + deletion semantics; the
+// `_og.png` suffix distinguishes it from `_thumb.jpg` (the client-uploaded
+// customizer snapshot).
+//
+// First-party / externally-hosted avatars store an ABSOLUTE URL in
+// `storage_key` (e.g. https://three.ws/avatars/michelle.glb). That is not a
+// writable bucket key — deriving `_og.png` from it yields a URL-shaped "key"
+// (https://three.ws/avatars/michelle_og.png) that putObject can't serve and
+// that 404s the instant it's surfaced as a thumbnail. Cache those under a
+// deterministic bucket path keyed by the avatar id instead.
 function ogKeyFor(avatar) {
+	if (/^https?:\/\//i.test(avatar.storage_key || '')) {
+		return `og/avatar/${avatar.id}.png`;
+	}
 	return avatar.storage_key.replace(/\.glb$/i, '') + '_og.png';
 }
 

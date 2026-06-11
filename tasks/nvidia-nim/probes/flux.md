@@ -29,7 +29,7 @@ POST https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-dev
 |-------------|--------|-------------------------------|-------------------------------|-------|
 | `prompt`    | string | required                      | required                      | |
 | `steps`     | int    | **1–4** (≤4 enforced)         | **≥5** (≥5 enforced)          | schnell is the 4-step distilled model |
-| `cfg_scale` | float  | accepted                      | accepted (used 3.5)           | guidance scale |
+| `cfg_scale` | float  | **must be ≤ 0 — omit it**     | accepted (used 3.5)           | schnell is guidance-distilled; sending `3.5` → `422 less_than_equal` (`ctx.le: 0.0`) — verified live in T1.3 |
 | `width`     | enum   | one of the size set below     | same                          | |
 | `height`    | enum   | one of the size set below     | same                          | |
 | `seed`      | int    | accepted, echoed back         | accepted, echoed back         | deterministic |

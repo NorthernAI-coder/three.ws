@@ -36,9 +36,15 @@ function handleClick(e) {
 	if (!a || !isInternalLink(a)) return;
 	e.preventDefault();
 	const dest = a.href;
-	document.startViewTransition(() => {
+	const transition = document.startViewTransition(() => {
 		location.href = dest;
 	});
+	// A rapid second navigation (double-tap, link spammed before the first
+	// settles) aborts the in-flight transition; its `ready`/`finished` promises
+	// then reject with an AbortError. That's expected, not a fault — swallow it
+	// so it doesn't surface as an unhandled rejection in the error logs.
+	transition?.ready?.catch(() => {});
+	transition?.finished?.catch(() => {});
 }
 
 export function enableViewTransitions() {

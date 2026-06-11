@@ -23,6 +23,14 @@
 			<description>Fetching an individual avatar was failing with a server error, which also broke the walking avatar on the home page. The image-processing engine the avatar dress-up baker relies on failed to load in production and took the whole endpoint down with it. Avatar lookups now load independently of the baker, and the missing image libraries ship with the deployment, so avatar pages and the home hero are back.</description>
 		</item>
 		<item>
+			<title>Avatar preview images load reliably</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-11:Avatar preview images load reliably</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed a bug where some community avatars — including the pinned home-town cast — showed a broken preview image in the /play lobby and gallery instead of their portrait. The shareable social-card image for those avatars now generates and serves correctly too, so links posted to X and Discord render a proper preview.</description>
+		</item>
+		<item>
 			<title>Built-in AI stays up when a provider runs dry</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Built-in AI stays up when a provider runs dry</guid>
