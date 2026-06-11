@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Agents dashboard renders reliably again",
+			"summary": "Fixed a crash that could blank out the agent list on your dashboard while it built each agent's card. The page now renders every agent — on-chain, Pump.fun, and off-chain — without errors, including the Deploy onchain and registry links.",
+			"tags": [
+				"fix"
+			],
+			"link": "/dashboard/agents"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Avatar preview images load reliably",
 			"summary": "Fixed a bug where some community avatars — including the pinned home-town cast — showed a broken preview image in the /play lobby and gallery instead of their portrait. The shareable social-card image for those avatars now generates and serves correctly too, so links posted to X and Discord render a proper preview.",
 			"tags": [

@@ -38,6 +38,12 @@
 	// is a noisy "failed to load script" we don't want flooding the logs.
 	const IGNORED_RESOURCE_SOURCES =
 		/\/_vercel\/(insights|speed-insights)\/|\/ingest\/|\.i\.posthog\.com\//;
+	// Exceptions thrown *inside* third-party CDN libraries we load but don't
+	// control. model-viewer (served from ajax.googleapis.com) throws internally
+	// when the browser can't give it a WebGL context — context budget exhausted,
+	// GPU blocklist, headless. It degrades to its poster on its own; the throw is
+	// neither our bug nor fixable from here, so it only adds noise.
+	const IGNORED_THIRD_PARTY_CODE = /ajax\.googleapis\.com\/ajax\/libs\/model-viewer\//;
 
 	const truncate = (value, max) => {
 		if (typeof value !== 'string' || !value) return undefined;
@@ -109,6 +115,21 @@
 			return true;
 		}
 		if (report.message && IGNORED_MESSAGES.includes(report.message)) return true;
+		// Internal failures of a third-party CDN library (identified by the script
+		// they originate from, via either the error's source or its stack) are not
+		// actionable from our code.
+		if (
+			IGNORED_THIRD_PARTY_CODE.test(report.source || '') ||
+			IGNORED_THIRD_PARTY_CODE.test(report.stack || '')
+		) {
+			return true;
+		}
+		// A failed service-worker *registration* ("Script …/sw.js load failed") is
+		// a transient network/iOS-Safari hiccup; VitePWA's autoUpdate re-registers
+		// on the next visit, so it self-heals — noise, not an actionable fault.
+		if (report.message && /sw\.js\b[^]*load failed|load failed[^]*\bsw\.js\b/i.test(report.message)) {
+			return true;
+		}
 		if (report.type === 'resource' && report.source) {
 			// Privacy-blocker-killed analytics — expected, not actionable.
 			if (IGNORED_RESOURCE_SOURCES.test(report.source)) return true;
