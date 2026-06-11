@@ -25,7 +25,6 @@ import {
 
 const TRELLIS_INVOKE = 'https://ai.api.nvidia.com/v1/genai/microsoft/trellis';
 const NVCF_STATUS = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/status';
-const NVCF_ASSETS = 'https://api.nvcf.nvidia.com/v2/nvcf/assets';
 
 const ORIGINAL_FETCH = globalThis.fetch;
 const ORIGINAL_KEY = process.env.NVIDIA_API_KEY;
@@ -125,84 +124,19 @@ describe('nvidia provider — text→3D submit', () => {
 	});
 });
 
-describe('nvidia provider — image→3D submit + asset-upload branch', () => {
-	// Route fetch by URL/method so we can model the image fetch, the optional
-	// NVCF asset handshake, and the invoke in one stub.
-	function stubImagePipeline({ imageBytes, assetId } = {}) {
-		const calls = [];
-		globalThis.fetch = vi.fn(async (url, opts = {}) => {
-			const u = String(url);
-			const method = opts.method || 'GET';
-			calls.push({ url: u, method, headers: opts.headers || {}, body: opts.body });
-			if (u === 'https://img.three.ws/ref.png') {
-				return new Response(imageBytes, { status: 200, headers: { 'content-type': 'image/png' } });
-			}
-			if (u === NVCF_ASSETS && method === 'POST') {
-				return jsonResponse({ assetId, uploadUrl: 'https://presigned.nvcf/upload' });
-			}
-			if (u === 'https://presigned.nvcf/upload' && method === 'PUT') {
-				return new Response(null, { status: 200 });
-			}
-			if (u === TRELLIS_INVOKE && method === 'POST') {
-				return jsonResponse({}, 202, { 'nvcf-reqid': 'req-img-1' });
-			}
-			throw new Error(`unexpected fetch: ${method} ${u}`);
-		});
-		return calls;
-	}
-
-	it('inlines a small reference image as base64 (no asset handshake)', async () => {
-		const calls = stubImagePipeline({ imageBytes: Buffer.from('small-png-bytes') });
+describe('nvidia provider — image input is not part of the contract', () => {
+	// NVIDIA's hosted TRELLIS preview rejects every user-image input form (only
+	// example_id 0–3 sample references are accepted — verified live 2026-06-11,
+	// see tasks/nvidia-nim/probes/trellis.md). The provider is therefore
+	// text-only by design and the forge layer routes photo submissions to the
+	// standing image backend instead. Guard the contract so a future imageTo3d
+	// comes back deliberately (with a live re-probe), not by accident.
+	it('exposes textTo3d + status only — no imageTo3d', () => {
+		globalThis.fetch = vi.fn();
 		const provider = createNvidiaProvider();
-		const job = await provider.imageTo3d({ imageUrl: 'https://img.three.ws/ref.png', tier: 'standard' });
-
-		// No NVCF asset POST happened — only the image fetch + the invoke.
-		expect(calls.some((c) => c.url === NVCF_ASSETS)).toBe(false);
-		const invoke = calls.find((c) => c.url === TRELLIS_INVOKE);
-		const body = JSON.parse(invoke.body);
-		expect(body.mode).toBe('image');
-		expect(body.image).toBe(`data:image/png;base64,${Buffer.from('small-png-bytes').toString('base64')}`);
-		expect(body.ss_sampling_steps).toBe(25); // standard tier
-		// No asset reference header on the inline path.
-		expect(invoke.headers).not.toHaveProperty('NVCF-INPUT-ASSET-REFERENCES');
-		expect(job).toEqual({ kind: 'image-to-3d', taskId: 'req-img-1' });
-	});
-
-	it('runs the NVCF asset handshake for an image over the inline limit', async () => {
-		const big = Buffer.alloc(190 * 1024, 1); // > 180 KB inline limit
-		const calls = stubImagePipeline({ imageBytes: big, assetId: 'asset-xyz' });
-		const provider = createNvidiaProvider();
-		await provider.imageTo3d({ imageUrl: 'https://img.three.ws/ref.png' });
-
-		// Asset created, then the raw bytes PUT to the presigned URL.
-		const create = calls.find((c) => c.url === NVCF_ASSETS && c.method === 'POST');
-		expect(create).toBeDefined();
-		const put = calls.find((c) => c.url === 'https://presigned.nvcf/upload' && c.method === 'PUT');
-		expect(put).toBeDefined();
-		expect(Buffer.isBuffer(put.body)).toBe(true);
-		expect(put.body.equals(big)).toBe(true); // the raw bytes, not re-encoded
-
-		const invoke = calls.find((c) => c.url === TRELLIS_INVOKE);
-		const body = JSON.parse(invoke.body);
-		expect(body.image).toBe('data:image/png;asset_id,asset-xyz');
-		expect(invoke.headers['NVCF-INPUT-ASSET-REFERENCES']).toBe('asset-xyz');
-	});
-
-	it('rejects imageTo3d called without an imageUrl', async () => {
-		globalThis.fetch = vi.fn(async () => jsonResponse({}, 202, { 'nvcf-reqid': 'x' }));
-		const provider = createNvidiaProvider();
-		await expect(provider.imageTo3d({})).rejects.toMatchObject({ code: 'provider_error', status: 400 });
-	});
-
-	it('maps an unreachable reference-image host to provider_unreachable', async () => {
-		globalThis.fetch = vi.fn(async () => {
-			throw new TypeError('fetch failed');
-		});
-		const provider = createNvidiaProvider();
-		await expect(provider.imageTo3d({ imageUrl: 'https://img.three.ws/ref.png' })).rejects.toMatchObject({
-			code: 'provider_unreachable',
-			status: 502,
-		});
+		expect(typeof provider.textTo3d).toBe('function');
+		expect(typeof provider.status).toBe('function');
+		expect(provider.imageTo3d).toBeUndefined();
 	});
 });
 

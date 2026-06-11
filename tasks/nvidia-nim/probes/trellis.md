@@ -105,3 +105,35 @@ console.log(res.status, buf.subarray(0,4).toString("ascii"), buf.byteLength);
 
 The provider wrapper (`api/_providers/nvidia.js`) + full persist verification live in
 `scripts/verify-nvidia-trellis.mjs`.
+
+---
+
+## Addendum 2026-06-11 (T1.5 prod smoke): image mode is example-gated on the hosted preview
+
+Live findings while smoking the deployed image→3D flow — **the hosted preview API does
+not accept user images at all.** Every input form was probed against
+`POST https://ai.api.nvidia.com/v1/genai/microsoft/trellis` with a valid key:
+
+| Input form | Result |
+|---|---|
+| inline base64, 203 KB PNG | 422 `{"detail":"Expected: example_id, got: base64"}` |
+| inline base64, 35 KB JPEG | 422 `{"detail":"Expected: example_id, got: base64"}` — size is irrelevant |
+| NVCF asset (create → presigned PUT → `data:<ct>;asset_id,<id>` + `NVCF-INPUT-ASSET-REFERENCES`) | 422 `{"detail":"Expected: example_id, got: asset_id"}` |
+| `data:<ct>;example_id,<real-asset-uuid>` (with and without the asset header) | 422 `{"detail":"Not valid example_id, expected value 0, 1, 2, 3"}` |
+| bare asset uuid in `image` | 422 `{"detail":"Image has been provided in the invalid form"}` |
+
+The official schema (docs.api.nvidia.com/nim/reference/microsoft-trellis-infer) confirms:
+*"Preview API NIM supports only a predefined set of images. The image should be in form of
+`data:image/png;example_id,{example_id}` with example_id in a range [0,3]."*
+
+**Consequences (shipped same day):**
+- `api/_providers/nvidia.js` is text-only; the NVCF asset-handshake code was removed
+  (recipe preserved above and in git history — it IS the correct mechanism for
+  self-deployed TRELLIS NIMs, which do accept real image input).
+- `resolveBackendId({ userImages })` keeps photo submissions off text-only backends;
+  explicit photo+nvidia requests get a designed 422 `backend_text_only` at the forge
+  boundary; the catalog exposes `user_images` per backend and the /forge UI disables
+  text-only engines while reference views are attached.
+
+The NVCF asset upload handshake itself works (asset create + presigned PUT both 200) —
+it is the TRELLIS preview function that refuses non-example references.

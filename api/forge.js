@@ -200,7 +200,22 @@ async function startJob(req, res) {
 	const tier = resolveTier(parseTier(body));
 	// Tier matters to backend selection: the draft tier routes to the free NVIDIA
 	// NIM lane first (when configured) per the platform free-first policy.
-	const backendId = resolveBackendId({ path, tier, backend: body?.backend });
+	// `userImages` keeps photo submissions off text-only backends — NVIDIA's
+	// hosted TRELLIS preview rejects every user-image input, so a defaulted photo
+	// draft transparently uses the standing image engine instead.
+	const backendId = resolveBackendId({ path, tier, backend: body?.backend, userImages: isImageMode });
+
+	// An explicitly selected text-only backend can't serve a photo submission —
+	// say so plainly rather than failing upstream with an opaque 422.
+	if (isImageMode && BACKENDS[backendId]?.userImages === false) {
+		return json(res, 422, {
+			error: 'backend_text_only',
+			backend: backendId,
+			message:
+				`${BACKENDS[backendId].label} generates from text prompts only — NVIDIA's hosted preview doesn't accept uploaded photos. ` +
+				'Drop the backend field to use the default photo engine, or pick TRELLIS, Meshy, or Tripo.',
+		});
+	}
 
 	try {
 		// ── Geometry-first path (Meshy / Tripo, BYOK) ───────────────────────────
@@ -275,12 +290,13 @@ async function startJob(req, res) {
 			});
 		}
 
-			// ── Free NVIDIA NIM TRELLIS lane (platform-keyed; direct text/image→3D) ──
-			// TRELLIS on NIM emits the mesh natively from a prompt or a single photo
-			// (no FLUX intermediate view), so it exposes meshy-style text/image methods
-			// and a pollable NVCF request id — but it needs no BYOK key. It serves the
-			// image path as the free draft default. NVCF normally returns a poll
-			// handle; on the rare synchronous completion the GLB is already in R2.
+			// ── Free NVIDIA NIM TRELLIS lane (platform-keyed; direct text→3D) ────────
+			// TRELLIS on NIM emits the mesh natively from the prompt (no FLUX
+			// intermediate view) and needs no BYOK key. It serves prompt submissions
+			// on the image path as the free draft default; photo submissions never
+			// resolve here (hosted preview is text-only — see the provider header).
+			// NVCF normally returns a poll handle; on the rare synchronous completion
+			// the GLB is already in R2.
 			if (backendId === 'nvidia') {
 				let nv;
 				try {
@@ -293,23 +309,16 @@ async function startJob(req, res) {
 					});
 				}
 
-				let submitted;
-				let previewImageUrl = null;
-				if (isImageMode) {
-					previewImageUrl = imageUrls[0];
-					submitted = await nv.imageTo3d({ imageUrl: previewImageUrl, tier });
-				} else {
-					submitted = await nv.textTo3d({ prompt, tier });
-				}
+				const submitted = await nv.textTo3d({ prompt, tier });
 
 				const provenance = {
-					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+					mode: 'text_to_3d',
 					path,
 					tier: tier.id,
 					backend: backendId,
 					prompt: prompt || null,
-					preview_image_url: previewImageUrl,
-					reference_image_urls: isImageMode ? [imageUrls[0]] : [],
+					preview_image_url: null,
+					reference_image_urls: [],
 					eta_seconds: estimateEtaSeconds({ backendId, tier }),
 					estimated_credits: estimateCredits({ backendId, path, tier }),
 				};
@@ -323,13 +332,13 @@ async function startJob(req, res) {
 					const creationId = await createCreation({
 						clientKey,
 						ipHash: hashIp(ip),
-						prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
-						aspect: isImageMode ? null : aspect,
-						previewImageUrl,
+						prompt,
+						aspect,
+						previewImageUrl: null,
 						replicateJobId: syntheticJob,
 						textToImageModel: null,
-						viewsRequested: isImageMode ? imageUrls.length : 0,
-						viewsUsed: isImageMode ? 1 : null,
+						viewsRequested: 0,
+						viewsUsed: null,
 						multiview: false,
 						backend: backendId,
 						tier: tier.id,
@@ -360,13 +369,13 @@ async function startJob(req, res) {
 				const creationId = await createCreation({
 					clientKey,
 					ipHash: hashIp(ip),
-					prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
-					aspect: isImageMode ? null : aspect,
-					previewImageUrl,
+					prompt,
+					aspect,
+					previewImageUrl: null,
 					replicateJobId: submitted.taskId,
 					textToImageModel: null,
-					viewsRequested: isImageMode ? imageUrls.length : 0,
-					viewsUsed: isImageMode ? 1 : null,
+					viewsRequested: 0,
+					viewsUsed: null,
 					multiview: false,
 					backend: backendId,
 					tier: tier.id,

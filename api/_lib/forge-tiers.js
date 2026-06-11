@@ -101,6 +101,11 @@ export const BACKENDS = Object.freeze({
 		provider: 'nvidia',
 		requiresEnv: Object.freeze(['NVIDIA_API_KEY']),
 		polyControl: false,
+		// NVIDIA's hosted TRELLIS preview only generates from text prompts — it
+		// rejects every user-image input form (verified live 2026-06-11; see
+		// tasks/nvidia-nim/probes/trellis.md). Photo submissions therefore route to
+		// the standing image backend; this flag drives that routing and the catalog.
+		userImages: false,
 		// Grounded in the live T0.2 probe (tasks/nvidia-nim/probes/trellis.md): draft
 		// text→3D returned synchronously in ~13 s end-to-end incl. R2 persist. With the
 		// draft tier's 0.6 multiplier, baseEta 22 ≈ that observed wall-clock; NVCF keeps
@@ -110,7 +115,7 @@ export const BACKENDS = Object.freeze({
 		// Free NVIDIA NIM lane — no vendor credit cost. This is what makes it the
 		// free-first draft default per platform policy.
 		free: true,
-		blurb: 'Free TRELLIS reconstruction on NVIDIA NIM. The default draft lane; no vendor cost.',
+		blurb: 'Free TRELLIS generation on NVIDIA NIM — the default draft lane for prompts; no vendor cost. Photo input uses the standing engine.',
 	}),
 	trellis: Object.freeze({
 		id: 'trellis',
@@ -192,24 +197,36 @@ export const FREE_DEFAULT_FOR_DRAFT = Object.freeze({
 });
 
 // Resolve the default backend for a (path, tier) when the caller didn't name
-// one. Tier matters because the draft tier routes to the free lane first.
-function defaultBackendFor(p, tierId) {
+// one. Tier matters because the draft tier routes to the free lane first;
+// `userImages` matters because a free lane that can't take user photos
+// (BACKENDS[id].userImages === false) must not be defaulted for them.
+function defaultBackendFor(p, tierId, userImages) {
 	if (tierId === 'draft') {
 		const free = FREE_DEFAULT_FOR_DRAFT[p];
-		if (free && BACKENDS[free] && BACKENDS[free].paths.includes(p) && backendIsConfigured(free)) {
+		const b = free && BACKENDS[free];
+		if (
+			b &&
+			b.paths.includes(p) &&
+			backendIsConfigured(free) &&
+			(!userImages || b.userImages !== false)
+		) {
 			return free;
 		}
 	}
 	return DEFAULT_BACKEND_FOR_PATH[p];
 }
 
-export function resolveBackendId({ path, tier, backend }) {
+// `userImages: true` = the request carries caller-supplied reference images, so
+// the resolved default must be a backend that accepts them. An explicitly named
+// backend is always honored here — the forge handler rejects an unsupported
+// (backend, input) combination with a designed error at the boundary instead.
+export function resolveBackendId({ path, tier, backend, userImages = false }) {
 	const p = PATHS.includes(path) ? path : DEFAULT_PATH;
 	if (backend && BACKENDS[backend] && BACKENDS[backend].paths.includes(p)) {
 		return backend;
 	}
 	const tierId = tier?.id || tier || DEFAULT_TIER;
-	return defaultBackendFor(p, tierId);
+	return defaultBackendFor(p, tierId, userImages);
 }
 
 function readEnv(name) {
@@ -287,6 +304,9 @@ export function buildCatalog() {
 			byok: b.byok || null,
 			poly_control: b.polyControl,
 			free: Boolean(b.free),
+			// False when the backend generates from text prompts only (NVIDIA's
+			// hosted TRELLIS preview) — the UI must not offer it for photo input.
+			user_images: b.userImages !== false,
 			configured: backendIsConfigured(b.id),
 			blurb: b.blurb,
 			estimates: b.paths.reduce((acc, p) => {

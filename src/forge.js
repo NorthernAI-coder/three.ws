@@ -87,6 +87,9 @@ let currentCreationId = null;
 let catalog = null;
 let selectedTier = 'standard';
 let selectedEngine = { id: 'trellis', path: 'image', backend: 'trellis', byok: null, polyControl: false };
+// Once the user deliberately picks an engine we stop auto-selecting the
+// catalog's per-tier default (e.g. the free NVIDIA lane on draft) under them.
+let userPickedEngine = false;
 // BYOK key held only in memory for this session — sent per request, never stored
 // by the page. Signed-in users can instead save it server-side in Account.
 let providerKey = '';
@@ -235,6 +238,9 @@ function buildEngineButtons() {
 		btn.dataset.backend = b.id;
 		btn.dataset.byok = b.byok || '';
 		btn.dataset.poly = String(Boolean(b.poly_control));
+		// Text-only engines (the free NVIDIA TRELLIS preview) can't take photos;
+		// updateEngineAvailability() disables them while reference views are set.
+		btn.dataset.userimages = String(b.user_images !== false);
 		btn.textContent = ENGINE_LABELS[b.id] || b.label;
 		btn.title = `${b.label} — ${b.blurb}`;
 		btn.setAttribute('aria-pressed', String(b.id === selectedEngine.backend));
@@ -244,6 +250,46 @@ function buildEngineButtons() {
 	if (!usable.some((b) => b.id === selectedEngine.backend)) {
 		const first = els.engine.querySelector('button');
 		if (first) selectEngine(first, true);
+	}
+	updateEngineAvailability();
+}
+
+// Keep the engine buttons honest about the current input mode, and keep the
+// selection on the catalog's per-tier default until the user picks one.
+//   • With reference photos attached, text-only engines are disabled (the free
+//     NVIDIA TRELLIS preview rejects user images) and a selected one bounces to
+//     the default photo engine.
+//   • With no photos and no explicit user choice, the tier's default engine is
+//     applied — which is what routes draft prompts onto the free lane.
+function updateEngineAvailability() {
+	if (!els.engine || !catalog) return;
+	const hasPhotos = slots.some((s) => s.state === 'uploaded' || s.state === 'uploading');
+	let bounceTo = null;
+	for (const btn of els.engine.querySelectorAll('button')) {
+		const textOnly = btn.dataset.userimages === 'false';
+		const blocked = textOnly && hasPhotos;
+		btn.disabled = blocked;
+		btn.setAttribute('aria-disabled', String(blocked));
+		if (blocked) {
+			btn.title = 'This engine generates from text prompts only — clear the reference views to use it.';
+		} else if (catalog.backends) {
+			const b = catalog.backends.find((x) => x.id === btn.dataset.backend);
+			if (b) btn.title = `${b.label} — ${b.blurb}`;
+		}
+		if (blocked && btn.dataset.backend === selectedEngine.backend) bounceTo = true;
+	}
+	const defaultId = catalog.default_backend_for_tier?.[selectedTier]?.[selectedEngine.path === 'geometry' ? 'geometry' : 'image'];
+	if (bounceTo) {
+		// Forced move: the selected engine can't serve photos. Prefer the standing
+		// photo default, else the first enabled button.
+		const fallbackId = catalog.default_backend?.image || 'trellis';
+		const target =
+			els.engine.querySelector(`button[data-backend="${fallbackId}"]:not(:disabled)`) ||
+			els.engine.querySelector('button:not(:disabled)');
+		if (target) selectEngine(target);
+	} else if (!userPickedEngine && !hasPhotos && defaultId && defaultId !== selectedEngine.backend) {
+		const target = els.engine.querySelector(`button[data-backend="${defaultId}"]:not(:disabled)`);
+		if (target) selectEngine(target);
 	}
 }
 
@@ -284,6 +330,8 @@ function selectTier(tierId) {
 	for (const b of els.tier.querySelectorAll('button')) {
 		b.setAttribute('aria-pressed', String(b.dataset.tier === tierId));
 	}
+	// Tier changes can move the default engine (draft prefers the free lane).
+	updateEngineAvailability();
 	updateEstimate();
 }
 
@@ -405,6 +453,9 @@ function renderSlot(i) {
 	const s = slots[i];
 	el.dataset.state = s.state;
 	el.draggable = s.state === 'uploaded';
+	// Slot changes flip the input mode (prompt-only ↔ photo), which changes
+	// which engines may serve — keep the selector honest in the same frame.
+	updateEngineAvailability();
 
 	const img = el.querySelector('.vs-thumb');
 	if (s.objectUrl) {
@@ -1015,7 +1066,10 @@ els.tier?.addEventListener('click', (e) => {
 });
 els.engine?.addEventListener('click', (e) => {
 	const btn = e.target.closest('button[data-engine]');
-	if (btn) selectEngine(btn);
+	if (btn && !btn.disabled) {
+		userPickedEngine = true;
+		selectEngine(btn);
+	}
 });
 els.providerKey?.addEventListener('input', () => {
 	providerKey = els.providerKey.value.trim();
