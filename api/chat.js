@@ -3,13 +3,15 @@
 // Body: { message, context, history, agentId?, provider?, model? }
 // Response: SSE stream { type: 'chunk' | 'done' | 'error' }.
 //
-// Provider routing (in order):
+// Provider routing (in order — free providers ALWAYS lead; see
+// api/_lib/chat-models.js DEFAULT_PROVIDER_ORDER):
 //   1. Body.provider when present and the matching key is configured.
 //   2. GROQ_API_KEY → Groq (free platform key — default).
 //   3. OPENROUTER_API_KEY → OpenRouter free tier.
-//   4. OPENAI_API_KEY → OpenAI.
-//   5. ANTHROPIC_API_KEY → Anthropic (BYOK only — never set as a server key).
-//   6. WATSONX_API_KEY (+ project) → IBM Granite on watsonx.ai (server key only;
+//   4. NVIDIA_API_KEY → NVIDIA NIM free tier (third independent free lane).
+//   5. ANTHROPIC_API_KEY → Anthropic (paid backstop — BYOK or host key).
+//   6. OPENAI_API_KEY → OpenAI (paid backstop).
+//   7. WATSONX_API_KEY (+ project) → IBM Granite on watsonx.ai (server key only;
 //      explicit `provider: "watsonx"` from the client, never the silent default).
 // Anthropic, the OpenAI-compatible providers (OpenRouter / Groq / OpenAI), and
 // watsonx.ai use different request shapes, auth, tool-call wire formats, and SSE
@@ -85,6 +87,14 @@ const PROVIDERS = {
 		url: 'https://api.groq.com/openai/v1/chat/completions',
 		style: 'openai',
 	},
+	// NVIDIA NIM (build.nvidia.com) — free OpenAI-compatible inference; one
+	// nvapi key unlocks every hosted model. The third independent free lane.
+	nvidia: {
+		envKey: 'NVIDIA_API_KEY',
+		defaultModel: PROVIDER_MODEL_DEFAULTS.nvidia,
+		url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+		style: 'openai',
+	},
 	openai: {
 		envKey: 'OPENAI_API_KEY',
 		defaultModel: DEFAULT_OPENAI_MODEL,
@@ -136,7 +146,7 @@ const chatBody = z.object({
 	system_prompt: z.string().trim().min(1).max(2000).optional(),
 	agentId: z.string().uuid().optional(),
 	provider: z
-		.enum(['anthropic', 'openrouter', 'groq', 'openai', 'watsonx', 'orchestrate'])
+		.enum(['anthropic', 'openrouter', 'groq', 'nvidia', 'openai', 'watsonx', 'orchestrate'])
 		.optional(),
 	model: z.string().min(1).max(120).optional(),
 	history: z
@@ -335,18 +345,18 @@ export default wrap(async (req, res) => {
 		}
 		const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
 		const hasGroq = !!process.env.GROQ_API_KEY;
-		if (!hasOpenRouter && !hasGroq) {
+		const hasNvidia = !!process.env.NVIDIA_API_KEY;
+		if (!hasOpenRouter && !hasGroq && !hasNvidia) {
 			return error(res, 401, 'unauthorized', 'sign in to chat with the agent');
 		}
 		if (body.provider && !ANON_PROVIDERS.has(body.provider)) {
 			return error(res, 401, 'unauthorized', 'sign in to use this model');
 		}
-		// Honor an explicitly-requested free-tier provider (groq/openrouter).
+		// Honor an explicitly-requested free-tier provider (groq/openrouter/nvidia).
 		// Otherwise default to Groq — the fast, first-attempt-reliable free tier —
-		// and fall back to OpenRouter's free Llama (DEFAULT_FREE_MODEL) if Groq
-		// isn't configured.
+		// then OpenRouter's free Llama (DEFAULT_FREE_MODEL), then NVIDIA NIM.
 		if (!body.provider) {
-			body.provider = hasGroq ? 'groq' : 'openrouter';
+			body.provider = hasGroq ? 'groq' : hasOpenRouter ? 'openrouter' : 'nvidia';
 			if (!body.model && body.provider === 'openrouter') body.model = DEFAULT_FREE_MODEL;
 		}
 		anonymous = true;
@@ -856,8 +866,11 @@ async function governActions(actions, userMessage) {
 // ── Provider selection ───────────────────────────────────────────────────────
 
 function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
+	// Fall back in DEFAULT_PROVIDER_ORDER (free providers first), not the
+	// PROVIDERS object order — and never silently fall into watsonx/orchestrate,
+	// which are explicit-selection-only providers.
 	const order = requested
-		? [requested, ...Object.keys(PROVIDERS).filter((p) => p !== requested)]
+		? [requested, ...DEFAULT_PROVIDER_ORDER.filter((p) => p !== requested)]
 		: DEFAULT_PROVIDER_ORDER;
 
 	// Two passes: first skip providers in a health cooldown, then — only if that
@@ -874,14 +887,15 @@ function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
 			// Orchestrate needs both a key and its endpoint URL.
 			if (name === 'watsonx' && !watsonxConfig().configured) continue;
 			if (name === 'orchestrate' && !orchestrateConfig().configured) continue;
-			// CHAT_MODEL is an Anthropic-style id; it must not leak into a watsonx or
-			// Orchestrate request (which expect their own model/agent ids). Those
-			// providers use the client-named value or their own default.
+			// CHAT_MODEL pins the default model, but only for the provider that
+			// actually serves that id (per MODEL_CATALOG) — with free providers
+			// leading the ladder, an Anthropic-style CHAT_MODEL leaking into a Groq
+			// or NVIDIA request would 400 every chat.
 			const chosenModel =
 				(requested === name && model) ||
 				(name === 'watsonx' || name === 'orchestrate'
 					? cfg.defaultModel
-					: process.env.CHAT_MODEL || cfg.defaultModel);
+					: envPinnedModelFor(name) || cfg.defaultModel);
 			const route = makeRoute(name, cfg, apiKey, chosenModel);
 			// Flag whether this route bills the host's key (no user-supplied key for
 			// the provider) so the handler can enforce the global host-key ceiling.
@@ -891,6 +905,13 @@ function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
 		return null;
 	};
 	return resolve(true) || resolve(false);
+}
+
+// CHAT_MODEL pins a default model via env, but only the provider that serves
+// that id may use it — every other provider keeps its own default.
+function envPinnedModelFor(providerName) {
+	const m = process.env.CHAT_MODEL;
+	return m && MODEL_CATALOG[m]?.provider === providerName ? m : null;
 }
 
 // Build an ordered failover list starting with the primary route. Cycles
@@ -911,6 +932,10 @@ function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
 const FALLBACK_SIBLINGS = {
 	openrouter: OPENROUTER_SIBLINGS,
 	groq: ['llama-3.3-70b-versatile'],
+	// Like Groq, NVIDIA NIM rate-limits per key (one account), so a second NIM
+	// model would re-hit the same throttle — keep a single slot and give the
+	// next fallback slot to a different provider.
+	nvidia: ['meta/llama-3.3-70b-instruct'],
 	anthropic: ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
 	openai: ['gpt-4o-mini'],
 };

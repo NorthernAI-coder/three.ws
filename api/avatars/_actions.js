@@ -638,22 +638,20 @@ Given a screenshot of a 3D avatar, respond with ONLY a JSON object:
 }
 Respond with nothing else — no markdown, no explanation.`;
 
-// Classify an avatar thumbnail with a vision-capable model. Free OpenRouter
-// vision is preferred (platform-funded); Anthropic is used only as a BYOK
-// fallback when a server-side key is present. Throws { code: 'not_configured' }
-// when no vision provider is available so the caller can skip silently.
+// Classify an avatar thumbnail with a vision-capable model. Platform LLM
+// policy (api/_lib/llm.js): free providers lead — OpenRouter's free vision
+// Llama, then the same model family on NVIDIA NIM — and paid Anthropic is the
+// last-resort backstop. Every configured provider is TRIED in order (not
+// pick-first-and-die): a 429 on the free tier degrades to the next lane
+// instead of failing the auto-tag. Throws { code: 'not_configured' } when no
+// vision provider is available so the caller can skip silently.
 async function classifyAvatarImage({ thumbUrl, prompt, env }) {
-	if (env.OPENROUTER_API_KEY) {
-		const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+	const openaiVision = (name, key, url, model, extraHeaders = {}) => async () => {
+		const r = await fetch(url, {
 			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-				'HTTP-Referer': 'https://three.ws',
-				'X-Title': 'three.ws avatar auto-tag',
-			},
+			headers: { 'content-type': 'application/json', authorization: `Bearer ${key}`, ...extraHeaders },
 			body: JSON.stringify({
-				model: 'meta-llama/llama-3.2-11b-vision-instruct',
+				model,
 				max_tokens: 256,
 				messages: [
 					{
@@ -666,37 +664,69 @@ async function classifyAvatarImage({ thumbUrl, prompt, env }) {
 				],
 			}),
 		});
-		if (!r.ok) throw Object.assign(new Error(`openrouter vision ${r.status}`), { code: 'vision_api_error' });
+		if (!r.ok) throw Object.assign(new Error(`${name} vision ${r.status}`), { code: 'vision_api_error' });
 		const d = await r.json();
 		return d.choices?.[0]?.message?.content || '';
+	};
+
+	const attempts = [];
+	if (env.OPENROUTER_API_KEY) {
+		attempts.push(openaiVision(
+			'openrouter',
+			env.OPENROUTER_API_KEY,
+			'https://openrouter.ai/api/v1/chat/completions',
+			'meta-llama/llama-3.2-11b-vision-instruct',
+			{ 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws avatar auto-tag' },
+		));
+	}
+	if (env.NVIDIA_API_KEY) {
+		attempts.push(openaiVision(
+			'nvidia',
+			env.NVIDIA_API_KEY,
+			'https://integrate.api.nvidia.com/v1/chat/completions',
+			'meta/llama-3.2-11b-vision-instruct',
+		));
 	}
 	if (env.ANTHROPIC_API_KEY) {
-		const r = await fetch('https://api.anthropic.com/v1/messages', {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				'x-api-key': env.ANTHROPIC_API_KEY,
-				'anthropic-version': '2023-06-01',
-			},
-			body: JSON.stringify({
-				model: 'claude-haiku-4-5-20251001',
-				max_tokens: 256,
-				messages: [
-					{
-						role: 'user',
-						content: [
-							{ type: 'image', source: { type: 'url', url: thumbUrl } },
-							{ type: 'text', text: prompt },
-						],
-					},
-				],
-			}),
+		attempts.push(async () => {
+			const r = await fetch('https://api.anthropic.com/v1/messages', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					'x-api-key': env.ANTHROPIC_API_KEY,
+					'anthropic-version': '2023-06-01',
+				},
+				body: JSON.stringify({
+					model: 'claude-haiku-4-5-20251001',
+					max_tokens: 256,
+					messages: [
+						{
+							role: 'user',
+							content: [
+								{ type: 'image', source: { type: 'url', url: thumbUrl } },
+								{ type: 'text', text: prompt },
+							],
+						},
+					],
+				}),
+			});
+			if (!r.ok) throw Object.assign(new Error(`anthropic vision ${r.status}`), { code: 'vision_api_error' });
+			const d = await r.json();
+			return d.content?.[0]?.text || '';
 		});
-		if (!r.ok) throw Object.assign(new Error(`anthropic vision ${r.status}`), { code: 'vision_api_error' });
-		const d = await r.json();
-		return d.content?.[0]?.text || '';
 	}
-	throw Object.assign(new Error('no vision provider configured'), { code: 'not_configured' });
+	if (!attempts.length) {
+		throw Object.assign(new Error('no vision provider configured'), { code: 'not_configured' });
+	}
+	let lastErr;
+	for (const attempt of attempts) {
+		try {
+			return await attempt();
+		} catch (err) {
+			lastErr = err;
+		}
+	}
+	throw lastErr;
 }
 
 const handleAutoTag = wrap(async (req, res) => {

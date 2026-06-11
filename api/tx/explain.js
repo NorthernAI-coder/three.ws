@@ -2,6 +2,7 @@ import { Interface } from 'ethers';
 import { env } from '../_lib/env.js';
 import { wrap, cors, error, json, readJson, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { llmComplete, llmConfigured } from '../_lib/llm.js';
 
 const ERC20_TRANSFER_TOPIC =
 	'0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -111,34 +112,19 @@ export default wrap(async (req, res) => {
 		};
 	}
 
-	// Optional plain-English summary via OpenRouter
-	const openRouterKey = env.OPENROUTER_API_KEY;
-	if (openRouterKey) {
+	// Optional plain-English summary via the platform LLM chain (api/_lib/llm.js):
+	// free providers first with full failover, so one rate-limited key doesn't
+	// silently drop summaries platform-wide.
+	if (llmConfigured()) {
 		try {
-			const summaryResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${openRouterKey}`,
-					'Content-Type': 'application/json',
-					'HTTP-Referer': 'https://three.ws',
-					'X-Title': 'three.ws tx explainer',
-				},
-				body: JSON.stringify({
-					model: 'meta-llama/llama-3.1-8b-instruct:free',
-					max_tokens: 200,
-					messages: [
-						{
-							role: 'user',
-							content: `Summarize this on-chain ${chain} transaction in one plain-English paragraph. Be concise. Data: ${JSON.stringify(txData)}`,
-						},
-					],
-				}),
+			const { text } = await llmComplete({
+				system: 'You summarize on-chain transactions in one concise plain-English paragraph.',
+				user: `Summarize this on-chain ${chain} transaction in one plain-English paragraph. Be concise. Data: ${JSON.stringify(txData)}`,
+				maxTokens: 200,
+				timeoutMs: 10_000,
+				track: { tool: 'tx.explain' },
 			});
-			if (summaryResp.ok) {
-				const summaryJson = await summaryResp.json();
-				const text = summaryJson.choices?.[0]?.message?.content;
-				if (text) txData.summary = text.trim();
-			}
+			if (text) txData.summary = text;
 		} catch {
 			// summary is optional — silently skip
 		}

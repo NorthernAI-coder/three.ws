@@ -307,6 +307,11 @@ export const limits = {
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	// Generic public read endpoints (explore, showcase, public agent fetch). 60/min per IP.
 	publicIp: (ip) => getLimiter('public:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// Client-side error report ingestion (api/client-errors). The browser
+	// reporter batches and caps itself at 25 events/page, so legitimate traffic
+	// is a handful of requests per pageview even on a broken page; 30/min per
+	// IP absorbs that while keeping log-flooding abuse bounded.
+	clientErrorsIp: (ip) => getLimiter('client-errors:ip', { limit: 30, window: '1 m' }).limit(ip),
 	// Publishing a /play build to a coin's featured surface (R20). Each write stores
 	// a screenshot in Redis, so cap the burst per IP to keep that bounded; reads use
 	// the generic publicIp bucket.

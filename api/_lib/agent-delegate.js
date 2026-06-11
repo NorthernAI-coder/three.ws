@@ -41,10 +41,9 @@ export async function runAgentDelegation({ toAgentId, message }) {
 		system: systemPrompt,
 		user: message,
 		maxTokens: 1024,
+		// Free providers serve first; if every one fails, the paid backstop
+		// uses the agent's chosen Claude model on the platform key.
 		anthropicModel: model,
-		// Lead with the agent's chosen Claude model on the platform key, then
-		// degrade to the free providers if it's unset or Anthropic is down.
-		serverAnthropic: true,
 		track: { agentId: toAgentId, tool: 'agent.delegate' },
 	});
 	return { response: result.text, agentId: toAgentId, model: result.model };

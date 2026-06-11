@@ -12,7 +12,7 @@ const rateLimitState = {
 };
 
 vi.mock('../../api/_lib/env.js', () => ({
-	env: { APP_ORIGIN: 'http://localhost:3000', OPENROUTER_API_KEY: 'sk-or-test' },
+	env: { APP_ORIGIN: 'http://localhost:3000', OPENROUTER_API_KEY: 'sk-or-test', OPENROUTER_FALLBACK_KEYS: [] },
 }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({

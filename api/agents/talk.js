@@ -104,10 +104,9 @@ export default wrap(async (req, res) => {
 			system: systemPrompt,
 			user: message,
 			maxTokens: 1024,
+			// Free providers serve first; if every one fails, the paid backstop
+			// uses the agent's chosen Claude model on the platform key.
 			anthropicModel: model,
-			// Lead with Claude on the platform key; falls back to the free
-			// providers automatically if it's unset or Anthropic errors.
-			serverAnthropic: true,
 			track: { agentId: agent.id, tool: 'agent.talk' },
 		});
 	} catch (err) {

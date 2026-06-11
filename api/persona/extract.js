@@ -106,7 +106,6 @@ const handler = wrap(async (req, res) => {
 			system: SYSTEM_PROMPT,
 			user: userMessage,
 			maxTokens: 800,
-			serverAnthropic: true,
 		});
 	} catch (err) {
 		if (err instanceof LlmUnavailableError) {

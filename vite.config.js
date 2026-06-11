@@ -1183,6 +1183,27 @@ const appConfig = {
 			},
 		},
 		{
+			// First-party client-side error reporting on every page (embeds
+			// included — errors inside third-party iframe placements are exactly
+			// the ones nobody's DevTools ever sees). The inline bootstrap installs
+			// window error/unhandledrejection listeners synchronously so failures
+			// during page load are captured, queuing raw events into
+			// window.__threeErrQ; the deferred /error-reporter.js (public/) drains
+			// the queue, dedupes/batches, and beacons to /api/client-errors.
+			name: 'client-error-reporter',
+			transformIndexHtml: {
+				order: 'pre',
+				handler() {
+					const BOOTSTRAP =
+						"window.__threeErrQ=window.__threeErrQ||[];window.__threeErrCap=1;addEventListener('error',function(e){window.__threeErrQ.push(e)},!0);addEventListener('unhandledrejection',function(e){window.__threeErrQ.push(e)});";
+					return [
+						{ tag: 'script', children: BOOTSTRAP, injectTo: 'head' },
+						{ tag: 'script', attrs: { defer: true, src: '/error-reporter.js' }, injectTo: 'head' },
+					];
+				},
+			},
+		},
+		{
 			// Native View Transitions for internal nav. Chrome/Safari ship it,
 			// Firefox falls back to a normal location change (no UX regression).
 			// Skip on embed pages — they're iframes and shouldn't intercept clicks.

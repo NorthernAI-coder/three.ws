@@ -26,6 +26,7 @@ import {
 	LAMPORTS_PER_SOL,
 } from '../_lib/avatar-wallet.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
+import { llmComplete } from '../_lib/llm.js';
 import { cors, method, json, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
@@ -63,49 +64,41 @@ function tradeEnv() {
 }
 
 async function generateAnalysis(topic) {
+	// Granite leads when configured, but a watsonx outage degrades to the
+	// platform LLM chain below instead of killing the demo tick.
 	const wx = watsonxConfig();
 	if (wx.configured) {
-		const messages = [
-			{
-				role: 'user',
-				content: `Provide a concise 2–3 sentence crypto market insight on: ${topic}. Be specific, data-driven, and actionable.`,
-			},
-		];
-		const { text } = await watsonxChatComplete(wx, {
-			messages,
-			maxTokens: 200,
-			temperature: 0.7,
-		});
-		return {
-			content: text?.trim() || '',
-			model: wx.chatModel || 'ibm/granite-3-8b-instruct',
-			provider: 'IBM Granite',
-		};
+		try {
+			const messages = [
+				{
+					role: 'user',
+					content: `Provide a concise 2–3 sentence crypto market insight on: ${topic}. Be specific, data-driven, and actionable.`,
+				},
+			];
+			const { text } = await watsonxChatComplete(wx, {
+				messages,
+				maxTokens: 200,
+				temperature: 0.7,
+			});
+			return {
+				content: text?.trim() || '',
+				model: wx.chatModel || 'ibm/granite-3-8b-instruct',
+				provider: 'IBM Granite',
+			};
+		} catch (err) {
+			console.warn(`[agent-trade:demo] watsonx failed (${err?.message}); falling back to platform LLM chain`);
+		}
 	}
 
-	const key = process.env.ANTHROPIC_API_KEY;
-	if (!key) throw new Error('No AI backend — set WATSONX_API_KEY or ANTHROPIC_API_KEY');
-	const resp = await fetch('https://api.anthropic.com/v1/messages', {
-		method: 'POST',
-		headers: {
-			'x-api-key': key,
-			'anthropic-version': '2023-06-01',
-			'content-type': 'application/json',
-		},
-		body: JSON.stringify({
-			model: 'claude-haiku-4-5-20251001',
-			max_tokens: 200,
-			system: 'You are a concise crypto market analyst. Respond in 2–3 sharp sentences.',
-			messages: [{ role: 'user', content: `Market insight on: ${topic}` }],
-		}),
+	// Platform LLM policy (api/_lib/llm.js): free providers first, paid keys as
+	// the automatic last resort — a dead Anthropic key must not kill the demo.
+	const { text, model, provider } = await llmComplete({
+		system: 'You are a concise crypto market analyst. Respond in 2–3 sharp sentences.',
+		user: `Market insight on: ${topic}`,
+		maxTokens: 200,
+		track: { tool: 'agent-trade.demo' },
 	});
-	if (!resp.ok) throw new Error(`Anthropic API error ${resp.status}`);
-	const j = await resp.json();
-	return {
-		content: j.content?.[0]?.text?.trim() || '',
-		model: 'claude-haiku-4-5-20251001',
-		provider: 'Claude Haiku',
-	};
+	return { content: text, model, provider };
 }
 
 function sleep(ms) {
