@@ -92,7 +92,7 @@ let selectedEngine = { id: 'trellis', path: 'image', backend: 'trellis', byok: n
 let providerKey = '';
 
 // Friendly engine labels + where to mint a key, keyed by backend id.
-const ENGINE_LABELS = { trellis: 'Fast', meshy: 'Meshy', tripo: 'Tripo', hunyuan3d: 'Hunyuan3D' };
+const ENGINE_LABELS = { nvidia: 'Free', trellis: 'Fast', meshy: 'Meshy', tripo: 'Tripo', hunyuan3d: 'Hunyuan3D' };
 const KEY_HINTS = {
 	meshy: { label: 'Meshy AI', url: 'https://www.meshy.ai/settings/api' },
 	tripo: { label: 'Tripo AI', url: 'https://platform.tripo3d.ai/api-keys' },

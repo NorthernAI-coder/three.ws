@@ -26,6 +26,7 @@
  * model.
  */
 
+import { randomUUID } from 'node:crypto';
 import { cors, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { textToImage } from './_mcp3d/text-to-image.js';
@@ -55,6 +56,16 @@ import {
 	markFailed,
 	findByJob,
 } from './_lib/forge-store.js';
+
+// The free NVIDIA NIM (TRELLIS) provider is loaded lazily and dynamically: it
+// ships in T1.1, so importing it statically would couple this whole endpoint to
+// a module that may not exist yet. Dynamic import keeps every other backend
+// working in the meantime; a missing module or absent NVIDIA_API_KEY surfaces as
+// a clean backend_unconfigured 501 at the dispatch sites below.
+async function loadNvidiaProvider() {
+	const mod = await import('./_providers/nvidia.js');
+	return mod.createNvidiaProvider();
+}
 
 const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 
@@ -187,7 +198,9 @@ async function startJob(req, res) {
 	// intermediate vs geometry-first) and which quality tier (poly budget).
 	const path = parsePath(body);
 	const tier = resolveTier(parseTier(body));
-	const backendId = resolveBackendId({ path, backend: body?.backend });
+	// Tier matters to backend selection: the draft tier routes to the free NVIDIA
+	// NIM lane first (when configured) per the platform free-first policy.
+	const backendId = resolveBackendId({ path, tier, backend: body?.backend });
 
 	try {
 		// ── Geometry-first path (Meshy / Tripo, BYOK) ───────────────────────────
@@ -262,21 +275,126 @@ async function startJob(req, res) {
 			});
 		}
 
-		// ── Image-intermediate path (TRELLIS default, or Hunyuan3D self-host) ────
-		let provider;
-		try {
-			provider = backendId === 'hunyuan3d' ? createGcpProvider() : createRegenProvider();
-		} catch {
-			// A selected-but-unconfigured self-host backend gets a branchable 501;
-			// the default TRELLIS path keeps its existing "not configured" 503.
-			if (backendId === 'hunyuan3d') {
-				return json(res, 501, {
-					error: 'backend_unconfigured',
-					backend: 'hunyuan3d',
-					message: 'Hunyuan3D self-host is not configured on this deployment.',
+			// ── Free NVIDIA NIM TRELLIS lane (platform-keyed; direct text/image→3D) ──
+			// TRELLIS on NIM emits the mesh natively from a prompt or a single photo
+			// (no FLUX intermediate view), so it exposes meshy-style text/image methods
+			// and a pollable NVCF request id — but it needs no BYOK key. It serves the
+			// image path as the free draft default. NVCF normally returns a poll
+			// handle; on the rare synchronous completion the GLB is already in R2.
+			if (backendId === 'nvidia') {
+				let nv;
+				try {
+					nv = await loadNvidiaProvider();
+				} catch {
+					return json(res, 501, {
+						error: 'backend_unconfigured',
+						backend: 'nvidia',
+						message: 'The free NVIDIA NIM 3D lane is not available on this deployment yet.',
+					});
+				}
+
+				let submitted;
+				let previewImageUrl = null;
+				if (isImageMode) {
+					previewImageUrl = imageUrls[0];
+					submitted = await nv.imageTo3d({ imageUrl: previewImageUrl, tier });
+				} else {
+					submitted = await nv.textTo3d({ prompt, tier });
+				}
+
+				const provenance = {
+					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+					path,
+					tier: tier.id,
+					backend: backendId,
+					prompt: prompt || null,
+					preview_image_url: previewImageUrl,
+					reference_image_urls: isImageMode ? [imageUrls[0]] : [],
+					eta_seconds: estimateEtaSeconds({ backendId, tier }),
+					estimated_credits: estimateCredits({ backendId, path, tier }),
+				};
+
+				const clientKey = clientKeyFrom(req);
+				// Synchronous completion: NVCF already persisted the GLB to R2. Record a
+				// finished creation (a synthetic handle lets materialize copy + flip it
+				// to done) and return it so the client skips polling entirely.
+				if (!submitted.taskId && submitted.resultGlbUrl) {
+					const syntheticJob = randomUUID().replace(/-/g, '');
+					const creationId = await createCreation({
+						clientKey,
+						ipHash: hashIp(ip),
+						prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
+						aspect: isImageMode ? null : aspect,
+						previewImageUrl,
+						replicateJobId: syntheticJob,
+						textToImageModel: null,
+						viewsRequested: isImageMode ? imageUrls.length : 0,
+						viewsUsed: isImageMode ? 1 : null,
+						multiview: false,
+						backend: backendId,
+						tier: tier.id,
+						path,
+					});
+					const durable = await materializeCreation({
+						replicateJobId: syntheticJob,
+						clientKey,
+						glbUrl: submitted.resultGlbUrl,
+					});
+					return json(res, 200, {
+						job_id: null,
+						creation_id: durable?.id ?? creationId,
+						status: 'done',
+						glb_url: durable?.glbUrl ?? submitted.resultGlbUrl,
+						durable: Boolean(durable),
+						...provenance,
+					});
+				}
+
+				// Async: wrap the NVCF request id in a forge token so the poll routes
+				// back to the NIM provider, and store it as the job handle.
+				const token = encodeJobToken({
+					provider: 'nvidia',
+					kind: submitted.kind,
+					taskId: submitted.taskId,
+				});
+				const creationId = await createCreation({
+					clientKey,
+					ipHash: hashIp(ip),
+					prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
+					aspect: isImageMode ? null : aspect,
+					previewImageUrl,
+					replicateJobId: submitted.taskId,
+					textToImageModel: null,
+					viewsRequested: isImageMode ? imageUrls.length : 0,
+					viewsUsed: isImageMode ? 1 : null,
+					multiview: false,
+					backend: backendId,
+					tier: tier.id,
+					path,
+				});
+				return json(res, 200, {
+					job_id: token,
+					creation_id: creationId,
+					status: 'queued',
+					...provenance,
 				});
 			}
-			return unconfigured(res);
+
+			// ── Image-intermediate path (TRELLIS default, or Hunyuan3D self-host) ────
+			let provider;
+			try {
+				provider = backendId === 'hunyuan3d' ? createGcpProvider() : createRegenProvider();
+			} catch {
+				// A selected-but-unconfigured self-host backend gets a branchable 501;
+				// the default TRELLIS path keeps its existing "not configured" 503.
+				if (backendId === 'hunyuan3d') {
+					return json(res, 501, {
+						error: 'backend_unconfigured',
+						backend: 'hunyuan3d',
+						message: 'Hunyuan3D self-host is not configured on this deployment.',
+					});
+				}
+				return unconfigured(res);
 		}
 
 		// Resolve the reference views: supplied directly (image→3D) or a single
@@ -522,6 +640,17 @@ async function pollJob(req, res, jobId) {
 			}
 			const gp = provider === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
 			result = await gp.status({ kind: token.kind, taskId: upstreamId });
+		} else if (provider === 'nvidia') {
+			let nv;
+			try {
+				nv = await loadNvidiaProvider();
+			} catch {
+				return json(res, 501, {
+					error: 'backend_unconfigured',
+					message: 'The free NVIDIA NIM 3D lane is not available on this deployment yet.',
+				});
+			}
+			result = await nv.status({ taskId: upstreamId });
 		} else if (provider === 'gcp') {
 			let gcp;
 			try {

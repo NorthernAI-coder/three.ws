@@ -92,6 +92,25 @@ export function priceUsdcForTier(tier) {
 // vendor credit spend per (path → tier) — null when the backend bills by GPU
 // time rather than credits (TRELLIS/Hunyuan via our own infra).
 export const BACKENDS = Object.freeze({
+	nvidia: Object.freeze({
+		id: 'nvidia',
+		label: 'TRELLIS (free)',
+		vendor: 'Microsoft TRELLIS · NVIDIA NIM',
+		paths: Object.freeze(['image']),
+		byok: false,
+		provider: 'nvidia',
+		requiresEnv: Object.freeze(['NVIDIA_API_KEY']),
+		polyControl: false,
+		// Provisional estimate pending the live T0.2 TRELLIS probe — NVCF keeps the
+		// GPU warm so wall-clock runs well under Replicate's cold-start ~60s; revise
+		// from probes/trellis.md latencies once recorded (T0.2/T1.5).
+		baseEta: 25,
+		credits: null,
+		// Free NVIDIA NIM lane — no vendor credit cost. This is what makes it the
+		// free-first draft default per platform policy.
+		free: true,
+		blurb: 'Free TRELLIS reconstruction on NVIDIA NIM. The default draft lane; no vendor cost.',
+	}),
 	trellis: Object.freeze({
 		id: 'trellis',
 		label: 'TRELLIS',
@@ -162,12 +181,34 @@ export const DEFAULT_BACKEND_FOR_PATH = Object.freeze({
 	geometry: 'meshy',
 });
 
-export function resolveBackendId({ path, backend }) {
+// Free-first override: when the caller asks for the draft tier without naming a
+// backend, prefer the free NVIDIA NIM lane (platform LLM/free-first policy) on
+// the paths it serves — but only when it's actually configured, so a deployment
+// without NVIDIA_API_KEY transparently keeps the standing per-path default. Paid
+// backends (Replicate/Meshy/Tripo) stay fully selectable at every tier.
+export const FREE_DEFAULT_FOR_DRAFT = Object.freeze({
+	image: 'nvidia',
+});
+
+// Resolve the default backend for a (path, tier) when the caller didn't name
+// one. Tier matters because the draft tier routes to the free lane first.
+function defaultBackendFor(p, tierId) {
+	if (tierId === 'draft') {
+		const free = FREE_DEFAULT_FOR_DRAFT[p];
+		if (free && BACKENDS[free] && BACKENDS[free].paths.includes(p) && backendIsConfigured(free)) {
+			return free;
+		}
+	}
+	return DEFAULT_BACKEND_FOR_PATH[p];
+}
+
+export function resolveBackendId({ path, tier, backend }) {
 	const p = PATHS.includes(path) ? path : DEFAULT_PATH;
 	if (backend && BACKENDS[backend] && BACKENDS[backend].paths.includes(p)) {
 		return backend;
 	}
-	return DEFAULT_BACKEND_FOR_PATH[p];
+	const tierId = tier?.id || tier || DEFAULT_TIER;
+	return defaultBackendFor(p, tierId);
 }
 
 function readEnv(name) {
@@ -215,6 +256,15 @@ export function buildCatalog() {
 		default_path: DEFAULT_PATH,
 		default_tier: DEFAULT_TIER,
 		default_backend: DEFAULT_BACKEND_FOR_PATH,
+		// Tier-aware defaults so the UI can show which engine a tier picks when the
+		// user doesn't override it. Draft prefers the free lane where it's live.
+		default_backend_for_tier: TIER_IDS.reduce((acc, tierId) => {
+			acc[tierId] = PATHS.reduce((byPath, p) => {
+				byPath[p] = resolveBackendId({ path: p, tier: tierId });
+				return byPath;
+			}, {});
+			return acc;
+		}, {}),
 		tiers: TIER_IDS.map((id) => {
 			const t = TIERS[id];
 			return {
@@ -235,6 +285,7 @@ export function buildCatalog() {
 			paths: b.paths,
 			byok: b.byok || null,
 			poly_control: b.polyControl,
+			free: Boolean(b.free),
 			configured: backendIsConfigured(b.id),
 			blurb: b.blurb,
 			estimates: b.paths.reduce((acc, p) => {
