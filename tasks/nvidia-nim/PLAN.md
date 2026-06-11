@@ -51,7 +51,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 ### Phase 3 — Widget RAG back online
 - [x] **T3.1** [30-embeddings-multiprovider.md](30-embeddings-multiprovider.md) — multi-provider embeddings, vector-space tagging (NIM free primary, OpenAI backstop, per-doc-set tag; same-space query routing + cross-space refusal; 47 tests green — see Worklog 2026-06-11)
 - [x] **T3.2** [31-reembed-migration.md](31-reembed-migration.md) — re-embed migration script + run (+ optional reranker) (script + 17 unit tests green; every SQL seam verified against live Neon; dry-run against prod = 0 docs/0 chunks so the real run is vacuous — empty corpus has nothing to migrate; NIM embedder live-verified ready — see Worklog 2026-06-11)
-- [ ] **T3.3** [32-rag-verify.md](32-rag-verify.md) — RAG verified end-to-end in prod + changelog
+- [x] **T3.3** [32-rag-verify.md](32-rag-verify.md) — RAG verified end-to-end in prod + changelog (live prod widget grounded its answer in a NIM-embedded corpus; empty case degrades clean; changelog shipped — see Worklog 2026-06-11)
 
 ### Phase 4 — Expansion lanes (after 1–3)
 - [ ] **T4.1** [40-vision-lane.md](40-vision-lane.md) — vision helper + forge validation, fact-checker, alt text
@@ -100,6 +100,34 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T3.3 (end-to-end RAG verification in prod) — DONE on PRODUCTION.**
+  Verified the whole widget-RAG path live against `https://three.ws` with a self-contained,
+  fully-cleaned-up fixture (a throwaway verification user + public talking-agent widget seeded
+  straight into the prod Neon DB, hard-deleted via cascade at the end — zero residue; prod
+  corpus confirmed back to 0 docs after). **Method:** (1) seeded the widget, (2) hit the LIVE
+  prod SSE chat endpoint with the empty corpus first, (3) ingested a distinctive corpus
+  through the REAL production `ingestKnowledge` path (so passages embed via the free NIM lane
+  and every row is stamped `nvidia/nv-embedqa-e5-v5@1024`), (4) re-asked the live endpoint a
+  corpus-only question, (5) ran `testRetrieval` against prod to prove the query embedding lands
+  in the same NIM space. **Results — all green:**
+  • **Embedder lane:** `defaultIngestEmbedderTag()` resolved to `nvidia/nv-embedqa-e5-v5@1024`
+  (free NIM), confirming ingest + query both ride the free lane, not the paid OpenAI backstop.
+  • **Empty case:** widget with no knowledge → live SSE `200`, clean `event: done`, no
+  `event: error`, graceful in-persona reply ("I'm Halcyon, a friendly assistant…"). No grounding,
+  no crash.
+  • **Grounded retrieval:** `testRetrieval` over the prod row returned top chunk tagged
+  `nvidia/nv-embedqa-e5-v5@1024` at cosine **0.6111** — a real same-space match, which is only
+  possible if the query was embedded by NIM (cross-space would have been refused, not scored).
+  • **Grounded chat (the money shot):** the live prod endpoint answered *"The Halcyon coefficient
+  is 8.213, and there are 17 nodes in the Halcyon cache ring, as stated in Project Halcyon —
+  Internal Spec."* — both invented facts (8.213, 17) reproduced verbatim **and the source title
+  cited**, proving the prod server retrieved + grounded on the NIM-embedded corpus. Facts were
+  fictional and answerable only from the doc, so this can't be model prior knowledge.
+  No new app code was needed — the T3.1/T3.2 code was already deployed and prod's
+  `NVIDIA_API_KEY` is live (per T0.1). Holder-readable changelog entry shipped in
+  `data/changelog.json` ("Talking-agent widgets answer from their knowledge again", fix,
+  link `/widgets`), validated by `npm run build:pages`. Verification scripts were temp dotfiles,
+  deleted after the run — no scratch committed. **Phase 3 complete.**
 - **2026-06-11** — **T3.2 (re-embed migration) — DONE & verified; real run is vacuous
   (prod corpus empty).** Closed out the migration: every SQL seam the script uses is now
   proven against the LIVE prod Neon DB, not just the in-memory test fake.
