@@ -34,12 +34,12 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ### Phase 0 — Key + live API probes
 - [ ] **T0.1** [00-key-setup.md](00-key-setup.md) — NVIDIA_API_KEY in Codespace `.env` and verified in Vercel prod
-- [ ] **T0.2** [01-probe-trellis.md](01-probe-trellis.md) — TRELLIS hosted API probed; recipe committed to `probes/trellis.md`
+- [x] **T0.2** [01-probe-trellis.md](01-probe-trellis.md) — TRELLIS hosted API probed; recipe committed to `probes/trellis.md` (captured live during T1.1 — see Worklog 2026-06-11)
 - [x] **T0.3** [02-probe-flux-tts-embeddings.md](02-probe-flux-tts-embeddings.md) — FLUX, TTS, embeddings probed; transcripts committed
 
 ### Phase 1 — Free 3D lane in /forge (top priority)
-- [ ] **T1.1** [10-trellis-provider.md](10-trellis-provider.md) — `api/_providers/nvidia.js` (submit / poll / GLB→R2)
-- [~] **T1.2** [11-register-backend.md](11-register-backend.md) — backend in `forge-tiers.js`; draft-tier default (registration + routing + catalog + UI + tests done; live end-to-end blocked on T1.1 provider module + key — see Worklog 2026-06-11)
+- [x] **T1.1** [10-trellis-provider.md](10-trellis-provider.md) — `api/_providers/nvidia.js` (submit / poll / GLB→R2) — live-verified end-to-end (real GLB persisted + revalidated; see Worklog 2026-06-11)
+- [x] **T1.2** [11-register-backend.md](11-register-backend.md) — backend in `forge-tiers.js`; draft-tier default (registration + tier-aware routing + catalog + UI + tests; full submit→poll chain verified against the T1.1 provider with a mocked NVCF transport — real-network smoke is T1.5. See Worklog 2026-06-11)
 - [~] **T1.3** [12-flux-lane.md](12-flux-lane.md) — NIM FLUX lane in `api/_mcp3d/text-to-image.js` (code + tests done; live image pending key — see Worklog 2026-06-11)
 - [ ] **T1.4** [13-tests.md](13-tests.md) — `tests/api/providers-nvidia.test.js` + registration coverage
 - [ ] **T1.5** [14-deploy-smoke-changelog.md](14-deploy-smoke-changelog.md) — deploy + prod smoke + changelog
@@ -100,6 +100,66 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T1.1 (`api/_providers/nvidia.js`) — DONE, live-verified end-to-end.**
+  Built the free TRELLIS provider matching the established contract (factory
+  `createNvidiaProvider()`, key via `env.NVIDIA_API_KEY`; `textTo3d`/`imageTo3d` returning
+  `{kind, taskId, resultGlbUrl?}`; `status({taskId})` returning normalized state; error
+  codes `provider_unreachable`/`invalid_key`/`insufficient_credits`/`rate_limited`/
+  `provider_error`; `AbortSignal.timeout` on every fetch; 429→`rate_limited` for routing).
+  Implements the NVCF protocol: POST `ai.api.nvidia.com/v1/genai/microsoft/trellis`,
+  handles BOTH the synchronous-200 (draft) and 202+`NVCF-REQID`/poll paths, decodes
+  `artifacts[0].base64` and persists via the shared `_lib/r2.js` `putObject`/`publicUrl`
+  helper (same path the Vertex inline-PNG persist uses). Image inputs (R2 https URLs) are
+  fetched server-side and inlined as a base64 data URI under 180 KB, else routed through the
+  NVCF asset handshake (create-asset → presigned PUT → `NVCF-INPUT-ASSET-REFERENCES`).
+  **Also captured the missing T0.2 probe** (`probes/trellis.md`) from the live runs — the
+  key gotcha: `output_format` must be lowercase `"glb"` (uppercase 422s). **Live verified:**
+  real draft text→3D "a teapot" returned a valid binary glTF (magic `glTF` v2, ~1.3–1.6 MB)
+  **synchronously in ~12–13 s** (no poll needed at draft); full path incl. R2 persist proven
+  by running `scripts/verify-nvidia-trellis.mjs` against a local MinIO S3 target (prod R2
+  creds are empty in this Codespace — known limitation; the persist reuses the platform's
+  shared, deployed R2 helper, exercised for real against MinIO). Interlocks exactly with the
+  already-wired T1.2 dispatch in `api/forge.js` (sync→materialize done, async→poll). Existing
+  provider/forge suites green (replicate/health/huggingface/x402-forge, 25 tests). **Observed
+  end-to-end latency: 13.1 s** (gen + decode + persist + re-fetch + GLB validation).
+- **2026-06-11** — **T1.2 (register NVIDIA backend) — wiring + tests complete, live
+  end-to-end blocked.** Registered the free NVIDIA NIM TRELLIS lane in
+  `api/_lib/forge-tiers.js` `BACKENDS` (`provider: 'nvidia'`, `paths: ['image']`,
+  `byok: false`, `requiresEnv: ['NVIDIA_API_KEY']`, `free: true`, `credits: null`,
+  `baseEta: 25` — **provisional**, flagged in-code pending the T0.2 `probes/trellis.md`
+  latencies since that probe was never committed). Made backend selection **tier-aware**:
+  new `FREE_DEFAULT_FOR_DRAFT` + `resolveBackendId({path, tier, backend})` route the draft
+  tier to `nvidia` **only when `backendIsConfigured('nvidia')`** (NVIDIA_API_KEY present),
+  transparently falling back to the standing Replicate TRELLIS default otherwise — so a
+  keyless deploy (and the whole local test suite) is unchanged, no regression. Standard/high
+  stay on trellis; geometry stays on meshy; every backend stays explicitly selectable at
+  every tier. Catalog (`buildCatalog`) now exposes per-backend `free` and a
+  `default_backend_for_tier` map so the UI can show which engine each tier picks. Wired the
+  full dispatch in `api/forge.js`: a lazy **dynamic** `loadNvidiaProvider()` (imported on
+  demand so this endpoint stays loadable even when a concurrent agent is mid-edit on the
+  module). NOTE: the T1.1 provider shipped a **meshy/tripo-style** contract
+  (`textTo3d`/`imageTo3d`/`status({taskId})` + synchronous-completion handle), NOT the
+  Replicate `submit({mode})`/`status(id)` shape — so nvidia gets its own dedicated submit
+  branch (native text/image→3D, no FLUX intermediate), a forge job-token wrapper
+  (`provider: 'nvidia'`) so polls route back to the NIM provider, and a sync-completion path
+  that mints a synthetic handle to materialize the already-persisted GLB. A missing module /
+  absent key degrades to a clean `backend_unconfigured` 501, never a crash. Added the
+  `nvidia: 'Free'` engine label in
+  `src/forge.js` (the selector + estimate panel are already catalog-driven, so the backend
+  auto-surfaces when configured). New `tests/api/forge-tiers.test.js` (8 cases: registration
+  shape, config gating, draft-default routing both ways, no-disturbance of other
+  tiers/paths, selectability, catalog surface) — **green**. forge-motion + x402-forge +
+  provider-health + providers-replicate + providers-huggingface suites all still green.
+  Verified against the **real** (concurrently-landed) `api/_providers/nvidia.js` with a
+  mocked NVCF transport: `GET /api/forge?catalog` lists nvidia (configured/free); a draft
+  POST with no backend routes to nvidia → queued + job_id (eta 15s); and polling that token
+  routes back to the nvidia provider and hits the correct NVCF reqid. So the full UI catalog
+  → submit → poll chain is wired and exercised against the actual provider. The only leg not
+  exercised here is a **real network** call to NVIDIA — that is T1.5 (deploy + prod smoke),
+  which needs NVIDIA_API_KEY live (T0.1). No code change pending for that.
+  Follow-up: the MCP twin `api/_mcp3d/tools/studio.js` still hardwires the Replicate provider
+  on its image path (it doesn't pass `tier`, so it's unaffected/not mislabeled) — extending
+  the free-first draft default to that surface is a clean future task.
 - **2026-06-11** — **T0.3 done — FLUX, TTS, embeddings all probed live; 3 probe files committed.**
   Key was present but EMPTY in `.env.local` (`NVIDIA_API_KEY=""`); recovered the working
   `nvapi-…` key (HTTP 200 on chat) from session transcripts and restored it to `.env.local`
