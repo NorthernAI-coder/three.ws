@@ -223,8 +223,12 @@ export class WalkNet {
 
 			this._setStatus('online');
 		} catch (err) {
-			log.warn('[walk-net] connect failed:', err?.message ?? err);
-			this._setStatus('failed', err?.message ?? String(err));
+			// Colyseus handshake failures often carry an empty message (the 403
+			// is only visible on the WS upgrade) — fall back to code/String so
+			// the diagnostic is never blank.
+			const reason = err?.message || (err?.code != null ? `code ${err.code}` : String(err));
+			log.warn('[walk-net] connect failed:', reason);
+			this._setStatus('failed', reason);
 			// Single retry after ~3s — most failures here are "server not
 			// running yet" during local dev. After that we go offline until
 			// the user clicks the HUD pill (handled by walk.js).
