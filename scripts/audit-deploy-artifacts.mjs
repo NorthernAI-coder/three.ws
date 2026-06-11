@@ -25,7 +25,7 @@
  * scripts/build-vercel.mjs, and via tests/deploy-artifacts.test.js.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,11 +45,22 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
  * Vercel's checkout and break function tracing.
  */
 export function findCommittedSymlinks({ cwd = ROOT } = {}) {
-	const out = execFileSync('git', ['ls-files', '-s'], {
-		cwd,
-		encoding: 'utf8',
-		maxBuffer: 64 * 1024 * 1024,
-	});
+	let out;
+	try {
+		out = execFileSync('git', ['ls-files', '-s'], {
+			cwd,
+			encoding: 'utf8',
+			maxBuffer: 64 * 1024 * 1024,
+			stdio: ['ignore', 'pipe', 'pipe'],
+		});
+	} catch {
+		// Vercel's build container has no .git directory, so the index is
+		// unavailable there. Committed symlinks materialize as real symlinks in
+		// the checkout, so scan the filesystem instead. Skipped dirs are the
+		// install-time symlink producers that never reach the git index
+		// (node_modules/.bin, setup-claude-skills.mjs → .claude/skills).
+		return findSymlinksOnDisk(cwd);
+	}
 	const symlinks = [];
 	for (const line of out.split('\n')) {
 		if (line.startsWith('120000 ')) {
@@ -57,6 +68,29 @@ export function findCommittedSymlinks({ cwd = ROOT } = {}) {
 		}
 	}
 	return symlinks;
+}
+
+const SYMLINK_SCAN_SKIP = new Set(['node_modules', '.git', '.claude', '.vercel', '.next']);
+
+function findSymlinksOnDisk(root) {
+	const symlinks = [];
+	const stack = [''];
+	while (stack.length) {
+		const rel = stack.pop();
+		let entries;
+		try {
+			entries = readdirSync(resolve(root, rel), { withFileTypes: true });
+		} catch {
+			continue;
+		}
+		for (const entry of entries) {
+			if (SYMLINK_SCAN_SKIP.has(entry.name)) continue;
+			const entryRel = rel ? `${rel}/${entry.name}` : entry.name;
+			if (entry.isSymbolicLink()) symlinks.push(entryRel);
+			else if (entry.isDirectory()) stack.push(entryRel);
+		}
+	}
+	return symlinks.sort();
 }
 
 // ---------------------------------------------------------------------------
