@@ -1,7 +1,8 @@
 /**
  * Solana Blinks / Actions skills
  * --------------------------------
- * Wraps @solana/actions so an agent can:
+ * Implements the Solana Actions spec directly (GET metadata, POST for a
+ * transaction) so an agent can:
  *   - parse a Solana Action (blink) URL → describe what it does
  *   - execute a blink action → build + sign + send transaction
  *
@@ -155,11 +156,7 @@ export function registerBlinksSkills(skills) {
 
 			try {
 				const { wallet, pubkey } = await requireWallet();
-				const [{ VersionedTransaction, Transaction, Connection }, { parseURL, serializeTransaction }] =
-					await Promise.all([
-						import('@solana/web3.js'),
-						import('@solana/actions'),
-					]);
+				const { VersionedTransaction, Transaction, Connection } = await import('@solana/web3.js');
 
 				// POST to action endpoint with the user's account
 				const postResp = await fetch(actionHref, {

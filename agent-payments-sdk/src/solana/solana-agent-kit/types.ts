@@ -2,6 +2,10 @@
 // Copyright (c) 2026 nirholas | x.com/nichxbt | github.com/nirholas
 // All rights reserved.
 
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-function-type --
+   these types mirror upstream solana-agent-kit's public interface verbatim;
+   tightening them would break structural compatibility for consumers. */
+
 import type { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import type { z } from "zod";
 

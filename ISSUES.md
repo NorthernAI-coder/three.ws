@@ -208,6 +208,16 @@ Server responded with 429 Too Many Requests.  Retrying after Xms delay...
 
 ---
 
+### 18. `character-studio/` — 192 pre-existing lint findings (added 2026-06-11)
+
+**Context:** The eslint 8→10 upgrade migrated character-studio to flat config (`character-studio/eslint.config.mjs`). Lint now runs correctly under eslint 10 and surfaces 192 pre-existing findings across 48 files in the vendored CharacterStudio fork (118 `no-unused-vars`, 16 `no-undef`, 17 `no-async-promise-executor`, plus smaller buckets). These all predate the upgrade — the previous `.eslintrc.json` + eslint 8 setup reported the same core findings, so `npm run lint:js` was already red.
+
+**Real-bug candidates among the `no-undef` hits** (each references an identifier that doesn't exist in scope, so the code path throws at runtime): `src/library/manifestDataManager.js` (`testWallet`, `identifier`, `traitOption`, `traitType`), `src/library/mint-utils.js` (`connection`, `ethereum`), `src/library/vrmManager.js` (`addChildAtFirst`), `src/library/walletCollections.js` (`network`), `src/library/download-utils.js` (`optimized`), `src/library/CharacterManifestData.js` (`index`). The `anifest` typos in `src/pages/Wallet.jsx` were fixed in the upgrade commit.
+
+**Status:** ⏳ **OPEN** — fix the `no-undef` bugs path-by-path with the surrounding feature exercised in a browser; then burn down `no-unused-vars` mechanically.
+
+---
+
 ## Summary Table
 
 | Priority | Endpoint | Status | Root Cause | Volume |
