@@ -3,12 +3,15 @@
 //
 // Two design rules drive this file:
 //
-//   1. RELIABILITY-FIRST ORDERING. The fallback ladder leads with the model
-//      that actually answers on the first attempt under current operating
-//      conditions, not the cheapest model. Leading with rate-limited free
-//      models meant the common path was "try 3-4 things that 429/404, then
-//      finally succeed" — paying full fan-out latency and burning quota on
-//      every turn. Free models are kept as *lower-priority* fallbacks.
+//   1. FREE PROVIDERS FIRST, ALWAYS. The platform holds three free-tier keys —
+//      Groq (fastest, first-attempt-reliable), OpenRouter (:free models), and
+//      NVIDIA NIM (one nvapi key, 100+ hosted models) — and the ladder leads
+//      with them in that order. Paid providers (Anthropic, OpenAI) are
+//      LAST-RESORT backstops only: the prod paid keys are routinely invalid
+//      (Anthropic 401) or out of quota (OpenAI), so any ordering that leads
+//      with them burns a doomed attempt on every request. With three
+//      independent free lanes, a request should never surface a provider
+//      error to the user.
 //
 //   2. CAPABILITY-AWARE ROUTING. Every model is annotated with what it can do
 //      ({ tools, moderationGated }). The router consults MODEL_CATALOG and
@@ -21,12 +24,10 @@
 //   - mistralai/mistral-7b-instruct:free → OpenRouter 404 "No endpoints found"
 //   - meta-llama/llama-3.2-3b-instruct:free → no tool-capable endpoint
 //
-// Operational note (ops must act): the OpenAI account is over quota
-// ("You exceeded your current quota, please check your plan and billing"), so
-// `openai` is intentionally ranked LAST — it is effectively a dead final tier
-// until billing is topped up. Until then it only burns one wasted attempt at
-// the very end of an already-exhausted chain. Top up OPENAI billing or remove
-// the key to drop it from the ladder entirely.
+// Operational note (ops must act): the OpenAI account is over quota and the
+// prod Anthropic key 401s. Both are intentionally ranked at the very END of
+// the ladder — dead final tiers that only burn an attempt after every free
+// lane is exhausted. Fix the keys or remove them to drop them entirely.
 
 /**
  * Capability metadata per chat model id — the routing brain. Only models
@@ -64,6 +65,10 @@ export const MODEL_CATALOG = {
 	// OpenInference"). Kept usable for explicit callers (e.g. the /chat app), but
 	// never auto-selected for the primary path or auto-built fallback chains.
 	'openai/gpt-oss-120b:free':   { provider: 'openrouter', tools: true, moderationGated: true },
+
+	// ── NVIDIA NIM free tier — one nvapi key, OpenAI-compatible ───────────────
+	'meta/llama-3.3-70b-instruct':               { provider: 'nvidia', tools: true },
+	'nvidia/llama-3.3-nemotron-super-49b-v1.5':  { provider: 'nvidia', tools: true },
 
 	// ── OpenAI (paid) — see operational note above; ranked last ───────────────
 	'gpt-4o-mini':                { provider: 'openai', tools: true },
@@ -108,27 +113,29 @@ export const PROVIDER_MODEL_DEFAULTS = {
 	anthropic: 'claude-sonnet-4-6',
 	openrouter: DEFAULT_FREE_MODEL,
 	groq: 'llama-3.3-70b-versatile',
+	nvidia: 'meta/llama-3.3-70b-instruct',
 	openai: 'gpt-4o-mini',
 };
 
 /**
- * Provider order to try when none is explicitly requested ("auto"), ranked by
- * first-attempt reliability under current operating conditions:
- *   1. anthropic  — paid, highly reliable, keyed in prod (host we-pay / BYOK).
- *                   Leads the ladder so the common path resolves on attempt 0
- *                   instead of burning the free tiers' rate limits first. Only
- *                   present when a key is configured; skipped otherwise, which
- *                   transparently falls back to the free-tier ordering below.
- *   2. groq       — fast free tier that answers on the first attempt. Per-minute
- *                   caps only; the primary for anonymous/free traffic.
- *   3. openrouter — free fallback (reliable Llama 3.3 70B; see DEFAULT_FREE_MODEL).
- *   4. openai     — LAST. Account is over quota (see operational note); only
- *                   reached after everything else is exhausted.
+ * Provider order to try when none is explicitly requested ("auto"). Free
+ * providers always lead; paid keys are last-resort backstops (see design rule
+ * 1 above — the prod paid keys are routinely dead, and three independent free
+ * lanes must absorb everything):
+ *   1. groq       — fastest free tier, answers on the first attempt. Per-minute
+ *                   caps only; the primary for all traffic.
+ *   2. openrouter — free :free models (reliable Llama 3.3 70B; see
+ *                   DEFAULT_FREE_MODEL), multi-key rotation in llm.js.
+ *   3. nvidia     — NVIDIA NIM free tier; an independent third lane on a
+ *                   different account/infra than the first two.
+ *   4. anthropic  — paid backstop; only reached when every free lane failed
+ *                   (and currently 401s in prod — see operational note).
+ *   5. openai     — paid backstop; account over quota (see operational note).
  * Providers without a configured key are skipped, so the effective ladder is
  * short in the common case. A provider in a health cooldown (see
  * api/_lib/provider-health.js) is also skipped for the cooldown window.
  */
-export const DEFAULT_PROVIDER_ORDER = ['anthropic', 'groq', 'openrouter', 'openai'];
+export const DEFAULT_PROVIDER_ORDER = ['groq', 'openrouter', 'nvidia', 'anthropic', 'openai'];
 
 /**
  * OpenRouter sibling models for per-model rate-limit failover. OpenRouter's
@@ -142,7 +149,7 @@ export const OPENROUTER_SIBLINGS = [
 ];
 
 /** Providers an anonymous (unauthenticated) caller may use — free tiers only. */
-export const ANON_PROVIDER_LIST = ['groq', 'openrouter'];
+export const ANON_PROVIDER_LIST = ['groq', 'openrouter', 'nvidia'];
 
 /**
  * Bounds on the fallback chain so a single request can't churn through every
@@ -156,6 +163,6 @@ export const ANON_PROVIDER_LIST = ['groq', 'openrouter'];
  *                           the fetch at this bound (or the remaining budget,
  *                           whichever is smaller) and fail over to the next route.
  */
-export const MAX_FALLBACK_ATTEMPTS = 3;
+export const MAX_FALLBACK_ATTEMPTS = 4;
 export const TOTAL_BUDGET_MS = 25_000;
 export const PER_CALL_TIMEOUT_MS = 15_000;

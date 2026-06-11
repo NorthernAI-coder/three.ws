@@ -74,12 +74,11 @@ const handler = wrap(async (req, res) => {
 			system,
 			user: body.user_message,
 			maxTokens: 220,
-			serverAnthropic: true,
 		});
 	} catch (err) {
 		if (err instanceof LlmUnavailableError) {
 			return error(res, 503, 'config_missing',
-				'No LLM provider configured. Set ANTHROPIC_API_KEY, GROQ_API_KEY, or OPENROUTER_API_KEY.');
+				'No LLM provider configured. Set GROQ_API_KEY, OPENROUTER_API_KEY, or NVIDIA_API_KEY (free), or ANTHROPIC_API_KEY / OPENAI_API_KEY.');
 		}
 		console.error('[persona/preview] all providers failed', err?.status, err?.message);
 		return error(res, err?.status || 502, 'upstream_error', 'Persona preview is briefly unavailable. Please try again.');

@@ -71,16 +71,19 @@ describe('usableModels (route selector)', () => {
 	});
 });
 
-describe('reliability-first ordering', () => {
-	it('ranks anthropic first (keyed paid tier) and openai last (over-quota tier)', () => {
-		// Anthropic leads so the happy path resolves on attempt 0 when keyed,
-		// instead of burning the rate-limited free tiers first. When Anthropic is
-		// unkeyed it's skipped, so the effective lead becomes groq (the free tier).
-		expect(DEFAULT_PROVIDER_ORDER[0]).toBe('anthropic');
-		expect(DEFAULT_PROVIDER_ORDER[DEFAULT_PROVIDER_ORDER.length - 1]).toBe('openai');
-		// Free tiers still rank ahead of the over-quota OpenAI account.
-		expect(DEFAULT_PROVIDER_ORDER.indexOf('groq')).toBeLessThan(DEFAULT_PROVIDER_ORDER.indexOf('openai'));
-		expect(DEFAULT_PROVIDER_ORDER.indexOf('openrouter')).toBeLessThan(DEFAULT_PROVIDER_ORDER.indexOf('openai'));
+describe('free-first ordering', () => {
+	it('every free provider ranks ahead of every paid provider', () => {
+		// Free providers (Groq → OpenRouter → NVIDIA NIM) always lead; the paid
+		// keys (Anthropic, OpenAI) are last-resort backstops only reached when
+		// all three free lanes have failed.
+		expect(DEFAULT_PROVIDER_ORDER).toEqual(['groq', 'openrouter', 'nvidia', 'anthropic', 'openai']);
+		const free = ['groq', 'openrouter', 'nvidia'];
+		const paid = ['anthropic', 'openai'];
+		for (const f of free) {
+			for (const p of paid) {
+				expect(DEFAULT_PROVIDER_ORDER.indexOf(f), `${f} before ${p}`).toBeLessThan(DEFAULT_PROVIDER_ORDER.indexOf(p));
+			}
+		}
 	});
 
 	it('does not lead the free tier with the moderation-gated model', () => {
@@ -106,7 +109,7 @@ describe('reliability-first ordering', () => {
 	});
 
 	it('anonymous callers are clamped to free providers only', () => {
-		expect(ANON_PROVIDER_LIST).toEqual(['groq', 'openrouter']);
+		expect(ANON_PROVIDER_LIST).toEqual(['groq', 'openrouter', 'nvidia']);
 		expect(ANON_PROVIDER_LIST).not.toContain('openai');
 		expect(ANON_PROVIDER_LIST).not.toContain('anthropic');
 	});

@@ -678,7 +678,8 @@ async function handleDetail(req, res, id) {
 //
 // History is capped at 8 turns; only the agent's published system_prompt is
 // used (no viewer tools, no admin context). Provider is whichever is
-// configured via env, in fallback order: anthropic → openrouter → groq → openai.
+// configured via env, free providers first: groq → openrouter → nvidia →
+// anthropic → openai (see buildPreviewRoutes).
 
 const PREVIEW_PROVIDERS = {
 	anthropic: {
@@ -702,6 +703,13 @@ const PREVIEW_PROVIDERS = {
 		envKey: 'GROQ_API_KEY',
 		url: 'https://api.groq.com/openai/v1/chat/completions',
 		defaultModel: 'llama-3.3-70b-versatile',
+		style: 'openai',
+	},
+	// NVIDIA NIM free tier — third independent free lane (see api/_lib/llm.js).
+	nvidia: {
+		envKey: 'NVIDIA_API_KEY',
+		url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+		defaultModel: 'meta/llama-3.3-70b-instruct',
 		style: 'openai',
 	},
 	openai: {
@@ -864,15 +872,17 @@ async function handlePreview(req, res, id) {
 }
 
 // Build an ordered list of all configured preview routes. Priority mirrors the
-// chat ladder (api/_lib/chat-models.js → DEFAULT_PROVIDER_ORDER): Anthropic-first
-// so the common path resolves on attempt 0 instead of burning the rate-limited
-// free tiers, then the free fallbacks, with the over-quota OpenAI account last.
-//   1. anthropic  — paid server key; keyed in prod, most reliable first attempt
-//   2. groq       — free, fast, first-attempt reliable (per-minute caps only)
-//   3. openrouter — free Llama fallback
-//   4. openai     — paid; last resort (account may be over quota)
+// chat ladder (api/_lib/chat-models.js → DEFAULT_PROVIDER_ORDER): free
+// providers ALWAYS lead, paid keys are last-resort backstops — the prod paid
+// keys are routinely invalid (Anthropic 401) or over quota (OpenAI), so
+// leading with them burned a doomed attempt on every preview.
+//   1. groq       — free, fast, first-attempt reliable (per-minute caps only)
+//   2. openrouter — free Llama fallback
+//   3. nvidia     — NVIDIA NIM free tier, independent third lane
+//   4. anthropic  — paid backstop
+//   5. openai     — paid backstop (account may be over quota)
 function buildPreviewRoutes() {
-	const order = ['anthropic', 'groq', 'openrouter', 'openai'];
+	const order = ['groq', 'openrouter', 'nvidia', 'anthropic', 'openai'];
 	const routes = [];
 	for (const name of order) {
 		const cfg = PREVIEW_PROVIDERS[name];

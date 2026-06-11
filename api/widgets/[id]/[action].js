@@ -15,7 +15,7 @@ import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { captureException } from '../../_lib/sentry.js';
 import { isDemoWidgetId, getDemoWidget } from '../_demo-fixtures.js';
 import { decorate } from '../index.js';
-import { PROVIDER_MODEL_DEFAULTS, DEFAULT_PROVIDER_ORDER } from '../../_lib/chat-models.js';
+import { PROVIDER_MODEL_DEFAULTS, DEFAULT_PROVIDER_ORDER, MODEL_CATALOG, PER_CALL_TIMEOUT_MS } from '../../_lib/chat-models.js';
 import { redactPii } from '../../_lib/pii.js';
 import { embed, cosine, embeddingsConfigured } from '../../_lib/embeddings.js';
 import { watsonxConfig, watsonxToken } from '../../_lib/watsonx.js';
@@ -52,9 +52,10 @@ const HARD_MAX_TOKENS = 4096;
 
 const SAFE_SKILLS = new Set(['speak', 'wave', 'lookAt', 'playClip', 'remember']);
 
-// LLM provider routing — mirrors /api/chat.js. Anthropic is the historical
-// default; the OpenAI-compatible providers (OpenRouter / Groq / OpenAI) ship
-// here too so the talking-agent widget can pick any configured brain.
+// LLM provider routing — mirrors /api/chat.js. Free providers (Groq /
+// OpenRouter / NVIDIA NIM) lead via DEFAULT_PROVIDER_ORDER; paid Anthropic and
+// OpenAI are last-resort backstops. Every entry here MUST cover everything in
+// DEFAULT_PROVIDER_ORDER — pickProviderChain indexes this table by that list.
 const PROVIDERS = {
 	anthropic: {
 		envKey: 'ANTHROPIC_API_KEY',
@@ -76,6 +77,13 @@ const PROVIDERS = {
 		url: 'https://api.groq.com/openai/v1/chat/completions',
 		style: 'openai',
 	},
+	// NVIDIA NIM free tier — third independent free lane (see api/_lib/llm.js).
+	nvidia: {
+		envKey: 'NVIDIA_API_KEY',
+		defaultModel: PROVIDER_MODEL_DEFAULTS.nvidia,
+		url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+		style: 'openai',
+	},
 	openai: {
 		envKey: 'OPENAI_API_KEY',
 		defaultModel: 'gpt-4o-mini',
@@ -95,11 +103,11 @@ const PROVIDERS = {
 
 // Brain settings that surface in widget config. `auto` picks the first
 // configured provider; `custom`/`none` keep their legacy meanings.
-const BRAIN_PROVIDERS = new Set(['auto', 'anthropic', 'openrouter', 'groq', 'openai', 'watsonx']);
+const BRAIN_PROVIDERS = new Set(['auto', 'anthropic', 'openrouter', 'groq', 'nvidia', 'openai', 'watsonx']);
 
 const chatBody = z.object({
 	message: z.string().trim().min(1).max(4000),
-	provider: z.enum(['auto', 'anthropic', 'openrouter', 'groq', 'openai', 'watsonx']).optional(),
+	provider: z.enum(['auto', 'anthropic', 'openrouter', 'groq', 'nvidia', 'openai', 'watsonx']).optional(),
 	model: z.string().min(1).max(160).optional(),
 	history: z
 		.array(
@@ -239,24 +247,51 @@ async function handleChat(req, res) {
 		} else if (provider === 'custom') {
 			result = await callCustomProxy(cfg.proxyURL, body, cfg, allowedSkills);
 		} else {
-			const route = pickProvider(provider, requestedModel);
-			if (!route) {
+			const routes = pickProviderChain(provider, requestedModel);
+			if (!routes.length) {
 				result = {
 					reply: "I'm not configured to answer just yet — no chat provider key is set on this site.",
 					actions: [],
 				};
 			} else {
-				usedProvider = route.name;
-				usedModel = route.model;
-				result = await callLLM({
-					route,
-					message: body.message,
-					history: body.history,
-					systemPrompt: buildSystemPrompt(cfg, widget, knowledgeBlock),
-					temperature: Number(cfg.temperature) || 0.7,
-					maxTurns: Math.min(20, Math.max(1, Number(cfg.maxTurns) || 20)),
-					allowedSkills,
-				});
+				// Walk the whole configured chain (free providers first — see
+				// DEFAULT_PROVIDER_ORDER): a dead key, exhausted quota, rate limit,
+				// or hung upstream on one provider hands off to the next instead of
+				// surfacing a canned failure while another lane could still answer.
+				let lastErr = null;
+				result = null;
+				for (const route of routes) {
+					try {
+						result = await callLLM({
+							route,
+							message: body.message,
+							history: body.history,
+							systemPrompt: buildSystemPrompt(cfg, widget, knowledgeBlock),
+							temperature: Number(cfg.temperature) || 0.7,
+							maxTurns: Math.min(20, Math.max(1, Number(cfg.maxTurns) || 20)),
+							allowedSkills,
+						});
+						usedProvider = route.name;
+						usedModel = route.model;
+						break;
+					} catch (err) {
+						lastErr = err;
+						if (process.env.DEBUG === 'true') {
+							console.warn(`[widget-chat] ${route.name} failed (${err?.message}); trying next provider`);
+						}
+					}
+				}
+				if (!result) {
+					captureException(lastErr || new Error('all widget chat providers failed'), {
+						route: 'widget-chat',
+						stage: 'chain-exhausted',
+						widgetId,
+					});
+					result = {
+						reply: 'I had trouble thinking of a response. Try again in a moment.',
+						actions: [],
+					};
+				}
 			}
 		}
 
@@ -290,28 +325,45 @@ async function handleChat(req, res) {
 
 // ── Brain dispatchers ──────────────────────────────────────────────────────
 
-function pickProvider(requested, requestedModel) {
+function pickProviderChain(requested, requestedModel) {
+	// Fall back in DEFAULT_PROVIDER_ORDER (free providers first), not the
+	// PROVIDERS object order, so an unconfigured explicit request degrades to
+	// the free chain — never to a paid key first. Mirrors api/chat.js. Returns
+	// EVERY configured route in order; the caller walks the list until one
+	// answers, so a single failing provider can never end the conversation.
 	const order =
 		requested && requested !== 'auto'
-			? [requested, ...Object.keys(PROVIDERS).filter((p) => p !== requested)]
+			? [requested, ...DEFAULT_PROVIDER_ORDER.filter((p) => p !== requested)]
 			: DEFAULT_PROVIDER_ORDER;
 
+	const chain = [];
 	for (const name of order) {
 		const cfg = PROVIDERS[name];
+		if (!cfg) continue;
 		const apiKey = process.env[cfg.envKey];
 		if (!apiKey) continue;
 		// watsonx needs both a key and a project/space scope to serve a model.
 		if (name === 'watsonx' && !watsonxConfig().configured) continue;
-		// CHAT_MODEL is an Anthropic-style id; never leak it into a watsonx request
-		// (which expects its own ibm/* model id). watsonx uses the client-named
-		// value or its own default.
+		// CHAT_MODEL pins the default model, but only for the provider that
+		// actually serves that id (per MODEL_CATALOG) — with free providers
+		// leading the ladder, an Anthropic-style CHAT_MODEL leaking into a Groq
+		// or NVIDIA request would 400 every chat. watsonx always keeps its own
+		// ibm/* default.
+		const envPinned =
+			process.env.CHAT_MODEL && MODEL_CATALOG[process.env.CHAT_MODEL]?.provider === name
+				? process.env.CHAT_MODEL
+				: null;
+		// The caller's model choice applies only to the route it was chosen for
+		// (the requested provider, or the lead route under `auto`); fallback
+		// routes run their own default so a model id never leaks cross-provider.
+		const requestedApplies =
+			requestedModel && (requested === name || (requested === 'auto' && chain.length === 0));
 		const model =
-			(requested === name && requestedModel) ||
-			(requested === 'auto' && requestedModel) ||
-			(name === 'watsonx' ? cfg.defaultModel : process.env.CHAT_MODEL || cfg.defaultModel);
-		return { name, cfg, apiKey, model };
+			(requestedApplies && requestedModel) ||
+			(name === 'watsonx' ? cfg.defaultModel : envPinned || cfg.defaultModel);
+		chain.push({ name, cfg, apiKey, model });
 	}
-	return null;
+	return chain;
 }
 
 async function callLLM({
@@ -401,6 +453,9 @@ async function callAnthropic({
 			'content-type': 'application/json',
 		},
 		body: JSON.stringify(payload),
+		// A hung upstream must not eat the whole function budget — abort and let
+		// the provider chain in handleChat move to the next route.
+		signal: AbortSignal.timeout(PER_CALL_TIMEOUT_MS),
 	});
 	if (!upstream.ok) {
 		const text = await upstream.text().catch(() => '');
@@ -409,13 +464,9 @@ async function callAnthropic({
 			status: upstream.status,
 			body: text.slice(0, 400),
 		});
-		if (process.env.DEBUG === 'true') {
-			console.warn('[widget-chat] anthropic', upstream.status, text.slice(0, 400));
-		}
-		return {
-			reply: 'I had trouble thinking of a response. Try again in a moment.',
-			actions: [],
-		};
+		// Throw so the provider chain in handleChat falls over to the next route
+		// (dead key, quota, rate limit — another lane can still answer).
+		throw Object.assign(new Error(`anthropic upstream ${upstream.status}`), { status: upstream.status });
 	}
 	const data = await upstream.json();
 	return normalizeAnthropic(data, allowedSkills);
@@ -458,6 +509,9 @@ async function callOpenAICompatible({
 			...(route.cfg.extraHeaders || {}),
 		},
 		body: JSON.stringify(payload),
+		// A hung upstream must not eat the whole function budget — abort and let
+		// the provider chain in handleChat move to the next route.
+		signal: AbortSignal.timeout(PER_CALL_TIMEOUT_MS),
 	});
 	if (!upstream.ok) {
 		const text = await upstream.text().catch(() => '');
@@ -467,13 +521,8 @@ async function callOpenAICompatible({
 			status: upstream.status,
 			body: text.slice(0, 400),
 		});
-		if (process.env.DEBUG === 'true') {
-			console.warn(`[widget-chat] ${route.name}`, upstream.status, text.slice(0, 400));
-		}
-		return {
-			reply: 'I had trouble thinking of a response. Try again in a moment.',
-			actions: [],
-		};
+		// Throw so the provider chain in handleChat falls over to the next route.
+		throw Object.assign(new Error(`${route.name} upstream ${upstream.status}`), { status: upstream.status });
 	}
 	const data = await upstream.json();
 	return normalizeOpenAI(data, allowedSkills);
@@ -515,6 +564,8 @@ async function callWatsonx({ route, messages, systemPrompt, temperature, maxToke
 				Accept: 'application/json',
 			},
 			body: JSON.stringify(payload),
+			// Abort a hung upstream so the provider chain can move on.
+			signal: AbortSignal.timeout(PER_CALL_TIMEOUT_MS),
 		});
 	}
 
@@ -531,8 +582,8 @@ async function callWatsonx({ route, messages, systemPrompt, temperature, maxToke
 		}
 	} catch (err) {
 		captureException(err, { route: 'widget-chat', provider: 'watsonx', stage: 'fetch' });
-		if (process.env.DEBUG === 'true') console.warn('[widget-chat] watsonx fetch', err?.message);
-		return { reply: 'I had trouble thinking of a response. Try again in a moment.', actions: [] };
+		// Rethrow so the provider chain in handleChat falls over to the next route.
+		throw err;
 	}
 
 	if (!upstream.ok) {
@@ -543,8 +594,8 @@ async function callWatsonx({ route, messages, systemPrompt, temperature, maxToke
 			status: upstream.status,
 			body: text.slice(0, 400),
 		});
-		if (process.env.DEBUG === 'true') console.warn('[widget-chat] watsonx', upstream.status, text.slice(0, 400));
-		return { reply: 'I had trouble thinking of a response. Try again in a moment.', actions: [] };
+		// Throw so the provider chain in handleChat falls over to the next route.
+		throw Object.assign(new Error(`watsonx upstream ${upstream.status}`), { status: upstream.status });
 	}
 	const data = await upstream.json();
 	return normalizeOpenAI(data, allowedSkills);

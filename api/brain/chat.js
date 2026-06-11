@@ -19,6 +19,7 @@ import { cors, method, readJson, error, wrap, rateLimited } from '../_lib/http.j
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatRequest } from '../_lib/watsonx.js';
+import { DEFAULT_FREE_MODEL } from '../_lib/chat-models.js';
 
 // Providers an anonymous (signed-out) caller may use: only the genuinely free
 // tiers — the OpenRouter-routed open-weight default and the free NVIDIA NIM
@@ -248,6 +249,14 @@ const PROVIDERS = {
 	},
 };
 
+// Every configured OpenRouter key, primary first. Fallback keys are typically
+// unfunded free-tier accounts (see env.OPENROUTER_FALLBACK_KEYS) — they can't
+// serve paid mirrors, but they keep every :free route alive when the primary
+// account is out of credits or rate-limited.
+function openrouterKeys() {
+	return [...new Set([env.OPENROUTER_API_KEY, ...env.OPENROUTER_FALLBACK_KEYS].filter(Boolean))];
+}
+
 // Resolve the primary route for a spec: native first-party model when its key is
 // present, otherwise the OpenRouter-routed equivalent, otherwise nothing. `via`
 // records which path won so buildFallback() knows whether OpenRouter is a
@@ -256,7 +265,7 @@ function buildPrimary(spec) {
 	if (spec.watsonx) return watsonxConfig().configured ? { kind: 'watsonx' } : null;
 	const native = spec.native?.();
 	if (native) return { kind: 'model', model: native, via: 'native' };
-	if (spec.openrouterModel && env.OPENROUTER_API_KEY) {
+	if (spec.openrouterModel && openrouterKeys().length) {
 		return { kind: 'model', model: openrouter()(spec.openrouterModel), via: 'openrouter' };
 	}
 	return null;
@@ -265,10 +274,37 @@ function buildPrimary(spec) {
 // A distinct fallback exists only when the primary ran on a native provider key
 // AND an OpenRouter key is configured — then OpenRouter routes around a native
 // outage (quota exhausted, out of credits, rate-limited). When the primary was
-// already OpenRouter there's nowhere better to retry.
+// already OpenRouter the free-tier safety net (freeFallbackChain) is the next stop.
 function buildFallback(spec, primary) {
-	if (primary?.via !== 'native' || !spec.openrouterModel || !env.OPENROUTER_API_KEY) return null;
+	if (primary?.via !== 'native' || !spec.openrouterModel || !openrouterKeys().length) return null;
 	return openrouter()(spec.openrouterModel);
+}
+
+// The last line of defense: free providers the platform can always fall back to
+// when the requested model's primary AND mirror routes both fail before any
+// token streamed. Free-first platform policy (api/_lib/llm.js): the user gets
+// an answer from an open-weight model rather than an error event. Skips routes
+// that already failed as the primary (same key + model would fail identically).
+function freeFallbackChain(providerKey, spec, primary) {
+	const chain = [];
+	if (env.GROQ_API_KEY && providerKey !== 'groq-llama') {
+		chain.push({
+			label: 'groq/llama-3.3-70b-versatile',
+			model: createOpenAI({ apiKey: env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' }).chat('llama-3.3-70b-versatile'),
+		});
+	}
+	openrouterKeys().forEach((key, i) => {
+		// The primary already burned this exact key+model pair — don't repeat it.
+		if (i === 0 && primary?.via === 'openrouter' && spec.openrouterModel === DEFAULT_FREE_MODEL) return;
+		chain.push({
+			label: `openrouter${i > 0 ? `#${i + 1}` : ''}/${DEFAULT_FREE_MODEL}`,
+			model: openrouter(key)(DEFAULT_FREE_MODEL),
+		});
+	});
+	if (env.NVIDIA_API_KEY && !providerKey.startsWith('nvidia-')) {
+		chain.push({ label: 'nvidia/llama-3.3-70b-instruct', model: nvidia('meta/llama-3.3-70b-instruct') });
+	}
+	return chain;
 }
 
 // NVIDIA NIM (build.nvidia.com) is OpenAI-*compatible* (Chat Completions, not the
@@ -281,9 +317,9 @@ function nvidia(modelId) {
 	}).chat(modelId);
 }
 
-function openrouter() {
+function openrouter(key = openrouterKeys()[0]) {
 	const provider = createOpenAI({
-		apiKey: env.OPENROUTER_API_KEY,
+		apiKey: key,
 		baseURL: 'https://openrouter.ai/api/v1',
 		headers: { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws brain' },
 	});
@@ -548,42 +584,54 @@ export default wrap(async function handler(req, res) {
 		res.end();
 	};
 
+	// Ordered attempt list: the requested route first, its OpenRouter mirror
+	// second, then the free-tier safety net (Groq → OpenRouter :free across every
+	// key → NVIDIA NIM). Any attempt that fails BEFORE the first token — auth
+	// failure on a dead server key, quota exhaustion, rate limit, hang, 5xx —
+	// hands off to the next route, so a single bad provider never surfaces as an
+	// error event while any free provider can still answer. Once partial output
+	// has streamed we are committed to that attempt.
 	try {
-		// watsonx.ai isn't an AI SDK model — stream it through the shared client,
-		// emitting the same first/chunk/done event protocol the page expects.
-		if (primary.kind === 'watsonx') {
-			await streamWatsonx(res, { messages, system, maxTokens, t0 });
-			return;
-		}
+		const attempts = primary.kind === 'watsonx'
+			? [{ label: 'watsonx', watsonx: true }]
+			: [{ label: 'primary', model: primary.model }];
+		if (fallbackModel) attempts.push({ label: 'openrouter-mirror', model: fallbackModel });
+		for (const f of freeFallbackChain(providerKey, spec, primary)) attempts.push(f);
 
-		try {
-			await streamOnce(maxTokens, primary.model);
-		} catch (err) {
-			const canRetry = firstTokenMs === null && !res.writableEnded;
-			const affordable = affordableBudget(err);
-			if (affordable && canRetry) {
+		let lastErr = null;
+		for (const [i, attempt] of attempts.entries()) {
+			if (firstTokenMs !== null || res.writableEnded) return;
+			// Leave the attempt at least a second of wall-clock to connect.
+			if (i > 0 && Date.now() >= deadline - 1_000) break;
+			if (i > 0) {
+				console.warn(`[brain:${providerKey}] ${attempts[i - 1].label} failed (${conciseReason(lastErr)}); falling back to ${attempt.label}`);
+				// Advisory for the client (current page ignores unknown events).
+				res.write(`event: fallback\ndata: ${JSON.stringify({ route: attempt.label })}\n\n`);
+			}
+			try {
+				// watsonx.ai isn't an AI SDK model — stream it through the shared
+				// client, emitting the same first/chunk/done event protocol. It only
+				// throws before writing tokens, so falling through is safe.
+				if (attempt.watsonx) await streamWatsonx(res, { messages, system, maxTokens, t0 });
+				else await streamOnce(maxTokens, attempt.model);
+				return;
+			} catch (err) {
+				lastErr = err;
 				// OpenRouter free tier: "requires more credits, or fewer max_tokens.
-				// You requested up to 1024 tokens, but can only afford 788." Retry once
-				// at the affordable ceiling instead of hard-failing.
-				await streamOnce(affordable, primary.model);
-			} else if (fallbackModel && canRetry && isProviderOutage(err)) {
-				// Native provider is down (over quota, out of credits, rate-limited).
-				// Route the same request through OpenRouter so the user still gets a reply.
-				console.warn(`[brain:${providerKey}] native provider failed (${conciseReason(err)}); falling back to OpenRouter`);
-				try {
-					await streamOnce(maxTokens, fallbackModel);
-				} catch (err2) {
-					const affordable2 = affordableBudget(err2);
-					if (affordable2 && firstTokenMs === null && !res.writableEnded) {
-						await streamOnce(affordable2, fallbackModel);
-					} else {
-						throw err2;
+				// You requested up to 1024 tokens, but can only afford 788." Retry this
+				// route once at the affordable ceiling before moving on.
+				const affordable = attempt.model ? affordableBudget(err) : null;
+				if (affordable && firstTokenMs === null && !res.writableEnded) {
+					try {
+						await streamOnce(affordable, attempt.model);
+						return;
+					} catch (err2) {
+						lastErr = err2;
 					}
 				}
-			} else {
-				throw err;
 			}
 		}
+		throw lastErr || new Error('no provider route available');
 	} catch (err) {
 		const elapsedMs = Date.now() - t0;
 		// The SDK no longer logs for us (onError is captured), so emit one concise
@@ -610,21 +658,6 @@ export default wrap(async function handler(req, res) {
 function affordableBudget(err) {
 	const m = /can only afford (\d+)/i.exec(err?.message || '');
 	return m ? Math.max(64, Math.floor(Number(m[1]) * 0.9)) : null;
-}
-
-// A provider-side outage we can route around (vs a caller/content error that
-// every provider would reject identically): rate-limit, quota exhaustion, out of
-// credits, or an upstream 5xx.
-function isProviderOutage(err) {
-	const status = Number(err?.statusCode || err?.cause?.statusCode || 0);
-	if (status === 429 || status === 402 || status >= 500) return true;
-	// An aborted attempt — our per-attempt timeout budget firing on a hung
-	// provider — is route-around-able: hand off to the OpenRouter fallback rather
-	// than surfacing a dead-air error to the user.
-	const name = err?.name || err?.cause?.name || '';
-	if (name === 'AbortError' || name === 'TimeoutError') return true;
-	const msg = `${err?.message || ''} ${err?.cause?.message || ''}`;
-	return /quota|insufficient_quota|rate.?limit|too many requests|billing|exceeded your current|requires more credits|overloaded|temporarily unavailable|maxRetriesExceeded|abort|timed out|timeout/i.test(msg);
 }
 
 // One-line, length-capped error summary for server logs.
