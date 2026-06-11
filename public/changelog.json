@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T03:28:03.199Z",
+	"generated_at": "2026-06-11T04:19:59.255Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": null,
 			"tags": [
 				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Built-in AI stays up when a provider account runs dry",
+			"summary": "The platform's built-in AI (chat, tutor, fact-checker, persona tools) now rotates across multiple OpenRouter accounts: when one account runs out of credits or hits a rate limit, the next takes over automatically, before any of the response has streamed. Paid x402 endpoints that previously returned errors during a provider outage now degrade to a backup account instead of failing.",
+			"link": null,
+			"tags": [
+				"improvement",
 				"infra"
 			]
 		},

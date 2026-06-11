@@ -15,6 +15,14 @@
 			<description>Fetching an individual avatar was failing with a server error, which also broke the walking avatar on the home page. The image-processing engine the avatar dress-up baker relies on failed to load in production and took the whole endpoint down with it. Avatar lookups now load independently of the baker, and the missing image libraries ship with the deployment, so avatar pages and the home hero are back.</description>
 		</item>
 		<item>
+			<title>Built-in AI stays up when a provider account runs dry</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-11:Built-in AI stays up when a provider account runs dry</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The platform's built-in AI (chat, tutor, fact-checker, persona tools) now rotates across multiple OpenRouter accounts: when one account runs out of credits or hits a rate limit, the next takes over automatically, before any of the response has streamed. Paid x402 endpoints that previously returned errors during a provider outage now degrade to a backup account instead of failing.</description>
+		</item>
+		<item>
 			<title>Faster, quieter agents directory and site-wide page polish</title>
 			<link>https://three.ws/agents</link>
 			<guid isPermaLink="false">2026-06-11:Faster, quieter agents directory and site-wide page polish</guid>

@@ -2,15 +2,22 @@
 //
 // Policy (do not re-implement per endpoint — that is how this drifted before):
 //
-//   • Groq and OpenRouter are PLATFORM-FUNDED. The server holds those keys and
-//     callers use them for free. They are the default providers, tried in order.
+//   • FREE PROVIDERS FIRST, ALWAYS. Groq, OpenRouter, and NVIDIA NIM are
+//     platform-funded free tiers — the server holds those keys and callers use
+//     them at zero marginal cost. They form the default chain, tried in order,
+//     and every flow must survive on them alone: the paid keys in prod are
+//     routinely invalid or out of quota, so a chain that depends on them fails.
 //
-//   • Anthropic is used when the caller passes an explicit BYOK `anthropicKey`
-//     (e.g. an agent owner's own key), OR when the caller opts in with
-//     `serverAnthropic: true` and a server `ANTHROPIC_API_KEY` is configured.
-//     Both are OFF by default: a caller that passes neither never touches
-//     Anthropic, and no flow hard-fails when the key is absent — every flow
-//     still degrades to the free providers.
+//   • Paid server keys are the LAST-RESORT tier, automatically. When
+//     ANTHROPIC_API_KEY or OPENAI_API_KEY is configured, those providers are
+//     appended to the tail of EVERY chain so a request that exhausted the
+//     free providers still succeeds instead of erroring. They never lead, and
+//     no flow hard-fails when they are absent or out of quota.
+//
+//   • BYOK is the one exception to free-first: a caller-supplied
+//     `anthropicKey` (e.g. an agent owner's own key) leads the chain — that's
+//     the caller's explicit model choice on the caller's own billing — still
+//     degrading to the free chain on failure.
 //
 // Consolidated from the multi-provider fallback that already lived in
 // api/persona/extract.js and api/persona/preview.js.
@@ -21,12 +28,19 @@ import { costMicroUsd } from './llm-pricing.js';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct';
+// Same Llama 3.3 70B family on NVIDIA NIM (build.nvidia.com) — one free nvapi
+// key, OpenAI-compatible, so the chain degrades across providers without
+// changing model behavior.
+const NVIDIA_MODEL = 'meta/llama-3.3-70b-instruct';
 const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
+// Paid last-resort tail (see policy above). Mini keeps the backstop cheap; the
+// repo-wide OpenAI default (api/_lib/chat-models.js) uses the same model.
+const OPENAI_MODEL = 'gpt-4o-mini';
 
 // Thrown when no provider is available at all (no free key configured and no
 // BYOK key supplied). Carries an HTTP status so handlers can surface it as 503.
 export class LlmUnavailableError extends Error {
-	constructor(message = 'No LLM provider available. Configure GROQ_API_KEY or OPENROUTER_API_KEY, or supply a BYOK Anthropic key.') {
+	constructor(message = 'No LLM provider available. Configure GROQ_API_KEY, OPENROUTER_API_KEY, or NVIDIA_API_KEY (free), or ANTHROPIC_API_KEY / OPENAI_API_KEY (paid backstop), or supply a BYOK Anthropic key.') {
 		super(message);
 		this.name = 'LlmUnavailableError';
 		this.code = 'llm_unavailable';
@@ -75,19 +89,18 @@ function openaiCompatProvider({ name, key, url, model, extraHeaders = {} }) {
 	};
 }
 
-// Build the ordered provider chain for a request. Anthropic leads when keyed —
-// a caller-supplied BYOK key always, or the server `ANTHROPIC_API_KEY` when the
-// caller opts in with `serverAnthropic: true`. After that come the free platform
-// providers (Groq, then OpenRouter).
-//
-// `serverAnthropic` is opt-in (default off) so the historical BYOK-only policy
-// is unchanged for existing callers: the platform never *depends* on a server
-// Anthropic key and still degrades to the free providers when it's absent. The
-// persona endpoints opt in to get Anthropic-first ordered failover.
-function providerChain({ anthropicKey, anthropicModel, serverAnthropic = false } = {}) {
+// Build the ordered provider chain for a request: free platform providers
+// first (Groq → OpenRouter keys → NVIDIA NIM), paid providers only at the
+// edges. A caller-supplied BYOK `anthropicKey` leads the chain — that's the
+// caller's explicit model choice on the caller's own billing — and still
+// degrades to the free chain on failure. The server ANTHROPIC_API_KEY and
+// OPENAI_API_KEY are appended LAST, automatically, as backstops after every
+// free provider: the prod paid keys are routinely invalid or out of quota, so
+// platform spend never leads and nothing depends on it — but when a key does
+// work, a request that exhausted the free tier still succeeds.
+function providerChain({ anthropicKey, anthropicModel } = {}) {
 	const chain = [];
 	if (anthropicKey) chain.push(anthropicProvider(anthropicKey, anthropicModel));
-	else if (serverAnthropic && env.ANTHROPIC_API_KEY) chain.push(anthropicProvider(env.ANTHROPIC_API_KEY, anthropicModel));
 	if (env.GROQ_API_KEY) {
 		chain.push(openaiCompatProvider({
 			name: 'groq',
@@ -96,13 +109,40 @@ function providerChain({ anthropicKey, anthropicModel, serverAnthropic = false }
 			model: GROQ_MODEL,
 		}));
 	}
-	if (env.OPENROUTER_API_KEY) {
+	// One provider entry per OpenRouter key: when the primary account runs out
+	// of credits (402) or hits a rate limit, the next key takes over. Fallback
+	// keys are typically unfunded free-tier accounts, so they get the model's
+	// :free variant — the paid model would 402 on them unconditionally.
+	const openrouterKeys = [...new Set([env.OPENROUTER_API_KEY, ...env.OPENROUTER_FALLBACK_KEYS].filter(Boolean))];
+	openrouterKeys.forEach((key, i) => {
 		chain.push(openaiCompatProvider({
-			name: 'openrouter',
-			key: env.OPENROUTER_API_KEY,
+			name: i === 0 ? 'openrouter' : `openrouter#${i + 1}`,
+			key,
 			url: 'https://openrouter.ai/api/v1/chat/completions',
-			model: OPENROUTER_MODEL,
+			model: i === 0 ? OPENROUTER_MODEL : `${OPENROUTER_MODEL}:free`,
 			extraHeaders: { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws' },
+		}));
+	});
+	if (env.NVIDIA_API_KEY) {
+		chain.push(openaiCompatProvider({
+			name: 'nvidia',
+			key: env.NVIDIA_API_KEY,
+			url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+			model: NVIDIA_MODEL,
+		}));
+	}
+	// Paid backstops — always appended, never leading. Server Anthropic is
+	// skipped when a BYOK key already leads the chain (the caller chose their
+	// own Claude billing; the platform doesn't re-buy the same model for them).
+	if (!anthropicKey && env.ANTHROPIC_API_KEY) {
+		chain.push(anthropicProvider(env.ANTHROPIC_API_KEY, anthropicModel));
+	}
+	if (env.OPENAI_API_KEY) {
+		chain.push(openaiCompatProvider({
+			name: 'openai',
+			key: env.OPENAI_API_KEY,
+			url: 'https://api.openai.com/v1/chat/completions',
+			model: OPENAI_MODEL,
 		}));
 	}
 	return chain;
@@ -132,8 +172,8 @@ export function llmConfigured(opts = {}) {
 // { userId, agentId, avatarId, clientId, apiKeyId, tool } — are all optional;
 // pass whatever the call site knows. Recording is fire-and-forget (see
 // recordEvent), so it never delays or fails the completion.
-export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, serverAnthropic = false, timeoutMs = 30_000, track = null }) {
-	const chain = providerChain({ anthropicKey, anthropicModel, serverAnthropic });
+export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, timeoutMs = 30_000, track = null }) {
+	const chain = providerChain({ anthropicKey, anthropicModel });
 	if (!chain.length) throw new LlmUnavailableError();
 
 	let lastErr;

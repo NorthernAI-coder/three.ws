@@ -728,6 +728,17 @@ export const env = {
 		return opt('OPENROUTER_API_KEY');
 	},
 
+	// Additional OpenRouter keys, comma-separated, tried in order after
+	// OPENROUTER_API_KEY fails (credits exhausted, rate-limited, revoked).
+	// Unfunded free-tier keys belong here: the llm.js failover pairs fallback
+	// keys with the model's :free variant so they can still serve.
+	get OPENROUTER_FALLBACK_KEYS() {
+		return (opt('OPENROUTER_FALLBACK_KEYS') || '')
+			.split(',')
+			.map((k) => k.trim())
+			.filter(Boolean);
+	},
+
 	// Alibaba Cloud DashScope (international) — direct Qwen access. Used by
 	// /api/brain/chat when the user selects a Qwen provider. Falls back to
 	// OPENROUTER_API_KEY when unset.
