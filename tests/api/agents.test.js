@@ -15,6 +15,10 @@ vi.mock('../../api/_lib/auth.js', () => ({
 	extractBearer: vi.fn(() => null),
 }));
 
+// Agent creation is CSRF-gated for cookie sessions (like the other mutations);
+// the gate itself is covered in security-csrf-gates.test.js.
+vi.mock('../../api/_lib/csrf.js', () => ({ requireCsrf: vi.fn(async () => true) }));
+
 // `sql` is a tagged-template function. The mock returns whatever
 // `sqlState.nextResult` is set to (or the next in a queue).
 const sqlState = {

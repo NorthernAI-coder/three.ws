@@ -24,7 +24,10 @@ const state = {
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 vi.mock('../../api/_lib/rate-limit.js', () => ({
-	limits: { publicIp: vi.fn(async () => ({ success: true })) },
+	limits: {
+		publicIp: vi.fn(async () => ({ success: true })),
+		watsonxEmbedGlobal: vi.fn(async () => ({ success: true })),
+	},
 	clientIp: vi.fn(() => '127.0.0.1'),
 }));
 
@@ -35,21 +38,45 @@ vi.mock('../../api/_lib/market/ohlcv.js', () => ({
 	topPoolForToken: vi.fn(async () => POOL),
 	fetchOhlcv: vi.fn(async () => {
 		const t0 = 1_700_000_000;
-		const candles = Array.from({ length: 600 }, (_, i) => ({ t: t0 + i * 3600, o: 1, h: 1, l: 1, c: 1 + i * 0.001, v: 1 }));
-		return { candles, base: { name: 'Mock', symbol: 'MOCK' }, quote: { symbol: 'USD' }, freq: '1h', timeframe: 'hour', aggregate: 1 };
+		const candles = Array.from({ length: 600 }, (_, i) => ({
+			t: t0 + i * 3600,
+			o: 1,
+			h: 1,
+			l: 1,
+			c: 1 + i * 0.001,
+			v: 1,
+		}));
+		return {
+			candles,
+			base: { name: 'Mock', symbol: 'MOCK' },
+			quote: { symbol: 'USD' },
+			freq: '1h',
+			timeframe: 'hour',
+			aggregate: 1,
+		};
 	}),
 }));
 
 vi.mock('../../api/_lib/watsonx.js', () => ({
 	watsonxConfig: vi.fn(() =>
 		state.wxConfigured
-			? { configured: true, url: 'https://wx', projectId: 'proj', apiVersion: '2024-05-31', tsApiVersion: '2025-02-11', chatModel: 'ibm/granite-3-8b-instruct' }
+			? {
+					configured: true,
+					url: 'https://wx',
+					projectId: 'proj',
+					apiVersion: '2024-05-31',
+					tsApiVersion: '2025-02-11',
+					chatModel: 'ibm/granite-3-8b-instruct',
+				}
 			: { configured: false, reason: 'WATSONX_API_KEY + project not set' },
 	),
 	watsonxChatComplete: vi.fn(async (_cfg, opts) =>
 		opts?.model === GUARDIAN_MODEL
 			? { text: state.guardianVerdict, model: GUARDIAN_MODEL }
-			: { text: 'The token climbs steadily. Conviction holds into the next session.', model: 'ibm/granite-3-8b-instruct' },
+			: {
+					text: 'The token climbs steadily. Conviction holds into the next session.',
+					model: 'ibm/granite-3-8b-instruct',
+				},
 	),
 }));
 
@@ -59,7 +86,9 @@ vi.mock('../../api/_lib/watsonx-forecast.js', () => ({
 		const t0 = 1_700_000_000 + 600 * 3600;
 		return {
 			model: 'ibm/granite-ttm-512-96-r2',
-			timestamps: Array.from({ length: 96 }, (_, i) => new Date((t0 + i * 3600) * 1000).toISOString()),
+			timestamps: Array.from({ length: 96 }, (_, i) =>
+				new Date((t0 + i * 3600) * 1000).toISOString(),
+			),
 			values: Array.from({ length: 96 }, (_, i) => 2 + i * 0.001),
 			inputWindow: 512,
 		};
@@ -74,8 +103,14 @@ vi.mock('../../api/_lib/avatar-wallet.js', () => ({
 	),
 	loadAvatarKeypair: vi.fn(() => ({ publicKey: { toBase58: () => ADDR } })),
 	getConnection: vi.fn(() => ({ getParsedTransaction: vi.fn(async () => state.verifyTx) })),
-	getSolBalance: vi.fn(async () => ({ lamports: state.walletFunded ? 1e7 : 0, sol: state.walletFunded ? 0.01 : 0 })),
-	sendSol: vi.fn(async (args) => { state.sendSolArgs = args; return 'SIG123'; }),
+	getSolBalance: vi.fn(async () => ({
+		lamports: state.walletFunded ? 1e7 : 0,
+		sol: state.walletFunded ? 0.01 : 0,
+	})),
+	sendSol: vi.fn(async (args) => {
+		state.sendSolArgs = args;
+		return 'SIG123';
+	}),
 	explorerTxUrl: vi.fn((s) => `https://solscan.io/tx/${s}`),
 	explorerAccountUrl: vi.fn((a) => `https://solscan.io/account/${a}`),
 }));
@@ -87,14 +122,26 @@ function makeReq({ method = 'GET', url = '/api/ibm/attest', body = null } = {}) 
 	const base = body ? Readable.from([Buffer.from(JSON.stringify(body))]) : Readable.from([]);
 	base.method = method;
 	base.url = url;
-	base.headers = { host: 'localhost', 'content-type': 'application/json', origin: 'http://localhost' };
+	base.headers = {
+		host: 'localhost',
+		'content-type': 'application/json',
+		origin: 'http://localhost',
+	};
 	return base;
 }
 function makeRes() {
 	return {
-		statusCode: 200, headers: {}, body: '', writableEnded: false,
-		setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
-		end(chunk) { if (chunk !== undefined) this.body += chunk; this.writableEnded = true; },
+		statusCode: 200,
+		headers: {},
+		body: '',
+		writableEnded: false,
+		setHeader(k, v) {
+			this.headers[k.toLowerCase()] = v;
+		},
+		end(chunk) {
+			if (chunk !== undefined) this.body += chunk;
+			this.writableEnded = true;
+		},
 	};
 }
 async function invoke(reqOpts) {
@@ -118,7 +165,13 @@ const makeTx = (memo) => ({
 	blockTime: 1_700_000_000,
 	transaction: {
 		message: {
-			instructions: [{ program: 'spl-memo', programId: { toString: () => 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' }, parsed: memo }],
+			instructions: [
+				{
+					program: 'spl-memo',
+					programId: { toString: () => 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr' },
+					parsed: memo,
+				},
+			],
 			accountKeys: [{ pubkey: { toString: () => ADDR } }],
 		},
 	},
@@ -132,7 +185,9 @@ describe('GET /api/ibm/attest?verify (off-chain read-back)', () => {
 	});
 
 	it('confirms a real granite-proof memo and extracts the digest', async () => {
-		state.verifyTx = makeTx('three.ws granite-proof/1 MOCK +31.0% 96h ttm-512-96 gd:ok abcdef0123456789');
+		state.verifyTx = makeTx(
+			'three.ws granite-proof/1 MOCK +31.0% 96h ttm-512-96 gd:ok abcdef0123456789',
+		);
 		const { status, body } = await invoke({ url: `/api/ibm/attest?verify=${SIG}` });
 		expect(status).toBe(200);
 		expect(body.found).toBe(true);
@@ -216,7 +271,10 @@ describe('POST /api/ibm/attest (notarize)', () => {
 		state.wxConfigured = true;
 		state.walletConfigured = true;
 		state.guardianVerdict = 'No';
-		const { status, body } = await invoke({ method: 'POST', body: { pool: POOL, submit: true } });
+		const { status, body } = await invoke({
+			method: 'POST',
+			body: { pool: POOL, submit: true },
+		});
 		expect(status).toBe(200);
 		expect(body.onchain.submitted).toBe(true);
 		expect(body.onchain.signature).toBe('SIG123');
@@ -232,7 +290,10 @@ describe('POST /api/ibm/attest (notarize)', () => {
 		state.wxConfigured = true;
 		state.walletConfigured = true;
 		state.guardianVerdict = 'Yes';
-		const { status, body } = await invoke({ method: 'POST', body: { pool: POOL, submit: true } });
+		const { status, body } = await invoke({
+			method: 'POST',
+			body: { pool: POOL, submit: true },
+		});
 		expect(status).toBe(200);
 		expect(body.governance.passed).toBe(false);
 		expect(body.onchain.submitted).toBe(false);
