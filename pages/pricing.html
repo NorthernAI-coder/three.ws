@@ -883,6 +883,10 @@
 					avatar.position.set(start.x, start.y, 0);
 					setAnimation('idle', { loop: true });
 					phase = 'idle';
+				}).catch((err) => {
+					// Animation clips failed to load — keep the static pricing page
+					// intact and skip the decorative tier-hopping avatar.
+					console.warn('[pricing] animation clips unavailable, skipping avatar', err);
 				});
 			});
 
