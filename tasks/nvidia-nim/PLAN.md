@@ -41,7 +41,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 - [x] **T1.1** [10-trellis-provider.md](10-trellis-provider.md) — `api/_providers/nvidia.js` (submit / poll / GLB→R2) — live-verified end-to-end (real GLB persisted + revalidated; see Worklog 2026-06-11)
 - [x] **T1.2** [11-register-backend.md](11-register-backend.md) — backend in `forge-tiers.js`; draft-tier default (registration + tier-aware routing + catalog + UI + tests; full submit→poll chain verified against the T1.1 provider with a mocked NVCF transport — real-network smoke is T1.5. See Worklog 2026-06-11)
 - [~] **T1.3** [12-flux-lane.md](12-flux-lane.md) — NIM FLUX lane in `api/_mcp3d/text-to-image.js` (code + tests done; live image pending key — see Worklog 2026-06-11)
-- [ ] **T1.4** [13-tests.md](13-tests.md) — `tests/api/providers-nvidia.test.js` + registration coverage
+- [x] **T1.4** [13-tests.md](13-tests.md) — `tests/api/providers-nvidia.test.js` + registration coverage
 - [ ] **T1.5** [14-deploy-smoke-changelog.md](14-deploy-smoke-changelog.md) — deploy + prod smoke + changelog
 
 ### Phase 2 — Speech back online
@@ -100,6 +100,29 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T1.4 (NVIDIA provider + registration test suite) — DONE.** Added
+  `tests/api/providers-nvidia.test.js` (28 cases, all green), mirroring
+  `providers-replicate.test.js`: global `fetch` stubbed, `api/_lib/r2.js` mocked via
+  `vi.mock` so the GLB persist asserts decoded bytes in / public URL out — no live calls.
+  Coverage: (1) text→3D + image→3D submit body construction against the probed NVCF
+  schema (mode, prompt 77-char clamp, per-tier `ss/slat_sampling_steps`, integer-only
+  seed, `output_format:glb`); (2) the 202-then-poll loop — running→done (persists),
+  running→failed (no artifact / 401·403 / 404), keep-polling on 429·5xx, poll
+  timeout/network throw → running, persist-throws → failed, missing-taskId → failed;
+  (3) asset-upload branch by image size — inline base64 under the 180 KB limit vs the
+  NVCF asset handshake (create → PUT presigned → `data:…;asset_id,<id>` +
+  `NVCF-INPUT-ASSET-REFERENCES` header) over it; (4) synchronous 200 completion decodes
+  the base64 GLB, persists `model/gltf-binary` bytes to a `forge/nvidia/<uuid>.glb` key,
+  returns the durable public URL; (5) every normalized error map — 401/403→`invalid_key`,
+  402→`insufficient_credits`, 429→`rate_limited` (+`retryAfter` from header), 5xx→
+  `provider_error`, network throw→`provider_unreachable`, plus the 422 validation-array
+  readable-detail guard; (6) forge-tiers registration + draft-tier free-first default
+  (picks `nvidia` when `NVIDIA_API_KEY` set, cleanly falls back to `trellis` when absent,
+  stays explicitly selectable keyless). No third-party mints in fixtures (synthetic
+  `$THREE`-domain URLs only). **Full `npx vitest run` green: 267 files / 3876 tests, 0
+  failures** (the formerly-known MCP-auth failures are resolved). The Playwright e2e
+  portion has pre-existing sandbox browser crashes (`page.goto: Page crashed`) unrelated
+  to this unit-test-only change.
 - **2026-06-11** — **T1.1 (`api/_providers/nvidia.js`) — DONE, live-verified end-to-end.**
   Built the free TRELLIS provider matching the established contract (factory
   `createNvidiaProvider()`, key via `env.NVIDIA_API_KEY`; `textTo3d`/`imageTo3d` returning
