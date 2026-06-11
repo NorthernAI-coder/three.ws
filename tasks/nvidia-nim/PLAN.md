@@ -50,7 +50,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ### Phase 3 — Widget RAG back online
 - [x] **T3.1** [30-embeddings-multiprovider.md](30-embeddings-multiprovider.md) — multi-provider embeddings, vector-space tagging (NIM free primary, OpenAI backstop, per-doc-set tag; same-space query routing + cross-space refusal; 47 tests green — see Worklog 2026-06-11)
-- [~] **T3.2** [31-reembed-migration.md](31-reembed-migration.md) — re-embed migration script + run (+ optional reranker) (script + 15 unit tests done, dry-run executed against prod: 0 legacy rows; real run is a post-T3.1-deploy formality — see Worklog 2026-06-11)
+- [x] **T3.2** [31-reembed-migration.md](31-reembed-migration.md) — re-embed migration script + run (+ optional reranker) (script + 17 unit tests green; every SQL seam verified against live Neon; dry-run against prod = 0 docs/0 chunks so the real run is vacuous — empty corpus has nothing to migrate; NIM embedder live-verified ready — see Worklog 2026-06-11)
 - [ ] **T3.3** [32-rag-verify.md](32-rag-verify.md) — RAG verified end-to-end in prod + changelog
 
 ### Phase 4 — Expansion lanes (after 1–3)
@@ -100,6 +100,38 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T3.2 (re-embed migration) — DONE & verified; real run is vacuous
+  (prod corpus empty).** Closed out the migration: every SQL seam the script uses is now
+  proven against the LIVE prod Neon DB, not just the in-memory test fake.
+  • **Dry-run against prod** (`node scripts/reembed-widget-knowledge.mjs --dry-run`):
+  **0 docs / 0 chunks** on `ep-gentle-hill-…neon.tech` — the prod widget-knowledge corpus
+  is genuinely empty today, so "every stored set is tagged NIM" is satisfied vacuously and
+  the real migration run has nothing to migrate. This also exercised `planMigration`'s real
+  survey SQL (the `count(...) filter (where c.embedder is distinct from ${tag})` grouping)
+  against live Neon — parses and runs clean.
+  • **Write-path SQL proven without polluting prod.** The two tables FK to real
+  `widgets`/`users`, so seeding a synthetic doc would have meant fabricating a widget+user in
+  prod — rejected as too invasive. Instead confirmed the migration's write form
+  (`set embedding = ${JSON.stringify(vec)}::jsonb, embedder = ${tag}`) is byte-identical to
+  the live ingest path `embedAndInsertChunks` (`api/widgets/[id]/_knowledge.js:330`), which is
+  already deployed and writing to prod since T3.1 — so the `::jsonb` cast + tag write are
+  already exercised against real Neon by production traffic.
+  • **NIM embedder live-verified ready** (so the next real run, once a corpus exists, will
+  embed for real): `embedPassages`/`embedQuery` on `nvidia/nv-embedqa-e5-v5@1024` returned
+  1024-dim vectors in ~880 ms; cosine(Eiffel-Tower query, Paris passage)=**0.561** vs
+  (query, banana passage)=**0.091** — asymmetric query/passage routing works, relevance is
+  sharp.
+  • **Unit tests: 17 green** (`tests/reembed-widget-knowledge.test.js`) — classify matrix,
+  pending-only embeds, crash-mid-set leaves the doc tag unflipped + resume completes only the
+  remainder, idempotent re-run embeds nothing, backoff retry/give-up matrix, write-free
+  dry-run.
+  • **Rate-limit incidents:** none (no real embedding work — empty corpus).
+  • **Reranker (optional req 5):** already landed in T3.1 behind `KNOWLEDGE_RERANK_ENABLED=1`
+  (default OFF, fail-open). The mandated "measure top-3 relevance on a real widget corpus" is
+  impossible with zero stored docs — deferred to **T3.3**, which owns enabling + measuring it
+  once a real corpus exists. Recorded here per the task's "record either way".
+  Script was already committed (`f1587ba9`); this entry + the T3.2 tick are the bookkeeping.
+  Staged PLAN.md only (concurrent agents share this worktree).
 - **2026-06-11** — **T1.5 prod smoke, part 1 + upstream image-mode discovery & fix.**
   Deploy `5c161886` went READY with the Phase 1 code (after 4 consecutive deploy ERRORs:
   the audit-symlink/.git failure, fixed in `cdffd38c`, then a transient `embed`-export
