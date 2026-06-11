@@ -127,6 +127,14 @@
 			<description>three.ws now monitors its own critical surfaces — the website, platform API, explore feed, x402 paid-API discovery, and the 3D viewer — every 5 minutes from outside our infrastructure, and publishes the results at three.ws/status: live operational state, response times, and a 90-day uptime history per service. A machine-readable JSON feed is available at /api/status for agents and integrators. Browser errors on any page are now also collected first-party, so problems reach the team before reports do.</description>
 		</item>
 		<item>
+			<title>Pump dashboard alerts now follow you across devices and fire with the tab closed</title>
+			<link>https://three.ws/pump-dashboard</link>
+			<guid isPermaLink="false">2026-06-11:Pump dashboard alerts now follow you across devices and fire with the tab closed</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your Pump bot alert rules — graduation, whale, fee, and launch toggles, thresholds, cooldown, and an optional webhook — now save to your account instead of just the browser you set them in. Sign in anywhere and they're already there. Graduation alerts are evaluated server-side against the live pump.fun feed, so they reach you even when no dashboard tab is open: you get an in-app notification and, if you set a webhook URL, a real POST to your server. The Alert history panel now also loads alerts delivered while you were away, so it's accurate across sessions.</description>
+		</item>
+		<item>
 			<title>Scheduled jobs restored after dependency outage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Scheduled jobs restored after dependency outage</guid>
@@ -141,6 +149,14 @@
 			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Every blog post now ships full social-card images and structured data, so links to three.ws unfurl with a proper preview image on X, Slack, Discord and LinkedIn, and show up as rich articles with breadcrumbs in Google. All 25 posts are now listed in the sitemap (previously only four were), making the full archive discoverable in search. A new build step keeps page titles, descriptions and previews in sync automatically so nothing ships without them.</description>
+		</item>
+		<item>
+			<title>Talking-agent widgets answer from their knowledge again</title>
+			<link>https://three.ws/widgets</link>
+			<guid isPermaLink="false">2026-06-11:Talking-agent widgets answer from their knowledge again</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>If you uploaded docs to a talking-agent widget, it can ground its answers in them again. Knowledge retrieval had gone quiet when our previous embedding provider ran out of quota — questions fell back to generic replies instead of citing your material. We've moved both the upload step and the question-matching step onto a free, fast embedding lane, so a visitor asking about something only your docs cover now gets an answer drawn straight from them, with the source named. Widgets with no uploaded knowledge keep chatting normally. Nothing to update — your existing docs work as-is.</description>
 		</item>
 		<item>
 			<title>Text-to-3D and image-to-3D generation restored</title>

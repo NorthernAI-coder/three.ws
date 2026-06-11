@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Pump dashboard alerts now follow you across devices and fire with the tab closed",
+			"summary": "Your Pump bot alert rules — graduation, whale, fee, and launch toggles, thresholds, cooldown, and an optional webhook — now save to your account instead of just the browser you set them in. Sign in anywhere and they're already there. Graduation alerts are evaluated server-side against the live pump.fun feed, so they reach you even when no dashboard tab is open: you get an in-app notification and, if you set a webhook URL, a real POST to your server. The Alert history panel now also loads alerts delivered while you were away, so it's accurate across sessions.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/pump-dashboard"
+		},
+		{
+			"date": "2026-06-11",
+			"title": "Talking-agent widgets answer from their knowledge again",
+			"summary": "If you uploaded docs to a talking-agent widget, it can ground its answers in them again. Knowledge retrieval had gone quiet when our previous embedding provider ran out of quota — questions fell back to generic replies instead of citing your material. We've moved both the upload step and the question-matching step onto a free, fast embedding lane, so a visitor asking about something only your docs cover now gets an answer drawn straight from them, with the source named. Widgets with no uploaded knowledge keep chatting normally. Nothing to update — your existing docs work as-is.",
+			"tags": [
+				"fix"
+			],
+			"link": "/widgets"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Avatar voices can speak out loud again",
 			"summary": "Talking avatars are back. Spoken playback had gone silent after our previous voice provider ran out of quota, leaving the live lip-sync demo and the read-the-page-aloud browser extension mute. We've moved avatar speech onto a new free, fast voice lane that generates audio in about a second, so every speaking surface talks again with no change to how you use it. Nothing to update — pick a voice and press play.",
 			"tags": [
