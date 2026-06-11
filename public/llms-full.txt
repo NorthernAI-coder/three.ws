@@ -596,6 +596,12 @@ URL: https://three.ws/tutorials
 
 Step-by-step build guides.
 
+### Status
+
+URL: https://three.ws/status
+
+Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.
+
 ## Blog
 
 Long-form announcements, launches, and writing from three.ws.

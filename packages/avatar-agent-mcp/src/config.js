@@ -36,6 +36,9 @@ export const SOLANA_RPC_URL = validateRpcUrl(
 export const ETH_RPC_URL = env('ETH_RPC_URL') || env('MAINNET_RPC_URL') || null;
 export const HELIUS_API_KEY = env('HELIUS_API_KEY', '');
 export const OPENAI_API_KEY = env('OPENAI_API_KEY', '');
+// NVIDIA NIM key (build.nvidia.com, nvapi-…) — powers the FREE Magpie TTS
+// lane that leads the speak tool's provider chain; OpenAI is the paid backstop.
+export const NVIDIA_API_KEY = env('NVIDIA_API_KEY', '');
 export const REPLICATE_API_TOKEN = env('REPLICATE_API_TOKEN', '');
 export const REPLICATE_TEXT_TO_AVATAR_MODEL = env('REPLICATE_TEXT_TO_AVATAR_MODEL', '');
 

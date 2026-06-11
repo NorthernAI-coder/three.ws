@@ -1,16 +1,28 @@
-// POST /api/tts/speak — OpenAI TTS proxy used by /demos/lipsync-tts.
+// POST /api/tts/speak — text-to-speech used by /demos/lipsync-tts and the
+// avatar speech surfaces.
 //
-// Body: { text, voice?, model?, format? }
-// Response: streaming audio in the requested format (default audio/mpeg).
+// Body: { text, voice?, model?, format?, language?, speed? }
+// Response: complete audio in the served format (content-type is truthful).
+//
+// Provider policy (api/_lib/llm.js doctrine — free first, paid backstop):
+//   1. NVIDIA NIM Magpie TTS (free, gRPC — api/_lib/tts-nvidia.js) leads
+//      whenever NVIDIA_API_KEY is set. Note: Magpie emits PCM/Opus, so
+//      mp3/aac/flac requests are served as WAV — the content-type and
+//      x-tts-* headers always describe the bytes actually sent.
+//   2. OpenAI /v1/audio/speech is the paid last-resort backstop (the prod key
+//      is routinely over quota — nothing may depend on it).
+// Failover happens only while zero audio bytes have been written; 503 only
+// when no lane is configured at all.
 //
 // The browser pipes the response into a Web Audio source and feeds the
-// analyser into wawa-lipsync for real-time viseme generation — no server-side
-// audio analysis required.
+// analyser into wawa-lipsync for real-time viseme generation — decodeAudioData
+// sniffs the container, so wav/ogg/mp3 all work without caller changes.
 
 import { env } from '../_lib/env.js';
 import { cors, method, readJson, error, wrap, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { synthesizeNvidiaTts, nvidiaTtsConfigured } from '../_lib/tts-nvidia.js';
 
 export const maxDuration = 60;
 
@@ -28,16 +40,24 @@ const FORMATS = {
 	pcm: 'audio/pcm',
 };
 
+// Per-attempt budget for the free lane: generous enough for 4096 chars of
+// synthesis, small enough that the paid backstop still fits in maxDuration.
+const NVIDIA_TIMEOUT_MS = 30_000;
+
 export default wrap(async function handler(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	const key = env.OPENAI_API_KEY;
-	if (!key) return error(res, 503, 'not_configured', 'OPENAI_API_KEY not set');
+	const nvidiaLane = nvidiaTtsConfigured();
+	const openaiKey = env.OPENAI_API_KEY;
+	if (!nvidiaLane && !openaiKey) {
+		return error(res, 503, 'not_configured', 'No TTS provider configured (set NVIDIA_API_KEY or OPENAI_API_KEY)');
+	}
 
-	// OpenAI TTS bills per character against the server key, so meter every call.
-	// Authenticated callers get a per-user budget; anonymous callers a tight
-	// per-IP one. Without this the endpoint is an open, unbounded paid-API drain.
+	// TTS is metered (free tier is credit-limited, OpenAI bills per character),
+	// so budget every call. Authenticated callers get a per-user budget;
+	// anonymous callers a tight per-IP one. Without this the endpoint is an
+	// open, unbounded synthesis drain.
 	const session = await getSessionUser(req);
 	const bearer = session ? null : await authenticateBearer(extractBearer(req));
 	const userId = session?.id ?? bearer?.userId ?? null;
@@ -65,28 +85,60 @@ export default wrap(async function handler(req, res) {
 	const voice = VOICES.has(body.voice) ? body.voice : 'nova';
 	const model = MODELS.has(body.model) ? body.model : 'gpt-4o-mini-tts';
 	const formatKey = body.format && FORMATS[body.format] ? body.format : 'mp3';
+	const language = typeof body.language === 'string' ? body.language : 'en-US';
 	const speed = Math.min(Math.max(Number(body.speed) || 1.0, 0.5), 2.0);
+
+	const laneErrors = [];
+
+	// ── Lane 1: NVIDIA NIM Magpie (free) ─────────────────────────────────────
+	// The whole clip is buffered before a single byte is written, so a failure
+	// here always falls through to the paid backstop cleanly.
+	if (nvidiaLane) {
+		try {
+			const out = await synthesizeNvidiaTts({
+				text, voice, language, format: formatKey, timeoutMs: NVIDIA_TIMEOUT_MS,
+			});
+			res.statusCode = 200;
+			res.setHeader('content-type', out.contentType);
+			res.setHeader('cache-control', 'no-store');
+			res.setHeader('x-tts-voice', out.voiceName);
+			res.setHeader('x-tts-model', out.model);
+			res.setHeader('x-tts-format', out.format);
+			res.end(out.audio);
+			return;
+		} catch (e) {
+			laneErrors.push(`nvidia: ${e?.code || 'error'} — ${e?.message || 'failed'}`);
+		}
+	}
+
+	// ── Lane 2: OpenAI (paid backstop) ───────────────────────────────────────
+	if (!openaiKey) {
+		return error(res, 502, 'upstream_error', `All TTS lanes failed: ${laneErrors.join('; ')}`);
+	}
 
 	let upstream;
 	try {
 		upstream = await fetch('https://api.openai.com/v1/audio/speech', {
 			method: 'POST',
 			headers: {
-				'authorization': `Bearer ${key}`,
+				'authorization': `Bearer ${openaiKey}`,
 				'content-type': 'application/json',
 			},
 			body: JSON.stringify({
 				model, voice, input: text, response_format: formatKey, speed,
 			}),
+			signal: AbortSignal.timeout(NVIDIA_TIMEOUT_MS),
 		});
 	} catch (e) {
-		return error(res, 502, 'upstream_unreachable', e?.message || 'fetch failed');
+		laneErrors.push(`openai: ${e?.message || 'fetch failed'}`);
+		return error(res, 502, 'upstream_unreachable', `All TTS lanes failed: ${laneErrors.join('; ')}`);
 	}
 
 	if (!upstream.ok || !upstream.body) {
 		let detail = '';
 		try { detail = (await upstream.text()).slice(0, 500); } catch {}
-		return error(res, 502, 'upstream_error', `OpenAI TTS ${upstream.status}: ${detail}`);
+		laneErrors.push(`openai: ${upstream.status} ${detail}`);
+		return error(res, 502, 'upstream_error', `All TTS lanes failed: ${laneErrors.join('; ')}`);
 	}
 
 	res.statusCode = 200;
@@ -94,6 +146,7 @@ export default wrap(async function handler(req, res) {
 	res.setHeader('cache-control', 'no-store');
 	res.setHeader('x-tts-voice', voice);
 	res.setHeader('x-tts-model', model);
+	res.setHeader('x-tts-format', formatKey);
 
 	const reader = upstream.body.getReader();
 	try {

@@ -93,7 +93,7 @@ Everything is optional except `manifest.json` and a `body` reference.
 
 	// Memory — persistent state
 	"memory": {
-		"mode": "local", // "local" | "ipfs" | "encrypted-ipfs" | "none"
+		"mode": "local", // "local" | "remote" | "ipfs" | "encrypted-ipfs" | "none" | a registered custom backend
 		"index": "memory/MEMORY.md",
 		"maxTokens": 8192, // budget for memory context injection
 	},
@@ -145,7 +145,7 @@ Skills load lazily. The `<agent-3d>` element emits `skill:loaded` events as each
 
 ### `memory`
 
-`local` persists in `localStorage` keyed by agentId. `ipfs` pins after each write (slow, durable). `encrypted-ipfs` wraps with the owner wallet's pubkey. See [MEMORY_SPEC.md](./MEMORY_SPEC.md).
+`local` persists in `localStorage` keyed by agentId. `remote` persists per-agent via `/api/agent-memory` (owner-only). `ipfs` pins after each write (slow, durable). `encrypted-ipfs` wraps with the owner wallet's pubkey. Any other value names a backend registered via `Memory.registerBackend` (vector store, episodic log, your own API). See [MEMORY_SPEC.md](./MEMORY_SPEC.md).
 
 ### `tools`
 

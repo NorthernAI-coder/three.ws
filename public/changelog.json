@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-11T10:51:55.342Z",
+	"generated_at": "2026-06-11T10:55:52.340Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-11",
+			"type": "launch",
+			"title": "Status",
+			"summary": "Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.",
+			"link": "/status",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-11",
 			"type": "update",
@@ -120,6 +130,28 @@
 			"link": "/skills",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Pluggable memory backends + a portable snapshot format for the agent SDK",
+			"summary": "Agent developers can now plug a custom memory backend — a vector database, an episodic event log, or their own API — behind a named mode with Memory.registerBackend, no forking required. All built-in modes (local, remote, ipfs, encrypted-ipfs, none) are unchanged. We also formalized a memory/0.1 snapshot contract: memory.snapshot() returns a JSON-safe object and Memory.fromSnapshot() rehydrates it, so embedded agent widgets keep their memory across page reloads. Documented in the Memory spec, agent manifest, and README.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"docs"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Public status page with live uptime monitoring",
+			"summary": "three.ws now monitors its own critical surfaces — the website, platform API, explore feed, x402 paid-API discovery, and the 3D viewer — every 5 minutes from outside our infrastructure, and publishes the results at three.ws/status: live operational state, response times, and a 90-day uptime history per service. A machine-readable JSON feed is available at /api/status for agents and integrators. Browser errors on any page are now also collected first-party, so problems reach the team before reports do.",
+			"link": "/status",
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{

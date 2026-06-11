@@ -10,7 +10,15 @@
 import { z } from 'zod';
 
 import { sql } from '../../_lib/db.js';
-import { embed, embeddingsConfigured, cosine } from '../../_lib/embeddings.js';
+import {
+	embedPassages,
+	embeddingsConfigured,
+	embedderConfigured,
+	defaultIngestEmbedderTag,
+	resolveEmbedderTag,
+	scoreRowsBySpace,
+} from '../../_lib/embeddings.js';
+import { rerankConfigured, rerankPassages } from '../../_lib/rerank.js';
 import { chunk, estimateTokens } from '../../_lib/chunker.js';
 import { fetchAndExtract } from '../../_lib/text-extract.js';
 import { shortId } from '../../_lib/ids.js';
@@ -90,7 +98,7 @@ export async function testRetrieval({ widgetId, query, topK = 5 }) {
 		throw httpError(
 			503,
 			'embedder_unavailable',
-			'Knowledge test needs an OpenAI key on the server (OPENAI_API_KEY).',
+			'Knowledge test needs an embedding provider on the server — set NVIDIA_API_KEY (free) or OPENAI_API_KEY.',
 		);
 	}
 	const q = String(query || '').trim();
@@ -98,38 +106,61 @@ export async function testRetrieval({ widgetId, query, topK = 5 }) {
 
 	const rows = await sql`
 		select c.id, c.doc_id, c.chunk_index, c.content, c.embedding, c.token_count,
-		       d.title, d.source_url, d.source_type
+		       c.embedder, d.title, d.source_url, d.source_type
 		from widget_knowledge_chunks c
 		join widget_knowledge_docs   d on d.id = c.doc_id
 		where c.widget_id = ${widgetId}
 	`;
 	if (!rows.length) return { query: q, results: [], chunks_searched: 0 };
 
-	const [queryEmbedding] = await embed([q]);
-	const scored = rows
-		.map((r) => {
-			const e = Array.isArray(r.embedding) ? r.embedding : r.embedding?.values || [];
-			return {
-				id: Number(r.id),
-				doc_id: r.doc_id,
-				chunk_index: Number(r.chunk_index),
-				score: cosine(queryEmbedding, e),
-				token_count: Number(r.token_count || 0),
-				excerpt: truncate(String(r.content), 280),
-				title: r.title,
-				source_url: r.source_url,
-				source_type: r.source_type,
-			};
-		})
+	// Same-space rule: the query must be embedded with the SAME model each
+	// stored chunk was embedded with. Group chunks by their embedder tag,
+	// embed the query once per servable space, and refuse (never guess) for
+	// spaces whose provider isn't configured.
+	const { scored, needsReembed } = await scoreRowsBySpace(rows, q);
+
+	if (!scored.length && needsReembed.length) {
+		const spaces = needsReembed.map((n) => n.embedder).join(', ');
+		throw httpError(
+			503,
+			'needs_reembed',
+			`Stored knowledge was embedded with ${spaces}, which no configured provider can query. ` +
+				'Re-embed it with scripts/reembed-widget-knowledge.mjs, or configure the matching provider key.',
+		);
+	}
+
+	let top = scored
 		.sort((a, b) => b.score - a.score)
 		.slice(0, Math.max(1, Math.min(20, topK)));
+	let reranked = false;
+	if (rerankConfigured() && top.length > 1) {
+		const order = await rerankPassages(q, top.map((r) => r.content));
+		if (order) {
+			top = order.map((i) => top[i]);
+			reranked = true;
+		}
+	}
 
 	return {
 		query: q,
-		results: scored,
+		results: top.map((r) => ({
+			id: Number(r.id),
+			doc_id: r.doc_id,
+			chunk_index: Number(r.chunk_index),
+			score: r.score,
+			embedder: r.embedder,
+			token_count: Number(r.token_count || 0),
+			excerpt: truncate(String(r.content), 280),
+			title: r.title,
+			source_url: r.source_url,
+			source_type: r.source_type,
+		})),
 		chunks_searched: rows.length,
+		reranked,
+		...(needsReembed.length ? { needs_reembed: needsReembed } : {}),
 	};
 }
+
 
 function truncate(s, n) {
 	if (s.length <= n) return s;
@@ -146,11 +177,15 @@ export async function deleteKnowledge({ widgetId, userId, docId }) {
 }
 
 export async function ingestKnowledge({ widgetId, userId, input }) {
-	if (!embeddingsConfigured()) {
+	// Free-first: new document sets embed via NVIDIA NIM when its key is
+	// present, OpenAI otherwise. The chosen embedder tag is stamped on the doc
+	// and every chunk so query time can stay in the same vector space.
+	const ingestTag = defaultIngestEmbedderTag();
+	if (!ingestTag) {
 		throw httpError(
 			503,
 			'embedder_unavailable',
-			'Knowledge upload needs an OpenAI key on the server (OPENAI_API_KEY).',
+			'Knowledge upload needs an embedding provider on the server — set NVIDIA_API_KEY (free) or OPENAI_API_KEY.',
 		);
 	}
 
@@ -211,12 +246,12 @@ export async function ingestKnowledge({ widgetId, userId, input }) {
 	await sql`
 		insert into widget_knowledge_docs
 			(id, widget_id, user_id, title, source_type, source_url, byte_size,
-			 chunk_count, token_count, status, source_text)
+			 chunk_count, token_count, status, source_text, embedder)
 		values
 			(${docId}, ${widgetId}, ${userId}, ${title.slice(0, 160)}, ${body.source_type},
 			 ${sourceUrl}, ${byteSize}, ${chunks.length}, ${tokenSum},
 			 ${shouldQueue ? 'queued' : 'processing'},
-			 ${shouldQueue ? text : null})
+			 ${shouldQueue ? text : null}, ${ingestTag})
 	`;
 
 	if (shouldQueue) {
@@ -253,7 +288,7 @@ export async function ingestKnowledge({ widgetId, userId, input }) {
 
 	// Inline path for small docs: embed + insert here, return when ready.
 	try {
-		await embedAndInsertChunks({ docId, widgetId, chunks });
+		await embedAndInsertChunks({ docId, widgetId, chunks, embedderTag: ingestTag });
 		await sql`update widget_knowledge_docs set status = 'ready' where id = ${docId}`;
 	} catch (err) {
 		await sql`
@@ -278,18 +313,21 @@ export async function ingestKnowledge({ widgetId, userId, input }) {
 }
 
 // Shared embed+insert loop used by both the inline path and the QStash worker.
-async function embedAndInsertChunks({ docId, widgetId, chunks }) {
+// Chunks are corpus text, so they embed as 'passage' (NIM's asymmetric
+// retrieval models require the ingest/search distinction); every row stores
+// the embedder tag it was produced with.
+async function embedAndInsertChunks({ docId, widgetId, chunks, embedderTag }) {
 	for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
 		const slice = chunks.slice(i, i + EMBED_BATCH);
-		const embedded = await embed(slice.map((c) => c.content));
+		const embedded = await embedPassages(embedderTag, slice.map((c) => c.content));
 		const inserts = slice.map((c, j) => {
 			const vec = Array.from(embedded[j]);
 			return sql`
 				insert into widget_knowledge_chunks
-					(doc_id, widget_id, chunk_index, content, embedding, token_count)
+					(doc_id, widget_id, chunk_index, content, embedding, token_count, embedder)
 				values
 					(${docId}, ${widgetId}, ${i + j}, ${c.content},
-					 ${JSON.stringify(vec)}::jsonb, ${c.token_count})
+					 ${JSON.stringify(vec)}::jsonb, ${c.token_count}, ${embedderTag})
 			`;
 		});
 		await sql.transaction(inserts);
@@ -303,13 +341,34 @@ async function embedAndInsertChunks({ docId, widgetId, chunks }) {
 // failure picks up where chunks left off.
 export async function processQueuedDoc({ docId, widgetId }) {
 	const [doc] = await sql`
-		select id, widget_id, source_text, status, chunk_count
+		select id, widget_id, source_text, status, chunk_count, embedder
 		from widget_knowledge_docs
 		where id = ${docId} and widget_id = ${widgetId}
 		limit 1
 	`;
 	if (!doc) throw httpError(404, 'not_found', 'doc not found');
 	if (doc.status === 'ready') return { ok: true, status: 'ready' };
+
+	// Re-resolve the embedder at processing time: the worker may run on a
+	// deployment whose keys differ from the one that queued the doc. The doc
+	// has no chunks yet (any partials are wiped below), so switching to the
+	// current default embedder is safe — the tag we actually use is written
+	// back to the doc and to every chunk.
+	const queuedTag = resolveEmbedderTag(doc.embedder);
+	const embedderTag =
+		queuedTag && embedderConfigured(queuedTag) ? queuedTag : defaultIngestEmbedderTag();
+	if (!embedderTag) {
+		await sql`
+			update widget_knowledge_docs set status = 'failed',
+				error = 'no embedding provider configured'
+			where id = ${docId}
+		`.catch(() => {});
+		throw httpError(
+			503,
+			'embedder_unavailable',
+			'No embedding provider configured — set NVIDIA_API_KEY (free) or OPENAI_API_KEY.',
+		);
+	}
 
 	if (!doc.source_text || doc.source_text.length < 12) {
 		await sql`
@@ -329,12 +388,12 @@ export async function processQueuedDoc({ docId, widgetId }) {
 		// don't end up with duplicates at the same chunk_index.
 		await sql`delete from widget_knowledge_chunks where doc_id = ${docId}`;
 
-		await embedAndInsertChunks({ docId, widgetId: doc.widget_id, chunks });
+		await embedAndInsertChunks({ docId, widgetId: doc.widget_id, chunks, embedderTag });
 
 		await sql`
 			update widget_knowledge_docs
 			set status = 'ready', source_text = null, error = null,
-			    chunk_count = ${chunks.length}
+			    chunk_count = ${chunks.length}, embedder = ${embedderTag}
 			where id = ${docId}
 		`;
 		return { ok: true, status: 'ready', chunk_count: chunks.length };

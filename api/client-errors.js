@@ -11,6 +11,7 @@
 import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { captureException } from './_lib/sentry.js';
+import { sendOpsAlert } from './_lib/alerts.js';
 
 const MAX_EVENTS_PER_BATCH = 25;
 const EVENT_TYPES = new Set(['error', 'unhandledrejection', 'resource', 'manual']);
@@ -79,7 +80,8 @@ export default wrap(async (req, res) => {
 		console.error('[client-error]', JSON.stringify({ ...event, ...context }));
 
 		// Resource 404s stay log-only — they group terribly as exceptions.
-		// Real JS errors carry their original browser stack into Sentry.
+		// Real JS errors carry their original browser stack into Sentry and
+		// page the ops channel (sendOpsAlert dedups per message per hour).
 		if (event.type !== 'resource') {
 			const synthetic = new Error(event.message);
 			synthetic.name = event.name || `client.${event.type}`;
@@ -92,6 +94,11 @@ export default wrap(async (req, res) => {
 				col: event.col,
 				ua: context.ua,
 			});
+			sendOpsAlert(
+				`client ${event.type} on ${context.page || 'unknown page'}`,
+				`${event.name ? `${event.name}: ` : ''}${event.message}${event.source ? `\n${event.source}:${event.line ?? '?'}` : ''}`,
+				{ signature: `client:${event.type}:${event.message}:${event.source}` },
+			);
 		}
 	}
 

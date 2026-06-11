@@ -85,6 +85,12 @@ const EXTERNALS = [
 	// no longer traces that ~50 MB tree once per function across the ~360 routes
 	// that import http.js (the 45-min build timeout, deploy 5vphtZz6S). If you
 	// re-add the SDK, read api/_lib/sentry.js's header first.
+	// @grpc/grpc-js + @grpc/proto-loader power the free NVIDIA Magpie TTS lane
+	// (api/_lib/tts-nvidia.js → api/tts/speak.js only). Pure JS (no native
+	// addon), but grpc-js's CJS build does lazy internal requires that esbuild's
+	// ESM output mangles; external lets Node load it natively, and NFT traces
+	// the ~6 MB tree exactly once (single importing route).
+	'@grpc/*',
 	'@asamuzakjp/*',
 	'@csstools/*',
 	'@neynar/*',
