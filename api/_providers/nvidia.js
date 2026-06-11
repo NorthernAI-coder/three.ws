@@ -1,21 +1,30 @@
-// NVIDIA NIM provider — the FREE TRELLIS 3D-generation backend.
+// NVIDIA NIM provider — the FREE TRELLIS 3D-generation backend (TEXT-ONLY).
 //
 // Microsoft TRELLIS hosted on NVIDIA NVCF gives `/forge` a zero-vendor-cost
-// text→3D and image→3D lane (GLB output) behind the platform `NVIDIA_API_KEY`.
-// Per the platform free-first policy it is the default draft backend, with the
-// paid Replicate/Meshy/Tripo lanes staying selectable as backstops.
+// text→3D lane (GLB output) behind the platform `NVIDIA_API_KEY`. Per the
+// platform free-first policy it is the default draft backend for prompt
+// generations, with the paid Replicate/Meshy/Tripo lanes staying selectable.
 //
-// ── Protocol (NVCF invoke → 202 → poll → base64 GLB) ────────────────────────
-// Built against the researched NVCF contract pending the live T0.2 probe; the
-// field names below are sourced from NVIDIA's own docs/clients:
-//   docs.api.nvidia.com/nim/reference/microsoft-trellis
-//   docs.nvidia.com/nim/visual-genai/1.3.2/getting-started.html
-//   github.com/NVIDIA-AI-Blueprints/Retail-Catalog-Enrichment (trellis.py)
+// ── Why text-only ────────────────────────────────────────────────────────────
+// The hosted preview API does NOT accept user images for mode:"image": every
+// form — inline base64 at any size, NVCF asset references (`;asset_id,` with
+// NVCF-INPUT-ASSET-REFERENCES), bare asset ids — is rejected 422; the only
+// accepted image input is `data:image/png;example_id,{0..3}` referencing
+// NVIDIA's predefined sample images. Verified live 2026-06-11 against the real
+// endpoint and confirmed by the official schema docs — full transcripts in
+// tasks/nvidia-nim/probes/trellis.md. Self-deployed TRELLIS NIMs accept real
+// image input, so this constraint is about NVIDIA's hosted preview, not the
+// model; if NVIDIA lifts it, the asset handshake recipe is preserved in the
+// probe file and git history.
 //
+// The forge layer therefore routes user-photo submissions to the standing
+// image backend (Replicate TRELLIS) and only sends prompts here — see
+// resolveBackendId({ userImages }) in api/_lib/forge-tiers.js.
+//
+// ── Protocol (verified live, T0.2/T1.1 probes) ──────────────────────────────
 //   submit  POST https://ai.api.nvidia.com/v1/genai/microsoft/trellis
 //           Authorization: Bearer nvapi-…   Accept: application/json
-//           text→3D  { mode:"text",  prompt, seed?, ss_sampling_steps, slat_sampling_steps, output_format:"GLB" }
-//           image→3D { mode:"image", image:"data:<ct>;base64,<…>" | "data:<ct>;asset_id,<id>", … }
+//           { mode:"text", prompt, seed?, ss_sampling_steps, slat_sampling_steps, output_format:"glb" }
 //           → 202 + header NVCF-REQID  (async; poll)   |   200 + body (synchronous completion)
 //
 //   poll    GET https://api.nvcf.nvidia.com/v2/nvcf/pexec/status/{NVCF-REQID}
@@ -26,10 +35,6 @@
 //           providers (replicate/meshy return upstream URLs; TRELLIS returns the
 //           bytes inline, so WE own the persist).
 //
-// Images over the 180 KB inline limit go through the NVCF asset handshake
-// (create asset → PUT to presigned URL → reference the asset id), exactly as
-// NVIDIA's media NIMs require.
-//
 // Error codes match the established provider contract (replicate.js / meshy.js):
 //   provider_unreachable / invalid_key / insufficient_credits / rate_limited /
 //   provider_error — so the forge layer can route around a dead/limited lane.
@@ -38,22 +43,15 @@ import { env } from '../_lib/env.js';
 
 const TRELLIS_INVOKE_URL = 'https://ai.api.nvidia.com/v1/genai/microsoft/trellis';
 const NVCF_STATUS_URL = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/status';
-const NVCF_ASSETS_URL = 'https://api.nvcf.nvidia.com/v2/nvcf/assets';
 
 // TRELLIS truncates the text prompt at 77 characters server-side; clamp so the
 // request is honest about what's actually conditioning the generation.
 const TRELLIS_PROMPT_MAX = 77;
 
-// NVCF rejects an inline image whose RAW bytes exceed 180 KB; larger references
-// must be uploaded via the asset handshake and passed by id.
-const INLINE_IMAGE_LIMIT = 180 * 1024;
-
 // Per-request timeouts so a hung upstream never stalls a serverless function.
 // A completed poll streams the full GLB (can be several MB), so it gets longer.
 const SUBMIT_TIMEOUT_MS = 30_000;
 const POLL_TIMEOUT_MS = 60_000;
-const ASSET_TIMEOUT_MS = 30_000;
-const IMAGE_FETCH_TIMEOUT_MS = 20_000;
 
 // Sampling steps per quality tier, clamped to TRELLIS's accepted 10–50 window.
 // More steps = finer geometry/texture at higher latency; draft stays cheap so
@@ -111,19 +109,6 @@ function buildTextBody({ prompt, tier, seed }) {
 	return body;
 }
 
-function buildImageBody({ imageField, tier, seed }) {
-	const steps = trellisSteps(tier);
-	const body = {
-		mode: 'image',
-		image: imageField,
-		ss_sampling_steps: steps.ss,
-		slat_sampling_steps: steps.slat,
-		output_format: 'glb',
-	};
-	if (Number.isInteger(seed)) body.seed = seed;
-	return body;
-}
-
 export function createNvidiaProvider() {
 	const apiKey = env.NVIDIA_API_KEY;
 	if (!apiKey) {
@@ -148,103 +133,6 @@ export function createNvidiaProvider() {
 			contentType: 'model/gltf-binary',
 		});
 		return publicUrl(key);
-	}
-
-	// NVCF asset handshake for reference images above the inline limit:
-	//   1. POST /assets { contentType, description } → { assetId, uploadUrl }
-	//   2. PUT the raw bytes to the presigned uploadUrl (no auth header — the URL
-	//      is already signed; it carries the required x-amz-meta description)
-	//   3. caller references the asset id via the NVCF-INPUT-ASSET-REFERENCES
-	//      header and the `data:<ct>;asset_id,<id>` image field.
-	async function uploadAsset(bytes, contentType) {
-		let createRes;
-		try {
-			createRes = await fetch(NVCF_ASSETS_URL, {
-				method: 'POST',
-				headers: invokeHeaders,
-				body: JSON.stringify({ contentType, description: 'trellis-input' }),
-				signal: AbortSignal.timeout(ASSET_TIMEOUT_MS),
-			});
-		} catch (err) {
-			throw Object.assign(new Error(`NVCF asset create unreachable: ${err?.message}`), {
-				code: 'provider_unreachable',
-				status: 502,
-			});
-		}
-		if (!createRes.ok) {
-			throw providerError(createRes.status, 'NVCF asset create failed', createRes.headers.get('retry-after'));
-		}
-		const created = await createRes.json().catch(() => ({}));
-		const assetId = created.assetId;
-		const uploadUrl = created.uploadUrl;
-		if (!assetId || !uploadUrl) {
-			throw Object.assign(new Error('NVCF asset create returned no upload target'), {
-				code: 'provider_error',
-				status: 502,
-			});
-		}
-
-		let putRes;
-		try {
-			putRes = await fetch(uploadUrl, {
-				method: 'PUT',
-				headers: {
-					'content-type': contentType,
-					'x-amz-meta-nvcf-asset-description': 'trellis-input',
-				},
-				body: bytes,
-				signal: AbortSignal.timeout(ASSET_TIMEOUT_MS),
-			});
-		} catch (err) {
-			throw Object.assign(new Error(`NVCF asset upload unreachable: ${err?.message}`), {
-				code: 'provider_unreachable',
-				status: 502,
-			});
-		}
-		if (!putRes.ok) {
-			throw Object.assign(new Error(`NVCF asset upload returned ${putRes.status}`), {
-				code: 'provider_error',
-				status: 502,
-				providerStatus: putRes.status,
-			});
-		}
-		return assetId;
-	}
-
-	// Reference images arrive as R2 https URLs. Fetch the bytes server-side, then
-	// inline them as a base64 data URI when small enough, or run the asset
-	// handshake and reference by id. Returns the `image` body field plus any
-	// extra invoke headers (the asset reference) the request needs.
-	async function prepareImageInput(imageUrl) {
-		let resp;
-		try {
-			resp = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
-		} catch (err) {
-			throw Object.assign(new Error(`failed to fetch reference image: ${err?.message}`), {
-				code: 'provider_unreachable',
-				status: 502,
-			});
-		}
-		if (!resp.ok) {
-			throw Object.assign(new Error(`reference image fetch returned ${resp.status}`), {
-				code: 'provider_error',
-				status: 502,
-				providerStatus: resp.status,
-			});
-		}
-		const contentType = (resp.headers.get('content-type') || 'image/png').split(';')[0].trim() || 'image/png';
-		const bytes = Buffer.from(await resp.arrayBuffer());
-		if (bytes.byteLength <= INLINE_IMAGE_LIMIT) {
-			return {
-				imageField: `data:${contentType};base64,${bytes.toString('base64')}`,
-				assetHeaders: {},
-			};
-		}
-		const assetId = await uploadAsset(bytes, contentType);
-		return {
-			imageField: `data:${contentType};asset_id,${assetId}`,
-			assetHeaders: { 'NVCF-INPUT-ASSET-REFERENCES': assetId },
-		};
 	}
 
 	// POST the invoke request. Returns either { done:true, glbBase64 } when the
@@ -318,20 +206,6 @@ export function createNvidiaProvider() {
 		async textTo3d({ prompt, tier, seed } = {}) {
 			const parsed = await postInvoke(buildTextBody({ prompt, tier, seed }), {});
 			return finishSubmit('text-to-3d', parsed);
-		},
-
-		// Single-image→3D. `imageUrl` is an R2 https URL; it is fetched and either
-		// inlined or asset-uploaded before the invoke.
-		async imageTo3d({ imageUrl, tier, seed } = {}) {
-			if (!imageUrl) {
-				throw Object.assign(new Error('imageTo3d requires an imageUrl'), {
-					code: 'provider_error',
-					status: 400,
-				});
-			}
-			const { imageField, assetHeaders } = await prepareImageInput(imageUrl);
-			const parsed = await postInvoke(buildImageBody({ imageField, tier, seed }), assetHeaders);
-			return finishSubmit('image-to-3d', parsed);
 		},
 
 		// Poll an async job. Never throws — transient failures resolve to

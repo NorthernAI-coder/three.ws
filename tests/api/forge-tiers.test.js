@@ -84,4 +84,28 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 		expect(cat.default_backend_for_tier.draft.image).toBe('nvidia');
 		expect(cat.default_backend_for_tier.standard.image).toBe('trellis');
 	});
+
+	// NVIDIA's hosted TRELLIS preview is text-only (rejects every user-image
+	// input — see tasks/nvidia-nim/probes/trellis.md). Photo submissions must
+	// never default onto it.
+	it('routes a photo draft to the standing image backend, not the text-only free lane', () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		expect(resolveBackendId({ path: 'image', tier: 'draft', userImages: true })).toBe('trellis');
+		// Prompt-only drafts still get the free lane.
+		expect(resolveBackendId({ path: 'image', tier: 'draft', userImages: false })).toBe('nvidia');
+		expect(resolveBackendId({ path: 'image', tier: 'draft' })).toBe('nvidia');
+	});
+
+	it('honors an explicit nvidia selection in resolution (the handler owns the rejection)', () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		expect(resolveBackendId({ path: 'image', tier: 'draft', backend: 'nvidia', userImages: true })).toBe('nvidia');
+	});
+
+	it('declares the text-only capability in the public catalog', () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		const cat = buildCatalog();
+		expect(cat.backends.find((b) => b.id === 'nvidia').user_images).toBe(false);
+		expect(cat.backends.find((b) => b.id === 'trellis').user_images).toBe(true);
+		expect(cat.backends.find((b) => b.id === 'meshy').user_images).toBe(true);
+	});
 });

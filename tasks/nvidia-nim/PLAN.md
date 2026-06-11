@@ -100,6 +100,29 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T1.5 prod smoke, part 1 + upstream image-mode discovery & fix.**
+  Deploy `5c161886` went READY with the Phase 1 code (after 4 consecutive deploy ERRORs:
+  the audit-symlink/.git failure, fixed in `cdffd38c`, then a transient `embed`-export
+  mismatch in `api/watsonx/embed.js` introduced by a mid-rename sweep, fixed in
+  `f1587ba9`). **Text→3D draft verified on PRODUCTION**: `POST /api/forge {prompt, tier:
+  draft}` → 200 in **15.0 s**, `backend: nvidia`, synchronous done, durable R2 GLB —
+  fetched + validated (glTF magic, v2, declared length 1,372,132 = actual). **Image→3D
+  failed in prod** with NVCF 422 — live probing (inline base64 at 203 KB *and* 35 KB,
+  `;asset_id,` with the NVCF header, `;example_id,<asset-uuid>`, bare uuid) plus the
+  official schema doc proved the hosted TRELLIS preview accepts ONLY `example_id` 0–3
+  sample images: **user photos are unsupported upstream** (full table appended to
+  `probes/trellis.md`). Shipped the honest routing the same hour: provider is text-only
+  (asset-handshake code deleted; recipe preserved in probe/history), forge-tiers gained
+  `userImages` capability + `resolveBackendId({userImages})` so photo drafts default to
+  the standing Replicate lane, explicit photo+nvidia gets a designed 422
+  `backend_text_only`, catalog exposes `user_images`, and the /forge UI now (a)
+  auto-selects the tier's default engine until the user picks one (draft prompts land on
+  the free lane for real first-time visitors), (b) disables text-only engines while
+  reference views are attached, bouncing a blocked selection to the photo default.
+  Changelog entry corrected to "prompt drafts free" (no photo overclaim). Tests: provider
+  suite re-shaped (25 green), forge-tiers +3 cases (16 green), x402-forge/replicate
+  untouched green. Re-smoke of the photo flow against the new deploy is the remaining
+  T1.5 leg (expect `backend: trellis` via Replicate).
 - **2026-06-11** — **T3.1 audit of `771c84b4` + gap closure; T3.2 re-embed script done
   (dry-run executed; prod run pending the T3.1 deploy).**
   **Audit verdict:** `771c84b4` implemented free-first embeddings on a *different* surface —

@@ -84,7 +84,7 @@
 			<guid isPermaLink="false">2026-06-11:Free 3D drafts on Forge</guid>
 			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>Draft generations on Forge now run on a free NVIDIA-hosted TRELLIS engine by default — type a prompt or drop in a photo and your first 3D model costs nothing and arrives in about 15 seconds, several times faster than the previous default. Every existing engine (TRELLIS on Replicate, Meshy, Tripo) remains selectable at every quality tier, and deployments without the free lane configured keep their current behavior unchanged.</description>
+			<description>Draft generations from a text prompt on Forge now run on a free NVIDIA-hosted TRELLIS engine by default — your first 3D model costs nothing and arrives in about 15 seconds, several times faster than the previous default. Photo-to-3D keeps its proven engine (the free lane is prompt-only by design), and every existing engine — TRELLIS on Replicate, Meshy, Tripo — remains selectable at every quality tier.</description>
 		</item>
 		<item>
 			<title>Hardened the explore feed and marketplace pricing against bad requests</title>
