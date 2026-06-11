@@ -5,7 +5,7 @@
 // Provider chain (free first, paid backstop — same policy as the three.ws
 // platform's /api/tts/speak):
 //   1. NVIDIA NIM Magpie TTS (free, gRPC) when NVIDIA_API_KEY is set. Magpie
-//      emits PCM/Opus, so mp3/aac/flac requests are served as WAV — the
+//      emits raw PCM, so every non-pcm request is served as WAV — the
 //      returned `mime`/`format`/`voice`/`model` fields describe the actual
 //      audio.
 //   2. OpenAI /v1/audio/speech when OPENAI_API_KEY is set.
@@ -33,14 +33,14 @@ export const def = {
 	name: 'speak',
 	title: 'Avatar speaks (TTS)',
 	description:
-		'Synthesize speech for an avatar session and return a base64 audio data URL the client can play. Free NVIDIA NIM Magpie TTS leads when NVIDIA_API_KEY is set (mp3/aac/flac requests are served as WAV); OpenAI TTS is the paid backstop when OPENAI_API_KEY is set. Picks the session\'s configured voice unless overridden.',
+		'Synthesize speech for an avatar session and return a base64 audio data URL the client can play. Free NVIDIA NIM Magpie TTS leads when NVIDIA_API_KEY is set (non-pcm requests are served as WAV); OpenAI TTS is the paid backstop when OPENAI_API_KEY is set. Picks the session\'s configured voice unless overridden.',
 	inputSchema: {
 		sessionId: z.string().optional()
 			.describe('Avatar session id (optional — when omitted, voice falls back to the override or "nova").'),
 		text: z.string().min(1).max(4096).describe('Text the avatar should say.'),
 		voice: z.enum(VOICES).optional().describe('Override the session voice for this call.'),
 		model: z.enum(MODELS).optional().describe('OpenAI TTS model used on the paid backstop lane (default gpt-4o-mini-tts). The free NVIDIA lane always serves magpie-tts-multilingual.'),
-		format: z.enum(Object.keys(FORMATS)).optional().describe('Audio format (default mp3; the free NVIDIA lane serves mp3/aac/flac as wav).'),
+		format: z.enum(Object.keys(FORMATS)).optional().describe('Audio format (default mp3; the free NVIDIA lane serves every non-pcm request as wav).'),
 		language: z.string().optional().describe('BCP-47 language for the free NVIDIA lane (en-US default; also es-US, fr-FR, de-DE, zh-CN, vi-VN, it-IT, hi-IN, ja-JP).'),
 		speed: z.number().min(0.5).max(2.0).optional().describe('Playback speed multiplier (OpenAI lane only).'),
 	},

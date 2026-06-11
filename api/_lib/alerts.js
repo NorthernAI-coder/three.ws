@@ -1,3 +1,4 @@
+// @ts-check
 // Real-time ops alerts → Telegram. Errors should find the operator, not wait
 // to be hunted: serverError()/wrap() report 5xx server faults here and
 // api/client-errors.js reports browser errors, so production failures surface

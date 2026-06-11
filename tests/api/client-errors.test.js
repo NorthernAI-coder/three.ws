@@ -26,16 +26,21 @@ vi.mock('../../api/_lib/sentry.js', () => ({
 	captureMessage: vi.fn(),
 }));
 
+const sendOpsAlert = vi.fn();
+vi.mock('../../api/_lib/alerts.js', () => ({
+	sendOpsAlert: (...args) => sendOpsAlert(...args),
+}));
+
 const { default: handler } = await import('../../api/client-errors.js');
 
-function makeReq({ method = 'POST', body = null, raw = null } = {}) {
+function makeReq({ method = 'POST', body = null, raw = null, contentType } = {}) {
 	const payload = raw ?? (body ? JSON.stringify(body) : '');
 	const req = Readable.from(payload ? [Buffer.from(payload)] : []);
 	req.method = method;
 	req.url = '/api/client-errors';
 	req.headers = {
 		host: 'localhost',
-		'content-type': 'application/json',
+		'content-type': contentType || 'application/json',
 		'user-agent': 'TestBrowser/1.0',
 	};
 	return req;
@@ -85,6 +90,7 @@ let consoleError;
 beforeEach(() => {
 	state.rateLimited = false;
 	captureException.mockClear();
+	sendOpsAlert.mockClear();
 	consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -178,6 +184,68 @@ describe('api/client-errors', () => {
 		});
 		expect(status).toBe(202);
 		expect(body.received).toBe(25);
+	});
+
+	it('pages the ops channel for JS errors but not resource events', async () => {
+		await invoke({
+			body: {
+				page: 'https://three.ws/play',
+				events: [
+					errorEvent(),
+					{ type: 'resource', tag: 'img', message: 'failed to load img', source: 'https://three.ws/x.png' },
+				],
+			},
+		});
+		expect(sendOpsAlert).toHaveBeenCalledTimes(1);
+		expect(sendOpsAlert.mock.calls[0][0]).toContain('client error on https://three.ws/play');
+	});
+
+	it('ingests report-uri CSP reports (application/csp-report)', async () => {
+		const { status, body } = await invoke({
+			contentType: 'application/csp-report',
+			raw: JSON.stringify({
+				'csp-report': {
+					'document-uri': 'https://three.ws/play',
+					'violated-directive': 'script-src',
+					'effective-directive': 'script-src',
+					'blocked-uri': 'https://evil.example/x.js',
+					'line-number': 7,
+				},
+			}),
+		});
+		expect(status).toBe(202);
+		expect(body.received).toBe(1);
+		const logged = JSON.parse(
+			consoleError.mock.calls.find(([tag]) => tag === '[client-error]')[1],
+		);
+		expect(logged.type).toBe('csp');
+		expect(logged.message).toBe('CSP violation: script-src');
+		expect(logged.source).toBe('https://evil.example/x.js');
+		// CSP stays log-only: no Sentry, no ops page.
+		expect(captureException).not.toHaveBeenCalled();
+		expect(sendOpsAlert).not.toHaveBeenCalled();
+	});
+
+	it('ingests report-to CSP reports (application/reports+json)', async () => {
+		const { status, body } = await invoke({
+			contentType: 'application/reports+json',
+			raw: JSON.stringify([
+				{
+					type: 'csp-violation',
+					body: {
+						documentURL: 'https://three.ws/',
+						effectiveDirective: 'object-src',
+						blockedURL: 'https://evil.example/applet',
+					},
+				},
+			]),
+		});
+		expect(status).toBe(202);
+		expect(body.received).toBe(1);
+		const logged = JSON.parse(
+			consoleError.mock.calls.find(([tag]) => tag === '[client-error]')[1],
+		);
+		expect(logged.message).toBe('CSP violation: object-src');
 	});
 
 	it('returns 429 with Retry-After when the IP is rate limited', async () => {

@@ -610,9 +610,12 @@ create table if not exists widget_knowledge_docs (
     status       text not null default 'ready' check (status in ('queued', 'processing', 'ready', 'failed')),
     error        text,
     source_text  text,                                   -- held server-side until QStash worker consumes it
+    embedder     text,                                   -- vector space tag ('<model>@<dim>'); null = legacy text-embedding-3-small@256
     created_at   timestamptz not null default now(),
     updated_at   timestamptz not null default now()
 );
+
+alter table widget_knowledge_docs add column if not exists embedder text;
 
 create index if not exists widget_knowledge_docs_widget
     on widget_knowledge_docs(widget_id, created_at desc);
@@ -624,11 +627,15 @@ do $$ begin
         for each row execute function set_updated_at();
 exception when duplicate_object then null; end $$;
 
--- ── widget_knowledge_chunks — 512/100-overlap chunks with truncated embeds ──
--- Embedding is text-embedding-3-small @ 256 dims (Matryoshka), stored as a
--- JSONB float array. Retrieval scores via cosine similarity in JS at query
--- time; switch to pgvector if a single widget grows past several thousand
--- chunks.
+-- ── widget_knowledge_chunks — 512/100-overlap chunks with tagged embeds ─────
+-- Embedding is stored as a JSONB float array, produced by the embedder named
+-- in `embedder` ('<model>@<dim>', e.g. 'nvidia/nv-embedqa-e5-v5@1024' on the
+-- free NIM lane or 'text-embedding-3-small@256' on OpenAI; null = legacy
+-- OpenAI rows). Vectors from different embedders are different spaces — query
+-- time embeds the search string with the SAME tag and never compares across
+-- tags (api/_lib/embeddings.js scoreRowsBySpace). Retrieval scores via cosine
+-- similarity in JS at query time; switch to pgvector if a single widget grows
+-- past several thousand chunks.
 create table if not exists widget_knowledge_chunks (
     id            bigserial primary key,
     doc_id        text not null references widget_knowledge_docs(id) on delete cascade,
@@ -637,8 +644,11 @@ create table if not exists widget_knowledge_chunks (
     content       text not null,
     embedding     jsonb not null,
     token_count   integer not null default 0,
+    embedder      text,
     created_at    timestamptz not null default now()
 );
+
+alter table widget_knowledge_chunks add column if not exists embedder text;
 
 create index if not exists widget_knowledge_chunks_widget
     on widget_knowledge_chunks(widget_id);

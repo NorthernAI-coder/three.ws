@@ -18,6 +18,22 @@ export const MEMORY_TYPES = {
 	REFERENCE: 'reference',
 };
 
+// Entries persisted before embeddings carried a model tag were produced by the
+// Voyage-only /api/agents/:id/embed endpoint. Encoding that here lets recall()
+// keep comparing them — but only against queries embedded by the same model.
+const LEGACY_EMBED_MODEL = 'voyage-3-lite';
+
+// embedFn may return a bare vector (number[]) or { vector, model } — the
+// platform's _makeEmbedFn passes the model through because the embed endpoint
+// is a provider chain and vectors from different models must never be
+// cosine-compared. Bare vectors get model null ("unspecified custom space").
+function _normalizeEmbedResult(res) {
+	if (Array.isArray(res)) return { vector: res, model: null };
+	if (res && Array.isArray(res.vector)) return { vector: res.vector, model: res.model ?? null };
+	if (res && Array.isArray(res.embedding)) return { vector: res.embedding, model: res.model ?? null };
+	return null;
+}
+
 /**
  * @typedef {Object} MemoryEntry
  * @property {string}   id
@@ -33,7 +49,8 @@ export const MEMORY_TYPES = {
 export class AgentMemory {
 	/**
 	 * @param {string} agentId
-	 * @param {{ backendSync?: boolean, embedFn?: (text: string) => Promise<number[]> }} [opts]
+	 * @param {{ backendSync?: boolean,
+	 *           embedFn?: (text: string) => Promise<number[] | { vector: number[], model?: string|null }> }} [opts]
 	 */
 	constructor(agentId, { backendSync = false, embedFn = null } = {}) {
 		this.agentId = agentId;
@@ -71,7 +88,13 @@ export class AgentMemory {
 		this._scheduleSync(mem);
 		// Fire-and-forget embedding generation
 		if (this.embedFn) {
-			this.embedFn(mem.content).then((vec) => { mem.embedding = vec; }).catch(() => {});
+			this.embedFn(mem.content).then((res) => {
+				const norm = _normalizeEmbedResult(res);
+				if (norm) {
+					mem.embedding = norm.vector;
+					mem.embeddingModel = norm.model;
+				}
+			}).catch(() => {});
 		}
 		return id;
 	}
@@ -120,18 +143,24 @@ export class AgentMemory {
 			return true;
 		});
 
-		const queryVec = await this.embedFn(queryText).catch(() => null);
-		if (!queryVec) return this.query({ type, limit });
+		const queryRes = await this.embedFn(queryText).then(_normalizeEmbedResult).catch(() => null);
+		if (!queryRes) return this.query({ type, limit });
+		const queryModel = queryRes.model;
 
+		// Same-space rule: only cosine-compare entries embedded by the SAME
+		// model as the query. Entries from another model's vector space (e.g.
+		// stored before a provider failover) score garbage against this query,
+		// so they take the substring path instead of a fake similarity.
 		const withEmbedding = [];
 		const withoutEmbedding = [];
 		for (const m of active) {
-			if (m.embedding) withEmbedding.push(m);
+			const entryModel = 'embeddingModel' in m ? m.embeddingModel : LEGACY_EMBED_MODEL;
+			if (m.embedding && entryModel === queryModel) withEmbedding.push(m);
 			else withoutEmbedding.push(m);
 		}
 
 		const scored = withEmbedding
-			.map((m) => ({ entry: m, score: cosineSim(queryVec, m.embedding) }))
+			.map((m) => ({ entry: m, score: cosineSim(queryRes.vector, m.embedding) }))
 			.filter((x) => x.score >= minScore)
 			.sort((a, b) => b.score - a.score);
 
@@ -354,8 +383,12 @@ export class AgentMemory {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 export function cosineSim(a, b) {
+	// Mismatched lengths are by definition different vector spaces — never
+	// compare a shared prefix. Zero vectors have no direction; score 0, not NaN.
+	if (!a || !b || a.length !== b.length) return 0;
 	let dot = 0, na = 0, nb = 0;
 	for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+	if (!na || !nb) return 0;
 	return dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 

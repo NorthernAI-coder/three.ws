@@ -332,8 +332,12 @@ function _makeEmbedFn(agentId) {
 			body: JSON.stringify({ text }),
 		});
 		if (!resp.ok) throw new Error(`embed ${resp.status}`);
-		const { embedding } = await resp.json();
-		return embedding;
+		// The endpoint serves a free-first provider chain, so the model can
+		// differ between calls (NIM up vs. fallen back to Voyage). Pass the
+		// model through: AgentMemory only cosine-compares vectors from the
+		// same model — different models are different vector spaces.
+		const { embedding, model } = await resp.json();
+		return { vector: embedding, model: model || null };
 	};
 }
 

@@ -1,3 +1,4 @@
+// @ts-check
 // First-party client-side error reporting. Captures uncaught exceptions,
 // unhandled promise rejections, and failed resource loads on every page, then
 // batches them to POST /api/client-errors where they land in the Vercel
@@ -14,8 +15,11 @@
 // exception-proof.
 (() => {
 	'use strict';
-	if (window.__threeErrorReporter) return;
-	window.__threeErrorReporter = true;
+	// Untyped view of window for our private globals (__threeErrQ, __threeErrCap)
+	// shared with the inline bootstrap injected by vite.config.js.
+	const win = /** @type {any} */ (window);
+	if (win.__threeErrorReporter) return;
+	win.__threeErrorReporter = true;
 
 	const ENDPOINT = '/api/client-errors';
 	const MAX_EVENTS_PER_PAGE = 25; // hard cap so an error loop can't flood the API
@@ -222,7 +226,7 @@
 
 	// Drain events the inline bootstrap queued before this file loaded, then
 	// take over its queue so the bootstrap's listeners feed us directly.
-	const bootQueue = (window.__threeErrQ = window.__threeErrQ || []);
+	const bootQueue = (win.__threeErrQ = win.__threeErrQ || []);
 	const backlog = bootQueue.splice(0);
 	bootQueue.push = (raw) => {
 		handleRaw(raw);
@@ -232,14 +236,14 @@
 
 	// Standalone usage (a page that includes this file without the Vite-injected
 	// bootstrap): install the listeners ourselves.
-	if (!window.__threeErrCap) {
-		window.__threeErrCap = 1;
+	if (!win.__threeErrCap) {
+		win.__threeErrCap = 1;
 		window.addEventListener('error', handleRaw, true);
 		window.addEventListener('unhandledrejection', handleRaw);
 	}
 
 	// Manual reporting hook for app code: window.reportClientError(err, { ...context })
-	window.reportClientError = (err, context) => {
+	win.reportClientError = (err, context) => {
 		try {
 			const isError = err instanceof Error;
 			enqueue({
