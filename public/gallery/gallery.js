@@ -311,6 +311,9 @@ function renderCard(a) {
 	const studioUrl = `/studio?avatar=${encodeURIComponent(a.id)}`;
 
 	const thumbSrc = a.thumbnail_url || `/api/avatars/${encodeURIComponent(a.id)}/og`;
+	// Prefer the vision-generated accessibility description; fall back to the name
+	// when alt text hasn't been generated/backfilled yet (T4.1).
+	const altText = a.alt_text || a.name || 'Avatar';
 	const views = a.view_count != null ? Number(a.view_count) : 0;
 	const created = formatRelative(a.created_at);
 
@@ -318,7 +321,7 @@ function renderCard(a) {
 	const thumbContent = glbUrl
 		? `<model-viewer
 				src="${escapeAttr(glbUrl)}"
-				alt="${escapeAttr(a.name || 'Avatar')}"
+				alt="${escapeAttr(altText)}"
 				class="gallery-card-mv"
 				reveal="auto"
 				loading="lazy"
@@ -334,7 +337,7 @@ function renderCard(a) {
 				exposure="1"
 				poster="${escapeAttr(thumbSrc)}"
 			></model-viewer>`
-		: `<img src="${escapeAttr(thumbSrc)}" alt="${escapeAttr(a.name || 'Avatar')}" loading="lazy" decoding="async" />`;
+		: `<img src="${escapeAttr(thumbSrc)}" alt="${escapeAttr(altText)}" loading="lazy" decoding="async" />`;
 
 	const tagChips = (a.tags || [])
 		.slice(0, 3)
