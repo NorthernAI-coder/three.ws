@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Sharper search and richer link previews across the blog",
+			"summary": "Every blog post now ships full social-card images and structured data, so links to three.ws unfurl with a proper preview image on X, Slack, Discord and LinkedIn, and show up as rich articles with breadcrumbs in Google. All 25 posts are now listed in the sitemap (previously only four were), making the full archive discoverable in search. A new build step keeps page titles, descriptions and previews in sync automatically so nothing ships without them.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/blog"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "MetaMask Agent Wallet skills for every agent",
 			"summary": "Two new skills in the marketplace under the new Wallet category: MetaMask Agent Wallet and MetaMask Agent Workflows. Install them on any agent to let it check balances, transfer tokens, swap, bridge across chains, trade perps and prediction markets, and manage Aave positions through MetaMask's mm CLI — each user signs in with their own MetaMask Agent Wallet, so keys stay with you, never with three.ws. Platform chat agents pick the skills up automatically.",
 			"tags": [

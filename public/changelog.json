@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T10:07:59.083Z",
+	"generated_at": "2026-06-11T10:24:49.461Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -90,6 +90,16 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Sharper search and richer link previews across the blog",
+			"summary": "Every blog post now ships full social-card images and structured data, so links to three.ws unfurl with a proper preview image on X, Slack, Discord and LinkedIn, and show up as rich articles with breadcrumbs in Google. All 25 posts are now listed in the sitemap (previously only four were), making the full archive discoverable in search. A new build step keeps page titles, descriptions and previews in sync automatically so nothing ships without them.",
+			"link": "/blog",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

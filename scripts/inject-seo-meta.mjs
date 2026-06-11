@@ -173,7 +173,9 @@ async function main() {
 	const [pages, vercel] = await Promise.all([loadJson('data/pages.json'), loadJson('vercel.json')]);
 	const router = buildRouter(vercel);
 
-	const SKIP_SECTIONS = new Set(['news', 'machine']);
+	// `blog` is owned by inject-blog-seo.mjs (BlogPosting + BreadcrumbList JSON-LD,
+	// resolved from the root /blog dir) — don't double-process it here.
+	const SKIP_SECTIONS = new Set(['news', 'machine', 'blog']);
 	// Agent-instance surfaces (A05 owns the restructure) resolve to shared
 	// editor/SPA files that serve many routes — a single static canonical/og:url
 	// would be wrong, so we leave their meta to the owning agent.
