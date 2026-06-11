@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T14:29:15.185Z",
+	"generated_at": "2026-06-11T14:33:36.325Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -93,6 +93,17 @@
 		{
 			"date": "2026-06-11",
 			"type": "update",
+			"title": "Create an avatar from a template or from scratch, right from the dashboard",
+			"summary": "The dashboard's Avatars page only offered selfie and GLB-upload as ways to make a new avatar — the two fastest paths, starting from a ready-made template or sculpting one from scratch, were buried elsewhere. The '+ New avatar' menu now groups every option clearly: Build (start from a template, or build from scratch in the studio), From you (snap a selfie, full selfie flow, or describe it as a prompt), and Import (upload a GLB, copy an existing avatar, or browse the public gallery). 'Start from a template' opens a picker with live 3D previews and stages your pick straight into the save step. The empty state leads with the same three quick starts.",
+			"link": "/dashboard/avatars",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
 			"title": "Embedded avatar chat replies again",
 			"summary": "Avatars embedded straight from their public profile — the one-line widget on the homepage and anywhere else the avatar URL is dropped in — went silent when you typed a message: the chat box accepted your text but the avatar never answered. The built-in AI now recognizes a plain public avatar and serves it the free we-pay model with the same per-avatar rate and usage limits, so embedded chat responds out of the box.",
 			"link": null,
@@ -109,6 +120,17 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Forge checks your photo before spending a generation — plus image-aware fact-checks and accessible galleries",
+			"summary": "A new free image-understanding layer (running on NVIDIA's free models, so it costs you nothing) now powers three things across three.ws. In Forge, when you upload a photo to turn into 3D, it's checked first: if it's a screenshot of text, a cluttered scene with no clear subject, or too dark to reconstruct, you get a clear heads-up and a fix before a generation slot is spent — with a one-click 'Generate anyway' if you disagree. The Fact Checker can now take an image alongside a claim: it reads the picture, transcribes any text in it, and weighs that as evidence in the verdict. And every avatar in the public gallery now gets a real, descriptive alt text written from its thumbnail, so screen-reader users hear what each avatar actually looks like instead of just its name. All three quietly switch off if the vision service is ever unavailable — nothing ever blocks or breaks.",
+			"link": "/forge",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

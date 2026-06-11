@@ -54,7 +54,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 - [x] **T3.3** [32-rag-verify.md](32-rag-verify.md) — RAG verified end-to-end in prod + changelog (live prod widget grounded its answer in a NIM-embedded corpus; empty case degrades clean; changelog shipped — see Worklog 2026-06-11)
 
 ### Phase 4 — Expansion lanes (after 1–3)
-- [ ] **T4.1** [40-vision-lane.md](40-vision-lane.md) — vision helper + forge validation, fact-checker, alt text
+- [x] **T4.1** [40-vision-lane.md](40-vision-lane.md) — vision helper + forge validation, fact-checker, alt text (shared `api/_lib/vision.js` + 3 consumers, all live-verified on the free NIM lane + degrade-tested — see Worklog 2026-06-11)
 - [x] **T4.2** [41-moderation-prefilter.md](41-moderation-prefilter.md) — fail-open moderation for anonymous chat (NemoGuard pre-filter on all 3 anon surfaces; fail-open + kill-switch live-verified; gpt-oss stays demoted — see Worklog 2026-06-11)
 - [x] **T4.3** [42-audio2face-spike.md](42-audio2face-spike.md) — Audio2Face-3D go/no-go spike (research only) — **NO-GO**: hosted A2F-3D functions exist but are not entitled to this free account; client-side lip-sync already covers it for free (see `probes/audio2face.md` + Worklog 2026-06-11)
 
@@ -100,6 +100,50 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T4.1 (shared vision helper + three consumers) — DONE, all three
+  live-verified on the free NIM lane + degrade-tested.** **Probe (`probes/vision.md`):** the
+  hosted VLMs run on the **OpenAI-compatible chat host** (`integrate.api.nvidia.com/v1/chat/
+  completions`) — the SAME host/protocol as the `llm.js` chat lanes, NOT the
+  `ai.api.nvidia.com/genai` host FLUX/TRELLIS use. Multimodal via the standard
+  `content:[{type:'text'},{type:'image_url',image_url:{url}}]` shape; synchronous, no poll, no
+  NVCF asset handshake. Three models invocable on this account: **`nvidia/nemotron-nano-12b-v2-vl`
+  (chosen primary** — ~281 image-prompt tokens, cheapest + clean JSON), `meta/llama-3.2-11b-vision-instruct`
+  (chosen 2nd free lane, different family → independent failure modes), `meta/llama-3.2-90b-vision-instruct`
+  (works but ~1616 tokens/image, unused). **No inline-size limit** on this host (verified data-URI
+  bodies up to 2.07 MB — the 180 KB NVCF asset ceiling does NOT apply here); http(s) URLs also fetched
+  server-side (but some origins block the fetcher — wikimedia 500'd). 403 bad key / 404 unknown model /
+  500 on a blocked URL — all mapped. **Helper (`api/_lib/vision.js`):** the image-side twin of `llm.js` —
+  `describeImage`/`describeImageJson`/`visionConfigured`/`VisionUnavailableError`, free NIM lanes first
+  (nemotron → llama-11b), paid `gpt-4o-mini` backstop appended last only when `OPENAI_API_KEY` set,
+  per-attempt timeout, normalized error codes, and a fire-and-forget `kind:'vision'` spend event via
+  `recordEvent` (free NIM prices to 0 — `nvidia` already in `llm-pricing.js` FREE_PROVIDERS). Accepts a
+  pass-through URL OR base64+mime (data-URI). **Consumer 1 — `/forge` input validation**
+  (`api/_lib/forge-image-validate.js`, wired into `api/forge.js` image→3D branch before submit): a free
+  NIM lane judges the primary reference photo (single clear subject? text screenshot? too dark? abstract?)
+  and returns a designed 422 (`image_not_usable` + per-issue actionable copy) BEFORE a generation slot is
+  burned. **Fail-open is the contract** — unconfigured/timeout/error/bad-reply all return `{ok:true}` and
+  generation proceeds; the UI (`src/forge.js` + `pages/forge.html`) renders the message with a one-click
+  **Generate anyway** (`skip_validation:true`) so a cautious verdict never permanently blocks a confident
+  user. **Consumer 2 — fact-checker** (`agents/fact-checker/src/image-evidence.js`, wired into
+  `api/x402/fact-check.js`): an optional `imageUrl` is described + text-transcribed + stance-judged and
+  folded in as one weighted, verdict-compatible source (runs in PARALLEL with the web pipeline; a claim is
+  now checkable on image evidence alone); response gains an `imageEvidence` block; cache key bumped v1→v2
+  to fold in the image; bazaar input/output schema updated. Fail-open → `null`, web-only check proceeds.
+  **Consumer 3 — avatar gallery alt text** (`api/_lib/avatar-alt-text.js`): new nullable `alt_text` column
+  (migration `2026-06-11-avatar-alt-text.sql` + `schema.sql` alter-guard), generated **on thumbnail upload**
+  from the PNG buffer already in hand (`api/avatars/thumbnail.js`, fire-and-forget, no extra fetch),
+  backfilled by `scripts/backfill-avatar-alt-text.mjs` (idempotent, `--dry-run`), surfaced through
+  `avatars.js` decorate + the list/search SELECTs, and consumed by `public/gallery/gallery.js`
+  (`<img alt>`/`model-viewer alt` → `alt_text || name`). Fail-open → null → gallery falls back to the name.
+  **Live-verified end-to-end** with the real key (`describeImage`, `validateForgeImage`, `imageEvidence`,
+  `generateAltText` all returned correct results off the free `nvidia/nemotron-nano-12b-v2-vl` lane in
+  ~1–2 s; the spend-write degrades cleanly with no DB — proving `recordEvent` is wired + non-fatal).
+  **Tests:** `tests/api/vision.test.js` (27 cases) — chain order, NIM→NIM→OpenAI failover, 403→invalid_key,
+  timeout-as-failure, VisionUnavailable, JSON-loose parsing, and EACH consumer's degraded path. Full
+  all-modules-load (471) + forge-tiers + x402-forge + avatar-og + text-to-image suites green; typecheck
+  clean. Changelog entry added (holder language) + `build:pages` validated. **Surprise:** vision lives on
+  the `integrate` chat host, not the `genai` image-gen host — so it's a near-clone of `llm.js`, not of the
+  TRELLIS/FLUX providers; and that host has no inline-image size cap, unlike the genai NVCF path.
 - **2026-06-11** — **T4.3 (Audio2Face-3D feasibility spike) — DONE; recommendation NO-GO
   (conditional revisit).** Full findings + live transcripts in `probes/audio2face.md`.
   **Invocability:** A2F-3D IS published as hosted NVCF gRPC functions (Claire
