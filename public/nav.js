@@ -185,7 +185,7 @@ function renderDrawer(navData) {
 	html += `<a href="/my-agents" id="home-nav-drawer-my-agents" data-auth="in" hidden>My Agents</a>`;
 	html += `<div class="sep"></div>`;
 	html += `<a href="/login" id="home-nav-drawer-cta" data-auth="out">Sign in</a>`;
-	html += `<a class="btn primary btn--primary" href="/dashboard" style="margin-top: 4px">Console →</a>`;
+	html += `<a class="btn primary btn--primary" href="/dashboard">Console →</a>`;
 	return html;
 }
 
@@ -330,10 +330,10 @@ function initActivePage(root) {
 
 // ── Auth-aware CTAs ──────────────────────────────────────────────────────────
 // Swap "Sign in" for the dashboard / My Agents entry points when the visitor is
-// authenticated. The behavior lives in the shared /nav-auth.js module so the
-// hand-rolled homepage nav and this shared nav stay in lock-step — see that file
-// for the hint-then-reconcile-against-/api/auth/me strategy and its data-auth
-// markup contract. Loaded on demand and called once the nav markup is injected.
+// authenticated. The behavior lives in the shared /nav-auth.js module — see that
+// file for the hint-then-reconcile-against-/api/auth/me strategy and its
+// data-auth markup contract. Loaded on demand and called once the nav markup is
+// injected.
 function initAuthHint(root) {
 	if (typeof window.initNavAuth === 'function') {
 		window.initNavAuth(root);
