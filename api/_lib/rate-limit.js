@@ -235,7 +235,7 @@ export const limits = {
 	// and/or image→3D reconstruction) that costs real money, so it gets a hard
 	// hourly ceiling per principal. Status polling is cheap and frequent.
 	mcp3dGenerate: (key) =>
-		getLimiter('mcp3d:generate', { limit: 12, window: '1 h', critical: true }).limit(key),
+		getLimiter('mcp3d:generate', { limit: 30, window: '1 h', critical: true }).limit(key),
 	// Free generation lane (NVIDIA NIM TRELLIS draft). No Replicate/vendor spend,
 	// so it gets a much higher per-principal ceiling than the paid bucket and is
 	// NON-critical: a Redis outage must never deny a zero-cost generation (fail

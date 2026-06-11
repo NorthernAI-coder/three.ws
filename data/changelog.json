@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Free 3D draft generations no longer get blocked by the paid rate limit",
+			"summary": "Generating a 3D model from a text prompt on the Draft tier runs on a free engine — no key, no cost. But it was sharing the same hourly limit as the paid lanes, so a few quick iterations (or several people on the same office or campus network) could hit a 'generator is busy, try again later' wall even though nothing was being charged. The free draft lane now has its own, far more generous allowance and never blocks you because of a backend hiccup. Heavy paid generations keep their tighter limit. Iterate on prompts freely.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Pick a username on your account page — even if you signed in with a wallet",
 			"summary": "You can now set and change your username right from the account page. If you signed up with a wallet, you previously had no way to claim a handle — your profile just showed a shortened wallet address. Now there's a '+ Set a username' button under your name; tap it, type a handle (3–30 characters, letters, numbers, _ or -), and save. Usernames are checked for availability as you save, so you'll get a clear message if one's already taken. Wallet sign-ins also no longer display the internal placeholder email on your profile.",
 			"tags": [
