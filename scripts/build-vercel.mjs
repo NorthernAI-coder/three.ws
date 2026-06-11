@@ -148,6 +148,11 @@ async function ensureSDKDist() {
 }
 
 async function prebuild() {
+	// Type gate first: with GitHub Actions unavailable on this account, the
+	// deploy build is the only automated checkpoint, so a type error in a
+	// ratcheted file (see jsconfig.json) fails the deploy instead of shipping.
+	// Cheap (~5s) and has already caught a real prod bug (elevenlabs voice_id).
+	await run('typecheck', 'npx tsc -p jsconfig.json');
 	await Promise.all([
 		run('build:news', 'node scripts/build-news.mjs'),
 		run('build:skill-metadata', 'node scripts/build-skill-metadata.mjs'),

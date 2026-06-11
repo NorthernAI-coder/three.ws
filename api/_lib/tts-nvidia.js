@@ -82,11 +82,14 @@ export function resolveMagpieVoice(voice, language) {
 	return `Magpie-Multilingual.${lang.toUpperCase()}.${persona}`;
 }
 
-// Magpie outputs raw PCM or Ogg/Opus — it cannot encode mp3/aac/flac. Those
-// requests are served as WAV instead (every browser decoder sniffs the
-// container; content-type + x-tts-format stay truthful about what was sent).
+// Magpie cannot encode mp3/aac/flac, and its OGGOPUS output over NVCF is
+// length-framed raw Opus packets WITHOUT an Ogg container (live-verified
+// 2026-06-11 — no OggS magic anywhere in the payload), so it is not directly
+// playable either. Every non-pcm request is therefore served as WAV; browser
+// decoders sniff the container, and content-type + x-tts-format stay truthful
+// about what was actually sent. The OpenAI backstop still produces native
+// mp3/opus/aac/flac when it serves.
 export function resolveMagpieFormat(format) {
-	if (format === 'opus') return { encoding: 'OGGOPUS', wrapWav: false, format: 'opus', contentType: 'audio/ogg' };
 	if (format === 'pcm') return { encoding: 'LINEAR_PCM', wrapWav: false, format: 'pcm', contentType: 'audio/pcm' };
 	return { encoding: 'LINEAR_PCM', wrapWav: true, format: 'wav', contentType: 'audio/wav' };
 }
@@ -135,6 +138,12 @@ function normalizeGrpcError(err) {
 // The TLS channel is keyless (auth rides in per-call metadata), so one cached
 // client serves the whole warm lambda. @grpc/grpc-js is imported lazily to
 // keep cold starts of non-TTS importers free of the dependency.
+//
+// NVCF gotcha (live-observed): authorization is validated when the gRPC
+// stream/connection is established — an already-authenticated warm channel
+// keeps serving even if the key in env later changes. Irrelevant for prod
+// (the key is fixed per deployment), but key-rotation tests must use a fresh
+// process (see scripts/verify-nvidia-tts.mjs).
 let clientPromise = null;
 async function getClient() {
 	if (!clientPromise) {

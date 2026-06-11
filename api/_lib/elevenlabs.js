@@ -1,3 +1,4 @@
+// @ts-check
 // Shared ElevenLabs client + helpers.
 //
 // Centralizes the base URL, the API-key gate, the cached voice catalog, voice
@@ -146,10 +147,17 @@ export async function createClonedVoice({ name, description, files }) {
 		throw upstreamError(`ElevenLabs returned ${status}`, status, { upstreamBody });
 	}
 
-	if (!result?.voice_id) throw upstreamError('ElevenLabs response missing voice_id', 502);
+	// SDK ≥2 returns camelCase model fields (voiceId); tolerate the legacy
+	// snake_case wire shape too so an SDK downgrade can't silently break cloning.
+	const raw = /** @type {any} */ (result);
+	const voiceId = raw?.voiceId ?? raw?.voice_id;
+	if (!voiceId) throw upstreamError('ElevenLabs response missing voice_id', 502);
 
 	invalidateVoiceCache();
-	return { voiceId: result.voice_id, requiresVerification: !!result.requires_verification };
+	return {
+		voiceId,
+		requiresVerification: !!(raw.requiresVerification ?? raw.requires_verification),
+	};
 }
 
 /**

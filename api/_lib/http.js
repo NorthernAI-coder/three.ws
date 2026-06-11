@@ -1,3 +1,4 @@
+// @ts-check
 // HTTP helpers for Vercel Node handlers. Keeps handlers small + consistent.
 
 import { webcrypto } from 'node:crypto';
@@ -36,7 +37,7 @@ export function error(res, status, code, message, extra = {}) {
 // full server-side log line. Not security-sensitive — just needs to be unique.
 function correlationId() {
 	const b = new Uint8Array(8);
-	(globalThis.crypto || webcrypto).getRandomValues(b);
+	/** @type {Crypto} */ (globalThis.crypto || webcrypto).getRandomValues(b);
 	return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
@@ -118,17 +119,13 @@ export function validationError(res, err) {
 export async function readJson(req, limit = 1_000_000) {
 	const ct = req.headers['content-type'] || '';
 	if (!ct.includes('application/json')) {
-		const err = new Error('content-type must be application/json');
-		err.status = 415;
-		throw err;
+		throw Object.assign(new Error('content-type must be application/json'), { status: 415 });
 	}
 	return readBody(req, limit).then((buf) => {
 		try {
 			return JSON.parse(buf.toString('utf8'));
 		} catch {
-			const e = new Error('invalid JSON');
-			e.status = 400;
-			throw e;
+			throw Object.assign(new Error('invalid JSON'), { status: 400 });
 		}
 	});
 }
@@ -138,7 +135,7 @@ export async function readForm(req, limit = 1_000_000) {
 	return Object.fromEntries(new URLSearchParams(buf.toString('utf8')));
 }
 
-function readBody(req, limit) {
+export function readBody(req, limit) {
 	return new Promise((resolve, reject) => {
 		const chunks = [];
 		let total = 0;

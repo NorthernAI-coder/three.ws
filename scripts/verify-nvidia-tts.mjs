@@ -10,16 +10,28 @@
 //    proven against the live model, not assumed.
 // 3. Forces the NIM lane to fail (bad key) and runs the real /api/tts/speak
 //    handler to prove the failover ORDER: nvidia attempted first, OpenAI
-//    backstop attempted second, clean JSON error when both fail.
+//    backstop attempted second, clean JSON error when both fail. This runs in
+//    a CHILD PROCESS because NVCF authorizes at gRPC stream/connection setup —
+//    a warm channel that already authenticated keeps serving even after the
+//    key in env changes, so an in-process key swap proves nothing.
 //
 // Everything stays in memory — no scratch audio files are written.
 
 import { config as dotenv } from 'dotenv';
 import { Readable } from 'node:stream';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
+// dotenv never overrides vars already present, so the bogus key injected by
+// the parent for --failover-only survives this load.
 dotenv({ path: new URL('../.env.local', import.meta.url) });
+// .env.local can carry prod flags; clear them so the critical rate limiter
+// doesn't fail closed (no local Redis) when we exercise the real handler.
+delete process.env.NODE_ENV;
+delete process.env.VERCEL_ENV;
 
 const quick = process.argv.includes('--quick');
+const failoverOnly = process.argv.includes('--failover-only');
 if (!process.env.NVIDIA_API_KEY) {
 	console.error('[tts] NVIDIA_API_KEY missing from environment/.env.local — cannot live-verify');
 	process.exit(1);
@@ -39,7 +51,7 @@ function wavDurationSeconds(buf) {
 }
 
 // ── 1. One real sentence through the module ────────────────────────────────
-{
+if (!failoverOnly) {
 	const t0 = Date.now();
 	const out = await synthesizeNvidiaTts({
 		text: 'Hello from three dot W S. The free NVIDIA voice lane is live.',
@@ -60,7 +72,7 @@ function wavDurationSeconds(buf) {
 }
 
 // ── 2. Voice-map sweep + opus path ─────────────────────────────────────────
-if (!quick) {
+if (!quick && !failoverOnly) {
 	const personas = new Map(); // persona → one representative OpenAI voice name
 	for (const [openaiVoice, persona] of Object.entries(VOICE_TO_MAGPIE)) {
 		if (!personas.has(persona)) personas.set(persona, openaiVoice);
@@ -72,17 +84,33 @@ if (!quick) {
 			`persona ${persona} returned no audio`);
 		console.log(`[tts] ✓ ${openaiVoice} → ${out.voiceName} (${out.audio.length} bytes, ${Date.now() - t0}ms)`);
 	}
-	const opus = await synthesizeNvidiaTts({ text: 'Opus container check.', voice: 'nova', format: 'opus' });
-	assert(opus.audio.subarray(0, 4).toString('ascii') === 'OggS', `opus magic: ${opus.audio.subarray(0, 4)}`);
-	assert(opus.contentType === 'audio/ogg' && opus.format === 'opus', 'opus content-type/format not truthful');
-	console.log(`[tts] ✓ opus path ok (${opus.audio.length} bytes, OggS magic)`);
+	// Opus requests are served as WAV on the NIM lane (NVCF Magpie's OGGOPUS
+	// output is containerless raw packets — see resolveMagpieFormat); the
+	// served format/content-type must say so truthfully.
+	const opus = await synthesizeNvidiaTts({ text: 'Format truthfulness check.', voice: 'nova', format: 'opus' });
+	assert(opus.audio.subarray(0, 4).toString('ascii') === 'RIFF', `opus→wav magic: ${opus.audio.subarray(0, 4)}`);
+	assert(opus.contentType === 'audio/wav' && opus.format === 'wav', 'opus→wav labels not truthful');
+	console.log(`[tts] ✓ opus request truthfully served as WAV (${opus.audio.length} bytes)`);
 }
 
 // ── 3. Failover order through the real handler (forced NIM failure) ────────
-{
-	process.env.NVIDIA_API_KEY = 'nvapi-deliberately-invalid-for-failover-check';
-	if (!process.env.OPENAI_API_KEY) process.env.OPENAI_API_KEY = 'sk-invalid-local-failover-check';
-
+if (!failoverOnly) {
+	// Fresh process so the bogus key is the FIRST thing the gRPC channel ever
+	// authenticates with (see header note on NVCF connection-level auth).
+	const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--failover-only'], {
+		env: {
+			...process.env,
+			NVIDIA_API_KEY: 'nvapi-deliberately-invalid-for-failover-check',
+			OPENAI_API_KEY: process.env.OPENAI_API_KEY || 'sk-invalid-local-failover-check',
+		},
+		stdio: 'inherit',
+		timeout: 120_000,
+	});
+	if (r.status !== 0) {
+		console.error('[tts] FAIL — failover child exited with', r.status);
+		process.exit(1);
+	}
+} else {
 	const handler = (await import('../api/tts/speak.js')).default;
 	const body = Buffer.from(JSON.stringify({ text: 'Failover order check.', voice: 'nova' }));
 	const req = Readable.from([body]);
@@ -121,4 +149,4 @@ if (!quick) {
 	}
 }
 
-console.log('[tts] PASS');
+if (!failoverOnly) console.log('[tts] PASS');

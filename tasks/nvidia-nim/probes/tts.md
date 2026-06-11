@@ -123,3 +123,24 @@ before building T2.1.
 - List functions: `GET https://api.nvcf.nvidia.com/v2/nvcf/functions` (Bearer key).
 - Synthesize: Python snippet above, or grpc-js against the same host/metadata.
 - Verified: 4.37 s mono 16-bit 44.1 kHz WAV from Magpie multilingual. Scratch deleted.
+
+---
+
+## T2.1 addenda (2026-06-11, live-verified while building the lane)
+
+- **Subvoice ids are upper-cased.** `voice_name` must be
+  `Magpie-Multilingual.EN-US.Aria` — a lowercase language tag
+  (`…en-US.Aria`) fails with `INVALID_ARGUMENT: subvoice requested not found`.
+  Full live subvoice map via `GetRivaSynthesisConfig` (same metadata): personas
+  Mia/Jason/Aria/Leo/Sofia/Ray + Pascal/Diego/Louise/Isabela exist under EN-US;
+  every language exposes a large persona cross-product.
+- **OGGOPUS over NVCF is NOT an Ogg container.** The response is length-framed
+  raw Opus packets (no `OggS` magic anywhere) — not directly playable. The
+  production lane serves WAV for every non-pcm request instead.
+- **Auth is per-connection, not per-call.** NVCF validates the bearer when the
+  gRPC stream/connection is established (`failed to open stateful work request:
+  PermissionDenied` on a fresh channel with a bad key) — but a warm channel
+  that already authenticated keeps serving after the key in env changes.
+  Key-failure tests need a fresh process.
+- **Observed latency (Codespace → grpc.nvcf.nvidia.com):** ~370–430 ms for a
+  short phrase, ~1.3–2.1 s for a full sentence (4.5 s audio), per-call.

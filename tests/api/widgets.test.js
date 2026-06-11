@@ -61,17 +61,36 @@ vi.mock('../../api/_lib/avatars.js', () => ({
 }));
 
 // Embeddings — keep tests offline. Configured=true so we exercise the test
-// branch's validation; embed() returns a fixed vector if invoked.
-vi.mock('../../api/_lib/embeddings.js', () => ({
-	embeddingsConfigured: () => true,
-	embed: vi.fn(async (texts) => texts.map(() => Float64Array.from([1, 0, 0, 0]))),
-	cosine: (a, b) => {
+// branch's validation; the embed fns return a fixed vector if invoked.
+vi.mock('../../api/_lib/embeddings.js', () => {
+	const NIM_EMBED_TAG = 'nvidia/nv-embedqa-e5-v5@1024';
+	const LEGACY_EMBED_TAG = 'text-embedding-3-small@256';
+	const fixedVectors = (texts) => texts.map(() => Float64Array.from([1, 0, 0, 0]));
+	const cosine = (a, b) => {
+		if (!a || !b || a.length !== b.length) return 0;
 		let dot = 0, na = 0, nb = 0;
-		const n = Math.min(a.length, b.length);
-		for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] ** 2; nb += b[i] ** 2; }
+		for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] ** 2; nb += b[i] ** 2; }
 		return na && nb ? dot / Math.sqrt(na * nb) : 0;
-	},
-}));
+	};
+	return {
+		NIM_EMBED_TAG,
+		OPENAI_EMBED_TAG: LEGACY_EMBED_TAG,
+		LEGACY_EMBED_TAG,
+		embeddingsConfigured: () => true,
+		embedderConfigured: () => true,
+		defaultIngestEmbedderTag: () => NIM_EMBED_TAG,
+		resolveEmbedderTag: (tag) => tag || LEGACY_EMBED_TAG,
+		embedderInfo: (tag) => ({ tag: tag || LEGACY_EMBED_TAG, model: 'mock-embedder', dim: 4 }),
+		embedWith: vi.fn(async (_tag, texts) => fixedVectors(texts)),
+		embedPassages: vi.fn(async (_tag, texts) => fixedVectors(texts)),
+		embedQuery: vi.fn(async () => Float64Array.from([1, 0, 0, 0])),
+		scoreRowsBySpace: vi.fn(async (rows) => ({
+			scored: rows.map((r) => ({ ...r, embedder: r.embedder || LEGACY_EMBED_TAG, score: 1 })),
+			needsReembed: [],
+		})),
+		cosine,
+	};
+});
 
 // ── Import handlers AFTER mocks are registered ───────────────────────────────
 

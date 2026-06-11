@@ -6,9 +6,9 @@
 //
 // Provider policy (api/_lib/llm.js doctrine — free first, paid backstop):
 //   1. NVIDIA NIM Magpie TTS (free, gRPC — api/_lib/tts-nvidia.js) leads
-//      whenever NVIDIA_API_KEY is set. Note: Magpie emits PCM/Opus, so
-//      mp3/aac/flac requests are served as WAV — the content-type and
-//      x-tts-* headers always describe the bytes actually sent.
+//      whenever NVIDIA_API_KEY is set. Note: Magpie emits raw PCM, so every
+//      non-pcm request is served as WAV — the content-type and x-tts-*
+//      headers always describe the bytes actually sent.
 //   2. OpenAI /v1/audio/speech is the paid last-resort backstop (the prod key
 //      is routinely over quota — nothing may depend on it).
 // Failover happens only while zero audio bytes have been written; 503 only

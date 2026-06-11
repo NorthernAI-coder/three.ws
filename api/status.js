@@ -1,3 +1,4 @@
+// @ts-check
 // GET /api/status — public platform status, computed from the probe history
 // written by api/cron/uptime-check.js. Powers the /status page and is itself
 // a machine-readable status feed for agents and integrators.

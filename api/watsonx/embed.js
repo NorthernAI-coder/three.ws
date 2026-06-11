@@ -12,8 +12,9 @@
 // There is no mock path — every vector is a real embedding call. The provider
 // chain degrades gracefully so a watsonx outage never blanks the page:
 //   1. IBM Granite on watsonx.ai (primary, when WATSONX_* is configured)
-//   2. OpenAI text-embedding-3-small (fallback, when OPENAI_API_KEY is set)
-//   3. 503 `embed_unconfigured` only when NEITHER provider is available, so the
+//   2. The platform's free-first embedding chain (NVIDIA NIM when keyed,
+//      OpenAI text-embedding-3-small as the paid backstop)
+//   3. 503 `embed_unconfigured` only when NO provider is available, so the
 //      client can show an honest "not configured" state instead of inventing
 //      vectors. Within a single response all vectors come from one provider, so
 //      `dimensions` is uniform regardless of which tier served the request.
@@ -21,10 +22,13 @@
 import { createHash } from 'node:crypto';
 import { cors, method, readJson, error, json, wrap, rateLimited } from '../_lib/http.js';
 import { watsonxConfig, watsonxEmbed } from '../_lib/watsonx.js';
-import { embed as openaiEmbed, embeddingsConfigured } from '../_lib/embeddings.js';
+import {
+	embedPassages,
+	embeddingsConfigured,
+	defaultIngestEmbedderTag,
+	embedderInfo,
+} from '../_lib/embeddings.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-
-const OPENAI_EMBED_MODEL = 'text-embedding-3-small';
 
 // watsonx accepts many inputs per call; cap a single request so one caller can't
 // submit an unbounded batch. Matches the chunk size used by agent-embeddings.
@@ -107,21 +111,22 @@ export default wrap(async function handler(req, res) {
 	}
 
 	const cfg = watsonxConfig();
-	const openaiReady = embeddingsConfigured();
-	if (!cfg.configured && !openaiReady) {
+	const fallbackReady = embeddingsConfigured();
+	if (!cfg.configured && !fallbackReady) {
 		// No provider at all. No fabricated vectors — tell the client exactly
 		// what's missing so the UI can render an honest "not configured" state.
 		return error(
 			res,
 			503,
 			'embed_unconfigured',
-			'No embedding provider is configured. Set WATSONX_API_KEY + WATSONX_PROJECT_ID (IBM Granite) or OPENAI_API_KEY (fallback) to enable embeddings.',
+			'No embedding provider is configured. Set WATSONX_API_KEY + WATSONX_PROJECT_ID (IBM Granite), NVIDIA_API_KEY (free fallback), or OPENAI_API_KEY (paid fallback) to enable embeddings.',
 		);
 	}
 
-	// Provider chain: Granite (primary) → OpenAI (fallback). The first provider
-	// that returns a full batch wins; a watsonx outage transparently falls
-	// through so /constellation keeps rendering.
+	// Provider chain: Granite (primary) → the platform free-first embedding
+	// chain (NIM, then OpenAI). The first provider that returns a full batch
+	// wins; a watsonx outage transparently falls through so /constellation
+	// keeps rendering.
 	let result = null;
 	let lastError = null;
 
@@ -143,10 +148,14 @@ export default wrap(async function handler(req, res) {
 		}
 	}
 
-	if (!result && openaiReady) {
+	if (!result && fallbackReady) {
+		// These texts are peers laid out against each other (not query-vs-corpus),
+		// so they all embed as 'passage' — one consistent space per response.
+		const fallbackTag = defaultIngestEmbedderTag();
+		const fallback = embedderInfo(fallbackTag);
 		try {
-			result = await embedBatch(texts, OPENAI_EMBED_MODEL, async (inputs) => {
-				const vecs = await openaiEmbed(inputs);
+			result = await embedBatch(texts, fallback.model, async (inputs) => {
+				const vecs = await embedPassages(fallbackTag, inputs);
 				return {
 					vectors: vecs.map((v) => Array.from(v)),
 					dimensions: vecs[0]?.length ?? 0,

@@ -1,3 +1,4 @@
+// @ts-check
 // GET /api/cron/uptime-check — first-party synthetic uptime monitor.
 //
 // Every 5 minutes (vercel.json crons) this probes the platform's critical

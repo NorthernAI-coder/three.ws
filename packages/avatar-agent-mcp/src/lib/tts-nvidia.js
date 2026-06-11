@@ -60,10 +60,12 @@ export function resolveMagpieVoice(voice, language) {
 	return `Magpie-Multilingual.${lang.toUpperCase()}.${persona}`;
 }
 
-// Magpie outputs raw PCM or Ogg/Opus — mp3/aac/flac requests are served as
-// WAV instead; the returned mime/format always describe the actual bytes.
+// Magpie cannot encode mp3/aac/flac, and its OGGOPUS output over NVCF is
+// length-framed raw Opus packets WITHOUT an Ogg container (live-verified
+// 2026-06-11), so it is not directly playable either. Every non-pcm request
+// is therefore served as WAV; the returned mime/format always describe the
+// actual bytes. The OpenAI backstop still produces native formats.
 export function resolveMagpieFormat(format) {
-	if (format === 'opus') return { encoding: 'OGGOPUS', wrapWav: false, format: 'opus', contentType: 'audio/ogg' };
 	if (format === 'pcm') return { encoding: 'LINEAR_PCM', wrapWav: false, format: 'pcm', contentType: 'audio/pcm' };
 	return { encoding: 'LINEAR_PCM', wrapWav: true, format: 'wav', contentType: 'audio/wav' };
 }
@@ -109,7 +111,9 @@ function normalizeGrpcError(err) {
 
 // The TLS channel is keyless (auth rides in per-call metadata) — one cached
 // client serves the whole process. grpc-js is imported lazily so the MCP
-// server starts fast for users who never call speak.
+// server starts fast for users who never call speak. NVCF gotcha: auth is
+// validated at stream/connection setup, so an authenticated warm channel
+// keeps serving even if the key changes mid-process.
 let clientPromise = null;
 async function getClient() {
 	if (!clientPromise) {
