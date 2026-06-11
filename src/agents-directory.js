@@ -66,7 +66,7 @@ function extractTrust(metadata) {
 }
 
 function isActiveAgent(agent) {
-	return Boolean(agent.registeredBlock);
+	return Boolean(agent.active ?? agent.registeredBlock);
 }
 
 export class AgentsDirectory {
@@ -103,7 +103,12 @@ export class AgentsDirectory {
 		}
 
 		if (this.agents.length === 0) {
-			await this._fetchAllAgents();
+			try {
+				await this._fetchAllAgents();
+			} catch (err) {
+				log.warn('Index API unavailable, enriching from chain RPCs:', err);
+				await this._fetchAllAgentsOnchain();
+			}
 		}
 
 		let filtered = this._applyFilters();
@@ -162,7 +167,57 @@ export class AgentsDirectory {
 
 	// ─────────────────────────────────────────────────────────────────────────
 
+	// Primary source: the server-crawled ERC-8004 index (/api/explore, fed by
+	// the erc8004-crawl cron). Agent metadata lives behind arbitrary third-party
+	// URLs — many plain-http, CORS-less, or dead — so resolving it in the
+	// browser floods the console with mixed-content/CORS errors and burns a
+	// network request per registration. The crawler already resolved all of it
+	// server-side; here we just page through the index.
 	async _fetchAllAgents() {
+		const chainId = this._parseChainFilter(this.filters.chain);
+		const collected = [];
+		let cursor = null;
+		// 10 pages × 60 = 600 agents, matching the legacy 500-per-chain ceiling.
+		for (let i = 0; i < 10; i++) {
+			const params = new URLSearchParams({ source: 'onchain', limit: '60' });
+			if (chainId !== 'all') params.set('chain', String(chainId));
+			if (cursor) params.set('cursor', cursor);
+			const res = await fetch(`/api/explore?${params}`);
+			if (!res.ok) throw new Error(`explore ${res.status}`);
+			const body = await res.json();
+			const items = (body.items || []).filter((it) => it.kind === 'onchain');
+			for (const it of items) {
+				const glb = it.glbUrl || null;
+				// Card thumbnails live on arbitrary third-party hosts — route them
+				// through the same-origin /api/img proxy (multi-gateway IPFS retry +
+				// guaranteed placeholder) so a dead host never logs a console error.
+				const rawImage = it.image && !/\.(glb|gltf)/i.test(it.image) ? it.image : null;
+				collected.push({
+					id: String(it.agentId),
+					chainId: it.chainId,
+					name: it.name || `Agent #${it.agentId}`,
+					description: it.description || '',
+					avatar: glb,
+					image: rawImage ? `/api/img?url=${encodeURIComponent(rawImage)}` : null,
+					owner: it.owner || '',
+					protocols: extractProtocols({ services: it.services }),
+					trust: [],
+					createdAt: it.registeredAt ? new Date(it.registeredAt) : new Date(0),
+					active: true, // the index only serves active registrations
+					metadata: { services: it.services || [] },
+				});
+			}
+			if (!body.nextCursor || items.length === 0) break;
+			cursor = body.nextCursor;
+		}
+		this.agents = collected;
+	}
+
+	// Fallback: enrich straight from chain RPCs + agentURI metadata. Only used
+	// when the index API is unreachable — it works, but third-party metadata
+	// hosts make it slow and console-noisy, which is why it is no longer the
+	// primary path.
+	async _fetchAllAgentsOnchain() {
 		const chainId = this._parseChainFilter(this.filters.chain);
 		const chains = chainId === 'all' ? Object.keys(CHAIN_META).map(Number) : [chainId];
 
