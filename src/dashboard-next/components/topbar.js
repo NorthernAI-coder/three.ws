@@ -111,21 +111,22 @@ export function mountTopbarBehavior(shellEl) {
 			wallet: me.wallet_address || me.solana_address || '',
 			plan: me.plan || 'free',
 		});
-	}).catch(() => { /* network blip — chip stays "Loading…" */ });
 
-	// Load unread notification count in background.
-	fetch('/api/notifications?limit=1', { credentials: 'include' })
-		.then((r) => r.ok ? r.json() : null)
-		.then((data) => {
-			const unread = data?.unread ?? 0;
-			const badge = shellEl.querySelector('[data-slot="notif-badge"]');
-			if (!badge) return;
-			if (unread > 0) {
-				badge.style.display = 'block';
-				badge.textContent = unread > 9 ? '9+' : String(unread);
-			}
-		})
-		.catch(() => { /* notifications unavailable */ });
+		// Load unread notification count in background — only once we know the
+		// visitor is signed in, so anonymous sessions don't collect 401s.
+		fetch('/api/notifications?limit=1', { credentials: 'include' })
+			.then((r) => r.ok ? r.json() : null)
+			.then((data) => {
+				const unread = data?.unread ?? 0;
+				const badge = shellEl.querySelector('[data-slot="notif-badge"]');
+				if (!badge) return;
+				if (unread > 0) {
+					badge.style.display = 'block';
+					badge.textContent = unread > 9 ? '9+' : String(unread);
+				}
+			})
+			.catch(() => { /* notifications unavailable */ });
+	}).catch(() => { /* network blip — chip stays "Loading…" */ });
 }
 
 function setDrawerOpen(shellEl, open) {

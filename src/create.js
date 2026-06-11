@@ -200,10 +200,17 @@ async function loadYourAvatars() {
 	const row = document.getElementById('your-avatars-row');
 	if (!section || !row) return;
 
+	// The auth hint (set/cleared by the login flows) tells us up front the
+	// visitor is anonymous — skip the request instead of collecting a 401.
+	try {
+		const hint = localStorage.getItem('3dagent:auth-hint');
+		if (!hint || JSON.parse(hint)?.authed !== true) return;
+	} catch { return; }
+
 	let avatars = [];
 	try {
-		// allowAnonymous: anonymous visitors 401 here by design — apiFetch would
-		// otherwise redirect them to /login, breaking the anonymous create flow.
+		// allowAnonymous: a stale hint still 401s here by design — apiFetch would
+		// otherwise redirect to /login, breaking the anonymous create flow.
 		const res = await apiFetch('/api/avatars', { allowAnonymous: true });
 		if (!res.ok) return;
 		avatars = (await res.json()) ?? [];

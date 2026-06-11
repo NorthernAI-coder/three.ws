@@ -15,6 +15,18 @@
 import { apiFetch } from './api.js';
 import { log } from './shared/log.js';
 
+// Same auth-hint gate notifications.js uses: skip authenticated endpoints
+// entirely while the visitor is anonymous instead of collecting 401s on every
+// poll. The hint is set/cleared by the login flows (privy-login, email-auth);
+// a stale-true hint still falls through to the 401 handling below.
+const AUTH_HINT_KEY = '3dagent:auth-hint';
+function isAuthedHint() {
+	try {
+		const raw = localStorage.getItem(AUTH_HINT_KEY);
+		return raw ? JSON.parse(raw)?.authed === true : false;
+	} catch { return false; }
+}
+
 // ── presence ticket ─────────────────────────────────────────────────────────
 // Short-lived, account-scoped token the realm room verifies before publishing
 // presence. Cached and refreshed lazily; the net layer calls getPresenceTicket()
@@ -23,6 +35,7 @@ let _ticket = null;
 let _ticketExpEpoch = 0;
 
 export async function getPresenceTicket() {
+	if (!isAuthedHint()) return null; // anonymous players have no presence to publish
 	const now = Date.now() / 1000;
 	if (_ticket && _ticketExpEpoch - now > 60) return _ticket;
 	try {
@@ -113,6 +126,13 @@ export class FriendsClient {
 
 	// ── graph ─────────────────────────────────────────────────────────────────
 	async refresh() {
+		if (!isAuthedHint()) {
+			// Same outcome as a 401, minus the network round-trip on every poll.
+			this.loadError = 'signin';
+			this.loaded = true;
+			this._emit();
+			return;
+		}
 		try {
 			const res = await apiFetch('/api/friends', { allowAnonymous: true });
 			if (res.status === 401) {
