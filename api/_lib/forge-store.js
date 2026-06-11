@@ -236,6 +236,42 @@ export async function recordFeedback({ id, clientKey, outcome, downloaded, ratin
 	}
 }
 
+// Fetch a single durable creation by id, NOT scoped to any client. Powers the
+// share flow: a recipient who didn't forge the model still gets to view it.
+// Only returns finished, durably-stored rows — an in-flight or failed creation
+// has no public artifact to show. Returns null when missing or store-disabled.
+export async function getPublicCreation({ id }) {
+	if (!forgeStoreEnabled() || !id) return null;
+	try {
+		const rows = await sql`
+			select id, prompt, aspect, glb_url, preview_image_url, outcome,
+				views_used, multiview, backend, tier, path, created_at
+			from forge_creations
+			where id = ${id} and status = 'done' and glb_url is not null
+			limit 1
+		`;
+		const r = rows[0];
+		if (!r) return null;
+		return {
+			id: r.id,
+			prompt: r.prompt,
+			aspect: r.aspect,
+			glb_url: r.glb_url,
+			preview_image_url: r.preview_image_url,
+			outcome: r.outcome,
+			views_used: r.views_used ?? null,
+			multiview: r.multiview ?? null,
+			backend: r.backend ?? null,
+			tier: r.tier ?? null,
+			path: r.path ?? null,
+			created_at: r.created_at,
+		};
+	} catch (err) {
+		console.error('[forge-store] getPublicCreation failed:', err?.message);
+		return null;
+	}
+}
+
 // Newest durable creations for one anonymous client — powers the gallery.
 export async function listCreations({ clientKey, limit = 24 }) {
 	if (!forgeStoreEnabled()) return [];

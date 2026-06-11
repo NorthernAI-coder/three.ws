@@ -849,28 +849,62 @@ async function loadGallery() {
 		meta.textContent = c.prompt || 'Untitled';
 		card.appendChild(meta);
 
-		card.addEventListener('click', () => {
-			currentCreationId = c.id;
-			lastJob = { prompt: c.prompt || '', imageUrls: [] };
-			showResult(c.glb_url, c.prompt || 'Forged model', {
-				views_used: c.views_used,
-				multiview: c.multiview,
-				backend: c.backend,
-				tier: c.tier,
-				path: c.path,
-			});
-			if (els.verdict) {
-				for (const b of els.verdict.querySelectorAll('button')) {
-					b.setAttribute('aria-pressed', String(b.dataset.outcome === c.outcome));
-				}
-			}
-			els.stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		});
+		card.addEventListener('click', () => openCreation(c));
 
 		els.creationsGrid.appendChild(card);
 	}
 	els.creationsCount.textContent = `${creations.length} saved`;
 	els.creations.classList.remove('is-hidden');
+}
+
+// Load a creation into the viewer — shared by gallery card clicks and the
+// share-link path. `c` is a creation row from /api/forge-gallery or
+// /api/forge-creation; both return the same shape.
+function openCreation(c, { scroll = true } = {}) {
+	currentCreationId = c.id;
+	lastJob = { prompt: c.prompt || '', imageUrls: [] };
+	showResult(c.glb_url, c.prompt || 'Forged model', {
+		views_used: c.views_used,
+		multiview: c.multiview,
+		backend: c.backend,
+		tier: c.tier,
+		path: c.path,
+	});
+	if (els.verdict) {
+		for (const b of els.verdict.querySelectorAll('button')) {
+			b.setAttribute('aria-pressed', String(b.dataset.outcome === c.outcome));
+		}
+	}
+	if (scroll) els.stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Open a creation from a share link. The model belongs to whoever forged it, so
+// it won't be in this browser's gallery — fetch it directly by id. If the card
+// is already present (the owner re-opening their own share link), reuse it.
+async function openSharedCreation(shareId) {
+	const card = els.creationsGrid?.querySelector(`[data-creation-id="${shareId}"]`);
+	if (card) {
+		card.click();
+		card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		return;
+	}
+	let creation = null;
+	try {
+		const res = await fetch(`/api/forge-creation?id=${encodeURIComponent(shareId)}`, {
+			headers: CLIENT_HEADERS,
+		});
+		const data = await res.json().catch(() => ({}));
+		creation = data?.creation || null;
+	} catch {
+		creation = null;
+	}
+	if (creation?.glb_url) {
+		openCreation(creation);
+	} else {
+		showError(
+			"This shared creation isn't available — it may have been removed or is still generating.",
+		);
+	}
 }
 
 function showError(message, { allowOverride = false } = {}) {
@@ -1188,10 +1222,5 @@ loadCatalog();
 // Surface any previously forged models for this browser on load.
 loadGallery().then(() => {
 	const shareId = window.__forgeShareId;
-	if (!shareId) return;
-	const card = els.creationsGrid?.querySelector(`[data-creation-id="${shareId}"]`);
-	if (card) {
-		card.click();
-		card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-	}
+	if (shareId) openSharedCreation(shareId);
 });

@@ -236,6 +236,13 @@ export const limits = {
 	// hourly ceiling per principal. Status polling is cheap and frequent.
 	mcp3dGenerate: (key) =>
 		getLimiter('mcp3d:generate', { limit: 12, window: '1 h', critical: true }).limit(key),
+	// Free generation lane (NVIDIA NIM TRELLIS draft). No Replicate/vendor spend,
+	// so it gets a much higher per-principal ceiling than the paid bucket and is
+	// NON-critical: a Redis outage must never deny a zero-cost generation (fail
+	// open), unlike the paid lane which fails closed to protect spend. A real
+	// human iterating on a prompt routinely exceeds 12/h; this lane lets them.
+	mcp3dGenerateFree: (key) =>
+		getLimiter('mcp3d:generate:free', { limit: 60, window: '1 h' }).limit(key),
 	mcp3dStatus: (key) => getLimiter('mcp3d:status', { limit: 240, window: '1 m' }).limit(key),
 	// x402 Bazaar MCP. Discovery calls fan out to external facilitators, so cap
 	// per principal to keep that egress bounded without throttling normal use.

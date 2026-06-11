@@ -146,11 +146,6 @@ function unconfigured(res) {
 
 async function startJob(req, res) {
 	const ip = clientIp(req);
-	const rl = await limits.mcp3dGenerate(ip);
-	if (!rl.success) {
-		return rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
-	}
-
 	const body = await readJson(req, 8_000).catch(() => null);
 
 	// Two reconstruction modes share this path:
@@ -163,6 +158,20 @@ async function startJob(req, res) {
 	const imageUrls = parseImageUrls(body);
 	const isImageMode = imageUrls.length > 0;
 	const prompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
+
+	// Resolve the generation path + tier + backend BEFORE the rate check so the
+	// limiter can be lane-aware. The free NVIDIA NIM lane (draft, no vendor spend)
+	// gets a generous fail-open bucket; the paid Replicate/BYOK lanes keep the
+	// tight critical 12/h ceiling that protects real money. Both still gate the
+	// expensive work below (image moderation, FLUX, reconstruction).
+	const path = parsePath(body);
+	const tier = resolveTier(parseTier(body));
+	const backendId = resolveBackendId({ path, tier, backend: body?.backend, userImages: isImageMode });
+	const isFreeLane = BACKENDS[backendId]?.free === true;
+	const rl = isFreeLane ? await limits.mcp3dGenerateFree(ip) : await limits.mcp3dGenerate(ip);
+	if (!rl.success) {
+		return rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
+	}
 
 	if (isImageMode) {
 		if (imageUrls.length > MAX_VIEWS) {
@@ -194,7 +203,11 @@ async function startJob(req, res) {
 		// user can override a verdict they disagree with via `skip_validation:true`
 		// (e.g. a stylized reference our checker is too cautious about).
 		if (body?.skip_validation !== true) {
-			const check = await validateForgeImage(imageUrls[0], { track: { clientId: clientKeyFrom(req) } });
+			// The forge client key is a hashed client-supplied header, NOT an OAuth
+			// client — it has no row in oauth_clients, so it must never land in the
+			// FK-constrained usage_events.client_id (that fails the insert and the
+			// whole spend event is silently dropped). Attribute it via meta instead.
+			const check = await validateForgeImage(imageUrls[0], { track: { meta: { forgeClient: clientKeyFrom(req) } } });
 			if (!check.ok) {
 				return json(res, 422, {
 					error: 'image_not_usable',
@@ -215,17 +228,7 @@ async function startJob(req, res) {
 	}
 	const aspect = VALID_ASPECT.has(body?.aspect_ratio) ? body.aspect_ratio : '1:1';
 
-	// Two request axes beyond input mode: which generation path (image-
-	// intermediate vs geometry-first) and which quality tier (poly budget).
-	const path = parsePath(body);
-	const tier = resolveTier(parseTier(body));
-	// Tier matters to backend selection: the draft tier routes to the free NVIDIA
-	// NIM lane first (when configured) per the platform free-first policy.
-	// `userImages` keeps photo submissions off text-only backends — NVIDIA's
-	// hosted TRELLIS preview rejects every user-image input, so a defaulted photo
-	// draft transparently uses the standing image engine instead.
-	const backendId = resolveBackendId({ path, tier, backend: body?.backend, userImages: isImageMode });
-
+	// path / tier / backendId were resolved above (the rate limiter is lane-aware).
 	// An explicitly selected text-only backend can't serve a photo submission —
 	// say so plainly rather than failing upstream with an opaque 422.
 	if (isImageMode && BACKENDS[backendId]?.userImages === false) {

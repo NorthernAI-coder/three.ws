@@ -253,5 +253,6 @@ function recordVisionSpend(provider, usage, latencyMs, track) {
 		clientId: track?.clientId ?? null,
 		apiKeyId: track?.apiKeyId ?? null,
 		tool: track?.tool ?? null,
+		meta: track?.meta ?? undefined,
 	});
 }
