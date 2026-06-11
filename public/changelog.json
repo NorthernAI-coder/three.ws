@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T14:27:17.492Z",
+	"generated_at": "2026-06-11T14:29:15.185Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -116,6 +116,17 @@
 			"type": "update",
 			"title": "Forge share links now open your creation for anyone you send them to",
 			"summary": "When you share a model from Forge, the person who opens the link now sees your actual creation — the 3D model loads straight into the viewer, ready to spin, inspect, and download. Previously a share link only worked for the person who forged the model, because Forge only looked in your own browser's history; recipients landed on an empty Forge. Now the page fetches the shared model by its link and shows it to anyone, even if they've never used Forge before. If a link points to a model that was removed or is still generating, you get a clear message instead of a blank screen.",
+			"link": "/forge",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Free 3D draft generations no longer get blocked by the paid rate limit",
+			"summary": "Generating a 3D model from a text prompt on the Draft tier runs on a free engine — no key, no cost. But it was sharing the same hourly limit as the paid lanes, so a few quick iterations (or several people on the same office or campus network) could hit a 'generator is busy, try again later' wall even though nothing was being charged. The free draft lane now has its own, far more generous allowance and never blocks you because of a backend hiccup. Heavy paid generations keep their tighter limit. Iterate on prompts freely.",
 			"link": "/forge",
 			"tags": [
 				"fix",
