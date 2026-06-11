@@ -45,7 +45,13 @@ function makeReq(path) {
 	return {
 		url: path,
 		method: 'GET',
-		headers: { host: 'three.ws', 'x-forwarded-proto': 'https' },
+		// x-payment marks this as a real payment attempt — only those are
+		// monitored on /api/x402/* paths (unpaid 402 challenges are not).
+		headers: {
+			host: 'three.ws',
+			'x-forwarded-proto': 'https',
+			'x-payment': Buffer.from(JSON.stringify({ x402Version: 2 })).toString('base64'),
+		},
 		socket: { remoteAddress: '203.0.113.7' },
 	};
 }
@@ -73,6 +79,15 @@ function makeRes() {
 	};
 	return res;
 }
+
+test('unpaid x402 requests are not monitored — 402 challenges must not report as failed calls', async () => {
+	const { instrument } = await import('../api/_lib/zauth.js');
+
+	const req = makeReq('/api/x402/model-check');
+	delete req.headers['x-payment'];
+	const res = makeRes();
+	expect(instrument(req, res)).toBe(false);
+});
 
 test('drain delivers the response event stranded behind an in-flight batch', async () => {
 	const { instrument, drain } = await import('../api/_lib/zauth.js');

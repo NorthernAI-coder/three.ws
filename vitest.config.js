@@ -28,8 +28,15 @@ export default defineConfig({
 			'src/**/*.test.js',
 			'api/_lib/coin/**/*.test.js',
 		],
-		testTimeout: 45_000,
-		hookTimeout: 45_000,
+		// 45s proved too tight for this environment: with every fork cold-importing
+		// multi-thousand-module graphs concurrently, single imports have been
+		// measured at 51s (x402-paid-endpoint replay beforeAll) and 77s
+		// (api/_mcp/dispatch.js in all-modules-load). Which test pays the cold
+		// import varies run to run with scheduling, so per-test overrides are
+		// whack-a-mole — the ceiling itself must clear the measured worst case.
+		// Timeouts only bite hung tests; assertion failures still fail instantly.
+		testTimeout: 120_000,
+		hookTimeout: 120_000,
 		// Vitest 4 hoisted poolOptions.forks.* to top-level.
 		pool: 'forks',
 		maxForks: MAX_FORKS,
