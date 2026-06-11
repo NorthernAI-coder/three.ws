@@ -186,12 +186,14 @@ const totalStart = Date.now();
 const phase = (n, label) => console.log(`\n=== build:vercel phase ${n}: ${label} (t+${((Date.now() - totalStart) / 1000).toFixed(1)}s) ===`);
 
 try {
-	// Phase 1a: light tasks only — no Vite processes yet
-	phase(1, 'prebuild + bundle-api + sdk-dist (parallel, light)');
+	// Phase 1a: light tasks only — no Vite processes yet. bundle-api inlines
+	// @three-ws/agent-payments (not in its EXTERNALS), so the SDK dist must
+	// exist before esbuild resolves it — sdk-dist gates bundle-api; prebuild
+	// stays parallel.
+	phase(1, 'prebuild ∥ (sdk-dist → bundle-api)');
 	await Promise.all([
 		prebuild(),
-		bundleApi(),
-		ensureSDKDist(),
+		ensureSDKDist().then(bundleApi),
 	]);
 
 	// Phase 2: buildLib alone. avatar-sdk depends on dist-lib/agent-3d.js, and
