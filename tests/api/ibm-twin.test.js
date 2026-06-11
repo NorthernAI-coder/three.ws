@@ -11,7 +11,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Module mocks ─────────────────────────────────────────────────────────────
 vi.mock('../../api/_lib/rate-limit.js', () => ({
-	limits: { publicIp: vi.fn(async () => ({ success: true })) },
+	limits: {
+		publicIp: vi.fn(async () => ({ success: true })),
+		watsonxEmbedGlobal: vi.fn(async () => ({ success: true })),
+	},
 	clientIp: () => '127.0.0.1',
 }));
 vi.mock('../../api/_lib/watsonx.js', () => ({
@@ -51,9 +54,16 @@ function makeRes() {
 		statusCode: 200,
 		_headers: {},
 		_body: null,
-		setHeader(k, v) { this._headers[k.toLowerCase()] = v; },
-		getHeader(k) { return this._headers[k.toLowerCase()]; },
-		end(b) { this._body = b; this.writableEnded = true; },
+		setHeader(k, v) {
+			this._headers[k.toLowerCase()] = v;
+		},
+		getHeader(k) {
+			return this._headers[k.toLowerCase()];
+		},
+		end(b) {
+			this._body = b;
+			this.writableEnded = true;
+		},
 	};
 }
 
@@ -71,7 +81,10 @@ async function callPost(body) {
 			method: 'POST',
 			url: '/api/ibm/twin',
 			headers: { 'content-type': 'application/json', 'content-length': String(buf.length) },
-			on(ev, cb) { if (ev === 'data') cb(buf); if (ev === 'end') cb(); },
+			on(ev, cb) {
+				if (ev === 'data') cb(buf);
+				if (ev === 'end') cb();
+			},
 		},
 		res,
 	);
@@ -79,7 +92,11 @@ async function callPost(body) {
 }
 
 function tryJson(s) {
-	try { return JSON.parse(s); } catch { return null; }
+	try {
+		return JSON.parse(s);
+	} catch {
+		return null;
+	}
 }
 
 // Generate n realistic OHLCV candles starting at price `base`, trending up.
@@ -93,7 +110,8 @@ function mkCandles(n, base = 100) {
 
 // Generate a Granite TTM forecast result.
 function mkForecast(n, start = 101, model = 'ibm/granite-ttm-512-96-r2') {
-	const ts = [], vs = [];
+	const ts = [],
+		vs = [];
 	const t0 = 1_700_000_000 + 600 * 3600;
 	for (let i = 0; i < n; i++) {
 		ts.push(new Date((t0 + i * 3600) * 1000).toISOString());
@@ -227,7 +245,9 @@ describe('GET /api/ibm/twin — full Granite pipeline', () => {
 			candles: mkCandles(640),
 			base: { name: 'three', symbol: 'three', address: 'm' },
 			quote: { symbol: 'SOL' },
-			freq: '1h', timeframe: 'hour', aggregate: 1,
+			freq: '1h',
+			timeframe: 'hour',
+			aggregate: 1,
 		});
 		const { body } = await callGet(`/api/ibm/twin?pool=${POOL}`);
 		expect(body.fidelity).toBeTruthy();
@@ -245,7 +265,10 @@ describe('GET /api/ibm/twin — full Granite pipeline', () => {
 
 	it('governance shows flagged=true when Guardian flags the persona', async () => {
 		assessRisk.mockResolvedValue({
-			flagged: true, risk: 'harm', label: 'Yes', probability: 0.88,
+			flagged: true,
+			risk: 'harm',
+			label: 'Yes',
+			probability: 0.88,
 		});
 		const { body } = await callGet(`/api/ibm/twin?pool=${POOL}`);
 		expect(body.governance.passed).toBe(false);
@@ -280,9 +303,16 @@ describe('GET /api/ibm/twin — insufficient history', () => {
 			candles: mkCandles(200),
 			base: { symbol: 'tiny' },
 			quote: { symbol: 'SOL' },
-			freq: '1h', timeframe: 'hour', aggregate: 1,
+			freq: '1h',
+			timeframe: 'hour',
+			aggregate: 1,
 		});
-		watsonxConfig.mockReturnValue({ configured: true, projectId: 'p', url: 'u', apiVersion: 'v' });
+		watsonxConfig.mockReturnValue({
+			configured: true,
+			projectId: 'p',
+			url: 'u',
+			apiVersion: 'v',
+		});
 		const { body } = await callGet(`/api/ibm/twin?pool=${POOL}`);
 		expect(body.projection).toBeNull();
 		expect(body.ibm.error).toMatch(/512/);
@@ -295,7 +325,9 @@ describe('GET /api/ibm/twin — insufficient history', () => {
 			candles: mkCandles(512),
 			base: { name: 'tiny', symbol: 'T' },
 			quote: { symbol: 'SOL' },
-			freq: '1h', timeframe: 'hour', aggregate: 1,
+			freq: '1h',
+			timeframe: 'hour',
+			aggregate: 1,
 		});
 		// Back-test needs 512 + 96 = 608. With exactly 512 it should skip fidelity.
 		const { body } = await callGet(`/api/ibm/twin?pool=${POOL}`);
@@ -390,8 +422,11 @@ describe('POST /api/ibm/twin — scenario simulation', () => {
 	it('degrades when history is insufficient for the forecaster', async () => {
 		fetchOhlcv.mockResolvedValue({
 			candles: mkCandles(200),
-			base: { symbol: 'T' }, quote: { symbol: 'SOL' },
-			freq: '1h', timeframe: 'hour', aggregate: 1,
+			base: { symbol: 'T' },
+			quote: { symbol: 'SOL' },
+			freq: '1h',
+			timeframe: 'hour',
+			aggregate: 1,
 		});
 		const { body } = await callPost({ pool: POOL, scenario: {} });
 		expect(body.ibm.error).toMatch(/512/);

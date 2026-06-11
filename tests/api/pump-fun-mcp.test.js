@@ -13,13 +13,26 @@ import { Readable } from 'node:stream';
 // the minimum surface the handler touches at *call time* — the routes that
 // would invoke them aren't exercised here.
 vi.mock('@solana/web3.js', () => ({
-	Keypair: { generate: () => ({ publicKey: { toBase58: () => 'mocked' }, secretKey: new Uint8Array(64) }) },
+	Keypair: {
+		generate: () => ({
+			publicKey: { toBase58: () => 'mocked' },
+			secretKey: new Uint8Array(64),
+		}),
+	},
 	Connection: class {},
 	PublicKey: class {
-		constructor(s) { this._s = s; }
-		toBase58() { return String(this._s); }
-		toString() { return String(this._s); }
-		toBuffer() { return Buffer.alloc(32); }
+		constructor(s) {
+			this._s = s;
+		}
+		toBase58() {
+			return String(this._s);
+		}
+		toString() {
+			return String(this._s);
+		}
+		toBuffer() {
+			return Buffer.alloc(32);
+		}
 	},
 }));
 vi.mock('../../src/solana/sns.js', () => ({
@@ -65,9 +78,7 @@ vi.mock('../../api/_lib/pumpfun-mcp.js', () => ({
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function makeReq(body) {
-	const stream = body
-		? Readable.from([Buffer.from(JSON.stringify(body))])
-		: Readable.from([]);
+	const stream = body ? Readable.from([Buffer.from(JSON.stringify(body))]) : Readable.from([]);
 	stream.method = 'POST';
 	stream.url = '/api/pump-fun-mcp';
 	stream.headers = { host: 'localhost', 'content-type': 'application/json' };
@@ -233,10 +244,11 @@ describe('auth gate on expensive/sensitive tools', () => {
 			method: 'tools/call',
 			params: { name: 'pumpfun_vanity_mint', arguments: { suffix: 'aa' } },
 		});
-		expect(res.statusCode).toBe(401);
+		// Bare callers (no MCP protocol headers) get a proper 402 Payment
+		// Required carrying the x402 envelope (JSON-RPC code -32402).
+		expect(res.statusCode).toBe(402);
 		expect(json.error).toBeDefined();
-		expect(json.error.code).toBe(-32001);
-		expect(json.error.message).toMatch(/authentication required/i);
+		expect(json.error.code).toBe(-32402);
 		// Critically: no secret key (or any result) is produced for an anon caller.
 		expect(json.result).toBeUndefined();
 	});
@@ -248,8 +260,8 @@ describe('auth gate on expensive/sensitive tools', () => {
 			method: 'tools/call',
 			params: { name: 'pumpfun_watch_whales', arguments: { mint: 'M' } },
 		});
-		expect(res.statusCode).toBe(401);
-		expect(json.error.code).toBe(-32001);
+		expect(res.statusCode).toBe(402);
+		expect(json.error.code).toBe(-32402);
 	});
 
 	it('pumpfun_watch_claims without auth is rejected', async () => {
@@ -259,8 +271,8 @@ describe('auth gate on expensive/sensitive tools', () => {
 			method: 'tools/call',
 			params: { name: 'pumpfun_watch_claims', arguments: { creator: 'C' } },
 		});
-		expect(res.statusCode).toBe(401);
-		expect(json.error.code).toBe(-32001);
+		expect(res.statusCode).toBe(402);
+		expect(json.error.code).toBe(-32402);
 	});
 
 	it('free read-only tools stay open (no auth needed)', async () => {

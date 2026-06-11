@@ -4121,8 +4121,17 @@ async function loadAvatarDetail(id) {
 		stage.querySelectorAll('model-viewer').forEach((el) => el.remove());
 		stage.classList.remove('mv-ready', 'is-empty');
 		if (bar)  bar.style.width = '0%';
-		if (wrap) { wrap.hidden = false; wrap.style.opacity = '1'; }
-		if (empty) empty.hidden = true;
+		// Clear (not set) inline opacity — an inline `1` would override the
+		// `.mv-ready .avatar-detail-load-wrap { opacity: 0 }` fade-out rule.
+		if (wrap) { wrap.hidden = false; wrap.style.removeProperty('opacity'); }
+		if (empty) {
+			empty.hidden = true;
+			// Restore the default copy — the GLB-error path rewrites these.
+			const titleEl = empty.querySelector('.avatar-detail-empty-title');
+			const msgEl   = empty.querySelector('.avatar-detail-empty-msg');
+			if (titleEl) titleEl.textContent = 'Avatar not found';
+			if (msgEl)   msgEl.textContent = 'This avatar may have been removed or the link is wrong.';
+		}
 	}
 	if (actions) actions.hidden = false;
 
@@ -4242,6 +4251,23 @@ async function loadAvatarDetail(id) {
 		}
 		mv.addEventListener('load', () => {
 			stage.classList.add('mv-ready');
+		}, { once: true });
+		// A 404/CORS-blocked GLB never fires `load`, which would leave the
+		// "Loading 3D…" overlay up forever. Swap to a designed error state and
+		// un-cache the id so navigating back to this avatar retries the load.
+		mv.addEventListener('error', () => {
+			if (_avatarDetailMv !== mv) return; // a newer render replaced us
+			_avatarDetailId = null;
+			if (wrap) wrap.hidden = true;
+			if (empty) {
+				const titleEl = empty.querySelector('.avatar-detail-empty-title');
+				const msgEl   = empty.querySelector('.avatar-detail-empty-msg');
+				if (titleEl) titleEl.textContent = '3D model failed to load';
+				if (msgEl)   msgEl.textContent = 'The model file could not be fetched. It may have been removed — try again or browse other avatars.';
+				empty.hidden = false;
+			}
+			stage.classList.add('is-empty');
+			mv.remove();
 		}, { once: true });
 		stage.appendChild(mv);
 		_avatarDetailMv = mv;

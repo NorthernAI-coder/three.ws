@@ -6,7 +6,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({
-	limits: { publicIp: vi.fn(async () => ({ success: true })) },
+	limits: {
+		publicIp: vi.fn(async () => ({ success: true })),
+		watsonxEmbedGlobal: vi.fn(async () => ({ success: true })),
+	},
 	clientIp: () => '127.0.0.1',
 }));
 vi.mock('../../api/_lib/market/ohlcv.js', () => ({

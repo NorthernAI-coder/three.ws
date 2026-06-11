@@ -30,8 +30,12 @@ async function getSolPrice() {
 }
 
 async function getHeliusInfo() {
-	const rpcUrl = process.env.SOLANA_RPC_URL || '';
 	const apiKey = process.env.HELIUS_API_KEY || '';
+	// Key-only configs (no SOLANA_RPC_URL) still get a working probe endpoint —
+	// otherwise enabled:true would pair with a guaranteed-unreachable empty URL.
+	const rpcUrl =
+		process.env.SOLANA_RPC_URL ||
+		(apiKey ? `https://mainnet.helius-rpc.com/?api-key=${apiKey}` : '');
 	const isHelius = !!apiKey || rpcUrl.includes('helius-rpc.com') || rpcUrl.includes('helius.dev');
 	if (!isHelius) return { enabled: false };
 	if (Date.now() - _heliusCache.at < 4_000 && _heliusCache.value) return _heliusCache.value;
