@@ -10,9 +10,9 @@ users who pay that agent in its token, with buyback and shareholder distribution
 It is wired as a local npm workspace (this dir is in the root `package.json`
 `workspaces`, scope `@three-ws/*` like our other workspace SDKs), so in-repo
 imports of `@three-ws/agent-payments` resolve to this source. The real public
-`@pump-fun/agent-payments-sdk` (3.0.3) is a *separate* dependency used only by
-external-facing skill templates (`pump-fun-skills/**`) and the published
-`publish/` bundle — see "Naming" below.
+`@pump-fun/agent-payments-sdk` (3.0.3) is kept as a *separate* dependency — the
+documented upstream baseline for external-facing skill templates
+(`pump-fun-skills/**`, which pin it in their own manifests). See "Naming" below.
 
 ## TL;DR decision
 
@@ -110,18 +110,15 @@ It is now named **`@three-ws/agent-payments`** (matching our other workspace SDK
   `vite.config.js`) imports **`@three-ws/agent-payments`** — this fork, with the
   USDC/token-2022/v2 extensions. No regression.
 - **External-facing** templates (`pump-fun-skills/**`, shipped to users who
-  `npm install`) and the separately-published `publish/` bundle reference the real
-  **`@pump-fun/agent-payments-sdk@^3.0.3`** from npm — correct, since external
-  users get the public package. `publish/` uses only the core `PumpAgent`, which
-  3.0.3 provides.
+  `npm install`) reference the real **`@pump-fun/agent-payments-sdk@^3.0.3`** from
+  npm — correct, since external users get the public package, and those templates
+  use only the core `PumpAgent`, which 3.0.3 provides.
 
-The root `package.json` therefore depends on the real `@pump-fun/agent-payments-sdk@^3.0.3`
-(for those external/published references), while `@three-ws/agent-payments`
-auto-links from the `workspaces` array.
-
-> Note: `src/agent-skills-*.js` is duplicated into `publish/src/` (the published
-> bundle keeps its own copy on the public package). That duplication predates this
-> work and is a separate cleanup; it is not a blocker here.
+The root `package.json` keeps the real `@pump-fun/agent-payments-sdk@^3.0.3` as the
+documented upstream baseline (mirroring the pin in those external skill templates),
+while `@three-ws/agent-payments` auto-links from the `workspaces` array. No
+root-tree runtime code imports the public package directly today — internal callers
+all use the fork via `@three-ws/agent-payments`.
 
 ## Test fixtures
 
@@ -139,6 +136,6 @@ Core (agent-payments program): `api/agents/payments/[action].js`,
 `api/_lib/pump-swap-ix.js`, `scripts/buyback-devnet-smoke.mjs`,
 `pump-fun-skills/create-coin/`.
 Extensions: `api/_lib/pump.js` (`PumpTradeClient`), `src/agent-skills-agent-payments.js`
-(EVM), `solana-agent-sdk/` (x402 types). All resolve via the workspace symlink;
+(EVM/x402/full lifecycle). All resolve via the workspace symlink;
 `npm run build` regenerates `dist/` (root `postinstall` rebuilds on demand via
 `scripts/build-cache.mjs`).

@@ -654,6 +654,35 @@ html.pump-dashboard-page body {
 
 .pd-btn:active { transform: translateY(1px); }
 
+/* Inert state — used while a form's server config / save is in flight. Suppress
+   the hover lightening and active nudge so a disabled control reads as inert. */
+.pd-btn:disabled,
+.pd-btn[disabled] {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.pd-btn:disabled:hover,
+.pd-btn[disabled]:hover {
+	background: rgba(255, 255, 255, 0.04);
+	border-color: var(--stroke);
+}
+.pd-btn.is-primary:disabled:hover,
+.pd-btn.is-primary[disabled]:hover {
+	background: var(--accent-soft);
+	border-color: var(--stroke-strong);
+}
+.pd-btn:disabled:active,
+.pd-btn[disabled]:active { transform: none; }
+
+/* Disabled inputs (alerts form during the in-flight GET). */
+[aria-busy='true'] .pd-input:disabled,
+[aria-busy='true'] .pd-toggle:disabled,
+.pd-input:disabled,
+.pd-toggle:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 .pd-btn.is-primary {
 	background: var(--accent-soft);
 	border-color: var(--stroke-strong);

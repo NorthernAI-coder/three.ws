@@ -200,11 +200,16 @@ body {
 	margin: 0;
 	padding: 0;
 	font-family: var(--font-body);
-	background: #000;
+	/* Canvas routed through tokens so the global page surface flips with
+	   [data-theme]. Dark resolves to the near-black brand base (--bg-0); light
+	   remaps it in tokens.css. Transition keeps the theme toggle from snapping. */
+	background: var(--bg-0);
 	min-height: 100vh;
-	color: #e0e0e0;
+	color: var(--ink);
 	font-size: var(--text-base);
 	line-height: var(--leading-normal);
+	transition: background-color var(--duration-base) var(--ease-standard),
+		color var(--duration-base) var(--ease-standard);
 }
 
 * {

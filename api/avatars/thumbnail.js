@@ -11,6 +11,7 @@ import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../
 import { putObject, deleteObject, publicUrl } from '../_lib/r2.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { generateAltText } from '../_lib/avatar-alt-text.js';
 
 const MAX_PNG_BYTES = 1_500_000; // 1.5 MB max — generous for 1024² posters.
 const PNG_HEADER = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -54,7 +55,7 @@ export default wrap(async (req, res) => {
 	// Look up the avatar; permit owner OR admin (admins are needed to backfill
 	// thumbnails for legacy avatars whose owners may be inactive).
 	const [row] = await sql`
-		SELECT a.id, a.owner_id, a.thumbnail_key, u.is_admin
+		SELECT a.id, a.owner_id, a.name, a.thumbnail_key, u.is_admin
 		FROM avatars a
 		LEFT JOIN users u ON u.id = ${auth.userId}
 		WHERE a.id = ${avatarId} AND a.deleted_at IS NULL
@@ -83,6 +84,26 @@ export default wrap(async (req, res) => {
 		SET thumbnail_key = ${key}, updated_at = now()
 		WHERE id = ${avatarId}
 	`;
+
+	// Generate accessibility alt text from the poster we just received
+	// (Consumer 3). Fire-and-forget on the buffer we already hold — no extra
+	// fetch, no dependency on the object being publicly reachable yet, and it
+	// never delays or fails the upload response (fail-open per generateAltText).
+	queueMicrotask(async () => {
+		try {
+			const altText = await generateAltText({
+				imageBase64: buf.toString('base64'),
+				mimeType: 'image/png',
+				name: row.name,
+				track: { userId: auth.userId, avatarId },
+			});
+			if (altText) {
+				await sql`UPDATE avatars SET alt_text = ${altText} WHERE id = ${avatarId}`;
+			}
+		} catch (e) {
+			console.warn('[avatar-alt-text] generation failed', e?.message);
+		}
+	});
 
 	return json(res, 200, {
 		data: {

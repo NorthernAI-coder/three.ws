@@ -8,6 +8,14 @@ dist-artifact/
 contracts/lib/
 character-studio/
 docs/pumpfun-program/
+# pump.fun Agent Skills mirror (github.com/pump-fun/pump-fun-skills) — these four
+# skills are kept byte-faithful to upstream; do not reformat. Our own reactive/
+# skill is intentionally NOT listed here, so it stays prettier-enforced.
+pump-fun-skills/create-coin/
+pump-fun-skills/swap/
+pump-fun-skills/coin-fees/
+pump-fun-skills/tokenized-agents/
+pump-fun-skills/.claude-plugin/plugin.json
 
 # Build artifacts
 *.min.js

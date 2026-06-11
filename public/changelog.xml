@@ -103,6 +103,14 @@
 			<description>The explore discovery feed and marketplace asset-pricing lookup now reject malformed query parameters with a clear 400 instead of failing with a server error. A non-numeric page size on explore, or a malformed asset id on a price lookup, no longer surfaces a 500 — the endpoints validate input up front and respond cleanly.</description>
 		</item>
 		<item>
+			<title>Light theme is here — flip the whole site with one tap</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-11:Light theme is here — flip the whole site with one tap</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws now ships a light theme alongside the signature dark one. A new sun/moon toggle sits in the top nav on every page: tap it to switch instantly, and your choice sticks across pages, sessions, and other open tabs. New here, or set to 'Auto' in Settings → Appearance? The site follows your device's light/dark preference automatically. The theme is applied before the page paints, so there's no white flash on load, and the dashboard appearance picker (Dark / Light / Auto) now applies live instead of just saving for later. Dark remains the brand default — nothing changes unless you want it to.</description>
+		</item>
+		<item>
 			<title>Live $THREE market data, longer trade streams, and tutor session fixes</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Live $THREE market data, longer trade streams, and tutor session fixes</guid>

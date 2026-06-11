@@ -33,6 +33,7 @@ export async function listAvatars({
 	// listAvatars stays safe on prod before the migration runs.
 	const rows = await sql(
 		`select a.id, a.owner_id, a.slug, a.name, a.description, a.storage_key, a.thumbnail_key,
+		        a.alt_text,
 		        a.appearance, a.appearance_hash, a.baked_storage_key, a.baked_at,
 		        a.size_bytes, a.content_type, a.source, a.visibility, a.tags, a.version,
 		        a.created_at, a.updated_at, a.parent_avatar_id,
@@ -235,6 +236,7 @@ export async function searchPublicAvatars({ q, tag, limit = 24, cursor, withTota
 	// a deployed agent is preferred over an undeployed one for the same avatar.
 	const rows = await sql(
 		`select av.id, av.owner_id, av.slug, av.name, av.description, av.storage_key, av.thumbnail_key,
+		        av.alt_text,
 		        av.appearance, av.appearance_hash, av.baked_storage_key, av.baked_at,
 		        av.size_bytes,
 		        av.content_type, av.source, av.visibility, av.tags, av.view_count, av.created_at,
@@ -344,6 +346,9 @@ function decorate(row) {
 		visibility: row.visibility,
 		tags: row.tags || [],
 		version: row.version,
+		// Vision-generated accessibility description of the thumbnail (T4.1).
+		// Null until generated/backfilled; gallery falls back to the name.
+		alt_text: row.alt_text || null,
 		view_count: row.view_count == null ? 0 : Number(row.view_count),
 		created_at: row.created_at,
 		updated_at: row.updated_at,

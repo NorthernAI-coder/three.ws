@@ -11,7 +11,7 @@ import {
   bondingCurvePda,
   canonicalPumpPoolPda,
   feeSharingConfigPda,
-  isCreatorUsingSharingConfig,
+  hasCoinCreatorMigratedToSharingConfig,
 } from "@pump-fun/pump-sdk";
 import { OnlinePumpAmmSdk } from "@pump-fun/pump-swap-sdk";
 import { PublicKey } from "@solana/web3.js";
@@ -138,7 +138,7 @@ async function main() {
 
     // Check for sharing config
     if (
-      isCreatorUsingSharingConfig({ mint, creator })
+      hasCoinCreatorMigratedToSharingConfig({ mint, creator })
     ) {
       throw new Error(
         "This coin uses a fee sharing config. Use build-distribute-fees-tx.mjs instead.",

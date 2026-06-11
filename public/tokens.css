@@ -156,6 +156,85 @@
 	--focus-ring-offset: 2px;
 	--disabled-opacity:  0.4;
 	--disabled-cursor:   not-allowed;
+
+	/* Theme — the default (no [data-theme]) is the brand dark palette above.
+	   color-scheme tells the UA to paint native form controls, scrollbars and
+	   the canvas in the matching scheme. The theme-switcher sets data-theme on
+	   <html>; an inline boot script (scripts/inject-theme-boot.mjs) applies it
+	   before first paint so there is no flash. See [data-theme='light'] below. */
+	color-scheme: dark;
+}
+
+/* Explicit dark — identical to :root, so toggling data-theme="dark" is a no-op
+   on the palette but still drives color-scheme + the [data-theme] attribute the
+   switcher reads back. Keep in lockstep with :root. */
+:root[data-theme='dark'] {
+	color-scheme: dark;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * LIGHT THEME
+ * The single alternate palette. It REMAPS the colour primitives above to a
+ * light surface system — it never introduces a parallel namespace (same rule
+ * as the per-surface namespaces removed in B02). Every token-driven surface
+ * flips automatically; surfaces that still hardcode colours render as dark
+ * islands until migrated to tokens (tracked follow-up, see DESIGN-TOKENS.md).
+ *
+ * Two values can't survive a straight flip and are remapped here too:
+ *   · --accent was pure white (white-fill primary CTA). On light that is
+ *     invisible, so light uses a real accent blue + white CTA ink.
+ *   · Button/elevation tokens that hardcoded white/black are re-pointed.
+ * ════════════════════════════════════════════════════════════════════════════ */
+:root[data-theme='light'] {
+	color-scheme: light;
+
+	/* Solid canvas + raised panel */
+	--bg-0: #ffffff;
+	--bg-1: #f3f4f6;
+
+	/* Glass + translucent surface ramp (dark ink tint on light, mirrors the
+	   dark palette's white tint on black) */
+	--surface-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(244, 245, 248, 0.72));
+	--surface-1: rgba(15, 18, 28, 0.035);
+	--surface-2: rgba(15, 18, 28, 0.06);
+	--surface-3: rgba(15, 18, 28, 0.09);
+	--stroke: rgba(15, 18, 28, 0.10);
+	--stroke-strong: rgba(15, 18, 28, 0.16);
+
+	/* Ink ramp — dark text on light */
+	--ink-bright: #0a0c12;
+	--ink: #1d212b;
+	--ink-dim: #5a616f;
+	--ink-faint: rgba(15, 18, 28, 0.45);
+
+	/* Accent — white is invisible on light, so light gets a real accent. */
+	--accent: #2563eb;
+	--accent-soft: rgba(37, 99, 235, 0.10);
+
+	/* Elevation — softer, cooler shadows on a light canvas */
+	--shadow-1: 0 1px 3px rgba(15, 18, 28, 0.08);
+	--shadow-2: 0 4px 24px rgba(15, 18, 28, 0.10), 0 1px 4px rgba(15, 18, 28, 0.06);
+	--shadow-3: 0 8px 32px rgba(15, 18, 28, 0.14), 0 1px 4px rgba(15, 18, 28, 0.08);
+
+	/* Button component tokens that hardcoded white/near-black in style.css.
+	   Primary becomes accent-fill with white ink; the white-tint hovers on
+	   secondary/ghost become dark tints so they read on a light surface. */
+	--btn-primary-fg:          #ffffff;
+	--btn-primary-bg-hover:     #1d4ed8;
+	--btn-primary-bg-active:    #1e40af;
+	--btn-secondary-bg-hover:  rgba(15, 18, 28, 0.10);
+	--btn-secondary-bg-active: rgba(15, 18, 28, 0.14);
+
+	/* Nav source vars — nav.css derives its --nv-* layer from these (with dark
+	   literal fallbacks), so remapping them here flips the shared header too. */
+	--bg: #ffffff;
+	--hairline: rgba(15, 18, 28, 0.10);
+	--hairline-strong: rgba(15, 18, 28, 0.16);
+	--text: #1d212b;
+	--text-2: #5a616f;
+	--text-3: #888f9c;
+	--text-4: #aab0bc;
+	--nv-bar-bg: rgba(255, 255, 255, 0.82);
 }
 
 @media (prefers-reduced-motion: reduce) {

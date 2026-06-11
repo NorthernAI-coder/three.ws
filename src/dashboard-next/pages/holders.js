@@ -10,6 +10,7 @@
 import { mountShell } from '../shell.js';
 import { requireUser, get, esc, ApiError } from '../api.js';
 import { createThreeTokenData } from '../../pump/three-token-data.js';
+import { log } from '../../shared/log.js';
 
 const MONO = `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`;
 const PAGE_SIZE = 25;
@@ -185,7 +186,7 @@ function renderBadge(store) {
 		if (!current) return;
 		dlBtn.disabled = true;
 		downloadBadgePng(body.querySelector('svg'))
-			.catch((e) => console.error('[holders] badge export failed', e))
+			.catch((e) => log.error('[holders] badge export failed', e))
 			.finally(() => { dlBtn.disabled = false; });
 	});
 
@@ -310,7 +311,7 @@ function renderLeaderboard(store) {
 			}
 			renderPager();
 		} catch (err) {
-			console.error('[holders] leaderboard load failed', err);
+			log.error('[holders] leaderboard load failed', err);
 			body.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
 				<span style="color:var(--nxt-ink-fade);font-size:13.5px">Couldn’t load the leaderboard.</span>
 				<button data-action="retry" class="dn-btn" style="font-size:12px;padding:4px 10px">Retry</button>

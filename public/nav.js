@@ -66,11 +66,24 @@ function loadDiscovery() {
 	document.head.appendChild(s);
 }
 
+// Load the site-wide theme switcher (public/theme-switcher.js): owns the
+// dark ⇄ light toggle wired to the nav button, persistence and cross-tab sync.
+// Self-mounting + idempotent. The inline boot script already applied the theme
+// before paint; this binds the toggle button and keeps it in sync.
+function loadThemeSwitcher() {
+	if (document.querySelector('script[src="/theme-switcher.js"]')) return;
+	const s = document.createElement('script');
+	s.src = '/theme-switcher.js';
+	s.defer = true;
+	document.head.appendChild(s);
+}
+
 function boot() {
 	loadGlossary();
 	loadSearch();
 	loadDiscovery();
 	loadGettingStarted();
+	loadThemeSwitcher();
 	const navContainer = document.getElementById('nav-container');
 	if (!navContainer) return;
 	if (!document.querySelector('link[href="/nav.css"]')) {

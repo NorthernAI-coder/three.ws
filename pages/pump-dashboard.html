@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" class="pump-dashboard-page">
 	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 		<meta charset="UTF-8" />
 		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -2592,11 +2593,35 @@
 				if (cfg.webhookUrl != null) $('pd-alert-webhook').value = cfg.webhookUrl || '';
 			}
 
+			const ALERT_FORM_IDS = [
+				'pd-alert-graduation',
+				'pd-alert-whale',
+				'pd-alert-fees',
+				'pd-alert-launch',
+				'pd-threshold-whale',
+				'pd-threshold-claim',
+				'pd-threshold-cooldown',
+				'pd-alert-webhook',
+				'pd-save-alerts',
+			];
+			// Disable the form while the authoritative server config is in flight so the
+			// user can't edit (and Save) stale localStorage values that the GET is about
+			// to overwrite. aria-busy announces the pending state to assistive tech.
+			function setAlertFormDisabled(disabled) {
+				const panel = $('page-alerts');
+				if (panel) panel.setAttribute('aria-busy', disabled ? 'true' : 'false');
+				for (const id of ALERT_FORM_IDS) {
+					const el = $(id);
+					if (el) el.disabled = disabled;
+				}
+			}
+
 			let _alertConfigLoaded = false;
 			async function loadAlertConfig() {
 				// Fetch server alert history into the feed regardless of auth state.
 				loadServerAlerts();
 				if (_alertConfigLoaded) return;
+				setAlertFormDisabled(true);
 				try {
 					const resp = await apiFetch('/api/alerts/config');
 					if (resp.status === 401) return; // anonymous — keep local cache
@@ -2608,6 +2633,8 @@
 					_alertConfigLoaded = true;
 				} catch {
 					/* keep local cache */
+				} finally {
+					setAlertFormDisabled(false);
 				}
 			}
 
@@ -2656,6 +2683,12 @@
 					cooldown: parseInt($('pd-threshold-cooldown').value, 10) || 30,
 					webhookUrl: webhookUrl || null,
 				};
+				const btn = $('pd-save-alerts');
+				const btnLabel = btn ? btn.textContent : '';
+				if (btn) {
+					btn.disabled = true;
+					btn.textContent = 'Saving…';
+				}
 				try {
 					const csrf = await getCsrfToken();
 					const headers = { 'Content-Type': 'application/json' };
@@ -2680,9 +2713,15 @@
 					const { data } = await resp.json();
 					state.alertConfig = data;
 					localStorage.setItem('pumpbot-alerts', JSON.stringify(data));
+					applyAlertConfigToForm(data);
 					toast('Alert settings saved', 'success');
 				} catch (e) {
 					toast('Network error: ' + (e.message || 'save failed'), 'error');
+				} finally {
+					if (btn) {
+						btn.disabled = false;
+						btn.textContent = btnLabel;
+					}
 				}
 			}
 

@@ -100,10 +100,14 @@ function makeRes() {
 	};
 }
 let handlerRef;
+// No explicit hook timeout: this cold-imports api/pump-fun-mcp.js, which pulls the
+// heavy Solana SDK graph. Under full-suite fork contention that import has been
+// measured well past 60s, so we inherit the global 120s hookTimeout (calibrated in
+// vitest.config.js to clear the worst-case cold import) rather than capping at 60s.
 beforeAll(async () => {
 	const mod = await import('../../api/pump-fun-mcp.js');
 	handlerRef = mod.default;
-}, 60_000);
+});
 
 async function call(rpc) {
 	const res = makeRes();

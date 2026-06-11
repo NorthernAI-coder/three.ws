@@ -58,6 +58,7 @@ const els = {
 	download: document.getElementById('download'),
 	again: document.getElementById('again'),
 	retry: document.getElementById('retry'),
+	generateAnyway: document.getElementById('generate-anyway'),
 	errorMessage: document.getElementById('error-message'),
 	forgeShareBtn: document.getElementById('forge-share-btn'),
 	segmentBtn: document.getElementById('forge-segment-btn'),
@@ -611,12 +612,14 @@ function forgeHeaders(extra) {
 	return h;
 }
 
-async function startJob({ prompt, imageUrls }) {
+async function startJob({ prompt, imageUrls, skipValidation }) {
 	const base = { path: selectedEngine.path, tier: selectedTier, backend: selectedEngine.backend };
 	const body =
 		Array.isArray(imageUrls) && imageUrls.length
 			? { image_urls: imageUrls, prompt: prompt || undefined, ...base }
 			: { prompt, aspect_ratio: aspectRatio, ...base };
+	// Caller already saw the vision warning and chose to proceed (Consumer 1).
+	if (skipValidation) body.skip_validation = true;
 
 	const res = await fetch('/api/forge', {
 		method: 'POST',
@@ -644,6 +647,13 @@ async function startJob({ prompt, imageUrls }) {
 	if (data.error === 'insufficient_credits') {
 		const e = new Error(data.message || 'The provider account is out of credits.');
 		e.kind = 'credits';
+		throw e;
+	}
+	// Vision pre-check rejected the reference photo (Consumer 1). Recoverable:
+	// the user can swap the photo (Try again) or override (Generate anyway).
+	if (res.status === 422 && data.error === 'image_not_usable') {
+		const e = new Error(data.message || 'That photo doesn’t look usable for 3D.');
+		e.kind = 'not_usable';
 		throw e;
 	}
 	if (res.status === 429 || data.error === 'rate_limited') {
@@ -863,9 +873,12 @@ async function loadGallery() {
 	els.creations.classList.remove('is-hidden');
 }
 
-function showError(message) {
+function showError(message, { allowOverride = false } = {}) {
 	stopElapsed();
 	els.errorMessage.textContent = message;
+	// The "Generate anyway" affordance only exists for the vision pre-check
+	// rejection; every other error hides it so it can't leak across states.
+	if (els.generateAnyway) els.generateAnyway.classList.toggle('is-hidden', !allowOverride);
 	showState('error');
 }
 
@@ -970,6 +983,12 @@ async function run(cfg) {
 		if (err.kind === 'credits') {
 			stopElapsed();
 			showError(err.message || 'The provider account is out of credits.');
+			return;
+		}
+		// The reference photo failed the vision pre-check. Offer "Generate anyway"
+		// so a confident user is never permanently blocked by a cautious verdict.
+		if (err.kind === 'not_usable') {
+			showError(err.message, { allowOverride: true });
 			return;
 		}
 		showError(
@@ -1100,6 +1119,12 @@ els.retry.addEventListener('click', () => {
 		showState('empty');
 		els.prompt.focus();
 	}
+});
+
+// "Generate anyway" — re-run the same job with the vision pre-check bypassed.
+els.generateAnyway?.addEventListener('click', () => {
+	if (!lastJob) return;
+	run({ ...lastJob, skipValidation: true });
 });
 
 if (els.verdict) {
