@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "MetaMask Agent Wallet skills for every agent",
+			"summary": "Two new skills in the marketplace under the new Wallet category: MetaMask Agent Wallet and MetaMask Agent Workflows. Install them on any agent to let it check balances, transfer tokens, swap, bridge across chains, trade perps and prediction markets, and manage Aave positions through MetaMask's mm CLI — each user signs in with their own MetaMask Agent Wallet, so keys stay with you, never with three.ws. Platform chat agents pick the skills up automatically.",
+			"tags": [
+				"feature"
+			],
+			"link": "/skills"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Embedded avatar chat replies again",
 			"summary": "Avatars embedded straight from their public profile — the one-line widget on the homepage and anywhere else the avatar URL is dropped in — went silent when you typed a message: the chat box accepted your text but the avatar never answered. The built-in AI now recognizes a plain public avatar and serves it the free we-pay model with the same per-avatar rate and usage limits, so embedded chat responds out of the box.",
 			"tags": [
