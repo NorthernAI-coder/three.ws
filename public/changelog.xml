@@ -135,6 +135,14 @@
 			<description>Two new skills in the marketplace under the new Wallet category: MetaMask Agent Wallet and MetaMask Agent Workflows. Install them on any agent to let it check balances, transfer tokens, swap, bridge across chains, trade perps and prediction markets, and manage Aave positions through MetaMask's mm CLI — each user signs in with their own MetaMask Agent Wallet, so keys stay with you, never with three.ws. Platform chat agents pick the skills up automatically.</description>
 		</item>
 		<item>
+			<title>Pick a username on your account page — even if you signed in with a wallet</title>
+			<link>https://three.ws/dashboard/account</link>
+			<guid isPermaLink="false">2026-06-11:Pick a username on your account page — even if you signed in with a wallet</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can now set and change your username right from the account page. If you signed up with a wallet, you previously had no way to claim a handle — your profile just showed a shortened wallet address. Now there's a '+ Set a username' button under your name; tap it, type a handle (3–30 characters, letters, numbers, _ or -), and save. Usernames are checked for availability as you save, so you'll get a clear message if one's already taken. Wallet sign-ins also no longer display the internal placeholder email on your profile.</description>
+		</item>
+		<item>
 			<title>Pluggable memory backends + a portable snapshot format for the agent SDK</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Pluggable memory backends + a portable snapshot format for the agent SDK</guid>

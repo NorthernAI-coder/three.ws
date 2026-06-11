@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Pick a username on your account page — even if you signed in with a wallet",
+			"summary": "You can now set and change your username right from the account page. If you signed up with a wallet, you previously had no way to claim a handle — your profile just showed a shortened wallet address. Now there's a '+ Set a username' button under your name; tap it, type a handle (3–30 characters, letters, numbers, _ or -), and save. Usernames are checked for availability as you save, so you'll get a clear message if one's already taken. Wallet sign-ins also no longer display the internal placeholder email on your profile.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/dashboard/account"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Your chat agent now walks to each new reply instead of popping in",
 			"summary": "When you send a message in chat, the 3D agent used to vanish from its old spot and pop into place beside the new reply. Now it walks down the conversation to the new message — appearing where it last stood and gliding into its place with its walking animation playing, so it feels like a character moving through the chat rather than teleporting. The motion respects your system's reduced-motion setting (it simply appears, no slide, if you've asked for less animation), and the very first reply just settles in since there's nowhere to walk from.",
 			"tags": [
