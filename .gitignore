@@ -138,7 +138,8 @@ infra/cdk.out
 sc/
 
 # Debug screenshots from scripts — scratch output, never commit
-scripts/debug-*.png
+scripts/*.png
+scripts/**/*.png
 
 # Scratch/diagnostic scripts and screenshots
 scripts/_*
