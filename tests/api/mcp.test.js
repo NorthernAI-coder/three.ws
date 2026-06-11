@@ -66,9 +66,22 @@ vi.mock('../../api/_lib/x402-spec.js', () => ({
 	X402Error: MockX402Error,
 	X402_VERSION: 2,
 	paymentRequirements: vi.fn(() => [
-		{ scheme: 'exact', network: 'eip155:8453', payTo: '0xrecipient', amount: '1000', asset: '0xusdc', maxTimeoutSeconds: 60 },
+		{
+			scheme: 'exact',
+			network: 'eip155:8453',
+			payTo: '0xrecipient',
+			amount: '1000',
+			asset: '0xusdc',
+			maxTimeoutSeconds: 60,
+		},
 	]),
-	bazaarExtension: vi.fn(() => ({ method: 'POST', bodyType: 'json', input: {}, inputSchema: {}, output: { example: {} } })),
+	bazaarExtension: vi.fn(() => ({
+		method: 'POST',
+		bodyType: 'json',
+		input: {},
+		inputSchema: {},
+		output: { example: {} },
+	})),
 	verifyPayment: vi.fn(async () => {
 		if (!x402State.verifyOk)
 			throw new MockX402Error('invalid_payment', 'payment rejected', 402);
@@ -291,7 +304,11 @@ function rpc(method, params, extraHeaders = {}) {
 	};
 }
 
-const FULL_AUTH = { userId: 'user-1', scope: 'avatars:read avatars:write avatars:delete', source: 'oauth' };
+const FULL_AUTH = {
+	userId: 'user-1',
+	scope: 'avatars:read avatars:write avatars:delete',
+	source: 'oauth',
+};
 
 // ── Reset between tests ───────────────────────────────────────────────────
 beforeEach(() => {
@@ -371,7 +388,12 @@ describe('Protocol layer', () => {
 	});
 
 	it('GET without bearer returns 401 + WWW-Authenticate (OAuth discovery) with x402 envelope attached', async () => {
-		const { status, body, res } = await invoke({ method: 'GET' });
+		// MCP protocol clients (mcp-protocol-version header) get 401 per the MCP
+		// authorization spec; bare x402 agents get 402 (covered in Authentication).
+		const { status, body, res } = await invoke({
+			method: 'GET',
+			headers: { 'mcp-protocol-version': '2025-03-26' },
+		});
 
 		expect(status).toBe(401);
 		expect(res.headers['www-authenticate']).toMatch(/resource_metadata=/);
@@ -398,15 +420,38 @@ describe('Protocol layer', () => {
 // ── Authentication ────────────────────────────────────────────────────────
 
 describe('Authentication', () => {
-	it('POST with no bearer and no X-PAYMENT returns 401 (OAuth challenge)', async () => {
-		// no bearer, no payment → sendAuthChallenge → 401 + WWW-Authenticate
+	it('POST with no bearer and no X-PAYMENT returns 401 (OAuth challenge) for MCP protocol clients', async () => {
+		// no bearer, no payment, MCP protocol header → sendAuthChallenge → 401 + WWW-Authenticate
 		const { status, body, res } = await invoke({
-			body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_public_avatars' } },
+			headers: { 'mcp-protocol-version': '2025-03-26' },
+			body: {
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'search_public_avatars' },
+			},
 		});
 
 		expect(status).toBe(401);
 		expect(res.headers['www-authenticate']).toMatch(/resource_metadata=/);
 		expect(body.x402Version).toBe(2);
+	});
+
+	it('POST with no bearer, no X-PAYMENT, and no MCP headers returns 402 (x402 agent challenge)', async () => {
+		// Bare x402 agents/crawlers (no MCP protocol headers) key on a proper
+		// 402 Payment Required carrying the same envelope.
+		const { status, body, res } = await invoke({
+			body: {
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'search_public_avatars' },
+			},
+		});
+
+		expect(status).toBe(402);
+		expect(body.x402Version).toBe(2);
+		expect(res.headers['payment-required']).toBeTruthy();
 	});
 
 	it('POST getting_started with no bearer and no X-PAYMENT succeeds (free public tool)', async () => {
@@ -432,13 +477,18 @@ describe('Authentication', () => {
 		authState.bearer = null; // authenticateBearer returns null → invalid token
 
 		const { status, body } = await invoke({
-			body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_public_avatars' } },
+			body: {
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'search_public_avatars' },
+			},
 			headers: { authorization: 'Bearer bad-token' },
 		});
 
 		expect(status).toBe(401);
 		expect(body.error).toBe('unauthorized');
-		expect(res => res).toBeDefined(); // www-authenticate header is set
+		expect((res) => res).toBeDefined(); // www-authenticate header is set
 	});
 
 	it('POST with valid bearer succeeds for a scope-free tool', async () => {
@@ -480,7 +530,9 @@ describe('Tool: search_public_avatars', () => {
 			],
 		};
 
-		const { body } = await invoke(rpc('tools/call', { name: 'search_public_avatars', arguments: { q: 'warrior' } }));
+		const { body } = await invoke(
+			rpc('tools/call', { name: 'search_public_avatars', arguments: { q: 'warrior' } }),
+		);
 
 		expect(body.result.content[0].text).toContain('Warrior');
 		expect(body.result.structuredContent.avatars).toHaveLength(2);
@@ -489,7 +541,9 @@ describe('Tool: search_public_avatars', () => {
 	it('returns "No avatars found." text when results are empty', async () => {
 		avatarState.searchResult = { avatars: [] };
 
-		const { body } = await invoke(rpc('tools/call', { name: 'search_public_avatars', arguments: {} }));
+		const { body } = await invoke(
+			rpc('tools/call', { name: 'search_public_avatars', arguments: {} }),
+		);
 
 		expect(body.result.content[0].text).toBe('No avatars found.');
 	});
@@ -570,7 +624,13 @@ describe('Tool: render_avatar', () => {
 describe('x402 payment flow', () => {
 	it('request with no auth and no X-PAYMENT returns 401 carrying the x402 payment body', async () => {
 		const { status, body } = await invoke({
-			body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_public_avatars' } },
+			headers: { 'mcp-protocol-version': '2025-03-26' },
+			body: {
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'search_public_avatars' },
+			},
 		});
 
 		expect(status).toBe(401);
@@ -594,8 +654,15 @@ describe('x402 payment flow', () => {
 		avatarState.searchResult = { avatars: [] };
 
 		const { status, body, res } = await invoke({
-			body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_public_avatars', arguments: {} } },
-			headers: { 'x-payment': Buffer.from(JSON.stringify({ network: 'base' })).toString('base64') },
+			body: {
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'search_public_avatars', arguments: {} },
+			},
+			headers: {
+				'x-payment': Buffer.from(JSON.stringify({ network: 'base' })).toString('base64'),
+			},
 		});
 
 		expect(status).toBe(200);

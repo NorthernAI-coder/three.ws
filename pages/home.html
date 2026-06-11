@@ -36,6 +36,7 @@
 	<link rel="stylesheet" href="/fonts/fonts.css" />
 	<link rel="stylesheet" href="/tokens.css" />
 	<link rel="stylesheet" href="/buttons.css" />
+	<link rel="stylesheet" href="/nav.css" />
 	<style>
 		:root {
 			color-scheme: dark;
@@ -3731,12 +3732,16 @@
 </footer>
 
 <script type="module">
-	import { initAvatarDrop } from '/src/avatar-drop.js';
+	// Dynamic import inside the observer callback — a static import would put
+	// Three.js + GLTFLoader in the home entry's critical bundle even though the
+	// section is far below the fold. The module (and its GLB fetch) only loads
+	// when the user scrolls within 200px of the section.
 	const dropSection = document.getElementById('body-drop');
 	if (dropSection) {
-		const io = new IntersectionObserver(entries => {
+		const io = new IntersectionObserver(async entries => {
 			if (entries[0].isIntersecting) {
 				io.disconnect();
+				const { initAvatarDrop } = await import('/src/avatar-drop.js');
 				initAvatarDrop(dropSection);
 			}
 		}, { rootMargin: '200px' });
@@ -3745,9 +3750,21 @@
 </script>
 
 <script type="module">
-	import { initWalkPreview } from '/src/walk-embed-preview.js';
+	// Same deferral as the body-drop section above: the walk preview pulls
+	// Three.js, RoomEnvironment, nipplejs, and a rigged GLB — none of which
+	// belong in first paint. Load it all when the section approaches the
+	// viewport.
 	const walkContainer = document.getElementById('walk-preview-container');
-	if (walkContainer) initWalkPreview(walkContainer);
+	if (walkContainer) {
+		const io = new IntersectionObserver(async entries => {
+			if (entries[0].isIntersecting) {
+				io.disconnect();
+				const { initWalkPreview } = await import('/src/walk-embed-preview.js');
+				initWalkPreview(walkContainer);
+			}
+		}, { rootMargin: '200px' });
+		io.observe(walkContainer);
+	}
 </script>
 
 <script type="module">
@@ -5013,7 +5030,22 @@
 	})();
 </script>
 <script type="module" src="/src/api-playground.js"></script>
-<script type="module" src="/src/home-pose.js"></script>
+<script type="module">
+	// "Pose it here" pulls Three.js + OrbitControls + the full mannequin rig —
+	// load it only when the section approaches the viewport. The module
+	// self-boots on import (document is long past 'loading' by then), so the
+	// dynamic import alone wires the demo.
+	const poseRoot = document.getElementById('home-pose');
+	if (poseRoot) {
+		const io = new IntersectionObserver(entries => {
+			if (entries[0].isIntersecting) {
+				io.disconnect();
+				import('/src/home-pose.js');
+			}
+		}, { rootMargin: '200px' });
+		io.observe(poseRoot);
+	}
+</script>
 <script type="module" src="/dragon-section.js"></script>
 <script>
 // ── Interactive Bento Features ─────────────────────────────────────

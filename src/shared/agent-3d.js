@@ -6,7 +6,10 @@
 // makes the "See in 3D" affordance universal: no agent is ever avatar-less, so
 // the button is never dead or disabled.
 
-import { findAvatar3D } from '../erc8004/queries.js';
+// avatar-meta.js (not queries.js) so this shared helper stays dependency-free —
+// importing queries.js would statically drag ethers into every page that shows
+// an agent card (marketplace, directories, detail pages).
+import { findAvatar3D } from '../erc8004/avatar-meta.js';
 
 // The universal base avatar. Lives in /public, so it's a plain served path.
 export const MANNEQUIN_GLB = '/avatars/mannequin.glb';
@@ -33,7 +36,9 @@ export function agentAvatarGlb(agent) {
 			const fromMeta = findAvatar3D(meta);
 			if (fromMeta) return fromMeta;
 		}
-	} catch { /* metadata malformed — fall through to the base avatar */ }
+	} catch {
+		/* metadata malformed — fall through to the base avatar */
+	}
 
 	// `avatar` is a GLB on the directory but a 2D image elsewhere — use it only
 	// when it actually points at a model.
