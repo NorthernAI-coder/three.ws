@@ -50,7 +50,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ### Phase 3 — Widget RAG back online
 - [x] **T3.1** [30-embeddings-multiprovider.md](30-embeddings-multiprovider.md) — multi-provider embeddings, vector-space tagging (NIM free primary, OpenAI backstop, per-doc-set tag; same-space query routing + cross-space refusal; 47 tests green — see Worklog 2026-06-11)
-- [ ] **T3.2** [31-reembed-migration.md](31-reembed-migration.md) — re-embed migration script + run (+ optional reranker)
+- [~] **T3.2** [31-reembed-migration.md](31-reembed-migration.md) — re-embed migration script + run (+ optional reranker) (script + 15 unit tests done, dry-run executed against prod: 0 legacy rows; real run is a post-T3.1-deploy formality — see Worklog 2026-06-11)
 - [ ] **T3.3** [32-rag-verify.md](32-rag-verify.md) — RAG verified end-to-end in prod + changelog
 
 ### Phase 4 — Expansion lanes (after 1–3)
@@ -100,6 +100,48 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T3.1 audit of `771c84b4` + gap closure; T3.2 re-embed script done
+  (dry-run executed; prod run pending the T3.1 deploy).**
+  **Audit verdict:** `771c84b4` implemented free-first embeddings on a *different* surface —
+  `/api/agents/:id/embed` (the AgentMemory.recall embedder; NIM `baai/bge-m3` → paid Voyage)
+  — and touched none of T3.1's actual targets (`api/_lib/embeddings.js`, the widget
+  knowledge schema/search). Live-probed its model choice with the restored key:
+  `baai/bge-m3` is invocable on this account (200, 1024-dim — the catalog "presence ≠
+  invocable" trap did NOT bite), works without `input_type` (symmetric) and its 8192-token
+  context fits that endpoint's 8192-char contract, so the model stands. **One real trap the
+  commit left open, now closed:** it returns `model` in the response, but the caller ignored
+  it — `src/agent-memory.js` persists embeddings to localStorage, so a provider failover
+  (bge-m3 ↔ voyage-3-lite, both 1024-dim) silently cross-compared spaces. Now
+  `_makeEmbedFn` (src/agent-identity.js) passes `{vector, model}` through, entries carry
+  `embeddingModel`, `recall()` only cosine-compares same-model entries (mismatches fall to
+  the substring path), persisted pre-tagging entries default explicitly to `voyage-3-lite`,
+  and `cosineSim` refuses mismatched dims and zero vectors (was NaN). +5 recall tests in
+  `tests/src/agent-memory.test.js`. The widget-lane T3.1 work itself (see entry below) was
+  written this session and swept into `0e19dec7`/`f1587ba9`/`923bbb30` by the concurrent
+  committer — verified committed byte-identical. **Live-verified the widget lane end-to-end**
+  with the real key: e5-v5 passage+query embeds (1024-dim; right chunk scores 0.529 for a
+  France query, others ≤0.16), cross-space refusal of a synthetic legacy row, the 512-token
+  over-length 400 → truncation retry against the live endpoint, and the reranker
+  (`nvidia/rerank-qa-mistral-4b` → correct full-permutation order).
+  **T3.2 script** (`scripts/reembed-widget-knowledge.mjs`, landed in `f1587ba9` + an
+  import-side-effect fix here): uses the same access layer as the API (`api/_lib/db.js` +
+  `embedPassages`); surveys and classifies every doc (`done`/`flip`/`migrate`/`skip`+reason);
+  batch 64 (≤512 probed ceiling), throttled, exponential backoff on 429/5xx/network only
+  (never hard 4xx/config errors); resume-safe + idempotent via the per-row `embedder` tag;
+  the doc tag flips only after a verified zero-remaining count — atomic per set, and since
+  retrieval routes per-chunk tag, mid-migration reads are also correct in both spaces.
+  Required `--dry-run` prints per-doc actions + chunk/token/request/credit/time estimates
+  and writes nothing. New `tests/reembed-widget-knowledge.test.js` (15 cases against an
+  in-memory fake of the two tables): classify matrix, pending-only embeds, crash-mid-set
+  leaves the tag unflipped + a resume completes only the remainder, idempotent re-run embeds
+  nothing, backoff retry/give-up matrix, write-free dry-run. **Dry-run executed against the
+  prod Neon DB: 0 docs / 0 chunks** — the prod corpus is empty today, so the post-deploy
+  prod run (the unchecked half of T3.2) is a formality; also confirmed both `embedder`
+  columns already exist in prod. **Reranker decision: kept**, implemented behind
+  `KNOWLEDGE_RERANK_ENABLED=1` (default OFF, strictly fail-open); the task's "measure top-3
+  relevance on a real widget corpus" is impossible with zero stored docs — measure in T3.3
+  once a corpus exists, before enabling the flag in prod. Full `tests/api` suite green (120
+  files / 1991 tests) plus the targeted new suites (145 tests).
 - **2026-06-11** — **T3.1 (multi-provider embeddings + vector-space tagging) — DONE,
   audited & tests green.** Widget RAG was silently broken (OpenAI-only embedder, prod key
   over quota); the retrieval lane is now free-first via NIM and, critically, can never mix
