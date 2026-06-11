@@ -23,6 +23,14 @@
 			<description>The on-chain agents directory now loads from our server-side index instead of contacting every agent's metadata host from your browser — pages render faster and no longer spray network errors. Also: the pump.fun cockpit's sidebar pages are now shareable deep links, mobile nav and footer links meet touch-target guidelines, anonymous visitors no longer trigger failed sign-in requests on Walk and Create, and assorted dead links were removed.</description>
 		</item>
 		<item>
+			<title>Live $THREE market data, longer trade streams, and tutor session fixes</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-11:Live $THREE market data, longer trade streams, and tutor session fixes</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>$THREE market stats (price, holders, liquidity) are flowing again from our primary data source — a missing request header had been silently failing it to backups for days. Live trade streams no longer cut out after 30 seconds; they now run their full duration. The Pay-As-You-Learn Tutor no longer errors when resuming a session — running tabs persist correctly across questions — and Fact Checker results are cached properly so repeat checks of the same claim return instantly.</description>
+		</item>
+		<item>
 			<title>Scheduled jobs restored after dependency outage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Scheduled jobs restored after dependency outage</guid>
