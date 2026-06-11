@@ -248,6 +248,60 @@ for (const f of routeFiles) {
 	}
 }
 
+// Verify every bare specifier the bundles still import (the EXTERNALS above)
+// resolves from node_modules. esbuild never checks externals, and NFT silently
+// skips ones it can't resolve — so a missing external only surfaces as a
+// runtime ERR_MODULE_NOT_FOUND. That is exactly how the 2026-06-11 outage
+// shipped: helius-sdk (inlined) imports @solana-program/stake (external via
+// the @solana-program/* pattern), the package was an uninstalled peer dep,
+// and every /api/cron/* invocation died at module load. Fail the build here,
+// seconds in, instead.
+const { init: lexerInit, parse: lexerParse } = await import('es-module-lexer');
+await lexerInit;
+const externalSpecifiers = new Map(); // specifier -> { firstUser, static }
+for (const f of routeFiles) {
+	let imports;
+	try {
+		[imports] = lexerParse(await readFile(f, 'utf8'));
+	} catch {
+		continue; // unparseable bundles are already reported via individualFailures/stillRaw
+	}
+	for (const imp of imports) {
+		const spec = imp.n;
+		if (!spec || spec.startsWith('.') || spec.startsWith('/') || spec.startsWith('node:'))
+			continue;
+		const isStatic = imp.d === -1;
+		const seen = externalSpecifiers.get(spec);
+		if (!seen) {
+			externalSpecifiers.set(spec, { firstUser: relative(ROOT, f), static: isStatic });
+		} else if (isStatic && !seen.static) {
+			seen.static = true;
+			seen.firstUser = relative(ROOT, f);
+		}
+	}
+}
+// A missing STATIC import crashes the function at module load (the
+// @solana-program/stake outage). A missing DYNAMIC import only throws if its
+// code path runs, and packages guard optional peers exactly that way (e.g.
+// resend's try/catch around @react-email/render) — warn, don't fail.
+const unresolvableExternals = [];
+const unresolvableDynamic = [];
+for (const [spec, { firstUser, static: isStatic }] of externalSpecifiers) {
+	try {
+		import.meta.resolve(spec);
+	} catch {
+		(isStatic ? unresolvableExternals : unresolvableDynamic).push({ spec, firstUser });
+	}
+}
+if (unresolvableDynamic.length) {
+	console.warn(
+		`\n[bundle-api] WARNING — ${unresolvableDynamic.length} dynamically-imported external(s) do not resolve; fine if the import is guarded (optional peer), a crash if that code path runs:`,
+	);
+	for (const { spec, firstUser } of unresolvableDynamic) {
+		console.warn(`  ${spec} (first imported by ${firstUser})`);
+	}
+}
+
 const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 const sizes = await Promise.all(routeFiles.map(async (f) => (await stat(f)).size));
 const totalKB = (sizes.reduce((s, n) => s + n, 0) / 1024).toFixed(0);
@@ -279,8 +333,20 @@ if (stillRaw.length) {
 	if (stillRaw.length > 25) console.error(`  …and ${stillRaw.length - 25} more`);
 }
 
+if (unresolvableExternals.length) {
+	console.error(
+		`\n[bundle-api] FAILED — ${unresolvableExternals.length} external import(s) in the bundled output do not resolve from node_modules (would crash at runtime with ERR_MODULE_NOT_FOUND):`,
+	);
+	for (const { spec, firstUser } of unresolvableExternals) {
+		console.error(
+			`  ${spec} (first imported by ${firstUser}) → add it to package.json dependencies; if it came through a peerDependency, remember legacy-peer-deps never auto-installs peers`,
+		);
+	}
+}
+
 // Fail fast on the build container instead of letting Vercel time out at 45 min
-// trying to NFT-trace raw route files against the 2 GB node_modules tree.
-if (individualFailures.length > 0 || stillRaw.length > 0) {
+// trying to NFT-trace raw route files against the 2 GB node_modules tree, or —
+// worse — deploy bundles whose runtime imports are missing.
+if (individualFailures.length > 0 || stillRaw.length > 0 || unresolvableExternals.length > 0) {
 	process.exit(1);
 }
