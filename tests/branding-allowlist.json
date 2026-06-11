@@ -104,7 +104,6 @@
 		"file": "*",
 		"reason": "Developer portal URL reference in configuration docs."
 	},
-
 	{
 		"pattern": "Avaturn",
 		"file": "docs/avatar-creation.md",
@@ -211,19 +210,9 @@
 		"reason": "Top-level README enumerates the bundled vendor integrations."
 	},
 	{
-		"pattern": "Avaturn",
-		"file": "publish/README.md",
-		"reason": "Published SDK README mirrors the top-level integration list."
-	},
-	{
 		"pattern": "avaturn",
 		"file": "README.md",
 		"reason": "Env-var default value (`AVATAR_REGEN_PROVIDER=none | avaturn`) documented in the README."
-	},
-	{
-		"pattern": "avaturn",
-		"file": "publish/README.md",
-		"reason": "Same env-var default value mirrored in the published README."
 	},
 	{
 		"pattern": "Avaturn",
@@ -250,7 +239,6 @@
 		"file": "public/demos/selfie-fit.html",
 		"reason": "JS comments describing the selfie-fit demo's postMessage protocol with the upstream editor."
 	},
-
 	{
 		"pattern": "Character Studio",
 		"file": "docs/character-studio.md",
@@ -307,11 +295,6 @@
 		"reason": "Top-level README enumerates the bundled integrations."
 	},
 	{
-		"pattern": "Character Studio",
-		"file": "publish/README.md",
-		"reason": "Published SDK README mirrors the top-level integration list."
-	},
-	{
 		"pattern": "CharacterStudio",
 		"file": "public/demo/avatar-os/index.html",
 		"reason": "Internal research demo embedding the open-source @m3-org/characterstudio package — package identifier is technical."
@@ -331,7 +314,6 @@
 		"file": "*",
 		"reason": "Lowercase identifier appears in npm package names (@m3-org/characterstudio), iframe postMessage source values, and config env vars — all internal protocol surfaces."
 	},
-
 	{
 		"pattern": "Ready Player Me",
 		"file": "avatar-sdk/README.md",
@@ -352,7 +334,6 @@
 		"file": "avatar-sdk/README.md",
 		"reason": "SDK README — same context as the Ready Player Me reference above; abbreviation appears alongside the full name."
 	},
-
 	{
 		"pattern": "Ready Player Me",
 		"file": "pages/import-rpm.html",

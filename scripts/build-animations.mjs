@@ -52,6 +52,10 @@ globalThis.FileReader = NodeFileReader;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const ANIM_DIR = resolve(ROOT, 'public/animations');
+// FBX sources are build-time inputs only — kept out of public/ so they never
+// ship in the deploy bundle. GLB sources stay in public/animations (some are
+// also served at runtime).
+const SOURCES_DIR = resolve(ROOT, 'animation-sources');
 const OUT_DIR = resolve(ANIM_DIR, 'clips');
 const REFERENCE_GLB = resolve(ROOT, 'public/avatars/cz.glb');
 const CONFIG = resolve(__dirname, 'animations.config.json');
@@ -177,7 +181,8 @@ async function main() {
 	let failCount = 0;
 
 	for (const def of config) {
-		const fbxPath = resolve(ANIM_DIR, def.source);
+		const sourceCandidates = [resolve(SOURCES_DIR, def.source), resolve(ANIM_DIR, def.source)];
+		const fbxPath = sourceCandidates.find((p) => existsSync(p)) ?? sourceCandidates[0];
 		const outName = `${def.name}.json`;
 		const outPath = resolve(OUT_DIR, outName);
 

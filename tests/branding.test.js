@@ -106,7 +106,7 @@ function* walk(absDir, match) {
  *   - avatar-sdk/README.md
  *   - avatar-sdk/types/**\/*.d.ts
  *   - src/**\/*.js   (JSDoc on exported symbols only — handled specially)
- *   - README.md, publish/README.md
+ *   - README.md
  */
 function collectScopedFiles() {
 	const files = [];
@@ -163,8 +163,8 @@ function collectScopedFiles() {
 		files.push({ abs, kind: 'src-js' });
 	}
 
-	// 8. Top-level READMEs
-	for (const rel of ['README.md', join('publish', 'README.md')]) {
+	// 8. Top-level README
+	for (const rel of ['README.md']) {
 		const abs = join(REPO_ROOT, rel);
 		if (existsSync(abs)) files.push({ abs, kind: 'readme' });
 	}
@@ -250,31 +250,6 @@ function getExportedJSDocLines(absPath) {
 }
 
 /**
- * publish/README.md has a long "Roadmap → Phase 0..4" section that captures
- * historical platform context.  Per spec we skip lines inside that block.
- * Range = from the line that starts with "## Roadmap" up to (but not
- * including) the next top-level "## " heading.
- */
-function isInPublishRoadmap(relPath, lineNo, allLines) {
-	if (relPath !== join('publish', 'README.md')) return false;
-	let start = -1;
-	let end = allLines.length;
-	for (let i = 0; i < allLines.length; i++) {
-		const ln = allLines[i];
-		if (start === -1 && /^##\s+Roadmap\b/i.test(ln)) {
-			start = i + 1; // 1-based
-			continue;
-		}
-		if (start !== -1 && i + 1 > start && /^##\s+/.test(ln)) {
-			end = i; // 1-based exclusive
-			break;
-		}
-	}
-	if (start === -1) return false;
-	return lineNo >= start && lineNo < end;
-}
-
-/**
  * Detect fenced code blocks (``` ... ```) in a markdown source.  Returns
  * a Set of 1-based line numbers that sit inside a fence.
  */
@@ -350,14 +325,6 @@ function scanForPattern(forbidden, files, extraGate) {
 		for (const { lineNo, text: line } of candidateLines) {
 			if (!forbidden.regex.test(line)) continue;
 
-			// publish/README.md roadmap-block exemption.
-			if (
-				f.kind === 'readme' &&
-				isInPublishRoadmap(relPath, lineNo, allLines)
-			) {
-				continue;
-			}
-
 			// Optional gate (used by RPM heuristic).
 			if (extraGate && !extraGate({ relPath, line, fenced, lineNo })) {
 				continue;
@@ -421,11 +388,6 @@ describe('three.ws branding lock', () => {
 				const ctxEnd = Math.min(allLines.length, lineNo + 1);
 				const ctx = allLines.slice(ctxStart, ctxEnd).join(' ');
 				if (!NEARBY.test(ctx)) continue;
-				if (
-					f.kind === 'readme' &&
-					isInPublishRoadmap(relPath, lineNo, allLines)
-				)
-					continue;
 				if (isAllowed(relPath, line)) continue;
 				hits.push({ file: relPath, line: lineNo, text: line.trim() });
 			}
