@@ -71,6 +71,14 @@
 			<description>Every background job — pump.fun monitoring, coin payouts, club payouts, scheduled X posts, DCA runs, subscription billing, and the rest — had been failing since a recent dependency upgrade left a required Solana staking library out of the deployment. The missing library now ships with every deploy, and the image-processing engine behind avatar baking was rolled back to its proven version so it loads reliably in production. All scheduled jobs run again.</description>
 		</item>
 		<item>
+			<title>Sharper search and richer link previews across the blog</title>
+			<link>https://three.ws/blog</link>
+			<guid isPermaLink="false">2026-06-11:Sharper search and richer link previews across the blog</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every blog post now ships full social-card images and structured data, so links to three.ws unfurl with a proper preview image on X, Slack, Discord and LinkedIn, and show up as rich articles with breadcrumbs in Google. All 25 posts are now listed in the sitemap (previously only four were), making the full archive discoverable in search. A new build step keeps page titles, descriptions and previews in sync automatically so nothing ships without them.</description>
+		</item>
+		<item>
 			<title>Text-to-3D and image-to-3D generation restored</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-11:Text-to-3D and image-to-3D generation restored</guid>
