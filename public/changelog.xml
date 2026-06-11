@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent Wallet (MetaMask × x402)</title>
+			<link>https://three.ws/play/agent-wallet</link>
+			<guid isPermaLink="false">2026-06-11:Agent Wallet (MetaMask × x402)</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.</description>
+		</item>
+		<item>
 			<title>Status</title>
 			<link>https://three.ws/status</link>
 			<guid isPermaLink="false">2026-06-11:Status</guid>
@@ -95,6 +103,14 @@
 			<description>The on-chain agents directory now loads from our server-side index instead of contacting every agent's metadata host from your browser — pages render faster and no longer spray network errors. Also: the pump.fun cockpit's sidebar pages are now shareable deep links, mobile nav and footer links meet touch-target guidelines, anonymous visitors no longer trigger failed sign-in requests on Walk and Create, and assorted dead links were removed.</description>
 		</item>
 		<item>
+			<title>Forge and Parts Studio headers display correctly again</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-11:Forge and Parts Studio headers display correctly again</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The intro banner on Forge and Parts Studio was rendering as a single squashed black bar — the headline overlapped the status pill and the description was cut off mid-word. Both pages now show the proper centered header: status pill on top, full headline, and the complete description underneath.</description>
+		</item>
+		<item>
 			<title>Forge checks your photo before spending a generation — plus image-aware fact-checks and accessible galleries</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-11:Forge checks your photo before spending a generation — plus image-aware fact-checks and accessible galleries</guid>
@@ -133,6 +149,14 @@
 			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The explore discovery feed and marketplace asset-pricing lookup now reject malformed query parameters with a clear 400 instead of failing with a server error. A non-numeric page size on explore, or a malformed asset id on a price lookup, no longer surfaces a 500 — the endpoints validate input up front and respond cleanly.</description>
+		</item>
+		<item>
+			<title>Inspect any agent's 3D model right on its marketplace page</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-11:Inspect any agent's 3D model right on its marketplace page</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agent pages in the marketplace now open with a full interactive 3D viewer — orbit, zoom, go fullscreen, download the GLB, or drop the agent straight into the world. Agents without a custom model show the base avatar, so the stage is never empty. Clicking the small header avatar jumps you to the viewer.</description>
 		</item>
 		<item>
 			<title>Light theme is here — flip the whole site with one tap</title>

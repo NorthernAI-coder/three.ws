@@ -50,6 +50,121 @@ body.market-page > #footer-container {
 .market-detail-avatar.has-3d .d-avatar-fallback {
 	display: none;
 }
+/* Header avatar doubles as a jump-to-viewer button (wired in
+   renderDetailModelStage). */
+.market-detail-avatar[role='button'] {
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.market-detail-avatar[role='button']:hover {
+	transform: scale(1.04);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.market-detail-avatar[role='button']:focus-visible {
+	outline: 2px solid #fafafa;
+	outline-offset: 2px;
+}
+
+/* ── Detail 3D model stage ────────────────────────────────────────────── */
+.d-model-card {
+	padding: 0;
+	overflow: hidden;
+}
+.d-model-card.flash {
+	animation: d-model-flash 1.2s ease;
+}
+@keyframes d-model-flash {
+	0%,
+	60% {
+		border-color: rgba(255, 255, 255, 0.55);
+	}
+	100% {
+		border-color: var(--stroke);
+	}
+}
+.d-model-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--stroke);
+}
+.d-model-head h3 {
+	margin: 0;
+}
+.d-model-hint {
+	flex: 1;
+	min-width: 0;
+	font-size: 12px;
+	color: var(--ink-dim);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.d-model-actions {
+	display: flex;
+	gap: 8px;
+	margin-left: auto;
+}
+.d-model-btn {
+	appearance: none;
+	background: var(--surface-2);
+	border: 1px solid var(--stroke);
+	border-radius: 999px;
+	color: var(--ink);
+	font: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1;
+	padding: 7px 12px;
+	cursor: pointer;
+	text-decoration: none;
+	white-space: nowrap;
+	transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.d-model-btn:hover {
+	border-color: rgba(255, 255, 255, 0.35);
+	background: rgba(255, 255, 255, 0.06);
+}
+.d-model-btn:active {
+	background: rgba(255, 255, 255, 0.12);
+}
+.d-model-btn:focus-visible {
+	outline: 2px solid #fafafa;
+	outline-offset: 2px;
+}
+.d-model-stage {
+	position: relative;
+	height: 380px;
+	background: radial-gradient(circle at 50% 65%, rgba(255, 255, 255, 0.07), transparent 65%),
+		linear-gradient(180deg, #060606, #0e0e0e);
+}
+.d-model-stage model-viewer {
+	width: 100%;
+	height: 100%;
+	--poster-color: transparent;
+	background: transparent;
+}
+.d-model-card:fullscreen {
+	display: flex;
+	flex-direction: column;
+	border-radius: 0;
+	background: #000;
+}
+.d-model-card:fullscreen .d-model-stage {
+	flex: 1;
+	height: auto;
+}
+@media (max-width: 640px) {
+	.d-model-stage {
+		height: 260px;
+	}
+	.d-model-hint {
+		display: none;
+	}
+}
+
 .market-author-btn {
 	background: none;
 	border: 0;

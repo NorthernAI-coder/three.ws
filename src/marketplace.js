@@ -9,6 +9,7 @@
 
 import {
 	renderDetailAvatar,
+	renderDetailModelStage,
 	startPreviewSession,
 	submitPreviewMessage,
 	openCreatorModal,
@@ -4377,6 +4378,7 @@ function renderDetail(a, bookmarked) {
 	const forks = a.forks_count ?? a.forks ?? 0;
 	$('d-name').textContent = a.name || 'Untitled';
 	renderDetailAvatar(a);
+	renderDetailModelStage(a);
 
 	const authorBtn = $('d-author');
 	authorBtn.textContent = author;

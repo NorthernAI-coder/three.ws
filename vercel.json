@@ -568,6 +568,10 @@
 			"dest": "/city.html"
 		},
 		{
+			"src": "/play/agent-wallet/?",
+			"dest": "/play/agent-wallet.html"
+		},
+		{
 			"src": "/play/?",
 			"dest": "/play.html"
 		},

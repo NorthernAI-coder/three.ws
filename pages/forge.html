@@ -50,6 +50,20 @@
 				padding: var(--space-xl) var(--space-md) var(--space-2xl);
 			}
 			.forge-head {
+				/* Reset the global site-nav `header` rule from style.css —
+				   this is an in-page hero, not the top bar. */
+				display: block;
+				height: auto;
+				padding: 0;
+				background: none;
+				backdrop-filter: none;
+				-webkit-backdrop-filter: none;
+				border-bottom: 0;
+				overflow: visible;
+				white-space: normal;
+				line-height: var(--leading-normal);
+				z-index: auto;
+				-webkit-app-region: no-drag;
 				text-align: center;
 				margin-bottom: var(--space-xl);
 			}
@@ -75,6 +89,8 @@
 				box-shadow: 0 0 8px var(--success);
 			}
 			.forge-head h1 {
+				display: block;
+				color: var(--ink);
 				font-family: var(--font-display);
 				font-size: clamp(2rem, 5vw, var(--text-2xl));
 				line-height: var(--leading-tight);

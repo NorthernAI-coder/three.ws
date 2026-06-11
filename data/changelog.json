@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Forge and Parts Studio headers display correctly again",
+			"summary": "The intro banner on Forge and Parts Studio was rendering as a single squashed black bar — the headline overlapped the status pill and the description was cut off mid-word. Both pages now show the proper centered header: status pill on top, full headline, and the complete description underneath.",
+			"tags": [
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-11",
+			"title": "Inspect any agent's 3D model right on its marketplace page",
+			"summary": "Agent pages in the marketplace now open with a full interactive 3D viewer — orbit, zoom, go fullscreen, download the GLB, or drop the agent straight into the world. Agents without a custom model show the base avatar, so the stage is never empty. Clicking the small header avatar jumps you to the viewer.",
+			"tags": [
+				"feature"
+			],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "More paid 3D generations per hour before you hit the limit",
 			"summary": "The paid text-to-3D and image-to-3D lane in Forge had an hourly ceiling of 12 generations per person — tight enough that a focused iteration session, or a few people sharing the same office or campus network, could run into a 'generation limit reached, try again shortly' wall mid-flow. That ceiling is now 30 per hour. You can push through far more revisions in one sitting, while the limit still protects against runaway GPU spend. The free Draft lane keeps its own, even more generous allowance.",
 			"tags": [

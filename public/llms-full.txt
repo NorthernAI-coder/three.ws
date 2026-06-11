@@ -272,6 +272,12 @@ URL: https://three.ws/pay
 
 Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.
 
+### Agent Wallet (MetaMask × x402)
+
+URL: https://three.ws/play/agent-wallet
+
+Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.
+
 ### Pump.fun Stream
 
 URL: https://three.ws/pumpfun
