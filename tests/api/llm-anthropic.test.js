@@ -516,13 +516,58 @@ describe('/api/llm/anthropic — free-provider routing', () => {
 		expect(call.init.headers.authorization).toBe('Bearer gsk-test');
 	});
 
-	it('returns 503 when the upstream API key is not configured', async () => {
+	it('degrades through the fallback chain when the requested model has no key', async () => {
+		// The requested OpenRouter lane is unkeyed; the request must NOT 503 —
+		// it walks the chain and serves from the next configured lane.
 		delete process.env.OPENROUTER_API_KEY;
-		const { status, body } = await invoke({
+		const { status } = await invoke({
 			body: { ...VALID_BODY, model: 'meta-llama/llama-3.3-70b-instruct:free' },
 		});
-		expect(status).toBe(503);
-		expect(body.error).toBe('provider_unavailable');
+		expect(status).toBe(200);
+		// Every attempted call skipped the unkeyed OpenRouter lane.
+		expect(fetchState.calls.every((c) => !c.url.includes('openrouter.ai'))).toBe(true);
+	});
+
+	it('degrades to a free lane when the keyed upstream rejects with 401 (dead key)', async () => {
+		// Account-level 4xx (dead/revoked key) must fall through to the next
+		// lane, not surface as a terminal error.
+		let first = true;
+		fetchState.response = () => {
+			if (first) {
+				first = false;
+				return upstreamErr(401, 'invalid x-api-key');
+			}
+			return upstreamOk({
+				id: 'gen-2',
+				choices: [
+					{ message: { role: 'assistant', content: 'rescued by free lane' }, finish_reason: 'stop' },
+				],
+				usage: { prompt_tokens: 3, completion_tokens: 4 },
+			});
+		};
+		const { status } = await invoke({
+			body: { ...VALID_BODY, model: 'meta-llama/llama-3.3-70b-instruct:free' },
+		});
+		expect(status).toBe(200);
+		expect(fetchState.calls.length).toBeGreaterThan(1);
+	});
+
+	it('returns 503 only when no lane in the chain is configured', async () => {
+		delete process.env.OPENROUTER_API_KEY;
+		delete process.env.GROQ_API_KEY;
+		delete process.env.NVIDIA_API_KEY;
+		const savedAnthropic = process.env.ANTHROPIC_API_KEY;
+		delete process.env.ANTHROPIC_API_KEY;
+		try {
+			const { status, body } = await invoke({
+				body: { ...VALID_BODY, model: 'meta-llama/llama-3.3-70b-instruct:free' },
+			});
+			expect(status).toBe(503);
+			expect(body.error).toBe('provider_unavailable');
+			expect(fetchState.calls).toHaveLength(0);
+		} finally {
+			process.env.ANTHROPIC_API_KEY = savedAnthropic;
+		}
 	});
 
 	it('translates Anthropic body shape → OpenAI body shape', async () => {

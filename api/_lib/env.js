@@ -815,9 +815,11 @@ export const env = {
 		return opt('ELEVENLABS_API_KEY');
 	},
 
-	// VoyageAI API key — used by /api/agents/:id/embed for text embeddings (voyage-3-lite).
+	// VoyageAI API key — paid lane for /api/agents/:id/embed (voyage-3-lite).
+	// Optional: the endpoint leads with the free NVIDIA NIM embedder and only
+	// falls back to Voyage when keyed, so absence must not crash the route.
 	get VOYAGE_API_KEY() {
-		return req('VOYAGE_API_KEY');
+		return opt('VOYAGE_API_KEY');
 	},
 
 	// X (Twitter) OAuth 2.0 PKCE — required for /api/auth/x/* and memory seeding.
