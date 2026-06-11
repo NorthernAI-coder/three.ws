@@ -51,21 +51,44 @@ function parseRetryAfter(headers, message) {
 	return 10;
 }
 
+// Vertex Imagen returns the PNG inline as a data: URI. Downstream image-to-3D
+// providers take URLs (Replicate caps inline data URIs at ~256 KB — a 1024px
+// Imagen PNG blows straight past that), so persist the bytes to object storage
+// and hand back a durable https URL instead.
+async function persistDataUriImage(result) {
+	if (!result?.imageUrl?.startsWith('data:')) return result;
+	const { putObject, publicUrl } = await import('../_lib/r2.js');
+	const b64 = result.imageUrl.split(',')[1] || '';
+	const key = `forge/refs/${globalThis.crypto.randomUUID()}.png`;
+	await putObject({ key, body: Buffer.from(b64, 'base64'), contentType: 'image/png' });
+	return { ...result, imageUrl: publicUrl(key) };
+}
+
 // Generate a single image from a text prompt.
 //
 // Prefers Vertex AI Imagen when GOOGLE_CLOUD_PROJECT is configured (free with
-// GCP credits, higher quality). Falls back to Replicate flux-schnell otherwise.
+// GCP credits, higher quality). Falls back to Replicate flux-schnell otherwise —
+// including when the Vertex path is configured but fails (bad service-account
+// JSON, expired model, missing object storage for the inline PNG): a broken
+// preferred provider must degrade to the working one, never take down the
+// whole text→3D pipeline.
 export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
+	const token = readEnv('REPLICATE_API_TOKEN');
+
 	// ── Vertex AI Imagen path ────────────────────────────────────────────────
 	if (readEnv('GOOGLE_CLOUD_PROJECT')) {
-		const { generateImage, isConfigured } = await import('./vertex-imagen.js');
-		if (isConfigured()) {
-			return generateImage(prompt, { aspectRatio });
+		try {
+			const { generateImage, isConfigured } = await import('./vertex-imagen.js');
+			if (isConfigured()) {
+				return await persistDataUriImage(await generateImage(prompt, { aspectRatio }));
+			}
+		} catch (err) {
+			if (!token) throw err;
+			console.error(`vertex imagen failed, falling back to replicate: ${err?.message}`);
 		}
 	}
 
 	// ── Replicate fallback ───────────────────────────────────────────────────
-	const token = readEnv('REPLICATE_API_TOKEN');
 	if (!token) {
 		throw Object.assign(
 			new Error(

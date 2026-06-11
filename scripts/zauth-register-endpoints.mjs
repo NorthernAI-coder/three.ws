@@ -49,7 +49,6 @@ const ENDPOINTS = [
 	{ path: '/api/x402/mint-to-mesh-batch', method: 'POST', json: true, body: '{}' },
 	{ path: '/api/x402/model-check', method: 'GET' },
 	{ path: '/api/x402/onchain-identity-verify', method: 'GET' },
-	{ path: '/api/x402/pay-by-name?name=three.ws', method: 'GET' },
 	{ path: '/api/x402/permit2-paid-demo', method: 'GET' },
 	{ path: '/api/x402/pump-agent-audit', method: 'GET' },
 	{ path: '/api/x402/pump-launch', method: 'POST', json: true, body: '{}' },

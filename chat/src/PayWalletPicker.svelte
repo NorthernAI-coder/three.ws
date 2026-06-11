@@ -9,6 +9,7 @@
 	let demoWallet = { address: null, usdc: null, sol: null, configured: null };
 	let demoLoading = false;
 	let demoError = '';
+	let demoUnconfigured = false;
 	let popoverEl;
 	let buttonEl;
 
@@ -28,12 +29,19 @@
 	async function loadDemoWallet() {
 		demoLoading = true;
 		demoError = '';
+		demoUnconfigured = false;
 		try {
 			const r = await fetch('/api/x402-pay?balance=1');
 			if (!r.ok) throw new Error('HTTP ' + r.status);
 			demoWallet = await r.json();
-			if (demoWallet?.configured === false && demoWallet.error) {
-				demoError = demoWallet.error;
+			if (demoWallet?.configured === false) {
+				// A wallet that simply isn't set up is a neutral state, not an
+				// error — only misconfiguration and fetch failures go red.
+				if (demoWallet.code === 'wallet_unconfigured') {
+					demoUnconfigured = true;
+				} else {
+					demoError = demoWallet.error || 'wallet misconfigured';
+				}
 			}
 		} catch (err) {
 			demoError = err.message || 'failed to load demo wallet';
@@ -200,6 +208,8 @@
 							{shortAddr(demoWallet.address)} · {fmtUsdc(demoWallet.usdc)}
 						{:else if demoError}
 							<span class="text-red-600">{demoError}</span>
+						{:else if demoUnconfigured && signedIn && agentsWithWallet.length > 0}
+							not configured — pick one of your agent wallets below
 						{:else}
 							not configured
 						{/if}

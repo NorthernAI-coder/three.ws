@@ -19,7 +19,12 @@
 import { cors, json, method, wrap, readJson, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { extractBearer, authenticateBearer } from './_lib/auth.js';
-import { verifyPayment, resolveResourceUrl, paymentRequirements } from './_lib/x402-spec.js';
+import {
+	verifyPayment,
+	resolveResourceUrl,
+	paymentRequirements,
+	build402Body,
+} from './_lib/x402-spec.js';
 import { getPumpSdk, getConnection, solanaPubkey, getAmmPoolState } from './_lib/pump.js';
 import { pumpfunMcp, pumpfunBotEnabled } from './_lib/pumpfun-mcp.js';
 import { getRadarSignals } from '../src/kol/radar.js';
@@ -752,9 +757,25 @@ async function authorizeGatedTool(req, res, id) {
 			return false;
 		}
 	}
-	json(res, 401, rpcEnvelope(id, null, {
-		code: -32001,
-		message: 'authentication required for this tool (provide a Bearer token or X-PAYMENT)',
+	// No bearer, no payment: answer 402 Payment Required with the full x402
+	// envelope so paying agents (and registry crawlers like zauth) can discover
+	// price/accepts. The body keeps the JSON-RPC error shape MCP clients
+	// expect, with the envelope mirrored in error.data and the
+	// PAYMENT-REQUIRED header (same dual-protocol pattern as _mcp/auth.js).
+	const resourceUrl = resolveResourceUrl(req, '/api/pump-fun-mcp');
+	const envelope = build402Body({
+		resourceUrl,
+		accepts: paymentRequirements(resourceUrl),
+		error: 'X-PAYMENT header is required',
+	});
+	res.setHeader(
+		'PAYMENT-REQUIRED',
+		Buffer.from(JSON.stringify(envelope), 'utf8').toString('base64'),
+	);
+	json(res, 402, rpcEnvelope(id, null, {
+		code: -32402,
+		message: 'payment or authentication required for this tool (provide a Bearer token or X-PAYMENT)',
+		data: envelope,
 	}));
 	return false;
 }

@@ -164,6 +164,14 @@ results.push(
 );
 results.push(
 	await runCase({
+		name: 'free GET /api/x402/pay-by-name (must be ignored)',
+		req: { url: '/api/x402/pay-by-name?name=%40nich', method: 'GET' },
+		statusCode: 200,
+		expectMonitored: false,
+	}),
+);
+results.push(
+	await runCase({
 		name: 'admin GET /api/x402/admin/skus (must be ignored)',
 		req: { url: '/api/x402/admin/skus', method: 'GET' },
 		statusCode: 200,
