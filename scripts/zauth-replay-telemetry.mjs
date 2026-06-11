@@ -39,7 +39,18 @@ const ENDPOINTS = [
 	{ path: '/api/mcp-3d', method: 'POST', body: MCP_BODY, json: true },
 	{ path: '/api/mcp-agent', method: 'POST', body: MCP_BODY, json: true },
 	{ path: '/api/mcp-bazaar', method: 'POST', body: MCP_BODY, json: true },
-	{ path: '/api/pump-fun-mcp', method: 'POST', body: MCP_BODY, json: true },
+	// Gated tools/call — tools/list is free on this server; only gated tools 402.
+	{
+		path: '/api/pump-fun-mcp',
+		method: 'POST',
+		body: JSON.stringify({
+			jsonrpc: '2.0',
+			id: 1,
+			method: 'tools/call',
+			params: { name: 'pumpfun_vanity_mint', arguments: {} },
+		}),
+		json: true,
+	},
 	{ path: '/api/ibm-mcp', method: 'POST', body: MCP_BODY, json: true },
 	{ path: '/api/wk-x402', method: 'GET' },
 	{ path: '/api/x402/agent-reputation', method: 'GET' },
