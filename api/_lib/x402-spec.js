@@ -84,17 +84,18 @@ export const ERC20_APPROVAL_EXTENSION_KEY = ERC20_APPROVAL_GAS_SPONSORING.key;
 export const NETWORK_BASE_MAINNET = 'eip155:8453';
 export const NETWORK_BASE_SEPOLIA = 'eip155:84532';
 export const NETWORK_ARBITRUM_MAINNET = 'eip155:42161';
-export const NETWORK_OPTIMISM_MAINNET = 'eip155:10';
 export const NETWORK_BSC_MAINNET = 'eip155:56';
 export const NETWORK_SOLANA_MAINNET = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 export const NETWORK_SOLANA_DEVNET = 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
 
 // Networks the CDP facilitator settles when credentials are configured.
+// Confirmed against the live /supported probe — CDP advertises exact for Base
+// and Arbitrum but NOT Optimism, so Optimism is deliberately absent: no accept
+// entry routes there, and listing it only made /api/x402-status report 503.
 const CDP_EVM_NETWORKS = new Set([
 	NETWORK_BASE_MAINNET,
 	NETWORK_BASE_SEPOLIA,
 	NETWORK_ARBITRUM_MAINNET,
-	NETWORK_OPTIMISM_MAINNET,
 ]);
 
 // Networks that settle via on-chain pay(bytes32) calls rather than a
