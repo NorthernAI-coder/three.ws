@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T14:36:47.892Z",
+	"generated_at": "2026-06-11T23:14:45.823Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -441,6 +441,16 @@
 					"title": "Pay (x402)",
 					"description": "Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",
 					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/play/agent-wallet",
+					"title": "Agent Wallet (MetaMask × x402)",
+					"description": "Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.",
+					"added": "2026-06-11",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

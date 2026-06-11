@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-11T14:36:47.902Z",
+	"generated_at": "2026-06-11T23:14:45.832Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-11",
+			"type": "launch",
+			"title": "Agent Wallet (MetaMask × x402)",
+			"summary": "Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.",
+			"link": "/play/agent-wallet",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-11",
 			"type": "launch",
@@ -125,6 +135,16 @@
 		{
 			"date": "2026-06-11",
 			"type": "update",
+			"title": "Forge and Parts Studio headers display correctly again",
+			"summary": "The intro banner on Forge and Parts Studio was rendering as a single squashed black bar — the headline overlapped the status pill and the description was cut off mid-word. Both pages now show the proper centered header: status pill on top, full headline, and the complete description underneath.",
+			"link": "/forge",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
 			"title": "Forge checks your photo before spending a generation — plus image-aware fact-checks and accessible galleries",
 			"summary": "A new free image-understanding layer (running on NVIDIA's free models, so it costs you nothing) now powers three things across three.ws. In Forge, when you upload a photo to turn into 3D, it's checked first: if it's a screenshot of text, a cluttered scene with no clear subject, or too dark to reconstruct, you get a clear heads-up and a fix before a generation slot is spent — with a one-click 'Generate anyway' if you disagree. The Fact Checker can now take an image alongside a claim: it reads the picture, transcribes any text in it, and weighs that as evidence in the verdict. And every avatar in the public gallery now gets a real, descriptive alt text written from its thumbnail, so screen-reader users hear what each avatar actually looks like instead of just its name. All three quietly switch off if the vision service is ever unavailable — nothing ever blocks or breaks.",
 			"link": "/forge",
@@ -174,6 +194,16 @@
 			"link": "/explore",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Inspect any agent's 3D model right on its marketplace page",
+			"summary": "Agent pages in the marketplace now open with a full interactive 3D viewer — orbit, zoom, go fullscreen, download the GLB, or drop the agent straight into the world. Agents without a custom model show the base avatar, so the stage is never empty. Clicking the small header avatar jumps you to the viewer.",
+			"link": "/marketplace",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -66,6 +66,7 @@ Experimental features actively shipping. Expect fast iteration.
 On-chain features: pay-per-call, token launches, vanity wallets.
 
 - [Pay (x402)](https://three.ws/pay): Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.
+- [Agent Wallet (MetaMask × x402)](https://three.ws/play/agent-wallet): Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.
 - [Pump.fun Stream](https://three.ws/pumpfun): Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.
 - [Pump Live](https://three.ws/pump-live): Real-time SSE feed of every pump.fun launch as it happens.
 - [Pump Dashboard](https://three.ws/pump-dashboard): Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.

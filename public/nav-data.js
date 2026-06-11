@@ -229,6 +229,12 @@ export const NAV_GROUPS = [
 			{
 				label: 'x402 & Onchain',
 				items: [
+					{
+						title: 'Agent Wallet',
+						href: '/play/agent-wallet',
+						badge: 'New',
+						desc: 'Your avatar pays an endpoint via MetaMask — USDC on Base',
+					},
 					{ title: 'Pole Club', href: '/club', desc: 'x402 micro-tip demo — $0.001 / dance' },
 					{
 						title: 'Endpoint Shopper',

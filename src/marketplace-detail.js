@@ -12,6 +12,7 @@
 
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 import { coinChipHTML } from './shared/agent-coin.js';
+import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
 import { log } from './shared/log.js';
 
 const API = '/api';
@@ -75,6 +76,194 @@ export function renderDetailAvatar(a) {
 	} else if (fallback) {
 		fallback.textContent = initial(a.name);
 		fallback.style.display = 'flex';
+	}
+}
+
+// ── Detail 3D model stage ───────────────────────────────────────────────
+//
+// A full-width interactive viewer at the top of the Overview tab: orbit +
+// zoom camera controls, load progress, fullscreen, "open in world", and a
+// GLB download when the agent ships its own model. Agents without a custom
+// GLB stand on the base mannequin (see shared/agent-3d.js) so the stage is
+// never a dead hole — the hint copy says exactly which one you're looking at.
+
+let stageVisibilityObserver = null;
+let stageFullscreenBound = false;
+
+// R2's public bucket only allows the three.ws origin — in dev (localhost /
+// Codespaces) GLB fetches fail CORS, so route them through Vite's /r2-proxy
+// (same workaround as avatar-drop.js). No-op in production.
+function resolveStageGlb(url) {
+	if (!url) return url;
+	const isDev =
+		location.hostname === 'localhost' ||
+		location.hostname.includes('.github.dev') ||
+		location.hostname.includes('.gitpod.io');
+	if (isDev && url.includes('r2.dev')) {
+		try {
+			return '/r2-proxy' + new URL(url).pathname;
+		} catch {
+			/* malformed URL — use as-is */
+		}
+	}
+	return url;
+}
+
+export function renderDetailModelStage(a) {
+	const card = $('d-model-card');
+	const stage = $('d-model-stage');
+	if (!card || !stage) return;
+
+	const glbUrl = agentAvatarGlb(a);
+	const custom = hasCustomAvatar(a);
+
+	if (stageVisibilityObserver) {
+		stageVisibilityObserver.disconnect();
+		stageVisibilityObserver = null;
+	}
+	stage.innerHTML = '';
+
+	const hint = $('d-model-hint');
+	if (hint) {
+		hint.textContent = custom
+			? 'Drag to orbit · scroll to zoom'
+			: 'Base avatar — fork this agent to attach a custom model';
+	}
+
+	const mv = document.createElement('model-viewer');
+	mv.setAttribute('src', resolveStageGlb(glbUrl));
+	mv.setAttribute('alt', `${a.name || 'Agent'} — 3D model`);
+	mv.setAttribute('camera-controls', '');
+	mv.setAttribute('auto-rotate', '');
+	mv.setAttribute('rotation-per-second', '18deg');
+	mv.setAttribute('interaction-prompt', 'when-focused');
+	mv.setAttribute('autoplay', '');
+	mv.setAttribute('exposure', '1.05');
+	mv.setAttribute('shadow-intensity', '0.7');
+	mv.setAttribute('tone-mapping', 'aces');
+	if (custom && a.thumbnail_url) mv.setAttribute('poster', a.thumbnail_url);
+	mv.style.cssText = 'opacity:0;transition:opacity .3s ease;';
+	stage.appendChild(mv);
+
+	const progressEl = Object.assign(document.createElement('div'), {
+		className: 'modal-load-progress',
+	});
+	progressEl.innerHTML =
+		'<div class="modal-load-bar-wrap"><div class="modal-load-bar"></div></div><span class="modal-load-label">Loading 3D…</span>';
+	stage.insertBefore(progressEl, mv);
+	const bar = progressEl.querySelector('.modal-load-bar');
+	mv.addEventListener('progress', (e) => {
+		if (bar) bar.style.width = Math.round((e.detail?.totalProgress || 0) * 100) + '%';
+	});
+	const loadTimeout = setTimeout(() => {
+		const label = progressEl.querySelector('.modal-load-label');
+		if (label) label.textContent = 'Still loading — large model or slow connection.';
+	}, 15_000);
+	mv.addEventListener(
+		'load',
+		() => {
+			clearTimeout(loadTimeout);
+			progressEl.remove();
+			mv.style.opacity = '1';
+		},
+		{ once: true },
+	);
+	mv.addEventListener(
+		'error',
+		() => {
+			clearTimeout(loadTimeout);
+			const label = progressEl.querySelector('.modal-load-label');
+			if (label) label.textContent = "Couldn't load the 3D model.";
+			const wrap = progressEl.querySelector('.modal-load-bar-wrap');
+			if (wrap) wrap.remove();
+		},
+		{ once: true },
+	);
+
+	// Suspend auto-rotate while the stage is off-screen so model-viewer halts
+	// its rAF loop (same trick the marketplace grid cards use).
+	if ('IntersectionObserver' in window) {
+		stageVisibilityObserver = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) mv.setAttribute('auto-rotate', '');
+					else mv.removeAttribute('auto-rotate');
+				}
+			},
+			{ rootMargin: '100px' },
+		);
+		stageVisibilityObserver.observe(stage);
+	}
+
+	// Actions.
+	const world = $('d-model-world');
+	if (world) world.href = seeInWorldHref(a);
+
+	const dl = $('d-model-download');
+	if (dl) {
+		if (custom) {
+			dl.href = glbUrl;
+			dl.download = `${(a.name || 'agent').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent'}.glb`;
+			dl.hidden = false;
+		} else {
+			dl.hidden = true;
+		}
+	}
+
+	// Fullscreen the whole card (not just the stage) so the action row — and
+	// the exit button — stays on screen.
+	const fsBtn = $('d-model-fullscreen');
+	if (fsBtn) {
+		if (!card.requestFullscreen) {
+			// iOS Safari has no element fullscreen — hide rather than dead-end.
+			fsBtn.hidden = true;
+		} else {
+			fsBtn.hidden = false;
+			fsBtn.onclick = () => {
+				if (document.fullscreenElement === card) document.exitFullscreen();
+				else card.requestFullscreen().catch(() => {});
+			};
+			if (!stageFullscreenBound) {
+				stageFullscreenBound = true;
+				document.addEventListener('fullscreenchange', () => {
+					const on = document.fullscreenElement === $('d-model-card');
+					const btn = $('d-model-fullscreen');
+					if (btn) {
+						btn.textContent = on ? '✕ Exit fullscreen' : '⛶ Fullscreen';
+						btn.setAttribute(
+							'aria-label',
+							on ? 'Exit fullscreen' : 'View 3D model fullscreen',
+						);
+					}
+				});
+			}
+		}
+	}
+
+	// The small header avatar doubles as a shortcut to the stage.
+	const headAvatar = $('d-avatar');
+	if (headAvatar && headAvatar.dataset.stageWired !== '1') {
+		headAvatar.dataset.stageWired = '1';
+		headAvatar.setAttribute('role', 'button');
+		headAvatar.setAttribute('tabindex', '0');
+		headAvatar.setAttribute('aria-label', 'Jump to 3D model viewer');
+		headAvatar.title = 'View 3D model';
+		const jump = () => {
+			const target = $('d-model-card');
+			if (!target) return;
+			// The stage lives on the Overview tab — switch to it if needed.
+			document.querySelector('.market-tabs [data-tab="overview"]')?.click();
+			target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			target.classList.remove('flash');
+			requestAnimationFrame(() => target.classList.add('flash'));
+		};
+		headAvatar.addEventListener('click', jump);
+		headAvatar.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				jump();
+			}
+		});
 	}
 }
 

@@ -350,6 +350,14 @@
 					"changefreq": "weekly"
 				},
 				{
+					"path": "/play/agent-wallet",
+					"title": "Agent Wallet (MetaMask × x402)",
+					"description": "Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-11"
+				},
+				{
 					"path": "/pumpfun",
 					"title": "Pump.fun Stream",
 					"description": "Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.",

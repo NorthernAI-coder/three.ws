@@ -2797,6 +2797,41 @@
 				<div class="market-detail-body">
 					<div class="market-detail-content">
 						<div data-panel="overview" class="market-panel active">
+							<!-- 3D model stage — the agent's avatar, fully inspectable.
+							     Populated by renderDetailModelStage(); agents without a
+							     custom GLB show the base mannequin so the stage is never
+							     empty. -->
+							<section
+								class="market-card d-model-card"
+								id="d-model-card"
+								aria-label="3D model viewer"
+							>
+								<div class="d-model-head">
+									<h3>3D Model</h3>
+									<span class="d-model-hint" id="d-model-hint"></span>
+									<div class="d-model-actions">
+										<a
+											class="d-model-btn"
+											id="d-model-world"
+											title="Walk with this agent in the three.ws world"
+											>Open in world</a
+										>
+										<a class="d-model-btn" id="d-model-download" download hidden
+											>Download GLB</a
+										>
+										<button
+											type="button"
+											class="d-model-btn"
+											id="d-model-fullscreen"
+											aria-label="View 3D model fullscreen"
+										>
+											⛶ Fullscreen
+										</button>
+									</div>
+								</div>
+								<div class="d-model-stage" id="d-model-stage"></div>
+							</section>
+
 							<div class="market-card">
 								<h3>What can you do with this Agent?</h3>
 								<p id="d-overview">—</p>

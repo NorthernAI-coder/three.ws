@@ -57,6 +57,7 @@
     "dev": "vite --port 3000",
     "dev:multi": "npm run dev --prefix multiplayer",
     "dev:walk-all": "node scripts/dev-walk-all.mjs",
+    "demo:agent-wallet-bridge": "node scripts/mm-x402-bridge.mjs",
     "dev:lib": "TARGET=lib vite",
     "presence": "node scripts/three-ws-presence.mjs",
     "build:pages": "node scripts/build-page-index.mjs",
