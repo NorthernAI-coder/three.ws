@@ -125,6 +125,7 @@ Docs, tutorials, and reference.
 - [Docs · SDK](https://three.ws/docs/sdk): JavaScript / Node SDK for three.ws.
 - [Docs · Listings & Distribution](https://three.ws/docs/listings): Cloud marketplaces and ecosystem directories where three.ws is listed (Alibaba Cloud, BNB Chain Dappbay, and more).
 - [Tutorials](https://three.ws/tutorials): Step-by-step build guides.
+- [Status](https://three.ws/status): Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.
 
 ## Blog
 

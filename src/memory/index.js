@@ -17,6 +17,13 @@ import { log } from '../shared/log.js';
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
 
+// Built-in modes — reserved names a custom backend may not shadow.
+const RESERVED_MODES = new Set(['none', 'local', 'remote', 'ipfs', 'encrypted-ipfs']);
+
+// Registry of custom backends: mode name -> backend definition.
+// See Memory.registerBackend and specs/MEMORY_SPEC.md → "Custom backends".
+const BACKENDS = new Map();
+
 function parseFrontmatter(text) {
 	const m = text.match(FRONTMATTER_RE);
 	if (!m) return { meta: {}, body: text };
@@ -45,16 +52,55 @@ function pack({ nonce, ciphertext }) {
 }
 
 export class Memory {
-	constructor({ mode = 'local', namespace, index = {}, files = {}, timeline = [], cryptoKey = null, remoteIds = {} } = {}) {
+	constructor({ mode = 'local', namespace, index = {}, files = {}, timeline = [], cryptoKey = null, remoteIds = {}, backend = null } = {}) {
 		this.mode = mode;
 		this.namespace = namespace;
 		this.files = new Map(Object.entries(files));
 		this.timeline = timeline;
-		this.indexText = index.text || '';
+		// `index` accepts either the legacy `{ text }` shape or a bare string
+		// (the snapshot contract), so a snapshot round-trips cleanly.
+		this.indexText = typeof index === 'string' ? index : index?.text || '';
 		this.cryptoKey = cryptoKey;
 		// remote mode: filename -> backend entry id, for upsert round-trip
 		this._remoteIds = new Map(Object.entries(remoteIds));
+		// Custom backend definition when `mode` resolves to a registered backend;
+		// null for built-in modes. Drives _persist / recall / save delegation.
+		this._backend = backend;
 		this._dirty = false;
+	}
+
+	/**
+	 * Register a custom memory backend so `mode: "<name>"` resolves to it —
+	 * the documented way to plug a vector store, episodic log, or any external
+	 * store without forking the Memory class.
+	 *
+	 * @param {string} name - Mode name used in the manifest / `<agent-3d memory>`.
+	 *   May not shadow a built-in mode (none/local/remote/ipfs/encrypted-ipfs).
+	 * @param {Object} backend
+	 * @param {(opts) => Promise<{files?, timeline?, index?}>} backend.load -
+	 *   Hydrate persisted state. Receives the full `Memory.load` opts
+	 *   (`namespace`, `manifestURI`, `fetchFn`, plus any extras you pass).
+	 * @param {(memory: Memory) => void|Promise<void>} [backend.persist] -
+	 *   Called after every `write` and `note`. Inspect `memory.files`
+	 *   (Map) and `memory.timeline` (array) to ship state to your store.
+	 * @param {(query: string, memory: Memory, opts) => Promise<Array>} [backend.recall] -
+	 *   Semantic search. Return ranked `{ file, meta, body, score }` hits.
+	 *   Falls back to the built-in substring matcher if it throws.
+	 */
+	static registerBackend(name, backend) {
+		if (RESERVED_MODES.has(name))
+			throw new Error(`"${name}" is a built-in memory mode and cannot be overridden`);
+		if (!backend || typeof backend.load !== 'function')
+			throw new Error('memory backend must implement load(opts)');
+		BACKENDS.set(name, backend);
+	}
+
+	static unregisterBackend(name) {
+		return BACKENDS.delete(name);
+	}
+
+	static backends() {
+		return [...BACKENDS.keys()];
 	}
 
 	/**
@@ -62,14 +108,16 @@ export class Memory {
 	 * mode table. Unknown modes warn once and fall back to `local`.
 	 *
 	 * @param {Object} opts
-	 * @param {'none'|'local'|'remote'|'ipfs'|'encrypted-ipfs'} [opts.mode]
+	 * @param {'none'|'local'|'remote'|'ipfs'|'encrypted-ipfs'|string} [opts.mode] -
+	 *   A built-in mode, or the name of a backend registered via registerBackend.
 	 * @param {string} opts.namespace            - Stable id (usually agent UUID)
 	 * @param {string} [opts.manifestURI]        - Required for ipfs / encrypted-ipfs
 	 * @param {typeof fetch} [opts.fetchFn]      - Override fetch (tests / SSR)
 	 * @param {() => Promise<CryptoKey>} [opts.deriveKey] - Required for encrypted-ipfs
 	 * @returns {Promise<Memory>}
 	 */
-	static async load({ mode = 'local', namespace, manifestURI, fetchFn, deriveKey }) {
+	static async load(opts = {}) {
+		const { mode = 'local', namespace, manifestURI, fetchFn, deriveKey } = opts;
 		if (mode === 'none') return new Memory({ mode: 'none', namespace });
 		if (mode === 'local') return Memory._loadLocal(namespace);
 		if (mode === 'remote') return Memory._loadRemote({ namespace, fetchFn });
@@ -78,8 +126,31 @@ export class Memory {
 				throw new Error('encrypted-ipfs mode requires a deriveKey function');
 			return Memory._loadIPFS({ mode, namespace, manifestURI, fetchFn, deriveKey });
 		}
+		const backend = BACKENDS.get(mode);
+		if (backend) return Memory._loadBackend(backend, opts);
 		log.warn(`[memory] unknown mode "${mode}"; falling back to "local"`);
 		return Memory._loadLocal(namespace);
+	}
+
+	static async _loadBackend(backend, opts) {
+		const { mode, namespace } = opts;
+		let data = {};
+		try {
+			data = (await backend.load(opts)) || {};
+		} catch (e) {
+			log.warn(`[memory] backend "${mode}" load failed; starting empty`, e);
+		}
+		const mem = new Memory({
+			mode,
+			namespace,
+			files: data.files || {},
+			timeline: data.timeline || [],
+			index: data.index || '',
+			backend,
+		});
+		// Backend supplied files but no index — derive one so MEMORY.md is present.
+		if (!mem.indexText && mem.files.size) mem._rebuildIndex();
+		return mem;
 	}
 
 	static async _loadRemote({ namespace, fetchFn }) {
@@ -203,7 +274,17 @@ export class Memory {
 		this._persist();
 	}
 
-	async recall(query, { limit = 5 } = {}) {
+	async recall(query, opts = {}) {
+		// A registered backend can supply real semantic search (vector store);
+		// fall back to the built-in substring matcher if it errors.
+		if (this._backend?.recall) {
+			try {
+				return await this._backend.recall(query, this, opts);
+			} catch (e) {
+				log.warn('[memory] backend recall failed; using substring fallback', e);
+			}
+		}
+		const { limit = 5 } = opts;
 		// Placeholder: naive substring match. Real impl: embeddings via runtime.
 		const q = query.toLowerCase();
 		const hits = [];
@@ -268,6 +349,18 @@ export class Memory {
 	}
 
 	_persist() {
+		// Custom backend owns persistence — fire-and-forget so write()/note()
+		// stay synchronous, matching local/remote semantics.
+		if (this._backend?.persist) {
+			try {
+				Promise.resolve(this._backend.persist(this)).catch((e) =>
+					log.warn('[memory] backend persist failed', e),
+				);
+			} catch (e) {
+				log.warn('[memory] backend persist failed', e);
+			}
+			return;
+		}
 		if (this.mode !== 'local' || !this.namespace) return;
 		const key = `agent:${this.namespace}:memory`;
 		const data = {
@@ -313,6 +406,12 @@ export class Memory {
 	// Encrypt all files and pin to IPFS. Returns { cids, memoryCid }.
 	// For local mode, falls back to synchronous _persist(). Noop for other modes.
 	async save() {
+		// Custom backend: await its persist so callers can rely on durability.
+		if (this._backend?.persist) {
+			await this._backend.persist(this);
+			this._dirty = false;
+			return;
+		}
 		if (this.mode === 'local') {
 			this._persist();
 			return;
@@ -384,13 +483,48 @@ export class Memory {
 		return parts.join('\n');
 	}
 
-	async export() {
+	/**
+	 * Canonical serializable snapshot — the `memory/0.1` contract. Synchronous
+	 * and JSON-safe, so embedded widgets can persist it to sessionStorage or
+	 * postMessage it across reloads, then rehydrate with Memory.fromSnapshot.
+	 *
+	 * @returns {{version, mode, namespace, index, files, timeline}}
+	 */
+	snapshot() {
 		return {
 			version: 'memory/0.1',
+			mode: this.mode,
+			namespace: this.namespace,
 			index: this.indexText,
 			files: Object.fromEntries(this.files),
 			timeline: this.timeline,
 		};
+	}
+
+	/**
+	 * Rehydrate a Memory from a snapshot() blob. `mode`/`namespace` overrides
+	 * win over the snapshot's own values (e.g. restoring into a fresh agent id).
+	 *
+	 * @param {ReturnType<Memory['snapshot']>} snapshot
+	 * @param {{mode?: string, namespace?: string}} [overrides]
+	 * @returns {Memory}
+	 */
+	static fromSnapshot(snapshot = {}, { mode, namespace } = {}) {
+		const mem = new Memory({
+			mode: mode || snapshot.mode || 'local',
+			namespace: namespace || snapshot.namespace,
+			index: snapshot.index || '',
+			files: snapshot.files || {},
+			timeline: snapshot.timeline || [],
+		});
+		if (!mem.indexText && mem.files.size) mem._rebuildIndex();
+		return mem;
+	}
+
+	// Async alias for snapshot() — retained for back-compat with the
+	// export()/import() pair documented in MEMORY_SPEC.md.
+	async export() {
+		return this.snapshot();
 	}
 
 	async import(blob, { strategy = 'merge' } = {}) {

@@ -1045,11 +1045,51 @@ A `MEMORY.md` index file is auto-maintained. At the start of each conversation t
 **Storage modes:**
 
 - `local` — stored in the browser's local storage (default for development)
+- `remote` — persisted per-agent via `/api/agent-memory` (owner-only)
 - `ipfs` — pinned to IPFS via Pinata or Web3.Storage
 - `encrypted-ipfs` — encrypted before pinning (user holds the key)
 - `none` — stateless, no memory between sessions
 
 Memory types (`user`, `feedback`, `project`, `reference`) follow the same taxonomy used by this codebase's own Claude guidelines.
+
+#### Plugging a custom memory backend
+
+You don't fork `Memory` to add a vector store or episodic log — register a backend and select it by name. Built-in modes are unchanged; your mode is just another option.
+
+```js
+import { Memory } from 'https://three.ws/agent-3d/latest/agent-3d.js';
+
+Memory.registerBackend('vector', {
+	async load({ namespace }) {
+		const rows = await myVectorStore.fetchAll(namespace);
+		return { files: Object.fromEntries(rows.map((r) => [r.filename, r.markdown])) };
+	},
+	async persist(memory) {          // after every write()/note()
+		await myVectorStore.replace(memory.namespace, [...memory.files]);
+		await myEpisodicLog.replace(memory.namespace, memory.timeline);
+	},
+	async recall(query, memory, { limit = 5 } = {}) {  // real semantic search
+		const m = await myVectorStore.search(memory.namespace, query, limit);
+		return m.map((x) => ({ file: x.filename, meta: x.meta, body: x.body, score: x.score }));
+	},
+});
+```
+
+```html
+<agent-3d src="agent://…" memory="vector"></agent-3d>
+```
+
+Only `load` is required; `persist` makes it durable, `recall` makes search semantic (it falls back to substring matching if it throws). To swap *only* the ranker while keeping built-in storage, point `manifest.json → memory.retriever` at a skill instead. Full reference: [specs/MEMORY_SPEC.md → Custom backends](specs/MEMORY_SPEC.md).
+
+#### Memory snapshot contract
+
+`memory.snapshot()` returns a synchronous, JSON-safe `memory/0.1` object so embedded widgets can serialize/deserialize state across page reloads; `Memory.fromSnapshot(snap, { mode, namespace })` rehydrates it (rebuilding the index if absent).
+
+```js
+sessionStorage.setItem('agent-mem', JSON.stringify(agent.memory.snapshot()));
+// …after reload:
+const restored = Memory.fromSnapshot(JSON.parse(sessionStorage.getItem('agent-mem')));
+```
 
 ---
 

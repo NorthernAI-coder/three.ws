@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T10:51:55.332Z",
+	"generated_at": "2026-06-11T10:55:52.326Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -962,6 +962,16 @@
 					"title": "Tutorials",
 					"description": "Step-by-step build guides.",
 					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/status",
+					"title": "Status",
+					"description": "Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.",
+					"added": "2026-06-11",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

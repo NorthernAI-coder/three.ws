@@ -148,3 +148,97 @@ describe('Memory.load — unknown mode fallback', () => {
 		expect(mem.read('x')?.body.trim()).toBe('ok');
 	});
 });
+
+// ── custom backend registry ──────────────────────────────────────────────────
+
+describe('Memory.registerBackend', () => {
+	afterEach(() => {
+		Memory.unregisterBackend('vector');
+	});
+
+	it('refuses to shadow a built-in mode and validates the backend shape', () => {
+		expect(() => Memory.registerBackend('local', { load() {} })).toThrow(/built-in/);
+		expect(() => Memory.registerBackend('vector', {})).toThrow(/load/);
+		expect(Memory.backends()).not.toContain('vector');
+	});
+
+	it('hydrates via the backend load hook and reports the custom mode', async () => {
+		const load = vi.fn().mockResolvedValue({
+			files: { 'user_role.md': '---\nname: role\ntype: user\n---\n\nseeded' },
+		});
+		Memory.registerBackend('vector', { load });
+
+		const mem = await Memory.load({ mode: 'vector', namespace: 'agent-9', extra: 'passed' });
+		expect(mem.mode).toBe('vector');
+		expect(Memory.backends()).toContain('vector');
+		// Full opts object reaches the backend (namespace + arbitrary extras).
+		expect(load.mock.calls[0][0]).toMatchObject({ namespace: 'agent-9', extra: 'passed' });
+		expect(mem.read('user_role')?.body.trim()).toBe('seeded');
+		// Index is derived from hydrated files when the backend omits one.
+		expect(mem.indexText).toContain('user_role.md');
+	});
+
+	it('routes writes and notes through the persist hook', async () => {
+		const persist = vi.fn();
+		Memory.registerBackend('vector', { load: () => ({}), persist });
+
+		const mem = await Memory.load({ mode: 'vector', namespace: 'agent-9' });
+		mem.write('feedback_tone', { name: 't', description: 'd', type: 'feedback', body: 'b' });
+		mem.note('waved', { style: 'casual' });
+		await new Promise((r) => setTimeout(r, 0)); // flush fire-and-forget persist
+
+		expect(persist).toHaveBeenCalledTimes(2);
+		expect(persist.mock.calls[0][0]).toBe(mem); // receives the live Memory
+		// localStorage is never touched for a custom backend.
+		expect(globalThis.localStorage.store.size).toBe(0);
+	});
+
+	it('delegates recall to the backend and falls back on error', async () => {
+		const recall = vi.fn().mockResolvedValue([{ file: 'x.md', score: 1 }]);
+		Memory.registerBackend('vector', { load: () => ({}), recall });
+
+		const mem = await Memory.load({ mode: 'vector', namespace: 'agent-9' });
+		const hits = await mem.recall('how does the user prefer feedback', { limit: 3 });
+		expect(recall).toHaveBeenCalledWith('how does the user prefer feedback', mem, { limit: 3 });
+		expect(hits).toEqual([{ file: 'x.md', score: 1 }]);
+
+		// A throwing backend recall must not break the agent — substring fallback.
+		recall.mockRejectedValueOnce(new Error('vector store down'));
+		vi.spyOn(log, 'warn').mockImplementation(() => {});
+		mem.write('feedback_tone', { name: 't', description: 'direct critique', type: 'feedback', body: 'direct' });
+		const fallback = await mem.recall('direct');
+		expect(fallback[0]?.file).toBe('feedback_tone.md');
+	});
+});
+
+// ── snapshot contract ────────────────────────────────────────────────────────
+
+describe('Memory snapshot/fromSnapshot', () => {
+	it('round-trips files, timeline, and the index through a JSON snapshot', async () => {
+		const mem = await Memory.load({ mode: 'local', namespace: 'agent-snap' });
+		mem.write('user_role', { name: 'role', description: 'who', type: 'user', body: 'hello' });
+		mem.note('waved', { style: 'casual' });
+
+		// Snapshot must survive a real JSON serialization (embed/postMessage path).
+		const snap = JSON.parse(JSON.stringify(mem.snapshot()));
+		expect(snap.version).toBe('memory/0.1');
+		expect(snap.index).toContain('user_role.md');
+
+		const restored = Memory.fromSnapshot(snap);
+		expect(restored.mode).toBe('local');
+		expect(restored.namespace).toBe('agent-snap');
+		expect(restored.read('user_role')?.body.trim()).toBe('hello');
+		expect(restored.indexText).toContain('user_role.md');
+		expect(restored.timeline.at(-1)?.type).toBe('waved');
+	});
+
+	it('rebuilds the index when the snapshot omits it, and honors overrides', () => {
+		const restored = Memory.fromSnapshot(
+			{ files: { 'user_role.md': '---\nname: role\ntype: user\n---\n\nbody' } },
+			{ mode: 'none', namespace: 'fresh-id' },
+		);
+		expect(restored.mode).toBe('none');
+		expect(restored.namespace).toBe('fresh-id');
+		expect(restored.indexText).toContain('user_role.md');
+	});
+});

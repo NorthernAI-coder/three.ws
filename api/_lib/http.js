@@ -3,6 +3,7 @@
 import { webcrypto } from 'node:crypto';
 import { env } from './env.js';
 import { captureException } from './sentry.js';
+import { sendOpsAlert } from './alerts.js';
 import { instrument as zauthInstrument, drain as zauthDrain } from './zauth.js';
 
 export function json(res, status, body, headers = {}) {
@@ -49,8 +50,13 @@ export function serverError(res, status, code, err, extra = {}) {
 	console.error(`[server-error ${ref}] ${code} (${status}): ${detail}`);
 	try {
 		captureException(err instanceof Error ? err : new Error(detail), { ref, code, status });
+		// Fire-and-forget like captureException; deduped per error class+message
+		// (ref excluded from the signature so each occurrence doesn't re-alert).
+		sendOpsAlert(`${status} ${code}`, `${detail}\nref ${ref}`, {
+			signature: `server:${code}:${status}:${detail}`,
+		});
 	} catch {
-		/* sentry best-effort; never mask the original failure */
+		/* sentry/alerts best-effort; never mask the original failure */
 	}
 	return json(res, status, {
 		error: code,
@@ -212,6 +218,9 @@ export function wrap(handler) {
 			if (status >= 500) {
 				console.error('[api] unhandled', err);
 				captureException(err, { url: req.url, method: req.method });
+				sendOpsAlert(`unhandled 5xx in ${req.method} ${req.url}`, err?.message || String(err), {
+					signature: `unhandled:${req.url}:${err?.message}`,
+				});
 			}
 			if (!res.headersSent && !res.writableEnded) {
 				if (err.code === 'validation_error' && Array.isArray(err.issues)) {

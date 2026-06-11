@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Status</title>
+			<link>https://three.ws/status</link>
+			<guid isPermaLink="false">2026-06-11:Status</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.</description>
+		</item>
+		<item>
 			<title>Accurate uptime on the x402 Provider Hub</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Accurate uptime on the x402 Provider Hub</guid>
@@ -93,6 +101,22 @@
 			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Two new skills in the marketplace under the new Wallet category: MetaMask Agent Wallet and MetaMask Agent Workflows. Install them on any agent to let it check balances, transfer tokens, swap, bridge across chains, trade perps and prediction markets, and manage Aave positions through MetaMask's mm CLI — each user signs in with their own MetaMask Agent Wallet, so keys stay with you, never with three.ws. Platform chat agents pick the skills up automatically.</description>
+		</item>
+		<item>
+			<title>Pluggable memory backends + a portable snapshot format for the agent SDK</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-11:Pluggable memory backends + a portable snapshot format for the agent SDK</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>Agent developers can now plug a custom memory backend — a vector database, an episodic event log, or their own API — behind a named mode with Memory.registerBackend, no forking required. All built-in modes (local, remote, ipfs, encrypted-ipfs, none) are unchanged. We also formalized a memory/0.1 snapshot contract: memory.snapshot() returns a JSON-safe object and Memory.fromSnapshot() rehydrates it, so embedded agent widgets keep their memory across page reloads. Documented in the Memory spec, agent manifest, and README.</description>
+		</item>
+		<item>
+			<title>Public status page with live uptime monitoring</title>
+			<link>https://three.ws/status</link>
+			<guid isPermaLink="false">2026-06-11:Public status page with live uptime monitoring</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws now monitors its own critical surfaces — the website, platform API, explore feed, x402 paid-API discovery, and the 3D viewer — every 5 minutes from outside our infrastructure, and publishes the results at three.ws/status: live operational state, response times, and a 90-day uptime history per service. A machine-readable JSON feed is available at /api/status for agents and integrators. Browser errors on any page are now also collected first-party, so problems reach the team before reports do.</description>
 		</item>
 		<item>
 			<title>Scheduled jobs restored after dependency outage</title>

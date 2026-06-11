@@ -17,7 +17,8 @@ import { isDemoWidgetId, getDemoWidget } from '../_demo-fixtures.js';
 import { decorate } from '../index.js';
 import { PROVIDER_MODEL_DEFAULTS, DEFAULT_PROVIDER_ORDER, MODEL_CATALOG, PER_CALL_TIMEOUT_MS } from '../../_lib/chat-models.js';
 import { redactPii } from '../../_lib/pii.js';
-import { embed, cosine, embeddingsConfigured } from '../../_lib/embeddings.js';
+import { embeddingsConfigured, scoreRowsBySpace } from '../../_lib/embeddings.js';
+import { rerankConfigured, rerankPassages } from '../../_lib/rerank.js';
 import { watsonxConfig, watsonxToken } from '../../_lib/watsonx.js';
 import { listTranscripts, getTranscript } from './_transcripts.js';
 // _knowledge.js is loaded on demand (dynamic import in handleKnowledge) so the
@@ -792,6 +793,9 @@ async function persistTurn({ widgetId, req, body, userMessage, reply, actions, p
 const RETRIEVAL_TOP_K = 3;
 const RETRIEVAL_MIN_SCORE = 0.18;
 const RETRIEVAL_MAX_CHARS = 4_500; // ~ 1100 tokens, keeps room for chat history
+// When the optional NIM reranker is enabled, hand it a wider cosine pool so it
+// has real reordering room before we cut down to TOP_K.
+const RETRIEVAL_RERANK_POOL = 12;
 
 async function retrieveKnowledge(widgetId, message) {
 	if (!message || !embeddingsConfigured()) return null;
@@ -799,7 +803,7 @@ async function retrieveKnowledge(widgetId, message) {
 	let rows;
 	try {
 		rows = await sql`
-			select c.id, c.doc_id, c.content, c.embedding,
+			select c.id, c.doc_id, c.content, c.embedding, c.embedder,
 			       d.title, d.source_url, d.source_type
 			from widget_knowledge_chunks c
 			join widget_knowledge_docs   d on d.id = c.doc_id
@@ -811,15 +815,26 @@ async function retrieveKnowledge(widgetId, message) {
 	}
 	if (!rows.length) return null;
 
-	const [queryEmbedding] = await embed([message]);
-	const scored = rows
-		.map((r) => {
-			const e = Array.isArray(r.embedding) ? r.embedding : r.embedding?.values || [];
-			return { ...r, score: cosine(queryEmbedding, e) };
-		})
+	// Same-space rule: each chunk is scored against a query embedded with the
+	// SAME model that produced the chunk's vector. Chunks whose embedder is no
+	// longer servable are skipped (and logged) rather than compared cross-space.
+	const { scored: spaceScored, needsReembed } = await scoreRowsBySpace(rows, message);
+	for (const n of needsReembed) {
+		console.warn(
+			`[widget-chat] ${n.chunks} knowledge chunks for ${widgetId} are in unservable embedding space ${n.embedder} — run scripts/reembed-widget-knowledge.mjs`,
+		);
+	}
+
+	const candidates = spaceScored
 		.filter((r) => r.score >= RETRIEVAL_MIN_SCORE)
-		.sort((a, b) => b.score - a.score)
-		.slice(0, RETRIEVAL_TOP_K);
+		.sort((a, b) => b.score - a.score);
+
+	let scored = candidates.slice(0, RETRIEVAL_TOP_K);
+	if (rerankConfigured() && candidates.length > 1) {
+		const pool = candidates.slice(0, RETRIEVAL_RERANK_POOL);
+		const order = await rerankPassages(message, pool.map((r) => String(r.content)));
+		if (order) scored = order.slice(0, RETRIEVAL_TOP_K).map((i) => pool[i]);
+	}
 
 	if (!scored.length) return null;
 

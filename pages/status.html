@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Status — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" content="#000000" />
+		<meta
+			name="description"
+			content="Live operational status and 90-day uptime history for the three.ws platform, API, and x402 paid-API surfaces."
+		/>
+
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content="https://three.ws/status" />
+		<meta property="og:title" content="Status — three.ws" />
+		<meta
+			property="og:description"
+			content="Live operational status and 90-day uptime history for the three.ws platform."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<script defer src="/footer-newsletter.js"></script>
+
+		<style>
+			.st-wrap {
+				max-width: 880px;
+				margin: 0 auto;
+				padding: calc(var(--space-md) * 2) var(--space-md) calc(var(--space-md) * 4);
+			}
+			.st-crumb {
+				font: var(--text-sm) var(--font-body);
+				color: var(--ink-dim);
+				margin: 0 0 var(--space-md);
+			}
+			.st-crumb a {
+				color: inherit;
+			}
+			.st-title {
+				font-family: var(--font-display);
+				font-size: clamp(1.6rem, 4vw, 2.2rem);
+				margin: 0 0 var(--space-md);
+			}
+
+			.st-banner {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+				border: 1px solid var(--stroke-strong);
+				border-radius: var(--radius-lg);
+				padding: 1rem 1.25rem;
+				margin-bottom: calc(var(--space-md) * 1.5);
+				background: var(--surface-glass);
+				font-family: var(--font-display);
+				font-size: 1.05rem;
+				transition: border-color 0.3s ease;
+			}
+			.st-banner .st-dot {
+				width: 12px;
+				height: 12px;
+			}
+			.st-banner[data-state='ok'] {
+				border-color: rgba(74, 222, 128, 0.35);
+			}
+			.st-banner[data-state='down'] {
+				border-color: rgba(248, 113, 113, 0.45);
+			}
+
+			.st-dot {
+				width: 9px;
+				height: 9px;
+				border-radius: 50%;
+				background: var(--ink-dim);
+				flex: none;
+				transition: background 0.3s ease;
+			}
+			.st-dot[data-state='ok'] {
+				background: var(--success);
+				box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+			}
+			.st-dot[data-state='down'] {
+				background: var(--danger);
+				box-shadow: 0 0 8px rgba(248, 113, 113, 0.5);
+			}
+
+			.st-meta {
+				color: var(--ink-dim);
+				font: var(--text-sm) var(--font-body);
+				margin: 0 0 calc(var(--space-md) * 1.5);
+			}
+
+			.st-card {
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-lg);
+				background: var(--surface-1);
+				padding: 1rem 1.25rem;
+				margin-bottom: var(--space-md);
+				transition:
+					border-color 0.2s ease,
+					background 0.2s ease;
+			}
+			.st-card:hover {
+				border-color: var(--stroke-strong);
+				background: var(--surface-2);
+			}
+			.st-card-head {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				flex-wrap: wrap;
+			}
+			.st-card-head h2 {
+				font-family: var(--font-display);
+				font-size: 1rem;
+				margin: 0;
+				flex: 1 1 auto;
+			}
+			.st-stats {
+				display: flex;
+				gap: 1rem;
+				color: var(--ink-dim);
+				font: var(--text-sm) var(--font-mono, monospace);
+				white-space: nowrap;
+			}
+			.st-stats strong {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			/* 90-day uptime bar — one cell per day, oldest → newest */
+			.st-bar {
+				display: flex;
+				gap: 2px;
+				margin-top: 0.85rem;
+				height: 28px;
+			}
+			.st-cell {
+				flex: 1 1 0;
+				border-radius: 2px;
+				background: var(--surface-3);
+				transition: transform 0.12s ease;
+			}
+			.st-cell:hover,
+			.st-cell:focus-visible {
+				transform: scaleY(1.25);
+				outline: none;
+			}
+			.st-cell[data-band='up'] {
+				background: var(--success);
+				opacity: 0.85;
+			}
+			.st-cell[data-band='degraded'] {
+				background: var(--warn);
+			}
+			.st-cell[data-band='down'] {
+				background: var(--danger);
+			}
+			.st-bar-labels {
+				display: flex;
+				justify-content: space-between;
+				color: var(--ink-dim);
+				font: var(--text-sm) var(--font-body);
+				margin-top: 0.35rem;
+			}
+
+			/* Loading skeleton */
+			.st-skel .st-card-head h2,
+			.st-skel .st-stats,
+			.st-skel .st-bar {
+				background: var(--surface-2);
+				border-radius: var(--radius-md);
+				color: transparent;
+				animation: st-pulse 1.4s ease-in-out infinite;
+			}
+			@keyframes st-pulse {
+				0%,
+				100% {
+					opacity: 0.5;
+				}
+				50% {
+					opacity: 1;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.st-skel .st-card-head h2,
+				.st-skel .st-stats,
+				.st-skel .st-bar {
+					animation: none;
+				}
+				.st-cell:hover {
+					transform: none;
+				}
+			}
+
+			.st-note {
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-lg);
+				background: var(--surface-1);
+				color: var(--ink-dim);
+				padding: 1rem 1.25rem;
+				font: var(--text-sm) var(--font-body);
+			}
+			.st-note a {
+				color: var(--ink);
+			}
+			.st-error {
+				border-color: rgba(248, 113, 113, 0.35);
+			}
+
+			@media (max-width: 480px) {
+				.st-stats {
+					flex-basis: 100%;
+					gap: 0.75rem;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+
+		<main class="st-wrap">
+			<p class="st-crumb"><a href="/">Home</a> / Status</p>
+			<h1 class="st-title">Platform status</h1>
+
+			<div class="st-banner" id="st-banner" role="status" aria-live="polite">
+				<span class="st-dot" id="st-banner-dot" aria-hidden="true"></span>
+				<span id="st-banner-text">Checking platform status…</span>
+			</div>
+			<p class="st-meta" id="st-meta">
+				Probed every 5 minutes from outside our infrastructure.
+				<a href="/api/status" style="color: inherit">JSON feed</a> ·
+				<a href="/changelog" style="color: inherit">Changelog</a>
+			</p>
+
+			<section id="st-services" aria-label="Service status list">
+				<!-- skeletons swapped out by render() -->
+				<article class="st-card st-skel" aria-hidden="true">
+					<div class="st-card-head"><h2>loading</h2><div class="st-stats">…</div></div>
+					<div class="st-bar"></div>
+				</article>
+				<article class="st-card st-skel" aria-hidden="true">
+					<div class="st-card-head"><h2>loading</h2><div class="st-stats">…</div></div>
+					<div class="st-bar"></div>
+				</article>
+				<article class="st-card st-skel" aria-hidden="true">
+					<div class="st-card-head"><h2>loading</h2><div class="st-stats">…</div></div>
+					<div class="st-bar"></div>
+				</article>
+			</section>
+		</main>
+
+		<script type="module">
+			const banner = document.getElementById('st-banner');
+			const bannerDot = document.getElementById('st-banner-dot');
+			const bannerText = document.getElementById('st-banner-text');
+			const meta = document.getElementById('st-meta');
+			const list = document.getElementById('st-services');
+
+			const fmtPct = (v) => (v == null ? '—' : `${v}%`);
+			const band = (uptime) =>
+				uptime == null ? null : uptime >= 99.5 ? 'up' : uptime >= 95 ? 'degraded' : 'down';
+
+			function render(data) {
+				const probed = data.services.filter((s) => s.operational !== null);
+				const down = probed.filter((s) => !s.operational);
+				if (data.monitoring === 'warming-up') {
+					bannerText.textContent = 'Monitoring is warming up — first probes land within minutes.';
+				} else if (down.length === 0) {
+					banner.dataset.state = 'ok';
+					bannerDot.dataset.state = 'ok';
+					bannerText.textContent = 'All systems operational';
+				} else {
+					banner.dataset.state = 'down';
+					bannerDot.dataset.state = 'down';
+					bannerText.textContent = `${down.length} of ${probed.length} services disrupted: ${down
+						.map((s) => s.label)
+						.join(', ')}`;
+				}
+				if (data.checkedAt) {
+					const ago = Math.max(0, Math.round((Date.now() - data.checkedAt) / 60000));
+					meta.firstChild.textContent = `Probed every 5 minutes from outside our infrastructure — last check ${
+						ago === 0 ? 'under a minute' : `${ago} min`
+					} ago. `;
+				}
+
+				list.innerHTML = '';
+				for (const s of data.services) {
+					const card = document.createElement('article');
+					card.className = 'st-card';
+
+					const days = s.history.length;
+					const cells = s.history
+						.map((h) => {
+							const b = band(h.uptime);
+							const label =
+								h.uptime == null ? `${h.date}: no data` : `${h.date}: ${h.uptime}% uptime`;
+							return `<span class="st-cell" ${b ? `data-band="${b}"` : ''} role="img" tabindex="0" aria-label="${label}" title="${label}"></span>`;
+						})
+						.join('');
+
+					card.innerHTML = `
+						<div class="st-card-head">
+							<span class="st-dot" data-state="${s.operational === null ? '' : s.operational ? 'ok' : 'down'}" aria-hidden="true"></span>
+							<h2>${s.label}</h2>
+							<div class="st-stats">
+								<span><strong>${fmtPct(s.uptime90d ?? s.uptime24h)}</strong> uptime</span>
+								<span><strong>${s.avgLatency24hMs == null ? '—' : `${s.avgLatency24hMs}ms`}</strong> avg</span>
+							</div>
+						</div>
+						${
+							days > 0
+								? `<div class="st-bar" role="group" aria-label="${s.label} daily uptime, last ${days} days">${cells}</div>
+								   <div class="st-bar-labels"><span>${days} days ago</span><span>today</span></div>`
+								: `<div class="st-bar-labels"><span>History appears after the first day of monitoring.</span></div>`
+						}`;
+					list.appendChild(card);
+				}
+			}
+
+			function renderError() {
+				bannerText.textContent = 'Could not load status data.';
+				list.innerHTML = `<div class="st-note st-error">
+					The status feed at <a href="/api/status">/api/status</a> did not respond.
+					That can itself indicate an incident — try again in a minute, or check
+					<a href="https://x.com/trythreews" rel="noopener">@trythreews</a> for updates.
+				</div>`;
+			}
+
+			async function load() {
+				try {
+					const res = await fetch('/api/status', { headers: { accept: 'application/json' } });
+					if (!res.ok) throw new Error(`HTTP ${res.status}`);
+					render(await res.json());
+				} catch {
+					renderError();
+				}
+			}
+			load();
+			// Live page: refresh on the probe cadence without requiring a reload.
+			setInterval(load, 5 * 60 * 1000);
+		</script>
+
+		<script src="/nav.js" defer></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

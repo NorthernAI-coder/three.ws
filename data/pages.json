@@ -731,6 +731,14 @@
 					"path": "/tutorials",
 					"title": "Tutorials",
 					"description": "Step-by-step build guides."
+				},
+				{
+					"path": "/status",
+					"title": "Status",
+					"description": "Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.",
+					"priority": 0.5,
+					"changefreq": "always",
+					"added": "2026-06-11"
 				}
 			]
 		},

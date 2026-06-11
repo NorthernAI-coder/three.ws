@@ -128,6 +128,55 @@ Same as `ipfs` but the content is encrypted to the owner's wallet pubkey (ECIES 
 
 Agent is stateless across sessions. Useful for demos, kiosks, one-shot interactions.
 
+### Custom modes
+
+Any `memory.mode` value that is not one of the five built-ins resolves to a backend you registered via `Memory.registerBackend` — see [Custom backends](#custom-backends). If no backend matches, the runtime warns once and falls back to `local`, so a typo can never break the embed.
+
+## Custom backends
+
+You can plug an arbitrary store — a vector database, an episodic event log, your own API — behind a named mode without forking the `Memory` class. Register it once at startup; from then on `memory.mode: "<name>"` (or `<agent-3d memory="<name>">`) routes through it.
+
+```js
+import { Memory } from 'https://three.ws/agent-3d/latest/agent-3d.js';
+
+Memory.registerBackend('vector', {
+	// REQUIRED. Hydrate persisted state. Receives the full Memory.load opts
+	// (namespace, manifestURI, fetchFn, plus anything extra you pass through).
+	// Return any subset of { files, timeline, index }.
+	async load({ namespace }) {
+		const rows = await myVectorStore.fetchAll(namespace);
+		const files = Object.fromEntries(rows.map((r) => [r.filename, r.markdown]));
+		return { files };
+	},
+
+	// OPTIONAL. Called after every write() and note(). Inspect memory.files
+	// (a Map) and memory.timeline (an array) and ship them to your store.
+	async persist(memory) {
+		for (const [filename, markdown] of memory.files) {
+			await myVectorStore.upsert(memory.namespace, { filename, markdown });
+		}
+		await myEpisodicLog.replace(memory.namespace, memory.timeline);
+	},
+
+	// OPTIONAL. Real semantic search. Return ranked { file, meta, body, score }
+	// hits. If it throws, Memory silently falls back to substring matching, so
+	// recall never hard-fails mid-conversation.
+	async recall(query, memory, { limit = 5 } = {}) {
+		const matches = await myVectorStore.search(memory.namespace, query, limit);
+		return matches.map((m) => ({ file: m.filename, meta: m.meta, body: m.body, score: m.score }));
+	},
+});
+```
+
+Contract notes:
+
+- `load` is the only required hook. A backend with just `load` is read-through; add `persist` to make it durable, `recall` to make search semantic.
+- `persist` is fire-and-forget on `write`/`note` (so those stay synchronous, matching `local`/`remote`); it is awaited on `agent.memory.save()`. Make it idempotent.
+- Built-in mode names (`none`, `local`, `remote`, `ipfs`, `encrypted-ipfs`) are reserved — `registerBackend` throws if you try to shadow one.
+- `Memory.backends()` lists registered names; `Memory.unregisterBackend(name)` removes one.
+
+The lighter-weight extension point — keeping built-in storage but swapping only the ranker — is `manifest.json → memory.retriever` (see [Retrieval](#retrieval)). Reach for a full backend when you also own where the bytes live.
+
 ## Retrieval
 
 The runtime budgets `memory.maxTokens` (default 8192) per turn and fills it with:
@@ -176,11 +225,43 @@ Explicit user request ("forget that I..."): delete the file, update `MEMORY.md`,
 
 Automatic decay (per frontmatter `decay`): retrieval layer down-weights; files are not deleted without user confirmation.
 
-## Export / import
+## Snapshot contract
+
+`agent.memory.snapshot()` returns a stable, JSON-safe object — the `memory/0.1` contract — that fully describes an agent's memory at a point in time. It is synchronous, so embedded widgets can serialize/deserialize across page reloads, `postMessage` between frames, or stash state in `sessionStorage`.
+
+```jsonc
+{
+	"version": "memory/0.1",
+	"mode": "local",        // the storage mode this snapshot came from
+	"namespace": "agent-uuid",
+	"index": "# Memory\n\n## User\n- [Role](user_role.md) — …",
+	"files": { "user_role.md": "---\nname: Role\n…", /* … */ },
+	"timeline": [ { "ts": "2026-04-14T12:03:12Z", "type": "waved", "style": "casual" } ]
+}
+```
+
+Rehydrate with `Memory.fromSnapshot`. Overrides win over the snapshot's own values, so you can restore into a fresh agent id:
 
 ```js
-const blob = await agent.memory.export(); // tarball of memory/
-await otherAgent.memory.import(blob); // merges with conflict resolution
+// Embedded widget — survive a reload:
+sessionStorage.setItem('agent-mem', JSON.stringify(agent.memory.snapshot()));
+
+// …after reload:
+const restored = Memory.fromSnapshot(JSON.parse(sessionStorage.getItem('agent-mem')));
+// or graft onto a new identity:
+const forked = Memory.fromSnapshot(snap, { mode: 'remote', namespace: newAgentId });
+```
+
+If a snapshot omits `index` but carries `files`, `fromSnapshot` rebuilds the index automatically.
+
+## Export / import
+
+`export()` is the async alias for `snapshot()` and returns the same `memory/0.1` shape; `import()` merges another agent's snapshot in (last-write-wins on the timeline, additive on files):
+
+```js
+const blob = await agent.memory.export();      // === agent.memory.snapshot()
+await otherAgent.memory.import(blob);           // merge (default)
+await otherAgent.memory.import(blob, { strategy: 'replace' }); // overwrite
 ```
 
 Enables memory-as-inheritance: fork an agent, carry the memories forward.

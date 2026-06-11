@@ -83,14 +83,14 @@
 				"strict-transport-security": "max-age=63072000; includeSubDomains; preload",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
-				"content-security-policy": "base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://esm.sh https://ajax.googleapis.com https://s3.tradingview.com https://platform.twitter.com https://3d-agent.vercel.app https://three.ws https://3d.irish; worker-src 'self' blob:; frame-ancestors *"
+				"content-security-policy": "base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://esm.sh https://ajax.googleapis.com https://s3.tradingview.com https://platform.twitter.com https://3d-agent.vercel.app https://three.ws https://3d.irish; worker-src 'self' blob:; frame-ancestors *; report-uri /api/client-errors"
 			},
 			"continue": true
 		},
 		{
 			"src": "/(login|register|forgot-password|reset-password|account|settings|wallet|pay|paywall|vanity-wallet|eth-vanity|evm-wallet|dashboard|dashboard-next|dashboard-classic)(/.*)?$",
 			"headers": {
-				"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://esm.sh https://ajax.googleapis.com https://s3.tradingview.com https://platform.twitter.com https://3d-agent.vercel.app https://three.ws https://3d.irish; worker-src 'self' blob:",
+				"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://esm.sh https://ajax.googleapis.com https://s3.tradingview.com https://platform.twitter.com https://3d-agent.vercel.app https://three.ws https://3d.irish; worker-src 'self' blob:; report-uri /api/client-errors",
 				"x-frame-options": "SAMEORIGIN"
 			},
 			"continue": true
@@ -608,7 +608,7 @@
 		{
 			"src": "/walk-embed/?",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"cross-origin-resource-policy": "cross-origin"
@@ -725,7 +725,7 @@
 		{
 			"src": "/embed/avatar",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*",
@@ -736,7 +736,7 @@
 		{
 			"src": "/embed/avatar/([a-z0-9_-]{3,30})",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*",
@@ -771,7 +771,7 @@
 		{
 			"src": "/widget",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*, autoplay=*",
@@ -782,7 +782,7 @@
 		{
 			"src": "/widget/",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*, autoplay=*",
@@ -793,7 +793,7 @@
 		{
 			"src": "/widget\\.html$",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*, autoplay=*",
@@ -1261,6 +1261,14 @@
 		{
 			"src": "/skills/",
 			"dest": "/skills.html"
+		},
+		{
+			"src": "/status",
+			"dest": "/status.html"
+		},
+		{
+			"src": "/status/",
+			"dest": "/status.html"
 		},
 		{
 			"src": "/marketplace",
@@ -1944,7 +1952,7 @@
 		{
 			"src": "/agent/([^/]+)/embed",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*",
@@ -2880,7 +2888,7 @@
 		{
 			"src": "/a/(\\d+)/(\\d+)/embed",
 			"headers": {
-				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
 				"permissions-policy": "microphone=(self), camera=(self), xr-spatial-tracking=*"
@@ -2980,6 +2988,10 @@
 		},
 		{
 			"path": "/api/cron/expire-pending-purchases",
+			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/uptime-check",
 			"schedule": "*/5 * * * *"
 		},
 		{
