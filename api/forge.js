@@ -47,6 +47,7 @@ import {
 	buildCatalog,
 } from './_lib/forge-tiers.js';
 import { resolveProviderKey } from './_lib/forge-provider-key.js';
+import { validateForgeImage } from './_lib/forge-image-validate.js';
 import { encodeJobToken, decodeJobToken } from './_lib/forge-job-token.js';
 import {
 	hashClient,
@@ -184,6 +185,26 @@ async function startJob(req, res) {
 				error: 'invalid_prompt',
 				message: 'Optional guidance prompt must be 1000 characters or fewer.',
 			});
+		}
+
+		// Vision pre-check (Consumer 1 of the shared vision helper): catch a photo
+		// that can't be reconstructed BEFORE it burns a generation slot. Validates
+		// the primary view only. Fail-open — a vision outage returns ok:true and we
+		// proceed exactly as before (validateForgeImage owns that contract). The
+		// user can override a verdict they disagree with via `skip_validation:true`
+		// (e.g. a stylized reference our checker is too cautious about).
+		if (body?.skip_validation !== true) {
+			const check = await validateForgeImage(imageUrls[0], { track: { clientId: clientKeyFrom(req) } });
+			if (!check.ok) {
+				return json(res, 422, {
+					error: 'image_not_usable',
+					issue: check.issue,
+					message: check.message,
+					subject: check.subject || null,
+					// Surfaced so the UI can offer a one-click "generate anyway".
+					override: { field: 'skip_validation', value: true },
+				});
+			}
 		}
 	} else if (prompt.length < 3 || prompt.length > 1000) {
 		return json(res, 400, {

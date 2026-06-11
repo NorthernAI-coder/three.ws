@@ -16,6 +16,7 @@ import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { generateSearchQueries, analyzeResults } from '../../agents/fact-checker/src/llm-verdict.js';
 import { searchAll } from '../../agents/fact-checker/src/search-sources.js';
 import { authorityScore } from '../../agents/fact-checker/src/source-authority.js';
+import { imageEvidence } from '../../agents/fact-checker/src/image-evidence.js';
 
 const ROUTE = '/api/x402/fact-check';
 const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -67,11 +68,13 @@ async function redisSet(key, value, ttlSeconds) {
 
 // ── Cache key ─────────────────────────────────────────────────────────────────
 
-function cacheKey(claim, strictness) {
+function cacheKey(claim, strictness, imageUrl) {
 	const hash = createHash('sha256')
-		.update(JSON.stringify({ claim, strictness }))
+		.update(JSON.stringify({ claim, strictness, imageUrl: imageUrl || null }))
 		.digest('hex');
-	return `fact-check:v1:${hash}`;
+	// v2: the key now folds in any attached image so an image-backed check never
+	// serves a stale image-free verdict (or vice versa) from the v1 cache.
+	return `fact-check:v2:${hash}`;
 }
 
 // ── Verdict logic ─────────────────────────────────────────────────────────────
@@ -109,9 +112,17 @@ function computeVerdict(sources) {
 
 // ── Core fact-check pipeline ───────────────────────────────────────────────────
 
-async function runFactCheck(claim, strictness) {
+async function runFactCheck(claim, strictness, imageUrl = null) {
 	let totalTokens = 0;
 	let searchCalls = 0;
+
+	// 0. Image evidence (Consumer 2 of the shared vision helper) runs in parallel
+	//    with the web pipeline — a free NIM vision lane describes/transcribes the
+	//    attached image and judges its stance. Fail-open: null when no image is
+	//    attached or vision is unavailable, so the check never depends on it.
+	const imageEvidencePromise = imageUrl
+		? imageEvidence(claim, imageUrl).catch(() => null)
+		: Promise.resolve(null);
 
 	// 1. Generate 3 search queries.
 	const { queries, tokens: queryTokens } = await generateSearchQueries(claim);
@@ -124,7 +135,11 @@ async function runFactCheck(claim, strictness) {
 	// 3. Take top 5 unique results.
 	const top5 = rawResults.slice(0, 5);
 
-	if (top5.length === 0) {
+	const imageSource = await imageEvidencePromise;
+
+	// A claim can now be checkable on image evidence alone — only bail when there
+	// is neither a web result nor a usable image.
+	if (top5.length === 0 && !imageSource) {
 		const err = new Error('No search results found for the given claim');
 		err.status = 422;
 		err.code = 'no_results';
@@ -132,10 +147,13 @@ async function runFactCheck(claim, strictness) {
 	}
 
 	// 4. LLM stance extraction for top 5.
-	const { analyses, tokens: analysisTokens } = await analyzeResults(claim, top5);
+	const { analyses, tokens: analysisTokens } =
+		top5.length > 0 ? await analyzeResults(claim, top5) : { analyses: [], tokens: 0 };
 	totalTokens += analysisTokens;
 
-	// 5. Build source objects with authority scores.
+	// 5. Build source objects with authority scores. The image evidence is folded
+	//    in as one additional weighted source so it flows through the same
+	//    strictness adjustment and weighted verdict as web sources.
 	const sources = top5.map((r, i) => {
 		const authority = authorityScore(r.url);
 		const analysis = analyses[i] || { excerpt: '', stance: 'neutral' };
@@ -148,6 +166,12 @@ async function runFactCheck(claim, strictness) {
 			retrievedAt: new Date().toISOString(),
 		};
 	});
+	if (imageSource) {
+		// Strip the helper's diagnostic fields from the verdict-facing source; they
+		// are surfaced separately on the response as `imageEvidence`.
+		const { description: _d, visibleText: _v, reason: _r, provider: _p, kind: _k, ...verdictSource } = imageSource;
+		sources.push(verdictSource);
+	}
 
 	// 6. Adjust weights by strictness.
 	// high: penalize low-authority sources more; low: accept everything equally.
@@ -189,7 +213,21 @@ async function runFactCheck(claim, strictness) {
 			)
 			.digest('hex');
 
-	return { verdict, confidence, claim, strictness, sources, costBreakdown, attestation };
+	const result = { verdict, confidence, claim, strictness, sources, costBreakdown, attestation };
+	// Surface the image analysis separately so a caller sees what the vision lane
+	// read from the attachment (description, transcribed text, stance) without
+	// digging it out of the weighted source list.
+	if (imageSource) {
+		result.imageEvidence = {
+			url: imageSource.url,
+			description: imageSource.description,
+			visibleText: imageSource.visibleText,
+			stance: imageSource.stance,
+			reason: imageSource.reason,
+			provider: imageSource.provider,
+		};
+	}
+	return result;
 }
 
 // ── Bazaar schema ──────────────────────────────────────────────────────────────
@@ -224,6 +262,15 @@ const INPUT_SCHEMA = {
 			default: 'medium',
 			description:
 				'high: penalizes low-authority sources. medium: default. low: accepts all sources equally.',
+		},
+		imageUrl: {
+			type: 'string',
+			format: 'uri',
+			maxLength: 2048,
+			description:
+				'Optional http(s) image attached as evidence (a chart, screenshot, label, or photo). ' +
+				'A vision model describes it, transcribes any visible text, and weighs its stance ' +
+				'toward the claim alongside web sources. Ignored if vision is unavailable.',
 		},
 	},
 };
@@ -278,6 +325,18 @@ const OUTPUT_SCHEMA = {
 				searchCalls: { type: 'number' },
 				llmTokens: { type: 'number' },
 				totalUsdc: { type: 'string' },
+			},
+		},
+		imageEvidence: {
+			type: 'object',
+			description: 'Present only when an imageUrl was supplied and vision was available.',
+			properties: {
+				url: { type: 'string' },
+				description: { type: ['string', 'null'] },
+				visibleText: { type: ['string', 'null'] },
+				stance: { type: 'string', enum: ['supports', 'contradicts', 'neutral'] },
+				reason: { type: ['string', 'null'] },
+				provider: { type: 'string' },
 			},
 		},
 		cachedAt: { type: 'string', format: 'date-time' },
@@ -354,16 +413,29 @@ export default paidEndpoint({
 			? body.strictness
 			: 'medium';
 
+		// Optional image attachment — validated at the boundary as an http(s) URL.
+		let imageUrl = null;
+		if (body?.imageUrl != null) {
+			imageUrl = String(body.imageUrl).trim();
+			if (imageUrl && (!/^https?:\/\//i.test(imageUrl) || imageUrl.length > 2048)) {
+				const err = new Error('"imageUrl" must be an http(s) URL under 2048 characters');
+				err.status = 400;
+				err.code = 'invalid_image_url';
+				throw err;
+			}
+			if (!imageUrl) imageUrl = null;
+		}
+
 		// Idempotency cache — 7-day TTL. Shape-check the hit: records written by
 		// the old envelope-body redisSet parse to `{value, ex}` and must be
 		// treated as misses, not served as verdicts.
-		const key = cacheKey(claim, strictness);
+		const key = cacheKey(claim, strictness, imageUrl);
 		const cached = await redisGet(key);
 		if (cached && typeof cached.verdict === 'string') {
 			return { ...cached, cachedAt: cached.cachedAt || new Date().toISOString() };
 		}
 
-		const result = await runFactCheck(claim, strictness);
+		const result = await runFactCheck(claim, strictness, imageUrl);
 
 		// Persist to cache (fire-and-forget on failure).
 		await redisSet(key, result, CACHE_TTL_SECONDS);

@@ -24,6 +24,7 @@
 // server-authoritative value used to locate the holder's position row.
 
 import { get, post, getMe, ApiError } from '../dashboard-next/api.js';
+import { log } from '../shared/log.js';
 
 /** Canonical $THREE mint. The one and only coin. */
 export const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
@@ -91,7 +92,7 @@ export function createThreeTokenData(opts = {}) {
 
 	function emit() {
 		for (const fn of subs) {
-			try { fn(state); } catch (err) { console.error('[three-token-data] subscriber threw', err); }
+			try { fn(state); } catch (err) { log.error('[three-token-data] subscriber threw', err); }
 		}
 	}
 
@@ -257,7 +258,7 @@ export function createThreeTokenData(opts = {}) {
 		if (typeof fn !== 'function') return () => {};
 		subs.add(fn);
 		// Push the current snapshot immediately so late subscribers aren't blank.
-		try { fn(state); } catch (err) { console.error('[three-token-data] subscriber threw', err); }
+		try { fn(state); } catch (err) { log.error('[three-token-data] subscriber threw', err); }
 		return () => subs.delete(fn);
 	}
 

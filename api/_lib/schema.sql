@@ -119,6 +119,9 @@ create index if not exists avatars_tags_idx on avatars using gin(tags);
 -- Additive migrations for avatars columns added after initial deployment.
 alter table avatars add column if not exists storage_mode jsonb;
 alter table avatars add column if not exists parent_avatar_id uuid references avatars(id) on delete set null;
+-- Vision-generated accessibility description of the thumbnail (T4.1). Null = not
+-- generated yet; the gallery falls back to the avatar name.
+alter table avatars add column if not exists alt_text text;
 
 -- ── mocap_clips (recorded face / pose / hand motion clips) ──────────────────
 -- See api/_lib/migrations/2026-05-24-mocap-clips.sql for the full schema +

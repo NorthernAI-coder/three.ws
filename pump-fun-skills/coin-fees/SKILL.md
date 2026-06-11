@@ -170,7 +170,7 @@ Check `npm info @pump-fun/pump-sdk dependencies` and align `@solana/web3.js` / `
 import {
   PUMP_SDK,
   OnlinePumpSdk,
-  isCreatorUsingSharingConfig,
+  hasCoinCreatorMigratedToSharingConfig,
   creatorVaultPda,
   feeSharingConfigPda,
   canonicalPumpPoolPda,
@@ -205,7 +205,7 @@ When an agent needs to understand where creator fees go for a coin, follow this 
    │   → Claims from pump program; also claims from pump AMM (with WSOL unwrap) if graduated
    │
    └─ isCashbackCoin === false
-       3. Check isCreatorUsingSharingConfig({ mint, creator })
+       3. Check hasCoinCreatorMigratedToSharingConfig({ mint, creator })
           ├─ true → Fees go to SHARING CONFIG SHAREHOLDERS
           │   → Load feeSharingConfigPda(mint) → decodeSharingConfig
           │   → Lists shareholders with address + BPS shares

@@ -17,7 +17,7 @@ import {
   bondingCurvePda,
   canonicalPumpPoolPda,
   feeSharingConfigPda,
-  isCreatorUsingSharingConfig,
+  hasCoinCreatorMigratedToSharingConfig,
   isSharingConfigEditable,
 } from "@pump-fun/pump-sdk";
 import { OnlinePumpAmmSdk } from "@pump-fun/pump-swap-sdk";
@@ -224,7 +224,7 @@ async function main() {
   }
 
   // Detect mode
-  const configExists = isCreatorUsingSharingConfig({ mint, creator: effectiveCreator });
+  const configExists = hasCoinCreatorMigratedToSharingConfig({ mint, creator: effectiveCreator });
   let mode = values.mode ?? (configExists ? "update" : "create");
 
   if (mode === "create" && configExists) {

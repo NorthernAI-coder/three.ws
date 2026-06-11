@@ -453,22 +453,37 @@ function renderTheme() {
 		</div>
 		<div style="margin-top:10px;font-size:12px;color:var(--nxt-ink-fade)">
 			${stored === 'auto' ? 'Following your system preference.' : `Currently using ${stored} mode.`}
-			The platform is designed for dark mode. Light mode support is coming.
+			Dark is the brand default; the theme toggle also lives in the top nav.
 		</div>
 	`;
+
+	// Apply a theme choice through the shared switcher so it takes effect site-
+	// wide and persists under the same key the nav toggle uses. Falls back to a
+	// direct apply if the switcher script isn't loaded on this surface.
+	function applyTheme(theme) {
+		if (window.threeTheme) {
+			window.threeTheme.set(theme);
+			return;
+		}
+		localStorage.setItem('twx_theme', theme);
+		const effective = theme === 'auto'
+			? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+			: theme;
+		document.documentElement.setAttribute('data-theme', effective === 'light' ? 'light' : 'dark');
+	}
 
 	panel.querySelectorAll('[data-theme]').forEach((btn) => {
 		btn.addEventListener('click', () => {
 			const theme = btn.dataset.theme;
-			localStorage.setItem('twx_theme', theme);
+			applyTheme(theme);
 			panel.querySelectorAll('[data-theme]').forEach((b) => {
 				b.classList.toggle('primary', b.dataset.theme === theme);
 			});
 			const hint = panel.querySelector('div:last-child');
 			hint.textContent = theme === 'auto'
 				? 'Following your system preference.'
-				: `Set to ${theme} mode. The platform is designed for dark mode. Light mode support is coming.`;
-			toast('Theme preference saved');
+				: `Set to ${theme} mode. The theme toggle also lives in the top nav.`;
+			toast('Theme applied');
 		});
 	});
 
