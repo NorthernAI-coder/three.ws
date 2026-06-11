@@ -101,10 +101,11 @@ export const BACKENDS = Object.freeze({
 		provider: 'nvidia',
 		requiresEnv: Object.freeze(['NVIDIA_API_KEY']),
 		polyControl: false,
-		// Provisional estimate pending the live T0.2 TRELLIS probe — NVCF keeps the
-		// GPU warm so wall-clock runs well under Replicate's cold-start ~60s; revise
-		// from probes/trellis.md latencies once recorded (T0.2/T1.5).
-		baseEta: 25,
+		// Grounded in the live T0.2 probe (tasks/nvidia-nim/probes/trellis.md): draft
+		// text→3D returned synchronously in ~13 s end-to-end incl. R2 persist. With the
+		// draft tier's 0.6 multiplier, baseEta 22 ≈ that observed wall-clock; NVCF keeps
+		// the GPU warm, so there is no Replicate-style ~60 s cold start.
+		baseEta: 22,
 		credits: null,
 		// Free NVIDIA NIM lane — no vendor credit cost. This is what makes it the
 		// free-first draft default per platform policy.

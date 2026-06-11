@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T10:24:49.461Z",
+	"generated_at": "2026-06-11T10:46:25.045Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -57,6 +57,27 @@
 			"link": "/agents",
 			"tags": [
 				"improvement",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Free 3D drafts on Forge",
+			"summary": "Draft generations on Forge now run on a free NVIDIA-hosted TRELLIS engine by default — type a prompt or drop in a photo and your first 3D model costs nothing and arrives in about 15 seconds, several times faster than the previous default. Every existing engine (TRELLIS on Replicate, Meshy, Tripo) remains selectable at every quality tier, and deployments without the free lane configured keep their current behavior unchanged.",
+			"link": "/forge",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Hardened the explore feed and marketplace pricing against bad requests",
+			"summary": "The explore discovery feed and marketplace asset-pricing lookup now reject malformed query parameters with a clear 400 instead of failing with a server error. A non-numeric page size on explore, or a malformed asset id on a price lookup, no longer surfaces a 500 — the endpoints validate input up front and respond cleanly.",
+			"link": "/explore",
+			"tags": [
 				"fix"
 			]
 		},
