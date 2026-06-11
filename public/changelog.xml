@@ -15,6 +15,14 @@
 			<description>The payment directory was counting every unpaid x402 discovery request (the protocol's standard 402 challenge) as a failed call, dragging three.ws endpoint success rates down even when every endpoint was healthy. Telemetry now reports only real payment attempts, so the published uptime reflects actual service health.</description>
 		</item>
 		<item>
+			<title>Agents dashboard renders reliably again</title>
+			<link>https://three.ws/dashboard/agents</link>
+			<guid isPermaLink="false">2026-06-11:Agents dashboard renders reliably again</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed a crash that could blank out the agent list on your dashboard while it built each agent's card. The page now renders every agent — on-chain, Pump.fun, and off-chain — without errors, including the Deploy onchain and registry links.</description>
+		</item>
+		<item>
 			<title>Avatar pages back online after image-engine outage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Avatar pages back online after image-engine outage</guid>
