@@ -8,7 +8,7 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	if (!env.OPENROUTER_API_KEY)
+	if (!env.OPENROUTER_API_KEY && !env.OPENROUTER_FALLBACK_KEYS.length)
 		return error(res, 503, 'not_configured', 'Built-in model not available');
 
 	// Anonymous proxy — only :free models pass the gate below, but the upstream
@@ -33,16 +33,28 @@ export default wrap(async (req, res) => {
 	if (!model || !model.endsWith(':free'))
 		return error(res, 400, 'invalid_model', 'Only free-tier models (ending in :free) are allowed via the built-in proxy');
 
-	const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-			'Content-Type': 'application/json',
-			'HTTP-Referer': 'https://three.ws',
-			'X-Title': 'three.ws chat',
-		},
-		body: JSON.stringify(body),
-	});
+	// Only :free models pass the gate above, so any configured key can serve the
+	// request. Rotate to the next key on account-level failures (bad key, out of
+	// credits, rate limit) — rotation happens before any byte is streamed, so a
+	// retry is always safe. Other statuses (4xx from a bad request, 5xx) are
+	// final: every key would fail the same way.
+	const keys = [...new Set([env.OPENROUTER_API_KEY, ...env.OPENROUTER_FALLBACK_KEYS].filter(Boolean))];
+	let upstream;
+	for (const [i, key] of keys.entries()) {
+		upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${key}`,
+				'Content-Type': 'application/json',
+				'HTTP-Referer': 'https://three.ws',
+				'X-Title': 'three.ws chat',
+			},
+			body: JSON.stringify(body),
+		});
+		if (![401, 402, 403, 429].includes(upstream.status) || i === keys.length - 1) break;
+		// Release the abandoned response so its connection returns to the pool.
+		await upstream.body?.cancel()?.catch?.(() => {});
+	}
 
 	if (upstream.status === 402) {
 		const upstreamBody = await upstream.text();

@@ -3,11 +3,11 @@
 // without float drift. This is the single source of truth for "what did that
 // call cost us" — the admin spend dashboard reads the events this priced.
 //
-// Anthropic prices are list price per 1M tokens (input / output), current as of
-// the Claude model catalog. Groq and OpenRouter are platform-funded free tiers
-// (we hold the key, callers pay nothing), so their marginal cost to us is $0 —
-// they are intentionally priced at zero, not omitted, so the dashboard can show
-// "calls served free" alongside paid spend.
+// Anthropic and OpenAI prices are list price per 1M tokens (input / output),
+// current as of each vendor's model catalog. Groq, OpenRouter, and NVIDIA NIM
+// are platform-funded free tiers (we hold the key, callers pay nothing), so
+// their marginal cost to us is $0 — they are intentionally priced at zero, not
+// omitted, so the dashboard can show "calls served free" alongside paid spend.
 
 // USD per 1,000,000 tokens, [input, output]. Keys are matched by prefix so a
 // dated alias (claude-haiku-4-5-20251001) resolves to its family price.
@@ -21,6 +21,8 @@ const PRICE_PER_MTOK = {
 	'claude-sonnet-4-6': [3, 15],
 	'claude-sonnet-4-5': [3, 15],
 	'claude-haiku-4-5': [1, 5],
+	'gpt-4o-mini': [0.15, 0.6],
+	'gpt-4o': [2.5, 10],
 };
 
 // Providers whose marginal cost to the platform is zero (platform-funded keys).
@@ -41,7 +43,9 @@ function priceForModel(model) {
 // or 0 when the provider is free or the model is unpriced — never null, so the
 // caller can always record a numeric cost.
 export function costMicroUsd({ provider, model, input = 0, output = 0 } = {}) {
-	if (provider && FREE_PROVIDERS.has(provider)) return 0;
+	// Multi-key providers carry a #n suffix (openrouter#2) — strip it so every
+	// key of a free provider prices to zero.
+	if (provider && FREE_PROVIDERS.has(String(provider).split('#')[0])) return 0;
 	const price = priceForModel(model);
 	if (!price) return 0;
 	const [inPerM, outPerM] = price;

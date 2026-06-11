@@ -1,7 +1,8 @@
 // Tests for api/_lib/llm.js — the canonical server-side LLM helper.
-// Focus: the platform provider policy — Groq/OpenRouter are the free defaults,
-// Anthropic is BYOK-only, nothing hard-fails on a missing Anthropic key, and a
-// failing provider falls over to the next.
+// Focus: the platform provider policy — the free providers (Groq → OpenRouter
+// keys → NVIDIA NIM) always lead, the paid server keys (Anthropic, OpenAI) are
+// an automatic last resort, BYOK Anthropic leads only when the caller supplies
+// their own key, and a failing provider falls over to the next.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
@@ -10,7 +11,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 function clearKeys() {
 	delete process.env.GROQ_API_KEY;
 	delete process.env.OPENROUTER_API_KEY;
+	delete process.env.OPENROUTER_FALLBACK_KEYS;
+	delete process.env.NVIDIA_API_KEY;
 	delete process.env.ANTHROPIC_API_KEY;
+	delete process.env.OPENAI_API_KEY;
 }
 
 // Route a mocked fetch by host so each provider returns its own wire shape.
@@ -36,7 +40,9 @@ function errResp(status, text = 'upstream boom') {
 
 const GROQ_HOST = 'api.groq.com';
 const OPENROUTER_HOST = 'openrouter.ai';
+const NVIDIA_HOST = 'integrate.api.nvidia.com';
 const ANTHROPIC_HOST = 'api.anthropic.com';
+const OPENAI_HOST = 'api.openai.com';
 
 const openaiShape = (content) => okJson({
 	choices: [{ message: { content } }],
@@ -99,18 +105,66 @@ describe('llmComplete — free platform providers', () => {
 		expect(out.text).toBe('from openrouter');
 		expect(calls.map((c) => c.url.includes(GROQ_HOST) ? 'groq' : 'or')).toEqual(['groq', 'or']);
 	});
+
+	it('falls back to NVIDIA NIM when Groq and OpenRouter both fail', async () => {
+		process.env.GROQ_API_KEY = 'g';
+		process.env.OPENROUTER_API_KEY = 'o';
+		process.env.NVIDIA_API_KEY = 'nvapi-x';
+		const calls = installFetch({
+			[GROQ_HOST]: errResp(500),
+			[OPENROUTER_HOST]: errResp(429),
+			[NVIDIA_HOST]: openaiShape('from nvidia'),
+		});
+		const out = await llm.llmComplete({ system: 's', user: 'u' });
+		expect(out.provider).toBe('nvidia');
+		expect(out.text).toBe('from nvidia');
+		const nvidiaCall = calls.find((c) => c.url.includes(NVIDIA_HOST));
+		expect(nvidiaCall.headers.authorization).toBe('Bearer nvapi-x');
+	});
 });
 
-describe('llmComplete — Anthropic is BYOK-only', () => {
-	it('does NOT call Anthropic when no BYOK key is passed, even with a server env key', async () => {
-		process.env.ANTHROPIC_API_KEY = 'sk-server'; // present but must be ignored
-		process.env.GROQ_API_KEY = 'g';
-		const calls = installFetch({ [GROQ_HOST]: openaiShape('groq wins') });
+describe('llmComplete — multiple OpenRouter keys', () => {
+	it('rotates to the fallback key with the :free model when the primary key 402s', async () => {
+		process.env.OPENROUTER_API_KEY = 'or-primary';
+		process.env.OPENROUTER_FALLBACK_KEYS = 'or-fallback';
+		const calls = [];
+		globalThis.fetch = vi.fn(async (url, opts) => {
+			const body = JSON.parse(opts.body);
+			calls.push({ auth: opts.headers.authorization, model: body.model });
+			// Primary account is out of credits; fallback serves.
+			if (opts.headers.authorization === 'Bearer or-primary') {
+				return errResp(402, 'insufficient credits');
+			}
+			return openaiShape('served by fallback key');
+		});
 		const out = await llm.llmComplete({ system: 's', user: 'u' });
-		expect(out.provider).toBe('groq');
-		expect(calls.every((c) => !c.url.includes(ANTHROPIC_HOST))).toBe(true);
+		expect(out.provider).toBe('openrouter#2');
+		expect(out.text).toBe('served by fallback key');
+		expect(calls).toEqual([
+			{ auth: 'Bearer or-primary', model: 'meta-llama/llama-3.3-70b-instruct' },
+			{ auth: 'Bearer or-fallback', model: 'meta-llama/llama-3.3-70b-instruct:free' },
+		]);
 	});
 
+	it('dedupes a fallback key that repeats the primary', async () => {
+		process.env.OPENROUTER_API_KEY = 'or-same';
+		process.env.OPENROUTER_FALLBACK_KEYS = 'or-same, or-extra';
+		let n = 0;
+		globalThis.fetch = vi.fn(async () => {
+			n += 1;
+			return errResp(500);
+		});
+		await expect(llm.llmComplete({ system: 's', user: 'u' })).rejects.toMatchObject({ status: 502 });
+		expect(n).toBe(2); // or-same once, or-extra once — not three calls
+	});
+
+	it('llmConfigured is true with only fallback keys set', () => {
+		process.env.OPENROUTER_FALLBACK_KEYS = 'or-only-fallback';
+		expect(llm.llmConfigured()).toBe(true);
+	});
+});
+
+describe('llmComplete — BYOK Anthropic leads when supplied', () => {
 	it('uses Anthropic first when a BYOK key is explicitly supplied', async () => {
 		process.env.GROQ_API_KEY = 'g';
 		const calls = installFetch({ [ANTHROPIC_HOST]: anthropicShape('claude says hi') });
@@ -123,45 +177,86 @@ describe('llmComplete — Anthropic is BYOK-only', () => {
 		expect(calls[0].body.system).toBe('s');
 		expect(calls[0].body.messages).toEqual([{ role: 'user', content: 'u' }]);
 	});
+
+	it('degrades from a failing BYOK key to the free providers', async () => {
+		process.env.GROQ_API_KEY = 'g';
+		const calls = installFetch({
+			[ANTHROPIC_HOST]: errResp(401, 'bad byok key'),
+			[GROQ_HOST]: openaiShape('groq rescues'),
+		});
+		const out = await llm.llmComplete({ system: 's', user: 'u', anthropicKey: 'sk-bad' });
+		expect(out.provider).toBe('groq');
+		expect(calls.map((c) => (c.url.includes(ANTHROPIC_HOST) ? 'anthropic' : 'groq'))).toEqual(['anthropic', 'groq']);
+	});
 });
 
-describe('llmComplete — opt-in server Anthropic (serverAnthropic)', () => {
-	it('uses the server ANTHROPIC_API_KEY first when serverAnthropic is set', async () => {
+describe('llmComplete — paid server keys are the automatic last resort', () => {
+	it('never touches a paid key while a free provider can serve', async () => {
 		process.env.ANTHROPIC_API_KEY = 'sk-server';
-		process.env.GROQ_API_KEY = 'g';
-		const calls = installFetch({ [ANTHROPIC_HOST]: anthropicShape('server claude') });
-		const out = await llm.llmComplete({ system: 's', user: 'u', serverAnthropic: true });
-		expect(out.provider).toBe('anthropic');
-		expect(out.text).toBe('server claude');
-		expect(calls[0].headers['x-api-key']).toBe('sk-server');
-	});
-
-	it('still ignores the server key when serverAnthropic is NOT set (default policy)', async () => {
-		process.env.ANTHROPIC_API_KEY = 'sk-server';
+		process.env.OPENAI_API_KEY = 'sk-oai';
 		process.env.GROQ_API_KEY = 'g';
 		const calls = installFetch({ [GROQ_HOST]: openaiShape('groq wins') });
 		const out = await llm.llmComplete({ system: 's', user: 'u' });
 		expect(out.provider).toBe('groq');
-		expect(calls.every((c) => !c.url.includes(ANTHROPIC_HOST))).toBe(true);
+		expect(calls.every((c) => !c.url.includes(ANTHROPIC_HOST) && !c.url.includes(OPENAI_HOST))).toBe(true);
 	});
 
-	it('falls over from server Anthropic to a free provider when Anthropic errors', async () => {
-		process.env.ANTHROPIC_API_KEY = 'sk-server';
+	it('falls through to server Anthropic when every free provider fails', async () => {
 		process.env.GROQ_API_KEY = 'g';
+		process.env.OPENROUTER_API_KEY = 'o';
+		process.env.NVIDIA_API_KEY = 'nvapi-x';
+		process.env.ANTHROPIC_API_KEY = 'sk-server';
 		const calls = installFetch({
-			[ANTHROPIC_HOST]: errResp(429),
-			[GROQ_HOST]: openaiShape('groq fallback'),
+			[GROQ_HOST]: errResp(500),
+			[OPENROUTER_HOST]: errResp(429),
+			[NVIDIA_HOST]: errResp(503),
+			[ANTHROPIC_HOST]: anthropicShape('paid backstop'),
 		});
-		const out = await llm.llmComplete({ system: 's', user: 'u', serverAnthropic: true });
-		expect(out.provider).toBe('groq');
-		expect(out.text).toBe('groq fallback');
-		expect(calls.map((c) => (c.url.includes(ANTHROPIC_HOST) ? 'anthropic' : 'groq'))).toEqual(['anthropic', 'groq']);
+		const out = await llm.llmComplete({ system: 's', user: 'u' });
+		expect(out.provider).toBe('anthropic');
+		expect(out.text).toBe('paid backstop');
+		expect(calls[calls.length - 1].headers['x-api-key']).toBe('sk-server');
+		// Every free provider was tried before any platform money was spent.
+		expect(calls.slice(0, -1).every((c) => !c.url.includes(ANTHROPIC_HOST))).toBe(true);
 	});
 
-	it('llmConfigured reflects serverAnthropic when only the server key is present', () => {
+	it('falls through to OpenAI when Anthropic also fails', async () => {
+		process.env.GROQ_API_KEY = 'g';
 		process.env.ANTHROPIC_API_KEY = 'sk-server';
-		expect(llm.llmConfigured()).toBe(false); // default policy ignores server key
-		expect(llm.llmConfigured({ serverAnthropic: true })).toBe(true);
+		process.env.OPENAI_API_KEY = 'sk-oai';
+		const calls = installFetch({
+			[GROQ_HOST]: errResp(500),
+			[ANTHROPIC_HOST]: errResp(529),
+			[OPENAI_HOST]: openaiShape('openai backstop'),
+		});
+		const out = await llm.llmComplete({ system: 's', user: 'u' });
+		expect(out.provider).toBe('openai');
+		expect(out.text).toBe('openai backstop');
+		const openaiCall = calls.find((c) => c.url.includes(OPENAI_HOST));
+		expect(openaiCall.headers.authorization).toBe('Bearer sk-oai');
+		expect(openaiCall.body.model).toBe('gpt-4o-mini');
+	});
+
+	it('does not add server Anthropic when a BYOK key already leads', async () => {
+		process.env.ANTHROPIC_API_KEY = 'sk-server';
+		let anthropicCalls = 0;
+		globalThis.fetch = vi.fn(async (url) => {
+			if (String(url).includes(ANTHROPIC_HOST)) {
+				anthropicCalls += 1;
+				return errResp(401, 'bad key');
+			}
+			throw new Error(`unexpected fetch: ${url}`);
+		});
+		await expect(llm.llmComplete({ system: 's', user: 'u', anthropicKey: 'sk-byok' })).rejects.toMatchObject({ status: 502 });
+		expect(anthropicCalls).toBe(1); // BYOK only — platform key never re-buys Claude
+	});
+
+	it('llmConfigured is true with only a paid server key (gates stay open)', () => {
+		process.env.ANTHROPIC_API_KEY = 'sk-server';
+		expect(llm.llmConfigured()).toBe(true);
+		clearKeys();
+		process.env.OPENAI_API_KEY = 'sk-oai';
+		expect(llm.llmConfigured()).toBe(true);
 	});
 });
 

@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Built-in AI stays up when a provider account runs dry",
+			"summary": "The platform's built-in AI (chat, tutor, fact-checker, persona tools) now rotates across multiple OpenRouter accounts: when one account runs out of credits or hits a rate limit, the next takes over automatically, before any of the response has streamed. Paid x402 endpoints that previously returned errors during a provider outage now degrade to a backup account instead of failing.",
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Live $THREE market data, longer trade streams, and tutor session fixes",
 			"summary": "$THREE market stats (price, holders, liquidity) are flowing again from our primary data source — a missing request header had been silently failing it to backups for days. Live trade streams no longer cut out after 30 seconds; they now run their full duration. The Pay-As-You-Learn Tutor no longer errors when resuming a session — running tabs persist correctly across questions — and Fact Checker results are cached properly so repeat checks of the same claim return instantly.",
 			"tags": [
