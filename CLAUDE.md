@@ -112,8 +112,11 @@ Fix every issue found. Then report complete.
 ## Workflow
 
 - Use TodoWrite for any task with 3+ steps. Mark items complete in real time.
-- Before stopping on a feature task, run the **completionist** subagent to audit your changed files for the rules above. Fix every item it flags. Then stop.
 - Communication: short. State what you did, what's next. No trailing recaps.
+
+## Commit & push: do it immediately, no questions
+
+When the user says commit and/or push, execute it right away. Do NOT run the completionist subagent, audits, tests, diff reviews, scans, or any other pre-commit step first. Do NOT ask clarifying questions or pause for confirmation — staging, committing, and pushing IS the explicit approval. Just run the git commands and report the result.
 
 ## Git: push to BOTH remotes
 
@@ -126,7 +129,7 @@ When the user asks you to push (or to commit + push):
 1. `git push threeD main`
 2. `git push threews main`
 
-Run both in the same step. If one fails, surface the error — do not silently leave the repos out of sync. Never push without explicit user approval, and never force-push to either remote without an explicit request.
+Run both in the same step. If one fails, surface the error — do not silently leave the repos out of sync. Never force-push to either remote without an explicit request.
 
 ## Git: NEVER pull or fetch from 3D-Agent
 
