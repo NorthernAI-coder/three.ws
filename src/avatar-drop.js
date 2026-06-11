@@ -7,7 +7,7 @@ import {
 	Vector3,
 	AmbientLight,
 	DirectionalLight,
-	Clock,
+	Timer,
 	AnimationMixer,
 	AnimationClip,
 	LoopRepeat,
@@ -408,7 +408,7 @@ export function initAvatarDrop(sectionEl) {
 		.catch(e => log.warn('[avatar-drop] boot failed', e));
 
 	// Render loop — paused when the section is offscreen or the tab is hidden.
-	const clock = new Clock();
+	const clock = new Timer();
 	let running = false;
 	let onScreen = true;
 
@@ -416,6 +416,7 @@ export function initAvatarDrop(sectionEl) {
 		if (!running) return;
 		requestAnimationFrame(tick);
 		try {
+			clock.update();
 			const dt = Math.min(clock.getDelta(), 0.05);
 			mixer?.update(dt);
 			updateSeq(dt);
@@ -428,7 +429,7 @@ export function initAvatarDrop(sectionEl) {
 		const next = onScreen && document.visibilityState !== 'hidden';
 		if (next === running) return;
 		running = next;
-		if (running) { clock.getDelta(); tick(); }
+		if (running) { clock.update(); tick(); }
 	}
 
 	const visObs = new IntersectionObserver(entries => {

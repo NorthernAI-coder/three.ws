@@ -14,7 +14,7 @@ import {
 	Box3,
 	CanvasTexture,
 	CircleGeometry,
-	Clock,
+	Timer,
 	Color,
 	ConeGeometry,
 	CylinderGeometry,
@@ -1565,7 +1565,7 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
 
 // ── Main loop ─────────────────────────────────────────────────────────────
-const clock = new Clock();
+const clock = new Timer();
 const moveWorld = new Vector3();
 const moveForward = new Vector3();
 const moveRight = new Vector3();
@@ -1626,6 +1626,7 @@ function readMoveInput() {
 }
 
 function tick() {
+	clock.update();
 	const dt = Math.min(clock.getDelta(), 0.05); // clamp huge frames after a tab switch
 
 	// Right-stick look — rotate the follow-camera while the stick is held.

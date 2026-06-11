@@ -155,11 +155,12 @@ export async function createAgentUI(userOptions = {}) {
 	if (clips.idle) agent.animator.play('idle', { loop: true });
 
 	// Render loop
-	const clock = new THREE.Clock();
+	const clock = new THREE.Timer();
 	(function tick() {
 		if (agent._destroyed) return;
 		agent._raf = requestAnimationFrame(tick);
 		try {
+			clock.update();
 			const dt = Math.min(clock.getDelta(), 0.05);
 			agent.animator.update(dt);
 			rendererCtx.updateParallax();

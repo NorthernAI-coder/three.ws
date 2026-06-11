@@ -71,7 +71,7 @@ export function sceneInitializer(canvasId) {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    const clock = new THREE.Clock();
+    const clock = new THREE.Timer();
 
     const handleMouseClick = (event) => {
         const isCtrlPressed = event.ctrlKey;
@@ -100,6 +100,7 @@ export function sceneInitializer(canvasId) {
     const animateLoop = () => {
         if (!animating) return;
         requestAnimationFrame(animateLoop);
+        clock.update();
         const delta = clock.getDelta();
         controls.target.clamp(minPan, maxPan);
         controls?.update();

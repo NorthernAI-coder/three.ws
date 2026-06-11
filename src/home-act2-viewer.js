@@ -18,7 +18,7 @@ import {
 	AnimationClip,
 	Box3,
 	Vector3,
-	Clock,
+	Timer,
 	HemisphereLight,
 	DirectionalLight,
 	ACESFilmicToneMapping,
@@ -71,7 +71,7 @@ export class Act2Viewer {
 		this._manifestPromise = null;
 
 		this._loader = new GLTFLoader();
-		this._clock = new Clock();
+		this._clock = new Timer();
 		this._modelYaw = 0;
 		this._modelFocusY = 1.0;
 		this._focusX = 0;
@@ -103,6 +103,7 @@ export class Act2Viewer {
 
 	_tick() {
 		if (this._disposed) return;
+		this._clock.update();
 		const dt = this._clock.getDelta();
 		if (this.mixer) this.mixer.update(dt);
 		if (this.model && !this._externalOrbit) {

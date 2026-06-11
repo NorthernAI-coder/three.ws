@@ -5,7 +5,7 @@
 import {
 	AmbientLight,
 	CircleGeometry,
-	Clock,
+	Timer,
 	Color,
 	DirectionalLight,
 	Group,
@@ -317,7 +317,7 @@ export function initWalkPreview(container) {
 	ro.observe(container);
 
 	// ── Tick ─────────────────────────────────────────────────────────
-	const clock = new Clock();
+	const clock = new Timer();
 	const moveWorld = new Vector3();
 	const moveForward = new Vector3();
 	const moveRight = new Vector3();
@@ -328,6 +328,7 @@ export function initWalkPreview(container) {
 		if (!running) return;
 		requestAnimationFrame(tick);
 
+		clock.update();
 		const dt = Math.min(clock.getDelta(), 0.05);
 
 		// Jump
@@ -449,8 +450,7 @@ export function initWalkPreview(container) {
 		const next = onScreen && document.visibilityState !== 'hidden';
 		if (next === running) return;
 		running = next;
-		if (running) { clock.start(); tick(); }
-		else clock.stop();
+		if (running) { clock.reset(); tick(); }
 	}
 
 	const observer = new IntersectionObserver((entries) => {

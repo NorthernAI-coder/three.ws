@@ -192,11 +192,12 @@ async function start() {
 
 			renderNamePlate(host, cfg, palette);
 
-			const clock = new THREE.Clock();
+			const clock = new THREE.Timer();
 			let t = 0;
 			const baseScale = root.scale.clone();
 			function tick() {
 				requestAnimationFrame(tick);
+				clock.update();
 				const dt = clock.getDelta();
 				t += dt;
 				if (mixer) mixer.update(dt);

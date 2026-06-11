@@ -192,7 +192,7 @@ function initScene() {
 	starfield = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x4a5677, size: 0.06, transparent: true, opacity: 0.7 }));
 	scene.add(starfield);
 
-	clock = new THREE.Clock();
+	clock = new THREE.Timer();
 	window.addEventListener('resize', onResize);
 	sceneOk = true;
 	return true;
@@ -209,8 +209,9 @@ const _v = new THREE.Vector3();
 function animate() {
 	requestAnimationFrame(animate);
 	if (!sceneOk) return;
+	clock.update();
 	const dt = clock.getDelta();
-	const t  = clock.elapsedTime;
+	const t  = clock.getElapsed();
 	controls.update();
 	core.rotation.y += dt * 0.25;
 	core.rotation.x += dt * 0.08;

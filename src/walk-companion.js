@@ -23,7 +23,7 @@ import {
 	AmbientLight,
 	AnimationMixer,
 	Box3,
-	Clock,
+	Timer,
 	DirectionalLight,
 	Group,
 	HemisphereLight,
@@ -323,7 +323,7 @@ class WalkCompanion {
 		this._restoreState();
 		this._bindEvents();
 		this._greetForRoute();
-		this.clock = new Clock();
+		this.clock = new Timer();
 		this._raf = requestAnimationFrame(this._tick);
 	}
 
@@ -560,7 +560,7 @@ class WalkCompanion {
 			cancelAnimationFrame(this._raf);
 			this._raf = 0;
 		} else if (this.mounted && !this._raf) {
-			this.clock?.getDelta(); // discard the idle gap so dt stays bounded
+			this.clock?.update(); // discard the idle gap so dt stays bounded
 			this._raf = requestAnimationFrame(this._tick);
 		}
 	}
@@ -632,6 +632,7 @@ class WalkCompanion {
 	// ── Render loop ───────────────────────────────────────────────────────────
 	_tick() {
 		if (!this.mounted) return;
+		this.clock.update();
 		const dt = Math.min(this.clock.getDelta(), 0.05);
 
 		// Decide motion: walking while the cursor is in motion and off to one

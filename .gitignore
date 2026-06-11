@@ -215,3 +215,4 @@ scripts/genesis-results.json
 
 # local test wallet (never commit)
 .wallet-test.json
+docs/three-ws-feature-article.md

@@ -458,7 +458,7 @@ function setupThree() {
 
 	raycaster = new THREE.Raycaster();
 	raycaster.params.Points.threshold = 4.2;
-	clock = new THREE.Clock();
+	clock = new THREE.Timer();
 
 	const ro = new ResizeObserver(resize);
 	ro.observe(els.gxStage);
@@ -519,8 +519,9 @@ function resize() {
 }
 
 function tick() {
+	clock.update();
 	const dt = clock.getDelta();
-	const t = clock.getElapsedTime();
+	const t = clock.getElapsed();
 	if (mat) mat.uniforms.uTime.value = t;
 
 	if (fly.active) {

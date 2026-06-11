@@ -5,10 +5,18 @@
 const BASE = (process.argv[2] || 'https://three.ws').replace(/\/$/, '');
 const PHOTO = `${BASE}/accessories/thumbs/hat-cowboy.png`;
 const MAX_ATTEMPTS = Number(process.argv[3] || 150);
+const START_AT = process.argv[4] ? Date.parse(process.argv[4]) : 0; // ISO time to begin bursting
+const INTERVAL_MS = Number(process.argv[5] || 2500);
 const now = () => Date.now();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function submitBurst(body, label) {
+	if (START_AT && now() < START_AT) {
+		const waitMs = START_AT - now();
+		console.log(`[${label}] holding ${Math.round(waitMs / 1000)}s until boundary ${new Date(START_AT).toISOString()}`);
+		await sleep(waitMs);
+		console.log(`[${label}] boundary reached, bursting every ${INTERVAL_MS}ms`);
+	}
 	let lastRA = null;
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 		const t0 = now();
@@ -17,7 +25,7 @@ async function submitBurst(body, label) {
 		let json; try { json = JSON.parse(text); } catch { throw new Error(`${label}: non-JSON ${res.status}: ${text.slice(0, 300)}`); }
 		if (res.status === 429) {
 			if (json.retry_after !== lastRA) { console.log(`[${label}] 429 ra=${json.retry_after}s (attempt ${attempt}) @ ${new Date().toISOString()}`); lastRA = json.retry_after; }
-			await sleep(2500); continue;
+			await sleep(INTERVAL_MS); continue;
 		}
 		if (!res.ok) throw new Error(`${label}: submit ${res.status} — ${JSON.stringify(json)}`);
 		console.log(`[${label}] GOT THROUGH attempt ${attempt} in ${now() - t0}ms → status=${json.status} backend=${json.backend} tier=${json.tier} path=${json.path} eta=${json.eta_seconds}s`);

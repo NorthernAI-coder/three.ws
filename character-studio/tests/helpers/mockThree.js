@@ -150,6 +150,30 @@ export const mockThree = {
     getElapsedTime() {
       return this.running ? (Date.now() - this.startTime) / 1000 : 0
     }
+  },
+
+  Timer: class MockTimer {
+    constructor() {
+      this._delta = 0.016 // 60fps
+      this._elapsed = 0
+    }
+
+    update() {
+      this._elapsed += this._delta
+      return this
+    }
+
+    getDelta() {
+      return this._delta
+    }
+
+    getElapsed() {
+      return this._elapsed
+    }
+
+    reset() {
+      return this
+    }
   }
 }
 

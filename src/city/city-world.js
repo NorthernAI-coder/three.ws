@@ -124,10 +124,11 @@ async function main() {
 	hudEl.style.display = '';
 
 	// ── Game loop ─────────────────────────────────────────────────────────────
-	const clock = new THREE.Clock();
+	const clock = new THREE.Timer();
 
 	(function tick() {
 		requestAnimationFrame(tick);
+		clock.update();
 		const dt = Math.min(clock.getDelta(), 0.05);
 
 		player.update(dt, buildingBoxes, cityCamera.yaw);

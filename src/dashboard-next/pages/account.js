@@ -325,6 +325,8 @@ function renderProviderKeys(host, keyStatus) {
 function renderProfile(host, me) {
 	const initials = initialsOf(me);
 	const handle = me.username || me.handle || (me.email ? me.email.split('@')[0] : '');
+	// Wallet sign-ups get a synthetic `…@wallet.local` address — never surface it as a real email.
+	const realEmail = me.email && !/@wallet\.local$/i.test(me.email) ? me.email : '';
 	const verified = me.email_verified
 		? `<span class="dn-tag success" style="margin-left:8px">verified</span>`
 		: `<span class="dn-tag warn" style="margin-left:8px">unverified</span>`;
@@ -349,8 +351,14 @@ function renderProfile(host, me) {
 						<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3l3 3-9 9H5v-3l9-9z"/></svg>
 					</button>
 				</div>
-				<div style="color:var(--nxt-ink-dim);font-size:13px">
-					${handle ? `@${esc(handle)}` : ''}${handle && me.email ? ' · ' : ''}${me.email ? esc(me.email) : ''}${me.email ? verified : ''}
+				<div style="color:var(--nxt-ink-dim);font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap" data-slot="username-row">
+					${me.username
+						? `<span>@${esc(me.username)}</span>
+							<button class="dn-btn ghost" data-action="edit-username" title="Edit username" style="padding:2px 5px;color:var(--nxt-ink-fade)" aria-label="Edit username">
+								<svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3l3 3-9 9H5v-3l9-9z"/></svg>
+							</button>`
+						: `<button class="dn-btn ghost" data-action="edit-username" style="padding:2px 8px;font-size:12.5px;color:var(--nxt-accent)">+ Set a username</button>`}
+					${realEmail ? `<span style="color:var(--nxt-ink-fade)">·</span><span>${esc(realEmail)}</span>${verified}` : ''}
 				</div>
 				<div style="color:var(--nxt-ink-fade);font-size:12.5px;margin-top:6px">
 					Member since ${esc(memberSince)} · Plan: <a href="/dashboard/monetize" style="color:var(--nxt-accent)">${esc(planName)}</a>
@@ -363,6 +371,9 @@ function renderProfile(host, me) {
 
 	host.querySelector('[data-action="edit-name"]').addEventListener('click', () => {
 		startEditName(host, me);
+	});
+	host.querySelector('[data-action="edit-username"]').addEventListener('click', () => {
+		startEditUsername(host, me);
 	});
 	host.querySelector('[data-action="signout"]').addEventListener('click', async (e) => {
 		const btn = e.currentTarget;
@@ -414,6 +425,64 @@ function startEditName(host, me) {
 
 	row.querySelector('[data-action="save-name"]').addEventListener('click', save);
 	row.querySelector('[data-action="cancel-name"]').addEventListener('click', cancel);
+	input.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') save();
+		else if (e.key === 'Escape') cancel();
+	});
+}
+
+// Mirrors the server-side `username` validator in api/_lib/validate.js.
+const USERNAME_RE = /^[a-zA-Z0-9_-]{3,30}$/;
+
+function startEditUsername(host, me) {
+	const row = host.querySelector('[data-slot="username-row"]');
+	const current = me.username || '';
+	row.innerHTML = `
+		<span style="color:var(--nxt-ink-fade)">@</span>
+		<input type="text" value="${esc(current)}" maxlength="30" placeholder="username"
+			autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" style="
+			background:rgba(255,255,255,0.04);
+			border:1px solid var(--nxt-stroke-strong);
+			border-radius:6px;padding:5px 9px;color:var(--nxt-ink);
+			font-size:13px;min-width:160px;max-width:260px;
+		" />
+		<button class="dn-btn primary" data-action="save-username" style="padding:5px 11px">Save</button>
+		<button class="dn-btn ghost" data-action="cancel-username" style="padding:5px 9px">Cancel</button>
+		<span data-slot="username-err" style="color:#e5484d;font-size:12px;flex-basis:100%"></span>
+	`;
+	const input = row.querySelector('input');
+	const errEl = row.querySelector('[data-slot="username-err"]');
+	input.focus();
+	input.select();
+
+	const cancel = () => renderProfile(host, me);
+	const save = async () => {
+		const next = input.value.trim();
+		if (next === current) return cancel();
+		if (!USERNAME_RE.test(next)) {
+			errEl.textContent = '3–30 characters — letters, numbers, _ or - only.';
+			return;
+		}
+		const saveBtn = row.querySelector('[data-action="save-username"]');
+		saveBtn.disabled = true;
+		saveBtn.textContent = 'Saving…';
+		errEl.textContent = '';
+		try {
+			const r = await patch('/api/auth/profile', { username: next });
+			const updated = r?.user || { ...me, username: next };
+			renderProfile(host, { ...me, ...updated, username: updated.username ?? next });
+			toast('Username saved');
+		} catch (err) {
+			errEl.textContent = err?.status === 409
+				? 'That username is already taken.'
+				: (err?.message ? `Save failed: ${err.message}` : 'Save failed.');
+			saveBtn.disabled = false;
+			saveBtn.textContent = 'Save';
+		}
+	};
+
+	row.querySelector('[data-action="save-username"]').addEventListener('click', save);
+	row.querySelector('[data-action="cancel-username"]').addEventListener('click', cancel);
 	input.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter') save();
 		else if (e.key === 'Escape') cancel();

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T14:33:36.325Z",
+	"generated_at": "2026-06-11T14:36:47.902Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -206,6 +206,16 @@
 			"link": "/skills",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "More paid 3D generations per hour before you hit the limit",
+			"summary": "The paid text-to-3D and image-to-3D lane in Forge had an hourly ceiling of 12 generations per person — tight enough that a focused iteration session, or a few people sharing the same office or campus network, could run into a 'generation limit reached, try again shortly' wall mid-flow. That ceiling is now 30 per hour. You can push through far more revisions in one sitting, while the limit still protects against runaway GPU spend. The free Draft lane keeps its own, even more generous allowance.",
+			"link": "/forge",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

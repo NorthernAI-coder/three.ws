@@ -9,6 +9,7 @@ import { mountShell } from '../shell.js';
 import { requireUser, get, patch, del, esc, relTime, ApiError } from '../api.js';
 import { openSelfieModal } from '../../selfie-modal.js';
 import { openAvatarPicker } from '../../avatar-gallery-picker.js';
+import { createFromTemplate } from '../../shared/template-picker.js';
 
 const PAGE_SIZE = 24;
 const VISIBILITIES = ['public', 'unlisted', 'private'];
@@ -41,8 +42,14 @@ const state = {
 			<div class="dn-av-new-wrap">
 				<button class="dn-btn primary" type="button" data-new>+ New avatar</button>
 				<div class="dn-av-new-pop" data-new-pop hidden role="menu">
+					<div class="dn-av-new-grp">Build</div>
+					<button type="button" role="menuitem" data-new-template>Start from a template</button>
+					<a href="/create/studio" role="menuitem">Build from scratch</a>
+					<div class="dn-av-new-grp">From you</div>
 					<button type="button" role="menuitem" data-new-selfie-quick>Snap a selfie</button>
 					<a href="/create/selfie" role="menuitem">Full selfie flow</a>
+					<a href="/create/prompt" role="menuitem">Describe it · prompt → 3D</a>
+					<div class="dn-av-new-grp">Import</div>
 					<a href="/create" role="menuitem">Upload a GLB</a>
 					<a href="/marketplace" role="menuitem">From an existing avatar</a>
 					<button type="button" role="menuitem" data-browse-gallery>Browse public gallery</button>
@@ -171,6 +178,16 @@ function wireNewMenu(root) {
 		if (e.key === 'Escape' && !pop.hidden) close();
 	});
 
+	const template = pop.querySelector('[data-new-template]');
+	if (template) {
+		template.addEventListener('click', () => {
+			close();
+			// Opens the curated template picker; on selection it stages the GLB
+			// locally and forwards to /create-review (the shared save step).
+			createFromTemplate();
+		});
+	}
+
 	const quickSelfie = pop.querySelector('[data-new-selfie-quick]');
 	if (quickSelfie) {
 		quickSelfie.addEventListener('click', async () => {
@@ -189,7 +206,7 @@ function wireNewMenu(root) {
 	if (browseGallery) {
 		browseGallery.addEventListener('click', async () => {
 			close();
-			const picked = await openAvatarPicker({
+			await openAvatarPicker({
 				source: 'public',
 				title: 'Browse public avatars',
 				showModes: true,
@@ -653,12 +670,14 @@ function emptyBlock() {
 	wrap.style.gridColumn = '1 / -1';
 	wrap.innerHTML = `
 		<h3>No avatars yet.</h3>
-		<p>Build your first 3D agent — drop a selfie or upload a GLB.</p>
+		<p>Build your first 3D agent — start from a ready-made template, sculpt one from scratch, or drop a selfie.</p>
 		<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-			<a class="dn-btn primary" href="/create/selfie">Create from selfie</a>
-			<a class="dn-btn" href="/create">Upload a GLB</a>
+			<button type="button" class="dn-btn primary" data-empty-template>Start from a template</button>
+			<a class="dn-btn" href="/create/studio">Build from scratch</a>
+			<a class="dn-btn" href="/create/selfie">Create from selfie</a>
 		</div>
 	`;
+	wrap.querySelector('[data-empty-template]')?.addEventListener('click', () => createFromTemplate());
 	return wrap;
 }
 
@@ -757,6 +776,16 @@ function injectStyles() {
 		}
 		.dn-av-new-pop a:hover,
 		.dn-av-new-pop button:hover { background: rgba(255,255,255,0.06); }
+		.dn-av-new-grp {
+			padding: 7px 12px 3px;
+			font-size: 10.5px;
+			font-weight: 600;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			color: var(--nxt-ink-fade);
+			pointer-events: none;
+		}
+		.dn-av-new-grp:first-child { padding-top: 3px; }
 
 		.dn-av-filters {
 			display: flex;

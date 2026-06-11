@@ -55,7 +55,7 @@ let rafPending = false; // coalesce hover raycasts to one per frame
 const _pointerClient = { x: 0, y: 0 }; // latest cursor position for tooltip placement
 const fly = { active: false, camFrom: new THREE.Vector3(), camTo: new THREE.Vector3(), tgtFrom: new THREE.Vector3(), tgtTo: new THREE.Vector3(), t: 0, dur: 1 };
 let idleTimer = 0;
-const clock = new THREE.Clock();
+const clock = new THREE.Timer();
 const EXAMPLES = [
 	'a witty crypto trading assistant',
 	'helpful customer support agent',
@@ -191,8 +191,9 @@ function buildPoints() {
 
 // ── Animation loop ────────────────────────────────────────────────────────────
 function animate() {
+	clock.update();
 	const dt = clock.getDelta();
-	const t = clock.elapsedTime;
+	const t = clock.getElapsed();
 	if (material) material.uniforms.uTime.value = t;
 	if (starfield) starfield.rotation.y += dt * 0.006;
 

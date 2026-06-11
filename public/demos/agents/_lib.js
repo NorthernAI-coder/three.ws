@@ -82,7 +82,7 @@ export async function loadClips(mixer, clipMap) {
 }
 
 export function startLoop(renderer, scene, camera, mixer, onTick, rootBone, baseRootPos) {
-	const clock = new THREE.Clock();
+	const clock = new THREE.Timer();
 	const _orig = renderer.render.bind(renderer);
 	if (rootBone && baseRootPos) {
 		renderer.render = (sc, cam) => {
@@ -93,6 +93,7 @@ export function startLoop(renderer, scene, camera, mixer, onTick, rootBone, base
 	(function tick() {
 		requestAnimationFrame(tick);
 		try {
+			clock.update();
 			const dt = Math.min(clock.getDelta(), 0.05);
 			mixer?.update(dt);
 			onTick?.(dt);

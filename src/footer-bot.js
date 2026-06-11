@@ -7,7 +7,7 @@ import {
 	MathUtils,
 	AmbientLight,
 	DirectionalLight,
-	Clock,
+	Timer,
 	AnimationMixer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -62,7 +62,7 @@ import { reserveWebGLContext } from './webgl-budget.js';
 	scene.add(fill);
 
 	let mixer = null;
-	const clock = new Clock();
+	const clock = new Timer();
 	let robot = null;
 
 	// A transient CDN/network blip on the primary asset must never leave an empty
@@ -106,6 +106,7 @@ import { reserveWebGLContext } from './webgl-budget.js';
 	function animate() {
 		if (!running) return;
 		requestAnimationFrame(animate);
+		clock.update();
 		const dt = clock.getDelta();
 		if (mixer) mixer.update(dt);
 		if (robot) robot.rotation.y += rotSpeed * dt;
@@ -117,7 +118,7 @@ import { reserveWebGLContext } from './webgl-budget.js';
 		if (next === running) return;
 		running = next;
 		if (running) {
-			clock.getDelta();
+			clock.update();
 			animate();
 		}
 	}
