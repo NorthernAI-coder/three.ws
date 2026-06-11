@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T05:09:19.145Z",
+	"generated_at": "2026-06-11T05:44:07.698Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -32,7 +32,7 @@
 			"date": "2026-06-11",
 			"type": "update",
 			"title": "Built-in AI stays up when a provider runs dry",
-			"summary": "The platform's built-in AI (chat, the Brain model workbench, embedded site widgets, tutor, fact-checker, persona tools, agent talk, the transaction explainer) now runs on a deeper safety net. Three independent free lanes — Groq, OpenRouter (with automatic rotation across multiple accounts when one runs out of credits or hits a rate limit), and NVIDIA-hosted models — always serve first, and if every one of them fails, the request quietly falls through to a paid backstop instead of showing you an error. Paid x402 endpoints that previously returned errors during a provider outage now degrade the same way.",
+			"summary": "The platform's built-in AI (chat, the Brain model workbench, embedded site widgets, tutor, fact-checker, persona tools, agent talk, the transaction explainer) now runs on a deeper safety net. Three independent free lanes — Groq, OpenRouter (with automatic rotation across multiple accounts when one runs out of credits or hits a rate limit), and NVIDIA-hosted models — always serve first, and if every one of them fails, the request quietly falls through to a paid backstop instead of showing you an error. Paid x402 endpoints that previously returned errors during a provider outage now degrade the same way. Agent memory search now runs on a free embeddings lane with the paid provider demoted to backup, and embedded agents configured for a paid model degrade to the free lanes instead of erroring when that provider's key is dead.",
 			"link": null,
 			"tags": [
 				"improvement",

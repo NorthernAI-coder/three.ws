@@ -396,14 +396,9 @@ export default wrap(async (req, res) => {
 
 		const apiKey = process.env[route.envKey];
 		if (!apiKey) {
-			if (attempt === 0) {
-				return error(
-					res,
-					503,
-					'provider_unavailable',
-					`${route.envKey} not configured on host`,
-				);
-			}
+			// An unconfigured provider is never terminal — even for the requested
+			// model. Degrade through the chain (free lanes follow); the post-loop
+			// guard 503s only when no lane was usable at all.
 			continue;
 		}
 
@@ -435,22 +430,32 @@ export default wrap(async (req, res) => {
 			body: upstreamBody,
 		});
 
-		if (upstream.status === 429 || upstream.status >= 500) {
+		if (!upstream.ok) {
+			// Any upstream failure degrades to the next lane. Account-level
+			// failures (401 dead key, 402 no credits, 403, 429) and outages (5xx)
+			// look identical to the embedded agent, and every remaining lane is a
+			// different account AND model — request-shape errors can't reach here
+			// because the body was validated by bodySchema and is rebuilt per
+			// provider. Terminal only when the whole chain is exhausted.
+			const status = upstream.status;
 			const errText = await upstream.text().catch(() => '');
 			const provider = route.provider || 'anthropic';
-			log.warn('upstream_rate_limited', {
+			log.warn('upstream_error', {
 				agentId,
 				model: usedModel,
 				provider,
-				status: upstream.status,
+				status,
 				attempt,
 				body: errText.slice(0, 400),
 			});
 			if (attempt + 1 < modelFallbacks.length) {
 				console.warn(
-					`[llm/anthropic] ${provider}/${usedModel} returned ${upstream.status} — ` +
+					`[llm/anthropic] ${provider}/${usedModel} returned ${status} — ` +
 						`falling back to ${modelFallbacks[attempt + 1]}`,
 				);
+				// Don't let a failed response leak past the loop if every later
+				// lane turns out to be unconfigured.
+				upstream = null;
 				continue;
 			}
 			// All fallbacks exhausted — surface error.
@@ -459,23 +464,10 @@ export default wrap(async (req, res) => {
 				model: usedModel,
 				kind: route.kind,
 				provider,
-				status: upstream.status,
+				status,
 				body: errText.slice(0, 2000),
 			});
-			return json(res, 502, { error: 'upstream_error', status: upstream.status });
-		}
-
-		if (upstream.status >= 400) {
-			const errText = await upstream.text().catch(() => '');
-			log.error('upstream_error', {
-				agentId,
-				model: usedModel,
-				kind: route.kind,
-				provider: route.provider || 'anthropic',
-				status: upstream.status,
-				body: errText.slice(0, 2000),
-			});
-			return json(res, 502, { error: 'upstream_error', status: upstream.status });
+			return json(res, 502, { error: 'upstream_error', status });
 		}
 
 		// Success — log the model used if it differed from the requested one.

@@ -28,7 +28,7 @@
 			<guid isPermaLink="false">2026-06-11:Built-in AI stays up when a provider runs dry</guid>
 			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>The platform's built-in AI (chat, the Brain model workbench, embedded site widgets, tutor, fact-checker, persona tools, agent talk, the transaction explainer) now runs on a deeper safety net. Three independent free lanes — Groq, OpenRouter (with automatic rotation across multiple accounts when one runs out of credits or hits a rate limit), and NVIDIA-hosted models — always serve first, and if every one of them fails, the request quietly falls through to a paid backstop instead of showing you an error. Paid x402 endpoints that previously returned errors during a provider outage now degrade the same way.</description>
+			<description>The platform's built-in AI (chat, the Brain model workbench, embedded site widgets, tutor, fact-checker, persona tools, agent talk, the transaction explainer) now runs on a deeper safety net. Three independent free lanes — Groq, OpenRouter (with automatic rotation across multiple accounts when one runs out of credits or hits a rate limit), and NVIDIA-hosted models — always serve first, and if every one of them fails, the request quietly falls through to a paid backstop instead of showing you an error. Paid x402 endpoints that previously returned errors during a provider outage now degrade the same way. Agent memory search now runs on a free embeddings lane with the paid provider demoted to backup, and embedded agents configured for a paid model degrade to the free lanes instead of erroring when that provider's key is dead.</description>
 		</item>
 		<item>
 			<title>Embedded avatar chat replies again</title>

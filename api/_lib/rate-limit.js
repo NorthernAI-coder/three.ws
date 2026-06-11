@@ -252,10 +252,11 @@ export const limits = {
 	upload: (userId) => getLimiter('upload', { limit: 60, window: '1 h' }).limit(userId),
 	avatarPatch: (userId) => getLimiter('avatar:patch', { limit: 20, window: '1 h' }).limit(userId),
 	prefsWrite: (userId) => getLimiter('prefs:write', { limit: 30, window: '1 h' }).limit(userId),
-	// Per-user budget for the paid Voyage embeddings endpoint (api/agents/:id/embed).
-	// Keyed by userId (not IP) so the shared platform API key/quota can't be drained
-	// by one account rotating IPs. recall() embeds one query at a time, so a generous
-	// per-minute ceiling still leaves headroom for interactive memory search.
+	// Per-user budget for the embeddings endpoint (api/agents/:id/embed — free
+	// NVIDIA NIM lane first, paid Voyage fallback). Keyed by userId (not IP) so
+	// the shared platform keys/quotas can't be drained by one account rotating
+	// IPs. recall() embeds one query at a time, so a generous per-minute
+	// ceiling still leaves headroom for interactive memory search.
 	embedUser: (userId) => getLimiter('embed:user', { limit: 120, window: '1 m' }).limit(userId),
 	avatarRollback: (userId) =>
 		getLimiter('avatar:rollback', { limit: 10, window: '1 h' }).limit(userId),
