@@ -102,6 +102,9 @@ threews-launch-week-case-study.html
 # Editor/tool temp copies (e.g. activities.js.tmp.4033808.adac1fce2562)
 *.tmp.[0-9]*
 
+# Throwaway inspection scripts (e.g. scripts/.tmp-home-defer-check.mjs)
+.tmp-*
+
 # Backup files (never commit backups)
 *.bak
 
