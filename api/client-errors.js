@@ -27,6 +27,35 @@ function int(value) {
 	return Number.isFinite(value) ? Math.trunc(value) : undefined;
 }
 
+// Reports whose page lives on a local dev / sandbox / private-LAN origin are
+// tooling noise — failed Vite HMR sockets, headless-audit rejections, localhost
+// favicon/glb 404s — and they are indistinguishable from real incidents once
+// they hit the prod function logs. The client reporter (public/error-reporter.js)
+// already refuses to send from these origins, but a stale dev server serving an
+// older bundle, or a headless audit run, can still POST here. Drop them at the
+// boundary so prod logs, Sentry, and ops paging only ever see real-user faults.
+function isDevOriginPage(page) {
+	if (!page) return false;
+	let host;
+	try {
+		host = new URL(page).hostname;
+	} catch {
+		return false;
+	}
+	return (
+		host === 'localhost' ||
+		host === '127.0.0.1' ||
+		host === '0.0.0.0' ||
+		host === '[::1]' ||
+		host === '::1' ||
+		host.endsWith('.local') ||
+		host.endsWith('.app.github.dev') || // GitHub Codespaces forwarded ports
+		host.endsWith('.gitpod.io') ||
+		host.endsWith('.csb.app') ||
+		/^(10|127)\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host) // private LAN
+	);
+}
+
 // Map both CSP report wire formats onto our event shape:
 //   report-uri:  { "csp-report": { "violated-directive", "blocked-uri", ... } }
 //   report-to:   [ { type: "csp-violation", body: { effectiveDirective, blockedURL, ... } } ]
@@ -92,8 +121,15 @@ export default wrap(async (req, res) => {
 	const events = rawEvents.map(sanitizeEvent).filter(Boolean);
 	if (!events.length) return error(res, 400, 'validation_error', 'events array required');
 
+	const page = str(body?.page, LIMITS.url);
+
+	// Acknowledge dev/sandbox-origin batches without logging them. Returning 202
+	// (not an error) keeps a stale client from retrying; the events simply never
+	// pollute the prod logs / Sentry / ops channel.
+	if (isDevOriginPage(page)) return json(res, 202, { received: 0, dropped: events.length });
+
 	const context = {
-		page: str(body?.page, LIMITS.url),
+		page,
 		referrer: str(body?.referrer, LIMITS.url),
 		viewport:
 			body?.viewport && typeof body.viewport === 'object'

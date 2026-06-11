@@ -248,6 +248,39 @@ describe('api/client-errors', () => {
 		expect(logged.message).toBe('CSP violation: object-src');
 	});
 
+	it('drops dev/localhost-origin batches without logging, Sentry, or ops paging', async () => {
+		for (const page of [
+			'http://localhost:5191/xr.html',
+			'http://127.0.0.1:4317/dashboard/',
+			'https://glorious-space-fishstick-x.app.github.dev/create',
+			'http://192.168.1.20:3000/',
+		]) {
+			captureException.mockClear();
+			sendOpsAlert.mockClear();
+			consoleError.mockClear();
+			const { status, body } = await invoke({
+				body: {
+					page,
+					events: [errorEvent(), errorEvent({ type: 'unhandledrejection', message: 'WebSocket closed without opened.' })],
+				},
+			});
+			expect(status).toBe(202);
+			expect(body.received).toBe(0);
+			expect(body.dropped).toBe(2);
+			expect(consoleError.mock.calls.filter(([tag]) => tag === '[client-error]')).toHaveLength(0);
+			expect(captureException).not.toHaveBeenCalled();
+			expect(sendOpsAlert).not.toHaveBeenCalled();
+		}
+	});
+
+	it('still ingests a real prod-origin batch (dev filter does not over-match)', async () => {
+		const { status, body } = await invoke({
+			body: { page: 'https://three.ws/play', events: [errorEvent()] },
+		});
+		expect(status).toBe(202);
+		expect(body.received).toBe(1);
+	});
+
 	it('returns 429 with Retry-After when the IP is rate limited', async () => {
 		state.rateLimited = true;
 		const { status, body, res } = await invoke({ body: { events: [errorEvent()] } });

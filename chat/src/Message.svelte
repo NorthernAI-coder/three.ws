@@ -1,3 +1,13 @@
+<script context="module">
+	// Remembered position (in scroll-content space, so it's scroll-independent) of
+	// the avatar slot the agent last stood in. When a new assistant message mounts
+	// its own <agent-3d>, we use this to walk the avatar down from where it was to
+	// the new slot instead of having it pop into place. Module-scoped so it
+	// survives the per-message remount of the avatar.
+	let prevAgentSlotY = null;
+	const WALK_IN_MS = 820;
+</script>
+
 <script>
 	import { createEventDispatcher, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -32,7 +42,66 @@
 	const dispatch = createEventDispatcher();
 
 	let agentEl;
+	let agentSlotEl;
+	let agentWalkedIn = false;
 	let lastReactedToUserId = null;
+
+	// Position of the avatar slot within the scroll container's content, immune to
+	// scrolling so the walk distance between two messages stays correct.
+	function slotContentY(slot) {
+		const scroller = slot.closest('.scrollable');
+		if (!scroller) return null;
+		return slot.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+	}
+
+	// Walk the avatar down from the previous message's slot into this one. The slot
+	// stays hidden until the agent's GLB is ready, then it appears at the old
+	// position and glides to its resting spot while the walk clip plays — so the
+	// agent looks like it strolled to the new message rather than teleporting.
+	function walkAgentIntoPlace(slot, el) {
+		if (!slot || !el) return;
+		const y = slotContentY(slot);
+		if (y == null) { slot.style.opacity = '1'; return; }
+		const from = prevAgentSlotY;
+		prevAgentSlotY = y;
+
+		const dy = from == null ? 0 : from - y;
+		const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (!dy || reduced) {
+			slot.style.opacity = '1';
+			return;
+		}
+
+		try { el.play?.('walk', { loop: true }); } catch {}
+		slot.style.transition = 'none';
+		slot.style.transform = `translateY(${dy}px)`;
+		slot.style.zIndex = '40';
+		slot.style.opacity = '1';
+		void slot.offsetHeight; // flush the starting position before animating
+		slot.style.transition = `transform ${WALK_IN_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`;
+		slot.style.transform = 'translateY(0)';
+
+		const done = (ev) => {
+			if (ev && ev.propertyName !== 'transform') return;
+			slot.removeEventListener('transitionend', done);
+			slot.style.transition = '';
+			slot.style.transform = '';
+			slot.style.zIndex = '';
+			if (!generating) { try { el.play?.('idle', { loop: true }); } catch {} }
+		};
+		slot.addEventListener('transitionend', done);
+		setTimeout(() => done(), WALK_IN_MS + 120); // safety net if transitionend is missed
+	}
+
+	$: if (agentEl && agentSlotEl && !agentWalkedIn) {
+		agentWalkedIn = true;
+		const slot = agentSlotEl;
+		const run = () => walkAgentIntoPlace(slot, agentEl);
+		if (agentEl._mounted) run();
+		else agentEl.addEventListener('agent:ready', run, { once: true });
+		// Never leave the slot stuck invisible if the avatar fails to load.
+		setTimeout(() => { if (slot && slot.style.opacity === '0') slot.style.opacity = '1'; }, 6000);
+	}
 
 	function faceCamera(el) {
 		const apply = () => {
@@ -255,7 +324,7 @@
 					: 'flex h-8 w-8 md:h-9 md:w-9'}"
 			>
 				{#if message.role === 'assistant' && hasLogo && isLatestAssistant}
-					<span class="w-full h-full overflow-hidden inline-block shrink-0 rounded-[inherit]">
+					<span bind:this={agentSlotEl} class="w-full h-full overflow-hidden inline-block shrink-0 rounded-[inherit] will-change-transform" style="opacity:0;">
 						<!-- svelte-ignore custom-element-no-implicit-ns -->
 						<agent-3d
 							bind:this={agentEl}

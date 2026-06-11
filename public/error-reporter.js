@@ -21,6 +21,30 @@
 	if (win.__threeErrorReporter) return;
 	win.__threeErrorReporter = true;
 
+	// The reporter exists to surface *production* faults. In local dev and sandbox
+	// previews (Codespaces, Gitpod, LAN) the Vite dev server proxies every /api/*
+	// call straight to production, so a POST here would inject localhost noise —
+	// failed Vite HMR sockets, headless-audit rejections — into the prod function
+	// logs where it's indistinguishable from real incidents. Disable the whole
+	// pipeline on those origins; the browser console already shows dev errors.
+	const host = location.hostname;
+	const IS_DEV_HOST =
+		host === 'localhost' ||
+		host === '127.0.0.1' ||
+		host === '0.0.0.0' ||
+		host === '[::1]' ||
+		host === '::1' ||
+		host.endsWith('.local') ||
+		host.endsWith('.app.github.dev') || // GitHub Codespaces forwarded ports
+		host.endsWith('.gitpod.io') ||
+		host.endsWith('.csb.app') ||
+		/^(10|127)\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host); // private LAN
+	if (IS_DEV_HOST) {
+		// Keep the manual hook callable so app code that invokes it never throws.
+		win.reportClientError = () => {};
+		return;
+	}
+
 	const ENDPOINT = '/api/client-errors';
 	const MAX_EVENTS_PER_PAGE = 25; // hard cap so an error loop can't flood the API
 	const MAX_PER_SIGNATURE = 3; // identical errors beyond this only bump `count`
@@ -48,6 +72,18 @@
 	// GPU blocklist, headless. It degrades to its poster on its own; the throw is
 	// neither our bug nor fixable from here, so it only adds noise.
 	const IGNORED_THIRD_PARTY_CODE = /ajax\.googleapis\.com\/ajax\/libs\/model-viewer\//;
+	// Expiring signed URLs embedded in user-generated feed data: GitHub
+	// private-user-images, S3/GCS presigned links, and anything carrying a
+	// short-lived JWT/signature. The token lapses on a timer, so the asset 404s
+	// through no fault of our code, and the UI already swaps in an onerror
+	// fallback tile. These are guaranteed-transient and non-actionable.
+	const IGNORED_EPHEMERAL_ASSETS =
+		/private-user-images\.githubusercontent\.com|[?&](jwt|X-Amz-Signature|X-Goog-Signature|Expires|Signature)=/i;
+	// Vite's HMR client (and React Fast Refresh) raise dev-only rejections such as
+	// "WebSocket closed without opened" when the HMR socket can't connect. These
+	// only ever occur off a dev build; on the off chance a preview surfaces one,
+	// it is tooling noise, never a product fault.
+	const IGNORED_DEV_TOOLING = /\/@vite\/client|\/@react-refresh|vite\/dist\/client/;
 
 	const truncate = (value, max) => {
 		if (typeof value !== 'string' || !value) return undefined;
@@ -128,6 +164,13 @@
 		) {
 			return true;
 		}
+		// Dev-tooling rejections (Vite HMR / Fast Refresh) — never a product fault.
+		if (
+			IGNORED_DEV_TOOLING.test(report.source || '') ||
+			IGNORED_DEV_TOOLING.test(report.stack || '')
+		) {
+			return true;
+		}
 		// A failed service-worker *registration* ("Script …/sw.js load failed") is
 		// a transient network/iOS-Safari hiccup; VitePWA's autoUpdate re-registers
 		// on the next visit, so it self-heals — noise, not an actionable fault.
@@ -137,6 +180,8 @@
 		if (report.type === 'resource' && report.source) {
 			// Privacy-blocker-killed analytics — expected, not actionable.
 			if (IGNORED_RESOURCE_SOURCES.test(report.source)) return true;
+			// Expired signed URLs on third-party user-content — transient by design.
+			if (IGNORED_EPHEMERAL_ASSETS.test(report.source)) return true;
 			// An <img src=""> (or a src that resolves to the page itself) is an
 			// element with no real source, not a missing asset. The browser still
 			// fires a load error for it; classify it as benign rather than a 404.

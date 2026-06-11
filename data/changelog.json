@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-06-11",
+			"title": "Your chat agent now walks to each new reply instead of popping in",
+			"summary": "When you send a message in chat, the 3D agent used to vanish from its old spot and pop into place beside the new reply. Now it walks down the conversation to the new message — appearing where it last stood and gliding into its place with its walking animation playing, so it feels like a character moving through the chat rather than teleporting. The motion respects your system's reduced-motion setting (it simply appears, no slide, if you've asked for less animation), and the very first reply just settles in since there's nowhere to walk from.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/chat"
+		},
+		{
+			"date": "2026-06-11",
+			"title": "Forge share links now open your creation for anyone you send them to",
+			"summary": "When you share a model from Forge, the person who opens the link now sees your actual creation — the 3D model loads straight into the viewer, ready to spin, inspect, and download. Previously a share link only worked for the person who forged the model, because Forge only looked in your own browser's history; recipients landed on an empty Forge. Now the page fetches the shared model by its link and shows it to anyone, even if they've never used Forge before. If a link points to a model that was removed or is still generating, you get a clear message instead of a blank screen.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-11",
 			"title": "Light theme is here — flip the whole site with one tap",
 			"summary": "three.ws now ships a light theme alongside the signature dark one. A new sun/moon toggle sits in the top nav on every page: tap it to switch instantly, and your choice sticks across pages, sessions, and other open tabs. New here, or set to 'Auto' in Settings → Appearance? The site follows your device's light/dark preference automatically. The theme is applied before the page paints, so there's no white flash on load, and the dashboard appearance picker (Dark / Light / Auto) now applies live instead of just saving for later. Dark remains the brand default — nothing changes unless you want it to.",
 			"tags": [

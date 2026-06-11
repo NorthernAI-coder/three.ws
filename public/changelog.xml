@@ -87,6 +87,14 @@
 			<description>The on-chain agents directory now loads from our server-side index instead of contacting every agent's metadata host from your browser — pages render faster and no longer spray network errors. Also: the pump.fun cockpit's sidebar pages are now shareable deep links, mobile nav and footer links meet touch-target guidelines, anonymous visitors no longer trigger failed sign-in requests on Walk and Create, and assorted dead links were removed.</description>
 		</item>
 		<item>
+			<title>Forge share links now open your creation for anyone you send them to</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-11:Forge share links now open your creation for anyone you send them to</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When you share a model from Forge, the person who opens the link now sees your actual creation — the 3D model loads straight into the viewer, ready to spin, inspect, and download. Previously a share link only worked for the person who forged the model, because Forge only looked in your own browser's history; recipients landed on an empty Forge. Now the page fetches the shared model by its link and shows it to anyone, even if they've never used Forge before. If a link points to a model that was removed or is still generating, you get a clear message instead of a blank screen.</description>
+		</item>
+		<item>
 			<title>Free 3D drafts on Forge</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-11:Free 3D drafts on Forge</guid>
@@ -181,6 +189,14 @@
 			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Fixed two provider regressions that blocked Forge generation: model submissions now pin the latest published model version automatically, and the text-to-image step falls back to a healthy provider instead of failing when the preferred one is misconfigured.</description>
+		</item>
+		<item>
+			<title>Your chat agent now walks to each new reply instead of popping in</title>
+			<link>https://three.ws/chat</link>
+			<guid isPermaLink="false">2026-06-11:Your chat agent now walks to each new reply instead of popping in</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you send a message in chat, the 3D agent used to vanish from its old spot and pop into place beside the new reply. Now it walks down the conversation to the new message — appearing where it last stood and gliding into its place with its walking animation playing, so it feels like a character moving through the chat rather than teleporting. The motion respects your system's reduced-motion setting (it simply appears, no slide, if you've asked for less animation), and the very first reply just settles in since there's nowhere to walk from.</description>
 		</item>
 		<item>
 			<title>WebRTC relay and x402 telemetry</title>
