@@ -221,6 +221,19 @@ const appConfig = {
 			],
 			output: {
 				manualChunks(id) {
+					// Node polyfills (buffer/process shims) get their own tiny chunk.
+					// Without this, Rollup colocates the `buffer` module inside the
+					// 1 MB `solana` chunk — and any chunk that needs the injected
+					// Buffer global (e.g. three-addons via its exporters) then
+					// imports the whole solana chunk, which transitively chains
+					// ethers too. That single colocation put ~1.4 MB of crypto code
+					// on the home page's critical path.
+					if (
+						id.includes('node_modules/buffer/') ||
+						id.includes('node_modules/process/') ||
+						id.includes('vite-plugin-node-polyfills')
+					)
+						return 'node-polyfills';
 					if (id.includes('node_modules/three/')) {
 						if (id.includes('three/examples/') || id.includes('three/addons/'))
 							return 'three-addons';
