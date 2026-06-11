@@ -143,12 +143,28 @@ export function createThreeTokenData(opts = {}) {
 	}
 
 	async function loadRevenueShare() {
+		// The endpoint is authed and guests are the common case on the public
+		// token page. Resolve the (cached) session first and skip the request
+		// entirely for guests — issuing it would log a guaranteed-401 network
+		// error to every visitor's console. `me === undefined` means the session
+		// lookup itself failed; fall through and let the request decide.
+		let me;
+		try {
+			me = await getMe();
+		} catch {
+			me = undefined;
+		}
+		if (me === null) {
+			patch('revenueShare', { status: 'ok', unauthenticated: true, error: null });
+			return;
+		}
 		try {
 			const data = await get('/api/three-token/revenue-share');
 			patch('revenueShare', { status: 'ok', unauthenticated: false, error: null, ...data });
 		} catch (err) {
-			// A 401 is not an error here — it just means the visitor is a guest. The
-			// pool-level numbers still come from /stats; only the per-user view is gated.
+			// A 401 is not an error here — it just means the visitor is a guest
+			// (e.g. the session expired between the cached lookup and this call).
+			// Pool-level numbers still come from /stats; only the per-user view is gated.
 			if (err instanceof ApiError && err.status === 401) {
 				patch('revenueShare', { status: 'ok', unauthenticated: true, error: null });
 			} else {

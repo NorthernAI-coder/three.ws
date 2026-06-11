@@ -11,7 +11,7 @@ import {
 	cryptoOptionalBannerHTML,
 	cryptoOptionalTagHTML,
 	injectStyles as injectCryptoOptionalStyles,
-} from '/crypto-optional.js';
+} from '../../shared/crypto-optional.js';
 
 const POLL_MS = 30_000;
 const DAYS_WINDOW = 7;
