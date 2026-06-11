@@ -110,6 +110,79 @@ describe('replicate provider — TRELLIS reconstruct input', () => {
 	});
 });
 
+describe('replicate provider — community-model 404 fallback', () => {
+	// Replicate 404s the unversioned /models/{owner}/{name}/predictions endpoint
+	// for community models (firtoz/trellis included). The provider must resolve
+	// the latest published version and retry through POST /predictions, or every
+	// default-path image→3D submit dies with "resource could not be found".
+	it('resolves the latest version and retries via /predictions on 404', async () => {
+		const calls = [];
+		globalThis.fetch = vi.fn(async (url, opts = {}) => {
+			calls.push({ url: String(url), method: opts.method || 'GET', body: opts.body ? JSON.parse(opts.body) : null });
+			const u = String(url);
+			if (u.endsWith('/models/firtoz/trellis/predictions')) {
+				return new Response(JSON.stringify({ detail: 'The requested resource could not be found.' }), {
+					status: 404,
+					headers: { 'content-type': 'application/json' },
+				});
+			}
+			if (u.endsWith('/models/firtoz/trellis')) {
+				return new Response(JSON.stringify({ latest_version: { id: 'abc123version' } }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				});
+			}
+			if (u.endsWith('/predictions')) {
+				return new Response(JSON.stringify({ id: 'pred_456', status: 'starting' }), {
+					status: 201,
+					headers: { 'content-type': 'application/json' },
+				});
+			}
+			throw new Error(`unexpected fetch: ${u}`);
+		});
+
+		const provider = await freshProvider();
+		const job = await provider.submit({
+			mode: 'reconstruct',
+			params: { images: ['https://img/a.jpg'] },
+			sourceUrl: 'https://img/a.jpg',
+		});
+
+		expect(job.extJobId).toBe('pred_456');
+		const retry = calls.find((c) => c.method === 'POST' && c.url.endsWith('/v1/predictions'));
+		expect(retry).toBeDefined();
+		expect(retry.body.version).toBe('abc123version');
+		// The retried submission must carry the same model input, TRELLIS flags included.
+		expect(retry.body.input.generate_model).toBe(true);
+		expect(retry.body.input.images).toEqual(['https://img/a.jpg']);
+	});
+
+	it('surfaces a clear error when the model has no published version', async () => {
+		globalThis.fetch = vi.fn(async (url, opts = {}) => {
+			const u = String(url);
+			if (u.endsWith('/models/firtoz/trellis/predictions')) {
+				return new Response(JSON.stringify({ detail: 'The requested resource could not be found.' }), {
+					status: 404,
+					headers: { 'content-type': 'application/json' },
+				});
+			}
+			return new Response(JSON.stringify({}), {
+				status: 404,
+				headers: { 'content-type': 'application/json' },
+			});
+		});
+
+		const provider = await freshProvider();
+		await expect(
+			provider.submit({
+				mode: 'reconstruct',
+				params: { images: ['https://img/a.jpg'] },
+				sourceUrl: 'https://img/a.jpg',
+			}),
+		).rejects.toMatchObject({ code: 'mode_unconfigured' });
+	});
+});
+
 describe('replicate provider — GLB extraction from status', () => {
 	function stubStatus(output) {
 		globalThis.fetch = vi.fn(async () =>
