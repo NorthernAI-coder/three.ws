@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Accurate uptime on the x402 Provider Hub</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-11:Accurate uptime on the x402 Provider Hub</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The payment directory was counting every unpaid x402 discovery request (the protocol's standard 402 challenge) as a failed call, dragging three.ws endpoint success rates down even when every endpoint was healthy. Telemetry now reports only real payment attempts, so the published uptime reflects actual service health.</description>
+		</item>
+		<item>
 			<title>Avatar pages back online after image-engine outage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-11:Avatar pages back online after image-engine outage</guid>
@@ -20,7 +28,15 @@
 			<guid isPermaLink="false">2026-06-11:Built-in AI stays up when a provider runs dry</guid>
 			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>The platform's built-in AI (chat, tutor, fact-checker, persona tools, agent talk) now runs on a deeper safety net. Three independent free lanes — Groq, OpenRouter (with automatic rotation across multiple accounts when one runs out of credits or hits a rate limit), and NVIDIA-hosted models — always serve first, and if every one of them fails, the request quietly falls through to a paid backstop instead of showing you an error. Paid x402 endpoints that previously returned errors during a provider outage now degrade the same way.</description>
+			<description>The platform's built-in AI (chat, the Brain model workbench, embedded site widgets, tutor, fact-checker, persona tools, agent talk, the transaction explainer) now runs on a deeper safety net. Three independent free lanes — Groq, OpenRouter (with automatic rotation across multiple accounts when one runs out of credits or hits a rate limit), and NVIDIA-hosted models — always serve first, and if every one of them fails, the request quietly falls through to a paid backstop instead of showing you an error. Paid x402 endpoints that previously returned errors during a provider outage now degrade the same way.</description>
+		</item>
+		<item>
+			<title>Embedded avatar chat replies again</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-11:Embedded avatar chat replies again</guid>
+			<pubDate>Thu, 11 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Avatars embedded straight from their public profile — the one-line widget on the homepage and anywhere else the avatar URL is dropped in — went silent when you typed a message: the chat box accepted your text but the avatar never answered. The built-in AI now recognizes a plain public avatar and serves it the free we-pay model with the same per-avatar rate and usage limits, so embedded chat responds out of the box.</description>
 		</item>
 		<item>
 			<title>Faster, quieter agents directory and site-wide page polish</title>

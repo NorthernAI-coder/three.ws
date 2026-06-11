@@ -14,9 +14,17 @@ process.env.UPSTASH_REDIS_REST_TOKEN ||= 'redis-token';
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
 const policyState = { policy: null };
+const avatarPolicyState = { policy: null };
+const avatarState = { avatar: null };
 
 vi.mock('../../api/_lib/embed-policy.js', () => ({
 	readEmbedPolicy: vi.fn(async () => policyState.policy),
+	readEmbedPolicyByAvatarId: vi.fn(async () => avatarPolicyState.policy),
+	defaultEmbedPolicy: () => JSON.parse(JSON.stringify(DEFAULT_POLICY)),
+}));
+
+vi.mock('../../api/_lib/avatars.js', () => ({
+	getAvatar: vi.fn(async () => avatarState.avatar),
 }));
 
 const rlState = {
@@ -177,10 +185,28 @@ const WE_PAY_POLICY = {
 	storage: { primary: 'r2', pinned_ipfs: false, onchain_attested: false },
 };
 
+// Mirrors embed-policy.js defaultEmbedPolicy() — the we-pay free-model policy
+// granted to bare public-avatar embeds that have no agent_identity row.
+const DEFAULT_POLICY = {
+	version: 1,
+	origins: { mode: 'allowlist', hosts: [] },
+	surfaces: { script: true, iframe: true, widget: true, mcp: false },
+	brain: {
+		mode: 'we-pay',
+		proxy_url: null,
+		monthly_quota: 1000,
+		rate_limit_per_min: 10,
+		model: 'meta-llama/llama-3.3-70b-instruct:free',
+	},
+	storage: { primary: 'r2', pinned_ipfs: false, onchain_attested: false },
+};
+
 // ── Reset between tests ───────────────────────────────────────────────────
 
 beforeEach(() => {
 	policyState.policy = JSON.parse(JSON.stringify(WE_PAY_POLICY));
+	avatarPolicyState.policy = null;
+	avatarState.avatar = null;
 	rlState.ip = { success: true };
 	rlState.agent = { success: true };
 	usageEvents.length = 0;
@@ -200,8 +226,40 @@ describe('/api/llm/anthropic — agent + policy gating', () => {
 		expect(body.error).toBe('validation_error');
 	});
 
-	it('returns 404 when policy not found for agent', async () => {
+	it('returns 404 when no agent, avatar-agent, or public avatar matches', async () => {
 		policyState.policy = null;
+		avatarPolicyState.policy = null;
+		avatarState.avatar = null;
+		const { status, body } = await invoke({ body: VALID_BODY });
+		expect(status).toBe(404);
+		expect(body.error).toBe('not_found');
+	});
+
+	it('falls back to the agent_identity linked by avatar_id', async () => {
+		policyState.policy = null;
+		avatarPolicyState.policy = JSON.parse(JSON.stringify(WE_PAY_POLICY));
+		const { status } = await invoke({ body: VALID_BODY });
+		expect(status).toBe(200);
+	});
+
+	it('grants the default we-pay policy to a bare public avatar embed', async () => {
+		policyState.policy = null;
+		avatarPolicyState.policy = null;
+		avatarState.avatar = { id: 'avatar-uuid', visibility: 'public' };
+		// The default policy serves the free OpenRouter model.
+		process.env.OPENROUTER_API_KEY = 'sk-or-test';
+		try {
+			const { status } = await invoke({ body: VALID_BODY });
+			expect(status).toBe(200);
+		} finally {
+			delete process.env.OPENROUTER_API_KEY;
+		}
+	});
+
+	it('does not grant a policy to a private avatar', async () => {
+		policyState.policy = null;
+		avatarPolicyState.policy = null;
+		avatarState.avatar = { id: 'avatar-uuid', visibility: 'private' };
 		const { status, body } = await invoke({ body: VALID_BODY });
 		expect(status).toBe(404);
 		expect(body.error).toBe('not_found');

@@ -182,24 +182,30 @@ function buildMiddleware() {
 	}
 }
 
-// Paid x402 surfaces, by path. Three groups:
+// Paid x402 surfaces, by path. Two groups:
 //   1. MCP servers + payer/dispatcher routes (each one settles x402 payments).
-//   2. /api/x402/* paid services — every route here 402-challenges EXCEPT the
-//      free metadata/read endpoints (admin console, DID document, buyer
-//      receipt lookup), which must not pollute the public zauth registry.
-//   3. Agent payment routes (delegated x402 calls + invoice payments).
+//   2. Agent payment routes (delegated x402 calls + invoice payments).
+//
+// /api/x402/* paid services are deliberately NOT path-monitored. Every x402
+// buyer flow starts with an unpaid request that gets the mandatory 402
+// challenge — a body whose first field is `error`, which the SDK's response
+// validation records as a failed call. Path-monitoring those routes therefore
+// reported protocol-correct discovery traffic as downtime on the Provider Hub
+// (success rates of 0–60% on endpoints that were healthy). Those routes are
+// instead reported via the payment-header condition below: a request that
+// actually attempts payment is monitored end-to-end, so genuine post-payment
+// failures (and verification rejections of real payment attempts) still
+// reach the dashboard.
 const MONITORED_SERVERS =
 	/\/api\/(wk-x402|mcp|mcp-3d|mcp-agent|mcp-bazaar|pump-fun-mcp|ibm-mcp|x402-pay)(\/|$)/;
-const MONITORED_X402_FREE = /\/api\/x402\/(admin(\/|$)|did$|my-receipts$|pay-by-name$)/;
-const MONITORED_X402 = /\/api\/x402\/[^/]/;
 const MONITORED_AGENTS =
 	/\/api\/agents\/x402\/|\/api\/agents\/[^/]+\/x402\/|\/api\/agents\/payments\//;
 
 function shouldMonitorReq(req) {
-	if (req.headers?.['x-payment-intent'] || req.headers?.['x-payment']) return true;
+	const h = req.headers || {};
+	if (h['x-payment-intent'] || h['x-payment'] || h['payment-signature']) return true;
 	const p = req.path || '';
 	if (MONITORED_SERVERS.test(p)) return true;
-	if (MONITORED_X402.test(p) && !MONITORED_X402_FREE.test(p)) return true;
 	return MONITORED_AGENTS.test(p);
 }
 

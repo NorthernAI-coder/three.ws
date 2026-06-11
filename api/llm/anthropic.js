@@ -18,7 +18,12 @@ import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { recordEvent, logger } from '../_lib/usage.js';
 import { costMicroUsd } from '../_lib/llm-pricing.js';
-import { readEmbedPolicy } from '../_lib/embed-policy.js';
+import {
+	readEmbedPolicy,
+	readEmbedPolicyByAvatarId,
+	defaultEmbedPolicy,
+} from '../_lib/embed-policy.js';
+import { getAvatar } from '../_lib/avatars.js';
 
 const log = logger('llm.anthropic');
 
@@ -265,12 +270,34 @@ const bodySchema = z.object({
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
+// Resolve the embed policy for the `agent` query param. The param carries
+// whatever uuid the embed was pointed at, which is one of three things:
+//   1. an agent_identity id        — the canonical agent embed
+//   2. an avatar id with an agent   — an agent_identity linked via avatar_id
+//   3. a bare public avatar id      — `/api/avatars/:id`, the documented embed
+//      source (see src/manifest.js). These have no agent_identity row, so they
+//      fall through to the default we-pay free-model policy. Without this the
+//      homepage avatar widget (and any bare-avatar embed) chats into a 404.
+// Private/unlisted avatars and unknown ids resolve to null → caller 404s.
+async function resolveEmbedPolicy(id) {
+	const byAgentId = await readEmbedPolicy(id);
+	if (byAgentId) return byAgentId;
+
+	const byAvatarId = await readEmbedPolicyByAvatarId(id);
+	if (byAvatarId) return byAvatarId;
+
+	const avatar = await getAvatar({ id });
+	if (avatar && avatar.visibility === 'public') return defaultEmbedPolicy();
+
+	return null;
+}
+
 export default wrap(async (req, res) => {
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('agent');
 
 	let policy = null;
-	if (agentId) policy = await readEmbedPolicy(agentId);
+	if (agentId) policy = await resolveEmbedPolicy(agentId);
 
 	const corsOrigins = buildCorsAllowlist(policy);
 	if (cors(req, res, { origins: corsOrigins, methods: 'POST,OPTIONS' })) return;
