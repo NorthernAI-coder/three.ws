@@ -13,6 +13,18 @@
       "skillPath": "skills/fund/SKILL.md",
       "computedHash": "768de63f7dea195c12afbeed7190c08c67d53487732628f0ca1d761a0eab04e1"
     },
+    "metamask-agent-wallet": {
+      "source": "MetaMask/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/metamask-agent-wallet/SKILL.md",
+      "computedHash": "5951a97da91b6186fd8eb8f811e42be35834fe14c0fe007642bfb75a1bd226d0"
+    },
+    "metamask-agent-workflows": {
+      "source": "MetaMask/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/metamask-agent-workflows/SKILL.md",
+      "computedHash": "95a8b3a6a57419f60ae96a8b3c6dc65b123a0e7d64e288bd88ddfbd4f574bb82"
+    },
     "monetize-service": {
       "source": "coinbase/agentic-wallet-skills",
       "sourceType": "github",
