@@ -46,7 +46,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ### Phase 2 — Speech back online
 - [x] **T2.1** [20-tts-lane.md](20-tts-lane.md) — free TTS lane in `api/tts/speak.js` (NIM first, OpenAI backstop) — live-verified end-to-end incl. failover order (see Worklog 2026-06-11)
-- [ ] **T2.2** [21-tts-verify.md](21-tts-verify.md) — every speech surface verified in prod + changelog
+- [x] **T2.2** [21-tts-verify.md](21-tts-verify.md) — every speech surface verified in prod + changelog (3 surfaces real-browser verified on the free NIM lane; see Worklog 2026-06-11)
 
 ### Phase 3 — Widget RAG back online
 - [x] **T3.1** [30-embeddings-multiprovider.md](30-embeddings-multiprovider.md) — multi-provider embeddings, vector-space tagging (NIM free primary, OpenAI backstop, per-doc-set tag; same-space query routing + cross-space refusal; 47 tests green — see Worklog 2026-06-11)
@@ -100,6 +100,38 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T2.2 (avatar speech verified on every prod surface) — DONE.**
+  Changelog was already shipped by the concurrent committer in `f4e779e4` ("Avatar
+  voices can speak out loud again", tag `fix`, link `/lipsync`) and `npm run build:pages`
+  validates it — verified holder-readable (no commit jargon), so no new entry needed.
+  Prod is green: latest production deploy `fa4120af` is READY (Vercel API). **Prod free
+  lane proven live first:** anonymous `POST https://three.ws/api/tts/speak` →
+  **HTTP 200, 295 KB valid RIFF/WAVE**, `x-tts-model: magpie-tts-multilingual`,
+  `x-tts-voice: Magpie-Multilingual.EN-US.Aria`, 1.6 s — i.e. the free NVIDIA NIM Magpie
+  lane (non-pcm requests served as WAV, header truthful). **Exhaustive caller grep**
+  (`src/ public/ packages/ extensions/`, repo-wide) found exactly **two web surfaces that
+  POST `/api/tts/speak`** plus one MCP twin that mirrors the chain via its own gRPC NIM
+  client (not the HTTP endpoint); `pages/extension-privacy.html` only documents the
+  endpoint and `/lipsync/mic` takes mic input (no synth). **Real-browser verification**
+  (Playwright + Chromium against PROD, `/tmp` script, deleted after):
+  1. **Lipsync demo** (`/lipsync` → `/demos/lipsync-tts.html`; the inline module is built
+     into `/assets/demos-lipsync-tts-*.js`, which contains the single `/api/tts/speak`
+     call) — real click on **#speak** → 200 on the free magpie lane, `HTMLMediaElement.play()`
+     reached, **zero speech-path console errors**.
+  2. **walk-avatar extension narrator** (read-the-page-aloud) — content script can't be
+     side-loaded in the sandbox, so replayed its EXACT contract (`{text, voice, format:'mp3'}`
+     → blob → `new Audio(objectURL).play()`) inside a real prod page: 200 magpie lane,
+     **`AudioContext.decodeAudioData` decoded 2.09 s of playable audio**, `play()` resolved.
+  3. **avatar-agent-mcp `speak` tool** (contract parity) — 200 magpie lane, **2.60 s
+     decoded**, `play()` resolved; the published twin's own gRPC lane was already
+     live-verified in T2.1. **Surprise:** the prod `/lipsync` HTML is the *built* page
+     (137 lines, meta still names OpenAI TTS) and the speak call lives in the Vite bundle,
+     not the HTML — grepping the served HTML for `tts/speak` is a false negative; check the
+     `/assets/*.js` module. (The page's own meta description still says "OpenAI TTS" — a
+     cosmetic copy stale-spot, not a speech-path bug; out of scope here, noted for cleanup.)
+  Telegram creds absent locally (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHANGELOG_CHAT_ID` unset)
+  → `changelog:push` skipped silently per CLAUDE.md. **Phase 2 complete: avatar speech is
+  back on every production surface via the free lane.**
 - **2026-06-11** — **T3.3 (end-to-end RAG verification in prod) — DONE on PRODUCTION.**
   Verified the whole widget-RAG path live against `https://three.ws` with a self-contained,
   fully-cleaned-up fixture (a throwaway verification user + public talking-agent widget seeded
