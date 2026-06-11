@@ -5255,7 +5255,66 @@ function bindSubmit() {
 	const errorEl = $('market-submit-error');
 	form.addEventListener('submit', (e) => e.preventDefault());
 
-	$('sf-publish').addEventListener('click', async () => {
+	// "Import from JSON" — reveal the paste area, then map LobeHub-compatible
+	// agent JSON ({ config: { systemRole }, meta: { title, … } }) onto the form.
+	const importToggle = $('market-import-toggle');
+	const importArea = $('market-import-area');
+	if (importToggle && importArea) {
+		importToggle.setAttribute('aria-expanded', 'false');
+		importToggle.setAttribute('aria-controls', 'market-import-area');
+		importToggle.addEventListener('click', () => {
+			const open = importArea.hidden;
+			importArea.hidden = !open;
+			importToggle.textContent = open ? 'Import from JSON ↑' : 'Import from JSON ↓';
+			importToggle.setAttribute('aria-expanded', String(open));
+			if (open) $('market-import-json')?.focus();
+		});
+	}
+	$('market-import-apply')?.addEventListener('click', () => {
+		errorEl.hidden = true;
+		const raw = ($('market-import-json')?.value || '').trim();
+		if (!raw) {
+			errorEl.textContent = 'Paste agent JSON first.';
+			errorEl.hidden = false;
+			return;
+		}
+		let j;
+		try {
+			j = JSON.parse(raw);
+		} catch {
+			errorEl.textContent = 'Invalid JSON — check the pasted text and try again.';
+			errorEl.hidden = false;
+			return;
+		}
+		const meta = j.meta || {};
+		const config = j.config || {};
+		const name = meta.title || meta.name || '';
+		const systemRole = config.systemRole || '';
+		if (!name && !systemRole) {
+			errorEl.textContent =
+				'JSON parsed, but no agent fields found — expected { "config": { "systemRole" }, "meta": { "title" } }.';
+			errorEl.hidden = false;
+			return;
+		}
+		if (name) $('sf-name').value = name;
+		if (meta.description) $('sf-description').value = meta.description;
+		if (systemRole) $('sf-prompt').value = systemRole;
+		if (config.greeting) $('sf-greeting').value = config.greeting;
+		if (Array.isArray(meta.tags)) $('sf-tags').value = meta.tags.join(', ');
+		const categorySel = $('sf-category');
+		const category = String(meta.category || '').toLowerCase();
+		if (category && [...categorySel.options].some((o) => o.value === category)) {
+			categorySel.value = category;
+		}
+		importArea.hidden = true;
+		if (importToggle) {
+			importToggle.textContent = 'Import from JSON ↓';
+			importToggle.setAttribute('aria-expanded', 'false');
+		}
+		$('sf-name').focus();
+	});
+
+	const submitAgent = async (publish, btn) => {
 		const body = {
 			name: $('sf-name').value,
 			description: $('sf-description').value,
@@ -5263,9 +5322,12 @@ function bindSubmit() {
 			greeting: $('sf-greeting').value,
 			category: $('sf-category').value,
 			tags: $('sf-tags').value.split(',').map(t => t.trim()).filter(Boolean),
-			publish: true,
+			publish,
 		};
 
+		const idleLabel = btn.textContent;
+		btn.disabled = true;
+		btn.textContent = publish ? 'Publishing…' : 'Saving…';
 		try {
 			errorEl.hidden = true;
 			const r = await fetch(`${API}/marketplace/agents`, {
@@ -5311,13 +5373,29 @@ function bindSubmit() {
 			}
 
 			sfPriceRows.length = 0;
-			closeSubmitModal();
-			loadList(true);
+			if (publish) {
+				closeSubmitModal();
+				loadList(true);
+			} else {
+				// Drafts don't appear in the public list — confirm in place so the
+				// user knows the save landed, then close.
+				btn.textContent = 'Draft saved ✓';
+				setTimeout(() => {
+					closeSubmitModal();
+					btn.textContent = idleLabel;
+				}, 900);
+			}
 		} catch (err) {
 			errorEl.textContent = err.message;
 			errorEl.hidden = false;
+		} finally {
+			btn.disabled = false;
+			if (publish || errorEl.hidden === false) btn.textContent = idleLabel;
 		}
-	});
+	};
+
+	$('sf-publish').addEventListener('click', (e) => submitAgent(true, e.currentTarget));
+	$('sf-save-draft').addEventListener('click', (e) => submitAgent(false, e.currentTarget));
 }
 
 // ── Util ──────────────────────────────────────────────────────────────────

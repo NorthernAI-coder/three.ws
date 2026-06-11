@@ -28,11 +28,10 @@ See [Verification notes](#verification-notes-2026-06-08) at the end.
 | `/demo` | `pages/demo-economy.html` | Agent Economy demo — two AI agents pay each other on-chain. |
 | `/demo/coin` | `public/demo/coin/index.html` | Lottery + reflection demo on a single Pump.fun coin (real-time holder feed, payout history). |
 | `/demo/coin/<mint>` | `public/demo/coin/index.html` | Same page hydrated for a specific base58 mint address (32–44 chars). |
-| `/demo/avatar-os/` | `public/demo/avatar-os/index.html` | OSS avatar pipeline hub linking to the four sub-pages below. |
+| `/demo/avatar-os/` | `public/demo/avatar-os/index.html` | OSS avatar pipeline hub linking to the three sub-pages below. |
 | `/demo/avatar-os/studio.html` | `public/demo/avatar-os/studio.html` | Avatar Studio (rebranded Character Studio fork) embed. |
 | `/demo/avatar-os/selfie.html` | `public/demo/avatar-os/selfie.html` | Selfie-to-avatar flow. |
 | `/demo/avatar-os/combined.html` | `public/demo/avatar-os/combined.html` | Studio + selfie shown side-by-side. |
-| `/demo/avatar-os/live.html` | `public/demo/avatar-os/live.html` | Live capture / streaming variant. |
 | `/demos/` | `public/demos/index.html` | Index of all lab demos. |
 | `/demos/3d-home` | `public/demos/3d-home.html` | "Give your AI a body" homepage demo. |
 | `/demos/avatar-sdk` | `public/demos/avatar-sdk.html` | `@three-ws/avatar` SDK walkthrough. |

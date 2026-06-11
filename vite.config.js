@@ -216,7 +216,6 @@ const appConfig = {
 				'/studio/launch-panel.js',
 				'/studio/fees-panel.js',
 				'./fees-panel.js',
-				'/crypto-optional.js',
 				/^@three-ws\/agent-payments(\/.*)?$/,
 			],
 			output: {
@@ -935,7 +934,10 @@ const appConfig = {
 					// /agents/:id  → rich detail page (UUID expected, validated client-side)
 					else if (!filePath && /^\/bounty\/[^/]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/bounty.html');
-					else if (!filePath && /^\/agents\/[^/]+\/?$/.test(path))
+					// `[^/.]+` (no dot) mirrors vercel.json's `/agents/([^/.]+)` so
+					// static assets like /agents/boot.js fall through to public/
+					// instead of being served the agent-detail HTML shell.
+					else if (!filePath && /^\/agents\/[^/.]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/agent-detail.html');
 					else if (!filePath && /^\/agent\/[^/]+\/edit$/.test(path))
 						filePath = resolve(root, 'pages/agent-edit.html');

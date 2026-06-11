@@ -305,11 +305,6 @@
 		"reason": "Internal research demo embedding the open-source @m3-org/characterstudio package."
 	},
 	{
-		"pattern": "CharacterStudio",
-		"file": "public/demo/avatar-os/live.html",
-		"reason": "Internal research demo describing the default VRM source — references the upstream project name."
-	},
-	{
 		"pattern": "characterstudio",
 		"file": "*",
 		"reason": "Lowercase identifier appears in npm package names (@m3-org/characterstudio), iframe postMessage source values, and config env vars — all internal protocol surfaces."
