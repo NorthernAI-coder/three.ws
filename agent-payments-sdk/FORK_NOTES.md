@@ -123,6 +123,15 @@ auto-links from the `workspaces` array.
 > bundle keeps its own copy on the public package). That duplication predates this
 > work and is a separate cleanup; it is not a blocker here.
 
+## Test fixtures
+
+`src/solana/fixtures/pump-events/*.json` are real captured pump.fun logs whose
+event payloads were re-encoded (same `BorshEventCoder` layouts) so the coin is
+`$three` (`FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`), the bonding curve is
+its derived PDA, and wallets/signatures are deterministic synthetics
+(`sha256("three.ws/fixture/<label>")`). Amounts, reserves, discriminators, and
+program-invoke structure are untouched, so decoder coverage is unchanged.
+
 ## Consumers (repo-wide, excluding the fork itself)
 
 Core (agent-payments program): `api/agents/payments/[action].js`,

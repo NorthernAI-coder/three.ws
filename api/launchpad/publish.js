@@ -10,20 +10,23 @@
 //     The studio stores it in localStorage keyed by slug.
 //   • Subsequent publishes that change anything must include either:
 //       (a) a matching `ownerSecret` in the request body, OR
-//       (b) an authenticated session whose user_id matches the row, OR
-//       (c) the same payout wallet as the existing row.
+//       (b) an authenticated session whose user_id matches the row.
 //   • Without one of those, slug is treated as taken (409 slug_taken).
+//     (Matching the row's payout wallet is deliberately NOT accepted: the
+//     owner wallet is publicly readable via /api/launchpad/get, so it would
+//     let anyone overwrite any page.)
 //
 // This lets anonymous CMS-style editing work end-to-end: publish from a
 // browser → edit later from the same browser → secret travels with the
-// localStorage draft. Lose the secret AND the wallet AND the session → you
-// can't edit. That's the right tradeoff for a no-auth surface.
+// localStorage draft. Lose the secret AND the session → you can't edit.
+// That's the right tradeoff for a no-auth surface.
 
 import { createHash, randomBytes } from 'node:crypto';
 import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
+import { env } from '../_lib/env.js';
 import { z } from 'zod';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -49,36 +52,40 @@ const bodySchema = z.object({
 		wallet: z.string().min(20).max(64),
 		website: z.string().max(300).optional().default(''),
 		theme: z.enum(['light', 'dark']).default('light'),
-		socials: z.object({
-			twitter:  z.string().max(200).optional().default(''),
-			telegram: z.string().max(200).optional().default(''),
-			discord:  z.string().max(200).optional().default(''),
-		}).optional(),
+		socials: z
+			.object({
+				twitter: z.string().max(200).optional().default(''),
+				telegram: z.string().max(200).optional().default(''),
+				discord: z.string().max(200).optional().default(''),
+			})
+			.optional(),
 	}),
 	avatar: z.object({
-		src:  z.string().min(1).max(500),
+		src: z.string().min(1).max(500),
 		name: z.string().max(80),
 	}),
 	copy: z.object({
 		headline: z.string().max(120),
-		tagline:  z.string().max(280),
-		cta:      z.string().max(40),
+		tagline: z.string().max(280),
+		cta: z.string().max(40),
 	}),
-	token: z.object({
-		name:        z.string().max(80).optional().default(''),
-		ticker:      z.string().max(10).optional().default(''),
-		supply:      z.number().int().nonnegative().optional().default(0),
-		description: z.string().max(500).optional().default(''),
-		imageUrl:    z.string().max(500).optional().default(''),
-		mint:        z.string().max(64).optional().default(''),
-	}).optional(),
+	token: z
+		.object({
+			name: z.string().max(80).optional().default(''),
+			ticker: z.string().max(10).optional().default(''),
+			supply: z.number().int().nonnegative().optional().default(0),
+			description: z.string().max(500).optional().default(''),
+			imageUrl: z.string().max(500).optional().default(''),
+			mint: z.string().max(64).optional().default(''),
+		})
+		.optional(),
 	agentSkills: z.array(skillSchema).max(20).optional().default([]),
 	scene: z.object({ src: z.string().max(500).optional().default('') }).optional(),
 	monetize: z.object({
-		kind:     z.string().max(40),
-		price:    z.number().nonnegative(),
+		kind: z.string().max(40),
+		price: z.number().nonnegative(),
 		currency: z.string().max(10),
-		chain:    z.string().max(20),
+		chain: z.string().max(20),
 	}),
 });
 
@@ -117,7 +124,9 @@ export default wrap(async (req, res) => {
 	const parsed = bodySchema.safeParse(body);
 	if (!parsed.success) {
 		const issue = parsed.error.issues[0];
-		return error(res, 400, 'validation_error', issue?.message || 'invalid input', { path: issue?.path });
+		return error(res, 400, 'validation_error', issue?.message || 'invalid input', {
+			path: issue?.path,
+		});
 	}
 	const data = parsed.data;
 
@@ -144,14 +153,21 @@ export default wrap(async (req, res) => {
 		ownerSecret = randomBytes(32).toString('hex');
 		ownerSecretHash = hashSecret(ownerSecret);
 	} else {
-		// Edit auth: any of (a) matching secret, (b) same session user, (c) same wallet.
-		const secretOk = data.ownerSecret &&
+		// Edit auth: (a) matching secret, or (b) same session user. The row's
+		// payout wallet is public (returned by /api/launchpad/get), so knowing it
+		// proves nothing — it must never grant edit rights.
+		const secretOk =
+			data.ownerSecret &&
 			existing.owner_secret_hash &&
 			hashSecret(data.ownerSecret) === existing.owner_secret_hash;
 		const sessionOk = auth?.userId && existing.user_id === auth.userId;
-		const walletOk = existing.owner_wallet?.toLowerCase() === data.identity.wallet.toLowerCase();
-		if (!secretOk && !sessionOk && !walletOk) {
-			return error(res, 409, 'slug_taken', 'that slug is already published — pick a different one');
+		if (!secretOk && !sessionOk) {
+			return error(
+				res,
+				409,
+				'slug_taken',
+				'that slug is already published — pick a different one',
+			);
 		}
 		// Existing row keeps its secret unless the publisher is rotating it.
 		ownerSecretHash = existing.owner_secret_hash;
@@ -163,13 +179,13 @@ export default wrap(async (req, res) => {
 	}
 
 	const config = {
-		identity:    data.identity,
-		avatar:      data.avatar,
-		copy:        data.copy,
-		token:       data.token || {},
+		identity: data.identity,
+		avatar: data.avatar,
+		copy: data.copy,
+		token: data.token || {},
 		agentSkills: data.agentSkills || [],
-		scene:       data.scene || {},
-		monetize:    data.monetize,
+		scene: data.scene || {},
+		monetize: data.monetize,
 	};
 
 	const tokenMint = data.token?.mint?.trim() || null;
@@ -190,13 +206,9 @@ export default wrap(async (req, res) => {
 			updated_at        = now()
 	`;
 
-	const origin = req.headers['x-forwarded-host']
-		? `https://${req.headers['x-forwarded-host']}`
-		: 'https://three.ws';
-
 	const out = {
 		slug: data.slug,
-		url: `${origin}/p/${data.slug}`,
+		url: `${env.APP_ORIGIN}/p/${data.slug}`,
 		publishedAt: new Date().toISOString(),
 	};
 	// Only return the secret on first publish (or first time we minted one for

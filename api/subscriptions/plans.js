@@ -14,6 +14,7 @@ import { getSessionUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { requireCsrf } from '../_lib/csrf.js';
 
 const planSchema = z.object({
 	agent_id: z.string().uuid().optional(),
@@ -93,6 +94,10 @@ async function handleCreate(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt
+	// (the token itself proves intent and isn't auto-attached by browsers).
+	if (!(await requireCsrf(req, res, user.id))) return;
+
 	const ip = clientIp(req);
 	const rl = await limits.publicIp(ip);
 	if (!rl.success) return rateLimited(res, rl);
@@ -128,6 +133,9 @@ async function handlePatch(req, res, planId) {
 	if (!method(req, res, ['PATCH'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const body = parse(patchSchema, await readJson(req));
 
@@ -178,6 +186,9 @@ async function handleDelete(req, res, planId) {
 	if (!method(req, res, ['DELETE'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const [plan] = await sql`
 		UPDATE subscription_plans

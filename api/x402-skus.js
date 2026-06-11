@@ -39,7 +39,10 @@ const createSchema = z.object({
 	action_name: z.string().trim().min(1).max(80),
 	description: z.string().trim().max(2000).optional(),
 	logo_url: httpsUrl.optional(),
-	accent_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#0a84ff'),
+	accent_color: z
+		.string()
+		.regex(/^#[0-9a-fA-F]{6}$/)
+		.default('#0a84ff'),
 	success_url: httpsUrl.optional(),
 });
 
@@ -185,6 +188,9 @@ async function handleUpdate(req, res) {
 async function handleArchive(req, res) {
 	const user = await getSessionUser(req, res);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	const rl = await limits.authIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
 	const id = req.query?.id;
 	if (!id) return error(res, 400, 'missing_id', 'query param `id` required');
 

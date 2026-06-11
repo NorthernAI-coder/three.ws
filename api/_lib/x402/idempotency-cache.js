@@ -24,14 +24,25 @@ if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
 		url: env.UPSTASH_REDIS_REST_URL,
 		token: env.UPSTASH_REDIS_REST_TOKEN,
 	});
+} else if (IS_PROD && !ALLOW_MEMORY_FALLBACK) {
+	// No Redis in production and no explicit opt-in: refuse to boot rather than
+	// silently degrade to a per-instance Map that can't dedup across Vercel
+	// replicas (a replay-protection hole). The comment used to claim this was
+	// enforced while the code only warned — now it actually is. An operator who
+	// truly wants the per-container fallback must set X402_ALLOW_MEMORY_FALLBACK=1.
+	throw new Error(
+		'[x402-idempotency] refusing to boot in production without Upstash: set ' +
+			'UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN for cross-replica replay ' +
+			'protection, or set X402_ALLOW_MEMORY_FALLBACK=1 to explicitly accept the ' +
+			'per-instance memory fallback.',
+	);
 } else if (IS_PROD) {
-	// No Redis configured. Per-instance memory fallback prevents replays
-	// within a single function container but not across Vercel replicas.
-	// Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN to enable
-	// cross-replica deduplication.
+	// Operator explicitly opted into the per-instance memory fallback. It prevents
+	// replays within a single function container but NOT across Vercel replicas.
 	console.warn(
 		'[x402-idempotency] UPSTASH_REDIS_REST_URL/TOKEN not set; ' +
-			'using per-instance memory fallback. Cross-replica replay protection requires Redis.',
+			'X402_ALLOW_MEMORY_FALLBACK=1 — using per-instance memory fallback. ' +
+			'Cross-replica replay protection requires Redis.',
 	);
 }
 

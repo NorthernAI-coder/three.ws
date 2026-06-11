@@ -314,7 +314,10 @@ export default {
 			const name = params?.name;
 			const args = params?.arguments || {};
 			const handlers = buildHandlers(env);
-			const handler = handlers[name];
+			// Own-property lookup only — "__proto__"/"constructor" must not resolve
+			// an inherited member and pass the !handler guard.
+			const handler =
+				typeof name === 'string' && Object.hasOwn(handlers, name) ? handlers[name] : null;
 			if (!handler) {
 				return respond(rpcEnvelope(id, null, { code: -32601, message: `unknown tool: ${name}` }));
 			}

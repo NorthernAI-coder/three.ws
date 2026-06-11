@@ -4,19 +4,25 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Agent · three.ws</title>
-	<meta property="og:type" content="website" />
-	<meta property="og:site_name" content="three.ws" />
-	<meta property="og:url" content="https://three.ws/agent" />
-	<meta property="og:title" content="Agent · three.ws" />
-	<meta property="og:description" content="Meet your 3D AI agent — voice, memory, payments, and an on-chain identity. Built on three.ws." />
-	<meta property="og:image" content="https://three.ws/og-image.png" />
-	<meta property="og:image:width" content="1200" />
-	<meta property="og:image:height" content="630" />
-	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:site" content="@trythreews" />
-	<meta name="twitter:title" content="Agent · three.ws" />
-	<meta name="twitter:description" content="Meet your 3D AI agent — voice, memory, payments, and an on-chain identity. Built on three.ws." />
-	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/agent" />
+		<meta property="og:title" content="Agent · three.ws" />
+		<meta
+			property="og:description"
+			content="Meet your 3D AI agent — voice, memory, payments, and an on-chain identity. Built on three.ws."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Agent · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Meet your 3D AI agent — voice, memory, payments, and an on-chain identity. Built on three.ws."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
 		<meta name="theme-color" content="#0a0a0a" />
 		<link rel="icon" href="/favicon.ico" sizes="any" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -27,7 +33,11 @@
 		<link rel="stylesheet" href="/fonts/fonts.css" />
 		<link rel="stylesheet" href="/src/agent-detail.css" />
 		<link rel="stylesheet" href="/src/pump/launch-token-modal.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"
+			integrity="sha384-Dr98ddmUw2QkdCarNQ+OL7xLty7cSxgR0T7v1tq4UErS/qLV0132sBYTolRAFuOV"
+			crossorigin="anonymous"
+		></script>
 		<style>
 			.ad-main.loading .ad-hero-avatar,
 			.ad-main.loading .ad-hero-body > *,
@@ -58,8 +68,12 @@
 			}
 
 			@keyframes skeleton-shimmer {
-				0% { background-position: 200% 0; }
-				100% { background-position: -200% 0; }
+				0% {
+					background-position: 200% 0;
+				}
+				100% {
+					background-position: -200% 0;
+				}
 			}
 
 			.ad-main.loading .ad-hero-avatar {
@@ -80,11 +94,19 @@
 
 			@media (prefers-reduced-motion: reduce) {
 				.skeleton,
-				.ad-main.loading .ad-hero-avatar { animation: none; }
+				.ad-main.loading .ad-hero-avatar {
+					animation: none;
+				}
 			}
-			.ad-main.loading #ad-name-skeleton { display: block; }
-			.ad-main.loading #ad-meta-skeleton { display: block; }
-			.ad-main.loading #ad-desc-skeleton { display: block; }
+			.ad-main.loading #ad-name-skeleton {
+				display: block;
+			}
+			.ad-main.loading #ad-meta-skeleton {
+				display: block;
+			}
+			.ad-main.loading #ad-desc-skeleton {
+				display: block;
+			}
 
 			.ad-main.loading .ad-card .skeleton-row {
 				display: flex;
@@ -99,12 +121,16 @@
 			.ad-main.loading .ad-card .skeleton-text-short {
 				width: 30%;
 			}
-
 		</style>
-			<link rel="stylesheet" href="/nav.css" />
-			<link rel="stylesheet" href="/footer.css" />
-			<script defer src="/footer-newsletter.js"></script>
-			<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script defer src="/footer-newsletter.js"></script>
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
 	</head>
 	<body>
 		<header><div id="nav-container"></div></header>
@@ -115,14 +141,18 @@
 				<div class="ad-brand">three.ws</div>
 				<nav class="ad-nav">
 					<a href="/">Home</a>
-					<a class="active" href="/marketplace">Agents <span class="ad-beta">BETA</span></a>
+					<a class="active" href="/marketplace"
+						>Agents <span class="ad-beta">BETA</span></a
+					>
 					<a href="/discover">Discover</a>
 					<a href="/create">Create</a>
 					<a href="/docs">Docs</a>
 				</nav>
 				<div class="ad-side-foot">
 					<a href="https://x.com/trythreews" target="_blank" rel="noopener">X</a>
-					<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener">GitHub</a>
+					<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener"
+						>GitHub</a
+					>
 				</div>
 			</aside>
 
@@ -131,7 +161,9 @@
 					<input class="ad-search" placeholder="Search agents…" />
 					<div class="ad-actions">
 						<a class="ad-btn" href="/create">Create Agent</a>
-						<button id="connect-wallet-btn" class="ad-btn ad-btn-primary">Connect Wallet</button>
+						<button id="connect-wallet-btn" class="ad-btn ad-btn-primary">
+							Connect Wallet
+						</button>
 					</div>
 				</div>
 
@@ -145,26 +177,51 @@
 					<div class="ad-hero-body">
 						<div class="ad-hero-title">
 							<h1 id="ad-name"></h1>
-							<div id="ad-name-skeleton" class="skeleton" style="width: 200px; height: 36px; display: none;"></div>
+							<div
+								id="ad-name-skeleton"
+								class="skeleton"
+								style="width: 200px; height: 36px; display: none"
+							></div>
 							<span class="ad-status" id="ad-status">Active</span>
 						</div>
 						<div class="ad-hero-meta">
 							<span id="ad-id-short" class="ad-mono"></span>
-							<button class="ad-copy" data-copy-target="ad-id-short" aria-label="Copy">⧉</button>
+							<button
+								class="ad-copy"
+								data-copy-target="ad-id-short"
+								aria-label="Copy"
+							>
+								⧉
+							</button>
 							<span class="ad-dot">·</span>
 							<span id="ad-asset-kind">Core Asset</span>
 						</div>
 						<div class="ad-market-meta" id="ad-market-meta" hidden>
-							<button type="button" id="d-author" class="ad-author-btn" aria-label="View creator profile">—</button>
+							<button
+								type="button"
+								id="d-author"
+								class="ad-author-btn"
+								aria-label="View creator profile"
+							>
+								—
+							</button>
 							<span class="ad-dot">·</span>
 							<span id="ad-published"></span>
 							<span id="ad-category" class="ad-cat-pill"></span>
 							<span id="ad-views" class="ad-stat-pill"></span>
 							<span id="ad-forks-pill" class="ad-stat-pill" hidden></span>
 						</div>
-						<div id="ad-meta-skeleton" class="skeleton" style="width: 150px; height: 16px; margin-top: 8px; display: none;"></div>
+						<div
+							id="ad-meta-skeleton"
+							class="skeleton"
+							style="width: 150px; height: 16px; margin-top: 8px; display: none"
+						></div>
 						<p class="ad-hero-desc" id="ad-desc"></p>
-						<div id="ad-desc-skeleton" class="skeleton" style="width: 80%; height: 48px; margin-top: 8px; display: none;"></div>
+						<div
+							id="ad-desc-skeleton"
+							class="skeleton"
+							style="width: 80%; height: 48px; margin-top: 8px; display: none"
+						></div>
 						<div class="ad-hero-trust" id="ad-trust-pills"></div>
 						<div class="ad-hero-actions">
 							<a
@@ -173,7 +230,24 @@
 								href="/play"
 								aria-label="See this agent's 3D avatar in the three.ws world"
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+									style="margin-right: 6px"
+								>
+									<path
+										d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+									/>
+									<polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+									<line x1="12" y1="22.08" x2="12" y2="12" />
+								</svg>
 								See in 3D
 							</a>
 							<button
@@ -181,15 +255,43 @@
 								id="ad-share-btn"
 								class="ad-btn"
 								aria-label="Share this agent"
-								style="display:none"
+								style="display: none"
 							>
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:6px"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+									style="margin-right: 6px"
+								>
+									<circle cx="18" cy="5" r="3" />
+									<circle cx="6" cy="12" r="3" />
+									<circle cx="18" cy="19" r="3" />
+									<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+									<line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+								</svg>
 								Share
 							</button>
 							<span class="ad-market-actions" id="ad-market-actions" hidden>
-								<button type="button" id="ad-fork" class="ad-btn ad-btn-primary">⑂ Fork &amp; Chat</button>
-								<button type="button" id="ad-bookmark" class="ad-btn" aria-pressed="false">☆ Save</button>
-								<button type="button" id="ad-export-json" class="ad-btn">↓ Export JSON</button>
+								<button type="button" id="ad-fork" class="ad-btn ad-btn-primary">
+									⑂ Fork &amp; Chat
+								</button>
+								<button
+									type="button"
+									id="ad-bookmark"
+									class="ad-btn"
+									aria-pressed="false"
+								>
+									☆ Save
+								</button>
+								<button type="button" id="ad-export-json" class="ad-btn">
+									↓ Export JSON
+								</button>
 							</span>
 						</div>
 					</div>
@@ -219,7 +321,9 @@
 							maxlength="2000"
 							required
 						/>
-						<button type="submit" class="ad-btn ad-btn-primary" id="d-preview-send">Send</button>
+						<button type="submit" class="ad-btn ad-btn-primary" id="d-preview-send">
+							Send
+						</button>
 					</form>
 					<div class="ad-preview-footer" id="d-preview-footer"></div>
 				</section>
@@ -250,23 +354,26 @@
 					</div>
 					<div class="ad-row">
 						<span class="ad-mono" id="ad-holdings-addr"></span>
-						<button class="ad-copy" data-copy-target="ad-holdings-addr" aria-label="Copy">⧉</button>
+						<button
+							class="ad-copy"
+							data-copy-target="ad-holdings-addr"
+							aria-label="Copy"
+						>
+							⧉
+						</button>
 					</div>
 					<div class="ad-balance"><span id="ad-holdings-sol">0</span> SOL</div>
-                    <div class="flex space-x-2 mt-4 justify-start" id="ad-holdings-actions">
-                        <button id="receive-btn" class="ad-btn">
-                            Receive
-                        </button>
-                        <button id="withdraw-btn" class="ad-btn">
-                            Withdraw
-                        </button>
-                        <button id="swap-btn" class="ad-btn">
-                            Swap
-                        </button>
-                    </div>
-                    <div id="qr-code-container" class="hidden mt-4 p-4 bg-white rounded-lg shadow-md inline-block">
-                        <canvas id="qr-code"></canvas>
-                    </div>
+					<div class="flex space-x-2 mt-4 justify-start" id="ad-holdings-actions">
+						<button id="receive-btn" class="ad-btn">Receive</button>
+						<button id="withdraw-btn" class="ad-btn">Withdraw</button>
+						<button id="swap-btn" class="ad-btn">Swap</button>
+					</div>
+					<div
+						id="qr-code-container"
+						class="hidden mt-4 p-4 bg-white rounded-lg shadow-md inline-block"
+					>
+						<canvas id="qr-code"></canvas>
+					</div>
 				</section>
 
 				<section class="ad-card">
@@ -274,7 +381,9 @@
 						<span class="ad-bullet ad-bullet-amber"></span>
 						<h2>AGENT TOKEN</h2>
 					</div>
-					<div id="ad-token-body" class="ad-muted">No agent token linked for this agent yet.</div>
+					<div id="ad-token-body" class="ad-muted">
+						No agent token linked for this agent yet.
+					</div>
 				</section>
 
 				<section class="ad-card">
@@ -312,17 +421,17 @@
 						<span class="ad-muted">Registry</span>
 						<span class="ad-trust-pills" id="ad-registries"></span>
 					</div>
-					<div class="ad-row ad-row-split" id="ad-sns-row" style="display:none">
+					<div class="ad-row ad-row-split" id="ad-sns-row" style="display: none">
 						<span class="ad-muted">SNS</span>
 						<span class="ad-mono" id="ad-sns"></span>
 					</div>
-					<div class="ad-row ad-row-split" id="ad-voice-row" style="display:none">
+					<div class="ad-row ad-row-split" id="ad-voice-row" style="display: none">
 						<span class="ad-muted">Voice</span>
 						<span id="ad-voice"></span>
 					</div>
 				</section>
 
-				<section class="ad-card" id="ad-reputation-card" style="display:none">
+				<section class="ad-card" id="ad-reputation-card" style="display: none">
 					<div class="ad-card-head">
 						<span class="ad-bullet ad-bullet-amber"></span>
 						<h2>REPUTATION</h2>
@@ -335,13 +444,13 @@
 						<span class="ad-muted">Feedback count</span>
 						<span id="ad-rep-count">0</span>
 					</div>
-					<div class="ad-row ad-row-split" id="ad-rep-stake-row" style="display:none">
+					<div class="ad-row ad-row-split" id="ad-rep-stake-row" style="display: none">
 						<span class="ad-muted">Total stake</span>
 						<span id="ad-rep-stake"></span>
 					</div>
 				</section>
 
-				<section class="ad-card" id="ad-actions-card" style="display:none">
+				<section class="ad-card" id="ad-actions-card" style="display: none">
 					<div class="ad-card-head">
 						<span class="ad-bullet ad-bullet-green"></span>
 						<h2>RECENT ACTIONS</h2>
@@ -350,7 +459,7 @@
 					<div id="ad-actions-list"></div>
 				</section>
 
-				<section class="ad-card" id="ad-memory-card" style="display:none">
+				<section class="ad-card" id="ad-memory-card" style="display: none">
 					<div class="ad-card-head">
 						<span class="ad-bullet"></span>
 						<h2>MEMORY</h2>
@@ -359,7 +468,7 @@
 					<div id="ad-memory-list"></div>
 				</section>
 
-				<section class="ad-card" id="ad-strategy-card" style="display:none">
+				<section class="ad-card" id="ad-strategy-card" style="display: none">
 					<div class="ad-card-head">
 						<span class="ad-bullet ad-bullet-dim"></span>
 						<h2>STRATEGY</h2>
@@ -367,7 +476,7 @@
 					<pre class="ad-raw" id="ad-strategy"></pre>
 				</section>
 
-				<section class="ad-card" id="ad-embed-policy-card" style="display:none">
+				<section class="ad-card" id="ad-embed-policy-card" style="display: none">
 					<div class="ad-card-head">
 						<span class="ad-bullet ad-bullet-muted"></span>
 						<h2>EMBED POLICY</h2>
@@ -379,7 +488,11 @@
 					<div class="ad-card-head">
 						<span class="ad-bullet ad-bullet-amber"></span>
 						<h2 id="ad-reviews-heading">REVIEWS</h2>
-						<span class="ad-pill ad-pill-muted" id="ad-reviews-count" aria-live="polite"></span>
+						<span
+							class="ad-pill ad-pill-muted"
+							id="ad-reviews-count"
+							aria-live="polite"
+						></span>
 					</div>
 					<div id="ad-reviews-body" aria-live="polite">
 						<div class="ad-reviews-skeleton" aria-hidden="true">
@@ -407,17 +520,34 @@
 						<span class="ad-bullet ad-bullet-muted"></span>
 						<h2>EMBED THIS AGENT</h2>
 					</div>
-					<p class="ad-embed-lede">Drop the agent anywhere — as a web component, iframe, or direct link.</p>
+					<p class="ad-embed-lede">
+						Drop the agent anywhere — as a web component, iframe, or direct link.
+					</p>
 					<div class="ad-embed-section">
-						<div class="ad-embed-label"><span>Web component</span><button class="ad-embed-copy" type="button" data-embed="wc">Copy</button></div>
+						<div class="ad-embed-label">
+							<span>Web component</span
+							><button class="ad-embed-copy" type="button" data-embed="wc">
+								Copy
+							</button>
+						</div>
 						<pre class="ad-embed-code" id="ad-embed-wc"></pre>
 					</div>
 					<div class="ad-embed-section">
-						<div class="ad-embed-label"><span>Iframe</span><button class="ad-embed-copy" type="button" data-embed="iframe">Copy</button></div>
+						<div class="ad-embed-label">
+							<span>Iframe</span
+							><button class="ad-embed-copy" type="button" data-embed="iframe">
+								Copy
+							</button>
+						</div>
 						<pre class="ad-embed-code" id="ad-embed-iframe"></pre>
 					</div>
 					<div class="ad-embed-section">
-						<div class="ad-embed-label"><span>Direct link</span><button class="ad-embed-copy" type="button" data-embed="link">Copy</button></div>
+						<div class="ad-embed-label">
+							<span>Direct link</span
+							><button class="ad-embed-copy" type="button" data-embed="link">
+								Copy
+							</button>
+						</div>
 						<pre class="ad-embed-code" id="ad-embed-link"></pre>
 					</div>
 				</section>
@@ -452,28 +582,54 @@
 						<h2>BLOCKCHAIN DETAILS</h2>
 					</div>
 					<div id="ad-onchain"></div>
-					<div class="ad-row ad-row-split"><span class="ad-muted">Active</span><span id="ad-active">true</span></div>
-					<div class="ad-row ad-row-split"><span class="ad-muted">Services</span><span id="ad-svc-count2">0</span></div>
-					<div class="ad-row ad-row-split"><span class="ad-muted">Supported Trust</span><span class="ad-trust-pills" id="ad-supported-trust"></span></div>
-					<div class="ad-row ad-row-split"><span class="ad-muted">Pay-per-call Support</span><span id="ad-x402">No</span></div>
+					<div class="ad-row ad-row-split">
+						<span class="ad-muted">Active</span><span id="ad-active">true</span>
+					</div>
+					<div class="ad-row ad-row-split">
+						<span class="ad-muted">Services</span><span id="ad-svc-count2">0</span>
+					</div>
+					<div class="ad-row ad-row-split">
+						<span class="ad-muted">Supported Trust</span
+						><span class="ad-trust-pills" id="ad-supported-trust"></span>
+					</div>
+					<div class="ad-row ad-row-split">
+						<span class="ad-muted">Pay-per-call Support</span
+						><span id="ad-x402">No</span>
+					</div>
 					<div class="ad-sub">PROTOCOLS</div>
 					<div class="ad-protocols" id="ad-protocols"></div>
 					<div class="ad-cta-row">
-						<a class="ad-cta" id="ad-explorer" target="_blank" rel="noopener">View on Explorer ↗</a>
-						<a class="ad-cta" id="ad-trade" target="_blank" rel="noopener">Trade on Magic Eden ↗</a>
+						<a class="ad-cta" id="ad-explorer" target="_blank" rel="noopener"
+							>View on Explorer ↗</a
+						>
+						<a class="ad-cta" id="ad-trade" target="_blank" rel="noopener"
+							>Trade on Magic Eden ↗</a
+						>
 					</div>
 				</section>
 
 				<footer class="ad-foot">
 					<span>© 2026 three.ws</span>
-					<span><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> · <a href="/content-policy">Content Policy</a></span>
+					<span
+						><a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> ·
+						<a href="/content-policy">Content Policy</a></span
+					>
 				</footer>
 			</main>
 		</div>
 
-		<div class="creator-modal-overlay" id="creator-modal-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="creator-modal-title">
+		<div
+			class="creator-modal-overlay"
+			id="creator-modal-overlay"
+			hidden
+			aria-modal="true"
+			role="dialog"
+			aria-labelledby="creator-modal-title"
+		>
 			<div class="creator-modal" role="document">
-				<button class="creator-modal-close" id="creator-modal-close" aria-label="Close">×</button>
+				<button class="creator-modal-close" id="creator-modal-close" aria-label="Close">
+					×
+				</button>
 				<header class="creator-modal-head">
 					<div class="creator-modal-avatar" id="creator-modal-avatar"></div>
 					<div class="creator-modal-meta">
@@ -485,12 +641,20 @@
 				</header>
 				<div class="creator-modal-body">
 					<section>
-						<h3 class="creator-modal-sectiontitle">Published agents <span id="creator-agents-count" class="muted"></span></h3>
-						<div class="creator-modal-grid" id="creator-agents-grid"><div class="market-empty">Loading…</div></div>
+						<h3 class="creator-modal-sectiontitle">
+							Published agents <span id="creator-agents-count" class="muted"></span>
+						</h3>
+						<div class="creator-modal-grid" id="creator-agents-grid">
+							<div class="market-empty">Loading…</div>
+						</div>
 					</section>
 					<section>
-						<h3 class="creator-modal-sectiontitle">Public avatars <span id="creator-avatars-count" class="muted"></span></h3>
-						<div class="creator-modal-grid" id="creator-avatars-grid"><div class="market-empty">Loading…</div></div>
+						<h3 class="creator-modal-sectiontitle">
+							Public avatars <span id="creator-avatars-count" class="muted"></span>
+						</h3>
+						<div class="creator-modal-grid" id="creator-avatars-grid">
+							<div class="market-empty">Loading…</div>
+						</div>
 					</section>
 				</div>
 			</div>
@@ -500,5 +664,5 @@
 		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
-</body>
+	</body>
 </html>

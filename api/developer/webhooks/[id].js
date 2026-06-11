@@ -6,6 +6,7 @@ import { cors, error, json, method, readJson, wrap } from '../../_lib/http.js';
 import { getSessionUser } from '../../_lib/auth.js';
 import { sql } from '../../_lib/db.js';
 import { EVENT_TYPES } from '../../_lib/webhook-dispatch.js';
+import { assertPublicHttpsUrl } from '../../_lib/ssrf.js';
 
 const URL_MAX_LENGTH = 2048;
 
@@ -48,12 +49,26 @@ export default wrap(async function handler(req, res) {
 		const updates = {};
 		if (typeof body.url === 'string') {
 			const trimmed = body.url.trim();
-			if (trimmed.length > URL_MAX_LENGTH) return error(res, 400, 'bad_request', 'URL too long');
+			if (trimmed.length > URL_MAX_LENGTH)
+				return error(res, 400, 'bad_request', 'URL too long');
 			try {
 				const parsed = new URL(trimmed);
-				if (parsed.protocol !== 'https:') return error(res, 400, 'bad_request', 'Must use HTTPS');
+				if (parsed.protocol !== 'https:')
+					return error(res, 400, 'bad_request', 'Must use HTTPS');
 			} catch {
 				return error(res, 400, 'bad_request', 'Invalid URL');
+			}
+			// SSRF: reject a URL that resolves to a non-public address (delivery
+			// also re-validates and pins per attempt).
+			try {
+				await assertPublicHttpsUrl(trimmed);
+			} catch {
+				return error(
+					res,
+					400,
+					'bad_request',
+					'Webhook URL must resolve to a public address',
+				);
 			}
 			updates.url = trimmed;
 		}

@@ -91,7 +91,8 @@ function buildMiddleware() {
 				rejectEmptyCollections: true,
 				errorFields: ['error', 'error_description'],
 			},
-			// Auto-refund callers who pay and receive a server error or empty body.
+			// Auto-refund callers who pay and then hit a genuine server-side
+			// failure (5xx) or a timeout — NOT a valid empty result (see triggers).
 			// Enabled only when at least one refund keypair is present. Caps are
 			// set above our highest tool price ($0.05) with conservative daily/
 			// monthly ceilings; all three are overridable via env without a deploy.
@@ -104,7 +105,11 @@ function buildMiddleware() {
 				monthlyCapUsd: Number(process.env.ZAUTH_REFUND_MONTHLY_CAP_USD) || 250.0,
 				triggers: {
 					serverError: true,
-					emptyResponse: true,
+					// Anti-griefing: a valid empty result (search with zero matches, empty
+					// claims window) is a normal billable outcome; auto-refunding it let
+					// an attacker farm refunds up to the daily cap with empty-result
+					// calls. Genuine failures still refund via serverError (5xx)/timeout.
+					emptyResponse: false,
 					timeout: true,
 					schemaValidation: false,
 				},

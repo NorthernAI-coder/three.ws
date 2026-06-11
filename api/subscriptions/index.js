@@ -14,6 +14,7 @@ import { getSessionUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { chargeSubscription } from '../_lib/subscription-billing.js';
 
 const subscribeSchema = z.object({
@@ -64,6 +65,10 @@ async function handleSubscribe(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt
+	// (the token itself proves intent and isn't auto-attached by browsers).
+	if (!(await requireCsrf(req, res, user.id))) return;
+
 	const ip = clientIp(req);
 	const rl = await limits.publicIp(ip);
 	if (!rl.success) return rateLimited(res, rl);
@@ -76,7 +81,8 @@ async function handleSubscribe(req, res) {
 	`;
 	if (!plan) return error(res, 404, 'not_found', 'plan not found');
 	if (!plan.active) return error(res, 409, 'conflict', 'plan is no longer active');
-	if (plan.creator_id === user.id) return error(res, 409, 'conflict', 'cannot subscribe to your own plan');
+	if (plan.creator_id === user.id)
+		return error(res, 409, 'conflict', 'cannot subscribe to your own plan');
 
 	const periodMs = plan.interval === 'weekly' ? 7 * 24 * 3600 * 1000 : 30 * 24 * 3600 * 1000;
 	const periodEnd = new Date(Date.now() + periodMs).toISOString();
@@ -122,6 +128,9 @@ async function handleCancel(req, res, subId) {
 	if (!method(req, res, ['DELETE'])) return;
 	const user = await getSessionUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (!(await requireCsrf(req, res, user.id))) return;
 
 	const [sub] = await sql`
 		UPDATE creator_subscriptions

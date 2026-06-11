@@ -184,8 +184,7 @@ async function handleLaunchPrep(req, res) {
 	});
 
 	// 4. Build the launch tx
-	const { Connection, Keypair, PublicKey, Transaction, ComputeBudgetProgram } =
-		await loadSolanaWeb3();
+	const { Keypair, PublicKey, Transaction, ComputeBudgetProgram } = await loadSolanaWeb3();
 	const { PumpSdk, OnlinePumpSdk, getBuyTokenAmountFromSolAmount, BN } = await loadPumpSdk();
 	const conn = solanaConnection({ url: rpcUrl(body.cluster), commitment: 'confirmed' });
 	const onlineSdk = new OnlinePumpSdk(conn);
@@ -345,7 +344,6 @@ async function handleLaunchConfirm(req, res) {
 	}
 
 	// Verify on-chain
-	const { Connection } = await loadSolanaWeb3();
 	const conn = solanaConnection({ url: rpcUrl(prep.cluster), commitment: 'confirmed' });
 
 	const deadline = Date.now() + 30_000;
@@ -461,7 +459,6 @@ async function handleLaunchQuote(req, res) {
 	let buyEstimate = null;
 	if (q.initial_buy_sol > 0) {
 		try {
-			const { Connection } = await loadSolanaWeb3();
 			const { OnlinePumpSdk, getBuyTokenAmountFromSolAmount, BN } = await loadPumpSdk();
 			const conn = solanaConnection({ url: rpcUrl(q.cluster), commitment: 'confirmed' });
 			const onlineSdk = new OnlinePumpSdk(conn);
@@ -488,8 +485,7 @@ async function handleLaunchQuote(req, res) {
 		}
 	}
 
-	const totalSol =
-		FIXED_LAUNCH_TOTAL + q.initial_buy_sol + (buyEstimate?.protocol_fee_sol || 0);
+	const totalSol = FIXED_LAUNCH_TOTAL + q.initial_buy_sol + (buyEstimate?.protocol_fee_sol || 0);
 
 	return json(res, 200, {
 		cluster: q.cluster,

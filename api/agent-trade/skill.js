@@ -9,22 +9,26 @@
 //
 // Independently callable by any agent — not coupled to the demo orchestrator.
 
-import {
-	loadAvatarKeypair,
-	getConnection,
-	LAMPORTS_PER_SOL,
-} from '../_lib/avatar-wallet.js';
+import { loadAvatarKeypair, getConnection, LAMPORTS_PER_SOL } from '../_lib/avatar-wallet.js';
 import { watsonxConfig, watsonxChatComplete } from '../_lib/watsonx.js';
 import { cors, method, json, error, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { cacheGet, cacheSet, cacheDel } from '../_lib/cache.js';
 
 const DEFAULT_PRICE_SOL = 0.001;
 const MAX_PAYMENT_AGE_SEC = 300; // 5 minutes
+// Consumed-signature ledger: one verified tx signature buys exactly one call.
+// TTL is 3× the freshness window, so a signature is remembered for the entire
+// period during which verifyPayment would still accept it (and then some).
+const SIG_CONSUMED_TTL_SEC = 900; // 15 minutes
+const sigConsumedKey = (sig) => `x402-skill-sig:${sig}`;
 
 function skillConfig() {
 	const sellerSecret = process.env.AGENT_SELLER_SECRET || '';
 	const network =
-		(process.env.AGENT_TRADE_NETWORK || 'mainnet').toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
+		(process.env.AGENT_TRADE_NETWORK || 'mainnet').toLowerCase() === 'devnet'
+			? 'devnet'
+			: 'mainnet';
 	const rpcUrl =
 		network === 'devnet'
 			? process.env.SOLANA_RPC_URL_DEVNET || 'https://api.devnet.solana.com'
@@ -68,7 +72,9 @@ async function verifyPayment(connection, sig, { sellerAddress, priceLamports, bu
 
 		const age = Date.now() / 1000 - (tx.blockTime || 0);
 		if (age > MAX_PAYMENT_AGE_SEC) {
-			throw Object.assign(new Error('payment expired (>5 min old)'), { code: 'payment_expired' });
+			throw Object.assign(new Error('payment expired (>5 min old)'), {
+				code: 'payment_expired',
+			});
 		}
 
 		const keys = (
@@ -79,12 +85,16 @@ async function verifyPayment(connection, sig, { sellerAddress, priceLamports, bu
 
 		const sellerIdx = keys.indexOf(sellerAddress);
 		if (sellerIdx === -1) {
-			throw Object.assign(new Error('seller address not in transaction'), { code: 'bad_payment' });
+			throw Object.assign(new Error('seller address not in transaction'), {
+				code: 'bad_payment',
+			});
 		}
 		if (buyerAddress) {
 			const buyerIdx = keys.indexOf(buyerAddress);
 			if (buyerIdx === -1) {
-				throw Object.assign(new Error('buyer address not in transaction'), { code: 'bad_payment' });
+				throw Object.assign(new Error('buyer address not in transaction'), {
+					code: 'bad_payment',
+				});
 			}
 		}
 
@@ -101,7 +111,9 @@ async function verifyPayment(connection, sig, { sellerAddress, priceLamports, bu
 		return { verified: true, lamports: sellerGain, blockTime: tx.blockTime };
 	}
 	throw Object.assign(
-		new Error(lastErr ? `RPC error: ${lastErr.message}` : 'transaction not found after 3 attempts'),
+		new Error(
+			lastErr ? `RPC error: ${lastErr.message}` : 'transaction not found after 3 attempts',
+		),
 		{ code: 'tx_not_found' },
 	);
 }
@@ -115,7 +127,11 @@ async function generateAnalysis(topic) {
 				content: `Provide a concise 2–3 sentence crypto market insight on: ${topic}. Be specific, data-driven, and actionable.`,
 			},
 		];
-		const { text } = await watsonxChatComplete(wx, { messages, maxTokens: 200, temperature: 0.7 });
+		const { text } = await watsonxChatComplete(wx, {
+			messages,
+			maxTokens: 200,
+			temperature: 0.7,
+		});
 		return {
 			content: text?.trim() || '',
 			model: wx.chatModel || 'ibm/granite-3-8b-instruct',
@@ -161,7 +177,12 @@ export default wrap(async (req, res) => {
 
 	const cfg = skillConfig();
 	if (!cfg.configured) {
-		return error(res, 503, 'not_configured', 'AGENT_SELLER_SECRET is not configured on this deployment.');
+		return error(
+			res,
+			503,
+			'not_configured',
+			'AGENT_SELLER_SECRET is not configured on this deployment.',
+		);
 	}
 
 	const url = new URL(req.url, 'http://x');
@@ -188,6 +209,13 @@ export default wrap(async (req, res) => {
 		return;
 	}
 
+	// Replay check first — a consumed signature never buys a second call, and
+	// rejecting before verification saves the RPC round-trips.
+	const consumedKey = sigConsumedKey(sig);
+	if (await cacheGet(consumedKey)) {
+		return error(res, 402, 'payment_replayed', 'this payment signature has already been used');
+	}
+
 	// Has sig → verify on-chain then analyze
 	const connection = getConnection(cfg.rpcUrl);
 	let payment;
@@ -201,10 +229,21 @@ export default wrap(async (req, res) => {
 		return error(res, 402, e.code || 'bad_payment', e.message);
 	}
 
+	// Mark the signature consumed BEFORE running the paid work so a concurrent
+	// duplicate request can't double-spend it.
+	await cacheSet(
+		consumedKey,
+		{ usedAt: Date.now(), buyer: buyerAddress || null, lamports: payment.lamports },
+		SIG_CONSUMED_TTL_SEC,
+	);
+
 	let analysis;
 	try {
 		analysis = await generateAnalysis(topic);
 	} catch (e) {
+		// The buyer paid but got nothing — release the signature so a retry
+		// within the freshness window isn't treated as a replay.
+		await cacheDel(consumedKey).catch(() => {});
 		return error(res, 502, 'analysis_failed', e.message);
 	}
 

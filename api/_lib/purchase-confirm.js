@@ -36,7 +36,10 @@ function rpc() {
 function receiptKey() {
 	return (
 		process.env.PURCHASE_RECEIPT_KEY ||
-		crypto.createHash('sha256').update((process.env.SESSION_SECRET || 'dev') + ':receipts').digest('hex')
+		crypto
+			.createHash('sha256')
+			.update((process.env.SESSION_SECRET || 'dev') + ':receipts')
+			.digest('hex')
 	);
 }
 
@@ -207,7 +210,8 @@ async function confirmSolanaSkill(pur, payoutAddress) {
 		// Mismatch — but the transfer happened. Mark as tipped if we can pin down
 		// the actual amount that hit the seller's wallet; else mark failed.
 		const actual = await findReferencedTransferAmount(txSignature, recipient, splToken);
-		if (actual !== null) return markSkillTipped(pur, txSignature, actual.toString(), e.message, payoutAddress);
+		if (actual !== null)
+			return markSkillTipped(pur, txSignature, actual.toString(), e.message, payoutAddress);
 		return markSkillMismatch(pur, txSignature, e.message);
 	}
 
@@ -219,13 +223,20 @@ async function confirmSolanaSkill(pur, payoutAddress) {
 async function confirmEvmSkill(pur, payoutAddress, txHash) {
 	if (!txHash) return { status: 'pending' }; // buyer hasn't broadcast / submitted yet
 
-	// Idempotency: one settlement tx can confirm at most one purchase.
+	// Idempotency pre-check: one settlement tx can confirm at most one purchase.
+	// Covers rows in ANY status — a concurrent confirm parks the hash on a
+	// still-'pending' row via the atomic claim below, and the unique index on
+	// skill_purchases.tx_signature is the hard backstop either way.
 	const [dupe] = await sql`
 		SELECT id FROM skill_purchases
-		WHERE tx_signature = ${txHash} AND status IN ('confirmed', 'tipped') AND id != ${pur.id}
+		WHERE tx_signature = ${txHash} AND id != ${pur.id}
 		LIMIT 1
 	`;
-	if (dupe) return { status: 'mismatch', message: 'this transaction has already been used for another purchase' };
+	if (dupe)
+		return {
+			status: 'mismatch',
+			message: 'this transaction has already been used for another purchase',
+		};
 
 	const result = await verifyEvmUsdcPayment({
 		txHash,
@@ -234,10 +245,79 @@ async function confirmEvmSkill(pur, payoutAddress, txHash) {
 		expectedAmount: pur.amount,
 	});
 	if (result.status === 'pending') return { status: 'pending' };
+
+	// Bind the on-chain payment to the buyer. The seller's payout address is
+	// public, so "a USDC transfer to the seller exists" is not proof THIS buyer
+	// paid — without binding, anyone could confirm a public transfer against
+	// their own purchase. EVM USDC transfers carry no reference (unlike the
+	// Solana-Pay path), so we bind on the payer address: the funds must
+	// originate from a wallet linked to the buyer's account. Mirrors
+	// api/payments/evm/[action].js. No DB write on failure — the buyer can
+	// link the paying wallet and retry the same tx hash.
+	if (result.from) {
+		const payer = result.from.toLowerCase();
+		const [linked] = await sql`
+			SELECT 1 FROM user_wallets
+			WHERE user_id = ${pur.user_id} AND lower(address) = ${payer}
+			LIMIT 1
+		`;
+		if (!linked) {
+			return {
+				status: 'mismatch',
+				message:
+					'payment must be sent from a wallet linked to your account — link the paying wallet, then retry',
+			};
+		}
+	} else if (result.status === 'match') {
+		return {
+			status: 'mismatch',
+			message: 'could not determine payer address from transaction',
+		};
+	}
+
+	// Atomically claim the tx hash for THIS purchase before any ledger write.
+	// The unique index on skill_purchases.tx_signature turns a concurrent claim
+	// of the same hash for another purchase into a 23505, surfaced as a clean
+	// mismatch instead of a double-confirm.
+	let claimed;
+	try {
+		claimed = await sql`
+			UPDATE skill_purchases
+			SET tx_signature = ${txHash}
+			WHERE id = ${pur.id} AND status = 'pending'
+			  AND (tx_signature IS NULL OR tx_signature = ${txHash})
+			RETURNING id
+		`;
+	} catch (e) {
+		if (e?.code === '23505') {
+			return {
+				status: 'mismatch',
+				message: 'this transaction has already been used for another purchase',
+			};
+		}
+		throw e;
+	}
+	if (claimed.length === 0) {
+		// Row is no longer pending (or carries a different hash) — report the
+		// settled state instead of double-processing.
+		const [row] =
+			await sql`SELECT status, tx_signature FROM skill_purchases WHERE id = ${pur.id}`;
+		if (row?.status === 'confirmed')
+			return { status: 'confirmed', tx_signature: row.tx_signature };
+		if (row?.status === 'tipped') return { status: 'tipped', tx_signature: row.tx_signature };
+		return { status: 'mismatch', message: 'purchase is no longer pending' };
+	}
+
 	if (result.status === 'mismatch') {
 		// A short-but-real transfer is a tip; nothing on-chain at all is a mismatch.
 		if (result.actualAmount && BigInt(result.actualAmount) > 0n) {
-			return markSkillTipped(pur, txHash, result.actualAmount, result.message || 'amount mismatch', payoutAddress);
+			return markSkillTipped(
+				pur,
+				txHash,
+				result.actualAmount,
+				result.message || 'amount mismatch',
+				payoutAddress,
+			);
 		}
 		return markSkillMismatch(pur, txHash, result.message || 'no matching transfer');
 	}
@@ -267,7 +347,12 @@ async function markSkillTipped(pur, txSignature, actualAmount, reason, payoutAdd
 			purchase_id: pur.id,
 		});
 	}
-	return { status: 'tipped', tx_signature: txSignature, tipped_amount: actualAmount, message: reason };
+	return {
+		status: 'tipped',
+		tx_signature: txSignature,
+		tipped_amount: actualAmount,
+		message: reason,
+	};
 }
 
 // No matching transfer at all — mark failed, no on-chain side effect.

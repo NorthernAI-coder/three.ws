@@ -500,10 +500,39 @@
 	background: rgba(255, 255, 255, 0.07);
 }
 
-.h-footer-horizon a:focus-visible {
+.h-footer-horizon a:focus-visible,
+.h-footer-horizon button:focus-visible,
+.h-footer-newsletter-input:focus-visible {
 	outline: 2px solid rgba(255, 255, 255, 0.5);
 	outline-offset: 3px;
 	border-radius: 4px;
+}
+
+/* ── Microinteractions (B11) — press states + reduced motion ──────────── */
+.h-footer-newsletter-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.28); transform: translateX(2px) scale(0.95); }
+.h-footer-community-btn:active { background: rgba(255, 255, 255, 0.12); transform: translateY(0); }
+.h-footer-social:active { background: rgba(255, 255, 255, 0.14); transform: translateY(0); }
+.h-footer-badge:active { background: rgba(255, 255, 255, 0.09); transform: translateY(0); }
+.h-footer-ca-btn:active { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.h-footer-links a:active,
+.h-footer-legal-links a:active { color: rgba(255, 255, 255, 0.85); }
+
+@media (prefers-reduced-motion: reduce) {
+	.h-footer-floor,
+	.h-footer-status-dot {
+		animation: none;
+	}
+	.h-footer-horizon a,
+	.h-footer-horizon button,
+	.h-footer-newsletter-form,
+	.h-footer-social,
+	.h-footer-badge {
+		transition: none !important;
+	}
+	.h-footer-newsletter-btn:hover,
+	.h-footer-community-btn:hover,
+	.h-footer-social:hover,
+	.h-footer-badge:hover { transform: none; }
 }
 
 @media (max-width: 720px) {

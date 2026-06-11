@@ -32,6 +32,7 @@ export function isPrivateIPv4(ip) {
 	if (p[0] === 127) return true;
 	if (p[0] === 0) return true;
 	if (p[0] === 169 && p[1] === 254) return true; // link-local, cloud metadata
+	if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true; // CGNAT 100.64.0.0/10 (incl. Alibaba metadata 100.100.100.200)
 	if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
 	if (p[0] === 192 && p[1] === 168) return true;
 	if (p[0] === 192 && p[1] === 0 && p[2] === 0) return true; // IETF
@@ -45,9 +46,16 @@ export function isPrivateIPv4(ip) {
 
 export function isPrivateIPv6(ip) {
 	const lower = ip.toLowerCase();
-	if (lower === '::' || lower === '::1') return true;
-	if (lower.startsWith('fe80:') || lower.startsWith('fe80::')) return true; // link-local
+	if (lower === '::' || lower === '::1' || lower === '0:0:0:0:0:0:0:1') return true;
+	if (
+		lower.startsWith('fe8') ||
+		lower.startsWith('fe9') ||
+		lower.startsWith('fea') ||
+		lower.startsWith('feb')
+	)
+		return true; // link-local fe80::/10
 	if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // ULA fc00::/7
+	if (lower.startsWith('ff')) return true; // multicast ff00::/8
 	if (lower.startsWith('::ffff:')) {
 		const mapped = lower.replace(/^::ffff:/, '');
 		if (/^\d+\.\d+\.\d+\.\d+$/.test(mapped)) return isPrivateIPv4(mapped);
@@ -97,7 +105,10 @@ export function pinnedAgent(expectedHost, addrs) {
 					cb(new SsrfError('no public address to connect to', 'private_address'));
 					return;
 				}
-				cb(null, safe.map((a) => ({ address: a.address, family: a.family })));
+				cb(
+					null,
+					safe.map((a) => ({ address: a.address, family: a.family })),
+				);
 			},
 		},
 	});
@@ -155,16 +166,21 @@ export async function safeFetchJson(
 					...(body != null ? { 'content-type': 'application/json' } : {}),
 					...headers,
 				},
-				...(body != null ? { body: typeof body === 'string' ? body : JSON.stringify(body) } : {}),
+				...(body != null
+					? { body: typeof body === 'string' ? body : JSON.stringify(body) }
+					: {}),
 			});
 
 			if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
 				if (++redirects > maxRedirects) {
 					throw new SsrfError('too many redirects', 'too_many_redirects');
 				}
-				currentUrl = validatePublicUrl(new URL(res.headers.get('location'), currentUrl).toString(), {
-					allowHttp,
-				});
+				currentUrl = validatePublicUrl(
+					new URL(res.headers.get('location'), currentUrl).toString(),
+					{
+						allowHttp,
+					},
+				);
 				continue;
 			}
 

@@ -1,4 +1,4 @@
-// GET /api/admin/bulk-launch — SSE stream that deploys agents on-chain as
+// POST /api/admin/bulk-launch — SSE stream that deploys agents on-chain as
 // Metaplex Core assets inside the three.ws Agent Collection (NOT pump.fun).
 //
 // Each agent becomes a real Solana Metaplex Core NFT — its on-chain identity:
@@ -33,6 +33,7 @@
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { cors, method, error } from '../_lib/http.js';
 import { requireAdmin } from '../_lib/admin.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import {
 	authoritySecret,
 	buildAuthorityUmi,
@@ -54,11 +55,12 @@ function sse(res, event, data) {
 }
 
 export default async function handler(req, res) {
-	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
-	if (!method(req, res, ['GET'])) return;
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['POST'])) return;
 
 	const admin = await requireAdmin(req, res);
 	if (!admin) return;
+	if (!(await requireCsrf(req, res, admin.id))) return;
 
 	const q = req.query ?? {};
 	const network = q.network === 'devnet' ? 'devnet' : 'mainnet';
@@ -88,7 +90,9 @@ export default async function handler(req, res) {
 	res.setHeader('x-accel-buffering', 'no');
 
 	let aborted = false;
-	req.on('close', () => { aborted = true; });
+	req.on('close', () => {
+		aborted = true;
+	});
 
 	const authorityPk = authoritySigner.publicKey;
 	const startBalance = await funderLamports(umi, authorityPk);
@@ -112,7 +116,11 @@ export default async function handler(req, res) {
 			onEvent: dryRun ? undefined : (type, data) => sse(res, type, data),
 		});
 	} catch (err) {
-		sse(res, 'error', { agent_id: null, name: 'collection', error: `collection: ${err.message}` });
+		sse(res, 'error', {
+			agent_id: null,
+			name: 'collection',
+			error: `collection: ${err.message}`,
+		});
 		sse(res, 'done', { deployed: 0, errors: 1, skipped: 0 });
 		return res.end();
 	}
@@ -175,7 +183,11 @@ export default async function handler(req, res) {
 				avatar_thumb: r.image || null,
 			});
 		} catch (err) {
-			sse(res, 'error', { agent_id: agent.id, name: agentName, error: `deploy: ${err.message}` });
+			sse(res, 'error', {
+				agent_id: agent.id,
+				name: agentName,
+				error: `deploy: ${err.message}`,
+			});
 			errors++;
 		}
 

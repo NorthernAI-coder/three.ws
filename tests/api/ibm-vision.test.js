@@ -17,14 +17,18 @@ const state = {
 	fetchStatus: 200,
 	fetchContentType: 'image/jpeg',
 	fetchBody: Buffer.alloc(200), // tiny valid image
-	graniteText: '{"appearance":"A sleek cobalt android.","vibe":"calm, precise","persona":"A reliable guide.","suggested_name":"Cobalt","bio":"Your co-pilot.","tone_tags":["calm","precise"],"voice":"warm and measured"}',
+	graniteText:
+		'{"appearance":"A sleek cobalt android.","vibe":"calm, precise","persona":"A reliable guide.","suggested_name":"Cobalt","bio":"Your co-pilot.","tone_tags":["calm","precise"],"voice":"warm and measured"}',
 	graniteThrows: false,
 	graniteThrowMsg: 'watsonx 404: not found',
 };
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
 vi.mock('../../api/_lib/rate-limit.js', () => ({
-	limits: { publicIp: vi.fn(async () => ({ success: true })) },
+	limits: {
+		publicIp: vi.fn(async () => ({ success: true })),
+		watsonxEmbedGlobal: vi.fn(async () => ({ success: true })),
+	},
 	clientIp: vi.fn(() => '127.0.0.1'),
 }));
 
@@ -35,7 +39,14 @@ vi.mock('../../api/_lib/db.js', () => ({
 vi.mock('../../api/_lib/watsonx.js', () => ({
 	watsonxConfig: vi.fn(() =>
 		state.wxConfigured
-			? { configured: true, url: 'https://wx', projectId: 'proj', apiVersion: '2024-05-31', chatModel: 'ibm/granite-3-8b-instruct', embedModel: 'ibm/granite-embedding-278m-multilingual' }
+			? {
+					configured: true,
+					url: 'https://wx',
+					projectId: 'proj',
+					apiVersion: '2024-05-31',
+					chatModel: 'ibm/granite-3-8b-instruct',
+					embedModel: 'ibm/granite-embedding-278m-multilingual',
+				}
 			: { configured: false },
 	),
 	watsonxChatComplete: vi.fn(async () => {
@@ -55,7 +66,12 @@ vi.mock('../../api/_lib/r2.js', () => ({
 // Mock global fetch for server-side image fetching.
 global.fetch = vi.fn(async () => {
 	if (!state.fetchOk) {
-		return { ok: false, status: state.fetchStatus, headers: { get: () => null }, arrayBuffer: async () => new ArrayBuffer(0) };
+		return {
+			ok: false,
+			status: state.fetchStatus,
+			headers: { get: () => null },
+			arrayBuffer: async () => new ArrayBuffer(0),
+		};
 	}
 	const body = state.fetchBody;
 	return {
@@ -68,7 +84,8 @@ global.fetch = vi.fn(async () => {
 				return null;
 			},
 		},
-		arrayBuffer: async () => body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
+		arrayBuffer: async () =>
+			body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
 	};
 });
 
@@ -77,21 +94,36 @@ const handler = (await import('../../api/ibm/vision.js')).default;
 import { allowedImageHost, buildPrompt, parseVision, VISION_MODEL } from '../../api/ibm/vision.js';
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
-const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+const TINY_PNG =
+	'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 function makeReq({ method = 'GET', url = '/api/ibm/vision', body = null } = {}) {
 	const base = body ? Readable.from([Buffer.from(JSON.stringify(body))]) : Readable.from([]);
 	base.method = method;
 	base.url = url;
-	base.headers = { host: 'localhost', 'content-type': 'application/json', origin: 'http://localhost:3000' };
+	base.headers = {
+		host: 'localhost',
+		'content-type': 'application/json',
+		origin: 'http://localhost:3000',
+	};
 	return base;
 }
 function makeRes() {
 	return {
-		statusCode: 200, headers: {}, body: '', writableEnded: false,
-		setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
-		getHeader(k) { return this.headers[k.toLowerCase()]; },
-		end(chunk) { if (chunk !== undefined) this.body += chunk; this.writableEnded = true; },
+		statusCode: 200,
+		headers: {},
+		body: '',
+		writableEnded: false,
+		setHeader(k, v) {
+			this.headers[k.toLowerCase()] = v;
+		},
+		getHeader(k) {
+			return this.headers[k.toLowerCase()];
+		},
+		end(chunk) {
+			if (chunk !== undefined) this.body += chunk;
+			this.writableEnded = true;
+		},
 	};
 }
 async function invoke(reqOpts) {
@@ -111,7 +143,8 @@ beforeEach(() => {
 	state.fetchStatus = 200;
 	state.fetchContentType = 'image/jpeg';
 	state.fetchBody = Buffer.alloc(200);
-	state.graniteText = '{"appearance":"A sleek cobalt android.","vibe":"calm, precise","persona":"A reliable guide.","suggested_name":"Cobalt","bio":"Your co-pilot.","tone_tags":["calm","precise"],"voice":"warm and measured"}';
+	state.graniteText =
+		'{"appearance":"A sleek cobalt android.","vibe":"calm, precise","persona":"A reliable guide.","suggested_name":"Cobalt","bio":"Your co-pilot.","tone_tags":["calm","precise"],"voice":"warm and measured"}';
 	state.graniteThrows = false;
 	state.graniteThrowMsg = 'watsonx 502: upstream error';
 });
@@ -128,7 +161,15 @@ describe('GET /api/ibm/vision — subjects', () => {
 
 	it('maps DB rows to subjects with cdn URLs', async () => {
 		state.dbRows = [
-			{ id: 'id-1', slug: 'cobalt', name: 'Cobalt', storage_key: 'avatars/cobalt.glb', thumbnail_key: 'thumbs/cobalt.jpg', featured: true, view_count: 42 },
+			{
+				id: 'id-1',
+				slug: 'cobalt',
+				name: 'Cobalt',
+				storage_key: 'avatars/cobalt.glb',
+				thumbnail_key: 'thumbs/cobalt.jpg',
+				featured: true,
+				view_count: 42,
+			},
 		];
 		const { status, body } = await invoke({ method: 'GET' });
 		expect(status).toBe(200);
@@ -168,7 +209,9 @@ describe('POST /api/ibm/vision — watsonx gate', () => {
 
 // ── POST /api/ibm/vision — input validation ─────────────────────────────────────
 describe('POST /api/ibm/vision — input validation', () => {
-	beforeEach(() => { state.wxConfigured = true; });
+	beforeEach(() => {
+		state.wxConfigured = true;
+	});
 
 	it('returns 400 bad_image when neither image nor imageUrl is provided', async () => {
 		const { status, body } = await invoke({ method: 'POST', body: { hint: 'hello' } });
@@ -177,7 +220,10 @@ describe('POST /api/ibm/vision — input validation', () => {
 	});
 
 	it('returns 400 bad_image when image data URL has empty data portion', async () => {
-		const { status, body } = await invoke({ method: 'POST', body: { image: 'data:image/png;base64,' } });
+		const { status, body } = await invoke({
+			method: 'POST',
+			body: { image: 'data:image/png;base64,' },
+		});
 		expect(status).toBe(400);
 		expect(body.error).toBe('bad_image');
 	});
@@ -191,19 +237,28 @@ describe('POST /api/ibm/vision — input validation', () => {
 	});
 
 	it('returns 400 bad_image when imageUrl uses http (not https)', async () => {
-		const { status, body } = await invoke({ method: 'POST', body: { imageUrl: 'http://pub-abc.r2.dev/img.jpg' } });
+		const { status, body } = await invoke({
+			method: 'POST',
+			body: { imageUrl: 'http://pub-abc.r2.dev/img.jpg' },
+		});
 		expect(status).toBe(400);
 		expect(body.error).toBe('bad_image');
 	});
 
 	it('returns 400 image_host_not_allowed for an arbitrary external host', async () => {
-		const { status, body } = await invoke({ method: 'POST', body: { imageUrl: 'https://evil.example.com/img.jpg' } });
+		const { status, body } = await invoke({
+			method: 'POST',
+			body: { imageUrl: 'https://evil.example.com/img.jpg' },
+		});
 		expect(status).toBe(400);
 		expect(body.error).toBe('image_host_not_allowed');
 	});
 
 	it('returns 400 image_host_not_allowed for internal metadata endpoint (SSRF)', async () => {
-		const { status, body } = await invoke({ method: 'POST', body: { imageUrl: 'https://169.254.169.254/latest/meta-data/' } });
+		const { status, body } = await invoke({
+			method: 'POST',
+			body: { imageUrl: 'https://169.254.169.254/latest/meta-data/' },
+		});
 		expect(status).toBe(400);
 		expect(body.error).toBe('image_host_not_allowed');
 	});
@@ -211,7 +266,9 @@ describe('POST /api/ibm/vision — input validation', () => {
 
 // ── POST /api/ibm/vision — server-side image fetch ───────────────────────────────
 describe('POST /api/ibm/vision — server-side image fetch', () => {
-	beforeEach(() => { state.wxConfigured = true; });
+	beforeEach(() => {
+		state.wxConfigured = true;
+	});
 
 	it('fetches an allowlisted imageUrl and sends it to Granite', async () => {
 		const { status, body } = await invoke({
@@ -250,7 +307,9 @@ describe('POST /api/ibm/vision — server-side image fetch', () => {
 
 // ── POST /api/ibm/vision — Granite Vision call ────────────────────────────────
 describe('POST /api/ibm/vision — Granite Vision result', () => {
-	beforeEach(() => { state.wxConfigured = true; });
+	beforeEach(() => {
+		state.wxConfigured = true;
+	});
 
 	it('returns a structured identity when Granite returns valid JSON', async () => {
 		const { status, body } = await invoke({ method: 'POST', body: { image: TINY_PNG } });
@@ -269,7 +328,11 @@ describe('POST /api/ibm/vision — Granite Vision result', () => {
 
 	it('passes usage through to the response', async () => {
 		const { body } = await invoke({ method: 'POST', body: { image: TINY_PNG } });
-		expect(body.usage).toMatchObject({ prompt_tokens: 120, completion_tokens: 80, total_tokens: 200 });
+		expect(body.usage).toMatchObject({
+			prompt_tokens: 120,
+			completion_tokens: 80,
+			total_tokens: 200,
+		});
 	});
 
 	it('does not include "raw" when result is structured', async () => {
@@ -278,7 +341,8 @@ describe('POST /api/ibm/vision — Granite Vision result', () => {
 	});
 
 	it('returns raw fallback (structured:false) when Granite returns prose', async () => {
-		state.graniteText = 'This avatar appears to be a futuristic character with a calm demeanor.';
+		state.graniteText =
+			'This avatar appears to be a futuristic character with a calm demeanor.';
 		const { status, body } = await invoke({ method: 'POST', body: { image: TINY_PNG } });
 		expect(status).toBe(200);
 		expect(body.vision.structured).toBe(false);
@@ -286,7 +350,8 @@ describe('POST /api/ibm/vision — Granite Vision result', () => {
 	});
 
 	it('recovers JSON from a code-fenced response', async () => {
-		state.graniteText = '```json\n{"appearance":"A bot.","vibe":"calm","persona":"Helpful.","suggested_name":"Bot","bio":"Here to help.","tone_tags":["calm"],"voice":"steady"}\n```';
+		state.graniteText =
+			'```json\n{"appearance":"A bot.","vibe":"calm","persona":"Helpful.","suggested_name":"Bot","bio":"Here to help.","tone_tags":["calm"],"voice":"steady"}\n```';
 		const { body } = await invoke({ method: 'POST', body: { image: TINY_PNG } });
 		expect(body.vision.structured).toBe(true);
 		expect(body.vision.suggested_name).toBe('Bot');
@@ -320,7 +385,10 @@ describe('POST /api/ibm/vision — Granite Vision result', () => {
 	});
 
 	it('defaults unknown subject to avatar', async () => {
-		const { status, body } = await invoke({ method: 'POST', body: { image: TINY_PNG, subject: 'spacecraft' } });
+		const { status, body } = await invoke({
+			method: 'POST',
+			body: { image: TINY_PNG, subject: 'spacecraft' },
+		});
 		expect(status).toBe(200);
 		expect(body.subject).toBe('avatar');
 	});
@@ -365,25 +433,33 @@ describe('POST /api/ibm/vision — Granite Vision result', () => {
 // ── Unit: parseVision ─────────────────────────────────────────────────────────
 describe('parseVision — identity parser', () => {
 	it('parses a clean JSON blob', () => {
-		const v = parseVision('{"appearance":"Blue bot.","vibe":"calm","persona":"A guide.","suggested_name":"Bot","bio":"Here for you.","tone_tags":["calm","helpful"],"voice":"warm"}');
+		const v = parseVision(
+			'{"appearance":"Blue bot.","vibe":"calm","persona":"A guide.","suggested_name":"Bot","bio":"Here for you.","tone_tags":["calm","helpful"],"voice":"warm"}',
+		);
 		expect(v.structured).toBe(true);
 		expect(v.suggested_name).toBe('Bot');
 		expect(v.tone_tags).toEqual(['calm', 'helpful']);
 	});
 
 	it('strips leading and trailing prose around the JSON', () => {
-		const v = parseVision('Sure, here it is: {"suggested_name":"Echo","bio":"test","appearance":"","vibe":"","persona":"","tone_tags":[],"voice":""} Hope that helps!');
+		const v = parseVision(
+			'Sure, here it is: {"suggested_name":"Echo","bio":"test","appearance":"","vibe":"","persona":"","tone_tags":[],"voice":""} Hope that helps!',
+		);
 		expect(v.structured).toBe(true);
 		expect(v.suggested_name).toBe('Echo');
 	});
 
 	it('splits a comma-joined string into tone_tags array', () => {
-		const v = parseVision('{"appearance":"x","vibe":"x","persona":"x","suggested_name":"x","bio":"x","tone_tags":"calm, curious, witty","voice":"x"}');
+		const v = parseVision(
+			'{"appearance":"x","vibe":"x","persona":"x","suggested_name":"x","bio":"x","tone_tags":"calm, curious, witty","voice":"x"}',
+		);
 		expect(v.tone_tags).toEqual(['calm', 'curious', 'witty']);
 	});
 
 	it('clamps fields to their max lengths', () => {
-		const v = parseVision(`{"appearance":"x","vibe":"x","persona":"x","suggested_name":"${'A'.repeat(100)}","bio":"${'B'.repeat(300)}","tone_tags":[],"voice":"${'C'.repeat(200)}"}`);
+		const v = parseVision(
+			`{"appearance":"x","vibe":"x","persona":"x","suggested_name":"${'A'.repeat(100)}","bio":"${'B'.repeat(300)}","tone_tags":[],"voice":"${'C'.repeat(200)}"}`,
+		);
 		expect(v.suggested_name.length).toBeLessThanOrEqual(60);
 		expect(v.bio.length).toBeLessThanOrEqual(200);
 		expect(v.voice.length).toBeLessThanOrEqual(120);
@@ -402,8 +478,23 @@ describe('parseVision — identity parser', () => {
 
 // ── Unit: allowedImageHost ─────────────────────────────────────────────────────
 describe('allowedImageHost — SSRF allowlist', () => {
-	const allow = ['pub-abc.r2.dev', 'three.ws', 'ipfs.io', 'arweave.net', 'pump.mypinata.cloud', 'bafyb.ipfs.dweb.link', 'user.githubusercontent.com'];
-	const deny = ['localhost', '127.0.0.1', '169.254.169.254', 'evil.com', '10.0.0.1', 'metadata.google.internal'];
+	const allow = [
+		'pub-abc.r2.dev',
+		'three.ws',
+		'ipfs.io',
+		'arweave.net',
+		'pump.mypinata.cloud',
+		'bafyb.ipfs.dweb.link',
+		'user.githubusercontent.com',
+	];
+	const deny = [
+		'localhost',
+		'127.0.0.1',
+		'169.254.169.254',
+		'evil.com',
+		'10.0.0.1',
+		'metadata.google.internal',
+	];
 
 	for (const h of allow) it(`allows ${h}`, () => expect(allowedImageHost(h)).toBe(true));
 	for (const h of deny) it(`rejects ${h}`, () => expect(allowedImageHost(h)).toBe(false));

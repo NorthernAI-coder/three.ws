@@ -1,10 +1,15 @@
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { KOL_WALLETS } from '../../src/kol/wallets.js';
 import { fetchKolTrades } from '../../src/kol/trades.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
+
+	// fetchKolTrades fans out one Helius call per tracked wallet — meter per IP.
+	const rl = await limits.mcpIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const mint = url.searchParams.get('mint');

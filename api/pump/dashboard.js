@@ -36,20 +36,21 @@ async function fetchWithCache(url, options, ttlMs = 60_000) {
 
 export default wrap(async (req, res) => {
 	const user = await getSessionUser(req);
-	if (!user) return error(res, 401, 'unauthorized');
+	if (!user) return error(res, 401, 'unauthorized', 'authentication required');
 
 	const agentId = new URL(req.url, 'http://x').searchParams.get('agent_id');
-	if (!agentId) return error(res, 400, 'missing agent_id');
+	if (!agentId) return error(res, 400, 'missing_agent_id', 'agent_id is required');
 
 	const [agent] = await sql`
 		SELECT meta FROM agent_identities
 		WHERE id = ${agentId} AND user_id = ${user.id} AND deleted_at IS NULL
 	`;
 
-	if (!agent) return error(res, 404, 'agent not found');
+	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	const tokenMint = agent.meta?.token?.mint;
-	if (!tokenMint) return error(res, 404, 'token not launched for this agent');
+	if (!tokenMint)
+		return error(res, 404, 'token_not_launched', 'token not launched for this agent');
 
 	if (!BIRDEYE_API_KEY) {
 		return error(res, 503, 'not_configured', 'On-chain data provider is not configured');
@@ -59,15 +60,18 @@ export default wrap(async (req, res) => {
 
 	try {
 		const [price, history] = await Promise.all([
-			fetchWithCache(`https://public-api.birdeye.so/defi/price?address=${tokenMint}`, { headers }),
-			fetchWithCache(`https://public-api.birdeye.so/defi/txs/latest?address=${tokenMint}`, { headers })
+			fetchWithCache(`https://public-api.birdeye.so/defi/price?address=${tokenMint}`, {
+				headers,
+			}),
+			fetchWithCache(`https://public-api.birdeye.so/defi/txs/latest?address=${tokenMint}`, {
+				headers,
+			}),
 		]);
 
 		return json(res, 200, {
 			price: price.data,
 			history: history?.data?.items ?? [],
 		});
-
 	} catch (e) {
 		console.error(`[pump-dashboard] Error fetching token data for ${tokenMint}:`, e);
 		return error(res, 502, 'bad_gateway', 'Failed to fetch on-chain data');

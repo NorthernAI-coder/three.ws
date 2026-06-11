@@ -10,6 +10,7 @@
 import { sql } from './_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from './_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { clientIp, limits } from './_lib/rate-limit.js';
 
 async function resolveAuth(req) {
@@ -48,7 +49,10 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { data: { strategy } });
 	}
 
-	// POST / PUT — replace
+	// POST / PUT — replace. Cookie-session mutations need a CSRF token (bearer
+	// callers are exempt inside requireCsrf).
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 

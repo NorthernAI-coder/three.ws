@@ -4,23 +4,16 @@ import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { x402AmountForTool } from './_lib/pump-pricing.js';
+import { priceBatch } from './_lib/mcp-batch-price.js';
 import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcp/dispatch.js';
-import { send401, sendJsonRpcError, authenticateRequest, handleSse, handleTerminate } from './_mcp/auth.js';
+import {
+	send401,
+	sendJsonRpcError,
+	authenticateRequest,
+	handleSse,
+	handleTerminate,
+} from './_mcp/auth.js';
 import { sendX402Error } from './_mcp/payments.js';
-
-// Peek the single called tool name from a (possibly batched) JSON-RPC body so
-// the x402 challenge can advertise — and the settle path charge — exactly the
-// per-tool price. We only special-case a request that calls ONE tool; mixed
-// batches keep the flat default. Returns { toolName } | { toolName: null }.
-function peekCalledTool(body) {
-	const batch = Array.isArray(body) ? body : [body];
-	const calls = batch.filter((m) => m && m.method === 'tools/call');
-	if (calls.length === 1) {
-		const name = calls[0]?.params?.name;
-		return { toolName: typeof name === 'string' ? name : null };
-	}
-	return { toolName: null };
-}
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
@@ -34,17 +27,22 @@ export default wrap(async (req, res) => {
 	// handled by wrap() — identical to the previous post-auth read.
 	const body = await readJson(req, 2_000_000);
 
-	// Derive the per-tool x402 price. The advertised 402 amount and the settled
-	// charge are both keyed off this, so we never advertise a price the flow
-	// won't honor. A free tool yields null → no per-call charge is required.
-	const { toolName } = peekCalledTool(body);
-	const x402Amount = toolName ? x402AmountForTool(toolName) : null;
+	// Derive the x402 price for the WHOLE request by summing the per-tool price
+	// of every tools/call in the (possibly batched) body. The advertised 402
+	// amount, the verified payment, and the settled charge are all keyed off this
+	// total, so a multi-call batch can never run several priced tools for one
+	// tool's price. A fully-free batch yields null → no charge.
+	const { totalAmount: x402Amount, allFree } = priceBatch(body, {
+		priceForTool: x402AmountForTool,
+		isFreeName: isPublicTool,
+	});
 
-	// A call to the free public getting_started tool is served without an OAuth
-	// token or x402 payment so any client can discover the server first.
+	// A batch composed solely of free public tools (e.g. getting_started) is
+	// served without an OAuth token or x402 payment so any client can discover
+	// the server first.
 	const result = await authenticateRequest(req, res, {
 		x402Amount,
-		allowFree: Boolean(toolName && isPublicTool(toolName)),
+		allowFree: allFree,
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;
@@ -63,8 +61,7 @@ export default wrap(async (req, res) => {
 	const batch = Array.isArray(body) ? body : [body];
 	// Per-request batch cap — each message can trigger DB queries, so an
 	// unbounded batch multiplies rate-limited work by N against the user's budget.
-	if (batch.length > 32)
-		return sendJsonRpcError(res, null, -32600, 'batch too large (max 32)');
+	if (batch.length > 32) return sendJsonRpcError(res, null, -32600, 'batch too large (max 32)');
 
 	const responses = [];
 	for (const msg of batch) {
@@ -75,7 +72,14 @@ export default wrap(async (req, res) => {
 	// Settle the x402 payment AFTER the work succeeded — atomic from the caller's
 	// perspective: if settle fails, the payer's signed payload is not broadcast
 	// and they get a 502 instead of having paid for nothing.
-	if (x402Ctx) {
+	//
+	// Only settle when at least one call actually produced a result. If every
+	// call failed (JSON-RPC error or a tool result flagged isError), no useful
+	// work was delivered, so we do not broadcast the payment. We deliberately do
+	// NOT void settlement on a *partial* failure: a single failing call in a
+	// batch must not let the caller reclaim the expensive calls that succeeded.
+	const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+	if (x402Ctx && anySuccess) {
 		try {
 			const settled = await settlePayment({ verified: x402Ctx.verified });
 			res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));

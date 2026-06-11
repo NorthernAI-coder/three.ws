@@ -3323,9 +3323,9 @@ if (import.meta.env?.DEV) {
 					const thumb = a.thumbnail_url || '';
 					const name = a.name || a.slug || 'Untitled';
 					const active = currentAvatarId === a.id;
-					return `<button class="walk-avatar-opt${active ? ' is-active' : ''}" data-avatar-url="${a.url || ''}" data-avatar-id="${a.id}">
-						${thumb ? `<img class="walk-avatar-opt-thumb" src="${thumb}" alt="" loading="lazy" />` : `<div class="walk-avatar-opt-thumb" style="display:flex;align-items:center;justify-content:center;font-size:14px;color:#999">${name[0]}</div>`}
-						<span class="walk-avatar-opt-name">${name.replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":"&#39;"})[c])}</span>
+					return `<button class="walk-avatar-opt${active ? ' is-active' : ''}" data-avatar-url="${esc(a.url || '')}" data-avatar-id="${esc(a.id ?? '')}">
+						${thumb ? `<img class="walk-avatar-opt-thumb" src="${esc(thumb)}" alt="" loading="lazy" />` : `<div class="walk-avatar-opt-thumb" style="display:flex;align-items:center;justify-content:center;font-size:14px;color:#999">${esc(name[0] || '')}</div>`}
+						<span class="walk-avatar-opt-name">${esc(name)}</span>
 					</button>`;
 				}).join('')}
 			`;

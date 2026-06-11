@@ -1,10 +1,12 @@
 // Consolidated KOL endpoints dispatcher.
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { requireAdmin } from '../_lib/admin.js';
+import { putObject, getObjectBuffer } from '../_lib/r2.js';
 
 // ── wallets (Birdeye P&L proxy) ───────────────────────────────────────────────
 
@@ -108,12 +110,34 @@ const WALLETS_PATH = path.resolve(
 	'../../src/kol/wallets.json',
 );
 
-async function loadWallets() {
+// Imported wallets live in R2 — the Vercel filesystem is read-only at runtime,
+// so writes to the bundled wallets.json can never persist (or even succeed).
+const WALLETS_R2_KEY = 'kol/wallets.json';
+
+async function loadBundledWallets() {
 	try {
 		return JSON.parse(await readFile(WALLETS_PATH, 'utf8'));
 	} catch {
 		return [];
 	}
+}
+
+async function loadImportedWallets() {
+	try {
+		const buf = await getObjectBuffer(WALLETS_R2_KEY);
+		const parsed = JSON.parse(buf.toString('utf8'));
+		return Array.isArray(parsed) ? parsed : [];
+	} catch {
+		return []; // nothing imported yet (or storage unreachable) — bundled list only
+	}
+}
+
+// Merged view: R2-stored imports take precedence over the bundled seed file.
+async function loadWallets() {
+	const [bundled, imported] = await Promise.all([loadBundledWallets(), loadImportedWallets()]);
+	const byWallet = new Map(bundled.map((w) => [w.wallet, w]));
+	for (const w of imported) byWallet.set(w.wallet, w);
+	return [...byWallet.values()];
 }
 
 // ── import-gmgn ───────────────────────────────────────────────────────────────
@@ -123,6 +147,9 @@ async function handleImportGmgn(req, res) {
 	if (!method(req, res, ['POST'])) return;
 	const rl = await limits.mcpIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
+	// Writes the tracked-wallet list that downstream KOL surfaces read — admin only.
+	const admin = await requireAdmin(req, res);
+	if (!admin) return;
 	const body = await readJson(req);
 	if (!body || body.rawJson == null)
 		return error(res, 400, 'validation_error', 'body.rawJson is required');
@@ -137,7 +164,16 @@ async function handleImportGmgn(req, res) {
 	const byWallet = new Map(existing.map((w) => [w.wallet, w]));
 	for (const entry of parsed) byWallet.set(entry.wallet, entry);
 	const merged = [...byWallet.values()];
-	await writeFile(WALLETS_PATH, JSON.stringify(merged, null, '\t') + '\n', 'utf8');
+	try {
+		await putObject({
+			key: WALLETS_R2_KEY,
+			body: JSON.stringify(merged, null, '\t') + '\n',
+			contentType: 'application/json',
+		});
+	} catch (err) {
+		console.error('[kol/import-gmgn] R2 write failed:', err?.message || err);
+		return error(res, 503, 'storage_unavailable', 'failed to persist imported wallets');
+	}
 	return json(res, 200, { imported: parsed.length, wallets: merged });
 }
 
@@ -168,6 +204,9 @@ async function handleLeaderboard(req, res) {
 async function handleTrades(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
+	// fetchKolTrades fans out one Helius call per tracked wallet — meter per IP.
+	const rl = await limits.mcpIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 	const url = new URL(req.url, 'http://x');
 	const mint = url.searchParams.get('mint');
 	const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') || '20')));

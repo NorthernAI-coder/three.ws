@@ -12,6 +12,7 @@ import { Readable } from 'node:stream';
 // wrap() calls these; stub them out before the module under test is imported.
 vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => false, drain: async () => {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
+vi.mock('../../api/_lib/csrf.js', () => ({ requireCsrf: vi.fn(async () => true) }));
 
 // ── Shared mutable state ──────────────────────────────────────────────────────
 const state = {
@@ -19,7 +20,9 @@ const state = {
 	agentRow: null,
 	voiceRow: null,
 	elevenConfigured: true,
-	voices: [{ voice_id: 'rachel', name: 'Rachel', category: 'premade', labels: {}, preview_url: null }],
+	voices: [
+		{ voice_id: 'rachel', name: 'Rachel', category: 'premade', labels: {}, preview_url: null },
+	],
 	cloneResult: { voiceId: 'cloned-1', requiresVerification: false },
 	cloneThrows: false,
 	cloneThrowErr: null,
@@ -37,7 +40,10 @@ vi.mock('../../api/_lib/auth.js', () => ({
 // ── DB mock ───────────────────────────────────────────────────────────────────
 vi.mock('../../api/_lib/db.js', () => ({
 	sql: vi.fn((strings, ...vals) => {
-		const q = (typeof strings === 'string' ? strings : strings.join('?')).toLowerCase().replace(/\s+/g, ' ').trim();
+		const q = (typeof strings === 'string' ? strings : strings.join('?'))
+			.toLowerCase()
+			.replace(/\s+/g, ' ')
+			.trim();
 
 		if (state.sqlQueue.length) {
 			const next = state.sqlQueue.shift();
@@ -63,11 +69,14 @@ vi.mock('../../api/_lib/elevenlabs.js', () => ({
 	isConfigured: vi.fn(() => state.elevenConfigured),
 	listVoices: vi.fn(async () => ({ voices: state.voices, cached: false })),
 	createClonedVoice: vi.fn(async () => {
-		if (state.cloneThrows) throw state.cloneThrowErr ?? Object.assign(new Error('clone failed'), { status: 502 });
+		if (state.cloneThrows)
+			throw state.cloneThrowErr ?? Object.assign(new Error('clone failed'), { status: 502 });
 		return state.cloneResult;
 	}),
 	deleteVoice: vi.fn(async () => {}),
-	isValidModel: vi.fn((id) => ['eleven_flash_v2_5', 'eleven_turbo_v2_5', 'eleven_multilingual_v2'].includes(id)),
+	isValidModel: vi.fn((id) =>
+		['eleven_flash_v2_5', 'eleven_turbo_v2_5', 'eleven_multilingual_v2'].includes(id),
+	),
 	normalizeVoiceSettings: vi.fn((input) => {
 		if (input == null) return null;
 		if (typeof input !== 'object' || Array.isArray(input))
@@ -98,12 +107,19 @@ function makeRes() {
 		body: null,
 		_headers: {},
 	};
-	res.setHeader = (k, v) => { res._headers[k.toLowerCase()] = v; };
+	res.setHeader = (k, v) => {
+		res._headers[k.toLowerCase()] = v;
+	};
 	res.getHeader = (k) => res._headers[k.toLowerCase()];
 	res.end = (b) => {
 		res.writableEnded = true;
 		res.headersSent = true;
-		if (b) try { res.body = JSON.parse(b); } catch { res.body = b; }
+		if (b)
+			try {
+				res.body = JSON.parse(b);
+			} catch {
+				res.body = b;
+			}
 	};
 	res.write = () => {};
 	return res;
@@ -150,9 +166,17 @@ async function invoke(method, body, opts = {}) {
 beforeEach(() => {
 	state.session = { id: 'user-1' };
 	state.agentRow = { id: 'agent-1', user_id: 'user-1', name: 'Test Agent' };
-	state.voiceRow = { voice_provider: 'browser', voice_id: null, voice_cloned_at: null, voice_model: null, voice_settings: null };
+	state.voiceRow = {
+		voice_provider: 'browser',
+		voice_id: null,
+		voice_cloned_at: null,
+		voice_model: null,
+		voice_settings: null,
+	};
 	state.elevenConfigured = true;
-	state.voices = [{ voice_id: 'rachel', name: 'Rachel', category: 'premade', labels: {}, preview_url: null }];
+	state.voices = [
+		{ voice_id: 'rachel', name: 'Rachel', category: 'premade', labels: {}, preview_url: null },
+	];
 	state.cloneResult = { voiceId: 'cloned-1', requiresVerification: false };
 	state.cloneThrows = false;
 	state.cloneThrowErr = null;
@@ -171,8 +195,11 @@ describe('GET /api/agents/:id/voice', () => {
 
 	it('returns elevenlabs status when a voice is assigned', async () => {
 		state.voiceRow = {
-			voice_provider: 'elevenlabs', voice_id: 'rachel',
-			voice_cloned_at: null, voice_model: 'eleven_flash_v2_5', voice_settings: null,
+			voice_provider: 'elevenlabs',
+			voice_id: 'rachel',
+			voice_cloned_at: null,
+			voice_model: 'eleven_flash_v2_5',
+			voice_settings: null,
 		};
 		const { status, body } = await invoke('GET');
 		expect(status).toBe(200);
@@ -219,7 +246,15 @@ describe('PUT /api/agents/:id/voice', () => {
 		state.sqlQueue = [
 			[{ id: 'agent-1', user_id: 'user-1', name: 'Test Agent' }],
 			[{ voice_id: null, voice_cloned_at: null, voice_model: null, voice_settings: null }],
-			[{ voice_provider: 'elevenlabs', voice_id: 'rachel', voice_cloned_at: null, voice_model: null, voice_settings: null }],
+			[
+				{
+					voice_provider: 'elevenlabs',
+					voice_id: 'rachel',
+					voice_cloned_at: null,
+					voice_model: null,
+					voice_settings: null,
+				},
+			],
 		];
 		const { status, body } = await invoke('PUT', { voice_id: 'rachel' });
 		expect(status).toBe(200);
@@ -237,8 +272,23 @@ describe('PUT /api/agents/:id/voice', () => {
 	it('clears the voice when voice_id is null', async () => {
 		state.sqlQueue = [
 			[{ id: 'agent-1', user_id: 'user-1', name: 'Test Agent' }],
-			[{ voice_id: 'rachel', voice_cloned_at: null, voice_model: null, voice_settings: null }],
-			[{ voice_provider: 'browser', voice_id: null, voice_cloned_at: null, voice_model: null, voice_settings: null }],
+			[
+				{
+					voice_id: 'rachel',
+					voice_cloned_at: null,
+					voice_model: null,
+					voice_settings: null,
+				},
+			],
+			[
+				{
+					voice_provider: 'browser',
+					voice_id: null,
+					voice_cloned_at: null,
+					voice_model: null,
+					voice_settings: null,
+				},
+			],
 		];
 		const { status, body } = await invoke('PUT', { voice_id: null });
 		expect(status).toBe(200);
@@ -249,11 +299,23 @@ describe('PUT /api/agents/:id/voice', () => {
 	it('updates model and settings without touching the voice assignment', async () => {
 		state.sqlQueue = [
 			[{ id: 'agent-1', user_id: 'user-1', name: 'Test Agent' }],
-			[{ voice_id: 'rachel', voice_cloned_at: null, voice_model: 'eleven_flash_v2_5', voice_settings: null }],
-			[{
-				voice_provider: 'elevenlabs', voice_id: 'rachel', voice_cloned_at: null,
-				voice_model: 'eleven_turbo_v2_5', voice_settings: null,
-			}],
+			[
+				{
+					voice_id: 'rachel',
+					voice_cloned_at: null,
+					voice_model: 'eleven_flash_v2_5',
+					voice_settings: null,
+				},
+			],
+			[
+				{
+					voice_provider: 'elevenlabs',
+					voice_id: 'rachel',
+					voice_cloned_at: null,
+					voice_model: 'eleven_turbo_v2_5',
+					voice_settings: null,
+				},
+			],
 		];
 		const { status, body } = await invoke('PUT', { voice_model: 'eleven_turbo_v2_5' });
 		expect(status).toBe(200);
@@ -292,12 +354,18 @@ describe('POST /api/agents/:id/voice/clone', () => {
 	});
 
 	it('returns 415 for a non-audio content-type', async () => {
-		const { status } = await invoke('POST', Buffer.alloc(60_000), { action: 'clone', contentType: 'video/mp4' });
+		const { status } = await invoke('POST', Buffer.alloc(60_000), {
+			action: 'clone',
+			contentType: 'video/mp4',
+		});
 		expect(status).toBe(415);
 	});
 
 	it('returns 400 for audio shorter than 30s (duration header)', async () => {
-		const { status, body } = await invoke('POST', VALID_AUDIO, { action: 'clone', duration: 10 });
+		const { status, body } = await invoke('POST', VALID_AUDIO, {
+			action: 'clone',
+			duration: 10,
+		});
 		expect(status).toBe(400);
 		expect(body.error).toBe('audio_too_short');
 	});
@@ -310,10 +378,7 @@ describe('POST /api/agents/:id/voice/clone', () => {
 	});
 
 	it('clones successfully and returns the new voice id', async () => {
-		state.sqlQueue = [
-			[{ id: 'agent-1', user_id: 'user-1', name: 'Test Agent' }],
-			[],
-		];
+		state.sqlQueue = [[{ id: 'agent-1', user_id: 'user-1', name: 'Test Agent' }], []];
 		const { status, body } = await invoke('POST', VALID_AUDIO, { action: 'clone' });
 		expect(status).toBe(201);
 		expect(body.voice_id).toBe('cloned-1');

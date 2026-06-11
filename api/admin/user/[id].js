@@ -8,11 +8,13 @@ import { requireAdmin } from '../../_lib/admin.js';
 import { requireCsrf } from '../../_lib/csrf.js';
 import { parse } from '../../_lib/validate.js';
 
-const patchSchema = z.object({
-	plan:     z.enum(['free','pro','team','enterprise']).optional(),
-	is_admin: z.boolean().optional(),
-	deleted:  z.boolean().optional(),
-}).refine((d) => Object.keys(d).length > 0, { message: 'nothing to update' });
+const patchSchema = z
+	.object({
+		plan: z.enum(['free', 'pro', 'team', 'enterprise']).optional(),
+		is_admin: z.boolean().optional(),
+		deleted: z.boolean().optional(),
+	})
+	.refine((d) => Object.keys(d).length > 0, { message: 'nothing to update' });
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,PATCH,OPTIONS', credentials: true })) return;
@@ -20,12 +22,14 @@ export default wrap(async (req, res) => {
 	const admin = await requireAdmin(req, res);
 	if (!admin) return;
 
-	const id = req.url.split('/').pop().split('?')[0];
-	if (!id) return error(res, 400, 'bad_request', 'missing user id');
-
 	if (req.method === 'PATCH') {
 		if (!(await requireCsrf(req, res, admin.id))) return;
 	}
+
+	const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	const id = req.url.split('/').pop().split('?')[0];
+	if (!id) return error(res, 400, 'bad_request', 'missing user id');
+	if (!UUID_REGEX.test(id)) return error(res, 400, 'invalid_id', 'user id must be a valid UUID');
 
 	if (req.method === 'GET') {
 		const [user] = await sql`

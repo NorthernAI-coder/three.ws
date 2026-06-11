@@ -25,11 +25,12 @@ import {
 	LAMPORTS_PER_SOL,
 } from '../_lib/avatar-wallet.js';
 import { trendingPools } from '../_lib/market/ohlcv.js';
-import { cors, wrap } from '../_lib/http.js';
+import { cors, wrap, error } from '../_lib/http.js';
+import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
-const TRADE_SOL    = 0.001;   // price Oracle charges per data call
-const RPC_URL      = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+const TRADE_SOL = 0.001; // price Oracle charges per data call
+const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
 // ── Wallet helpers ─────────────────────────────────────────────────────────
 
@@ -62,7 +63,14 @@ async function walletSnapshot(cfg) {
 			getSolBalance(conn, cfg.address),
 			solUsdPrice().catch(() => 0),
 		]);
-		return { configured: true, address: cfg.address, sol, usd: price ? sol * price : null, solPriceUsd: price, explorer: cfg.explorer };
+		return {
+			configured: true,
+			address: cfg.address,
+			sol,
+			usd: price ? sol * price : null,
+			solPriceUsd: price,
+			explorer: cfg.explorer,
+		};
 	} catch {
 		return { configured: true, address: cfg.address, sol: null, usd: null };
 	}
@@ -100,14 +108,17 @@ async function fetchMarketData() {
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 
-	const url    = new URL(req.url, 'http://x');
-	const cfgA   = agentAConfig();
-	const cfgB   = agentBConfig();
+	const url = new URL(req.url, 'http://x');
+	const cfgA = agentAConfig();
+	const cfgB = agentBConfig();
 
 	// ── STATUS: wallet snapshots ──────────────────────────────────────────
 	if (url.searchParams.get('status') === '1') {
 		const [a, b] = await Promise.all([walletSnapshot(cfgA), walletSnapshot(cfgB)]);
-		res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+		res.writeHead(200, {
+			'content-type': 'application/json',
+			'access-control-allow-origin': '*',
+		});
 		res.end(JSON.stringify({ agentA: a, agentB: b, tradeSol: TRADE_SOL }));
 		return;
 	}
@@ -117,6 +128,16 @@ export default wrap(async (req, res) => {
 		res.writeHead(400, { 'content-type': 'application/json' });
 		res.end(JSON.stringify({ error: 'use ?status=1 or ?trade=1' }));
 		return;
+	}
+
+	// The trade branch signs + sends a REAL on-chain SOL transfer from the
+	// platform-held trader wallet — never expose that to anonymous callers.
+	// Read-only callers use ?status=1; the trade stream requires a session
+	// cookie or bearer token on top of the per-IP limit below.
+	const sessionUser = await getSessionUser(req);
+	const bearerUser = sessionUser ? null : await authenticateBearer(extractBearer(req));
+	if (!sessionUser && !bearerUser) {
+		return error(res, 401, 'unauthorized', 'sign in to run the agent-economy trade demo');
 	}
 
 	const rl = await limits.publicIp(clientIp(req));
@@ -151,10 +172,12 @@ export default wrap(async (req, res) => {
 
 		try {
 			const conn = getConnection(RPC_URL);
-			const bal  = await getSolBalance(conn, cfgB.address);
+			const bal = await getSolBalance(conn, cfgB.address);
 			const needed = TRADE_SOL * LAMPORTS_PER_SOL + 15_000;
 			if (bal.lamports < needed) {
-				emit(res, 'error', { text: `Trader wallet underfunded (${bal.sol.toFixed(5)} SOL). Fund ${cfgB.address} and retry.` });
+				emit(res, 'error', {
+					text: `Trader wallet underfunded (${bal.sol.toFixed(5)} SOL). Fund ${cfgB.address} and retry.`,
+				});
 				res.end();
 				return;
 			}
@@ -217,4 +240,6 @@ export default wrap(async (req, res) => {
 	res.end();
 });
 
-function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
+function delay(ms) {
+	return new Promise((r) => setTimeout(r, ms));
+}

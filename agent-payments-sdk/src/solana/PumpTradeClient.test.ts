@@ -25,8 +25,8 @@ import { describe, expect, it, vi } from "vitest";
 
 // ─── Shared test fixtures ────────────────────────────────────────────────────
 
-const FAKE_MINT = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"); // arbitrary test mint
-const FAKE_USER = new PublicKey("DRiP2Pn2K6fuMLKQmt5rZWyHiUZ6WK3GChEySUpHSS4");
+const FAKE_MINT = new PublicKey("FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"); // $three
+const FAKE_USER = new PublicKey("9TbHoj4ass7pbyp1ihAFD8dXg3wbYTQ8R2kmJBXgbuno"); // synthetic (sha256 "three.ws/fixture/trade-user")
 const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 // Discriminators from pump-public-docs/idl/pump.ts
@@ -43,7 +43,7 @@ function makeBondingCurve(overrides: Partial<Record<string, unknown>> = {}) {
     realQuoteReserves: new BN(0),
     tokenTotalSupply: new BN("1000000000000000"),
     complete: false,
-    creator: new PublicKey("DRiP2Pn2K6fuMLKQmt5rZWyHiUZ6WK3GChEySUpHSS4"),
+    creator: new PublicKey("9TbHoj4ass7pbyp1ihAFD8dXg3wbYTQ8R2kmJBXgbuno"), // synthetic (sha256 "three.ws/fixture/trade-user")
     isMayhemMode: false,
     isCashbackCoin: false,
     quoteMint: PublicKey.default,
@@ -55,7 +55,7 @@ function makeGlobal() {
   return {
     initialized: true,
     authority: PublicKey.default,
-    feeRecipient: new PublicKey("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM"),
+    feeRecipient: new PublicKey("urRdaqmYh6PSkUXeeymzaUc5EWNydR8gkKsZ5r5sak1") /* synthetic fee recipient */,
     initialVirtualTokenReserves: new BN("1073000000000000"),
     initialVirtualSolReserves: new BN("30000000000"),
     initialRealTokenReserves: new BN("793100000000000"),
@@ -70,7 +70,7 @@ function makeGlobal() {
     adminSetCreatorAuthority: PublicKey.default,
     createV2Enabled: true,
     whitelistPda: PublicKey.default,
-    reservedFeeRecipient: new PublicKey("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM"),
+    reservedFeeRecipient: new PublicKey("urRdaqmYh6PSkUXeeymzaUc5EWNydR8gkKsZ5r5sak1") /* synthetic fee recipient */,
     mayhemModeEnabled: false,
     reservedFeeRecipients: [],
     isCashbackEnabled: true,

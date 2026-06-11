@@ -8,8 +8,16 @@
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { peekCalledTool } from './_lib/mcp-dispatch.js';
+import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcp3d/dispatch.js';
-import { send401, sendJsonRpcError, authenticateRequest, handleSse, handleTerminate } from './_mcp/auth.js';
+import {
+	send401,
+	sendJsonRpcError,
+	authenticateRequest,
+	handleSse,
+	handleTerminate,
+} from './_mcp/auth.js';
+import { sendX402Error } from './_mcp/payments.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
@@ -27,7 +35,7 @@ export default wrap(async (req, res) => {
 		allowFree: Boolean(toolName && isPublicTool(toolName)),
 	});
 	if (!result) return;
-	const { auth } = result;
+	const { auth, x402Ctx } = result;
 
 	const ipRl = await limits.mcpIp(clientIp(req));
 	if (!ipRl.success)
@@ -47,6 +55,27 @@ export default wrap(async (req, res) => {
 	for (const msg of batch) {
 		const r = await dispatch(msg, auth, req);
 		if (r !== null) responses.push(r);
+	}
+
+	// 3D Studio is operator-funded: OAuth users run tools for free (bounded by
+	// rate limits), and connecting "with an x402 wallet" is honored. When a caller
+	// DID present an x402 payment, settle it so the connection actually costs the
+	// nominal minimum and the same signed payment can't be replayed for unlimited
+	// free GPU work. Only settle if a call succeeded — a wholesale failure is free.
+	if (x402Ctx) {
+		const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+		if (anySuccess) {
+			try {
+				const settled = await settlePayment({ verified: x402Ctx.verified });
+				res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+			} catch (err) {
+				return sendX402Error(
+					res,
+					{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
+					err,
+				);
+			}
+		}
 	}
 
 	res.statusCode = 200;

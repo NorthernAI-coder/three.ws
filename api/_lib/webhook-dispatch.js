@@ -10,6 +10,7 @@
 
 import { sql } from './db.js';
 import { randomToken, hmacSha256 } from './crypto.js';
+import { validatePublicUrl, resolvePublicHost, pinnedAgent, SsrfError } from './ssrf.js';
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_BASE_MS = 1000;
@@ -61,9 +62,11 @@ export async function dispatchWebhooks({ userId, eventType, data }) {
 
 async function deliverWithRetry(webhook, eventId, timestamp, payload, eventType) {
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-		const { statusCode, responseBody, error: deliveryError } = await deliver(
-			webhook.url, webhook.secret, eventId, timestamp, payload,
-		);
+		const {
+			statusCode,
+			responseBody,
+			error: deliveryError,
+		} = await deliver(webhook.url, webhook.secret, eventId, timestamp, payload);
 
 		try {
 			await sql`
@@ -104,24 +107,53 @@ async function deliverWithRetry(webhook, eventId, timestamp, payload, eventType)
 async function deliver(url, secret, eventId, timestamp, payload) {
 	const signature = await sign(secret, eventId, timestamp, payload);
 
+	// SSRF guard: the URL is developer-supplied, so resolve it and pin the
+	// connection to the validated public address(es). Without this, a webhook
+	// pointed at 169.254.169.254 / localhost / RFC-1918 (directly or via a public
+	// host that 30x-redirects inward) would have the server POST to an internal
+	// target and persist the status/error as a probing oracle. Redirects are NOT
+	// followed (manual) so a public host can't bounce the request internally.
+	let target;
+	let agent;
+	try {
+		target = validatePublicUrl(url);
+		const addrs = await resolvePublicHost(target.hostname);
+		agent = pinnedAgent(target.hostname, addrs);
+	} catch (err) {
+		const reason = err instanceof SsrfError ? `blocked_url:${err.code}` : 'invalid_url';
+		return { statusCode: null, responseBody: null, error: reason };
+	}
+
 	try {
 		const controller = new AbortController();
 		const timeout = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS);
 
-		const res = await fetch(url, {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				'webhook-id': eventId,
-				'webhook-timestamp': String(timestamp),
-				'webhook-signature': `v1,${signature}`,
-				'user-agent': 'three.ws-webhooks/1.0',
-			},
-			body: payload,
-			signal: controller.signal,
-		});
+		let res;
+		try {
+			res = await fetch(target, {
+				method: 'POST',
+				redirect: 'manual',
+				dispatcher: agent,
+				headers: {
+					'content-type': 'application/json',
+					'webhook-id': eventId,
+					'webhook-timestamp': String(timestamp),
+					'webhook-signature': `v1,${signature}`,
+					'user-agent': 'three.ws-webhooks/1.0',
+				},
+				body: payload,
+				signal: controller.signal,
+			});
+		} finally {
+			clearTimeout(timeout);
+			await agent.close().catch(() => {});
+		}
 
-		clearTimeout(timeout);
+		// A redirect is a misconfigured (or hostile) endpoint — record it as a
+		// failure instead of following it to a potentially internal target.
+		if (res.status >= 300 && res.status < 400) {
+			return { statusCode: res.status, responseBody: null, error: 'redirect_not_followed' };
+		}
 
 		let responseBody = null;
 		try {

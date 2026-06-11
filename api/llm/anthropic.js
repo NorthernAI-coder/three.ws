@@ -44,36 +44,60 @@ function getRedis() {
 
 const MODELS = {
 	// Anthropic (paid — host's key)
-	'claude-fable-5':             { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
-	'claude-mythos-5':            { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
-	'claude-opus-4-7':            { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
-	'claude-opus-4-6':            { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
-	'claude-sonnet-4-6':          { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
-	'claude-haiku-4-5-20251001':  { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
+	'claude-fable-5': { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
+	'claude-mythos-5': { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
+	'claude-opus-4-7': { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
+	'claude-opus-4-6': { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
+	'claude-sonnet-4-6': { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
+	'claude-haiku-4-5-20251001': { kind: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
 
 	// OpenRouter free tier (no per-token cost; daily rate cap shared across host).
 	// All are tool-call capable in OpenRouter's catalog.
-	'meta-llama/llama-3.3-70b-instruct:free':       { kind: 'openai', provider: 'openrouter', envKey: 'OPENROUTER_API_KEY' },
-	'openai/gpt-oss-120b:free':                     { kind: 'openai', provider: 'openrouter', envKey: 'OPENROUTER_API_KEY' },
-	'nousresearch/hermes-3-llama-3.1-405b:free':    { kind: 'openai', provider: 'openrouter', envKey: 'OPENROUTER_API_KEY' },
+	'meta-llama/llama-3.3-70b-instruct:free': {
+		kind: 'openai',
+		provider: 'openrouter',
+		envKey: 'OPENROUTER_API_KEY',
+	},
+	'openai/gpt-oss-120b:free': {
+		kind: 'openai',
+		provider: 'openrouter',
+		envKey: 'OPENROUTER_API_KEY',
+	},
+	'nousresearch/hermes-3-llama-3.1-405b:free': {
+		kind: 'openai',
+		provider: 'openrouter',
+		envKey: 'OPENROUTER_API_KEY',
+	},
 
 	// Groq free tier (sub-second latency; per-IP+per-key minute caps).
-	'llama-3.3-70b-versatile':    { kind: 'openai', provider: 'groq', envKey: 'GROQ_API_KEY' },
-	'llama-3.1-8b-instant':       { kind: 'openai', provider: 'groq', envKey: 'GROQ_API_KEY' },
+	'llama-3.3-70b-versatile': { kind: 'openai', provider: 'groq', envKey: 'GROQ_API_KEY' },
+	'llama-3.1-8b-instant': { kind: 'openai', provider: 'groq', envKey: 'GROQ_API_KEY' },
 
 	// NVIDIA NIM free tier (build.nvidia.com). One nvapi key, OpenAI-compatible,
 	// tool-call capable. Used both as directly-selectable models and as a free
 	// fallback ahead of paid Anthropic in the chain below.
-	'nvidia/llama-3.3-nemotron-super-49b-v1.5':  { kind: 'openai', provider: 'nvidia', envKey: 'NVIDIA_API_KEY' },
-	'nvidia/nvidia-nemotron-nano-9b-v2':         { kind: 'openai', provider: 'nvidia', envKey: 'NVIDIA_API_KEY' },
-	'meta/llama-4-maverick-17b-128e-instruct':   { kind: 'openai', provider: 'nvidia', envKey: 'NVIDIA_API_KEY' },
+	'nvidia/llama-3.3-nemotron-super-49b-v1.5': {
+		kind: 'openai',
+		provider: 'nvidia',
+		envKey: 'NVIDIA_API_KEY',
+	},
+	'nvidia/nvidia-nemotron-nano-9b-v2': {
+		kind: 'openai',
+		provider: 'nvidia',
+		envKey: 'NVIDIA_API_KEY',
+	},
+	'meta/llama-4-maverick-17b-128e-instruct': {
+		kind: 'openai',
+		provider: 'nvidia',
+		envKey: 'NVIDIA_API_KEY',
+	},
 };
 
 const UPSTREAM_URL = {
-	anthropic:  'https://api.anthropic.com/v1/messages',
+	anthropic: 'https://api.anthropic.com/v1/messages',
 	openrouter: 'https://openrouter.ai/api/v1/chat/completions',
-	groq:       'https://api.groq.com/openai/v1/chat/completions',
-	nvidia:     'https://integrate.api.nvidia.com/v1/chat/completions',
+	groq: 'https://api.groq.com/openai/v1/chat/completions',
+	nvidia: 'https://integrate.api.nvidia.com/v1/chat/completions',
 };
 
 const FIRST_PARTY = ['three.ws', 'localhost'];
@@ -146,7 +170,10 @@ function warnQuotaDegraded(err) {
 	const t = Date.now();
 	if (t - _quotaWarnedAt < 60_000) return;
 	_quotaWarnedAt = t;
-	console.warn('[llm/anthropic] quota-counter redis degraded, failing open:', err?.message || err);
+	console.warn(
+		'[llm/anthropic] quota-counter redis degraded, failing open:',
+		err?.message || err,
+	);
 }
 
 async function incrementMonthlyQuota(agentId) {
@@ -161,6 +188,24 @@ async function incrementMonthlyQuota(agentId) {
 		// Fail open like the per-IP/per-agent limiters this handler already uses:
 		// a counter-store outage must not 500 the proxy. Spend stays bounded by
 		// those (resilient) limiters during the outage window.
+		warnQuotaDegraded(err);
+		return 0;
+	}
+}
+
+// Read-only peek at the monthly call counter — used for the pre-flight quota
+// check so a request that never reaches a provider (validation error, upstream
+// 429/5xx across the whole fallback chain) doesn't consume quota. The counter
+// is only incremented after a successful upstream response, mirroring the
+// token-budget pattern (getMonthlyTokens before / addMonthlyTokens after).
+async function getMonthlyQuotaUsed(agentId) {
+	const r = getRedis();
+	if (!r) return 0;
+	const key = `llm:quota:${agentId}:${monthKey()}`;
+	try {
+		const v = await r.get(key);
+		return typeof v === 'number' ? v : parseInt(v || '0', 10) || 0;
+	} catch (err) {
 		warnQuotaDegraded(err);
 		return 0;
 	}
@@ -249,7 +294,12 @@ export default wrap(async (req, res) => {
 
 	const originHeader = req.headers.origin || req.headers.referer || '';
 	if (!originAllowed(originHeader, policy)) {
-		return error(res, 403, 'embed_denied_origin', "origin not permitted by this agent's embed policy");
+		return error(
+			res,
+			403,
+			'embed_denied_origin',
+			"origin not permitted by this agent's embed policy",
+		);
 	}
 
 	const ipRl = await limits.embedLlmIp(clientIp(req));
@@ -262,9 +312,10 @@ export default wrap(async (req, res) => {
 	}
 
 	const quota = policy.brain?.monthly_quota;
-	if (typeof quota === 'number' && quota !== null) {
-		const used = await incrementMonthlyQuota(agentId);
-		if (used > quota) {
+	const quotaEnforced = typeof quota === 'number' && quota !== null;
+	if (quotaEnforced) {
+		const used = await getMonthlyQuotaUsed(agentId);
+		if (used >= quota) {
 			return error(res, 429, 'quota_exceeded', `monthly quota of ${quota} calls reached`);
 		}
 	}
@@ -277,7 +328,8 @@ export default wrap(async (req, res) => {
 
 	const rawBody = await readJson(req);
 	const body = parse(bodySchema, rawBody);
-	const requestedModel = body.model || policy.brain?.model || 'meta-llama/llama-3.3-70b-instruct:free';
+	const requestedModel =
+		body.model || policy.brain?.model || 'meta-llama/llama-3.3-70b-instruct:free';
 
 	// Ordered fallback chain for 429 / 5xx from OpenRouter free tier:
 	//   1. Requested model (e.g. llama-3.3-70b:free)
@@ -291,11 +343,11 @@ export default wrap(async (req, res) => {
 	// empty completion to the embedded agent.
 	const modelFallbacks = [
 		requestedModel,
-		...([
+		...[
 			'meta-llama/llama-3.1-8b-instruct:free',
 			'meta/llama-4-maverick-17b-128e-instruct',
 			'claude-haiku-4-5-20251001',
-		].filter((m) => m !== requestedModel)),
+		].filter((m) => m !== requestedModel),
 	];
 
 	const isStreaming = body.stream === true;
@@ -318,27 +370,33 @@ export default wrap(async (req, res) => {
 		const apiKey = process.env[route.envKey];
 		if (!apiKey) {
 			if (attempt === 0) {
-				return error(res, 503, 'provider_unavailable', `${route.envKey} not configured on host`);
+				return error(
+					res,
+					503,
+					'provider_unavailable',
+					`${route.envKey} not configured on host`,
+				);
 			}
 			continue;
 		}
 
 		usedRoute = route;
-		const upstreamUrl = route.kind === 'anthropic' ? UPSTREAM_URL.anthropic : UPSTREAM_URL[route.provider];
+		const upstreamUrl =
+			route.kind === 'anthropic' ? UPSTREAM_URL.anthropic : UPSTREAM_URL[route.provider];
 		const upstreamHeaders =
 			route.kind === 'anthropic'
 				? {
 						'content-type': 'application/json',
 						'anthropic-version': '2023-06-01',
 						'x-api-key': apiKey,
-				  }
+					}
 				: {
 						'content-type': 'application/json',
 						authorization: `Bearer ${apiKey}`,
 						...(route.provider === 'openrouter'
 							? { 'HTTP-Referer': 'https://three.ws', 'X-Title': 'three.ws agent' }
 							: {}),
-				  };
+					};
 		const upstreamBody =
 			route.kind === 'anthropic'
 				? JSON.stringify({ ...body, model: usedModel })
@@ -364,7 +422,7 @@ export default wrap(async (req, res) => {
 			if (attempt + 1 < modelFallbacks.length) {
 				console.warn(
 					`[llm/anthropic] ${provider}/${usedModel} returned ${upstream.status} — ` +
-					`falling back to ${modelFallbacks[attempt + 1]}`,
+						`falling back to ${modelFallbacks[attempt + 1]}`,
 				);
 				continue;
 			}
@@ -397,17 +455,26 @@ export default wrap(async (req, res) => {
 		if (usedModel !== requestedModel) {
 			console.info(
 				`[llm/anthropic] agentId=${agentId} used fallback model ${usedModel} ` +
-				`(requested: ${requestedModel})`,
+					`(requested: ${requestedModel})`,
 			);
 		}
 		break;
 	}
 
 	if (!usedRoute || !upstream) {
-		return json(res, 503, { error: 'provider_unavailable', message: 'no configured fallback model is available' });
+		return json(res, 503, {
+			error: 'provider_unavailable',
+			message: 'no configured fallback model is available',
+		});
 	}
 
 	const route = usedRoute;
+
+	// Charge the monthly call quota only now that an upstream provider actually
+	// accepted the request — failed/rate-limited upstream attempts stay free.
+	// incrementMonthlyQuota fails open internally, so a counter outage can't 500
+	// an already-accepted call.
+	if (quotaEnforced) await incrementMonthlyQuota(agentId);
 
 	// ── Streaming path ────────────────────────────────────────────────────────
 	if (isStreaming) {
@@ -437,8 +504,10 @@ export default wrap(async (req, res) => {
 						if (!line.startsWith('data: ')) continue;
 						try {
 							const ev = JSON.parse(line.slice(6));
-							if (ev.type === 'message_start') inputTokens = ev.message?.usage?.input_tokens ?? 0;
-							if (ev.type === 'message_delta') outputTokens = ev.usage?.output_tokens ?? 0;
+							if (ev.type === 'message_start')
+								inputTokens = ev.message?.usage?.input_tokens ?? 0;
+							if (ev.type === 'message_delta')
+								outputTokens = ev.usage?.output_tokens ?? 0;
 						} catch {
 							// not every data line is JSON (e.g. [DONE]) — skip
 						}
@@ -473,8 +542,19 @@ export default wrap(async (req, res) => {
 			model: usedModel,
 			inputTokens,
 			outputTokens,
-			costMicroUsd: costMicroUsd({ provider: route.provider || 'anthropic', model: usedModel, input: inputTokens, output: outputTokens }),
-			meta: { model: usedModel, requested_model: requestedModel, input_tokens: inputTokens, output_tokens: outputTokens, upstream_status: upstream.status },
+			costMicroUsd: costMicroUsd({
+				provider: route.provider || 'anthropic',
+				model: usedModel,
+				input: inputTokens,
+				output: outputTokens,
+			}),
+			meta: {
+				model: usedModel,
+				requested_model: requestedModel,
+				input_tokens: inputTokens,
+				output_tokens: outputTokens,
+				upstream_status: upstream.status,
+			},
 		});
 		return;
 	}
@@ -525,8 +605,19 @@ export default wrap(async (req, res) => {
 		model: usedModel,
 		inputTokens,
 		outputTokens,
-		costMicroUsd: costMicroUsd({ provider: route.provider || 'anthropic', model: usedModel, input: inputTokens, output: outputTokens }),
-		meta: { model: usedModel, requested_model: requestedModel, input_tokens: inputTokens, output_tokens: outputTokens, upstream_status: upstream.status },
+		costMicroUsd: costMicroUsd({
+			provider: route.provider || 'anthropic',
+			model: usedModel,
+			input: inputTokens,
+			output: outputTokens,
+		}),
+		meta: {
+			model: usedModel,
+			requested_model: requestedModel,
+			input_tokens: inputTokens,
+			output_tokens: outputTokens,
+			upstream_status: upstream.status,
+		},
 	});
 
 	res.statusCode = 200;
@@ -726,7 +817,10 @@ async function pipeOpenAIAsAnthropic(upstream, res, { model }) {
 	function finishToolBlocks() {
 		for (const slot of toolBlocks.values()) {
 			if (slot.started && !slot.finished) {
-				write({ type: 'content_block_stop', index: slot.anthropicIndex }, 'content_block_stop');
+				write(
+					{ type: 'content_block_stop', index: slot.anthropicIndex },
+					'content_block_stop',
+				);
 				slot.finished = true;
 			}
 		}
@@ -776,7 +870,13 @@ async function pipeOpenAIAsAnthropic(upstream, res, { model }) {
 						const idx = tc.index ?? 0;
 						let slot = toolBlocks.get(idx);
 						if (!slot) {
-							slot = { started: false, finished: false, name: '', id: null, argsBuf: '' };
+							slot = {
+								started: false,
+								finished: false,
+								name: '',
+								id: null,
+								argsBuf: '',
+							};
 							toolBlocks.set(idx, slot);
 						}
 						if (!slot.started && (tc.id || tc.function?.name)) {
@@ -791,7 +891,10 @@ async function pipeOpenAIAsAnthropic(upstream, res, { model }) {
 									{
 										type: 'content_block_delta',
 										index: slot.anthropicIndex,
-										delta: { type: 'input_json_delta', partial_json: tc.function.arguments },
+										delta: {
+											type: 'input_json_delta',
+											partial_json: tc.function.arguments,
+										},
 									},
 									'content_block_delta',
 								);

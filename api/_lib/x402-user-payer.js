@@ -15,11 +15,77 @@
 // resolveSpendEnabled() returns false and callers degrade to a payment-details
 // handoff instead of moving funds.
 
+import dns from 'node:dns';
+import https from 'node:https';
+import http from 'node:http';
 import { sql } from './db.js';
 import { solanaConnection } from './solana/connection.js';
 import { env } from './env.js';
 import { recoverSolanaAgentKeypair } from './agent-wallet.js';
 import { installSpendingCap } from './x402-spending-cap.js';
+import { validatePublicUrl, isPrivateAddress, SsrfError } from './ssrf.js';
+
+// SSRF guard for the user-paying client. `pay_and_call` forwards a caller-
+// supplied URL into a server-side HTTP request, so without this an authenticated
+// user could steer the request at cloud metadata (169.254.169.254), localhost,
+// or RFC-1918 hosts and read the reflected body. We defend in three layers:
+//   1. validatePublicUrl() — https-only (http in dev), at the boundary.
+//   2. guardedLookup — rejects resolution to any private/loopback/link-local/
+//      metadata address AT CONNECT TIME, closing the DNS-rebinding window that a
+//      resolve-then-connect check would leave open.
+//   3. maxRedirects: 0 on the axios client — a public host cannot 30x-redirect
+//      into an internal target.
+// This mirrors the guard the local mcp-bridge already applies (assertPayableUrl
+// + maxRedirects:0); the hosted path was the one missing it.
+function guardedLookup(hostname, options, callback) {
+	const cb = typeof options === 'function' ? options : callback;
+	const opts = typeof options === 'function' ? {} : options || {};
+	dns.lookup(hostname, { ...opts, all: true, verbatim: true }, (err, addresses) => {
+		if (err) return cb(err);
+		const addrs = Array.isArray(addresses) ? addresses : [addresses];
+		for (const a of addrs) {
+			if (isPrivateAddress(a.address, a.family)) {
+				return cb(
+					new SsrfError(`blocked private address for ${hostname}`, 'private_address'),
+				);
+			}
+		}
+		if (opts.all) return cb(null, addrs);
+		return cb(null, addrs[0].address, addrs[0].family);
+	});
+}
+
+const ssrfHttpsAgent = new https.Agent({ lookup: guardedLookup, keepAlive: false });
+const ssrfHttpAgent = new http.Agent({ lookup: guardedLookup, keepAlive: false });
+
+// Boundary check: scheme + that the literal/resolved host is not private. Throws
+// an Error with a safe `.code` for the MCP handler to translate.
+async function assertPublicPayableUrl(rawUrl) {
+	let url;
+	try {
+		url = validatePublicUrl(rawUrl);
+	} catch (e) {
+		throw Object.assign(new Error('target URL is not a permitted public https endpoint'), {
+			code: 'invalid_url',
+			cause: e,
+		});
+	}
+	// Resolve up front so an obviously-internal target is rejected before we
+	// recover the user's key or move any money. The connect-time guardedLookup is
+	// the authoritative check; this is a fast fail.
+	await new Promise((resolve, reject) => {
+		guardedLookup(url.hostname, { all: true }, (err) =>
+			err
+				? reject(
+						Object.assign(new Error('target URL resolves to a non-public address'), {
+							code: 'blocked_url',
+						}),
+					)
+				: resolve(),
+		);
+	});
+	return url.href;
+}
 
 // Atomic-USDC caps. Defaults are intentionally tiny; operators raise them via
 // env once they trust the flow. A per-call override from the tool can only
@@ -70,14 +136,19 @@ export async function resolveUserAgentWallet(userId) {
 // Build a paying axios instance bound to the user's Solana keypair, with the
 // platform spending cap installed. Returns { api, client, uninstall, address }.
 async function buildUserPayingClient({ wallet, userId, maxPerCallOverride }) {
-	const [{ default: axios }, { x402Client, x402HTTPClient }, { wrapAxiosWithPayment }, { ExactSvmScheme }, { createKeyPairSignerFromBytes }] =
-		await Promise.all([
-			import('axios'),
-			import('@x402/core/client'),
-			import('@x402/axios'),
-			import('@x402/svm/exact/client'),
-			import('@solana/kit'),
-		]);
+	const [
+		{ default: axios },
+		{ x402Client, x402HTTPClient },
+		{ wrapAxiosWithPayment },
+		{ ExactSvmScheme },
+		{ createKeyPairSignerFromBytes },
+	] = await Promise.all([
+		import('axios'),
+		import('@x402/core/client'),
+		import('@x402/axios'),
+		import('@x402/svm/exact/client'),
+		import('@solana/kit'),
+	]);
 
 	const keypair = await recoverSolanaAgentKeypair(wallet.encryptedSecret, {
 		agentId: wallet.agentId,
@@ -91,7 +162,9 @@ async function buildUserPayingClient({ wallet, userId, maxPerCallOverride }) {
 
 	const envPerCall = envAtomic('X402_MAX_PER_CALL_ATOMIC', DEFAULT_MAX_PER_CALL);
 	const perCall =
-		maxPerCallOverride != null && maxPerCallOverride < envPerCall ? maxPerCallOverride : envPerCall;
+		maxPerCallOverride != null && maxPerCallOverride < envPerCall
+			? maxPerCallOverride
+			: envPerCall;
 	const uninstall = installSpendingCap(client, {
 		address: wallet.address,
 		maxPerCall: perCall.toString(),
@@ -101,7 +174,15 @@ async function buildUserPayingClient({ wallet, userId, maxPerCallOverride }) {
 
 	const httpClient = new x402HTTPClient(client);
 	const api = wrapAxiosWithPayment(
-		axios.create({ timeout: 60_000, validateStatus: (s) => s >= 200 && s < 300 }),
+		axios.create({
+			timeout: 60_000,
+			validateStatus: (s) => s >= 200 && s < 300,
+			// SSRF defense: pin connects to non-private addresses and never follow
+			// a redirect into an internal target. See guardedLookup above.
+			maxRedirects: 0,
+			httpsAgent: ssrfHttpsAgent,
+			httpAgent: ssrfHttpAgent,
+		}),
 		client,
 	);
 	return { api, client, httpClient, uninstall, address: wallet.address };
@@ -110,7 +191,11 @@ async function buildUserPayingClient({ wallet, userId, maxPerCallOverride }) {
 function extractReceipt(httpClient, response) {
 	if (!response?.headers) return null;
 	try {
-		return httpClient.getPaymentSettleResponse((n) => response.headers[n] ?? response.headers[n.toLowerCase()]) || null;
+		return (
+			httpClient.getPaymentSettleResponse(
+				(n) => response.headers[n] ?? response.headers[n.toLowerCase()],
+			) || null
+		);
 	} catch {
 		return null;
 	}
@@ -124,8 +209,10 @@ const USDC_MAINNET_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 export async function getUserWalletStatus(userId) {
 	const wallet = await resolveUserAgentWallet(userId);
 	const caps = {
-		max_per_call_usdc: Number(envAtomic('X402_MAX_PER_CALL_ATOMIC', DEFAULT_MAX_PER_CALL)) / 1e6,
-		max_per_hour_usdc: Number(envAtomic('X402_MAX_PER_HOUR_ATOMIC', DEFAULT_MAX_PER_HOUR)) / 1e6,
+		max_per_call_usdc:
+			Number(envAtomic('X402_MAX_PER_CALL_ATOMIC', DEFAULT_MAX_PER_CALL)) / 1e6,
+		max_per_hour_usdc:
+			Number(envAtomic('X402_MAX_PER_HOUR_ATOMIC', DEFAULT_MAX_PER_HOUR)) / 1e6,
 		max_per_day_usdc: Number(envAtomic('X402_MAX_PER_DAY_ATOMIC', DEFAULT_MAX_PER_DAY)) / 1e6,
 	};
 	const spend_enabled = resolveSpendEnabled();
@@ -191,13 +278,19 @@ export async function payExternalX402({ userId, url, method = 'GET', body, maxUs
 	}
 	const wallet = await resolveUserAgentWallet(userId);
 	if (!wallet) {
-		throw Object.assign(new Error('no agent wallet found for this account'), { code: 'no_wallet' });
+		throw Object.assign(new Error('no agent wallet found for this account'), {
+			code: 'no_wallet',
+		});
 	}
 	if (!wallet.address || !wallet.hasSecret) {
 		throw Object.assign(new Error('your agent has no Solana wallet provisioned'), {
 			code: 'no_solana_wallet',
 		});
 	}
+
+	// Reject internal / non-public targets before recovering the key or moving
+	// money. Throws { code: invalid_url | blocked_url } for the handler.
+	const safeUrl = await assertPublicPayableUrl(url);
 
 	const maxPerCallOverride =
 		typeof maxUsd === 'number' && maxUsd > 0 ? BigInt(Math.round(maxUsd * 1_000_000)) : null;
@@ -210,7 +303,7 @@ export async function payExternalX402({ userId, url, method = 'GET', body, maxUs
 
 	try {
 		const response = await api.request({
-			url,
+			url: safeUrl,
 			method,
 			...(body != null ? { data: body } : {}),
 		});

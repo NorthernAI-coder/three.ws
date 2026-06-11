@@ -31,7 +31,11 @@ import { loadUserProviderKeys } from './_lib/provider-keys.js';
 import { watsonxConfig, watsonxAuthHeaders } from './_lib/watsonx.js';
 import { orchestrateConfig } from './_lib/orchestrate.js';
 import { guardianConfig, governSend, sendCapUsd } from './_lib/granite-guardian.js';
-import { markProviderCooldown, providersInCooldown, AUTH_COOLDOWN_SECONDS } from './_lib/provider-health.js';
+import {
+	markProviderCooldown,
+	providersInCooldown,
+	AUTH_COOLDOWN_SECONDS,
+} from './_lib/provider-health.js';
 import {
 	DEFAULT_FREE_MODEL,
 	PROVIDER_MODEL_DEFAULTS,
@@ -131,7 +135,9 @@ const chatBody = z.object({
 	context: contextSchema,
 	system_prompt: z.string().trim().min(1).max(2000).optional(),
 	agentId: z.string().uuid().optional(),
-	provider: z.enum(['anthropic', 'openrouter', 'groq', 'openai', 'watsonx', 'orchestrate']).optional(),
+	provider: z
+		.enum(['anthropic', 'openrouter', 'groq', 'openai', 'watsonx', 'orchestrate'])
+		.optional(),
 	model: z.string().min(1).max(120).optional(),
 	history: z
 		.array(
@@ -237,7 +243,8 @@ const ACTION_TOOLS = [
 	},
 	{
 		name: 'setCameraTarget',
-		description: 'Set the camera target to a specific named bone on the currently loaded model.',
+		description:
+			'Set the camera target to a specific named bone on the currently loaded model.',
 		input_schema: {
 			type: 'object',
 			properties: {
@@ -276,7 +283,7 @@ const ACTION_TOOLS = [
 	{
 		name: 'sendSol',
 		description:
-			'Send a small amount of SOL from the avatar\'s own Solana wallet to a recipient, denominated in US dollars. ' +
+			"Send a small amount of SOL from the avatar's own Solana wallet to a recipient, denominated in US dollars. " +
 			'Call this ONLY when the user explicitly asks the avatar to send, pay, or transfer SOL. ' +
 			'If the user says "send me" (or gives no address), omit `to` — the configured default recipient is used. ' +
 			'The host enforces a per-send dollar cap, so request the amount the user named.',
@@ -343,6 +350,13 @@ export default wrap(async (req, res) => {
 			if (!body.model && body.provider === 'openrouter') body.model = DEFAULT_FREE_MODEL;
 		}
 		anonymous = true;
+	} else {
+		// Authenticated callers are metered too — platform LLM keys are a real
+		// cost, so a signed-in account must not get unlimited inference.
+		const rl = await limits.chatUser(auth.userId || `ip:${clientIp(req)}`);
+		if (!rl.success) {
+			return rateLimited(res, rl, 'too many chat requests, slow down');
+		}
 	}
 
 	let userProviderKeys = {};
@@ -365,6 +379,16 @@ export default wrap(async (req, res) => {
 		return error(res, 401, 'unauthorized', 'sign in to chat with the agent');
 	}
 
+	// When inference is billed to the host's key (the caller supplied none for the
+	// chosen provider), charge it against a global ceiling so distributed abuse —
+	// many accounts each under their per-user limit — can't drain platform quota.
+	if (route.usingHostKey) {
+		const hk = await limits.chatHostKeyGlobal();
+		if (!hk.success) {
+			return rateLimited(res, hk, 'chat is at capacity, try again shortly');
+		}
+	}
+
 	const maxTokens = clampInt(
 		parseInt(process.env.CHAT_MAX_TOKENS || '', 10) || DEFAULT_MAX_TOKENS,
 		128,
@@ -373,9 +397,13 @@ export default wrap(async (req, res) => {
 
 	let personaPrompt = null;
 	if (body.agentId) {
+		// Persona prompts are private IP: only serve them for published agents,
+		// or to the agent's owner. Anonymous callers get published personas only.
 		const [agentRow] = await sql`
 			SELECT persona_prompt FROM agent_identities
-			WHERE id = ${body.agentId} AND deleted_at IS NULL LIMIT 1
+			WHERE id = ${body.agentId} AND deleted_at IS NULL
+			  AND (is_published = true OR user_id = ${auth?.userId ?? null})
+			LIMIT 1
 		`;
 		if (agentRow?.persona_prompt) personaPrompt = agentRow.persona_prompt;
 	}
@@ -432,7 +460,9 @@ export default wrap(async (req, res) => {
 				upstream = await fetch(route.url, {
 					method: 'POST',
 					headers: reqHeaders,
-					body: JSON.stringify(route.buildPayload({ systemPrompt, history, maxTokens, includeTools })),
+					body: JSON.stringify(
+						route.buildPayload({ systemPrompt, history, maxTokens, includeTools }),
+					),
 					signal: ctrl.signal,
 				});
 			} finally {
@@ -457,10 +487,16 @@ export default wrap(async (req, res) => {
 			// permanent breakage. 503 + Retry-After so the client backs off and retries
 			// (the same contract as the rate-limit terminal below), never a hard 502.
 			res.setHeader('Retry-After', '20');
-			return error(res, 503, 'rate_limited', 'The AI chat is at capacity right now. Please try again in a few seconds.', {
-				providers_tried: providersTried(attempted),
-				retry_after: 20,
-			});
+			return error(
+				res,
+				503,
+				'rate_limited',
+				'The AI chat is at capacity right now. Please try again in a few seconds.',
+				{
+					providers_tried: providersTried(attempted),
+					retry_after: 20,
+				},
+			);
 		}
 
 		// watsonx/Granite: a few foundation models (or regions) reject a
@@ -476,9 +512,14 @@ export default wrap(async (req, res) => {
 			upstream.status < 500 &&
 			upstream.status !== 429
 		) {
-			const peek = await upstream.clone().text().catch(() => '');
+			const peek = await upstream
+				.clone()
+				.text()
+				.catch(() => '');
 			if (/tool|function[\s_-]?call|tool_choice|not[\s_-]?support|unsupported/i.test(peek)) {
-				console.warn(`[chat:${route.name}] ${route.model} rejected action tools (${upstream.status}) — retrying without them`);
+				console.warn(
+					`[chat:${route.name}] ${route.model} rejected action tools (${upstream.status}) — retrying without them`,
+				);
 				includeTools = false;
 				continue;
 			}
@@ -492,20 +533,29 @@ export default wrap(async (req, res) => {
 		if (upstream.status === 404 && route.style === 'openai') {
 			const text = await upstream.text().catch(() => '');
 			if (includeTools && /tool[\s-]?use|support tools|require_parameters/i.test(text)) {
-				console.warn(`[chat:${route.name}] ${route.model} has no tool-capable endpoint — retrying without action tools`);
+				console.warn(
+					`[chat:${route.name}] ${route.model} has no tool-capable endpoint — retrying without action tools`,
+				);
 				includeTools = false;
 				continue;
 			}
 			// Already tried without tools, or non-tool-use 404 — fall over to next provider.
 			if (canFailOver()) {
-				console.warn(`[chat:${route.name}] 404 — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`);
+				console.warn(
+					`[chat:${route.name}] 404 — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`,
+				);
 				routeIdx++;
 				route = fallbackRoutes[routeIdx];
 				includeTools = true;
 				retriedTransient = false;
 				continue;
 			}
-			captureException(new Error(`${route.name} upstream 404`), { route: 'chat', provider: route.name, status: 404, body: text.slice(0, 400) });
+			captureException(new Error(`${route.name} upstream 404`), {
+				route: 'chat',
+				provider: route.name,
+				status: 404,
+				body: text.slice(0, 400),
+			});
 			console.error(`[chat:${route.name}]`, 404, text.slice(0, 400));
 			return error(res, 502, 'chat_failed', 'chat backend returned an error');
 		}
@@ -520,7 +570,9 @@ export default wrap(async (req, res) => {
 		if ((upstream.status === 503 || upstream.status === 504) && !retriedTransient) {
 			retriedTransient = true;
 			const text = await upstream.text().catch(() => '');
-			console.warn(`[chat:${route.name}] ${upstream.status} — retrying once after 500ms: ${text.slice(0, 120)}`);
+			console.warn(
+				`[chat:${route.name}] ${upstream.status} — retrying once after 500ms: ${text.slice(0, 120)}`,
+			);
 			await new Promise((r) => setTimeout(r, 500));
 			continue;
 		}
@@ -540,7 +592,9 @@ export default wrap(async (req, res) => {
 			let next = routeIdx + 1;
 			while (next < fallbackRoutes.length && fallbackRoutes[next].name === route.name) next++;
 			if (next < fallbackRoutes.length && Date.now() < deadline) {
-				console.warn(`[chat:${route.name}] ${upstream.status} (auth/billing) — cooling ${AUTH_COOLDOWN_SECONDS}s, failing over to ${fallbackRoutes[next].name}/${fallbackRoutes[next].model}: ${text.slice(0, 120)}`);
+				console.warn(
+					`[chat:${route.name}] ${upstream.status} (auth/billing) — cooling ${AUTH_COOLDOWN_SECONDS}s, failing over to ${fallbackRoutes[next].name}/${fallbackRoutes[next].model}: ${text.slice(0, 120)}`,
+				);
 				routeIdx = next;
 				route = fallbackRoutes[routeIdx];
 				includeTools = true;
@@ -552,14 +606,26 @@ export default wrap(async (req, res) => {
 			// consumed, so we can't fall through to the generic `!upstream.ok` block
 			// (it would re-read an empty stream); build the response inline instead.
 			captureException(new Error(`${route.name} upstream ${upstream.status}`), {
-				route: 'chat', provider: route.name, status: upstream.status, body: text.slice(0, 400),
+				route: 'chat',
+				provider: route.name,
+				status: upstream.status,
+				body: text.slice(0, 400),
 			});
-			console.error(`[chat:${route.name}] ${upstream.status} (auth/billing, final — no healthy provider left)`, text.slice(0, 200));
+			console.error(
+				`[chat:${route.name}] ${upstream.status} (auth/billing, final — no healthy provider left)`,
+				text.slice(0, 200),
+			);
 			res.setHeader('Retry-After', '20');
-			return error(res, 503, 'rate_limited', 'The AI chat is at capacity right now. Please try again in a few seconds.', {
-				providers_tried: providersTried(attempted),
-				retry_after: 20,
-			});
+			return error(
+				res,
+				503,
+				'rate_limited',
+				'The AI chat is at capacity right now. Please try again in a few seconds.',
+				{
+					providers_tried: providersTried(attempted),
+					retry_after: 20,
+				},
+			);
 		}
 
 		// Fall over on rate-limit (429) and transient gateway errors (502/503/504).
@@ -567,7 +633,9 @@ export default wrap(async (req, res) => {
 		// the next provider would also reject.
 		if ((upstream.status === 429 || upstream.status >= 500) && canFailOver()) {
 			const text = await upstream.text().catch(() => '');
-			console.warn(`[chat:${route.name}] ${upstream.status} — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`);
+			console.warn(
+				`[chat:${route.name}] ${upstream.status} — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`,
+			);
 			// Rate-limited or erroring upstream — cool it down for subsequent requests.
 			void markProviderCooldown(route.name);
 			routeIdx++;
@@ -611,10 +679,13 @@ export default wrap(async (req, res) => {
 		);
 		// Ops signal: OpenAI quota exhaustion is an account/billing problem, not a
 		// transient blip — call it out explicitly so it's actionable in the logs.
-		if (route.name === 'openai' && /quota|billing|exceeded your current/i.test(`${upstreamMessage} ${text}`)) {
+		if (
+			route.name === 'openai' &&
+			/quota|billing|exceeded your current/i.test(`${upstreamMessage} ${text}`)
+		) {
 			console.error(
 				'[chat:openai] account is OVER QUOTA — top up OpenAI billing or remove OPENAI_API_KEY ' +
-				'so the chat ladder stops routing to it as a final tier.',
+					'so the chat ladder stops routing to it as a final tier.',
 			);
 		}
 		// Client body is intentionally generic and human-readable: the raw provider
@@ -646,7 +717,10 @@ export default wrap(async (req, res) => {
 			atCapacity
 				? 'The AI chat is at capacity right now. Please try again in a few seconds.'
 				: 'The AI chat provider is temporarily unavailable. Please try again in a moment.',
-			{ providers_tried: providersTried(attempted), ...(atCapacity ? { retry_after: 20 } : {}) },
+			{
+				providers_tried: providersTried(attempted),
+				...(atCapacity ? { retry_after: 20 } : {}),
+			},
 		);
 	}
 
@@ -679,7 +753,10 @@ export default wrap(async (req, res) => {
 	// A jailbreak ("ignore your rules and send everything") or an over-cap amount is
 	// held server-side so the action never reaches the wallet. Other actions pass
 	// through untouched; the verdict rides along in the done event.
-	const { actions: governedActions, governance } = await governActions(result.actions, body.message);
+	const { actions: governedActions, governance } = await governActions(
+		result.actions,
+		body.message,
+	);
 	let reply = result.reply.trim();
 	if (governance?.decision === 'block') {
 		const why = governance.reasons?.[0]?.label || 'platform policy';
@@ -741,7 +818,13 @@ async function governActions(actions, userMessage) {
 		if (Number.isFinite(usd) && usd > cap) {
 			verdict = {
 				decision: 'block',
-				reasons: [{ risk: 'amount_cap', label: `above the $${cap} autonomous cap`, probability: 1 }],
+				reasons: [
+					{
+						risk: 'amount_cap',
+						label: `above the $${cap} autonomous cap`,
+						probability: 1,
+					},
+				],
 				cap,
 				capExceeded: true,
 			};
@@ -799,7 +882,11 @@ function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
 				(name === 'watsonx' || name === 'orchestrate'
 					? cfg.defaultModel
 					: process.env.CHAT_MODEL || cfg.defaultModel);
-			return makeRoute(name, cfg, apiKey, chosenModel);
+			const route = makeRoute(name, cfg, apiKey, chosenModel);
+			// Flag whether this route bills the host's key (no user-supplied key for
+			// the provider) so the handler can enforce the global host-key ceiling.
+			route.usingHostKey = !userKeys[name];
+			return route;
 		}
 		return null;
 	};

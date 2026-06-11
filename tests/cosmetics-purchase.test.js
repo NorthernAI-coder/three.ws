@@ -10,7 +10,7 @@
 // behaviour that must hold regardless: server-owned pricing, honest validation,
 // fail-closed ownership, and a correctly-priced 402.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import {
 	buildCatalog, getCosmetic, priceUsdcAtomicsOf, priceUsdcDisplayOf,
 } from '../api/_lib/cosmetics.js';
@@ -146,6 +146,16 @@ async function call(query) {
 }
 
 describe('cosmetic-purchase endpoint boundary', () => {
+	// Warm the heavy import chain (x402-paid-endpoint → @coinbase/x402 → Solana
+	// toolchain) once, outside any single test's 45s budget. A cold import of
+	// this handler takes 5–150s on loaded CI/Codespace hosts (see the note in
+	// vitest.config.js); without this, the first test in the block flakes on
+	// import latency alone. Env reads in the handler are lazy (api/_lib/env.js
+	// getters), so importing before beforeEach sets X402_* vars is safe.
+	beforeAll(async () => {
+		await import('../api/x402/cosmetic-purchase.js');
+	}, 240_000);
+
 	beforeEach(() => {
 		// Minimal x402 config so the 402 challenge can build a Solana accept — the
 		// Solana leg needs both a payout address and a co-signing fee payer.

@@ -54,7 +54,9 @@ export function makeDispatcher({ serverInfo, instructions, catalog, tools, logNa
 
 	async function onToolCall(params, auth, started, req) {
 		const { name, arguments: args = {} } = params || {};
-		const tool = tools[name];
+		// Own-property lookup only — "__proto__"/"constructor" must not resolve an
+		// inherited Object member and bypass the !tool guard.
+		const tool = typeof name === 'string' && Object.hasOwn(tools, name) ? tools[name] : null;
 		if (!tool) throw rpcError(-32602, `unknown tool: ${name}`);
 		if (tool.scope && !hasScope(auth.scope, tool.scope)) {
 			throw rpcError(-32002, `insufficient scope, requires ${tool.scope}`);

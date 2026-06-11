@@ -10,14 +10,34 @@
 // available or the upstream call fails — the panel should always render
 // something useful.
 
-import { cors, json, error, wrap } from '../_lib/http.js';
+import { cors, json, error, wrap, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { llmComplete } from '../_lib/llm.js';
 import { Bazaar } from '../_lib/x402/bazaar-client.js';
 
 const STOP_WORDS = new Set([
-	'api', 'apis', 'service', 'endpoint', 'endpoints', 'paid', 'free',
-	'the', 'a', 'an', 'and', 'or', 'of', 'for', 'to', 'on', 'in', 'by',
-	'tool', 'tools', 'mcp', 'http',
+	'api',
+	'apis',
+	'service',
+	'endpoint',
+	'endpoints',
+	'paid',
+	'free',
+	'the',
+	'a',
+	'an',
+	'and',
+	'or',
+	'of',
+	'for',
+	'to',
+	'on',
+	'in',
+	'by',
+	'tool',
+	'tools',
+	'mcp',
+	'http',
 ]);
 
 function tokenize(s) {
@@ -43,14 +63,20 @@ function capabilityKey(it) {
 		return `mcp:${tokenize(it.toolName).join('')}`;
 	}
 	const nameTokens = tokenize(it.serviceName).slice(0, 3);
-	if (nameTokens.length && nameTokens.join('-').length >= 3) return `http:${nameTokens.join('-')}`;
+	if (nameTokens.length && nameTokens.join('-').length >= 3)
+		return `http:${nameTokens.join('-')}`;
 	const urlTokens = tokenize(tailFromUrl(it.resource)).slice(0, 3);
-	if (urlTokens.length >= 2 && urlTokens.join('-').length >= 6) return `http:${urlTokens.join('-')}`;
+	if (urlTokens.length >= 2 && urlTokens.join('-').length >= 6)
+		return `http:${urlTokens.join('-')}`;
 	return null;
 }
 
 function hostOf(url) {
-	try { return new URL(url).host; } catch { return ''; }
+	try {
+		return new URL(url).host;
+	} catch {
+		return '';
+	}
 }
 
 function minUsdcAtomic(item) {
@@ -132,20 +158,31 @@ function deterministicSummary({ target, targetPrice, peerPrices, providerSibling
 		const sorted = [...peerPrices].sort((a, b) => a - b);
 		const pct = percentile(sorted, targetPrice ?? Infinity);
 		if (targetPrice != null && pct != null) {
-			if (pct <= 25) sentences.push(`${name} is priced in the cheapest 25% of comparable listings [1].`);
-			else if (pct >= 75) sentences.push(`${name} sits in the priciest tier among comparable listings [1].`);
-			else sentences.push(`${name}'s price sits in the middle of the ${peerCount + 1}-listing peer set [1].`);
+			if (pct <= 25)
+				sentences.push(`${name} is priced in the cheapest 25% of comparable listings [1].`);
+			else if (pct >= 75)
+				sentences.push(`${name} sits in the priciest tier among comparable listings [1].`);
+			else
+				sentences.push(
+					`${name}'s price sits in the middle of the ${peerCount + 1}-listing peer set [1].`,
+				);
 		} else {
-			sentences.push(`${peerCount + 1} listings cover this capability across the catalog [1].`);
+			sentences.push(
+				`${peerCount + 1} listings cover this capability across the catalog [1].`,
+			);
 		}
 	}
 
 	const host = hostOf(target.resource);
 	if (host) {
 		if (providerSiblings.length > 0) {
-			sentences.push(`Operated by ${host} [2], which exposes ${providerSiblings.length + 1} paid endpoints in the catalog [4].`);
+			sentences.push(
+				`Operated by ${host} [2], which exposes ${providerSiblings.length + 1} paid endpoints in the catalog [4].`,
+			);
 		} else {
-			sentences.push(`Operated by ${host} [2], a single-endpoint provider in the current catalog.`);
+			sentences.push(
+				`Operated by ${host} [2], a single-endpoint provider in the current catalog.`,
+			);
 		}
 	}
 
@@ -173,15 +210,23 @@ function deterministicSummary({ target, targetPrice, peerPrices, providerSibling
 }
 
 async function llmSummary({ target, targetPrice, peers, providerSiblings, citations }) {
-	const peerLines = peers.slice(0, 8).map((p) => {
-		const price = priceLabel(minUsdcAtomic(p));
-		return `- ${p.serviceName || p.toolName || '(unnamed)'} @ ${hostOf(p.resource)} — ${price} via ${hostOf(p.facilitator)}`;
-	}).join('\n') || '(none discovered)';
+	const peerLines =
+		peers
+			.slice(0, 8)
+			.map((p) => {
+				const price = priceLabel(minUsdcAtomic(p));
+				return `- ${p.serviceName || p.toolName || '(unnamed)'} @ ${hostOf(p.resource)} — ${price} via ${hostOf(p.facilitator)}`;
+			})
+			.join('\n') || '(none discovered)';
 
-	const siblingLines = providerSiblings.slice(0, 8).map((p) => {
-		const price = priceLabel(minUsdcAtomic(p));
-		return `- ${p.serviceName || p.toolName || p.resource} — ${price}`;
-	}).join('\n') || '(none)';
+	const siblingLines =
+		providerSiblings
+			.slice(0, 8)
+			.map((p) => {
+				const price = priceLabel(minUsdcAtomic(p));
+				return `- ${p.serviceName || p.toolName || p.resource} — ${price}`;
+			})
+			.join('\n') || '(none)';
 
 	const citationLines = citations.map((c, i) => `[${i + 1}] ${c.label} — ${c.url}`).join('\n');
 
@@ -232,13 +277,21 @@ Respond with only the JSON object.`;
 	const parsed = JSON.parse(match[0]);
 	const summary = String(parsed.summary || '').trim();
 	if (!summary) throw new Error('empty summary');
-	const sentiment = ['up', 'down', 'neutral'].includes(parsed.sentiment) ? parsed.sentiment : 'neutral';
+	const sentiment = ['up', 'down', 'neutral'].includes(parsed.sentiment)
+		? parsed.sentiment
+		: 'neutral';
 	return { summary, sentiment, citations, source: provider };
 }
 
 async function handler(req, res) {
 	if (cors(req, res, { origins: '*', methods: 'GET,OPTIONS' })) return;
 	if (req.method !== 'GET') return error(res, 405, 'method_not_allowed', 'GET only');
+
+	// Unauthenticated endpoint that fans out to facilitators and runs an LLM
+	// completion on the platform keys — bound per IP like the other public LLM
+	// surfaces so one client can't drain the shared provider budget.
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const resource = url.searchParams.get('resource');
@@ -285,7 +338,13 @@ async function handler(req, res) {
 	} catch (e) {
 		// Always return something useful — the panel is decorative if
 		// missing and frustrating if it 500s.
-		result = deterministicSummary({ target, targetPrice, peerPrices, providerSiblings, citations });
+		result = deterministicSummary({
+			target,
+			targetPrice,
+			peerPrices,
+			providerSiblings,
+			citations,
+		});
 		result.fallbackReason = String(e?.message || e);
 	}
 
@@ -301,9 +360,13 @@ async function handler(req, res) {
 				: null,
 			targetPriceAtomic: targetPrice,
 			providerSiblingsCount: providerSiblings.length,
-			pricePercentile: peerPrices.length && targetPrice != null
-				? percentile([...peerPrices, targetPrice].sort((a, b) => a - b), targetPrice)
-				: null,
+			pricePercentile:
+				peerPrices.length && targetPrice != null
+					? percentile(
+							[...peerPrices, targetPrice].sort((a, b) => a - b),
+							targetPrice,
+						)
+					: null,
 		},
 	});
 }

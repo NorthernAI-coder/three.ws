@@ -11,9 +11,7 @@
 	</head>
 	<body>
 		<header class="os-header">
-			<div class="brand">
-				three.ws<span class="tag">avatar-os demo</span>
-			</div>
+			<div class="brand">three.ws<span class="tag">avatar-os demo</span></div>
 			<nav>
 				<a href="/demo/avatar-os/" class="active">overview</a>
 				<a href="/demo/avatar-os/studio.html">studio</a>
@@ -23,25 +21,25 @@
 		</header>
 		<main class="os-main">
 			<div class="banner">
-				<strong>Isolated demo workspace.</strong> Nothing here touches the
-				production Avaturn pipeline. Goal: prove out a fully open-source
-				replacement before promoting it.
+				<strong>Isolated demo workspace.</strong> Nothing here touches the production
+				Avaturn pipeline. Goal: prove out a fully open-source replacement before promoting
+				it.
 			</div>
 
 			<h1 style="margin: 0 0 8px; font-size: 28px">Open-source avatar pipeline</h1>
 			<p style="color: var(--text-2); max-width: 720px; line-height: 1.6">
-				Three parallel paths replace what we currently get from Avaturn. Each
-				demo is end-to-end functional — capture, generate, preview, export GLB.
-				No mocks, no fake data.
+				Three parallel paths replace what we currently get from Avaturn. Each demo is
+				end-to-end functional — capture, generate, preview, export GLB. No mocks, no fake
+				data.
 			</p>
 
 			<div class="tile-grid">
 				<a class="tile" href="/demo/avatar-os/studio.html">
 					<h3>Studio · customization editor</h3>
 					<p>
-						Embeds the open-source CharacterStudio (M3-org / Apache-2.0)
-						editor. Pick a base avatar, customize traits, export GLB. Replaces
-						the Avaturn iframe editor.
+						Embeds the open-source CharacterStudio (M3-org / Apache-2.0) editor. Pick a
+						base avatar, customize traits, export GLB. Replaces the Avaturn iframe
+						editor.
 					</p>
 					<div class="meta">
 						stack: @m3-org/characterstudio · @pixiv/three-vrm · three.js
@@ -50,19 +48,16 @@
 				<a class="tile" href="/demo/avatar-os/selfie.html">
 					<h3>Selfie · photo → 3D face mesh</h3>
 					<p>
-						MediaPipe Face Landmarker (Apache-2.0) runs entirely in-browser to
-						build a textured 3D mesh from one selfie. Replaces the Avaturn
-						photo-to-avatar API.
+						MediaPipe Face Landmarker (Apache-2.0) runs entirely in-browser to build a
+						textured 3D mesh from one selfie. Replaces the Avaturn photo-to-avatar API.
 					</p>
-					<div class="meta">
-						stack: @mediapipe/tasks-vision · three.js · WebGL
-					</div>
+					<div class="meta">stack: @mediapipe/tasks-vision · three.js · WebGL</div>
 				</a>
 				<a class="tile" href="/demo/avatar-os/combined.html">
 					<h3>Combined · selfie face + Studio body</h3>
 					<p>
-						Stitches the selfie face mesh onto a Studio body GLB and exports
-						a single merged GLB. Closest analogue to the Avaturn end product.
+						Stitches the selfie face mesh onto a Studio body GLB and exports a single
+						merged GLB. Closest analogue to the Avaturn end product.
 					</p>
 					<div class="meta">stack: all of the above + GLTFExporter</div>
 				</a>
@@ -73,8 +68,8 @@
 				<ul style="color: var(--text-2); line-height: 1.8; font-size: 14px">
 					<li>
 						MediaPipe Tasks Vision pulled via npm
-						(<code>@mediapipe/tasks-vision</code>). WASM + model files
-						fetch from Google's CDN at runtime.
+						(<code>@mediapipe/tasks-vision</code>). WASM + model files fetch from
+						Google's CDN at runtime.
 					</li>
 					<li>
 						Triangulation indices from
@@ -85,12 +80,11 @@
 						(Apache-2.0) — vendored at <code>src/demo/triangulation.js</code>.
 					</li>
 					<li>
-						CharacterStudio is the existing
-						<code>character-studio/</code> workspace (M3-org, AGPL — under
-						review). Demo expects the dev server at
-						<code>http://localhost:5173</code>; run
-						<code>npm --prefix character-studio run dev</code> in a second
-						terminal.
+						The Avatar Studio is the existing
+						<code>character-studio/</code> workspace (M3-org, AGPL — under review),
+						served same-origin at <code>/avatar-studio</code> in dev and production.
+						Build it once with <code>npm --prefix character-studio run build</code>, or
+						point <code>VITE_CHARACTER_STUDIO_URL</code> at a standalone studio server.
 					</li>
 					<li>
 						GLB export uses three.js's
@@ -115,7 +109,7 @@
 						<div class="status" id="glb-status">checking…</div>
 					</div>
 					<div class="tile">
-						<h3>CharacterStudio dev server</h3>
+						<h3>Avatar Studio</h3>
 						<div class="status" id="cs-status">checking…</div>
 					</div>
 				</div>
@@ -123,5 +117,5 @@
 		</main>
 		<script type="module" src="/src/demo/os-hub.js"></script>
 		<script src="/brand.js" defer></script>
-</body>
+	</body>
 </html>

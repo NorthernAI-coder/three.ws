@@ -2,7 +2,10 @@ import { getSessionUser, createSession, sessionCookie } from '../../_lib/auth.js
 import { sha256 } from '../../_lib/crypto.js';
 import { sql } from '../../_lib/db.js';
 import { cors, json, error, method, wrap, readJson } from '../../_lib/http.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { clientIp } from '../../_lib/rate-limit.js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function readCookieToken(req) {
 	const cookie = req.headers.cookie || '';
@@ -50,6 +53,7 @@ export default wrap(async (req, res) => {
 
 		const user = await getSessionUser(req);
 		if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+		if (!(await requireCsrf(req, res, user.id))) return;
 
 		const token = readCookieToken(req);
 		if (!token) return error(res, 401, 'unauthorized', 'no session cookie');
@@ -73,6 +77,7 @@ export default wrap(async (req, res) => {
 
 		const user = await getSessionUser(req);
 		if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+		if (!(await requireCsrf(req, res, user.id))) return;
 
 		const body = await readJson(req);
 
@@ -87,6 +92,8 @@ export default wrap(async (req, res) => {
 		}
 
 		if (body.sessionId) {
+			if (typeof body.sessionId !== 'string' || !UUID_REGEX.test(body.sessionId))
+				return error(res, 400, 'invalid_id', 'sessionId must be a valid UUID');
 			const revoked = await sql`
 				update sessions set revoked_at = now()
 				where id = ${body.sessionId} and user_id = ${user.id} and revoked_at is null

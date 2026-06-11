@@ -9,7 +9,8 @@
 // state cleanly.
 
 import { NeynarAPIClient, Configuration } from '@neynar/nodejs-sdk';
-import { cors, json, method, wrap, error } from '../_lib/http.js';
+import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 
 let _client = null;
 function client() {
@@ -23,6 +24,9 @@ function client() {
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const raw = (url.searchParams.get('handle') || '').trim().replace(/^@/, '');

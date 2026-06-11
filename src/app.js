@@ -12,6 +12,26 @@ import { NichAgent } from './nich-agent.js';
 import { ThoughtBubble } from './thought-bubble.js';
 import { AvatarCreator } from './avatar-creator.js';
 import { resolveURI, isDecentralizedURI } from './ipfs.js';
+// Hosts we trust to serve 3D assets when a model URL arrives from an untrusted
+// source (the `?model=` query param). Same-origin, decentralized (ipfs:/ar:),
+// and these first-party/gateway hosts only — so a crafted link can't make the
+// viewer fetch and render an attacker-hosted GLB under the three.ws origin
+// (brand-spoof / phishing).
+const TRUSTED_ASSET_HOST_RE = /(^|\.)(three\.ws|r2\.dev|mypinata\.cloud|pinata\.cloud|ipfs\.io|dweb\.link|arweave\.net)$/i;
+function isSafeQueryModelUrl(raw) {
+	if (!raw || typeof raw !== 'string') return false;
+	if (raw.startsWith('/') && !raw.startsWith('//')) return true; // same-origin relative
+	if (isDecentralizedURI(raw)) return true; // ipfs:// / ar://
+	try {
+		const u = new URL(raw, location.origin);
+		if (u.origin === location.origin) return true;
+		if (u.protocol !== 'https:') return false;
+		if (u.hostname === 'storage.googleapis.com') return true;
+		return TRUSTED_ASSET_HOST_RE.test(u.hostname);
+	} catch {
+		return false;
+	}
+}
 import { saveRemoteGlbToAccount, getMe, readAuthHint } from './account.js';
 import { getWidget } from './widgets.js';
 import { mountAnimationGallery } from './widgets/animation-gallery.js';
@@ -277,7 +297,10 @@ class App {
 		// Honor `?model=<url>` passed from the /app deploy button so an
 		// unsaved viewer model still flows through instead of falling to CZ.
 		if (options.deploy) {
-			const qpModel = new URLSearchParams(location.search).get('model') || '';
+			const rawQpModel = new URLSearchParams(location.search).get('model') || '';
+			// Only honor a query-param model URL from a trusted asset source; an
+			// arbitrary attacker URL falls through to the default avatar.
+			const qpModel = isSafeQueryModelUrl(rawQpModel) ? rawQpModel : '';
 			const model = options.model || qpModel || '/avatars/cz.glb';
 			this.view(isDecentralizedURI(model) ? resolveURI(model) : model, '', new Map())
 				.catch(() => {})

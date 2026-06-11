@@ -43,7 +43,11 @@ async function resolveAuth(req) {
 
 // ── invoke ────────────────────────────────────────────────────────────────────
 
-const invokeSchema = z.object({ agent_id: z.string().min(1).max(80), skill: z.string().min(1).max(64), args: z.record(z.any()).default({}) });
+const invokeSchema = z.object({
+	agent_id: z.string().min(1).max(80),
+	skill: z.string().min(1).max(64),
+	args: z.record(z.any()).default({}),
+});
 
 async function handleInvoke(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -57,7 +61,8 @@ async function handleInvoke(req, res) {
 
 	const body = parse(invokeSchema, await readJson(req));
 	if (!isUuid(body.agent_id)) return error(res, 404, 'not_found', 'agent not found');
-	const [agent] = await sql`select id, user_id, name, meta, skills from agent_identities where id = ${body.agent_id} and deleted_at is null limit 1`;
+	const [agent] =
+		await sql`select id, user_id, name, meta, skills from agent_identities where id = ${body.agent_id} and deleted_at is null limit 1`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	// Determine if the skill is callable: registered server handler OR a skill
@@ -66,32 +71,35 @@ async function handleInvoke(req, res) {
 	const handlerExists = !!HANDLERS[body.skill];
 	const skillDeclared = Array.isArray(agent.skills) && agent.skills.includes(body.skill);
 	if (!handlerExists && !skillDeclared) {
-		return error(res, 404, 'unknown_skill', `skill "${body.skill}" is not registered on this agent`);
+		return error(
+			res,
+			404,
+			'unknown_skill',
+			`skill "${body.skill}" is not registered on this agent`,
+		);
 	}
 
 	const price = await priceFor(agent, body.skill);
 	if (!price) {
 		return error(res, 409, 'no_payments', `skill "${body.skill}" is not priced on this agent`);
 	}
-	const paid = await verifyPaid(req, { agentId: agent.id, skill: body.skill, expectedAmount: price.amount, expectedCurrency: price.currency });
-	if (!paid) return emit402(res, { agent, skill: body.skill, amount: price.amount, currency: price.currency });
-
-	await consumeIntent(paid.intentId);
-	const gross = parseInt(paid.amount, 10);
-	const { fee, net } = calculateFee(gross);
-	await sql`
-		insert into agent_revenue_events
-			(agent_id, intent_id, skill, gross_amount, fee_amount, net_amount, currency_mint, chain, payer_address)
-		values
-			(${agent.id}, ${paid.intentId}, ${body.skill}, ${gross}, ${fee}, ${net}, ${paid.currency}, ${'solana'}, ${paid.payerAddress})
-	`;
-	insertNotification(agent.user_id, 'payment_received', {
-		agent_id: agent.id,
-		agent_name: agent.name,
+	const paid = await verifyPaid(req, {
+		agentId: agent.id,
 		skill: body.skill,
-		net_amount: net,
-		currency_mint: paid.currency,
+		expectedAmount: price.amount,
+		expectedCurrency: price.currency,
 	});
+	if (!paid)
+		return emit402(res, {
+			agent,
+			skill: body.skill,
+			amount: price.amount,
+			currency: price.currency,
+		});
+
+	// Execute the skill BEFORE consuming the payment intent: if the handler
+	// throws, wrap() returns the error with the intent untouched, so the buyer's
+	// payment still covers a retry instead of being burned on a failed call.
 	let result;
 	if (handlerExists) {
 		result = await HANDLERS[body.skill](body.args, { agent, caller: auth });
@@ -101,11 +109,37 @@ async function handleInvoke(req, res) {
 		// args (no tool), default to the skill name as the tool too — runtime
 		// will surface a descriptive error if there's no matching export.
 		const { makeRuntime } = await import('../../_lib/skill-runtime.js');
-		const runtime = makeRuntime({ agentId: agent.id, signerAddress: paid.payerAddress || null });
+		const runtime = makeRuntime({
+			agentId: agent.id,
+			signerAddress: paid.payerAddress || null,
+		});
 		const tool = typeof body.args?._tool === 'string' ? body.args._tool : body.skill;
 		result = await runtime.invoke(`${body.skill}.${tool}`, body.args);
 	}
-	return json(res, 200, { ok: true, intent_id: paid.intentId, amount: paid.amount, currency: paid.currency, result });
+
+	await consumeIntent(paid.intentId);
+	const gross = parseInt(paid.amount, 10);
+	const { fee, net } = calculateFee(gross);
+	await sql`
+		insert into agent_revenue_events
+			(agent_id, intent_id, skill, gross_amount, fee_amount, net_amount, currency_mint, chain, payer_address)
+		values
+			(${agent.id}, ${paid.intentId}, ${body.skill}, ${gross}, ${fee}, ${net}, ${paid.currency}, ${price.chain ?? 'solana'}, ${paid.payerAddress})
+	`;
+	insertNotification(agent.user_id, 'payment_received', {
+		agent_id: agent.id,
+		agent_name: agent.name,
+		skill: body.skill,
+		net_amount: net,
+		currency_mint: paid.currency,
+	});
+	return json(res, 200, {
+		ok: true,
+		intent_id: paid.intentId,
+		amount: paid.amount,
+		currency: paid.currency,
+		result,
+	});
 }
 
 // ── manifest ──────────────────────────────────────────────────────────────────
@@ -120,10 +154,12 @@ async function handleManifest(req, res) {
 	const url = new URL(req.url, 'http://x');
 	const agent_id = url.searchParams.get('agent_id');
 	const skill = url.searchParams.get('skill');
-	if (!agent_id || !skill) return error(res, 400, 'validation_error', 'agent_id and skill required');
+	if (!agent_id || !skill)
+		return error(res, 400, 'validation_error', 'agent_id and skill required');
 	if (!isUuid(agent_id)) return error(res, 404, 'not_found', 'agent not found');
 
-	const [agent] = await sql`select id, name, meta from agent_identities where id = ${agent_id} and deleted_at is null limit 1`;
+	const [agent] =
+		await sql`select id, name, meta from agent_identities where id = ${agent_id} and deleted_at is null limit 1`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	// Manifest is callable as long as the skill is priced — either in the
@@ -131,7 +167,9 @@ async function handleManifest(req, res) {
 	const [hasMarketplacePrice] = await sql`
 		SELECT 1 FROM agent_skill_prices WHERE agent_id = ${agent.id} AND skill = ${skill} AND is_active = true
 	`;
-	const hasMetaPrice = !!(agent.meta?.skill_prices?.[skill] || agent.meta?.payments?.default_price);
+	const hasMetaPrice = !!(
+		agent.meta?.skill_prices?.[skill] || agent.meta?.payments?.default_price
+	);
 	if (!hasMarketplacePrice && !hasMetaPrice) {
 		return error(res, 409, 'no_payments', 'this skill is not priced');
 	}

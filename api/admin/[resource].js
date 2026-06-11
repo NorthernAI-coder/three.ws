@@ -1,5 +1,5 @@
 import { sql } from '../_lib/db.js';
-import { cors, json, method, wrap } from '../_lib/http.js';
+import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { requireAdmin } from '../_lib/admin.js';
 
 export default wrap(async (req, res) => {
@@ -199,6 +199,5 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { totals, byRoute, byDay });
 	}
 
-	res.statusCode = 404;
-	return res.end();
+	return error(res, 404, 'not_found', 'unknown admin resource');
 });

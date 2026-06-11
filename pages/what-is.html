@@ -1,282 +1,439 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>What is three.ws? — One platform for 3D AI agents · three.ws</title>
-  <meta name="description" content="three.ws is one platform for building a 3D AI agent — a character with a face, a brain, and a voice — that you can embed anywhere. See four real ways people use it: support avatars, streamer characters, community mascots, and personal AI agents." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://three.ws/what-is" />
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>What is three.ws? — One platform for 3D AI agents · three.ws</title>
+		<meta
+			name="description"
+			content="three.ws is one platform for building a 3D AI agent — a character with a face, a brain, and a voice — that you can embed anywhere. See four real ways people use it: support avatars, streamer characters, community mascots, and personal AI agents."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://three.ws/what-is" />
 
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="three.ws" />
-  <meta property="og:title" content="What is three.ws? — One platform for 3D AI agents" />
-  <meta property="og:description" content="Build a 3D AI agent with a face, a brain, and a voice — and embed it anywhere. Four real use-cases, one start-free flow." />
-  <meta property="og:url" content="https://three.ws/what-is" />
-  <meta property="og:image" content="https://three.ws/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="What is three.ws? — One platform for 3D AI agents" />
-  <meta name="twitter:description" content="Build a 3D AI agent with a face, a brain, and a voice — and embed it anywhere." />
-  <meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="What is three.ws? — One platform for 3D AI agents" />
+		<meta
+			property="og:description"
+			content="Build a 3D AI agent with a face, a brain, and a voice — and embed it anywhere. Four real use-cases, one start-free flow."
+		/>
+		<meta property="og:url" content="https://three.ws/what-is" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="What is three.ws? — One platform for 3D AI agents" />
+		<meta
+			name="twitter:description"
+			content="Build a 3D AI agent with a face, a brain, and a voice — and embed it anywhere."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
 
-  		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<link rel="manifest" href="/site.webmanifest" />
-    <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/nav.css" />
-  <link rel="stylesheet" href="/features-landing.css" />
-  <link rel="stylesheet" href="/what-is.css" />
-  <link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/features-landing.css" />
+		<link rel="stylesheet" href="/what-is.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
 
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
 
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebPage",
-        "name": "What is three.ws?",
-        "url": "https://three.ws/what-is",
-        "description": "A plain-language explainer of three.ws — one platform for building and embedding 3D AI agents — with four concrete use-cases."
-      },
-      {
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "Do I need to know about crypto to use three.ws?",
-            "acceptedAnswer": { "@type": "Answer", "text": "No. You can create an avatar, give it an AI brain, embed it on a website, and chat with it entirely for free, without ever touching crypto. Owning your agent on-chain or charging for it are optional layers you can add later." }
-          },
-          {
-            "@type": "Question",
-            "name": "What can I actually build with three.ws?",
-            "acceptedAnswer": { "@type": "Answer", "text": "A 3D AI character with a face, a brain, and a voice — used as a customer-service avatar embedded on a website, a streamer or VTuber avatar that lip-syncs on camera, a 3D mascot and world for a community, or a personal AI assistant you can talk to." }
-          },
-          {
-            "@type": "Question",
-            "name": "Is everything one platform or separate tools?",
-            "acceptedAnswer": { "@type": "Answer", "text": "One platform. The avatar creator, animation, AI chat, embeddable widget, 3D worlds, optional token and on-chain identity, and paid APIs are all building blocks that connect to the same agent you create." }
-          }
-        ]
-      }
-    ]
-  }
-  </script>
-</head>
-<body class="fl-page">
-  <header><div id="nav-container"></div></header>
-  <script src="/nav.js"></script>
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@graph": [
+					{
+						"@type": "WebPage",
+						"name": "What is three.ws?",
+						"url": "https://three.ws/what-is",
+						"description": "A plain-language explainer of three.ws — one platform for building and embedding 3D AI agents — with four concrete use-cases."
+					},
+					{
+						"@type": "FAQPage",
+						"mainEntity": [
+							{
+								"@type": "Question",
+								"name": "Do I need to know about crypto to use three.ws?",
+								"acceptedAnswer": {
+									"@type": "Answer",
+									"text": "No. You can create an avatar, give it an AI brain, embed it on a website, and chat with it entirely for free, without ever touching crypto. Owning your agent on-chain or charging for it are optional layers you can add later."
+								}
+							},
+							{
+								"@type": "Question",
+								"name": "What can I actually build with three.ws?",
+								"acceptedAnswer": {
+									"@type": "Answer",
+									"text": "A 3D AI character with a face, a brain, and a voice — used as a customer-service avatar embedded on a website, a streamer or VTuber avatar that lip-syncs on camera, a 3D mascot and world for a community, or a personal AI assistant you can talk to."
+								}
+							},
+							{
+								"@type": "Question",
+								"name": "Is everything one platform or separate tools?",
+								"acceptedAnswer": {
+									"@type": "Answer",
+									"text": "One platform. The avatar creator, animation, AI chat, embeddable widget, 3D worlds, optional token and on-chain identity, and paid APIs are all building blocks that connect to the same agent you create."
+								}
+							}
+						]
+					}
+				]
+			}
+		</script>
+	</head>
+	<body class="fl-page">
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
 
-  <main class="fl-main" id="main-content">
-    <nav class="fl-breadcrumb" aria-label="Breadcrumb">
-      <a href="/">three.ws</a>
-      <span class="fl-breadcrumb-sep" aria-hidden="true">/</span>
-      <span class="fl-breadcrumb-current">What is three.ws?</span>
-    </nav>
+		<main class="fl-main" id="main-content">
+			<nav class="fl-breadcrumb" aria-label="Breadcrumb">
+				<a href="/">three.ws</a>
+				<span class="fl-breadcrumb-sep" aria-hidden="true">/</span>
+				<span class="fl-breadcrumb-current">What is three.ws?</span>
+			</nav>
 
-    <!-- Hero -->
-    <section class="fl-hero" aria-labelledby="wi-hero-h1">
-      <div class="fl-hero-inner">
-        <div class="fl-hero-copy">
-          <span class="fl-eyebrow"><span class="fl-eyebrow-dot" aria-hidden="true"></span>New here? Start here</span>
-          <h1 id="wi-hero-h1">A 3D AI agent<br>you can use anywhere.</h1>
-          <p class="fl-hero-sub">three.ws is one platform for making a 3D character that has a face, a brain, and a voice — and putting it to work on your website, your stream, your community, or your desktop.</p>
-          <div class="fl-hero-actions">
-            <a href="/create" class="fl-btn-primary">Start free →</a>
-            <a href="#use-cases" class="fl-btn-ghost">See what you can build</a>
-          </div>
-        </div>
-        <div class="fl-hero-preview" aria-label="Sample 3D avatar preview">
-          <model-viewer
-            src="/animations/soldier.glb"
-            alt="Sample rigged 3D avatar — an example of what you can create"
-            auto-rotate
-            auto-rotate-delay="500"
-            rotation-per-second="12deg"
-            camera-controls
-            shadow-intensity="0.5"
-            environment-image="neutral"
-            style="background:transparent;width:100%;height:100%;"
-          ></model-viewer>
-          <span class="fl-preview-label">Sample avatar · drag to orbit</span>
-        </div>
-      </div>
-    </section>
+			<!-- Hero -->
+			<section class="fl-hero" aria-labelledby="wi-hero-h1">
+				<div class="fl-hero-inner">
+					<div class="fl-hero-copy">
+						<span class="fl-eyebrow"
+							><span class="fl-eyebrow-dot" aria-hidden="true"></span>New here? Start
+							here</span
+						>
+						<h1 id="wi-hero-h1">A 3D AI agent<br />you can use anywhere.</h1>
+						<p class="fl-hero-sub">
+							three.ws is one platform for making a 3D character that has a face, a
+							brain, and a voice — and putting it to work on your website, your
+							stream, your community, or your desktop.
+						</p>
+						<div class="fl-hero-actions">
+							<a href="/create" class="fl-btn-primary">Start free →</a>
+							<a href="#use-cases" class="fl-btn-ghost">See what you can build</a>
+						</div>
+					</div>
+					<div class="fl-hero-preview" aria-label="Sample 3D avatar preview">
+						<model-viewer
+							src="/animations/soldier.glb"
+							alt="Sample rigged 3D avatar — an example of what you can create"
+							auto-rotate
+							auto-rotate-delay="500"
+							rotation-per-second="12deg"
+							camera-controls
+							shadow-intensity="0.5"
+							environment-image="neutral"
+							style="background: transparent; width: 100%; height: 100%"
+						></model-viewer>
+						<span class="fl-preview-label">Sample avatar · drag to orbit</span>
+					</div>
+				</div>
+			</section>
 
-    <!-- Plain definition lede -->
-    <section class="wi-lede fl-section" aria-labelledby="wi-lede-h2">
-      <h2 id="wi-lede-h2" class="fl-section-label">In one sentence</h2>
-      <div class="wi-lede-inner">
-        <p>three.ws lets <strong>anyone</strong> turn a selfie or a description into a <strong>3D AI agent</strong> — a character you can talk to, animate, and embed on any website with two lines of code. <span class="wi-dim">No 3D modelling, no game engine, and no crypto required to start.</span></p>
-      </div>
-    </section>
+			<!-- Plain definition lede -->
+			<section class="wi-lede fl-section" aria-labelledby="wi-lede-h2">
+				<h2 id="wi-lede-h2" class="fl-section-label">In one sentence</h2>
+				<div class="wi-lede-inner">
+					<p>
+						three.ws lets <strong>anyone</strong> turn a selfie or a description into a
+						<strong>3D AI agent</strong> — a character you can talk to, animate, and
+						embed on any website with two lines of code.
+						<span class="wi-dim"
+							>No 3D modelling, no game engine, and no crypto required to start.</span
+						>
+					</p>
+				</div>
+			</section>
 
-    <!-- One platform, many pieces -->
-    <section class="wi-pieces fl-section" aria-labelledby="wi-pieces-h2">
-      <h2 id="wi-pieces-h2">One platform, not seven tools</h2>
-      <p class="wi-cases-intro">The avatar creator, the animation, the AI chat, the embed widget, and the worlds are all building blocks for the same agent. Make it once — use it everywhere.</p>
-      <div class="wi-pieces-grid">
-        <a class="wi-piece" href="/create">
-          <span class="wi-piece-ico" aria-hidden="true">◎</span>
-          <span><span class="wi-piece-t">Avatar creator</span><span class="wi-piece-d">A selfie, a sculpt, or a text prompt → a rigged 3D character</span></span>
-        </a>
-        <a class="wi-piece" href="/brain">
-          <span class="wi-piece-ico" aria-hidden="true">◍</span>
-          <span><span class="wi-piece-t">AI brain</span><span class="wi-piece-d">Pick the model — Claude, GPT, and more — and give it knowledge</span></span>
-        </a>
-        <a class="wi-piece" href="/overlay-control">
-          <span class="wi-piece-ico" aria-hidden="true">◐</span>
-          <span><span class="wi-piece-t">Animation &amp; motion</span><span class="wi-piece-d">Lip-sync, emotes, mocap, and an OBS stream overlay</span></span>
-        </a>
-        <a class="wi-piece" href="/studio">
-          <span class="wi-piece-ico" aria-hidden="true">▦</span>
-          <span><span class="wi-piece-t">Embeddable widget</span><span class="wi-piece-d">Two lines of HTML drop your agent onto any site</span></span>
-        </a>
-        <a class="wi-piece" href="/play">
-          <span class="wi-piece-ico" aria-hidden="true">◇</span>
-          <span><span class="wi-piece-t">3D worlds</span><span class="wi-piece-d">A space your agent — and your community — can hang out in</span></span>
-        </a>
-        <a class="wi-piece" href="/pay">
-          <span class="wi-piece-ico" aria-hidden="true">◈</span>
-          <span><span class="wi-piece-t">Optional payments</span><span class="wi-piece-d">Charge per chat, or give your agent its own on-chain identity</span></span>
-        </a>
-      </div>
-    </section>
+			<!-- One platform, many pieces -->
+			<section class="wi-pieces fl-section" aria-labelledby="wi-pieces-h2">
+				<h2 id="wi-pieces-h2">One platform, not seven tools</h2>
+				<p class="wi-cases-intro">
+					The avatar creator, the animation, the AI chat, the embed widget, and the worlds
+					are all building blocks for the same agent. Make it once — use it everywhere.
+				</p>
+				<div class="wi-pieces-grid">
+					<a class="wi-piece" href="/create">
+						<span class="wi-piece-ico" aria-hidden="true">◎</span>
+						<span
+							><span class="wi-piece-t">Avatar creator</span
+							><span class="wi-piece-d"
+								>A selfie, a sculpt, or a text prompt → a rigged 3D character</span
+							></span
+						>
+					</a>
+					<a class="wi-piece" href="/brain">
+						<span class="wi-piece-ico" aria-hidden="true">◍</span>
+						<span
+							><span class="wi-piece-t">AI brain</span
+							><span class="wi-piece-d"
+								>Pick the model — Claude, GPT, and more — and give it
+								knowledge</span
+							></span
+						>
+					</a>
+					<a class="wi-piece" href="/overlay-control">
+						<span class="wi-piece-ico" aria-hidden="true">◐</span>
+						<span
+							><span class="wi-piece-t">Animation &amp; motion</span
+							><span class="wi-piece-d"
+								>Lip-sync, emotes, mocap, and an OBS stream overlay</span
+							></span
+						>
+					</a>
+					<a class="wi-piece" href="/studio">
+						<span class="wi-piece-ico" aria-hidden="true">▦</span>
+						<span
+							><span class="wi-piece-t">Embeddable widget</span
+							><span class="wi-piece-d"
+								>Two lines of HTML drop your agent onto any site</span
+							></span
+						>
+					</a>
+					<a class="wi-piece" href="/play">
+						<span class="wi-piece-ico" aria-hidden="true">◇</span>
+						<span
+							><span class="wi-piece-t">3D worlds</span
+							><span class="wi-piece-d"
+								>A space your agent — and your community — can hang out in</span
+							></span
+						>
+					</a>
+					<a class="wi-piece" href="/pay">
+						<span class="wi-piece-ico" aria-hidden="true">◈</span>
+						<span
+							><span class="wi-piece-t">Optional payments</span
+							><span class="wi-piece-d"
+								>Charge per chat, or give your agent its own on-chain identity</span
+							></span
+						>
+					</a>
+				</div>
+			</section>
 
-    <!-- Use cases -->
-    <section class="wi-cases fl-section" id="use-cases" aria-labelledby="wi-cases-h2">
-      <h2 id="wi-cases-h2">Four ways people use it</h2>
-      <p class="wi-cases-intro">Same platform, very different jobs. Find the one that sounds like you — every step below links to a real, working flow.</p>
-      <div class="wi-case-grid">
+			<!-- Use cases -->
+			<section class="wi-cases fl-section" id="use-cases" aria-labelledby="wi-cases-h2">
+				<h2 id="wi-cases-h2">Four ways people use it</h2>
+				<p class="wi-cases-intro">
+					Same platform, very different jobs. Find the one that sounds like you — every
+					step below links to a real, working flow.
+				</p>
+				<div class="wi-case-grid">
+					<article class="wi-case">
+						<span class="wi-case-who">For businesses</span>
+						<h3 class="wi-case-title">A support avatar on your website</h3>
+						<p class="wi-case-what">
+							A branded 3D greeter that answers your customers' questions 24/7 — a
+							friendlier face than a chat bubble, embedded in minutes.
+						</p>
+						<ol class="wi-case-steps">
+							<li>Create an avatar and feed it your FAQ as its brain.</li>
+							<li>Copy the two-line embed snippet from Widget Studio.</li>
+							<li>Paste it on your site — visitors chat with it instantly.</li>
+						</ol>
+						<div class="wi-case-actions">
+							<a href="/create" class="fl-btn-primary">Build a support avatar →</a>
+							<a href="/studio" class="fl-btn-ghost">See Widget Studio</a>
+						</div>
+					</article>
 
-        <article class="wi-case">
-          <span class="wi-case-who">For businesses</span>
-          <h3 class="wi-case-title">A support avatar on your website</h3>
-          <p class="wi-case-what">A branded 3D greeter that answers your customers' questions 24/7 — a friendlier face than a chat bubble, embedded in minutes.</p>
-          <ol class="wi-case-steps">
-            <li>Create an avatar and feed it your FAQ as its brain.</li>
-            <li>Copy the two-line embed snippet from Widget Studio.</li>
-            <li>Paste it on your site — visitors chat with it instantly.</li>
-          </ol>
-          <div class="wi-case-actions">
-            <a href="/create" class="fl-btn-primary">Build a support avatar →</a>
-            <a href="/studio" class="fl-btn-ghost">See Widget Studio</a>
-          </div>
-        </article>
+					<article class="wi-case">
+						<span class="wi-case-who">For streamers &amp; creators</span>
+						<h3 class="wi-case-title">An on-stream character that's you</h3>
+						<p class="wi-case-what">
+							A 3D avatar for YouTube or Twitch that lip-syncs your mic and emotes on
+							hotkeys — go on camera as a character without a pro VTuber rig.
+						</p>
+						<ol class="wi-case-steps">
+							<li>Scan your selfie into a rigged 3D avatar.</li>
+							<li>Add it to OBS as a browser overlay.</li>
+							<li>It lip-syncs your voice and reacts to hotkeys, live.</li>
+						</ol>
+						<div class="wi-case-actions">
+							<a href="/scan" class="fl-btn-primary">Scan your avatar →</a>
+							<a href="/overlay-control" class="fl-btn-ghost">Open the OBS overlay</a>
+						</div>
+					</article>
 
-        <article class="wi-case">
-          <span class="wi-case-who">For streamers &amp; creators</span>
-          <h3 class="wi-case-title">An on-stream character that's you</h3>
-          <p class="wi-case-what">A 3D avatar for YouTube or Twitch that lip-syncs your mic and emotes on hotkeys — go on camera as a character without a pro VTuber rig.</p>
-          <ol class="wi-case-steps">
-            <li>Scan your selfie into a rigged 3D avatar.</li>
-            <li>Add it to OBS as a browser overlay.</li>
-            <li>It lip-syncs your voice and reacts to hotkeys, live.</li>
-          </ol>
-          <div class="wi-case-actions">
-            <a href="/scan" class="fl-btn-primary">Scan your avatar →</a>
-            <a href="/overlay-control" class="fl-btn-ghost">Open the OBS overlay</a>
-          </div>
-        </article>
+					<article class="wi-case">
+						<span class="wi-case-who">For communities</span>
+						<h3 class="wi-case-title">A mascot and a world to gather in</h3>
+						<p class="wi-case-what">
+							A 3D character that represents your community — and its own little world
+							people can drop into and hang out, with an optional token if you want
+							one.
+						</p>
+						<ol class="wi-case-steps">
+							<li>Forge or create your mascot character.</li>
+							<li>Drop it into its own 3D world people can explore.</li>
+							<li>Optionally give it a token and on-chain identity.</li>
+						</ol>
+						<div class="wi-case-actions">
+							<a href="/forge" class="fl-btn-primary">Create your mascot →</a>
+							<a href="/play" class="fl-btn-ghost">Explore Worlds</a>
+						</div>
+					</article>
 
-        <article class="wi-case">
-          <span class="wi-case-who">For communities</span>
-          <h3 class="wi-case-title">A mascot and a world to gather in</h3>
-          <p class="wi-case-what">A 3D character that represents your community — and its own little world people can drop into and hang out, with an optional token if you want one.</p>
-          <ol class="wi-case-steps">
-            <li>Forge or create your mascot character.</li>
-            <li>Drop it into its own 3D world people can explore.</li>
-            <li>Optionally give it a token and on-chain identity.</li>
-          </ol>
-          <div class="wi-case-actions">
-            <a href="/forge" class="fl-btn-primary">Create your mascot →</a>
-            <a href="/play" class="fl-btn-ghost">Explore Worlds</a>
-          </div>
-        </article>
+					<article class="wi-case">
+						<span class="wi-case-who">For builders &amp; tinkerers</span>
+						<h3 class="wi-case-title">A personal AI agent with a face</h3>
+						<p class="wi-case-what">
+							Your own assistant you can actually look at and talk to — pick its
+							brain, give it a personality, then chat with it or call it from the API.
+						</p>
+						<ol class="wi-case-steps">
+							<li>Create an agent and choose its brain — Claude, GPT, and more.</li>
+							<li>Give it a personality and the knowledge it needs.</li>
+							<li>Chat with it, embed it, or drive it from the API.</li>
+						</ol>
+						<div class="wi-case-actions">
+							<a href="/create" class="fl-btn-primary">Make your agent →</a>
+							<a href="/chat" class="fl-btn-ghost">Try the chat</a>
+						</div>
+					</article>
+				</div>
+			</section>
 
-        <article class="wi-case">
-          <span class="wi-case-who">For builders &amp; tinkerers</span>
-          <h3 class="wi-case-title">A personal AI agent with a face</h3>
-          <p class="wi-case-what">Your own assistant you can actually look at and talk to — pick its brain, give it a personality, then chat with it or call it from the API.</p>
-          <ol class="wi-case-steps">
-            <li>Create an agent and choose its brain — Claude, GPT, and more.</li>
-            <li>Give it a personality and the knowledge it needs.</li>
-            <li>Chat with it, embed it, or drive it from the API.</li>
-          </ol>
-          <div class="wi-case-actions">
-            <a href="/create" class="fl-btn-primary">Make your agent →</a>
-            <a href="/chat" class="fl-btn-ghost">Try the chat</a>
-          </div>
-        </article>
+			<!-- FAQ -->
+			<section class="fl-faq fl-section" aria-labelledby="wi-faq-h2">
+				<h2 id="wi-faq-h2">Common questions</h2>
+				<div class="fl-faq-list">
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-1">
+							Do I need to know anything about crypto?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="wi-faq-1" role="region">
+							No. Creating an avatar, giving it an AI brain, embedding it, and
+							chatting with it are all free and crypto-free. Owning your agent
+							on-chain or charging per chat are optional layers you can turn on later
+							if you ever want them.
+						</div>
+					</div>
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-2">
+							Is it free to start?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="wi-faq-2" role="region">
+							Yes. You can build a 3D agent from a selfie or a text prompt, give it a
+							brain, and embed it without paying anything. You only pay if you opt
+							into premium generation or run paid services.
+						</div>
+					</div>
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-3">
+							Do I need 3D modelling or coding skills?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="wi-faq-3" role="region">
+							No. The avatar comes from a photo, a sculpt tool, or a text description
+							— no Blender, no game engine. Embedding is a copy-paste snippet.
+							Developers who want deeper control get an
+							<a href="/docs" style="color: var(--ink)">SDK and API</a>, but neither
+							is required.
+						</div>
+					</div>
+					<div class="fl-faq-item">
+						<button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-4">
+							Where can I embed or use my agent?
+							<svg
+								class="fl-faq-chevron"
+								viewBox="0 0 16 16"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M4 6l4 4 4-4"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+								/>
+							</svg>
+						</button>
+						<div class="fl-faq-a" id="wi-faq-4" role="region">
+							Any website, via the
+							<a href="/studio" style="color: var(--ink)">embed widget</a>; on a live
+							stream, via the OBS overlay; in a 3D world on three.ws; or anywhere that
+							accepts a standard glTF 2.0 GLB, since that's the format your avatar
+							exports to.
+						</div>
+					</div>
+				</div>
+			</section>
 
-      </div>
-    </section>
+			<!-- Final CTA -->
+			<section class="fl-cta-band" aria-labelledby="wi-cta-h2">
+				<div class="fl-cta-inner">
+					<h2 id="wi-cta-h2">Make one in a few minutes</h2>
+					<p>
+						Bring a selfie or just an idea. Building your first agent is free — no
+						account needed to try.
+					</p>
+					<div class="fl-cta-actions">
+						<a href="/create" class="fl-btn-primary">Start free →</a>
+						<a href="/features" class="fl-btn-ghost">Tour every feature</a>
+					</div>
+				</div>
+			</section>
+		</main>
 
-    <!-- FAQ -->
-    <section class="fl-faq fl-section" aria-labelledby="wi-faq-h2">
-      <h2 id="wi-faq-h2">Common questions</h2>
-      <div class="fl-faq-list">
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-1">
-            Do I need to know anything about crypto?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="wi-faq-1" role="region">No. Creating an avatar, giving it an AI brain, embedding it, and chatting with it are all free and crypto-free. Owning your agent on-chain or charging per chat are optional layers you can turn on later if you ever want them.</div>
-        </div>
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-2">
-            Is it free to start?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="wi-faq-2" role="region">Yes. You can build a 3D agent from a selfie or a text prompt, give it a brain, and embed it without paying anything. You only pay if you opt into premium generation or run paid services.</div>
-        </div>
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-3">
-            Do I need 3D modelling or coding skills?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="wi-faq-3" role="region">No. The avatar comes from a photo, a sculpt tool, or a text description — no Blender, no game engine. Embedding is a copy-paste snippet. Developers who want deeper control get an <a href="/docs" style="color:var(--ink)">SDK and API</a>, but neither is required.</div>
-        </div>
-        <div class="fl-faq-item">
-          <button class="fl-faq-q" aria-expanded="false" aria-controls="wi-faq-4">
-            Where can I embed or use my agent?
-            <svg class="fl-faq-chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          </button>
-          <div class="fl-faq-a" id="wi-faq-4" role="region">Any website, via the <a href="/studio" style="color:var(--ink)">embed widget</a>; on a live stream, via the OBS overlay; in a 3D world on three.ws; or anywhere that accepts a standard glTF 2.0 GLB, since that's the format your avatar exports to.</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Final CTA -->
-    <section class="fl-cta-band" aria-labelledby="wi-cta-h2">
-      <div class="fl-cta-inner">
-        <h2 id="wi-cta-h2">Make one in a few minutes</h2>
-        <p>Bring a selfie or just an idea. Building your first agent is free — no account needed to try.</p>
-        <div class="fl-cta-actions">
-          <a href="/create" class="fl-btn-primary">Start free →</a>
-          <a href="/features" class="fl-btn-ghost">Tour every feature</a>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script>
-    document.querySelectorAll('.fl-faq-q').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const expanded = btn.getAttribute('aria-expanded') === 'true';
-        btn.setAttribute('aria-expanded', String(!expanded));
-        const panel = document.getElementById(btn.getAttribute('aria-controls'));
-        if (panel) panel.classList.toggle('open', !expanded);
-      });
-    });
-  </script>
-  <div id="footer-container"></div>
-  <script src="/footer.js"></script>
-</body>
+		<script>
+			document.querySelectorAll('.fl-faq-q').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const expanded = btn.getAttribute('aria-expanded') === 'true';
+					btn.setAttribute('aria-expanded', String(!expanded));
+					const panel = document.getElementById(btn.getAttribute('aria-controls'));
+					if (panel) panel.classList.toggle('open', !expanded);
+				});
+			});
+		</script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
 </html>

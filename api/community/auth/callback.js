@@ -3,7 +3,8 @@
 // X redirects the popup here after the user authorizes. We exchange the
 // one-time challenge code for the user's CoinCommunities session server-side,
 // set httpOnly cookies, then hand control back to the opener via postMessage
-// and close the popup. Falls back to the legacy accessToken-in-redirect shape.
+// and close the popup. Only the one-time challengeCode exchange is accepted —
+// raw tokens in the redirect URL are never trusted (login CSRF / fixation).
 import { text, wrap } from '../../_lib/http.js';
 import { env } from '../../_lib/env.js';
 import { cc, setUserSession, UnconfiguredError } from '../../_lib/coin-communities.js';
@@ -38,8 +39,6 @@ function page({ ok, user = null, message = '' }) {
 export default wrap(async (req, res) => {
 	const url = new URL(req.url, 'http://x');
 	const challengeCode = url.searchParams.get('challengeCode');
-	const accessToken = url.searchParams.get('accessToken');
-	const refreshToken = url.searchParams.get('refreshToken');
 
 	let api;
 	try {
@@ -54,18 +53,12 @@ export default wrap(async (req, res) => {
 	}
 
 	try {
-		let session;
-		if (challengeCode) {
-			const { data, error: apiErr } = await api.twitterChallengeExchange({
-				body: { challengeCode },
-			});
-			if (apiErr || !data?.accessToken) throw new Error(apiErr?.message || 'exchange failed');
-			session = data;
-		} else if (accessToken) {
-			session = { accessToken, refreshToken, user: null };
-		} else {
-			throw new Error('missing challenge code');
-		}
+		if (!challengeCode) throw new Error('missing challenge code');
+		const { data, error: apiErr } = await api.twitterChallengeExchange({
+			body: { challengeCode },
+		});
+		if (apiErr || !data?.accessToken) throw new Error(apiErr?.message || 'exchange failed');
+		const session = data;
 		setUserSession(res, session);
 		announceSignIn(session.user);
 		return text(res, 200, page({ ok: true, user: session.user }), {

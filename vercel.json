@@ -75,14 +75,14 @@
 				"strict-transport-security": "max-age=63072000; includeSubDomains; preload",
 				"x-content-type-options": "nosniff",
 				"referrer-policy": "strict-origin-when-cross-origin",
-				"content-security-policy": "base-uri 'self'; object-src 'none'"
+				"content-security-policy": "base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://esm.sh https://ajax.googleapis.com https://s3.tradingview.com https://platform.twitter.com https://3d-agent.vercel.app https://three.ws https://3d.irish; worker-src 'self' blob:; frame-ancestors *"
 			},
 			"continue": true
 		},
 		{
 			"src": "/(login|register|forgot-password|reset-password|account|settings|wallet|pay|paywall|vanity-wallet|eth-vanity|evm-wallet|dashboard|dashboard-next|dashboard-classic)(/.*)?$",
 			"headers": {
-				"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+				"content-security-policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://esm.sh https://ajax.googleapis.com https://s3.tradingview.com https://platform.twitter.com https://3d-agent.vercel.app https://three.ws https://3d.irish; worker-src 'self' blob:",
 				"x-frame-options": "SAMEORIGIN"
 			},
 			"continue": true
@@ -258,6 +258,22 @@
 		{
 			"src": "/changelog/",
 			"dest": "/changelog/index.html"
+		},
+		{
+			"src": "/changelog\\.json",
+			"headers": {
+				"content-type": "application/json; charset=utf-8",
+				"cache-control": "public, max-age=600"
+			},
+			"dest": "/changelog.json"
+		},
+		{
+			"src": "/changelog\\.xml",
+			"headers": {
+				"content-type": "application/rss+xml; charset=utf-8",
+				"cache-control": "public, max-age=600"
+			},
+			"dest": "/changelog.xml"
 		},
 		{
 			"src": "/\\.well-known/chat-plugin\\.json",

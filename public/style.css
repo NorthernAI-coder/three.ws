@@ -1228,6 +1228,15 @@ footer .separator {
 	background: rgba(255, 255, 255, 0.08);
 }
 
+.report-download:active {
+	background: rgba(255, 255, 255, 0.14);
+}
+
+.report-download:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+
 /******************************************************************************
  * CSS Spinner
  *
@@ -5185,6 +5194,31 @@ body[data-viewer-mode='explore'] #layout-switch {
 .agent-home-btn:hover {
 	color: rgba(255, 255, 255, 0.8);
 	border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Microinteractions (B11) — focus + press states for the agent-home panel. */
+.agent-home-btn:active {
+	color: #fff;
+	background: var(--surface-2);
+}
+.agent-home-show-pill:active { transform: scale(0.97); }
+.agent-home-btn:focus-visible,
+.agent-home-show-pill:focus-visible,
+.agent-home-skills-summary:focus-visible,
+.agent-home-address--cta:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+@media (prefers-reduced-motion: reduce) {
+	.agent-home-show-pill,
+	.agent-home-btn,
+	.agent-home-avatar-ring,
+	.agent-home-chevron {
+		transition: none !important;
+		animation: none !important;
+	}
+	.agent-home-show-pill:hover,
+	.agent-home-show-pill:active { transform: none; }
 }
 
 .agent-home-badge {
@@ -10742,4 +10776,98 @@ a.pill--devnet:hover {
 @media (prefers-reduced-motion: reduce) {
 	.tws-disc-card { transition: opacity 0.001s linear; transform: none; }
 	.tws-disc-card.is-in { transform: none; }
+}
+
+/* =============================================================================
+ * Screenshot modal (src/components/screenshot-modal.js) — B11
+ * Backdrop fades, panel rises; buttons come from the canonical .btn system.
+ * ============================================================================= */
+.screenshot-modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-lg);
+	background: rgba(0, 0, 0, 0.72);
+	backdrop-filter: blur(var(--blur-sm));
+	-webkit-backdrop-filter: blur(var(--blur-sm));
+	animation: screenshot-backdrop-in var(--duration-base) var(--ease-out) both;
+}
+@keyframes screenshot-backdrop-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+.screenshot-modal {
+	width: min(560px, 100%);
+	max-height: calc(100svh - 3rem);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	background: var(--bg-0);
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-3);
+	animation: screenshot-panel-in var(--duration-base) var(--ease-emphasized) both;
+}
+@keyframes screenshot-panel-in {
+	from { opacity: 0; transform: translateY(10px) scale(0.97); }
+	to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.screenshot-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-sm);
+	padding: var(--space-md) var(--space-lg);
+	border-bottom: 1px solid var(--stroke);
+}
+.screenshot-modal-header h3 {
+	margin: 0;
+	font-size: var(--text-base);
+	font-weight: var(--weight-semibold);
+	color: var(--ink);
+}
+.screenshot-modal-close {
+	background: none;
+	border: none;
+	color: var(--ink-dim);
+	font-size: var(--text-lg);
+	line-height: 1;
+	cursor: pointer;
+	padding: var(--space-xs) var(--space-sm);
+	border-radius: var(--radius-sm);
+	transition: color var(--duration-instant) var(--ease-standard), background var(--duration-instant) var(--ease-standard);
+}
+.screenshot-modal-close:hover { color: var(--ink); background: var(--surface-2); }
+.screenshot-modal-close:active { background: var(--surface-3); }
+.screenshot-modal-close:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+.screenshot-modal-body {
+	padding: var(--space-lg);
+	overflow-y: auto;
+	display: flex;
+	justify-content: center;
+}
+.screenshot-modal-body img {
+	max-width: 100%;
+	max-height: 52vh;
+	border-radius: var(--radius-md);
+	border: 1px solid var(--stroke);
+	display: block;
+}
+.screenshot-modal-footer {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: var(--space-sm);
+	padding: var(--space-md) var(--space-lg);
+	border-top: 1px solid var(--stroke);
+}
+@media (prefers-reduced-motion: reduce) {
+	.screenshot-modal-backdrop,
+	.screenshot-modal { animation: none; }
 }

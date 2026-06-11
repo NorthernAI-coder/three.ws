@@ -12,6 +12,7 @@
 // fragile ESM/CJS chain. Our usage is trivial DOM scraping; jsdom was overkill.
 
 import { parse } from 'node-html-parser';
+import { fetchSafePublicUrl, SsrfBlockedError } from './ssrf-guard.js';
 
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB hard cap per source
@@ -28,24 +29,32 @@ export async function fetchAndExtract(url) {
 	if (u.protocol !== 'http:' && u.protocol !== 'https:') {
 		throw Object.assign(new Error('only http(s) URLs are supported'), { status: 400 });
 	}
-	if (isPrivateHost(u.hostname)) {
-		throw Object.assign(new Error('URL must be publicly reachable'), { status: 400 });
-	}
 
+	// SSRF guard: every hop (including each redirect Location) is DNS-resolved
+	// and checked against private/loopback/link-local/metadata ranges before we
+	// connect. `fetchSafePublicUrl` follows redirects manually and re-validates
+	// each one — a public URL that 302s to 169.254.169.254 (or a decimal/hex IP
+	// form) is rejected instead of followed.
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 	let res;
 	try {
-		res = await fetch(u.toString(), {
-			redirect: 'follow',
-			headers: {
-				'user-agent': USER_AGENT,
-				accept: 'text/html,text/plain,application/xhtml+xml',
+		res = await fetchSafePublicUrl(
+			u.toString(),
+			{
+				headers: {
+					'user-agent': USER_AGENT,
+					accept: 'text/html,text/plain,application/xhtml+xml',
+				},
+				signal: controller.signal,
 			},
-			signal: controller.signal,
-		});
+			{ allowHttp: true },
+		);
 	} catch (err) {
 		clearTimeout(timer);
+		if (err instanceof SsrfBlockedError) {
+			throw Object.assign(new Error('URL must be publicly reachable'), { status: 400 });
+		}
 		throw Object.assign(new Error(`fetch failed: ${err.message}`), { status: 502 });
 	}
 	clearTimeout(timer);
@@ -129,18 +138,4 @@ async function readWithCap(res, limit) {
 		chunks.push(Buffer.from(value));
 	}
 	return Buffer.concat(chunks);
-}
-
-// Block SSRF to private/loopback/link-local ranges. Resolution-time check is
-// not perfect (DNS rebinding) but it eliminates accidental leaks; production
-// should layer a network egress firewall on top.
-function isPrivateHost(host) {
-	const h = host.toLowerCase();
-	if (h === 'localhost' || h === '0.0.0.0' || h === 'broadcasthost') return true;
-	if (/\.local$|\.internal$|\.intranet$/.test(h)) return true;
-	if (/^(?:127\.|10\.|192\.168\.|169\.254\.|::1$|fe80::|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:)/i.test(h))
-		return true;
-	const m = h.match(/^172\.(\d{1,3})\./);
-	if (m && Number(m[1]) >= 16 && Number(m[1]) <= 31) return true;
-	return false;
 }

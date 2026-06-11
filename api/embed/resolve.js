@@ -22,6 +22,7 @@ import { DEMO_AVATARS } from '../_lib/demo-avatars.js';
 
 const ONCHAIN_RE = /^(?:eip155:)?(\d{1,9})[:/](\d{1,12})$/;
 const AVATAR_RE = /^avatar:([a-zA-Z0-9_-]{3,64})$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
@@ -81,6 +82,10 @@ export default wrap(async (req, res) => {
 				passportUrl: `/avatars/${demo.avatarId}`,
 			});
 		}
+
+		// avatars.id is a uuid column — a non-UUID id here raises Postgres 22P02
+		// (invalid input syntax) and surfaces as a 500. Treat it as not-found.
+		if (!UUID_RE.test(avatarId)) return error(res, 404, 'not_found', 'avatar not found');
 
 		const rows = await sql`
 			SELECT id, name, description, storage_key, thumbnail_key

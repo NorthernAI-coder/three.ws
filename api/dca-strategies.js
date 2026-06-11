@@ -9,8 +9,24 @@ import { requireCsrf } from './_lib/csrf.js';
 import { parse } from './_lib/validate.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 
-// Whitelisted token-out symbols — extend this as new pools become liquid enough
-const ALLOWED_TOKEN_OUT_SYMBOLS = new Set(['WETH', 'cbBTC', 'USDT']);
+// Whitelisted token-out symbols — runtime operator config, never hardcoded
+// tickers. DCA_ALLOWED_TOKEN_OUT is a comma-separated symbol list; when unset
+// or empty, strategy creation is rejected until the operator configures it.
+function allowedTokenOutSymbols() {
+	return new Set(
+		(process.env.DCA_ALLOWED_TOKEN_OUT || '')
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean),
+	);
+}
+
+// Default chain for new strategies — operator config (DCA_CHAIN_ID), never a
+// hardcoded network. Required when the request body omits chain_id.
+function defaultChainId() {
+	const parsed = parseInt(process.env.DCA_CHAIN_ID || '', 10);
+	return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
 
 // Max slippage enforced server-side in addition to the UI cap
 const MAX_SLIPPAGE_BPS = 500;
@@ -23,7 +39,7 @@ const ethAddress = z
 const createSchema = z.object({
 	agent_id: z.string().uuid(),
 	delegation_id: z.string().uuid(),
-	chain_id: z.number().int().positive().default(84532),
+	chain_id: z.number().int().positive().optional(),
 	token_in: ethAddress,
 	token_out: ethAddress,
 	token_out_symbol: z.string().min(1).max(10),
@@ -143,12 +159,31 @@ export default wrap(async (req, res) => {
 		return error(res, err.status || 400, err.code || 'validation_error', err.message);
 	}
 
-	if (!ALLOWED_TOKEN_OUT_SYMBOLS.has(body.token_out_symbol)) {
+	const allowedTokenOut = allowedTokenOutSymbols();
+	if (allowedTokenOut.size === 0) {
+		return error(
+			res,
+			400,
+			'not_configured',
+			'DCA token-out whitelist is not configured — set DCA_ALLOWED_TOKEN_OUT (comma-separated symbols)',
+		);
+	}
+	if (!allowedTokenOut.has(body.token_out_symbol)) {
 		return error(
 			res,
 			400,
 			'validation_error',
-			`token_out_symbol must be one of: ${[...ALLOWED_TOKEN_OUT_SYMBOLS].join(', ')}`,
+			`token_out_symbol must be one of: ${[...allowedTokenOut].join(', ')}`,
+		);
+	}
+
+	const chainId = body.chain_id ?? defaultChainId();
+	if (!chainId) {
+		return error(
+			res,
+			400,
+			'not_configured',
+			'chain_id is required — pass it in the body or set DCA_CHAIN_ID',
 		);
 	}
 
@@ -203,7 +238,7 @@ export default wrap(async (req, res) => {
 			amount_per_execution, period_seconds, slippage_bps,
 			next_execution_at
 		) VALUES (
-			${body.agent_id}, ${body.delegation_id}, ${body.chain_id},
+			${body.agent_id}, ${body.delegation_id}, ${chainId},
 			${body.token_in}, ${body.token_out}, ${body.token_out_symbol},
 			${body.amount_per_execution}, ${body.period_seconds}, ${body.slippage_bps},
 			${nextExecAt}

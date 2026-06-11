@@ -6,16 +6,13 @@
 	import NotificationBell from '../NotificationBell.svelte';
 	import PayWalletPicker from '../PayWalletPicker.svelte';
 
-	let mobileOpen = false;
-
 	// Main-site destinations. These live at the site root (three.ws/…),
 	// outside the chat SPA, so they are real anchors rather than route changes.
-	const siteLinks = [
-		{ href: '/marketplace', label: 'Marketplace' },
-		{ href: '/pay', label: 'Pay' },
-		{ href: '/features', label: 'Features' },
-		{ href: '/docs', label: 'Docs' }
-	];
+	// Sourced from the shared nav data so chat and the main-site header can
+	// never disagree on labels or hrefs.
+	import { CHAT_SITE_LINKS as siteLinks } from '../../../public/nav-data.js';
+
+	let mobileOpen = false;
 
 	function goChatHome() {
 		route.set('chat');

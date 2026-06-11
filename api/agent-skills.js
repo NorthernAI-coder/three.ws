@@ -6,6 +6,7 @@
 import { sql } from './_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from './_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from './_lib/http.js';
+import { requireCsrf } from './_lib/csrf.js';
 import { clientIp, limits } from './_lib/rate-limit.js';
 import { z } from 'zod';
 
@@ -19,7 +20,7 @@ const setPriceSchema = z.object({
 export default wrap(async (req, res) => {
 	const url = new URL(req.url, 'http://x');
 	const agentId = url.searchParams.get('agentId') || url.pathname.split('/').filter(Boolean)[2];
-	const action  = url.searchParams.get('action')  || url.pathname.split('/').filter(Boolean)[4];
+	const action = url.searchParams.get('action') || url.pathname.split('/').filter(Boolean)[4];
 
 	if (action === 'set-price') return handleSetPrice(req, res, agentId);
 
@@ -32,6 +33,8 @@ async function handleSetPrice(req, res, agentId) {
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+	// Cookie-session mutation — CSRF required (bearer callers exempt inside requireCsrf).
+	if (!(await requireCsrf(req, res, auth.userId))) return;
 
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
@@ -50,7 +53,12 @@ async function handleSetPrice(req, res, agentId) {
 
 	const parsed = setPriceSchema.safeParse(body);
 	if (!parsed.success) {
-		return error(res, 400, 'validation_error', parsed.error.issues[0]?.message || 'validation error');
+		return error(
+			res,
+			400,
+			'validation_error',
+			parsed.error.issues[0]?.message || 'validation error',
+		);
 	}
 
 	const { skill, amount, currency_mint, chain } = parsed.data;

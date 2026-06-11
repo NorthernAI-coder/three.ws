@@ -1,6 +1,7 @@
 import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error } from '../../_lib/http.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { z } from 'zod';
 
 const priceSchema = z.object({
@@ -26,6 +27,9 @@ export default wrap(async (req, res) => {
 
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (req.method === 'PUT' && !(await requireCsrf(req, res, auth.userId))) return;
 
 	const [agent] = await sql`
 		SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL

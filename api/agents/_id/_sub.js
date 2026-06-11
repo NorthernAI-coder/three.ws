@@ -8,6 +8,7 @@ import { sql } from '../../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
+import { requireCsrf } from '../../_lib/csrf.js';
 import { parse } from '../../_lib/validate.js';
 import { recoverAgentKey } from '../../_lib/agent-wallet.js';
 import { readEmbedPolicy, validateEmbedPolicy } from '../../_lib/embed-policy.js';
@@ -33,9 +34,11 @@ export const handleActions = wrap(async (req, res, id) => {
 	const bearer = session ? null : await authenticateBearer(extractBearer(req));
 	const userId = session?.id ?? bearer?.userId;
 
-	const [agent] = await sql`SELECT id, user_id, name, wallet_address FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	const [agent] =
+		await sql`SELECT id, user_id, name, wallet_address FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
-	if (!userId || agent.user_id !== userId) return error(res, 403, 'forbidden', 'not authorized to view this agent');
+	if (!userId || agent.user_id !== userId)
+		return error(res, 403, 'forbidden', 'not authorized to view this agent');
 
 	const url = new URL(req.url, 'http://x');
 	const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
@@ -96,11 +99,25 @@ export const handleActions = wrap(async (req, res, id) => {
 		let verified = null;
 		if (row.signature && row.signer_address && row.payload) {
 			try {
-				const recovered = verifyMessage(JSON.stringify(row.payload) + row.created_at.toISOString(), row.signature);
+				const recovered = verifyMessage(
+					JSON.stringify(row.payload) + row.created_at.toISOString(),
+					row.signature,
+				);
 				verified = recovered.toLowerCase() === row.signer_address.toLowerCase();
-			} catch { verified = false; }
+			} catch {
+				verified = false;
+			}
 		}
-		return { id: String(row.id), type: row.type, payload: row.payload, sourceSkill: row.source_skill, timestamp: row.created_at.toISOString(), signature: row.signature || null, signer: row.signer_address || null, verified };
+		return {
+			id: String(row.id),
+			type: row.type,
+			payload: row.payload,
+			sourceSkill: row.source_skill,
+			timestamp: row.created_at.toISOString(),
+			signature: row.signature || null,
+			signer: row.signer_address || null,
+			verified,
+		};
 	});
 
 	res.setHeader('Cache-Control', 'private, max-age=10');
@@ -115,7 +132,15 @@ export const handleActions = wrap(async (req, res, id) => {
 
 const animationEntrySchema = z.object({
 	name: z.string().trim().min(1).max(60),
-	url: z.string().trim().min(1).max(2048).refine((u) => /^(https?|ipfs|ar):\/\//.test(u) || u.startsWith('/') || /^u\//.test(u), 'url must be http, https, ipfs, ar, root-relative, or storage key'),
+	url: z
+		.string()
+		.trim()
+		.min(1)
+		.max(2048)
+		.refine(
+			(u) => /^(https?|ipfs|ar):\/\//.test(u) || u.startsWith('/') || /^u\//.test(u),
+			'url must be http, https, ipfs, ar, root-relative, or storage key',
+		),
 	loop: z.boolean().default(true),
 	clipName: z.string().trim().max(120).optional(),
 	source: z.enum(['mixamo', 'preset', 'custom']),
@@ -125,19 +150,23 @@ const animationEntrySchema = z.object({
 // Animation state machine — optional graph stored alongside the flat clip
 // list. The runtime AnimationStateMachine fills in defaults for any state
 // not explicitly mapped here; the editor only persists overrides.
-const animationStateSchema = z.object({
-	clip:      z.string().trim().min(1).max(60).optional(),
-	loop:      z.boolean().optional(),
-	crossfade: z.number().min(0).max(5).optional(),
-	oneShot:   z.boolean().optional(),
-	returnTo:  z.string().trim().min(1).max(40).nullable().optional(),
-}).strict();
+const animationStateSchema = z
+	.object({
+		clip: z.string().trim().min(1).max(60).optional(),
+		loop: z.boolean().optional(),
+		crossfade: z.number().min(0).max(5).optional(),
+		oneShot: z.boolean().optional(),
+		returnTo: z.string().trim().min(1).max(40).nullable().optional(),
+	})
+	.strict();
 
-const animationGraphSchema = z.object({
-	states:      z.record(animationStateSchema).optional(),
-	transitions: z.record(z.string().trim().min(1).max(40)).optional(),
-	initial:     z.string().trim().min(1).max(40).optional(),
-}).strict();
+const animationGraphSchema = z
+	.object({
+		states: z.record(animationStateSchema).optional(),
+		transitions: z.record(z.string().trim().min(1).max(40)).optional(),
+		initial: z.string().trim().min(1).max(40).optional(),
+	})
+	.strict();
 
 const animationsBodySchema = z.object({
 	animations: z.array(animationEntrySchema).max(30),
@@ -151,14 +180,25 @@ export const handleAnimations = wrap(async (req, res, id) => {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const [existing] = await sql`SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+
+	const [existing] =
+		await sql`SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
 	if (!existing) return error(res, 404, 'not_found', 'agent not found');
 	if (existing.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
 
 	const rawBody = await readJson(req);
 	let parsed;
-	try { parsed = animationsBodySchema.parse(rawBody); }
-	catch (err) { if (err.name === 'ZodError') return error(res, 400, 'validation_error', err.errors[0]?.message || 'invalid body', { fields: err.errors }); throw err; }
+	try {
+		parsed = animationsBodySchema.parse(rawBody);
+	} catch (err) {
+		if (err.name === 'ZodError')
+			return error(res, 400, 'validation_error', err.errors[0]?.message || 'invalid body', {
+				fields: err.errors,
+			});
+		throw err;
+	}
 
 	// Only touch meta.animationGraph when the request actually carries the
 	// field, so saving the clip-array on its own doesn't clobber an existing
@@ -184,7 +224,8 @@ export const handleAnimations = wrap(async (req, res, id) => {
 	}
 
 	// Read back the persisted graph so the response reflects what's actually stored.
-	const [row] = await sql`SELECT meta->'animationGraph' AS graph FROM agent_identities WHERE id = ${id}`;
+	const [row] =
+		await sql`SELECT meta->'animationGraph' AS graph FROM agent_identities WHERE id = ${id}`;
 	return json(res, 200, {
 		animations: parsed.animations,
 		animationGraph: row?.graph ?? null,
@@ -208,7 +249,11 @@ export const handleEmbedPolicy = wrap(async (req, res, id) => {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const [existing] = await sql`SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	// CSRF on state-changing session-cookie requests (PUT/DELETE reach here).
+	if (!(await requireCsrf(req, res, session.id))) return;
+
+	const [existing] =
+		await sql`SELECT id, user_id FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
 	if (!existing) return error(res, 404, 'not_found', 'agent not found');
 	if (existing.user_id !== session.id) return error(res, 403, 'forbidden', 'not your agent');
 
@@ -218,10 +263,18 @@ export const handleEmbedPolicy = wrap(async (req, res, id) => {
 	}
 
 	let normalized;
-	try { normalized = validateEmbedPolicy(await readJson(req)); }
-	catch (err) { if (err.name === 'ZodError') return error(res, 400, 'validation_error', err.errors[0]?.message || 'invalid policy', { fields: err.errors }); throw err; }
+	try {
+		normalized = validateEmbedPolicy(await readJson(req));
+	} catch (err) {
+		if (err.name === 'ZodError')
+			return error(res, 400, 'validation_error', err.errors[0]?.message || 'invalid policy', {
+				fields: err.errors,
+			});
+		throw err;
+	}
 
-	const [updated] = await sql`UPDATE agent_identities SET embed_policy = ${JSON.stringify(normalized)}::jsonb WHERE id = ${id} RETURNING embed_policy`;
+	const [updated] =
+		await sql`UPDATE agent_identities SET embed_policy = ${JSON.stringify(normalized)}::jsonb WHERE id = ${id} RETURNING embed_policy`;
 	return json(res, 200, { policy: updated.embed_policy });
 });
 
@@ -231,14 +284,22 @@ export const handleManifest = wrap(async (req, res, id) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: false })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	if (!/^[0-9a-f-]{36}$/i.test(id)) return error(res, 400, 'invalid_request', 'agent id required');
+	if (!/^[0-9a-f-]{36}$/i.test(id))
+		return error(res, 400, 'invalid_request', 'agent id required');
 
-	const [row] = await sql`select a.id, a.name, a.description, a.avatar_id, a.skills, a.meta, a.chain_id, a.erc8004_agent_id, a.erc8004_registry, a.registration_cid, a.created_at, a.voice_provider, a.voice_id, a.persona_prompt_hash, a.persona_tone_tags, a.persona_extracted_at, av.id as avatar_db_id, av.storage_key, av.content_type from agent_identities a left join avatars av on av.id = a.avatar_id and av.deleted_at is null where a.id = ${id} and a.deleted_at is null limit 1`;
+	const [row] =
+		await sql`select a.id, a.name, a.description, a.avatar_id, a.skills, a.meta, a.chain_id, a.erc8004_agent_id, a.erc8004_registry, a.registration_cid, a.created_at, a.voice_provider, a.voice_id, a.persona_prompt_hash, a.persona_tone_tags, a.persona_extracted_at, av.id as avatar_db_id, av.storage_key, av.content_type from agent_identities a left join avatars av on av.id = a.avatar_id and av.deleted_at is null where a.id = ${id} and a.deleted_at is null limit 1`;
 	if (!row) return error(res, 404, 'not_found', 'agent not found');
 
 	let bodyUri = '';
 	if (row.avatar_db_id) {
-		try { const urlInfo = await resolveAvatarUrl({ storage_key: row.storage_key, visibility: 'public' }); bodyUri = urlInfo?.url || ''; } catch {}
+		try {
+			const urlInfo = await resolveAvatarUrl({
+				storage_key: row.storage_key,
+				visibility: 'public',
+			});
+			bodyUri = urlInfo?.url || '';
+		} catch {}
 	}
 
 	const proto = req.headers['x-forwarded-proto'] || 'https';
@@ -256,7 +317,15 @@ export const handleManifest = wrap(async (req, res, id) => {
 		body: bodyUri ? { uri: bodyUri, format: row.content_type || 'gltf-binary' } : undefined,
 		skills: Array.isArray(row.skills) ? row.skills : [],
 		homeUrl: `${origin}/agent/${row.id}`,
-		registrations: row.chain_id && row.erc8004_agent_id ? [{ agentRegistry: `eip155:${row.chain_id}:${row.erc8004_registry}`, agentId: row.erc8004_agent_id }] : [],
+		registrations:
+			row.chain_id && row.erc8004_agent_id
+				? [
+						{
+							agentRegistry: `eip155:${row.chain_id}:${row.erc8004_registry}`,
+							agentId: row.erc8004_agent_id,
+						},
+					]
+				: [],
 		voice: row.voice_id
 			? { provider: row.voice_provider || 'elevenlabs', voice_id: row.voice_id }
 			: { provider: 'browser' },
@@ -268,7 +337,10 @@ export const handleManifest = wrap(async (req, res, id) => {
 		createdAt: row.created_at,
 	};
 
-	return json(res, 200, manifest, { 'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400', 'access-control-allow-origin': '*' });
+	return json(res, 200, manifest, {
+		'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400',
+		'access-control-allow-origin': '*',
+	});
 });
 
 // ── registration (Metaplex / EIP-8004 agent registry document) ─────────────────
@@ -282,14 +354,22 @@ export const handleRegistration = wrap(async (req, res, id) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: false })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	if (!/^[0-9a-f-]{36}$/i.test(id)) return error(res, 400, 'invalid_request', 'agent id required');
+	if (!/^[0-9a-f-]{36}$/i.test(id))
+		return error(res, 400, 'invalid_request', 'agent id required');
 
-	const [row] = await sql`select a.id, a.name, a.description, a.skills, a.deleted_at, a.chain_id, a.erc8004_agent_id, a.erc8004_registry, av.id as avatar_db_id, av.storage_key, av.thumbnail_key, av.content_type from agent_identities a left join avatars av on av.id = a.avatar_id and av.deleted_at is null where a.id = ${id} and a.deleted_at is null limit 1`;
+	const [row] =
+		await sql`select a.id, a.name, a.description, a.skills, a.deleted_at, a.chain_id, a.erc8004_agent_id, a.erc8004_registry, av.id as avatar_db_id, av.storage_key, av.thumbnail_key, av.content_type from agent_identities a left join avatars av on av.id = a.avatar_id and av.deleted_at is null where a.id = ${id} and a.deleted_at is null limit 1`;
 	if (!row) return error(res, 404, 'not_found', 'agent not found');
 
 	let modelUri = '';
 	if (row.avatar_db_id) {
-		try { const u = await resolveAvatarUrl({ storage_key: row.storage_key, visibility: 'public' }); modelUri = u?.url || ''; } catch {}
+		try {
+			const u = await resolveAvatarUrl({
+				storage_key: row.storage_key,
+				visibility: 'public',
+			});
+			modelUri = u?.url || '';
+		} catch {}
 	}
 	const image = row.thumbnail_key ? r2PublicUrl(row.thumbnail_key) : '';
 
@@ -307,17 +387,28 @@ export const handleRegistration = wrap(async (req, res, id) => {
 		agentUrl: `${origin}/agent/${row.id}`,
 		origin,
 		skills: Array.isArray(row.skills) ? row.skills : [],
-		erc8004: row.chain_id && row.erc8004_agent_id
-			? { chainId: row.chain_id, agentId: row.erc8004_agent_id, registry: row.erc8004_registry }
-			: null,
+		erc8004:
+			row.chain_id && row.erc8004_agent_id
+				? {
+						chainId: row.chain_id,
+						agentId: row.erc8004_agent_id,
+						registry: row.erc8004_registry,
+					}
+				: null,
 	});
 
-	return json(res, 200, doc, { 'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400', 'access-control-allow-origin': '*' });
+	return json(res, 200, doc, {
+		'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400',
+		'access-control-allow-origin': '*',
+	});
 });
 
 // ── sign ──────────────────────────────────────────────────────────────────────
 
-const signBody = z.object({ message: z.string().min(1).max(8192), kind: z.enum(['personal']).default('personal') });
+const signBody = z.object({
+	message: z.string().min(1).max(8192),
+	kind: z.enum(['personal']).default('personal'),
+});
 
 export const handleSign = wrap(async (req, res, id) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -326,10 +417,14 @@ export const handleSign = wrap(async (req, res, id) => {
 	const auth = await resolveAuth(req);
 	if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 
+	// CSRF on state-changing session-cookie requests; bearer tokens are exempt.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl, 'too many sign requests');
 
-	const [row] = await sql`SELECT id, user_id, wallet_address, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL LIMIT 1`;
+	const [row] =
+		await sql`SELECT id, user_id, wallet_address, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL LIMIT 1`;
 	if (!row) return error(res, 404, 'not_found', 'agent not found');
 	if (row.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
 
@@ -359,16 +454,24 @@ export const handleUsage = wrap(async (req, res, id) => {
 	const session = await getSessionUser(req);
 	if (!session) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const [agent] = await sql`SELECT id FROM agent_identities WHERE id = ${id} AND user_id = ${session.id} AND deleted_at IS NULL`;
+	const [agent] =
+		await sql`SELECT id FROM agent_identities WHERE id = ${id} AND user_id = ${session.id} AND deleted_at IS NULL`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 
 	const policy = await readEmbedPolicy(id);
 	const monthlyQuota = policy?.brain?.monthly_quota ?? null;
 
-	const [monthRow] = await sql`SELECT COUNT(*)::int AS total FROM usage_events WHERE agent_id = ${id} AND kind = 'llm' AND created_at >= date_trunc('month', now())`;
-	const dailyRows = await sql`SELECT date_trunc('day', created_at)::date AS day, COUNT(*)::int AS calls FROM usage_events WHERE agent_id = ${id} AND kind = 'llm' AND created_at >= now() - interval '30 days' GROUP BY 1 ORDER BY 1`;
+	const [monthRow] =
+		await sql`SELECT COUNT(*)::int AS total FROM usage_events WHERE agent_id = ${id} AND kind = 'llm' AND created_at >= date_trunc('month', now())`;
+	const dailyRows =
+		await sql`SELECT date_trunc('day', created_at)::date AS day, COUNT(*)::int AS calls FROM usage_events WHERE agent_id = ${id} AND kind = 'llm' AND created_at >= now() - interval '30 days' GROUP BY 1 ORDER BY 1`;
 
-	return json(res, 200, { agentId: id, monthlyQuota, currentMonthCalls: monthRow?.total ?? 0, dailyBreakdown: dailyRows.map((r) => ({ day: r.day, calls: r.calls })) });
+	return json(res, 200, {
+		agentId: id,
+		monthlyQuota,
+		currentMonthCalls: monthRow?.total ?? 0,
+		dailyBreakdown: dailyRows.map((r) => ({ day: r.day, calls: r.calls })),
+	});
 });
 
 // ── memories ──────────────────────────────────────────────────────────────────
@@ -400,7 +503,8 @@ export const handleMemories = wrap(async (req, res, id, memoryId) => {
 	if (req.method === 'GET' && !userId) return json(res, 200, { data: [] });
 	if (!userId) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const [agent] = await sql`SELECT id FROM agent_identities WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`;
+	const [agent] =
+		await sql`SELECT id FROM agent_identities WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`;
 	if (!agent) {
 		if (req.method === 'GET') return json(res, 200, { data: [] });
 		return error(res, 404, 'not_found', 'agent not found');

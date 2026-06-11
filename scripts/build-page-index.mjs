@@ -8,7 +8,10 @@
  *   public/llms-full.txt        — expanded, prose-friendly variant
  *   public/sitemap/index.html   — human-readable site map at /sitemap
  *   public/features.json        — machine manifest served at /api/features.json
- *   CHANGELOG.md                — derived from per-page `added` dates
+ *   CHANGELOG.md                — page launches (`added` dates) merged with
+ *                                 curated entries from data/changelog.json
+ *   public/changelog.json       — machine-readable changelog feed at /changelog.json
+ *   public/changelog.xml        — RSS feed of the same entries at /changelog.xml
  *
  * Note: the crawler sitemap.xml is NO LONGER static. It's served dynamically
  * by /api/sitemap (index) + /api/sitemap/[type] (per-entity), which augments
@@ -31,6 +34,22 @@ const newsRoutesFile = resolve(root, 'data/_generated/news-routes.json');
 const data = JSON.parse(readFileSync(dataFile, 'utf8'));
 const { site } = data;
 const sections = [...data.sections];
+
+// Curated changelog entries — the editorial layer on top of page launches.
+// Validated hard: a malformed entry should fail the build, not ship garbage
+// to holders.
+const changelogFile = resolve(root, 'data/changelog.json');
+const CHANGELOG_TAGS = new Set(['feature', 'improvement', 'fix', 'sdk', 'infra', 'docs', 'security']);
+const curatedEntries = JSON.parse(readFileSync(changelogFile, 'utf8')).entries;
+for (const e of curatedEntries) {
+	const ctx = `data/changelog.json entry "${e.title || '?'}" (${e.date || 'no date'})`;
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date || '')) throw new Error(`${ctx}: date must be YYYY-MM-DD`);
+	if (!e.title || !e.summary) throw new Error(`${ctx}: title and summary are required`);
+	if (!Array.isArray(e.tags) || e.tags.length === 0) throw new Error(`${ctx}: at least one tag required`);
+	for (const t of e.tags) {
+		if (!CHANGELOG_TAGS.has(t)) throw new Error(`${ctx}: unknown tag "${t}" (allowed: ${[...CHANGELOG_TAGS].join(', ')})`);
+	}
+}
 
 // Splice in a "News" section if scripts/build-news.mjs has written its
 // routes file. Keeps news entries in the sitemap, llms.txt, and the
@@ -280,39 +299,110 @@ function buildFeaturesJson() {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// CHANGELOG.md — derived from per-page `added` dates, newest first. Pages
-// without an `added` date predate tracking and are omitted; every NEW page
-// added to pages.json should carry one (the route-audit guard enforces it).
+// Changelog feed — page launches (per-page `added` dates in pages.json)
+// merged with curated entries from data/changelog.json, newest first.
+// Three renderings: CHANGELOG.md, public/changelog.json, public/changelog.xml.
 // ────────────────────────────────────────────────────────────────────────
+function changelogFeed() {
+	const launches = allPages
+		.filter((p) => p.added)
+		.map((p) => ({
+			date: p.added,
+			type: 'launch',
+			title: p.title,
+			summary: p.description,
+			link: p.path,
+			tags: ['launch'],
+		}));
+	const updates = curatedEntries.map((e) => ({
+		date: e.date,
+		type: 'update',
+		title: e.title,
+		summary: e.summary,
+		link: e.link || null,
+		tags: e.tags,
+	}));
+	return [...launches, ...updates].sort(
+		(a, b) =>
+			(a.date < b.date ? 1 : a.date > b.date ? -1 : 0) ||
+			(a.type !== b.type ? (a.type === 'launch' ? -1 : 1) : 0) ||
+			a.title.localeCompare(b.title),
+	);
+}
+
 function buildChangelog() {
-	const dated = allPages.filter((p) => p.added);
+	const feed = changelogFeed();
 	const byDate = new Map();
-	for (const p of dated) {
-		if (!byDate.has(p.added)) byDate.set(p.added, []);
-		byDate.get(p.added).push(p);
+	for (const item of feed) {
+		if (!byDate.has(item.date)) byDate.set(item.date, []);
+		byDate.get(item.date).push(item);
 	}
-	const dates = [...byDate.keys()].sort((a, b) => (a < b ? 1 : -1));
 
 	const lines = [];
 	lines.push('# Changelog');
 	lines.push('');
-	lines.push('<!-- Generated from data/pages.json by scripts/build-page-index.mjs — DO NOT EDIT BY HAND. -->');
+	lines.push('<!-- Generated from data/pages.json + data/changelog.json by scripts/build-page-index.mjs — DO NOT EDIT BY HAND. Add updates to data/changelog.json. -->');
 	lines.push('');
-	lines.push(`Public feature history for [${site.name}](${baseUrl}), newest first. Feature dates are tracked from 2026-05-25 forward; earlier pages are omitted.`);
+	lines.push(`Public history for [${site.name}](${baseUrl}), newest first. New pages come from \`added\` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](${baseUrl}/changelog.json) and [RSS](${baseUrl}/changelog.xml), live at [${baseUrl.replace(/^https?:\/\//, '')}/changelog](${baseUrl}/changelog).`);
 	lines.push('');
-	if (dates.length === 0) {
-		lines.push('_No dated features yet. Add an `"added": "YYYY-MM-DD"` field to a page in data/pages.json to start the log._');
-		lines.push('');
-	}
-	for (const date of dates) {
+	for (const [date, items] of byDate) {
 		lines.push(`## ${date}`);
 		lines.push('');
-		for (const p of byDate.get(date).sort((a, b) => a.title.localeCompare(b.title))) {
-			lines.push(`- **${p.title}** (\`${p.path}\`) — ${p.description}`);
+		for (const item of items) {
+			if (item.type === 'launch') {
+				lines.push(`- **${item.title}** (\`${item.link}\`) — ${item.summary}`);
+			} else {
+				lines.push(`- **${item.title}** — ${item.summary}${item.link ? ` (\`${item.link}\`)` : ''} \`[${item.tags.join(', ')}]\``);
+			}
 		}
 		lines.push('');
 	}
 	return lines.join('\n').trimEnd() + '\n';
+}
+
+function buildChangelogJson() {
+	return JSON.stringify(
+		{
+			generated_at: new Date().toISOString(),
+			generated_by: 'scripts/build-page-index.mjs from data/pages.json + data/changelog.json',
+			site: { name: site.name, url: site.url },
+			entries: changelogFeed(),
+		},
+		null,
+		'\t',
+	) + '\n';
+}
+
+function buildChangelogRss() {
+	const feed = changelogFeed();
+	const items = feed
+		.map((item) => {
+			const link = `${baseUrl}${item.link || '/changelog'}`;
+			const pubDate = new Date(`${item.date}T12:00:00Z`).toUTCString();
+			return [
+				'\t\t<item>',
+				`\t\t\t<title>${escapeHtml(item.title)}</title>`,
+				`\t\t\t<link>${escapeHtml(link)}</link>`,
+				`\t\t\t<guid isPermaLink="false">${escapeHtml(`${item.date}:${item.title}`)}</guid>`,
+				`\t\t\t<pubDate>${pubDate}</pubDate>`,
+				`\t\t\t<category>${escapeHtml(item.type === 'launch' ? 'launch' : item.tags[0])}</category>`,
+				`\t\t\t<description>${escapeHtml(item.summary)}</description>`,
+				'\t\t</item>',
+			].join('\n');
+		})
+		.join('\n');
+	return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+\t<channel>
+\t\t<title>${escapeHtml(site.name)} changelog</title>
+\t\t<link>${baseUrl}/changelog</link>
+\t\t<atom:link href="${baseUrl}/changelog.xml" rel="self" type="application/rss+xml"/>
+\t\t<description>What's new on ${escapeHtml(site.name)} — features, improvements, and releases, newest first.</description>
+\t\t<language>en</language>
+${items}
+\t</channel>
+</rss>
+`;
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -333,6 +423,8 @@ const outputs = [
 	{ file: resolve(publicDir, 'sitemap/index.html'), content: buildSitemapHtml() },
 	{ file: resolve(publicDir, 'features.json'), content: buildFeaturesJson() },
 	{ file: resolve(root, 'CHANGELOG.md'), content: buildChangelog() },
+	{ file: resolve(publicDir, 'changelog.json'), content: buildChangelogJson() },
+	{ file: resolve(publicDir, 'changelog.xml'), content: buildChangelogRss() },
 ];
 
 let wrote = 0;

@@ -4240,3 +4240,129 @@ body.market-page > header {
 	.review-mine-notice { flex-direction: column; align-items: flex-start; gap: 8px; }
 	.review-header { flex-wrap: wrap; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Microinteractions (B11) — consolidated focus rings, press states, entrance
+   motion for the marketplace surface. Tokens from /tokens.css; transform/
+   opacity only; reduced-motion honored at the end of the block.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Card grid entrance — staggered fade-up when the grid (re)renders. Capped at
+   the first twelve children so deep pagination doesn't animate offscreen. */
+.market-grid > * {
+	animation: mk-card-rise var(--duration-slow, 420ms) var(--ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+.market-grid > *:nth-child(2)  { animation-delay: 40ms; }
+.market-grid > *:nth-child(3)  { animation-delay: 80ms; }
+.market-grid > *:nth-child(4)  { animation-delay: 120ms; }
+.market-grid > *:nth-child(5)  { animation-delay: 160ms; }
+.market-grid > *:nth-child(6)  { animation-delay: 200ms; }
+.market-grid > *:nth-child(7)  { animation-delay: 240ms; }
+.market-grid > *:nth-child(8)  { animation-delay: 280ms; }
+.market-grid > *:nth-child(9)  { animation-delay: 320ms; }
+.market-grid > *:nth-child(10) { animation-delay: 360ms; }
+.market-grid > *:nth-child(11) { animation-delay: 400ms; }
+.market-grid > *:nth-child(12) { animation-delay: 440ms; }
+@keyframes mk-card-rise {
+	from { opacity: 0; transform: translateY(10px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Shared focus ring — every interactive element on this surface. */
+.market-nav a:focus-visible,
+.cat-row:focus-visible,
+.market-cat-chip:focus-visible,
+.market-chip:focus-visible,
+.market-hero-cta:focus-visible,
+.market-hero-secondary:focus-visible,
+.market-avatar-detail-cta:focus-visible,
+.market-avatar-detail .btn-secondary:focus-visible,
+.tool-detail-cta:focus-visible,
+.market-tool-detail .btn-secondary:focus-visible,
+.tool-detail-pills button.tag-pill:focus-visible,
+.purchase-btn:focus-visible,
+.skill-btn.purchase:focus-visible,
+.market-fork:focus-visible,
+.related-card:focus-visible,
+.plugin-add-url-btn:focus-visible,
+.plugin-install-btn:focus-visible,
+.market-submit-btn:focus-visible,
+.market-submit-avatar-btn:focus-visible,
+.market-mine-cta:focus-visible,
+.market-empty-redirect button:focus-visible,
+.market-wip-dismiss:focus-visible,
+.market-tag-banner-clear:focus-visible,
+.earn-txn:focus-visible,
+.earn-show-more:focus-visible,
+.card-heart:focus-visible,
+.card-author:focus-visible,
+#avatar-modal-bookmark:focus-visible,
+.avatar-modal-author a:focus-visible,
+.d-embed-copy:focus-visible,
+.d-token-btn:focus-visible,
+.d-token-btn-sec:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+	outline-offset: var(--focus-ring-offset, 2px);
+}
+
+/* Press feedback — one register: a slight scale-down on buttons, a deeper
+   tint on rows/links. Matches .card--interactive:active in style.css. */
+.market-hero-cta:active,
+.market-hero-secondary:active,
+.market-avatar-detail-cta:active,
+.tool-detail-cta:active,
+.purchase-btn:active,
+.skill-btn.purchase:active,
+.plugin-add-url-btn:active,
+.plugin-install-btn:active,
+.market-submit-btn:active,
+.market-submit-avatar-btn:active,
+.market-mine-cta:active,
+.market-empty-redirect button:active,
+.earn-wallet-btn:active,
+.earn-show-more:active,
+.d-token-btn:active,
+.d-token-btn-sec:active {
+	transform: scale(0.98);
+}
+.market-nav a:active,
+.cat-row:active { background: var(--surface-3); color: var(--ink); }
+.market-cat-chip:active:not(.active),
+.market-chip:active { background: var(--surface-3); color: var(--ink); }
+.market-fork:active,
+.d-embed-copy:active { background: var(--surface-2); }
+.card-heart:active { transform: scale(1); }
+.market-wip-dismiss:active,
+.market-tag-banner-clear:active { opacity: 0.7; }
+
+/* Pointer affordance + transition on rows that only had hover colors. */
+.market-nav a,
+.cat-row {
+	transition:
+		background var(--duration-instant, 80ms) var(--ease-standard, ease),
+		color var(--duration-instant, 80ms) var(--ease-standard, ease);
+}
+
+/* Reduced motion — this sheet mixes literal durations, so kill explicitly. */
+@media (prefers-reduced-motion: reduce) {
+	.market-grid > * { animation: none; }
+	.market-nav a,
+	.cat-row,
+	.market-cat-chip,
+	.market-chip,
+	.market-hero-cta,
+	.market-hero-secondary,
+	.related-card,
+	.plugin-card,
+	.plugin-card-clickable,
+	.tool-card,
+	.earn-card,
+	.earn-chip,
+	.earn-txn,
+	.card-heart,
+	.card-star {
+		transition: none !important;
+	}
+	.card-heart:hover,
+	.card-star:hover { transform: none; }
+}

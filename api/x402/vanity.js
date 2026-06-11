@@ -108,34 +108,38 @@ const DISCOVERY_INPUT_SCHEMA = {
 		},
 		suffix: {
 			type: 'string',
-			description: 'Base58 characters the address must end with. Combined with prefix, max 3 characters.',
+			description:
+				'Base58 characters the address must end with. Combined with prefix, max 3 characters.',
 		},
 		ignoreCase: {
 			type: 'string',
 			enum: ['0', '1', 'true', 'false'],
-			description: 'When 1/true, match the pattern case-insensitively (faster, less specific).',
+			description:
+				'When 1/true, match the pattern case-insensitively (faster, less specific).',
 		},
 	},
 };
 
+// SECURITY: this is a discovery-schema EXAMPLE only — it documents the response
+// shape, it is NOT a real key. The secretKey/secretKeyBase58 below are synthetic
+// placeholders (all-zero bytes), never a funded keypair. The live endpoint grinds
+// and returns a fresh keypair per request; never paste a real secret key here.
 const DISCOVERY_OUTPUT_EXAMPLE = {
-	address: 'Sonh98bek7doEoRsv3kQ4wiGpXKoLjykwwMMW7j855U',
+	address: 'SoEXAMPLEdoNotUse1111111111111111111111111111',
 	prefix: 'So',
 	suffix: null,
 	ignoreCase: false,
-	secretKeyBase58:
-		'3yDa7yKFum6UDfu1xmMPaD4oi4VoWVs2f3MV8n8W3qb2Aqx6cDEBNs1kPj8M1GHYWBmiQravrwW3vsSVhqKDzfvA',
+	secretKeyBase58: '<example-only — the live endpoint returns the ground secret key here>',
 	secretKey: [
-		148, 131, 95, 215, 78, 89, 60, 95, 3, 101, 148, 82, 38, 181, 56, 16, 169, 211, 230, 246,
-		175, 77, 65, 244, 238, 93, 134, 100, 61, 49, 160, 234, 6, 156, 108, 96, 247, 163, 149, 94,
-		138, 213, 165, 193, 67, 185, 170, 128, 123, 198, 234, 243, 158, 120, 123, 177, 250, 231,
-		248, 199, 144, 30, 122, 75,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0,
 	],
 	attempts: 160000,
 	durationMs: 6030,
 	expectedAttempts: 3364,
 	network: 'solana',
-	explorerUrl: 'https://solscan.io/account/Sonh98bek7doEoRsv3kQ4wiGpXKoLjykwwMMW7j855U',
+	explorerUrl: 'https://solscan.io/account/SoEXAMPLEdoNotUse1111111111111111111111111111',
 };
 
 const DISCOVERY_OUTPUT_SCHEMA = {
@@ -149,7 +153,8 @@ const DISCOVERY_OUTPUT_SCHEMA = {
 		ignoreCase: { type: 'boolean' },
 		secretKeyBase58: {
 			type: 'string',
-			description: 'Base58-encoded 64-byte Ed25519 secret key (import into Phantom/Solflare).',
+			description:
+				'Base58-encoded 64-byte Ed25519 secret key (import into Phantom/Solflare).',
 		},
 		secretKey: {
 			type: 'array',
@@ -222,7 +227,10 @@ function parsePattern(req) {
 	const suffix = typeof q.suffix === 'string' ? q.suffix.trim() : '';
 	const ignoreCase = q.ignoreCase === '1' || q.ignoreCase === 'true';
 
-	for (const [label, pattern] of [['prefix', prefix], ['suffix', suffix]]) {
+	for (const [label, pattern] of [
+		['prefix', prefix],
+		['suffix', suffix],
+	]) {
 		if (!pattern) continue;
 		const v = validatePattern(pattern);
 		if (!v.valid) {
@@ -313,7 +321,12 @@ export default wrap(async (req, res) => {
 		if (acResult.headers) {
 			for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
 		}
-		return error(res, acResult.status || 403, acResult.code || 'access_denied', acResult.reason || 'access denied');
+		return error(
+			res,
+			acResult.status || 403,
+			acResult.code || 'access_denied',
+			acResult.reason || 'access denied',
+		);
 	}
 	if (acResult?.grantAccess) {
 		let result;
@@ -338,9 +351,14 @@ export default wrap(async (req, res) => {
 	// USE-15: idempotency cache lookup before paying for /verify. A retried
 	// payment (same payment-id, same query) returns the SAME ground keypair
 	// instead of grinding a fresh one and double-charging.
-	const paymentId = extractIdFromHeader(paymentHeader);
+	const clientPaymentId = extractIdFromHeader(paymentHeader);
 	const payloadHash = hashRequestPayload({ method: req.method, url: req.url, body: null });
 	const paymentHash = hashPaymentProof(paymentHeader);
+	// Always-on replay guard: the payment-identifier extension is client-opt-in,
+	// so when the client omits it we fall back to the proof hash itself as the
+	// dedup key (reproducible only by the original payer), making replay
+	// protection unconditional. Same idiom as api/_lib/x402-paid-endpoint.js.
+	const paymentId = clientPaymentId || (paymentHash ? `proof:${paymentHash}` : null);
 	if (paymentId) {
 		const lookup = await checkCache({ route: ROUTE, paymentId, payloadHash, paymentHash });
 		if (lookup.kind === 'hit') return writeCachedResponse(res, lookup.entry);

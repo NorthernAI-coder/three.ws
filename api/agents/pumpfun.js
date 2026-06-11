@@ -126,7 +126,9 @@ async function handleFeed(req, res) {
 	res.flushHeaders?.();
 	const started = Date.now();
 	let active = true;
-	req.on('close', () => { active = false; });
+	req.on('close', () => {
+		active = false;
+	});
 	const wsAbort = new AbortController();
 	req.on('close', () => wsAbort.abort());
 	const queue = [];
@@ -134,7 +136,14 @@ async function handleFeed(req, res) {
 	// `trades` is per-mint on PumpPortal — require a mint and stream that token's
 	// buy/sell flow. Other kinds (mint/graduation/all) ignore the mint param.
 	const tradeMints = wsKind === 'trades' && mintParam ? [mintParam] : [];
-	const stopWs = connectPumpFunFeed({ kind: wsKind, mints: tradeMints, signal: wsAbort.signal, onEvent: ({ kind: evKind, data }) => { if (active) queue.push({ evKind, data }); } });
+	const stopWs = connectPumpFunFeed({
+		kind: wsKind,
+		mints: tradeMints,
+		signal: wsAbort.signal,
+		onEvent: ({ kind: evKind, data }) => {
+			if (active) queue.push({ evKind, data });
+		},
+	});
 	_writeSse(res, 'open', { kind, minTier: minTierParam || null, source: 'websocket' });
 	// Replay the most recent buffered events so a freshly-opened feed is never
 	// blank. Newest first so the UI's `prepend` results in chronological order.
@@ -150,23 +159,32 @@ async function handleFeed(req, res) {
 	}
 	const seen = new Set();
 	let lastSig = null;
-	const tickClaims = pumpfunBotEnabled() ? async () => {
-		if (kind !== 'claims' && kind !== 'all') return;
-		const r = await pumpfunMcp.claimsSince({ sinceSig: lastSig, limit: 25 });
-		if (!r.ok) return;
-		const items = Array.isArray(r.data) ? r.data : r.data?.items || [];
-		for (const ev of items) {
-			const id = ev.tx_signature || ev.signature || ev.id;
-			if (!id || seen.has(id)) continue;
-			seen.add(id);
-			if (!passesFilters(ev)) continue;
-			lastSig = id;
-			_writeSse(res, 'claim', ev);
-		}
-	} : null;
+	const tickClaims = pumpfunBotEnabled()
+		? async () => {
+				if (kind !== 'claims' && kind !== 'all') return;
+				const r = await pumpfunMcp.claimsSince({ sinceSig: lastSig, limit: 25 });
+				if (!r.ok) return;
+				const items = Array.isArray(r.data) ? r.data : r.data?.items || [];
+				for (const ev of items) {
+					const id = ev.tx_signature || ev.signature || ev.id;
+					if (!id || seen.has(id)) continue;
+					seen.add(id);
+					if (!passesFilters(ev)) continue;
+					lastSig = id;
+					_writeSse(res, 'claim', ev);
+				}
+			}
+		: null;
 	while (active && Date.now() - started < 90_000) {
-		while (queue.length > 0 && active) { const { evKind, data } = queue.shift(); if (passesFilters(data)) _writeSse(res, evKind, data); }
-		if (tickClaims) { try { await tickClaims(); } catch {} }
+		while (queue.length > 0 && active) {
+			const { evKind, data } = queue.shift();
+			if (passesFilters(data)) _writeSse(res, evKind, data);
+		}
+		if (tickClaims) {
+			try {
+				await tickClaims();
+			} catch {}
+		}
 		_writeSse(res, 'ping', { t: Date.now() });
 		await new Promise((r) => setTimeout(r, 4000));
 	}
@@ -174,32 +192,66 @@ async function handleFeed(req, res) {
 	_writeSse(res, 'close', { reason: 'duration_limit' });
 	res.end();
 }
-function _writeSse(res, event, data) { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); }
+function _writeSse(res, event, data) {
+	res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
 
 // ── pumpfun-metadata ──────────────────────────────────────────────────────────
 
 import { sql as _sql } from '../_lib/db.js';
 import { env as _env } from '../_lib/env.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function handleMetadata(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
+	const rlMeta = await limits.publicIp(clientIp(req));
+	if (!rlMeta.success) return rateLimited(res, rlMeta);
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const id = url.searchParams.get('id');
 	if (!id) return error(res, 400, 'validation_error', 'id required');
-	const [a] = await _sql`select id, name, description, avatar_id, meta, wallet_address from agent_identities where id = ${id} and deleted_at is null limit 1`;
+	// agent_identities.id is a uuid column — a malformed id otherwise leaks
+	// Postgres error 22P02 to the caller as a 500. Return a clean 404 instead.
+	if (!UUID_RE.test(id)) return error(res, 404, 'not_found', 'agent not found');
+	const [a] =
+		await _sql`select id, name, description, avatar_id, meta, wallet_address from agent_identities where id = ${id} and deleted_at is null limit 1`;
 	if (!a) return error(res, 404, 'not_found', 'agent not found');
 	const origin = _env.APP_ORIGIN;
 	const image = a.meta?.image_url || `${origin}/api/agents/${a.id}/og`;
 	// `.glb`-terminating proxy URL: marketplaces and glTF viewers that key off
 	// the file extension (not the Content-Type) need the trailing `.glb`.
 	const animation = a.avatar_id ? `${origin}/api/avatars/${a.avatar_id}/model.glb` : null;
-	const symbol = String(a.name || 'AGENT').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) || 'AGENT';
-	return json(res, 200, {
-		name: a.name, symbol,
-		description: a.description || `${a.name} is a 3D AI agent on three.ws with onchain identity and signed action history.`,
-		image, animation_url: animation, external_url: `${origin}/agent/${a.id}`,
-		attributes: [{ trait_type: 'platform', value: 'three.ws' }, { trait_type: 'agent_id', value: a.id }, ...(a.wallet_address ? [{ trait_type: 'owner', value: a.wallet_address }] : [])],
-		properties: { category: 'video', files: [...(animation ? [{ uri: animation, type: 'model/gltf-binary' }] : []), { uri: image, type: 'image/png' }] },
-	}, { 'cache-control': 'public, max-age=300', 'access-control-allow-origin': '*' });
+	const symbol =
+		String(a.name || 'AGENT')
+			.toUpperCase()
+			.replace(/[^A-Z0-9]/g, '')
+			.slice(0, 10) || 'AGENT';
+	return json(
+		res,
+		200,
+		{
+			name: a.name,
+			symbol,
+			description:
+				a.description ||
+				`${a.name} is a 3D AI agent on three.ws with onchain identity and signed action history.`,
+			image,
+			animation_url: animation,
+			external_url: `${origin}/agent/${a.id}`,
+			attributes: [
+				{ trait_type: 'platform', value: 'three.ws' },
+				{ trait_type: 'agent_id', value: a.id },
+				...(a.wallet_address ? [{ trait_type: 'owner', value: a.wallet_address }] : []),
+			],
+			properties: {
+				category: 'video',
+				files: [
+					...(animation ? [{ uri: animation, type: 'model/gltf-binary' }] : []),
+					{ uri: image, type: 'image/png' },
+				],
+			},
+		},
+		{ 'cache-control': 'public, max-age=300', 'access-control-allow-origin': '*' },
+	);
 }

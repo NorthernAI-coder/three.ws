@@ -1,0 +1,760 @@
+{
+	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
+	"entries": [
+		{
+			"date": "2026-06-11",
+			"title": "Faster, quieter agents directory and site-wide page polish",
+			"summary": "The on-chain agents directory now loads from our server-side index instead of contacting every agent's metadata host from your browser — pages render faster and no longer spray network errors. Also: the pump.fun cockpit's sidebar pages are now shareable deep links, mobile nav and footer links meet touch-target guidelines, anonymous visitors no longer trigger failed sign-in requests on Walk and Create, and assorted dead links were removed.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-11",
+			"title": "Text-to-3D and image-to-3D generation restored",
+			"summary": "Fixed two provider regressions that blocked Forge generation: model submissions now pin the latest published model version automatically, and the text-to-image step falls back to a healthy provider instead of failing when the preferred one is misconfigured.",
+			"tags": [
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-10",
+			"title": "WebRTC relay and x402 telemetry",
+			"summary": "Added a Session Description Protocol relay for WebRTC handshakes and instrumented every paid x402 surface for Provider Hub telemetry, with hardened rate limiting.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-09",
+			"title": "New Claude models in every agent brain",
+			"summary": "Claude Fable 5 and Mythos 5 are now available across agent brain selectors, pricing tables, and the x402 provider catalog.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-08",
+			"title": "Bounty board with AI judge",
+			"summary": "Bounty submissions now support liking, AI-powered scoring, and per-bounty leaderboards — submissions are ranked by a platform-powered judge.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-08",
+			"title": "Public agent profiles with shared memories",
+			"summary": "Agents can now have public profile pages that surface their shared memories, plus Replicate model provider support and public agent directory resolution.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-07",
+			"title": "AIXBT market intelligence for agents",
+			"summary": "Agents and in-world NPCs can now tap AIXBT market intelligence — token analysis, project data, and grounding served through new API endpoints.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-06",
+			"title": "IBM Granite models over MCP and x402",
+			"summary": "Published an MCP package exposing IBM Granite chat, code, embedding, and forecasting models with x402 pay-per-call routing.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-06",
+			"title": "Forge editing upgrades",
+			"summary": "Forge gained an animation system, pose studio, magic-brush stylization, multi-view rendering, and faster segment/animate/texture workers.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-05",
+			"title": "Privy wallet sign-in",
+			"summary": "Wallet-native sign-in via Privy with JWKS verification and DID linking — log in securely without managing passwords.",
+			"tags": [
+				"feature",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-05",
+			"title": "Pump.fun autopilot and guided agent creation",
+			"summary": "Automated token launching and trading via pump.fun autopilot, plus a new create-prompt flow that walks you from idea to deployed on-chain agent.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-05",
+			"title": "Cosmetics economy in the game world",
+			"summary": "A cosmetics shop inside the 3D game world — buy avatar customizations via x402, trade them peer-to-peer, and earn from cosmetics usage.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-03",
+			"title": "Voice cloning and real-time lip-sync",
+			"summary": "ElevenLabs text-to-speech is now wired through the platform: voice cloning, real-time lip-sync, and per-voice settings for every agent.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-03",
+			"title": "Autonomous agent-to-agent trading",
+			"summary": "Agents can now negotiate with each other, pay for crypto intelligence via x402 micropayments, and settle on-chain — fully autonomously.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-03",
+			"title": "x402 payment hardening",
+			"summary": "Hardened payment processing with Solana transaction confirmation, replay-attack guards, payment-intent deduplication, and sanitized errors across MCP bridges.",
+			"tags": [
+				"security",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-02",
+			"title": "Four production MCP servers",
+			"summary": "3D Studio (text-to-3D, model inspection), x402 Bazaar (service discovery and payment), IBM watsonx (LLM access), and Pump.fun (token operations) — all published with manifests and docs.",
+			"tags": [
+				"sdk"
+			],
+			"link": "/docs/mcp"
+		},
+		{
+			"date": "2026-06-02",
+			"title": "Every agent gets its own wallet",
+			"summary": "Each agent now has a deterministic Solana wallet for self-custodied payments — agents can send SOL and settle x402 transactions autonomously.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-01",
+			"title": "City world",
+			"summary": "An isometric 3D city with player movement, collision, minimap, and avatar animation — a new kind of world to explore as your agent.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-01",
+			"title": "Quests, loot, mounts, and realms",
+			"summary": "The multiplayer game layer now includes quests, loot drops, mounts, and realm-based gameplay with a token-managed in-game economy.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-31",
+			"title": "Spatial voice chat in coin worlds",
+			"summary": "Proximity-based voice chat inside multiplayer worlds — you hear players based on distance, with speaking indicators, voice activity detection, and audio panning.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-31",
+			"title": "Holder-gated worlds",
+			"summary": "Every coin world now has two rooms: General (open to all) and Holders (gated by minimum token holdings, verified server-side).",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-31",
+			"title": "Keyframe animation in Pose Studio",
+			"summary": "Create, edit, and export full-body avatar animations on a keyframe timeline — with easing functions and export to JSON or GLB.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-30",
+			"title": "Coin Communities — live 3D coin worlds",
+			"summary": "Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with other holders, and watch real-time charts in-world.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-29",
+			"title": "Live trade streaming and zen mode",
+			"summary": "The pump.fun feed now streams per-mint buy/sell flows in real time, and Walk gained a zen mode (Z key) that hides all UI except the 3D scene.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-28",
+			"title": "Faster, more reliable deploys",
+			"summary": "Updated the Solana SDK bridge and fixed build memory limits and per-file timeouts that could stall deployments.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-05-27",
+			"title": "Brain page — race LLMs side by side",
+			"summary": "Run simultaneous inference across Claude, GPT, Qwen, and more with streaming latency comparison, plus a face-quality module that scores avatar facial fidelity.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-27",
+			"title": "Unified dashboard",
+			"summary": "Dashboard routes consolidated under /dashboard — agents, avatars, analytics, settings, and billing in one place.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/dashboard"
+		},
+		{
+			"date": "2026-05-26",
+			"title": "three.ws on AWS Marketplace",
+			"summary": "Subscribe through AWS Marketplace and automatically receive x402 API keys, with subscription status enforced across the platform.",
+			"tags": [
+				"feature",
+				"infra"
+			],
+			"link": "/docs/listings"
+		},
+		{
+			"date": "2026-05-26",
+			"title": "Avatar regeneration tracking and grounded AR",
+			"summary": "Avatar regeneration jobs are now trackable, and AR mode freezes the follow-cam so avatars walk in world space instead of always facing the camera.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-25",
+			"title": "Search engines find everything faster",
+			"summary": "Dynamic chunked sitemaps backed by live database queries, JSON-LD structured data for agents and avatars, and IndexNow integration for instant search discovery.",
+			"tags": [
+				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-24",
+			"title": "Marketplace asset pricing and purchases",
+			"summary": "Asset pricing, purchase flows, payment modals, and time-pass licensing — avatar customizations and plugins are now monetizable.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-24",
+			"title": "Avatar review with live 3D preview",
+			"summary": "The create-review step now embeds a full TalkScene 3D viewer with idle animations and a responsive mobile layout.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-23",
+			"title": "Pay by name with SNS",
+			"summary": "Solana Name Service integration — claim threews.sol subdomains and send USDC via human-readable names through x402 pay-by-name.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-21",
+			"title": "x402 Bazaar infrastructure",
+			"summary": "Bazaar listing and search with x402 subscriptions, paid-tier access control, idempotency caching, and offer receipts for service monetization.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-05-21",
+			"title": "Pole Club — micro-tip performances",
+			"summary": "A 3D club with four stages where USDC micro-tips ($0.001) spawn named dancers and trigger choreographed routines, with gasless Permit2 support.",
+			"tags": [
+				"feature"
+			],
+			"link": "/club"
+		},
+		{
+			"date": "2026-05-21",
+			"title": "Agent-to-agent protocol",
+			"summary": "A2A client/server, MCP bridge, spending ledger, and receipts storage — agents can securely request services from each other with x402 payment coordination.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-05-21",
+			"title": "Agent-UI SDK released",
+			"summary": "Published @three-ws/agent-ui for embedding 3D avatars in any web app — animation, click reactions, mouse tracking, and movement behaviors.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-05-21",
+			"title": "Avatar Agent MCP in Anthropic's registry",
+			"summary": "Published avatar-agent-mcp to Anthropic's official MCP registry — 40+ tools for avatar generation, token launches, GLB rendering, and on-chain transactions.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-05-20",
+			"title": "Platform-wide security hardening",
+			"summary": "SSRF guards on outbound fetches, CSRF gates on admin and key management, per-IP rate limiting on shared API quotas, and fail-closed cron handlers.",
+			"tags": [
+				"security"
+			]
+		},
+		{
+			"date": "2026-05-20",
+			"title": "Buybacks and WASM vanity addresses",
+			"summary": "Added a pump-swap buyback flow and a WebAssembly vanity address grinder for custom token launch addresses.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-19",
+			"title": "USDC pairs for pump.fun v2",
+			"summary": "USDC trading pair support for pump.fun v2 coins with automatic bonding-curve quote detection.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-18",
+			"title": "Live feed mode in the token visualizer",
+			"summary": "The pump.fun visualizer gained a live feed mode with marketplace export, and the avatar creation flow was streamlined under the Avatar Studio brand.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-18",
+			"title": "Solana Seeker mobile support",
+			"summary": "Mobile Wallet Adapter integration for Solana Seeker and Saga devices, with a Solana dApp Store listing and Seed Vault authentication.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-18",
+			"title": "Selfie-to-avatar reconstruction pipeline",
+			"summary": "Native photo-to-3D reconstruction — submit selfies and get a fully rigged GLB avatar with automatic mesh optimization, resilient to long-running transforms.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-17",
+			"title": "Agent personalization and on-chain economy scaffolding",
+			"summary": "Persona extraction from voice interviews, memory seeds from GitHub/X/Farcaster, instant voice cloning, a bonding-curve simulator, and EAS attestation reputation.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-17",
+			"title": "Talking avatars with audio-driven lip-sync",
+			"summary": "Real-time lip-sync reads TTS audio and morphs avatar mouth shapes, integrated into talk scenes with camera presets and emotes.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-17",
+			"title": "Team launches with creator-signer split",
+			"summary": "Token launches now support separate signer and creator wallets — the signer pays gas while the creator receives on-chain royalties.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-17",
+			"title": "News syndication",
+			"summary": "News posts auto-publish to Dev.to and Medium with canonical links back to three.ws, and WebSub pushes keep RSS subscribers current.",
+			"tags": [
+				"infra"
+			]
+		},
+		{
+			"date": "2026-05-17",
+			"title": "Server-side avatar regeneration",
+			"summary": "Restyle, remesh, retexture, and rerig avatars with server-backed Replicate compute — results cached automatically in R2.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-17",
+			"title": "Talk mode, avatar SDK, and 5–10x smaller avatars",
+			"summary": "Talk mode with camera presets and ARKit-52 blendshapes, a public avatar SDK with React exports, new brain/TTS/identity APIs, and a GLB bake pipeline with WebP compression that cuts asset sizes 5–10x.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-05-15",
+			"title": "Avatar accessories and launchpad redesign",
+			"summary": "Avatar customization now supports accessories, and the coin launchpad interface was redesigned for clarity.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-15",
+			"title": "Token visualizer search and sort",
+			"summary": "The interactive 3D token universe gained search by name/symbol/mint and sorting by market cap, live status, replies, and age — refreshing every 60 seconds.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-14",
+			"title": "x402 commerce — SKUs and hosted checkout",
+			"summary": "Stripe-like payment UX for x402: define SKUs, share hosted checkout links, and track settlement history — settled on Base via Coinbase CDP.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-14",
+			"title": "Launchpad Studio — no-code hosted pages",
+			"summary": "Pick a template, fill a form, and publish a hosted page for your token or service at /p/<slug> — no code required.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-14",
+			"title": "Multiplayer walk scenes",
+			"summary": "Live multiplayer walkaround with websocket infrastructure — multiple players see each other in the same 3D scene.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-05-14",
+			"title": "15 tutorials and six new paid endpoints",
+			"summary": "New developer walkthroughs from embed quickstart to multi-agent coordination, plus six x402 paid endpoints including agent reputation, identity verify, and skill marketplace.",
+			"tags": [
+				"docs",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-13",
+			"title": "Autonomous X Spaces voice agent",
+			"summary": "A cloud voice agent that joins X Spaces and holds real-time conversations using streaming audio and transcription.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-10",
+			"title": "Monetization v2",
+			"summary": "Trials, time-based access passes, withdrawal processing, signed receipts, multi-wallet support, and 5% referral splits.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-10",
+			"title": "Marketplace v2 and creator dashboard",
+			"summary": "Redesigned marketplace with trials, time passes, billing receipts, featured avatar galleries, and theme selection.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-10",
+			"title": "Launch-week recap published",
+			"summary": "An interactive case study of launch week (Apr 29 – May 9) with the architecture timeline, partner ecosystem, lessons learned, and live engagement metrics.",
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-05-09",
+			"title": "Vanity wallet addresses",
+			"summary": "Vanity address grinders for Solana and Ethereum, plus co-sign helpers for parallel token launches.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-08",
+			"title": "$THREE holder gating",
+			"summary": "Holder-gated access now works with a simple on-chain $THREE balance check — no vault setup required.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-08",
+			"title": "Agent Payments SDK v3.1.0 — multi-chain",
+			"summary": "Solana v2 bonding curve support plus Base, Polygon, and Ethereum with cross-chain payment routing.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-05-08",
+			"title": "Payments inside chat",
+			"summary": "The full agent payments lifecycle is available in chat — balance checks, fund distribution, withdrawals, and USDC whitelist monitoring.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-08",
+			"title": "Trading tools in chat",
+			"summary": "Five real trading tools in agent chat: buy, sell, portfolio view, and live price quotes with custom slippage control.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-08",
+			"title": "Pick your agent's model",
+			"summary": "Chat moved to unified streaming with per-agent model selection across Anthropic, OpenRouter, Groq, and OpenAI.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-08",
+			"title": "x402 spec v2",
+			"summary": "Upgraded the payment protocol to spec v2 with CAIP-2 network IDs, Bazaar integration, and marketplace listing support.",
+			"tags": [
+				"improvement",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-05-08",
+			"title": "Agents that feel the room",
+			"summary": "Agents now react to user sentiment with emotion expressions and animations — empathy, concern, celebration, patience, curiosity.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-04",
+			"title": "Real-time multiplayer sync",
+			"summary": "Live multiplayer support with real-time room creation, player interactions, and synchronized state.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-04",
+			"title": "JavaScript SDK launch",
+			"summary": "The official three.ws JavaScript SDK with built-in chat and embed methods — integrate 3D agents into any web application.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-05-04",
+			"title": "Sell your agent's skills",
+			"summary": "Skill pricing, purchase buttons, and a payment intent API — creators can gate premium skills behind subscriptions or one-time purchases.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-04",
+			"title": "Richer pump.fun feed",
+			"summary": "Graduation event parsing, gesture animations, and live market cap display in the pump.fun dashboard.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-04",
+			"title": "Avatar reactions to market events",
+			"summary": "Community and personal avatar selection with real-time gesture animations during market events.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-05-01",
+			"title": "Plugin marketplace",
+			"summary": "Search, install, and manage community-published agent skills using the open ToolManifest format.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-01",
+			"title": "Lip-sync and Solana Blinks",
+			"summary": "Real-time viseme morphing from audio, plus Solana Blinks support so agents can parse and execute on-chain actions.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-05-01",
+			"title": "Reputation and staking",
+			"summary": "Agent reputation panel with ETH staking for trust signals — reputation accumulates through validator actions tracked on-chain.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-04-30",
+			"title": "Chat with voice",
+			"summary": "Native LLM chat launched with live voice input/output and real-time transcription for agent conversations.",
+			"tags": [
+				"feature"
+			],
+			"link": "/chat"
+		},
+		{
+			"date": "2026-04-29",
+			"title": "three.ws in Anthropic's MCP Registry",
+			"summary": "Published to the official MCP Registry — Claude can deploy agents, create tokens, and run wallet operations on three.ws via the standard MCP protocol.",
+			"tags": [
+				"sdk",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-04-29",
+			"title": "On-chain agents on Solana and EVM",
+			"summary": "Unified deployment stack — agents register on Ethereum, Base, Polygon, and Solana with passport pages, reputation, and attestations.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-04-29",
+			"title": "Pump.fun launch and trading stack",
+			"summary": "Token creation, bonding-curve swaps, KOL trade tracking, automated wallet monitoring, and a vanity address grinder for custom Solana prefixes.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-04-29",
+			"title": "x402 micropayments",
+			"summary": "Facilitator-mediated USDC micropayments — MCP clients authorize requests with payment headers, with per-tool pricing and subscription bypass.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-04-29",
+			"title": "Solana Agent SDK",
+			"summary": "Actions for token transfers, SPL swaps, balance queries, and stake attestations, with transaction builders and fee estimation.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-04-27",
+			"title": "Hello, three.ws",
+			"summary": "The platform rebranded from 3D Agent to three.ws across every page, with consolidated routing and new Privacy Policy and Terms of Service.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-04-27",
+			"title": "Create-to-deploy flow",
+			"summary": "A streamlined creator path: create, edit, see your 3D body on your public profile, and deploy on-chain with chain selection — with onboarding for first-time creators.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-04-27",
+			"title": "3D viewer polish",
+			"summary": "Better first-load camera framing, keyboard shortcuts, saved per-agent animation preferences, and improved mobile accessibility.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-04-17",
+			"title": "Avatars that never sit still",
+			"summary": "A four-channel idle animation loop — breathing, eye saccades, blinks, weight shifts — keeps avatars naturally alive during silence.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-04-17",
+			"title": "On-chain agent discovery",
+			"summary": "The /discover page lists every ERC-8004 agent owned by your wallet with one-click import, plus a LobeHub plugin for LLM orchestration.",
+			"tags": [
+				"feature"
+			],
+			"link": "/discover"
+		},
+		{
+			"date": "2026-04-17",
+			"title": "Embeds with action bridges",
+			"summary": "Agent embeds can be hosted on external sites with persistent state, live Studio preview, and bridges for inter-agent communication.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-04-16",
+			"title": "Widget Studio is born",
+			"summary": "The first version of Widget Studio — build, preview, and save custom avatar widgets with a drag-drop editor and live updates.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-04-15",
+			"title": "3D model validation tools",
+			"summary": "Model validation, inspection, and optimization APIs for GLB/FBX files — asset analysis and format conversion to guarantee avatar quality.",
+			"tags": [
+				"feature",
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-04-15",
+			"title": "Wallet sign-in and on-chain identity",
+			"summary": "Sign-In with Ethereum, wallet integration, and the ERC-8004 Passport widget — agents display cryptographic proof of identity tied to wallet ownership.",
+			"tags": [
+				"feature",
+				"security"
+			]
+		}
+	]
+}

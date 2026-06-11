@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -14,16 +14,19 @@
 			content="Describe an object, watch it become an interactive 3D model. Real generation, real GLB, downloadable."
 		/>
 		<meta property="og:type" content="website" />
-	<meta property="og:site_name" content="three.ws" />
-	<meta property="og:url" content="https://three.ws/forge" />
-	<meta property="og:image" content="https://three.ws/og-image.png" />
-	<meta property="og:image:width" content="1200" />
-	<meta property="og:image:height" content="630" />
-	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:site" content="@trythreews" />
-	<meta name="twitter:title" content="Forge · Text → 3D · three.ws" />
-	<meta name="twitter:description" content="Type a description, get a textured 3D model. Forge turns a text prompt into an interactive GLB you can orbit, inspect in AR, and download." />
-	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/forge" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Forge · Text → 3D · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Type a description, get a textured 3D model. Forge turns a text prompt into an interactive GLB you can orbit, inspect in AR, and download."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
 		<meta name="theme-color" content="#080814" />
 		<link rel="icon" href="/favicon.ico" sizes="any" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -36,6 +39,8 @@
 		<script
 			type="module"
 			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
 		></script>
 		<style>
 			.forge-main {
@@ -131,7 +136,9 @@
 				padding: 0.32rem 0.55rem;
 				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background 0.15s, color 0.15s;
+				transition:
+					background 0.15s,
+					color 0.15s;
 			}
 			.aspect button:hover {
 				color: var(--ink);
@@ -159,7 +166,10 @@
 				border-radius: var(--radius-md);
 				padding: 0.6rem 1.2rem;
 				cursor: pointer;
-				transition: transform 0.12s ease, opacity 0.15s, box-shadow 0.15s;
+				transition:
+					transform 0.12s ease,
+					opacity 0.15s,
+					box-shadow 0.15s;
 			}
 			.btn:hover {
 				box-shadow: 0 0 0 4px var(--accent-soft);
@@ -221,7 +231,9 @@
 				font-size: var(--text-sm);
 				padding: 0.5rem 0.7rem;
 				outline: none;
-				transition: border-color 0.15s, box-shadow 0.15s;
+				transition:
+					border-color 0.15s,
+					box-shadow 0.15s;
 			}
 			.byok-input:focus-visible {
 				border-color: var(--accent);
@@ -278,7 +290,9 @@
 				padding: 0.5rem 1.05rem;
 				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background 0.15s, color 0.15s;
+				transition:
+					background 0.15s,
+					color 0.15s;
 			}
 			.mode-switch button:hover {
 				color: var(--ink);
@@ -317,7 +331,10 @@
 				display: grid;
 				place-items: center;
 				cursor: pointer;
-				transition: border-color 0.15s, background 0.15s, transform 0.12s;
+				transition:
+					border-color 0.15s,
+					background 0.15s,
+					transform 0.12s;
 			}
 			.view-slot:hover {
 				border-color: var(--accent);
@@ -512,7 +529,10 @@
 				font-size: var(--text-sm);
 				padding: 0.4rem 0.85rem;
 				cursor: pointer;
-				transition: color 0.15s, border-color 0.15s, background 0.15s;
+				transition:
+					color 0.15s,
+					border-color 0.15s,
+					background 0.15s;
 			}
 			.chip:hover {
 				color: var(--ink);
@@ -680,7 +700,9 @@
 				padding: 0.34rem 0.6rem;
 				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background 0.15s, color 0.15s;
+				transition:
+					background 0.15s,
+					color 0.15s;
 			}
 			.verdict button:hover {
 				color: var(--ink);
@@ -771,7 +793,9 @@
 				padding: 0.4rem 0.7rem;
 				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background 0.15s, color 0.15s;
+				transition:
+					background 0.15s,
+					color 0.15s;
 			}
 			.seg button:hover {
 				color: var(--ink);
@@ -876,7 +900,11 @@
 				cursor: pointer;
 				color: var(--ink);
 				font: inherit;
-				transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s, background 0.15s;
+				transition:
+					border-color 0.15s,
+					transform 0.12s,
+					box-shadow 0.15s,
+					background 0.15s;
 			}
 			.stylize-card:hover {
 				border-color: var(--stroke-strong);
@@ -908,7 +936,9 @@
 				border-radius: var(--radius-sm);
 				background: radial-gradient(120% 120% at 50% 0%, #161616 0%, #0c0c0c 75%);
 				color: var(--ink-dim);
-				transition: color 0.15s, transform 0.2s ease;
+				transition:
+					color 0.15s,
+					transform 0.2s ease;
 			}
 			.stylize-thumb svg {
 				width: 58%;
@@ -1026,7 +1056,10 @@
 				padding: 0;
 				color: inherit;
 				font: inherit;
-				transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+				transition:
+					border-color 0.15s,
+					transform 0.12s,
+					box-shadow 0.15s;
 			}
 			.creation:hover {
 				border-color: var(--stroke-strong);
@@ -1128,14 +1161,19 @@
 				<span class="forge-eyebrow">Text · Image · Multi-view → 3D · live</span>
 				<h1>Forge a 3D model from words or photos</h1>
 				<p>
-					Describe an object, or upload up to four photos of it from different angles. Forge
-					reconstructs a textured mesh you can orbit, view in AR, and download as GLB — and
-					more views mean a sharper model with no guessed-at back.
+					Describe an object, or upload up to four photos of it from different angles.
+					Forge reconstructs a textured mesh you can orbit, view in AR, and download as
+					GLB — and more views mean a sharper model with no guessed-at back.
 				</p>
 			</header>
 
 			<div class="mode-switch-wrap">
-				<div class="mode-switch" role="tablist" aria-label="Generation mode" id="mode-switch">
+				<div
+					class="mode-switch"
+					role="tablist"
+					aria-label="Generation mode"
+					id="mode-switch"
+				>
 					<button type="button" role="tab" data-mode="text" aria-selected="true">
 						Describe it
 					</button>
@@ -1172,7 +1210,9 @@
 						multiple
 						hidden
 					/>
-					<label for="image-prompt" class="is-hidden">Optional guidance for reconstruction</label>
+					<label for="image-prompt" class="is-hidden"
+						>Optional guidance for reconstruction</label
+					>
 					<textarea
 						id="image-prompt"
 						class="image-prompt"
@@ -1180,8 +1220,9 @@
 						placeholder="Optional guidance — e.g. “matte plastic, neutral pose, no background”"
 					></textarea>
 					<p class="views-hint">
-						Add 1–4 views of the <strong>same</strong> object (front · back · left · right).
-						Drag to drop, click to browse, drag a thumbnail to reorder. PNG/JPG/WebP, up to 8&nbsp;MB each.
+						Add 1–4 views of the <strong>same</strong> object (front · back · left ·
+						right). Drag to drop, click to browse, drag a thumbnail to reorder.
+						PNG/JPG/WebP, up to 8&nbsp;MB each.
 					</p>
 				</div>
 
@@ -1190,14 +1231,25 @@
 					<div class="fq-row">
 						<span class="fq-label" id="tier-label">Quality</span>
 						<div class="aspect" role="group" aria-labelledby="tier-label" id="tier">
-							<button type="button" data-tier="draft" aria-pressed="false">Draft</button>
-							<button type="button" data-tier="standard" aria-pressed="true">Standard</button>
-							<button type="button" data-tier="high" aria-pressed="false">High</button>
+							<button type="button" data-tier="draft" aria-pressed="false">
+								Draft
+							</button>
+							<button type="button" data-tier="standard" aria-pressed="true">
+								Standard
+							</button>
+							<button type="button" data-tier="high" aria-pressed="false">
+								High
+							</button>
 						</div>
 					</div>
 					<div class="fq-row">
 						<span class="fq-label" id="engine-label">Engine</span>
-						<div class="aspect" role="group" aria-labelledby="engine-label" id="engine"></div>
+						<div
+							class="aspect"
+							role="group"
+							aria-labelledby="engine-label"
+							id="engine"
+						></div>
 					</div>
 					<div class="byok-row is-hidden" id="byok-row">
 						<label class="fq-label" for="provider-key" id="byok-label">API key</label>
@@ -1248,9 +1300,9 @@
 					<span class="glyph" aria-hidden="true">◳</span>
 					<h3>Nothing forged yet</h3>
 					<p>
-						Type a description and tap an example, or switch to <strong>From photos</strong> and
-						drop in up to four views of one object. Generation reconstructs a textured mesh —
-						usually 30–90 seconds.
+						Type a description and tap an example, or switch to
+						<strong>From photos</strong> and drop in up to four views of one object.
+						Generation reconstructs a textured mesh — usually 30–90 seconds.
 					</p>
 				</div>
 
@@ -1296,7 +1348,11 @@
 					></model-viewer>
 					<div class="result-bar">
 						<span class="label" id="result-label"></span>
-						<span class="views-badge is-hidden" id="result-views" title="Reference views fused"></span>
+						<span
+							class="views-badge is-hidden"
+							id="result-views"
+							title="Reference views fused"
+						></span>
 						<div class="actions">
 							<div
 								class="verdict"
@@ -1321,12 +1377,38 @@
 									👎 Discard
 								</button>
 							</div>
-							<button class="btn btn-ghost" type="button" id="forge-share-btn" aria-label="Share this creation">
-										<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-										Share
-									</button>
-									<a class="btn btn-ghost" id="forge-segment-btn" title="Split this model into selectable parts">Split into parts</a>
-									<a class="btn btn-ghost" id="download" download>Download GLB</a>
+							<button
+								class="btn btn-ghost"
+								type="button"
+								id="forge-share-btn"
+								aria-label="Share this creation"
+							>
+								<svg
+									width="15"
+									height="15"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<circle cx="18" cy="5" r="3" />
+									<circle cx="6" cy="12" r="3" />
+									<circle cx="18" cy="19" r="3" />
+									<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+									<line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+								</svg>
+								Share
+							</button>
+							<a
+								class="btn btn-ghost"
+								id="forge-segment-btn"
+								title="Split this model into selectable parts"
+								>Split into parts</a
+							>
+							<a class="btn btn-ghost" id="download" download>Download GLB</a>
 							<button class="btn" type="button" id="again">Make another</button>
 						</div>
 					</div>
@@ -1359,7 +1441,12 @@
 						<div class="optimize-body" id="optimize-body">
 							<div class="opt-field">
 								<span>Mode</span>
-								<div class="seg" id="opt-mode" role="group" aria-label="Remesh mode">
+								<div
+									class="seg"
+									id="opt-mode"
+									role="group"
+									aria-label="Remesh mode"
+								>
 									<button type="button" data-mode="triangle" aria-pressed="false">
 										Triangle
 									</button>
@@ -1404,7 +1491,12 @@
 								<button class="btn" type="button" id="opt-run">
 									<span id="opt-run-label">Optimize</span>
 								</button>
-								<span class="opt-status" id="opt-status" role="status" aria-live="polite"></span>
+								<span
+									class="opt-status"
+									id="opt-status"
+									role="status"
+									aria-live="polite"
+								></span>
 							</div>
 
 							<div class="opt-stats is-hidden" id="opt-stats"></div>
@@ -1416,8 +1508,9 @@
 						<div class="stylize-head">
 							<h3>Stylize</h3>
 							<p class="stylize-sub">
-								One-click geometric filters. Restyle this model as voxels, bricks, an open
-								lattice, or low-poly — source color is carried over where the style allows.
+								One-click geometric filters. Restyle this model as voxels, bricks,
+								an open lattice, or low-poly — source color is carried over where
+								the style allows.
 							</p>
 						</div>
 						<div
@@ -1433,11 +1526,18 @@
 								<output id="stylize-res-val" for="stylize-res">32</output>
 							</div>
 							<div class="stylize-actions">
-								<button class="btn btn-ghost" type="button" id="stylize-apply">Re-apply</button>
+								<button class="btn btn-ghost" type="button" id="stylize-apply">
+									Re-apply
+								</button>
 								<a class="btn btn-ghost" id="stylize-download" download hidden
 									>Download stylized GLB</a
 								>
-								<button class="btn btn-ghost" type="button" id="stylize-revert" hidden>
+								<button
+									class="btn btn-ghost"
+									type="button"
+									id="stylize-revert"
+									hidden
+								>
 									Revert to original
 								</button>
 							</div>
@@ -1455,7 +1555,9 @@
 				<div class="panel notice error is-hidden" id="state-error">
 					<span class="glyph" aria-hidden="true">⚠</span>
 					<h3>Generation failed</h3>
-					<p id="error-message">Something went wrong. Try a simpler, single-subject prompt.</p>
+					<p id="error-message">
+						Something went wrong. Try a simpler, single-subject prompt.
+					</p>
 					<div class="actions">
 						<button class="btn" type="button" id="retry">Try again</button>
 					</div>
@@ -1483,10 +1585,10 @@
 			</section>
 
 			<p class="hint-foot">
-				Powered by flux-schnell + Microsoft TRELLIS on Replicate, with multi-view conditioning
-				when you supply more than one photo. Best results: one clearly described subject, or
-				clean evenly-lit views from distinct angles. The same pipeline is available to agents
-				over MCP at <a href="/docs">/api/mcp-3d</a>.
+				Powered by flux-schnell + Microsoft TRELLIS on Replicate, with multi-view
+				conditioning when you supply more than one photo. Best results: one clearly
+				described subject, or clean evenly-lit views from distinct angles. The same pipeline
+				is available to agents over MCP at <a href="/docs">/api/mcp-3d</a>.
 			</p>
 		</main>
 
@@ -1494,7 +1596,7 @@
 		<script type="module" src="/src/forge.js"></script>
 		<script type="module" src="/src/forge-stylize.js"></script>
 		<script type="module" src="/src/forge-optimize.js"></script>
-	<div id="footer-container"></div>
-	<script src="/footer.js"></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 	</body>
 </html>

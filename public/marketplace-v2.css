@@ -642,6 +642,83 @@ body.market-page > #footer-container {
 	50% { opacity: 1; }
 }
 
+/* ── Microinteractions (B11) — focus rings, press states, modal motion ── */
+
+/* Shared focus ring for every interactive element this sheet introduces. */
+.market-author-btn:focus-visible,
+.market-preview-input:focus-visible,
+.market-preview-send:focus-visible,
+.market-sidebar-toggle:focus-visible,
+.creator-modal-close:focus-visible,
+.creator-mini-card:focus-visible,
+.star-pick:focus-visible,
+.submit-review:focus-visible,
+.review-login-cta:focus-visible,
+.review-edit-btn:focus-visible,
+.review-delete-btn:focus-visible,
+.review-cancel-btn:focus-visible,
+#d-rating-input textarea:focus-visible,
+#d-review-body:focus-visible,
+#d-review-body-edit:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+	outline-offset: var(--focus-ring-offset, 2px);
+}
+
+/* Chat preview send — transition the hover lift it already had, add press. */
+.market-preview-send {
+	transition:
+		transform var(--duration-fast, 140ms) var(--ease-standard, ease),
+		opacity var(--duration-fast, 140ms) var(--ease-standard, ease);
+}
+.market-preview-send:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+.market-author-btn:active { color: rgba(255, 255, 255, 0.7); }
+
+/* Creator modal — panel scales/slides in with the overlay fade, never pops. */
+.creator-modal {
+	transform: translateY(10px) scale(0.98);
+	transition:
+		transform var(--duration-base, 220ms) var(--ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1)),
+		opacity var(--duration-base, 220ms) var(--ease-standard, ease);
+}
+.creator-modal-overlay.show .creator-modal { transform: translateY(0) scale(1); }
+.creator-modal-close {
+	transition:
+		background var(--duration-instant, 80ms) var(--ease-standard, ease),
+		border-color var(--duration-instant, 80ms) var(--ease-standard, ease),
+		color var(--duration-instant, 80ms) var(--ease-standard, ease);
+}
+.creator-modal-close:hover { background: rgba(255, 255, 255, 0.1); border-color: #2a2a2a; }
+.creator-modal-close:active { background: rgba(255, 255, 255, 0.16); }
+.creator-mini-card:active { transform: translateY(0) scale(0.98); }
+
+/* Review controls — press feedback to match their hover states. */
+.star-pick:active { transform: scale(0.95); }
+.submit-review:active:not(:disabled) { opacity: 0.76; }
+.review-edit-btn:active,
+.review-cancel-btn:active { background: rgba(255, 255, 255, 0.06); }
+.review-delete-btn:active { background: rgba(248, 113, 113, 0.1); }
+
+/* Reduced motion: literal durations in this sheet need an explicit kill. */
+@media (prefers-reduced-motion: reduce) {
+	.market-preview-bubble.streaming::after { animation: none; opacity: 1; }
+	.review-skeleton-line { animation: none; opacity: 0.7; }
+	.creator-modal,
+	.creator-modal-overlay,
+	.creator-modal-close,
+	.creator-mini-card,
+	.market-author-btn,
+	.market-preview-send,
+	.star-pick,
+	.breakdown-fill,
+	.market-sidebar {
+		transition: none !important;
+	}
+	.creator-modal { transform: none; }
+	.star-pick:hover,
+	.creator-mini-card:hover,
+	.market-preview-send:hover:not(:disabled) { transform: none; }
+}
+
 /* ── Mobile responsive ─────────────────────────────────────────────────── */
 .market-sidebar-toggle {
 	display: none;
@@ -718,4 +795,25 @@ body.market-sidebar-open .market-sidebar-backdrop {
 	.creator-modal-grid {
 		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 	}
+}
+
+/* Sidebar drawer toggle + backdrop — hover/press states and a soft fade-in
+   (the backdrop is display-toggled, so it animates in via keyframe). */
+.market-sidebar-toggle {
+	transition:
+		background var(--duration-instant, 80ms) var(--ease-standard, ease),
+		border-color var(--duration-instant, 80ms) var(--ease-standard, ease);
+}
+.market-sidebar-toggle:hover { background: #181818; border-color: #3a3a3a; }
+.market-sidebar-toggle:active { background: #222; }
+body.market-sidebar-open .market-sidebar-backdrop {
+	animation: mk2-backdrop-in var(--duration-base, 220ms) var(--ease-out, ease-out) both;
+}
+@keyframes mk2-backdrop-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+	body.market-sidebar-open .market-sidebar-backdrop { animation: none; }
+	.market-sidebar-toggle { transition: none; }
 }

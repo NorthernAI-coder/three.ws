@@ -34,6 +34,7 @@
 	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 	<link rel="manifest" href="/site.webmanifest" />
 	<link rel="stylesheet" href="/fonts/fonts.css" />
+	<link rel="stylesheet" href="/tokens.css" />
 	<link rel="stylesheet" href="/buttons.css" />
 	<style>
 		:root {
@@ -83,115 +84,7 @@
 		.wrap-1440 { max-width: 1440px; margin: 0 auto; padding-left: 32px; padding-right: 32px; }
 		@media (max-width: 720px) { .wrap-1280, .wrap-1440 { padding-left: 20px; padding-right: 20px; } }
 
-		/* ── NAV ─────────────────────────────────────────────────── */
-		.nav {
-			position: sticky; top: 0; z-index: 100;
-			border-bottom: 1px solid var(--hairline);
-			background: rgba(5,5,5,0.82);
-			backdrop-filter: blur(20px) saturate(140%);
-		}
-		.nav-inner {
-			display: flex; align-items: center; gap: 32px;
-			padding: 16px 32px; max-width: 1440px; margin: 0 auto;
-		}
-		.brand {
-			display: flex; align-items: center; gap: 10px;
-			font-family: var(--font-display);
-			font-weight: 600; letter-spacing: -0.025em; font-size: 16.5px;
-			flex-shrink: 0;
-		}
-		.brand-mark {
-			width: 24px; height: 24px;
-			border-radius: 5px;
-			display: block;
-			flex-shrink: 0;
-		}
-		.nav-main { display: flex; gap: 2px; margin-left: 12px; flex: 1; }
-		.nav-main a {
-			padding: 7px 12px; font-size: 14px; font-weight: 450;
-			color: var(--text-2); transition: color 0.12s;
-		}
-		.nav-main a:hover { color: var(--text); }
-		.nav-end { display: flex; align-items: center; gap: 4px; }
-		.nav-end a { padding: 7px 12px; font-size: 14px; font-weight: 450; color: var(--text-2); }
-		.nav-end a:hover { color: var(--text); }
-		.nav-end .console {
-			color: var(--text); font-weight: 500;
-			border: 1px solid var(--hairline-strong);
-			padding: 7px 16px; border-radius: 7px; margin-left: 6px;
-			transition: border-color 0.15s, background 0.15s;
-		}
-		.nav-end .console:hover { border-color: var(--text); background: rgba(255,255,255,0.04); }
-		@media (max-width: 880px) {
-			.nav-main { display: none; }
-			.nav-inner { padding: 14px 20px; gap: 16px; }
-		}
-
-		/* ── NAV DROPDOWNS ───────────────────────────────────────── */
-		.nav-grp { position: relative; display: flex; }
-		.nav-trigger {
-			display: inline-flex; align-items: center; gap: 5px;
-			padding: 7px 12px; font-size: 14px; font-weight: 450;
-			color: var(--text-2); background: none; border: 0;
-			border-radius: 7px; font-family: inherit; cursor: pointer;
-			transition: color 0.12s, background 0.12s;
-		}
-		.nav-trigger:hover,
-		.nav-grp.open .nav-trigger { color: var(--text); }
-		.nav-grp.open .nav-trigger { background: rgba(255,255,255,0.04); }
-		.nav-caret { font-size: 9px; opacity: 0.55; transition: transform 0.2s ease; }
-		.nav-grp.open .nav-caret { transform: rotate(180deg); }
-		.nav-pop {
-			position: absolute; top: calc(100% + 9px); left: 0;
-			min-width: 272px; padding: 7px;
-			background: rgba(11,11,11,0.97);
-			backdrop-filter: blur(24px) saturate(140%);
-			-webkit-backdrop-filter: blur(24px) saturate(140%);
-			border: 1px solid var(--hairline-strong);
-			border-radius: 13px;
-			box-shadow: 0 20px 54px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4);
-			display: grid; gap: 1px;
-			opacity: 0; transform: translateY(-6px) scale(0.985);
-			transform-origin: top left; pointer-events: none;
-			transition: opacity 0.16s ease, transform 0.16s ease;
-			z-index: 200;
-		}
-		/* invisible hover bridge so the menu doesn't close in the gap */
-		.nav-pop::before {
-			content: ""; position: absolute; top: -10px; left: 0; right: 0; height: 12px;
-		}
-		.nav-grp.open .nav-pop {
-			opacity: 1; transform: translateY(0) scale(1); pointer-events: auto;
-		}
-		.nav-pop.wide { grid-template-columns: 1fr 1fr; min-width: 540px; }
-		.nav-mi {
-			display: block; padding: 9px 12px; border-radius: 9px;
-			transition: background 0.12s;
-		}
-		.nav-mi:hover { background: var(--surface-2); }
-		.nav-mi-t {
-			display: flex; align-items: center; gap: 6px;
-			font-size: 13.5px; font-weight: 500; color: var(--text);
-			letter-spacing: -0.01em;
-		}
-		.nav-mi-d {
-			display: block; font-size: 12px; color: var(--text-3);
-			margin-top: 1px; line-height: 1.4;
-		}
-		.nav-pill-sm {
-			display: inline-block; padding: 1px 5px;
-			font-family: var(--font-mono); font-size: 8.5px; font-weight: 600;
-			letter-spacing: 0.08em; line-height: 1.5; border-radius: 4px;
-			background: rgba(255,255,255,0.1); color: var(--text);
-			text-transform: uppercase;
-		}
-		.nav-pop-note {
-			padding: 6px 12px 8px; font-size: 11px; color: var(--text-4);
-			line-height: 1.45; grid-column: 1 / -1;
-			border-bottom: 1px solid var(--hairline); margin-bottom: 2px;
-		}
-		.nav-main > a { display: inline-flex; align-items: center; }
-		.nav-link-pill { display: inline-flex; align-items: center; gap: 6px; }
+		/* Header/nav styles live in /nav.css (loaded by /nav.js). */
 
 		/* Buttons: canonical shared system — see public/buttons.css (loaded above). */
 		.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -1061,49 +954,6 @@
 		.foot-ca-label { color: #9ad4ff; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
 		.foot-ca-addr { opacity: .7; }
 
-		/* ── MOBILE NAV ─────────────────────────────────────────── */
-		.nav-toggle {
-			display: none; align-items: center; justify-content: center;
-			width: 36px; height: 36px; padding: 0; margin-left: auto;
-			background: none; border: 1px solid var(--hairline-strong);
-			border-radius: 7px; color: var(--text); cursor: pointer;
-			transition: border-color 0.15s, background 0.15s;
-		}
-		.nav-toggle:hover { border-color: var(--text); background: rgba(255,255,255,0.04); }
-		.nav-toggle svg { width: 16px; height: 16px; }
-		.nav-toggle .close { display: none; }
-		.nav-toggle[aria-expanded="true"] .open { display: none; }
-		.nav-toggle[aria-expanded="true"] .close { display: block; }
-		.nav-drawer {
-			display: none; position: fixed; inset: 57px 0 0;
-			z-index: 99; background: rgba(5,5,5,0.96);
-			backdrop-filter: blur(24px) saturate(140%);
-			padding: 20px 24px 40px; flex-direction: column; gap: 2px;
-			overflow-y: auto; -webkit-overflow-scrolling: touch;
-			overscroll-behavior: contain;
-			opacity: 0; transform: translateY(-8px);
-			transition: opacity 0.25s ease, transform 0.25s ease;
-		}
-		.nav-drawer.open { display: flex; opacity: 1; transform: translateY(0); }
-		.nav-drawer .dr-h {
-			font-family: var(--font-mono); font-size: 11px;
-			text-transform: uppercase; letter-spacing: 0.16em;
-			color: var(--text-4); padding: 18px 16px 6px;
-		}
-		.nav-drawer .dr-h:first-child { padding-top: 4px; }
-		.nav-drawer a:not(.btn) {
-			padding: 11px 16px; font-size: 15.5px; font-weight: 450;
-			color: var(--text-2); border-radius: 8px;
-			transition: background 0.12s, color 0.12s;
-		}
-		.nav-drawer a:not(.btn):hover { background: var(--surface-1); color: var(--text); }
-		.nav-drawer .sep { height: 1px; background: var(--hairline); margin: 12px 0; }
-		.nav-drawer .btn { margin-top: 8px; justify-content: center; }
-		@media (max-width: 880px) {
-			.nav-toggle { display: flex; }
-			.nav-end { display: none; }
-		}
-
 		/* ── HERO LOADING ───────────────────────────────────────── */
 		.hero-stage-shimmer {
 			position: absolute; inset: 0; z-index: 1;
@@ -1252,7 +1102,7 @@
 		.bento-card:hover::before { opacity: 1; }
 
 		/* ── ENHANCED INTERACTIVE STATES ─────────────────────────── */
-		.copy-btn:focus-visible, .nav-toggle:focus-visible {
+		.copy-btn:focus-visible {
 			outline: 2px solid rgba(255,255,255,0.5); outline-offset: 2px;
 		}
 		.door-screenshot img[src] { transition: transform 0.4s cubic-bezier(.2,.7,.3,1); }
@@ -2445,6 +2295,67 @@
 		.dragon-hint.fade{opacity:0}
 		@media(max-width:720px){.dragon-wrap{height:55vh;min-height:300px}}
 		@media(prefers-reduced-motion:reduce){.dragon-wrap canvas{display:none}}
+
+		/* ── Microinteractions (B11) — focus rings + press states ──────────
+		   Covers every interactive element above that had hover-only states.
+		   Ring tokens come from /tokens.css + /buttons.css. */
+		.door:focus-visible,
+		.stack-card:focus-visible,
+		.showcase-agent-card:focus-visible,
+		.showcase-cta-card:focus-visible,
+		.bento-card a:focus-visible,
+		.bento-pill-btn:focus-visible,
+		.dev-tab:focus-visible,
+		.dev-link:focus-visible,
+		.pg-key-hint:focus-visible,
+		.pg-send:focus-visible,
+		.pg-color-trigger:focus-visible,
+		.pg-color-swatch:focus-visible,
+		.wyg-card:focus-visible,
+		.wyg-anim-chip:focus-visible,
+		.wyg-anim-stop:focus-visible,
+		.hero-chip:focus-visible,
+		.hero-chat-send:focus-visible,
+		.hero-chat-input:focus-visible,
+		.foot-col a:focus-visible,
+		.foot-ca:focus-visible,
+		.mint-card-chain a:focus-visible,
+		.mktplace-item:focus-visible,
+		.mktplace-more:focus-visible {
+			outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+			outline-offset: var(--focus-ring-offset, 2px);
+		}
+		/* Press feedback — buttons squash a hair, links/rows tint deeper. */
+		.bento-pill-btn:active,
+		.dev-tab:active,
+		.wyg-anim-chip:active,
+		.wyg-anim-stop:active,
+		.pg-color-trigger:active,
+		.pg-color-swatch:active,
+		.mktplace-more:active,
+		.hero-chip:active,
+		.foot-ca:active {
+			transform: scale(0.97);
+		}
+		.mktplace-item:active { transform: translateY(0) scale(0.97); }
+		/* 3D-transformed cards (stack, showcase) and full-bleed cells press via
+		   a tint instead of a transform so their perspective layout holds. */
+		.door:active,
+		.stack-card:active,
+		.wyg-card:active { background: var(--surface-2); }
+		.showcase-agent-card:active,
+		.showcase-cta-card:active { border-color: rgba(255,255,255,0.22); }
+		.foot-col a:active,
+		.dev-link:active,
+		.mint-card-chain a:active { opacity: 0.7; }
+		@media (prefers-reduced-motion: reduce) {
+			.mktplace-item:active,
+			.bento-pill-btn:active, .dev-tab:active, .wyg-anim-chip:active,
+			.wyg-anim-stop:active, .pg-color-trigger:active, .pg-color-swatch:active,
+			.mktplace-more:active, .hero-chip:active, .foot-ca:active {
+				transform: none;
+			}
+		}
 	</style>
 	<noscript><style>.reveal{opacity:1!important;transform:none!important}.hero-text>*{opacity:1!important;transform:none!important}</style></noscript>
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
@@ -2456,286 +2367,12 @@
 <a class="skip-link" href="#main-content">Skip to content</a>
 
 <!-- ── NAV ──────────────────────────────────────────────────────── -->
-<header class="nav">
-	<div class="nav-inner">
-		<a class="brand" href="/">
-			<img class="brand-mark" src="/three.svg" alt="three.ws" width="24" height="24" />
-			<span>three.ws</span>
-		</a>
-		<nav class="nav-main" aria-label="Primary">
-			<div class="nav-grp">
-				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Build<span class="nav-caret" aria-hidden="true">▾</span></button>
-				<div class="nav-pop" role="menu" aria-label="Build">
-					<a class="nav-mi" href="/create" role="menuitem"><span class="nav-mi-t">Create agent</span><span class="nav-mi-d">Avatar + brain wizard</span></a>
-					<a class="nav-mi" href="/create/selfie" role="menuitem"><span class="nav-mi-t">Selfie to avatar <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">One photo → rigged 3D avatar</span></a>
-					<a class="nav-mi" href="/play" role="menuitem"><span class="nav-mi-t">Worlds <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Every coin is a 3D world — drop in &amp; hang out</span></a>
-					<a class="nav-mi" href="/app" role="menuitem"><span class="nav-mi-t">Viewer</span><span class="nav-mi-d">Drag-and-drop GLB</span></a>
-					<a class="nav-mi" href="/playground" role="menuitem"><span class="nav-mi-t">Playground</span><span class="nav-mi-d">Viewer + environment + embed code</span></a>
-					<a class="nav-mi" href="/validation" role="menuitem"><span class="nav-mi-t">glTF Validator</span><span class="nav-mi-d">Khronos spec check</span></a>
-					<a class="nav-mi" href="/voice" role="menuitem"><span class="nav-mi-t">Voice Lab <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Clone your voice · TTS playground</span></a>
-				</div>
-			</div>
-			<div class="nav-grp">
-				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Discover<span class="nav-caret" aria-hidden="true">▾</span></button>
-				<div class="nav-pop" role="menu" aria-label="Discover">
-					<a class="nav-mi" href="/what-is" role="menuitem"><span class="nav-mi-t">What is three.ws?</span><span class="nav-mi-d">Plain-English intro + real use-cases — start here</span></a>
-					<a class="nav-mi" href="/features" role="menuitem"><span class="nav-mi-t">Features</span><span class="nav-mi-d">Everything an agent gets — interactive tour</span></a>
-					<a class="nav-mi" href="/discover" role="menuitem"><span class="nav-mi-t">ERC-8004 Agents</span><span class="nav-mi-d">On-chain agent directory</span></a>
-					<a class="nav-mi" href="/agents" role="menuitem"><span class="nav-mi-t">Agents Index</span><span class="nav-mi-d">Browse every registered agent</span></a>
-					<a class="nav-mi" href="/reputation" role="menuitem"><span class="nav-mi-t">Reputation Explorer</span><span class="nav-mi-d">On-chain scores &amp; attestations</span></a>
-					<a class="nav-mi" href="/marketplace" role="menuitem"><span class="nav-mi-t">Marketplace</span><span class="nav-mi-d">Buy, sell &amp; remix agents</span></a>
-					<a class="nav-mi" href="/gallery" role="menuitem"><span class="nav-mi-t">Avatar Gallery</span><span class="nav-mi-d">Every public 3D avatar</span></a>
-					<a class="nav-mi" href="/skills" role="menuitem"><span class="nav-mi-t">Skills <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Browse agent tool packs &amp; capabilities</span></a>
-					<a class="nav-mi" href="/bazaar" role="menuitem"><span class="nav-mi-t">Marketplace</span><span class="nav-mi-d">Browse paid APIs and MCP tools</span></a>
-					<a class="nav-mi" href="/community" role="menuitem"><span class="nav-mi-t">Community</span><span class="nav-mi-d">X, GitHub, and ways to get involved</span></a>
-				</div>
-			</div>
-			<div class="nav-grp">
-				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Embed<span class="nav-caret" aria-hidden="true">▾</span></button>
-				<div class="nav-pop" role="menu" aria-label="Embed">
-					<a class="nav-mi" href="/widgets" role="menuitem"><span class="nav-mi-t">Widgets</span><span class="nav-mi-d">Browse + customize embeddable widgets</span></a>
-					<a class="nav-mi" href="/studio" role="menuitem"><span class="nav-mi-t">Widget Studio</span><span class="nav-mi-d">Pick avatar → copy snippet</span></a>
-					<a class="nav-mi" href="/embed.html" role="menuitem"><span class="nav-mi-t">Embed editor</span><span class="nav-mi-d">Tune mode, size, position</span></a>
-					<a class="nav-mi" href="/avatar-sdk" role="menuitem"><span class="nav-mi-t">Avatar SDK <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">npm · web component · React · GLB upload</span></a>
-					<a class="nav-mi" href="/docs#embedding" role="menuitem"><span class="nav-mi-t">Embed docs</span><span class="nav-mi-d">iframe + oEmbed</span></a>
-					<a class="nav-mi" href="/docs#web-component" role="menuitem"><span class="nav-mi-t">&lt;agent-3d&gt;</span><span class="nav-mi-d">Web component reference</span></a>
-				</div>
-			</div>
-			<div class="nav-grp">
-				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Learn<span class="nav-caret" aria-hidden="true">▾</span></button>
-				<div class="nav-pop" role="menu" aria-label="Learn">
-					<a class="nav-mi" href="/docs" role="menuitem"><span class="nav-mi-t">Docs</span><span class="nav-mi-d">SDKs + API reference</span></a>
-					<a class="nav-mi" href="/tutorials" role="menuitem"><span class="nav-mi-t">Tutorials</span><span class="nav-mi-d">Step-by-step guides</span></a>
-					<a class="nav-mi" href="/brain" role="menuitem"><span class="nav-mi-t">Brain <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Claude · GPT · DeepSeek · Qwen · Llama</span></a>
-					<a class="nav-mi" href="/chat" role="menuitem"><span class="nav-mi-t">Chat</span><span class="nav-mi-d">Talk to your agent</span></a>
-					<a class="nav-mi" href="/pay" role="menuitem"><span class="nav-mi-t">Pay <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Agent micropayments + USDC</span></a>
-					<a class="nav-mi" href="/docs#solana" role="menuitem"><span class="nav-mi-t">Solana SDK</span><span class="nav-mi-d">Attestations + agent-kit</span></a>
-				</div>
-			</div>
-			<div class="nav-grp">
-				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Integrations<span class="nav-caret" aria-hidden="true">▾</span></button>
-				<div class="nav-pop wide" role="menu" aria-label="Integrations">
-					<div class="nav-pop-note">Live partner showcases — built on real platforms, running end-to-end.</div>
-					<a class="nav-mi" href="/ibm/galaxy" role="menuitem"><span class="nav-mi-t">Agent Galaxy</span><span class="nav-mi-d">Granite embeddings → 3D semantic agent map</span></a>
-					<a class="nav-mi" href="/ibm/oracle" role="menuitem"><span class="nav-mi-t">Oracle</span><span class="nav-mi-d">Granite TimeSeries forecasting in 3D</span></a>
-					<a class="nav-mi" href="/ibm/twin" role="menuitem"><span class="nav-mi-t">Digital Twin</span><span class="nav-mi-d">Living market replica + projection</span></a>
-					<a class="nav-mi" href="/ibm/trust-layer" role="menuitem"><span class="nav-mi-t">Trust Layer</span><span class="nav-mi-d">Granite Guardian governs wallet agents</span></a>
-					<a class="nav-mi" href="/ibm/identity" role="menuitem"><span class="nav-mi-t">Identity Firewall</span><span class="nav-mi-d">Granite gate against agent impersonation</span></a>
-					<a class="nav-mi" href="/ibm/proof" role="menuitem"><span class="nav-mi-t">Proof</span><span class="nav-mi-d">On-chain AI notary — forecast → govern → Solana</span></a>
-					<a class="nav-mi" href="/ibm/vision" role="menuitem"><span class="nav-mi-t">Vision</span><span class="nav-mi-d">Granite Vision — image → understanding</span></a>
-					<a class="nav-mi" href="/aws" role="menuitem"><span class="nav-mi-t">AWS Marketplace</span><span class="nav-mi-d">three.ws as an AWS Partner listing</span></a>
-				</div>
-			</div>
-			<div class="nav-grp">
-				<button type="button" class="nav-trigger" aria-haspopup="true" aria-expanded="false">Labs<span class="nav-pill-sm" aria-hidden="true">Beta</span><span class="nav-caret" aria-hidden="true">▾</span></button>
-				<div class="nav-pop wide" role="menu" aria-label="Labs">
-					<div class="nav-pop-note">Experimental features — actively iterating. Expect rough edges.</div>
-					<a class="nav-mi" href="/launchpad" role="menuitem"><span class="nav-mi-t">Launchpad Studio <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Build a 3D launchpad · token · concierge</span></a>
-					<a class="nav-mi" href="/lipsync" role="menuitem"><span class="nav-mi-t">Lipsync <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">TTS or mic → in-browser viseme → mouth</span></a>
-					<a class="nav-mi" href="/mocap-studio" role="menuitem"><span class="nav-mi-t">Mocap Studio <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Record face → save clip → replay</span></a>
-					<a class="nav-mi" href="/pose" role="menuitem"><span class="nav-mi-t">Pose Studio</span><span class="nav-mi-d">Click-to-pose mannequin + export PNG</span></a>
-					<a class="nav-mi" href="/overlay-control" role="menuitem"><span class="nav-mi-t">OBS Overlay</span><span class="nav-mi-d">Stream deck — emote hotkeys, mic</span></a>
-					<a class="nav-mi" href="/walk" role="menuitem"><span class="nav-mi-t">Walk <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Walk your avatar — multiplayer + AR</span></a>
-					<a class="nav-mi" href="/xr" role="menuitem"><span class="nav-mi-t">XR <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Place your avatar in the real world</span></a>
-					<a class="nav-mi" href="/gmgn" role="menuitem"><span class="nav-mi-t">GMGN Smart Money <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Agent narrates smart wallet signals</span></a>
-					<a class="nav-mi" href="/pumpfun" role="menuitem"><span class="nav-mi-t">Pump.fun stream</span><span class="nav-mi-d">Mint agent tokens</span></a>
-					<a class="nav-mi" href="/pump-live" role="menuitem"><span class="nav-mi-t">Live launches</span><span class="nav-mi-d">Real-time launch feed</span></a>
-					<a class="nav-mi" href="/pump-dashboard" role="menuitem"><span class="nav-mi-t">Pump Dashboard</span><span class="nav-mi-d">Watches · scanner · quotes</span></a>
-					<a class="nav-mi" href="/pump-visualizer" role="menuitem"><span class="nav-mi-t">Pump Visualizer</span><span class="nav-mi-d">3D view of trending tokens</span></a>
-					<a class="nav-mi" href="/three-live" role="menuitem"><span class="nav-mi-t">$THREE Live <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Protocol pulse — live trades in 3D</span></a>
-					<a class="nav-mi" href="/strategy-lab" role="menuitem"><span class="nav-mi-t">Strategy Lab</span><span class="nav-mi-d">DCA + subscriptions</span></a>
-					<a class="nav-mi" href="/club" role="menuitem"><span class="nav-mi-t">Pole Club <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Pay-per-tip demo — $0.001 / dance</span></a>
-					<a class="nav-mi" href="/shopper" role="menuitem"><span class="nav-mi-t">Endpoint Shopper <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">AI chains pay-per-call endpoints to answer a task</span></a>
-					<a class="nav-mi" href="/tutor" role="menuitem"><span class="nav-mi-t">Pay-As-You-Learn Tutor <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">$0.01 per answer in USDC</span></a>
-					<a class="nav-mi" href="/fact-checker" role="menuitem"><span class="nav-mi-t">Fact Checker <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">$0.10 per claim — cited verdict + attestation</span></a>
-					<a class="nav-mi" href="/arbitrage" role="menuitem"><span class="nav-mi-t">API Arbitrage <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Cheapest endpoint per capability, live</span></a>
-					<a class="nav-mi" href="/providers" role="menuitem"><span class="nav-mi-t">API Providers <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Operator profiles for the paid API catalog</span></a>
-					<a class="nav-mi" href="/unstoppable" role="menuitem"><span class="nav-mi-t">Unstoppable Agent <span class="nav-pill-sm">New</span></span><span class="nav-mi-d">Self-funding agent dashboard, live</span></a>
-					<a class="nav-mi" href="/forever" role="menuitem"><span class="nav-mi-t">Forever</span><span class="nav-mi-d">Etch a message into Bitcoin — forever</span></a>
-					<a class="nav-mi" href="/eth-vanity" role="menuitem"><span class="nav-mi-t">ETH vanity (CREATE2)</span><span class="nav-mi-d">Grind a smart-contract address</span></a>
-					<a class="nav-mi" href="/vanity-wallet" role="menuitem"><span class="nav-mi-t">Vanity wallet</span><span class="nav-mi-d">Grind a Solana address</span></a>
-				</div>
-			</div>
-			<a href="/pricing">Pricing</a>
-		</nav>
-		<div class="nav-end">
-			<a href="/my-agents" data-auth="in" hidden>My Agents</a>
-			<a href="/login" data-auth="out">Sign in</a>
-			<a class="console" href="/dashboard" data-auth-name>Console →</a>
-		</div>
-		<button class="nav-toggle" aria-label="Menu" aria-expanded="false" id="nav-toggle">
-			<svg class="open" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>
-			<svg class="close" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>
-		</button>
-	</div>
-</header>
-<nav class="nav-drawer" id="nav-drawer" aria-label="Mobile" aria-hidden="true">
-	<div class="dr-h">Build</div>
-	<a href="/create">Create agent</a>
-	<a href="/create/selfie">Selfie to avatar</a>
-	<a href="/worlds">Worlds</a>
-	<a href="/app">Viewer</a>
-	<a href="/playground">Playground</a>
-	<a href="/voice">Voice Lab</a>
-	<div class="dr-h">Discover</div>
-	<a href="/what-is">What is three.ws?</a>
-	<a href="/features">Features</a>
-	<a href="/discover">ERC-8004 Agents</a>
-	<a href="/agents">Agents Index</a>
-	<a href="/reputation">Reputation Explorer</a>
-	<a href="/marketplace">Marketplace</a>
-	<a href="/gallery">Avatar Gallery</a>
-	<a href="/skills">Skills</a>
-	<a href="/bazaar">Marketplace (paid APIs)</a>
-	<a href="/community">Community</a>
-	<div class="dr-h">Embed</div>
-	<a href="/widgets">Widgets</a>
-	<a href="/studio">Widget Studio</a>
-	<a href="/embed.html">Embed editor</a>
-	<a href="/avatar-sdk">Avatar SDK</a>
-	<div class="dr-h">Learn</div>
-	<a href="/docs">Docs</a>
-	<a href="/tutorials">Tutorials</a>
-	<a href="/brain">Brain</a>
-	<a href="/chat">Chat</a>
-	<a href="/pay">Pay</a>
-	<div class="dr-h">Integrations</div>
-	<a href="/ibm/galaxy">Agent Galaxy</a>
-	<a href="/ibm/oracle">Oracle</a>
-	<a href="/ibm/twin">Digital Twin</a>
-	<a href="/ibm/trust-layer">Trust Layer</a>
-	<a href="/ibm/proof">Proof</a>
-	<a href="/aws">AWS Marketplace</a>
-	<div class="dr-h">Labs · Beta</div>
-	<a href="/launchpad">Launchpad Studio</a>
-	<a href="/lipsync">Lipsync</a>
-	<a href="/mocap-studio">Mocap Studio</a>
-	<a href="/pose">Pose Studio</a>
-	<a href="/walk">Walk</a>
-	<a href="/xr">XR</a>
-	<a href="/gmgn">GMGN Smart Money</a>
-	<a href="/pumpfun">Pump.fun stream</a>
-	<a href="/three-live">$THREE Live</a>
-	<a href="/club">Pole Club</a>
-	<a href="/shopper">Endpoint Shopper</a>
-	<a href="/tutor">Pay-As-You-Learn Tutor</a>
-	<a href="/fact-checker">Fact Checker</a>
-	<a href="/arbitrage">API Arbitrage</a>
-	<a href="/providers">API Providers</a>
-	<a href="/unstoppable">Unstoppable Agent</a>
-	<a href="/forever">Forever</a>
-	<div class="dr-h">More</div>
-	<a href="/pricing">Pricing</a>
-	<div class="sep"></div>
-	<a href="/my-agents" data-auth="in" hidden>My Agents</a>
-	<a href="/login" data-auth="out">Sign in</a>
-	<a class="btn btn--primary" href="/dashboard" style="margin-top:4px;">Console →</a>
-</nav>
-<script>
-	(function () {
-		var toggle = document.getElementById('nav-toggle');
-		var drawer = document.getElementById('nav-drawer');
-		if (!toggle || !drawer) return;
-		function isOpen() { return drawer.classList.contains('open'); }
-		function setOpen(open) {
-			toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-			drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
-			document.body.style.overflow = open ? 'hidden' : '';
-			drawer.classList.toggle('open', open);
-		}
-		toggle.addEventListener('click', function () { setOpen(!isOpen()); });
-		drawer.addEventListener('click', function (e) {
-			if (e.target.closest('a')) setOpen(false);
-		});
-		document.addEventListener('keydown', function (e) {
-			if (e.key === 'Escape' && isOpen()) { setOpen(false); toggle.focus(); }
-		});
-		window.addEventListener('resize', function () {
-			if (window.innerWidth > 880 && isOpen()) setOpen(false);
-		});
-	})();
-
-	// Auth-aware nav: swap "Sign in" for the account entry points when the visitor
-	// is signed in. Shared with the site-wide header (public/nav.js) via
-	// /nav-auth.js so the two navs never drift — see that module for the
-	// hint-then-reconcile-against-/api/auth/me strategy and data-auth contract.
-	(function () {
-		if (typeof window.initNavAuth === 'function') {
-			window.initNavAuth(document);
-			return;
-		}
-		var s = document.createElement('script');
-		s.src = '/nav-auth.js';
-		s.addEventListener('load', function () {
-			if (typeof window.initNavAuth === 'function') window.initNavAuth(document);
-		});
-		document.head.appendChild(s);
-	})();
-
-		// Desktop nav dropdowns — hover to open, click/keyboard for touch + a11y
-		(function () {
-			var groups = Array.prototype.slice.call(document.querySelectorAll('.nav-main .nav-grp'));
-			if (!groups.length) return;
-			var hoverCapable = window.matchMedia('(hover: hover)').matches;
-
-			function setOpen(grp, on) {
-				grp.classList.toggle('open', on);
-				var t = grp.querySelector('.nav-trigger');
-				if (t) t.setAttribute('aria-expanded', on ? 'true' : 'false');
-			}
-			function closeAll(except) {
-				groups.forEach(function (g) { if (g !== except) setOpen(g, false); });
-			}
-
-			groups.forEach(function (grp) {
-				var trigger = grp.querySelector('.nav-trigger');
-				var closeTimer;
-				if (!trigger) return;
-
-				trigger.addEventListener('click', function (e) {
-					e.stopPropagation();
-					if (hoverCapable) {
-						// hover already opens it; a click just pins it open
-						closeAll(grp);
-						setOpen(grp, true);
-						return;
-					}
-					var willOpen = !grp.classList.contains('open');
-					closeAll(grp);
-					setOpen(grp, willOpen);
-				});
-
-				if (hoverCapable) {
-					grp.addEventListener('mouseenter', function () {
-						clearTimeout(closeTimer);
-						closeAll(grp);
-						setOpen(grp, true);
-					});
-					grp.addEventListener('mouseleave', function () {
-						closeTimer = setTimeout(function () { setOpen(grp, false); }, 120);
-					});
-				}
-
-				grp.querySelectorAll('.nav-mi').forEach(function (a) {
-					a.addEventListener('click', function () { setOpen(grp, false); });
-				});
-			});
-
-			document.addEventListener('click', function (e) {
-				if (!e.target.closest('.nav-main .nav-grp')) closeAll();
-			});
-			document.addEventListener('keydown', function (e) {
-				if (e.key === 'Escape') {
-					var openGrp = document.querySelector('.nav-main .nav-grp.open');
-					if (openGrp) {
-						setOpen(openGrp, false);
-						var t = openGrp.querySelector('.nav-trigger');
-						if (t) t.focus();
-					}
-				}
-			});
-		})();
-</script>
+<!-- Shared site navigation: injected by /nav.js from /nav.html, with every
+     menu rendered from /nav-data.js — the single source of truth. The
+     homepage uses the same header as every other page; edit menus in
+     public/nav-data.js, never here. -->
+<div id="nav-container"></div>
+<script src="/nav.js" defer></script>
 
 <!-- ── HERO ─────────────────────────────────────────────────────── -->
 <main id="main-content" tabindex="-1">
