@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T10:55:52.326Z",
+	"generated_at": "2026-06-11T11:16:55.399Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -382,7 +382,7 @@
 				{
 					"path": "/lipsync",
 					"title": "Lipsync (TTS)",
-					"description": "Type text, stream it through OpenAI TTS, and the avatar's mouth animates in real time via wawa-lipsync viseme detection.",
+					"description": "Type text, stream it through the avatar's voice, and the mouth animates in real time via wawa-lipsync viseme detection.",
 					"added": null,
 					"auth": null,
 					"indexable": true,
