@@ -15,7 +15,7 @@
 // dist/middleware/index.js is missing in /var/task at runtime. The main
 // entry traces correctly.
 
-import { zauthProvider } from '@zauthx402/sdk';
+import { zauthProvider, ZauthClient } from '@zauthx402/sdk';
 import { env } from './env.js';
 
 let cached;
@@ -33,6 +33,27 @@ const ZAUTH_HOST = (process.env.ZAUTH_API_ENDPOINT || 'https://back.zauthx402.co
 	.replace(/\/.*$/, '');
 const _inflight = new Set();
 let _fetchWrapped = false;
+
+// The SDK's flush() early-returns while a previous batch is still submitting
+// (`isFlushing`) and nothing ever re-triggers it, so an event queued during
+// submission is stranded until some later request happens to queue another
+// event on a warm lambda. With flush-per-event batching that hits the
+// response event on every monitored request (queued at res.end while the
+// request-event batch is in flight) — confirmed in production runtime logs.
+// The middleware never hands back its internal client, so capture instances
+// at the prototype level; drain() re-flushes any non-empty queue.
+const _clients = new Set();
+let _clientHooked = false;
+
+function trackZauthClients() {
+	if (_clientHooked || typeof ZauthClient?.prototype?.queueEvent !== 'function') return;
+	_clientHooked = true;
+	const origQueueEvent = ZauthClient.prototype.queueEvent;
+	ZauthClient.prototype.queueEvent = function (event) {
+		_clients.add(this);
+		return origQueueEvent.call(this, event);
+	};
+}
 
 function trackZauthFetch() {
 	if (_fetchWrapped || typeof globalThis.fetch !== 'function') return;
@@ -78,6 +99,7 @@ function buildMiddleware() {
 		const solKey = env.ZAUTH_SOLANA_PRIVATE_KEY || undefined;
 		const refundEnabled = Boolean(evmKey || solKey);
 
+		trackZauthClients();
 		const mw = zauthProvider(apiKey, {
 			environment: resolveEnvironment(),
 			shouldMonitor: shouldMonitorReq,
@@ -286,27 +308,51 @@ export function instrument(req, res) {
 }
 
 /**
- * Hold the lambda open until the SDK's in-flight telemetry POST(s) to the
- * zauth backend actually settle, so Vercel doesn't freeze the function
- * mid-flush and drop the event. Awaits the tracked fetches rather than a fixed
- * delay; capped by ZAUTH_DRAIN_MAX_MS (default 1500ms) so a hung backend can
- * never stall the response runtime. Only call this on requests where
- * `instrument()` returned true.
+ * Hold the lambda open until the SDK's telemetry actually reaches the zauth
+ * backend, so Vercel doesn't freeze the function mid-flush and drop events.
+ * Awaits the tracked in-flight POSTs AND re-flushes any event the SDK
+ * stranded in its queue while a previous batch was submitting (its flush()
+ * early-returns on `isFlushing` and never reschedules). Capped by
+ * ZAUTH_DRAIN_MAX_MS (default 1500ms) so a hung backend can never stall the
+ * response runtime. Only call this on requests where `instrument()` returned
+ * true.
  */
-export function drain() {
+export async function drain() {
 	const capMs = Number(process.env.ZAUTH_DRAIN_MAX_MS) || 1500;
-	if (_inflight.size === 0) {
-		// The POST may be scheduled on the next microtask; give it a beat to
-		// register, then settle whatever appeared.
-		return new Promise((resolve) => setTimeout(resolve, 50)).then(() =>
-			_inflight.size ? settleInflight(capMs) : undefined,
-		);
+	const deadline = Date.now() + capMs;
+	// The first POST may be scheduled on the next microtask; give it a beat
+	// to register before deciding there is nothing to wait for.
+	if (_inflight.size === 0) await beat(50);
+	while (Date.now() < deadline) {
+		if (_inflight.size > 0) {
+			// A settling batch can strand an event queued meanwhile (see
+			// trackZauthClients) — loop back and re-check the queues after.
+			await settleInflight(deadline - Date.now());
+			continue;
+		}
+		const stranded = [..._clients].filter((c) => c.eventQueue?.length && !c.isFlushing);
+		if (stranded.length > 0) {
+			await Promise.race([
+				Promise.allSettled(stranded.map((c) => c.flush())),
+				beat(deadline - Date.now()),
+			]);
+			continue;
+		}
+		// Queues empty; if a flush is mid-flight without its fetch registered
+		// yet, give it a beat — otherwise everything is delivered.
+		if ([..._clients].some((c) => c.isFlushing)) {
+			await beat(25);
+			continue;
+		}
+		return;
 	}
-	return settleInflight(capMs);
+}
+
+function beat(ms) {
+	return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 }
 
 function settleInflight(capMs) {
 	const pending = Promise.allSettled([..._inflight]);
-	const cap = new Promise((resolve) => setTimeout(resolve, capMs));
-	return Promise.race([pending, cap]);
+	return Promise.race([pending, beat(capMs)]);
 }
