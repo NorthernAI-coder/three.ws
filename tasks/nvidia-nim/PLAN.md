@@ -40,7 +40,7 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 ### Phase 1 — Free 3D lane in /forge (top priority)
 - [x] **T1.1** [10-trellis-provider.md](10-trellis-provider.md) — `api/_providers/nvidia.js` (submit / poll / GLB→R2) — live-verified end-to-end (real GLB persisted + revalidated; see Worklog 2026-06-11)
 - [x] **T1.2** [11-register-backend.md](11-register-backend.md) — backend in `forge-tiers.js`; draft-tier default (registration + tier-aware routing + catalog + UI + tests; full submit→poll chain verified against the T1.1 provider with a mocked NVCF transport — real-network smoke is T1.5. See Worklog 2026-06-11)
-- [~] **T1.3** [12-flux-lane.md](12-flux-lane.md) — NIM FLUX lane in `api/_mcp3d/text-to-image.js` (code + tests done; live image pending key — see Worklog 2026-06-11)
+- [x] **T1.3** [12-flux-lane.md](12-flux-lane.md) — NIM FLUX lane in `api/_mcp3d/text-to-image.js` — live-verified (real JPEG generated + persisted + degrade order proven; JPEG persist + cfg_scale fixes landed — see Worklog 2026-06-11)
 - [x] **T1.4** [13-tests.md](13-tests.md) — `tests/api/providers-nvidia.test.js` + registration coverage
 - [ ] **T1.5** [14-deploy-smoke-changelog.md](14-deploy-smoke-changelog.md) — deploy + prod smoke + changelog
 
@@ -100,6 +100,29 @@ Status legend: `[ ]` not started · `[~]` in progress (note who/when in Worklog)
 
 ## Worklog (append-only; newest at top)
 
+- **2026-06-11** — **T1.3 (NIM FLUX lane) — DONE, live-verified.** With the restored
+  `NVIDIA_API_KEY` in `.env.local`, ran `scripts/verify-nim-flux.mjs` (new, reusable —
+  live + `--degrade` modes): a real "teapot" generation through `textToImage()` served by
+  `black-forest-labs/flux.1-schnell` in **2.1 s end-to-end** (gen + persist + re-fetch +
+  validation), artifact a **valid 1024×1024 JPEG, 51,368 bytes**, persisted via the shared
+  R2 helper against a throwaway local MinIO (prod R2 creds empty in this Codespace — same
+  approach as T1.1; production code untouched). Two live fixes, both forced by the probe /
+  endpoint: (1) **JPEG persist** — the lane wrote NIM artifacts as `.png`/`image/png`, but
+  FLUX output is JPEG (`probes/flux.md`); `persistPngBase64` → `persistImageBase64`, which
+  sniffs magic bytes and labels `.jpg`/`image/jpeg` vs `.png`/`image/png` (Vertex PNG path
+  unchanged, unknown bytes keep the PNG label). Verified live: persisted key/Content-Type/
+  bytes all agree. (2) **`cfg_scale` removed from the schnell body** — endpoint enforces
+  `cfg_scale ≤ 0` for the guidance-distilled schnell (sending 3.5 → 422 `less_than_equal`);
+  probe table corrected. Degrade check (`--degrade`, invalid `nvapi-` key + synthetic
+  Vertex/Replicate config): order proven from logs — NIM 403 "Authorization failed" →
+  "nim flux failed, falling back" → Vertex attempted ("vertex imagen failed, falling back
+  to replicate") → Replicate's real 401 surfaced as the final clean error. Exactly
+  NIM→Vertex→Replicate. `tests/api/text-to-image.test.js` extended (JPEG fixture with real
+  magic bytes, `.jpg` key + `image/jpeg` Content-Type asserted, no-`cfg_scale` regression
+  guard) — **9/9 green**. NOTE: the code/test/probe/script changes were swept into the
+  concurrent coordinator commit `c1ca9a64` (shared worktree); this entry + the T1.3 tick
+  are the remaining bookkeeping. MinIO container destroyed after the run; no scratch
+  images; key only in gitignored `.env.local`.
 - **2026-06-11** — **T0.1 (key verification) — DONE.** Working `nvapi-…` key confirmed in
   `.env.local` (HTTP 200 on integrate.api.nvidia.com chat, llama-3.3-70b). Vercel REST API
   (project `prj_IWZmEnqR1pCZRCRuvhCFCDcOx5Wc`, team `team_zRpaxHPiMnQGXurBbegM3PCA`, token
