@@ -1,5 +1,5 @@
 // Multi-source web search with fallback chain.
-// Priority: Brave → Tavily → Exa → DuckDuckGo instant answer.
+// Priority: Brave → Tavily → Exa → Serper → DuckDuckGo instant answer.
 // At least 3 results are always returned (or a descriptive error thrown).
 
 const TIMEOUT_MS = 10_000;
@@ -102,6 +102,35 @@ async function searchExa(query) {
 	}));
 }
 
+// ── Serper (Google SERP) ──────────────────────────────────────────────────────
+
+async function searchSerper(query) {
+	const key = process.env.SERPER_API_KEY;
+	if (!key) return null;
+
+	const res = await withTimeout(
+		fetch('https://google.serper.dev/search', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'X-API-KEY': key,
+			},
+			body: JSON.stringify({ q: query, num: 10 }),
+		}),
+		TIMEOUT_MS,
+	);
+	if (!res.ok) {
+		throw new Error(`Serper search HTTP ${res.status}`);
+	}
+	const data = await res.json();
+	const results = data?.organic || [];
+	return results.map((r) => ({
+		url: r.link,
+		title: r.title || '',
+		snippet: r.snippet || '',
+	}));
+}
+
 // ── DuckDuckGo instant answer (fallback) ──────────────────────────────────────
 
 async function searchDuckDuckGo(query) {
@@ -170,11 +199,13 @@ export async function searchWeb(query) {
 	const hasBrave = Boolean(process.env.BRAVE_API_KEY);
 	const hasTavily = Boolean(process.env.TAVILY_API_KEY);
 	const hasExa = Boolean(process.env.EXA_API_KEY);
+	const hasSerper = Boolean(process.env.SERPER_API_KEY);
 
 	const searchFns = [];
 	if (hasBrave) searchFns.push(searchBrave);
 	if (hasTavily) searchFns.push(searchTavily);
 	if (hasExa) searchFns.push(searchExa);
+	if (hasSerper) searchFns.push(searchSerper);
 
 	// Run up to 2 sources in parallel for speed.
 	const primary = searchFns.slice(0, 2);
