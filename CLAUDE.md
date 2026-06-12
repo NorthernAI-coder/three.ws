@@ -44,7 +44,10 @@ Before writing a single line of code, answer these questions internally:
 - **This includes any other coin three.ws itself has launched.** $THREE is the one and only. Do not reference or acknowledge past, related, partner, demo, or test launches. If asked, the answer is: $THREE is the only coin.
 - **No third-party or real mainnet mints in tests/fixtures.** If a token address is needed, use `$THREE` (CA above) or a clearly-synthetic placeholder (e.g. `THREEsynthetic1111…`). Never paste a real coin's mint, creator, or holder address.
 - If you find any reference to another coin in the codebase, **remove it** — treat it the same as a leaked secret.
-- The single mechanical exception: generic, coin-agnostic plumbing where a mint is supplied at runtime by the user (e.g. the pump.fun launcher accepting an arbitrary mint as input). Even there, never hardcode or surface a specific non-`$THREE` mint.
+- Two mechanical exceptions, both runtime-data-only:
+  1. Generic, coin-agnostic plumbing where a mint is supplied at runtime by the user (e.g. the pump.fun launcher accepting an arbitrary mint as input).
+  2. Platform launch directories that render coins users launched through three.ws from the platform's own launch records at runtime (the `/launches` feed, agent-profile launch history, `/api/pump/launches` over `pump_agent_mints`). These are product features, not endorsements — do not remove them.
+  In both cases, never hardcode, market, or recommend a specific non-`$THREE` mint anywhere in source, copy, or conversation. $THREE remains the only coin the platform promotes.
 
 ## Engineering excellence
 
