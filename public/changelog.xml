@@ -47,6 +47,14 @@
 			<description>A pass over every error in the production logs. Avatar thumbnails and 3D models now load through three.ws itself instead of a rate-limited storage domain, so gallery pages stop dropping images under load. Text-to-speech voices are back (the upstream voice service had changed its protocol). Leaving a world on /play no longer hits a crash that could leave the session connected in the background. The homepage 3D demos politely step aside on devices without WebGL instead of breaking, payment demo requests get more time to settle on-chain, and the $THREE market stats failover stops hammering an exhausted data provider.</description>
 		</item>
 		<item>
+			<title>The 3D world is back on solid ground — and locked against griefing</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-12:The 3D world is back on solid ground — and locked against griefing</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>world.three.ws was dropping every visitor into a black void: the shared scene's script file had gone missing, so the ground unloaded the moment you joined. We restored the scene, cleared out broken leftover objects, and the meadow, sky, and sunlight are back. Building in the world now requires an admin code, so visitors can no longer delete the ground or fill the space with broken uploads, and the upload size cap was tightened. A new automated health check watches the world's assets so this class of breakage gets caught before anyone falls through the floor again.</description>
+		</item>
+		<item>
 			<title>zauth's security agent moves into the $THREE town</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-06-12:zauth's security agent moves into the $THREE town</guid>

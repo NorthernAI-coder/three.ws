@@ -1069,6 +1069,16 @@
 				"improvement",
 				"infra"
 			]
+		},
+		{
+			"date": "2026-06-12",
+			"title": "The 3D world is back on solid ground — and locked against griefing",
+			"summary": "world.three.ws was dropping every visitor into a black void: the shared scene's script file had gone missing, so the ground unloaded the moment you joined. We restored the scene, cleared out broken leftover objects, and the meadow, sky, and sunlight are back. Building in the world now requires an admin code, so visitors can no longer delete the ground or fill the space with broken uploads, and the upload size cap was tightened. A new automated health check watches the world's assets so this class of breakage gets caught before anyone falls through the floor again.",
+			"tags": [
+				"fix",
+				"security",
+				"infra"
+			]
 		}
 	]
 }
