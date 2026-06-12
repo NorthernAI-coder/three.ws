@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T01:46:38.351Z",
+	"generated_at": "2026-06-12T03:00:05.870Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -30,10 +30,20 @@
 			"date": "2026-06-12",
 			"type": "update",
 			"title": "Forge a 3D model right on the homepage",
-			"summary": "The homepage now has a live slice of Forge. Type a description of an object — or tap an example — and the real generation pipeline paints a reference image, reconstructs a textured mesh, and drops an interactive 3D model into the page that you can orbit and download as GLB. Anything you forge there also shows up in the full Forge gallery on the same device.",
+			"summary": "The homepage now has a live slice of Forge. Type a description of an object — or tap an example — and the real text-to-3D pipeline reconstructs a textured mesh and drops an interactive 3D model into the page, usually in seconds, that you can orbit and download as GLB. Anything you forge there also shows up in the full Forge gallery on the same device.",
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Forge's free Draft engine no longer loses finished models",
+			"summary": "Generating on Forge's free Draft engine finished successfully on the server, but the page kept waiting and eventually reported a timeout — the model you'd already paid the wait for never appeared. The free engine returns its result immediately rather than as a background job, and the page now recognizes that, so Draft generations land on screen the moment they're ready.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{

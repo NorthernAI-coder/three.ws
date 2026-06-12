@@ -1,11 +1,13 @@
 // Mini Forge — homepage slice of /forge (text → 3D, real pipeline).
 //
-// Drives the same /api/forge endpoint as the full page: POST a prompt, FLUX
-// paints a reference image, TRELLIS reconstructs a textured GLB, and the
-// result renders in a <model-viewer> right in the section. Omitting
-// path/tier/backend lets the server pick its standard lane, so this stays
-// correct if the catalog defaults change. The only timer is the honest
-// elapsed counter — progress states come from real API responses.
+// Drives the same /api/forge endpoint as the full page, pinned to the draft
+// tier so the server resolves its free lane (NVIDIA-hosted TRELLIS today):
+// seconds-fast, no vendor spend per visitor, and a far higher rate ceiling
+// than the paid bucket — the right trade for a homepage teaser. That lane
+// completes synchronously (the POST returns the finished GLB, job_id null);
+// the async job_id + poll path is kept for when the server routes elsewhere.
+// The only timer is the honest elapsed counter — progress states come from
+// real API responses.
 //
 // Creations are scoped to the same x-forge-client id as /forge (shared
 // localStorage key), so anything forged here appears in the full page's
@@ -33,8 +35,8 @@ const els = root && {
 	},
 	preview: root.querySelector('[data-hf-preview]'),
 	steps: {
-		image: root.querySelector('[data-hf-step="image"]'),
 		mesh: root.querySelector('[data-hf-step="mesh"]'),
+		finish: root.querySelector('[data-hf-step="finish"]'),
 	},
 	elapsed: root.querySelector('[data-hf-elapsed]'),
 	cancel: root.querySelector('[data-hf-cancel]'),
@@ -134,7 +136,7 @@ async function startJob(prompt) {
 	const res = await fetch('/api/forge', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
-		body: JSON.stringify({ prompt, aspect_ratio: '1:1' }),
+		body: JSON.stringify({ prompt, aspect_ratio: '1:1', tier: 'draft' }),
 	});
 	const data = await res.json().catch(() => ({}));
 	if (res.status === 503 || data.error === 'unconfigured') {
@@ -197,8 +199,8 @@ async function run(prompt) {
 	pollAbort = false;
 	const seq = ++runSeq;
 	setBusy(true);
-	setStep('image', 'active');
-	setStep('mesh', 'pending');
+	setStep('mesh', 'active');
+	setStep('finish', 'pending');
 	els.preview.innerHTML = '<div class="hf-shimmer" aria-hidden="true"></div>';
 	startElapsed();
 	showState('generating');
@@ -211,8 +213,6 @@ async function run(prompt) {
 		if (seq !== runSeq) return; // cancelled while the POST was in flight
 
 		if (job.preview_image_url) {
-			setStep('image', 'done');
-			setStep('mesh', 'active');
 			const img = new Image();
 			img.alt = 'Reference image';
 			img.src = job.preview_image_url;
@@ -222,9 +222,13 @@ async function run(prompt) {
 			};
 		}
 
-		const done = await pollUntilDone(job.job_id, seq);
+		// Free draft lane: the POST itself returns the finished model (job_id
+		// null) — polling would loop on invalid_job. Async lanes return a job_id.
+		const done =
+			job.status === 'done' && job.glb_url ? job : await pollUntilDone(job.job_id, seq);
 		if (pollAbort || seq !== runSeq || !done) return; // cancelled
 		setStep('mesh', 'done');
+		setStep('finish', 'done');
 
 		const viewerErr = await viewerLoad;
 		if (viewerErr instanceof Error) throw viewerErr;
