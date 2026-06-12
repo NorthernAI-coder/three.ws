@@ -119,6 +119,8 @@ const KNOWN_UNUSED_PEERS = new Set([
 	'colyseus|@colyseus/uwebsockets-transport', // we use the default WS transport
 	'livekit-client|@types/dom-mediacapture-record', // types-only
 	'react-native-webrtc|react-native', // web build never hits RN paths
+	'three-gpu-pathtracer|xatlas-web', // UVUnwrapper-only; we import WebGLPathTracer from the index, which never re-exports UVUnwrapper
+	'@web3auth/auth|color', // referenced only in whitelabel .d.ts type declarations, never imported in dist runtime code
 ]);
 
 function packageNameFromLockPath(lockPath) {
