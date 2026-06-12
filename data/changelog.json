@@ -1145,6 +1145,15 @@
 				"improvement"
 			],
 			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "The app's deploy pill now takes you to the deployment agent",
+			"summary": "The on-chain button under the viewer used to flip to “Deployed ✓ Solana” and open a block-explorer wallet page — a dead end. It now always reads “Deploy on Solana” and hands you to the on-chain deployment agent, a guided flow for putting your 3D asset on Solana, right inside the app.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/app?agent=67bf6e67-93bb-40c6-9a6b-91e921696248"
 		}
 	]
 }

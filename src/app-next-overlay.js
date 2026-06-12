@@ -972,7 +972,7 @@ function wirePrimaryCTA() {
 // ── Deploy on-chain mirror ────────────────────────────────────────────────
 //
 // /src/app.js owns the canonical deploy CTA via #deploy-onchain-btn — it sets
-// .href, .hidden, and the inner [data-state-label] (e.g. "Deployed ✓ Solana").
+// .href, .hidden, and the inner [data-state-label] ("Deploy on Solana").
 // We mirror that state into two visible Next surfaces:
 //
 //   • #nxt-deploy-btn        — pill in the secondary action bar
@@ -1035,9 +1035,8 @@ function wireDeployMirror() {
 			t.btn.classList.toggle('is-deployed', isDeployed);
 			if (t.label) t.label.textContent = labelText;
 			if (t.subEl) {
-				t.subEl.textContent = isDeployed
-					? 'This agent is live on-chain. Open the block explorer to verify.'
-					: "Register this agent's identity on ERC-8004 — anyone can find and embed it.";
+				t.subEl.textContent =
+					'Hand off to the deployment agent — put this 3D asset on Solana.';
 			}
 		}
 	};

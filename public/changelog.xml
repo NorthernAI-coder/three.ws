@@ -119,6 +119,14 @@
 			<description>world.three.ws was dropping every visitor into a black void: the shared scene's script file had gone missing, so the ground unloaded the moment you joined. We restored the scene, cleared out broken leftover objects, and the meadow, sky, and sunlight are back. Building in the world now requires an admin code, so visitors can no longer delete the ground or fill the space with broken uploads, and the upload size cap was tightened. A new automated health check watches the world's assets so this class of breakage gets caught before anyone falls through the floor again.</description>
 		</item>
 		<item>
+			<title>The app's deploy pill now takes you to the deployment agent</title>
+			<link>https://three.ws/app?agent=67bf6e67-93bb-40c6-9a6b-91e921696248</link>
+			<guid isPermaLink="false">2026-06-12:The app's deploy pill now takes you to the deployment agent</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The on-chain button under the viewer used to flip to “Deployed ✓ Solana” and open a block-explorer wallet page — a dead end. It now always reads “Deploy on Solana” and hands you to the on-chain deployment agent, a guided flow for putting your 3D asset on Solana, right inside the app.</description>
+		</item>
+		<item>
 			<title>zauth's security agent moves into the $THREE town</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-06-12:zauth's security agent moves into the $THREE town</guid>

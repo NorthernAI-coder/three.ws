@@ -18,6 +18,10 @@ import { resolveURI, isDecentralizedURI } from './ipfs.js';
 // viewer fetch and render an attacker-hosted GLB under the three.ws origin
 // (brand-spoof / phishing).
 const TRUSTED_ASSET_HOST_RE = /(^|\.)(three\.ws|r2\.dev|mypinata\.cloud|pinata\.cloud|ipfs\.io|dweb\.link|arweave\.net)$/i;
+// The on-chain deployment agent — the guided flow for deploying 3D assets on
+// Solana. The "Deploy on Solana" CTA in /app always routes here.
+const ONCHAIN_DEPLOY_AGENT_ID = '67bf6e67-93bb-40c6-9a6b-91e921696248';
+const ONCHAIN_DEPLOY_AGENT_URL = `/app?agent=${ONCHAIN_DEPLOY_AGENT_ID}`;
 function isSafeQueryModelUrl(raw) {
 	if (!raw || typeof raw !== 'string') return false;
 	if (raw.startsWith('/') && !raw.startsWith('//')) return true; // same-origin relative
@@ -748,23 +752,11 @@ class App {
 		btn.hidden = !hasModel;
 	}
 
-	// Build a `&model=<url>` suffix for the deploy button when the viewer is
-	// currently showing a hosted GLB. blob:/data: URLs aren't carryable across
-	// a navigation, so we drop them and let /deploy fall back to its defaults.
-	_deployModelParam() {
-		const url = this._currentModelUrl || '';
-		if (!url) return '';
-		if (url.startsWith('blob:') || url.startsWith('data:')) return '';
-		return `&model=${encodeURIComponent(url)}`;
-	}
-
-	// Surface the right deploy CTA next to the public-profile link in /app:
-	//   • "Deploy on-chain" → /deploy?avatar=<id>   (un-registered agent)
-	//   • "Deployed ✓"      → block-explorer URL    (already on-chain)
-	// Falls back to the bare /deploy page if we can't read the agent record
-	// (fetch error, anonymous, etc.) so the affordance never disappears once
-	// we know there's an agent in scope.
-	async _refreshDeployButton(agentId) {
+	// Surface the deploy CTA next to the public-profile link in /app. It always
+	// reads "Deploy on Solana" and hands the user to the on-chain deployment
+	// agent — the guided flow for putting 3D assets on Solana — never to a bare
+	// block-explorer wallet page, which dead-ends the user.
+	_refreshDeployButton(agentId) {
 		const btn = document.getElementById('deploy-onchain-btn');
 		if (!btn || !agentId) return;
 
@@ -772,85 +764,12 @@ class App {
 		btn.classList.remove('is-deployed');
 		btn.removeAttribute('target');
 		btn.removeAttribute('rel');
-		if (label) label.textContent = 'Deploy on-chain';
-		btn.setAttribute('aria-label', 'Publish this agent on-chain');
-		btn.setAttribute('title', 'Publish this agent on-chain (ERC-8004)');
-		// Carry the viewer's current model URL across so /deploy doesn't fall
-		// back to the CZ avatar when the agent hasn't been saved yet. Skip
-		// blob:/data: URLs — they don't survive a navigation.
-		const modelParam = this._deployModelParam();
-		btn.href = `/deploy?agent=${encodeURIComponent(agentId)}${modelParam}`;
-		btn.hidden = false;
-
-		try {
-			const resp = await fetch(`/api/agents/${agentId}`, { credentials: 'include' });
-			if (!resp.ok) return;
-			const { agent } = await resp.json();
-			if (!agent) return;
-
-			if (agent.avatar_id && !btn.dataset.avatarPrefilled) {
-				btn.href = `/deploy?avatar=${encodeURIComponent(agent.avatar_id)}`;
-				btn.dataset.avatarPrefilled = '1';
-			}
-
-			// Solana-first: three.ws prioritizes Solana over any EVM registration.
-			// A Metaplex Core identity (sol_mint_address) or a Solana wallet
-			// (solana_address) means this agent lives on Solana — surface that
-			// even when a legacy ERC-8004 chain_id is also present on the record.
-			const meta = agent.meta || {};
-			const solRef = meta.sol_mint_address || meta.solana_address || null;
-			if (solRef) {
-				const onDevnet = meta.network === 'devnet';
-				const path = meta.sol_mint_address ? 'token' : 'account';
-				const url = onDevnet
-					? `https://explorer.solana.com/address/${solRef}?cluster=devnet`
-					: `https://solscan.io/${path}/${solRef}`;
-				btn.classList.add('is-deployed');
-				btn.href = url;
-				btn.target = '_blank';
-				btn.rel = 'noopener';
-				if (label) label.textContent = 'Deployed ✓ Solana';
-				btn.setAttribute(
-					'aria-label',
-					'This agent is on Solana. Open the explorer in a new tab.',
-				);
-				btn.setAttribute('title', 'On-chain on Solana — view on explorer');
-				return;
-			}
-
-			const isDeployed = agent.erc8004_agent_id && agent.chain_id;
-			if (!isDeployed) return;
-
-			const { CHAIN_META, addressExplorerUrl, tokenExplorerUrl } = await import(
-				'./erc8004/chain-meta.js'
-			);
-			const chainName = CHAIN_META[agent.chain_id]?.name || `chain ${agent.chain_id}`;
-			let url = '';
-			if (agent.erc8004_registry) {
-				url = tokenExplorerUrl(
-					agent.chain_id,
-					agent.erc8004_registry,
-					agent.erc8004_agent_id,
-				);
-			}
-			if (!url && agent.erc8004_registry) {
-				url = addressExplorerUrl(agent.chain_id, agent.erc8004_registry);
-			}
-			if (!url) url = `/agent/${agentId}`;
-
-			btn.classList.add('is-deployed');
-			btn.href = url;
-			btn.target = '_blank';
-			btn.rel = 'noopener';
-			if (label) label.textContent = `Deployed ✓ ${chainName}`;
-			btn.setAttribute(
-				'aria-label',
-				`This agent is registered on ${chainName}. Open block explorer in a new tab.`,
-			);
-			btn.setAttribute('title', `On-chain on ${chainName} — view on explorer`);
-		} catch {
-			/* keep the un-deployed CTA */
-		}
+		if (label) label.textContent = 'Deploy on Solana';
+		btn.setAttribute('aria-label', 'Deploy this 3D asset on Solana');
+		btn.setAttribute('title', 'Deploy on Solana — guided on-chain deployment for 3D assets');
+		btn.href = ONCHAIN_DEPLOY_AGENT_URL;
+		// On the deployment agent's own page the CTA would link to itself — hide it.
+		btn.hidden = agentId === ONCHAIN_DEPLOY_AGENT_ID;
 	}
 
 	_setupSaveToAccount() {
