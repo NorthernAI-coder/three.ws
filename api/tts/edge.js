@@ -13,6 +13,7 @@
  * Response: audio/mpeg
  */
 
+import { createHash } from 'node:crypto';
 import WebSocket from 'ws';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
@@ -21,17 +22,43 @@ import { sha256 } from '../_lib/crypto.js';
 import { headObject, getObjectBuffer, putObject } from '../_lib/r2.js';
 
 const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
-const WSS_BASE = `wss://speech.microsoft.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}`;
+// speech.platform.bing.com is the host the readaloud protocol actually lives
+// on. speech.microsoft.com (used previously) serves the Speech Studio web app,
+// which answers every path with a 200 HTML page — hence the constant
+// "Unexpected server response: 200" handshake failures.
+const WSS_BASE = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}`;
 const AUDIO_FORMAT = 'audio-24khz-48kbitrate-mono-mp3';
+// Must track the Edg/ version in WS_HEADERS' User-Agent below. The endpoint
+// 403s GEC versions it considers stale, so bump this alongside edge-tts
+// releases (their constants.py carries the current known-good value).
+const CHROMIUM_FULL_VERSION = '143.0.3650.75';
+
+// Sec-MS-GEC DRM token, required by the readaloud endpoint since late 2024.
+// SHA-256 of the current Windows file time (100ns ticks since 1601-01-01,
+// rounded DOWN to the nearest 5 minutes) concatenated with the client token —
+// same scheme the edge-tts reference implementation ships. Handshakes without
+// it are intermittently rejected with a non-101 response ("Unexpected server
+// response: 200").
+function secMsGecToken() {
+	const WIN_EPOCH_SECONDS = 11_644_473_600; // 1601-01-01 → 1970-01-01
+	let seconds = Math.floor(Date.now() / 1000) + WIN_EPOCH_SECONDS;
+	seconds -= seconds % 300;
+	// seconds → 100ns ticks would overflow Number; appending seven zeros is the
+	// same multiplication by 10^7 done in string space.
+	return createHash('sha256')
+		.update(`${seconds}0000000${TRUSTED_CLIENT_TOKEN}`)
+		.digest('hex')
+		.toUpperCase();
+}
 
 const WS_HEADERS = {
 	Pragma: 'no-cache',
 	'Cache-Control': 'no-cache',
 	Origin: 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold',
-	'Accept-Encoding': 'gzip, deflate, br',
+	'Accept-Encoding': 'gzip, deflate, br, zstd',
 	'Accept-Language': 'en-US,en;q=0.9',
 	'User-Agent':
-		'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0',
+		'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
 };
 
 // e.g. "en-US-AriaNeural", "zh-CN-XiaoxiaoNeural"
@@ -60,7 +87,10 @@ function buildSsml(voice, text, rate, pitch) {
 function synthesize(voice, text, rate, pitch) {
 	return new Promise((resolve, reject) => {
 		const connId = mkId();
-		const ws = new WebSocket(`${WSS_BASE}&ConnectionId=${connId}`, { headers: WS_HEADERS });
+		const url =
+			`${WSS_BASE}&Sec-MS-GEC=${secMsGecToken()}` +
+			`&Sec-MS-GEC-Version=1-${CHROMIUM_FULL_VERSION}&ConnectionId=${connId}`;
+		const ws = new WebSocket(url, { headers: WS_HEADERS });
 
 		const chunks = [];
 		let finished = false;

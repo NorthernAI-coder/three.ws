@@ -1014,6 +1014,16 @@
 				"feature",
 				"security"
 			]
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Reliability sweep: faster galleries, working voices, sturdier pages",
+			"summary": "A pass over every error in the production logs. Avatar thumbnails and 3D models now load through three.ws itself instead of a rate-limited storage domain, so gallery pages stop dropping images under load. Text-to-speech voices are back (the upstream voice service had changed its protocol). Leaving a world on /play no longer hits a crash that could leave the session connected in the background. The homepage 3D demos politely step aside on devices without WebGL instead of breaking, payment demo requests get more time to settle on-chain, and the $THREE market stats failover stops hammering an exhausted data provider.",
+			"tags": [
+				"fix",
+				"improvement",
+				"infra"
+			]
 		}
 	]
 }

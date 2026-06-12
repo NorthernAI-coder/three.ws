@@ -70,8 +70,12 @@
 	// control. model-viewer (served from ajax.googleapis.com) throws internally
 	// when the browser can't give it a WebGL context — context budget exhausted,
 	// GPU blocklist, headless. It degrades to its poster on its own; the throw is
-	// neither our bug nor fixable from here, so it only adds noise.
-	const IGNORED_THIRD_PARTY_CODE = /ajax\.googleapis\.com\/ajax\/libs\/model-viewer\//;
+	// neither our bug nor fixable from here, so it only adds noise. Vercel's
+	// insights script likewise throws in stripped-down in-app webviews (e.g.
+	// "history.pushState is undefined" inside wallet browsers) — analytics
+	// degrading on an exotic UA is not actionable.
+	const IGNORED_THIRD_PARTY_CODE =
+		/ajax\.googleapis\.com\/ajax\/libs\/model-viewer\/|\/_vercel\/(insights|speed-insights)\/script/;
 	// Expiring signed URLs embedded in user-generated feed data: GitHub
 	// private-user-images, S3/GCS presigned links, and anything carrying a
 	// short-lived JWT/signature. The token lapses on a timer, so the asset 404s

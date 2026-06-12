@@ -23,7 +23,17 @@ export function initAvatarDrop(sectionEl) {
 	const ctaBtn  = sectionEl.querySelector('#drop-cta-btn');
 	if (!canvas || !sitLine || !ctaBtn) return;
 
-	const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+	// WebGL can be unavailable (GPU blocklist, context budget exhausted,
+	// software rendering disabled) — degrade to the static section instead of
+	// crashing the whole page module.
+	let renderer;
+	try {
+		renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+	} catch (err) {
+		log.warn('[avatar-drop] WebGL unavailable, leaving section static:', err?.message);
+		canvas.remove();
+		return;
+	}
 	renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 	renderer.outputColorSpace = SRGBColorSpace;
 	renderer.toneMapping = ACESFilmicToneMapping;

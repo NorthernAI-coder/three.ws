@@ -37,6 +37,7 @@ import { MannequinRig } from './pose-rig.js';
 import { JOINT_LABELS, JOINT_AXIS_LABELS } from './pose-mannequin.js';
 import { getPresetById } from './pose-presets.js';
 import { encodePose } from './pose-share.js';
+import { log } from './shared/log.js';
 
 // Curated spread of presets for the lite demo — one or two from each group so
 // the chip row reads like a tour without overwhelming the homepage.
@@ -104,14 +105,24 @@ export function initHomePose(root) {
 	const canvas = el('canvas', { class: 'hp-canvas' });
 	stage.appendChild(canvas);
 
-	const renderer = new WebGLRenderer({
-		canvas,
-		antialias: true,
-		alpha: true,
-		// Required so the snapshot can read the drawing buffer back as a PNG.
-		preserveDrawingBuffer: true,
-		powerPreference: 'high-performance',
-	});
+	// WebGL can be unavailable (GPU blocklist, context budget exhausted,
+	// software rendering disabled) — surface a hint instead of crashing.
+	let renderer;
+	try {
+		renderer = new WebGLRenderer({
+			canvas,
+			antialias: true,
+			alpha: true,
+			// Required so the snapshot can read the drawing buffer back as a PNG.
+			preserveDrawingBuffer: true,
+			powerPreference: 'high-performance',
+		});
+	} catch (err) {
+		log.warn('[home-pose] WebGL unavailable, skipping pose demo:', err?.message);
+		canvas.remove();
+		if (hint) hint.textContent = 'Interactive 3D posing isn’t available on this device.';
+		return;
+	}
 	renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = PCFSoftShadowMap;

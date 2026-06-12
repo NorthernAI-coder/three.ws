@@ -24,6 +24,21 @@ const _cache = new Map(); // mint → { value, expires, fetchedAt }
 const _warnedAt = new Map();
 const WARN_COOLDOWN_MS = 60_000;
 
+// Circuit breaker: when a source reports an exhausted quota (Birdeye's monthly
+// compute units) or rate-limits us, stop hitting it for a while instead of
+// burning a doomed upstream call + warning on every read. Quota exhaustion
+// only clears on the provider's billing cycle, so it gets a long cooldown.
+const _sourceCooldown = new Map(); // source name → epoch ms to skip until
+const QUOTA_COOLDOWN_MS = 6 * 3_600_000;
+const RATE_LIMIT_COOLDOWN_MS = 10 * 60_000;
+
+function cooldownFor(err) {
+	const msg = String(err?.message || '');
+	if (/usage limit exceeded|quota exceeded/i.test(msg)) return QUOTA_COOLDOWN_MS;
+	if (/^429\b|rate ?limit/i.test(msg)) return RATE_LIMIT_COOLDOWN_MS;
+	return 0;
+}
+
 function warnThrottled(key, msg) {
 	const now = Date.now();
 	if (now - (_warnedAt.get(key) || 0) < WARN_COOLDOWN_MS) return;
@@ -147,6 +162,7 @@ export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAUL
 	if (!fresh && hit && hit.expires > now) return hit.value;
 
 	for (const src of SOURCES) {
+		if ((_sourceCooldown.get(src.name) || 0) > now) continue;
 		try {
 			const result = await src(mint);
 			if (result && result.price_usd > 0) {
@@ -155,7 +171,13 @@ export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAUL
 				return result;
 			}
 		} catch (err) {
-			warnThrottled(`${mint}:${src.name}`, `[market] ${src.name} failed for ${mint.slice(0, 6)}…: ${err?.message}`);
+			const cooldown = cooldownFor(err);
+			if (cooldown) {
+				_sourceCooldown.set(src.name, now + cooldown);
+				warnThrottled(`${src.name}:cooldown`, `[market] ${src.name} quota/rate-limited — skipping it for ${Math.round(cooldown / 60_000)}min: ${err?.message}`);
+			} else {
+				warnThrottled(`${mint}:${src.name}`, `[market] ${src.name} failed for ${mint.slice(0, 6)}…: ${err?.message}`);
+			}
 		}
 	}
 
@@ -178,4 +200,5 @@ export async function fetchTokenPriceUsd(mint, opts) {
 export function __resetMarketCache() {
 	_cache.clear();
 	_warnedAt.clear();
+	_sourceCooldown.clear();
 }

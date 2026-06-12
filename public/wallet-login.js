@@ -4,8 +4,31 @@
 // Loaded at runtime from /public via plain `<script src>`. Imports use the
 // dynamic form with @vite-ignore so Vite (which forbids static imports of
 // files under /public) doesn't try to analyze these URLs at build time.
-const { createConnectWalletButton } = await import(/* @vite-ignore */ '/wallet/connect-button.js');
-const { createSolanaWalletButton }  = await import(/* @vite-ignore */ '/wallet/connect-button-solana.js');
+//
+// In-app webviews (Phantom, MetaMask) drop the first fetch of a module
+// surprisingly often on flaky mobile networks, which used to kill this whole
+// module with no feedback — retry once, then degrade to a visible error.
+async function importWithRetry(url) {
+	try {
+		return await import(/* @vite-ignore */ url);
+	} catch {
+		await new Promise((r) => setTimeout(r, 400));
+		return import(/* @vite-ignore */ url);
+	}
+}
+
+let createConnectWalletButton = null;
+let createSolanaWalletButton = null;
+try {
+	({ createConnectWalletButton } = await importWithRetry('/wallet/connect-button.js'));
+	({ createSolanaWalletButton } = await importWithRetry('/wallet/connect-button-solana.js'));
+} catch {
+	const el = document.getElementById('err');
+	if (el) {
+		el.textContent = 'Couldn’t load the wallet sign-in modules. Check your connection and refresh the page.';
+		el.style.display = 'block';
+	}
+}
 
 const params = new URLSearchParams(location.search);
 const next   = window.__loginNext || params.get('next') || sessionStorage.getItem('login_redirect') || '/dashboard';
@@ -36,7 +59,7 @@ function onSuccess(data) {
 const wcProjectId = document.querySelector('meta[name="wc-project-id"]')?.content || null;
 
 const evmMount = document.getElementById('wallet-mount');
-if (evmMount) {
+if (evmMount && createConnectWalletButton) {
 	const evmCtrl = createConnectWalletButton(evmMount, {
 		verifyUrl: '/api/auth/siwe/verify',
 		wcProjectId,
@@ -59,7 +82,7 @@ let solanaCtrl = null;
 
 function mountSolanaButton(preferredWallet = null) {
 	const mount = document.getElementById('solana-wallet-mount');
-	if (!mount) return;
+	if (!mount || !createSolanaWalletButton) return;
 	if (solanaCtrl) solanaCtrl.disconnect();
 
 	solanaCtrl = createSolanaWalletButton(mount, {
