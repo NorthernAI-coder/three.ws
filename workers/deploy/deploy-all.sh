@@ -47,9 +47,9 @@ command -v gcloud >/dev/null 2>&1 || die "gcloud not found on PATH"
 gcloud auth print-access-token >/dev/null 2>&1 || die "gcloud is not authenticated — run 'gcloud auth login'"
 
 # service key -> "worker_dir|cloud_run_service|controller_env_var"
-svc_dir()      { case "$1" in hunyuan3d) echo model-hunyuan3d;; trellis) echo model-trellis;; triposr) echo model-triposr;; unirig) echo unirig;; *) echo "";; esac; }
-svc_runname()  { case "$1" in hunyuan3d) echo model-hunyuan3d;; trellis) echo model-trellis;; triposr) echo model-triposr;; unirig) echo unirig;; *) echo "";; esac; }
-svc_ctrlenv()  { case "$1" in hunyuan3d) echo MODEL_HUNYUAN3D_URL;; trellis) echo MODEL_TRELLIS_URL;; triposr) echo MODEL_TRIPOSR_URL;; unirig) echo UNIRIG_URL;; *) echo "";; esac; }
+svc_dir()      { case "$1" in hunyuan3d) echo model-hunyuan3d;; trellis) echo model-trellis;; triposr) echo model-triposr;; triposg) echo model-triposg;; unirig) echo unirig;; *) echo "";; esac; }
+svc_runname()  { case "$1" in hunyuan3d) echo model-hunyuan3d;; trellis) echo model-trellis;; triposr) echo model-triposr;; triposg) echo model-triposg;; unirig) echo unirig;; *) echo "";; esac; }
+svc_ctrlenv()  { case "$1" in hunyuan3d) echo MODEL_HUNYUAN3D_URL;; trellis) echo MODEL_TRELLIS_URL;; triposr) echo MODEL_TRIPOSR_URL;; triposg) echo MODEL_TRIPOSG_URL;; unirig) echo UNIRIG_URL;; *) echo "";; esac; }
 
 TAG="$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
 
@@ -151,7 +151,7 @@ build_and_deploy() {
 }
 
 for svc in $SERVICES; do
-  [ -n "$(svc_dir "$svc")" ] || die "unknown service '$svc' (valid: hunyuan3d trellis triposr unirig)"
+  [ -n "$(svc_dir "$svc")" ] || die "unknown service '$svc' (valid: hunyuan3d trellis triposr triposg unirig)"
   build_and_deploy "$svc"
 done
 

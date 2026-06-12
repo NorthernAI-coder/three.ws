@@ -6,6 +6,10 @@
 import './vendor/css/main.css';
 import './studio.css';
 
+// Dark-locked surface: the injected site theme boot honors the user's saved
+// theme, but the studio chrome (vendor css + studio.css) only ships dark.
+document.documentElement.setAttribute('data-theme', 'dark');
+
 import * as THREE from 'three';
 
 import { Editor } from './vendor/js/Editor.js';
