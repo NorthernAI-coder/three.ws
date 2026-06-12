@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T07:41:43.171Z",
+	"generated_at": "2026-06-12T23:12:38.821Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -157,6 +157,26 @@
 					"title": "Viewer",
 					"description": "Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.",
 					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/create/prompt",
+					"title": "Describe it to 3D",
+					"description": "Type a description. About a minute later: a rigged 3D avatar you can animate and download.",
+					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/forge",
+					"title": "Forge — Text to 3D",
+					"description": "Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.",
+					"added": "2026-06-04",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
@@ -998,6 +1018,46 @@
 					"showcase": false
 				},
 				{
+					"path": "/tutorials/text-to-3d",
+					"title": "Tutorial · Text Prompt to 3D Model",
+					"description": "Five-minute beginner walkthrough of the Forge: type a sentence, pick a quality tier, and download a textured GLB model.",
+					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/tutorials/image-to-3d",
+					"title": "Tutorial · Photos to 3D Model",
+					"description": "Photograph a real object from up to four angles and reconstruct it as a textured 3D model — photo tips, guidance prompts, troubleshooting.",
+					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/tutorials/prompts-for-3d",
+					"title": "Tutorial · Prompt Recipes for 3D Generation",
+					"description": "A copy-paste prompt cookbook for 3D generation: game props, furniture, characters, vehicles, food — and the four rules behind every good prompt.",
+					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/tutorials/generate-3d-api",
+					"title": "Tutorial · Generate 3D Models from Code",
+					"description": "Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, batch asset packs, and pay per call with x402.",
+					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/status",
 					"title": "Status",
 					"description": "Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.",
@@ -1018,6 +1078,26 @@
 					"path": "/blog",
 					"title": "Blog",
 					"description": "Editorial index of three.ws launches and long-form posts.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/blog/text-to-3d-forge-launch",
+					"title": "Text to 3D Is Live: Forge Turns a Prompt Into a Textured 3D Model",
+					"description": "Forge is live on three.ws. Type a description — or upload a photo or sketch — and get a textured, downloadable GLB in 30–90 seconds. Free draft lane, AR inspection, shareable links, and one-click attach to your AI agent.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/blog/text-to-3d-is-live",
+					"title": "Text to 3D Is Live — Type a Prompt, Download a 3D Model",
+					"description": "Forge is live on three.ws: type a description and get a textured, downloadable 3D model (GLB) in your browser. Image to 3D from photos works too. Free draft tier, no install.",
 					"added": null,
 					"auth": null,
 					"indexable": true,
@@ -1409,6 +1489,16 @@
 					"path": "/news/",
 					"title": "News & Announcements",
 					"description": "Product launches, integrations, and announcements from three.ws.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/news/text-to-3d-is-live",
+					"title": "Text to 3D Is Live — Type a Prompt, Download a 3D Model",
+					"description": "Forge is live at three.ws/forge: type a description, get a textured, interactive 3D model you can orbit, view in AR, and download as a GLB. Image to 3D from photos works too — and agents can call the same pipeline over MCP.",
 					"added": null,
 					"auth": null,
 					"indexable": true,

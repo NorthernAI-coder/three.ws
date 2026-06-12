@@ -22,6 +22,18 @@ export const NAV_GROUPS = [
 		label: 'Build',
 		items: [
 			{
+				title: 'Text to 3D',
+				href: '/forge',
+				badge: 'Live',
+				desc: 'Describe an object → textured GLB, usually in seconds',
+			},
+			{
+				title: 'Describe it to 3D',
+				href: '/create/prompt',
+				badge: 'Live',
+				desc: 'Type a description → rigged 3D avatar in about a minute',
+			},
+			{
 				title: 'Create an agent',
 				href: '/create-agent',
 				badge: 'New',
@@ -49,12 +61,6 @@ export const NAV_GROUPS = [
 				title: 'Avatar Studio',
 				href: '/avatar-studio',
 				desc: 'Sculpt face + body from scratch → export GLB',
-			},
-			{
-				title: 'Text to 3D',
-				href: '/forge',
-				badge: 'New',
-				desc: 'Describe an object → textured GLB',
 			},
 			{
 				title: 'Scene Studio',
@@ -284,7 +290,10 @@ export const NAV_GROUPS = [
 ];
 
 // Top-level links rendered after the dropdown groups (no submenu).
-export const NAV_LINKS = [{ label: 'Pricing', href: '/pricing' }];
+export const NAV_LINKS = [
+	{ label: 'Text → 3D', href: '/forge', badge: 'Live' },
+	{ label: 'Pricing', href: '/pricing' },
+];
 
 // Footer-of-drawer links that have no desktop dropdown home.
 export const DRAWER_LEGAL = [
@@ -295,6 +304,7 @@ export const DRAWER_LEGAL = [
 // The chat SPA header shows a compact subset of main-site destinations.
 // Kept here so chat and the main nav can never disagree on labels or hrefs.
 export const CHAT_SITE_LINKS = [
+	{ label: 'Text → 3D', href: '/forge' },
 	{ label: 'Marketplace', href: '/marketplace' },
 	{ label: 'Pay', href: '/pay' },
 	{ label: 'Features', href: '/features' },

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T07:41:43.186Z",
+	"generated_at": "2026-06-12T23:12:38.836Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -22,6 +22,46 @@
 			"title": "Scene Studio",
 			"summary": "Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.",
 			"link": "/scene",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "launch",
+			"title": "Tutorial · Generate 3D Models from Code",
+			"summary": "Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, batch asset packs, and pay per call with x402.",
+			"link": "/tutorials/generate-3d-api",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "launch",
+			"title": "Tutorial · Photos to 3D Model",
+			"summary": "Photograph a real object from up to four angles and reconstruct it as a textured 3D model — photo tips, guidance prompts, troubleshooting.",
+			"link": "/tutorials/image-to-3d",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "launch",
+			"title": "Tutorial · Prompt Recipes for 3D Generation",
+			"summary": "A copy-paste prompt cookbook for 3D generation: game props, furniture, characters, vehicles, food — and the four rules behind every good prompt.",
+			"link": "/tutorials/prompts-for-3d",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "launch",
+			"title": "Tutorial · Text Prompt to 3D Model",
+			"summary": "Five-minute beginner walkthrough of the Forge: type a sentence, pick a quality tier, and download a textured GLB model.",
+			"link": "/tutorials/text-to-3d",
 			"tags": [
 				"launch"
 			]
@@ -136,6 +176,26 @@
 			"type": "update",
 			"title": "Sketch-to-3D comes to the Forge",
 			"summary": "Forge gains a third way to make a model: draw it. The new “From a sketch” mode takes one drawing plus a short line saying what it depicts and generates real 3D geometry from it, powered by a self-hosted TripoSG sketch engine — the same research-grade model family behind Tripo. Sketch results are untextured geometry by design, so the existing Stylize and Retexture tools pick up right where it leaves off. The tab appears automatically once the sketch engine is live on the deployment.",
+			"link": "/forge",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Text to 3D is live — and now front and center",
+			"summary": "Type a description, get a 3D model: the Forge (/forge) turns a text prompt into a textured, downloadable GLB, and Describe it to 3D (/create/prompt) turns a sentence into a rigged avatar that can move. Both are now where you can't miss them — a Text → 3D link sits in the header on every page, both paths lead the Build menu, the homepage opens with a live try-it CTA, the /create picker highlights the prompt path, and the agent-creation wizard's body step links straight to it.",
+			"link": "/forge",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Text to 3D is live — type a prompt, get a model",
+			"summary": "Forge's headline flow now works end to end in production: describe an object in a sentence, pick an engine, and download a textured GLB you can open in Scene Studio, embed on any site, wear in a world, or deploy on-chain. The same composer takes photos and sketches too, and the engine picker shows live health so you always start on an engine that's actually up. Text to 3D is now front and center across the site — on the homepage, in the Build menu, and on the sitemap.",
 			"link": "/forge",
 			"tags": [
 				"feature"
@@ -624,6 +684,16 @@
 		{
 			"date": "2026-06-05",
 			"type": "launch",
+			"title": "Describe it to 3D",
+			"summary": "Type a description. About a minute later: a rigged 3D avatar you can animate and download.",
+			"link": "/create/prompt",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-05",
+			"type": "launch",
 			"title": "Docs · Do I Need Crypto?",
 			"summary": "Honest answers to the wallet and payment questions — what requires crypto, what doesn’t, and how payments work.",
 			"link": "/docs/do-i-need-crypto",
@@ -780,6 +850,16 @@
 			"link": null,
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-04",
+			"type": "launch",
+			"title": "Forge — Text to 3D",
+			"summary": "Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.",
+			"link": "/forge",
+			"tags": [
+				"launch"
 			]
 		},
 		{

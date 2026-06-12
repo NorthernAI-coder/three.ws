@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-12",
+			"title": "Text to 3D is live — and now front and center",
+			"summary": "Type a description, get a 3D model: the Forge (/forge) turns a text prompt into a textured, downloadable GLB, and Describe it to 3D (/create/prompt) turns a sentence into a rigged avatar that can move. Both are now where you can't miss them — a Text → 3D link sits in the header on every page, both paths lead the Build menu, the homepage opens with a live try-it CTA, the /create picker highlights the prompt path, and the agent-creation wizard's body step links straight to it.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
 			"title": "Cosmetics shop purchases now work",
 			"summary": "Buying a premium skin or emote in the /play Cosmetics shop actually opens the payment flow now. Previously the Buy buttons failed because the in-world shop never loaded the payment widget — now it loads on demand the moment you tap Buy, the USDC checkout opens with the item priced by rarity, and a sale made inside a coin's world still credits that coin's creator. Pay once on Base or Solana and the item is yours forever.",
 			"tags": [
@@ -1154,6 +1163,15 @@
 				"improvement"
 			],
 			"link": "/app?agent=67bf6e67-93bb-40c6-9a6b-91e921696248"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Text to 3D is live — type a prompt, get a model",
+			"summary": "Forge's headline flow now works end to end in production: describe an object in a sentence, pick an engine, and download a textured GLB you can open in Scene Studio, embed on any site, wear in a world, or deploy on-chain. The same composer takes photos and sketches too, and the engine picker shows live health so you always start on an engine that's actually up. Text to 3D is now front and center across the site — on the homepage, in the Build menu, and on the sitemap.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
 		}
 	]
 }
