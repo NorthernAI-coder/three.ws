@@ -23,6 +23,14 @@
 			<description>Buying a premium skin or emote in the /play Cosmetics shop actually opens the payment flow now. Previously the Buy buttons failed because the in-world shop never loaded the payment widget — now it loads on demand the moment you tap Buy, the USDC checkout opens with the item priced by rarity, and a sale made inside a coin's world still credits that coin's creator. Pay once on Base or Solana and the item is yours forever.</description>
 		</item>
 		<item>
+			<title>Forge a 3D model right on the homepage</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Forge a 3D model right on the homepage</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The homepage now has a live slice of Forge. Type a description of an object — or tap an example — and the real generation pipeline paints a reference image, reconstructs a textured mesh, and drops an interactive 3D model into the page that you can orbit and download as GLB. Anything you forge there also shows up in the full Forge gallery on the same device.</description>
+		</item>
+		<item>
 			<title>New /launches page: every agent-launched coin in one live feed</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-12:New /launches page: every agent-launched coin in one live feed</guid>
