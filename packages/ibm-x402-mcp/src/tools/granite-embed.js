@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { paid, toolError } from '../payments.js';
-import { jsonSchemaFromZod } from './_shared.js';
+import { jsonSchemaFromZod, deterministicAnnotations } from './_shared.js';
 import { WatsonxError } from '../watsonx.js';
 
 const TOOL_NAME = 'ibm_granite_embed';
@@ -67,6 +67,7 @@ export async function buildGraniteEmbedTool(client) {
 		name: TOOL_NAME,
 		title: 'IBM Granite Embed ($0.005)',
 		description: TOOL_DESCRIPTION,
+		annotations: deterministicAnnotations,
 		inputSchema: inputZodShape,
 		handler,
 	};

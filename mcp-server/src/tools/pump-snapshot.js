@@ -250,6 +250,13 @@ export async function buildPumpSnapshotTool() {
 		title: 'Pump.fun snapshot ($0.005)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only live market snapshot — price/holders move between calls,
+		// so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

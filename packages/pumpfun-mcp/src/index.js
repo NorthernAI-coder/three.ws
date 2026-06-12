@@ -16,16 +16,20 @@
 // Run standalone:    npx @three-ws/pumpfun-mcp
 // Inspect:           npx -y @modelcontextprotocol/inspector npx @three-ws/pumpfun-mcp
 
+import { createRequire } from 'node:module';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 
-import { FALLBACK_TOOLS } from './tools.js';
+import { FALLBACK_TOOLS, TOOL_ANNOTATIONS } from './tools.js';
 import { buildNativeRegistry } from './native.js';
+
+const require = createRequire(import.meta.url);
+const { version: SERVER_VERSION } = require('../package.json');
 
 const BACKEND_URL = process.env.PUMPFUN_MCP_URL || 'https://three.ws/api/pump-fun-mcp';
 const SERVER_NAME = 'three.ws-pumpfun-mcp';
-const SERVER_VERSION = '0.1.0';
 
 // A monotonically increasing JSON-RPC id for backend calls. Local to this
 // process; the backend is stateless so any unique id works.
@@ -82,10 +86,24 @@ async function callTool(name, args) {
 	return env?.result?.structuredContent ?? null;
 }
 
+// Overlay the vendored title + ToolAnnotations onto a tool definition loaded
+// from the backend. An up-to-date backend already ships both (its values win);
+// an older deployed backend gets them filled in locally so clients always see
+// read-only/idempotency hints.
+function withLocalAnnotations(tool) {
+	const local = TOOL_ANNOTATIONS[tool?.name];
+	if (!local) return tool;
+	return {
+		...tool,
+		title: tool.title ?? local.title,
+		annotations: tool.annotations ?? local,
+	};
+}
+
 async function main() {
 	const backendTools = await loadTools();
 	const native = buildNativeRegistry(BACKEND_URL, callTool);
-	const tools = [...backendTools, ...native.defs];
+	const tools = [...backendTools.map(withLocalAnnotations), ...native.defs];
 
 	const server = new Server(
 		{ name: SERVER_NAME, version: SERVER_VERSION },

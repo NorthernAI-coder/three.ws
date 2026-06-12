@@ -19,6 +19,7 @@
 // MCP_SVM_PAYMENT_ADDRESS (enforced lazily inside `paid()`). The stdio boot in
 // `main()` runs only when this file is the process entry point.
 
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -57,9 +58,14 @@ const SERVER_INSTRUCTIONS =
 	'intelligence — narrative intel feed and momentum-ranked project scans ' +
 	'(aixbt_intel, aixbt_projects).';
 
+// The advertised MCP server version comes straight from package.json so it
+// can never drift from the published npm version.
+const { version: PKG_VERSION } = createRequire(import.meta.url)('../package.json');
+
 // Every tool builder. Each returns a descriptor
-// { name, title, description, inputSchema (Zod shape), handler }. None of these
-// require payment env — the env requirement is deferred to the first paid call.
+// { name, title, description, inputSchema (Zod shape), annotations, handler }.
+// None of these require payment env — the env requirement is deferred to the
+// first paid call.
 const TOOL_BUILDERS = [
 	buildTextToAvatarTool,
 	buildMeshForgeTool,
@@ -82,7 +88,7 @@ const TOOL_BUILDERS = [
  * Build every tool descriptor. Side-effect-free w.r.t. payment env and the
  * stdio transport — safe to call from tests to enumerate the tool surface.
  *
- * @returns {Promise<Array<{name:string,title:string,description:string,inputSchema:object,handler:Function}>>}
+ * @returns {Promise<Array<{name:string,title:string,description:string,inputSchema:object,annotations:object,handler:Function}>>}
  */
 export async function buildTools() {
 	return Promise.all(TOOL_BUILDERS.map((build) => build()));
@@ -99,8 +105,11 @@ export async function buildTools() {
 export async function buildServer() {
 	const server = new McpServer(
 		{
+			// Stable MCP identity — matches the bin name and the registry
+			// mcpName suffix (io.github.nirholas/3d-agent-mcp). Deliberately
+			// NOT derived from the scoped npm package name.
 			name: '3d-agent-mcp',
-			version: '1.0.0',
+			version: PKG_VERSION,
 		},
 		{
 			// Declare full tools capability so clients on the strict MCP 2025-06-18
@@ -122,6 +131,11 @@ export async function buildServer() {
 				title: t.title,
 				description: t.description,
 				inputSchema: t.inputSchema,
+				// MCP ToolAnnotations (readOnlyHint / destructiveHint /
+				// idempotentHint / openWorldHint) — lets clients gate
+				// confirmation prompts per tool instead of treating every call
+				// as a destructive write.
+				annotations: t.annotations,
 			},
 			t.handler,
 		);

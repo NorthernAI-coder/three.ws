@@ -6,7 +6,14 @@
 // like watsonx Orchestrate that aren't x402-capable — can call it to learn what
 // the server offers, what each tool costs, and how the payment flow works.
 
+import { createRequire } from 'node:module';
+
 import { z } from 'zod';
+
+// Read the package version once so the payload can never drift from the
+// published package version.
+const require = createRequire(import.meta.url);
+const PACKAGE_VERSION = require('../../package.json').version;
 
 const TOOL_NAME = 'ibm_granite_getting_started';
 const TOOL_DESCRIPTION =
@@ -93,7 +100,7 @@ function buildPayload(section) {
 	const full = {
 		ok: true,
 		server: 'ibm-x402-mcp',
-		version: '1.0.0',
+		version: PACKAGE_VERSION,
 		overview,
 		tools: TOOLS,
 		pricing: TOOLS.map((t) => `${t.name}: ${t.price}/call`),
@@ -164,6 +171,13 @@ export function buildGettingStartedTool() {
 		name: TOOL_NAME,
 		title: 'Getting Started (free)',
 		description: TOOL_DESCRIPTION,
+		// Static catalog content: read-only, fully deterministic, and answered
+		// in-process — no external systems are contacted (closed world).
+		annotations: {
+			readOnlyHint: true,
+			openWorldHint: false,
+			idempotentHint: true,
+		},
 		inputSchema,
 		handler,
 	};

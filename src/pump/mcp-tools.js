@@ -3,6 +3,71 @@
 // Cloudflare Workers mirror (workers/pump-fun-mcp/worker.js).
 // No imports — pure data and pure helpers only.
 
+// ── MCP ToolAnnotations (spec: readOnlyHint/destructiveHint/idempotentHint/
+// openWorldHint). Every tool on this surface is read-only — nothing signs or
+// sends a transaction. destructiveHint defaults to TRUE in the spec when
+// omitted, so it is set explicitly everywhere.
+//
+//  LIVE_READ           live-market / on-chain read: same call can return new
+//                      data, talks to external systems.
+//  DETERMINISTIC_READ  external read whose answer is stable for the same args
+//                      (name-service lookups).
+//  LOCAL_DETERMINISTIC pure in-process computation, stable output (lexicon
+//                      sentiment scoring).
+//  LOCAL_GENERATIVE    pure in-process computation, fresh output each call
+//                      (vanity keypair grind).
+const LIVE_READ = Object.freeze({
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: true,
+});
+const DETERMINISTIC_READ = Object.freeze({
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: true,
+	openWorldHint: true,
+});
+const LOCAL_DETERMINISTIC = Object.freeze({
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: true,
+	openWorldHint: false,
+});
+const LOCAL_GENERATIVE = Object.freeze({
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: false,
+});
+
+// name → { title, ...ToolAnnotations }. Applied onto TOOLS below; exported so
+// runtimes (and the npm bridge) can overlay the same map on older tool lists.
+export const TOOL_ANNOTATIONS = Object.freeze({
+	searchTokens: { title: 'Search Tokens', ...LIVE_READ },
+	getTokenDetails: { title: 'Token Details', ...LIVE_READ },
+	getBondingCurve: { title: 'Bonding Curve', ...LIVE_READ },
+	getTokenTrades: { title: 'Token Trades', ...LIVE_READ },
+	getTrendingTokens: { title: 'Trending Tokens', ...LIVE_READ },
+	getNewTokens: { title: 'New Tokens', ...LIVE_READ },
+	getGraduatedTokens: { title: 'Graduated Tokens', ...LIVE_READ },
+	getKingOfTheHill: { title: 'King of the Hill', ...LIVE_READ },
+	kol_radar: { title: 'KOL Radar', ...LIVE_READ },
+	getCreatorProfile: { title: 'Creator Profile', ...LIVE_READ },
+	getTokenHolders: { title: 'Token Holders', ...LIVE_READ },
+	pumpfun_vanity_mint: { title: 'Vanity Mint Keypair', ...LOCAL_GENERATIVE },
+	pumpfun_watch_whales: { title: 'Watch Whale Trades', ...LIVE_READ },
+	pumpfun_list_claims: { title: 'List Creator Fee Claims', ...LIVE_READ },
+	pumpfun_watch_claims: { title: 'Watch Creator Fee Claims', ...LIVE_READ },
+	pumpfun_first_claims: { title: 'First Creator Fee Claims', ...LIVE_READ },
+	sns_resolve: { title: 'Resolve .sol Domain', ...DETERMINISTIC_READ },
+	sns_reverseLookup: { title: 'Reverse .sol Lookup', ...DETERMINISTIC_READ },
+	social_cashtag_sentiment: { title: 'Cashtag Sentiment', ...LOCAL_DETERMINISTIC },
+	kol_leaderboard: { title: 'KOL Leaderboard', ...LIVE_READ },
+	pumpfun_quote_swap: { title: 'Swap Quote (Read-Only)', ...LIVE_READ },
+	social_x_post_impact: { title: 'X Post Price Impact', ...LIVE_READ },
+});
+
 export const TOOLS = [
 	{
 		name: 'searchTokens',
@@ -292,6 +357,17 @@ export const TOOLS = [
 		},
 	},
 ];
+
+// Stamp title + annotations onto every tool from the map above. A tool added
+// to TOOLS without a TOOL_ANNOTATIONS entry would ship un-annotated — the
+// parity tests assert full coverage so that can't land silently.
+for (const tool of TOOLS) {
+	const annotations = TOOL_ANNOTATIONS[tool.name];
+	if (annotations) {
+		tool.title = annotations.title;
+		tool.annotations = annotations;
+	}
+}
 
 export function rpcError(code, message) {
 	const err = new Error(message);

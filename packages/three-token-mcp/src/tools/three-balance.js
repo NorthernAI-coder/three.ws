@@ -9,6 +9,8 @@ import { resolveMint } from '../lib/token.js';
 export const def = {
 	name: 'three_balance',
 	title: "Read a wallet's $THREE + SOL balance",
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Return the $THREE and SOL balance for a Solana pubkey. If no pubkey is given, uses the configured signer (SOLANA_SECRET_KEY). Read-only — no payment.',
 	inputSchema: {

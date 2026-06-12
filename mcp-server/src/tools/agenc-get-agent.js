@@ -133,6 +133,13 @@ export async function buildAgenCGetAgentTool() {
 		title: 'AgenC get agent ($0.001)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only on-chain registry lookup — agent stats (tasks, reputation)
+		// change between calls, so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

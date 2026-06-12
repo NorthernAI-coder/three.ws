@@ -14,6 +14,7 @@
 // Inspect tools:
 //   npx -y @modelcontextprotocol/inspector npx @three-ws/ibm-x402-mcp
 
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -27,6 +28,11 @@ import { buildGraniteEmbedTool } from './tools/granite-embed.js';
 import { buildGraniteAnalyzeTool } from './tools/granite-analyze.js';
 import { buildGraniteForecastTool } from './tools/granite-forecast.js';
 import { buildGettingStartedTool } from './tools/getting-started.js';
+
+// Single source of truth for the version — read from package.json so the MCP
+// server identity can never drift from the published package version.
+const require = createRequire(import.meta.url);
+const SERVER_VERSION = require('../package.json').version;
 
 const SERVER_INSTRUCTIONS =
 	'x402 pay-per-use IBM Granite AI tools from three.ws. Each tool lists its USDC price. ' +
@@ -47,7 +53,7 @@ const SERVER_INSTRUCTIONS =
  */
 export async function buildServer(client) {
 	const server = new McpServer(
-		{ name: 'ibm-x402-mcp', version: '1.0.0' },
+		{ name: 'ibm-x402-mcp', version: SERVER_VERSION },
 		{
 			capabilities: { tools: { listChanged: false } },
 			instructions: SERVER_INSTRUCTIONS,
@@ -66,7 +72,12 @@ export async function buildServer(client) {
 	for (const t of tools) {
 		server.registerTool(
 			t.name,
-			{ title: t.title, description: t.description, inputSchema: t.inputSchema },
+			{
+				title: t.title,
+				description: t.description,
+				inputSchema: t.inputSchema,
+				annotations: t.annotations,
+			},
 			t.handler,
 		);
 	}

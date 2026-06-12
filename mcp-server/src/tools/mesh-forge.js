@@ -366,6 +366,14 @@ export async function buildMeshForgeTool() {
 		title: 'Text → 3D mesh ($0.25)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Creates a hosted mesh artifact via external generation APIs; destroys
+		// nothing, and every call mints a fresh asset.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

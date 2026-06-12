@@ -92,6 +92,8 @@ function transform(v, m) {
 export const def = {
 	name: 'inspect_glb',
 	title: 'Inspect a GLB / glTF 3D model',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 	description:
 		'Fetch any GLB URL (or data: URL) and return a full structural breakdown: meshes, primitives, materials, textures, animations, skins, vertex + triangle counts, world-space bounding box, and file size. Pure local parse via @gltf-transform/core — no third-party services.',
 	inputSchema: {

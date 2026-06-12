@@ -98,6 +98,13 @@ export async function buildAgenCListTasksTool() {
 		title: 'AgenC list tasks ($0.001)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only on-chain program scan — the task set changes as agents
+		// post/claim work, so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

@@ -8,6 +8,8 @@ import { fetchTokenPrice } from '../lib/token.js';
 export const def = {
 	name: 'three_price',
 	title: 'Live $THREE price (Jupiter) + USD→$THREE quote',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Return the live USD price of $THREE (Jupiter primary, Birdeye fallback). Pass `usd` to also get how much $THREE that amount buys (token amount + atomic units). Read-only — no signer or payment required.',
 	inputSchema: {

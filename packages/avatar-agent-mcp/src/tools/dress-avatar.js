@@ -9,6 +9,8 @@ import { ACCESSORIES, POSE_PRESETS, findAccessory, getSession, updateSession, vi
 export const def = {
 	name: 'dress_avatar',
 	title: 'Apply accessories + pose to a spawned avatar',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 	description:
 		'Apply (or replace) accessories on a spawned avatar session and optionally set a pose. Pass accessoryIds to set the full accessory list (empty array clears them). Pass pose to switch animations. Returns the updated viewer URL.',
 	inputSchema: {

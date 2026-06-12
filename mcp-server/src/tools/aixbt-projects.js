@@ -104,6 +104,13 @@ export async function buildAixbtProjectsTool() {
 		title: 'aixbt projects ($0.01)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only live momentum rankings — scores shift continuously, so not
+		// idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

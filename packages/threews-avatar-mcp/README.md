@@ -1,5 +1,9 @@
 # @three-ws/avatar-mcp
 
+[![npm version](https://img.shields.io/npm/v/%40three-ws%2Favatar-mcp)](https://www.npmjs.com/package/@three-ws/avatar-mcp)
+[![license](https://img.shields.io/npm/l/%40three-ws%2Favatar-mcp)](./LICENSE)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.nirholas%2Fthreews--avatar-blue)](https://registry.modelcontextprotocol.io/?q=io.github.nirholas)
+
 An [MCP](https://modelcontextprotocol.io) server that drops a **live three.ws 3D avatar** into any MCP client — Claude Desktop, Claude Code, Cursor, or any other host. Render a rotatable avatar inline, get a paste-anywhere embed iframe, or fetch avatar metadata.
 
 It's a thin, **zero-config, read-only** bridge to the real three.ws endpoints. Public and unlisted avatars need **no API key**. No mock data — every tool reads live from three.ws.
@@ -14,13 +18,23 @@ It's a thin, **zero-config, read-only** bridge to the real three.ws endpoints. P
 | `avatar_embed_code` | A ready-to-paste `<iframe>` that embeds the live avatar anywhere — as easy as a YouTube embed. |
 | `get_avatar` | Avatar metadata: name, GLB model url, owner, visibility. |
 
-### Interactive 3D in the chat (MCP Apps)
+All three tools are read-only and annotated as such (`readOnlyHint`, `idempotentHint`, `openWorldHint`) so hosts can run them without confirmation prompts.
 
-`render_avatar` is an [MCP App](https://modelcontextprotocol.io/extensions/apps/overview) (SEP-1865): it declares a `ui://` resource that supporting hosts render in a sandboxed iframe — a real, orbit-and-zoom `<model-viewer>`, not a static image. Hosts without MCP Apps support still get a rendered preview image and a one-tap live embed, so the tool degrades gracefully everywhere.
+### Interactive 3D in the chat (MCP Apps) — the differentiator
+
+`render_avatar` is an [MCP App](https://modelcontextprotocol.io/extensions/apps/overview) (SEP-1865): it declares a `ui://` resource that supporting hosts render in a sandboxed iframe — a real, orbit-and-zoom `<model-viewer>`, not a static image. The avatar is **live in the conversation**: rotate it, zoom it, watch it idle, all without leaving the chat. Hosts without MCP Apps support still get a rendered preview image and a one-tap live embed, so the tool degrades gracefully everywhere.
 
 Identify an avatar three ways: by **`id`** (UUID), by **`@handle`** (username), or by a raw **`model`** GLB url.
 
 ## Use with Claude Desktop / Claude Code / Cursor
+
+Claude Code, one line:
+
+```bash
+claude mcp add threews-avatar -- npx -y @three-ws/avatar-mcp
+```
+
+Claude Desktop / Cursor (JSON config):
 
 ```json
 {

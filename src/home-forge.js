@@ -338,6 +338,10 @@ function downloadName(prompt) {
 function showResult(glbUrl, prompt, { fromHistory = false } = {}) {
 	stopElapsed();
 	currentGlbUrl = glbUrl;
+	// Reloading from the history rail can happen before any forge this session,
+	// so the viewer library may not be registered yet. The element upgrades
+	// retroactively once the script lands — fire the load and let it catch up.
+	ensureModelViewer().catch(() => {});
 	const viewer = document.createElement('model-viewer');
 	viewer.setAttribute('src', glbUrl);
 	viewer.setAttribute('alt', prompt ? `3D model: ${prompt}` : '3D model');

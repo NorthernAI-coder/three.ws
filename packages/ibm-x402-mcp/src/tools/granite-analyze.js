@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { paid, toolError } from '../payments.js';
-import { jsonSchemaFromZod } from './_shared.js';
+import { jsonSchemaFromZod, generativeAnnotations } from './_shared.js';
 import { WatsonxError } from '../watsonx.js';
 
 const TOOL_NAME = 'ibm_granite_analyze';
@@ -164,6 +164,7 @@ export async function buildGraniteAnalyzeTool(client) {
 		name: TOOL_NAME,
 		title: 'IBM Granite Analyze ($0.04)',
 		description: TOOL_DESCRIPTION,
+		annotations: generativeAnnotations,
 		inputSchema: inputZodShape,
 		handler,
 	};

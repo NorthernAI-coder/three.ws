@@ -127,6 +127,16 @@ export const NATIVE_TOOLS = [
 	{
 		def: {
 			name: 'pumpfun_token_3d',
+			title: 'Token 3D Snapshot',
+			annotations: {
+				// Composes live on-chain reads (metadata, curve, holders) — a
+				// read-only, non-idempotent, open-world tool like its sources.
+				title: 'Token 3D Snapshot',
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 			description:
 				'Live 3D snapshot of a pump.fun / Solana token. Composes on-chain token metadata, bonding-curve graduation progress, and top-holder distribution, and returns a shareable three.ws /coin3d viewer deep-link (a spinning coin medallion textured with the token logo, a holder galaxy, and a graduation ring) plus an embeddable iframe and the underlying data. Read-only, free.',
 			inputSchema: {

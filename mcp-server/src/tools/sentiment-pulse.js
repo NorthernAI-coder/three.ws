@@ -106,6 +106,13 @@ export async function buildSentimentPulseTool() {
 		title: 'Sentiment pulse ($0.003)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only live market feed — re-calls with the same args return
+		// fresh data, so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

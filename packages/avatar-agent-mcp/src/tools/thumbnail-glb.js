@@ -15,6 +15,8 @@ import { renderGlbThumbnail } from '../lib/render.js';
 export const def = {
 	name: 'thumbnail_glb',
 	title: 'Render a GLB to a PNG thumbnail',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 	description:
 		'Render any public GLB URL to a PNG via three.ws\'s hosted three-light rig + auto-framing camera. Returns the PNG inline as a base64 data URL (≤ ~4 MB) plus dimensions. Background defaults to #0a0a0a — pass "transparent" for compositing.',
 	inputSchema: {
