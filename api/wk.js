@@ -629,6 +629,10 @@ async function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Crypto Intel',
 			tags: ['crypto', 'market', 'signal', 'agent-exchange', 'solana'],
 		}),
+		threeIntel: withService({
+			serviceName: '$THREE Town Oracle',
+			tags: ['three', 'market', 'signal', 'play', 'solana'],
+		}),
 		avatarShop: withService({
 			serviceName: 'three.ws Avatar Shop',
 			tags: ['3d', 'avatar', 'cosmetic', 'shop', 'wearable'],
@@ -1408,6 +1412,28 @@ async function handleX402Discovery(req, res) {
 									},
 								},
 							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/three-intel`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/three-intel',
+						url,
+						method: 'GET',
+						description:
+							'$THREE Town Oracle — pay $0.01 USDC per call for live $THREE market intel: price, 24 h change, market cap, liquidity, 24 h volume, and a bullish / bearish / neutral signal with a two-sentence rationale. Powered by live DexScreener data. This is the oracle behind the paid intel kiosk in the $THREE town on three.ws/play.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.threeIntel.serviceName,
+						tags: routeMeta.threeIntel.tags,
+						iconUrl: routeMeta.threeIntel.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: {},
+							inputSchema: { type: 'object', properties: {} },
 						}),
 					};
 				})(),

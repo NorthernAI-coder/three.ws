@@ -266,17 +266,23 @@ A curated gallery of three.ws's most powerful — and most hidden — features. 
 
 On-chain features: pay-per-call, token launches, vanity wallets.
 
+### Agent Launches
+
+URL: https://three.ws/launches
+
+Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
+
 ### Pay (x402)
 
 URL: https://three.ws/pay
 
 Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.
 
-### Agent Wallet (MetaMask × x402)
+### Agent Wallet (x402 on Solana)
 
 URL: https://three.ws/play/agent-wallet
 
-Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.
+Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.
 
 ### Pump.fun Stream
 

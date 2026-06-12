@@ -236,6 +236,7 @@ export class CommunityUI {
 				['/three-live', '$THREE Live', 'Protocol pulse — live trades in 3D', 'New'],
 				['/pump-visualizer', 'Pump Visualizer', '3D view of trending tokens'],
 				['/club', 'Pole Club', 'x402 micro-tip demo — $0.001 / dance', 'New'],
+				['/play/agent-wallet', 'Agent Wallet', 'Your avatar pays an endpoint — USDC on Solana', 'New'],
 			], true],
 		];
 

@@ -95,6 +95,103 @@ function pill(text, accent = '') {
 	return el('span', { class: `ad-pill ${accent ? `ad-pill-${accent}` : ''}`, text });
 }
 
+// ── Launch history ───────────────────────────────────────────────────────────
+// Every coin this agent has launched through the platform, newest first, from
+// GET /api/pump/by-agent (pump_agent_mints registry). Live market caps stream
+// in per row from /api/pump/coin. Links into the public /launches feed.
+
+function launchTimeAgo(iso) {
+	const t = new Date(iso).getTime();
+	if (!Number.isFinite(t)) return '';
+	const s = Math.max(0, (Date.now() - t) / 1000);
+	if (s < 3600) return `${Math.max(1, Math.floor(s / 60))}m ago`;
+	if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+	if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`;
+	return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function launchUsdCompact(n) {
+	if (!Number.isFinite(n)) return '';
+	if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+	if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+	if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+	return `$${n.toFixed(0)}`;
+}
+
+async function renderLaunchHistory(container, agent) {
+	if (!agent.id) return;
+	let coins = [];
+	try {
+		const r = await fetch(`/api/pump/by-agent?agent_id=${encodeURIComponent(agent.id)}`);
+		if (!r.ok) return;
+		const body = await r.json();
+		coins = Array.isArray(body.coins) ? body.coins : [];
+	} catch {
+		return; // history is supplementary — the primary token chip still renders
+	}
+	if (!coins.length) return;
+
+	// A single launch that is already shown as the agent token chip above would
+	// be pure duplication — just add the public-feed link in that case.
+	const onlyDuplicatesChip =
+		coins.length === 1 && agent.token && coins[0].mint === agent.token.mint;
+
+	container.classList.remove('ad-muted');
+	if (container.textContent === 'No agent token linked for this agent yet.') {
+		container.textContent = '';
+	}
+
+	const box = el('div', { class: 'ad-launch-history' });
+
+	if (!onlyDuplicatesChip) {
+		box.appendChild(
+			el('div', { class: 'ad-launch-history-head', text: `Launched coins (${coins.length})` }),
+		);
+		for (const coin of coins) {
+			const isDevnet = coin.network === 'devnet';
+			const href = isDevnet
+				? `https://explorer.solana.com/address/${coin.mint}?cluster=devnet`
+				: `https://pump.fun/${coin.mint}`;
+			const mcapEl = el('span', { class: 'ad-launch-mcap' });
+			const row = el(
+				'a',
+				{
+					class: 'ad-launch-row',
+					href,
+					target: '_blank',
+					rel: 'noopener noreferrer',
+					'aria-label': `${coin.symbol || coin.name || 'coin'} on ${isDevnet ? 'Solana Explorer' : 'pump.fun'}`,
+				},
+				[
+					el('span', { class: 'ad-launch-symbol', text: coin.symbol ? `$${coin.symbol}` : coin.name || '—' }),
+					el('span', { class: 'ad-mono ad-launch-mint', text: shortAddr(coin.mint) }),
+					mcapEl,
+					el('span', { class: 'ad-launch-time', text: launchTimeAgo(coin.created_at) }),
+				],
+			);
+			box.appendChild(row);
+			if (!isDevnet) {
+				fetch(`/api/pump/coin?mint=${encodeURIComponent(coin.mint)}`)
+					.then((r) => (r.ok ? r.json() : null))
+					.then((c) => {
+						const cap = Number(c?.usd_market_cap);
+						if (Number.isFinite(cap)) mcapEl.textContent = launchUsdCompact(cap);
+					})
+					.catch(() => {});
+			}
+		}
+	}
+
+	box.appendChild(
+		el('a', {
+			class: 'ad-launch-feed-link',
+			href: `/launches?agent_id=${encodeURIComponent(agent.id)}`,
+			text: 'View in the public launch feed →',
+		}),
+	);
+	container.appendChild(box);
+}
+
 // ── Holder cohorts panel ─────────────────────────────────────────────────────
 // Renders the live holder segmentation for an agent token from
 // GET /api/coin/:mint/cohorts. Self-manages loading / empty / error / populated
@@ -388,6 +485,10 @@ function render(agent) {
 		});
 		$('ad-token-body').appendChild(launchBtn);
 	}
+
+	// Full launch history from the pump_agent_mints registry — fire-and-forget;
+	// renders nothing extra when the agent has no launches beyond the chip above.
+	renderLaunchHistory($('ad-token-body'), agent);
 
 	$('ad-rewards').textContent = String(agent.creatorRewards ?? 0);
 

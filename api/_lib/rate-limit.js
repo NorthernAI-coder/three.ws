@@ -199,6 +199,10 @@ export const limits = {
 	cohortsIp: (ip) => getLimiter('cohorts:ip', { limit: 45, window: '5 m' }).limit(ip),
 	oauthRegisterIp: (ip) =>
 		getLimiter('oauth:register:ip', { limit: 10, window: '1 h' }).limit(ip),
+	// zauth RepoScan pass-through (api/zauth-reposcan). Each POST forwards to
+	// zauth's paid x402 endpoint and each GET polls a scan session; cap per IP
+	// so one caller can't use the proxy as a relay to hammer their upstream.
+	zauthScanIp: (ip) => getLimiter('zauthscan:ip', { limit: 30, window: '1 m' }).limit(ip),
 	// aixbt intelligence bridge (api/aixbt/*). Each call may fall through to the
 	// upstream aixbt REST API, which is rate-limited per key — cap per IP so one
 	// caller can't drain the shared key's budget. Reads are cached, so this is

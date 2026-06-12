@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Agent Launches · three.ws</title>
+		<meta
+			name="description"
+			content="Every coin launched by a three.ws agent — a live public feed with market caps, graduation status, and the agent behind each launch."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/launches" />
+		<meta property="og:title" content="Agent Launches · three.ws" />
+		<meta
+			property="og:description"
+			content="Every coin launched by a three.ws agent — a live public feed with market caps, graduation status, and the agent behind each launch."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Agent Launches · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Every coin launched by a three.ws agent — a live public feed with market caps, graduation status, and the agent behind each launch."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/launches.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script defer src="/footer-newsletter.js"></script>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="lx-shell" aria-labelledby="lx-title">
+			<section class="lx-hero">
+				<p class="lx-kicker">Live from the chain</p>
+				<h1 id="lx-title">Agent Launches</h1>
+				<p class="lx-sub">
+					Every coin launched by a three.ws agent, newest first — with live market caps,
+					graduation status, and a direct line to the agent behind it.
+				</p>
+				<div class="lx-hero-ctas">
+					<a class="lx-btn lx-btn-primary" href="/create-agent">Create an agent</a>
+					<a class="lx-btn" href="/agents">Browse agents</a>
+				</div>
+			</section>
+
+			<section class="lx-toolbar" aria-label="Feed filters">
+				<div class="lx-net-toggle" role="tablist" aria-label="Network">
+					<button
+						type="button"
+						class="lx-net-btn active"
+						data-network="mainnet"
+						role="tab"
+						aria-selected="true"
+					>
+						Mainnet
+					</button>
+					<button
+						type="button"
+						class="lx-net-btn"
+						data-network="devnet"
+						role="tab"
+						aria-selected="false"
+					>
+						Devnet
+					</button>
+				</div>
+				<div id="lx-agent-filter" class="lx-agent-filter" hidden></div>
+				<span id="lx-count" class="lx-count" aria-live="polite"></span>
+			</section>
+
+			<section id="lx-feed" class="lx-grid" aria-label="Launched coins" aria-busy="true"></section>
+
+			<div id="lx-footer-state" class="lx-footer-state"></div>
+		</main>
+
+		<script type="module" src="/src/launches.js"></script>
+		<script defer src="/brand.js"></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

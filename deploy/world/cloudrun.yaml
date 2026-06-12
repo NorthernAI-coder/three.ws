@@ -1,7 +1,17 @@
 # Cloud Run service — world.three.ws (Hyperfy multiplayer world)
 #
+# One-time: create the admin-code secret and let the service account read it.
+# Without ADMIN_CODE, Hyperfy gives EVERY visitor admin/build rights — anyone
+# can delete the ground or fill the world with broken GLBs.
+#   printf '%s' "<code>" | gcloud secrets create hyperfy-admin-code --data-file=-
+#   gcloud secrets add-iam-policy-binding hyperfy-admin-code \
+#     --member=serviceAccount:hyperfy-world-sa@aerial-vehicle-466722-p5.iam.gserviceaccount.com \
+#     --role=roles/secretmanager.secretAccessor
+#
 # Apply with:
 #   gcloud run services replace deploy/world/cloudrun.yaml --region=us-central1
+#
+# In-world, an admin claims build rights with the chat command: /admin <code>
 #
 # After deploy, map the custom domain:
 #   gcloud run domain-mappings create --service=hyperfy-world \
@@ -58,8 +68,10 @@ spec:
             # Save world state to disk every 30 seconds.
             - name: SAVE_INTERVAL
               value: "30000"
+            # Megabytes. Enforced client-side by Hyperfy and server-side on
+            # /api/upload via patches/0001-upload-limit-from-env.patch.
             - name: PUBLIC_MAX_UPLOAD_SIZE
-              value: "100"
+              value: "16"
             # Store assets locally (in the world dir, served via PUBLIC_API_URL).
             - name: ASSETS
               value: local
@@ -69,6 +81,13 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: hyperfy-jwt-secret
+                  key: latest
+            # Gates building: with this set, visitors join as rank VISITOR and
+            # cannot add/move/delete world content; admins unlock via /admin.
+            - name: ADMIN_CODE
+              valueFrom:
+                secretKeyRef:
+                  name: hyperfy-admin-code
                   key: latest
           resources:
             limits:

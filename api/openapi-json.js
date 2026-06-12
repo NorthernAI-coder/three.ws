@@ -643,6 +643,25 @@ export default wrap(async (req, res) => {
 						},
 					},
 				},
+				'/api/x402/three-intel': {
+					get: {
+						operationId: 'x402_three_intel',
+						summary: 'Paid: Live $THREE market intel from the Town Oracle',
+						description:
+							'Pay $0.01 USDC for live $THREE market intel: price, 24 h change, market cap, ' +
+							'liquidity, 24 h volume, and a bullish / bearish / neutral signal with a ' +
+							'two-sentence rationale. Powered by live DexScreener data — the same oracle ' +
+							'behind the paid intel kiosk in the $THREE town on three.ws/play.',
+						responses: {
+							200: { description: '$THREE market intel JSON' },
+							402: { description: 'Payment Required (x402)' },
+						},
+						'x-payment-info': {
+							price: { mode: 'fixed', currency: 'USD', amount: '0.01' },
+							protocols: X402_PROTOCOLS,
+						},
+					},
+				},
 				'/api/x402/dance-tip': {
 					get: {
 						operationId: 'x402_dance_tip',
