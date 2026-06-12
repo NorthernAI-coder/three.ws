@@ -1079,6 +1079,15 @@
 				"security",
 				"infra"
 			]
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Forge a 3D model right on the homepage",
+			"summary": "The homepage now has a live slice of Forge. Type a description of an object — or tap an example — and the real generation pipeline paints a reference image, reconstructs a textured mesh, and drops an interactive 3D model into the page that you can orbit and download as GLB. Anything you forge there also shows up in the full Forge gallery on the same device.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
 		}
 	]
 }
