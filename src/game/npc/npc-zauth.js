@@ -255,7 +255,9 @@ function startPolling(scan) {
 					`zauth scan complete — ${scan.repo} scored ${scan.score}/100`,
 					scan.score >= 50 ? 'success' : 'warn',
 				);
-				scan.npc?.say?.(`Report's in: ${scan.repo} scores ${scan.score}/100. ${scoreTone(scan.score).label}.`);
+				if (!scan.npc?._disposed) {
+					scan.npc?.say?.(`Report's in: ${scan.repo} scores ${scan.score}/100. ${scoreTone(scan.score).label}.`);
+				}
 				openPanel?.render?.();
 				return;
 			}
