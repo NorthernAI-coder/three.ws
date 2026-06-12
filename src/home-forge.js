@@ -9,9 +9,11 @@
 // The only timer is the honest elapsed counter — progress states come from
 // real API responses.
 //
-// Creations are scoped to the same x-forge-client id as /forge (shared
-// localStorage key), so anything forged here appears in the full page's
-// "Your creations" gallery.
+// Presentation: the section is a single state-reactive "chamber" —
+// [data-hf-state] on the chamber root drives the ring/floor/telemetry CSS.
+// This module adds the typewriter suggestion (Tab accepts), pointer parallax
+// on the ambient layers, and the scanline + materialize reveal on results.
+// All motion respects prefers-reduced-motion.
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_MS = 5 * 60 * 1000;
@@ -21,18 +23,19 @@ const MODEL_VIEWER_SRC =
 const root = document.getElementById('home-forge');
 
 const els = root && {
+	chamber: root.querySelector('[data-hf-chamber]'),
 	form: root.querySelector('[data-hf-form]'),
 	prompt: root.querySelector('[data-hf-prompt]'),
 	generate: root.querySelector('[data-hf-generate]'),
 	generateLabel: root.querySelector('[data-hf-generate-label]'),
 	chips: root.querySelector('[data-hf-chips]'),
-	stage: root.querySelector('[data-hf-stage]'),
 	states: {
 		idle: root.querySelector('[data-hf-idle]'),
 		generating: root.querySelector('[data-hf-generating]'),
 		result: root.querySelector('[data-hf-result]'),
 		error: root.querySelector('[data-hf-error]'),
 	},
+	telState: root.querySelector('[data-hf-tel-state]'),
 	preview: root.querySelector('[data-hf-preview]'),
 	steps: {
 		mesh: root.querySelector('[data-hf-step="mesh"]'),
@@ -45,6 +48,8 @@ const els = root && {
 	again: root.querySelector('[data-hf-again]'),
 	errorMessage: root.querySelector('[data-hf-error-message]'),
 	retry: root.querySelector('[data-hf-retry]'),
+	viewerSlot: root.querySelector('[data-hf-viewer-slot]'),
+	scan: root.querySelector('[data-hf-scan]'),
 };
 
 // Same anonymous handle as src/forge.js — keep the storage key in sync so the
@@ -66,6 +71,9 @@ const CLIENT_ID = (() => {
 })();
 
 const CLIENT_HEADERS = { 'x-forge-client': CLIENT_ID };
+
+const REDUCED_MOTION =
+	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let busy = false;
 let pollAbort = false;
@@ -96,10 +104,16 @@ function ensureModelViewer() {
 	return modelViewerReady;
 }
 
+// Honest telemetry words for the HUD readout, keyed by state.
+const TEL_WORDS = { idle: 'standby', generating: 'forging', result: 'complete', error: 'error' };
+
 function showState(name) {
 	for (const [key, node] of Object.entries(els.states)) {
 		node.hidden = key !== name;
 	}
+	els.chamber.dataset.hfState = name;
+	els.telState.textContent = TEL_WORDS[name] || name;
+	if (name !== 'generating' && name !== 'result') els.elapsed.textContent = '';
 }
 
 function setStep(name, state) {
@@ -109,9 +123,9 @@ function setStep(name, state) {
 function startElapsed() {
 	const t0 = performance.now();
 	stopElapsed();
-	els.elapsed.textContent = 'Elapsed 0s';
+	els.elapsed.textContent = '0s';
 	elapsedTimer = setInterval(() => {
-		els.elapsed.textContent = `Elapsed ${Math.round((performance.now() - t0) / 1000)}s`;
+		els.elapsed.textContent = `${Math.round((performance.now() - t0) / 1000)}s`;
 	}, 1000);
 }
 
@@ -123,7 +137,7 @@ function stopElapsed() {
 function setBusy(b) {
 	busy = b;
 	els.generate.disabled = b;
-	els.generateLabel.textContent = b ? 'Forging…' : 'Forge it';
+	els.generateLabel.textContent = b ? 'Forging…' : 'Forge';
 }
 
 function showError(message) {
@@ -178,9 +192,8 @@ function showResult(glbUrl, prompt) {
 	viewer.setAttribute('rotation-per-second', '18deg');
 	viewer.setAttribute('shadow-intensity', '1');
 	viewer.setAttribute('interaction-prompt', 'none');
-	const slot = els.states.result.querySelector('[data-hf-viewer-slot]');
-	slot.innerHTML = '';
-	slot.appendChild(viewer);
+	els.viewerSlot.innerHTML = '';
+	els.viewerSlot.appendChild(viewer);
 	els.resultMeta.textContent = prompt;
 	els.download.href = glbUrl;
 	els.download.setAttribute(
@@ -188,6 +201,14 @@ function showResult(glbUrl, prompt) {
 		`${prompt.replace(/[^a-z0-9]+/gi, '-').slice(0, 48).replace(/^-|-$/g, '') || 'forge'}.glb`,
 	);
 	showState('result');
+	// Materialize: blur-in on the viewer + a one-shot scanline sweep.
+	if (!REDUCED_MOTION) {
+		els.viewerSlot.classList.remove('is-in');
+		els.scan.classList.remove('is-scan');
+		void els.viewerSlot.offsetWidth; // restart both animations
+		els.viewerSlot.classList.add('is-in');
+		els.scan.classList.add('is-scan');
+	}
 	// Same signal the full page emits — the discovery layer turns it into a
 	// "what's next?" card (embed it, drop it in a world, …).
 	document.dispatchEvent(new CustomEvent('tws:feature-done', { detail: { feature: 'forge' } }));
@@ -201,7 +222,8 @@ async function run(prompt) {
 	setBusy(true);
 	setStep('mesh', 'active');
 	setStep('finish', 'pending');
-	els.preview.innerHTML = '<div class="hf-shimmer" aria-hidden="true"></div>';
+	els.preview.classList.remove('is-on');
+	els.preview.innerHTML = '';
 	startElapsed();
 	showState('generating');
 	// Fetch the viewer in parallel with the job — a failure surfaces only if a
@@ -217,8 +239,10 @@ async function run(prompt) {
 			img.alt = 'Reference image';
 			img.src = job.preview_image_url;
 			img.onload = () => {
+				if (seq !== runSeq) return;
 				els.preview.innerHTML = '';
 				els.preview.appendChild(img);
+				els.preview.classList.add('is-on');
 			};
 		}
 
@@ -250,17 +274,109 @@ function reset() {
 	els.prompt.focus();
 }
 
+// Typewriter suggestion — types real example prompts into the placeholder;
+// Tab accepts the one currently showing. Pauses while the user has text, a
+// run is live, or the tab is hidden. Reduced motion gets a static placeholder.
+const SUGGESTIONS = [
+	'a glazed ceramic teapot, studio lighting',
+	'a low-poly red fox, sitting',
+	'a sci-fi combat helmet, brushed metal',
+	'a potted monstera plant',
+	'a vintage film camera',
+];
+let suggestion = ''; // full text of the suggestion currently on screen
+
+function startTypewriter() {
+	if (REDUCED_MOTION) {
+		suggestion = SUGGESTIONS[0];
+		els.prompt.placeholder = suggestion;
+		return;
+	}
+	let i = 0; // suggestion index
+	let pos = 0; // chars typed
+	let deleting = false;
+	const tick = () => {
+		const paused = busy || els.prompt.value || document.hidden;
+		if (paused) {
+			setTimeout(tick, 600);
+			return;
+		}
+		const full = SUGGESTIONS[i];
+		pos += deleting ? -1 : 1;
+		els.prompt.placeholder = full.slice(0, pos) || '…';
+		suggestion = full;
+		let delay = deleting ? 22 : 55 + Math.random() * 45;
+		if (!deleting && pos === full.length) {
+			deleting = true;
+			delay = 2400; // hold the finished suggestion
+		} else if (deleting && pos === 0) {
+			deleting = false;
+			i = (i + 1) % SUGGESTIONS.length;
+			delay = 350;
+		}
+		setTimeout(tick, delay);
+	};
+	setTimeout(tick, 900);
+}
+
+// Pointer parallax on the ambient layers (ring + floor) via --px/--py on the
+// chamber. Skipped for coarse pointers and reduced motion.
+function startParallax() {
+	if (REDUCED_MOTION) return;
+	if (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) return;
+	let raf = 0;
+	let px = 0;
+	let py = 0;
+	els.chamber.addEventListener('pointermove', (e) => {
+		const r = els.chamber.getBoundingClientRect();
+		px = ((e.clientX - r.left) / r.width - 0.5) * 2;
+		py = ((e.clientY - r.top) / r.height - 0.5) * 2;
+		if (!raf) {
+			raf = requestAnimationFrame(() => {
+				raf = 0;
+				els.chamber.style.setProperty('--px', px.toFixed(3));
+				els.chamber.style.setProperty('--py', py.toFixed(3));
+			});
+		}
+	});
+	els.chamber.addEventListener('pointerleave', () => {
+		els.chamber.style.setProperty('--px', '0');
+		els.chamber.style.setProperty('--py', '0');
+	});
+}
+
+// The prompt is a one-line bar that grows with multi-line prompts (capped in CSS).
+function autoGrow() {
+	els.prompt.style.height = 'auto';
+	els.prompt.style.height = `${els.prompt.scrollHeight}px`;
+}
+
 function boot() {
 	els.form.addEventListener('submit', (e) => {
 		e.preventDefault();
 		const prompt = els.prompt.value.trim();
 		if (prompt) run(prompt);
-		else els.prompt.focus();
+		else if (suggestion) {
+			// Forging straight from the live suggestion is a valid ask.
+			els.prompt.value = suggestion;
+			autoGrow();
+			run(suggestion);
+		} else els.prompt.focus();
 	});
 
-	// Cmd/Ctrl+Enter submits — same convention as the full page.
+	els.prompt.addEventListener('input', autoGrow);
+
 	els.prompt.addEventListener('keydown', (e) => {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+		// Tab accepts the suggestion currently typed into the placeholder.
+		if (e.key === 'Tab' && !e.shiftKey && !els.prompt.value && suggestion) {
+			e.preventDefault();
+			els.prompt.value = suggestion;
+			autoGrow();
+			return;
+		}
+		// Cmd/Ctrl+Enter submits — same convention as the full page. Plain
+		// Enter submits too: this is a one-line command bar, not a document.
+		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			els.form.requestSubmit();
 		}
@@ -270,6 +386,7 @@ function boot() {
 		const chip = e.target.closest('button[data-prompt]');
 		if (!chip || busy) return;
 		els.prompt.value = chip.dataset.prompt;
+		autoGrow();
 		run(chip.dataset.prompt);
 	});
 
@@ -279,6 +396,9 @@ function boot() {
 		if (lastPrompt) run(lastPrompt);
 		else reset();
 	});
+
+	startTypewriter();
+	startParallax();
 }
 
 if (root && els.form) boot();
