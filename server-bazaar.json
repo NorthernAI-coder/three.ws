@@ -1,6 +1,15 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/threews-x402-bazaar",
+	"title": "three.ws x402 Bazaar",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": ["any"]
+		}
+	],
 	"description": "Discover and price paid agent services across the live x402 network, by three.ws.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",

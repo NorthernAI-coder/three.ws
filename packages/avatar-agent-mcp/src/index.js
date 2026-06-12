@@ -11,6 +11,10 @@
 //
 // Or wire into Claude Desktop / Cursor — see README.md.
 
+import { realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
@@ -35,7 +39,12 @@ import { def as pumpLaunch } from './tools/pump-launch.js';
 import { def as pumpCollect } from './tools/pump-collect.js';
 import { def as ensSnsResolve } from './tools/ens-sns-resolve.js';
 
-const TOOLS = [
+// Single source of truth for the advertised server identity — package.json.
+// The McpServer version can never drift from the published npm version again.
+const require = createRequire(import.meta.url);
+const { name: PKG_NAME, version: PKG_VERSION } = require('../package.json');
+
+export const TOOLS = [
 	// 3D toolkit — universal GLB / glTF tools
 	inspectGlb,
 	validateGlb,
@@ -63,16 +72,26 @@ const TOOLS = [
 	ensSnsResolve,
 ];
 
-async function main() {
+/**
+ * Construct a fully-registered McpServer WITHOUT connecting a transport and
+ * WITHOUT requiring any secrets. Tool registration (names, descriptions,
+ * schemas, annotations) is env-free; only invocations of tools that sign or
+ * call third-party APIs need credentials. Safe to import from tests.
+ *
+ * @returns {McpServer}
+ */
+export function buildServer() {
 	const server = new McpServer(
-		{ name: '3d-ai-agent-avatar', version: '1.0.0' },
+		// '@three-ws/avatar-agent' is an npm scope; MCP server names are plain
+		// identifiers, so keep the long-standing stdio identity.
+		{ name: '3d-ai-agent-avatar', title: '3D AI Agent Avatar', version: PKG_VERSION },
 		{
 			capabilities: { tools: {} },
 			instructions:
 				'3D AI Agent Avatar — a complete 3D MCP toolkit plus a Solana-wallet-bearing, pump.fun-trading avatar agent. ' +
 				'3D tools (work on any GLB URL, no avatar required): inspect_glb returns mesh/material/animation/bbox stats; ' +
 				'validate_glb runs the official Khronos validator; optimize_glb runs dedup/prune/weld/Draco and returns the ' +
-				'smaller GLB inline; thumbnail_glb renders any GLB to a PNG via three.ws\'s hosted three-light rig (the same ' +
+				"smaller GLB inline; thumbnail_glb renders any GLB to a PNG via three.ws's hosted three-light rig (the same " +
 				'pipeline that generates OG cards); viewer_url builds a three.ws/viewer link + iframe embed. ' +
 				'Avatar flow: list_avatars → list_animations → spawn_avatar (preset "default"/"cz" or any GLB) → dress_avatar → ' +
 				'render_avatar (pose + camera orbit + ARKit-52 expression → real PNG) → speak. generate_avatar text/image-to-3D ' +
@@ -91,11 +110,17 @@ async function main() {
 				title: tool.title,
 				description: tool.description,
 				inputSchema: tool.inputSchema,
+				// MCP ToolAnnotations (readOnlyHint / destructiveHint /
+				// idempotentHint / openWorldHint) — lets clients gate
+				// confirmation prompts per tool instead of treating every
+				// call as a destructive write.
+				annotations: tool.annotations,
 			},
 			async (args, extra) => {
 				try {
 					const result = await tool.handler(args, extra);
-					const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+					const text =
+						typeof result === 'string' ? result : JSON.stringify(result, null, 2);
 					return { content: [{ type: 'text', text }] };
 				} catch (err) {
 					const payload = {
@@ -114,12 +139,32 @@ async function main() {
 		);
 	}
 
-	const transport = new StdioServerTransport();
-	await server.connect(transport);
-	console.error(`[3d-ai-agent-avatar] connected over stdio with ${TOOLS.length} tools`);
+	return server;
 }
 
-main().catch((err) => {
-	console.error('[3d-ai-agent-avatar] fatal:', err);
-	process.exit(1);
-});
+async function main() {
+	const server = buildServer();
+	const transport = new StdioServerTransport();
+	await server.connect(transport);
+	console.error(`[${PKG_NAME}@${PKG_VERSION}] connected over stdio with ${TOOLS.length} tools`);
+}
+
+// Connect stdio ONLY when this file is the process entry point. Importing the
+// module (tests, embedding buildServer elsewhere) must not grab the transport.
+// realpath both sides: npm bin shims are symlinks, so argv[1] may point at
+// node_modules/.bin/... while import.meta.url is the resolved file.
+function isProcessEntryPoint() {
+	if (!process.argv[1]) return false;
+	try {
+		return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+	} catch {
+		return false;
+	}
+}
+
+if (isProcessEntryPoint()) {
+	main().catch((err) => {
+		console.error(`[${PKG_NAME}] fatal:`, err);
+		process.exit(1);
+	});
+}

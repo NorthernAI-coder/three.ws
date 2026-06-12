@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 import { assertValid } from '@three-ws/avatar-schema';
+import { style, symbols, success, failure, hint } from '../style.js';
 
 const FORMAT_BY_EXT = {
 	'.glb': 'glb',
@@ -57,25 +58,36 @@ export async function init({ flags }) {
 	const meshPath = flags.mesh;
 
 	if (!ownerSpec || !name || !meshPath) {
-		process.stderr.write(
-			'init: requires --owner, --name, and --mesh.\n' +
-				'  e.g. three-ws-avatar init --owner 0x742d35... --name "Nicholas" --mesh ./avatar.glb\n',
-		);
+		const missing = [
+			!ownerSpec && '--owner',
+			!name && '--name',
+			!meshPath && '--mesh',
+		].filter(Boolean);
+		failure(`init: missing required ${missing.length === 1 ? 'flag' : 'flags'} ${style.bold(missing.join(', '))}`);
+		hint('three-ws-avatar init --owner 0x742d35… --name "Nicholas" --mesh ./avatar.glb');
 		return 1;
 	}
 
 	const owner = inferOwner(ownerSpec);
 	if (!owner) {
-		process.stderr.write(`init: could not parse --owner ${JSON.stringify(ownerSpec)}\n`);
+		failure(`could not parse --owner ${JSON.stringify(ownerSpec)}`);
+		hint('expected CAIP-10 (eip155:1:0x…) or shorthand 0x…');
 		return 1;
 	}
 
 	const meshFull = resolve(process.cwd(), meshPath);
-	const meshStat = statSync(meshFull);
+	let meshStat;
+	try {
+		meshStat = statSync(meshFull);
+	} catch {
+		failure(`mesh file not found: ${meshPath}`);
+		return 1;
+	}
 	const ext = extname(meshFull).toLowerCase();
 	const format = FORMAT_BY_EXT[ext];
 	if (!format) {
-		process.stderr.write(`init: unsupported mesh extension ${ext} (expected .glb/.gltf/.vrm)\n`);
+		failure(`unsupported mesh extension ${style.bold(ext || '(none)')}`);
+		hint('expected .glb, .gltf, or .vrm');
 		return 1;
 	}
 
@@ -100,7 +112,13 @@ export async function init({ flags }) {
 	if (flags.out) {
 		const outPath = resolve(process.cwd(), flags.out);
 		writeFileSync(outPath, json);
-		process.stderr.write(`wrote ${outPath}\n`);
+		success(`wrote ${style.bold(outPath)}`);
+		process.stderr.write(
+			`  ${style.dim(`${symbols.bullet} id        ${manifest.id}`)}\n` +
+			`  ${style.dim(`${symbols.bullet} skeleton  ${manifest.skeleton}`)}\n` +
+			`  ${style.dim(`${symbols.bullet} mesh      ${format} · ${manifest.mesh.kBytes} kB · sha256:${manifest.mesh.sha256.slice(0, 12)}…`)}\n`,
+		);
+		process.stderr.write(`  ${style.dim(`${symbols.arrow} next: three-ws-avatar preview ${flags.out}`)}\n`);
 	} else {
 		process.stdout.write(json);
 	}

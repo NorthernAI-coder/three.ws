@@ -95,6 +95,14 @@
 			<description>The engine buttons on Forge now reflect what's actually running, probed live against each provider — not just whether it's set up. An engine whose upstream is down or unreachable is disabled with the reason in its tooltip, a throttled one shows an amber busy dot, and bring-your-own-key engines (Meshy, Tripo) say so before you pick them. Behind it is a new public health check at /api/forge?health, and the self-hosted Hunyuan3D lane was rewired to its own worker so it no longer fails every prompt by routing to the avatar pipeline.</description>
 		</item>
 		<item>
+			<title>Forge gets a community showcase — and takes photos from anywhere</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Forge gets a community showcase — and takes photos from anywhere</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The /forge page now ends with “Fresh from the Forge”: a live strip of the newest models other people generated. Hover a card and the actual model spins in place; open it in the full viewer with download, share, and stylize working; or hit Remix to copy its prompt into the composer and make your own version. Getting photos in is easier too — paste an image from the clipboard (⌘V) anywhere on the page, or drag files onto the page and Forge switches to photo mode and places them for you.</description>
+		</item>
+		<item>
 			<title>Forge helps you write a better prompt before you spend a generation</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-12:Forge helps you write a better prompt before you spend a generation</guid>

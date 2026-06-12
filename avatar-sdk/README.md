@@ -1,12 +1,31 @@
-# @three-ws/avatar
+<h1 align="center">@three-ws/avatar</h1>
 
-3D avatar viewer, creator iframe, and emotion + lipsync runtime — a drop-in replacement for legacy hosted avatar SDKs that are winding down or no longer accepting new accounts.
+<p align="center"><strong>3D avatar viewer, creator iframe, and emotion + lipsync runtime — a drop-in replacement for hosted avatar SDKs.</strong></p>
 
-Includes:
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/avatar"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/avatar?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/avatar"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/avatar?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/avatar?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/avatar?color=339933&logo=node.js">
+</p>
 
-- **`<agent-3d>` web component** — declarative avatar viewer with built-in chat/voice loop, emotion morphs, audio-driven viseme lipsync, AR Quick Look (iOS) and WebXR (Android/Quest).
-- **`AvatarCreator`** — programmatic iframe modal that wraps the [Character Studio](https://studio.three.ws) builder and the [Avaturn](https://avaturn.me) photo-to-avatar pipeline. Resolves with a GLB Blob.
-- **`saveBlob()`** — uploads a freshly-created GLB to the hosted three.ws backend (R2 storage, auto-thumbnail, USDZ companion auto-generation).
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#entry-points">Entry points</a> ·
+  <a href="#react">React</a> ·
+  <a href="#api">API</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
+
+---
+
+> `@three-ws/avatar` is the official three.ws avatar SDK. It ships a self-contained
+> `<agent-3d>` web component with a built-in chat/voice loop, emotion morphs, and
+> audio-driven viseme lipsync; a lightweight `<three-ws-viewer>` element for pure
+> 3D previews; a programmatic `AvatarCreator` iframe modal that resolves to a GLB
+> Blob; and first-class React bindings. It's for anyone replacing a winding-down
+> hosted avatar SDK with self-hostable, web-standard parts.
 
 ## Install
 
@@ -14,25 +33,79 @@ Includes:
 npm install @three-ws/avatar three
 ```
 
-`three` is a peer dependency.
+`three` (`>=0.150.0`) is a required peer dependency. `react` (`>=18`) is an optional
+peer dependency, needed only for the [`./react`](#react) entry point.
 
-## Use the web component
+## Quick start
+
+Importing the package registers the `<agent-3d>` custom element as a side effect.
 
 ```html
 <script type="module">
   import '@three-ws/avatar';
 </script>
 
-<agent-3d avatar-id="00000000-1111-2222-3333-444444444444"></agent-3d>
-```
+<!-- Resolve a three.ws avatar by id… -->
+<agent-3d avatarid="00000000-1111-2222-3333-444444444444"></agent-3d>
 
-Or with a direct GLB URL:
-
-```html
+<!-- …or point at a GLB directly -->
 <agent-3d src="https://example.com/my-avatar.glb"></agent-3d>
 ```
 
+Need only a 3D preview — no chat, no voice, no 3 MB runtime? Use the light viewer:
+
+```html
+<script type="module">
+  import '@three-ws/avatar/viewer';
+</script>
+
+<three-ws-viewer
+  src="https://example.com/my-avatar.glb"
+  alt="My avatar"
+  background="transparent"
+></three-ws-viewer>
+```
+
+## Entry points
+
+The package exposes focused subpath exports so you only ship what you use.
+
+| Import | Provides |
+|---|---|
+| `@three-ws/avatar` | Registers `<agent-3d>` (the full runtime). |
+| `@three-ws/avatar/agent` | `ensureAgent3D()` — lazy-load + register `<agent-3d>` on demand. |
+| `@three-ws/avatar/viewer` | Registers `<three-ws-viewer>` (lightweight GLB preview element). |
+| `@three-ws/avatar/creator` | `AvatarCreator` class + `saveBlob()` upload helper. |
+| `@three-ws/avatar/react` | `<Avatar>`, `<AgentAvatar>`, `<AvatarCreator>`, `useAvatar()`. |
+| `@three-ws/avatar/style.css` | No-op stylesheet stub (the element injects its own styles). |
+
+### `<three-ws-viewer>`
+
+A minimal viewer element: loads a GLB at `src`, frames it, and renders with
+`OrbitControls` and a `RoomEnvironment` image-based light.
+
+| Attribute | Description |
+|---|---|
+| `src` | GLB URL to load. |
+| `alt` | Accessibility label; also rendered as an on-canvas caption. |
+| `background` | CSS color, or `transparent` (default) for an alpha canvas. |
+
+It dispatches a `load` event (`detail: { url }`) on success and an `error` event
+(`detail: { url, error }`) on failure.
+
+### `<agent-3d>`
+
+The full runtime element. Set `avatarid` to resolve a server-hosted avatar, or
+`src` for a direct GLB. Other attributes: `ios-src` (USDZ for iOS AR Quick Look)
+and `kiosk` (hide the debug GUI). Instance methods include `playGesture(name, opts?)`
+and `setMorph(name, weight)`.
+
 ## Open the avatar creator
+
+`AvatarCreator` opens a modal iframe pointing at the three.ws Avatar Studio (or an
+Avaturn edit session), listens for the `export` postMessage from the trusted
+origin, and resolves with a GLB `Blob`. `saveBlob()` then uploads it to a
+three.ws-compatible backend via presigned R2 upload.
 
 ```js
 import { AvatarCreator, saveBlob } from '@three-ws/avatar/creator';
@@ -40,34 +113,90 @@ import { AvatarCreator, saveBlob } from '@three-ws/avatar/creator';
 const creator = new AvatarCreator({
   onExport: async (glbBlob) => {
     const avatar = await saveBlob(glbBlob, {
-      bearerToken: 'YOUR_THREE_WS_TOKEN',
+      bearerToken: process.env.THREE_WS_TOKEN, // scope: avatars:write
       name: 'My Avatar',
       visibility: 'public',
     });
-    console.log('Saved:', avatar.url);
+    console.log('Saved:', avatar.id, avatar.url, avatar.slug);
   },
 });
 
-creator.open();
+await creator.open();
 ```
 
-If you have a previously created avatar and want to re-open it for editing, first call your backend's `/api/avatars/:id/session` (which POSTs to Avaturn under the hood) and pass `avaturnSessionUrl` to the constructor.
+Pass `avaturnSessionUrl` to re-open an existing avatar in edit mode. Call
+`creator.close()` / `creator.dispose()` to tear the modal down.
 
-## What this gives you that legacy avatar SDKs did
+## React
 
-| Legacy SDK feature | `@three-ws/avatar` equivalent |
+The `./react` entry is a client-only module (`'use client'`).
+
+```jsx
+import { Avatar, AgentAvatar, AvatarCreator, useAvatar } from '@three-ws/avatar/react';
+
+function Profile({ id }) {
+  const { avatar, loading, error } = useAvatar(id);
+
+  if (loading) return <p>Loading avatar…</p>;
+  if (error) return <p>Could not load avatar.</p>;
+
+  return (
+    <>
+      {/* Pure-visual viewer */}
+      <Avatar src={avatar.model_url} alt={avatar.name} background="transparent" />
+
+      {/* Full runtime (lazy-loads the 3 MB monolith on mount) */}
+      <AgentAvatar avatarId={id} kiosk />
+    </>
+  );
+}
+```
+
+| Export | Signature |
 |---|---|
-| Photo → 3D avatar | `AvatarCreator` → Avaturn pipeline |
-| In-browser avatar editor | `AvatarCreator` → [Character Studio](https://studio.three.ws) |
-| Hosted CDN | three.ws R2 + presigned uploads (free public tier) |
-| ARKit `viseme_*` morphs | Loaded automatically into the runtime |
-| Mixamo-compatible humanoid rig | Yes — same skeleton naming conventions |
-| Animation library | 50+ Mixamo clips bundled (idle, wave, nod, dance, …) |
-| iOS Quick Look USDZ | Auto-generated server-side on first upload |
-| Half-body variant | Auto-generated for VR seats |
-| Web component embed | `<agent-3d>` |
-| React component | `<agent-3d>` (works in React 18+ via the JSX intrinsic) |
+| `<Avatar>` | `{ src, alt?, background?, style?, className?, onLoad?, onError? }` — wraps `<three-ws-viewer>`. |
+| `<AgentAvatar>` | `{ avatarId?, src?, iosSrc?, kiosk?, style?, className? }` — wraps `<agent-3d>`, lazy-loaded. |
+| `<AvatarCreator>` | `{ open, onExport?, onClose?, studioUrl?, sessionUrl? }` — declarative wrapper around the class. |
+| `useAvatar(id, opts?)` | Returns `{ avatar, loading, error }`; fetches `/api/avatars/:id`, aborts on unmount. `opts.apiOrigin` overrides the host. |
 
-## License
+## API
 
-Apache-2.0. See `LICENSE` in the repo root.
+### `ensureAgent3D(): Promise<void>`
+
+From `@three-ws/avatar/agent`. Lazily imports and registers the `<agent-3d>`
+element, resolving once it's ready. Idempotent and cached. Importing the module
+also kicks off the load eagerly in the browser.
+
+### `saveBlob(blob, opts): Promise<{ id, url, slug }>`
+
+From `@three-ws/avatar/creator`. Uploads a GLB `Blob` to a three.ws-compatible
+backend: requests a presigned URL, PUTs the bytes to R2, then creates the avatar
+record. Computes a SHA-256 checksum client-side.
+
+| Option | Type | Notes |
+|---|---|---|
+| `bearerToken` | `string` | **Required.** Token with `avatars:write` scope. |
+| `apiOrigin` | `string` | Defaults to `https://three.ws`. |
+| `name` | `string` | Display name. |
+| `description` | `string` | Optional. |
+| `tags` | `string[]` | Optional. |
+| `visibility` | `'public' \| 'unlisted' \| 'private'` | Defaults to `public`. |
+
+## Requirements
+
+- Node `>=18` (for tooling; the runtime targets modern browsers).
+- Peer dependency: `three` `>=0.150.0` (required), `react` `>=18` (optional, for `./react`).
+- `saveBlob()` needs a bearer token with `avatars:write` scope and a three.ws-compatible API origin.
+
+## Related packages
+
+- [`@three-ws/avatar-schema`](https://www.npmjs.com/package/@three-ws/avatar-schema) — the on-chain manifest format these avatars resolve from.
+- [`@three-ws/viewer-presets`](https://www.npmjs.com/package/@three-ws/viewer-presets) — tuned light rig, floor reflection, and bloom configs for your own viewer.
+- [`@three-ws/avatar-cli`](https://www.npmjs.com/package/@three-ws/avatar-cli) — scaffold, validate, hash, and preview avatar manifests from your shell.
+
+## Links
+
+- Homepage: https://three.ws
+- Changelog: https://three.ws/changelog
+- Issues: https://github.com/nirholas/three.ws/issues
+- License: Apache-2.0 — see [LICENSE](./LICENSE)

@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "build:prod": "tsup --minify",
+    "build:prod": "TSUP_SOURCEMAP=false tsup --minify",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",

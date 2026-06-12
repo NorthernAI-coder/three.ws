@@ -94,4 +94,60 @@ describe('MCP tool surface', () => {
 		const server = await buildServer();
 		expect(server).toBeTruthy();
 	});
+
+	// MCP ToolAnnotations contract: every tool declares behavior hints so
+	// clients can scope confirmation prompts. Per spec, destructiveHint
+	// DEFAULTS TO TRUE when omitted on a non-read-only tool — so every
+	// non-read-only tool here must set it to false explicitly (nothing this
+	// server ships destroys state).
+	it('declares MCP ToolAnnotations on every tool, and none are destructive', async () => {
+		const tools = await buildTools();
+		for (const t of tools) {
+			expect(t.annotations, `${t.name} missing annotations`).toBeTypeOf('object');
+			expect(typeof t.annotations.readOnlyHint, `${t.name}.readOnlyHint`).toBe('boolean');
+			expect(typeof t.annotations.idempotentHint, `${t.name}.idempotentHint`).toBe('boolean');
+			expect(typeof t.annotations.openWorldHint, `${t.name}.openWorldHint`).toBe('boolean');
+			// No tool on this server is destructive.
+			expect(t.annotations.destructiveHint, `${t.name}.destructiveHint`).not.toBe(true);
+			if (t.annotations.readOnlyHint === false) {
+				// Non-read-only tools MUST opt out of the spec's destructive default.
+				expect(
+					t.annotations.destructiveHint,
+					`${t.name} must set destructiveHint:false`,
+				).toBe(false);
+			}
+		}
+	});
+
+	it('marks only the local-compute tools as closed-world, and the deterministic one as idempotent', async () => {
+		const tools = await buildTools();
+		const byName = Object.fromEntries(tools.map((t) => [t.name, t.annotations]));
+
+		// Pure local compute — no external interaction.
+		expect(byName.get_pose_seed).toEqual({
+			readOnlyHint: true,
+			idempotentHint: true,
+			openWorldHint: false,
+		});
+		expect(byName.vanity_grinder).toEqual({
+			readOnlyHint: true,
+			idempotentHint: false, // random keypair every call
+			openWorldHint: false,
+		});
+
+		// Everything else talks to the outside world.
+		for (const [name, a] of Object.entries(byName)) {
+			if (name === 'get_pose_seed' || name === 'vanity_grinder') continue;
+			expect(a.openWorldHint, `${name}.openWorldHint`).toBe(true);
+			// Live feeds / fresh artifacts — never claim idempotence.
+			expect(a.idempotentHint, `${name}.idempotentHint`).toBe(false);
+		}
+
+		// Generation + delegation tools are writes (they create hosted artifacts
+		// or dispatch actions); everything else is a pure read.
+		const writes = ['text_to_avatar', 'mesh_forge', 'rig_mesh', 'agent_delegate_action'];
+		for (const [name, a] of Object.entries(byName)) {
+			expect(a.readOnlyHint, `${name}.readOnlyHint`).toBe(!writes.includes(name));
+		}
+	});
 });

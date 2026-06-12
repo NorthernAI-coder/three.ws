@@ -1,22 +1,37 @@
-# @three-ws/avatar-schema
+<h1 align="center">@three-ws/avatar-schema</h1>
 
-JSON Schema and validator for **three.ws on-chain avatar manifests** — the
-canonical, hash-anchored format any cross-chain client can use to resolve and
-verify an avatar.
+<p align="center"><strong>JSON Schema and validator for three.ws on-chain avatar manifests — the canonical, hash-anchored avatar format.</strong></p>
 
-This is the on-chain equivalent of Ready Player Me's
-[content-validation-schemas](https://github.com/readyplayerme/content-validation-schemas):
-a tiny, dependency-light spec package that lets any third-party viewer,
-indexer, or marketplace integrate with three.ws avatars without pulling in the
-full runtime.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/avatar-schema"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/avatar-schema?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/avatar-schema"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/avatar-schema?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/avatar-schema?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/avatar-schema?color=339933&logo=node.js">
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="#manifest-fields">Manifest fields</a> ·
+  <a href="#api">API</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
+
+---
+
+> `@three-ws/avatar-schema` is the canonical, hash-anchored format any cross-chain
+> client can use to resolve and verify a three.ws avatar. It's a tiny,
+> dependency-light spec package — bundled JSON Schema (`avatar.v1.json`) plus an
+> Ajv-backed validator — so any third-party viewer, indexer, or marketplace can
+> integrate with three.ws avatars without pulling in the full runtime.
 
 ## Install
 
 ```bash
-npm i @three-ws/avatar-schema
+npm install @three-ws/avatar-schema
 ```
 
-## Use
+## Usage
 
 ```js
 import { validate, assertValid } from '@three-ws/avatar-schema';
@@ -25,77 +40,83 @@ const manifest = await (await fetch('https://three.ws/avatars/nicholas.eth.json'
 
 const result = validate(manifest);
 if (!result.valid) {
-  console.error(result.errors);
+  console.error(result.errors); // Ajv ErrorObject[]
 }
 
-// Or throw on first failure:
+// Or throw on the first failure (useful in pipelines):
 assertValid(manifest);
 ```
 
-The raw JSON Schema is exported separately so you can bind it to any other
-validator (Python `jsonschema`, Go `gojsonschema`, etc.):
+The raw JSON Schema is exported separately so you can bind it to any validator
+(Python `jsonschema`, Go `gojsonschema`, etc.):
 
 ```js
-import schema from '@three-ws/avatar-schema/schema';
+import schema from '@three-ws/avatar-schema/schema';      // ./schema/avatar.v1.json
+// or the version-pinned subpath:
+import schemaV1 from '@three-ws/avatar-schema/schema/v1';
 ```
 
-Or by absolute URL: <https://three.ws/schema/avatar.v1.json>.
+It's also resolvable by absolute URL: <https://three.ws/schema/avatar.v1.json>.
 
-## What's in a manifest
+## Manifest fields
 
 An on-chain avatar manifest binds a 3D mesh (and optional animations and
 accessories) to an owner identity on a specific chain. Every binary asset is
-referenced by content-addressed URI plus SHA-256, so clients can verify they
-fetched the exact bytes the manifest signer attested to.
+referenced by URI plus SHA-256, so clients can verify they fetched the exact bytes
+the manifest signer attested to.
 
 | Field | Required | Purpose |
 |---|---|---|
-| `schemaVersion` | yes | Always `1` for this version of the schema |
-| `id` | yes | CAIP-10 account id or `*.eth` / `*.ws` / `*.sol` name |
-| `name` | yes | Human-readable name |
-| `mesh` | yes | URI + SHA-256 + format (`glb`/`gltf`/`vrm`) |
-| `skeleton` | yes | One of `avaturn`/`mixamo`/`rpm`/`vrm-humanoid`/`custom` |
-| `animations` | no | Pointer to an animation-manifest URI + SHA-256 |
-| `accessories` | no | Array of slotted accessories (hat, glasses, etc.) |
-| `traits` | no | NFT-style flat key/value attributes |
-| `owner` | yes | `{ chain, address }` — current on-chain holder |
-| `creator` | no | Original creator (omit if same as owner) |
-| `createdAt` | yes | ISO 8601 UTC timestamp |
-| `signature` | no | EIP-712 / ed25519 / secp256k1 signature over the manifest |
+| `schemaVersion` | yes | Always `1` for this version of the schema. |
+| `id` | yes | CAIP-10 account id, or an ENS-style `*.eth` / `*.ws` / `*.sol` name. |
+| `name` | yes | Human-readable name. |
+| `mesh` | yes | `{ uri, sha256, format, kBytes? }` — `format` is `glb`/`gltf`/`vrm`. |
+| `skeleton` | yes | One of `avaturn`/`mixamo`/`rpm`/`vrm-humanoid`/`custom`. |
+| `animations` | no | `{ uri, sha256 }` pointer to an animation manifest. |
+| `accessories` | no | Array of `{ slot, uri, sha256 }` (slots: `head`, `eyes`, `ears`, `neck`, `torso`, `back`, `hands`, `waist`, `feet`). |
+| `traits` | no | Flat key/value attributes (`string` / `number` / `boolean`). |
+| `owner` | yes | `{ chain, address }` — current on-chain holder; `chain` is a CAIP-2 id. |
+| `creator` | no | `{ chain, address }` original creator (omit if same as owner). |
+| `createdAt` | yes | ISO 8601 UTC timestamp. |
+| `signature` | no | `{ algorithm, value, signer }` — `eip-712` / `ed25519` / `secp256k1`. |
 
-See [examples/basic.json](examples/basic.json) for a fully-populated example.
+See [examples/basic.json](examples/basic.json) for a fully-populated manifest.
+TypeScript consumers get an `AvatarManifestV1` interface and the supporting types
+(`MeshRef`, `AccessoryRef`, `ChainAccount`, `Signature`, …) from the package types.
 
-## Why this exists
+## API
 
-Ready Player Me operates a single avatar service. There is no need for an
-open, verifiable manifest format because RPM is the source of truth.
+| Export | Signature | Notes |
+|---|---|---|
+| `validate(manifest)` | `(unknown) => { valid: true } \| { valid: false, errors }` | Non-throwing. `errors` is Ajv's `ErrorObject[]`. |
+| `assertValid(manifest)` | `(unknown) => void` | Throws `Error` with a joined message on the first invalid manifest; narrows to `AvatarManifestV1`. |
+| `schema` | `object` | The parsed `avatar.v1.json` JSON Schema. |
+| `SCHEMA_VERSION` | `1` | Integer schema version. |
+| `SCHEMA_ID` | `string` | `https://three.ws/schema/avatar.v1.json`. |
 
-three.ws is decentralized: avatars are owned by wallets on multiple chains and
-rendered by viewers the avatar owner doesn't control. A common schema lets:
-
-- **Viewers** validate an avatar before rendering it, instead of trusting any
-  URL they're handed.
-- **Indexers** rebuild a global view of all three.ws avatars by scanning
-  on-chain registrations and pulling manifests.
-- **Marketplaces** verify ownership and accessory composition without
-  bespoke per-vendor logic.
-- **Cross-chain bridges** carry the same identity across EVM, Solana, and
-  beyond using CAIP-2 / CAIP-10 ids.
+Validation is backed by [Ajv](https://ajv.js.org) (2020 dialect) with `ajv-formats`,
+compiled once at module load.
 
 ## Versioning
 
 The schema uses an integer `schemaVersion`. Breaking changes get a new file
-(`avatar.v2.json`), a new const, and a new published major version of this
-package. Old versions remain valid forever.
+(`avatar.v2.json`), a new `SCHEMA_VERSION` const, and a new published major version
+of this package. Old versions remain valid forever.
 
-## Test
+## Requirements
 
-```bash
-npm test
-```
+- Node `>=18`.
+- Bundled dependencies: `ajv`, `ajv-formats` (no peer deps).
+- Run the test suite with `npm test` (Node's built-in `node:test`, no extra runner).
 
-Tests use Node's built-in `node:test`. No extra runner required.
+## Related packages
 
-## License
+- [`@three-ws/avatar-cli`](https://www.npmjs.com/package/@three-ws/avatar-cli) — scaffold, validate, hash, and preview manifests in this format from your shell or CI.
+- [`@three-ws/avatar`](https://www.npmjs.com/package/@three-ws/avatar) — the runtime SDK that renders avatars resolved from these manifests.
 
-Apache-2.0 — see [LICENSE](LICENSE).
+## Links
+
+- Homepage: https://three.ws
+- Changelog: https://three.ws/changelog
+- Issues: https://github.com/nirholas/three.ws/issues
+- License: Apache-2.0 — see [LICENSE](./LICENSE)

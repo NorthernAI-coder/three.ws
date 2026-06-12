@@ -1,23 +1,31 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { failure } from '../style.js';
 
 /**
  * `three-ws-avatar hash <path>` — SHA-256 of file bytes, lowercase hex.
  *
- * Returns the hash as a single line on stdout so it can be piped:
+ * Prints the hash as a single line on stdout so it can be piped:
  *   sha=$(three-ws-avatar hash ./avatar.glb)
+ * Stdout stays the raw hex (or JSON with --json) — never decorated.
  */
 export async function hash({ positional, flags }) {
 	const [filePath] = positional;
 	if (!filePath) {
-		process.stderr.write('hash: missing <path> argument\n');
+		failure('hash: missing <path> argument');
 		return 1;
 	}
 	const full = resolve(process.cwd(), filePath);
-	const stat = statSync(full);
+	let stat;
+	try {
+		stat = statSync(full);
+	} catch {
+		failure(`file not found: ${filePath}`);
+		return 1;
+	}
 	if (!stat.isFile()) {
-		process.stderr.write(`hash: not a file: ${filePath}\n`);
+		failure(`not a file: ${filePath}`);
 		return 1;
 	}
 	const hex = createHash('sha256').update(readFileSync(full)).digest('hex');

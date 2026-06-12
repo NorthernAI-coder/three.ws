@@ -27,10 +27,10 @@ import axios from 'axios';
 import { x402Client, x402HTTPClient } from '@x402/core/client';
 import { wrapAxiosWithPayment } from '@x402/axios';
 import { ExactEvmScheme } from '@x402/evm/exact/client';
-import {
-	BatchSettlementEvmScheme,
-	FileClientChannelStorage,
-} from '@x402/evm/batch-settlement/client';
+import { BatchSettlementEvmScheme } from '@x402/evm/batch-settlement/client';
+// @x402/evm >= 2.14 moved the Node file-backed storage to its own subpath so
+// the main client entry stays runtime-agnostic.
+import { FileClientChannelStorage } from '@x402/evm/batch-settlement/client/file-storage';
 import { ExactSvmScheme } from '@x402/svm/exact/client';
 
 import { getEvmSigner, getSvmSigner } from './signers.js';

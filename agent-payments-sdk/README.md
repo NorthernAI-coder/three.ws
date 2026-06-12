@@ -1,171 +1,212 @@
-# @pump-fun/agent-payments-sdk 
+<h1 align="center">@three-ws/agent-payments</h1>
 
-TypeScript SDK for the **Pump Agent Payments** Solana program (`AgenTMiC2hvxGebTsgmsD4HHBa8WEcqGFf87iwRRxLo7`).
+<p align="center"><strong>Agent payments across Solana and EVM — agent-token invoices, USDC/token-2022 settlement, bonding-curve trades, x402 and a2a.</strong></p>
 
-Reverse-engineered from the published npm package. Original by [@pump-fun](https://github.com/pump-fun).
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/agent-payments"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/agent-payments?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/agent-payments"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/agent-payments?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/agent-payments?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/agent-payments?color=339933&logo=node.js">
+</p>
 
-## Architecture
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#entry-points">Entry points</a> ·
+  <a href="#solana-api">Solana</a> ·
+  <a href="#evm-api">EVM</a> ·
+  <a href="#x402--a2a">x402 / a2a</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
 
-```
-src/
-├── idl/
-│   ├── pump_agent_payments.json   # Anchor IDL (snake_case, runtime)
-│   └── pump_agent_payments.ts     # Anchor IDL type (camelCase, compile-time)
-├── pdas.ts                        # PDA derivation helpers (seeds + constants)
-├── program.ts                     # Anchor Program creation / offline instance
-├── types.ts                       # All parameter interfaces & decoded account types
-├── PumpAgentOffline.ts            # Instruction builder — no RPC required
-├── PumpAgent.ts                   # Online agent — extends Offline with RPC calls
-├── decoders.ts                    # Account data decoders (GlobalConfig, etc.)
-├── events.ts                      # Event parsing, types & WebSocket subscriptions
-├── x402/                          # x402 HTTP 402 Payment Required protocol
-│   ├── types.ts                   # Protocol constants & type definitions
-│   ├── headers.ts                 # Header encoding/decoding helpers
-│   ├── facilitator.ts             # Server-side verify & settle + resource server
-│   └── client.ts                  # Client-side fetch wrapper (auto 402 handling)
-└── index.ts                       # Barrel export
-```
+---
+
+> The on-chain payments engine behind three.ws **agent tokens**: a user launches a
+> token for their agent and then charges the people who pay that agent in its
+> token, with buyback and shareholder distribution. This package binds the
+> Solana agent-payments program (`AgenTMiC2hvxGebTsgmsD4HHBa8WEcqGFf87iwRRxLo7`),
+> adds EVM agent payments, bonding-curve trading, and the x402 / a2a settlement
+> layers — all fully typed, dual ESM/CJS.
+
+### A value-added fork
+
+This is a deliberate, value-added three.ws fork of **`@pump-fun/agent-payments-sdk@3.0.3`**
+(the upstream Solana agent-payments program bindings). It keeps the core
+binary-compatible with the deployed program — the same program ids and the same
+`PumpAgent(mint, environment?, connection?)` constructor — and extends it with:
+
+- **USDC + token-2022 quote assets** (upstream is SOL-only): `USDC_MINT`,
+  `decodeBondingCurveQuoteMint`, `resolveTokenProgramForMint`.
+- **A v2 bonding-curve trade client** — `PumpTradeClient` (`buy_v2`/`sell_v2`,
+  exact-quote-in buys).
+- **EVM agent payments** (`./evm`), **x402 on EVM** (`./x402`), **a2a payment
+  helpers** (`./a2a`), the **legacy program** bindings, and a `solana-agent-kit`
+  plugin.
+
+When pump.fun ships program changes we port them *into* this fork rather than
+replacing it. See [FORK_NOTES.md](./FORK_NOTES.md) for the full upstream
+comparison and sync procedure.
 
 ## Install
 
 ```bash
-npm install @pump-fun/agent-payments-sdk
+npm install @three-ws/agent-payments
 ```
 
-## Build
+Solana (`@solana/web3.js`, `@solana/spl-token`, `@coral-xyz/anchor`), EVM
+(`ethers`, `viem`), and the pump SDKs ship as direct dependencies. `zod` is an
+optional peer dependency.
 
-```bash
-npm install
-npm run build
-```
+## Quick start
 
-## Development
+```ts
+import { PumpAgent, PumpAgentOffline, USDC_MINT } from '@three-ws/agent-payments';
+import { Connection, PublicKey } from '@solana/web3.js';
 
-```bash
-npm run dev          # watch mode
-npm run typecheck    # tsc --noEmit
-npm run lint         # eslint
-npm run lint:fix     # eslint --fix
-```
+const mint = new PublicKey('<your agent token mint>');
 
-## Usage
+// Offline — build instructions without an RPC connection.
+const offline = new PumpAgentOffline(mint);
 
-```typescript
-import { PumpAgent, PumpAgentOffline, PROGRAM_ID } from "@pump-fun/agent-payments-sdk";
-import { Connection, PublicKey } from "@solana/web3.js";
+// Online — RPC-backed balance queries and invoice validation.
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const agent = new PumpAgent(mint, 'mainnet', connection);
 
-// Offline — build instructions without an RPC connection
-const offline = new PumpAgentOffline(mintPubkey);
-const createIx = await offline.create({
-  authority: walletPubkey,
-  mint: mintPubkey,
-  agentAuthority: agentPubkey,
-  buybackBps: 500, // 5%
-});
-
-// Online — with RPC for balance queries and invoice validation
-const connection = new Connection("https://api.mainnet-beta.solana.com");
-const agent = new PumpAgent(mintPubkey, "mainnet", connection);
-const balances = await agent.getBalances(currencyMint);
-```
-
-### Invoice Validation
-
-```typescript
+// Did this user pay the invoice (e.g. 1 USDC) within the window?
 const paid = await agent.validateInvoicePayment({
-  user: payerPubkey,
-  currencyMint: usdcMint,
-  amount: 1_000_000, // 1 USDC (6 decimals)
+  user: new PublicKey('<payer>'),
+  currencyMint: USDC_MINT,
+  amount: 1_000_000,                              // 1 USDC, 6 decimals
   memo: 12345,
   startTime: Math.floor(Date.now() / 1000),
   endTime: Math.floor(Date.now() / 1000) + 300,
 });
 ```
 
-### Event Parsing
+## Entry points
 
-```typescript
-import { parseAgentEvents, subscribeToAgentEvents } from "@pump-fun/agent-payments-sdk";
+Each subpath is dual ESM/CJS with type declarations. The root `.` re-exports the
+full Solana and EVM surfaces, plus namespaced `solana`, `evm`, `x402Evm`, and
+`a2a` objects.
 
-// Parse events from transaction logs
+| Import | What it provides |
+| --- | --- |
+| `@three-ws/agent-payments` | everything below, flat + namespaced (`solana`, `evm`, `x402Evm`, `a2a`) |
+| `@three-ws/agent-payments/solana` | `PumpAgent`, `PumpAgentOffline`, `PumpTradeClient`, PDAs, decoders, events |
+| `@three-ws/agent-payments/evm` | `EvmAgent`, `EvmAgentOffline`, ABIs, chain registry, invoice utils |
+| `@three-ws/agent-payments/x402` | EVM x402 client + facilitator helpers |
+| `@three-ws/agent-payments/a2a` | a2a payment helpers (`payA2A`, signers, EVM exact payloads) |
+| `@three-ws/agent-payments/solana/legacy-agent-payments` | bindings for the legacy 1.0.7 program |
+| `@three-ws/agent-payments/solana/solana-agent-kit` | `PumpAgentPaymentsPlugin` for solana-agent-kit |
+
+## Solana API
+
+### Classes
+
+- **`PumpAgent(mint, environment?, connection?)`** — RPC-backed agent. Methods
+  include `getBalances`, `getAllCurrencyBalances`, `getCoinQuoteMint`,
+  `getCoinPaymentSummary`, `updateBuybackBps`, `getAgentConfig`, `getGlobalConfig`,
+  `getPaymentStats`, `getSupportedCurrencies`, `isInitialized`,
+  `getPaymentHistory`, `getEventHistory`, `validateInvoicePayment`.
+- **`PumpAgentOffline(mint)`** — pure instruction builder, no RPC required.
+- **`PumpTradeClient(connection)`** — v2 bonding-curve trades:
+  `resolveQuoteMint`, `quoteForBuy`, `quoteForSell`, `buildBuyInstructions`,
+  `buildSellInstructions`. Throws `CoinGraduatedError`, `CoinNotFoundError`,
+  `InsufficientLiquidityError`, `UnsupportedQuoteMintError`.
+
+### Constants & helpers
+
+- **Program ids:** `PROGRAM_ID`, `PUMP_PROGRAM_ID`, `PUMP_AGENT_PAYMENTS_PROGRAM_ID`,
+  `PUMP_FEES_PROGRAM_ID`. **`USDC_MINT`** for USDC-quoted payments.
+- **PDAs:** `getGlobalConfigPDA`, `getTokenAgentPaymentsPDA`,
+  `getPaymentInCurrencyPDA`, `getInvoiceIdPDA`, `getBuybackAuthorityPDA`,
+  `getWithdrawAuthorityPDA`, `getBondingCurvePDA`, `getSharingConfigPDA`.
+- **Decoders:** `decodeGlobalConfig`, `decodeTokenAgentPayments`,
+  `decodeTokenAgentPaymentInCurrency`, `decodeBondingCurveQuoteMint`,
+  `resolveTokenProgramForMint`.
+- **Program:** `getProgram`, `getPumpProgram`, `getPumpProgramWithFallback`,
+  `getOfflineProgram`, `OFFLINE_PUMP_PROGRAM`.
+- **Errors:** `CurrencyNotSupportedError`, `JupiterUnavailableError`.
+
+### Events
+
+```ts
+import { parseAgentEvents, subscribeToAgentEvents } from '@three-ws/agent-payments';
+
 const events = parseAgentEvents(tx.meta.logMessages);
-for (const event of events) {
-  if (event.name === "agentAcceptPaymentEvent") {
-    console.log("Payment amount:", event.data.amount.toString());
-  }
+for (const e of events) {
+  if (e.name === 'agentAcceptPaymentEvent') console.log('paid:', e.data.amount.toString());
 }
 
-// Subscribe to real-time events via WebSocket
 const sub = subscribeToAgentEvents(connection, (event, slot) => {
   console.log(`[slot ${slot}] ${event.name}`, event.data);
-}, { eventNames: ["agentAcceptPaymentEvent"] });
-
-// Later: stop listening
-sub.unsubscribe();
+}, { eventNames: ['agentAcceptPaymentEvent'] });
+// sub.unsubscribe();
 ```
 
-### x402 (HTTP 402 Payment Required)
+`createEventParser` and all event type interfaces are exported too. The pump
+bonding-curve program (`6EF8rrec...`) has its own parser under the namespaced
+`pumpEvents` export.
 
-The SDK includes an x402 sub-package for pay-gating HTTP endpoints:
+## EVM API
 
-```typescript
-import { x402 } from "@pump-fun/agent-payments-sdk";
+```ts
+import { EvmAgent, EVM_CHAINS, getInvoiceId } from '@three-ws/agent-payments/evm';
 
-// Server: build payment requirements for a 402 response
-const requirements = x402.buildPumpAgentRequirements({
-  agentMint: "YourAgentMintAddress...",
-  payTo: "PaymentVaultAddress...",
-  amount: "1000000", // 1 USDC in minor units
-});
-
-// Client: auto-pay 402 responses
-const x402fetch = x402.createX402Fetch({
-  payer: wallet.publicKey.toBase58(),
-  connection,
-  signTransaction: async (tx) => { /* sign */ },
-  sendTransaction: async (tx) => { /* send */ },
-});
-const res = await x402fetch("https://api.agent.example/inference");
+const agent = new EvmAgent(/* config */);
+const config   = await agent.getAgentConfig();
+const balances = await agent.getBalances(currencyToken);
+const paid     = await agent.isInvoicePaid(invoiceId);
 ```
 
-## Program Instructions
+- **`EvmAgent`** — read agent config, balances, payment stats/history, and verify
+  invoices (`getAgentConfig`, `getBalances`, `getPaymentStats`, `isInvoicePaid`,
+  `validateInvoicePayment`, `getPaymentHistory`).
+- **`EvmAgentOffline`** — instruction/calldata builder without a provider.
+- **Chains:** `EVM_CHAINS`, `SUPPORTED_CHAIN_IDS`, `getEvmChain`,
+  `isEvmChainSupported` (Ethereum, Base, Arbitrum, Polygon, BNB, Avalanche, …),
+  plus `NATIVE_TOKEN_ADDRESS`.
+- **ABIs & invoices:** `AGENT_PAYMENTS_ABI`, `ERC20_ABI`, `getInvoiceId`,
+  `buildInvoiceWindow`, `generateMemo`, `parseEvmAgentEvents`.
 
-| Instruction | Description |
-|---|---|
-| `agentInitialize` | Register a new agent for a token mint |
-| `agentAcceptPayment` | Accept a payment in a supported currency |
-| `agentDistributePayments` | Split vault funds between buyback and withdraw |
-| `agentBuybackTrigger` | Execute buyback via CPI swap + burn |
-| `agentWithdraw` | Withdraw funds from the withdraw vault |
-| `agentUpdateBuybackBps` | Update the buyback basis points |
-| `agentUpdateAuthority` | Transfer agent authority |
-| `agentTransferExtraLamports` | Transfer excess lamports (native SOL) |
-| `extendAccount` | Extend account size |
-| `closeAccount` | Close an account |
-| `globalConfigInitialize` | Initialize the global config |
-| `globalAddNewCurrency` | Add a supported currency |
-| `globalRemoveCurrency` | Remove a supported currency |
-| `globalUpdateAuthorities` | Update protocol / buyback authorities |
+## x402 / a2a
 
-## On-Chain Accounts
+EVM x402 pay-gating:
 
-| Account | Description |
-|---|---|
-| `GlobalConfig` | Protocol-wide config: authorities, supported currencies |
-| `TokenAgentPayments` | Per-mint agent config: authority, buyback bps |
-| `TokenAgentPaymentInCurrency` | Per-mint per-currency accounting |
-| `BondingCurve` | Pump bonding curve state (read-only) |
+```ts
+import { createEvmX402Fetch } from '@three-ws/agent-payments/x402';
 
-## Key Exports
+const x402fetch = createEvmX402Fetch({ /* wallet client + options */ });
+const res = await x402fetch('https://api.agent.example/inference');
+```
 
-- **Classes**: `PumpAgent`, `PumpAgentOffline`
-- **Constants**: `PROGRAM_ID`, `PUMP_PROGRAM_ID`, `PUMP_AGENT_PAYMENTS_PROGRAM_ID`
-- **PDAs**: `getGlobalConfigPDA`, `getTokenAgentPaymentsPDA`, `getPaymentInCurrencyPDA`, `getInvoiceIdPDA`, `getBuybackAuthorityPDA`, `getWithdrawAuthorityPDA`, `getBondingCurvePDA`
-- **Decoders**: `decodeGlobalConfig`, `decodeTokenAgentPaymentInCurrency`, `decodeTokenAgentPayments`
-- **Events**: `createEventParser`, `parseAgentEvents`, `subscribeToAgentEvents` + all event type interfaces
-- **Program**: `getPumpProgram`, `getPumpProgramWithFallback`, `getOfflineProgram`, `getProgram`
-- **x402**: `x402.createX402Fetch`, `x402.PumpAgentFacilitator`, `x402.createResourceServer`, `x402.buildPumpAgentRequirements`, header helpers
+Also exported from `./x402`: `decodePaymentHeader`, `buildPaymentRequiredHeader`,
+and the `EvmReplayStore` / verification types for the facilitator side.
 
-## License
+Agent-to-agent payments:
 
-ISC
+```ts
+import { payA2A, createPrivateKeySigner } from '@three-ws/agent-payments/a2a';
+
+const signer = await createPrivateKeySigner(process.env.A2A_PRIVATE_KEY);
+const result = await payA2A({ /* endpoint, signer, … */ });
+```
+
+`./a2a` also exports `requestA2AQuote`, `submitA2APayment`, `buildEvmExactPayload`,
+the A2A extension URI/header constants, and the A2A request/response types.
+
+## Requirements
+
+- **Node** `>= 18`.
+- **Solana:** `@solana/web3.js@^1.98`, `@solana/spl-token`, `@coral-xyz/anchor` (bundled deps).
+- **EVM:** `ethers@^6`, `viem@^2` (bundled deps).
+- `zod` is an optional peer dependency.
+
+## Links
+
+- Homepage: https://three.ws
+- Changelog: https://three.ws/changelog
+- Sibling SDK: [`@three-ws/solana-agent`](https://www.npmjs.com/package/@three-ws/solana-agent)
+- Issues: https://github.com/nirholas/three.ws/issues
+- Fork notes: [FORK_NOTES.md](./FORK_NOTES.md)
+- License: ISC

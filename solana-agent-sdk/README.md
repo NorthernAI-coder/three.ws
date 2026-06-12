@@ -1,6 +1,29 @@
-# @three-ws/solana-agent
+<h1 align="center">@three-ws/solana-agent</h1>
 
-Solana agent SDK for three.ws — keypair and browser wallets, SOL/SPL transfers, Jupiter swaps, staking, and the x402 "exact" payment scheme. Dual ESM/CJS, fully typed.
+<p align="center"><strong>Solana agent SDK: keypair + browser wallets, SOL/SPL transfers, Jupiter swaps, staking, and the x402 exact payment scheme.</strong></p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/solana-agent"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/solana-agent?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/solana-agent"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/solana-agent?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/solana-agent?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/solana-agent?color=339933&logo=node.js">
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#entry-points">Entry points</a> ·
+  <a href="#wallet-providers">Wallets</a> ·
+  <a href="#x402-exact-payments">x402</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
+
+---
+
+> A typed Solana SDK for AI agents. Give an agent a wallet — its own keypair for
+> autonomous signing, or a browser wallet that defers signing to the user — then
+> transfer SOL and SPL tokens, swap via Jupiter, stake, pay x402 invoices in USDC,
+> and plug into solana-agent-kit. Dual ESM/CJS, fully typed.
 
 ## Install
 
@@ -135,16 +158,45 @@ const result = await swapAction.handler(agent, { inputMint, outputMint, amount }
 
 Exports here: `SolanaAgentPlugin`, `allActions`, the individual actions (`transferSolAction`, `transferSplAction`, `swapAction`, `getSwapQuoteAction`, `getBalanceAction`, `createAtaAction`, `stakeSolAction`, `unstakeSolAction`, `getStakeAccountsAction`), and the `Action` / `Plugin` / `SolanaAgentLike` types.
 
+## AgenC coordination
+
+The root export also bundles an adapter for the [AgenC](https://agenc.tech)
+on-chain agent-coordination protocol — register agents, create and claim tasks,
+and bridge identities from ERC-8004 / MPL-Core / three.ws handles into AgenC ids.
+
+```js
+import {
+  createAgenCClient,
+  registerAgenCAgent,
+  createAgenCTask,
+  claimAgenCTask,
+  completeAgenCTask,
+} from '@three-ws/solana-agent';
+```
+
+Also exported: `getAgenCAgent`, `deriveAgenCAgentPda`, the task lifecycle helpers
+(`getAgenCTask`, `getAgenCTaskLifecycle`, `listAgenCTasksByCreator`,
+`generateAgenCTaskId`, `formatTaskState`), the identity bridges
+(`bridgeErc8004ToAgenCId`, `bridgeMplCoreToAgenCId`, `bridgeThreewsHandleToAgenCId`,
+`getCanonicalThreewsAgenCId`), and the program-id constants
+(`AGENC_DEVNET_PROGRAM_ID`, `AGENC_MAINNET_PROGRAM_ID`).
+
 ## Errors
 
 Typed error classes (exported from the root) for boundary handling: `SolanaAgentError`, `TransactionRejectedError`, `WalletNotConnectedError`, `WalletCapabilityError`, `MissingTokenAccountError`, `SwapError`, `SimulationError`, `ConfirmationTimeoutError`.
 
-## Build & test
+## Requirements
 
-```
-npm run build       # tsup -> dist (ESM + CJS + d.ts)
-npm run typecheck   # tsc --noEmit
-npm test            # jest
-```
+- **Node** `>= 18`.
+- **Base dep:** `@solana/web3.js@^1.98`. `@solana/spl-token` and
+  `@coral-xyz/anchor` ship as direct dependencies; `zod` is an optional peer dep.
+- For browser signing, a `@solana/wallet-adapter` wallet or a user-supplied
+  `SignerFn`.
 
-Source lives in `src/` (`agent.ts`, `wallet/`, `actions/`, `x402-exact/`, `solana-agent-kit/`, `tx/`, `utils/`, `errors.ts`).
+## Links
+
+- Homepage: https://three.ws
+- Changelog: https://three.ws/changelog
+- Sibling SDK: [`@three-ws/agent-payments`](https://www.npmjs.com/package/@three-ws/agent-payments)
+- Issues: https://github.com/nirholas/three.ws/issues
+- License: MIT — see [LICENSE](./LICENSE)

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { assertValid } from '@three-ws/avatar-schema';
+import { style, heading, failure } from '../style.js';
 
 const DEFAULT_VIEWER = 'https://three.ws';
 
@@ -17,11 +18,18 @@ const DEFAULT_VIEWER = 'https://three.ws';
 export async function preview({ positional, flags }) {
 	const [filePath] = positional;
 	if (!filePath) {
-		process.stderr.write('preview: missing <path> argument\n');
+		failure('preview: missing <path> argument');
 		return 1;
 	}
 	const full = resolve(process.cwd(), filePath);
-	const manifest = JSON.parse(readFileSync(full, 'utf8'));
+	let manifest;
+	try {
+		manifest = JSON.parse(readFileSync(full, 'utf8'));
+	} catch (err) {
+		failure(`could not read manifest at ${filePath}`);
+		process.stderr.write(`  ${style.dim(err.message)}\n`);
+		return 1;
+	}
 	assertValid(manifest);
 
 	const viewer = (flags.viewer || DEFAULT_VIEWER).replace(/\/$/, '');
@@ -43,15 +51,15 @@ export async function preview({ positional, flags }) {
 		return 0;
 	}
 
-	console.log(`# ${manifest.name} (${manifest.id})`);
+	console.log(`${style.bold(manifest.name)} ${style.dim(`(${manifest.id})`)}`);
 	console.log('');
-	console.log('# resolver url');
+	console.log(heading('resolver url'));
 	console.log(resolverUrl);
 	console.log('');
-	console.log('# web component (requires @three-ws/avatar on the page)');
+	console.log(heading('web component  — requires @three-ws/avatar on the page'));
 	console.log(element);
 	console.log('');
-	console.log('# iframe (zero-install)');
+	console.log(heading('iframe  — zero-install'));
 	console.log(iframe);
 	return 0;
 }

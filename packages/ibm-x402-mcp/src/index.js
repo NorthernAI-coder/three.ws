@@ -86,14 +86,12 @@ export async function buildServer(client) {
 }
 
 async function main() {
-	// Fail fast on missing payment address — a running server that can't receive
-	// USDC payments is useless.
-	assertPaymentEnv();
-
-	// Load IBM credentials once at startup. Throws with an actionable message on
-	// any missing required env var so the operator sees the problem immediately.
+	// Fail fast and clearly on any missing required env var: the payment address
+	// first (a server that can't receive USDC is useless), then IBM credentials.
+	// Each check throws an actionable single-line message naming the env var.
 	let config;
 	try {
+		assertPaymentEnv();
 		config = loadConfig();
 	} catch (err) {
 		console.error(`[ibm-x402-mcp] configuration error: ${err.message}`);

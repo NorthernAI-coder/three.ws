@@ -5,6 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { main } from '../src/cli.js';
 
+// Strip ANSI color codes so assertions are independent of TTY/FORCE_COLOR state.
+const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+
 function captured(fn) {
 	const out = [];
 	const err = [];
@@ -23,7 +26,7 @@ function captured(fn) {
 		out.push(args.map(String).join(' ') + '\n');
 	};
 	return fn()
-		.then((code) => ({ code, stdout: out.join(''), stderr: err.join('') }))
+		.then((code) => ({ code, stdout: stripAnsi(out.join('')), stderr: stripAnsi(err.join('')) }))
 		.finally(() => {
 			process.stdout.write = origOut;
 			process.stderr.write = origErr;
@@ -52,16 +55,30 @@ test('help is shown when no command given', async () => {
 	assert.ok(stdout.includes('init'));
 });
 
-test('help is shown for --help', async () => {
+test('explicit --help exits 0', async () => {
 	const { code, stdout } = await captured(() => main(['--help']));
-	assert.equal(code, 1);
-	assert.ok(stdout.includes('commands:'));
+	assert.equal(code, 0);
+	assert.ok(stdout.includes('commands'));
 });
 
-test('unknown command returns 1', async () => {
-	const { code, stderr } = await captured(() => main(['nope']));
+test('per-command --help prints command usage and exits 0', async () => {
+	const { code, stdout } = await captured(() => main(['init', '--help']));
+	assert.equal(code, 0);
+	assert.ok(stdout.includes('three-ws-avatar init'));
+	assert.ok(stdout.includes('--owner'));
+});
+
+test('unknown command returns 1 and suggests a close match', async () => {
+	const { code, stderr } = await captured(() => main(['vlaidate']));
 	assert.equal(code, 1);
 	assert.ok(stderr.includes('unknown command'));
+	assert.ok(stderr.includes('did you mean "validate"?'));
+});
+
+test('--version prints the package version', async () => {
+	const { code, stdout } = await captured(() => main(['--version']));
+	assert.equal(code, 0);
+	assert.match(stdout.trim(), /^\d+\.\d+\.\d+/);
 });
 
 test('hash command returns sha256 of file', async () => {
@@ -161,7 +178,7 @@ test('validate passes for a freshly generated manifest', async () => {
 	);
 	const { code, stdout } = await captured(() => main(['validate', outPath]));
 	assert.equal(code, 0);
-	assert.ok(stdout.includes('ok'));
+	assert.ok(stdout.includes('valid'));
 });
 
 test('validate fails for malformed manifest', async () => {

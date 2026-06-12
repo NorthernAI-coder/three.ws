@@ -33,7 +33,7 @@ function requireSvmPayTo() {
 	const addr = env('MCP_SVM_PAYMENT_ADDRESS') || env('X402_PAY_TO_SOLANA') || env('X402_PAY_TO');
 	if (!addr) {
 		throw new Error(
-			'ibm-x402-mcp: set MCP_SVM_PAYMENT_ADDRESS to your Solana wallet address to receive USDC payments.',
+			'set MCP_SVM_PAYMENT_ADDRESS to your Solana wallet address to receive USDC payments.',
 		);
 	}
 	return addr;

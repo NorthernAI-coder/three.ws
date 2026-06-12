@@ -63,9 +63,11 @@ function buildCard(c) {
 		prov.className = 'badge';
 		prov.style.left = '6px';
 		prov.style.right = 'auto';
-		prov.textContent = [ENGINE_LABELS[c.backend] || c.backend, c.tier].filter(Boolean).join(' ');
+		prov.textContent = [ENGINE_LABELS[c.backend] || c.backend, c.tier].filter(Boolean).join(' · ');
 		card.appendChild(prov);
 	}
+
+	attachHoverPreview(card, c);
 	if (Number(c.views_used) > 1) {
 		const mv = document.createElement('span');
 		mv.className = 'badge';
@@ -116,6 +118,54 @@ function buildCard(c) {
 	return card;
 }
 
+// Hover a card for a beat → its actual model spins in the thumb. One live
+// mini-viewer at a time (GLBs are megabytes; a grid of twelve would jank the
+// page), created only on real intent (300ms dwell) and torn down on leave.
+// <model-viewer> is already registered on this page. Pointer-only by design:
+// on touch, tapping the card opens the full viewer anyway.
+let activePreview = null; // { card, viewer }
+let previewTimer = null;
+
+function teardownHoverPreview() {
+	clearTimeout(previewTimer);
+	previewTimer = null;
+	if (activePreview) {
+		activePreview.viewer.remove();
+		activePreview.card.classList.remove('is-previewing');
+		activePreview = null;
+	}
+}
+
+function attachHoverPreview(card, c) {
+	if (!c.glb_url || !window.customElements?.get('model-viewer')) return;
+	if (matchMedia('(hover: none)').matches) return;
+
+	card.addEventListener('mouseenter', () => {
+		teardownHoverPreview();
+		previewTimer = setTimeout(() => {
+			const thumb = card.querySelector('.thumb');
+			if (!thumb) return;
+			const viewer = document.createElement('model-viewer');
+			viewer.className = 'showcase-preview';
+			viewer.setAttribute('src', c.glb_url);
+			viewer.setAttribute('auto-rotate', '');
+			viewer.setAttribute('auto-rotate-delay', '0');
+			viewer.setAttribute('rotation-per-second', '24deg');
+			viewer.setAttribute('interaction-prompt', 'none');
+			viewer.setAttribute('disable-zoom', '');
+			viewer.setAttribute('shadow-intensity', '0');
+			viewer.setAttribute('exposure', '0.9');
+			viewer.setAttribute('environment-image', 'neutral');
+			viewer.setAttribute('aria-hidden', 'true');
+			// Fade in only once the GLB is actually ready — no pop, no void.
+			viewer.addEventListener('load', () => card.classList.add('is-previewing'), { once: true });
+			thumb.insertAdjacentElement('afterend', viewer);
+			activePreview = { card, viewer };
+		}, 300);
+	});
+	card.addEventListener('mouseleave', teardownHoverPreview);
+}
+
 // Put the prompt in the composer, in text mode, ready to edit-and-Generate.
 function remixPrompt(prompt) {
 	document.querySelector('#mode-switch [data-mode="text"]')?.click();
@@ -138,7 +188,9 @@ async function loadShowcase() {
 
 	let data;
 	try {
-		const res = await fetch('/api/forge-gallery?scope=community&limit=12');
+		// Over-fetch, then dedupe near-identical prompts client-side — people
+		// re-roll the same prompt, and a feed of six teapots sells nothing.
+		const res = await fetch('/api/forge-gallery?scope=community&limit=24');
 		data = await res.json().catch(() => ({}));
 	} catch {
 		els.grid.removeAttribute('aria-busy');
@@ -151,13 +203,23 @@ async function loadShowcase() {
 	}
 
 	els.grid.removeAttribute('aria-busy');
-	const creations = Array.isArray(data?.creations) ? data.creations : [];
+	const all = Array.isArray(data?.creations) ? data.creations : [];
+	const seen = new Set();
+	const creations = all
+		.filter((c) => {
+			const key = (c.prompt || c.id || '').toLowerCase().replace(/\s+/g, ' ').trim();
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		})
+		.slice(0, 12);
 	if (!data?.enabled || creations.length === 0) {
 		// No durable store, or nothing forged yet — no hollow strip.
 		els.section.classList.add('is-hidden');
 		return;
 	}
 
+	teardownHoverPreview();
 	els.grid.innerHTML = '';
 	for (const c of creations) els.grid.appendChild(buildCard(c));
 	if (els.count) els.count.textContent = `${creations.length} recent`;

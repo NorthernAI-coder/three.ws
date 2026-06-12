@@ -84,6 +84,8 @@
     "build:lib:full": "TARGET=lib LIB_FORMATS=es,umd vite build",
     "build:artifact": "vite build --config vite.config.artifact.js",
     "publish:lib": "node scripts/publish-lib.mjs",
+    "publish:mcp": "node scripts/publish-mcp-servers.mjs",
+    "publish:mcp:dry": "node scripts/publish-mcp-servers.mjs --dry-run",
     "build:chat": "cd chat && node scripts/ensure-deps.mjs && npm run build && cd .. && mkdir -p dist/chat && cp -rf public/chat/. dist/chat/",
     "build:avatar-studio": "npm run build --prefix character-studio",
     "build:fast": "npm run build",
