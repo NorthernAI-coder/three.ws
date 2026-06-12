@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T23:31:31.812Z",
+	"generated_at": "2026-06-12T23:41:21.919Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -283,6 +283,17 @@
 			"summary": "The on-chain button under the viewer used to flip to “Deployed ✓ Solana” and open a block-explorer wallet page — a dead end. It now always reads “Deploy on Solana” and hands you to the on-chain deployment agent, a guided flow for putting your 3D asset on Solana, right inside the app.",
 			"link": "/app?agent=67bf6e67-93bb-40c6-9a6b-91e921696248",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "The homepage mini Forge now remembers your models and carries them onward",
+			"summary": "The text-to-3D demo on the homepage got a real upgrade. Every model you forge there now lands in a session history rail — actual captured frames of your results — so you can flip back to anything you made without losing it. When a model is on stage you can spin it or pause the rotation, forge a fresh variation of the same prompt, open it straight in Scene Studio, copy a share link, view it in AR on a phone, or download the GLB — all from one toolbar. Keyboard focus jumps to those actions the moment a model lands.",
+			"link": "/",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
