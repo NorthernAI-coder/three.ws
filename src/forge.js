@@ -59,6 +59,8 @@ const els = {
 	},
 	cancel: document.getElementById('cancel'),
 	viewer: document.getElementById('viewer'),
+	viewerShell: document.getElementById('viewer-shell'),
+	cinema: document.getElementById('cinema'),
 	resultLabel: document.getElementById('result-label'),
 	resultViews: document.getElementById('result-views'),
 	verdict: document.getElementById('verdict'),
@@ -106,6 +108,19 @@ let userPickedEngine = false;
 // by the page. Signed-in users can instead save it server-side in Account.
 let providerKey = '';
 
+// Cinema mode — distraction-free fullscreen turntable for recording/sharing.
+// Toggled by the result-bar button or F; Esc always exits. Rotation slows so
+// the loop reads as deliberate, not busy.
+let cinemaOn = false;
+function setCinema(on) {
+	if (!els.cinema || on === cinemaOn) return;
+	cinemaOn = on;
+	els.states.result.classList.toggle('is-cinema', on);
+	document.body.classList.toggle('forge-cinema', on);
+	els.cinema.setAttribute('aria-pressed', String(on));
+	els.viewer.setAttribute('rotation-per-second', on ? '10deg' : '18deg');
+}
+
 // Friendly engine labels + where to mint a key, keyed by backend id.
 const ENGINE_LABELS = { nvidia: 'Free', trellis: 'Fast', meshy: 'Meshy', tripo: 'Tripo', hunyuan3d: 'Hunyuan3D', triposg: 'TripoSG' };
 const KEY_HINTS = {
@@ -152,14 +167,21 @@ const CLIENT_ID = (() => {
 
 const CLIENT_HEADERS = { 'x-forge-client': CLIENT_ID };
 
+const REDUCED_MOTION =
+	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 function showState(name) {
 	for (const [key, node] of Object.entries(els.states)) {
 		node.classList.toggle('is-hidden', key !== name);
 	}
+	// Leaving the result state always leaves cinema mode with it.
+	if (name !== 'result' && cinemaOn) setCinema(false);
 }
 
 function setStep(step, state) {
 	if (els.steps[step]) els.steps[step].dataset.state = state;
+	// The scanline sweep runs exactly while the mesh step is live.
+	if (step === 'mesh') els.genPreview.classList.toggle('is-reconstructing', state === 'active');
 }
 
 function setStepLabel(step, text) {
@@ -929,6 +951,36 @@ function setViewsBadge(meta) {
 	els.resultViews.classList.remove('is-hidden');
 }
 
+// Materialize entrance — conceal the standing viewer, play the WebGL dissolve
+// reveal over it (src/forge-reveal.js), then crossfade back and hand the
+// final camera angle to model-viewer so the turntable continues seamlessly.
+// Presentation only: any failure restores the viewer immediately.
+let revealSeq = 0;
+async function playMaterialize(glbUrl) {
+	if (REDUCED_MOTION || !els.viewerShell) return;
+	const seq = ++revealSeq;
+	els.viewer.style.opacity = '0';
+	try {
+		const { playForgeReveal } = await import('./forge-reveal.js');
+		const viewerLoaded = new Promise((resolve) => {
+			if (els.viewer.loaded) return resolve();
+			els.viewer.addEventListener('load', resolve, { once: true });
+		});
+		const end = await playForgeReveal({
+			container: els.viewerShell,
+			glbUrl,
+			waitFor: viewerLoaded,
+		});
+		if (seq === revealSeq && end && Number.isFinite(end.azimuthDeg)) {
+			els.viewer.cameraOrbit = `${end.azimuthDeg.toFixed(1)}deg ${end.polarDeg.toFixed(1)}deg auto`;
+		}
+	} catch {
+		// The standing viewer is the fallback — nothing to surface.
+	} finally {
+		if (seq === revealSeq) els.viewer.style.opacity = '1';
+	}
+}
+
 function showResult(glbUrl, label, meta) {
 	stopElapsed();
 	resetVerdict();
@@ -944,6 +996,7 @@ function showResult(glbUrl, label, meta) {
 	// Cross-link into Parts Studio with this exact model pre-loaded.
 	if (els.segmentBtn) els.segmentBtn.href = `/segment?mesh=${encodeURIComponent(glbUrl)}`;
 	showState('result');
+	playMaterialize(glbUrl);
 	// Hand the live model to the Stylize panel (src/forge-stylize.js) so its
 	// one-click geometric filters operate on the current source mesh.
 	document.dispatchEvent(
@@ -1424,6 +1477,23 @@ if (els.verdict) {
 
 els.download.addEventListener('click', () => {
 	sendFeedback({ downloaded: true });
+});
+
+els.cinema?.addEventListener('click', () => setCinema(!cinemaOn));
+
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && cinemaOn) {
+		setCinema(false);
+		return;
+	}
+	if (e.key !== 'f' && e.key !== 'F') return;
+	if (e.metaKey || e.ctrlKey || e.altKey) return;
+	const active = document.activeElement;
+	if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.isContentEditable)
+		return;
+	if (els.states.result.classList.contains('is-hidden')) return;
+	e.preventDefault();
+	setCinema(!cinemaOn);
 });
 
 if (els.forgeShareBtn) {

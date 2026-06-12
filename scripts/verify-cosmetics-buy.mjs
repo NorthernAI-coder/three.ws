@@ -34,13 +34,22 @@ await page.evaluate(() => {
 	// world; the handler itself is wired at construction — invoke it directly.
 	document.querySelector('.cc-shop-btn').click();
 });
-await page.waitForSelector('#cc-shop:not([hidden])', { timeout: 30_000 });
+// Function-based waits — selector state checks proved flaky against the live
+// site (resolved-but-"not visible" stalls on a plainly visible node).
+await page.waitForFunction(() => {
+	const n = document.getElementById('cc-shop');
+	return n && !n.hidden;
+}, { timeout: 30_000 });
 
 // Wait for the real catalog to render, then click a premium Buy.
-await page.waitForSelector('.cc-shop-card .cc-shop-buy', { timeout: 30_000 });
-const buyLabel = await page.locator('.cc-shop-buy').first().getAttribute('aria-label');
+await page.waitForFunction(() => !!document.querySelector('.cc-shop-card .cc-shop-buy'), { timeout: 30_000 });
+const buyLabel = await page.evaluate(() => {
+	const b = document.querySelector('.cc-shop-buy');
+	const label = b.getAttribute('aria-label');
+	b.click();
+	return label;
+});
 console.log('clicking:', buyLabel);
-await page.locator('.cc-shop-buy').first().click();
 
 // Success = the x402 SDK was fetched and window.X402.pay mounted its modal.
 await page.waitForFunction(() => window.X402 && typeof window.X402.pay === 'function', { timeout: 30_000 });
