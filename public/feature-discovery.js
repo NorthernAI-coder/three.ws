@@ -167,25 +167,20 @@
 
 	// ── "New" badges on in-page links to new features ──────────────────────────
 	// Not every page loads style.css (home, create, launches… carry their own
-	// inline design systems), so the badge ships its own fallback rule. It is
-	// PREPENDED to <head> so any page stylesheet still wins the cascade.
-	function ensureBadgeStyle() {
-		if (document.getElementById('tws-disc-new-css')) return;
-		var s = document.createElement('style');
-		s.id = 'tws-disc-new-css';
-		s.textContent =
-			'.tws-disc-new{display:inline-block;margin-left:6px;padding:1px 6px;' +
-			'font-size:10px;font-weight:600;line-height:1.5;letter-spacing:0.02em;' +
-			'text-transform:uppercase;vertical-align:middle;' +
-			'color:var(--ink,var(--text,#e8e8e8));' +
-			'background:var(--surface-3,rgba(255,255,255,0.08));' +
-			'border:1px solid var(--stroke-strong,rgba(255,255,255,0.14));' +
-			'border-radius:var(--radius-pill,999px);}';
-		document.head.insertBefore(s, document.head.firstChild);
+	// inline design systems), so this layer loads its own stylesheet for the
+	// badge + card. The <link> is PREPENDED to <head> so style.css — which
+	// carries an identical copy of these rules — and page styles win the cascade.
+	function ensureStyles() {
+		if (document.getElementById('tws-disc-css')) return;
+		var l = document.createElement('link');
+		l.id = 'tws-disc-css';
+		l.rel = 'stylesheet';
+		l.href = '/feature-discovery.css';
+		document.head.insertBefore(l, document.head.firstChild);
 	}
 
 	function decorateNewBadges(newSet) {
-		ensureBadgeStyle();
+		ensureStyles();
 		var visited = visitedSet();
 		var anchors = document.querySelectorAll('a[href]');
 		for (var i = 0; i < anchors.length; i++) {
@@ -245,6 +240,7 @@
 
 	// spec: { kicker, title, desc, links:[{href,label,primary}], onDismiss }
 	function renderCard(spec) {
+		ensureStyles();
 		dismissCard();
 		var card = el('aside', 'tws-disc-card');
 		card.setAttribute('role', 'status');
