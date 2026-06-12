@@ -66,6 +66,12 @@ const ENVIRONMENTS = {
 function resolveAvatarUrl() {
 	const id = params.get('avatar');
 	if (!id) return AVATAR_URL_DEFAULT;
+	// A direct GLB/VRM URL or site path loads as-is — this is how Forge/Scan
+	// hand a just-generated model into the embed editor (?avatar=<glb url>),
+	// the same passthrough the /play worlds use (src/game/avatar-rig.js).
+	// Same-origin /cdn/ paths stay loadable from third-party iframes because
+	// the iframe itself is served from three.ws.
+	if (/^https?:\/\//i.test(id) || id.startsWith('/')) return id;
 	// Go through the same-origin GLB proxy (api/avatars/[id]/glb) instead
 	// of the metadata JSON. The proxy streams the bytes with
 	// `Access-Control-Allow-Origin: *` so hosts on any origin can iframe

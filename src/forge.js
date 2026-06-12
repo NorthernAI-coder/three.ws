@@ -1002,7 +1002,11 @@ function showResult(glbUrl, label, meta) {
 	document.dispatchEvent(
 		new CustomEvent('forge:model-ready', { detail: { glbUrl, label } }),
 	);
-	document.dispatchEvent(new CustomEvent('tws:feature-done', { detail: { feature: 'forge' } }));
+	document.dispatchEvent(
+		new CustomEvent('tws:feature-done', {
+			detail: { feature: 'forge', model: { glbUrl, label } },
+		}),
+	);
 	if (els.forgeShareBtn) {
 		els.forgeShareBtn.dataset.sharePrompt = label;
 	}

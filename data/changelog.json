@@ -1120,6 +1120,16 @@
 		},
 		{
 			"date": "2026-06-12",
+			"title": "Forge models now carry straight into Scene Studio",
+			"summary": "The \"what's next\" card after a Forge or Parts Studio result used to send you to the studio empty-handed — the model stayed behind. The primary action is now \"Open in Scene Studio\" and it brings the exact model you just made with it: Scene Studio opens with the GLB already imported, named after your prompt, ready to compose, edit, and export. Your work carries over instead of starting from a blank scene.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
 			"title": "Sketch-to-3D comes to the Forge",
 			"summary": "Forge gains a third way to make a model: draw it. The new “From a sketch” mode takes one drawing plus a short line saying what it depicts and generates real 3D geometry from it, powered by a self-hosted TripoSG sketch engine — the same research-grade model family behind Tripo. Sketch results are untextured geometry by design, so the existing Stylize and Retexture tools pick up right where it leaves off. The tab appears automatically once the sketch engine is live on the deployment.",
 			"tags": [
