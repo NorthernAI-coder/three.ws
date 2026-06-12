@@ -980,7 +980,12 @@ async function run(cfg) {
 			};
 		}
 
-		const done = await pollUntilDone(job.job_id);
+		// The free draft lane (NVIDIA NIM) completes synchronously — the POST
+		// itself returns the finished model with a null job_id. Polling that
+		// null id would loop on invalid_job until the timeout, losing a result
+		// that already succeeded.
+		const done =
+			job.status === 'done' && job.glb_url ? job : await pollUntilDone(job.job_id);
 		if (pollAbort || !done) return; // cancelled
 
 		if (done.creation_id) currentCreationId = done.creation_id;

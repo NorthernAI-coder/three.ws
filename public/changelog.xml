@@ -28,7 +28,15 @@
 			<guid isPermaLink="false">2026-06-12:Forge a 3D model right on the homepage</guid>
 			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The homepage now has a live slice of Forge. Type a description of an object — or tap an example — and the real generation pipeline paints a reference image, reconstructs a textured mesh, and drops an interactive 3D model into the page that you can orbit and download as GLB. Anything you forge there also shows up in the full Forge gallery on the same device.</description>
+			<description>The homepage now has a live slice of Forge. Type a description of an object — or tap an example — and the real text-to-3D pipeline reconstructs a textured mesh and drops an interactive 3D model into the page, usually in seconds, that you can orbit and download as GLB. Anything you forge there also shows up in the full Forge gallery on the same device.</description>
+		</item>
+		<item>
+			<title>Forge's free Draft engine no longer loses finished models</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Forge's free Draft engine no longer loses finished models</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Generating on Forge's free Draft engine finished successfully on the server, but the page kept waiting and eventually reported a timeout — the model you'd already paid the wait for never appeared. The free engine returns its result immediately rather than as a background job, and the page now recognizes that, so Draft generations land on screen the moment they're ready.</description>
 		</item>
 		<item>
 			<title>New /launches page: every agent-launched coin in one live feed</title>
