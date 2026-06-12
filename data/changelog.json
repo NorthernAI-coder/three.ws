@@ -1117,6 +1117,15 @@
 				"fix"
 			],
 			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Sketch-to-3D comes to the Forge",
+			"summary": "Forge gains a third way to make a model: draw it. The new “From a sketch” mode takes one drawing plus a short line saying what it depicts and generates real 3D geometry from it, powered by a self-hosted TripoSG sketch engine — the same research-grade model family behind Tripo. Sketch results are untextured geometry by design, so the existing Stylize and Retexture tools pick up right where it leaves off. The tab appears automatically once the sketch engine is live on the deployment.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
 		}
 	]
 }

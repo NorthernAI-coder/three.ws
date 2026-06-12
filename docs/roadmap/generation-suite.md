@@ -68,8 +68,8 @@ Everything here is written and containerized; it needs deployment + env wiring.
    `model-text2motion` from their existing Dockerfiles/cloudbuild.yaml, and print the URL +
    key pairs for Vercel env.
 2. **Set the env vars** (names): `GCP_REMESH_URL`, `GCP_STYLIZE_URL`, `GCP_SEGMENT_URL`,
-   `GCP_REMBG_URL`, `GCP_TEXTURE_URL`, `GCP_TEXT2MOTION_URL` (+ shared
-   `GCP_RECONSTRUCTION_KEY`), `LONGCAT_WORKER_URL`/`LONGCAT_WORKER_KEY`.
+   `GCP_REMBG_URL`, `GCP_TEXTURE_URL`, `GCP_TEXT2MOTION_URL`, `GCP_TRIPOSG_URL`
+   (+ shared `GCP_RECONSTRUCTION_KEY`), `LONGCAT_WORKER_URL`/`LONGCAT_WORKER_KEY`.
 3. **Auto-rig**: deploy `workers/unirig` (or pin a Replicate UniRig build) and set
    `REPLICATE_RERIG_MODEL` / route through the GCP pipeline. Rig is the gateway to the
    avatar/animation economy — it unlocks `/forge-motion` clips on generated meshes.
@@ -96,8 +96,14 @@ What they have that we don't (or that we hide). Ordered by user impact.
    expose a format picker on download instead of GLB-only.
 4. **PBR material controls.** High tier claims PBR; expose map outputs (albedo/normal/
    roughness/metallic) and a re-bake option in the result panel.
-5. **Sketch→3D.** Accept a drawing/sketch as the reference image with a controlnet-style
-   preprocessing pass (line-art conditioning) before reconstruction. Tripo headline feature.
+5. **Sketch→3D.** ✅ Built 2026-06-12 on TripoSG-scribble (VAST AI, MIT) — a native
+   sketch+prompt→geometry model, not a controlnet preprocessing hack. New
+   `workers/model-triposg` GPU worker (also added to the avatar pipeline's mesh pool as
+   the TripoSR quality successor), `sketch` path through forge-tiers / gcp provider /
+   `/api/forge`, and a "From a sketch" mode on `/forge` that only appears when the
+   engine is live. ❌ Not deployed: stage weights (`stage-weights.sh`, key `triposg`),
+   deploy the worker (`deploy-all.sh`), set `GCP_TRIPOSG_URL` in Vercel. Output is
+   untextured geometry — pairs with retexture/stylize (item 1).
 6. **Job webhooks + public API docs.** Replicate webhook plumbing exists for avatars; extend
    to forge jobs and publish the endpoint contract (we already sell it via x402 — document it
    like a product, with examples).

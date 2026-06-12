@@ -10,7 +10,7 @@ Out-of-process compute for three.ws — the heavy and edge work that does not be
 The avatar pipeline turns a photo into a rigged, blendshape-ready 3D GLB by fanning out to single-purpose GPU services, coordinated by a CPU controller. The controller keeps the same HTTP contract as the original reconstruction service so `api/_providers/gcp.js` needs no changes.
 
 ### `avatar-pipeline-controller/` (CPU)
-The orchestrator (`main.py`). Exposes `POST /reconstruct` (`{ images: [...], body_type? }` -> `202 { job_id, status }`), `GET /jobs/:id` (`{ status, glb_url?, error?, model }`), and `GET /health`. It picks a mesh backend (Hunyuan3D / TRELLIS / TripoSR) via weighted random, runs reconstruction, then auto-rigs the result through UniRig and uploads the final GLB.
+The orchestrator (`main.py`). Exposes `POST /reconstruct` (`{ images: [...], body_type? }` -> `202 { job_id, status }`), `GET /jobs/:id` (`{ status, glb_url?, error?, model }`), and `GET /health`. It picks a mesh backend (Hunyuan3D / TRELLIS / TripoSR / TripoSG) via weighted random, runs reconstruction, then auto-rigs the result through UniRig and uploads the final GLB.
 
 ### `model-hunyuan3d/` (GPU L4)
 Hunyuan3D-2.1: single image -> textured 3D mesh. `POST /infer` -> `202 { task_id }`, `GET /tasks/:id` -> `{ status, result_gcs_url?, error? }`.
@@ -20,6 +20,9 @@ Microsoft TRELLIS (MIT): single image -> textured 3D mesh via structured latent 
 
 ### `model-triposr/` (GPU L4)
 TripoSR (VAST-AI, MIT): fast single-image -> 3D mesh (~5–15 s, baked single texture). Used as a fast-path / fallback. Same `/infer` contract.
+
+### `model-triposg/` (GPU L4)
+TripoSG (VAST-AI Research, MIT): 1.5B rectified-flow transformer, single image or sketch -> high-fidelity 3D shape (geometry only — no textures; pair with `texture/`). Two modes on the same `/infer` contract: `mode: "image"` (RMBG-1.4 background removal + recenter, 50 steps — the quality successor to TripoSR in the avatar pipeline pool) and `mode: "scribble"` (drawing + required prompt via the CFG-distilled TripoSG-scribble pipeline, 16 steps — powers the `/forge` sketch→3D path). Decimates to `target_polycount` via pymeshlab when supplied. Weights: `VAST-AI/TripoSG` + `VAST-AI/TripoSG-scribble` + `briaai/RMBG-1.4` (staged by `deploy/stage-weights.sh`, service key `triposg`). Routed two ways: through the controller (`MODEL_TRIPOSG_URL`) for avatar reconstruction, and directly via `api/_providers/gcp.js` (`sketch` mode, `GCP_TRIPOSG_URL`) for forge sketch→3D.
 
 ### `unirig/` (GPU L4)
 UniRig (VAST-AI-Research, MIT): takes a raw generated mesh and adds a humanoid skeleton, per-vertex skinning weights, and ARKit-52 blendshapes — turning a static mesh into a riggable avatar.
