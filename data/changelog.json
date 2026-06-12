@@ -1239,6 +1239,15 @@
 				"improvement"
 			],
 			"link": "/docs/mcp-3d-studio"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Forge gets a community showcase — and takes photos from anywhere",
+			"summary": "The /forge page now ends with “Fresh from the Forge”: a live strip of the newest models other people generated. Hover a card and the actual model spins in place; open it in the full viewer with download, share, and stylize working; or hit Remix to copy its prompt into the composer and make your own version. Getting photos in is easier too — paste an image from the clipboard (⌘V) anywhere on the page, or drag files onto the page and Forge switches to photo mode and places them for you.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
 		}
 	]
 }

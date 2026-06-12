@@ -1,63 +1,100 @@
-# @three-ws/avatar-mcp
+<h1 align="center">@three-ws/avatar-mcp</h1>
 
-[![npm version](https://img.shields.io/npm/v/%40three-ws%2Favatar-mcp)](https://www.npmjs.com/package/@three-ws/avatar-mcp)
-[![license](https://img.shields.io/npm/l/%40three-ws%2Favatar-mcp)](./LICENSE)
-[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.nirholas%2Fthreews--avatar-blue)](https://registry.modelcontextprotocol.io/?q=io.github.nirholas)
+<p align="center"><strong>An MCP server that drops a live, rotatable 3D avatar into any chat — interactive in the conversation, embeddable anywhere. Free, no API key.</strong></p>
 
-An [MCP](https://modelcontextprotocol.io) server that drops a **live three.ws 3D avatar** into any MCP client — Claude Desktop, Claude Code, Cursor, or any other host. Render a rotatable avatar inline, get a paste-anywhere embed iframe, or fetch avatar metadata.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/avatar-mcp"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/avatar-mcp?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/avatar-mcp"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/avatar-mcp?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/avatar-mcp?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/avatar-mcp?color=339933&logo=node.js">
+  <a href="https://modelcontextprotocol.io"><img alt="mcp" src="https://img.shields.io/badge/Model%20Context%20Protocol-✓-9945FF"></a>
+  <a href="https://registry.modelcontextprotocol.io/?q=io.github.nirholas"><img alt="MCP Registry" src="https://img.shields.io/badge/MCP%20Registry-io.github.nirholas%2Fthreews--avatar-blue"></a>
+</p>
 
-It's a thin, **zero-config, read-only** bridge to the real three.ws endpoints. Public and unlisted avatars need **no API key**. No mock data — every tool reads live from three.ws.
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#setup">Setup</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#tools">Tools</a> ·
+  <a href="#requirements">Requirements</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
 
-> Registry name: `io.github.nirholas/threews-avatar`. Built by [three.ws](https://three.ws).
+---
 
-## Tools
+> A thin, zero-config, **read-only** [Model Context Protocol](https://modelcontextprotocol.io) server that brings three.ws 3D avatars into any MCP client — Claude Desktop, Claude Code, Cursor, or any other host. Render a live, rotatable avatar inline, get a paste-anywhere embed iframe, or fetch avatar metadata. Every tool reads live from the real three.ws endpoints — no mock data. Public and unlisted avatars need **no API key**. Registry name: `io.github.nirholas/threews-avatar`. Built by [three.ws](https://three.ws).
 
-| Tool | What it does |
-| --- | --- |
-| `render_avatar` | Renders an avatar inline. On [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview)-capable hosts (Claude, VS Code Copilot, Goose…) it shows a **live, rotatable 3D model right in the chat**; on other clients it falls back to a preview image + embed URL. |
-| `avatar_embed_code` | A ready-to-paste `<iframe>` that embeds the live avatar anywhere — as easy as a YouTube embed. |
-| `get_avatar` | Avatar metadata: name, GLB model url, owner, visibility. |
+Need wallets, voice, generation, or pump.fun powers? See the sibling package [`@three-ws/avatar-agent`](https://www.npmjs.com/package/@three-ws/avatar-agent), a full 3D AI agent in a box.
 
-All three tools are read-only and annotated as such (`readOnlyHint`, `idempotentHint`, `openWorldHint`) so hosts can run them without confirmation prompts.
+## Install
 
-### Interactive 3D in the chat (MCP Apps) — the differentiator
+```bash
+npm install @three-ws/avatar-mcp
+```
 
-`render_avatar` is an [MCP App](https://modelcontextprotocol.io/extensions/apps/overview) (SEP-1865): it declares a `ui://` resource that supporting hosts render in a sandboxed iframe — a real, orbit-and-zoom `<model-viewer>`, not a static image. The avatar is **live in the conversation**: rotate it, zoom it, watch it idle, all without leaving the chat. Hosts without MCP Apps support still get a rendered preview image and a one-tap live embed, so the tool degrades gracefully everywhere.
+Run it directly with `npx` (no install needed) or install globally for the `avatar-mcp` CLI:
 
-Identify an avatar three ways: by **`id`** (UUID), by **`@handle`** (username), or by a raw **`model`** GLB url.
+```bash
+npx -y @three-ws/avatar-mcp           # MCP stdio server
+npm install -g @three-ws/avatar-mcp   # exposes `avatar-mcp`
+```
 
-## Use with Claude Desktop / Claude Code / Cursor
+## Setup
 
-Claude Code, one line:
+**Claude Code**, one line:
 
 ```bash
 claude mcp add threews-avatar -- npx -y @three-ws/avatar-mcp
 ```
 
-Claude Desktop / Cursor (JSON config):
+**Claude Desktop / Cursor** (JSON config):
 
 ```json
 {
-  "mcpServers": {
-    "threews-avatar": {
-      "command": "npx",
-      "args": ["-y", "@three-ws/avatar-mcp"]
-    }
-  }
+	"mcpServers": {
+		"threews-avatar": {
+			"command": "npx",
+			"args": ["-y", "@three-ws/avatar-mcp"]
+		}
+	}
 }
 ```
 
-No environment variables required. To point at a different host, set `THREEWS_BASE_URL`.
+No environment variables are required. To read avatars from a different host (e.g. a preview deployment), set `THREEWS_BASE_URL`. Restart your client after editing the config.
 
-## Run standalone
+Inspect the tool surface in a GUI:
 
 ```bash
-npx @three-ws/avatar-mcp
-# inspect the tool surface:
-npx -y @modelcontextprotocol/inspector npx @three-ws/avatar-mcp
+npx -y @modelcontextprotocol/inspector npx -y @three-ws/avatar-mcp
 ```
 
-## Example calls
+## Quick start
+
+Once connected, ask your client in plain language:
+
+> Render the avatar for @nirholas in the chat, dark background, auto-rotating.
+
+`render_avatar` returns three things so it looks great in every client:
+
+1. a **preview image** that renders inline everywhere,
+2. an **interactive `text/html` resource** — a real `<model-viewer>` you can orbit and zoom, for hosts that render HTML resources, and
+3. the **embed URL + iframe** to drop the live avatar into any page.
+
+## Tools
+
+All three tools are free, read-only, and annotated (`readOnlyHint`, `idempotentHint`, `openWorldHint`) so hosts can run them without confirmation prompts. There is no x402 charge. Identify an avatar by **`id`** (UUID), **`handle`** (`nirholas` or `@nirholas`), or a raw **`model`** GLB URL.
+
+| Tool                | Selectors                 | What it does                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `render_avatar`     | `id` · `handle` · `model` | Renders the avatar inline. On [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview)-capable hosts it shows a **live, rotatable 3D model right in the chat**; other clients get a preview image + embed URL. Params: `background` (`transparent`/`dark`/`light`), `scene` (`portrait`/`headshot`/`upper-body`/`full-body`), `auto_rotate`, `height` (160–1080). |
+| `avatar_embed_code` | `id` · `handle` · `model` | Returns a ready-to-paste `<iframe>` that embeds the live avatar anywhere — as easy as a YouTube embed. Params: `background`, `width` (CSS), `height` (160–1080), `idle` (loop the idle animation), `overlay` (chrome-free mode for OBS/overlays).                                                                                                                             |
+| `get_avatar`        | `id` · `handle`           | Fetches avatar metadata: `name`, GLB `model_url`, owner, visibility.                                                                                                                                                                                                                                                                                                          |
+
+### Interactive 3D in the chat — the differentiator
+
+`render_avatar` is an [MCP App](https://modelcontextprotocol.io/extensions/apps/overview) (SEP-1865): it declares a `ui://` resource that supporting hosts render in a sandboxed iframe — a real, orbit-and-zoom `<model-viewer>`, not a static image. The avatar is live in the conversation: rotate it, zoom it, watch it idle, without leaving the chat. Hosts without MCP Apps support still get a rendered preview image and a one-tap live embed, so the tool degrades gracefully everywhere.
+
+### Example calls
 
 ```jsonc
 // render_avatar — live, rotatable avatar in chat
@@ -70,21 +107,32 @@ npx -y @modelcontextprotocol/inspector npx @three-ws/avatar-mcp
 { "handle": "@nirholas" }
 ```
 
-`render_avatar` returns three things so it looks great in every client:
-1. a **preview image** (renders inline everywhere),
-2. an **interactive `text/html` resource** (a `<model-viewer>` you can orbit — for clients that render HTML resources), and
-3. the **embed URL + iframe** so you can drop the live avatar into any page.
-
 ## How it works
 
-| Selector | Endpoint |
-| --- | --- |
-| `id` | `GET https://three.ws/api/avatars/:id` |
-| `handle` | `GET https://three.ws/api/users/:handle/avatar` |
-| preview image | `GET https://three.ws/api/avatar/render?avatar=:id` |
-| live embed | `https://three.ws/avatar-embed.html?...` |
-| viewer | `https://three.ws/viewer?src=:glb` |
+Each selector maps to a real three.ws endpoint. Raw `model` URLs must be `https://` (or `http://localhost` for dev); other schemes are rejected.
 
-## License
+| Selector / asset | Endpoint                                            |
+| ---------------- | --------------------------------------------------- |
+| `id`             | `GET https://three.ws/api/avatars/:id`              |
+| `handle`         | `GET https://three.ws/api/users/:handle/avatar`     |
+| preview image    | `GET https://three.ws/api/avatar/render?avatar=:id` |
+| live embed       | `https://three.ws/avatar-embed.html?...`            |
+| viewer           | `https://three.ws/viewer?src=:glb`                  |
 
-Apache-2.0
+## Requirements
+
+- **Node** `>=20`.
+- **No credentials.** Public and unlisted avatars need no API key.
+
+| Variable             | Required | Notes                                                       |
+| -------------------- | -------- | ----------------------------------------------------------- |
+| `THREEWS_BASE_URL`   | Optional | three.ws host to read from. Defaults to `https://three.ws`. |
+| `THREEWS_TIMEOUT_MS` | Optional | Per-request network timeout. Defaults to `30000`.           |
+
+## Links
+
+- Homepage: https://three.ws
+- Sibling package: [`@three-ws/avatar-agent`](https://www.npmjs.com/package/@three-ws/avatar-agent) — full 3D AI agent (wallet, voice, pump.fun)
+- Changelog: https://three.ws/changelog
+- Issues: https://github.com/nirholas/three.ws/issues
+- License: Apache-2.0 — see [LICENSE](./LICENSE)

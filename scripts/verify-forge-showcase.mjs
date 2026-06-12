@@ -59,15 +59,33 @@ const livePass = await page.$eval('#showcase', (el) =>
 console.log('live API pass:', livePass);
 
 // ── Pass 2: stub the community endpoint with the real response shape ─────────
+// A duplicate-prompt row is included on purpose: the module must dedupe it.
 await page.route('**/api/forge-gallery?scope=community*', (route) =>
-	route.fulfill({ json: { enabled: true, creations: SHOWCASE_ROWS } }),
+	route.fulfill({
+		json: {
+			enabled: true,
+			creations: [...SHOWCASE_ROWS, { ...SHOWCASE_ROWS[0], id: 'c-dupe' }],
+		},
+	}),
 );
 await page.goto(`${BASE}/forge.html`, { waitUntil: 'load' });
 await page.waitForSelector('#showcase:not(.is-hidden) .showcase-card', { timeout: 5000 });
 const cards = await page.$$eval('#showcase-grid .showcase-card', (els) => els.length);
 const count = await page.$eval('#showcase-count', (el) => el.textContent);
 const whens = await page.$$eval('.showcase-when', (els) => els.map((e) => e.textContent));
-console.log('showcase rendered:', { cards, count, whens });
+const badge = await page.$eval('#showcase-grid .showcase-card .badge', (el) => el.textContent);
+console.log('showcase rendered (3 rows in, dupe dropped):', { cards, count, whens, badge });
+
+// Hover-to-spin: dwell on a card → a mini model-viewer with its GLB appears.
+await page.hover('#showcase-grid .showcase-card');
+await page.waitForSelector('#showcase-grid .showcase-card .showcase-preview', { timeout: 3000 });
+const previewSrc = await page.$eval('#showcase-grid .showcase-card .showcase-preview', (el) =>
+	el.getAttribute('src'),
+);
+await page.mouse.move(0, 0); // leave → teardown
+await page.waitForTimeout(150);
+const previewGone = await page.$('#showcase-grid .showcase-preview');
+console.log('hover preview:', { previewSrc, tornDown: previewGone === null });
 
 // Remix: fills the composer prompt + focuses it.
 await page.click('.showcase-card .showcase-remix');

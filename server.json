@@ -1,7 +1,16 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/three.ws",
-	"description": "Render 3D avatars from three.ws as interactive embeds or real PNG/JPEG/WebP images, get copy-paste <iframe> embed code for any avatar, on-chain agent, or Forge creation to drop into Notion/Webflow/a blog, persist and manage your avatar library, validate, inspect, and optimize glTF/GLB models, give agents persistent memory (remember, recall, forget), and mint an agent's on-chain identity — register_agent (server-custodial Metaplex Agent Registry on Solana, or a prepared ERC-8004 payload for Base) and identity_check (Granite impersonation + policy screening).",
+	"title": "three.ws Avatars & Agents",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": ["any"]
+		}
+	],
+	"description": "3D avatars, embeds, glTF tools, agent memory, and on-chain agent identity from three.ws.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github"

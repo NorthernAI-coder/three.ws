@@ -1615,9 +1615,27 @@
 				outline: 2px solid var(--accent);
 				outline-offset: 2px;
 			}
+			/* Hover-to-spin: the card's real model, laid over the square thumb,
+			   faded in only after its GLB finishes loading. */
+			.showcase-preview {
+				position: absolute;
+				top: 0;
+				left: 0;
+				right: 0;
+				aspect-ratio: 1 / 1;
+				width: 100%;
+				background: var(--surface-2);
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.25s ease;
+			}
+			.showcase-card.is-previewing .showcase-preview {
+				opacity: 1;
+			}
 			@media (prefers-reduced-motion: reduce) {
 				.showcase-refresh,
-				.showcase-remix {
+				.showcase-remix,
+				.showcase-preview {
 					transition: none;
 				}
 				.showcase-refresh:hover {

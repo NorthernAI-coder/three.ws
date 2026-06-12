@@ -1,6 +1,31 @@
-# @three-ws/sdk
+<h1 align="center">@three-ws/sdk</h1>
 
-Ship an **ERC-8004 agent** with on-chain identity, a chat panel, and discoverable `.well-known` endpoints — in minutes.
+<p align="center"><strong>Ship a cross-chain 3D AI agent: ERC-8004 + Solana identity, a chat panel, an embeddable avatar, and <code>.well-known</code> manifests.</strong></p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/sdk"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/sdk?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/sdk"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/sdk?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/sdk?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/sdk?color=339933&logo=node.js">
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#embed-a-3d-avatar">Avatar</a> ·
+  <a href="#register-on-chain">Register</a> ·
+  <a href="#api">API</a> ·
+  <a href="#permissions">Permissions</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
+
+---
+
+> A browser SDK for shipping a 3D AI agent that's discoverable on-chain. Mount a
+> floating chat panel with voice I/O, embed any three.ws agent's 3D avatar, register
+> the agent via ERC-8004 (EVM) or Metaplex (Solana), generate the standard
+> `.well-known` manifests, and run x402 paid agent-to-agent calls — all from one
+> package. Vanilla JS, no framework required.
 
 ## Install
 
@@ -8,7 +33,9 @@ Ship an **ERC-8004 agent** with on-chain identity, a chat panel, and discoverabl
 npm install @three-ws/sdk ethers
 ```
 
-`ethers@^6` is a peer dependency (only needed if you call `register()`).
+`ethers@^6` and `@solana/web3.js@^1` are optional peer dependencies — install
+`ethers` only if you call `register()` (EVM), `@solana/web3.js` only for the
+Solana helpers.
 
 ## Quick start
 
@@ -194,6 +221,65 @@ import {
 } from '@three-ws/sdk/permissions/advanced';
 ```
 
-## License
+## Solana identity & payments
 
-MIT
+Sign in with Solana (SIWS), register an agent's identity via Metaplex, and run a
+Solana Pay checkout. Imported from `@three-ws/sdk/solana` (or the root). Needs an
+injected Solana wallet (`@solana/web3.js@^1` is an optional peer dependency).
+
+```js
+import {
+	detectSolanaProvider,
+	signInWithSolana,
+	registerSolanaAgent,
+	startSolanaCheckout,
+	confirmSolanaPayment,
+} from '@three-ws/sdk/solana';
+
+const provider = detectSolanaProvider();
+const { publicKey } = await signInWithSolana({ provider });
+
+const { intentId, reference } = await startSolanaCheckout({ plan: 'pro', network: 'mainnet' });
+const ok = await confirmSolanaPayment({ intentId, txSignature, network: 'mainnet' });
+```
+
+On-chain attestations and reputation (feedback, validation, tasks, disputes) are
+exported from `@three-ws/sdk/solana-attestations`: `attestFeedback`,
+`attestValidation`, `createTask`, `acceptTask`, `attestRevoke`, `attestDispute`,
+`listAttestations`, `fetchAttestations`, `fetchReputation`.
+
+## Paid agent-to-agent calls (x402)
+
+`AgentClient` calls another agent's paid skills, handling the x402 `402 Payment
+Required` flow for you.
+
+```js
+import { AgentClient, PaymentRequiredError } from '@three-ws/sdk';
+
+const client = new AgentClient({ baseUrl: 'https://three.ws/', apiKey: process.env.THREE_WS_KEY });
+
+const prices = await client.getSkillPrices(agentId);
+try {
+	const result = await client.invokeSkill(agentId, 'summarize', { url: 'https://example.com' });
+} catch (err) {
+	if (err instanceof PaymentRequiredError) {
+		// surface the payment requirements to the user / wallet
+	}
+}
+```
+
+## Requirements
+
+- **Node** `>= 18`; runs in modern browsers (the panel and avatar are browser-only).
+- **Optional peers:** `ethers@^6` (for `register()` and `PermissionsClient`),
+  `@solana/web3.js@^1` (for the Solana helpers).
+- **Credentials:** a [web3.storage](https://web3.storage) token for IPFS pinning on
+  `register()`; an injected EVM wallet (MetaMask) or Solana wallet for signing.
+
+## Links
+
+- Homepage: https://three.ws
+- Changelog: https://three.ws/changelog
+- Sibling SDK: [`@three-ws/solana-agent`](https://www.npmjs.com/package/@three-ws/solana-agent)
+- Issues: https://github.com/nirholas/three.ws/issues
+- License: MIT — see [LICENSE](./LICENSE)

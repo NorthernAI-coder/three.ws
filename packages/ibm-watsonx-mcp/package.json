@@ -50,6 +50,7 @@
 	},
 	"scripts": {
 		"start": "node src/index.js",
+		"test": "node --test \"test/**/*.test.mjs\"",
 		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
 	},
 	"dependencies": {

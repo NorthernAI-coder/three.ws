@@ -1,7 +1,16 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/ibm-x402-mcp-remote",
-	"description": "x402 pay-per-use IBM Granite AI over a hosted MCP endpoint — chat, code, embeddings, document analysis, and time-series forecasting. Pay USDC on Base or Solana per call. No IBM Cloud account required. By three.ws.",
+	"title": "IBM Granite x402 Remote",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": ["any"]
+		}
+	],
+	"description": "Pay-per-use IBM Granite AI via x402: chat, code, embeddings, forecasting. USDC on Base or Solana.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github",

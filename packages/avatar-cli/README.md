@@ -1,44 +1,73 @@
-# @three-ws/avatar-cli
+<h1 align="center">@three-ws/avatar-cli</h1>
 
-Terminal-native tooling for on-chain avatars. Scaffold, validate, hash, and
-preview avatar manifests from your shell or CI.
+<p align="center"><strong>Terminal-native tooling for on-chain avatars: scaffold, validate, hash, and preview avatar manifests.</strong></p>
 
-> **What RPM doesn't have.** Ready Player Me has a hosted creator and a
-> hosted SDK, but no CLI and no offline pipeline. three.ws's avatar workflow
-> is composable with build pipelines, content-addressed storage, and any
-> wallet — no service to sign up for.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/avatar-cli"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/avatar-cli?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/avatar-cli"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/avatar-cli?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/avatar-cli?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/avatar-cli?color=339933&logo=node.js">
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#ci-usage">CI usage</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
+
+---
+
+> `@three-ws/avatar-cli` brings the three.ws on-chain avatar workflow to your shell
+> and CI. It scaffolds spec-compliant manifests from a wallet and a mesh file,
+> validates existing manifests, computes content-addressing hashes, and prints
+> embeddable preview snippets. Every command runs offline against
+> [`@three-ws/avatar-schema`](https://www.npmjs.com/package/@three-ws/avatar-schema)
+> — no service to sign up for, no browser required.
 
 ## Install
 
 ```bash
-# one-shot
-npx @three-ws/avatar-cli init --owner 0xabc... --name "Nicholas" --mesh ./avatar.glb
+# run a single command without installing
+npx @three-ws/avatar-cli --help
 
-# or globally
-npm i -g @three-ws/avatar-cli
+# or install globally
+npm install -g @three-ws/avatar-cli
 three-ws-avatar --help
 ```
 
-## Quickstart — claim an on-chain avatar in 30 seconds
+The binary is `three-ws-avatar`. `--version` prints the package version; `--help` /
+`-h` prints usage.
+
+## Quick start
 
 ```bash
-# 1. Generate a signed-ready manifest from your wallet + mesh
+# 1. Scaffold a manifest from your wallet + mesh (sha256 + size computed for you)
 three-ws-avatar init \
-  --owner 0x742d35Cc6634C0532925a3b844Bc454e4438f44e \
+  --owner eip155:1:0x742d35Cc6634C0532925a3b844Bc454e4438f44e \
   --name "Nicholas" \
   --mesh ./avatar.glb \
   --out manifest.json
+# → wrote /…/manifest.json   (validated against @three-ws/avatar-schema before writing)
 
 # 2. Validate it
 three-ws-avatar validate manifest.json
 # → ok: manifest.json
 
-# 3. Preview the embed snippet
+# 3. Print embed snippets
 three-ws-avatar preview manifest.json
-# → resolver URL, <three-ws-avatar> element, and iframe snippet
+# → resolver URL, <three-ws-avatar> element, and <iframe> snippet
 ```
 
 ## Commands
+
+| Command | What it does |
+|---|---|
+| `init` | Scaffold a new avatar manifest from a wallet and mesh file. |
+| `validate <path>` | Validate an existing manifest against the schema (exit 1 if invalid). |
+| `hash <path>` | Compute the SHA-256 of any file, lowercase hex. |
+| `preview <path>` | Print resolver URL + embeddable `<three-ws-avatar>` and `<iframe>` snippets. |
 
 ### `init` — scaffold a manifest
 
@@ -48,32 +77,33 @@ three-ws-avatar init \
   --name <string> \
   --mesh <path> \
   [--skeleton avaturn|mixamo|rpm|vrm-humanoid|custom] \
-  [--mesh-uri <https://... or ipfs://...>] \
+  [--mesh-uri <https://… or ipfs://…>] \
   [--id <override>] \
   [--out manifest.json]
 ```
 
-- `--owner` accepts either a full CAIP-10 (`eip155:1:0x...`) or a shorthand
-  `0x...` address (assumed `eip155:1`).
-- `--mesh` is the path to a `.glb`, `.gltf`, or `.vrm` file. SHA-256 and byte
-  size are computed automatically; format is inferred from the extension.
-- `--mesh-uri` lets you override the public URL the manifest references — if
-  you're going to upload to IPFS or S3, pass that URI here so the manifest
-  resolves correctly for everyone else.
-- `--id` defaults to the owner's CAIP-10, or to `--name` if it's an ENS-style
-  name (`*.eth` / `*.ws` / `*.sol`).
-- The generated manifest is **validated against `@three-ws/avatar-schema`
-  before output** — if you get JSON back, it's spec-compliant by definition.
+| Flag | Required | Notes |
+|---|---|---|
+| `--owner` | yes | Full CAIP-10 (`eip155:1:0x…`) or a shorthand `0x…` address (assumed `eip155:1`). |
+| `--name` | yes | Avatar display name. |
+| `--mesh` | yes | Path to a `.glb` / `.gltf` / `.vrm` file. SHA-256, byte size, and `format` are computed/inferred automatically. |
+| `--skeleton` | no | One of `avaturn` (default) / `mixamo` / `rpm` / `vrm-humanoid` / `custom`. |
+| `--mesh-uri` | no | Public URI to reference instead of the local `file://` path (use your IPFS/S3 URL). |
+| `--id` | no | Override the id; otherwise derived from the owner's CAIP-10, or from `--name` if it's an ENS-style `*.eth` / `*.ws` / `*.sol` name. |
+| `--out` | no | Write to a file (default: print JSON to stdout). |
 
-### `validate` — check an existing manifest
+The manifest is **validated against `@three-ws/avatar-schema` before output** — if
+you get JSON back, it's spec-compliant by definition.
+
+### `validate` — check a manifest
 
 ```bash
-three-ws-avatar validate manifest.json
-# or for machine output
-three-ws-avatar validate manifest.json --json
+three-ws-avatar validate manifest.json          # → ok: manifest.json
+three-ws-avatar validate manifest.json --json    # → {"valid":true,"path":"manifest.json"}
 ```
 
-Exit code 0 if valid, 1 otherwise. Use in CI.
+Exit code `0` if valid, `1` otherwise. On failure, each error prints its JSON
+instance path and message (or a structured `errors` array with `--json`).
 
 ### `hash` — SHA-256 a file
 
@@ -83,35 +113,50 @@ echo "$sha"
 # 3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b
 ```
 
-`--json` emits `{ path, sha256, bytes }` instead.
+`--json` emits `{ "path", "sha256", "bytes" }` instead of the bare hex line.
 
-### `preview` — get embed snippets
+### `preview` — embed snippets
 
 ```bash
 three-ws-avatar preview manifest.json
 ```
 
-Outputs three things:
+Prints three things:
 
-1. The three.ws viewer URL (`https://three.ws/a/{id}`)
-2. A `<three-ws-avatar>` web-component snippet
-3. A drop-in `<iframe>` embed snippet
+1. The resolver URL — `https://three.ws/a/{id}`
+2. A `<three-ws-avatar>` web-component snippet (requires [`@three-ws/avatar`](https://www.npmjs.com/package/@three-ws/avatar) on the page)
+3. A zero-install `<iframe>` embed snippet
 
-Use `--viewer https://localhost:3000` to point at a local dev viewer instead.
+Use `--viewer http://localhost:3000` to target a local dev viewer, or `--json` for
+machine-readable output (`{ id, resolverUrl, element, iframe, schemaVersion }`).
 
-## Why a CLI
+## CI usage
 
-Avatars are content. Content belongs in a build pipeline:
+Avatars are content, and content belongs in a build pipeline:
 
-- Hash on commit, fail CI if the manifest's `mesh.sha256` doesn't match the
-  bytes in the repo.
-- Validate every change to a manifest before it merges.
-- Generate per-environment manifests (dev viewer vs production viewer).
-- Scriptable bulk migration: `find . -name avatar.glb | while read f; do three-ws-avatar init ...; done`
+```bash
+# Fail the build if the mesh bytes drifted from what the manifest attests to.
+expected=$(node -p "require('./manifest.json').mesh.sha256")
+actual=$(three-ws-avatar hash ./avatar.glb)
+[ "$expected" = "$actual" ] || { echo "mesh hash mismatch"; exit 1; }
 
-RPM has none of this. Their workflow is "open browser, drag sliders, copy
-URL." Ours is "git commit, run CI, ship."
+# Gate every manifest change on schema validity.
+three-ws-avatar validate manifest.json
+```
 
-## License
+## Requirements
 
-Apache-2.0 — see [LICENSE](LICENSE).
+- Node `>=18`.
+- Bundled dependency: [`@three-ws/avatar-schema`](https://www.npmjs.com/package/@three-ws/avatar-schema) (used to validate every scaffolded and checked manifest).
+
+## Related packages
+
+- [`@three-ws/avatar-schema`](https://www.npmjs.com/package/@three-ws/avatar-schema) — the manifest format this CLI scaffolds and validates.
+- [`@three-ws/avatar`](https://www.npmjs.com/package/@three-ws/avatar) — the runtime SDK and `<three-ws-avatar>` / `<agent-3d>` elements the `preview` snippets embed.
+
+## Links
+
+- Homepage: https://three.ws
+- Changelog: https://three.ws/changelog
+- Issues: https://github.com/nirholas/three.ws/issues
+- License: Apache-2.0 — see [LICENSE](./LICENSE)

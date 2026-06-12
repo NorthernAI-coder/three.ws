@@ -1,0 +1,125 @@
+<h1 align="center">@three-ws/viewer-presets</h1>
+
+<p align="center"><strong>Tuned light rig, floor reflection, and bloom presets for three.ws avatar viewers — visage-derived, framework-agnostic.</strong></p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@three-ws/viewer-presets"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/viewer-presets?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/viewer-presets"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/viewer-presets?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/viewer-presets?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/viewer-presets?color=339933&logo=node.js">
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="#presets">Presets</a> ·
+  <a href="#api">API</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
+
+---
+
+> `@three-ws/viewer-presets` is a small, data-first package of visual presets for
+> 3D avatar viewers: a five-light rig, floor-reflection parameters, and a bloom
+> configuration. The tuning values are derived from Ready Player Me's open-source
+> [`visage`](https://github.com/readyplayerme/visage) viewer (MIT) and re-tuned for
+> three.ws, so avatars render color-accurate to that reference setup. It's
+> framework-agnostic: presets are plain frozen objects, and the one factory
+> (`buildLightRig`) takes your `THREE` namespace as an argument instead of importing
+> Three.js itself.
+
+## Install
+
+```bash
+npm install @three-ws/viewer-presets
+```
+
+`three` (`>=0.150.0`) is an **optional** peer dependency — only `buildLightRig()`
+touches it, and you pass your own `THREE` namespace in. The preset constants and the
+`floorReflectionConfig` / `bloomConfig` helpers are pure data and need nothing.
+
+## Usage
+
+```js
+import * as THREE from 'three';
+import { buildLightRig, floorReflectionConfig, bloomConfig } from '@three-ws/viewer-presets';
+
+// 1. Build the five-light avatar rig as a THREE.Group and add it to your scene.
+const { group, headTarget, shoeTarget } = buildLightRig(THREE);
+scene.add(group);
+
+// 2. Floor reflection config — `color` must match your canvas background.
+const floor = floorReflectionConfig({ color: '#0b0b12' });
+// feed `floor` into MeshReflectorMaterial (or your own reflector)
+
+// 3. Bloom config — feed into the `postprocessing` Bloom effect (or equivalent).
+const bloom = bloomConfig({ intensity: 0.15 });
+```
+
+You can also import each preset from its own subpath:
+
+```js
+import { LIGHT_CONFIG, buildLightRig } from '@three-ws/viewer-presets/lights';
+import { FLOOR_REFLECTION_DEFAULTS, floorReflectionConfig } from '@three-ws/viewer-presets/floor';
+import { BLOOM_DEFAULTS, bloomConfig } from '@three-ws/viewer-presets/bloom';
+```
+
+## Presets
+
+### Light rig (`./lights`)
+
+`buildLightRig(THREE, overrides?)` returns a `THREE.Group` containing five spotlights
+— fill (blue rim), back (warm rim), key (soft face fill), lift (body/shoe wash), and
+silhouette (arms/legs) — plus a head target and shoe target the lights aim at.
+Positions, angles, intensities, and colors come from `LIGHT_CONFIG`; `overrides`
+patches the `defaults` block (e.g. `keyLightIntensity`, `fillLightColor`,
+`backLightPosition`, `lightTarget`).
+
+### Floor reflection (`./floor`)
+
+`FLOOR_REFLECTION_DEFAULTS` holds reflector parameters (`resolution`, `mixBlur`,
+`mixStrength`, `blur`, `mirror`, depth thresholds, `planeSize`, fog range, …) using
+the same names as visage's `FloorReflection` component. `floorReflectionConfig(props)`
+merges your overrides; `color` is **required** and should match the canvas background
+so the plane fades in seamlessly.
+
+### Bloom (`./bloom`)
+
+`BLOOM_DEFAULTS` is a verbatim-tuned bloom config (`luminanceThreshold`,
+`luminanceSmoothing`, `mipmapBlur`, `intensity`, `kernelSize`).
+`bloomConfig(overrides?)` merges your changes over it.
+
+## API
+
+| Export | Signature |
+|---|---|
+| `buildLightRig(THREE, overrides?)` | `(THREE, Partial<LightingOverrides>) => { group, headTarget, shoeTarget }` |
+| `LIGHT_CONFIG` | Frozen `LightConfig` (angles, positions, and a `defaults` overrides block). |
+| `floorReflectionConfig(props)` | `(Partial<FloorReflectionProps> & { color }) => FloorReflectionProps`; throws if `color` is missing. |
+| `FLOOR_REFLECTION_DEFAULTS` | Frozen floor-reflection defaults (no `color`). |
+| `bloomConfig(overrides?)` | `(Partial<BloomProps>) => BloomProps` |
+| `BLOOM_DEFAULTS` | Frozen bloom defaults. |
+
+## Requirements
+
+- Node `>=18`.
+- Optional peer dependency: `three` `>=0.150.0` (only for `buildLightRig`; passed in, not imported).
+- Run the test suite with `npm test` (Node's built-in `node:test`).
+
+## Attribution
+
+Preset values are derived from Ready Player Me's `visage` viewer (MIT) and re-tuned
+for three.ws. See [NOTICE](./NOTICE) for details. This package is distributed under
+Apache-2.0.
+
+## Related packages
+
+- [`@three-ws/avatar`](https://www.npmjs.com/package/@three-ws/avatar) — the avatar SDK whose viewer these presets are tuned for.
+- [`@three-ws/agent-ui`](https://www.npmjs.com/package/@three-ws/agent-ui) — the avatar-overlay SDK.
+
+## Links
+
+- Homepage: https://three.ws
+- Changelog: https://three.ws/changelog
+- Issues: https://github.com/nirholas/three.ws/issues
+- License: Apache-2.0 — see [LICENSE](./LICENSE)

@@ -32,9 +32,27 @@ const log = (...args) => {
 	process.stderr.write(`[${BRIDGE_NAME}] ${args.map(String).join(' ')}\n`);
 };
 
+// Annotation profiles (MCP ToolAnnotations). Payment tools spend real funds:
+// not read-only, not idempotent (every call settles a new payment), and
+// open-world (they reach arbitrary external endpoints) — but not destructive
+// (they never delete or overwrite caller state).
+const PAYMENT_TOOL_ANNOTATIONS = {
+	readOnlyHint: false,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: true,
+};
+
 function asTextContent(value) {
 	const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-	return { content: [{ type: 'text', text }] };
+	const result = { content: [{ type: 'text', text }] };
+	// Plain objects also go out as structuredContent so typed clients can skip
+	// re-parsing the text block (kept for backward compatibility). MCP requires
+	// structuredContent to be an object, so strings/arrays stay text-only.
+	if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+		result.structuredContent = value;
+	}
+	return result;
 }
 
 function asErrorContent(message) {
@@ -85,8 +103,11 @@ function registerCallPaidEndpoint(server, deps) {
 			title: 'Call any x402-paid endpoint',
 			description:
 				'Calls any HTTP URL that returns 402 with x402 payment requirements, automatically signing and paying. ' +
+				'SPENDS REAL MONEY: each call settles a USDC payment from the bridge wallet (capped by ' +
+				'MCP_BRIDGE_MAX_PRICE_PER_CALL_ATOMIC), and retrying is a new charge. ' +
 				'Supports EVM exact, EVM batch-settlement, and Solana exact schemes. ' +
 				'Returns the resource response plus the parsed settlement receipt.',
+			annotations: PAYMENT_TOOL_ANNOTATIONS,
 			inputSchema: {
 				url: z.string().url().describe('Full URL of the x402-paid resource'),
 				method: z
@@ -124,7 +145,9 @@ function registerListBazaarTools(server, getCached) {
 		{
 			title: 'List Bazaar-discovered tools',
 			description:
-				'Returns the cached list of x402 Bazaar resources registered as MCP tools on this bridge.',
+				'Returns the cached list of x402 Bazaar resources registered as MCP tools on this bridge. Free: reads the in-process cache only, no network and no payment.',
+			// Pure cache read: no side effects, no external interaction.
+			annotations: { readOnlyHint: true, openWorldHint: false, idempotentHint: true },
 			inputSchema: {},
 		},
 		async () => {
@@ -148,7 +171,15 @@ function registerRefreshBazaar(server, refresh) {
 		{
 			title: 'Refresh Bazaar discovery',
 			description:
-				'Re-queries the x402 Bazaar discovery endpoint and re-registers dynamic tools. Use when new paid services have been added since the bridge started.',
+				'Re-queries the x402 Bazaar discovery endpoint and re-registers dynamic tools. Use when new paid services have been added since the bridge started. Free (no payment), but mutates the bridge tool list and results vary with the live Bazaar.',
+			// Mutates the registered tool set from a live external feed: not
+			// read-only, not idempotent, open-world — but never destructive.
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 			inputSchema: {},
 		},
 		async () => {
@@ -191,10 +222,7 @@ function buildDynamicInputSchema() {
 			.describe(
 				'Request body (object). Required when the bazaar input schema declares body fields. JSON-encoded automatically.',
 			),
-		params: z
-			.record(z.any())
-			.optional()
-			.describe('Query string parameters as an object.'),
+		params: z.record(z.any()).optional().describe('Query string parameters as an object.'),
 		pathParams: z
 			.record(z.union([z.string(), z.number()]))
 			.optional()
@@ -210,6 +238,9 @@ function registerDynamic(server, deps, spec) {
 		{
 			title: spec.name,
 			description: spec.description,
+			// Dynamic Bazaar tools route through call_paid_endpoint: every call
+			// spends USDC against an external service.
+			annotations: PAYMENT_TOOL_ANNOTATIONS,
 			inputSchema,
 		},
 		buildDynamicHandler(deps, spec),
@@ -268,7 +299,10 @@ async function main() {
 	try {
 		await refresh();
 	} catch (err) {
-		log('bazaar discovery failed at startup (continuing without dynamic tools):', err?.message || err);
+		log(
+			'bazaar discovery failed at startup (continuing without dynamic tools):',
+			err?.message || err,
+		);
 	}
 
 	const transport = new StdioServerTransport();

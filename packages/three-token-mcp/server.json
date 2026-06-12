@@ -1,18 +1,27 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/three-token-mcp",
-	"description": "The first MCP server whose actions burn a token. Price, hold, and burn $THREE on Solana — every burn splits to the incinerator + treasury via the live three.ws token rail, with Jupiter USD pricing. Deflation as an agent primitive.",
+	"title": "$THREE Token",
+	"description": "Price, hold, and burn $THREE on Solana — the first MCP server whose actions burn a token.",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": ["any"]
+		}
+	],
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github",
 		"subfolder": "packages/three-token-mcp"
 	},
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"packages": [
 		{
 			"registryType": "npm",
 			"identifier": "@three-ws/three-token-mcp",
-			"version": "1.0.0",
+			"version": "1.1.0",
 			"transport": {
 				"type": "stdio"
 			},
@@ -37,6 +46,20 @@
 					"format": "string",
 					"isRequired": false,
 					"default": "https://three.ws"
+				},
+				{
+					"name": "MAX_BURN_USD",
+					"description": "Max USD value of $THREE a single three_burn call may destroy.",
+					"format": "number",
+					"isRequired": false,
+					"default": "100"
+				},
+				{
+					"name": "REQUIRE_CONFIRM",
+					"description": "When on (default), three_burn refuses until re-issued with confirm:true. Set 0/false to disable the gate.",
+					"format": "boolean",
+					"isRequired": false,
+					"default": "true"
 				}
 			]
 		}

@@ -1,7 +1,16 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/threews-agent",
-	"description": "Give your AI agent a wallet on the x402 network: provision a custodial wallet, discover and pay for services in USDC, and monetize your own endpoint to earn USDC from other agents. By three.ws.",
+	"title": "three.ws Agent Wallet",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": ["any"]
+		}
+	],
+	"description": "Give your AI agent an x402 wallet: discover and pay for services in USDC, or earn from your own.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github"

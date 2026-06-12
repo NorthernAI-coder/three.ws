@@ -16,7 +16,9 @@ export default defineConfig({
   },
   format: ["esm", "cjs"],
   dts: true,
-  sourcemap: true,
+  // Sourcemaps in dev builds; omitted from the published (prod) bundle to keep
+  // the npm tarball lean — set TSUP_SOURCEMAP=false (see the build:prod script).
+  sourcemap: process.env.TSUP_SOURCEMAP !== "false",
   clean: true,
   splitting: false,
   treeshake: true,
