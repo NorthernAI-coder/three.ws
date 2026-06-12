@@ -52,6 +52,8 @@ const els = {
 	},
 	genPreview: document.getElementById('gen-preview'),
 	genMeta: document.getElementById('gen-meta'),
+	genProgress: document.getElementById('gen-progress'),
+	genProgressFill: document.getElementById('gen-progress-fill'),
 	steps: {
 		image: document.getElementById('step-image'),
 		mesh: document.getElementById('step-mesh'),
@@ -189,15 +191,73 @@ function setStepLabel(step, text) {
 	if (node) node.textContent = text;
 }
 
+// The typical end-to-end time for the current engine+tier, straight from the
+// catalog's real estimate matrix (estimateEtaSeconds). Null when no catalog or
+// estimate exists — the meter then runs indeterminate rather than inventing a
+// duration.
+function currentEtaSeconds() {
+	if (!catalog) return null;
+	const backend = catalog.backends?.find((b) => b.id === selectedEngine.backend);
+	const est = (backend?.estimates?.[selectedEngine.path] || []).find(
+		(e) => e.tier === selectedTier,
+	);
+	return Number(est?.eta_seconds) > 0 ? Number(est.eta_seconds) : null;
+}
+
+// Map real elapsed seconds onto an honest fill fraction. The curve approaches
+// 1 asymptotically and is capped below it, so the bar can never reach full on
+// time alone — only a real finished GLB sets it to 100% (see markDone). At
+// elapsed = typical the fill sits ~0.78; it keeps creeping past that but never
+// claims completion.
+function honestFill(elapsedS, typicalS) {
+	const frac = 1 - Math.exp(-elapsedS / (typicalS * 0.66));
+	return Math.min(frac, 0.95);
+}
+
+function setProgress(pct) {
+	if (!els.genProgressFill || !els.genProgress) return;
+	const clamped = Math.max(0, Math.min(100, pct));
+	els.genProgressFill.style.width = `${clamped}%`;
+	els.genProgress.setAttribute('aria-valuenow', String(Math.round(clamped)));
+}
+
 function startElapsed() {
 	const started = performance.now();
 	stopElapsed();
+	const typical = currentEtaSeconds();
+	// Reset the meter to a clean running state for this job.
+	if (els.genProgress) {
+		els.genProgress.dataset.done = 'false';
+		els.genProgress.dataset.over = 'false';
+		els.genProgress.dataset.indeterminate = typical ? 'false' : 'true';
+	}
+	setProgress(0);
 	const tick = () => {
 		const s = Math.floor((performance.now() - started) / 1000);
-		els.genMeta.textContent = `Elapsed ${s}s`;
+		if (typical) {
+			const over = s > typical;
+			setProgress(honestFill(s, typical) * 100);
+			if (els.genProgress) els.genProgress.dataset.over = String(over);
+			els.genMeta.innerHTML = over
+				? `Elapsed <strong>${s}s</strong> · longer than usual, still working`
+				: `Elapsed <strong>${s}s</strong> · ~${typical}s typical`;
+		} else {
+			// Unknown duration — the bar travels (indeterminate) and we report only
+			// the honest elapsed count.
+			els.genMeta.innerHTML = `Elapsed <strong>${s}s</strong>`;
+		}
 	};
 	tick();
 	elapsedTimer = window.setInterval(tick, 1000);
+}
+
+// Snap the meter to a finished, successful state — the only path to 100%.
+function markProgressDone() {
+	if (!els.genProgress) return;
+	els.genProgress.dataset.indeterminate = 'false';
+	els.genProgress.dataset.over = 'false';
+	els.genProgress.dataset.done = 'true';
+	setProgress(100);
 }
 
 function stopElapsed() {
@@ -1258,6 +1318,7 @@ async function run(cfg) {
 		if (done.creation_id) currentCreationId = done.creation_id;
 		setStep('mesh', 'done');
 		setStep('finish', 'done');
+		markProgressDone();
 		// Prefer the poll's recorded meta; fall back to the submit response.
 		showResult(done.glb_url, label || 'Forged model', {
 			views_used: done.views_used ?? job.views_used,

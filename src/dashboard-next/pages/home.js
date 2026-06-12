@@ -487,26 +487,169 @@ const ICON_CHAT = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" s
 const ICON_COIN = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v6M6 7h3.2a1.2 1.2 0 010 2.4H7a1.2 1.2 0 000 2.4h3.2"/></svg>';
 
 // ── Launch announcement: text-to-3D ───────────────────────────────────────
+//
+// Not a passive notice — a working launchpad. The bar embeds a real prompt
+// composer that deep-links into the Forge (/forge?prompt=…, which pre-fills
+// and focuses the field), a typewriter that teaches by cycling the Forge's
+// own example prompts, and one-tap example chips. The animated mesh visual
+// (a CSS wireframe cube under a sweeping scan ring) signals "generation"
+// without a single image asset.
+
+const FORGE_PROMPT_CAP = 300;
+
+// The Forge's own example prompts (pages/forge.html #examples). Kept in sync
+// so the launchpad teaches the same vocabulary the destination uses.
+const FORGE_EXAMPLES = [
+	'a low-poly red fox, sitting',
+	'a sci-fi combat helmet, brushed metal',
+	'a potted monstera plant',
+	'a vintage film camera',
+	'a glazed ceramic teapot',
+];
+
+function forgeHref(prompt) {
+	const p = (prompt || '').trim().slice(0, FORGE_PROMPT_CAP);
+	return p ? `/forge?prompt=${encodeURIComponent(p)}` : '/forge';
+}
 
 function renderForgeAnnounce(host) {
+	const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+
 	host.innerHTML = `
-		<div class="dnx-announce" role="region" aria-label="New feature announcement">
-			<span class="dnx-announce-badge">New</span>
-			<p class="dnx-announce-text">
-				<strong>Text to 3D is live.</strong>
-				Describe any object and Forge generates a textured GLB you can drop into scenes, worlds, and widgets.
-			</p>
-			<a class="dn-btn dnx-announce-cta" href="/forge">Try Forge →</a>
-			<button class="dnx-announce-dismiss" aria-label="Dismiss announcement" title="Dismiss">
-				<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l10 10M11 1L1 11"/></svg>
+		<div class="dnx-forge${reduceMotion ? ' is-still' : ''}" role="region" aria-label="New: Text to 3D">
+			<div class="dnx-forge-visual" aria-hidden="true">
+				<span class="dnx-forge-ring"></span>
+				<span class="dnx-forge-stage">
+					<span class="dnx-forge-cube">
+						<i></i><i></i><i></i><i></i><i></i><i></i>
+					</span>
+				</span>
+				<span class="dnx-forge-scan"></span>
+			</div>
+			<div class="dnx-forge-body">
+				<div class="dnx-forge-head">
+					<span class="dnx-forge-badge">New</span>
+					<span class="dnx-forge-title">Text&nbsp;to&nbsp;3D is live</span>
+					<span class="dnx-forge-sub">Describe any object — get a downloadable, textured GLB in seconds.</span>
+				</div>
+				<form class="dnx-forge-form" novalidate>
+					<label class="dnx-forge-field">
+						<span class="sr-only">Describe an object to forge into 3D</span>
+						<input
+							class="dnx-forge-input"
+							type="text"
+							name="prompt"
+							autocomplete="off"
+							spellcheck="false"
+							maxlength="${FORGE_PROMPT_CAP}"
+							aria-label="Describe an object to forge into 3D"
+						/>
+					</label>
+					<button class="dnx-forge-go" type="submit">
+						Forge
+						<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9M9 4l4 4-4 4"/></svg>
+					</button>
+				</form>
+				<div class="dnx-forge-chips" aria-label="Example prompts">
+					<span class="dnx-forge-chips-label">Try</span>
+					${FORGE_EXAMPLES.slice(0, 3).map((ex) => {
+						const short = ex.replace(/^a\s+/i, '').split(',')[0];
+						return `<a class="dnx-forge-chip" href="${forgeHref(ex)}" title="${esc(ex)}">${esc(short)}</a>`;
+					}).join('')}
+				</div>
+			</div>
+			<button class="dnx-forge-dismiss" aria-label="Dismiss announcement" title="Dismiss">
+				<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M1 1l10 10M11 1L1 11"/></svg>
 			</button>
 		</div>
 	`;
 
-	host.querySelector('.dnx-announce-dismiss').addEventListener('click', () => {
+	const root = host.querySelector('.dnx-forge');
+	const input = host.querySelector('.dnx-forge-input');
+	const form = host.querySelector('.dnx-forge-form');
+
+	// Submit → deep-link into the Forge with whatever the user typed. Empty
+	// field falls back to the example currently on display, so the button is
+	// never a dead end.
+	let currentExample = FORGE_EXAMPLES[0];
+	form.addEventListener('submit', (e) => {
+		e.preventDefault();
+		stopTypewriter();
+		location.href = forgeHref(input.value || currentExample);
+	});
+
+	// Dismiss — persist so it stays gone, and tear down timers.
+	host.querySelector('.dnx-forge-dismiss').addEventListener('click', () => {
 		localStorage.setItem(FORGE_ANNOUNCE_DISMISSED_KEY, '1');
+		stopTypewriter();
 		host.remove();
 	});
+
+	// Typewriter: types each example into the placeholder, holds, erases, and
+	// advances. Pauses while the field is focused or non-empty so it never
+	// fights the user. Reduced-motion swaps the whole phrase on a slow timer.
+	let twTimer = null;
+	let exampleIdx = 0;
+	const paused = () => document.activeElement === input || input.value.length > 0;
+
+	function setExample(text) {
+		currentExample = text;
+		input.placeholder = text;
+	}
+
+	function stopTypewriter() {
+		if (twTimer) { clearTimeout(twTimer); twTimer = null; }
+	}
+
+	if (reduceMotion) {
+		setExample(currentExample);
+		const rotate = () => {
+			twTimer = setTimeout(() => {
+				exampleIdx = (exampleIdx + 1) % FORGE_EXAMPLES.length;
+				if (!paused()) setExample(FORGE_EXAMPLES[exampleIdx]);
+				rotate();
+			}, 3800);
+		};
+		rotate();
+	} else {
+		let charIdx = 0;
+		let erasing = false;
+		const step = () => {
+			if (paused()) {
+				input.placeholder = '';
+				twTimer = setTimeout(step, 600);
+				return;
+			}
+			const target = FORGE_EXAMPLES[exampleIdx];
+			if (!erasing) {
+				charIdx++;
+				currentExample = target;
+				input.placeholder = target.slice(0, charIdx);
+				if (charIdx >= target.length) {
+					erasing = true;
+					twTimer = setTimeout(step, 1900); // hold full phrase
+					return;
+				}
+				twTimer = setTimeout(step, 42 + Math.floor(charIdx % 3) * 14);
+			} else {
+				charIdx--;
+				input.placeholder = target.slice(0, charIdx);
+				if (charIdx <= 0) {
+					erasing = false;
+					exampleIdx = (exampleIdx + 1) % FORGE_EXAMPLES.length;
+					twTimer = setTimeout(step, 320);
+					return;
+				}
+				twTimer = setTimeout(step, 22);
+			}
+		};
+		step();
+		// Resume cleanly when the user blurs an empty field.
+		input.addEventListener('blur', () => {
+			if (!input.value && !twTimer) step();
+		});
+		input.addEventListener('focus', () => { input.placeholder = ''; });
+	}
 }
 
 // ── Onboarding checklist ──────────────────────────────────────────────────
