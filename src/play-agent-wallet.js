@@ -1,14 +1,14 @@
 // /play/agent-wallet — your avatar pays for a real x402 endpoint with the
-// MetaMask agent wallet, visualized in 3D.
+// three.ws agent wallet, visualized in 3D.
 //
 // The scene: your /play avatar (localStorage `cc-avatar`, same contract as the
 // coin-communities world) stands on a plaza with a paid-endpoint kiosk and a
 // big stage board. Press Pay and the avatar walks to the kiosk while the
-// MetaMask Agentic CLI — reached through the local bridge in
-// scripts/mm-x402-bridge.mjs — signs a USDC TransferWithAuthorization and the
-// endpoint settles it on Base mainnet. Every stage the bridge streams
-// (402 → sign → submit → settled) animates the board, the kiosk, and the
-// side panel in lockstep. No mocks: the $0.01 leaves the wallet for real.
+// agent wallet — reached through the local bridge in
+// scripts/agent-wallet-x402-bridge.mjs — partially signs an SPL USDC transfer
+// and the endpoint settles it on Solana mainnet. Every stage the bridge
+// streams (402 → sign → submit → settled) animates the board, the kiosk, and
+// the side panel in lockstep. No mocks: the $0.01 leaves the wallet for real.
 
 import {
 	Scene, PerspectiveCamera, WebGLRenderer, Group, Clock, Color, FogExp2,
@@ -40,7 +40,7 @@ const TOPICS = [
 const COL = {
 	bg0: '#0a0a0c', bg1: '#15151a',
 	text: '#f5f5f6', dim: '#8c8c92', faint: '#5a5a60',
-	mm: '#f6851b', mmLt: '#ffa04d',
+	acc: '#9945ff', accLt: '#b88aff',
 	good: '#5fd08a', bad: '#e06c75',
 	line: 'rgba(255,255,255,0.07)',
 };
@@ -48,8 +48,8 @@ const COL = {
 const STAGES = [
 	{ id: 'walk', label: 'Avatar walks to the endpoint' },
 	{ id: 'challenge', label: '402 challenge received' },
-	{ id: 'signing', label: 'MetaMask agent wallet signs' },
-	{ id: 'submitting', label: 'Submit + settle on Base' },
+	{ id: 'signing', label: 'Agent wallet signs' },
+	{ id: 'submitting', label: 'Submit + settle on Solana' },
 	{ id: 'done', label: 'Confirmed on-chain' },
 ];
 const BOARD_STEPS = [
@@ -154,10 +154,10 @@ kioskBezel.rotation.x = -0.16;
 kioskBezel.castShadow = true;
 kiosk.add(kioskBezel);
 
-// pay ring on the floor — pulses MetaMask orange while a payment runs
+// pay ring on the floor — pulses Solana purple while a payment runs
 const payRing = new Mesh(
 	new RingGeometry(0.62, 0.72, 48),
-	new MeshBasicMaterial({ color: COL.mm, transparent: true, opacity: 0.25, side: DoubleSide }),
+	new MeshBasicMaterial({ color: COL.acc, transparent: true, opacity: 0.25, side: DoubleSide }),
 );
 payRing.rotation.x = -Math.PI / 2;
 payRing.position.set(KIOSK_POS.x - 0.9, 0.01, KIOSK_POS.z + 0.55);
@@ -167,7 +167,7 @@ scene.add(payRing);
 const mast = new Mesh(new CylinderGeometry(0.02, 0.02, 0.5, 8), kioskMat);
 mast.position.set(0.34, 1.95, 0);
 kiosk.add(mast);
-const beacon = new Mesh(new CylinderGeometry(0.05, 0.05, 0.07, 10), new MeshBasicMaterial({ color: COL.mm }));
+const beacon = new Mesh(new CylinderGeometry(0.05, 0.05, 0.07, 10), new MeshBasicMaterial({ color: COL.acc }));
 beacon.position.set(0.34, 2.22, 0);
 kiosk.add(beacon);
 
@@ -299,13 +299,13 @@ function drawKiosk() {
 	c.fillStyle = COL.faint; c.font = '600 22px Inter, system-ui, sans-serif';
 	const pulse = 0.5 + 0.5 * Math.sin(t * 3);
 	if (live.paying) {
-		c.fillStyle = `rgba(246,133,27,${0.5 + pulse * 0.5})`;
+		c.fillStyle = `rgba(153,69,255,${0.5 + pulse * 0.5})`;
 		c.fillText('● PAYMENT IN PROGRESS', 28, 280);
 	} else if (live.receipt) {
 		c.fillStyle = COL.good;
 		c.fillText('✓ PAID — THANK YOU', 28, 280);
 	} else {
-		c.fillText('AWAITING PAYMENT · BASE MAINNET', 28, 280);
+		c.fillText('AWAITING PAYMENT · SOLANA MAINNET', 28, 280);
 	}
 	kioskTex.needsUpdate = true;
 }
@@ -318,10 +318,10 @@ function drawBoard() {
 
 	// header
 	c.textAlign = 'left';
-	c.fillStyle = COL.mm; c.font = '800 34px Inter, system-ui, sans-serif';
-	c.fillText('METAMASK AGENT WALLET', padX, 62);
+	c.fillStyle = COL.acc; c.font = '800 34px Inter, system-ui, sans-serif';
+	c.fillText('THREE.WS AGENT WALLET', padX, 62);
 	c.fillStyle = COL.dim; c.font = '600 19px Inter, system-ui, sans-serif';
-	c.fillText('x402 MICROPAYMENTS · USDC ON BASE MAINNET (eip155:8453)', padX, 92);
+	c.fillText('x402 MICROPAYMENTS · USDC ON SOLANA MAINNET', padX, 92);
 	// wallet chip (top-right)
 	c.textAlign = 'right';
 	c.fillStyle = COL.text; c.font = '700 22px ui-monospace, Menlo, monospace';
@@ -350,11 +350,11 @@ function drawBoard() {
 	} else if (live.paying) {
 		c.fillStyle = COL.text; c.font = '800 40px Inter, system-ui, sans-serif';
 		c.fillText(`Paying ${live.quote ? fmtUsdc(live.quote.amount) : ''} USDC for live crypto intel`, padX, heroY);
-		c.fillStyle = COL.mmLt; c.font = '600 25px Inter, system-ui, sans-serif';
+		c.fillStyle = COL.accLt; c.font = '600 25px Inter, system-ui, sans-serif';
 		c.fillText(live.stageText || 'Working…', padX, heroY + 44);
 	} else if (live.receipt) {
 		c.fillStyle = COL.good; c.font = '800 40px Inter, system-ui, sans-serif';
-		c.fillText(`✓ ${fmtUsdc(live.receipt.amount)} USDC settled on Base`, padX, heroY);
+		c.fillText(`✓ ${fmtUsdc(live.receipt.amount)} USDC settled on Solana`, padX, heroY);
 		c.fillStyle = COL.dim; c.font = '600 23px ui-monospace, Menlo, monospace';
 		const txLine = live.receipt.tx ? `tx ${shortTx(live.receipt.tx)}` : 'settlement confirmed';
 		c.fillText(`${shortAddr(live.receipt.payer)} → ${shortAddr(live.receipt.payTo)} · ${txLine}`, padX, heroY + 42);
@@ -362,7 +362,7 @@ function drawBoard() {
 		c.fillStyle = COL.text; c.font = '800 40px Inter, system-ui, sans-serif';
 		c.fillText('Your avatar. Your agent wallet. A real paid API.', padX, heroY);
 		c.fillStyle = COL.dim; c.font = '600 25px Inter, system-ui, sans-serif';
-		c.fillText('Press “Send avatar to pay” — the MetaMask CLI signs, Base settles.', padX, heroY + 44);
+		c.fillText('Press “Send avatar to pay” — the agent wallet signs, Solana settles.', padX, heroY + 44);
 	}
 
 	// stepper
@@ -377,11 +377,11 @@ function drawBoard() {
 		const errHere = live.error && i === activeIdx;
 		roundRect(c, x, sy, colW - 26, 6, 3);
 		c.fillStyle = errHere ? COL.bad
-			: done ? COL.mm
-			: isActive ? `rgba(246,133,27,${0.35 + pulse * 0.6})`
+			: done ? COL.acc
+			: isActive ? `rgba(153,69,255,${0.35 + pulse * 0.6})`
 			: 'rgba(255,255,255,0.1)';
 		c.fill();
-		c.fillStyle = errHere ? COL.bad : done ? COL.text : isActive ? COL.mmLt : COL.faint;
+		c.fillStyle = errHere ? COL.bad : done ? COL.text : isActive ? COL.accLt : COL.faint;
 		c.font = '700 19px Inter, system-ui, sans-serif';
 		c.fillText(s.label.toUpperCase(), x, sy + 38);
 	});
@@ -430,7 +430,7 @@ renderer.setAnimationLoop(() => {
 	t += dt;
 	if (avatarReady) { tickWalk(dt); anim.update(dt); }
 	payRing.material.opacity = live.paying ? 0.35 + 0.3 * Math.sin(t * 5) : 0.18;
-	beacon.material.color.set(live.paying ? COL.mmLt : live.bridge === 'offline' ? '#5a5a60' : COL.mm);
+	beacon.material.color.set(live.paying ? COL.accLt : live.bridge === 'offline' ? '#5a5a60' : COL.acc);
 	redrawAcc += dt;
 	if (redrawAcc > 0.1) { redrawAcc = 0; drawBoard(); drawKiosk(); }
 	controls.update();
@@ -496,12 +496,12 @@ function renderReceipt() {
 	const sigClass = res.signal === 'bullish' ? 'signal-bullish' : res.signal === 'bearish' ? 'signal-bearish' : 'signal-neutral';
 	el.innerHTML = `
 		<div class="r-head">
-			<span class="r-badge">✓ Settled on Base</span>
+			<span class="r-badge">✓ Settled on Solana</span>
 			<span class="r-amt">${fmtUsdc(r.amount)} USDC</span>
 		</div>
 		<div class="rf"><span class="k">From (agent wallet)</span><span class="v">${shortAddr(r.payer)}</span></div>
 		<div class="rf"><span class="k">To (endpoint)</span><span class="v">${shortAddr(r.payTo)}</span></div>
-		${r.tx ? `<div class="rf"><span class="k">Transaction</span><span class="v"><a href="https://basescan.org/tx/${encodeURIComponent(r.tx)}" target="_blank" rel="noopener">${shortTx(r.tx)} ↗</a></span></div>` : ''}
+		${r.tx ? `<div class="rf"><span class="k">Transaction</span><span class="v"><a href="https://solscan.io/tx/${encodeURIComponent(r.tx)}" target="_blank" rel="noopener">${shortTx(r.tx)} ↗</a></span></div>` : ''}
 		${res.headline ? `<div class="r-payload"><span class="r-signal ${sigClass}">${escapeHtml((res.signal || '').toUpperCase())}</span>${escapeHtml(res.headline)}${res.rationale ? `<div style="color:var(--muted);font-size:12.5px;margin-top:4px">${escapeHtml(res.rationale)}</div>` : ''}</div>` : ''}
 	`;
 	el.classList.add('show');
@@ -564,10 +564,10 @@ async function loadQuote() {
 		$('epPrice').textContent = `${fmtUsdc(q.amount)} USDC`;
 		$('epDesc').textContent = q.resource?.description
 			? String(q.resource.description).split('. ').slice(0, 2).join('. ') + '.'
-			: 'Pay-per-call market signal, settled in USDC on Base mainnet.';
+			: 'Pay-per-call market signal, settled in USDC on Solana mainnet.';
 		const tags = $('epTags');
 		tags.innerHTML = '';
-		for (const tag of [`pay to ${shortAddr(q.payTo)}`, 'Base mainnet', 'EIP-3009 USDC', ...(q.resource?.tags || []).slice(0, 2)]) {
+		for (const tag of [`pay to ${shortAddr(q.payTo)}`, 'Solana mainnet', 'SPL USDC', ...(q.resource?.tags || []).slice(0, 2)]) {
 			const el = document.createElement('span');
 			el.className = 'ep-tag';
 			el.textContent = tag;
@@ -577,7 +577,7 @@ async function loadQuote() {
 		// quote requires the bridge; the bridge-offline banner already explains
 		$('epName').textContent = 'three.ws Crypto Intel';
 		$('epPrice').textContent = '$0.01 USDC';
-		$('epDesc').textContent = 'Live market signal (bullish / bearish / neutral) — pay per call, settled in USDC on Base mainnet.';
+		$('epDesc').textContent = 'Live market signal (bullish / bearish / neutral) — pay per call, settled in USDC on Solana mainnet.';
 	}
 	updatePayButton();
 }
@@ -645,11 +645,11 @@ function handleStageEvent(evt) {
 			break;
 		case 'signing':
 			live.stage = 'signing';
-			live.stageText = `MetaMask signing TransferWithAuthorization (${evt.domain?.name || 'USD Coin'})…`;
+			live.stageText = `Agent wallet ${shortAddr(evt.signer)} signing the USDC transfer…`;
 			break;
 		case 'signed':
 			live.stage = 'submitting';
-			live.stageText = 'Signature ready — submitting X-PAYMENT…';
+			live.stageText = 'Transaction signed — submitting X-PAYMENT…';
 			break;
 		case 'submitting':
 			live.stage = 'submitting';
@@ -657,7 +657,7 @@ function handleStageEvent(evt) {
 			break;
 		case 'done': {
 			live.stage = 'done';
-			live.stageText = 'Settled on Base mainnet';
+			live.stageText = 'Settled on Solana mainnet';
 			live.receipt = {
 				amount: evt.amount,
 				payer: evt.payer,

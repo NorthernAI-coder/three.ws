@@ -4,17 +4,17 @@
 	<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-	<title>Agent Wallet — your avatar pays for an endpoint with MetaMask · three.ws</title>
-	<meta name="description" content="Watch your 3D avatar walk up to a paid x402 endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base." />
+	<title>Agent Wallet — your avatar pays for an endpoint on Solana · three.ws</title>
+	<meta name="description" content="Watch your 3D avatar walk up to a paid x402 endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana." />
 	<link rel="canonical" href="https://three.ws/play/agent-wallet" />
 	<meta property="og:type"        content="website" />
-	<meta property="og:title"       content="Agent Wallet — your avatar pays for an endpoint with MetaMask" />
-	<meta property="og:description" content="A 3D avatar pays for live crypto intel with the MetaMask agent wallet. Real x402 micropayment, real USDC, settled on Base." />
+	<meta property="og:title"       content="Agent Wallet — your avatar pays for an endpoint on Solana" />
+	<meta property="og:description" content="A 3D avatar pays for live crypto intel with its agent wallet. Real x402 micropayment, real USDC, settled on Solana." />
 	<meta property="og:url"         content="https://three.ws/play/agent-wallet" />
 	<meta property="og:image"       content="https://three.ws/og-image.png" />
 	<meta name="twitter:card"        content="summary_large_image" />
-	<meta name="twitter:title"       content="Agent Wallet — your avatar pays for an endpoint with MetaMask" />
-	<meta name="twitter:description" content="A 3D avatar pays for a live API with the MetaMask agent wallet. Real USDC on Base, on-chain." />
+	<meta name="twitter:title"       content="Agent Wallet — your avatar pays for an endpoint on Solana" />
+	<meta name="twitter:description" content="A 3D avatar pays for a live API with its agent wallet. Real USDC on Solana, on-chain." />
 	<meta name="twitter:image"       content="https://three.ws/og-image.png" />
 	<link rel="icon" href="/favicon.ico" sizes="any" />
 	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -33,8 +33,8 @@
 			--text:     #eceef8;
 			--muted:    #7c85a2;
 			--faint:    #484f64;
-			--mm:       #f6851b;
-			--mm-lt:    #ffa04d;
+			--acc:      #9945ff;
+			--acc-lt:   #b88aff;
 			--usdc:     #2775ca;
 			--usdc-lt:  #6db0f7;
 			--green:    #22d77a;
@@ -46,7 +46,7 @@
 		*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 		html,body { height:100%; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
 		body { font:15px/1.6 -apple-system,system-ui,"Segoe UI",sans-serif; overflow:hidden; }
-		:focus-visible { outline:2px solid var(--mm-lt); outline-offset:3px; }
+		:focus-visible { outline:2px solid var(--acc-lt); outline-offset:3px; }
 		a { color:var(--usdc-lt); }
 
 		#app { display:grid; grid-template-rows:52px 1fr; height:100%; }
@@ -64,11 +64,11 @@
 		.brand .sep { color:var(--faint); }
 		.badge {
 			display:inline-flex; align-items:center; gap:7px;
-			background:rgba(246,133,27,0.10); border:1px solid rgba(246,133,27,0.32);
-			border-radius:99px; padding:4px 11px; font-size:12px; color:var(--mm-lt); font-weight:600;
+			background:rgba(153,69,255,0.10); border:1px solid rgba(153,69,255,0.32);
+			border-radius:99px; padding:4px 11px; font-size:12px; color:var(--acc-lt); font-weight:600;
 			white-space:nowrap;
 		}
-		.badge .dot { width:6px; height:6px; border-radius:50%; background:var(--mm); box-shadow:0 0 8px var(--mm); }
+		.badge .dot { width:6px; height:6px; border-radius:50%; background:var(--acc); box-shadow:0 0 8px var(--acc); }
 		.tb-btn {
 			display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:9px;
 			background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--muted);
@@ -106,7 +106,7 @@
 			font-size:11px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase;
 			color:var(--faint); margin-bottom:10px; display:flex; align-items:center; gap:7px;
 		}
-		.card h2 .fox { width:15px; height:15px; flex:none; }
+		.card h2 .w-ico { width:15px; height:15px; flex:none; }
 
 		/* Wallet card */
 		.w-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
@@ -124,7 +124,7 @@
 		.mode-pill {
 			font-size:10px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase;
 			padding:2px 8px; border-radius:99px;
-			background:rgba(246,133,27,0.14); color:var(--mm-lt); border:1px solid rgba(246,133,27,0.3);
+			background:rgba(153,69,255,0.14); color:var(--acc-lt); border:1px solid rgba(153,69,255,0.3);
 		}
 		.bal { font-size:20px; font-weight:750; letter-spacing:-0.01em; }
 		.bal small { font-size:11px; font-weight:600; color:var(--muted); margin-left:5px; }
@@ -169,15 +169,15 @@
 			transition:all .15s;
 		}
 		.t-chip:hover { border-color:var(--border-hi); color:var(--text); }
-		.t-chip.active { background:rgba(246,133,27,0.14); border-color:rgba(246,133,27,0.45); color:var(--mm-lt); }
+		.t-chip.active { background:rgba(153,69,255,0.14); border-color:rgba(153,69,255,0.45); color:var(--acc-lt); }
 		.pay-btn {
 			width:100%; margin-top:12px; display:inline-flex; align-items:center; justify-content:center; gap:9px;
-			background:linear-gradient(135deg, var(--mm) 0%, #d96a07 100%);
+			background:linear-gradient(135deg, var(--acc) 0%, #d96a07 100%);
 			color:#fff; border:0; border-radius:11px; padding:12px 22px;
 			font:14px/1 inherit; font-weight:700; cursor:pointer; letter-spacing:0.01em;
 			transition:filter .15s, transform .1s, box-shadow .15s;
 		}
-		.pay-btn:hover:not(:disabled) { filter:brightness(1.1); box-shadow:0 0 28px rgba(246,133,27,0.35); }
+		.pay-btn:hover:not(:disabled) { filter:brightness(1.1); box-shadow:0 0 28px rgba(153,69,255,0.35); }
 		.pay-btn:active:not(:disabled) { transform:translateY(1px); }
 		.pay-btn:disabled { opacity:.5; cursor:default; box-shadow:none; filter:none; }
 		.pay-btn .spin { width:14px; height:14px; border:2px solid rgba(255,255,255,0.35); border-top-color:#fff; border-radius:50%; animation:spin .65s linear infinite; display:none; }
@@ -190,7 +190,7 @@
 		.stage { display:flex; align-items:center; gap:10px; padding:7px 4px; font-size:13px; color:var(--faint); transition:color .25s; }
 		.stage .si { width:17px; height:17px; border-radius:50%; border:2px solid var(--faint); flex:none; display:flex; align-items:center; justify-content:center; transition:all .3s; }
 		.stage.active { color:var(--text); }
-		.stage.active .si { border-color:var(--mm-lt); box-shadow:0 0 8px rgba(246,133,27,0.6); animation:pulse .9s ease-in-out infinite; }
+		.stage.active .si { border-color:var(--acc-lt); box-shadow:0 0 8px rgba(153,69,255,0.6); animation:pulse .9s ease-in-out infinite; }
 		.stage.done { color:var(--green); }
 		.stage.done .si { background:var(--green); border-color:var(--green); }
 		.stage.done .si::after { content:"✓"; font-size:9px; color:#000; font-weight:900; }
@@ -253,7 +253,7 @@
 			<span class="sep">/</span>
 			<a class="crumb" href="/play">play</a>
 			<span class="sep">/</span>
-			<span class="badge"><span class="dot"></span>MetaMask Agent Wallet × x402</span>
+			<span class="badge"><span class="dot"></span>Agent Wallet × x402 on Solana</span>
 		</div>
 		<div style="display:flex;gap:10px;align-items:center;">
 			<a class="tb-btn" href="/agent-exchange" title="Two agents paying each other">Agent Exchange</a>
@@ -270,8 +270,8 @@
 			<!-- Agent wallet -->
 			<div class="card" id="walletCard">
 				<h2>
-					<svg class="fox" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21.5 3 13.7 8.8l1.5-3.4L21.5 3Z" fill="#E2761B"/><path d="m2.5 3 7.7 5.9-1.4-3.5L2.5 3Zm15.8 13.2-2.1 3.2 4.5 1.2 1.3-4.3-3.7-.1Zm-15.8.1 1.3 4.3 4.5-1.2-2.1-3.2-3.7.1Z" fill="#E4761B"/><path d="m8 10.5-1.3 1.9 4.4.2-.1-4.8L8 10.5Zm8 0-3-2.8-.1 4.9 4.4-.2L16 10.5Zm-7.7 9 2.7-1.3-2.3-1.8-.4 3.1Zm5.7-1.3 2.7 1.3-.4-3.1-2.3 1.8Z" fill="#E4761B"/><path d="m16.7 19.5-2.7-1.3.2 1.7v.7l2.5-1.1Zm-9.4 0 2.5 1.1v-.7l.2-1.7-2.7 1.3Z" fill="#D7C1B3"/><path d="M9.9 15.3 7.7 14.6l1.6-.7.6 1.4Zm4.2 0 .6-1.4 1.6.7-2.2.7Z" fill="#233447"/><path d="m7.3 19.5.4-3.2-2.5.1 2.1 3.1Zm9-3.2.4 3.2 2.1-3.1-2.5-.1Zm1.8-3.9-4.4.2.4 2.7.6-1.4 1.6.7 1.8-2.2Zm-10.4 2.2 1.6-.7.6 1.4.4-2.7-4.4-.2 1.8 2.2Z" fill="#CD6116"/><path d="m6.7 12.4 1.9 3.6-.1-1.8-1.8-1.8Zm10.6 0-1.8 1.8-.1 1.8 1.9-3.6Zm-6.2.2-.4 2.7.5 2.6.1-3.4-.2-1.9Zm1.8 0-.2 1.9.1 3.4.5-2.6-.4-2.7Z" fill="#E4751F"/><path d="m12.9 15.3-.5 2.6.4.3 2.3-1.8.1-1.8-2.3.7Zm-5.2-.7.1 1.8 2.3 1.8.4-.3-.5-2.6-2.3-.7Z" fill="#F6851B"/><path d="m13 20.6-.1-.7h-1.8l-.1.7-.2 1.7 2.5.1-.3-1.8Z" fill="#C0AD9E"/><path d="m12.8 18.2-.4-.3h-.8l-.4.3-.2 1.7h1.8l-.2-1.7" fill="#161616"/><path d="m21.8 9.2.7-3.2-1-3-7.7 5.7 3 2.5 4.2 1.2.9-1.1-.4-.3.6-.6-.5-.4.6-.5-.4-.3Zm-20.3-3.2.7 3.2-.4.3.6.5-.5.4.6.6-.4.3.9 1.1 4.2-1.2 3-2.5L2.5 3l-1 3Z" fill="#763D16"/><path d="m20.9 12.4-4.2-1.2 1.3 1.9-1.9 3.6 2.5 0h3.7l-1.4-4.3ZM7.3 11.2l-4.2 1.2-1.4 4.3h3.7l2.5 0-1.9-3.6 1.3-1.9Zm5.4 2.1.3-4.6 1.2-3.3H8.8L10 8.7l.3 4.6.1 1.9v3.4h1.8l.1-3.4.1-1.9Z" fill="#F6851B"/></svg>
-					MetaMask Agent Wallet
+					<svg class="w-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" stroke="#9945ff" stroke-width="1.8"/><path d="M2.5 9.2h19" stroke="#9945ff" stroke-width="1.8"/><circle cx="17" cy="14" r="1.4" fill="#b88aff"/></svg>
+					Agent Wallet · Solana
 				</h2>
 				<div class="w-row">
 					<span class="k">Account</span>
@@ -288,27 +288,27 @@
 
 				<div class="banner offline" id="bridgeOffline" role="alert">
 					<div class="b-head">Bridge offline</div>
-					The MetaMask Agentic CLI runs in your terminal, so this demo talks to it
-					through a local bridge. Start it in the repo root:
+					The agent wallet key lives in your terminal session, so this demo talks
+					to it through a local bridge. Start it in the repo root:
 					<div style="margin-top:6px"><code>npm run demo:agent-wallet-bridge</code></div>
-					<div style="margin-top:4px">then make sure you're signed in: <code>mm auth status</code></div>
+					<div style="margin-top:4px">with <code>A2A_PAYER_SOLANA_SECRET</code> set in <code>.env</code> or the shell.</div>
 					<button class="retry" id="retryBridge" type="button">Retry connection</button>
 				</div>
 				<div class="banner lowbal" id="lowBalance" role="alert">
-					<div class="b-head">Wallet needs USDC on Base</div>
-					This payment is real — send a little USDC (Base mainnet) to the agent
-					wallet address above, or fund it with <code>mm</code>, then retry.
+					<div class="b-head">Wallet needs USDC on Solana</div>
+					This payment is real — send a little USDC (Solana mainnet) to the agent
+					wallet address above, then retry.
 				</div>
 			</div>
 
 			<!-- Paid endpoint -->
 			<div class="card">
-				<h2>Paid endpoint · x402 on Base</h2>
+				<h2>Paid endpoint · x402 on Solana</h2>
 				<div class="ep-name">
 					<span id="epName"><span class="skel">three.ws Crypto Intel</span></span>
 					<span class="ep-price" id="epPrice"><span class="skel">$0.01</span></span>
 				</div>
-				<div class="ep-desc" id="epDesc"><span class="skel">Live market signal — pay per call, settled in USDC on Base mainnet.</span></div>
+				<div class="ep-desc" id="epDesc"><span class="skel">Live market signal — pay per call, settled in USDC on Solana mainnet.</span></div>
 				<div class="ep-meta" id="epTags"></div>
 
 				<div class="topics" id="topics" role="group" aria-label="Intel topic"></div>
@@ -317,9 +317,9 @@
 					<span class="spin" aria-hidden="true"></span>
 					<span class="lbl">Send avatar to pay</span>
 				</button>
-				<div class="pay-note">Your avatar walks to the kiosk, the MetaMask agent wallet signs a USDC
-				<span style="font-family:var(--mono);font-size:10px">TransferWithAuthorization</span>, and the
-				endpoint settles it on Base mainnet. Real money, real API response.</div>
+				<div class="pay-note">Your avatar walks to the kiosk, the agent wallet signs an SPL USDC
+				<span style="font-family:var(--mono);font-size:10px">TransferChecked</span>, and the
+				endpoint settles it on Solana mainnet. Real money, real API response.</div>
 			</div>
 
 			<!-- Live payment stages -->
@@ -335,10 +335,11 @@
 				<h2>How it works</h2>
 				<div class="how">
 					<b>1.</b> The endpoint answers with a <b>402 Payment Required</b> challenge (x402 v2).<br/>
-					<b>2.</b> The <b>MetaMask Agentic CLI</b> signs an EIP-3009 USDC transfer authorization
-					(<span style="font-family:var(--mono);font-size:10.5px">mm wallet sign-typed-data</span>).<br/>
-					<b>3.</b> The request retries with the <b>X-PAYMENT</b> header; a facilitator verifies and
-					settles the USDC on <b>Base mainnet</b>, then the API does the paid work.
+					<b>2.</b> The <b>agent wallet</b> builds and partially signs an SPL USDC
+					<span style="font-family:var(--mono);font-size:10.5px">TransferChecked</span> — the
+					facilitator co-signs as fee payer, so the agent only signs the transfer.<br/>
+					<b>3.</b> The request retries with the <b>X-PAYMENT</b> header; the facilitator verifies and
+					settles the USDC on <b>Solana mainnet</b>, then the API does the paid work.
 				</div>
 			</div>
 		</aside>

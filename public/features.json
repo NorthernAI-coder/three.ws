@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T23:14:45.823Z",
+	"generated_at": "2026-06-12T01:11:40.390Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -437,6 +437,16 @@
 			"description": "On-chain features: pay-per-call, token launches, vanity wallets.",
 			"pages": [
 				{
+					"path": "/launches",
+					"title": "Agent Launches",
+					"description": "Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.",
+					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/pay",
 					"title": "Pay (x402)",
 					"description": "Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",
@@ -448,8 +458,8 @@
 				},
 				{
 					"path": "/play/agent-wallet",
-					"title": "Agent Wallet (MetaMask × x402)",
-					"description": "Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.",
+					"title": "Agent Wallet (x402 on Solana)",
+					"description": "Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.",
 					"added": "2026-06-11",
 					"auth": null,
 					"indexable": true,

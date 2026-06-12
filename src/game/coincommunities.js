@@ -43,10 +43,12 @@ import { AccessoryManager } from '../agent-accessories.js';
 import { CosmeticsShop } from './cosmetics-shop.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
 import { AgentCommerce } from './agent-commerce.js';
+import { ThreeIntelKiosk } from './three-intel-kiosk.js';
 import { WorldLife } from './npc/world-life.js';
 import { isChatPanelOpen } from './npc/npc-chat.js';
 import { isServicePanelOpen } from './npc/npc-services.js';
 import { isAixbtPanelOpen } from './npc/npc-aixbt.js';
+import { isZauthPanelOpen } from './npc/npc-zauth.js';
 import { VoiceChat, voiceSupported } from './voice-chat.js';
 import { requestHolderPass, signInWithX, ensureSolanaWallet, relinkSolanaWallet, getSession, getWorldGate, setWorldGate } from '../community/town-auth.js';
 import { ensurePlayAccess } from './play-gate.js';
@@ -900,6 +902,15 @@ export class CoinCommunities {
 				getPlayer: () => this.localPos,
 				ui: this.ui,
 			});
+			// …and the $THREE Intel Kiosk: the player pays a real x402 endpoint
+			// ($0.01 USDC) from their own wallet for live $THREE market intel.
+			this.intelKiosk = new ThreeIntelKiosk({
+				scene: this.scene,
+				camera: this.camera,
+				renderer: this.renderer,
+				getPlayer: () => this.localPos,
+				ui: this.ui,
+			});
 		}
 		// Living world (W08): ambient pedestrians + traffic, interactive vendor /
 		// quest / flavor NPCs, and (gated behind W07) hostile mobs — all on a
@@ -1140,6 +1151,7 @@ export class CoinCommunities {
 		if (this.net) { this.net.destroy(); this.net = null; }
 		if (this.playSystems) { this.playSystems.dispose(); this.playSystems = null; }
 		if (this.agentCommerce) { this.agentCommerce.dispose(); this.agentCommerce = null; }
+		if (this.intelKiosk) { this.intelKiosk.dispose(); this.intelKiosk = null; }
 		if (this.worldLife) { this.worldLife.dispose(); this.worldLife = null; }
 		if (this._onboard) { this._onboard.dispose(); this._onboard = null; }
 		// Close the shop and drop the rig binding — the next world rebuilds both.
@@ -1418,10 +1430,11 @@ export class CoinCommunities {
 					e.preventDefault();
 					// A conversation or counter is already open — let it own the moment
 					// instead of reopening on top of itself.
-					if (isChatPanelOpen() || isServicePanelOpen() || isAixbtPanelOpen()) return;
+					if (isChatPanelOpen() || isServicePanelOpen() || isAixbtPanelOpen() || isZauthPanelOpen()) return;
 					// Talk to the nearest townsperson (vendor/quest/flavor); if none is
-					// in range, fall through to the home town's Agent Exchange.
-					if (!this.worldLife?.interact()) this.agentCommerce?.interact();
+					// in range, try the $THREE Intel Kiosk, then fall through to the
+					// home town's Agent Exchange.
+					if (!this.worldLife?.interact() && !this.intelKiosk?.interact()) this.agentCommerce?.interact();
 					return;
 				}
 				// F casts a line when standing by a pond (no-op elsewhere). Not while
@@ -1470,6 +1483,7 @@ export class CoinCommunities {
 			// touch-native equivalent of pressing E. Checked before the chart screen.
 			if (this.worldLife?.tryActivateAt(e.clientX, e.clientY)) return;
 			if (this.agentCommerce?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
+			if (this.intelKiosk?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			if (this._raycastScreen(e.clientX, e.clientY)) this._chartScreen.openExternal();
 		});
 		// Right-click always breaks the targeted block while building.
@@ -2160,6 +2174,7 @@ export class CoinCommunities {
 			this._updateVoice();
 			this.playSystems?.tick(dt);
 			this.agentCommerce?.tick(dt);
+			this.intelKiosk?.tick(dt);
 			if (this.worldLife) { this.worldLife.setRealPeers(this.remotes.size); this.worldLife.tick(dt); }
 			if (this.net) this.net.sendMove({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, motion: this.motion });
 		}

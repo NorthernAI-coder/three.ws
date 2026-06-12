@@ -88,6 +88,12 @@ export const NAV_GROUPS = [
 			{ title: 'ERC-8004 Agents', href: '/discover', desc: 'On-chain agent directory' },
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
 			{
+				title: 'Agent Launches',
+				href: '/launches',
+				badge: 'New',
+				desc: 'Every coin launched by an agent — live public feed',
+			},
+			{
 				title: 'Reputation Explorer',
 				href: '/reputation',
 				desc: 'On-chain scores & attestations',
@@ -233,7 +239,7 @@ export const NAV_GROUPS = [
 						title: 'Agent Wallet',
 						href: '/play/agent-wallet',
 						badge: 'New',
-						desc: 'Your avatar pays an endpoint via MetaMask — USDC on Base',
+						desc: 'Your avatar pays an endpoint with its agent wallet — USDC on Solana',
 					},
 					{ title: 'Pole Club', href: '/club', desc: 'x402 micro-tip demo — $0.001 / dance' },
 					{

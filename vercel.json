@@ -55,6 +55,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
+		"api/zauth-reposcan.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 60
+		},
 		"api/x402/forge.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
@@ -526,6 +530,10 @@
 		{
 			"src": "/pump-live/?",
 			"dest": "/pump-live.html"
+		},
+		{
+			"src": "/launches/?",
+			"dest": "/launches.html"
 		},
 		{
 			"src": "/admin/bulk-launch/?",

@@ -16,30 +16,10 @@
 // { ok, result } where `result` is the endpoint's 200 JSON body.
 //
 // The x402 SDK (public/x402.js) is not loaded by the world page, so we import
-// it on demand the first time a player transacts — one network fetch, cached.
+// it on demand the first time a player transacts — one network fetch, cached
+// (src/shared/x402-loader.js).
 
-// ── x402 SDK loader ──────────────────────────────────────────────────────────
-// public/x402.js is an ES module that freezes window.X402 on evaluation. It
-// lives at the site root in dev (Vite serves /public) and prod (copied to /).
-let x402Loading = null;
-function ensureX402() {
-	if (typeof window !== 'undefined' && window.X402 && typeof window.X402.pay === 'function') {
-		return Promise.resolve(window.X402);
-	}
-	if (!x402Loading) {
-		const url = '/x402.js';
-		x402Loading = import(/* @vite-ignore */ url).catch((err) => {
-			x402Loading = null; // let a later interaction retry a transient failure
-			throw err;
-		});
-	}
-	return x402Loading.then(() => {
-		if (!window.X402 || typeof window.X402.pay !== 'function') {
-			throw new Error('Payment library failed to load.');
-		}
-		return window.X402;
-	});
-}
+import { ensureX402 } from '../../shared/x402-loader.js';
 
 // ── tiny DOM helper (self-contained; mirrors the app's el() conventions) ──────
 function el(tag, attrs, kids) {

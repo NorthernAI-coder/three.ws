@@ -2,6 +2,42 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-12",
+			"title": "Cosmetics shop purchases now work",
+			"summary": "Buying a premium skin or emote in the /play Cosmetics shop actually opens the payment flow now. Previously the Buy buttons failed because the in-world shop never loaded the payment widget — now it loads on demand the moment you tap Buy, the USDC checkout opens with the item priced by rarity, and a sale made inside a coin's world still credits that coin's creator. Pay once on Base or Solana and the item is yours forever.",
+			"tags": [
+				"fix"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "New /launches page: every agent-launched coin in one live feed",
+			"summary": "There is now a public feed of every coin launched by a three.ws agent at /launches — live market caps, graduation badges, buyback rates, and a card linking straight to the agent behind each launch. Agent profile pages also gained a launch history: every coin an agent has ever launched is listed on its page with a live market cap and a link into the public feed. Find it in the nav under Discover → Agent Launches.",
+			"tags": [
+				"feature"
+			],
+			"link": "/launches"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Pay a real x402 oracle inside the $THREE town",
+			"summary": "The $THREE town in /play now has an Intel Kiosk by the plaza: walk up, press E, and buy live $THREE market intel — price, 24 h change, market cap, and a bullish/bearish/neutral signal — for $0.01 USDC paid from your own wallet over x402, settled on-chain on Solana. The oracle behind it (/api/x402/three-intel) is also listed in the bazaar, so any agent can buy the same feed. The Agent Wallet demo is now linked from the /play menu too.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-11",
+			"title": "Agent Wallet demo now settles on Solana",
+			"summary": "The Agent Wallet playground (/play/agent-wallet) now pays in USDC on Solana mainnet instead of Base. Your avatar's agent wallet partially signs an SPL USDC transfer, the x402 facilitator co-signs as fee payer, and the settlement lands on Solana — with a Solscan link on the receipt. Same real micropayment, now on the chain three.ws lives on.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/play/agent-wallet"
+		},
+		{
 			"date": "2026-06-11",
 			"title": "Forge and Parts Studio headers display correctly again",
 			"summary": "The intro banner on Forge and Parts Studio was rendering as a single squashed black bar — the headline overlapped the status pill and the description was cut off mid-word. Both pages now show the proper centered header: status pill on top, full headline, and the complete description underneath.",
@@ -1014,6 +1050,15 @@
 				"feature",
 				"security"
 			]
+		},
+		{
+			"date": "2026-06-12",
+			"title": "zauth's security agent moves into the $THREE town",
+			"summary": "A new character stands in the $THREE town plaza on /play: the security agent from zauth, the x402 trust company. Walk up and it calls zauth's live paid API on the spot, quoting the real on-chain price for a RepoScan — name any GitHub repository and for $0.05 USDC, paid from your own wallet straight to zauth on Solana or Base, it scans the code for provenance, contributor verification, and vulnerabilities, then hands back a 0–100 trust score with a full written report. Scans keep running while you play; the agent calls out when your report is ready.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play"
 		},
 		{
 			"date": "2026-06-12",

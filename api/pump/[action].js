@@ -19,6 +19,7 @@
 //   payments-list            -> handlePaymentsList
 //   portfolio                -> handlePortfolio
 //   by-agent                 -> handleByAgent
+//   launches                 -> handleLaunches (public cross-agent launch feed)
 //   quote                    -> handleQuote
 //   governance-prep          -> handleGovernancePrep
 //   withdraw-prep            -> handleWithdrawPrep
@@ -148,6 +149,8 @@ const wrapped = wrap(async (req, res) => {
 			return handlePortfolio(req, res);
 		case 'by-agent':
 			return handleByAgent(req, res);
+		case 'launches':
+			return handleLaunches(req, res);
 		case 'quote':
 			return handleQuote(req, res);
 		case 'governance-prep':
@@ -2297,6 +2300,105 @@ async function handlePortfolio(req, res) {
 	});
 }
 
+// ── launches ─────────────────────────────────────────────────────────────────
+// Public, paginated feed of every coin launched through three.ws, joined with
+// the agent that launched it. Powers the /launches page and the agent-detail
+// "launched coins" card. Anonymous-readable; avatar thumbnails respect the
+// same public/unlisted visibility gate as api/agents.js.
+
+const LAUNCHES_CACHE = new Map(); // cacheKey → { at, body }
+const LAUNCHES_TTL_MS = 15_000;
+
+async function handleLaunches(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.mcpIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const url = new URL(req.url, `http://${req.headers.host}`);
+	const limit = Math.min(Math.max(1, Number(url.searchParams.get('limit')) || 24), 100);
+	const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const agentId = url.searchParams.get('agent_id');
+	if (agentId && !isUuid(agentId))
+		return error(res, 400, 'validation_error', 'agent_id must be a uuid');
+
+	const cacheKey = `${network}:${agentId || ''}:${offset}:${limit}`;
+	const now = Date.now();
+	const hit = LAUNCHES_CACHE.get(cacheKey);
+	if (hit && now - hit.at < LAUNCHES_TTL_MS) {
+		res.setHeader('cache-control', 'public, max-age=15');
+		return json(res, 200, hit.body);
+	}
+
+	// Over-fetch by one row to compute has_more without a count(*) round trip.
+	const rows = agentId
+		? await sql`
+				select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
+				       pam.metadata_uri, pam.quote_mint, pam.created_at,
+				       ai.id as agent_id, ai.name as agent_name,
+				       a.thumbnail_key as avatar_thumbnail_key,
+				       a.visibility as avatar_visibility
+				from pump_agent_mints pam
+				left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
+				left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
+				where pam.network=${network} and pam.agent_id=${agentId}
+				order by pam.created_at desc
+				limit ${limit + 1} offset ${offset}
+			`
+		: await sql`
+				select pam.mint, pam.network, pam.name, pam.symbol, pam.buyback_bps,
+				       pam.metadata_uri, pam.quote_mint, pam.created_at,
+				       ai.id as agent_id, ai.name as agent_name,
+				       a.thumbnail_key as avatar_thumbnail_key,
+				       a.visibility as avatar_visibility
+				from pump_agent_mints pam
+				left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
+				left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
+				where pam.network=${network}
+				order by pam.created_at desc
+				limit ${limit + 1} offset ${offset}
+			`;
+
+	const hasMore = rows.length > limit;
+	const launches = rows.slice(0, limit).map((r) => {
+		const avatarPublic =
+			r.avatar_visibility === 'public' || r.avatar_visibility === 'unlisted';
+		return {
+			mint: r.mint,
+			network: r.network,
+			name: r.name,
+			symbol: r.symbol,
+			buyback_bps: r.buyback_bps,
+			metadata_uri: normalizeGatewayURL(r.metadata_uri) || r.metadata_uri,
+			quote_mint: r.quote_mint,
+			created_at: r.created_at,
+			agent: r.agent_id
+				? {
+						id: r.agent_id,
+						name: r.agent_name,
+						url: `/agents/${r.agent_id}`,
+						avatar_thumbnail_url:
+							r.avatar_thumbnail_key && avatarPublic
+								? r2PublicUrl(r.avatar_thumbnail_key)
+								: null,
+					}
+				: null,
+		};
+	});
+
+	const body = { data: { launches, has_more: hasMore, offset, limit, network } };
+	LAUNCHES_CACHE.set(cacheKey, { at: now, body });
+	// Keep the per-instance cache bounded — feed pages only ever walk forward.
+	if (LAUNCHES_CACHE.size > 200) {
+		const oldest = LAUNCHES_CACHE.keys().next().value;
+		LAUNCHES_CACHE.delete(oldest);
+	}
+	res.setHeader('cache-control', 'public, max-age=15');
+	return json(res, 200, body);
+}
+
 // ── by-agent ───────────────────────────────────────────────────────────────
 
 async function handleByAgent(req, res) {
@@ -2314,18 +2416,21 @@ async function handleByAgent(req, res) {
 	if (agentId && !isUuid(agentId)) return error(res, 404, 'not_found', 'agent not found');
 	if (avatarId && !isUuid(avatarId)) return error(res, 404, 'not_found', 'agent not found');
 
-	let row;
+	// All coins this agent has launched, newest first. The newest one stays the
+	// canonical `data` payload (stats, burns) for existing consumers; the full
+	// list ships alongside as `coins` for the agent-page launch history.
+	let rows;
 	if (agentId) {
-		[row] = await sql`
+		rows = await sql`
 			select pam.id, pam.mint, pam.network, pam.name, pam.symbol,
 			       pam.buyback_bps, pam.agent_authority, pam.metadata_uri,
 			       pam.sharing_config, pam.created_at
 			from pump_agent_mints pam
 			where pam.agent_id=${agentId}
-			order by pam.created_at desc limit 1
+			order by pam.created_at desc limit 50
 		`;
 	} else {
-		[row] = await sql`
+		rows = await sql`
 			select pam.id, pam.mint, pam.network, pam.name, pam.symbol,
 			       pam.buyback_bps, pam.agent_authority, pam.metadata_uri,
 			       pam.sharing_config, pam.created_at
@@ -2333,10 +2438,19 @@ async function handleByAgent(req, res) {
 			join agent_identities ai
 			  on ai.id = pam.agent_id and ai.deleted_at is null
 			where ai.avatar_id=${avatarId}
-			order by pam.created_at desc limit 1
+			order by pam.created_at desc limit 50
 		`;
 	}
-	if (!row) return json(res, 200, { data: null });
+	const [row] = rows;
+	if (!row) return json(res, 200, { data: null, coins: [] });
+	const coins = rows.map((r) => ({
+		mint: r.mint,
+		network: r.network,
+		name: r.name,
+		symbol: r.symbol,
+		buyback_bps: r.buyback_bps,
+		created_at: r.created_at,
+	}));
 
 	const [stats] = await sql`
 		select
@@ -2372,6 +2486,7 @@ async function handleByAgent(req, res) {
 			burns: burnRow || { runs: 0, total_burned: '0' },
 			burns_feed: burnsFeed,
 		},
+		coins,
 	});
 }
 

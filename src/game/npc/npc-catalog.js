@@ -16,10 +16,12 @@
 import { isHomeTown } from '../home-town.js';
 import { openChat } from './npc-chat.js';
 import { openAixbtTerminal } from './npc-aixbt.js';
+import { openZauthScanner } from './npc-zauth.js';
 
 const AVATAR_A = '/avatars/default.glb';
 const AVATAR_B = '/avatars/cz.glb';
 const AVATAR_AIXBT = '/avatars/michelle.glb';
+const AVATAR_ZAUTH = '/avatars/xbot.glb';
 
 // Bind an NPC to a conversation. On interact the NPC greets in-world, plays a
 // beat, and opens a real chat: it answers in character, live from the same models
@@ -57,6 +59,30 @@ export function npcCatalogFor(world) {
 				npc.say('What do you want to see? Movers, narratives, the macro read, or a token scan.');
 				npc.emote('av-call-me');
 				openAixbtTerminal(npc, { ui });
+			},
+		});
+
+		// zauth — the security agent (zauth.inc). Walking up calls their real
+		// x402 RepoScan endpoint live (the unpaid 402 probe) and opens the
+		// scanner with the price from that challenge; the scan itself is $0.05
+		// USDC from the player's wallet, paid straight to zauth (npc-zauth.js).
+		list.push({
+			id: 'npc-zauth',
+			name: 'zauth · Security',
+			role: 'vendor',
+			avatar: AVATAR_ZAUTH,
+			pos: { x: 6, z: 2 },
+			yaw: Math.atan2(-6, -2),
+			range: 5,
+			prompt: 'Run a security scan',
+			onApproach: ({ npc, ui }) => {
+				npc.say('Hold it — I scan repos before agents trust them. Name one, I tear it apart for five cents.');
+				npc.emote('av-call-me');
+				openZauthScanner(npc, { ui });
+			},
+			onInteract: ({ npc, ui }) => {
+				npc.say('Provenance, contributors, vulnerabilities. One scan, one score.');
+				openZauthScanner(npc, { ui });
 			},
 		});
 

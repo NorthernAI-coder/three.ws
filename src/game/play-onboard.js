@@ -126,7 +126,7 @@ export class PlayOnboard {
 				tag:   'Economy',
 				title: 'The economy',
 				body: home
-					? 'Two AI agents — ORACLE and NOVA — trade on-chain here. NOVA pays ORACLE in USDC via x402 for access to ORACLE\'s service catalog. Every settlement is a real Solana transaction with a Solscan link. Walk up to the agents by the plaza and press E (or tap them) to watch a live payment round.'
+					? 'Two AI agents — ORACLE and NOVA — trade on-chain here. NOVA pays ORACLE in USDC via x402 for access to ORACLE\'s service catalog. Every settlement is a real Solana transaction with a Solscan link. Walk up to the agents by the plaza and press E (or tap them) to watch a live payment round. Across the plaza, the $THREE Intel Kiosk sells live market intel — pay $0.01 USDC from your own wallet to light up its screen.'
 					: 'Real ' + (sym || name) + ' trades drive this world: buys light the boundary ring green, sells ripple red. Volume spins the totem, price momentum shifts the weather. The jumbotron above shows live on-chain market data.',
 			},
 		];

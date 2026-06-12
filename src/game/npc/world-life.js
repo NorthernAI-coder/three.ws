@@ -170,6 +170,22 @@ export class WorldLife {
 		} else {
 			this.prompt.classList.remove('npc-show');
 		}
+
+		// Walk-up trigger: an NPC with `onApproach` fires it once when the player
+		// enters its range, and re-arms only after the player walks away (1 m of
+		// hysteresis so boundary jitter can't re-fire it).
+		if (player) {
+			for (const npc of this.npcs) {
+				if (typeof npc.def.onApproach !== 'function') continue;
+				if (npc === near && !npc._approached) {
+					npc._approached = true;
+					try { npc.def.onApproach({ npc, player, ui: this.ui, net: this.net, world: this.world }); }
+					catch (e) { log.warn('[world-life] npc onApproach failed:', e?.message); }
+				} else if (npc !== near && npc._approached && npc.distanceTo(player) > npc.range + 1) {
+					npc._approached = false;
+				}
+			}
+		}
 	}
 
 	// Player pressed E: talk to / open the nearest interactive NPC. Returns true if

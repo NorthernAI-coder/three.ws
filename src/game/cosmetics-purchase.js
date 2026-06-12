@@ -18,6 +18,7 @@
 // the rail charges — never surfaced as a coin to hold.
 
 import { loadStoredPass } from './play-auth.js';
+import { ensureX402 } from '../shared/x402-loader.js';
 
 const PURCHASE_ENDPOINT = '/api/x402/cosmetic-purchase';
 const OWNED_ENDPOINT = '/api/cosmetics/owned';
@@ -40,13 +41,20 @@ export function resolveShopAccount(explicitWallet) {
 	}
 }
 
+// The coin world the player is currently in, from the /play deep link
+// (?coin=<mint> survives navigation). '' outside a coin world.
+function currentWorldMint() {
+	try {
+		return new URLSearchParams(window.location.search).get('coin') || '';
+	} catch {
+		return '';
+	}
+}
+
 // Run the x402 USDC payment for one cosmetic. Resolves with the settled ticket
 // ({ ok, owned, newlyOwned, payer, network, … }); rejects with an Error on
 // failure or { code:'cancelled' } when the buyer dismisses the wallet.
 export async function purchaseCosmetic(item, { account, coin } = {}) {
-	if (!window.X402?.pay) {
-		throw new Error('Payment widget still loading — try again in a second.');
-	}
 	if (!item?.id) throw new Error('Pick a cosmetic to buy.');
 	const acct = account || resolveShopAccount();
 	if (!acct) throw new Error('No account to attach this purchase to.');
@@ -74,7 +82,11 @@ export async function purchaseCosmetic(item, { account, coin } = {}) {
 	const coinParam = coinMint && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(coinMint)
 		? `&coin=${encodeURIComponent(coinMint)}` : '';
 	const url = `${PURCHASE_ENDPOINT}?id=${encodeURIComponent(item.id)}&account=${encodeURIComponent(acct)}${coinParam}`;
-	const out = await window.X402.pay({
+	// The /play world page doesn't ship the payment widget in its HTML — load it
+	// on demand here (cached after the first buy), same as every other in-world
+	// paid surface (NPC services, intel kiosk).
+	const X402 = await ensureX402();
+	const out = await X402.pay({
 		endpoint: url,
 		method: 'GET',
 		merchant: 'three.ws Avatar Shop',

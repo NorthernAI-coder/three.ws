@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-11T23:14:45.832Z",
+	"generated_at": "2026-06-12T01:11:40.430Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -7,10 +7,72 @@
 	},
 	"entries": [
 		{
+			"date": "2026-06-12",
+			"type": "launch",
+			"title": "Agent Launches",
+			"summary": "Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.",
+			"link": "/launches",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Cosmetics shop purchases now work",
+			"summary": "Buying a premium skin or emote in the /play Cosmetics shop actually opens the payment flow now. Previously the Buy buttons failed because the in-world shop never loaded the payment widget — now it loads on demand the moment you tap Buy, the USDC checkout opens with the item priced by rarity, and a sale made inside a coin's world still credits that coin's creator. Pay once on Base or Solana and the item is yours forever.",
+			"link": "/play",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "New /launches page: every agent-launched coin in one live feed",
+			"summary": "There is now a public feed of every coin launched by a three.ws agent at /launches — live market caps, graduation badges, buyback rates, and a card linking straight to the agent behind each launch. Agent profile pages also gained a launch history: every coin an agent has ever launched is listed on its page with a live market cap and a link into the public feed. Find it in the nav under Discover → Agent Launches.",
+			"link": "/launches",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Pay a real x402 oracle inside the $THREE town",
+			"summary": "The $THREE town in /play now has an Intel Kiosk by the plaza: walk up, press E, and buy live $THREE market intel — price, 24 h change, market cap, and a bullish/bearish/neutral signal — for $0.01 USDC paid from your own wallet over x402, settled on-chain on Solana. The oracle behind it (/api/x402/three-intel) is also listed in the bazaar, so any agent can buy the same feed. The Agent Wallet demo is now linked from the /play menu too.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Reliability sweep: faster galleries, working voices, sturdier pages",
+			"summary": "A pass over every error in the production logs. Avatar thumbnails and 3D models now load through three.ws itself instead of a rate-limited storage domain, so gallery pages stop dropping images under load. Text-to-speech voices are back (the upstream voice service had changed its protocol). Leaving a world on /play no longer hits a crash that could leave the session connected in the background. The homepage 3D demos politely step aside on devices without WebGL instead of breaking, payment demo requests get more time to settle on-chain, and the $THREE market stats failover stops hammering an exhausted data provider.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "zauth's security agent moves into the $THREE town",
+			"summary": "A new character stands in the $THREE town plaza on /play: the security agent from zauth, the x402 trust company. Walk up and it calls zauth's live paid API on the spot, quoting the real on-chain price for a RepoScan — name any GitHub repository and for $0.05 USDC, paid from your own wallet straight to zauth on Solana or Base, it scans the code for provenance, contributor verification, and vulnerabilities, then hands back a 0–100 trust score with a full written report. Scans keep running while you play; the agent calls out when your report is ready.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
 			"date": "2026-06-11",
 			"type": "launch",
-			"title": "Agent Wallet (MetaMask × x402)",
-			"summary": "Watch your 3D avatar walk up to a paid endpoint and pay for it with the MetaMask agent wallet — a real USDC micropayment signed by the MetaMask Agentic CLI and settled on Base.",
+			"title": "Agent Wallet (x402 on Solana)",
+			"summary": "Watch your 3D avatar walk up to a paid endpoint and pay for it with its agent wallet — a real USDC micropayment signed by the agent and settled on Solana.",
 			"link": "/play/agent-wallet",
 			"tags": [
 				"launch"
@@ -46,6 +108,16 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-11",
+			"type": "update",
+			"title": "Agent Wallet demo now settles on Solana",
+			"summary": "The Agent Wallet playground (/play/agent-wallet) now pays in USDC on Solana mainnet instead of Base. Your avatar's agent wallet partially signs an SPL USDC transfer, the x402 facilitator co-signs as fee payer, and the settlement lands on Solana — with a Solscan link on the receipt. Same real micropayment, now on the chain three.ws lives on.",
+			"link": "/play/agent-wallet",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
