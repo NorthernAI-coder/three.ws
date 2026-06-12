@@ -2940,89 +2940,242 @@
 	</div>
 </section>
 
-<!-- ── FORGE — LITE DEMO ─────────────────────────────────────────── -->
+<!-- ── FORGE — LIVE CHAMBER ──────────────────────────────────────── -->
 <style>
-	#home-forge .hf-wrap { display: grid; grid-template-columns: 1.35fr 0.9fr; gap: 28px; align-items: stretch; }
-	#home-forge .hf-stage-card {
-		position: relative; border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden;
-		background: radial-gradient(120% 100% at 50% 0%, #121214 0%, #09090a 70%); min-height: 460px;
+	/* The chamber is one immersive stage: layered floor + iridescent ring +
+	   floating command dock. Every layer is state-reactive via
+	   [data-hf-state="idle|generating|result|error"] on the chamber root. */
+	#home-forge { --hf-iris: linear-gradient(120deg, #ffb454, #ff6ad5 38%, #8b5cf6 64%, #4fc3ff); }
+	#home-forge .hf-chamber {
+		position: relative; border: 1px solid var(--hairline); border-radius: 20px; overflow: hidden;
+		background: radial-gradient(130% 110% at 50% -10%, #15151a 0%, #0a0a0c 52%, #060607 100%);
+		min-height: 560px; isolation: isolate;
 	}
-	#home-forge .hf-stage-hud {
-		position: absolute; left: 16px; top: 16px; display: flex; gap: 8px; align-items: center;
+	/* Film-grain so the void never reads as flat dead pixels. */
+	#home-forge .hf-chamber::after {
+		content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.05;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+	}
+	/* Dot lattice — quiet spatial texture behind the ring. Parallax via --px/--py. */
+	#home-forge .hf-floor {
+		position: absolute; inset: -24px; z-index: 0; pointer-events: none;
+		background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1.6px);
+		background-size: 28px 28px;
+		background-position: calc(50% + var(--px, 0) * 14px) calc(50% + var(--py, 0) * 10px);
+		-webkit-mask: radial-gradient(78% 72% at 50% 48%, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 82%);
+		mask: radial-gradient(78% 72% at 50% 48%, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 82%);
+		opacity: 0.5;
+	}
+	/* The forge ring — a thin iridescent annulus. Idle: slow drift. Forging:
+	   fast spin + counter-arc. Complete: yields the stage to the model. */
+	#home-forge .hf-ring {
+		position: absolute; inset: 0; margin: auto; z-index: 0; pointer-events: none;
+		width: min(46vmin, 380px); aspect-ratio: 1 / 1; border-radius: 50%;
+		background: conic-gradient(from 0deg, transparent 0% 6%, #ffb454 20%, #ff6ad5 38%, #8b5cf6 56%, #4fc3ff 72%, transparent 86% 100%);
+		-webkit-mask: radial-gradient(closest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+		mask: radial-gradient(closest-side, transparent calc(100% - 2.5px), #000 calc(100% - 1.5px));
+		transform: translate(calc(var(--px, 0) * -18px), calc(var(--py, 0) * -12px));
+		animation: hf-rot 26s linear infinite; opacity: 0.6;
+		transition: opacity 0.6s ease, width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+	}
+	/* Soft glow copy of the ring (mask can't blur, so it's a sibling). */
+	#home-forge .hf-ring-glow {
+		position: absolute; inset: 0; margin: auto; z-index: 0; pointer-events: none;
+		width: min(46vmin, 380px); aspect-ratio: 1 / 1; border-radius: 50%;
+		background: conic-gradient(from 0deg, transparent 0% 6%, rgba(255, 180, 84, 0.5) 20%, rgba(255, 106, 213, 0.5) 38%, rgba(139, 92, 246, 0.5) 56%, rgba(79, 195, 255, 0.5) 72%, transparent 86% 100%);
+		filter: blur(26px); opacity: 0.3;
+		transform: translate(calc(var(--px, 0) * -18px), calc(var(--py, 0) * -12px));
+		animation: hf-rot 26s linear infinite;
+		transition: opacity 0.6s ease;
+	}
+	@keyframes hf-rot { to { rotate: 360deg; } }
+	#home-forge [data-hf-state='generating'] .hf-ring,
+	#home-forge [data-hf-state='generating'] .hf-ring-glow { animation-duration: 2.4s; opacity: 1; }
+	#home-forge [data-hf-state='generating'] .hf-ring-glow { opacity: 0.55; }
+	#home-forge [data-hf-state='result'] .hf-ring,
+	#home-forge [data-hf-state='result'] .hf-ring-glow { opacity: 0; }
+	#home-forge [data-hf-state='error'] .hf-ring {
+		background: conic-gradient(from 0deg, transparent 0% 6%, #ff7a7a 30%, #b0413e 60%, transparent 80% 100%);
+		animation-duration: 14s; opacity: 0.7;
+	}
+	#home-forge [data-hf-state='error'] .hf-ring-glow { opacity: 0.12; }
+
+	/* HUD — top corners. Mono, uppercase, honest telemetry. */
+	#home-forge .hf-hud {
+		position: absolute; left: 18px; top: 16px; z-index: 5; display: flex; gap: 8px; align-items: center;
+		font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+		color: var(--text-3); pointer-events: none;
+	}
+	#home-forge .hf-hud .dot { width: 6px; height: 6px; border-radius: 50%; background: #ffb454; box-shadow: 0 0 8px #ffb454; }
+	#home-forge [data-hf-state='generating'] .hf-hud .dot { animation: hf-pulse 1s ease-in-out infinite; }
+	@keyframes hf-pulse { 50% { box-shadow: 0 0 14px #ffb454; transform: scale(1.25); } }
+	#home-forge .hf-telemetry {
+		position: absolute; right: 18px; top: 16px; z-index: 5; display: flex; gap: 14px; align-items: baseline;
 		font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-		color: var(--text-3); pointer-events: none; z-index: 3;
+		color: var(--text-3); pointer-events: none; text-align: right;
 	}
-	#home-forge .hf-stage-hud .dot { width: 6px; height: 6px; border-radius: 50%; background: #ffb454; box-shadow: 0 0 8px #ffb454; }
-	#home-forge .hf-state { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 28px; }
+	#home-forge .hf-telemetry [data-hf-tel-state] { color: var(--text-2); }
+	#home-forge [data-hf-state='generating'] .hf-telemetry [data-hf-tel-state] { color: #ffb454; }
+	#home-forge [data-hf-state='result'] .hf-telemetry [data-hf-tel-state] { color: #58d68d; }
+	#home-forge [data-hf-state='error'] .hf-telemetry [data-hf-tel-state] { color: #ff7a7a; }
+	#home-forge .hf-elapsed:empty { display: none; }
+
+	/* Centered state layers. */
+	#home-forge .hf-state {
+		position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
+		align-items: center; justify-content: center; gap: 12px; text-align: center;
+		padding: 28px 28px 150px; pointer-events: none;
+	}
 	#home-forge .hf-state[hidden] { display: none; }
-	#home-forge .hf-glyph { font-size: 38px; opacity: 0.5; line-height: 1; }
-	#home-forge .hf-state h3 { font-family: var(--font-display); font-size: 19px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); margin: 0; }
-	#home-forge .hf-state p { font-size: 13.5px; color: var(--text-3); line-height: 1.55; margin: 0; max-width: 42ch; }
+	#home-forge .hf-state > * { pointer-events: auto; }
+	#home-forge .hf-state h3 { font-family: var(--font-display); font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); margin: 0; }
+	#home-forge .hf-state p { font-size: 13.5px; color: var(--text-3); line-height: 1.6; margin: 0; max-width: 44ch; }
+	#home-forge .hf-idle-kbd { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.06em; }
+	#home-forge .hf-idle-kbd kbd {
+		font-family: inherit; font-size: 10px; color: var(--text-2); background: rgba(255, 255, 255, 0.04);
+		border: 1px solid var(--hairline); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+	}
 	#home-forge .hf-state--error h3 { color: #ff7a7a; }
-	#home-forge .hf-preview {
-		position: relative; width: min(46%, 240px); aspect-ratio: 1 / 1; border-radius: 12px;
-		border: 1px solid var(--hairline); background: #0e0e10; overflow: hidden; flex: none;
-	}
-	#home-forge .hf-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
-	#home-forge .hf-shimmer {
-		position: absolute; inset: 0;
-		background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.06) 50%, transparent 80%);
-		background-size: 200% 100%; animation: hf-shimmer 1.4s linear infinite;
-	}
-	@keyframes hf-shimmer { to { background-position: -200% 0; } }
-	#home-forge .hf-steps { display: flex; flex-direction: column; gap: 9px; align-items: flex-start; }
-	#home-forge .hf-step { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--text-3); }
-	#home-forge .hf-step .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--hairline-strong); flex: none; }
+
+	/* Generating telemetry rows. */
+	#home-forge .hf-steps { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; font-family: var(--font-mono); }
+	#home-forge .hf-step { display: flex; align-items: center; gap: 10px; font-size: 12px; letter-spacing: 0.04em; color: var(--text-3); transition: color 0.2s; }
+	#home-forge .hf-step .dot { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--hairline-strong); flex: none; transition: border-color 0.2s, background 0.2s; }
 	#home-forge .hf-step[data-state='active'] { color: var(--text); }
 	#home-forge .hf-step[data-state='active'] .dot { border-color: #ffb454; border-top-color: transparent; animation: hf-spin 0.8s linear infinite; }
-	#home-forge .hf-step[data-state='done'] { color: var(--text); }
+	#home-forge .hf-step[data-state='done'] { color: var(--text-2); }
 	#home-forge .hf-step[data-state='done'] .dot { background: #58d68d; border-color: #58d68d; }
 	@keyframes hf-spin { to { transform: rotate(360deg); } }
-	#home-forge .hf-elapsed { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); }
-	#home-forge .hf-result-stage { position: absolute; inset: 0; display: flex; flex-direction: column; }
-	#home-forge .hf-result-stage[hidden] { display: none; }
-	#home-forge [data-hf-viewer-slot] { flex: 1; min-height: 0; }
-	#home-forge [data-hf-viewer-slot] model-viewer { width: 100%; height: 100%; --poster-color: transparent; background: transparent; }
+	#home-forge .hf-preview { width: 132px; aspect-ratio: 1 / 1; border-radius: 12px; border: 1px solid var(--hairline); overflow: hidden; display: none; }
+	#home-forge .hf-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+	#home-forge .hf-preview.is-on { display: block; }
+
+	/* Result — the model owns the chamber. */
+	#home-forge .hf-result { position: absolute; inset: 0; z-index: 2; }
+	#home-forge .hf-result[hidden] { display: none; }
+	#home-forge .hf-viewer { position: absolute; inset: 0 0 36px; }
+	#home-forge .hf-viewer model-viewer { width: 100%; height: 100%; --poster-color: transparent; background: transparent; }
+	#home-forge .hf-viewer.is-in { animation: hf-mat 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+	@keyframes hf-mat { from { opacity: 0; filter: blur(26px) saturate(1.6); transform: scale(0.94); } to { opacity: 1; filter: blur(0) saturate(1); transform: scale(1); } }
+	/* Ground bloom under the landed model. */
+	#home-forge .hf-ground {
+		position: absolute; left: 50%; bottom: 96px; z-index: 1; width: min(52%, 460px); height: 60px;
+		transform: translateX(-50%); border-radius: 50%; pointer-events: none; opacity: 0;
+		background: radial-gradient(50% 50% at 50% 50%, rgba(139, 92, 246, 0.22) 0%, rgba(79, 195, 255, 0.08) 55%, transparent 75%);
+		filter: blur(10px); transition: opacity 1.1s ease 0.15s;
+	}
+	#home-forge [data-hf-state='result'] .hf-ground { opacity: 1; }
+	/* One-shot scanline sweep when the GLB lands. */
+	#home-forge .hf-scan { position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0; }
+	#home-forge .hf-scan.is-scan { animation: hf-scan-fade 1s linear both; }
+	#home-forge .hf-scan::before {
+		content: ''; position: absolute; left: 0; right: 0; top: -12%; height: 10%;
+		background: linear-gradient(180deg, transparent, rgba(79, 195, 255, 0.16) 55%, rgba(255, 255, 255, 0.5) 98%, transparent);
+	}
+	#home-forge .hf-scan.is-scan::before { animation: hf-scan-sweep 0.9s cubic-bezier(0.6, 0, 0.4, 1) both; }
+	@keyframes hf-scan-sweep { to { top: 112%; } }
+	@keyframes hf-scan-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+	/* Floating glass result actions. */
 	#home-forge .hf-result-bar {
-		display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-		padding: 12px 16px; border-top: 1px solid var(--hairline); background: rgba(10,10,12,0.7); backdrop-filter: blur(8px);
+		position: absolute; left: 50%; bottom: 108px; z-index: 6; transform: translateX(-50%);
+		display: flex; align-items: center; gap: 10px; max-width: min(92%, 720px);
+		padding: 8px 10px 8px 16px; border-radius: 999px;
+		background: rgba(12, 12, 16, 0.66); border: 1px solid var(--hairline-strong);
+		-webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+		box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.8);
 	}
-	#home-forge .hf-result-meta { font-size: 12.5px; color: var(--text-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 120px; }
+	#home-forge .hf-result-meta { font-size: 12.5px; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	#home-forge .hf-result-actions { display: flex; gap: 8px; flex: none; }
-	#home-forge .hf-panel { display: flex; flex-direction: column; gap: 18px; }
-	#home-forge .hf-panel-card { border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface-1); padding: 22px; display: flex; flex-direction: column; gap: 14px; }
-	#home-forge .hf-panel-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); margin: 0; }
-	#home-forge .hf-prompt {
-		width: 100%; min-height: 72px; resize: vertical; background: rgba(0,0,0,0.25);
-		border: 1px solid var(--hairline); border-radius: 10px; outline: none; color: var(--text);
-		font-family: inherit; font-size: 14.5px; line-height: 1.5; padding: 11px 13px;
-		transition: border-color .16s, box-shadow .16s;
-	}
-	#home-forge .hf-prompt::placeholder { color: var(--text-3); }
-	#home-forge .hf-prompt:focus-visible { border-color: #ffb454; box-shadow: 0 0 0 3px rgba(255,180,84,0.18); }
-	#home-forge .hf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+	/* The command dock — a floating glass prompt bar. */
+	#home-forge .hf-dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 18px 18px; pointer-events: none; }
+	#home-forge .hf-dock > * { pointer-events: auto; }
+	#home-forge .hf-chips { display: flex; gap: 7px; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+	#home-forge .hf-chips::-webkit-scrollbar { display: none; }
+	/* The chips' job is done once a run starts or a model is on stage — clear
+	   the dock down to the command bar so nothing collides with the result. */
+	#home-forge [data-hf-state='generating'] .hf-chips,
+	#home-forge [data-hf-state='result'] .hf-chips { display: none; }
 	#home-forge .hf-chip {
-		font-size: 12.5px; color: var(--text-2); background: transparent; border: 1px solid var(--hairline);
-		border-radius: 999px; padding: 6px 12px; cursor: pointer; transition: border-color .16s, color .16s, transform .16s;
+		flex: none; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
+		background: rgba(14, 14, 18, 0.6); border: 1px solid var(--hairline); border-radius: 999px;
+		padding: 5px 12px; cursor: pointer; white-space: nowrap;
+		-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+		transition: color 0.16s, border-color 0.16s, transform 0.16s;
 	}
 	#home-forge .hf-chip:hover { color: var(--text); border-color: var(--hairline-strong); transform: translateY(-1px); }
-	#home-forge .hf-chip:focus-visible { outline: 2px solid #ffb454; outline-offset: 2px; }
-	#home-forge .hf-note { font-size: 12px; color: var(--text-3); line-height: 1.5; margin: 0; }
-	#home-forge .hf-btn {
-		text-align: center; font-family: var(--font-mono); font-size: 12.5px; padding: 11px 14px;
-		border-radius: 10px; border: 1px solid var(--hairline); background: transparent; color: var(--text-2);
-		cursor: pointer; text-decoration: none; transition: border-color .16s, color .16s, background .16s;
+	#home-forge .hf-chip:active { transform: translateY(0); }
+	#home-forge .hf-chip:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+	#home-forge .hf-bar {
+		display: flex; align-items: center; gap: 10px; width: min(680px, 100%);
+		padding: 7px 7px 7px 16px; border-radius: 16px;
+		background: linear-gradient(rgba(12, 12, 16, 0.72), rgba(12, 12, 16, 0.72)) padding-box,
+			linear-gradient(120deg, rgba(255, 180, 84, 0.35), rgba(255, 106, 213, 0.35) 38%, rgba(139, 92, 246, 0.35) 64%, rgba(79, 195, 255, 0.35)) border-box;
+		border: 1px solid transparent;
+		-webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+		box-shadow: 0 18px 48px -20px rgba(0, 0, 0, 0.85);
+		transition: box-shadow 0.2s ease;
 	}
-	#home-forge .hf-btn:hover { color: var(--text); border-color: var(--hairline-strong); }
-	#home-forge .hf-btn:focus-visible { outline: 2px solid #ffb454; outline-offset: 2px; }
-	#home-forge .hf-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
-	#home-forge .hf-btn-primary { display: block; background: var(--text); color: #09090a; border-color: var(--text); font-weight: 600; }
-	#home-forge .hf-btn-primary:hover { color: #09090a; background: #e2e2e2; }
-	#home-forge .hf-btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
-	#home-forge .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-	@media (max-width: 880px) {
-		#home-forge .hf-wrap { grid-template-columns: 1fr; }
-		#home-forge .hf-stage-card { min-height: 400px; }
+	#home-forge .hf-bar:focus-within { box-shadow: 0 18px 48px -20px rgba(0, 0, 0, 0.85), 0 0 0 4px rgba(139, 92, 246, 0.14); }
+	#home-forge .hf-bar-glyph { color: var(--text-3); font-size: 13px; flex: none; }
+	#home-forge [data-hf-state='generating'] .hf-bar-glyph { color: #ffb454; }
+	#home-forge .hf-prompt {
+		flex: 1; min-width: 0; max-height: 96px; resize: none; background: transparent; border: none; outline: none;
+		color: var(--text); font-family: inherit; font-size: 14.5px; line-height: 1.45; padding: 6px 0;
+	}
+	#home-forge .hf-prompt::placeholder { color: var(--text-3); }
+	#home-forge .hf-kbd {
+		flex: none; font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+		border: 1px solid var(--hairline); border-bottom-width: 2px; border-radius: 5px; padding: 2px 6px;
+	}
+	#home-forge .hf-forge-btn {
+		flex: none; display: inline-flex; align-items: center; gap: 7px;
+		font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; letter-spacing: 0.04em;
+		color: #0a0a0c; background: var(--text); border: 1px solid var(--text); border-radius: 11px;
+		padding: 9px 18px; cursor: pointer;
+		transition: background 0.16s, transform 0.12s, box-shadow 0.2s;
+	}
+	#home-forge .hf-forge-btn:hover { background: #e8e8e8; box-shadow: 0 0 24px -6px rgba(139, 92, 246, 0.55); }
+	#home-forge .hf-forge-btn:active { transform: translateY(1px); }
+	#home-forge .hf-forge-btn:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+	#home-forge .hf-forge-btn[disabled] { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+	#home-forge .hf-dock-note { font-size: 11px; font-family: var(--font-mono); letter-spacing: 0.04em; color: var(--text-3); margin: 0; text-align: center; }
+	#home-forge .hf-dock-note a { color: var(--text-2); text-decoration: none; border-bottom: 1px solid var(--hairline-strong); }
+	#home-forge .hf-dock-note a:hover { color: var(--text); }
+	#home-forge .hf-dock-note a:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+
+	/* Ghost buttons shared by states. */
+	#home-forge .hf-btn {
+		display: inline-flex; align-items: center; gap: 6px; text-align: center;
+		font-family: var(--font-mono); font-size: 12px; padding: 8px 14px; border-radius: 999px;
+		border: 1px solid var(--hairline-strong); background: rgba(14, 14, 18, 0.5); color: var(--text-2);
+		cursor: pointer; text-decoration: none;
+		-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+		transition: border-color 0.16s, color 0.16s, background 0.16s;
+	}
+	#home-forge .hf-btn:hover { color: var(--text); border-color: var(--text-3); }
+	#home-forge .hf-btn:active { transform: translateY(1px); }
+	#home-forge .hf-btn:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+	#home-forge .hf-btn--bright { background: var(--text); border-color: var(--text); color: #0a0a0c; font-weight: 600; }
+	#home-forge .hf-btn--bright:hover { background: #e8e8e8; color: #0a0a0c; }
+	#home-forge .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+	@media (max-width: 720px) {
+		#home-forge .hf-chamber { min-height: 600px; border-radius: 16px; }
+		#home-forge .hf-state { padding: 24px 18px 190px; }
+		#home-forge .hf-telemetry { display: none; }
+		#home-forge .hf-kbd { display: none; }
+		#home-forge .hf-idle-kbd { display: none; }
+		#home-forge .hf-viewer { inset: 0 0 120px; }
+		#home-forge .hf-result-bar { bottom: 112px; left: 18px; right: 18px; transform: none; max-width: none; justify-content: space-between; }
+		#home-forge .hf-ground { bottom: 150px; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		#home-forge .hf-ring, #home-forge .hf-ring-glow { animation: none; }
+		#home-forge .hf-viewer.is-in { animation: none; }
+		#home-forge .hf-scan.is-scan, #home-forge .hf-scan.is-scan::before { animation: none; opacity: 0; }
+		#home-forge .hf-hud .dot { animation: none; }
 	}
 </style>
 <section class="block" id="home-forge">
@@ -3034,60 +3187,68 @@
 				A live slice of <a href="/forge">Forge</a> — the same text-to-3D pipeline that powers the full page, on its free draft lane. Describe an object and a textured, downloadable GLB takes shape right here, usually in seconds. The full Forge adds photo input, multi-view fusion, higher quality tiers, stylize filters, and retopology.
 			</p>
 		</div>
-		<div class="hf-wrap reveal reveal-d1">
-			<div class="hf-stage-card" data-hf-stage>
-				<div class="hf-stage-hud"><span class="dot"></span>Live pipeline</div>
+		<div class="hf-chamber reveal reveal-d1" data-hf-chamber data-hf-state="idle">
+			<div class="hf-floor" aria-hidden="true"></div>
+			<div class="hf-ring-glow" aria-hidden="true"></div>
+			<div class="hf-ring" aria-hidden="true"></div>
+			<div class="hf-ground" aria-hidden="true"></div>
 
-				<div class="hf-state" data-hf-idle>
-					<span class="hf-glyph" aria-hidden="true">&#9683;</span>
-					<h3>Nothing forged yet</h3>
-					<p>Type a description — or tap an example — and a real textured mesh lands here, usually in seconds.</p>
+			<div class="hf-hud"><span class="dot"></span>Live pipeline</div>
+			<div class="hf-telemetry" aria-live="polite">
+				<span data-hf-tel-state>standby</span>
+				<span class="hf-elapsed" data-hf-elapsed></span>
+				<span>draft &middot; free lane</span>
+			</div>
+
+			<div class="hf-state" data-hf-idle>
+				<h3>Nothing forged yet</h3>
+				<p>Type a description — or take the suggestion — and a real textured mesh lands here, usually in seconds.</p>
+				<span class="hf-idle-kbd"><kbd>Tab</kbd> takes the suggestion &middot; <kbd>&#8984;&#9166;</kbd> forges</span>
+			</div>
+
+			<div class="hf-state" data-hf-generating hidden>
+				<div class="hf-preview" data-hf-preview></div>
+				<div class="hf-steps" aria-live="polite">
+					<div class="hf-step" data-hf-step="mesh" data-state="pending"><span class="dot" aria-hidden="true"></span><span>Reconstructing textured mesh</span></div>
+					<div class="hf-step" data-hf-step="finish" data-state="pending"><span class="dot" aria-hidden="true"></span><span>Finalizing GLB</span></div>
 				</div>
+				<button type="button" class="hf-btn" data-hf-cancel>Cancel</button>
+			</div>
 
-				<div class="hf-state" data-hf-generating hidden>
-					<div class="hf-preview" data-hf-preview></div>
-					<div class="hf-steps" aria-live="polite">
-						<div class="hf-step" data-hf-step="mesh" data-state="pending"><span class="dot" aria-hidden="true"></span><span>Reconstructing textured mesh</span></div>
-						<div class="hf-step" data-hf-step="finish" data-state="pending"><span class="dot" aria-hidden="true"></span><span>Finalizing GLB</span></div>
+			<div class="hf-result" data-hf-result hidden>
+				<div class="hf-viewer" data-hf-viewer-slot></div>
+				<div class="hf-scan" data-hf-scan aria-hidden="true"></div>
+				<div class="hf-result-bar">
+					<span class="hf-result-meta" data-hf-result-meta></span>
+					<div class="hf-result-actions">
+						<a class="hf-btn" data-hf-download download>Download GLB</a>
+						<button type="button" class="hf-btn" data-hf-again>Clear</button>
 					</div>
-					<span class="hf-elapsed" data-hf-elapsed>Elapsed 0s</span>
-					<button type="button" class="hf-btn hf-btn-sm" data-hf-cancel>Cancel</button>
-				</div>
-
-				<div class="hf-result-stage" data-hf-result hidden>
-					<div data-hf-viewer-slot></div>
-					<div class="hf-result-bar">
-						<span class="hf-result-meta" data-hf-result-meta></span>
-						<div class="hf-result-actions">
-							<a class="hf-btn hf-btn-sm" data-hf-download download>Download GLB</a>
-							<button type="button" class="hf-btn hf-btn-sm" data-hf-again>Make another</button>
-						</div>
-					</div>
-				</div>
-
-				<div class="hf-state hf-state--error" data-hf-error hidden>
-					<span class="hf-glyph" aria-hidden="true">&#9888;</span>
-					<h3>Generation failed</h3>
-					<p data-hf-error-message>Something went wrong. Try a simpler, single-subject prompt.</p>
-					<button type="button" class="hf-btn hf-btn-sm" data-hf-retry>Try again</button>
 				</div>
 			</div>
-			<div class="hf-panel">
-				<form class="hf-panel-card" data-hf-form autocomplete="off">
-					<p class="hf-panel-label">Describe an object</p>
+
+			<div class="hf-state hf-state--error" data-hf-error hidden>
+				<h3>Generation failed</h3>
+				<p data-hf-error-message>Something went wrong. Try a simpler, single-subject prompt.</p>
+				<button type="button" class="hf-btn hf-btn--bright" data-hf-retry>Try again</button>
+			</div>
+
+			<form class="hf-dock" data-hf-form autocomplete="off">
+				<div class="hf-chips" data-hf-chips role="group" aria-label="Example prompts">
+					<button type="button" class="hf-chip" data-prompt="a low-poly red fox, sitting">low-poly fox</button>
+					<button type="button" class="hf-chip" data-prompt="a sci-fi combat helmet, brushed metal">sci-fi helmet</button>
+					<button type="button" class="hf-chip" data-prompt="a potted monstera plant">monstera plant</button>
+					<button type="button" class="hf-chip" data-prompt="a vintage film camera">film camera</button>
+				</div>
+				<div class="hf-bar">
+					<span class="hf-bar-glyph" aria-hidden="true">&#9670;</span>
 					<label class="sr-only" for="hf-prompt-input">Describe the object to generate</label>
-					<textarea id="hf-prompt-input" class="hf-prompt" data-hf-prompt maxlength="1000" placeholder="a glazed ceramic teapot, studio lighting"></textarea>
-					<div class="hf-chips" data-hf-chips role="group" aria-label="Example prompts">
-						<button type="button" class="hf-chip" data-prompt="a low-poly red fox, sitting">low-poly fox</button>
-						<button type="button" class="hf-chip" data-prompt="a sci-fi combat helmet, brushed metal">sci-fi helmet</button>
-						<button type="button" class="hf-chip" data-prompt="a potted monstera plant">monstera plant</button>
-						<button type="button" class="hf-chip" data-prompt="a vintage film camera">film camera</button>
-					</div>
-					<button class="hf-btn hf-btn-primary" data-hf-generate type="submit"><span data-hf-generate-label>Forge it</span></button>
-					<p class="hf-note">Free to try &middot; no sign-up &middot; your forged models also appear in the full Forge gallery on this device.</p>
-				</form>
-				<a class="hf-btn hf-btn-primary" href="/forge">Open the full Forge &rarr;</a>
-			</div>
+					<textarea id="hf-prompt-input" class="hf-prompt" data-hf-prompt rows="1" maxlength="1000" placeholder="describe an object&hellip;"></textarea>
+					<span class="hf-kbd" aria-hidden="true">&#8984;&#9166;</span>
+					<button class="hf-forge-btn" data-hf-generate type="submit"><span data-hf-generate-label>Forge</span></button>
+				</div>
+				<p class="hf-dock-note">Free &middot; no sign-up &middot; lands in your full Forge gallery on this device &middot; <a href="/forge">open the full Forge &rarr;</a></p>
+			</form>
 		</div>
 	</div>
 </section>
