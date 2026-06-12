@@ -32,6 +32,8 @@ const NVIDIA_TIMEOUT_MS = 30_000;
 export const def = {
 	name: 'speak',
 	title: 'Avatar speaks (TTS)',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 	description:
 		'Synthesize speech for an avatar session and return a base64 audio data URL the client can play. Free NVIDIA NIM Magpie TTS leads when NVIDIA_API_KEY is set (non-pcm requests are served as WAV); OpenAI TTS is the paid backstop when OPENAI_API_KEY is set. Picks the session\'s configured voice unless overridden.',
 	inputSchema: {

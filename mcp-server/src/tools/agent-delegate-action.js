@@ -100,6 +100,14 @@ export async function buildAgentDelegateActionTool() {
 		title: 'Agent delegate action ($0.01)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Dispatches a delegated action to an external agent — a write with
+		// side effects, but it never destroys existing state.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

@@ -9,6 +9,8 @@ import { createSession, findAvatar, viewerUrlFor } from '../lib/avatars.js';
 export const def = {
 	name: 'spawn_avatar',
 	title: 'Spawn a 3D avatar session',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 	description:
 		'Spawn a 3D avatar from a curated default (preset="default" or "cz") or from a custom GLB URL. Returns a sessionId other tools (dress_avatar, viewer_url, speak) reference, plus the avatar GLB URL and a ready-to-open three.ws viewer link.',
 	inputSchema: {

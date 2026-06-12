@@ -9,6 +9,8 @@ import { fetchPoseCatalogRemote } from '../lib/render.js';
 export const def = {
 	name: 'list_animations',
 	title: 'List three.ws pose presets + animation slots',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Return the three.ws pose preset catalog (T-pose, A-pose, wave, thinker, jump, dance, warrior2, …) grouped by category. Use the ids returned here as posePresetId in render_avatar. Fetched live from three.ws so the catalog reflects the deployed version.',
 	inputSchema: {},

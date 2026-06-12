@@ -15,6 +15,8 @@ import { getSession, updateSession } from '../lib/avatars.js';
 export const def = {
 	name: 'wallet_create',
 	title: 'Create a Solana wallet (optionally vanity-grinded)',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
 	description:
 		'Generate a Solana keypair locally. Optionally grind for a base58 prefix/suffix (e.g. "three") and/or attach it to an avatar session. Returns the base58 pubkey and secret ONCE — store the secret yourself; the MCP does not persist it.',
 	inputSchema: {

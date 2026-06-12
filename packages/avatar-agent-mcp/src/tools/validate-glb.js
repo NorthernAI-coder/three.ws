@@ -30,6 +30,8 @@ function classify(messages = []) {
 export const def = {
 	name: 'validate_glb',
 	title: 'Validate a GLB / glTF against the Khronos spec',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 	description:
 		'Run the official Khronos gltf-validator against a GLB URL. Returns errors, warnings, infos, and hints with codes + JSON pointers, plus structural counts (animations, materials, etc.) per the validator\'s info report. The same engine that powers gltf.report.',
 	inputSchema: {

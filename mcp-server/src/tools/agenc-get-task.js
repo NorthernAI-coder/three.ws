@@ -175,6 +175,13 @@ export async function buildAgenCGetTaskTool() {
 		title: 'AgenC get task ($0.001)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only on-chain lookup — task status moves through its lifecycle
+		// between calls, so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

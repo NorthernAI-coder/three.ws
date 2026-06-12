@@ -194,6 +194,14 @@ export async function buildRigMeshTool() {
 		title: 'Rig 3D mesh ($0.20)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Creates a new hosted rigged-GLB artifact via external rigging APIs;
+		// the input mesh is never modified or deleted.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

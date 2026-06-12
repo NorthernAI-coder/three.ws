@@ -36,7 +36,7 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@three-ws/avatar-schema": "0.1.0"
+    "@three-ws/avatar-schema": "^0.2.0"
   },
   "engines": {
     "node": ">=18"

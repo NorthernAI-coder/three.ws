@@ -197,6 +197,13 @@ export async function buildEnsSnsResolveTool() {
 		title: 'ENS + SNS resolve ($0.0005)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only external lookup. Not idempotent: name → address records can
+		// be re-pointed between calls.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

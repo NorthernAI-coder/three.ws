@@ -272,6 +272,13 @@ export async function buildAgentReputationTool() {
 		title: 'Agent reputation ($0.01)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only on-chain lookup — reputation events accrue between calls,
+		// so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

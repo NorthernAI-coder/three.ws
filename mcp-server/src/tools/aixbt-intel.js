@@ -96,6 +96,13 @@ export async function buildAixbtIntelTool() {
 		title: 'aixbt intel ($0.01)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Read-only live intelligence feed — narratives update continuously,
+		// so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		handler,
 	};
 }

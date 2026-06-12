@@ -12,6 +12,8 @@ import { THREE_MINT } from '../config.js';
 export const def = {
 	name: 'pump_snapshot',
 	title: 'Live pump.fun / Solana token snapshot',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Live snapshot for a Solana token (SPL or pump.fun): USD price (Jupiter), 24h volume + primary DEX (Dexscreener), pump.fun metadata (name/symbol/image/socials/mcap), and top-holder distribution from Solana RPC. Optional Helius DAS supply when HELIUS_API_KEY is configured. Free — no signer.',
 	inputSchema: {

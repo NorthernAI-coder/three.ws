@@ -19,6 +19,8 @@ import { THREE_MINT } from '../config.js';
 export const def = {
 	name: 'pump_buy',
 	title: 'Buy a Solana token via Jupiter (direct or Jito-bundled)',
+	// MCP ToolAnnotations — EXECUTION: moves real value on Solana mainnet, irreversible.
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Swap SOL → target mint via Jupiter aggregator. Direct mode = one tx signed by the buyer. Bundled mode (jitoBundle=true) = two-tx Jito bundle where funderSecret transfers SOL + tip to the buyer atomically with the swap (sweeper-resistant). Pass target="three" to use the $three reference mint. EXECUTION ACTION.',
 	inputSchema: {

@@ -20,6 +20,8 @@ function escAttr(s) {
 export const def = {
 	name: 'viewer_url',
 	title: 'Build a three.ws viewer URL + embed snippet',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 	description:
 		'Build a shareable https://three.ws/viewer?... URL that opens any GLB in three.ws\'s WebGL viewer, plus a ready-to-paste iframe snippet. Supports background, auto-rotate, camera preset OR explicit camera orbit, AR mode (model-viewer), dimensions, pose, and accessory overlay. Accepts a raw glbUrl or a sessionId from spawn_avatar.',
 	inputSchema: {

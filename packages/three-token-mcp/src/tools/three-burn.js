@@ -10,6 +10,8 @@ import { REQUIRE_CONFIRM } from '../config.js';
 export const def = {
 	name: 'three_burn',
 	title: 'Burn $THREE on-chain (incinerator + treasury split)',
+	// MCP ToolAnnotations — EXECUTION: moves real value on Solana mainnet, irreversible.
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Burn a USD-denominated amount of the $THREE your wallet holds. Quotes USD→$THREE via Jupiter, then sends ONE Solana transaction that splits it between the incinerator (burn) and the three.ws treasury, per the live public token config. EXECUTION ACTION — signs and broadcasts on Solana mainnet, IRREVERSIBLE: pass confirm:true. Capped by MAX_BURN_USD. The resolved mint is asserted to be canonical $THREE before signing. Requires a signer (SOLANA_SECRET_KEY env or the `secret` arg) holding enough $THREE. Returns the tx signature, the burned/treasury breakdown, and a Solscan link.',
 	inputSchema: {

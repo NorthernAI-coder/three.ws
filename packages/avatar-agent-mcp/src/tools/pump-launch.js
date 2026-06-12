@@ -21,6 +21,8 @@ import { confirmationGate } from '../lib/spend-policy.js';
 export const def = {
 	name: 'pump_launch',
 	title: 'Atomic pump.fun launch (Jito bundle, separate funder/creator)',
+	// MCP ToolAnnotations — EXECUTION: moves real value on Solana mainnet, irreversible.
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Launch a pump.fun token atomically via a Jito bundle. Funder pays its own fee + tip and rent-funds the creator; creator signs createV2 in tx2 — both txs land in the same block or neither does. If uri is omitted, metadata is uploaded to pump.fun IPFS first from name/symbol/description/socials/imageUrl. Returns the mint address, bundle id, both tx signatures, and the pump.fun URL. EXECUTION ACTION — creates a real mint on mainnet.',
 	inputSchema: {

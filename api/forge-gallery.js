@@ -40,8 +40,12 @@ export default wrap(async (req, res) => {
 
 	if ((url.searchParams.get('scope') || '').trim() === 'community') {
 		const creations = await listShowcase({ limit });
-		res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
-		return json(res, 200, { enabled: true, creations });
+		return json(
+			res,
+			200,
+			{ enabled: true, creations },
+			{ 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' },
+		);
 	}
 
 	const rawClient = req.headers['x-forge-client'];

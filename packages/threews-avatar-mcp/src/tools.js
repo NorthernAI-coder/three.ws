@@ -19,6 +19,14 @@ import {
 } from './threews.js';
 import { UI_TOOL_META } from './ui.js';
 
+// Every tool is a read of three.ws state over the network: no writes, no side
+// effects, and the same avatar state always yields the same result.
+const READ_ONLY_ANNOTATIONS = {
+	readOnlyHint: true,
+	openWorldHint: true,
+	idempotentHint: true,
+};
+
 // One of these three selectors identifies an avatar across every tool.
 const selectorProps = {
 	id: { type: 'string', description: 'Avatar UUID (from a three.ws avatar URL or get_avatar).' },
@@ -35,6 +43,8 @@ export function buildTools() {
 		{
 			definition: {
 				name: 'render_avatar',
+				title: 'Render 3D avatar',
+				annotations: READ_ONLY_ANNOTATIONS,
 				description:
 					'Render a three.ws 3D avatar inline: shows an interactive (rotatable) 3D model ' +
 					'in the chat, plus a preview image and a ready-to-embed live URL. Identify the ' +
@@ -135,6 +145,8 @@ export function buildTools() {
 		{
 			definition: {
 				name: 'avatar_embed_code',
+				title: 'Get avatar embed code',
+				annotations: READ_ONLY_ANNOTATIONS,
 				description:
 					'Get a ready-to-paste iframe that embeds a live, interactive three.ws 3D avatar ' +
 					'into any website or app — as easy as embedding a YouTube video.',
@@ -174,6 +186,8 @@ export function buildTools() {
 		{
 			definition: {
 				name: 'get_avatar',
+				title: 'Get avatar metadata',
+				annotations: READ_ONLY_ANNOTATIONS,
 				description:
 					'Fetch metadata for a three.ws avatar (name, GLB model url, owner, visibility) by id or @handle.',
 				inputSchema: {

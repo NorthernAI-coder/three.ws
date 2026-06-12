@@ -71,6 +71,8 @@ async function pollPrediction(predictionId, { timeoutMs, intervalMs }) {
 export const def = {
 	name: 'generate_avatar',
 	title: 'Generate a 3D avatar (Replicate text-to-3D)',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
 	description:
 		'Generate a textured GLB from a text prompt or reference image URLs via Replicate (Hunyuan-3D 3.1 by default; configurable). Returns the GLB URL and a new avatar session you can dress + animate. Requires REPLICATE_API_TOKEN and REPLICATE_TEXT_TO_AVATAR_MODEL on the MCP server.',
 	inputSchema: {

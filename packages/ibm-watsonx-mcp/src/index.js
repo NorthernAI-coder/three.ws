@@ -20,6 +20,8 @@
 // Run standalone:  WATSONX_API_KEY=... WATSONX_PROJECT_ID=... npx @three-ws/ibm-watsonx-mcp
 // Inspect:         npx -y @modelcontextprotocol/inspector npx @three-ws/ibm-watsonx-mcp
 
+import { createRequire } from 'node:module';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -31,7 +33,10 @@ import { loadConfig, WatsonxClient, WatsonxError } from './watsonx.js';
 import { buildTools } from './tools.js';
 
 const SERVER_NAME = 'three.ws-ibm-watsonx-mcp';
-const SERVER_VERSION = '0.1.0';
+// Single source of truth for the version — read from package.json so the
+// MCP server identity can never drift from the published package version.
+const require = createRequire(import.meta.url);
+const SERVER_VERSION = require('../package.json').version;
 
 async function main() {
 	// Fail fast and clearly if credentials are missing — the message names the
@@ -57,7 +62,8 @@ async function main() {
 				'IBM watsonx.ai tools powered by Granite foundation models. Use watsonx_chat ' +
 				'for conversational completions, watsonx_generate for raw prompt completion with ' +
 				'decoding control, watsonx_embed for embedding vectors, watsonx_tokenize to count ' +
-				'tokens before a call, and watsonx_list_models to discover available models. ' +
+				'tokens before a call, watsonx_forecast for zero-shot time-series forecasting, ' +
+				'and watsonx_list_models to discover available models. ' +
 				`Default model: ${config.chatModel}. All calls use your own IBM Cloud account.`,
 		},
 	);

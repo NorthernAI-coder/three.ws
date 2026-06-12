@@ -5,7 +5,7 @@ import {
   Transaction,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
-import { Program, AnchorProvider, Wallet, type Idl } from '@coral-xyz/anchor';
+import { Program, AnchorProvider, Wallet } from '@coral-xyz/anchor';
 import { IDL, AGENT_INVOCATION_PROGRAM_ID, type AgentInvocation } from './idl.js';
 
 export { IDL, AGENT_INVOCATION_PROGRAM_ID } from './idl.js';
@@ -81,10 +81,10 @@ export async function invokeSkill({
   const program = new Program<AgentInvocation>(idl, provider);
 
   const instruction = await program.methods
-    .invokeSkill(skillName, parameters)
+    .invoke_skill(skillName, parameters)
     .accounts({
-      invokerAuthority: invokerAuthority.publicKey,
-      targetAuthority,
+      invoker_authority: invokerAuthority.publicKey,
+      target_authority: targetAuthority,
     })
     .instruction();
 

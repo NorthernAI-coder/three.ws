@@ -17,6 +17,8 @@ import { getSession } from '../lib/avatars.js';
 export const def = {
 	name: 'render_avatar',
 	title: 'Render a posed avatar (pose + camera + expression)',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 	description:
 		'Render an avatar GLB with a three.ws pose preset, camera orbit, and optional ARKit-52 facial expression. Same pipeline as the three.ws customizer\'s save-snapshot flow. Returns PNG bytes as a base64 data URL. Accepts either glbUrl directly or sessionId from spawn_avatar.',
 	inputSchema: {

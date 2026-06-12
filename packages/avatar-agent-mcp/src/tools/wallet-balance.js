@@ -9,6 +9,8 @@ import { SOLANA_RPC_URL } from '../config.js';
 export const def = {
 	name: 'wallet_balance',
 	title: 'Read Solana wallet balances (SOL + SPL tokens)',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Return SOL balance and all SPL token balances (including Token-2022) for a Solana pubkey. Uses the configured SOLANA_RPC_URL. Read-only — no signer required.',
 	inputSchema: {

@@ -17,6 +17,8 @@ import { assertRecipientAllowed, confirmationGate } from '../lib/spend-policy.js
 export const def = {
 	name: 'pump_collect_fees',
 	title: 'Atomic pump.fun creator-fee collection (Jito bundle)',
+	// MCP ToolAnnotations — EXECUTION: moves real value on Solana mainnet, irreversible.
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Collect a pump.fun coin\'s creator-fee vault and route the SOL to a safe destination, atomically, in a single tx inside a Jito bundle. Funder pays the fee + Jito tip; creator signs collectCoinCreatorFee + drain to DESTINATION. The bundle\'s atomicity blocks any competing collector from interleaving even if the creator key is leaked. EXECUTION ACTION.',
 	inputSchema: {

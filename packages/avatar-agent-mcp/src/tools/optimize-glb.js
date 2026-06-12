@@ -17,6 +17,8 @@ const MAX_RETURN_BYTES = 20 * 1024 * 1024;
 export const def = {
 	name: 'optimize_glb',
 	title: 'Optimize a GLB (dedup, prune, weld, Draco)',
+	// MCP ToolAnnotations — safety hints surfaced to MCP clients.
+	annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
 	description:
 		'Run a @gltf-transform/functions optimization pipeline on a GLB URL: dedup → prune unused → weld duplicate vertices → optional Draco mesh compression. Returns the optimized bytes as a base64 data URL with before/after sizes. Lossless for geometry except where Draco quantization is requested.',
 	inputSchema: {

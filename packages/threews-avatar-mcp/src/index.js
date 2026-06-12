@@ -13,6 +13,8 @@
 // Run standalone:  npx @three-ws/avatar-mcp
 // Inspect:         npx -y @modelcontextprotocol/inspector npx @three-ws/avatar-mcp
 
+import { createRequire } from 'node:module';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -26,8 +28,10 @@ import { buildTools } from './tools.js';
 import { baseUrl, ThreewsError } from './threews.js';
 import { UI_RESOURCE_URI, UI_MIME_TYPE, UI_RESOURCE_META, loadAppHtml } from './ui.js';
 
+const require = createRequire(import.meta.url);
+const { version: SERVER_VERSION } = require('../package.json');
+
 const SERVER_NAME = 'three.ws-avatar-mcp';
-const SERVER_VERSION = '0.2.0';
 
 async function main() {
 	const tools = buildTools();

@@ -166,6 +166,13 @@ export async function buildVanityGrinderTool() {
 		title: `Solana vanity grinder (${PRICE_USD})`,
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Pure local compute with no external interaction, but output is a
+		// freshly-random keypair every call — never idempotent.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: false,
+			openWorldHint: false,
+		},
 		handler,
 	};
 }

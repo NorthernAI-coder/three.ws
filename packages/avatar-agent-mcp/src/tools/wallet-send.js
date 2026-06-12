@@ -11,6 +11,8 @@ import { assertRecipientAllowed, confirmationGate } from '../lib/spend-policy.js
 export const def = {
 	name: 'wallet_send',
 	title: 'Send SOL on Solana mainnet',
+	// MCP ToolAnnotations — EXECUTION: moves real value on Solana mainnet, irreversible.
+	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 	description:
 		'Send SOL from the configured signer to a destination pubkey. The signer is supplied via the `secret` arg (base58) or via SOLANA_SECRET_KEY env on the MCP server. Returns the confirmed signature and a Solscan link. EXECUTION ACTION — funds move on mainnet, irreversible: pass confirm:true. Capped by MAX_SOL_PER_TX; destination must be in RECIPIENT_ALLOWLIST if one is configured.',
 	inputSchema: {

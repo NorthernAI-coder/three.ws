@@ -1,18 +1,27 @@
 {
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/3d-agent-mcp",
-	"description": "Paid MCP tools for the 3d-agent stack by three.ws — text/image-to-3D mesh generation, auto-rigging, avatar generation, pose generation, pump.fun snapshots, ERC-8004 agent reputation, and a Solana vanity grinder. Settled in USDC on Solana via x402.",
+	"title": "three.ws 3D Agent Tools",
+	"description": "Paid x402 MCP tools from three.ws: text-to-3D generation, rigging, agent reputation, market intel.",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": ["any"]
+		}
+	],
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github",
 		"subfolder": "mcp-server"
 	},
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"packages": [
 		{
 			"registryType": "npm",
 			"identifier": "@3d-agent/mcp-server",
-			"version": "1.0.0",
+			"version": "1.1.0",
 			"transport": {
 				"type": "stdio"
 			},

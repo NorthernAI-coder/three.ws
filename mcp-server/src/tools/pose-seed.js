@@ -157,6 +157,13 @@ export async function buildPoseSeedTool() {
 		title: 'Pose seed ($0.001)',
 		description: TOOL_DESCRIPTION,
 		inputSchema: inputZodShape,
+		// Pure deterministic local compute: same prompt → same pose preset,
+		// no external interaction.
+		annotations: {
+			readOnlyHint: true,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		handler,
 	};
 }

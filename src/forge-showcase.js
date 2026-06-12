@@ -79,10 +79,13 @@ function buildCard(c) {
 	meta.textContent = c.prompt || 'Untitled';
 	card.appendChild(meta);
 
+	const foot = document.createElement('div');
+	foot.className = 'showcase-foot';
+
 	const when = document.createElement('span');
 	when.className = 'showcase-when';
 	when.textContent = timeAgo(c.created_at);
-	card.appendChild(when);
+	foot.appendChild(when);
 
 	// Remix — only meaningful when there is a prompt to start from.
 	if (c.prompt) {
@@ -96,8 +99,9 @@ function buildCard(c) {
 			e.stopPropagation();
 			remixPrompt(c.prompt);
 		});
-		card.appendChild(remix);
+		foot.appendChild(remix);
 	}
+	card.appendChild(foot);
 
 	const open = () =>
 		document.dispatchEvent(new CustomEvent('forge:open-creation', { detail: { creation: c } }));

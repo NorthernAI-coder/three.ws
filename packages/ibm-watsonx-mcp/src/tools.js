@@ -6,6 +6,22 @@
 // boundary) and let WatsonxError propagate — the server turns those into MCP
 // tool errors with the real upstream cause.
 
+// MCP ToolAnnotations (behavior hints for clients). Every tool here is a pure
+// model-inference call against an external service: nothing is modified
+// (readOnlyHint) and the call leaves the local environment (openWorldHint).
+// Generative tools may return different output for identical input; embedding,
+// tokenization, and model listing are deterministic for a given account state.
+const generativeAnnotations = {
+	readOnlyHint: true,
+	openWorldHint: true,
+	idempotentHint: false,
+};
+const deterministicAnnotations = {
+	readOnlyHint: true,
+	openWorldHint: true,
+	idempotentHint: true,
+};
+
 // Shared decoding parameters reused by chat and generate.
 const samplingProps = {
 	max_tokens: {
@@ -51,6 +67,8 @@ export function buildTools(client) {
 		{
 			definition: {
 				name: 'watsonx_chat',
+				title: 'Watsonx Chat',
+				annotations: generativeAnnotations,
 				description:
 					'Chat completion with an IBM Granite (or other watsonx.ai) model. Pass a ' +
 					'list of role/content messages and get the assistant reply plus token usage.',
@@ -92,6 +110,8 @@ export function buildTools(client) {
 		{
 			definition: {
 				name: 'watsonx_forecast',
+				title: 'Watsonx Time-Series Forecast',
+				annotations: generativeAnnotations,
 				description:
 					'Zero-shot time-series forecasting with an IBM Granite TimeSeries (TinyTimeMixer) ' +
 					'model. Provide equal-length `timestamps` (ISO-8601, uniform cadence, oldest first) ' +
@@ -155,6 +175,8 @@ export function buildTools(client) {
 		{
 			definition: {
 				name: 'watsonx_generate',
+				title: 'Watsonx Text Generation',
+				annotations: generativeAnnotations,
 				description:
 					'Raw text generation from a single prompt (no chat templating). Use for ' +
 					'completion-style tasks and fine decoding control via greedy or sampling.',
@@ -196,6 +218,8 @@ export function buildTools(client) {
 		{
 			definition: {
 				name: 'watsonx_embed',
+				title: 'Watsonx Embeddings',
+				annotations: deterministicAnnotations,
 				description:
 					'Generate embedding vectors for one or more texts using an IBM Granite ' +
 					'embedding model. Returns one vector per input plus the vector dimensionality.',
@@ -226,6 +250,8 @@ export function buildTools(client) {
 		{
 			definition: {
 				name: 'watsonx_tokenize',
+				title: 'Watsonx Tokenize',
+				annotations: deterministicAnnotations,
 				description:
 					'Count tokens (and optionally return them) for a text against a model ' +
 					'tokenizer. Use to budget context and cost before a generation call.',
@@ -255,6 +281,8 @@ export function buildTools(client) {
 		{
 			definition: {
 				name: 'watsonx_list_models',
+				title: 'Watsonx Model Catalog',
+				annotations: deterministicAnnotations,
 				description:
 					'List the foundation models available to your watsonx.ai account and region. ' +
 					'Optionally filter by supported function, e.g. text_generation or embedding.',

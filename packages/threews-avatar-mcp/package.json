@@ -49,6 +49,7 @@
 	"scripts": {
 		"build": "node app/build.mjs",
 		"start": "node src/index.js",
+		"test": "node --test",
 		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
 	},
 	"dependencies": {
