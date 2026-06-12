@@ -1203,6 +1203,84 @@
 				height: 100%;
 			}
 
+			/* top announcement banner — text-to-3D launch */
+			.dash-announce {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 10px;
+				padding: 9px 44px 9px 20px;
+				position: relative;
+				background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+				border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+				font-size: 13px;
+				color: #ddd;
+				text-align: center;
+			}
+			.dash-announce strong {
+				color: #fff;
+				font-weight: 600;
+			}
+			.dash-announce-badge {
+				flex-shrink: 0;
+				padding: 1px 7px;
+				border: 1px solid rgba(255, 255, 255, 0.35);
+				border-radius: 999px;
+				font-size: 10.5px;
+				font-weight: 700;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: #fff;
+			}
+			.dash-announce-cta {
+				flex-shrink: 0;
+				padding: 3px 12px;
+				border-radius: 6px;
+				background: #fff;
+				color: #000;
+				font-weight: 600;
+				white-space: nowrap;
+				transition:
+					background 0.15s,
+					transform 0.15s;
+			}
+			.dash-announce-cta:hover {
+				background: #ddd;
+				color: #000;
+			}
+			.dash-announce-cta:active {
+				transform: scale(0.97);
+			}
+			.dash-announce-cta:focus-visible,
+			.dash-announce-dismiss:focus-visible {
+				outline: 2px solid #fff;
+				outline-offset: 2px;
+			}
+			.dash-announce-dismiss {
+				position: absolute;
+				right: 12px;
+				top: 50%;
+				transform: translateY(-50%);
+				background: none;
+				border: none;
+				color: #888;
+				font-size: 18px;
+				line-height: 1;
+				padding: 2px 4px;
+				border-radius: 4px;
+				cursor: pointer;
+				transition: color 0.15s;
+			}
+			.dash-announce-dismiss:hover {
+				color: #fff;
+			}
+			@media (max-width: 600px) {
+				.dash-announce {
+					flex-wrap: wrap;
+					padding-right: 36px;
+				}
+			}
+
 			/* visually-hidden utility for screen-reader-only labels */
 			.sr-only {
 				position: absolute;
@@ -1224,6 +1302,27 @@
 		<script type="module" src="/session-client.js"></script>
 	</head>
 	<body>
+		<div id="forge-announce" class="dash-announce" role="region" aria-label="Announcement">
+			<span class="dash-announce-badge">New</span>
+			<span>
+				<strong>Text to 3D is live.</strong> Describe any object and Forge generates a
+				textured GLB you can use anywhere on three.ws.
+			</span>
+			<a href="/forge" class="dash-announce-cta">Try Forge &rarr;</a>
+			<button
+				class="dash-announce-dismiss"
+				onclick="document.getElementById('forge-announce').remove();localStorage.setItem('forge-announce-dismissed','1')"
+				aria-label="Dismiss announcement"
+			>
+				&times;
+			</button>
+		</div>
+		<script>
+			if (localStorage.getItem('forge-announce-dismissed') === '1') {
+				var __fab = document.getElementById('forge-announce');
+				if (__fab) __fab.remove();
+			}
+		</script>
 		<div id="dn-next-banner" style="
   display: flex;
   align-items: center;
