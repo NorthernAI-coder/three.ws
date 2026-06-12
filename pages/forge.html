@@ -627,6 +627,53 @@
 				width: 100%;
 				height: 100%;
 				object-fit: cover;
+				animation: paint-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+			}
+			@keyframes paint-in {
+				from {
+					opacity: 0;
+					filter: blur(16px) saturate(0.7);
+					transform: scale(1.05);
+				}
+				to {
+					opacity: 1;
+					filter: blur(0) saturate(1);
+					transform: none;
+				}
+			}
+			/* Reconstruction scanline — sweeps the reference image while the mesh
+			   step is live, so the wait reads as work, not silence. */
+			.gen-preview.is-reconstructing::after {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(
+					180deg,
+					transparent 0%,
+					color-mix(in srgb, var(--accent) 30%, transparent) 50%,
+					transparent 100%
+				);
+				background-size: 100% 34%;
+				background-repeat: no-repeat;
+				animation: forge-scan 2.6s ease-in-out infinite;
+				mix-blend-mode: screen;
+				pointer-events: none;
+			}
+			@keyframes forge-scan {
+				from {
+					background-position: 0 -40%;
+				}
+				to {
+					background-position: 0 140%;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.gen-preview img {
+					animation: none;
+				}
+				.gen-preview.is-reconstructing::after {
+					display: none;
+				}
 			}
 			.gen-preview .shimmer {
 				position: absolute;
@@ -693,11 +740,96 @@
 			}
 
 			/* Result state */
+			.viewer-shell {
+				position: relative;
+			}
 			.result model-viewer {
 				width: 100%;
 				height: min(60vh, 560px);
 				background: radial-gradient(120% 120% at 50% 0%, #161616 0%, #0b0b0b 70%);
 				--poster-color: transparent;
+				transition: opacity 0.45s ease;
+			}
+			/* Materialize reveal — the WebGL overlay src/forge-reveal.js plays the
+			   dissolve in, then crossfades away to the standing viewer beneath. */
+			.forge-reveal-overlay {
+				position: absolute;
+				inset: 0;
+				z-index: 2;
+				pointer-events: none;
+				transition: opacity 0.42s ease;
+			}
+			.forge-reveal-overlay canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+			}
+			.forge-reveal-overlay.is-fading {
+				opacity: 0;
+			}
+
+			/* Cinema mode — distraction-free fullscreen turntable (F / Esc).
+			   Built for screen recording: chrome hides until the pointer rests
+			   on the bottom bar. */
+			body.forge-cinema {
+				overflow: hidden;
+			}
+			.result.is-cinema {
+				position: fixed;
+				inset: 0;
+				z-index: 90;
+				border: none;
+				border-radius: 0;
+				display: flex;
+				flex-direction: column;
+				background: radial-gradient(120% 90% at 50% 10%, #181a1f 0%, #0a0b0d 60%, #060708 100%);
+			}
+			.result.is-cinema > :not(.viewer-shell):not(.result-bar) {
+				display: none;
+			}
+			.result.is-cinema .viewer-shell {
+				flex: 1;
+				min-height: 0;
+				display: flex;
+			}
+			.result.is-cinema model-viewer {
+				flex: 1;
+				height: 100%;
+				background: transparent;
+			}
+			.result.is-cinema .result-bar {
+				position: absolute;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				border-top: none;
+				background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+				opacity: 0;
+				transition: opacity 0.3s ease;
+			}
+			.result.is-cinema .result-bar:hover,
+			.result.is-cinema .result-bar:focus-within {
+				opacity: 1;
+			}
+			.result.is-cinema::after {
+				content: 'F or Esc to exit · drag to orbit';
+				position: absolute;
+				top: 14px;
+				right: 16px;
+				font-family: var(--font-mono);
+				font-size: 12px;
+				color: rgba(255, 255, 255, 0.55);
+				pointer-events: none;
+				animation: cinema-hint 4.5s ease forwards;
+			}
+			@keyframes cinema-hint {
+				0%,
+				70% {
+					opacity: 1;
+				}
+				100% {
+					opacity: 0;
+				}
 			}
 			.result-bar {
 				display: flex;
@@ -1407,19 +1539,23 @@
 
 				<!-- Result -->
 				<div class="panel result is-hidden" id="state-result">
-					<model-viewer
-						id="viewer"
-						camera-controls
-						auto-rotate
-						auto-rotate-delay="0"
-						rotation-per-second="18deg"
-						shadow-intensity="1"
-						exposure="1"
-						ar
-						ar-modes="webxr scene-viewer quick-look"
-						interaction-prompt="none"
-						alt="Generated 3D model"
-					></model-viewer>
+					<div class="viewer-shell" id="viewer-shell">
+						<model-viewer
+							id="viewer"
+							camera-controls
+							auto-rotate
+							auto-rotate-delay="0"
+							rotation-per-second="18deg"
+							shadow-intensity="1.2"
+							shadow-softness="0.9"
+							exposure="1.1"
+							tone-mapping="aces"
+							ar
+							ar-modes="webxr scene-viewer quick-look"
+							interaction-prompt="none"
+							alt="Generated 3D model"
+						></model-viewer>
+					</div>
 					<div class="result-bar">
 						<span class="label" id="result-label"></span>
 						<span
@@ -1428,6 +1564,31 @@
 							title="Reference views fused"
 						></span>
 						<div class="actions">
+							<button
+								class="btn btn-ghost"
+								type="button"
+								id="cinema"
+								aria-pressed="false"
+								title="Cinema mode — fullscreen turntable for recording (F)"
+							>
+								<svg
+									width="15"
+									height="15"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M8 3H5a2 2 0 0 0-2 2v3" />
+									<path d="M16 3h3a2 2 0 0 1 2 2v3" />
+									<path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+									<path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+								</svg>
+								Cinema
+							</button>
 							<div
 								class="verdict"
 								id="verdict"
