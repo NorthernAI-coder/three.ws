@@ -97,6 +97,37 @@ Watch logs with `gcloud run services logs read avatar-pipeline-controller --regi
 
 ---
 
+## Editing workers — `deploy-editing.sh` (no GPU, no weights)
+
+The mesh-editing services behind `/api/forge-stylize`, `/api/forge-remesh`,
+`/api/forge-segment` and `/api/forge-rembg` are **CPU-only** — no GPU quota, no
+staged weights. A clean project deploys in ~10 minutes:
+
+```bash
+# in Cloud Shell, from a clone of this repo:
+PROJECT_ID=your-project-id ./workers/deploy/deploy-editing.sh
+
+# just one service:
+PROJECT_ID=your-project-id SERVICES="stylize" ./workers/deploy/deploy-editing.sh
+
+# also wire the Vercel production env vars automatically (REST, not the CLI —
+# the CLI silently writes empty sensitive values):
+PROJECT_ID=your-project-id VERCEL_TOKEN=xxxx ./workers/deploy/deploy-editing.sh
+```
+
+It is idempotent and shares all infrastructure with `deploy-all.sh` (same
+service account, output bucket, and `avatar-reconstruction-key` secret), so it
+can run before, after, or instead of the avatar pipeline. It prints — and with
+`VERCEL_TOKEN`, sets — the env vars the site needs: `GCP_STYLIZE_URL`,
+`GCP_REMESH_URL`, `GCP_SEGMENT_URL`, `GCP_REMBG_URL`, `GCP_RECONSTRUCTION_KEY`.
+Redeploy the site afterwards for the env to take effect.
+
+GPU extras: `SERVICES="texture text2motion"` deploys the retexture and
+text→animation workers too, but those need L4 quota and staged weights
+(`stage-weights.sh`), like the avatar fleet.
+
+---
+
 ## Cost (covered by credits)
 
 GPU services scale to **zero** when idle (`min-instances=0`), so you pay L4 time
