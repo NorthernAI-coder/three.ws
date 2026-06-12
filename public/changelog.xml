@@ -39,6 +39,14 @@
 			<description>Signing in with an email code on the login and register pages was failing with an authorization error before the code was ever sent. The sign-in flow now completes the security check (a Cloudflare Turnstile verification, invisible for most people) before requesting your code, so the six-digit email code arrives and login works end to end.</description>
 		</item>
 		<item>
+			<title>Every “what now?” button now takes your new model with you</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Every “what now?” button now takes your new model with you</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Finishing a model in Forge, Parts Studio, or Scan pops a card of next steps — and now every one of those buttons carries your work over instead of dropping you on an empty page. Embed editor opens with your fresh GLB previewed and the copy-paste snippet already pointing at it, Deploy onchain pre-loads it as the launchpad avatar, Drop it in a world spawns you wearing it, and a finished Scan deep-links your rigged avatar into Studio, Walk, and the embed editor. The embed editor and embeds also accept a direct GLB link now, not just saved avatar ids.</description>
+		</item>
+		<item>
 			<title>Forge a 3D model right on the homepage</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-12:Forge a 3D model right on the homepage</guid>

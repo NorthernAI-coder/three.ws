@@ -1185,7 +1185,10 @@ function selectByModelUrl(url) {
 		}
 	}
 
-	toast('Model not in your library — try saving it first', 'error');
+	// Not registerable (e.g. a Forge creation handed off via ?model=…) — the
+	// preview still renders it through state.preselectedModel, so this is a
+	// working preview-only session, not a failure.
+	toast('Previewing this model — pick or save an avatar from your library to publish', 'info');
 }
 
 // Returns the storage_key if url is an R2 object under this user's prefix,

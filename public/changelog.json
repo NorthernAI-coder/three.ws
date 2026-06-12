@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T07:15:15.999Z",
+	"generated_at": "2026-06-12T07:28:51.451Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -45,6 +45,16 @@
 			"tags": [
 				"fix",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Every “what now?” button now takes your new model with you",
+			"summary": "Finishing a model in Forge, Parts Studio, or Scan pops a card of next steps — and now every one of those buttons carries your work over instead of dropping you on an empty page. Embed editor opens with your fresh GLB previewed and the copy-paste snippet already pointing at it, Deploy onchain pre-loads it as the launchpad avatar, Drop it in a world spawns you wearing it, and a finished Scan deep-links your rigged avatar into Studio, Walk, and the embed editor. The embed editor and embeds also accept a direct GLB link now, not just saved avatar ids.",
+			"link": "/forge",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
