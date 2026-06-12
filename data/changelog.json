@@ -1097,6 +1097,16 @@
 				"fix"
 			],
 			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Email sign-in works again",
+			"summary": "Signing in with an email code on the login and register pages was failing with an authorization error before the code was ever sent. The sign-in flow now completes the security check (a Cloudflare Turnstile verification, invisible for most people) before requesting your code, so the six-digit email code arrives and login works end to end.",
+			"tags": [
+				"fix",
+				"security"
+			],
+			"link": "/login"
 		}
 	]
 }

@@ -23,6 +23,14 @@
 			<description>Buying a premium skin or emote in the /play Cosmetics shop actually opens the payment flow now. Previously the Buy buttons failed because the in-world shop never loaded the payment widget — now it loads on demand the moment you tap Buy, the USDC checkout opens with the item priced by rarity, and a sale made inside a coin's world still credits that coin's creator. Pay once on Base or Solana and the item is yours forever.</description>
 		</item>
 		<item>
+			<title>Email sign-in works again</title>
+			<link>https://three.ws/login</link>
+			<guid isPermaLink="false">2026-06-12:Email sign-in works again</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Signing in with an email code on the login and register pages was failing with an authorization error before the code was ever sent. The sign-in flow now completes the security check (a Cloudflare Turnstile verification, invisible for most people) before requesting your code, so the six-digit email code arrives and login works end to end.</description>
+		</item>
+		<item>
 			<title>Forge a 3D model right on the homepage</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-12:Forge a 3D model right on the homepage</guid>
