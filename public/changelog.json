@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T23:45:02.011Z",
+	"generated_at": "2026-06-12T23:55:42.563Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -69,6 +69,18 @@
 		{
 			"date": "2026-06-12",
 			"type": "update",
+			"title": "All twelve three.ws MCP servers refreshed: safety annotations, richer registry listings, new versions",
+			"summary": "Every MCP server we ship — the seven installable npm packages (3D agent tools, pump.fun data, IBM Granite via watsonx and via x402, the avatar agent, live avatar embeds, and the $THREE token server) plus the five hosted remote servers — got a coordinated upgrade. Every tool now declares Model Context Protocol safety annotations, so clients like Claude Desktop can tell read-only lookups apart from actions that move funds and warn you before anything irreversible runs. Registry listings gained proper names, the three.ws icon, and website links; READMEs now document every tool with one-line installs for Claude Code, Claude Desktop, and Cursor; and each package ships a test suite that pins the safety semantics so they cannot regress.",
+			"link": "/docs/mcp",
+			"tags": [
+				"improvement",
+				"sdk",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
 			"title": "Cosmetics shop purchases now work",
 			"summary": "Buying a premium skin or emote in the /play Cosmetics shop actually opens the payment flow now. Previously the Buy buttons failed because the in-world shop never loaded the payment widget — now it loads on demand the moment you tap Buy, the USDC checkout opens with the item priced by rarity, and a sale made inside a coin's world still credits that coin's creator. Pay once on Base or Solana and the item is yours forever.",
 			"link": "/play",
@@ -95,6 +107,18 @@
 			"link": "/forge",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Every three.ws npm package got a polish pass and a new release",
+			"summary": "We went through all fifteen published three.ws packages — the avatar SDK and React bindings, the agent UI overlay, the cross-chain and Solana agent SDKs, the agent-payments engine, the avatar schema, viewer presets, the avatar CLI, and the MCP servers — and brought them to one consistent bar. Every package now has complete npm metadata (homepage, repository, issue tracker, license, keywords) and a redesigned README with badges, a copy-paste quick start, a real API/tools reference grounded in the actual code, and cross-links between related packages. Several READMEs that had drifted out of date now list the real, current tool sets. The Solana and agent-payments SDK bundles ship roughly 75% smaller by dropping sourcemaps from the minified release build. The avatar CLI gained colored output, per-command help, 'did you mean' suggestions for typos, and friendlier errors. Packages with missing license or notice files now ship them.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"sdk",
+				"docs"
 			]
 		},
 		{

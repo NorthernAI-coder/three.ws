@@ -3,6 +3,27 @@
 	"entries": [
 		{
 			"date": "2026-06-12",
+			"title": "Every three.ws npm package got a polish pass and a new release",
+			"summary": "We went through all fifteen published three.ws packages — the avatar SDK and React bindings, the agent UI overlay, the cross-chain and Solana agent SDKs, the agent-payments engine, the avatar schema, viewer presets, the avatar CLI, and the MCP servers — and brought them to one consistent bar. Every package now has complete npm metadata (homepage, repository, issue tracker, license, keywords) and a redesigned README with badges, a copy-paste quick start, a real API/tools reference grounded in the actual code, and cross-links between related packages. Several READMEs that had drifted out of date now list the real, current tool sets. The Solana and agent-payments SDK bundles ship roughly 75% smaller by dropping sourcemaps from the minified release build. The avatar CLI gained colored output, per-command help, 'did you mean' suggestions for typos, and friendlier errors. Packages with missing license or notice files now ship them.",
+			"tags": [
+				"improvement",
+				"sdk",
+				"docs"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"title": "All twelve three.ws MCP servers refreshed: safety annotations, richer registry listings, new versions",
+			"summary": "Every MCP server we ship — the seven installable npm packages (3D agent tools, pump.fun data, IBM Granite via watsonx and via x402, the avatar agent, live avatar embeds, and the $THREE token server) plus the five hosted remote servers — got a coordinated upgrade. Every tool now declares Model Context Protocol safety annotations, so clients like Claude Desktop can tell read-only lookups apart from actions that move funds and warn you before anything irreversible runs. Registry listings gained proper names, the three.ws icon, and website links; READMEs now document every tool with one-line installs for Claude Code, Claude Desktop, and Cursor; and each package ships a test suite that pins the safety semantics so they cannot regress.",
+			"tags": [
+				"improvement",
+				"sdk",
+				"security"
+			],
+			"link": "/docs/mcp"
+		},
+		{
+			"date": "2026-06-12",
 			"title": "The homepage mini Forge now remembers your models and carries them onward",
 			"summary": "The text-to-3D demo on the homepage got a real upgrade. Every model you forge there now lands in a session history rail — actual captured frames of your results — so you can flip back to anything you made without losing it. When a model is on stage you can spin it or pause the rotation, forge a fresh variation of the same prompt, open it straight in Scene Studio, copy a share link, view it in AR on a phone, or download the GLB — all from one toolbar. Keyboard focus jumps to those actions the moment a model lands.",
 			"tags": [

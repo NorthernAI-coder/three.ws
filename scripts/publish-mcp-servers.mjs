@@ -119,7 +119,10 @@ function patFromOriginRemote() {
 
 async function getRegistryToken() {
 	if (process.env.MCP_REGISTRY_TOKEN) return process.env.MCP_REGISTRY_TOKEN;
-	const ghToken = process.env.GITHUB_TOKEN || patFromOriginRemote();
+	// The origin-remote PAT outranks GITHUB_TOKEN: it belongs to the repo owner,
+	// whose io.github.<owner> namespace is the one these manifests publish under.
+	// A Codespace GITHUB_TOKEN can belong to a different account entirely.
+	const ghToken = patFromOriginRemote() || process.env.GITHUB_TOKEN;
 	if (!ghToken) {
 		throw new Error(
 			'no registry auth: set MCP_REGISTRY_TOKEN or GITHUB_TOKEN, or keep the PAT on the origin remote',
