@@ -492,7 +492,11 @@ async function run(meshUrl) {
 		els.downloadGlb.href = done.result_url;
 		els.downloadGlb.setAttribute('download', `${safeFileName('segmented')}.glb`);
 		stopElapsed();
-		document.dispatchEvent(new CustomEvent('tws:feature-done', { detail: { feature: 'segment' } }));
+		document.dispatchEvent(
+			new CustomEvent('tws:feature-done', {
+				detail: { feature: 'segment', model: { glbUrl: done.result_url, label: 'Segmented model' } },
+			}),
+		);
 	} catch (err) {
 		if (pollAbort) return;
 		stopElapsed();

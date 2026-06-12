@@ -211,7 +211,11 @@ function showResult(glbUrl, prompt) {
 	}
 	// Same signal the full page emits — the discovery layer turns it into a
 	// "what's next?" card (embed it, drop it in a world, …).
-	document.dispatchEvent(new CustomEvent('tws:feature-done', { detail: { feature: 'forge' } }));
+	document.dispatchEvent(
+		new CustomEvent('tws:feature-done', {
+			detail: { feature: 'forge', model: { glbUrl, label: prompt } },
+		}),
+	);
 }
 
 async function run(prompt) {

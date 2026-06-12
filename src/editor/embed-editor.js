@@ -76,6 +76,25 @@ function field(labelText, control) {
 	]);
 }
 
+// A direct GLB/VRM URL (or site path) instead of a three.ws avatar id — the
+// shape Forge/Scan hand off via /embed.html?avatar=<url>. walk-embed loads
+// these directly; chat mode still needs a real agent id.
+function isModelUrl(v) {
+	return /^https?:\/\//i.test(v) || (typeof v === 'string' && v.startsWith('/'));
+}
+
+// Human-readable chip name for a bare model URL: the file name, de-slugged.
+function modelUrlName(v) {
+	try {
+		var path = new URL(v, location.origin).pathname;
+		var file = decodeURIComponent(path.split('/').pop() || '');
+		var name = file.replace(/\.(glb|vrm|gltf)$/i, '').replace(/[-_]+/g, ' ').trim();
+		return name ? name.slice(0, 60) : 'Your 3D model';
+	} catch {
+		return 'Your 3D model';
+	}
+}
+
 function mountEmbedEditor(root, opts = {}) {
 	const cfg = { ...DEFAULTS, ...sanitize(opts) };
 	// If an avatar was passed in but no explicit mode, default to Walking so
@@ -117,7 +136,7 @@ function mountEmbedEditor(root, opts = {}) {
 	const avatarTrigger = el('button', { type: 'button', className: 'ee-picker', 'aria-haspopup': 'dialog' });
 	avatarTrigger.addEventListener('click', openPicker);
 
-	const avatarInput = el('input', { type: 'text', className: 'ee-idinput', placeholder: 'or paste an avatar / agent id', value: cfg.avatar });
+	const avatarInput = el('input', { type: 'text', className: 'ee-idinput', placeholder: 'or paste an avatar / agent id, or a GLB URL', value: cfg.avatar });
 	avatarInput.addEventListener('input', () => {
 		cfg.avatar = avatarInput.value.trim();
 		cfg.avatarMeta = null;
@@ -174,6 +193,13 @@ function mountEmbedEditor(root, opts = {}) {
 	let _metaToken = 0;
 	async function resolveAvatarMeta(id) {
 		const token = ++_metaToken;
+		// Direct model URLs have no avatar record to fetch — name the chip from
+		// the file itself so the deep-linked handoff reads as the user's model.
+		if (isModelUrl(id)) {
+			cfg.avatarMeta = { name: modelUrlName(id), thumbnail_url: null };
+			renderTrigger();
+			return;
+		}
 		try {
 			const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`, { credentials: 'include' });
 			if (!res.ok) return;
@@ -348,6 +374,12 @@ function mountEmbedEditor(root, opts = {}) {
 			previewFrame.appendChild(previewEmpty);
 			return;
 		}
+		// A bare model URL has no agent behind it — chat needs a real agent id.
+		if (cfg.mode === 'chat' && isModelUrl(cfg.avatar)) {
+			previewEmpty.textContent = 'Chat embeds need an agent — pick one from the gallery above.';
+			previewFrame.appendChild(previewEmpty);
+			return;
+		}
 
 		const host = el('div', { className: 'ee-host' });
 		const src = cfg.mode === 'chat' ? chatSrc(cfg, true) : walkSrc(cfg, /* preview */ true);
@@ -430,6 +462,9 @@ function buildSnippet(cfg) {
 		return cfg.mode === 'chat'
 			? '<!-- Enter an agent ID above to generate the chat embed snippet -->'
 			: '<!-- Enter an avatar ID above to generate the embed snippet -->';
+	}
+	if (cfg.mode === 'chat' && isModelUrl(cfg.avatar)) {
+		return '<!-- Chat embeds need an agent id — pick an agent from the gallery above -->';
 	}
 	if (cfg.mode === 'chat') {
 		return `<iframe\n  src="${chatSrc(cfg)}"\n  width="${cfg.width}"\n  height="${cfg.height}"\n  style="border:0;border-radius:16px"\n  allow="microphone; autoplay; clipboard-write"\n  loading="lazy"><\/iframe>`;

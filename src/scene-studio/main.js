@@ -13,6 +13,7 @@ document.documentElement.setAttribute('data-theme', 'dark');
 import * as THREE from 'three';
 
 import { Editor } from './vendor/js/Editor.js';
+import { AddObjectCommand } from './vendor/js/commands/AddObjectCommand.js';
 import { Viewport } from './vendor/js/Viewport.js';
 import { Toolbar } from './vendor/js/Toolbar.js';
 import { Script } from './vendor/js/Script.js';
@@ -98,6 +99,8 @@ editor.storage.init(function () {
 		if (selected !== undefined) {
 			editor.selectByUuid(selected);
 		}
+
+		importModelFromQuery();
 	});
 
 	//
@@ -136,6 +139,61 @@ editor.storage.init(function () {
 	signals.scriptChanged.add(saveState);
 	signals.historyChanged.add(saveState);
 });
+
+// Deep-link: /scene?model=<glb_url>&name=<label> — e.g. the "Open in Scene
+// Studio" hand-off after Forge or Parts Studio finishes. The GLB is fetched
+// and added through AddObjectCommand (undo, autosave, and the outliner behave
+// as if the user imported it) — deliberately skipping the editor's
+// add-or-replace import dialog, since a deep-link arrival has an unambiguous
+// intent: add this model to the scene. The query is then stripped from the
+// address bar so a reload doesn't import a duplicate — autosave already
+// persists the object.
+async function importModelFromQuery() {
+	const params = new URLSearchParams(window.location.search);
+	const modelUrl = params.get('model');
+	if (!modelUrl) return;
+	if (!/^https:\/\//.test(modelUrl) && !modelUrl.startsWith('/')) return;
+
+	window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+
+	try {
+		const res = await fetch(modelUrl);
+		if (!res.ok) throw new Error('HTTP ' + res.status);
+		const contents = await res.arrayBuffer();
+
+		// Same decoder wiring as the vendored Loader's createGLTFLoader.
+		const [{ GLTFLoader }, { DRACOLoader }, { KTX2Loader }, { MeshoptDecoder }] = await Promise.all([
+			import('three/addons/loaders/GLTFLoader.js'),
+			import('three/addons/loaders/DRACOLoader.js'),
+			import('three/addons/loaders/KTX2Loader.js'),
+			import('three/addons/libs/meshopt_decoder.module.js'),
+		]);
+		const dracoLoader = new DRACOLoader();
+		dracoLoader.setDecoderPath('/scene-studio/draco/gltf/');
+		const ktx2Loader = new KTX2Loader();
+		ktx2Loader.setTranscoderPath('/scene-studio/basis/');
+		editor.signals.rendererDetectKTX2Support.dispatch(ktx2Loader);
+		const loader = new GLTFLoader();
+		loader.setDRACOLoader(dracoLoader);
+		loader.setKTX2Loader(ktx2Loader);
+		loader.setMeshoptDecoder(MeshoptDecoder);
+
+		const result = await loader.parseAsync(contents, '');
+		const urlBase = decodeURIComponent(modelUrl.split('?')[0].split('/').pop() || '');
+		const label = (params.get('name') || urlBase.replace(/\.(glb|gltf)$/i, '') || 'Model')
+			.replace(/\s+/g, ' ').trim().slice(0, 64) || 'Model';
+		const object = result.scene;
+		object.name = label;
+		object.animations.push(...result.animations);
+		editor.execute(new AddObjectCommand(editor, object));
+		editor.selectByUuid(object.uuid);
+
+		dracoLoader.dispose();
+		ktx2Loader.dispose();
+	} catch (error) {
+		alert('Could not load the handed-off model (' + error.message + '). You can drag the GLB file into the editor instead.');
+	}
+}
 
 //
 

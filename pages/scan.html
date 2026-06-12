@@ -1985,9 +1985,16 @@
 				notifyDone();
 				showStep('done');
 				// Surface adjacent features now that the avatar exists (walk it / embed
-				// it). The site-wide discovery layer renders the cross-link card.
+				// it). The site-wide discovery layer renders the cross-link card; the
+				// avatar id + model URL let it deep-link this avatar into each target.
 				document.dispatchEvent(
-					new CustomEvent('tws:feature-done', { detail: { feature: 'scan' } }),
+					new CustomEvent('tws:feature-done', {
+						detail: {
+							feature: 'scan',
+							avatarId: _avatarId || null,
+							model: _modelUrl ? { glbUrl: _modelUrl, label: _avatarName || 'Your avatar' } : null,
+						},
+					}),
 				);
 			});
 

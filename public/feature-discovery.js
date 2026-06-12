@@ -41,6 +41,7 @@
 		'/forge':          { label: 'Forge',          desc: 'Turn a text prompt into a textured 3D model.' },
 		'/scan':           { label: 'Scan',           desc: 'Turn a selfie into a rigged 3D avatar.' },
 		'/studio':         { label: 'Studio',         desc: 'Customize your avatar and grab an embed for any site.' },
+		'/scene':          { label: 'Scene Studio',   desc: 'Import GLBs, compose full 3D scenes, and export.' },
 		'/play':           { label: 'Worlds',         desc: 'Drop into a live 3D world and hang out.' },
 		'/walk':           { label: 'Walk',           desc: 'Walk your avatar across any page on the site.' },
 		'/voice':          { label: 'Voice Lab',      desc: 'Clone a voice and give your agent speech.' },
@@ -65,23 +66,32 @@
 
 	// Cross-links shown when a feature finishes (`tws:feature-done`). Every target
 	// is a confirmed live route; the adjacent action is the natural next step.
+	// When the dispatching page includes the finished model in the event detail
+	// ({ model: { glbUrl, label }, avatarId }), each link deep-links it into the
+	// destination so the session genuinely continues instead of starting blank:
+	//   modelParam — query key the destination reads as a direct GLB URL
+	//   nameParam  — query key for the model's display name (where supported)
+	//   idParam    — query key the destination reads as a three.ws avatar id;
+	//                wins over modelParam when an avatarId is present (a
+	//                registered avatar carries name + thumbnail; a bare URL doesn't)
+	// A link with none of these stays a plain route.
 	var CROSSLINKS = {
 		forge: { kicker: 'Nice model — what now?', links: [
-			{ route: '/studio',   label: 'Open Studio', primary: true },
-			{ route: '/embed.html', label: 'Embed editor' },
-			{ route: '/launchpad', label: 'Deploy onchain' },
-			{ route: '/play',     label: 'Drop it in a world' },
+			{ route: '/scene',    label: 'Open in Scene Studio', primary: true, modelParam: 'model', nameParam: 'name' },
+			{ route: '/embed.html', label: 'Embed editor', modelParam: 'avatar' },
+			{ route: '/launchpad', label: 'Deploy onchain', modelParam: 'avatar' },
+			{ route: '/play',     label: 'Drop it in a world', modelParam: 'avatar' },
 		] },
 		segment: { kicker: 'Parts split — what now?', links: [
-			{ route: '/studio',   label: 'Open Studio', primary: true },
+			{ route: '/scene',    label: 'Open in Scene Studio', primary: true, modelParam: 'model', nameParam: 'name' },
 			{ route: '/forge',    label: 'Forge another model' },
-			{ route: '/play',     label: 'Drop it in a world' },
+			{ route: '/play',     label: 'Drop it in a world', modelParam: 'avatar' },
 			{ route: '/docs',     label: 'Read the docs' },
 		] },
 		scan: { kicker: 'Avatar ready — what now?', links: [
-			{ route: '/studio',   label: 'Open Studio', primary: true },
-			{ route: '/walk',     label: 'Walk your avatar' },
-			{ route: '/embed.html', label: 'Embed editor' },
+			{ route: '/studio',   label: 'Open Studio', primary: true, idParam: 'avatar', modelParam: 'model' },
+			{ route: '/walk',     label: 'Walk your avatar', idParam: 'avatar', modelParam: 'avatarUrl' },
+			{ route: '/embed.html', label: 'Embed editor', idParam: 'avatar', modelParam: 'avatar' },
 			{ route: '/docs',     label: 'Read the docs' },
 		] },
 		studio: { kicker: 'Widget ready — share it?', links: [
@@ -321,14 +331,39 @@
 	}
 
 	// ── Contextual cross-links after a feature completes ───────────────────────
-	function showCrossLinks(feature) {
+	// detail (optional): the tws:feature-done event detail — { model: { glbUrl,
+	// label }, avatarId }. Each link's idParam/modelParam/nameParam (see the
+	// CROSSLINKS comment) turns it into a deep link that opens the destination
+	// with this exact model already loaded.
+	function showCrossLinks(feature, detail) {
 		var cfg = CROSSLINKS[feature];
 		if (!cfg) return;
+		var model = detail && detail.model;
+		var glbUrl = model && typeof model.glbUrl === 'string' ? model.glbUrl : '';
+		var avatarId = detail && detail.avatarId ? String(detail.avatarId) : '';
+		var carried = false;
 		var links = cfg.links
 			.filter(function (l) { return FEATURES[l.route]; })
-			.map(function (l) { return { href: l.route, label: l.label, primary: l.primary }; });
+			.map(function (l) {
+				var href = l.route;
+				if (l.idParam && avatarId) {
+					href += '?' + l.idParam + '=' + encodeURIComponent(avatarId);
+					carried = true;
+				} else if (l.modelParam && glbUrl) {
+					href += '?' + l.modelParam + '=' + encodeURIComponent(glbUrl);
+					if (l.nameParam && model.label) {
+						href += '&' + l.nameParam + '=' + encodeURIComponent(String(model.label).slice(0, 120));
+					}
+					carried = true;
+				}
+				return { href: href, label: l.label, primary: l.primary };
+			});
 		links.push({ href: EXPLORE_MORE, label: 'Explore more' });
-		renderCard({ kicker: cfg.kicker, links: links });
+		renderCard({
+			kicker: cfg.kicker,
+			desc: carried ? 'Each tool opens with this model already loaded.' : null,
+			links: links,
+		});
 	}
 
 	// ── Declarative tooltips: any [data-tip] element (reuses C03 popover) ───────
@@ -384,15 +419,16 @@
 			var feature = e && e.detail && e.detail.feature;
 			if (!feature) return;
 			if (_revealTimer) { clearTimeout(_revealTimer); _revealTimer = null; }
-			showCrossLinks(feature);
+			showCrossLinks(feature, e.detail);
 		});
 
 		_revealTimer = setTimeout(showPassivePrompt, REVEAL_DELAY_MS);
 	}
 
 	// ── Public API ─────────────────────────────────────────────────────────────
-	// crossLink(feature) lets a page trigger the "what's next" card directly,
-	// equivalent to dispatching tws:feature-done.
+	// crossLink(feature, detail?) lets a page trigger the "what's next" card
+	// directly, equivalent to dispatching tws:feature-done — detail may carry
+	// { model: { glbUrl, label }, avatarId } to deep-link the model into targets.
 	window.twsDiscovery = {
 		crossLink: showCrossLinks,
 		dismiss: dismissCard,

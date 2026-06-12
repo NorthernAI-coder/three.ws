@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T06:13:01.713Z",
+	"generated_at": "2026-06-12T07:15:15.999Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -62,6 +62,17 @@
 			"type": "update",
 			"title": "Forge engine picker now shows live engine health",
 			"summary": "The engine buttons on Forge now reflect what's actually running, probed live against each provider — not just whether it's set up. An engine whose upstream is down or unreachable is disabled with the reason in its tooltip, a throttled one shows an amber busy dot, and bring-your-own-key engines (Meshy, Tripo) say so before you pick them. Behind it is a new public health check at /api/forge?health, and the self-hosted Hunyuan3D lane was rewired to its own worker so it no longer fails every prompt by routing to the avatar pipeline.",
+			"link": "/forge",
+			"tags": [
+				"improvement",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Forge models now carry straight into Scene Studio",
+			"summary": "The \"what's next\" card after a Forge or Parts Studio result used to send you to the studio empty-handed — the model stayed behind. The primary action is now \"Open in Scene Studio\" and it brings the exact model you just made with it: Scene Studio opens with the GLB already imported, named after your prompt, ready to compose, edit, and export. Your work carries over instead of starting from a blank scene.",
 			"link": "/forge",
 			"tags": [
 				"improvement",
