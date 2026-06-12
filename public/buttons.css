@@ -173,16 +173,17 @@
    border, with a live pulse dot. Dark-surface pages only (the gradient
    border is painted over a near-black padding-box). */
 .btn--forge {
+	--btn-forge-surface: var(--bg-1, #141414);
 	border-color: transparent;
 	color: var(--text, #e8e8e8);
 	background:
-		linear-gradient(var(--btn-forge-surface, #0c0c0f), var(--btn-forge-surface, #0c0c0f)) padding-box,
+		linear-gradient(var(--btn-forge-surface), var(--btn-forge-surface)) padding-box,
 		linear-gradient(120deg, rgba(255, 180, 84, 0.5), rgba(255, 106, 213, 0.5) 38%, rgba(139, 92, 246, 0.5) 64%, rgba(79, 195, 255, 0.5)) border-box;
 }
 .btn--forge:hover:not(:disabled):not([aria-disabled='true']) {
 	border-color: transparent;
 	background:
-		linear-gradient(var(--btn-forge-surface, #101014), var(--btn-forge-surface, #101014)) padding-box,
+		linear-gradient(var(--btn-forge-surface), var(--btn-forge-surface)) padding-box,
 		linear-gradient(120deg, #ffb454, #ff6ad5 38%, #8b5cf6 64%, #4fc3ff) border-box;
 	box-shadow: 0 0 18px rgba(139, 92, 246, 0.18);
 }

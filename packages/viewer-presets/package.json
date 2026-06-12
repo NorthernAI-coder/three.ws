@@ -1,6 +1,6 @@
 {
 	"name": "@three-ws/viewer-presets",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Tuned visual presets for three.ws avatar viewers — light rigs, floor reflection, and bloom configs derived from Ready Player Me's visage (MIT).",
 	"keywords": [
 		"three.ws",
@@ -55,5 +55,11 @@
 	},
 	"engines": {
 		"node": ">=18"
+	},
+	"bugs": {
+		"url": "https://github.com/nirholas/three.ws/issues"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }

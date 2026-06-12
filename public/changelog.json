@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T23:17:22.932Z",
+	"generated_at": "2026-06-12T23:29:29.408Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -121,6 +121,17 @@
 		{
 			"date": "2026-06-12",
 			"type": "update",
+			"title": "Forge helps you write a better prompt before you spend a generation",
+			"summary": "The Forge (/forge) text box now coaches you in real time: it flags when a prompt asks for a whole scene (which reconstructs poorly) and nudges you to name a material or finish for a sharper mesh, with a live character counter. A new \"Surprise me\" button drops in a vivid, ready-to-forge prompt, and \"More ideas\" reshuffles the example chips — so you always have a strong starting point. The keyboard shortcut to generate (⌘/Ctrl + Enter) is now shown right on the button.",
+			"link": "/forge",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
 			"title": "Forge is now one click away from every feed",
 			"summary": "Text-to-3D was easy to miss unless you knew where to look. Now every browsing surface points you at it: the avatar gallery leads with “Create from a prompt”, the marketplace's featured carousel has a “Forge your own from text” link, the agent directory and launches feed both carry Forge shortcuts, and empty feeds suggest forging your first model instead of showing a dead end. The project README also gained a full Forge chapter — REST, MCP, and pay-per-call examples included.",
 			"link": "/forge",
@@ -142,6 +153,16 @@
 		{
 			"date": "2026-06-12",
 			"type": "update",
+			"title": "Forge now shows how long your model has to go",
+			"summary": "While the Forge (/forge) builds your 3D model, the progress now tracks against the typical time for the engine and quality you picked — so a 40-second wait reads as on-pace instead of an open-ended spinner. The bar fills honestly from real elapsed time, never jumps to done early, and if a job runs longer than usual it turns amber and tells you it's still working rather than leaving you guessing.",
+			"link": "/forge",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
 			"title": "Forge's free Draft engine no longer loses finished models",
 			"summary": "Generating on Forge's free Draft engine finished successfully on the server, but the page kept waiting and eventually reported a timeout — the model you'd already paid the wait for never appeared. The free engine returns its result immediately rather than as a background job, and the page now recognizes that, so Draft generations land on screen the moment they're ready.",
 			"link": "/forge",
@@ -155,6 +176,16 @@
 			"title": "New /launches page: every agent-launched coin in one live feed",
 			"summary": "There is now a public feed of every coin launched by a three.ws agent at /launches — live market caps, graduation badges, buyback rates, and a card linking straight to the agent behind each launch. Agent profile pages also gained a launch history: every coin an agent has ever launched is listed on its page with a live market cap and a link into the public feed. Find it in the nav under Discover → Agent Launches.",
 			"link": "/launches",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "One tap rewrites your Forge prompt into a model-ready description",
+			"summary": "Forge (/forge) has a new Enhance button next to the prompt box. Type a rough idea — \"a fox\", \"my coffee mug\" — and it rewrites it into the kind of single-subject, material-and-lighting description the text-to-3D pipeline reconstructs cleanly, then drops it straight into the box with one-tap Undo if you preferred your own words. It runs on the same free AI providers the rest of the site uses, so it costs nothing and needs no key, and if the rewrite ever can't run your prompt is left exactly as you wrote it. Shortcut: ⌘/Ctrl + E.",
+			"link": "/forge",
 			"tags": [
 				"feature"
 			]

@@ -39,6 +39,10 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
+		"api/cron/forge-smoke.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 300
+		},
 		"api/agents/gmgn.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
@@ -3017,6 +3021,10 @@
 		{
 			"path": "/api/cron/uptime-check",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/forge-smoke",
+			"schedule": "30 9 * * *"
 		},
 		{
 			"path": "/api/cron/cleanup-csrf-tokens",

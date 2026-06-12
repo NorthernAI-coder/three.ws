@@ -2407,7 +2407,7 @@
 		</ul>
 		<div class="hero-cta-row">
 			<a class="btn btn--primary" href="/create">Build your agent <span class="arrow">→</span></a>
-			<a class="btn" href="/forge">Text → 3D · live</a>
+			<a class="btn btn--forge" href="/forge"><span class="btn-forge-dot" aria-hidden="true"></span>Text → 3D</a>
 			<a class="btn" href="#embed">See the embed</a>
 		</div>
 	</div>
@@ -3242,12 +3242,20 @@
 		#home-forge .hf-viewer { inset: 0 0 120px; }
 		#home-forge .hf-result-bar { bottom: 112px; left: 18px; right: 18px; transform: none; max-width: none; justify-content: space-between; }
 		#home-forge .hf-ground { bottom: 150px; }
+		/* History becomes a horizontal scroller pinned under the HUD. */
+		#home-forge .hf-history { left: 16px; right: 16px; top: 44px; flex-direction: row; align-items: center; gap: 8px; max-height: none; }
+		#home-forge .hf-history-label { display: none; }
+		#home-forge .hf-history-track { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+		#home-forge .hf-thumb { width: 40px; height: 40px; }
+		#home-forge .hf-toast { bottom: 180px; }
 	}
 	@media (prefers-reduced-motion: reduce) {
 		#home-forge .hf-ring, #home-forge .hf-ring-glow { animation: none; }
 		#home-forge .hf-viewer.is-in { animation: none; }
 		#home-forge .hf-scan.is-scan, #home-forge .hf-scan.is-scan::before { animation: none; opacity: 0; }
 		#home-forge .hf-hud .dot { animation: none; }
+		#home-forge .hf-thumb { animation: none; }
+		#home-forge .hf-toast { transition: opacity 0.2s ease; }
 	}
 </style>
 <section class="block" id="home-forge">
@@ -4073,6 +4081,7 @@
 		<p class="vclose-sub">Free to start. Two lines of HTML. Voice, memory, and payments included.</p>
 		<div class="cta-row" style="justify-content:center;">
 			<a class="btn btn--primary" href="/create">Build your agent <span class="arrow">→</span></a>
+			<a class="btn btn--forge" href="/forge"><span class="btn-forge-dot" aria-hidden="true"></span>Text → 3D</a>
 			<a class="btn" href="/docs">Read the docs</a>
 		</div>
 		<div class="vclose-chips" id="vclose-chips" role="group" aria-label="Trigger an animation">

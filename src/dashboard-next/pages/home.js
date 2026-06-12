@@ -534,7 +534,6 @@ function renderForgeAnnounce(host) {
 				</div>
 				<form class="dnx-forge-form" novalidate>
 					<label class="dnx-forge-field">
-						<span class="sr-only">Describe an object to forge into 3D</span>
 						<input
 							class="dnx-forge-input"
 							type="text"
@@ -1484,43 +1483,204 @@ function injectStyles() {
 		.dnx-activity-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.dnx-activity-time { color: var(--nxt-ink-fade); font-size: 12px; font-variant-numeric: tabular-nums; }
 
-		/* ── Launch announcement: text-to-3D ── */
-		.dnx-announce-wrap { margin-bottom: 16px; }
-		.dnx-announce {
-			display: flex; align-items: center; gap: 12px;
-			padding: 11px 14px;
-			border-radius: var(--nxt-radius-sm);
+		/* ── Launch launchpad: text-to-3D ── */
+		.dnx-announce-wrap { margin-bottom: 18px; }
+		.dnx-forge {
+			position: relative;
+			display: flex;
+			align-items: center;
+			gap: 18px;
+			padding: 16px 18px;
+			border-radius: var(--nxt-radius);
 			border: 1px solid var(--nxt-stroke-strong);
-			background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+			background:
+				radial-gradient(120% 140% at 0% 0%, rgba(255,255,255,0.07), transparent 60%),
+				linear-gradient(180deg, rgba(20,21,28,0.72), rgba(12,13,18,0.55));
+			overflow: hidden;
+			isolation: isolate;
 		}
-		.dnx-announce-badge {
+		/* Top hairline shimmer — a slow light sweep that draws the eye to "new". */
+		.dnx-forge::before {
+			content: '';
+			position: absolute; inset: 0 0 auto 0; height: 1px;
+			background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65), transparent);
+			background-size: 40% 100%;
+			background-repeat: no-repeat;
+			animation: dnx-forge-sweep 5.5s ease-in-out infinite;
+			z-index: 2;
+		}
+		@keyframes dnx-forge-sweep {
+			0% { background-position: -45% 0; }
+			55%, 100% { background-position: 145% 0; }
+		}
+
+		/* ── Animated mesh visual: wireframe cube + scan ring ── */
+		.dnx-forge-visual {
+			position: relative;
+			flex-shrink: 0;
+			width: 64px; height: 64px;
+			display: grid; place-items: center;
+			perspective: 340px;
+		}
+		.dnx-forge-ring {
+			position: absolute; inset: -2px;
+			border-radius: 50%;
+			background: conic-gradient(from 0deg, transparent 0 62%, rgba(255,255,255,0.55) 84%, rgba(255,255,255,0.9) 92%, transparent 100%);
+			-webkit-mask: radial-gradient(closest-side, transparent 76%, #000 78%);
+			mask: radial-gradient(closest-side, transparent 76%, #000 78%);
+			animation: dnx-forge-ring 4.2s linear infinite;
+			opacity: 0.9;
+		}
+		@keyframes dnx-forge-ring { to { transform: rotate(360deg); } }
+		.dnx-forge-stage {
+			width: 34px; height: 34px;
+			transform-style: preserve-3d;
+			animation: dnx-forge-spin 9s linear infinite;
+		}
+		@keyframes dnx-forge-spin {
+			from { transform: rotateX(-22deg) rotateY(0deg); }
+			to   { transform: rotateX(-22deg) rotateY(360deg); }
+		}
+		.dnx-forge-cube {
+			position: relative;
+			width: 34px; height: 34px;
+			transform-style: preserve-3d;
+		}
+		.dnx-forge-cube i {
+			position: absolute; inset: 0;
+			border: 1px solid rgba(255,255,255,0.55);
+			background: rgba(255,255,255,0.018);
+			box-shadow: inset 0 0 12px rgba(255,255,255,0.06);
+		}
+		.dnx-forge-cube i:nth-child(1) { transform: rotateY(0deg)   translateZ(17px); }
+		.dnx-forge-cube i:nth-child(2) { transform: rotateY(90deg)  translateZ(17px); }
+		.dnx-forge-cube i:nth-child(3) { transform: rotateY(180deg) translateZ(17px); }
+		.dnx-forge-cube i:nth-child(4) { transform: rotateY(270deg) translateZ(17px); }
+		.dnx-forge-cube i:nth-child(5) { transform: rotateX(90deg)  translateZ(17px); }
+		.dnx-forge-cube i:nth-child(6) { transform: rotateX(-90deg) translateZ(17px); }
+		.dnx-forge-scan {
+			position: absolute; left: 8px; right: 8px; height: 1px;
+			background: linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent);
+			filter: blur(0.3px);
+			animation: dnx-forge-scan 2.8s ease-in-out infinite;
+			z-index: 1;
+		}
+		@keyframes dnx-forge-scan {
+			0% { top: 14%; opacity: 0; }
+			18% { opacity: 1; }
+			82% { opacity: 1; }
+			100% { top: 86%; opacity: 0; }
+		}
+		.dnx-forge:hover .dnx-forge-stage { animation-duration: 5s; }
+		.dnx-forge:hover .dnx-forge-ring  { animation-duration: 2.6s; }
+
+		/* ── Body: head + composer + chips ── */
+		.dnx-forge-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+		.dnx-forge-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+		.dnx-forge-badge {
 			flex-shrink: 0;
 			padding: 2px 8px;
 			border-radius: var(--nxt-radius-pill);
 			border: 1px solid var(--nxt-stroke-strong);
 			background: rgba(255,255,255,0.1);
-			font-size: 10.5px; font-weight: 700;
-			letter-spacing: 0.08em; text-transform: uppercase;
+			font-size: 10px; font-weight: 700;
+			letter-spacing: 0.09em; text-transform: uppercase;
 			color: var(--nxt-ink);
 		}
-		.dnx-announce-text {
-			flex: 1; min-width: 0; margin: 0;
-			font-size: 13px; color: var(--nxt-ink-dim);
+		.dnx-forge-title { font-size: 15px; font-weight: 600; color: var(--nxt-ink); }
+		.dnx-forge-sub { font-size: 12.5px; color: var(--nxt-ink-dim); }
+		.dnx-forge-form { display: flex; gap: 8px; align-items: stretch; max-width: 560px; }
+		.dnx-forge-field { flex: 1; min-width: 0; display: block; }
+		.dnx-forge-input {
+			width: 100%; height: 36px;
+			padding: 0 13px;
+			border-radius: var(--nxt-radius-sm);
+			border: 1px solid var(--nxt-stroke-strong);
+			background: rgba(0,0,0,0.35);
+			color: var(--nxt-ink);
+			font: inherit; font-size: 13.5px;
+			transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 		}
-		.dnx-announce-text strong { color: var(--nxt-ink); font-weight: 600; }
-		.dnx-announce-cta { flex-shrink: 0; font-size: 12px; padding: 5px 12px; white-space: nowrap; }
-		.dnx-announce-dismiss {
+		.dnx-forge-input::placeholder { color: var(--nxt-ink-fade); }
+		.dnx-forge-input:hover { border-color: rgba(255,255,255,0.22); }
+		.dnx-forge-input:focus {
+			outline: none;
+			border-color: rgba(255,255,255,0.4);
+			background: rgba(0,0,0,0.5);
+			box-shadow: 0 0 0 3px rgba(255,255,255,0.07);
+		}
+		.dnx-forge-go {
+			flex-shrink: 0;
+			display: inline-flex; align-items: center; gap: 6px;
+			height: 36px; padding: 0 15px;
+			border-radius: var(--nxt-radius-sm);
+			border: 1px solid transparent;
+			background: var(--nxt-accent); color: #000;
+			font: inherit; font-size: 13px; font-weight: 600;
+			cursor: pointer;
+			transition: transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+		}
+		.dnx-forge-go:hover { background: #fff; box-shadow: 0 4px 18px -6px rgba(255,255,255,0.4); }
+		.dnx-forge-go:active { transform: translateY(1px); }
+		.dnx-forge-go svg { transition: transform 0.15s ease; }
+		.dnx-forge-go:hover svg { transform: translateX(2px); }
+		.dnx-forge-chips { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+		.dnx-forge-chips-label { font-size: 11.5px; color: var(--nxt-ink-fade); }
+		.dnx-forge-chip {
+			padding: 3px 10px;
+			border-radius: var(--nxt-radius-pill);
+			border: 1px solid var(--nxt-stroke);
+			background: rgba(255,255,255,0.03);
+			color: var(--nxt-ink-dim);
+			font-size: 11.5px; text-decoration: none;
+			transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+		}
+		.dnx-forge-chip:hover {
+			color: var(--nxt-ink);
+			border-color: var(--nxt-stroke-strong);
+			background: rgba(255,255,255,0.07);
+			transform: translateY(-1px);
+		}
+		.dnx-forge-chip:focus-visible,
+		.dnx-forge-go:focus-visible,
+		.dnx-forge-dismiss:focus-visible {
+			outline: 2px solid var(--nxt-ink);
+			outline-offset: 2px;
+		}
+		.dnx-forge-dismiss {
+			position: absolute; top: 10px; right: 10px;
 			background: none; border: none; cursor: pointer;
 			color: var(--nxt-ink-fade); padding: 4px; border-radius: 6px;
-			display: grid; place-items: center; flex-shrink: 0;
+			display: grid; place-items: center;
 			transition: color 0.12s ease, background 0.12s ease;
+			z-index: 3;
 		}
-		.dnx-announce-dismiss:hover { color: var(--nxt-ink); background: rgba(255,255,255,0.06); }
-		@media (max-width: 600px) {
-			.dnx-announce { flex-wrap: wrap; }
-			.dnx-announce-text { flex-basis: 100%; order: 3; }
-			.dnx-announce-cta { order: 4; }
-			.dnx-announce-dismiss { margin-left: auto; order: 2; }
+		.dnx-forge-dismiss:hover { color: var(--nxt-ink); background: rgba(255,255,255,0.06); }
+
+		/* Reduced motion — kill every loop, keep the layout intact. */
+		.dnx-forge.is-still::before,
+		.dnx-forge.is-still .dnx-forge-ring,
+		.dnx-forge.is-still .dnx-forge-stage,
+		.dnx-forge.is-still .dnx-forge-scan { animation: none; }
+		.dnx-forge.is-still .dnx-forge-stage { transform: rotateX(-22deg) rotateY(32deg); }
+		.dnx-forge.is-still .dnx-forge-scan { opacity: 0; }
+		@media (prefers-reduced-motion: reduce) {
+			.dnx-forge::before,
+			.dnx-forge .dnx-forge-ring,
+			.dnx-forge .dnx-forge-stage,
+			.dnx-forge .dnx-forge-scan { animation: none; }
+			.dnx-forge .dnx-forge-stage { transform: rotateX(-22deg) rotateY(32deg); }
+			.dnx-forge .dnx-forge-scan { opacity: 0; }
+		}
+		@media (max-width: 680px) {
+			.dnx-forge { gap: 14px; padding: 14px; }
+			.dnx-forge-visual { width: 52px; height: 52px; align-self: flex-start; }
+			.dnx-forge-form { flex-wrap: wrap; }
+			.dnx-forge-field { flex-basis: 100%; }
+			.dnx-forge-go { flex: 1; justify-content: center; }
+		}
+		@media (max-width: 460px) {
+			.dnx-forge-visual { display: none; }
 		}
 
 		/* ── Onboarding checklist ── */

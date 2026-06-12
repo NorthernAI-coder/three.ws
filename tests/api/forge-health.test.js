@@ -16,6 +16,13 @@ const ENV_VARS = [
 	'GCP_TRIPOSG_URL',
 	'GCP_RECONSTRUCTION_URL',
 	'GCP_RECONSTRUCTION_KEY',
+	'UPSTASH_REDIS_REST_URL',
+	'UPSTASH_REDIS_REST_TOKEN',
+	'three_KV_REST_API_URL',
+	'three_KV_REST_API_TOKEN',
+	'KV_REST_API_URL',
+	'KV_REST_API_TOKEN',
+	'VERCEL_ENV',
 ];
 const savedEnv = {};
 let savedFetch;
@@ -134,6 +141,63 @@ describe('forge-health — per-backend verdicts', () => {
 		});
 		const health = await probeForgeHealth();
 		expect(health.backends.trellis.status).toBe('down');
+	});
+});
+
+describe('forge-health — rate-limiter store', () => {
+	// The June 2026 outage: Upstash over quota → critical limiters failed
+	// closed → every paid-lane generation 429'd while all backends read ok.
+	// These tests pin the limiter store to the health report so that failure
+	// mode can never be invisible again.
+	it('reports ok with the in-memory fallback outside production', async () => {
+		mockUpstreams([]);
+		const health = await probeForgeHealth();
+		expect(health.limiter.status).toBe('ok');
+		expect(health.limiter.message).toMatch(/in-memory/i);
+	});
+
+	it('reports down (and degrades overall) when unconfigured in production', async () => {
+		process.env.VERCEL_ENV = 'production';
+		mockUpstreams([]);
+		const health = await probeForgeHealth();
+		expect(health.limiter.status).toBe('down');
+		expect(health.limiter.message).toMatch(/fail closed/i);
+		expect(health.status).toBe('degraded');
+	});
+
+	it('passes when the store answers PING', async () => {
+		process.env.UPSTASH_REDIS_REST_URL = 'https://probe.upstash.io';
+		process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+		global.fetch = vi.fn(async () => new Response('{"result":"PONG"}', { status: 200 }));
+		const health = await probeForgeHealth();
+		expect(health.limiter.status).toBe('ok');
+	});
+
+	it('reports down when the store rejects commands (over quota)', async () => {
+		process.env.UPSTASH_REDIS_REST_URL = 'https://probe.upstash.io';
+		process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+		global.fetch = vi.fn(
+			async () =>
+				new Response('{"error":"ERR max requests limit exceeded. Limit: 500000, Usage: 500000"}', {
+					status: 429,
+				}),
+		);
+		const health = await probeForgeHealth();
+		expect(health.limiter.status).toBe('down');
+		expect(health.limiter.message).toMatch(/max requests limit/i);
+		expect(health.status).toBe('degraded');
+	});
+
+	it('resolves the store through the three_KV fallback names', async () => {
+		process.env.three_KV_REST_API_URL = 'https://fallback.upstash.io';
+		process.env.three_KV_REST_API_TOKEN = 'token';
+		global.fetch = vi.fn(async () => new Response('{"result":"PONG"}', { status: 200 }));
+		const health = await probeForgeHealth();
+		expect(health.limiter.status).toBe('ok');
+		expect(global.fetch).toHaveBeenCalledWith(
+			'https://fallback.upstash.io',
+			expect.objectContaining({ method: 'POST' }),
+		);
 	});
 });
 

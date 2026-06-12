@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-12",
+			"title": "One tap rewrites your Forge prompt into a model-ready description",
+			"summary": "Forge (/forge) has a new Enhance button next to the prompt box. Type a rough idea — \"a fox\", \"my coffee mug\" — and it rewrites it into the kind of single-subject, material-and-lighting description the text-to-3D pipeline reconstructs cleanly, then drops it straight into the box with one-tap Undo if you preferred your own words. It runs on the same free AI providers the rest of the site uses, so it costs nothing and needs no key, and if the rewrite ever can't run your prompt is left exactly as you wrote it. Shortcut: ⌘/Ctrl + E.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Forge helps you write a better prompt before you spend a generation",
+			"summary": "The Forge (/forge) text box now coaches you in real time: it flags when a prompt asks for a whole scene (which reconstructs poorly) and nudges you to name a material or finish for a sharper mesh, with a live character counter. A new \"Surprise me\" button drops in a vivid, ready-to-forge prompt, and \"More ideas\" reshuffles the example chips — so you always have a strong starting point. The keyboard shortcut to generate (⌘/Ctrl + Enter) is now shown right on the button.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Forge now shows how long your model has to go",
+			"summary": "While the Forge (/forge) builds your 3D model, the progress now tracks against the typical time for the engine and quality you picked — so a 40-second wait reads as on-pace instead of an open-ended spinner. The bar fills honestly from real elapsed time, never jumps to done early, and if a job runs longer than usual it turns amber and tells you it's still working rather than leaving you guessing.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
 			"title": "Text to 3D is live — and now front and center",
 			"summary": "Type a description, get a 3D model: the Forge (/forge) turns a text prompt into a textured, downloadable GLB, and Describe it to 3D (/create/prompt) turns a sentence into a rigged avatar that can move. Both are now where you can't miss them — a Text → 3D link sits in the header on every page, both paths lead the Build menu, the homepage opens with a live try-it CTA, the /create picker highlights the prompt path, and the agent-creation wizard's body step links straight to it.",
 			"tags": [

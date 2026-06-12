@@ -1,6 +1,6 @@
 {
   "name": "@three-ws/avatar-schema",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JSON Schema and validator for three.ws on-chain avatar manifests — the canonical, hash-anchored format any cross-chain client can use to resolve an avatar.",
   "keywords": [
     "three.ws",
@@ -52,5 +52,11 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

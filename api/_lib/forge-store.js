@@ -305,3 +305,40 @@ export async function listCreations({ clientKey, limit = 24 }) {
 		return [];
 	}
 }
+
+// Newest durable creations across ALL clients — powers the public "Fresh from
+// the Forge" showcase on /forge. Same public-artifact bar as the share flow
+// (getPublicCreation): finished rows with a stored GLB only. Rows the creator
+// explicitly discarded (outcome = 'rejected') are excluded — a model its own
+// maker rated as bad is not showcase material. No client_key in the SELECT, so
+// nothing identifying ever leaves the store.
+export async function listShowcase({ limit = 12 } = {}) {
+	if (!forgeStoreEnabled()) return [];
+	const capped = Math.min(Math.max(Number(limit) || 12, 1), 24);
+	try {
+		const rows = await sql`
+			select id, prompt, glb_url, preview_image_url,
+				views_used, multiview, backend, tier, path, created_at
+			from forge_creations
+			where status = 'done' and glb_url is not null
+				and (outcome is null or outcome != 'rejected')
+			order by created_at desc
+			limit ${capped}
+		`;
+		return rows.map((r) => ({
+			id: r.id,
+			prompt: r.prompt,
+			glb_url: r.glb_url,
+			preview_image_url: r.preview_image_url,
+			views_used: r.views_used ?? null,
+			multiview: r.multiview ?? null,
+			backend: r.backend ?? null,
+			tier: r.tier ?? null,
+			path: r.path ?? null,
+			created_at: r.created_at,
+		}));
+	} catch (err) {
+		console.error('[forge-store] listShowcase failed:', err?.message);
+		return [];
+	}
+}

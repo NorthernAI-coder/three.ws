@@ -181,6 +181,8 @@ async function boot() {
 		document.getElementById('glb-input').click();
 	});
 
+	startPromptExampleLoop();
+
 	document.getElementById('glb-input').addEventListener('change', async (e) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
@@ -253,6 +255,74 @@ async function loadYourAvatars() {
 	}
 	row.appendChild(frag);
 	section.hidden = false;
+}
+
+// The featured prompt card demos its own value proposition: a slow typewriter
+// cycles real example prompts in the card's example line. The element is
+// aria-hidden (pure decoration), the loop sleeps while the tab is hidden, and
+// prefers-reduced-motion downgrades the typing to a plain periodic swap.
+// The first example ships fully typed in the markup so there is no pop-in.
+const PROMPT_EXAMPLES = [
+	'a samurai in neon armor',
+	'a cozy robot librarian with brass glasses',
+	'a jade dragon-scaled warrior queen',
+	'an astronaut covered in koi tattoos',
+	'a Victorian ghost detective in a long coat',
+	'a desert nomad with a clockwork falcon',
+	'a street medic from a cyberpunk night market',
+];
+
+function startPromptExampleLoop() {
+	const el = document.getElementById('card-prompt-example');
+	if (!el) return;
+
+	let index = 0;
+	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		setInterval(() => {
+			if (document.hidden) return;
+			index = (index + 1) % PROMPT_EXAMPLES.length;
+			el.textContent = PROMPT_EXAMPLES[index];
+		}, 4000);
+		return;
+	}
+
+	let chars = PROMPT_EXAMPLES[0].length;
+	let phase = 'hold';
+	const HOLD_MS = 2600;
+
+	function tick() {
+		if (document.hidden) {
+			setTimeout(tick, 600);
+			return;
+		}
+		let wait;
+		if (phase === 'hold') {
+			phase = 'erase';
+			wait = HOLD_MS;
+		} else if (phase === 'erase') {
+			chars -= 1;
+			el.textContent = PROMPT_EXAMPLES[index].slice(0, chars);
+			if (chars <= 0) {
+				index = (index + 1) % PROMPT_EXAMPLES.length;
+				phase = 'type';
+				wait = 350;
+			} else {
+				wait = 14 + Math.random() * 20;
+			}
+		} else {
+			chars += 1;
+			el.textContent = PROMPT_EXAMPLES[index].slice(0, chars);
+			if (chars >= PROMPT_EXAMPLES[index].length) {
+				phase = 'hold';
+				wait = 60;
+			} else {
+				wait = 28 + Math.random() * 40;
+			}
+		}
+		setTimeout(tick, wait);
+	}
+	// The 'hold' phase itself waits HOLD_MS, so enter the loop almost at once.
+	setTimeout(tick, 60);
 }
 
 // Cards are divs with role="button", so we need to wire both click and

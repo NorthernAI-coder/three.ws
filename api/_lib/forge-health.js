@@ -20,6 +20,7 @@
 // can poll without hammering vendors.
 
 import { BACKENDS, backendIsConfigured } from './forge-tiers.js';
+import { env } from './env.js';
 
 const PROBE_TIMEOUT_MS = 4_000;
 const CACHE_TTL_MS = 60_000;
@@ -138,6 +139,43 @@ const PROBES = {
 	triposg: gcpWorkerProbe('triposg', 'GCP_TRIPOSG_URL'),
 };
 
+// The distributed rate-limiter store gates every paid lane: when Redis is
+// unreachable (or the Upstash account is over quota) the cost-protecting
+// limiters fail closed and ALL standard/high/image generations 429 — while
+// every backend above still reports ok. A June 2026 outage hid exactly there,
+// so the store is probed like any other upstream: one PING over the same REST
+// credentials the limiter uses.
+async function probeLimiterStore() {
+	const id = 'limiter';
+	const url = env.UPSTASH_REDIS_REST_URL;
+	const token = env.UPSTASH_REDIS_REST_TOKEN;
+	const isProduction = env.NODE_ENV === 'production' || env.VERCEL_ENV === 'production';
+	if (!url || !token) {
+		return isProduction
+			? result(id, 'down', 'The rate-limiter store is unconfigured — paid generation lanes fail closed (every non-draft submit is denied).')
+			: result(id, 'ok', 'No Redis configured; the permissive in-memory limiter is active outside production.');
+	}
+	const started = Date.now();
+	const res = await probeFetch(url, {
+		method: 'POST',
+		headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+		body: JSON.stringify(['PING']),
+	});
+	const latency = Date.now() - started;
+	if (!res) return result(id, 'down', 'The rate-limiter store is unreachable — paid generation lanes fail closed.', { latency_ms: latency });
+	let body = null;
+	try {
+		body = await res.json();
+	} catch {
+		// fall through — a non-JSON body is judged by status code below
+	}
+	if (res.ok && body?.result === 'PONG') {
+		return result(id, 'ok', 'The rate-limiter store answered PING; paid lanes are open.', { latency_ms: latency });
+	}
+	const detail = body?.error || `HTTP ${res.status}`;
+	return result(id, 'down', `The rate-limiter store rejected commands (${detail}) — paid generation lanes fail closed.`, { http_status: res.status, latency_ms: latency });
+}
+
 let cache = null; // { at: epoch-ms, payload }
 
 // Probe every backend in the registry, in parallel, with per-instance caching.
@@ -146,29 +184,33 @@ export async function probeForgeHealth({ force = false } = {}) {
 		return { ...cache.payload, cached: true };
 	}
 
-	const entries = await Promise.all(
-		Object.values(BACKENDS).map(async (b) => {
-			if (b.byok) return byokResult(b.id);
-			const probe = PROBES[b.id];
-			if (!probe) {
-				// A platform backend with no live probe falls back to env presence —
-				// weaker, but never silently absent from the report.
-				return backendIsConfigured(b.id)
-					? result(b.id, 'ok', 'Configured (env-presence check only).')
-					: result(b.id, 'unconfigured', 'Required environment is not set on this deployment.');
-			}
-			return probe();
-		}),
-	);
+	const [entries, limiter] = await Promise.all([
+		Promise.all(
+			Object.values(BACKENDS).map(async (b) => {
+				if (b.byok) return byokResult(b.id);
+				const probe = PROBES[b.id];
+				if (!probe) {
+					// A platform backend with no live probe falls back to env presence —
+					// weaker, but never silently absent from the report.
+					return backendIsConfigured(b.id)
+						? result(b.id, 'ok', 'Configured (env-presence check only).')
+						: result(b.id, 'unconfigured', 'Required environment is not set on this deployment.');
+				}
+				return probe();
+			}),
+		),
+		probeLimiterStore(),
+	]);
 
 	const backends = Object.fromEntries(entries.map((e) => [e.id, e]));
-	const statuses = entries.map((e) => e.status);
+	const statuses = entries.map((e) => e.status).concat(limiter.status);
 	const overall = statuses.includes('down') || statuses.includes('degraded') ? 'degraded' : 'ok';
 
 	const payload = {
 		status: overall,
 		generated_at: new Date().toISOString(),
 		backends,
+		limiter,
 	};
 	cache = { at: Date.now(), payload };
 	return { ...payload, cached: false };
