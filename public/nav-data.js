@@ -57,6 +57,12 @@ export const NAV_GROUPS = [
 				desc: 'Describe an object → textured GLB',
 			},
 			{
+				title: 'Scene Studio',
+				href: '/scene',
+				badge: 'New',
+				desc: 'Assemble models into full 3D scenes',
+			},
+			{
 				title: 'Voice Lab',
 				href: '/voice',
 				badge: 'New',

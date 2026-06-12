@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T03:07:02.271Z",
+	"generated_at": "2026-06-12T06:03:34.369Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Agent Launches",
 			"summary": "Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.",
 			"link": "/launches",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "launch",
+			"title": "Scene Studio",
+			"summary": "Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.",
+			"link": "/scene",
 			"tags": [
 				"launch"
 			]
@@ -45,6 +55,17 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-12",
+			"type": "update",
+			"title": "Forge engine picker now shows live engine health",
+			"summary": "The engine buttons on Forge now reflect what's actually running, probed live against each provider — not just whether it's set up. An engine whose upstream is down or unreachable is disabled with the reason in its tooltip, a throttled one shows an amber busy dot, and bring-your-own-key engines (Meshy, Tripo) say so before you pick them. Behind it is a new public health check at /api/forge?health, and the self-hosted Hunyuan3D lane was rewired to its own worker so it no longer fails every prompt by routing to the avatar pipeline.",
+			"link": "/forge",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{

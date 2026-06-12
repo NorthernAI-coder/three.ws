@@ -15,6 +15,14 @@
 			<description>Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.</description>
 		</item>
 		<item>
+			<title>Scene Studio</title>
+			<link>https://three.ws/scene</link>
+			<guid isPermaLink="false">2026-06-12:Scene Studio</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.</description>
+		</item>
+		<item>
 			<title>Cosmetics shop purchases now work</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-06-12:Cosmetics shop purchases now work</guid>
@@ -37,6 +45,14 @@
 			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The homepage now has a live slice of Forge. Type a description of an object — or tap an example — and the real text-to-3D pipeline reconstructs a textured mesh and drops an interactive 3D model into the page, usually in seconds, that you can orbit and download as GLB. Anything you forge there also shows up in the full Forge gallery on the same device.</description>
+		</item>
+		<item>
+			<title>Forge engine picker now shows live engine health</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Forge engine picker now shows live engine health</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The engine buttons on Forge now reflect what's actually running, probed live against each provider — not just whether it's set up. An engine whose upstream is down or unreachable is disabled with the reason in its tooltip, a throttled one shows an amber busy dot, and bring-your-own-key engines (Meshy, Tripo) say so before you pick them. Behind it is a new public health check at /api/forge?health, and the self-hosted Hunyuan3D lane was rewired to its own worker so it no longer fails every prompt by routing to the avatar pipeline.</description>
 		</item>
 		<item>
 			<title>Forge's free Draft engine no longer loses finished models</title>

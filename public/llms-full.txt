@@ -102,6 +102,12 @@ URL: https://three.ws/app
 
 Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.
 
+### Scene Studio
+
+URL: https://three.ws/scene
+
+Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.
+
 ### glTF Validator
 
 URL: https://three.ws/validation

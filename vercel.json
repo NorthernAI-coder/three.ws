@@ -572,6 +572,10 @@
 			"dest": "/forge.html"
 		},
 		{
+			"src": "/scene/?",
+			"dest": "/scene.html"
+		},
+		{
 			"src": "/segment/?",
 			"dest": "/segment.html"
 		},

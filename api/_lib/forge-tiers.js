@@ -12,6 +12,9 @@
 //               geometry directly from the prompt (or a single photo) with no
 //               synthesized intermediate view, so detail isn't capped by what
 //               one image implies. Meshy / Tripo text-to-3D.
+//             • "sketch"   → sketch-conditioned. A drawing + a prompt naming
+//               what it depicts drive TripoSG-scribble (self-host) straight to
+//               geometry. No photo, no intermediate view, no textures.
 //
 //   tier  — how much geometric budget to spend: draft / standard / high. Maps
 //           to a target polygon count where the backend supports it, plus
@@ -21,7 +24,7 @@
 // (BYOK) key, and its per-(path,tier) cost/latency estimates so the UI can
 // communicate the trade-off before the user commits.
 
-export const PATHS = Object.freeze(['image', 'geometry']);
+export const PATHS = Object.freeze(['image', 'geometry', 'sketch']);
 export const DEFAULT_PATH = 'image';
 export const TIER_IDS = Object.freeze(['draft', 'standard', 'high']);
 export const DEFAULT_TIER = 'standard';
@@ -172,11 +175,32 @@ export const BACKENDS = Object.freeze({
 		paths: Object.freeze(['image']),
 		byok: false,
 		provider: 'gcp',
-		requiresEnv: Object.freeze(['GCP_RECONSTRUCTION_URL', 'GCP_RECONSTRUCTION_KEY']),
+		// Dedicated worker URL — NOT the avatar pipeline's GCP_RECONSTRUCTION_URL.
+		// That service runs the face pipeline and rejects every non-face image, so
+		// advertising this lane off the avatar env var made it look live while it
+		// failed 100% of general prompts (verified in prod 2026-06-12).
+		requiresEnv: Object.freeze(['GCP_HUNYUAN3D_URL', 'GCP_RECONSTRUCTION_KEY']),
 		polyControl: true,
 		baseEta: 120,
 		credits: null,
 		blurb: 'Self-hosted high-poly reconstruction. Image-conditioned geometry.',
+	}),
+	triposg: Object.freeze({
+		id: 'triposg',
+		label: 'TripoSG',
+		vendor: 'VAST AI · self-host',
+		// Sketch-only: the scribble pipeline is conditioned on a drawing + prompt.
+		// Photo/text submissions route to the standing image/geometry backends.
+		paths: Object.freeze(['sketch']),
+		byok: false,
+		provider: 'gcp',
+		requiresEnv: Object.freeze(['GCP_TRIPOSG_URL', 'GCP_RECONSTRUCTION_KEY']),
+		// The worker decimates to the tier's poly budget (pymeshlab quadric
+		// collapse), so the tier's polycount is a real target here.
+		polyControl: true,
+		baseEta: 45,
+		credits: null,
+		blurb: 'Sketch→3D — draw it, name it, get geometry. Untextured mesh; retexture or stylize after.',
 	}),
 });
 
@@ -185,6 +209,7 @@ export const BACKENDS = Object.freeze({
 export const DEFAULT_BACKEND_FOR_PATH = Object.freeze({
 	image: 'trellis',
 	geometry: 'meshy',
+	sketch: 'triposg',
 });
 
 // Free-first override: when the caller asks for the draft tier without naming a

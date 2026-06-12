@@ -109,3 +109,42 @@ describe('forge-tiers — NVIDIA NIM backend registration', () => {
 		expect(cat.backends.find((b) => b.id === 'meshy').user_images).toBe(true);
 	});
 });
+
+// The Hunyuan3D lane runs on its own Cloud Run worker. It must never report
+// configured off the avatar pipeline's GCP_RECONSTRUCTION_URL — that service's
+// face pipeline rejects every non-face image, so the lane looked live in the
+// catalog while failing 100% of general prompts (prod incident 2026-06-12).
+describe('forge-tiers — Hunyuan3D self-host configuration', () => {
+	const saved = {};
+	const VARS = ['GCP_HUNYUAN3D_URL', 'GCP_RECONSTRUCTION_URL', 'GCP_RECONSTRUCTION_KEY'];
+	beforeEach(() => {
+		for (const v of VARS) {
+			saved[v] = process.env[v];
+			delete process.env[v];
+		}
+	});
+	afterEach(() => {
+		for (const v of VARS) {
+			if (saved[v] === undefined) delete process.env[v];
+			else process.env[v] = saved[v];
+		}
+	});
+
+	it('requires the dedicated worker URL, not the avatar pipeline URL', () => {
+		expect(BACKENDS.hunyuan3d.requiresEnv).toEqual(['GCP_HUNYUAN3D_URL', 'GCP_RECONSTRUCTION_KEY']);
+	});
+
+	it('stays unconfigured when only the avatar pipeline is deployed', () => {
+		process.env.GCP_RECONSTRUCTION_URL = 'https://avatar-reconstruction.example.run.app';
+		process.env.GCP_RECONSTRUCTION_KEY = 'secret';
+		expect(backendIsConfigured('hunyuan3d')).toBe(false);
+		expect(buildCatalog().backends.find((b) => b.id === 'hunyuan3d').configured).toBe(false);
+	});
+
+	it('reports configured once its own worker URL and key are set', () => {
+		process.env.GCP_HUNYUAN3D_URL = 'https://hunyuan3d.example.run.app';
+		process.env.GCP_RECONSTRUCTION_KEY = 'secret';
+		expect(backendIsConfigured('hunyuan3d')).toBe(true);
+		expect(buildCatalog().backends.find((b) => b.id === 'hunyuan3d').configured).toBe(true);
+	});
+});

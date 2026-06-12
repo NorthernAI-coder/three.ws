@@ -12,7 +12,7 @@ the Vercel backend (api/_providers/gcp.js) needs zero changes:
   GET  /health      → { ok, models, router }
 
 Internally the controller:
-  1. Picks a model backend (Hunyuan3D / TRELLIS / TripoSR) via weighted random.
+  1. Picks a model backend (Hunyuan3D / TRELLIS / TripoSR / TripoSG) via weighted random.
   2. POSTs images to the chosen backend's /infer endpoint.
   3. Polls backend until the raw mesh is ready.
   4. POSTs the raw mesh to UniRig for skeleton + skinning + blendshapes.
@@ -26,8 +26,9 @@ Environment variables:
   MODEL_HUNYUAN3D_URL   — URL of the Hunyuan3D Cloud Run service (optional)
   MODEL_TRELLIS_URL     — URL of the TRELLIS Cloud Run service (optional)
   MODEL_TRIPOSR_URL     — URL of the TripoSR Cloud Run service (optional)
+  MODEL_TRIPOSG_URL     — URL of the TripoSG Cloud Run service (optional)
   UNIRIG_URL            — URL of the UniRig Cloud Run service (optional)
-  MODEL_WEIGHTS         — JSON routing weights, e.g. '{"hunyuan3d":0.5,"trellis":0.3,"triposr":0.2}'
+  MODEL_WEIGHTS         — JSON routing weights, e.g. '{"hunyuan3d":0.5,"trellis":0.3,"triposg":0.2}'
   SKIP_RIGGING          — set to "true" to skip the UniRig stage (for testing)
 """
 
@@ -69,6 +70,7 @@ for name, env_key in [
     ("hunyuan3d", "MODEL_HUNYUAN3D_URL"),
     ("trellis", "MODEL_TRELLIS_URL"),
     ("triposr", "MODEL_TRIPOSR_URL"),
+    ("triposg", "MODEL_TRIPOSG_URL"),
 ]:
     url = os.environ.get(env_key, "").strip().rstrip("/")
     if url:

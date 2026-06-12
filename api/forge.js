@@ -3,15 +3,18 @@
  *
  *   POST /api/forge   { prompt, aspect_ratio?, path?, tier?, backend? }  → text→3D
  *   POST /api/forge   { image_urls[], prompt?, path?, tier?, backend? }  → image→3D
+ *   POST /api/forge   { image_urls[sketch], prompt, path: 'sketch' }     → sketch→3D
  *   POST /api/forge?action=rig  { glb_url }                              → auto-rig
  *   GET  /api/forge?job=<id>                                             → poll a job
  *   GET  /api/forge?catalog                                              → tier/backend/cost matrix
  *
  * Two request axes select how a mesh is produced (see api/_lib/forge-tiers.js):
  *   • path  — "image" (image-intermediate: text→image→mesh via FLUX + TRELLIS,
- *             the fast default; or Hunyuan3D self-host) vs "geometry" (geometry-
+ *             the fast default; or Hunyuan3D self-host), "geometry" (geometry-
  *             first: native text→mesh / image→mesh via Meshy or Tripo, no
- *             synthesized intermediate view, higher geometric ceiling).
+ *             synthesized intermediate view, higher geometric ceiling), or
+ *             "sketch" (a drawing + a prompt naming it → TripoSG-scribble,
+ *             self-host; untextured geometry).
  *   • tier  — draft | standard | high — the target polygon budget + texture
  *             richness. The high tier yields a visibly denser mesh.
  * Every job result reports the path + tier + backend that produced it.
@@ -202,7 +205,9 @@ async function startJob(req, res) {
 		// proceed exactly as before (validateForgeImage owns that contract). The
 		// user can override a verdict they disagree with via `skip_validation:true`
 		// (e.g. a stylized reference our checker is too cautious about).
-		if (body?.skip_validation !== true) {
+		// The sketch path is exempt: a line drawing is exactly what the photo
+		// checker is trained to reject, and exactly what TripoSG-scribble wants.
+		if (body?.skip_validation !== true && path !== 'sketch') {
 			// The forge client key is a hashed client-supplied header, NOT an OAuth
 			// client — it has no row in oauth_clients, so it must never land in the
 			// FK-constrained usage_events.client_id (that fails the insert and the
@@ -228,6 +233,31 @@ async function startJob(req, res) {
 	}
 	const aspect = VALID_ASPECT.has(body?.aspect_ratio) ? body.aspect_ratio : '1:1';
 
+	// Sketch→3D is single-view and prompt-conditioned: the drawing is the only
+	// input image, and the prompt names what it depicts (TripoSG-scribble is a
+	// text+scribble model — without the prompt it has nothing to disambiguate
+	// rough strokes against).
+	if (path === 'sketch') {
+		if (!isImageMode) {
+			return json(res, 400, {
+				error: 'missing_sketch',
+				message: 'Upload a drawing and pass it as image_urls[0] for sketch-to-3D.',
+			});
+		}
+		if (imageUrls.length > 1) {
+			return json(res, 400, {
+				error: 'invalid_image_urls',
+				message: 'Sketch-to-3D takes exactly one drawing.',
+			});
+		}
+		if (prompt.length < 3) {
+			return json(res, 400, {
+				error: 'invalid_prompt',
+				message: 'Say what the sketch depicts (3–1000 characters) — the sketch model is prompt-conditioned.',
+			});
+		}
+	}
+
 	// path / tier / backendId were resolved above (the rate limiter is lane-aware).
 	// An explicitly selected text-only backend can't serve a photo submission —
 	// say so plainly rather than failing upstream with an opaque 422.
@@ -242,6 +272,82 @@ async function startJob(req, res) {
 	}
 
 	try {
+		// ── Sketch path (TripoSG-scribble, self-host) ───────────────────────────
+		// The drawing + prompt go straight to the TripoSG worker's scribble
+		// pipeline. Geometry only — no synthesized intermediate view, no textures;
+		// the result panel's Retexture/Stylize tools pick up from there.
+		if (path === 'sketch') {
+			let gcp;
+			try {
+				gcp = createGcpProvider();
+			} catch {
+				return json(res, 501, {
+					error: 'backend_unconfigured',
+					backend: backendId,
+					message: 'Sketch-to-3D is not configured on this deployment.',
+				});
+			}
+
+			const sketchUrl = imageUrls[0];
+			let job;
+			try {
+				job = await gcp.submit({
+					mode: 'sketch',
+					sourceUrl: sketchUrl,
+					params: {
+						prompt,
+						target_polycount: tier.polycount,
+						tier: tier.id,
+						path,
+					},
+				});
+			} catch (err) {
+				if (err?.code === 'mode_unconfigured') {
+					return json(res, 501, {
+						error: 'backend_unconfigured',
+						backend: backendId,
+						message:
+							'Sketch-to-3D is not configured on this deployment (GCP_TRIPOSG_URL is not set).',
+					});
+				}
+				throw err;
+			}
+
+			// Wrap the GCP job envelope in a forge token so polling routes back to
+			// the GCP provider — same idiom as the Hunyuan3D lane.
+			const token = encodeJobToken({ provider: 'gcp', kind: null, taskId: job.extJobId });
+			const creationId = await createCreation({
+				clientKey: clientKeyFrom(req),
+				ipHash: hashIp(ip),
+				prompt,
+				aspect: null,
+				previewImageUrl: sketchUrl,
+				replicateJobId: job.extJobId,
+				textToImageModel: null,
+				viewsRequested: 1,
+				viewsUsed: 1,
+				multiview: false,
+				backend: backendId,
+				tier: tier.id,
+				path,
+			});
+
+			return json(res, 200, {
+				job_id: token,
+				creation_id: creationId,
+				status: 'queued',
+				mode: 'sketch_to_3d',
+				path,
+				tier: tier.id,
+				backend: backendId,
+				prompt,
+				preview_image_url: sketchUrl,
+				reference_image_urls: [sketchUrl],
+				eta_seconds: estimateEtaSeconds({ backendId, tier }),
+				estimated_credits: estimateCredits({ backendId, path, tier }),
+			});
+		}
+
 		// ── Geometry-first path (Meshy / Tripo, BYOK) ───────────────────────────
 		// A native 3D model emits mesh geometry directly — from the prompt
 		// (text→geometry) or a single photo (image→3D) — with no synthesized
@@ -414,9 +520,18 @@ async function startJob(req, res) {
 			}
 
 			// ── Image-intermediate path (TRELLIS default, or Hunyuan3D self-host) ────
+			// Hunyuan3D runs on its own Cloud Run worker (GCP_HUNYUAN3D_URL) — never
+			// the avatar pipeline controller, whose face pipeline fails every
+			// non-face image with "no face detected".
 			let provider;
 			try {
-				provider = backendId === 'hunyuan3d' ? createGcpProvider() : createRegenProvider();
+				if (backendId === 'hunyuan3d') {
+					const hunyuanUrl = process.env.GCP_HUNYUAN3D_URL;
+					if (!hunyuanUrl) throw new Error('GCP_HUNYUAN3D_URL is not set');
+					provider = createGcpProvider({ reconstructUrl: hunyuanUrl });
+				} else {
+					provider = createRegenProvider();
+				}
 			} catch {
 				// A selected-but-unconfigured self-host backend gets a branchable 501;
 				// the default TRELLIS path keeps its existing "not configured" 503.
@@ -685,13 +800,15 @@ async function pollJob(req, res, jobId) {
 			}
 			result = await nv.status({ taskId: upstreamId });
 		} else if (provider === 'gcp') {
+			// Serves every self-host lane (Hunyuan3D, TripoSG sketch) — the job
+			// envelope carries the worker URL it was submitted to.
 			let gcp;
 			try {
 				gcp = createGcpProvider();
 			} catch {
 				return json(res, 501, {
 					error: 'backend_unconfigured',
-					message: 'Hunyuan3D self-host is not configured on this deployment.',
+					message: 'Self-hosted generation is not configured on this deployment.',
 				});
 			}
 			result = await gcp.status(upstreamId);
@@ -760,6 +877,17 @@ export default wrap(async (req, res) => {
 	// which backends are live before the user commits.
 	if (url.searchParams.has('catalog')) {
 		return json(res, 200, buildCatalog());
+	}
+
+	// ?health — live-probes every platform backend's upstream (auth + quota
+	// gates, zero vendor spend) so the UI and uptime checks see what a
+	// generation would actually hit, not just which env vars exist. Cached
+	// briefly per instance; rate-limited like status polling.
+	if (url.searchParams.has('health')) {
+		const rl = await limits.mcp3dStatus(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl);
+		const { probeForgeHealth } = await import('./_lib/forge-health.js');
+		return json(res, 200, await probeForgeHealth());
 	}
 
 	const jobId = (url.searchParams.get('job') || '').trim();

@@ -13,6 +13,7 @@
 //   retex        → GCP_TEXTURE_URL          (workers/texture)
 //   rembg        → GCP_REMBG_URL            (workers/rembg)
 //   segment      → GCP_SEGMENT_URL          (workers/segment)
+//   sketch       → GCP_TRIPOSG_URL          (workers/model-triposg, scribble mode)
 //   rerig        → GCP_RECONSTRUCTION_URL   (avatar-pipeline-controller, /rig endpoint)
 //
 // All workers share the same bearer secret (GCP_RECONSTRUCTION_KEY).
@@ -66,6 +67,8 @@ function serviceUrlForMode(mode) {
 			return readEnv('GCP_REMBG_URL');
 		case 'segment':
 			return readEnv('GCP_SEGMENT_URL');
+		case 'sketch':
+			return readEnv('GCP_TRIPOSG_URL');
 		case 'text2motion':
 			return readEnv('GCP_TEXT2MOTION_URL');
 		case 'rerig':
@@ -189,6 +192,28 @@ function buildWorkerRequest(request) {
 		};
 	}
 
+	if (mode === 'sketch') {
+		// Sketch→3D on the TripoSG worker's scribble pipeline: the source is the
+		// drawing, the prompt names what it depicts (the model is prompt-
+		// conditioned). Geometry only — no textures.
+		const body = {
+			images: [sourceUrl],
+			prompt: params?.prompt || '',
+			mode: 'scribble',
+		};
+		if (Number.isFinite(Number(params?.target_polycount))) {
+			body.target_polycount = Math.round(Number(params.target_polycount));
+		}
+		if (Number.isFinite(Number(params?.scribble_confidence))) {
+			body.scribble_confidence = Number(params.scribble_confidence);
+		}
+		return {
+			path: '/infer',
+			resultKey: 'result_gcs_url',
+			body,
+		};
+	}
+
 	if (mode === 'rerig') {
 		return {
 			path: '/rig',
@@ -227,11 +252,16 @@ const MODE_ETA = {
 	retex_region: 60,
 	rembg: 5,
 	segment: 45,
+	sketch: 45,
 	text2motion: 30,
 	rerig: 45,
 };
 
-export function createRegenProvider() {
+// `reconstructUrl` overrides where `reconstruct` jobs go — the forge Hunyuan3D
+// lane runs on its own worker (GCP_HUNYUAN3D_URL), not the avatar pipeline
+// controller, whose face pipeline rejects non-face images. Polling needs no
+// override: the job envelope packs the base URL it was submitted to.
+export function createRegenProvider({ reconstructUrl } = {}) {
 	const apiKey = readEnv('GCP_RECONSTRUCTION_KEY');
 	if (!apiKey) {
 		throw new Error('GCP_RECONSTRUCTION_KEY env var is required for the gcp provider');
@@ -242,21 +272,24 @@ export function createRegenProvider() {
 		'content-type': 'application/json',
 	};
 
+	const urlForMode = (mode) =>
+		mode === 'reconstruct' && reconstructUrl ? reconstructUrl : serviceUrlForMode(mode);
+
 	return {
 		supportsMode(mode) {
-			return Boolean(serviceUrlForMode(mode));
+			return Boolean(urlForMode(mode));
 		},
 
 		// The reconstruction worker accepts an `images` array and fuses every
 		// supplied view, so multi-view conditioning is available whenever the
 		// reconstruct service is configured.
 		supportsMultiview() {
-			return Boolean(serviceUrlForMode('reconstruct'));
+			return Boolean(urlForMode('reconstruct'));
 		},
 
 		async submit(request) {
 			const { mode } = request;
-			const baseUrl = serviceUrlForMode(mode);
+			const baseUrl = urlForMode(mode);
 			if (!baseUrl) {
 				throw Object.assign(
 					new Error(`gcp provider: no service URL configured for mode "${mode}"`),

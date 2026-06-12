@@ -164,6 +164,23 @@
 				background: var(--surface-3);
 				color: var(--ink);
 			}
+			/* Live backend health on the engine buttons: a throttled upstream gets
+			   an amber dot, a down/unconfigured one is disabled with the reason in
+			   its tooltip. Dots ride ::after so the label spacing stays put. */
+			.aspect button[data-health='degraded']::after {
+				content: '';
+				display: inline-block;
+				width: 0.4em;
+				height: 0.4em;
+				margin-left: 0.35em;
+				border-radius: 50%;
+				background: var(--warning, #e0a93e);
+				vertical-align: 0.08em;
+			}
+			.aspect button:disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
+			}
 			.aspect button:focus-visible,
 			.chip:focus-visible,
 			.btn:focus-visible {
