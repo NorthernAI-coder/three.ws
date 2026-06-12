@@ -87,6 +87,14 @@
 			<description>A pass over every error in the production logs. Avatar thumbnails and 3D models now load through three.ws itself instead of a rate-limited storage domain, so gallery pages stop dropping images under load. Text-to-speech voices are back (the upstream voice service had changed its protocol). Leaving a world on /play no longer hits a crash that could leave the session connected in the background. The homepage 3D demos politely step aside on devices without WebGL instead of breaking, payment demo requests get more time to settle on-chain, and the $THREE market stats failover stops hammering an exhausted data provider.</description>
 		</item>
 		<item>
+			<title>Sketch-to-3D comes to the Forge</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Sketch-to-3D comes to the Forge</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Forge gains a third way to make a model: draw it. The new “From a sketch” mode takes one drawing plus a short line saying what it depicts and generates real 3D geometry from it, powered by a self-hosted TripoSG sketch engine — the same research-grade model family behind Tripo. Sketch results are untextured geometry by design, so the existing Stylize and Retexture tools pick up right where it leaves off. The tab appears automatically once the sketch engine is live on the deployment.</description>
+		</item>
+		<item>
 			<title>The 3D world is back on solid ground — and locked against griefing</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-12:The 3D world is back on solid ground — and locked against griefing</guid>

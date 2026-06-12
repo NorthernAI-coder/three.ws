@@ -189,6 +189,16 @@ log "controller health:"
 curl -fsS -H "authorization: Bearer ${API_KEY_VALUE}" "${CONTROLLER_URL}/health" || warn "health check did not return 200 yet (cold start) — retry in a minute"
 echo
 
+# The forge sketch→3D lane talks to the TripoSG worker directly (not through
+# the controller), so its URL is a separate Vercel env var.
+TRIPOSG_HANDOFF=""
+if [ -n "${SERVICE_URL[triposg]:-}" ]; then
+  TRIPOSG_HANDOFF="  GCP_TRIPOSG_URL         = ${SERVICE_URL[triposg]}
+
+  vercel env add GCP_TRIPOSG_URL production         # paste the TripoSG URL (forge sketch→3D)
+"
+fi
+
 cat <<EOF
 
 ────────────────────────────────────────────────────────────────────────
@@ -197,7 +207,7 @@ cat <<EOF
   AVATAR_REGEN_PROVIDER   = gcp
   GCP_RECONSTRUCTION_URL  = ${CONTROLLER_URL}
   GCP_RECONSTRUCTION_KEY  = ${API_KEY_VALUE}
-
+${TRIPOSG_HANDOFF}
   vercel env add AVATAR_REGEN_PROVIDER production   # paste: gcp
   vercel env add GCP_RECONSTRUCTION_URL production  # paste the URL above
   vercel env add GCP_RECONSTRUCTION_KEY production  # paste the key above
