@@ -120,6 +120,18 @@
 			animation: pulse-green 2.4s ease-in-out infinite;
 		}
 		@keyframes pulse-green { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+		a.eyebrow {
+			color: var(--text-2); text-decoration: none;
+			padding: 7px 14px 7px 12px; margin-left: -12px;
+			border: 1px solid var(--hairline); border-radius: 999px;
+			transition: color 0.15s, border-color 0.15s, background 0.15s;
+		}
+		a.eyebrow .eyebrow-arrow { display: inline-block; transition: transform 0.15s; }
+		a.eyebrow:hover, a.eyebrow:focus-visible {
+			color: var(--text); border-color: var(--hairline-strong);
+			background: rgba(255, 255, 255, 0.03);
+		}
+		a.eyebrow:hover .eyebrow-arrow, a.eyebrow:focus-visible .eyebrow-arrow { transform: translateX(3px); }
 		h1.hero-h {
 			font-family: var(--font-display);
 			font-size: clamp(52px, 6.8vw, 108px);
@@ -2382,19 +2394,20 @@
 <main id="main-content" tabindex="-1">
 <section class="hero">
 	<div class="hero-text">
-		<div class="eyebrow">Open beta · live now</div>
+		<a class="eyebrow" href="/forge" aria-label="New: Text to 3D is live — open the Forge">New · Text&nbsp;→&nbsp;3D is live — type a prompt, get a model <span class="eyebrow-arrow" aria-hidden="true">→</span></a>
 		<h1 class="hero-h">
 			The 3D agent<br/>
 			layer of the<br/>
 			<em>internet.</em>
 		</h1>
 		<ul class="hero-bullets">
-			<li><strong>Create</strong> a 3D AI agent from a selfie in 60 seconds</li>
+			<li><strong>Create</strong> a 3D AI agent from a text prompt or selfie in about a minute</li>
 			<li><strong>Embed</strong> it on any website with two lines of HTML</li>
 			<li><strong>Earn</strong> USDC per chat with x402 micropayments</li>
 		</ul>
 		<div class="hero-cta-row">
 			<a class="btn btn--primary" href="/create">Build your agent <span class="arrow">→</span></a>
+			<a class="btn" href="/forge">Text → 3D · live</a>
 			<a class="btn" href="#embed">See the embed</a>
 		</div>
 	</div>
@@ -2440,6 +2453,8 @@
 	<div class="cap-fade cap-fade--l"></div>
 	<div class="cap-track">
 		<div class="cap-inner">
+			<span class="cap-item">Text → 3D generation</span>
+			<span class="cap-sep">·</span>
 			<span class="cap-item">200+ animation clips</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">1-line embed</span>
@@ -2474,6 +2489,8 @@
 			<span class="cap-sep">·</span>
 		</div>
 		<div class="cap-inner" aria-hidden="true">
+			<span class="cap-item">Text → 3D generation</span>
+			<span class="cap-sep">·</span>
 			<span class="cap-item">200+ animation clips</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">1-line embed</span>
@@ -2644,8 +2661,8 @@
 				<div class="door-screenshot">
 					<div class="door-agent" id="door-create"></div>
 				</div>
-				<h3>Selfie to agent in 60 seconds.</h3>
-				<p>Snap a selfie or upload a GLB. Add a personality prompt, pick a voice, wire up your AI. Publish to the marketplace or keep it private.</p>
+				<h3>Prompt to agent in 60 seconds.</h3>
+				<p>Type a description, snap a selfie, or upload a GLB. Add a personality prompt, pick a voice, wire up your AI. Publish to the marketplace or keep it private.</p>
 				<span class="door-cta">Start building</span>
 			</a>
 			<a class="door" href="/docs">
@@ -3996,6 +4013,7 @@
 			<div class="foot-col">
 				<div class="foot-col-h">Product</div>
 				<a href="/create">Build an agent</a>
+				<a href="/forge">Text to 3D</a>
 				<a href="/marketplace">Marketplace</a>
 				<a href="/discover">Discover</a>
 				<a href="/pricing">Pricing</a>

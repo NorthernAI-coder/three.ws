@@ -39,6 +39,7 @@
 	// it makes no "new" claim — that comes from the nav markers at runtime.
 	var FEATURES = {
 		'/forge':          { label: 'Forge',          desc: 'Turn a text prompt into a textured 3D model.' },
+		'/create/prompt':  { label: 'Describe it to 3D', desc: 'Type a description → a rigged 3D avatar.' },
 		'/scan':           { label: 'Scan',           desc: 'Turn a selfie into a rigged 3D avatar.' },
 		'/studio':         { label: 'Studio',         desc: 'Customize your avatar and grab an embed for any site.' },
 		'/scene':          { label: 'Scene Studio',   desc: 'Import GLBs, compose full 3D scenes, and export.' },
@@ -62,7 +63,7 @@
 	};
 
 	// Under-used "hidden gems" — the pool the passive prompt draws from first.
-	var HIDDEN_GEMS = ['/studio', '/embed.html', '/docs', '/launchpad', '/marketplace', '/lipsync', '/voice', '/brain', '/skills'];
+	var HIDDEN_GEMS = ['/forge', '/create/prompt', '/studio', '/embed.html', '/docs', '/launchpad', '/marketplace', '/lipsync', '/voice', '/brain', '/skills'];
 
 	// Cross-links shown when a feature finishes (`tws:feature-done`). Every target
 	// is a confirmed live route; the adjacent action is the natural next step.

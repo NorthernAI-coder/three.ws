@@ -171,7 +171,8 @@ function renderGroup(group) {
 }
 
 function renderTopLink(link) {
-	return `<a href="${escHtml(link.href)}">${escHtml(link.label)}</a>`;
+	const badge = link.badge ? ` <span class="nav-pill-sm">${escHtml(link.badge)}</span>` : '';
+	return `<a href="${escHtml(link.href)}">${escHtml(link.label)}${badge}</a>`;
 }
 
 function renderDrawerLink(item) {
