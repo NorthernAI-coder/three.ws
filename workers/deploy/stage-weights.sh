@@ -15,7 +15,7 @@
 #     box with ~80 GB free disk (e.g. a GCE VM).
 #
 # Usage (Cloud Shell, full fleet):
-#   HF_TOKEN=hf_xxx SERVICES="hunyuan3d trellis triposr unirig" ./stage-weights.sh
+#   HF_TOKEN=hf_xxx SERVICES="hunyuan3d trellis triposr triposg unirig" ./stage-weights.sh
 #
 # Env:
 #   WEIGHTS_BUCKET  GCS bucket name        (default: three-ws-model-weights)
@@ -36,11 +36,15 @@ STAGE_DIR="${STAGE_DIR:-/tmp/three-ws-weights}"
 FORCE="${FORCE:-0}"
 
 # service -> "hf_repo|bucket_subdir" (sources documented in each worker's main.py)
+# `triposg` is three repos: the image pipeline, the scribble (sketch→3D)
+# pipeline, and RMBG-1.4 for its image-mode background removal — stage_one
+# handles the multi-repo case.
 weight_source() {
   case "$1" in
     hunyuan3d) echo "tencent/Hunyuan3D-2.1|hunyuan3d-2.1" ;;
     trellis)   echo "microsoft/TRELLIS-image-large|trellis-large" ;;
     triposr)   echo "stabilityai/TripoSR|triposr" ;;
+    triposg)   echo "VAST-AI/TripoSG|triposg VAST-AI/TripoSG-scribble|triposg-scribble briaai/RMBG-1.4|rmbg-1.4" ;;
     unirig)    echo "VAST-AI/UniRig|unirig" ;;
     *)         echo "" ;;
   esac
@@ -94,10 +98,18 @@ if [ "$LOCAL_STAGE" != "1" ]; then
 fi
 
 stage_one() {
-  local svc="$1" src repo subdir dest target
+  local svc="$1" src pair
   src="$(weight_source "$svc")"
-  [ -n "$src" ] || die "unknown service '$svc' (valid: hunyuan3d trellis triposr unirig)"
-  repo="${src%%|*}"; subdir="${src##*|}"
+  [ -n "$src" ] || die "unknown service '$svc' (valid: hunyuan3d trellis triposr triposg unirig)"
+  # A service may need several HF repos (triposg) — stage each pair.
+  for pair in $src; do
+    stage_repo "$svc" "$pair"
+  done
+}
+
+stage_repo() {
+  local svc="$1" repo subdir dest target
+  repo="${2%%|*}"; subdir="${2##*|}"
   dest="gs://${WEIGHTS_BUCKET}/${subdir}"
 
   if [ "$FORCE" != "1" ] && gcloud storage ls "${dest}/" >/dev/null 2>&1; then

@@ -355,6 +355,11 @@
 					grid-template-columns: repeat(2, 1fr);
 				}
 			}
+			/* Sketch mode reuses the view-slot kit with a single, wider slot.
+			   Declared after both .views-grid rules so it wins at every width. */
+			.sketch-grid {
+				grid-template-columns: minmax(140px, 240px);
+			}
 			.view-slot {
 				position: relative;
 				aspect-ratio: 1 / 1;
@@ -1214,6 +1219,11 @@
 					<button type="button" role="tab" data-mode="image" aria-selected="false">
 						From photos
 					</button>
+					<!-- Hidden until the catalog reports a live sketch engine (TripoSG
+					     self-host) — no dead tab on deployments without the worker. -->
+					<button type="button" role="tab" data-mode="sketch" aria-selected="false" hidden>
+						From a sketch
+					</button>
 				</div>
 			</div>
 
@@ -1257,6 +1267,36 @@
 						Add 1–4 views of the <strong>same</strong> object (front · back · left ·
 						right). Drag to drop, click to browse, drag a thumbnail to reorder.
 						PNG/JPG/WebP, up to 8&nbsp;MB each.
+					</p>
+				</div>
+
+				<!-- Sketch → 3D (TripoSG-scribble) -->
+				<div id="sketch-pane" class="image-pane is-hidden">
+					<div
+						class="views-grid sketch-grid"
+						id="sketch-grid"
+						aria-label="Your sketch — add one drawing"
+					></div>
+					<input
+						type="file"
+						id="sketch-file-input"
+						accept="image/png,image/jpeg,image/webp"
+						hidden
+					/>
+					<label for="sketch-prompt" class="is-hidden"
+						>What does the sketch depict? (required)</label
+					>
+					<textarea
+						id="sketch-prompt"
+						class="image-prompt"
+						maxlength="1000"
+						placeholder="What is it? — e.g. “a cartoon rocket with two tail fins” (required)"
+					></textarea>
+					<p class="views-hint">
+						Drop one drawing — dark strokes on a light background work best — and say
+						what it depicts. PNG/JPG/WebP, up to 8&nbsp;MB. The result is untextured
+						geometry: use <strong>Stylize</strong> or <strong>Retexture</strong> on it
+						after.
 					</p>
 				</div>
 

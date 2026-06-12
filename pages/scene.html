@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="en" data-theme="dark">
 	<head>
-		<!-- Scene Studio is dark-locked: pro 3D tools read best on a dark chrome,
-		     so this page pins the theme instead of running the site theme boot. -->
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<!-- Scene Studio is dark-locked (the entry module re-pins data-theme="dark"
+		     after the site theme boot): the editor chrome only ships dark. -->
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Scene Studio · Assemble 3D worlds · three.ws</title>
@@ -67,7 +68,10 @@
 		<script src="/scene-studio/libs/tern-threejs/threejs.js"></script>
 		<script src="/scene-studio/libs/signals.min.js"></script>
 		<script src="/scene-studio/draco/draco_encoder.js"></script>
-	</head>
+	
+	<link rel="canonical" href="https://three.ws/scene">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Scene Studio","description":"Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.","url":"https://three.ws/scene","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="scene-studio">
 		<div id="nav-container"></div>
 		<div id="studio-app" role="application" aria-label="Scene Studio 3D editor"></div>
