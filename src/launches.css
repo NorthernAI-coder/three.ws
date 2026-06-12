@@ -890,6 +890,13 @@ body {
 	line-height: var(--leading-normal);
 }
 
+.lx-state-ctas {
+	display: flex;
+	justify-content: center;
+	gap: var(--space-sm);
+	flex-wrap: wrap;
+}
+
 .lx-footer-state {
 	display: flex;
 	justify-content: center;

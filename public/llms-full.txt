@@ -102,6 +102,18 @@ URL: https://three.ws/app
 
 Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.
 
+### Describe it to 3D
+
+URL: https://three.ws/create/prompt
+
+Type a description. About a minute later: a rigged 3D avatar you can animate and download.
+
+### Forge — Text to 3D
+
+URL: https://three.ws/forge
+
+Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
+
 ### Scene Studio
 
 URL: https://three.ws/scene
@@ -614,6 +626,30 @@ URL: https://three.ws/tutorials
 
 Step-by-step build guides.
 
+### Tutorial · Text Prompt to 3D Model
+
+URL: https://three.ws/tutorials/text-to-3d
+
+Five-minute beginner walkthrough of the Forge: type a sentence, pick a quality tier, and download a textured GLB model.
+
+### Tutorial · Photos to 3D Model
+
+URL: https://three.ws/tutorials/image-to-3d
+
+Photograph a real object from up to four angles and reconstruct it as a textured 3D model — photo tips, guidance prompts, troubleshooting.
+
+### Tutorial · Prompt Recipes for 3D Generation
+
+URL: https://three.ws/tutorials/prompts-for-3d
+
+A copy-paste prompt cookbook for 3D generation: game props, furniture, characters, vehicles, food — and the four rules behind every good prompt.
+
+### Tutorial · Generate 3D Models from Code
+
+URL: https://three.ws/tutorials/generate-3d-api
+
+Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, batch asset packs, and pay per call with x402.
+
 ### Status
 
 URL: https://three.ws/status
@@ -629,6 +665,18 @@ Long-form announcements, launches, and writing from three.ws.
 URL: https://three.ws/blog
 
 Editorial index of three.ws launches and long-form posts.
+
+### Text to 3D Is Live: Forge Turns a Prompt Into a Textured 3D Model
+
+URL: https://three.ws/blog/text-to-3d-forge-launch
+
+Forge is live on three.ws. Type a description — or upload a photo or sketch — and get a textured, downloadable GLB in 30–90 seconds. Free draft lane, AR inspection, shareable links, and one-click attach to your AI agent.
+
+### Text to 3D Is Live — Type a Prompt, Download a 3D Model
+
+URL: https://three.ws/blog/text-to-3d-is-live
+
+Forge is live on three.ws: type a description and get a textured, downloadable 3D model (GLB) in your browser. Image to 3D from photos works too. Free draft tier, no install.
 
 ### 3D + AI + Web3 Just Converged: three.ws Shipped the Whole Stack
 
@@ -870,6 +918,12 @@ Product launches, integrations, and announcements from three.ws.
 URL: https://three.ws/news/
 
 Product launches, integrations, and announcements from three.ws.
+
+### Text to 3D Is Live — Type a Prompt, Download a 3D Model
+
+URL: https://three.ws/news/text-to-3d-is-live
+
+Forge is live at three.ws/forge: type a description, get a textured, interactive 3D model you can orbit, view in AR, and download as a GLB. Image to 3D from photos works too — and agents can call the same pipeline over MCP.
 
 ### three.ws Wins DEXTools Social Boost — $5,543 $three Buyback
 

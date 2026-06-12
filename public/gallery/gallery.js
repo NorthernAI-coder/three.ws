@@ -254,7 +254,8 @@ async function loadPage() {
 				: `<div class="gallery-empty">
 						<div class="gallery-empty-art">✨</div>
 						<h3>No public avatars yet</h3>
-						<p>Be the first — upload a GLB in the dashboard and set its visibility to <strong>public</strong> so it shows up here.</p>
+						<p>Be the first — describe an avatar in a sentence and generate it, or upload a GLB in the dashboard and set its visibility to <strong>public</strong>.</p>
+						<a class="gallery-clear-cta" href="/create/prompt">Create from a prompt</a>
 						<a class="gallery-clear-cta" href="/dashboard/avatars">Open dashboard</a>
 					</div>`;
 		} else {

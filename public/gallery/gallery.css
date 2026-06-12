@@ -664,6 +664,17 @@ body.gallery-page {
 .gallery-empty .gallery-clear-cta:hover {
 	filter: brightness(1.1);
 }
+.gallery-empty .gallery-clear-cta + .gallery-clear-cta {
+	margin-left: 8px;
+	background: rgba(255, 255, 255, 0.08);
+	color: #fff;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.gallery-empty .gallery-clear-cta + .gallery-clear-cta:hover {
+	filter: none;
+	background: rgba(255, 255, 255, 0.14);
+	border-color: rgba(255, 255, 255, 0.32);
+}
 .gallery-error {
 	color: #fca5a5;
 	padding: 16px;

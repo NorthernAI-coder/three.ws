@@ -10,6 +10,7 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { peekCalledTool } from './_lib/mcp-dispatch.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcp3d/dispatch.js';
+import { STUDIO_CHALLENGE } from './_mcp3d/discovery.js';
 import {
 	send401,
 	sendJsonRpcError,
@@ -19,10 +20,13 @@ import {
 } from './_mcp/auth.js';
 import { sendX402Error } from './_mcp/payments.js';
 
+const RESOURCE_PATH = '/api/mcp-3d';
+
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
 
-	if (req.method === 'GET' || req.method === 'HEAD') return handleSse(req, res);
+	if (req.method === 'GET' || req.method === 'HEAD')
+		return handleSse(req, res, { resourcePath: RESOURCE_PATH, challenge: STUDIO_CHALLENGE });
 	if (req.method === 'DELETE') return handleTerminate(req, res);
 	if (req.method !== 'POST') return send401(res, 'method not supported');
 
@@ -32,6 +36,8 @@ export default wrap(async (req, res) => {
 	const { toolName } = peekCalledTool(body);
 
 	const result = await authenticateRequest(req, res, {
+		resourcePath: RESOURCE_PATH,
+		challenge: STUDIO_CHALLENGE,
 		allowFree: Boolean(toolName && isPublicTool(toolName)),
 	});
 	if (!result) return;

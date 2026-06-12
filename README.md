@@ -4,7 +4,9 @@
 
 https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 
-**Give your AI a body.** three.ws is an open-source, browser-native 3D AI agent platform. Drop a GLB file, add an LLM brain, register on-chain, and embed anywhere — no plugins, no server uploads, no installs required.
+**Give your AI a body.** three.ws is an open-source, browser-native 3D AI agent platform. Type a prompt and [**Forge**](https://three.ws/forge) generates a textured 3D model — or drop a GLB you already have. Add an LLM brain, register on-chain, and embed anywhere — no plugins, no server uploads, no installs required.
+
+> **Try it in 60 seconds:** open [three.ws/forge](https://three.ws/forge), type *"a brass steampunk owl, full body"*, and download the GLB. Text→3D, image→3D, and sketch→3D — free draft tier, no account. [Jump to the Forge section ↓](#forge--text--image-to-3d)
 
 ### $THREE
 
@@ -27,6 +29,7 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 - [Vision](#vision)
 - [Roadmap](#roadmap)
 - [Key Features](#key-features)
+- [Forge — Text & Image to 3D](#forge--text--image-to-3d)
 - [Platform Pages](#platform-pages)
 - [Cloud Marketplaces](#cloud-marketplaces)
 - [Ecosystem Directories](#ecosystem-directories)
@@ -96,15 +99,17 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 
 three.ws is a full-stack system for creating, deploying, and embedding 3D AI agents. It combines a WebGL model viewer, an LLM-driven agent runtime, on-chain identity contracts, and a distributable web component into one cohesive platform.
 
-At its core, it does four things:
+At its core, it does five things:
 
-1. **Render** — loads and validates glTF 2.0 / GLB models in WebGL 2.0 with zero server-side processing. Drag a file onto the browser and it renders instantly with full Draco, KTX2, and Meshopt decompression.
+1. **Generate** — turns a text prompt, 1–4 photos, or a sketch into a textured, downloadable GLB via [Forge](https://three.ws/forge). Free draft tier, no account required; auto-rigging, restyling, and retexturing in the same flow.
 
-2. **Embody** — wraps any avatar with an LLM brain. The agent listens to the user, thinks with Claude, executes tools (animations, gestures, memory operations, skill calls), and expresses emotion through morph-target blending on the 3D model in real time.
+2. **Render** — loads and validates glTF 2.0 / GLB models in WebGL 2.0 with zero server-side processing. Drag a file onto the browser and it renders instantly with full Draco, KTX2, and Meshopt decompression.
 
-3. **Register** — optionally mints the agent on-chain: as an **ERC-8004 token on any EVM chain**, or as a **Metaplex Core NFT on Solana**. Either path gives the agent a stable on-chain identity, a wallet address, signed action history, and a reputation score that cannot be forged.
+3. **Embody** — wraps any avatar with an LLM brain. The agent listens to the user, thinks with Claude, executes tools (animations, gestures, memory operations, skill calls), and expresses emotion through morph-target blending on the 3D model in real time.
 
-4. **Embed** — distributes the agent as an `<agent-3d>` web component that anyone can drop into a page, or as one of five purpose-built widget types (turntable, animation gallery, talking agent, passport card, hotspot tour) with Open Graph and oEmbed support built in.
+4. **Register** — optionally mints the agent on-chain: as an **ERC-8004 token on any EVM chain**, or as a **Metaplex Core NFT on Solana**. Either path gives the agent a stable on-chain identity, a wallet address, signed action history, and a reputation score that cannot be forged.
+
+5. **Embed** — distributes the agent as an `<agent-3d>` web component that anyone can drop into a page, or as one of five purpose-built widget types (turntable, animation gallery, talking agent, passport card, hotspot tour) with Open Graph and oEmbed support built in.
 
 The backend is a set of Vercel serverless functions backed by Neon Postgres for metadata, Cloudflare R2 for model storage, and Upstash Redis for rate limiting. It exposes a full OAuth 2.1 authorization server and an MCP (Model Context Protocol) endpoint so external AI systems can drive avatars programmatically.
 
@@ -243,6 +248,14 @@ If you want to support the project — compute credits, grants, partnerships, or
 
 ## Key Features
 
+**Text → 3D Generation (Forge)**
+
+- Prompt-to-3D at [three.ws/forge](https://three.ws/forge) — describe an object in a sentence and download a textured GLB
+- Image→3D (one to four photos) and sketch→3D in the same composer
+- Multiple generation engines with live health checks: self-hosted lanes plus bring-your-own-key Meshy and Tripo (keys stay in the browser)
+- Prompt-to-avatar at [three.ws/create/prompt](https://three.ws/create/prompt) — a description becomes a rigged, animatable 3D avatar
+- Generated models carry straight into Scene Studio, embeds, worlds, and on-chain deployment
+
 **3D Viewer**
 
 - WebGL 2.0 rendering via three.js r176
@@ -328,6 +341,55 @@ If you want to support the project — compute credits, grants, partnerships, or
 
 ---
 
+## Forge — Text & Image to 3D
+
+Type a sentence, get a 3D model. [**Forge**](https://three.ws/forge) turns a text prompt, one to four photos, or a rough sketch into a textured, downloadable GLB — in the browser, with a free draft tier and no account required.
+
+| Input | How it works | Typical time |
+| --- | --- | --- |
+| **Text** | Describe the object — *"a brass steampunk owl, full body"* | ~30–90 s |
+| **Image** | Upload 1–4 reference views (front/back/left/right); multi-view removes back-of-object hallucination | ~30–90 s |
+| **Sketch** | Draw it and name it — TripoSG-scribble reconstructs the geometry | ~30–90 s |
+
+Three quality tiers — `draft` (~12k polygons), `standard` (~30k, default), `high` (~200k + PBR textures) — and two generation paths: the platform-keyed image pipeline (FLUX → TRELLIS) that works with no key at all, and bring-your-own-key native geometry via **Meshy** or **Tripo** for the cleanest quad topology (your key stays in your browser).
+
+Forge is not a dead end. Every generated model carries straight into the rest of the platform: open it in **Scene Studio**, **auto-rig** it into an animatable character, restyle it (voxel / brick / voronoi / low-poly), retexture it from a prompt, embed it with `<agent-3d>`, give it an LLM brain, or deploy it on-chain. Prompt-to-avatar lives at [three.ws/create/prompt](https://three.ws/create/prompt) — a description becomes a rigged, animatable agent body.
+
+### REST API
+
+The same engine is one HTTP call, free and auth-free:
+
+```bash
+# Submit a text→3D job
+curl -X POST https://three.ws/api/forge \
+  -H 'content-type: application/json' \
+  -d '{"prompt": "a brass steampunk owl, full body", "tier": "standard"}'
+# → { "job_id": "…", … }
+
+# Poll until done
+curl 'https://three.ws/api/forge?job=<job_id>'
+# → { "status": "done", "glb_url": "https://…/model.glb", … }
+```
+
+Image→3D is the same endpoint with `image_urls: ["https://…/front.png", …]` (1–4 views) instead of a prompt. `GET /api/forge?catalog` returns the live tier/backend/cost matrix.
+
+### From Claude, Cursor, or any MCP client
+
+The **3D Studio MCP server** at `https://three.ws/api/mcp-3d` exposes the full pipeline as 15 tools — `text_to_3d`, `image_to_3d`, `auto_rig_model`, `apply_animation`, `stylize_model`, `retexture_model`, `segment_model`, and more — so an AI assistant can generate, rig, and animate a model mid-conversation and render it as an inline interactive artifact. See [docs/mcp-3d-studio.md](docs/mcp-3d-studio.md).
+
+### Pay-per-call for autonomous agents (x402)
+
+`POST /api/x402/forge` is the monetized twin: agents pay per generation in USDC on Base or Solana — no API key, no account. Draft $0.05, standard $0.15, high $0.50; polling is free; retried payments are idempotent and never double-charge. See [docs/api/forge-x402.md](docs/api/forge-x402.md).
+
+### Learn more
+
+- [Tutorial: Turn a Text Prompt into a 3D Model](docs/tutorials/text-to-3d.md) — first model in about a minute
+- [Tutorial: Turn Photos into a 3D Model](docs/tutorials/image-to-3d.md) — reconstruct a real object from 1–4 photos
+- [3D Studio MCP server](docs/mcp-3d-studio.md) — generate from inside Claude or Cursor
+- [Paid generation API (x402)](docs/api/forge-x402.md) — autonomous agent-to-agent generation
+
+---
+
 ## Platform Pages
 
 A map of every user-facing route. Full detail (source files, feature descriptions, hash-routes) is in [docs/internal/PAGES.md](docs/internal/PAGES.md).
@@ -335,6 +397,7 @@ A map of every user-facing route. Full detail (source files, feature description
 | Section              | Key URLs                                                                                        | What it does                                                                                                    |
 | -------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | **Landing**          | `/`, `/features`, `/discover`                                                                   | Marketing, public agent directory                                                                               |
+| **Forge (Text→3D)**  | `/forge`, `/create/prompt`                                                                      | Prompt / photo / sketch → textured GLB; prompt → rigged, animatable avatar                                      |
 | **App / Core**       | `/app`, `/create`, `/first-meet`                                                                | 3D viewer, agent creation wizard, onboarding                                                                    |
 | **Marketplace**      | `/marketplace`, `/marketplace/agents/[id]`                                                      | Browsable agent marketplace                                                                                     |
 | **Chat SPA**         | `/chat`                                                                                         | Full Svelte AI chat with model selector, tools, artifacts, wallet                                               |
@@ -817,6 +880,8 @@ Step-by-step guides in [`docs/tutorials/`](docs/tutorials/):
 
 | Tutorial                                                       | What you'll build                                                    | Time    |
 | -------------------------------------------------------------- | -------------------------------------------------------------------- | ------- |
+| [Turn a Text Prompt into a 3D Model](docs/tutorials/text-to-3d.md) | A real, textured, downloadable 3D model from a one-line description | ~5 min  |
+| [Turn Photos into a 3D Model](docs/tutorials/image-to-3d.md)   | A GLB reconstructed from 1–4 photos of a real object                 | ~10 min |
 | [Build Your First Agent](docs/tutorials/first-agent.md)        | A talking 3D character on a shareable page, from zero                | ~20 min |
 | [Embed on Your Website](docs/tutorials/embed-on-website.md)    | Add an agent to any page — plain HTML, React, Webflow, WordPress     | ~15 min |
 | [Write a Custom Skill](docs/tutorials/custom-skill.md)         | A new tool the agent can call (e.g., fetch live weather data)        | ~30 min |

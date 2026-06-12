@@ -17,6 +17,7 @@ const POLL_MS = 30_000;
 const DAYS_WINDOW = 7;
 const REL_TIME_TICK_MS = 60_000;
 const ONBOARDING_DISMISSED_KEY = 'twx_onboarding_dismissed';
+const FORGE_ANNOUNCE_DISMISSED_KEY = 'twx_forge_announce_dismissed';
 
 const STATE = {
 	pollHandle: null,
@@ -31,8 +32,11 @@ const STATE = {
 	const greeting = me.display_name || me.username || (me.email ? me.email.split('@')[0] : 'creator');
 	const isNew = !me.created_at || (Date.now() - new Date(me.created_at).getTime()) < 30 * 86400_000;
 	const dismissed = localStorage.getItem(ONBOARDING_DISMISSED_KEY) === '1';
+	const forgeAnnounceDismissed = localStorage.getItem(FORGE_ANNOUNCE_DISMISSED_KEY) === '1';
 
 	main.innerHTML = `
+		${!forgeAnnounceDismissed ? `<section data-slot="announce" class="dnx-announce-wrap"></section>` : ''}
+
 		<h1 class="dn-h1">Welcome back, ${esc(greeting)}.</h1>
 		<p class="dn-h1-sub">Your live avatars, revenue, widget reach, and the latest visitor activity.</p>
 
@@ -54,6 +58,7 @@ const STATE = {
 	renderSkeletons(main);
 
 	const slots = {
+		announce: main.querySelector('[data-slot="announce"]'),
 		onboarding: main.querySelector('[data-slot="onboarding"]'),
 		hero: main.querySelector('[data-slot="hero"]'),
 		kpis: main.querySelector('[data-slot="kpis"]'),
@@ -62,6 +67,8 @@ const STATE = {
 		directory: main.querySelector('[data-slot="directory"]'),
 		activity: main.querySelector('[data-slot="activity"]'),
 	};
+
+	if (slots.announce) renderForgeAnnounce(slots.announce);
 
 	const [avatarsRes, widgetsRes, agentsRes] = await Promise.allSettled([
 		get('/api/avatars?limit=50'),
@@ -478,6 +485,29 @@ function repaintRelTimes(host) {
 
 const ICON_CHAT = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10v7H6l-3 2.5V4z"/></svg>';
 const ICON_COIN = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v6M6 7h3.2a1.2 1.2 0 010 2.4H7a1.2 1.2 0 000 2.4h3.2"/></svg>';
+
+// ── Launch announcement: text-to-3D ───────────────────────────────────────
+
+function renderForgeAnnounce(host) {
+	host.innerHTML = `
+		<div class="dnx-announce" role="region" aria-label="New feature announcement">
+			<span class="dnx-announce-badge">New</span>
+			<p class="dnx-announce-text">
+				<strong>Text to 3D is live.</strong>
+				Describe any object and Forge generates a textured GLB you can drop into scenes, worlds, and widgets.
+			</p>
+			<a class="dn-btn dnx-announce-cta" href="/forge">Try Forge →</a>
+			<button class="dnx-announce-dismiss" aria-label="Dismiss announcement" title="Dismiss">
+				<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 1l10 10M11 1L1 11"/></svg>
+			</button>
+		</div>
+	`;
+
+	host.querySelector('.dnx-announce-dismiss').addEventListener('click', () => {
+		localStorage.setItem(FORGE_ANNOUNCE_DISMISSED_KEY, '1');
+		host.remove();
+	});
+}
 
 // ── Onboarding checklist ──────────────────────────────────────────────────
 
@@ -1310,6 +1340,45 @@ function injectStyles() {
 		.dnx-activity-icon { color: var(--nxt-ink-fade); display: inline-grid; place-items: center; }
 		.dnx-activity-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.dnx-activity-time { color: var(--nxt-ink-fade); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+		/* ── Launch announcement: text-to-3D ── */
+		.dnx-announce-wrap { margin-bottom: 16px; }
+		.dnx-announce {
+			display: flex; align-items: center; gap: 12px;
+			padding: 11px 14px;
+			border-radius: var(--nxt-radius-sm);
+			border: 1px solid var(--nxt-stroke-strong);
+			background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+		}
+		.dnx-announce-badge {
+			flex-shrink: 0;
+			padding: 2px 8px;
+			border-radius: var(--nxt-radius-pill);
+			border: 1px solid var(--nxt-stroke-strong);
+			background: rgba(255,255,255,0.1);
+			font-size: 10.5px; font-weight: 700;
+			letter-spacing: 0.08em; text-transform: uppercase;
+			color: var(--nxt-ink);
+		}
+		.dnx-announce-text {
+			flex: 1; min-width: 0; margin: 0;
+			font-size: 13px; color: var(--nxt-ink-dim);
+		}
+		.dnx-announce-text strong { color: var(--nxt-ink); font-weight: 600; }
+		.dnx-announce-cta { flex-shrink: 0; font-size: 12px; padding: 5px 12px; white-space: nowrap; }
+		.dnx-announce-dismiss {
+			background: none; border: none; cursor: pointer;
+			color: var(--nxt-ink-fade); padding: 4px; border-radius: 6px;
+			display: grid; place-items: center; flex-shrink: 0;
+			transition: color 0.12s ease, background 0.12s ease;
+		}
+		.dnx-announce-dismiss:hover { color: var(--nxt-ink); background: rgba(255,255,255,0.06); }
+		@media (max-width: 600px) {
+			.dnx-announce { flex-wrap: wrap; }
+			.dnx-announce-text { flex-basis: 100%; order: 3; }
+			.dnx-announce-cta { order: 4; }
+			.dnx-announce-dismiss { margin-left: auto; order: 2; }
+		}
 
 		/* ── Onboarding checklist ── */
 		.dnx-onboarding-wrap { margin-bottom: 4px; }
