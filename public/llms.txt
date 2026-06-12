@@ -29,6 +29,8 @@ Create and customize an agent.
 - [Create Agent](https://three.ws/create): Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.
 - [Create an Agent](https://three.ws/create-agent): Step-by-step wizard to create a 3D AI agent: name, 3D body, skills, personality, voice, and on-chain identity.
 - [Viewer](https://three.ws/app): Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.
+- [Describe it to 3D](https://three.ws/create/prompt): Type a description. About a minute later: a rigged 3D avatar you can animate and download.
+- [Forge — Text to 3D](https://three.ws/forge): Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 - [Scene Studio](https://three.ws/scene): Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.
 - [glTF Validator](https://three.ws/validation): Khronos-spec validator for glTF/GLB files. Paste a URL or upload a model.
 - [Widget Studio](https://three.ws/studio): Pick an avatar, configure embed options, copy a one-line snippet for your site.
@@ -128,6 +130,10 @@ Docs, tutorials, and reference.
 - [Docs · SDK](https://three.ws/docs/sdk): JavaScript / Node SDK for three.ws.
 - [Docs · Listings & Distribution](https://three.ws/docs/listings): Cloud marketplaces and ecosystem directories where three.ws is listed (Alibaba Cloud, BNB Chain Dappbay, and more).
 - [Tutorials](https://three.ws/tutorials): Step-by-step build guides.
+- [Tutorial · Text Prompt to 3D Model](https://three.ws/tutorials/text-to-3d): Five-minute beginner walkthrough of the Forge: type a sentence, pick a quality tier, and download a textured GLB model.
+- [Tutorial · Photos to 3D Model](https://three.ws/tutorials/image-to-3d): Photograph a real object from up to four angles and reconstruct it as a textured 3D model — photo tips, guidance prompts, troubleshooting.
+- [Tutorial · Prompt Recipes for 3D Generation](https://three.ws/tutorials/prompts-for-3d): A copy-paste prompt cookbook for 3D generation: game props, furniture, characters, vehicles, food — and the four rules behind every good prompt.
+- [Tutorial · Generate 3D Models from Code](https://three.ws/tutorials/generate-3d-api): Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, batch asset packs, and pay per call with x402.
 - [Status](https://three.ws/status): Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.
 
 ## Blog
@@ -135,6 +141,8 @@ Docs, tutorials, and reference.
 Long-form announcements, launches, and writing from three.ws.
 
 - [Blog](https://three.ws/blog): Editorial index of three.ws launches and long-form posts.
+- [Text to 3D Is Live: Forge Turns a Prompt Into a Textured 3D Model](https://three.ws/blog/text-to-3d-forge-launch): Forge is live on three.ws. Type a description — or upload a photo or sketch — and get a textured, downloadable GLB in 30–90 seconds. Free draft lane, AR inspection, shareable links, and one-click attach to your AI agent.
+- [Text to 3D Is Live — Type a Prompt, Download a 3D Model](https://three.ws/blog/text-to-3d-is-live): Forge is live on three.ws: type a description and get a textured, downloadable 3D model (GLB) in your browser. Image to 3D from photos works too. Free draft tier, no install.
 - [3D + AI + Web3 Just Converged: three.ws Shipped the Whole Stack](https://three.ws/blog/3d-ai-crypto-convergence): A web2 unicorn just raised ~$200M to build 3D AI agents. three.ws is the only crypto-native team that already shipped the full stack: browser 3D, a multi-provider MCP runtime, and on-chain agent wallets that pay each other in USDC. Open source on GitHub, published to npm, and live on Anthropic
 - [three.ws Wins DEXTools Social Boost — $5,543 $three Buyback](https://three.ws/blog/three-ws-dextools-social-boost-buyback): three.ws is DEXTools
 - [three.ws Featured on the Alibaba Cloud Marketplace Blog](https://three.ws/blog/three-ws-featured-on-alibaba-cloud-marketplace-blog): Alibaba Cloud Marketplace published an editorial on three.ws — browser-native 3D AI agents you deploy with a single <agent-3d> tag, with a Claude-powered runtime, ERC-8004 identity, and an Apache 2.0 open-source stack.
@@ -171,6 +179,7 @@ Long-form announcements, launches, and writing from three.ws.
 Product launches, integrations, and announcements from three.ws.
 
 - [News & Announcements](https://three.ws/news/): Product launches, integrations, and announcements from three.ws.
+- [Text to 3D Is Live — Type a Prompt, Download a 3D Model](https://three.ws/news/text-to-3d-is-live): Forge is live at three.ws/forge: type a description, get a textured, interactive 3D model you can orbit, view in AR, and download as a GLB. Image to 3D from photos works too — and agents can call the same pipeline over MCP.
 - [three.ws Wins DEXTools Social Boost — $5,543 $three Buyback](https://three.ws/news/three-ws-dextools-social-boost-buyback): three.ws is DEXTools' Social Boost winner of the week, earning a $5,543 buyback of $three. The DEXTools wallet now holds a total of 2.47M $three.
 - [three.ws Featured on the Alibaba Cloud Marketplace Blog](https://three.ws/news/three-ws-featured-on-alibaba-cloud-marketplace-blog): Alibaba Cloud Marketplace published an editorial introducing three.ws — Render, Embody, Register, Embed: browser-native 3D AI agents deployed with a single <agent-3d> tag, with a Claude-powered runtime, ERC-8004 identity, and an Apache 2.0 open-source stack.
 - [One Month In: How three.ws Built the 3D Agent Layer of the Internet](https://three.ws/news/three-ws-first-month-3d-agent-layer): In one month, three.ws went from launch to global coverage: browser-native 3D AI agents listed across major exchanges and data platforms, deployed on four hyperscale clouds, live in Anthropic's MCP Registry, and covered from CoinMarketCap to Vogue. A look back at 30 days of shipping.

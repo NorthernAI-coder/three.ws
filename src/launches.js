@@ -541,11 +541,18 @@ function renderEmpty() {
 						text: 'Clear filter',
 						onclick: () => setAgentFilter(null),
 					})
-				: el('a', {
-						class: 'lx-btn lx-btn-primary',
-						href: '/create-agent',
-						text: 'Create an agent',
-					}),
+				: el('div', { class: 'lx-state-ctas' }, [
+						el('a', {
+							class: 'lx-btn lx-btn-primary',
+							href: '/create-agent',
+							text: 'Create an agent',
+						}),
+						el('a', {
+							class: 'lx-btn',
+							href: '/forge',
+							text: 'Forge its 3D body',
+						}),
+					]),
 		]),
 	);
 }

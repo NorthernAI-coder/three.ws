@@ -2,6 +2,25 @@
   "_readme": "Curated RSS items for https://three.ws/rss/announcements.xml. Edit this file to control exactly what HackerNoon (and any RSS reader) sees. Each entry needs: id (stable slug), title, date (ISO 8601), body_html. Optional: link, author, summary, tags. Items are served newest-first by date; cap is 80. Last merged from data/archives/trythreews_tweets_2026-06-03.json on 2026-06-05 (102 total items, merged June 2026 posts).",
   "items": [
     {
+      "id": "text-to-3d-is-live",
+      "slug": "text-to-3d-is-live",
+      "title": "Text to 3D Is Live — Type a Prompt, Download a 3D Model",
+      "date": "2026-06-12T12:00:00.000Z",
+      "author": "three.ws",
+      "link": "https://three.ws/blog/text-to-3d-is-live",
+      "summary": "Forge is live at three.ws/forge: type a description, get a textured, interactive 3D model you can orbit, view in AR, and download as a GLB. Image to 3D from photos works too — and agents can call the same pipeline over MCP.",
+      "body_html": "<p><strong>Forge is live on three.ws.</strong> Type a description — <em>a crystal wizard with a glowing staff</em> — and get back a textured, interactive 3D model you can orbit, inspect in AR, and download as a standard GLB file. It runs entirely in the browser at <a href=\"https://three.ws/forge\" rel=\"noopener\">three.ws/forge</a>. No install, no signup, no 3D experience required. It also works from photos: upload one to four images of an object and Forge reconstructs it in 3D.</p>\n<h2>How it works</h2>\n<p>Text→3D runs a two-stage pipeline: the prompt is rendered into a reference image by a state-of-the-art image model, then lifted into full textured geometry by TRELLIS, a 3D reconstruction model. The output is a GLB — the open standard that loads in Blender, Unity, Unreal, three.js, and every major 3D tool. Quality tiers (Draft / Standard / High) trade speed for fidelity, and builders with their own Meshy or Tripo API key can plug it in — the key stays in the browser.</p>\n<h2>Not a dead end</h2>\n<p>A generated model feeds the rest of the platform: send it into <a href=\"https://three.ws/scene\" rel=\"noopener\">Scene Studio</a> to compose full 3D scenes, use it as the body of an AI agent, register the agent on-chain, and embed it anywhere with one <code>&lt;agent-3d&gt;</code> tag. The same pipeline is exposed through the three.ws MCP server, so AI agents can generate 3D models programmatically as a tool call.</p>\n<h2>Links</h2>\n<ul>\n<li>Generate from a prompt: <a href=\"https://three.ws/forge\" rel=\"noopener\">three.ws/forge</a></li>\n<li>Full announcement on the three.ws blog: <a href=\"https://three.ws/blog/text-to-3d-is-live\" rel=\"noopener\">three.ws/blog</a></li>\n</ul>",
+      "tags": [
+        "launch",
+        "forge",
+        "text-to-3d",
+        "image-to-3d",
+        "glb",
+        "agents"
+      ],
+      "published": true
+    },
+    {
       "id": "dextools-social-boost-buyback",
       "slug": "three-ws-dextools-social-boost-buyback",
       "title": "three.ws Wins DEXTools Social Boost — $5,543 $three Buyback",
@@ -11,7 +30,14 @@
       "external_link": "https://x.com/DEXToolsApp/status/2064037499060555807",
       "summary": "three.ws is DEXTools' Social Boost winner of the week, earning a $5,543 buyback of $three. The DEXTools wallet now holds a total of 2.47M $three.",
       "body_html": "<p><strong>three.ws is DEXTools' Social Boost winner of the week.</strong> <a href=\"https://x.com/DEXToolsApp/status/2064037499060555807\" rel=\"noopener\">DEXTools announced</a> that the three.ws community earned a <strong>$5,543 buyback</strong>, and that the DEXTools wallet is now holding a total of <strong>2.47M $three</strong>.</p>\n<blockquote>\"Our Social Boost winner this week is @trythreews, who has received a $5,543 buyback! Congrats, guys! Our wallet is currently holding a total of 2.47M $three.\" &mdash; @DEXToolsApp</blockquote>\n<h2>What Social Boost is</h2>\n<p>DEXTools is one of the most-used real-time trading and analytics platforms in DeFi, tracking pairs across every major chain. Its <a href=\"https://www.dextools.io/app/social-boost\" rel=\"noopener\">Social Boost</a> program rewards the projects with the strongest community engagement each week with a buyback executed directly by DEXTools, which acquires and holds the project's token. This week, that community is three.ws &mdash; a $5,543 buyback of <strong>$three</strong> and a DEXTools wallet position that now totals 2.47M tokens.</p>\n<h2>Why it matters</h2>\n<p>A buyback driven by a third-party platform like DEXTools is a signal: it reflects measurable community activity around three.ws across DeFi's most-watched analytics surface, and puts three.ws on the <a href=\"https://www.dextools.io/app/social-boost\" rel=\"noopener\">Social Boost leaderboard</a> in front of the traders and builders who use DEXTools to find what's moving. It builds on the buyback-and-burn mechanism at the core of the three.ws economy.</p>\n<h2>Links</h2>\n<ul>\n<li>DEXTools announcement: <a href=\"https://x.com/DEXToolsApp/status/2064037499060555807\" rel=\"noopener\">@DEXToolsApp</a></li>\n<li>Social Boost leaderboard: <a href=\"https://www.dextools.io/app/social-boost\" rel=\"noopener\">dextools.io/app/social-boost</a></li>\n<li>Full announcement on the three.ws blog: <a href=\"https://three.ws/blog/three-ws-dextools-social-boost-buyback\" rel=\"noopener\">three.ws/blog</a></li>\n</ul>",
-      "tags": ["community", "dextools", "buyback", "social-boost", "solana", "three"],
+      "tags": [
+        "community",
+        "dextools",
+        "buyback",
+        "social-boost",
+        "solana",
+        "three"
+      ],
       "published": true
     },
     {
@@ -24,7 +50,14 @@
       "external_link": "https://x.com/trythreews/status/2064000778248093918",
       "summary": "Alibaba Cloud Marketplace published an editorial introducing three.ws — Render, Embody, Register, Embed: browser-native 3D AI agents deployed with a single <agent-3d> tag, with a Claude-powered runtime, ERC-8004 identity, and an Apache 2.0 open-source stack.",
       "body_html": "<p><strong>Alibaba Cloud Marketplace has published an editorial introducing three.ws.</strong> The post walks through what the platform does and how it works, on Alibaba Cloud's own marketplace blog: <a href=\"https://marketplace.alibabacloud.com/doc/blog/detail/mplace-sgcmfw00036800.html\" rel=\"noopener\">three.ws on the Alibaba Cloud Marketplace blog</a>.</p>\n<p>This follows the three.ws <a href=\"https://three.ws/blog/three-ws-on-alibaba-cloud-marketplace\" rel=\"noopener\">listing on the Alibaba Cloud International Marketplace</a>. The listing made <code>&lt;agent-3d&gt;</code> procurable by every Alibaba Cloud customer; the editorial puts it in front of the marketplace's editorial audience and explains it.</p>\n<h2>What the editorial covers</h2>\n<p>The Alibaba Cloud Marketplace blog introduces three.ws as a browser-based platform for creating and deploying 3D AI agents &mdash; upload a 3D avatar, give it an AI personality, and deploy it as an interactive assistant with no technical setup required. It describes the technical architecture:</p>\n<ul>\n<li><strong>Browser-native 3D rendering</strong> &mdash; glTF 2.0 / GLB in WebGL 2.0 with Draco, KTX2, and Meshopt decompression.</li>\n<li><strong>An LLM-driven agent runtime</strong> &mdash; a Claude-powered brain with tool use, animations, gestures, and memory.</li>\n<li><strong>Optional on-chain identity</strong> &mdash; register an agent via ERC-8004, minting a verifiable, portable identity.</li>\n</ul>\n<h2>Render, Embody, Register, Embed</h2>\n<p>The editorial frames the platform around four functions, the same loop three.ws ships in production: <strong>Render</strong> a 3D model instantly in the browser, <strong>Embody</strong> it with an LLM brain, <strong>Register</strong> an on-chain identity it carries across platforms, and <strong>Embed</strong> it anywhere as a web component with a single <code>&lt;agent-3d&gt;</code> tag. The post notes the entire stack is open source under Apache 2.0 and runs three.ws in production today.</p>\n<h2>Why this matters</h2>\n<p>Alibaba Cloud is the #1 cloud provider in Asia and one of the top four hyperscalers globally. Its International Marketplace serves enterprise customers across China, Southeast Asia, the Middle East, and Latin America. A listing is the procurement flow; an editorial on the marketplace blog is the discovery flow &mdash; it puts three.ws in front of the developers and enterprises already browsing the marketplace for what to build with next.</p>\n<h2>Links</h2>\n<ul>\n<li>Alibaba Cloud Marketplace blog: <a href=\"https://marketplace.alibabacloud.com/doc/blog/detail/mplace-sgcmfw00036800.html\" rel=\"noopener\">three.ws on the Alibaba Cloud Marketplace blog</a></li>\n<li>Our announcement on X: <a href=\"https://x.com/trythreews/status/2064000778248093918\" rel=\"noopener\">@trythreews</a></li>\n<li>Full announcement on the three.ws blog: <a href=\"https://three.ws/blog/three-ws-featured-on-alibaba-cloud-marketplace-blog\" rel=\"noopener\">three.ws/blog</a></li>\n<li>Open source: <a href=\"https://github.com/nirholas/three.ws\" rel=\"noopener\">github.com/nirholas/three.ws</a></li>\n</ul>",
-      "tags": ["press", "alibaba-cloud", "marketplace", "editorial", "agent-3d", "three"],
+      "tags": [
+        "press",
+        "alibaba-cloud",
+        "marketplace",
+        "editorial",
+        "agent-3d",
+        "three"
+      ],
       "published": true
     },
     {

@@ -56,9 +56,9 @@ export function sendAuthChallenge(res, { req, resourceUrl, requirements, challen
 		`Bearer resource_metadata=${quoteString(`${env.APP_ORIGIN}/.well-known/oauth-protected-resource`)}, resource=${quoteString(resource)}`,
 	);
 	// `challenge` (optional) lets a dedicated MCP endpoint advertise its own
-	// service metadata + bazaar discovery in the 402 envelope (e.g. the Granite
-	// server at /api/ibm-mcp). Omitted → build402Body's defaults, unchanged for
-	// the main /api/mcp and /api/mcp-3d servers.
+	// service metadata + bazaar discovery in the 402 envelope (the Granite
+	// server at /api/ibm-mcp, the 3D Studio at /api/mcp-3d). Omitted →
+	// build402Body's defaults, used by the main /api/mcp server.
 	const body = build402Body({ resourceUrl, accepts: requirements, ...(challenge || {}) });
 	res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
 	res.setHeader('content-type', 'application/json; charset=utf-8');
