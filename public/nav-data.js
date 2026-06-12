@@ -14,8 +14,11 @@
 //     - default layout: single-column dropdown of `items`
 //     - 'wide': two-column dropdown of `items`
 //     - 'mega': right-anchored three-column dropdown of named `columns`
-//   item:  { title, href, desc, badge?, attrs? }
+//   item:  { title, href, desc, badge?, badgeTone?, attrs? }
+//     - badgeTone: 'live' tints the badge green with a pulse dot (running now)
 //     - attrs: extra HTML attributes, e.g. { 'data-glossary-open': '' }
+//   top-level link: { label, href, highlight? }
+//     - highlight: renders as the iridescent "hot" pill (one per nav, max)
 
 export const NAV_GROUPS = [
 	{
@@ -25,12 +28,14 @@ export const NAV_GROUPS = [
 				title: 'Text to 3D',
 				href: '/forge',
 				badge: 'Live',
+				badgeTone: 'live',
 				desc: 'Describe an object → textured GLB, usually in seconds',
 			},
 			{
 				title: 'Describe it to 3D',
 				href: '/create/prompt',
 				badge: 'Live',
+				badgeTone: 'live',
 				desc: 'Type a description → rigged 3D avatar in about a minute',
 			},
 			{
@@ -291,7 +296,7 @@ export const NAV_GROUPS = [
 
 // Top-level links rendered after the dropdown groups (no submenu).
 export const NAV_LINKS = [
-	{ label: 'Text → 3D', href: '/forge', badge: 'Live' },
+	{ label: 'Text → 3D', href: '/forge', highlight: true },
 	{ label: 'Pricing', href: '/pricing' },
 ];
 

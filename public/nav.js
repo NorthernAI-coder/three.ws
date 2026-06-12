@@ -135,7 +135,8 @@ function attrString(attrs) {
 }
 
 function renderMenuItem(item) {
-	const badge = item.badge ? ` <span class="nav-pill-sm">${escHtml(item.badge)}</span>` : '';
+	const tone = item.badgeTone === 'live' ? ' nav-pill-live' : '';
+	const badge = item.badge ? ` <span class="nav-pill-sm${tone}">${escHtml(item.badge)}</span>` : '';
 	return (
 		`<a class="nav-mi" href="${escHtml(item.href)}" role="menuitem"${attrString(item.attrs)}>` +
 		`<span class="nav-mi-t">${escHtml(item.title)}${badge}</span>` +
@@ -171,6 +172,13 @@ function renderGroup(group) {
 }
 
 function renderTopLink(link) {
+	if (link.highlight) {
+		return (
+			`<a class="nav-hot" href="${escHtml(link.href)}">` +
+			`<span class="nav-hot-dot" aria-hidden="true"></span>` +
+			`<span class="nav-hot-label">${escHtml(link.label)}</span></a>`
+		);
+	}
 	const badge = link.badge ? ` <span class="nav-pill-sm">${escHtml(link.badge)}</span>` : '';
 	return `<a href="${escHtml(link.href)}">${escHtml(link.label)}${badge}</a>`;
 }

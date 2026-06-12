@@ -3176,7 +3176,62 @@
 	#home-forge .hf-btn:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
 	#home-forge .hf-btn--bright { background: var(--text); border-color: var(--text); color: #0a0a0c; font-weight: 600; }
 	#home-forge .hf-btn--bright:hover { background: #e8e8e8; color: #0a0a0c; }
+	#home-forge .hf-btn svg { width: 14px; height: 14px; flex: none; }
+	/* Accent action — the primary "where does this go next" CTA in the bar. */
+	#home-forge .hf-btn--accent { color: var(--text); border-color: rgba(139, 92, 246, 0.55); background: rgba(139, 92, 246, 0.12); }
+	#home-forge .hf-btn--accent:hover { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.2); color: #fff; }
+	#home-forge .hf-icon-btn { width: 32px; height: 32px; padding: 0; justify-content: center; }
+	#home-forge .hf-icon-btn svg { width: 15px; height: 15px; }
+	#home-forge .hf-btn[aria-pressed='false'] { color: var(--text-3); }
+	#home-forge .hf-result-region:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 4px; }
+	#home-forge .hf-result-actions { display: flex; gap: 6px; flex: none; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+	#home-forge .hf-result-actions::-webkit-scrollbar { display: none; }
 	#home-forge .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+	/* Session history rail — real captured frames of your recent forges. */
+	#home-forge .hf-history {
+		position: absolute; left: 16px; top: 50px; z-index: 6;
+		display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+		max-height: calc(100% - 210px); pointer-events: none;
+	}
+	#home-forge .hf-history[hidden] { display: none; }
+	#home-forge .hf-history-label {
+		font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+		text-transform: uppercase; color: var(--text-3); padding-left: 2px;
+	}
+	#home-forge .hf-history-track {
+		display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+		scrollbar-width: none; padding: 2px; pointer-events: auto;
+	}
+	#home-forge .hf-history-track::-webkit-scrollbar { display: none; }
+	#home-forge .hf-thumb {
+		width: 46px; height: 46px; flex: none; border-radius: 10px; cursor: pointer; padding: 0;
+		border: 1px solid var(--hairline); overflow: hidden; position: relative;
+		background: #0e0e12 center / cover no-repeat;
+		transition: border-color 0.16s, transform 0.16s, box-shadow 0.16s;
+		animation: hf-thumb-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+	@keyframes hf-thumb-in { from { opacity: 0; transform: translateX(-6px) scale(0.9); } }
+	#home-forge .hf-thumb:hover { transform: translateX(2px) scale(1.05); border-color: var(--hairline-strong); box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.85); }
+	#home-forge .hf-thumb:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+	#home-forge .hf-thumb[aria-current='true'] { border-color: #8b5cf6; box-shadow: 0 0 0 1px #8b5cf6, 0 8px 22px -10px rgba(139, 92, 246, 0.7); }
+	#home-forge .hf-thumb-fallback {
+		display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+		font-family: var(--font-mono); font-size: 15px; text-transform: uppercase; color: var(--text-3);
+		background: radial-gradient(120% 120% at 30% 20%, #1a1a22, #0c0c10);
+	}
+
+	/* Ephemeral confirmation toast (copy link, etc.). */
+	#home-forge .hf-toast {
+		position: absolute; left: 50%; bottom: 168px; z-index: 8; transform: translateX(-50%) translateY(6px);
+		padding: 7px 15px; border-radius: 999px; pointer-events: none; opacity: 0;
+		background: rgba(12, 12, 16, 0.92); border: 1px solid var(--hairline-strong);
+		-webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+		font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.02em; color: var(--text-2);
+		transition: opacity 0.2s ease, transform 0.2s ease;
+	}
+	#home-forge .hf-toast[hidden] { display: none; }
+	#home-forge .hf-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 	@media (max-width: 720px) {
 		#home-forge .hf-chamber { min-height: 600px; border-radius: 16px; }
@@ -3217,6 +3272,14 @@
 				<span>draft &middot; free lane</span>
 			</div>
 
+			<!-- Session history — real captured frames of models you forged here,
+			     persisted on this device. Click one to bring it back on stage. -->
+			<div class="hf-history" data-hf-history hidden>
+				<span class="hf-history-label">Recent</span>
+				<div class="hf-history-track" data-hf-history-track role="list" aria-label="Models you forged this session"></div>
+			</div>
+			<div class="hf-toast" data-hf-toast role="status" aria-live="polite" hidden></div>
+
 			<div class="hf-state" data-hf-idle>
 				<h3>Nothing forged yet</h3>
 				<p>Type a description — or take the suggestion — and a real textured mesh lands here, usually in seconds.</p>
@@ -3235,11 +3298,30 @@
 			<div class="hf-result" data-hf-result hidden>
 				<div class="hf-viewer" data-hf-viewer-slot></div>
 				<div class="hf-scan" data-hf-scan aria-hidden="true"></div>
-				<div class="hf-result-bar">
+				<div class="hf-result-bar" data-hf-result-region tabindex="-1" role="group" aria-label="Forged model — actions">
 					<span class="hf-result-meta" data-hf-result-meta></span>
 					<div class="hf-result-actions">
-						<a class="hf-btn" data-hf-download download>Download GLB</a>
-						<button type="button" class="hf-btn" data-hf-again>Clear</button>
+						<button type="button" class="hf-btn hf-icon-btn" data-hf-spin aria-pressed="true" title="Pause auto-rotate" aria-label="Toggle auto-rotate">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+						</button>
+						<button type="button" class="hf-btn" data-hf-vary>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 14.5l.8 2 .2.5 2 .8-2 .8-.2.5-.8 2-.8-2-.2-.5-2-.8 2-.8.2-.5z"/></svg>
+							Variation
+						</button>
+						<a class="hf-btn hf-btn--accent" data-hf-scene target="_blank" rel="noopener">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>
+							Scene Studio
+						</a>
+						<button type="button" class="hf-btn hf-icon-btn" data-hf-share title="Copy share link" aria-label="Copy share link">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>
+						</button>
+						<a class="hf-btn" data-hf-download download>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
+							GLB
+						</a>
+						<button type="button" class="hf-btn hf-icon-btn" data-hf-again title="Clear" aria-label="Clear and forge another">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+						</button>
 					</div>
 				</div>
 			</div>

@@ -738,6 +738,101 @@
 				color: var(--ink-dim);
 				margin-top: var(--space-xs);
 			}
+			.gen-meta strong {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			/* Honest elapsed-vs-typical meter. The fill maps real elapsed time
+			   against the engine's real catalog ETA on an asymptotic curve that
+			   never reaches 100% on its own — only a real finished GLB snaps it to
+			   full. Past the typical time it holds near the cap and recolours to
+			   amber ("longer than usual"), so the bar is informative, never faked. */
+			.gen-progress {
+				position: relative;
+				height: 5px;
+				margin-top: var(--space-sm);
+				border-radius: 999px;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				overflow: hidden;
+			}
+			.gen-progress-fill {
+				position: absolute;
+				inset: 0;
+				width: 0%;
+				border-radius: inherit;
+				background: linear-gradient(
+					90deg,
+					color-mix(in srgb, var(--accent) 70%, transparent),
+					var(--accent)
+				);
+				transition: width 0.9s cubic-bezier(0.33, 1, 0.68, 1), background 0.4s ease;
+			}
+			/* Moving sheen reads as live work without implying a known finish. */
+			.gen-progress-fill::after {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(
+					100deg,
+					transparent 30%,
+					rgba(255, 255, 255, 0.28) 50%,
+					transparent 70%
+				);
+				background-size: 220% 100%;
+				animation: gen-sheen 1.6s linear infinite;
+			}
+			.gen-progress[data-over='true'] .gen-progress-fill {
+				background: linear-gradient(
+					90deg,
+					color-mix(in srgb, var(--warning, #e0a93e) 70%, transparent),
+					var(--warning, #e0a93e)
+				);
+			}
+			.gen-progress[data-done='true'] .gen-progress-fill {
+				background: linear-gradient(
+					90deg,
+					color-mix(in srgb, var(--success) 70%, transparent),
+					var(--success)
+				);
+			}
+			.gen-progress[data-done='true'] .gen-progress-fill::after,
+			.gen-progress[data-indeterminate='true'] .gen-progress-fill::after {
+				animation-play-state: running;
+			}
+			/* No catalog ETA (unknown duration) — a slim travelling band instead of
+			   a measured fill, so we never imply a finish time we don't have. */
+			.gen-progress[data-indeterminate='true'] .gen-progress-fill {
+				width: 38% !important;
+				animation: gen-indeterminate 1.5s ease-in-out infinite;
+			}
+			@keyframes gen-sheen {
+				to {
+					background-position: -220% 0;
+				}
+			}
+			@keyframes gen-indeterminate {
+				0% {
+					transform: translateX(-120%);
+				}
+				100% {
+					transform: translateX(330%);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.gen-progress-fill::after {
+					animation: none;
+				}
+				.gen-progress[data-indeterminate='true'] .gen-progress-fill {
+					animation: none;
+					width: 100% !important;
+					opacity: 0.5;
+				}
+				.gen-progress-fill {
+					transition: none;
+				}
+			}
 
 			/* Result state */
 			.viewer-shell {
@@ -1368,8 +1463,22 @@
 						name="prompt"
 						maxlength="1000"
 						placeholder="a worn leather armchair, studio lighting, plain background"
-						aria-describedby="prompt-hint"
+						aria-describedby="prompt-coach"
 					></textarea>
+					<div class="prompt-tools" id="prompt-tools">
+						<button type="button" class="ptool" id="surprise" aria-label="Fill the box with a random vivid prompt">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<rect x="3" y="3" width="18" height="18" rx="3" />
+								<circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none" />
+								<circle cx="15.5" cy="15.5" r="1.4" fill="currentColor" stroke="none" />
+								<circle cx="15.5" cy="8.5" r="1.4" fill="currentColor" stroke="none" />
+								<circle cx="8.5" cy="15.5" r="1.4" fill="currentColor" stroke="none" />
+							</svg>
+							Surprise me
+						</button>
+						<span class="prompt-coach" id="prompt-coach" data-grade="tip" aria-live="polite"></span>
+						<span class="prompt-count" id="prompt-count">0 / 1000</span>
+					</div>
 				</div>
 
 				<!-- Image / multi-view → 3D -->
@@ -1488,6 +1597,7 @@
 					</div>
 					<button class="btn" id="generate" type="submit">
 						<span id="generate-label">Generate</span>
+						<kbd class="gen-kbd" aria-hidden="true">⌘↵</kbd>
 					</button>
 				</div>
 			</form>
@@ -1498,6 +1608,7 @@
 				<button class="chip" type="button">a potted monstera plant</button>
 				<button class="chip" type="button">a vintage film camera</button>
 				<button class="chip" type="button">a glazed ceramic teapot</button>
+				<button class="chips-more" type="button" id="chips-more" aria-label="Swap in a fresh set of example prompts">↻ More ideas</button>
 			</div>
 
 			<section class="stage" id="stage" aria-live="polite">
@@ -1529,6 +1640,17 @@
 						<div class="step" id="step-finish" data-state="pending">
 							<span class="dot" aria-hidden="true"></span>
 							<span>Finalizing GLB</span>
+						</div>
+						<div
+							class="gen-progress"
+							id="gen-progress"
+							role="progressbar"
+							aria-label="Generation progress"
+							aria-valuemin="0"
+							aria-valuemax="100"
+							aria-valuenow="0"
+						>
+							<div class="gen-progress-fill" id="gen-progress-fill"></div>
 						</div>
 						<div class="gen-meta" id="gen-meta">Elapsed 0s</div>
 						<div style="margin-top: var(--space-sm)">

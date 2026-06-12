@@ -381,6 +381,43 @@
 	background: rgba(255,255,255,0.1); color: var(--nv-text);
 	text-transform: uppercase;
 }
+/* "live" tone — this feature is running right now, not merely new. */
+.nav-pill-live {
+	background: rgba(88,214,141,0.12); color: #6fdf9d;
+	box-shadow: inset 0 0 0 1px rgba(88,214,141,0.22);
+}
+
+/* ── "Hot" top-level link — the one feature the nav spotlights ──────────── */
+/* Iridescent thread shared with the Forge brand (home #home-forge --hf-iris). */
+.nav-main > a.nav-hot {
+	gap: 7px; margin-left: 4px; padding: 4px 12px 4px 10px;
+	border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
+	color: var(--nv-text); font-weight: 500;
+	background: rgba(255,255,255,0.03);
+	transition: border-color 0.15s, background 0.15s, color 0.12s;
+}
+.nav-main > a.nav-hot:hover {
+	border-color: rgba(255,255,255,0.3);
+	background: rgba(255,255,255,0.06);
+}
+.nav-main > a.nav-hot:hover .nav-hot-label {
+	background: linear-gradient(120deg, #ffb454, #ff6ad5 38%, #8b5cf6 64%, #4fc3ff);
+	-webkit-background-clip: text; background-clip: text;
+	-webkit-text-fill-color: transparent; color: transparent;
+}
+.nav-hot-dot {
+	width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%;
+	background: conic-gradient(from 210deg, #ffb454, #ff6ad5, #8b5cf6, #4fc3ff, #ffb454);
+	animation: nav-hot-pulse 2.4s ease-in-out infinite;
+}
+@keyframes nav-hot-pulse {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.45); }
+	50%      { box-shadow: 0 0 0 4px rgba(139,92,246,0); }
+}
+/* Drawer rendering of the same link: keep the dot, drop the pill chrome. */
+.nav-drawer a.nav-hot {
+	display: flex; align-items: center; gap: 8px; color: var(--nv-text);
+}
 .nav-pop-note {
 	padding: 6px 12px 8px; font-size: var(--text-2xs); color: var(--nv-text-4);
 	line-height: 1.45; grid-column: 1 / -1;
