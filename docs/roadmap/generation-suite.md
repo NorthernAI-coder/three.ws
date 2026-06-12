@@ -62,11 +62,12 @@ photo, draft tier, under 2 minutes, zero console errors.
 
 Everything here is written and containerized; it needs deployment + env wiring.
 
-1. **Deploy automation for the editing workers.** `workers/deploy/deploy-all.sh` only covers
-   the avatar pipeline (controller / mesh models / unirig). Extend it (or add
-   `deploy-editing.sh`) to build + deploy `remesh`, `stylize`, `segment`, `rembg`, `texture`,
-   `model-text2motion` from their existing Dockerfiles/cloudbuild.yaml, and print the URL +
-   key pairs for Vercel env.
+1. **Deploy automation for the editing workers.** ✅ Built 2026-06-12:
+   `workers/deploy/deploy-editing.sh` provisions + deploys `stylize`, `remesh`, `segment`,
+   `rembg` (CPU-only, default set) and optionally `texture` / `model-text2motion` (GPU),
+   prints the URL + key pairs, and with `VERCEL_TOKEN` upserts them into Vercel production
+   via REST. ❌ Not yet run — needs a privileged GCP identity (Cloud Shell):
+   `PROJECT_ID=… ./workers/deploy/deploy-editing.sh`.
 2. **Set the env vars** (names): `GCP_REMESH_URL`, `GCP_STYLIZE_URL`, `GCP_SEGMENT_URL`,
    `GCP_REMBG_URL`, `GCP_TEXTURE_URL`, `GCP_TEXT2MOTION_URL`, `GCP_TRIPOSG_URL`
    (+ shared `GCP_RECONSTRUCTION_KEY`), `LONGCAT_WORKER_URL`/`LONGCAT_WORKER_KEY`.
