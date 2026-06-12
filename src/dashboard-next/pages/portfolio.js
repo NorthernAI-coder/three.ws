@@ -28,6 +28,20 @@ const STATE = {
 let _portfolioChart = null;
 let _portfolioSeries = null;
 let _assetChart = null;
+// Width-sync observers must be disconnected BEFORE their chart is removed —
+// a late ResizeObserver tick on a disposed chart throws "Object is disposed".
+let _portfolioChartRO = null;
+let _assetChartRO = null;
+
+function disposePortfolioChart() {
+	if (_portfolioChartRO) { _portfolioChartRO.disconnect(); _portfolioChartRO = null; }
+	if (_portfolioChart) { _portfolioChart.remove(); _portfolioChart = null; _portfolioSeries = null; }
+}
+
+function disposeAssetChart() {
+	if (_assetChartRO) { _assetChartRO.disconnect(); _assetChartRO = null; }
+	if (_assetChart) { _assetChart.remove(); _assetChart = null; }
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -90,8 +104,8 @@ let _assetChart = null;
 })();
 
 function cleanup() {
-	if (_portfolioChart) { _portfolioChart.remove(); _portfolioChart = null; }
-	if (_assetChart) { _assetChart.remove(); _assetChart = null; }
+	disposePortfolioChart();
+	disposeAssetChart();
 	if (STATE.refreshHandle) clearInterval(STATE.refreshHandle);
 	if (STATE.timeTickHandle) clearInterval(STATE.timeTickHandle);
 }
@@ -250,7 +264,7 @@ async function handlePeriodChange(heroPanel, days) {
 // ── Portfolio chart (lightweight-charts area) ─────────────────────────────
 
 function renderPortfolioChart(container, points, currentUsd) {
-	if (_portfolioChart) { _portfolioChart.remove(); _portfolioChart = null; _portfolioSeries = null; }
+	disposePortfolioChart();
 
 	const chart = createChart(container, {
 		width: container.clientWidth,
@@ -286,8 +300,8 @@ function renderPortfolioChart(container, points, currentUsd) {
 	series.setData(data);
 	chart.timeScale().fitContent();
 
-	const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
-	ro.observe(container);
+	_portfolioChartRO = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
+	_portfolioChartRO.observe(container);
 }
 
 function dedupeTimeSeries(arr) {
@@ -684,7 +698,7 @@ function closeDrawer() {
 	if (!el) return;
 	el.classList.remove('is-open');
 	document.body.style.overflow = '';
-	if (_assetChart) { _assetChart.remove(); _assetChart = null; }
+	disposeAssetChart();
 }
 
 async function openAssetDrawer(token) {
@@ -837,7 +851,7 @@ function renderDrawerContent(host, data) {
 // ── Asset price chart ─────────────────────────────────────────────────────
 
 function renderAssetChart(container, points) {
-	if (_assetChart) { _assetChart.remove(); _assetChart = null; }
+	disposeAssetChart();
 
 	const chart = createChart(container, {
 		width: container.clientWidth,
@@ -870,8 +884,8 @@ function renderAssetChart(container, points) {
 	series.setData(data);
 	chart.timeScale().fitContent();
 
-	const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
-	ro.observe(container);
+	_assetChartRO = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
+	_assetChartRO.observe(container);
 }
 
 // ── Send form ─────────────────────────────────────────────────────────────
