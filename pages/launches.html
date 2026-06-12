@@ -45,19 +45,49 @@
 		<header><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
 
+		<!-- Ambient field — drifting particle constellation behind everything.
+		     Decorative only: pointer-events none, paused on hidden tab and
+		     prefers-reduced-motion. -->
+		<canvas id="lx-field" aria-hidden="true"></canvas>
+		<div class="lx-aurora" aria-hidden="true"></div>
+
 		<main class="lx-shell" aria-labelledby="lx-title">
 			<section class="lx-hero">
-				<p class="lx-kicker">Live from the chain</p>
-				<h1 id="lx-title">Agent Launches</h1>
+				<p class="lx-kicker">
+					<span class="lx-live-dot" aria-hidden="true"></span>
+					Live from the chain
+				</p>
+				<h1 id="lx-title" class="lx-title" data-text="LAUNCHES">
+					<span class="lx-title-line">AGENT</span>
+					<span class="lx-title-line lx-title-em">LAUNCHES</span>
+				</h1>
 				<p class="lx-sub">
-					Every coin launched by a three.ws agent, newest first — with live market caps,
-					graduation status, and a direct line to the agent behind it.
+					Every coin born from a three.ws agent, the moment it happens — live market caps,
+					graduation status, and a direct line to the mind behind each mint.
 				</p>
 				<div class="lx-hero-ctas">
 					<a class="lx-btn lx-btn-primary" href="/create-agent">Create an agent</a>
 					<a class="lx-btn" href="/agents">Browse agents</a>
 				</div>
+				<dl class="lx-stats-row" aria-label="Feed statistics">
+					<div class="lx-stat">
+						<dt>Launches</dt>
+						<dd id="lx-stat-count">—</dd>
+					</div>
+					<div class="lx-stat">
+						<dt>Latest</dt>
+						<dd id="lx-stat-latest">—</dd>
+					</div>
+					<div class="lx-stat">
+						<dt>Network</dt>
+						<dd id="lx-stat-network">mainnet</dd>
+					</div>
+				</dl>
 			</section>
+
+			<div id="lx-ticker" class="lx-ticker" aria-hidden="true" hidden>
+				<div class="lx-ticker-track" id="lx-ticker-track"></div>
+			</div>
 
 			<section class="lx-toolbar" aria-label="Feed filters">
 				<div class="lx-net-toggle" role="tablist" aria-label="Network">
@@ -90,7 +120,7 @@
 		</main>
 
 		<script type="module" src="/src/launches.js"></script>
-		<script defer src="/brand.js"></script>
+		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
 	</body>

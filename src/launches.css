@@ -1,47 +1,192 @@
 /* /launches — public feed of coins launched by three.ws agents.
-   Token-driven (public/tokens.css via nav.css); no hardcoded palette. */
+   Token-driven (public/tokens.css via nav.css); no hardcoded palette.
+
+   Visual language: editorial monochrome futurism. Oversized kinetic display
+   type, an ambient particle field, glass cards lit by the cursor, generative
+   identicons seeded from each mint. Every effect degrades gracefully:
+   reduced-motion gets a calm static page, light theme remaps via tokens. */
 
 body {
 	margin: 0;
 	background: var(--bg-0);
 	color: var(--ink);
 	font-family: var(--font-body);
+	overflow-x: hidden;
+}
+
+/* ── Ambient layers ───────────────────────────────────────────────────────── */
+
+#lx-field {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 0;
+	pointer-events: none;
+	opacity: 0.85;
+}
+
+.lx-aurora {
+	position: fixed;
+	inset: -20%;
+	z-index: 0;
+	pointer-events: none;
+	background:
+		radial-gradient(38% 30% at 18% 12%, var(--accent-soft), transparent 70%),
+		radial-gradient(30% 26% at 84% 30%, var(--surface-3), transparent 70%),
+		radial-gradient(42% 36% at 55% 95%, var(--surface-2), transparent 72%);
+	filter: blur(48px);
+	animation: lx-aurora-drift 26s var(--ease-standard) infinite alternate;
+}
+
+@keyframes lx-aurora-drift {
+	from {
+		transform: translate3d(-1.5%, -1%, 0) scale(1);
+	}
+	to {
+		transform: translate3d(1.5%, 2%, 0) scale(1.06);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.lx-aurora {
+		animation: none;
+	}
 }
 
 .lx-shell {
-	max-width: 1120px;
+	position: relative;
+	z-index: 1;
+	max-width: 1180px;
 	margin: 0 auto;
-	padding: calc(var(--header-h) + var(--space-xl)) var(--space-lg) var(--space-2xl);
+	padding: calc(var(--header-h) + var(--space-2xl)) var(--space-lg) var(--space-2xl);
 }
 
 /* ── Hero ─────────────────────────────────────────────────────────────────── */
 
 .lx-hero {
-	text-align: center;
+	position: relative;
 	margin-bottom: var(--space-xl);
 }
 
 .lx-kicker {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-xs);
 	font-size: var(--text-sm);
 	font-weight: var(--weight-semibold);
-	letter-spacing: 0.14em;
+	letter-spacing: 0.22em;
 	text-transform: uppercase;
-	color: var(--ink-faint);
-	margin: 0 0 var(--space-sm);
+	color: var(--ink-dim);
+	margin: 0 0 var(--space-md);
+	padding: var(--space-xs) var(--space-sm);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-pill);
+	background: var(--surface-1);
+	backdrop-filter: blur(var(--blur-sm));
 }
 
-.lx-hero h1 {
+.lx-live-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--success);
+	box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+	animation: lx-pulse 2.4s var(--ease-out) infinite;
+}
+
+@keyframes lx-pulse {
+	0% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent);
+	}
+	70% {
+		box-shadow: 0 0 0 9px transparent;
+	}
+	100% {
+		box-shadow: 0 0 0 0 transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.lx-live-dot {
+		animation: none;
+	}
+}
+
+/* Massive editorial display type. Two stacked lines; the second carries a
+   ghost echo (data-text) drifting behind it for depth. */
+.lx-title {
+	margin: 0 0 var(--space-md);
 	font-family: var(--font-display);
-	font-size: var(--text-2xl);
 	font-weight: var(--weight-bold);
-	line-height: var(--leading-tight);
+	line-height: 0.92;
+	letter-spacing: -0.035em;
+	font-size: clamp(3rem, 11vw, 7.5rem);
+	text-transform: uppercase;
 	color: var(--ink-bright);
-	margin: 0 0 var(--space-sm);
+	position: relative;
+}
+
+.lx-title-line {
+	display: block;
+}
+
+.lx-title-em {
+	position: relative;
+	background: linear-gradient(
+		100deg,
+		var(--ink-bright) 0%,
+		var(--ink-bright) 38%,
+		var(--ink-dim) 50%,
+		var(--ink-bright) 62%,
+		var(--ink-bright) 100%
+	);
+	background-size: 240% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: lx-sheen 7s var(--ease-standard) infinite;
+}
+
+@keyframes lx-sheen {
+	0%,
+	55% {
+		background-position: 120% 0;
+	}
+	85%,
+	100% {
+		background-position: -120% 0;
+	}
+}
+
+/* Ghost echo of the second line — pure outline, offset behind. */
+.lx-title::after {
+	content: attr(data-text);
+	position: absolute;
+	left: 0.18em;
+	bottom: -0.34em;
+	z-index: -1;
+	font-size: 1em;
+	line-height: 0.92;
+	color: transparent;
+	-webkit-text-stroke: 1px var(--stroke-strong);
+	opacity: 0.55;
+	pointer-events: none;
+	user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.lx-title-em {
+		animation: none;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+		color: var(--ink-bright);
+	}
 }
 
 .lx-sub {
-	max-width: 560px;
-	margin: 0 auto var(--space-lg);
+	max-width: 520px;
+	margin: 0 0 var(--space-lg);
 	font-size: var(--text-base);
 	line-height: var(--leading-normal);
 	color: var(--ink-dim);
@@ -50,8 +195,8 @@ body {
 .lx-hero-ctas {
 	display: flex;
 	gap: var(--space-sm);
-	justify-content: center;
 	flex-wrap: wrap;
+	margin-bottom: var(--space-lg);
 }
 
 .lx-btn {
@@ -65,19 +210,24 @@ body {
 	color: var(--ink);
 	font-size: var(--text-ui);
 	font-weight: var(--weight-medium);
+	font-family: var(--font-body);
 	text-decoration: none;
 	cursor: pointer;
+	backdrop-filter: blur(var(--blur-sm));
 	transition:
 		background var(--duration-fast) var(--ease-standard),
+		border-color var(--duration-fast) var(--ease-standard),
 		transform var(--duration-fast) var(--ease-standard);
 }
 
 .lx-btn:hover {
 	background: var(--surface-3);
+	border-color: var(--ink-faint);
+	transform: translateY(-1px);
 }
 
 .lx-btn:active {
-	transform: translateY(1px);
+	transform: translateY(0);
 }
 
 .lx-btn:focus-visible {
@@ -100,6 +250,97 @@ body {
 	opacity: 0.88;
 }
 
+/* The sitewide feature-discovery badge is unreadable on the accent-filled CTA
+   and redundant there (the button IS the call to the new page). */
+.lx-btn-primary .tws-disc-new {
+	display: none;
+}
+
+/* Hero stats — thin editorial data row */
+.lx-stats-row {
+	display: flex;
+	gap: var(--space-xl);
+	margin: 0;
+	padding: var(--space-md) 0 0;
+	border-top: 1px solid var(--stroke);
+	flex-wrap: wrap;
+}
+
+.lx-stat dt {
+	font-size: var(--text-2xs);
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--ink-faint);
+	margin: 0 0 var(--space-2xs);
+}
+
+.lx-stat dd {
+	margin: 0;
+	font-family: var(--font-mono);
+	font-size: var(--text-lg);
+	font-weight: var(--weight-semibold);
+	color: var(--ink-bright);
+	font-variant-numeric: tabular-nums;
+}
+
+/* ── Ticker ───────────────────────────────────────────────────────────────── */
+
+.lx-ticker {
+	position: relative;
+	margin: 0 calc(-1 * var(--space-lg)) var(--space-xl);
+	padding: var(--space-sm) 0;
+	border-top: 1px solid var(--stroke);
+	border-bottom: 1px solid var(--stroke);
+	overflow: hidden;
+	mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+	-webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.lx-ticker-track {
+	display: inline-flex;
+	gap: var(--space-xl);
+	white-space: nowrap;
+	will-change: transform;
+	animation: lx-marquee var(--lx-marquee-duration, 40s) linear infinite;
+}
+
+.lx-ticker:hover .lx-ticker-track {
+	animation-play-state: paused;
+}
+
+@keyframes lx-marquee {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-50%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.lx-ticker {
+		display: none;
+	}
+}
+
+.lx-tick {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var(--space-sm);
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	color: var(--ink-dim);
+}
+
+.lx-tick b {
+	color: var(--ink-bright);
+	font-weight: var(--weight-semibold);
+}
+
+.lx-tick .up {
+	color: var(--success);
+}
+
 /* ── Toolbar ──────────────────────────────────────────────────────────────── */
 
 .lx-toolbar {
@@ -108,6 +349,15 @@ body {
 	gap: var(--space-md);
 	flex-wrap: wrap;
 	margin-bottom: var(--space-lg);
+	position: sticky;
+	top: calc(var(--header-h) + var(--space-xs));
+	z-index: 5;
+	padding: var(--space-xs);
+	margin-left: calc(-1 * var(--space-xs));
+	margin-right: calc(-1 * var(--space-xs));
+	border-radius: var(--radius-lg);
+	background: color-mix(in srgb, var(--bg-0) 72%, transparent);
+	backdrop-filter: blur(var(--blur-md));
 }
 
 .lx-net-toggle {
@@ -188,8 +438,10 @@ body {
 
 .lx-count {
 	margin-left: auto;
+	font-family: var(--font-mono);
 	font-size: var(--text-sm);
 	color: var(--ink-faint);
+	font-variant-numeric: tabular-nums;
 }
 
 /* ── Feed grid ────────────────────────────────────────────────────────────── */
@@ -198,44 +450,142 @@ body {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 	gap: var(--space-md);
+	grid-auto-flow: dense;
 }
 
+/* Cursor-lit glass card. --mx/--my are set per-card by pointer tracking;
+   the ::before sheet paints a radial light where the cursor is, the ::after
+   sheet paints a matching border glow. */
 .lx-card {
+	--mx: 50%;
+	--my: 50%;
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-sm);
 	padding: var(--space-md);
 	border: 1px solid var(--stroke);
 	border-radius: var(--radius-lg);
-	background: var(--surface-1);
+	background:
+		linear-gradient(165deg, var(--surface-2), transparent 55%),
+		var(--surface-1);
 	box-shadow: var(--shadow-1);
+	backdrop-filter: blur(var(--blur-sm));
 	opacity: 0;
-	transform: translateY(6px);
-	animation: lx-enter var(--duration-base) var(--ease-emphasized) forwards;
+	transform: translateY(16px) scale(0.985);
+	overflow: hidden;
 	transition:
+		opacity var(--duration-slow) var(--ease-emphasized),
+		transform var(--duration-slow) var(--ease-emphasized),
 		border-color var(--duration-fast) var(--ease-standard),
-		background var(--duration-fast) var(--ease-standard),
-		box-shadow var(--duration-fast) var(--ease-standard);
+		box-shadow var(--duration-base) var(--ease-standard);
+}
+
+.lx-card.lx-in {
+	opacity: 1;
+	transform: none;
+}
+
+.lx-card::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(
+		320px circle at var(--mx) var(--my),
+		var(--accent-soft),
+		transparent 65%
+	);
+	opacity: 0;
+	transition: opacity var(--duration-base) var(--ease-standard);
+	pointer-events: none;
 }
 
 .lx-card:hover {
 	border-color: var(--stroke-strong);
-	background: var(--surface-2);
-	box-shadow: var(--shadow-2);
+	box-shadow: var(--shadow-3);
 }
 
-@keyframes lx-enter {
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+.lx-card:hover::before {
+	opacity: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.lx-card {
-		animation: none;
+		transition: none;
 		opacity: 1;
 		transform: none;
+	}
+}
+
+/* Featured (newest) launch — double-width editorial cell */
+.lx-card-featured {
+	grid-column: span 2;
+	padding: var(--space-lg);
+}
+
+.lx-card-featured .lx-coin-art {
+	width: 72px;
+	height: 72px;
+}
+
+.lx-card-featured .lx-coin-name {
+	font-size: var(--text-xl);
+	letter-spacing: -0.02em;
+	white-space: normal;
+}
+
+.lx-card-featured .lx-mcap {
+	font-size: var(--text-xl);
+}
+
+.lx-feat-tag {
+	position: absolute;
+	top: var(--space-md);
+	right: var(--space-md);
+	font-size: var(--text-2xs);
+	font-weight: var(--weight-semibold);
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+	color: var(--success);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2xs);
+}
+
+.lx-feat-tag::before {
+	content: '';
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--success);
+}
+
+/* Oversized outline echo of the coin's symbol fills the featured card's
+   negative space — same ghost language as the hero title. */
+.lx-feat-ghost {
+	position: absolute;
+	right: -0.06em;
+	bottom: -0.32em;
+	font-family: var(--font-display);
+	font-weight: var(--weight-bold);
+	font-size: clamp(4rem, 9vw, 7rem);
+	letter-spacing: -0.04em;
+	line-height: 1;
+	color: transparent;
+	-webkit-text-stroke: 1px var(--stroke-strong);
+	opacity: 0.6;
+	pointer-events: none;
+	user-select: none;
+	white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+	.lx-card-featured {
+		grid-column: span 1;
+	}
+
+	.lx-feat-ghost {
+		display: none;
 	}
 }
 
@@ -243,15 +593,46 @@ body {
 	display: flex;
 	align-items: center;
 	gap: var(--space-sm);
+	position: relative;
+}
+
+/* Coin art — generative identicon underneath, real coin image crossfades in
+   on top once pump.fun metadata arrives. */
+.lx-coin-art {
+	position: relative;
+	width: 48px;
+	height: 48px;
+	border-radius: var(--radius-md);
+	overflow: hidden;
+	flex-shrink: 0;
+	background: var(--surface-2);
+	border: 1px solid var(--stroke);
+}
+
+.lx-coin-art svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	transition: transform calc(var(--duration-slow) * 2) var(--ease-standard);
+}
+
+.lx-card:hover .lx-coin-art svg {
+	transform: rotate(40deg) scale(1.15);
 }
 
 .lx-coin-img {
-	width: 44px;
-	height: 44px;
-	border-radius: var(--radius-md);
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
 	object-fit: cover;
-	background: var(--surface-3);
-	flex-shrink: 0;
+	opacity: 0;
+	transition: opacity var(--duration-slow) var(--ease-standard);
+}
+
+.lx-coin-img.lx-img-in {
+	opacity: 1;
 }
 
 .lx-coin-id {
@@ -279,6 +660,7 @@ body {
 	display: flex;
 	gap: var(--space-2xs);
 	flex-wrap: wrap;
+	min-height: 1.1em;
 }
 
 .lx-badge {
@@ -315,17 +697,19 @@ body {
 	font-size: var(--text-lg);
 	font-weight: var(--weight-semibold);
 	color: var(--ink-bright);
+	font-variant-numeric: tabular-nums;
 }
 
 .lx-mcap-label {
 	font-size: var(--text-2xs);
-	letter-spacing: 0.08em;
+	letter-spacing: 0.12em;
 	text-transform: uppercase;
 	color: var(--ink-faint);
 	display: block;
 }
 
 .lx-time {
+	font-family: var(--font-mono);
 	font-size: var(--text-sm);
 	color: var(--ink-faint);
 	white-space: nowrap;
@@ -342,12 +726,20 @@ body {
 	text-decoration: none;
 	color: var(--ink);
 	font-size: var(--text-md);
-	transition: background var(--duration-fast) var(--ease-standard);
+	transition:
+		background var(--duration-fast) var(--ease-standard),
+		border-color var(--duration-fast) var(--ease-standard);
 	min-width: 0;
 }
 
 .lx-agent-row:hover {
 	background: var(--surface-3);
+	border-color: var(--stroke-strong);
+}
+
+.lx-agent-row:hover .lx-agent-hint {
+	transform: translateX(2px);
+	color: var(--ink);
 }
 
 .lx-agent-row:focus-visible {
@@ -385,6 +777,9 @@ body {
 	color: var(--ink-faint);
 	font-size: var(--text-sm);
 	flex-shrink: 0;
+	transition:
+		transform var(--duration-fast) var(--ease-standard),
+		color var(--duration-fast) var(--ease-standard);
 }
 
 .lx-card-actions {
@@ -428,6 +823,10 @@ body {
 	font-family: var(--font-mono);
 	font-size: var(--text-2xs);
 	color: var(--ink-faint);
+	letter-spacing: 0.02em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 /* ── Skeletons ────────────────────────────────────────────────────────────── */
@@ -473,6 +872,8 @@ body {
 	border: 1px dashed var(--stroke-strong);
 	border-radius: var(--radius-lg);
 	color: var(--ink-dim);
+	background: var(--surface-1);
+	backdrop-filter: blur(var(--blur-sm));
 }
 
 .lx-state h2 {
@@ -497,14 +898,25 @@ body {
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
+@media (max-width: 640px) {
+	.lx-title::after {
+		opacity: 0.28;
+	}
+}
+
 @media (max-width: 480px) {
 	.lx-shell {
 		padding-left: var(--space-md);
 		padding-right: var(--space-md);
 	}
 
-	.lx-hero h1 {
-		font-size: var(--text-xl);
+	.lx-ticker {
+		margin-left: calc(-1 * var(--space-md));
+		margin-right: calc(-1 * var(--space-md));
+	}
+
+	.lx-stats-row {
+		gap: var(--space-lg);
 	}
 
 	.lx-count {
