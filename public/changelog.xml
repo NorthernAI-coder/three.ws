@@ -55,6 +55,14 @@
 			<description>Five-minute beginner walkthrough of the Forge: type a sentence, pick a quality tier, and download a textured GLB model.</description>
 		</item>
 		<item>
+			<title>All twelve three.ws MCP servers refreshed: safety annotations, richer registry listings, new versions</title>
+			<link>https://three.ws/docs/mcp</link>
+			<guid isPermaLink="false">2026-06-12:All twelve three.ws MCP servers refreshed: safety annotations, richer registry listings, new versions</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every MCP server we ship — the seven installable npm packages (3D agent tools, pump.fun data, IBM Granite via watsonx and via x402, the avatar agent, live avatar embeds, and the $THREE token server) plus the five hosted remote servers — got a coordinated upgrade. Every tool now declares Model Context Protocol safety annotations, so clients like Claude Desktop can tell read-only lookups apart from actions that move funds and warn you before anything irreversible runs. Registry listings gained proper names, the three.ws icon, and website links; READMEs now document every tool with one-line installs for Claude Code, Claude Desktop, and Cursor; and each package ships a test suite that pins the safety semantics so they cannot regress.</description>
+		</item>
+		<item>
 			<title>Cosmetics shop purchases now work</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-06-12:Cosmetics shop purchases now work</guid>
@@ -77,6 +85,14 @@
 			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Finishing a model in Forge, Parts Studio, or Scan pops a card of next steps — and now every one of those buttons carries your work over instead of dropping you on an empty page. Embed editor opens with your fresh GLB previewed and the copy-paste snippet already pointing at it, Deploy onchain pre-loads it as the launchpad avatar, Drop it in a world spawns you wearing it, and a finished Scan deep-links your rigged avatar into Studio, Walk, and the embed editor. The embed editor and embeds also accept a direct GLB link now, not just saved avatar ids.</description>
+		</item>
+		<item>
+			<title>Every three.ws npm package got a polish pass and a new release</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-12:Every three.ws npm package got a polish pass and a new release</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>We went through all fifteen published three.ws packages — the avatar SDK and React bindings, the agent UI overlay, the cross-chain and Solana agent SDKs, the agent-payments engine, the avatar schema, viewer presets, the avatar CLI, and the MCP servers — and brought them to one consistent bar. Every package now has complete npm metadata (homepage, repository, issue tracker, license, keywords) and a redesigned README with badges, a copy-paste quick start, a real API/tools reference grounded in the actual code, and cross-links between related packages. Several READMEs that had drifted out of date now list the real, current tool sets. The Solana and agent-payments SDK bundles ship roughly 75% smaller by dropping sourcemaps from the minified release build. The avatar CLI gained colored output, per-command help, 'did you mean' suggestions for typos, and friendlier errors. Packages with missing license or notice files now ship them.</description>
 		</item>
 		<item>
 			<title>Forge a 3D model right on the homepage</title>
