@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-12",
+			"title": "Standard and High generation tiers are back — with a daily guard so they stay up",
+			"summary": "A backend store the platform uses to meter paid generations hit its usage ceiling, and the safety design did its job: rather than risk unmetered spend, Forge (/forge) declined every Standard- and High-tier and photo-to-3D request. Draft generations were unaffected. We moved metering to a fresh store, verified real prompt-to-GLB generations on the restored paths, and added two permanent guards: the Forge health check now probes that store directly, and a new daily smoke test runs an actual text-to-3D generation against the live site and pages the team the moment a real user's flow would fail.",
+			"tags": [
+				"fix",
+				"infra"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
 			"title": "One tap rewrites your Forge prompt into a model-ready description",
 			"summary": "Forge (/forge) has a new Enhance button next to the prompt box. Type a rough idea — \"a fox\", \"my coffee mug\" — and it rewrites it into the kind of single-subject, material-and-lighting description the text-to-3D pipeline reconstructs cleanly, then drops it straight into the box with one-tap Undo if you preferred your own words. It runs on the same free AI providers the rest of the site uses, so it costs nothing and needs no key, and if the rewrite ever can't run your prompt is left exactly as you wrote it. Shortcut: ⌘/Ctrl + E.",
 			"tags": [
@@ -1209,6 +1219,16 @@
 				"improvement"
 			],
 			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "The 3D Studio MCP now introduces itself correctly to paying agents",
+			"summary": "Agents discovering three.ws over x402 had a blind spot: the 3D Studio MCP server (text-to-3D, image-to-3D, rigging, retexture) answered unauthenticated calls with the main MCP server's payment metadata, and it was missing from the /.well-known/x402 service catalog entirely. Both are fixed — the Studio now advertises its own identity, pricing resource, and a text_to_3d example to every x402 facilitator and marketplace crawler, so wallet-holding agents can find and pay for prompt-to-3D directly.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
+			"link": "/docs/mcp-3d-studio"
 		}
 	]
 }

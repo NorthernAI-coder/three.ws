@@ -175,6 +175,14 @@
 			<description>Forge gains a third way to make a model: draw it. The new “From a sketch” mode takes one drawing plus a short line saying what it depicts and generates real 3D geometry from it, powered by a self-hosted TripoSG sketch engine — the same research-grade model family behind Tripo. Sketch results are untextured geometry by design, so the existing Stylize and Retexture tools pick up right where it leaves off. The tab appears automatically once the sketch engine is live on the deployment.</description>
 		</item>
 		<item>
+			<title>Standard and High generation tiers are back — with a daily guard so they stay up</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Standard and High generation tiers are back — with a daily guard so they stay up</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>A backend store the platform uses to meter paid generations hit its usage ceiling, and the safety design did its job: rather than risk unmetered spend, Forge (/forge) declined every Standard- and High-tier and photo-to-3D request. Draft generations were unaffected. We moved metering to a fresh store, verified real prompt-to-GLB generations on the restored paths, and added two permanent guards: the Forge health check now probes that store directly, and a new daily smoke test runs an actual text-to-3D generation against the live site and pages the team the moment a real user's flow would fail.</description>
+		</item>
+		<item>
 			<title>Text to 3D is live — and now front and center</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-12:Text to 3D is live — and now front and center</guid>
@@ -189,6 +197,14 @@
 			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Forge's headline flow now works end to end in production: describe an object in a sentence, pick an engine, and download a textured GLB you can open in Scene Studio, embed on any site, wear in a world, or deploy on-chain. The same composer takes photos and sketches too, and the engine picker shows live health so you always start on an engine that's actually up. Text to 3D is now front and center across the site — on the homepage, in the Build menu, and on the sitemap.</description>
+		</item>
+		<item>
+			<title>The 3D Studio MCP now introduces itself correctly to paying agents</title>
+			<link>https://three.ws/docs/mcp-3d-studio</link>
+			<guid isPermaLink="false">2026-06-12:The 3D Studio MCP now introduces itself correctly to paying agents</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Agents discovering three.ws over x402 had a blind spot: the 3D Studio MCP server (text-to-3D, image-to-3D, rigging, retexture) answered unauthenticated calls with the main MCP server's payment metadata, and it was missing from the /.well-known/x402 service catalog entirely. Both are fixed — the Studio now advertises its own identity, pricing resource, and a text_to_3d example to every x402 facilitator and marketplace crawler, so wallet-holding agents can find and pay for prompt-to-3D directly.</description>
 		</item>
 		<item>
 			<title>The 3D world is back on solid ground — and locked against griefing</title>
