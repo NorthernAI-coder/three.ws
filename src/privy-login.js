@@ -33,7 +33,78 @@ if (!appId) {
 	if (divider) divider.style.display = 'none';
 } else {
 	const privy = new Privy({ appId, storage: new LocalStorage() });
-	mountPrivyUI(privy);
+	mountPrivyUI(privy, fetchCaptchaConfig(appId));
+}
+
+// ── CAPTCHA (Cloudflare Turnstile) ───────────────────────────────────────────
+// Privy rejects passwordless/init with 401 invalid_credentials when the app has
+// CAPTCHA enabled and no token is sent, so this must resolve before sendCode.
+
+async function fetchCaptchaConfig(id) {
+	try {
+		const r = await fetch(`https://auth.privy.io/api/v1/apps/${id}`, {
+			headers: { 'privy-app-id': id },
+		});
+		if (!r.ok) return null;
+		const cfg = await r.json();
+		if (!cfg?.captcha_enabled || !cfg.captcha_site_key) return null;
+		if (cfg.enabled_captcha_provider && cfg.enabled_captcha_provider !== 'turnstile') return null;
+		// Privy prefixes Turnstile site keys with "t:".
+		return { siteKey: cfg.captcha_site_key.replace(/^t:/, '') };
+	} catch {
+		return null;
+	}
+}
+
+let turnstilePromise = null;
+
+function loadTurnstile() {
+	if (turnstilePromise) return turnstilePromise;
+	turnstilePromise = new Promise((resolve, reject) => {
+		if (window.turnstile) { resolve(window.turnstile); return; }
+		window.__privyTurnstileOnload = () => resolve(window.turnstile);
+		const script = document.createElement('script');
+		script.src = 'https://challenges.cloudflare.com/turnstile/api.js?onload=__privyTurnstileOnload&render=explicit';
+		script.async = true;
+		script.onerror = () => {
+			turnstilePromise = null;
+			reject(new Error('Could not load the CAPTCHA verifier. Check your connection and try again.'));
+		};
+		document.head.appendChild(script);
+	});
+	return turnstilePromise;
+}
+
+let captchaWidgetId = null;
+let pendingCaptcha = null;
+
+async function requestCaptchaToken(siteKey) {
+	const turnstile = await loadTurnstile();
+	const slot = document.getElementById('privy-captcha-slot');
+	if (!slot) throw new Error('CAPTCHA container missing from page.');
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			pendingCaptcha = null;
+			reject(new Error('CAPTCHA timed out. Try again.'));
+		}, 90_000);
+		pendingCaptcha = {
+			resolve(token) { clearTimeout(timer); pendingCaptcha = null; resolve(token); },
+			reject(err) { clearTimeout(timer); pendingCaptcha = null; reject(err); },
+		};
+		if (captchaWidgetId === null) {
+			captchaWidgetId = turnstile.render(slot, {
+				sitekey: siteKey,
+				appearance: 'interaction-only',
+				execution: 'execute',
+				callback: (token) => pendingCaptcha?.resolve(token),
+				'error-callback': () => pendingCaptcha?.reject(new Error('CAPTCHA verification failed. Try again.')),
+				'timeout-callback': () => pendingCaptcha?.reject(new Error('CAPTCHA timed out. Try again.')),
+			});
+		} else {
+			turnstile.reset(captchaWidgetId);
+		}
+		turnstile.execute(slot);
+	});
 }
 
 // ── Shared backend verify ─────────────────────────────────────────────────────
@@ -70,7 +141,7 @@ function getSolanaProvider() {
 
 // ── UI ───────────────────────────────────────────────────────────────────────
 
-function mountPrivyUI(privy) {
+function mountPrivyUI(privy, captchaConfigPromise) {
 	// Email OTP elements
 	const stepEmail    = document.getElementById('privy-step-email');
 	const stepCode     = document.getElementById('privy-step-code');
@@ -142,7 +213,14 @@ function mountPrivyUI(privy) {
 		sendBtn.textContent = 'Sending…';
 		clearErr();
 		try {
-			await privy.auth.email.sendCode(email);
+			let captchaToken;
+			const captcha = await captchaConfigPromise;
+			if (captcha) {
+				sendBtn.textContent = 'Verifying…';
+				captchaToken = await requestCaptchaToken(captcha.siteKey);
+				sendBtn.textContent = 'Sending…';
+			}
+			await privy.auth.email.sendCode(email, captchaToken);
 			pendingEmail = email;
 			showStep('code');
 			codeInput?.focus();
