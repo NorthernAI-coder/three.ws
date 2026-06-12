@@ -1172,6 +1172,15 @@
 				"feature"
 			],
 			"link": "/forge"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Forge is now one click away from every feed",
+			"summary": "Text-to-3D was easy to miss unless you knew where to look. Now every browsing surface points you at it: the avatar gallery leads with “Create from a prompt”, the marketplace's featured carousel has a “Forge your own from text” link, the agent directory and launches feed both carry Forge shortcuts, and empty feeds suggest forging your first model instead of showing a dead end. The project README also gained a full Forge chapter — REST, MCP, and pay-per-call examples included.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/forge"
 		}
 	]
 }

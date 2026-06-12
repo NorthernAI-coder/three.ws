@@ -351,7 +351,10 @@ async function loadPage() {
 						No agents match these filters yet.
 						<button type="button" class="explore-clear-filters" data-role="clear-filters">Clear filters</button>
 					</div>`
-				: '<div class="explore-empty">No agents indexed yet.</div>';
+				: `<div class="explore-empty">
+						No agents indexed yet. Be the first —
+						<a href="/forge">forge a 3D model from a text prompt</a> and register it as an agent.
+					</div>`;
 		} else {
 			els.status.textContent = '';
 		}
