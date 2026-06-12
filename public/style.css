@@ -8281,6 +8281,16 @@ textarea.erc8004-code {
 	align-items: center;
 	gap: 14px;
 }
+.explore-empty a {
+	color: rgba(255, 255, 255, 0.85);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	transition: color 0.15s ease;
+}
+.explore-empty a:hover,
+.explore-empty a:focus-visible {
+	color: #fff;
+}
 .explore-clear-filters {
 	background: transparent;
 	border: 1px solid rgba(255, 255, 255, 0.18);
