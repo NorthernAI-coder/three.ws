@@ -126,6 +126,14 @@
 					"changefreq": "monthly"
 				},
 				{
+					"path": "/scene",
+					"title": "Scene Studio",
+					"description": "Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-12"
+				},
+				{
 					"path": "/validation",
 					"title": "glTF Validator",
 					"description": "Khronos-spec validator for glTF/GLB files. Paste a URL or upload a model.",

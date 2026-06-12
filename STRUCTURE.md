@@ -17,6 +17,7 @@ bottom.
 | Web renderer / viewer | [avatar-sdk/](avatar-sdk) `→ /viewer` | Published as `@three-ws/avatar` | `<agent-3d>` web component |
 | React avatar creator | [avatar-sdk/](avatar-sdk) `→ /react` `/creator` | Published as `@three-ws/avatar` | Same package, React subpath |
 | Avatar builder (full app) | [character-studio/](character-studio) | Fork of [m3-org/CharacterStudio](https://github.com/M3-org/CharacterStudio), MIT, see [character-studio/LICENSE](character-studio/LICENSE) | Web-first character creator |
+| Scene Studio (3D scene editor) | [src/scene-studio/](src/scene-studio) `→ /scene` | Vendored [mrdoob/three.js](https://github.com/mrdoob/three.js) r184 editor, MIT, see [src/scene-studio/vendor/README.md](src/scene-studio/vendor/README.md) | Import GLBs, compose scenes, edit materials/lights, export |
 | Embed examples | [examples/](examples) | In-repo | `embed-test.html`, `web-component.html`, `two-agents.html`, `minimal.html` |
 | Animation pipeline | [public/animations/](public/animations) + [scripts/build-animations.mjs](scripts/build-animations.mjs) | In-repo | Mixamo source FBX + GLB retargeting pipeline |
 | Avatar schema | [packages/avatar-schema/](packages/avatar-schema) | Published as `@three-ws/avatar-schema` | JSON Schema for on-chain avatar manifests |
@@ -107,5 +108,5 @@ gain.
 
 - [README.md](README.md) — product overview, quickstart, full feature list
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to propose changes
-- Attribution for derived code and assets — [character-studio/LICENSE](character-studio/LICENSE) (fork of M3-org/CharacterStudio), [public/animations/LICENSES.md](public/animations/LICENSES.md), and the per-asset `LICENSES.md` files under [public/club/](public/club)
+- Attribution for derived code and assets — [character-studio/LICENSE](character-studio/LICENSE) (fork of M3-org/CharacterStudio), [src/scene-studio/vendor/LICENSE](src/scene-studio/vendor/LICENSE) (vendored three.js editor), [public/animations/LICENSES.md](public/animations/LICENSES.md), and the per-asset `LICENSES.md` files under [public/club/](public/club)
 - [CLAUDE.md](CLAUDE.md) — operating rules for AI agents working in this repo

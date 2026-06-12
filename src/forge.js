@@ -86,6 +86,10 @@ let currentCreationId = null;
 // `genBackend` names the provider; both come from the selected engine button.
 // The catalog (tiers + backends + cost/time matrix) is fetched once on load.
 let catalog = null;
+// Live backend health (/api/forge?health) — probed upstream auth/quota, not
+// just env presence. Null until the probe returns; the buttons render
+// optimistically from the catalog and tighten when health lands.
+let health = null;
 let selectedTier = 'standard';
 let selectedEngine = { id: 'trellis', path: 'image', backend: 'trellis', byok: null, polyControl: false };
 // Once the user deliberately picks an engine we stop auto-selecting the
@@ -222,6 +226,21 @@ async function loadCatalog() {
 	}
 	buildEngineButtons();
 	selectTier(selectedTier);
+	loadHealth();
+}
+
+// Live-probe the backends in the background, then tighten the engine buttons:
+// a lane whose upstream is down gets disabled with the real reason instead of
+// failing after the user has already typed a prompt and clicked Generate.
+async function loadHealth() {
+	try {
+		const res = await fetch('/api/forge?health=1', { headers: CLIENT_HEADERS });
+		const body = await res.json().catch(() => null);
+		health = body && body.backends ? body : null;
+	} catch {
+		health = null;
+	}
+	if (health) updateEngineAvailability();
 }
 
 function buildEngineButtons() {
@@ -268,14 +287,24 @@ function updateEngineAvailability() {
 	let bounceTo = null;
 	for (const btn of els.engine.querySelectorAll('button')) {
 		const textOnly = btn.dataset.userimages === 'false';
-		const blocked = textOnly && hasPhotos;
+		const b = catalog.backends?.find((x) => x.id === btn.dataset.backend);
+		// Live health beats the catalog's env-presence flag: a lane whose
+		// upstream auth/billing probe failed is disabled with the real reason.
+		const lane = health?.backends?.[btn.dataset.backend];
+		const laneDown = lane && (lane.status === 'down' || lane.status === 'unconfigured');
+		const laneBusy = lane && lane.status === 'degraded';
+		const blocked = (textOnly && hasPhotos) || laneDown;
 		btn.disabled = blocked;
 		btn.setAttribute('aria-disabled', String(blocked));
-		if (blocked) {
+		btn.dataset.health = lane ? lane.status : '';
+		if (laneDown) {
+			btn.title = `${b?.label || btn.dataset.backend} — temporarily unavailable: ${lane.message}`;
+		} else if (blocked) {
 			btn.title = 'This engine generates from text prompts only — clear the reference views to use it.';
-		} else if (catalog.backends) {
-			const b = catalog.backends.find((x) => x.id === btn.dataset.backend);
-			if (b) btn.title = `${b.label} — ${b.blurb}`;
+		} else if (b) {
+			btn.title = laneBusy
+				? `${b.label} — busy right now: ${lane.message}`
+				: `${b.label} — ${b.blurb}`;
 		}
 		if (blocked && btn.dataset.backend === selectedEngine.backend) bounceTo = true;
 	}

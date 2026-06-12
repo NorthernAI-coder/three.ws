@@ -1107,6 +1107,16 @@
 				"security"
 			],
 			"link": "/login"
+		},
+		{
+			"date": "2026-06-12",
+			"title": "Forge engine picker now shows live engine health",
+			"summary": "The engine buttons on Forge now reflect what's actually running, probed live against each provider — not just whether it's set up. An engine whose upstream is down or unreachable is disabled with the reason in its tooltip, a throttled one shows an amber busy dot, and bring-your-own-key engines (Meshy, Tripo) say so before you pick them. Behind it is a new public health check at /api/forge?health, and the self-hosted Hunyuan3D lane was rewired to its own worker so it no longer fails every prompt by routing to the avatar pipeline.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/forge"
 		}
 	]
 }

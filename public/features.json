@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-12T03:07:02.254Z",
+	"generated_at": "2026-06-12T06:03:34.326Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -157,6 +157,16 @@
 					"title": "Viewer",
 					"description": "Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.",
 					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/scene",
+					"title": "Scene Studio",
+					"description": "Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.",
+					"added": "2026-06-12",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

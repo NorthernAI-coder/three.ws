@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+	<head>
+		<!-- Scene Studio is dark-locked: pro 3D tools read best on a dark chrome,
+		     so this page pins the theme instead of running the site theme boot. -->
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Scene Studio · Assemble 3D worlds · three.ws</title>
+		<meta
+			name="description"
+			content="A full 3D scene editor in the browser. Import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes."
+		/>
+		<meta property="og:title" content="Scene Studio — Assemble 3D worlds · three.ws" />
+		<meta
+			property="og:description"
+			content="A full 3D scene editor in the browser. Import models, compose scenes, edit materials and lights, export GLB."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/scene" />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Scene Studio · Assemble 3D worlds · three.ws" />
+		<meta
+			name="twitter:description"
+			content="A full 3D scene editor in the browser. Import models, compose scenes, edit materials and lights, export GLB."
+		/>
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta name="theme-color" content="#080814" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+
+		<!-- Editor script-panel toolchain (vendored from three.js r184, MIT —
+		     /scene-studio/LICENSE). Classic globals consumed by the editor:
+		     CodeMirror, esprima, jsonlint, tern, acorn, signals, DracoEncoderModule. -->
+		<link rel="stylesheet" href="/scene-studio/libs/codemirror/codemirror.css" />
+		<link rel="stylesheet" href="/scene-studio/libs/codemirror/theme/monokai.css" />
+		<link rel="stylesheet" href="/scene-studio/libs/codemirror/addon/dialog.css" />
+		<link rel="stylesheet" href="/scene-studio/libs/codemirror/addon/show-hint.css" />
+		<link rel="stylesheet" href="/scene-studio/libs/codemirror/addon/tern.css" />
+		<script src="/scene-studio/libs/codemirror/codemirror.js"></script>
+		<script src="/scene-studio/libs/codemirror/mode/javascript.js"></script>
+		<script src="/scene-studio/libs/codemirror/mode/glsl.js"></script>
+		<script src="/scene-studio/libs/esprima.js"></script>
+		<script src="/scene-studio/libs/jsonlint.js"></script>
+		<script src="/scene-studio/libs/codemirror/addon/dialog.js"></script>
+		<script src="/scene-studio/libs/codemirror/addon/show-hint.js"></script>
+		<script src="/scene-studio/libs/codemirror/addon/tern.js"></script>
+		<script src="/scene-studio/libs/acorn/acorn.js"></script>
+		<script src="/scene-studio/libs/acorn/acorn_loose.js"></script>
+		<script src="/scene-studio/libs/acorn/walk.js"></script>
+		<script src="/scene-studio/libs/ternjs/polyfill.js"></script>
+		<script src="/scene-studio/libs/ternjs/signal.js"></script>
+		<script src="/scene-studio/libs/ternjs/tern.js"></script>
+		<script src="/scene-studio/libs/ternjs/def.js"></script>
+		<script src="/scene-studio/libs/ternjs/comment.js"></script>
+		<script src="/scene-studio/libs/ternjs/infer.js"></script>
+		<script src="/scene-studio/libs/ternjs/doc_comment.js"></script>
+		<script src="/scene-studio/libs/tern-threejs/threejs.js"></script>
+		<script src="/scene-studio/libs/signals.min.js"></script>
+		<script src="/scene-studio/draco/draco_encoder.js"></script>
+	</head>
+	<body class="scene-studio">
+		<div id="nav-container"></div>
+		<div id="studio-app" role="application" aria-label="Scene Studio 3D editor"></div>
+
+		<script src="/nav.js" defer></script>
+		<script type="module" src="/src/scene-studio/main.js"></script>
+	</body>
+</html>

@@ -1,0 +1,300 @@
+/* Scene Studio — three.ws chrome over the vendored three.js editor.
+ *
+ * The studio is dark-locked (the page pins data-theme="dark"), so these rules
+ * skin the editor unconditionally — they must win over BOTH the vendor light
+ * defaults and its `prefers-color-scheme: dark` media block, which is why
+ * every selector is prefixed with #studio-app (adds an id, beats the vendor's
+ * class-level specificity regardless of OS color scheme). */
+
+body.scene-studio {
+	overflow: hidden;
+	font-family: var(--font-body);
+}
+
+/* The editor panels position themselves absolutely against their nearest
+ * positioned ancestor; this container pins the whole tool under the site nav. */
+#studio-app {
+	position: fixed;
+	top: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: var(--bg-0);
+	color: var(--ink);
+	font-size: 14px;
+}
+
+/* --- Menubar -------------------------------------------------------------- */
+
+#studio-app #menubar {
+	background: rgba(10, 10, 12, 0.92);
+	border-bottom: 1px solid var(--stroke);
+	color: var(--ink);
+}
+
+#studio-app #menubar .menu .title {
+	color: var(--ink);
+}
+
+#studio-app #menubar .menu:hover,
+#studio-app #menubar .menu.open {
+	background: var(--surface-2);
+}
+
+#studio-app #menubar .menu .options {
+	background: #14151c;
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-sm);
+	box-shadow: var(--shadow-2);
+	padding: 4px 0;
+}
+
+#studio-app #menubar .menu .options hr {
+	border-color: var(--stroke);
+}
+
+#studio-app #menubar .menu .options .option {
+	color: var(--ink);
+	transition: background-color 120ms ease;
+}
+
+#studio-app #menubar .menu .options .option:hover,
+#studio-app #menubar .menu .options .option:focus-visible {
+	background: var(--surface-3);
+	color: #fff;
+}
+
+#studio-app #menubar .menu .key {
+	color: var(--ink-dim);
+	border-color: var(--stroke-strong);
+}
+
+/* --- Sidebar / tabs -------------------------------------------------------- */
+
+#studio-app #sidebar {
+	background: #0e0f15;
+	border-left: 1px solid var(--stroke);
+	color: var(--ink);
+}
+
+#studio-app #sidebar .Panel {
+	color: var(--ink);
+	border-top: 1px solid var(--stroke);
+}
+
+#studio-app #sidebar .Panel .Panel {
+	border-top: none;
+}
+
+#studio-app #tabs {
+	background: rgba(10, 10, 12, 0.92);
+	border-bottom: 1px solid var(--stroke);
+}
+
+#studio-app .TabbedPanel .Tabs {
+	background: transparent;
+	border-bottom: 1px solid var(--stroke);
+}
+
+#studio-app .TabbedPanel .Tab {
+	color: var(--ink-dim);
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid transparent;
+	transition:
+		color 120ms ease,
+		border-color 120ms ease;
+}
+
+#studio-app .TabbedPanel .Tab:hover {
+	color: var(--ink);
+}
+
+#studio-app .TabbedPanel .Tab.selected {
+	color: #fff;
+	border-bottom-color: var(--accent);
+	background: transparent;
+}
+
+/* --- Outliner --------------------------------------------------------------- */
+
+#studio-app .Outliner {
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-sm);
+	color: var(--ink);
+}
+
+#studio-app #outliner .option {
+	border-radius: 3px;
+	transition: background-color 100ms ease;
+}
+
+#studio-app #outliner .option:hover {
+	background: var(--surface-2);
+}
+
+#studio-app #outliner .option.active {
+	background: rgba(255, 255, 255, 0.16);
+	color: #fff;
+}
+
+#studio-app #outliner .type {
+	color: var(--ink-dim);
+}
+
+/* --- Controls: buttons, inputs, selects ------------------------------------- */
+
+#studio-app .Button {
+	color: var(--ink);
+	background-color: var(--surface-2);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-sm);
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease;
+	cursor: pointer;
+}
+
+#studio-app .Button:hover {
+	color: #fff;
+	background-color: var(--surface-3);
+	border-color: var(--stroke-strong);
+}
+
+#studio-app .Button:active {
+	background-color: rgba(255, 255, 255, 0.14);
+}
+
+#studio-app .Button.selected {
+	color: #fff;
+	background-color: rgba(255, 255, 255, 0.22);
+	border-color: var(--stroke-strong);
+}
+
+#studio-app .Input,
+#studio-app .TextArea {
+	background-color: var(--bg-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-sm);
+	color: var(--ink);
+	transition: border-color 120ms ease;
+}
+
+#studio-app .Input:focus,
+#studio-app .TextArea:focus {
+	border-color: var(--stroke-strong);
+	color: #fff;
+}
+
+#studio-app .Select {
+	color: var(--ink);
+	background-color: var(--bg-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-sm);
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease;
+}
+
+#studio-app .Select:hover {
+	color: #fff;
+	background-color: var(--surface-3);
+}
+
+/* Keyboard focus ring on every interactive control. */
+#studio-app .Button:focus-visible,
+#studio-app .Input:focus-visible,
+#studio-app .TextArea:focus-visible,
+#studio-app .Select:focus-visible,
+#studio-app .TabbedPanel .Tab:focus-visible {
+	outline: 2px solid rgba(255, 255, 255, 0.5);
+	outline-offset: 1px;
+}
+
+/* --- Floating toolbar -------------------------------------------------------- */
+
+#studio-app #toolbar {
+	background: rgba(16, 17, 24, 0.88);
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-md);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	box-shadow: var(--shadow-2);
+}
+
+#studio-app #toolbar .Button {
+	background: transparent;
+	border: none;
+}
+
+#studio-app #toolbar .Button:hover {
+	background: var(--surface-3);
+}
+
+#studio-app #toolbar .Button.selected {
+	background: rgba(255, 255, 255, 0.22);
+}
+
+/* Icons ship as dark strokes for the upstream light theme — invert for ours
+ * (unconditional; the vendor only inverts under prefers-color-scheme: dark). */
+#studio-app #toolbar img {
+	filter: invert(1);
+}
+
+/* --- Listbox / dialogs -------------------------------------------------------- */
+
+#studio-app .Listbox {
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-sm);
+	color: var(--ink);
+}
+
+#studio-app .Listbox .ListboxItem:hover {
+	background: var(--surface-2);
+}
+
+#studio-app .Listbox .ListboxItem.active {
+	background: rgba(255, 255, 255, 0.16);
+}
+
+#studio-app .Dialog-content {
+	background: #14151c;
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-2);
+	color: var(--ink);
+}
+
+#studio-app .Dialog-title {
+	color: #fff;
+}
+
+#studio-app .Dialog-background {
+	background: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(4px);
+	-webkit-backdrop-filter: blur(4px);
+}
+
+/* --- Animation timeline bar --------------------------------------------------- */
+
+#studio-app #animation {
+	background: rgba(10, 10, 12, 0.92);
+	border-top: 1px solid var(--stroke);
+}
+
+#studio-app #animation .Panel {
+	color: var(--ink-dim);
+}
+
+#studio-app #animation input[type='range'] {
+	accent-color: var(--accent);
+}
+
+/* --- Resizers --------------------------------------------------------------- */
+
+#studio-app #resizer:hover,
+#studio-app #animation-resizer:hover {
+	background: rgba(255, 255, 255, 0.18);
+}
