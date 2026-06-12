@@ -1,6 +1,6 @@
 {
 	"name": "@three-ws/sdk",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Ship a cross-chain 3D AI agent with EVM + Solana identity, a chat panel, and discoverable .well-known endpoints.",
 	"type": "module",
 	"main": "./src/index.js",
@@ -50,8 +50,19 @@
 		"access": "public"
 	},
 	"keywords": [
-		"erc-8004", "agent", "blockchain", "a2a", "mcp",
-		"ethereum", "solana", "web3", "identity", "3d", "ai", "nft", "metaplex"
+		"erc-8004",
+		"agent",
+		"blockchain",
+		"a2a",
+		"mcp",
+		"ethereum",
+		"solana",
+		"web3",
+		"identity",
+		"3d",
+		"ai",
+		"nft",
+		"metaplex"
 	],
 	"license": "MIT",
 	"peerDependencies": {
@@ -59,7 +70,24 @@
 		"@solana/web3.js": "^1.0.0"
 	},
 	"peerDependenciesMeta": {
-		"ethers": { "optional": true },
-		"@solana/web3.js": { "optional": true }
+		"ethers": {
+			"optional": true
+		},
+		"@solana/web3.js": {
+			"optional": true
+		}
+	},
+	"author": "three.ws <support@three.ws> (https://three.ws)",
+	"homepage": "https://three.ws/",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/nirholas/three.ws.git",
+		"directory": "sdk"
+	},
+	"bugs": {
+		"url": "https://github.com/nirholas/three.ws/issues"
+	},
+	"engines": {
+		"node": ">=18"
 	}
 }

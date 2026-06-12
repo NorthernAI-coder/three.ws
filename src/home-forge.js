@@ -12,13 +12,19 @@
 // Presentation: the section is a single state-reactive "chamber" —
 // [data-hf-state] on the chamber root drives the ring/floor/telemetry CSS.
 // This module adds the typewriter suggestion (Tab accepts), pointer parallax
-// on the ambient layers, and the scanline + materialize reveal on results.
+// on the ambient layers, the scanline + materialize reveal on results, a
+// session history rail (real frames captured from the viewer, persisted on
+// this device), and a wired result toolbar that carries the model straight
+// into Scene Studio, a shareable link, a same-prompt variation, or download.
 // All motion respects prefers-reduced-motion.
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_MS = 5 * 60 * 1000;
 const MODEL_VIEWER_SRC =
 	'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
+const HISTORY_KEY = 'forge:home:history';
+const HISTORY_MAX = 6;
+const THUMB_SIZE = 96;
 
 const root = document.getElementById('home-forge');
 
@@ -43,13 +49,21 @@ const els = root && {
 	},
 	elapsed: root.querySelector('[data-hf-elapsed]'),
 	cancel: root.querySelector('[data-hf-cancel]'),
+	resultRegion: root.querySelector('[data-hf-result-region]'),
 	resultMeta: root.querySelector('[data-hf-result-meta]'),
+	spin: root.querySelector('[data-hf-spin]'),
+	vary: root.querySelector('[data-hf-vary]'),
+	scene: root.querySelector('[data-hf-scene]'),
+	share: root.querySelector('[data-hf-share]'),
 	download: root.querySelector('[data-hf-download]'),
 	again: root.querySelector('[data-hf-again]'),
 	errorMessage: root.querySelector('[data-hf-error-message]'),
 	retry: root.querySelector('[data-hf-retry]'),
 	viewerSlot: root.querySelector('[data-hf-viewer-slot]'),
 	scan: root.querySelector('[data-hf-scan]'),
+	history: root.querySelector('[data-hf-history]'),
+	historyTrack: root.querySelector('[data-hf-history-track]'),
+	toast: root.querySelector('[data-hf-toast]'),
 };
 
 // Same anonymous handle as src/forge.js — keep the storage key in sync so the
@@ -80,6 +94,9 @@ let pollAbort = false;
 let elapsedTimer = null;
 let lastPrompt = '';
 let modelViewerReady = null;
+let currentViewer = null; // the live <model-viewer> on stage
+let currentGlbUrl = ''; // what the toolbar acts on
+let toastTimer = null;
 // Monotonic run token: cancel-then-regenerate must not let the first run's
 // poll loop wake up and fight the new one over the shared stage.
 let runSeq = 0;
@@ -138,6 +155,7 @@ function setBusy(b) {
 	busy = b;
 	els.generate.disabled = b;
 	els.generateLabel.textContent = b ? 'Forging…' : 'Forge';
+	if (els.vary) els.vary.disabled = b;
 }
 
 function showError(message) {
@@ -145,6 +163,127 @@ function showError(message) {
 	els.errorMessage.textContent = message;
 	showState('error');
 }
+
+function showToast(message) {
+	if (!els.toast) return;
+	els.toast.textContent = message;
+	els.toast.hidden = false;
+	// Reflow so the .is-on transition runs even on a rapid second copy.
+	void els.toast.offsetWidth;
+	els.toast.classList.add('is-on');
+	clearTimeout(toastTimer);
+	toastTimer = setTimeout(() => {
+		els.toast.classList.remove('is-on');
+		setTimeout(() => {
+			if (!els.toast.classList.contains('is-on')) els.toast.hidden = true;
+		}, 240);
+	}, 1800);
+}
+
+// ── Session history ────────────────────────────────────────────────
+// Each entry: { glbUrl, prompt, thumb (data URL | null), ts }. Persisted on
+// this device so a visitor's recent forges survive a scroll-away or reload.
+
+function loadHistory() {
+	try {
+		const raw = JSON.parse(localStorage.getItem(HISTORY_KEY));
+		return Array.isArray(raw) ? raw.filter((it) => it && it.glbUrl) : [];
+	} catch {
+		return [];
+	}
+}
+
+function saveHistory(list) {
+	try {
+		localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, HISTORY_MAX)));
+	} catch {
+		// Quota or private-mode — the rail just won't persist; not fatal.
+	}
+}
+
+function pushHistory(entry) {
+	const list = loadHistory().filter((it) => it.glbUrl !== entry.glbUrl);
+	list.unshift(entry);
+	const trimmed = list.slice(0, HISTORY_MAX);
+	saveHistory(trimmed);
+	renderHistory(trimmed);
+}
+
+function renderHistory(list = loadHistory()) {
+	if (!els.history || !els.historyTrack) return;
+	els.history.hidden = list.length === 0;
+	els.historyTrack.innerHTML = '';
+	for (const item of list) {
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'hf-thumb';
+		btn.setAttribute('role', 'listitem');
+		btn.dataset.glb = item.glbUrl;
+		const label = item.prompt || '3D model';
+		btn.title = label;
+		btn.setAttribute('aria-label', `Bring back: ${label}`);
+		btn.setAttribute('aria-current', item.glbUrl === currentGlbUrl ? 'true' : 'false');
+		if (item.thumb) {
+			btn.style.backgroundImage = `url("${item.thumb}")`;
+		} else {
+			const fb = document.createElement('span');
+			fb.className = 'hf-thumb-fallback';
+			fb.textContent = (label.trim()[0] || '?').toUpperCase();
+			fb.setAttribute('aria-hidden', 'true');
+			btn.appendChild(fb);
+		}
+		btn.addEventListener('click', () => {
+			if (busy) return;
+			lastPrompt = item.prompt || lastPrompt;
+			showResult(item.glbUrl, item.prompt || '', { fromHistory: true });
+		});
+		els.historyTrack.appendChild(btn);
+	}
+}
+
+function markActiveThumb() {
+	if (!els.historyTrack) return;
+	for (const btn of els.historyTrack.querySelectorAll('.hf-thumb')) {
+		btn.setAttribute('aria-current', btn.dataset.glb === currentGlbUrl ? 'true' : 'false');
+	}
+}
+
+// Grab a real frame off the live viewer's canvas, square-crop and shrink it to
+// a tiny WebP so a session's worth of thumbnails fits comfortably in storage.
+async function captureThumb(viewer) {
+	try {
+		if (viewer.updateComplete) await viewer.updateComplete;
+		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+		const full = viewer.toDataURL('image/webp', 0.85);
+		return await downscaleDataUrl(full, THUMB_SIZE);
+	} catch {
+		return null; // tainted canvas / unsupported — fall back to a letter tile.
+	}
+}
+
+function downscaleDataUrl(src, size) {
+	return new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => {
+			try {
+				const canvas = document.createElement('canvas');
+				canvas.width = canvas.height = size;
+				const ctx = canvas.getContext('2d');
+				const side = Math.min(img.width, img.height);
+				const sx = (img.width - side) / 2;
+				const sy = (img.height - side) / 2;
+				ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+				resolve(canvas.toDataURL('image/webp', 0.7));
+			} catch {
+				resolve(null);
+			}
+		};
+		img.onerror = () => resolve(null);
+		img.src = src;
+	});
+}
+
+// ── Pipeline ───────────────────────────────────────────────────────
 
 async function startJob(prompt) {
 	const res = await fetch('/api/forge', {
@@ -181,26 +320,75 @@ async function pollUntilDone(jobId, seq) {
 	throw new Error('Generation timed out — try a simpler, single-subject prompt.');
 }
 
-function showResult(glbUrl, prompt) {
+function sceneLinkFor(glbUrl, prompt) {
+	const q = new URLSearchParams({ model: glbUrl });
+	if (prompt) q.set('name', prompt.slice(0, 80));
+	return `/scene?${q.toString()}`;
+}
+
+function downloadName(prompt) {
+	return (
+		`${(prompt || 'forge')
+			.replace(/[^a-z0-9]+/gi, '-')
+			.slice(0, 48)
+			.replace(/^-|-$/g, '')}` || 'forge'
+	);
+}
+
+function showResult(glbUrl, prompt, { fromHistory = false } = {}) {
 	stopElapsed();
+	currentGlbUrl = glbUrl;
 	const viewer = document.createElement('model-viewer');
 	viewer.setAttribute('src', glbUrl);
-	viewer.setAttribute('alt', `3D model: ${prompt}`);
+	viewer.setAttribute('alt', prompt ? `3D model: ${prompt}` : '3D model');
 	viewer.setAttribute('camera-controls', '');
 	viewer.setAttribute('auto-rotate', '');
 	viewer.setAttribute('auto-rotate-delay', '0');
 	viewer.setAttribute('rotation-per-second', '18deg');
-	viewer.setAttribute('shadow-intensity', '1');
 	viewer.setAttribute('interaction-prompt', 'none');
+	viewer.setAttribute('shadow-intensity', '1');
+	viewer.setAttribute('exposure', '1.05');
+	viewer.setAttribute('environment-image', 'neutral');
+	viewer.setAttribute('touch-action', 'pan-y');
+	// AR where the device supports it — a real, free win on phones.
+	viewer.setAttribute('ar', '');
+	viewer.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
 	els.viewerSlot.innerHTML = '';
 	els.viewerSlot.appendChild(viewer);
-	els.resultMeta.textContent = prompt;
-	els.download.href = glbUrl;
-	els.download.setAttribute(
-		'download',
-		`${prompt.replace(/[^a-z0-9]+/gi, '-').slice(0, 48).replace(/^-|-$/g, '') || 'forge'}.glb`,
-	);
+	currentViewer = viewer;
+
+	// Reset the rotate toggle to its default-on state for the new model.
+	if (els.spin) {
+		els.spin.setAttribute('aria-pressed', 'true');
+		els.spin.title = 'Pause auto-rotate';
+	}
+
+	els.resultMeta.textContent = prompt || 'Untitled model';
+	els.resultMeta.title = prompt || '';
+	if (els.download) {
+		els.download.href = glbUrl;
+		els.download.setAttribute('download', `${downloadName(prompt)}.glb`);
+	}
+	if (els.scene) els.scene.href = sceneLinkFor(glbUrl, prompt);
+
 	showState('result');
+	markActiveThumb();
+
+	// Capture a frame off this render for the history rail (fresh forges only —
+	// a reload from history already has its thumbnail).
+	if (!fromHistory) {
+		viewer.addEventListener(
+			'load',
+			() => {
+				captureThumb(viewer).then((thumb) => {
+					pushHistory({ glbUrl, prompt, thumb, ts: Date.now() });
+					markActiveThumb();
+				});
+			},
+			{ once: true },
+		);
+	}
+
 	// Materialize: blur-in on the viewer + a one-shot scanline sweep.
 	if (!REDUCED_MOTION) {
 		els.viewerSlot.classList.remove('is-in');
@@ -209,13 +397,27 @@ function showResult(glbUrl, prompt) {
 		els.viewerSlot.classList.add('is-in');
 		els.scan.classList.add('is-scan');
 	}
+
+	// Hand keyboard focus to the action bar so the model is operable without a
+	// mouse the instant it lands.
+	if (els.resultRegion) {
+		try {
+			els.resultRegion.focus({ preventScroll: true });
+		} catch {
+			els.resultRegion.focus();
+		}
+	}
+
 	// Same signal the full page emits — the discovery layer turns it into a
-	// "what's next?" card (embed it, drop it in a world, …).
-	document.dispatchEvent(
-		new CustomEvent('tws:feature-done', {
-			detail: { feature: 'forge', model: { glbUrl, label: prompt } },
-		}),
-	);
+	// "what's next?" card (embed it, drop it in a world, …). Only on fresh
+	// forges, so reloading a thumbnail doesn't re-trigger the cards.
+	if (!fromHistory) {
+		document.dispatchEvent(
+			new CustomEvent('tws:feature-done', {
+				detail: { feature: 'forge', model: { glbUrl, label: prompt } },
+			}),
+		);
+	}
 }
 
 async function run(prompt) {
@@ -274,6 +476,9 @@ function reset() {
 	pollAbort = true;
 	stopElapsed();
 	setBusy(false);
+	currentGlbUrl = '';
+	currentViewer = null;
+	markActiveThumb();
 	showState('idle');
 	els.prompt.focus();
 }
@@ -355,6 +560,40 @@ function autoGrow() {
 	els.prompt.style.height = `${els.prompt.scrollHeight}px`;
 }
 
+async function copyShareLink() {
+	if (!currentGlbUrl) return;
+	const url = new URL(sceneLinkFor(currentGlbUrl, lastPrompt), location.origin).href;
+	try {
+		await navigator.clipboard.writeText(url);
+		showToast('Share link copied');
+	} catch {
+		// Clipboard blocked (permissions / insecure context) — fall back to a
+		// transient selectable field the user can copy manually.
+		const input = document.createElement('input');
+		input.value = url;
+		input.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0;';
+		document.body.appendChild(input);
+		input.select();
+		let ok = false;
+		try {
+			ok = document.execCommand('copy');
+		} catch {
+			ok = false;
+		}
+		document.body.removeChild(input);
+		showToast(ok ? 'Share link copied' : 'Press ⌘/Ctrl-C to copy');
+	}
+}
+
+function toggleAutoRotate() {
+	if (!currentViewer || !els.spin) return;
+	const on = currentViewer.hasAttribute('auto-rotate');
+	if (on) currentViewer.removeAttribute('auto-rotate');
+	else currentViewer.setAttribute('auto-rotate', '');
+	els.spin.setAttribute('aria-pressed', String(!on));
+	els.spin.title = on ? 'Resume auto-rotate' : 'Pause auto-rotate';
+}
+
 function boot() {
 	els.form.addEventListener('submit', (e) => {
 		e.preventDefault();
@@ -401,6 +640,14 @@ function boot() {
 		else reset();
 	});
 
+	if (els.spin) els.spin.addEventListener('click', toggleAutoRotate);
+	if (els.share) els.share.addEventListener('click', copyShareLink);
+	if (els.vary)
+		els.vary.addEventListener('click', () => {
+			if (lastPrompt && !busy) run(lastPrompt);
+		});
+
+	renderHistory();
 	startTypewriter();
 	startParallax();
 }

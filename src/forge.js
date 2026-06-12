@@ -84,6 +84,13 @@ const els = {
 	byokHint: document.getElementById('byok-hint'),
 	providerKey: document.getElementById('provider-key'),
 	estimate: document.getElementById('estimate'),
+	// Prompt tools (surprise · live coach · counter) + example swap + drop overlay.
+	surprise: document.getElementById('surprise'),
+	chipsMore: document.getElementById('chips-more'),
+	promptCount: document.getElementById('prompt-count'),
+	promptCoach: document.getElementById('prompt-coach'),
+	composerDrop: document.getElementById('composer-drop'),
+	genKbd: document.querySelector('.gen-kbd'),
 };
 
 let aspectRatio = '1:1';
@@ -322,6 +329,7 @@ async function loadCatalog() {
 		return;
 	}
 	buildEngineButtons();
+	paintTierSublabels();
 	selectTier(selectedTier);
 	revealSketchMode();
 	loadHealth();
@@ -505,6 +513,148 @@ function updateEstimate() {
 				: 'fast path';
 	parts.push(pathLabel);
 	els.estimate.innerHTML = parts.join(' · ');
+}
+
+// Tier sublabels — paint each Quality button with the poly budget + a one-word
+// intent ("12k · fast"), sourced from the live catalog so the trade-off between
+// the three tiers is legible before you click one. No catalog → buttons keep
+// their plain labels.
+const TIER_INTENT = { draft: 'fast', standard: 'balanced', high: 'PBR' };
+function paintTierSublabels() {
+	if (!els.tier || !catalog?.tiers) return;
+	for (const btn of els.tier.querySelectorAll('button[data-tier]')) {
+		const t = catalog.tiers.find((x) => x.id === btn.dataset.tier);
+		let sub = btn.querySelector('.tier-sub');
+		if (!sub) {
+			sub = document.createElement('small');
+			sub.className = 'tier-sub';
+			btn.appendChild(sub);
+		}
+		if (!t) {
+			sub.textContent = '';
+			continue;
+		}
+		const bits = [];
+		if (Number(t.polycount) > 0) bits.push(`${Math.round(t.polycount / 1000)}k`);
+		bits.push(TIER_INTENT[t.id] || '');
+		sub.textContent = bits.filter(Boolean).join(' · ');
+	}
+}
+
+// Prompt tools — curated idea pool, live counter, and an honest quality coach.
+// The pool feeds both "Surprise me" (fill the box) and "More ideas" (swap the
+// visible example chips). Every prompt is a single, clearly-described object —
+// the shape that actually reconstructs well — so the tools teach by example.
+const PROMPT_POOL = [
+	'a low-poly red fox, sitting',
+	'a sci-fi combat helmet, brushed metal',
+	'a potted monstera plant',
+	'a vintage film camera',
+	'a glazed ceramic teapot',
+	'a worn leather armchair, studio lighting',
+	'a low-poly treasure chest, iron-banded wood',
+	'a mid-century walnut sideboard, brass legs',
+	'a steampunk submarine, riveted brass',
+	'a cartoon robot, white and orange plastic',
+	'a chibi dragon, green scales, small wings',
+	'a medieval round shield, painted wood with steel rim',
+	'a stoneware coffee mug, speckled glaze',
+	'a minimalist desk lamp, matte black metal',
+	'a glazed donut, pink frosting, rainbow sprinkles',
+	'a tiny fantasy cottage, thatched roof',
+	'a low-poly lighthouse, red and white stripes',
+	'a brass steampunk owl',
+	'a cast-iron skillet',
+	'a neon arcade cabinet',
+	'a velvet wingback chair, deep green',
+	'a marble bust on a plinth',
+	'a retro rotary telephone, cherry red',
+	'a frosted glass perfume bottle',
+	'a samurai helmet, lacquered black',
+	'a knitted wool beanie',
+];
+
+// Material + style vocabulary the coach rewards — naming either is what lifts a
+// prompt from vague to reconstructable.
+const MATERIAL_RE =
+	/\b(leather|metal|metallic|brushed|steel|iron|brass|copper|gold|silver|chrome|wood(en)?|oak|walnut|maple|bamboo|ceramic|glazed|porcelain|stoneware|plastic|matte|glossy|gloss|glass|frosted|stone|marble|granite|concrete|fabric|cloth|velvet|denim|wool|knitted|woven|rubber|clay|terracotta|bronze|carbon|lacquered|enamel|chrome)\b/i;
+const STYLE_RE =
+	/\b(low-?poly|realistic|photoreal\w*|cartoon|styli[sz]ed|voxel|sci-?fi|steampunk|minimalist|isometric|pixel|chibi|toy|retro|neon|fantasy|cyberpunk)\b/i;
+
+// Live, honest prompt coach + character counter. Heuristics only — they read
+// the text the user actually typed and never block submission; they nudge.
+function updatePromptMeta() {
+	if (!els.prompt) return;
+	const raw = els.prompt.value;
+	if (els.promptCount) {
+		els.promptCount.textContent = `${raw.length} / 1000`;
+		els.promptCount.dataset.near = String(raw.length >= 900);
+	}
+	if (!els.promptCoach) return;
+	const t = raw.trim();
+	const words = t ? t.split(/\s+/).length : 0;
+	let grade = 'tip';
+	let msg = 'Describe one object and what it’s made of.';
+	if (t.length === 0) {
+		grade = 'tip';
+		msg = 'Describe one object and what it’s made of.';
+	} else if (t.length < 8 || words < 2) {
+		grade = 'warn';
+		msg = 'A little short — add a detail or a material.';
+	} else if (MATERIAL_RE.test(t) || STYLE_RE.test(t)) {
+		grade = 'strong';
+		msg = 'Strong prompt — clear subject and look.';
+	} else {
+		grade = 'tip';
+		msg = 'Tip: name a material (leather, brushed metal, ceramic).';
+	}
+	els.promptCoach.dataset.grade = grade;
+	els.promptCoach.textContent = msg;
+}
+
+// "Surprise me" — drop a random pool prompt into the box (never the one already
+// there), spin the die, and focus so the user can tweak before forging.
+function surprisePrompt() {
+	if (!els.prompt) return;
+	const current = els.prompt.value.trim();
+	let pick = current;
+	for (let i = 0; i < 8 && pick === current; i++) {
+		pick = PROMPT_POOL[Math.floor(Math.random() * PROMPT_POOL.length)];
+	}
+	setMode('text');
+	els.prompt.value = pick;
+	updatePromptMeta();
+	if (els.surprise) {
+		els.surprise.classList.add('is-rolling');
+		setTimeout(() => els.surprise.classList.remove('is-rolling'), 520);
+	}
+	els.prompt.focus();
+}
+
+// "More ideas" — swap the five visible example chips for the next window of the
+// pool, with a quick fade so the change registers.
+let chipOffset = 0;
+function swapExampleChips() {
+	if (!els.examples) return;
+	const chips = Array.from(els.examples.querySelectorAll('.chip'));
+	if (!chips.length) return;
+	chipOffset = (chipOffset + chips.length) % PROMPT_POOL.length;
+	if (els.chipsMore) {
+		els.chipsMore.classList.add('is-rolling');
+		setTimeout(() => els.chipsMore.classList.remove('is-rolling'), 480);
+	}
+	const apply = () => {
+		chips.forEach((c, i) => {
+			c.textContent = PROMPT_POOL[(chipOffset + i) % PROMPT_POOL.length];
+			c.classList.remove('is-swapping');
+		});
+	};
+	if (REDUCED_MOTION) {
+		apply();
+		return;
+	}
+	chips.forEach((c) => c.classList.add('is-swapping'));
+	setTimeout(apply, 190);
 }
 
 // View slots ------------------------------------------------------------------
@@ -1469,13 +1619,22 @@ els.aspect.addEventListener('click', (e) => {
 });
 
 els.examples.addEventListener('click', (e) => {
+	if (e.target.closest('#chips-more')) {
+		swapExampleChips();
+		return;
+	}
 	const chip = e.target.closest('.chip');
 	if (!chip) return;
 	setMode('text');
 	els.prompt.value = chip.textContent.trim();
+	updatePromptMeta();
 	els.prompt.focus();
 	submit();
 });
+
+// Prompt tools: live counter + coach, surprise fill.
+els.prompt.addEventListener('input', updatePromptMeta);
+els.surprise?.addEventListener('click', surprisePrompt);
 
 // Quality tier + engine + BYOK key wiring.
 els.tier?.addEventListener('click', (e) => {
@@ -1584,6 +1743,65 @@ if (els.forgeShareBtn) {
 	});
 }
 
+// Drop a photo anywhere on the page, or paste one from the clipboard, to jump
+// straight into multi-view reconstruction. Both routes reuse the same upload
+// path as the slots — no new backend, just a faster on-ramp.
+function imagesFromDataTransfer(list) {
+	return Array.from(list || []).filter((f) => f && f.type && f.type.startsWith('image/'));
+}
+
+let dragDepth = 0;
+function dragCarriesFiles(e) {
+	return Array.from(e.dataTransfer?.types || []).includes('Files');
+}
+window.addEventListener('dragenter', (e) => {
+	if (!dragCarriesFiles(e)) return;
+	dragDepth += 1;
+	els.form?.classList.add('is-drop-active');
+});
+window.addEventListener('dragover', (e) => {
+	if (dragCarriesFiles(e)) e.preventDefault();
+});
+window.addEventListener('dragleave', (e) => {
+	if (!dragCarriesFiles(e)) return;
+	dragDepth = Math.max(0, dragDepth - 1);
+	if (dragDepth === 0) els.form?.classList.remove('is-drop-active');
+});
+window.addEventListener('drop', (e) => {
+	dragDepth = 0;
+	els.form?.classList.remove('is-drop-active');
+	// A drop that lands on a view slot is owned by that slot's own handler.
+	if (e.target.closest?.('.view-slot')) return;
+	const imgs = imagesFromDataTransfer(e.dataTransfer?.files);
+	if (!imgs.length) return;
+	e.preventDefault();
+	setMode('image');
+	handleFiles(null, imgs);
+});
+
+// Paste an image (screenshot, copied product photo) → photo mode + upload. Text
+// pastes carry no image files, so normal typing/paste is never intercepted.
+window.addEventListener('paste', (e) => {
+	const items = e.clipboardData?.items;
+	if (!items) return;
+	const files = [];
+	for (const it of items) {
+		if (it.kind === 'file' && it.type.startsWith('image/')) {
+			const f = it.getAsFile();
+			if (f) files.push(f);
+		}
+	}
+	if (!files.length) return;
+	e.preventDefault();
+	setMode('image');
+	handleFiles(null, files);
+});
+
+// The ⌘↵ hint is rendered for macOS; everywhere else the submit chord is Ctrl↵.
+if (els.genKbd && !/Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '')) {
+	els.genKbd.textContent = 'Ctrl↵';
+}
+
 // Handle ?prompt= (pre-fill from a remix link) and ?share= (open a creation).
 (function handleQueryParams() {
 	const params = new URLSearchParams(location.search);
@@ -1598,6 +1816,34 @@ if (els.forgeShareBtn) {
 		window.__forgeShareId = shareParam;
 	}
 })();
+
+// Paint the counter + coach for whatever the box starts with (remix prefill or
+// empty), so the tools are live from first render.
+updatePromptMeta();
+
+// Hooks for the companion modules (forge-dropzone.js, forge-showcase.js) —
+// a CustomEvent contract keeps them decoupled from this file's internals.
+
+// Images captured anywhere on the page (clipboard paste, page-level drop).
+// In sketch mode a single image becomes the sketch; otherwise we switch to
+// photo mode and distribute into free view slots.
+document.addEventListener('forge:add-images', (e) => {
+	const files = Array.isArray(e.detail?.files) ? e.detail.files : [];
+	if (!files.length) return;
+	if (mode === 'sketch' && files.length === 1) {
+		uploadSketch(files[0]);
+		return;
+	}
+	if (mode !== 'image') setMode('image');
+	handleFiles(null, files);
+});
+
+// A community-showcase card asks to open its creation in the main viewer, so
+// the full result bar (download, share, stylize, optimize, split) works on it.
+document.addEventListener('forge:open-creation', (e) => {
+	const creation = e.detail?.creation;
+	if (creation?.glb_url) openCreation(creation);
+});
 
 // Build the quality/engine controls from the live catalog (tiers, backends,
 // cost/time matrix). Falls back silently to the defaults if it can't load.

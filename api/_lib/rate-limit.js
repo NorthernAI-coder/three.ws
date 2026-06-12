@@ -248,6 +248,11 @@ export const limits = {
 	mcp3dGenerateFree: (key) =>
 		getLimiter('mcp3d:generate:free', { limit: 60, window: '1 h' }).limit(key),
 	mcp3dStatus: (key) => getLimiter('mcp3d:status', { limit: 240, window: '1 m' }).limit(key),
+	// Forge prompt enhancer — one free-tier LLM rewrite per call. Cheap text
+	// completion, but each one hits an upstream provider, so cap per principal to
+	// keep that egress bounded. Non-critical: a Redis outage must never block a
+	// rewrite (the enhancer degrades gracefully to the original prompt anyway).
+	forgeEnhance: (key) => getLimiter('forge:enhance', { limit: 40, window: '1 h' }).limit(key),
 	// x402 Bazaar MCP. Discovery calls fan out to external facilitators, so cap
 	// per principal to keep that egress bounded without throttling normal use.
 	mcpBazaar: (key) =>

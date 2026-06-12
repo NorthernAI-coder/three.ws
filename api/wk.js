@@ -17,6 +17,7 @@ import {
 } from './_lib/x402-spec.js';
 import { declareMcpDiscovery, withService } from './_lib/x402/bazaar-helpers.js';
 import { TOOL_CATALOG } from './_mcp/catalog.js';
+import { STUDIO_CHALLENGE } from './_mcp3d/discovery.js';
 import { priceFor } from './_lib/pump-pricing.js';
 import { priceAtomicsForTier } from './_lib/forge-tiers.js';
 import { listBazaarServices, serviceResourceUrl } from './_lib/agent-paid-services.js';
@@ -443,6 +444,7 @@ async function buildAgentServiceItems(origin) {
 async function handleX402Discovery(req, res) {
 	const origin = env.APP_ORIGIN;
 	const mcpUrl = `${origin}/api/mcp`;
+	const mcp3dUrl = `${origin}/api/mcp-3d`;
 	const modelCheckUrl = `${origin}/api/x402/model-check`;
 	const mintToMeshUrl = `${origin}/api/x402/mint-to-mesh`;
 	const revenueVisionUrl = `${origin}/api/insights/revenue-vision`;
@@ -543,6 +545,7 @@ async function handleX402Discovery(req, res) {
 	}
 
 	const mcpAccepts = buildMcpAccepts(mcpUrl);
+	const mcp3dAccepts = buildMcpAccepts(mcp3dUrl);
 	const modelCheckAccepts = buildBazaarAccepts(modelCheckUrl);
 	const mintToMeshAccepts = buildBazaarAccepts(mintToMeshUrl);
 	const revenueVisionAccepts = buildBazaarAccepts(revenueVisionUrl);
@@ -800,6 +803,22 @@ async function handleX402Discovery(req, res) {
 						openapi: `${origin}/openapi.json`,
 						docs: `${origin}/docs/mcp`,
 						agent_card: `${origin}/.well-known/agent-card.json`,
+						payment_config: `${origin}/.well-known/x402`,
+					},
+				},
+				{
+					path: '/api/mcp-3d',
+					url: mcp3dUrl,
+					method: 'POST',
+					description: STUDIO_CHALLENGE.description,
+					mimeType: 'application/json',
+					serviceName: STUDIO_CHALLENGE.serviceName,
+					tags: STUDIO_CHALLENGE.tags,
+					iconUrl: STUDIO_CHALLENGE.iconUrl,
+					accepts: mcp3dAccepts,
+					extensions: extensionsForAccepts(mcp3dAccepts, STUDIO_CHALLENGE.bazaar),
+					links: {
+						docs: `${origin}/docs/mcp-3d-studio`,
 						payment_config: `${origin}/.well-known/x402`,
 					},
 				},

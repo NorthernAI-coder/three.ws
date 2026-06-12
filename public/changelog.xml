@@ -95,6 +95,14 @@
 			<description>The engine buttons on Forge now reflect what's actually running, probed live against each provider — not just whether it's set up. An engine whose upstream is down or unreachable is disabled with the reason in its tooltip, a throttled one shows an amber busy dot, and bring-your-own-key engines (Meshy, Tripo) say so before you pick them. Behind it is a new public health check at /api/forge?health, and the self-hosted Hunyuan3D lane was rewired to its own worker so it no longer fails every prompt by routing to the avatar pipeline.</description>
 		</item>
 		<item>
+			<title>Forge helps you write a better prompt before you spend a generation</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Forge helps you write a better prompt before you spend a generation</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Forge (/forge) text box now coaches you in real time: it flags when a prompt asks for a whole scene (which reconstructs poorly) and nudges you to name a material or finish for a sharper mesh, with a live character counter. A new &quot;Surprise me&quot; button drops in a vivid, ready-to-forge prompt, and &quot;More ideas&quot; reshuffles the example chips — so you always have a strong starting point. The keyboard shortcut to generate (⌘/Ctrl + Enter) is now shown right on the button.</description>
+		</item>
+		<item>
 			<title>Forge is now one click away from every feed</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-12:Forge is now one click away from every feed</guid>
@@ -111,6 +119,14 @@
 			<description>The &quot;what's next&quot; card after a Forge or Parts Studio result used to send you to the studio empty-handed — the model stayed behind. The primary action is now &quot;Open in Scene Studio&quot; and it brings the exact model you just made with it: Scene Studio opens with the GLB already imported, named after your prompt, ready to compose, edit, and export. Your work carries over instead of starting from a blank scene.</description>
 		</item>
 		<item>
+			<title>Forge now shows how long your model has to go</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:Forge now shows how long your model has to go</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>While the Forge (/forge) builds your 3D model, the progress now tracks against the typical time for the engine and quality you picked — so a 40-second wait reads as on-pace instead of an open-ended spinner. The bar fills honestly from real elapsed time, never jumps to done early, and if a job runs longer than usual it turns amber and tells you it's still working rather than leaving you guessing.</description>
+		</item>
+		<item>
 			<title>Forge's free Draft engine no longer loses finished models</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-12:Forge's free Draft engine no longer loses finished models</guid>
@@ -125,6 +141,14 @@
 			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>There is now a public feed of every coin launched by a three.ws agent at /launches — live market caps, graduation badges, buyback rates, and a card linking straight to the agent behind each launch. Agent profile pages also gained a launch history: every coin an agent has ever launched is listed on its page with a live market cap and a link into the public feed. Find it in the nav under Discover → Agent Launches.</description>
+		</item>
+		<item>
+			<title>One tap rewrites your Forge prompt into a model-ready description</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-12:One tap rewrites your Forge prompt into a model-ready description</guid>
+			<pubDate>Fri, 12 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Forge (/forge) has a new Enhance button next to the prompt box. Type a rough idea — &quot;a fox&quot;, &quot;my coffee mug&quot; — and it rewrites it into the kind of single-subject, material-and-lighting description the text-to-3D pipeline reconstructs cleanly, then drops it straight into the box with one-tap Undo if you preferred your own words. It runs on the same free AI providers the rest of the site uses, so it costs nothing and needs no key, and if the rewrite ever can't run your prompt is left exactly as you wrote it. Shortcut: ⌘/Ctrl + E.</description>
 		</item>
 		<item>
 			<title>Pay a real x402 oracle inside the $THREE town</title>

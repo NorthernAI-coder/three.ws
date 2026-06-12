@@ -1,11 +1,18 @@
 {
   "name": "@3d-agent/agent-protocol-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "SDK for the on-chain agent-to-agent invocation protocol.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "tsc"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
@@ -13,5 +20,35 @@
   },
   "devDependencies": {
     "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "3d-agent",
+    "three.ws",
+    "agent-protocol",
+    "agent-to-agent",
+    "a2a",
+    "solana",
+    "anchor",
+    "on-chain",
+    "erc-8004",
+    "agentic",
+    "web3"
+  ],
+  "license": "MIT",
+  "author": "three.ws <support@three.ws> (https://three.ws)",
+  "homepage": "https://three.ws/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws.git",
+    "directory": "agent-protocol-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

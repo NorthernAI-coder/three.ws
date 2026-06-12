@@ -1,6 +1,6 @@
 {
 	"name": "@three-ws/avatar",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "The official three.ws SDK — 3D avatar viewer, creator iframe, AR/VR runtime, and emotion + lipsync engine. Drop-in replacement for Ready Player Me.",
 	"keywords": [
 		"3d",
@@ -86,5 +86,11 @@
 	},
 	"engines": {
 		"node": ">=18"
+	},
+	"bugs": {
+		"url": "https://github.com/nirholas/three.ws/issues"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }

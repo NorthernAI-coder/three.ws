@@ -224,6 +224,161 @@
 				background: var(--surface-2);
 				box-shadow: none;
 			}
+			.gen-kbd {
+				font-family: var(--font-mono);
+				font-size: 0.72em;
+				line-height: 1;
+				padding: 0.2em 0.4em;
+				border-radius: var(--radius-sm);
+				background: rgba(0, 0, 0, 0.16);
+				border: 1px solid rgba(0, 0, 0, 0.22);
+				color: inherit;
+				opacity: 0.85;
+			}
+			@media (max-width: 560px) {
+				.gen-kbd {
+					display: none;
+				}
+			}
+
+			/* Prompt tools — surprise · coach · counter -------------------- */
+			.prompt-tools {
+				display: flex;
+				align-items: center;
+				gap: var(--space-sm);
+				margin-top: var(--space-xs);
+				flex-wrap: wrap;
+			}
+			.ptool {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: 999px;
+				color: var(--ink-dim);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				letter-spacing: 0.02em;
+				padding: 0.32rem 0.72rem;
+				cursor: pointer;
+				transition:
+					color 0.15s,
+					border-color 0.15s,
+					background 0.15s;
+			}
+			.ptool:hover {
+				color: var(--ink);
+				border-color: var(--stroke-strong);
+				background: var(--surface-2);
+			}
+			.ptool:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.ptool svg {
+				width: 14px;
+				height: 14px;
+			}
+			.ptool.is-rolling svg {
+				animation: dice-roll 0.5s cubic-bezier(0.3, 0.7, 0.3, 1);
+			}
+			@keyframes dice-roll {
+				from {
+					transform: rotate(0);
+				}
+				to {
+					transform: rotate(360deg);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.ptool.is-rolling svg {
+					animation: none;
+				}
+			}
+			.prompt-coach {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.45rem;
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				line-height: 1.4;
+				min-height: 1.2em;
+				flex: 1 1 12rem;
+				min-width: 0;
+			}
+			.prompt-coach::before {
+				content: '';
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--ink-dim);
+				flex: none;
+				transition:
+					background 0.2s,
+					box-shadow 0.2s;
+			}
+			.prompt-coach[data-grade='strong'] {
+				color: var(--success);
+			}
+			.prompt-coach[data-grade='strong']::before {
+				background: var(--success);
+				box-shadow: 0 0 8px var(--success);
+			}
+			.prompt-coach[data-grade='warn'] {
+				color: var(--warning, #e0a93e);
+			}
+			.prompt-coach[data-grade='warn']::before {
+				background: var(--warning, #e0a93e);
+			}
+			.prompt-coach[data-grade='tip']::before {
+				background: var(--accent);
+			}
+			.prompt-count {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				flex: none;
+				font-variant-numeric: tabular-nums;
+				margin-left: auto;
+			}
+			.prompt-count[data-near='true'] {
+				color: var(--warning, #e0a93e);
+			}
+			.chips-more {
+				background: transparent;
+				border: 1px dashed var(--stroke-strong);
+				border-radius: 999px;
+				color: var(--ink-dim);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				letter-spacing: 0.04em;
+				padding: 0.4rem 0.85rem;
+				cursor: pointer;
+				transition:
+					color 0.15s,
+					border-color 0.15s,
+					transform 0.4s ease;
+			}
+			.chips-more:hover {
+				color: var(--ink);
+				border-color: var(--accent);
+			}
+			.chips-more:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.chips-more.is-rolling {
+				transform: rotate(180deg);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.chips-more.is-rolling {
+					transform: none;
+				}
+			}
+			.chip.is-swapping {
+				opacity: 0;
+			}
 
 			/* Quality tier + engine + BYOK --------------------------------- */
 			.forge-quality {
@@ -571,7 +726,8 @@
 				transition:
 					color 0.15s,
 					border-color 0.15s,
-					background 0.15s;
+					background 0.15s,
+					opacity 0.18s ease;
 			}
 			.chip:hover {
 				color: var(--ink);
@@ -1377,6 +1533,98 @@
 				color: var(--danger);
 			}
 
+			/* Fresh from the Forge — community showcase ------------------- */
+			.showcase-head-right {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-xs);
+			}
+			.showcase-refresh {
+				display: inline-grid;
+				place-items: center;
+				width: 26px;
+				height: 26px;
+				background: transparent;
+				border: 1px solid var(--stroke);
+				border-radius: 50%;
+				color: var(--ink-dim);
+				cursor: pointer;
+				transition:
+					color 0.15s,
+					border-color 0.15s,
+					transform 0.3s ease;
+			}
+			.showcase-refresh:hover {
+				color: var(--ink);
+				border-color: var(--stroke-strong);
+				transform: rotate(90deg);
+			}
+			.showcase-refresh:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			.showcase-sub {
+				margin: calc(-1 * var(--space-sm)) 0 var(--space-md);
+				color: var(--ink-dim);
+				font-size: var(--text-sm);
+			}
+			.showcase-sub strong {
+				color: var(--ink);
+			}
+			/* Card footer: time-ago on the left, Remix on the right. The card
+			   itself opens the model; Remix is its own button, so it never
+			   competes with the click target above it. */
+			.showcase-foot {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: var(--space-xs);
+				padding: 0 0.6rem 0.5rem;
+				margin-top: auto;
+			}
+			.showcase-when {
+				font-family: var(--font-mono);
+				font-size: 0.65rem;
+				color: var(--ink-dim);
+				opacity: 0.8;
+			}
+			.showcase-remix {
+				font-family: var(--font-mono);
+				font-size: 0.65rem;
+				letter-spacing: 0.04em;
+				padding: 2px 9px;
+				border-radius: 999px;
+				border: 1px solid var(--stroke);
+				background: transparent;
+				color: var(--ink-dim);
+				cursor: pointer;
+				transition:
+					color 0.15s,
+					border-color 0.15s,
+					background 0.15s;
+			}
+			.showcase-card:hover .showcase-remix,
+			.showcase-remix:hover {
+				color: var(--ink);
+				border-color: var(--accent);
+			}
+			.showcase-remix:hover {
+				background: var(--accent-soft);
+			}
+			.showcase-remix:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.showcase-refresh,
+				.showcase-remix {
+					transition: none;
+				}
+				.showcase-refresh:hover {
+					transform: none;
+				}
+			}
+
 			/* Empty + error + unconfigured */
 			.notice {
 				padding: var(--space-2xl) var(--space-lg);
@@ -1417,12 +1665,127 @@
 			.hint-foot a {
 				color: var(--ink);
 			}
+
+			/* ── Refinements ─────────────────────────────────────────────────
+			   Hero glow, composer focus + drop affordances, tier sublabels.
+			   Pure presentation + discoverability over the existing real-async
+			   flow — no fabricated progress. */
+			.forge-main {
+				position: relative;
+			}
+			.forge-aurora {
+				position: absolute;
+				inset: -8% -18% auto -18%;
+				height: 440px;
+				z-index: -1;
+				pointer-events: none;
+				background:
+					radial-gradient(
+						38% 60% at 32% 18%,
+						color-mix(in srgb, var(--accent) 16%, transparent),
+						transparent 70%
+					),
+					radial-gradient(
+						44% 56% at 74% 8%,
+						color-mix(in srgb, var(--accent) 11%, transparent),
+						transparent 72%
+					);
+				filter: blur(40px);
+				opacity: 0.75;
+				animation: forge-aurora-drift 19s ease-in-out infinite alternate;
+			}
+			@keyframes forge-aurora-drift {
+				from {
+					transform: translate3d(-2%, 0, 0) scale(1);
+				}
+				to {
+					transform: translate3d(3%, -3%, 0) scale(1.06);
+				}
+			}
+
+			/* Composer hosts the drop overlay and lifts on focus so the active
+			   field reads as the focal point. */
+			.composer {
+				position: relative;
+				transition:
+					border-color 0.18s ease,
+					box-shadow 0.18s ease;
+			}
+			.composer:focus-within {
+				border-color: var(--stroke-strong);
+				box-shadow:
+					0 24px 60px -30px rgba(0, 0, 0, 0.8),
+					0 0 0 1px var(--accent-soft);
+			}
+
+			/* Tier sublabels — compare the time/output trade-off without clicking. */
+			#tier button {
+				display: inline-flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 1px;
+				line-height: 1.15;
+			}
+			#tier button .tier-sub {
+				font-family: var(--font-mono);
+				font-size: 0.56rem;
+				letter-spacing: 0.02em;
+				color: var(--ink-dim);
+				font-weight: 400;
+			}
+			#tier button[aria-pressed='true'] .tier-sub {
+				color: var(--ink);
+			}
+
+			/* Paste-or-drag-a-photo-anywhere overlay over the composer. */
+			.composer-drop {
+				position: absolute;
+				inset: 0;
+				z-index: 5;
+				display: none;
+				place-items: center;
+				border-radius: var(--radius-lg);
+				border: 1.5px dashed var(--accent);
+				background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-glass));
+				backdrop-filter: blur(3px);
+				-webkit-backdrop-filter: blur(3px);
+				color: var(--ink);
+				font-family: var(--font-display);
+				font-weight: 600;
+				text-align: center;
+				pointer-events: none;
+			}
+			.composer.is-drop-active .composer-drop {
+				display: grid;
+			}
+			.composer-drop .drop-inner {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 0.3rem;
+			}
+			.composer-drop .drop-glyph {
+				font-size: 1.9rem;
+				line-height: 1;
+			}
+			.composer-drop small {
+				font-family: var(--font-body);
+				font-weight: 400;
+				color: var(--ink-dim);
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.forge-aurora {
+					animation: none;
+				}
+			}
 		</style>
 	</head>
 	<body>
 		<div id="nav-container"></div>
 
 		<main class="forge-main">
+			<div class="forge-aurora" aria-hidden="true"></div>
 			<header class="forge-head">
 				<span class="forge-eyebrow">Text · Image · Multi-view → 3D · live</span>
 				<h1>Forge a 3D model from words or photos</h1>
@@ -1599,6 +1962,16 @@
 						<span id="generate-label">Generate</span>
 						<kbd class="gen-kbd" aria-hidden="true">⌘↵</kbd>
 					</button>
+				</div>
+
+				<!-- Drag a photo onto the page, or paste one from the clipboard,
+				     to jump straight into multi-view reconstruction. -->
+				<div class="composer-drop" id="composer-drop" aria-hidden="true">
+					<div class="drop-inner">
+						<span class="drop-glyph" aria-hidden="true">⤓</span>
+						Drop a photo to reconstruct
+						<small>PNG, JPG or WebP · up to 4 views of one object</small>
+					</div>
 				</div>
 			</form>
 
@@ -1855,6 +2228,49 @@
 				<div class="creations-grid" id="creations-grid"></div>
 			</section>
 
+			<!-- Fresh from the Forge — newest community models (src/forge-showcase.js).
+			     Hidden until the public feed returns real rows, so deployments without
+			     a durable store never show a hollow strip. -->
+			<section
+				class="creations showcase is-hidden"
+				id="showcase"
+				aria-label="Fresh from the Forge — recent community models"
+			>
+				<div class="creations-head">
+					<h2>Fresh from the Forge</h2>
+					<div class="showcase-head-right">
+						<span class="count" id="showcase-count"></span>
+						<button
+							type="button"
+							class="showcase-refresh"
+							id="showcase-refresh"
+							title="Refresh the community feed"
+							aria-label="Refresh the community feed"
+						>
+							<svg
+								width="13"
+								height="13"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="M21 12a9 9 0 1 1-2.64-6.36" />
+								<path d="M21 3v6h-6" />
+							</svg>
+						</button>
+					</div>
+				</div>
+				<p class="showcase-sub">
+					What other people just forged. Open one in the viewer, or
+					<strong>Remix</strong> its prompt and make it yours.
+				</p>
+				<div class="creations-grid" id="showcase-grid"></div>
+			</section>
+
 			<p class="hint-foot">
 				Powered by flux-schnell + Microsoft TRELLIS on Replicate, with multi-view
 				conditioning when you supply more than one photo. Best results: one clearly
@@ -1865,8 +2281,12 @@
 
 		<script src="/nav.js" defer></script>
 		<script type="module" src="/src/forge.js"></script>
+		<script type="module" src="/src/forge-prompt-studio.js"></script>
+		<script type="module" src="/src/forge-enhance.js"></script>
 		<script type="module" src="/src/forge-stylize.js"></script>
 		<script type="module" src="/src/forge-optimize.js"></script>
+		<script type="module" src="/src/forge-showcase.js"></script>
+		<script type="module" src="/src/forge-dropzone.js"></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
 	</body>

@@ -418,6 +418,19 @@
 .nav-drawer a.nav-hot {
 	display: flex; align-items: center; gap: 8px; color: var(--nv-text);
 }
+/* Light bar: white-alpha pill chrome washes out — remap to ink tints. */
+:root[data-theme='light'] .nav-main > a.nav-hot {
+	border-color: rgba(15, 18, 28, 0.18);
+	background: rgba(15, 18, 28, 0.04);
+}
+:root[data-theme='light'] .nav-main > a.nav-hot:hover {
+	border-color: rgba(15, 18, 28, 0.34);
+	background: rgba(15, 18, 28, 0.07);
+}
+:root[data-theme='light'] .nav-pill-live {
+	background: rgba(46, 160, 90, 0.12); color: #1e8e4e;
+	box-shadow: inset 0 0 0 1px rgba(46, 160, 90, 0.3);
+}
 .nav-pop-note {
 	padding: 6px 12px 8px; font-size: var(--text-2xs); color: var(--nv-text-4);
 	line-height: 1.45; grid-column: 1 / -1;

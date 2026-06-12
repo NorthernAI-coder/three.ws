@@ -110,6 +110,21 @@ describe('x402 discovery catalog parity', () => {
 		).toEqual([]);
 	});
 
+	it('catalogs both hosted MCP servers with their own identities', async () => {
+		// The 3D Studio (text→3D) lived for months as a deployed-but-uncataloged
+		// endpoint — x402 facilitators could never index it. Keep both MCP
+		// transports in the discovery doc, each under its own service identity.
+		const doc = await renderDiscovery();
+		const mcp = doc.resources.find((r) => r.path === '/api/mcp');
+		const studio = doc.resources.find((r) => r.path === '/api/mcp-3d');
+		expect(mcp, '/api/mcp missing from discovery').toBeTruthy();
+		expect(studio, '/api/mcp-3d missing from discovery').toBeTruthy();
+		expect(studio.serviceName).toBe('three.ws 3D Studio MCP');
+		expect(studio.description).toContain('text_to_3d');
+		expect(studio.extensions.bazaar.info.input.body.params.name).toBe('text_to_3d');
+		expect(studio.accepts.length).toBeGreaterThan(0);
+	});
+
 	it('every cataloged x402 resource carries a price and at least one accept', async () => {
 		const doc = await renderDiscovery();
 		const x402Resources = doc.resources.filter((r) => r.path?.startsWith('/api/x402/'));
