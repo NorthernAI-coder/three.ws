@@ -63,7 +63,21 @@ export function initWalkPreview(container) {
 	if (!canvas || !joystickEl) return;
 
 	// ── Renderer ────────────────────────────────────────────────────
-	const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+	// WebGL can be unavailable (GPU blocklist, context budget exhausted,
+	// software rendering disabled) — tell the user instead of crashing.
+	let renderer;
+	try {
+		renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+	} catch (err) {
+		log.warn('[walk-preview] WebGL unavailable, skipping 3D preview:', err?.message);
+		const loadingEl = container.querySelector('[data-walk-loading]');
+		if (loadingEl) {
+			loadingEl.innerHTML = '';
+			loadingEl.append('3D preview isn’t available on this device.');
+		}
+		joystickEl.remove();
+		return;
+	}
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = PCFSoftShadowMap;
