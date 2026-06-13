@@ -32,6 +32,7 @@ Create and customize an agent.
 - [Describe it to 3D](https://three.ws/create/prompt): Type a description. About a minute later: a rigged 3D avatar you can animate and download.
 - [Forge — Text to 3D](https://three.ws/forge): Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 - [Scene Studio](https://three.ws/scene): Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.
+- [Scene Composer](https://three.ws/compose): Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.
 - [glTF Validator](https://three.ws/validation): Khronos-spec validator for glTF/GLB files. Paste a URL or upload a model.
 - [Widget Studio](https://three.ws/studio): Pick an avatar, configure embed options, copy a one-line snippet for your site.
 - [Artifact Viewer](https://three.ws/artifact): Renders Claude artifact bundles as standalone embeddable apps.

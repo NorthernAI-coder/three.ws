@@ -752,6 +752,18 @@ class App {
 		btn.hidden = !hasModel;
 	}
 
+	_refreshOpenInComposerButton() {
+		const btn = document.getElementById('open-in-composer-btn');
+		if (!btn) return;
+		const url = this._currentModelUrl;
+		if (url) {
+			btn.href = `/compose?glb=${encodeURIComponent(url)}`;
+			btn.hidden = false;
+		} else {
+			btn.hidden = true;
+		}
+	}
+
 	// Surface the deploy CTA next to the public-profile link in /app. It always
 	// reads "Deploy on Solana" and hands the user to the on-chain deployment
 	// agent — the guided flow for putting 3D assets on Solana — never to a bare
@@ -1736,6 +1748,7 @@ class App {
 		this._currentLocalFile = typeof rootFile !== 'string' ? rootFile : null;
 		this._refreshMakeWidgetButton();
 		this._refreshSaveToAccountButton();
+		this._refreshOpenInComposerButton();
 
 		// Emit load start
 		protocol.emit({

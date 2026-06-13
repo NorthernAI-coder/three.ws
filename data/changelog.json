@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Scene Composer — forge items in real time and dress your avatar",
+			"summary": "New /compose page lets you build a 3D scene live: load an avatar (or start empty), type a prompt to forge new items, and drop them straight into the scene. Select any object with a click to translate, rotate, or scale it with the gizmo. Items can be attached to specific avatar bones — hat to head, sword to right hand — and the inspector shows live transform values you can also type in. When you're done, export the full scene as a GLB or save an outfit back to your avatar. Your recent forge creations appear in the panel so you can reuse them across sessions without re-generating.",
+			"tags": [
+				"feature"
+			],
+			"link": "/compose"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "3D model categories — every model is now typed as Avatar, Accessory, Item, Scene, Creature, or Vehicle",
 			"summary": "All 3D models on the platform now carry a category that describes what they actually are, not just how they were created. Avatar cards in the marketplace show a color-coded type badge (Avatar, Accessory, Item, Scene, Creature, or Vehicle) and a new filter row lets you browse by type. The Forge gallery shows the same badges on showcase cards, and when you finish forging a model you can tag it right in the result bar with a single click. This is the foundation for the upcoming agent equipment system — where your agents will be able to wear accessories, hold items, and inhabit scenes.",
 			"tags": [

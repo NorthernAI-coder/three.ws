@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T09:31:37.107Z",
+	"generated_at": "2026-06-13T09:36:41.523Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -187,6 +187,16 @@
 					"title": "Scene Studio",
 					"description": "Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.",
 					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/compose",
+					"title": "Scene Composer",
+					"description": "Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.",
+					"added": "2026-06-13",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

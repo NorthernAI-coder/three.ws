@@ -120,6 +120,12 @@ URL: https://three.ws/scene
 
 Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.
 
+### Scene Composer
+
+URL: https://three.ws/compose
+
+Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.
+
 ### glTF Validator
 
 URL: https://three.ws/validation

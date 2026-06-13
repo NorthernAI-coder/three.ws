@@ -160,6 +160,14 @@
 					"added": "2026-06-12"
 				},
 				{
+					"path": "/compose",
+					"title": "Scene Composer",
+					"description": "Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.",
+					"priority": 0.9,
+					"changefreq": "weekly",
+					"added": "2026-06-13"
+				},
+				{
 					"path": "/validation",
 					"title": "glTF Validator",
 					"description": "Khronos-spec validator for glTF/GLB files. Paste a URL or upload a model.",

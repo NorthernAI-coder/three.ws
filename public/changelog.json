@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T09:31:37.488Z",
+	"generated_at": "2026-06-13T09:36:41.540Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "AR & WebXR — Place Any 3D Agent in Your Real World",
 			"summary": "Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.",
 			"link": "/features/ar",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "launch",
+			"title": "Scene Composer",
+			"summary": "Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.",
+			"link": "/compose",
 			"tags": [
 				"launch"
 			]
@@ -119,6 +129,16 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "Scene Composer — forge items in real time and dress your avatar",
+			"summary": "New /compose page lets you build a 3D scene live: load an avatar (or start empty), type a prompt to forge new items, and drop them straight into the scene. Select any object with a click to translate, rotate, or scale it with the gizmo. Items can be attached to specific avatar bones — hat to head, sword to right hand — and the inspector shows live transform values you can also type in. When you're done, export the full scene as a GLB or save an outfit back to your avatar. Your recent forge creations appear in the panel so you can reuse them across sessions without re-generating.",
+			"link": "/compose",
+			"tags": [
+				"feature"
 			]
 		},
 		{
