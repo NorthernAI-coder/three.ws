@@ -571,14 +571,17 @@ const FORGE_ENGINE_LABELS = {
 
 function renderForgeCard(c) {
 	const label = c.prompt || 'Forged model';
+	const hasModel = !!c.glb_url;
 	const openUrl = c.id
 		? `/forge?share=${encodeURIComponent(c.id)}`
-		: c.glb_url
+		: hasModel
 		? `/app#model=${encodeURIComponent(c.glb_url)}`
+		: c.prompt
+		? `/forge?prompt=${encodeURIComponent(c.prompt)}`
 		: '/forge';
 
 	const card = document.createElement('div');
-	card.className = 'gallery-card forge-card';
+	card.className = 'gallery-card forge-card' + (hasModel ? '' : ' forge-card--no-model');
 	card.tabIndex = 0;
 	card.setAttribute('role', 'button');
 	card.setAttribute('aria-label', `Open in Forge: ${escapeAttr(label)}`);
@@ -604,17 +607,24 @@ function renderForgeCard(c) {
 		thumb.appendChild(glyph);
 	}
 
-	// 3D badge — consistent with the avatar cards
+	// Badge — "3D" for model cards, amber "prompt" for prompt-only
 	const pill = document.createElement('span');
-	pill.className = 'gallery-card-3dpill';
-	pill.textContent = '3D';
+	if (hasModel) {
+		pill.className = 'gallery-card-3dpill';
+		pill.textContent = '3D';
+	} else {
+		pill.className = 'gallery-card-3dpill forge-card-prompt-pill';
+		pill.textContent = 'prompt';
+	}
 	thumb.appendChild(pill);
 
-	// Hover play icon
+	// Hover icon — play for model cards, remix arrow for prompt-only
 	const play = document.createElement('div');
 	play.className = 'gallery-card-play';
 	play.setAttribute('aria-hidden', 'true');
-	play.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v14l11-7-11-7Z"/></svg>`;
+	play.innerHTML = hasModel
+		? `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v14l11-7-11-7Z"/></svg>`
+		: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`;
 	thumb.appendChild(play);
 
 	card.appendChild(thumb);
@@ -661,7 +671,7 @@ function renderForgeCard(c) {
 	const actions = document.createElement('div');
 	actions.className = 'gallery-card-actions';
 
-	if (c.prompt) {
+	if (hasModel && c.prompt) {
 		const remixBtn = document.createElement('button');
 		remixBtn.type = 'button';
 		remixBtn.className = 'gallery-card-btn gallery-card-btn--ghost';
@@ -675,10 +685,10 @@ function renderForgeCard(c) {
 	}
 
 	const openBtn = document.createElement('a');
-	openBtn.className = 'gallery-card-btn';
+	openBtn.className = 'gallery-card-btn gallery-card-btn--primary';
 	openBtn.href = openUrl;
-	openBtn.textContent = 'Open';
-	openBtn.setAttribute('aria-label', `Open "${label}" in Forge`);
+	openBtn.textContent = hasModel ? 'View' : 'Remix';
+	openBtn.setAttribute('aria-label', hasModel ? `View "${label}" in Forge` : `Remix "${label}" prompt`);
 	openBtn.addEventListener('click', (e) => e.stopPropagation());
 	actions.appendChild(openBtn);
 
