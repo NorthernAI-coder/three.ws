@@ -1,10 +1,31 @@
-# @3d-agent/mcp-bridge — x402 Universal Payer
+<p align="center">
+  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" alt="three.ws" width="88" height="88"></a>
+</p>
 
-[![npm version](https://img.shields.io/npm/v/%403d-agent%2Fmcp-bridge)](https://www.npmjs.com/package/@3d-agent/mcp-bridge)
-[![license](https://img.shields.io/npm/l/%403d-agent%2Fmcp-bridge)](./LICENSE)
-[![MCP Registry](https://img.shields.io/badge/MCP_Registry-io.github.nirholas%2Fx402--bridge-blue)](https://registry.modelcontextprotocol.io/?q=io.github.nirholas)
+<h1 align="center">@3d-agent/mcp-bridge</h1>
 
-**One MCP server that can pay any x402-paid endpoint on the open web.** Point your agent at a URL that answers `402 Payment Required`; the bridge signs, pays, retries, and hands back the response plus the settlement receipt — EVM exact, EVM batch-settlement, and Solana exact, all behind hard spending caps. It also pre-loads a tool per service discovered on the [Coinbase x402 Bazaar](https://docs.cdp.coinbase.com/x402/docs/welcome), so the entire paid-API economy shows up in your tool list.
+<p align="center"><strong>One MCP server that can pay any x402-paid endpoint on the open web — the universal x402 payer for AI agents.</strong></p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@3d-agent/mcp-bridge"><img alt="npm" src="https://img.shields.io/npm/v/@3d-agent/mcp-bridge?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@3d-agent/mcp-bridge"><img alt="downloads" src="https://img.shields.io/npm/dm/@3d-agent/mcp-bridge?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@3d-agent/mcp-bridge?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@3d-agent/mcp-bridge?color=339933&logo=node.js">
+  <a href="https://registry.modelcontextprotocol.io/?q=io.github.nirholas"><img alt="MCP Registry" src="https://img.shields.io/badge/MCP%20Registry-io.github.nirholas-0ea5e9"></a>
+  <a href="https://three.ws"><img alt="three.ws" src="https://img.shields.io/badge/built%20by-three.ws-000"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#security-and-spending-controls">Security</a> ·
+  <a href="#what-it-exposes">Tools</a> ·
+  <a href="#environment">Environment</a> ·
+  <a href="https://three.ws">three.ws</a>
+</p>
+
+---
+
+> A [Model Context Protocol](https://modelcontextprotocol.io) server that can pay any x402-paid endpoint on the open web. Point your agent at a URL that answers `402 Payment Required`; the bridge signs, pays, retries, and hands back the response plus the settlement receipt — EVM exact, EVM batch-settlement, and Solana exact, all behind hard spending caps. It also pre-loads a tool per service discovered on the [Coinbase x402 Bazaar](https://docs.cdp.coinbase.com/x402/docs/welcome), so the entire paid-API economy shows up in your tool list.
 
 ## Quick start
 
