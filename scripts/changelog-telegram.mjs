@@ -56,6 +56,7 @@ const opt = (name) => {
 
 const dryRun = flag('dry-run');
 const pushAll = flag('all');
+const includeLaunches = flag('include-launches');
 const since = opt('since');
 const limit = Number(opt('limit') || 10);
 
@@ -85,13 +86,13 @@ const posted = new Set(state.posted);
 const entryKey = (e) => `${e.date}:${e.title}`;
 
 const defaultSince = (() => {
-	const d = new Date(Date.now() - 7 * 86400000);
+	const d = new Date(Date.now() - 2 * 86400000);
 	return d.toISOString().slice(0, 10);
 })();
 const cutoff = pushAll ? '0000-00-00' : (since || defaultSince);
 
 const pending = feed.entries
-	.filter((e) => !posted.has(entryKey(e)) && e.date >= cutoff)
+	.filter((e) => !posted.has(entryKey(e)) && e.date >= cutoff && (includeLaunches || e.type !== 'launch'))
 	.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
 	.slice(0, limit);
 
