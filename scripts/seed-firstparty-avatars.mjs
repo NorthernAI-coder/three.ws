@@ -17,7 +17,7 @@
  * Usage:
  *   DATABASE_URL=... node scripts/seed-firstparty-avatars.mjs            # apply
  *   DATABASE_URL=... node scripts/seed-firstparty-avatars.mjs --dry-run  # plan only
- *   ...--email=owner@x.com   # override seed owner (default seed@3dagent.dev)
+ *   ...--email=owner@x.com   # override seed owner (default support@three.ws)
  *
  * Required env: DATABASE_URL.
  */
@@ -38,7 +38,7 @@ const args = Object.fromEntries(
 	}),
 );
 const DRY_RUN = !!args['dry-run'];
-const OWNER_EMAIL = args.email || 'seed@3dagent.dev';
+const OWNER_EMAIL = args.email || 'support@three.ws';
 const SEED_DISPLAY_NAME = 'Three.ws Showcase';
 
 if (!process.env.DATABASE_URL) {

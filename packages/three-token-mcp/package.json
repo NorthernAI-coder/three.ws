@@ -4,7 +4,7 @@
 	"mcpName": "io.github.nirholas/three-token-mcp",
 	"description": "The first MCP server whose actions burn a token. Let any AI agent price, hold, and burn $THREE on-chain — every burn splits to the incinerator + treasury via the live three.ws token rail, with Jupiter USD pricing. Deflation as an agent primitive.",
 	"type": "module",
-	"author": "nirholas <hello@three.ws>",
+	"author": "nirholas <support@three.ws>",
 	"license": "Apache-2.0",
 	"homepage": "https://three.ws",
 	"repository": {

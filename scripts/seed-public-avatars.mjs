@@ -9,7 +9,7 @@
  *   • khronos: Khronos glTF Sample Assets (CC0/CC-BY)
  *   • threejs: three.js example models
  *
- * Owner: a seed user (default seed@3dagent.dev). Override with --email=<addr>.
+ * Owner: a seed user (default support@three.ws). Override with --email=<addr>.
  * Visibility: public. Idempotent on (owner_id, slug).
  *
  * Usage:
@@ -41,7 +41,7 @@ const args = Object.fromEntries(
 );
 const SOURCE = args.source || 'all';
 const DRY_RUN = !!args['dry-run'];
-const OWNER_EMAIL = args.email || 'seed@3dagent.dev';
+const OWNER_EMAIL = args.email || 'support@three.ws';
 const SEED_DISPLAY_NAME = 'Three.ws Showcase';
 
 if (!process.env.DATABASE_URL) {

@@ -15,7 +15,7 @@ async function main() {
 	console.log(`Found ${agents.length} agents.`);
 
 	const [user] = await sql`
-		SELECT id FROM users WHERE email = 'seed@3dagent.dev' LIMIT 1
+		SELECT id FROM users WHERE email = 'support@three.ws' LIMIT 1
 	`;
 
 	if (!user) {

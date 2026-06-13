@@ -301,7 +301,7 @@ export class CommunityUI {
 					link('/discover', 'Discover'),
 					link('/dashboard/api', 'API'),
 					link('https://github.com/nirholas/three.ws', 'GitHub'),
-					link('mailto:hello@three.ws', 'Contact'),
+					link('mailto:support@three.ws', 'Contact'),
 				]),
 			]),
 		]);

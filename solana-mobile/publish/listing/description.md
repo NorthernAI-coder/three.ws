@@ -26,4 +26,4 @@ REQUIREMENTS
 
 SUPPORT
 
-Questions, bug reports, or feature requests: hello@three.ws · https://three.ws/docs · github.com/nirholas/three.ws/issues
+Questions, bug reports, or feature requests: support@three.ws · https://three.ws/docs · github.com/nirholas/three.ws/issues

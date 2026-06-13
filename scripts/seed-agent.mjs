@@ -9,7 +9,7 @@ const sql = neon(DATABASE_URL);
 
 const [user] = await sql`
 	INSERT INTO users (email, display_name, email_verified)
-	VALUES ('seed@3dagent.dev', 'Seed User', true)
+	VALUES ('support@three.ws', 'Seed User', true)
 	ON CONFLICT (email) DO UPDATE SET display_name = EXCLUDED.display_name
 	RETURNING id
 `;

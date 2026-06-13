@@ -103,8 +103,13 @@ if (pending.length === 0) {
 const escapeHtml = (s) =>
 	String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]);
 
+function slugify(title, date) {
+	const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+	return date + '-' + slug;
+}
+
 function formatMessage(e) {
-	const url = `https://three.ws${e.link || '/changelog'}`;
+	const detailUrl = `https://three.ws/changelog/${slugify(e.title, e.date)}`;
 	const label = e.type === 'launch' ? 'New on three.ws' : 'Update';
 	const hashtags = (e.type === 'launch' ? ['launch'] : e.tags).map((t) => `#${t}`).join(' ');
 	return [
@@ -112,7 +117,7 @@ function formatMessage(e) {
 		'',
 		escapeHtml(e.summary),
 		'',
-		`<a href="${url}">${escapeHtml(url.replace('https://', ''))}</a> · ${escapeHtml(e.date)} · ${escapeHtml(hashtags)}`,
+		`<a href="${detailUrl}">${escapeHtml(detailUrl.replace('https://', ''))}</a> · ${escapeHtml(e.date)} · ${escapeHtml(hashtags)}`,
 	].join('\n');
 }
 
