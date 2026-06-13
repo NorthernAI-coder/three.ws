@@ -2579,6 +2579,11 @@
 			"dest": "/api/sitemap/[type]?type=$1"
 		},
 		{
+			"src": "/(pages|directory|everything|all-pages)/?",
+			"status": 308,
+			"headers": { "Location": "/sitemap" }
+		},
+		{
 			"src": "/sitemap",
 			"dest": "/sitemap/index.html"
 		},

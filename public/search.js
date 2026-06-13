@@ -73,7 +73,7 @@
 		'#tws-search-status .tws-sk-err-retry{',
 		'margin-top:4px;padding:6px 14px;border-radius:7px;font-size:12px;',
 		'background:#1c1c1c;border:1px solid #2a2a2a;color:#a8a8a8;cursor:pointer;',
-		'transition:background .12s,border-color .12s;}',
+		'text-decoration:none;transition:background .12s,border-color .12s;}',
 		'#tws-search-status .tws-sk-err-retry:hover{background:#242424;border-color:#3a3a3a;color:#f6f6f6;}',
 		/* spinner */
 		'.tws-sk-spinner{width:18px;height:18px;border:2px solid #2a2a2a;border-top-color:#6a6a6a;',
@@ -187,6 +187,7 @@
 		{ title: 'Deploy an agent on-chain', desc: 'Register an agent on-chain', href: '/deploy', icon: '🚀', keys: 'deploy register onchain erc8004 publish ship launch agent' },
 		{ title: 'Launch a coin', desc: 'Launch a token on pump.fun', href: '/launchpad', icon: '🪙', keys: 'launch coin token mint pump fun money $three' },
 		{ title: 'Embed an agent', desc: 'Get an embed snippet for your site', href: '/embed.html', icon: '🔗', keys: 'embed iframe widget snippet share script integrate' },
+		{ title: 'Browse all pages', desc: 'The full three.ws directory, filterable', href: '/sitemap', icon: '🗺️', keys: 'sitemap site map all pages everything directory index list browse find' },
 	];
 
 	// Default destinations shown when the palette opens with no query (and no
@@ -197,6 +198,7 @@
 		{ title: 'Dashboard', desc: 'Your agents, tokens and activity', href: '/dashboard', icon: '📊' },
 		{ title: 'Playground', desc: 'Walk the $three worlds', href: '/play', icon: '🎮' },
 		{ title: 'Docs', desc: 'Guides, SDK and API reference', href: '/docs', icon: '📖' },
+		{ title: 'All pages', desc: 'Every page on three.ws, in one directory', href: '/sitemap', icon: '🗺️' },
 	];
 
 	// ── Recents ─────────────────────────────────────────────────────────────────
@@ -566,7 +568,13 @@
 			'<span style="color:#a8a8a8;font-size:13px">No matches for <strong style="color:#f6f6f6">"' + esc(q) + '"</strong></span>',
 			'<span style="color:#4a4a4a;font-size:12px">Try a different name, feature, or skill</span>',
 		].join('');
-		liveRegion.textContent = 'No results for ' + q;
+		var browseAll = el('a', {
+			class: 'tws-sk-err-retry',
+			href: '/sitemap?q=' + encodeURIComponent(q),
+			text: 'Browse all pages →',
+		});
+		status.appendChild(browseAll);
+		liveRegion.textContent = 'No results for ' + q + '. A link to browse all pages is available.';
 	}
 
 	function showError(retry) {

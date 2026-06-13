@@ -755,6 +755,11 @@ const appConfig = {
 					'/strategy-lab/': resolve(root, 'public/strategy-lab.html'),
 					'/sitemap': resolve(root, 'public/sitemap/index.html'),
 					'/sitemap/': resolve(root, 'public/sitemap/index.html'),
+					// Guessable aliases — prod 308s these to /sitemap (vercel.json)
+					'/pages': resolve(root, 'public/sitemap/index.html'),
+					'/directory': resolve(root, 'public/sitemap/index.html'),
+					'/everything': resolve(root, 'public/sitemap/index.html'),
+					'/all-pages': resolve(root, 'public/sitemap/index.html'),
 					'/blog': resolve(root, 'blog/index.html'),
 					'/blog/': resolve(root, 'blog/index.html'),
 					'/demos': resolve(root, 'public/demos/index.html'),
