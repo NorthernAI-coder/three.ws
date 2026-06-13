@@ -19,7 +19,7 @@ Read `package.json` if present to understand the existing stack.
 For Node.js projects, run:
 
 ```bash
-npm install @nirholas/agent-kit @x402/mcp @modelcontextprotocol/sdk/client
+npm install @three-ws/sdk @x402/mcp @modelcontextprotocol/sdk/client
 ```
 
 If the project uses a lockfile other than `package-lock.json` (yarn.lock → yarn, pnpm-lock.yaml → pnpm), use the right package manager.
@@ -29,7 +29,7 @@ If the project uses a lockfile other than `package-lock.json` (yarn.lock → yar
 Create `agent.js` (or `agent.ts` if TypeScript is detected) in the project root with this structure, substituting `$ARGUMENTS` for the agent name:
 
 ```js
-import { AgentKit } from '@nirholas/agent-kit';
+import { AgentKit } from '@three-ws/sdk';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 

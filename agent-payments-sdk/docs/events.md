@@ -1,11 +1,11 @@
-# Events — @pump-fun/agent-payments-sdk
+# Events — @three-ws/agent-payments
 
 The SDK provides typed event parsing from transaction logs and real-time WebSocket subscriptions.
 
 ## Quick Start
 
 ```ts
-import { parseAgentEvents, subscribeToAgentEvents } from "@pump-fun/agent-payments-sdk";
+import { parseAgentEvents, subscribeToAgentEvents } from "@three-ws/agent-payments";
 
 // Parse from a fetched transaction
 const tx = await connection.getTransaction(sig, { maxSupportedTransactionVersion: 0 });

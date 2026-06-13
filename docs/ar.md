@@ -1,143 +1,78 @@
 # AR & WebXR
 
-three.ws supports three AR methods, each targeting a different platform:
-
-| Method | Platform | Mechanism |
-|--------|----------|-----------|
-| iOS QuickLook | iPhone/iPad (Safari) | Native AR viewer via `<a rel="ar">` |
-| Android Scene Viewer | Android (Chrome) | Google's ARCore via intent URL |
-| WebXR | Any WebXR-capable browser | Immersive AR session in-page |
-
-The right method is selected automatically based on the device. On iOS, tapping the AR button launches QuickLook. On Android, it launches Scene Viewer. On WebXR-capable devices (Chrome/Android with ARCore, Safari 15.4+ with WebXR), it starts an immersive-ar session.
+Place any three.ws avatar or Forge model into the real world through the camera on your phone — no app, no download. The feature is called **View in AR** and it works on both iOS and Android directly in the browser.
 
 ---
 
-## Enabling AR
+## How it looks
+
+Every avatar page has an **AR** tab. Every Forge model has a **View in AR** button in its result toolbar. On mobile, tapping **Place in your space** triggers native AR. On desktop, the same screen shows a **QR code** — scan it with your phone and the AR session opens in one tap.
+
+---
+
+## AR methods — which one fires
+
+three.ws selects the right AR method automatically based on the device and browser:
+
+| Method | Platform | Trigger | Needs app? |
+|--------|----------|---------|-----------|
+| **iOS Quick Look** | iPhone / iPad (Safari) | Native `<a rel="ar">` click | No |
+| **Android Scene Viewer** | Android Chrome | ARCore intent URL | ARCore (auto-prompts) |
+| **WebXR immersive-ar** | Chrome on Android, Safari 15.4+ | `navigator.xr` session | No |
+
+**Selection order:** Quick Look → Scene Viewer → WebXR. Quick Look fires first on iOS because it's the most reliable. Scene Viewer fires first on Android because it works without a runtime XR session setup. WebXR is the fallback — and the only method that keeps the agent live in-page.
+
+---
+
+## What each method can do
+
+| | Quick Look | Scene Viewer | WebXR |
+|---|---|---|---|
+| Platform | iOS Safari | Android Chrome | Any WebXR browser |
+| Animations | No — static pose | Yes | Yes |
+| Agent conversation | No | No | Yes — mic + chat live |
+| `lookAt('user')` | No | No | Yes — tracks XR camera |
+| Agent skills / tools | No | No | Yes — full runtime |
+| HTTPS required | Yes (model URL) | Yes (model URL) | Yes (page origin) |
+| Draco-compressed GLBs | May fail | May fail | Yes |
+| Max practical size | ~15 MB | ~20 MB | No hard limit |
+
+WebXR is the only method where the agent stays fully alive. If you need conversation, skills, or animations, WebXR is required.
+
+---
+
+## Enabling AR on your agent
 
 Add the `ar` attribute to `<agent-3d>`:
 
 ```html
-<agent-3d model="./product.glb" ar></agent-3d>
+<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
+
+<agent-3d
+  id="your-agent-id"
+  ar
+></agent-3d>
 ```
 
-The AR button is only shown when:
-
+The AR button appears automatically when:
 - The `ar` attribute is present
 - The device/browser supports at least one AR method
 - The model has finished loading
 
-On desktop, the button is hidden — no desktop browser has functional `immersive-ar` support.
+On desktop, the button is hidden — no desktop browser supports `immersive-ar`.
 
----
+### Allow XR in iframes
 
-## iOS QuickLook
+If your agent is inside an `<iframe>`, add the `xr-spatial-tracking` permission:
 
-Safari on iOS intercepts clicks on `<a rel="ar">` elements and opens the native QuickLook AR viewer. The implementation in `src/ar/quick-look.js` does exactly this:
-
-```js
-// quick-look.js (simplified)
-function openQuickLook(usdzURI) {
-  const a = document.createElement('a');
-  a.rel = 'ar';
-  a.href = usdzURI;
-  a.appendChild(document.createElement('img')); // required for programmatic click
-  a.click();
-}
+```html
+<iframe
+  src="https://three.ws/embed/avatar/YOUR_ID"
+  allow="microphone; camera; xr-spatial-tracking; fullscreen"
+></iframe>
 ```
 
-The child `<img>` element is required — without it, Safari won't intercept the programmatic `.click()` as a QuickLook trigger.
-
-**iOS 13+** accepts GLB files directly via the `href`; no server-side USDZ conversion is needed.
-
-**Requirements:**
-- iOS 13+ with Safari (not Chrome/Firefox on iOS — they use WebKit but lack QuickLook integration)
-- Model served over HTTPS with CORS headers
-- No DRM-protected assets
-
-**Limitations:**
-- Animations are not supported — the model displays in a static pose
-- No agent conversation in QuickLook (it's a native OS viewer, outside the browser)
-
----
-
-## Android Scene Viewer
-
-Google's Scene Viewer is launched via an intent URL. `src/ar/scene-viewer.js` constructs the URL and navigates to it:
-
-```js
-// scene-viewer.js (simplified)
-function openSceneViewer(glbURL, { title = '', link = '' } = {}) {
-  const params = new URLSearchParams({ file: glbURL, mode: 'ar_preferred' });
-  if (title) params.set('title', title);
-  if (link) params.set('link', link);
-
-  const fallback = encodeURIComponent(location.href);
-  const intentURL =
-    `intent://arvr.google.com/scene-viewer/1.2?${params.toString()}` +
-    `#Intent;scheme=https;package=com.google.ar.core;` +
-    `action=android.intent.action.VIEW;` +
-    `S.browser_fallback_url=${fallback};end;`;
-
-  location.href = intentURL;
-}
-```
-
-The `S.browser_fallback_url` parameter is important: if ARCore isn't installed, Chrome redirects back to your page instead of showing an error screen.
-
-**Parameters passed to Scene Viewer:**
-- `file` — GLB URL (must be HTTPS)
-- `title` — shown in the AR viewer's title bar
-- `link` — "View in browser" button target
-- `mode=ar_preferred` — tries AR first, falls back to 3D view if unsupported
-
-**Requirements:**
-- Android 7.0+ with Google Play Services
-- Chrome 67+ (or Chrome-based browser)
-- GLB served over HTTPS with CORS
-
-**What works in Scene Viewer:**
-- GLB animations play
-- Basic lighting and shadows
-- No agent conversation (external viewer)
-
----
-
-## WebXR
-
-WebXR is the only AR method that keeps the agent running inside the browser. The `src/ar/webxr.js` module manages an `immersive-ar` session using Three.js's built-in XR support.
-
-**How it works:**
-
-1. `WebXRSession.isSupported()` checks `navigator.xr.isSessionSupported('immersive-ar')`
-2. On activation, requests a session with the `hit-test` feature enabled
-3. Three.js XR mode is enabled on the existing renderer — no new canvas needed
-4. The scene background is set to `null` so the camera feed shows through
-5. Hit-test results track real surfaces in the environment
-6. Before the first tap, the agent follows the detected surface in real-time
-7. First tap anchors the agent at that position
-8. The agent's full runtime continues: animations play, conversation works
-
-**Session lifecycle:**
-```
-requestSession('immersive-ar', { requiredFeatures: ['hit-test'] })
-  → renderer.xr.setSession(session)
-  → requestReferenceSpace('local') + requestHitTestSource({ space: viewer })
-  → render loop handed to XR system via renderer.setAnimationLoop()
-  → session 'end' event → restore background, re-enable controls, resume RAF
-```
-
-**On exit**, the module restores the scene background, the agent's position/rotation, and the standard requestAnimationFrame loop. State is cleanly preserved.
-
-**Requirements:**
-- Chrome on Android 8.0+ with ARCore installed
-- Safari on iOS 15.4+ with WebXR AR module enabled
-- HTTPS (mandatory — `navigator.xr` is undefined on insecure origins)
-
-**What works in WebXR:**
-- Full animations
-- Agent conversation (microphone, chat)
-- `lookAt('user')` — the agent tracks the XR camera position as the user's head
-- All runtime tools and skills
+Without `xr-spatial-tracking`, the browser blocks `navigator.xr` inside the frame and the AR button won't appear.
 
 ---
 
@@ -146,48 +81,336 @@ requestSession('immersive-ar', { requiredFeatures: ['hit-test'] })
 ```js
 const el = document.querySelector('agent-3d');
 
-// Check if the current device supports any AR method
+// Check if AR is available on this device
 if (el.canActivateAR) {
+  // Launch AR (picks the best available method automatically)
   await el.activateAR();
 }
 ```
 
-`canActivateAR` returns `true` if the model is loaded and at least one of QuickLook, Scene Viewer, or WebXR is available. `activateAR()` picks the best available method automatically.
+`canActivateAR` is `true` when:
+- The model is fully loaded
+- At least one of Quick Look, Scene Viewer, or WebXR is available
 
----
+`activateAR()` is async — it awaits the session setup for WebXR; Quick Look and Scene Viewer return immediately.
 
-## HTTPS Requirement
-
-All three AR methods require HTTPS. `navigator.xr` is undefined on insecure origins; QuickLook and Scene Viewer require the model URL to be HTTPS regardless of how the page is served.
-
-**Local development:**
-
-```bash
-# Use ngrok to tunnel localhost over HTTPS
-ngrok http 5173
-# Open the ngrok URL on your mobile device
+```js
+// Listen for AR session events
+el.addEventListener('ar-status', (e) => {
+  // e.detail.status: 'session-started' | 'object-placed' | 'failed' | 'not-presenting'
+  console.log('AR status:', e.detail.status);
+});
 ```
 
-Alternatively, deploy to Vercel or Netlify — both provide instant HTTPS on preview deployments.
+---
+
+## iOS Quick Look — deep dive
+
+Safari intercepts clicks on `<a rel="ar">` and opens the native AR viewer. The three.ws implementation in `src/ar/quick-look.js`:
+
+```js
+function openQuickLook(modelURI) {
+  const a = document.createElement('a');
+  a.rel = 'ar';
+  a.href = modelURI;
+  a.appendChild(document.createElement('img')); // required for programmatic click
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+```
+
+The child `<img>` element is required — without it, Safari won't intercept a programmatic `.click()` as a Quick Look trigger. This is a documented WebKit quirk.
+
+**USDZ on iOS:** iOS 13+ accepts GLB files directly via the `href`. For earlier devices or for Apple's richest AR features (like custom banners and item purchasing), three.ws can pre-generate a USDZ companion file stored on R2. If a `usdz_url` exists on the avatar record, it's used as `ios-src`; otherwise the GLB-to-USDZ conversion runs in-browser via the three.js `USDZExporter` before Quick Look opens.
+
+**Requirements:**
+- iOS 13+ with Safari (Chrome on iOS uses WebKit but lacks Quick Look integration)
+- Model URL must be HTTPS with CORS headers set (`Access-Control-Allow-Origin: *`)
+- No DRM-protected assets
+
+**Limitations:**
+- Static pose only — animations don't play
+- No conversation (native OS viewer, outside the browser context)
+- Cannot customize the Quick Look UI beyond the model itself
 
 ---
 
-## Model Size and Compatibility
+## Android Scene Viewer — deep dive
 
-- **Large models (>20 MB):** QuickLook and Scene Viewer download the full GLB before displaying. Expect noticeable load time on mobile networks.
-- **Draco compression:** Draco-compressed GLBs may need to be decompressed before transfer to QuickLook or Scene Viewer, which don't load the Three.js Draco decoder. WebXR is unaffected — it uses the same Three.js loader as the regular viewer.
-- **Animations:** Only WebXR and Scene Viewer support animations. QuickLook shows a static pose.
-- **Textures:** All three methods support standard PBR materials (baseColor, normal, roughness/metallic).
+Scene Viewer is launched via an Android intent URL. `src/ar/scene-viewer.js` builds the URL:
+
+```js
+function openSceneViewer(glbURL, { title = '', link = '' } = {}) {
+  const params = new URLSearchParams({
+    file: glbURL,
+    mode: 'ar_preferred', // tries AR first, falls back to 3D viewer
+  });
+  if (title) params.set('title', title);
+  if (link) params.set('link', link); // "View in browser" button target
+
+  const fallback = encodeURIComponent(location.href);
+  const intentURL =
+    `intent://arvr.google.com/scene-viewer/1.2?${params}` +
+    `#Intent;scheme=https;package=com.google.ar.core;` +
+    `action=android.intent.action.VIEW;` +
+    `S.browser_fallback_url=${fallback};end;`;
+
+  location.href = intentURL;
+}
+```
+
+`S.browser_fallback_url` is critical: if ARCore is not installed, Chrome redirects back to your page rather than showing an error screen.
+
+**Parameters:**
+- `file` — absolute HTTPS GLB URL
+- `title` — shown in Scene Viewer's title bar
+- `link` — the "View in browser" CTA button target
+- `mode=ar_preferred` — AR if supported, 3D viewer otherwise
+
+**Requirements:**
+- Android 7.0+ with Google Play Services
+- Chrome 67+ (or any Chromium-based browser on Android)
+- GLB served over HTTPS with `Access-Control-Allow-Origin: *`
 
 ---
 
-## Quick Reference
+## WebXR — deep dive
 
-| | QuickLook | Scene Viewer | WebXR |
-|---|---|---|---|
-| Platform | iOS Safari | Android Chrome | Any WebXR browser |
-| Animations | No | Yes | Yes |
-| Agent conversation | No | No | Yes |
-| HTTPS required | Yes (model URL) | Yes (model URL) | Yes (page) |
-| Draco GLBs | May fail | May fail | Yes |
-| Max practical model size | ~15 MB | ~20 MB | No hard limit |
+WebXR is the only AR method that keeps the agent alive in the browser. The `src/ar/webxr.js` module manages an `immersive-ar` session via Three.js's built-in XR support.
+
+**Session lifecycle:**
+
+```
+navigator.xr.isSessionSupported('immersive-ar')
+  → requestSession('immersive-ar', { requiredFeatures: ['hit-test'] })
+  → renderer.xr.setSession(session)
+  → requestReferenceSpace('local') + requestHitTestSource({ space: viewer })
+  → render loop handed to XR system (renderer.setAnimationLoop)
+  → user taps → agent anchored at hit-test position
+  → session.end event → restore background, controls, and RAF loop
+```
+
+**What happens at session start:**
+1. Scene background is set to `null` so the camera passthrough shows through
+2. Hit-test source tracks real surfaces (floor, table, etc.) in real time
+3. A reticle follows the detected surface until the user taps
+4. First tap anchors the agent — `session.requestAnimationFrame` drives rendering from here
+
+**What happens at session end:**
+- Scene background restored
+- Agent position/rotation reset to pre-AR values
+- Standard `requestAnimationFrame` loop resumes
+- All conversation state is preserved — the agent remembers what happened before AR
+
+**Requirements:**
+- Chrome on Android 8.0+ with ARCore installed
+- Safari on iOS 15.4+ with the WebXR AR module enabled (Settings → Safari → Advanced → Experimental Features → WebXR Augmented Reality)
+- HTTPS mandatory — `navigator.xr` is `undefined` on insecure origins
+
+---
+
+## USDZ pipeline (iOS Quick Look)
+
+For avatars on three.ws, the USDZ is handled automatically:
+
+1. **Pre-generated USDZ:** If the avatar record has a `usdz_url`, it's set as `ios-src` immediately — no conversion needed.
+2. **In-browser conversion:** If not, the AR page downloads the GLB and runs `USDZExporter` from three.js in a Web Worker, then creates a `blob:` URL. This typically takes 2–8 seconds depending on model complexity.
+3. **Persistent storage:** After the first conversion, the USDZ is uploaded to R2 and saved back to the avatar record so subsequent AR visits are instant.
+
+**USDZ limitations to know:**
+- Skinned meshes (rigged avatars) export to USDZ as static poses — animations are lost
+- Draco-compressed geometry must be decompressed first (the exporter handles this)
+- USDZ files over ~30 MB may fail to open in Quick Look on older devices
+
+---
+
+## Model optimization for AR
+
+Poor AR performance almost always traces to model size or geometry complexity. A model that orbits smoothly in the 3D viewer can still stall or crash in Quick Look.
+
+**Recommended limits:**
+
+| Target | Size | Polygons | Textures |
+|--------|------|----------|---------|
+| Quick Look (iOS) | < 15 MB | < 100k tris | 1024 × 1024 max |
+| Scene Viewer (Android) | < 20 MB | < 200k tris | 2048 × 2048 max |
+| WebXR | < 50 MB | < 500k tris | 2048 × 2048 max |
+
+**Optimization tools:**
+
+```bash
+# Draco compress and optimize with gltf-transform (WebXR only — may break Quick Look/Scene Viewer)
+npx @gltf-transform/cli optimize model.glb optimized.glb --draco
+
+# Lossless optimization (safe for all three AR methods)
+npx @gltf-transform/cli optimize model.glb optimized.glb
+
+# Resize textures
+npx @gltf-transform/cli resize model.glb small.glb --width 1024 --height 1024
+```
+
+> **Draco and Quick Look / Scene Viewer:** Draco-compressed GLBs require the Three.js Draco decoder — Quick Look and Scene Viewer don't include one, so they may refuse to load Draco GLBs. If you want AR across all three methods, compress with basis/KTX2 textures only, and leave geometry uncompressed.
+
+---
+
+## Testing AR locally
+
+All three AR methods require HTTPS. `navigator.xr` is `undefined` on `http://` origins. There are two options:
+
+### Option 1 — ngrok tunnel (recommended)
+
+```bash
+# Start your dev server
+npm run dev
+# Port 3000 is the default for this repo
+
+# In a second terminal, open an ngrok tunnel
+ngrok http 3000
+
+# Open the ngrok HTTPS URL on your phone
+# (e.g. https://abc123.ngrok.io)
+```
+
+### Option 2 — Deploy to a preview URL
+
+Push to a branch — Vercel creates an instant HTTPS preview URL. Open it on your phone.
+
+### Debugging Quick Look
+
+Quick Look gives almost no error feedback. If it opens and immediately closes:
+- Model URL is not HTTPS → use ngrok or a deployed URL
+- Model URL returns CORS errors → add `Access-Control-Allow-Origin: *` to the response headers
+- File is too large → compress or resize
+- USDZ conversion failed silently → check the browser console before Quick Look opens
+
+### Debugging WebXR
+
+```js
+// Check support before calling activateAR
+const supported = await navigator.xr?.isSessionSupported('immersive-ar');
+console.log('WebXR AR supported:', supported);
+
+// Chrome DevTools → More tools → WebXR → Session override
+// lets you simulate an immersive-ar session on desktop
+```
+
+Chrome on desktop (127+) has a WebXR device simulator under DevTools → More Tools → WebXR. It won't show camera passthrough, but it lets you test the session lifecycle and placement logic without a physical device.
+
+---
+
+## Troubleshooting
+
+### AR button doesn't appear on mobile
+
+**Check 1 — `ar` attribute is set:**
+```html
+<agent-3d id="..." ar></agent-3d>
+```
+
+**Check 2 — browser supports AR:**
+- iOS: Must be Safari, not Chrome or Firefox
+- Android: Must be Chrome (or Chromium) with ARCore installed
+
+**Check 3 — model is loaded:**
+The AR button is hidden until the model finishes loading. Watch for the `load` event:
+```js
+el.addEventListener('load', () => console.log('model loaded, AR should be available'));
+```
+
+**Check 4 — inside an iframe:**
+Add `allow="xr-spatial-tracking"` to the `<iframe>` tag.
+
+---
+
+### AR button appears but nothing happens when tapped
+
+- **iOS Quick Look:** The model URL is HTTP. Quick Look silently refuses non-HTTPS URIs.
+- **Scene Viewer:** ARCore isn't installed. Chrome will show a prompt to install it; if dismissed, nothing happens.
+- **WebXR:** HTTPS is required for `navigator.xr`. Check the page origin.
+
+---
+
+### Quick Look opens but immediately dismisses
+
+- Model file is too large (> 15 MB is risky on older devices)
+- USDZ conversion produced an invalid file — check the browser console for errors before Quick Look opens
+- CORS missing on the GLB URL — Quick Look fetches it separately and will fail silently
+
+---
+
+### WebXR AR session starts but the agent is invisible
+
+- Check that the scene background is set to `null` — if it's opaque, it covers the camera feed
+- Confirm the agent was placed before calling `activateAR()` — if the agent position is off-screen, it may be placed outside the viewport
+
+---
+
+### Draco GLB fails in Quick Look or Scene Viewer
+
+Decompress the file first:
+
+```bash
+npx @gltf-transform/cli optimize model.glb uncompressed.glb --no-draco
+```
+
+Or generate an uncompressed variant and use it as `ios-src` / for Scene Viewer while keeping the Draco-compressed one for the WebXR viewer.
+
+---
+
+## Platform compatibility matrix
+
+| Device | Browser | Quick Look | Scene Viewer | WebXR AR |
+|--------|---------|-----------|-------------|---------|
+| iPhone (iOS 13+) | Safari | ✅ | ✗ | ✅ (iOS 15.4+, flag required) |
+| iPhone (iOS 13+) | Chrome | ✗ | ✗ | ✗ |
+| Android (ARCore device) | Chrome | ✗ | ✅ | ✅ |
+| Android (no ARCore) | Chrome | ✗ | ✗ (prompts install) | ✗ |
+| Desktop (any OS) | Any | ✗ | ✗ | ✗ (no camera passthrough) |
+
+ARCore-compatible Android devices: [full list from Google](https://developers.google.com/ar/devices).
+
+iOS 15.4+ requires WebXR AR to be enabled manually: **Settings → Safari → Advanced → Experimental Features → WebXR Augmented Reality**.
+
+---
+
+## Using AR without `<agent-3d>`
+
+If you're building a custom viewer and just need the AR launchers, import the modules directly:
+
+```js
+import { openQuickLook } from '/src/ar/quick-look.js';
+import { openSceneViewer } from '/src/ar/scene-viewer.js';
+import { WebXRSession } from '/src/ar/webxr.js';
+
+// iOS
+if (/iPhone|iPad/.test(navigator.userAgent)) {
+  openQuickLook('https://cdn.example.com/model.glb');
+}
+
+// Android
+else if (/Android/.test(navigator.userAgent)) {
+  openSceneViewer('https://cdn.example.com/model.glb', {
+    title: 'My Agent',
+    link: 'https://three.ws',
+  });
+}
+
+// WebXR fallback
+else if (await navigator.xr?.isSessionSupported('immersive-ar')) {
+  const session = new WebXRSession(renderer, scene, camera);
+  await session.start();
+}
+```
+
+---
+
+## See also
+
+- [AR on the homepage](https://three.ws/#home-ar) — live demo with real Forge models
+- [Blog: See Your 3D Avatar in the Real World](https://three.ws/blog/see-your-3d-in-ar) — full walkthrough
+- [Avatar AR page](/avatars/:id/ar) — the dedicated AR experience for any avatar
+- [Walk feature](/features/walk) — WebXR immersive walk mode (different from placement AR)
+- [Web component reference](/docs/web-component) — full `<agent-3d>` attribute list including `ar`
+- [Embedding guide](/docs/embedding) — iframe setup with XR permissions
+- [Tutorial: Place your model in AR](/docs/tutorials/view-in-ar)
