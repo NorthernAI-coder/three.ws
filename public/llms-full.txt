@@ -67,11 +67,11 @@ URL: https://three.ws/characters
 
 Discover AI characters on three.ws. Chat, trade, and create.
 
-### three.ws on IBM watsonx — Agent Galaxy
+### What is three.ws?
 
-URL: https://three.ws/ibm/galaxy
+URL: https://three.ws/what-is
 
-three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
+Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.
 
 ## Build
 
@@ -233,6 +233,12 @@ Claim your own <name>.threews.sol subdomain and get a Brave-resolvable personal 
 URL: https://three.ws/voice
 
 Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.
+
+### 3D Scanner — Scan Yourself into 3D
+
+URL: https://three.ws/scan
+
+Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.
 
 ## Labs
 
@@ -421,6 +427,100 @@ Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.
 URL: https://three.ws/club
 
 A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Base or Solana.
+
+### Agent Exchange
+
+URL: https://three.ws/agent-exchange
+
+Two AI agents with 3D bodies negotiate and pay each other for live crypto intel using x402 micropayments on Solana. Every transaction is real and confirmed on-chain.
+
+### Agent Economy — Live Demo
+
+URL: https://three.ws/agent-economy
+
+Watch two 3D AI agents transact on-chain. Agent A buys data from Agent B — real SOL, real Solana transaction, live.
+
+### Agent Commerce
+
+URL: https://three.ws/agent-trade
+
+Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.
+
+### Avatar Wallet
+
+URL: https://three.ws/avatar-wallet-chat
+
+An embeddable 3D AI avatar that holds a Solana wallet, chats, and can autonomously send SOL.
+
+### Agent Economy — NOVA & ORACLE
+
+URL: https://three.ws/demo
+
+Two three.ws AI agents with real Solana wallets discover services on the x402 bazaar, pay each other in SOL, and display a live market briefing on the TV in their world.
+
+### Agent Economy — Live
+
+URL: https://three.ws/live
+
+Two AI agents in a virtual world paying each other for live Solana market data. Real on-chain transactions, real blockchain, real 3D.
+
+### Token in 3D
+
+URL: https://three.ws/coin3d
+
+Any pump.fun token as a live 3D scene — a spinning coin medallion with the token's logo, top holders as a galaxy sized by balance, and a graduation ring tracking bonding-curve progress.
+
+### EVM Vanity Wallet
+
+URL: https://three.ws/evm-wallet
+
+Grind a custom Ethereum / EVM wallet address with the prefix or suffix of your choice. A real secp256k1 keypair, generated entirely in your browser — the private key never leaves your device.
+
+## Integrations
+
+Live partner showcases — built on real platforms, running end-to-end.
+
+### three.ws on IBM watsonx — Agent Galaxy
+
+URL: https://three.ws/ibm/galaxy
+
+three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
+
+### Granite Oracle — Price Forecasting in 3D
+
+URL: https://three.ws/ibm/oracle
+
+IBM Granite TimeSeries forecasting rendered in 3D — a live crypto market forecast computed on watsonx.ai and visualized by a three.ws agent.
+
+### Digital Twin — Living Market Replica
+
+URL: https://three.ws/ibm/twin
+
+A living replica of a real market on IBM watsonx — live data drives the twin while Granite TimeSeries projects where it's heading.
+
+### Trust Layer — Granite Guardian Governs Agents
+
+URL: https://three.ws/ibm/trust-layer
+
+IBM Granite Guardian governs an autonomous, wallet-holding 3D AI agent in real time. Every message and on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger.
+
+### Identity Firewall — Granite Stops Impersonation
+
+URL: https://three.ws/ibm/identity
+
+Before a three.ws agent identity is born, IBM Granite embeddings compare it against every public agent to catch impersonation, and Granite Guardian screens the name, bio, and persona.
+
+### Granite Proof — On-Chain AI Notary
+
+URL: https://three.ws/ibm/proof
+
+A 3D AI agent forecasts a live crypto market with IBM Granite TimeSeries, Granite Guardian governs every word, and each governed forecast is notarized on Solana — signed by the agent's own wallet.
+
+### Granite Vision — Image Understanding
+
+URL: https://three.ws/ibm/vision
+
+IBM Granite Vision reads your 3D avatar — multimodal image understanding on watsonx.ai, demonstrated live.
 
 ## Agent Tools
 
@@ -655,6 +755,18 @@ Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, bat
 URL: https://three.ws/status
 
 Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.
+
+### Glossary
+
+URL: https://three.ws/glossary
+
+Plain-English definitions for the crypto and agent terms used across three.ws — no jargon required to get started.
+
+### Support
+
+URL: https://three.ws/support
+
+Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.
 
 ## Blog
 

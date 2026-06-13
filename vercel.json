@@ -568,6 +568,10 @@
 			"dest": "/avatar-studio-demo.html"
 		},
 		{
+			"src": "/forge/embed/?",
+			"dest": "/forge-embed.html"
+		},
+		{
 			"src": "/forge/share/([^/]+)",
 			"dest": "/api/forge-share?id=$1"
 		},

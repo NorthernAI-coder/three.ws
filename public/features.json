@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T00:39:18.426Z",
+	"generated_at": "2026-06-13T01:04:38.520Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -106,10 +106,10 @@
 					"showcase": false
 				},
 				{
-					"path": "/ibm/galaxy",
-					"title": "three.ws on IBM watsonx — Agent Galaxy",
-					"description": "three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.",
-					"added": "2026-06-03",
+					"path": "/what-is",
+					"title": "What is three.ws?",
+					"description": "Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.",
+					"added": null,
 					"auth": null,
 					"indexable": true,
 					"tags": [],
@@ -381,6 +381,16 @@
 					"indexable": true,
 					"tags": [],
 					"showcase": true
+				},
+				{
+					"path": "/scan",
+					"title": "3D Scanner — Scan Yourself into 3D",
+					"description": "Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -695,6 +705,163 @@
 					"indexable": true,
 					"tags": [],
 					"showcase": true
+				},
+				{
+					"path": "/agent-exchange",
+					"title": "Agent Exchange",
+					"description": "Two AI agents with 3D bodies negotiate and pay each other for live crypto intel using x402 micropayments on Solana. Every transaction is real and confirmed on-chain.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/agent-economy",
+					"title": "Agent Economy — Live Demo",
+					"description": "Watch two 3D AI agents transact on-chain. Agent A buys data from Agent B — real SOL, real Solana transaction, live.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/agent-trade",
+					"title": "Agent Commerce",
+					"description": "Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/avatar-wallet-chat",
+					"title": "Avatar Wallet",
+					"description": "An embeddable 3D AI avatar that holds a Solana wallet, chats, and can autonomously send SOL.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/demo",
+					"title": "Agent Economy — NOVA & ORACLE",
+					"description": "Two three.ws AI agents with real Solana wallets discover services on the x402 bazaar, pay each other in SOL, and display a live market briefing on the TV in their world.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/live",
+					"title": "Agent Economy — Live",
+					"description": "Two AI agents in a virtual world paying each other for live Solana market data. Real on-chain transactions, real blockchain, real 3D.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/coin3d",
+					"title": "Token in 3D",
+					"description": "Any pump.fun token as a live 3D scene — a spinning coin medallion with the token's logo, top holders as a galaxy sized by balance, and a graduation ring tracking bonding-curve progress.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/evm-wallet",
+					"title": "EVM Vanity Wallet",
+					"description": "Grind a custom Ethereum / EVM wallet address with the prefix or suffix of your choice. A real secp256k1 keypair, generated entirely in your browser — the private key never leaves your device.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				}
+			]
+		},
+		{
+			"id": "integrations",
+			"title": "Integrations",
+			"description": "Live partner showcases — built on real platforms, running end-to-end.",
+			"pages": [
+				{
+					"path": "/ibm/galaxy",
+					"title": "three.ws on IBM watsonx — Agent Galaxy",
+					"description": "three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.",
+					"added": "2026-06-03",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/ibm/oracle",
+					"title": "Granite Oracle — Price Forecasting in 3D",
+					"description": "IBM Granite TimeSeries forecasting rendered in 3D — a live crypto market forecast computed on watsonx.ai and visualized by a three.ws agent.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/ibm/twin",
+					"title": "Digital Twin — Living Market Replica",
+					"description": "A living replica of a real market on IBM watsonx — live data drives the twin while Granite TimeSeries projects where it's heading.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/ibm/trust-layer",
+					"title": "Trust Layer — Granite Guardian Governs Agents",
+					"description": "IBM Granite Guardian governs an autonomous, wallet-holding 3D AI agent in real time. Every message and on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/ibm/identity",
+					"title": "Identity Firewall — Granite Stops Impersonation",
+					"description": "Before a three.ws agent identity is born, IBM Granite embeddings compare it against every public agent to catch impersonation, and Granite Guardian screens the name, bio, and persona.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/ibm/proof",
+					"title": "Granite Proof — On-Chain AI Notary",
+					"description": "A 3D AI agent forecasts a live crypto market with IBM Granite TimeSeries, Granite Guardian governs every word, and each governed forecast is notarized on Solana — signed by the agent's own wallet.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/ibm/vision",
+					"title": "Granite Vision — Image Understanding",
+					"description": "IBM Granite Vision reads your 3D avatar — multimodal image understanding on watsonx.ai, demonstrated live.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -1062,6 +1229,26 @@
 					"title": "Status",
 					"description": "Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.",
 					"added": "2026-06-11",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/glossary",
+					"title": "Glossary",
+					"description": "Plain-English definitions for the crypto and agent terms used across three.ws — no jargon required to get started.",
+					"added": null,
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/support",
+					"title": "Support",
+					"description": "Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.",
+					"added": null,
 					"auth": null,
 					"indexable": true,
 					"tags": [],

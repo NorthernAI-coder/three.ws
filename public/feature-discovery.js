@@ -89,6 +89,12 @@
 			{ route: '/play',     label: 'Drop it in a world', modelParam: 'avatar' },
 			{ route: '/docs',     label: 'Read the docs' },
 		] },
+		prompt: { kicker: 'Avatar ready — what now?', links: [
+			{ route: '/studio',   label: 'Open Studio', primary: true, idParam: 'avatar', modelParam: 'model' },
+			{ route: '/create-agent', label: 'Make it an agent' },
+			{ route: '/walk',     label: 'Walk your avatar', idParam: 'avatar', modelParam: 'avatarUrl' },
+			{ route: '/embed.html', label: 'Embed editor', idParam: 'avatar', modelParam: 'avatar' },
+		] },
 		scan: { kicker: 'Avatar ready — what now?', links: [
 			{ route: '/studio',   label: 'Open Studio', primary: true, idParam: 'avatar', modelParam: 'model' },
 			{ route: '/walk',     label: 'Walk your avatar', idParam: 'avatar', modelParam: 'avatarUrl' },

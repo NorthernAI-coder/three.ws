@@ -102,6 +102,20 @@
 				margin: 0 auto;
 				line-height: var(--leading-normal);
 			}
+			.forge-head-alt {
+				margin: 10px auto 0;
+				font-size: var(--text-sm, 13px);
+				color: var(--ink-faint, var(--ink-dim));
+			}
+			.forge-head-alt a {
+				color: var(--ink-dim);
+				text-decoration: underline;
+				text-underline-offset: 2px;
+				transition: color 0.15s;
+			}
+			.forge-head-alt a:hover {
+				color: var(--ink, #e8e8e8);
+			}
 
 			/* Composer ---------------------------------------------------- */
 			.composer {
@@ -1697,6 +1711,10 @@
 					Forge reconstructs a textured mesh you can orbit, view in AR, and download as
 					GLB — and more views mean a sharper model with no guessed-at back.
 				</p>
+				<p class="forge-head-alt">
+					Making a character? <a href="/create/prompt">Describe it to 3D</a> builds a
+					rigged avatar that can move.
+				</p>
 			</header>
 
 			<div class="mode-switch-wrap">
@@ -2033,6 +2051,28 @@
 								title="Split this model into selectable parts"
 								>Split into parts</a
 							>
+							<button
+								class="btn btn-ghost"
+								type="button"
+								id="forge-embed-btn"
+								title="Embed this model on any website"
+							>
+								<svg
+									width="15"
+									height="15"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<polyline points="16 18 22 12 16 6" />
+									<polyline points="8 6 2 12 8 18" />
+								</svg>
+								Embed
+							</button>
 							<a class="btn btn-ghost" id="download" download>Download GLB</a>
 							<button class="btn" type="button" id="again">Make another</button>
 						</div>
@@ -2180,6 +2220,7 @@
 		<script type="module" src="/src/forge-enhance.js"></script>
 		<script type="module" src="/src/forge-stylize.js"></script>
 		<script type="module" src="/src/forge-optimize.js"></script>
+		<script type="module" src="/src/forge-embed-panel.js"></script>
 		<script type="module" src="/src/forge-showcase.js"></script>
 		<script type="module" src="/src/forge-dropzone.js"></script>
 		<div id="footer-container"></div>
