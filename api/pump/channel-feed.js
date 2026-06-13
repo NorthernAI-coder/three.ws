@@ -13,7 +13,8 @@ export default wrap(async (req, res) => {
 	const kindsParam = url.searchParams.get('kinds');
 	const allowed = kindsParam ? new Set(kindsParam.split(',').map(s => s.trim())) : null;
 	const limitParam = url.searchParams.get('limit');
-	const limit = limitParam ? parseInt(limitParam, 10) : Infinity;
+	const limitRaw = limitParam ? parseInt(limitParam, 10) : 100;
+	const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 100, 1), 200);
 
 	const [mints, whales, claims] = await Promise.all([
 		(!allowed || allowed.has('mint')) ? getMints().catch(() => []) : [],
@@ -34,7 +35,7 @@ export default wrap(async (req, res) => {
 			return true;
 		})
 		.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-		.slice(0, isFinite(limit) ? limit : undefined);
+		.slice(0, limit);
 
 	return json(res, 200, { items: all });
 });

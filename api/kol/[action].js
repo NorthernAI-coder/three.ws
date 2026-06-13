@@ -187,7 +187,7 @@ async function handleLeaderboard(req, res) {
 	const url = new URL(req.url, `http://${req.headers.host}`);
 	const window = url.searchParams.get('window') || '7d';
 	const limitRaw = url.searchParams.get('limit');
-	const limit = limitRaw != null ? Number(limitRaw) : 25;
+	const limit = Math.min(Math.max(Number(limitRaw) || 25, 1), 100);
 	const { getLeaderboard } = await import('../../src/kol/leaderboard.js');
 	let items;
 	try {

@@ -24,6 +24,8 @@ import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const MODEL_CATEGORY_VALUES = ['avatar', 'accessory', 'item', 'scene', 'creature', 'vehicle', 'other'];
+
 const patchSchema = z.object({
 	name: z.string().trim().min(1).max(120).optional(),
 	description: z.string().trim().max(2000).optional(),
@@ -32,6 +34,7 @@ const patchSchema = z.object({
 	thumbnail_key: z.string().min(1).max(512).optional(),
 	usdz_key: z.string().min(1).max(512).optional(),
 	halfbody_key: z.string().min(1).max(512).optional(),
+	model_category: z.enum(MODEL_CATEGORY_VALUES).optional(),
 	// `null` clears the dress-up state. Omit the field entirely to leave it untouched.
 	appearance: avatarAppearance.nullable().optional(),
 });

@@ -3382,6 +3382,21 @@ body.market-page > header {
 	font-weight: 600;
 	letter-spacing: 0.02em;
 }
+/* Per-category color accents on the model type pill */
+.model-cat-pill.model-cat-avatar    { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; }
+.model-cat-pill.model-cat-accessory { background: rgba(236, 72, 153, 0.18); color: #f9a8d4; }
+.model-cat-pill.model-cat-item      { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+.model-cat-pill.model-cat-scene     { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; }
+.model-cat-pill.model-cat-creature  { background: rgba(251, 146, 60, 0.18); color: #fdba74; }
+.model-cat-pill.model-cat-vehicle   { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; }
+.model-cat-pill.model-cat-other     { background: rgba(255, 255, 255, 0.08); color: #a1a1aa; }
+
+/* Model-category sub-filter chips row — visible when avatars are shown */
+.market-model-category-chips {
+	border-top: 1px solid var(--stroke);
+	padding-top: 8px;
+	margin-top: 2px;
+}
 .market-card-avatar .footer .open-cta {
 	font-size: 11px;
 	color: var(--ink-dim);

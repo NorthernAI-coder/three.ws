@@ -1421,7 +1421,7 @@ async function handleKnowledge(req, res) {
 		const probe = url.searchParams.get('test');
 		if (probe !== null) {
 			try {
-				const topK = parseInt(url.searchParams.get('top_k') || '5', 10) || 5;
+				const topK = Math.min(parseInt(url.searchParams.get('top_k') || '5', 10) || 5, 20);
 				const data = await testRetrieval({ widgetId: id, query: probe, topK });
 				return json(res, 200, data);
 			} catch (err) {
