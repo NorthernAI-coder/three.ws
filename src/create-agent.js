@@ -438,26 +438,36 @@ function selectStarter(id) {
 
 let libraryState = 'idle'; // idle | loading | loaded | error
 let libraryAvatars = [];
+let libraryOffset = 0;
+let libraryHasMore = false;
+const LIBRARY_PAGE = 50;
 
 // The avatars API exposes the GLB as model_url (public/unlisted) or
 // base_model_url; private avatars have neither. Resolve a renderable URL or ''.
 const avatarModelUrl = (av) => av?.model_url || av?.base_model_url || '';
 
-async function loadLibraryAvatars() {
-	if (libraryState === 'loaded' || libraryState === 'loading') {
+async function loadLibraryAvatars({ append = false } = {}) {
+	if (libraryState === 'loading') return;
+	if (!append && (libraryState === 'loaded' || libraryState === 'error')) {
 		renderLibrary();
 		return;
 	}
 	libraryState = 'loading';
-	renderLibrary();
+	if (!append) renderLibrary();
 	try {
-		const res = await apiFetch('/api/avatars?limit=50', { credentials: 'include' });
+		const url = `/api/avatars?limit=${LIBRARY_PAGE + 1}&offset=${libraryOffset}`;
+		const res = await apiFetch(url, { credentials: 'include' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const data = await res.json();
-		// Selection only needs an id — the agent links by avatar_id. A renderable
-		// URL (model_url for public/unlisted, base_model_url, or thumbnail_url) is
-		// used for the tile when present; private avatars without one still list.
-		libraryAvatars = (data.avatars || []).filter((a) => a && a.id);
+		const page = (data.avatars || []).filter((a) => a && a.id);
+		libraryHasMore = page.length > LIBRARY_PAGE;
+		const fresh = page.slice(0, LIBRARY_PAGE);
+		if (append) {
+			libraryAvatars = [...libraryAvatars, ...fresh];
+		} else {
+			libraryAvatars = fresh;
+		}
+		libraryOffset = libraryAvatars.length;
 		libraryState = 'loaded';
 	} catch (err) {
 		log.warn('[create-agent] avatar library load failed', err?.message);
@@ -510,6 +520,16 @@ function renderLibrary() {
 		card.addEventListener('click', () => selectLibraryAvatar(av.id));
 		grid.appendChild(card);
 	});
+
+	if (libraryHasMore) {
+		const more = document.createElement('button');
+		more.type = 'button';
+		more.className = 'lib-load-more';
+		more.style = 'grid-column:1/-1;margin-top:6px;padding:6px 12px;font-size:0.75rem;opacity:0.6;cursor:pointer;background:transparent;border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:inherit;transition:opacity 0.15s';
+		more.textContent = 'Load more';
+		more.addEventListener('click', () => loadLibraryAvatars({ append: true }));
+		grid.appendChild(more);
+	}
 
 	// Re-apply the highlight when re-rendering with an active selection.
 	if (state.model.mode === 'library' && state.model.avatarId) {
@@ -906,11 +926,13 @@ async function submit() {
 			});
 			avatarId = av?.id || null;
 		} else if (state.model.mode === 'upload' && state.model.file) {
-			setMsg('Uploading your 3D model…', '');
+			setMsg('Uploading your 3D model… 0%', '');
 			const av = await saveRemoteGlbToAccount(state.model.file, {
 				source: 'upload',
 				name: state.model.fileName || state.name.trim(),
 				visibility: 'public',
+			}, {
+				onProgress: (pct) => setMsg(`Uploading your 3D model… ${pct}%`, ''),
 			});
 			avatarId = av?.id || null;
 		} else if (state.model.mode === 'library' && state.model.avatarId) {

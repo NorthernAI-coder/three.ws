@@ -489,9 +489,27 @@ function triggerHiddenGlbInput() {
   input.click();
 }
 
+let _uploadController = null;
+
 async function saveNewAvatarAndSelect(blob, meta = {}) {
+  // Cancel any in-flight upload before starting a new one.
+  if (_uploadController) _uploadController.abort();
+  _uploadController = new AbortController();
+  const { signal } = _uploadController;
+
   const status = $('outfit-status');
-  if (status) { status.textContent = 'Saving avatar…'; status.className = 'outfit-status saving'; }
+  const cancelBtn = $('outfit-cancel');
+
+  const setStatus = (text, cls = 'outfit-status saving') => {
+    if (status) { status.textContent = text; status.className = cls; }
+  };
+  const onProgress = (pct) => {
+    if (status && !signal.aborted) status.textContent = `Uploading… ${pct}%`;
+  };
+
+  setStatus('Saving avatar…');
+  if (cancelBtn) cancelBtn.hidden = false;
+
   try {
     const provider = meta.provider || 'upload';
     const source = provider === 'avaturn' ? 'avaturn' : provider === 'upload' ? 'upload' : 'import';
@@ -500,17 +518,23 @@ async function saveNewAvatarAndSelect(blob, meta = {}) {
       source,
       source_meta,
       name: meta.name,
-    });
-    if (status) { status.textContent = 'Attaching to agent…'; }
+    }, { signal, onProgress });
+    setStatus('Attaching to agent…');
     await selectAvatar(avatar.id);
-    // Refresh the picker so the new avatar shows up; selectAvatar already
-    // re-renders, but availableAvatars may be stale if the request raced.
     if (!availableAvatars.some((a) => a.id === avatar.id)) {
       availableAvatars = [avatar, ...availableAvatars];
       await renderAvatarList();
     }
+    setStatus('', 'outfit-status');
   } catch (err) {
-    if (status) { status.textContent = `Error: ${err.message || 'Failed to save avatar.'}`; status.className = 'outfit-status err'; }
+    if (err?.name === 'AbortError' || signal.aborted) {
+      setStatus('Upload cancelled.', 'outfit-status');
+    } else {
+      setStatus(`Error: ${err.message || 'Failed to save avatar.'}`, 'outfit-status err');
+    }
+  } finally {
+    if (cancelBtn) cancelBtn.hidden = true;
+    _uploadController = null;
   }
 }
 
@@ -2441,6 +2465,13 @@ document.querySelectorAll('.edit-tab').forEach((tab) => {
 });
 
 // Open a specific tab via ?tab=… (used by OAuth callback redirects).
+const _cancelBtn = $('outfit-cancel');
+if (_cancelBtn) {
+  _cancelBtn.addEventListener('click', () => {
+    if (_uploadController) _uploadController.abort();
+  });
+}
+
 async function init() {
   await loadAgent();
   if (!agentData) return;

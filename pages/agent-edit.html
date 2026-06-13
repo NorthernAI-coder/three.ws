@@ -420,10 +420,15 @@
 				color: rgba(255, 255, 255, 0.7);
 			}
 
-			.outfit-status {
+			.outfit-status-bar {
 				position: fixed;
 				bottom: 1rem;
 				right: 1.5rem;
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+			}
+			.outfit-status {
 				font-size: 0.618rem;
 				color: rgba(255, 255, 255, 0.25);
 				pointer-events: none;
@@ -436,6 +441,20 @@
 			}
 			.outfit-status.err {
 				color: #fca5a5;
+			}
+			.outfit-cancel-btn {
+				font-size: 0.618rem;
+				padding: 0.15rem 0.5rem;
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				border-radius: 4px;
+				background: transparent;
+				color: rgba(255, 255, 255, 0.5);
+				cursor: pointer;
+				transition: color 0.15s, border-color 0.15s;
+			}
+			.outfit-cancel-btn:hover {
+				color: #fca5a5;
+				border-color: #fca5a5;
 			}
 
 			.loading-msg,
@@ -1706,7 +1725,10 @@
 			</main>
 		</div>
 
-		<div class="outfit-status" id="outfit-status" role="status" aria-live="polite"></div>
+		<div class="outfit-status-bar">
+			<div class="outfit-status" id="outfit-status" role="status" aria-live="polite"></div>
+			<button type="button" id="outfit-cancel" class="outfit-cancel-btn" hidden aria-label="Cancel upload">Cancel</button>
+		</div>
 
 		<script type="module" src="/src/agent-edit.js"></script>
 	

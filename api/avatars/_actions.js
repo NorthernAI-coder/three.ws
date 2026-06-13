@@ -225,6 +225,7 @@ function fetchError(status, code, message) {
 async function assertPublicHost(hostname) {
 	const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
 	if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.local')) {
+		console.warn('[avatar-upload] ssrf blocked: reserved hostname', host);
 		throw fetchError(400, 'blocked_host', 'source_url host is not allowed');
 	}
 	const { lookup } = await import('dns/promises');
@@ -236,6 +237,7 @@ async function assertPublicHost(hostname) {
 	}
 	for (const { address } of records) {
 		if (isPrivateAddress(address)) {
+			console.warn('[avatar-upload] ssrf blocked: private address', host, '->', address);
 			throw fetchError(400, 'blocked_host', 'source_url resolves to a non-public address');
 		}
 	}

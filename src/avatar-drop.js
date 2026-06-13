@@ -355,8 +355,15 @@ export function initAvatarDrop(sectionEl) {
 	}
 
 	const AVATAR_ID = 'bacff13e-b64b-4ac0-860d-44f0168ad23b';
+	const BOOT_TIMEOUT_MS = 12_000;
 
-	fetch(`${location.origin}/api/avatars/${AVATAR_ID}`)
+	const timedFetch = (url, ms = BOOT_TIMEOUT_MS) => {
+		const ac = new AbortController();
+		const t = setTimeout(() => ac.abort(), ms);
+		return fetch(url, { signal: ac.signal }).finally(() => clearTimeout(t));
+	};
+
+	timedFetch(`${location.origin}/api/avatars/${AVATAR_ID}`)
 		.then(r => r.json())
 		.then(d => {
 			const glb = resolveGlb(d.avatar?.model_url || d.avatar?.url);
@@ -372,7 +379,7 @@ export function initAvatarDrop(sectionEl) {
 				scene.add(avatar);
 				mixer = new AnimationMixer(avatar);
 
-				const fetchClip = f => fetch(f).then(r => {
+				const fetchClip = f => timedFetch(f, 8_000).then(r => {
 					if (!r.ok) throw new Error(`${f} → HTTP ${r.status}`);
 					return r.json();
 				});
