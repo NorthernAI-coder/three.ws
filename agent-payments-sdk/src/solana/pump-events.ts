@@ -24,7 +24,7 @@ import {
   type Connection,
   type Logs,
 } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import { BorshEventCoder } from "@coral-xyz/anchor/dist/cjs/coder/borsh/event.js";
 import type { Idl } from "@coral-xyz/anchor";
 

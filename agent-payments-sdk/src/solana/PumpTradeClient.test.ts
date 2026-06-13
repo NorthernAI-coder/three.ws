@@ -18,7 +18,7 @@
  *  - fee recipient is always from global.feeRecipients pool
  */
 
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { AccountInfo, Connection, PublicKey } from "@solana/web3.js";
 import { describe, expect, it, vi } from "vitest";

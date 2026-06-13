@@ -12,7 +12,8 @@ import {
   TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { BN, EventParser } from "@coral-xyz/anchor";
+import BN from "bn.js";
+import { EventParser } from "@coral-xyz/anchor";
 
 import { PumpAgentOffline, resolveTokenProgramForMint } from "./PumpAgentOffline";
 import { getPumpProgramWithFallback } from "./program";

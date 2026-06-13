@@ -3,7 +3,7 @@
 // All rights reserved.
 
 import type { AccountMeta, PublicKey } from "@solana/web3.js";
-import type { BN } from "@coral-xyz/anchor";
+import type BN from "bn.js";
 
 // ─── Environment ────────────────────────────────────────────────────────────
 

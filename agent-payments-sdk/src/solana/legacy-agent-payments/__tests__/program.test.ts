@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 
 import {
   OFFLINE_PUMP_PROGRAM,

@@ -3,7 +3,7 @@
 // All rights reserved.
 
 import { PublicKey } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 
 export const LEGACY_AGENT_PAYMENTS_PROGRAM_ID = new PublicKey(
   "pUmPFn9WvfaN2WTVGnCEtJTd2ATTpvpsKRz6jVzu6u4",
