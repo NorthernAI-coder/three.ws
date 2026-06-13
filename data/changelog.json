@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "All 14 three.ws MCP servers are now live on npm and the official MCP registry",
+			"summary": "Every three.ws MCP server is now publicly installable and discoverable. The eight install-and-run servers ship on npm under the @three-ws scope — pull any of them with one command, e.g. npx -y @three-ws/mcp-server (3D + agent tools), @three-ws/three-token-mcp ($THREE price, hold, and burn), @three-ws/pumpfun-mcp, @three-ws/ibm-x402-mcp, @three-ws/avatar-agent, and more. Together with the six hosted remote servers, all 14 are registered in the official Model Context Protocol registry, so any MCP-compatible client — Claude, Cursor, and others — can find them by name. No more dead install links: the documented commands now work.",
+			"tags": [
+				"sdk",
+				"feature"
+			],
+			"link": "/docs/mcp"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Selfie to 3D avatar now works with your own API key — Meshy and Tripo supported",
 			"summary": "The selfie-to-avatar pipeline (/create/selfie) is fully open: if you have a Meshy or Tripo API key, you can turn a photo into a rigged 3D avatar in about 60–90 seconds. Enter your key once on the setup screen and it stays cached for the session — or save it to your account settings so you never have to enter it again. The pipeline now properly routes polling through whichever provider submitted the job, so BYOK jobs no longer stall mid-build. The page no longer shows 'still warming up' — it detects which mode the platform is running in and gives you the right experience immediately.",
 			"tags": [

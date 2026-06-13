@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-13T08:02:05.657Z",
+	"generated_at": "2026-06-13T08:17:23.807Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "All 14 three.ws MCP servers are now live on npm and the official MCP registry",
+			"summary": "Every three.ws MCP server is now publicly installable and discoverable. The eight install-and-run servers ship on npm under the @three-ws scope — pull any of them with one command, e.g. npx -y @three-ws/mcp-server (3D + agent tools), @three-ws/three-token-mcp ($THREE price, hold, and burn), @three-ws/pumpfun-mcp, @three-ws/ibm-x402-mcp, @three-ws/avatar-agent, and more. Together with the six hosted remote servers, all 14 are registered in the official Model Context Protocol registry, so any MCP-compatible client — Claude, Cursor, and others — can find them by name. No more dead install links: the documented commands now work.",
+			"link": "/docs/mcp",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
 		{
 			"date": "2026-06-13",
 			"type": "update",
