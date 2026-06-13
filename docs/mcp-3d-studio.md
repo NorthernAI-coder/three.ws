@@ -178,5 +178,5 @@ mcp-publisher publish --file server-3d.json
 
 ```bash
 npm run dev
-npx @modelcontextprotocol/inspector http://localhost:5173/api/mcp-3d
+npx @modelcontextprotocol/inspector http://localhost:3000/api/mcp-3d
 ```

@@ -309,7 +309,7 @@ WEB3_STORAGE_TOKEN=xxxxx
 The smallest `.env.local` that runs the dev server with core features:
 
 ```env
-PUBLIC_APP_ORIGIN=http://localhost:5173
+PUBLIC_APP_ORIGIN=http://localhost:3000
 DATABASE_URL=postgres://user:pass@ep-xxx.neon.tech/neondb?sslmode=require
 JWT_SECRET=<output of: openssl rand -base64 64>
 ANTHROPIC_API_KEY=sk-ant-...
@@ -406,7 +406,7 @@ Three.js and ethers are bundled (not externalized) so the web component works as
 
 **VitePWA** generates a service worker for the app build. Assets matching `**/*.{js,css,ico,png,svg,woff2}` are precached. Google Fonts are cached with a `CacheFirst` strategy and a 1-year TTL.
 
-The dev server includes a rewrite middleware that mirrors the `vercel.json` route patterns, so `http://localhost:5173/agent/my-agent/edit` works the same as in production.
+The dev server includes a rewrite middleware that mirrors the `vercel.json` route patterns, so `http://localhost:3000/agent/my-agent/edit` works the same as in production.
 
 ---
 
@@ -463,7 +463,7 @@ The production configuration points to the hosted MCP endpoint and authenticates
 }
 ```
 
-Replace the `Authorization` value with an API key from your dashboard. For local development, point `url` at `http://localhost:5173/api/mcp`.
+Replace the `Authorization` value with an API key from your dashboard. For local development, point `url` at `http://localhost:3000/api/mcp`.
 
 **Never commit a real API key** in this file. Add `.mcp.json` to `.gitignore` or use a development-only key with limited permissions.
 

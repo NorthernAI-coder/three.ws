@@ -112,7 +112,7 @@ three.ws is organized into four layers, each building on the one below.
 
 ### Viewer Layer
 
-The foundation is a WebGL 2.0 renderer powered by three.js r176. A `Viewer` class manages the scene graph, perspective camera, ambient and directional lighting, HDR environment maps, and a per-frame animation mixer. `GLTFLoader` handles model loading with Draco geometry compression, KTX2 texture supercompression, and Meshopt mesh optimization. `OrbitControls` provides interactive camera navigation. The viewer exposes a clean API used by higher layers — load a model, set environment, play an animation, move the camera.
+The foundation is a WebGL 2.0 renderer powered by three.js r184. A `Viewer` class manages the scene graph, perspective camera, ambient and directional lighting, HDR environment maps, and a per-frame animation mixer. `GLTFLoader` handles model loading with Draco geometry compression, KTX2 texture supercompression, and Meshopt mesh optimization. `OrbitControls` provides interactive camera navigation. The viewer exposes a clean API used by higher layers — load a model, set environment, play an animation, move the camera.
 
 ### Agent Layer
 
@@ -136,7 +136,7 @@ The embed layer is what developers interact with. `Agent3DElement` (`<agent-3d>`
 │   Runtime │ SkillRegistry │ Memory      │  ← Agent Layer
 │   SceneController │ EmotionSystem       │
 ├─────────────────────────────────────────┤
-│   Viewer │ GLTFLoader │ three.js r176   │  ← Viewer Layer
+│   Viewer │ GLTFLoader │ three.js r184   │  ← Viewer Layer
 │   WebGLRenderer │ AnimationMixer       │
 └─────────────────────────────────────────┘
 ```

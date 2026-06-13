@@ -65,5 +65,5 @@ mcp-publisher publish --file server-agent.json
 
 ```bash
 npm run dev
-npx @modelcontextprotocol/inspector http://localhost:5173/api/mcp-agent
+npx @modelcontextprotocol/inspector http://localhost:3000/api/mcp-agent
 ```

@@ -23,7 +23,7 @@ These are non-negotiable — match the existing blog posts and README tone.
 - **No emojis.** Ever. Same rule as `CLAUDE.md`.
 - **No hashtag spam.** At most one (and usually zero). Project hashtags only when they materially help discovery.
 - **Lead with the feature or fact, not the hype.** First line carries the whole post if the reader bounces.
-- **Concrete > abstract.** Name the route (`three.ws/x402`), the spec (`EIP-7710`), the version (`three.js r176`). Specifics beat adjectives.
+- **Concrete > abstract.** Name the route (`three.ws/x402`), the spec (`EIP-7710`), the version (`three.js r184`). Specifics beat adjectives.
 - **No mocks, no fake data, no "coming soon".** Every post links to a feature that is live in production. If it's not live, it's not in the schedule — move it to the backlog.
 - **Under 280 characters.** Aim for ~250 to leave room for link preview rendering.
 - **Always include a real link.** Posts without links get scrolled past.

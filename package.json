@@ -34,9 +34,11 @@
     "packages/avatar-schema",
     "packages/avatar-cli",
     "packages/viewer-presets",
+    "packages/avatar-agent-mcp",
     "packages/pumpfun-mcp",
     "packages/ibm-watsonx-mcp",
     "packages/ibm-x402-mcp",
+    "packages/three-token-mcp",
     "packages/threews-avatar-mcp"
   ],
   "main": "src/app.js",
