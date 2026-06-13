@@ -1261,6 +1261,40 @@
 			.viewer-shell {
 				position: relative;
 			}
+			.viewer-shell .viewer-load-error {
+				display: none;
+				position: absolute;
+				inset: 0;
+				z-index: 4;
+				align-items: center;
+				justify-content: center;
+				flex-direction: column;
+				gap: var(--space-sm);
+				text-align: center;
+				background: radial-gradient(120% 120% at 50% 0%, #1a1612 0%, #0b0a09 70%);
+				padding: var(--space-xl);
+			}
+			html[data-theme='light'] .viewer-shell .viewer-load-error {
+				background: radial-gradient(120% 120% at 50% 0%, #f3eee9 0%, #e7e2dc 70%);
+			}
+			.viewer-shell.has-load-error .viewer-load-error {
+				display: flex;
+			}
+			.viewer-shell.has-load-error model-viewer {
+				opacity: 0;
+				pointer-events: none;
+			}
+			.viewer-load-error-icon {
+				font-size: 2rem;
+				opacity: 0.5;
+			}
+			.viewer-load-error p {
+				color: var(--ink-dim);
+				font-size: var(--text-sm);
+				max-width: 28ch;
+				margin: 0;
+				line-height: var(--leading-normal);
+			}
 			.result model-viewer {
 				width: 100%;
 				height: min(62vh, 600px);
@@ -2393,6 +2427,10 @@
 							interaction-prompt="none"
 							alt="Generated 3D model"
 						></model-viewer>
+						<div class="viewer-load-error" id="viewer-load-error" role="alert" aria-live="polite">
+							<span class="viewer-load-error-icon" aria-hidden="true">⚠</span>
+							<p>Model failed to load. Use the download button below to save the file directly.</p>
+						</div>
 					</div>
 					<div class="result-bar">
 						<span class="label" id="result-label"></span>

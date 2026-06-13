@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>3D model categories — every model is now typed as Avatar, Accessory, Item, Scene, Creature, or Vehicle</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-13:3D model categories — every model is now typed as Avatar, Accessory, Item, Scene, Creature, or Vehicle</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>All 3D models on the platform now carry a category that describes what they actually are, not just how they were created. Avatar cards in the marketplace show a color-coded type badge (Avatar, Accessory, Item, Scene, Creature, or Vehicle) and a new filter row lets you browse by type. The Forge gallery shows the same badges on showcase cards, and when you finish forging a model you can tag it right in the result bar with a single click. This is the foundation for the upcoming agent equipment system — where your agents will be able to wear accessories, hold items, and inhabit scenes.</description>
+		</item>
+		<item>
 			<title>All 14 three.ws MCP servers are now live on npm and the official MCP registry</title>
 			<link>https://three.ws/docs/mcp</link>
 			<guid isPermaLink="false">2026-06-13:All 14 three.ws MCP servers are now live on npm and the official MCP registry</guid>

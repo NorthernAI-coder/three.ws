@@ -3809,7 +3809,10 @@
 </section>
 <script type="module">
 (async () => {
-	const { renderQRToCanvas } = await import('/src/erc8004/qr.js');
+	let renderQRToCanvas;
+	try {
+		({ renderQRToCanvas } = await import('/src/erc8004/qr.js'));
+	} catch { return; }
 
 	// Lazy-load model-viewer (reuse the CDN script if already present)
 	async function ensureModelViewer() {
@@ -4732,11 +4735,12 @@
 	const dropSection = document.getElementById('body-drop');
 	if (dropSection) {
 		const io = new IntersectionObserver(async entries => {
-			if (entries[0].isIntersecting) {
-				io.disconnect();
+			if (!entries[0].isIntersecting) return;
+			io.disconnect();
+			try {
 				const { initAvatarDrop } = await import('/src/avatar-drop.js');
 				initAvatarDrop(dropSection);
-			}
+			} catch {}
 		}, { rootMargin: '200px' });
 		io.observe(dropSection);
 	}
@@ -4750,11 +4754,12 @@
 	const walkContainer = document.getElementById('walk-preview-container');
 	if (walkContainer) {
 		const io = new IntersectionObserver(async entries => {
-			if (entries[0].isIntersecting) {
-				io.disconnect();
+			if (!entries[0].isIntersecting) return;
+			io.disconnect();
+			try {
 				const { initWalkPreview } = await import('/src/walk-embed-preview.js');
 				initWalkPreview(walkContainer);
-			}
+			} catch {}
 		}, { rootMargin: '200px' });
 		io.observe(walkContainer);
 	}
