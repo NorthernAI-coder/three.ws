@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Selfie to 3D avatar now works with your own API key — Meshy and Tripo supported",
+			"summary": "The selfie-to-avatar pipeline (/create/selfie) is fully open: if you have a Meshy or Tripo API key, you can turn a photo into a rigged 3D avatar in about 60–90 seconds. Enter your key once on the setup screen and it stays cached for the session — or save it to your account settings so you never have to enter it again. The pipeline now properly routes polling through whichever provider submitted the job, so BYOK jobs no longer stall mid-build. The page no longer shows 'still warming up' — it detects which mode the platform is running in and gives you the right experience immediately.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/create/selfie"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Forge adds four more 3D engines — bring your own Rodin, Stability, Tripo, or Replicate key",
 			"summary": "Forge now speaks to more best-in-class 3D generators, so you can pick the engine that fits the job. Rodin (Hyper3D) joins for native text-to-geometry and image-to-3D with clean quad topology and a real polygon target; Stable Fast 3D turns a single photo into a textured model in seconds; and you can now run reconstructions on your own Replicate account. Tripo, which was already supported, finally has a key field in your account settings alongside Meshy. All of these are bring-your-own-key — add a key under Account, then Provider Keys, and the engine lights up. The free, no-setup lanes for prompts and sketches are unchanged, and if you choose the geometry path without a key, Forge now quietly falls back to the free engine instead of asking for one.",
 			"tags": [
