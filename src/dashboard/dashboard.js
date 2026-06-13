@@ -2385,7 +2385,7 @@ async function renderEmbed(root) {
 	const onchainSnippet = agent.erc8004_agent_id
 		? [
 				'// Resolve any ERC-8004 agent by chain + tokenId — no central registry needed.',
-				"import { resolveOnchainAgent, toPublicUrl } from '@3dagent/sdk/erc8004';",
+				"import { resolveOnchainAgent, toPublicUrl } from '@three-ws/sdk/erc8004';",
 				'',
 				`const ref = { chainId: ${Number(agent.chain_id) || 0}, agentId: ${JSON.stringify(String(agent.erc8004_agent_id))} };`,
 				'const record  = await resolveOnchainAgent(ref);     // { manifest, glbUrl, owner, uri }',

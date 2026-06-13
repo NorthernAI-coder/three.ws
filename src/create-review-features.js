@@ -351,7 +351,7 @@ export function openPaidSkillsModal(ctx = {}) {
 	const handle = slugify(ctx.name) || 'your-agent';
 	const endpoint = `https://three.ws/api/agent/${handle}/ask`;
 	const snippets = {
-		fetch: `import { withX402 } from '@three.ws/x402-fetch';
+		fetch: `import { withX402 } from '@three-ws/x402-fetch';
 
 const fetchPaid = withX402(fetch, {
   wallet,
@@ -527,7 +527,7 @@ export function openEmbedModal(ctx = {}) {
 		webcomponent: `<agent-3d agent="${handle}" mode="full"></agent-3d>
 <script type="module"
   src="https://three.ws/embed/agent-3d.js"></script>`,
-		react: `import { Agent3D } from '@three.ws/react';
+		react: `import { Agent3D } from '@three-ws/react';
 
 export default function Page() {
   return <Agent3D agent="${handle}" mode="full" />;
