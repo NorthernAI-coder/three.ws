@@ -2852,6 +2852,217 @@
 	</div>
 </section>
 
+<!-- ── COMMUNITY FORGE — live spinning models from /api/forge-gallery ── -->
+<style>
+	#home-community-forge { overflow: hidden; }
+	#home-community-forge .hcf-head {
+		display: flex; align-items: flex-end; justify-content: space-between;
+		gap: 16px; margin-bottom: 28px;
+	}
+	#home-community-forge .hcf-eyebrow {
+		font-family: var(--font-mono); font-size: var(--text-xs);
+		letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3);
+		display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+	}
+	#home-community-forge .hcf-eyebrow::before {
+		content: ''; display: inline-block; width: 6px; height: 6px;
+		border-radius: 50%; background: var(--text-3);
+	}
+	#home-community-forge .hcf-title {
+		font-family: var(--font-display); font-size: clamp(1.7rem, 3vw, var(--text-2xl));
+		font-weight: 600; line-height: 1.1; margin: 0;
+	}
+	#home-community-forge .hcf-title em { font-style: normal; color: var(--text-3); }
+	#home-community-forge .hcf-cta {
+		flex-shrink: 0; font-size: var(--text-sm); font-family: var(--font-mono);
+		color: var(--text-2); text-decoration: none; border: 1px solid var(--hairline);
+		border-radius: 8px; padding: 8px 16px; white-space: nowrap;
+		transition: color .15s, border-color .15s;
+	}
+	#home-community-forge .hcf-cta:hover { color: var(--text); border-color: var(--hairline-strong); }
+	#home-community-forge .hcf-track {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 14px;
+	}
+	@media (min-width: 900px) {
+		#home-community-forge .hcf-track {
+			grid-template-columns: repeat(5, 1fr);
+		}
+	}
+	@media (max-width: 640px) {
+		#home-community-forge .hcf-track {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+	.hcf-card {
+		border-radius: 14px; overflow: hidden;
+		border: 1px solid var(--hairline);
+		background: var(--surface-1);
+		display: flex; flex-direction: column;
+		transition: border-color .18s, transform .18s;
+		cursor: default;
+	}
+	.hcf-card:hover { border-color: var(--hairline-strong); transform: translateY(-2px); }
+	.hcf-viewer-wrap {
+		position: relative; aspect-ratio: 1 / 1;
+		background: radial-gradient(120% 100% at 50% 0%, #121214 0%, #0a0a0b 100%);
+	}
+	.hcf-viewer-wrap model-viewer {
+		width: 100%; height: 100%;
+		--poster-color: transparent;
+		background: transparent;
+	}
+	.hcf-ph {
+		position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+	}
+	.hcf-ph svg { width: 32px; height: 32px; opacity: 0.18; }
+	.hcf-body {
+		padding: 10px 12px 12px;
+		flex: 1; display: flex; flex-direction: column; gap: 4px;
+	}
+	.hcf-prompt {
+		font-size: 12.5px; color: var(--text-2); line-height: 1.35;
+		display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.hcf-meta { font-size: 11px; font-family: var(--font-mono); color: var(--text-4); margin-top: auto; padding-top: 6px; }
+	.hcf-skel {
+		border-radius: 14px; border: 1px solid var(--hairline);
+		background: var(--surface-1); overflow: hidden;
+	}
+	.hcf-skel-thumb { aspect-ratio: 1/1; background: var(--surface-2); animation: hcf-pulse 1.8s ease-in-out infinite; }
+	.hcf-skel-body { padding: 10px 12px 12px; }
+	.hcf-skel-line { height: 10px; border-radius: 5px; background: var(--surface-2); animation: hcf-pulse 1.8s ease-in-out infinite; margin-bottom: 6px; }
+	.hcf-skel-line:last-child { width: 60%; margin-bottom: 0; }
+	@keyframes hcf-pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+</style>
+<section class="block" id="home-community-forge">
+	<div class="wrap-1280">
+		<div class="hcf-head reveal">
+			<div>
+				<p class="hcf-eyebrow">Community</p>
+				<h2 class="hcf-title">Made with Forge. <em>Right now.</em></h2>
+			</div>
+			<a href="/forge" class="hcf-cta">Generate yours →</a>
+		</div>
+		<div class="hcf-track reveal reveal-d1" id="hcf-track">
+			<!-- skeleton placeholders — replaced by JS -->
+			<div class="hcf-skel"><div class="hcf-skel-thumb"></div><div class="hcf-skel-body"><div class="hcf-skel-line"></div><div class="hcf-skel-line"></div></div></div>
+			<div class="hcf-skel"><div class="hcf-skel-thumb"></div><div class="hcf-skel-body"><div class="hcf-skel-line"></div><div class="hcf-skel-line"></div></div></div>
+			<div class="hcf-skel"><div class="hcf-skel-thumb"></div><div class="hcf-skel-body"><div class="hcf-skel-line"></div><div class="hcf-skel-line"></div></div></div>
+			<div class="hcf-skel"><div class="hcf-skel-thumb"></div><div class="hcf-skel-body"><div class="hcf-skel-line"></div><div class="hcf-skel-line"></div></div></div>
+			<div class="hcf-skel"><div class="hcf-skel-thumb"></div><div class="hcf-skel-body"><div class="hcf-skel-line"></div><div class="hcf-skel-line"></div></div></div>
+		</div>
+	</div>
+</section>
+<script type="module">
+(function() {
+	var track = document.getElementById('hcf-track');
+	if (!track) return;
+
+	function timeAgo(iso) {
+		var s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000);
+		if (s < 60) return 'just now';
+		if (s < 3600) return Math.floor(s / 60) + 'm ago';
+		if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+		return Math.floor(s / 86400) + 'd ago';
+	}
+
+	function promptGrad(str) {
+		var h = 0;
+		for (var i = 0; i < (str || '').length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+		var hue = Math.abs(h) % 360;
+		return 'radial-gradient(120% 100% at 50% 0%, hsl(' + hue + ',28%,13%) 0%, hsl(' + ((hue+40)%360) + ',18%,8%) 100%)';
+	}
+
+	const MV_SRC = 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
+	function ensureModelViewer() {
+		if (customElements.get('model-viewer')) return;
+		if (document.querySelector('script[src*="model-viewer"]')) return;
+		var s = document.createElement('script');
+		s.type = 'module';
+		s.src = MV_SRC;
+		document.head.appendChild(s);
+	}
+
+	function buildCard(c) {
+		var card = document.createElement('a');
+		card.className = 'hcf-card';
+		card.href = '/forge' + (c.id ? '?share=' + c.id : '');
+		card.title = c.prompt || 'Forged model';
+
+		var wrap = document.createElement('div');
+		wrap.className = 'hcf-viewer-wrap';
+		wrap.style.background = promptGrad(c.prompt);
+
+		if (c.glb_url) {
+			var mv = document.createElement('model-viewer');
+			mv.setAttribute('src', c.glb_url);
+			mv.setAttribute('auto-rotate', '');
+			mv.setAttribute('auto-rotate-delay', '0');
+			mv.setAttribute('rotation-per-second', '20deg');
+			mv.setAttribute('interaction-prompt', 'none');
+			mv.setAttribute('disable-zoom', '');
+			mv.setAttribute('shadow-intensity', '0');
+			mv.setAttribute('exposure', '0.92');
+			mv.setAttribute('environment-image', 'neutral');
+			mv.setAttribute('camera-controls', '');
+			mv.setAttribute('aria-label', c.prompt || 'Forged 3D model');
+			mv.style.cssText = 'width:100%;height:100%;--poster-color:transparent;background:transparent;';
+			wrap.appendChild(mv);
+		} else {
+			var ph = document.createElement('div');
+			ph.className = 'hcf-ph';
+			ph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z"/><path d="m3 7 9 5 9-5"/><line x1="12" y1="12" x2="12" y2="22"/></svg>';
+			wrap.appendChild(ph);
+		}
+		card.appendChild(wrap);
+
+		var body = document.createElement('div');
+		body.className = 'hcf-body';
+		var pEl = document.createElement('p');
+		pEl.className = 'hcf-prompt';
+		pEl.textContent = c.prompt || 'Untitled';
+		body.appendChild(pEl);
+		if (c.created_at) {
+			var m = document.createElement('span');
+			m.className = 'hcf-meta';
+			m.textContent = timeAgo(c.created_at);
+			body.appendChild(m);
+		}
+		card.appendChild(body);
+		return card;
+	}
+
+	fetch('/api/forge-gallery?scope=community&limit=20')
+		.then(function(r) { return r.json(); })
+		.then(function(data) {
+			var all = Array.isArray(data && data.creations) ? data.creations : [];
+			// dedupe by normalized prompt
+			var seen = new Set();
+			var items = all.filter(function(c) {
+				var key = (c.prompt || c.id || '').toLowerCase().replace(/\s+/g, ' ').trim();
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			}).slice(0, 5);
+
+			if (!data.enabled || items.length === 0) {
+				document.getElementById('home-community-forge').hidden = true;
+				return;
+			}
+			ensureModelViewer();
+			track.innerHTML = '';
+			items.forEach(function(c) { track.appendChild(buildCard(c)); });
+		})
+		.catch(function() {
+			var sec = document.getElementById('home-community-forge');
+			if (sec) sec.hidden = true;
+		});
+})();
+</script>
+
 <!-- ── POSE STUDIO — LITE DEMO ────────────────────────────────────── -->
 <style>
 	#home-pose .hp-wrap { display: grid; grid-template-columns: 1.35fr 0.9fr; gap: 28px; align-items: stretch; }
