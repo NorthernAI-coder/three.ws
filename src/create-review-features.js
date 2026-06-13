@@ -1086,7 +1086,7 @@ export function openDeveloperModal() {
   "mcpServers": {
     "three-ws": {
       "command": "npx",
-      "args": ["-y", "@3d-agent/mcp-server"],
+      "args": ["-y", "@three-ws/mcp-server"],
       "env": {
         "THREE_WS_API_KEY": "<your-key>"
       }
@@ -1097,7 +1097,7 @@ export function openDeveloperModal() {
   "mcpServers": {
     "three-ws": {
       "command": "npx",
-      "args": ["-y", "@3d-agent/mcp-server"],
+      "args": ["-y", "@three-ws/mcp-server"],
       "env": {
         "THREE_WS_API_KEY": "<your-key>"
       }

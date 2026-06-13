@@ -1,5 +1,5 @@
 {
-  "name": "@3d-agent/agent-protocol-sdk",
+  "name": "@three-ws/agent-protocol-sdk",
   "version": "0.2.0",
   "description": "SDK for the on-chain agent-to-agent invocation protocol.",
   "main": "dist/index.js",

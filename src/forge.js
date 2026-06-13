@@ -148,6 +148,11 @@ function setCinema(on) {
 	els.viewer.setAttribute('rotation-per-second', on ? '10deg' : '18deg');
 }
 
+// Inline key glyph appended to BYOK engine buttons. Stroke = currentColor so it
+// tracks the button's text color through hover/selected/disabled states.
+const ENGINE_KEY_SVG =
+	'<svg class="eng-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2"/><path d="m15 7 3 3"/><path d="m18 4 3 3"/></svg>';
+
 // Short engine labels for the picker buttons, keyed by backend id.
 const ENGINE_LABELS = {
 	nvidia: 'Free',
@@ -419,8 +424,14 @@ function buildEngineButtons() {
 		// Text-only engines (the free NVIDIA TRELLIS preview) can't take photos;
 		// updateEngineAvailability() disables them while reference views are set.
 		btn.dataset.userimages = String(b.user_images !== false);
-		btn.textContent = ENGINE_LABELS[b.id] || b.label;
-		btn.title = `${b.label} — ${b.blurb}`;
+		// BYOK engines carry a small key glyph so the picker shows at a glance
+		// which lanes run on the user's own API key vs the free/included ones.
+		const short = ENGINE_LABELS[b.id] || b.label;
+		btn.innerHTML = `<span class="eng-label">${short}</span>${b.byok ? ENGINE_KEY_SVG : ''}`;
+		const keyNote = b.byok ? ` · uses your own ${KEY_HINTS[b.byok]?.label || b.byok} key` : '';
+		btn.title = `${b.label} — ${b.blurb}${keyNote}`;
+		// aria-label survives the dynamic title rewrites in updateEngineAvailability.
+		btn.setAttribute('aria-label', `${b.label}${keyNote}`);
 		btn.setAttribute('aria-pressed', String(b.id === selectedEngine.backend));
 		els.engine.appendChild(btn);
 	}

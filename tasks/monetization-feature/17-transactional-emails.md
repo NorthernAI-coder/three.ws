@@ -42,7 +42,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 async function sendEmail({ to, subject, html, text }) {
   const msg = {
     to,
-    from: 'noreply@3d-agent.com', // Use a verified sender
+    from: 'noreply@three.ws', // Use a verified sender
     subject,
     text,
     html,

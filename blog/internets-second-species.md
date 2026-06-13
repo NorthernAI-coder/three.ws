@@ -56,7 +56,7 @@ It's worth being precise about what "all three layers" means, because the bar is
 
 The contrast writes itself: a web2 unicorn recently raised roughly **$200 million** to build 3D AI characters — bodies and brains, rented from a silo, with the bank account structurally impossible. A rented avatar cannot custody value. A platform NPC cannot accumulate portable reputation. A closed API cannot be discovered and paid by a stranger's agent at 3 a.m. The crypto layer isn't a feature the incumbents haven't gotten to yet. It's a feature their business model forbids.
 
-Meanwhile the open version is sitting on npm (`@three-ws/sdk`, `@three-ws/avatar`, `@three-ws/agent-payments`, `@3d-agent/mcp-server`, and a dozen more), with source on GitHub, listings across the Anthropic MCP Registry, AWS Marketplace, Google Cloud, Alibaba Cloud, and the x402 Bazaar — and that one-line embed tag working in production.
+Meanwhile the open version is sitting on npm (`@three-ws/sdk`, `@three-ws/avatar`, `@three-ws/agent-payments`, `@three-ws/mcp-server`, and a dozen more), with source on GitHub, listings across the Anthropic MCP Registry, AWS Marketplace, Google Cloud, Alibaba Cloud, and the x402 Bazaar — and that one-line embed tag working in production.
 
 ## What happens when the species starts trading with itself
 

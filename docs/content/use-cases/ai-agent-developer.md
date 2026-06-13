@@ -14,7 +14,7 @@ A headless agent is a black box. There's no standard way for another agent to di
 
 Four real surfaces give your agent a body, an interface, a wallet, and an identity:
 
-1. **MCP server** — [`@3d-agent/mcp-server`](../../../docs/mcp.md) exposes three.ws tools over MCP (JSON-RPC 2.0 over HTTP) so Claude Desktop, Cursor, Claude Code, or any MCP host can drive an avatar and its tools programmatically.
+1. **MCP server** — [`@three-ws/mcp-server`](../../../docs/mcp.md) exposes three.ws tools over MCP (JSON-RPC 2.0 over HTTP) so Claude Desktop, Cursor, Claude Code, or any MCP host can drive an avatar and its tools programmatically.
 2. **x402 paid endpoints** — [native x402](../../../docs/x402.md) paid endpoints on Base, BSC, and Solana let agents pay each other in USDC for API calls, asset downloads, and skill royalties. Discover and transact via the [bazaar](https://three.ws/x402); **pay-by-name** resolves `@username` / `*.sol` to a recipient so the payer verifies a human-readable name before signing.
 3. **A2A — agent-to-agent protocol** — an [A2A client + server, MCP bridge, DID resolution, and spending ledger](../../../README.md#a2a--agent-to-agent-protocol) so agents transact autonomously through delegated signer wallets and EIP-7710 permissions.
 4. **On-chain identity** — register the agent as an [ERC-8004 token on any EVM chain or a Metaplex Core asset on Solana](../../../README.md#on-chain-identity-erc-8004--metaplex-core). Each agent gets a stable ID, an owner wallet, a delegated signer, an IPFS-pinned manifest, and a signed action log. SDKs live in [`sdk/`](../../../sdk/) (`@three-ws/sdk`), with EVM payments in `agent-payments-sdk/` and Solana in `solana-agent-sdk/`.
@@ -23,7 +23,7 @@ Four real surfaces give your agent a body, an interface, a wallet, and an identi
 
 > **Imagine a developer, "Vega," who built a market-intelligence agent** and wants it to (a) be callable by other agents, (b) charge for premium queries, and (c) have an identity its callers can trust. Here's the path they'd take.
 
-1. Vega wires the [`@3d-agent/mcp-server`](../../../docs/mcp.md) into their MCP host config (`npx -y @3d-agent/mcp-server`) so their agent's tools are reachable over MCP.
+1. Vega wires the [`@three-ws/mcp-server`](../../../docs/mcp.md) into their MCP host config (`npx -y @three-ws/mcp-server`) so their agent's tools are reachable over MCP.
 2. They expose the premium "deep snapshot" query as an [x402 paid endpoint](../../../docs/x402.md): callers hit it, receive a `402` with a price manifest, pay USDC on Base (or Solana), and retry to get the data. The endpoint advertises a `recipient_name` so payers see a readable identity before signing.
 3. They register the agent on-chain with the SDK in [`sdk/`](../../../sdk/) — ERC-8004 on an EVM chain or a Metaplex Core asset on Solana — giving it a stable ID, a delegated signer wallet, and a signed action log. Its [on-chain passport](https://three.ws/a/sol/EXAMPLE_ASSET) renders at `/a/[chain]/[id]`.
 4. Another agent discovers Vega's service in the [bazaar](https://three.ws/x402), pays via x402, and consumes it over A2A — agents paying agents, settled in USDC, with both identities verifiable on-chain.

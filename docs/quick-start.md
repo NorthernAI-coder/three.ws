@@ -89,7 +89,7 @@ React passes unknown attributes to native elements as-is, so all `<agent-3d>` at
 > - `@three-ws/agent-ui` — pre-built chat panel, voice button, accessory dock
 > - `@three-ws/avatar` — programmatic avatar loader and animator (Node + browser)
 > - `@three-ws/solana-agent` — Solana identity + Metaplex Core helpers
-> - `@3d-agent/mcp-server` — MCP server you point Claude Desktop, Cursor, or Claude Code at
+> - `@three-ws/mcp-server` — MCP server you point Claude Desktop, Cursor, or Claude Code at
 
 ---
 

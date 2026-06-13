@@ -36,7 +36,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 // Connect to the three.ws paid MCP tools
 const transport = new StdioClientTransport({
   command: 'npx',
-  args: ['-y', '@3d-agent/mcp-server'],
+  args: ['-y', '@three-ws/mcp-server'],
   env: {
     MCP_EVM_PAYMENT_ADDRESS: process.env.EVM_WALLET_ADDRESS ?? '',
     MCP_SVM_PAYMENT_ADDRESS: process.env.SOLANA_WALLET_ADDRESS ?? '',

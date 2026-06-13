@@ -1,5 +1,5 @@
 /**
- * @3d-agent/sdk — minimal chat + embed SDK for the three.ws agent fabric.
+ * @three-ws/agent-sdk — minimal chat + embed SDK for the three.ws agent fabric.
  *
  * Defaults point at https://three.ws. Override via the `baseUrl` option on
  * the constructor (or via the `THREE_WS_BASE_URL` env var for Node consumers).

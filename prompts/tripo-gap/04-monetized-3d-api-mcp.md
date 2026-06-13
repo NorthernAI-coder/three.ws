@@ -44,7 +44,7 @@ generation API and matching MCP tools.
 > 1. `api/forge.js` — the full submit/poll contract and `?catalog`, plus
 >    `api/_lib/forge-tiers.js` cost/ETA fields.
 > 2. The MCP server: where tools are defined (`api/_mcp/tools/` and the
->    `@3d-agent/mcp-server` package — find its source), how a tool is registered,
+>    `@three-ws/mcp-server` package — find its source), how a tool is registered,
 >    its input schema, and how it authenticates/meters. Quote one existing tool
 >    (e.g. `api/_mcp/tools/animations.js`) verbatim as the template.
 > 3. How usage/billing is currently metered (`usage_events`, plan gating — see
@@ -73,7 +73,7 @@ pattern from Subagent A:
 ### Step 2 — MCP generation tools
 
 Add to the MCP server (matching the `api/_mcp/tools/` registration pattern and
-the `@3d-agent/mcp-server` package):
+the `@three-ws/mcp-server` package):
 
 - `text_to_3d(prompt, tier?, backend?, aspect_ratio?)` → returns a job handle /
   result URL.

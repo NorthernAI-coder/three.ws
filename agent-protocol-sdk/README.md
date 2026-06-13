@@ -2,15 +2,15 @@
   <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" width="72" height="72" alt="three.ws" /></a>
 </p>
 
-<h1 align="center">@3d-agent/agent-protocol-sdk</h1>
+<h1 align="center">@three-ws/agent-protocol-sdk</h1>
 
 <p align="center"><strong>Record verifiable agent-to-agent skill invocations on Solana, via the <code>agent_invocation</code> Anchor program.</strong></p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@3d-agent/agent-protocol-sdk"><img alt="npm" src="https://img.shields.io/npm/v/@3d-agent/agent-protocol-sdk?logo=npm&color=cb3837"></a>
-  <a href="https://www.npmjs.com/package/@3d-agent/agent-protocol-sdk"><img alt="downloads" src="https://img.shields.io/npm/dm/@3d-agent/agent-protocol-sdk?color=cb3837"></a>
-  <img alt="license" src="https://img.shields.io/npm/l/@3d-agent/agent-protocol-sdk?color=3b82f6">
-  <img alt="node" src="https://img.shields.io/node/v/@3d-agent/agent-protocol-sdk?color=339933&logo=node.js">
+  <a href="https://www.npmjs.com/package/@three-ws/agent-protocol-sdk"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/agent-protocol-sdk?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/agent-protocol-sdk"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/agent-protocol-sdk?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/agent-protocol-sdk?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/agent-protocol-sdk?color=339933&logo=node.js">
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@
 ## Install
 
 ```bash
-npm install @3d-agent/agent-protocol-sdk @solana/web3.js @coral-xyz/anchor
+npm install @three-ws/agent-protocol-sdk @solana/web3.js @coral-xyz/anchor
 ```
 
 `@solana/web3.js` (`^1.98`) and `@coral-xyz/anchor` (`^0.32`) are direct
@@ -48,7 +48,7 @@ dependencies and are installed alongside the package.
 
 ```ts
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
-import { invokeSkill } from '@3d-agent/agent-protocol-sdk';
+import { invokeSkill } from '@three-ws/agent-protocol-sdk';
 
 const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
 const invokerAuthority = Keypair.fromSecretKey(/* your secret key bytes */);
@@ -98,7 +98,7 @@ Matches the program's `seeds = [b"agent", authority]`. Pass your deployed
 `AGENT_INVOCATION_PROGRAM_ID`.
 
 ```ts
-import { deriveAgentPda } from '@3d-agent/agent-protocol-sdk';
+import { deriveAgentPda } from '@three-ws/agent-protocol-sdk';
 
 const [agentPda, bump] = deriveAgentPda(authority, programId);
 ```

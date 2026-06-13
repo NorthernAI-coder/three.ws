@@ -1,6 +1,6 @@
 # three.ws Developer Tools
 
-Developer tooling for building on three.ws inside Claude Code. Scaffold a new agent, configure the `@3d-agent/mcp-server`, and get runnable code for the paid MCP tools — plus the MCP server itself, wired for x402 payments.
+Developer tooling for building on three.ws inside Claude Code. Scaffold a new agent, configure the `@three-ws/mcp-server`, and get runnable code for the paid MCP tools — plus the MCP server itself, wired for x402 payments.
 
 Part of the [three.ws plugin marketplace](https://github.com/nirholas/three.ws).
 
@@ -18,23 +18,34 @@ Run `/reload-plugins` (or restart Claude Code) afterward.
 | Command | What it does |
 | :------ | :----------- |
 | `/three-ws-developer:scaffold-agent <Name>` | Scaffold a runnable three.ws agent wired to the SDK, MCP tools, and x402 payments. |
-| `/three-ws-developer:setup-mcp` | Configure `@3d-agent/mcp-server` in Claude Desktop, Claude Code, or Cursor. Merges into your existing config. |
-| `/three-ws-developer:use-tools <tool>` | Print ready-to-run code for any of the four paid MCP tools. |
+| `/three-ws-developer:setup-mcp` | Configure `@three-ws/mcp-server` in Claude Desktop, Claude Code, or Cursor. Merges into your existing config. |
+| `/three-ws-developer:use-tools <tool>` | Print ready-to-run code for any of the paid MCP tools. |
 
 ## Bundled MCP server
 
-Installing this plugin registers the `3d-agent` MCP server (`npx -y @3d-agent/mcp-server`), exposing four paid tools settled in USDC via x402:
+Installing this plugin registers the `3d-agent` MCP server (`npx -y @three-ws/mcp-server`), exposing 15 paid tools settled per-call in USDC via x402:
 
 | Tool | Price | What it does |
 | :--- | :---- | :----------- |
-| `get_pose_seed` | $0.001 | Deterministic pose map for a three.ws avatar |
+| `mesh_forge` | $0.25 | Text or image → textured 3D GLB (Granite-directed model chain) |
+| `rig_mesh` | $0.20 | Auto-rig a static GLB into an animation-ready model |
+| `text_to_avatar` | $0.15 | Text or image → textured 3D avatar GLB |
+| `get_pose_seed` | $0.001 | Deterministic pose seed + Euler-rotation map for the pose studio |
 | `pump_snapshot` | $0.005 | Live pump.fun token snapshot — price, volume, holders |
+| `sentiment_pulse` | $0.003 | Sentiment for a Solana token from pump.fun comments |
+| `vanity_grinder` | $0.05 | Mine a Solana keypair with a custom address prefix |
+| `aixbt_intel` | $0.01 | aixbt narrative-intelligence feed |
+| `aixbt_projects` | $0.01 | aixbt momentum scan — ranked projects |
 | `agent_reputation` | $0.01 | ERC-8004 reputation lookup on any EVM chain |
-| `vanity_grinder` | up to $0.50 | Mine a Solana keypair with a custom address prefix |
+| `agent_delegate_action` | $0.01 | Delegate a task to another three.ws-registered agent |
+| `ens_sns_resolve` | $0.0005 | Resolve ENS (`.eth`) + SNS (`.sol`) names |
+| `agenc_list_tasks` | $0.001 | List a wallet's on-chain AgenC tasks |
+| `agenc_get_task` | $0.001 | On-chain state + lifecycle of an AgenC task |
+| `agenc_get_agent` | $0.001 | An AgenC agent's on-chain registration |
 
 Run `/three-ws-developer:use-tools <tool>` for runnable code for any of them.
 
-> **Note:** the MCP server runs via `npx -y @3d-agent/mcp-server`, so the `@3d-agent/mcp-server` package must be published to npm for the server to start on a user's machine. The skills and commands in this plugin work regardless.
+> **Note:** the MCP server runs via `npx -y @three-ws/mcp-server`, so the `@three-ws/mcp-server` package must be published to npm for the server to start on a user's machine. The skills and commands in this plugin work regardless.
 
 ## Configuration
 

@@ -23,7 +23,7 @@ Run `/reload-plugins` (or restart Claude Code) after installing.
 | Plugin | Type | Summary | Docs |
 | :----- | :--- | :------ | :--- |
 | `three-ws-core` | 9 skills | Authenticate, fund, send, trade, search the bazaar, pay for and monetize services, query onchain data. | [README](../.agents/README.md) |
-| `three-ws-developer` | 3 commands + MCP server | Scaffold agents, configure `@3d-agent/mcp-server`, get runnable tool code. | [README](../marketplace/plugins/three-ws-developer/README.md) |
+| `three-ws-developer` | 3 commands + MCP server | Scaffold agents, configure `@three-ws/mcp-server`, get runnable tool code. | [README](../marketplace/plugins/three-ws-developer/README.md) |
 | `three-ws-pump-fun` | 5 skills | Create coins, swap tokens, manage creator fees, tokenize agents, live feed reactions. | [README](../pump-fun-skills/README.md) |
 
 ## Configuration at a glance

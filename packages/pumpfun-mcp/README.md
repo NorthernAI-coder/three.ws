@@ -131,7 +131,7 @@ This package is a small stdio ↔ HTTP bridge. It forwards MCP `tools/call` requ
 
 ## Related
 
-- [`@3d-agent/mcp-server`](https://www.npmjs.com/package/@3d-agent/mcp-server) — the paid, x402-settled three.ws MCP (text→3D mesh, avatars, pose seeds, ERC-8004 reputation, and a paid `pump_snapshot`).
+- [`@three-ws/mcp-server`](https://www.npmjs.com/package/@three-ws/mcp-server) — the paid, x402-settled three.ws MCP (text→3D mesh, avatars, pose seeds, ERC-8004 reputation, and a paid `pump_snapshot`).
 
 ## Links
 

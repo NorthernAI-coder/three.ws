@@ -18,7 +18,7 @@ Expose this repo's capabilities (pose generation, vanity grinding, Pump.fun quer
 
 ## Files to create
 - `mcp-server/` — new workspace (add to root `package.json` `workspaces`)
-- `mcp-server/package.json` — `name: "@3d-agent/mcp-server"`
+- `mcp-server/package.json` — `name: "@three-ws/mcp-server"`
 - `mcp-server/src/index.js` — entry point using `@modelcontextprotocol/sdk` + `@x402/mcp`
 - `mcp-server/src/tools/pose-seed.js` — paid tool for the pose-studio
 - `mcp-server/src/tools/pump-snapshot.js` — paid tool returning Pump.fun snapshot
