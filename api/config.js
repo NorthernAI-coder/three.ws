@@ -1,18 +1,14 @@
 // Public client-config. Returns non-secret config values the browser needs.
 
 import { cors, json, method, wrap } from './_lib/http.js';
-import { resolveProviderName } from './_lib/regen-provider.js';
+import { resolveProviderName, BYOK_REGEN_PROVIDERS } from './_lib/regen-provider.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: false })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	// Mirror the reconstruct endpoint's own resolution: an explicit
-	// AVATAR_REGEN_PROVIDER, else inferred from a provider credential
-	// (REPLICATE_API_TOKEN / GCP_RECONSTRUCTION_URL / HF_TOKEN). Computing it the
-	// same way here keeps the feature flag from lying when only a token is set.
 	const provider = resolveProviderName();
-	const reconstructEnabled = provider !== 'none';
+	const hasPlatformProvider = provider !== 'none';
 
 	// Whether the delivered model is auto-rigged (animation-ready). The GCP
 	// pipeline rigs inline via UniRig; Replicate rigs only when a rerig model is
@@ -38,10 +34,16 @@ export default wrap(async (req, res) => {
 		samlEnabled,
 		samlLabel: process.env.SAML_BUTTON_LABEL || 'Single sign-on (SSO)',
 		features: {
-			// /create/selfie + /scan use /api/avatars/reconstruct, which 501s
-			// unless an ML backend is wired. The pages read this to either show the
-			// capture flow or fall through to a "coming soon — try /create" panel.
-			avatarReconstruct: reconstructEnabled,
+			// avatarReconstruct is always true: BYOK providers (Meshy, Tripo) are
+			// always available — the selfie page handles key entry inline when the
+			// platform backend isn't configured. The reconstruct endpoint returns
+			// { code: 'regen_needs_byok' } rather than 501 in that case.
+			avatarReconstruct: true,
+			// 'platform' = server has configured creds (no key needed by user).
+			// 'byok'     = reconstruction works but user must supply an API key.
+			avatarReconstructMode: hasPlatformProvider ? 'platform' : 'byok',
+			// Which BYOK providers the user can use when platform is unconfigured.
+			avatarByokProviders: hasPlatformProvider ? [] : [...BYOK_REGEN_PROVIDERS],
 			// True when the pipeline returns a rigged (animation-ready) model.
 			avatarRigging: riggingEnabled,
 			// /create/video uses the LongCat GPU worker on Cloud Run; only

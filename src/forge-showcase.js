@@ -338,10 +338,14 @@ function showRemixToast() {
 	if (existing) existing.remove();
 	const toast = document.createElement('div');
 	toast.className = 'remix-toast';
-	toast.textContent = 'Prompt loaded — edit and Generate';
+	const dot = document.createElement('span');
+	dot.className = 'toast-dot';
+	dot.setAttribute('aria-hidden', 'true');
+	toast.appendChild(dot);
+	toast.appendChild(document.createTextNode('Prompt loaded — edit and Generate'));
 	document.body.appendChild(toast);
-	setTimeout(() => toast.classList.add('fade-out'), 2200);
-	setTimeout(() => toast.remove(), 2700);
+	setTimeout(() => toast.classList.add('fade-out'), 2400);
+	setTimeout(() => toast.remove(), 2800);
 }
 
 async function loadShowcase() {

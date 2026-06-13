@@ -2028,37 +2028,68 @@
 				}
 			}
 
-			/* Remix flash: border pulse on the prompt box when a prompt is loaded */
+			/* Remix flash: border pulse + glow on the prompt box when a prompt loads */
 			@keyframes prompt-remix-flash {
-				0%   { box-shadow: 0 0 0 0 var(--accent); border-color: var(--accent); }
-				40%  { box-shadow: 0 0 0 6px transparent; border-color: var(--accent); }
-				100% { box-shadow: 0 0 0 0 transparent; }
+				0%   {
+					box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+					border-color: var(--accent);
+					background: color-mix(in srgb, var(--accent) 6%, transparent);
+				}
+				30%  {
+					box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent);
+					border-color: var(--accent);
+				}
+				100% {
+					box-shadow: 0 0 0 0 transparent;
+					border-color: var(--stroke);
+					background: var(--surface-2, transparent);
+				}
 			}
 			#prompt.remix-flash {
-				animation: prompt-remix-flash 0.7s ease forwards;
+				animation: prompt-remix-flash 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 			}
 
-			/* Remix toast — floats at top of viewport, fades out */
+			/* Remix toast — slides in from above, then fades out */
+			@keyframes toast-enter {
+				from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+				to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+			}
 			.remix-toast {
 				position: fixed;
-				top: 5rem;
+				top: 5.5rem;
 				left: 50%;
 				transform: translateX(-50%) translateY(0);
-				background: var(--surface-3, #1e1e1e);
-				border: 1px solid var(--accent);
+				background: color-mix(in srgb, var(--surface-3, #1a1a1a) 92%, transparent);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
 				color: var(--ink);
-				font-size: 0.8rem;
-				padding: 0.5rem 1.1rem;
+				font-size: 0.78rem;
+				font-weight: 500;
+				letter-spacing: 0.01em;
+				padding: 0.45rem 1.1rem 0.45rem 0.9rem;
 				border-radius: 999px;
 				pointer-events: none;
 				white-space: nowrap;
 				z-index: 1000;
 				opacity: 1;
-				transition: opacity 0.4s ease, transform 0.4s ease;
+				display: flex;
+				align-items: center;
+				gap: 0.45rem;
+				box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+				animation: toast-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+				transition: opacity 0.35s ease, transform 0.35s ease;
+			}
+			.remix-toast .toast-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--accent);
+				flex: none;
 			}
 			.remix-toast.fade-out {
 				opacity: 0;
-				transform: translateX(-50%) translateY(-6px);
+				transform: translateX(-50%) translateY(-8px);
 			}
 
 			/* Empty + error + unconfigured */

@@ -269,7 +269,8 @@ export function paidEndpoint(spec) {
 	}
 
 	const routeConfig = { path: route, method: method.toUpperCase(), requiredScope };
-	const allowMethods = `${method.toUpperCase()},OPTIONS`;
+	const httpMethod = method.toUpperCase();
+	const allowMethods = httpMethod === 'GET' ? 'GET,HEAD,OPTIONS' : `${httpMethod},OPTIONS`;
 	const pidRequired = Boolean(paymentIdentifier.required);
 	const pidTtlSeconds = paymentIdentifier.ttlSeconds;
 	const pidExtension = paymentIdentifierExtension(pidRequired);
@@ -282,9 +283,10 @@ export function paidEndpoint(spec) {
 	return wrap(async function paidHandler(req, res) {
 		const requestStartTime = Date.now();
 		if (cors(req, res, { methods: allowMethods, origins: '*' })) return;
-		if (req.method !== method.toUpperCase()) {
-			res.setHeader('allow', method.toUpperCase());
-			return error(res, 405, 'method_not_allowed', `use ${method.toUpperCase()}`);
+		const isHead = req.method === 'HEAD' && httpMethod === 'GET';
+		if (req.method !== httpMethod && !isHead) {
+			res.setHeader('allow', allowMethods);
+			return error(res, 405, 'method_not_allowed', `use ${httpMethod}`);
 		}
 
 		const resourceUrl =

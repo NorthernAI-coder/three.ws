@@ -312,13 +312,10 @@ function renderCard(a) {
 	const studioUrl = `/studio?avatar=${encodeURIComponent(a.id)}`;
 
 	const thumbSrc = a.thumbnail_url || `/api/avatars/${encodeURIComponent(a.id)}/og`;
-	// Prefer the vision-generated accessibility description; fall back to the name
-	// when alt text hasn't been generated/backfilled yet (T4.1).
 	const altText = a.alt_text || a.name || 'Avatar';
 	const views = a.view_count != null ? Number(a.view_count) : 0;
 	const created = formatRelative(a.created_at);
 
-	// Use model-viewer for 3D inline preview if GLB is available, else static thumbnail
 	const thumbContent = glbUrl
 		? `<model-viewer
 				src="${escapeAttr(glbUrl)}"
@@ -347,10 +344,6 @@ function renderCard(a) {
 
 	const viewsLabel = views >= 1 ? `${formatCompact(views)} view${views === 1 ? '' : 's'}` : '';
 
-	// Same "deployed on-chain" badge used across the platform. gallery.js is a
-	// static public asset (not bundled), so the shared module is reached via the
-	// global set by /src/shared/onchain-badge.js loaded in index.html; degrades
-	// to no badge if unavailable. Only avatars backing an on-chain agent show it.
 	const onchainBadge = window.twsOnchainBadge?.onchainBadgeHTML
 		? window.twsOnchainBadge.onchainBadgeHTML(a, { link: false, showChain: true, size: 'sm' })
 		: '';
@@ -416,7 +409,7 @@ function escapeAttr(s) {
 	return escapeHtml(s).replace(/'/g, '&#39;');
 }
 
-// ─── Embed modal ──────────────────────────────────────────────────────────
+// Embed modal
 const LIB_CDN_URL = 'https://three.ws/agent-3d/latest/agent-3d.js';
 
 function openAvatarEmbedModal({ avatarId, glbUrl, name }) {
@@ -531,14 +524,26 @@ function openAvatarEmbedModal({ avatarId, glbUrl, name }) {
 
 resetAndLoad();
 
-// ─── From the Forge section ────────────────────────────────────────────────
-// Loads community forge models from /api/forge-gallery?scope=community and
-// renders them below the avatar grid as a separate "From the Forge" strip.
+// =============================================================================
+// From the Forge — community 3D models auto-saved when users generate on /forge
+// Cards use the same gallery-card design system for visual consistency.
+// =============================================================================
 
 const forgeEls = {
 	section: document.getElementById('forge-section'),
 	grid: document.getElementById('forge-grid'),
+	count: document.getElementById('forge-count'),
 };
+
+// Deterministic gradient from prompt text — same string always same colors,
+// so placeholders aren't a uniform dark void.
+function forgePromptGradient(str) {
+	let h = 0;
+	for (let i = 0; i < (str || '').length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+	const hue = Math.abs(h) % 360;
+	const hue2 = (hue + 50) % 360;
+	return `linear-gradient(135deg, hsl(${hue},30%,13%) 0%, hsl(${hue2},22%,8%) 100%)`;
+}
 
 function forgeTimeAgo(iso) {
 	const t = Date.parse(iso);
@@ -555,97 +560,163 @@ function forgeTimeAgo(iso) {
 	return `${Math.floor(d / 30)}mo ago`;
 }
 
+const FORGE_ENGINE_LABELS = {
+	nvidia: 'Free',
+	trellis: 'Trellis',
+	meshy: 'Meshy',
+	tripo: 'Tripo',
+	hunyuan3d: 'Hunyuan3D',
+	triposg: 'TripoSG',
+};
+
 function renderForgeCard(c) {
+	const label = c.prompt || 'Forged model';
+	const openUrl = c.id
+		? `/forge?share=${encodeURIComponent(c.id)}`
+		: c.glb_url
+		? `/app#model=${encodeURIComponent(c.glb_url)}`
+		: '/forge';
+
 	const card = document.createElement('div');
-	card.className = 'forge-gallery-card';
+	card.className = 'gallery-card forge-card';
 	card.tabIndex = 0;
 	card.setAttribute('role', 'button');
-	const label = c.prompt || 'Forged model';
 	card.setAttribute('aria-label', `Open in Forge: ${escapeAttr(label)}`);
 
+	// Thumbnail — real image when available, deterministic gradient otherwise
 	const thumb = document.createElement('div');
-	thumb.className = 'forge-gallery-thumb';
+	thumb.className = 'gallery-card-thumb forge-card-thumb';
+
 	if (c.preview_image_url) {
 		const img = document.createElement('img');
 		img.src = c.preview_image_url;
 		img.alt = '';
 		img.loading = 'lazy';
+		img.decoding = 'async';
 		thumb.appendChild(img);
 	} else {
-		const ph = document.createElement('div');
-		ph.className = 'forge-gallery-thumb-placeholder';
-		ph.setAttribute('aria-hidden', 'true');
-		ph.textContent = '◳';
-		thumb.appendChild(ph);
+		// Gradient placeholder — visually distinctive, not a void
+		thumb.style.background = forgePromptGradient(label);
+		const glyph = document.createElement('span');
+		glyph.className = 'gallery-card-ph forge-card-ph';
+		glyph.setAttribute('aria-hidden', 'true');
+		// Use the first meaningful word of the prompt as a visual hint
+		const firstWord = label.replace(/^(a|an|the)\s+/i, '').split(/\s+/)[0] || '';
+		glyph.textContent = firstWord.length > 0 && firstWord.length <= 12 ? firstWord : '◳';
+		thumb.appendChild(glyph);
 	}
+
+	// 3D badge — consistent with the avatar cards
+	const pill = document.createElement('span');
+	pill.className = 'gallery-card-3dpill';
+	pill.textContent = '3D';
+	thumb.appendChild(pill);
+
+	// Hover play icon
+	const play = document.createElement('div');
+	play.className = 'gallery-card-play';
+	play.setAttribute('aria-hidden', 'true');
+	play.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v14l11-7-11-7Z"/></svg>`;
+	thumb.appendChild(play);
+
 	card.appendChild(thumb);
 
+	// Body
 	const body = document.createElement('div');
-	body.className = 'forge-gallery-body';
-	const prompt = document.createElement('p');
-	prompt.className = 'forge-gallery-prompt';
-	prompt.textContent = label;
-	body.appendChild(prompt);
-	card.appendChild(body);
+	body.className = 'gallery-card-body';
 
+	const name = document.createElement('h3');
+	name.className = 'gallery-card-name';
+	name.title = label;
+	// Limit display to keep cards compact — full prompt in title attr
+	name.textContent = label.length > 60 ? label.slice(0, 57) + '…' : label;
+	body.appendChild(name);
+
+	// Engine/tier tags when available
+	const tagsRow = document.createElement('div');
+	tagsRow.className = 'gallery-card-tags';
+	const tierStr = c.tier ? c.tier.charAt(0).toUpperCase() + c.tier.slice(1) : null;
+	const backendStr = c.backend && c.backend !== 'trellis' ? FORGE_ENGINE_LABELS[c.backend] || c.backend : null;
+	if (tierStr) {
+		const t = document.createElement('span');
+		t.className = 'gallery-card-tag';
+		t.textContent = tierStr;
+		tagsRow.appendChild(t);
+	}
+	if (backendStr) {
+		const b = document.createElement('span');
+		b.className = 'gallery-card-tag';
+		b.textContent = backendStr;
+		tagsRow.appendChild(b);
+	}
+	if (tagsRow.children.length) body.appendChild(tagsRow);
+
+	// Footer
 	const foot = document.createElement('div');
-	foot.className = 'forge-gallery-foot';
-	const when = document.createElement('span');
-	when.className = 'forge-gallery-when';
-	when.textContent = forgeTimeAgo(c.created_at);
-	foot.appendChild(when);
+	foot.className = 'gallery-card-foot';
+
+	const meta = document.createElement('span');
+	meta.className = 'gallery-card-meta';
+	meta.textContent = forgeTimeAgo(c.created_at);
+	foot.appendChild(meta);
+
+	const actions = document.createElement('div');
+	actions.className = 'gallery-card-actions';
 
 	if (c.prompt) {
 		const remixBtn = document.createElement('button');
 		remixBtn.type = 'button';
-		remixBtn.className = 'forge-gallery-remix';
+		remixBtn.className = 'gallery-card-btn gallery-card-btn--ghost';
 		remixBtn.textContent = 'Remix';
-		remixBtn.title = 'Open in the Forge with this prompt pre-loaded';
+		remixBtn.title = 'Open in Forge with this prompt pre-loaded';
 		remixBtn.addEventListener('click', (e) => {
 			e.stopPropagation();
 			window.location.href = `/forge?prompt=${encodeURIComponent(c.prompt)}`;
 		});
-		foot.appendChild(remixBtn);
+		actions.appendChild(remixBtn);
 	}
-	card.appendChild(foot);
 
-	const openForge = () => {
-		if (c.id) {
-			window.location.href = `/forge?share=${encodeURIComponent(c.id)}`;
-		} else if (c.glb_url) {
-			window.location.href = `/app#model=${encodeURIComponent(c.glb_url)}`;
-		}
-	};
-	card.addEventListener('click', openForge);
+	const openBtn = document.createElement('a');
+	openBtn.className = 'gallery-card-btn';
+	openBtn.href = openUrl;
+	openBtn.textContent = 'Open';
+	openBtn.setAttribute('aria-label', `Open "${label}" in Forge`);
+	openBtn.addEventListener('click', (e) => e.stopPropagation());
+	actions.appendChild(openBtn);
+
+	foot.appendChild(actions);
+	body.appendChild(foot);
+	card.appendChild(body);
+
+	card.addEventListener('click', (e) => {
+		if (e.target.closest('button, a')) return;
+		window.location.href = openUrl;
+	});
 	card.addEventListener('keydown', (e) => {
-		if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openForge(); }
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			window.location.href = openUrl;
+		}
 	});
 	return card;
 }
 
 function renderForgeSkeleton(n) {
+	const frag = document.createDocumentFragment();
 	for (let i = 0; i < n; i++) {
 		const card = document.createElement('div');
-		card.className = 'forge-gallery-card forge-gallery-card--skel';
-		const thumb = document.createElement('div');
-		thumb.className = 'forge-gallery-thumb';
-		card.appendChild(thumb);
-		const body = document.createElement('div');
-		body.className = 'forge-gallery-body';
-		const p = document.createElement('p');
-		p.className = 'forge-gallery-prompt';
-		p.textContent = ' ';
-		body.appendChild(p);
-		card.appendChild(body);
-		const foot = document.createElement('div');
-		foot.className = 'forge-gallery-foot';
-		const w = document.createElement('span');
-		w.className = 'forge-gallery-when';
-		w.textContent = ' ';
-		foot.appendChild(w);
-		card.appendChild(foot);
-		forgeEls.grid.appendChild(card);
+		card.className = 'gallery-card gallery-card--skel forge-card';
+		card.innerHTML = `
+			<div class="gallery-card-thumb"></div>
+			<div class="gallery-card-body">
+				<div class="gallery-card-name">&nbsp;</div>
+				<div class="gallery-card-desc">&nbsp;</div>
+				<div class="gallery-card-tags">&nbsp;</div>
+			</div>
+		`;
+		frag.appendChild(card);
 	}
+	forgeEls.grid.appendChild(frag);
 }
 
 async function loadForgeSection() {
@@ -656,11 +727,28 @@ async function loadForgeSection() {
 		if (!res.ok) return;
 		const data = await res.json().catch(() => ({}));
 		forgeEls.grid.innerHTML = '';
-		const creations = Array.isArray(data?.creations) ? data.creations : [];
+		const all = Array.isArray(data?.creations) ? data.creations : [];
+
+		// Dedupe by normalized prompt — no gallery of six identical teapots
+		const seen = new Set();
+		const creations = all.filter((c) => {
+			const key = (c.prompt || c.id || '').toLowerCase().replace(/\s+/g, ' ').trim();
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+
 		if (!data?.enabled || creations.length === 0) return;
+
 		for (const c of creations) forgeEls.grid.appendChild(renderForgeCard(c));
+
+		if (forgeEls.count) {
+			forgeEls.count.textContent = `${creations.length} recent`;
+		}
+
 		forgeEls.section.hidden = false;
 	} catch {
+		// Silently suppress — forge section is additive, never blocks the gallery
 		forgeEls.grid.innerHTML = '';
 	}
 }

@@ -144,16 +144,25 @@
 				</div>
 			</section>
 
-			<!-- From the Forge — auto-saved community 3D models from /forge -->
+			<!-- From the Forge — community 3D models auto-saved from /forge -->
 			<section class="gallery-forge-section" id="forge-section" hidden>
 				<div class="gallery-forge-head">
 					<div>
-						<h2 class="gallery-forge-title">From the Forge</h2>
-						<p class="gallery-forge-sub">
-							3D models auto-saved as the community generates them. Click to open in the viewer, or Remix the prompt.
-						</p>
+						<div class="gallery-forge-title-row">
+							<svg class="gallery-forge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+								<path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z"/>
+								<path d="m3 7 9 5 9-5"/>
+								<line x1="12" y1="12" x2="12" y2="22"/>
+							</svg>
+							<h2 class="gallery-forge-title">From the Forge</h2>
+							<span class="gallery-forge-count" id="forge-count"></span>
+						</div>
+						<p class="gallery-forge-sub">3D models auto-saved as the community generates them. Remix any prompt to start from something that works.</p>
 					</div>
-					<a href="/forge" class="gallery-forge-cta">Create your own →</a>
+					<a href="/forge" class="gallery-forge-cta">
+						Generate your own
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+					</a>
 				</div>
 				<div class="gallery-forge-grid" id="forge-grid"></div>
 			</section>
