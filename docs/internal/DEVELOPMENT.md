@@ -43,7 +43,7 @@ npm install
 ├── package.json            # Dependencies, scripts, metadata
 ├── vercel.json             # Vercel deploy config + routing
 ├── cors.json               # CORS allowed origins
-├── LICENSE                 # MIT
+├── LICENSE                 # Apache-2.0
 │
 ├── public/
 │   └── avatars/

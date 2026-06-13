@@ -286,7 +286,7 @@ try {
 - Changelog: https://three.ws/changelog
 - Sibling SDK: [`@three-ws/solana-agent`](https://www.npmjs.com/package/@three-ws/solana-agent)
 - Issues: https://github.com/nirholas/three.ws/issues
-- License: MIT — see [LICENSE](./LICENSE)
+- License: Apache-2.0 — see [LICENSE](./LICENSE)
 
 ---
 
