@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>The full page directory is now one click away — and instantly filterable</title>
+			<link>https://three.ws/sitemap</link>
+			<guid isPermaLink="false">2026-06-13:The full page directory is now one click away — and instantly filterable</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>three.ws has grown past 140 pages, so the sitemap directory got a real upgrade. A new &quot;All pages&quot; link in the Discover menu takes you straight to it, and the page itself now has an instant filter — press / and type to narrow every page by name, path, or description, with live per-section counts. Filtered views are shareable links, so you can send someone exactly the slice of the platform you mean.</description>
+		</item>
+		<item>
 			<title>Agent Launches</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-12:Agent Launches</guid>

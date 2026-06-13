@@ -4,6 +4,10 @@
 
 Public history for [three.ws](https://three.ws), newest first. New pages come from `added` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](https://three.ws/changelog.json) and [RSS](https://three.ws/changelog.xml), live at [three.ws/changelog](https://three.ws/changelog).
 
+## 2026-06-13
+
+- **The full page directory is now one click away — and instantly filterable** — three.ws has grown past 140 pages, so the sitemap directory got a real upgrade. A new "All pages" link in the Discover menu takes you straight to it, and the page itself now has an instant filter — press / and type to narrow every page by name, path, or description, with live per-section counts. Filtered views are shareable links, so you can send someone exactly the slice of the platform you mean. (`/sitemap`) `[improvement]`
+
 ## 2026-06-12
 
 - **Agent Launches** (`/launches`) — Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
