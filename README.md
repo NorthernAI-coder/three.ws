@@ -920,7 +920,7 @@ For sandboxed iframes use the widget embed path instead — it runs in its own b
 - `rider/`: A-Frame WebVR music visualization experiment.
 - `contracts/`: Solidity smart contracts for on-chain identity (ERC-8004) and the multichain payment factory.
 - `multiplayer/`: Colyseus WebSocket server for `/walk` and `/play` (WalkRoom); deployable on Fly.io. Holds the authoritative world logic and single sources of truth — `items.js`, `playerStore.js`, `game-token.js`, `play-pass.js`, `holder-pass.js`, and the per-account `social-hub.js`.
-- `sdk/`: `@nirholas/agent-kit` and the Avatar SDK (`sdk/agent-sdk/`).
+- `sdk/`: `@three-ws/sdk` (the AgentKit SDK; the legacy avatar helpers live in `sdk/agent-sdk/`).
 - `agent-payments-sdk/`: EVM agent payments SDK (Base / BSC / other EVM chains).
 - `solana-agent-sdk/`: SDK for Solana blockchain interactions (Metaplex Core mints, SIWS, attestations).
 - `pump-fun-skills/`: Skills related to the pump.fun integration.
@@ -1676,20 +1676,43 @@ The platform has been hardened against the OWASP top-10 plus a set of issues spe
 
 ## Developer SDKs
 
-Three npm-publishable SDKs ship from this repo. They share types and helpers but target different surfaces.
+Fifteen packages ship from this repo, all published to npm under the **`@three-ws`** scope. Install only what you need — each has its own README with a copy-paste quick start and a full API/tools reference.
 
-| SDK                                | Path                                       | What it does                                                                                      |
-| ---------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| **`@nirholas/agent-kit`**          | [sdk/](sdk/)                               | One-line agent embed for any site — chat panel, voice I/O, ERC-8004 register, Solana attestations |
-| **`@pump-fun/agent-payments-sdk`** | [agent-payments-sdk/](agent-payments-sdk/) | EVM agent payments — wallet, signing, EIP-7710 delegation                                         |
-| **`solana-agent-sdk`**             | [solana-agent-sdk/](solana-agent-sdk/)     | Solana-native agent ops — Metaplex Core mints, SIWS, attestations, transfer hooks                 |
-| **Avatar SDK**                     | [sdk/agent-sdk/](sdk/agent-sdk/)           | Avatar load + manipulation helpers — pose, animation, snapshot                                    |
+**Avatar & 3D**
 
-**`@nirholas/agent-kit` quickstart:**
+| Package | Install | What it does |
+| --- | --- | --- |
+| [`@three-ws/avatar`](avatar-sdk/) | `npm i @three-ws/avatar` | 3D avatar viewer, creator iframe, AR/VR runtime + React bindings (`/react`) |
+| [`@three-ws/agent-ui`](agent-ui-sdk/) | `npm i @three-ws/agent-ui` | Drop a 3D avatar overlay into any UI; it reacts to buttons, inputs, and navigation |
+| [`@three-ws/avatar-schema`](packages/avatar-schema/) | `npm i @three-ws/avatar-schema` | JSON Schema + validator for on-chain avatar manifests |
+| [`@three-ws/viewer-presets`](packages/viewer-presets/) | `npm i @three-ws/viewer-presets` | Tuned light-rig, floor-reflection, and bloom presets for avatar viewers |
+| [`@three-ws/avatar-cli`](packages/avatar-cli/) | `npm i -g @three-ws/avatar-cli` | Scaffold, validate, hash, and preview avatar manifests from your shell or CI |
+
+**Agents & payments**
+
+| Package | Install | What it does |
+| --- | --- | --- |
+| [`@three-ws/sdk`](sdk/) | `npm i @three-ws/sdk` | Ship an ERC-8004 agent: chat panel, voice I/O, on-chain registration, `.well-known` manifests |
+| [`@three-ws/solana-agent`](solana-agent-sdk/) | `npm i @three-ws/solana-agent` | Solana agent ops — keypair + browser wallet, transfers, swaps, x402 exact-scheme payments |
+| [`@three-ws/agent-payments`](agent-payments-sdk/) | `npm i @three-ws/agent-payments` | Agent-token payments — USDC/Token-2022, v2 trades, plus EVM / x402 / a2a / cross-chain |
+
+**MCP servers** (run over stdio with one command — also in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas))
+
+| Package | Run | What it does |
+| --- | --- | --- |
+| [`@three-ws/mcp-server`](mcp-server/) | `npx -y @three-ws/mcp-server` | 15 paid x402 tools: text/image→3D, rigging, pose, pump.fun, ERC-8004, vanity, AgenC, aixbt |
+| [`@three-ws/avatar-agent`](packages/avatar-agent-mcp/) | `npx -y @three-ws/avatar-agent` | Spawn a textured GLB avatar with a Solana wallet, a voice, and pump.fun launch powers |
+| [`@three-ws/avatar-mcp`](packages/threews-avatar-mcp/) | `npx -y @three-ws/avatar-mcp` | Render a live, rotatable on-chain avatar inline + a paste-anywhere embed (free) |
+| [`@three-ws/pumpfun-mcp`](packages/pumpfun-mcp/) | `npx -y @three-ws/pumpfun-mcp` | 23 free, read-only pump.fun + Solana tools — no API key |
+| [`@three-ws/three-token-mcp`](packages/three-token-mcp/) | `npx -y @three-ws/three-token-mcp` | Price, hold, and burn **$THREE** on Solana — deflation as an agent primitive |
+| [`@three-ws/ibm-watsonx-mcp`](packages/ibm-watsonx-mcp/) | `npx -y @three-ws/ibm-watsonx-mcp` | IBM watsonx.ai Granite (chat, generate, embed, forecast) with your own IBM key |
+| [`@three-ws/ibm-x402-mcp`](packages/ibm-x402-mcp/) | `npx -y @three-ws/ibm-x402-mcp` | Pay-per-use IBM Granite — USDC on Solana, no IBM account required |
+
+**`@three-ws/sdk` quickstart:**
 
 ```js
-import { AgentKit, loadAvatar } from '@nirholas/agent-kit';
-import '@nirholas/agent-kit/styles';
+import { AgentKit, loadAvatar } from '@three-ws/sdk';
+import '@three-ws/sdk/styles';
 
 const agent = new AgentKit({
 	name: 'My Agent',
@@ -1703,7 +1726,7 @@ agent.mount(document.body);
 loadAvatar('a_abc123', document.getElementById('avatar-slot'));
 ```
 
-The agent-kit also exposes `attestFeedback`, `attestValidation`, and `listAttestations` for Solana reputation flows. See [sdk/README.md](sdk/README.md).
+`@three-ws/sdk` also exposes `AgentClient` (x402 paid calls), `PermissionsClient`, and ERC-8004 registry helpers. See [sdk/README.md](sdk/README.md), the [SDK guide](docs/sdk.md), and [examples](docs/examples.md).
 
 ---
 
@@ -2218,7 +2241,7 @@ Solana ships an ERC-8004 analog without any custom on-chain program:
 SDK:
 
 ```js
-import { attestFeedback, attestValidation, listAttestations } from '@nirholas/agent-kit';
+import { attestFeedback, attestValidation, listAttestations } from '@three-ws/sdk';
 
 await attestFeedback({ agentAsset, score: 5, network: 'devnet' });
 await attestValidation({ agentAsset, taskHash: '0x…', passed: true, network: 'devnet' });

@@ -1,4 +1,4 @@
-# API Reference — @pump-fun/agent-payments-sdk
+# API Reference — @three-ws/agent-payments
 
 Program ID: `AgenTMiC2hvxGebTsgmsD4HHBa8WEcqGFf87iwRRxLo7`
 
@@ -11,7 +11,7 @@ Program ID: `AgenTMiC2hvxGebTsgmsD4HHBa8WEcqGFf87iwRRxLo7`
 Instruction builder. No RPC connection required — all methods return a `TransactionInstruction` you include in your own transaction.
 
 ```ts
-import { PumpAgentOffline } from "@pump-fun/agent-payments-sdk";
+import { PumpAgentOffline } from "@three-ws/agent-payments";
 import { PublicKey } from "@solana/web3.js";
 
 const agent = new PumpAgentOffline(mintPubkey);
@@ -44,7 +44,7 @@ const agent = PumpAgentOffline.load(mintPubkey, connection);
 Extends `PumpAgentOffline` with RPC calls for account fetching, balance queries, payment history, and invoice validation.
 
 ```ts
-import { PumpAgent } from "@pump-fun/agent-payments-sdk";
+import { PumpAgent } from "@three-ws/agent-payments";
 import { Connection, PublicKey } from "@solana/web3.js";
 
 const connection = new Connection("https://api.mainnet-beta.solana.com");
@@ -209,7 +209,7 @@ Fields: `totalPayments`, `totalBuyback`, `totalWithdraw`, `totalTokensBurned`.
 ## Program Helpers
 
 ```ts
-import { getPumpProgram, getPumpProgramWithFallback, getOfflineProgram, getProgram } from "@pump-fun/agent-payments-sdk";
+import { getPumpProgram, getPumpProgramWithFallback, getOfflineProgram, getProgram } from "@three-ws/agent-payments";
 ```
 
 | Helper | Description |
@@ -230,7 +230,7 @@ import {
   PUMP_PROGRAM_ID,
   PUMP_AGENT_PAYMENTS_PROGRAM_ID,
   TOKEN_AGENT_PAYMENTS_MIN_RENT_EXEMPT_LAMPORTS,
-} from "@pump-fun/agent-payments-sdk";
+} from "@three-ws/agent-payments";
 ```
 
 | Constant | Value |
@@ -251,7 +251,7 @@ import {
   decodeGlobalConfig,
   decodeTokenAgentPaymentInCurrency,
   decodeTokenAgentPayments,
-} from "@pump-fun/agent-payments-sdk";
+} from "@three-ws/agent-payments";
 ```
 
 Each decoder accepts a `Buffer` of raw account data and returns the typed struct.

@@ -383,8 +383,8 @@ _Reply:_
 >
 > Programmatic avatar creation — load, customize, animate, export. The same primitives that power the platform, on npm. Build avatar pipelines on top of ours.
 
-**PM · feature · @nirholas/agent-kit** — [three.ws](https://three.ws)
-> @nirholas/agent-kit.
+**PM · feature · @three-ws/sdk** — [three.ws](https://three.ws)
+> @three-ws/sdk.
 >
 > The agent runtime, distilled. Brain, tools, memory, skills, voice — all in a node-friendly SDK. Build agents that run anywhere, not just on three.ws.
 
