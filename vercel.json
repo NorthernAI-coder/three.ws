@@ -288,6 +288,10 @@
 			"dest": "/changelog/index.html"
 		},
 		{
+			"src": "/changelog/([^.]+)",
+			"dest": "/changelog/entry/index.html"
+		},
+		{
 			"src": "/changelog\\.json",
 			"headers": {
 				"content-type": "application/json; charset=utf-8",
