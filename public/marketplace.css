@@ -3407,6 +3407,27 @@ body.market-page > header {
 	color: #f4f4f5;
 	transform: translateX(2px);
 }
+.market-card-avatar .footer .compose-cta {
+	font-size: 11px;
+	color: transparent;
+	font-weight: 600;
+	text-decoration: none;
+	padding: 2px 7px;
+	border-radius: 4px;
+	background: transparent;
+	border: 1px solid transparent;
+	transition: color 0.15s, background 0.15s, border-color 0.15s;
+	pointer-events: none;
+}
+.market-card-avatar:hover .footer .compose-cta {
+	color: #a5b4fc;
+	background: rgba(99, 102, 241, 0.15);
+	border-color: rgba(99, 102, 241, 0.3);
+	pointer-events: auto;
+}
+.market-card-avatar:hover .footer .compose-cta:hover {
+	background: rgba(99, 102, 241, 0.25);
+}
 
 .market-card-avatar .thumb-fallback {
 	position: absolute;
