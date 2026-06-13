@@ -53,6 +53,8 @@ const IGNORE = new Set([
 	'/next/index.html', // internal next-gen SPA shell
 	'/aws', // AWS Marketplace entitlement landing, reached via marketplace redirect
 	'/paywall', // transactional gate, reached in-flow when access is required
+	'/ibm', // alias of /ibm/galaxy (documented under integrations)
+	'/sperax/iframe', // partner chat embed iframe, not a discovery page
 ]);
 
 // Whole prefixes that are internal/auth-gated/embed and never belong in the

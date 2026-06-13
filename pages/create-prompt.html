@@ -163,14 +163,26 @@
 
 			/* ── Compose ───────────────────────────────────────────────────────── */
 			.composer {
-				border: 1px solid var(--border-strong);
+				border: 1px solid transparent;
 				border-radius: 16px;
-				background: var(--panel);
+				background:
+					linear-gradient(var(--panel), var(--panel)) padding-box,
+					linear-gradient(120deg, var(--border-strong), var(--border-strong)) border-box;
 				padding: 6px 6px 14px;
-				transition: border-color 0.15s;
+				transition: box-shadow 0.2s;
 			}
 			.composer:focus-within {
-				border-color: #3a3a3a;
+				background:
+					linear-gradient(var(--panel), var(--panel)) padding-box,
+					linear-gradient(
+							120deg,
+							rgba(255, 180, 84, 0.65),
+							rgba(255, 106, 213, 0.65) 38%,
+							rgba(139, 92, 246, 0.65) 64%,
+							rgba(79, 195, 255, 0.65)
+						)
+						border-box;
+				box-shadow: 0 0 24px rgba(139, 92, 246, 0.1);
 			}
 			textarea#prompt {
 				width: 100%;
@@ -287,6 +299,20 @@
 				border-top: 1px solid var(--border);
 				padding-top: 16px;
 				max-width: 60ch;
+			}
+			.note a {
+				color: #aaa;
+				text-decoration: underline;
+				text-underline-offset: 2px;
+				transition: color 0.15s;
+			}
+			.note a:hover {
+				color: var(--text);
+			}
+			.note a:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+				border-radius: 2px;
 			}
 
 			/* ── Building ──────────────────────────────────────────────────────── */
@@ -493,6 +519,7 @@
 	</head>
 	<body>
 		<a href="#prompt" class="skip-link">Skip to the prompt box</a>
+		<div id="nav-container"></div>
 		<main class="stage">
 			<div class="topbar">
 				<button class="back" id="back-btn" aria-label="Back to create" type="button">
@@ -511,7 +538,7 @@
 						<polyline points="12 19 5 12 12 5" />
 					</svg>
 				</button>
-				<div class="label"><strong>three.ws</strong> · Describe it to 3D</div>
+				<div class="label">Describe it to 3D</div>
 			</div>
 
 			<!-- Step 1: compose -->
@@ -579,7 +606,8 @@
 				<p class="note">
 					Avatars come out best with a single, clearly described subject. Abstract scenes
 					or multiple characters reconstruct poorly. You can refine the face, outfit, and
-					animations in the editor afterward.
+					animations in the editor afterward. Making an object, prop, or scene piece
+					instead of a character? <a href="/forge">Use the Forge — text → textured GLB</a>.
 				</p>
 			</section>
 
@@ -647,6 +675,9 @@
 		</main>
 
 		<script type="module" src="/src/create-prompt.js"></script>
+		<script src="/nav.js" defer></script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 	</body>
 </html>

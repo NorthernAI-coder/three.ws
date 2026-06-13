@@ -393,6 +393,8 @@
 	gap: 7px; margin-left: 4px; padding: 4px 12px 4px 10px;
 	border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
 	color: var(--nv-text); font-weight: 500; white-space: nowrap;
+	/* explicit — pages like /forge set a 56px line-height on nav anchors */
+	line-height: 1.4;
 	background: rgba(255,255,255,0.03);
 	transition: border-color 0.15s, background 0.15s, color 0.12s;
 }

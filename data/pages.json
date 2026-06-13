@@ -80,12 +80,11 @@
 					"added": "2026-05-25"
 				},
 				{
-					"path": "/ibm/galaxy",
-					"title": "three.ws on IBM watsonx — Agent Galaxy",
-					"description": "three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.",
-					"priority": 0.7,
-					"changefreq": "weekly",
-					"added": "2026-06-03"
+					"path": "/what-is",
+					"title": "What is three.ws?",
+					"description": "Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.",
+					"priority": 0.8,
+					"changefreq": "monthly"
 				}
 			]
 		},
@@ -297,6 +296,13 @@
 					"changefreq": "weekly",
 					"added": "2026-06-05",
 					"showcase": true
+				},
+				{
+					"path": "/scan",
+					"title": "3D Scanner — Scan Yourself into 3D",
+					"description": "Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.",
+					"priority": 0.7,
+					"changefreq": "monthly"
 				}
 			]
 		},
@@ -551,6 +557,119 @@
 					"changefreq": "weekly",
 					"added": "2026-06-05",
 					"showcase": true
+				},
+				{
+					"path": "/agent-exchange",
+					"title": "Agent Exchange",
+					"description": "Two AI agents with 3D bodies negotiate and pay each other for live crypto intel using x402 micropayments on Solana. Every transaction is real and confirmed on-chain.",
+					"priority": 0.6,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/agent-economy",
+					"title": "Agent Economy — Live Demo",
+					"description": "Watch two 3D AI agents transact on-chain. Agent A buys data from Agent B — real SOL, real Solana transaction, live.",
+					"priority": 0.5,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/agent-trade",
+					"title": "Agent Commerce",
+					"description": "Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.",
+					"priority": 0.5,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/avatar-wallet-chat",
+					"title": "Avatar Wallet",
+					"description": "An embeddable 3D AI avatar that holds a Solana wallet, chats, and can autonomously send SOL.",
+					"priority": 0.5,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/demo",
+					"title": "Agent Economy — NOVA & ORACLE",
+					"description": "Two three.ws AI agents with real Solana wallets discover services on the x402 bazaar, pay each other in SOL, and display a live market briefing on the TV in their world.",
+					"priority": 0.5,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/live",
+					"title": "Agent Economy — Live",
+					"description": "Two AI agents in a virtual world paying each other for live Solana market data. Real on-chain transactions, real blockchain, real 3D.",
+					"priority": 0.5,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/coin3d",
+					"title": "Token in 3D",
+					"description": "Any pump.fun token as a live 3D scene — a spinning coin medallion with the token's logo, top holders as a galaxy sized by balance, and a graduation ring tracking bonding-curve progress.",
+					"priority": 0.5,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/evm-wallet",
+					"title": "EVM Vanity Wallet",
+					"description": "Grind a custom Ethereum / EVM wallet address with the prefix or suffix of your choice. A real secp256k1 keypair, generated entirely in your browser — the private key never leaves your device.",
+					"priority": 0.6,
+					"changefreq": "monthly"
+				}
+			]
+		},
+		{
+			"id": "integrations",
+			"title": "Integrations",
+			"description": "Live partner showcases — built on real platforms, running end-to-end.",
+			"pages": [
+				{
+					"path": "/ibm/galaxy",
+					"title": "three.ws on IBM watsonx — Agent Galaxy",
+					"description": "three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-06-03"
+				},
+				{
+					"path": "/ibm/oracle",
+					"title": "Granite Oracle — Price Forecasting in 3D",
+					"description": "IBM Granite TimeSeries forecasting rendered in 3D — a live crypto market forecast computed on watsonx.ai and visualized by a three.ws agent.",
+					"priority": 0.6,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/ibm/twin",
+					"title": "Digital Twin — Living Market Replica",
+					"description": "A living replica of a real market on IBM watsonx — live data drives the twin while Granite TimeSeries projects where it's heading.",
+					"priority": 0.6,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/ibm/trust-layer",
+					"title": "Trust Layer — Granite Guardian Governs Agents",
+					"description": "IBM Granite Guardian governs an autonomous, wallet-holding 3D AI agent in real time. Every message and on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger.",
+					"priority": 0.6,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/ibm/identity",
+					"title": "Identity Firewall — Granite Stops Impersonation",
+					"description": "Before a three.ws agent identity is born, IBM Granite embeddings compare it against every public agent to catch impersonation, and Granite Guardian screens the name, bio, and persona.",
+					"priority": 0.6,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/ibm/proof",
+					"title": "Granite Proof — On-Chain AI Notary",
+					"description": "A 3D AI agent forecasts a live crypto market with IBM Granite TimeSeries, Granite Guardian governs every word, and each governed forecast is notarized on Solana — signed by the agent's own wallet.",
+					"priority": 0.6,
+					"changefreq": "weekly"
+				},
+				{
+					"path": "/ibm/vision",
+					"title": "Granite Vision — Image Understanding",
+					"description": "IBM Granite Vision reads your 3D avatar — multimodal image understanding on watsonx.ai, demonstrated live.",
+					"priority": 0.6,
+					"changefreq": "weekly"
 				}
 			]
 		},
@@ -811,6 +930,20 @@
 					"priority": 0.5,
 					"changefreq": "always",
 					"added": "2026-06-11"
+				},
+				{
+					"path": "/glossary",
+					"title": "Glossary",
+					"description": "Plain-English definitions for the crypto and agent terms used across three.ws — no jargon required to get started.",
+					"priority": 0.5,
+					"changefreq": "monthly"
+				},
+				{
+					"path": "/support",
+					"title": "Support",
+					"description": "Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.",
+					"priority": 0.6,
+					"changefreq": "monthly"
 				}
 			]
 		},

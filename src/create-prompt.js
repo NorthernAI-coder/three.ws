@@ -276,6 +276,20 @@ async function renderDone(avatarId) {
 		return;
 	}
 	showStep('done');
+	// Let the site-wide discovery layer offer the natural next steps
+	// (Studio, agent wizard, Walk) with this avatar pre-loaded.
+	document.dispatchEvent(
+		new CustomEvent('tws:feature-done', {
+			detail: {
+				feature: 'prompt',
+				avatarId,
+				model: {
+					glbUrl: modelUrl,
+					label: avatar?.display_name || avatar?.name || 'Prompt avatar',
+				},
+			},
+		}),
+	);
 }
 
 function resetToCompose() {
