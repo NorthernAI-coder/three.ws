@@ -86,9 +86,6 @@
       "optional": true
     }
   },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "*"
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@pump-fun/agent-payments-sdk-legacy": "npm:@pump-fun/agent-payments-sdk@1.0.7",
