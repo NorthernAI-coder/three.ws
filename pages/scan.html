@@ -19,7 +19,7 @@
 
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="three.ws" />
-		<meta property="og:url" content="https://three.ws/scan" />
+		<meta property="og:url" content="https://three.ws/create/selfie" />
 		<meta property="og:title" content="3D Scanner · Scan yourself into 3D" />
 		<meta
 			property="og:description"
@@ -1335,7 +1335,7 @@
 			crossorigin="anonymous"
 		></script>
 	
-	<link rel="canonical" href="https://three.ws/scan">
+	<link rel="canonical" href="https://three.ws/create/selfie">
 	<meta name="twitter:title" content="3D Scanner — Scan Yourself into 3D · three.ws">
 	<meta name="twitter:description" content="Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.">
 	<meta name="twitter:image" content="https://three.ws/og-image.png">
@@ -1794,41 +1794,6 @@
 			</section>
 		</main>
 
-		<!-- Step "unavailable" — shown when the reconstruction backend isn't wired. -->
-		<section
-			class="step"
-			data-step="unavailable"
-			hidden
-			style="text-align: center; max-width: 520px; margin: 0 auto; padding: 48px 24px"
-		>
-			<h1 style="margin: 0 0 12px">The scanner is warming up</h1>
-			<p class="sub" style="margin: 0 0 24px; color: #9aa3b2">
-				The photo-to-3D engine is being provisioned for this environment. In the meantime,
-				you can describe your avatar in words and generate it — or build one in the studio.
-				Same outputs, fully ready today.
-			</p>
-			<div class="done-actions" style="justify-content: center">
-				<a
-					href="/create/prompt"
-					class="btn-save"
-					style="text-decoration: none; display: inline-block"
-					>Describe it to 3D →</a
-				>
-				<a
-					href="/create"
-					class="btn-ghost"
-					style="text-decoration: none; display: inline-block"
-					>Open the avatar studio</a
-				>
-				<a
-					href="/app"
-					class="btn-ghost"
-					style="text-decoration: none; display: inline-block"
-					>Back to my workspace</a
-				>
-			</div>
-		</section>
-
 		<!-- Camera overlay (driven by selfie-capture.js) -->
 		<div id="cam-overlay" role="dialog" aria-modal="true" aria-label="Camera capture">
 			<div id="cam-stage">
@@ -1867,36 +1832,21 @@
 		</div>
 
 		<script type="module">
+			// /scan is superseded by /create/selfie which has BYOK key entry and a
+			// more complete UX. Preserve any ?next or ?from query params so downstream
+			// flows still work (e.g. post-login redirects).
+			const dest = '/create/selfie' + window.location.search;
+			window.location.replace(dest);
+
 			function showStep(name) {
 				document.querySelectorAll('.step[data-step]').forEach((s) => {
 					s.classList.toggle('active', s.dataset.step === name);
-					if (name === 'unavailable') s.hidden = s.dataset.step !== 'unavailable';
 				});
 				window.scrollTo({ top: 0, behavior: 'auto' });
 			}
 
-			// Capability probe — reconstruct returns 501 unless an ML backend is wired.
-			const reconstructReady = await fetch('/api/config', { credentials: 'omit' })
-				.then((r) => (r.ok ? r.json() : null))
-				.then((j) => j?.features?.avatarReconstruct !== false)
-				.catch(() => true);
-
-			if (!reconstructReady) {
-				document.querySelectorAll('.step[data-step]').forEach((s) => {
-					s.classList.remove('active');
-					s.hidden = s.dataset.step !== 'unavailable';
-				});
-				const u = document.querySelector('.step[data-step="unavailable"]');
-				if (u) {
-					u.hidden = false;
-					u.classList.add('active');
-				}
-				const sb = document.getElementById('submit-bar');
-				if (sb) sb.hidden = true;
-			} else {
-				await import('/src/selfie-capture.js');
-				await import('/src/selfie-pipeline.js');
-			}
+			await import('/src/selfie-capture.js');
+			await import('/src/selfie-pipeline.js');
 
 			let _avatarId = null;
 			let _modelUrl = null;
