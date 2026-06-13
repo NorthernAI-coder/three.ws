@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { buildBuyerAxios, extractReceipt } from './x402-axios-client.js';
 import { discoverBazaarTools } from './bazaar-discover.js';
 import { assertPayableUrl } from './url-guard.js';
+import { asTextContent, asErrorContent } from './content.js';
 
 const BRIDGE_NAME = '3d-agent-x402-bridge';
 const BRIDGE_VERSION = '1.0.0';
@@ -42,25 +43,6 @@ const PAYMENT_TOOL_ANNOTATIONS = {
 	idempotentHint: false,
 	openWorldHint: true,
 };
-
-function asTextContent(value) {
-	const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-	const result = { content: [{ type: 'text', text }] };
-	// Plain objects also go out as structuredContent so typed clients can skip
-	// re-parsing the text block (kept for backward compatibility). MCP requires
-	// structuredContent to be an object, so strings/arrays stay text-only.
-	if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-		result.structuredContent = value;
-	}
-	return result;
-}
-
-function asErrorContent(message) {
-	return {
-		isError: true,
-		content: [{ type: 'text', text: message }],
-	};
-}
 
 function decodePaymentResponseFromHeaders(headers) {
 	if (!headers) return undefined;

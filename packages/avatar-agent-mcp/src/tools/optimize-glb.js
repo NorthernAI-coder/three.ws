@@ -11,8 +11,29 @@ import { z } from 'zod';
 import { dedup, draco, prune, weld } from '@gltf-transform/functions';
 
 import { fetchGlbBytes, getIo } from '../lib/glb-io.js';
+import { resultShape } from '../lib/output-shapes.js';
 
 const MAX_RETURN_BYTES = 20 * 1024 * 1024;
+
+const outputSchema = resultShape({
+	url: z.string().optional().describe('The source GLB URL (echoed).'),
+	applied: z
+		.array(z.string())
+		.optional()
+		.describe('Transforms that ran before a transform/write failure (soft-fail paths only).'),
+	pipeline: z.array(z.string()).optional().describe('Transforms applied, in order.'),
+	beforeBytes: z.number().optional(),
+	afterBytes: z.number().optional(),
+	savedBytes: z.number().optional(),
+	ratio: z.number().optional().describe('afterBytes / beforeBytes.'),
+	reductionPct: z.number().optional(),
+	optimizedGlb: z
+		.string()
+		.nullable()
+		.optional()
+		.describe('base64 data URL of the optimized GLB; null when it exceeds the inline cap; absent when returnInline=false.'),
+	note: z.string().optional().describe('Set when the optimized GLB was too large to inline.'),
+});
 
 export const def = {
 	name: 'optimize_glb',
@@ -32,6 +53,7 @@ export const def = {
 		returnInline: z.boolean().optional()
 			.describe('Return the optimized GLB inline as a base64 data URL (default true). Set false to return only stats.'),
 	},
+	outputSchema,
 	async handler(args) {
 		const { url } = args || {};
 		if (!url) return { ok: false, error: 'invalid_input', message: 'url is required' };

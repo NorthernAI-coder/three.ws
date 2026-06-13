@@ -11,6 +11,12 @@
 import { z } from 'zod';
 
 import { renderGlbThumbnail } from '../lib/render.js';
+import { pngRenderFields, resultShape } from '../lib/output-shapes.js';
+
+const outputSchema = resultShape({
+	...pngRenderFields,
+	glbUrl: z.string().optional().describe('The rendered GLB URL (echoed).'),
+});
 
 export const def = {
 	name: 'thumbnail_glb',
@@ -25,6 +31,7 @@ export const def = {
 		height: z.number().int().min(64).max(2048).optional().describe('Output height in pixels (default 1024).'),
 		background: z.string().optional().describe('CSS color (e.g. "#0a0a0a") or "transparent". Default "#0a0a0a".'),
 	},
+	outputSchema,
 	async handler(args) {
 		const { glbUrl, width, height, background } = args || {};
 		if (!glbUrl) return { ok: false, error: 'invalid_input', message: 'glbUrl is required' };

@@ -73,6 +73,7 @@ export const def = {
 		maxIssues: z.number().int().min(1).max(2000).optional()
 			.describe('Cap on issues returned in each bucket (default 100). Validator may still scan all of them.'),
 	},
+	outputSchema,
 	async handler(args) {
 		const { url } = args || {};
 		if (!url) return { ok: false, error: 'invalid_input', message: 'url is required' };

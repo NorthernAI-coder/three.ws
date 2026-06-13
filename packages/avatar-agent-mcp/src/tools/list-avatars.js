@@ -1,7 +1,27 @@
 // `list_avatars` — enumerate the curated default avatars + accessories +
 // pose presets shipped by three.ws. Free, no signer needed.
 
+import { z } from 'zod';
+
 import { ACCESSORIES, DEFAULT_AVATARS, POSE_PRESETS } from '../lib/avatars.js';
+import { accessoryEntry, upstreamObject } from '../lib/output-shapes.js';
+
+// The catalog read cannot fail (pure in-process data), so every field is
+// required — there is no soft-fail variant.
+const outputSchema = {
+	avatars: z.array(
+		upstreamObject({
+			id: z.string(),
+			name: z.string(),
+			description: z.string(),
+			glb: z.string(),
+			thumbnail: z.string().nullable(),
+		}),
+	),
+	accessories: z.array(accessoryEntry),
+	poses: z.array(z.string()),
+	fetchedAt: z.string(),
+};
 
 export const def = {
 	name: 'list_avatars',

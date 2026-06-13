@@ -155,3 +155,123 @@ describe('POST /api/mcp-3d — unauthenticated challenge identity', () => {
 		expect(out.result?.content?.[0]?.text).toBeTruthy();
 	});
 });
+
+describe('POST /api/mcp-3d — free discovery for plain clients', () => {
+	it('tools/list with no credentials returns the studio toolset', async () => {
+		const res = makeRes();
+		await handler(makeReq({ body: TOOLS_LIST }), res);
+		expect(res.statusCode).toBe(200);
+		const out = JSON.parse(res.body);
+		const names = out.result.tools.map((t) => t.name);
+		expect(names).toContain('text_to_3d');
+		expect(names).toContain('image_to_3d');
+		expect(names).toContain('generation_status');
+	});
+
+	it('initialize with no credentials advertises the studio server', async () => {
+		const res = makeRes();
+		await handler(
+			makeReq({
+				body: {
+					jsonrpc: '2.0',
+					id: 1,
+					method: 'initialize',
+					params: { protocolVersion: '2025-06-18' },
+				},
+			}),
+			res,
+		);
+		expect(res.statusCode).toBe(200);
+		const out = JSON.parse(res.body);
+		expect(out.result.serverInfo.name).toBe('three-ws-3d-studio');
+	});
+
+	it('a batch mixing discovery with a priced call is NOT free', async () => {
+		const res = makeRes();
+		await handler(makeReq({ body: [TOOLS_LIST, textTo3dCall()] }), res);
+		expect(res.statusCode).toBe(402);
+	});
+
+	it('MCP protocol clients still get the 401 that starts OAuth on discovery', async () => {
+		const res = makeRes();
+		await handler(
+			makeReq({
+				body: TOOLS_LIST,
+				headers: { accept: 'application/json, text/event-stream' },
+			}),
+			res,
+		);
+		expect(res.statusCode).toBe(401);
+		expect(res.headers['www-authenticate']).toContain('oauth-protected-resource');
+	});
+});
+
+describe('POST /api/mcp-3d — per-tool x402 pricing', () => {
+	it('quotes the standard tier price for a default text_to_3d call', async () => {
+		const res = makeRes();
+		await handler(makeReq({ body: textTo3dCall() }), res);
+		expect(res.statusCode).toBe(402);
+		const { accepts } = JSON.parse(res.body);
+		for (const accept of accepts) expect(accept.amount).toBe('150000');
+	});
+
+	it('quotes the high tier price when the caller asks for tier: high', async () => {
+		const res = makeRes();
+		await handler(makeReq({ body: textTo3dCall({ prompt: 'a fox', tier: 'high' }) }), res);
+		const { accepts } = JSON.parse(res.body);
+		for (const accept of accepts) expect(accept.amount).toBe('500000');
+	});
+
+	it('sums a batch of priced calls into one charge', async () => {
+		const res = makeRes();
+		await handler(
+			makeReq({
+				body: [
+					textTo3dCall({ prompt: 'a fox', tier: 'draft' }), // 50000
+					{
+						jsonrpc: '2.0',
+						id: 2,
+						method: 'tools/call',
+						params: { name: 'stylize_model', arguments: { mesh_url: 'https://x.test/a.glb' } }, // 20000
+					},
+				],
+			}),
+			res,
+		);
+		const { accepts } = JSON.parse(res.body);
+		for (const accept of accepts) expect(accept.amount).toBe('70000');
+	});
+});
+
+describe('studioX402Amount', () => {
+	it('prices generation by tier with standard as the fallback', () => {
+		expect(studioX402Amount('text_to_3d', { tier: 'draft' })).toBe('50000');
+		expect(studioX402Amount('text_to_3d', { tier: 'standard' })).toBe('150000');
+		expect(studioX402Amount('image_to_3d', { tier: 'high' })).toBe('500000');
+		expect(studioX402Amount('text_to_3d', {})).toBe('150000');
+		expect(studioX402Amount('text_to_3d', { tier: 'nonsense' })).toBe('150000');
+	});
+
+	it('prices mesh ops flat and leaves read-only tools free', () => {
+		expect(studioX402Amount('auto_rig_model', {})).toBe('50000');
+		expect(studioX402Amount('stylize_model', {})).toBe('20000');
+		expect(studioX402Amount('generate_material', {})).toBe('10000');
+		expect(studioX402Amount('generation_status', {})).toBeNull();
+		expect(studioX402Amount('preview_3d', {})).toBeNull();
+		expect(studioX402Amount('getting_started', {})).toBeNull();
+	});
+});
+
+describe('isDiscoveryOnlyBatch', () => {
+	it('accepts pure discovery traffic and rejects anything carrying work', () => {
+		expect(isDiscoveryOnlyBatch({ method: 'tools/list' })).toBe(true);
+		expect(isDiscoveryOnlyBatch({ method: 'initialize' })).toBe(true);
+		expect(isDiscoveryOnlyBatch([{ method: 'initialize' }, { method: 'ping' }])).toBe(true);
+		expect(isDiscoveryOnlyBatch({ method: 'tools/call', params: { name: 'text_to_3d' } })).toBe(
+			false,
+		);
+		expect(isDiscoveryOnlyBatch([{ method: 'tools/list' }, { method: 'tools/call' }])).toBe(false);
+		expect(isDiscoveryOnlyBatch([])).toBe(false);
+		expect(isDiscoveryOnlyBatch(null)).toBe(false);
+	});
+});
