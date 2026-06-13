@@ -420,6 +420,21 @@
 .nav-drawer a.nav-hot {
 	display: flex; align-items: center; gap: 8px; color: var(--nv-text);
 }
+/* Featured drawer row — highlighted links lead the drawer as a hairline
+   iris card instead of hiding under "More". */
+.nav-drawer a.dr-hot {
+	display: flex; align-items: center; gap: 10px;
+	margin: 4px 12px 8px; padding: 12px 14px;
+	border: 1px solid rgba(139,92,246,0.35); border-radius: 12px;
+	color: var(--nv-text); font-weight: 500;
+	background: rgba(139,92,246,0.08);
+	transition: border-color 0.15s, background 0.15s;
+}
+.nav-drawer a.dr-hot:active {
+	border-color: rgba(139,92,246,0.6);
+	background: rgba(139,92,246,0.14);
+}
+.dr-hot-arrow { margin-left: auto; color: var(--nv-text-3); }
 /* Light bar: white-alpha pill chrome washes out — remap to ink tints. */
 :root[data-theme='light'] .nav-main > a.nav-hot {
 	border-color: rgba(15, 18, 28, 0.18);

@@ -670,9 +670,10 @@ function emptyBlock() {
 	wrap.style.gridColumn = '1 / -1';
 	wrap.innerHTML = `
 		<h3>No avatars yet.</h3>
-		<p>Build your first 3D agent — start from a ready-made template, sculpt one from scratch, or drop a selfie.</p>
+		<p>Build your first 3D agent — describe it in a sentence and watch it generate, start from a ready-made template, sculpt one from scratch, or drop a selfie.</p>
 		<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-			<button type="button" class="dn-btn primary" data-empty-template>Start from a template</button>
+			<a class="dn-btn primary" href="/create/prompt">Describe it · prompt → 3D</a>
+			<button type="button" class="dn-btn" data-empty-template>Start from a template</button>
 			<a class="dn-btn" href="/create/studio">Build from scratch</a>
 			<a class="dn-btn" href="/create/selfie">Create from selfie</a>
 		</div>

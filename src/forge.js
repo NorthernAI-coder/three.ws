@@ -68,7 +68,13 @@ const els = {
 	verdict: document.getElementById('verdict'),
 	download: document.getElementById('download'),
 	again: document.getElementById('again'),
+	refine: document.getElementById('refine'),
+	refineLabel: document.getElementById('refine-label'),
 	retry: document.getElementById('retry'),
+	viewsCounter: document.getElementById('views-counter'),
+	viewsCounterText: document.getElementById('views-counter-text'),
+	viewsPips: document.getElementById('views-pips'),
+	sketchReqTag: document.getElementById('sketch-req-tag'),
 	generateAnyway: document.getElementById('generate-anyway'),
 	errorMessage: document.getElementById('error-message'),
 	forgeShareBtn: document.getElementById('forge-share-btn'),
@@ -92,6 +98,17 @@ let pollAbort = false;
 let mode = 'text'; // 'text' | 'image' | 'sketch' — input mode (prompt vs photos vs drawing)
 let lastJob = null; // { prompt, imageUrls } — for retry
 let currentCreationId = null;
+// The quality tier the on-screen result was produced at — drives the "Refine"
+// affordance, which re-runs the same job exactly one tier higher.
+let currentResultTier = null;
+
+// Quality tiers, lowest → highest. Refine walks one step up this ladder.
+const TIER_ORDER = ['draft', 'standard', 'high'];
+const TIER_LABELS = { draft: 'Draft', standard: 'Standard', high: 'High' };
+function nextTierAfter(tier) {
+	const i = TIER_ORDER.indexOf(tier);
+	return i >= 0 && i < TIER_ORDER.length - 1 ? TIER_ORDER[i + 1] : null;
+}
 
 // Generation route + quality. `genPath` is the task's image|geometry axis;
 // `genBackend` names the provider; both come from the selected engine button.
@@ -1041,6 +1058,23 @@ async function playMaterialize(glbUrl) {
 	}
 }
 
+// Show "Refine → <next tier>" only when a higher tier exists and the current
+// result came from a job we can re-run (a prompt and/or reference images).
+function updateRefineButton() {
+	if (!els.refine) return;
+	const next = nextTierAfter(currentResultTier);
+	const reRunnable =
+		lastJob && (lastJob.prompt || (Array.isArray(lastJob.imageUrls) && lastJob.imageUrls.length));
+	const show = Boolean(next && reRunnable);
+	els.refine.classList.toggle('is-hidden', !show);
+	if (show) {
+		els.refineLabel.textContent = `Refine → ${TIER_LABELS[next]}`;
+		els.refine.title = `Re-run this exact ${
+			lastJob.imageUrls?.length ? 'reconstruction' : 'prompt'
+		} at ${TIER_LABELS[next]} quality`;
+	}
+}
+
 function showResult(glbUrl, label, meta) {
 	stopElapsed();
 	resetVerdict();
@@ -1055,6 +1089,11 @@ function showResult(glbUrl, label, meta) {
 	);
 	// Cross-link into Parts Studio with this exact model pre-loaded.
 	if (els.segmentBtn) els.segmentBtn.href = `/segment?mesh=${encodeURIComponent(glbUrl)}`;
+	// Offer "Refine" when a higher tier exists and this job can be re-run. Use the
+	// tier the result was actually produced at (meta), falling back to the current
+	// selection for re-opened gallery models that don't carry tier metadata.
+	currentResultTier = meta?.tier || selectedTier;
+	updateRefineButton();
 	showState('result');
 	playMaterialize(glbUrl);
 	// Hand the live model to the Stylize panel (src/forge-stylize.js) so its
@@ -1520,6 +1559,16 @@ els.retry.addEventListener('click', () => {
 		showState('empty');
 		els.prompt.focus();
 	}
+});
+
+// Refine — re-run the same prompt/views one quality tier higher. Bumping the
+// tier syncs the selector (and the tier's default engine), then replays the
+// stored job, so the higher-fidelity model lands in the same viewer.
+els.refine?.addEventListener('click', () => {
+	const next = nextTierAfter(currentResultTier);
+	if (!next || !lastJob) return;
+	selectTier(next);
+	run(lastJob);
 });
 
 // "Generate anyway" — re-run the same job with the vision pre-check bypassed.

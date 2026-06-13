@@ -539,7 +539,9 @@ function renderForgeAnnounce(host) {
 							type="text"
 							name="prompt"
 							autocomplete="off"
+							autocapitalize="off"
 							spellcheck="false"
+							enterkeyhint="go"
 							maxlength="${FORGE_PROMPT_CAP}"
 							aria-label="Describe an object to forge into 3D"
 						/>
@@ -569,12 +571,19 @@ function renderForgeAnnounce(host) {
 
 	// Submit → deep-link into the Forge with whatever the user typed. Empty
 	// field falls back to the example currently on display, so the button is
-	// never a dead end.
+	// never a dead end. Record the visit so Forge surfaces in "recents" just
+	// like every other navigation on this page.
 	let currentExample = FORGE_EXAMPLES[0];
 	form.addEventListener('submit', (e) => {
 		e.preventDefault();
 		stopTypewriter();
+		trackVisit('/forge');
 		location.href = forgeHref(input.value || currentExample);
+	});
+
+	// Example chips navigate as plain links; tag the visit before they do.
+	host.querySelector('.dnx-forge-chips').addEventListener('click', (e) => {
+		if (e.target.closest('.dnx-forge-chip')) trackVisit('/forge');
 	});
 
 	// Dismiss — persist so it stays gone, and tear down timers.
@@ -1573,6 +1582,15 @@ function injectStyles() {
 		}
 		.dnx-forge:hover .dnx-forge-stage { animation-duration: 5s; }
 		.dnx-forge:hover .dnx-forge-ring  { animation-duration: 2.6s; }
+		/* Engaging the composer primes the mesh — the visual reacts to the
+		   action it's attached to. */
+		.dnx-forge:focus-within {
+			border-color: rgba(255,255,255,0.28);
+			box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 18px 50px -28px rgba(255,255,255,0.3);
+		}
+		.dnx-forge:focus-within .dnx-forge-stage { animation-duration: 3.4s; }
+		.dnx-forge:focus-within .dnx-forge-ring  { animation-duration: 1.9s; opacity: 1; }
+		.dnx-forge:focus-within .dnx-forge-scan  { animation-duration: 1.6s; }
 
 		/* ── Body: head + composer + chips ── */
 		.dnx-forge-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px; }

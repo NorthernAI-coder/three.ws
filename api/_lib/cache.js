@@ -11,6 +11,10 @@
 // Env:
 //   UPSTASH_REDIS_REST_URL    — https://<region>.upstash.io
 //   UPSTASH_REDIS_REST_TOKEN  — REST API token (read+write)
+//   (resolved through _lib/env.js, which also accepts the Vercel-marketplace
+//   names three_KV_REST_API_URL/TOKEN and KV_REST_API_URL/TOKEN)
+
+import { env } from './env.js';
 
 const memCache = new Map();
 const MEM_DEFAULT_TTL_MS = 60_000;
@@ -67,14 +71,14 @@ function memDel(key) {
 }
 
 function redisConfigured() {
-	return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+	return Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
 }
 
 async function redisCmd(args) {
-	const r = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
+	const r = await fetch(env.UPSTASH_REDIS_REST_URL, {
 		method: 'POST',
 		headers: {
-			authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+			authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
 			'content-type': 'application/json',
 		},
 		body: JSON.stringify(args),

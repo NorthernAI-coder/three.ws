@@ -688,6 +688,82 @@
 				margin: var(--space-sm) 0 0;
 				text-align: center;
 			}
+
+			/* Live multi-view counter — turns four anonymous empty boxes into a
+			   legible "0 of 4" progress with pips, and teaches that more views ⇒
+			   sharper mesh. Updated by src/forge.js as slots fill. */
+			.views-counter {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 0.55rem;
+				margin-top: var(--space-sm);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
+			.views-pips {
+				display: inline-flex;
+				gap: 4px;
+			}
+			.views-pips i {
+				width: 9px;
+				height: 9px;
+				border-radius: 50%;
+				border: 1px solid var(--stroke-strong);
+				background: transparent;
+				transition:
+					background 0.2s ease,
+					border-color 0.2s ease,
+					transform 0.2s ease;
+			}
+			.views-pips i[data-filled='true'] {
+				background: var(--accent);
+				border-color: var(--accent);
+				transform: scale(1.08);
+			}
+			.views-counter .vc-text strong {
+				color: var(--ink);
+				font-weight: 600;
+			}
+			.views-counter .vc-quality {
+				color: var(--accent);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.views-pips i {
+					transition: none;
+				}
+			}
+
+			/* Required-input cue for the sketch prompt — sketch mode can't generate
+			   without a description, so it earns a visible "Required" tag that turns
+			   to a danger tint when the user tries to submit empty. */
+			.req-tag {
+				display: inline-block;
+				margin-left: 0.4rem;
+				font-family: var(--font-mono);
+				font-size: 0.62rem;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--ink-dim);
+				border: 1px solid var(--stroke);
+				border-radius: 999px;
+				padding: 1px 6px;
+				vertical-align: 0.1em;
+				transition:
+					color 0.15s,
+					border-color 0.15s,
+					background 0.15s;
+			}
+			.image-prompt[aria-invalid='true'] {
+				border-color: var(--danger);
+			}
+			.image-prompt[aria-invalid='true'] + .views-hint .req-tag,
+			.req-tag[data-missing='true'] {
+				color: var(--danger);
+				border-color: var(--danger);
+				background: color-mix(in srgb, var(--danger) 14%, transparent);
+			}
 			.image-prompt {
 				width: 100%;
 				min-height: 52px;
@@ -1117,6 +1193,68 @@
 				display: flex;
 				gap: var(--space-xs);
 				flex: none;
+				align-items: center;
+				flex-wrap: wrap;
+				justify-content: flex-end;
+			}
+
+			/* Refine — re-run the same prompt/views one quality tier higher. An
+			   accent-tinted "level up" affordance: clearly more inviting than the
+			   ghost buttons, but it yields visual primacy to the solid "Make
+			   another" CTA beside it. Hidden by JS once the result is already High. */
+			.btn-refine {
+				color: var(--accent);
+				background: var(--accent-soft);
+				border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+			}
+			.btn-refine:hover {
+				background: color-mix(in srgb, var(--accent) 18%, transparent);
+				box-shadow: 0 0 0 3px var(--accent-soft);
+			}
+			.btn-refine .refine-arrow {
+				transition: transform 0.18s ease;
+			}
+			.btn-refine:hover .refine-arrow {
+				transform: translateY(-2px);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.btn-refine .refine-arrow {
+					transition: none;
+				}
+			}
+
+			/* On phones the action row is the most cramped surface — let it wrap
+			   into a tidy grid where the two primary CTAs (Refine + Make another)
+			   span full width and lead, with the secondary tools below them. */
+			@media (max-width: 560px) {
+				.result-bar {
+					flex-direction: column;
+					align-items: stretch;
+				}
+				.result-bar .actions {
+					display: grid;
+					grid-template-columns: 1fr 1fr;
+					gap: var(--space-xs);
+					justify-content: stretch;
+				}
+				.result-bar .actions > .btn {
+					width: 100%;
+					justify-content: center;
+				}
+				/* Primary CTAs first and full-bleed; the verdict pair spans too. */
+				.result-bar .actions #again,
+				.result-bar .actions #refine {
+					grid-column: 1 / -1;
+					order: -2;
+				}
+				.result-bar .actions #refine {
+					order: -3;
+				}
+				.result-bar .actions .verdict {
+					grid-column: 1 / -1;
+					order: -1;
+					justify-content: center;
+				}
 			}
 
 			/* Keep / discard verdict (the flywheel signal) */
@@ -1772,6 +1910,12 @@
 						id="views-grid"
 						aria-label="Reference views — add up to four photos of the same object"
 					></div>
+					<div class="views-counter" id="views-counter" aria-live="polite">
+						<span class="views-pips" id="views-pips" aria-hidden="true"></span>
+						<span class="vc-text" id="views-counter-text"
+							><strong>0</strong> of 4 views</span
+						>
+					</div>
 					<input
 						type="file"
 						id="view-file-input"
@@ -1816,13 +1960,14 @@
 						id="sketch-prompt"
 						class="image-prompt"
 						maxlength="1000"
-						placeholder="What is it? — e.g. “a cartoon rocket with two tail fins” (required)"
+						aria-required="true"
+						placeholder="What is it? — e.g. “a cartoon rocket with two tail fins”"
 					></textarea>
 					<p class="views-hint">
 						Drop one drawing — dark strokes on a light background work best — and say
-						what it depicts. PNG/JPG/WebP, up to 8&nbsp;MB. The result is untextured
-						geometry: use <strong>Stylize</strong> or <strong>Retexture</strong> on it
-						after.
+						what it depicts<span class="req-tag" id="sketch-req-tag">Required</span>.
+						PNG/JPG/WebP, up to 8&nbsp;MB. The result is untextured geometry: use
+						<strong>Stylize</strong> or <strong>Retexture</strong> on it after.
 					</p>
 				</div>
 
@@ -2073,6 +2218,52 @@
 								</svg>
 								Embed
 							</button>
+							<button
+								class="btn btn-ghost"
+								type="button"
+								id="forge-ar-btn"
+								title="View this model in AR — place it in your room"
+							>
+								<svg
+									width="15"
+									height="15"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z" />
+									<path d="m3 7 9 5 9-5" />
+									<path d="M12 12v10" />
+								</svg>
+								View in AR
+							</button>
+							<button
+								class="btn btn-refine is-hidden"
+								type="button"
+								id="refine"
+								title="Re-run this exact prompt at a higher quality tier"
+							>
+								<svg
+									class="refine-arrow"
+									width="15"
+									height="15"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									aria-hidden="true"
+								>
+									<line x1="12" y1="19" x2="12" y2="5" />
+									<polyline points="5 12 12 5 19 12" />
+								</svg>
+								<span id="refine-label">Refine</span>
+							</button>
 							<a class="btn btn-ghost" id="download" download>Download GLB</a>
 							<button class="btn" type="button" id="again">Make another</button>
 						</div>
@@ -2221,6 +2412,7 @@
 		<script type="module" src="/src/forge-stylize.js"></script>
 		<script type="module" src="/src/forge-optimize.js"></script>
 		<script type="module" src="/src/forge-embed-panel.js"></script>
+		<script type="module" src="/src/forge-ar.js"></script>
 		<script type="module" src="/src/forge-showcase.js"></script>
 		<script type="module" src="/src/forge-dropzone.js"></script>
 		<div id="footer-container"></div>

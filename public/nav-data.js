@@ -226,7 +226,6 @@ export const NAV_GROUPS = [
 				items: [
 					{ title: 'Lipsync', href: '/lipsync', desc: 'TTS or mic → in-browser viseme → mouth' },
 					{ title: 'Mocap Studio', href: '/mocap-studio', desc: 'Record face → save clip → replay' },
-					{ title: 'Pose Studio', href: '/pose', desc: 'Click-to-pose mannequin + export PNG' },
 					{ title: 'OBS Overlay', href: '/overlay-control', desc: 'Stream deck — emote hotkeys, mic' },
 					{ title: 'Walk', href: '/walk', desc: 'Walk your avatar — multiplayer + AR' },
 					{ title: 'XR', href: '/xr', desc: 'Place your avatar in the real world' },

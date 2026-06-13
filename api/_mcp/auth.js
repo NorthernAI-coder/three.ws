@@ -29,7 +29,11 @@ export function send401(res, msg) {
 // MCP-Protocol-Version / Mcp-Session-Id headers. x402 agents, Bazaar
 // validators, and registry crawlers (zauth) send none of these — they expect
 // a plain 402 Payment Required.
-function isMcpProtocolClient(req) {
+//
+// Exported so endpoints can scope free-discovery to plain (non-protocol)
+// clients: an OAuth-capable MCP client must still receive the 401 on
+// initialize, or it never starts the OAuth flow and dies later at tools/call.
+export function isMcpProtocolClient(req) {
 	const h = req?.headers || {};
 	if (h['mcp-protocol-version'] || h['mcp-session-id']) return true;
 	const accept = String(h.accept || '');

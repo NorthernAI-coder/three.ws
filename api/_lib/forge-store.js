@@ -191,6 +191,40 @@ export async function materializeCreation({ replicateJobId, clientKey, glbUrl })
 	}
 }
 
+// Attach a client-rendered poster to a creation that has no preview image.
+// Geometry-first and sketch lanes never paint a flux reference image, so their
+// gallery/showcase cards had nothing to show; the browser renders the actual
+// mesh to a small webp and posts it here. Fill-only: a row that already has a
+// preview (the flux reference image — part of the training pair) is never
+// overwritten. Scoped to the owning client. Returns the durable URL or null.
+export async function attachPoster({ id, clientKey, body, contentType, ext }) {
+	if (!forgeStoreEnabled() || !id || !body) return null;
+	try {
+		const rows = await sql`
+			select id, preview_image_url
+			from forge_creations
+			where id = ${id} and client_key = ${clientKey} and status = 'done'
+			limit 1
+		`;
+		const existing = rows[0];
+		if (!existing || existing.preview_image_url) return null;
+
+		const key = `forge/${clientKey.slice(0, 12)}/${id}-poster.${ext}`;
+		await putObject({ key, body, contentType, metadata: { source: 'forge-poster' } });
+		const url = publicUrl(key);
+		const updated = await sql`
+			update forge_creations
+			set preview_key = ${key}, preview_image_url = ${url}, updated_at = now()
+			where id = ${id} and client_key = ${clientKey} and preview_image_url is null
+			returning id
+		`;
+		return updated.length > 0 ? url : null;
+	} catch (err) {
+		console.error('[forge-store] attachPoster failed:', err?.message);
+		return null;
+	}
+}
+
 export async function markFailed({ replicateJobId, clientKey, error }) {
 	if (!forgeStoreEnabled() || !replicateJobId) return;
 	try {

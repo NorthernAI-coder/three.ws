@@ -4612,6 +4612,21 @@ body.deploy-page {
 	transform: translateY(1px);
 }
 
+/* Forge variant — the flagship generate path gets slightly brighter glass
+   and a soft halo on hover so it reads first in the bottom bar. */
+.create-avatar-btn--forge {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.14));
+	border-color: rgba(255, 255, 255, 0.32);
+}
+
+.create-avatar-btn--forge:hover {
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(255, 255, 255, 0.2));
+	border-color: rgba(255, 255, 255, 0.5);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.08),
+		0 0 18px rgba(255, 255, 255, 0.12);
+}
+
 .create-avatar-btn svg {
 	width: 1em;
 	height: 1em;
