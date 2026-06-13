@@ -11,8 +11,8 @@
 // in every avatar embed without changing a line of client code.
 
 import { z } from 'zod';
-import { Redis } from '@upstash/redis';
 import { env } from '../_lib/env.js';
+import { getRedis as _getSharedRedis } from '../_lib/redis.js';
 import { cors, error, method, wrap, readJson, json, rateLimited } from '../_lib/http.js';
 import { parse } from '../_lib/validate.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
@@ -29,16 +29,7 @@ const log = logger('llm.anthropic');
 
 // ── Redis client (for monthly quota counters) ────────────────────────────────
 
-let _redis = null;
-function getRedis() {
-	if (!_redis && env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({
-			url: env.UPSTASH_REDIS_REST_URL,
-			token: env.UPSTASH_REDIS_REST_TOKEN,
-		});
-	}
-	return _redis;
-}
+function getRedis() { return _getSharedRedis(); }
 
 // ── Model → upstream routing ─────────────────────────────────────────────────
 //

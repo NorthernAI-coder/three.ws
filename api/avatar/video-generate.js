@@ -20,7 +20,8 @@
 //   402 free_trial_used   — free user has already used their 1 free generation
 //   502 worker_error      — Cloud Run worker returned an error
 
-import { cors, error, json, wrap } from '../_lib/http.js';
+import { cors, error, json, wrap, rateLimited } from '../_lib/http.js';
+import { limits } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
 import { publicUrl } from '../_lib/r2.js';
 import { getSessionUser } from '../_lib/auth.js';
@@ -100,6 +101,13 @@ export default wrap(async (req, res) => {
 	}
 
 	const userId = session.id ?? session.userId;
+
+	const [rl, rlg] = await Promise.all([
+		limits.videoGenerateUser(userId),
+		limits.videoGenerateGlobal(),
+	]);
+	if (!rl.success) return rateLimited(res, rl);
+	if (!rlg.success) return rateLimited(res, rlg);
 
 	// Check plan + usage. Free plan users get exactly 1 lifetime generation.
 	const [userRow] = await sql`

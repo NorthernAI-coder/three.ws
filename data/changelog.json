@@ -3,6 +3,35 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Security and scalability hardening",
+			"summary": "Several infrastructure improvements ship today to keep the platform safe and fast at growth scale. All Redis connections across the API now share a single Upstash client instance, eliminating the duplicate quota consumption that caused the June 2026 rate-limit outage. A per-user daily LLM spend cap is now enforced on platform-paid inference keys — callers who exhaust their daily budget receive a clear 429 with a reset time rather than silently running up costs. The SSRF guard gains an IP-pinned fetch variant for proxy and webhook endpoints, closing a DNS-rebinding window where a hostile DNS server could swap an address between the safety check and the actual TCP connection. An admin Redis health panel exposes live quota usage and latency with one click, complementing the existing automated hourly quota watchdog that pages the ops channel at 70% and 90% of the daily limit.",
+			"tags": [
+				"security",
+				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"title": "Forge improvements: category tagging, model load errors, and more",
+			"summary": "Several Forge improvements ship today: a new Tag As strip appears after generation so you can label your model (Avatar, Creature, Item, Accessory, Scene, Vehicle) — this feeds the explore feed's category filters. An Open in Composer button links directly to /compose with the model pre-loaded. When a stored GLB fails to stream, the viewer now shows a clear error overlay instead of going blank, with a prompt to use the direct download link. The Download button shows a Preparing… state while stamping provenance metadata into the file. A crossorigin attribute was added to the model-viewer element for proper range-request handling on CORS-enabled CDN paths. Three unhandled-promise-rejection sources on the homepage were plugged — async IntersectionObserver callbacks and the AR-section IIFE now guard against abort errors when users navigate away mid-load. Backend health probes retry twice (at 30 s and 60 s) if the first check fails, so a brief cold-start no longer leaves all engine buttons stuck in an unknown state. Empty (0-byte) image uploads are now rejected immediately with a clear message instead of failing silently mid-upload.",
+			"tags": [
+				"improvement",
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-13",
+			"title": "Platform scalability improvements across the board",
+			"summary": "Five infrastructure changes to keep the platform fast as usage grows: usage telemetry now buffers writes in Redis and batch-inserts into Postgres instead of one DB connection per request, cutting Neon write pressure significantly at scale. A new hourly quota watchdog alerts the ops channel when Upstash Redis approaches 70% of its daily request limit — before the ceiling is hit. QStash's dead-letter queue is now monitored automatically so failed background jobs surface within the hour instead of going silent. The club live-stream switched to a shared per-instance poll loop with adaptive cadence — N open tabs now cost one Neon query per tick instead of N, and the poll slows to 5s during idle periods to preserve quota. Cold-start bundle sizes for monitoring crons and background jobs are now minimal — no more pulling skill files and data archives into endpoints that don't need them.",
+			"tags": [
+				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Clearer ways to reach us — a full contact directory on the support page",
 			"summary": "The support page now lists specialized, monitored contacts so your message reaches the right team fast: partnerships@three.ws for AWS Marketplace, IBM, and integration inquiries; privacy@three.ws for data requests; legal@three.ws for terms; dmca@three.ws for copyright notices; and abuse@three.ws for misuse reports — each with a one-tap copy button, alongside the existing support@ and security@ channels. Transactional emails now send from notifications@three.ws with replies routed to a real human at support@, and copyright takedowns route to a dedicated DMCA agent.",
 			"tags": [

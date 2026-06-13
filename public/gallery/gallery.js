@@ -741,7 +741,7 @@ async function loadForgeSection() {
 		for (const c of creations) forgeEls.grid.appendChild(renderForgeCard(c));
 
 		if (forgeEls.count) {
-			forgeEls.count.textContent = `${creations.length} recent`;
+			forgeEls.count.textContent = `${creations.length} models`;
 		}
 
 		forgeEls.section.hidden = false;

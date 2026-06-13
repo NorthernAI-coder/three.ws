@@ -272,7 +272,9 @@ For third-party pages, CMS platforms with strict CSP, or any context where you c
 The `allow` attribute controls browser feature access:
 - `camera` — required for AR mode
 - `microphone` — required for voice input
-- `xr-spatial-tracking` — required for WebXR AR
+- `xr-spatial-tracking` — required for WebXR AR. Without this, `navigator.xr` is blocked inside the frame and the AR button will not appear even on supported mobile devices.
+
+> See the [AR & WebXR guide](/docs/ar) for the full platform compatibility matrix, USDZ pipeline details, and troubleshooting for embedded AR.
 
 ### Embed URL formats
 

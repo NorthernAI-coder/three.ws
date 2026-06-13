@@ -18,10 +18,11 @@
  * Response: audio/mpeg (chunked)
  */
 
-import { Redis } from '@upstash/redis';
 import { env } from '../_lib/env.js';
+import { getRedis as _getSharedRedis } from '../_lib/redis.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
-import { cors, method, wrap, error, readJson } from '../_lib/http.js';
+import { cors, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sha256 } from '../_lib/crypto.js';
 import { headObject, getObjectBuffer, putObject } from '../_lib/r2.js';
 import {
@@ -44,15 +45,7 @@ function cacheAudio(key, buffer) {
 	}).catch((e) => console.warn('[tts/eleven] R2 cache write failed:', e.message));
 }
 
-// Only instantiate if Upstash is configured (mirrors the pattern in rate-limit.js).
-// Resolved through _lib/env.js so the Vercel-marketplace credential names work too.
-let redis = null;
-if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-	redis = new Redis({
-		url: env.UPSTASH_REDIS_REST_URL,
-		token: env.UPSTASH_REDIS_REST_TOKEN,
-	});
-}
+const redis = _getSharedRedis();
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -66,6 +59,9 @@ export default wrap(async (req, res) => {
 	const bearer = session ? null : await authenticateBearer(extractBearer(req));
 	if (!session && !bearer) return error(res, 401, 'unauthorized', 'sign in required');
 	const userId = session?.id ?? bearer.userId;
+
+	const rl = await limits.ttsSpeakUser(userId);
+	if (!rl.success) return rateLimited(res, rl);
 
 	const body = await readJson(req);
 	const voiceId = String(body.voiceId || '').trim();

@@ -390,6 +390,8 @@ function revealSketchMode() {
 // Live-probe the backends in the background, then tighten the engine buttons:
 // a lane whose upstream is down gets disabled with the real reason instead of
 // failing after the user has already typed a prompt and clicked Generate.
+// On failure, retries twice (at 30s then 60s) before giving up.
+let healthRetryCount = 0;
 async function loadHealth() {
 	try {
 		const res = await fetch('/api/forge?health=1', { headers: CLIENT_HEADERS });
@@ -398,7 +400,13 @@ async function loadHealth() {
 	} catch {
 		health = null;
 	}
-	if (health) updateEngineAvailability();
+	if (health) {
+		healthRetryCount = 0;
+		updateEngineAvailability();
+	} else if (healthRetryCount < 2) {
+		healthRetryCount += 1;
+		setTimeout(loadHealth, healthRetryCount * 30_000);
+	}
 }
 
 function buildEngineButtons() {
@@ -803,6 +811,10 @@ async function uploadToSlot(index, file) {
 		setSlotError(index, 'Use PNG, JPG, or WebP.');
 		return;
 	}
+	if (file.size === 0) {
+		setSlotError(index, 'File is empty.');
+		return;
+	}
 	if (file.size > MAX_UPLOAD_BYTES) {
 		setSlotError(index, 'Too large (max 8 MB).');
 		return;
@@ -942,6 +954,11 @@ function clearSketch() {
 async function uploadSketch(file) {
 	if (!ACCEPTED_TYPES.has(file.type)) {
 		Object.assign(sketch, { state: 'error', url: null, errorMsg: 'Use PNG, JPG, or WebP.' });
+		renderSketchSlot();
+		return;
+	}
+	if (file.size === 0) {
+		Object.assign(sketch, { state: 'error', url: null, errorMsg: 'File is empty.' });
 		renderSketchSlot();
 		return;
 	}
@@ -1239,6 +1256,7 @@ function showResult(glbUrl, label, meta, { autoSaved = false } = {}) {
 	stopElapsed();
 	resetVerdict();
 	resetCategoryPicker();
+	if (els.categoryPicker) els.categoryPicker.hidden = false;
 	els.viewerShell?.classList.remove('has-load-error');
 	els.viewer.setAttribute('src', glbUrl);
 	els.viewer.setAttribute('alt', `3D model: ${label}`);
@@ -1764,10 +1782,12 @@ els.cancel.addEventListener('click', () => {
 	pollAbort = true;
 	stopElapsed();
 	setBusy(false);
+	if (els.categoryPicker) els.categoryPicker.hidden = true;
 	showState('empty');
 });
 
 els.again.addEventListener('click', () => {
+	if (els.categoryPicker) els.categoryPicker.hidden = true;
 	showState('empty');
 	if (mode === 'text') {
 		els.prompt.focus();
@@ -1780,6 +1800,7 @@ els.again.addEventListener('click', () => {
 });
 
 els.retry.addEventListener('click', () => {
+	if (els.categoryPicker) els.categoryPicker.hidden = true;
 	if (lastJob && (lastJob.prompt || (lastJob.imageUrls && lastJob.imageUrls.length))) {
 		run(lastJob);
 	} else {
@@ -1843,6 +1864,9 @@ els.download.addEventListener('click', async (e) => {
 	if (!glbUrl || glbUrl.startsWith('blob:') || els.download.dataset.stamping) return;
 	e.preventDefault();
 	els.download.dataset.stamping = '1';
+	els.download.setAttribute('aria-busy', 'true');
+	const originalText = els.download.textContent;
+	els.download.textContent = 'Preparing…';
 	const filename = els.download.getAttribute('download') || 'forge.glb';
 	try {
 		const res = await fetch(glbUrl);
@@ -1863,6 +1887,8 @@ els.download.addEventListener('click', async (e) => {
 		a.click();
 	} finally {
 		delete els.download.dataset.stamping;
+		els.download.removeAttribute('aria-busy');
+		els.download.textContent = originalText;
 	}
 });
 

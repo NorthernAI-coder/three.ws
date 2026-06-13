@@ -31,8 +31,8 @@
 // All writes are best-effort. The feed is a delight layer, never on a critical
 // path: a Redis outage degrades to an empty feed, never a thrown error.
 
-import { Redis } from '@upstash/redis';
 import { env } from './env.js';
+import { getRedis } from './redis.js';
 import { insertNotification } from './notify.js';
 
 const FEED_KEY = 'feed:events';
@@ -68,16 +68,7 @@ export const USER_EVENT_TYPES = new Set([
 	'referral_earned',
 ]);
 
-let _redis = null;
-let _redisTried = false;
-function redis() {
-	if (_redisTried) return _redis;
-	_redisTried = true;
-	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
-	}
-	return _redis;
-}
+function redis() { return getRedis(); }
 
 let _seq = 0;
 // A sortable, collision-resistant id: a base36 timestamp prefix plus a per-

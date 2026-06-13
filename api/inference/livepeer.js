@@ -24,7 +24,8 @@
 import { Livepeer } from 'livepeer';
 import { env } from '../_lib/env.js';
 import { llmComplete } from '../_lib/llm.js';
-import { cors, method, readJson, error, json, wrap } from '../_lib/http.js';
+import { cors, method, readJson, error, json, wrap, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 
 export const maxDuration = 60;
 
@@ -226,6 +227,9 @@ export default wrap(async function handler(req, res) {
 	}
 
 	if (!method(req, res, ['POST'])) return;
+
+	const rl = await limits.livepeerIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	let body;
 	try {

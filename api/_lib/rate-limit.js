@@ -1,13 +1,10 @@
 // Distributed rate limiting via Upstash Redis. Falls back to in-memory for local dev.
 
 import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
 import { env } from './env.js';
+import { getRedis } from './redis.js';
 
-let redis = null;
-if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-	redis = new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
-}
+const redis = getRedis();
 
 // Prod signal: real deployments set NODE_ENV=production (Vercel does). Tests and
 // local dev never do, so the in-memory fallback stays fully permissive there.
@@ -504,6 +501,19 @@ export const limits = {
 	// price: public endpoint, 120/min per IP — fast cache-served; upstream
 	//   Jupiter is rate-limit-free, but the cache makes this essentially free.
 	tokenPriceIp: (ip) => getLimiter('token:price:ip', { limit: 120, window: '1 m' }).limit(ip),
+	// Livepeer LLM comparison endpoint — calls both Claude and Livepeer per POST.
+	// Per-IP only (unauthenticated public demo). Critical so Redis outage in prod
+	// fails closed rather than opening the LLM floodgate.
+	livepeerIp: (ip) =>
+		getLimiter('livepeer:ip', { limit: 20, window: '1 m', critical: true }).limit(ip),
+	// Talking-avatar video generation — submits GPU jobs to Cloud Run. Each job
+	// costs real compute. Per-user ceiling (authenticated endpoint). Critical.
+	videoGenerateUser: (userId) =>
+		getLimiter('video:generate:user', { limit: 5, window: '1 h', critical: true }).limit(userId),
+	videoGenerateGlobal: () =>
+		getLimiter('video:generate:global', { limit: 100, window: '1 h', critical: true }).limit(
+			'global',
+		),
 };
 
 // Trust only proxy headers that Vercel itself sets and signs. Naively reading

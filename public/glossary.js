@@ -113,7 +113,7 @@
 		// Glossary terms get a "deeper link" to the full /glossary entry; generic
 		// tips (attachTip) intentionally don't, so this lives only on this path.
 		var more = '<a class="tws-tt-more" href="/glossary#' + slug(key) + '">Full glossary &rarr;</a>';
-		showPopContent(triggerEl, '<strong>' + esc(label) + '</strong>' + esc(def) + more);
+		showPopContent(triggerEl, '<strong>' + esc(label) + '</strong><span class="tws-tt-def">' + esc(def) + '</span>' + more);
 	}
 
 	// Render arbitrary (caller-escaped) content in the shared popover singleton.

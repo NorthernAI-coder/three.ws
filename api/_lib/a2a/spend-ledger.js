@@ -16,18 +16,13 @@
 // passing values beyond Number.MAX_SAFE_INTEGER so Redis INCRBY (int64) and the
 // memory path agree.
 
-import { Redis } from '@upstash/redis';
 import { env } from '../env.js';
+import { getRedis as _getSharedRedis } from '../redis.js';
 
 const IS_PROD = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 
-let redis = null;
-if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-	redis = new Redis({
-		url: env.UPSTASH_REDIS_REST_URL,
-		token: env.UPSTASH_REDIS_REST_TOKEN,
-	});
-} else if (IS_PROD) {
+const redis = _getSharedRedis();
+if (!redis && IS_PROD) {
 	console.warn(
 		'[a2a-spend-ledger] UPSTASH_REDIS_REST_URL/TOKEN not set; using per-instance ' +
 			'memory fallback. Cross-replica mandate budget enforcement requires Redis.',

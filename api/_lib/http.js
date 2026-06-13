@@ -11,6 +11,9 @@ export function json(res, status, body, headers = {}) {
 	res.statusCode = status;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
+	res.setHeader('x-content-type-options', 'nosniff');
+	res.setHeader('x-frame-options', 'DENY');
+	res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');
 	for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
 	res.end(JSON.stringify(body));
 }
@@ -18,6 +21,10 @@ export function json(res, status, body, headers = {}) {
 export function text(res, status, body, headers = {}) {
 	res.statusCode = status;
 	res.setHeader('content-type', 'text/plain; charset=utf-8');
+	res.setHeader('cache-control', 'no-store');
+	res.setHeader('x-content-type-options', 'nosniff');
+	res.setHeader('x-frame-options', 'DENY');
+	res.setHeader('referrer-policy', 'strict-origin-when-cross-origin');
 	for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
 	res.end(body);
 }

@@ -87,6 +87,22 @@
 			<description>Forge now speaks to more best-in-class 3D generators, so you can pick the engine that fits the job. Rodin (Hyper3D) joins for native text-to-geometry and image-to-3D with clean quad topology and a real polygon target; Stable Fast 3D turns a single photo into a textured model in seconds; and you can now run reconstructions on your own Replicate account. Tripo, which was already supported, finally has a key field in your account settings alongside Meshy. All of these are bring-your-own-key — add a key under Account, then Provider Keys, and the engine lights up. The free, no-setup lanes for prompts and sketches are unchanged, and if you choose the geometry path without a key, Forge now quietly falls back to the free engine instead of asking for one.</description>
 		</item>
 		<item>
+			<title>Forge improvements: category tagging, model load errors, and more</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-13:Forge improvements: category tagging, model load errors, and more</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Several Forge improvements ship today: a new Tag As strip appears after generation so you can label your model (Avatar, Creature, Item, Accessory, Scene, Vehicle) — this feeds the explore feed's category filters. An Open in Composer button links directly to /compose with the model pre-loaded. When a stored GLB fails to stream, the viewer now shows a clear error overlay instead of going blank, with a prompt to use the direct download link. The Download button shows a Preparing… state while stamping provenance metadata into the file. A crossorigin attribute was added to the model-viewer element for proper range-request handling on CORS-enabled CDN paths. Three unhandled-promise-rejection sources on the homepage were plugged — async IntersectionObserver callbacks and the AR-section IIFE now guard against abort errors when users navigate away mid-load. Backend health probes retry twice (at 30 s and 60 s) if the first check fails, so a brief cold-start no longer leaves all engine buttons stuck in an unknown state. Empty (0-byte) image uploads are now rejected immediately with a clear message instead of failing silently mid-upload.</description>
+		</item>
+		<item>
+			<title>Platform scalability improvements across the board</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-13:Platform scalability improvements across the board</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>Five infrastructure changes to keep the platform fast as usage grows: usage telemetry now buffers writes in Redis and batch-inserts into Postgres instead of one DB connection per request, cutting Neon write pressure significantly at scale. A new hourly quota watchdog alerts the ops channel when Upstash Redis approaches 70% of its daily request limit — before the ceiling is hit. QStash's dead-letter queue is now monitored automatically so failed background jobs surface within the hour instead of going silent. The club live-stream switched to a shared per-instance poll loop with adaptive cadence — N open tabs now cost one Neon query per tick instead of N, and the poll slows to 5s during idle periods to preserve quota. Cold-start bundle sizes for monitoring crons and background jobs are now minimal — no more pulling skill files and data archives into endpoints that don't need them.</description>
+		</item>
+		<item>
 			<title>pump.fun MCP server now listed in the official MCP registry</title>
 			<link>https://three.ws/</link>
 			<guid isPermaLink="false">2026-06-13:pump.fun MCP server now listed in the official MCP registry</guid>
@@ -117,6 +133,14 @@
 			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>New /compose page lets you build a 3D scene live: load an avatar (or start empty), type a prompt to forge new items, and drop them straight into the scene. Select any object with a click to translate, rotate, or scale it with the gizmo. Items can be attached to specific avatar bones — hat to head, sword to right hand — and the inspector shows live transform values you can also type in. When you're done, export the full scene as a GLB or save an outfit back to your avatar. Your recent forge creations appear in the panel so you can reuse them across sessions without re-generating.</description>
+		</item>
+		<item>
+			<title>Security and scalability hardening</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-13:Security and scalability hardening</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Several infrastructure improvements ship today to keep the platform safe and fast at growth scale. All Redis connections across the API now share a single Upstash client instance, eliminating the duplicate quota consumption that caused the June 2026 rate-limit outage. A per-user daily LLM spend cap is now enforced on platform-paid inference keys — callers who exhaust their daily budget receive a clear 429 with a reset time rather than silently running up costs. The SSRF guard gains an IP-pinned fetch variant for proxy and webhook endpoints, closing a DNS-rebinding window where a hostile DNS server could swap an address between the safety check and the actual TCP connection. An admin Redis health panel exposes live quota usage and latency with one click, complementing the existing automated hourly quota watchdog that pages the ops channel at 70% and 90% of the daily limit.</description>
 		</item>
 		<item>
 			<title>See any Forge model in AR — scan from your desktop, place it in your room</title>

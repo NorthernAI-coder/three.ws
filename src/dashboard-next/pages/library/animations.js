@@ -2,6 +2,8 @@
 // Aggregates animation clips from every agent the user owns
 // (agent.meta.animations is the canonical store). Upload uses the same
 // presign → R2 PUT → PATCH agents/:id/animations flow as the legacy dashboard.
+// Supports .glb, .fbx, and .bvh inputs — FBX and BVH are converted to GLB
+// client-side via three.js loaders before upload.
 
 import { get, put, post, esc, relTime } from '../../api.js';
 
@@ -16,6 +18,101 @@ function friendly(err) {
 	return msg.replace(/^HTTP\s+\d+\s*/i, '') || 'Upload failed.';
 }
 
+/**
+ * Convert an FBX or BVH file to a GLB binary File object.
+ * If the input is already .glb it is returned unchanged.
+ *
+ * @param {File} file       - The source file.
+ * @param {(msg:string)=>void} onStatus - Called with progress messages.
+ * @returns {Promise<File>} - A .glb File ready for upload.
+ */
+async function convertToGlb(file, onStatus) {
+	const ext = file.name.split('.').pop().toLowerCase();
+
+	if (ext === 'glb') return file;
+
+	const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
+	const { Object3D } = await import('three');
+
+	const readAsArrayBuffer = (f) =>
+		new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result);
+			reader.onerror = () => reject(new Error('Failed to read file'));
+			reader.readAsArrayBuffer(f);
+		});
+
+	const exportGlb = (scene, animations) =>
+		new Promise((resolve, reject) => {
+			const exporter = new GLTFExporter();
+			exporter.parse(
+				scene,
+				(glb) => resolve(glb),
+				(err) => reject(new Error(`GLTFExporter error: ${err?.message || err}`)),
+				{ binary: true, animations },
+			);
+		});
+
+	if (ext === 'fbx') {
+		onStatus('Reading FBX file…');
+		const buffer = await readAsArrayBuffer(file);
+
+		onStatus('Parsing FBX…');
+		const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js');
+		const loader = new FBXLoader();
+		const fbxScene = loader.parse(buffer, '');
+
+		const animations = fbxScene.animations || [];
+		if (!animations.length) throw new Error('No animation tracks found in this FBX file.');
+
+		onStatus(`Converting ${animations.length} clip${animations.length > 1 ? 's' : ''} to GLB…`);
+		const glbBuffer = await exportGlb(fbxScene, animations);
+
+		const baseName = file.name.replace(/\.fbx$/i, '.glb');
+		return new File([glbBuffer], baseName, { type: 'model/gltf-binary' });
+	}
+
+	if (ext === 'bvh') {
+		onStatus('Reading BVH file…');
+		const text = await file.text();
+
+		onStatus('Parsing BVH skeleton and clip…');
+		const { BVHLoader } = await import('three/addons/loaders/BVHLoader.js');
+		const loader = new BVHLoader();
+		const result = loader.parse(text);
+
+		if (!result.clip || !result.clip.tracks?.length) {
+			throw new Error('No animation tracks found in this BVH file.');
+		}
+
+		onStatus('Building scene hierarchy…');
+		// BVHLoader gives us a raw skeleton; wire the root bone into an Object3D
+		// so GLTFExporter can traverse the hierarchy.
+		const root = new Object3D();
+		root.name = 'BVHRoot';
+		if (result.skeleton?.bones?.length) {
+			root.add(result.skeleton.bones[0]);
+		}
+
+		onStatus('Converting BVH to GLB…');
+		const glbBuffer = await exportGlb(root, [result.clip]);
+
+		const baseName = file.name.replace(/\.bvh$/i, '.glb');
+		return new File([glbBuffer], baseName, { type: 'model/gltf-binary' });
+	}
+
+	throw new Error(`Unsupported format ".${ext}". Please use .glb, .fbx, or .bvh.`);
+}
+
+/** Derive a title-cased clip name from a filename (strip extension, replace separators). */
+function clipNameFromFilename(filename) {
+	const base = filename.replace(/\.[^.]+$/, ''); // strip extension
+	return base
+		.replace(/[_-]+/g, ' ')
+		.replace(/\b\w/g, (c) => c.toUpperCase())
+		.trim();
+}
+
 export async function renderAnimations(host) {
 	host.innerHTML = `
 		<div class="anim-head">
@@ -25,7 +122,7 @@ export async function renderAnimations(host) {
 			</div>
 			<div class="anim-head-actions">
 				<a class="dn-btn ghost" href="/walk">Browse presets →</a>
-				<button class="dn-btn primary" id="anim-upload-open" type="button">Upload .glb</button>
+				<button class="dn-btn primary" id="anim-upload-open" type="button">Upload clip (.glb / .fbx / .bvh)</button>
 			</div>
 		</div>
 
@@ -34,7 +131,7 @@ export async function renderAnimations(host) {
 		<dialog id="anim-upload" class="anim-dialog">
 			<form method="dialog" class="anim-upload-form">
 				<h3 style="margin:0 0 4px">Upload animation clip</h3>
-				<p class="dn-panel-sub" style="margin:0 0 12px">Drop a Mixamo-rigged .glb. We attach it to the agent you choose.</p>
+				<p class="dn-panel-sub" style="margin:0 0 12px">Drop a .glb, .fbx, or .bvh animation clip. FBX and BVH are converted to GLB automatically before uploading.</p>
 
 				<label class="anim-field">
 					<span>Attach to agent</span>
@@ -47,8 +144,8 @@ export async function renderAnimations(host) {
 				</label>
 
 				<label class="anim-field">
-					<span>.glb file (max 100 MB)</span>
-					<input id="anim-up-file" type="file" accept=".glb,model/gltf-binary" required />
+					<span>.glb, .fbx, or .bvh file (max 100 MB)</span>
+					<input id="anim-up-file" type="file" accept=".glb,.fbx,.bvh,model/gltf-binary" required />
 				</label>
 
 				<label class="anim-field-row">
@@ -111,7 +208,7 @@ export async function renderAnimations(host) {
 		grid.innerHTML = `
 			<div class="dn-empty" style="grid-column:1/-1">
 				<h3>No animations yet</h3>
-				<p>Upload a .glb or pick from our mocap library.</p>
+				<p>Upload a .glb, .fbx, or .bvh clip, or pick from our mocap library.</p>
 				<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
 					<button class="dn-btn primary" id="anim-empty-upload" type="button">Upload</button>
 					<a class="dn-btn ghost" href="/walk">Browse presets →</a>
@@ -163,19 +260,39 @@ function openUploadDialog(host, agents, onDone) {
 	dialog.querySelector('#anim-up-status').textContent = '';
 	dialog.querySelector('#anim-up-error').textContent = '';
 
+	// Auto-fill clip name from filename when a file is picked
+	dialog.querySelector('#anim-up-file').addEventListener('change', (e) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		const nameInput = dialog.querySelector('#anim-up-name');
+		if (!nameInput.value.trim()) {
+			nameInput.value = clipNameFromFilename(file.name);
+		}
+	});
+
 	dialog.querySelector('#anim-up-cancel').onclick = () => dialog.close();
 	dialog.querySelector('#anim-up-submit').onclick = async () => {
-		const agentId = agentSel.value;
-		const name    = dialog.querySelector('#anim-up-name').value.trim();
-		const file    = dialog.querySelector('#anim-up-file').files?.[0];
-		const loop    = dialog.querySelector('#anim-up-loop').checked;
+		const agentId  = agentSel.value;
+		const name     = dialog.querySelector('#anim-up-name').value.trim();
+		const file     = dialog.querySelector('#anim-up-file').files?.[0];
+		const loop     = dialog.querySelector('#anim-up-loop').checked;
 		const statusEl = dialog.querySelector('#anim-up-status');
 		const errorEl  = dialog.querySelector('#anim-up-error');
+		const submitBtn = dialog.querySelector('#anim-up-submit');
 		errorEl.textContent = '';
 
 		if (!agentId) { errorEl.textContent = 'Select an agent.'; return; }
 		if (!name)    { errorEl.textContent = 'Clip name is required.'; return; }
-		if (!file)    { errorEl.textContent = 'Pick a .glb file.'; return; }
+		if (!file) {
+			errorEl.textContent = 'Pick a .glb, .fbx, or .bvh file.';
+			return;
+		}
+
+		const ext = file.name.split('.').pop().toLowerCase();
+		if (!['glb', 'fbx', 'bvh'].includes(ext)) {
+			errorEl.textContent = 'Pick a .glb, .fbx, or .bvh file.';
+			return;
+		}
 
 		const agent = agents.find((a) => a.id === agentId);
 		const current = Array.isArray(agent?.meta?.animations) ? [...agent.meta.animations] : [];
@@ -184,17 +301,22 @@ function openUploadDialog(host, agents, onDone) {
 			return;
 		}
 
-		statusEl.textContent = 'Requesting upload URL…';
+		submitBtn.disabled = true;
 		try {
+			// Convert FBX/BVH → GLB if needed
+			statusEl.textContent = ext === 'glb' ? 'Preparing…' : 'Converting…';
+			const glbFile = await convertToGlb(file, (msg) => { statusEl.textContent = msg; });
+
+			statusEl.textContent = 'Requesting upload URL…';
 			const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'anim';
 			const presign = await post('/api/animations/presign', {
-				size_bytes: file.size,
+				size_bytes: glbFile.size,
 				content_type: 'model/gltf-binary',
 				slug,
 			});
 
-			statusEl.textContent = `Uploading ${(file.size / 1024 / 1024).toFixed(1)} MB…`;
-			await uploadFile(presign.upload_url, file, (pct) => {
+			statusEl.textContent = `Uploading ${(glbFile.size / 1024 / 1024).toFixed(1)} MB…`;
+			await uploadFile(presign.upload_url, glbFile, (pct) => {
 				statusEl.textContent = `Uploading ${pct}%…`;
 			});
 
@@ -211,6 +333,8 @@ function openUploadDialog(host, agents, onDone) {
 		} catch (err) {
 			statusEl.textContent = '';
 			errorEl.textContent = friendly(err);
+		} finally {
+			submitBtn.disabled = false;
 		}
 	};
 

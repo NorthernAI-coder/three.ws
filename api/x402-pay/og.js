@@ -3,8 +3,7 @@
 // X / Slack / Discord / iMessage, the link expands to a branded summary of the
 // paid x402 call (tool, amount, payer, timestamp).
 
-import { Redis } from '@upstash/redis';
-import { env } from '../_lib/env.js';
+import { getRedis as _getSharedRedis } from '../_lib/redis.js';
 import { logger } from '../_lib/usage.js';
 
 const log = logger('x402-og');
@@ -12,14 +11,7 @@ const log = logger('x402-og');
 const FALLBACK_TITLE = 'three.ws · pay-per-call (x402)';
 const FALLBACK_SUB = 'Live demo — agent pays $0.001 USDC per MCP tool call.';
 
-let _redis = null;
-function redis() {
-	if (_redis !== null) return _redis;
-	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
-	} else _redis = false;
-	return _redis;
-}
+function redis() { return _getSharedRedis(); }
 
 async function readCall(tx) {
 	const r = redis();

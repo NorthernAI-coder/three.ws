@@ -33,9 +33,9 @@
 // stay open up to the Hobby ceiling; we send a `retry` directive and close just
 // before the hard timeout, and EventSource reconnects automatically.
 
-import { Redis } from '@upstash/redis';
 import { cors, method } from './_lib/http.js';
 import { env } from './_lib/env.js';
+import { getRedis as _getSharedRedis } from './_lib/redis.js';
 
 const FEED_KEY = 'feed:events';
 const HEARTBEAT_MS = 15_000;
@@ -46,10 +46,7 @@ const HEAD_N = 30; // how far back we scan each tick for unseen events
 const BREAKER_COOLDOWN_MS = 60_000; // pause polling this long after a quota error
 const MAX_DURATION_MS = 275_000; // close before Vercel's 300s hard timeout
 
-function redis() {
-	if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) return null;
-	return new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
-}
+function redis() { return _getSharedRedis(); }
 
 function parseRow(row) {
 	if (row && typeof row === 'object') return row; // Upstash auto-deserializes

@@ -1,7 +1,7 @@
 import { sql } from '../../_lib/db.js';
 import { cors, json, error, method, wrap, rateLimited } from '../../_lib/http.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
-import { env } from '../../_lib/env.js';
+import { getRedis } from '../../_lib/redis.js';
 
 const CACHE_TTL_S = 300; // 5 minutes
 
@@ -15,17 +15,6 @@ const RPC = {
 	11155111: 'https://ethereum-sepolia.publicnode.com',
 	84532: 'https://base-sepolia.publicnode.com',
 };
-
-let _redis = null;
-async function getRedis() {
-	if (_redis) return _redis;
-	const url = env.UPSTASH_REDIS_REST_URL;
-	const token = env.UPSTASH_REDIS_REST_TOKEN;
-	if (!url || !token) return null;
-	const { Redis } = await import('@upstash/redis');
-	_redis = new Redis({ url, token });
-	return _redis;
-}
 
 export const handleReputation = wrap(async (req, res, agentId) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: false })) return;

@@ -2,22 +2,9 @@
 // Each function reads a Redis list populated by the pumpkit worker.
 // Returns [] when Redis is unconfigured or unavailable.
 
-import { Redis } from '@upstash/redis';
-import { env } from './env.js';
+import { getRedis } from './redis.js';
 
-let _redis = null;
-function redis() {
-	if (_redis !== null) return _redis;
-	if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = false;
-		return null;
-	}
-	_redis = new Redis({
-		url: env.UPSTASH_REDIS_REST_URL,
-		token: env.UPSTASH_REDIS_REST_TOKEN,
-	});
-	return _redis;
-}
+function redis() { return getRedis(); }
 
 function safeJson(s) {
 	try { return JSON.parse(s); } catch { return null; }

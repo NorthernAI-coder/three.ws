@@ -932,43 +932,52 @@
 		@media (max-width: 720px) { .cta-card { padding: 48px 24px; } }
 
 		/* ── FOOTER ──────────────────────────────────────────────── */
-		footer { border-top: 1px solid var(--hairline); padding: 56px 0; }
+		footer { border-top: 1px solid var(--hairline); padding: 60px 0 52px; }
 		.foot-cols {
 			display: grid;
 			grid-template-columns: repeat(6, 1fr);
-			gap: 32px; margin-bottom: 48px;
-			padding-bottom: 40px; border-bottom: 1px solid var(--hairline);
+			gap: 32px; margin-bottom: 44px;
+			padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,.06);
 		}
-		.foot-col { display: flex; flex-direction: column; gap: 10px; }
+		.foot-col { display: flex; flex-direction: column; gap: 9px; }
 		.foot-col-h {
-			font-family: var(--font-mono); font-size: 11px;
-			text-transform: uppercase; letter-spacing: 0.16em;
-			color: var(--text-4); margin-bottom: 4px;
+			font-family: var(--font-mono); font-size: 10px;
+			text-transform: uppercase; letter-spacing: 0.18em;
+			color: var(--text-4); margin-bottom: 6px;
 		}
-		.foot-col a { color: var(--text-3); font-size: 13.5px; transition: color 0.15s; }
-		.foot-col a:hover { color: var(--text); }
+		.foot-col a {
+			color: rgba(255,255,255,.32); font-size: 13px;
+			transition: color 0.14s;
+		}
+		.foot-col a:hover { color: rgba(255,255,255,.72); }
 		@media (max-width: 880px) {
-			.foot-cols { grid-template-columns: repeat(2, 1fr); gap: 28px 24px; }
+			.foot-cols { grid-template-columns: repeat(3, 1fr); gap: 28px 24px; }
 		}
 		@media (max-width: 460px) {
 			.foot-cols { grid-template-columns: 1fr 1fr; }
 		}
 		.foot-inner {
 			display: flex; justify-content: space-between; align-items: center;
-			gap: 24px; flex-wrap: wrap;
-			color: var(--text-4); font-size: 13px; font-family: var(--font-mono);
+			gap: 20px; flex-wrap: wrap;
+			color: rgba(255,255,255,.22); font-size: 12px; font-family: var(--font-mono);
 			letter-spacing: 0.04em;
 		}
 		.foot-ca {
 			display: flex; align-items: center; gap: 8px;
-			background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
-			border-radius: 999px; padding: 5px 12px; cursor: pointer;
-			font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
+			background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.09);
+			border-radius: 999px; padding: 5px 11px 5px 10px; cursor: pointer;
+			font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.35);
 			transition: background .15s, border-color .15s, color .15s;
 		}
-		.foot-ca:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: var(--text); }
-		.foot-ca-label { color: #9ad4ff; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
-		.foot-ca-addr { opacity: .7; }
+		.foot-ca:hover {
+			background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.18);
+			color: rgba(255,255,255,.7);
+		}
+		.foot-ca-label {
+			color: #7ec8f8; font-weight: 700; font-size: 10.5px;
+			text-transform: uppercase; letter-spacing: 0.10em;
+		}
+		.foot-ca-addr { opacity: .55; font-size: 10.5px; }
 
 		/* ── HERO LOADING ───────────────────────────────────────── */
 		.hero-stage-shimmer {
@@ -2517,7 +2526,7 @@
 		<div class="cap-inner">
 			<span class="cap-item">Text → 3D generation</span>
 			<span class="cap-sep">·</span>
-			<span class="cap-item">200+ animation clips</span>
+			<span class="cap-item">100+ animation clips</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">1-line embed</span>
 			<span class="cap-sep">·</span>
@@ -2553,7 +2562,7 @@
 		<div class="cap-inner" aria-hidden="true">
 			<span class="cap-item">Text → 3D generation</span>
 			<span class="cap-sep">·</span>
-			<span class="cap-item">200+ animation clips</span>
+			<span class="cap-item">100+ animation clips</span>
 			<span class="cap-sep">·</span>
 			<span class="cap-item">1-line embed</span>
 			<span class="cap-sep">·</span>
@@ -2916,7 +2925,7 @@
 
 <!-- ── COMMUNITY FORGE — live spinning models from /api/forge-gallery ── -->
 <style>
-	#home-community-forge { overflow: hidden; }
+	#home-community-forge { overflow: hidden; border-top: 1px solid var(--hairline); }
 	#home-community-forge .hcf-head {
 		display: flex; align-items: flex-end; justify-content: space-between;
 		gap: 16px; margin-bottom: 28px;
@@ -2944,21 +2953,26 @@
 	#home-community-forge .hcf-cta:hover { color: var(--text); border-color: var(--hairline-strong); }
 	#home-community-forge .hcf-track {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-		gap: 14px;
+		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+		gap: 12px;
 	}
-	@media (min-width: 900px) {
+	@media (min-width: 1100px) {
 		#home-community-forge .hcf-track {
-			grid-template-columns: repeat(5, 1fr);
+			grid-template-columns: repeat(6, 1fr);
 		}
 	}
-	@media (max-width: 640px) {
+	@media (min-width: 700px) and (max-width: 1099px) {
+		#home-community-forge .hcf-track {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+	@media (max-width: 699px) {
 		#home-community-forge .hcf-track {
 			grid-template-columns: repeat(2, 1fr);
 		}
 	}
 	.hcf-card {
-		border-radius: 14px; overflow: hidden;
+		border-radius: 12px; overflow: hidden;
 		border: 1px solid var(--hairline);
 		background: var(--surface-1);
 		display: flex; flex-direction: column;
@@ -3097,7 +3111,7 @@
 		return card;
 	}
 
-	fetch('/api/forge-gallery?scope=community&limit=20')
+	fetch('/api/forge-gallery?scope=community&limit=24')
 		.then(function(r) { return r.json(); })
 		.then(function(data) {
 			var all = Array.isArray(data && data.creations) ? data.creations : [];
@@ -3108,7 +3122,7 @@
 				if (seen.has(key)) return false;
 				seen.add(key);
 				return true;
-			}).slice(0, 5);
+			}).slice(0, 6);
 
 			if (!data.enabled || items.length === 0) {
 				document.getElementById('home-community-forge').hidden = true;
@@ -3801,7 +3815,8 @@
 				<div style="display:flex;flex-direction:column;gap:10px">
 					<a class="har-cta-link" href="/forge">Generate your own model &rarr;</a>
 					<a class="har-cta-link" href="/gallery">Browse the avatar gallery &rarr;</a>
-					<a class="har-cta-link" href="/blog/see-your-3d-in-ar">How AR works on three.ws &rarr;</a>
+					<a class="har-cta-link" href="/features/ar">AR feature overview &rarr;</a>
+					<a class="har-cta-link" href="/blog/see-your-3d-in-ar">How AR works &rarr;</a>
 				</div>
 			</div>
 		</div>
@@ -3990,15 +4005,15 @@
 					<span class="dot" style="background:var(--ink);box-shadow:0 0 8px #e8e8e855"></span>
 					<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-3)">Animations</span>
 				</div>
-				<p class="bento-title">200+ motion clips</p>
-				<p class="bento-desc">Walk, dance, gesture, emote — a full library of idle loops and triggered animations that blend seamlessly. Or upload your own FBX/BVH captures.</p>
+				<p class="bento-title"><span id="bento-anim-count">100+</span> motion clips</p>
+				<p class="bento-desc">Walk, dance, gesture, emote — a growing library of idle loops and triggered animations that blend seamlessly. Upload your own GLB, FBX, or BVH captures.</p>
 				<div class="bento-agent-mini" id="bento-anim"></div>
 				<div class="bento-pills" id="bento-anim-pills">
-					<button class="bento-pill bento-pill-btn" data-anim="idle">Idle</button>
+					<button class="bento-pill bento-pill-btn active" data-anim="idle">Idle</button>
 					<button class="bento-pill bento-pill-btn" data-anim="av-walk-feminine">Walk</button>
-					<button class="bento-pill bento-pill-btn" data-anim="wave">Wave</button>
-					<button class="bento-pill bento-pill-btn" data-anim="dance">Dance</button>
+					<button class="bento-pill bento-pill-btn" data-anim="michelle-samba-dance">Samba</button>
 					<button class="bento-pill bento-pill-btn" data-anim="capoeira">Capoeira</button>
+					<button class="bento-pill bento-pill-btn" data-anim="xbot-sneak-pose">Sneak</button>
 					<button class="bento-pill bento-pill-btn" data-anim="jump">Jump</button>
 				</div>
 			</div>

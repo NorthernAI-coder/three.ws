@@ -499,6 +499,105 @@ Organized by symptom. Find your problem, check the likely causes, follow the fix
 
 ---
 
+## Augmented Reality (AR)
+
+### The AR button doesn't appear on mobile
+
+**Symptom:** The `<agent-3d ar>` element renders correctly, but no AR button is visible on an iPhone or Android phone.
+
+**Check 1 — `ar` attribute is present:**
+```html
+<agent-3d id="..." ar></agent-3d>
+```
+Without `ar`, the button is never rendered, even on supported devices.
+
+**Check 2 — correct browser:**
+- iPhone: must be **Safari**. Chrome, Firefox, and all other iOS browsers use WebKit but lack the Quick Look integration that triggers AR. The button is hidden for non-Safari iOS browsers.
+- Android: must be **Chrome** (or a Chromium-based browser with ARCore). Firefox on Android does not support Scene Viewer or WebXR AR.
+
+**Check 3 — inside an iframe:**
+Add `allow="xr-spatial-tracking"` to the `<iframe>` element. Without it, the browser blocks `navigator.xr` inside the frame.
+
+```html
+<iframe
+  src="https://three.ws/embed/avatar/YOUR_ID"
+  allow="microphone; camera; xr-spatial-tracking; fullscreen"
+></iframe>
+```
+
+**Check 4 — model not yet loaded:**
+The AR button is only shown after the GLB finishes loading. If the model is large or on a slow connection, the button appears late. Check the console for load errors.
+
+**Check 5 — HTTP origin:**
+`navigator.xr` is `undefined` on `http://` origins. All AR methods require HTTPS for the page or the model URL. Use ngrok or a deployed preview URL during development.
+
+---
+
+### AR button appears but tapping it does nothing
+
+**iOS:** The model URL is `http://`. Quick Look silently refuses non-HTTPS model URLs — it opens briefly then closes immediately, or never opens. Use an HTTPS URL for both the page and the GLB.
+
+**Android:** ARCore is not installed. Chrome shows a "Get ARCore" prompt on first use; if dismissed, nothing happens. Direct the user to install ARCore from the Play Store, then try again.
+
+**WebXR fallback:** The page origin is `http://`. `navigator.xr.isSessionSupported` throws on insecure origins.
+
+---
+
+### Quick Look opens but immediately closes
+
+Almost always a model problem:
+
+1. **File too large.** Quick Look on older devices struggles above ~15 MB. Compress textures and simplify geometry — see [model optimization](/docs/ar#model-size-and-compatibility).
+2. **Draco-compressed GLB.** Quick Look doesn't include a Draco decoder — the file may load partially then fail. Decompress it: `npx @gltf-transform/cli optimize model.glb out.glb --no-draco`.
+3. **CORS missing on the model URL.** Quick Look fetches the file separately from the browser, and CORS failures are silent. Verify `Access-Control-Allow-Origin: *` is present on the response headers for the GLB URL.
+4. **USDZ conversion failed.** Check the browser console for errors *before* Quick Look opens — the in-browser USDZExporter logs any failures. A corrupt or oversize USDZ causes immediate dismissal.
+
+---
+
+### The model is invisible or floating in WebXR
+
+**Background not cleared:** Verify the scene background is `null` when the XR session starts. If it's opaque, it occludes the camera passthrough — the agent is there but hidden behind the background color.
+
+**Agent placed off-screen:** If `activateAR()` is called before the agent is positioned in the viewport, the model may be anchored outside the camera frustum. Ensure the agent is visible in the standard 3D view before activating AR.
+
+**Hit-test not resolving:** WebXR hit-test requires a real flat surface with texture. Blank white desks, uniform floors, and glass surfaces confuse ARCore. Try a surface with visible pattern or grain.
+
+---
+
+### USDZ conversion is slow or fails
+
+The in-browser GLB → USDZ conversion runs in the main thread and can take 5–15 seconds for complex models. If it fails:
+
+- Check the browser console for errors from `USDZExporter`.
+- Try the model in the [glTF Validator](/validation) first — invalid GLBs often cause export failures.
+- Skinned/rigged meshes export as static poses in USDZ (animations are lost — this is expected).
+- Models over ~30 MB may time out or exhaust memory during conversion on mobile. Reduce the model size before attempting Quick Look.
+
+Pre-generate USDZ files on the server and set `ios-src` to skip in-browser conversion entirely.
+
+---
+
+### Testing AR locally (HTTPS required)
+
+All three AR methods require HTTPS. `navigator.xr` is undefined on insecure origins; Quick Look and Scene Viewer require the model URL to be HTTPS regardless of the page origin.
+
+**Option 1 — ngrok:**
+```bash
+npm run dev          # starts dev server on port 3000
+ngrok http 3000      # creates an HTTPS tunnel
+# Open the ngrok URL on your phone
+```
+
+**Option 2 — Vercel preview:**
+Push to a branch. Vercel creates an instant HTTPS preview URL. This is the cleanest option — it tests the production build.
+
+**Chrome WebXR emulator (desktop testing):**
+Chrome 127+ includes a WebXR device simulator under DevTools → More Tools → WebXR. It won't show camera passthrough but lets you test the session lifecycle and model placement logic without a physical device.
+
+See the [AR & WebXR guide](/docs/ar) for the full platform compatibility matrix and programmatic API reference.
+
+---
+
 ## FAQ
 
 **Is three.ws free?**

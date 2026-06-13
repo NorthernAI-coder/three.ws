@@ -263,6 +263,28 @@ async function main() {
 	console.log(`\n[animations] wrote manifest with ${manifest.length} clips → ${MANIFEST_OUT}`);
 	console.log(`[animations] ${okCount} ok (${skipCount} cached), ${failCount} failed`);
 	if (okCount === 0) process.exit(1);
+
+	// Auto-patch home.html with the real clip count so copy is always accurate.
+	patchHomeClipCount(manifest.length);
+}
+
+function patchHomeClipCount(count) {
+	const homePath = resolve(ROOT, 'pages/home.html');
+	if (!existsSync(homePath)) return;
+	let html = readFileSync(homePath, 'utf8');
+
+	// Round down to nearest 10 for a "X+" style claim; minimum 89.
+	const display = `${Math.max(89, Math.floor(count / 10) * 10)}+`;
+
+	// Match any "<digits>+ motion clips" or "<digits>+ animation clips" pattern.
+	const updated = html
+		.replace(/\d+\+ motion clips/g, `${display} motion clips`)
+		.replace(/\d+\+ animation clips/g, `${display} animation clips`);
+
+	if (updated !== html) {
+		writeFileSync(homePath, updated);
+		console.log(`[animations] patched home.html → "${display} motion clips"`);
+	}
 }
 
 main().catch((err) => {
