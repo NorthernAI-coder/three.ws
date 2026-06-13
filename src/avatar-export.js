@@ -148,6 +148,21 @@ async function glbBlobToVrmBlob(glbBlob, meta) {
 	const jsonText = TEXT_DECODER.decode(glb.json);
 	const json = JSON.parse(jsonText);
 
+	// Sanity-check the re-exported glTF version before touching the JSON.
+	const assetVersion = json.asset?.version;
+	if (assetVersion && String(assetVersion) !== '2.0') {
+		throw new Error(`vrm: glTF asset version is ${assetVersion}, expected 2.0`);
+	}
+
+	// Guard against absurdly large skeletons — anything over 500 joints is almost
+	// certainly a corrupted or non-humanoid mesh and would produce a useless VRM.
+	const totalJoints = (json.skins || []).reduce(
+		(acc, s) => acc + (Array.isArray(s.joints) ? s.joints.length : 0), 0,
+	);
+	if (totalJoints > 500) {
+		throw new Error(`vrm: skeleton has ${totalJoints} joints — max 500. Is this a humanoid avatar?`);
+	}
+
 	// 3. Build the VRMC_vrm payload from the in-memory scene. We index back
 	//    into json.nodes by name — GLTFExporter preserves node names so this
 	//    is stable.
