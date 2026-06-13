@@ -104,7 +104,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
   "mcpServers": {
     "3dagent": {
       "command": "npx",
-      "args": ["-y", "@3d-agent/mcp-server", "--url", "https://three.ws/"]
+      "args": ["-y", "@three-ws/mcp-server", "--url", "https://three.ws/"]
     }
   }
 }

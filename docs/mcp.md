@@ -41,6 +41,38 @@ The MCP server configuration is at `.mcp.json` in the project root, which Claude
 
 ---
 
+## The full three.ws MCP ecosystem
+
+This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **14 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
+
+**Six hosted remote servers** (Streamable HTTP, no install):
+
+| Server | Endpoint | What it does |
+|--------|----------|--------------|
+| three.ws | `/api/mcp` | Avatars, glTF/GLB validation, agent data (this page) |
+| pump.fun | `/api/pump-fun-mcp` | Free, read-only pump.fun + Solana token tools |
+| 3D Studio | `/api/mcp-3d` | Paid text/image→3D, rigging, optimization |
+| Agent | `/api/mcp-agent` | Agent reputation and on-chain agent data |
+| IBM x402 | `/api/ibm-mcp` | Pay-per-use IBM Granite AI |
+| x402 Bazaar | `/api/mcp-bazaar` | Discover and price paid agent services |
+
+**Eight install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
+
+```bash
+npx -y @three-ws/mcp-server      # 3D + agent tools, paid per call in USDC
+npx -y @three-ws/three-token-mcp # price, hold, and burn $THREE on Solana
+npx -y @three-ws/pumpfun-mcp     # free pump.fun + Solana discovery
+npx -y @three-ws/ibm-x402-mcp    # pay-per-use IBM Granite AI
+npx -y @three-ws/ibm-watsonx-mcp # IBM watsonx.ai on your own account
+npx -y @three-ws/avatar-agent    # turn any GLB into a 3D AI agent
+npx -y @three-ws/avatar-mcp      # drop a live 3D avatar into any chat
+npx -y @three-ws/mcp-bridge      # pay any x402 endpoint on the open web
+```
+
+Every one is also registered in the MCP registry under the `io.github.nirholas/*` namespace.
+
+---
+
 ## Authentication
 
 ### OAuth 2.1 (recommended for Claude Desktop / Claude Code)
@@ -104,7 +136,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
   "mcpServers": {
     "3dagent": {
       "command": "npx",
-      "args": ["-y", "@3d-agent/mcp-server", "--url", "https://three.ws/"]
+      "args": ["-y", "@three-ws/mcp-server", "--url", "https://three.ws/"]
     }
   }
 }

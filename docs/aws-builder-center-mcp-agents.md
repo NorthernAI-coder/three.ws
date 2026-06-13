@@ -42,9 +42,9 @@ The OAuth flow is the textbook one: dynamic client registration (RFC 7591), PKCE
 }
 ```
 
-## Surface two: four tools that pay for themselves
+## Surface two: paid tools that pay for themselves
 
-This is the part I am most proud of. The npm package `@3d-agent/mcp-server` exposes four tools that take **no subscription and no API key**. Each call settles per-use in USDC over the x402 protocol (the HTTP 402 Payment Required status code, finally put to work). You configure a wallet address, not a key.
+This is the part I am most proud of. The npm package `@three-ws/mcp-server` exposes a suite of paid tools that take **no subscription and no API key**. Each call settles per-use in USDC over the x402 protocol (the HTTP 402 Payment Required status code, finally put to work). You configure a wallet address, not a key.
 
 | Tool | Price | What it returns |
 |---|---|---|
@@ -60,7 +60,7 @@ Setup is a wallet, not an account:
   "mcpServers": {
     "3d-agent": {
       "command": "npx",
-      "args": ["-y", "@3d-agent/mcp-server"],
+      "args": ["-y", "@three-ws/mcp-server"],
       "env": {
         "MCP_EVM_PAYMENT_ADDRESS": "0xYourBaseWallet",
         "MCP_SVM_PAYMENT_ADDRESS": "YourSolanaWallet"
@@ -84,7 +84,7 @@ From the agent's point of view this is a single tool call that just works. Under
 ## The architecture is deliberately thin
 
 ```
-MCP client (Claude, Cursor)  ->  @3d-agent/mcp-server (npm, stdio)  ->  HTTPS + x402  ->  platform on AWS
+MCP client (Claude, Cursor)  ->  @three-ws/mcp-server (npm, stdio)  ->  HTTPS + x402  ->  platform on AWS
 ```
 
 The npm package is a stdio-to-HTTP bridge. It speaks MCP over stdio to the client, handles the OAuth or x402 settlement, and forwards each call to the platform API over HTTPS. All the real logic lives server-side behind a normal HTTP API. That keeps the bridge small enough to audit in one sitting, and it means every capability is reachable without MCP at all, which is exactly what you want from infrastructure.
@@ -98,7 +98,7 @@ The MCP server itself is intentionally cloud-agnostic: it is an npm bridge to an
 ## Try it
 
 - MCP docs and the full tool reference: [three.ws/docs/mcp.md](https://three.ws/docs/mcp.md)
-- Paid tools: `npx -y @3d-agent/mcp-server`
+- Paid tools: `npx -y @three-ws/mcp-server`
 - Source (Apache 2.0): [github.com/nirholas/three.ws](https://github.com/nirholas/three.ws)
 
 If you wire it into something, or you want to list a paid tool of your own, the repo issues are open. I would like to see what people point this at.

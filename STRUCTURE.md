@@ -25,7 +25,7 @@ bottom.
 | Avatar service backend | [api/](api) + [workers/](workers) | In-repo | Vercel functions + Cloudflare workers |
 | On-chain identity | [contracts/](contracts) | In-repo | Foundry-based on-chain agent identity, ERC-8004 |
 | Cross-chain SDKs | [sdk/](sdk), [solana-agent-sdk/](solana-agent-sdk), [agent-payments-sdk/](agent-payments-sdk), [agent-protocol-sdk/](agent-protocol-sdk) | Published | Cross-chain agent SDKs |
-| MCP integration | [mcp-server/](mcp-server), [mcp-bridge/](mcp-bridge) | Published as `@3d-agent/mcp-server` | Model Context Protocol surface |
+| MCP integration | [mcp-server/](mcp-server), [mcp-bridge/](mcp-bridge) | Published as `@three-ws/mcp-server` | Model Context Protocol surface |
 | SNS naming + pay-by-name | [api/sns.js](api/sns.js), [api/sns-subdomain.js](api/sns-subdomain.js), [api/threews/subdomain.js](api/threews/subdomain.js), [api/x402/pay-by-name.js](api/x402/pay-by-name.js), [src/solana/sns-subdomain.js](src/solana/sns-subdomain.js), [pages/threews-claim.html](pages/threews-claim.html) | In-repo | `*.threews.sol` subdomain mint, x402 payments addressed by name. Env: `THREEWS_SOL_PARENT_SECRET_BASE58`. See [SNS_PARTNERSHIP_PROPOSAL.md](docs/internal/SNS_PARTNERSHIP_PROPOSAL.md) |
 
 ## npm workspaces
@@ -37,9 +37,9 @@ agent-payments-sdk/      → @three-ws/agent-payments (fork of @pump-fun/agent-p
 agent-ui-sdk/            → @three-ws/agent-ui
 avatar-sdk/              → @three-ws/avatar
 character-studio/        → @m3-org/characterstudio (fork)
-mcp-bridge/              → @3d-agent/mcp-bridge
-mcp-server/              → @3d-agent/mcp-server
-multiplayer/             → @three.ws/multiplayer
+mcp-bridge/              → @three-ws/mcp-bridge
+mcp-server/              → @three-ws/mcp-server
+multiplayer/             → @three-ws/multiplayer
 packages/avatar-schema/  → @three-ws/avatar-schema
 packages/avatar-cli/     → @three-ws/avatar-cli
 packages/viewer-presets/ → @three-ws/viewer-presets
@@ -50,7 +50,7 @@ with no runtime dependency on the main app.
 
 Cross-chain SDKs that ship on their own (`sdk/` → `@three-ws/sdk`,
 `solana-agent-sdk/` → `@three-ws/solana-agent`,
-`agent-protocol-sdk/` → `@3d-agent/agent-protocol-sdk`) live at the top level
+`agent-protocol-sdk/` → `@three-ws/agent-protocol-sdk`) live at the top level
 but are **not** npm workspaces.
 
 `packages/` is reserved for spec/schema/protocol packages with no runtime

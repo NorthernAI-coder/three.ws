@@ -12,7 +12,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "@3d-agent/mcp-server"
+        "@three-ws/mcp-server"
       ],
       "env": {
         "MCP_SVM_PAYMENT_ADDRESS": "${MCP_SVM_PAYMENT_ADDRESS}"

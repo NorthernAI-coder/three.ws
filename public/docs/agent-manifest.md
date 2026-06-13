@@ -53,19 +53,18 @@ The `<agent-3d>` element accepts several source forms. Priority when multiple at
 Programmatically (SDK):
 
 ```js
-import { loadManifest } from '@3d-agent/sdk';
+import { assertValid } from '@three-ws/avatar-schema';
 
-// From on-chain URI
-const manifest = await loadManifest('agent://base/42');
+// Fetch the manifest from wherever it lives — your resolver, an IPFS
+// gateway, or a plain HTTPS URL — then validate it against the schema.
+const res = await fetch('https://cdn.acme.com/aria/manifest.json');
+const manifest = await res.json();
 
-// From IPFS
-const manifest = await loadManifest('ipfs://bafy.../manifest.json');
-
-// From HTTPS
-const manifest = await loadManifest('https://cdn.acme.com/aria/manifest.json');
+// Throws if the document does not match the canonical avatar manifest schema.
+assertValid(manifest);
 ```
 
-`loadManifest` returns a normalized manifest object with a `_baseURI` property set to the directory containing `manifest.json`, used for resolving all relative paths.
+`assertValid` throws if the document does not match the canonical avatar manifest schema, and returns normally when it does. Prefer `validate(manifest)` when you want a `{ valid, errors }` result instead of an exception. Resolve any relative paths in the manifest against the URL you fetched it from.
 
 ---
 

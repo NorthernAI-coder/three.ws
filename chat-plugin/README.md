@@ -1,4 +1,4 @@
-# @3dagent/chat-plugin
+# @three-ws/chat-plugin
 
 Render an embodied 3D avatar in the **LobeChat** or **SperaxOS** sidebar. The avatar reacts to the LLM's tool calls — speaking, gesturing, and emoting — in real time.
 

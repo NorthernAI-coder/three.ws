@@ -1665,14 +1665,14 @@ three.ws ships as a first-class Claude Code SDK. There are two ways to integrate
 
 ### 1. MCP server (paid tools via `npx`)
 
-Add the `@3d-agent/mcp-server` to your Claude Desktop, Cursor, or Claude Code config in one step:
+Add the `@three-ws/mcp-server` to your Claude Desktop, Cursor, or Claude Code config in one step:
 
 ```json
 {
 	"mcpServers": {
 		"3d-agent": {
 			"command": "npx",
-			"args": ["-y", "@3d-agent/mcp-server"],
+			"args": ["-y", "@three-ws/mcp-server"],
 			"env": {
 				"MCP_EVM_PAYMENT_ADDRESS": "0xYourBaseWallet",
 				"MCP_SVM_PAYMENT_ADDRESS": "YourSolanaWallet"

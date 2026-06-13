@@ -1,8 +1,8 @@
 ---
-description: Configure the @3d-agent/mcp-server in Claude Desktop, Claude Code, or Cursor — outputs the exact JSON snippet and optionally writes it to your config file.
+description: Configure the @three-ws/mcp-server in Claude Desktop, Claude Code, or Cursor — outputs the exact JSON snippet and optionally writes it to your config file.
 ---
 
-You are helping the user add the `@3d-agent/mcp-server` to their MCP client config. Follow these steps precisely:
+You are helping the user add the `@three-ws/mcp-server` to their MCP client config. Follow these steps precisely:
 
 ## Step 1 — Detect OS and find the config file
 
@@ -36,7 +36,7 @@ Produce the exact JSON block to add to their config file under `"mcpServers"`:
   "mcpServers": {
     "3d-agent": {
       "command": "npx",
-      "args": ["-y", "@3d-agent/mcp-server"],
+      "args": ["-y", "@three-ws/mcp-server"],
       "env": {
         "MCP_EVM_PAYMENT_ADDRESS": "<their EVM address>",
         "MCP_SVM_PAYMENT_ADDRESS": "<their Solana address>"
@@ -71,11 +71,22 @@ Then tell the user to restart Claude Desktop / Claude Code / Cursor for the tool
 
 ## Tools available
 
-Once configured, these four paid tools will be available (settled in USDC via x402):
+Once configured, these 15 paid tools will be available (settled per-call in USDC via x402):
 
 | Tool | Price | What it does |
 |------|-------|--------------|
+| `mesh_forge` | $0.25 | Text or image → textured 3D GLB |
+| `rig_mesh` | $0.20 | Auto-rig a static GLB into an animation-ready model |
+| `text_to_avatar` | $0.15 | Text or image → textured 3D avatar GLB |
 | `get_pose_seed` | $0.001 | Deterministic pose map for a three.ws avatar |
 | `pump_snapshot` | $0.005 | Live pump.fun token snapshot — price, volume, holders |
+| `sentiment_pulse` | $0.003 | Sentiment for a Solana token from pump.fun comments |
+| `vanity_grinder` | $0.05 | Mine a Solana keypair with a custom address prefix |
+| `aixbt_intel` | $0.01 | aixbt narrative-intelligence feed |
+| `aixbt_projects` | $0.01 | aixbt momentum scan — ranked projects |
 | `agent_reputation` | $0.01 | ERC-8004 reputation lookup on any EVM chain |
-| `vanity_grinder` | up to $0.50 | Mine a Solana keypair with a custom address prefix |
+| `agent_delegate_action` | $0.01 | Delegate a task to another three.ws agent |
+| `ens_sns_resolve` | $0.0005 | Resolve ENS (`.eth`) + SNS (`.sol`) names |
+| `agenc_list_tasks` | $0.001 | List a wallet's on-chain AgenC tasks |
+| `agenc_get_task` | $0.001 | On-chain state + lifecycle of an AgenC task |
+| `agenc_get_agent` | $0.001 | An AgenC agent's on-chain registration |

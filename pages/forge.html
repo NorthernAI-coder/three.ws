@@ -217,6 +217,22 @@
 				opacity: 0.45;
 				cursor: not-allowed;
 			}
+			/* Key glyph marks BYOK engines (Meshy/Tripo/Rodin/Stability/Replicate)
+			   so users see which lanes run on their own API key vs the free/included
+			   ones. Sits inside the button after the label; the health dot stays on
+			   ::after, so the two never collide. */
+			.aspect button .eng-key {
+				width: 0.82em;
+				height: 0.82em;
+				margin-left: 0.42em;
+				vertical-align: -0.13em;
+				opacity: 0.5;
+				transition: opacity 0.15s;
+			}
+			.aspect button:hover .eng-key,
+			.aspect button[aria-pressed='true'] .eng-key {
+				opacity: 0.95;
+			}
 			.aspect button:focus-visible,
 			.chip:focus-visible,
 			.btn:focus-visible {

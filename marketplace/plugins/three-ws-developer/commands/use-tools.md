@@ -1,27 +1,38 @@
 ---
-description: "Show ready-to-run code for calling any of the four @3d-agent/mcp-server paid tools. Pass a tool name: /use-tools pump_snapshot"
+description: "Show ready-to-run code for calling any of the @three-ws/mcp-server paid tools. Pass a tool name: /use-tools pump_snapshot"
 ---
 
-You are producing a working code example for a specific three.ws MCP tool. `$ARGUMENTS` is the tool name the user wants to use. If blank, show a menu of all four tools.
+You are producing a working code example for a specific three.ws MCP tool. `$ARGUMENTS` is the tool name the user wants to use. If blank, show a menu of all tools.
 
 ## Tool catalog
 
 | Tool | Price | Input | Output |
 |------|-------|-------|--------|
+| `mesh_forge` | $0.25 | `{ prompt?: string, image_url?: string }` | Textured GLB `glbUrl`, viewer `preview`, `directedPrompt`, timing |
+| `rig_mesh` | $0.20 | `{ glb_url: string }` | `riggedGlbUrl` + pose-studio link |
+| `text_to_avatar` | $0.15 | `{ prompt?: string, image_urls?: string[] }` | Avatar GLB URL, model version, prediction id |
 | `get_pose_seed` | $0.001 | `{ prompt: string }` | Pose map with Euler rotations (radians) + previewUrl |
 | `pump_snapshot` | $0.005 | `{ mint: string }` | USD price, 24h volume, holders, metadata, bundle signals |
-| `agent_reputation` | $0.01 | `{ agentId: string, chainId?: number }` | Reputation score, stake, recent events from ReputationRegistry |
-| `vanity_grinder` | up to $0.50 | `{ prefix: string, suffix?: string }` | Solana keypair whose address starts with `prefix` |
+| `sentiment_pulse` | $0.003 | `{ mint: string, snippets?: string[] }` | Overall + per-source sentiment with examples |
+| `vanity_grinder` | $0.05 | `{ prefix: string, suffix?: string }` | Solana keypair whose address starts with `prefix` |
+| `aixbt_intel` | $0.01 | `{ category?: string, chain?: string }` | aixbt narrative-intelligence items |
+| `aixbt_projects` | $0.01 | `{ names?: string[], chain?: string }` | Momentum-ranked projects with market metrics |
+| `agent_reputation` | $0.01 | `{ agentId: string, chainId?: number }` | Reputation score, stake, recent ReputationRegistry events |
+| `agent_delegate_action` | $0.01 | `{ agentId: string, message: string }` | The delegated agent's response |
+| `ens_sns_resolve` | $0.0005 | `{ name: string }` | Resolved ENS (`.eth`) / SNS (`.sol`) address |
+| `agenc_list_tasks` | $0.001 | `{ creator: string, cluster?: string }` | A wallet's on-chain AgenC tasks |
+| `agenc_get_task` | $0.001 | `{ taskPda?: string, creator?: string, taskId?: string }` | Task state + lifecycle timeline |
+| `agenc_get_agent` | $0.001 | `{ agentPda?: string, agentId?: string }` | An AgenC agent's on-chain registration |
 
 ## If `$ARGUMENTS` is blank
 
-List all four tools in a table and ask: "Which tool do you want to use?"
+List all tools in a table and ask: "Which tool do you want to use?"
 
 ## If `$ARGUMENTS` names a tool
 
 Produce a complete, runnable Node.js script for that tool. The script must:
 
-1. Spawn the MCP server via `StdioClientTransport` using `npx @3d-agent/mcp-server`
+1. Spawn the MCP server via `StdioClientTransport` using `npx @three-ws/mcp-server`
 2. Set `MCP_EVM_PAYMENT_ADDRESS` and `MCP_SVM_PAYMENT_ADDRESS` from env
 3. Use `wrapMCPClientWithPayment` from `@x402/mcp` for automatic 402 retry with a real EVM private key from `process.env.AGENT_EVM_PRIVATE_KEY`
 4. Call the tool and `console.log` the parsed result
@@ -39,7 +50,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 const transport = new StdioClientTransport({
   command: 'npx',
-  args: ['-y', '@3d-agent/mcp-server'],
+  args: ['-y', '@three-ws/mcp-server'],
   env: {
     MCP_EVM_PAYMENT_ADDRESS: process.env.MCP_EVM_PAYMENT_ADDRESS,
     MCP_SVM_PAYMENT_ADDRESS: process.env.MCP_SVM_PAYMENT_ADDRESS ?? '',
@@ -63,5 +74,5 @@ Adapt the tool name, input, and any tool-specific notes (e.g., for `vanity_grind
 
 After the code block, add a one-paragraph note on:
 - What env vars are required (`AGENT_EVM_PRIVATE_KEY`, `MCP_EVM_PAYMENT_ADDRESS`, and optionally `MCP_SVM_PAYMENT_ADDRESS`)
-- That the x402 payment (~$0.001–$0.50 USDC) is deducted automatically from the EVM wallet on each successful call
+- That the x402 payment (~$0.0005–$0.25 USDC, per the tool's price) is deducted automatically from the EVM wallet on each successful call
 - Where to get a free Helius RPC if they want better Solana data for `pump_snapshot`
