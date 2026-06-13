@@ -73,6 +73,11 @@
 
 		const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]);
 
+		function slugify(title, date) {
+			const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+			return date + '-' + slug;
+		}
+
 		function entryTags(e) {
 			return e.type === 'launch' ? ['launch'] : e.tags || [];
 		}
@@ -93,14 +98,13 @@
 				const isNew = (now - new Date(date + 'T00:00:00Z').getTime()) < RECENT_DAYS * 86400000;
 				const cards = items.map((e) => {
 					const tags = entryTags(e).map((t) => `<span class="cl-tag cl-tag-${esc(t)}">${esc(t)}</span>`).join('');
+					const detailUrl = `/changelog/${slugify(e.title, e.date)}`;
 					const inner = `
 						<span class="cl-item-title">${esc(e.title)}</span>
 						${e.type === 'launch' ? `<span class="cl-item-path">${esc(e.link)}</span>` : ''}
 						<div class="cl-item-desc">${esc(e.summary)}</div>
 						<div class="cl-tags">${tags}</div>`;
-					return e.link
-						? `<a class="cl-item" href="${esc(e.link)}">${inner}</a>`
-						: `<div class="cl-item">${inner}</div>`;
+					return `<a class="cl-item" href="${esc(detailUrl)}">${inner}</a>`;
 				}).join('');
 				return `<section class="cl-day">
 					<p class="cl-date">${fmtDate(date)}${isNew ? '<span class="cl-badge cl-badge-new">new</span>' : ''}</p>

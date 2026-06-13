@@ -1489,6 +1489,18 @@ The helper handles the 402 challenge, Permit2 sibling, receipt write-back, idemp
 
 Agents transact with each other directly through an A2A bridge that sits on top of the MCP server and x402 payments.
 
+**How it works**
+
+When agent A wants to call a paid tool from agent B:
+
+1. **Discover** — A resolves B's DID via `POST /api/x402/did`, receiving B's MCP endpoint URL and payment wallet address.
+2. **Call** — A sends a `tools/call` JSON-RPC request to B's MCP endpoint.
+3. **Pay** — B's server returns `402 Payment Required` with a USDC price. A's SDK settles the x402 payment on-chain (Base or Solana) and retries with the payment proof in the `X-PAYMENT` header.
+4. **Execute** — B verifies the payment, runs the tool, and writes a signed receipt to `api/a2a/receipts`.
+5. **Ledger** — Both sides accumulate a row in `api/a2a/spending` — A for outbound spend, B for inbound revenue.
+
+Agent wallets sign with **EIP-7710 delegated permissions** — the delegated signer acts on behalf of the agent's root key without ever exposing it.
+
 | Surface         | Path                 | Purpose                                                  |
 | --------------- | -------------------- | -------------------------------------------------------- |
 | A2A client      | `sdk/a2a/`           | Outbound calls — pay another agent, settle the response  |
