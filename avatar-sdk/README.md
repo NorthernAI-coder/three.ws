@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" width="72" height="72" alt="three.ws" /></a>
+</p>
+
 <h1 align="center">@three-ws/avatar</h1>
 
 <p align="center"><strong>3D avatar viewer, creator iframe, and emotion + lipsync runtime — a drop-in replacement for hosted avatar SDKs.</strong></p>
@@ -188,6 +192,12 @@ record. Computes a SHA-256 checksum client-side.
 - Peer dependency: `three` `>=0.150.0` (required), `react` `>=18` (optional, for `./react`).
 - `saveBlob()` needs a bearer token with `avatars:write` scope and a three.ws-compatible API origin.
 
+> **SSR note.** The root (`@three-ws/avatar`) and `./viewer` entries bundle the
+> 3D runtime and touch `window` at module load — import them **client-side only**.
+> In Next.js / SSR, use the `./react` entry (it lazy-loads the runtime in an
+> effect, so it's server-safe), or dynamically `import()` the viewer in a client
+> component.
+
 ## Related packages
 
 - [`@three-ws/avatar-schema`](https://www.npmjs.com/package/@three-ws/avatar-schema) — the on-chain manifest format these avatars resolve from.
@@ -200,3 +210,12 @@ record. Computes a SHA-256 checksum client-side.
 - Changelog: https://three.ws/changelog
 - Issues: https://github.com/nirholas/three.ws/issues
 - License: Apache-2.0 — see [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  <sub>
+    Part of the <a href="https://three.ws">three.ws</a> SDK suite — 3D AI agents, on-chain identity, and agent payments.<br/>
+    <a href="https://three.ws">Website</a> · <a href="https://three.ws/changelog">Changelog</a> · <a href="https://github.com/nirholas/three.ws">GitHub</a>
+  </sub>
+</p>

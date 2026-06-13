@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" alt="three.ws" width="88" height="88"></a>
+</p>
+
 <h1 align="center">@three-ws/avatar-agent</h1>
 
 <p align="center"><strong>An MCP server that turns any GLB into a 3D AI agent — inspect/validate/optimize models, then give one a Solana wallet, a voice, and pump.fun powers.</strong></p>
@@ -189,3 +193,12 @@ Three layers keep that power in check:
 - Changelog: https://three.ws/changelog
 - Issues: https://github.com/nirholas/three.ws/issues
 - License: MIT — see [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  <sub>
+    Part of the <a href="https://three.ws">three.ws</a> SDK suite — 3D AI agents, on-chain identity, and agent payments.<br/>
+    <a href="https://three.ws">Website</a> · <a href="https://three.ws/changelog">Changelog</a> · <a href="https://github.com/nirholas/three.ws">GitHub</a>
+  </sub>
+</p>

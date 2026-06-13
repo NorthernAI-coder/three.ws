@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" alt="three.ws" width="88" height="88"></a>
+</p>
+
 <h1 align="center">@three-ws/ibm-watsonx-mcp</h1>
 
 <p align="center"><strong>MCP server for IBM watsonx.ai — chat, generation, embeddings, tokenization, forecasting, and model discovery, on your own IBM Cloud account.</strong></p>
@@ -155,3 +159,12 @@ Regional hosts: `us-south`, `eu-de`, `eu-gb`, `jp-tok`, `au-syd`, `ca-tor` — e
 - Changelog: https://three.ws/changelog
 - Issues: https://github.com/nirholas/three.ws/issues
 - License: Apache-2.0 — see [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  <sub>
+    Part of the <a href="https://three.ws">three.ws</a> SDK suite — 3D AI agents, on-chain identity, and agent payments.<br/>
+    <a href="https://three.ws">Website</a> · <a href="https://three.ws/changelog">Changelog</a> · <a href="https://github.com/nirholas/three.ws">GitHub</a>
+  </sub>
+</p>

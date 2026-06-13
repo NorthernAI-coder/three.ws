@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" width="72" height="72" alt="three.ws" /></a>
+</p>
+
 <h1 align="center">@three-ws/agent-ui</h1>
 
 <p align="center"><strong>Drop a 3D avatar onto a transparent overlay and let it react to your DOM — clicks, inputs, and navigation.</strong></p>
@@ -182,3 +186,12 @@ createAgentUI({
 - Changelog: https://three.ws/changelog
 - Issues: https://github.com/nirholas/three.ws/issues
 - License: Apache-2.0 — see [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  <sub>
+    Part of the <a href="https://three.ws">three.ws</a> SDK suite — 3D AI agents, on-chain identity, and agent payments.<br/>
+    <a href="https://three.ws">Website</a> · <a href="https://three.ws/changelog">Changelog</a> · <a href="https://github.com/nirholas/three.ws">GitHub</a>
+  </sub>
+</p>

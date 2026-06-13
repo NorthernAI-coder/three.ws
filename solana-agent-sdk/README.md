@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" width="72" height="72" alt="three.ws" /></a>
+</p>
+
 <h1 align="center">@three-ws/solana-agent</h1>
 
 <p align="center"><strong>Solana agent SDK: keypair + browser wallets, SOL/SPL transfers, Jupiter swaps, staking, and the x402 exact payment scheme.</strong></p>
@@ -200,3 +204,12 @@ Typed error classes (exported from the root) for boundary handling: `SolanaAgent
 - Sibling SDK: [`@three-ws/agent-payments`](https://www.npmjs.com/package/@three-ws/agent-payments)
 - Issues: https://github.com/nirholas/three.ws/issues
 - License: MIT — see [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  <sub>
+    Part of the <a href="https://three.ws">three.ws</a> SDK suite — 3D AI agents, on-chain identity, and agent payments.<br/>
+    <a href="https://three.ws">Website</a> · <a href="https://three.ws/changelog">Changelog</a> · <a href="https://github.com/nirholas/three.ws">GitHub</a>
+  </sub>
+</p>

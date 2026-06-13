@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" alt="three.ws" width="88" height="88"></a>
+</p>
+
 <h1 align="center">@three-ws/avatar-mcp</h1>
 
 <p align="center"><strong>An MCP server that drops a live, rotatable 3D avatar into any chat — interactive in the conversation, embeddable anywhere. Free, no API key.</strong></p>
@@ -144,3 +148,12 @@ Each selector maps to a real three.ws endpoint. Raw `model` URLs must be `https:
 - Changelog: https://three.ws/changelog
 - Issues: https://github.com/nirholas/three.ws/issues
 - License: Apache-2.0 — see [LICENSE](./LICENSE)
+
+---
+
+<p align="center">
+  <sub>
+    Part of the <a href="https://three.ws">three.ws</a> SDK suite — 3D AI agents, on-chain identity, and agent payments.<br/>
+    <a href="https://three.ws">Website</a> · <a href="https://three.ws/changelog">Changelog</a> · <a href="https://github.com/nirholas/three.ws">GitHub</a>
+  </sub>
+</p>
