@@ -192,6 +192,7 @@ async function postBuild() {
 		run('copy-avatar-studio', 'node scripts/copy-avatar-studio.mjs'),
 		run('publish:lib', 'node scripts/publish-lib.mjs'),
 		run('apply:r2-cors', "node scripts/set-r2-cors.mjs || echo '[apply:r2-cors] skipped'"),
+		run('changelog:telegram', "node scripts/changelog-telegram.mjs || echo '[changelog:telegram] skipped'"),
 	]);
 }
 

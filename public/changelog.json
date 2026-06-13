@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-13T09:11:49.815Z",
+	"generated_at": "2026-06-13T09:19:36.822Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "3D model categories — every model is now typed as Avatar, Accessory, Item, Scene, Creature, or Vehicle",
+			"summary": "All 3D models on the platform now carry a category that describes what they actually are, not just how they were created. Avatar cards in the marketplace show a color-coded type badge (Avatar, Accessory, Item, Scene, Creature, or Vehicle) and a new filter row lets you browse by type. The Forge gallery shows the same badges on showcase cards, and when you finish forging a model you can tag it right in the result bar with a single click. This is the foundation for the upcoming agent equipment system — where your agents will be able to wear accessories, hold items, and inhabit scenes.",
+			"link": "/marketplace",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-13",
 			"type": "update",

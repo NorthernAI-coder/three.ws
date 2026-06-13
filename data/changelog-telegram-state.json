@@ -116,6 +116,16 @@
 		"2026-06-09:New Claude models in every agent brain",
 		"2026-06-10:WebRTC relay and x402 telemetry",
 		"2026-06-11:Agent Wallet (x402 on Solana)",
-		"2026-06-11:Status"
+		"2026-06-11:Status",
+		"2026-06-11:A safety net on open, sign-in-free chat — without blocking real conversations",
+		"2026-06-11:Accurate uptime on the x402 Provider Hub",
+		"2026-06-11:Agent Wallet demo now settles on Solana",
+		"2026-06-11:Agents dashboard renders reliably again",
+		"2026-06-11:Avatar pages back online after image-engine outage",
+		"2026-06-11:Avatar preview images load reliably",
+		"2026-06-11:Avatar voices can speak out loud again",
+		"2026-06-11:Built-in AI stays up when a provider runs dry",
+		"2026-06-11:Create an avatar from a template or from scratch, right from the dashboard",
+		"2026-06-11:Embedded avatar chat replies again"
 	]
 }

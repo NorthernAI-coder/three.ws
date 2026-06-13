@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "3D model categories — every model is now typed as Avatar, Accessory, Item, Scene, Creature, or Vehicle",
+			"summary": "All 3D models on the platform now carry a category that describes what they actually are, not just how they were created. Avatar cards in the marketplace show a color-coded type badge (Avatar, Accessory, Item, Scene, Creature, or Vehicle) and a new filter row lets you browse by type. The Forge gallery shows the same badges on showcase cards, and when you finish forging a model you can tag it right in the result bar with a single click. This is the foundation for the upcoming agent equipment system — where your agents will be able to wear accessories, hold items, and inhabit scenes.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "AR is live on the homepage — place any 3D model in your real space from the front page",
 			"summary": "The three.ws homepage now has a live AR section: real models from the Forge gallery load in an interactive 3D viewer, and on mobile you can tap 'Place in your space' to anchor the model in your real environment through the camera. On desktop a QR code appears so you can scan and place from your phone in one step. WebXR on Android, Quick Look on iOS — no app, no download. A full blog post explains how the AR pipeline works across both platforms.",
 			"tags": [
