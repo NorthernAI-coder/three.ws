@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Embed straight from the homepage demo — no trip to the full Forge",
+			"summary": "The text-to-3D demo on the homepage now has an Embed button right in its result toolbar, so a model you forge there can go on your own site without opening the full Forge first. It pops a panel with a live preview, an iframe or <model-viewer> snippet, and the same 16:9 / square / 4:5 size presets, ready to copy in one tap. It's the same one-line embed the full Forge gives you, now one step shorter from the front page.",
+			"tags": [
+				"feature"
+			],
+			"link": "/"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Tutorials read better: one-tap copy on every code block, live progress, and a jump-to-the-tool button",
 			"summary": "The tutorial reader (/tutorials) got a polish pass that applies to every guide. Code blocks now have a one-click Copy button, so you can lift a snippet without selecting it by hand. A slim progress rail across the top tracks how far you've read, and a back-to-top button appears once you scroll in. Each section heading has a hover link for sharing a deep link to that exact spot, and every tutorial now opens with a clear call-to-action button — the new text-to-3D guides drop you straight into the Forge. New this release: four beginner guides for turning a text prompt or photos into a downloadable 3D model, a copy-paste prompt cookbook, and an API walkthrough.",
 			"tags": [

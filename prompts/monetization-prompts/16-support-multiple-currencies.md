@@ -14,7 +14,7 @@ Currently, the system is hardcoded for USDC. To provide more flexibility for cre
 
 2.  **Modify Creator UI for Pricing:**
     *   In the "Skill Monetization" section of `agent-edit.html`, change the currency selector from a static element to a dropdown menu.
-    *   Populate this dropdown with a list of supported currencies (e.g., "USDC", "SOL", "BONK"). This list can be hardcoded for now.
+    *   Populate this dropdown with a list of supported currencies (e.g., "USDC", "SOL", "$THREE"). This list can be hardcoded for now.
     *   When a creator selects a currency, store the corresponding mint address along with the price.
 
 3.  **Update Frontend Purchase Logic:**

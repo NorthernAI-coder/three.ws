@@ -1,4 +1,4 @@
-// GET /api/pump/search?q=bonk&limit=8
+// GET /api/pump/search?q=<query>&limit=8
 // ------------------------------------
 // Name/symbol search over Solana tokens for the site-wide command palette
 // (public/search.js) and any other surface that needs to resolve a coin by

@@ -23,6 +23,14 @@
 			<description>Every model you forge now has an Embed button next to Download. It hands you a ready-to-paste snippet — an iframe by default, or a &lt;model-viewer&gt; web component for builders — that drops a live, orbitable, AR-ready 3D model onto any website, with a live preview and size presets (16:9, square, 4:5) right in the panel. The iframe points at a new lightweight three.ws viewer (/forge/embed) that needs no scripts on the host page, and clicking its corner badge brings visitors back to Forge with your prompt pre-loaded to remix. Same idea as the &lt;agent-3d&gt; embed, now for any generated object.</description>
 		</item>
 		<item>
+			<title>Embed straight from the homepage demo — no trip to the full Forge</title>
+			<link>https://three.ws/</link>
+			<guid isPermaLink="false">2026-06-13:Embed straight from the homepage demo — no trip to the full Forge</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The text-to-3D demo on the homepage now has an Embed button right in its result toolbar, so a model you forge there can go on your own site without opening the full Forge first. It pops a panel with a live preview, an iframe or &lt;model-viewer&gt; snippet, and the same 16:9 / square / 4:5 size presets, ready to copy in one tap. It's the same one-line embed the full Forge gives you, now one step shorter from the front page.</description>
+		</item>
+		<item>
 			<title>Refine any Forge model to higher quality in one click — plus sharper multi-view guidance</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-13:Refine any Forge model to higher quality in one click — plus sharper multi-view guidance</guid>

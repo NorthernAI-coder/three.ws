@@ -20,7 +20,7 @@ function guessDecimals(mint: string): number {
 }
 ```
 
-Most SPL tokens use 6 decimals, not 9. Using 9 as a fallback makes display values 1,000x too small for any unknown token. The display is only used in `TxMetadata` (shown to the user before they sign), so a wrong decimal count shows misleading amounts like "1,000,000 BONK" instead of "0.001 BONK".
+Most SPL tokens use 6 decimals, not 9. Using 9 as a fallback makes display values 1,000x too small for any unknown token. The display is only used in `TxMetadata` (shown to the user before they sign), so a wrong decimal count shows misleading amounts like "1,000,000 tokens" instead of "0.001 tokens".
 
 ## Fix
 

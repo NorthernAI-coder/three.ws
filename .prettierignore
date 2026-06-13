@@ -8,6 +8,13 @@ dist-artifact/
 contracts/lib/
 character-studio/
 docs/pumpfun-program/
+
+# Self-contained sub-projects with their own tooling (package.json, lockfile,
+# node_modules) and their own Prettier config + plugins. The root gate cannot
+# resolve their plugins (prettier-plugin-svelte/-tailwindcss), so each owns its
+# own `format`/`format:check` scripts. public/chat is chat's committed build output.
+chat/
+public/chat/
 # pump.fun Agent Skills mirror (github.com/pump-fun/pump-fun-skills) — these four
 # skills are kept byte-faithful to upstream; do not reformat. Our own reactive/
 # skill is intentionally NOT listed here, so it stays prettier-enforced.

@@ -13,8 +13,8 @@ page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 
 // Stub trending coins so the lobby populates.
 const COINS = Array.from({ length: 8 }, (_, i) => ({
-	mint: 'Mint' + i, name: ['Doge','Pepe','Bonk','Wif','Popcat','Mew','Goat','Moodeng'][i],
-	symbol: ['DOGE','PEPE','BONK','WIF','POPCAT','MEW','GOAT','MOO'][i],
+	mint: 'Mint' + i, name: 'Demo Coin ' + (i + 1),
+	symbol: 'DEMO' + (i + 1),
 	image: '', marketCap: (i + 1) * 1.2e6,
 }));
 await page.route('**/api/pump/trending**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ coins: COINS, items: COINS }) }));
@@ -27,7 +27,7 @@ console.log('lobby captured');
 
 // Enter a world directly via the scene API (offline — no server needed).
 await page.waitForFunction(() => !!window.__CC__, { timeout: 8000 });
-await page.evaluate(() => window.__CC__.enter({ mint: 'DemoMint', name: 'Doge', symbol: 'DOGE', image: '' }));
+await page.evaluate(() => window.__CC__.enter({ mint: 'DemoMint', name: 'Demo Coin', symbol: 'DEMO', image: '' }));
 await page.waitForTimeout(4000); // let avatar + scene settle
 await page.screenshot({ path: '/tmp/play-world.png' });
 console.log('world captured');

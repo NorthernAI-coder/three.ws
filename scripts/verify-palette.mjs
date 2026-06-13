@@ -80,7 +80,7 @@ console.log('  categories for "agent":', JSON.stringify(qCats));
 
 // 5. Coin search renders real coins.
 await page.click('#tws-search-input', { clickCount: 3 });
-await page.type('#tws-search-input', 'bonk');
+await page.type('#tws-search-input', 'ai');
 await new Promise((r) => setTimeout(r, 1500));
 const coinNames = await page.evaluate(() => {
 	const cats = [...document.querySelectorAll('#tws-search-results > *')];
@@ -91,7 +91,7 @@ const coinNames = await page.evaluate(() => {
 	}
 	return out;
 });
-ok('Coins category renders real coins for "bonk"', coinNames.length > 0);
+ok('Coins category renders real coins for "ai"', coinNames.length > 0);
 console.log('  coins:', JSON.stringify(coinNames.slice(0, 4)));
 
 // 6. Quick action "create" matches.
