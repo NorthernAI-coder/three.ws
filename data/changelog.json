@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Clearer ways to reach us — a full contact directory on the support page",
+			"summary": "The support page now lists specialized, monitored contacts so your message reaches the right team fast: partnerships@three.ws for AWS Marketplace, IBM, and integration inquiries; privacy@three.ws for data requests; legal@three.ws for terms; dmca@three.ws for copyright notices; and abuse@three.ws for misuse reports — each with a one-tap copy button, alongside the existing support@ and security@ channels. Transactional emails now send from notifications@three.ws with replies routed to a real human at support@, and copyright takedowns route to a dedicated DMCA agent.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/support"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Scene Composer — forge items in real time and dress your avatar",
 			"summary": "New /compose page lets you build a 3D scene live: load an avatar (or start empty), type a prompt to forge new items, and drop them straight into the scene. Select any object with a click to translate, rotate, or scale it with the gizmo. Items can be attached to specific avatar bones — hat to head, sword to right hand — and the inspector shows live transform values you can also type in. When you're done, export the full scene as a GLB or save an outfit back to your avatar. Your recent forge creations appear in the panel so you can reuse them across sessions without re-generating.",
 			"tags": [
