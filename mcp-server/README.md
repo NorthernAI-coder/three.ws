@@ -267,7 +267,7 @@ X402_FACILITATOR_URLS_SOLANA="https://facilitator.payai.network,https://your-bac
 
 ```
 ┌─────────────────┐     ┌─────────────────────┐     ┌──────────────────────┐
-│ Claude Desktop  │────▶│  @three-ws/mcp      │────▶│  x402 facilitator    │
+│ Claude Desktop  │────▶│ @three-ws/mcp-server │────▶│  x402 facilitator    │
 │  / Cursor /     │     │   (stdio transport) │     │  (PayAI — Solana     │
 │  your agent     │     │                     │     │   USDC, exact)       │
 └─────────────────┘     └─────────────────────┘     └──────────────────────┘
