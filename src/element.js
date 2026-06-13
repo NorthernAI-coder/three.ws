@@ -586,12 +586,12 @@ const BASE_STYLE = `
 	}
 	:host([mode="floating"]) .drag-handle { display: block; }
 	/* Kiosk mode: hide dat.GUI debug controls entirely */
-	:host([kiosk]) .gui-wrap,
+	:host([kiosk]) .gui-wrap { display: none !important; }
 	:host([kiosk]) .gui-toggle { display: none !important; }
 	/* viewer mode: pure 3D canvas, no chat / input / avatar anchor / debug.
 	   Use when embedding the avatar as decoration (landing pages, launchpads). */
-	:host([viewer]) .chrome,
-	:host([viewer]) .gui-wrap,
+	:host([viewer]) .chrome { display: none !important; }
+	:host([viewer]) .gui-wrap { display: none !important; }
 	:host([viewer]) .gui-toggle { display: none !important; }
 	/* avatar-chat="off" — restore original bottom-row layout, hide avatar anchor */
 	:host([avatar-chat="off"]) .chrome {
