@@ -16,6 +16,7 @@
 
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { realpathSync } from 'node:fs';
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -119,8 +120,21 @@ async function main() {
 	);
 }
 
-const isEntryPoint =
-	Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;
+// Compare the entry path directly and via realpath: launched through the npm
+// bin (a symlink to this file), process.argv[1] is the symlink while
+// import.meta.url is the resolved target, so a direct compare alone would never
+// start the server.
+function isProcessEntryPoint() {
+	const argvPath = process.argv[1];
+	if (!argvPath) return false;
+	if (import.meta.url === pathToFileURL(argvPath).href) return true;
+	try {
+		return import.meta.url === pathToFileURL(realpathSync(argvPath)).href;
+	} catch {
+		return false;
+	}
+}
+const isEntryPoint = isProcessEntryPoint();
 
 if (isEntryPoint) {
 	main().catch((err) => {
