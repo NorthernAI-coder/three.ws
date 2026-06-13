@@ -198,7 +198,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getTrendingTokens',
+		name: 'get_trending_tokens',
 		description: 'Top pump.fun tokens by market cap.',
 		inputSchema: {
 			type: 'object',
@@ -206,7 +206,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getNewTokens',
+		name: 'get_new_tokens',
 		description: 'Most recently launched pump.fun tokens.',
 		inputSchema: {
 			type: 'object',
@@ -214,7 +214,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getGraduatedTokens',
+		name: 'get_graduated_tokens',
 		description: 'Tokens that graduated from the bonding curve to Raydium AMM.',
 		inputSchema: {
 			type: 'object',
@@ -222,7 +222,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getKingOfTheHill',
+		name: 'get_king_of_the_hill',
 		description: 'Highest-market-cap token still on the bonding curve.',
 		inputSchema: { type: 'object', properties: {} },
 	},
@@ -243,7 +243,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getCreatorProfile',
+		name: 'get_creator_profile',
 		description: 'All tokens by a creator wallet, with rug-pull risk flags.',
 		inputSchema: {
 			type: 'object',
@@ -252,7 +252,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getTokenHolders',
+		name: 'get_token_holders',
 		description: 'Top holders of a token with concentration analysis (on-chain).',
 		inputSchema: {
 			type: 'object',
