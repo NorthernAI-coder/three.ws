@@ -42,8 +42,8 @@
 		"server.json"
 	],
 	"bin": {
-		"three-avatar-agent": "./src/index.js",
-		"three-avatar-agent-mcp": "./src/index.js"
+		"three-avatar-agent": "src/index.js",
+		"three-avatar-agent-mcp": "src/index.js"
 	},
 	"main": "./src/index.js",
 	"exports": {

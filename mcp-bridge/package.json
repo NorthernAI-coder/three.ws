@@ -9,7 +9,7 @@
 	"homepage": "https://three.ws",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/nirholas/three.ws.git",
+		"url": "git+https://github.com/nirholas/three.ws.git",
 		"directory": "mcp-bridge"
 	},
 	"bugs": {
@@ -38,7 +38,7 @@
 		"LICENSE"
 	],
 	"bin": {
-		"x402-mcp-bridge": "./src/index.js"
+		"x402-mcp-bridge": "src/index.js"
 	},
 	"main": "./src/index.js",
 	"scripts": {
