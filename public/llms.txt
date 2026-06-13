@@ -38,6 +38,7 @@ Create and customize an agent.
 - [Widgets Gallery](https://three.ws/widgets): Pre-built chat, voice, and 3D-avatar widgets you can drop into any page.
 - [Hydrate](https://three.ws/hydrate): Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.
 - [Features](https://three.ws/features): Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.
+- [AR & WebXR — Place Any 3D Agent in Your Real World](https://three.ws/features/ar): Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.
 - [Forge — Text to 3D Model](https://three.ws/features/forge): Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.
 - [Scan — Selfie to 3D Avatar](https://three.ws/features/scan): Point your camera at your face, hold still, and walk away with a rigged 3D avatar in 60 seconds. Free, in your browser.
 - [Play — Live 3D Coin Worlds](https://three.ws/features/play): Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.

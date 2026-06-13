@@ -266,6 +266,7 @@ const appConfig = {
 				home: resolve(__dirname, 'pages/home.html'),
 				'what-is': resolve(__dirname, 'pages/what-is.html'),
 				features: resolve(__dirname, 'pages/features.html'),
+				'features-ar': resolve(__dirname, 'pages/features/ar.html'),
 				'features-forge': resolve(__dirname, 'pages/features/forge.html'),
 				'features-scan': resolve(__dirname, 'pages/features/scan.html'),
 				'features-play': resolve(__dirname, 'pages/features/play.html'),
