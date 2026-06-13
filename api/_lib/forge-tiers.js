@@ -168,6 +168,21 @@ export const BACKENDS = Object.freeze({
 		}),
 		blurb: 'Cleanest quad topology. Native text→model + image→model.',
 	}),
+	rodin: Object.freeze({
+		id: 'rodin',
+		label: 'Rodin (Hyper3D)',
+		vendor: 'Deemos · Hyper3D',
+		paths: Object.freeze(['geometry', 'image']),
+		byok: 'rodin',
+		provider: 'rodin',
+		requiresEnv: Object.freeze([]),
+		polyControl: true,
+		baseEta: 80,
+		// Rodin bills its own credits per generation; the exact schedule isn't
+		// surfaced here, so leave the estimate null rather than show a wrong number.
+		credits: null,
+		blurb: 'Native text→geometry + image→3D. Quad topology with a real poly target.',
+	}),
 	hunyuan3d: Object.freeze({
 		id: 'hunyuan3d',
 		label: 'Hunyuan3D',
@@ -201,6 +216,34 @@ export const BACKENDS = Object.freeze({
 		baseEta: 45,
 		credits: null,
 		blurb: 'Sketch→3D — draw it, name it, get geometry. Untextured mesh; retexture or stylize after.',
+	}),
+	stability: Object.freeze({
+		id: 'stability',
+		label: 'Stable Fast 3D',
+		vendor: 'Stability AI',
+		paths: Object.freeze(['image']),
+		byok: 'stability',
+		provider: 'stability',
+		requiresEnv: Object.freeze([]),
+		polyControl: false,
+		// Synchronous: returns the GLB on the submit call (no poll). Seconds, not
+		// minutes — the baseEta reflects that.
+		baseEta: 15,
+		credits: null,
+		blurb: 'Fast single-image→3D. Synchronous; textured GLB in seconds.',
+	}),
+	replicate_byok: Object.freeze({
+		id: 'replicate_byok',
+		label: 'Replicate (your account)',
+		vendor: 'Replicate · BYOK',
+		paths: Object.freeze(['image']),
+		byok: 'replicate',
+		provider: 'replicate',
+		requiresEnv: Object.freeze([]),
+		polyControl: false,
+		baseEta: 60,
+		credits: null,
+		blurb: 'Run the TRELLIS image→3D reconstruction on your own Replicate account. Multi-view fusion.',
 	}),
 });
 
