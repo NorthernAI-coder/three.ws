@@ -17,13 +17,16 @@ const SYNTH_ASSET = `0x${'a'.repeat(40)}`;
 const SYNTH_PAYEE = `0x${'b'.repeat(40)}`;
 const SYNTH_OTHER_PAYEE = `0x${'c'.repeat(40)}`;
 
-function requirements({ amount, payTo = SYNTH_PAYEE }) {
+// payTo is intentionally NOT defaulted: passing `payTo: undefined` must reach
+// the hook as a genuinely missing payee so the allowlist's missing-payee branch
+// is exercised. Defaulting here would silently substitute an allowlisted payee.
+function requirements({ amount, payTo = SYNTH_PAYEE, omitPayTo = false }) {
 	return {
 		selectedRequirements: {
 			amount: String(amount),
 			network: 'eip155:8453',
 			asset: SYNTH_ASSET,
-			payTo,
+			payTo: omitPayTo ? undefined : payTo,
 		},
 	};
 }
@@ -102,7 +105,7 @@ test('spending-cap hook: per-call cap, payee allowlist, session ceiling', async 
 				assert.match(refused.reason, new RegExp(`payee "${SYNTH_OTHER_PAYEE}"`));
 				assert.match(refused.reason, /MCP_BRIDGE_ALLOWED_PAYTO/);
 
-				const missing = await hook(requirements({ amount: 100, payTo: undefined }));
+				const missing = await hook(requirements({ amount: 100, omitPayTo: true }));
 				assert.equal(missing.abort, true, 'a missing payTo must not bypass the allowlist');
 
 				const allowed = await hook(requirements({ amount: 100, payTo: SYNTH_PAYEE }));
