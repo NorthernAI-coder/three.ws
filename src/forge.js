@@ -80,6 +80,7 @@ const els = {
 	errorMessage: document.getElementById('error-message'),
 	forgeShareBtn: document.getElementById('forge-share-btn'),
 	segmentBtn: document.getElementById('forge-segment-btn'),
+	savedChip: document.getElementById('result-saved'),
 	creations: document.getElementById('creations'),
 	creationsGrid: document.getElementById('creations-grid'),
 	creationsCount: document.getElementById('creations-count'),
@@ -1206,13 +1207,25 @@ function updateRefineButton() {
 	}
 }
 
-function showResult(glbUrl, label, meta) {
+function showResult(glbUrl, label, meta, { autoSaved = false } = {}) {
 	stopElapsed();
 	resetVerdict();
 	els.viewer.setAttribute('src', glbUrl);
 	els.viewer.setAttribute('alt', `3D model: ${label}`);
 	els.resultLabel.textContent = label;
+	// Hide the saved chip by default; caller re-shows it for fresh generations.
+	if (els.savedChip) els.savedChip.classList.add('is-hidden');
 	setViewsBadge(meta);
+	if (autoSaved && els.savedChip) {
+		// Re-trigger the animation by forcing a reflow.
+		els.savedChip.classList.remove('is-hidden');
+		void els.savedChip.offsetWidth;
+		els.savedChip.style.animation = 'none';
+		void els.savedChip.offsetWidth;
+		els.savedChip.style.animation = '';
+		// Hide after animation completes (3s).
+		setTimeout(() => els.savedChip?.classList.add('is-hidden'), 3100);
+	}
 	els.download.href = glbUrl;
 	els.download.setAttribute(
 		'download',
@@ -1516,13 +1529,18 @@ async function run(cfg) {
 		setStep('finish', 'done');
 		markProgressDone();
 		// Prefer the poll's recorded meta; fall back to the submit response.
-		showResult(done.glb_url, label || 'Forged model', {
-			views_used: done.views_used ?? job.views_used,
-			multiview: done.multiview ?? job.multiview,
-			backend: done.backend ?? job.backend,
-			tier: done.tier ?? job.tier,
-			path: done.path ?? job.path,
-		});
+		showResult(
+			done.glb_url,
+			label || 'Forged model',
+			{
+				views_used: done.views_used ?? job.views_used,
+				multiview: done.multiview ?? job.multiview,
+				backend: done.backend ?? job.backend,
+				tier: done.tier ?? job.tier,
+				path: done.path ?? job.path,
+			},
+			{ autoSaved: !!done.creation_id },
+		);
 		loadGallery();
 		// Geometry-first and sketch lanes have no reference image — render the
 		// finished mesh itself as the creation's card visual.

@@ -319,10 +319,29 @@ function remixPrompt(prompt) {
 	if (!box) return;
 	box.value = prompt;
 	box.dispatchEvent(new Event('input', { bubbles: true }));
-	box.focus();
-	// Caret at the end — the natural place to start tweaking.
-	box.setSelectionRange(box.value.length, box.value.length);
 	box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	// Delay focus + flash until after the scroll settles.
+	setTimeout(() => {
+		box.focus();
+		box.setSelectionRange(box.value.length, box.value.length);
+		// Flash the border so the user clearly sees the prompt landed.
+		box.classList.remove('remix-flash');
+		void box.offsetWidth; // force reflow to restart animation if clicked twice
+		box.classList.add('remix-flash');
+		box.addEventListener('animationend', () => box.classList.remove('remix-flash'), { once: true });
+	}, 300);
+	showRemixToast();
+}
+
+function showRemixToast() {
+	const existing = document.querySelector('.remix-toast');
+	if (existing) existing.remove();
+	const toast = document.createElement('div');
+	toast.className = 'remix-toast';
+	toast.textContent = 'Prompt loaded — edit and Generate';
+	document.body.appendChild(toast);
+	setTimeout(() => toast.classList.add('fade-out'), 2200);
+	setTimeout(() => toast.remove(), 2700);
 }
 
 async function loadShowcase() {
