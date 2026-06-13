@@ -20,8 +20,7 @@ import { limits } from '../../_lib/rate-limit.js';
 import { assertSafePublicUrl } from '../../_lib/ssrf-guard.js';
 import { createRegenProvider as createReplicateProvider } from '../../_providers/replicate.js';
 import { createRegenProvider as createGcpProvider } from '../../_providers/gcp.js';
-import { createMeshyProvider } from '../../_providers/meshy.js';
-import { createTripoProvider } from '../../_providers/tripo.js';
+import { BYOK_PROVIDER_FACTORIES, isByokGeometryBackend } from '../../_providers/byok-registry.js';
 import { textToImage } from '../text-to-image.js';
 import {
 	PATHS,
@@ -203,13 +202,16 @@ const PATH_PROP = {
 	enum: PATHS,
 	default: DEFAULT_PATH,
 	description:
-		'Generation path: "image" (FLUX→TRELLIS reference-image reconstruction, the platform-keyed default) or "geometry" (native text/image→mesh via Meshy/Tripo — cleaner topology, but BYOK: needs your own provider key).',
+		'Generation path: "image" (FLUX→TRELLIS reference-image reconstruction, the platform-keyed default) or "geometry" (native text/image→mesh via Meshy/Tripo/Rodin — cleaner topology, but BYOK: needs your own provider key).',
 };
 const BACKEND_PROP = {
 	type: 'string',
-	enum: Object.keys(BACKENDS),
+	// replicate_byok runs on the platform reconstruction path with the caller's
+	// own Replicate account; that BYOK-token routing only exists on /api/forge, so
+	// it isn't offered over MCP. Every other backend is selectable here.
+	enum: Object.keys(BACKENDS).filter((id) => id !== 'replicate_byok'),
 	description:
-		'Force a specific backend (trellis, meshy, tripo, hunyuan3d). Defaults to the best one for the chosen path. Backends outside the path are ignored.',
+		'Force a specific backend (trellis, meshy, tripo, rodin, stability, hunyuan3d). Defaults to the best one for the chosen path. Backends outside the path are ignored.',
 };
 
 // "needs a BYOK key" — a designed, branchable result (mirrors /api/forge's
@@ -222,7 +224,7 @@ function needsKeyResult(backendId) {
 			{
 				type: 'text',
 				text:
-					`The geometry path uses ${meta?.label || backendId}, which needs your own API key. ` +
+					`${meta?.label || backendId} needs your own API key. ` +
 					`Send it as the "x-forge-provider-key" request header (or store a ${meta?.byok || backendId} key on your three.ws account) and retry, ` +
 					'or use the default image path (omit "path", or set path="image").',
 			},
@@ -249,20 +251,59 @@ async function submitGeometryJob({
 	tier,
 	path,
 }) {
-	const providerName = BACKENDS[backendId].byok; // 'meshy' | 'tripo'
+	const providerName = BACKENDS[backendId].byok; // 'meshy' | 'tripo' | 'rodin' | 'stability'
 	const key = await resolveProviderKey(req, args, providerName);
 	if (!key) return needsKeyResult(backendId);
 
 	let gp;
 	try {
-		gp = backendId === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+		gp = BYOK_PROVIDER_FACTORIES[providerName](key);
 	} catch {
 		return needsKeyResult(backendId);
 	}
 
-	const submitted = isImageMode
-		? await gp.imageTo3d({ imageUrl: primaryImage, prompt: prompt || undefined, tier })
-		: await gp.textToGeometry({ prompt, tier });
+	let submitted;
+	if (isImageMode) {
+		submitted = await gp.imageTo3d({ imageUrl: primaryImage, prompt: prompt || undefined, tier });
+	} else if (typeof gp.textToGeometry === 'function') {
+		submitted = await gp.textToGeometry({ prompt, tier });
+	} else {
+		// Image-only backend (e.g. Stable Fast 3D) asked to run text→3D.
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `${BACKENDS[backendId].label} reconstructs from a reference image — use image_to_3d with this backend, or drop it to run text→3D.`,
+				},
+			],
+			structuredContent: { status: 'failed', error: 'backend_image_only', backend: backendId },
+			isError: true,
+		};
+	}
+
+	// Synchronous completion (Stable Fast 3D): the GLB is already persisted to R2,
+	// so there is no job to poll — return it done.
+	if (!submitted.taskId && submitted.resultGlbUrl) {
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Generated a 3D model on ${BACKENDS[backendId].label} (${path} path, ${tier.id} tier).\nGLB: ${submitted.resultGlbUrl}`,
+				},
+			],
+			structuredContent: {
+				status: 'done',
+				glb_url: submitted.resultGlbUrl,
+				mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+				path,
+				tier: tier.id,
+				backend: backendId,
+				prompt: prompt || null,
+				source_image_url: isImageMode ? primaryImage : null,
+			},
+		};
+	}
+
 	const token = encodeJobToken({
 		provider: providerName,
 		kind: submitted.kind,
@@ -299,7 +340,7 @@ async function submitGeometryJob({
 async function pollAnyProvider(req, jobId) {
 	const token = decodeJobToken(jobId);
 	if (token) {
-		if (token.provider === 'meshy' || token.provider === 'tripo') {
+		if (BYOK_PROVIDER_FACTORIES[token.provider]) {
 			const key = await resolveProviderKey(req, null, token.provider);
 			if (!key) {
 				return {
@@ -307,8 +348,7 @@ async function pollAnyProvider(req, jobId) {
 					error: 'Your provider API key is required to check this job. Send it as the x-forge-provider-key header and retry.',
 				};
 			}
-			const gp =
-				token.provider === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+			const gp = BYOK_PROVIDER_FACTORIES[token.provider](key);
 			return gp.status({ kind: token.kind, taskId: token.taskId });
 		}
 		if (token.provider === 'gcp') {
@@ -438,8 +478,10 @@ export const toolDefs = [
 			const tier = resolveTier(parseTierArg(args));
 			const backendId = resolveBackendId({ path, backend: args.backend });
 
-			// Geometry-first path (Meshy/Tripo, BYOK) — native text→mesh.
-			if (path === 'geometry') {
+			// BYOK geometry-style backends (Meshy/Tripo/Rodin) — native text→mesh.
+			// Routed by registry membership, not just path, so an explicitly chosen
+			// BYOK backend is honoured even if its default path is "image".
+			if (isByokGeometryBackend(BACKENDS[backendId])) {
 				return submitGeometryJob({
 					req,
 					args,
@@ -574,9 +616,10 @@ export const toolDefs = [
 			const tier = resolveTier(parseTierArg(args));
 			const backendId = resolveBackendId({ path, backend: args.backend });
 
-			// Geometry-first path (Meshy/Tripo, BYOK) reconstructs from the primary
-			// view; multi-view fusion stays on the image/TRELLIS path below.
-			if (path === 'geometry') {
+			// BYOK geometry-style backends (Meshy/Tripo/Rodin/Stability) reconstruct
+			// from the primary view; multi-view fusion stays on the image/TRELLIS
+			// path below. Routed by registry membership, not just path.
+			if (isByokGeometryBackend(BACKENDS[backendId])) {
 				return submitGeometryJob({
 					req,
 					args,

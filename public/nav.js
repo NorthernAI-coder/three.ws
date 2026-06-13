@@ -304,7 +304,11 @@ function initDropdowns(root) {
 	});
 
 	document.addEventListener('click', (e) => {
-		if (!e.target.closest('.nav-main .nav-grp')) closeAll(null);
+		// e.target can be a non-Element (text node, document) — closest() only
+		// exists on Elements, so resolve the nearest Element before calling it.
+		const t = e.target;
+		const el = t && t.nodeType === 1 ? t : (t && t.parentElement) || null;
+		if (!el || !el.closest('.nav-main .nav-grp')) closeAll(null);
 	});
 	document.addEventListener('keydown', (e) => {
 		if (e.key === 'Escape') {

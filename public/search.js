@@ -767,7 +767,11 @@
 
 	// Wire any nav search button that nav.html injects
 	document.addEventListener('click', function (e) {
-		var btn = e.target.closest('[data-search-open]');
+		// e.target may be a non-Element (text node, document); closest() lives on
+		// Elements only, so resolve the nearest Element before calling it.
+		var t = e.target;
+		var el = t && t.nodeType === 1 ? t : (t && t.parentElement) || null;
+		var btn = el && el.closest('[data-search-open]');
 		if (btn) { e.preventDefault(); open(); }
 	});
 

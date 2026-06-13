@@ -8,7 +8,9 @@
 		{
 			"src": "https://three.ws/three-ws-mcp-icon.svg",
 			"mimeType": "image/svg+xml",
-			"sizes": ["any"]
+			"sizes": [
+				"any"
+			]
 		}
 	],
 	"repository": {
@@ -22,6 +24,7 @@
 			"registryType": "npm",
 			"identifier": "@three-ws/pumpfun-mcp",
 			"version": "0.2.0",
+			"runtimeHint": "npx",
 			"transport": {
 				"type": "stdio"
 			},
