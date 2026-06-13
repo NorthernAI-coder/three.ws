@@ -1016,7 +1016,7 @@ class App {
 
 		// Mount the canvas up-front so the loading/error overlay has a parent
 		// and the page layout never collapses around an empty container.
-		if (!this.viewer) this.createViewer();
+		if (!this.viewer && !this.createViewer()) return; // WebGL fallback shown
 
 		// Surface a loading state immediately — the identity name lookup
 		// below may take a moment, and the user shouldn't see an empty stage.
@@ -1599,7 +1599,19 @@ class App {
 	createViewer() {
 		if (this.viewer) this.viewer.dispose();
 		this.viewerEl = this.viewerContainerEl;
-		this.viewer = new Viewer(this.viewerEl, this.options);
+		// A GPU/driver without an available WebGL context (headless browser, a
+		// blocked context, or the per-tab context budget exhausted) makes the
+		// Viewer constructor throw "Error creating WebGL context". Catch it and
+		// show a designed fallback instead of letting it bubble as an unhandled
+		// rejection that leaves the stage blank.
+		try {
+			this.viewer = new Viewer(this.viewerEl, this.options);
+		} catch (err) {
+			log.error('[3d-agent] WebGL viewer init failed:', err);
+			this.viewer = null;
+			this._showWebglUnavailable();
+			return null;
+		}
 		initWalletButton();
 
 		if (!this.options.kiosk) {
@@ -1609,6 +1621,29 @@ class App {
 		}
 		window.VIEWER.viewer = this.viewer;
 		return this.viewer;
+	}
+
+	// Cheap, cached probe for WebGL support so we can show the fallback BEFORE
+	// constructing the (expensive) Viewer on devices that plainly can't render.
+	_webglAvailable() {
+		if (typeof this._webglOk === 'boolean') return this._webglOk;
+		let ok = false;
+		try {
+			const canvas = document.createElement('canvas');
+			const gl =
+				canvas.getContext('webgl2') ||
+				canvas.getContext('webgl') ||
+				canvas.getContext('experimental-webgl');
+			ok = !!(window.WebGLRenderingContext && gl && typeof gl.getParameter === 'function');
+			// Release the probe context immediately so it never counts against the
+			// browser's per-tab WebGL context budget.
+			const lose = gl && gl.getExtension && gl.getExtension('WEBGL_lose_context');
+			if (lose) lose.loseContext();
+		} catch {
+			ok = false;
+		}
+		this._webglOk = ok;
+		return ok;
 	}
 
 	// ── Dropzone ─────────────────────────────────────────────────────────────
@@ -1684,9 +1719,16 @@ class App {
 	 * @param  {Map<string, File>} fileMap
 	 */
 	view(rootFile, rootPath, fileMap) {
+		// Bail to the designed fallback before touching the viewer on devices with
+		// no WebGL — otherwise the constructor throws and the stage stays blank.
+		if (!this.viewer && !this._webglAvailable()) {
+			this._showWebglUnavailable();
+			return;
+		}
 		if (this.viewer) this.viewer.clear();
 
 		const viewer = this.viewer || this.createViewer();
+		if (!viewer) return; // WebGL init failed — fallback already shown
 		const fileURL = typeof rootFile === 'string' ? rootFile : URL.createObjectURL(rootFile);
 
 		this._currentModelUrl = typeof rootFile === 'string' ? rootFile : null;
@@ -2057,6 +2099,35 @@ class App {
 				Promise.resolve(onRetry()).catch(() => {});
 			});
 		}
+	}
+
+	// Designed fallback when the device can't give us a WebGL context. Unlike a
+	// transient load error, this is a capability gap — so we explain it plainly,
+	// offer a reload (which frees contexts and recovers the budget-exhaustion
+	// case), and link to the lightweight 2D experience instead of a bare retry.
+	_showWebglUnavailable() {
+		const el = this._ensureViewerStatusEl();
+		el.dataset.state = 'webgl';
+		el.innerHTML = `
+			<div class="viewer-status__card viewer-status__card--notice" role="alert">
+				<div class="viewer-status__icon viewer-status__icon--info" aria-hidden="true">
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+						stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+						<line x1="3" y1="3" x2="21" y2="21"/>
+					</svg>
+				</div>
+				<div class="viewer-status__title">3D preview unavailable</div>
+				<div class="viewer-status__hint">This browser or device couldn't start a 3D
+					(WebGL) view. Try reloading, or open three.ws on a device with hardware
+					graphics enabled.</div>
+				<button class="viewer-status__btn" type="button" data-reload>Reload</button>
+			</div>
+		`;
+		el.hidden = false;
+		el.querySelector('[data-reload]')?.addEventListener('click', () => {
+			window.location.reload();
+		});
 	}
 
 	_hideViewerStatus() {

@@ -120,7 +120,13 @@ let catalog = null;
 // optimistically from the catalog and tighten when health lands.
 let health = null;
 let selectedTier = 'standard';
-let selectedEngine = { id: 'trellis', path: 'image', backend: 'trellis', byok: null, polyControl: false };
+let selectedEngine = {
+	id: 'trellis',
+	path: 'image',
+	backend: 'trellis',
+	byok: null,
+	polyControl: false,
+};
 // Once the user deliberately picks an engine we stop auto-selecting the
 // catalog's per-tier default (e.g. the free NVIDIA lane on draft) under them.
 let userPickedEngine = false;
@@ -141,11 +147,28 @@ function setCinema(on) {
 	els.viewer.setAttribute('rotation-per-second', on ? '10deg' : '18deg');
 }
 
-// Friendly engine labels + where to mint a key, keyed by backend id.
-const ENGINE_LABELS = { nvidia: 'Free', trellis: 'Fast', meshy: 'Meshy', tripo: 'Tripo', hunyuan3d: 'Hunyuan3D', triposg: 'TripoSG' };
+// Short engine labels for the picker buttons, keyed by backend id.
+const ENGINE_LABELS = {
+	nvidia: 'Free',
+	trellis: 'Fast',
+	meshy: 'Meshy',
+	tripo: 'Tripo',
+	rodin: 'Rodin',
+	stability: 'Stability',
+	replicate_byok: 'Replicate',
+	hunyuan3d: 'Hunyuan3D',
+	triposg: 'TripoSG',
+};
+
+// Where to mint a key per BYOK provider, keyed by the backend's `byok` name.
+// Mirrors the canonical registry in api/_lib/provider-keys.js (BYOK_PROVIDERS)
+// and the Account key manager (dashboard-next/pages/account.js) — keep in sync.
 const KEY_HINTS = {
 	meshy: { label: 'Meshy AI', url: 'https://www.meshy.ai/settings/api' },
 	tripo: { label: 'Tripo AI', url: 'https://platform.tripo3d.ai/api-keys' },
+	rodin: { label: 'Rodin (Hyper3D)', url: 'https://developer.hyper3d.ai' },
+	stability: { label: 'Stability AI', url: 'https://platform.stability.ai/account/keys' },
+	replicate: { label: 'Replicate', url: 'https://replicate.com/account/api-tokens' },
 };
 
 // One entry per reference-view slot. `state` drives the slot's rendered region;
@@ -434,7 +457,8 @@ function updateEngineAvailability() {
 		if (laneDown) {
 			btn.title = `${b?.label || btn.dataset.backend} — temporarily unavailable: ${lane.message}`;
 		} else if (blocked) {
-			btn.title = 'This engine generates from text prompts only — clear the reference views to use it.';
+			btn.title =
+				'This engine generates from text prompts only — clear the reference views to use it.';
 		} else if (b) {
 			btn.title = laneBusy
 				? `${b.label} — busy right now: ${lane.message}`
@@ -442,7 +466,8 @@ function updateEngineAvailability() {
 		}
 		if (blocked && btn.dataset.backend === selectedEngine.backend) bounceTo = true;
 	}
-	const defaultId = catalog.default_backend_for_tier?.[selectedTier]?.[selectedEngine.path] ?? null;
+	const defaultId =
+		catalog.default_backend_for_tier?.[selectedTier]?.[selectedEngine.path] ?? null;
 	if (bounceTo) {
 		// Forced move: the selected engine can't serve photos. Prefer the standing
 		// photo default, else the first enabled button.
@@ -451,8 +476,15 @@ function updateEngineAvailability() {
 			els.engine.querySelector(`button[data-backend="${fallbackId}"]:not(:disabled)`) ||
 			els.engine.querySelector('button:not(:disabled)');
 		if (target) selectEngine(target);
-	} else if (!userPickedEngine && !hasPhotos && defaultId && defaultId !== selectedEngine.backend) {
-		const target = els.engine.querySelector(`button[data-backend="${defaultId}"]:not(:disabled)`);
+	} else if (
+		!userPickedEngine &&
+		!hasPhotos &&
+		defaultId &&
+		defaultId !== selectedEngine.backend
+	) {
+		const target = els.engine.querySelector(
+			`button[data-backend="${defaultId}"]:not(:disabled)`,
+		);
 		if (target) selectEngine(target);
 	}
 }
@@ -481,11 +513,12 @@ function updateByokRow() {
 	els.byokRow.classList.toggle('is-hidden', !byok);
 	if (!byok) return;
 	const hint = KEY_HINTS[byok];
-	els.byokLabel.textContent = `${hint?.label || byok} key`;
-	els.providerKey.placeholder = `Your ${hint?.label || byok} API key (kept in this browser)`;
+	const name = hint?.label || byok;
+	els.byokLabel.textContent = `${name} key`;
+	els.providerKey.placeholder = `Your ${name} API key (kept in this browser)`;
 	els.byokHint.innerHTML = hint
-		? `Geometry-first uses your own ${hint.label} key. <a href="${hint.url}" target="_blank" rel="noopener">Get a key →</a> Signed-in users can save it in Account instead.`
-		: 'This engine needs your own API key.';
+		? `This engine runs on your own ${hint.label} key. <a href="${hint.url}" target="_blank" rel="noopener">Get a key →</a> Signed-in users can save it once in Account instead.`
+		: `This engine runs on your own ${name} key, kept in this browser. Signed-in users can save it in Account instead.`;
 }
 
 function selectTier(tierId) {
@@ -509,7 +542,9 @@ function updateEstimate() {
 		els.estimate.textContent = '';
 		return;
 	}
-	const est = (backend.estimates?.[selectedEngine.path] || []).find((e) => e.tier === selectedTier);
+	const est = (backend.estimates?.[selectedEngine.path] || []).find(
+		(e) => e.tier === selectedTier,
+	);
 	// Holder-readable, not pipeline-internal: say how long it usually takes and
 	// what the engine does, in plain words. The mechanism ("builds from a
 	// reference image") replaces jargon like "image-intermediate · fast path".
@@ -725,8 +760,10 @@ async function presignAndPut(file) {
 			body: JSON.stringify({ content_type: file.type, size_bytes: file.size }),
 		});
 		const presign = await presignRes.json().catch(() => ({}));
-		if (presignRes.status === 503) return { ok: false, message: 'Uploads unavailable — paste a URL.' };
-		if (presignRes.status === 429) return { ok: false, message: 'Rate limited — retry shortly.' };
+		if (presignRes.status === 503)
+			return { ok: false, message: 'Uploads unavailable — paste a URL.' };
+		if (presignRes.status === 429)
+			return { ok: false, message: 'Rate limited — retry shortly.' };
 		if (!presignRes.ok || !presign.upload_url || !presign.public_url) {
 			return { ok: false, message: presign.message || 'Upload failed.' };
 		}
@@ -736,7 +773,8 @@ async function presignAndPut(file) {
 			headers: { 'content-type': file.type },
 			body: file,
 		});
-		if (!putRes.ok) return { ok: false, message: `Storage rejected the file (${putRes.status}).` };
+		if (!putRes.ok)
+			return { ok: false, message: `Storage rejected the file (${putRes.status}).` };
 		return { ok: true, url: presign.public_url };
 	} catch {
 		return { ok: false, message: 'Network error during upload.' };
@@ -1156,7 +1194,8 @@ function updateRefineButton() {
 	if (!els.refine) return;
 	const next = nextTierAfter(currentResultTier);
 	const reRunnable =
-		lastJob && (lastJob.prompt || (Array.isArray(lastJob.imageUrls) && lastJob.imageUrls.length));
+		lastJob &&
+		(lastJob.prompt || (Array.isArray(lastJob.imageUrls) && lastJob.imageUrls.length));
 	const show = Boolean(next && reRunnable);
 	els.refine.classList.toggle('is-hidden', !show);
 	if (show) {
@@ -1177,7 +1216,12 @@ function showResult(glbUrl, label, meta) {
 	els.download.href = glbUrl;
 	els.download.setAttribute(
 		'download',
-		`${label.replace(/[^a-z0-9]+/gi, '-').slice(0, 48).replace(/^-|-$/g, '') || 'forge'}.glb`,
+		`${
+			label
+				.replace(/[^a-z0-9]+/gi, '-')
+				.slice(0, 48)
+				.replace(/^-|-$/g, '') || 'forge'
+		}.glb`,
 	);
 	// Cross-link into Parts Studio with this exact model pre-loaded.
 	if (els.segmentBtn) els.segmentBtn.href = `/segment?mesh=${encodeURIComponent(glbUrl)}`;
@@ -1190,9 +1234,7 @@ function showResult(glbUrl, label, meta) {
 	playMaterialize(glbUrl);
 	// Hand the live model to the Stylize panel (src/forge-stylize.js) so its
 	// one-click geometric filters operate on the current source mesh.
-	document.dispatchEvent(
-		new CustomEvent('forge:model-ready', { detail: { glbUrl, label } }),
-	);
+	document.dispatchEvent(new CustomEvent('forge:model-ready', { detail: { glbUrl, label } }));
 	document.dispatchEvent(
 		new CustomEvent('tws:feature-done', {
 			detail: { feature: 'forge', model: { glbUrl, label } },
@@ -1281,7 +1323,9 @@ async function loadGallery() {
 			prov.style.left = '6px';
 			prov.style.right = 'auto';
 			prov.style.top = Number(c.views_used) > 1 ? '28px' : '6px';
-			prov.textContent = [ENGINE_LABELS[c.backend] || c.backend, c.tier].filter(Boolean).join(' ');
+			prov.textContent = [ENGINE_LABELS[c.backend] || c.backend, c.tier]
+				.filter(Boolean)
+				.join(' ');
 			prov.title =
 				`${c.path === 'geometry' ? 'Geometry-first' : c.path === 'sketch' ? 'Sketch→3D' : 'Image path'} · ${c.backend || ''} · ${c.tier || ''}`.trim();
 			card.appendChild(prov);
@@ -1442,8 +1486,7 @@ async function run(cfg) {
 		// itself returns the finished model with a null job_id. Polling that
 		// null id would loop on invalid_job until the timeout, losing a result
 		// that already succeeded.
-		const done =
-			job.status === 'done' && job.glb_url ? job : await pollUntilDone(job.job_id);
+		const done = job.status === 'done' && job.glb_url ? job : await pollUntilDone(job.job_id);
 		if (pollAbort || !done) return; // cancelled
 
 		if (done.creation_id) currentCreationId = done.creation_id;
@@ -1745,7 +1788,8 @@ document.addEventListener('keydown', (e) => {
 	// "/" jumps to the prompt for the current mode — the standard quick-focus.
 	if (e.key === '/') {
 		e.preventDefault();
-		const box = mode === 'sketch' ? els.sketchPrompt : mode === 'image' ? els.imagePrompt : els.prompt;
+		const box =
+			mode === 'sketch' ? els.sketchPrompt : mode === 'image' ? els.imagePrompt : els.prompt;
 		box?.focus();
 		return;
 	}

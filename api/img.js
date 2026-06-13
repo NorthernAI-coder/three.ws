@@ -15,14 +15,17 @@
 //      per-redirect re-validation, byte cap, timeout) — see api/_lib/ssrf.js.
 //   2. If the source is an IPFS URL that fails, retry across alternate public
 //      gateways so one slow gateway never blanks the art.
-//   3. On total failure, 302 to a deterministic dicebear placeholder (which
-//      serves permissive CORS) so the loader ALWAYS receives a valid 200 image
-//      and never logs an error.
+//   3. On total failure, serve a deterministic, on-brand SVG placeholder inline
+//      (200, permissive CORS) so the loader ALWAYS receives a valid image and
+//      never logs an error. The placeholder is generated here — same-origin, no
+//      external dependency that could itself be down — and is unique per seed:
+//      an abstract gradient "gem" that reads as token art rather than a generic
+//      "broken image" tile.
 //
 // Responses are immutable and CDN-cached: a given upstream URL yields the same
 // bytes forever, so we cache hard at the edge and the proxy is hit once per art.
 
-import { wrap, cors, method, error, redirect, rateLimited } from './_lib/http.js';
+import { wrap, cors, method, error, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { fetchModel } from './_lib/fetch-model.js';
 
@@ -61,9 +64,68 @@ function candidates(rawUrl) {
 	return [rawUrl.startsWith('ipfs://') ? IPFS_GATEWAYS[0] + rawUrl.slice(7) : rawUrl];
 }
 
-function placeholder(seed) {
-	const s = encodeURIComponent(seed || 'token');
-	return `https://api.dicebear.com/7.x/shapes/png?seed=${s}`;
+// Deterministic, dependency-free placeholder art. The same seed always renders
+// the same image, so a given token's fallback is stable across loads and the
+// edge cache stays warm. Derives a two-tone palette + accent from a hash of the
+// seed and composes a soft gradient backdrop, a faceted "gem" glyph, and a
+// monogram — on-brand for three.ws and clearly intentional, not a 404 tile.
+function hashSeed(str) {
+	let h = 2166136261 >>> 0; // FNV-1a
+	for (let i = 0; i < str.length; i++) {
+		h ^= str.charCodeAt(i);
+		h = Math.imul(h, 16777619);
+	}
+	return h >>> 0;
+}
+
+function monogram(seed) {
+	const m = String(seed).match(/[A-Za-z0-9]/);
+	return (m ? m[0] : '◆').toUpperCase();
+}
+
+function placeholderSvg(seed) {
+	const s = String(seed || 'token');
+	const h = hashSeed(s);
+	const hue = h % 360; // primary hue
+	const hue2 = (hue + 38 + ((h >> 9) % 50)) % 360; // analogous accent
+	const rot = (h >> 3) % 360; // gem rotation for per-seed variety
+	const ch = monogram(s);
+	// Two deep, saturated stops keep contrast high enough for a white monogram.
+	const c1 = `hsl(${hue} 64% 16%)`;
+	const c2 = `hsl(${hue2} 58% 9%)`;
+	const glow = `hsl(${hue} 80% 60%)`;
+	const accent = `hsl(${hue2} 85% 66%)`;
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400" role="img" aria-label="placeholder artwork">
+	<defs>
+		<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="${c1}"/>
+			<stop offset="1" stop-color="${c2}"/>
+		</linearGradient>
+		<radialGradient id="glow" cx="0.5" cy="0.42" r="0.65">
+			<stop offset="0" stop-color="${glow}" stop-opacity="0.45"/>
+			<stop offset="1" stop-color="${glow}" stop-opacity="0"/>
+		</radialGradient>
+		<linearGradient id="facet" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="${accent}" stop-opacity="0.95"/>
+			<stop offset="1" stop-color="${glow}" stop-opacity="0.55"/>
+		</linearGradient>
+	</defs>
+	<rect width="400" height="400" fill="url(#bg)"/>
+	<rect width="400" height="400" fill="url(#glow)"/>
+	<g transform="rotate(${rot} 200 188)" opacity="0.9">
+		<polygon points="200,96 268,150 242,236 158,236 132,150" fill="url(#facet)"/>
+		<polygon points="200,96 268,150 200,188" fill="#ffffff" fill-opacity="0.16"/>
+		<polygon points="200,96 132,150 200,188" fill="#000000" fill-opacity="0.12"/>
+		<polygon points="200,188 242,236 158,236" fill="#000000" fill-opacity="0.18"/>
+		<polyline points="132,150 200,188 268,150" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5"/>
+	</g>
+	<text x="200" y="188" text-anchor="middle" dominant-baseline="central"
+		font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="84" font-weight="700"
+		fill="#ffffff" fill-opacity="0.92" style="paint-order:stroke">${ch}</text>
+	<text x="200" y="312" text-anchor="middle"
+		font-family="'Inter','Segoe UI',system-ui,sans-serif" font-size="15" font-weight="600"
+		letter-spacing="3" fill="#ffffff" fill-opacity="0.42">THREE.WS</text>
+</svg>`;
 }
 
 export default wrap(async function handler(req, res) {
@@ -112,9 +174,16 @@ export default wrap(async function handler(req, res) {
 	}
 
 	if (!image) {
-		// Every source failed. Hand back a valid, CORS-clean placeholder so the
-		// texture/image loader resolves with a 200 instead of logging an error.
-		return redirect(res, placeholder(seed), 302);
+		// Every source failed. Hand back a valid, CORS-clean placeholder inline so
+		// the texture/image loader resolves with a 200 instead of logging an error.
+		// Served same-origin (no external dependency to fail) and cached, but for a
+		// shorter window than real art so a transiently-down source can recover.
+		res.statusCode = 200;
+		res.setHeader('content-type', 'image/svg+xml; charset=utf-8');
+		res.setHeader('access-control-allow-origin', '*');
+		res.setHeader('cache-control', 'public, max-age=300, s-maxage=3600');
+		res.end(placeholderSvg(seed));
+		return;
 	}
 
 	res.statusCode = 200;

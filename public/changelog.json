@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T05:04:14.903Z",
+	"generated_at": "2026-06-13T05:41:01.838Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -70,8 +70,8 @@
 		{
 			"date": "2026-06-13",
 			"type": "update",
-			"title": "Reliability pass: steadier live feed, token art that never blanks, and fewer Forge timeouts",
-			"summary": "We traced a batch of production errors to their roots and fixed them. The live activity ticker no longer hammers our rate store on every open tab — one shared reader now fans updates out to everyone on a server and quiets down while the feed is idle, which is what was silently exhausting our request quota and freezing the feed. Remote token artwork that stalls now always falls back to a placeholder instead of timing out and showing nothing. Text-to-3D generations that take a little longer to start no longer get cut off early. And a stray click-handling error on the homepage, search, and glossary is gone.",
+			"title": "Reliability pass: steadier live feed, token art that never blanks, and a graceful 3D fallback",
+			"summary": "We traced a batch of production errors to their roots and fixed them. The live activity ticker no longer hammers our rate store on every open tab — one shared reader now fans updates out to everyone on a server and quiets down while the feed is idle, which is what was silently exhausting our request quota and freezing the feed. When a remote token image stalls, you now get a clean, on-brand placeholder — a unique gradient gem per token — instead of a timeout or a broken-image tile. On devices that can't run 3D (some locked-down or headless browsers), the viewer now shows a clear 'preview unavailable' card with a reload option instead of a blank stage. Text-to-3D generations that take a little longer to start no longer get cut off early, and a stray click-handling error on the homepage, search, and glossary is gone.",
 			"link": null,
 			"tags": [
 				"fix",

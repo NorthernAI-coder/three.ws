@@ -474,6 +474,40 @@ const BASE_STYLE = `
 		padding: 16px;
 		font: 14px var(--agent-chat-font);
 	}
+	.error-card {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		gap: 8px;
+		max-width: 260px;
+		animation: agent-err-in 0.3s ease both;
+	}
+	@keyframes agent-err-in {
+		from { opacity: 0; transform: translateY(6px); }
+		to   { opacity: 1; transform: none; }
+	}
+	.error-icon {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(127, 127, 127, 0.16);
+		color: var(--agent-on-surface);
+		opacity: 0.85;
+	}
+	.error-title {
+		font-size: 14px;
+		font-weight: 600;
+		line-height: 1.3;
+	}
+	.error-hint {
+		font-size: 12.5px;
+		line-height: 1.45;
+		opacity: 0.62;
+	}
 	/* Optional name plate overlay — toggled by the name-plate attribute. */
 	.name-plate {
 		position: absolute;
@@ -2377,9 +2411,30 @@ class Agent3DElement extends HTMLElement {
 
 	_showError(err) {
 		if (this.hasAttribute('kiosk')) return;
+		const raw = (err && (err.message || String(err))) || '';
+		const isWebgl = /webgl|context/i.test(raw);
+		const title = isWebgl ? '3D preview unavailable' : "Couldn't load agent";
+		const hint = isWebgl
+			? "This browser or device couldn't start a 3D (WebGL) view."
+			: 'Something went wrong while loading. Please try again.';
 		const el = document.createElement('div');
 		el.className = 'error';
-		el.textContent = `Couldn't load agent: ${err.message || err}`;
+		el.setAttribute('role', 'alert');
+		el.innerHTML = `
+			<div class="error-card">
+				<div class="error-icon" aria-hidden="true">
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+						stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+						<line x1="3" y1="3" x2="21" y2="21"/>
+					</svg>
+				</div>
+				<div class="error-title"></div>
+				<div class="error-hint"></div>
+			</div>
+		`;
+		el.querySelector('.error-title').textContent = title;
+		el.querySelector('.error-hint').textContent = hint;
 		this.shadowRoot.appendChild(el);
 	}
 

@@ -491,16 +491,57 @@
 			.fq-row:has(> .aspect.is-hidden) {
 				display: none;
 			}
+			/* The key field appears only for bring-your-own-key engines, so it
+			   reads as a deliberate, self-contained zone — an inset panel with an
+			   accent edge that eases in when the engine is selected. */
 			.byok-row {
 				display: flex;
 				align-items: center;
 				gap: var(--space-sm);
 				flex-wrap: wrap;
+				position: relative;
+				padding: 0.7rem 0.8rem 0.7rem 1rem;
+				background: var(--surface-2);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+			}
+			.byok-row::before {
+				content: '';
+				position: absolute;
+				left: 0;
+				top: 0.6rem;
+				bottom: 0.6rem;
+				width: 2px;
+				border-radius: 0 2px 2px 0;
+				background: var(--accent);
+				opacity: 0.7;
+			}
+			.byok-row:not(.is-hidden) {
+				animation: byok-reveal 0.22s ease both;
+			}
+			@keyframes byok-reveal {
+				from {
+					opacity: 0;
+					transform: translateY(-3px);
+				}
+				to {
+					opacity: 1;
+					transform: none;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.byok-row:not(.is-hidden) {
+					animation: none;
+				}
+			}
+			.byok-row .fq-label {
+				min-width: 0;
+				color: var(--ink);
 			}
 			.byok-input {
 				flex: 1 1 16rem;
 				min-width: 0;
-				background: var(--surface-1);
+				background: var(--bg);
 				border: 1px solid var(--stroke);
 				border-radius: var(--radius-md);
 				color: var(--ink);
@@ -510,7 +551,11 @@
 				outline: none;
 				transition:
 					border-color 0.15s,
-					box-shadow 0.15s;
+					box-shadow 0.15s,
+					background 0.15s;
+			}
+			.byok-input:hover {
+				border-color: var(--stroke-strong);
 			}
 			.byok-input:focus-visible {
 				border-color: var(--accent);
@@ -518,18 +563,24 @@
 			}
 			.byok-input[aria-invalid='true'] {
 				border-color: var(--danger);
+				box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
 			}
 			.byok-hint {
 				flex-basis: 100%;
 				font-size: var(--text-xs);
+				line-height: 1.5;
 				color: var(--ink-dim);
 			}
 			.byok-hint a {
 				color: var(--accent);
 				text-decoration: none;
+				font-weight: 500;
+				white-space: nowrap;
+				transition: opacity 0.15s;
 			}
 			.byok-hint a:hover {
 				text-decoration: underline;
+				opacity: 0.85;
 			}
 			.fq-estimate {
 				margin: 0;
@@ -1981,7 +2032,10 @@
 				color: var(--ink);
 			}
 		</style>
-	</head>
+	
+	<link rel="canonical" href="https://three.ws/forge">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Forge — Text to 3D","description":"Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.","url":"https://three.ws/forge","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+</head>
 	<body class="forge-page">
 		<div id="nav-container"></div>
 

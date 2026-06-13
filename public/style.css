@@ -376,6 +376,34 @@ body {
 .viewer-status__btn:active {
 	transform: translateY(1px);
 }
+.viewer-status__btn:focus-visible {
+	outline: 2px solid rgba(255, 255, 255, 0.55);
+	outline-offset: 2px;
+}
+/* Capability-notice variant (e.g. no WebGL) — informational, not an error.
+   A calm neutral chrome with a title + supporting hint line. */
+.viewer-status__card--notice {
+	border-color: rgba(255, 255, 255, 0.12);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+	gap: 10px;
+	padding: 24px 26px;
+}
+.viewer-status__icon--info {
+	background: rgba(255, 255, 255, 0.08);
+	color: rgba(255, 255, 255, 0.82);
+}
+.viewer-status__title {
+	font-size: 15px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.95);
+	letter-spacing: 0.01em;
+}
+.viewer-status__hint {
+	font-size: 13px;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.6);
+	max-width: 300px;
+}
 .viewer-status__progress {
 	display: flex;
 	flex-direction: column;
