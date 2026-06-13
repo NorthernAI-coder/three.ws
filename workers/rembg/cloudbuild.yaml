@@ -40,7 +40,6 @@ steps:
       - --service-account=${_RUN_SA}
       - --platform=managed
       - --port=8080
-      - --no-gpu
       - --cpu=4
       - --memory=8Gi
       - --min-instances=${_MIN_INSTANCES}
