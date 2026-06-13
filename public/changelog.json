@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T09:57:58.278Z",
+	"generated_at": "2026-06-13T09:59:15.280Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -171,6 +171,18 @@
 			"link": "/compose",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "Security and scalability hardening",
+			"summary": "Several infrastructure improvements ship today to keep the platform safe and fast at growth scale. All Redis connections across the API now share a single Upstash client instance, eliminating the duplicate quota consumption that caused the June 2026 rate-limit outage. A per-user daily LLM spend cap is now enforced on platform-paid inference keys — callers who exhaust their daily budget receive a clear 429 with a reset time rather than silently running up costs. The SSRF guard gains an IP-pinned fetch variant for proxy and webhook endpoints, closing a DNS-rebinding window where a hostile DNS server could swap an address between the safety check and the actual TCP connection. An admin Redis health panel exposes live quota usage and latency with one click, complementing the existing automated hourly quota watchdog that pages the ops channel at 70% and 90% of the daily limit.",
+			"link": null,
+			"tags": [
+				"security",
+				"infra",
+				"improvement"
 			]
 		},
 		{

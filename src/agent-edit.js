@@ -3,6 +3,7 @@ import { saveRemoteGlbToAccount } from './account.js';
 import { apiFetch } from './api.js';
 import { openAvatarPicker } from './avatar-gallery-picker.js';
 import { log } from './shared/log.js';
+import { isValidGlbMagic } from './shared/glb-magic.js';
 
 const API_BASE = '/api';
 const params = new URLSearchParams(location.search);
@@ -476,11 +477,9 @@ function triggerHiddenGlbInput() {
       const file = e.target.files?.[0];
       e.target.value = '';
       if (!file) return;
-      // GLB magic-byte check before uploading.
-      const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
-      if (head[0] !== 0x67 || head[1] !== 0x6c || head[2] !== 0x54 || head[3] !== 0x46) {
+      if (!(await isValidGlbMagic(file))) {
         const status = $('outfit-status');
-        if (status) { status.textContent = 'Not a valid .glb file.'; status.className = 'outfit-status err'; }
+        if (status) { status.textContent = 'Not a valid GLB file (bad header).'; status.className = 'outfit-status err'; }
         return;
       }
       const name = file.name.replace(/\.glb$/i, '').trim() || 'My Avatar';
@@ -543,7 +542,11 @@ async function renderAnimationsPicker() {
     try {
       const r = await fetch('/animations/manifest.json', { credentials: 'omit' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      animationLibrary = await r.json();
+      const raw = await r.json();
+      // Deduplicate by name — a malformed manifest with repeated clip names would
+      // produce non-deterministic select behaviour in the animation graph picker.
+      const seen = new Set();
+      animationLibrary = raw.filter((a) => a?.name && !seen.has(a.name) && seen.add(a.name));
     } catch (err) {
       grid.innerHTML = `<div class="error-msg" style="padding:1rem">Could not load animation library: ${escapeHtml(err.message)}</div>`;
       return;
@@ -665,6 +668,12 @@ function updateAnimGraphSaveButton() {
   const dirty = ANIM_STATES.some((s) => animGraphState[s] !== originalAnimGraphState[s]);
   saveBtn.disabled = !dirty;
 }
+
+// Warn before navigating away with unsaved animation graph changes.
+window.addEventListener('beforeunload', (e) => {
+  const dirty = ANIM_STATES.some((s) => animGraphState[s] !== originalAnimGraphState[s]);
+  if (dirty) e.preventDefault();
+});
 
 // Build the API-shaped graph object from the current picker selections.
 // Empty (default) selections are omitted so the API receives only overrides.
@@ -934,11 +943,13 @@ $('monetization-save').addEventListener('click', async () => {
     const input = item.querySelector('.price-input');
 
     if (toggle.checked && input.value) {
+      const parsed = parseFloat(input.value);
+      if (Number.isNaN(parsed) || parsed <= 0) return;
       const trialInput = item.querySelector('.trial-uses-input');
       const trialUses = trialInput ? Math.max(0, Math.min(10, parseInt(trialInput.value || '0', 10) || 0)) : 0;
       prices.push({
         skill,
-        amount: Math.round(parseFloat(input.value) * 1e6),
+        amount: Math.round(parsed * 1e6),
         currency_mint: USDC_MINT,
         chain: 'solana',
         trial_uses: trialUses,

@@ -621,5 +621,82 @@
 		"label": "Wheelbarrow Dump",
 		"icon": "🛒",
 		"loop": false
+	},
+	{
+		"name": "soldier-idle",
+		"url": "/animations/clips/soldier-idle.json",
+		"label": "Idle",
+		"icon": "🧍",
+		"loop": true
+	},
+	{
+		"name": "soldier-run",
+		"url": "/animations/clips/soldier-run.json",
+		"label": "Run",
+		"icon": "🏃",
+		"loop": true
+	},
+	{
+		"name": "soldier-walk",
+		"url": "/animations/clips/soldier-walk.json",
+		"label": "Walk",
+		"icon": "🚶",
+		"loop": true
+	},
+	{
+		"name": "michelle-samba-dance",
+		"url": "/animations/clips/michelle-samba-dance.json",
+		"label": "Samba Dance",
+		"icon": "💃",
+		"loop": true
+	},
+	{
+		"name": "xbot-agree",
+		"url": "/animations/clips/xbot-agree.json",
+		"label": "Agree",
+		"icon": "👍",
+		"loop": false
+	},
+	{
+		"name": "xbot-head-shake",
+		"url": "/animations/clips/xbot-head-shake.json",
+		"label": "Head Shake",
+		"icon": "🙅",
+		"loop": false
+	},
+	{
+		"name": "xbot-idle",
+		"url": "/animations/clips/xbot-idle.json",
+		"label": "Idle (Xbot)",
+		"icon": "🧍",
+		"loop": true
+	},
+	{
+		"name": "xbot-run",
+		"url": "/animations/clips/xbot-run.json",
+		"label": "Run",
+		"icon": "🏃",
+		"loop": true
+	},
+	{
+		"name": "xbot-sad-pose",
+		"url": "/animations/clips/xbot-sad-pose.json",
+		"label": "Sad",
+		"icon": "😔",
+		"loop": true
+	},
+	{
+		"name": "xbot-sneak-pose",
+		"url": "/animations/clips/xbot-sneak-pose.json",
+		"label": "Sneak",
+		"icon": "🕵️",
+		"loop": true
+	},
+	{
+		"name": "xbot-walk",
+		"url": "/animations/clips/xbot-walk.json",
+		"label": "Walk (Xbot)",
+		"icon": "🚶",
+		"loop": true
 	}
 ]

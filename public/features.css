@@ -1642,6 +1642,99 @@
 	color: rgba(255,255,255,0.5);
 }
 
+/* AR placement preview */
+.feat-card-preview--ar-place {
+	background: linear-gradient(160deg, rgba(10,10,20,0.9), rgba(2,2,10,0.95));
+}
+
+.feat-ar-visual {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--space-md);
+	width: 100%;
+}
+
+.feat-ar-scene {
+	position: relative;
+	width: 160px;
+	height: 120px;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+}
+
+.feat-ar-floor {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 140px;
+	height: 40px;
+	background: linear-gradient(180deg, transparent, rgba(167,139,250,0.06));
+	border-bottom: 1px solid rgba(167,139,250,0.15);
+	border-radius: 50% 50% 0 0 / 20px 20px 0 0;
+}
+
+.feat-ar-reticle {
+	position: absolute;
+	bottom: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 40px;
+	height: 16px;
+	border-radius: 50%;
+	border: 1px dashed rgba(167,139,250,0.45);
+	animation: feat-ar-pulse 2s ease-in-out infinite;
+}
+
+@keyframes feat-ar-pulse {
+	0%, 100% { opacity: 0.45; transform: translateX(-50%) scale(1); }
+	50% { opacity: 0.9; transform: translateX(-50%) scale(1.1); }
+}
+
+.feat-ar-model {
+	position: absolute;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	animation: feat-ar-float 3s ease-in-out infinite;
+}
+
+@keyframes feat-ar-float {
+	0%, 100% { transform: translateX(-50%) translateY(0); }
+	50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+.feat-ar-badge {
+	position: absolute;
+	top: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 8px;
+	background: rgba(167,139,250,0.15);
+	border: 1px solid rgba(167,139,250,0.3);
+	border-radius: var(--radius-pill);
+	font-size: 11px;
+	font-weight: 600;
+	color: rgba(167,139,250,0.9);
+	font-family: var(--font-mono);
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.feat-ar-btn {
+	padding: 8px 20px;
+	border-radius: var(--radius-pill);
+	background: rgba(255,255,255,0.95);
+	color: #000;
+	font-size: var(--text-sm);
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
 /* Marketplace preview */
 .feat-card-preview--marketplace {
 	background: rgba(0,0,0,0.2);

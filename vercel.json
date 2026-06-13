@@ -35,11 +35,27 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
 		},
-		"api/cron/[name].js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
+		"api/cron/uptime-check.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 30
+		},
+		"api/cron/quota-check.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 30
+		},
+		"api/cron/flush-usage-events.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 60
+		},
+		"api/jobs/flush-usage-events.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 60
 		},
 		"api/cron/forge-smoke.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 300
+		},
+		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
@@ -2819,6 +2835,14 @@
 			"dest": "/features.html"
 		},
 		{
+			"src": "/features/ar",
+			"dest": "/features/ar.html"
+		},
+		{
+			"src": "/features/ar/",
+			"dest": "/features/ar.html"
+		},
+		{
 			"src": "/features/forge",
 			"dest": "/features/forge.html"
 		},
@@ -3027,6 +3051,14 @@
 		}
 	],
 	"crons": [
+		{
+			"path": "/api/cron/flush-usage-events",
+			"schedule": "* * * * *"
+		},
+		{
+			"path": "/api/cron/quota-check",
+			"schedule": "0 * * * *"
+		},
 		{
 			"path": "/api/cron/audit-log-cleanup",
 			"schedule": "0 4 * * *"

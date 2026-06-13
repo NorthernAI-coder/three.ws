@@ -15,6 +15,7 @@
 import { apiFetch } from './api.js';
 import { getMe, saveRemoteGlbToAccount } from './account.js';
 import { log } from './shared/log.js';
+import { isValidGlbMagic } from './shared/glb-magic.js';
 
 const TOTAL_STEPS = 5;
 const STEP_LABELS = ['Basics', 'Model', 'Skills', 'Personality', 'Review'];
@@ -101,6 +102,7 @@ const state = {
 		avatarId: '',
 		avatarUrl: '',
 		avatarName: '',
+		_blobUrl: '',
 	},
 	skills: new Set(CORE_SKILLS.map((s) => s.id)),
 	category: '',
@@ -621,10 +623,8 @@ async function acceptFile(file) {
 		setMsg('That file is over the 16 MB limit.', 'err');
 		return;
 	}
-	// Verify GLB magic bytes ("glTF") before accepting.
-	const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
-	if (!(header[0] === 0x67 && header[1] === 0x6c && header[2] === 0x54 && header[3] === 0x46)) {
-		setMsg("That doesn't look like a valid GLB file.", 'err');
+	if (!(await isValidGlbMagic(file))) {
+		setMsg("That doesn't look like a valid GLB file (bad header).", 'err');
 		return;
 	}
 	clearMsg();
@@ -645,14 +645,23 @@ async function acceptFile(file) {
 }
 
 function syncModelPreview() {
-	const url =
-		state.model.mode === 'starter'
-			? state.model.starterUrl
-			: state.model.mode === 'library'
-				? state.model.avatarUrl
-				: state.model.mode === 'upload' && state.model.file
-					? URL.createObjectURL(state.model.file)
-					: '';
+	// Revoke any previously-created blob URL before creating a new one to avoid
+	// accumulating unreachable blob entries for the lifetime of the page.
+	if (state.model._blobUrl) {
+		URL.revokeObjectURL(state.model._blobUrl);
+		state.model._blobUrl = '';
+	}
+	let url;
+	if (state.model.mode === 'starter') {
+		url = state.model.starterUrl;
+	} else if (state.model.mode === 'library') {
+		url = state.model.avatarUrl;
+	} else if (state.model.mode === 'upload' && state.model.file) {
+		url = URL.createObjectURL(state.model.file);
+		state.model._blobUrl = url;
+	} else {
+		url = '';
+	}
 
 	// Clear any previous viewer.
 	el.preview.querySelector('model-viewer')?.remove();

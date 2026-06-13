@@ -10090,46 +10090,57 @@ a.pill--devnet:hover {
 	/* Interactive: the popover carries a "Full glossary" deeper-link, and a
 	 * hover bridge (glossary.js) keeps it open while the pointer travels in. */
 	pointer-events: auto;
-	background: var(--modal-bg);
-	border: 1px solid var(--stroke-strong);
-	border-radius: var(--radius-card);
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.60), 0 2px 8px rgba(0, 0, 0, 0.30);
-	padding: 10px 14px;
-	max-width: 260px;
-	min-width: 140px;
+	background: rgba(18, 19, 26, 0.97);
+	border: 1px solid rgba(255, 255, 255, 0.13);
+	border-radius: 12px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.70), 0 2px 8px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+	padding: 11px 14px 12px;
+	max-width: 280px;
+	min-width: 160px;
 	font-size: var(--text-xs);
 	line-height: var(--leading-normal);
 	color: var(--ink);
 	opacity: 0;
-	transform: translateY(4px);
-	transition: opacity 120ms ease, transform 120ms ease;
+	transform: translateY(6px) scale(0.98);
+	transition: opacity 140ms ease, transform 140ms ease;
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
 }
 
 #tws-tt-pop.is-on {
 	opacity: 1;
-	transform: translateY(0);
+	transform: translateY(0) scale(1);
 }
 
 #tws-tt-pop strong {
 	display: block;
-	font-size: 0.65rem;
-	font-weight: 600;
-	color: rgba(255, 255, 255, 0.45);
+	font-size: 0.6rem;
+	font-weight: 700;
+	color: rgba(255, 255, 255, 0.38);
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	margin-bottom: 3px;
+	letter-spacing: 0.08em;
+	margin-bottom: 5px;
+}
+
+#tws-tt-pop .tws-tt-def {
+	display: block;
+	font-size: var(--text-xs);
+	line-height: 1.45;
+	color: rgba(255, 255, 255, 0.82);
 }
 
 /* Deeper-link inside the popover → the full /glossary entry */
 #tws-tt-pop .tws-tt-more {
-	display: inline-block;
-	margin-top: 7px;
+	display: block;
+	margin-top: 9px;
+	padding-top: 8px;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
 	font-size: 0.62rem;
 	font-weight: 600;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.03em;
 	color: var(--accent);
 	text-decoration: none;
-	opacity: 0.82;
+	opacity: 0.75;
 	transition: opacity 120ms ease;
 }
 

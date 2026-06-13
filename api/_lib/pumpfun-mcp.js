@@ -10,24 +10,12 @@
 //   UPSTASH_REDIS_REST_TOKEN  required for Redis graduation feed fallback
 //   GRADUATIONS_LIST_KEY      default: pf:graduations
 
-import { Redis } from '@upstash/redis';
 import { env } from './env.js';
+import { getRedis } from './redis.js';
 
 const LIST_KEY = process.env.GRADUATIONS_LIST_KEY || 'pf:graduations';
 
-let _redis = null;
-function redis() {
-	if (_redis !== null) return _redis;
-	if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = false;
-		return null;
-	}
-	_redis = new Redis({
-		url: env.UPSTASH_REDIS_REST_URL,
-		token: env.UPSTASH_REDIS_REST_TOKEN,
-	});
-	return _redis;
-}
+function redis() { return getRedis(); }
 
 export function pumpfunBotEnabled() {
 	return !!(process.env.PUMPFUN_BOT_URL);

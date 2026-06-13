@@ -8,7 +8,8 @@
 // every homepage hit.
 
 import { sql } from '../_lib/db.js';
-import { cors, json, method, wrap } from '../_lib/http.js';
+import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -83,6 +84,9 @@ async function computeStats() {
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const stats = await computeStats();
 	return json(res, 200, stats, {

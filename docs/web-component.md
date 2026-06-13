@@ -63,7 +63,7 @@ Using `body` with no manifest creates an ad-hoc agent. Its name, instructions, a
 | `environment` | preset name or HDRI URL | `neutral` | IBL environment. Accepts built-in preset names or an HDRI URL. |
 | `auto-rotate` | boolean | off | Slowly rotates the model around the Y-axis. |
 | `camera-controls` | boolean | off | Enables orbit, pan, and zoom with mouse/touch. |
-| `ar` | boolean | off | Shows an AR launch button. Uses WebXR on Android, Quick Look on iOS. |
+| `ar` | boolean | off | Shows an AR launch button. Automatically selects the best available method: iOS Quick Look (Safari), Android Scene Viewer (Chrome), or WebXR immersive-ar. Button is hidden on desktop and on unsupported browsers. Requires HTTPS. See [AR & WebXR guide](/docs/ar). |
 | `shadows` | boolean | on | Enables contact and soft shadows. |
 | `exposure` | number | `1.0` | Tone-mapping exposure multiplier. |
 | `background` | `transparent` \| `dark` \| `light` | `transparent` | Canvas clear color. `transparent` lets the page background show through. |
@@ -383,6 +383,33 @@ All events bubble and are `composed: true`, meaning they cross shadow DOM bounda
 |-------|--------|------|
 | `memory:write` | `{ key, type }` | A memory entry was written. |
 
+### AR events
+
+| Event | Detail | When |
+|-------|--------|------|
+| `ar-status` | `{ status }` | AR session lifecycle. `status` is one of `"session-started"`, `"object-placed"`, `"failed"`, `"not-presenting"`. |
+
+```js
+el.addEventListener('ar-status', (e) => {
+  if (e.detail.status === 'object-placed') {
+    console.log('Agent anchored in real world');
+  }
+});
+```
+
+**`el.canActivateAR`** — boolean property. `true` when the model is loaded and at least one AR method (Quick Look, Scene Viewer, or WebXR) is available on the current device. Always `false` on desktop.
+
+**`el.activateAR()`** — async method. Triggers the best available AR method. Resolves when the session starts (WebXR) or immediately (Quick Look / Scene Viewer). Throws if `canActivateAR` is `false`.
+
+```js
+const el = document.querySelector('agent-3d');
+if (el.canActivateAR) {
+  await el.activateAR();
+}
+```
+
+For full API reference, platform compatibility, and troubleshooting, see the [AR & WebXR guide](/docs/ar).
+
 ### Listening example
 
 ```js
@@ -645,7 +672,7 @@ The element also accepts named slots:
 |------|---------|
 | `poster` | Shown during load; fades out when the model is ready. |
 | `error` | Shown if loading fails. Replaces the default error overlay. |
-| `ar-button` | Custom AR launch button (same pattern as `<model-viewer>`). |
+| `ar-button` | Custom AR launch button. Use this to replace the default button with your own styling. The element receives `disabled` when AR is unavailable and `aria-busy` while a WebXR session is starting. |
 | `chat` | Full chat UI override — host your own chat surface and subscribe to events. |
 
 ---

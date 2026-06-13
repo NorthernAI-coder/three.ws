@@ -258,7 +258,7 @@ If you want to support the project — compute credits, grants, partnerships, or
 
 **3D Viewer**
 
-- WebGL 2.0 rendering via three.js r176
+- WebGL 2.0 rendering via three.js r184
 - glTF 2.0 and GLB with Draco geometry compression, KTX2 texture compression, and Meshopt mesh optimization
 - Khronos-spec glTF validation with line-level error reporting
 - HDR environment maps, PBR materials, skinned mesh animations, morph targets, and embedded cameras
@@ -520,7 +520,7 @@ The platform is organized into four layers. All layers communicate through a sin
                             ↓ protocol events
 ┌────────────────────────────────────────────────────────────┐
 │  Layer 1: Viewer                                           │
-│  three.js r176 · glTF / GLB · Draco / KTX2 / Meshopt       │
+│  three.js r184 · glTF / GLB · Draco / KTX2 / Meshopt       │
 │  Animations · Morph targets · HDR · Validation             │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -559,7 +559,7 @@ Longer-form architecture and how-to documentation lives under [docs/](docs/): [d
 
 - **Main UI**: The core application, including the 3D viewer, agent creation, and marketplace, is built with vanilla JavaScript modules and Vite.
 - **Chat**: The chat interface is a standalone Svelte application located in the `chat/` directory.
-- **3D Rendering**: three.js (r176) is used for WebGL 2.0 rendering.
+- **3D Rendering**: three.js (r184) is used for WebGL 2.0 rendering.
 
 **Backend (Vercel Serverless)**
 
@@ -927,8 +927,7 @@ For sandboxed iframes use the widget embed path instead — it runs in its own b
 - `scripts/`: Node.js scripts for development, build, deployment, and pump.fun launch automation.
 - `workers/`: Code for background workers — includes the Cloudflare Worker mirror of the pump.fun MCP read API in [`workers/pump-fun-mcp/`](workers/pump-fun-mcp/).
 - `docs/`: Public-facing developer docs.
-- `docs/internal/`: Working docs (PLAN, STATUS, TODO, NEXT, PROGRESS, RELEASE_CHECKLIST) — not part of the published docs surface.
-- `docs/club/`: Pole-club venue design, performance notes, and release checklist.
+- `docs/internal/`: Working docs (PLAN, STATUS, TODO, NEXT, PROGRESS, RELEASE_CHECKLIST, club venue notes) — not part of the published docs surface.
 - `tests/`: Vitest unit tests (`tests/api/`, `tests/src/`, `tests/workers/`) and Playwright end-to-end smokes (`tests/e2e/`).
 
 ---
@@ -1339,7 +1338,7 @@ Launchpad templates are JSON-configured and can embed any combination of `<agent
 - Leaderboard at `/api/club/leaderboard` with windowed top-tipper rankings
 - Hourly payouts cron sweeps the tips ledger into the dancers' treasury wallets
 
-**Detail:** see [docs/club/PERF_NOTES.md](docs/club/PERF_NOTES.md), [docs/club/PLAN.md](docs/club/PLAN.md), and [docs/club/RELEASE_CHECKLIST.md](docs/club/RELEASE_CHECKLIST.md).
+**Detail:** performance notes, venue plan, and release checklist live in `docs/internal/` alongside other internal working docs.
 
 ---
 

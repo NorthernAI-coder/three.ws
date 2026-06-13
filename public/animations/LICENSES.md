@@ -149,6 +149,45 @@ not shipped — only the animation clips, retargeted onto the canonical rig.
 | `farm-wheelbarrow-turn`    | wheelbarrow walk turn | —     |
 | `farm-wheelbarrow-dump`    | wheelbarrow dump      | —     |
 
+## Three.js example models (MIT License)
+
+Clips extracted from the animated GLB models shipped with the
+[three.js](https://github.com/mrdoob/three.js) library under the
+[MIT License](https://github.com/mrdoob/three.js/blob/dev/LICENSE).
+Source files downloaded from the three.js `examples/models/gltf/` directory
+and split into per-clip GLBs by
+[`scripts/extract-glb-animations.mjs`](../../scripts/extract-glb-animations.mjs).
+
+### Soldier.glb — Mixamo Y-Bot skeleton
+
+| Clip name in manifest | Source animation | Loop |
+| --------------------- | ---------------- | ---- |
+| `soldier-idle`        | Idle             | ✓    |
+| `soldier-run`         | Run              | ✓    |
+| `soldier-walk`        | Walk             | ✓    |
+
+### Michelle.glb
+
+| Clip name in manifest    | Source animation | Loop |
+| ------------------------ | ---------------- | ---- |
+| `michelle-samba-dance`   | SambaDance       | ✓    |
+
+### Xbot.glb — Mixamo Y-Bot skeleton
+
+| Clip name in manifest | Source animation | Loop |
+| --------------------- | ---------------- | ---- |
+| `xbot-agree`          | agree            | —    |
+| `xbot-head-shake`     | headShake        | —    |
+| `xbot-idle`           | idle             | ✓    |
+| `xbot-run`            | run              | ✓    |
+| `xbot-sad-pose`       | sad_pose         | ✓    |
+| `xbot-sneak-pose`     | sneak_pose       | ✓    |
+| `xbot-walk`           | walk             | ✓    |
+
+> **Note:** Soldier.glb and Xbot.glb use the Mixamo Y-Bot skeleton; they
+> retarget at full 156/156 bone coverage. Michelle.glb drops 39 finger/facial
+> bones (156/195 matched) — motion quality is unaffected for full-body play.
+
 ## Custom mocap
 
 > _No custom-mocap clips have shipped yet._

@@ -25,6 +25,7 @@
 import { env } from './env.js';
 import { recordEvent } from './usage.js';
 import { costMicroUsd } from './llm-pricing.js';
+import { sql } from './db.js';
 
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct';
@@ -36,6 +37,44 @@ const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 // Paid last-resort tail (see policy above). Mini keeps the backstop cheap; the
 // repo-wide OpenAI default (api/_lib/chat-models.js) uses the same model.
 const OPENAI_MODEL = 'gpt-4o-mini';
+
+// Per-user daily LLM spend cap, in micro-USD. Callers on the host's paid keys
+// (ANTHROPIC_API_KEY / OPENAI_API_KEY) are metered; BYOK callers and free-tier
+// providers (Groq/OpenRouter/NVIDIA) are exempt — cost to platform is $0.
+// Default: $1.00/user/day. Override with LLM_USER_DAILY_CAP_USD env var.
+function dailyCapMicroUsd() {
+	const v = parseFloat(env.LLM_USER_DAILY_CAP_USD);
+	return Number.isFinite(v) && v > 0 ? Math.round(v * 1_000_000) : 1_000_000;
+}
+
+// Check whether userId has exceeded the daily LLM spend cap. Only applies when
+// the current request could route to paid server keys (ANTHROPIC or OPENAI
+// configured). BYOK requests bill the caller's own key so the platform cap
+// doesn't apply. Returns { exceeded: true, spentMicroUsd, capMicroUsd } when
+// blocked, or { exceeded: false } when allowed. Never throws — fails open so a
+// DB hiccup never silently denies a user.
+export async function checkUserLlmSpendCap(userId, { anthropicKey } = {}) {
+	if (!userId) return { exceeded: false };
+	if (anthropicKey) return { exceeded: false }; // BYOK — not our billing
+	if (!env.ANTHROPIC_API_KEY && !env.OPENAI_API_KEY) return { exceeded: false }; // no paid keys at all
+	const cap = dailyCapMicroUsd();
+	try {
+		const [row] = await sql`
+			SELECT COALESCE(SUM(cost_micro_usd), 0)::bigint AS spent
+			FROM usage_events
+			WHERE user_id = ${userId}
+				AND kind = 'llm'
+				AND provider NOT IN ('groq', 'openrouter', 'nvidia')
+				AND created_at > NOW() - INTERVAL '24 hours'
+		`;
+		const spent = Number(row?.spent ?? 0);
+		if (spent >= cap) return { exceeded: true, spentMicroUsd: spent, capMicroUsd: cap };
+		return { exceeded: false, spentMicroUsd: spent, capMicroUsd: cap };
+	} catch (err) {
+		console.warn('[llm] spend-cap check failed, allowing:', err?.message);
+		return { exceeded: false };
+	}
+}
 
 // Thrown when no provider is available at all (no free key configured and no
 // BYOK key supplied). Carries an HTTP status so handlers can surface it as 503.
@@ -164,6 +203,8 @@ export function llmConfigured(opts = {}) {
 // Returns { text, provider, model, usage:{input,output}, raw }.
 // Throws LlmUnavailableError when no provider is configured, or the last
 // upstream error (with .status = 502) when every provider failed.
+// Throws an error with .status = 429 and .code = 'daily_spend_cap_exceeded'
+// when the caller's userId has consumed their daily LLM budget on paid keys.
 //
 // `track` is optional attribution for the spend ledger. When supplied, every
 // successful completion records a kind:'llm' usage event carrying the provider,
@@ -175,6 +216,19 @@ export function llmConfigured(opts = {}) {
 export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, timeoutMs = 30_000, track = null }) {
 	const chain = providerChain({ anthropicKey, anthropicModel });
 	if (!chain.length) throw new LlmUnavailableError();
+
+	// Per-user daily spend cap on platform-paid keys. Only runs when a userId is
+	// known and there are paid keys configured — free-only installs skip the check.
+	if (track?.userId) {
+		const cap = await checkUserLlmSpendCap(track.userId, { anthropicKey });
+		if (cap.exceeded) {
+			const usd = (cap.capMicroUsd / 1_000_000).toFixed(2);
+			throw Object.assign(
+				new Error(`Daily LLM spend cap of $${usd} reached. Resets in under 24 hours.`),
+				{ status: 429, code: 'daily_spend_cap_exceeded' },
+			);
+		}
+	}
 
 	let lastErr;
 	for (const p of chain) {

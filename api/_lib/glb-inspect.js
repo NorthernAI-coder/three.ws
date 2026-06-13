@@ -43,7 +43,11 @@ export function inspectGlb(buf) {
 	if (view.getUint32(0, true) !== GLB_MAGIC) return null;
 	if (view.getUint32(4, true) !== 2) return null;
 	const declaredLen = view.getUint32(8, true);
+	// Reject if declared length is inconsistent with the buffer or absurdly large.
+	// 512 MB is a hard ceiling — no realistic avatar exceeds this; a corrupted
+	// header could otherwise allocate enormous slices during JSON chunk reads.
 	if (declaredLen > buf.length || declaredLen < 20) return null;
+	if (declaredLen > 512 * 1024 * 1024) return null;
 
 	// First chunk header at byte 12.
 	const jsonChunkLen = view.getUint32(12, true);
@@ -57,7 +61,10 @@ export function inspectGlb(buf) {
 		// glTF spec pads the JSON chunk with 0x20 (space) to a 4-byte boundary,
 		// which JSON.parse tolerates as whitespace.
 		gltf = JSON.parse(new TextDecoder('utf-8').decode(jsonBytes));
-	} catch {
+	} catch (err) {
+		// Null signals "unparseable" to all callers uniformly. Log so the error
+		// is diagnosable without changing the established return-type contract.
+		console.warn('[glb-inspect] JSON chunk parse failed:', err.message);
 		return null;
 	}
 

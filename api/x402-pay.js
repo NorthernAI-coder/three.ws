@@ -31,7 +31,6 @@ import {
 } from '@solana/spl-token';
 import bs58 from 'bs58';
 
-import { Redis } from '@upstash/redis';
 import { cors, json, readJson, wrap, rateLimited, setRateLimitHeaders } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import {
@@ -43,6 +42,7 @@ import {
 } from './_lib/x402-spec.js';
 import { dispatch } from './_mcp/dispatch.js';
 import { env } from './_lib/env.js';
+import { getRedis as _getSharedRedis } from './_lib/redis.js';
 import { sql } from './_lib/db.js';
 import { logger } from './_lib/usage.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
@@ -57,19 +57,7 @@ const FEED_KEY = 'x402:pay:feed';
 const FEED_MAX = 50;
 const memFeed = [];
 
-let _redis = null;
-function redis() {
-	if (_redis !== null) return _redis;
-	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({
-			url: env.UPSTASH_REDIS_REST_URL,
-			token: env.UPSTASH_REDIS_REST_TOKEN,
-		});
-	} else {
-		_redis = false;
-	}
-	return _redis;
-}
+function redis() { return _getSharedRedis(); }
 
 async function recordFeedEntry(entry) {
 	const r = redis();

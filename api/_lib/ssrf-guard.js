@@ -1,15 +1,22 @@
 // SSRF guard for fetches that follow a user- or DB-supplied URL.
 //
-// Resolves the hostname to every A/AAAA record and rejects if any address lands
-// in RFC1918, loopback, link-local, unique-local, multicast, reserved, or cloud
-// metadata ranges. Caller fetches normally after the check. This does NOT pin
-// the resolved IP — a hostile DNS server could swap the record between the
-// check and the connect (DNS rebinding). The TOCTOU window is tiny for one-shot
-// fetches and the upside of staying on the platform fetch path outweighs it for
-// our use cases (image/glb fetch from random user URLs).
+// Two fetch variants:
+//   fetchSafePublicUrl        — validates DNS then fetches normally. Tiny TOCTOU
+//                               window (DNS could rebind between check and connect),
+//                               acceptable for image/GLB rendering where the
+//                               response is only displayed, never executed.
+//   fetchSafePublicUrlPinned  — validates AND pins the resolved IP via a custom
+//                               lookup callback so the TCP connection always goes
+//                               to the address we checked. Use for any fetch whose
+//                               response is forwarded to another service or executed
+//                               (proxy, webhook, script fetch).
+//
+// Both re-validate every redirect hop before following it.
 
 import { promises as dns } from 'node:dns';
 import net from 'node:net';
+import https from 'node:https';
+import http from 'node:http';
 
 // Cloud metadata services we never want a server-side fetch to reach.
 const METADATA_IPS = new Set([
@@ -63,6 +70,32 @@ export class SsrfBlockedError extends Error {
 	}
 }
 
+// Resolve a hostname, validate all returned addresses, and return the first
+// safe address (preferring IPv4 for socket compatibility). Throws SsrfBlockedError
+// when any address in the answer is blocked — the entire record set must be clean.
+async function resolveAndValidate(host) {
+	const literal = net.isIP(host);
+	if (literal) {
+		if (isBlockedAddress(host)) throw new SsrfBlockedError(`host ${host} is a blocked address`);
+		return host;
+	}
+	let records;
+	try {
+		records = await dns.lookup(host, { all: true, verbatim: true });
+	} catch (err) {
+		throw new SsrfBlockedError(`dns lookup failed for ${host}: ${err.code || err.message}`);
+	}
+	if (!records?.length) throw new SsrfBlockedError(`no addresses for ${host}`);
+	for (const r of records) {
+		if (isBlockedAddress(r.address)) {
+			throw new SsrfBlockedError(`host ${host} resolves to a blocked range`);
+		}
+	}
+	// Prefer IPv4 so the pinned socket address is unambiguous for net.createConnection.
+	const ipv4 = records.find((r) => net.isIPv4(r.address));
+	return (ipv4 || records[0]).address;
+}
+
 // Parse + protocol-check + DNS-resolve + per-address allowlist check. Throws
 // `SsrfBlockedError` on any failure. Returns the parsed URL on success.
 export async function assertSafePublicUrl(input, { allowHttp = false } = {}) {
@@ -81,26 +114,7 @@ export async function assertSafePublicUrl(input, { allowHttp = false } = {}) {
 	}
 	const host = url.hostname;
 	if (!host) throw new SsrfBlockedError('url missing hostname');
-	// Literal IP in the URL? Check directly without DNS.
-	const literal = net.isIP(host);
-	if (literal) {
-		if (isBlockedAddress(host)) {
-			throw new SsrfBlockedError(`host ${host} resolves to a blocked range`);
-		}
-		return url;
-	}
-	let records;
-	try {
-		records = await dns.lookup(host, { all: true, verbatim: true });
-	} catch (err) {
-		throw new SsrfBlockedError(`dns lookup failed for ${host}: ${err.code || err.message}`);
-	}
-	if (!records?.length) throw new SsrfBlockedError(`no addresses for ${host}`);
-	for (const r of records) {
-		if (isBlockedAddress(r.address)) {
-			throw new SsrfBlockedError(`host ${host} resolves to a blocked range`);
-		}
-	}
+	await resolveAndValidate(host);
 	return url;
 }
 
@@ -114,6 +128,9 @@ const MAX_REDIRECTS = 5;
 // (`redirect: 'follow'`) would only check the first URL, letting an attacker
 // host a public endpoint that 302s to 169.254.169.254 / RFC1918 and slip past
 // the guard. Hops are bounded by `MAX_REDIRECTS`.
+//
+// Use this for render-only responses (images, GLBs). For executed/forwarded
+// responses use `fetchSafePublicUrlPinned` which closes the DNS rebinding window.
 export async function fetchSafePublicUrl(input, init = {}, opts = {}) {
 	let url = await assertSafePublicUrl(input, opts);
 	let redirects = 0;
@@ -123,6 +140,69 @@ export async function fetchSafePublicUrl(input, init = {}, opts = {}) {
 			if (++redirects > MAX_REDIRECTS) {
 				throw new SsrfBlockedError('too many redirects');
 			}
+			const next = new URL(res.headers.get('location'), url);
+			url = await assertSafePublicUrl(next.toString(), opts);
+			continue;
+		}
+		return res;
+	}
+}
+
+// IP-pinned fetch: resolves DNS, validates every address, then makes the TCP
+// connection directly to the resolved IP via a custom http/https Agent `lookup`
+// callback — so a hostile DNS server cannot swap the address between our check
+// and the actual connect (DNS rebinding). Use for any fetch whose response is
+// forwarded to another service or executed (proxy endpoints, webhook delivery,
+// script/wasm fetches). Returns a standard Response.
+//
+// Limits: only supports http/https; does not follow redirects across protocols.
+export async function fetchSafePublicUrlPinned(input, init = {}, opts = {}) {
+	let url = await assertSafePublicUrl(input, opts);
+	let redirects = 0;
+
+	while (true) {
+		const pinnedIp = await resolveAndValidate(url.hostname);
+
+		// Build a one-shot Agent whose `lookup` always returns the pre-validated IP.
+		// This closes the TOCTOU window: the TCP socket connects to exactly the address
+		// we checked, regardless of any subsequent DNS change.
+		const AgentClass = url.protocol === 'https:' ? https.Agent : http.Agent;
+		const agent = new AgentClass({
+			lookup(_hostname, _options, cb) {
+				cb(null, pinnedIp, net.isIPv6(pinnedIp) ? 6 : 4);
+			},
+		});
+
+		const res = await new Promise((resolve, reject) => {
+			const mod = url.protocol === 'https:' ? https : http;
+			const reqOpts = {
+				hostname: url.hostname,
+				port: url.port || (url.protocol === 'https:' ? 443 : 80),
+				path: url.pathname + url.search,
+				method: (init.method || 'GET').toUpperCase(),
+				headers: { host: url.hostname, ...(init.headers || {}) },
+				agent,
+			};
+			const req = mod.request(reqOpts, (nodeRes) => {
+				const chunks = [];
+				nodeRes.on('data', (c) => chunks.push(c));
+				nodeRes.on('end', () => {
+					const body = Buffer.concat(chunks);
+					// Wrap in a fetch-compatible Response so callers use the same API.
+					resolve(new Response(body, {
+						status: nodeRes.statusCode,
+						headers: nodeRes.headers,
+					}));
+				});
+				nodeRes.on('error', reject);
+			});
+			req.on('error', reject);
+			if (init.body) req.write(init.body);
+			req.end();
+		});
+
+		if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+			if (++redirects > MAX_REDIRECTS) throw new SsrfBlockedError('too many redirects');
 			const next = new URL(res.headers.get('location'), url);
 			url = await assertSafePublicUrl(next.toString(), opts);
 			continue;

@@ -14,24 +14,15 @@
 // Reads fan the index in over one mget; a build whose per-build key has expired
 // is simply dropped from the result, so the index self-heals.
 
-import { Redis } from '@upstash/redis';
 import { env } from './env.js';
+import { getRedis } from './redis.js';
 
 const INDEX_PREFIX = 'featured-builds:';
 const BUILD_PREFIX = 'play-build:';
 const MAX_FEATURED = 12;            // builds kept per coin
 const BUILD_TTL_SEC = 60 * 60 * 24 * 45; // 45 days — long-lived, but self-expiring
 
-let _redis = null;
-let _redisTried = false;
-function redis() {
-	if (_redisTried) return _redis;
-	_redisTried = true;
-	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
-	}
-	return _redis;
-}
+function redis() { return getRedis(); }
 
 function indexKey(mint) { return INDEX_PREFIX + mint; }
 function buildKey(id) { return BUILD_PREFIX + id; }

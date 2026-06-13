@@ -157,9 +157,13 @@ async function glbBlobToVrmBlob(glbBlob, meta) {
 	});
 
 	const humanBones = buildHumanBones(skeleton, nodeIndexByName);
-	if (Object.keys(humanBones).length < 8) {
+	const matchedBoneCount = Object.keys(humanBones).length;
+	if (matchedBoneCount < 8) {
+		const matched = Object.keys(humanBones).join(', ') || 'none';
 		throw new Error(
-			`vrm: only matched ${Object.keys(humanBones).length} humanoid bones — need at least Hips/Spine/Head/arms+legs`,
+			`vrm: matched only ${matchedBoneCount} humanoid bones (${matched}) — ` +
+			`need at least hips, spine, chest, neck, head, and arm/leg pairs. ` +
+			`Check that bone names follow Mixamo or standard humanoid conventions.`,
 		);
 	}
 
@@ -408,7 +412,10 @@ function buildExpressionsFromArkit(_morphLookup, json, _nodeIndexByName) {
 			if (!found) continue;
 			binds.push({ node: found.node, index: found.index, weight: src.w });
 		}
-		if (!binds.length) continue;
+		if (!binds.length) {
+			console.debug(`[avatar-export] vrm: skipping expression '${def.preset}' — no source morphs found`);
+			continue;
+		}
 		preset[def.preset] = {
 			morphTargetBinds: binds,
 			isBinary: false,

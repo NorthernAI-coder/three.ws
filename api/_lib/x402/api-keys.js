@@ -14,29 +14,20 @@
 //
 // The plaintext is shown ONCE at creation and never persisted in clear.
 
-import { Redis } from '@upstash/redis';
 import { sql } from '../db.js';
 import { env } from '../env.js';
 import { randomToken, sha256 } from '../crypto.js';
+import { getRedis as _getSharedRedis } from '../redis.js';
 
 const KEY_PREFIX = 'x402_live_';
 
-let _redis = null;
 const IS_PROD = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 const ALLOW_MEMORY_FALLBACK = process.env.X402_ALLOW_MEMORY_FALLBACK === '1';
 
-let _redisChecked = false;
 let _memoryFallbackWarned = false;
 function getRedis() {
-	if (_redisChecked) return _redis;
-	_redisChecked = true;
-	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({
-			url: env.UPSTASH_REDIS_REST_URL,
-			token: env.UPSTASH_REDIS_REST_TOKEN,
-		});
-		return _redis;
-	}
+	const r = _getSharedRedis();
+	if (r) return r;
 	if (IS_PROD && !ALLOW_MEMORY_FALLBACK) {
 		throw new Error(
 			'[x402/api-keys] UPSTASH_REDIS_REST_URL/TOKEN required in production. ' +
@@ -50,7 +41,7 @@ function getRedis() {
 				'subscription caps are per-instance only.',
 		);
 	}
-	return _redis;
+	return null;
 }
 
 // In-memory sliding-window fallback for local dev (no Upstash configured).

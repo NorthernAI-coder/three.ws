@@ -18,24 +18,14 @@
 // can't persist the unlock we throw, so the x402 flow never settles a charge it
 // can't record (matching the fail-closed invariants in x402-security-hardening).
 
-import { Redis } from '@upstash/redis';
-import { env } from './env.js';
+import { getRedis } from './redis.js';
 
 const OWNED_PREFIX = 'cosmetics:owned:';
 // Refreshed on every grant. Long enough that a returning player keeps their
 // purchases; bounds abandoned-guest growth the same way playerStore does.
 const OWNED_TTL_S = 60 * 60 * 24 * 365 * 2; // 2 years
 
-let _redis = null;
-let _redisTried = false;
-function redis() {
-	if (_redisTried) return _redis;
-	_redisTried = true;
-	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
-	}
-	return _redis;
-}
+function redis() { return getRedis(); }
 
 // True when a durable ownership store is configured. The purchase endpoint uses
 // this to fail closed in production (refuse to settle without somewhere to record

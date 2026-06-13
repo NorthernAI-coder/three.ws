@@ -19,8 +19,8 @@
 // X402_ALLOW_MEMORY_FALLBACK=1; otherwise getRedis() refuses to return so
 // the cap module fails closed rather than silently per-instance.
 
-import { Redis } from '@upstash/redis';
 import { env } from './env.js';
+import { getRedis as _getSharedRedis } from './redis.js';
 
 const KEY_PREFIX = 'x402:spend:';
 const HOUR_TTL_SECONDS = 7200; // keep one extra hour for slow-cron debugging
@@ -28,32 +28,24 @@ const DAY_TTL_SECONDS = 60 * 60 * 48;
 const IS_PROD = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 const ALLOW_MEMORY_FALLBACK = process.env.X402_ALLOW_MEMORY_FALLBACK === '1';
 
-let redisClient = null;
-let memoryWarned = false;
+let _warned = false;
 function getRedis() {
-	if (redisClient !== null) return redisClient;
-	if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
-		if (IS_PROD && !ALLOW_MEMORY_FALLBACK) {
-			throw new Error(
-				'[x402-spending-ledger] UPSTASH_REDIS_REST_URL/TOKEN required in production. ' +
-					'Set them, or set X402_ALLOW_MEMORY_FALLBACK=1 to accept per-instance spend caps.',
-			);
-		}
-		if (IS_PROD && !memoryWarned) {
-			memoryWarned = true;
-			console.warn(
-				'[x402-spending-ledger] Running in production with memory fallback; ' +
-					'spend caps are per-instance only.',
-			);
-		}
-		redisClient = false; // sentinel: configured-as-absent
-		return null;
+	const r = _getSharedRedis();
+	if (r) return r;
+	if (IS_PROD && !ALLOW_MEMORY_FALLBACK) {
+		throw new Error(
+			'[x402-spending-ledger] UPSTASH_REDIS_REST_URL/TOKEN required in production. ' +
+				'Set them, or set X402_ALLOW_MEMORY_FALLBACK=1 to accept per-instance spend caps.',
+		);
 	}
-	redisClient = new Redis({
-		url: env.UPSTASH_REDIS_REST_URL,
-		token: env.UPSTASH_REDIS_REST_TOKEN,
-	});
-	return redisClient;
+	if (IS_PROD && !_warned) {
+		_warned = true;
+		console.warn(
+			'[x402-spending-ledger] Running in production with memory fallback; ' +
+				'spend caps are per-instance only.',
+		);
+	}
+	return null;
 }
 
 // In-memory fallback. Each slot holds { count, expiresAt }.

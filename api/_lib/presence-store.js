@@ -12,23 +12,14 @@
 // This module also signs the tickets and fires the internal notify webhook the
 // API uses to push live DMs / friend events to the multiplayer server.
 
-import { Redis } from '@upstash/redis';
 import { env } from './env.js';
+import { getRedis } from './redis.js';
 import { hmacSha256, constantTimeEquals, sha256Base64Url } from './crypto.js';
 
 const PRESENCE_PREFIX = 'presence:';
 const TICKET_TTL_SEC = 600; // 10 min — the client refreshes well before expiry
 
-let _redis = null;
-let _redisTried = false;
-function redis() {
-	if (_redisTried) return _redis;
-	_redisTried = true;
-	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-		_redis = new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN });
-	}
-	return _redis;
-}
+function redis() { return getRedis(); }
 
 // ── presence reads ──────────────────────────────────────────────────────────
 // Resolve presence for a set of account ids → { id: { online, realm } }. Ids
