@@ -28,6 +28,12 @@ import { fetchModel } from './_lib/fetch-model.js';
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB — generous for token art, bounded for abuse
 const TIMEOUT_MS = 10_000;
+// Overall budget for ALL gateway attempts combined. The function's Vercel
+// maxDuration is 30s; trying 4 IPFS gateways at 10s each can reach 40s and get
+// the invocation killed BEFORE the placeholder redirect below ever runs —
+// defeating the "always hand back a valid 200" contract. Cap the total spend so
+// we always have time left to redirect to the placeholder.
+const TOTAL_BUDGET_MS = 24_000;
 
 // Public IPFS gateways tried in order. ipfs.io is the canonical resolver the
 // rest of the platform pins to (api/_lib/onchain.js), but it is also the one
@@ -85,11 +91,17 @@ export default wrap(async function handler(req, res) {
 	}
 
 	let image = null;
+	const deadline = Date.now() + TOTAL_BUDGET_MS;
 	for (const candidate of candidates(target)) {
+		// Shrink each attempt's timeout to fit the remaining overall budget so the
+		// loop never overruns into the function's hard kill. Once too little time
+		// is left to bother, stop and fall through to the placeholder.
+		const remaining = deadline - Date.now();
+		if (remaining < 1_000) break;
 		try {
 			const result = await fetchModel(candidate, {
 				maxBytes: MAX_BYTES,
-				timeoutMs: TIMEOUT_MS,
+				timeoutMs: Math.min(TIMEOUT_MS, remaining),
 			});
 			if (!result.contentType.startsWith('image/')) continue; // HTML error page etc. — try next
 			image = result;

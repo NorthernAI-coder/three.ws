@@ -393,7 +393,11 @@
 	// Handles [data-glossary-open] clicks even on late-injected nav elements.
 	function initGlossaryOpener() {
 		document.addEventListener('click', function (e) {
-			var btn = e.target.closest('[data-glossary-open]');
+			// e.target may be a non-Element (text node, document); closest() lives
+			// on Elements only, so resolve the nearest Element before calling it.
+			var t = e.target;
+			var el = t && t.nodeType === 1 ? t : (t && t.parentElement) || null;
+			var btn = el && el.closest('[data-glossary-open]');
 			if (btn) {
 				e.preventDefault();
 				openModal(btn);

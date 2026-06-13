@@ -35,8 +35,7 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { textToImage } from './_mcp3d/text-to-image.js';
 import { createRegenProvider } from './_providers/replicate.js';
 import { createRegenProvider as createGcpProvider } from './_providers/gcp.js';
-import { createMeshyProvider } from './_providers/meshy.js';
-import { createTripoProvider } from './_providers/tripo.js';
+import { BYOK_PROVIDER_FACTORIES } from './_providers/byok-registry.js';
 import {
 	PATHS,
 	DEFAULT_PATH,
@@ -113,7 +112,7 @@ function needsKey(res, providerName) {
 	return json(res, 501, {
 		error: 'needs_key',
 		provider: providerName,
-		message: `The geometry path uses ${meta?.label || providerName}, which needs your own API key. Add a ${meta?.byok || providerName} key to use it.`,
+		message: `${meta?.label || providerName} needs your own API key. Add a ${meta?.byok || providerName} key to use it.`,
 	});
 }
 
@@ -167,9 +166,25 @@ async function startJob(req, res) {
 	// gets a generous fail-open bucket; the paid Replicate/BYOK lanes keep the
 	// tight critical 12/h ceiling that protects real money. Both still gate the
 	// expensive work below (image moderation, FLUX, reconstruction).
-	const path = parsePath(body);
+	let path = parsePath(body);
 	const tier = resolveTier(parseTier(body));
-	const backendId = resolveBackendId({ path, tier, backend: body?.backend, userImages: isImageMode });
+	let backendId = resolveBackendId({ path, tier, backend: body?.backend, userImages: isImageMode });
+
+	// The geometry path is BYOK-only — no free model does native text→geometry.
+	// So when the caller didn't explicitly pick a backend and has no key for the
+	// default geometry engine, transparently serve the free image lane (NVIDIA
+	// NIM on draft, TRELLIS otherwise) instead of a dead "needs key" error. The
+	// platform works with zero setup; Meshy/Tripo/Rodin stay fully selectable the
+	// moment a key is present or a backend is explicitly chosen.
+	const backendExplicit = Boolean(body?.backend && BACKENDS[body.backend]);
+	if (path === 'geometry' && !backendExplicit) {
+		const defaultByok = BACKENDS[backendId]?.byok;
+		if (defaultByok && !(await resolveProviderKey(req, body, defaultByok))) {
+			path = 'image';
+			backendId = resolveBackendId({ path, tier, userImages: isImageMode });
+		}
+	}
+
 	const isFreeLane = BACKENDS[backendId]?.free === true;
 	const rl = isFreeLane ? await limits.mcp3dGenerateFree(ip) : await limits.mcp3dGenerate(ip);
 	if (!rl.success) {
@@ -348,19 +363,22 @@ async function startJob(req, res) {
 			});
 		}
 
-		// ── Geometry-first path (Meshy / Tripo, BYOK) ───────────────────────────
+		// ── BYOK geometry-style providers (Meshy / Tripo / Rodin / Stability) ────
 		// A native 3D model emits mesh geometry directly — from the prompt
 		// (text→geometry) or a single photo (image→3D) — with no synthesized
 		// intermediate view, so detail isn't capped by one image. These backends
-		// have no platform key; the caller supplies their own.
-		if (path === 'geometry') {
-			const providerName = BACKENDS[backendId].byok; // 'meshy' | 'tripo'
-			const key = await resolveProviderKey(req, body, providerName);
+		// have no platform key; the caller supplies their own. Dispatch is a
+		// registry lookup on the backend's `byok` name (Replicate BYOK is handled
+		// on the image-intermediate path below — it speaks a different interface).
+		const byokProvider = BACKENDS[backendId].byok;
+		const byokFactory = BYOK_PROVIDER_FACTORIES[byokProvider];
+		if (byokFactory) {
+			const key = await resolveProviderKey(req, body, byokProvider);
 			if (!key) return needsKey(res, backendId);
 
 			let gp;
 			try {
-				gp = backendId === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+				gp = byokFactory(key);
 			} catch {
 				return needsKey(res, backendId);
 			}
@@ -376,12 +394,65 @@ async function startJob(req, res) {
 					prompt: prompt || undefined,
 					tier,
 				});
-			} else {
+			} else if (typeof gp.textToGeometry === 'function') {
 				submitted = await gp.textToGeometry({ prompt, tier });
+			} else {
+				// Image-only backend (e.g. Stable Fast 3D) asked to run text→3D.
+				return json(res, 422, {
+					error: 'backend_image_only',
+					backend: backendId,
+					message: `${BACKENDS[backendId].label} reconstructs from a reference image — attach one, or drop the backend to use a text→3D engine.`,
+				});
+			}
+
+			const clientKey = clientKeyFrom(req);
+
+			// Synchronous completion (Stable Fast 3D): the provider already persisted
+			// the GLB to R2 and handed back a durable url — no task to poll. Record a
+			// finished creation and return done so the client skips polling, exactly
+			// like the NVIDIA NIM synchronous path.
+			if (!submitted.taskId && submitted.resultGlbUrl) {
+				const syntheticJob = randomUUID().replace(/-/g, '');
+				const creationId = await createCreation({
+					clientKey,
+					ipHash: hashIp(ip),
+					prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
+					aspect: isImageMode ? null : aspect,
+					previewImageUrl,
+					replicateJobId: syntheticJob,
+					textToImageModel: null,
+					viewsRequested: isImageMode ? imageUrls.length : 0,
+					viewsUsed: isImageMode ? 1 : null,
+					multiview: false,
+					backend: backendId,
+					tier: tier.id,
+					path,
+				});
+				const durable = await materializeCreation({
+					replicateJobId: syntheticJob,
+					clientKey,
+					glbUrl: submitted.resultGlbUrl,
+				});
+				return json(res, 200, {
+					job_id: null,
+					creation_id: durable?.id ?? creationId,
+					status: 'done',
+					glb_url: durable?.glbUrl ?? submitted.resultGlbUrl,
+					durable: Boolean(durable),
+					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+					path,
+					tier: tier.id,
+					backend: backendId,
+					prompt: prompt || null,
+					preview_image_url: previewImageUrl,
+					reference_image_urls: isImageMode ? [imageUrls[0]] : [],
+					eta_seconds: estimateEtaSeconds({ backendId, tier }),
+					estimated_credits: estimateCredits({ backendId, path, tier }),
+				});
 			}
 
 			const token = encodeJobToken({
-				provider: providerName,
+				provider: byokProvider,
 				kind: submitted.kind,
 				taskId: submitted.taskId,
 			});
@@ -389,7 +460,7 @@ async function startJob(req, res) {
 			// Store the upstream task id as the job handle so findByJob/materialize
 			// resolve it on poll, exactly like the Replicate path.
 			const creationId = await createCreation({
-				clientKey: clientKeyFrom(req),
+				clientKey,
 				ipHash: hashIp(ip),
 				prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
 				aspect: isImageMode ? null : aspect,
@@ -523,12 +594,23 @@ async function startJob(req, res) {
 			// Hunyuan3D runs on its own Cloud Run worker (GCP_HUNYUAN3D_URL) — never
 			// the avatar pipeline controller, whose face pipeline fails every
 			// non-face image with "no face detected".
+			// Replicate BYOK runs the same reconstruction models on the caller's own
+			// Replicate account — resolve their token up front (distinct from the
+			// platform-keyed TRELLIS default).
+			let byokReplicateKey = null;
+			if (backendId === 'replicate_byok') {
+				byokReplicateKey = await resolveProviderKey(req, body, 'replicate');
+				if (!byokReplicateKey) return needsKey(res, backendId);
+			}
+
 			let provider;
 			try {
 				if (backendId === 'hunyuan3d') {
 					const hunyuanUrl = process.env.GCP_HUNYUAN3D_URL;
 					if (!hunyuanUrl) throw new Error('GCP_HUNYUAN3D_URL is not set');
 					provider = createGcpProvider({ reconstructUrl: hunyuanUrl });
+				} else if (backendId === 'replicate_byok') {
+					provider = createRegenProvider({ apiToken: byokReplicateKey });
 				} else {
 					provider = createRegenProvider();
 				}
@@ -542,6 +624,7 @@ async function startJob(req, res) {
 						message: 'Hunyuan3D self-host is not configured on this deployment.',
 					});
 				}
+				if (backendId === 'replicate_byok') return needsKey(res, backendId);
 				return unconfigured(res);
 		}
 
@@ -589,11 +672,15 @@ async function startJob(req, res) {
 		// TRELLIS returns a bare Replicate prediction id (kept as the job handle
 		// for backward compatibility); the GCP/Hunyuan3D provider returns its own
 		// opaque envelope, which we wrap in a forge token so polling routes back to
-		// the GCP provider. Either way the upstream id is what the store keys on.
+		// the GCP provider. Replicate BYOK uses the same bare id but a distinct
+		// token tag so polling re-resolves the caller's key (not the platform one).
+		// Either way the upstream id is what the store keys on.
 		const jobHandle =
 			backendId === 'hunyuan3d'
 				? encodeJobToken({ provider: 'gcp', kind: null, taskId: job.extJobId })
-				: job.extJobId;
+				: backendId === 'replicate_byok'
+					? encodeJobToken({ provider: 'replicate_byok', kind: null, taskId: job.extJobId })
+					: job.extJobId;
 
 		// Record the generation the moment it starts so the prompt + reference
 		// image survive even if the mesh step later fails. Fail-soft: a missing
@@ -776,7 +863,7 @@ async function pollJob(req, res, jobId) {
 	// poll (the client resends it, or it loads from the session store).
 	let result;
 	try {
-		if (provider === 'meshy' || provider === 'tripo') {
+		if (BYOK_PROVIDER_FACTORIES[provider]) {
 			const key = await resolveProviderKey(req, null, provider);
 			if (!key) {
 				return json(res, 200, {
@@ -786,8 +873,26 @@ async function pollJob(req, res, jobId) {
 					...metaFields,
 				});
 			}
-			const gp = provider === 'tripo' ? createTripoProvider(key) : createMeshyProvider(key);
+			const gp = BYOK_PROVIDER_FACTORIES[provider](key);
 			result = await gp.status({ kind: token.kind, taskId: upstreamId });
+		} else if (provider === 'replicate_byok') {
+			// Replicate BYOK polls the caller's own account (key name 'replicate').
+			const key = await resolveProviderKey(req, null, 'replicate');
+			if (!key) {
+				return json(res, 200, {
+					job_id: jobId,
+					status: 'failed',
+					error: 'Your API key is required to check this job. Re-enter it and retry.',
+					...metaFields,
+				});
+			}
+			let rep;
+			try {
+				rep = createRegenProvider({ apiToken: key });
+			} catch {
+				return unconfigured(res);
+			}
+			result = await rep.status(upstreamId);
 		} else if (provider === 'nvidia') {
 			let nv;
 			try {

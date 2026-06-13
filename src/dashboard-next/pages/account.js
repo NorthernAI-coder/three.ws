@@ -233,9 +233,13 @@ async function copyToClipboard(text) {
 // ── AI Provider Keys (BYOK) ───────────────────────────────────────────────
 
 const PROVIDER_META = {
-	anthropic: { label: 'Anthropic (Claude)', placeholder: 'sk-ant-api03-…', url: 'https://console.anthropic.com/settings/keys' },
-	openai:    { label: 'OpenAI (GPT-4)',      placeholder: 'sk-proj-…',      url: 'https://platform.openai.com/api-keys' },
-	meshy:     { label: 'Meshy AI (3D gen)',   placeholder: 'msy_…',          url: 'https://www.meshy.ai/settings/api' },
+	anthropic: { label: 'Anthropic (Claude)',     placeholder: 'sk-ant-api03-…', url: 'https://console.anthropic.com/settings/keys' },
+	openai:    { label: 'OpenAI (GPT-4)',          placeholder: 'sk-proj-…',      url: 'https://platform.openai.com/api-keys' },
+	meshy:     { label: 'Meshy AI (3D gen)',       placeholder: 'msy_…',          url: 'https://www.meshy.ai/settings/api' },
+	tripo:     { label: 'Tripo AI (3D gen)',       placeholder: 'tsk_…',          url: 'https://platform.tripo3d.ai/api-keys' },
+	rodin:     { label: 'Rodin · Hyper3D (3D gen)', placeholder: 'your Rodin key', url: 'https://developer.hyper3d.ai' },
+	stability: { label: 'Stability AI (3D gen)',   placeholder: 'sk-…',           url: 'https://platform.stability.ai/account/keys' },
+	replicate: { label: 'Replicate (3D gen)',      placeholder: 'r8_…',           url: 'https://replicate.com/account/api-tokens' },
 };
 
 async function loadProviderKeys(host) {
