@@ -6,7 +6,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 ## 2026-06-13
 
-- **The full page directory is now one click away — and instantly filterable** — three.ws has grown past 140 pages, so the sitemap directory got a real upgrade. A new "All pages" link in the Discover menu takes you straight to it, and the page itself now has an instant filter — press / and type to narrow every page by name, path, or description, with live per-section counts. Filtered views are shareable links, so you can send someone exactly the slice of the platform you mean. (`/sitemap`) `[improvement]`
+- **The full page directory is now one click away — and instantly filterable** — three.ws has grown past 200 pages, so the sitemap directory got a real upgrade. A new "All pages" link in the Discover menu takes you straight to it, and the page itself now has an instant filter — press / and type to narrow every page by name, path, or description, with live per-section counts. Filtered views are shareable links, so you can send someone exactly the slice of the platform you mean. The directory now finds you when you're lost, too: it's a quick action in the ⌘K search palette, a no-results search hands you off to it with your query carried over, the 404 page offers it pre-filtered to the closest matches for the address you tried, and /pages, /directory, /everything, and /all-pages all take you there. (`/sitemap`) `[improvement]`
 
 ## 2026-06-12
 

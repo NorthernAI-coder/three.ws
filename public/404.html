@@ -99,7 +99,21 @@
 				<a href="/demos/" class="btn btn-ghost" id="lab-btn">
 					<span>Back to lab</span>
 				</a>
+				<a href="/sitemap" class="btn btn-ghost" id="all-pages-btn">
+					<span>Browse all pages</span>
+				</a>
 			</div>
+			<script>
+				// Carry the broken path's slug into the sitemap filter so the
+				// directory opens pre-narrowed to the closest matches.
+				(function () {
+					var slug = location.pathname.split('/').filter(Boolean).pop() || '';
+					slug = decodeURIComponent(slug).replace(/\.[a-z0-9]+$/i, '').replace(/[-_]+/g, ' ').trim();
+					if (slug.length >= 3 && slug !== '404') {
+						document.getElementById('all-pages-btn').href = '/sitemap?q=' + encodeURIComponent(slug);
+					}
+				})();
+			</script>
 		</div>
 
 		<canvas id="avatar-canvas"></canvas>
