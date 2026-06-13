@@ -824,14 +824,15 @@ body.gallery-page {
 }
 .gallery-forge-count {
 	font-size: 0.7rem;
-	font-weight: 500;
+	font-weight: 600;
 	font-family: var(--font-mono, monospace);
-	padding: 2px 8px;
+	padding: 3px 10px;
 	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	color: rgba(255, 255, 255, 0.45);
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	color: rgba(255, 255, 255, 0.65);
 	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
 }
 .gallery-forge-sub {
 	font-size: 0.85rem;
@@ -842,24 +843,31 @@ body.gallery-page {
 }
 .gallery-forge-cta {
 	flex: none;
-	font-size: 0.82rem;
-	font-weight: 500;
-	font-family: var(--font-mono, monospace);
-	color: var(--ink-dim, rgba(255,255,255,0.55));
+	font-size: 0.825rem;
+	font-weight: 700;
+	color: #000;
 	text-decoration: none;
 	white-space: nowrap;
-	border: 1px solid rgba(255,255,255,0.1);
-	border-radius: 8px;
-	padding: 6px 14px;
-	transition: color 0.15s, border-color 0.15s, background 0.15s;
+	border: 1px solid transparent;
+	border-radius: 99px;
+	padding: 9px 20px;
+	background: #fff;
+	transition: color 0.15s, border-color 0.15s, background 0.15s, box-shadow 0.15s, opacity 0.15s;
 	display: inline-flex;
 	align-items: center;
-	gap: 5px;
+	gap: 6px;
+	box-shadow: 0 2px 16px rgba(255, 255, 255, 0.12);
+	letter-spacing: -0.01em;
 }
 .gallery-forge-cta:hover {
-	color: var(--ink, #fff);
-	border-color: rgba(255,255,255,0.2);
-	background: rgba(255,255,255,0.04);
+	background: #f0f0f0;
+	color: #000;
+	box-shadow: 0 4px 24px rgba(255, 255, 255, 0.18);
+	opacity: 0.92;
+}
+.gallery-forge-cta:focus-visible {
+	outline: 2px solid rgba(165, 180, 252, 0.7);
+	outline-offset: 2px;
 }
 
 /* Grid — matches the main gallery's column width exactly */
@@ -878,28 +886,48 @@ body.gallery-page {
 /* Placeholder for cards with no preview image —
    centered cube icon with accent color on the gradient bg */
 .forge-card-ph {
-	width: 48px;
-	height: 48px;
+	width: 60px;
+	height: 60px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 12px;
-	background: rgba(255, 255, 255, 0.06);
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	color: rgba(255, 255, 255, 0.4);
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.12);
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	color: rgba(255, 255, 255, 0.9);
 	font-size: 0;
 	/* override inherited .gallery-card-ph opacity */
 	opacity: 1;
 	filter: none;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.forge-card:hover .forge-card-ph {
+	transform: scale(1.08);
+	box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 .forge-card-ph svg {
-	width: 22px;
-	height: 22px;
-	opacity: 0.7;
+	width: 28px;
+	height: 28px;
+	opacity: 1;
+	filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+/* Prompt-only pill variant — amber tint to distinguish from "3D" badge */
+.forge-card-prompt-pill {
+	background: rgba(251, 191, 36, 0.15);
+	border-color: rgba(251, 191, 36, 0.3);
+	color: rgba(251, 191, 36, 0.9);
 }
 /* Image cards: scale on hover like regular gallery */
 .forge-card:hover .gallery-card-thumb img {
 	transform: scale(1.04);
+}
+/* Prompt-only cards: slightly dimmer so they read as "in progress" */
+.forge-card--no-model {
+	opacity: 0.88;
+}
+.forge-card--no-model:hover {
+	opacity: 1;
 }
 /* Card name: 2-line clamp so longer prompts don't explode the card */
 .forge-card .gallery-card-name {
