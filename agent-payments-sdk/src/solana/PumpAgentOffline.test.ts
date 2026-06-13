@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { Keypair, PublicKey, type AccountInfo } from "@solana/web3.js";
 import { NATIVE_MINT, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 
 import {
   PumpAgentOffline,

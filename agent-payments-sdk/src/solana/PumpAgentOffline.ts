@@ -19,7 +19,8 @@ import {
   createSyncNativeInstruction,
   createCloseAccountInstruction,
 } from "@solana/spl-token";
-import { BN, type Program } from "@coral-xyz/anchor";
+import BN from "bn.js";
+import { type Program } from "@coral-xyz/anchor";
 
 import type { PumpAgentPayments as PumpAgentPaymentsIDL } from "./idl/pump_agent_payments";
 import { getPumpProgramWithFallback } from "./program";

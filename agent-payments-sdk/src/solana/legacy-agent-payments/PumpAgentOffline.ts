@@ -2,7 +2,8 @@
 // Copyright (c) 2026 nirholas | x.com/nichxbt | github.com/nirholas
 // All rights reserved.
 
-import { BN, Program } from "@coral-xyz/anchor";
+import BN from "bn.js";
+import { Program } from "@coral-xyz/anchor";
 import {
   getAssociatedTokenAddressSync,
   TOKEN_PROGRAM_ID,

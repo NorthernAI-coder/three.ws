@@ -3,7 +3,7 @@
 // All rights reserved.
 
 import { describe, expect, it } from "vitest";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,

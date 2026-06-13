@@ -13,7 +13,7 @@
  *   SOLANA_RPC_URL=https://... MINT=<base58> npx tsx src/solana/examples/listen-pump-events.ts
  */
 import { Connection, PublicKey } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import BN from "bn.js";
 import {
   subscribeToPumpEvents,
   type ParsedPumpEvent,

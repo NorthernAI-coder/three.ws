@@ -3,7 +3,7 @@
 // All rights reserved.
 
 import type { PublicKey, AccountMeta } from "@solana/web3.js";
-import type { BN } from "@coral-xyz/anchor";
+import type BN from "bn.js";
 
 /** Args for `agentInitialize` — registers a tokenized agent for a coin. */
 export interface LegacyCreateParams {
