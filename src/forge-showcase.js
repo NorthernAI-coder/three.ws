@@ -17,6 +17,11 @@ ensureStateKitStyles();
 
 const ENGINE_LABELS = { nvidia: 'Free', trellis: 'Fast', meshy: 'Meshy', tripo: 'Tripo', hunyuan3d: 'Hunyuan3D', triposg: 'TripoSG' };
 
+const MODEL_CAT_LABELS = {
+	avatar: 'Avatar', accessory: 'Accessory', item: 'Item',
+	scene: 'Scene', creature: 'Creature', vehicle: 'Vehicle', other: 'Other',
+};
+
 // ── Thumbnail fallback chain ──────────────────────────────────────────────────
 // Plan A: preview_image_url from DB → <img>
 // Plan B: img onerror or no preview_image_url + has glb_url → capture a frame
@@ -234,6 +239,17 @@ function buildCard(c) {
 	when.className = 'showcase-when';
 	when.textContent = timeAgo(c.created_at);
 	foot.appendChild(when);
+
+	// Model category badge — shows what type of 3D model was forged.
+	const cat = c.model_category || 'other';
+	const catLabel = MODEL_CAT_LABELS[cat] || cat;
+	if (cat !== 'other') {
+		const catBadge = document.createElement('span');
+		catBadge.className = `showcase-cat-badge model-cat-${cat}`;
+		catBadge.textContent = catLabel;
+		catBadge.title = `Model category: ${catLabel}`;
+		foot.appendChild(catBadge);
+	}
 
 	// Remix — only meaningful when there is a prompt to start from.
 	if (c.prompt) {
