@@ -530,3 +530,139 @@ function openAvatarEmbedModal({ avatarId, glbUrl, name }) {
 }
 
 resetAndLoad();
+
+// ─── From the Forge section ────────────────────────────────────────────────
+// Loads community forge models from /api/forge-gallery?scope=community and
+// renders them below the avatar grid as a separate "From the Forge" strip.
+
+const forgeEls = {
+	section: document.getElementById('forge-section'),
+	grid: document.getElementById('forge-grid'),
+};
+
+function forgeTimeAgo(iso) {
+	const t = Date.parse(iso);
+	if (!Number.isFinite(t)) return '';
+	const m = Math.floor((Date.now() - t) / 60000);
+	if (m < 1) return 'just now';
+	if (m < 60) return `${m}m ago`;
+	const h = Math.floor(m / 60);
+	if (h < 24) return `${h}h ago`;
+	const d = Math.floor(h / 24);
+	if (d < 7) return `${d}d ago`;
+	const w = Math.floor(d / 7);
+	if (w < 5) return `${w}w ago`;
+	return `${Math.floor(d / 30)}mo ago`;
+}
+
+function renderForgeCard(c) {
+	const card = document.createElement('div');
+	card.className = 'forge-gallery-card';
+	card.tabIndex = 0;
+	card.setAttribute('role', 'button');
+	const label = c.prompt || 'Forged model';
+	card.setAttribute('aria-label', `Open in Forge: ${escapeAttr(label)}`);
+
+	const thumb = document.createElement('div');
+	thumb.className = 'forge-gallery-thumb';
+	if (c.preview_image_url) {
+		const img = document.createElement('img');
+		img.src = c.preview_image_url;
+		img.alt = '';
+		img.loading = 'lazy';
+		thumb.appendChild(img);
+	} else {
+		const ph = document.createElement('div');
+		ph.className = 'forge-gallery-thumb-placeholder';
+		ph.setAttribute('aria-hidden', 'true');
+		ph.textContent = '◳';
+		thumb.appendChild(ph);
+	}
+	card.appendChild(thumb);
+
+	const body = document.createElement('div');
+	body.className = 'forge-gallery-body';
+	const prompt = document.createElement('p');
+	prompt.className = 'forge-gallery-prompt';
+	prompt.textContent = label;
+	body.appendChild(prompt);
+	card.appendChild(body);
+
+	const foot = document.createElement('div');
+	foot.className = 'forge-gallery-foot';
+	const when = document.createElement('span');
+	when.className = 'forge-gallery-when';
+	when.textContent = forgeTimeAgo(c.created_at);
+	foot.appendChild(when);
+
+	if (c.prompt) {
+		const remixBtn = document.createElement('button');
+		remixBtn.type = 'button';
+		remixBtn.className = 'forge-gallery-remix';
+		remixBtn.textContent = 'Remix';
+		remixBtn.title = 'Open in the Forge with this prompt pre-loaded';
+		remixBtn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			window.location.href = `/forge?prompt=${encodeURIComponent(c.prompt)}`;
+		});
+		foot.appendChild(remixBtn);
+	}
+	card.appendChild(foot);
+
+	const openForge = () => {
+		if (c.id) {
+			window.location.href = `/forge?share=${encodeURIComponent(c.id)}`;
+		} else if (c.glb_url) {
+			window.location.href = `/app#model=${encodeURIComponent(c.glb_url)}`;
+		}
+	};
+	card.addEventListener('click', openForge);
+	card.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openForge(); }
+	});
+	return card;
+}
+
+function renderForgeSkeleton(n) {
+	for (let i = 0; i < n; i++) {
+		const card = document.createElement('div');
+		card.className = 'forge-gallery-card forge-gallery-card--skel';
+		const thumb = document.createElement('div');
+		thumb.className = 'forge-gallery-thumb';
+		card.appendChild(thumb);
+		const body = document.createElement('div');
+		body.className = 'forge-gallery-body';
+		const p = document.createElement('p');
+		p.className = 'forge-gallery-prompt';
+		p.textContent = ' ';
+		body.appendChild(p);
+		card.appendChild(body);
+		const foot = document.createElement('div');
+		foot.className = 'forge-gallery-foot';
+		const w = document.createElement('span');
+		w.className = 'forge-gallery-when';
+		w.textContent = ' ';
+		foot.appendChild(w);
+		card.appendChild(foot);
+		forgeEls.grid.appendChild(card);
+	}
+}
+
+async function loadForgeSection() {
+	if (!forgeEls.section || !forgeEls.grid) return;
+	renderForgeSkeleton(8);
+	try {
+		const res = await fetch('/api/forge-gallery?scope=community&limit=16');
+		if (!res.ok) return;
+		const data = await res.json().catch(() => ({}));
+		forgeEls.grid.innerHTML = '';
+		const creations = Array.isArray(data?.creations) ? data.creations : [];
+		if (!data?.enabled || creations.length === 0) return;
+		for (const c of creations) forgeEls.grid.appendChild(renderForgeCard(c));
+		forgeEls.section.hidden = false;
+	} catch {
+		forgeEls.grid.innerHTML = '';
+	}
+}
+
+loadForgeSection();
