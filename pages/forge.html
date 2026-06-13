@@ -1385,6 +1385,25 @@
 				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
+			/* Auto-save confirmation chip — shown briefly after generation completes */
+			@keyframes saved-pop {
+				0%   { opacity: 0; transform: translateY(3px); }
+				20%  { opacity: 1; transform: translateY(0); }
+				80%  { opacity: 1; }
+				100% { opacity: 0; }
+			}
+			.saved-chip {
+				font-size: 0.7rem;
+				color: var(--accent);
+				background: var(--accent-soft);
+				border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+				border-radius: 999px;
+				padding: 1px 8px;
+				flex: none;
+				white-space: nowrap;
+				animation: saved-pop 3s ease forwards;
+			}
+			.saved-chip.is-hidden { display: none; }
 			.result-bar .actions {
 				display: flex;
 				gap: var(--space-xs);
@@ -2362,6 +2381,7 @@
 					</div>
 					<div class="result-bar">
 						<span class="label" id="result-label"></span>
+						<span class="saved-chip is-hidden" id="result-saved" aria-label="Auto-saved to gallery">Saved ✓</span>
 						<span
 							class="views-badge is-hidden"
 							id="result-views"
