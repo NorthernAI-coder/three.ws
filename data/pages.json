@@ -208,6 +208,14 @@
 					"added": "2026-04-14"
 				},
 				{
+					"path": "/features/ar",
+					"title": "AR & WebXR — Place Any 3D Agent in Your Real World",
+					"description": "Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-13"
+				},
+				{
 					"path": "/features/forge",
 					"title": "Forge — Text to 3D Model",
 					"description": "Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.",

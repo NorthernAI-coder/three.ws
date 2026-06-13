@@ -156,6 +156,12 @@ URL: https://three.ws/features
 
 Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.
 
+### AR & WebXR — Place Any 3D Agent in Your Real World
+
+URL: https://three.ws/features/ar
+
+Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.
+
 ### Forge — Text to 3D Model
 
 URL: https://three.ws/features/forge
