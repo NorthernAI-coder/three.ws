@@ -192,7 +192,7 @@ Three layers keep that power in check:
 - Sibling package: [`@three-ws/avatar-mcp`](https://www.npmjs.com/package/@three-ws/avatar-mcp) — live, read-only avatar viewer for MCP
 - Changelog: https://three.ws/changelog
 - Issues: https://github.com/nirholas/three.ws/issues
-- License: MIT — see [LICENSE](./LICENSE)
+- License: Apache-2.0 — see [LICENSE](./LICENSE)
 
 ---
 

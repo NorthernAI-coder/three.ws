@@ -203,7 +203,7 @@ Typed error classes (exported from the root) for boundary handling: `SolanaAgent
 - Changelog: https://three.ws/changelog
 - Sibling SDK: [`@three-ws/agent-payments`](https://www.npmjs.com/package/@three-ws/agent-payments)
 - Issues: https://github.com/nirholas/three.ws/issues
-- License: MIT — see [LICENSE](./LICENSE)
+- License: Apache-2.0 — see [LICENSE](./LICENSE)
 
 ---
 

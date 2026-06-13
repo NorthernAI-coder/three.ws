@@ -137,7 +137,7 @@ validation above.
 - Homepage: https://three.ws
 - Changelog: https://three.ws/changelog
 - Issues: https://github.com/nirholas/three.ws/issues
-- License: MIT — see [LICENSE](./LICENSE)
+- License: Apache-2.0 — see [LICENSE](./LICENSE)
 
 ---
 
