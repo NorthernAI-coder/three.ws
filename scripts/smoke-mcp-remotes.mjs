@@ -22,7 +22,10 @@ const ENDPOINTS = [
 		path: '/api/pump-fun-mcp',
 		type: 'free',
 		// On-chain tool that needs no external indexer — $THREE is the only mint we touch.
-		probe: { name: 'get_token_details', args: { mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' } },
+		probe: {
+			name: 'get_token_details',
+			args: { mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
+		},
 	},
 	{ path: '/api/mcp', type: 'paid' },
 	{ path: '/api/mcp-3d', type: 'paid' },
@@ -68,7 +71,11 @@ async function post(path, payload) {
 		body: JSON.stringify(payload),
 	});
 	const text = await res.text();
-	return { status: res.status, body: parseBody(text, res.headers.get('content-type') || ''), raw: text };
+	return {
+		status: res.status,
+		body: parseBody(text, res.headers.get('content-type') || ''),
+		raw: text,
+	};
 }
 
 function validateChallenge(body) {
@@ -91,35 +98,60 @@ const results = [];
 
 async function checkFree(ep) {
 	const checks = [];
-	const init = await post(ep.path, rpc('initialize', {
-		protocolVersion: '2025-06-18',
-		capabilities: {},
-		clientInfo: { name: 'smoke', version: '0' },
-	}));
+	const init = await post(
+		ep.path,
+		rpc('initialize', {
+			protocolVersion: '2025-06-18',
+			capabilities: {},
+			clientInfo: { name: 'smoke', version: '0' },
+		}),
+	);
 	const name = init.body?.result?.serverInfo?.name;
-	checks.push(['initialize', init.status === 200 && !!name, name ? `serverInfo=${name}` : `status ${init.status}`]);
+	checks.push([
+		'initialize',
+		init.status === 200 && !!name,
+		name ? `serverInfo=${name}` : `status ${init.status}`,
+	]);
 
 	const list = await post(ep.path, rpc('tools/list', {}, 2));
 	const tools = list.body?.result?.tools;
-	checks.push(['tools/list', Array.isArray(tools) && tools.length > 0, `${tools?.length ?? 0} tools`]);
+	checks.push([
+		'tools/list',
+		Array.isArray(tools) && tools.length > 0,
+		`${tools?.length ?? 0} tools`,
+	]);
 
-	const call = await post(ep.path, rpc('tools/call', { name: ep.probe.name, arguments: ep.probe.args }, 3));
+	const call = await post(
+		ep.path,
+		rpc('tools/call', { name: ep.probe.name, arguments: ep.probe.args }, 3),
+	);
 	const isErr = !!call.body?.error;
-	checks.push([`call ${ep.probe.name}`, !isErr, isErr ? call.body.error.message?.slice(0, 60) : 'ok']);
+	checks.push([
+		`call ${ep.probe.name}`,
+		!isErr,
+		isErr ? call.body.error.message?.slice(0, 60) : 'ok',
+	]);
 	return checks;
 }
 
 async function checkPaid(ep) {
-	const res = await post(ep.path, rpc('initialize', {
-		protocolVersion: '2025-06-18',
-		capabilities: {},
-		clientInfo: { name: 'smoke', version: '0' },
-	}));
+	const res = await post(
+		ep.path,
+		rpc('initialize', {
+			protocolVersion: '2025-06-18',
+			capabilities: {},
+			clientInfo: { name: 'smoke', version: '0' },
+		}),
+	);
 	const gated = res.status === 401 || res.status === 402;
 	const challengeErr = validateChallenge(res.body);
 	return [
 		['payment-gated', gated, `HTTP ${res.status}`],
-		['valid x402 challenge', gated && !challengeErr, challengeErr || `${res.body?.accepts?.length} accept(s)`],
+		[
+			'valid x402 challenge',
+			gated && !challengeErr,
+			challengeErr || `${res.body?.accepts?.length} accept(s)`,
+		],
 	];
 }
 
@@ -141,5 +173,7 @@ for (const ep of ENDPOINTS) {
 	results.push({ path: ep.path, ok: epOk });
 }
 
-console.log(`\n${failures === 0 ? '✓ all remotes healthy' : `✗ ${failures} endpoint(s) unhealthy`} (${results.length} checked)\n`);
+console.log(
+	`\n${failures === 0 ? '✓ all remotes healthy' : `✗ ${failures} endpoint(s) unhealthy`} (${results.length} checked)\n`,
+);
 process.exit(failures === 0 ? 0 : 1);
