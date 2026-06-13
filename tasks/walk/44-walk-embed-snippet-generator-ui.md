@@ -25,7 +25,7 @@ Build a standalone, shareable snippet generator at `https://three.ws/embed/walk`
     - "Preview in new tab" link
     - Framework-specific tabs showing the same snippet formatted for vanilla HTML, React, Vue, and Svelte
 - Framework snippets:
-  - React: `<WalkEmbed avatarId="..." controls="joystick" />` — with a note to `npm i @threews/react`
+  - React: `<WalkEmbed avatarId="..." controls="joystick" />` — with a note to `npm i @three-ws/react`
   - Vue: `<WalkEmbed avatar-id="..." />` — same note
   - Svelte: same
   - These are just well-formatted snippet text — no actual package needs to be published for this task, just show the expected API
