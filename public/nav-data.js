@@ -70,8 +70,13 @@ export const NAV_GROUPS = [
 			{
 				title: 'Scene Studio',
 				href: '/scene',
-				badge: 'New',
 				desc: 'Assemble models into full 3D scenes',
+			},
+			{
+				title: 'Scene Composer',
+				href: '/compose',
+				badge: 'New',
+				desc: 'Forge items & dress your avatar in real time',
 			},
 			{
 				title: 'Voice Lab',
