@@ -133,7 +133,7 @@ npm install
 **Inside another app** (from scratch):
 
 ```bash
-npm install @pump-fun/pump-sdk @pump-fun/agent-payments-sdk @solana/web3.js@^1.98.0 @solana/spl-token bn.js
+npm install @pump-fun/pump-sdk @three-ws/agent-payments @solana/web3.js@^1.98.0 @solana/spl-token bn.js
 ```
 
 Check `npm info @pump-fun/pump-sdk dependencies` and align `@solana/web3.js` / `@solana/spl-token` versions to avoid duplicate incompatible copies.
@@ -183,7 +183,7 @@ This is brand plumbing on the mint **address** only — it does not name, add, o
 | `mayhemMode` | `boolean`   | Configurable via `--mayhem-mode` flag (default: `false`)               |
 | `cashback`   | `boolean`   | Enable cashback rewards; optional, default `false`                     |
 
-When `--tokenized-agent` is enabled, an additional `PumpAgentOffline.load(mint).create(...)` instruction (from `@pump-fun/agent-payments-sdk`) is appended after the create+buy instructions. The `--buyback-bps` flag controls the agent buyback percentage in basis points (default: 5000 = 50%). Tokenized agent coins **must** have an initial buy > 0 SOL.
+When `--tokenized-agent` is enabled, an additional `PumpAgentOffline.load(mint).create(...)` instruction (from `@three-ws/agent-payments`) is appended after the create+buy instructions. The `--buyback-bps` flag controls the agent buyback percentage in basis points (default: 5000 = 50%). Tokenized agent coins **must** have an initial buy > 0 SOL.
 
 Token amount for the initial buy is derived with `getBuyTokenAmountFromSolAmount` (`mintSupply: null`, `bondingCurve: null`).
 

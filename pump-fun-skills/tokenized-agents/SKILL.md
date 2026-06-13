@@ -1,7 +1,7 @@
 ---
 name: tokenized-agents
 description: >
-  Use when the user wants to charge users for actions. Use @pump-fun/agent-payments-sdk, to build Solana payment transactions, verify on-chain invoice payments, or integrate Solana wallet adapters for agent payment flows.
+  Use when the user wants to charge users for actions. Use @three-ws/agent-payments, to build Solana payment transactions, verify on-chain invoice payments, or integrate Solana wallet adapters for agent payment flows.
 metadata:
   author: pump-fun
   version: "1.1"
@@ -31,7 +31,7 @@ You MUST ask the user for ALL unchecked items in your very first response. Do no
   - Parameter types match the documented signatures — `buildAcceptPaymentInstructions` accepts `number` for numeric fields, `validateInvoicePayment` accepts `number`, and `getInvoiceIdPDA` accepts `number`.
   - Parameter ordering and names match exactly.
   - Default values (e.g. `computeUnitLimit` defaults to `100_000`) are not contradicted.
-  - Import paths use `@pump-fun/agent-payments-sdk`, not internal module paths.
+  - Import paths use `@three-ws/agent-payments`, not internal module paths.
 
 ## Supported Currencies
 
@@ -72,17 +72,17 @@ Read these values from `process.env` at runtime. Never hard-code mint addresses 
 ## Install
 
 ```bash
-npm install @pump-fun/agent-payments-sdk@3.0.2 @solana/web3.js@^1.98.0
+npm install @three-ws/agent-payments @solana/web3.js@^1.98.0
 ```
 
 ### Dependency Compatibility — IMPORTANT
 
-`@pump-fun/agent-payments-sdk` depends on `@solana/web3.js` and `@solana/spl-token`. When the app also installs these packages directly, mismatched versions can cause runtime errors.
+`@three-ws/agent-payments` depends on `@solana/web3.js` and `@solana/spl-token`. When the app also installs these packages directly, mismatched versions can cause runtime errors.
 
 **Rules:**
 
-1. Before installing `@solana/web3.js`, `@solana/spl-token`, or any `@solana/wallet-adapter-*` package, first check what versions `@pump-fun/agent-payments-sdk` declares in its own `package.json` (inspect it via `npm info @pump-fun/agent-payments-sdk dependencies`). Install the same ranges — or ranges that resolve to the same major.minor — so npm/pnpm hoists a single copy instead of two.
-2. Never blindly install "latest" for these shared packages. Always prefer the version that is most compatible with the latest `@pump-fun/agent-payments-sdk`.
+1. Before installing `@solana/web3.js`, `@solana/spl-token`, or any `@solana/wallet-adapter-*` package, first check what versions `@three-ws/agent-payments` declares in its own `package.json` (inspect it via `npm info @three-ws/agent-payments dependencies`). Install the same ranges — or ranges that resolve to the same major.minor — so npm/pnpm hoists a single copy instead of two.
+2. Never blindly install "latest" for these shared packages. Always prefer the version that is most compatible with the latest `@three-ws/agent-payments`.
 3. If the project already has these packages at different versions, align them to match the SDK and re-install.
 
 ## SDK Setup
@@ -90,7 +90,7 @@ npm install @pump-fun/agent-payments-sdk@3.0.2 @solana/web3.js@^1.98.0
 `PumpAgent` is the main class. It can build payment instructions and verify invoices.
 
 ```typescript
-import { PumpAgent } from "@pump-fun/agent-payments-sdk";
+import { PumpAgent } from "@three-ws/agent-payments";
 import { PublicKey } from "@solana/web3.js";
 
 const agentMint = new PublicKey(process.env.AGENT_TOKEN_MINT_ADDRESS!);
@@ -190,7 +190,7 @@ The Invoice ID is a PDA (`PublicKey`) that uniquely identifies an invoice on-cha
 ### Import
 
 ```typescript
-import { getInvoiceIdPDA } from "@pump-fun/agent-payments-sdk";
+import { getInvoiceIdPDA } from "@three-ws/agent-payments";
 import { PublicKey } from "@solana/web3.js";
 ```
 
@@ -282,7 +282,7 @@ Build the payment instructions, assemble them into a full `Transaction` with a r
 
 ```typescript
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
-import { PumpAgent } from "@pump-fun/agent-payments-sdk";
+import { PumpAgent } from "@three-ws/agent-payments";
 
 async function buildPaymentTransaction(params: {
   userWallet: string;
@@ -419,7 +419,7 @@ Use `validateInvoicePayment` to confirm that a specific invoice was paid on-chai
 ### Simple Backend Verification
 
 ```typescript
-import { PumpAgent } from "@pump-fun/agent-payments-sdk";
+import { PumpAgent } from "@three-ws/agent-payments";
 import { PublicKey } from "@solana/web3.js";
 
 const agentMint = new PublicKey(process.env.AGENT_TOKEN_MINT_ADDRESS!);

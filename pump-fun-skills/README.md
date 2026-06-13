@@ -18,7 +18,7 @@ This skill library provides AI agents with the tools to interact with pump.fun's
 | [**Create Coin**](create-coin/) | Create coins on pump.fun with an initial buy. Supports mayhem mode, cashback, tokenized agents with buyback %, and front-runner protection via Jito. Uses the `@pump-fun/pump-sdk` and pump.fun API. |
 | [**Swap**](swap/) | Buy and sell tokens on the bonding curve or AMM pool. Automatically detects coin state (bonding vs graduated) and builds the correct transaction. Supports slippage protection and Jito front-runner protection. |
 | [**Coin Fees**](coin-fees/) | Inspect creator fee destinations and vault balances, collect fees, distribute shared fees to shareholders, and create or update sharing configs with up to 10 shareholders. |
-| [**Tokenized Agent Payments**](tokenized-agents/) | Accept USDC or wrapped SOL payments and verify invoices on-chain for Pump Tokenized Agents using `@pump-fun/agent-payments-sdk`. Includes wallet integration guides for React/Next.js. |
+| [**Tokenized Agent Payments**](tokenized-agents/) | Accept USDC or wrapped SOL payments and verify invoices on-chain for Pump Tokenized Agents using `@three-ws/agent-payments`. Includes wallet integration guides for React/Next.js. |
 | [**Reactive Avatar**](reactive/) | Connects to the real PumpPortal WebSocket feed and drives `<agent-3d>` avatar gestures, emotes, and speech from live pump.fun events — no LLM in the loop. |
 
 ## Repo Structure
@@ -84,7 +84,7 @@ Once installed, you can follow the skill's instructions or run the documented CL
    - **Create coin skill:** `cd create-coin && npm install` then run scripts under `create-coin/scripts/` (see `create-coin/SKILL.md`).
    - **Swap skill:** `cd swap && npm install` then run scripts under `swap/scripts/` (see `swap/SKILL.md`).
    - **Coin fees skill:** `cd coin-fees && npm install` then run scripts under `coin-fees/scripts/` (see `coin-fees/SKILL.md`).
-   - **Tokenized agents:** `npm install @pump-fun/agent-payments-sdk` in your app.
+   - **Tokenized agents:** `npm install @three-ws/agent-payments` in your app.
 
 3. **Configure.** Provide Solana RPC URL and any mints or wallet addresses the skill requires.
 

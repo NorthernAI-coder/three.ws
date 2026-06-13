@@ -15,7 +15,7 @@ import {
   OnlinePumpSdk,
   getBuyTokenAmountFromSolAmount,
 } from "@pump-fun/pump-sdk";
-import { PumpAgentOffline } from "@pump-fun/agent-payments-sdk";
+import { PumpAgentOffline } from "@three-ws/agent-payments";
 import { getConnection } from "./lib/env.mjs";
 import {
   exitWithHelp,
