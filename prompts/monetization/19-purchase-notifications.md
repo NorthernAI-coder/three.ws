@@ -40,7 +40,7 @@ export async function sendPurchaseConfirmationEmail(userId, details) {
         }
 
         await resend.emails.send({
-            from: 'noreply@three.ws',
+            from: 'support@three.ws',
             to: user.email,
             subject: 'Your Skill Purchase Confirmation',
             html: `

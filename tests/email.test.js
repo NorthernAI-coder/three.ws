@@ -279,7 +279,7 @@ describe('email — buildPayload', () => {
 				html: '<p>hi</p>',
 				text: 'hi',
 			});
-			expect(payload.from).toBe('three.ws <noreply@three.ws>');
+			expect(payload.from).toBe('three.ws <support@three.ws>');
 		} finally {
 			restore();
 		}

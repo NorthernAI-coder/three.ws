@@ -1520,16 +1520,52 @@ The `talk` interaction mode wires together the LLM runtime, ElevenLabs TTS, and 
 
 When the agent speaks, the driver runs at ~60fps and drives `mouthClose`, `jawOpen`, `mouthSmileLeft/Right`, and the rest of the ARKit-52 set — the Empathy Layer's emotional morphs continue to blend on top, so the avatar simultaneously emotes and articulates. Unit tests for the ARKit-52 mapping live in `tests/src/arkit-morphs.test.js`.
 
+**Activating talk mode**
+
+Set `mode="talk"` on the `<agent-3d>` element and supply an ElevenLabs voice ID in the agent manifest:
+
+```json
+{
+  "voice": {
+    "tts": { "provider": "elevenlabs", "voiceId": "YOUR_VOICE_ID" },
+    "stt": { "provider": "browser", "language": "en-US" }
+  }
+}
+```
+
+**Pipeline (step by step)**
+
+1. User speaks → `getUserMedia` captures audio → Web Speech API produces a text transcript.
+2. Transcript enters the LLM tool-loop; the final reply text is sent to ElevenLabs TTS.
+3. The returned `AudioBuffer` is piped through a Web Audio API `AnalyserNode`.
+4. The lip-sync driver ([`src/voice/lipsync-driver.js`](src/voice/lipsync-driver.js)) samples the analyser every animation frame, extracts amplitude and spectral centroid, and maps them to ARKit-52 blendshape weights.
+5. Weights are applied directly to the loaded GLB's morph targets via [`src/voice/avatar-morph-target.js`](src/voice/avatar-morph-target.js) — no scene re-render required.
+6. The Empathy Layer injects its emotional morph weights in the same frame, so articulation and emotion blend simultaneously without fighting each other.
+
+The driver is source-agnostic: it accepts any `AudioBuffer`, so it works identically with ElevenLabs, browser TTS, or a pre-recorded clip. The canonical ARKit-52 blendshape table lives in [`src/voice/arkit-blendshapes.js`](src/voice/arkit-blendshapes.js); per-rig binding (mapping standard names to the specific morph targets in a loaded GLB) is handled by [`src/voice/avatar-morph-target.js`](src/voice/avatar-morph-target.js).
+
 ---
 
 ## Solana Mobile (Seeker)
 
 three.ws ships with Mobile Wallet Adapter (MWA) wired into the web app and a release pipeline for the Solana Mobile dApp Store.
 
-- MWA detection prefers seed-vault-backed signing on Seeker / Saga devices, falls back to WalletConnect elsewhere
-- dApp Store listing assets, icons, and staging copy live under `public/seeker/`
-- Release pipeline scripts handle build → sign → submit for the dApp Store update
-- On Seeker hardware, users sign x402 payments and Solana agent registrations (Metaplex Core mints, attestations) from the seed vault — no browser extension required
+**Wallet detection priority**
+
+On **Seeker / Saga** hardware the app prefers seed-vault-backed signing — private keys never leave the secure element. On standard Android or desktop, the app falls back through WalletConnect and then to browser-extension wallets automatically, with no code change required.
+
+**What MWA unlocks on Seeker hardware**
+
+- x402 USDC payments signed from the seed vault without any browser extension
+- Metaplex Core agent mints (Solana on-chain registration) without leaving the app
+- SPL Memo attestations (reputation and validation) with hardware-secured signatures
+- SIWS (Sign-In with Solana) sessions authenticated at the chip level, not the software layer
+
+**Release pipeline**
+
+- dApp Store listing assets, icons, and staging copy live under [`public/seeker/`](public/seeker/)
+- Release pipeline scripts handle build → sign → APK submission for dApp Store updates
+- The listing targets Seeker-first and is compatible with Saga Gen 1 and Gen 2
 
 ---
 
@@ -1840,7 +1876,36 @@ three.ws supports multiple LLM providers behind a single `brain` interface. The 
 | **OpenRouter**         | proxied via brain                | Fallback when the primary provider is rate-limited                    |
 | **Null provider**      | `src/runtime/providers.js`       | No-op for tests and offline mode                                      |
 
-**Owner-card gating** — when an agent has a paying owner (paid by ERC-8004 mint or x402 subscription), the embed shows an owner-attribution card and unlocks longer context windows + higher-tier models. Anonymous visitors get Groq-powered chat with a smaller window.
+**Switching providers**
+
+Provider selection is per-agent and controlled by the manifest `brain.provider` field:
+
+```json
+{
+  "brain": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "temperature": 0.8,
+    "maxTokens": 1024
+  }
+}
+```
+
+Supported `provider` values: `anthropic` · `groq` · `openrouter` · `null` (offline). Adding a new provider means implementing the two-method interface (`chat()` and `stream()`) in [`src/runtime/providers.js`](src/runtime/providers.js) — no other files need to change.
+
+**Free-first routing policy**
+
+The platform's `DEFAULT_PROVIDER_ORDER` in `src/llm.js` ensures AI chat never fails silently due to a single quota: free tiers (Groq, OpenRouter `:free` models, NVIDIA) are always tried first; paid Vercel-billed keys (Anthropic, OpenAI) are last-resort only. An OpenRouter fallback key is configured for `:free` models so that even a depleted primary account doesn't take down the `/chat` surface.
+
+**Owner-card gating**
+
+When an agent has a paying owner — established via ERC-8004 mint or x402 subscription — the embed unlocks:
+
+- Longer context windows (up to 32k tokens per turn vs the anonymous 8k cap)
+- Access to higher-tier models (Claude Sonnet / Opus vs Groq fallback)
+- An owner-attribution card displayed below the avatar in the embed chrome
+
+The gating check runs server-side in [`api/chat.js`](api/chat.js) against the agent's subscription record in Postgres. It cannot be bypassed from the client — the model selection and context limit are applied at the API layer before the request reaches the LLM provider.
 
 ---
 
