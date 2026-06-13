@@ -19,6 +19,16 @@ async function safeFetchModel(url) {
 	}
 }
 
+// MCP tool annotations (2025-06-18 spec): all three tools are deterministic,
+// pure inspections of a caller-supplied URL — same file, same report.
+// destructiveHint defaults to TRUE when omitted, so it is set explicitly.
+const INSPECTION_ANNOTATIONS = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: true,
+	openWorldHint: true,
+};
+
 function formatValidationSummary(s, messages) {
 	const head =
 		`glTF-Validator report for ${s.filename} (${(s.fileSize / 1024).toFixed(1)} KB)\n` +
@@ -73,6 +83,7 @@ export const toolDefs = [
 	{
 		name: 'validate_model',
 		title: 'Validate glTF/GLB model',
+		annotations: INSPECTION_ANNOTATIONS,
 		description:
 			'Run the Khronos glTF-Validator against a remote GLB or glTF URL. Returns a structured report of errors, warnings, infos, and hints — the authoritative answer to "is this file spec-compliant?". SSRF-hardened: only public https URLs are fetched.',
 		inputSchema: {
@@ -125,6 +136,7 @@ export const toolDefs = [
 	{
 		name: 'inspect_model',
 		title: 'Inspect glTF/GLB model',
+		annotations: INSPECTION_ANNOTATIONS,
 		description:
 			'Parse a remote GLB or glTF and return structural stats: scene/node/mesh counts, vertex and triangle totals, material and texture summaries, extensions used. Pure inspection — no optimization advice.',
 		inputSchema: {
@@ -156,6 +168,7 @@ export const toolDefs = [
 	{
 		name: 'optimize_model',
 		title: 'Suggest optimizations for a glTF/GLB model',
+		annotations: INSPECTION_ANNOTATIONS,
 		description:
 			'Inspect the model and return actionable suggestions for reducing size and draw-call overhead: triangle budget, Draco/Meshopt compression, oversized textures, KTX2 transcoding, non-indexed primitives, redundant materials, and more.',
 		inputSchema: {

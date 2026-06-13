@@ -1,12 +1,13 @@
 <script>
   import { mode } from '../stores.js';
   import Icon from '../Icon.svelte';
-  import { feTrendingUp, feBarChart2, feActivity, feAlertCircle, feMoreHorizontal, feBox, feLayers } from '../feather.js';
+  import { feTrendingUp, feBarChart2, feActivity, feAlertCircle, feMoreHorizontal, feBox, feLayers, feZap } from '../feather.js';
   import MoreDropdown from './MoreDropdown.svelte';
 
   let moreOpen = false;
 
   const chips = [
+    { id: 'text3d',    label: 'Text → 3D',          icon: feZap },
     { id: 'gems',      label: 'Find new gems',      icon: feTrendingUp },
     { id: 'track',     label: 'Track a token',      icon: feActivity },
     { id: 'portfolio', label: 'Check my portfolio', icon: feBarChart2 },

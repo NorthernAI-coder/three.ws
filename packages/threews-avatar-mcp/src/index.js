@@ -22,9 +22,12 @@ import {
 	CallToolRequestSchema,
 	ListResourcesRequestSchema,
 	ReadResourceRequestSchema,
+	ListPromptsRequestSchema,
+	GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { buildTools } from './tools.js';
+import { buildPrompts } from './prompts.js';
 import { baseUrl, ThreewsError } from './threews.js';
 import { UI_RESOURCE_URI, UI_MIME_TYPE, UI_RESOURCE_META, loadAppHtml } from './ui.js';
 
@@ -36,16 +39,24 @@ const SERVER_NAME = 'three.ws-avatar-mcp';
 async function main() {
 	const tools = buildTools();
 	const byName = new Map(tools.map((t) => [t.definition.name, t]));
+	const prompts = buildPrompts();
+	const promptsByName = new Map(prompts.map((p) => [p.definition.name, p]));
 
 	const server = new Server(
 		{ name: SERVER_NAME, version: SERVER_VERSION },
 		{
-			capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
+			capabilities: {
+				tools: { listChanged: false },
+				resources: { listChanged: false },
+				prompts: { listChanged: false },
+			},
 			instructions:
 				'three.ws 3D avatar tools. render_avatar shows a live, rotatable avatar inline ' +
 				'(preview image + interactive model + embed URL); avatar_embed_code returns a ' +
 				'paste-anywhere iframe; get_avatar returns metadata. Identify avatars by id, ' +
-				'@handle, or a raw GLB url. Free and read-only — no API key for public avatars.',
+				'@handle, or a raw GLB url. The showcase-avatar prompt does the full flow in one ' +
+				'step: live inline render plus embed iframe with a copy-paste summary. ' +
+				'Free and read-only — no API key for public avatars.',
 		},
 	);
 
@@ -84,6 +95,16 @@ async function main() {
 		};
 	});
 
+	server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+		prompts: prompts.map((p) => p.definition),
+	}));
+
+	server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+		const prompt = promptsByName.get(request.params.name);
+		if (!prompt) throw new Error(`Unknown prompt: ${request.params.name}`);
+		return prompt.resolve(request.params.arguments || {});
+	});
+
 	server.setRequestHandler(CallToolRequestSchema, async (request) => {
 		const { name, arguments: args } = request.params;
 		const tool = byName.get(name);
@@ -104,7 +125,7 @@ async function main() {
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	process.stderr.write(
-		`[avatar-mcp] ${SERVER_NAME} v${SERVER_VERSION} ready — ${tools.length} tools via ${baseUrl()}\n`,
+		`[avatar-mcp] ${SERVER_NAME} v${SERVER_VERSION} ready — ${tools.length} tools, ${prompts.length} prompt via ${baseUrl()}\n`,
 	);
 }
 

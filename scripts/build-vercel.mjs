@@ -209,6 +209,9 @@ try {
 		// undeclared api/ imports — the classes behind the 2026-06-11 outage —
 		// instead of 18 minutes into NFT tracing or, worse, at runtime.
 		run('audit:deploy', 'node scripts/audit-deploy-artifacts.mjs'),
+		// MCP registry manifests: catches version drift, >100-char descriptions,
+		// and mcpName mismatches at build time instead of on publish day.
+		run('audit:mcp', 'node scripts/audit-mcp-manifests.mjs'),
 		prebuild(),
 		ensureSDKDist().then(bundleApi),
 	]);

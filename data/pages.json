@@ -961,14 +961,6 @@
 					"lastmod": "2026-05-17"
 				},
 				{
-					"path": "/blog/text-to-3d-forge-launch",
-					"title": "Text to 3D Is Live: Forge Turns a Prompt Into a Textured 3D Model",
-					"description": "Forge is live on three.ws. Type a description — or upload a photo or sketch — and get a textured, downloadable GLB in 30–90 seconds. Free draft lane, AR inspection, shareable links, and one-click attach to your AI agent.",
-					"priority": 0.6,
-					"changefreq": "monthly",
-					"lastmod": "2026-06-12"
-				},
-				{
 					"path": "/blog/text-to-3d-is-live",
 					"title": "Text to 3D Is Live — Type a Prompt, Download a 3D Model",
 					"description": "Forge is live on three.ws: type a description and get a textured, downloadable 3D model (GLB) in your browser. Image to 3D from photos works too. Free draft tier, no install.",

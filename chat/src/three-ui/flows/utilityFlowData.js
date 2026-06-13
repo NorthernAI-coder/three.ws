@@ -171,6 +171,15 @@ export const scene3dPrompts = [
   'Mint the current 3D scene as a Solana NFT',
 ];
 
+export const text3dPrompts = [
+  'Generate a 3D model of a brass steampunk owl, full body',
+  'Make me a 3D model of a low-poly fox with orange and white fur',
+  'Forge a weathered bronze dragon statue I can spin around',
+  'Create a 3D ceramic coffee mug with a glossy teal glaze',
+  'Generate a sci-fi helmet with matte black finish and gold visor',
+  'Make a 3D treasure chest with iron bands and carved oak wood',
+];
+
 export const ticker3dPrompts = [
   'Show a live 3D rotating coin ticker for SOL',
   'Display a 3D ticker for Bitcoin with current price',

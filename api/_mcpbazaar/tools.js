@@ -83,10 +83,22 @@ function formatList(items, { query } = {}) {
 		.join('\n');
 }
 
+// MCP tool annotations (2025-06-18 spec): every discovery tool is a read-only
+// query of the live facilitator network — listings and prices change between
+// calls, so not idempotent. destructiveHint defaults to TRUE when omitted, so
+// it is set explicitly.
+const DISCOVERY_ANNOTATIONS = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: true,
+};
+
 export const toolDefs = [
 	{
 		name: 'search_services',
 		title: 'Search the x402 bazaar',
+		annotations: DISCOVERY_ANNOTATIONS,
 		description:
 			'Ranked search across the live x402 facilitator network for paid agent services (APIs and MCP tools you can pay for in stablecoin). Returns matching services with price, networks, and resource URL. Use get_service for full payment + input details.',
 		inputSchema: {
@@ -123,6 +135,7 @@ export const toolDefs = [
 	{
 		name: 'browse_services',
 		title: 'Browse the x402 bazaar',
+		annotations: DISCOVERY_ANNOTATIONS,
 		description:
 			'List paid agent services from the live x402 facilitator network without a search query — useful for "what can I pay for?". Returns services with price, networks, and resource URL, cheapest filters applied.',
 		inputSchema: {
@@ -150,6 +163,7 @@ export const toolDefs = [
 	{
 		name: 'get_service',
 		title: 'Get full details for one x402 service',
+		annotations: DISCOVERY_ANNOTATIONS,
 		description:
 			'Resolve a single x402 service by its resource URL (and tool_name for MCP services). Returns the exact payment requirements (price, asset, network, recipient), the input/output schema, and a ready-to-use pay link on three.ws. This is what you read before paying.',
 		inputSchema: {

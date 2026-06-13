@@ -20,6 +20,7 @@
     walletviewPrompts,
     txexplainPrompts,
     mintnftPrompts,
+    text3dPrompts,
   } from './utilityFlowData.js';
 </script>
 
@@ -49,6 +50,8 @@
   <SamplePromptGrid title="Portfolio examples" prompts={portfolioPrompts} />
 {:else if $mode === 'rugcheck'}
   <SamplePromptGrid title="Rug check examples" prompts={rugcheckPrompts} />
+{:else if $mode === 'text3d'}
+  <SamplePromptGrid title="Generate a 3D model from text" prompts={text3dPrompts} />
 {:else if $mode === 'chart3d'}
   <SamplePromptGrid title="3D chart examples" prompts={chart3dPrompts} />
 {:else if $mode === 'scene3d'}

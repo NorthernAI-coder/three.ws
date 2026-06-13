@@ -15,9 +15,15 @@ import {
 	NETWORK_BASE_MAINNET,
 	NETWORK_SOLANA_MAINNET,
 } from './_lib/x402-spec.js';
-import { declareMcpDiscovery, withService } from './_lib/x402/bazaar-helpers.js';
+import {
+	declareHttpDiscovery,
+	declareMcpDiscovery,
+	withService,
+} from './_lib/x402/bazaar-helpers.js';
 import { TOOL_CATALOG } from './_mcp/catalog.js';
 import { STUDIO_CHALLENGE } from './_mcp3d/discovery.js';
+import { TOOL_CATALOG as STUDIO_TOOL_CATALOG } from './_mcp3d/catalog.js';
+import { priceFor as studioPriceFor } from './_mcp3d/pricing.js';
 import { priceFor } from './_lib/pump-pricing.js';
 import { priceAtomicsForTier } from './_lib/forge-tiers.js';
 import { listBazaarServices, serviceResourceUrl } from './_lib/agent-paid-services.js';
@@ -244,8 +250,23 @@ function pushAcceptWithPermit2Sibling(out, accept) {
 // EIP-2612 covers tokens that implement `permit()` (USDC, DAI, ...); the
 // ERC-20 approval variant covers tokens that don't. Both let the facilitator
 // sponsor the approve() so the payer never broadcasts the approval tx.
+// Normalize the second arg into a spec-shaped v2 bazaar extension
+// ({discoverable, info, schema}). Catalog entries historically passed a raw
+// {method, discoverable, input, inputSchema} descriptor straight through,
+// which facilitator validators reject as a malformed discovery extension —
+// every REST row was silently uncatalogable while the MCP rows (already
+// spec-shaped) validated fine. Already-proper extensions (bazaarExtension(),
+// declareMcpDiscovery(), STUDIO_CHALLENGE.bazaar) pass through untouched.
 function extensionsForAccepts(accepts, bazaar) {
-	const exts = { bazaar };
+	const normalized =
+		bazaar && bazaar.info && bazaar.schema
+			? bazaar
+			: declareHttpDiscovery({
+					method: bazaar?.method || 'GET',
+					input: bazaar?.input,
+					inputSchema: bazaar?.inputSchema,
+				});
+	const exts = { bazaar: normalized };
 	if (accepts.some((a) => a?.extra?.assetTransferMethod === 'permit2')) {
 		Object.assign(
 			exts,
@@ -303,25 +324,28 @@ function acceptsForPrice(amountAtomics, resourceUrl) {
 // catalog entry for a free tool and confuse buyers about what's actually
 // gated). Falls back to the canonical `mcp://tool/<name>` identifier when
 // the spec wants a logical resource that distinguishes tools at the URL
-// level, while the actual call still goes to `/api/mcp`.
-function buildMcpToolItems({ mcpUrl, mcpAccepts, mcpService }) {
+// level, while the actual call still goes to the server's own path.
+// Generic over the server: pass the endpoint path/url, its accepts, its
+// service metadata, its tool catalog, and its per-tool pricing lookup —
+// /api/mcp and /api/mcp-3d both feed through here.
+function buildMcpToolItems({ path, mcpUrl, mcpAccepts, mcpService, catalog, priceForTool }) {
 	const items = [];
-	for (const tool of TOOL_CATALOG) {
-		const pricing = priceFor(tool.name);
+	for (const tool of catalog) {
+		const pricing = priceForTool(tool.name);
 		if (!pricing) continue;
 		const exampleArgs = exampleArgsForTool(tool);
 		const discovery = declareMcpDiscovery({
 			toolName: tool.name,
 			description: tool.description,
 			// MCP 2025-06-18 transport: Streamable HTTP is the default for
-			// /api/mcp; SSE clients still work through the same path.
+			// these servers; SSE clients still work through the same path.
 			transport: 'streamable-http',
 			inputSchema: tool.inputSchema,
 			example: exampleArgs,
 		});
 		items.push({
 			type: 'mcp',
-			path: '/api/mcp',
+			path,
 			url: mcpUrl,
 			toolName: tool.name,
 			method: 'POST',
@@ -651,7 +675,31 @@ async function handleX402Discovery(req, res) {
 	// individually instead of all hiding behind the parent /api/mcp resource.
 	// Built from the live TOOL_CATALOG so adding a new priced tool only
 	// requires a pricing entry; the discovery shape follows automatically.
-	const mcpToolItems = buildMcpToolItems({ mcpUrl, mcpAccepts, mcpService: routeMeta.mcp });
+	const mcpToolItems = buildMcpToolItems({
+		path: '/api/mcp',
+		mcpUrl,
+		mcpAccepts,
+		mcpService: routeMeta.mcp,
+		catalog: TOOL_CATALOG,
+		priceForTool: priceFor,
+	});
+
+	// 3D Studio paid tools — one row per priced tool so "text to 3d" searches
+	// on facilitators land on the tool, not just the transport. Service
+	// identity comes from STUDIO_CHALLENGE (same source as the live 402).
+	const studioService = {
+		serviceName: STUDIO_CHALLENGE.serviceName,
+		tags: STUDIO_CHALLENGE.tags,
+		iconUrl: STUDIO_CHALLENGE.iconUrl,
+	};
+	const studioToolItems = buildMcpToolItems({
+		path: '/api/mcp-3d',
+		mcpUrl: mcp3dUrl,
+		mcpAccepts: mcp3dAccepts,
+		mcpService: studioService,
+		catalog: STUDIO_TOOL_CATALOG,
+		priceForTool: studioPriceFor,
+	});
 
 	// Agent-published paid services — dynamic, one entry per active listing.
 	const agentServiceItems = await buildAgentServiceItems(origin);
@@ -1502,9 +1550,11 @@ async function handleX402Discovery(req, res) {
 					};
 				})(),
 				// USE-13: one Bazaar catalog row per priced MCP tool. The shared
-				// `/api/mcp` resource above is the transport entry; these are
-				// the individual paid tools facilitators index by toolName.
+				// `/api/mcp` and `/api/mcp-3d` resources above are the transport
+				// entries; these are the individual paid tools facilitators
+				// index by toolName.
 				...mcpToolItems,
+				...studioToolItems,
 				// Agent-published paid endpoints (monetize_endpoint). Dynamic —
 				// one entry per active agent_paid_services listing.
 				...agentServiceItems,

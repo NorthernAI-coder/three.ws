@@ -297,6 +297,17 @@
 				box-shadow: 0 8px 24px rgba(0, 217, 255, 0.3);
 			}
 
+			.cta-button--ghost {
+				background: transparent;
+				border: 1px solid rgba(255, 255, 255, 0.25);
+				margin-left: 0.75rem;
+			}
+
+			.cta-button--ghost:hover {
+				box-shadow: 0 8px 24px rgba(255, 255, 255, 0.12);
+				border-color: rgba(255, 255, 255, 0.45);
+			}
+
 			.pagination {
 				display: flex;
 				justify-content: center;
@@ -444,8 +455,9 @@
 
 			<div id="empty-state" class="empty-state" style="display: none">
 				<h2>No agents found</h2>
-				<p>Be the first to register your agent on-chain.</p>
+				<p>Be the first to register your agent on-chain — generate its 3D body from a text prompt, then give it a brain.</p>
 				<a href="/create" class="cta-button">Create Agent</a>
+				<a href="/create/prompt" class="cta-button cta-button--ghost">Generate a body from text</a>
 			</div>
 
 			<div id="pagination" class="pagination" style="display: none">

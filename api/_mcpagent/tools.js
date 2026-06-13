@@ -136,6 +136,13 @@ export const toolDefs = [
 	{
 		name: 'wallet_status',
 		title: "Check the agent's wallet",
+		// Read-only; balances move between calls, so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			"Show the signed-in user's three.ws agent wallet: address, SOL and USDC balance, the per-call/hour/day spending caps, and whether autonomous spending is enabled. Read-only — never moves funds. Call this before pay_and_call to confirm there's balance and headroom.",
 		inputSchema: { type: 'object', properties: {}, additionalProperties: false },
@@ -171,6 +178,13 @@ export const toolDefs = [
 	{
 		name: 'find_services',
 		title: 'Find paid services the agent can call',
+		// Read-only search over the live facilitator network.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Search the live x402 facilitator network for paid services (HTTP APIs and MCP tools). Returns each match with its price and resource URL — feed a resource into pay_and_call to actually use it.',
 		inputSchema: {
@@ -224,6 +238,13 @@ export const toolDefs = [
 	{
 		name: 'pay_and_call',
 		title: 'Pay an x402 service and return its result',
+		// Spends the user's USDC — an irreversible transfer, so destructive.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			"Call a paid x402 endpoint and settle the USDC payment automatically from the signed-in user's three.ws agent wallet, bounded by spending caps. Returns the service's response. Requires sign-in. If the per-call price exceeds max_usd (or the caps), the call is refused before any money moves.",
 		inputSchema: {
@@ -322,6 +343,14 @@ export const toolDefs = [
 	{
 		name: 'provision_wallet',
 		title: "Create the agent's wallet",
+		// Creates a wallet (idempotent for an existing one, but airdrop:true
+		// re-requests the faucet each call — conservative hint is false).
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Create (or return) the custodial Solana wallet for one of your agents so it can hold and earn USDC. Idempotent — if the agent already has a wallet, its address and live SOL/USDC balances are returned unchanged. On devnet you can request a 1 SOL airdrop for testing; mainnet wallets are never airdropped. Requires sign-in; you can only provision wallets for agents on your own account.',
 		inputSchema: {
@@ -396,6 +425,13 @@ export const toolDefs = [
 	{
 		name: 'monetize_endpoint',
 		title: 'Publish a paid endpoint to earn USDC',
+		// Publishes a new listing each call — additive write, never destructive.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			"Put a price on an upstream API your agent already serves and publish it as an x402 endpoint other agents can pay to call. three.ws hosts the paywall, settles each buyer's USDC to your agent's own wallet, and proxies the call to your target_url. The listing becomes discoverable via find_services / the bazaar and callable by pay_and_call. Requires a provisioned wallet for the chosen network — run provision_wallet first if you haven't. Requires sign-in; you can only monetize agents on your own account.",
 		inputSchema: {

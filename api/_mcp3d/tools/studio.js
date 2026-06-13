@@ -60,6 +60,17 @@ function rateKey(auth) {
 	return auth.userId || auth.rateKey || 'anon';
 }
 
+// MCP tool annotations (2025-06-18 spec). destructiveHint defaults to TRUE
+// when omitted, so every tool sets all four hints explicitly. The generation
+// and mesh-op tools create new assets/jobs (never overwrite the source), so
+// they are non-read-only, non-destructive, and non-idempotent.
+const GENERATIVE_ANNOTATIONS = {
+	readOnlyHint: false,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: true,
+};
+
 async function enforce(limiter, auth) {
 	const rl = await limiter(rateKey(auth));
 	if (!rl.success) {
@@ -395,6 +406,7 @@ export const toolDefs = [
 	{
 		name: 'text_to_3d',
 		title: 'Generate a 3D model from a text prompt',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Turn a text description into a textured 3D model (GLB). Runs a fast text-to-image pass, then reconstructs a mesh from that image with Microsoft TRELLIS. Returns a job_id (poll with generation_status) plus the intermediate preview image. Best results: a single, clearly described object — "a worn leather armchair", "a low-poly red fox", "a sci-fi helmet".',
 		inputSchema: {
@@ -480,6 +492,7 @@ export const toolDefs = [
 	{
 		name: 'image_to_3d',
 		title: 'Reconstruct a 3D model from one or more images',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Reconstruct a textured 3D model (GLB) from a reference image using Microsoft TRELLIS. Pass a single image_url, or image_urls (2–4 views of the SAME object from different angles — front/back/left/right) for multi-view reconstruction, which removes the back-of-object hallucination of single-image reconstruction. Returns a job_id to poll with generation_status, plus how many views were fused and which backend handled it. The cleaner the inputs — one subject, plain background, even lighting — the better the mesh.',
 		inputSchema: {
@@ -619,6 +632,13 @@ export const toolDefs = [
 	{
 		name: 'generation_status',
 		title: 'Check a 3D generation job',
+		// Status poll — pure read; the job state changes between calls.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Poll a text_to_3d or image_to_3d job by its job_id. While running it reports the status; when finished it returns the GLB download URL and an inline <model-viewer> artifact — display that text/html resource as an interactive 3D artifact.',
 		inputSchema: {
@@ -718,6 +738,13 @@ export const toolDefs = [
 	{
 		name: 'preview_3d',
 		title: 'Preview any GLB as an interactive 3D artifact',
+		// Builds viewer HTML in-memory — deterministic for the same arguments.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 		description:
 			'Render any public GLB URL as an inline <model-viewer> HTML artifact — orbit controls, AR on mobile, auto-rotate. Display the returned text/html resource as an inline 3D artifact. Use it to view a generated model, or any GLB on the web.',
 		inputSchema: {
@@ -767,6 +794,7 @@ export const toolDefs = [
 	{
 		name: 'remove_background',
 		title: 'Remove the background from an image',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Strip the background from a photo or illustration using BRIA RMBG-2.0 (Apache-2.0). Returns a PNG with a transparent background — useful for preparing clean inputs before image_to_3d reconstruction.',
 		inputSchema: {
@@ -825,6 +853,7 @@ export const toolDefs = [
 	{
 		name: 'remesh_model',
 		title: 'Remesh, simplify, repair, or convert a 3D model',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Process an existing GLB/OBJ/STL/PLY mesh: fix holes and degenerate geometry, reduce face count via quadric decimation, or convert to a different format (including FBX with skeleton for Unity/Unreal — a convert of a rigged GLB keeps its bones, skin weights, and blendshapes). Returns a clean GLB (or the requested format) job_id to poll with generation_status.',
 		inputSchema: {
@@ -902,6 +931,7 @@ export const toolDefs = [
 	{
 		name: 'stylize_model',
 		title: 'Apply a one-click geometric stylization filter to a 3D model',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Transform any GLB/OBJ/STL/PLY mesh into a stylized variant with a single geometry pass — ' +
 			'no model inference, fast and cheap. Styles: "voxel" (blocky cubes on a grid), "brick" ' +
@@ -982,6 +1012,7 @@ export const toolDefs = [
 	{
 		name: 'segment_model',
 		title: 'Split a 3D model into named, separable parts',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Segment a GLB/OBJ/STL/PLY mesh into meaningful parts with clean boundaries — head/torso/limbs on a character, body/wheels on a vehicle. Splits at physically disconnected shells and at concave creases (the minima rule), then names each part by region and tints it a distinct colour. Returns a GLB whose nodes ARE the parts (so each can be hidden, recoloured, replaced, or exported on its own) plus a parts manifest. Poll with generation_status; the result lists every part with its id, name, face count, and colour. Pass only_part to export a single part on its own.',
 		inputSchema: {
@@ -1077,6 +1108,7 @@ export const toolDefs = [
 	{
 		name: 'retexture_model',
 		title: 'Paint a new texture onto a 3D model from a text prompt',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Generate a fresh texture for an untextured or poorly-textured GLB using SDXL + ControlNet depth. Renders the mesh from 8 viewpoints, generates coherent texture views guided by your prompt, and back-projects them onto the UV atlas. Returns a job_id to poll with generation_status.',
 		inputSchema: {
@@ -1157,6 +1189,7 @@ export const toolDefs = [
 	{
 		name: 'retexture_region',
 		title: "Repaint one masked region of a model's texture (magic brush)",
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Surgically repaint ONLY a region of an existing texture from a prompt and/or colour, ' +
 			'leaving the rest of the surface untouched and feathering the seam so the edit is invisible. ' +
@@ -1288,6 +1321,7 @@ export const toolDefs = [
 	{
 		name: 'auto_rig_model',
 		title: 'Auto-rig a static 3D model (skeleton + skin weights)',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Turn a static GLB mesh into an animation-ready character: adds a humanoid skeleton and per-vertex skin weights via the three.ws rig pipeline (VAST-AI UniRig). Pairs with text_to_3d / image_to_3d — generate a mesh, then rig it, then drive it with apply_animation or pose_model. Returns a job_id; poll generation_status for the rigged GLB.',
 		inputSchema: {
@@ -1348,6 +1382,15 @@ export const toolDefs = [
 	{
 		name: 'pose_model',
 		title: 'Resolve a text prompt to a pose-studio seed + joint rotations',
+		// Pure local computation over the in-repo preset library — deterministic
+		// ("the same prompt always yields the same pose"), no external calls,
+		// nothing persisted.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		description:
 			'Map a natural-language pose description to a deterministic pose-studio seed and the full Euler joint-rotation map for the three.ws humanoid mannequin, picked from the in-repo preset library. Returns the preset id, the complete pose (radians per joint), a stable seed, and a previewUrl on three.ws/pose. Deterministic and free — the same prompt always yields the same pose. Pair with auto_rig_model to pose a rigged character.',
 		inputSchema: {
@@ -1395,6 +1438,7 @@ export const toolDefs = [
 	{
 		name: 'direct_prompt',
 		title: 'Optimize a rough idea into a 3D-generation prompt (IBM Granite)',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Rewrite a rough idea into an optimized text_to_3d prompt using IBM Granite. Returns one clean single-subject description plus structured directives (subject, style, materials, colors, detail) that produce cleaner meshes. Run before text_to_3d when a prompt is vague, conflicting, or multi-subject. Requires IBM watsonx.ai credentials on the server.',
 		inputSchema: {
@@ -1463,6 +1507,7 @@ export const toolDefs = [
 	{
 		name: 'generate_material',
 		title: 'Generate a glTF PBR material from a description (IBM Granite)',
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Generate a physically-based (PBR) glTF 2.0 material from a text description using IBM Granite — base color, metallic, roughness, and emissive factors. Returns a pbrMetallicRoughness material object you can attach to a generated mesh. Requires IBM watsonx.ai credentials on the server.',
 		inputSchema: {
@@ -1532,6 +1577,9 @@ export const toolDefs = [
 	{
 		name: 'save_avatar',
 		title: 'Save a generated GLB as a durable, named avatar',
+		// Each call mints a fresh slug + storage object — additive, never
+		// overwrites, so non-idempotent and non-destructive.
+		annotations: GENERATIVE_ANNOTATIONS,
 		description:
 			'Persist a generated GLB (e.g. the glb_url returned by generation_status) as a durable avatar in your three.ws library. The mesh is copied into our own storage so it survives the provider URL expiring, then registered as a named avatar you own. Returns avatar_id, slug, model_url, and a view_url. This is the bridge from the studio to the avatar system: after saving, get_avatar, render_avatar_image, embeds, and on-chain identity all work on the result. Requires you to be signed in.',
 		inputSchema: {

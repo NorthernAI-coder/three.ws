@@ -8,6 +8,101 @@
 import { z } from 'zod';
 
 import { fetchGlbBytes, getIo } from '../lib/glb-io.js';
+import { resultShape, upstreamObject } from '../lib/output-shapes.js';
+
+const vec3 = z.array(z.number()).length(3);
+
+const outputSchema = resultShape({
+	url: z.string().optional().describe('The inspected GLB URL (echoed).'),
+	sizeBytes: z.number().optional(),
+	generator: z.string().nullable().optional(),
+	version: z.string().nullable().optional(),
+	counts: z
+		.object({
+			meshes: z.number(),
+			materials: z.number(),
+			textures: z.number(),
+			animations: z.number(),
+			skins: z.number(),
+			scenes: z.number(),
+			totalVertices: z.number(),
+			totalTriangles: z.number(),
+		})
+		.optional(),
+	boundingBox: z
+		.object({ min: vec3, max: vec3, center: vec3, size: vec3 })
+		.nullable()
+		.optional()
+		.describe('World-space bbox of the default scene; null when no positioned geometry exists.'),
+	meshes: z
+		.array(
+			upstreamObject({
+				name: z.string().nullable(),
+				primitiveCount: z.number(),
+				primitives: z.array(
+					upstreamObject({
+						mode: z.number(),
+						vertices: z.number(),
+						triangles: z.number(),
+						indexed: z.boolean(),
+						attributes: z.array(z.string()),
+						material: z.string().nullable(),
+						morphTargets: z.number(),
+					}),
+				),
+			}),
+		)
+		.optional(),
+	materials: z
+		.array(
+			upstreamObject({
+				name: z.string().nullable(),
+				alphaMode: z.string(),
+				doubleSided: z.boolean(),
+				baseColorFactor: z.array(z.number()),
+				metallicFactor: z.number(),
+				roughnessFactor: z.number(),
+				hasBaseColorTexture: z.boolean(),
+				hasMetallicRoughnessTexture: z.boolean(),
+				hasNormalTexture: z.boolean(),
+				hasOcclusionTexture: z.boolean(),
+				hasEmissiveTexture: z.boolean(),
+			}),
+		)
+		.optional(),
+	textures: z
+		.array(
+			upstreamObject({
+				name: z.string().nullable(),
+				mimeType: z.string(),
+				sizeBytes: z.number().nullable(),
+				uri: z.string().nullable(),
+			}),
+		)
+		.optional(),
+	animations: z
+		.array(
+			upstreamObject({
+				name: z.string().nullable(),
+				channelCount: z.number(),
+				samplerCount: z.number(),
+				durationSeconds: z.number(),
+			}),
+		)
+		.optional(),
+	skins: z
+		.array(
+			upstreamObject({
+				name: z.string().nullable(),
+				jointCount: z.number(),
+				hasInverseBindMatrices: z.boolean(),
+			}),
+		)
+		.optional(),
+	scenes: z
+		.array(upstreamObject({ name: z.string().nullable(), rootNodeCount: z.number() }))
+		.optional(),
+});
 
 function arrayLen(prim, semantic) {
 	const acc = prim.getAttribute(semantic);
@@ -99,6 +194,7 @@ export const def = {
 	inputSchema: {
 		url: z.string().describe('Public URL or data: URL of a .glb file.'),
 	},
+	outputSchema,
 	async handler(args) {
 		const { url } = args || {};
 		if (!url) return { ok: false, error: 'invalid_input', message: 'url is required' };

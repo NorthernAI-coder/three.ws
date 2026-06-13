@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Tutorials read better: one-tap copy on every code block, live progress, and a jump-to-the-tool button",
+			"summary": "The tutorial reader (/tutorials) got a polish pass that applies to every guide. Code blocks now have a one-click Copy button, so you can lift a snippet without selecting it by hand. A slim progress rail across the top tracks how far you've read, and a back-to-top button appears once you scroll in. Each section heading has a hover link for sharing a deep link to that exact spot, and every tutorial now opens with a clear call-to-action button — the new text-to-3D guides drop you straight into the Forge. New this release: four beginner guides for turning a text prompt or photos into a downloadable 3D model, a copy-paste prompt cookbook, and an API walkthrough.",
+			"tags": [
+				"docs",
+				"improvement"
+			],
+			"link": "/tutorials"
+		},
+		{
+			"date": "2026-06-13",
+			"title": "Refine any Forge model to higher quality in one click — plus sharper multi-view guidance",
+			"summary": "Three upgrades to the Forge (/forge). After a model generates, a new Refine button re-runs that exact prompt or photos one quality tier higher — Draft to Standard to High — so you can preview cheaply, then commit to the best version without retyping anything. When building from photos, a live counter now shows how many of the four reference views you've added and reminds you that more angles make a sharper mesh. And the action bar under each finished model now reflows cleanly on phones, with Refine and Make-another leading at full width. Sketch mode also makes its required description unmistakable.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-13",
+			"title": "See any Forge model in AR — scan from your desktop, place it in your room",
+			"summary": "Every finished model now has a View in AR button. On a phone it drops the model into your space through the camera; on a desktop it shows a QR code you scan with your phone to open the same model, one tap from AR — so you can walk around what you just made at real-world scale. The embed viewer gained a big one-tap AR launcher on phones too, so models embedded on other sites are placeable in AR as well. No app, no download — it runs in the browser.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Describe it to 3D joins the rest of the site — and the two generators now point at each other",
 			"summary": "The avatar generator at /create/prompt was a cul-de-sac: no site navigation, no footer, no way onward except a back button. It now carries the full three.ws header and footer like every other page, and finishing an avatar pops the same 'what now?' card the Forge shows — open it in Studio, make it an agent, walk it, or embed it, with your new avatar carried along. The two text-to-3D tools also cross-link: Forge points character-makers to Describe it to 3D (rigged avatars), and Describe it to 3D points prop-makers to Forge (textured objects), so you always land in the right tool.",
 			"tags": [

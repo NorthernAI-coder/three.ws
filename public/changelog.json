@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T01:04:38.535Z",
+	"generated_at": "2026-06-13T01:16:42.831Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -29,10 +29,41 @@
 		{
 			"date": "2026-06-13",
 			"type": "update",
+			"title": "Refine any Forge model to higher quality in one click — plus sharper multi-view guidance",
+			"summary": "Three upgrades to the Forge (/forge). After a model generates, a new Refine button re-runs that exact prompt or photos one quality tier higher — Draft to Standard to High — so you can preview cheaply, then commit to the best version without retyping anything. When building from photos, a live counter now shows how many of the four reference views you've added and reminds you that more angles make a sharper mesh. And the action bar under each finished model now reflows cleanly on phones, with Refine and Make-another leading at full width. Sketch mode also makes its required description unmistakable.",
+			"link": "/forge",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "See any Forge model in AR — scan from your desktop, place it in your room",
+			"summary": "Every finished model now has a View in AR button. On a phone it drops the model into your space through the camera; on a desktop it shows a QR code you scan with your phone to open the same model, one tap from AR — so you can walk around what you just made at real-world scale. The embed viewer gained a big one-tap AR launcher on phones too, so models embedded on other sites are placeable in AR as well. No app, no download — it runs in the browser.",
+			"link": "/forge",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
 			"title": "The full page directory is now one click away — and instantly filterable",
 			"summary": "three.ws has grown past 200 pages, so the sitemap directory got a real upgrade. A new \"All pages\" link in the Discover menu takes you straight to it, and the page itself now has an instant filter — press / and type to narrow every page by name, path, or description, with live per-section counts. Filtered views are shareable links, so you can send someone exactly the slice of the platform you mean. The directory now finds you when you're lost, too: it's a quick action in the ⌘K search palette, a no-results search hands you off to it with your query carried over, the 404 page offers it pre-filtered to the closest matches for the address you tried, and /pages, /directory, /everything, and /all-pages all take you there. Eighteen pages that had never been registered in the index — What is three.ws?, the 3D Scanner, the Glossary, Support, the agent-economy demos, and all six IBM watsonx showcases under a new Integrations section — are now in the directory, the search palette, and the crawler sitemap.",
 			"link": "/sitemap",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "Tutorials read better: one-tap copy on every code block, live progress, and a jump-to-the-tool button",
+			"summary": "The tutorial reader (/tutorials) got a polish pass that applies to every guide. Code blocks now have a one-click Copy button, so you can lift a snippet without selecting it by hand. A slim progress rail across the top tracks how far you've read, and a back-to-top button appears once you scroll in. Each section heading has a hover link for sharing a deep link to that exact spot, and every tutorial now opens with a clear call-to-action button — the new text-to-3D guides drop you straight into the Forge. New this release: four beginner guides for turning a text prompt or photos into a downloadable 3D model, a copy-paste prompt cookbook, and an API walkthrough.",
+			"link": "/tutorials",
+			"tags": [
+				"docs",
 				"improvement"
 			]
 		},

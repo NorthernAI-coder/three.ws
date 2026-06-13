@@ -10,10 +10,18 @@ Thanks for your interest in contributing! This guide covers everything you need 
 git clone https://github.com/nirholas/three.ws.git
 cd three.ws
 npm install
+npm run setup
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) and verify the default model loads.
+
+`npm run setup` finishes what `npm install` can't: it builds the local
+`solana-agent-sdk` (linked as a `file:` dependency, ships no prebuilt `dist/`)
+and generates the gitignored `data/_generated/*` artifacts that the app,
+sitemap, and test suite read. It also activates the repo's pre-push hook
+(`.githooks/pre-push`), which runs `npm run typecheck` before every push.
+It is idempotent — re-running it skips anything already up to date.
 
 ---
 
@@ -101,6 +109,17 @@ See [docs/architecture.md](docs/architecture.md) for a deep dive.
 ---
 
 ## Testing Your Changes
+
+### Automated tests
+
+```bash
+npm run typecheck   # tsc over the @ts-check'd files — also gates every deploy
+npm run test:core   # vitest unit suite
+npm test            # vitest + playwright e2e
+```
+
+If unit tests fail on a fresh clone with module-resolution or missing-file
+errors, run `npm run setup` first.
 
 ### Manual Testing Checklist
 

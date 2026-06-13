@@ -86,6 +86,13 @@ export const toolDefs = [
 	{
 		name: 'remember',
 		title: 'Remember',
+		// Inserts a new row every call — additive write, never destructive.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Store a long-term memory for one of your agents. Use for durable facts: who the user is (type=user), guidance/corrections (feedback), ongoing work (project), or external pointers (reference). Returns the stored memory.',
 		inputSchema: {
@@ -150,6 +157,12 @@ export const toolDefs = [
 	{
 		name: 'recall',
 		title: 'Recall',
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Retrieve the most relevant memories for a query from one of your agents. Ranks by relevance to the query blended with salience and recency, excluding expired memories. Returns an ordered list.',
 		inputSchema: {
@@ -228,6 +241,13 @@ export const toolDefs = [
 	{
 		name: 'forget',
 		title: 'Forget',
+		// Permanently deletes a stored memory — destructive.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description: 'Delete a memory you own by its id.',
 		inputSchema: {
 			type: 'object',

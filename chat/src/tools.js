@@ -1123,6 +1123,92 @@ return { mint, signature, metadataUri, explorer: 'https://solscan.io/tx/' + sign
 		],
 	},
 	{
+		id: 'forge-text-to-3d',
+		name: 'Text → 3D Forge',
+		description:
+			'Generate a real, textured 3D model from a text prompt with the three.ws Forge and render it in an orbit viewer — same engine as three.ws/forge, free, no key required.',
+		schema: [
+			{
+				clientDefinition: {
+					id: 'pack-forge-text-to-3d-001',
+					name: 'ForgeTextTo3D',
+					description: 'Generate a 3D model (GLB) from a text prompt and render it in an orbit viewer.',
+					arguments: [
+						{ name: 'prompt', type: 'string', description: 'Single-subject object description, e.g. "a brass steampunk owl, full body". 3–1000 chars.' },
+					],
+					body: `const prompt = String(args.prompt || '').trim();
+	if (prompt.length < 3) throw new Error('prompt required (3–1000 chars)');
+	const submit = await fetch('/api/forge', { method: 'POST', headers: {'content-type':'application/json'}, credentials: 'include', body: JSON.stringify({ prompt }) });
+	if (!submit.ok) throw new Error('Forge submit failed: ' + submit.status + ' ' + await submit.text());
+	const job = await submit.json();
+	if (!job.job_id) throw new Error('Forge returned no job id');
+	let state = null;
+	for (let i = 0; i < 75; i++) {
+	  await new Promise((r) => setTimeout(r, 2500));
+	  const poll = await fetch('/api/forge?job=' + encodeURIComponent(job.job_id), { credentials: 'include' });
+	  if (!poll.ok) throw new Error('Forge poll failed: ' + poll.status);
+	  state = await poll.json();
+	  if (state.status === 'done' || state.status === 'failed') break;
+	}
+	if (!state || state.status === 'failed') throw new Error('Generation failed: ' + ((state && state.error) || 'unknown error'));
+	if (state.status !== 'done') throw new Error('Generation timed out after ~3 minutes — try again or open three.ws/forge');
+	const glb = state.glb_url;
+	if (!glb) throw new Error('Job finished without a model URL');
+	const html = \`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+	html,body{margin:0;height:100%;background:#0b0d10;color:#e5e7eb;font-family:ui-sans-serif,system-ui,sans-serif;overflow:hidden}
+	#hud{position:absolute;left:12px;top:10px;font-size:13px;background:rgba(0,0,0,.4);padding:6px 10px;border-radius:8px;max-width:70%}
+	#bar{position:absolute;left:12px;bottom:10px;display:flex;gap:8px;font-size:12px}
+	#bar a{color:#e5e7eb;background:rgba(0,0,0,.4);padding:6px 10px;border-radius:8px;text-decoration:none;border:1px solid rgba(255,255,255,.15)}
+	#bar a:hover{background:rgba(255,255,255,.12)}
+	</style></head><body>
+	<div id="hud">\${prompt.replace(/</g,'&lt;')}</div>
+	<div id="bar">
+	  <a href="\${glb}" download="forge-model.glb">Download GLB</a>
+	  <a href="https://three.ws/forge?prompt=\${encodeURIComponent(prompt)}" target="_blank" rel="noopener">Open in Forge ↗</a>
+	</div>
+	<script type="module">
+	import * as THREE from 'https://esm.sh/three@0.160.0';
+	import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+	import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+	const renderer = new THREE.WebGLRenderer({ antialias: true });
+	renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight); renderer.setClearColor(0x0b0d10);
+	document.body.appendChild(renderer.domElement);
+	const scene = new THREE.Scene();
+	const cam = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.01, 1000); cam.position.set(0, 1.2, 3);
+	const ctl = new OrbitControls(cam, renderer.domElement); ctl.enableDamping = true; ctl.autoRotate = true; ctl.autoRotateSpeed = 1.6;
+	addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix(); });
+	addEventListener('pointerdown', () => { ctl.autoRotate = false; }, { once: true });
+	scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+	const k = new THREE.DirectionalLight(0xffffff, 1.1); k.position.set(3, 4, 5); scene.add(k);
+	const gltf = await new GLTFLoader().loadAsync(\${JSON.stringify(glb)});
+	const m = gltf.scene;
+	const box = new THREE.Box3().setFromObject(m);
+	const size = box.getSize(new THREE.Vector3()).length();
+	const center = box.getCenter(new THREE.Vector3());
+	m.position.sub(center); cam.position.set(0, size * 0.25, size * 1.4); ctl.target.set(0,0,0);
+	scene.add(m);
+	function tick(){ ctl.update(); renderer.render(scene, cam); requestAnimationFrame(tick); }
+	tick();
+	</script></body></html>\`;
+	return { contentType: 'text/html', content: html };`,
+				},
+				type: 'function',
+				function: {
+					name: 'ForgeTextTo3D',
+					description:
+						'Generate a real 3D model (textured GLB) from a text prompt using the three.ws Forge, then render it in an interactive orbit viewer. Use whenever the user asks to make, create, generate, or forge a 3D model/object/mesh from a description. Takes ~30–90 s. The prompt should describe ONE subject with material and style details.',
+					parameters: {
+						type: 'object',
+						properties: {
+							prompt: { type: 'string', description: 'Single-subject object description, e.g. "a brass steampunk owl, full body". 3–1000 characters.' },
+						},
+						required: ['prompt'],
+					},
+				},
+			},
+		],
+	},
+	{
 		id: 'wallet-balances',
 		name: 'Wallet Balances',
 		description: 'Real on-chain balances for a Solana or EVM wallet with a 3D coin-stack visualization.',

@@ -25,7 +25,7 @@ Every user-facing surface where something gets created. "Nav" reflects `public/n
 | Surface | Path | File | What it does | Backend | Nav |
 |---|---|---|---|---|---|
 | Create avatar | `/create` | `pages/create.html` | Pick template avatar or upload GLB; feeds agent workflow | `/api/avatars/*` | Build ▸ |
-| Avatar Studio | `/avatar-studio` | `pages/avatar-studio.html` | Full character creator (M3-org CharacterStudio fork): sculpt, outfits, export GLB | internal Three.js | Build ▸ |
+| Avatar Studio | `/avatar-studio` | `pages/avatar-studio.html` | Full character creator (M3-org/CharacterStudio fork): sculpt, outfits, export GLB | internal Three.js | Build ▸ |
 | Customize avatar | `/avatar-edit` | `pages/avatar-edit.html` | Edit existing avatar attributes/accessories | `/api/avatars/{id}` | — (orphaned) |
 | Import avatar | `/import/rpm` | — | Import GLB/glTF from URL or file upload | `/api/avatars` | Build ▸ |
 | Avatar Studio demo | `/avatar-studio-demo` | `pages/avatar-studio-demo.html` | Demo variant of Avatar Studio | internal | — (orphaned) |

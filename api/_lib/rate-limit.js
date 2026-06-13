@@ -49,16 +49,27 @@ function failClosedLimiter({ limit, window }) {
 
 /**
  * @param {string} name
- * @param {{ limit: number, window: string, critical?: boolean }} opts
+ * @param {{ limit: number, window: string, critical?: boolean, local?: boolean }} opts
  *   `critical: true` marks a cost/money-moving bucket. When Redis is absent in
  *   production these fail closed (deny) instead of using the unbounded in-memory
  *   fallback. Non-critical buckets keep the permissive in-memory fallback so a
  *   missing-Redis misconfig degrades read endpoints gracefully rather than
  *   taking the whole site down.
+ *   `local: true` deliberately enforces per-instance, in-memory only — never a
+ *   Redis command. For high-frequency, cheap-read buckets (status polling) whose
+ *   only job is to bound poll floods, per-instance caps bound throughput just as
+ *   well (limit × warm instances, and Vercel bounds instances), and the saved
+ *   commands are what keep the Upstash quota alive (June 2026 outage). Never
+ *   combine with `critical`.
  */
 function getLimiter(name, opts) {
 	const key = `${name}:${opts.limit}:${opts.window}`;
 	if (limiters.has(key)) return limiters.get(key);
+	if (opts.local) {
+		const lim = memoryLimiter(opts);
+		limiters.set(key, lim);
+		return lim;
+	}
 	if (!redis) {
 		const lim = opts.critical && IS_PRODUCTION ? failClosedLimiter(opts) : memoryLimiter(opts);
 		limiters.set(key, lim);
@@ -247,7 +258,13 @@ export const limits = {
 	// human iterating on a prompt routinely exceeds 12/h; this lane lets them.
 	mcp3dGenerateFree: (key) =>
 		getLimiter('mcp3d:generate:free', { limit: 60, window: '1 h' }).limit(key),
-	mcp3dStatus: (key) => getLimiter('mcp3d:status', { limit: 240, window: '1 m' }).limit(key),
+	// Status polling is the highest-frequency call in the generation flow (every
+	// active job polls every few seconds, plus the /forge health pill). It only
+	// guards against pathological poll floods, so it is enforced per instance
+	// (`local`) — spending a distributed Redis command per poll is what drained
+	// the Upstash quota without buying any real protection here.
+	mcp3dStatus: (key) =>
+		getLimiter('mcp3d:status', { limit: 240, window: '1 m', local: true }).limit(key),
 	// Forge prompt enhancer — one free-tier LLM rewrite per call. Cheap text
 	// completion, but each one hits an upstream provider, so cap per principal to
 	// keep that egress bounded. Non-critical: a Redis outage must never block a

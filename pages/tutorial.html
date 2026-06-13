@@ -1237,6 +1237,13 @@
 						seen.set(id, 1);
 					}
 					h.id = id;
+					// Hover-revealed deep-link anchor in the heading's left margin.
+					const anchor = document.createElement('a');
+					anchor.className = 'tdoc-anchor';
+					anchor.href = `#${id}`;
+					anchor.setAttribute('aria-label', `Link to “${h.textContent}”`);
+					anchor.innerHTML = ICON_LINK;
+					h.insertBefore(anchor, h.firstChild);
 					const li = document.createElement('li');
 					const a = document.createElement('a');
 					a.href = `#${id}`;
@@ -1342,6 +1349,7 @@
 						}
 					});
 
+					addCopyButtons(article);
 					buildToc(article);
 					appendPager(article, slug);
 				} catch (e) {
@@ -1353,6 +1361,66 @@
 					`;
 				}
 			}
+
+			// One-click copy on every code block. Copies the raw code text (not the
+			// highlight markup) and confirms inline before reverting.
+			function addCopyButtons(article) {
+				article.querySelectorAll('pre').forEach((pre) => {
+					const code = pre.querySelector('code');
+					if (!code) return;
+					const btn = document.createElement('button');
+					btn.type = 'button';
+					btn.className = 'tdoc-copy-btn';
+					btn.setAttribute('aria-label', 'Copy code to clipboard');
+					btn.innerHTML = `${ICON_COPY}<span>Copy</span>`;
+					let resetTimer = null;
+					btn.addEventListener('click', async () => {
+						try {
+							await navigator.clipboard.writeText(code.innerText);
+							btn.classList.add('is-copied');
+							btn.innerHTML = `${ICON_CHECK}<span>Copied</span>`;
+						} catch {
+							btn.innerHTML = `${ICON_COPY}<span>Press ⌘C</span>`;
+						}
+						clearTimeout(resetTimer);
+						resetTimer = setTimeout(() => {
+							btn.classList.remove('is-copied');
+							btn.innerHTML = `${ICON_COPY}<span>Copy</span>`;
+						}, 1700);
+					});
+					pre.appendChild(btn);
+				});
+			}
+
+			// Reading-progress rail + back-to-top, driven by real scroll position.
+			(function readingChrome() {
+				const fill = document.getElementById('tdoc-progress-fill');
+				const topBtn = document.getElementById('tdoc-top');
+				const root = document.documentElement;
+				let ticking = false;
+				function update() {
+					ticking = false;
+					const max = root.scrollHeight - root.clientHeight;
+					const pct = max > 0 ? Math.min(100, (root.scrollTop / max) * 100) : 0;
+					if (fill) fill.style.width = `${pct}%`;
+					if (topBtn) topBtn.classList.toggle('is-visible', root.scrollTop > 600);
+				}
+				window.addEventListener(
+					'scroll',
+					() => {
+						if (!ticking) {
+							ticking = true;
+							requestAnimationFrame(update);
+						}
+					},
+					{ passive: true },
+				);
+				topBtn?.addEventListener('click', () => {
+					const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+					window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+				});
+				update();
+			})();
 
 			// Wait for the manifest script (deferred) to expose TUTORIALS, then render.
 			if (window.TUTORIALS) {

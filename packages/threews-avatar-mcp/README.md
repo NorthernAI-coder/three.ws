@@ -107,6 +107,14 @@ All three tools are free, read-only, and annotated (`readOnlyHint`, `idempotentH
 { "handle": "@nirholas" }
 ```
 
+Every tool also advertises an `outputSchema` describing its `structuredContent`, so typed clients can consume results without re-parsing the text blocks.
+
+## Prompts
+
+| Prompt            | Arguments                       | What it does                                                                                                                                              |
+| ----------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `showcase-avatar` | `avatar` — id (UUID) or @handle | One-step showcase: renders the live, rotatable avatar inline **and** produces the embed iframe, ending with a copy-paste summary (name, viewer URL, embed URL, `<iframe>` snippet). |
+
 ## How it works
 
 Each selector maps to a real three.ws endpoint. Raw `model` URLs must be `https://` (or `http://localhost` for dev); other schemes are rejected.

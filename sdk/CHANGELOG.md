@@ -4,6 +4,15 @@ All notable changes to `@three-ws/sdk` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-06-12
+
+Packaging metadata release — no API or behavior changes. Public surface is identical to `0.1.0`.
+
+### Changed
+
+- Added `author`, `homepage`, and `repository` fields so the npm listing links back to three.ws and the canonical GitHub repo.
+- Normalized `package.json` formatting (one keyword/optional-dependency per line) to match the repo's Prettier config.
+
 ## [0.1.0] — 2026-04-14
 
 Initial public release.

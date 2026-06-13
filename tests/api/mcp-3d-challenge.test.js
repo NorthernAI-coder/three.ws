@@ -49,6 +49,8 @@ vi.mock('../../api/_mcp3d/text-to-image.js', () => ({
 }));
 
 const { default: handler } = await import('../../api/mcp-3d.js');
+const { studioX402Amount } = await import('../../api/_mcp3d/pricing.js');
+const { isDiscoveryOnlyBatch } = await import('../../api/_lib/mcp-batch-price.js');
 
 function makeRes() {
 	return {
@@ -78,11 +80,17 @@ function makeReq({ method = 'POST', headers = {}, body = null } = {}) {
 }
 
 const TOOLS_LIST = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
+const textTo3dCall = (args = { prompt: 'a small clay fox sitting upright' }) => ({
+	jsonrpc: '2.0',
+	id: 1,
+	method: 'tools/call',
+	params: { name: 'text_to_3d', arguments: args },
+});
 
 describe('POST /api/mcp-3d — unauthenticated challenge identity', () => {
 	it('plain x402 clients get a 402 naming the 3D Studio resource', async () => {
 		const res = makeRes();
-		await handler(makeReq({ body: TOOLS_LIST }), res);
+		await handler(makeReq({ body: textTo3dCall() }), res);
 		expect(res.statusCode).toBe(402);
 		const challenge = JSON.parse(res.body);
 		expect(challenge.resource.url).toBe('https://three.ws/api/mcp-3d');
@@ -96,7 +104,7 @@ describe('POST /api/mcp-3d — unauthenticated challenge identity', () => {
 
 	it('bazaar discovery example calls text_to_3d, not a main-server tool', async () => {
 		const res = makeRes();
-		await handler(makeReq({ body: TOOLS_LIST }), res);
+		await handler(makeReq({ body: textTo3dCall() }), res);
 		const { extensions } = JSON.parse(res.body);
 		expect(extensions.bazaar.discoverable).toBe(true);
 		expect(extensions.bazaar.info.input.body.params.name).toBe('text_to_3d');
@@ -106,7 +114,10 @@ describe('POST /api/mcp-3d — unauthenticated challenge identity', () => {
 	it('MCP protocol clients get a 401 with the same studio envelope', async () => {
 		const res = makeRes();
 		await handler(
-			makeReq({ body: TOOLS_LIST, headers: { accept: 'application/json, text/event-stream' } }),
+			makeReq({
+				body: textTo3dCall(),
+				headers: { accept: 'application/json, text/event-stream' },
+			}),
 			res,
 		);
 		expect(res.statusCode).toBe(401);

@@ -185,6 +185,13 @@ export const toolDefs = [
 	{
 		name: 'call_agent',
 		title: 'Call agent',
+		// Invokes another agent's LLM turn — not a pure read, never destructive.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Send a message to another three.ws agent and get its response. Use this to delegate specialized tasks.',
 		inputSchema: {
@@ -223,6 +230,15 @@ export const toolDefs = [
 	{
 		name: 'register_agent',
 		title: 'Register an agent on-chain',
+		// Creates on-chain state (mint + registry enrolment). The handler
+		// short-circuits an already-registered agent, but force:true re-runs,
+		// so the conservative hint is non-idempotent.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			"Mint one of your agents' on-chain digital identity. On Solana (chain:solana) " +
 			'this enrols the agent in the Metaplex Agent Registry server-custodially — ' +
@@ -309,6 +325,13 @@ export const toolDefs = [
 	{
 		name: 'identity_check',
 		title: 'Screen an agent identity for impersonation',
+		// Pure screening read; verdicts come from live models, so not idempotent.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Screen an agent identity (an existing agent_id, or a proposed name + description) ' +
 			'for impersonation and policy violations before it goes public. Uses IBM Granite ' +
