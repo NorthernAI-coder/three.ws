@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T10:02:14.397Z",
+	"generated_at": "2026-06-13T14:19:18.098Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -50,6 +50,16 @@
 					"title": "Walk",
 					"description": "Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.",
 					"added": "2026-05-10",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/irl",
+					"title": "IRL",
+					"description": "Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.",
+					"added": "2026-06-13",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

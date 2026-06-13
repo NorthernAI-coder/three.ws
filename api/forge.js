@@ -499,19 +499,27 @@ async function startJob(req, res) {
 			// NVCF normally returns a poll handle; on the rare synchronous completion
 			// the GLB is already in R2.
 			if (backendId === 'nvidia') {
-				let nv;
+				// The free NVIDIA NIM lane is a flaky synchronous upstream — NVCF can be
+				// unreachable, accept the job but drop the request id, or finish with no
+				// artifact (each throws status 502 in api/_providers/nvidia.js), and a
+				// missing module/key throws on load. Per the free-first "AI must never
+				// fail" policy none of these may surface as a dead 502: any failure here
+				// transparently degrades to the platform image-intermediate TRELLIS lane
+				// so the zero-setup free default still returns a model. Only the unit
+				// cost changes, and only when NIM is down. Provenance reports the lane
+				// that actually ran (trellis below), so the downgrade is never silent.
+				let submitted = null;
 				try {
-					nv = await loadNvidiaProvider();
-				} catch {
-					return json(res, 501, {
-						error: 'backend_unconfigured',
-						backend: 'nvidia',
-						message: 'The free NVIDIA NIM 3D lane is not available on this deployment yet.',
-					});
+					const nv = await loadNvidiaProvider();
+					submitted = await nv.textTo3d({ prompt, tier });
+				} catch (err) {
+					console.warn(
+						`[forge] free NVIDIA NIM lane unavailable, falling back to TRELLIS: ${err?.message || err}`,
+					);
+					backendId = 'trellis';
 				}
 
-				const submitted = await nv.textTo3d({ prompt, tier });
-
+				if (submitted) {
 				const provenance = {
 					mode: 'text_to_3d',
 					path,
@@ -588,6 +596,9 @@ async function startJob(req, res) {
 					status: 'queued',
 					...provenance,
 				});
+				}
+				// nvidia failed → backendId is now 'trellis'; fall through to the
+				// image-intermediate path below, which serves the same free draft prompt.
 			}
 
 			// ── Image-intermediate path (TRELLIS default, or Hunyuan3D self-host) ────

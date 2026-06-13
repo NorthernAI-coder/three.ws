@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T10:02:14.558Z",
+	"generated_at": "2026-06-13T14:19:18.109Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "AR & WebXR — Place Any 3D Agent in Your Real World",
 			"summary": "Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.",
 			"link": "/features/ar",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "launch",
+			"title": "IRL",
+			"summary": "Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.",
+			"link": "/irl",
 			"tags": [
 				"launch"
 			]
@@ -123,12 +133,33 @@
 		{
 			"date": "2026-06-13",
 			"type": "update",
+			"title": "Forge free lane never fails: automatic fallback when the free engine is busy",
+			"summary": "The free text-to-3D engine runs on a hosted preview that occasionally goes unreachable or returns nothing, which could leave a generation failing with a server error while the paid Fast engine kept working. Forge now detects any free-lane hiccup mid-generation and transparently re-routes the same prompt to the platform's image-intermediate engine, so a free generation always returns a model with zero setup. The result reports the engine that actually produced it, so the swap is never hidden.",
+			"link": "/forge",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
 			"title": "Forge improvements: category tagging, model load errors, and more",
 			"summary": "Several Forge improvements ship today: a new Tag As strip appears after generation so you can label your model (Avatar, Creature, Item, Accessory, Scene, Vehicle) — this feeds the explore feed's category filters. An Open in Composer button links directly to /compose with the model pre-loaded. When a stored GLB fails to stream, the viewer now shows a clear error overlay instead of going blank, with a prompt to use the direct download link. The Download button shows a Preparing… state while stamping provenance metadata into the file. A crossorigin attribute was added to the model-viewer element for proper range-request handling on CORS-enabled CDN paths. Three unhandled-promise-rejection sources on the homepage were plugged — async IntersectionObserver callbacks and the AR-section IIFE now guard against abort errors when users navigate away mid-load. Backend health probes retry twice (at 30 s and 60 s) if the first check fails, so a brief cold-start no longer leaves all engine buttons stuck in an unknown state. Empty (0-byte) image uploads are now rejected immediately with a clear message instead of failing silently mid-upload.",
 			"link": "/forge",
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "IRL — walk your avatar in the real world, place 3D objects on your floor",
+			"summary": "New page at /irl. Open it and your avatar appears with a joystick. Hit Camera and your phone's rear camera becomes the background — the avatar walks on your real floor. Switch on Add Object, pick a shape (Orb, Crate, Crystal, Ring, or Pillar), and tap anywhere on the floor to drop it into the scene. Objects spawn with a smooth scale animation. Drag to orbit the camera, WASD on desktop. Share your setup with one tap.",
+			"link": "/irl",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -156,10 +187,31 @@
 		{
 			"date": "2026-06-13",
 			"type": "update",
+			"title": "Record videos from the Animation Studio: send a pose animation straight to Scene Studio",
+			"summary": "The keyframe timeline in the Animation Studio (/pose) now has a 'Record in Scene →' button. It bakes your posed animation into the rig and opens it inside Scene Studio (/scene) as a ready-to-play timeline track, already wired to play during rendering. From there, Render ▸ Video captures the motion to an MP4 at the resolution, frame rate, and length you choose — no export, re-import, or scripting in between. Works with the built-in mannequin and any avatar you load.",
+			"link": "/pose",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
 			"title": "Refine any Forge model to higher quality in one click — plus sharper multi-view guidance",
 			"summary": "Three upgrades to the Forge (/forge). After a model generates, a new Refine button re-runs that exact prompt or photos one quality tier higher — Draft to Standard to High — so you can preview cheaply, then commit to the best version without retyping anything. When building from photos, a live counter now shows how many of the four reference views you've added and reminds you that more angles make a sharper mesh. And the action bar under each finished model now reflows cleanly on phones, with Refine and Make-another leading at full width. Sketch mode also makes its required description unmistakable.",
 			"link": "/forge",
 			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "Refine any forged model instantly, on-device — no waiting, no limits",
+			"summary": "Forge has a new Refine panel that perfects the model you already have, right in your browser — no re-generation and no rate limits. Pick an intent — Clean (weld duplicate vertices and fix faceted shading), Smooth (relax the surface noise generated meshes carry), Game-ready (decimate to a real-time triangle budget while keeping the silhouette and UVs), or Hero (subdivide and smooth for render-quality close-ups). Each runs in milliseconds and shows the exact before/after triangle, vertex, and file-size change, with a one-click revert. Because it never calls the generation service, Refine also works the moment that service is busy: if a generation is throttled, Forge now shows a live countdown and offers to refine your current model locally instead, so you're never stuck at a dead end.",
+			"link": "/forge",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
@@ -388,7 +440,7 @@
 			"date": "2026-06-12",
 			"type": "update",
 			"title": "Forge gets a community showcase — and takes photos from anywhere",
-			"summary": "The /forge page now ends with “Fresh from the Forge”: a live strip of the newest models other people generated. Hover a card and the actual model spins in place; open it in the full viewer with download, share, and stylize working; or hit Remix to copy its prompt into the composer and make your own version. Getting photos in is easier too — paste an image from the clipboard (⌘V) anywhere on the page, or drag files onto the page and Forge switches to photo mode and places them for you.",
+			"summary": "The /forge page now ends with \"Fresh from the Forge\": a live strip of the newest models other people generated. Hover a card and the actual model spins in place; open it in the full viewer with download, share, and stylize working; or hit Remix to copy its prompt into the composer and make your own version. Getting photos in is easier too — paste an image from the clipboard (⌘V) anywhere on the page, or drag files onto the page and Forge switches to photo mode and places them for you.",
 			"link": "/forge",
 			"tags": [
 				"feature"

@@ -77,6 +77,7 @@ const els = {
 	viewsPips: document.getElementById('views-pips'),
 	sketchReqTag: document.getElementById('sketch-req-tag'),
 	generateAnyway: document.getElementById('generate-anyway'),
+	refineLocally: document.getElementById('refine-locally'),
 	errorMessage: document.getElementById('error-message'),
 	forgeShareBtn: document.getElementById('forge-share-btn'),
 	segmentBtn: document.getElementById('forge-segment-btn'),
@@ -105,6 +106,9 @@ let currentCreationId = null;
 // The quality tier the on-screen result was produced at — drives the "Refine"
 // affordance, which re-runs the same job exactly one tier higher.
 let currentResultTier = null;
+// The GLB currently shown in the viewer (set on every result). Lets the
+// rate-limit state know a model exists to refine locally as a fallback.
+let lastShownGlb = '';
 
 // Quality tiers, lowest → highest. Refine walks one step up this ladder.
 const TIER_ORDER = ['draft', 'standard', 'high'];
@@ -1042,11 +1046,25 @@ async function startJob({ prompt, imageUrls, skipValidation }) {
 		throw e;
 	}
 	if (res.status === 429 || data.error === 'rate_limited') {
-		const secs = Number(data.retry_after) > 0 ? Math.ceil(Number(data.retry_after)) : 10;
+		const headerReset = Number(res.headers.get('ratelimit-reset'));
+		const secs =
+			Number(data.retry_after) > 0
+				? Math.ceil(Number(data.retry_after))
+				: headerReset > 0
+					? Math.ceil(headerReset)
+					: 10;
+		// `rate_limiter_unavailable` means the distributed limiter (Redis) is down
+		// and the paid lane is failing closed — not that the user spent their quota.
+		const unavailable = data.reason === 'rate_limiter_unavailable';
 		const e = new Error(
-			data.message || `The 3D generator is busy. Try again in about ${secs} seconds.`,
+			data.message ||
+				(unavailable
+					? 'The generator is temporarily unavailable. Refine your current model locally, or try again shortly.'
+					: `You've hit the generation limit. It resets in about ${secs}s.`),
 		);
 		e.kind = 'rate_limited';
+		e.retryAfter = secs;
+		e.unavailable = unavailable;
 		throw e;
 	}
 	if (!res.ok) {
@@ -1260,6 +1278,7 @@ function showResult(glbUrl, label, meta, { autoSaved = false } = {}) {
 	els.viewerShell?.classList.remove('has-load-error');
 	els.viewer.setAttribute('src', glbUrl);
 	els.viewer.setAttribute('alt', `3D model: ${label}`);
+	lastShownGlb = glbUrl;
 	els.resultLabel.textContent = label;
 	// Hide the saved chip by default; caller re-shows it for fresh generations.
 	if (els.savedChip) els.savedChip.classList.add('is-hidden');
@@ -1480,11 +1499,66 @@ async function openSharedCreation(shareId) {
 
 function showError(message, { allowOverride = false } = {}) {
 	stopElapsed();
+	stopRateLimitCountdown();
 	els.errorMessage.textContent = message;
 	// The "Generate anyway" affordance only exists for the vision pre-check
 	// rejection; every other error hides it so it can't leak across states.
 	if (els.generateAnyway) els.generateAnyway.classList.toggle('is-hidden', !allowOverride);
+	// The local-refine escape hatch belongs only to the rate-limit state.
+	if (els.refineLocally) els.refineLocally.classList.add('is-hidden');
+	if (els.retry) els.retry.disabled = false;
 	showState('error');
+}
+
+// Rate-limit state: a designed, recoverable treatment for a 429. Instead of a
+// dead-end "busy, try again", we (1) show a live countdown to the reset and
+// re-enable Retry automatically when it elapses, and (2) — when a model is
+// already on screen — offer the local Refine path, which needs no API and never
+// throttles, so the user is never fully blocked. Distinguishes a genuine quota
+// hit from a temporarily-unavailable limiter (Redis degraded → fail-closed).
+let rateLimitTimer = null;
+function stopRateLimitCountdown() {
+	if (rateLimitTimer) {
+		clearInterval(rateLimitTimer);
+		rateLimitTimer = null;
+	}
+}
+
+function showRateLimited({ retryAfter = 10, unavailable = false }) {
+	stopElapsed();
+	stopRateLimitCountdown();
+	if (els.generateAnyway) els.generateAnyway.classList.add('is-hidden');
+
+	// Offer local refinement whenever a model is already loaded — that's exactly
+	// the case after the Refine button 429s, and the one moment the user most
+	// wants to keep improving without waiting on the paid lane.
+	const canRefineLocally = Boolean(lastShownGlb && els.viewer.getAttribute('src'));
+	if (els.refineLocally) els.refineLocally.classList.toggle('is-hidden', !canRefineLocally);
+
+	let remaining = Math.max(1, Math.ceil(retryAfter));
+	const base = unavailable
+		? 'The generator is temporarily unavailable.'
+		: 'You’ve hit the generation limit.';
+	const tail = canRefineLocally ? ' Or refine your current model now — instant and unlimited.' : '';
+
+	const render = () => {
+		els.errorMessage.textContent =
+			remaining > 0 ? `${base} Retrying is available in ${remaining}s.${tail}` : `${base} You can try again now.${tail}`;
+	};
+	// While counting down, Retry is disabled (it would just 429 again); it
+	// re-enables the moment the window resets.
+	if (els.retry) els.retry.disabled = remaining > 0;
+	render();
+	showState('error');
+
+	rateLimitTimer = setInterval(() => {
+		remaining -= 1;
+		if (remaining <= 0) {
+			stopRateLimitCountdown();
+			if (els.retry) els.retry.disabled = false;
+		}
+		render();
+	}, 1000);
 }
 
 // Run a job (text or image/multi-view). `cfg` = { prompt, imageUrls }.
@@ -1624,6 +1698,12 @@ async function run(cfg) {
 		// so a confident user is never permanently blocked by a cautious verdict.
 		if (err.kind === 'not_usable') {
 			showError(err.message, { allowOverride: true });
+			return;
+		}
+		// Rate limited (or the limiter is temporarily unavailable). Designed,
+		// recoverable state with a live countdown + the local-refine escape hatch.
+		if (err.kind === 'rate_limited') {
+			showRateLimited({ retryAfter: err.retryAfter, unavailable: err.unavailable });
 			return;
 		}
 		showError(
@@ -1787,6 +1867,7 @@ els.cancel.addEventListener('click', () => {
 });
 
 els.again.addEventListener('click', () => {
+	stopRateLimitCountdown();
 	if (els.categoryPicker) els.categoryPicker.hidden = true;
 	showState('empty');
 	if (mode === 'text') {
@@ -1800,6 +1881,8 @@ els.again.addEventListener('click', () => {
 });
 
 els.retry.addEventListener('click', () => {
+	if (els.retry.disabled) return; // mid-countdown; Retry re-enables at reset
+	stopRateLimitCountdown();
 	if (els.categoryPicker) els.categoryPicker.hidden = true;
 	if (lastJob && (lastJob.prompt || (lastJob.imageUrls && lastJob.imageUrls.length))) {
 		run(lastJob);
@@ -1807,6 +1890,15 @@ els.retry.addEventListener('click', () => {
 		showState('empty');
 		els.prompt.focus();
 	}
+});
+
+// Rate-limit escape hatch: drop straight back to the loaded model and open the
+// local Refine panel — no API, no waiting on the throttled generation lane.
+els.refineLocally?.addEventListener('click', () => {
+	stopRateLimitCountdown();
+	showState('result');
+	els.stage?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	document.dispatchEvent(new CustomEvent('forge:refine-here'));
 });
 
 // Refine — re-run the same prompt/views one quality tier higher. Bumping the

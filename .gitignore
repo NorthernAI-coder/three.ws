@@ -128,7 +128,6 @@ test-results/
 reports/
 .auth/
 .env*
-docs/internal/COINMARKETCAP_PARTNERSHIP_ARTICLE.md
 docs/internal/COINMARKETCAP_ARTICLE.md
 docs/internal/PRESS_RELEASE_SHORT.md
 scripts/load-test.mjs
@@ -191,7 +190,6 @@ docs/3d-generation-api/texture/texture-model-v3-0-20250812.md
 
 # Snapshot day-exports — recoverable from git history, never commit
 snapshots/exported/
-docs/ibm.md
 
 # Vanity keypair files — contain private keys, never commit
 .keys/
@@ -218,3 +216,13 @@ scripts/genesis-results.json
 docs/three-ws-feature-article.md
 animation-sources/
 scripts/mixamo-dl/
+demo.html
+demo2.html
+demo1.html
+demo3.html
+demo5.html
+scripts/demo1.mjs
+
+bvefj.txt
+bvefj.csv
+bvefj.json

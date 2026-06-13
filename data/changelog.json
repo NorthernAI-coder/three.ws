@@ -3,6 +3,35 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Refine any forged model instantly, on-device — no waiting, no limits",
+			"summary": "Forge has a new Refine panel that perfects the model you already have, right in your browser — no re-generation and no rate limits. Pick an intent — Clean (weld duplicate vertices and fix faceted shading), Smooth (relax the surface noise generated meshes carry), Game-ready (decimate to a real-time triangle budget while keeping the silhouette and UVs), or Hero (subdivide and smooth for render-quality close-ups). Each runs in milliseconds and shows the exact before/after triangle, vertex, and file-size change, with a one-click revert. Because it never calls the generation service, Refine also works the moment that service is busy: if a generation is throttled, Forge now shows a live countdown and offers to refine your current model locally instead, so you're never stuck at a dead end.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-13",
+			"title": "Record videos from the Animation Studio: send a pose animation straight to Scene Studio",
+			"summary": "The keyframe timeline in the Animation Studio (/pose) now has a 'Record in Scene →' button. It bakes your posed animation into the rig and opens it inside Scene Studio (/scene) as a ready-to-play timeline track, already wired to play during rendering. From there, Render ▸ Video captures the motion to an MP4 at the resolution, frame rate, and length you choose — no export, re-import, or scripting in between. Works with the built-in mannequin and any avatar you load.",
+			"tags": [
+				"feature"
+			],
+			"link": "/pose"
+		},
+		{
+			"date": "2026-06-13",
+			"title": "Forge free lane never fails: automatic fallback when the free engine is busy",
+			"summary": "The free text-to-3D engine runs on a hosted preview that occasionally goes unreachable or returns nothing, which could leave a generation failing with a server error while the paid Fast engine kept working. Forge now detects any free-lane hiccup mid-generation and transparently re-routes the same prompt to the platform's image-intermediate engine, so a free generation always returns a model with zero setup. The result reports the engine that actually produced it, so the swap is never hidden.",
+			"tags": [
+				"fix",
+				"improvement"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Animation library expands: 100+ clips, FBX and BVH upload",
 			"summary": "The platform animation library grows to 100+ retargeted motion clips drawn from Mixamo, Avaturn packs, and MIT-licensed Three.js example models (Soldier, Michelle, Xbot). The agent dashboard's Upload clip dialog now accepts .glb, .fbx, and .bvh files — FBX and BVH are converted to GLB client-side via three.js loaders before upload, so creators can bring mocap data directly from capture tools without a separate conversion step. A full Mixamo catalog download pipeline (scripts/mixamo-all.mjs) is in place to expand the library to 2,000+ clips as soon as credentials are supplied.",
 			"tags": [
@@ -1453,11 +1482,20 @@
 		{
 			"date": "2026-06-12",
 			"title": "Forge gets a community showcase — and takes photos from anywhere",
-			"summary": "The /forge page now ends with “Fresh from the Forge”: a live strip of the newest models other people generated. Hover a card and the actual model spins in place; open it in the full viewer with download, share, and stylize working; or hit Remix to copy its prompt into the composer and make your own version. Getting photos in is easier too — paste an image from the clipboard (⌘V) anywhere on the page, or drag files onto the page and Forge switches to photo mode and places them for you.",
+			"summary": "The /forge page now ends with \"Fresh from the Forge\": a live strip of the newest models other people generated. Hover a card and the actual model spins in place; open it in the full viewer with download, share, and stylize working; or hit Remix to copy its prompt into the composer and make your own version. Getting photos in is easier too — paste an image from the clipboard (⌘V) anywhere on the page, or drag files onto the page and Forge switches to photo mode and places them for you.",
 			"tags": [
 				"feature"
 			],
 			"link": "/forge"
+		},
+		{
+			"date": "2026-06-13",
+			"title": "IRL — walk your avatar in the real world, place 3D objects on your floor",
+			"summary": "New page at /irl. Open it and your avatar appears with a joystick. Hit Camera and your phone's rear camera becomes the background — the avatar walks on your real floor. Switch on Add Object, pick a shape (Orb, Crate, Crystal, Ring, or Pillar), and tap anywhere on the floor to drop it into the scene. Objects spawn with a smooth scale animation. Drag to orbit the camera, WASD on desktop. Share your setup with one tap.",
+			"tags": [
+				"feature"
+			],
+			"link": "/irl"
 		}
 	]
 }

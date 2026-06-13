@@ -15,6 +15,7 @@ Entry points into the product.
 - [Discover](https://three.ws/discover): On-chain agent directory (ERC-8004 + Solana). Browse, search, and inspect every registered agent.
 - [Avatar Gallery](https://three.ws/gallery): Every public 3D avatar in the system, browsable as a grid.
 - [Walk](https://three.ws/walk): Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.
+- [IRL](https://three.ws/irl): Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.
 - [Marketplace](https://three.ws/marketplace): Buy access to agents, skills, and avatars from other creators.
 - [Skills Marketplace](https://three.ws/skills): Browse, search, and install agent skills — tool packs, knowledge bases, and capabilities that make AI agents smarter.
 - [Community](https://three.ws/community): Featured creators, builds, and conversations from the three.ws community.

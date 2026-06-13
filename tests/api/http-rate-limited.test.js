@@ -107,4 +107,21 @@ describe('rateLimited', () => {
 		expect(res.body.scope).toBe('chat');
 		expect(res.body.retry_after).toBe(10);
 	});
+
+	it('surfaces the limiter reason so clients can tell quota from a degraded limiter', () => {
+		const res = mockRes();
+		rateLimited(res, {
+			limit: 30,
+			remaining: 0,
+			reset: Date.now() + 60_000,
+			reason: 'rate_limiter_unavailable',
+		});
+		expect(res.body.reason).toBe('rate_limiter_unavailable');
+	});
+
+	it('omits reason when the limiter does not provide one', () => {
+		const res = mockRes();
+		rateLimited(res, { limit: 30, remaining: 0, reset: Date.now() + 60_000 });
+		expect(res.body).not.toHaveProperty('reason');
+	});
 });

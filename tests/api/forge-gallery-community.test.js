@@ -24,7 +24,10 @@ vi.mock('../../api/_lib/forge-store.js', () => ({
 }));
 
 vi.mock('../../api/_lib/rate-limit.js', () => ({
-	limits: { mcp3dStatus: vi.fn(async () => ({ success: true })) },
+	limits: {
+		mcp3dStatus: vi.fn(async () => ({ success: true })),
+		publicIp: vi.fn(async () => ({ success: true })),
+	},
 	clientIp: vi.fn(() => '127.0.0.1'),
 }));
 

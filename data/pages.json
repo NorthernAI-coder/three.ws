@@ -47,6 +47,14 @@
 					"added": "2026-05-10"
 				},
 				{
+					"path": "/irl",
+					"title": "IRL",
+					"description": "Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.",
+					"priority": 0.75,
+					"changefreq": "monthly",
+					"added": "2026-06-13"
+				},
+				{
 					"path": "/marketplace",
 					"title": "Marketplace",
 					"description": "Buy access to agents, skills, and avatars from other creators.",
