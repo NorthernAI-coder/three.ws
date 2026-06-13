@@ -3899,6 +3899,7 @@ function renderAvatarCard(a, spotlight = false) {
 			${tagPills}
 			<div class="footer">
 				${modelCategoryBadge(a.modelCategory)}
+				${a.glbUrl ? `<a class="compose-cta" href="/compose?glb=${encodeURIComponent(a.glbUrl)}" title="Open in Scene Composer" tabindex="-1" onclick="event.stopPropagation()">⚡ Compose</a>` : ''}
 				<span class="open-cta">Open →</span>
 			</div>
 		</div>
