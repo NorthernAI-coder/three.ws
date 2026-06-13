@@ -2,16 +2,16 @@
   <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" alt="three.ws" width="88" height="88"></a>
 </p>
 
-<h1 align="center">@3d-agent/mcp-server</h1>
+<h1 align="center">@three-ws/mcp-server</h1>
 
 <p align="center"><strong>Paid x402 MCP tools from three.ws — text/image→3D, avatars, rigging, agent reputation, and more. Settled per call in USDC.</strong></p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@3d-agent/mcp-server"><img alt="npm" src="https://img.shields.io/npm/v/@3d-agent/mcp-server?logo=npm&color=cb3837"></a>
-  <a href="https://www.npmjs.com/package/@3d-agent/mcp-server"><img alt="downloads" src="https://img.shields.io/npm/dm/@3d-agent/mcp-server?color=cb3837"></a>
-  <img alt="license" src="https://img.shields.io/npm/l/@3d-agent/mcp-server?color=3b82f6">
+  <a href="https://www.npmjs.com/package/@three-ws/mcp-server"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/mcp-server?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/mcp-server"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/mcp-server?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/mcp-server?color=3b82f6">
   <a href="https://registry.modelcontextprotocol.io/?q=io.github.nirholas"><img alt="MCP Registry" src="https://img.shields.io/badge/MCP%20Registry-io.github.nirholas-7c3aed"></a>
-  <img alt="node" src="https://img.shields.io/node/v/@3d-agent/mcp-server?color=339933&logo=node.js">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/mcp-server?color=339933&logo=node.js">
   <a href="https://three.ws"><img alt="three.ws" src="https://img.shields.io/badge/built%20by-three.ws-000"></a>
 </p>
 
@@ -35,10 +35,10 @@
 ### Claude Code
 
 ```bash
-claude mcp add 3d-agent -- npx -y @3d-agent/mcp-server
+claude mcp add 3d-agent -- npx -y @three-ws/mcp-server
 ```
 
-To also receive payments (server operators), pass the payout address as env: `claude mcp add 3d-agent -e MCP_SVM_PAYMENT_ADDRESS=YourSolanaWallet -- npx -y @3d-agent/mcp-server`. Alternatively, run `/setup-mcp` in any project that includes this repo and Claude will detect your OS, collect your wallet addresses, and write the config for you.
+To also receive payments (server operators), pass the payout address as env: `claude mcp add 3d-agent -e MCP_SVM_PAYMENT_ADDRESS=YourSolanaWallet -- npx -y @three-ws/mcp-server`. Alternatively, run `/setup-mcp` in any project that includes this repo and Claude will detect your OS, collect your wallet addresses, and write the config for you.
 
 ### Claude Desktop
 
@@ -49,7 +49,7 @@ Paste this into your **Claude Desktop** config (`~/Library/Application Support/C
 	"mcpServers": {
 		"3d-agent": {
 			"command": "npx",
-			"args": ["-y", "@3d-agent/mcp-server"],
+			"args": ["-y", "@three-ws/mcp-server"],
 			"env": {
 				"MCP_SVM_PAYMENT_ADDRESS": "YourSolanaWallet"
 			}
@@ -105,10 +105,10 @@ The server runs locally on your machine and speaks stdio JSON-RPC — your MCP c
 If you prefer a global install:
 
 ```bash
-npm install -g @3d-agent/mcp-server
+npm install -g @three-ws/mcp-server
 ```
 
-Then replace `"command": "npx", "args": ["-y", "@3d-agent/mcp-server"]` with `"command": "3d-agent-mcp"` in your config.
+Then replace `"command": "npx", "args": ["-y", "@three-ws/mcp-server"]` with `"command": "3d-agent-mcp"` in your config.
 
 ---
 
@@ -166,7 +166,7 @@ import bs58 from 'bs58';
 
 const transport = new StdioClientTransport({
 	command: 'npx',
-	args: ['-y', '@3d-agent/mcp-server'],
+	args: ['-y', '@three-ws/mcp-server'],
 	env: {
 		// Where the server receives USDC. Your client funds payments from the
 		// Solana keypair below.
@@ -199,7 +199,7 @@ In Cursor's MCP settings (`Cursor > Settings > Features > MCP`):
 	"mcpServers": {
 		"3d-agent": {
 			"command": "npx",
-			"args": ["-y", "@3d-agent/mcp-server"],
+			"args": ["-y", "@three-ws/mcp-server"],
 			"env": {
 				"MCP_SVM_PAYMENT_ADDRESS": "YourSolanaWallet"
 			}
@@ -267,7 +267,7 @@ X402_FACILITATOR_URLS_SOLANA="https://facilitator.payai.network,https://your-bac
 
 ```
 ┌─────────────────┐     ┌─────────────────────┐     ┌──────────────────────┐
-│ Claude Desktop  │────▶│  @3d-agent/mcp      │────▶│  x402 facilitator    │
+│ Claude Desktop  │────▶│  @three-ws/mcp      │────▶│  x402 facilitator    │
 │  / Cursor /     │     │   (stdio transport) │     │  (PayAI — Solana     │
 │  your agent     │     │                     │     │   USDC, exact)       │
 └─────────────────┘     └─────────────────────┘     └──────────────────────┘

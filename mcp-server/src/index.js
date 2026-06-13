@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @3d-agent/mcp-server entry point.
+// @three-ws/mcp-server entry point.
 //
 // Boots an MCP server over stdio that exposes paid tools for pose generation,
 // pump.fun snapshots, ERC-8004 reputation lookups, and Solana vanity mining.

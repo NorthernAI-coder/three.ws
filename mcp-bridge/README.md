@@ -2,15 +2,15 @@
   <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" alt="three.ws" width="88" height="88"></a>
 </p>
 
-<h1 align="center">@3d-agent/mcp-bridge</h1>
+<h1 align="center">@three-ws/mcp-bridge</h1>
 
 <p align="center"><strong>One MCP server that can pay any x402-paid endpoint on the open web — the universal x402 payer for AI agents.</strong></p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@3d-agent/mcp-bridge"><img alt="npm" src="https://img.shields.io/npm/v/@3d-agent/mcp-bridge?logo=npm&color=cb3837"></a>
-  <a href="https://www.npmjs.com/package/@3d-agent/mcp-bridge"><img alt="downloads" src="https://img.shields.io/npm/dm/@3d-agent/mcp-bridge?color=cb3837"></a>
-  <img alt="license" src="https://img.shields.io/npm/l/@3d-agent/mcp-bridge?color=3b82f6">
-  <img alt="node" src="https://img.shields.io/node/v/@3d-agent/mcp-bridge?color=339933&logo=node.js">
+  <a href="https://www.npmjs.com/package/@three-ws/mcp-bridge"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/mcp-bridge?logo=npm&color=cb3837"></a>
+  <a href="https://www.npmjs.com/package/@three-ws/mcp-bridge"><img alt="downloads" src="https://img.shields.io/npm/dm/@three-ws/mcp-bridge?color=cb3837"></a>
+  <img alt="license" src="https://img.shields.io/npm/l/@three-ws/mcp-bridge?color=3b82f6">
+  <img alt="node" src="https://img.shields.io/node/v/@three-ws/mcp-bridge?color=339933&logo=node.js">
   <a href="https://registry.modelcontextprotocol.io/?q=io.github.nirholas"><img alt="MCP Registry" src="https://img.shields.io/badge/MCP%20Registry-io.github.nirholas-0ea5e9"></a>
   <a href="https://three.ws"><img alt="three.ws" src="https://img.shields.io/badge/built%20by-three.ws-000"></a>
 </p>
@@ -32,7 +32,7 @@
 Claude Code:
 
 ```bash
-claude mcp add x402-bridge -e MCP_BRIDGE_SVM_PRIVATE_KEY=... -- npx -y @3d-agent/mcp-bridge
+claude mcp add x402-bridge -e MCP_BRIDGE_SVM_PRIVATE_KEY=... -- npx -y @three-ws/mcp-bridge
 ```
 
 Use `-e MCP_BRIDGE_EVM_PRIVATE_KEY=0x...` instead (or as well) to pay on Base and other EVM chains. At least one key is required.
@@ -44,7 +44,7 @@ Claude Desktop (`claude_desktop_config.json`) or Cursor (`~/.cursor/mcp.json`):
 	"mcpServers": {
 		"x402-bridge": {
 			"command": "npx",
-			"args": ["-y", "@3d-agent/mcp-bridge"],
+			"args": ["-y", "@three-ws/mcp-bridge"],
 			"env": {
 				"MCP_BRIDGE_EVM_PRIVATE_KEY": "0x…buyer key…",
 				"MCP_BRIDGE_SVM_PRIVATE_KEY": "…base58 64-byte secret key…",
@@ -131,7 +131,7 @@ The pre-payment hook inspects the selected `accepts` entry and aborts payload cr
 ## Inspecting without a client
 
 ```bash
-MCP_BRIDGE_SVM_PRIVATE_KEY=... npx -y @modelcontextprotocol/inspector npx -y @3d-agent/mcp-bridge
+MCP_BRIDGE_SVM_PRIVATE_KEY=... npx -y @modelcontextprotocol/inspector npx -y @three-ws/mcp-bridge
 ```
 
 The inspector connects over stdio and lists the static tools (`call_paid_endpoint`, `list_bazaar_tools`, `refresh_bazaar`) plus one dynamic tool per discovered Bazaar entry.
@@ -141,7 +141,7 @@ The inspector connects over stdio and lists the static tools (`call_paid_endpoin
 Any Node module can consume an x402 endpoint through the same buyer client:
 
 ```js
-import { buildBuyerAxios } from '@3d-agent/mcp-bridge/src/x402-axios-client.js';
+import { buildBuyerAxios } from '@three-ws/mcp-bridge/src/x402-axios-client.js';
 
 const { api } = await buildBuyerAxios();
 const res = await api.get('https://api.example.com/some-paid-resource');

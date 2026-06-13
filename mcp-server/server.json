@@ -22,7 +22,7 @@
 	"packages": [
 		{
 			"registryType": "npm",
-			"identifier": "@3d-agent/mcp-server",
+			"identifier": "@three-ws/mcp-server",
 			"version": "1.1.0",
 			"runtimeHint": "npx",
 			"transport": {

@@ -1879,36 +1879,107 @@
 		<script type="module">
 			function showStep(name) {
 				document.querySelectorAll('.step[data-step]').forEach((s) => {
-					s.classList.toggle('active', s.dataset.step === name);
-					if (name === 'unavailable') s.hidden = s.dataset.step !== 'unavailable';
+					const isTarget = s.dataset.step === name;
+					s.classList.toggle('active', isTarget);
+					s.hidden = !isTarget;
 				});
-			}
-
-			// Capability probe — /api/avatars/reconstruct returns 501 unless an ML
-			// backend is wired. If it's not, switch to the "unavailable" step
-			// instead of letting the user take three selfies for nothing.
-			const reconstructReady = await fetch('/api/config', { credentials: 'omit' })
-				.then((r) => (r.ok ? r.json() : null))
-				.then((j) => j?.features?.avatarReconstruct !== false)
-				.catch(() => true); // network failure: assume ready, let the real flow surface the truth
-
-			if (!reconstructReady) {
-				document.querySelectorAll('.step[data-step]').forEach((s) => {
-					s.classList.remove('active');
-					s.hidden = s.dataset.step !== 'unavailable';
-				});
-				const u = document.querySelector('.step[data-step="unavailable"]');
-				if (u) {
-					u.hidden = false;
-					u.classList.add('active');
-				}
 				const sb = document.getElementById('submit-bar');
-				if (sb) sb.hidden = true;
-			} else {
-				// Only load the camera + pipeline when we actually need them.
-				await import('/src/selfie-capture.js');
-				await import('/src/selfie-pipeline.js');
+				if (sb) sb.hidden = (name === 'api-key');
 			}
+
+			// Load config to find out if we're running in platform mode (server has
+			// API credentials) or BYOK mode (user must supply their own key).
+			const cfg = await fetch('/api/config', { credentials: 'omit' })
+				.then((r) => (r.ok ? r.json() : null))
+				.catch(() => null);
+			const reconstructMode = cfg?.features?.avatarReconstructMode ?? 'platform';
+
+			// Always load the camera + pipeline — they're needed regardless of mode.
+			await import('/src/selfie-capture.js');
+			const pipeline = await import('/src/selfie-pipeline.js');
+
+			// ── BYOK key entry form wiring ────────────────────────────────────────
+			let _selectedProvider = 'meshy';
+
+			const PROVIDER_HINTS = {
+				meshy: 'Get a free key at <a href="https://www.meshy.ai" target="_blank" rel="noopener">meshy.ai</a> — it takes under a minute. The key stays in your browser and is never stored on our servers.',
+				tripo: 'Get a key at <a href="https://platform.tripo3d.ai" target="_blank" rel="noopener">platform.tripo3d.ai</a>. The key stays in your browser and is never stored on our servers.',
+			};
+			const PROVIDER_PLACEHOLDERS = {
+				meshy: 'msy_…',
+				tripo: 'tripo_…',
+			};
+
+			document.querySelectorAll('[data-byok-provider]').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					_selectedProvider = btn.dataset.byokProvider;
+					document.querySelectorAll('[data-byok-provider]').forEach((b) => {
+						b.classList.toggle('selected', b.dataset.byokProvider === _selectedProvider);
+						b.setAttribute('aria-pressed', String(b.dataset.byokProvider === _selectedProvider));
+					});
+					const keyInput = document.getElementById('byok-key-input');
+					if (keyInput) keyInput.placeholder = PROVIDER_PLACEHOLDERS[_selectedProvider] || '';
+					const hint = document.getElementById('byok-key-hint');
+					if (hint) hint.innerHTML = PROVIDER_HINTS[_selectedProvider] || '';
+					validateByokKey();
+				});
+			});
+
+			const byokInput = document.getElementById('byok-key-input');
+			const byokSubmit = document.getElementById('byok-submit-btn');
+			const byokToggle = document.getElementById('byok-key-toggle');
+			const byokError = document.getElementById('byok-key-error');
+
+			function validateByokKey() {
+				const val = byokInput?.value?.trim() || '';
+				const valid = val.length > 8;
+				if (byokSubmit) byokSubmit.disabled = !valid;
+				return valid;
+			}
+
+			byokInput?.addEventListener('input', () => {
+				validateByokKey();
+				byokInput.classList.remove('invalid');
+				if (byokError) { byokError.textContent = ''; byokError.classList.remove('show'); }
+			});
+
+			byokToggle?.addEventListener('click', () => {
+				const isHidden = byokInput?.type === 'password';
+				if (byokInput) byokInput.type = isHidden ? 'text' : 'password';
+				if (byokToggle) byokToggle.textContent = isHidden ? 'hide' : 'show';
+			});
+
+			byokSubmit?.addEventListener('click', () => {
+				const key = byokInput?.value?.trim() || '';
+				if (!key) return;
+				pipeline.storeByokKey(_selectedProvider, key);
+				showStep('capture');
+			});
+
+			// Handle the event the pipeline fires when no BYOK key is found mid-flow.
+			document.addEventListener('selfie:needs-byok', () => {
+				pipeline.clearStoredByokKey();
+				if (byokInput) { byokInput.value = ''; byokInput.type = 'password'; }
+				if (byokToggle) byokToggle.textContent = 'show';
+				if (byokError) {
+					byokError.textContent = 'No API key found. Enter your key to continue.';
+					byokError.classList.add('show');
+				}
+				validateByokKey();
+				showStep('api-key');
+			});
+
+			// ── Boot: decide first step ───────────────────────────────────────────
+			if (reconstructMode === 'byok') {
+				// Check if a key is already cached from a prior session visit.
+				const cached = pipeline.getStoredByokKey();
+				if (!cached) {
+					// No cached key → show the key entry form before the camera.
+					showStep('api-key');
+				}
+				// If there IS a cached key, the default 'capture' step is already active.
+			}
+			// In 'platform' mode the camera step is already the default active step.
 
 			let _avatarId = null;
 			let _docTitleBase = document.title;

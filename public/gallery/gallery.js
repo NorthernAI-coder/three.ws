@@ -585,7 +585,7 @@ function renderForgeCard(c) {
 
 	// Thumbnail — real image when available, deterministic gradient otherwise
 	const thumb = document.createElement('div');
-	thumb.className = 'gallery-card-thumb forge-card-thumb';
+	thumb.className = 'gallery-card-thumb';
 
 	if (c.preview_image_url) {
 		const img = document.createElement('img');
@@ -595,14 +595,12 @@ function renderForgeCard(c) {
 		img.decoding = 'async';
 		thumb.appendChild(img);
 	} else {
-		// Gradient placeholder — visually distinctive, not a void
+		// Gradient placeholder — deterministic color, centered cube icon
 		thumb.style.background = forgePromptGradient(label);
 		const glyph = document.createElement('span');
-		glyph.className = 'gallery-card-ph forge-card-ph';
+		glyph.className = 'forge-card-ph';
 		glyph.setAttribute('aria-hidden', 'true');
-		// Use the first meaningful word of the prompt as a visual hint
-		const firstWord = label.replace(/^(a|an|the)\s+/i, '').split(/\s+/)[0] || '';
-		glyph.textContent = firstWord.length > 0 && firstWord.length <= 12 ? firstWord : '◳';
+		glyph.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z"/><path d="m3 7 9 5 9-5"/><line x1="12" y1="12" x2="12" y2="22"/></svg>`;
 		thumb.appendChild(glyph);
 	}
 

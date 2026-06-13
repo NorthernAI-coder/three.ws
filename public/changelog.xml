@@ -71,6 +71,14 @@
 			<description>Every finished model now has a View in AR button. On a phone it drops the model into your space through the camera; on a desktop it shows a QR code you scan with your phone to open the same model, one tap from AR — so you can walk around what you just made at real-world scale. The embed viewer gained a big one-tap AR launcher on phones too, so models embedded on other sites are placeable in AR as well. No app, no download — it runs in the browser.</description>
 		</item>
 		<item>
+			<title>Selfie to 3D avatar now works with your own API key — Meshy and Tripo supported</title>
+			<link>https://three.ws/create/selfie</link>
+			<guid isPermaLink="false">2026-06-13:Selfie to 3D avatar now works with your own API key — Meshy and Tripo supported</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The selfie-to-avatar pipeline (/create/selfie) is fully open: if you have a Meshy or Tripo API key, you can turn a photo into a rigged 3D avatar in about 60–90 seconds. Enter your key once on the setup screen and it stays cached for the session — or save it to your account settings so you never have to enter it again. The pipeline now properly routes polling through whichever provider submitted the job, so BYOK jobs no longer stall mid-build. The page no longer shows 'still warming up' — it detects which mode the platform is running in and gives you the right experience immediately.</description>
+		</item>
+		<item>
 			<title>The full page directory is now one click away — and instantly filterable</title>
 			<link>https://three.ws/sitemap</link>
 			<guid isPermaLink="false">2026-06-13:The full page directory is now one click away — and instantly filterable</guid>
