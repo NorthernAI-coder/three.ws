@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>All 14 three.ws MCP servers are now live on npm and the official MCP registry</title>
+			<link>https://three.ws/docs/mcp</link>
+			<guid isPermaLink="false">2026-06-13:All 14 three.ws MCP servers are now live on npm and the official MCP registry</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>Every three.ws MCP server is now publicly installable and discoverable. The eight install-and-run servers ship on npm under the @three-ws scope — pull any of them with one command, e.g. npx -y @three-ws/mcp-server (3D + agent tools), @three-ws/three-token-mcp ($THREE price, hold, and burn), @three-ws/pumpfun-mcp, @three-ws/ibm-x402-mcp, @three-ws/avatar-agent, and more. Together with the six hosted remote servers, all 14 are registered in the official Model Context Protocol registry, so any MCP-compatible client — Claude, Cursor, and others — can find them by name. No more dead install links: the documented commands now work.</description>
+		</item>
+		<item>
 			<title>Describe it to 3D joins the rest of the site — and the two generators now point at each other</title>
 			<link>https://three.ws/create/prompt</link>
 			<guid isPermaLink="false">2026-06-13:Describe it to 3D joins the rest of the site — and the two generators now point at each other</guid>
