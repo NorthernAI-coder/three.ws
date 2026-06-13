@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "@three-ws/agent-sdk",
   "version": "0.0.1",
   "description": "3D-Agent JavaScript SDK — minimal chat + embed helpers for the three.ws agent fabric.",
