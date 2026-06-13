@@ -3,20 +3,23 @@ Background removal service — strips backgrounds from images using BRIA RMBG-2.
 (Apache-2.0) with rembg's U2Net as a fast CPU fallback.
 
 API contract:
-  POST /remove   { image: data-uri|url, model?: "rmbg2"|"u2net"|"isnet" }
+  POST /remove   { image: data-uri|url, model?: name }
               →  202 { task_id, status: "queued" }
+       model is one of u2net | isnet-general-use | u2net_human_seg | silueta.
+       The legacy aliases "rmbg2" and "isnet" resolve to isnet-general-use.
 
   GET  /tasks/:id → { task_id, status, result_url?, error? }
 
-  GET  /health    → { ok, model, gpu_available }
+  GET  /health    → { ok, models_loaded, models_available, default_model, gpu_available }
 
-No GPU required — BRIA RMBG-2.0 runs on CPU in <2s per 1024px image.
-GPU accelerates to ~0.2s.
+No GPU required — isnet-general-use / u2net run on CPU in ~1-2s per 1024px image.
+GPU accelerates to ~0.2s. Only the default model is loaded at startup (the rest
+load lazily on first use) so cold starts stay fast and /remove returns instantly.
 
 Environment variables:
   API_KEY     — shared bearer secret (required)
   GCS_BUCKET  — Cloud Storage bucket for output PNGs (required)
-  MODEL       — default model: "rmbg2" | "u2net" | "isnet" (default: rmbg2)
+  MODEL       — default model name (default: isnet-general-use)
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ import base64
 import io
 import logging
 import os
+import threading
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -52,27 +56,52 @@ log = logging.getLogger("rembg")
 
 API_KEY = os.environ["API_KEY"]
 GCS_BUCKET = os.environ["GCS_BUCKET"]
-DEFAULT_MODEL = os.environ.get("MODEL", "rmbg2")
 MAX_CONCURRENT = int(os.environ.get("MAX_CONCURRENT", "4"))
 
+# Canonical rembg model names. Friendly aliases keep the public API contract
+# stable for callers that still send "rmbg2"/"isnet" (the previous, invalid
+# names) — they resolve to rembg's real general-purpose model.
+CANONICAL_MODELS = ("u2net", "isnet-general-use", "u2net_human_seg", "silueta")
+MODEL_ALIASES = {
+    "rmbg2": "isnet-general-use",
+    "isnet": "isnet-general-use",
+}
+
+
+def _canonical_model(name: str, fallback: str = "isnet-general-use") -> str:
+    n = (name or "").strip()
+    n = MODEL_ALIASES.get(n, n)
+    return n if n in CANONICAL_MODELS else fallback
+
+
+# The startup default — pre-baked into the image (see Dockerfile), so warming it
+# never touches the network. Env override is resolved through the alias table.
+DEFAULT_MODEL = _canonical_model(os.environ.get("MODEL", "isnet-general-use"))
+
 _sessions: dict[str, object] = {}
+_sessions_lock = threading.Lock()
 _bucket: Optional[storage.Bucket] = None
 _sem: Optional[asyncio.Semaphore] = None
 _tasks: dict[str, dict] = {}
 
-SUPPORTED_MODELS = ("rmbg2", "u2net", "isnet", "u2net_human_seg", "silueta")
 
-
-def _load_sessions() -> None:
-    import rembg
-    for model_name in SUPPORTED_MODELS:
-        try:
-            _sessions[model_name] = rembg.new_session(model_name)
-            log.info("Loaded rembg session: %s", model_name)
-        except Exception as exc:
-            log.warning("Could not load rembg session %s: %s", model_name, exc)
-    if not _sessions:
-        raise RuntimeError("No rembg models could be loaded")
+def _get_session(model_name: str):
+    """Lazily build (and cache) a rembg session, double-checked under a lock so
+    the worker thread-pool never loads the same model twice. Only the default
+    model is warmed at startup; the rest load on first use, so cold start stays
+    fast and the /remove submit returns its 202 immediately."""
+    canon = _canonical_model(model_name)
+    sess = _sessions.get(canon)
+    if sess is not None:
+        return sess
+    with _sessions_lock:
+        sess = _sessions.get(canon)
+        if sess is None:
+            import rembg
+            sess = rembg.new_session(canon)
+            _sessions[canon] = sess
+            log.info("Loaded rembg session: %s", canon)
+        return sess
 
 
 @asynccontextmanager
@@ -81,8 +110,10 @@ async def lifespan(app: FastAPI):
     _bucket = storage.Client().bucket(GCS_BUCKET)
     _sem = asyncio.Semaphore(MAX_CONCURRENT)
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _load_sessions)
-    log.info("rembg service ready — models: %s", list(_sessions))
+    # Warm only the default model so the container becomes ready in seconds; the
+    # other models are loaded lazily on first request.
+    await loop.run_in_executor(None, _get_session, DEFAULT_MODEL)
+    log.info("rembg service ready — default model: %s", DEFAULT_MODEL)
     yield
 
 
@@ -111,7 +142,7 @@ def _decode_image(src: str) -> Image.Image:
 
 def _run_removal(img: Image.Image, model_name: str) -> Image.Image:
     import rembg
-    session = _sessions.get(model_name) or _sessions.get(DEFAULT_MODEL) or next(iter(_sessions.values()))
+    session = _get_session(model_name)
     buf_in = io.BytesIO()
     img.save(buf_in, format="PNG")
     result_bytes = rembg.remove(buf_in.getvalue(), session=session)
@@ -169,7 +200,7 @@ async def remove_background(
     authorization: str = Header(...),
 ) -> dict:
     _require_api_key(authorization)
-    model_name = body.model if body.model in SUPPORTED_MODELS else DEFAULT_MODEL
+    model_name = _canonical_model(body.model, fallback=DEFAULT_MODEL)
     task_id = str(uuid.uuid4())
     _tasks[task_id] = {
         "task_id": task_id,
@@ -196,5 +227,6 @@ async def health() -> dict:
         "service": "rembg",
         "gpu_available": torch.cuda.is_available(),
         "models_loaded": list(_sessions),
+        "models_available": list(CANONICAL_MODELS),
         "default_model": DEFAULT_MODEL,
     }
