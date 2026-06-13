@@ -44,35 +44,7 @@
 			crossorigin="anonymous"
 		></script>
 		<style>
-			/* ── Forge brand layer ─────────────────────────────────────────────
-			   A documented per-surface accent ON TOP of the canonical tokens
-			   (same pattern as the IBM Carbon blue at /ibm/*): Forge gets heat.
-			   Everything else still consumes the canonical tokens by name. */
-			body.forge-page {
-				--accent: #ff9d57;
-				--accent-soft: rgba(255, 157, 87, 0.14);
-			}
-			html[data-theme='light'] body.forge-page {
-				--accent: #c2530f;
-				--accent-soft: rgba(194, 83, 15, 0.12);
-			}
-			/* Ambient ember glow — gives the page a focal point without panels
-			   having to shout. Fixed so it doesn't repaint on scroll. */
-			body.forge-page::before {
-				content: '';
-				position: fixed;
-				inset: 0;
-				z-index: -1;
-				pointer-events: none;
-				background:
-					radial-gradient(900px 480px at 50% -140px, rgba(255, 140, 60, 0.13), transparent 65%),
-					radial-gradient(720px 460px at 88% 108%, rgba(255, 140, 60, 0.05), transparent 60%);
-			}
-			html[data-theme='light'] body.forge-page::before {
-				background:
-					radial-gradient(900px 480px at 50% -140px, rgba(214, 110, 40, 0.10), transparent 65%),
-					radial-gradient(720px 460px at 88% 108%, rgba(214, 110, 40, 0.04), transparent 60%);
-			}
+			/* No per-surface accent override — forge uses the global monochrome tokens. */
 
 			.forge-main {
 				max-width: 1320px;
@@ -288,24 +260,20 @@
 				background: var(--surface-2);
 				box-shadow: none;
 			}
-			/* The one unmistakable action on the page — full-width ember CTA. */
+			/* Primary action — full-width, monochrome fill. */
 			#generate {
 				width: 100%;
 				justify-content: center;
 				font-size: var(--text-lg);
 				padding: 0.75rem 1.2rem;
-				background: linear-gradient(135deg, #ffb877, #ff7a2f);
+				background: var(--btn-primary-bg);
 				border-color: transparent;
-				color: #1a0d04;
+				color: var(--btn-primary-fg);
 			}
 			#generate:hover {
 				box-shadow:
 					0 0 0 4px var(--accent-soft),
-					0 8px 28px -8px rgba(255, 130, 50, 0.55);
-			}
-			html[data-theme='light'] body.forge-page #generate {
-				background: linear-gradient(135deg, #d96a1e, #b34a08);
-				color: #fff;
+					0 8px 28px -8px rgba(255, 255, 255, 0.15);
 			}
 			.gen-kbd {
 				font-family: var(--font-mono);
