@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-13",
+			"title": "Animation library expands: 100+ clips, FBX and BVH upload",
+			"summary": "The platform animation library grows to 100+ retargeted motion clips drawn from Mixamo, Avaturn packs, and MIT-licensed Three.js example models (Soldier, Michelle, Xbot). The agent dashboard's Upload clip dialog now accepts .glb, .fbx, and .bvh files — FBX and BVH are converted to GLB client-side via three.js loaders before upload, so creators can bring mocap data directly from capture tools without a separate conversion step. A full Mixamo catalog download pipeline (scripts/mixamo-all.mjs) is in place to expand the library to 2,000+ clips as soon as credentials are supplied.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/walk"
+		},
+		{
+			"date": "2026-06-13",
 			"title": "Security and scalability hardening",
 			"summary": "Several infrastructure improvements ship today to keep the platform safe and fast at growth scale. All Redis connections across the API now share a single Upstash client instance, eliminating the duplicate quota consumption that caused the June 2026 rate-limit outage. A per-user daily LLM spend cap is now enforced on platform-paid inference keys — callers who exhaust their daily budget receive a clear 429 with a reset time rather than silently running up costs. The SSRF guard gains an IP-pinned fetch variant for proxy and webhook endpoints, closing a DNS-rebinding window where a hostile DNS server could swap an address between the safety check and the actual TCP connection. An admin Redis health panel exposes live quota usage and latency with one click, complementing the existing automated hourly quota watchdog that pages the ops channel at 70% and 90% of the daily limit.",
 			"tags": [

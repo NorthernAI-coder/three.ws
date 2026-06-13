@@ -26,12 +26,17 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --out-dir dist --watch",
     "test": "vitest"
   },
+  "author": "three.ws",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws.git",
+    "directory": "sdk/agent-sdk"
+  },
+  "homepage": "https://three.ws",
   "devDependencies": {
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }
