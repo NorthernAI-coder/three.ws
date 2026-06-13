@@ -81,7 +81,9 @@ function depositMultiplier() {
 	return v;
 }
 
-function buildSpendingCapHook() {
+// Exported for direct testing: the hook is pure decision logic over env-derived
+// caps plus the module-level session accumulator.
+export function buildSpendingCapHook() {
 	const perCallCap = maxPriceAtomic();
 	const totalCap = maxTotalAtomic();
 	const payToAllow = allowedPayTo();

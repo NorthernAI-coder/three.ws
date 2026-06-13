@@ -1228,10 +1228,13 @@
 			}
 			.result model-viewer {
 				width: 100%;
-				height: min(60vh, 560px);
-				background: radial-gradient(120% 120% at 50% 0%, #161616 0%, #0b0b0b 70%);
+				height: min(62vh, 600px);
+				background: radial-gradient(120% 120% at 50% 0%, #1a1612 0%, #0b0a09 70%);
 				--poster-color: transparent;
 				transition: opacity 0.45s ease;
+			}
+			html[data-theme='light'] .result model-viewer {
+				background: radial-gradient(120% 120% at 50% 0%, #f3eee9 0%, #e7e2dc 70%);
 			}
 			/* Materialize reveal — the WebGL overlay src/forge-reveal.js plays the
 			   dissolve in, then crossfades away to the standing viewer beneath. */
@@ -1778,7 +1781,7 @@
 					box-shadow 0.15s;
 			}
 			.creation:hover {
-				border-color: var(--stroke-strong);
+				border-color: var(--accent);
 				transform: translateY(-2px);
 				box-shadow: 0 16px 36px -24px rgba(0, 0, 0, 0.9);
 			}
@@ -1979,17 +1982,16 @@
 			}
 		</style>
 	</head>
-	<body>
+	<body class="forge-page">
 		<div id="nav-container"></div>
 
 		<main class="forge-main">
 			<header class="forge-head">
-				<span class="forge-eyebrow">Text · Image · Multi-view → 3D · live</span>
+				<span class="forge-eyebrow">Words &amp; photos → 3D · live</span>
 				<h1>Forge a 3D model from words or photos</h1>
 				<p>
-					Describe an object, or upload up to four photos of it from different angles.
-					Forge reconstructs a textured mesh you can orbit, view in AR, and download as
-					GLB — and more views mean a sharper model with no guessed-at back.
+					Describe an object, or drop in up to four photos of it. Forge builds a
+					textured mesh you can orbit, view in AR, and download as GLB.
 				</p>
 				<p class="forge-head-alt">
 					Making a character? <a href="/create/prompt">Describe it to 3D</a> builds a
@@ -1997,6 +1999,8 @@
 				</p>
 			</header>
 
+			<div class="forge-workspace">
+				<div class="forge-rail">
 			<div class="mode-switch-wrap">
 				<div
 					class="mode-switch"

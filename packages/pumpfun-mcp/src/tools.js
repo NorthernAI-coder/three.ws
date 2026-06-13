@@ -44,21 +44,65 @@ const LOCAL_GENERATIVE = Object.freeze({
 	openWorldHint: false,
 });
 
+// Canonical (snake_case) tool name ← legacy (camelCase) alias. The backend's
+// tools/list only advertises canonical names; tools/call accepts BOTH forever.
+// Vendored copy of TOOL_NAME_ALIASES from src/pump/mcp-tools.js in the
+// three.ws repo — that file is the single source of truth.
+export const TOOL_NAME_ALIASES = Object.freeze({
+	searchTokens: 'search_tokens',
+	getTokenDetails: 'get_token_details',
+	getBondingCurve: 'get_bonding_curve',
+	getTokenTrades: 'get_token_trades',
+	getTrendingTokens: 'get_trending_tokens',
+	getNewTokens: 'get_new_tokens',
+	getGraduatedTokens: 'get_graduated_tokens',
+	getKingOfTheHill: 'get_king_of_the_hill',
+	getCreatorProfile: 'get_creator_profile',
+	getTokenHolders: 'get_token_holders',
+});
+
+const CANONICAL_TO_LEGACY = Object.freeze(
+	Object.fromEntries(Object.entries(TOOL_NAME_ALIASES).map(([legacy, canonical]) => [canonical, legacy])),
+);
+
+// Resolve a tool name to its canonical (snake_case) form. Unknown names pass
+// through unchanged. hasOwn guard: "__proto__"/"constructor" must not resolve
+// an inherited member.
+export function resolveToolName(name) {
+	if (typeof name === 'string' && Object.hasOwn(TOOL_NAME_ALIASES, name)) {
+		return TOOL_NAME_ALIASES[name];
+	}
+	return name;
+}
+
+// The other spelling of an aliased tool name (canonical → legacy, legacy →
+// canonical), or null when the name has no alias. Used by the bridge to retry
+// a tools/call once against an older or newer deployed backend that only
+// understands one spelling.
+export function alternateToolName(name) {
+	if (typeof name !== 'string') return null;
+	if (Object.hasOwn(TOOL_NAME_ALIASES, name)) return TOOL_NAME_ALIASES[name];
+	if (Object.hasOwn(CANONICAL_TO_LEGACY, name)) return CANONICAL_TO_LEGACY[name];
+	return null;
+}
+
 // name → { title, ...ToolAnnotations }. Stamped onto FALLBACK_TOOLS below and
 // overlaid by src/index.js onto whatever tool list loads from the backend, so
-// annotations render even against an older deployed backend.
+// annotations render even against an older deployed backend. Keys are the
+// canonical snake_case names — overlay callers resolve legacy names through
+// resolveToolName first.
 export const TOOL_ANNOTATIONS = Object.freeze({
-	searchTokens: { title: 'Search Tokens', ...LIVE_READ },
-	getTokenDetails: { title: 'Token Details', ...LIVE_READ },
-	getBondingCurve: { title: 'Bonding Curve', ...LIVE_READ },
-	getTokenTrades: { title: 'Token Trades', ...LIVE_READ },
-	getTrendingTokens: { title: 'Trending Tokens', ...LIVE_READ },
-	getNewTokens: { title: 'New Tokens', ...LIVE_READ },
-	getGraduatedTokens: { title: 'Graduated Tokens', ...LIVE_READ },
-	getKingOfTheHill: { title: 'King of the Hill', ...LIVE_READ },
+	search_tokens: { title: 'Search Tokens', ...LIVE_READ },
+	get_token_details: { title: 'Token Details', ...LIVE_READ },
+	get_bonding_curve: { title: 'Bonding Curve', ...LIVE_READ },
+	get_token_trades: { title: 'Token Trades', ...LIVE_READ },
+	get_trending_tokens: { title: 'Trending Tokens', ...LIVE_READ },
+	get_new_tokens: { title: 'New Tokens', ...LIVE_READ },
+	get_graduated_tokens: { title: 'Graduated Tokens', ...LIVE_READ },
+	get_king_of_the_hill: { title: 'King of the Hill', ...LIVE_READ },
 	kol_radar: { title: 'KOL Radar', ...LIVE_READ },
-	getCreatorProfile: { title: 'Creator Profile', ...LIVE_READ },
-	getTokenHolders: { title: 'Token Holders', ...LIVE_READ },
+	get_creator_profile: { title: 'Creator Profile', ...LIVE_READ },
+	get_token_holders: { title: 'Token Holders', ...LIVE_READ },
 	pumpfun_vanity_mint: { title: 'Vanity Mint Keypair', ...LOCAL_GENERATIVE },
 	pumpfun_watch_whales: { title: 'Watch Whale Trades', ...LIVE_READ },
 	pumpfun_list_claims: { title: 'List Creator Fee Claims', ...LIVE_READ },
@@ -72,9 +116,13 @@ export const TOOL_ANNOTATIONS = Object.freeze({
 	social_x_post_impact: { title: 'X Post Price Impact', ...LIVE_READ },
 });
 
+// outputSchema policy (mirrors src/pump/mcp-tools.js): only tools whose
+// response shape is code-controlled and genuinely stable advertise one.
+// Upstream-shaped passthrough feeds deliberately ship NO outputSchema — a
+// wrong schema is worse than none.
 export const FALLBACK_TOOLS = [
 	{
-		name: 'searchTokens',
+		name: 'search_tokens',
 		description: 'Search pump.fun tokens by name, symbol, or mint address.',
 		inputSchema: {
 			type: 'object',
@@ -86,7 +134,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getTokenDetails',
+		name: 'get_token_details',
 		description: 'Full details for a specific pump.fun token by mint address.',
 		inputSchema: {
 			type: 'object',
@@ -95,7 +143,7 @@ export const FALLBACK_TOOLS = [
 		},
 	},
 	{
-		name: 'getBondingCurve',
+		name: 'get_bonding_curve',
 		description:
 			'Bonding curve analysis: real reserves, virtual reserves, and graduation progress (on-chain).',
 		inputSchema: {
@@ -106,9 +154,39 @@ export const FALLBACK_TOOLS = [
 			},
 			required: ['mint'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				mint: { type: 'string' },
+				network: { type: 'string' },
+				complete: { type: 'boolean', description: 'true once the curve has graduated' },
+				graduationPercent: { type: 'number', description: '0–100 graduation progress' },
+				solReserves: {
+					type: 'string',
+					description: 'Real SOL reserves in SOL (4-decimal string)',
+				},
+				tokenReserves: { type: 'string', description: 'Real token reserves (raw base units)' },
+				virtualSolReserves: { type: 'string', description: 'Virtual SOL reserves (lamports)' },
+				virtualTokenReserves: {
+					type: 'string',
+					description: 'Virtual token reserves (raw base units)',
+				},
+			},
+			required: [
+				'mint',
+				'network',
+				'complete',
+				'graduationPercent',
+				'solReserves',
+				'tokenReserves',
+				'virtualSolReserves',
+				'virtualTokenReserves',
+			],
+			additionalProperties: true,
+		},
 	},
 	{
-		name: 'getTokenTrades',
+		name: 'get_token_trades',
 		description: 'Recent buy/sell history for a token.',
 		inputSchema: {
 			type: 'object',

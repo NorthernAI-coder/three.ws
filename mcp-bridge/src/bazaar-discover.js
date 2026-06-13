@@ -166,8 +166,9 @@ export function buildToolSpec(item) {
 	};
 }
 
-export async function discoverBazaarTools(opts = {}) {
-	const items = await fetchBazaarResources(opts);
+// Pure: bazaar items → deduped tool specs. Name collisions get a numeric
+// suffix (paid_x, paid_x_1, …) so every registered tool name stays unique.
+export function specsFromItems(items) {
 	const specs = [];
 	const seen = new Set();
 	for (const item of items) {
@@ -186,4 +187,8 @@ export async function discoverBazaarTools(opts = {}) {
 		}
 	}
 	return specs;
+}
+
+export async function discoverBazaarTools(opts = {}) {
+	return specsFromItems(await fetchBazaarResources(opts));
 }

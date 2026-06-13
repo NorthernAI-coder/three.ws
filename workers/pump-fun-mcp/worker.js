@@ -287,6 +287,80 @@ function buildHandlers(env) {
 	};
 }
 
+// ── Tool catalog (worker subset) ─────────────────────────────────────────────
+
+// The worker serves the pump.fun data subset of the shared catalog — only what
+// buildHandlers implements. Advertising the full Vercel surface here would be
+// dishonest (calls would 404); the canonical full server lives at
+// https://three.ws/api/pump-fun-mcp.
+const WORKER_TOOL_NAMES = new Set([
+	'get_bonding_curve',
+	'get_token_details',
+	'get_token_holders',
+	'search_tokens',
+	'get_token_trades',
+	'get_trending_tokens',
+	'get_new_tokens',
+	'get_graduated_tokens',
+	'get_king_of_the_hill',
+	'get_creator_profile',
+]);
+const WORKER_TOOLS = TOOLS.filter((t) => WORKER_TOOL_NAMES.has(t.name));
+
+// ── JSON-RPC dispatch ────────────────────────────────────────────────────────
+
+// Dispatch ONE JSON-RPC message; returns the response envelope or null for
+// notifications (no response owed). Mirrors api/pump-fun-mcp.js dispatchRpc
+// minus the auth-gated tools (see README).
+async function dispatchRpc(msg, env) {
+	const { id = null, method, params } = msg || {};
+	const isNotification = msg?.id === undefined && typeof method === 'string';
+
+	if (method === 'initialize') {
+		return rpcEnvelope(id, {
+			protocolVersion: PROTOCOL_VERSION,
+			capabilities: { tools: { listChanged: false } },
+			serverInfo: SERVER_INFO,
+			instructions: INSTRUCTIONS,
+		});
+	}
+	if (method === 'ping') return rpcEnvelope(id, {});
+	if (method === 'notifications/initialized') return null;
+	if (method === 'tools/list') return rpcEnvelope(id, { tools: WORKER_TOOLS });
+	if (method === 'resources/list') return rpcEnvelope(id, { resources: [] });
+	if (method === 'resources/templates/list') return rpcEnvelope(id, { resourceTemplates: [] });
+	if (method === 'prompts/list') return rpcEnvelope(id, { prompts: [] });
+
+	if (method === 'tools/call') {
+		const requestedName = params?.name;
+		// Legacy camelCase aliases resolve to the canonical snake_case names —
+		// both forms are accepted forever (TOOL_NAME_ALIASES is the contract).
+		const name = resolveToolName(requestedName);
+		const args = params?.arguments || {};
+		const handlers = buildHandlers(env);
+		// Own-property lookup only — "__proto__"/"constructor" must not resolve
+		// an inherited member and pass the !handler guard.
+		const handler =
+			typeof name === 'string' && Object.hasOwn(handlers, name) ? handlers[name] : null;
+		if (!handler) {
+			return rpcEnvelope(id, null, { code: -32601, message: `unknown tool: ${requestedName}` });
+		}
+		try {
+			const data = await handler(args);
+			return rpcEnvelope(id, {
+				content: [{ type: 'text', text: JSON.stringify(data) }],
+				structuredContent: data,
+			});
+		} catch (err) {
+			const code = err.rpcCode || -32603;
+			return rpcEnvelope(id, null, { code, message: err.message || 'tool error' });
+		}
+	}
+
+	if (isNotification) return null;
+	return rpcEnvelope(id, null, { code: -32601, message: `unknown method: ${method}` });
+}
+
 // ── HTTP fetch handler ───────────────────────────────────────────────────────
 
 export default {
@@ -295,14 +369,48 @@ export default {
 			return new Response(null, { status: 204, headers: CORS_HEADERS });
 		}
 
+		// GET/HEAD — Streamable HTTP SSE handshake. The worker never initiates
+		// server→client messages, so the stream opens with the correct
+		// content-type and closes immediately (the spec allows the server to
+		// close the SSE stream at any time).
+		if (request.method === 'GET' || request.method === 'HEAD') {
+			return new Response(
+				request.method === 'HEAD'
+					? null
+					: `: ${SERVER_INFO.name} streamable-http — POST JSON-RPC 2.0 to this URL\n\n`,
+				{
+					status: 200,
+					headers: {
+						...CORS_HEADERS,
+						'content-type': 'text/event-stream',
+						'cache-control': 'no-store',
+						'mcp-protocol-version': PROTOCOL_VERSION,
+					},
+				},
+			);
+		}
+
+		// DELETE — session terminate. Stateless per-request worker: nothing to
+		// tear down.
+		if (request.method === 'DELETE') {
+			return new Response(null, { status: 204, headers: CORS_HEADERS });
+		}
+
 		if (request.method !== 'POST') {
-			return new Response('method not allowed', { status: 405, headers: CORS_HEADERS });
+			return new Response('method not allowed', {
+				status: 405,
+				headers: { ...CORS_HEADERS, allow: 'GET, HEAD, POST, DELETE, OPTIONS' },
+			});
 		}
 
 		const respond = (payload, status = 200) =>
 			new Response(JSON.stringify(payload), {
 				status,
-				headers: { ...CORS_HEADERS, 'content-type': 'application/json' },
+				headers: {
+					...CORS_HEADERS,
+					'content-type': 'application/json',
+					'mcp-protocol-version': PROTOCOL_VERSION,
+				},
 			});
 
 		let body;
@@ -312,47 +420,31 @@ export default {
 			return respond(rpcEnvelope(null, null, { code: -32700, message: 'parse error' }), 400);
 		}
 
-		const { id = null, method, params } = body || {};
-
-		if (method === 'initialize') {
+		const isBatch = Array.isArray(body);
+		const messages = isBatch ? body : [body];
+		if (isBatch && messages.length === 0) {
+			return respond(rpcEnvelope(null, null, { code: -32600, message: 'empty batch' }));
+		}
+		if (messages.length > MAX_BATCH) {
 			return respond(
-				rpcEnvelope(id, {
-					protocolVersion: '2024-11-05',
-					capabilities: { tools: {} },
-					serverInfo: { name: 'pump-fun-mcp-worker', version: '0.1.0' },
-				}),
+				rpcEnvelope(null, null, { code: -32600, message: `batch too large (max ${MAX_BATCH})` }),
 			);
 		}
 
-		if (method === 'tools/list') {
-			return respond(rpcEnvelope(id, { tools: TOOLS }));
+		const responses = [];
+		for (const msg of messages) {
+			const envelope = await dispatchRpc(msg, env);
+			if (envelope !== null) responses.push(envelope);
 		}
 
-		if (method === 'tools/call') {
-			const name = params?.name;
-			const args = params?.arguments || {};
-			const handlers = buildHandlers(env);
-			// Own-property lookup only — "__proto__"/"constructor" must not resolve
-			// an inherited member and pass the !handler guard.
-			const handler =
-				typeof name === 'string' && Object.hasOwn(handlers, name) ? handlers[name] : null;
-			if (!handler) {
-				return respond(rpcEnvelope(id, null, { code: -32601, message: `unknown tool: ${name}` }));
-			}
-			try {
-				const data = await handler(args);
-				return respond(
-					rpcEnvelope(id, {
-						content: [{ type: 'text', text: JSON.stringify(data) }],
-						structuredContent: data,
-					}),
-				);
-			} catch (err) {
-				const code = err.rpcCode || -32603;
-				return respond(rpcEnvelope(id, null, { code, message: err.message || 'tool error' }));
-			}
+		// All-notification requests owe no body — 202 Accepted per Streamable HTTP.
+		if (responses.length === 0) {
+			return new Response(null, {
+				status: 202,
+				headers: { ...CORS_HEADERS, 'mcp-protocol-version': PROTOCOL_VERSION },
+			});
 		}
 
-		return respond(rpcEnvelope(id, null, { code: -32601, message: `unknown method: ${method}` }));
+		return respond(isBatch ? responses : responses[0]);
 	},
 };

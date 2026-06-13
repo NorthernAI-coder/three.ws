@@ -164,7 +164,6 @@ Docs, tutorials, and reference.
 Long-form announcements, launches, and writing from three.ws.
 
 - [Blog](https://three.ws/blog): Editorial index of three.ws launches and long-form posts.
-- [Text to 3D Is Live: Forge Turns a Prompt Into a Textured 3D Model](https://three.ws/blog/text-to-3d-forge-launch): Forge is live on three.ws. Type a description — or upload a photo or sketch — and get a textured, downloadable GLB in 30–90 seconds. Free draft lane, AR inspection, shareable links, and one-click attach to your AI agent.
 - [Text to 3D Is Live — Type a Prompt, Download a 3D Model](https://three.ws/blog/text-to-3d-is-live): Forge is live on three.ws: type a description and get a textured, downloadable 3D model (GLB) in your browser. Image to 3D from photos works too. Free draft tier, no install.
 - [3D + AI + Web3 Just Converged: three.ws Shipped the Whole Stack](https://three.ws/blog/3d-ai-crypto-convergence): A web2 unicorn just raised ~$200M to build 3D AI agents. three.ws is the only crypto-native team that already shipped the full stack: browser 3D, a multi-provider MCP runtime, and on-chain agent wallets that pay each other in USDC. Open source on GitHub, published to npm, and live on Anthropic
 - [three.ws Wins DEXTools Social Boost — $5,543 $three Buyback](https://three.ws/blog/three-ws-dextools-social-boost-buyback): three.ws is DEXTools

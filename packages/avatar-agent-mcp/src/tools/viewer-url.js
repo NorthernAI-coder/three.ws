@@ -12,10 +12,28 @@ import { z } from 'zod';
 
 import { VIEWER_BASE, THREE_WS_BASE } from '../config.js';
 import { findAccessory, getSession } from '../lib/avatars.js';
+import { resultShape, sessionEcho } from '../lib/output-shapes.js';
 
 function escAttr(s) {
 	return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
+
+const outputSchema = resultShape({
+	viewerUrl: z.string().optional().describe('Shareable three.ws/viewer URL.'),
+	iframeSnippet: z.string().optional().describe('Paste-ready <iframe> embed.'),
+	glb: z.string().optional().describe('Resolved GLB URL.'),
+	sessionId: sessionEcho.optional(),
+	pose: z.string().nullable().optional(),
+	accessories: z.array(z.string()).nullable().optional(),
+	cameraOrbit: z.string().nullable().optional().describe('Explicit orbit string, "preset:<name>", or null.'),
+	background: z.string().nullable().optional(),
+	ar: z.boolean().optional(),
+	thumbnailUrl: z.string().nullable().optional(),
+	openGraph: z
+		.object({ image: z.string(), url: z.string() })
+		.optional()
+		.describe('OG card image + canonical URL for social sharing.'),
+});
 
 export const def = {
 	name: 'viewer_url',
@@ -43,6 +61,7 @@ export const def = {
 		height: z.number().int().min(64).max(4096).optional().describe('Viewer height in pixels.'),
 		thumbnailUrl: z.string().url().optional().describe('Optional thumbnail to show in the iframe before the GLB loads.'),
 	},
+	outputSchema,
 	async handler(args) {
 		const {
 			sessionId, glbUrl, pose, accessoryIds, background, autoRotate, ar,
