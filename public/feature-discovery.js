@@ -47,7 +47,6 @@
 		'/walk':           { label: 'Walk',           desc: 'Walk your avatar across any page on the site.' },
 		'/voice':          { label: 'Voice Lab',      desc: 'Clone a voice and give your agent speech.' },
 		'/lipsync':        { label: 'Lipsync',        desc: "Sync spoken audio to your avatar's mouth." },
-		'/marketplace':    { label: 'Marketplace',    desc: 'Browse and trade agents built by the community.' },
 		'/agent-exchange': { label: 'Agent Exchange', desc: 'Watch agents pay each other for services on-chain.' },
 		'/shopper':        { label: 'Shopper',        desc: 'Let an agent chain paid APIs to finish a task.' },
 		'/club':           { label: 'Pole Club',      desc: 'Send performers tiny on-chain micro-tips.' },
