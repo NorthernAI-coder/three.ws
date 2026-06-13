@@ -19,7 +19,7 @@ import { z } from 'zod';
 
 import { paid } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
-import { PRESETS, PRESET_GROUPS } from '../../../src/pose-presets.js';
+import { PRESETS, PRESET_GROUPS } from '../lib/pose-presets.js';
 
 const TOOL_NAME = 'get_pose_seed';
 const TOOL_DESCRIPTION =

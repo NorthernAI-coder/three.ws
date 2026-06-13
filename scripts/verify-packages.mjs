@@ -30,7 +30,7 @@ const PACKAGES = [
   { dir: 'agent-ui-sdk',                name: '@three-ws/agent-ui',       type: 'resolve', subpaths: ['.'] },
   { dir: 'sdk',                         name: '@three-ws/sdk',            type: 'resolve', subpaths: ['.'] },
   { dir: 'packages/avatar-cli',         name: '@three-ws/avatar-cli',     type: 'cli',     bin: 'three-ws-avatar', siblings: ['packages/avatar-schema'] },
-  { dir: 'mcp-server',                  name: '@3d-agent/mcp-server',     type: 'mcp',     bin: '3d-agent-mcp',        minTools: 15 },
+  { dir: 'mcp-server',                  name: '@3d-agent/mcp-server',     type: 'mcp',     bin: '3d-agent-mcp',        minTools: 15, env: { MCP_SVM_PAYMENT_ADDRESS: 'THREEsynthetic11111111111111111111111111111' } },
   { dir: 'packages/pumpfun-mcp',        name: '@three-ws/pumpfun-mcp',    type: 'mcp',     bin: 'pumpfun-mcp',         minTools: 20 },
   { dir: 'packages/ibm-watsonx-mcp',    name: '@three-ws/ibm-watsonx-mcp',type: 'mcp',     bin: 'ibm-watsonx-mcp',     minTools: 6, env: { WATSONX_API_KEY: 'test', WATSONX_PROJECT_ID: 'test' } },
   { dir: 'packages/ibm-x402-mcp',       name: '@three-ws/ibm-x402-mcp',   type: 'mcp',     bin: 'ibm-x402-mcp',        minTools: 6, env: { MCP_SVM_PAYMENT_ADDRESS: 'THREEsynthetic11111111111111111111111111111', WATSONX_API_KEY: 'test', WATSONX_PROJECT_ID: 'test' } },

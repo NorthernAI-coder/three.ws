@@ -20,7 +20,7 @@ import { z } from 'zod';
 
 import { paid } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
-import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET } from '../../../api/_lib/pump-vanity.js';
+import { grindMintKeypair, estimateAttempts, BASE58_ALPHABET } from '../lib/pump-vanity.js';
 import bs58 from 'bs58';
 
 const TOOL_NAME = 'vanity_grinder';
