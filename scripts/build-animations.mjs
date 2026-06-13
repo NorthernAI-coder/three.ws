@@ -276,10 +276,11 @@ function patchHomeClipCount(count) {
 	// Round down to nearest 10 for a "X+" style claim; minimum 89.
 	const display = `${Math.max(89, Math.floor(count / 10) * 10)}+`;
 
-	// Match any "<digits>+ motion clips" or "<digits>+ animation clips" pattern.
+	// Match "<digits>+ motion/animation clips" and the span-wrapped bento count.
 	const updated = html
 		.replace(/\d+\+ motion clips/g, `${display} motion clips`)
-		.replace(/\d+\+ animation clips/g, `${display} animation clips`);
+		.replace(/\d+\+ animation clips/g, `${display} animation clips`)
+		.replace(/(<span id="bento-anim-count">)\d+\+(<\/span>)/, `$1${display}$2`);
 
 	if (updated !== html) {
 		writeFileSync(homePath, updated);
