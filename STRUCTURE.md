@@ -33,16 +33,22 @@ bottom.
 Declared in [package.json](package.json):
 
 ```
-agent-payments-sdk/      → @three-ws/agent-payments (fork of @pump-fun/agent-payments-sdk@3.0.3)
-agent-ui-sdk/            → @three-ws/agent-ui
-avatar-sdk/              → @three-ws/avatar
-character-studio/        → @m3-org/characterstudio (fork)
-mcp-bridge/              → @three-ws/mcp-bridge
-mcp-server/              → @three-ws/mcp-server
-multiplayer/             → @three-ws/multiplayer
-packages/avatar-schema/  → @three-ws/avatar-schema
-packages/avatar-cli/     → @three-ws/avatar-cli
-packages/viewer-presets/ → @three-ws/viewer-presets
+agent-payments-sdk/           → @three-ws/agent-payments (fork of @pump-fun/agent-payments-sdk@3.0.3)
+agent-ui-sdk/                 → @three-ws/agent-ui
+avatar-sdk/                   → @three-ws/avatar
+character-studio/             → @m3-org/characterstudio (fork)
+mcp-bridge/                   → @three-ws/mcp-bridge
+mcp-server/                   → @three-ws/mcp-server
+multiplayer/                  → @three-ws/multiplayer
+packages/avatar-schema/       → @three-ws/avatar-schema
+packages/avatar-cli/          → @three-ws/avatar-cli
+packages/viewer-presets/      → @three-ws/viewer-presets
+packages/avatar-agent-mcp/    → @three-ws/avatar-agent-mcp  (MCP server — avatar agent tools)
+packages/pumpfun-mcp/         → @three-ws/pumpfun-mcp       (MCP server — pump.fun launch tools)
+packages/ibm-watsonx-mcp/     → @three-ws/ibm-watsonx-mcp   (MCP server — IBM watsonx.ai)
+packages/ibm-x402-mcp/        → @three-ws/ibm-x402-mcp      (MCP server — IBM x402 payments)
+packages/three-token-mcp/     → @three-ws/three-token-mcp   (MCP server — $THREE token tools)
+packages/threews-avatar-mcp/  → @three-ws/threews-avatar-mcp (MCP server — three.ws avatar ops)
 ```
 
 `packages/*` is the home for clean, publishable spec/schema/preset packages

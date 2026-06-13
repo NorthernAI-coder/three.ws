@@ -33,7 +33,7 @@ For local development:
 
 ```bash
 npm run dev
-# MCP endpoint: http://localhost:5173/api/mcp
+# MCP endpoint: http://localhost:3000/api/mcp
 # Auth is still enforced — use an API key or OAuth token.
 ```
 
@@ -468,7 +468,7 @@ Clone the repo and start the dev server:
 git clone https://github.com/nirholas/three.ws
 npm install
 npm run dev
-# MCP endpoint: http://localhost:5173/api/mcp
+# MCP endpoint: http://localhost:3000/api/mcp
 ```
 
 Authentication is still enforced in dev mode. Use your API key in the `Authorization` header, or point a local OAuth client at the dev server.
@@ -476,7 +476,7 @@ Authentication is still enforced in dev mode. Use your API key in the `Authoriza
 Test the server with `mcp-inspector`:
 
 ```bash
-npx @modelcontextprotocol/inspector http://localhost:5173/api/mcp
+npx @modelcontextprotocol/inspector http://localhost:3000/api/mcp
 ```
 
 `mcp-inspector` gives you a browser UI to call tools manually, inspect responses, and validate JSON schemas before wiring up a full Claude workflow.
@@ -487,7 +487,7 @@ To point Claude Code at your local server, update `.mcp.json`:
 {
   "mcpServers": {
     "3d-agent": {
-      "url": "http://localhost:5173/api/mcp",
+      "url": "http://localhost:3000/api/mcp",
       "headers": {
         "Authorization": "Bearer 3da_live_xxxxx"
       }

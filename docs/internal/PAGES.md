@@ -216,7 +216,7 @@ Route definitions are in [chat/src/App.svelte](../../chat/src/App.svelte). Marke
 A high-level map of what each page does, grouped by capability.
 
 ### Viewer & Rendering
-- **`/app`** — three.js r176 WebGL viewer; drag-drop GLB; Draco/KTX2/Meshopt; HDR; PBR; OrbitControls; dat.GUI parameter tweaking; gltf-validator integration.
+- **`/app`** — three.js r184 WebGL viewer; drag-drop GLB; Draco/KTX2/Meshopt; HDR; PBR; OrbitControls; dat.GUI parameter tweaking; gltf-validator integration.
 - **`/validation`** — standalone Khronos glTF validator with line-level error reporting.
 
 ### Agent Creation & Identity

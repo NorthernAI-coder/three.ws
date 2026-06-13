@@ -463,7 +463,7 @@ The production configuration points to the hosted MCP endpoint and authenticates
 }
 ```
 
-Replace the `Authorization` value with an API key from your dashboard. For local development, point `url` at `http://localhost:5173/api/mcp`.
+Replace the `Authorization` value with an API key from your dashboard. For local development, point `url` at `http://localhost:3000/api/mcp`.
 
 **Never commit a real API key** in this file. Add `.mcp.json` to `.gitignore` or use a development-only key with limited permissions.
 

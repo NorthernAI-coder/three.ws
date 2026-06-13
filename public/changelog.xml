@@ -39,6 +39,14 @@
 			<description>Every three.ws MCP server is now publicly installable and discoverable. The eight install-and-run servers ship on npm under the @three-ws scope — pull any of them with one command, e.g. npx -y @three-ws/mcp-server (3D + agent tools), @three-ws/three-token-mcp ($THREE price, hold, and burn), @three-ws/pumpfun-mcp, @three-ws/ibm-x402-mcp, @three-ws/avatar-agent, and more. Together with the six hosted remote servers, all 14 are registered in the official Model Context Protocol registry, so any MCP-compatible client — Claude, Cursor, and others — can find them by name. No more dead install links: the documented commands now work.</description>
 		</item>
 		<item>
+			<title>Animation library expands: 100+ clips, FBX and BVH upload</title>
+			<link>https://three.ws/walk</link>
+			<guid isPermaLink="false">2026-06-13:Animation library expands: 100+ clips, FBX and BVH upload</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform animation library grows to 100+ retargeted motion clips drawn from Mixamo, Avaturn packs, and MIT-licensed Three.js example models (Soldier, Michelle, Xbot). The agent dashboard's Upload clip dialog now accepts .glb, .fbx, and .bvh files — FBX and BVH are converted to GLB client-side via three.js loaders before upload, so creators can bring mocap data directly from capture tools without a separate conversion step. A full Mixamo catalog download pipeline (scripts/mixamo-all.mjs) is in place to expand the library to 2,000+ clips as soon as credentials are supplied.</description>
+		</item>
+		<item>
 			<title>AR is live on the homepage — place any 3D model in your real space from the front page</title>
 			<link>https://three.ws/blog/see-your-3d-in-ar</link>
 			<guid isPermaLink="false">2026-06-13:AR is live on the homepage — place any 3D model in your real space from the front page</guid>

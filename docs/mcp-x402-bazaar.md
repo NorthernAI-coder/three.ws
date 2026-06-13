@@ -64,5 +64,5 @@ mcp-publisher publish --file server-bazaar.json
 
 ```bash
 npm run dev
-npx @modelcontextprotocol/inspector http://localhost:5173/api/mcp-bazaar
+npx @modelcontextprotocol/inspector http://localhost:3000/api/mcp-bazaar
 ```

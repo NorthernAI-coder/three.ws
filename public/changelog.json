@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T09:59:15.280Z",
+	"generated_at": "2026-06-13T10:02:14.558Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -46,6 +46,17 @@
 			"tags": [
 				"sdk",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "Animation library expands: 100+ clips, FBX and BVH upload",
+			"summary": "The platform animation library grows to 100+ retargeted motion clips drawn from Mixamo, Avaturn packs, and MIT-licensed Three.js example models (Soldier, Michelle, Xbot). The agent dashboard's Upload clip dialog now accepts .glb, .fbx, and .bvh files — FBX and BVH are converted to GLB client-side via three.js loaders before upload, so creators can bring mocap data directly from capture tools without a separate conversion step. A full Mixamo catalog download pipeline (scripts/mixamo-all.mjs) is in place to expand the library to 2,000+ clips as soon as credentials are supplied.",
+			"link": "/walk",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
