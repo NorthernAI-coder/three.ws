@@ -24,10 +24,22 @@ function rpcError(code, message, data) {
 	return e;
 }
 
+// MCP tool annotations (2025-06-18 spec). destructiveHint defaults to TRUE when
+// omitted, so every tool sets all four hints explicitly. Reads of account/gallery
+// state are not idempotent (the underlying data and signed URLs change between
+// calls) but never write anything.
+const READ_ANNOTATIONS = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: true,
+};
+
 export const toolDefs = [
 	{
 		name: 'list_my_avatars',
 		title: 'List my avatars',
+		annotations: READ_ANNOTATIONS,
 		description:
 			"List the authenticated user's avatars. Returns id, name, slug, size, visibility, and direct model_url (when visibility permits).",
 		inputSchema: {
@@ -59,6 +71,7 @@ export const toolDefs = [
 	{
 		name: 'get_avatar',
 		title: 'Get avatar',
+		annotations: READ_ANNOTATIONS,
 		description:
 			'Fetch a single avatar by id or by owner+slug. Returns metadata and a model_url (public/unlisted) or short-lived signed URL (private).',
 		inputSchema: {
@@ -92,6 +105,7 @@ export const toolDefs = [
 	{
 		name: 'search_public_avatars',
 		title: 'Search public avatars',
+		annotations: READ_ANNOTATIONS,
 		description:
 			'Search the public avatar gallery. Useful for finding characters to render without prior knowledge of an id.',
 		inputSchema: {
@@ -122,6 +136,8 @@ export const toolDefs = [
 	{
 		name: 'render_avatar',
 		title: 'Render avatar',
+		// Builds viewer HTML in-memory; persists nothing — a read, not a write.
+		annotations: READ_ANNOTATIONS,
 		description:
 			'Produce an HTML <model-viewer> snippet that renders the given avatar. ' +
 			'Return this text as an inline HTML artifact to display an interactive 3D avatar.',
@@ -210,6 +226,15 @@ export const toolDefs = [
 	{
 		name: 'render_avatar_image',
 		title: 'Render an avatar to an image',
+		// Persists the render to storage, but the cache keys on the exact
+		// parameters: repeating a call returns the cached image with no
+		// additional effect — idempotent, non-destructive write.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 		description:
 			'Render a stored avatar to a real PNG/JPEG/WebP image (headless three.js) and ' +
 			'return its URL — ready for an <img> tag, social card, or game loader. Choose a ' +
@@ -326,6 +351,13 @@ export const toolDefs = [
 	{
 		name: 'delete_avatar',
 		title: 'Delete avatar',
+		// Deletes a user's avatar — the destructive hint is real here.
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description: 'Soft-delete an avatar you own. Requires avatars:delete scope.',
 		inputSchema: {
 			type: 'object',

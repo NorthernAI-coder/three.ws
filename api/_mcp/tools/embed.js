@@ -124,6 +124,14 @@ export const toolDefs = [
 	{
 		name: 'get_embed_code',
 		title: 'Get embed code',
+		// Pure read: builds the iframe snippet from existing records, mutates
+		// nothing, and the same target yields the same snippet.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: true,
+		},
 		description:
 			'Return a ready-to-paste <iframe> embed snippet (plus shareable URL, oEmbed URL, and OG thumbnail) for a three.ws avatar, on-chain agent, or Forge creation. Embed a persistent 3D avatar into Notion, Webflow, Framer, a blog, or any site as easily as a YouTube video. Provide exactly one target: agent_id, OR chain_id + onchain_agent_id, OR creation_id.',
 		inputSchema: {

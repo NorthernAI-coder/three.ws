@@ -21,13 +21,15 @@ addFormats(ajv);
 
 // Public tools/list entries — strip the server-side `handler` and the spec-only
 // `example`/`output` (carried into the bazaar extension instead), and attach
-// pricing + discovery.
+// pricing + discovery. `annotations` (read-only/destructive/idempotent/
+// open-world hints) ride through to the wire verbatim.
 export const TOOL_CATALOG = toolDefs.map((def) => {
 	const price = priceFor(def.name);
 	const entry = {
 		name: def.name,
 		title: def.title,
 		description: def.description,
+		annotations: def.annotations,
 		inputSchema: def.inputSchema,
 	};
 	if (price) {

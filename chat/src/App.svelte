@@ -1603,6 +1603,26 @@
 			console.warn('[x402-pay] bootstrap failed:', err);
 		}
 
+		// Same one-time bootstrap for the Text → 3D Forge pack, so "make me a
+		// 3D model of…" works on a fresh chat without a trip through Tool Packs.
+		// Honors removal via the bootstrap flag, exactly like the x402 pack.
+		try {
+			if (!localStorage.getItem('forgePackBootstrapped')) {
+				const forgePack = curatedToolPacks.find((p) => p.id === 'forge-text-to-3d');
+				if (forgePack && !$toolSchema.some((g) => g.name === forgePack.name)) {
+					$toolSchema = [...$toolSchema, { name: forgePack.name, schema: forgePack.schema }];
+				}
+				if (forgePack && convo && (convo.messages?.length ?? 0) === 0) {
+					const names = forgePack.schema.map((t) => t.function?.name).filter(Boolean);
+					convo.tools = Array.from(new Set([...(convo.tools || []), ...names]));
+					saveConversation(convo);
+				}
+				localStorage.setItem('forgePackBootstrapped', '1');
+			}
+		} catch (err) {
+			console.warn('[forge-text-to-3d] bootstrap failed:', err);
+		}
+
 		// When the user installs a Local skill from the Skills modal, auto-enable
 		// the new tools in the current conversation so the LLM can call them on
 		// the next turn — same UX as the x402-pay bootstrap above, but

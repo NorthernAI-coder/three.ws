@@ -2,6 +2,7 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 
 import { buildGettingStartedTool } from '../_lib/mcp-getting-started.js';
+import { priceUsdcForTier } from '../_lib/forge-tiers.js';
 import { toolDefs as studioDefs } from './tools/studio.js';
 import { toolDefs as modelDefs } from '../_mcp/tools/models.js';
 import { toolDefs as animationDefs } from '../_mcp/tools/animations.js';
@@ -20,16 +21,28 @@ const reusedModelDefs = modelDefs.filter(
 const baseDefs = [...studioDefs, ...reusedModelDefs, ...animationDefs];
 
 // Free, public entry point — listed first so discovery clients see it up top.
-const gettingStarted = buildGettingStartedTool({
-	server: 'three.ws 3D Studio',
-	tagline: 'Turn text or images into interactive, animation-ready 3D models.',
-	tools: baseDefs,
-	access: [
-		'Connect with a three.ws account (OAuth) or an x402 wallet — most studio tools just need a connected client.',
-		'Generation tools (text_to_3d, image_to_3d) run async jobs; poll generation_status for the GLB and an inline <model-viewer> artifact.',
-	],
-	links: { homepage: 'https://three.ws', source: 'https://github.com/nirholas/three.ws' },
-});
+// Annotations: a static, local overview built at module load — read-only,
+// deterministic, closed-world (destructiveHint is explicit because the MCP
+// spec defaults it to true when omitted).
+const gettingStarted = {
+	...buildGettingStartedTool({
+		server: 'three.ws 3D Studio',
+		tagline: 'Turn text or images into interactive, animation-ready 3D models.',
+		tools: baseDefs,
+		access: [
+			'Discovery is free: initialize, tools/list, ping, and this tool need no credentials.',
+			`Connect with a three.ws account (OAuth) to run every tool operator-funded, or pay per call with an x402 wallet (USDC on Base or Solana) — generation is priced by tier ($${priceUsdcForTier('draft')} draft / $${priceUsdcForTier('standard')} standard / $${priceUsdcForTier('high')} high), mesh edits $0.01–0.05, and status/preview/inspection tools are free.`,
+			'Generation tools (text_to_3d, image_to_3d) run async jobs; poll generation_status for the GLB and an inline <model-viewer> artifact.',
+		],
+		links: { homepage: 'https://three.ws', source: 'https://github.com/nirholas/three.ws' },
+	}),
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+};
 
 const allDefs = [gettingStarted, ...baseDefs];
 

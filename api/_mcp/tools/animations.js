@@ -159,6 +159,14 @@ export const toolDefs = [
 	{
 		name: 'list_animations',
 		title: 'List animation presets',
+		// Reads the platform's own static, curated manifest — deterministic
+		// and closed-world.
+		annotations: {
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
 		description:
 			'List the curated, retargetable animation presets in the three.ws library — name, label, category, and whether the clip loops. Use this to discover valid `animation` values for apply_animation.',
 		inputSchema: {
@@ -200,6 +208,12 @@ export const toolDefs = [
 	{
 		name: 'apply_animation',
 		title: 'Apply an animation preset to a rigged model',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Retarget a curated animation preset onto a caller-supplied rigged humanoid GLB. Returns the retargeted three.js AnimationClip JSON (keyed to the rig\'s actual bone names, hip translation rescaled to its proportions) plus a retarget report — load it alongside the model and play. Set format="glb" to also bake an animated GLB server-side (best-effort: textured rigs may exceed the headless bake budget and fall back to clip JSON — the /pose gallery is the guaranteed GLB export). SSRF-hardened: only public https model URLs are fetched.',
 		inputSchema: {
@@ -357,6 +371,12 @@ export const toolDefs = [
 	{
 		name: 'text_to_animation',
 		title: 'Generate an animation from a text prompt and retarget it onto a model',
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: false,
+			idempotentHint: false,
+			openWorldHint: true,
+		},
 		description:
 			'Generate a brand-new motion from a natural-language prompt (e.g. "waving confidently", "a slow tai-chi sweep") with a motion-diffusion model, then retarget it onto a caller-supplied rigged humanoid GLB — the same retarget engine apply_animation uses. Returns the retargeted three.js AnimationClip JSON (or a baked animated GLB) plus a report. Unlike preset libraries, the motion does not pre-exist: it is synthesized for the prompt. Requires the text2motion worker configured on the deployment.',
 		inputSchema: {

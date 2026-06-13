@@ -93,10 +93,22 @@ async function solanaPassport(asset, network) {
 	};
 }
 
+// MCP tool annotations (2025-06-18 spec): public, read-only views over the
+// live on-chain attestation index — new attestations land between calls, so
+// not idempotent. destructiveHint defaults to TRUE when omitted, so it is set
+// explicitly.
+const ATTESTATION_READ_ANNOTATIONS = {
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: true,
+};
+
 export const toolDefs = [
 	{
 		name: 'solana_agent_reputation',
 		title: 'Get Solana agent reputation',
+		annotations: ATTESTATION_READ_ANNOTATIONS,
 		description:
 			'Computed reputation summary for a Solana-registered three.ws agent. Returns total/verified feedback counts, score averages (raw + verified-only), validation pass/fail, task acceptance, and dispute counts. Verified score only includes feedback whose task was acknowledged on-chain by the agent owner. Public; no auth required.',
 		inputSchema: {
@@ -119,6 +131,7 @@ export const toolDefs = [
 	{
 		name: 'solana_agent_attestations',
 		title: 'List Solana agent attestations',
+		annotations: ATTESTATION_READ_ANNOTATIONS,
 		description:
 			'List recent on-chain attestations about a Solana-registered agent (feedback, validation, task offers, acceptances, disputes). Backed by the three.ws indexer for sub-100ms reads. Each row includes verified/disputed/revoked flags. Public; no auth required.',
 		inputSchema: {
@@ -152,6 +165,7 @@ export const toolDefs = [
 	{
 		name: 'solana_agent_passport',
 		title: 'Get Solana agent passport',
+		annotations: ATTESTATION_READ_ANNOTATIONS,
 		description:
 			'Full discovery card for a Solana agent: identity (Metaplex Core asset), owner wallet, reputation summary, latest validation result, and attestation schema endpoint. Equivalent to an ERC-8004 passport — use this when one tool call should answer "who is this agent and can I trust them?".',
 		inputSchema: {

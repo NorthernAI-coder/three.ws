@@ -14,7 +14,7 @@
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
-import { priceBatch } from './_lib/mcp-batch-price.js';
+import { priceBatch, isDiscoveryOnlyBatch } from './_lib/mcp-batch-price.js';
 import { PROTOCOL_VERSION, dispatch } from './_mcpibm/dispatch.js';
 import { graniteX402Amount } from './_mcpibm/pricing.js';
 import { isFreeTool } from './_mcpibm/catalog.js';
@@ -25,6 +25,7 @@ import {
 	authenticateRequest,
 	handleSse,
 	handleTerminate,
+	isMcpProtocolClient,
 } from './_mcp/auth.js';
 import { sendX402Error } from './_mcp/payments.js';
 
@@ -54,11 +55,14 @@ export default wrap(async (req, res) => {
 	// A batch composed solely of the free public ibm_granite_getting_started tool
 	// is served without an x402 payment or OAuth token so any client — including
 	// non-x402 hosts like watsonx Orchestrate — can discover the server first.
+	// Discovery-only batches (initialize / tools/list / ping) from plain x402
+	// agents and crawlers are also free; MCP protocol clients still get the
+	// 401 that starts their OAuth flow.
 	const result = await authenticateRequest(req, res, {
 		x402Amount,
 		resourcePath: RESOURCE_PATH,
 		challenge: GRANITE_CHALLENGE,
-		allowFree: allFree,
+		allowFree: allFree || (isDiscoveryOnlyBatch(body) && !isMcpProtocolClient(req)),
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;

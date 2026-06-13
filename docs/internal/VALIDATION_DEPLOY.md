@@ -467,6 +467,6 @@ Update `REGISTRY_DEPLOYMENTS` object—it should already have entries for all 15
 - [contracts/CLAUDE.md](../contracts/CLAUDE.md) — Foundry setup & conventions
 - [contracts/src/ValidationRegistry.sol](../contracts/src/ValidationRegistry.sol) — Contract source
 - [src/erc8004/abi.js](../src/erc8004/abi.js) — Frontend registry deployments
-- [docs/ARCHITECTURE.md](./ARCHITECTURE.md) — System overview
+- [docs/architecture.md](../architecture.md) — System overview
 - [Foundry Book](https://book.getfoundry.sh/) — Forge docs
 - [CREATE2 deep dive](https://ethereum.org/en/developers/docs/accounts/#contract-accounts) — How deterministic addresses work

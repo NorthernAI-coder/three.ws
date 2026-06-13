@@ -4,7 +4,7 @@ import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
 import { x402AmountForTool } from './_lib/pump-pricing.js';
-import { priceBatch } from './_lib/mcp-batch-price.js';
+import { priceBatch, isDiscoveryOnlyBatch } from './_lib/mcp-batch-price.js';
 import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcp/dispatch.js';
 import {
 	send401,
@@ -12,6 +12,7 @@ import {
 	authenticateRequest,
 	handleSse,
 	handleTerminate,
+	isMcpProtocolClient,
 } from './_mcp/auth.js';
 import { sendX402Error } from './_mcp/payments.js';
 
@@ -39,10 +40,12 @@ export default wrap(async (req, res) => {
 
 	// A batch composed solely of free public tools (e.g. getting_started) is
 	// served without an OAuth token or x402 payment so any client can discover
-	// the server first.
+	// the server first. Likewise discovery-only batches (initialize /
+	// tools/list / ping) from plain x402 agents and crawlers — but NOT from
+	// MCP protocol clients, which need the 401 to start their OAuth flow.
 	const result = await authenticateRequest(req, res, {
 		x402Amount,
-		allowFree: allFree,
+		allowFree: allFree || (isDiscoveryOnlyBatch(body) && !isMcpProtocolClient(req)),
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;

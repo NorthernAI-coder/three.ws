@@ -385,7 +385,7 @@ Requires `npm run build:lib` to have completed first. Runs automatically as part
 
 ### Versioning
 
-The platform follows semantic versioning. The web component version tracks `package.json` (currently `1.5.1`). The AgentKit SDK is independently versioned in `sdk/package.json` (currently `0.1.0`). Breaking changes only ship in major releases. See `sdk/CHANGELOG.md` for the AgentKit release history.
+The platform follows semantic versioning. The web component version tracks `package.json` (currently `1.5.1`). The AgentKit SDK is independently versioned in `sdk/package.json` (currently `0.2.0`). Breaking changes only ship in major releases. See `sdk/CHANGELOG.md` for the AgentKit release history.
 
 ---
 

@@ -70,8 +70,8 @@ export async function complete(convo, onupdate, onabort) {
 		messages = limitMessagesContext(messages, param.messagesContextLimit);
 	}
 
-	// TODO: Actually it works with Anthropic also. How to show it as disabled for unsupported?
-	// Filter out unclosed messages from being submitted if using external models
+	// Drop a trailing unclosed, empty assistant message so we never submit a
+	// dangling turn — applies across every provider, Anthropic included.
 	if (
 		convo.messages[convo.messages.length - 1].unclosed &&
 		convo.messages[convo.messages.length - 1].content === ''

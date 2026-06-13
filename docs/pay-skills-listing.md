@@ -54,7 +54,7 @@ const { model, suggestions } = await res.json();
 
 // Get a token's 3D representation
 const res2 = await fetchWithPayment(
-  "https://three.ws/api/x402/mint-to-mesh?mint=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+  "https://three.ws/api/x402/mint-to-mesh?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
 );
 const { glb } = await res2.json(); // base64 GLB bytes
 ```

@@ -1,11 +1,11 @@
 // Cloudflare Workers mirror of /api/pump-fun-mcp (Vercel).
 //
-// Implements the MCP Streamable HTTP transport (JSON-RPC 2.0 over POST).
-// Tool definitions are shared with the Vercel handler via src/pump/mcp-tools.js.
-// Handler logic is adapted from api/pump-fun-mcp.js — the only differences are:
-//   • CF Workers fetch handler (Request/Response) instead of Node req/res.
-//   • Env vars come from the `env` binding parameter, not process.env.
-//   • No rate limiting (handled at the Cloudflare edge layer).
+// Implements the MCP Streamable HTTP transport: POST — JSON-RPC 2.0 (single +
+// batch), GET/HEAD — SSE handshake, DELETE — session terminate. Tool
+// definitions (and the snake_case ↔ camelCase alias map) are shared with the
+// Vercel handler via src/pump/mcp-tools.js. Handler logic is adapted from
+// api/pump-fun-mcp.js — see README.md for the documented divergences (no
+// auth/x402-gated tools, on-chain + indexer subset only).
 //
 // Secrets (wrangler secret put <NAME>):
 //   SOLANA_RPC_URL          mainnet RPC endpoint (default: public)
@@ -15,16 +15,31 @@
 //
 // Deploy: wrangler deploy
 
-import { TOOLS, rpcError, rpcEnvelope } from '../../src/pump/mcp-tools.js';
+import { TOOLS, resolveToolName, rpcError, rpcEnvelope } from '../../src/pump/mcp-tools.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const GRADUATION_REAL_SOL_LAMPORTS = 85_000_000_000n;
 
+// Keep in sync with api/pump-fun-mcp.js (which mirrors api/_lib/mcp-dispatch.js).
+const PROTOCOL_VERSION = '2025-06-18';
+const SERVER_INFO = { name: 'pump-fun-mcp-worker', version: '1.0.0' };
+const INSTRUCTIONS =
+	'Free, read-only pump.fun + Solana data tools (Cloudflare Workers mirror of ' +
+	'https://three.ws/api/pump-fun-mcp). Token discovery (search_tokens, ' +
+	'get_trending_tokens, get_new_tokens, get_graduated_tokens, get_king_of_the_hill), ' +
+	'on-chain analysis (get_bonding_curve, get_token_holders, get_token_details, ' +
+	'get_token_trades), and creator intelligence (get_creator_profile). All data is ' +
+	'live and on-chain; no API keys required.';
+const MAX_BATCH = 16;
+
 const CORS_HEADERS = {
 	'access-control-allow-origin': '*',
-	'access-control-allow-methods': 'POST,OPTIONS',
-	'access-control-allow-headers': 'content-type',
+	'access-control-allow-methods': 'GET,HEAD,POST,DELETE,OPTIONS',
+	'access-control-allow-headers':
+		'authorization, content-type, mcp-session-id, mcp-protocol-version, x-payment',
+	'access-control-expose-headers': 'mcp-protocol-version',
+	'access-control-max-age': '86400',
 };
 
 // ── Solana helpers (adapted for CF Workers env bindings) ─────────────────────
@@ -235,14 +250,15 @@ function indexerHandler(name, env) {
 				`tool "${name}" requires the pump.fun indexer (PUMPFUN_BOT_URL) to be configured`,
 			);
 		}
+		// Canonical tool name → the upstream bot's (camelCase) surface.
 		const upstreamMap = {
-			searchTokens: { tool: 'searchTokens', args: { query: args.query, limit: args.limit } },
-			getTokenTrades: { tool: 'getTokenTrades', args: { mint: args.mint, limit: args.limit } },
-			getTrendingTokens: { tool: 'getTrendingTokens', args: { limit: args.limit } },
-			getNewTokens: { tool: 'getNewTokens', args: { limit: args.limit } },
-			getGraduatedTokens: { tool: 'getGraduatedTokens', args: { limit: args.limit } },
-			getKingOfTheHill: { tool: 'getKingOfTheHill', args: {} },
-			getCreatorProfile: { tool: 'getCreatorIntel', args: { wallet: args.creator } },
+			search_tokens: { tool: 'searchTokens', args: { query: args.query, limit: args.limit } },
+			get_token_trades: { tool: 'getTokenTrades', args: { mint: args.mint, limit: args.limit } },
+			get_trending_tokens: { tool: 'getTrendingTokens', args: { limit: args.limit } },
+			get_new_tokens: { tool: 'getNewTokens', args: { limit: args.limit } },
+			get_graduated_tokens: { tool: 'getGraduatedTokens', args: { limit: args.limit } },
+			get_king_of_the_hill: { tool: 'getKingOfTheHill', args: {} },
+			get_creator_profile: { tool: 'getCreatorIntel', args: { wallet: args.creator } },
 		};
 		const upstream = upstreamMap[name];
 		if (!upstream) throw rpcError(-32601, `tool "${name}" not implemented`);
@@ -254,18 +270,20 @@ function indexerHandler(name, env) {
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
+// Keyed by CANONICAL (snake_case) names. tools/call resolves legacy camelCase
+// aliases through resolveToolName before this lookup.
 function buildHandlers(env) {
 	return {
-		getBondingCurve: (a) => handleGetBondingCurve(a, env),
-		getTokenDetails: (a) => handleGetTokenDetails(a, env),
-		getTokenHolders: (a) => handleGetTokenHolders(a, env),
-		searchTokens: indexerHandler('searchTokens', env),
-		getTokenTrades: indexerHandler('getTokenTrades', env),
-		getTrendingTokens: indexerHandler('getTrendingTokens', env),
-		getNewTokens: indexerHandler('getNewTokens', env),
-		getGraduatedTokens: indexerHandler('getGraduatedTokens', env),
-		getKingOfTheHill: indexerHandler('getKingOfTheHill', env),
-		getCreatorProfile: indexerHandler('getCreatorProfile', env),
+		get_bonding_curve: (a) => handleGetBondingCurve(a, env),
+		get_token_details: (a) => handleGetTokenDetails(a, env),
+		get_token_holders: (a) => handleGetTokenHolders(a, env),
+		search_tokens: indexerHandler('search_tokens', env),
+		get_token_trades: indexerHandler('get_token_trades', env),
+		get_trending_tokens: indexerHandler('get_trending_tokens', env),
+		get_new_tokens: indexerHandler('get_new_tokens', env),
+		get_graduated_tokens: indexerHandler('get_graduated_tokens', env),
+		get_king_of_the_hill: indexerHandler('get_king_of_the_hill', env),
+		get_creator_profile: indexerHandler('get_creator_profile', env),
 	};
 }
 

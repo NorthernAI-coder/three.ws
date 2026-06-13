@@ -25,18 +25,29 @@ const baseDefs = [
 
 // Free, public entry point — listed first so discovery clients see it up top.
 // priceFor annotates the per-call price of the paid tools in the overview.
-const gettingStarted = buildGettingStartedTool({
-	server: 'three.ws',
-	tagline:
-		'The main three.ws MCP server: render and manage 3D avatars and models, animations, an agent registry, agent memory, and live pump.fun market data.',
-	tools: baseDefs,
-	priceFor,
-	access: [
-		'Connect with a three.ws account (OAuth) for your account-scoped avatars, agents, and memory.',
-		'Or pay per call via x402 (USDC) for the public tools — each priced tool shows its price in tools/list.',
-	],
-	links: { homepage: 'https://three.ws', source: 'https://github.com/nirholas/three.ws' },
-});
+// Annotations: a static, local overview built at module load — read-only,
+// deterministic, closed-world (destructiveHint is explicit because the MCP
+// spec defaults it to true when omitted).
+const gettingStarted = {
+	...buildGettingStartedTool({
+		server: 'three.ws',
+		tagline:
+			'The main three.ws MCP server: render and manage 3D avatars and models, animations, an agent registry, agent memory, and live pump.fun market data.',
+		tools: baseDefs,
+		priceFor,
+		access: [
+			'Connect with a three.ws account (OAuth) for your account-scoped avatars, agents, and memory.',
+			'Or pay per call via x402 (USDC) for the public tools — each priced tool shows its price in tools/list.',
+		],
+		links: { homepage: 'https://three.ws', source: 'https://github.com/nirholas/three.ws' },
+	}),
+	annotations: {
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	},
+};
 
 const allDefs = [gettingStarted, ...baseDefs];
 

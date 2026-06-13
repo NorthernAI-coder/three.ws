@@ -24,7 +24,31 @@ for (const m of viteSrc.matchAll(/'(\/[^']*)':\s*resolve\(root,\s*'([^']+)'\)/g)
 	viteMap.set(m[1].replace(/\/$/, '') || '/', m[2]);
 }
 
+// Routes whose serving file can't be derived by convention: SPA sub-routes,
+// markdown-backed docs views, and dynamic API-served documents.
+const MANUAL_SOURCES = {
+	'/dashboard/account': 'pages/dashboard-next/account.html',
+	'/dashboard/analytics': 'pages/dashboard-next/analytics.html',
+	'/dashboard/settings': 'pages/dashboard-next/settings.html',
+	'/docs/quick-start': 'docs/quick-start.md',
+	'/docs/agent-system': 'docs/agent-system.md',
+	'/docs/erc8004': 'docs/erc8004.md',
+	'/docs/embedding': 'docs/embedding.md',
+	'/docs/web-component': 'docs/web-component.md',
+	'/docs/mcp': 'docs/mcp.md',
+	'/docs/skills': 'docs/skills.md',
+	'/docs/api-reference': 'docs/api-reference.md',
+	'/docs/sdk': 'docs/sdk.md',
+	'/docs/listings': 'docs/listings.md',
+	'/sitemap.xml': 'api/sitemap.js',
+	'/openapi.json': 'api/openapi-json.js',
+	'/.well-known/x402': 'api/wk.js',
+	'/.well-known/agent-attestation-schemas': 'api/wk.js',
+	'/.well-known/oauth-authorization-server': 'api/wk.js',
+};
+
 function candidatesFor(path) {
+	if (MANUAL_SOURCES[path]) return [MANUAL_SOURCES[path]];
 	const p = path.replace(/^\//, '');
 	const list = [];
 	const mapped = viteMap.get(path) || viteMap.get(path.replace(/\/$/, ''));

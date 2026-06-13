@@ -12,90 +12,45 @@
 //     inline in their own DOM with their own controls.
 
 import { Modal } from './shared/modal.js';
+import {
+	EMBED_SIZES,
+	embedSize,
+	escEmbed as esc,
+	absoluteGlb,
+	embedPageUrl as embedPageUrlFor,
+	embedPreviewUrl,
+	buildIframeSnippet,
+	buildWebComponentSnippet,
+} from './forge-embed-snippets.js';
 
-const ORIGIN = 'https://three.ws';
 const STYLE_ID = 'tws-forge-embed-styles';
 
-const SIZES = [
-	{ id: 'wide', label: '16 : 9', w: 640, h: 360, ratio: '16 / 9' },
-	{ id: 'square', label: 'Square', w: 480, h: 480, ratio: '1 / 1' },
-	{ id: 'portrait', label: '4 : 5', w: 432, h: 540, ratio: '4 / 5' },
-];
+// Snippet shapes, size presets, and /forge/embed URLs all live in
+// ./forge-embed-snippets.js so the homepage mini Forge embed sheet stays
+// byte-identical. These thin wrappers just bind the module's pure builders to
+// this panel's `state`, keeping every call site below unchanged.
+const SIZES = EMBED_SIZES;
 
 let state = { sizeId: 'wide', tab: 'iframe', glbUrl: '', title: '' };
 
-function esc(s) {
-	return String(s ?? '').replace(
-		/[&<>"']/g,
-		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
-	);
-}
-
-// Absolute, embeddable URL for the model. Forge's download href is already a
-// public hosted URL; resolve relatives against the prod origin so a copied
-// snippet works off-site.
-function absoluteGlb(url) {
-	if (!url) return '';
-	try {
-		return new URL(url, ORIGIN).href;
-	} catch {
-		return url;
-	}
-}
-
 function size() {
-	return SIZES.find((s) => s.id === state.sizeId) || SIZES[0];
+	return embedSize(state.sizeId);
 }
 
-function embedQuery() {
-	const q = new URLSearchParams({ src: state.glbUrl });
-	if (state.title) q.set('title', state.title.slice(0, 120));
-	return q.toString();
-}
-
-// Pretty, absolute URL for the copyable snippet + "open standalone" link —
-// resolves via the /forge/embed rewrite in production.
 function embedPageUrl() {
-	return `${ORIGIN}/forge/embed?${embedQuery()}`;
+	return embedPageUrlFor(state.glbUrl, state.title);
 }
 
-// Same viewer, but at the built file path on the *current* origin, so the
-// in-panel live preview renders in local dev and previews too (the clean
-// /forge/embed route is a production rewrite).
 function previewSrc() {
-	const origin = typeof location !== 'undefined' ? location.origin : ORIGIN;
-	return `${origin}/forge-embed.html?${embedQuery()}`;
+	return embedPreviewUrl(state.glbUrl, state.title);
 }
 
 function iframeSnippet() {
-	const s = size();
-	const src = embedPageUrl();
-	return (
-		`<iframe src="${esc(src)}"\n` +
-		`        width="${s.w}" height="${s.h}"\n` +
-		`        style="border:0;border-radius:14px;max-width:100%"\n` +
-		`        allow="xr-spatial-tracking; fullscreen"\n` +
-		`        loading="lazy" title="${esc(state.title || '3D model forged on three.ws')}">` +
-		`</iframe>`
-	);
+	return buildIframeSnippet(state.glbUrl, state.title, state.sizeId);
 }
 
 function webComponentSnippet() {
-	const s = size();
-	const alt = esc(state.title || '3D model forged on three.ws');
-	return (
-		`<!-- once per page -->\n` +
-		`<script type="module"\n` +
-		`  src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></scr` +
-		`ipt>\n\n` +
-		`<model-viewer\n` +
-		`  src="${esc(state.glbUrl)}"\n` +
-		`  alt="${alt}"\n` +
-		`  camera-controls auto-rotate ar\n` +
-		`  shadow-intensity="1"\n` +
-		`  style="width:${s.w}px;height:${s.h}px;max-width:100%;background:#0b0b0b;border-radius:14px">` +
-		`\n</model-viewer>`
-	);
+	return buildWebComponentSnippet(state.glbUrl, state.title, state.sizeId);
 }
 
 function currentSnippet() {

@@ -1,6 +1,7 @@
 // Forge — text / image / multi-view → 3D generator (browser client).
 import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { showSharePanel } from './shared/share.js';
+import { stampGlbAttribution } from './shared/glb-attribution.js';
 ensureStateKitStyles();
 //
 // Drives /api/forge. Three paths share one polling loop:
@@ -509,18 +510,16 @@ function updateEstimate() {
 		return;
 	}
 	const est = (backend.estimates?.[selectedEngine.path] || []).find((e) => e.tier === selectedTier);
+	// Holder-readable, not pipeline-internal: say how long it usually takes and
+	// what the engine does, in plain words. The mechanism ("builds from a
+	// reference image") replaces jargon like "image-intermediate · fast path".
 	const parts = [`<strong>${tierMeta.label}</strong>`];
-	if (est?.eta_seconds) parts.push(`~${est.eta_seconds}s`);
+	if (est?.eta_seconds) parts.push(`usually ~${est.eta_seconds}s`);
 	if (est && est.credits != null) parts.push(`~${est.credits} credits`);
-	if (backend.poly_control) parts.push(`up to ${tierMeta.polycount.toLocaleString()} polys`);
-	else parts.push('image-intermediate · no poly target');
-	const pathLabel =
-		selectedEngine.path === 'geometry'
-			? 'geometry-first'
-			: selectedEngine.path === 'sketch'
-				? 'sketch→3D · untextured'
-				: 'fast path';
-	parts.push(pathLabel);
+	if (backend.poly_control) parts.push(`up to ${tierMeta.polycount.toLocaleString()} polygons`);
+	if (selectedEngine.path === 'geometry') parts.push('shapes geometry straight from the prompt');
+	else if (selectedEngine.path === 'sketch') parts.push('untextured geometry from your sketch');
+	else parts.push('builds from a reference image');
 	els.estimate.innerHTML = parts.join(' · ');
 }
 
@@ -615,6 +614,30 @@ function slotEl(i) {
 	return els.viewsGrid.querySelector(`.view-slot[data-index="${i}"]`);
 }
 
+// One pip per possible reference view — filled as photos upload.
+function buildViewsPips() {
+	if (!els.viewsPips || els.viewsPips.childElementCount) return;
+	for (let i = 0; i < MAX_VIEWS; i++) {
+		const pip = document.createElement('i');
+		pip.dataset.filled = 'false';
+		els.viewsPips.appendChild(pip);
+	}
+}
+
+// Live "N of 4 views" readout + pips. Teaches that more views sharpen the mesh,
+// so users don't stop at a single photo thinking it's enough.
+function updateViewsCounter() {
+	if (!els.viewsCounter || !els.viewsCounterText) return;
+	const n = slots.filter((s) => s.state === 'uploaded').length;
+	const pips = els.viewsPips ? els.viewsPips.children : [];
+	for (let i = 0; i < pips.length; i++) pips[i].dataset.filled = String(i < n);
+	let tail;
+	if (n === 0) tail = ' — add a photo to begin';
+	else if (n < MAX_VIEWS) tail = ' · <span class="vc-quality">more views = sharper</span>';
+	else tail = ' · <span class="vc-quality">full coverage</span>';
+	els.viewsCounterText.innerHTML = `<strong>${n}</strong> of ${MAX_VIEWS} views${tail}`;
+}
+
 function renderSlot(i) {
 	const el = slotEl(i);
 	if (!el) return;
@@ -624,6 +647,7 @@ function renderSlot(i) {
 	// Slot changes flip the input mode (prompt-only ↔ photo), which changes
 	// which engines may serve — keep the selector honest in the same frame.
 	updateEngineAvailability();
+	updateViewsCounter();
 
 	const img = el.querySelector('.vs-thumb');
 	if (s.objectUrl) {
@@ -1004,6 +1028,74 @@ function resetVerdict() {
 	}
 }
 
+// Poster capture — the visual half of every creation card. Image-intermediate
+// engines store their flux reference image as the preview, but geometry-first
+// and sketch lanes paint no image at all, so their gallery/showcase cards used
+// to render as glyph placeholders. Once the finished mesh is standing in the
+// viewer, render it onto a small studio-backdrop canvas and attach it to the
+// creation row (POST /api/forge-poster — fill-only, owner-scoped, best-effort).
+const POSTER_MAX_DIM = 640;
+const postedPosters = new Set();
+
+function renderPosterFrame(sourceDataUrl) {
+	return new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => {
+			const scale = Math.min(1, POSTER_MAX_DIM / Math.max(img.width, img.height, 1));
+			const w = Math.max(1, Math.round(img.width * scale));
+			const h = Math.max(1, Math.round(img.height * scale));
+			const canvas = document.createElement('canvas');
+			canvas.width = w;
+			canvas.height = h;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return resolve(null);
+			// Same studio backdrop as the live viewer, so mesh posters read as a
+			// consistent set next to flux reference images in the galleries.
+			const backdrop = ctx.createRadialGradient(w / 2, 0, 0, w / 2, 0, Math.max(w, h) * 1.2);
+			backdrop.addColorStop(0, '#1a1612');
+			backdrop.addColorStop(0.7, '#0b0a09');
+			backdrop.addColorStop(1, '#0b0a09');
+			ctx.fillStyle = backdrop;
+			ctx.fillRect(0, 0, w, h);
+			ctx.drawImage(img, 0, 0, w, h);
+			const webp = canvas.toDataURL('image/webp', 0.85);
+			// Browsers without webp encoding silently hand back PNG — send what we got.
+			resolve(webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png'));
+		};
+		img.onerror = () => resolve(null);
+		img.src = sourceDataUrl;
+	});
+}
+
+async function capturePoster(creationId) {
+	if (!creationId || postedPosters.has(creationId) || !els.viewer?.toDataURL) return;
+	postedPosters.add(creationId);
+	try {
+		if (!els.viewer.loaded) {
+			await new Promise((resolve) =>
+				els.viewer.addEventListener('load', resolve, { once: true }),
+			);
+		}
+		// Let the materialize entrance settle so the capture is a steady frame.
+		await sleep(REDUCED_MOTION ? 300 : 1500);
+		// A newer generation or an opened creation replaced the model — skip.
+		if (currentCreationId !== creationId) return;
+		const frame = await renderPosterFrame(els.viewer.toDataURL('image/png'));
+		if (!frame) return;
+		const res = await fetch('/api/forge-poster', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
+			body: JSON.stringify({ creation_id: creationId, image: frame }),
+		});
+		const data = await res.json().catch(() => ({}));
+		// The card for this creation is already on screen with a placeholder —
+		// refresh the strip so the new poster shows without a reload.
+		if (data?.stored) loadGallery();
+	} catch {
+		// Best-effort: a missed poster never disturbs the result flow.
+	}
+}
+
 // Render the provenance badge from job metadata: how the mesh was produced
 // (engine + tier + path) plus any multi-view conditioning. Shows whatever is
 // known — the geometry-first path has no reference views, the image path does.
@@ -1367,6 +1459,11 @@ async function run(cfg) {
 			path: done.path ?? job.path,
 		});
 		loadGallery();
+		// Geometry-first and sketch lanes have no reference image — render the
+		// finished mesh itself as the creation's card visual.
+		if (!(done.preview_image_url ?? job.preview_image_url)) {
+			capturePoster(currentCreationId);
+		}
 	} catch (err) {
 		if (pollAbort) return;
 		if (err.kind === 'unconfigured') {
@@ -1435,6 +1532,10 @@ function submit() {
 		}
 		const prompt = els.sketchPrompt.value.trim();
 		if (prompt.length < 3) {
+			// Make the required-input contract unmissable: flag the field and tint
+			// the "Required" tag until the user types a description.
+			els.sketchPrompt.setAttribute('aria-invalid', 'true');
+			if (els.sketchReqTag) els.sketchReqTag.dataset.missing = 'true';
 			els.sketchPrompt.focus();
 			return;
 		}
@@ -1464,6 +1565,8 @@ function submit() {
 // Wiring ----------------------------------------------------------------------
 
 buildSlots();
+buildViewsPips();
+updateViewsCounter();
 
 els.modeSwitch.addEventListener('click', (e) => {
 	const btn = e.target.closest('button[data-mode]');
@@ -1491,6 +1594,12 @@ function submitOnModifierEnter(e) {
 els.prompt.addEventListener('keydown', submitOnModifierEnter);
 els.imagePrompt.addEventListener('keydown', submitOnModifierEnter);
 els.sketchPrompt?.addEventListener('keydown', submitOnModifierEnter);
+
+// Typing into the sketch prompt clears the "required" warning state.
+els.sketchPrompt?.addEventListener('input', () => {
+	els.sketchPrompt.removeAttribute('aria-invalid');
+	if (els.sketchReqTag) els.sketchReqTag.dataset.missing = 'false';
+});
 
 els.sketchFileInput?.addEventListener('change', () => {
 	const file = els.sketchFileInput.files?.[0];
@@ -1589,8 +1698,37 @@ if (els.verdict) {
 	});
 }
 
-els.download.addEventListener('click', () => {
+// Downloads route through a provenance pass: fetch the GLB, stamp
+// asset.generator + asset.extras (source, prompt) into the JSON chunk, and
+// hand the user the stamped file. Any failure falls back to the raw provider
+// file — stamping must never block a download.
+els.download.addEventListener('click', async (e) => {
 	sendFeedback({ downloaded: true });
+	const glbUrl = els.download.href;
+	if (!glbUrl || glbUrl.startsWith('blob:') || els.download.dataset.stamping) return;
+	e.preventDefault();
+	els.download.dataset.stamping = '1';
+	const filename = els.download.getAttribute('download') || 'forge.glb';
+	try {
+		const res = await fetch(glbUrl);
+		if (!res.ok) throw new Error(`fetch ${res.status}`);
+		const stamped = stampGlbAttribution(await res.arrayBuffer(), {
+			prompt: els.resultLabel?.textContent || '',
+		});
+		const blobUrl = URL.createObjectURL(new Blob([stamped], { type: 'model/gltf-binary' }));
+		const a = document.createElement('a');
+		a.href = blobUrl;
+		a.download = filename;
+		a.click();
+		setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+	} catch {
+		const a = document.createElement('a');
+		a.href = glbUrl;
+		a.download = filename;
+		a.click();
+	} finally {
+		delete els.download.dataset.stamping;
+	}
 });
 
 els.cinema?.addEventListener('click', () => setCinema(!cinemaOn));
@@ -1600,11 +1738,18 @@ document.addEventListener('keydown', (e) => {
 		setCinema(false);
 		return;
 	}
-	if (e.key !== 'f' && e.key !== 'F') return;
 	if (e.metaKey || e.ctrlKey || e.altKey) return;
 	const active = document.activeElement;
 	if (active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.isContentEditable)
 		return;
+	// "/" jumps to the prompt for the current mode — the standard quick-focus.
+	if (e.key === '/') {
+		e.preventDefault();
+		const box = mode === 'sketch' ? els.sketchPrompt : mode === 'image' ? els.imagePrompt : els.prompt;
+		box?.focus();
+		return;
+	}
+	if (e.key !== 'f' && e.key !== 'F') return;
 	if (els.states.result.classList.contains('is-hidden')) return;
 	e.preventDefault();
 	setCinema(!cinemaOn);

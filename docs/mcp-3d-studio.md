@@ -98,6 +98,32 @@ result and the **image path still works keyless**. The job handle for a geometry
 job is an opaque forge token; `generation_status` decodes it and re-resolves the
 key per poll.
 
+## Access & pricing
+
+Discovery is free for everyone: `initialize`, `tools/list`, `ping`, and the
+`getting_started` tool answer with no credentials, so any agent or crawler can
+read the catalog before deciding to pay.
+
+For tool calls there are two lanes:
+
+- **OAuth (three.ws account)** — operator-funded. Sign in once and every studio
+  tool runs at no per-call charge, bounded by rate limits.
+- **x402 (pay per call, no account)** — send a USDC payment (Base or Solana
+  mainnet) with the request. The 402 challenge quotes the exact price of the
+  tools you're calling; batches are priced as the sum of their calls. Same
+  numbers as `POST /api/x402/forge`, single source: `api/_mcp3d/pricing.js`.
+
+| Tool                                       | Price (USDC)                              |
+| ------------------------------------------ | ----------------------------------------- |
+| `text_to_3d` / `image_to_3d`               | by tier — $0.05 draft / $0.15 standard / $0.50 high |
+| `auto_rig_model`, `retexture_model`, `retexture_region` | $0.05                       |
+| `stylize_model`, `remesh_model`, `segment_model`         | $0.02                       |
+| `remove_background`, `pose_model`, `apply_animation`, `direct_prompt`, `generate_material` | $0.01 |
+| `generation_status`, `preview_3d`, `list_animations`, `inspect_model`, `optimize_model`, `getting_started` | free |
+
+Payment settles only after the work succeeds — a wholesale failure costs
+nothing, and the same signed payment cannot be replayed.
+
 ## IBM Granite tools
 
 `direct_prompt` and `generate_material` call IBM Granite foundation models via

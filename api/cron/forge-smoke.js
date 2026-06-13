@@ -12,6 +12,13 @@
 //      the resulting GLB's first bytes — only the 'glTF' magic counts as up.
 //   3. GET /api/forge?health — surfaces paid-lane breakage (provider auth,
 //      quota, the rate-limiter store failing closed) that the free lane masks.
+//   4. Agent surfaces — the June 2026 MCP audit found the 3D Studio answering
+//      with the wrong server's 402 and missing from the discovery catalog for
+//      months; nothing generation-shaped could catch that. This leg asserts
+//      what a paying agent sees: free tools/list reaches the studio toolset,
+//      the unpaid 402 names /api/mcp-3d and quotes the standard tier price,
+//      /.well-known/x402.json lists every generation surface, and the paid
+//      REST endpoint still challenges with usable accepts.
 //
 // Failures page the ops Telegram channel; recovery is announced once. Like
 // uptime-check, a concrete file keeps the import graph tiny.
@@ -127,13 +134,81 @@ async function runHealthCheck(origin) {
 	return { ok: false, reason: broken.join('\n') || `health status: ${health.body?.status}` };
 }
 
+// What a wallet-holding agent actually experiences, end to end minus the
+// payment broadcast. Each probe asserts the exact contract the agent tooling
+// keys on; any drift (wrong resource URL, missing catalog entry, vanished
+// accepts) pages ops the same day instead of rotting for months.
+async function runAgentSurfaceCheck(origin) {
+	const failures = [];
+	const postJsonRpc = (path, payload) =>
+		fetchJson(`${origin}${path}`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(payload),
+		});
+
+	// Free discovery: a plain (non-MCP-protocol) client lists tools with no
+	// credentials and must see the generation tools.
+	const list = await postJsonRpc('/api/mcp-3d', { jsonrpc: '2.0', id: 1, method: 'tools/list' });
+	const toolNames = (list.body?.result?.tools || []).map((t) => t.name);
+	if (list.status !== 200 || !toolNames.includes('text_to_3d')) {
+		failures.push(
+			`mcp-3d free tools/list: HTTP ${list.status}, ` +
+				`${toolNames.length} tools, text_to_3d ${toolNames.includes('text_to_3d') ? 'present' : 'MISSING'}`,
+		);
+	}
+
+	// 402 identity: an unpaid text_to_3d call must be challenged by the 3D
+	// Studio itself — its own resource URL and the standard-tier price.
+	const challenge = await postJsonRpc('/api/mcp-3d', {
+		jsonrpc: '2.0',
+		id: 2,
+		method: 'tools/call',
+		params: { name: 'text_to_3d', arguments: { prompt: 'smoke probe — a small clay fox' } },
+	});
+	const resourceUrl = challenge.body?.resource?.url;
+	const amounts = (challenge.body?.accepts || []).map((a) => a.amount);
+	if (challenge.status !== 402 || resourceUrl !== `${origin}/api/mcp-3d`) {
+		failures.push(
+			`mcp-3d 402 identity: HTTP ${challenge.status}, resource ${resourceUrl || 'none'}`,
+		);
+	} else if (!amounts.includes('150000')) {
+		failures.push(`mcp-3d 402 price: expected standard-tier 150000, got [${amounts.join(', ')}]`);
+	}
+
+	// Discovery catalog: every generation surface stays indexed for crawlers.
+	const wk = await fetchJson(`${origin}/.well-known/x402.json`);
+	const cataloged = new Set((wk.body?.resources || []).map((r) => r.path));
+	for (const path of ['/api/x402/forge', '/api/mcp-3d', '/api/mcp']) {
+		if (!cataloged.has(path)) failures.push(`${path} missing from /.well-known/x402.json`);
+	}
+
+	// Paid REST: the bare endpoint must still challenge with usable accepts.
+	const forge = await fetchJson(`${origin}/api/x402/forge`, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ prompt: 'smoke probe — a small clay fox', tier: 'draft' }),
+	});
+	if (forge.status !== 402 || !(forge.body?.accepts || []).length) {
+		failures.push(
+			`x402/forge challenge: HTTP ${forge.status}, ${(forge.body?.accepts || []).length} accepts`,
+		);
+	}
+
+	return failures.length ? { ok: false, reason: failures.join('\n') } : { ok: true };
+}
+
 export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 
 	const origin = env.APP_ORIGIN || 'https://three.ws';
-	const [generation, health] = await Promise.all([runGeneration(origin), runHealthCheck(origin)]);
-	const ok = generation.ok && health.ok;
+	const [generation, health, agentSurfaces] = await Promise.all([
+		runGeneration(origin),
+		runHealthCheck(origin),
+		runAgentSurfaceCheck(origin),
+	]);
+	const ok = generation.ok && health.ok && agentSurfaces.ok;
 
 	const previous = await cacheGet(LAST_STATUS_KEY);
 	await cacheSet(LAST_STATUS_KEY, { ok, at: Date.now() }, LAST_STATUS_TTL_S);
@@ -150,11 +225,16 @@ export default wrap(async (req, res) => {
 			signature: 'forge-smoke:health',
 		});
 	}
+	if (!agentSurfaces.ok) {
+		sendOpsAlert('FORGE SMOKE: agent surface contract broken', agentSurfaces.reason, {
+			signature: 'forge-smoke:agent-surfaces',
+		});
+	}
 	if (ok && previous && previous.ok === false) {
 		sendOpsAlert('RECOVERED: forge generation smoke test', `${origin}/forge — prompt→GLB verified`, {
 			signature: `forge-smoke:recovered:${Date.now()}`,
 		});
 	}
 
-	return json(res, 200, { ok, generation, health });
+	return json(res, 200, { ok, generation, health, agent_surfaces: agentSurfaces });
 });

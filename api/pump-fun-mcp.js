@@ -1,20 +1,29 @@
-// POST /api/pump-fun-mcp
+// /api/pump-fun-mcp — pump.fun MCP server (Streamable HTTP transport, MCP 2025-06-18).
+// POST — JSON-RPC (single + batch)   GET/HEAD — SSE handshake   DELETE — terminate.
 //
-// Real, in-house JSON-RPC 2.0 MCP server exposing read-only pump.fun tools to
-// the in-page <agent-3d> skill bundle (public/skills/pump-fun/).
+// Real, in-house MCP server exposing read-only pump.fun tools to remote MCP
+// connectors, the npm bridge (@three-ws/pumpfun-mcp), and the in-page
+// <agent-3d> skill bundle (public/skills/pump-fun/). Registered with the MCP
+// Registry as io.github.nirholas/pumpfun-solana-remote (see server-pumpfun.json).
+//
+// Back-compat: raw JSON-RPC consumers that POST plain application/json with no
+// MCP headers (the npm bridge, the skill bundle) keep working unchanged —
+// single requests return the same envelopes, statuses, and bodies as before.
+//
+// Tool names: canonical names are snake_case; the legacy camelCase names
+// remain accepted forever via TOOL_NAME_ALIASES (src/pump/mcp-tools.js).
 //
 // Tools backed by on-chain reads (no external indexer required):
-//   - getBondingCurve     → @pump-fun/pump-sdk fetchBondingCurve
-//   - getTokenDetails     → @solana/web3.js getAccountInfo + Metaplex metadata
-//   - getTokenHolders     → connection.getTokenLargestAccounts + concentration
+//   - get_bonding_curve   → @pump-fun/pump-sdk fetchBondingCurve
+//   - get_token_details   → @solana/web3.js getAccountInfo + Metaplex metadata
+//   - get_token_holders   → connection.getTokenLargestAccounts + concentration
 //
 // Tools that require indexed/aggregate data are routed through the existing
 // pumpfunMcp client (api/_lib/pumpfun-mcp.js → upstream pumpfun-claims-bot).
 // When PUMPFUN_BOT_URL is unset they return JSON-RPC error -32004 ("indexer
 // not configured") — never a fabricated payload.
 //
-// Methods: initialize, tools/list, tools/call. CORS open (read-only data).
-// Rate-limited by IP via limits.mcpIp.
+// CORS open (read-only data). Rate-limited by IP via limits.mcpIp.
 
 import { cors, json, method, wrap, readJson, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
@@ -30,7 +39,7 @@ import {
 import { getPumpSdk, getConnection, solanaPubkey, getAmmPoolState } from './_lib/pump.js';
 import { pumpfunMcp, pumpfunBotEnabled } from './_lib/pumpfun-mcp.js';
 import { getRadarSignals } from '../src/kol/radar.js';
-import { TOOLS, rpcError, rpcEnvelope } from '../src/pump/mcp-tools.js';
+import { TOOLS, resolveToolName, rpcError, rpcEnvelope } from '../src/pump/mcp-tools.js';
 import { generateVanityKey } from '../src/pump/vanity-keygen.js';
 import bs58 from 'bs58';
 import { resolveSnsName, reverseLookupAddress } from '../src/solana/sns.js';
@@ -206,18 +215,18 @@ function indexerOrUnavailable(name) {
 				`tool "${name}" requires the pump.fun indexer (PUMPFUN_BOT_URL) to be configured`,
 			);
 		}
-		// Map our tool names to the upstream bot's tool surface.
+		// Map our canonical tool names to the upstream bot's (camelCase) surface.
 		const upstreamMap = {
-			searchTokens: { tool: 'searchTokens', args: { query: args.query, limit: args.limit } },
-			getTokenTrades: {
+			search_tokens: { tool: 'searchTokens', args: { query: args.query, limit: args.limit } },
+			get_token_trades: {
 				tool: 'getTokenTrades',
 				args: { mint: args.mint, limit: args.limit },
 			},
-			getTrendingTokens: { tool: 'getTrendingTokens', args: { limit: args.limit } },
-			getNewTokens: { tool: 'getNewTokens', args: { limit: args.limit } },
-			getGraduatedTokens: { tool: 'getGraduatedTokens', args: { limit: args.limit } },
-			getKingOfTheHill: { tool: 'getKingOfTheHill', args: {} },
-			getCreatorProfile: { tool: 'getCreatorIntel', args: { wallet: args.creator } },
+			get_trending_tokens: { tool: 'getTrendingTokens', args: { limit: args.limit } },
+			get_new_tokens: { tool: 'getNewTokens', args: { limit: args.limit } },
+			get_graduated_tokens: { tool: 'getGraduatedTokens', args: { limit: args.limit } },
+			get_king_of_the_hill: { tool: 'getKingOfTheHill', args: {} },
+			get_creator_profile: { tool: 'getCreatorIntel', args: { wallet: args.creator } },
 		};
 		const upstream = upstreamMap[name];
 		if (!upstream) throw rpcError(-32601, `tool "${name}" not implemented`);
@@ -728,21 +737,23 @@ async function handleGetTokenTrades({ mint, limit = 20, network = 'mainnet' }) {
 
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
+// Keyed by CANONICAL (snake_case) names. tools/call resolves legacy camelCase
+// aliases through resolveToolName before this lookup.
 const HANDLERS = {
-	getBondingCurve: handleGetBondingCurve,
-	getTokenDetails: handleGetTokenDetails,
-	getTokenHolders: handleGetTokenHolders,
+	get_bonding_curve: handleGetBondingCurve,
+	get_token_details: handleGetTokenDetails,
+	get_token_holders: handleGetTokenHolders,
 	kol_radar: handleKolRadar,
 	kol_leaderboard: handleKolLeaderboard,
-	searchTokens: indexerOrUnavailable('searchTokens'),
-	getTokenTrades: handleGetTokenTrades,
-	getTrendingTokens: indexerOrUnavailable('getTrendingTokens'),
-	getNewTokens: indexerOrUnavailable('getNewTokens'),
-	getGraduatedTokens: indexerOrUnavailable('getGraduatedTokens'),
-	getKingOfTheHill: indexerOrUnavailable('getKingOfTheHill'),
+	search_tokens: indexerOrUnavailable('search_tokens'),
+	get_token_trades: handleGetTokenTrades,
+	get_trending_tokens: indexerOrUnavailable('get_trending_tokens'),
+	get_new_tokens: indexerOrUnavailable('get_new_tokens'),
+	get_graduated_tokens: indexerOrUnavailable('get_graduated_tokens'),
+	get_king_of_the_hill: indexerOrUnavailable('get_king_of_the_hill'),
 	social_cashtag_sentiment: handleSocialCashtagSentiment,
 	social_x_post_impact: handleSocialXPostImpact,
-	getCreatorProfile: indexerOrUnavailable('getCreatorProfile'),
+	get_creator_profile: indexerOrUnavailable('get_creator_profile'),
 	pumpfun_list_claims: handleListClaims,
 	pumpfun_watch_claims: handleWatchClaims,
 	pumpfun_first_claims: handleGetFirstClaims,
@@ -755,6 +766,24 @@ const HANDLERS = {
 
 // ── HTTP entrypoint ────────────────────────────────────────────────────────
 
+// Keep in sync with api/_lib/mcp-dispatch.js PROTOCOL_VERSION. Declared locally
+// (not imported) so this read-only lambda — and the Worker mirror — don't pull
+// the usage/db graph that mcp-dispatch carries.
+const PROTOCOL_VERSION = '2025-06-18';
+const RESOURCE_PATH = '/api/pump-fun-mcp';
+const SERVER_INFO = { name: 'three.ws-pumpfun-mcp', version: '1.0.0' };
+const INSTRUCTIONS =
+	'Free, read-only pump.fun + Solana tools from three.ws. Token discovery ' +
+	'(search_tokens, get_trending_tokens, get_new_tokens, get_graduated_tokens, ' +
+	'get_king_of_the_hill), on-chain analysis (get_bonding_curve, get_token_holders, ' +
+	'get_token_details, get_token_trades), creator intelligence (get_creator_profile, ' +
+	'pumpfun_list_claims, pumpfun_watch_claims, pumpfun_first_claims), Solana Name ' +
+	'Service (sns_resolve, sns_reverseLookup), market signals (kol_radar, ' +
+	'kol_leaderboard, pumpfun_quote_swap, pumpfun_watch_whales), and social ' +
+	'sentiment (social_cashtag_sentiment, social_x_post_impact). All data is live ' +
+	'and on-chain; no API keys required for the free tools.';
+const MAX_BATCH = 16;
+
 // Tools that are expensive (CPU grind or long-lived RPC subscriptions) or that
 // return sensitive material (a secret key). These require authentication — a
 // valid bearer (OAuth access token or sk_live_/sk_test_ API key) OR a verified
@@ -765,75 +794,215 @@ const AUTH_REQUIRED_TOOLS = new Set([
 	'pumpfun_watch_claims',
 ]);
 
-// Verify the request is authenticated for a gated tool. Returns
-// `{ x402Ctx }` on success — x402Ctx is null for bearer auth, and carries the
-// verified payment envelope for x402 callers so the dispatcher can settle it
-// AFTER the tool succeeds (verify → work → settle, same sequence as /api/mcp).
-// On failure it writes the JSON-RPC error envelope and returns null.
-async function authorizeGatedTool(req, res, id) {
+// Resolve the caller's credentials for a gated tool, once per request. Returns
+//   { ok: true, x402Ctx }            x402Ctx null for bearer auth, or the
+//                                    verified payment envelope to settle later
+//   { ok: false, failure }           failure.kind ∈ bad_bearer | bad_payment |
+//                                    no_credentials (+ message, envelope)
+// The result is memoized so a batch carrying several gated calls verifies the
+// bearer / X-PAYMENT exactly once and one payment covers the whole request.
+async function resolveGatedAuth(req) {
 	const bearer = extractBearer(req);
 	if (bearer) {
 		const auth = await authenticateBearer(bearer).catch(() => null);
-		if (auth) return { x402Ctx: null };
-		json(
-			res,
-			401,
-			rpcEnvelope(id, null, {
+		if (auth) return { ok: true, x402Ctx: null };
+		return {
+			ok: false,
+			failure: {
+				kind: 'bad_bearer',
 				code: -32001,
 				message: 'authentication required: invalid or expired bearer token',
-			}),
-		);
-		return null;
+			},
+		};
 	}
 	const paymentHeader = req.headers['x-payment'];
 	if (paymentHeader) {
-		const resourceUrl = resolveResourceUrl(req, '/api/pump-fun-mcp');
+		const resourceUrl = resolveResourceUrl(req, RESOURCE_PATH);
 		const requirements = paymentRequirements(resourceUrl);
 		try {
 			const verified = await verifyPayment({ paymentHeader, requirements });
-			return { x402Ctx: { resourceUrl, requirements, verified } };
+			return { ok: true, x402Ctx: { resourceUrl, requirements, verified } };
 		} catch (err) {
-			json(
-				res,
-				402,
-				rpcEnvelope(id, null, {
+			return {
+				ok: false,
+				failure: {
+					kind: 'bad_payment',
 					code: -32402,
 					message: `payment verification failed: ${err?.message || 'invalid payment'}`,
-				}),
-			);
-			return null;
+				},
+			};
 		}
 	}
-	// No bearer, no payment: answer 402 Payment Required with the full x402
-	// envelope so paying agents (and registry crawlers like zauth) can discover
-	// price/accepts. The body keeps the JSON-RPC error shape MCP clients
-	// expect, with the envelope mirrored in error.data and the
-	// PAYMENT-REQUIRED header (same dual-protocol pattern as _mcp/auth.js).
-	const resourceUrl = resolveResourceUrl(req, '/api/pump-fun-mcp');
+	// No bearer, no payment: surface the full x402 envelope so paying agents
+	// (and registry crawlers like zauth) can discover price/accepts. The body
+	// keeps the JSON-RPC error shape MCP clients expect, with the envelope
+	// mirrored in error.data and the PAYMENT-REQUIRED header (same
+	// dual-protocol pattern as _mcp/auth.js).
+	const resourceUrl = resolveResourceUrl(req, RESOURCE_PATH);
 	const envelope = build402Body({
 		resourceUrl,
 		accepts: paymentRequirements(resourceUrl),
 		error: 'X-PAYMENT header is required',
 	});
-	res.setHeader(
-		'PAYMENT-REQUIRED',
-		Buffer.from(JSON.stringify(envelope), 'utf8').toString('base64'),
-	);
-	json(
-		res,
-		402,
-		rpcEnvelope(id, null, {
+	return {
+		ok: false,
+		failure: {
+			kind: 'no_credentials',
 			code: -32402,
 			message:
 				'payment or authentication required for this tool (provide a Bearer token or X-PAYMENT)',
-			data: envelope,
+			envelope,
+		},
+	};
+}
+
+// Single-request gate denial: same statuses, bodies, and headers raw JSON-RPC
+// consumers have always received (401 bad bearer / 402 otherwise).
+function writeGatedAuthFailure(res, id, failure) {
+	if (failure.kind === 'no_credentials') {
+		res.setHeader(
+			'PAYMENT-REQUIRED',
+			Buffer.from(JSON.stringify(failure.envelope), 'utf8').toString('base64'),
+		);
+	}
+	const status = failure.kind === 'bad_bearer' ? 401 : 402;
+	return json(
+		res,
+		status,
+		rpcEnvelope(id, null, {
+			code: failure.code,
+			message: failure.message,
+			...(failure.envelope ? { data: failure.envelope } : {}),
 		}),
+		{ 'mcp-protocol-version': PROTOCOL_VERSION },
 	);
-	return null;
+}
+
+// Batch-mode gate denial: HTTP stays 200, the denial becomes a per-message
+// JSON-RPC error (the PAYMENT-REQUIRED header is still set for discovery).
+function gatedAuthFailureEnvelope(res, id, failure) {
+	if (failure.kind === 'no_credentials' && !res.headersSent) {
+		res.setHeader(
+			'PAYMENT-REQUIRED',
+			Buffer.from(JSON.stringify(failure.envelope), 'utf8').toString('base64'),
+		);
+	}
+	return rpcEnvelope(id, null, {
+		code: failure.code,
+		message: failure.message,
+		...(failure.envelope ? { data: failure.envelope } : {}),
+	});
+}
+
+// GET/HEAD — the Streamable HTTP SSE handshake. This server never initiates
+// server→client messages (stateless, request-scoped lambda), so the stream
+// opens with the correct content-type and closes immediately; the spec allows
+// the server to close the SSE stream at any time. All tools that don't carry
+// an auth gate are free, so unlike /api/mcp-3d the handshake itself requires
+// no credentials.
+function handleSseHandshake(req, res) {
+	res.statusCode = 200;
+	res.setHeader('content-type', 'text/event-stream');
+	res.setHeader('cache-control', 'no-store');
+	res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
+	if (req.method === 'HEAD') return res.end();
+	res.write(`: ${SERVER_INFO.name} streamable-http — POST JSON-RPC 2.0 to this URL\n\n`);
+	return res.end();
+}
+
+// Dispatch ONE JSON-RPC message. Returns null for notifications (no response
+// is owed) or the response envelope. `ctx` carries per-request state:
+//   ensureGateAuth()  memoized resolveGatedAuth for this request
+//   batch             true → gate denials become per-message error envelopes
+//                     (single requests keep their legacy HTTP 401/402 — the
+//                     caller handles the `gateDenied` flag)
+async function dispatchRpc(msg, ctx) {
+	const { id = null, method: rpcMethod, params } = msg || {};
+	const isNotification = msg?.id === undefined && typeof rpcMethod === 'string';
+
+	if (rpcMethod === 'initialize') {
+		return rpcEnvelope(id, {
+			protocolVersion: PROTOCOL_VERSION,
+			capabilities: { tools: { listChanged: false } },
+			serverInfo: SERVER_INFO,
+			instructions: INSTRUCTIONS,
+		});
+	}
+	if (rpcMethod === 'ping') return rpcEnvelope(id, {});
+	if (rpcMethod === 'notifications/initialized') return null;
+	if (rpcMethod === 'tools/list') return rpcEnvelope(id, { tools: TOOLS });
+	if (rpcMethod === 'resources/list') return rpcEnvelope(id, { resources: [] });
+	if (rpcMethod === 'resources/templates/list') return rpcEnvelope(id, { resourceTemplates: [] });
+	if (rpcMethod === 'prompts/list') return rpcEnvelope(id, { prompts: [] });
+
+	if (rpcMethod === 'tools/call') {
+		const requestedName = params?.name;
+		// Legacy camelCase aliases resolve to the canonical snake_case names —
+		// both forms are accepted forever (TOOL_NAME_ALIASES is the contract).
+		const name = resolveToolName(requestedName);
+		// Own-property lookup only so "__proto__"/"constructor" can't resolve an
+		// inherited member and pass the !handler guard.
+		const handler =
+			typeof name === 'string' && Object.hasOwn(HANDLERS, name) ? HANDLERS[name] : null;
+		if (!handler) {
+			return rpcEnvelope(id, null, { code: -32601, message: `unknown tool: ${requestedName}` });
+		}
+		// Auth gate: expensive (vanity grind, long-lived RPC watch) and sensitive
+		// (returns a secret key) tools require a bearer or verified x402 payment.
+		if (AUTH_REQUIRED_TOOLS.has(name)) {
+			const authz = await ctx.ensureGateAuth();
+			if (!authz.ok) {
+				if (!ctx.batch) {
+					ctx.gateDenied = { id, failure: authz.failure };
+					return null;
+				}
+				return gatedAuthFailureEnvelope(ctx.res, id, authz.failure);
+			}
+			ctx.x402Ctx = authz.x402Ctx;
+			try {
+				const data = await handler(params?.arguments || {});
+				ctx.gatedSuccess = true;
+				ctx.gatedId = id;
+				return rpcEnvelope(id, {
+					content: [{ type: 'text', text: JSON.stringify(data) }],
+					structuredContent: data,
+				});
+			} catch (err) {
+				return rpcEnvelope(id, null, {
+					code: err.rpcCode || -32603,
+					message: err.message || 'tool error',
+				});
+			}
+		}
+		try {
+			const data = await handler(params?.arguments || {});
+			// Mirror MCP content shape so existing skill clients can unwrap text.
+			return rpcEnvelope(id, {
+				content: [{ type: 'text', text: JSON.stringify(data) }],
+				structuredContent: data,
+			});
+		} catch (err) {
+			return rpcEnvelope(id, null, {
+				code: err.rpcCode || -32603,
+				message: err.message || 'tool error',
+			});
+		}
+	}
+
+	if (isNotification) return null;
+	return rpcEnvelope(id, null, { code: -32601, message: `unknown method: ${rpcMethod}` });
 }
 
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
+	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
+
+	if (req.method === 'GET' || req.method === 'HEAD') return handleSseHandshake(req, res);
+	if (req.method === 'DELETE') {
+		// Stateless per-request server — nothing to tear down (same contract as
+		// api/_mcp/auth.js handleTerminate).
+		res.statusCode = 204;
+		return res.end();
+	}
 	if (!method(req, res, ['POST'])) return;
 
 	const rl = await limits.mcpIp(clientIp(req));
@@ -842,100 +1011,84 @@ export default wrap(async (req, res) => {
 	let body;
 	try {
 		body = await readJson(req);
-	} catch (e) {
+	} catch {
 		return json(res, 400, rpcEnvelope(null, null, { code: -32700, message: 'parse error' }));
 	}
 
-	const { id = null, method: rpcMethod, params } = body || {};
-
-	if (rpcMethod === 'initialize') {
+	const isBatch = Array.isArray(body);
+	const messages = isBatch ? body : [body];
+	if (isBatch && messages.length === 0) {
+		return json(res, 200, rpcEnvelope(null, null, { code: -32600, message: 'empty batch' }), {
+			'mcp-protocol-version': PROTOCOL_VERSION,
+		});
+	}
+	if (messages.length > MAX_BATCH) {
 		return json(
 			res,
 			200,
-			rpcEnvelope(id, {
-				protocolVersion: '2025-06-18',
-				capabilities: { tools: {} },
-				serverInfo: { name: 'three.ws-pumpfun-mcp', version: '0.1.0' },
-			}),
+			rpcEnvelope(null, null, { code: -32600, message: `batch too large (max ${MAX_BATCH})` }),
+			{ 'mcp-protocol-version': PROTOCOL_VERSION },
 		);
 	}
 
-	if (rpcMethod === 'tools/list') {
-		return json(res, 200, rpcEnvelope(id, { tools: TOOLS }));
-	}
-
-	if (rpcMethod === 'tools/call') {
-		const name = params?.name;
-		const args = params?.arguments || {};
-		// Own-property lookup only so "__proto__"/"constructor" can't resolve an
-		// inherited member and pass the !handler guard.
-		const handler =
-			typeof name === 'string' && Object.hasOwn(HANDLERS, name) ? HANDLERS[name] : null;
-		if (!handler) {
-			return json(
-				res,
-				200,
-				rpcEnvelope(id, null, { code: -32601, message: `unknown tool: ${name}` }),
-			);
-		}
-		// Auth gate: expensive (vanity grind, long-lived RPC watch) and sensitive
-		// (returns a secret key) tools require a bearer or verified x402 payment.
-		// authorizeGatedTool writes the 401/402 envelope and returns null on deny.
-		let x402Ctx = null;
-		if (AUTH_REQUIRED_TOOLS.has(name)) {
-			const authz = await authorizeGatedTool(req, res, id);
-			if (!authz) return;
-			x402Ctx = authz.x402Ctx;
-		}
-		try {
-			const data = await handler(args);
-			// Settle the verified x402 payment AFTER the tool succeeded — atomic
-			// from the payer's perspective (verify → work → settle, mirroring
-			// /api/mcp): a failed tool never broadcasts the payment, and a
-			// successful one is always captured so the gated work can't be
-			// delivered free or the same signed payload replayed.
-			if (x402Ctx) {
-				try {
-					const settled = await settlePayment({ verified: x402Ctx.verified });
-					res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
-				} catch (settleErr) {
-					return json(
-						res,
-						402,
-						rpcEnvelope(id, null, {
-							code: -32402,
-							message: `payment settlement failed: ${settleErr?.message || 'settle error'}`,
-							data: build402Body({
-								resourceUrl: x402Ctx.resourceUrl,
-								accepts: x402Ctx.requirements,
-								error: settleErr?.message || 'settle error',
-							}),
-						}),
-					);
-				}
-			}
-			// Mirror MCP content shape so existing skill clients can unwrap text.
-			return json(
-				res,
-				200,
-				rpcEnvelope(id, {
-					content: [{ type: 'text', text: JSON.stringify(data) }],
-					structuredContent: data,
-				}),
-			);
-		} catch (err) {
-			const code = err.rpcCode || -32603;
-			return json(
-				res,
-				200,
-				rpcEnvelope(id, null, { code, message: err.message || 'tool error' }),
-			);
-		}
-	}
-
-	return json(
+	// Per-request dispatch context. Gate credentials resolve at most once.
+	let gateAuthPromise = null;
+	const ctx = {
 		res,
-		200,
-		rpcEnvelope(id, null, { code: -32601, message: `unknown method: ${rpcMethod}` }),
-	);
+		batch: isBatch,
+		x402Ctx: null,
+		gatedSuccess: false,
+		gatedId: null,
+		gateDenied: null,
+		ensureGateAuth() {
+			if (!gateAuthPromise) gateAuthPromise = resolveGatedAuth(req);
+			return gateAuthPromise;
+		},
+	};
+
+	const responses = [];
+	for (const msg of messages) {
+		const envelope = await dispatchRpc(msg, ctx);
+		// Single-request gate denial keeps the legacy 401/402 HTTP semantics.
+		if (ctx.gateDenied) return writeGatedAuthFailure(res, ctx.gateDenied.id, ctx.gateDenied.failure);
+		if (envelope !== null) responses.push(envelope);
+	}
+
+	// Settle the verified x402 payment AFTER gated work succeeded — atomic from
+	// the payer's perspective (verify → work → settle, mirroring /api/mcp): a
+	// failed tool never broadcasts the payment, and a successful one is always
+	// captured so the gated work can't be delivered free or the same signed
+	// payload replayed. One settlement covers the whole request.
+	if (ctx.x402Ctx && ctx.gatedSuccess) {
+		try {
+			const settled = await settlePayment({ verified: ctx.x402Ctx.verified });
+			res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+		} catch (settleErr) {
+			return json(
+				res,
+				402,
+				rpcEnvelope(ctx.gatedId, null, {
+					code: -32402,
+					message: `payment settlement failed: ${settleErr?.message || 'settle error'}`,
+					data: build402Body({
+						resourceUrl: ctx.x402Ctx.resourceUrl,
+						accepts: ctx.x402Ctx.requirements,
+						error: settleErr?.message || 'settle error',
+					}),
+				}),
+				{ 'mcp-protocol-version': PROTOCOL_VERSION },
+			);
+		}
+	}
+
+	// All-notification requests owe no body — 202 Accepted per Streamable HTTP.
+	if (responses.length === 0) {
+		res.statusCode = 202;
+		res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
+		return res.end();
+	}
+
+	return json(res, 200, isBatch ? responses : responses[0], {
+		'mcp-protocol-version': PROTOCOL_VERSION,
+	});
 });

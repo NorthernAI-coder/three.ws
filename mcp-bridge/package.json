@@ -1,15 +1,51 @@
 {
 	"name": "@3d-agent/mcp-bridge",
 	"version": "1.0.0",
-	"private": true,
+	"mcpName": "io.github.nirholas/x402-bridge",
 	"description": "MCP stdio bridge that turns any x402-paid HTTP endpoint into a Claude-callable tool. Auto-pays via the @x402 client (EVM exact, SVM exact, EVM batch-settlement) and pre-loads tools from the Coinbase x402 Bazaar.",
 	"type": "module",
+	"author": "nirholas <hello@three.ws>",
+	"license": "Apache-2.0",
+	"homepage": "https://three.ws",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/nirholas/three.ws.git",
+		"directory": "mcp-bridge"
+	},
+	"bugs": {
+		"url": "https://github.com/nirholas/three.ws/issues"
+	},
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"x402",
+		"payments",
+		"usdc",
+		"solana",
+		"evm",
+		"base",
+		"bazaar",
+		"micropayments",
+		"ai-agent"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": [
+		"src",
+		"server.json",
+		"README.md",
+		"LICENSE"
+	],
 	"bin": {
 		"x402-mcp-bridge": "./src/index.js"
 	},
 	"main": "./src/index.js",
 	"scripts": {
-		"start": "node src/index.js"
+		"start": "node src/index.js",
+		"test": "node --test tests/",
+		"test:smoke": "node tests/smoke.mjs",
+		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
 	},
 	"engines": {
 		"node": ">=20"

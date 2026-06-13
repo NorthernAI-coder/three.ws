@@ -41,20 +41,50 @@ const LOCAL_GENERATIVE = Object.freeze({
 	openWorldHint: false,
 });
 
+// Canonical (snake_case) tool name ← legacy (camelCase) alias. tools/list only
+// ever advertises the canonical names; tools/call accepts BOTH forever. This
+// map is the single source of truth for that aliasing — the Vercel handler,
+// the Cloudflare Worker, and the npm bridge all resolve through it (the bridge
+// ships a vendored copy in packages/pumpfun-mcp/src/tools.js).
+export const TOOL_NAME_ALIASES = Object.freeze({
+	searchTokens: 'search_tokens',
+	getTokenDetails: 'get_token_details',
+	getBondingCurve: 'get_bonding_curve',
+	getTokenTrades: 'get_token_trades',
+	getTrendingTokens: 'get_trending_tokens',
+	getNewTokens: 'get_new_tokens',
+	getGraduatedTokens: 'get_graduated_tokens',
+	getKingOfTheHill: 'get_king_of_the_hill',
+	getCreatorProfile: 'get_creator_profile',
+	getTokenHolders: 'get_token_holders',
+});
+
+// Resolve a tools/call name to its canonical form. Unknown names pass through
+// unchanged so the dispatcher's own unknown-tool error still fires. hasOwn
+// guard: "__proto__"/"constructor" must not resolve an inherited member.
+export function resolveToolName(name) {
+	if (typeof name === 'string' && Object.hasOwn(TOOL_NAME_ALIASES, name)) {
+		return TOOL_NAME_ALIASES[name];
+	}
+	return name;
+}
+
 // name → { title, ...ToolAnnotations }. Applied onto TOOLS below; exported so
 // runtimes (and the npm bridge) can overlay the same map on older tool lists.
+// Keys are the canonical snake_case names — overlay callers resolve legacy
+// names through TOOL_NAME_ALIASES first.
 export const TOOL_ANNOTATIONS = Object.freeze({
-	searchTokens: { title: 'Search Tokens', ...LIVE_READ },
-	getTokenDetails: { title: 'Token Details', ...LIVE_READ },
-	getBondingCurve: { title: 'Bonding Curve', ...LIVE_READ },
-	getTokenTrades: { title: 'Token Trades', ...LIVE_READ },
-	getTrendingTokens: { title: 'Trending Tokens', ...LIVE_READ },
-	getNewTokens: { title: 'New Tokens', ...LIVE_READ },
-	getGraduatedTokens: { title: 'Graduated Tokens', ...LIVE_READ },
-	getKingOfTheHill: { title: 'King of the Hill', ...LIVE_READ },
+	search_tokens: { title: 'Search Tokens', ...LIVE_READ },
+	get_token_details: { title: 'Token Details', ...LIVE_READ },
+	get_bonding_curve: { title: 'Bonding Curve', ...LIVE_READ },
+	get_token_trades: { title: 'Token Trades', ...LIVE_READ },
+	get_trending_tokens: { title: 'Trending Tokens', ...LIVE_READ },
+	get_new_tokens: { title: 'New Tokens', ...LIVE_READ },
+	get_graduated_tokens: { title: 'Graduated Tokens', ...LIVE_READ },
+	get_king_of_the_hill: { title: 'King of the Hill', ...LIVE_READ },
 	kol_radar: { title: 'KOL Radar', ...LIVE_READ },
-	getCreatorProfile: { title: 'Creator Profile', ...LIVE_READ },
-	getTokenHolders: { title: 'Token Holders', ...LIVE_READ },
+	get_creator_profile: { title: 'Creator Profile', ...LIVE_READ },
+	get_token_holders: { title: 'Token Holders', ...LIVE_READ },
 	pumpfun_vanity_mint: { title: 'Vanity Mint Keypair', ...LOCAL_GENERATIVE },
 	pumpfun_watch_whales: { title: 'Watch Whale Trades', ...LIVE_READ },
 	pumpfun_list_claims: { title: 'List Creator Fee Claims', ...LIVE_READ },
@@ -68,9 +98,19 @@ export const TOOL_ANNOTATIONS = Object.freeze({
 	social_x_post_impact: { title: 'X Post Price Impact', ...LIVE_READ },
 });
 
+// outputSchema policy: only tools whose response shape is code-controlled and
+// genuinely stable advertise one (sns_resolve, sns_reverseLookup,
+// social_cashtag_sentiment, pumpfun_vanity_mint, pumpfun_quote_swap,
+// get_bonding_curve). Indexer/upstream-shaped passthroughs (search_tokens,
+// get_token_details, get_token_trades, get_trending_tokens, get_new_tokens,
+// get_graduated_tokens, get_king_of_the_hill, get_creator_profile,
+// get_token_holders, kol_*, pumpfun_*_claims, pumpfun_watch_whales,
+// social_x_post_impact) deliberately ship NO outputSchema — their payloads
+// mirror upstream feeds / multi-source on-chain decoders that can evolve, and
+// a wrong schema is worse than none.
 export const TOOLS = [
 	{
-		name: 'searchTokens',
+		name: 'search_tokens',
 		description: 'Search pump.fun tokens by name, symbol, or mint address.',
 		inputSchema: {
 			type: 'object',
@@ -82,7 +122,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getTokenDetails',
+		name: 'get_token_details',
 		description: 'Full details for a specific pump.fun token by mint address.',
 		inputSchema: {
 			type: 'object',
@@ -91,7 +131,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getBondingCurve',
+		name: 'get_bonding_curve',
 		description:
 			'Bonding curve analysis: real reserves, virtual reserves, and graduation progress (on-chain).',
 		inputSchema: {
@@ -102,9 +142,33 @@ export const TOOLS = [
 			},
 			required: ['mint'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				mint: { type: 'string' },
+				network: { type: 'string' },
+				complete: { type: 'boolean', description: 'true once the curve has graduated' },
+				graduationPercent: { type: 'number', description: '0–100 graduation progress' },
+				solReserves: { type: 'string', description: 'Real SOL reserves in SOL (4-decimal string)' },
+				tokenReserves: { type: 'string', description: 'Real token reserves (raw base units)' },
+				virtualSolReserves: { type: 'string', description: 'Virtual SOL reserves (lamports)' },
+				virtualTokenReserves: { type: 'string', description: 'Virtual token reserves (raw base units)' },
+			},
+			required: [
+				'mint',
+				'network',
+				'complete',
+				'graduationPercent',
+				'solReserves',
+				'tokenReserves',
+				'virtualSolReserves',
+				'virtualTokenReserves',
+			],
+			additionalProperties: true,
+		},
 	},
 	{
-		name: 'getTokenTrades',
+		name: 'get_token_trades',
 		description: 'Recent buy/sell history for a token.',
 		inputSchema: {
 			type: 'object',
@@ -116,7 +180,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getTrendingTokens',
+		name: 'get_trending_tokens',
 		description: 'Top pump.fun tokens by market cap.',
 		inputSchema: {
 			type: 'object',
@@ -124,7 +188,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getNewTokens',
+		name: 'get_new_tokens',
 		description: 'Most recently launched pump.fun tokens.',
 		inputSchema: {
 			type: 'object',
@@ -132,7 +196,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getGraduatedTokens',
+		name: 'get_graduated_tokens',
 		description: 'Tokens that graduated from the bonding curve to Raydium AMM.',
 		inputSchema: {
 			type: 'object',
@@ -140,7 +204,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getKingOfTheHill',
+		name: 'get_king_of_the_hill',
 		description: 'Highest-market-cap token still on the bonding curve.',
 		inputSchema: { type: 'object', properties: {} },
 	},
@@ -161,7 +225,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getCreatorProfile',
+		name: 'get_creator_profile',
 		description: 'All tokens by a creator wallet, with rug-pull risk flags.',
 		inputSchema: {
 			type: 'object',
@@ -170,7 +234,7 @@ export const TOOLS = [
 		},
 	},
 	{
-		name: 'getTokenHolders',
+		name: 'get_token_holders',
 		description: 'Top holders of a token with concentration analysis (on-chain).',
 		inputSchema: {
 			type: 'object',
@@ -194,6 +258,17 @@ export const TOOLS = [
 				caseSensitive: { type: 'boolean', default: false },
 				maxAttempts: { type: 'integer', default: 5000000 },
 			},
+		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				publicKey: { type: 'string', description: 'Matched Solana address (base58)' },
+				secretKey: { type: 'string', description: 'Secret key (base58) — caller is sole custodian' },
+				attempts: { type: 'integer', description: 'Keypairs ground before the match' },
+				ms: { type: 'number', description: 'Wall-clock grind time in milliseconds' },
+			},
+			required: ['publicKey', 'secretKey', 'attempts', 'ms'],
+			additionalProperties: true,
 		},
 	},
 	{
@@ -272,6 +347,15 @@ export const TOOLS = [
 			},
 			required: ['name'],
 		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				name: { type: 'string', description: 'The .sol domain that was resolved' },
+				address: { type: 'string', description: 'Owner wallet address (base58)' },
+			},
+			required: ['name', 'address'],
+			additionalProperties: true,
+		},
 	},
 	{
 		name: 'sns_reverseLookup',
@@ -282,6 +366,15 @@ export const TOOLS = [
 				address: { type: 'string', description: 'Base58 Solana wallet address' },
 			},
 			required: ['address'],
+		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				address: { type: 'string', description: 'The wallet address that was looked up' },
+				name: { type: 'string', description: 'Primary .sol domain for the address' },
+			},
+			required: ['address', 'name'],
+			additionalProperties: true,
 		},
 	},
 	{
@@ -307,6 +400,27 @@ export const TOOLS = [
 				},
 			},
 			required: ['posts'],
+		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				score: { type: 'number', description: 'Net sentiment, -1 (bearish) to 1 (bullish)' },
+				posPct: { type: 'number', description: 'Percentage of positive posts (0–100)' },
+				negPct: { type: 'number', description: 'Percentage of negative posts (0–100)' },
+				neuPct: { type: 'number', description: 'Percentage of neutral posts (0–100)' },
+				count: { type: 'integer', description: 'Number of posts scored' },
+				examples: {
+					type: 'object',
+					properties: {
+						pos: { type: 'array', items: { type: 'string' } },
+						neg: { type: 'array', items: { type: 'string' } },
+					},
+					required: ['pos', 'neg'],
+					additionalProperties: true,
+				},
+			},
+			required: ['score', 'posPct', 'negPct', 'neuPct', 'count', 'examples'],
+			additionalProperties: true,
 		},
 	},
 	{
@@ -335,6 +449,17 @@ export const TOOLS = [
 				network: { type: 'string', enum: ['mainnet', 'devnet'], default: 'mainnet' },
 			},
 			required: ['inputMint', 'outputMint', 'amountIn'],
+		},
+		outputSchema: {
+			type: 'object',
+			properties: {
+				amountOut: { type: 'string', description: 'Expected output amount in raw base units' },
+				priceImpactBps: { type: 'number', description: 'Price impact in basis points' },
+				route: { type: 'string', description: 'AMM pool address the quote routes through (base58)' },
+				expiresAtMs: { type: 'number', description: 'Epoch ms after which the quote is stale' },
+			},
+			required: ['amountOut', 'priceImpactBps', 'route', 'expiresAtMs'],
+			additionalProperties: true,
 		},
 	},
 	{

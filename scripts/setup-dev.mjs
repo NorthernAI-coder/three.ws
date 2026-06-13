@@ -54,7 +54,11 @@ if (!existsSync(resolve(ROOT, 'agent-payments-sdk/dist/index.js'))) {
 	buildSdk('setup-agent-payments-sdk', 'agent-payments-sdk', 'agent-payments-sdk/dist/index.js');
 }
 
-// 2. Generated data consumed by the app, sitemap, and tests.
+// 2. Git hooks: no CI runs on this repo, so the pre-push typecheck in
+// .githooks/ is the only automated gate before the Vercel build.
+run('git config core.hooksPath .githooks');
+
+// 3. Generated data consumed by the app, sitemap, and tests.
 run('node scripts/build-news.mjs');
 run('node scripts/build-skill-metadata.mjs');
 run('node scripts/build-local-skill-packs.mjs');

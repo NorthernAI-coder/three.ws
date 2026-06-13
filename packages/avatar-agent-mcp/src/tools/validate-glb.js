@@ -10,8 +10,42 @@ import { z } from 'zod';
 import validator from 'gltf-validator';
 
 import { fetchGlbBytes } from '../lib/glb-io.js';
+import { resultShape, upstreamObject } from '../lib/output-shapes.js';
 
 const SEVERITIES = ['error', 'warning', 'info', 'hint'];
+
+const issueBucket = z.array(
+	upstreamObject({
+		code: z.string(),
+		message: z.string(),
+		pointer: z.string().nullable(),
+		offset: z.number().nullable(),
+	}),
+);
+
+const outputSchema = resultShape({
+	url: z.string().optional().describe('The validated GLB URL (echoed).'),
+	sizeBytes: z.number().optional(),
+	validatorVersion: z.string().nullable().optional(),
+	mimeType: z.string().nullable().optional(),
+	validated: z.string().optional().describe('ISO timestamp of the validation run.'),
+	summary: z
+		.object({
+			numErrors: z.number(),
+			numWarnings: z.number(),
+			numInfos: z.number(),
+			numHints: z.number(),
+			truncated: z.boolean(),
+		})
+		.optional(),
+	info: upstreamObject({})
+		.nullable()
+		.optional()
+		.describe("The Khronos validator's structural info report, passed through verbatim."),
+	issues: z
+		.object({ error: issueBucket, warning: issueBucket, info: issueBucket, hint: issueBucket })
+		.optional(),
+});
 
 function classify(messages = []) {
 	const buckets = { error: [], warning: [], info: [], hint: [] };

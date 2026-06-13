@@ -170,7 +170,7 @@
 			builds: 'A script that turns a prompt list into a folder of GLB files',
 			time: '25 min',
 			previewModel: '/animations/soldier.glb',
-			ctaPrimary: { label: 'Read the API tutorial', href: '/tutorials/generate-3d-api' },
+			ctaPrimary: { label: 'Open the Forge', href: '/forge' },
 		},
 		{
 			slug: 'upload-custom-glb',

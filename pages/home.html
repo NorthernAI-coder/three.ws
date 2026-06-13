@@ -3233,6 +3233,73 @@
 	#home-forge .hf-toast[hidden] { display: none; }
 	#home-forge .hf-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+	/* Embed sheet — an in-chamber glass dialog in the chamber's own language. */
+	#home-forge .hf-embed {
+		position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center;
+		padding: 22px;
+	}
+	#home-forge .hf-embed[hidden] { display: none; }
+	#home-forge .hf-embed-scrim {
+		position: absolute; inset: 0; background: rgba(6, 6, 8, 0.62);
+		-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+		animation: hf-embed-fade 0.22s ease both;
+	}
+	@keyframes hf-embed-fade { from { opacity: 0; } }
+	#home-forge .hf-embed-card {
+		position: relative; z-index: 1; width: min(440px, 100%); max-height: 100%; overflow-y: auto;
+		display: flex; flex-direction: column; gap: 12px; padding: 18px;
+		border-radius: 18px; scrollbar-width: none;
+		background: linear-gradient(rgba(13, 13, 17, 0.92), rgba(13, 13, 17, 0.92)) padding-box,
+			linear-gradient(120deg, rgba(255, 180, 84, 0.4), rgba(255, 106, 213, 0.4) 38%, rgba(139, 92, 246, 0.4) 64%, rgba(79, 195, 255, 0.4)) border-box;
+		border: 1px solid transparent;
+		-webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+		box-shadow: 0 30px 80px -28px rgba(0, 0, 0, 0.92);
+		animation: hf-embed-rise 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+	#home-forge .hf-embed-card::-webkit-scrollbar { display: none; }
+	@keyframes hf-embed-rise { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
+	#home-forge .hf-embed-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+	#home-forge .hf-embed-kicker {
+		margin: 0 0 2px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+		text-transform: uppercase; color: #ffb454;
+	}
+	#home-forge .hf-embed-title { margin: 0; font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+	#home-forge .hf-embed-preview {
+		width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid var(--hairline);
+		background: #0b0b0d; aspect-ratio: 16 / 9; transition: aspect-ratio 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+	}
+	#home-forge .hf-embed-frame { display: block; width: 100%; height: 100%; border: 0; }
+	#home-forge .hf-embed-controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+	#home-forge .hf-seg {
+		display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px;
+		background: rgba(255, 255, 255, 0.035); border: 1px solid var(--hairline);
+	}
+	#home-forge .hf-seg-btn {
+		background: transparent; border: 0; cursor: pointer; color: var(--text-3);
+		font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+		padding: 7px 11px; border-radius: 8px; transition: background 0.14s, color 0.14s;
+	}
+	#home-forge .hf-seg-btn:hover { color: var(--text); }
+	#home-forge .hf-seg-btn[aria-pressed='true'] { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+	#home-forge .hf-seg-btn:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+	#home-forge .hf-embed-codelabel {
+		font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+		color: var(--text-3); margin-top: 2px;
+	}
+	#home-forge .hf-embed-code {
+		width: 100%; box-sizing: border-box; resize: vertical; min-height: 96px;
+		background: rgba(0, 0, 0, 0.42); border: 1px solid var(--hairline); border-radius: 10px;
+		padding: 11px 12px; color: var(--text); white-space: pre; overflow-x: auto;
+		font-family: var(--font-mono); font-size: 12px; line-height: 1.55; scrollbar-width: thin;
+	}
+	#home-forge .hf-embed-code:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 1px; }
+	#home-forge .hf-embed-copy { width: 100%; justify-content: center; padding: 12px 16px; }
+	#home-forge .hf-embed-copy.is-copied { background: #58d68d; border-color: #58d68d; box-shadow: 0 0 24px -6px rgba(88, 214, 141, 0.6); }
+	#home-forge .hf-embed-foot { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-3); text-align: center; }
+	#home-forge .hf-embed-foot a { color: var(--text-2); text-decoration: none; border-bottom: 1px solid var(--hairline-strong); }
+	#home-forge .hf-embed-foot a:hover { color: var(--text); }
+	#home-forge .hf-embed-foot a:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+
 	@media (max-width: 720px) {
 		#home-forge .hf-chamber { min-height: 600px; border-radius: 16px; }
 		#home-forge .hf-state { padding: 24px 18px 190px; }
@@ -3256,6 +3323,8 @@
 		#home-forge .hf-hud .dot { animation: none; }
 		#home-forge .hf-thumb { animation: none; }
 		#home-forge .hf-toast { transition: opacity 0.2s ease; }
+		#home-forge .hf-embed-scrim, #home-forge .hf-embed-card { animation: none; }
+		#home-forge .hf-embed-preview { transition: none; }
 	}
 </style>
 <section class="block" id="home-forge">
@@ -3320,6 +3389,9 @@
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>
 							Scene Studio
 						</a>
+						<button type="button" class="hf-btn hf-icon-btn" data-hf-embed-open title="Embed on any website" aria-label="Embed on any website" aria-haspopup="dialog">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+						</button>
 						<button type="button" class="hf-btn hf-icon-btn" data-hf-share title="Copy share link" aria-label="Copy share link">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>
 						</button>
@@ -3338,6 +3410,49 @@
 				<h3>Generation failed</h3>
 				<p data-hf-error-message>Something went wrong. Try a simpler, single-subject prompt.</p>
 				<button type="button" class="hf-btn hf-btn--bright" data-hf-retry>Try again</button>
+			</div>
+
+			<!-- Embed sheet — drop the forged model on any site. Snippet shapes are
+			     shared with the full Forge via src/forge-embed-snippets.js. -->
+			<div class="hf-embed" data-hf-embed hidden role="dialog" aria-modal="true" aria-label="Embed this model">
+				<div class="hf-embed-scrim" data-hf-embed-close aria-hidden="true"></div>
+				<div class="hf-embed-card" role="document">
+					<div class="hf-embed-head">
+						<div>
+							<p class="hf-embed-kicker">Embed</p>
+							<h3 class="hf-embed-title">Put this model on any site</h3>
+						</div>
+						<button type="button" class="hf-btn hf-icon-btn" data-hf-embed-close title="Close" aria-label="Close embed panel">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+						</button>
+					</div>
+
+					<div class="hf-embed-preview" data-hf-embed-preview>
+						<iframe class="hf-embed-frame" data-hf-embed-frame title="Embed preview" allow="xr-spatial-tracking; fullscreen" loading="lazy"></iframe>
+					</div>
+
+					<div class="hf-embed-controls">
+						<div class="hf-seg" data-hf-embed-tabs role="group" aria-label="Embed type">
+							<button type="button" class="hf-seg-btn" data-hf-embed-tab="iframe" aria-pressed="true">iframe</button>
+							<button type="button" class="hf-seg-btn" data-hf-embed-tab="component" aria-pressed="false">Web component</button>
+						</div>
+						<div class="hf-seg" data-hf-embed-sizes role="group" aria-label="Size">
+							<button type="button" class="hf-seg-btn" data-hf-embed-size="wide" aria-pressed="true">16 : 9</button>
+							<button type="button" class="hf-seg-btn" data-hf-embed-size="square" aria-pressed="false">Square</button>
+							<button type="button" class="hf-seg-btn" data-hf-embed-size="portrait" aria-pressed="false">4 : 5</button>
+						</div>
+					</div>
+
+					<label class="hf-embed-codelabel" for="hf-embed-code">Paste this where you want the model</label>
+					<textarea id="hf-embed-code" class="hf-embed-code" data-hf-embed-code readonly spellcheck="false" rows="5"></textarea>
+
+					<button type="button" class="hf-forge-btn hf-embed-copy" data-hf-embed-copy>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+						<span data-hf-embed-copy-label>Copy embed code</span>
+					</button>
+
+					<p class="hf-embed-foot">Live, orbitable, AR-ready on phones &middot; <a data-hf-embed-standalone target="_blank" rel="noopener">open the standalone viewer &#8599;</a></p>
+				</div>
 			</div>
 
 			<form class="hf-dock" data-hf-form autocomplete="off">

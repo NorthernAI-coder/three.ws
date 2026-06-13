@@ -34,6 +34,27 @@ function graniteConfig() {
 	return cfg;
 }
 
+// MCP tool annotations (2025-06-18 spec) — mirrors the constants shipped in
+// packages/ibm-x402-mcp/src/tools/_shared.js so the hosted and stdio transports
+// advertise identical semantics. Granite inference reads the operator's models
+// without touching caller state (readOnlyHint true); generative tools can
+// return different output for identical input, embeddings are deterministic
+// for a given model. destructiveHint defaults to TRUE when omitted, so the
+// hosted catalog sets it explicitly.
+const generativeAnnotations = Object.freeze({
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: false,
+	openWorldHint: true,
+});
+
+const deterministicAnnotations = Object.freeze({
+	readOnlyHint: true,
+	destructiveHint: false,
+	idempotentHint: true,
+	openWorldHint: true,
+});
+
 // MCP tool result helper. structuredContent carries the full machine-readable
 // object (the same shape the npm package returns); content[0].text is a concise
 // human-readable view for clients that render text.
@@ -129,6 +150,13 @@ const gettingStartedTool = {
 	name: 'ibm_granite_getting_started',
 	title: 'Getting Started (free)',
 	description: GETTING_STARTED_DESCRIPTION,
+	// Static, local overview — same annotations the npm package ships.
+	annotations: Object.freeze({
+		readOnlyHint: true,
+		destructiveHint: false,
+		idempotentHint: true,
+		openWorldHint: false,
+	}),
 	inputSchema: {
 		type: 'object',
 		additionalProperties: false,
@@ -160,6 +188,7 @@ const chatTool = {
 	name: 'ibm_granite_chat',
 	title: 'IBM Granite Chat ($0.02)',
 	description: CHAT_DESCRIPTION,
+	annotations: generativeAnnotations,
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -264,6 +293,7 @@ const codeTool = {
 	name: 'ibm_granite_code',
 	title: 'IBM Granite Code ($0.025)',
 	description: CODE_DESCRIPTION,
+	annotations: generativeAnnotations,
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -336,6 +366,7 @@ const embedTool = {
 	name: 'ibm_granite_embed',
 	title: 'IBM Granite Embed ($0.005)',
 	description: EMBED_DESCRIPTION,
+	annotations: deterministicAnnotations,
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -432,6 +463,7 @@ const analyzeTool = {
 	name: 'ibm_granite_analyze',
 	title: 'IBM Granite Analyze ($0.04)',
 	description: ANALYZE_DESCRIPTION,
+	annotations: generativeAnnotations,
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -536,6 +568,7 @@ const forecastTool = {
 	name: 'ibm_granite_forecast',
 	title: 'IBM Granite Forecast ($0.05)',
 	description: FORECAST_DESCRIPTION,
+	annotations: generativeAnnotations,
 	inputSchema: {
 		type: 'object',
 		properties: {

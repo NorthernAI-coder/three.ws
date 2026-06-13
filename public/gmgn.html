@@ -770,7 +770,7 @@
 			const filtered = pickerQuery ? items.filter((a) => (a.name || a.url || '').toLowerCase().includes(pickerQuery)) : items;
 
 			if (!filtered.length) {
-				body.innerHTML = `<div class="empty">${pickerLoading[pickerTab] ? 'Loading…' : pickerTab === 'mine' && pickerAuthed === false ? '<a href="/auth">Sign in</a> to see your agents' : 'No avatars found'}</div>`;
+				body.innerHTML = `<div class="empty">${pickerLoading[pickerTab] ? 'Loading…' : pickerTab === 'mine' && pickerAuthed === false ? '<a href="/login">Sign in</a> to see your agents' : 'No avatars found'}</div>`;
 				return;
 			}
 			const grid = document.createElement('div');

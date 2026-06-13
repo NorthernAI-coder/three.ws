@@ -34,6 +34,22 @@ const selectorProps = {
 	model: { type: 'string', description: 'Direct GLB/GLTF model URL (skips lookup; used as-is).' },
 };
 
+// Shared output fields. The low-level Server only ADVERTISES outputSchema (it
+// never validates structuredContent), so these mirror the exact shapes the
+// handlers below build — every property listed is really emitted, nullables
+// are fields the code can set to null, and additionalProperties stays open so
+// future additive fields never break strict clients.
+const outputProps = {
+	id: {
+		type: ['string', 'null'],
+		description: 'Avatar UUID, or null when the avatar came from a raw model URL.',
+	},
+	name: { type: 'string', description: 'Avatar display name.' },
+	model_url: { type: 'string', description: 'Direct GLB/GLTF model URL.' },
+	embed_url: { type: 'string', description: 'Live avatar-embed page URL (iframe src).' },
+	iframe: { type: 'string', description: 'Ready-to-paste <iframe> embed snippet.' },
+};
+
 function textBlock(text) {
 	return { type: 'text', text };
 }
@@ -73,6 +89,19 @@ export function buildTools() {
 						height: { type: 'integer', minimum: 160, maximum: 1080, default: 480 },
 					},
 					anyOf: [{ required: ['id'] }, { required: ['handle'] }, { required: ['model'] }],
+				},
+				outputSchema: {
+					type: 'object',
+					properties: {
+						...outputProps,
+						background: { type: 'string', description: 'Backdrop applied to the preview/embed.' },
+						viewer_url: {
+							type: 'string',
+							description: 'Standalone full-page interactive viewer URL.',
+						},
+					},
+					required: ['id', 'name', 'model_url', 'background', 'embed_url', 'viewer_url', 'iframe'],
+					additionalProperties: true,
 				},
 			},
 			handler: async (args) => {
@@ -162,6 +191,17 @@ export function buildTools() {
 					},
 					anyOf: [{ required: ['id'] }, { required: ['handle'] }, { required: ['model'] }],
 				},
+				outputSchema: {
+					type: 'object',
+					properties: {
+						embed_url: outputProps.embed_url,
+						iframe: outputProps.iframe,
+						name: outputProps.name,
+						id: outputProps.id,
+					},
+					required: ['embed_url', 'iframe', 'name', 'id'],
+					additionalProperties: true,
+				},
 			},
 			handler: async (args) => {
 				// Validate the avatar exists (and surface a clear error if not) before
@@ -194,6 +234,37 @@ export function buildTools() {
 					type: 'object',
 					properties: { id: selectorProps.id, handle: selectorProps.handle },
 					anyOf: [{ required: ['id'] }, { required: ['handle'] }],
+				},
+				// Mirrors the normalized avatar record from resolveAvatar: nullable
+				// fields are always present (as null when unknown); `owner` is omitted
+				// entirely when the API response carries no user.
+				outputSchema: {
+					type: 'object',
+					properties: {
+						id: outputProps.id,
+						name: outputProps.name,
+						slug: { type: ['string', 'null'], description: 'URL slug, or null if the avatar has none.' },
+						model_url: outputProps.model_url,
+						thumbnail: {
+							type: ['string', 'null'],
+							description: 'Preview/poster image URL, or null if none is published.',
+						},
+						visibility: {
+							type: ['string', 'null'],
+							description: 'Avatar visibility (e.g. "public", "unlisted"), or null if unreported.',
+						},
+						owner: {
+							type: 'object',
+							description: 'Owning user; omitted when the API response has no user record.',
+							properties: {
+								username: { type: 'string' },
+								display_name: { type: 'string' },
+							},
+							additionalProperties: true,
+						},
+					},
+					required: ['id', 'name', 'slug', 'model_url', 'thumbnail', 'visibility'],
+					additionalProperties: true,
 				},
 			},
 			handler: async (args) => {

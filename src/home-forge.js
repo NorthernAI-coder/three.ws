@@ -18,6 +18,15 @@
 // into Scene Studio, a shareable link, a same-prompt variation, or download.
 // All motion respects prefers-reduced-motion.
 
+import {
+	absoluteGlb,
+	buildIframeSnippet,
+	buildWebComponentSnippet,
+	embedPageUrl,
+	embedPreviewUrl,
+	embedSize,
+} from './forge-embed-snippets.js';
+
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_MS = 5 * 60 * 1000;
 const MODEL_VIEWER_SRC =
@@ -64,6 +73,17 @@ const els = root && {
 	history: root.querySelector('[data-hf-history]'),
 	historyTrack: root.querySelector('[data-hf-history-track]'),
 	toast: root.querySelector('[data-hf-toast]'),
+	embedOpen: root.querySelector('[data-hf-embed-open]'),
+	embed: root.querySelector('[data-hf-embed]'),
+	embedFrame: root.querySelector('[data-hf-embed-frame]'),
+	embedPreview: root.querySelector('[data-hf-embed-preview]'),
+	embedTabs: root.querySelector('[data-hf-embed-tabs]'),
+	embedSizes: root.querySelector('[data-hf-embed-sizes]'),
+	embedCode: root.querySelector('[data-hf-embed-code]'),
+	embedCopy: root.querySelector('[data-hf-embed-copy]'),
+	embedCopyLabel: root.querySelector('[data-hf-embed-copy-label]'),
+	embedStandalone: root.querySelector('[data-hf-embed-standalone]'),
+	embedCloseEls: root ? Array.from(root.querySelectorAll('[data-hf-embed-close]')) : [],
 };
 
 // Same anonymous handle as src/forge.js — keep the storage key in sync so the
@@ -97,6 +117,9 @@ let modelViewerReady = null;
 let currentViewer = null; // the live <model-viewer> on stage
 let currentGlbUrl = ''; // what the toolbar acts on
 let toastTimer = null;
+let embedCopyTimer = null;
+let embedTrigger = null; // element to restore focus to when the embed sheet closes
+const embedState = { tab: 'iframe', sizeId: 'wide' };
 // Monotonic run token: cancel-then-regenerate must not let the first run's
 // poll loop wake up and fight the new one over the shared stage.
 let runSeq = 0;
@@ -426,6 +449,7 @@ function showResult(glbUrl, prompt, { fromHistory = false } = {}) {
 
 async function run(prompt) {
 	if (busy) return;
+	closeEmbed();
 	lastPrompt = prompt;
 	pollAbort = false;
 	const seq = ++runSeq;
@@ -480,6 +504,7 @@ function reset() {
 	pollAbort = true;
 	stopElapsed();
 	setBusy(false);
+	closeEmbed();
 	currentGlbUrl = '';
 	currentViewer = null;
 	markActiveThumb();
@@ -598,6 +623,107 @@ function toggleAutoRotate() {
 	els.spin.title = on ? 'Resume auto-rotate' : 'Pause auto-rotate';
 }
 
+// ── Embed sheet ────────────────────────────────────────────────────
+// Drop the forged model on any site. Snippet shapes, size presets, and the
+// /forge/embed URLs are shared with the full Forge embed modal via
+// ./forge-embed-snippets.js, so the two surfaces never drift.
+
+function currentEmbedSnippet(glb) {
+	return embedState.tab === 'iframe'
+		? buildIframeSnippet(glb, lastPrompt, embedState.sizeId)
+		: buildWebComponentSnippet(glb, lastPrompt, embedState.sizeId);
+}
+
+function renderEmbed() {
+	if (!els.embed) return;
+	const glb = absoluteGlb(currentGlbUrl);
+	if (!glb) return;
+	els.embedCode.value = currentEmbedSnippet(glb);
+	if (els.embedPreview) els.embedPreview.style.aspectRatio = embedSize(embedState.sizeId).ratio;
+	if (els.embedStandalone) els.embedStandalone.href = embedPageUrl(glb, lastPrompt);
+	for (const b of els.embedTabs.querySelectorAll('[data-hf-embed-tab]')) {
+		b.setAttribute('aria-pressed', String(b.dataset.hfEmbedTab === embedState.tab));
+	}
+	for (const b of els.embedSizes.querySelectorAll('[data-hf-embed-size]')) {
+		b.setAttribute('aria-pressed', String(b.dataset.hfEmbedSize === embedState.sizeId));
+	}
+}
+
+function openEmbed() {
+	if (!els.embed || !currentGlbUrl) return;
+	const glb = absoluteGlb(currentGlbUrl);
+	embedTrigger = document.activeElement;
+	// Point the live preview at the real embed viewer so what you see is what
+	// ships. Set once on open; size changes only restyle the frame's aspect box.
+	els.embedFrame.src = embedPreviewUrl(glb, lastPrompt);
+	renderEmbed();
+	els.embed.hidden = false;
+	document.addEventListener('keydown', onEmbedKeydown, true);
+	// Focus the first control so the sheet is operable from the keyboard.
+	const first = els.embed.querySelector('[data-hf-embed-close], button, [href], textarea');
+	if (first) first.focus();
+}
+
+function closeEmbed() {
+	if (!els.embed || els.embed.hidden) return;
+	els.embed.hidden = true;
+	els.embedFrame.removeAttribute('src'); // release the preview's WebGL context
+	document.removeEventListener('keydown', onEmbedKeydown, true);
+	if (embedTrigger && typeof embedTrigger.focus === 'function') embedTrigger.focus();
+	embedTrigger = null;
+}
+
+function onEmbedKeydown(e) {
+	if (e.key === 'Escape') {
+		e.preventDefault();
+		closeEmbed();
+	}
+}
+
+async function copyEmbedCode() {
+	const text = els.embedCode.value;
+	if (!text) return;
+	const label = els.embedCopyLabel;
+	const original = label ? label.textContent : '';
+	let ok = true;
+	try {
+		if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+		else {
+			els.embedCode.focus();
+			els.embedCode.select();
+			ok = document.execCommand('copy');
+		}
+	} catch {
+		ok = false;
+	}
+	els.embedCopy.classList.toggle('is-copied', ok);
+	if (label) label.textContent = ok ? 'Copied ✓' : 'Press ⌘/Ctrl-C to copy';
+	clearTimeout(embedCopyTimer);
+	embedCopyTimer = setTimeout(() => {
+		els.embedCopy.classList.remove('is-copied');
+		if (label) label.textContent = original;
+	}, 2200);
+}
+
+function wireEmbed() {
+	if (!els.embed || !els.embedOpen) return;
+	els.embedOpen.addEventListener('click', openEmbed);
+	for (const el of els.embedCloseEls) el.addEventListener('click', closeEmbed);
+	els.embedTabs.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-hf-embed-tab]');
+		if (!btn) return;
+		embedState.tab = btn.dataset.hfEmbedTab;
+		renderEmbed();
+	});
+	els.embedSizes.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-hf-embed-size]');
+		if (!btn) return;
+		embedState.sizeId = btn.dataset.hfEmbedSize;
+		renderEmbed();
+	});
+	els.embedCopy.addEventListener('click', copyEmbedCode);
+}
+
 function boot() {
 	els.form.addEventListener('submit', (e) => {
 		e.preventDefault();
@@ -651,6 +777,7 @@ function boot() {
 			if (lastPrompt && !busy) run(lastPrompt);
 		});
 
+	wireEmbed();
 	renderHistory();
 	startTypewriter();
 	startParallax();
