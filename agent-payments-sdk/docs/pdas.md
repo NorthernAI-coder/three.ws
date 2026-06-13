@@ -1,4 +1,4 @@
-# PDA Reference — @pump-fun/agent-payments-sdk
+# PDA Reference — @three-ws/agent-payments
 
 All PDAs are derived from program `AgenTMiC2hvxGebTsgmsD4HHBa8WEcqGFf87iwRRxLo7` unless noted.
 
@@ -13,7 +13,7 @@ import {
   getBuybackAuthorityPDA,
   getWithdrawAuthorityPDA,
   getBondingCurvePDA,
-} from "@pump-fun/agent-payments-sdk";
+} from "@three-ws/agent-payments";
 ```
 
 All functions return `[PublicKey, number]` (address + bump).
@@ -81,7 +81,7 @@ import {
   BUYBACK_AUTHORITY_SEED,
   WITHDRAW_AUTHORITY_SEED,
   BONDING_CURVE_SEED,
-} from "@pump-fun/agent-payments-sdk";
+} from "@three-ws/agent-payments";
 ```
 
 | Constant | Value |
