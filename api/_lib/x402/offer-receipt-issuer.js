@@ -156,7 +156,10 @@ async function buildJwsIssuer() {
  * configured. Throws if a key is configured but invalid (fail-fast on boot).
  */
 export async function getIssuer() {
-	if (_issuerError) throw _issuerError;
+	// After the first initialization failure the error was already logged by the
+	// caller. Re-throwing on every subsequent request would spam the error log;
+	// return null so the offers extension is silently skipped instead.
+	if (_issuerError) return null;
 	if (_issuerCache !== null) return _issuerCache;
 	const format = (env.OFFER_RECEIPT_FORMAT || 'eip712').toLowerCase();
 	try {

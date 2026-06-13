@@ -15,7 +15,8 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { isValidGlbHeader } from '../_lib/glb-inspect.js';
-import { getRegenProvider } from '../_lib/regen-provider.js';
+import { getRegenProvider, getRegenProviderByName, getRegenProviderForJob, BYOK_REGEN_PROVIDERS } from '../_lib/regen-provider.js';
+import { resolveProviderKey } from '../_lib/forge-provider-key.js';
 import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-finalize.js';
 import { textToImage } from '../_mcp3d/text-to-image.js';
 
@@ -431,9 +432,11 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 	// Pull a fresh status from the provider when the job is still in flight
 	// and we have an external id to query. The status endpoint serves as our
 	// poll trigger — no separate cron needed for short-lived jobs.
+	// Route by job.provider so BYOK jobs (meshy, tripo) load the right adapter
+	// with the user's stored key, not the platform env credential.
 	if ((job.status === 'queued' || job.status === 'running') && job.provider && job.ext_job_id) {
 		try {
-			const provider = await getRegenProvider();
+			const provider = await getRegenProviderForJob(job.provider, req);
 			if (provider.instance) {
 				const update = await provider.instance.status(job.ext_job_id);
 				const nextStatus = update.status;
@@ -812,13 +815,19 @@ const handleAutoTag = wrap(async (req, res) => {
 });
 
 // ── reconstruct (Phase 1 — Selfie → Avatar engine) ────────────────────────────
-// Submits a Replicate reconstruct job from selfie photos. No source avatar
-// exists yet; the avatar row is materialized when the status handler observes
-// a successful result and copies the generated GLB into R2.
+// Submits a reconstruct job from selfie photos. No source avatar exists yet;
+// the avatar row is materialized when the status handler observes a successful
+// result and copies the generated GLB into R2.
+//
+// Provider resolution order:
+//   1. Platform env (REPLICATE_API_TOKEN / GCP_RECONSTRUCTION_URL / HF_TOKEN)
+//   2. Inline BYOK key in request body (provider_name + provider_key)
+//   3. User's stored BYOK key for a supported provider (meshy > tripo)
+// When none is available, returns needs_key so the client can prompt for a key.
 
 // Photos may be either:
 //   • http(s):// URL — typically an R2 object URL the client uploaded first
-//   • data:image/...;base64,... — inline base64 (Replicate accepts these natively)
+//   • data:image/...;base64,... — inline base64 (Replicate / Meshy accept these)
 const photoUrlOrDataUri = z
 	.string()
 	.max(8 * 1024 * 1024) // generous cap to allow inline JPEGs up to ~6 MB pre-base64
@@ -840,6 +849,10 @@ const reconstructSchema = z
 		prompt: z.string().trim().min(3).max(600).optional(),
 		visibility: z.enum(['private', 'unlisted', 'public']).optional(),
 		params: z.record(z.unknown()).optional(),
+		// BYOK: caller can supply their own provider key when the platform backend
+		// is unconfigured. Never stored on the job row.
+		provider_key: z.string().trim().max(512).optional(),
+		provider_name: z.enum(['meshy', 'tripo']).optional(),
 	})
 	.refine((v) => (Array.isArray(v.photos) && v.photos.length > 0) || !!v.prompt, {
 		message: 'provide either photos or a prompt',
@@ -861,19 +874,50 @@ const handleReconstruct = wrap(async (req, res) => {
 	if (!rl.success) return rateLimited(res, rl);
 	const body = parse(reconstructSchema, await readJson(req));
 
+	// ── Provider resolution ──────────────────────────────────────────────────
 	let provider;
 	try {
 		provider = await getRegenProvider();
 	} catch (err) {
 		return error(res, err.status || 501, err.code || 'regen_provider_error', err.message);
 	}
+
+	// Platform provider not configured — try BYOK fallback.
 	if (provider.name === 'none') {
-		return error(
-			res,
-			501,
-			'regen_unconfigured',
-			'Avatar reconstruction requires a configured backend. Set AVATAR_REGEN_PROVIDER and the matching API token (REPLICATE_API_TOKEN, HF_TOKEN, or GCP_RECONSTRUCTION_URL).',
-		);
+		// 1. Inline key supplied by the client (provider_name + provider_key).
+		if (body.provider_key && body.provider_name) {
+			try {
+				provider = getRegenProviderByName(body.provider_name, body.provider_key);
+			} catch (err) {
+				return error(res, err.status || 400, err.code || 'invalid_key', err.message);
+			}
+		}
+
+		// 2. User's stored BYOK key — iterate preferred providers in order.
+		if (provider.name === 'none') {
+			for (const pName of BYOK_REGEN_PROVIDERS) {
+				try {
+					const key = await resolveProviderKey(req, null, pName);
+					if (key) {
+						provider = getRegenProviderByName(pName, key);
+						break;
+					}
+				} catch {
+					// resolveProviderKey can fail when there is no DB session — skip.
+				}
+			}
+		}
+
+		// 3. Still nothing — tell the client which BYOK providers are accepted.
+		if (provider.name === 'none') {
+			return json(res, 402, {
+				ok: false,
+				code: 'regen_needs_byok',
+				message:
+					'Avatar reconstruction requires an API key. Add your Meshy or Tripo key in settings, or pass provider_key + provider_name in this request.',
+				providers: BYOK_REGEN_PROVIDERS,
+			});
+		}
 	}
 
 	// Text → avatar: turn the prompt into a frontal reference image, then treat

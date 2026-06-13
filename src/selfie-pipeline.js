@@ -26,6 +26,37 @@ const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 8 * 60 * 1000;
 const RATE_LIMIT_COOLDOWN_MS = 60_000;
 
+// BYOK key session storage keys — readable by the page to pre-populate the
+// key entry form and by the pipeline to attach the key to submit requests.
+const BYOK_KEY_STORAGE = 'selfie:byok:key';
+const BYOK_PROVIDER_STORAGE = 'selfie:byok:provider';
+
+/** Read the BYOK credentials stored for this session, if any. */
+export function getStoredByokKey() {
+	try {
+		const key = sessionStorage.getItem(BYOK_KEY_STORAGE);
+		const provider = sessionStorage.getItem(BYOK_PROVIDER_STORAGE);
+		if (key && provider) return { key, provider };
+	} catch (_) {}
+	return null;
+}
+
+/** Persist BYOK credentials to the session. */
+export function storeByokKey(provider, key) {
+	try {
+		sessionStorage.setItem(BYOK_PROVIDER_STORAGE, provider);
+		sessionStorage.setItem(BYOK_KEY_STORAGE, key);
+	} catch (_) {}
+}
+
+/** Clear any stored BYOK credentials (e.g. after an invalid-key error). */
+export function clearStoredByokKey() {
+	try {
+		sessionStorage.removeItem(BYOK_KEY_STORAGE);
+		sessionStorage.removeItem(BYOK_PROVIDER_STORAGE);
+	} catch (_) {}
+}
+
 let _building = false;
 let _lastSlotsSent = /** @type {string[]} */ ([]);
 let _jobStartTime = 0;
@@ -38,6 +69,13 @@ document.addEventListener('selfie:submit', (event) => {
 		log.error('[selfie-pipeline]', err);
 		if (err?.redirect) {
 			window.location.assign(err.redirect);
+			return;
+		}
+		// No platform backend + no BYOK key: surface the key-entry form.
+		if (err?.needsByok) {
+			document.dispatchEvent(new CustomEvent('selfie:needs-byok', {
+				detail: { providers: err.providers || ['meshy', 'tripo'] },
+			}));
 			return;
 		}
 		if (_building) {
@@ -143,20 +181,31 @@ async function run(detail) {
 	}));
 
 	setStatus('Submitting to avatar engine...');
+	const byok = getStoredByokKey();
+	const submitBody = {
+		name: defaultAvatarName(),
+		photos,
+		visibility: 'private',
+		params: { bodyType: detail.bodyType, style: detail.avatarType },
+		...(byok ? { provider_key: byok.key, provider_name: byok.provider } : {}),
+	};
 	const submitRes = await fetch(SUBMIT_ENDPOINT, {
 		method: 'POST',
 		credentials: 'include',
 		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({
-			name: defaultAvatarName(),
-			photos,
-			visibility: 'private',
-			params: { bodyType: detail.bodyType, style: detail.avatarType },
-		}),
+		body: JSON.stringify(submitBody),
 	});
 
 	if (!submitRes.ok) {
 		const payload = await submitRes.json().catch(() => ({}));
+		// The platform has no backend and the user has no stored BYOK key.
+		// Dispatch a dedicated event so the page can show the key entry form.
+		if (payload.code === 'regen_needs_byok') {
+			const e = new Error('regen_needs_byok');
+			/** @type {any} */ (e).needsByok = true;
+			/** @type {any} */ (e).providers = payload.providers || ['meshy', 'tripo'];
+			throw e;
+		}
 		throw mapApiError(submitRes.status, payload);
 	}
 
@@ -439,6 +488,18 @@ function mapApiError(status, payload) {
 		/** @type {any} */ (e).rateLimited = true;
 		return e;
 	}
+	if (status === 401 && (code === 'invalid_key' || code === 'missing_key')) {
+		clearStoredByokKey();
+		return withMessage(
+			new Error(code),
+			'Your API key was rejected. Check the key and try again.',
+		);
+	}
+	if (status === 402 && code === 'insufficient_credits')
+		return withMessage(
+			new Error(code),
+			'Your API key is out of credits. Top up your account and try again.',
+		);
 	if (status === 501)
 		return withMessage(
 			new Error(code || 'not_configured'),

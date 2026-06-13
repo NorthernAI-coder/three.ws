@@ -1624,35 +1624,218 @@
 			</section>
 		</main>
 
-		<!-- Step "unavailable" — shown when the avatar-reconstruction backend isn't
-	     wired in this environment (no AVATAR_REGEN_PROVIDER + provider creds).
-	     Hidden by default; the boot script swaps to this and hides the others
-	     when /api/config.features.avatarReconstruct === false. -->
-		<section
-			class="step"
-			data-step="unavailable"
-			hidden
-			style="text-align: center; max-width: 520px; margin: 0 auto; padding: 48px 24px"
-		>
-			<h1 style="margin: 0 0 12px">Selfie avatars are still warming up</h1>
-			<p class="sub" style="margin: 0 0 24px; color: #9aa3b2">
-				The photo-to-avatar engine is being provisioned for this environment. In the
-				meantime, you can build an avatar in the studio — same outputs, same workflow, fully
-				ready today.
-			</p>
-			<div class="done-actions" style="justify-content: center">
-				<a
-					href="/create"
-					class="btn-save"
-					style="text-decoration: none; display: inline-block"
-					>Open the avatar studio →</a
-				>
-				<a
-					href="/app"
-					class="btn-ghost"
-					style="text-decoration: none; display: inline-block"
-					>Back to my workspace</a
-				>
+		<!-- Step "api-key" — shown when reconstruction requires a BYOK API key.
+		     Displayed either at boot (BYOK mode, no cached key) or when the
+		     selfie:needs-byok event fires mid-flow (no key was cached and the
+		     platform has no configured backend). -->
+		<section class="step" data-step="api-key" hidden>
+			<style>
+				.byok-card {
+					max-width: 480px;
+					margin: 0 auto;
+					padding: 40px 24px;
+				}
+				.byok-card h1 {
+					font-size: 1.5rem;
+					font-weight: 700;
+					margin: 0 0 8px;
+					letter-spacing: -0.02em;
+				}
+				.byok-card .sub {
+					color: #9aa3b2;
+					margin: 0 0 32px;
+					font-size: 0.9rem;
+				}
+				.byok-provider-row {
+					display: flex;
+					gap: 12px;
+					margin-bottom: 24px;
+				}
+				.byok-provider-btn {
+					flex: 1;
+					padding: 14px 16px;
+					border: 1.5px solid var(--border, #222);
+					border-radius: 10px;
+					background: var(--panel-elev, #111);
+					color: var(--text, #e8e8e8);
+					cursor: pointer;
+					text-align: left;
+					transition: border-color 0.15s, background 0.15s;
+					font-size: 0.875rem;
+				}
+				.byok-provider-btn:hover {
+					border-color: #555;
+					background: #1a1a1a;
+				}
+				.byok-provider-btn.selected {
+					border-color: #fff;
+					background: #1c1c1c;
+				}
+				.byok-provider-btn .provider-name {
+					font-weight: 600;
+					display: block;
+					margin-bottom: 2px;
+				}
+				.byok-provider-btn .provider-desc {
+					color: #9aa3b2;
+					font-size: 0.78rem;
+				}
+				.byok-key-group {
+					position: relative;
+					margin-bottom: 20px;
+				}
+				.byok-key-input {
+					width: 100%;
+					padding: 12px 44px 12px 14px;
+					background: var(--panel-elev, #111);
+					border: 1.5px solid var(--border, #222);
+					border-radius: 8px;
+					color: var(--text, #e8e8e8);
+					font-size: 0.875rem;
+					font-family: 'SF Mono', 'Fira Mono', monospace;
+					outline: none;
+					box-sizing: border-box;
+					transition: border-color 0.15s;
+				}
+				.byok-key-input:focus {
+					border-color: #555;
+				}
+				.byok-key-input.invalid {
+					border-color: #f87171;
+				}
+				.byok-key-toggle {
+					position: absolute;
+					right: 12px;
+					top: 50%;
+					transform: translateY(-50%);
+					background: none;
+					border: none;
+					color: #666;
+					cursor: pointer;
+					padding: 4px;
+					font-size: 0.8rem;
+				}
+				.byok-key-toggle:hover { color: #aaa; }
+				.byok-hint {
+					font-size: 0.78rem;
+					color: #777;
+					margin-bottom: 20px;
+				}
+				.byok-hint a {
+					color: #9aa3b2;
+					text-decoration: underline;
+				}
+				.byok-hint a:hover { color: #e8e8e8; }
+				.byok-error {
+					font-size: 0.82rem;
+					color: #f87171;
+					margin-bottom: 12px;
+					display: none;
+				}
+				.byok-error.show { display: block; }
+				.byok-actions {
+					display: flex;
+					flex-direction: column;
+					gap: 10px;
+				}
+				.byok-submit {
+					width: 100%;
+					padding: 13px 20px;
+					background: #fff;
+					color: #000;
+					border: none;
+					border-radius: 8px;
+					font-size: 0.9rem;
+					font-weight: 600;
+					cursor: pointer;
+					transition: opacity 0.15s;
+				}
+				.byok-submit:disabled {
+					opacity: 0.45;
+					cursor: not-allowed;
+				}
+				.byok-divider {
+					text-align: center;
+					color: #555;
+					font-size: 0.78rem;
+					margin: 2px 0;
+				}
+				.byok-alt {
+					text-align: center;
+					font-size: 0.82rem;
+					color: #666;
+				}
+				.byok-alt a {
+					color: #9aa3b2;
+					text-decoration: underline;
+				}
+				.byok-alt a:hover { color: #e8e8e8; }
+			</style>
+
+			<div class="byok-card">
+				<h1>Connect your 3D engine</h1>
+				<p class="sub">
+					Selfie → avatar uses a professional 3D AI API. Add your key to continue — it takes 30 seconds.
+				</p>
+
+				<!-- Provider selector -->
+				<div class="byok-provider-row" role="radiogroup" aria-label="Choose 3D engine">
+					<button
+						type="button"
+						class="byok-provider-btn selected"
+						data-byok-provider="meshy"
+						aria-pressed="true"
+					>
+						<span class="provider-name">Meshy</span>
+						<span class="provider-desc">Image → 3D · ~90s · free trial credits</span>
+					</button>
+					<button
+						type="button"
+						class="byok-provider-btn"
+						data-byok-provider="tripo"
+						aria-pressed="false"
+					>
+						<span class="provider-name">Tripo</span>
+						<span class="provider-desc">Image → 3D · ~60s · high quality</span>
+					</button>
+				</div>
+
+				<!-- Key input -->
+				<div class="byok-key-group">
+					<input
+						type="password"
+						id="byok-key-input"
+						class="byok-key-input"
+						placeholder="msy_…"
+						autocomplete="off"
+						spellcheck="false"
+						aria-label="API key"
+					/>
+					<button
+						type="button"
+						class="byok-key-toggle"
+						id="byok-key-toggle"
+						aria-label="Show key"
+					>show</button>
+				</div>
+
+				<p class="byok-hint" id="byok-key-hint">
+					Get a free key at <a href="https://www.meshy.ai" target="_blank" rel="noopener">meshy.ai</a>
+					— it takes under a minute. The key stays in your browser and is never stored on our servers.
+				</p>
+
+				<p class="byok-error" id="byok-key-error"></p>
+
+				<div class="byok-actions">
+					<button type="button" class="byok-submit" id="byok-submit-btn" disabled>
+						Continue →
+					</button>
+					<div class="byok-divider">or</div>
+					<p class="byok-alt">
+						Already saved a key?
+						<a href="/dashboard/settings#api-keys">Manage keys in settings →</a>
+					</p>
+				</div>
 			</div>
 		</section>
 

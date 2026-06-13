@@ -779,148 +779,148 @@ body.gallery-page {
 	}
 }
 
-/* ─── From the Forge section ─────────────────────────────────────────────── */
+
+/* =============================================================================
+   From the Forge — section divider + card overrides
+   Cards use the same .gallery-card base, so hover/border/shadow all inherit.
+   Only the thumb and identity pieces need overrides.
+   ============================================================================= */
+
+/* Section wrapper */
 .gallery-forge-section {
-	max-width: 1200px;
-	margin: 0 auto 4rem;
-	padding: 0 1.5rem;
+	margin-top: clamp(40px, 6vw, 72px);
+	padding-top: clamp(32px, 5vw, 56px);
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+	position: relative;
 }
+
+/* Section header row */
 .gallery-forge-head {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: 1rem;
-	margin-bottom: 1.25rem;
+	margin-bottom: 1.5rem;
 	flex-wrap: wrap;
 }
+.gallery-forge-title-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 6px;
+}
+.gallery-forge-icon {
+	width: 22px;
+	height: 22px;
+	flex: none;
+	opacity: 0.6;
+}
 .gallery-forge-title {
-	font-size: 1.2rem;
-	font-weight: 600;
-	color: var(--ink, #f0f0f0);
-	margin: 0 0 0.3rem;
+	font-size: 1.15rem;
+	font-weight: 700;
+	color: #fff;
+	margin: 0;
+	letter-spacing: -0.01em;
+}
+.gallery-forge-count {
+	font-size: 0.7rem;
+	font-weight: 500;
+	padding: 2px 7px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.07);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: rgba(255, 255, 255, 0.5);
+	font-variant-numeric: tabular-nums;
 }
 .gallery-forge-sub {
 	font-size: 0.85rem;
-	color: var(--ink-dim, #888);
+	color: rgba(255, 255, 255, 0.45);
 	margin: 0;
-	max-width: 48ch;
+	max-width: 56ch;
+	line-height: 1.5;
 }
 .gallery-forge-cta {
 	flex: none;
 	font-size: 0.8rem;
-	color: var(--accent, #5b8af0);
+	font-weight: 500;
+	color: rgba(165, 180, 252, 0.9);
 	text-decoration: none;
 	white-space: nowrap;
-	margin-top: 0.25rem;
-	transition: opacity 0.15s;
+	margin-top: 2px;
+	transition: color 0.15s, opacity 0.15s;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 }
-.gallery-forge-cta:hover { opacity: 0.75; }
+.gallery-forge-cta:hover {
+	color: #fff;
+}
 
+/* Grid — matches the main gallery's column width exactly */
 .gallery-forge-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-	gap: 0.75rem;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 12px;
 }
 
-/* Individual forge cards */
-.forge-gallery-card {
-	background: var(--surface-2, #111);
-	border: 1px solid var(--stroke, #222);
-	border-radius: 10px;
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	cursor: pointer;
-	transition: border-color 0.15s, transform 0.15s;
-}
-.forge-gallery-card:hover {
-	border-color: var(--accent, #5b8af0);
-	transform: translateY(-2px);
-}
-.forge-gallery-card:focus-visible {
-	outline: 2px solid var(--accent, #5b8af0);
-	outline-offset: 2px;
-}
-.forge-gallery-thumb {
-	aspect-ratio: 1 / 1;
-	background: var(--surface-3, #1a1a1a);
-	position: relative;
+/* Forge card thumb: don't override the gallery's default radial gradient bg
+   for image cards; for no-image cards we set style.background inline so
+   the gradient shows through regardless. */
+.forge-card .gallery-card-thumb {
 	overflow: hidden;
 }
-.forge-gallery-thumb img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	display: block;
-}
-.forge-gallery-thumb-placeholder {
-	width: 100%;
-	height: 100%;
+/* Placeholder for cards with no preview image —
+   centered cube icon with accent color on the gradient bg */
+.forge-card-ph {
+	width: 48px;
+	height: 48px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 2rem;
-	color: var(--ink-dim, #555);
-	user-select: none;
+	border-radius: 12px;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: rgba(255, 255, 255, 0.4);
+	font-size: 0;
+	/* override inherited .gallery-card-ph opacity */
+	opacity: 1;
+	filter: none;
 }
-.forge-gallery-body {
-	padding: 0.6rem 0.75rem 0.5rem;
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	gap: 0.4rem;
-	min-width: 0;
+.forge-card-ph svg {
+	width: 22px;
+	height: 22px;
+	opacity: 0.7;
 }
-.forge-gallery-prompt {
-	font-size: 0.72rem;
-	color: var(--ink-dim, #aaa);
-	overflow: hidden;
-	display: -webkit-box;
+/* Image cards: scale on hover like regular gallery */
+.forge-card:hover .gallery-card-thumb img {
+	transform: scale(1.04);
+}
+/* Card name: 2-line clamp so longer prompts don't explode the card */
+.forge-card .gallery-card-name {
+	font-size: 13.5px;
 	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
 	line-height: 1.4;
 }
-.forge-gallery-foot {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 0.4rem;
-	padding: 0 0.75rem 0.6rem;
-}
-.forge-gallery-when {
-	font-size: 0.62rem;
-	color: var(--ink-dim, #666);
-	font-variant-numeric: tabular-nums;
-}
-.forge-gallery-remix {
-	font-size: 0.62rem;
-	padding: 2px 8px;
-	border-radius: 999px;
-	border: 1px solid var(--stroke, #333);
-	background: transparent;
-	color: var(--ink-dim, #aaa);
-	cursor: pointer;
-	transition: color 0.15s, border-color 0.15s, background 0.15s;
-	white-space: nowrap;
-}
-.forge-gallery-remix:hover {
-	color: var(--ink, #f0f0f0);
-	border-color: var(--accent, #5b8af0);
-	background: var(--accent-soft, rgba(91,138,240,0.12));
+/* Tags: slightly smaller than avatar tags */
+.forge-card .gallery-card-tag {
+	font-size: 10px;
+	padding: 2px 7px;
 }
 
-/* Skeleton cards for loading state */
-.forge-gallery-card--skel .forge-gallery-thumb {
-	animation: forge-skel-pulse 1.4s ease-in-out infinite;
+@media (max-width: 744px) {
+	.gallery-forge-grid {
+		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	}
 }
-.forge-gallery-card--skel .forge-gallery-prompt,
-.forge-gallery-card--skel .forge-gallery-when {
-	background: var(--surface-3, #1a1a1a);
-	border-radius: 4px;
-	color: transparent;
-	animation: forge-skel-pulse 1.4s ease-in-out infinite;
-}
-@keyframes forge-skel-pulse {
-	0%, 100% { opacity: 0.5; }
-	50%       { opacity: 1; }
+@media (max-width: 640px) {
+	.gallery-forge-head {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.gallery-forge-cta {
+		margin-top: 0;
+	}
+	.gallery-forge-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
 }
