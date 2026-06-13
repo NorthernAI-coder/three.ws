@@ -199,6 +199,7 @@ function renderAgents(host, agents, avatars, root) {
 			body: 'Agents are AI characters you can embed and chat with — each gets an on-chain identity, its own wallet, and attachable skills.',
 			actions: [
 				{ label: '+ Create your first agent', id: 'create-first', primary: true },
+				{ label: 'Generate its 3D body from text', href: '/create/prompt', id: 'forge-body' },
 				{ label: "What's an agent?", href: '/docs/agents-vs-avatars', id: 'learn-agents' },
 			],
 		});

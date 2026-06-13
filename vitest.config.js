@@ -20,6 +20,15 @@ const _cpus = Math.max(1, (os.availableParallelism?.() ?? os.cpus().length) - 1)
 const MAX_FORKS = _cpus <= 3 ? 2 : Math.min(6, _cpus);
 
 export default defineConfig({
+	// packages/avatar-agent-mcp ships its own nested @grpc/* copies (it is a
+	// standalone publishable package). Without deduping, the package's lazy
+	// `import('@grpc/grpc-js')` resolves to that nested copy while a test's
+	// `vi.mock('@grpc/grpc-js')` only patches the root copy — so the MCP-twin
+	// TTS test fell through the mock and hit live NVCF. Forcing a single
+	// instance across the graph makes the transport mock cover both libs.
+	resolve: {
+		dedupe: ['@grpc/grpc-js', '@grpc/proto-loader'],
+	},
 	test: {
 		environment: 'node',
 		include: [

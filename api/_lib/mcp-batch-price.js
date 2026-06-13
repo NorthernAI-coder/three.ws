@@ -7,7 +7,11 @@
 // price across all tools/call so the advertised 402 amount, the verified
 // payment, and the settled charge all equal the true cost of the batch.
 //
-// `priceForTool(name)` → atomic-unit price string for a tool, or null if free.
+// `priceForTool(name, args)` → atomic-unit price string for a tool, or null if
+//                        free. `args` is the call's `params.arguments` so
+//                        argument-dependent pricing (e.g. the 3D Studio's
+//                        tier-priced text_to_3d) quotes the same number the
+//                        settle path charges.
 // `isFreeName(name)`   → true only for an explicitly public/free tool that may
 //                        be served with no payment at all (e.g. getting_started).
 //
@@ -19,13 +23,17 @@
 //                 call targets an explicit free/public tool → serve anonymously.
 export function priceBatch(body, { priceForTool, isFreeName }) {
 	const batch = Array.isArray(body) ? body : [body];
-	const names = batch
+	const calls = batch
 		.filter((m) => m && m.method === 'tools/call')
-		.map((c) => (typeof c?.params?.name === 'string' ? c.params.name : null));
+		.map((c) => ({
+			name: typeof c?.params?.name === 'string' ? c.params.name : null,
+			args: c?.params?.arguments,
+		}));
+	const names = calls.map((c) => c.name);
 
 	let totalAtomic = 0n;
-	for (const name of names) {
-		const atomic = name ? priceForTool(name) : null;
+	for (const { name, args } of calls) {
+		const atomic = name ? priceForTool(name, args) : null;
 		if (!atomic) continue;
 		try {
 			totalAtomic += BigInt(atomic);
@@ -40,4 +48,26 @@ export function priceBatch(body, { priceForTool, isFreeName }) {
 		names.length > 0 && totalAmount === null && names.every((n) => n && isFreeName(n));
 
 	return { totalAmount, allFree };
+}
+
+// MCP lifecycle/discovery methods that carry no billable work. A batch made up
+// ONLY of these is the "what is this server?" handshake — initialize,
+// tools/list, ping, and the post-initialize notification. Serving it free of
+// OAuth/x402 lets autonomous agents and registry crawlers read the tool
+// catalog before deciding to pay; the catalog is public information anyway
+// (the 402 challenge embeds it in the bazaar extension). tools/call is never
+// a discovery method, so paid work still requires credentials or payment.
+const DISCOVERY_METHODS = new Set([
+	'initialize',
+	'tools/list',
+	'ping',
+	'notifications/initialized',
+]);
+
+export function isDiscoveryOnlyBatch(body) {
+	const batch = Array.isArray(body) ? body : [body];
+	return (
+		batch.length > 0 &&
+		batch.every((m) => m && typeof m.method === 'string' && DISCOVERY_METHODS.has(m.method))
+	);
 }

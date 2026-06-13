@@ -81,28 +81,56 @@ async function recordFeedEntry(entry) {
 			log.warn('feed_write_failed', { message: err?.message });
 		}
 	}
+	feedReadCache = null; // a new payment must show up on the next read
 	memFeed.unshift(entry);
 	if (memFeed.length > FEED_MAX) memFeed.length = FEED_MAX;
 }
 
+// The feed is polled by several always-on surfaces (the /pay page, the in-world
+// jumbotron and exchange NPCs), and every poll used to spend a Redis LRANGE.
+// That steady drip was a top contributor to exhausting the Upstash monthly
+// request quota (June 2026). One instance-local snapshot per FEED_CACHE_TTL_MS,
+// with in-flight coalescing, collapses all of it to ≤ one command per window —
+// a few seconds of staleness on a public activity feed is invisible.
+const FEED_CACHE_TTL_MS = 10_000;
+let feedReadCache = null; // { at: epoch-ms, rows: entry[] }
+let feedReadInflight = null;
+
 async function readFeed(limit = 25) {
 	const r = redis();
 	if (r) {
-		try {
-			const rows = await r.lrange(FEED_KEY, 0, limit - 1);
-			return rows
-				.map((row) => {
-					if (typeof row === 'string') {
-						try {
-							return JSON.parse(row);
-						} catch (parseErr) {
-							log.warn('feed_row_parse_failed', { message: parseErr?.message });
-							return null;
+		if (feedReadCache && Date.now() - feedReadCache.at < FEED_CACHE_TTL_MS) {
+			return feedReadCache.rows.slice(0, limit);
+		}
+		if (feedReadInflight) {
+			const rows = await feedReadInflight;
+			return rows.slice(0, limit);
+		}
+		feedReadInflight = (async () => {
+			try {
+				const raw = await r.lrange(FEED_KEY, 0, FEED_MAX - 1);
+				const rows = raw
+					.map((row) => {
+						if (typeof row === 'string') {
+							try {
+								return JSON.parse(row);
+							} catch (parseErr) {
+								log.warn('feed_row_parse_failed', { message: parseErr?.message });
+								return null;
+							}
 						}
-					}
-					return row;
-				})
-				.filter(Boolean);
+						return row;
+					})
+					.filter(Boolean);
+				feedReadCache = { at: Date.now(), rows };
+				return rows;
+			} finally {
+				feedReadInflight = null;
+			}
+		})();
+		try {
+			const rows = await feedReadInflight;
+			return rows.slice(0, limit);
 		} catch (err) {
 			log.warn('feed_read_failed', { message: err?.message });
 		}

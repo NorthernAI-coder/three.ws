@@ -7,16 +7,18 @@
 // MCP Registry as io.github.nirholas/three-ws-3d-studio (see server-3d.json).
 import { cors, readJson, wrap } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
-import { peekCalledTool } from './_lib/mcp-dispatch.js';
 import { settlePayment, encodePaymentResponseHeader } from './_lib/x402-spec.js';
+import { priceBatch, isDiscoveryOnlyBatch } from './_lib/mcp-batch-price.js';
 import { PROTOCOL_VERSION, dispatch, isPublicTool } from './_mcp3d/dispatch.js';
 import { STUDIO_CHALLENGE } from './_mcp3d/discovery.js';
+import { studioX402Amount } from './_mcp3d/pricing.js';
 import {
 	send401,
 	sendJsonRpcError,
 	authenticateRequest,
 	handleSse,
 	handleTerminate,
+	isMcpProtocolClient,
 } from './_mcp/auth.js';
 import { sendX402Error } from './_mcp/payments.js';
 
@@ -30,15 +32,27 @@ export default wrap(async (req, res) => {
 	if (req.method === 'DELETE') return handleTerminate(req, res);
 	if (req.method !== 'POST') return send401(res, 'method not supported');
 
-	// Read + parse the body before auth so a call to the free public
-	// getting_started tool can be served without an OAuth token or x402 payment.
+	// Read + parse the body before auth so free traffic can be served without
+	// an OAuth token or x402 payment: the public getting_started tool, and
+	// discovery-only batches (initialize / tools/list / ping) from plain x402
+	// agents and crawlers. MCP protocol clients still receive the 401 on
+	// discovery so the OAuth flow starts where it should.
 	const body = await readJson(req, 1_000_000);
-	const { toolName } = peekCalledTool(body);
+
+	// x402 price for the WHOLE request — the sum of every priced studio
+	// tools/call in the (possibly batched) body, tier-aware for the generation
+	// tools. The advertised 402 amount, the verified payment, and the settled
+	// charge are all keyed off this total, mirroring /api/x402/forge pricing.
+	const { totalAmount: x402Amount, allFree } = priceBatch(body, {
+		priceForTool: studioX402Amount,
+		isFreeName: isPublicTool,
+	});
 
 	const result = await authenticateRequest(req, res, {
+		x402Amount,
 		resourcePath: RESOURCE_PATH,
 		challenge: STUDIO_CHALLENGE,
-		allowFree: Boolean(toolName && isPublicTool(toolName)),
+		allowFree: allFree || (isDiscoveryOnlyBatch(body) && !isMcpProtocolClient(req)),
 	});
 	if (!result) return;
 	const { auth, x402Ctx } = result;
@@ -63,11 +77,11 @@ export default wrap(async (req, res) => {
 		if (r !== null) responses.push(r);
 	}
 
-	// 3D Studio is operator-funded: OAuth users run tools for free (bounded by
-	// rate limits), and connecting "with an x402 wallet" is honored. When a caller
-	// DID present an x402 payment, settle it so the connection actually costs the
-	// nominal minimum and the same signed payment can't be replayed for unlimited
-	// free GPU work. Only settle if a call succeeded — a wholesale failure is free.
+	// OAuth users run tools operator-funded (bounded by rate limits). x402
+	// callers pay per tool: the verified payment covers the batch's summed
+	// per-tool price (tier-aware for generation — see _mcp3d/pricing.js), and
+	// settling it here means the charge lands only after the work succeeded.
+	// Only settle if a call succeeded — a wholesale failure is free.
 	if (x402Ctx) {
 		const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
 		if (anySuccess) {

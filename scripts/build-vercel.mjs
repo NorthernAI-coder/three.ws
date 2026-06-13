@@ -165,7 +165,7 @@ async function prebuild() {
 	// run BEFORE build-page-index (which reads pages.json to emit the sitemap,
 	// llms.txt and the human /sitemap page).
 	await run('seo:blog', 'node scripts/inject-blog-seo.mjs --write');
-	await run('build:page-index', 'node scripts/build-page-index.mjs && node scripts/audit-page-index.mjs');
+	await run('build:page-index', 'node scripts/build-page-index.mjs && node scripts/audit-page-index.mjs --strict');
 	// inject-seo-meta backfills static-page <head> tags AFTER the page index, so
 	// it also stamps the freshly-generated /sitemap page. Both injectors are
 	// idempotent — a no-op once a page is fully covered.

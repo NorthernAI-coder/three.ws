@@ -98,6 +98,50 @@
 				background: #6ee7b7;
 			}
 
+			/* Prominent one-tap AR launcher — only revealed on devices that can
+			   actually enter AR (phones/tablets). model-viewer's own button is a
+			   small icon; this is the obvious call to action on a phone. */
+			.ar-cta {
+				position: fixed;
+				left: 50%;
+				bottom: 18px;
+				transform: translateX(-50%);
+				z-index: 4;
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				padding: 13px 22px;
+				border: 0;
+				border-radius: 999px;
+				cursor: pointer;
+				font: 600 14.5px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+				color: #07140e;
+				background: #6ee7b7;
+				box-shadow: 0 12px 34px -8px rgba(110, 231, 183, 0.6);
+				transition:
+					transform 0.14s ease,
+					box-shadow 0.14s ease,
+					background 0.14s ease;
+			}
+			.ar-cta:hover {
+				background: #8af0c6;
+				transform: translateX(-50%) translateY(-1px);
+			}
+			.ar-cta:active {
+				transform: translateX(-50%) translateY(1px);
+			}
+			.ar-cta:focus-visible {
+				outline: 2px solid #fff;
+				outline-offset: 3px;
+			}
+			.ar-cta svg {
+				width: 18px;
+				height: 18px;
+			}
+			.ar-cta[hidden] {
+				display: none;
+			}
+
 			.msg {
 				position: fixed;
 				inset: 0;
@@ -159,6 +203,15 @@
 				alt="Interactive 3D model forged on three.ws"
 			></model-viewer>
 		</div>
+
+		<button class="ar-cta" id="ar-btn" type="button" hidden>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z" />
+				<path d="m3 7 9 5 9-5" />
+				<path d="M12 12v10" />
+			</svg>
+			View in AR
+		</button>
 
 		<a class="brand" id="brand" href="https://three.ws/forge" target="_blank" rel="noopener" aria-label="Forge your own 3D model on three.ws">
 			<span class="dot" aria-hidden="true"></span>
@@ -234,6 +287,25 @@
 				mv.addEventListener('error', function () {
 					document.body.setAttribute('data-state', 'error');
 				});
+
+				// One-tap AR: reveal the launcher only where AR can actually run,
+				// and trigger it from the user's tap (AR needs a gesture).
+				var arBtn = document.getElementById('ar-btn');
+				function maybeShowAR() {
+					if (arBtn && mv.canActivateAR) arBtn.hidden = false;
+				}
+				mv.addEventListener('load', maybeShowAR);
+				// canActivateAR can resolve before 'load' on supported devices.
+				setTimeout(maybeShowAR, 700);
+				if (arBtn) {
+					arBtn.addEventListener('click', function () {
+						try {
+							mv.activateAR();
+						} catch (e) {
+							/* AR unsupported mid-session — leave the viewer as-is. */
+						}
+					});
+				}
 			})();
 		</script>
 	</body>

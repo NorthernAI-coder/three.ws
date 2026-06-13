@@ -189,6 +189,15 @@ function renderDrawerLink(item) {
 
 function renderDrawer(navData) {
 	let html = '';
+	// Highlighted top-level links lead the drawer as featured rows — burying
+	// the one link the nav spotlights under "More" defeats the spotlight.
+	navData.NAV_LINKS.filter((l) => l.highlight).forEach((link) => {
+		html +=
+			`<a class="dr-hot" href="${escHtml(link.href)}">` +
+			`<span class="nav-hot-dot" aria-hidden="true"></span>` +
+			`<span>${escHtml(link.label)}</span>` +
+			`<span class="dr-hot-arrow" aria-hidden="true">→</span></a>`;
+	});
 	navData.NAV_GROUPS.forEach((group) => {
 		if (group.columns) {
 			group.columns.forEach((col) => {
@@ -203,7 +212,7 @@ function renderDrawer(navData) {
 	html += `<div class="dr-h">Legal</div>`;
 	html += navData.DRAWER_LEGAL.map(renderDrawerLink).join('');
 	html += `<div class="dr-h">More</div>`;
-	html += navData.NAV_LINKS.map(renderTopLink).join('');
+	html += navData.NAV_LINKS.filter((l) => !l.highlight).map(renderTopLink).join('');
 	html += `<a href="/my-agents" id="home-nav-drawer-my-agents" data-auth="in" hidden>My Agents</a>`;
 	html += `<div class="sep"></div>`;
 	html += `<a href="/login" id="home-nav-drawer-cta" data-auth="out">Sign in</a>`;

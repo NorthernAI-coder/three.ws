@@ -19,6 +19,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { env } from '../_lib/env.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, method, wrap, error, readJson } from '../_lib/http.js';
 import { sha256 } from '../_lib/crypto.js';
@@ -44,11 +45,12 @@ function cacheAudio(key, buffer) {
 }
 
 // Only instantiate if Upstash is configured (mirrors the pattern in rate-limit.js).
+// Resolved through _lib/env.js so the Vercel-marketplace credential names work too.
 let redis = null;
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
 	redis = new Redis({
-		url: process.env.UPSTASH_REDIS_REST_URL,
-		token: process.env.UPSTASH_REDIS_REST_TOKEN,
+		url: env.UPSTASH_REDIS_REST_URL,
+		token: env.UPSTASH_REDIS_REST_TOKEN,
 	});
 }
 

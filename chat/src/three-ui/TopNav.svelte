@@ -49,8 +49,11 @@
 			{#each siteLinks as link}
 				<a
 					href={link.href}
-					class="rounded-full px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-paper-deep hover:text-ink"
+					class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:bg-paper-deep hover:text-ink {link.highlight
+						? 'border border-rule'
+						: ''}"
 				>
+					{#if link.highlight}<span class="iris-dot" aria-hidden="true"></span>{/if}
 					{link.label}
 				</a>
 			{/each}
@@ -90,7 +93,10 @@
 						href={link.href}
 						class="flex h-11 items-center justify-between rounded-xl px-3 text-sm font-medium text-ink transition-colors hover:bg-paper-deep"
 					>
-						{link.label}
+						<span class="flex items-center gap-2">
+							{#if link.highlight}<span class="iris-dot" aria-hidden="true"></span>{/if}
+							{link.label}
+						</span>
 						<Icon icon={feExternalLink} class="h-4 w-4 text-ink-soft" />
 					</a>
 				{/each}
@@ -117,5 +123,28 @@
 		background: #0A0A0A;
 		border: 1px solid #2A2A2A;
 		border-radius: 12px;
+	}
+
+	/* Iris live dot — same signature as the main-site nav's Text → 3D pill. */
+	.iris-dot {
+		width: 6px;
+		height: 6px;
+		flex: 0 0 auto;
+		border-radius: 50%;
+		background: conic-gradient(from 210deg, #ffb454, #ff6ad5, #8b5cf6, #4fc3ff, #ffb454);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.iris-dot {
+			animation: iris-pulse 2.4s ease-in-out infinite;
+		}
+		@keyframes iris-pulse {
+			0%,
+			100% {
+				box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.45);
+			}
+			50% {
+				box-shadow: 0 0 0 4px rgba(139, 92, 246, 0);
+			}
+		}
 	}
 </style>

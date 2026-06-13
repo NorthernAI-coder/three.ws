@@ -666,10 +666,213 @@
 					padding: 0.9rem 1rem;
 				}
 			}
+
+			/* ── Reading experience ──────────────────────────────────────────
+			   Progress rail, hero CTA, copy-code, heading anchors, back-to-top.
+			   All tier-accent themed via the --tdoc-accent custom properties. */
+			.tdoc-progress {
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				height: 2px;
+				z-index: 60;
+				background: transparent;
+				pointer-events: none;
+			}
+			.tdoc-progress-fill {
+				height: 100%;
+				width: 0;
+				background: var(--tdoc-accent, #ffffff);
+				box-shadow: 0 0 10px var(--tdoc-accent, #ffffff);
+				transition: width 0.1s linear;
+			}
+
+			/* Hero CTA — the manifest's primary action, themed to the tier. */
+			.tdoc-hero-cta {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.5rem;
+				margin-top: 1.5rem;
+				padding: 0.72rem 1.3rem;
+				border-radius: 8px;
+				background: var(--tdoc-accent, #ffffff);
+				color: #070707;
+				font-family: var(--font-display);
+				font-weight: 600;
+				font-size: 0.92rem;
+				text-decoration: none;
+				border: 1px solid var(--tdoc-accent, #ffffff);
+				transition:
+					transform 0.14s ease,
+					box-shadow 0.18s ease,
+					filter 0.18s ease;
+			}
+			.tdoc-hero-cta:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 14px 32px -12px var(--tdoc-glow, rgba(255, 255, 255, 0.4));
+				filter: brightness(1.06);
+			}
+			.tdoc-hero-cta:active {
+				transform: translateY(0);
+			}
+			.tdoc-hero-cta:focus-visible {
+				outline: 2px solid var(--tdoc-accent, #ffffff);
+				outline-offset: 3px;
+			}
+			.tdoc-hero-cta svg {
+				width: 15px;
+				height: 15px;
+			}
+
+			/* Copy-code button — floats top-right of every code block. */
+			.tdoc-article pre {
+				position: relative;
+			}
+			.tdoc-copy-btn {
+				position: absolute;
+				top: 8px;
+				right: 8px;
+				display: inline-flex;
+				align-items: center;
+				gap: 0.35rem;
+				padding: 0.3rem 0.55rem;
+				border-radius: 6px;
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				color: rgba(255, 255, 255, 0.62);
+				font-family: 'JetBrains Mono', monospace;
+				font-size: 0.68rem;
+				letter-spacing: 0.02em;
+				cursor: pointer;
+				opacity: 0;
+				transform: translateY(-2px);
+				transition:
+					opacity 0.16s ease,
+					transform 0.16s ease,
+					color 0.16s,
+					border-color 0.16s,
+					background 0.16s;
+			}
+			.tdoc-article pre:hover .tdoc-copy-btn,
+			.tdoc-copy-btn:focus-visible {
+				opacity: 1;
+				transform: none;
+			}
+			.tdoc-copy-btn:hover {
+				color: #fff;
+				border-color: rgba(255, 255, 255, 0.28);
+				background: rgba(255, 255, 255, 0.1);
+			}
+			.tdoc-copy-btn:focus-visible {
+				outline: 2px solid var(--tdoc-accent, #ffffff);
+				outline-offset: 2px;
+			}
+			.tdoc-copy-btn.is-copied {
+				color: var(--success, #4ade80);
+				border-color: color-mix(in srgb, var(--success, #4ade80) 50%, transparent);
+			}
+			.tdoc-copy-btn svg {
+				width: 12px;
+				height: 12px;
+			}
+			@media (hover: none) {
+				.tdoc-copy-btn {
+					opacity: 1;
+					transform: none;
+				}
+			}
+
+			/* Heading anchor — hover-revealed deep link in the left margin. */
+			.tdoc-article h2,
+			.tdoc-article h3 {
+				position: relative;
+			}
+			.tdoc-anchor {
+				position: absolute;
+				left: -1.35em;
+				top: 0.1em;
+				display: inline-flex;
+				color: var(--tdoc-accent, #ffffff);
+				opacity: 0;
+				text-decoration: none;
+				transition: opacity 0.15s ease;
+			}
+			.tdoc-anchor svg {
+				width: 0.78em;
+				height: 0.78em;
+			}
+			.tdoc-article h2:hover .tdoc-anchor,
+			.tdoc-article h3:hover .tdoc-anchor,
+			.tdoc-anchor:focus-visible {
+				opacity: 0.75;
+			}
+			@media (max-width: 900px) {
+				.tdoc-anchor {
+					display: none;
+				}
+			}
+
+			/* Back to top — fades in once you've scrolled past the hero. */
+			.tdoc-top {
+				position: fixed;
+				bottom: 1.5rem;
+				right: 1.5rem;
+				z-index: 55;
+				width: 42px;
+				height: 42px;
+				display: grid;
+				place-items: center;
+				border-radius: 50%;
+				background: rgba(20, 20, 20, 0.85);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				color: rgba(255, 255, 255, 0.7);
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				cursor: pointer;
+				opacity: 0;
+				transform: translateY(8px);
+				pointer-events: none;
+				transition:
+					opacity 0.2s ease,
+					transform 0.2s ease,
+					color 0.15s,
+					border-color 0.15s;
+			}
+			.tdoc-top.is-visible {
+				opacity: 1;
+				transform: none;
+				pointer-events: auto;
+			}
+			.tdoc-top:hover {
+				color: #fff;
+				border-color: var(--tdoc-accent, #ffffff);
+			}
+			.tdoc-top:focus-visible {
+				outline: 2px solid var(--tdoc-accent, #ffffff);
+				outline-offset: 2px;
+			}
+			.tdoc-top svg {
+				width: 18px;
+				height: 18px;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.tdoc-progress-fill,
+				.tdoc-copy-btn,
+				.tdoc-hero-cta,
+				.tdoc-top,
+				.tdoc-anchor {
+					transition: none;
+				}
+			}
 		</style>
 	</head>
 	<body class="home-page tutorial-page tut-doc-page">
 		<div class="cursor" id="cursor" aria-hidden="true"></div>
+		<div class="tdoc-progress" aria-hidden="true">
+			<div class="tdoc-progress-fill" id="tdoc-progress-fill"></div>
+		</div>
 		<a href="#main-content" class="h-skip-link">Skip to main content</a>
 
 		<header><div id="nav-container"></div></header>
@@ -712,6 +915,7 @@
 							<span class="tdoc-builds-label">You'll build</span>
 							<span class="tdoc-builds-text" id="tdoc-builds"></span>
 						</div>
+						<div id="tdoc-hero-cta-host"></div>
 					</div>
 					<div class="tdoc-hero-viewer" id="tdoc-hero-viewer"></div>
 				</div>
@@ -731,6 +935,12 @@
 				</div>
 			</div>
 		</main>
+
+		<button class="tdoc-top" id="tdoc-top" type="button" aria-label="Back to top">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M12 19V5M5 12l7-7 7 7" />
+			</svg>
+		</button>
 
 		<footer class="h-footer h-footer-horizon">
 			<div class="h-footer-glow-line" aria-hidden="true"></div>
@@ -943,6 +1153,16 @@
 				`;
 			}
 
+			// Inline icons (no external fetch, theme-tinted via currentColor).
+			const ICON_ARROW =
+				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+			const ICON_COPY =
+				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+			const ICON_CHECK =
+				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+			const ICON_LINK =
+				'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+
 			function setHeroFromManifest(entry) {
 				const tier = window.TUTORIAL_TIERS[entry.tier];
 				const root = document.documentElement;
@@ -977,6 +1197,20 @@
 						loading="lazy"
 					></model-viewer>
 				`;
+
+				// Primary call-to-action from the manifest (e.g. "Open the Forge").
+				const ctaHost = document.getElementById('tdoc-hero-cta-host');
+				if (ctaHost) {
+					ctaHost.innerHTML = '';
+					const cta = entry.ctaPrimary;
+					if (cta?.href && cta?.label) {
+						const a = document.createElement('a');
+						a.className = 'tdoc-hero-cta';
+						a.href = cta.href;
+						a.innerHTML = `<span>${escapeHtml(cta.label)}</span>${ICON_ARROW}`;
+						ctaHost.appendChild(a);
+					}
+				}
 
 				document.getElementById('tdoc-hero').hidden = false;
 			}
