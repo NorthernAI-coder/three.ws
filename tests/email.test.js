@@ -243,18 +243,18 @@ describe('email — buildPayload', () => {
 			});
 			expect(payload).toEqual({
 				from: 'three.ws <noreply@example.test>',
+				replyTo: 'support@three.ws',
 				to: 'user@example.test',
 				subject: 'hi',
 				html: '<p>hi</p>',
 				text: 'hi',
 			});
-			expect(payload).not.toHaveProperty('replyTo');
 		} finally {
 			restore();
 		}
 	});
 
-	it('includes replyTo only when EMAIL_REPLY_TO is set', async () => {
+	it('defaults replyTo to support@three.ws, overridable via EMAIL_REPLY_TO', async () => {
 		const { mod, restore } = await loadEmail({ EMAIL_REPLY_TO: 'help@example.test' });
 		try {
 			const payload = mod.buildPayload({
@@ -279,7 +279,7 @@ describe('email — buildPayload', () => {
 				html: '<p>hi</p>',
 				text: 'hi',
 			});
-			expect(payload.from).toBe('three.ws <support@three.ws>');
+			expect(payload.from).toBe('three.ws <notifications@three.ws>');
 		} finally {
 			restore();
 		}

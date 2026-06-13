@@ -1243,6 +1243,62 @@
 				color: var(--danger);
 			}
 
+			/* Model category picker in result bar */
+			.forge-category-picker {
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				flex-wrap: wrap;
+			}
+			.forge-cat-label {
+				font-size: 11px;
+				color: var(--ink-dim);
+				font-weight: 500;
+				margin-right: 2px;
+				white-space: nowrap;
+			}
+			.forge-cat-btn {
+				padding: 3px 9px;
+				background: transparent;
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-pill);
+				color: var(--ink-dim);
+				font-size: 11px;
+				font-weight: 500;
+				cursor: pointer;
+				transition: background 0.12s, color 0.12s, border-color 0.12s;
+			}
+			.forge-cat-btn:hover {
+				background: var(--surface-2);
+				color: var(--ink);
+			}
+			.forge-cat-btn.active {
+				background: rgba(99, 102, 241, 0.18);
+				border-color: rgba(99, 102, 241, 0.5);
+				color: #a5b4fc;
+			}
+			.forge-cat-btn[data-cat='accessory'].active { background: rgba(236,72,153,0.15); border-color: rgba(236,72,153,0.4); color: #f9a8d4; }
+			.forge-cat-btn[data-cat='item'].active      { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
+			.forge-cat-btn[data-cat='scene'].active     { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.4); color: #6ee7b7; }
+			.forge-cat-btn[data-cat='creature'].active  { background: rgba(251,146,60,0.15); border-color: rgba(251,146,60,0.4); color: #fdba74; }
+			.forge-cat-btn[data-cat='vehicle'].active   { background: rgba(56,189,248,0.15); border-color: rgba(56,189,248,0.4); color: #7dd3fc; }
+			/* Showcase category badge */
+			.showcase-cat-badge {
+				font-size: 10px;
+				font-weight: 600;
+				padding: 1px 7px;
+				border-radius: var(--radius-pill, 999px);
+				background: rgba(255,255,255,0.08);
+				color: #a1a1aa;
+				letter-spacing: 0.02em;
+			}
+			.showcase-cat-badge.model-cat-avatar    { background: rgba(99,102,241,0.18); color: #a5b4fc; }
+			.showcase-cat-badge.model-cat-accessory { background: rgba(236,72,153,0.18); color: #f9a8d4; }
+			.showcase-cat-badge.model-cat-item      { background: rgba(245,158,11,0.18); color: #fcd34d; }
+			.showcase-cat-badge.model-cat-scene     { background: rgba(16,185,129,0.18); color: #6ee7b7; }
+			.showcase-cat-badge.model-cat-creature  { background: rgba(251,146,60,0.18); color: #fdba74; }
+			.showcase-cat-badge.model-cat-vehicle   { background: rgba(56,189,248,0.18); color: #7dd3fc; }
+
 			/* Optimize / retopology panel (markup injected by forge-optimize.js) */
 			.optimize {
 				border-top: 1px solid var(--stroke);
@@ -2153,6 +2209,15 @@
 										</svg>
 										Discard
 									</button>
+								</div>
+								<div class="forge-category-picker" id="forge-category-picker" role="group" aria-label="What kind of model is this?">
+									<span class="forge-cat-label">What is it?</span>
+									<button type="button" class="forge-cat-btn" data-cat="avatar"    title="Full body character or agent">Avatar</button>
+									<button type="button" class="forge-cat-btn" data-cat="accessory" title="Wearable item for an agent">Accessory</button>
+									<button type="button" class="forge-cat-btn" data-cat="item"      title="Prop or holdable object">Item</button>
+									<button type="button" class="forge-cat-btn" data-cat="scene"     title="Environment or world">Scene</button>
+									<button type="button" class="forge-cat-btn" data-cat="creature"  title="Animal or companion">Creature</button>
+									<button type="button" class="forge-cat-btn" data-cat="vehicle"   title="Vehicle or mount">Vehicle</button>
 								</div>
 								<button
 									class="btn btn-ghost"

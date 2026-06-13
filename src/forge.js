@@ -80,6 +80,7 @@ const els = {
 	errorMessage: document.getElementById('error-message'),
 	forgeShareBtn: document.getElementById('forge-share-btn'),
 	segmentBtn: document.getElementById('forge-segment-btn'),
+	categoryPicker: document.getElementById('forge-category-picker'),
 	savedChip: document.getElementById('result-saved'),
 	creations: document.getElementById('creations'),
 	creationsGrid: document.getElementById('creations-grid'),
@@ -1078,6 +1079,21 @@ function resetVerdict() {
 	}
 }
 
+function resetCategoryPicker() {
+	if (!els.categoryPicker) return;
+	els.categoryPicker.querySelectorAll('.forge-cat-btn').forEach((b) => b.classList.remove('active'));
+}
+
+function sendCategory(modelCategory) {
+	if (!currentCreationId) return;
+	fetch('/api/forge-categorize', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', ...CLIENT_HEADERS },
+		body: JSON.stringify({ creation_id: currentCreationId, model_category: modelCategory }),
+		keepalive: true,
+	}).catch(() => {});
+}
+
 // Poster capture — the visual half of every creation card. Image-intermediate
 // engines store their flux reference image as the preview, but geometry-first
 // and sketch lanes paint no image at all, so their gallery/showcase cards used
@@ -1221,6 +1237,8 @@ function updateRefineButton() {
 function showResult(glbUrl, label, meta, { autoSaved = false } = {}) {
 	stopElapsed();
 	resetVerdict();
+	resetCategoryPicker();
+	els.viewerShell?.classList.remove('has-load-error');
 	els.viewer.setAttribute('src', glbUrl);
 	els.viewer.setAttribute('alt', `3D model: ${label}`);
 	els.resultLabel.textContent = label;
@@ -1658,6 +1676,10 @@ function submit() {
 
 // Wiring ----------------------------------------------------------------------
 
+els.viewer.addEventListener('error', () => {
+	if (els.viewerShell) els.viewerShell.classList.add('has-load-error');
+});
+
 buildSlots();
 buildViewsPips();
 updateViewsCounter();
@@ -1789,6 +1811,23 @@ if (els.verdict) {
 			b.setAttribute('aria-pressed', String(b === btn));
 		}
 		sendFeedback({ outcome });
+	});
+}
+
+if (els.categoryPicker) {
+	els.categoryPicker.addEventListener('click', (e) => {
+		const btn = e.target.closest('.forge-cat-btn[data-cat]');
+		if (!btn || !currentCreationId) return;
+		const cat = btn.dataset.cat;
+		// Toggle: click the active cat again to deselect (back to 'other').
+		const isActive = btn.classList.contains('active');
+		els.categoryPicker.querySelectorAll('.forge-cat-btn').forEach((b) => b.classList.remove('active'));
+		if (!isActive) {
+			btn.classList.add('active');
+			sendCategory(cat);
+		} else {
+			sendCategory('other');
+		}
 	});
 }
 

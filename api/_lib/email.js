@@ -1,7 +1,7 @@
 // Transactional email via Resend. All sends are fire-and-forget — never await
 // them on the critical path. Import sendEmail and call without await.
 //
-// Required env: RESEND_API_KEY, EMAIL_FROM (e.g. "three.ws <support@three.ws>")
+// Required env: RESEND_API_KEY, EMAIL_FROM (e.g. "three.ws <notifications@three.ws>")
 // Optional env: EMAIL_REPLY_TO, APP_ORIGIN
 
 import { Resend } from 'resend';
@@ -13,8 +13,8 @@ function client() {
 	return _client;
 }
 
-const FROM    = process.env.EMAIL_FROM    || 'three.ws <support@three.ws>';
-const REPLY   = process.env.EMAIL_REPLY_TO || null;
+const FROM    = process.env.EMAIL_FROM     || 'three.ws <notifications@three.ws>';
+const REPLY   = process.env.EMAIL_REPLY_TO || 'support@three.ws';
 const APP_URL = process.env.APP_ORIGIN    || 'https://three.ws';
 
 // ─── Payload builder ──────────────────────────────────────────────────────────
