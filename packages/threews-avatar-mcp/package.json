@@ -9,7 +9,7 @@
 	"mcpName": "io.github.nirholas/threews-avatar",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/nirholas/three.ws.git",
+		"url": "git+https://github.com/nirholas/three.ws.git",
 		"directory": "packages/threews-avatar-mcp"
 	},
 	"bugs": {
@@ -48,6 +48,7 @@
 	},
 	"scripts": {
 		"build": "node app/build.mjs",
+		"prepublishOnly": "node app/build.mjs",
 		"start": "node src/index.js",
 		"test": "node --test",
 		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"

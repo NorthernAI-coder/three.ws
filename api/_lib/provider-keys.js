@@ -55,6 +55,9 @@ export const BYOK_PROVIDERS = {
 	openai:    { label: 'OpenAI',    prefix: 'sk-',     hint: 'platform.openai.com/api-keys' },
 	meshy:     { label: 'Meshy AI',  prefix: 'msy_',    hint: 'www.meshy.ai/settings/api' },
 	tripo:     { label: 'Tripo AI',  prefix: 'tsk_',    hint: 'platform.tripo3d.ai/api-keys' },
+	rodin:     { label: 'Rodin (Hyper3D)', prefix: '',  hint: 'developer.hyper3d.ai' },
+	stability: { label: 'Stability AI',    prefix: 'sk-', hint: 'platform.stability.ai/account/keys' },
+	replicate: { label: 'Replicate',       prefix: 'r8_', hint: 'replicate.com/account/api-tokens' },
 };
 
 // Load and decrypt all stored provider keys for a user.

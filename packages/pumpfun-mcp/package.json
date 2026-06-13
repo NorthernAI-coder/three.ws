@@ -9,7 +9,7 @@
 	"mcpName": "io.github.nirholas/pumpfun-solana-mcp",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/nirholas/three.ws.git",
+		"url": "git+https://github.com/nirholas/three.ws.git",
 		"directory": "packages/pumpfun-mcp"
 	},
 	"bugs": {

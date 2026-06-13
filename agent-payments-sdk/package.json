@@ -122,7 +122,7 @@
   "homepage": "https://three.ws/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nirholas/three.ws.git",
+    "url": "git+https://github.com/nirholas/three.ws.git",
     "directory": "agent-payments-sdk"
   },
   "bugs": {

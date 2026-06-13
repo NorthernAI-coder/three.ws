@@ -255,8 +255,11 @@ function extractGlbUrl(output) {
 	return null;
 }
 
-export function createRegenProvider() {
-	const token = readEnv('REPLICATE_API_TOKEN');
+// `apiToken` overrides the platform REPLICATE_API_TOKEN — passed by the forge
+// BYOK lane so a user can run the same reconstruction models on their own
+// Replicate account. When omitted the provider uses the platform token.
+export function createRegenProvider({ apiToken } = {}) {
+	const token = apiToken || readEnv('REPLICATE_API_TOKEN');
 	if (!token) {
 		throw new Error('REPLICATE_API_TOKEN env var is required for the replicate provider');
 	}
