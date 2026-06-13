@@ -24,6 +24,16 @@ pump-fun-skills/coin-fees/
 pump-fun-skills/tokenized-agents/
 pump-fun-skills/.claude-plugin/plugin.json
 
+# Pages that ship and render in production but trip Prettier's strict HTML
+# parser — inline <script> template literals that emit markup, and an emoji
+# inside an inline-SVG favicon data-URI. Valid for the Vite build; unparseable
+# for Prettier, so they'd hard-error the check rather than warn.
+pages/home.html
+pages/forge.html
+pages/pump-live.html
+public/docs-widgets.html
+public/vanity-wallet.html
+
 # Build artifacts
 *.min.js
 public/embed-sdk.js
