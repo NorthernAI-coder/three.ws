@@ -313,7 +313,7 @@ export const DRAWER_LEGAL = [
 // The chat SPA header shows a compact subset of main-site destinations.
 // Kept here so chat and the main nav can never disagree on labels or hrefs.
 export const CHAT_SITE_LINKS = [
-	{ label: 'Text → 3D', href: '/forge' },
+	{ label: 'Text → 3D', href: '/forge', highlight: true },
 	{ label: 'Marketplace', href: '/marketplace' },
 	{ label: 'Pay', href: '/pay' },
 	{ label: 'Features', href: '/features' },
