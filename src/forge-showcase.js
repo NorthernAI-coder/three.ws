@@ -17,6 +17,139 @@ ensureStateKitStyles();
 
 const ENGINE_LABELS = { nvidia: 'Free', trellis: 'Fast', meshy: 'Meshy', tripo: 'Tripo', hunyuan3d: 'Hunyuan3D', triposg: 'TripoSG' };
 
+// ── Thumbnail fallback chain ──────────────────────────────────────────────────
+// Plan A: preview_image_url from DB → <img>
+// Plan B: img onerror or no preview_image_url + has glb_url → capture a frame
+//         from a hidden <model-viewer> (queued, max 1 concurrent load so we
+//         don't slam the network with a dozen 10MB GLBs simultaneously)
+// Plan C: model-viewer fails / times out → gradient card generated from prompt
+// Plan D: no glb_url at all → gradient card
+
+const CAPTURE_TIMEOUT_MS = 20_000;
+const captureQueue = [];
+let captureActive = false;
+
+function drainCaptureQueue() {
+	if (captureActive || captureQueue.length === 0) return;
+	captureActive = true;
+	const { card, glbUrl, resolve } = captureQueue.shift();
+	captureFromGlb(card, glbUrl)
+		.then(resolve)
+		.catch(() => resolve(null))
+		.finally(() => {
+			captureActive = false;
+			drainCaptureQueue();
+		});
+}
+
+function enqueueCaptureFromGlb(card, glbUrl) {
+	return new Promise((resolve) => {
+		captureQueue.push({ card, glbUrl, resolve });
+		drainCaptureQueue();
+	});
+}
+
+async function captureFromGlb(card, glbUrl) {
+	if (!window.customElements?.get('model-viewer')) return null;
+	return new Promise((resolve) => {
+		const viewer = document.createElement('model-viewer');
+		viewer.style.cssText =
+			'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;';
+		viewer.setAttribute('src', glbUrl);
+		viewer.setAttribute('shadow-intensity', '0');
+		viewer.setAttribute('exposure', '0.9');
+		viewer.setAttribute('environment-image', 'neutral');
+		viewer.setAttribute('aria-hidden', 'true');
+
+		let done = false;
+		const finish = (dataUrl) => {
+			if (done) return;
+			done = true;
+			clearTimeout(timer);
+			viewer.remove();
+			resolve(dataUrl);
+		};
+
+		const timer = setTimeout(() => finish(null), CAPTURE_TIMEOUT_MS);
+
+		viewer.addEventListener(
+			'load',
+			async () => {
+				try {
+					// Brief settle so the mesh textures are uploaded to GPU.
+					await new Promise((r) => setTimeout(r, 800));
+					const url = viewer.toDataURL?.('image/webp') ?? null;
+					finish(url && url.length > 100 ? url : null);
+				} catch {
+					finish(null);
+				}
+			},
+			{ once: true },
+		);
+		viewer.addEventListener('error', () => finish(null), { once: true });
+
+		document.body.appendChild(viewer);
+	});
+}
+
+// Deterministic gradient from a string — same prompt always gets the same colours.
+function promptGradient(str) {
+	let h = 0;
+	for (let i = 0; i < (str || '').length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+	const hue = Math.abs(h) % 360;
+	const hue2 = (hue + 40) % 360;
+	return `linear-gradient(135deg, hsl(${hue},28%,14%) 0%, hsl(${hue2},22%,10%) 100%)`;
+}
+
+function applyGradientFallback(card, prompt) {
+	const existing = card.querySelector('.thumb');
+	if (existing) existing.remove();
+	if (card.querySelector('.thumb.gradient-ph')) return;
+	const ph = document.createElement('span');
+	ph.className = 'thumb gradient-ph';
+	ph.style.background = promptGradient(prompt);
+	// Show the prompt text as the visual — makes the card feel intentional, not broken.
+	if (prompt) {
+		const label = document.createElement('span');
+		label.className = 'gradient-ph-text';
+		label.textContent = prompt;
+		ph.appendChild(label);
+	}
+	card.prepend(ph);
+}
+
+// IntersectionObserver: only attempt GLB capture when the card is actually
+// visible — no wasted work on cards the user never scrolls to.
+const captureObserver =
+	'IntersectionObserver' in window
+		? new IntersectionObserver(
+				(entries) => {
+					entries.forEach((e) => {
+						if (!e.isIntersecting) return;
+						captureObserver.unobserve(e.target);
+						const card = e.target;
+						const glbUrl = card.dataset.glbUrl;
+						if (!glbUrl) return;
+						enqueueCaptureFromGlb(card, glbUrl).then((dataUrl) => {
+							if (dataUrl) {
+								const img = document.createElement('img');
+								img.className = 'thumb';
+								img.loading = 'lazy';
+								img.alt = '';
+								img.src = dataUrl;
+								img.onerror = () => applyGradientFallback(card, card.title);
+								const existing = card.querySelector('.thumb');
+								existing ? existing.replaceWith(img) : card.prepend(img);
+							} else {
+								applyGradientFallback(card, card.title);
+							}
+						});
+					});
+				},
+				{ rootMargin: '200px' },
+			)
+		: null;
+
 const els = {
 	section: document.getElementById('showcase'),
 	grid: document.getElementById('showcase-grid'),
@@ -44,17 +177,30 @@ function buildCard(c) {
 	card.setAttribute('aria-label', `Open in viewer: ${c.prompt || 'forged model'}`);
 
 	if (c.preview_image_url) {
+		// Plan A: stored thumbnail
 		const img = document.createElement('img');
 		img.className = 'thumb';
 		img.loading = 'lazy';
 		img.alt = '';
 		img.src = c.preview_image_url;
+		img.onerror = () => {
+			// Plan B: image URL broken → try GLB capture, then gradient
+			if (c.glb_url) {
+				card.dataset.glbUrl = c.glb_url;
+				captureObserver ? captureObserver.observe(card) : applyGradientFallback(card, c.prompt);
+			} else {
+				applyGradientFallback(card, c.prompt);
+			}
+		};
 		card.appendChild(img);
+	} else if (c.glb_url) {
+		// Plan B: no thumbnail yet → gradient placeholder now, GLB capture when visible
+		applyGradientFallback(card, c.prompt);
+		card.dataset.glbUrl = c.glb_url;
+		captureObserver ? captureObserver.observe(card) : undefined;
 	} else {
-		const ph = document.createElement('span');
-		ph.className = 'thumb placeholder';
-		ph.textContent = '◳';
-		card.appendChild(ph);
+		// Plan C: no assets at all → gradient placeholder
+		applyGradientFallback(card, c.prompt);
 	}
 
 	// Engine · tier provenance, same convention as "Your creations".

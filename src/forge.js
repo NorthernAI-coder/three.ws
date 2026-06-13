@@ -1245,6 +1245,27 @@ function showResult(glbUrl, label, meta) {
 	}
 }
 
+// Deterministic gradient from prompt text — same prompt → same colours.
+function promptGradient(str) {
+	let h = 0;
+	for (let i = 0; i < (str || '').length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+	const hue = Math.abs(h) % 360;
+	return `linear-gradient(135deg,hsl(${hue},28%,14%) 0%,hsl(${(hue + 40) % 360},22%,10%) 100%)`;
+}
+
+function makeGradientThumb(prompt) {
+	const ph = document.createElement('span');
+	ph.className = 'thumb gradient-ph';
+	ph.style.background = promptGradient(prompt);
+	if (prompt) {
+		const label = document.createElement('span');
+		label.className = 'gradient-ph-text';
+		label.textContent = prompt;
+		ph.appendChild(label);
+	}
+	return ph;
+}
+
 // Load (or reload) the "Your creations" strip from durable storage.
 async function loadGallery() {
 	if (!els.creations) return;
@@ -1288,12 +1309,13 @@ async function loadGallery() {
 			img.loading = 'lazy';
 			img.alt = '';
 			img.src = c.preview_image_url;
+			img.onerror = () => {
+				// Thumbnail URL broken — show gradient fallback.
+				img.replaceWith(makeGradientThumb(c.prompt));
+			};
 			card.appendChild(img);
 		} else {
-			const ph = document.createElement('span');
-			ph.className = 'thumb placeholder';
-			ph.textContent = '◳';
-			card.appendChild(ph);
+			card.appendChild(makeGradientThumb(c.prompt));
 		}
 
 		if (c.outcome === 'accepted' || c.outcome === 'rejected') {

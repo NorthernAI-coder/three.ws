@@ -1853,6 +1853,24 @@
 				color: var(--ink-dim);
 				font-size: 1.6rem;
 			}
+			.creation .thumb.gradient-ph {
+				display: flex;
+				align-items: flex-end;
+				position: relative;
+				overflow: hidden;
+				padding: 0.6rem;
+			}
+			.creation .thumb .gradient-ph-text {
+				font-size: 0.65rem;
+				line-height: 1.3;
+				color: rgba(255,255,255,0.45);
+				display: -webkit-box;
+				-webkit-line-clamp: 3;
+				-webkit-box-orient: vertical;
+				overflow: hidden;
+				font-style: italic;
+				letter-spacing: 0.01em;
+			}
 			.creation .meta {
 				padding: 0.5rem 0.6rem;
 				font-size: var(--text-xs);
@@ -1989,6 +2007,39 @@
 				.showcase-refresh:hover {
 					transform: none;
 				}
+			}
+
+			/* Remix flash: border pulse on the prompt box when a prompt is loaded */
+			@keyframes prompt-remix-flash {
+				0%   { box-shadow: 0 0 0 0 var(--accent); border-color: var(--accent); }
+				40%  { box-shadow: 0 0 0 6px transparent; border-color: var(--accent); }
+				100% { box-shadow: 0 0 0 0 transparent; }
+			}
+			#prompt.remix-flash {
+				animation: prompt-remix-flash 0.7s ease forwards;
+			}
+
+			/* Remix toast — floats at top of viewport, fades out */
+			.remix-toast {
+				position: fixed;
+				top: 5rem;
+				left: 50%;
+				transform: translateX(-50%) translateY(0);
+				background: var(--surface-3, #1e1e1e);
+				border: 1px solid var(--accent);
+				color: var(--ink);
+				font-size: 0.8rem;
+				padding: 0.5rem 1.1rem;
+				border-radius: 999px;
+				pointer-events: none;
+				white-space: nowrap;
+				z-index: 1000;
+				opacity: 1;
+				transition: opacity 0.4s ease, transform 0.4s ease;
+			}
+			.remix-toast.fade-out {
+				opacity: 0;
+				transform: translateX(-50%) translateY(-6px);
 			}
 
 			/* Empty + error + unconfigured */
