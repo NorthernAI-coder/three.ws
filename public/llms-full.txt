@@ -37,6 +37,12 @@ URL: https://three.ws/walk
 
 Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.
 
+### IRL
+
+URL: https://three.ws/irl
+
+Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.
+
 ### Marketplace
 
 URL: https://three.ws/marketplace

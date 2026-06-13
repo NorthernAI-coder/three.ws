@@ -60,6 +60,7 @@ import {
 } from './pose-animation.js';
 import { PoseLibrary } from './pose-library.js';
 import { AnimationLibrary } from './animation-library.js';
+import { putSceneHandoff } from './shared/scene-handoff.js';
 import { log } from './shared/log.js';
 
 // ─── DOM helpers ────────────────────────────────────────────────────────
@@ -1095,6 +1096,7 @@ function boot() {
 			fps: $('#tl-fps'),
 			exportJson: $('#tl-export-json'),
 			exportGlb: $('#tl-export-glb'),
+			openScene: $('#tl-open-scene'),
 		};
 		if (!tl.track) return null; // page without the timeline markup — no-op
 
@@ -1199,6 +1201,7 @@ function boot() {
 			const has = doc.keyframes.length > 0;
 			tl.exportJson.disabled = !has;
 			tl.exportGlb.disabled = !has;
+			if (tl.openScene) tl.openScene.disabled = !has;
 		}
 
 		function updateSelectionUI() {
@@ -1396,16 +1399,16 @@ function boot() {
 			a.remove();
 			setTimeout(() => URL.revokeObjectURL(url), 1500);
 		}
-		async function withBusy(btn, label, fn) {
+		async function withBusy(btn, label, fn, opts = {}) {
 			const original = btn.textContent;
 			btn.classList.remove('is-ok', 'is-err');
 			btn.classList.add('is-busy');
-			btn.textContent = 'Working…';
+			btn.textContent = opts.busyText || 'Working…';
 			try {
 				await fn();
 				btn.classList.replace('is-busy', 'is-ok');
-				btn.textContent = 'Saved ✓';
-				setStatus(`${label} downloaded.`);
+				btn.textContent = opts.okText || 'Saved ✓';
+				setStatus(opts.doneStatus || `${label} downloaded.`);
 			} catch (err) {
 				btn.classList.replace('is-busy', 'is-err');
 				btn.textContent = 'Failed';
@@ -1429,22 +1432,56 @@ function boot() {
 				);
 			});
 		});
+		// Bake the keyframe document onto the live rig and serialize the rig
+		// (mesh + embedded clip) to a binary GLB. The clip's tracks bind to the
+		// rig's ACTUAL node names so the animation plays against this same model
+		// when re-imported anywhere (download, or the Scene Studio handoff).
+		async function bakeAnimatedGlb() {
+			const rig = state.rig;
+			const clip = bakeClip(doc, {
+				resolveBoneName: (k) => rig.getNode(k)?.name || null,
+				rootName: rig.root?.name || '',
+			});
+			const exporter = new GLTFExporter();
+			const buffer = await exporter.parseAsync(rig.root, {
+				binary: true,
+				animations: [clip],
+				embedImages: true,
+			});
+			return { buffer, clip };
+		}
+
 		tl.exportGlb.addEventListener('click', () => {
 			pause();
 			withBusy(tl.exportGlb, 'Animated GLB', async () => {
-				const rig = state.rig;
-				const clip = bakeClip(doc, {
-					resolveBoneName: (k) => rig.getNode(k)?.name || null,
-					rootName: rig.root?.name || '',
-				});
-				const exporter = new GLTFExporter();
-				const buffer = await exporter.parseAsync(rig.root, {
-					binary: true,
-					animations: [clip],
-					embedImages: true,
-				});
+				const { buffer } = await bakeAnimatedGlb();
 				downloadBlob(buffer, `${safeName()}.glb`, 'model/gltf-binary');
 			});
+		});
+
+		// Hand the animation to /scene (the three.js editor) as a recordable
+		// timeline track. We stash the baked GLB in IndexedDB and navigate —
+		// navigating only after the write resolves, so the studio never opens to
+		// an empty handoff. Same-tab so a popup blocker can't swallow it.
+		tl.openScene?.addEventListener('click', () => {
+			pause();
+			withBusy(
+				tl.openScene,
+				'Scene Studio',
+				async () => {
+					const { buffer, clip } = await bakeAnimatedGlb();
+					const label = (state.avatar?.name || doc.name || 'Animation')
+						.toString()
+						.slice(0, 64);
+					await putSceneHandoff({ glb: buffer, name: label, animationName: clip.name });
+					window.location.assign('/scene?handoff=1');
+				},
+				{
+					busyText: 'Opening…',
+					okText: 'Opening ↗',
+					doneStatus: 'Opening Scene Studio — use Render ▸ Video to record.',
+				},
+			);
 		});
 
 		// ── Keyboard (timeline) ──────────────────────────────────────────────────────

@@ -247,8 +247,12 @@ export const BACKENDS = Object.freeze({
 	}),
 });
 
-// Backend chosen when the caller doesn't name one, per path. Image path keeps
-// the existing TRELLIS fast default; geometry path defaults to Meshy.
+// Standing backend chosen when the caller doesn't name one, per path. The image
+// path keeps the image-capable Replicate TRELLIS default — it accepts user
+// photos and serves every tier. The free NVIDIA NIM lane (text-only) is layered
+// on top of this for prompt-only drafts via FREE_DEFAULT_FOR_DRAFT below, so it
+// must NOT be the standing default: a photo upload or a standard/high request
+// would otherwise route to a backend that can't serve it. Geometry → Meshy.
 export const DEFAULT_BACKEND_FOR_PATH = Object.freeze({
 	image: 'trellis',
 	geometry: 'meshy',

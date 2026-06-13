@@ -110,7 +110,17 @@ export function setRateLimitHeaders(res, result) {
 export function rateLimited(res, result, message = 'too many requests', extra = {}) {
 	const retryAfter = Math.max(1, setRateLimitHeaders(res, result));
 	res.setHeader('retry-after', String(retryAfter));
-	return error(res, 429, 'rate_limited', message, { retry_after: retryAfter, ...extra });
+	// Surface the limiter's own `reason` (set by api/_lib/rate-limit.js) so clients
+	// can tell a genuine quota hit from a degraded/unavailable limiter — e.g. a
+	// Redis outage fails critical buckets closed with `rate_limiter_unavailable`,
+	// which a client should present as "temporarily unavailable, retrying" rather
+	// than "you've hit your limit".
+	const reason = result?.reason;
+	return error(res, 429, 'rate_limited', message, {
+		retry_after: retryAfter,
+		...(reason ? { reason } : {}),
+		...extra,
+	});
 }
 
 // Response shape used for zod validation errors so clients can render

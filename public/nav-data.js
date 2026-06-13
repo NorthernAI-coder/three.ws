@@ -233,6 +233,7 @@ export const NAV_GROUPS = [
 					{ title: 'Mocap Studio', href: '/mocap-studio', desc: 'Record face → save clip → replay' },
 					{ title: 'OBS Overlay', href: '/overlay-control', desc: 'Stream deck — emote hotkeys, mic' },
 					{ title: 'Walk', href: '/walk', desc: 'Walk your avatar — multiplayer + AR' },
+					{ title: 'IRL', href: '/irl', desc: 'AR camera + joystick + tap-to-place objects' },
 					{ title: 'XR', href: '/xr', desc: 'Place your avatar in the real world' },
 				],
 			},
