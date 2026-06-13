@@ -16,7 +16,7 @@
 
 import { env } from './env.js';
 
-function demoItem({ id, slug, name, description, tags, glbUrl, image, sortDate, attribution, author }) {
+function demoItem({ id, slug, name, description, tags, glbUrl, image, sortDate, attribution, author, modelCategory }) {
 	const explicitGlb = glbUrl;
 	const finalGlb = explicitGlb.startsWith('http')
 		? explicitGlb
@@ -32,6 +32,7 @@ function demoItem({ id, slug, name, description, tags, glbUrl, image, sortDate, 
 		glbUrl: finalGlb,
 		has3d: true,
 		tags,
+		modelCategory: modelCategory || 'avatar',
 		createdAt: sortDate,
 		viewerUrl: `/avatars/${id}`,
 		attribution,
@@ -54,5 +55,5 @@ export const DEMO_AVATARS = [
 	demoItem({ id: "avatar_demo_disk_spartian", slug: "demo-spartian", name: "Spartian", description: "Spartian — disciplined, armored, never folds.", tags: ["humanoid","rigged","animated","community"], glbUrl: "https://three.ws/animations/soldier.glb", image: null, sortDate: "2025-03-31T13:00:00.000Z", attribution: {"handle":"threejs","displayName":"three.js examples","url":"https://github.com/mrdoob/three.js","license":"MIT"}, author: {"handle":"threejs","displayName":"three.js examples","profileUrl":"https://github.com/mrdoob/three.js"} }),
 	demoItem({ id: "avatar_demo_disk_test", slug: "demo-test", name: "Tester", description: "Tester — kicks the tires on every release before anyone else.", tags: ["humanoid","community"], glbUrl: "https://three.ws/avatars/default.glb", image: null, sortDate: "2025-03-31T12:00:00.000Z", attribution: {"handle":"three.ws","displayName":"three.ws starter","url":"https://three.ws","license":"CC-BY 4.0"}, author: {"handle":"three.ws","displayName":"three.ws starter","profileUrl":"https://three.ws"} }),
 	demoItem({ id: "avatar_demo_disk_nova", slug: "demo-nova", name: "Nova", description: "Nova — high-detail portrait avatar with an expressive face, built for streams and overlays.", tags: ["humanoid","character","community"], glbUrl: "https://three.ws/avatars/selfie-girl.glb", image: null, sortDate: "2025-03-31T11:00:00.000Z", attribution: {"handle":"three.ws","displayName":"three.ws starter","url":"https://three.ws","license":"CC-BY 4.0"}, author: {"handle":"three.ws","displayName":"three.ws starter","profileUrl":"https://three.ws"} }),
-	demoItem({ id: "avatar_demo_disk_foxy", slug: "demo-foxy", name: "Foxy", description: "Foxy — stylized fox mascot with survey, walk, and run animations.", tags: ["animal","mascot","rigged","animated","community"], glbUrl: "https://three.ws/avatars/fox.glb", image: null, sortDate: "2025-03-31T10:00:00.000Z", attribution: {"handle":"khronos","displayName":"Khronos Group","url":"https://github.com/KhronosGroup/glTF-Sample-Assets","license":"CC-BY 4.0"}, author: {"handle":"khronos","displayName":"Khronos Group","profileUrl":"https://github.com/KhronosGroup/glTF-Sample-Assets"} }),
+	demoItem({ id: "avatar_demo_disk_foxy", slug: "demo-foxy", name: "Foxy", description: "Foxy — stylized fox mascot with survey, walk, and run animations.", tags: ["animal","mascot","rigged","animated","community"], glbUrl: "https://three.ws/avatars/fox.glb", image: null, sortDate: "2025-03-31T10:00:00.000Z", attribution: {"handle":"khronos","displayName":"Khronos Group","url":"https://github.com/KhronosGroup/glTF-Sample-Assets","license":"CC-BY 4.0"}, author: {"handle":"khronos","displayName":"Khronos Group","profileUrl":"https://github.com/KhronosGroup/glTF-Sample-Assets"}, modelCategory: "creature" }),
 ];

@@ -68,6 +68,13 @@ export default wrap(async (req, res) => {
 	const sourceFilter = url.searchParams.get('source') || 'all';
 	const quality = url.searchParams.get('quality') === 'all' ? 'all' : 'high';
 
+	// model_category filter — null means 'all categories'
+	const categoryFilter = url.searchParams.get('category') || null;
+	const VALID_CATEGORIES = new Set(['avatar', 'accessory', 'item', 'scene', 'creature', 'vehicle', 'other']);
+	if (categoryFilter && !VALID_CATEGORIES.has(categoryFilter)) {
+		return error(res, 400, 'validation_error', 'unknown category');
+	}
+
 	const cursorDate = cursor ? new Date(cursor) : null;
 	if (cursor && isNaN(cursorDate?.getTime())) {
 		return error(res, 400, 'validation_error', 'cursor must be an ISO date');
@@ -103,7 +110,7 @@ export default wrap(async (req, res) => {
 	const avatarRows = includeAvatars
 		? await sql`
 		SELECT a.id, a.slug, a.name, a.description, a.storage_key, a.thumbnail_key,
-		       a.tags, a.created_at, a.source,
+		       a.tags, a.created_at, a.source, a.model_category,
 		       coalesce(a.featured, false)   AS featured,
 		       coalesce(a.view_count, 0)     AS view_count,
 		       u.username AS owner_username,
@@ -123,6 +130,7 @@ export default wrap(async (req, res) => {
 		       coalesce(a.name,'') ILIKE ${'%' + q + '%'}
 		    OR coalesce(a.description,'') ILIKE ${'%' + q + '%'}
 		  ))
+		  AND (${categoryFilter}::text IS NULL OR a.model_category = ${categoryFilter})
 		  AND (${cursorDate ? cursorDate.toISOString() : null}::timestamptz IS NULL OR a.created_at < ${cursorDate ? cursorDate.toISOString() : null}::timestamptz)
 		ORDER BY coalesce(a.featured, false) DESC, a.created_at DESC
 		LIMIT ${(limit + 1) * 3}
@@ -226,6 +234,7 @@ export default wrap(async (req, res) => {
 			has3d: true,
 			tags: r.tags || [],
 			source: r.source || null,
+			modelCategory: r.model_category || 'avatar',
 			featured: r.featured === true || r.featured === 't',
 			viewCount: Number(r.view_count) || 0,
 			createdAt: r.created_at,
@@ -252,16 +261,20 @@ export default wrap(async (req, res) => {
 	if (avatarItems.length > limit + 1) avatarItems = avatarItems.slice(0, limit + 1);
 
 	// Inject demo avatars on the first page when the source allows avatars.
-	// Filter by query if one is set so search still feels correct.
+	// Filter by query and/or category if set so search/filter still feel correct.
 	if (includeAvatars && !cursorDate) {
 		const qLower = q.toLowerCase();
-		const matching = q
-			? DEMO_AVATARS.filter(
-					(a) =>
-						a.name.toLowerCase().includes(qLower) ||
-						a.description.toLowerCase().includes(qLower),
-				)
-			: DEMO_AVATARS;
+		let matching = DEMO_AVATARS;
+		if (q) {
+			matching = matching.filter(
+				(a) =>
+					a.name.toLowerCase().includes(qLower) ||
+					a.description.toLowerCase().includes(qLower),
+			);
+		}
+		if (categoryFilter) {
+			matching = matching.filter((a) => (a.modelCategory || 'avatar') === categoryFilter);
+		}
 		avatarItems.push(...matching);
 	}
 

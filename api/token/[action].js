@@ -186,7 +186,7 @@ async function handlePayments(req, res) {
 		purpose: url.searchParams.get('purpose') || null,
 		refType: url.searchParams.get('ref_type') || null,
 		refId: url.searchParams.get('ref_id') || null,
-		limit: Number(url.searchParams.get('limit')) || 50,
+		limit: Math.min(Math.max(Number(url.searchParams.get('limit')) || 50, 1), 200),
 		before: url.searchParams.get('before') || null,
 	});
 	return json(res, 200, page);

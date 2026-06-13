@@ -125,6 +125,7 @@ export async function updateAvatar({ id, userId, patch }) {
 		patch.thumbnail_key === undefined &&
 		patch.usdz_key === undefined &&
 		patch.halfbody_key === undefined &&
+		patch.model_category === undefined &&
 		!hasAppearance &&
 		!hasBaked
 	) {
@@ -170,15 +171,16 @@ export async function updateAvatar({ id, userId, patch }) {
 	// "column does not exist".
 	const [row] = await sql`
 		update avatars set
-			name          = coalesce(${patch.name ?? null}, name),
-			description   = coalesce(${patch.description ?? null}, description),
-			visibility    = coalesce(${patch.visibility ?? null}, visibility),
-			tags          = coalesce(${patch.tags ?? null}::text[], tags),
-			thumbnail_key = coalesce(${patch.thumbnail_key ?? null}, thumbnail_key),
-			appearance    = case when ${hasAppearance}::bool
-			                     then ${patch.appearance ? JSON.stringify(patch.appearance) : null}::jsonb
-			                     else appearance end,
-			updated_at    = now()
+			name           = coalesce(${patch.name ?? null}, name),
+			description    = coalesce(${patch.description ?? null}, description),
+			visibility     = coalesce(${patch.visibility ?? null}, visibility),
+			tags           = coalesce(${patch.tags ?? null}::text[], tags),
+			thumbnail_key  = coalesce(${patch.thumbnail_key ?? null}, thumbnail_key),
+			model_category = coalesce(${patch.model_category ?? null}, model_category),
+			appearance     = case when ${hasAppearance}::bool
+			                      then ${patch.appearance ? JSON.stringify(patch.appearance) : null}::jsonb
+			                      else appearance end,
+			updated_at     = now()
 		where id = ${id} and owner_id = ${userId} and deleted_at is null
 		returning *
 	`;

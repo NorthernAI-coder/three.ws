@@ -15,6 +15,14 @@
 			<description>Every three.ws MCP server is now publicly installable and discoverable. The eight install-and-run servers ship on npm under the @three-ws scope — pull any of them with one command, e.g. npx -y @three-ws/mcp-server (3D + agent tools), @three-ws/three-token-mcp ($THREE price, hold, and burn), @three-ws/pumpfun-mcp, @three-ws/ibm-x402-mcp, @three-ws/avatar-agent, and more. Together with the six hosted remote servers, all 14 are registered in the official Model Context Protocol registry, so any MCP-compatible client — Claude, Cursor, and others — can find them by name. No more dead install links: the documented commands now work.</description>
 		</item>
 		<item>
+			<title>AR is live on the homepage — place any 3D model in your real space from the front page</title>
+			<link>https://three.ws/blog/see-your-3d-in-ar</link>
+			<guid isPermaLink="false">2026-06-13:AR is live on the homepage — place any 3D model in your real space from the front page</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The three.ws homepage now has a live AR section: real models from the Forge gallery load in an interactive 3D viewer, and on mobile you can tap 'Place in your space' to anchor the model in your real environment through the camera. On desktop a QR code appears so you can scan and place from your phone in one step. WebXR on Android, Quick Look on iOS — no app, no download. A full blog post explains how the AR pipeline works across both platforms.</description>
+		</item>
+		<item>
 			<title>Describe it to 3D joins the rest of the site — and the two generators now point at each other</title>
 			<link>https://three.ws/create/prompt</link>
 			<guid isPermaLink="false">2026-06-13:Describe it to 3D joins the rest of the site — and the two generators now point at each other</guid>

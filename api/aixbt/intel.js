@@ -16,11 +16,12 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	const rl = await limits.aixbtIp(clientIp(req));
+	const [rl, rlg] = await Promise.all([limits.aixbtIp(clientIp(req)), limits.aixbtGlobal()]);
 	if (!rl.success) return rateLimited(res, rl);
+	if (!rlg.success) return rateLimited(res, rlg);
 
 	const url = new URL(req.url, 'http://x');
-	const limit = Number(url.searchParams.get('limit')) || 20;
+	const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 20, 1), 100);
 	const category = url.searchParams.get('category') || undefined;
 	const chain = url.searchParams.get('chain') || undefined;
 

@@ -2372,6 +2372,68 @@
 				transform: none;
 			}
 		}
+
+		/* ── HOME AR SECTION ─────────────────────────────────────────── */
+		#home-ar { background: var(--bg); }
+		.har-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+		@media (max-width: 860px) { .har-inner { grid-template-columns: 1fr; gap: 40px; } }
+		.har-viewer-wrap {
+			position: relative;
+			border-radius: 20px;
+			overflow: hidden;
+			background: #0a0a14;
+			border: 1px solid var(--hairline);
+			aspect-ratio: 1 / 1;
+			display: flex; align-items: center; justify-content: center;
+		}
+		.har-viewer-wrap model-viewer { width: 100%; height: 100%; --poster-color: transparent; background: transparent; }
+		.har-viewer-nav {
+			position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+			display: flex; align-items: center; gap: 8px;
+			background: rgba(0,0,0,.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+			border: 1px solid rgba(255,255,255,.08); border-radius: 999px; padding: 6px 10px;
+		}
+		.har-nav-btn {
+			background: none; border: none; color: rgba(255,255,255,.6); cursor: pointer;
+			padding: 4px 8px; border-radius: 6px; font-size: 14px; line-height: 1;
+			transition: color .15s, background .15s;
+		}
+		.har-nav-btn:hover { color: #fff; background: rgba(255,255,255,.08); }
+		.har-prompt { font-size: 11px; color: rgba(255,255,255,.5); font-family: var(--font-mono); max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.har-skeleton { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 13px; }
+		.har-right { display: flex; flex-direction: column; gap: 28px; }
+		.har-mobile-btn {
+			display: inline-flex; align-items: center; gap: 10px;
+			padding: 16px 24px; border-radius: 14px; background: #fff; color: #000;
+			font-size: 16px; font-weight: 600; border: none; cursor: pointer;
+			transition: transform .15s, box-shadow .15s, opacity .15s; align-self: flex-start;
+		}
+		.har-mobile-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(255,255,255,.15); }
+		.har-mobile-btn:active { transform: none; }
+		.har-mobile-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+		.har-mobile-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+		.har-qr-wrap {
+			width: 120px; height: 120px; border-radius: 12px; background: #fff;
+			display: flex; align-items: center; justify-content: center;
+			padding: 8px; box-sizing: border-box;
+		}
+		.har-qr-wrap canvas { border-radius: 4px; display: block; }
+		.har-qr-label { font-size: 13px; color: var(--text-3); line-height: 1.5; }
+		.har-compat { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+		.har-compat-pill {
+			padding: 4px 12px; border-radius: 999px;
+			background: rgba(255,255,255,.05); border: 1px solid var(--hairline);
+			font-size: 12px; color: var(--text-3);
+		}
+		.har-cta-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 14px; text-decoration: none; transition: color .15s; }
+		.har-cta-link:hover { color: var(--text); }
+		/* Show/hide platform-specific UI: default desktop */
+		.har-desktop-only { display: flex; flex-direction: column; gap: 12px; }
+		.har-mobile-only { display: none; }
+		@media (hover: none) and (pointer: coarse) {
+			.har-desktop-only { display: none; }
+			.har-mobile-only { display: flex; flex-direction: column; gap: 16px; }
+		}
 	</style>
 	<noscript><style>.reveal{opacity:1!important;transform:none!important}.hero-text>*{opacity:1!important;transform:none!important}</style></noscript>
 	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
@@ -3686,6 +3748,185 @@
 		</div>
 	</div>
 </section>
+
+<!-- ── AR — PLACE IT IN YOUR WORLD ───────────────────────────────── -->
+<section class="block" id="home-ar">
+	<div class="wrap-1280">
+		<div class="block-head reveal">
+			<p class="block-eyebrow"><span class="num">&bull;</span>Augmented Reality</p>
+			<h2 class="block-h">Your 3D agent. <em>In your room.</em></h2>
+			<p class="block-lede">
+				Every model you generate or import gets a View&nbsp;in&nbsp;AR button. On mobile, tap once to anchor it in your real space through the camera. On desktop, scan the QR and place it from your phone. WebXR on Android, Quick&nbsp;Look on iOS. No app. No download.
+			</p>
+		</div>
+		<div class="har-inner reveal reveal-d1">
+			<div class="har-viewer-wrap" id="har-viewer-wrap">
+				<div class="har-skeleton" id="har-skeleton">Loading model&hellip;</div>
+				<!-- model-viewer injected by JS once the CDN script is ready -->
+				<div class="har-viewer-nav" id="har-viewer-nav" style="display:none">
+					<button class="har-nav-btn" id="har-prev" aria-label="Previous model">&larr;</button>
+					<span class="har-prompt" id="har-prompt-label"></span>
+					<button class="har-nav-btn" id="har-next" aria-label="Next model">&rarr;</button>
+				</div>
+			</div>
+			<div class="har-right">
+				<div>
+					<p style="color:var(--text-2);line-height:1.7;margin:0 0 8px;font-size:15px;">
+						These are real models from the <a href="/forge" style="color:var(--text);text-decoration:underline;text-underline-offset:3px">Forge gallery</a> — generated by users with a text prompt. On a phone, tap the button below to see the current model anchored to a flat surface around you at real-world scale.
+					</p>
+					<div class="har-compat">
+						<span class="har-compat-pill">WebXR &middot; Android</span>
+						<span class="har-compat-pill">Quick Look &middot; iOS</span>
+						<span class="har-compat-pill">No app needed</span>
+					</div>
+				</div>
+
+				<!-- Mobile: direct AR launch -->
+				<div class="har-mobile-only">
+					<button class="har-mobile-btn" id="har-ar-btn" disabled>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>
+						Place in your space
+					</button>
+					<p style="color:var(--text-3);font-size:13px;margin:0">Point your camera at a flat surface to anchor the model.</p>
+				</div>
+
+				<!-- Desktop: QR code -->
+				<div class="har-desktop-only">
+					<div class="har-qr-wrap" id="har-qr-wrap">
+						<canvas id="har-qr-canvas" width="104" height="104" style="border-radius:4px;display:block"></canvas>
+					</div>
+					<p class="har-qr-label">Scan with your phone to place<br>this model in your real space.</p>
+				</div>
+
+				<div style="display:flex;flex-direction:column;gap:10px">
+					<a class="har-cta-link" href="/forge">Generate your own model &rarr;</a>
+					<a class="har-cta-link" href="/gallery">Browse the avatar gallery &rarr;</a>
+					<a class="har-cta-link" href="/blog/see-your-3d-in-ar">How AR works on three.ws &rarr;</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+<script type="module">
+(async () => {
+	const { renderQRToCanvas } = await import('/src/erc8004/qr.js');
+
+	// Lazy-load model-viewer (reuse the CDN script if already present)
+	async function ensureModelViewer() {
+		if (customElements.get('model-viewer')) return;
+		await new Promise((resolve, reject) => {
+			const s = document.createElement('script');
+			s.type = 'module';
+			s.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
+			s.integrity = 'sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw';
+			s.crossOrigin = 'anonymous';
+			s.onload = resolve;
+			s.onerror = reject;
+			document.head.appendChild(s);
+		});
+	}
+
+	let models = [];
+	let idx = 0;
+	let mv = null;
+
+	const wrap = document.getElementById('har-viewer-wrap');
+	const skeleton = document.getElementById('har-skeleton');
+	const nav = document.getElementById('har-viewer-nav');
+	const promptLabel = document.getElementById('har-prompt-label');
+	const arBtn = document.getElementById('har-ar-btn');
+	const qrCanvas = document.getElementById('har-qr-canvas');
+	const qrWrap = document.getElementById('har-qr-wrap');
+
+	// Render QR pointing to three.ws/forge for this model
+	function updateQR(glbUrl) {
+		// Link directly to the gallery so mobile users can pick the same model
+		// Encode as a forge viewer link if possible; fall back to /forge
+		const arUrl = `https://three.ws/forge`;
+		try {
+			const ctx = qrCanvas.getContext('2d');
+			const tmp = renderQRToCanvas(arUrl, { scale: 8, margin: 2 });
+			qrCanvas.width = tmp.width;
+			qrCanvas.height = tmp.height;
+			ctx.drawImage(tmp, 0, 0);
+			qrWrap.style.width = qrCanvas.width + 'px';
+			qrWrap.style.height = qrCanvas.height + 'px';
+		} catch {}
+	}
+
+	function loadModel(m) {
+		if (!mv) return;
+		mv.setAttribute('src', m.glb_url);
+		mv.setAttribute('alt', m.prompt || '3D model');
+		promptLabel.textContent = m.prompt || 'model';
+		arBtn.disabled = false;
+		updateQR(m.glb_url);
+	}
+
+	async function init() {
+		try {
+			const r = await fetch('/api/forge-gallery?limit=12');
+			if (!r.ok) throw new Error(r.status);
+			const d = await r.json();
+			models = (d.creations || []).filter(c => c.glb_url);
+		} catch { models = []; }
+
+		if (!models.length) {
+			skeleton.textContent = 'No models available';
+			return;
+		}
+
+		await ensureModelViewer();
+
+		mv = document.createElement('model-viewer');
+		mv.setAttribute('camera-controls', '');
+		mv.setAttribute('auto-rotate', '');
+		mv.setAttribute('ar', '');
+		mv.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
+		mv.setAttribute('shadow-intensity', '1');
+		mv.setAttribute('environment-image', 'neutral');
+		mv.style.cssText = 'width:100%;height:100%;--poster-color:transparent;background:transparent;';
+
+		skeleton.style.display = 'none';
+		wrap.insertBefore(mv, nav);
+
+		loadModel(models[0]);
+		nav.style.display = 'flex';
+
+		// Wire AR button to model-viewer
+		arBtn.addEventListener('click', () => {
+			if (mv && mv.activateAR) mv.activateAR();
+		});
+
+		// Cycle models
+		document.getElementById('har-prev').addEventListener('click', () => {
+			idx = (idx - 1 + models.length) % models.length;
+			loadModel(models[idx]);
+		});
+		document.getElementById('har-next').addEventListener('click', () => {
+			idx = (idx + 1) % models.length;
+			loadModel(models[idx]);
+		});
+	}
+
+	// Render initial QR immediately (desktop only, no model needed)
+	try {
+		const tmp = renderQRToCanvas('https://three.ws/forge', { scale: 8, margin: 2 });
+		qrCanvas.width = tmp.width;
+		qrCanvas.height = tmp.height;
+		qrCanvas.getContext('2d').drawImage(tmp, 0, 0);
+		qrWrap.style.width = qrCanvas.width + 'px';
+		qrWrap.style.height = qrCanvas.height + 'px';
+	} catch {}
+
+	// Use IntersectionObserver to lazy-init when section is visible
+	const section = document.getElementById('home-ar');
+	const io = new IntersectionObserver((entries) => {
+		if (entries[0].isIntersecting) { io.disconnect(); init(); }
+	}, { rootMargin: '200px' });
+	io.observe(section);
+})();
+</script>
 
 <!-- ── FEATURE BENTO ─────────────────────────────────────────────── -->
 <section class="block">

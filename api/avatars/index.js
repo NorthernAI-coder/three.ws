@@ -33,7 +33,7 @@ async function handleList(req, res) {
 	const url = new URL(req.url, 'http://x');
 	const result = await listAvatars({
 		userId: auth.userId,
-		limit: Number(url.searchParams.get('limit')) || 50,
+		limit: Math.min(Math.max(Number(url.searchParams.get('limit')) || 50, 1), 200),
 		cursor: url.searchParams.get('cursor'),
 		visibility: url.searchParams.get('visibility'),
 		includePublic: url.searchParams.get('include_public') === 'true',

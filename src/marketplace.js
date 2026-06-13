@@ -113,8 +113,31 @@ const CATEGORY_LABELS = {
 	blockchain: 'Blockchain',
 };
 
+// Labels for 3D model_category values — what a model IS, not how it was created.
+const MODEL_CATEGORY_LABELS = {
+	avatar: 'Avatar',
+	accessory: 'Accessory',
+	item: 'Item',
+	scene: 'Scene',
+	creature: 'Creature',
+	vehicle: 'Vehicle',
+	other: 'Other',
+};
+
+// Icon glyphs shown on model category badges inside cards.
+const MODEL_CATEGORY_ICONS = {
+	avatar: '◉',
+	accessory: '◈',
+	item: '◇',
+	scene: '▦',
+	creature: '◆',
+	vehicle: '▷',
+	other: '○',
+};
+
 const state = {
-	category: null, // null = Discover (all)
+	category: null, // null = Discover (all) — agent category
+	modelCategory: null, // null = all 3D types — avatar/accessory/item/scene/creature/vehicle
 	q: '',
 	tag: null,      // ?tag=humanoid → filter all cards to entries containing this tag
 	sort: 'recommended',
@@ -143,6 +166,7 @@ const els = {
 	tools: $('market-tools'),
 	cats: $('market-cats'),
 	catChips: $('market-cat-chips'),
+	modelCatChips: $('market-model-category-chips'),
 	grid: $('market-grid'),
 	search: $('market-search'),
 	sortSel: $('market-sort'),
@@ -497,6 +521,7 @@ async function loadPublicAvatars() {
 		url.searchParams.set('limit', '200');
 		url.searchParams.set('quality', 'high');
 		if (state.q) url.searchParams.set('q', state.q);
+		if (state.modelCategory) url.searchParams.set('category', state.modelCategory);
 		const r = await fetch(url);
 		if (!r.ok) return;
 		const j = await r.json();
@@ -991,6 +1016,31 @@ function bindFilterChips() {
 			renderGrid();
 		});
 	});
+
+	// Model-category chips — filter 3D models by what they ARE (avatar, accessory, etc.).
+	// Visible only when avatars are in the current view. Selecting a category
+	// re-fetches the explore API with category= so the filter is server-side.
+	const modelCatChips = document.querySelectorAll('#market-model-category-chips .market-chip');
+	modelCatChips.forEach((chip) => {
+		chip.addEventListener('click', () => {
+			modelCatChips.forEach((c) => c.classList.toggle('active', c === chip));
+			state.modelCategory = chip.dataset.modelCat || null;
+			state.publicAvatars = [];
+			state.publicAvatarsLoaded = false;
+			loadPublicAvatars();
+			renderGrid();
+		});
+	});
+}
+
+function syncModelCatChips() {
+	if (!els.modelCatChips) return;
+	const showAvatars = state.filter === 'all' || state.filter === 'avatars';
+	els.modelCatChips.hidden = !showAvatars;
+	els.modelCatChips.querySelectorAll('.market-chip').forEach((c) => {
+		const val = c.dataset.modelCat || null;
+		c.classList.toggle('active', val === state.modelCategory || (val === '' && !state.modelCategory));
+	});
 }
 
 function renderTagBanner() {
@@ -1014,6 +1064,7 @@ function renderTagBanner() {
 }
 
 function renderGrid() {
+	syncModelCatChips();
 	const showAgents = state.filter === 'all' || state.filter === 'agents';
 	const showAvatars = (state.filter === 'all' || state.filter === 'avatars') && !state.category;
 	const showOnchain = state.filter === 'all' || state.filter === 'onchain';
@@ -3847,7 +3898,7 @@ function renderAvatarCard(a, spotlight = false) {
 			${desc ? `<div class="desc">${desc}</div>` : ''}
 			${tagPills}
 			<div class="footer">
-				<span class="avatar-pill">3D Avatar</span>
+				${modelCategoryBadge(a.modelCategory)}
 				<span class="open-cta">Open →</span>
 			</div>
 		</div>
@@ -5460,6 +5511,13 @@ function formatAssetPrice(price) {
 
 // Reusable badge HTML for a Free/Paid listing. Returns empty string when there
 // is nothing to show.
+function modelCategoryBadge(category) {
+	const cat = category || 'avatar';
+	const label = MODEL_CATEGORY_LABELS[cat] || cat;
+	const icon = MODEL_CATEGORY_ICONS[cat] || '○';
+	return `<span class="avatar-pill model-cat-pill model-cat-${escapeHtml(cat)}">${icon} ${escapeHtml(label)}</span>`;
+}
+
 function priceBadgeHtml(price) {
 	const label = formatAssetPrice(price);
 	if (label) {

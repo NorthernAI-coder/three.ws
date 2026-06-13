@@ -59,6 +59,12 @@ export function hashIp(ip) {
 // retained even if the mesh step later fails. Returns the new creation id (used
 // as the durable object key and the client-facing handle) or null when the
 // store is unavailable.
+export const MODEL_CATEGORIES = ['avatar', 'accessory', 'item', 'scene', 'creature', 'vehicle', 'other'];
+
+export function validModelCategory(v) {
+	return typeof v === 'string' && MODEL_CATEGORIES.includes(v) ? v : null;
+}
+
 export async function createCreation({
 	clientKey,
 	ipHash,
@@ -73,21 +79,23 @@ export async function createCreation({
 	backend,
 	tier,
 	path,
+	modelCategory,
 }) {
 	if (!forgeStoreEnabled()) return null;
 	const id = randomUUID();
+	const category = validModelCategory(modelCategory) ?? 'other';
 	try {
 		await sql`
 			insert into forge_creations
 				(id, client_key, ip_hash, prompt, aspect, preview_image_url,
 				 replicate_job_id, text_to_image_model, views_requested, views_used,
-				 multiview, backend, tier, path, status, outcome)
+				 multiview, backend, tier, path, status, outcome, model_category)
 			values
 				(${id}, ${clientKey}, ${ipHash ?? null}, ${prompt}, ${aspect ?? null},
 				 ${previewImageUrl ?? null}, ${replicateJobId ?? null},
 				 ${textToImageModel ?? null}, ${viewsRequested ?? null}, ${viewsUsed ?? null},
 				 ${typeof multiview === 'boolean' ? multiview : null}, ${backend ?? null},
-				 ${tier ?? null}, ${path ?? null}, 'generating', 'generated')
+				 ${tier ?? null}, ${path ?? null}, 'generating', 'generated', ${category})
 		`;
 		return id;
 	} catch (err) {
@@ -103,7 +111,7 @@ export async function findByJob({ replicateJobId, clientKey }) {
 	try {
 		const rows = await sql`
 			select id, status, glb_url, glb_key, prompt, preview_image_url,
-				views_requested, views_used, multiview, backend, tier, path
+				views_requested, views_used, multiview, backend, tier, path, model_category
 			from forge_creations
 			where replicate_job_id = ${replicateJobId} and client_key = ${clientKey}
 			limit 1
@@ -270,6 +278,25 @@ export async function recordFeedback({ id, clientKey, outcome, downloaded, ratin
 	}
 }
 
+// Update the model_category on a forge creation. Scoped to the owning client.
+export async function setForgeCategory({ id, clientKey, modelCategory }) {
+	if (!forgeStoreEnabled() || !id) return false;
+	const category = validModelCategory(modelCategory);
+	if (!category) return false;
+	try {
+		const rows = await sql`
+			update forge_creations
+			set model_category = ${category}, updated_at = now()
+			where id = ${id} and client_key = ${clientKey}
+			returning id
+		`;
+		return rows.length > 0;
+	} catch (err) {
+		console.error('[forge-store] setForgeCategory failed:', err?.message);
+		return false;
+	}
+}
+
 // Fetch a single durable creation by id, NOT scoped to any client. Powers the
 // share flow: a recipient who didn't forge the model still gets to view it.
 // Only returns finished, durably-stored rows — an in-flight or failed creation
@@ -279,7 +306,7 @@ export async function getPublicCreation({ id }) {
 	try {
 		const rows = await sql`
 			select id, prompt, aspect, glb_url, preview_image_url, outcome,
-				views_used, multiview, backend, tier, path, created_at
+				views_used, multiview, backend, tier, path, model_category, created_at
 			from forge_creations
 			where id = ${id} and status = 'done' and glb_url is not null
 			limit 1
@@ -298,6 +325,7 @@ export async function getPublicCreation({ id }) {
 			backend: r.backend ?? null,
 			tier: r.tier ?? null,
 			path: r.path ?? null,
+			model_category: r.model_category ?? 'other',
 			created_at: r.created_at,
 		};
 	} catch (err) {
@@ -313,7 +341,7 @@ export async function listCreations({ clientKey, limit = 24 }) {
 	try {
 		const rows = await sql`
 			select id, prompt, aspect, glb_url, preview_image_url, outcome, downloaded,
-				views_used, multiview, backend, tier, path, created_at
+				views_used, multiview, backend, tier, path, model_category, created_at
 			from forge_creations
 			where client_key = ${clientKey} and status = 'done' and glb_url is not null
 			order by created_at desc
@@ -332,6 +360,7 @@ export async function listCreations({ clientKey, limit = 24 }) {
 			backend: r.backend ?? null,
 			tier: r.tier ?? null,
 			path: r.path ?? null,
+			model_category: r.model_category ?? 'other',
 			created_at: r.created_at,
 		}));
 	} catch (err) {
@@ -356,7 +385,7 @@ export async function listShowcase({ limit = 12 } = {}) {
 		// but they shouldn't bury the visual rows.
 		const rows = await sql`
 			select id, prompt, glb_url, preview_image_url,
-				views_used, multiview, backend, tier, path, created_at
+				views_used, multiview, backend, tier, path, model_category, created_at
 			from forge_creations
 			where status = 'done' and glb_url is not null
 				and (outcome is null or outcome != 'rejected')
@@ -373,6 +402,7 @@ export async function listShowcase({ limit = 12 } = {}) {
 			backend: r.backend ?? null,
 			tier: r.tier ?? null,
 			path: r.path ?? null,
+			model_category: r.model_category ?? 'other',
 			created_at: r.created_at,
 		}));
 	} catch (err) {

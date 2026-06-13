@@ -300,7 +300,7 @@ const handlePublic = wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	const url = new URL(req.url, 'http://x');
 	const parsedLimit = Number(url.searchParams.get('limit'));
-	const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 24;
+	const limit = Math.min(Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 24, 100);
 	let result;
 	try {
 		result = await searchPublicAvatars({

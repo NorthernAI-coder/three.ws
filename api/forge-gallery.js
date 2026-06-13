@@ -26,7 +26,7 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	const rl = await limits.mcp3dStatus(clientIp(req));
+	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) {
 		return rateLimited(res, rl);
 	}
@@ -36,7 +36,7 @@ export default wrap(async (req, res) => {
 	}
 
 	const url = new URL(req.url, 'http://localhost');
-	const limit = Number(url.searchParams.get('limit')) || 24;
+	const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 24, 1), 50);
 
 	if ((url.searchParams.get('scope') || '').trim() === 'community') {
 		const creations = await listShowcase({ limit });

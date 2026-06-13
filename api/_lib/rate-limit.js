@@ -217,8 +217,10 @@ export const limits = {
 	// aixbt intelligence bridge (api/aixbt/*). Each call may fall through to the
 	// upstream aixbt REST API, which is rate-limited per key — cap per IP so one
 	// caller can't drain the shared key's budget. Reads are cached, so this is
-	// generous enough for an interactive feed.
+	// generous enough for an interactive feed. The global ceiling prevents many
+	// distributed IPs from collectively exhausting the shared upstream key.
 	aixbtIp: (ip) => getLimiter('aixbt:ip', { limit: 90, window: '1 m' }).limit(ip),
+	aixbtGlobal: () => getLimiter('aixbt:global', { limit: 1800, window: '1 h' }).limit('global'),
 	// Solana Developer Platform proxy (api/sdp/*). Each call fronts the SDP API
 	// under our server-side key, and writes (wallet create / issuance / payment)
 	// move real value, so cap per IP to keep that egress bounded and prevent the
