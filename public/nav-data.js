@@ -135,6 +135,11 @@ export const NAV_GROUPS = [
 				badge: 'New',
 				desc: 'Hidden gems — fact-checker, tutor, lipsync & more',
 			},
+			{
+				title: 'All pages',
+				href: '/sitemap',
+				desc: 'The full directory — every page on three.ws, filterable',
+			},
 		],
 	},
 	{

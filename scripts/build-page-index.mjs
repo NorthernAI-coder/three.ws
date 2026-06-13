@@ -160,6 +160,7 @@ function buildLlmsFull() {
 // /sitemap HTML page (human-readable)
 // ────────────────────────────────────────────────────────────────────────
 function buildSitemapHtml() {
+	const totalPages = sections.reduce((n, s) => n + s.pages.length, 0);
 	const sectionHtml = sections
 		.map((section) => {
 			const items = section.pages
@@ -179,7 +180,7 @@ function buildSitemapHtml() {
 				.join('\n');
 			return `\t\t<section class="sm-section" id="${escapeHtml(section.id)}">
 \t\t\t<header>
-\t\t\t\t<h2>${escapeHtml(section.title)}</h2>
+\t\t\t\t<h2>${escapeHtml(section.title)}<span class="sm-count" data-count>${section.pages.length}</span></h2>
 \t\t\t\t${section.description ? `<p class="sm-section-desc">${escapeHtml(section.description)}</p>` : ''}
 \t\t\t</header>
 \t\t\t<ul class="sm-list">
@@ -216,6 +217,20 @@ ${items}
 \t.sm-formats a { padding: 6px 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; color: #d8d8ee; text-decoration: none; font-size: 13px; background: rgba(255,255,255,.02); transition: background .15s, border-color .15s; }
 \t.sm-formats a:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.24); }
 \t.sm-formats code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #9ad4ff; }
+\t.sm-filter { position: sticky; top: 12px; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 14px; background: rgba(9,9,22,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); margin-bottom: 12px; transition: border-color .15s, box-shadow .15s; }
+\t.sm-filter:focus-within { border-color: rgba(150,170,255,.45); box-shadow: 0 0 0 3px rgba(120,140,255,.12); }
+\t.sm-filter svg { width: 16px; height: 16px; color: #7a85a8; flex-shrink: 0; }
+\t.sm-filter input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: #e7e7f5; font: inherit; font-size: 15px; }
+\t.sm-filter input::placeholder { color: #5b5b78; }
+\t.sm-filter input::-webkit-search-cancel-button { cursor: pointer; }
+\t.sm-filter kbd { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: #7a85a8; }
+\t.sm-filter-count { color: #9b9bb7; font-size: 13px; margin: 0 0 20px; min-height: 18px; padding: 0 4px; }
+\t.sm-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 64px 24px; border: 1px dashed rgba(255,255,255,.12); border-radius: 16px; text-align: center; }
+\t.sm-empty p { margin: 0; color: #b6b6cf; font-size: 15px; }
+\t.sm-empty .sm-empty-hint { color: #7a85a8; font-size: 13px; }
+\t.sm-empty kbd { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: #9ad4ff; }
+\t.sm-count { display: inline-flex; align-items: center; margin-left: 10px; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,.06); color: #9b9bb7; font-size: 12px; font-weight: 600; vertical-align: 3px; }
+\t@media (max-width: 640px) { .sm-filter kbd { display: none; } }
 \t.sm-toc { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 14px 16px; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: rgba(255,255,255,.02); margin-bottom: 56px; }
 \t.sm-toc a { color: #cfd0e8; text-decoration: none; font-size: 13px; padding: 4px 10px; border-radius: 999px; }
 \t.sm-toc a:hover { background: rgba(255,255,255,.06); color: #fff; }
@@ -246,7 +261,7 @@ ${items}
 \t<main class="sm-wrap">
 \t\t<div class="sm-hero">
 \t\t\t<h1>Sitemap</h1>
-\t\t\t<p>Every public page on ${escapeHtml(site.name)}, grouped by purpose. Looking for the machine-readable versions?</p>
+\t\t\t<p>All ${totalPages} pages on ${escapeHtml(site.name)}, grouped by purpose. Looking for the machine-readable versions?</p>
 \t\t\t<div class="sm-formats">
 \t\t\t\t<a href="/sitemap.xml"><code>sitemap.xml</code> · for search engines</a>
 \t\t\t\t<a href="/llms.txt"><code>llms.txt</code> · for AI agents</a>
@@ -256,14 +271,88 @@ ${items}
 \t\t\t\t<a href="/openapi.json"><code>openapi.json</code> · HTTP API</a>
 \t\t\t</div>
 \t\t</div>
+\t\t<div class="sm-filter">
+\t\t\t<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+\t\t\t<input id="sm-filter-input" type="search" placeholder="Filter ${totalPages} pages by name, path, or description…" aria-label="Filter pages" autocomplete="off" spellcheck="false" />
+\t\t\t<kbd aria-hidden="true">/</kbd>
+\t\t</div>
+\t\t<p class="sm-filter-count" id="sm-filter-count" role="status" aria-live="polite"></p>
 \t\t<nav class="sm-toc" aria-label="Sections">
 ${tocHtml}
 \t\t</nav>
 ${sectionHtml}
+\t\t<div class="sm-empty" id="sm-empty" hidden>
+\t\t\t<p>No pages match &ldquo;<span id="sm-empty-q"></span>&rdquo;.</p>
+\t\t\t<p class="sm-empty-hint">Clear the filter, or press <kbd>&#8984;K</kbd> for global search &mdash; it covers agents, coins, and skills too.</p>
+\t\t</div>
 \t</main>
 \t<div id="footer-container"></div>
 \t<script type="module" src="/nav.js"></script>
 \t<script type="module" src="/footer.js"></script>
+\t<script>
+\t(function () {
+\t\tvar input = document.getElementById('sm-filter-input');
+\t\tvar countEl = document.getElementById('sm-filter-count');
+\t\tvar empty = document.getElementById('sm-empty');
+\t\tvar emptyQ = document.getElementById('sm-empty-q');
+\t\tvar groups = Array.prototype.map.call(document.querySelectorAll('.sm-section'), function (sec) {
+\t\t\treturn {
+\t\t\t\tsec: sec,
+\t\t\t\ttoc: document.querySelector('.sm-toc a[href="#' + sec.id + '"]'),
+\t\t\t\tcount: sec.querySelector('[data-count]'),
+\t\t\t\titems: Array.prototype.map.call(sec.querySelectorAll('.sm-list > li'), function (li) {
+\t\t\t\t\treturn { li: li, text: li.textContent.toLowerCase() };
+\t\t\t\t}),
+\t\t\t};
+\t\t});
+\t\tvar total = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+\t\tcountEl.textContent = total + ' pages \\u00b7 ' + groups.length + ' sections';
+
+\t\tfunction apply(q) {
+\t\t\tq = q.trim().toLowerCase();
+\t\t\tvar shown = 0;
+\t\t\tgroups.forEach(function (g) {
+\t\t\t\tvar visible = 0;
+\t\t\t\tg.items.forEach(function (it) {
+\t\t\t\t\tvar hit = !q || it.text.indexOf(q) !== -1;
+\t\t\t\t\tit.li.hidden = !hit;
+\t\t\t\t\tif (hit) visible++;
+\t\t\t\t});
+\t\t\t\tg.sec.hidden = visible === 0;
+\t\t\t\tif (g.toc) g.toc.hidden = visible === 0;
+\t\t\t\tif (g.count) g.count.textContent = visible;
+\t\t\t\tshown += visible;
+\t\t\t});
+\t\t\tcountEl.textContent = q
+\t\t\t\t? shown + ' of ' + total + ' pages match'
+\t\t\t\t: total + ' pages \\u00b7 ' + groups.length + ' sections';
+\t\t\temptyQ.textContent = q;
+\t\t\tempty.hidden = !q || shown > 0;
+\t\t\tvar url = new URL(location.href);
+\t\t\tif (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+\t\t\thistory.replaceState(null, '', url);
+\t\t}
+
+\t\tinput.addEventListener('input', function () { apply(input.value); });
+\t\tinput.addEventListener('keydown', function (e) {
+\t\t\tif (e.key === 'Escape' && input.value) {
+\t\t\t\te.stopPropagation();
+\t\t\t\tinput.value = '';
+\t\t\t\tapply('');
+\t\t\t}
+\t\t});
+\t\tdocument.addEventListener('keydown', function (e) {
+\t\t\tif (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+\t\t\tvar t = e.target;
+\t\t\tif (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+\t\t\te.preventDefault();
+\t\t\tinput.focus();
+\t\t});
+
+\t\tvar initial = new URLSearchParams(location.search).get('q');
+\t\tif (initial) { input.value = initial; apply(initial); }
+\t})();
+\t</script>
 </body>
 </html>
 `;

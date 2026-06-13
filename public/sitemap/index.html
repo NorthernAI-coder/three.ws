@@ -21,6 +21,20 @@
 	.sm-formats a { padding: 6px 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; color: #d8d8ee; text-decoration: none; font-size: 13px; background: rgba(255,255,255,.02); transition: background .15s, border-color .15s; }
 	.sm-formats a:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.24); }
 	.sm-formats code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #9ad4ff; }
+	.sm-filter { position: sticky; top: 12px; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 14px; background: rgba(9,9,22,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); margin-bottom: 12px; transition: border-color .15s, box-shadow .15s; }
+	.sm-filter:focus-within { border-color: rgba(150,170,255,.45); box-shadow: 0 0 0 3px rgba(120,140,255,.12); }
+	.sm-filter svg { width: 16px; height: 16px; color: #7a85a8; flex-shrink: 0; }
+	.sm-filter input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: #e7e7f5; font: inherit; font-size: 15px; }
+	.sm-filter input::placeholder { color: #5b5b78; }
+	.sm-filter input::-webkit-search-cancel-button { cursor: pointer; }
+	.sm-filter kbd { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: #7a85a8; }
+	.sm-filter-count { color: #9b9bb7; font-size: 13px; margin: 0 0 20px; min-height: 18px; padding: 0 4px; }
+	.sm-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 64px 24px; border: 1px dashed rgba(255,255,255,.12); border-radius: 16px; text-align: center; }
+	.sm-empty p { margin: 0; color: #b6b6cf; font-size: 15px; }
+	.sm-empty .sm-empty-hint { color: #7a85a8; font-size: 13px; }
+	.sm-empty kbd { display: inline-flex; align-items: center; height: 18px; padding: 0 5px; border: 1px solid rgba(255,255,255,.14); border-radius: 4px; font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: #9ad4ff; }
+	.sm-count { display: inline-flex; align-items: center; margin-left: 10px; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,.06); color: #9b9bb7; font-size: 12px; font-weight: 600; vertical-align: 3px; }
+	@media (max-width: 640px) { .sm-filter kbd { display: none; } }
 	.sm-toc { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 14px 16px; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; background: rgba(255,255,255,.02); margin-bottom: 56px; }
 	.sm-toc a { color: #cfd0e8; text-decoration: none; font-size: 13px; padding: 4px 10px; border-radius: 999px; }
 	.sm-toc a:hover { background: rgba(255,255,255,.06); color: #fff; }
@@ -51,7 +65,7 @@
 	<main class="sm-wrap">
 		<div class="sm-hero">
 			<h1>Sitemap</h1>
-			<p>Every public page on three.ws, grouped by purpose. Looking for the machine-readable versions?</p>
+			<p>All 247 pages on three.ws, grouped by purpose. Looking for the machine-readable versions?</p>
 			<div class="sm-formats">
 				<a href="/sitemap.xml"><code>sitemap.xml</code> · for search engines</a>
 				<a href="/llms.txt"><code>llms.txt</code> · for AI agents</a>
@@ -61,6 +75,12 @@
 				<a href="/openapi.json"><code>openapi.json</code> · HTTP API</a>
 			</div>
 		</div>
+		<div class="sm-filter">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+			<input id="sm-filter-input" type="search" placeholder="Filter 247 pages by name, path, or description…" aria-label="Filter pages" autocomplete="off" spellcheck="false" />
+			<kbd aria-hidden="true">/</kbd>
+		</div>
+		<p class="sm-filter-count" id="sm-filter-count" role="status" aria-live="polite"></p>
 		<nav class="sm-toc" aria-label="Sections">
 			<a href="#main">Main</a>
 			<a href="#build">Build</a>
@@ -76,7 +96,7 @@
 		</nav>
 		<section class="sm-section" id="main">
 			<header>
-				<h2>Main</h2>
+				<h2>Main<span class="sm-count" data-count>10</span></h2>
 				<p class="sm-section-desc">Entry points into the product.</p>
 			</header>
 			<ul class="sm-list">
@@ -155,7 +175,7 @@
 
 		<section class="sm-section" id="build">
 			<header>
-				<h2>Build</h2>
+				<h2>Build<span class="sm-count" data-count>26</span></h2>
 				<p class="sm-section-desc">Create and customize an agent.</p>
 			</header>
 			<ul class="sm-list">
@@ -346,7 +366,7 @@
 
 		<section class="sm-section" id="labs">
 			<header>
-				<h2>Labs</h2>
+				<h2>Labs<span class="sm-count" data-count>7</span></h2>
 				<p class="sm-section-desc">Experimental features actively shipping. Expect fast iteration.</p>
 			</header>
 			<ul class="sm-list">
@@ -404,7 +424,7 @@
 
 		<section class="sm-section" id="crypto">
 			<header>
-				<h2>Crypto</h2>
+				<h2>Crypto<span class="sm-count" data-count>23</span></h2>
 				<p class="sm-section-desc">On-chain features: pay-per-call, token launches, vanity wallets.</p>
 			</header>
 			<ul class="sm-list">
@@ -574,7 +594,7 @@
 
 		<section class="sm-section" id="agent-tools">
 			<header>
-				<h2>Agent Tools</h2>
+				<h2>Agent Tools<span class="sm-count" data-count>5</span></h2>
 				<p class="sm-section-desc">Manage, talk to, and deploy individual agents.</p>
 			</header>
 			<ul class="sm-list">
@@ -618,7 +638,7 @@
 
 		<section class="sm-section" id="account">
 			<header>
-				<h2>Account</h2>
+				<h2>Account<span class="sm-count" data-count>8</span></h2>
 				<p class="sm-section-desc">Sign-in, dashboard, billing.</p>
 			</header>
 			<ul class="sm-list">
@@ -683,7 +703,7 @@
 
 		<section class="sm-section" id="learn">
 			<header>
-				<h2>Learn</h2>
+				<h2>Learn<span class="sm-count" data-count>22</span></h2>
 				<p class="sm-section-desc">Docs, tutorials, and reference.</p>
 			</header>
 			<ul class="sm-list">
@@ -846,7 +866,7 @@
 
 		<section class="sm-section" id="blog">
 			<header>
-				<h2>Blog</h2>
+				<h2>Blog<span class="sm-count" data-count>28</span></h2>
 				<p class="sm-section-desc">Long-form announcements, launches, and writing from three.ws.</p>
 			</header>
 			<ul class="sm-list">
@@ -1051,7 +1071,7 @@
 
 		<section class="sm-section" id="legal">
 			<header>
-				<h2>Legal</h2>
+				<h2>Legal<span class="sm-count" data-count>2</span></h2>
 				
 			</header>
 			<ul class="sm-list">
@@ -1074,7 +1094,7 @@
 
 		<section class="sm-section" id="machine">
 			<header>
-				<h2>Machine-readable</h2>
+				<h2>Machine-readable<span class="sm-count" data-count>9</span></h2>
 				<p class="sm-section-desc">Indexes and well-known files for crawlers and AI agents.</p>
 			</header>
 			<ul class="sm-list">
@@ -1146,7 +1166,7 @@
 
 		<section class="sm-section" id="news">
 			<header>
-				<h2>News</h2>
+				<h2>News<span class="sm-count" data-count>107</span></h2>
 				<p class="sm-section-desc">Product launches, integrations, and announcements from three.ws.</p>
 			</header>
 			<ul class="sm-list">
@@ -1901,9 +1921,77 @@
 				</li>
 			</ul>
 		</section>
+		<div class="sm-empty" id="sm-empty" hidden>
+			<p>No pages match &ldquo;<span id="sm-empty-q"></span>&rdquo;.</p>
+			<p class="sm-empty-hint">Clear the filter, or press <kbd>&#8984;K</kbd> for global search &mdash; it covers agents, coins, and skills too.</p>
+		</div>
 	</main>
 	<div id="footer-container"></div>
 	<script type="module" src="/nav.js"></script>
 	<script type="module" src="/footer.js"></script>
+	<script>
+	(function () {
+		var input = document.getElementById('sm-filter-input');
+		var countEl = document.getElementById('sm-filter-count');
+		var empty = document.getElementById('sm-empty');
+		var emptyQ = document.getElementById('sm-empty-q');
+		var groups = Array.prototype.map.call(document.querySelectorAll('.sm-section'), function (sec) {
+			return {
+				sec: sec,
+				toc: document.querySelector('.sm-toc a[href="#' + sec.id + '"]'),
+				count: sec.querySelector('[data-count]'),
+				items: Array.prototype.map.call(sec.querySelectorAll('.sm-list > li'), function (li) {
+					return { li: li, text: li.textContent.toLowerCase() };
+				}),
+			};
+		});
+		var total = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+		countEl.textContent = total + ' pages \u00b7 ' + groups.length + ' sections';
+
+		function apply(q) {
+			q = q.trim().toLowerCase();
+			var shown = 0;
+			groups.forEach(function (g) {
+				var visible = 0;
+				g.items.forEach(function (it) {
+					var hit = !q || it.text.indexOf(q) !== -1;
+					it.li.hidden = !hit;
+					if (hit) visible++;
+				});
+				g.sec.hidden = visible === 0;
+				if (g.toc) g.toc.hidden = visible === 0;
+				if (g.count) g.count.textContent = visible;
+				shown += visible;
+			});
+			countEl.textContent = q
+				? shown + ' of ' + total + ' pages match'
+				: total + ' pages \u00b7 ' + groups.length + ' sections';
+			emptyQ.textContent = q;
+			empty.hidden = !q || shown > 0;
+			var url = new URL(location.href);
+			if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+			history.replaceState(null, '', url);
+		}
+
+		input.addEventListener('input', function () { apply(input.value); });
+		input.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape' && input.value) {
+				e.stopPropagation();
+				input.value = '';
+				apply('');
+			}
+		});
+		document.addEventListener('keydown', function (e) {
+			if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+			var t = e.target;
+			if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+			e.preventDefault();
+			input.focus();
+		});
+
+		var initial = new URLSearchParams(location.search).get('q');
+		if (initial) { input.value = initial; apply(initial); }
+	})();
+	</script>
 </body>
 </html>

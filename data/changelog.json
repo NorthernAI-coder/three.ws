@@ -2,6 +2,15 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-13",
+			"title": "The full page directory is now one click away — and instantly filterable",
+			"summary": "three.ws has grown past 140 pages, so the sitemap directory got a real upgrade. A new \"All pages\" link in the Discover menu takes you straight to it, and the page itself now has an instant filter — press / and type to narrow every page by name, path, or description, with live per-section counts. Filtered views are shareable links, so you can send someone exactly the slice of the platform you mean.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/sitemap"
+		},
+		{
 			"date": "2026-06-12",
 			"title": "Every three.ws npm package got a polish pass and a new release",
 			"summary": "We went through all fifteen published three.ws packages — the avatar SDK and React bindings, the agent UI overlay, the cross-chain and Solana agent SDKs, the agent-payments engine, the avatar schema, viewer presets, the avatar CLI, and the MCP servers — and brought them to one consistent bar. Every package now has complete npm metadata (homepage, repository, issue tracker, license, keywords) and a redesigned README with badges, a copy-paste quick start, a real API/tools reference grounded in the actual code, and cross-links between related packages. Several READMEs that had drifted out of date now list the real, current tool sets. The Solana and agent-payments SDK bundles ship roughly 75% smaller by dropping sourcemaps from the minified release build. The avatar CLI gained colored output, per-command help, 'did you mean' suggestions for typos, and friendlier errors. Packages with missing license or notice files now ship them.",
