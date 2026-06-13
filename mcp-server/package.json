@@ -36,7 +36,7 @@
 		"LICENSE"
 	],
 	"bin": {
-		"3d-agent-mcp": "./src/index.js"
+		"3d-agent-mcp": "src/index.js"
 	},
 	"main": "./src/index.js",
 	"exports": {
