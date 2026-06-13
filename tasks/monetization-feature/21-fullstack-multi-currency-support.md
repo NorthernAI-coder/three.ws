@@ -7,7 +7,7 @@ status: not-started
 **Status:** Not Started
 
 ## Objective
-Extend the skill pricing and payment system to support multiple SPL tokens (e.g., BONK, RENDER) in addition to USDC.
+Extend the skill pricing and payment system to support multiple SPL tokens (e.g., $THREE) in addition to USDC.
 
 ## Explanation
 To maximize flexibility for users and creators, the platform should not be limited to a single currency. This requires changes on both the backend (to store different currency mints) and the frontend (to display the correct currency symbol and handle different decimals).
@@ -17,11 +17,11 @@ To maximize flexibility for users and creators, the platform should not be limit
     - [ ] The `agent_skill_prices` and `skill_purchases` tables already have a `currency_mint` column, which is good.
     - [ ] When creating a Solana Pay transaction, ensure you are using the correct `splToken` mint address from the skill's price information.
 - [ ] **Frontend - Monetization Tab:**
-    - [ ] Update the currency `<select>` dropdown in the agent editor to include options for other popular SPL tokens (USDC, BONK, etc.). The `value` for each option should be the token's mint address.
+    - [ ] Update the currency `<select>` dropdown in the agent editor to include options for other whitelisted SPL tokens (USDC, $THREE, etc.). The `value` for each option should be the token's mint address.
 - [ ] **Frontend - Marketplace:**
     - [ ] When displaying the price and the "Buy" button, fetch the token's metadata (symbol, decimals) from a source like the Solana Token List or a simple hardcoded map.
-    - [ ] Use the correct number of decimals when converting the `amount` from lamports to a human-readable format (e.g., BONK has 5 decimals, USDC has 6).
-    - [ ] Display the correct currency symbol (e.g., "$BONK", "$RNDR").
+    - [ ] Use the correct number of decimals when converting the `amount` from lamports to a human-readable format (different SPL tokens use different decimal counts — e.g., USDC has 6).
+    - [ ] Display the correct currency symbol (e.g., "$THREE", "USDC").
 
 ## Code Example (Frontend Price Display)
 
@@ -29,7 +29,7 @@ To maximize flexibility for users and creators, the platform should not be limit
 // A simple map of known tokens. In a real app, this might come from an API.
 const TOKEN_MAP = {
     'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyB7u6T': { symbol: 'USDC', decimals: 6 },
-    'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': { symbol: 'BONK', decimals: 5 },
+    'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump': { symbol: 'THREE', decimals: 6 },
 };
 
 // In the marketplace rendering logic...

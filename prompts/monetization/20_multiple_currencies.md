@@ -5,7 +5,7 @@ last_updated: 2026-05-04
 # Prompt 20: Support for Multiple Currencies
 
 ## Objective
-Extend the monetization system to allow creators to set prices and users to pay in different SPL tokens (e.g., BONK, RENDER) in addition to USDC.
+Extend the monetization system to allow creators to set prices and users to pay in different SPL tokens (e.g., $THREE) in addition to USDC.
 
 ## Explanation
 To increase flexibility and appeal to different communities, we should support more than just one currency. This requires changes to how prices are stored, how transactions are built, and how data is displayed.
@@ -25,7 +25,7 @@ To increase flexibility and appeal to different communities, we should support m
 
 4.  **Frontend Wallet Interaction:**
     *   The frontend needs to be aware of the currency being used. When preparing the purchase, it's good practice to check if the user has a sufficient balance of the required token *before* showing the sign prompt. This can be done using `connection.getTokenAccountBalance`.
-    *   The UI should clearly display the correct currency symbol (e.g., "Purchase for 500 BONK").
+    *   The UI should clearly display the correct currency symbol (e.g., "Purchase for 500 $THREE").
 
 5.  **Update Creator Dashboard:**
     *   The sales data aggregation must now `GROUP BY currency_mint` to show total earnings for each currency separately.
@@ -39,9 +39,9 @@ export const SUPPORTED_CURRENCIES = {
         symbol: 'USDC',
         decimals: 6,
     },
-    'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263': {
-        symbol: 'BONK',
-        decimals: 5,
+    'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump': {
+        symbol: 'THREE',
+        decimals: 6,
     }
 };
 ```

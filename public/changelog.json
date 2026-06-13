@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T01:20:26.120Z",
+	"generated_at": "2026-06-13T02:58:50.108Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -22,6 +22,16 @@
 			"title": "Embed any Forge model on your own site with one line",
 			"summary": "Every model you forge now has an Embed button next to Download. It hands you a ready-to-paste snippet — an iframe by default, or a <model-viewer> web component for builders — that drops a live, orbitable, AR-ready 3D model onto any website, with a live preview and size presets (16:9, square, 4:5) right in the panel. The iframe points at a new lightweight three.ws viewer (/forge/embed) that needs no scripts on the host page, and clicking its corner badge brings visitors back to Forge with your prompt pre-loaded to remix. Same idea as the <agent-3d> embed, now for any generated object.",
 			"link": "/forge",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "Embed straight from the homepage demo — no trip to the full Forge",
+			"summary": "The text-to-3D demo on the homepage now has an Embed button right in its result toolbar, so a model you forge there can go on your own site without opening the full Forge first. It pops a panel with a live preview, an iframe or <model-viewer> snippet, and the same 16:9 / square / 4:5 size presets, ready to copy in one tap. It's the same one-line embed the full Forge gives you, now one step shorter from the front page.",
+			"link": "/",
 			"tags": [
 				"feature"
 			]

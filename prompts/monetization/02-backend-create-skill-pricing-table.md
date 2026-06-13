@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS agent_skill_prices (
     skill_name VARCHAR(255) NOT NULL,
     -- Price in the smallest denomination (e.g., lamports for SOL, or 10^-6 for USDC)
     amount BIGINT NOT NULL CHECK (amount >= 0),
-    -- The mint address of the currency token (e.g., USDC, BONK, etc.)
+    -- The mint address of the currency token (e.g., USDC, $THREE, etc.)
     currency_mint VARCHAR(44) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
