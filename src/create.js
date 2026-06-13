@@ -36,23 +36,19 @@ function requireAuthForSelfie() {
 	return true;
 }
 
-// Probe whether the server has an avatar-reconstruction backend wired. When
-// false, the Selfie card on /create stays visible but is marked "coming soon"
-// so the user can't dead-end on it; the click handler short-circuits and shows
-// an explanatory toast instead of navigating to a page that would 501.
-let _reconstructReady = true;
+// Probe runtime feature flags. Selfie reconstruction is always available
+// (BYOK providers are always an option); only video avatar is gated on an
+// optional Cloud Run worker.
 let _videoAvatarReady = false;
-async function probeReconstruct() {
+async function probeFeatures() {
 	try {
 		const r = await fetch('/api/config', { credentials: 'omit' });
 		if (!r.ok) return;
 		const j = await r.json();
-		_reconstructReady = j?.features?.avatarReconstruct !== false;
 		_videoAvatarReady = j?.features?.videoAvatar === true;
 	} catch {
-		// network blip — keep defaults and let page-level gates do the final check.
+		// network blip — keep defaults.
 	}
-	if (!_reconstructReady) markSelfieUnavailable();
 	if (!_videoAvatarReady) markVideoAvatarUnavailable();
 }
 
@@ -64,18 +60,6 @@ function markVideoAvatarUnavailable() {
 	card.style.cursor = 'not-allowed';
 	const title = card.querySelector('.card-title');
 	if (title) title.textContent = 'Talking avatar video · coming soon';
-}
-
-function markSelfieUnavailable() {
-	const card = document.getElementById('card-selfie');
-	if (!card) return;
-	card.setAttribute('aria-disabled', 'true');
-	card.style.opacity = '0.55';
-	card.style.cursor = 'not-allowed';
-	const title = card.querySelector('.card-title');
-	if (title && !/coming soon/i.test(title.textContent)) {
-		title.textContent = `${title.textContent} · coming soon`;
-	}
 }
 
 async function handleFork(avatarId) {
@@ -115,7 +99,7 @@ async function boot() {
 		return;
 	}
 
-	probeReconstruct();
+	probeFeatures();
 	const creator = new AvatarCreator(document.body, (blob, meta = {}) => {
 		const provider = meta.provider || 'avaturn';
 		// Forward-compatible source mapping:
@@ -145,16 +129,9 @@ async function boot() {
 		window.location.href = '/create/studio';
 	});
 	wireCard('card-selfie', async () => {
-		if (!_reconstructReady) {
-			showStatus(
-				'Selfie avatars are still warming up — try the studio for now (it ships every feature).',
-				'info',
-			);
-			return;
-		}
 		if (!requireAuthForSelfie()) return;
 		if (await isAtAvatarLimit()) return;
-		window.location.href = '/scan';
+		window.location.href = '/create/selfie';
 	});
 	wireCard('card-prompt', async () => {
 		if (window.__authed === false) {

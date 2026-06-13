@@ -462,8 +462,7 @@ function fit(w, h, max) {
 function mapApiError(status, payload) {
 	const code = payload.error;
 	if (status === 401) {
-		// Return to whichever surface initiated the flow (/create/selfie or /scan)
-		// so the post-login round-trip resumes on the right page.
+		// Return to /create/selfie so the post-login round-trip resumes on the right page.
 		const here = typeof location !== 'undefined' ? location.pathname : '/create/selfie';
 		const next = encodeURIComponent(here);
 		const e = withMessage(

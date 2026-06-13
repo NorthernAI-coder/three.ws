@@ -175,7 +175,7 @@ function mapSubmitError(status, data) {
 		return 'The image engine is busy right now — wait a moment and try again.';
 	}
 	if (code === 'regen_unconfigured' || code === 'txt2img_unconfigured') {
-		return 'The avatar generator isn\'t configured on this deployment yet. Try the <a href="/scan">selfie scanner</a> instead.';
+		return 'The avatar generator isn\'t configured on this deployment yet. Try the <a href="/create/selfie">selfie scanner</a> instead.';
 	}
 	if (code === 'txt2img_billing') return 'The image engine is temporarily unavailable (provider billing). Try again later.';
 	if (code === 'txt2img_unreachable') return 'Couldn\'t reach the image engine. Check your connection and try again.';

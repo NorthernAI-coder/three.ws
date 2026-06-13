@@ -3,24 +3,160 @@
  *
  * Usage:
  *   import { mountRegeneratePanel } from './regenerate-panel.js';
- *   const container = document.getElementById('regen-container');
- *   mountRegeneratePanel(container, {
- *     avatarId: 'uuid-...',
- *     onResult: (newAvatarId) => { ... }
+ *   mountRegeneratePanel(document.getElementById('regen-container'), {
+ *     avatarId: 'uuid-…',
+ *     onResult: (newAvatarId) => { … },
  *   });
  *
  * Do NOT auto-mount. Caller controls where and when the panel appears.
  */
 
-/**
- * Mount the regenerate panel into a DOM container.
- * @param {HTMLElement} container - Target container element
- * @param {Object} options
- * @param {string} options.avatarId - Avatar UUID to regenerate
- * @param {(resultId: string) => void} options.onResult - Callback on successful regen
- * @returns {Object} Control object with methods like .unmount()
- */
+const MODES = [
+	{ value: 'remesh',  label: 'Re-mesh',   desc: 'Regenerate mesh topology' },
+	{ value: 'retex',   label: 'Re-texture', desc: 'Rebuild materials and textures' },
+	{ value: 'rerig',   label: 'Re-rig',     desc: 'Rebind the skeleton' },
+	{ value: 'restyle', label: 'Re-style',   desc: 'Change appearance from description' },
+];
+
+const STATUS_LABELS = {
+	queued:    'Queued — waiting for a worker…',
+	running:   'Running…',
+	done:      'Complete',
+	failed:    'Failed',
+};
+
+const CSS = `
+.rp-root {
+	padding: 20px;
+	border-top: 1px solid var(--border, #1a1a1a);
+}
+.rp-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text, #e8e8e8);
+	margin: 0 0 16px;
+	letter-spacing: -0.01em;
+}
+.rp-field {
+	margin-bottom: 14px;
+}
+.rp-label {
+	display: block;
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--muted, #888);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 6px;
+}
+.rp-select, .rp-textarea {
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--panel-elev, #111);
+	border: 1px solid var(--border, #1a1a1a);
+	border-radius: 6px;
+	color: var(--text, #e8e8e8);
+	font-size: 13px;
+	padding: 8px 10px;
+	outline: none;
+	transition: border-color 0.15s;
+	appearance: none;
+}
+.rp-select:focus, .rp-textarea:focus {
+	border-color: var(--border-strong, #2a2a2a);
+}
+.rp-textarea {
+	height: 80px;
+	resize: vertical;
+	font-family: 'SF Mono', 'Fira Mono', ui-monospace, monospace;
+	font-size: 12px;
+	line-height: 1.5;
+}
+.rp-submit {
+	width: 100%;
+	padding: 9px 16px;
+	background: var(--accent, #fff);
+	color: var(--accent-ink, #000);
+	border: none;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 0.15s;
+}
+.rp-submit:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+.rp-status {
+	margin-top: 12px;
+	padding: 10px 12px;
+	background: var(--panel-elev, #111);
+	border: 1px solid var(--border, #1a1a1a);
+	border-radius: 6px;
+	font-size: 12px;
+	color: var(--muted, #888);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.rp-status-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background: #555;
+}
+.rp-status-dot.queued  { background: #6b7280; }
+.rp-status-dot.running { background: #facc15; animation: rp-pulse 1.2s ease-in-out infinite; }
+.rp-status-dot.done    { background: #4ade80; }
+.rp-status-dot.failed  { background: var(--danger, #f87171); }
+@keyframes rp-pulse {
+	0%, 100% { opacity: 1; }
+	50%       { opacity: 0.4; }
+}
+.rp-error {
+	margin-top: 10px;
+	padding: 9px 12px;
+	background: var(--danger-dim, #4a1a1a);
+	border: 1px solid rgba(248,113,113,.2);
+	border-radius: 6px;
+	font-size: 12px;
+	color: var(--danger, #f87171);
+}
+.rp-notice {
+	padding: 14px;
+	background: var(--panel-elev, #111);
+	border: 1px solid var(--border, #1a1a1a);
+	border-radius: 8px;
+	font-size: 13px;
+	color: var(--muted, #888);
+	line-height: 1.5;
+}
+.rp-notice strong {
+	display: block;
+	color: var(--text, #e8e8e8);
+	margin-bottom: 6px;
+	font-size: 13px;
+}
+.rp-notice a {
+	color: var(--text, #e8e8e8);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+`;
+
+let _cssInjected = false;
+function ensureCSS() {
+	if (_cssInjected) return;
+	const el = document.createElement('style');
+	el.textContent = CSS;
+	document.head.appendChild(el);
+	_cssInjected = true;
+}
+
 export function mountRegeneratePanel(container, { avatarId, onResult }) {
+	ensureCSS();
 	const panel = new RegeneratePanel(container, { avatarId, onResult });
 	panel.render();
 	return panel;
@@ -45,145 +181,126 @@ class RegeneratePanel {
 
 	render() {
 		this.container.innerHTML = '';
-		this.container.style.padding = '16px';
-		this.container.style.borderTop = '1px solid #ccc';
-		this.container.style.marginTop = '16px';
 
-		const wrapper = document.createElement('div');
-		wrapper.innerHTML = `
-			<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
-				Regenerate Avatar
-			</h3>
-		`;
-		this.container.appendChild(wrapper);
+		const root = document.createElement('div');
+		root.className = 'rp-root';
 
-		// Render unconfigured banner if needed
+		const title = document.createElement('p');
+		title.className = 'rp-title';
+		title.textContent = 'Regenerate avatar';
+		root.appendChild(title);
+
 		if (this.state.unconfigured) {
-			this._renderUnconfiguredBanner();
+			root.appendChild(this._buildNoticeBanner());
+			this.container.appendChild(root);
 			return;
 		}
 
-		// Mode select
-		const modeLabel = document.createElement('label');
-		modeLabel.style.display = 'block';
-		modeLabel.style.marginBottom = '8px';
-		modeLabel.style.fontSize = '12px';
-		modeLabel.style.fontWeight = '500';
-		modeLabel.textContent = 'Mode';
-		this.container.appendChild(modeLabel);
+		root.appendChild(this._buildModeField());
+		root.appendChild(this._buildParamsField());
+		root.appendChild(this._buildSubmitBtn());
 
-		const modeSelect = document.createElement('select');
-		modeSelect.value = this.state.mode;
-		modeSelect.style.width = '100%';
-		modeSelect.style.padding = '6px';
-		modeSelect.style.marginBottom = '12px';
-		modeSelect.style.borderRadius = '4px';
-		modeSelect.style.border = '1px solid #ccc';
-		modeSelect.innerHTML = `
-			<option value="remesh">Re-mesh (regenerate topology)</option>
-			<option value="retex">Re-texture (materials + textures)</option>
-			<option value="rerig">Re-rig (skeleton binding)</option>
-			<option value="restyle">Re-style (appearance from description)</option>
-		`;
-		modeSelect.addEventListener('change', (e) => {
-			this.state.mode = e.target.value;
-		});
-		this.container.appendChild(modeSelect);
+		if (this.state.error) root.appendChild(this._buildError());
+		if (this.state.jobId) root.appendChild(this._buildStatusRow());
 
-		// Params textarea
-		const paramsLabel = document.createElement('label');
-		paramsLabel.style.display = 'block';
-		paramsLabel.style.marginBottom = '8px';
-		paramsLabel.style.fontSize = '12px';
-		paramsLabel.style.fontWeight = '500';
-		paramsLabel.textContent = 'Parameters (JSON)';
-		this.container.appendChild(paramsLabel);
-
-		const paramsTextarea = document.createElement('textarea');
-		paramsTextarea.value = this.state.params;
-		paramsTextarea.style.width = '100%';
-		paramsTextarea.style.height = '100px';
-		paramsTextarea.style.padding = '6px';
-		paramsTextarea.style.marginBottom = '12px';
-		paramsTextarea.style.borderRadius = '4px';
-		paramsTextarea.style.border = '1px solid #ccc';
-		paramsTextarea.style.fontFamily = 'monospace';
-		paramsTextarea.style.fontSize = '11px';
-		paramsTextarea.addEventListener('change', (e) => {
-			this.state.params = e.target.value;
-		});
-		this.container.appendChild(paramsTextarea);
-
-		// Submit button
-		const submitBtn = document.createElement('button');
-		submitBtn.textContent = 'Start Regeneration';
-		submitBtn.style.padding = '8px 16px';
-		submitBtn.style.borderRadius = '4px';
-		submitBtn.style.border = 'none';
-		submitBtn.style.background = '#0066ff';
-		submitBtn.style.color = 'white';
-		submitBtn.style.cursor = this.state.inFlight ? 'not-allowed' : 'pointer';
-		submitBtn.style.opacity = this.state.inFlight ? '0.6' : '1';
-		submitBtn.disabled = this.state.inFlight;
-		submitBtn.addEventListener('click', () => this._submit());
-		this.container.appendChild(submitBtn);
-
-		// Status / error display
-		if (this.state.error) {
-			const errorDiv = document.createElement('div');
-			errorDiv.style.marginTop = '12px';
-			errorDiv.style.padding = '8px';
-			errorDiv.style.backgroundColor = '#fee';
-			errorDiv.style.color = '#c00';
-			errorDiv.style.borderRadius = '4px';
-			errorDiv.style.fontSize = '12px';
-			errorDiv.textContent = this.state.error;
-			this.container.appendChild(errorDiv);
-		}
-
-		if (this.state.jobId) {
-			const statusDiv = document.createElement('div');
-			statusDiv.style.marginTop = '12px';
-			statusDiv.style.padding = '8px';
-			statusDiv.style.backgroundColor = '#eef';
-			statusDiv.style.color = '#006';
-			statusDiv.style.borderRadius = '4px';
-			statusDiv.style.fontSize = '12px';
-			statusDiv.innerHTML = `
-				<strong>Job:</strong> ${this.state.jobId}<br/>
-				<strong>Status:</strong> ${this.state.status || 'pending'}
-			`;
-			this.container.appendChild(statusDiv);
-		}
+		this.container.appendChild(root);
 	}
 
-	_renderUnconfiguredBanner() {
-		const banner = document.createElement('div');
-		banner.style.padding = '12px';
-		banner.style.backgroundColor = '#fef3cd';
-		banner.style.border = '1px solid #ffeaa7';
-		banner.style.borderRadius = '4px';
-		banner.style.fontSize = '13px';
-		banner.style.color = '#856404';
-		banner.innerHTML = `
-			<strong>Avatar regeneration is not yet live.</strong>
-			Join the waitlist: <a href="mailto:support@three.ws" style="color: #0066ff;">support@three.ws</a><br/>
-			<small style="display: block; margin-top: 6px;">
-				ML backend integration is in progress. We'll notify you when it's ready.
-			</small>
+	_buildModeField() {
+		const field = document.createElement('div');
+		field.className = 'rp-field';
+
+		const label = document.createElement('label');
+		label.className = 'rp-label';
+		label.textContent = 'Mode';
+		field.appendChild(label);
+
+		const sel = document.createElement('select');
+		sel.className = 'rp-select';
+		MODES.forEach(({ value, label: lbl, desc }) => {
+			const opt = document.createElement('option');
+			opt.value = value;
+			opt.textContent = `${lbl} — ${desc}`;
+			if (value === this.state.mode) opt.selected = true;
+			sel.appendChild(opt);
+		});
+		sel.addEventListener('change', (e) => { this.state.mode = e.target.value; });
+		field.appendChild(sel);
+		return field;
+	}
+
+	_buildParamsField() {
+		const field = document.createElement('div');
+		field.className = 'rp-field';
+
+		const label = document.createElement('label');
+		label.className = 'rp-label';
+		label.textContent = 'Parameters (JSON)';
+		field.appendChild(label);
+
+		const ta = document.createElement('textarea');
+		ta.className = 'rp-textarea';
+		ta.value = this.state.params;
+		ta.spellcheck = false;
+		ta.autocomplete = 'off';
+		ta.addEventListener('change', (e) => { this.state.params = e.target.value; });
+		field.appendChild(ta);
+		return field;
+	}
+
+	_buildSubmitBtn() {
+		const btn = document.createElement('button');
+		btn.className = 'rp-submit';
+		btn.type = 'button';
+		btn.disabled = this.state.inFlight;
+		btn.textContent = this.state.inFlight ? 'Working…' : 'Start regeneration';
+		btn.addEventListener('click', () => this._submit());
+		return btn;
+	}
+
+	_buildError() {
+		const el = document.createElement('div');
+		el.className = 'rp-error';
+		el.textContent = this.state.error;
+		return el;
+	}
+
+	_buildStatusRow() {
+		const row = document.createElement('div');
+		row.className = 'rp-status';
+
+		const dot = document.createElement('span');
+		dot.className = `rp-status-dot ${this.state.status || 'queued'}`;
+		row.appendChild(dot);
+
+		const text = document.createElement('span');
+		text.textContent = STATUS_LABELS[this.state.status] || 'Queued…';
+		row.appendChild(text);
+
+		return row;
+	}
+
+	_buildNoticeBanner() {
+		const el = document.createElement('div');
+		el.className = 'rp-notice';
+		el.innerHTML = `
+			<strong>Mesh regeneration needs a backend</strong>
+			Re-mesh, re-texture, and re-rig require a platform ML backend (Replicate, GCP, or HuggingFace).
+			Set <code>AVATAR_REGEN_PROVIDER</code> and the matching API token in your environment to enable it.
+			<br><br>
+			<a href="/docs/avatar-creation" target="_blank" rel="noopener">Read the setup guide →</a>
 		`;
-		this.container.appendChild(banner);
+		return el;
 	}
 
 	async _submit() {
 		if (this.state.inFlight) return;
 
-		// Validate JSON
 		let params;
 		try {
 			params = JSON.parse(this.state.params);
 		} catch (e) {
-			this.state.error = `Invalid JSON in params: ${e.message}`;
+			this.state.error = `Invalid JSON: ${e.message}`;
 			this.render();
 			return;
 		}
@@ -204,27 +321,22 @@ class RegeneratePanel {
 				}),
 			});
 
-			if (!resp.ok) {
-				const body = await resp.json();
+			const body = await resp.json().catch(() => ({}));
 
-				// Handle 501 unconfigured case
+			if (!resp.ok) {
 				if (resp.status === 501 && body.error === 'regen_unconfigured') {
 					this.state.unconfigured = true;
 					this.state.inFlight = false;
 					this.render();
 					return;
 				}
-
-				throw new Error(body.error_description || `HTTP ${resp.status}`);
+				throw new Error(body.error_description || body.message || `HTTP ${resp.status}`);
 			}
 
-			const body = await resp.json();
 			this.state.jobId = body.jobId;
 			this.state.status = body.status;
 			this.state.inFlight = false;
 			this.render();
-
-			// Start polling for completion
 			this._startPolling();
 		} catch (err) {
 			this.state.error = err.message;
@@ -237,30 +349,18 @@ class RegeneratePanel {
 		this.pollTimer = setInterval(async () => {
 			try {
 				const resp = await fetch(
-					`/api/avatars/regenerate-status?jobId=${this.state.jobId}`,
-					{
-						credentials: 'include',
-					},
+					`/api/avatars/regenerate-status?jobId=${encodeURIComponent(this.state.jobId)}`,
+					{ credentials: 'include' },
 				);
-
-				if (!resp.ok) {
-					throw new Error(`HTTP ${resp.status}`);
-				}
-
+				if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 				const body = await resp.json();
 				this.state.status = body.status;
-
-				if (body.error) {
-					this.state.error = body.error;
-				}
-
+				if (body.error) this.state.error = body.error;
 				this.render();
 
-				// Terminal state — stop polling
 				if (body.status === 'done' || body.status === 'failed') {
 					clearInterval(this.pollTimer);
 					this.pollTimer = null;
-
 					if (body.status === 'done' && body.resultAvatarId && this.onResult) {
 						this.onResult(body.resultAvatarId);
 					}
