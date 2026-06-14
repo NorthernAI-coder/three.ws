@@ -7,8 +7,13 @@
 // vanished from the GCS bucket, the scene app crashed on every client, the
 // ground unloaded, and every player fell into the void.
 //
-// Usage:  node scripts/world-health.mjs
+// Usage:  node scripts/world-health.mjs [--assert-protected]
 // Exit 0 = healthy, 1 = problems found (suitable for cron/uptime alerting).
+//
+// --assert-protected  treat an unprotected world (no ADMIN_CODE) as a hard
+//                     failure, not just a warning. Use it as a post-deploy gate
+//                     after deploy/world/apply-hardening.sh:
+//                       node scripts/world-health.mjs --assert-protected
 
 import { execSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -17,6 +22,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 const WORLD = process.env.WORLD_URL || 'https://world.three.ws'
+const ASSERT_PROTECTED = process.argv.includes('--assert-protected')
 
 // msgpackr is only needed by this script; provision it in a cache dir so the
 // shared package.json/lockfile stay untouched.
@@ -33,7 +39,11 @@ const problems = []
 const status = await (await fetch(`${WORLD}/status`)).json()
 console.log(`/status: uptime=${status.uptime}s protected=${status.protected}`)
 if (!status.protected) {
-  problems.push('world is UNPROTECTED — no ADMIN_CODE set, every visitor has build rights (run deploy/world/apply-hardening.sh)')
+  const msg = 'world is UNPROTECTED — no ADMIN_CODE set, every visitor has build rights (run deploy/world/apply-hardening.sh)'
+  // --assert-protected makes this a hard failure (post-deploy gate); otherwise
+  // it is a warning so an asset-only health run still reports cleanly.
+  if (ASSERT_PROTECTED) problems.push(msg)
+  else console.warn(`WARNING: ${msg}`)
 }
 
 const snapshot = await new Promise((resolve, reject) => {

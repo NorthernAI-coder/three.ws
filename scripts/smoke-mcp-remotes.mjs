@@ -26,6 +26,9 @@ const ENDPOINTS = [
 			name: 'get_token_details',
 			args: { mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
 		},
+		// Indexer-backed probe, run only when pumpfun_bot_status reports the bot is
+		// configured AND healthy. Skipped (not failed) when the indexer is absent.
+		indexerProbe: { name: 'get_new_tokens', args: { limit: 3 } },
 	},
 	{ path: '/api/mcp', type: 'paid' },
 	{ path: '/api/mcp-3d', type: 'paid' },
@@ -131,6 +134,56 @@ async function checkFree(ep) {
 		!isErr,
 		isErr ? call.body.error.message?.slice(0, 60) : 'ok',
 	]);
+
+	// Indexer-backed tools are conditionally available: pumpfun_bot_status reports
+	// whether PUMPFUN_BOT_URL is wired and the bot answers. Probe an indexer tool
+	// only when configured AND healthy; an unconfigured backend skips, a
+	// configured-but-down backend is degraded (live endpoint, indexer offline) —
+	// neither is a hard failure of the endpoint itself.
+	if (ep.indexerProbe) {
+		const status = await post(ep.path, rpc('tools/call', { name: 'pumpfun_bot_status' }, 4));
+		const s = status.body?.result?.structuredContent;
+		const statusOk = !status.body?.error && typeof s?.configured === 'boolean';
+		checks.push([
+			'pumpfun_bot_status',
+			statusOk,
+			statusOk
+				? `configured=${s.configured} healthy=${s.healthy}`
+				: status.body?.error?.message?.slice(0, 60) || 'malformed status',
+		]);
+
+		// Confirm tools/list honours the same capability gate: indexer tools appear
+		// iff the backend is configured.
+		if (statusOk) {
+			const listed = (tools || []).some((t) => t.name === ep.indexerProbe.name);
+			checks.push([
+				`tools/list gating ${ep.indexerProbe.name}`,
+				listed === s.configured,
+				`listed=${listed} configured=${s.configured}`,
+			]);
+		}
+
+		if (statusOk && s.configured && !s.healthy) {
+			checks.push([
+				'indexer health',
+				true,
+				`degraded: bot configured but unhealthy (${s.error || 'no detail'})`,
+			]);
+		} else if (statusOk && s.configured && s.healthy) {
+			const ix = await post(
+				ep.path,
+				rpc('tools/call', { name: ep.indexerProbe.name, arguments: ep.indexerProbe.args }, 5),
+			);
+			const ixErr = !!ix.body?.error;
+			checks.push([
+				`call ${ep.indexerProbe.name}`,
+				!ixErr,
+				ixErr ? ix.body.error.message?.slice(0, 60) : 'ok',
+			]);
+		} else if (statusOk && !s.configured) {
+			console.log('    skip  indexer not configured — skipping indexer tool probes');
+		}
+	}
 	return checks;
 }
 

@@ -43,7 +43,10 @@ vi.mock('../../src/pump/vanity-keygen.js', () => ({
 	generateVanityKey: vi.fn(async () => ({ publicKey: 'mocked', secretKey: 'mocked' })),
 }));
 
-vi.setConfig({ testTimeout: 15_000, hookTimeout: 60_000 });
+// hookTimeout matches the global 120s calibration in vitest.config.js: the
+// beforeAll cold-imports api/pump-fun-mcp.js, which pulls the heavy Solana SDK
+// graph and has been measured past 60s under full-suite fork contention.
+vi.setConfig({ testTimeout: 15_000, hookTimeout: 120_000 });
 
 // Mock rate-limit + clientIp so the route never blocks on Upstash.
 vi.mock('../../api/_lib/rate-limit.js', () => ({
@@ -70,11 +73,14 @@ vi.mock('../../api/_lib/pump.js', () => ({
 	}),
 }));
 
-// Mock the upstream pumpfun-claims-bot client.
+// Mock the upstream pumpfun-claims-bot client. pumpfunBotEnabled defaults to
+// false (no indexer); individual tests toggle it to exercise the configured
+// path — the route calls it fresh per request, so toggling between calls works.
 vi.mock('../../api/_lib/pumpfun-mcp.js', () => ({
 	pumpfunBotEnabled: vi.fn(() => false),
 	pumpfunMcp: { creatorIntel: vi.fn(), recentClaims: vi.fn(), graduations: vi.fn() },
 }));
+import { pumpfunBotEnabled } from '../../api/_lib/pumpfun-mcp.js';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function makeReq(body) {
@@ -120,52 +126,64 @@ beforeEach(() => {
 	sdkMock.fetchBondingCurve.mockReset();
 	connectionMock.getAccountInfo.mockReset();
 	connectionMock.getTokenLargestAccounts.mockReset();
+	// Default to the unconfigured-indexer state; tests that exercise the
+	// configured path opt in explicitly. Reset here so a toggle can't leak across
+	// tests (the route reads pumpfunBotEnabled() fresh on every request).
+	pumpfunBotEnabled.mockReturnValue(false);
 });
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
+// The six discovery tools that require the external indexer (PUMPFUN_BOT_URL).
+const INDEXER_TOOL_NAMES = [
+	'search_tokens',
+	'get_trending_tokens',
+	'get_new_tokens',
+	'get_graduated_tokens',
+	'get_king_of_the_hill',
+	'get_creator_profile',
+];
+
 describe('initialize', () => {
-	it('returns server info and protocol version', async () => {
+	it('returns server info, protocol version, and indexerEnabled flag', async () => {
+		pumpfunBotEnabled.mockReturnValue(false);
 		const { res, json } = await call({ jsonrpc: '2.0', id: 1, method: 'initialize' });
 		expect(res.statusCode).toBe(200);
 		expect(json.result.protocolVersion).toBeDefined();
 		expect(json.result.serverInfo.name).toBe('three.ws-pumpfun-mcp');
+		// indexerEnabled tracks PUMPFUN_BOT_URL presence — false when unconfigured.
+		expect(json.result.serverInfo.indexerEnabled).toBe(false);
+	});
+
+	it('reports indexerEnabled true when the bot is configured', async () => {
+		pumpfunBotEnabled.mockReturnValue(true);
+		const { json } = await call({ jsonrpc: '2.0', id: 1, method: 'initialize' });
+		expect(json.result.serverInfo.indexerEnabled).toBe(true);
 	});
 });
 
 describe('tools/list', () => {
-	it('returns all 22 declared tools with schemas', async () => {
+	it('excludes the six indexer tools (keeps pumpfun_bot_status) when unconfigured', async () => {
+		pumpfunBotEnabled.mockReturnValue(false);
 		const { json } = await call({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
 		expect(Array.isArray(json.result.tools)).toBe(true);
-		expect(json.result.tools).toHaveLength(22);
-		const names = json.result.tools.map((t) => t.name).sort();
-		expect(names).toEqual(
-			[
-				'getBondingCurve',
-				'getCreatorProfile',
-				'getGraduatedTokens',
-				'getKingOfTheHill',
-				'getNewTokens',
-				'getTokenDetails',
-				'getTokenHolders',
-				'getTokenTrades',
-				'getTrendingTokens',
-				'kol_leaderboard',
-				'kol_radar',
-				'pumpfun_first_claims',
-				'pumpfun_list_claims',
-				'pumpfun_quote_swap',
-				'pumpfun_vanity_mint',
-				'pumpfun_watch_claims',
-				'pumpfun_watch_whales',
-				'searchTokens',
-				'sns_resolve',
-				'sns_reverseLookup',
-				'social_cashtag_sentiment',
-				'social_x_post_impact',
-			].sort(),
-		);
+		const names = json.result.tools.map((t) => t.name);
+		// None of the indexer-backed discovery tools are advertised…
+		for (const n of INDEXER_TOOL_NAMES) expect(names).not.toContain(n);
+		// …but the always-on metadata tool is.
+		expect(names).toContain('pumpfun_bot_status');
+		// 23 total declared − 6 indexer tools = 17 advertised.
+		expect(json.result.tools).toHaveLength(17);
 		for (const t of json.result.tools) expect(t.inputSchema.type).toBe('object');
+	});
+
+	it('advertises all 23 tools (incl. indexer tools) when the bot is configured', async () => {
+		pumpfunBotEnabled.mockReturnValue(true);
+		const { json } = await call({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+		expect(json.result.tools).toHaveLength(23);
+		const names = json.result.tools.map((t) => t.name);
+		for (const n of INDEXER_TOOL_NAMES) expect(names).toContain(n);
+		expect(names).toContain('pumpfun_bot_status');
 	});
 });
 
@@ -237,6 +255,31 @@ describe('tools/call indexer-required tools', () => {
 		});
 		expect(json.error.code).toBe(-32004);
 		expect(json.error.message).toMatch(/indexer/i);
+	});
+});
+
+describe('tools/call pumpfun_bot_status', () => {
+	it('reports unconfigured + unhealthy with a message when the bot is unset', async () => {
+		pumpfunBotEnabled.mockReturnValue(false);
+		const { res, json } = await call({
+			jsonrpc: '2.0',
+			id: 1,
+			method: 'tools/call',
+			params: { name: 'pumpfun_bot_status', arguments: {} },
+		});
+		// Always available — never gated, never an error envelope.
+		expect(res.statusCode).toBe(200);
+		expect(json.error).toBeUndefined();
+		const data = json.result.structuredContent;
+		expect(data.configured).toBe(false);
+		expect(data.healthy).toBe(false);
+		expect(data.message).toMatch(/PUMPFUN_BOT_URL/);
+	});
+
+	it('stays listed even when indexer tools are filtered out', async () => {
+		pumpfunBotEnabled.mockReturnValue(false);
+		const { json } = await call({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+		expect(json.result.tools.map((t) => t.name)).toContain('pumpfun_bot_status');
 	});
 });
 

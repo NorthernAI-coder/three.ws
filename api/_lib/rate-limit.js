@@ -339,7 +339,11 @@ export const limits = {
 	ensResolve: (ip) => getLimiter('ens:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	snsResolve: (ip) => getLimiter('sns:resolve:ip', { limit: 60, window: '1 m' }).limit(ip),
 	// Generic public read endpoints (explore, showcase, public agent fetch). 60/min per IP.
-	publicIp: (ip) => getLimiter('public:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// local: high-frequency public reads with no side effects — the only job is
+	// flood protection, and a per-instance cap (60 × warm instances, bounded by
+	// Vercel) bounds one IP's throughput just as well without spending a Redis
+	// command per page view. The largest single source of avoidable quota burn.
+	publicIp: (ip) => getLimiter('public:ip', { limit: 60, window: '1 m', local: true }).limit(ip),
 	// Client-side error report ingestion (api/client-errors). The browser
 	// reporter batches and caps itself at 25 events/page, so legitimate traffic
 	// is a handful of requests per pageview even on a broken page; 30/min per
@@ -392,7 +396,11 @@ export const limits = {
 	previewAgent: (agentId) =>
 		getLimiter('preview:agent', { limit: 200, window: '1 h' }).limit(agentId),
 	widgetWrite: (userId) => getLimiter('widget:write', { limit: 60, window: '1 m' }).limit(userId),
-	widgetRead: (ip) => getLimiter('widget:read', { limit: 600, window: '1 m' }).limit(ip),
+	// local: embedded-widget read fetch — flood protection only, no side effects.
+	// Widgets on third-party pages poll continuously, so a Redis command per read
+	// at 600/min is pure burn; a per-instance cap bounds throughput just as well.
+	widgetRead: (ip) =>
+		getLimiter('widget:read', { limit: 600, window: '1 m', local: true }).limit(ip),
 	// Per-widget visitor chat. Limit is dynamic — one bucket per (widgetId, perMinute).
 	widgetChat: ({ ip, widgetId, perMinute }) =>
 		getLimiter('widget:chat', {
@@ -414,7 +422,11 @@ export const limits = {
 	strict: (key) =>
 		getLimiter('permissions:redeem:strict', { limit: 10, window: '5 m' }).limit(key),
 	pinUser: (userId) => getLimiter('pin:user', { limit: 30, window: '1 h' }).limit(userId),
-	pinStatusIp: (ip) => getLimiter('pin:status:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// local: pin-status poll — read-only progress check, flood guard only. The
+	// pin UI polls this on an interval, so a per-instance cap saves a Redis
+	// command per poll without weakening the throughput bound.
+	pinStatusIp: (ip) =>
+		getLimiter('pin:status:ip', { limit: 60, window: '1 m', local: true }).limit(ip),
 	agentByAddress: (ip) =>
 		getLimiter('agents:by-address', { limit: 120, window: '1 m' }).limit(ip),
 	pricingPerIp: (ip) => getLimiter('pricing:ip', { limit: 120, window: '1 m' }).limit(ip),
@@ -482,14 +494,21 @@ export const limits = {
 		getLimiter('withdrawal:user', { limit: 5, window: '1 d' }).limit(userId),
 	// Per-user audit-log reads — the page polls on mount + "load older". 120/min
 	// per user is generous for browse but discourages scraping the full year.
+	// local: per-user browse/poll of one's own audit log — no side effects, no
+	// shared resource. A per-instance 120/min still discourages bulk scraping
+	// while spending zero Redis commands on a mount-poll + "load older" surface.
 	auditLogRead: (userId) =>
-		getLimiter('audit-log:read', { limit: 120, window: '1 m' }).limit(userId),
+		getLimiter('audit-log:read', { limit: 120, window: '1 m', local: true }).limit(userId),
 	// Notifications inbox poll — the nav badge polls every 30s and re-polls on
 	// each navigation + tab focus. Keyed by userId with its own generous bucket so
 	// it never competes with the strict per-IP `authIp` budget (which a shared
 	// office/NAT IP would otherwise exhaust, 429-ing the badge for everyone).
+	// local: pure poll-flood guard on a read with no side effects and no shared
+	// resource — a per-instance cap suffices, and at one Redis command per poll
+	// (every 30s × focus/navigation re-polls × every signed-in user) this is one
+	// of the heaviest avoidable burners. Never critical.
 	notificationsRead: (userId) =>
-		getLimiter('notifications:read', { limit: 120, window: '1 m' }).limit(userId),
+		getLimiter('notifications:read', { limit: 120, window: '1 m', local: true }).limit(userId),
 	// $THREE token payment layer (api/token/*).
 	// quote: 30 per user per minute — prevents price-polling abuse; each quote
 	//   hits a live price feed and signs a HMAC. Generous enough for interactive
@@ -500,7 +519,11 @@ export const limits = {
 	tokenSettle: (userId) => getLimiter('token:settle', { limit: 10, window: '1 m' }).limit(userId),
 	// price: public endpoint, 120/min per IP — fast cache-served; upstream
 	//   Jupiter is rate-limit-free, but the cache makes this essentially free.
-	tokenPriceIp: (ip) => getLimiter('token:price:ip', { limit: 120, window: '1 m' }).limit(ip),
+	// local: cache-served price reads; upstream Jupiter is rate-limit-free, so
+	// this bucket only bounds poll floods. A per-instance cap does that without
+	// a Redis command per quote refresh on a high-traffic public endpoint.
+	tokenPriceIp: (ip) =>
+		getLimiter('token:price:ip', { limit: 120, window: '1 m', local: true }).limit(ip),
 	// Livepeer LLM comparison endpoint — calls both Claude and Livepeer per POST.
 	// Per-IP only (unauthenticated public demo). Critical so Redis outage in prod
 	// fails closed rather than opening the LLM floodgate.

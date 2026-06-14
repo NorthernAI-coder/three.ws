@@ -207,6 +207,22 @@ async function handleSnsReverseLookup({ address }) {
 
 // ── Indexer-backed handlers (route through pumpfunMcp) ─────────────────────
 
+// Tools whose data comes exclusively from the external pump.fun indexer
+// (PUMPFUN_BOT_URL). When the bot is unconfigured these are filtered out of
+// tools/list entirely so MCP clients only ever see tools they can call — they
+// reappear automatically once the env var is set, with no code change. The
+// -32004 guard in indexerOrUnavailable() stays as defence for any client that
+// calls one anyway (e.g. from a cached tool list). get_token_trades is NOT
+// here: it has a real on-chain fallback and works without the indexer.
+const INDEXER_TOOLS = new Set([
+	'search_tokens',
+	'get_trending_tokens',
+	'get_new_tokens',
+	'get_graduated_tokens',
+	'get_king_of_the_hill',
+	'get_creator_profile',
+]);
+
 function indexerOrUnavailable(name) {
 	return async (args) => {
 		if (!pumpfunBotEnabled()) {
@@ -735,6 +751,58 @@ async function handleGetTokenTrades({ mint, limit = 20, network = 'mainnet' }) {
 	return readTradesFromChain({ mint, limit, network });
 }
 
+// ── pumpfun_bot_status (metadata, always available) ────────────────────────
+
+// Reports whether the indexer is configured and, when it is, whether it's
+// answering. Always available (never gated, never filtered) so MCP clients can
+// discover backend capability without parsing tools/list. The health ping uses
+// the same transport as the indexer tools (MCP tools/call against the bot) with
+// a tight 3 s budget so a slow/dead bot can't stall the metadata call.
+async function handlePumpfunBotStatus() {
+	if (!pumpfunBotEnabled()) {
+		return {
+			configured: false,
+			healthy: false,
+			message:
+				'PUMPFUN_BOT_URL is not configured. On-chain tools are available; indexer-backed discovery tools are disabled.',
+		};
+	}
+	const url = process.env.PUMPFUN_BOT_URL.replace(/\/$/, '');
+	const headers = { 'content-type': 'application/json', accept: 'application/json' };
+	if (process.env.PUMPFUN_BOT_TOKEN)
+		headers.authorization = `Bearer ${process.env.PUMPFUN_BOT_TOKEN}`;
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), 3000);
+	const startedAt = Date.now();
+	try {
+		const r = await fetch(url, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'getNewTokens', arguments: { limit: 1 } },
+			}),
+			signal: ctrl.signal,
+		});
+		const latencyMs = Date.now() - startedAt;
+		if (!r.ok) return { configured: true, healthy: false, latencyMs, error: `bot ${r.status}` };
+		const j = await r.json().catch(() => null);
+		if (j?.error)
+			return { configured: true, healthy: false, latencyMs, error: j.error.message || 'rpc error' };
+		return { configured: true, healthy: true, latencyMs };
+	} catch (err) {
+		return {
+			configured: true,
+			healthy: false,
+			error: err?.name === 'AbortError' ? 'timeout after 3000ms' : err?.message || 'fetch failed',
+		};
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 // ── Dispatch ───────────────────────────────────────────────────────────────
 
 // Keyed by CANONICAL (snake_case) names. tools/call resolves legacy camelCase
@@ -762,6 +830,7 @@ const HANDLERS = {
 	pumpfun_quote_swap: handleQuoteSwap,
 	sns_resolve: handleSnsResolve,
 	sns_reverseLookup: handleSnsReverseLookup,
+	pumpfun_bot_status: handlePumpfunBotStatus,
 };
 
 // ── HTTP entrypoint ────────────────────────────────────────────────────────
@@ -780,8 +849,11 @@ const INSTRUCTIONS =
 	'pumpfun_list_claims, pumpfun_watch_claims, pumpfun_first_claims), Solana Name ' +
 	'Service (sns_resolve, sns_reverseLookup), market signals (kol_radar, ' +
 	'kol_leaderboard, pumpfun_quote_swap, pumpfun_watch_whales), and social ' +
-	'sentiment (social_cashtag_sentiment, social_x_post_impact). All data is live ' +
-	'and on-chain; no API keys required for the free tools.';
+	'sentiment (social_cashtag_sentiment, social_x_post_impact). Discovery tools ' +
+	'(search_tokens, get_trending_tokens, get_new_tokens, get_graduated_tokens, ' +
+	'get_king_of_the_hill, get_creator_profile) require the indexer backend and are ' +
+	'listed only when it is configured — call pumpfun_bot_status (always available) ' +
+	'to check. All data is live and on-chain; no API keys required for the free tools.';
 const MAX_BATCH = 16;
 
 // Tools that are expensive (CPU grind or long-lived RPC subscriptions) or that
@@ -924,13 +996,23 @@ async function dispatchRpc(msg, ctx) {
 		return rpcEnvelope(id, {
 			protocolVersion: PROTOCOL_VERSION,
 			capabilities: { tools: { listChanged: false } },
-			serverInfo: SERVER_INFO,
+			// indexerEnabled lets client authors check indexer capability without a
+			// tools/list round-trip — it tracks the same env presence as the filter.
+			serverInfo: { ...SERVER_INFO, indexerEnabled: pumpfunBotEnabled() },
 			instructions: INSTRUCTIONS,
 		});
 	}
 	if (rpcMethod === 'ping') return rpcEnvelope(id, {});
 	if (rpcMethod === 'notifications/initialized') return null;
-	if (rpcMethod === 'tools/list') return rpcEnvelope(id, { tools: TOOLS });
+	if (rpcMethod === 'tools/list') {
+		// Advertise indexer-backed tools only when the bot is configured, so MCP
+		// clients never see a tool that would just return -32004 on call. The
+		// always-on pumpfun_bot_status (not in INDEXER_TOOLS) reports capability.
+		const tools = pumpfunBotEnabled()
+			? TOOLS
+			: TOOLS.filter((t) => !INDEXER_TOOLS.has(t.name));
+		return rpcEnvelope(id, { tools });
+	}
 	if (rpcMethod === 'resources/list') return rpcEnvelope(id, { resources: [] });
 	if (rpcMethod === 'resources/templates/list') return rpcEnvelope(id, { resourceTemplates: [] });
 	if (rpcMethod === 'prompts/list') return rpcEnvelope(id, { prompts: [] });

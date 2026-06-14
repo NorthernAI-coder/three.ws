@@ -29,8 +29,9 @@ const INSTRUCTIONS =
 	'https://three.ws/api/pump-fun-mcp). Token discovery (search_tokens, ' +
 	'get_trending_tokens, get_new_tokens, get_graduated_tokens, get_king_of_the_hill), ' +
 	'on-chain analysis (get_bonding_curve, get_token_holders, get_token_details, ' +
-	'get_token_trades), and creator intelligence (get_creator_profile). All data is ' +
-	'live and on-chain; no API keys required.';
+	'get_token_trades), and creator intelligence (get_creator_profile). Indexer-backed ' +
+	'tools are listed only when the backend is configured — call pumpfun_bot_status ' +
+	'(always available) to check. All data is live and on-chain; no API keys required.';
 const MAX_BATCH = 16;
 
 const CORS_HEADERS = {
@@ -268,6 +269,55 @@ function indexerHandler(name, env) {
 	};
 }
 
+// ── pumpfun_bot_status (metadata, always available) ──────────────────────────
+
+// Reports whether the indexer is configured and, when it is, whether it's
+// answering. Always available (never filtered) so MCP clients can discover
+// backend capability without parsing tools/list. Mirrors the Vercel handler.
+async function handlePumpfunBotStatus(_args, env) {
+	if (!env.PUMPFUN_BOT_URL) {
+		return {
+			configured: false,
+			healthy: false,
+			message:
+				'PUMPFUN_BOT_URL is not configured. On-chain tools are available; indexer-backed discovery tools are disabled.',
+		};
+	}
+	const url = env.PUMPFUN_BOT_URL.replace(/\/$/, '');
+	const headers = { 'content-type': 'application/json', accept: 'application/json' };
+	if (env.PUMPFUN_BOT_TOKEN) headers.authorization = `Bearer ${env.PUMPFUN_BOT_TOKEN}`;
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), 3000);
+	const startedAt = Date.now();
+	try {
+		const r = await fetch(url, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'tools/call',
+				params: { name: 'getNewTokens', arguments: { limit: 1 } },
+			}),
+			signal: ctrl.signal,
+		});
+		const latencyMs = Date.now() - startedAt;
+		if (!r.ok) return { configured: true, healthy: false, latencyMs, error: `bot ${r.status}` };
+		const j = await r.json().catch(() => null);
+		if (j?.error)
+			return { configured: true, healthy: false, latencyMs, error: j.error.message || 'rpc error' };
+		return { configured: true, healthy: true, latencyMs };
+	} catch (err) {
+		return {
+			configured: true,
+			healthy: false,
+			error: err?.name === 'AbortError' ? 'timeout after 3000ms' : err?.message || 'fetch failed',
+		};
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 // ── Dispatch ─────────────────────────────────────────────────────────────────
 
 // Keyed by CANONICAL (snake_case) names. tools/call resolves legacy camelCase
@@ -284,6 +334,7 @@ function buildHandlers(env) {
 		get_graduated_tokens: indexerHandler('get_graduated_tokens', env),
 		get_king_of_the_hill: indexerHandler('get_king_of_the_hill', env),
 		get_creator_profile: indexerHandler('get_creator_profile', env),
+		pumpfun_bot_status: (a) => handlePumpfunBotStatus(a, env),
 	};
 }
 
@@ -304,8 +355,25 @@ const WORKER_TOOL_NAMES = new Set([
 	'get_graduated_tokens',
 	'get_king_of_the_hill',
 	'get_creator_profile',
+	'pumpfun_bot_status',
 ]);
 const WORKER_TOOLS = TOOLS.filter((t) => WORKER_TOOL_NAMES.has(t.name));
+
+// Tools whose data comes only from the external indexer (PUMPFUN_BOT_URL).
+// Filtered out of tools/list when the bot is unconfigured so clients never see
+// a tool that would just return -32004. get_token_trades IS here: unlike the
+// Vercel handler (which has an on-chain trade-history fallback), this worker's
+// get_token_trades is indexer-only, so it can't be served without the bot.
+// pumpfun_bot_status is never filtered — it reports this very capability.
+const WORKER_INDEXER_TOOLS = new Set([
+	'search_tokens',
+	'get_token_trades',
+	'get_trending_tokens',
+	'get_new_tokens',
+	'get_graduated_tokens',
+	'get_king_of_the_hill',
+	'get_creator_profile',
+]);
 
 // ── JSON-RPC dispatch ────────────────────────────────────────────────────────
 
@@ -320,13 +388,23 @@ async function dispatchRpc(msg, env) {
 		return rpcEnvelope(id, {
 			protocolVersion: PROTOCOL_VERSION,
 			capabilities: { tools: { listChanged: false } },
-			serverInfo: SERVER_INFO,
+			// indexerEnabled lets client authors check indexer capability without a
+			// tools/list round-trip — it tracks the same env presence as the filter.
+			serverInfo: { ...SERVER_INFO, indexerEnabled: !!env.PUMPFUN_BOT_URL },
 			instructions: INSTRUCTIONS,
 		});
 	}
 	if (method === 'ping') return rpcEnvelope(id, {});
 	if (method === 'notifications/initialized') return null;
-	if (method === 'tools/list') return rpcEnvelope(id, { tools: WORKER_TOOLS });
+	if (method === 'tools/list') {
+		// Advertise indexer-backed tools only when the bot is configured, so clients
+		// never see a tool that would just return -32004. pumpfun_bot_status (always
+		// listed, not in WORKER_INDEXER_TOOLS) reports capability.
+		const tools = env.PUMPFUN_BOT_URL
+			? WORKER_TOOLS
+			: WORKER_TOOLS.filter((t) => !WORKER_INDEXER_TOOLS.has(t.name));
+		return rpcEnvelope(id, { tools });
+	}
 	if (method === 'resources/list') return rpcEnvelope(id, { resources: [] });
 	if (method === 'resources/templates/list') return rpcEnvelope(id, { resourceTemplates: [] });
 	if (method === 'prompts/list') return rpcEnvelope(id, { prompts: [] });

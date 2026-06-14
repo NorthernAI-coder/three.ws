@@ -2,6 +2,46 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-14",
+			"title": "React component library for embedding 3D AI agents",
+			"summary": "npm install @three-ws/react gives you <Agent3D> — a React wrapper around the three.ws walk embed player. Drop a 3D AI agent into any React app in two lines of code, with props for controls, size, and background, plus onLoad/onError callbacks and a ref handle to drive the avatar live.",
+			"tags": ["feature", "sdk"],
+			"link": "/embed/walk"
+		},
+		{
+			"date": "2026-06-14",
+			"title": "x402-fetch — automatic pay-per-call fetch wrapper",
+			"summary": "npm install @three-ws/x402-fetch gives you withX402(wallet) — a drop-in fetch wrapper that silently handles x402 payment challenges. Connect a wallet once; call any paid three.ws API like a free one. It signs USDC-on-Base payments locally with zero dependencies, refuses to overspend past a maxPaymentUsd guard you set, and works in the browser (MetaMask), in Node (private key), or with a three.ws agent wallet.",
+			"tags": ["feature", "sdk"],
+			"link": "/docs/sdk"
+		},
+		{
+			"date": "2026-06-14",
+			"title": "pump.fun MCP server only lists tools it can actually run",
+			"summary": "The free pump.fun MCP server (three.ws/api/pump-fun-mcp) now advertises its discovery tools — token search, trending, new, graduated, king-of-the-hill, and creator profiles — only when its real-time indexer backend is connected. Previously those six tools always appeared in the tool list and returned an error if the indexer wasn't wired, which confused MCP clients and assistants that tried to call them. They now stay hidden until the backend is live, and reappear automatically the moment it is. We also added a always-available pumpfun_bot_status tool that reports whether the indexer is configured and healthy (with round-trip latency), and an indexerEnabled flag on the server handshake so client authors can check capability in one call. On-chain tools (bonding curve, holders, token details, trades, swap quotes, fee claims) were unaffected and remain fully available with no API key.",
+			"tags": [
+				"sdk",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-14",
+			"title": "world.three.ws locked down and watched around the clock",
+			"summary": "The multiplayer world (world.three.ws) is now protected against unauthorized edits: visitors join as spectators and only a holder of the admin code can build, move, or delete anything in the scene. We also added a continuous health watch. Every 15 minutes a monitor confirms the world is still protected and checks that every asset the scene depends on is actually reachable — the exact gap that briefly dropped visitors into an empty void earlier this month, now caught and paged to our ops team before anyone notices. The forge health surface (/api/forge?health) reports the world's status alongside the generation backends, and a post-deploy gate refuses to call a deploy healthy unless the world comes back protected.",
+			"tags": [
+				"security",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-14",
+			"title": "Forge stays up: live Redis quota monitoring and early-warning alerts",
+			"summary": "The shared rate-limiter store has a hard monthly request ceiling, and when it's exhausted every paid generation and payment stops at once. We've made that failure mode impossible to sneak up on us. The forge health check (/api/forge?health) now reports the live daily request rate, how much of the budget it's burning, and projects whether it's on track to run out — and a daily check pages our ops team the moment the projection crosses 80% of the ceiling, long before anything breaks. We also moved the highest-traffic, lowest-risk traffic guards (public page reads, status polling, the notifications badge) to in-process enforcement so they no longer spend from that budget at all, cutting burn dramatically. Net effect: more headroom, and a deliberate upgrade decision instead of a surprise outage.",
+			"tags": [
+				"infra"
+			]
+		},
+		{
 			"date": "2026-06-13",
 			"title": "The IBM partnership page, rebuilt in IBM's own design language",
 			"summary": "The three.ws on IBM page (/ibm) has been redesigned to match IBM's official partner pages — IBM Plex type, the Carbon light palette, an IBM masthead and breadcrumb, a sticky on-page table of contents, the 'Partnership highlights' grid, a tabbed live-demo gallery (Agent Galaxy, Granite Oracle, Digital Twin, Trust Layer, Identity Firewall, Granite Proof, Granite Vision), the integration reference, and the dark IBM-style footer. It reads like what it is: an IBM Business Partner showcase built on watsonx.ai and Granite. We also fixed the local dev route so /ibm serves this page, matching production.",

@@ -21,6 +21,8 @@
 
 import { BACKENDS, backendIsConfigured } from './forge-tiers.js';
 import { env } from './env.js';
+import { getRedisBurn } from './redis-usage.js';
+import { probeLlmHealth } from './llm-health.js';
 
 const PROBE_TIMEOUT_MS = 4_000;
 const CACHE_TTL_MS = 60_000;
@@ -176,6 +178,54 @@ async function probeLimiterStore() {
 	return result(id, 'down', `The rate-limiter store rejected commands (${detail}) — paid generation lanes fail closed.`, { http_status: res.status, latency_ms: latency });
 }
 
+// world.three.ws (Hyperfy multiplayer world) is a separate Cloud Run service,
+// but a forge user who generates an avatar wants to walk it into the world — so
+// the forge health report surfaces the world too. Two real outage modes:
+// unprotected (every visitor can delete the scene) and a missing blueprint
+// asset (the scene crashes on join — the 2026-06-12 void-fall). The patched
+// /status enumerates blueprint assets with absolute URLs; we HEAD a bounded
+// sample so this probe stays as cheap as the others.
+const WORLD_STATUS_URL =
+	(env.WORLD_URL ? env.WORLD_URL.replace(/\/+$/, '') : 'https://world.three.ws') + '/status';
+const WORLD_ASSET_SAMPLE = 12;
+
+async function probeWorld() {
+	const id = 'world';
+	const started = Date.now();
+	const res = await probeFetch(WORLD_STATUS_URL, {
+		headers: { accept: 'application/json', 'user-agent': 'threews-forge-health/1.0' },
+	});
+	const latency = Date.now() - started;
+	if (!res) return result(id, 'down', 'world.three.ws is unreachable.', { latency_ms: latency });
+	if (!res.ok) {
+		return result(id, 'down', `world.three.ws /status returned HTTP ${res.status}.`, { http_status: res.status, latency_ms: latency });
+	}
+	let status = null;
+	try {
+		status = await res.json();
+	} catch {
+		return result(id, 'down', 'world.three.ws /status returned an unparseable body.', { latency_ms: latency });
+	}
+	const isProtected = status?.protected === true;
+	const blueprints = Array.isArray(status?.blueprints) ? status.blueprints : [];
+	const assetUrls = blueprints
+		.map((b) => b?.assetUrl)
+		.filter((u) => typeof u === 'string' && /^https?:\/\//.test(u))
+		.slice(0, WORLD_ASSET_SAMPLE);
+	const heads = await Promise.all(
+		assetUrls.map((u) => probeFetch(u, { method: 'HEAD', redirect: 'follow' })),
+	);
+	const missing = heads.filter((h) => !h || !h.ok).length;
+	const extra = { protected: isProtected, blueprint_count: blueprints.length, latency_ms: latency };
+	if (missing > 0) {
+		return result(id, 'down', `${missing} blueprint asset(s) are missing — the scene will crash on join.`, extra);
+	}
+	if (!isProtected) {
+		return result(id, 'degraded', 'The world is unprotected — ADMIN_CODE is unset, so every visitor has build rights.', extra);
+	}
+	return result(id, 'ok', 'The world is protected and all sampled blueprint assets are present.', extra);
+}
+
 let cache = null; // { at: epoch-ms, payload }
 
 // Probe every backend in the registry, in parallel, with per-instance caching.
@@ -184,7 +234,7 @@ export async function probeForgeHealth({ force = false } = {}) {
 		return { ...cache.payload, cached: true };
 	}
 
-	const [entries, limiter] = await Promise.all([
+	const [entries, limiter, llm, world, redis] = await Promise.all([
 		Promise.all(
 			Object.values(BACKENDS).map(async (b) => {
 				if (b.byok) return byokResult(b.id);
@@ -200,10 +250,29 @@ export async function probeForgeHealth({ force = false } = {}) {
 			}),
 		),
 		probeLimiterStore(),
+		// LLM providers gate every AI-driven generation surface (prompt rewriting,
+		// agent responses). A dead provider chain degrades the product the same way
+		// a dead 3D backend does, so it folds into the same overall verdict.
+		probeLlmHealth(),
+		// The multiplayer world is downstream of the forge (generate → walk it in),
+		// so a down/unprotected world degrades the overall verdict too.
+		probeWorld(),
+		// Quota-burn reading for the SAME store probeLimiterStore() pings. That
+		// probe answers "is Redis reachable?"; this answers "is Redis about to run
+		// out of quota?" — the slow failure that took the platform down in June
+		// 2026 while every reachability check still read green.
+		getRedisBurn(),
 	]);
 
 	const backends = Object.fromEntries(entries.map((e) => [e.id, e]));
-	const statuses = entries.map((e) => e.status).concat(limiter.status);
+	// llm carries an 'ok' | 'degraded' | 'down' overall plus per-provider verdicts.
+	// A down world degrades overall to 'degraded' (never 'down' — the forge still
+	// functions when the world is offline), which the cap below already enforces.
+	// A critical Redis burn rate degrades overall too: it predicts the limiters
+	// failing closed before they actually do, so it warns rather than waits.
+	const statuses = entries
+		.map((e) => e.status)
+		.concat(limiter.status, llm.overall, world.status, redis.status === 'critical' ? 'down' : 'ok');
 	const overall = statuses.includes('down') || statuses.includes('degraded') ? 'degraded' : 'ok';
 
 	const payload = {
@@ -211,6 +280,9 @@ export async function probeForgeHealth({ force = false } = {}) {
 		generated_at: new Date().toISOString(),
 		backends,
 		limiter,
+		llm,
+		world,
+		redis,
 	};
 	cache = { at: Date.now(), payload };
 	return { ...payload, cached: false };

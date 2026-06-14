@@ -1,0 +1,41 @@
+{
+  "name": "@three-ws/react",
+  "version": "1.0.0",
+  "description": "React components for embedding three.ws 3D AI agents",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.cjs.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "src"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "vite build && node -e \"require('fs').copyFileSync('src/index.d.ts','dist/index.d.ts')\"",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0"
+  },
+  "devDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.0.0"
+  },
+  "keywords": ["three.ws", "3d", "ai-agent", "react", "embed", "avatar", "walk"],
+  "author": "three.ws <support@three.ws> (https://three.ws)",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nirholas/three.ws.git",
+    "directory": "packages/react"
+  },
+  "bugs": { "url": "https://github.com/nirholas/three.ws/issues" },
+  "license": "MIT"
+}

@@ -39,6 +39,10 @@
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
 		},
+		"api/cron/world-health.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 30
+		},
 		"api/cron/quota-check.js": {
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
@@ -3094,8 +3098,16 @@
 			"schedule": "*/5 * * * *"
 		},
 		{
+			"path": "/api/cron/world-health",
+			"schedule": "*/15 * * * *"
+		},
+		{
 			"path": "/api/cron/forge-smoke",
 			"schedule": "30 9 * * *"
+		},
+		{
+			"path": "/api/llm/health",
+			"schedule": "0 * * * *"
 		},
 		{
 			"path": "/api/cron/cleanup-csrf-tokens",
