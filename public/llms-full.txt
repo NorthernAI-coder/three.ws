@@ -498,6 +498,48 @@ Grind a custom Ethereum / EVM wallet address with the prefix or suffix of your c
 
 Live partner showcases — built on real platforms, running end-to-end.
 
+### Agent Galaxy — Semantic 3D Agent Discovery on IBM Granite
+
+URL: https://three.ws/ibm/galaxy
+
+Every three.ws agent embedded with IBM Granite on watsonx.ai, projected into an explorable 3D constellation. Similar agents cluster together; search in natural language and fly to what you mean.
+
+### Identity Firewall — IBM Granite Stops AI Agent Impersonation
+
+URL: https://three.ws/ibm/identity
+
+Before a three.ws agent identity is born, IBM Granite embeddings cosine-compare it against every public agent to catch impersonation, and IBM Granite Guardian screens the name, bio and persona for harmful content. A live, real-API demo on watsonx.ai.
+
+### Granite Oracle — IBM watsonx Price Forecasting in 3D
+
+URL: https://three.ws/ibm/oracle
+
+A live 3D oracle: IBM Granite TimeSeries forecasts a Solana token’s price, an embodied agent narrates it, and IBM Granite Guardian governs every word. Real watsonx.ai, real on-chain data.
+
+### Granite Proof — The On-Chain AI Notary on IBM watsonx
+
+URL: https://three.ws/ibm/proof
+
+A 3D AI agent forecasts a live crypto market with IBM Granite TimeSeries, IBM Granite Guardian governs every word it says, and each governed forecast is notarized on Solana — signed by the agent’s own wallet. Auditable AI on a public ledger.
+
+### Trust Layer — IBM Granite Guardian Governs Autonomous AI Agents
+
+URL: https://three.ws/ibm/trust-layer
+
+Watch IBM Granite Guardian govern an autonomous, wallet-holding 3D AI agent in real time. Every message and every on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger before it can run.
+
+### Digital Twin — A Living Market Replica on IBM watsonx
+
+URL: https://three.ws/ibm/twin
+
+A living digital twin of a real Solana market: it mirrors its on-chain vitals in real time, IBM Granite TimeSeries projects its future, it back-tests itself against reality, and you can run what-if simulations. Real watsonx.ai, real on-chain data.
+
+### Granite Vision — IBM watsonx Multimodal Reading Your 3D Avatar
+
+URL: https://three.ws/ibm/vision
+
+Show IBM Granite Vision on watsonx.ai a three.ws 3D avatar and watch it read the look — appearance, vibe, persona, a name, a bio, a voice — turning a face into a complete agent identity. Real multimodal inference, no mock data.
+
 ## Agent Tools
 
 Manage, talk to, and deploy individual agents.

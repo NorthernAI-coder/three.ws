@@ -15,12 +15,60 @@
 			<description>A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&amp;A. Hosted by three.ws, in partnership with IBM.</description>
 		</item>
 		<item>
+			<title>Agent Galaxy — Semantic 3D Agent Discovery on IBM Granite</title>
+			<link>https://three.ws/ibm/galaxy</link>
+			<guid isPermaLink="false">2026-06-13:Agent Galaxy — Semantic 3D Agent Discovery on IBM Granite</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Every three.ws agent embedded with IBM Granite on watsonx.ai, projected into an explorable 3D constellation. Similar agents cluster together; search in natural language and fly to what you mean.</description>
+		</item>
+		<item>
 			<title>AR &amp; WebXR — Place Any 3D Agent in Your Real World</title>
 			<link>https://three.ws/features/ar</link>
 			<guid isPermaLink="false">2026-06-13:AR &amp; WebXR — Place Any 3D Agent in Your Real World</guid>
 			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.</description>
+		</item>
+		<item>
+			<title>Digital Twin — A Living Market Replica on IBM watsonx</title>
+			<link>https://three.ws/ibm/twin</link>
+			<guid isPermaLink="false">2026-06-13:Digital Twin — A Living Market Replica on IBM watsonx</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A living digital twin of a real Solana market: it mirrors its on-chain vitals in real time, IBM Granite TimeSeries projects its future, it back-tests itself against reality, and you can run what-if simulations. Real watsonx.ai, real on-chain data.</description>
+		</item>
+		<item>
+			<title>Granite Oracle — IBM watsonx Price Forecasting in 3D</title>
+			<link>https://three.ws/ibm/oracle</link>
+			<guid isPermaLink="false">2026-06-13:Granite Oracle — IBM watsonx Price Forecasting in 3D</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live 3D oracle: IBM Granite TimeSeries forecasts a Solana token’s price, an embodied agent narrates it, and IBM Granite Guardian governs every word. Real watsonx.ai, real on-chain data.</description>
+		</item>
+		<item>
+			<title>Granite Proof — The On-Chain AI Notary on IBM watsonx</title>
+			<link>https://three.ws/ibm/proof</link>
+			<guid isPermaLink="false">2026-06-13:Granite Proof — The On-Chain AI Notary on IBM watsonx</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A 3D AI agent forecasts a live crypto market with IBM Granite TimeSeries, IBM Granite Guardian governs every word it says, and each governed forecast is notarized on Solana — signed by the agent’s own wallet. Auditable AI on a public ledger.</description>
+		</item>
+		<item>
+			<title>Granite Vision — IBM watsonx Multimodal Reading Your 3D Avatar</title>
+			<link>https://three.ws/ibm/vision</link>
+			<guid isPermaLink="false">2026-06-13:Granite Vision — IBM watsonx Multimodal Reading Your 3D Avatar</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Show IBM Granite Vision on watsonx.ai a three.ws 3D avatar and watch it read the look — appearance, vibe, persona, a name, a bio, a voice — turning a face into a complete agent identity. Real multimodal inference, no mock data.</description>
+		</item>
+		<item>
+			<title>Identity Firewall — IBM Granite Stops AI Agent Impersonation</title>
+			<link>https://three.ws/ibm/identity</link>
+			<guid isPermaLink="false">2026-06-13:Identity Firewall — IBM Granite Stops AI Agent Impersonation</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Before a three.ws agent identity is born, IBM Granite embeddings cosine-compare it against every public agent to catch impersonation, and IBM Granite Guardian screens the name, bio and persona for harmful content. A live, real-API demo on watsonx.ai.</description>
 		</item>
 		<item>
 			<title>IRL</title>
@@ -37,6 +85,14 @@
 			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.</description>
+		</item>
+		<item>
+			<title>Trust Layer — IBM Granite Guardian Governs Autonomous AI Agents</title>
+			<link>https://three.ws/ibm/trust-layer</link>
+			<guid isPermaLink="false">2026-06-13:Trust Layer — IBM Granite Guardian Governs Autonomous AI Agents</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Watch IBM Granite Guardian govern an autonomous, wallet-holding 3D AI agent in real time. Every message and every on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger before it can run.</description>
 		</item>
 		<item>
 			<title>3D model categories — every model is now typed as Avatar, Accessory, Item, Scene, Creature, or Vehicle</title>
