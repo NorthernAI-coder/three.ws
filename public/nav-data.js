@@ -191,29 +191,6 @@ export const NAV_GROUPS = [
 		note: 'Live partner showcases — built on real platforms, running end-to-end.',
 		items: [
 			{
-				title: 'Agent Galaxy',
-				href: '/ibm/galaxy',
-				desc: 'Granite embeddings → 3D semantic agent map',
-			},
-			{ title: 'Oracle', href: '/ibm/oracle', desc: 'Granite TimeSeries forecasting in 3D' },
-			{ title: 'Digital Twin', href: '/ibm/twin', desc: 'Living market replica + projection' },
-			{
-				title: 'Trust Layer',
-				href: '/ibm/trust-layer',
-				desc: 'Granite Guardian governs wallet agents',
-			},
-			{
-				title: 'Identity Firewall',
-				href: '/ibm/identity',
-				desc: 'Granite gate against agent impersonation',
-			},
-			{
-				title: 'Proof',
-				href: '/ibm/proof',
-				desc: 'On-chain AI notary — forecast → govern → Solana',
-			},
-			{ title: 'Vision', href: '/ibm/vision', desc: 'Granite Vision — image → understanding' },
-			{
 				title: 'AWS Marketplace',
 				href: '/aws',
 				desc: 'three.ws as an AWS Partner listing',

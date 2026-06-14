@@ -498,48 +498,6 @@ Grind a custom Ethereum / EVM wallet address with the prefix or suffix of your c
 
 Live partner showcases — built on real platforms, running end-to-end.
 
-### three.ws on IBM watsonx — Agent Galaxy
-
-URL: https://three.ws/ibm/galaxy
-
-three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.
-
-### Granite Oracle — Price Forecasting in 3D
-
-URL: https://three.ws/ibm/oracle
-
-IBM Granite TimeSeries forecasting rendered in 3D — a live crypto market forecast computed on watsonx.ai and visualized by a three.ws agent.
-
-### Digital Twin — Living Market Replica
-
-URL: https://three.ws/ibm/twin
-
-A living replica of a real market on IBM watsonx — live data drives the twin while Granite TimeSeries projects where it's heading.
-
-### Trust Layer — Granite Guardian Governs Agents
-
-URL: https://three.ws/ibm/trust-layer
-
-IBM Granite Guardian governs an autonomous, wallet-holding 3D AI agent in real time. Every message and on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger.
-
-### Identity Firewall — Granite Stops Impersonation
-
-URL: https://three.ws/ibm/identity
-
-Before a three.ws agent identity is born, IBM Granite embeddings compare it against every public agent to catch impersonation, and Granite Guardian screens the name, bio, and persona.
-
-### Granite Proof — On-Chain AI Notary
-
-URL: https://three.ws/ibm/proof
-
-A 3D AI agent forecasts a live crypto market with IBM Granite TimeSeries, Granite Guardian governs every word, and each governed forecast is notarized on Solana — signed by the agent's own wallet.
-
-### Granite Vision — Image Understanding
-
-URL: https://three.ws/ibm/vision
-
-IBM Granite Vision reads your 3D avatar — multimodal image understanding on watsonx.ai, demonstrated live.
-
 ## Agent Tools
 
 Manage, talk to, and deploy individual agents.
@@ -820,12 +778,6 @@ URL: https://three.ws/blog/three-ws-featured-on-alibaba-cloud-marketplace-blog
 
 Alibaba Cloud Marketplace published an editorial on three.ws — browser-native 3D AI agents you deploy with a single <agent-3d> tag, with a Claude-powered runtime, ERC-8004 identity, and an Apache 2.0 open-source stack.
 
-### Showcasing the three.ws × IBM Partnership
-
-URL: https://three.ws/blog/three-ws-ibm-collaboration
-
-three.ws and IBM showcased their partnership: embedding a persistent, on-chain 3D agent into any platform as easily as a YouTube video, with the agent brain running on IBM watsonx.ai and Granite.
-
 ### We turned every memecoin into a live 3D world you can walk into
 
 URL: https://three.ws/blog/three-ws-play-coin-communities
@@ -921,12 +873,6 @@ three.ws ships Agent Builder, an improved Studio design, and a major LLM Chat up
 URL: https://three.ws/blog/animation-emotion-control
 
 three.ws now ships full animation and emotion control for 3D agents, with live Pump.fun feed integration. Your agents react to any API or data feed in real time.
-
-### three.ws Is Now an Official IBM Business Partner
-
-URL: https://three.ws/blog/three-ws-ibm-business-partner
-
-three.ws has been accepted into IBM
 
 ### $THREE Listed on Coinbase, CoinGecko, Jupiter, and Investing.com
 
