@@ -149,6 +149,7 @@ Docs, tutorials, and reference.
 - [Status](https://three.ws/status): Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.
 - [Glossary](https://three.ws/glossary): Plain-English definitions for the crypto and agent terms used across three.ws — no jargon required to get started.
 - [Support](https://three.ws/support): Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.
+- [Building 3D AI Agents Live](https://three.ws/events/build-3d-agents-live): A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM.
 
 ## Blog
 

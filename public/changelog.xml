@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Building 3D AI Agents Live</title>
+			<link>https://three.ws/events/build-3d-agents-live</link>
+			<guid isPermaLink="false">2026-06-14:Building 3D AI Agents Live</guid>
+			<pubDate>Sun, 14 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&amp;A. Hosted by three.ws, in partnership with IBM.</description>
+		</item>
+		<item>
 			<title>AR &amp; WebXR — Place Any 3D Agent in Your Real World</title>
 			<link>https://three.ws/features/ar</link>
 			<guid isPermaLink="false">2026-06-13:AR &amp; WebXR — Place Any 3D Agent in Your Real World</guid>

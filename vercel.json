@@ -734,6 +734,10 @@
 			"dest": "/three-ws-launch-week.html"
 		},
 		{
+			"src": "/events/([a-z0-9][a-z0-9-]*)/?",
+			"dest": "/events/$1.html"
+		},
+		{
 			"src": "/launchpad/?",
 			"dest": "/launchpad.html"
 		},
