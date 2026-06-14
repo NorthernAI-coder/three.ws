@@ -223,6 +223,14 @@
 			<description>three.ws has grown past 200 pages, so the sitemap directory got a real upgrade. A new &quot;All pages&quot; link in the Discover menu takes you straight to it, and the page itself now has an instant filter — press / and type to narrow every page by name, path, or description, with live per-section counts. Filtered views are shareable links, so you can send someone exactly the slice of the platform you mean. The directory now finds you when you're lost, too: it's a quick action in the ⌘K search palette, a no-results search hands you off to it with your query carried over, the 404 page offers it pre-filtered to the closest matches for the address you tried, and /pages, /directory, /everything, and /all-pages all take you there. Eighteen pages that had never been registered in the index — What is three.ws?, the 3D Scanner, the Glossary, Support, the agent-economy demos, and all six IBM watsonx showcases under a new Integrations section — are now in the directory, the search palette, and the crawler sitemap.</description>
 		</item>
 		<item>
+			<title>The IBM partnership page, rebuilt in IBM's own design language</title>
+			<link>https://three.ws/ibm</link>
+			<guid isPermaLink="false">2026-06-13:The IBM partnership page, rebuilt in IBM's own design language</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The three.ws on IBM page (/ibm) has been redesigned to match IBM's official partner pages — IBM Plex type, the Carbon light palette, an IBM masthead and breadcrumb, a sticky on-page table of contents, the 'Partnership highlights' grid, a tabbed live-demo gallery (Agent Galaxy, Granite Oracle, Digital Twin, Trust Layer, Identity Firewall, Granite Proof, Granite Vision), the integration reference, and the dark IBM-style footer. It reads like what it is: an IBM Business Partner showcase built on watsonx.ai and Granite. We also fixed the local dev route so /ibm serves this page, matching production.</description>
+		</item>
+		<item>
 			<title>Tutorials read better: one-tap copy on every code block, live progress, and a jump-to-the-tool button</title>
 			<link>https://three.ws/tutorials</link>
 			<guid isPermaLink="false">2026-06-13:Tutorials read better: one-tap copy on every code block, live progress, and a jump-to-the-tool button</guid>
@@ -1087,70 +1095,6 @@
 			<description>Two AI agents with 3D bodies negotiate and pay each other for live crypto intel using x402 micropayments on Solana. Every transaction is real and confirmed on-chain.</description>
 		</item>
 		<item>
-			<title>Digital Twin — Living Market Replica</title>
-			<link>https://three.ws/ibm/twin</link>
-			<guid isPermaLink="false">2026-06-03:Digital Twin — Living Market Replica</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>A living replica of a real market on IBM watsonx — live data drives the twin while Granite TimeSeries projects where it's heading.</description>
-		</item>
-		<item>
-			<title>Granite Oracle — Price Forecasting in 3D</title>
-			<link>https://three.ws/ibm/oracle</link>
-			<guid isPermaLink="false">2026-06-03:Granite Oracle — Price Forecasting in 3D</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>IBM Granite TimeSeries forecasting rendered in 3D — a live crypto market forecast computed on watsonx.ai and visualized by a three.ws agent.</description>
-		</item>
-		<item>
-			<title>Granite Proof — On-Chain AI Notary</title>
-			<link>https://three.ws/ibm/proof</link>
-			<guid isPermaLink="false">2026-06-03:Granite Proof — On-Chain AI Notary</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>A 3D AI agent forecasts a live crypto market with IBM Granite TimeSeries, Granite Guardian governs every word, and each governed forecast is notarized on Solana — signed by the agent's own wallet.</description>
-		</item>
-		<item>
-			<title>Granite Vision — Image Understanding</title>
-			<link>https://three.ws/ibm/vision</link>
-			<guid isPermaLink="false">2026-06-03:Granite Vision — Image Understanding</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>IBM Granite Vision reads your 3D avatar — multimodal image understanding on watsonx.ai, demonstrated live.</description>
-		</item>
-		<item>
-			<title>Identity Firewall — Granite Stops Impersonation</title>
-			<link>https://three.ws/ibm/identity</link>
-			<guid isPermaLink="false">2026-06-03:Identity Firewall — Granite Stops Impersonation</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>Before a three.ws agent identity is born, IBM Granite embeddings compare it against every public agent to catch impersonation, and Granite Guardian screens the name, bio, and persona.</description>
-		</item>
-		<item>
-			<title>Showcasing the three.ws × IBM Partnership</title>
-			<link>https://three.ws/blog/three-ws-ibm-collaboration</link>
-			<guid isPermaLink="false">2026-06-03:Showcasing the three.ws × IBM Partnership</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>three.ws and IBM showcased their partnership: embedding a persistent, on-chain 3D agent into any platform as easily as a YouTube video, with the agent brain running on IBM watsonx.ai and Granite.</description>
-		</item>
-		<item>
-			<title>three.ws on IBM watsonx — Agent Galaxy</title>
-			<link>https://three.ws/ibm/galaxy</link>
-			<guid isPermaLink="false">2026-06-03:three.ws on IBM watsonx — Agent Galaxy</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>three.ws is an IBM Business Partner. Open-source 3D AI agents that think on IBM Granite via watsonx.ai and give watsonx Orchestrate agents a face, voice, and on-chain identity.</description>
-		</item>
-		<item>
-			<title>Trust Layer — Granite Guardian Governs Agents</title>
-			<link>https://three.ws/ibm/trust-layer</link>
-			<guid isPermaLink="false">2026-06-03:Trust Layer — Granite Guardian Governs Agents</guid>
-			<pubDate>Wed, 03 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>IBM Granite Guardian governs an autonomous, wallet-holding 3D AI agent in real time. Every message and on-chain action is risk-classified on watsonx.ai and written to a tamper-evident audit ledger.</description>
-		</item>
-		<item>
 			<title>watsonx Constellation</title>
 			<link>https://three.ws/constellation</link>
 			<guid isPermaLink="false">2026-06-03:watsonx Constellation</guid>
@@ -1581,14 +1525,6 @@
 			<pubDate>Mon, 25 May 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>three.ws has integrated the Pump.fun agent payments SDK. Your 3D AI agent doesn</description>
-		</item>
-		<item>
-			<title>three.ws Is Now an Official IBM Business Partner</title>
-			<link>https://three.ws/blog/three-ws-ibm-business-partner</link>
-			<guid isPermaLink="false">2026-05-25:three.ws Is Now an Official IBM Business Partner</guid>
-			<pubDate>Mon, 25 May 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>three.ws has been accepted into IBM</description>
 		</item>
 		<item>
 			<title>three.ws Is Now Live on CoinMarketCap</title>
