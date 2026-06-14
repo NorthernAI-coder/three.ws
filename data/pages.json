@@ -980,6 +980,14 @@
           "priority": 0.6,
           "changefreq": "monthly",
           "added": "2026-06-06"
+        },
+        {
+          "path": "/events/build-3d-agents-live",
+          "title": "Building 3D AI Agents Live",
+          "description": "A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM.",
+          "priority": 0.7,
+          "changefreq": "weekly",
+          "added": "2026-06-14"
         }
       ]
     },

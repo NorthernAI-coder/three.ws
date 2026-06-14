@@ -341,6 +341,7 @@ const appConfig = {
 				community: resolve(__dirname, 'pages/community.html'),
 				profile: resolve(__dirname, 'pages/profile.html'),
 				'threews-claim': resolve(__dirname, 'pages/threews-claim.html'),
+				'events-build-3d-agents-live': resolve(__dirname, 'pages/events/build-3d-agents-live.html'),
 				'avatar-page': resolve(__dirname, 'pages/avatar-page.html'),
 				'avatar-sdk': resolve(__dirname, 'pages/avatar-sdk.html'),
 				brain: resolve(__dirname, 'pages/brain.html'),
@@ -988,6 +989,12 @@ const appConfig = {
 					// /avatars/:id  → avatar studio page (mirrors vercel.json rewrite)
 					else if (!filePath && /^\/avatars\/[^/.]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/avatar-page.html');
+					// /changelog → public changelog page (mirrors vercel.json rewrite)
+					else if (!filePath && /^\/events\/[a-z0-9][a-z0-9-]*\/?$/.test(path)) {
+						const slug = path.replace(/^\/events\//, '').replace(/\/$/, '');
+						const candidate = resolve(root, `pages/events/${slug}.html`);
+						if (existsSync(candidate)) filePath = candidate;
+					}
 					// /changelog → public changelog page (mirrors vercel.json rewrite)
 					else if (!filePath && /^\/changelog\/?$/.test(path))
 						filePath = resolve(root, 'public/changelog/index.html');

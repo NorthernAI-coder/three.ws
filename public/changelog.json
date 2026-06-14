@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-14T00:27:49.355Z",
+	"generated_at": "2026-06-14T03:34:56.340Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-14",
+			"type": "launch",
+			"title": "Building 3D AI Agents Live",
+			"summary": "A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM.",
+			"link": "/events/build-3d-agents-live",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-13",
 			"type": "launch",

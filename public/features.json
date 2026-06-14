@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-14T00:27:49.315Z",
+	"generated_at": "2026-06-14T03:34:56.326Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1208,6 +1208,16 @@
 					"title": "Support",
 					"description": "Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.",
 					"added": "2026-06-06",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/events/build-3d-agents-live",
+					"title": "Building 3D AI Agents Live",
+					"description": "A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM.",
+					"added": "2026-06-14",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

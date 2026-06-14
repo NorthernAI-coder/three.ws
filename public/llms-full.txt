@@ -744,6 +744,12 @@ URL: https://three.ws/support
 
 Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.
 
+### Building 3D AI Agents Live
+
+URL: https://three.ws/events/build-3d-agents-live
+
+A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM.
+
 ## Blog
 
 Long-form announcements, launches, and writing from three.ws.
