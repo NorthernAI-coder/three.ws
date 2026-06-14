@@ -353,10 +353,9 @@ export function openPaidSkillsModal(ctx = {}) {
 	const snippets = {
 		fetch: `import { withX402 } from '@three-ws/x402-fetch';
 
-const fetchPaid = withX402(fetch, {
-  wallet,
-  network: 'solana',
-});
+// wallet: window.ethereum, a viem account, or privateKeyToWallet(pk).
+// On a 402 the wrapper pays in USDC and retries — no extra code.
+const fetchPaid = withX402(fetch, { wallet });
 
 const res = await fetchPaid('${endpoint}', {
   method: 'POST',
@@ -530,7 +529,7 @@ export function openEmbedModal(ctx = {}) {
 		react: `import { Agent3D } from '@three-ws/react';
 
 export default function Page() {
-  return <Agent3D agent="${handle}" mode="full" />;
+  return <Agent3D agentId="${handle}" controls="joystick" />;
 }`,
 		iframe: `<iframe
   src="https://three.ws/widget#widget=${handle}&kiosk=true"

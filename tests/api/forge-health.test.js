@@ -28,14 +28,24 @@ const savedEnv = {};
 let savedFetch;
 
 // One mock upstream per probe URL; anything unrouted fails the test loudly.
+// world.three.ws is probed unconditionally (no credential gates it), so it is
+// always routed healthy here — per-backend tests stay focused on their upstream.
 function mockUpstreams(routes) {
 	global.fetch = vi.fn(async (url) => {
+		if (String(url).includes('world.three.ws')) {
+			return new Response(JSON.stringify({ protected: true, blueprints: [] }), { status: 200 });
+		}
 		for (const [match, status] of routes) {
 			if (String(url).includes(match)) return new Response('{}', { status });
 		}
 		throw new Error(`unrouted probe fetch: ${url}`);
 	});
 }
+
+// The world is the only always-on probe; these helpers assert that no
+// credentialed *backend* upstream was hit when nothing is configured.
+const backendProbes = () =>
+	global.fetch.mock.calls.map((c) => String(c[0])).filter((u) => !u.includes('world.three.ws'));
 
 beforeEach(() => {
 	for (const v of ENV_VARS) {
@@ -64,8 +74,8 @@ describe('forge-health — per-backend verdicts', () => {
 		expect(Object.keys(health.backends).sort()).toEqual(Object.keys(BACKENDS).sort());
 		expect(health.backends.meshy.status).toBe('byok');
 		expect(health.backends.tripo.status).toBe('byok');
-		// No platform env at all → nothing probed, nothing fetched.
-		expect(global.fetch).not.toHaveBeenCalled();
+		// No platform env at all → no credentialed backend probe fired.
+		expect(backendProbes()).toEqual([]);
 	});
 
 	it('marks unset platform lanes unconfigured', async () => {
@@ -82,7 +92,7 @@ describe('forge-health — per-backend verdicts', () => {
 		mockUpstreams([]);
 		const health = await probeForgeHealth();
 		expect(health.backends.hunyuan3d.status).toBe('unconfigured');
-		expect(global.fetch).not.toHaveBeenCalled();
+		expect(backendProbes()).toEqual([]);
 	});
 
 	it('passes Replicate when the invalid-version probe is rejected after auth (422)', async () => {
@@ -198,6 +208,54 @@ describe('forge-health — rate-limiter store', () => {
 			'https://fallback.upstash.io',
 			expect.objectContaining({ method: 'POST' }),
 		);
+	});
+});
+
+describe('forge-health — world.three.ws', () => {
+	const HASH = 'a'.repeat(64);
+	const ASSET = `https://world.three.ws/assets/${HASH}.glb`;
+
+	function mockWorld(statusBody, { assetStatus = 200 } = {}) {
+		global.fetch = vi.fn(async (url, opts = {}) => {
+			if (String(url).includes('/status')) {
+				return new Response(JSON.stringify(statusBody), { status: 200 });
+			}
+			if (opts.method === 'HEAD') return new Response(null, { status: assetStatus });
+			throw new Error(`unrouted probe fetch: ${url}`);
+		});
+	}
+
+	it('reports ok when the world is protected and every asset resolves', async () => {
+		mockWorld({ protected: true, blueprints: [{ id: '$scene', assetUrl: ASSET }] });
+		const health = await probeForgeHealth();
+		expect(health.world.status).toBe('ok');
+		expect(health.world.protected).toBe(true);
+		expect(health.world.blueprint_count).toBe(1);
+	});
+
+	it('reports degraded (and degrades overall) when the world is unprotected', async () => {
+		mockWorld({ protected: false, blueprints: [] });
+		const health = await probeForgeHealth();
+		expect(health.world.status).toBe('degraded');
+		expect(health.world.message).toMatch(/unprotected/i);
+		expect(health.status).toBe('degraded');
+	});
+
+	it('reports down when a blueprint asset 404s — the scene would crash on join', async () => {
+		mockWorld({ protected: true, blueprints: [{ id: '$scene', assetUrl: ASSET }] }, { assetStatus: 404 });
+		const health = await probeForgeHealth();
+		expect(health.world.status).toBe('down');
+		expect(health.world.message).toMatch(/missing/i);
+		// A down world degrades overall — never escalates it past 'degraded'.
+		expect(health.status).toBe('degraded');
+	});
+
+	it('reports down when /status is unreachable instead of throwing', async () => {
+		global.fetch = vi.fn(async () => {
+			throw new Error('network down');
+		});
+		const health = await probeForgeHealth();
+		expect(health.world.status).toBe('down');
 	});
 });
 

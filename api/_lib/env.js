@@ -78,6 +78,26 @@ export const env = {
 		);
 	},
 
+	// ── Upstash quota-burn visibility (api/_lib/redis-usage.js) ──────────────
+	// The free plan ceils at 500k commands/month; when it is exhausted every
+	// critical limiter fails closed and all paid forge + x402 flows 503 (the
+	// June 2026 incident). To read the real daily command count BEFORE the
+	// ceiling we use the Upstash Management API (api.upstash.com), which is a
+	// SEPARATE credential from the per-store REST token above — the REST token
+	// can run commands but cannot read account usage. All three are optional:
+	// when unset, burn reporting degrades to `unknown` and never fabricates a
+	// number. The store id is the only non-secret one, so it carries the known
+	// default for the live `three-ratelimit` store.
+	get UPSTASH_EMAIL() {
+		return opt('UPSTASH_EMAIL');
+	},
+	get UPSTASH_MANAGEMENT_API_KEY() {
+		return opt('UPSTASH_MANAGEMENT_API_KEY') || opt('UPSTASH_API_KEY');
+	},
+	get UPSTASH_REDIS_STORE_ID() {
+		return opt('UPSTASH_REDIS_STORE_ID', 'store_QnjIWaKv4d5MvmA9');
+	},
+
 	get JWT_SECRET() {
 		return req('JWT_SECRET');
 	},

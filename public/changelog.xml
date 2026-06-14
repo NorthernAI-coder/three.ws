@@ -15,6 +15,46 @@
 			<description>A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&amp;A. Hosted by three.ws, in partnership with IBM.</description>
 		</item>
 		<item>
+			<title>Forge stays up: live Redis quota monitoring and early-warning alerts</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-14:Forge stays up: live Redis quota monitoring and early-warning alerts</guid>
+			<pubDate>Sun, 14 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>The shared rate-limiter store has a hard monthly request ceiling, and when it's exhausted every paid generation and payment stops at once. We've made that failure mode impossible to sneak up on us. The forge health check (/api/forge?health) now reports the live daily request rate, how much of the budget it's burning, and projects whether it's on track to run out — and a daily check pages our ops team the moment the projection crosses 80% of the ceiling, long before anything breaks. We also moved the highest-traffic, lowest-risk traffic guards (public page reads, status polling, the notifications badge) to in-process enforcement so they no longer spend from that budget at all, cutting burn dramatically. Net effect: more headroom, and a deliberate upgrade decision instead of a surprise outage.</description>
+		</item>
+		<item>
+			<title>pump.fun MCP server only lists tools it can actually run</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-14:pump.fun MCP server only lists tools it can actually run</guid>
+			<pubDate>Sun, 14 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The free pump.fun MCP server (three.ws/api/pump-fun-mcp) now advertises its discovery tools — token search, trending, new, graduated, king-of-the-hill, and creator profiles — only when its real-time indexer backend is connected. Previously those six tools always appeared in the tool list and returned an error if the indexer wasn't wired, which confused MCP clients and assistants that tried to call them. They now stay hidden until the backend is live, and reappear automatically the moment it is. We also added a always-available pumpfun_bot_status tool that reports whether the indexer is configured and healthy (with round-trip latency), and an indexerEnabled flag on the server handshake so client authors can check capability in one call. On-chain tools (bonding curve, holders, token details, trades, swap quotes, fee claims) were unaffected and remain fully available with no API key.</description>
+		</item>
+		<item>
+			<title>React component library for embedding 3D AI agents</title>
+			<link>https://three.ws/embed/walk</link>
+			<guid isPermaLink="false">2026-06-14:React component library for embedding 3D AI agents</guid>
+			<pubDate>Sun, 14 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>npm install @three-ws/react gives you &lt;Agent3D&gt; — a React wrapper around the three.ws walk embed player. Drop a 3D AI agent into any React app in two lines of code, with props for controls, size, and background, plus onLoad/onError callbacks and a ref handle to drive the avatar live.</description>
+		</item>
+		<item>
+			<title>world.three.ws locked down and watched around the clock</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-14:world.three.ws locked down and watched around the clock</guid>
+			<pubDate>Sun, 14 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>The multiplayer world (world.three.ws) is now protected against unauthorized edits: visitors join as spectators and only a holder of the admin code can build, move, or delete anything in the scene. We also added a continuous health watch. Every 15 minutes a monitor confirms the world is still protected and checks that every asset the scene depends on is actually reachable — the exact gap that briefly dropped visitors into an empty void earlier this month, now caught and paged to our ops team before anyone notices. The forge health surface (/api/forge?health) reports the world's status alongside the generation backends, and a post-deploy gate refuses to call a deploy healthy unless the world comes back protected.</description>
+		</item>
+		<item>
+			<title>x402-fetch — automatic pay-per-call fetch wrapper</title>
+			<link>https://three.ws/docs/sdk</link>
+			<guid isPermaLink="false">2026-06-14:x402-fetch — automatic pay-per-call fetch wrapper</guid>
+			<pubDate>Sun, 14 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>npm install @three-ws/x402-fetch gives you withX402(wallet) — a drop-in fetch wrapper that silently handles x402 payment challenges. Connect a wallet once; call any paid three.ws API like a free one. It signs USDC-on-Base payments locally with zero dependencies, refuses to overspend past a maxPaymentUsd guard you set, and works in the browser (MetaMask), in Node (private key), or with a three.ws agent wallet.</description>
+		</item>
+		<item>
 			<title>AR &amp; WebXR — Place Any 3D Agent in Your Real World</title>
 			<link>https://three.ws/features/ar</link>
 			<guid isPermaLink="false">2026-06-13:AR &amp; WebXR — Place Any 3D Agent in Your Real World</guid>

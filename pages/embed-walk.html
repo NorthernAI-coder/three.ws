@@ -407,7 +407,9 @@
 			</div>
 
 			<p id="framework-note" class="ew-note" style="display:none">
-				Install the React wrapper: <code>npm i @three-ws/react</code> — then import <code>WalkEmbed</code> from it.
+				Install: <code>npm i @three-ws/react</code> then
+				<code>import { Agent3D } from '@three-ws/react';</code> and render
+				<code>&lt;Agent3D agentId="…" controls="joystick" /&gt;</code> — props map 1:1 to the options above.
 			</p>
 		</div>
 	</main>
@@ -502,9 +504,27 @@ function buildSrc() {
 	return `${ORIGIN}/walk-embed?${p}`;
 }
 
+// React always uses the published @three-ws/react component, not raw embed code.
+function buildReactComponent() {
+	const props = [];
+	if (cfg.avatarId) props.push(`agentId="${cfg.avatarId}"`);
+	if (cfg.controls && cfg.controls !== 'auto') props.push(`controls="${cfg.controls}"`);
+	const bg = cfg.bgType === 'transparent' ? null : cfg.bgType === 'color' ? cfg.bgColor : '#000000';
+	if (bg) props.push(`background="${bg}"`);
+	if (cfg.speed !== 1) props.push(`speed={${cfg.speed}}`);
+	if (cfg.autoplay) props.push(`autoplay`);
+	if (cfg.ground) props.push(`ground`);
+	if (cfg.orbit) props.push(`orbit`);
+	props.push(`width={${cfg.w}}`, `height={${cfg.h}}`);
+	const indented = props.map((p) => `      ${p}`).join('\n');
+	return `import { Agent3D } from '@three-ws/react';\n\nexport function WalkAvatar() {\n  return (\n    <Agent3D\n${indented}\n    />\n  );\n}`;
+}
+
 function buildSnippet(tab) {
 	const src = buildSrc();
 	const w = cfg.w, h = cfg.h;
+
+	if (tab === 'react') return buildReactComponent();
 
 	if (cfg.embedType === 'js') {
 		const attrs = [`src="${ORIGIN}/walk-embed-sdk.js"`];
@@ -518,7 +538,6 @@ function buildSnippet(tab) {
 		if (cfg.ground) attrs.push(`data-ground="true"`);
 		if (cfg.orbit) attrs.push(`data-orbit="true"`);
 		const tag = `<script\n  ${attrs.join('\n  ')}>\n<\/script>`;
-		if (tab === 'react') return `import { useEffect } from 'react';\n\nexport function WalkAvatar() {\n  useEffect(() => {\n    const s = document.createElement('script');\n    s.src = '${ORIGIN}/walk-embed-sdk.js';\n    ${cfg.avatarId ? `s.dataset.avatar = '${cfg.avatarId}';\n    ` : ''}s.dataset.controls = '${cfg.controls}';\n    s.dataset.width = '${w}';\n    s.dataset.height = '${h}';\n    document.body.appendChild(s);\n    return () => window.ThreeWalkAvatar?.unmount();\n  }, []);\n  return null;\n}`;
 		if (tab === 'vue') return `<!-- In your component -->\n<script setup>\nimport { onMounted, onUnmounted } from 'vue';\nonMounted(() => {\n  const s = document.createElement('script');\n  s.src = '${ORIGIN}/walk-embed-sdk.js';\n  ${cfg.avatarId ? `s.dataset.avatar = '${cfg.avatarId}';\n  ` : ''}s.dataset.controls = '${cfg.controls}';\n  s.dataset.width = '${w}';\n  s.dataset.height = '${h}';\n  document.body.appendChild(s);\n});\nonUnmounted(() => window.ThreeWalkAvatar?.unmount());\n<\/script>`;
 		if (tab === 'svelte') return `<script>\n  import { onMount, onDestroy } from 'svelte';\n  onMount(() => {\n    const s = document.createElement('script');\n    s.src = '${ORIGIN}/walk-embed-sdk.js';\n    ${cfg.avatarId ? `s.dataset.avatar = '${cfg.avatarId}';\n    ` : ''}s.dataset.controls = '${cfg.controls}';\n    s.dataset.width = '${w}';\n    s.dataset.height = '${h}';\n    document.body.appendChild(s);\n    return () => window.ThreeWalkAvatar?.unmount();\n  });\n<\/script>`;
 		return tag;
@@ -528,7 +547,6 @@ function buildSnippet(tab) {
 	const style = `border:0;border-radius:12px;max-width:100%`;
 	const base = `<iframe\n  src="${src}"\n  width="${w}"\n  height="${h}"\n  style="${style}"\n  allow="autoplay"\n  title="Walking avatar"\n  loading="lazy">\n</iframe>`;
 
-	if (tab === 'react') return `export function WalkAvatar() {\n  return (\n    <iframe\n      src="${src}"\n      width={${w}}\n      height={${h}}\n      style={{ border: 0, borderRadius: 12, maxWidth: '100%' }}\n      allow="autoplay"\n      title="Walking avatar"\n      loading="lazy"\n    />\n  );\n}`;
 	if (tab === 'vue') return `<template>\n  <iframe\n    :src="\`${src}\`"\n    :width="${w}"\n    :height="${h}"\n    style="border:0;border-radius:12px;max-width:100%"\n    allow="autoplay"\n    title="Walking avatar"\n    loading="lazy"\n  />\n</template>`;
 	if (tab === 'svelte') return `<iframe\n  src="${src}"\n  width="${w}"\n  height="${h}"\n  style="border:0;border-radius:12px;max-width:100%"\n  allow="autoplay"\n  title="Walking avatar"\n  loading="lazy"\n/>`;
 	return base;
@@ -560,7 +578,7 @@ function update() {
 	// Snippet
 	const activeTab = document.querySelector('.ew-tab.active')?.dataset.tab || 'html';
 	snippetCode.textContent = buildSnippet(activeTab);
-	frameworkNote.style.display = (activeTab !== 'html' && cfg.embedType === 'iframe') ? 'none' : (activeTab !== 'html' ? 'block' : 'none');
+	frameworkNote.style.display = activeTab === 'react' ? 'block' : 'none';
 
 	// URL state
 	const p = new URLSearchParams();

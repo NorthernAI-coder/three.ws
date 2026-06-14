@@ -96,6 +96,7 @@ export const TOOL_ANNOTATIONS = Object.freeze({
 	kol_leaderboard: { title: 'KOL Leaderboard', ...LIVE_READ },
 	pumpfun_quote_swap: { title: 'Swap Quote (Read-Only)', ...LIVE_READ },
 	social_x_post_impact: { title: 'X Post Price Impact', ...LIVE_READ },
+	pumpfun_bot_status: { title: 'Indexer Status', ...LIVE_READ },
 });
 
 // outputSchema policy: only tools whose response shape is code-controlled and
@@ -479,6 +480,39 @@ export const TOOLS = [
 				network: { type: 'string', enum: ['mainnet', 'devnet'], default: 'mainnet' },
 			},
 			required: ['postUrl', 'mint'],
+		},
+	},
+	{
+		name: 'pumpfun_bot_status',
+		description:
+			'Returns the configuration and health status of the pump.fun indexer backend. Always available — does not require PUMPFUN_BOT_URL.',
+		inputSchema: { type: 'object', properties: {}, required: [] },
+		outputSchema: {
+			type: 'object',
+			properties: {
+				configured: {
+					type: 'boolean',
+					description: 'true when PUMPFUN_BOT_URL is set on the server',
+				},
+				healthy: {
+					type: 'boolean',
+					description: 'true when the indexer answered the health ping',
+				},
+				latencyMs: {
+					type: 'number',
+					description: 'Round-trip ms of the health ping (configured backends only)',
+				},
+				error: {
+					type: 'string',
+					description: 'Failure reason when healthy is false',
+				},
+				message: {
+					type: 'string',
+					description: 'Human-readable note when the indexer is unconfigured',
+				},
+			},
+			required: ['configured', 'healthy'],
+			additionalProperties: true,
 		},
 	},
 ];

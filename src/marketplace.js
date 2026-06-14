@@ -2255,8 +2255,8 @@ function renderSkillX402(skill, paid) {
 	const codeEl = $('skill-detail-x402-code');
 	if (codeEl) {
 		codeEl.textContent =
-			`import { wrapFetchWithPayment } from 'x402-fetch';\n\n` +
-			`// wallet = a viem/ethers account funded with USDC on Base or Solana\n` +
+			`import { wrapFetchWithPayment } from '@three-ws/x402-fetch';\n\n` +
+			`// wallet = a viem/ethers account funded with USDC on Base\n` +
 			`const fetchWithPay = wrapFetchWithPayment(fetch, wallet);\n` +
 			`const res = await fetchWithPay('${url}');\n` +
 			`const { skill, tools, content } = await res.json();\n` +

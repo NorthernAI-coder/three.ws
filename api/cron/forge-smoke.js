@@ -19,6 +19,10 @@
 //      the unpaid 402 names /api/mcp-3d and quotes the standard tier price,
 //      /.well-known/x402.json lists every generation surface, and the paid
 //      REST endpoint still challenges with usable accepts.
+//   5. LLM completion — runs a trivial llmComplete through the real free-first
+//      provider chain. A dead paid chain hides behind the free-tier fallback in
+//      day-to-day use; this leg fails loudly so ops sees it. Runs concurrently
+//      with the 3D legs so it never delays them.
 //
 // Failures page the ops Telegram channel; recovery is announced once. Like
 // uptime-check, a concrete file keeps the import graph tiny.
@@ -28,6 +32,8 @@ import { env } from '../_lib/env.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
+import { llmComplete } from '../_lib/llm.js';
+import { fetchRedisDailyCommands, evaluateRedisBurn, redisBurnAlert } from '../_lib/redis-usage.js';
 
 const SMOKE_PROMPT = 'a small wooden toy boat with a striped sail';
 const SUBMIT_TIMEOUT_MS = 90_000;
@@ -131,7 +137,33 @@ async function runHealthCheck(origin) {
 	]
 		.filter((b) => b.status === 'down' || b.status === 'degraded')
 		.map((b) => `${b.id}: ${b.message}`);
+	// The LLM section is shaped { [provider]: { status, error }, overall } — flag
+	// any failing provider by name so a degraded chain isn't a nameless "degraded".
+	for (const [name, v] of Object.entries(health.body?.llm || {})) {
+		if (name !== 'overall' && v?.status === 'error') broken.push(`llm/${name}: ${v.error}`);
+	}
 	return { ok: false, reason: broken.join('\n') || `health status: ${health.body?.status}` };
+}
+
+// Exercise the real LLM completion path (in-process, not over HTTP) so a dead
+// provider chain pages ops even when the free-tier fallback masks it from users.
+// Runs through llmComplete so it follows the exact free-first ordering production
+// uses; any successful provider returning the sentinel is a pass.
+async function runLlmSmoke() {
+	try {
+		const { text, provider } = await llmComplete({
+			system: 'You are a health probe. Reply with exactly one word.',
+			user: 'Respond with exactly the word: HEALTHY',
+			maxTokens: 10,
+			timeoutMs: 20_000,
+		});
+		if (!/healthy/i.test(text || '')) {
+			return { ok: false, reason: `LLM replied "${(text || '').slice(0, 80)}" via ${provider}, expected HEALTHY` };
+		}
+		return { ok: true, provider };
+	} catch (err) {
+		return { ok: false, reason: `LLM completion failed: ${err?.message || err}` };
+	}
 }
 
 // What a wallet-holding agent actually experiences, end to end minus the
@@ -198,17 +230,40 @@ async function runAgentSurfaceCheck(origin) {
 	return failures.length ? { ok: false, reason: failures.join('\n') } : { ok: true };
 }
 
+// Redis quota-burn early warning. The free Upstash plan ceils at 500k
+// commands/month; when it's exhausted every critical limiter fails closed and
+// the whole paid surface 503s (June 2026). We read the real daily command count
+// and, if the 30-day projection crosses the upgrade thresholds, page ops BEFORE
+// the ceiling instead of after the outage. This is advisory — a burn warning
+// never fails the smoke run (generation is still up today); it exists to make
+// the upgrade a deliberate decision. Unknown usage (no management creds) is a
+// no-op, never a false alarm.
+async function runRedisQuotaCheck() {
+	const burn = evaluateRedisBurn(await fetchRedisDailyCommands());
+	const alert = redisBurnAlert(burn);
+	if (alert) {
+		sendOpsAlert(alert.title, alert.message, {
+			signature: `forge-smoke:redis-quota:${alert.level}`,
+		});
+	}
+	return burn;
+}
+
 export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 
 	const origin = env.APP_ORIGIN || 'https://three.ws';
-	const [generation, health, agentSurfaces] = await Promise.all([
+	const [generation, health, agentSurfaces, llm, redisBurn] = await Promise.all([
 		runGeneration(origin),
 		runHealthCheck(origin),
 		runAgentSurfaceCheck(origin),
+		runLlmSmoke(),
+		runRedisQuotaCheck(),
 	]);
-	const ok = generation.ok && health.ok && agentSurfaces.ok;
+	// Redis burn is an early-warning signal, not a liveness check — it pages ops
+	// on its own threshold but never fails the smoke run (generation is up today).
+	const ok = generation.ok && health.ok && agentSurfaces.ok && llm.ok;
 
 	const previous = await cacheGet(LAST_STATUS_KEY);
 	await cacheSet(LAST_STATUS_KEY, { ok, at: Date.now() }, LAST_STATUS_TTL_S);
@@ -230,11 +285,23 @@ export default wrap(async (req, res) => {
 			signature: 'forge-smoke:agent-surfaces',
 		});
 	}
+	if (!llm.ok) {
+		sendOpsAlert('FORGE SMOKE: LLM completion path down', llm.reason, {
+			signature: 'forge-smoke:llm',
+		});
+	}
 	if (ok && previous && previous.ok === false) {
 		sendOpsAlert('RECOVERED: forge generation smoke test', `${origin}/forge — prompt→GLB verified`, {
 			signature: `forge-smoke:recovered:${Date.now()}`,
 		});
 	}
 
-	return json(res, 200, { ok, generation, health, agent_surfaces: agentSurfaces });
+	return json(res, 200, {
+		ok,
+		generation,
+		health,
+		agent_surfaces: agentSurfaces,
+		llm: llm.ok ? { status: 'ok', provider: llm.provider } : { status: 'error', reason: llm.reason },
+		redis: redisBurn,
+	});
 });

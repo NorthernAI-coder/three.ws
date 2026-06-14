@@ -3,17 +3,20 @@ import { TOOLS, TOOL_ANNOTATIONS, rpcError, rpcEnvelope } from '../src/pump/mcp-
 
 // Tool names that must be present in both the Vercel and Worker runtimes.
 // Both import TOOLS from the same shared module, so parity is structural.
+// Canonical names are snake_case; the legacy camelCase forms are accepted on
+// tools/call via TOOL_NAME_ALIASES but never advertised in TOOLS.
 const EXPECTED_TOOL_NAMES = [
-	'searchTokens',
-	'getTokenDetails',
-	'getBondingCurve',
-	'getTokenTrades',
-	'getTrendingTokens',
-	'getNewTokens',
-	'getGraduatedTokens',
-	'getKingOfTheHill',
-	'getCreatorProfile',
-	'getTokenHolders',
+	'search_tokens',
+	'get_token_details',
+	'get_bonding_curve',
+	'get_token_trades',
+	'get_trending_tokens',
+	'get_new_tokens',
+	'get_graduated_tokens',
+	'get_king_of_the_hill',
+	'get_creator_profile',
+	'get_token_holders',
+	'pumpfun_bot_status',
 ];
 
 describe('src/pump/mcp-tools — shared tool registry', () => {
