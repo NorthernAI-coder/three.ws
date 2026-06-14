@@ -203,71 +203,7 @@
 			"src": "/avatar-wallet-chat/",
 			"dest": "/avatar-wallet-chat.html"
 		},
-		{
-			"src": "/ibm/galaxy",
-			"dest": "/ibm/galaxy.html"
-		},
-		{
-			"src": "/ibm/galaxy/",
-			"dest": "/ibm/galaxy.html"
-		},
-		{
-			"src": "/ibm/trust-layer",
-			"dest": "/ibm/trust-layer.html"
-		},
-		{
-			"src": "/ibm/trust-layer/",
-			"dest": "/ibm/trust-layer.html"
-		},
-		{
-			"src": "/ibm/oracle",
-			"dest": "/ibm/oracle.html"
-		},
-		{
-			"src": "/ibm/oracle/",
-			"dest": "/ibm/oracle.html"
-		},
-		{
-			"src": "/ibm/twin",
-			"dest": "/ibm/twin.html"
-		},
-		{
-			"src": "/ibm/twin/",
-			"dest": "/ibm/twin.html"
-		},
-		{
-			"src": "/ibm/vision",
-			"dest": "/ibm/vision.html"
-		},
-		{
-			"src": "/ibm/vision/",
-			"dest": "/ibm/vision.html"
-		},
-		{
-			"src": "/ibm/proof",
-			"dest": "/ibm/proof.html"
-		},
-		{
-			"src": "/ibm/proof/",
-			"dest": "/ibm/proof.html"
-		},
-		{
-			"src": "/ibm/identity",
-			"dest": "/ibm/identity.html"
-		},
-		{
-			"src": "/ibm/identity/",
-			"dest": "/ibm/identity.html"
-		},
-		{
-			"src": "/ibm",
-			"dest": "/ibm/index.html"
-		},
-		{
-			"src": "/ibm/",
-			"dest": "/ibm/index.html"
-		},
-		{
+{
 			"src": "/support",
 			"dest": "/support.html"
 		},
