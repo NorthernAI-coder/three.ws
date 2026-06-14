@@ -71,6 +71,14 @@
 			<description>The support page now lists specialized, monitored contacts so your message reaches the right team fast: partnerships@three.ws for AWS Marketplace, IBM, and integration inquiries; privacy@three.ws for data requests; legal@three.ws for terms; dmca@three.ws for copyright notices; and abuse@three.ws for misuse reports — each with a one-tap copy button, alongside the existing support@ and security@ channels. Transactional emails now send from notifications@three.ws with replies routed to a real human at support@, and copyright takedowns route to a dedicated DMCA agent.</description>
 		</item>
 		<item>
+			<title>Copy any docs or tutorial page straight into your AI assistant</title>
+			<link>https://three.ws/docs</link>
+			<guid isPermaLink="false">2026-06-13:Copy any docs or tutorial page straight into your AI assistant</guid>
+			<pubDate>Sat, 13 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every page in the docs and tutorials now has a 'Copy page' button in the top-right. Click it to copy the full page as clean Markdown, ready to paste into Claude, ChatGPT, or any LLM. The dropdown beside it adds two more options: 'View as Markdown' opens the raw plain-text version in a new tab, and 'Open in Claude' launches Claude with the page already loaded so you can ask questions about it. Built for the way people actually read docs now — with an AI assistant open alongside.</description>
+		</item>
+		<item>
 			<title>Describe it to 3D joins the rest of the site — and the two generators now point at each other</title>
 			<link>https://three.ws/create/prompt</link>
 			<guid isPermaLink="false">2026-06-13:Describe it to 3D joins the rest of the site — and the two generators now point at each other</guid>

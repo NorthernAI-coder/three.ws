@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-13T14:19:18.109Z",
+	"generated_at": "2026-06-13T16:05:36.977Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -88,6 +88,17 @@
 			"link": "/support",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-13",
+			"type": "update",
+			"title": "Copy any docs or tutorial page straight into your AI assistant",
+			"summary": "Every page in the docs and tutorials now has a 'Copy page' button in the top-right. Click it to copy the full page as clean Markdown, ready to paste into Claude, ChatGPT, or any LLM. The dropdown beside it adds two more options: 'View as Markdown' opens the raw plain-text version in a new tab, and 'Open in Claude' launches Claude with the page already loaded so you can ask questions about it. Built for the way people actually read docs now — with an AI assistant open alongside.",
+			"link": "/docs",
+			"tags": [
+				"feature",
+				"docs"
 			]
 		},
 		{
