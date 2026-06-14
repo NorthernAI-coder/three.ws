@@ -756,6 +756,12 @@ URL: https://three.ws/blog
 
 Editorial index of three.ws launches and long-form posts.
 
+### See Your 3D Avatar in the Real World — AR Lands on three.ws
+
+URL: https://three.ws/blog/see-your-3d-in-ar
+
+Every 3D model and avatar on three.ws now has a View in AR button. On mobile it places the model in your real space through the camera. On desktop, a QR code gets you there in one scan. No app, no download.
+
 ### Text to 3D Is Live — Type a Prompt, Download a 3D Model
 
 URL: https://three.ws/blog/text-to-3d-is-live
@@ -779,6 +785,12 @@ three.ws is DEXTools
 URL: https://three.ws/blog/three-ws-featured-on-alibaba-cloud-marketplace-blog
 
 Alibaba Cloud Marketplace published an editorial on three.ws — browser-native 3D AI agents you deploy with a single <agent-3d> tag, with a Claude-powered runtime, ERC-8004 identity, and an Apache 2.0 open-source stack.
+
+### Showcasing the three.ws × IBM Partnership
+
+URL: https://three.ws/blog/three-ws-ibm-collaboration
+
+three.ws and IBM showcased their partnership: embedding a persistent, on-chain 3D agent into any platform as easily as a YouTube video, with the agent brain running on IBM watsonx.ai and Granite.
 
 ### We turned every memecoin into a live 3D world you can walk into
 
@@ -875,6 +887,12 @@ three.ws ships Agent Builder, an improved Studio design, and a major LLM Chat up
 URL: https://three.ws/blog/animation-emotion-control
 
 three.ws now ships full animation and emotion control for 3D agents, with live Pump.fun feed integration. Your agents react to any API or data feed in real time.
+
+### three.ws Is Now an Official IBM Business Partner
+
+URL: https://three.ws/blog/three-ws-ibm-business-partner
+
+three.ws has been accepted into IBM
 
 ### $THREE Listed on Coinbase, CoinGecko, Jupiter, and Investing.com
 
