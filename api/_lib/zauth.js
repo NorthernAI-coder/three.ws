@@ -64,8 +64,10 @@ function trackZauthFetch() {
 		const promise = realFetch(input, init);
 		if (url.includes(ZAUTH_HOST)) {
 			_inflight.add(promise);
-			const clear = () => _inflight.delete(promise);
-			promise.then(clear, clear);
+			promise.then(
+				() => { _inflight.delete(promise); console.log('[zauth] Batch submitted'); },
+				(err) => { _inflight.delete(promise); console.error('[zauth] Batch submit failed:', err.message); },
+			);
 		}
 		return promise;
 	};
@@ -171,8 +173,8 @@ function buildMiddleware() {
 			},
 		});
 		trackZauthFetch();
-		if (env.ZAUTH_DEBUG === '1' && !_bootLogged) {
-			console.log(`[zauth] middleware initialized (refunds:${refundEnabled ? 'on' : 'off'})`);
+		if (!_bootLogged) {
+			console.log(`[zauth] monitoring enabled (refunds:${refundEnabled ? 'on' : 'off'})`);
 			_bootLogged = true;
 		}
 		return mw;
