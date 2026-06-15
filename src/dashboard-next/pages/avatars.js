@@ -34,6 +34,7 @@ const integerNum = new Intl.NumberFormat('en');
 const state = {
 	tab: /** @type {'mine'|'community'} */ ('mine'),
 	all: /** @type {any[]} */ ([]),
+	loaded: false,
 	nextCursor: /** @type {string|null} */ (null),
 	loadingMore: false,
 	filter: { q: '', visibility: 'all', sort: 'newest' },
@@ -134,8 +135,24 @@ const state = {
 	wireFilters(main);
 	wireCommunityFilters(main);
 	wireNewMenu(main);
-	await loadInitial(main);
+
+	// Deep-link support: /dashboard/avatars#community opens straight on the
+	// Community tab (shareable / bookmarkable), and back/forward navigation
+	// between the two tabs works via hashchange.
+	window.addEventListener('hashchange', () => {
+		switchTab(main, tabFromHash());
+	});
+
+	if (tabFromHash() === 'community') {
+		switchTab(main, 'community');
+	} else {
+		await loadInitial(main);
+	}
 })();
+
+function tabFromHash() {
+	return (location.hash || '').replace('#', '') === 'community' ? 'community' : 'mine';
+}
 
 // ── Tab switching ────────────────────────────────────────────────────────
 
@@ -179,6 +196,12 @@ function switchTab(root, tab) {
 	const grid = root.querySelector('[data-grid]');
 	grid.dataset.ids = '';
 
+	// Reflect the active tab in the URL without adding history noise per click.
+	const targetHash = isCommunity ? '#community' : '';
+	if ((location.hash || '') !== targetHash) {
+		history.replaceState(null, '', `${location.pathname}${location.search}${targetHash}`);
+	}
+
 	if (isCommunity) {
 		if (state.community.loaded) {
 			renderCommunityGrid(root);
@@ -188,8 +211,12 @@ function switchTab(root, tab) {
 		}
 	} else {
 		teardownCommunityObserver();
-		renderGrid(root);
-		setupLoadMore(root);
+		if (state.loaded) {
+			renderGrid(root);
+			setupLoadMore(root);
+		} else {
+			loadInitial(root);
+		}
 	}
 }
 
@@ -204,6 +231,7 @@ async function loadInitial(root) {
 		const data = await get(`/api/avatars?limit=${PAGE_SIZE}`);
 		state.all = Array.isArray(data?.avatars) ? data.avatars : [];
 		state.nextCursor = data?.next_cursor || null;
+		state.loaded = true;
 		renderGrid(root);
 		setupLoadMore(root);
 	} catch (err) {
