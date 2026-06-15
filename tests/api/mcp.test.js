@@ -359,6 +359,35 @@ describe('Protocol layer', () => {
 		expect(names).toContain('list_my_avatars');
 	});
 
+	it('tools/list with no jsonrpc field still succeeds (minimal-client tolerance)', async () => {
+		authState.extracted = 'valid-token';
+		authState.bearer = FULL_AUTH;
+
+		// Minimal/legacy MCP clients omit the `jsonrpc: "2.0"` envelope on
+		// discovery calls. Rejecting those with -32600 broke interop; an absent
+		// version must be tolerated (auth/pricing still gate the call).
+		const { status, body } = await invoke({
+			body: { id: 1, method: 'tools/list', params: {} },
+			headers: { authorization: 'Bearer valid-token' },
+		});
+
+		expect(status).toBe(200);
+		expect(body.result.tools.length).toBeGreaterThan(0);
+	});
+
+	it('a present-but-wrong jsonrpc version is still rejected with -32600', async () => {
+		authState.extracted = 'valid-token';
+		authState.bearer = FULL_AUTH;
+
+		const { status, body } = await invoke({
+			body: { jsonrpc: '1.0', id: 1, method: 'tools/list', params: {} },
+			headers: { authorization: 'Bearer valid-token' },
+		});
+
+		expect(status).toBe(200);
+		expect(body.error.code).toBe(-32600);
+	});
+
 	it('unknown method returns JSON-RPC -32601 error', async () => {
 		authState.extracted = 'valid-token';
 		authState.bearer = FULL_AUTH;
