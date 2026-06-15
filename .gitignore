@@ -240,3 +240,8 @@ scripts/.corr-*
 /im-in-love-wit-a-stripper-fast.mp3
 /alleyway.glb
 /tour.glb
+
+# Root-level scratch/debug artifacts (one-off agent probe scripts + screenshots).
+# Anchored to root so legitimate underscore-prefixed files elsewhere are unaffected.
+/_*.mjs
+/_*.png
