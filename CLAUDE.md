@@ -132,6 +132,10 @@ $THREE holders follow the public changelog (three.ws/changelog, RSS, JSON, Teleg
 
 When the user says commit and/or push, execute it right away. Do NOT run the completionist subagent, audits, tests, diff reviews, scans, or any other pre-commit step first. Do NOT ask clarifying questions or pause for confirmation — staging, committing, and pushing IS the explicit approval. Just run the git commands and report the result.
 
+### Revert commit messages: NEVER echo the reverted content
+
+When reverting, do NOT use git's default `Revert "<original title>"` message — it reproduces the reverted commit's title (feature names, descriptions, $THREE specifics) right back into the permanent history, defeating the point of removing it. Write a neutral message instead, e.g. `Revert previous change` or `Roll back the prior commit`. Same rule for any follow-up/empty/redeploy commit: keep the message generic; never restate what was just removed.
+
 ## Git: push to BOTH remotes
 
 This workspace mirrors to two GitHub repos. Every push must go to both, or one deploy target falls behind.
