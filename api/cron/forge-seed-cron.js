@@ -217,12 +217,17 @@ async function startNextJob(origin) {
 	// finished model in the submit response with job_id:null — there is nothing
 	// to poll. Attribute it to the synthetic user right now.
 	if (submit.body?.status === 'done' && submit.body?.glb_url) {
-		await insertSeedAvatar({
-			userId: user.id,
-			prompt: chosen.prompt,
-			modelCategory: chosen.category,
-			creationId,
-		});
+		try {
+			await insertSeedAvatar({
+				userId: user.id,
+				prompt: chosen.prompt,
+				modelCategory: chosen.category,
+				creationId,
+			});
+		} catch (err) {
+			await sql`delete from users where id = ${user.id}`.catch(() => {});
+			return { ok: false, reason: `avatar insert failed: ${err?.message}` };
+		}
 		await sql`
 			insert into forge_seed_jobs
 				(user_id, raw_client_id, job_id, prompt, model_category,
