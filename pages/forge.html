@@ -49,7 +49,7 @@
 			.forge-main {
 				max-width: 1320px;
 				margin: 0 auto;
-				padding: var(--space-lg) var(--space-md) var(--space-2xl);
+				padding: var(--space-md) var(--space-md) var(--space-2xl);
 			}
 			.forge-head {
 				/* Reset the global site-nav `header` rule from style.css —
@@ -79,7 +79,8 @@
 			}
 			@media (min-width: 1080px) {
 				.forge-workspace {
-					grid-template-columns: minmax(370px, 430px) minmax(0, 1fr);
+					grid-template-columns: minmax(380px, 440px) minmax(0, 1fr);
+					gap: var(--space-xl);
 				}
 				.forge-rail {
 					position: sticky;
@@ -128,7 +129,6 @@
 			.composer-row {
 				display: flex;
 				align-items: center;
-				justify-content: space-between;
 				gap: var(--space-sm);
 				margin-top: var(--space-sm);
 				padding-top: var(--space-sm);
@@ -903,7 +903,13 @@
 
 			/* Workspace / states ------------------------------------------ */
 			.stage {
-				min-height: 480px;
+				min-height: min(calc(100svh - 200px), 700px);
+				display: flex;
+				flex-direction: column;
+			}
+			.stage > .panel,
+			.stage > .forge-empty {
+				flex: 1;
 			}
 
 			/* Idle — a live model, not a void. The newest community forge (or a
