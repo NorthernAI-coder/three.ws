@@ -143,6 +143,14 @@
 			<description>Validation in the Strategy Lab (three.ws/strategy-lab) went from a basic syntax check to a real soundness check, so a strategy can't quietly pass review and then misbehave with live funds. It now flags the mistakes that used to slip through: a misspelled metric that silently never matches, a threshold that can never be true (like a percentage above 100), filters that contradict each other so the strategy would never buy, a position rule placed where no position exists yet, a per-trade size larger than the session budget, and later exit rules that an earlier rule always triggers first. When you point a strategy at specific coins, it confirms each one actually exists and warns if a SOL-denominated strategy targets a USDC-paired coin. Problems are shown inline, field by field, with a plain-language reason and exactly where to fix them — and the same checks now guard Backtest and Run, so what validates is what executes.</description>
 		</item>
 		<item>
+			<title>The Forge grows itself — a new avatar or accessory every minute, tied to real accounts</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-15:The Forge grows itself — a new avatar or accessory every minute, tied to real accounts</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new auto-generation system creates a fresh 3D avatar or accessory every minute using the free NVIDIA lane and adds it to the community gallery. Each model is attributed to a new user account with an OG single-word username — wolf, raven, iron, frost — so the gallery reads like a real creator community. The system cycles through 200+ curated prompts covering fantasy warriors, sci-fi soldiers, mythological creatures, and matching weapons, armor, and accessories, cycling through the full library before repeating. Every model is a permanent GLB stored in our own CDN.</description>
+		</item>
+		<item>
 			<title>The pump.fun graduations feed stays fresh around the clock</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-15:The pump.fun graduations feed stays fresh around the clock</guid>

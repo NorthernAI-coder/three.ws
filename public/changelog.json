@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T05:36:12.534Z",
+	"generated_at": "2026-06-15T06:01:02.720Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -181,6 +181,16 @@
 			"link": "/strategy-lab",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "The Forge grows itself — a new avatar or accessory every minute, tied to real accounts",
+			"summary": "A new auto-generation system creates a fresh 3D avatar or accessory every minute using the free NVIDIA lane and adds it to the community gallery. Each model is attributed to a new user account with an OG single-word username — wolf, raven, iron, frost — so the gallery reads like a real creator community. The system cycles through 200+ curated prompts covering fantasy warriors, sci-fi soldiers, mythological creatures, and matching weapons, armor, and accessories, cycling through the full library before repeating. Every model is a permanent GLB stored in our own CDN.",
+			"link": "/forge",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -2258,6 +2258,231 @@
 			.hint-foot a {
 				color: var(--ink);
 			}
+
+			/* ── Forge Visual Upgrade ──────────────────────────────────────────
+			   Atmosphere, personality, and energy on top of the functional base.
+			   All overrides; nothing here changes layout or behaviour.
+			   ──────────────────────────────────────────────────────────────── */
+
+			/* Forge-local palette — violet-500 is the "heat" accent for this page
+			   only. Works in dark mode; light mode stays blue (--accent: #2563eb). */
+			:root {
+				--forge-violet: rgba(139, 92, 246, 1);
+				--forge-violet-glow: rgba(139, 92, 246, 0.10);
+				--forge-violet-soft: rgba(139, 92, 246, 0.07);
+				--forge-violet-text: #c4b5fd;
+			}
+
+			/* 1 — Page background: dual radial glows (violet behind hero,
+			        cooler slate behind the workspace). Atmospheric only; both
+			        fade to transparent so they don't colour the content. */
+			.forge-main {
+				position: relative;
+				isolation: isolate;
+			}
+			.forge-main::before {
+				content: '';
+				position: fixed;
+				top: -120px;
+				left: 50%;
+				transform: translateX(-50%);
+				width: min(900px, 110vw);
+				height: 560px;
+				border-radius: 50%;
+				background: radial-gradient(ellipse, var(--forge-violet-glow) 0%, transparent 68%);
+				pointer-events: none;
+				z-index: -1;
+			}
+			html[data-theme='light'] .forge-main::before {
+				background: radial-gradient(ellipse, rgba(37, 99, 235, 0.07) 0%, transparent 68%);
+			}
+			.forge-main::after {
+				content: '';
+				position: absolute;
+				top: 320px;
+				right: -15%;
+				width: 600px;
+				height: 600px;
+				border-radius: 50%;
+				background: radial-gradient(ellipse, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+				pointer-events: none;
+				z-index: -1;
+			}
+
+			/* 2 — Hero heading: violet → ink → bright white.
+			        Breaks the all-white-to-white monotony of the original. */
+			.forge-head h1 {
+				background: linear-gradient(
+					135deg,
+					var(--forge-violet-text) 0%,
+					var(--ink) 42%,
+					var(--ink-bright) 100%
+				);
+			}
+			html[data-theme='light'] .forge-head h1 {
+				background: linear-gradient(135deg, #2563eb 0%, #1d212b 45%, #0a0c12 100%);
+			}
+
+			/* 3 — Eyebrow: pulsing live dot. */
+			@keyframes forge-live-pulse {
+				0%, 100% { box-shadow: 0 0 6px var(--success); }
+				50% { box-shadow: 0 0 14px var(--success), 0 0 28px rgba(74, 222, 128, 0.2); }
+			}
+			.forge-eyebrow::before {
+				animation: forge-live-pulse 2.8s ease-in-out infinite;
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.forge-eyebrow::before { animation: none; }
+			}
+
+			/* Eyebrow pill: subtle gradient border in dark mode. */
+			html:not([data-theme='light']) .forge-eyebrow {
+				border-color: transparent;
+				background: linear-gradient(var(--bg-0), var(--bg-0)) padding-box,
+							linear-gradient(135deg, rgba(139,92,246,0.4), rgba(255,255,255,0.12)) border-box;
+			}
+
+			/* 4 — Composer card: deeper glass + violet accent glow on focus. */
+			.composer {
+				backdrop-filter: blur(24px);
+				-webkit-backdrop-filter: blur(24px);
+			}
+			.composer:focus-within {
+				border-color: rgba(255, 255, 255, 0.18);
+				box-shadow:
+					0 24px 60px -30px rgba(0, 0, 0, 0.85),
+					0 0 0 1px rgba(139, 92, 246, 0.18),
+					0 0 40px rgba(139, 92, 246, 0.05);
+			}
+			html[data-theme='light'] .composer:focus-within {
+				border-color: rgba(37, 99, 235, 0.3);
+				box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+			}
+
+			/* 5 — Generate button: shimmer sweep on hover + soft idle glow. */
+			#generate {
+				position: relative;
+				overflow: hidden;
+				box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.08);
+				transition:
+					transform 0.12s ease,
+					opacity 0.15s,
+					box-shadow 0.3s ease;
+			}
+			#generate::after {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(
+					100deg,
+					transparent 0%,
+					rgba(255, 255, 255, 0.25) 45%,
+					rgba(255, 255, 255, 0.06) 55%,
+					transparent 100%
+				);
+				transform: translateX(-110%);
+				transition: transform 0s;
+			}
+			#generate:not([disabled]):hover::after {
+				transform: translateX(110%);
+				transition: transform 0.5s ease;
+			}
+			#generate:not([disabled]) {
+				box-shadow: 0 2px 18px -4px rgba(255, 255, 255, 0.12);
+			}
+			#generate:not([disabled]):hover {
+				box-shadow:
+					0 0 0 4px var(--accent-soft),
+					0 8px 28px -8px rgba(255, 255, 255, 0.22),
+					0 2px 18px -4px rgba(255, 255, 255, 0.14);
+			}
+
+			/* 6 — Empty / idle state: larger, gradient-tinted, floating glyph. */
+			.notice .glyph {
+				font-size: 3.2rem;
+				display: inline-block;
+				background: linear-gradient(135deg, var(--forge-violet-text) 0%, rgba(255,255,255,0.18) 100%);
+				-webkit-background-clip: text;
+				background-clip: text;
+				color: transparent;
+				animation: forge-idle-float 5s ease-in-out infinite;
+				filter: drop-shadow(0 0 16px var(--forge-violet-glow));
+			}
+			@keyframes forge-idle-float {
+				0%, 100% { transform: translateY(0); }
+				50% { transform: translateY(-6px); }
+			}
+			html[data-theme='light'] .notice .glyph {
+				background: linear-gradient(135deg, #2563eb 0%, rgba(37, 99, 235, 0.35) 100%);
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.notice .glyph { animation: none; }
+			}
+
+			/* 7 — 3D viewer background: cool slate/indigo replaces the brownish warm. */
+			.result model-viewer,
+			.idle-viewer-wrap model-viewer {
+				background: radial-gradient(140% 130% at 50% 0%, #0f1123 0%, #080a10 70%);
+			}
+			html[data-theme='light'] .result model-viewer,
+			html[data-theme='light'] .idle-viewer-wrap model-viewer {
+				background: radial-gradient(140% 130% at 50% 0%, #e8eaf6 0%, #dde1f0 70%);
+			}
+
+			/* 8 — Result bar: hairline gradient top edge. */
+			.result-bar {
+				position: relative;
+			}
+			.result-bar::before {
+				content: '';
+				position: absolute;
+				top: 0; left: 5%; right: 5%;
+				height: 1px;
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(139, 92, 246, 0.3) 30%,
+					rgba(255, 255, 255, 0.14) 50%,
+					rgba(139, 92, 246, 0.3) 70%,
+					transparent
+				);
+			}
+			html[data-theme='light'] .result-bar::before {
+				background: linear-gradient(
+					90deg,
+					transparent,
+					rgba(37, 99, 235, 0.25) 30%,
+					rgba(37, 99, 235, 0.12) 50%,
+					rgba(37, 99, 235, 0.25) 70%,
+					transparent
+				);
+			}
+
+			/* 9 — Generation progress bar: gradient fill with violet leading edge. */
+			.gen-progress-fill {
+				background: linear-gradient(
+					90deg,
+					rgba(139, 92, 246, 0.7),
+					color-mix(in srgb, var(--accent) 80%, var(--forge-violet) 20%),
+					var(--accent)
+				);
+			}
+
+			/* 10 — Example chips: accent border + soft violet fill on hover. */
+			.chip:hover {
+				background: var(--forge-violet-soft);
+				border-color: rgba(139, 92, 246, 0.4);
+				color: var(--ink);
+			}
+			html[data-theme='light'] .chip:hover {
+				background: rgba(37, 99, 235, 0.06);
+				border-color: rgba(37, 99, 235, 0.3);
+			}
+
+			/* 11 — Stage panel: subtle gradient glow on the border in dark mode. */
+			html:not([data-theme='light']) .panel {
+				box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.06), 0 24px 64px -24px rgba(0,0,0,0.7);
+			}
 		</style>
 	
 	<link rel="canonical" href="https://three.ws/forge">

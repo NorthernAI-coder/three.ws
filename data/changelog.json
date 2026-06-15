@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "The Forge grows itself — a new avatar or accessory every minute, tied to real accounts",
+			"summary": "A new auto-generation system creates a fresh 3D avatar or accessory every minute using the free NVIDIA lane and adds it to the community gallery. Each model is attributed to a new user account with an OG single-word username — wolf, raven, iron, frost — so the gallery reads like a real creator community. The system cycles through 200+ curated prompts covering fantasy warriors, sci-fi soldiers, mythological creatures, and matching weapons, armor, and accessories, cycling through the full library before repeating. Every model is a permanent GLB stored in our own CDN.",
+			"tags": ["feature"],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Agents and items are now clearly separate — a teapot won't get a brain",
 			"summary": "Every 3D model you create is now clearly one of two things: an Agent (a character that thinks, talks, remembers, and can go on-chain) or an Item (a 3D object or prop for scenes and trading). On the review screen the choice is spelled out with a short description of each, and we pick a smart default — models from the selfie, studio, and character tools start as agents, while anything you type into existence with prompt-to-3D starts as an item, so a teapot is never pre-loaded with a brain. Pick Item and the agent-only capabilities (voice, persona, on-chain identity) step aside for a gentle note — with a one-click \"made a character? make it an agent\" escape hatch if the guess was wrong. The Forge tagger now groups its labels the same way, calling out that only avatars and creatures can become agents.",
 			"tags": ["improvement"],
