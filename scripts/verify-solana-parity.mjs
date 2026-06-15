@@ -40,6 +40,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -65,16 +66,66 @@ const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
  */
 function canonicalRegistry(pumpIds) {
 	return [
-		{ label: '$THREE mint', address: THREE_MINT, kind: 'token-2022-mint', names: ['THREE_MINT', 'THREE_TOKEN_MINT', 'TOKEN_MINT'] },
-		{ label: 'Pump bonding-curve program', address: pumpIds.PUMP_PROGRAM_ID, kind: 'program', names: ['PUMP_PROGRAM', 'PUMP_PROGRAM_ID'] },
-		{ label: 'PumpSwap AMM program', address: pumpIds.PUMP_AMM_PROGRAM_ID, kind: 'program', names: ['PUMP_AMM_PROGRAM', 'PUMP_AMM_PROGRAM_ID'] },
-		{ label: 'PumpFees program', address: pumpIds.PUMP_FEE_PROGRAM_ID, kind: 'program', names: ['PUMP_FEE_PROGRAM', 'PUMP_FEE_PROGRAM_ID'] },
-		{ label: 'SPL Token program', address: SPL_TOKEN_PROGRAM, kind: 'program', names: ['TOKEN_PROGRAM', 'TOKEN_PROGRAM_ID', 'SPL_TOKEN_PROGRAM_ID'] },
-		{ label: 'Token-2022 program', address: TOKEN_2022_PROGRAM, kind: 'program', names: ['TOKEN_2022_PROGRAM_ID', 'TOKEN2022_PROGRAM_ID'] },
-		{ label: 'Memo program', address: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr', kind: 'program', names: ['MEMO_PROGRAM', 'MEMO_PROGRAM_ID'] },
-		{ label: 'Associated-Token program', address: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL', kind: 'program', names: ['ASSOCIATED_TOKEN_PROGRAM_ID', 'ASSOCIATED_TOKEN_PROGRAM'] },
-		{ label: 'Wrapped SOL mint', address: pumpIds.WSOL_MINT, kind: 'token-mint', names: ['WSOL_MINT', 'WSOL', 'NATIVE_SOL_MINT', 'SOL_MINT'] },
-		{ label: 'USDC (mainnet) mint', address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', kind: 'token-mint', names: ['USDC_MINT', 'USDC_MAINNET_MINT', 'USDC_SOLANA_MINT'] },
+		{
+			label: '$THREE mint',
+			address: THREE_MINT,
+			kind: 'token-2022-mint',
+			names: ['THREE_MINT', 'THREE_TOKEN_MINT', 'TOKEN_MINT'],
+		},
+		{
+			label: 'Pump bonding-curve program',
+			address: pumpIds.PUMP_PROGRAM_ID,
+			kind: 'program',
+			names: ['PUMP_PROGRAM', 'PUMP_PROGRAM_ID'],
+		},
+		{
+			label: 'PumpSwap AMM program',
+			address: pumpIds.PUMP_AMM_PROGRAM_ID,
+			kind: 'program',
+			names: ['PUMP_AMM_PROGRAM', 'PUMP_AMM_PROGRAM_ID'],
+		},
+		{
+			label: 'PumpFees program',
+			address: pumpIds.PUMP_FEE_PROGRAM_ID,
+			kind: 'program',
+			names: ['PUMP_FEE_PROGRAM', 'PUMP_FEE_PROGRAM_ID'],
+		},
+		{
+			label: 'SPL Token program',
+			address: SPL_TOKEN_PROGRAM,
+			kind: 'program',
+			names: ['TOKEN_PROGRAM', 'TOKEN_PROGRAM_ID', 'SPL_TOKEN_PROGRAM_ID'],
+		},
+		{
+			label: 'Token-2022 program',
+			address: TOKEN_2022_PROGRAM,
+			kind: 'program',
+			names: ['TOKEN_2022_PROGRAM_ID', 'TOKEN2022_PROGRAM_ID'],
+		},
+		{
+			label: 'Memo program',
+			address: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr',
+			kind: 'program',
+			names: ['MEMO_PROGRAM', 'MEMO_PROGRAM_ID'],
+		},
+		{
+			label: 'Associated-Token program',
+			address: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+			kind: 'program',
+			names: ['ASSOCIATED_TOKEN_PROGRAM_ID', 'ASSOCIATED_TOKEN_PROGRAM'],
+		},
+		{
+			label: 'Wrapped SOL mint',
+			address: pumpIds.WSOL_MINT,
+			kind: 'token-mint',
+			names: ['WSOL_MINT', 'WSOL', 'NATIVE_SOL_MINT', 'SOL_MINT'],
+		},
+		{
+			label: 'USDC (mainnet) mint',
+			address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+			kind: 'token-mint',
+			names: ['USDC_MINT', 'USDC_MAINNET_MINT', 'USDC_SOLANA_MINT'],
+		},
 	];
 }
 
@@ -90,18 +141,24 @@ export async function loadCanonical({ root = ROOT } = {}) {
 	// $THREE mint: read the env.js default by regex (importing env.js pulls the
 	// whole server config surface; the literal default is all we need).
 	const envSrc = readFileSync(resolve(root, 'api/_lib/env.js'), 'utf8');
-	const m = envSrc.match(/opt\(\s*['"]THREE_TOKEN_MINT['"]\s*,\s*['"]([1-9A-HJ-NP-Za-km-z]{32,44})['"]\s*\)/);
+	const m = envSrc.match(
+		/opt\(\s*['"]THREE_TOKEN_MINT['"]\s*,\s*['"]([1-9A-HJ-NP-Za-km-z]{32,44})['"]\s*\)/,
+	);
 	const envMint = m?.[1];
 
 	const internal = [];
 	if (envMint !== THREE_MINT) {
-		internal.push(`api/_lib/env.js THREE_TOKEN_MINT default ${JSON.stringify(envMint)} != canonical ${THREE_MINT}`);
+		internal.push(
+			`api/_lib/env.js THREE_TOKEN_MINT default ${JSON.stringify(envMint)} != canonical ${THREE_MINT}`,
+		);
 	}
 	if (programs.WSOL_MINT !== 'So11111111111111111111111111111111111111112') {
 		internal.push(`api/_lib/solana/programs.js WSOL_MINT drifted: ${programs.WSOL_MINT}`);
 	}
 	if (internal.length) {
-		const err = new Error('canonical source-of-truth disagreement:\n  ' + internal.join('\n  '));
+		const err = new Error(
+			'canonical source-of-truth disagreement:\n  ' + internal.join('\n  '),
+		);
 		err.internal = internal;
 		throw err;
 	}
@@ -120,25 +177,39 @@ const SCAN_EXTS = /\.(js|mjs|ts)$/;
 const SCAN_SKIP = /(^|\/)(node_modules|dist|dist-lib|build|\.vercel|coverage)\//;
 // Minified/vendored third-party blobs (draco, codemirror, ktx2, *.bundle.js) and
 // test/fixture/IDL files. The catch-all is the minified-line guard in scanFile().
-const SCAN_SKIP_FILE = /(\.test\.|\.spec\.|\/fixtures\/|_demo-fixtures|\/idl\/|\.min\.js$|\.bundle\.js$|\/(libs|draco|ktx2|vendor|wasm)\/)/;
-// Authored source never has 20k-char lines; a file that does is a minified bundle.
-const MINIFIED_LINE = 20_000;
+const SCAN_SKIP_FILE =
+	/(\.test\.|\.spec\.|\/fixtures\/|_demo-fixtures|\/idl\/|\.min\.js$|\.bundle\.js$|\/(libs|draco|ktx2|vendor|wasm)\/)/;
 
 export function listSourceFiles({ root = ROOT } = {}) {
 	let files;
 	try {
-		const out = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+		const out = execFileSync('git', ['ls-files'], {
+			cwd: root,
+			encoding: 'utf8',
+			maxBuffer: 64 * 1024 * 1024,
+			stdio: ['ignore', 'pipe', 'pipe'],
+		});
 		files = out.split('\n').filter(Boolean);
 	} catch {
 		files = listOnDisk(root);
 	}
-	return files.filter((f) => SCAN_EXTS.test(f) && !SCAN_SKIP.test(`/${f}`) && !SCAN_SKIP_FILE.test(`/${f}`));
+	return files.filter(
+		(f) => SCAN_EXTS.test(f) && !SCAN_SKIP.test(`/${f}`) && !SCAN_SKIP_FILE.test(`/${f}`),
+	);
 }
 
 function listOnDisk(root) {
 	const out = [];
 	const stack = [''];
-	const skipDir = new Set(['node_modules', '.git', 'dist', 'dist-lib', 'build', '.vercel', 'coverage']);
+	const skipDir = new Set([
+		'node_modules',
+		'.git',
+		'dist',
+		'dist-lib',
+		'build',
+		'.vercel',
+		'coverage',
+	]);
 	while (stack.length) {
 		const rel = stack.pop();
 		let entries;
@@ -162,7 +233,9 @@ function listOnDisk(root) {
 // ---------------------------------------------------------------------------
 
 const BASE58 = '[1-9A-HJ-NP-Za-km-z]';
-const PUMP_LITERAL = new RegExp(`['"\`](${BASE58}{42,43}pump)['"\`]`, 'g');
+// A pump.fun mint is a 32–44 char base58 address ending in `pump`, so the prefix
+// before `pump` is 28–40 chars. Quoted so we only flag hardcoded literals.
+const PUMP_LITERAL = new RegExp(`['"\`](${BASE58}{28,40}pump)['"\`]`, 'g');
 
 /**
  * Scans first-party source for:
@@ -171,9 +244,14 @@ const PUMP_LITERAL = new RegExp(`['"\`](${BASE58}{42,43}pump)['"\`]`, 'g');
  *   - named-constant drift: any assignment to a canonical constant identifier
  *     whose base58 literal differs from the canonical address.
  *
- * Returns { problems } — each with file, line, and a precise diff string.
+ * Returns an array of problems — each with file, line, and a precise diff string.
+ * Reads files in parallel batches (the overlay FS is latency-bound, not
+ * throughput-bound) and scans each file's full text in a single regex pass.
  */
-export function scanForDrift(registry, { root = ROOT, files = listSourceFiles({ root }) } = {}) {
+export async function scanForDrift(
+	registry,
+	{ root = ROOT, files = listSourceFiles({ root }) } = {},
+) {
 	const problems = [];
 	// name → {address,label} lookup for the constant-assignment scan.
 	const byName = new Map();
@@ -181,53 +259,97 @@ export function scanForDrift(registry, { root = ROOT, files = listSourceFiles({ 
 	const nameAlternation = [...byName.keys()].sort((a, b) => b.length - a.length).join('|');
 	// `NAME = … 'BASE58'` or `NAME = new PublicKey('BASE58')`. \b guards against
 	// matching USDC_MINT inside USDC_MINT_DEVNET etc.
-	const assignRe = new RegExp(`\\b(${nameAlternation})\\b\\s*(?::[^=]+)?=\\s*(?:new\\s+PublicKey\\(\\s*)?['"\`](${BASE58}{32,44})['"\`]`, 'g');
+	const assignRe = new RegExp(
+		`\\b(${nameAlternation})\\b\\s*(?::[^=]+)?=\\s*(?:new\\s+PublicKey\\(\\s*)?['"\`](${BASE58}{32,44})['"\`]`,
+		'g',
+	);
 
-	for (const rel of files) {
-		let text;
-		try {
-			text = readFileSync(resolve(root, rel), 'utf8');
-		} catch {
-			continue;
+	// Match offsets back to line numbers without a per-line matchAll (which clones
+	// the alternation regex for every line of every file — the build-gate killer).
+	const lineNumberAt = (newlineOffsets, index) => {
+		let lo = 0;
+		let hi = newlineOffsets.length;
+		while (lo < hi) {
+			const mid = (lo + hi) >> 1;
+			if (newlineOffsets[mid] < index) lo = mid + 1;
+			else hi = mid;
 		}
-		const lines = text.split('\n');
-		// Defensive: skip any minified blob that slipped past the path filter —
-		// a single 1 MB line turns the per-line regexes into a CPU sink.
-		if (lines.some((l) => l.length > MINIFIED_LINE)) continue;
+		return lo + 1;
+	};
+	const lineTextAt = (text, index) => {
+		const start = text.lastIndexOf('\n', index - 1) + 1;
+		let end = text.indexOf('\n', index);
+		if (end === -1) end = text.length;
+		return text.slice(start, end);
+	};
 
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
+	const scanText = (rel, text) => {
+		if (text.length > 4_000_000) return; // generated bundle
 
-			// 1. rogue / drifted $THREE mint
-			for (const mt of line.matchAll(PUMP_LITERAL)) {
-				if (mt[1] !== THREE_MINT) {
-					problems.push({
-						type: 'rogue-coin',
-						file: rel,
-						line: i + 1,
-						detail: `hardcoded pump.fun mint "${mt[1]}" is not the canonical $THREE CA ${THREE_MINT} — $THREE is the only coin (CLAUDE.md); fix or remove`,
-					});
-				}
-			}
+		// Single linear newline scan: feeds both the minified-blob guard (max line
+		// length) and offset→line mapping. Avoids the O(n²) /[^\n]{20000}/ regex.
+		const newlineOffsets = [];
+		let prev = -1;
+		let maxLine = 0;
+		for (let p = text.indexOf('\n'); p !== -1; p = text.indexOf('\n', p + 1)) {
+			newlineOffsets.push(p);
+			if (p - prev > maxLine) maxLine = p - prev;
+			prev = p;
+		}
+		if (text.length - prev > maxLine) maxLine = text.length - prev;
+		// Authored source never has 20k-char lines; a file that does is a minified
+		// blob that slipped past the path filter — skip it.
+		if (maxLine > 20_000) return;
 
-			// 2. drifted canonical constant
-			for (const mt of line.matchAll(assignRe)) {
-				const entry = byName.get(mt[1]);
-				const got = mt[2];
-				if (entry && got !== entry.address) {
-					// A devnet/test variant legitimately differs — skip lines that
-					// self-identify as such (e.g. SOLANA_USDC_MINT_DEVNET on its own line).
-					if (/devnet|testnet|localnet/i.test(line)) continue;
-					problems.push({
-						type: 'const-drift',
-						file: rel,
-						line: i + 1,
-						detail: `${mt[1]} = ${got} but canonical ${entry.label} is ${entry.address}`,
-					});
-				}
+		// 1. rogue / drifted $THREE mint — one whole-file pass.
+		PUMP_LITERAL.lastIndex = 0;
+		for (let mt = PUMP_LITERAL.exec(text); mt; mt = PUMP_LITERAL.exec(text)) {
+			if (mt[1] !== THREE_MINT) {
+				problems.push({
+					type: 'rogue-coin',
+					file: rel,
+					line: lineNumberAt(newlineOffsets, mt.index),
+					detail: `hardcoded pump.fun mint "${mt[1]}" is not the canonical $THREE CA ${THREE_MINT} — $THREE is the only coin (CLAUDE.md); fix or remove`,
+				});
 			}
 		}
+
+		// 2. drifted canonical constant — one whole-file pass.
+		assignRe.lastIndex = 0;
+		for (let mt = assignRe.exec(text); mt; mt = assignRe.exec(text)) {
+			const entry = byName.get(mt[1]);
+			const got = mt[2];
+			if (entry && got !== entry.address) {
+				const lineText = lineTextAt(text, mt.index);
+				// A devnet/test variant legitimately differs — skip lines that
+				// self-identify as such (e.g. SOLANA_USDC_MINT_DEVNET on its own line).
+				if (/devnet|testnet|localnet/i.test(lineText)) continue;
+				problems.push({
+					type: 'const-drift',
+					file: rel,
+					line: lineNumberAt(newlineOffsets, mt.index),
+					detail: `${mt[1]} = ${got} but canonical ${entry.label} is ${entry.address}`,
+				});
+			}
+		}
+	};
+
+	const BATCH = 64;
+	for (let i = 0; i < files.length; i += BATCH) {
+		await Promise.all(
+			files.slice(i, i + BATCH).map(async (rel) => {
+				let text;
+				try {
+					text = await readFile(resolve(root, rel), 'utf8');
+				} catch {
+					return;
+				}
+				scanText(rel, text);
+			}),
+		);
 	}
+	// Stable order regardless of read-completion races, so a CI diff is reproducible.
+	problems.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 	return problems;
 }
 
@@ -237,7 +359,8 @@ export function scanForDrift(registry, { root = ROOT, files = listSourceFiles({ 
 // ---------------------------------------------------------------------------
 
 function rpcEndpoint(env = process.env) {
-	if (env.SOLANA_RPC_URL && !/api\.mainnet-beta\.solana\.com/.test(env.SOLANA_RPC_URL)) return env.SOLANA_RPC_URL;
+	if (env.SOLANA_RPC_URL && !/api\.mainnet-beta\.solana\.com/.test(env.SOLANA_RPC_URL))
+		return env.SOLANA_RPC_URL;
 	if (env.HELIUS_API_KEY) return `https://mainnet.helius-rpc.com/?api-key=${env.HELIUS_API_KEY}`;
 	return env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 }
@@ -247,7 +370,12 @@ async function getAccountInfo(url, address) {
 		const res = await fetch(url, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getAccountInfo', params: [address, { encoding: 'jsonParsed' }] }),
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				id: 1,
+				method: 'getAccountInfo',
+				params: [address, { encoding: 'jsonParsed' }],
+			}),
 			signal: AbortSignal.timeout(15_000),
 		});
 		if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
@@ -290,11 +418,24 @@ export async function checkLiveProvenance(registry, { env = process.env } = {}) 
 			if (r.value.executable) ok.push({ ...ctx, note: 'executable' });
 			else wrong.push({ ...ctx, reason: `not executable (owner ${owner})` });
 		} else if (entry.kind === 'token-2022-mint') {
-			if (owner === TOKEN_2022_PROGRAM && program === 'spl-token-2022') ok.push({ ...ctx, note: 'token-2022 mint' });
-			else wrong.push({ ...ctx, reason: `expected a Token-2022 mint, got owner ${owner} (${program})` });
+			if (owner === TOKEN_2022_PROGRAM && program === 'spl-token-2022')
+				ok.push({ ...ctx, note: 'token-2022 mint' });
+			else
+				wrong.push({
+					...ctx,
+					reason: `expected a Token-2022 mint, got owner ${owner} (${program})`,
+				});
 		} else if (entry.kind === 'token-mint') {
-			if ((owner === SPL_TOKEN_PROGRAM || owner === TOKEN_2022_PROGRAM) && program?.startsWith('spl-token')) ok.push({ ...ctx, note: `${program} mint` });
-			else wrong.push({ ...ctx, reason: `expected an SPL mint, got owner ${owner} (${program})` });
+			if (
+				(owner === SPL_TOKEN_PROGRAM || owner === TOKEN_2022_PROGRAM) &&
+				program?.startsWith('spl-token')
+			)
+				ok.push({ ...ctx, note: `${program} mint` });
+			else
+				wrong.push({
+					...ctx,
+					reason: `expected an SPL mint, got owner ${owner} (${program})`,
+				});
 		}
 	}
 	return { wrong, unreachable, ok };
@@ -317,33 +458,46 @@ if (isMain) {
 		process.exit(1);
 	}
 
-	const problems = scanForDrift(registry);
+	const problems = await scanForDrift(registry);
 	if (problems.length) {
 		failed = true;
 		const rogue = problems.filter((p) => p.type === 'rogue-coin');
 		const drift = problems.filter((p) => p.type === 'const-drift');
-		if (rogue.length) console.error(`[verify:solana] FAIL — ${rogue.length} non-$THREE coin / drifted mint literal(s):`);
+		if (rogue.length)
+			console.error(
+				`[verify:solana] FAIL — ${rogue.length} non-$THREE coin / drifted mint literal(s):`,
+			);
 		for (const p of rogue) console.error(`  ${p.file}:${p.line} — ${p.detail}`);
-		if (drift.length) console.error(`[verify:solana] FAIL — ${drift.length} drifted Solana constant(s):`);
+		if (drift.length)
+			console.error(`[verify:solana] FAIL — ${drift.length} drifted Solana constant(s):`);
 		for (const p of drift) console.error(`  ${p.file}:${p.line} — ${p.detail}`);
 	} else {
-		console.log(`[verify:solana] parity OK — $THREE mint + ${registry.length - 1} canonical Solana addresses consistent across all first-party source`);
+		console.log(
+			`[verify:solana] parity OK — $THREE mint + ${registry.length - 1} canonical Solana addresses consistent across all first-party source`,
+		);
 	}
 
 	const liveOn = (process.env.VERIFY_SOLANA_LIVE ?? '1') !== '0';
 	if (liveOn) {
 		const { wrong, unreachable, ok } = await checkLiveProvenance(registry);
-		for (const e of ok) console.log(`[verify:solana] live  ${e.label} ${e.address} — ${e.note}`);
+		for (const e of ok)
+			console.log(`[verify:solana] live  ${e.label} ${e.address} — ${e.note}`);
 		if (unreachable.length) {
-			console.warn(`[verify:solana] WARN — ${unreachable.length} account(s) unreachable (network — not failing the build):`);
+			console.warn(
+				`[verify:solana] WARN — ${unreachable.length} account(s) unreachable (network — not failing the build):`,
+			);
 			for (const u of unreachable) console.warn(`  ${u.label} ${u.address} — ${u.error}`);
 		}
 		if (wrong.length) {
 			failed = true;
-			console.error(`[verify:solana] FAIL — ${wrong.length} account(s) are the wrong kind on-chain:`);
+			console.error(
+				`[verify:solana] FAIL — ${wrong.length} account(s) are the wrong kind on-chain:`,
+			);
 			for (const w of wrong) console.error(`  ${w.label} ${w.address} — ${w.reason}`);
 		}
-		console.log(`[verify:solana] live check — ${ok.length} verified, ${wrong.length} wrong, ${unreachable.length} unreachable`);
+		console.log(
+			`[verify:solana] live check — ${ok.length} verified, ${wrong.length} wrong, ${unreachable.length} unreachable`,
+		);
 	} else {
 		console.log('[verify:solana] live provenance check skipped (VERIFY_SOLANA_LIVE=0)');
 	}

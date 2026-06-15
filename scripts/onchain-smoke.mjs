@@ -39,6 +39,8 @@
  *   SMOKE_AUTH_COOKIE            session cookie for pin + pump endpoints (these require a logged-in session)
  *   SMOKE_BASE_URL               deployed API origin for the Solana + x402 HTTP steps
  *   SMOKE_SOLANA_PRIVATE_KEY     funded devnet signer (bs58) for pump launch/trade + agent_invocation
+ *   SMOKE_SOLANA_AGENT_ID        agent_identities UUID to launch under (step 5; distinct from the numeric EVM agentId)
+ *   SMOKE_SOLANA_MINT            reuse an existing devnet mint for the trade step without launching (step 6)
  *   SMOKE_X402_NAME              a resolvable @handle / .sol name for the x402 pay-by-name prep (step 7)
  *   SOLANA_RPC_URL_DEVNET        devnet RPC (default https://api.devnet.solana.com)
  *
@@ -61,7 +63,6 @@ import {
 	REPUTATION_REGISTRY_ABI,
 	VALIDATION_REGISTRY_ABI,
 	REGISTRY_DEPLOYMENTS as SDK_DEPLOYMENTS,
-	agentRegistryId,
 } from '../sdk/src/erc8004/abi.js';
 import { REGISTRY_DEPLOYMENTS as SRC_DEPLOYMENTS } from '../src/erc8004/abi.js';
 import { CHAIN_BY_ID } from '../api/_lib/erc8004-chains.js';
@@ -241,7 +242,9 @@ function inlineParityProblems() {
 		const src = SRC_DEPLOYMENTS[id];
 		const sdk = SDK_DEPLOYMENTS[id];
 		if (!src || !sdk) {
-			problems.push(`chain ${id}: present only in ${src ? 'src/erc8004/abi.js' : 'sdk/src/erc8004/abi.js'}`);
+			problems.push(
+				`chain ${id}: present only in ${src ? 'src/erc8004/abi.js' : 'sdk/src/erc8004/abi.js'}`,
+			);
 			continue;
 		}
 		for (const slot of ['identityRegistry', 'reputationRegistry', 'validationRegistry']) {
@@ -268,47 +271,93 @@ function inlineParityProblems() {
 }
 
 async function stepParity(cfg) {
-	// Prefer the dedicated task-05 guard when present (it also owns the canonical
-	// DEPLOYMENTS.md provenance check); fall back to the inline comparison so this
-	// step is meaningful before task 05 lands.
+	// Prefer the dedicated task-05 guard when present — it owns address parity, the
+	// drift trap, and the live-bytecode sweep, and is also wired into the Vercel
+	// build. Delegating avoids two divergent parity implementations.
 	const parityScript = resolve(ROOT, 'scripts/verify-onchain-parity.mjs');
-	let source = 'inline';
 	if (existsSync(parityScript)) {
-		const r = spawnSync(process.execPath, [parityScript], { encoding: 'utf8' });
-		if (r.status !== 0) {
-			return fail(
-				`verify-onchain-parity.mjs exited ${r.status}: ${(r.stderr || r.stdout || '').trim().split('\n').slice(-3).join(' | ')}`,
+		// Default to the offline address-parity check (deterministic, no egress) so
+		// CI never blocks on RPC transport noise. The live bytecode sweep — which
+		// hits up to 5 RPCs × 12s per address — is opt-in via --mainnet-readonly.
+		const liveChains = cfg.mainnetReadonly
+			? process.env.VERIFY_ONCHAIN_CHAINS || '8453,84532'
+			: 'none';
+		const r = spawnSync(process.execPath, [parityScript], {
+			encoding: 'utf8',
+			timeout: 90_000,
+			env: { ...process.env, VERIFY_ONCHAIN_CHAINS: liveChains },
+		});
+		if (r.error && (r.error.code === 'ETIMEDOUT' || r.signal)) {
+			// Network sweep hung — fall back to the offline inline parity so the
+			// drift assertion still runs deterministically.
+			const problems = inlineParityProblems();
+			if (problems.length) {
+				return fail(`${problems.length} mismatch(es): ${problems.slice(0, 4).join('; ')}`);
+			}
+			return pass(
+				'address parity OK (inline; verify-onchain-parity.mjs live sweep timed out)',
 			);
 		}
-		source = 'verify-onchain-parity.mjs';
-	} else {
-		const problems = inlineParityProblems();
-		if (problems.length) {
-			return fail(`${problems.length} address mismatch(es): ${problems.slice(0, 4).join('; ')}`);
+		if (r.status !== 0) {
+			const tail = ((r.stdout || '') + (r.stderr || ''))
+				.trim()
+				.split('\n')
+				.slice(-3)
+				.join(' | ');
+			return fail(`verify-onchain-parity.mjs exited ${r.status}: ${tail}`);
 		}
+		return pass(
+			`address parity OK via verify-onchain-parity.mjs${cfg.mainnetReadonly ? ' (+ live bytecode sweep)' : ''}`,
+		);
 	}
 
-	// Live bytecode probe (read-only) on Base mainnet + Base Sepolia. A null
-	// address is skipped; an empty-code result at a configured address is a real
-	// FAIL; a network error degrades to a warning so CI without RPC stays green.
+	// Fallback (task-05 script absent): inline parity across the three sources …
+	const problems = inlineParityProblems();
+	if (problems.length) {
+		return fail(`${problems.length} address mismatch(es): ${problems.slice(0, 4).join('; ')}`);
+	}
+	// … plus a bounded live bytecode probe on Base mainnet + Base Sepolia. An empty
+	// code result is a real FAIL; a network error/timeout degrades to a warning.
 	const probes = [];
 	for (const id of BYTECODE_PROBE_CHAINS) {
-		const dep = SDK_DEPLOYMENTS[id];
-		const addr = dep && dep.identityRegistry;
+		const addr = SDK_DEPLOYMENTS[id]?.identityRegistry;
 		if (!addr) continue;
 		try {
 			const provider = await evmFallbackProvider(id);
 			const code = await withTimeout(provider.getCode(addr), 8000, `getCode chain ${id}`);
-			if (!code || code === '0x') {
+			if (!code || code === '0x')
 				return fail(`chain ${id}: identityRegistry ${addr} has no bytecode`);
-			}
 			probes.push(`${id}:code✓`);
 		} catch (err) {
 			probes.push(`${id}:rpc-skip(${(err.message || 'network').slice(0, 24)})`);
 		}
 	}
-	const probeNote = probes.length ? ` · bytecode ${probes.join(' ')}` : '';
-	return pass(`address parity OK via ${source}${probeNote}`);
+	return pass(
+		`address parity OK (inline)${probes.length ? ` · bytecode ${probes.join(' ')}` : ''}`,
+	);
+}
+
+/**
+ * Compose a three.ws 3D Agent Card (the ERC-8004 registration base from
+ * buildRegistrationJSON, plus the v1 `model` superset the card schema requires).
+ */
+function buildCard({ name, description, glbUrl, agentId, chainId, registryAddr, glbSha, glbSize }) {
+	const base = buildRegistrationJSON({
+		name,
+		description,
+		glbUrl,
+		imageUrl: '',
+		agentId,
+		chainId,
+		registryAddr,
+		services: [],
+		x402Support: true,
+	});
+	return {
+		...base,
+		type: [ERC8004_TYPE, THREEWS_CARD_TYPE],
+		model: { uri: glbUrl, format: 'gltf-binary', sha256: glbSha, sizeBytes: glbSize },
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -329,7 +378,9 @@ async function stepEvmRegister(cfg, ctx) {
 	const signer = new Wallet(cfg.evmKey, provider);
 	const balance = await provider.getBalance(signer.address);
 	if (balance === 0n) {
-		return skip(`signer ${signer.address} has 0 balance on chain ${chainId} — fund it from a faucet`);
+		return skip(
+			`signer ${signer.address} has 0 balance on chain ${chainId} — fund it from a faucet`,
+		);
 	}
 
 	const registry = new Contract(dep.identityRegistry, IDENTITY_REGISTRY_ABI, signer);
@@ -355,28 +406,22 @@ async function stepEvmRegister(cfg, ctx) {
 	const agentId = Number(registered.args.agentId);
 
 	// 3. Build the 3D Agent Card (ERC-8004 base + the v1 `model` superset) and pin.
-	const base = buildRegistrationJSON({
+	const card = buildCard({
 		name: 'three.ws smoke agent',
-		description: 'Synthetic agent minted by scripts/onchain-smoke.mjs against testnet. Not a product launch.',
+		description:
+			'Synthetic agent minted by scripts/onchain-smoke.mjs against testnet. Not a product launch.',
 		glbUrl,
-		imageUrl: '',
 		agentId,
 		chainId,
 		registryAddr: dep.identityRegistry,
-		services: [],
-		x402Support: true,
+		glbSha,
+		glbSize: glb.length,
 	});
-	const card = {
-		...base,
-		type: [ERC8004_TYPE, THREEWS_CARD_TYPE],
-		model: {
-			uri: glbUrl,
-			format: 'gltf-binary',
-			sha256: glbSha,
-			sizeBytes: glb.length,
-		},
-	};
-	const cardUri = await pinBytes(Buffer.from(JSON.stringify(card), 'utf8'), 'application/json', cfg);
+	const cardUri = await pinBytes(
+		Buffer.from(JSON.stringify(card), 'utf8'),
+		'application/json',
+		cfg,
+	);
 
 	// 4. setAgentURI → point the on-chain pointer at the final card.
 	await (await registry.setAgentURI(agentId, cardUri)).wait();
@@ -439,7 +484,9 @@ async function stepEvmValidation(cfg, ctx) {
 		return skip('no agentId — run step 2 in the same invocation or set SMOKE_AGENT_ID');
 	}
 	if (!cfg.evmKey) {
-		return skip('no funded validator signer — set SMOKE_EVM_PRIVATE_KEY (must be allow-listed on the registry)');
+		return skip(
+			'no funded validator signer — set SMOKE_EVM_PRIVATE_KEY (must be allow-listed on the registry)',
+		);
 	}
 
 	const provider = ctx.evm?.provider ?? (await evmFallbackProvider(chainId));
@@ -547,9 +594,12 @@ async function stepEvmReputation(cfg, ctx) {
 	if (countAfter <= countBefore) {
 		return fail(`reputation count did not increment (${countBefore} -> ${countAfter})`);
 	}
-	return pass(`feedback from ${reviewer.address.slice(0, 10)}… · count ${countBefore} -> ${countAfter}`, {
-		reputationTx: tx.hash,
-	});
+	return pass(
+		`feedback from ${reviewer.address.slice(0, 10)}… · count ${countBefore} -> ${countAfter}`,
+		{
+			reputationTx: tx.hash,
+		},
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -577,9 +627,11 @@ async function stepSolanaLaunch(cfg, ctx) {
 	if (!cfg.baseUrl) missing.push('SMOKE_BASE_URL');
 	if (!cfg.authCookie) missing.push('SMOKE_AUTH_COOKIE');
 	if (!cfg.solanaKey) missing.push('SMOKE_SOLANA_PRIVATE_KEY');
-	if (cfg.agentId == null) missing.push('SMOKE_AGENT_ID');
+	if (!cfg.solanaAgentId) missing.push('SMOKE_SOLANA_AGENT_ID');
 	if (missing.length) {
-		return skip(`devnet value step — set ${missing.join(', ')} (funded devnet wallet linked to the account)`);
+		return skip(
+			`devnet value step — set ${missing.join(', ')} (funded devnet wallet linked to the account)`,
+		);
 	}
 
 	const sol = await loadSolana();
@@ -591,7 +643,7 @@ async function stepSolanaLaunch(cfg, ctx) {
 	const prep = await httpJson('POST', `${cfg.baseUrl}/api/pump/launch-prep`, {
 		cookie: cfg.authCookie,
 		body: {
-			agent_id: cfg.agentId,
+			agent_id: cfg.solanaAgentId,
 			wallet_address: wallet.publicKey.toBase58(),
 			name: 'three.ws smoke',
 			symbol: 'SMOKE',
@@ -601,7 +653,10 @@ async function stepSolanaLaunch(cfg, ctx) {
 			sol_buy_in: 0,
 		},
 	});
-	if (!prep.ok) return fail(`launch-prep ${prep.status}: ${prep.json?.message || prep.text?.slice(0, 160)}`);
+	if (!prep.ok)
+		return fail(
+			`launch-prep ${prep.status}: ${prep.json?.message || prep.text?.slice(0, 160)}`,
+		);
 
 	const { prep_id, mint, mint_secret_key_b64, tx_base64 } = prep.json;
 	const txn = VersionedTransaction.deserialize(Buffer.from(tx_base64, 'base64'));
@@ -620,7 +675,10 @@ async function stepSolanaLaunch(cfg, ctx) {
 		cookie: cfg.authCookie,
 		body: { prep_id, tx_signature: sig },
 	});
-	if (!confirm.ok) return fail(`launch-confirm ${confirm.status}: ${confirm.json?.message || confirm.text?.slice(0, 160)}`);
+	if (!confirm.ok)
+		return fail(
+			`launch-confirm ${confirm.status}: ${confirm.json?.message || confirm.text?.slice(0, 160)}`,
+		);
 
 	ctx.solana = { mint, wallet };
 	return pass(`launched mint ${mint.slice(0, 8)}… on devnet · pump_agent_mints row recorded`, {
@@ -647,29 +705,44 @@ async function stepSolanaTrade(cfg, ctx) {
 	const wallet = ctx.solana?.wallet || solanaKeypairFrom(sol, cfg.solanaKey);
 	const conn = new Connection(cfg.solanaRpcDevnet, 'confirmed');
 
+	const solAmount = 0.001;
 	const prep = await httpJson('POST', `${cfg.baseUrl}/api/pump/buy-prep`, {
 		cookie: cfg.authCookie,
 		body: {
 			mint,
 			wallet_address: wallet.publicKey.toBase58(),
-			sol_amount: 0.001,
+			sol: solAmount,
 			network: 'devnet',
 		},
 	});
-	if (!prep.ok) return fail(`buy-prep ${prep.status}: ${prep.json?.message || prep.text?.slice(0, 160)}`);
+	if (!prep.ok)
+		return fail(`buy-prep ${prep.status}: ${prep.json?.message || prep.text?.slice(0, 160)}`);
 
 	const txn = VersionedTransaction.deserialize(Buffer.from(prep.json.tx_base64, 'base64'));
 	txn.sign([wallet]);
 	const sig = await conn.sendRawTransaction(txn.serialize(), { skipPreflight: false });
 	await conn.confirmTransaction(sig, 'confirmed');
 
+	// buy-confirm verifies the tx on-chain; route comes back from buy-prep.
 	const confirm = await httpJson('POST', `${cfg.baseUrl}/api/pump/buy-confirm`, {
 		cookie: cfg.authCookie,
-		body: { prep_id: prep.json.prep_id, mint, tx_signature: sig, network: 'devnet' },
+		body: {
+			mint,
+			network: 'devnet',
+			tx_signature: sig,
+			wallet_address: wallet.publicKey.toBase58(),
+			sol: solAmount,
+			route: prep.json.route,
+		},
 	});
-	if (!confirm.ok) return fail(`buy-confirm ${confirm.status}: ${confirm.json?.message || confirm.text?.slice(0, 160)}`);
+	if (!confirm.ok)
+		return fail(
+			`buy-confirm ${confirm.status}: ${confirm.json?.message || confirm.text?.slice(0, 160)}`,
+		);
 
-	return pass(`bought ${mint.slice(0, 8)}… on devnet · confirmed sig ${sig.slice(0, 10)}…`, { tradeSig: sig });
+	return pass(`bought ${mint.slice(0, 8)}… on devnet · confirmed sig ${sig.slice(0, 10)}…`, {
+		tradeSig: sig,
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -677,9 +750,12 @@ async function stepSolanaTrade(cfg, ctx) {
 // ---------------------------------------------------------------------------
 
 async function stepX402PayByName(cfg) {
-	if (!cfg.baseUrl) return skip('no SMOKE_BASE_URL — x402 pay-by-name runs against the deployed API');
+	if (!cfg.baseUrl)
+		return skip('no SMOKE_BASE_URL — x402 pay-by-name runs against the deployed API');
 	if (!cfg.x402Name) {
-		return skip('no SMOKE_X402_NAME — set a resolvable @handle or .sol name to exercise the prep build');
+		return skip(
+			'no SMOKE_X402_NAME — set a resolvable @handle or .sol name to exercise the prep build',
+		);
 	}
 
 	// 1. Resolve the name (read-only).
@@ -688,7 +764,9 @@ async function stepX402PayByName(cfg) {
 		`${cfg.baseUrl}/api/x402/pay-by-name?name=${encodeURIComponent(cfg.x402Name)}`,
 	);
 	if (!resolved.ok) {
-		return fail(`resolve "${cfg.x402Name}" -> ${resolved.status}: ${resolved.json?.message || resolved.text?.slice(0, 120)}`);
+		return fail(
+			`resolve "${cfg.x402Name}" -> ${resolved.status}: ${resolved.json?.message || resolved.text?.slice(0, 120)}`,
+		);
 	}
 	const recipient = resolved.json?.data?.address;
 	if (!recipient) return fail(`resolve returned no address for "${cfg.x402Name}"`);
@@ -700,12 +778,16 @@ async function stepX402PayByName(cfg) {
 		body: { name: cfg.x402Name, amount_usdc: 0.01, mode: 'prep', payer_wallet: payer },
 	});
 	if (!prep.ok) {
-		return fail(`prep build -> ${prep.status}: ${prep.json?.message || prep.text?.slice(0, 120)}`);
+		return fail(
+			`prep build -> ${prep.status}: ${prep.json?.message || prep.text?.slice(0, 120)}`,
+		);
 	}
 	const txB64 = prep.json?.data?.tx_base64 || prep.json?.tx_base64;
 	if (!txB64) return fail('prep build returned no tx_base64');
 
-	return pass(`resolved "${cfg.x402Name}" -> ${recipient.slice(0, 8)}… · prep tx built (not broadcast)`);
+	return pass(
+		`resolved "${cfg.x402Name}" -> ${recipient.slice(0, 8)}… · prep tx built (not broadcast)`,
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -713,20 +795,27 @@ async function stepX402PayByName(cfg) {
 // ---------------------------------------------------------------------------
 
 async function stepSolanaInvoke(cfg) {
-	let sdk;
+	// Read the program id from the light IDL module first — deciding SKIP without
+	// pulling the heavy Anchor runtime keeps the common (undeployed) path fast.
+	let programId;
 	try {
-		sdk = await import('../agent-protocol-sdk/dist/index.js');
+		({ AGENT_INVOCATION_PROGRAM_ID: programId } =
+			await import('../agent-protocol-sdk/dist/idl.js'));
 	} catch (err) {
 		return fail(`agent-protocol-sdk not built (run its build): ${err.message}`);
 	}
-	const programId = sdk.AGENT_INVOCATION_PROGRAM_ID;
 	if (!programId || programId === AGENT_INVOCATION_PLACEHOLDER) {
-		return skip('agent_invocation program not deployed — id is the Anchor placeholder (task 03 pending)');
+		return skip(
+			'agent_invocation program not deployed — id is the Anchor placeholder (task 03 pending)',
+		);
 	}
 	if (!cfg.solanaKey) {
-		return skip('no funded devnet invoker — set SMOKE_SOLANA_PRIVATE_KEY');
+		return skip(
+			`no funded devnet invoker — set SMOKE_SOLANA_PRIVATE_KEY (program ${programId.slice(0, 8)}…)`,
+		);
 	}
 
+	const sdk = await import('../agent-protocol-sdk/dist/index.js');
 	const sol = await loadSolana();
 	const { Connection } = sol;
 	const invoker = solanaKeypairFrom(sol, cfg.solanaKey);
@@ -743,7 +832,10 @@ async function stepSolanaInvoke(cfg) {
 	});
 
 	// Assert the SkillInvoked event is in the confirmed tx's program logs.
-	const txInfo = await conn.getTransaction(sig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 });
+	const txInfo = await conn.getTransaction(sig, {
+		commitment: 'confirmed',
+		maxSupportedTransactionVersion: 0,
+	});
 	if (!txInfo || txInfo.meta?.err) {
 		return fail(`invoke_skill tx ${sig} not confirmed cleanly`);
 	}
@@ -751,7 +843,10 @@ async function stepSolanaInvoke(cfg) {
 	const sawEvent = logs.some((l) => /SkillInvoked|Program data:/.test(l));
 	if (!sawEvent) return fail('invoke_skill confirmed but no SkillInvoked event in logs');
 
-	return pass(`invoke_skill confirmed on devnet · SkillInvoked emitted · sig ${sig.slice(0, 10)}…`, { invokeSig: sig });
+	return pass(
+		`invoke_skill confirmed on devnet · SkillInvoked emitted · sig ${sig.slice(0, 10)}…`,
+		{ invokeSig: sig },
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -766,7 +861,12 @@ const STEPS = [
 	{ key: 'solana-launch', num: 5, title: 'Solana launch (devnet)', run: stepSolanaLaunch },
 	{ key: 'solana-trade', num: 6, title: 'Solana trade (devnet)', run: stepSolanaTrade },
 	{ key: 'x402-payname', num: 7, title: 'x402 pay-by-name (prep)', run: stepX402PayByName },
-	{ key: 'solana-invoke', num: 8, title: 'Solana agent_invocation (devnet)', run: stepSolanaInvoke },
+	{
+		key: 'solana-invoke',
+		num: 8,
+		title: 'Solana agent_invocation (devnet)',
+		run: stepSolanaInvoke,
+	},
 ];
 
 function parseArgs(argv) {
@@ -776,7 +876,12 @@ function parseArgs(argv) {
 		else if (a === '--json') args.json = true;
 		else if (a === '--mainnet-readonly') args.mainnetReadonly = true;
 		else if (a === '--help' || a === '-h') args.help = true;
-		else if (a.startsWith('--only=')) args.only = a.slice('--only='.length).split(',').map((s) => s.trim()).filter(Boolean);
+		else if (a.startsWith('--only='))
+			args.only = a
+				.slice('--only='.length)
+				.split(',')
+				.map((s) => s.trim())
+				.filter(Boolean);
 	}
 	return args;
 }
@@ -788,6 +893,7 @@ function buildConfig(args) {
 		evmKey: process.env.SMOKE_EVM_PRIVATE_KEY || null,
 		evmKey2: process.env.SMOKE_EVM_PRIVATE_KEY_2 || null,
 		agentId: process.env.SMOKE_AGENT_ID != null ? Number(process.env.SMOKE_AGENT_ID) : null,
+		solanaAgentId: process.env.SMOKE_SOLANA_AGENT_ID || null,
 		pinBaseUrl: (process.env.SMOKE_PIN_BASE_URL || '').replace(/\/$/, '') || null,
 		authCookie: process.env.SMOKE_AUTH_COOKIE || null,
 		baseUrl: (process.env.SMOKE_BASE_URL || '').replace(/\/$/, '') || null,
@@ -822,13 +928,7 @@ function printTable(results) {
 	for (const r of results) {
 		const s = STATUS[r.status];
 		console.log(
-			line(
-				r.num,
-				r.title,
-				s.paint(`${s.icon} ${s.label}`),
-				fmtMs(r.ms),
-				dim(r.detail || ''),
-			),
+			line(r.num, r.title, s.paint(`${s.icon} ${s.label}`), fmtMs(r.ms), dim(r.detail || '')),
 		);
 	}
 	console.log(dim('─'.repeat(96)));
@@ -883,13 +983,18 @@ async function main() {
 	const summary = `${counts.PASS || 0} pass · ${counts.SKIP || 0} skip · ${counts.FAIL || 0} fail`;
 	console.log(
 		(counts.FAIL ? red : green)(bold(summary)) +
-			(counts.SKIP ? dim('  (skips need funded signers / deployed deps / credentials — see headers)') : ''),
+			(counts.SKIP
+				? dim('  (skips need funded signers / deployed deps / credentials — see headers)')
+				: ''),
 	);
 
 	if (args.json) {
 		console.log(
 			JSON.stringify(
-				{ summary: counts, results: results.map(({ extra, ...r }) => ({ ...r, ...(extra || {}) })) },
+				{
+					summary: counts,
+					results: results.map(({ extra, ...r }) => ({ ...r, ...(extra || {}) })),
+				},
 				null,
 				2,
 			),
@@ -899,9 +1004,25 @@ async function main() {
 	return counts.FAIL ? 1 : 0;
 }
 
-main()
-	.then((code) => process.exit(code))
-	.catch((err) => {
-		console.error(red(`\nharness crashed: ${err.stack || err.message}`));
-		process.exit(1);
-	});
+// Run only when invoked directly — importing the module (e.g. from the CI unit
+// test) exposes the pure helpers without executing the harness.
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+	main()
+		.then((code) => process.exit(code))
+		.catch((err) => {
+			console.error(red(`\nharness crashed: ${err.stack || err.message}`));
+			process.exit(1);
+		});
+}
+
+export {
+	STEPS,
+	inlineParityProblems,
+	buildSyntheticGlb,
+	sha256hex,
+	buildCard,
+	getCardValidator,
+	ERC8004_TYPE,
+	THREEWS_CARD_TYPE,
+};

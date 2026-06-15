@@ -1,5 +1,8 @@
 # 12 — Alerts page: persist alert config server-side and deliver real notifications
 
+> **DONE — superseded by [Task 04 — Alert rules: server persistence + real delivery](../pumpfun-launchpad-100/04-alerts-server-persistence.md).**
+> The original single-config-per-user model (`user_alert_configs` + `GET/PUT /api/alerts/config`) shipped and is now replaced by the richer multi-rule system: `pump_alert_rules` with per-rule kind/target/threshold/cooldown/enabled, full CRUD at `/api/alerts/rules`, server-side evaluation of every kind (graduation, price above/below, whale buy, new-mint-by-agent) in the `pumpfun-monitor` cron via `api/_lib/pump-alert-runner.js`, and multi-channel delivery (in-app + HMAC-signed webhook + Telegram) in `api/_lib/alert-delivery.js`. Existing graduation configs were migrated forward. The original intent below is fully carried over.
+
 ## Problem
 [pump-dashboard.html](../../pump-dashboard.html) `saveAlertConfig()` (lines ~1455–1467) writes to `localStorage` only. Alerts therefore:
 - Don't survive a different browser / device.

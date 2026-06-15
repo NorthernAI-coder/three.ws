@@ -113,10 +113,14 @@ export function validateUpdate(current, patch) {
 		enabled: 'enabled' in patch ? patch.enabled : current.enabled,
 		label: 'label' in patch ? patch.label : current.label,
 	};
+	// Normalize first so fields incompatible with the (possibly new) kind are
+	// cleared before validation — e.g. switching to new_mint drops a stale
+	// target_mint instead of failing on it.
+	const normalized = normalizeForKind(merged);
 	const issues = [];
-	refineRule(merged, { addIssue: (i) => issues.push(i) });
+	refineRule(normalized, { addIssue: (i) => issues.push(i) });
 	if (issues.length) return { ok: false, issues };
-	return { ok: true, value: normalizeForKind(merged) };
+	return { ok: true, value: normalized };
 }
 
 /** Null out fields that don't apply to the rule's kind so stale values can't leak. */
@@ -145,7 +149,10 @@ export function serializeRule(row) {
 		telegram_chat: row.telegram_chat || null,
 		cooldown_seconds: row.cooldown_seconds,
 		enabled: row.enabled,
-		label: row.label || deriveRuleLabel(row),
+		// `label` is the raw user value (null when auto); `label_display` is what
+		// the UI shows — a derived default when the user didn't name the rule.
+		label: row.label || null,
+		label_display: row.label || deriveRuleLabel(row),
 		last_fired_at: row.last_fired_at || null,
 		recent_failures: row.recent_failures != null ? Number(row.recent_failures) : 0,
 		recent_deliveries: row.recent_deliveries || [],

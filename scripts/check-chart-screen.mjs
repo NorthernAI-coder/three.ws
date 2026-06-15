@@ -7,7 +7,7 @@ const RESULT = '/tmp/probe.json';
 const save = (o) => { try { writeFileSync(RESULT, JSON.stringify(o, null, 2)); } catch {} };
 
 const BASE = process.env.BASE || 'http://localhost:3000';
-const MINT = process.env.MINT || '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump'; // Fartcoin
+const MINT = process.env.MINT || 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump'; // $THREE — override with MINT=<coin> for another community
 const errors = [];
 
 const browser = await chromium.launch({

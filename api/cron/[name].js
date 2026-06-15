@@ -1559,7 +1559,8 @@ async function pumpfunLinkedWalletMap(wallets) {
 
 function pumpfunSignalsFromClaim(ev) {
 	const out = [];
-	const base = { tx_signature: ev.tx_signature, payload: ev };
+	// Bot claims carry tx_signature; the pf:claims Redis lane carries signature.
+	const base = { tx_signature: ev.tx_signature || ev.signature, payload: ev };
 	if (ev.first_time_claim) out.push({ kind: 'first_claim', ...base });
 	if (ev.fake_claim) out.push({ kind: 'fake_claim', ...base });
 	if (ev.tier === 'mega' || ev.tier === 'influencer') out.push({ kind: 'influencer', ...base });

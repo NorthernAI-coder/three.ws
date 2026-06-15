@@ -32,10 +32,10 @@ const RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const USDC_MAINNET = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const WSOL         = new PublicKey('So11111111111111111111111111111111111111112');
 
-// A live mainnet pump.fun coin to exercise real bonding-curve reads against.
-// Override with PUMP_SMOKE_MINT when this one graduates / 404s.
+// A live mainnet pump.fun coin to exercise real bonding-curve / AMM reads against.
+// Defaults to $THREE; override with PUMP_SMOKE_MINT to target another coin.
 const TARGET_MINT_STR = process.env.PUMP_SMOKE_MINT
-	|| 'BD1Soa3PKTkcJkGtn14d7jLy4dUiztwo6tP2KkqJpump';
+	|| 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
 console.log(`RPC:    ${RPC}`);
 console.log(`Mint:   ${TARGET_MINT_STR}`);

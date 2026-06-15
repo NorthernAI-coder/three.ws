@@ -49,12 +49,21 @@ const SCHEMAS = {
 		},
 	},
 	'threews.validation.v1': {
-		description: 'Validator attestation about an agent task result.',
-		required: ['v', 'kind', 'agent', 'task_hash', 'passed'],
+		description:
+			'Validator attestation. Two forms: a task validation (task_hash) or a ' +
+			'glTF/GLB schema validation of the agent model (subkind "glb-schema", ' +
+			'carrying proof_hash + proof_uri) — the Solana analog of the EVM ' +
+			'ValidationRegistry recordValidation.',
+		required: ['v', 'kind', 'agent', 'passed'],
 		properties: {
 			...COMMON,
-			task_hash: { type: 'string' },
 			passed: { type: 'boolean' },
+			subkind: { type: 'string', enum: ['glb-schema'], description: 'Present for model (glTF/GLB schema) validations.' },
+			task_hash: { type: 'string', description: 'Task validation form: sha256 of the validated task.' },
+			proof_hash: { type: 'string', description: 'Model form: sha256 of the canonical validation report JSON.' },
+			proof_uri: { type: 'string', description: 'Model form: URL to the full pinned validation report.' },
+			model_sha256: { type: 'string', description: 'Model form: sha256 of the GLB bytes.' },
+			source: { type: 'string' },
 			uri: { type: 'string', format: 'uri' },
 		},
 	},
@@ -105,6 +114,7 @@ function handleAttestationSchemas(req, res) {
 			discovery: {
 				list_endpoint: '/api/agents/solana-attestations?asset=<pubkey>&kind=...',
 				reputation_endpoint: '/api/agents/solana-reputation?asset=<pubkey>',
+				validation_endpoint: '/api/agents/solana-validation?asset=<pubkey>',
 			},
 		},
 		{ 'cache-control': 'public, max-age=300' },

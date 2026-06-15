@@ -6,8 +6,10 @@
 -- cron against real persisted data sources, so they fire across devices even
 -- with no dashboard tab open.
 --
--- NOTE: this file is applied by scripts/apply-migrations.mjs, which splits on
--- ';' at line ends. Keep every statement split-safe (no DO/$$ blocks).
+-- NOTE: this file is applied by scripts/apply-migrations.mjs as a single
+-- multi-statement body via the websocket Pool (pool.query). Statements are kept
+-- simple and split-safe (no DO/$$ blocks) so the file also survives any naive
+-- split-on-';' fallback.
 
 create table if not exists pump_alert_rules (
     id               uuid        primary key default gen_random_uuid(),

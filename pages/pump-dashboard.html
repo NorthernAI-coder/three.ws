@@ -1720,7 +1720,10 @@
 				feedCount: 0,
 				activityCount: 0,
 				feedPaused: false,
-				alertConfig: safeParseJson(localStorage.getItem('pumpbot-alerts') || '{}', {}),
+				alertRules: (() => {
+					const v = safeParseJson(localStorage.getItem('pumpbot-alerts') || '[]', []);
+					return Array.isArray(v) ? v : [];
+				})(),
 				// Deep-link target: /pump-dashboard?agent=<id> (e.g. straight from the
 				// launch-token modal) focuses the control panel on that specific agent
 				// instead of falling back to the account default.
@@ -2528,22 +2531,78 @@
 				</div>`;
 			}
 
-			// ── Alerts ───────────────────────────────────────────────────
+			// -- Alerts (server-persisted rules) ----------------------------------
+			// Alert rules live in Postgres and are evaluated server-side by the
+			// pumpfun-monitor cron, so they fire across devices even with the tab closed.
+			// localStorage is a render cache only. While the tab is open we ALSO match
+			// live-feed events against the loaded rules for instant feedback.
 
-			function checkAlerts(item) {
-				const ac = state.alertConfig;
-				const t = item.type;
-				if ((t === 'graduation' || t === 'complete') && ac.graduation !== false)
-					addAlertItem(item, 'Token graduated');
-				if ((t === 'whale' || t === 'whale_trade') && ac.whale) {
-					const threshold = parseFloat(ac.whaleThreshold) || 10;
-					if ((Number(item.data.solAmount) || 0) >= threshold)
-						addAlertItem(item, 'Whale trade detected');
+			// Same-origin fetch: alert rules + notifications are three.ws's own endpoints,
+			// never the user-configurable PumpKit API URL.
+			function nativeFetch(path, options = {}) {
+				return fetch(location.origin + path, { credentials: 'include', ...options });
+			}
+			async function nativeCsrf() {
+				try {
+					const r = await nativeFetch('/api/csrf-token');
+					if (!r.ok) return null;
+					const d = await r.json();
+					return d.token || (d.data && d.data.token) || null;
+				} catch {
+					return null;
 				}
-				if ((t === 'claim' || t === 'fee_claim') && ac.fees)
-					addAlertItem(item, 'Fee claimed');
-				if ((t === 'launch' || t === 'create' || t === 'mint') && ac.launch)
-					addAlertItem(item, 'New token launched');
+			}
+
+			const RULE_KIND_META = {
+				graduation: { icon: '\u{1F393}', label: 'Graduation' },
+				price_above: { icon: '\u{1F4C8}', label: 'Mcap above' },
+				price_below: { icon: '\u{1F4C9}', label: 'Mcap below' },
+				whale_buy: { icon: '\u{1F40B}', label: 'Whale buy' },
+				new_mint: { icon: '\u{1F195}', label: 'New launch' },
+			};
+
+			let _ruleEditingId = null;
+			let _agentsLoaded = false;
+
+			function relTime(ts) {
+				const ms = Date.now() - new Date(ts).getTime();
+				if (!Number.isFinite(ms)) return '';
+				const s = Math.floor(ms / 1000);
+				if (s < 60) return s + 's ago';
+				const m = Math.floor(s / 60);
+				if (m < 60) return m + 'm ago';
+				const h = Math.floor(m / 60);
+				if (h < 24) return h + 'h ago';
+				return Math.floor(h / 24) + 'd ago';
+			}
+			function numOrNull(v) {
+				const n = parseFloat(v);
+				return Number.isFinite(n) ? n : null;
+			}
+
+			// Live-feed -> rule matching for instant, tab-open feedback. The authoritative
+			// cross-session delivery is the server cron; this only mirrors it locally for
+			// event kinds the raw feed actually carries (graduation, whale buys).
+			function checkAlerts(item) {
+				const rules = state.alertRules || [];
+				if (!rules.length) return;
+				const t = item.type;
+				const d = item.data || {};
+				const mint = d.mint || d.tokenMint || null;
+				const solAmount = Number(d.solAmount != null ? d.solAmount : d.sol_amount || 0);
+				for (const r of rules) {
+					if (!r.enabled) continue;
+					let hit = false;
+					if (r.kind === 'graduation' && (t === 'graduation' || t === 'complete')) {
+						hit = !r.target_mint || r.target_mint === mint;
+					} else if (r.kind === 'whale_buy' && (t === 'whale' || t === 'whale_trade' || t === 'trade' || t === 'buy')) {
+						hit = r.target_mint === mint && d.is_buy !== false && solAmount >= Number(r.threshold || 0);
+					}
+					if (hit) {
+						const meta = RULE_KIND_META[r.kind];
+						addAlertItem(item, meta.icon + ' ' + (r.label_display || r.label || meta.label));
+					}
+				}
 			}
 
 			function addAlertItem(item, label) {
@@ -2551,86 +2610,33 @@
 				if (!feed) return;
 				const empty = feed.querySelector('.pd-empty');
 				if (empty) empty.remove();
-				const d = item.data;
+				const d = item.data || {};
 				let detail = d.tokenSymbol || d.name || d.mint || '';
-				if (d.solAmount) detail += ` · ${Number(d.solAmount).toFixed(4)} SOL`;
+				if (d.solAmount) detail += ' · ' + Number(d.solAmount).toFixed(4) + ' SOL';
 				const timeStr = item.time.toLocaleTimeString('en-US', { hour12: false });
 				const div = document.createElement('div');
 				div.className = 'pd-feed-item';
-				div.innerHTML = `
-					<div class="pd-feed-time">${timeStr}</div>
-					<div class="pd-feed-tag-col"></div>
-					<div class="pd-feed-body">
-						<div class="pd-feed-title" style="color:var(--warn)">${escapeHtml(label)}</div>
-						<div class="pd-feed-detail">${escapeHtml(detail)}</div>
-					</div>
-				`;
+				div.innerHTML =
+					'<div class="pd-feed-time">' + timeStr + '</div>' +
+					'<div class="pd-feed-tag-col"></div>' +
+					'<div class="pd-feed-body">' +
+					'<div class="pd-feed-title" style="color:var(--warn)">' + escapeHtml(label) + '</div>' +
+					'<div class="pd-feed-detail">' + escapeHtml(detail) + '</div>' +
+					'</div>';
 				feed.prepend(div);
 				while (feed.children.length > 200) feed.lastElementChild.remove();
 			}
 
-			// Task 12: alert config is server-persisted (per user, cross-device) and
-			// evaluated server-side by the pumpfun-monitor cron. localStorage is only
-			// a fast render cache.
-			function applyAlertConfigToForm(cfg) {
-				if (cfg.graduation !== undefined) $('pd-alert-graduation').checked = cfg.graduation;
-				if (cfg.whale !== undefined) $('pd-alert-whale').checked = cfg.whale;
-				if (cfg.fees !== undefined) $('pd-alert-fees').checked = cfg.fees;
-				if (cfg.launch !== undefined) $('pd-alert-launch').checked = cfg.launch;
-				if (cfg.whaleThreshold != null) $('pd-threshold-whale').value = cfg.whaleThreshold;
-				if (cfg.claimThreshold != null) $('pd-threshold-claim').value = cfg.claimThreshold;
-				if (cfg.cooldown != null) $('pd-threshold-cooldown').value = cfg.cooldown;
-				if (cfg.webhookUrl != null) $('pd-alert-webhook').value = cfg.webhookUrl || '';
-			}
-
-			const ALERT_FORM_IDS = [
-				'pd-alert-graduation',
-				'pd-alert-whale',
-				'pd-alert-fees',
-				'pd-alert-launch',
-				'pd-threshold-whale',
-				'pd-threshold-claim',
-				'pd-threshold-cooldown',
-				'pd-alert-webhook',
-				'pd-save-alerts',
-			];
-			// Disable the form while the authoritative server config is in flight so the
-			// user can't edit (and Save) stale localStorage values that the GET is about
-			// to overwrite. aria-busy announces the pending state to assistive tech.
-			function setAlertFormDisabled(disabled) {
-				const panel = $('page-alerts');
-				if (panel) panel.setAttribute('aria-busy', disabled ? 'true' : 'false');
-				for (const id of ALERT_FORM_IDS) {
-					const el = $(id);
-					if (el) el.disabled = disabled;
-				}
-			}
-
-			let _alertConfigLoaded = false;
+			// Entry point on nav into #alerts.
 			async function loadAlertConfig() {
-				// Fetch server alert history into the feed regardless of auth state.
+				updateRuleFormFields();
 				loadServerAlerts();
-				if (_alertConfigLoaded) return;
-				setAlertFormDisabled(true);
-				try {
-					const resp = await apiFetch('/api/alerts/config');
-					if (resp.status === 401) return; // anonymous — keep local cache
-					if (!resp.ok) return;
-					const { data } = await resp.json();
-					state.alertConfig = data;
-					localStorage.setItem('pumpbot-alerts', JSON.stringify(data));
-					applyAlertConfigToForm(data);
-					_alertConfigLoaded = true;
-				} catch {
-					/* keep local cache */
-				} finally {
-					setAlertFormDisabled(false);
-				}
+				await loadAlertRules();
 			}
 
 			async function loadServerAlerts() {
 				try {
-					const resp = await apiFetch('/api/notifications?type=pump_alert&limit=50');
+					const resp = await nativeFetch('/api/notifications?type=pump_alert&limit=50');
 					if (!resp.ok) return;
 					const { notifications } = await resp.json();
 					if (!Array.isArray(notifications) || !notifications.length) return;
@@ -2642,77 +2648,435 @@
 							addAlertItem(
 								{
 									time: new Date(n.created_at),
-									data: {
-										name: p.name,
-										tokenSymbol: p.symbol,
-										mint: p.mint,
-										solAmount: p.amount_sol,
-									},
+									data: { name: p.name, tokenSymbol: p.symbol, mint: p.mint, solAmount: p.amount_sol },
 								},
-								`Graduated · ${p.symbol || p.name || 'token'}`,
+								serverAlertLabel(p),
 							);
 						});
 				} catch {
 					/* server history is best-effort */
 				}
 			}
+			function serverAlertLabel(p) {
+				const meta = RULE_KIND_META[p.kind] || { icon: '\u{1F514}', label: 'Alert' };
+				const tok = p.symbol ? '$' + p.symbol : p.name || 'token';
+				return meta.icon + ' ' + meta.label + ' · ' + tok;
+			}
 
-			async function saveAlertConfig() {
-				const webhookUrl = $('pd-alert-webhook').value.trim();
-				if (webhookUrl && !/^https:\/\//i.test(webhookUrl)) {
-					toast('Webhook URL must start with https://', 'error');
-					return;
-				}
-				const payload = {
-					graduation: $('pd-alert-graduation').checked,
-					whale: $('pd-alert-whale').checked,
-					fees: $('pd-alert-fees').checked,
-					launch: $('pd-alert-launch').checked,
-					whaleThreshold: parseFloat($('pd-threshold-whale').value) || 0,
-					claimThreshold: parseFloat($('pd-threshold-claim').value) || 0,
-					cooldown: parseInt($('pd-threshold-cooldown').value, 10) || 30,
-					webhookUrl: webhookUrl || null,
-				};
-				const btn = $('pd-save-alerts');
-				const btnLabel = btn ? btn.textContent : '';
-				if (btn) {
-					btn.disabled = true;
-					btn.textContent = 'Saving…';
-				}
+			async function loadAlertRules() {
+				const list = $('pd-rules-list');
+				if (!list) return;
+				list.setAttribute('aria-busy', 'true');
 				try {
-					const csrf = await getCsrfToken();
-					const headers = { 'Content-Type': 'application/json' };
-					if (csrf) headers['x-csrf-token'] = csrf;
-					const resp = await apiFetch('/api/alerts/config', {
-						method: 'PUT',
-						headers,
-						body: JSON.stringify(payload),
-					});
+					const resp = await nativeFetch('/api/alerts/rules');
 					if (resp.status === 401) {
-						toast('Sign in to save alerts across devices', 'error');
+						state.alertRules = [];
+						setRuleFormSignedOut(true);
+						renderRulesSignedOut();
 						return;
 					}
 					if (!resp.ok) {
-						const err = await resp.json().catch(() => ({}));
-						toast(
-							err.error_description || err.error || `Save failed (${resp.status})`,
-							'error',
-						);
+						renderRulesError(resp.status);
 						return;
 					}
-					const { data } = await resp.json();
-					state.alertConfig = data;
-					localStorage.setItem('pumpbot-alerts', JSON.stringify(data));
-					applyAlertConfigToForm(data);
-					toast('Alert settings saved', 'success');
+					const { rules } = await resp.json();
+					state.alertRules = Array.isArray(rules) ? rules : [];
+					localStorage.setItem('pumpbot-alerts', JSON.stringify(state.alertRules));
+					setRuleFormSignedOut(false);
+					renderRulesList(state.alertRules);
+					populateAgentOptions();
+				} catch {
+					// Network error: fall back to the cached render so rules still show.
+					renderRulesList(state.alertRules || []);
+				} finally {
+					list.setAttribute('aria-busy', 'false');
+				}
+			}
+
+			function renderRulesList(rules) {
+				const list = $('pd-rules-list');
+				if (!list) return;
+				list.innerHTML = rules.length ? rules.map(ruleCardHTML).join('') : rulesEmptyHTML();
+			}
+			function rulesEmptyHTML() {
+				return (
+					'<div class="pd-empty pd-rules-empty">' +
+					'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 16c0-4.5 1.5-10 7-10s7 5.5 7 10M3 16h18M10 19h4"/></svg>' +
+					'<div><strong>No alert rules yet</strong></div>' +
+					'<div class="pd-muted">Create your first rule on the left. Rules run on our servers and fire across every device — even with this tab closed.</div>' +
+					'</div>'
+				);
+			}
+			function renderRulesSignedOut() {
+				const list = $('pd-rules-list');
+				if (!list) return;
+				list.innerHTML =
+					'<div class="pd-empty">' +
+					'<div><strong>Sign in to manage alerts</strong></div>' +
+					'<div class="pd-muted">Server-side alerts are tied to your account so they follow you across devices.</div>' +
+					'<a class="pd-btn is-primary pd-btn-sm" href="/login" style="margin-top:.6rem">Sign in</a>' +
+					'</div>';
+			}
+			function renderRulesError(status) {
+				const list = $('pd-rules-list');
+				if (!list) return;
+				list.innerHTML =
+					'<div class="pd-empty">' +
+					'<div><strong>Couldn’t load alert rules (' + status + ')</strong></div>' +
+					'<div class="pd-muted">Check your connection, then use Refresh above.</div>' +
+					'</div>';
+			}
+
+			function ruleSummaryHTML(r) {
+				const short = (m) => (m ? escapeHtml(m.slice(0, 4) + '…' + m.slice(-4)) : '');
+				const usd = (n) => '$' + Number(n).toLocaleString('en-US');
+				switch (r.kind) {
+					case 'graduation':
+						if (r.target_mint) return 'When <span class="pd-mono">' + short(r.target_mint) + '</span> graduates to an AMM';
+						if (r.target_agent) return 'When this agent’s token graduates to an AMM';
+						return 'When any pump.fun token graduates to an AMM';
+					case 'price_above':
+						return 'When <span class="pd-mono">' + short(r.target_mint) + '</span> market cap rises above ' + usd(r.threshold);
+					case 'price_below':
+						return 'When <span class="pd-mono">' + short(r.target_mint) + '</span> market cap falls below ' + usd(r.threshold);
+					case 'whale_buy':
+						return 'When someone buys ≥ ' + escapeHtml(String(r.threshold)) + ' SOL of <span class="pd-mono">' + short(r.target_mint) + '</span>';
+					case 'new_mint':
+						return 'When this agent launches a new coin';
+					default:
+						return '';
+				}
+			}
+			function channelChipsHTML(r) {
+				const chips = [];
+				if (r.deliver_in_app) chips.push('<span class="pd-chip">In-app</span>');
+				if (r.webhook_url) chips.push('<span class="pd-chip">Webhook <button class="pd-chip-action" data-rule-reveal="' + escapeHtml(r.id) + '" aria-expanded="false" aria-controls="pd-secret-' + escapeHtml(r.id) + '" type="button">secret</button></span>');
+				if (r.telegram_chat) chips.push('<span class="pd-chip">Telegram</span>');
+				return chips.join('');
+			}
+			function deliveryStatusHTML(r) {
+				if (!r.recent_failures) return '';
+				const fail = (r.recent_deliveries || []).find((d) => d && d.ok === false);
+				const detail = fail ? fail.channel + ': ' + (fail.detail || 'failed') : '';
+				return (
+					'<div class="pd-rule-fail">⚠ ' + r.recent_failures + ' delivery failure' + (r.recent_failures > 1 ? 's' : '') +
+					' in 24h' + (detail ? ' — ' + escapeHtml(detail) : '') + '</div>'
+				);
+			}
+			function ruleCardHTML(r) {
+				const meta = RULE_KIND_META[r.kind] || { icon: '\u{1F514}', label: 'Alert' };
+				const last = r.last_fired_at ? 'Last fired ' + relTime(r.last_fired_at) : 'Not fired yet';
+				return (
+					'<div class="pd-rule-card' + (r.enabled ? '' : ' is-disabled') + '" data-rule-id="' + escapeHtml(r.id) + '">' +
+					'<div class="pd-rule-icon" aria-hidden="true">' + meta.icon + '</div>' +
+					'<div class="pd-rule-body">' +
+					'<div class="pd-rule-title">' + escapeHtml(r.label_display || r.label || meta.label) + '</div>' +
+					'<div class="pd-rule-summary">' + ruleSummaryHTML(r) + '</div>' +
+					'<div class="pd-rule-tags">' +
+					channelChipsHTML(r) +
+					'<span class="pd-rule-tag">Cooldown ' + r.cooldown_seconds + 's</span>' +
+					'<span class="pd-rule-tag' + (r.last_fired_at ? '' : ' pd-muted') + '">' + last + '</span>' +
+					'</div>' +
+					'<div class="pd-rule-secret-row" id="pd-secret-' + escapeHtml(r.id) + '" hidden data-secret-for="' + escapeHtml(r.id) + '">' +
+					'<span class="pd-muted">Signing secret:</span> ' +
+					'<code class="pd-rule-secret-code">' + escapeHtml(r.webhook_secret || '—') + '</code> ' +
+					'<button class="pd-btn pd-btn-xs" data-rule-copy="' + escapeHtml(r.id) + '" type="button">Copy</button>' +
+					'</div>' +
+					deliveryStatusHTML(r) +
+					'</div>' +
+					'<div class="pd-rule-actions">' +
+					'<label class="pd-switch" title="' + (r.enabled ? 'Enabled — click to disable' : 'Disabled — click to enable') + '">' +
+					'<input type="checkbox" data-rule-toggle="' + escapeHtml(r.id) + '" ' + (r.enabled ? 'checked' : '') + ' aria-label="' + (r.enabled ? 'Disable' : 'Enable') + ' alert: ' + escapeHtml(r.label_display || r.label || meta.label) + '" />' +
+					'<span class="pd-switch-track"><span class="pd-switch-thumb"></span></span>' +
+					'</label>' +
+					'<button class="pd-btn pd-btn-sm" data-rule-edit="' + escapeHtml(r.id) + '" type="button">Edit</button>' +
+					'<button class="pd-btn pd-btn-sm is-danger" data-rule-delete="' + escapeHtml(r.id) + '" type="button">Delete</button>' +
+					'</div>' +
+					'</div>'
+				);
+			}
+
+			async function populateAgentOptions() {
+				const sel = $('pd-rule-agent');
+				if (!sel || _agentsLoaded) return;
+				try {
+					const resp = await nativeFetch('/api/agents');
+					if (!resp.ok) return;
+					const j = await resp.json();
+					const agents = j.agents || j.data || [];
+					const cur = sel.value;
+					sel.innerHTML =
+						'<option value="">Select an agent…</option>' +
+						agents.map((a) => '<option value="' + escapeHtml(a.id) + '">' + escapeHtml(a.name || a.id) + '</option>').join('');
+					if (cur) sel.value = cur;
+					_agentsLoaded = true;
+				} catch {
+					/* leave the placeholder option */
+				}
+			}
+
+			function updateRuleFormFields() {
+				const kind = $('pd-rule-kind').value;
+				const scopeGroup = $('pd-rule-scope-group');
+				const mintGroup = $('pd-rule-mint-group');
+				const agentGroup = $('pd-rule-agent-group');
+				const thrGroup = $('pd-rule-threshold-group');
+				const hint = $('pd-rule-kind-hint');
+				scopeGroup.hidden = true;
+				mintGroup.hidden = true;
+				agentGroup.hidden = true;
+				thrGroup.hidden = true;
+				if (kind === 'graduation') {
+					scopeGroup.hidden = false;
+					const scope = $('pd-rule-scope').value;
+					if (scope === 'mint') mintGroup.hidden = false;
+					else if (scope === 'agent') {
+						agentGroup.hidden = false;
+						populateAgentOptions();
+					}
+					hint.textContent = 'Fires when a pump.fun token migrates to an AMM.';
+				} else if (kind === 'price_above' || kind === 'price_below') {
+					mintGroup.hidden = false;
+					thrGroup.hidden = false;
+					$('pd-rule-threshold-label').textContent = 'Market cap (USD)';
+					$('pd-rule-threshold').min = '1';
+					$('pd-rule-threshold').step = '1';
+					$('pd-rule-threshold-hint').textContent =
+						kind === 'price_above'
+							? 'Alert when the token’s USD market cap rises above this value.'
+							: 'Alert when the token’s USD market cap falls below this value.';
+					hint.textContent = 'Tracks the token’s live USD market cap.';
+				} else if (kind === 'whale_buy') {
+					mintGroup.hidden = false;
+					thrGroup.hidden = false;
+					$('pd-rule-threshold-label').textContent = 'Minimum buy size (SOL)';
+					$('pd-rule-threshold').min = '0.01';
+					$('pd-rule-threshold').step = '0.01';
+					$('pd-rule-threshold-hint').textContent = 'Alert on any buy at or above this many SOL.';
+					hint.textContent = 'Watches buys on a specific token.';
+				} else if (kind === 'new_mint') {
+					agentGroup.hidden = false;
+					populateAgentOptions();
+					hint.textContent = 'Fires when the selected agent launches a new coin.';
+				}
+			}
+
+			function buildRulePayload() {
+				const kind = $('pd-rule-kind').value;
+				const p = {
+					kind,
+					deliver_in_app: $('pd-rule-inapp').checked,
+					webhook_url: $('pd-rule-webhook').value.trim() || null,
+					telegram_chat: $('pd-rule-telegram').value.trim() || null,
+					cooldown_seconds: parseInt($('pd-rule-cooldown').value, 10) || 300,
+					label: $('pd-rule-label').value.trim() || null,
+				};
+				if (kind === 'graduation') {
+					const scope = $('pd-rule-scope').value;
+					if (scope === 'mint') p.target_mint = $('pd-rule-mint').value.trim() || null;
+					else if (scope === 'agent') p.target_agent = $('pd-rule-agent').value || null;
+				} else if (kind === 'price_above' || kind === 'price_below' || kind === 'whale_buy') {
+					p.target_mint = $('pd-rule-mint').value.trim() || null;
+					p.threshold = numOrNull($('pd-rule-threshold').value);
+				} else if (kind === 'new_mint') {
+					p.target_agent = $('pd-rule-agent').value || null;
+				}
+				return p;
+			}
+
+			function validateRuleClient(p) {
+				if (p.kind === 'price_above' || p.kind === 'price_below' || p.kind === 'whale_buy') {
+					if (!p.target_mint) return 'Enter a token mint address.';
+					if (!(p.threshold > 0)) return 'Enter a threshold greater than 0.';
+				}
+				if (p.kind === 'new_mint' && !p.target_agent) return 'Select an agent.';
+				if (p.kind === 'graduation') {
+					const scope = $('pd-rule-scope').value;
+					if (scope === 'mint' && !p.target_mint) return 'Enter a token mint address.';
+					if (scope === 'agent' && !p.target_agent) return 'Select an agent.';
+				}
+				if (p.webhook_url && !/^https:\/\//i.test(p.webhook_url)) return 'Webhook URL must start with https://';
+				if (!p.deliver_in_app && !p.webhook_url && !p.telegram_chat) return 'Enable at least one delivery channel.';
+				if (!(p.cooldown_seconds >= 5)) return 'Cooldown must be at least 5 seconds.';
+				return null;
+			}
+
+			async function saveRule() {
+				const payload = buildRulePayload();
+				const err = validateRuleClient(payload);
+				if (err) {
+					toast(err, 'error');
+					return;
+				}
+				const btn = $('pd-rule-save');
+				btn.disabled = true;
+				btn.textContent = _ruleEditingId ? 'Saving…' : 'Creating…';
+				try {
+					const csrf = await nativeCsrf();
+					const headers = { 'Content-Type': 'application/json' };
+					if (csrf) headers['x-csrf-token'] = csrf;
+					const path = _ruleEditingId ? '/api/alerts/rules/' + _ruleEditingId : '/api/alerts/rules';
+					const httpMethod = _ruleEditingId ? 'PATCH' : 'POST';
+					const resp = await nativeFetch(path, { method: httpMethod, headers, body: JSON.stringify(payload) });
+					if (resp.status === 401) {
+						toast('Sign in to save alerts across devices', 'error');
+						setRuleFormSignedOut(true);
+						return;
+					}
+					if (!resp.ok) {
+						const e = await resp.json().catch(() => ({}));
+						toast(e.error_description || e.error || 'Save failed (' + resp.status + ')', 'error');
+						return;
+					}
+					const data = await resp.json();
+					const wasEditing = !!_ruleEditingId;
+					toast(wasEditing ? 'Alert rule updated' : 'Alert rule created', 'success');
+					if (data.rule && data.rule.webhook_secret && payload.webhook_url) {
+						toast('Webhook secret ready — open “secret” on the rule to copy it.', 'info');
+					}
+					resetRuleForm();
+					await loadAlertRules();
 				} catch (e) {
 					toast('Network error: ' + (e.message || 'save failed'), 'error');
 				} finally {
-					if (btn) {
-						btn.disabled = false;
-						btn.textContent = btnLabel;
-					}
+					btn.disabled = false;
+					btn.textContent = _ruleEditingId ? 'Update alert rule' : 'Create alert rule';
 				}
+			}
+
+			function editRule(id) {
+				const r = (state.alertRules || []).find((x) => x.id === id);
+				if (!r) return;
+				_ruleEditingId = id;
+				$('pd-rule-kind').value = r.kind;
+				if (r.kind === 'graduation') {
+					$('pd-rule-scope').value = r.target_mint ? 'mint' : r.target_agent ? 'agent' : 'global';
+				}
+				$('pd-rule-mint').value = r.target_mint || '';
+				$('pd-rule-threshold').value = r.threshold != null ? r.threshold : '';
+				$('pd-rule-label').value = r.label || '';
+				$('pd-rule-inapp').checked = !!r.deliver_in_app;
+				$('pd-rule-webhook').value = r.webhook_url || '';
+				$('pd-rule-telegram').value = r.telegram_chat || '';
+				$('pd-rule-cooldown').value = r.cooldown_seconds || 300;
+				updateRuleFormFields();
+				// Agent options may load async; set the value once they're present.
+				const applyAgent = () => {
+					if (r.target_agent) $('pd-rule-agent').value = r.target_agent;
+				};
+				applyAgent();
+				populateAgentOptions().then(applyAgent);
+				$('pd-rule-form-title').textContent = 'Edit alert rule';
+				$('pd-rule-save').textContent = 'Update alert rule';
+				$('pd-rule-cancel').hidden = false;
+				$('page-alerts').scrollIntoView({ behavior: 'smooth', block: 'start' });
+			}
+
+			function resetRuleForm() {
+				_ruleEditingId = null;
+				$('pd-rule-kind').value = 'graduation';
+				$('pd-rule-scope').value = 'global';
+				$('pd-rule-mint').value = '';
+				if ($('pd-rule-agent')) $('pd-rule-agent').value = '';
+				$('pd-rule-threshold').value = '';
+				$('pd-rule-label').value = '';
+				$('pd-rule-inapp').checked = true;
+				$('pd-rule-webhook').value = '';
+				$('pd-rule-telegram').value = '';
+				$('pd-rule-cooldown').value = '300';
+				updateRuleFormFields();
+				$('pd-rule-form-title').textContent = 'New alert rule';
+				$('pd-rule-save').textContent = 'Create alert rule';
+				$('pd-rule-cancel').hidden = true;
+			}
+
+			function setRuleFormSignedOut(disabled) {
+				const note = $('pd-rule-signin-note');
+				if (note) note.hidden = !disabled;
+				const ids = ['pd-rule-kind', 'pd-rule-scope', 'pd-rule-mint', 'pd-rule-agent', 'pd-rule-threshold', 'pd-rule-label', 'pd-rule-inapp', 'pd-rule-webhook', 'pd-rule-telegram', 'pd-rule-cooldown', 'pd-rule-save', 'pd-rule-cancel'];
+				ids.forEach((id) => {
+					const el = $(id);
+					if (el) el.disabled = disabled;
+				});
+			}
+
+			async function deleteRule(id) {
+				const r = (state.alertRules || []).find((x) => x.id === id);
+				const name = r ? ' (' + (r.label_display || r.label || r.kind) + ')' : '';
+				if (!confirm('Delete this alert rule' + name + '? This can’t be undone.')) return;
+				try {
+					const csrf = await nativeCsrf();
+					const headers = {};
+					if (csrf) headers['x-csrf-token'] = csrf;
+					const resp = await nativeFetch('/api/alerts/rules/' + id, { method: 'DELETE', headers });
+					if (!resp.ok && resp.status !== 404) {
+						const e = await resp.json().catch(() => ({}));
+						toast(e.error_description || 'Delete failed (' + resp.status + ')', 'error');
+						return;
+					}
+					toast('Alert rule deleted', 'success');
+					if (_ruleEditingId === id) resetRuleForm();
+					await loadAlertRules();
+				} catch (e) {
+					toast('Network error: ' + (e.message || 'delete failed'), 'error');
+				}
+			}
+
+			async function toggleRule(id, enabled) {
+				try {
+					const csrf = await nativeCsrf();
+					const headers = { 'Content-Type': 'application/json' };
+					if (csrf) headers['x-csrf-token'] = csrf;
+					const resp = await nativeFetch('/api/alerts/rules/' + id, { method: 'PATCH', headers, body: JSON.stringify({ enabled }) });
+					if (!resp.ok) {
+						const e = await resp.json().catch(() => ({}));
+						toast(e.error_description || 'Update failed (' + resp.status + ')', 'error');
+						await loadAlertRules();
+						return;
+					}
+					const data = await resp.json();
+					const idx = (state.alertRules || []).findIndex((x) => x.id === id);
+					if (idx >= 0 && data.rule) {
+						state.alertRules[idx] = data.rule;
+						const card = document.querySelector('[data-rule-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+						if (card) card.classList.toggle('is-disabled', !enabled);
+					}
+					toast(enabled ? 'Rule enabled' : 'Rule disabled', 'success');
+				} catch {
+					toast('Network error', 'error');
+					await loadAlertRules();
+				}
+			}
+
+			function copyRuleSecret(id) {
+				const r = (state.alertRules || []).find((x) => x.id === id);
+				if (!r || !r.webhook_secret) return;
+				if (navigator.clipboard) {
+					navigator.clipboard.writeText(r.webhook_secret).then(
+						() => toast('Webhook secret copied', 'success'),
+						() => toast('Copy failed — select the text manually', 'error'),
+					);
+				}
+			}
+
+			function onRulesListClick(e) {
+				const t = e.target.closest('[data-rule-edit],[data-rule-delete],[data-rule-reveal],[data-rule-copy]');
+				if (!t) return;
+				if (t.dataset.ruleEdit) editRule(t.dataset.ruleEdit);
+				else if (t.dataset.ruleDelete) deleteRule(t.dataset.ruleDelete);
+				else if (t.dataset.ruleReveal) {
+					const sel = '[data-secret-for="' + (window.CSS && CSS.escape ? CSS.escape(t.dataset.ruleReveal) : t.dataset.ruleReveal) + '"]';
+					const row = document.querySelector(sel);
+					if (row) {
+						row.hidden = !row.hidden;
+						t.setAttribute('aria-expanded', row.hidden ? 'false' : 'true');
+					}
+				} else if (t.dataset.ruleCopy) copyRuleSecret(t.dataset.ruleCopy);
+			}
+			function onRulesListChange(e) {
+				const t = e.target.closest('[data-rule-toggle]');
+				if (!t) return;
+				toggleRule(t.dataset.ruleToggle, t.checked);
 			}
 
 			// ── Watches ──────────────────────────────────────────────────
@@ -4239,15 +4603,6 @@
 				$('pd-cfg-rpc-url').value = state.rpcUrl;
 				$('pd-api-endpoint-display').textContent = state.apiUrl;
 
-				const ac = state.alertConfig;
-				if (ac.graduation !== undefined) $('pd-alert-graduation').checked = ac.graduation;
-				if (ac.whale !== undefined) $('pd-alert-whale').checked = ac.whale;
-				if (ac.fees !== undefined) $('pd-alert-fees').checked = ac.fees;
-				if (ac.launch !== undefined) $('pd-alert-launch').checked = ac.launch;
-				if (ac.whaleThreshold) $('pd-threshold-whale').value = ac.whaleThreshold;
-				if (ac.claimThreshold) $('pd-threshold-claim').value = ac.claimThreshold;
-				if (ac.cooldown) $('pd-threshold-cooldown').value = ac.cooldown;
-
 				// Sidebar nav
 				document.querySelectorAll('.pd-sidebar nav a').forEach((a) => {
 					a.addEventListener('click', (e) => {
@@ -4307,8 +4662,14 @@
 				$('pd-refresh-claims').addEventListener('click', refreshClaims);
 				$('pd-export-claims').addEventListener('click', exportClaims);
 
-				// Alerts
-				$('pd-save-alerts').addEventListener('click', saveAlertConfig);
+				// Alerts (server-persisted rules)
+				$('pd-rule-save').addEventListener('click', saveRule);
+				$('pd-rule-cancel').addEventListener('click', resetRuleForm);
+				$('pd-rules-refresh').addEventListener('click', loadAlertRules);
+				$('pd-rule-kind').addEventListener('change', updateRuleFormFields);
+				$('pd-rule-scope').addEventListener('change', updateRuleFormFields);
+				$('pd-rules-list').addEventListener('click', onRulesListClick);
+				$('pd-rules-list').addEventListener('change', onRulesListChange);
 
 				// Scanner
 				$('pd-scan-token').addEventListener('click', scanToken);
@@ -4320,9 +4681,6 @@
 				// Vanity
 				$('pd-vanity-start').addEventListener('click', startVanity);
 				$('pd-vanity-stop').addEventListener('click', stopVanity);
-
-				if (state.alertConfig.webhookUrl)
-					$('pd-alert-webhook').value = state.alertConfig.webhookUrl;
 
 				// Animations + TTS (Task 11)
 				$('pd-speak-btn').addEventListener('click', () => agentAction('speak'));

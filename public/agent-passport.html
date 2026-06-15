@@ -814,6 +814,18 @@
 				setLive(!document.hidden);
 			});
 
+			function renderValidationBadge(v, network) {
+				if (!v || typeof v.passed !== 'boolean') return '';
+				const explorer = v.signature
+					? `https://explorer.solana.com/tx/${v.signature}${network === 'devnet' ? '?cluster=devnet' : ''}`
+					: null;
+				const proof = v.proof_uri || explorer || '#';
+				const label = v.passed ? '✓ model verified' : '✗ model failed';
+				const cls = v.passed ? 'ok' : 'warn';
+				const title = `glTF/schema validation by platform validator${v.proof_hash ? ` · proof ${String(v.proof_hash).slice(0, 12)}…` : ''}`;
+				return `<a class="pill ${cls}" href="${escapeHtml(proof)}" target="_blank" rel="noopener" title="${escapeHtml(title)}" style="text-decoration:none">${label}</a>`;
+			}
+
 			function renderIdentity(card, rep, asset, network, history = []) {
 				const id = card?.identity || {};
 				const name = card?.name || '(unindexed agent)';
@@ -835,6 +847,7 @@
 						<div class="identity-name">${escapeHtml(name)}</div>
 						<span class="pill ${network === 'mainnet' ? 'ok' : 'warn'}">${network}</span>
 						${vanity ? `<span class="pill vanity" title="Custom vanity address">✦ ${escapeHtml(vanity)}</span>` : ''}
+						${renderValidationBadge(card?.validation, network)}
 					</div>
 					${card?.description ? `<div class="muted" style="margin-top:.2rem">${escapeHtml(card.description)}</div>` : ''}
 					<div class="identity-meta">
@@ -1167,6 +1180,8 @@
 					case 'threews.feedback.v1':
 						return `score ${p.score}/5${p.task_id ? ` for task ${p.task_id}` : ''}${p.source ? ` (${p.source})` : ''}`;
 					case 'threews.validation.v1':
+						if (p.subkind === 'glb-schema')
+							return `model validation ${p.passed ? '✓ passed' : '✗ failed'}${p.proof_hash ? ` (proof ${String(p.proof_hash).slice(0, 12)}…)` : ''}`;
 						return `validation ${p.passed ? '✓ passed' : '✗ failed'}${p.task_hash ? ` (task hash ${String(p.task_hash).slice(0, 12)}…)` : ''}`;
 					case 'threews.task.v1':
 						return `task offered: ${p.task_id}`;

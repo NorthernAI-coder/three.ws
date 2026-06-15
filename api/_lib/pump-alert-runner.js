@@ -79,7 +79,7 @@ export async function runPumpAlertRules(now = Date.now()) {
 	const fireRows = await sql`
 		SELECT rule_id, last_fired_at, last_event_id, last_state
 		FROM pump_alert_rule_fires
-		WHERE rule_id = ANY(${rules.map((r) => r.id)})
+		WHERE rule_id = ANY(${rules.map((r) => r.id)}::uuid[])
 	`;
 	const fireState = new Map(fireRows.map((f) => [f.rule_id, f]));
 
@@ -148,7 +148,7 @@ async function runNewMintRules(rules, fireState, report, ctx) {
 	const mints = await sql`
 		SELECT id, agent_id, mint, name, symbol, created_at
 		FROM pump_agent_mints
-		WHERE agent_id = ANY(${agentIds})
+		WHERE agent_id = ANY(${agentIds}::uuid[])
 		  AND created_at > now() - ${NEW_MINT_WINDOW}::interval
 		ORDER BY created_at ASC
 	`;
@@ -315,7 +315,7 @@ async function loadAgentMintSets(agentIds) {
 	const map = new Map();
 	if (!agentIds.length) return map;
 	const rows = await sql`
-		SELECT agent_id, mint FROM pump_agent_mints WHERE agent_id = ANY(${agentIds})
+		SELECT agent_id, mint FROM pump_agent_mints WHERE agent_id = ANY(${agentIds}::uuid[])
 	`;
 	for (const r of rows) {
 		if (!map.has(r.agent_id)) map.set(r.agent_id, new Set());

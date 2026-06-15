@@ -11,6 +11,8 @@ import {
 	handleRegisterConfirm,
 	handleReputation,
 	handleReputationHistory,
+	handleValidate,
+	handleValidation,
 } from './_handlers.js';
 
 export {
@@ -31,6 +33,8 @@ const DISPATCH = {
 	'register-confirm':  handleRegisterConfirm,
 	reputation:          handleReputation,
 	'reputation-history': handleReputationHistory,
+	validate:            handleValidate,
+	validation:          handleValidation,
 };
 
 export default wrap(async (req, res) => {

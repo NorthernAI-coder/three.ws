@@ -403,7 +403,10 @@ class TradeModal {
 			this.balLine.hidden = false;
 			if (this.holdings) {
 				if (this.holdings.ui > 0) {
+					const over = this.amount > this.holdings.ui + 1e-9;
+					this.balLine.classList.toggle('cc-buy-bal-warn', over);
 					this.balLine.append(el('span', { text: `You hold ${compactCount(this.holdings.ui)} ${this.symTokens}` }));
+					if (over) this.balLine.append(el('span', { class: 'cc-buy-bal-sep', text: ' · ' }), el('span', { text: `more than you hold` }));
 				} else {
 					this.balLine.append(el('span', { class: 'cc-buy-wallet-off', text: `You don't hold any ${this.symTokens} yet` }));
 				}
@@ -440,12 +443,12 @@ class TradeModal {
 		if (!connected) { this.cta.textContent = 'Connect wallet'; this.ctaLabel = 'connect'; this.cta.disabled = false; return; }
 
 		if (this.mode === 'sell') {
+			// Holdings are advisory: a read can lag the chain, so a typed sell is
+			// never blocked on our balance read — the chain is the source of truth and
+			// an over-sell surfaces as an actionable error. We only flag it (below).
 			this.ctaLabel = 'sell';
-			const hold = this.holdings?.ui || 0;
-			if (this.holdings && hold <= 0) { this.cta.textContent = `No ${this.symTokens} to sell`; this.cta.disabled = true; return; }
-			const ok = this.amount > 0 && (!this.holdings || this.amount <= hold + 1e-9);
 			this.cta.textContent = this.amount > 0 ? `Sell ${compactCount(this.amount)} ${this.symTokens}` : 'Enter an amount';
-			this.cta.disabled = !ok;
+			this.cta.disabled = !(this.amount > 0);
 			return;
 		}
 
@@ -586,12 +589,15 @@ class TradeModal {
 	// dust is left behind), otherwise the typed amount clamped to the balance.
 	_sellBaseUnits() {
 		const hold = this.holdings;
-		if (this._sellMax && hold?.base) return hold.base;
+		const haveHoldings = !!hold && hold.ui > 0 && !!hold.base;
+		if (this._sellMax && haveHoldings) return hold.base;
 		if (!(this.amount > 0)) return '0';
 		let want;
 		try { want = BigInt(Math.floor(this.amount * 10 ** PUMP_DECIMALS)); } catch { return '0'; }
 		if (want <= 0n) return '0';
-		if (hold?.base) {
+		// Only clamp against a real, positive holdings read — a 0/failed read is
+		// treated as unknown, not as "sell nothing", so the chain can reject it.
+		if (haveHoldings) {
 			const max = BigInt(hold.base);
 			if (want > max) want = max;
 		}

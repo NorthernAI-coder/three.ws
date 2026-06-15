@@ -356,6 +356,14 @@
 			"dest": "/api/agents/solana/[action]?action=reputation-history"
 		},
 		{
+			"src": "/api/agents/solana-validate",
+			"dest": "/api/agents/solana/[action]?action=validate"
+		},
+		{
+			"src": "/api/agents/solana-validation",
+			"dest": "/api/agents/solana/[action]?action=validation"
+		},
+		{
 			"src": "/api/agents/([^/]+)/skills-pricing",
 			"dest": "/api/agents/[id]/skills-pricing?id=$1"
 		},

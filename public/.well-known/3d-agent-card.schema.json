@@ -39,7 +39,7 @@
 
 		"registrations": {
 			"type": "array",
-			"description": "ERC-8004 on-chain registrations as CAIP-10 references.",
+			"description": "On-chain registrations as CAIP-10 references. EVM (ERC-8004 IdentityRegistry): eip155:<chainId>:0x<registry>. Solana (Metaplex Core agent collection): solana:<genesisHash>:<collectionAddress>, with agentId set to the asset address.",
 			"items": {
 				"type": "object",
 				"required": ["agentId", "agentRegistry"],
@@ -47,9 +47,27 @@
 					"agentId": { "type": ["integer", "string"] },
 					"agentRegistry": {
 						"type": "string",
-						"pattern": "^eip155:[0-9]+:0x[a-fA-F0-9]{40}$"
+						"pattern": "^(eip155:[0-9]+:0x[a-fA-F0-9]{40}|solana:[1-9A-HJ-NP-Za-km-z]{32,44}:[1-9A-HJ-NP-Za-km-z]{32,44})$"
 					}
 				}
+			}
+		},
+
+		"onchain": {
+			"type": "object",
+			"description": "Canonical deployment descriptor for the agent's primary on-chain identity. Consumed by the three.ws on-chain badge (src/shared/onchain-badge.js). For Solana, contract_or_mint is the Metaplex Core asset address.",
+			"required": ["family", "chain"],
+			"properties": {
+				"family": { "type": "string", "enum": ["solana", "evm"] },
+				"chain": { "type": "string", "description": "CAIP-2 chain id, e.g. solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp or eip155:8453." },
+				"cluster": { "type": "string", "enum": ["mainnet", "devnet"] },
+				"contract_or_mint": { "type": "string" },
+				"collection": { "type": "string" },
+				"metadata_uri": { "type": "string" },
+				"owner": { "type": "string" },
+				"tx_hash": { "type": "string" },
+				"onchain_id": { "type": "string" },
+				"confirmed_at": { "type": "string" }
 			}
 		},
 
