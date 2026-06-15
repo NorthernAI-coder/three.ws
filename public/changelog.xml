@@ -84,7 +84,7 @@
 			<guid isPermaLink="false">2026-06-15:Camera AR on /irl now turns on</guid>
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
-			<description>The &quot;Camera AR&quot; button on the IRL page was stuck — it never lit up, on desktop or phone, so you could never drop your avatar into your real room. A startup error in the joystick setup was crashing the page's script before the button could ever be enabled. Fixed: the button now activates once your avatar loads, and tapping it opens the camera so you can walk your avatar across your real floor.</description>
+			<description>The &quot;Camera AR&quot; button on the IRL page was stuck — it never lit up, on desktop or phone, so you could never drop your avatar into your real room. Two bugs were behind it: a startup error in the joystick setup crashed the page's script before the button could ever be enabled, and even once that was past, the camera could hang on &quot;Requesting camera…&quot; forever because playback was started before the video was visible. Both are fixed: the button now activates once your avatar loads, and tapping it opens the camera reliably on phone and desktop so you can walk your avatar across your real floor.</description>
 		</item>
 		<item>
 			<title>Chat never stalls on a down AI model — instant, quiet failover</title>
