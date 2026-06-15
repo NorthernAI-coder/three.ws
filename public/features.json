@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T02:18:31.800Z",
+	"generated_at": "2026-06-15T02:33:46.632Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -549,7 +549,7 @@
 				{
 					"path": "/pump-live",
 					"title": "Pump Live",
-					"description": "Real-time SSE feed of every pump.fun launch as it happens.",
+					"description": "Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.",
 					"added": "2026-05-04",
 					"auth": null,
 					"indexable": true,

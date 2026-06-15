@@ -14,6 +14,7 @@
  *   pump-agent-stats              → handlePumpAgentStats
  *   pumpfun-monitor               → handlePumpfunMonitor
  *   pumpfun-signals               → handlePumpfunSignals
+ *   pumpfun-graduations-sync      → handlePumpfunGraduationsSync
  *   run-buyback                   → handleRunBuyback
  *   run-dca                       → handleRunDca
  *   run-distribute-payments       → handleRunDistributePayments
@@ -85,6 +86,7 @@ const HANDLERS = {
 	'pump-agent-stats': handlePumpAgentStats,
 	'pumpfun-monitor': handlePumpfunMonitor,
 	'pumpfun-signals': handlePumpfunSignals,
+	'pumpfun-graduations-sync': handlePumpfunGraduationsSync,
 	'run-buyback': handleRunBuyback,
 	'run-dca': handleRunDca,
 	'run-distribute-payments': handleRunDistributePayments,
@@ -1355,16 +1357,20 @@ async function handlePumpfunSignals(req, res) {
 
 	if (!requireCron(req, res)) return;
 
-	if (!pumpfunBotEnabled()) {
-		return json(res, 200, { skipped: 'pumpfun bot not configured' });
-	}
+	// Graduations come from the live WS-fed table (pumpfunMcp.graduations falls
+	// back to Postgres), so the graduation→signal path runs with or without the
+	// optional upstream bot. Claims enrichment still requires the bot, so it's
+	// skipped cleanly when the bot is unset.
+	const botEnabled = pumpfunBotEnabled();
 
 	const [claims, grads] = await Promise.all([
-		pumpfunMcp.recentClaims({ limit: CLAIMS_PER_RUN }),
+		botEnabled
+			? pumpfunMcp.recentClaims({ limit: CLAIMS_PER_RUN })
+			: Promise.resolve({ ok: true, data: [] }),
 		pumpfunMcp.graduations({ limit: GRADS_PER_RUN }),
 	]);
 
-	const report = { claims: 0, graduations: 0, inserted: 0, skipped: 0, errors: [] };
+	const report = { bot: botEnabled, claims: 0, graduations: 0, inserted: 0, skipped: 0, errors: [] };
 
 	const claimItems = pumpfunArr(claims.ok ? claims.data : null);
 	const gradItems = pumpfunArr(grads.ok ? grads.data : null);
@@ -1420,6 +1426,77 @@ async function handlePumpfunSignals(req, res) {
 	}
 
 	return json(res, 200, report);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// pumpfun-graduations-sync
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Keeps the `pumpfun_graduations` table fresh independently of browser traffic.
+//
+// The live feed (api/_lib/pumpfun-ws-feed.js) only persists graduations while a
+// /api/pump SSE stream is open — on a serverless platform that means the table
+// goes stale whenever nobody is watching the feed. This cron opens the same
+// real PumpPortal migration stream for a bounded window each run; the feed's
+// own persistGraduation() writes any graduations it observes, so
+// /api/pump/recent-graduations and the MCP graduations tool stay live. No
+// external bot or API key required — it's the public PumpPortal WebSocket.
+
+const GRAD_SYNC_WINDOW_MS = 100_000;
+
+async function handlePumpfunGraduationsSync(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+
+	if (!requireCron(req, res)) return;
+
+	const { connectPumpFunFeed } = await import('../_lib/pumpfun-ws-feed.js');
+
+	const controller = new AbortController();
+	const seen = new Map(); // tx signature → { mint, symbol }
+
+	const stop = connectPumpFunFeed({
+		kind: 'graduation',
+		signal: controller.signal,
+		onEvent: ({ kind, data }) => {
+			if (kind !== 'graduation') return;
+			const sig = data?.tx_signature || data?.signature;
+			if (sig && !seen.has(sig)) seen.set(sig, { mint: data.mint, symbol: data.symbol || null });
+		},
+	});
+
+	const before = await gradTableCount();
+	await sleep(GRAD_SYNC_WINDOW_MS);
+	controller.abort();
+	try {
+		stop?.();
+	} catch {
+		// stop() is best-effort — the abort already halted the feed.
+	}
+	// Let any in-flight enrich→persist writes settle before counting rows.
+	await sleep(750);
+	const after = await gradTableCount();
+
+	return json(res, 200, {
+		windowMs: GRAD_SYNC_WINDOW_MS,
+		observed: seen.size,
+		mints: [...seen.values()].map((v) => v.symbol || v.mint).slice(0, 25),
+		table_total: after,
+		inserted: before == null || after == null ? null : Math.max(0, after - before),
+	});
+}
+
+async function gradTableCount() {
+	try {
+		const rows = await sql`select count(*)::int as n from pumpfun_graduations`;
+		return rows?.[0]?.n ?? null;
+	} catch (err) {
+		console.warn('[pumpfun-graduations-sync] count failed:', err?.message);
+		return null;
+	}
+}
+
+function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function pumpfunArr(x) {

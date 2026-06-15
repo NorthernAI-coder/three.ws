@@ -47,6 +47,10 @@
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
 		},
+		"api/cron/relayer-balance-check.js": {
+			"includeFiles": "data/pages.json",
+			"maxDuration": 60
+		},
 		"api/cron/flush-usage-events.js": {
 			"includeFiles": "data/pages.json",
 			"maxDuration": 60
@@ -3086,6 +3090,18 @@
 			"schedule": "0 * * * *"
 		},
 		{
+			"path": "/api/cron/relayer-balance-check",
+			"schedule": "0 */6 * * *"
+		},
+		{
+			"path": "/api/cron/run-buyback",
+			"schedule": "0 * * * *"
+		},
+		{
+			"path": "/api/cron/run-distribute-payments",
+			"schedule": "30 * * * *"
+		},
+		{
 			"path": "/api/cron/audit-log-cleanup",
 			"schedule": "0 4 * * *"
 		},
@@ -3160,6 +3176,10 @@
 		{
 			"path": "/api/cron/pumpfun-monitor",
 			"schedule": "*/3 * * * *"
+		},
+		{
+			"path": "/api/cron/pumpfun-graduations-sync",
+			"schedule": "*/2 * * * *"
 		},
 		{
 			"path": "/api/cron/solana-attest-event-cleanup",

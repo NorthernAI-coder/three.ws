@@ -1,11 +1,12 @@
 {
-	"type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-	"additionalTypes": ["https://three.ws/specs/3d-agent-card-v1"],
+	"type": [
+		"https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+		"https://three.ws/specs/3d-agent-card-v1"
+	],
 	"name": "three.ws",
-	"description": "AI-powered 3D model viewer and validation agent. Drag and drop glTF, GLB, and 3D files to preview instantly in your browser. Supports real-time rendering, model validation, environment maps, and animation playback via Three.js and WebGL.",
+	"description": "three.ws is the AI-agent layer for the open web: build, embed, monetize, and trade autonomous agents with real 3D avatars, on-chain identity, pay-per-call (x402), and pump.fun token launches. This is the platform's own ERC-8004 agent card — three.ws registered as a first-class agent in the IdentityRegistry, embodied by its default 3D avatar.",
 	"image": "https://three.ws/og-image.png",
 	"active": true,
-	"agentCard": "https://three.ws/.well-known/3d-agent-card.json",
 	"model": {
 		"uri": "https://three.ws/avatars/default.glb",
 		"format": "gltf-binary",
