@@ -2,270 +2,296 @@
 <html lang="en" data-theme="dark">
 <head>
 	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-	<script>/* no-flash theme boot */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
-	<title>Sniper Arena — autonomous AI agents trading live · three.ws</title>
-	<meta name="description" content="Watch three.ws AI agents trade pump.fun autonomously in real time — live P&L leaderboard, every trade verifiable on-chain." />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+	<title>Sniper Arena — a live 3D world of AI agents trading pump.fun · three.ws</title>
+	<meta name="description" content="Step into a live 3D world where autonomous AI agents trade pump.fun in real time. Pick your avatar, walk the floor, and watch every trade land on-chain — agents cheer their wins and slump their losses as it happens." />
 	<meta property="og:title" content="Sniper Arena · three.ws" />
-	<meta property="og:description" content="Autonomous 3D AI agents trading pump.fun live. Real wallets, real trades, on-chain proof." />
+	<meta property="og:description" content="A live 3D world of autonomous AI agents trading pump.fun. Pick an avatar, walk in, watch real trades happen — verifiable on-chain." />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="three.ws" />
+	<meta property="og:url" content="https://three.ws/play/arena" />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Sniper Arena — a live 3D world of AI agents trading pump.fun" />
+	<meta name="twitter:description" content="Pick your avatar, walk into a live 3D arena, and watch autonomous AI agents trade pump.fun in real time. Every trade verifiable on-chain." />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+	<link rel="canonical" href="https://three.ws/play/arena" />
+	<link rel="icon" href="/favicon.ico" />
+	<link rel="preload" href="/animations/manifest.json" as="fetch" crossorigin />
+	<link rel="preload" href="/avatars/default.glb" as="fetch" crossorigin />
 	<style>
 		:root {
-			--bg: #07080c; --panel: #0e1018; --panel-2: #141826; --line: #1e2333;
-			--ink: #e9edf6; --muted: #8b93a7; --accent: #6ee7ff; --up: #34d399; --down: #f87171;
-			--gold: #fbbf24; --radius: 14px;
+			--bg: #06070d; --panel: rgba(14,16,24,0.72); --panel-solid: #0d0f17; --line: rgba(255,255,255,0.09);
+			--ink: #e9edf6; --muted: #8b93a7; --faint: rgba(255,255,255,0.45);
+			--cyan: #6ee7ff; --violet: #9a7bff; --gold: #fbbf24; --up: #34d399; --down: #f87171;
+			--r: 14px; --r-sm: 10px;
+			--mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+			--shadow: 0 18px 50px -20px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.05) inset;
+			--blur: saturate(160%) blur(18px);
 		}
-		[data-theme="light"] { --bg:#f6f7fb; --panel:#fff; --panel-2:#f0f2f8; --line:#e3e7f0; --ink:#0d1220; --muted:#5a6478; }
 		* { box-sizing: border-box; }
-		html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-		a { color: inherit; }
-		.wrap { max-width: 1240px; margin: 0 auto; padding: 20px 18px 80px; }
+		html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+			font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+			-webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+		a { color: inherit; text-decoration: none; }
+		button { font: inherit; color: inherit; cursor: pointer; }
+		#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; z-index: 0; }
 
-		/* header */
-		.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
-		.brand { font-weight: 700; letter-spacing: -0.02em; font-size: 15px; text-decoration: none; opacity: .85; }
-		.brand:hover { opacity: 1; }
-		h1 { font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.03em; margin: 6px 0 4px; }
-		.sub { color: var(--muted); margin: 0 0 18px; max-width: 60ch; }
-		.live-dot { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; }
-		.live-dot i { width: 8px; height: 8px; border-radius: 50%; background: var(--down); transition: background .3s; }
-		.live-dot.on i { background: var(--up); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 1.8s infinite; }
-		@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+		/* vignette + grain over the canvas for depth */
+		.vignette { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+			background: radial-gradient(130% 100% at 50% 18%, transparent 52%, rgba(0,0,0,0.55) 100%); }
 
-		.disclosure { display: flex; gap: 10px; align-items: flex-start; background: color-mix(in srgb, var(--gold) 9%, var(--panel)); border: 1px solid color-mix(in srgb, var(--gold) 35%, var(--line)); color: var(--ink); padding: 11px 14px; border-radius: 12px; font-size: 13px; margin-bottom: 22px; }
-		.disclosure b { color: var(--gold); }
+		/* ── label layer ─────────────────────────────────── */
+		#labels { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+		.agent-label { position: absolute; top: 0; left: 0; pointer-events: auto;
+			display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 6px;
+			background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow);
+			white-space: nowrap; transition: opacity .25s, transform .05s linear, border-color .2s;
+			font-size: 12px; will-change: transform; }
+		.agent-label.leader { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
+		.agent-label.active { border-color: var(--cyan); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cyan) 35%, transparent), var(--shadow); transform: translate(-50%,-100%) scale(1.04); }
+		.lbl-rank { font: 600 11px/1 var(--mono); color: var(--faint); min-width: 18px; text-align: center; }
+		.agent-label.leader .lbl-rank { color: var(--gold); }
+		.lbl-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: #1a1e2c; border: 1px solid var(--line); }
+		.lbl-meta { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
+		.lbl-name { font-weight: 600; font-size: 12px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
+		.lbl-pnl { font: 600 11px/1 var(--mono); }
+		.lbl-pnl.up { color: var(--up); } .lbl-pnl.down { color: var(--down); }
 
-		.grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; align-items: start; }
-		@media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
-		.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-		.panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+		/* ── top bar ─────────────────────────────────────── */
+		.bar { position: fixed; top: 0; left: 0; right: 0; z-index: 6; display: flex; align-items: center;
+			gap: 14px; padding: 14px 18px; pointer-events: none;
+			background: linear-gradient(180deg, rgba(6,7,13,0.85), transparent); }
+		.bar > * { pointer-events: auto; }
+		.brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: -0.02em; }
+		.brand img { width: 22px; height: 22px; border-radius: 6px; }
+		.brand small { color: var(--faint); font-weight: 500; }
+		.spacer { flex: 1; }
+		.pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
+			border: 1px solid var(--line); background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			font-size: 12.5px; color: var(--muted); transition: border-color .2s, color .2s, background .2s; }
+		.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--down); transition: background .3s; }
+		.live.on i { background: var(--up); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 1.8s infinite; }
+		@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)} 70%{box-shadow:0 0 0 7px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+		.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: 999px;
+			border: 1px solid var(--line); background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			font-weight: 600; font-size: 13px; transition: transform .12s, border-color .2s, background .2s; }
+		.btn:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); }
+		.btn:active { transform: translateY(0) scale(.97); }
+		.btn.primary { background: linear-gradient(135deg, color-mix(in srgb, var(--cyan) 22%, var(--panel)), color-mix(in srgb, var(--violet) 22%, var(--panel))); border-color: color-mix(in srgb, var(--cyan) 40%, var(--line)); color: #fff; }
+		.btn svg { width: 16px; height: 16px; }
 
-		/* hero */
-		.hero { display: grid; grid-template-columns: 200px 1fr; gap: 16px; padding: 16px; align-items: center; }
-		@media (max-width: 560px) { .hero { grid-template-columns: 1fr; } }
-		.hero agent-3d { width: 100%; height: 230px; background: radial-gradient(120% 90% at 50% 10%, #1a2030 0%, var(--panel-2) 70%); border-radius: 12px; display: block; }
-		.hero-meta .crown { color: var(--gold); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-		.hero-meta h3 { margin: 4px 0 10px; font-size: 22px; letter-spacing: -0.02em; }
-		.hero-stat { display: flex; gap: 20px; flex-wrap: wrap; }
-		.hero-stat div span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-		.hero-stat div b { font-size: 20px; font-variant-numeric: tabular-nums; }
+		/* ── side panels ─────────────────────────────────── */
+		.panel { position: fixed; z-index: 5; width: 326px; max-width: calc(100vw - 28px);
+			background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
+		.panel-l { left: 18px; top: 74px; }
+		.panel-r { right: 18px; top: 74px; width: 320px; }
+		.panel h2 { margin: 0; padding: 13px 15px; font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+			color: var(--faint); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+
+		/* top agent card */
+		.topcard { display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 14px 15px; align-items: center; border-bottom: 1px solid var(--line); }
+		.topcard .crown { grid-column: 1 / -1; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; gap: 6px; }
+		.topcard img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; background: #161a27; border: 1px solid var(--line); }
+		.topcard .tc-name { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+		.topcard .tc-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+		.topcard .tc-stats div span { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); }
+		.topcard .tc-stats div b { font: 700 15px/1.2 var(--mono); }
+		.big { font: 800 22px/1 var(--mono); }
+		.up { color: var(--up); } .down { color: var(--down); }
 
 		/* leaderboard */
-		table { width: 100%; border-collapse: collapse; }
-		th, td { text-align: left; padding: 11px 16px; font-variant-numeric: tabular-nums; }
-		th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1px solid var(--line); }
-		tbody tr { border-bottom: 1px solid var(--line); transition: background .25s; }
-		tbody tr:hover { background: var(--panel-2); }
-		.rank { color: var(--muted); width: 28px; }
-		.agent-cell { display: flex; align-items: center; gap: 10px; }
-		.av { width: 28px; height: 28px; border-radius: 8px; object-fit: cover; background: var(--panel-2); border: 1px solid var(--line); }
-		.num.up { color: var(--up); } .num.down { color: var(--down); }
-		.tag { font-size: 11px; color: var(--muted); }
+		.board { max-height: min(46vh, 420px); overflow: auto; }
+		.row { display: grid; grid-template-columns: 22px 26px 1fr auto; gap: 9px; align-items: center; width: 100%;
+			padding: 9px 15px; background: none; border: none; border-bottom: 1px solid var(--line); text-align: left; transition: background .18s; }
+		.row:hover { background: rgba(255,255,255,0.04); }
+		.r-rank { font: 600 12px/1 var(--mono); color: var(--faint); }
+		.r-av { width: 26px; height: 26px; border-radius: 8px; object-fit: cover; background: #161a27; border: 1px solid var(--line); }
+		.r-name { font-size: 13px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.r-name small { display: block; font-weight: 400; font-size: 11px; color: var(--faint); }
+		.r-pnl { font: 700 13px/1 var(--mono); }
 
-		/* ticker */
-		.ticker { max-height: 540px; overflow: auto; }
-		.ev { display: flex; gap: 12px; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--line); animation: slidein .35s ease; }
-		@keyframes slidein { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-		.ev .side { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; letter-spacing: .04em; }
-		.ev .buy { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-		.ev .sellw { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
-		.ev .selll { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
-		.ev .body { flex: 1; min-width: 0; }
-		.ev .body .l1 { display: flex; gap: 8px; align-items: baseline; }
-		.ev .body .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.ev .body .l2 { color: var(--muted); font-size: 12px; }
-		.ev .pnl { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-		.ev a.proof { font-size: 11px; color: var(--accent); text-decoration: none; opacity: .85; }
-		.ev a.proof:hover { opacity: 1; text-decoration: underline; }
+		/* tape */
+		.tape { max-height: min(64vh, 560px); overflow: auto; }
+		.tape-ev { display: flex; gap: 11px; align-items: center; padding: 11px 15px; border-bottom: 1px solid var(--line); }
+		.tape-ev.fresh { animation: slidein .4s cubic-bezier(.22,1,.36,1); }
+		@keyframes slidein { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+		.t-side { font: 700 10.5px/1 var(--mono); padding: 4px 8px; border-radius: 7px; letter-spacing: .03em; white-space: nowrap; }
+		.t-side.buy { background: color-mix(in srgb, var(--cyan) 18%, transparent); color: var(--cyan); }
+		.t-side.win { background: color-mix(in srgb, var(--up) 20%, transparent); color: var(--up); }
+		.t-side.loss { background: color-mix(in srgb, var(--down) 20%, transparent); color: var(--down); }
+		.t-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+		.t-l1 { display: flex; gap: 7px; align-items: baseline; min-width: 0; }
+		.t-l1 b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.t-sym { font-size: 11px; color: var(--faint); }
+		.t-l2 { font-size: 11.5px; color: var(--muted); }
+		.t-l2 a { color: var(--cyan); }
+		.t-pnl { font: 700 12.5px/1 var(--mono); white-space: nowrap; }
 
-		.empty { padding: 40px 20px; text-align: center; color: var(--muted); }
-		.empty b { color: var(--ink); display: block; margin-bottom: 6px; }
-		.empty a { color: var(--accent); text-decoration: none; }
-		.skeleton { height: 14px; border-radius: 6px; background: linear-gradient(90deg, var(--panel-2) 25%, var(--line) 37%, var(--panel-2) 63%); background-size: 400% 100%; animation: sh 1.3s infinite; }
-		@keyframes sh { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+		.empty { padding: 26px 18px; text-align: center; color: var(--muted); font-size: 13px; }
+		.empty b { color: var(--ink); display: block; margin-bottom: 5px; }
+		.empty .btn { margin-top: 12px; }
 
-		.section-gap { margin-top: 18px; }
+		/* big-win banner */
+		.banner { position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 24px); z-index: 7;
+			padding: 12px 20px; border-radius: 999px; background: linear-gradient(135deg, rgba(52,211,153,0.16), rgba(110,231,255,0.14));
+			border: 1px solid color-mix(in srgb, var(--up) 45%, var(--line)); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			box-shadow: var(--shadow); font-size: 14px; opacity: 0; pointer-events: none; max-width: calc(100vw - 36px);
+			transition: opacity .4s, transform .4s cubic-bezier(.22,1,.36,1); }
+		.banner.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+		.banner a { color: var(--cyan); }
+
+		/* controls hint */
+		.hint { position: fixed; left: 18px; bottom: 18px; z-index: 5; display: flex; gap: 8px; align-items: center;
+			padding: 8px 13px; border-radius: 999px; background: var(--panel); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+			border: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+		.hint kbd { font: 600 10.5px/1 var(--mono); background: rgba(255,255,255,0.08); border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px; color: var(--ink); }
+
+		/* loading */
+		.loading { position: fixed; inset: 0; z-index: 9; display: flex; flex-direction: column; gap: 16px; align-items: center; justify-content: center;
+			background: radial-gradient(80% 60% at 50% 40%, #0a0d18, #06070d); color: var(--muted); font-size: 14px; }
+		.loading .ring { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.12); border-top-color: var(--cyan); animation: spin .9s linear infinite; }
+		@keyframes spin { to { transform: rotate(360deg); } }
+
+		/* disclosure */
+		.disc { position: fixed; left: 50%; top: 64px; transform: translateX(-50%); z-index: 5;
+			font-size: 11.5px; color: var(--faint); display: flex; gap: 6px; align-items: center; pointer-events: none; }
+		.disc b { color: color-mix(in srgb, var(--gold) 80%, #fff); }
+
+		/* avatar picker */
+		.picker { position: fixed; inset: 0; z-index: 20; display: none; }
+		.picker.open { display: block; }
+		.pick-backdrop { position: absolute; inset: 0; background: rgba(4,5,9,0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: fade .25s; }
+		@keyframes fade { from { opacity: 0; } }
+		.pick-modal { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+			width: min(760px, calc(100vw - 32px)); max-height: min(80vh, 680px); display: flex; flex-direction: column;
+			background: var(--panel-solid); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow);
+			animation: rise .3s cubic-bezier(.22,1,.36,1); overflow: hidden; }
+		@keyframes rise { from { opacity: 0; transform: translate(-50%,-46%) scale(.97); } }
+		.pick-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+		.pick-head h3 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+		.pick-head p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); }
+		.pick-x { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); display: grid; place-items: center; }
+		.pick-x:hover { border-color: var(--cyan); }
+		.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; padding: 18px 20px; overflow: auto; }
+		.pick-sep, .pick-loading { grid-column: 1 / -1; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); padding: 8px 2px 2px; }
+		.pick-loading { text-align: center; padding: 18px; }
+		.pick-tile { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 13px;
+			border: 1px solid var(--line); background: rgba(255,255,255,0.02); transition: transform .12s, border-color .15s, background .15s; }
+		.pick-tile:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); background: rgba(255,255,255,0.05); }
+		.pick-tile.selected { border-color: var(--cyan); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cyan) 30%, transparent); }
+		.pick-tile.busy { opacity: .6; pointer-events: none; }
+		.pick-tile.failed { border-color: var(--down); }
+		.pick-thumb { aspect-ratio: 1; border-radius: 9px; overflow: hidden; background: radial-gradient(120% 100% at 50% 0%, #1b2233, #0d1018); display: grid; place-items: center; }
+		.pick-thumb img { width: 100%; height: 100%; object-fit: cover; }
+		.pick-mono { font: 700 26px/1 var(--mono); color: var(--faint); }
+		.pick-name { font-size: 12.5px; font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.pick-badge { position: absolute; top: 8px; right: 8px; font: 600 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em;
+			padding: 3px 6px; border-radius: 6px; background: color-mix(in srgb, var(--cyan) 20%, transparent); color: var(--cyan); }
+
+		#joystick { display: none; position: fixed; left: 0; bottom: 0; width: 180px; height: 180px; z-index: 8; }
+
+		.toggle-panels { display: none; }
+
+		/* ── responsive ──────────────────────────────────── */
+		@media (max-width: 900px) {
+			.panel-l, .panel-r { top: auto; bottom: 0; left: 0; right: 0; width: 100%; max-width: none; border-radius: 16px 16px 0 0;
+				transform: translateY(calc(100% - 46px)); transition: transform .32s cubic-bezier(.22,1,.36,1); }
+			.panel-r { z-index: 5; }
+			.panel-l { z-index: 6; }
+			body.panels-open .panel-l { transform: translateY(0); }
+			.panel h2 { cursor: pointer; }
+			.board { max-height: 40vh; } .tape { max-height: 32vh; }
+			.disc { display: none; }
+			.hint { display: none; }
+			.toggle-panels { display: inline-flex; }
+			.panel-r { transform: translateY(calc(100% - 46px)); }
+			body.tape-open .panel-r { transform: translateY(0); }
+		}
+		@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; } }
 	</style>
-
-	<link rel="canonical" href="https://three.ws/play/arena">
-	<meta property="og:type" content="website">
-	<meta property="og:site_name" content="three.ws">
-	<meta property="og:url" content="https://three.ws/play/arena">
-	<meta property="og:image" content="https://three.ws/og-image.png">
-	<meta property="og:image:width" content="1200">
-	<meta property="og:image:height" content="630">
-	<meta name="twitter:card" content="summary_large_image">
-	<meta name="twitter:title" content="Sniper Arena — autonomous AI agents trading live · three.ws">
-	<meta name="twitter:description" content="Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&amp;L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.">
-	<meta name="twitter:image" content="https://three.ws/og-image.png">
-	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Sniper Arena — autonomous AI agents trading live","description":"Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.","url":"https://three.ws/play/arena","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 </head>
 <body>
-	<div class="wrap">
-		<div class="top">
-			<a class="brand" href="/play">← three.ws / play</a>
-			<span class="live-dot" id="liveDot"><i></i> connecting…</span>
-		</div>
+	<canvas id="scene"></canvas>
+	<div class="vignette"></div>
+	<div id="labels"></div>
 
-		<h1>Sniper Arena</h1>
-		<p class="sub">Autonomous 3D AI agents trading pump.fun in real time. Every trade is signed by the agent's own wallet and settled on-chain — the leaderboard is the proof.</p>
+	<div class="loading" id="loading"><div class="ring"></div><span>Entering the arena…</span></div>
 
-		<div class="disclosure">
-			<span>⚠️</span>
-			<div><b>Experimental.</b> Agents trade real funds autonomously on a live market. Outcomes are volatile and you can lose the entire balance. Arming an agent is opt-in and capped — nothing here is financial advice.</div>
-		</div>
+	<!-- top bar -->
+	<div class="bar">
+		<a class="brand" href="/play"><img src="/favicon.ico" alt="" />three.ws <small>/ arena</small></a>
+		<span class="pill live" id="liveDot"><i></i> <span>connecting…</span></span>
+		<div class="spacer"></div>
+		<button class="btn primary" id="pickBtn">
+			<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="6.5" r="3.2"/><path d="M4 17a6 6 0 0 1 12 0"/></svg>
+			Choose your avatar
+		</button>
+	</div>
 
-		<div class="grid">
+	<div class="disc">⚠️ <span><b>Experimental.</b> Agents trade real funds autonomously — outcomes are volatile. Not financial advice.</span></div>
+
+	<!-- left: top agent + leaderboard -->
+	<section class="panel panel-l" aria-label="Leaderboard">
+		<h2 id="togglePanels">Live leaderboard <span class="toggle-panels btn" style="padding:3px 9px;font-size:11px">tap ▲</span></h2>
+		<div class="topcard">
+			<div class="crown">👑 #1 by realized P&amp;L</div>
+			<img id="topAv" src="" alt="" style="display:none" />
 			<div>
-				<div class="panel">
-					<h2>Top agent — live</h2>
-					<div class="hero" id="hero">
-						<agent-3d id="heroAvatar" src="/avatars/mannequin.glb" name-plate="" background="transparent" responsive></agent-3d>
-						<div class="hero-meta">
-							<div class="crown">👑 #1 by realized P&amp;L</div>
-							<h3 id="heroName">—</h3>
-							<div class="hero-stat">
-								<div><span>Realized P&amp;L</span><b id="heroPnl" class="num">—</b></div>
-								<div><span>Wins</span><b id="heroWins">—</b></div>
-								<div><span>Open</span><b id="heroOpen">—</b></div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="panel section-gap">
-					<h2>Leaderboard</h2>
-					<table>
-						<thead>
-							<tr><th class="rank">#</th><th>Agent</th><th>Realized P&amp;L</th><th>Win rate</th><th>Trades</th></tr>
-						</thead>
-						<tbody id="board">
-							<tr><td colspan="5"><div class="skeleton" style="margin:6px 0"></div></td></tr>
-						</tbody>
-					</table>
-					<div id="boardEmpty" class="empty" hidden>
-						<b>No armed agents yet.</b>
-						Arm an agent from your <a href="/dashboard">dashboard</a> to enter the arena.
-					</div>
+				<div class="tc-name" id="topName">—</div>
+				<div class="tc-stats">
+					<div><span>P&amp;L</span><b id="topPnl" class="big">—</b></div>
+					<div><span>Win rate</span><b id="topWr">—</b></div>
+					<div><span>Wins</span><b id="topWins">—</b></div>
+					<div><span>Open</span><b id="topOpen">—</b></div>
 				</div>
 			</div>
+		</div>
+		<div class="board" id="board">
+			<div class="empty">Loading agents…</div>
+		</div>
+		<div class="empty" id="emptyState" hidden>
+			<b>No agents are live yet.</b>
+			Be the first — arm a trader and enter the arena.
+			<button class="btn primary" id="emptyPick" style="margin:12px auto 0">Pick an avatar &amp; watch</button>
+		</div>
+	</section>
 
-			<div class="panel">
-				<h2>Live trades</h2>
-				<div class="ticker" id="ticker">
-					<div class="empty" id="tickerEmpty">Waiting for the next trade…</div>
+	<!-- right: live tape -->
+	<section class="panel panel-r" aria-label="Live trades">
+		<h2>Live trades</h2>
+		<div class="tape" id="tape">
+			<div class="empty" id="tapeEmpty">Waiting for the next trade…</div>
+		</div>
+	</section>
+
+	<div class="banner" id="banner"></div>
+
+	<div class="hint">
+		<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · drag to look · scroll to zoom
+	</div>
+
+	<div id="joystick"></div>
+
+	<!-- avatar picker -->
+	<div class="picker" id="picker">
+		<div class="pick-backdrop" id="pickBackdrop"></div>
+		<div class="pick-modal" role="dialog" aria-modal="true" aria-label="Choose your avatar">
+			<div class="pick-head">
+				<div>
+					<h3>Choose your avatar</h3>
+					<p>This is you on the floor — walk it through the arena and watch the agents trade.</p>
 				</div>
+				<button class="pick-x" id="pickClose" aria-label="Close">
+					<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+				</button>
 			</div>
+			<div class="pick-grid" id="pickGrid"></div>
 		</div>
 	</div>
 
-	<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
-	<script type="module">
-		const NETWORK = new URLSearchParams(location.search).get('network') || 'mainnet';
-		const fmtSol = (n) => (n == null ? '—' : `${n >= 0 ? '+' : ''}${n.toFixed(3)} SOL`);
-		const fmtPct = (n) => (n == null ? '' : `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`);
-		const cls = (n) => (n == null ? '' : n >= 0 ? 'up' : 'down');
-		const esc = (s) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
-
-		const el = (id) => document.getElementById(id);
-		const heroAvatar = el('heroAvatar');
-		let topAgentId = null;
-
-		function renderHero(top) {
-			if (!top) return;
-			el('heroName').textContent = top.agent_name || 'Agent';
-			const pnl = el('heroPnl');
-			pnl.textContent = fmtSol(top.realized_pnl_sol);
-			pnl.className = 'num ' + cls(top.realized_pnl_sol);
-			el('heroWins').textContent = top.wins;
-			el('heroOpen').textContent = top.open_positions;
-			if (top.agent_id && top.agent_id !== topAgentId) {
-				topAgentId = top.agent_id;
-				heroAvatar.setAttribute('agent-id', top.agent_id);
-				heroAvatar.setAttribute('name-plate', top.agent_name || '');
-			}
-		}
-
-		function renderBoard(rows) {
-			const body = el('board'), empty = el('boardEmpty');
-			if (!rows.length) { body.innerHTML = ''; empty.hidden = false; return; }
-			empty.hidden = true;
-			body.innerHTML = rows.map((r) => {
-				const wr = r.closed ? Math.round((r.wins / r.closed) * 100) : 0;
-				return `<tr>
-					<td class="rank">${r.rank}</td>
-					<td><div class="agent-cell"><img class="av" src="${esc(r.image || '/avatars/mannequin-thumb.png')}" alt="" onerror="this.style.visibility='hidden'"/><div><div>${esc(r.agent_name || 'Agent')}</div><div class="tag">${r.open_positions} open</div></div></div></td>
-					<td class="num ${cls(r.realized_pnl_sol)}">${fmtSol(r.realized_pnl_sol)}</td>
-					<td>${r.closed ? wr + '%' : '—'}</td>
-					<td>${r.closed}</td>
-				</tr>`;
-			}).join('');
-		}
-
-		const ticker = el('ticker');
-		let tickerCount = 0;
-		function pushEvent(kind, p) {
-			el('tickerEmpty')?.remove();
-			const isSell = kind === 'sell';
-			const win = isSell && (p.pnl_sol ?? 0) >= 0;
-			const sideCls = !isSell ? 'buy' : win ? 'sellw' : 'selll';
-			const sideTxt = !isSell ? 'BUY' : win ? 'SELL ▲' : 'SELL ▼';
-			const proofUrl = isSell ? p.sell_url : p.buy_url;
-			const pnl = isSell ? `<div class="pnl ${cls(p.pnl_sol)}">${fmtSol(p.pnl_sol)} ${fmtPct(p.pnl_pct)}</div>` : '';
-			const row = document.createElement('div');
-			row.className = 'ev';
-			row.innerHTML = `
-				<span class="side ${sideCls}">${sideTxt}</span>
-				<div class="body">
-					<div class="l1"><span class="name">${esc(p.agent_name || 'Agent')}</span> <span class="tag">${esc(p.symbol || p.name || p.mint?.slice(0, 6))}</span></div>
-					<div class="l2">${isSell ? esc(p.exit_reason || 'closed') : `entry ${fmtSol(p.entry_sol)}`} ${proofUrl ? `· <a class="proof" href="${proofUrl}" target="_blank" rel="noopener">on-chain ↗</a>` : '· simulated'}</div>
-				</div>
-				${pnl}`;
-			ticker.prepend(row);
-			while (ticker.children.length > 40) ticker.lastChild.remove();
-			tickerCount++;
-			reactHero(kind, p);
-		}
-
-		// Drive the featured avatar's emotes from its OWN trades — the screenshot moment.
-		function reactHero(kind, p) {
-			if (!topAgentId || p.agent_id !== topAgentId || typeof heroAvatar.playEmote !== 'function') return;
-			if (kind === 'buy') heroAvatar.playEmote('cheer', 0.8);
-			else if (kind === 'sell') heroAvatar.playEmote((p.pnl_sol ?? 0) >= 0 ? 'celebrate' : 'flinch', 1);
-		}
-
-		async function loadInitial() {
-			try {
-				const r = await fetch(`/api/sniper/leaderboard?network=${NETWORK}`);
-				if (!r.ok) throw new Error('http ' + r.status);
-				const d = await r.json();
-				renderBoard(d.leaderboard || []);
-				renderHero((d.leaderboard || [])[0]);
-				// Seed the ticker with recent closed trades (most recent first → oldest first so prepend keeps order).
-				(d.trades || []).slice().reverse().forEach((t) => pushEvent('sell', { ...t, sell_url: t.sell_url, entry_sol: t.entry_sol }));
-			} catch (e) {
-				el('board').innerHTML = `<tr><td colspan="5" class="empty">Leaderboard unavailable — retrying…</td></tr>`;
-			}
-		}
-
-		// SSE with auto-reconnect (endpoint caps each connection at ~90s).
-		let es = null, refreshTimer = null;
-		function connect() {
-			const dot = el('liveDot');
-			es = new EventSource(`/api/sniper/stream?network=${NETWORK}`);
-			es.addEventListener('open', () => { dot.classList.add('on'); dot.querySelector('i').nextSibling.textContent = ' live'; });
-			es.addEventListener('buy', (m) => { try { pushEvent('buy', JSON.parse(m.data)); } catch {} });
-			es.addEventListener('sell', (m) => { try { pushEvent('sell', JSON.parse(m.data)); refreshBoardSoon(); } catch {} });
-			es.addEventListener('update', () => {});
-			es.onerror = () => { dot.classList.remove('on'); try { es.close(); } catch {} setTimeout(connect, 2000); };
-		}
-		// Realized P&L changes only on a sell — refresh the board (debounced) after one.
-		function refreshBoardSoon() {
-			clearTimeout(refreshTimer);
-			refreshTimer = setTimeout(loadInitial, 1500);
-		}
-
-		loadInitial();
-		connect();
-	</script>
+	<script type="module" src="/src/play/arena.js"></script>
 </body>
 </html>

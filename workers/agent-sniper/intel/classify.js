@@ -56,7 +56,7 @@ export function heuristicClassify({ name, symbol, description } = {}) {
 		}
 	}
 	// No keyword hit: short tickers with descriptions read as memes; otherwise unknown.
-	const words = tokenize(`${name} ${description}`);
+	const words = tokenize(`${name || ''} ${description || ''}`);
 	return {
 		category: words.length ? 'meme' : 'unknown',
 		tags: [],
