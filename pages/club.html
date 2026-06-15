@@ -31,6 +31,14 @@
 		/>
 		<meta property="og:url" content="https://three.ws/club" />
 
+		<!-- Design tokens + canonical button styles so the shared on-chain primer
+		     modal (src/shared/onchain-primer.js → Modal) renders on-brand here.
+		     This bespoke 3D page skips the global style.css; tokens.css is
+		     variables-only and buttons.css targets only `.btn`, so neither touches
+		     the club's own UI (it uses `.club-*` classes and no design tokens). -->
+		<link rel="stylesheet" href="/tokens.css" />
+		<link rel="stylesheet" href="/buttons.css" />
+
 		<style>
 			:root {
 				--bg: #060606;
