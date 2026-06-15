@@ -523,6 +523,18 @@
 			"dest": "/launches.html"
 		},
 		{
+			"src": "/leaderboard/?",
+			"dest": "/leaderboard.html"
+		},
+		{
+			"src": "/trader/([^/]+)/?",
+			"dest": "/trader.html"
+		},
+		{
+			"src": "/trader/?",
+			"dest": "/trader.html"
+		},
+		{
 			"src": "/admin/bulk-launch/?",
 			"dest": "/bulk-launch.html"
 		},
@@ -3131,6 +3143,10 @@
 		{
 			"path": "/api/cron/flush-usage-events",
 			"schedule": "* * * * *"
+		},
+		{
+			"path": "/api/cron/smart-money-rollup",
+			"schedule": "*/5 * * * *"
 		},
 		{
 			"path": "/api/cron/quota-check",

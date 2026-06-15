@@ -47,6 +47,7 @@ export const NAV = [
 	{ path: '/community',             label: 'Community',       icon: 'community', group: 'Explore',    tags: ['social', 'forum', 'connect', 'members'], external: true },
 	{ path: '/demos',                 label: 'Demos',           icon: 'play',      group: 'Explore',    tags: ['examples', 'showcase', 'interactive', 'try'], external: true },
 	{ path: '/pump-live',             label: 'Pump.fun Live',   icon: 'live',      group: 'Explore',    tags: ['feed', 'trending', 'tokens', 'trade', 'realtime'], external: true },
+	{ path: '/radar',                 label: 'Coin Radar',      icon: 'live',      group: 'Explore',    tags: ['intelligence', 'bundle', 'organic', 'rug', 'risk', 'score', 'pump.fun', 'launch', 'snipe', 'concentration'], external: true },
 
 	// ── Account ─────────────────────────────────────────────────────────
 	{ path: '/dashboard/account',     label: 'Account',         icon: 'user',      group: 'Account',    tags: ['wallets', 'sns', 'delegation', 'profile', 'action log', 'provider keys'] },
