@@ -4,6 +4,11 @@
 
 Public history for [three.ws](https://three.ws), newest first. New pages come from `added` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](https://three.ws/changelog.json) and [RSS](https://three.ws/changelog.xml), live at [three.ws/changelog](https://three.ws/changelog).
 
+## 2026-06-15
+
+- **Launchpad Studio: pick your avatar from your own agents and the gallery** — Building a launchpad in Launchpad Studio (three.ws/launchpad) no longer means hunting down a model URL by hand. The avatar picker now shows three sections: your own three.ws agents (when you're signed in), the platform avatar gallery with a Show more button to browse deeper, and a collapsed Or enter a URL field for power users who want to paste a custom .glb. Thumbnails load lazily, the selected avatar updates the live 3D preview instantly, and your choice is saved with the published page. (`/launchpad`) `[feature, improvement]`
+- **Pump Visualizer’s Trending view fixed — spheres now sized by real market cap** — The Trending mode of the 3D Pump Visualizer (three.ws/pump-visualizer) now renders correctly: every coin appears as a sphere sized by its real USD market cap, textured with its actual logo, with a full detail panel showing market cap, all-time-high, replies, age, and socials. Previously Trending failed to load because the market data it relied on wasn’t reaching the scene. Click a sphere to inspect it, or double-click to open the full 3D coin page. The live Firehose and Migrations modes are unchanged. (`/pump-visualizer`) `[fix, improvement]`
+
 ## 2026-06-14
 
 - **Building 3D AI Agents Live** (`/events/build-3d-agents-live`) — A live build session: from a single prompt to an interactive 3D AI agent embedded in any app, in minutes — then a live Q&A. Hosted by three.ws, in partnership with IBM.

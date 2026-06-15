@@ -31,8 +31,14 @@ contract DeployValidationMainnet is Script {
     // Named ARACHNID_FACTORY to avoid colliding with forge-std Base.CREATE2_FACTORY.
     address constant ARACHNID_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
-    // Salt chosen to produce the 0x8004... vanity prefix on mainnet
-    bytes32 constant SALT = keccak256(abi.encodePacked("ValidationRegistry", uint256(1)));
+    // Vanity salt ground for the 0x8004C... family prefix. Bound to this exact
+    // init code: ValidationRegistry creationCode ++ abi.encode(IDENTITY_REGISTRY, deployer).
+    // It is only valid for deployer 0x4022de2D...C0564f402 + mainnet IDENTITY_REGISTRY
+    // above; changing either invalidates the address.
+    //   Init code hash: 0x9f52c59a0c0cc7530da87468abec66611c90f14bcd643f89cecadf126be40967
+    //   Predicted addr: 0x8004C40cB843aE03005785cEfF5BeDD1B797003c
+    //   Ground via: cast create2 --starts-with 8004C --deployer <factory> --init-code-hash <hash>
+    bytes32 constant SALT = 0xf71795f0fc4acf874645e72df4ef164351198c1b2d24d6caf08d07395f68a79a;
 
     function run() external returns (ValidationRegistry validation) {
         address deployer = msg.sender;
@@ -67,7 +73,7 @@ contract DeployValidationMainnet is Script {
         ));
         return address(uint160(uint256(keccak256(abi.encodePacked(
             bytes1(0xff),
-            CREATE2_FACTORY,
+            ARACHNID_FACTORY,
             SALT,
             initCodeHash
         )))));
