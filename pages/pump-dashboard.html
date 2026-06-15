@@ -3898,7 +3898,7 @@
 				return str;
 			}
 
-			function relTime(iso) {
+			function relTimeIso(iso) {
 				const diff = Date.now() - new Date(iso).getTime();
 				const m = Math.floor(diff / 60000);
 				if (m < 1) return 'just now';
@@ -4504,7 +4504,7 @@
 						<td class="pd-mono">${escapeHtml(k.prefix)}…</td>
 						<td class="pd-mono" style="font-size:0.74rem">${escapeHtml((k.scope || '').split(/\s+/).filter(Boolean).join(', '))}</td>
 						<td class="pd-mono">${k.created_at ? new Date(k.created_at).toLocaleDateString() : '—'}</td>
-						<td class="pd-mono">${k.last_used_at ? relTime(k.last_used_at) : 'never'}</td>
+						<td class="pd-mono">${k.last_used_at ? relTimeIso(k.last_used_at) : 'never'}</td>
 						<td class="pd-mono">${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : '—'}</td>
 						<td><button class="pd-btn pd-btn-sm is-danger" type="button" data-revoke-key="${escapeHtml(k.id)}">Revoke</button></td>
 					</tr>`,
