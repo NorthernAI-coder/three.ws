@@ -76,8 +76,8 @@ async function judgeAndFold() {
 		SELECT i.mint, extract(epoch from i.first_seen_at)::bigint AS first_ts
 		FROM pump_coin_intel i
 		WHERE i.network = ${NETWORK}
-		  AND i.first_seen_at < now() - make_interval(hours => ${JUDGE_AFTER_HOURS})
-		  AND i.first_seen_at > now() - make_interval(days => ${MAX_AGE_DAYS})
+		  AND i.first_seen_at < now() - ${JUDGE_AFTER_HOURS} * interval '1 hour'
+		  AND i.first_seen_at > now() - ${MAX_AGE_DAYS} * interval '1 day'
 		  AND NOT EXISTS (
 		      SELECT 1 FROM smart_money_scored s
 		      WHERE s.mint = i.mint AND s.network = ${NETWORK}
@@ -176,8 +176,8 @@ async function judgeAndFold() {
 		SELECT count(*)::int AS remaining
 		FROM pump_coin_intel i
 		WHERE i.network = ${NETWORK}
-		  AND i.first_seen_at < now() - make_interval(hours => ${JUDGE_AFTER_HOURS})
-		  AND i.first_seen_at > now() - make_interval(days => ${MAX_AGE_DAYS})
+		  AND i.first_seen_at < now() - ${JUDGE_AFTER_HOURS} * interval '1 hour'
+		  AND i.first_seen_at > now() - ${MAX_AGE_DAYS} * interval '1 day'
 		  AND NOT EXISTS (SELECT 1 FROM smart_money_scored s WHERE s.mint = i.mint AND s.network = ${NETWORK})
 	`;
 
@@ -241,7 +241,7 @@ async function scoreLiveCoins() {
 	const coins = await sql`
 		SELECT mint, symbol, name, image_uri, category, first_seen_at
 		FROM pump_coin_intel
-		WHERE network = ${NETWORK} AND first_seen_at > now() - make_interval(hours => ${LIVE_WINDOW_HOURS})
+		WHERE network = ${NETWORK} AND first_seen_at > now() - ${LIVE_WINDOW_HOURS} * interval '1 hour'
 		ORDER BY first_seen_at DESC
 		LIMIT ${LIVE_COINS}
 	`;
