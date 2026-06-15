@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Pump Visualizer: a coin's look now tracks its market cap",
+			"summary": "On the Pump Visualizer, market cap no longer just sizes a coin — it shapes its whole look. As a coin's cap climbs it shifts color from cool blue through purple to green and gold, grows a crystalline wireframe cage that gains facets at each tier, and spins and pulses with more energy. On the trending refresh, a coin that moved gets a clear signal: it flashes green and pops bigger when its cap rose, red and dips when it fell, and crossing into a higher or lower tier visibly upgrades or downgrades its shape and color. A new on-screen key in the corner maps each color and tier to its market-cap range so it all reads at a glance.",
+			"tags": ["feature"],
+			"link": "/pump-visualizer"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Four distinct dancers, now waiting at their poles",
 			"summary": "The Pole Club stage no longer sits empty between tips. All four dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — and each is a different 3D model instead of four copies of one, so Aria, Nova, Blaze, and Luna actually look like four different performers (still tinted to their pole's neon color). Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second.",
 			"tags": ["improvement"],

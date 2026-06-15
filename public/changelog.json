@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T20:59:54.552Z",
+	"generated_at": "2026-06-15T21:28:35.385Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -219,6 +219,16 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Pump Visualizer: a coin's look now tracks its market cap",
+			"summary": "On the Pump Visualizer, market cap no longer just sizes a coin — it shapes its whole look. As a coin's cap climbs it shifts color from cool blue through purple to green and gold, grows a crystalline wireframe cage that gains facets at each tier, and spins and pulses with more energy. On the trending refresh, a coin that moved gets a clear signal: it flashes green and pops bigger when its cap rose, red and dips when it fell, and crossing into a higher or lower tier visibly upgrades or downgrades its shape and color. A new on-screen key in the corner maps each color and tier to its market-cap range so it all reads at a glance.",
+			"link": "/pump-visualizer",
+			"tags": [
+				"feature"
 			]
 		},
 		{

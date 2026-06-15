@@ -61,9 +61,11 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		// 4. idempotency lock — claim the (agent,mint,network) slot BEFORE the tx.
 		const claimed = await sql`
 			INSERT INTO agent_sniper_positions
-				(strategy_id, agent_id, user_id, wallet, network, mint, symbol, name, status)
+				(strategy_id, agent_id, user_id, wallet, network, mint, symbol, name, status,
+				 entry_trigger, trigger_ref)
 			VALUES (${strat.id}, ${strat.agent_id}, ${strat.user_id}, ${'pending'}, ${cfg.network},
-			        ${mint.mint}, ${mint.symbol || null}, ${mint.name || null}, 'opening')
+			        ${mint.mint}, ${mint.symbol || null}, ${mint.name || null}, 'opening',
+			        ${mint.entry_trigger || 'new_mint'}, ${mint.trigger_ref || null})
 			ON CONFLICT (agent_id, mint, network) DO NOTHING
 			RETURNING id
 		`;

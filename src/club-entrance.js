@@ -59,11 +59,7 @@ const CAM_DIST = 3.6;
 const CAM_HEIGHT = 1.55;
 const HEAD_Y = 1.2;
 
-// Walk-through timeline (seconds), once the cover settles.
-const LEAVE = 1.3; // walk forward through the alley door
-const ENTER = 0.6; // fade the interior in
-const WALK = 4.4; // walk forward through the interior
-const ARRIVE = 0.9; // fade out, revealing the pole stage
+const ARRIVE = 0.9; // final fade (seconds) that reveals the pole stage
 
 const isTouch = typeof window !== 'undefined' &&
 	('ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0);
@@ -138,39 +134,54 @@ async function start(canvasEl) {
 
 	const loader = gltfLoader(renderer);
 
-	// Walk the gallery tour + the avatar first; prefetch the alley and the
-	// interior so each transition lands without waiting on a download.
-	const [tourGltf, avatarGltf, manifest] = await Promise.all([
-		loader.loadAsync(TOUR_URL),
+	// The journey, in order. You free-walk every one of these — no auto-walk.
+	// `cover` marks the venue whose door takes the cover charge (the outside
+	// alley); the rest just lead you to the next place. `door` anchors the exit
+	// to a modelled doorway (+ seals it) where one exists; interiors exit down
+	// their longest dimension. The last venue hands off to the strip club stage.
+	const SEQUENCE = [
+		{ url: ALLEYWAY_URL, cover: true, door: true },   // outside — pay the cover here
+		{ url: TOUR_URL, cover: false, door: false },     // gallery hall
+		{ url: CLUBHOUSE_URL, cover: false, door: false }, // club interior → the poles
+	];
+
+	// Land in the alley + the avatar first; prefetch the rest so each place is
+	// ready the moment you walk into it.
+	const [firstGltf, avatarGltf, manifest] = await Promise.all([
+		loader.loadAsync(SEQUENCE[0].url),
 		loader.loadAsync(AVATAR_URL),
 		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
 	]);
-	const clubhousePromise = loader.loadAsync(CLUBHOUSE_URL);
-	let alleyGltf = null;
-	loader.loadAsync(ALLEYWAY_URL)
-		.then((g) => { alleyGltf = g; })
-		.catch((err) => { log.warn('[club-entrance] alley load failed', err); alleyGltf = 'error'; });
+	const loaded = SEQUENCE.map(() => null); // index-aligned gltf cache
+	loaded[0] = firstGltf;
+	for (let i = 1; i < SEQUENCE.length; i++) {
+		const idx = i;
+		loader.loadAsync(SEQUENCE[idx].url)
+			.then((g) => { loaded[idx] = g; })
+			.catch((err) => { log.warn(`[club-entrance] venue ${idx} load failed`, err); loaded[idx] = 'error'; });
+	}
 
 	// ── Environment ──────────────────────────────────────────────────────────
-	// `cover` flags the venue whose door opens the cover card (the alley); the
-	// tour's exit just advances you to the alley. Door-anchoring + the sealing
-	// occluder only apply to the alley — the tour exits down its long axis.
+	let venueIndex = 0;
+	let paid = false;
 	let currentCover = false;
 	let env = null, doorAnchor = null, path = null, occluder = null;
-	mountApproach(tourGltf.scene, { cover: false, useDoorAnchor: false });
+	mountVenue(0);
 
-	function mountApproach(root, { cover, useDoorAnchor }) {
+	function mountVenue(i) {
+		const v = SEQUENCE[i];
 		if (occluder) { scene.remove(occluder); disposeObject(occluder); occluder = null; }
 		if (env) { disposeObject(env.root); scene.remove(env.root); }
-		env = mountEnvironment(scene, root);
+		env = mountEnvironment(scene, loaded[i].scene);
 		// Anchor to the modelled door so the prompt + neon frame land on the real
-		// doorway; the tour skips this and exits down its longest dimension.
-		doorAnchor = useDoorAnchor ? findDoorAnchor(env.root) : null;
+		// doorway; interiors skip this and exit down their longest dimension.
+		doorAnchor = v.door ? findDoorAnchor(env.root) : null;
 		path = walkPath(env.box, doorAnchor);
 		// Seal the doorway so the lit interior never reads from outside.
 		occluder = doorAnchor ? buildDoorOccluder(doorAnchor, path.dir) : null;
 		if (occluder) scene.add(occluder);
-		currentCover = cover;
+		currentCover = v.cover && !paid;
+		venueIndex = i;
 	}
 
 	// ── Avatar ─────────────────────────────────────────────────────────────
@@ -196,7 +207,6 @@ async function start(canvasEl) {
 	let camYaw = Math.atan2(path.dir.x, path.dir.z); // start looking down the alley toward the door
 	let camPitch = 0.12;
 	let inputEnabled = true;
-	let autoWalk = false; // forced forward motion during the walk-through
 
 	// The pavement surface sits above the environment's y=0 origin, so stand the
 	// avatar on the sampled floor rather than the box bottom (feet-through-floor).
@@ -312,20 +322,27 @@ async function start(canvasEl) {
 	showHint(true);
 	showJoystick(isTouch);
 
-	// Hint + prompt copy depend on the venue: the tour says "walk to the end",
-	// the alley says "enter".
+	// Hint + prompt copy track where you are in the journey: the alley door takes
+	// the cover, the final place opens the stage, the rest just lead onward.
+	const isFinalVenue = () => venueIndex >= SEQUENCE.length - 1;
+	function doorLabel() {
+		if (currentCover) return 'Enter the club';
+		if (isFinalVenue()) return 'Enter the stage';
+		return 'Keep going';
+	}
 	function setHint() {
 		if (!hintEl) return;
-		const tail = currentCover ? 'press E at the door' : 'walk to the end of the gallery';
-		const tailTouch = currentCover ? 'walk to the door to enter' : 'walk to the end of the gallery';
+		const tail = currentCover ? 'walk to the door to enter'
+			: isFinalVenue() ? 'walk to the doors at the end' : 'walk to the far end to keep going';
 		hintEl.textContent = isTouch
-			? `Drag to move and look · ${tailTouch}`
+			? `Drag to move and look · ${tail}`
 			: `WASD / arrows to move · drag to look · ${tail}`;
 	}
 	function setPromptLabel() {
 		if (!promptEl) return;
-		promptEl.innerHTML = `${currentCover ? 'Enter the club' : 'Continue'} <kbd>E</kbd>`;
-		promptEl.setAttribute('aria-label', currentCover ? 'Enter the club' : 'Continue into the alley');
+		const label = doorLabel();
+		promptEl.innerHTML = `${label} <kbd>E</kbd>`;
+		promptEl.setAttribute('aria-label', label);
 	}
 
 	let nearDoor = false;
@@ -336,29 +353,30 @@ async function start(canvasEl) {
 		showHint(false);
 		showJoystick(false);
 		if (currentCover) {
-			// Hand off to the cover-charge card.
+			// Hand off to the cover-charge card; we resume on admit (onPaid).
 			window.dispatchEvent(new CustomEvent('club:enter-door'));
 		} else {
-			// End of the gallery — walk on into the alley.
-			advanceApproach();
+			advance();
 		}
 	}
 
-	function advanceApproach() {
+	// Move on: the final place reveals the strip club (the pole stage); any other
+	// place fades out and the next one fades in for you to keep walking.
+	function advance() {
 		nearDoor = false;
-		setPhase('toAlleyOut');
+		setPhase(isFinalVenue() ? 'arriving' : 'swapOut');
 	}
 
 	// Backed out of the cover card without paying — resume walking the alley.
 	window.addEventListener('club:leave-door', () => {
-		if (phase !== 'alley') return;
+		if (phase !== 'walk') return;
 		inputEnabled = true;
 		showHint(true);
 		showJoystick(isTouch);
 	});
 
 	// ── State + render loop ──────────────────────────────────────────────────
-	let phase = 'tour'; // tour → toAlleyOut → toAlleyIn → alley → leaving → swapping → entering → walking → arriving → done
+	let phase = 'walk'; // walk (any place) → swapOut → swapIn → walk … → arriving → done
 	let phaseStart = performance.now();
 	let raf = 0;
 	let last = performance.now();
@@ -372,11 +390,10 @@ async function start(canvasEl) {
 		last = now;
 		const elapsed = (now - phaseStart) / 1000;
 
-		// Movement input (manual in the alley, forced during the walk-through).
+		// Movement is always yours — keyboard or joystick, in every place. We
+		// never walk the avatar for you.
 		let ix = 0, iz = 0;
-		if (autoWalk) {
-			iz = 1;
-		} else if (inputEnabled) {
+		if (inputEnabled) {
 			if (keys.has('w') || keys.has('arrowup')) iz += 1;
 			if (keys.has('s') || keys.has('arrowdown')) iz -= 1;
 			if (keys.has('a') || keys.has('arrowleft')) ix -= 1;
@@ -391,7 +408,7 @@ async function start(canvasEl) {
 		key.position.set(rig.position.x, 5, rig.position.z + 1);
 		key.target.position.copy(rig.position).setY(1);
 
-		if (phase === 'tour' || phase === 'alley') {
+		if (phase === 'walk') {
 			const d = Math.hypot(rig.position.x - path.door.x, rig.position.z - path.door.z);
 			const inRange = d < DOOR_RANGE;
 			if (inRange !== nearDoor) {
@@ -404,29 +421,31 @@ async function start(canvasEl) {
 		}
 
 		switch (phase) {
-			case 'toAlleyOut': {
-				// Fade the tour out, swap in the alley, then fade back in.
+			case 'swapOut': {
+				// Fade the current place out, mount the next, then fade it in.
 				const k = Math.min(1, elapsed / 0.6);
 				canvasEl.style.opacity = String(1 - k);
-				if (k >= 1 && alleyGltf) {
-					if (alleyGltf === 'error') {
-						// Alley never loaded — skip straight to the cover card.
-						setPhase('alley');
-						window.dispatchEvent(new CustomEvent('club:enter-door'));
-					} else {
-						mountApproach(alleyGltf.scene, { cover: true, useDoorAnchor: true });
+				if (k >= 1) {
+					const next = loaded[venueIndex + 1];
+					if (next && next !== 'error') {
+						mountVenue(venueIndex + 1);
 						placeSpawn();
 						setHint();
-						setPhase('toAlleyIn');
+						setPhase('swapIn');
+					} else if (next === 'error') {
+						// A place failed to load — don't strand the visitor; reveal
+						// the stage rather than hang on a black frame.
+						setPhase('arriving');
 					}
+					// else: still downloading — hold the fade until it resolves.
 				}
 				break;
 			}
-			case 'toAlleyIn': {
+			case 'swapIn': {
 				const k = Math.min(1, elapsed / 0.5);
 				canvasEl.style.opacity = String(k);
 				if (k >= 1) {
-					setPhase('alley');
+					setPhase('walk');
 					inputEnabled = true;
 					nearDoor = false;
 					showHint(true);
@@ -434,22 +453,8 @@ async function start(canvasEl) {
 				}
 				break;
 			}
-			case 'leaving': {
-				const k = Math.min(1, elapsed / LEAVE);
-				canvasEl.style.opacity = String(1 - k);
-				if (k >= 1) doSwap();
-				break;
-			}
-			case 'entering': {
-				const k = Math.min(1, elapsed / ENTER);
-				canvasEl.style.opacity = String(k);
-				if (k >= 1) setPhase('walking');
-				break;
-			}
-			case 'walking':
-				if (elapsed >= WALK) setPhase('arriving');
-				break;
 			case 'arriving': {
+				// Final hand-off: fade out to reveal the strip club (src/club.js).
 				const k = Math.min(1, elapsed / ARRIVE);
 				canvasEl.style.opacity = String(1 - k);
 				if (k >= 1) return dispose();
@@ -504,38 +509,17 @@ async function start(canvasEl) {
 		camera.lookAt(target);
 	}
 
-	function beginWalk() {
-		if (phase !== 'alley') return;
-		inputEnabled = false;
-		autoWalk = true;
+	// Cover settled — the door is now just a doorway. Keep walking: fade out the
+	// alley and into the next place. (Input is already disabled from tryEnter.)
+	function onPaid() {
+		if (phase !== 'walk') return;
+		paid = true;
+		currentCover = false;
 		showPrompt(false); showHint(false); showJoystick(false);
-		setPhase('leaving');
+		advance();
 	}
-	onAdmit = beginWalk;
-	if (admitted) beginWalk();
-
-	async function doSwap() {
-		setPhase('swapping');
-		canvasEl.style.opacity = '0';
-		let clubScene = null;
-		try {
-			clubScene = (await clubhousePromise).scene;
-		} catch (err) {
-			log.warn('[club-entrance] club house load failed', err);
-			return dispose();
-		}
-		scene.remove(doorMarker.group);
-		disposeObject(doorMarker.group);
-		if (occluder) { scene.remove(occluder); disposeObject(occluder); occluder = null; }
-		doorGlow.intensity = 0;
-		disposeObject(env.root);
-		scene.remove(env.root);
-		env = mountEnvironment(scene, clubScene);
-		doorAnchor = findDoorAnchor(env.root);
-		path = walkPath(env.box, doorAnchor);
-		placeSpawn();
-		setPhase('entering');
-	}
+	onAdmit = onPaid;
+	if (admitted) onPaid();
 
 	function onResize() {
 		renderer.setSize(window.innerWidth, window.innerHeight, false);

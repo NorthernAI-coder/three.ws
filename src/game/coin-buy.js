@@ -18,6 +18,7 @@
 // SDK and @solana/web3.js are themselves imported on demand inside here, so the
 // modal opens instantly and prices in the background.
 
+import './coin-buy.css';
 import { detectSolanaWallet, SOLANA_RPC, solanaTxExplorerUrl } from '../erc8004/solana-deploy.js';
 
 const WSOL = 'So11111111111111111111111111111111111111112';

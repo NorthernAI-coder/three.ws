@@ -350,3 +350,78 @@ export async function economyStats({ sinceDays = null } = {}) {
 		decimals: head.decimals ?? null,
 	};
 }
+
+// ── Holder-rewards (reflections) distribution ledger ──────────────────────────
+// The public, verifiable record of every distribution run. This is what lets
+// /three show a real "reflected to holders" number with history — the deflation-
+// free answer to a burn counter. No secrets stored; every row is on-chain facts.
+
+/**
+ * Record a distribution run. `status` is 'planned' for a dry run (no signer) or
+ * 'completed'/'failed' once executed. Returns the new row's id + created_at.
+ */
+export async function recordRewardsDistribution({
+	mint,
+	poolWallet,
+	poolAtomics,
+	distributedAtomics = 0n,
+	dustAtomics = 0n,
+	holderCount = 0,
+	eligibleSupplyAtomics = 0n,
+	status = 'planned',
+	txSignatures = [],
+	note = null,
+}) {
+	const [row] = await sql`
+		insert into three_rewards_distributions
+			(mint, pool_wallet, pool_atomics, distributed_atomics, dust_atomics,
+			 holder_count, eligible_supply_atomics, status, tx_signatures, note)
+		values
+			(${mint}, ${poolWallet}, ${String(poolAtomics)}, ${String(distributedAtomics)},
+			 ${String(dustAtomics)}, ${Math.max(0, Math.floor(holderCount))},
+			 ${String(eligibleSupplyAtomics)}, ${status},
+			 ${JSON.stringify(txSignatures)}::jsonb, ${note})
+		returning id, created_at
+	`;
+	return { id: row.id, created_at: row.created_at };
+}
+
+/**
+ * Public history of distributions + the cumulative reflected total. `completed`
+ * runs count toward the headline; `planned` (dry) runs are shown but excluded
+ * from the reflected total so the number only ever reflects real on-chain payouts.
+ * @returns {Promise<{ total_reflected_atomics: string, run_count: number, items: object[] }>}
+ */
+export async function listRewardsDistributions({ limit = 20 } = {}) {
+	const cap = Math.min(Math.max(Number(limit) || 20, 1), 100);
+	const rows = await sql`
+		select id, mint, pool_wallet, pool_atomics, distributed_atomics, dust_atomics,
+		       holder_count, eligible_supply_atomics, status, tx_signatures, note, created_at
+		from three_rewards_distributions
+		order by created_at desc
+		limit ${cap}
+	`;
+	const [{ total = '0', n = 0 } = {}] = await sql`
+		select coalesce(sum(distributed_atomics), 0)::text as total, count(*) as n
+		from three_rewards_distributions
+		where status = 'completed'
+	`;
+	return {
+		total_reflected_atomics: String(total),
+		run_count: Number(n),
+		items: rows.map((r) => ({
+			id: r.id,
+			mint: r.mint,
+			pool_wallet: r.pool_wallet,
+			pool_atomics: String(r.pool_atomics),
+			distributed_atomics: String(r.distributed_atomics),
+			dust_atomics: String(r.dust_atomics),
+			holder_count: Number(r.holder_count),
+			eligible_supply_atomics: String(r.eligible_supply_atomics),
+			status: r.status,
+			tx_signatures: r.tx_signatures,
+			note: r.note,
+			created_at: r.created_at,
+		})),
+	};
+}

@@ -37,6 +37,10 @@ const atomicsToTokens = (atomics, decimals = 6) => {
 		return 0;
 	}
 };
+const shortAddr = (a) => {
+	const s = String(a || '');
+	return s.length > 9 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+};
 
 async function getJSON(path, opts = {}) {
 	const r = await fetch(path, { credentials: 'include', ...opts });
@@ -108,6 +112,18 @@ function injectStyles() {
 	@keyframes ec-sh { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 	.ec-err { border:1px solid #3a1f1f; background:#1a0e0e; color:#ff9b9b; border-radius:12px; padding:16px; font-size:13.5px; }
 	.ec-muted { color:#8a8a93; }
+	.ec-wallets { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+	.ec-wallet { display:block; border:1px solid #1c1c22; border-radius:14px; padding:18px; background:linear-gradient(180deg,#101015,#0c0c10); transition:border-color .15s,transform .12s; }
+	a.ec-wallet:hover { border-color:#7ee787; transform:translateY(-2px); }
+	.ec-wallet .wlabel { font-size:12.5px; color:#8a8a93; }
+	.ec-wallet .wbal { font-size:24px; font-weight:800; letter-spacing:-0.02em; margin:4px 0 6px; }
+	.ec-wallet .waddr { font-family:ui-monospace,Menlo,monospace; font-size:11.5px; color:#7ee787; }
+	.ec-reflect-head { display:flex; flex-direction:column; gap:2px; }
+	.ec-reflect-head .v { font-size:30px; font-weight:850; letter-spacing:-0.02em; color:#7ee787; }
+	.ec-reflect-head .k { color:#8a8a93; font-size:13.5px; }
+	.ec-reflect-list { margin-top:14px; border:1px solid #1a1a20; border-radius:12px; overflow:hidden; }
+	.ec-reflect-row { display:flex; justify-content:space-between; gap:12px; padding:11px 14px; font-size:13px; border-bottom:1px solid #15151a; }
+	.ec-reflect-row:last-child { border-bottom:none; }
 	@media (prefers-reduced-motion: reduce){ .ec-skel{ animation:none } .ec-btn:hover,.ec-tier:hover{ transform:none } }
 	`;
 	const el = document.createElement('style');
@@ -147,6 +163,51 @@ function statsHTML(stats) {
 	return `<div class="ec-grid ec-stats">${cards
 		.map((c) => `<div class="ec-stat"><div class="v">${esc(c.v)}</div><div class="k">${esc(c.k)}</div></div>`)
 		.join('')}</div>`;
+}
+
+// Verifiable on-chain panel — the wallets anyone can inspect. This is the answer
+// to "trust us, we burned some": here are the addresses, check them yourself.
+function onchainHTML(stats) {
+	const dec = stats?.token?.decimals ?? 6;
+	const sym = stats?.token?.symbol ?? '$THREE';
+	const oc = stats?.onchain || {};
+	const wallet = (w, label) => {
+		if (!w?.address) {
+			return `<div class="ec-wallet"><div class="wlabel">${esc(label)}</div><div class="wbal ec-muted">not configured</div></div>`;
+		}
+		const bal = fmtCompact(atomicsToTokens(w.balance_atomics ?? '0', dec));
+		return `<a class="ec-wallet" href="${esc(w.explorer)}" target="_blank" rel="noopener">
+			<div class="wlabel">${esc(label)}</div>
+			<div class="wbal">${esc(bal)} ${esc(sym)}</div>
+			<div class="waddr">${esc(shortAddr(w.address))} · verify on Solscan ↗</div>
+		</a>`;
+	};
+	return `<div class="ec-grid ec-wallets">
+		${wallet(oc.treasury, 'Treasury → buybacks')}
+		${wallet(oc.rewards_pool, 'Holder rewards pool')}
+	</div>`;
+}
+
+// Reflected-to-holders panel — real $THREE returned to holders, with run history.
+// Beats a static "0.5% burned" counter: this is value RETURNED, not destroyed.
+function reflectedHTML(stats) {
+	const dec = stats?.token?.decimals ?? 6;
+	const sym = stats?.token?.symbol ?? '$THREE';
+	const r = stats?.reflected || { total_atomics: '0', run_count: 0, recent: [] };
+	const total = fmtCompact(atomicsToTokens(r.total_atomics ?? '0', dec));
+	const head = `<div class="ec-reflect-head"><div class="v">${esc(total)} ${esc(sym)}</div><div class="k">returned to holders across ${r.run_count} distribution${r.run_count === 1 ? '' : 's'} — never burned</div></div>`;
+	if (!r.recent?.length) {
+		return `${head}<p class="ec-muted" style="margin-top:12px">Distributions begin once the rewards pool funds. Every run will be listed here with an on-chain transaction you can verify.</p>`;
+	}
+	const rows = r.recent
+		.map((d) => {
+			const amt = fmtCompact(atomicsToTokens(d.distributed_atomics ?? '0', dec));
+			const when = d.created_at ? new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+			const status = d.status === 'completed' ? '✓ paid' : 'planned';
+			return `<div class="ec-reflect-row"><span>${esc(when)}</span><span>${esc(amt)} ${esc(sym)} → ${d.holder_count} holders</span><span class="ec-muted">${esc(status)}</span></div>`;
+		})
+		.join('');
+	return `${head}<div class="ec-reflect-list">${rows}</div>`;
 }
 
 function tiersHTML(tierData) {

@@ -16,6 +16,7 @@ import { refreshStrategies, cachedStrategies, logStrategyLoad } from './strategy
 import { scoreMint } from './scorer.js';
 import { executeBuy } from './executor.js';
 import { runPositionSweep } from './positions.js';
+import { startFirstClaimWatch } from './first-claim-watch.js';
 
 // ── global buy throttle (sliding 60s window) ─────────────────────────────────
 function makeThrottle(maxPerMin) {
@@ -74,6 +75,9 @@ async function main() {
 		if (kind !== 'mint' || draining || cfg.globalKill) return;
 		const strategies = cachedStrategies();
 		for (const strat of strategies) {
+			// The new-mint feed only drives new_mint strategies; first_claim
+			// strategies are driven by the on-chain claim poll loop below.
+			if ((strat.trigger || 'new_mint') !== 'new_mint') continue;
 			const { pass, reasons } = scoreMint(data, strat);
 			if (!pass) continue;
 			log.info('candidate', { agent: strat.agent_id, mint: data.mint, symbol: data.symbol, reasons });
@@ -84,6 +88,13 @@ async function main() {
 	const abort = new AbortController();
 	let stopFeed = connectPumpFunFeed({ kind: 'mint', signal: abort.signal, onEvent });
 	log.info('feed connected', {});
+
+	// First-claim trigger: polls the on-chain fee-claim stream and snipes a
+	// creator's coin on their first-ever reward claim. Shares the buy queue +
+	// global throttle with the new-mint path, and halts new buys on drain/kill.
+	const stopClaimWatch = startFirstClaimWatch({
+		cfg, queue, throttle, isHalted: () => draining || cfg.globalKill,
+	});
 
 	// Strategy cache refresh.
 	const strategyTimer = setInterval(() => {
@@ -122,6 +133,7 @@ async function main() {
 		clearInterval(strategyTimer);
 		clearInterval(positionTimer);
 		clearInterval(watchdogTimer);
+		try { stopClaimWatch?.(); } catch {}
 		try { stopFeed?.(); } catch {}
 		abort.abort();
 		// Give in-flight buys a moment to settle (Neon HTTP is stateless — nothing
