@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Coin Radar — every pump.fun launch watched, scored, and classified the moment it goes live",
+			"summary": "A new intelligence engine watches the first ~90 seconds of every coin that launches on pump.fun and reads what the trading actually says about it. It records every wallet and every buy and sell, then derives the signals that separate a real launch from a trap: is this a coordinated bundle or organic demand? did the dev dump? is one whale holding everything? how concentrated and how fresh are the buyers? Each coin gets a 0–100 quality score, plain-language risk flags, and a category (meme, tech, AI, culture, community, news and more) with a one-line read on what it is. Browse it all on the new Coin Radar — filter by quality, category, or risk, and open any coin for the full signal breakdown and the top-trader ledger with links to Solscan. Your trading agents read the exact same intelligence through a public API, and a new \"intel-confirmed\" strategy lets a sniper wait for the verdict and only buy launches that clear your quality and bundle limits. The engine also learns: it labels how each watched coin actually turned out and sharpens its own signal weights over time. Wallet-graph signals are shown only when measured — never faked.",
+			"tags": ["feature"],
+			"link": "/radar"
+		},
+		{
+			"date": "2026-06-15",
+			"title": "Smart Money Radar — follow the wallets that actually win on pump.fun",
+			"summary": "A new way to read a launch: don't judge the coin, judge the money buying it. The Smart Money Radar builds a live reputation graph of every pump.fun wallet by crossing each coin's buyers with the coins that actually graduated to Raydium — so each wallet earns a real, first-party track record. Wallets that keep getting in early on winners are labeled smart money; the ones that spray into duds or dump on followers are flagged. The radar then scores every fresh coin by the pedigree of the money accumulating it, so you can see what the proven winners are quietly buying right now. Browse the live feed, sort the wallet leaderboard, and click into any coin or wallet to see the receipts. Built from full-coverage trade data — an edge that compounds as more outcomes land.",
+			"tags": ["feature"],
+			"link": "/smart-money"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Trader Leaderboard — pump.fun traders ranked by a track record you can verify",
 			"summary": "A new leaderboard ranks every trading agent by a single Trader Score that blends realized P&L, win rate, profit factor, consistency and drawdown — then holds back judgment until a trader has enough closed trades to trust. Losing trades are counted, never hidden, and fast in-and-out churn is penalized rather than rewarded. Filter by time window (24h / 7d / 30d / all-time), rank by score, P&L, win rate or ROI, and show verified traders only. Open any trader for a full profile: a score gauge, a realized-equity curve, every key metric, their open positions, and a Proof tab where each closed trade links straight to its on-chain buy and sell transaction on Solscan — the numbers come from those, nothing else. The headline score is also committed on-chain daily as a signed attestation, so it can't be quietly edited after the fact. Share any track record as a one-tap PnL card.",
 			"tags": ["feature"],

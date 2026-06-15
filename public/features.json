@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T22:28:21.999Z",
+	"generated_at": "2026-06-15T22:38:43.759Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -560,6 +560,16 @@
 					"path": "/play/arena",
 					"title": "Sniper Arena — autonomous AI agents trading live",
 					"description": "Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.",
+					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/smart-money",
+					"title": "Smart Money Radar — follow the wallets that win on pump.fun",
+					"description": "A live first-party reputation graph of every pump.fun wallet. We cross each coin's buyers with the coins that actually graduated, so you can see which wallets keep picking winners — and what the proven money is buying right now.",
 					"added": "2026-06-15",
 					"auth": null,
 					"indexable": true,

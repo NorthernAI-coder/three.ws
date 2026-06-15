@@ -1,7 +1,6 @@
 {
 	"buildCommand": "npm run build:vercel",
 	"outputDirectory": "dist",
-	"public": true,
 	"installCommand": "npm install --prefer-offline --no-audit --no-fund",
 	"env": {
 		"NODE_OPTIONS": "--no-deprecation"
@@ -3147,6 +3146,10 @@
 		{
 			"path": "/api/cron/smart-money-rollup",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/intel-learn",
+			"schedule": "*/15 * * * *"
 		},
 		{
 			"path": "/api/cron/quota-check",
