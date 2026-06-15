@@ -1,21 +1,22 @@
 // /club entrance — walk up to the club as your own 3D avatar.
 //
-// You don't drop onto the pole floor. You spawn outside in the alley as a
-// third-person avatar and you're in control: move (WASD / arrows / touch
-// joystick), look around (drag), and walk up to the neon door at the end of
-// the alley. Step into range and a prompt appears — press E, tap, or click the
-// door — and only then does the cover-charge card (src/club-gate.js) ask you
-// to pay. Pay the cover and your avatar walks through the Space Smugglers club
-// house interior while the anthem plays (wired in src/club.js), and the room
-// with the poles opens up around you (src/club.js, booting behind it all).
+// You don't drop onto the pole floor. You spawn as a third-person avatar and
+// you're in control: move (WASD / arrows / touch joystick) and look around
+// (drag). First you walk through a gallery tour; reach the end and you step
+// out into the alley, where you walk up to the neon door. Step into range and a
+// prompt appears — press E, tap, or click the door — and only then does the
+// cover-charge card (src/club-gate.js) ask you to pay. Pay the cover and your
+// avatar walks through the Space Smugglers club house interior while the anthem
+// plays (wired in src/club.js), and the room with the poles opens up around you
+// (src/club.js, booting behind it all).
 //
 // Everything renders into one full-screen canvas (#club-door-canvas) layered
-// above the pole stage and below the cover card. Two ~1.6 MB Meshopt+WebP
-// environments (built by scripts/build-club-entrance-venue.mjs) plus the
-// shared avatar GLB; the interior is prefetched while you walk so the
-// transition never stalls. Already paid tonight? The door is gone on load and
-// we skip the whole thing. Any load failure degrades silently — the cover card
-// and the room behind it still work.
+// above the pole stage and below the cover card. Three Meshopt+WebP
+// environments (built by scripts/build-club-entrance-venue.mjs) plus the shared
+// avatar GLB; the alley and interior are prefetched while you walk so each
+// transition never stalls. Already paid tonight? The whole approach is skipped
+// on load. Any load failure degrades silently — the cover card and the room
+// behind it still work.
 
 import {
 	AmbientLight,
@@ -42,6 +43,7 @@ import { gltfLoader } from './loaders/gltf.js';
 import { AnimationManager } from './animation-manager.js';
 import { log } from './shared/log.js';
 
+const TOUR_URL = '/club/venue/tour.glb';
 const ALLEYWAY_URL = '/club/venue/alleyway.glb';
 const CLUBHOUSE_URL = '/club/venue/space-smugglers-clubhouse.glb';
 const AVATAR_URL = '/avatars/default.glb';
@@ -136,25 +138,40 @@ async function start(canvasEl) {
 
 	const loader = gltfLoader(renderer);
 
-	// Land in the alley + the avatar first; prefetch the interior so the
-	// walk-through after the cover settles never waits on a download.
-	const [alleyGltf, avatarGltf, manifest] = await Promise.all([
-		loader.loadAsync(ALLEYWAY_URL),
+	// Walk the gallery tour + the avatar first; prefetch the alley and the
+	// interior so each transition lands without waiting on a download.
+	const [tourGltf, avatarGltf, manifest] = await Promise.all([
+		loader.loadAsync(TOUR_URL),
 		loader.loadAsync(AVATAR_URL),
 		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
 	]);
 	const clubhousePromise = loader.loadAsync(CLUBHOUSE_URL);
+	let alleyGltf = null;
+	loader.loadAsync(ALLEYWAY_URL)
+		.then((g) => { alleyGltf = g; })
+		.catch((err) => { log.warn('[club-entrance] alley load failed', err); alleyGltf = 'error'; });
 
 	// ── Environment ──────────────────────────────────────────────────────────
-	let env = mountEnvironment(scene, alleyGltf.scene);
-	// Anchor the entrance to the alley's modelled door so the prompt and the
-	// neon frame land on the real doorway, not a guessed end of the footprint.
-	let doorAnchor = findDoorAnchor(env.root);
-	let path = walkPath(env.box, doorAnchor);
-	// Seal the doorway: a dark plane just inside it so the lit interior never
-	// reads from the alley — the club stays hidden until you pay and walk in.
-	let occluder = doorAnchor ? buildDoorOccluder(doorAnchor, path.dir) : null;
-	if (occluder) scene.add(occluder);
+	// `cover` flags the venue whose door opens the cover card (the alley); the
+	// tour's exit just advances you to the alley. Door-anchoring + the sealing
+	// occluder only apply to the alley — the tour exits down its long axis.
+	let currentCover = false;
+	let env = null, doorAnchor = null, path = null, occluder = null;
+	mountApproach(tourGltf.scene, { cover: false, useDoorAnchor: false });
+
+	function mountApproach(root, { cover, useDoorAnchor }) {
+		if (occluder) { scene.remove(occluder); disposeObject(occluder); occluder = null; }
+		if (env) { disposeObject(env.root); scene.remove(env.root); }
+		env = mountEnvironment(scene, root);
+		// Anchor to the modelled door so the prompt + neon frame land on the real
+		// doorway; the tour skips this and exits down its longest dimension.
+		doorAnchor = useDoorAnchor ? findDoorAnchor(env.root) : null;
+		path = walkPath(env.box, doorAnchor);
+		// Seal the doorway so the lit interior never reads from outside.
+		occluder = doorAnchor ? buildDoorOccluder(doorAnchor, path.dir) : null;
+		if (occluder) scene.add(occluder);
+		currentCover = cover;
+	}
 
 	// ── Avatar ─────────────────────────────────────────────────────────────
 	const avatar = avatarGltf.scene;
@@ -291,11 +308,25 @@ async function start(canvasEl) {
 	const promptEl = document.getElementById('club-door-prompt');
 	const hintEl = document.getElementById('club-controls-hint');
 	promptEl?.addEventListener('click', tryEnter);
-	if (hintEl) hintEl.textContent = isTouch
-		? 'Drag to move and look · walk to the door to enter'
-		: 'WASD / arrows to move · drag to look · press E at the door';
+	setHint();
 	showHint(true);
 	showJoystick(isTouch);
+
+	// Hint + prompt copy depend on the venue: the tour says "walk to the end",
+	// the alley says "enter".
+	function setHint() {
+		if (!hintEl) return;
+		const tail = currentCover ? 'press E at the door' : 'walk to the end of the gallery';
+		const tailTouch = currentCover ? 'walk to the door to enter' : 'walk to the end of the gallery';
+		hintEl.textContent = isTouch
+			? `Drag to move and look · ${tailTouch}`
+			: `WASD / arrows to move · drag to look · ${tail}`;
+	}
+	function setPromptLabel() {
+		if (!promptEl) return;
+		promptEl.innerHTML = `${currentCover ? 'Enter the club' : 'Continue'} <kbd>E</kbd>`;
+		promptEl.setAttribute('aria-label', currentCover ? 'Enter the club' : 'Continue into the alley');
+	}
 
 	let nearDoor = false;
 	function tryEnter() {
@@ -304,8 +335,18 @@ async function start(canvasEl) {
 		showPrompt(false);
 		showHint(false);
 		showJoystick(false);
-		// Hand off to the cover-charge card.
-		window.dispatchEvent(new CustomEvent('club:enter-door'));
+		if (currentCover) {
+			// Hand off to the cover-charge card.
+			window.dispatchEvent(new CustomEvent('club:enter-door'));
+		} else {
+			// End of the gallery — walk on into the alley.
+			advanceApproach();
+		}
+	}
+
+	function advanceApproach() {
+		nearDoor = false;
+		setPhase('toAlleyOut');
 	}
 
 	// Backed out of the cover card without paying — resume walking the alley.
@@ -317,7 +358,7 @@ async function start(canvasEl) {
 	});
 
 	// ── State + render loop ──────────────────────────────────────────────────
-	let phase = 'alley'; // alley → leaving → swapping → entering → walking → arriving → done
+	let phase = 'tour'; // tour → toAlleyOut → toAlleyIn → alley → leaving → swapping → entering → walking → arriving → done
 	let phaseStart = performance.now();
 	let raf = 0;
 	let last = performance.now();
@@ -350,15 +391,49 @@ async function start(canvasEl) {
 		key.position.set(rig.position.x, 5, rig.position.z + 1);
 		key.target.position.copy(rig.position).setY(1);
 
-		if (phase === 'alley') {
+		if (phase === 'tour' || phase === 'alley') {
 			const d = Math.hypot(rig.position.x - path.door.x, rig.position.z - path.door.z);
 			const inRange = d < DOOR_RANGE;
-			if (inRange !== nearDoor) { nearDoor = inRange; showPrompt(inRange && inputEnabled); }
+			if (inRange !== nearDoor) {
+				nearDoor = inRange;
+				if (inRange) setPromptLabel();
+				showPrompt(inRange && inputEnabled);
+			}
 			doorGlow.intensity = inRange ? 3.2 : 1.4;
 			doorMarker.pulse(now / 1000, inRange);
 		}
 
 		switch (phase) {
+			case 'toAlleyOut': {
+				// Fade the tour out, swap in the alley, then fade back in.
+				const k = Math.min(1, elapsed / 0.6);
+				canvasEl.style.opacity = String(1 - k);
+				if (k >= 1 && alleyGltf) {
+					if (alleyGltf === 'error') {
+						// Alley never loaded — skip straight to the cover card.
+						setPhase('alley');
+						window.dispatchEvent(new CustomEvent('club:enter-door'));
+					} else {
+						mountApproach(alleyGltf.scene, { cover: true, useDoorAnchor: true });
+						placeSpawn();
+						setHint();
+						setPhase('toAlleyIn');
+					}
+				}
+				break;
+			}
+			case 'toAlleyIn': {
+				const k = Math.min(1, elapsed / 0.5);
+				canvasEl.style.opacity = String(k);
+				if (k >= 1) {
+					setPhase('alley');
+					inputEnabled = true;
+					nearDoor = false;
+					showHint(true);
+					showJoystick(isTouch);
+				}
+				break;
+			}
 			case 'leaving': {
 				const k = Math.min(1, elapsed / LEAVE);
 				canvasEl.style.opacity = String(1 - k);

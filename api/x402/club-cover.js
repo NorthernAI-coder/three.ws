@@ -16,14 +16,14 @@ import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
-import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
+import { issueCoverPass, PASS_TTL_SEC } from '../_lib/club/cover-pass.js';
 
 const ROUTE = '/api/x402/club-cover';
 
-// How long an entry pass is good for. A wallet that paid the cover can re-enter
-// (and re-trigger this endpoint for free via SIWX) for the rest of the night.
-const PASS_TTL_SEC = 60 * 60 * 6; // 6 hours
+// PASS_TTL_SEC + the bouncer (ban/tier/pass) live in ../_lib/club/cover-pass.js
+// so the USDC door here and the $THREE door (api/club/cover-three.js) issue an
+// identical pass.
 
 const DESCRIPTION =
 	'three.ws Pole Club — pay the cover charge to get past the door. Pay ' +

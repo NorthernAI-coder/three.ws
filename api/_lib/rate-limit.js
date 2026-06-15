@@ -257,6 +257,15 @@ export const limits = {
 	// human iterating on a prompt routinely exceeds 12/h; this lane lets them.
 	mcp3dGenerateFree: (key) =>
 		getLimiter('mcp3d:generate:free', { limit: 60, window: '1 h' }).limit(key),
+	// Holder perk (Lever 2): $THREE tiers raise the free-generation ceiling by their
+	// rate multiplier. Same per-key counter + prefix as the base free lane — the tier
+	// only lifts the threshold, so a holder iterating heavily isn't throttled at 60/h.
+	// `multiplier` comes from a verified tier pass (pure HMAC, no RPC on the hot path).
+	mcp3dGenerateFreeTiered: (key, multiplier = 1) =>
+		getLimiter('mcp3d:generate:free', {
+			limit: Math.max(60, Math.round(60 * (Number(multiplier) || 1))),
+			window: '1 h',
+		}).limit(key),
 	// Status polling is the highest-frequency call in the generation flow (every
 	// active job polls every few seconds, plus the /forge health pill). It only
 	// guards against pathological poll floods, so it is enforced per instance

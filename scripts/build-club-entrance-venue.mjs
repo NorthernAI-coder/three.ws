@@ -40,13 +40,30 @@ const MAX_TEXTURE = 2048;
 const TARGETS = [
 	{ src: 'alleyway.glb', out: 'alleyway.glb' },
 	{ src: 'space_smugglers_club_house_-_dark_version.glb', out: 'space-smugglers-clubhouse.glb' },
+	// Gallery corridor you walk through before reaching the club door.
+	{ src: 'tour.glb', out: 'tour.glb' },
 ];
 
 const mb = (n) => (n / 1024 / 1024).toFixed(2);
 
+// Drop meshes the artist flagged as junk (`xxx`, `DO NOT RENDER`) — e.g. the
+// tour's giant ground disc that otherwise inflates the footprint and breaks the
+// runtime's floor/axis normalisation.
+function stripJunkMeshes(doc) {
+	const junk = /xxx|do not render/i;
+	let removed = 0;
+	for (const mesh of doc.getRoot().listMeshes()) {
+		if (junk.test(mesh.getName() || '')) { mesh.dispose(); removed++; }
+	}
+	return removed;
+}
+
 async function compress(io, srcPath, outPath) {
 	const before = statSync(srcPath).size;
 	const doc = await io.read(srcPath);
+
+	const stripped = stripJunkMeshes(doc);
+	if (stripped) console.log(`  stripped ${stripped} junk mesh(es)`);
 
 	await doc.transform(
 		weld(),

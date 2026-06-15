@@ -92,3 +92,38 @@ export function verifyHolderPass(token) {
 	if (payload.amount != null && (typeof payload.amount !== 'number' || !Number.isFinite(payload.amount) || payload.amount < 0)) return null;
 	return payload;
 }
+
+/**
+ * Verify a $THREE tier pass and return its payload, or null. Byte-for-byte
+ * compatible with signTierPass() in api/_lib/three-tier.js, so the game server can
+ * gate private/branded worlds on a holder's tier LEVEL without touching Solana RPC
+ * or a price feed — the same trust model as holder passes.
+ * @param {unknown} token
+ * @returns {{ kind:'three-tier', wallet:string, level:number, tierId:string, usd:number, iat:number, exp:number } | null}
+ */
+export function verifyTierPass(token) {
+	if (typeof token !== 'string' || token.length < 16 || token.length > 4096) return null;
+	const dot = token.indexOf('.');
+	if (dot <= 0) return null;
+	const body = token.slice(0, dot);
+	const sig = token.slice(dot + 1);
+	if (!safeEqual(sig, hmac(body))) return null;
+
+	let payload;
+	try {
+		payload = JSON.parse(Buffer.from(body.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+	} catch {
+		return null;
+	}
+	if (!payload || typeof payload !== 'object') return null;
+	if (payload.kind !== 'three-tier') return null;
+	if (typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) return null;
+	const now = Date.now() / 1000;
+	if (typeof payload.iat !== 'number' || payload.iat > now + 60) return null;
+	if (payload.exp - payload.iat > 15 * 60) return null;
+	if (typeof payload.wallet !== 'string' || !payload.wallet) return null;
+	if (typeof payload.level !== 'number' || !Number.isInteger(payload.level) || payload.level < 0) return null;
+	if (typeof payload.tierId !== 'string' || !payload.tierId) return null;
+	if (typeof payload.usd !== 'number' || !Number.isFinite(payload.usd) || payload.usd < 0) return null;
+	return payload;
+}

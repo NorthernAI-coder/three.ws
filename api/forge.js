@@ -61,6 +61,20 @@ import {
 } from './_lib/forge-store.js';
 import { constantTimeEquals } from './_lib/crypto.js';
 import { env as _env } from './_lib/env.js';
+import { verifyTierPass, TIERS } from './_lib/three-tier.js';
+
+// Holder perk (Lever 2): a presented, verified $THREE tier pass lifts the free
+// generation ceiling by that tier's multiplier. The pass is pure-HMAC verifiable
+// (no RPC/price feed), so this adds zero latency to the anonymous free lane. An
+// absent or invalid pass simply leaves the multiplier at 1 (the base 60/h).
+function freeLaneMultiplier(req, body) {
+	const token = req.headers?.['x-three-tier-pass'] || body?.tier_pass || null;
+	if (!token) return 1;
+	const payload = verifyTierPass(token);
+	if (!payload) return 1;
+	const tier = TIERS.find((t) => t.level === payload.level);
+	return tier?.rateMultiplier || 1;
+}
 
 // Returns true when the request carries the internal cron seed token, meaning
 // the call comes from forge-seed-cron (server→server). These bypass the per-IP
@@ -401,7 +415,9 @@ async function startJob(req, res) {
 
 	const isFreeLane = BACKENDS[backendId]?.free === true;
 	if (!isInternalSeedRequest(req)) {
-		const rl = isFreeLane ? await limits.mcp3dGenerateFree(ip) : await limits.mcp3dGenerate(ip);
+		const rl = isFreeLane
+			? await limits.mcp3dGenerateFreeTiered(ip, freeLaneMultiplier(req, body))
+			: await limits.mcp3dGenerate(ip);
 		if (!rl.success) {
 			return rateLimited(res, rl, 'Generation limit reached. Try again shortly.');
 		}

@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Refer friends with a 3D membership card",
+			"summary": "Your account now has a Referrals page with a 3D, flippable membership card — your member number, referral count, and score on the front, a scannable QR for your invite link on the back. Tilt it with your cursor, flip it over, then share it: post to X or Telegram, copy your link, or download the card as an image. Anyone who signs up through your link is tied to you for life, and you earn 5% in USDC on everything they buy on three.ws. Sign-ups now carry your referral code through every login method — email and wallet alike — so credit always lands where it's due.",
+			"tags": ["feature"],
+			"link": "/dashboard/referrals"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Camera AR on /irl now turns on",
 			"summary": "The \"Camera AR\" button on the IRL page was stuck — it never lit up, on desktop or phone, so you could never drop your avatar into your real room. Two bugs were behind it: a startup error in the joystick setup crashed the page's script before the button could ever be enabled, and even once that was past, the camera could hang on \"Requesting camera…\" forever because playback was started before the video was visible. Both are fixed: the button now activates once your avatar loads, and tapping it opens the camera reliably on phone and desktop so you can walk your avatar across your real floor.",
 			"tags": ["fix"],

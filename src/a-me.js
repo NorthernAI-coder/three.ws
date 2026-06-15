@@ -241,7 +241,9 @@ function renderAgentCards(host, agents, avatars) {
 							${pumpMint ? `<span class="ame-tag pump">pump.fun</span>` : ''}
 							${created ? `<span class="ame-meta-text">${esc(created)}</span>` : ''}
 						</div>
-						${wallet ? `<div class="ame-wallet">${esc(truncAddr(wallet, 8, 6))}</div>` : ''}
+						${wallet
+							? `<div class="ame-wallet">${esc(truncAddr(wallet, 8, 6))}</div>`
+							: `<button class="ame-btn small" data-action="create-wallet" data-agent-id="${esc(a.id)}">Create wallet</button>`}
 					</div>
 				</div>
 
@@ -273,6 +275,7 @@ function renderAgentCards(host, agents, avatars) {
 		const action = btn.dataset.action;
 		if (action === 'share') handleShare(btn.dataset.avatarId, btn.dataset.name);
 		else if (action === 'embed') handleEmbed(btn.dataset.avatarId);
+		else if (action === 'create-wallet') handleCreateWallet(btn);
 		else if (action === 'toggle-skills') togglePanel(btn.dataset.agentId, 'skills', agents);
 		else if (action === 'toggle-memory') togglePanel(btn.dataset.agentId, 'memory', agents);
 		else if (action === 'toggle-actions') togglePanel(btn.dataset.agentId, 'actions', agents);
@@ -488,6 +491,39 @@ function renderPanel(panel, type, data, agentId) {
 }
 
 // ── Share / Embed actions ────────────────────────────────────────────────────
+
+async function handleCreateWallet(btn) {
+	const agentId = btn.dataset.agentId;
+	if (!agentId || btn.disabled) return;
+	btn.disabled = true;
+	const label = btn.textContent;
+	btn.textContent = 'Creating…';
+	try {
+		let token = null;
+		try {
+			const cr = await fetch('/api/csrf-token', { credentials: 'include' });
+			if (cr.ok) token = (await cr.json()).token || null;
+		} catch { /* token optional — endpoint still rejects without it */ }
+		const r = await fetch(`/api/agents/${encodeURIComponent(agentId)}/wallet/provision`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: token ? { 'x-csrf-token': token } : {},
+		});
+		const d = await r.json().catch(() => ({}));
+		if (!r.ok) throw new Error(d.message || d.error || `provision failed (${r.status})`);
+		btn.replaceWith(
+			Object.assign(document.createElement('div'), {
+				className: 'ame-wallet',
+				textContent: truncAddr(d.wallet_address, 8, 6),
+			}),
+		);
+		toast('Agent wallet created');
+	} catch (e) {
+		btn.disabled = false;
+		btn.textContent = label;
+		toast(e.message || 'Could not create wallet');
+	}
+}
 
 function handleShare(avatarId, name) {
 	const link = `${location.origin}/agents/${encodeURIComponent(avatarId)}`;
