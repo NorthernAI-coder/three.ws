@@ -48,6 +48,21 @@ const NVCF_STATUS_URL = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/status';
 // request is honest about what's actually conditioning the generation.
 const TRELLIS_PROMPT_MAX = 77;
 
+// Without explicit lighting/color hints TRELLIS defaults to dark, gritty
+// aesthetics. Reserve 17 chars at the end for a studio-lighting suffix and
+// append it unless the caller already included their own lighting/color cues.
+const TRELLIS_STYLE_SUFFIX = ', studio lighting';
+const TRELLIS_STYLE_WORDS = ['studio', 'light', 'bright', 'backlit', 'colorful', 'vibrant', 'cartoon', 'stylized'];
+
+function enhanceTrellisPrompt(raw) {
+	const text = String(raw || '').trim();
+	const lower = text.toLowerCase();
+	const hasStyle = TRELLIS_STYLE_WORDS.some((w) => lower.includes(w));
+	if (hasStyle) return text.slice(0, TRELLIS_PROMPT_MAX);
+	const maxBase = TRELLIS_PROMPT_MAX - TRELLIS_STYLE_SUFFIX.length;
+	return text.slice(0, maxBase) + TRELLIS_STYLE_SUFFIX;
+}
+
 // Per-request timeouts so a hung upstream never stalls a serverless function.
 // A completed poll streams the full GLB (can be several MB), so it gets longer.
 const SUBMIT_TIMEOUT_MS = 30_000;
@@ -100,7 +115,7 @@ function buildTextBody({ prompt, tier, seed }) {
 	const steps = trellisSteps(tier);
 	const body = {
 		mode: 'text',
-		prompt: String(prompt || '').slice(0, TRELLIS_PROMPT_MAX),
+		prompt: enhanceTrellisPrompt(prompt),
 		ss_sampling_steps: steps.ss,
 		slat_sampling_steps: steps.slat,
 		output_format: 'glb',

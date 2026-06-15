@@ -176,7 +176,7 @@ export async function playForgeReveal({ container, glbUrl, waitFor }) {
 		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 		renderer.toneMapping = THREE.ACESFilmicToneMapping;
-		renderer.toneMappingExposure = 1.12;
+		renderer.toneMappingExposure = 1.6;
 		overlay.appendChild(renderer.domElement);
 		cleanupFns.push(() => renderer.dispose());
 
@@ -186,6 +186,17 @@ export async function playForgeReveal({ container, glbUrl, waitFor }) {
 		pmrem.dispose();
 		scene.environment = envTex;
 		cleanupFns.push(() => envTex.dispose());
+
+		// TRELLIS models can bake in dark textures; supplement IBL with explicit
+		// lights so the mesh reads clearly regardless of how dark the bake is.
+		const hemi = new THREE.HemisphereLight(0xffffff, 0x8899bb, 1.8);
+		scene.add(hemi);
+		const key = new THREE.DirectionalLight(0xffffff, 2.5);
+		key.position.set(1, 1.5, 1.2);
+		scene.add(key);
+		const fill = new THREE.DirectionalLight(0xddeeff, 0.8);
+		fill.position.set(-1, 0.5, -0.5);
+		scene.add(fill);
 
 		const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 60);
 		const target = new THREE.Vector3(0, 0.62, 0);

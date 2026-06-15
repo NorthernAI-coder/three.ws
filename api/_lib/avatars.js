@@ -36,6 +36,7 @@ export async function listAvatars({
 		        a.alt_text,
 		        a.appearance, a.appearance_hash, a.baked_storage_key, a.baked_at,
 		        a.size_bytes, a.content_type, a.source, a.visibility, a.tags, a.version,
+		        a.model_category,
 		        a.created_at, a.updated_at, a.parent_avatar_id,
 		        ai.id as agent_id, ai.wallet_address as agent_wallet_address
 		 from avatars a
@@ -345,6 +346,7 @@ function decorate(row) {
 		content_type: row.content_type,
 		source: row.source,
 		source_meta: row.source_meta || {},
+		model_category: row.model_category || 'avatar',
 		visibility: row.visibility,
 		tags: row.tags || [],
 		version: row.version,

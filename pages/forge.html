@@ -1541,6 +1541,32 @@
 				border-color: var(--stroke-strong);
 				color: var(--ink);
 			}
+			/* Two-class grouping inside the picker: "Agents" (can get a brain) vs
+			   "Items" (objects). Subtle labels + a divider keep it scannable. */
+			.cat-group-label {
+				font-size: var(--text-xs);
+				font-family: var(--font-mono);
+				color: var(--ink);
+				letter-spacing: 0.04em;
+				opacity: 0.75;
+				white-space: nowrap;
+				flex: none;
+			}
+			.cat-group-sep {
+				width: 1px;
+				align-self: stretch;
+				min-height: 18px;
+				background: var(--stroke);
+				margin: 0 0.25rem;
+				flex: none;
+			}
+			.cat-picker-help {
+				flex-basis: 100%;
+				margin: 0.35rem 0 0;
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				line-height: 1.45;
+			}
 
 			/* Keep / discard verdict (the flywheel signal) */
 			.verdict {
@@ -2500,9 +2526,9 @@
 							auto-rotate
 							auto-rotate-delay="0"
 							rotation-per-second="18deg"
-							shadow-intensity="1.2"
+							shadow-intensity="1.0"
 							shadow-softness="0.9"
-							exposure="1.1"
+							exposure="1.5"
 							tone-mapping="aces"
 							ar
 							ar-modes="webxr scene-viewer quick-look"
@@ -2683,12 +2709,16 @@
 					     the user is signed in or when a creation_id is available. -->
 					<div class="cat-picker" id="forge-category-picker" hidden>
 						<span class="cat-picker-label">Tag as:</span>
+						<span class="cat-group-label" title="Can be given a brain and become an agent">Agents</span>
 						<button class="forge-cat-btn" type="button" data-cat="avatar">Avatar</button>
 						<button class="forge-cat-btn" type="button" data-cat="creature">Creature</button>
+						<span class="cat-group-sep" aria-hidden="true"></span>
+						<span class="cat-group-label" title="3D objects — props, not personalities">Items</span>
 						<button class="forge-cat-btn" type="button" data-cat="item">Item</button>
 						<button class="forge-cat-btn" type="button" data-cat="accessory">Accessory</button>
 						<button class="forge-cat-btn" type="button" data-cat="scene">Scene</button>
 						<button class="forge-cat-btn" type="button" data-cat="vehicle">Vehicle</button>
+						<p class="cat-picker-help">Only avatars &amp; creatures can be given a brain and become agents — everything else saves as a 3D item.</p>
 					</div>
 
 					<!-- Optimize topology panel (triangle / quad / low-poly remesh) is

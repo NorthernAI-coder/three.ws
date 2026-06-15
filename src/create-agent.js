@@ -436,6 +436,10 @@ function selectStarter(id) {
 
 // ── Step 2 (alt): connect an avatar you already own ──────────────────────────
 
+// Only these model_category values can serve as an agent body.
+// Items, scenes, accessories, vehicles, etc. are 3D assets — not characters.
+const AGENTABLE_CATEGORIES = new Set(['avatar', 'creature']);
+
 let libraryState = 'idle'; // idle | loading | loaded | error
 let libraryAvatars = [];
 let libraryOffset = 0;
@@ -459,7 +463,12 @@ async function loadLibraryAvatars({ append = false } = {}) {
 		const res = await apiFetch(url, { credentials: 'include' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const data = await res.json();
-		const page = (data.avatars || []).filter((a) => a && a.id);
+		const all = (data.avatars || []).filter((a) => a && a.id);
+		// Only show character-class models (avatar, creature) as agent bodies.
+		// Props, scenes, accessories etc. are 3D assets but can't embody an agent.
+		const page = all.filter(
+			(a) => !a.model_category || AGENTABLE_CATEGORIES.has(a.model_category),
+		);
 		libraryHasMore = page.length > LIBRARY_PAGE;
 		const fresh = page.slice(0, LIBRARY_PAGE);
 		if (append) {
@@ -494,7 +503,7 @@ function renderLibrary() {
 	}
 	if (!libraryAvatars.length) {
 		grid.innerHTML = note(
-			"You don't own any avatars yet. Choose a starter or upload your own — it's saved to your library automatically.",
+			"No character models found. Agent bodies must be avatars or creatures — 3D objects like props and scenes live in your library but can't be deployed as agents. Choose a starter or upload a character GLB.",
 		);
 		return;
 	}

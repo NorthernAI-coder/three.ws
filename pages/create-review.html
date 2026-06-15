@@ -1482,6 +1482,119 @@
 			}
 			.secondary:hover { border-color: #2e2e2e; color: var(--text); }
 
+			.type-selector {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+			.type-selector-label {
+				font-size: 11px;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.07em;
+				color: var(--muted);
+				margin: 0;
+			}
+			.type-selector-btns {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 6px;
+			}
+			.type-btn {
+				background: transparent;
+				color: var(--muted);
+				border: 1.5px solid var(--border);
+				border-radius: 8px;
+				padding: 9px 10px;
+				font: inherit;
+				font-size: 13px;
+				font-weight: 500;
+				cursor: pointer;
+				transition: border-color 0.15s, color 0.15s, background 0.15s;
+				text-align: center;
+			}
+			.type-btn:hover { border-color: #2e2e2e; color: var(--text); }
+			.type-btn.active {
+				border-color: var(--accent);
+				color: var(--accent);
+				background: color-mix(in srgb, var(--accent) 8%, transparent);
+			}
+			/* Richer two-line type cards: bold title + muted one-line description so
+			   the agent/item distinction is legible at a glance. */
+			.type-btn {
+				display: flex;
+				flex-direction: column;
+				gap: 3px;
+				padding: 11px 12px;
+				text-align: left;
+			}
+			.type-btn-title {
+				font-size: 14px;
+				font-weight: 600;
+				letter-spacing: -0.005em;
+				color: var(--text);
+			}
+			.type-btn.active .type-btn-title { color: var(--accent); }
+			.type-btn-desc {
+				font-size: 11px;
+				line-height: 1.35;
+				color: var(--muted);
+			}
+
+			/* Item soft-nudge — replaces the agent capability grid for items. Reads
+			   as guidance, not an error; the promote button is the escape hatch. */
+			.item-nudge {
+				margin-top: 32px;
+				display: flex;
+				align-items: flex-start;
+				gap: 14px;
+				flex-wrap: wrap;
+				padding: 18px 20px;
+				background:
+					linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0, transparent 80px),
+					var(--panel);
+				border: 1.5px solid var(--border);
+				border-radius: 14px;
+			}
+			.item-nudge-icon { font-size: 22px; line-height: 1.2; flex-shrink: 0; }
+			.item-nudge-text {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				min-width: 220px;
+				flex: 1;
+			}
+			.item-nudge-text strong { font-size: 14px; font-weight: 600; color: var(--text); }
+			.item-nudge-text span { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+			.item-nudge-promote {
+				appearance: none;
+				background: transparent;
+				border: 1.5px solid var(--border);
+				color: var(--text);
+				border-radius: 9px;
+				padding: 9px 14px;
+				font: inherit;
+				font-size: 12.5px;
+				font-weight: 500;
+				cursor: pointer;
+				white-space: nowrap;
+				align-self: center;
+				transition: border-color 0.15s, color 0.15s, background 0.15s;
+			}
+			.item-nudge-promote:hover {
+				border-color: var(--accent);
+				color: var(--accent);
+				background: color-mix(in srgb, var(--accent) 8%, transparent);
+			}
+			.item-nudge-promote:focus-visible {
+				outline: 2px solid rgba(255, 255, 255, 0.3);
+				outline-offset: 2px;
+			}
+			@media (max-width: 560px) {
+				.item-nudge { margin-top: 24px; padding: 16px; }
+				.item-nudge-promote { width: 100%; }
+			}
+
 			.guest-note {
 				font-size: 12.5px;
 				color: var(--muted);
@@ -1694,6 +1807,20 @@
 						</div>
 					</div>
 
+					<div class="type-selector" id="type-selector">
+						<p class="type-selector-label">Is this an agent or an item?</p>
+						<div class="type-selector-btns" role="group" aria-label="Creation type">
+							<button class="type-btn active" id="type-btn-avatar" data-type="avatar" type="button" aria-pressed="true">
+								<span class="type-btn-title">Agent</span>
+								<span class="type-btn-desc">Thinks, talks, remembers — can go on-chain</span>
+							</button>
+							<button class="type-btn" id="type-btn-object" data-type="object" type="button" aria-pressed="false">
+								<span class="type-btn-title">Item</span>
+								<span class="type-btn-desc">A 3D object or prop — for scenes &amp; trading</span>
+							</button>
+						</div>
+					</div>
+
 					<button class="cta" id="save-btn" type="button" disabled>
 						Save to my account
 					</button>
@@ -1709,7 +1836,7 @@
 			</div>
 
 			<div class="capabilities" id="capabilities" hidden>
-				<p class="capabilities-heading">Your avatar unlocks</p>
+				<p class="capabilities-heading">Your agent unlocks</p>
 				<ul class="feature-grid">
 					<li>
 						<button class="feature-tile" type="button" data-feature="body" aria-label="Try animations on your avatar">
@@ -1832,6 +1959,21 @@
 						</button>
 					</li>
 				</ul>
+			</div>
+
+			<!-- Item soft-nudge: shown instead of the agent capabilities when the
+			     creation is tagged as an Item. Explains items don't get a brain,
+			     with a one-click escape hatch back to the agent path. Visibility is
+			     toggled by create-review.js (syncCapabilities). -->
+			<div class="item-nudge" id="item-nudge" hidden>
+				<span class="item-nudge-icon" aria-hidden="true">🧩</span>
+				<div class="item-nudge-text">
+					<strong>This is an item — it won't get a brain.</strong>
+					<span>Items are 3D objects: place them in scenes, attach them to an agent, or trade them. Thinking, voice and memory are for agents.</span>
+				</div>
+				<button class="item-nudge-promote" id="item-nudge-promote" type="button">
+					Made a character? Make it an agent →
+				</button>
 			</div>
 		</main>
 

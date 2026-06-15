@@ -159,6 +159,24 @@ async function nimFluxImage(prompt, aspectRatio) {
 	return { imageUrl: await persistImageBase64(b64), model: NIM_FLUX_MODEL };
 }
 
+// Words that signal the caller already set their own lighting / background style.
+// When present we leave the prompt untouched; otherwise we append rendering cues
+// that steer FLUX toward clean, bright, single-subject images that bake into
+// better 3D meshes (TRELLIS reconstructs geometry + texture from this image).
+const FLUX_STYLE_WORDS = [
+	'studio', 'light', 'bright', 'backlit', 'background', 'plain', 'colorful',
+	'vibrant', 'white bg', 'isolated', 'cartoon', 'stylized',
+];
+const FLUX_STYLE_SUFFIX = ', isolated subject, bright studio lighting, plain white background';
+
+function enhanceFluxPrompt(raw) {
+	const text = String(raw || '').trim();
+	if (!text) return text;
+	const lower = text.toLowerCase();
+	const hasStyle = FLUX_STYLE_WORDS.some((w) => lower.includes(w));
+	return hasStyle ? text : text + FLUX_STYLE_SUFFIX;
+}
+
 // Generate a single image from a text prompt.
 //
 // Tries the free lanes first (NIM FLUX, then Vertex Imagen) and degrades to the
@@ -166,6 +184,7 @@ async function nimFluxImage(prompt, aspectRatio) {
 // provider must hand off, never take down the whole text→3D pipeline. The last
 // configured lane's error is surfaced only when nothing is left to try.
 export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
+	prompt = enhanceFluxPrompt(prompt);
 	const token = readEnv('REPLICATE_API_TOKEN');
 	const hasVertex = !!readEnv('GOOGLE_CLOUD_PROJECT');
 

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T03:51:37.984Z",
+	"generated_at": "2026-06-15T05:36:12.534Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -25,6 +25,16 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Agents and items are now clearly separate — a teapot won't get a brain",
+			"summary": "Every 3D model you create is now clearly one of two things: an Agent (a character that thinks, talks, remembers, and can go on-chain) or an Item (a 3D object or prop for scenes and trading). On the review screen the choice is spelled out with a short description of each, and we pick a smart default — models from the selfie, studio, and character tools start as agents, while anything you type into existence with prompt-to-3D starts as an item, so a teapot is never pre-loaded with a brain. Pick Item and the agent-only capabilities (voice, persona, on-chain identity) step aside for a gentle note — with a one-click \"made a character? make it an agent\" escape hatch if the guess was wrong. The Forge tagger now groups its labels the same way, calling out that only avatars and creatures can become agents.",
+			"link": "/create",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
