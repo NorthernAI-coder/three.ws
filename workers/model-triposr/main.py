@@ -139,7 +139,10 @@ async def _run_inference(task_id: str, images: list[str], body_type: str) -> Non
             def _generate():
                 with torch.no_grad():
                     scene_codes = _model([img_nobg], device="cuda")
-                meshes = _model.extract_mesh(scene_codes, resolution=256)
+                # has_vertex_color is a required positional in current TripoSR;
+                # True also bakes vertex colors so the GLB isn't an untextured
+                # flat-grey mesh (TripoSR emits no PBR materials).
+                meshes = _model.extract_mesh(scene_codes, True, resolution=256)
                 mesh = meshes[0]
                 buf = io.BytesIO()
                 mesh.export(buf, file_type="glb")
