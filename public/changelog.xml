@@ -55,6 +55,14 @@
 			<description>The in-world trade widget now speaks both currencies. Open Buy on a coin and the widget reads its real pairing from the chain: a SOL coin asks for SOL exactly as before, while a USDC-paired coin denominates the amount in USDC, shows your wallet's USDC balance, and prices and settles the trade in USDC. A new Sell tab lets you sell a coin you hold back to its quote asset — pick 25%, 50%, or Max of your balance, see the live payout, and sign once; for USDC coins the payout account is opened for you automatically in the same transaction. Every state is handled: not enough USDC offers a one-tap Add-funds flow, a moved price explains your slippage, and a cancelled signature is quietly acknowledged. The whole flow is your own wallet, signed in your browser, with a Solscan link the moment it lands.</description>
 		</item>
 		<item>
+			<title>Chat never stalls on a down AI model — instant, quiet failover</title>
+			<link>https://three.ws/chat</link>
+			<guid isPermaLink="false">2026-06-15:Chat never stalls on a down AI model — instant, quiet failover</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>If you pick a specific AI model for the agent (say Claude) and our key for that provider is temporarily unavailable, chat now hands you an answer instantly from a healthy free model instead of pausing on the dead provider. Previously the app re-tried the unavailable provider on the very first attempt of every single message — adding a little delay each time and filling our logs with repeat warnings. Now a provider with a key or billing problem is set aside for a few minutes after the first failure and skipped up front, even when it was the one you explicitly chose, so the next message goes straight to a model that works. Free-first, always a working fallback.</description>
+		</item>
+		<item>
 			<title>Clearer launch &amp; trade errors, and a graduated badge on coins</title>
 			<link>https://three.ws/pump-dashboard</link>
 			<guid isPermaLink="false">2026-06-15:Clearer launch &amp; trade errors, and a graduated badge on coins</guid>

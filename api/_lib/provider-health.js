@@ -30,29 +30,43 @@ export const AUTH_COOLDOWN_SECONDS = 300;
 /**
  * Record that `provider` is unhealthy, so it is skipped for `seconds`. The
  * cache TTL is the cooldown — presence of the key means "in cooldown", and it
- * expires on its own. Fire-and-forget friendly; never throws.
+ * expires on its own. `reason` distinguishes a transient throttle ('health':
+ * 429/5xx/network blip) from a deploy-wide auth/billing failure ('auth':
+ * 401/403/402); selection uses it to decide whether an *explicit* request for
+ * the provider may still bypass the cooldown. Fire-and-forget friendly; never
+ * throws.
  */
-export async function markProviderCooldown(provider, seconds = DEFAULT_COOLDOWN_SECONDS) {
+export async function markProviderCooldown(provider, seconds = DEFAULT_COOLDOWN_SECONDS, reason = 'health') {
 	if (!provider) return;
 	try {
-		await cacheSet(`${COOLDOWN_PREFIX}${provider}`, { until: Date.now() + seconds * 1000 }, seconds);
+		await cacheSet(
+			`${COOLDOWN_PREFIX}${provider}`,
+			{ until: Date.now() + seconds * 1000, reason },
+			seconds,
+		);
 	} catch {
 		// Cache unavailable — degrade silently to no-cooldown.
 	}
 }
 
 /**
- * Given a list of provider names, return the Set of those currently in a
- * cooldown window. Reads are coalesced/memoized by the cache layer, so the
- * handful of GETs collapse to roughly one cache round-trip. Never throws.
+ * Given a list of provider names, return a Map of those currently in a cooldown
+ * window to the reason they were cooled ('auth' for a 401/403/402 key/billing
+ * failure, 'health' for a 429/5xx/network blip). `Map.has(name)` answers "is it
+ * cooling?" — a drop-in replacement for the old Set — while `Map.get(name)`
+ * lets the caller tell a dead key (never honour, even when explicitly asked for)
+ * apart from a transient throttle (an explicit request may still go through).
+ * Pre-`reason` cache entries default to 'health'. Reads are coalesced/memoized
+ * by the cache layer, so the handful of GETs collapse to roughly one cache
+ * round-trip. Never throws.
  */
 export async function providersInCooldown(providers) {
-	const cooling = new Set();
+	const cooling = new Map();
 	await Promise.all(
 		providers.map(async (name) => {
 			try {
 				const hit = await cacheGet(`${COOLDOWN_PREFIX}${name}`);
-				if (hit) cooling.add(name);
+				if (hit) cooling.set(name, hit.reason === 'auth' ? 'auth' : 'health');
 			} catch {
 				// Treat an unreadable key as "not in cooldown".
 			}

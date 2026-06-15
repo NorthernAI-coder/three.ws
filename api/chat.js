@@ -627,7 +627,7 @@ export default wrap(async (req, res) => {
 		// 401), and fail over to the next provider.
 		if (upstream.status === 401 || upstream.status === 403 || upstream.status === 402) {
 			const text = await upstream.text().catch(() => '');
-			void markProviderCooldown(route.name, AUTH_COOLDOWN_SECONDS);
+			void markProviderCooldown(route.name, AUTH_COOLDOWN_SECONDS, 'auth');
 			let next = routeIdx + 1;
 			while (next < fallbackRoutes.length && fallbackRoutes[next].name === route.name) next++;
 			if (next < fallbackRoutes.length && Date.now() < deadline) {
@@ -894,7 +894,7 @@ async function governActions(actions, userMessage) {
 
 // ── Provider selection ───────────────────────────────────────────────────────
 
-function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
+function pickProvider(requested, model, userKeys = {}, cooldown = new Map()) {
 	// Fall back in DEFAULT_PROVIDER_ORDER (free providers first), not the
 	// PROVIDERS object order — and never silently fall into watsonx/orchestrate,
 	// which are explicit-selection-only providers.
@@ -902,16 +902,21 @@ function pickProvider(requested, model, userKeys = {}, cooldown = new Set()) {
 		? [requested, ...DEFAULT_PROVIDER_ORDER.filter((p) => p !== requested)]
 		: DEFAULT_PROVIDER_ORDER;
 
-	// Two passes: first skip providers in a health cooldown, then — only if that
-	// leaves nothing configured — ignore cooldowns so a request never 503s purely
-	// because every healthy provider happens to be cooling down. An explicitly
-	// requested provider is never cooldown-skipped (the caller asked for it).
+	// Two passes: first skip providers in a cooldown, then — only if that leaves
+	// nothing configured — ignore cooldowns so a request never 503s purely because
+	// every healthy provider happens to be cooling down. An explicitly requested
+	// provider bypasses a transient *health* cooldown (the caller asked for it, and
+	// a 45s throttle clears on its own), but is still skipped on an *auth* cooldown:
+	// a 401/403/402 key is broken deploy-wide, so honouring the request would
+	// re-probe a dead key on attempt-0 of every call — wasted latency plus a warning
+	// per request — when the failover to a healthy free provider is already certain.
 	const resolve = (skipCooldown) => {
 		for (const name of order) {
 			const cfg = PROVIDERS[name];
 			const apiKey = userKeys[name] || process.env[cfg.envKey];
 			if (!apiKey) continue;
-			if (skipCooldown && name !== requested && cooldown.has(name)) continue;
+			if (skipCooldown && cooldown.has(name) && (name !== requested || cooldown.get(name) === 'auth'))
+				continue;
 			// watsonx needs both a key and a project/space scope to serve a model;
 			// Orchestrate needs both a key and its endpoint URL.
 			if (name === 'watsonx' && !watsonxConfig().configured) continue;
@@ -985,7 +990,7 @@ function eligibleAsFallback(modelId) {
 	return meta.tools === true && !meta.moderationGated;
 }
 
-function buildFallbackChain(primary, userKeys = {}, cooldown = new Set()) {
+function buildFallbackChain(primary, userKeys = {}, cooldown = new Map()) {
 	const chain = [primary];
 	const seen = new Set([`${primary.name}:${primary.model}`]);
 

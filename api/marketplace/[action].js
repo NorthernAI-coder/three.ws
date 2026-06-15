@@ -827,7 +827,7 @@ async function handlePreview(req, res, id) {
 		const authBilling = upstream.status === 401 || upstream.status === 403 || upstream.status === 402;
 		const transient = upstream.status === 429 || upstream.status >= 500;
 		const failable = transient || authBilling;
-		if (authBilling) void markProviderCooldown(route.name, AUTH_COOLDOWN_SECONDS);
+		if (authBilling) void markProviderCooldown(route.name, AUTH_COOLDOWN_SECONDS, 'auth');
 		else if (transient) void markProviderCooldown(route.name);
 		const canFailOver = i + 1 < routes.length && failable;
 		if (canFailOver) continue;

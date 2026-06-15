@@ -40,4 +40,16 @@ describe('provider-health circuit breaker', () => {
 		await expect(markProviderCooldown('')).resolves.toBeUndefined();
 		await expect(markProviderCooldown(undefined)).resolves.toBeUndefined();
 	});
+
+	it('tags the cooldown reason so selection can tell a dead key from a throttle', async () => {
+		// Default (transient throttle) reports 'health'; an explicit auth/billing
+		// failure reports 'auth'. pickProvider() skips an *explicitly requested*
+		// provider only when it is auth-cooled, so a deploy-wide-bad key is not
+		// re-probed on attempt-0 of every request.
+		await markProviderCooldown('groq', 30);
+		await markProviderCooldown('anthropic', 30, 'auth');
+		const cooling = await providersInCooldown(ALL);
+		expect(cooling.get('groq')).toBe('health');
+		expect(cooling.get('anthropic')).toBe('auth');
+	});
 });

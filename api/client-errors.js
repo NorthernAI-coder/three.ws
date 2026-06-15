@@ -140,15 +140,21 @@ export default wrap(async (req, res) => {
 	};
 
 	for (const event of events) {
-		// One line per event keeps Vercel log search precise:
-		// filter on "[client-error]" then on message/page substrings.
-		console.error('[client-error]', JSON.stringify({ ...event, ...context }));
+		// Resource load failures (a CDN blip, an offline mobile network, a
+		// third-party embed like Cloudflare Turnstile being briefly unreachable)
+		// and CSP reports (browser extensions trip these constantly) are client-side
+		// telemetry, not server faults — nothing in our deploy is broken when they
+		// fire. Log them at info so the error/warning dashboards stay actionable;
+		// they remain searchable as "[client-error]" + type. Genuine JS faults keep
+		// error severity. One line per event keeps Vercel log search precise.
+		const telemetryOnly = event.type === 'resource' || event.type === 'csp';
+		const line = JSON.stringify({ ...event, ...context });
+		if (telemetryOnly) console.info('[client-error]', line);
+		else console.error('[client-error]', line);
 
-		// Resource 404s and CSP reports stay log-only — they group terribly as
-		// exceptions and extensions trigger CSP constantly. Real JS errors carry
-		// their original browser stack into Sentry and page the ops channel
-		// (sendOpsAlert dedups per message per hour).
-		if (event.type !== 'resource' && event.type !== 'csp') {
+		// Real JS errors carry their original browser stack into Sentry and page the
+		// ops channel (sendOpsAlert dedups per message per hour); telemetry does not.
+		if (!telemetryOnly) {
 			const synthetic = new Error(event.message);
 			synthetic.name = event.name || `client.${event.type}`;
 			if (event.stack) synthetic.stack = event.stack;
