@@ -3,12 +3,14 @@
 // pre-baked Mixamo animation library play on any rig variant.
 //
 // Handled name variants:
-//   • Mixamo:        `mixamorig:LeftArm`, `mixamorig1:LeftArm`, `mixamorigLeftArm`
-//   • Blender:       `Armature_LeftArm`, `Armature/LeftArm`
-//   • Rigify:        `DEF-LeftArm`, `ORG-LeftArm`, `MCH-LeftArm`
-//   • snake_case:    `left_arm`, `Left_Arm`
-//   • kebab-case:    `left-arm`
-//   • lowercase:     `leftarm`, `lefthand`
+//   • Mixamo:          `mixamorig:LeftArm`, `mixamorig1:LeftArm`, `mixamorigLeftArm`
+//   • Blender:         `Armature_LeftArm`, `Armature/LeftArm`
+//   • Rigify:          `DEF-LeftArm`, `ORG-LeftArm`, `MCH-LeftArm`
+//   • CharacterStudio: `CH_Hips`, `CH_LeftUpLeg` (CH_ prefix stripped)
+//   • Unreal mannequin: `pelvis`, `clavicle_l`, `upperarm_l`, `thigh_l`, `calf_l`, … (alias map)
+//   • snake_case:      `left_arm`, `Left_Arm`
+//   • kebab-case:      `left-arm`
+//   • lowercase:       `leftarm`, `lefthand`
 //
 // VRM-style names (`J_Bip_L_UpperArm`) and skeletons that aren't humanoid
 // (quadrupeds, custom rigs) deliberately fall through unchanged — there's no
@@ -52,6 +54,24 @@ const LOOKUP = (() => {
 	return m;
 })();
 
+// Unreal Engine mannequin skeleton → canonical aliases. UE names the same
+// joints `pelvis`, `clavicle_l`, `upperarm_l`, `thigh_l`, `calf_l`, `ball_l`,
+// … which share no spelling with the canonical/Mixamo set. Keyed by the same
+// separator-stripped lowercase form `_lookupBone` produces (`clavicle_l` →
+// `claviclel`). The spine chain (`spine_01/02/03`) is deliberately OMITTED:
+// its stripped form `spine02` collides with Mixamo's `Spine` + `_02` de-dup
+// suffix, which canonicalizeBoneName already resolves to `Spine`. The torso
+// then rides on `Hips` while every limb, foot, and the neck retarget cleanly —
+// well above the 8-bone floor a readable performance needs.
+const UNREAL_ALIASES = new Map(Object.entries({
+	pelvis: 'Hips',
+	neck01: 'Neck',
+	claviclel: 'LeftShoulder', upperarml: 'LeftArm', lowerarml: 'LeftForeArm', handl: 'LeftHand',
+	clavicler: 'RightShoulder', upperarmr: 'RightArm', lowerarmr: 'RightForeArm', handr: 'RightHand',
+	thighl: 'LeftUpLeg', calfl: 'LeftLeg', footl: 'LeftFoot', balll: 'LeftToeBase',
+	thighr: 'RightUpLeg', calfr: 'RightLeg', footr: 'RightFoot', ballr: 'RightToeBase',
+}));
+
 /**
  * Reduce a bone name to its canonical three.ws form, or null if it doesn't
  * correspond to a recognised humanoid bone.
@@ -83,10 +103,14 @@ function _lookupBone(name) {
 	s = s.replace(/^mixamorig\d*[_:]?/i, '');
 	s = s.replace(/^Armature[_/]?/i, '');
 	s = s.replace(/^(DEF|ORG|MCH)[-_]/i, '');
+	// CharacterStudio exports prefix every joint `CH_` (`CH_Hips`, `CH_LeftUpLeg`),
+	// whose stems are otherwise canonical — strip it like any other vendor prefix.
+	s = s.replace(/^CH[_:]/i, '');
 	// Collapse separators so `Left_Arm`, `left-arm`, `left arm`, `LeftArm` all
 	// reach the same lookup key.
 	const key = s.replace(/[-_\s]+/g, '').toLowerCase();
-	return LOOKUP.get(key) ?? null;
+	// Canonical/Mixamo/Rigify spellings first, then the Unreal-mannequin aliases.
+	return LOOKUP.get(key) ?? UNREAL_ALIASES.get(key) ?? null;
 }
 
 /**

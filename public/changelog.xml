@@ -175,6 +175,14 @@
 			<description>The Pump Live showcase (three.ws/pump-live) — where a 3D agent reacts to brand-new pump.fun launches in real time — is now fully wired. Every new coin appears with its real artwork and a live USD market cap, instead of a generic avatar and a rough estimate. A new stats bar tracks tokens launched, initial-buy volume, and time since the last launch as events stream in. Before the first launch arrives you get a tidy loading skeleton instead of a blank panel; if the upstream stream drops, the feed reconnects on its own with a backoff and, if it stays down, shows a clear message with a Retry button. Token images are resolved and served through three.ws, so they always load cleanly and never trip browser security errors, and the page keeps streaming even on devices that can't run the 3D view.</description>
 		</item>
 		<item>
+			<title>Pump Visualizer: a coin's look now tracks its market cap</title>
+			<link>https://three.ws/pump-visualizer</link>
+			<guid isPermaLink="false">2026-06-15:Pump Visualizer: a coin's look now tracks its market cap</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>On the Pump Visualizer, market cap no longer just sizes a coin — it shapes its whole look. As a coin's cap climbs it shifts color from cool blue through purple to green and gold, grows a crystalline wireframe cage that gains facets at each tier, and spins and pulses with more energy. On the trending refresh, a coin that moved gets a clear signal: it flashes green and pops bigger when its cap rose, red and dips when it fell, and crossing into a higher or lower tier visibly upgrades or downgrades its shape and color. A new on-screen key in the corner maps each color and tier to its market-cap range so it all reads at a glance.</description>
+		</item>
+		<item>
 			<title>Pump Visualizer’s Trending view fixed — spheres now sized by real market cap</title>
 			<link>https://three.ws/pump-visualizer</link>
 			<guid isPermaLink="false">2026-06-15:Pump Visualizer’s Trending view fixed — spheres now sized by real market cap</guid>

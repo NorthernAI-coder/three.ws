@@ -32,11 +32,22 @@ const lamports = z.union([z.string(), z.number()]);
 const optPct = z.union([z.string(), z.number()]).nullable().optional();
 const optInt = z.union([z.string(), z.number()]).nullable().optional();
 
+const optLamports = z.union([z.string(), z.number()]).nullable().optional();
+
 const STRATEGY_SCHEMA = z.object({
 	agent_id: z.string().uuid(),
 	network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 	enabled: z.boolean().optional(),
 	kill_switch: z.boolean().optional(),
+	// trigger: what arms this strategy.
+	//   new_mint    — snipe new pump.fun launches off the PumpPortal feed (default).
+	//   first_claim — snipe a creator's coin the first time they EVER claim rewards.
+	trigger: z.enum(['new_mint', 'first_claim']).optional(),
+	buy_delay_ms: z.union([z.string(), z.number()]).optional(),
+	// first_claim entry filters (null clears)
+	min_claim_lamports: optLamports,
+	max_claim_lamports: optLamports,
+	first_claim_max_age_seconds: optInt,
 	// sizing
 	daily_budget_lamports: lamports.optional(),
 	per_trade_lamports: lamports.optional(),
@@ -71,6 +82,16 @@ const intOrNull = (v) => {
 	if (v == null || v === '') return null;
 	const n = Math.floor(Number(v));
 	return Number.isFinite(n) ? n : null;
+};
+const atomicOrNull = (v) => {
+	if (v == null || v === '') return null;
+	let s = String(v).trim();
+	if (!/^\d+$/.test(s)) {
+		const n = Number(s);
+		if (!Number.isFinite(n) || n < 0) return null;
+		s = String(Math.floor(n));
+	}
+	return s;
 };
 const numOrNull = (v) => {
 	if (v == null || v === '') return null;
@@ -133,6 +154,11 @@ async function listStrategies(req, res, userId) {
 			network: s.network,
 			enabled: s.enabled,
 			kill_switch: s.kill_switch,
+			trigger: s.trigger || 'new_mint',
+			buy_delay_ms: s.buy_delay_ms ?? 0,
+			min_claim_lamports: s.min_claim_lamports != null ? String(s.min_claim_lamports) : null,
+			max_claim_lamports: s.max_claim_lamports != null ? String(s.max_claim_lamports) : null,
+			first_claim_max_age_seconds: s.first_claim_max_age_seconds ?? null,
 			daily_budget_lamports: String(s.daily_budget_lamports),
 			per_trade_lamports: String(s.per_trade_lamports),
 			max_concurrent_positions: s.max_concurrent_positions,
@@ -184,6 +210,8 @@ async function upsertStrategy(req, res, userId) {
 	`;
 	const cur = existing || {
 		enabled: false, kill_switch: false,
+		trigger: 'new_mint', buy_delay_ms: 0,
+		min_claim_lamports: null, max_claim_lamports: null, first_claim_max_age_seconds: null,
 		daily_budget_lamports: '0', per_trade_lamports: '0',
 		max_concurrent_positions: 1, slippage_bps: 500, max_price_impact_pct: 10,
 		min_market_cap_usd: null, max_market_cap_usd: null,
@@ -196,6 +224,11 @@ async function upsertStrategy(req, res, userId) {
 	const next = {
 		enabled: p.enabled ?? cur.enabled,
 		kill_switch: p.kill_switch ?? cur.kill_switch,
+		trigger: p.trigger ?? cur.trigger,
+		buy_delay_ms: p.buy_delay_ms != null ? clampInt(p.buy_delay_ms, 0, 600000, 0) : cur.buy_delay_ms,
+		min_claim_lamports: 'min_claim_lamports' in p ? atomicOrNull(p.min_claim_lamports) : (cur.min_claim_lamports != null ? String(cur.min_claim_lamports) : null),
+		max_claim_lamports: 'max_claim_lamports' in p ? atomicOrNull(p.max_claim_lamports) : (cur.max_claim_lamports != null ? String(cur.max_claim_lamports) : null),
+		first_claim_max_age_seconds: 'first_claim_max_age_seconds' in p ? (p.first_claim_max_age_seconds == null ? null : clampInt(p.first_claim_max_age_seconds, 1, 86400, 300)) : cur.first_claim_max_age_seconds,
 		daily_budget_lamports: p.daily_budget_lamports != null ? atomicStr(p.daily_budget_lamports) : String(cur.daily_budget_lamports),
 		per_trade_lamports: p.per_trade_lamports != null ? atomicStr(p.per_trade_lamports) : String(cur.per_trade_lamports),
 		max_concurrent_positions: p.max_concurrent_positions != null ? clampInt(p.max_concurrent_positions, 1, 50, 1) : cur.max_concurrent_positions,
@@ -224,10 +257,15 @@ async function upsertStrategy(req, res, userId) {
 	if (next.enabled && BigInt(next.per_trade_lamports) > BigInt(next.daily_budget_lamports)) {
 		return error(res, 400, 'bad_request', 'per_trade_lamports cannot exceed daily_budget_lamports');
 	}
+	if (next.min_claim_lamports != null && next.max_claim_lamports != null &&
+		BigInt(next.min_claim_lamports) > BigInt(next.max_claim_lamports)) {
+		return error(res, 400, 'bad_request', 'min_claim_lamports cannot exceed max_claim_lamports');
+	}
 
 	const [row] = await sql`
 		insert into agent_sniper_strategies
 			(agent_id, user_id, network, enabled, kill_switch,
+			 trigger, buy_delay_ms, min_claim_lamports, max_claim_lamports, first_claim_max_age_seconds,
 			 daily_budget_lamports, per_trade_lamports, max_concurrent_positions,
 			 slippage_bps, max_price_impact_pct,
 			 min_market_cap_usd, max_market_cap_usd, min_creator_graduated, max_creator_launches,
@@ -235,6 +273,7 @@ async function upsertStrategy(req, res, userId) {
 			 take_profit_pct, stop_loss_pct, trailing_stop_pct, max_hold_seconds, updated_at)
 		values
 			(${p.agent_id}, ${userId}, ${p.network}, ${next.enabled}, ${next.kill_switch},
+			 ${next.trigger}, ${next.buy_delay_ms}, ${next.min_claim_lamports}, ${next.max_claim_lamports}, ${next.first_claim_max_age_seconds},
 			 ${next.daily_budget_lamports}, ${next.per_trade_lamports}, ${next.max_concurrent_positions},
 			 ${next.slippage_bps}, ${next.max_price_impact_pct},
 			 ${next.min_market_cap_usd}, ${next.max_market_cap_usd}, ${next.min_creator_graduated}, ${next.max_creator_launches},
@@ -243,6 +282,11 @@ async function upsertStrategy(req, res, userId) {
 		on conflict (agent_id, network) do update set
 			enabled                  = excluded.enabled,
 			kill_switch              = excluded.kill_switch,
+			trigger                  = excluded.trigger,
+			buy_delay_ms             = excluded.buy_delay_ms,
+			min_claim_lamports       = excluded.min_claim_lamports,
+			max_claim_lamports       = excluded.max_claim_lamports,
+			first_claim_max_age_seconds = excluded.first_claim_max_age_seconds,
 			daily_budget_lamports    = excluded.daily_budget_lamports,
 			per_trade_lamports       = excluded.per_trade_lamports,
 			max_concurrent_positions = excluded.max_concurrent_positions,
@@ -269,6 +313,11 @@ async function upsertStrategy(req, res, userId) {
 			network: row.network,
 			enabled: row.enabled,
 			kill_switch: row.kill_switch,
+			trigger: row.trigger || 'new_mint',
+			buy_delay_ms: row.buy_delay_ms ?? 0,
+			min_claim_lamports: row.min_claim_lamports != null ? String(row.min_claim_lamports) : null,
+			max_claim_lamports: row.max_claim_lamports != null ? String(row.max_claim_lamports) : null,
+			first_claim_max_age_seconds: row.first_claim_max_age_seconds ?? null,
 			daily_budget_lamports: String(row.daily_budget_lamports),
 			per_trade_lamports: String(row.per_trade_lamports),
 			max_concurrent_positions: row.max_concurrent_positions,

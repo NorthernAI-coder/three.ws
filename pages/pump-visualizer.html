@@ -401,7 +401,8 @@
 			border-radius: 6px;
 		}
 		.vz-detail .links { display: flex; flex-wrap: wrap; gap: 6px; }
-		.vz-detail .links a {
+		.vz-detail .links a,
+		.vz-detail .links button {
 			display: inline-flex; align-items: center; gap: 4px;
 			padding: 6px 10px; font-size: 12px;
 			border-radius: 6px;
@@ -409,12 +410,23 @@
 			color: var(--vz-text);
 			text-decoration: none;
 			background: rgba(255, 255, 255, 0.08);
-			transition: background 0.15s;
+			font: inherit; line-height: 1; cursor: pointer;
+			transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
 		}
-		.vz-detail .links a:hover { background: var(--accent-soft); }
-		.vz-detail .links a.primary {
+		.vz-detail .links a:hover,
+		.vz-detail .links button:hover { background: var(--accent-soft); }
+		.vz-detail .links a:focus-visible,
+		.vz-detail .links button:focus-visible { outline: 2px solid var(--vz-accent); outline-offset: 2px; }
+		.vz-detail .links a.primary,
+		.vz-detail .links button.primary {
 			background: var(--vz-accent); color: #fff; border-color: var(--vz-accent);
+			font-weight: 600;
 		}
+		.vz-detail .links button.primary:hover {
+			background: var(--vz-accent); transform: translateY(-1px);
+			box-shadow: 0 0 18px rgba(255, 255, 255, 0.35);
+		}
+		.vz-detail .links button.primary:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
 		.vz-detail .live-badge {
 			display: inline-flex; align-items: center; gap: 6px;
 			padding: 3px 8px; font-size: 10px; letter-spacing: 0.06em;
@@ -539,6 +551,49 @@
 			padding: 18px 8px;
 		}
 
+		/* ── Market-cap tier key (bottom-right) ───────── */
+		.vz-ramp {
+			bottom: 16px;
+			right: 16px;
+			background: var(--vz-panel);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			border-radius: 10px;
+			padding: 10px 12px;
+			width: 172px;
+			font-family: var(--font-mono);
+			font-size: 11px;
+		}
+		.vz-ramp .head {
+			color: var(--vz-muted);
+			font-size: 10px; letter-spacing: 0.1em;
+			text-transform: uppercase;
+			padding-bottom: 6px; margin-bottom: 6px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+		}
+		.vz-ramp .tier {
+			display: flex; align-items: center; gap: 8px;
+			padding: 3px 0;
+			color: var(--vz-muted);
+		}
+		.vz-ramp .tier .sw {
+			width: 10px; height: 10px; border-radius: 3px;
+			flex-shrink: 0;
+		}
+		.vz-ramp .tier .nm { color: var(--vz-text); }
+		.vz-ramp .tier .th {
+			margin-left: auto;
+			font-variant-numeric: tabular-nums;
+		}
+		.vz-ramp .move {
+			display: flex; gap: 12px;
+			margin-top: 8px; padding-top: 8px;
+			border-top: 1px solid rgba(255, 255, 255, 0.06);
+			color: var(--vz-muted);
+		}
+		.vz-ramp .move b { font-weight: 600; }
+		.vz-ramp .move .up b { color: var(--vz-green); }
+		.vz-ramp .move .down b { color: var(--vz-red); }
+
 		/* ── Intro / loading overlay ──────────────────── */
 		.vz-intro {
 			position: absolute;
@@ -618,6 +673,7 @@
 		}
 		@media (max-width: 720px) {
 			.vz-hint { display: none; }
+			.vz-ramp { display: none; }
 			.vz-legend { width: 200px; max-height: 180px; bottom: 12px; left: 12px; }
 			.vz-detail { width: 100%; }
 			.vz-status .stat { display: none; }
@@ -694,6 +750,16 @@
 			<ol id="vz-legend-list"></ol>
 		</aside>
 
+		<aside class="vz-overlay vz-ramp" id="vz-ramp" aria-label="Market-cap visual key" hidden>
+			<div class="head">Market cap → look</div>
+			<div id="vz-ramp-tiers"></div>
+			<div class="move">
+				<span class="up">▲ <b>up</b></span>
+				<span class="down">▼ <b>down</b></span>
+				<span style="margin-left:auto;color:var(--vz-muted)">on refresh</span>
+			</div>
+		</aside>
+
 		<aside class="vz-overlay vz-detail" id="vz-detail" aria-hidden="true">
 			<button class="close" type="button" id="vz-detail-close" aria-label="Close details">×</button>
 			<div class="head">
@@ -751,6 +817,28 @@
 		const FEED_FADE_OUT_MS = 520;     // eviction fade (ms)
 		const FEED_LIVE_MIN_LOG = Math.log10(4_000);    // $4k → smallest sphere
 		const FEED_LIVE_MAX_LOG = Math.log10(500_000);  // $500k+ → biggest sphere
+
+		// ── market-cap tiers ─────────────────────────────────────────────
+		// Market cap drives a coin's entire look — not just its size. As a coin's
+		// cap climbs it shifts color (cool → hot), grows a crystalline wireframe
+		// cage with more facets, and spins/pulses with more energy. On a trending
+		// refresh, a coin that crossed into a higher tier visibly upgrades; one
+		// that fell downgrades — paired with the green/red move flash below.
+		const MCAP_TIERS = [
+			{ name: 'Seed',     min: 0,         color: 0x3b82f6, emissive: 0x1d4ed8, cage: null,                                       spin: 0.04, pulse: 0.10, pulseRate: 0.0020 },
+			{ name: 'Rising',   min: 30_000,    color: 0x6366f1, emissive: 0x4338ca, cage: { detail: 0, scale: 1.42, color: 0x818cf8 }, spin: 0.10, pulse: 0.16, pulseRate: 0.0030 },
+			{ name: 'Hot',      min: 120_000,   color: 0xa855f7, emissive: 0x7e22ce, cage: { detail: 1, scale: 1.45, color: 0xc084fc }, spin: 0.18, pulse: 0.24, pulseRate: 0.0042 },
+			{ name: 'Breakout', min: 600_000,   color: 0x34d399, emissive: 0x059669, cage: { detail: 2, scale: 1.48, color: 0x6ee7b7 }, spin: 0.30, pulse: 0.32, pulseRate: 0.0055 },
+			{ name: 'Mega',     min: 2_500_000, color: 0xfbbf24, emissive: 0xd97706, cage: { detail: 3, scale: 1.52, color: 0xfcd34d }, spin: 0.46, pulse: 0.42, pulseRate: 0.0070 },
+		];
+		function tierForMcap(usd) {
+			const n = Number(usd) || 0;
+			let tier = MCAP_TIERS[0], index = 0;
+			for (let i = 0; i < MCAP_TIERS.length; i++) {
+				if (n >= MCAP_TIERS[i].min) { tier = MCAP_TIERS[i]; index = i; }
+			}
+			return { ...tier, index };
+		}
 
 		const host = document.getElementById('vz-canvas-host');
 		const statusEl = document.getElementById('vz-status');
@@ -970,21 +1058,43 @@
 			return token?.is_migration ? 0x34d399 : 0xf87171;
 		}
 
+		// Crystalline wireframe cage around higher-cap spheres. Facet count grows
+		// with the tier so "shape" reads as a function of market cap. Returned as
+		// a child of the sphere so it inherits position + spawn/hover scale; it
+		// spins on its own axis in the animation loop.
+		function buildTierCage(tier, radius) {
+			if (!tier.cage) return null;
+			const { detail, scale, color } = tier.cage;
+			const base = detail <= 0
+				? new THREE.OctahedronGeometry(radius * scale, 0)
+				: new THREE.IcosahedronGeometry(radius * scale, Math.min(detail - 1, 2));
+			const wire = new THREE.WireframeGeometry(base);
+			base.dispose();
+			const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false });
+			return new THREE.LineSegments(wire, mat);
+		}
+
 		function buildTokenMesh(token, position, radius) {
 			const fallback = fallbackTexture(token.symbol, token.mint);
 			const isLive = !!token.is_currently_live;
 			const glow = liveGlowHex(token);
+			const tier = tierForMcap(token.usd_market_cap);
 			const material = new THREE.MeshStandardMaterial({
 				map: fallback,
 				roughness: 0.45,
 				metalness: 0.25,
-				emissive: isLive ? new THREE.Color(glow) : new THREE.Color(0x000000),
-				emissiveIntensity: isLive ? 0.25 : 0,
+				// Live state owns the glow color (fresh = red, migrated = green);
+				// otherwise the market-cap tier tints the emissive.
+				emissive: isLive ? new THREE.Color(glow) : new THREE.Color(tier.emissive),
+				emissiveIntensity: isLive ? 0.25 : tier.pulse * 0.5,
 			});
 			const geometry = new THREE.SphereGeometry(radius, 28, 28);
 			const mesh = new THREE.Mesh(geometry, material);
 			mesh.position.copy(position);
 			mesh.scale.setScalar(0.001); // grow in during spawn animation
+
+			const cage = buildTierCage(tier, radius);
+			if (cage) mesh.add(cage); // child → follows the sphere's transform
 
 			// Selection / hover ring (hidden by default)
 			const ringGeo = new THREE.RingGeometry(radius * 1.18, radius * 1.32, 48);
@@ -1012,7 +1122,7 @@
 				});
 			}
 
-			return { mesh, ring, isLive };
+			return { mesh, ring, isLive, tier, cage };
 		}
 
 		function placeTokens(tokens) {
@@ -1025,13 +1135,15 @@
 			while (tokensGroup.children.length) {
 				const child = tokensGroup.children[0];
 				tokensGroup.remove(child);
-				const isSprite = child.isSprite;
+				// Traverse so a sphere's tier-cage child is disposed alongside it.
 				// Sprites share a single geometry across instances — don't dispose it.
-				if (!isSprite && child.geometry) child.geometry.dispose();
-				if (child.material) {
-					if (child.material.map) child.material.map.dispose();
-					child.material.dispose();
-				}
+				child.traverse((node) => {
+					if (node.geometry && !node.isSprite) node.geometry.dispose();
+					if (node.material) {
+						if (node.material.map) node.material.map.dispose();
+						node.material.dispose();
+					}
+				});
 			}
 			tokenMeshes.length = 0;
 
@@ -1053,7 +1165,7 @@
 				const p = points[i];
 				const position = new THREE.Vector3(p.x * shellR, p.y * shellR, p.z * shellR);
 
-				const { mesh, ring, isLive } = buildTokenMesh(token, position, radius);
+				const { mesh, ring, isLive, tier, cage } = buildTokenMesh(token, position, radius);
 				tokensGroup.add(mesh);
 				tokensGroup.add(ring);
 				const prevMcap = previousMcaps.get(token.mint);
@@ -1067,9 +1179,11 @@
 					baseScale: 1,
 					radius,
 					isLive,
+					tier, cage,
 					spawnAt: spawnStart + i * 22, // ms — stagger reveals
 					spawned: false,
 					hoverScale: 1,
+					surge: 1,
 					visible: true,
 					label: null,            // sprite, attached lazily for top-N
 					labelOffset: radius + 1.6,
@@ -1300,8 +1414,13 @@
 			const linksEl = document.getElementById('vz-detail-links');
 			linksEl.innerHTML = '';
 			if (token.mint) {
-				// Primary action keeps the user inside three.ws — the full 3D coin page.
-				linksEl.appendChild(linkNode(`/coin3d?mint=${encodeURIComponent(token.mint)}`, 'Open in 3D →', { primary: true, internal: true }));
+				// Primary action is the real on-chain buy — ape the coin without ever
+				// leaving the visualizer. The trade modal (src/game/coin-buy.js) builds
+				// the unsigned tx server-side, the connected Solana wallet signs it, and
+				// it settles through the same-origin RPC proxy. Lazy-loaded on click so
+				// the heavy Solana/pump SDKs never weigh down the visualizer bundle.
+				linksEl.appendChild(buyButtonNode(token));
+				linksEl.appendChild(linkNode(`/coin3d?mint=${encodeURIComponent(token.mint)}`, 'Open in 3D →', { internal: true }));
 				linksEl.appendChild(linkNode(`https://pump.fun/coin/${token.mint}`, 'Pump.fun ↗'));
 				linksEl.appendChild(linkNode(`https://solscan.io/token/${token.mint}`, 'Solscan ↗'));
 			}
@@ -1324,6 +1443,49 @@
 			a.textContent = label;
 			if (primary) a.className = 'primary';
 			return a;
+		}
+
+		// Primary "Buy" CTA for the detail panel. Opens the native on-chain trade
+		// modal for the selected coin — a real bonding-curve / AMM buy through the
+		// connected Solana wallet, not a redirect off-site. The heavy Solana + pump
+		// SDKs that power the modal are pulled in only on the first click.
+		let _tradeModuleP = null;
+		function buyButtonNode(token) {
+			const sym = token.symbol ? '$' + String(token.symbol).toUpperCase() : '';
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'primary';
+			btn.textContent = sym ? `Buy ${sym}` : 'Buy coin';
+			btn.setAttribute('aria-label', sym ? `Buy ${sym}` : 'Buy this coin');
+			btn.addEventListener('click', () => openTradeForToken(token, btn));
+			return btn;
+		}
+
+		async function openTradeForToken(token, btn) {
+			if (!token?.mint) return;
+			const restore = btn ? btn.textContent : null;
+			if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+			try {
+				if (!_tradeModuleP) _tradeModuleP = import('/src/game/coin-buy.js');
+				const { openBuyModal } = await _tradeModuleP;
+				openBuyModal({
+					mint: token.mint,
+					name: token.name || token.symbol || 'coin',
+					symbol: token.symbol || '',
+					image: proxiedImg(token.image_uri, token.mint || token.symbol) || '',
+				});
+			} catch (err) {
+				// Never strand the user on a dead button — surface the failure and let
+				// them retry, or fall back to the full coin page where they can also buy.
+				_tradeModuleP = null;
+				console.error('[pump-visualizer] trade modal failed to load', err);
+				if (btn) {
+					btn.textContent = 'Retry buy';
+					btn.disabled = false;
+				}
+				return;
+			}
+			if (btn) { btn.disabled = false; btn.textContent = restore; }
 		}
 
 		// ── formatters ───────────────────────────────────────────────
@@ -1520,7 +1682,21 @@
 				// Hover scale ease.
 				const wantHover = (entry === hovered || entry === selected) ? 1.18 : 1;
 				entry.hoverScale += (wantHover - entry.hoverScale) * 0.18;
-				entry.mesh.scale.setScalar(entry.hoverScale);
+
+				// Market-cap tier motion — self-rotation plus an independently
+				// spinning cage, energy scaling with the tier. Bigger cap = livelier.
+				if (entry.tier) {
+					entry.mesh.rotation.y += entry.tier.spin * 0.01;
+					if (entry.cage) {
+						entry.cage.rotation.y -= entry.tier.spin * 0.014;
+						entry.cage.rotation.x += entry.tier.spin * 0.006;
+					}
+				}
+
+				// Move surge: the diff-flash pops this >1 when the cap rose between
+				// refreshes, <1 when it fell; here it eases back to rest each frame.
+				entry.surge += (1 - entry.surge) * 0.12;
+				entry.mesh.scale.setScalar(entry.hoverScale * entry.surge);
 
 				// Persistent tint by refresh-to-refresh delta — subtle wash on top of texture.
 				if (entry.deltaPct !== 0 && entry.mesh.material) {
@@ -1532,7 +1708,9 @@
 					}
 				}
 
-				// Diff-flash: brief emissive burst right after refresh shows movement.
+				// Diff-flash: a refresh moved this coin's cap. Burst emissive green
+				// (up) or red (down), pop/dip the scale, and flare the cage — the
+				// "as it goes up / down" signal layered over the steady tier look.
 				if (entry.flashAt && time >= entry.flashAt) {
 					const fdt = time - entry.flashAt;
 					if (fdt < FLASH_DURATION_MS) {
@@ -1542,10 +1720,13 @@
 						const flashColor = positive ? new THREE.Color(0x34d399) : new THREE.Color(0xf87171);
 						entry.mesh.material.emissive.copy(flashColor);
 						entry.mesh.material.emissiveIntensity = burst;
+						entry.surge = 1 + (positive ? 1 : -1) * 0.14 * k;
+						if (entry.cage) entry.cage.material.opacity = Math.min(1, 0.55 + burst * 0.4);
 					} else {
 						entry.flashAt = 0;
-						entry.mesh.material.emissive.copy(entry.isLive ? new THREE.Color(liveGlowHex(entry.data)) : new THREE.Color(0x000000));
-						entry.mesh.material.emissiveIntensity = entry.isLive ? 0.25 : 0;
+						entry.mesh.material.emissive.copy(entry.isLive ? new THREE.Color(liveGlowHex(entry.data)) : new THREE.Color(entry.tier ? entry.tier.emissive : 0x000000));
+						entry.mesh.material.emissiveIntensity = entry.isLive ? 0.25 : (entry.tier ? entry.tier.pulse : 0);
+						if (entry.cage) entry.cage.material.opacity = 0.55;
 					}
 				}
 
@@ -1557,8 +1738,13 @@
 						entry.ring.material.opacity = 0.35 + pulse * 0.35;
 					}
 					entry.ring.scale.setScalar(entry.hoverScale * (1 + pulse * 0.06));
-				} else if (entry !== selected) {
-					entry.ring.scale.setScalar(entry.hoverScale);
+				} else {
+					// Non-live: breathe the emissive at the tier's own pace + intensity.
+					if (!entry.flashAt && entry.tier) {
+						const tp = 0.5 + 0.5 * Math.sin(time * entry.tier.pulseRate + entry.spawnAt * 0.0011);
+						entry.mesh.material.emissiveIntensity = entry.tier.pulse * (0.55 + tp * 0.9);
+					}
+					if (entry !== selected) entry.ring.scale.setScalar(entry.hoverScale);
 				}
 
 				// Sonar rings — emit a new one every ~1.4s while live; expand & fade existing.
@@ -1843,16 +2029,18 @@
 			const shellR = SPHERE_RADIUS * (0.80 + Math.random() * 0.22);
 			const position = new THREE.Vector3(p.x * shellR, p.y * shellR, p.z * shellR);
 			const radius = feedRadius(token.usd_market_cap);
-			const { mesh, ring } = buildTokenMesh(token, position, radius);
+			const { mesh, ring, tier, cage } = buildTokenMesh(token, position, radius);
 			tokensGroup.add(mesh);
 			tokensGroup.add(ring);
 			const entry = {
 				mesh, ring, data: token,
 				baseScale: 1, radius,
 				isLive: true,
+				tier, cage,
 				spawnAt: performance.now(),
 				spawned: false,
 				hoverScale: 1,
+				surge: 1,
 				visible: true,
 				label: null,
 				labelOffset: radius + 1.6,
@@ -1899,6 +2087,11 @@
 				sr.material.dispose();
 			}
 			entry.sonarRings.length = 0;
+			if (entry.cage) {
+				entry.cage.geometry.dispose();
+				entry.cage.material.dispose();
+				entry.cage = null;
+			}
 			if (entry.mesh.geometry) entry.mesh.geometry.dispose();
 			if (entry.mesh.material) {
 				if (entry.mesh.material.map) entry.mesh.material.map.dispose();
@@ -1982,6 +2175,7 @@
 			if (!firstLoad) return;
 			firstLoad = false;
 			controlsEl.hidden = false;
+			rampEl.hidden = false;
 			introEl.classList.add('is-hidden');
 			setTimeout(() => { try { introEl.remove(); } catch {} }, 900);
 			startIntroFlyIn();
@@ -2152,6 +2346,7 @@
 				statusEl.dataset.state = 'ready';
 				refreshBtn.disabled = false;
 				controlsEl.hidden = false;
+				rampEl.hidden = false;
 
 				if (firstLoad) {
 					firstLoad = false;
@@ -2200,6 +2395,33 @@
 				else scheduleNextRefresh();
 			}
 		});
+
+		// Market-cap tier key — built once from the same ladder the scene uses.
+		const rampEl = document.getElementById('vz-ramp');
+		(function buildTierRamp() {
+			const host = document.getElementById('vz-ramp-tiers');
+			const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+			const fmt = (v) => formatMcap(v).replace('.0', '');
+			MCAP_TIERS.forEach((t, i) => {
+				const next = MCAP_TIERS[i + 1];
+				const row = document.createElement('div');
+				row.className = 'tier';
+				const sw = document.createElement('span');
+				sw.className = 'sw';
+				sw.style.background = hex(t.color);
+				sw.style.boxShadow = `0 0 8px ${hex(t.color)}`;
+				const nm = document.createElement('span');
+				nm.className = 'nm';
+				nm.textContent = t.name;
+				const th = document.createElement('span');
+				th.className = 'th';
+				if (t.min === 0) th.textContent = '< ' + fmt(next.min);
+				else if (next) th.textContent = fmt(t.min) + '–' + fmt(next.min);
+				else th.textContent = fmt(t.min) + '+';
+				row.append(sw, nm, th);
+				host.appendChild(row);
+			});
+		})();
 
 		// Boot in live-firehose mode.
 		enterFeedMode();

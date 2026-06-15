@@ -25,10 +25,26 @@ import { parse } from '../_lib/validate.js';
 import { publicCatalog } from '../_lib/pricing/catalog.js';
 import { requireThreePayment } from '../_lib/pricing/charge-three.js';
 import { holderDiscountBps, resolveUserTier, signTierPass, TIERS } from '../_lib/three-tier.js';
-import { creatorEarnings, economyStats } from '../_lib/token/index.js';
+import { creatorEarnings, economyStats, listRewardsDistributions } from '../_lib/token/index.js';
 import { priceName, isValidLabel, RARITY_TIERS } from '../_lib/pricing/name-rarity.js';
 import { quoteTokenForUsd } from '../_lib/token/price.js';
-import { publicConfig } from '../_lib/token/config.js';
+import { publicConfig, TOKEN_MINT, ATOMICS_PER_TOKEN } from '../_lib/token/config.js';
+import { getBalances } from '../_lib/balances.js';
+
+// Live on-chain $THREE balance (atomics) of a platform wallet, for verifiable
+// stats. Returns 0n on any failure — a balance hiccup must never 500 the public
+// dashboard. The explorer link lets anyone confirm the figure themselves.
+async function liveWalletAtomics(address) {
+	if (!address) return 0n;
+	try {
+		const balances = await getBalances({ chain: 'solana', address });
+		const entry = (balances?.tokens ?? []).find((t) => t.mint === TOKEN_MINT);
+		return BigInt(Math.floor((entry?.amount || 0) * Number(ATOMICS_PER_TOKEN)));
+	} catch {
+		return 0n;
+	}
+}
+const solscan = (addr) => (addr ? `https://solscan.io/account/${addr}` : null);
 
 const SOLANA_ADDRESS = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'invalid Solana address');
 
@@ -198,8 +214,10 @@ async function handleNameQuote(req, res) {
 }
 
 // ── GET /api/three/stats ───────────────────────────────────────────────────────
-// Public economy dashboard data: settled volume + the per-role flow (treasury,
-// rewards, seller) over a window. Powers the /three economy page and /three-live.
+// Public, VERIFIABLE economy dashboard data. Beyond settled volume + the per-role
+// flow, it surfaces the LIVE on-chain balances of the treasury and rewards wallets
+// with Solscan links, plus the real reflected-to-holders history. "Don't trust,
+// verify" — every headline number traces to an address anyone can inspect.
 
 async function handleStats(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -209,15 +227,50 @@ async function handleStats(req, res) {
 
 	const url = new URL(req.url, 'http://x');
 	const sinceDays = url.searchParams.get('since_days');
-	const stats = await economyStats({ sinceDays: sinceDays != null ? Number(sinceDays) : null });
 	const cfg = publicConfig();
+
+	// Fan out the independent reads concurrently: ledger aggregates, live wallet
+	// balances, and the distribution history. Each degrades independently.
+	const [stats, treasuryAtomics, rewardsAtomics, distributions] = await Promise.all([
+		economyStats({ sinceDays: sinceDays != null ? Number(sinceDays) : null }),
+		liveWalletAtomics(cfg.treasury),
+		liveWalletAtomics(cfg.rewards_wallet),
+		listRewardsDistributions({ limit: 10 }).catch(() => ({
+			total_reflected_atomics: '0',
+			run_count: 0,
+			items: [],
+		})),
+	]);
+
 	return json(res, 200, {
 		...stats,
 		token: { mint: cfg.mint, symbol: cfg.symbol, decimals: cfg.decimals },
-		treasury_configured: cfg.treasury_configured,
-		rewards_configured: cfg.rewards_configured,
-		// Make the no-burn policy explicit in the public data so the dashboard can
-		// state it plainly: every spend reflects to holders / funds the treasury.
+		// Verifiable on-chain state: live balances + the addresses + explorer links.
+		// This is the answer to a competitor's "trust us, we burned some" — here are
+		// the wallets; check them yourself.
+		onchain: {
+			treasury: {
+				address: cfg.treasury,
+				configured: cfg.treasury_configured,
+				balance_atomics: treasuryAtomics.toString(),
+				explorer: solscan(cfg.treasury),
+			},
+			rewards_pool: {
+				address: cfg.rewards_wallet,
+				configured: cfg.rewards_configured,
+				balance_atomics: rewardsAtomics.toString(),
+				explorer: solscan(cfg.rewards_wallet),
+			},
+			mint_explorer: solscan(cfg.mint),
+		},
+		// Real reflections, not a burn counter: cumulative $THREE returned to holders
+		// across completed distribution runs, with recent run history.
+		reflected: {
+			total_atomics: distributions.total_reflected_atomics,
+			run_count: distributions.run_count,
+			recent: distributions.items,
+		},
+		// The platform never burns supply. Stated plainly in the public data.
 		burns: false,
 	});
 }

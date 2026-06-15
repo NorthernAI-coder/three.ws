@@ -23,6 +23,7 @@ import { TOKEN_MINT, ATOMICS_PER_TOKEN, treasuryWalletOrNull, rewardsWalletOrNul
 import { fetchHolderBalances } from '../_lib/coin/holders.js';
 import { getBalances } from '../_lib/balances.js';
 import { computeRewardsDistribution } from '../_lib/token/rewards.js';
+import { recordRewardsDistribution } from '../_lib/token/payments.js';
 
 function requireCron(req, res) {
 	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
@@ -87,14 +88,38 @@ export default wrap(async (req, res) => {
 	// Distribution requires a funded signer; without it this run is an authoritative
 	// dry run (the plan is exact and auditable). Executing is the only step gated.
 	const distributorConfigured = Boolean(process.env.REWARDS_DISTRIBUTOR_SECRET);
+	const note = distributorConfigured
+		? 'executor pending funded-distributor verification'
+		: 'REWARDS_DISTRIBUTOR_SECRET not configured — dry run only';
+
+	// Record the run so /three can show a real, verifiable distribution history.
+	// Status 'planned' (dry run) is logged but excluded from the reflected total —
+	// only 'completed' on-chain runs count toward "reflected to holders". A logging
+	// failure must never fail the cron, so it's best-effort.
+	let recordId = null;
+	try {
+		const rec = await recordRewardsDistribution({
+			mint: TOKEN_MINT,
+			poolWallet: rewardsWallet,
+			poolAtomics,
+			distributedAtomics: plan.distributed,
+			dustAtomics: plan.dust,
+			holderCount: plan.payouts.length,
+			eligibleSupplyAtomics: plan.eligibleSupply,
+			status: 'planned',
+			note,
+		});
+		recordId = rec.id;
+	} catch (err) {
+		console.error('[rewards-distribute] failed to record run', err?.message || err);
+	}
 
 	return json(res, 200, {
+		distribution_id: recordId,
 		ok: true,
 		executed: false,
 		dry_run: true,
-		reason: distributorConfigured
-			? 'executor pending funded-distributor verification'
-			: 'REWARDS_DISTRIBUTOR_SECRET not configured — dry run only',
+		reason: note,
 		mint: TOKEN_MINT,
 		pool_wallet: rewardsWallet,
 		pool_atomics: poolAtomics.toString(),

@@ -141,6 +141,45 @@ describe('canonicalizeBoneName', () => {
 		expect(canonicalizeBoneName('DEF-left_fore_arm')).toBe('LeftForeArm');
 	});
 
+	// CharacterStudio prefixes every joint `CH_`; the stems are otherwise
+	// canonical, so stripping the prefix makes the whole rig drivable.
+	it.each([
+		['CH_Hips',        'Hips'],
+		['CH_LeftUpLeg',   'LeftUpLeg'],
+		['CH_RightFoot',   'RightFoot'],
+		['CH_Hips_01',     'Hips'],          // CH_ prefix + glTF de-dup suffix
+		['CH_LeftLeg_03',  'LeftLeg'],
+	])('strips the CharacterStudio CH_ prefix: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// Unreal Engine mannequin joint names map onto canonical bones via the
+	// alias table. The `_l`/`_r` side suffix is preserved through the collapse.
+	it.each([
+		['pelvis',      'Hips'],
+		['pelvis_09',   'Hips'],            // UE name + de-dup suffix
+		['clavicle_l',  'LeftShoulder'],
+		['upperarm_l',  'LeftArm'],
+		['lowerarm_r',  'RightForeArm'],
+		['hand_r',      'RightHand'],
+		['thigh_l',     'LeftUpLeg'],
+		['calf_l',      'LeftLeg'],
+		['foot_r',      'RightFoot'],
+		['ball_l',      'LeftToeBase'],
+		['thigh_l_010', 'LeftUpLeg'],       // UE name + de-dup suffix
+	])('maps Unreal mannequin bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// The Unreal spine chain is intentionally NOT aliased — `spine_02`'s
+	// stripped form collides with Mixamo's `Spine` + `_02` de-dup, which must
+	// keep resolving to `Spine` (asserted in the de-dup suite above). Guard it
+	// here so a future alias addition can't silently break that.
+	it('does not alias the Unreal spine chain (avoids Mixamo de-dup collision)', () => {
+		expect(canonicalizeBoneName('mixamorig:Spine_02')).toBe('Spine');
+		expect(canonicalizeBoneName('mixamorig:Spine_03')).toBe('Spine');
+	});
+
 	// glTF/FBX exporters (CharacterStudio, Blender, FBX2glTF) append a `_NN`
 	// node-de-dup index to keep names unique. These are the bone names that ship
 	// in real uploaded avatars — without stripping the suffix the whole animation

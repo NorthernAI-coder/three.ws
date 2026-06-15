@@ -11,5 +11,14 @@
 export * from './config.js';
 export * from './price.js';
 export { issueQuote, verifyQuote } from './quote.js';
-export { verifyOnChain, settlePayment, verifyAndSettlePayment, listPayments, creatorEarnings, economyStats } from './payments.js';
+export {
+	verifyOnChain,
+	settlePayment,
+	verifyAndSettlePayment,
+	listPayments,
+	creatorEarnings,
+	economyStats,
+	recordRewardsDistribution,
+	listRewardsDistributions,
+} from './payments.js';
 export { computeRewardsDistribution } from './rewards.js';

@@ -66,5 +66,15 @@ export function loadConfig() {
 		feedWatchdogMs: Math.max(30_000, num('SNIPER_FEED_WATCHDOG_MS', 180_000)),
 		// Confirmation timeout for a broadcast trade.
 		confirmTimeoutMs: Math.max(15_000, num('SNIPER_CONFIRM_TIMEOUT_MS', 60_000)),
+		// ── first-claim trigger ─────────────────────────────────────────────────
+		// How often to poll the on-chain fee-claim stream for first-ever claims.
+		claimPollMs: Math.max(10_000, num('SNIPER_CLAIM_POLL_MS', 30_000)),
+		// Window scanned each poll — must comfortably exceed the poll interval so a
+		// claim can't slip between scans.
+		claimLookbackSeconds: Math.max(60, num('SNIPER_CLAIM_LOOKBACK_S', 600)),
+		// Default freshness gate: ignore a first claim older than this when first
+		// observed (a per-strategy first_claim_max_age_seconds overrides it). Keeps
+		// a worker restart / backfill from sniping a stale claim.
+		claimMaxAgeSeconds: Math.max(30, num('SNIPER_CLAIM_MAX_AGE_S', 300)),
 	};
 }
