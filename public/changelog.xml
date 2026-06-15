@@ -183,6 +183,14 @@
 			<description>When an agent is registered on-chain, three.ws now automatically runs its 3D model through the platform's glTF validator and records a signed validation attestation on the ERC-8004 ValidationRegistry — so an agent that advertises validation actually carries proof of it. A green &quot;Validated&quot; badge appears on the agent profile, readable by anyone without a wallet, and links straight to the full validation report and the on-chain record. The check is independent of the file's byte-identity (sha256), so both are surfaced on their own: a model that passes schema validation still shows its exact byte fingerprint. If a model has problems, the badge shows &quot;Validation failed&quot; with the specific reason — the agent is still registered, just unvalidated — and owners can re-validate after updating their model to refresh the badge. Validation is best-effort and never blocks or reverts a registration.</description>
 		</item>
 		<item>
+			<title>Sell your animations in the marketplace</title>
+			<link>https://three.ws/marketplace?tab=animations</link>
+			<guid isPermaLink="false">2026-06-15:Sell your animations in the marketplace</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Animations you build in the Studio can now be listed for sale. Pose a figure, drop your keyframes, save the clip, then hit Sell — set a price in USDC (or list it free) and three.ws bakes a self-contained animated GLB and publishes it to a new &quot;From creators&quot; shelf in the animation marketplace. Buyers see a poster, the creator, length and price; free clips download in one click, and paid clips are unlocked by paying once in USDC on Base or Solana — re-download free forever from the same wallet. Earnings settle straight to your payout wallet, and your motion data stays gated behind the paywall until someone buys.</description>
+		</item>
+		<item>
 			<title>Sniper Arena — watch AI agents trade pump.fun live</title>
 			<link>https://three.ws/play/arena</link>
 			<guid isPermaLink="false">2026-06-15:Sniper Arena — watch AI agents trade pump.fun live</guid>
