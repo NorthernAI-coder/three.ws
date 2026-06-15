@@ -55,6 +55,39 @@ async function fetchJson(url, options = {}) {
 	return { status: res.status, body };
 }
 
+// Insert a public avatar row for a finished seed creation, attributed to the
+// synthetic user. Reads the stored GLB straight from forge_creations and is
+// idempotent (`on conflict do nothing`) so a re-poll never double-inserts.
+// Bypasses plan quota — this is platform-seeded content, not a user upload.
+async function insertSeedAvatar({ userId, prompt, modelCategory, creationId }) {
+	if (!creationId) return;
+	await sql`
+		insert into avatars
+			(owner_id, slug, name, description, storage_key, size_bytes,
+			 content_type, source, source_meta, visibility, tags,
+			 model_category, created_at, updated_at)
+		select
+			${userId},
+			${toSlug(prompt)},
+			${toTitle(prompt)},
+			${'AI-generated ' + modelCategory + ' — forged on three.ws'},
+			fc.glb_key,
+			coalesce(fc.size_bytes, 0),
+			'model/gltf-binary',
+			'forge',
+			${JSON.stringify({ forge_creation_id: creationId, prompt, seed: true })}::jsonb,
+			'public',
+			array[${modelCategory}]::text[],
+			${modelCategory},
+			now(), now()
+		from forge_creations fc
+		where fc.id = ${creationId}
+		  and fc.glb_key is not null
+		  and fc.status = 'done'
+		on conflict do nothing
+	`;
+}
+
 // ── Phase 1: poll pending jobs ────────────────────────────────────────────────
 
 async function pollPending(origin) {
@@ -71,43 +104,20 @@ async function pollPending(origin) {
 	const results = [];
 	await Promise.all(rows.map(async (job) => {
 		try {
+			const cronSecret = process.env.CRON_SECRET || env.CRON_SECRET || '';
 			const poll = await fetchJson(
 				`${origin}/api/forge?job=${encodeURIComponent(job.job_id)}`,
-				{ headers: { 'x-forge-client': job.raw_client_id } },
+				{ headers: { 'x-forge-client': job.raw_client_id, 'x-forge-seed': cronSecret } },
 			);
 
 			if (poll.body?.status === 'done' && poll.body.glb_url) {
 				const creationId = poll.body.creation_id ?? null;
-
-				// Insert directly into avatars (bypasses plan quota — this is
-				// platform-seeded content, not a user upload against their limit).
-				if (creationId) {
-					await sql`
-						insert into avatars
-							(owner_id, slug, name, description, storage_key, size_bytes,
-							 content_type, source, source_meta, visibility, tags,
-							 model_category, created_at, updated_at)
-						select
-							${job.user_id},
-							${toSlug(job.prompt)},
-							${toTitle(job.prompt)},
-							${'AI-generated ' + job.model_category + ' — forged on three.ws'},
-							fc.glb_key,
-							coalesce(fc.size_bytes, 0),
-							'model/gltf-binary',
-							'forge',
-							${JSON.stringify({ forge_creation_id: creationId, prompt: job.prompt, seed: true })}::jsonb,
-							'public',
-							array[${job.model_category}]::text[],
-							${job.model_category},
-							now(), now()
-						from forge_creations fc
-						where fc.id = ${creationId}
-						  and fc.glb_key is not null
-						  and fc.status = 'done'
-						on conflict do nothing
-					`;
-				}
+				await insertSeedAvatar({
+					userId: job.user_id,
+					prompt: job.prompt,
+					modelCategory: job.model_category,
+					creationId,
+				});
 
 				await sql`
 					update forge_seed_jobs
@@ -182,16 +192,18 @@ async function startNextJob(origin) {
 		return { skipped: true, reason: 'user insert conflict — will retry next tick' };
 	}
 
+	const cronSecret = process.env.CRON_SECRET || env.CRON_SECRET || '';
 	const submit = await fetchJson(`${origin}/api/forge`, {
 		method: 'POST',
 		headers: {
 			'content-type': 'application/json',
 			'x-forge-client': rawClientId,
+			'x-forge-seed': cronSecret,
 		},
 		body: JSON.stringify({ prompt: chosen.prompt, tier: 'draft', path: 'image' }),
 	});
 
-	if (submit.status !== 200 || !submit.body?.job_id) {
+	if (submit.status !== 200) {
 		await sql`delete from users where id = ${user.id}`.catch(() => {});
 		return {
 			ok: false,
@@ -199,18 +211,58 @@ async function startNextJob(origin) {
 		};
 	}
 
-	await sql`
-		insert into forge_seed_jobs (user_id, raw_client_id, job_id, prompt, model_category)
-		values (${user.id}, ${rawClientId}, ${submit.body.job_id}, ${chosen.prompt}, ${chosen.category})
-	`;
+	const creationId = submit.body?.creation_id ?? null;
 
+	// The free NVIDIA draft lane finishes inline (~13–22 s) and returns the
+	// finished model in the submit response with job_id:null — there is nothing
+	// to poll. Attribute it to the synthetic user right now.
+	if (submit.body?.status === 'done' && submit.body?.glb_url) {
+		await insertSeedAvatar({
+			userId: user.id,
+			prompt: chosen.prompt,
+			modelCategory: chosen.category,
+			creationId,
+		});
+		await sql`
+			insert into forge_seed_jobs
+				(user_id, raw_client_id, job_id, prompt, model_category,
+				 status, creation_id, glb_url, finished_at)
+			values (${user.id}, ${rawClientId}, ${submit.body.job_id || 'sync-' + (creationId || randomUUID())},
+			        ${chosen.prompt}, ${chosen.category}, 'done', ${creationId}, ${submit.body.glb_url}, now())
+		`;
+		return {
+			ok: true,
+			sync: true,
+			creation_id: creationId,
+			glb_url: submit.body.glb_url,
+			prompt: chosen.prompt,
+			category: chosen.category,
+			username,
+			user_id: user.id,
+		};
+	}
+
+	// Otherwise the lane is asynchronous — record the job so the next tick polls it.
+	if (submit.body?.job_id) {
+		await sql`
+			insert into forge_seed_jobs (user_id, raw_client_id, job_id, prompt, model_category)
+			values (${user.id}, ${rawClientId}, ${submit.body.job_id}, ${chosen.prompt}, ${chosen.category})
+		`;
+		return {
+			ok: true,
+			job_id: submit.body.job_id,
+			prompt: chosen.prompt,
+			category: chosen.category,
+			username,
+			user_id: user.id,
+		};
+	}
+
+	// Neither a finished model nor a poll token — a genuine failure.
+	await sql`delete from users where id = ${user.id}`.catch(() => {});
 	return {
-		ok: true,
-		job_id: submit.body.job_id,
-		prompt: chosen.prompt,
-		category: chosen.category,
-		username,
-		user_id: user.id,
+		ok: false,
+		reason: `forge submit returned no job_id and status=${submit.body?.status || 'unknown'}`,
 	};
 }
 

@@ -3,6 +3,25 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Pose any avatar — a full motion library on the avatar page",
+			"summary": "Every avatar page has a new Pose tab. Open it and the avatar steps onto a live 3D stage you can orbit, with a searchable library of 100+ motions — idle, wave, dance, jump, flex, facepalm and more. Click one and it plays on the avatar instantly, even when the model itself ships no built-in animation: the clips retarget onto its skeleton in your browser. A speed slider and a reset-to-idle control round out the transport. Avatars without a standard humanoid rig get a clear message instead of a broken stage.",
+			"tags": ["feature"]
+		},
+		{
+			"date": "2026-06-15",
+			"title": "Avatars come to life — animations now play on the avatar page",
+			"summary": "Every avatar page now plays its built-in animation the moment it loads, so a rigged avatar stands, breathes, or performs its motion instead of freezing in a static pose. A new floating control sits over the 3D stage: a play/pause button, plus a clip switcher when an avatar carries more than one take so you can jump between them. Avatars with no embedded motion are unaffected — the control only appears when there's something to play.",
+			"tags": ["feature"]
+		},
+		{
+			"date": "2026-06-15",
+			"title": "The IRL page loads again",
+			"summary": "Opening three.ws/irl returned a Not Found error even though the page was fully built and linked from the navigation. The page wasn't mapped in our routing rules, so the server never served it. We added the route — the IRL experience (walk a 3D avatar in your real space with camera passthrough, an on-screen joystick, and tap-to-place objects) now opens directly from the link in the menu.",
+			"tags": ["fix"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Browse every community avatar from your dashboard",
 			"summary": "The dashboard Avatars page now has a Community tab alongside My avatars. It shows every public 3D avatar the whole community has built — with live spinning previews, a running count and total views, search, tag filters, and infinite scroll. Open any one as a live page, remix it in the 3D studio, or copy its share link, embed snippet, or GLB URL in a click.",
 			"tags": ["feature"],

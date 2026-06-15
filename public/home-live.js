@@ -91,8 +91,6 @@
 		if (item.source && item.source !== 'upload')
 			bits.push(item.source);
 		else bits.push('GLB');
-		if (item.viewCount && item.viewCount > 0)
-			bits.push(`${item.viewCount} view${item.viewCount === 1 ? '' : 's'}`);
 		return bits;
 	}
 

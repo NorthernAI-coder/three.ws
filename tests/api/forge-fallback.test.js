@@ -17,8 +17,18 @@ beforeAll(() => {
 		APP_ORIGIN: 'https://three.ws',
 		REPLICATE_API_TOKEN: 'test-token',
 		NVIDIA_API_KEY: 'test-nvidia-key',
+		// Self-hosted Hunyuan3D worker wired → image→3D has a fallback target.
+		GCP_HUNYUAN3D_URL: 'https://hunyuan3d.example.run.app',
+		GCP_RECONSTRUCTION_KEY: 'test-gcp-key',
 	});
 });
+
+// Self-hosted Hunyuan3D Cloud Run worker (the image→3D fallback) accepts the job
+// and returns a poll handle, exactly like api/_providers/gcp.js.
+const gcpSubmit = vi.fn(async () => ({ extJobId: 'gcpjob1234567890', viewsUsed: 1, multiview: false }));
+vi.mock('../../api/_providers/gcp.js', () => ({
+	createRegenProvider: () => ({ submit: gcpSubmit }),
+}));
 
 // Replicate (paid TRELLIS lane) is over-quota — every submit throws a 429 the
 // same way api/_providers/replicate.js does on a non-ok response.
@@ -117,8 +127,9 @@ describe('forge free-first fallback when the paid lane is over-quota', () => {
 		expect(nvidiaTextTo3d).toHaveBeenCalled();
 	});
 
-	it('still surfaces a busy state for an image upload (no free reconstruct fallback)', async () => {
+	it('degrades an image upload to the self-hosted Hunyuan3D worker (not NVIDIA — it is text-only)', async () => {
 		nvidiaTextTo3d.mockClear();
+		gcpSubmit.mockClear();
 		const req = makeReq({
 			image_urls: ['https://cdn.example/photo.png'],
 			prompt: 'a mug',
@@ -129,10 +140,38 @@ describe('forge free-first fallback when the paid lane is over-quota', () => {
 		const res = makeRes();
 		await handler(req, res);
 
-		// Image→3D has no free fallback (NVCF is text-only), so it does NOT silently
-		// produce an unrelated prompt-based model — it returns the honest busy state.
-		expect(res.statusCode).toBe(429);
-		expect(res.body.error).toBe('rate_limited');
+		expect(res.statusCode).toBe(200);
+		expect(res.body.status).toBe('queued');
+		expect(res.body.backend).toBe('hunyuan3d');
+		expect(gcpSubmit).toHaveBeenCalled();
+		// NVIDIA is text-only — it must never be invoked for a photo upload.
 		expect(nvidiaTextTo3d).not.toHaveBeenCalled();
+		// Hunyuan3D is poly-aware: the tier budget the TRELLIS params omit is supplied.
+		expect(gcpSubmit.mock.calls[0][0].params.target_polycount).toBeGreaterThan(0);
+	});
+
+	it('surfaces the honest busy state for an image upload when no Hunyuan3D worker is wired', async () => {
+		const savedUrl = process.env.GCP_HUNYUAN3D_URL;
+		delete process.env.GCP_HUNYUAN3D_URL;
+		gcpSubmit.mockClear();
+		try {
+			const req = makeReq({
+				image_urls: ['https://cdn.example/photo.png'],
+				prompt: 'a mug',
+				tier: 'standard',
+				path: 'image',
+				skip_validation: true,
+			});
+			const res = makeRes();
+			await handler(req, res);
+
+			// No free reconstruct fallback exists → it does NOT fabricate a model; it
+			// returns the honest busy state so the page can prompt a retry or Draft.
+			expect(res.statusCode).toBe(429);
+			expect(res.body.error).toBe('rate_limited');
+			expect(gcpSubmit).not.toHaveBeenCalled();
+		} finally {
+			process.env.GCP_HUNYUAN3D_URL = savedUrl;
+		}
 	});
 });

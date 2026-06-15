@@ -47,6 +47,14 @@
 			<description>Coins launched through three.ws with autopilot enabled now have their buybacks and creator-fee distributions executed automatically on an hourly schedule, instead of waiting for a manual trigger. A new balance watchdog checks every Solana signer the platform uses to pay on-chain fees and alerts the team the moment one runs low, so autopilot never silently stalls for lack of gas. No action needed from coin owners — it just works in the background.</description>
 		</item>
 		<item>
+			<title>Avatars come to life — animations now play on the avatar page</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-15:Avatars come to life — animations now play on the avatar page</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every avatar page now plays its built-in animation the moment it loads, so a rigged avatar stands, breathes, or performs its motion instead of freezing in a static pose. A new floating control sits over the 3D stage: a play/pause button, plus a clip switcher when an avatar carries more than one take so you can jump between them. Avatars with no embedded motion are unaffected — the control only appears when there's something to play.</description>
+		</item>
+		<item>
 			<title>Browse every community avatar from your dashboard</title>
 			<link>https://three.ws/dashboard/avatars</link>
 			<guid isPermaLink="false">2026-06-15:Browse every community avatar from your dashboard</guid>
@@ -109,6 +117,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Solana agents now get the same verifiable, on-chain glTF/model validation that EVM agents get from the ValidationRegistry — no contract to deploy. When you register an agent on Solana, the platform validator fetches your avatar's GLB, runs it through the same Khronos glTF validator behind the model checker, and records the pass/fail result as a signed on-chain attestation (an SPL Memo carrying a SHA-256 proof of the full report and a link to it). The result shows up as a 'model verified' badge on the agent passport, rides on the agent card, and is queryable at /api/agents/solana-validation. Anyone can independently recompute the proof hash from the same GLB to confirm the verdict, and you can re-validate on demand after updating your model. Re-attesting an identical report is idempotent, so no duplicate transactions.</description>
+		</item>
+		<item>
+			<title>Pose any avatar — a full motion library on the avatar page</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-15:Pose any avatar — a full motion library on the avatar page</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every avatar page has a new Pose tab. Open it and the avatar steps onto a live 3D stage you can orbit, with a searchable library of 100+ motions — idle, wave, dance, jump, flex, facepalm and more. Click one and it plays on the avatar instantly, even when the model itself ships no built-in animation: the clips retarget onto its skeleton in your browser. A speed slider and a reset-to-idle control round out the transport. Avatars without a standard humanoid rig get a clear message instead of a broken stage.</description>
 		</item>
 		<item>
 			<title>Pump dashboard alerts now run server-side — fire across devices even with the tab closed</title>
@@ -181,6 +197,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>A new auto-generation system creates a fresh 3D avatar or accessory every minute using the free NVIDIA lane and adds it to the community gallery. Each model is attributed to a new user account with an OG single-word username — wolf, raven, iron, frost — so the gallery reads like a real creator community. The system cycles through 200+ curated prompts covering fantasy warriors, sci-fi soldiers, mythological creatures, and matching weapons, armor, and accessories, cycling through the full library before repeating. Every model is a permanent GLB stored in our own CDN.</description>
+		</item>
+		<item>
+			<title>The IRL page loads again</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-15:The IRL page loads again</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Opening three.ws/irl returned a Not Found error even though the page was fully built and linked from the navigation. The page wasn't mapped in our routing rules, so the server never served it. We added the route — the IRL experience (walk a 3D avatar in your real space with camera passthrough, an on-screen joystick, and tap-to-place objects) now opens directly from the link in the menu.</description>
 		</item>
 		<item>
 			<title>The pump.fun graduations feed stays fresh around the clock</title>
