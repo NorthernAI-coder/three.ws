@@ -3,6 +3,18 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "The top navigation is back on every page",
+			"summary": "The site header was being clipped to a sliver on most pages — the menu, search, and account controls were cut off and the dropdowns wouldn't open. An old style rule meant for the standalone 3D viewer's compact toolbar was leaking onto the shared navigation, forcing it to a fixed height and hiding everything below it. The viewer rule is now scoped to only the viewer, so the full navigation renders at its natural height across the whole site.",
+			"tags": ["fix"]
+		},
+		{
+			"date": "2026-06-15",
+			"title": "The site footer and top pages are now polished on phones",
+			"summary": "On mobile the footer's link columns ran off the right edge and got cut off — the contract address and legal links were unreachable — because an old style rule for the 3D viewer's corner credit was hijacking the main footer's layout. The footer now stacks into clean, tappable columns on every page. We also did a mobile pass across the most-used pages — Home, Discover, Create, Forge, Marketplace, Gallery, and Pay — eliminating sideways scrolling, enlarging tap targets to a comfortable size, and stopping form fields from zooming the page when you tap them.",
+			"tags": ["fix", "improvement"]
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Homepage Forge is more reliable — no more \"busy\" on the second model",
 			"summary": "The mini Forge on the homepage now runs on the same free Standard lane as the full /forge page. Before, it used the free draft preview, which has tight concurrency and would return a \"generator is busy\" message on a quick second generation. Now back-to-back prompts hold up — models still land free with no sign-up, and the platform automatically degrades to the faster free lane if the main one is throttled.",
 			"tags": ["fix"],

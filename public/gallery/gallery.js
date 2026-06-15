@@ -23,7 +23,6 @@ const els = {
 	loadMore: document.querySelector('[data-role="load-more"]'),
 	sentinel: document.querySelector('[data-role="sentinel"]'),
 	statCount: document.querySelector('[data-role="stat-count"]'),
-	statViews: document.querySelector('[data-role="stat-views"]'),
 	myAvatarsChip: document.querySelector('[data-role="my-avatars-chip"]'),
 };
 
@@ -38,7 +37,6 @@ const state = {
 	loadedTags: new Set(),
 	totalLoaded: 0,
 	total: null,
-	totalViews: null,
 };
 
 if (state.query) els.search.value = state.query;
@@ -158,7 +156,6 @@ function resetAndLoad() {
 	state.cursor = null;
 	state.totalLoaded = 0;
 	state.total = null;
-	state.totalViews = null;
 	els.grid.innerHTML = '';
 	renderSkeletons(8);
 	loadPage();
@@ -232,7 +229,6 @@ async function loadPage() {
 
 		if (isFirstPage) {
 			if (typeof data.total === 'number') state.total = data.total;
-			if (typeof data.total_views === 'number') state.totalViews = data.total_views;
 		}
 
 		updateStats();
@@ -272,8 +268,6 @@ async function loadPage() {
 function updateStats() {
 	els.statCount.textContent =
 		state.total != null ? state.total.toLocaleString() : state.totalLoaded.toLocaleString();
-	els.statViews.textContent =
-		state.totalViews != null ? formatCompact(state.totalViews) : '—';
 }
 
 function formatCompact(n) {

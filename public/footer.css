@@ -552,8 +552,10 @@
 		margin-bottom: 3rem;
 	}
 	.h-footer-links {
-		grid-template-columns: repeat(2, 1fr);
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 1.25rem 1rem;
+		width: 100%;
 	}
 	/* 44px minimum touch targets (WCAG 2.5.8) without changing desktop rhythm */
 	.h-footer-link-col {

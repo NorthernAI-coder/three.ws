@@ -183,6 +183,22 @@
 			<description>The recent-graduations feed and the graduation data behind pump.fun signals and MCP tools now refresh continuously in the background, instead of only updating while someone had the live feed open. A new scheduled job listens to the real pump.fun migration stream and records graduations as they happen, so the feed shows up-to-date tokens even after quiet periods. Graduation data is also served straight from our own live records, so it never silently falls back to an empty list.</description>
 		</item>
 		<item>
+			<title>The site footer and top pages are now polished on phones</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-15:The site footer and top pages are now polished on phones</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On mobile the footer's link columns ran off the right edge and got cut off — the contract address and legal links were unreachable — because an old style rule for the 3D viewer's corner credit was hijacking the main footer's layout. The footer now stacks into clean, tappable columns on every page. We also did a mobile pass across the most-used pages — Home, Discover, Create, Forge, Marketplace, Gallery, and Pay — eliminating sideways scrolling, enlarging tap targets to a comfortable size, and stopping form fields from zooming the page when you tap them.</description>
+		</item>
+		<item>
+			<title>The top navigation is back on every page</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-15:The top navigation is back on every page</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The site header was being clipped to a sliver on most pages — the menu, search, and account controls were cut off and the dropdowns wouldn't open. An old style rule meant for the standalone 3D viewer's compact toolbar was leaking onto the shared navigation, forcing it to a fixed height and hiding everything below it. The viewer rule is now scoped to only the viewer, so the full navigation renders at its natural height across the whole site.</description>
+		</item>
+		<item>
 			<title>three.ws can now register itself on-chain on Solana</title>
 			<link>https://three.ws/.well-known/agent-registration.json</link>
 			<guid isPermaLink="false">2026-06-15:three.ws can now register itself on-chain on Solana</guid>
