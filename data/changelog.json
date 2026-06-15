@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Browse every community avatar from your dashboard",
+			"summary": "The dashboard Avatars page now has a Community tab alongside My avatars. It shows every public 3D avatar the whole community has built — with live spinning previews, a running count and total views, search, tag filters, and infinite scroll. Open any one as a live page, remix it in the 3D studio, or copy its share link, embed snippet, or GLB URL in a click.",
+			"tags": ["feature"],
+			"link": "/dashboard/avatars"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "The top navigation is back on every page",
 			"summary": "The site header was being clipped to a sliver on most pages — the menu, search, and account controls were cut off and the dropdowns wouldn't open. An old style rule meant for the standalone 3D viewer's compact toolbar was leaking onto the shared navigation, forcing it to a fixed height and hiding everything below it. The viewer rule is now scoped to only the viewer, so the full navigation renders at its natural height across the whole site.",
 			"tags": ["fix"]

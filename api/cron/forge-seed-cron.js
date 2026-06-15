@@ -86,7 +86,7 @@ async function pollPending(origin) {
 						insert into avatars
 							(owner_id, slug, name, description, storage_key, size_bytes,
 							 content_type, source, source_meta, visibility, tags,
-							 created_at, updated_at)
+							 model_category, created_at, updated_at)
 						select
 							${job.user_id},
 							${toSlug(job.prompt)},
@@ -99,6 +99,7 @@ async function pollPending(origin) {
 							${JSON.stringify({ forge_creation_id: creationId, prompt: job.prompt, seed: true })}::jsonb,
 							'public',
 							array[${job.model_category}]::text[],
+							${job.model_category},
 							now(), now()
 						from forge_creations fc
 						where fc.id = ${creationId}
