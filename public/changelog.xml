@@ -71,6 +71,14 @@
 			<description>When a token launch or an in-world trade can't go through, the app now tells you exactly why and what to do next — &quot;Not enough SOL to cover the launch + network fees,&quot; &quot;Price moved beyond your slippage limit,&quot; &quot;You cancelled the signature in your wallet,&quot; or &quot;Couldn't reach the Solana network&quot; — instead of a single catch-all &quot;Connection error.&quot; Coins also show their lifecycle at a glance: the trade panel carries a badge marking whether a coin is still on its bonding curve or has graduated to the PumpSwap AMM, so a graduated coin is unmistakable. Backed by new end-to-end browser tests that drive the full four-step launch flow and the buy/sell widget so this conversion path can't silently break.</description>
 		</item>
 		<item>
+			<title>Homepage Forge is more reliable — no more &quot;busy&quot; on the second model</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-15:Homepage Forge is more reliable — no more &quot;busy&quot; on the second model</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The mini Forge on the homepage now runs on the same free Standard lane as the full /forge page. Before, it used the free draft preview, which has tight concurrency and would return a &quot;generator is busy&quot; message on a quick second generation. Now back-to-back prompts hold up — models still land free with no sign-up, and the platform automatically degrades to the faster free lane if the main one is throttled.</description>
+		</item>
+		<item>
 			<title>Launchpad Studio: pick your avatar from your own agents and the gallery</title>
 			<link>https://three.ws/launchpad</link>
 			<guid isPermaLink="false">2026-06-15:Launchpad Studio: pick your avatar from your own agents and the gallery</guid>

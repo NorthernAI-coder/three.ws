@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T06:50:46.471Z",
+	"generated_at": "2026-06-15T07:56:49.748Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -86,6 +86,16 @@
 			"link": "/pump-dashboard",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Homepage Forge is more reliable — no more \"busy\" on the second model",
+			"summary": "The mini Forge on the homepage now runs on the same free Standard lane as the full /forge page. Before, it used the free draft preview, which has tight concurrency and would return a \"generator is busy\" message on a quick second generation. Now back-to-back prompts hold up — models still land free with no sign-up, and the platform automatically degrades to the faster free lane if the main one is throttled.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{

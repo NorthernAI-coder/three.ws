@@ -74,6 +74,11 @@
 			/* ── Workspace: composer rail + stage side by side on desktop ────── */
 			.forge-workspace {
 				display: grid;
+				/* Default (mobile / <1080px): one full-width column that may shrink
+				   below its content's min-content width, so the rail and stage stack
+				   vertically without forcing horizontal scroll. The 1080px query
+				   below restores the two-column desktop layout. */
+				grid-template-columns: minmax(0, 1fr);
 				gap: var(--space-lg);
 				align-items: start;
 			}
@@ -2264,6 +2269,56 @@
 			}
 			.hint-foot a {
 				color: var(--ink);
+			}
+
+			/* ── Mobile polish (≤720px) ─────────────────────────────────────
+			   The rail and stage already stack via .forge-workspace's default
+			   single column; these rules keep the dense composer controls from
+			   overflowing the viewport and meet phone touch/zoom ergonomics. */
+			@media (max-width: 720px) {
+				/* Hero: stack the title above the tagline instead of a cramped
+				   baseline-aligned flex row that overflows narrow screens. */
+				.forge-head {
+					flex-direction: column;
+					align-items: flex-start;
+					gap: var(--space-xs);
+				}
+				.forge-head h1 {
+					font-size: var(--text-lg);
+				}
+				/* Engine / quality / tier / aspect button groups carry up to seven
+				   chips — let them wrap instead of forcing horizontal scroll. */
+				.aspect {
+					flex-wrap: wrap;
+				}
+				/* iOS zooms the page when a focused field is under 16px. Bump the
+				   few sub-16px controls in the rail to the reading baseline. */
+				.byok-input {
+					font-size: var(--text-base);
+				}
+				/* Comfortable tap targets for the small chip-style controls. */
+				.aspect button,
+				.seg button {
+					min-height: 44px;
+				}
+				.ptool,
+				.chip,
+				.chips-more,
+				.forge-cat-btn,
+				.verdict button {
+					min-height: 44px;
+				}
+				.opt-select {
+					font-size: var(--text-sm);
+					min-height: 44px;
+				}
+			}
+
+			/* Fullscreen cinema bar must clear the home-indicator / notch. */
+			.result.is-cinema .result-bar {
+				padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0px));
+				padding-left: max(var(--space-md), env(safe-area-inset-left, 0px));
+				padding-right: max(var(--space-md), env(safe-area-inset-right, 0px));
 			}
 
 		</style>
