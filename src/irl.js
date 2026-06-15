@@ -17,7 +17,7 @@ import {
 	MeshPhysicalMaterial,
 	MeshStandardMaterial,
 	OctahedronGeometry,
-	PCFSoftShadowMap,
+	PCFShadowMap,
 	PerspectiveCamera,
 	PlaneGeometry,
 	PMREMGenerator,
@@ -101,7 +101,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.setClearColor(0x000000, 0);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = PCFSoftShadowMap;
+renderer.shadowMap.type = PCFShadowMap;
 
 const scene = new Scene();
 const pmrem = new PMREMGenerator(renderer);
@@ -203,8 +203,11 @@ async function enableAR() {
 	}
 
 	videoEl.srcObject = mediaStream;
-	try { await videoEl.play(); } catch {}
 
+	// Reveal the AR state BEFORE play(). A display:none <video> can leave
+	// play()'s promise unsettled in some browsers (notably iOS Safari), which
+	// would otherwise hang camera activation forever. Make it visible first,
+	// then start playback without blocking on the promise.
 	arActive = true;
 	document.body.classList.add('is-ar');
 	cameraBtn.classList.add('is-active');
@@ -214,6 +217,8 @@ async function enableAR() {
 	groundShadow.visible = true;
 	renderer.setClearColor(0x000000, 0);
 	scene.background = null;
+
+	videoEl.play().catch(() => {/* autoplay policies — frames still arrive via the stream */});
 
 	// Match Three.js FOV to device rear camera so the avatar's scale agrees
 	// with real-world objects (typically 70–75° diagonal for rear cameras).
