@@ -31,6 +31,14 @@
 			<description>The Trending mode of the 3D Pump Visualizer (three.ws/pump-visualizer) now renders correctly: every coin appears as a sphere sized by its real USD market cap, textured with its actual logo, with a full detail panel showing market cap, all-time-high, replies, age, and socials. Previously Trending failed to load because the market data it relied on wasn’t reaching the scene. Click a sphere to inspect it, or double-click to open the full 3D coin page. The live Firehose and Migrations modes are unchanged.</description>
 		</item>
 		<item>
+			<title>three.ws now registers itself as an on-chain agent (ERC-8004)</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-15:three.ws now registers itself as an on-chain agent (ERC-8004)</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform that helps you put your agents on-chain now does the same for itself. three.ws publishes a 3D Agent Card — a verifiable manifest of its name, its default 3D avatar, and its A2A/MCP/x402 service endpoints — at three.ws/.well-known/3d-agent-card.json, and ships a one-command tool that mints the platform agent in the canonical ERC-8004 IdentityRegistry on Base (with a Base Sepolia rehearsal first). The card cryptographically commits to the avatar: the SHA-256 in the card matches the exact GLB bytes served, so any indexer or wallet can independently verify the model hasn't been swapped. Other agents and directories can now discover and trust three.ws the same way three.ws lets them be discovered.</description>
+		</item>
+		<item>
 			<title>Building 3D AI Agents Live</title>
 			<link>https://three.ws/events/build-3d-agents-live</link>
 			<guid isPermaLink="false">2026-06-14:Building 3D AI Agents Live</guid>

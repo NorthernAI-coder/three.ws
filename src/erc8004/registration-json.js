@@ -33,6 +33,12 @@ import { agentRegistryId } from './abi.js';
  *   Optional animation clip list — emitted as a top-level `animations` extension
  *   field (ERC-8004 permits extensions). Viewers that understand the field can
  *   attach extra clips; others ignore it harmlessly.
+ * @param {string} [opts.manifest]
+ *   Optional pointer (https:// or ipfs:// URI) to the rich agent-manifest bundle
+ *   (specs/AGENT_MANIFEST.md) describing this agent's brain, voice, skills,
+ *   memory, and permissions. Emitted as the 3D Agent Card v1 `manifest` field so
+ *   on-chain agents carry their full Claude-shaped configuration, not just a body
+ *   + thumbnail. Hosts that don't understand the field ignore it harmlessly.
  */
 export function buildRegistrationJSON({
 	name,
@@ -45,6 +51,7 @@ export function buildRegistrationJSON({
 	services = [],
 	x402Support = false,
 	animations,
+	manifest,
 }) {
 	const baseServices = [];
 	if (glbUrl) {
@@ -87,6 +94,13 @@ export function buildRegistrationJSON({
 
 	if (Array.isArray(animations) && animations.length > 0) {
 		json.animations = animations;
+	}
+
+	// Pointer to the rich agent-manifest/0.2 bundle (instructions, brain, voice,
+	// skills, memory, permissions). Spec-permitted extension field read by
+	// src/manifest.js → loadManifest(card.manifest) to hydrate the full agent.
+	if (typeof manifest === 'string' && manifest) {
+		json.manifest = manifest;
 	}
 
 	return json;

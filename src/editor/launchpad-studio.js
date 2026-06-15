@@ -796,8 +796,7 @@ export function mountLaunchpadStudio(root, options = {}) {
 			<button class="lsp-avatar-card${selected ? ' is-selected' : ''}" type="button"
 				data-avatar-src="${esc(item.src)}" data-avatar-name="${esc(item.name)}"
 				aria-pressed="${selected}" aria-label="Use ${esc(item.name)} avatar" title="${esc(item.name)}">
-				<img class="thumb" loading="lazy" alt="" src="${esc(thumb)}"
-					onerror="this.onerror=null;this.src='${FALLBACK_THUMB}'" />
+				<img class="thumb" loading="lazy" alt="" src="${esc(thumb)}" />
 				<span class="cap">${esc(item.name)}</span>
 			</button>`;
 	}
@@ -906,6 +905,15 @@ export function mountLaunchpadStudio(root, options = {}) {
 	pickerEl.addEventListener('toggle', (e) => {
 		const d = e.target.closest('.lsp-custom');
 		if (d) customExpanded = d.open;
+	}, true);
+	// Broken thumbnails (404, an agent's private avatar, a dead custom URL) fall
+	// back to the generic avatar icon. Delegated on the capture phase because the
+	// `error` event doesn't bubble; the data flag prevents a fallback loop.
+	pickerEl.addEventListener('error', (e) => {
+		const img = e.target;
+		if (img.tagName !== 'IMG' || !img.classList.contains('thumb') || img.dataset.fallback) return;
+		img.dataset.fallback = '1';
+		img.src = FALLBACK_THUMB;
 	}, true);
 
 	// Topbar + global actions (delegated)

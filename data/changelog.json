@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "three.ws now registers itself as an on-chain agent (ERC-8004)",
+			"summary": "The platform that helps you put your agents on-chain now does the same for itself. three.ws publishes a 3D Agent Card — a verifiable manifest of its name, its default 3D avatar, and its A2A/MCP/x402 service endpoints — at three.ws/.well-known/3d-agent-card.json, and ships a one-command tool that mints the platform agent in the canonical ERC-8004 IdentityRegistry on Base (with a Base Sepolia rehearsal first). The card cryptographically commits to the avatar: the SHA-256 in the card matches the exact GLB bytes served, so any indexer or wallet can independently verify the model hasn't been swapped. Other agents and directories can now discover and trust three.ws the same way three.ws lets them be discovered.",
+			"tags": ["feature", "infra"]
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Autonomous coin buybacks and creator-fee distributions now run on schedule",
 			"summary": "Coins launched through three.ws with autopilot enabled now have their buybacks and creator-fee distributions executed automatically on an hourly schedule, instead of waiting for a manual trigger. A new balance watchdog checks every Solana signer the platform uses to pay on-chain fees and alerts the team the moment one runs low, so autopilot never silently stalls for lack of gas. No action needed from coin owners — it just works in the background.",
 			"tags": ["improvement", "infra"]

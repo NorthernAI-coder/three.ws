@@ -1753,7 +1753,10 @@
 				activityCount: 0,
 				feedPaused: false,
 				alertConfig: safeParseJson(localStorage.getItem('pumpbot-alerts') || '{}', {}),
-				agentId: null,
+				// Deep-link target: /pump-dashboard?agent=<id> (e.g. straight from the
+				// launch-token modal) focuses the control panel on that specific agent
+				// instead of falling back to the account default.
+				agentId: new URLSearchParams(location.search).get('agent') || null,
 				vanityAbort: null,
 				healthInterval: null,
 				networkInterval: null,
@@ -2140,7 +2143,8 @@
 							const created = a.created_at
 								? new Date(a.created_at).toLocaleDateString()
 								: '—';
-							return `<tr data-agent-row="${escapeHtml(a.id)}">
+							const isFocused = a.id === state.agentId;
+							return `<tr data-agent-row="${escapeHtml(a.id)}"${isFocused ? ' class="is-focused"' : ''}>
 							<td>${escapeHtml(a.name || a.id)}</td>
 							<td>${escapeHtml((a.description || '').slice(0, 80))}</td>
 							<td class="pd-mono">${created}</td>
@@ -2157,6 +2161,11 @@
 							deleteAgent(b.dataset.deleteAgent, b.dataset.agentName),
 						);
 					});
+					// Bring the deep-linked agent into view so the user lands on the row
+					// for the coin they just launched.
+					const focusedRow = tbody.querySelector('tr.is-focused');
+					if (focusedRow)
+						focusedRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 				} catch {
 					tbody.innerHTML =
 						'<tr><td colspan="4" class="pd-empty">Failed to load agents.</td></tr>';
@@ -2196,15 +2205,19 @@
 						const resp = await apiFetch('/api/agents/me');
 						if (resp.ok) {
 							const { agent } = await resp.json();
-							if (agent && agent.id) {
-								state.agentId = agent.id;
-								$('pd-agent-iframe').src =
-									`/agent-embed.html?id=${encodeURIComponent(agent.id)}`;
-							}
+							if (agent && agent.id) state.agentId = agent.id;
 						}
 					} catch {
 						/* show empty state */
 					}
+				}
+				// Load the embed for whichever agent we resolved — whether it came from
+				// the ?agent= deep link or the account default. Guard against reloading
+				// the same src so re-entering the page doesn't reset the live preview.
+				if (state.agentId) {
+					const iframe = $('pd-agent-iframe');
+					const src = `/agent-embed.html?id=${encodeURIComponent(state.agentId)}`;
+					if (iframe && iframe.getAttribute('src') !== src) iframe.src = src;
 				}
 				loadCustomAgents();
 			}
@@ -4270,6 +4283,9 @@
 				const hashPage = location.hash.slice(1);
 				if (hashPage && hashPage !== state.currentPage && $('page-' + hashPage))
 					navigateTo(hashPage);
+				// /pump-dashboard?agent=<id> (from the launch-token modal) opens the
+				// agent control panel directly, unless an explicit #hash overrides it.
+				else if (state.agentId && $('page-animations')) navigateTo('animations');
 				window.addEventListener('hashchange', () => {
 					const page = location.hash.slice(1);
 					if (page && page !== state.currentPage && $('page-' + page)) navigateTo(page);

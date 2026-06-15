@@ -7,30 +7,16 @@
  *   await recordValidation({ agentId, report, signer, pinToIPFS, apiToken });
  */
 
-import { Contract, keccak256, toUtf8Bytes } from 'ethers';
+import { Contract } from 'ethers';
 import { REGISTRY_DEPLOYMENTS, VALIDATION_REGISTRY_ABI } from './abi.js';
 import { pinFile } from './agent-registry.js';
+import { KIND_GLB_SCHEMA, reportPassed, hashReport } from './validation-report.js';
 
-const KIND_GLB_SCHEMA = 'glb-schema';
-
-/**
- * Derive a deterministic pass/fail flag from a glTF-Validator report.
- * Pass = zero errors (warnings/infos/hints are allowed).
- */
-export function reportPassed(report) {
-	const errs = (report && report.issues && report.issues.numErrors) || 0;
-	return errs === 0;
-}
-
-/**
- * keccak256 hash of the canonicalized JSON report, suitable for on-chain proof.
- * @param {object} report
- * @returns {string} 0x-prefixed 32-byte hex.
- */
-export function hashReport(report) {
-	const json = JSON.stringify(report);
-	return keccak256(toUtf8Bytes(json));
-}
+// Re-export the pure report helpers so existing importers of this module keep
+// working. The canonical implementations live in validation-report.js — a
+// dependency-light module the server attestor can import without pulling in the
+// browser-only agent-registry/Three.js stack.
+export { reportPassed, hashReport, buildGlbReport, failureReason } from './validation-report.js';
 
 /**
  * Record a validation result on-chain. Optionally pin the full report to IPFS

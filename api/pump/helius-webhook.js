@@ -19,6 +19,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { sql } from '../_lib/db.js';
 import { cors, json, method, wrap, error, readJson } from '../_lib/http.js';
 import { parsePumpTrades } from '../_lib/helius.js';
+import { WSOL_MINT } from '../_lib/pump-quote.js';
 
 function safeEqual(a, b) {
 	if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -43,14 +44,17 @@ export default wrap(async (req, res) => {
 
 	let inserted = 0;
 	for (const t of trades) {
+		// Helius parses native-SOL pump.fun swaps, so every monitored trade is
+		// SOL-paired: the quote is wrapped SOL and quote_amount == sol_amount.
+		const lamports = Math.round(t.sol * 1e9);
 		const r = await sql`
 			insert into pump_agent_trades (
 				mint_id, user_id, wallet, direction, route,
-				sol_amount, tx_signature, network
+				sol_amount, quote_mint, quote_symbol, quote_amount, tx_signature, network
 			)
 			select
 				m.id, null, ${t.wallet}, ${t.side}, 'bonding_curve',
-				${Math.round(t.sol * 1e9)}, ${t.signature}, 'mainnet'
+				${lamports}, ${WSOL_MINT}, 'SOL', ${lamports}, ${t.signature}, 'mainnet'
 			from pump_agent_mints m
 			where m.mint = ${t.mint}
 			on conflict (tx_signature, network) do nothing

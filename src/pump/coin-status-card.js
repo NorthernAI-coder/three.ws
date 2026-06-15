@@ -220,7 +220,7 @@ function renderRow(coin, opts) {
 
 function renderCard(coin, opts) {
 	const head = el('div', { class: 'csc-card-head' }, [
-		coin.image ? el('img', { class: 'csc-card-img', src: coin.image, alt: '', loading: 'lazy' }) : null,
+		coinAvatar(coin, opts.placeholder),
 		el('div', { class: 'csc-card-id' }, [
 			el('span', { class: 'csc-card-name', text: coin.name || coin.symbol || 'Coin' }),
 			el('span', { class: 'csc-sym', text: coin.symbol ? `$${coin.symbol}` : shortMint(coin.mint) }),
@@ -266,6 +266,26 @@ function renderCard(coin, opts) {
 	]);
 
 	return el('div', { class: 'csc csc-card' }, [head, stats, coin.graduationPct != null ? bar : null, foot]);
+}
+
+/**
+ * Avatar for the card variant. A real pump.fun logo fades in over an optional
+ * caller-supplied placeholder node (e.g. a deterministic identicon) — the same
+ * crossfade the launches feed used before unification. Renders nothing when
+ * there is neither an image nor a placeholder.
+ */
+function coinAvatar(coin, placeholder) {
+	if (!coin.image && !placeholder) return null;
+	const box = el('div', { class: 'csc-avatar' });
+	if (placeholder) box.appendChild(placeholder);
+	if (coin.image) {
+		const img = el('img', { class: 'csc-card-img', src: coin.image, alt: '', loading: 'lazy' });
+		img.addEventListener('load', () => img.classList.add('csc-img-in'), { once: true });
+		// No placeholder behind it → show immediately rather than fading from blank.
+		if (!placeholder) img.classList.add('csc-img-in');
+		box.appendChild(img);
+	}
+	return box;
 }
 
 function buyLink(mint) {
@@ -320,7 +340,11 @@ const STYLES = `
 .csc-card { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px;
 	background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); }
 .csc-card-head { display: flex; align-items: center; gap: 10px; }
-.csc-card-img { width: 40px; height: 40px; border-radius: 9px; object-fit: cover; flex: 0 0 auto; background: rgba(255,255,255,0.05); }
+.csc-avatar { position: relative; width: 40px; height: 40px; border-radius: 9px; overflow: hidden; flex: 0 0 auto; background: rgba(255,255,255,0.05); }
+.csc-avatar > svg, .csc-avatar > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.csc-card-img { object-fit: cover; opacity: 0; transition: opacity .4s ease; }
+.csc-card-img.csc-img-in { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .csc-card-img { transition: none; } }
 .csc-card-id { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
 .csc-card-name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .csc-ring { width: 36px; height: 36px; margin-left: auto; flex: 0 0 auto; }
@@ -372,12 +396,15 @@ function injectStyles() {
  * @param {string}      [opts.variant]   — 'chip' | 'row' | 'card' (default: 'chip')
  * @param {number}      [opts.refreshMs] — live-refresh interval (default: 30000, 0 disables)
  * @param {boolean}     [opts.showBuy]   — show "Buy" link (default: false)
+ * @param {HTMLElement} [opts.placeholder] — node shown behind the avatar in the
+ *                       'card' variant until the real logo loads (e.g. an identicon)
  * @returns {{ destroy: () => void }}   — cleanup handle
  */
 export function mountCoinStatus(container, mint, opts = {}) {
 	const variant = RENDERERS[opts.variant] ? opts.variant : 'chip';
 	const refreshMs = opts.refreshMs == null ? DEFAULT_REFRESH_MS : Number(opts.refreshMs);
 	const showBuy = !!opts.showBuy;
+	const placeholder = opts.placeholder || null;
 	const render = RENDERERS[variant];
 
 	injectStyles();
@@ -404,7 +431,7 @@ export function mountCoinStatus(container, mint, opts = {}) {
 			if (!r.ok) throw new Error(`coin api ${r.status}`);
 			const raw = await r.json();
 			lastCoin = mapCoin(raw, mint);
-			paint(render(lastCoin, { showBuy }));
+			paint(render(lastCoin, { showBuy, placeholder }));
 		} catch (err) {
 			if (err?.name === 'AbortError' || destroyed) return;
 			// A refresh blip keeps the last good render; only a cold failure with
