@@ -88,10 +88,13 @@ vi.mock('../../api/_lib/pump.js', () => ({
 }));
 
 // ── helpers ───────────────────────────────────────────────────────────────
-function makeReq({ method = 'GET', url = '/', headers = {}, body = null } = {}) {
+function makeReq({ method = 'GET', url = '/', headers = {}, body = null, query = null } = {}) {
 	const base = body ? Readable.from([Buffer.from(JSON.stringify(body))]) : Readable.from([]);
 	base.method = method;
 	base.url = url;
+	// The /api/pump/[action].js catch-all routes on req.query.action (populated by
+	// Vercel's filesystem router in prod); set it explicitly under test.
+	if (query) base.query = query;
 	base.headers = {
 		host: 'localhost',
 		...(body ? { 'content-type': 'application/json' } : {}),
@@ -277,6 +280,99 @@ describe('POST /api/pump/accept-payment-confirm', () => {
 		});
 		expect(res.statusCode).toBe(200);
 		expect(json.ok).toBe(true);
+	});
+});
+
+describe('POST /api/pump/buy-confirm (quote-aware trade recording)', () => {
+	beforeEach(resetAll);
+
+	const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
+	// Find the recorded pump_agent_trades INSERT and return its bound values.
+	function tradeInsert() {
+		const call = sqlState.calls.find((c) => /insert into pump_agent_trades/i.test(c.query));
+		return call?.values ?? null;
+	}
+
+	it('records a USDC-paired buy with quote columns, not in the SOL column', async () => {
+		authState.session = { id: 'user-1' };
+		// mint lookup returns the coin's USDC pairing mint; insert returns nothing.
+		sqlState.queue = [[{ id: 'mint-1', quote_mint: USDC_MINT }], []];
+		const pumpMod = await import('../../api/_lib/pump.js');
+		pumpMod.verifySignature.mockResolvedValueOnce({
+			transaction: { message: { accountKeys: [
+				{ pubkey: { toString: () => mintB58 } },
+				{ pubkey: { toString: () => walletB58 } },
+			] } },
+			meta: {},
+		});
+		const { default: handler } = await import('../../api/pump/[action].js');
+		const { res, json } = await invoke(handler, {
+			method: 'POST',
+			url: '/api/pump/buy-confirm',
+			query: { action: 'buy-confirm' },
+			body: {
+				mint: mintB58,
+				network: 'mainnet',
+				tx_signature: 'a'.repeat(88),
+				wallet_address: walletB58,
+				usdc_amount: 5,
+				route: 'bonding_curve',
+				slippage_bps: 100,
+			},
+		});
+		expect(res.statusCode).toBe(200);
+		expect(json.tracked).toBe(true);
+
+		const v = tradeInsert();
+		expect(v).not.toBeNull();
+		// Bound values (literals like 'buy' aren't params): [0] mint_id, [1] user_id,
+		// [2] wallet, [3] route, [4] sol_amount, [5] quote_mint, [6] quote_symbol,
+		// [7] quote_amount, [8] slippage_bps, [9] tx_signature, [10] network.
+		expect(v[5]).toBe(USDC_MINT); // quote_mint
+		expect(v[6]).toBe('USDC'); // quote_symbol
+		expect(v[7]).toBe('5000000'); // quote_amount = 5 USDC in 6-dec atoms
+		// sol_amount stays null for a USDC trade — never lands in the lamports column.
+		expect(v[4]).toBeNull();
+	});
+
+	it('records a SOL-paired buy with quote_amount === sol_amount', async () => {
+		authState.session = { id: 'user-1' };
+		// quote_mint null → SOL-paired coin.
+		sqlState.queue = [[{ id: 'mint-1', quote_mint: null }], []];
+		const pumpMod = await import('../../api/_lib/pump.js');
+		pumpMod.verifySignature.mockResolvedValueOnce({
+			transaction: { message: { accountKeys: [
+				{ pubkey: { toString: () => mintB58 } },
+				{ pubkey: { toString: () => walletB58 } },
+			] } },
+			meta: {},
+		});
+		const { default: handler } = await import('../../api/pump/[action].js');
+		const { res } = await invoke(handler, {
+			method: 'POST',
+			url: '/api/pump/buy-confirm',
+			query: { action: 'buy-confirm' },
+			body: {
+				mint: mintB58,
+				network: 'mainnet',
+				tx_signature: 'b'.repeat(88),
+				wallet_address: walletB58,
+				sol: 0.25,
+				route: 'bonding_curve',
+				slippage_bps: 100,
+			},
+		});
+		expect(res.statusCode).toBe(200);
+
+		const v = tradeInsert();
+		expect(v).not.toBeNull();
+		const lamports = String(Math.floor(0.25 * 1e9)); // 250000000
+		expect(v[4]).toBe(lamports); // sol_amount
+		expect(v[5]).toBe('So11111111111111111111111111111111111111112'); // WSOL quote_mint
+		expect(v[6]).toBe('SOL'); // quote_symbol
+		// quote_amount === sol_amount for SOL trades (DoD invariant).
+		expect(v[7]).toBe(lamports);
 	});
 });
 

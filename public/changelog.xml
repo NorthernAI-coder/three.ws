@@ -15,6 +15,14 @@
 			<description>The success screen you see right after launching a coin no longer dead-ends. Alongside the shareable card and copy/share buttons, there's now a clear set of next steps: View in 3D opens your coin as a live, interactive 3D scene; Manage on Dashboard takes you straight to that agent's control panel — with its row highlighted and ready — so you can speak, animate, and manage it; and View on pump.fun opens the coin on pump.fun. Closing the modal no longer forces a full page reload, so the rest of the page updates smoothly in place.</description>
 		</item>
 		<item>
+			<title>Agents can autonomously trade USDC-paired coins</title>
+			<link>https://three.ws/pump-dashboard</link>
+			<guid isPermaLink="false">2026-06-15:Agents can autonomously trade USDC-paired coins</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>An agent's own wallet can now buy and sell USDC-paired coins on its own — not just SOL ones. Until now the autonomous lanes (an agent's buy/sell endpoints, scheduled buybacks, and creator-fee distributions) assumed every coin priced in SOL, so on a USDC coin they would have built a SOL trade the market refuses. Now the agent reads each coin's real pairing straight from the chain and trades in the matching currency: a USDC coin is bought and sold in USDC, with the agent's USDC account opened automatically and its balance checked up front so a trade fails clearly instead of reverting on-chain. Buybacks and fee distributions follow the same rule — they run in the coin's own currency, and if a coin's setup genuinely can't support a run, it's recorded with the reason rather than silently skipped. Every trade is now logged with the exact quote asset and amount, so prices and volumes stay correct for USDC and SOL coins alike. SOL coins behave exactly as before.</description>
+		</item>
+		<item>
 			<title>Autonomous coin buybacks and creator-fee distributions now run on schedule</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-15:Autonomous coin buybacks and creator-fee distributions now run on schedule</guid>
@@ -29,6 +37,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Building a launchpad in Launchpad Studio (three.ws/launchpad) no longer means hunting down a model URL by hand. The avatar picker now shows three sections: your own three.ws agents (when you're signed in), the platform avatar gallery with a Show more button to browse deeper, and a collapsed Or enter a URL field for power users who want to paste a custom .glb. Thumbnails load lazily, the selected avatar updates the live 3D preview instantly, and your choice is saved with the published page.</description>
+		</item>
+		<item>
+			<title>Pump Live: real token art, live market caps, and a feed that heals itself</title>
+			<link>https://three.ws/pump-live</link>
+			<guid isPermaLink="false">2026-06-15:Pump Live: real token art, live market caps, and a feed that heals itself</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Pump Live showcase (three.ws/pump-live) — where a 3D agent reacts to brand-new pump.fun launches in real time — is now fully wired. Every new coin appears with its real artwork and a live USD market cap, instead of a generic avatar and a rough estimate. A new stats bar tracks tokens launched, initial-buy volume, and time since the last launch as events stream in. Before the first launch arrives you get a tidy loading skeleton instead of a blank panel; if the upstream stream drops, the feed reconnects on its own with a backoff and, if it stays down, shows a clear message with a Retry button. Token images are resolved and served through three.ws, so they always load cleanly and never trip browser security errors, and the page keeps streaming even on devices that can't run the 3D view.</description>
 		</item>
 		<item>
 			<title>Pump Visualizer’s Trending view fixed — spheres now sized by real market cap</title>
@@ -53,6 +69,22 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Any agent you already built can now be given an ERC-8004 on-chain identity straight from its profile — no re-entering its name, 3D model, voice, or skills. The new &quot;Register on-chain&quot; control reuses everything the agent already has, automatically assembles and pins a full agent manifest (its persona, voice, installed skills, and memory mode), links that manifest to the on-chain agent card, and mints the identity on the network you pick. Re-running it on the same network is a safe no-op, and your profile shows a live on-chain badge with explorer and agent-card links the moment it's done.</description>
+		</item>
+		<item>
+			<title>Registered agents now carry an on-chain &quot;Validated&quot; badge</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-15:Registered agents now carry an on-chain &quot;Validated&quot; badge</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>When an agent is registered on-chain, three.ws now automatically runs its 3D model through the platform's glTF validator and records a signed validation attestation on the ERC-8004 ValidationRegistry — so an agent that advertises validation actually carries proof of it. A green &quot;Validated&quot; badge appears on the agent profile, readable by anyone without a wallet, and links straight to the full validation report and the on-chain record. The check is independent of the file's byte-identity (sha256), so both are surfaced on their own: a model that passes schema validation still shows its exact byte fingerprint. If a model has problems, the badge shows &quot;Validation failed&quot; with the specific reason — the agent is still registered, just unvalidated — and owners can re-validate after updating their model to refresh the badge. Validation is best-effort and never blocks or reverts a registration.</description>
+		</item>
+		<item>
+			<title>Strategy Lab now catches broken trading strategies before they run</title>
+			<link>https://three.ws/strategy-lab</link>
+			<guid isPermaLink="false">2026-06-15:Strategy Lab now catches broken trading strategies before they run</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Validation in the Strategy Lab (three.ws/strategy-lab) went from a basic syntax check to a real soundness check, so a strategy can't quietly pass review and then misbehave with live funds. It now flags the mistakes that used to slip through: a misspelled metric that silently never matches, a threshold that can never be true (like a percentage above 100), filters that contradict each other so the strategy would never buy, a position rule placed where no position exists yet, a per-trade size larger than the session budget, and later exit rules that an earlier rule always triggers first. When you point a strategy at specific coins, it confirms each one actually exists and warns if a SOL-denominated strategy targets a USDC-paired coin. Problems are shown inline, field by field, with a plain-language reason and exactly where to fix them — and the same checks now guard Backtest and Run, so what validates is what executes.</description>
 		</item>
 		<item>
 			<title>The pump.fun graduations feed stays fresh around the clock</title>

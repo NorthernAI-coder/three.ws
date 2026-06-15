@@ -13,6 +13,6 @@
   "chains": {
     "bsc": "0x00000000381f09742a30a5a49975514AeC1B72Cc",
     "arbitrum": "0xed3696489490dbfAFD82996ADB11165A56c33c49",
-    "base": "0x31B13cDe47431EfcC8616C8495204e6E6C2Ded34 (tx success but bytecode missing — treat as not deployed)"
+    "base": "0x31B13cDe47431EfcC8616C8495204e6E6C2Ded34"
   }
 }

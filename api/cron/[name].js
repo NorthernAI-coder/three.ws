@@ -46,6 +46,7 @@ import {
 } from '../_lib/pump.js';
 import { mintAttestation, deriveEventId, loadAttesterKeypair } from '../_lib/attest-event.js';
 import { pumpfunMcp, pumpfunBotEnabled } from '../_lib/pumpfun-mcp.js';
+import { getMints, getWhales, getClaims } from '../_lib/channel-feed-sources.js';
 import { crawlAgentAttestations } from '../_lib/solana-attestations.js';
 import { SOLANA_USDC_MINT, SOLANA_USDC_MINT_DEVNET } from '../payments/_config.js';
 import { chargeSubscription, failPayment } from '../_lib/subscription-billing.js';
@@ -878,7 +879,7 @@ async function handlePumpAgentStats(req, res) {
 							${JSON.stringify({ source: 'pump-agent-stats', network: m.network })}::jsonb,
 							${`graduated:${m.mint}:${Date.now()}`}
 						)
-						on conflict (tx_signature) do nothing
+						on conflict (tx_signature, kind) do nothing
 					`;
 				} catch {
 					// pumpfun_signals table optional
@@ -1226,13 +1227,21 @@ export { detectEvents, WHALE_TRADE_USD_FLOOR };
 
 const CLAIMS_PER_RUN = 200;
 const GRADS_PER_RUN = 50;
+const WHALES_PER_RUN = 100;
+const MINTS_PER_RUN = 100;
+// Leave headroom under Vercel's function limit. The sources are cheap (Redis
+// lrange + one Postgres read), but the per-signal inserts are sequential, so a
+// budget keeps a large backlog from running long on a cold DB.
+const SIGNALS_TIME_BUDGET_MS = 22_000;
 
 const SIGNAL_WEIGHT = {
 	first_claim: +0.2,
 	graduation: +0.3,
 	influencer: +0.2,
-	fake_claim: -0.6,
+	whale_buy: +0.1,
+	launch: +0.05,
 	new_account: -0.2,
+	fake_claim: -0.6,
 };
 
 async function handlePumpfunSignals(req, res) {
@@ -1240,38 +1249,151 @@ async function handlePumpfunSignals(req, res) {
 
 	if (!requireCron(req, res)) return;
 
-	// Graduations come from the live WS-fed table (pumpfunMcp.graduations falls
-	// back to Postgres), so the graduation→signal path runs with or without the
-	// optional upstream bot. Claims enrichment still requires the bot, so it's
-	// skipped cleanly when the bot is unset.
+	// Every source below is real and bot-independent:
+	//   • graduations — pumpfunMcp.graduations() reads the WS-fed
+	//     pumpfun_graduations table (kept live by pumpfun-graduations-sync), or
+	//     the upstream bot when PUMPFUN_BOT_URL is set.
+	//   • claims      — the bot's getRecentClaims (rich tier/age intel) when
+	//     configured, merged with the pf:claims Redis lane the channel feed uses.
+	//   • whales      — pf:whales Redis lane (first whale-buy events).
+	//   • mints       — pf:mints Redis lane (new token launches).
+	// The cron emits whatever is live and degrades gracefully when a lane is
+	// empty; it never fabricates events.
 	const botEnabled = pumpfunBotEnabled();
+	const deadline = Date.now() + SIGNALS_TIME_BUDGET_MS;
 
-	const [claims, grads] = await Promise.all([
+	const [claimsBot, grads, redisClaims, whales, mints] = await Promise.all([
 		botEnabled
-			? pumpfunMcp.recentClaims({ limit: CLAIMS_PER_RUN })
-			: Promise.resolve({ ok: true, data: [] }),
-		pumpfunMcp.graduations({ limit: GRADS_PER_RUN }),
+			? pumpfunMcp.recentClaims({ limit: CLAIMS_PER_RUN }).catch((e) => ({ ok: false, error: e?.message }))
+			: Promise.resolve({ ok: false }),
+		pumpfunMcp.graduations({ limit: GRADS_PER_RUN }).catch((e) => ({ ok: false, error: e?.message })),
+		getClaims(CLAIMS_PER_RUN).catch(() => []),
+		getWhales(WHALES_PER_RUN).catch(() => []),
+		getMints(MINTS_PER_RUN).catch(() => []),
 	]);
 
-	const report = { bot: botEnabled, claims: 0, graduations: 0, inserted: 0, skipped: 0, errors: [] };
-
-	const claimItems = pumpfunArr(claims.ok ? claims.data : null);
+	// Bot claims carry richer intel (tier, github_account_age_days); the Redis
+	// lane is a bot-free fallback. Merge with bot enrichment winning on tx
+	// collisions.
+	const claimItems = pumpfunMergeBySig(
+		pumpfunArr(claimsBot.ok ? claimsBot.data : null),
+		Array.isArray(redisClaims) ? redisClaims : [],
+	);
 	const gradItems = pumpfunArr(grads.ok ? grads.data : null);
-	report.claims = claimItems.length;
-	report.graduations = gradItems.length;
+	const whaleItems = Array.isArray(whales) ? whales : [];
+	const mintItems = Array.isArray(mints) ? mints : [];
 
-	const wallets = pumpfunCollectWallets(claimItems, gradItems);
-	const linked = await pumpfunLinkedWalletMap(wallets);
+	const report = {
+		bot: botEnabled,
+		sources: {
+			claims: claimItems.length,
+			graduations: gradItems.length,
+			whales: whaleItems.length,
+			mints: mintItems.length,
+		},
+		inserted: 0,
+		skipped_unlinked: 0,
+		skipped_by_cursor: 0,
+		errors: [],
+	};
 
-	for (const ev of claimItems) {
-		const wallet = ev.claimer || ev.github_wallet;
-		if (!wallet || !linked.has(wallet)) {
-			report.skipped++;
+	// Resolve every actor wallet → linked agent asset in a single query, and load
+	// the per-source cursors so we only evaluate events newer than last run.
+	const wallets = pumpfunCollectWallets({
+		claims: claimItems,
+		grads: gradItems,
+		whales: whaleItems,
+		mints: mintItems,
+	});
+	const [linked, cursors] = await Promise.all([
+		pumpfunLinkedWalletMap(wallets),
+		pumpfunLoadCursors(),
+	]);
+
+	// Process each source through its cursor. Graduations are the highest-signal,
+	// always-on lane, so they run first within the time budget.
+	await pumpfunProcessSource({
+		source: 'graduations', items: gradItems, cursors, linked, report, deadline,
+		walletOf: (ev) => ev.creator || ev.dev_wallet,
+		signalsOf: (ev) => [{
+			kind: 'graduation',
+			payload: { mint: ev.mint, symbol: ev.symbol, name: ev.name },
+			tx_signature: ev.tx_signature || ev.signature,
+		}],
+	});
+	await pumpfunProcessSource({
+		source: 'claims', items: claimItems, cursors, linked, report, deadline,
+		walletOf: (ev) => ev.claimer || ev.github_wallet,
+		signalsOf: (ev) => pumpfunSignalsFromClaim(ev),
+	});
+	await pumpfunProcessSource({
+		source: 'whales', items: whaleItems, cursors, linked, report, deadline,
+		walletOf: (ev) => ev.buyer || ev.trader || ev.traderPublicKey,
+		signalsOf: (ev) => [{
+			kind: 'whale_buy',
+			payload: { mint: ev.mint, amount_sol: ev.amount_sol ?? ev.sol_amount ?? null },
+			tx_signature: ev.signature || ev.tx_signature,
+		}],
+	});
+	await pumpfunProcessSource({
+		source: 'mints', items: mintItems, cursors, linked, report, deadline,
+		walletOf: (ev) => ev.creator || ev.traderPublicKey,
+		signalsOf: (ev) => [{
+			kind: 'launch',
+			payload: { mint: ev.mint, symbol: ev.symbol, name: ev.name },
+			tx_signature: ev.signature || ev.tx_signature,
+		}],
+	});
+
+	return json(res, 200, report);
+}
+
+// Normalize a feed event's timestamp to epoch milliseconds. pump.fun lanes use
+// epoch seconds; the graduations table may surface ISO strings. Falls back to
+// now() so an event without a timestamp is still treated as fresh (processed
+// once, then skipped by the cursor next run).
+function pumpfunTsMs(ev) {
+	const t = ev?.timestamp ?? ev?.created_at ?? ev?._seen_at ?? ev?.seen_at ?? null;
+	if (t == null) return Date.now();
+	if (typeof t === 'number') return t < 1e12 ? Math.round(t * 1000) : Math.round(t);
+	const parsed = Date.parse(t);
+	return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+// Walk a newest-first event list, emitting signals only for events at or after
+// the stored cursor and only for wallets linked to an agent. Advances the
+// cursor to the newest event timestamp seen (never backwards) so the next run
+// skips everything older. Events strictly older than the cursor are counted in
+// report.skipped_by_cursor and never re-inserted.
+async function pumpfunProcessSource({ source, items, cursors, linked, report, deadline, walletOf, signalsOf }) {
+	const cursorMs = cursors.get(source) ?? 0;
+	let maxMs = cursorMs;
+	let newestSig = null;
+
+	for (const ev of items) {
+		if (Date.now() > deadline) break;
+
+		const tsMs = pumpfunTsMs(ev);
+		if (tsMs < cursorMs) {
+			report.skipped_by_cursor++;
 			continue;
 		}
+		// Track the high-water mark across all events (linked or not) so we don't
+		// re-evaluate already-seen events next run.
+		if (tsMs > maxMs) {
+			maxMs = tsMs;
+			newestSig = ev.signature || ev.tx_signature || newestSig;
+		}
+
+		const wallet = walletOf(ev);
+		if (!wallet || !linked.has(wallet)) {
+			report.skipped_unlinked++;
+			continue;
+		}
+
 		try {
-			const inserts = pumpfunSignalsFromClaim(ev);
-			for (const sig of inserts) {
+			for (const sig of signalsOf(ev)) {
+				if (!sig.tx_signature) continue;
 				const ok = await pumpfunInsertSignal({
 					wallet,
 					agent_asset: linked.get(wallet) || null,
@@ -1283,32 +1405,53 @@ async function handlePumpfunSignals(req, res) {
 				if (ok) report.inserted++;
 			}
 		} catch (err) {
-			report.errors.push({ tx: ev.tx_signature, error: err.message });
+			report.errors.push({ source, tx: ev.signature || ev.tx_signature, error: err.message });
 		}
 	}
 
-	for (const ev of gradItems) {
-		const wallet = ev.creator || ev.dev_wallet;
-		if (!wallet || !linked.has(wallet)) {
-			report.skipped++;
-			continue;
-		}
-		try {
-			const ok = await pumpfunInsertSignal({
-				wallet,
-				agent_asset: linked.get(wallet) || null,
-				kind: 'graduation',
-				weight: SIGNAL_WEIGHT.graduation,
-				payload: { mint: ev.mint, symbol: ev.symbol, name: ev.name },
-				tx_signature: ev.tx_signature || ev.signature,
-			});
-			if (ok) report.inserted++;
-		} catch (err) {
-			report.errors.push({ tx: ev.tx_signature, error: err.message });
-		}
+	if (maxMs > cursorMs) {
+		await pumpfunSaveCursor(source, maxMs, newestSig).catch((e) =>
+			report.errors.push({ source, stage: 'cursor', error: e?.message || String(e) }),
+		);
 	}
+}
 
-	return json(res, 200, report);
+// Merge two event lists, deduping by signature with `primary` winning. Used to
+// fold the bot's rich claims over the bot-free Redis lane.
+function pumpfunMergeBySig(primary, secondary) {
+	const seen = new Set();
+	const out = [];
+	for (const e of [...primary, ...secondary]) {
+		const sig = e?.signature || e?.tx_signature;
+		if (!sig || seen.has(sig)) continue;
+		seen.add(sig);
+		out.push(e);
+	}
+	return out;
+}
+
+// Load every source cursor in one read. Returns source → last_seen_ms. A missing
+// cursor table (not migrated yet) degrades to "no cursor" so the cron still runs.
+async function pumpfunLoadCursors() {
+	const map = new Map();
+	try {
+		const rows = await sql`select source, last_seen_ms from pumpfun_signals_cursor`;
+		for (const r of rows) map.set(r.source, Number(r.last_seen_ms) || 0);
+	} catch {
+		// cursor table absent — process once, then it's created on first save.
+	}
+	return map;
+}
+
+async function pumpfunSaveCursor(source, lastSeenMs, lastSignature) {
+	await sql`
+		insert into pumpfun_signals_cursor (source, last_seen_ms, last_signature, updated_at)
+		values (${source}, ${Math.floor(lastSeenMs)}, ${lastSignature || null}, now())
+		on conflict (source) do update set
+			last_seen_ms   = greatest(pumpfun_signals_cursor.last_seen_ms, excluded.last_seen_ms),
+			last_signature = excluded.last_signature,
+			updated_at     = now()
+	`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1387,16 +1530,13 @@ function pumpfunArr(x) {
 	return Array.isArray(x) ? x : x.items || [];
 }
 
-function pumpfunCollectWallets(claims, grads) {
+function pumpfunCollectWallets({ claims = [], grads = [], whales = [], mints = [] }) {
 	const out = new Set();
-	for (const c of claims) {
-		if (c.claimer) out.add(c.claimer);
-		if (c.github_wallet) out.add(c.github_wallet);
-	}
-	for (const g of grads) {
-		if (g.creator) out.add(g.creator);
-		if (g.dev_wallet) out.add(g.dev_wallet);
-	}
+	const add = (w) => { if (w) out.add(w); };
+	for (const c of claims) { add(c.claimer); add(c.github_wallet); }
+	for (const g of grads) { add(g.creator); add(g.dev_wallet); }
+	for (const w of whales) { add(w.buyer); add(w.trader); add(w.traderPublicKey); }
+	for (const m of mints) { add(m.creator); add(m.traderPublicKey); }
 	return [...out];
 }
 
@@ -1434,7 +1574,7 @@ async function pumpfunInsertSignal({ wallet, agent_asset, kind, weight, payload,
 	const result = await sql`
 		insert into pumpfun_signals (wallet, agent_asset, kind, weight, payload, tx_signature)
 		values (${wallet}, ${agent_asset}, ${kind}, ${weight}, ${JSON.stringify(payload)}::jsonb, ${tx_signature})
-		on conflict (tx_signature) do nothing
+		on conflict (tx_signature, kind) do nothing
 		returning id
 	`;
 	return result.length > 0;

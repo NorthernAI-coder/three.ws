@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T02:58:27.553Z",
+	"generated_at": "2026-06-15T03:22:25.663Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,16 @@
 			"link": "/pump-dashboard",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Agents can autonomously trade USDC-paired coins",
+			"summary": "An agent's own wallet can now buy and sell USDC-paired coins on its own — not just SOL ones. Until now the autonomous lanes (an agent's buy/sell endpoints, scheduled buybacks, and creator-fee distributions) assumed every coin priced in SOL, so on a USDC coin they would have built a SOL trade the market refuses. Now the agent reads each coin's real pairing straight from the chain and trades in the matching currency: a USDC coin is bought and sold in USDC, with the agent's USDC account opened automatically and its balance checked up front so a trade fails clearly instead of reverting on-chain. Buybacks and fee distributions follow the same rule — they run in the coin's own currency, and if a coin's setup genuinely can't support a run, it's recorded with the reason rather than silently skipped. Every trade is now logged with the exact quote asset and amount, so prices and volumes stay correct for USDC and SOL coins alike. SOL coins behave exactly as before.",
+			"link": "/pump-dashboard",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -36,6 +46,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Pump Live: real token art, live market caps, and a feed that heals itself",
+			"summary": "The Pump Live showcase (three.ws/pump-live) — where a 3D agent reacts to brand-new pump.fun launches in real time — is now fully wired. Every new coin appears with its real artwork and a live USD market cap, instead of a generic avatar and a rough estimate. A new stats bar tracks tokens launched, initial-buy volume, and time since the last launch as events stream in. Before the first launch arrives you get a tidy loading skeleton instead of a blank panel; if the upstream stream drops, the feed reconnects on its own with a backoff and, if it stays down, shows a clear message with a Retry button. Token images are resolved and served through three.ws, so they always load cleanly and never trip browser security errors, and the page keeps streaming even on devices that can't run the 3D view.",
+			"link": "/pump-live",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{
@@ -67,6 +88,27 @@
 			"link": "/agents",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Registered agents now carry an on-chain \"Validated\" badge",
+			"summary": "When an agent is registered on-chain, three.ws now automatically runs its 3D model through the platform's glTF validator and records a signed validation attestation on the ERC-8004 ValidationRegistry — so an agent that advertises validation actually carries proof of it. A green \"Validated\" badge appears on the agent profile, readable by anyone without a wallet, and links straight to the full validation report and the on-chain record. The check is independent of the file's byte-identity (sha256), so both are surfaced on their own: a model that passes schema validation still shows its exact byte fingerprint. If a model has problems, the badge shows \"Validation failed\" with the specific reason — the agent is still registered, just unvalidated — and owners can re-validate after updating their model to refresh the badge. Validation is best-effort and never blocks or reverts a registration.",
+			"link": "/marketplace",
+			"tags": [
+				"feature",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Strategy Lab now catches broken trading strategies before they run",
+			"summary": "Validation in the Strategy Lab (three.ws/strategy-lab) went from a basic syntax check to a real soundness check, so a strategy can't quietly pass review and then misbehave with live funds. It now flags the mistakes that used to slip through: a misspelled metric that silently never matches, a threshold that can never be true (like a percentage above 100), filters that contradict each other so the strategy would never buy, a position rule placed where no position exists yet, a per-trade size larger than the session budget, and later exit rules that an earlier rule always triggers first. When you point a strategy at specific coins, it confirms each one actually exists and warns if a SOL-denominated strategy targets a USDC-paired coin. Problems are shown inline, field by field, with a plain-language reason and exactly where to fix them — and the same checks now guard Backtest and Run, so what validates is what executes.",
+			"link": "/strategy-lab",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

@@ -118,7 +118,11 @@ const SCAN_EXTS = /\.(js|mjs|ts)$/;
 // Generated bundles, vendored deps, and fixtures/tests are allowed to hold
 // arbitrary or synthetic addresses — only first-party runtime source is scanned.
 const SCAN_SKIP = /(^|\/)(node_modules|dist|dist-lib|build|\.vercel|coverage)\//;
-const SCAN_SKIP_FILE = /(\.test\.|\.spec\.|\/fixtures\/|_demo-fixtures|\/idl\/)/;
+// Minified/vendored third-party blobs (draco, codemirror, ktx2, *.bundle.js) and
+// test/fixture/IDL files. The catch-all is the minified-line guard in scanFile().
+const SCAN_SKIP_FILE = /(\.test\.|\.spec\.|\/fixtures\/|_demo-fixtures|\/idl\/|\.min\.js$|\.bundle\.js$|\/(libs|draco|ktx2|vendor|wasm)\/)/;
+// Authored source never has 20k-char lines; a file that does is a minified bundle.
+const MINIFIED_LINE = 20_000;
 
 export function listSourceFiles({ root = ROOT } = {}) {
 	let files;
@@ -187,6 +191,9 @@ export function scanForDrift(registry, { root = ROOT, files = listSourceFiles({ 
 			continue;
 		}
 		const lines = text.split('\n');
+		// Defensive: skip any minified blob that slipped past the path filter —
+		// a single 1 MB line turns the per-line regexes into a CPU sink.
+		if (lines.some((l) => l.length > MINIFIED_LINE)) continue;
 
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i];

@@ -1077,6 +1077,21 @@ html, body {
 }
 .cc-buy-x:hover { border-color: var(--cc-edge-hi); color: var(--cc-text); }
 
+/* Buy / Sell direction toggle. */
+.cc-buy-tabs {
+	display: flex; gap: 4px; margin-bottom: 16px; padding: 3px;
+	background: var(--cc-bg2); border: 1px solid var(--cc-edge); border-radius: var(--cc-radius);
+}
+.cc-buy-tab {
+	flex: 1; padding: 8px 0; background: none; border: 1px solid transparent;
+	border-radius: var(--cc-radius-sm); color: var(--cc-dim);
+	font-size: 13px; font-weight: 800; letter-spacing: 0.03em; cursor: pointer;
+	transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.cc-buy-tab:hover { color: var(--cc-text); }
+.cc-buy-tab.cc-on { background: rgba(255, 255, 255, 0.08); border-color: var(--cc-edge-hi); color: var(--cc-text); }
+.cc-buy-tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
 .cc-buy-field { display: block; }
 .cc-buy-field-label { display: block; color: var(--cc-dim); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 7px; }
 .cc-buy-amount-wrap {
@@ -1101,6 +1116,15 @@ html, body {
 }
 .cc-buy-preset:hover { border-color: var(--cc-edge-hi); color: var(--cc-text); }
 .cc-buy-preset.cc-on { background: rgba(255, 255, 255, 0.08); border-color: var(--cc-edge-hi); color: var(--cc-text); }
+
+/* Wallet balance / holdings line under the amount (USDC buys + all sells). */
+.cc-buy-bal {
+	display: flex; align-items: center; gap: 4px; margin-top: 10px;
+	color: var(--cc-dim); font-size: 12px; font-variant-numeric: tabular-nums;
+}
+.cc-buy-bal[hidden] { display: none; }
+.cc-buy-bal-warn { color: #d8c08a; }
+.cc-buy-bal-sep { color: var(--cc-faint); }
 
 .cc-buy-quote {
 	margin-top: 13px; min-height: 18px; font-size: 13px; color: var(--cc-text);

@@ -65,12 +65,20 @@ export const REPUTATION_REGISTRY_ABI = [
 ];
 
 /**
- * Validation Registry ABI — best-effort; may need updating once the canonical
- * interface is published. Mainnet has no Validation Registry deployed yet.
+ * Validation Registry ABI — mirrors contracts/src/ValidationRegistry.sol and the
+ * canonical SDK ABI (sdk/src/erc8004/abi.js). The `getValidation*` read fragments
+ * are required by getLatestValidation() in validation-recorder.js; without them
+ * ethers cannot encode the call. Mainnet has no Validation Registry deployed yet.
  */
+const VALIDATION_RECORD_TUPLE =
+	'tuple(address validator, bool passed, bytes32 proofHash, string proofURI, uint64 timestamp, string kind)';
+
 export const VALIDATION_REGISTRY_ABI = [
 	'function recordValidation(uint256 agentId, bool passed, bytes32 proofHash, string proofURI, string kind) external',
 	'function getValidationCount(uint256 agentId) external view returns (uint256)',
+	`function getValidation(uint256 agentId, uint256 index) external view returns (${VALIDATION_RECORD_TUPLE})`,
+	`function getLatestByKind(uint256 agentId, string kind) external view returns (${VALIDATION_RECORD_TUPLE})`,
+	`function getValidationRange(uint256 agentId, uint256 offset, uint256 limit) external view returns (${VALIDATION_RECORD_TUPLE}[])`,
 	'event ValidationRecorded(uint256 indexed agentId, address indexed validator, bool passed, bytes32 proofHash, string kind)',
 ];
 

@@ -534,6 +534,8 @@ export async function bindExistingAgentOnchain(agentId, chainId, { onStatus } = 
 	if (!agent) throw new Error('Agent not found.');
 
 	// ── 2. Idempotency — never mint twice on a chain the agent is already on.
+	// Covers both the canonical meta.onchain block and the legacy EVM columns
+	// (erc8004_agent_id + chain_id) written by the original mint flow.
 	const existingOnchain = agent.onchain || agent.meta?.onchain || null;
 	if (existingOnchain && existingOnchain.chain === `eip155:${chainId}`) {
 		log('Agent is already registered on this chain.');
@@ -543,6 +545,15 @@ export async function bindExistingAgentOnchain(agentId, chainId, { onStatus } = 
 			chainId,
 			onchain: existingOnchain,
 			registrationUrl: existingOnchain.metadata_uri || undefined,
+		};
+	}
+	if (agent.erc8004_agent_id && Number(agent.chain_id) === chainId) {
+		log('Agent is already registered on this chain.');
+		return {
+			alreadyBound: true,
+			agentId: String(agent.erc8004_agent_id),
+			chainId,
+			onchain: existingOnchain || undefined,
 		};
 	}
 

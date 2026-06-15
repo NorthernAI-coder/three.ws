@@ -3,20 +3,21 @@
 // buildFeed()        — pure merge/dedupe/sort/filter; used by the API endpoint.
 // fetchChannelFeed() — HTTP client; calls GET /api/pump/channel-feed.
 
-const VALID_KINDS = new Set(['mint', 'whale', 'claim']);
+const VALID_KINDS = new Set(['mint', 'whale', 'claim', 'signal']);
+const DEFAULT_KINDS = ['mint', 'whale', 'claim', 'signal'];
 
 function _parseKinds(kinds) {
-	if (!kinds) return new Set(['mint', 'whale', 'claim']);
+	if (!kinds) return new Set(DEFAULT_KINDS);
 	const parsed = String(kinds)
 		.split(',')
 		.map((s) => s.trim())
 		.filter((k) => VALID_KINDS.has(k));
-	return parsed.length ? new Set(parsed) : new Set(['mint', 'whale', 'claim']);
+	return parsed.length ? new Set(parsed) : new Set(DEFAULT_KINDS);
 }
 
 function _normalize(raw, kind) {
 	const name = [raw.name, raw.symbol].filter(Boolean).join(' ');
-	return {
+	const item = {
 		kind,
 		mint: raw.mint ?? null,
 		signature: raw.signature ?? raw.tx_signature ?? null,
@@ -24,6 +25,20 @@ function _normalize(raw, kind) {
 		summary: raw.summary ?? name ?? '',
 		refs: raw.refs ?? {},
 	};
+	// Agent-attributed reputation signals carry their kind, weight, and the agent
+	// they belong to so renderers can label and link them.
+	if (kind === 'signal') {
+		item.signal_kind = raw.signal_kind ?? null;
+		item.weight = Number.isFinite(Number(raw.weight)) ? Number(raw.weight) : 0;
+		item.refs = {
+			agent_id: raw.agent_id ?? null,
+			agent_name: raw.agent_name ?? null,
+			agent_asset: raw.agent_asset ?? null,
+			tx: raw.tx_signature ?? null,
+			...item.refs,
+		};
+	}
+	return item;
 }
 
 /**
