@@ -20,6 +20,9 @@ beforeAll(() => {
 		// Self-hosted Hunyuan3D worker wired → image→3D has a fallback target.
 		GCP_HUNYUAN3D_URL: 'https://hunyuan3d.example.run.app',
 		GCP_RECONSTRUCTION_KEY: 'test-gcp-key',
+		// The Hunyuan3D lane wraps its job id in a signed forge token (encodeJobToken),
+		// which needs a signing secret — production always has one set.
+		JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long',
 	});
 });
 

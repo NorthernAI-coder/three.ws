@@ -602,6 +602,168 @@
 				100% { opacity: 0; visibility: hidden; }
 			}
 
+			/* ── Door / cover-charge gate ───────────────────────── */
+			/* The line outside the club. Sits above the room (which boots
+			   behind it) but below the x402 wallet modal (z 2.1e9) so the
+			   payment flow renders on top. */
+			.club-door {
+				position: fixed;
+				inset: 0;
+				z-index: 9500;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 24px;
+				background:
+					radial-gradient(120% 90% at 50% -10%, rgba(255, 59, 214, 0.16), transparent 55%),
+					radial-gradient(120% 90% at 50% 110%, rgba(74, 214, 255, 0.12), transparent 55%),
+					#040308;
+				opacity: 1;
+				transition: opacity 0.7s ease, visibility 0.7s ease;
+			}
+			.club-door.is-open {
+				opacity: 0;
+				visibility: hidden;
+				pointer-events: none;
+			}
+			.club-door-card {
+				width: min(440px, 100%);
+				border: 1px solid var(--border-strong);
+				border-radius: 18px;
+				background: rgba(10, 6, 14, 0.86);
+				box-shadow:
+					0 0 0 1px rgba(255, 59, 214, 0.08),
+					0 30px 80px -30px rgba(0, 0, 0, 0.9);
+				padding: 30px 26px 26px;
+				text-align: center;
+				position: relative;
+				overflow: hidden;
+			}
+			/* Velvet rope — two posts + a sagging chain across the top. */
+			.club-rope {
+				display: flex;
+				align-items: flex-start;
+				justify-content: center;
+				gap: 0;
+				height: 30px;
+				margin-bottom: 14px;
+			}
+			.club-rope-post {
+				width: 10px;
+				height: 30px;
+				border-radius: 3px;
+				background: linear-gradient(180deg, #ffd86b, #b8862b);
+				box-shadow: 0 0 10px rgba(255, 200, 90, 0.5);
+				flex: none;
+			}
+			.club-rope-chain {
+				flex: 1;
+				height: 30px;
+				border-bottom: 3px solid var(--accent);
+				border-radius: 0 0 60% 60% / 0 0 100% 100%;
+				margin: 0 -4px;
+				box-shadow: 0 6px 10px -6px var(--accent);
+				transition: transform 0.5s ease, opacity 0.5s ease;
+			}
+			.club-door[data-state='admitted'] .club-rope-chain {
+				transform: translateY(-26px) scaleY(0.2);
+				opacity: 0;
+			}
+			.club-door-eyebrow {
+				font-size: 11px;
+				letter-spacing: 0.24em;
+				text-transform: uppercase;
+				color: var(--text-3);
+				margin: 0 0 6px;
+			}
+			.club-door-title {
+				font-size: 26px;
+				font-weight: 900;
+				letter-spacing: 0.14em;
+				text-transform: uppercase;
+				color: var(--accent);
+				text-shadow: 0 0 8px var(--accent), 0 0 26px rgba(255, 59, 214, 0.4);
+				margin: 0 0 12px;
+				line-height: 1.05;
+			}
+			.club-door-copy {
+				font-size: 13.5px;
+				line-height: 1.55;
+				color: var(--text-2);
+				margin: 0 auto 18px;
+				max-width: 34ch;
+			}
+			.club-door-pay {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				width: 100%;
+				padding: 14px 18px;
+				border: 0;
+				border-radius: 12px;
+				background: linear-gradient(180deg, var(--accent), #cc2bab);
+				color: #190311;
+				font-size: 15px;
+				font-weight: 800;
+				letter-spacing: 0.02em;
+				cursor: pointer;
+				transition: transform 0.12s ease, box-shadow 0.18s ease, filter 0.18s ease;
+				box-shadow: 0 0 24px -6px var(--accent);
+			}
+			.club-door-pay:hover { filter: brightness(1.06); box-shadow: 0 0 34px -4px var(--accent); }
+			.club-door-pay:active { transform: translateY(1px) scale(0.99); }
+			.club-door-pay:disabled { opacity: 0.6; cursor: progress; filter: none; }
+			.club-door-pay:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+			.club-door-fine {
+				font-size: 11px;
+				color: var(--text-3);
+				margin: 12px 0 0;
+				line-height: 1.5;
+			}
+			.club-door-fine b { color: var(--text-2); font-weight: 600; }
+			.club-door-msg {
+				font-size: 12.5px;
+				margin: 12px 0 0;
+				color: var(--text-2);
+			}
+			.club-door-msg[data-kind='error'] { color: #ff7a9c; }
+			.club-door-msg[data-kind='warn'] { color: var(--accent-3); }
+
+			/* Bouncer / result states swap which block is visible. */
+			.club-door-state { display: none; }
+			.club-door[data-state='queue']    .club-door-state.is-queue,
+			.club-door[data-state='paying']   .club-door-state.is-queue,
+			.club-door[data-state='checking'] .club-door-state.is-checking,
+			.club-door[data-state='admitted'] .club-door-state.is-admitted,
+			.club-door[data-state='denied']   .club-door-state.is-denied {
+				display: block;
+			}
+			.club-door[data-state='paying'] .club-door-pay { opacity: 0.6; cursor: progress; }
+
+			.club-door-spinner {
+				width: 34px;
+				height: 34px;
+				margin: 4px auto 14px;
+				border-radius: 50%;
+				border: 3px solid rgba(255, 59, 214, 0.2);
+				border-top-color: var(--accent);
+				animation: clubDoorSpin 0.8s linear infinite;
+			}
+			@keyframes clubDoorSpin { to { transform: rotate(360deg); } }
+			.club-door-tier {
+				font-size: 13px;
+				color: var(--accent-2);
+				margin: 8px 0 0;
+				min-height: 1.2em;
+			}
+			.club-door-result-icon { font-size: 40px; line-height: 1; margin-bottom: 8px; }
+			.club-door-reason { font-size: 13px; color: var(--text-2); margin: 8px 0 0; }
+
+			@media (prefers-reduced-motion: reduce) {
+				.club-door, .club-rope-chain, .club-door-spinner, .club-door-pay { transition: none; animation: none; }
+			}
+
 			/* ── Neon club name ─────────────────────────────────── */
 			.club-neon-title {
 				text-align: center;
@@ -1104,6 +1266,67 @@
 		<!-- Entrance overlay — fades out over 1s on load -->
 		<div id="club-entrance" class="club-entrance" aria-hidden="true"></div>
 
+		<!-- Door / cover-charge gate — the line outside the club. The 3D room
+		     boots behind this overlay; src/club-gate.js drops the rope once the
+		     x402 cover settles and the on-chain bouncer admits the wallet. -->
+		<div
+			id="club-door"
+			class="club-door"
+			data-state="queue"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="club-door-title"
+		>
+			<div class="club-door-card">
+				<div class="club-rope" aria-hidden="true">
+					<span class="club-rope-post"></span>
+					<span class="club-rope-chain"></span>
+					<span class="club-rope-post"></span>
+				</div>
+
+				<!-- QUEUE: pay the cover -->
+				<div class="club-door-state is-queue">
+					<p class="club-door-eyebrow">You're in line</p>
+					<h1 id="club-door-title" class="club-door-title">Pole Club</h1>
+					<p class="club-door-copy">
+						There's a cover tonight. Pay <b>$0.01 USDC</b> at the door — the
+						bouncer checks your wallet on-chain, and if you're not on the list,
+						the rope drops.
+					</p>
+					<button type="button" id="club-door-pay" class="club-door-pay">
+						Pay cover · $0.01 to enter
+					</button>
+					<p class="club-door-msg" id="club-door-msg" hidden></p>
+					<p class="club-door-fine">
+						Settled on-chain via <b>x402</b> on Base or Solana. One cover gets
+						you in for the night.
+					</p>
+				</div>
+
+				<!-- CHECKING: bouncer reads the list -->
+				<div class="club-door-state is-checking">
+					<div class="club-door-spinner" aria-hidden="true"></div>
+					<p class="club-door-eyebrow">At the door</p>
+					<h1 class="club-door-title">Checking the list…</h1>
+					<p class="club-door-copy">Verifying your wallet on-chain.</p>
+				</div>
+
+				<!-- ADMITTED -->
+				<div class="club-door-state is-admitted" role="status" aria-live="polite">
+					<div class="club-door-result-icon" aria-hidden="true">🎟️</div>
+					<h1 class="club-door-title">You're in</h1>
+					<p class="club-door-tier" id="club-door-tier"></p>
+				</div>
+
+				<!-- DENIED -->
+				<div class="club-door-state is-denied" role="status" aria-live="polite">
+					<div class="club-door-result-icon" aria-hidden="true">🚫</div>
+					<h1 class="club-door-title">Not tonight</h1>
+					<p class="club-door-reason" id="club-door-reason">Not on the list tonight.</p>
+				</div>
+			</div>
+		</div>
+
 		<div id="club-app">
 			<!-- TOP BAR -->
 			<header id="club-top">
@@ -1224,6 +1447,8 @@
 
 		<!-- x402 drop-in modal (Phantom/MetaMask wallet flow + 402 retry) -->
 		<script type="module" src="/x402.js"></script>
+		<!-- Door gate — runs the cover-charge bouncer over the room boot. -->
+		<script type="module" src="/src/club-gate.js"></script>
 		<script type="module" src="/src/club.js"></script>
 
 		<!-- Viewer presence + reactions -->

@@ -441,6 +441,14 @@
 					"added": "2026-06-11"
 				},
 				{
+					"path": "/play/arena",
+					"title": "Sniper Arena — autonomous AI agents trading live",
+					"description": "Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.",
+					"priority": 0.8,
+					"changefreq": "daily",
+					"added": "2026-06-15"
+				},
+				{
 					"path": "/pumpfun",
 					"title": "Pump.fun Stream",
 					"description": "Mint and trade pump.fun agent tokens on Solana. Live feed of every launch.",
