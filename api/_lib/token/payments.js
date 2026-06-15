@@ -233,3 +233,120 @@ export async function listPayments({
 	}));
 	return { items, next_cursor: hasMore ? items[items.length - 1].created_at : null };
 }
+
+/**
+ * Creator/seller earnings for a wallet — every settled sale whose `seller` split
+ * leg paid this wallet. Sums the seller-leg atomics so the dashboard shows real
+ * $THREE earned, not the gross sale. Reads the same settle ledger; no second
+ * source of truth. The leg match uses a jsonb containment so it's index-friendly.
+ * @returns {Promise<{ total_atomics: string, sale_count: number, mint: string|null, decimals: number|null, items: object[] }>}
+ */
+export async function creatorEarnings({ sellerWallet, limit = 50, before = null } = {}) {
+	if (!sellerWallet) {
+		const e = new Error('sellerWallet is required');
+		e.status = 400;
+		e.code = 'bad_request';
+		throw e;
+	}
+	const cap = Math.min(Math.max(Number(limit) || 50, 1), 200);
+	const legMatch = JSON.stringify([{ role: 'seller', address: sellerWallet }]);
+	const rows = await sql`
+		select id, mint, decimals, usd, total_atomics, splits, tx_signature, ref_type, ref_id, created_at
+		from token_payments
+		where splits @> ${legMatch}::jsonb
+		  and (${before}::timestamptz is null or created_at < ${before})
+		order by created_at desc
+		limit ${cap + 1}
+	`;
+	const hasMore = rows.length > cap;
+	const page = hasMore ? rows.slice(0, cap) : rows;
+
+	// Sum the seller leg across ALL matching sales (not just this page) for the
+	// headline total, so pagination never understates lifetime earnings.
+	const [{ total = '0', n = 0 } = {}] = await sql`
+		select coalesce(sum((leg->>'atomics')::numeric), 0)::text as total, count(*) as n
+		from token_payments,
+		     lateral jsonb_array_elements(splits) as leg
+		where splits @> ${legMatch}::jsonb
+		  and leg->>'role' = 'seller'
+		  and leg->>'address' = ${sellerWallet}
+	`;
+
+	const items = page.map((r) => {
+		const sellerLeg = (r.splits || []).find((l) => l.role === 'seller' && l.address === sellerWallet);
+		return {
+			id: r.id,
+			mint: r.mint,
+			decimals: r.decimals,
+			usd: Number(r.usd),
+			earned_atomics: sellerLeg?.atomics ?? '0',
+			total_atomics: r.total_atomics,
+			tx_signature: r.tx_signature,
+			ref_type: r.ref_type,
+			ref_id: r.ref_id,
+			created_at: r.created_at,
+		};
+	});
+
+	return {
+		total_atomics: String(total),
+		sale_count: Number(n),
+		mint: page[0]?.mint ?? null,
+		decimals: page[0]?.decimals ?? null,
+		items,
+		next_cursor: hasMore ? items[items.length - 1].created_at : null,
+	};
+}
+
+/**
+ * Economy-wide aggregates over the settle ledger — the data behind the public
+ * /three economy dashboard and the treasury/rewards loop. Sums gross settled
+ * volume, payment count, and the per-role flow (treasury / rewards / seller) by
+ * unrolling the jsonb split legs. `sinceDays` windows the dashboard headline.
+ * @returns {Promise<{ since: string|null, payment_count: number, gross_atomics: string,
+ *   by_role: Record<string,string>, by_purpose: { purpose: string, count: number, gross_atomics: string }[],
+ *   mint: string|null, decimals: number|null }>}
+ */
+export async function economyStats({ sinceDays = null } = {}) {
+	const since = sinceDays != null ? `${Math.max(1, Math.floor(sinceDays))} days` : null;
+
+	const [head = {}] = await sql`
+		select count(*) as n,
+		       coalesce(sum(total_atomics::numeric), 0)::text as gross,
+		       max(mint) as mint,
+		       max(decimals) as decimals
+		from token_payments
+		where (${since}::interval is null or created_at >= now() - ${since}::interval)
+	`;
+
+	const roleRows = await sql`
+		select leg->>'role' as role, coalesce(sum((leg->>'atomics')::numeric), 0)::text as atomics
+		from token_payments, lateral jsonb_array_elements(splits) as leg
+		where (${since}::interval is null or created_at >= now() - ${since}::interval)
+		group by leg->>'role'
+	`;
+	const by_role = {};
+	for (const r of roleRows) by_role[r.role] = String(r.atomics);
+
+	const purposeRows = await sql`
+		select purpose, count(*) as count, coalesce(sum(total_atomics::numeric), 0)::text as gross
+		from token_payments
+		where (${since}::interval is null or created_at >= now() - ${since}::interval)
+		group by purpose
+		order by gross desc
+	`;
+
+	return {
+		since: since,
+		payment_count: Number(head.n || 0),
+		gross_atomics: String(head.gross || '0'),
+		by_role,
+		by_purpose: purposeRows.map((r) => ({
+			purpose: r.purpose,
+			count: Number(r.count),
+			gross_atomics: String(r.gross),
+		})),
+		mint: head.mint ?? null,
+		decimals: head.decimals ?? null,
+	};
+}

@@ -5,6 +5,8 @@
 //   POST /api/three/charge    — issue a $THREE quote, or settle a paid one (auth)
 //   GET  /api/three/tier      — the signed-in holder's $THREE tier + perks (auth)
 //   POST /api/three/tier-pass — mint a signed tier pass for world gating (auth)
+//   GET  /api/three/earnings  — creator's settled $THREE earnings ledger (auth)
+//   GET  /api/three/name-quote?name=… — rarity + $THREE floor price for a name
 //
 // The charge → settle handshake reuses api/_lib/pricing/charge-three.js, which
 // wraps the token rail (quote → on-chain verify → settle). No action burns; every
@@ -23,6 +25,10 @@ import { parse } from '../_lib/validate.js';
 import { publicCatalog } from '../_lib/pricing/catalog.js';
 import { requireThreePayment } from '../_lib/pricing/charge-three.js';
 import { holderDiscountBps, resolveUserTier, signTierPass, TIERS } from '../_lib/three-tier.js';
+import { creatorEarnings, economyStats } from '../_lib/token/index.js';
+import { priceName, isValidLabel, RARITY_TIERS } from '../_lib/pricing/name-rarity.js';
+import { quoteTokenForUsd } from '../_lib/token/price.js';
+import { publicConfig } from '../_lib/token/config.js';
 
 const SOLANA_ADDRESS = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'invalid Solana address');
 
@@ -143,6 +149,79 @@ async function handleTierPass(req, res) {
 	});
 }
 
+// ── GET /api/three/earnings ────────────────────────────────────────────────────
+
+async function handleEarnings(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET'])) return;
+	const user = await getSessionUser(req, res);
+	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
+	if (!user.wallet_address) {
+		return json(res, 200, { total_atomics: '0', sale_count: 0, mint: null, decimals: null, items: [], next_cursor: null });
+	}
+	const url = new URL(req.url, 'http://x');
+	const page = await creatorEarnings({
+		sellerWallet: user.wallet_address,
+		limit: Math.min(Math.max(Number(url.searchParams.get('limit')) || 50, 1), 200),
+		before: url.searchParams.get('before') || null,
+	});
+	return json(res, 200, page);
+}
+
+// ── GET /api/three/name-quote ──────────────────────────────────────────────────
+
+async function handleNameQuote(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
+	if (!method(req, res, ['GET'])) return;
+	const rl = await limits.tokenPriceIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const url = new URL(req.url, 'http://x');
+	const name = url.searchParams.get('name') || '';
+	if (!isValidLabel(name)) {
+		return error(res, 400, 'invalid_label', 'name must be a valid SNS label (a-z, 0-9, hyphen)');
+	}
+	const priced = priceName(name);
+	// Common names are free; only quote $THREE for paid (rare) names.
+	let three = null;
+	if (!priced.free) {
+		const q = await quoteTokenForUsd(priced.usd);
+		three = { token_amount: q.tokenAmount, atomics: q.atomics.toString(), price_usd: q.priceUsd ?? null };
+	}
+	return json(res, 200, {
+		...priced,
+		full_name: `${priced.label}.threews.sol`,
+		three,
+		// The full rarity ladder so the UI can show where this name sits.
+		ladder: RARITY_TIERS,
+	});
+}
+
+// ── GET /api/three/stats ───────────────────────────────────────────────────────
+// Public economy dashboard data: settled volume + the per-role flow (treasury,
+// rewards, seller) over a window. Powers the /three economy page and /three-live.
+
+async function handleStats(req, res) {
+	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
+	if (!method(req, res, ['GET'])) return;
+	const rl = await limits.tokenPriceIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const url = new URL(req.url, 'http://x');
+	const sinceDays = url.searchParams.get('since_days');
+	const stats = await economyStats({ sinceDays: sinceDays != null ? Number(sinceDays) : null });
+	const cfg = publicConfig();
+	return json(res, 200, {
+		...stats,
+		token: { mint: cfg.mint, symbol: cfg.symbol, decimals: cfg.decimals },
+		treasury_configured: cfg.treasury_configured,
+		rewards_configured: cfg.rewards_configured,
+		// Make the no-burn policy explicit in the public data so the dashboard can
+		// state it plainly: every spend reflects to holders / funds the treasury.
+		burns: false,
+	});
+}
+
 // ── dispatcher ────────────────────────────────────────────────────────────────────
 
 const DISPATCH = {
@@ -150,6 +229,9 @@ const DISPATCH = {
 	charge: handleCharge,
 	tier: handleTier,
 	'tier-pass': handleTierPass,
+	earnings: handleEarnings,
+	'name-quote': handleNameQuote,
+	stats: handleStats,
 };
 
 export default wrap(async (req, res) => {

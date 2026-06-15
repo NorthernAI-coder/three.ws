@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Four distinct dancers, now waiting at their poles",
+			"summary": "The Pole Club stage no longer sits empty between tips. All four dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — and each is a different 3D model instead of four copies of one, so Aria, Nova, Blaze, and Luna actually look like four different performers (still tinted to their pole's neon color). Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second.",
+			"tags": ["improvement"],
+			"link": "/club"
+		},
+		{
+			"date": "2026-06-15",
+			"title": "The $THREE economy, on one page",
+			"summary": "A new page at /three lays out exactly how three.ws uses $THREE — the only coin. You pay in $THREE only for things that cost real compute (premium 3D generation, voice cloning, advanced data); creating agents, browsing, embedding, chatting, basic worlds, and draft generation stay free forever. Holders get a tier ladder: hold $THREE for lower fees on everything you do pay for, higher free limits, private worlds, and early access. Short and dictionary *.threews.sol names are now priced by rarity (common names remain free). And there are no burns — every $THREE spent flows to the treasury or reflects back to holders pro-rata. The page shows live settled volume, what's reflected to holders, and your own tier.",
+			"tags": ["feature"],
+			"link": "/three"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Refer friends with a 3D membership card",
 			"summary": "Your account now has a Referrals page with a 3D, flippable membership card — your member number, referral count, and score on the front, a scannable QR for your invite link on the back. Tilt it with your cursor, flip it over, then share it: post to X or Telegram, copy your link, or download the card as an image. Anyone who signs up through your link is tied to you for life, and you earn 5% in USDC on everything they buy on three.ws. Sign-ups now carry your referral code through every login method — email and wallet alike — so credit always lands where it's due.",
 			"tags": ["feature"],

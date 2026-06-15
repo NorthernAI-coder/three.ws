@@ -15,6 +15,14 @@
 			<description>Watch three.ws AI agents trade pump.fun autonomously in real time. Live P&amp;L leaderboard, each trade signed by the agent's own wallet and verifiable on-chain.</description>
 		</item>
 		<item>
+			<title>The $THREE Economy</title>
+			<link>https://three.ws/three</link>
+			<guid isPermaLink="false">2026-06-15:The $THREE Economy</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>How three.ws charges in $THREE, the only coin: pay-per-use pricing for AI compute, hold-to-access holder tiers with lower fees, rare *.threews.sol names, and a holder-rewards loop. No burns — every spend funds the treasury or reflects back to holders.</description>
+		</item>
+		<item>
 			<title>After you launch a coin, jump straight to viewing or managing it</title>
 			<link>https://three.ws/pump-dashboard</link>
 			<guid isPermaLink="false">2026-06-15:After you launch a coin, jump straight to viewing or managing it</guid>
@@ -101,6 +109,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>When a token launch or an in-world trade can't go through, the app now tells you exactly why and what to do next — &quot;Not enough SOL to cover the launch + network fees,&quot; &quot;Price moved beyond your slippage limit,&quot; &quot;You cancelled the signature in your wallet,&quot; or &quot;Couldn't reach the Solana network&quot; — instead of a single catch-all &quot;Connection error.&quot; Coins also show their lifecycle at a glance: the trade panel carries a badge marking whether a coin is still on its bonding curve or has graduated to the PumpSwap AMM, so a graduated coin is unmistakable. Backed by new end-to-end browser tests that drive the full four-step launch flow and the buy/sell widget so this conversion path can't silently break.</description>
+		</item>
+		<item>
+			<title>Four distinct dancers, now waiting at their poles</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-15:Four distinct dancers, now waiting at their poles</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The Pole Club stage no longer sits empty between tips. All four dancers now stand at their own poles, lit and facing the crowd, the moment you arrive — and each is a different 3D model instead of four copies of one, so Aria, Nova, Blaze, and Luna actually look like four different performers (still tinted to their pole's neon color). Tip a pole and that dancer steps onto it and runs her routine, then returns to her stance at the pole. No tip, no dance — same rule, just a stage that looks alive from the first second.</description>
 		</item>
 		<item>
 			<title>Homepage Forge is more reliable — no more &quot;busy&quot; on the second model</title>
@@ -229,6 +245,14 @@
 			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Validation in the Strategy Lab (three.ws/strategy-lab) went from a basic syntax check to a real soundness check, so a strategy can't quietly pass review and then misbehave with live funds. It now flags the mistakes that used to slip through: a misspelled metric that silently never matches, a threshold that can never be true (like a percentage above 100), filters that contradict each other so the strategy would never buy, a position rule placed where no position exists yet, a per-trade size larger than the session budget, and later exit rules that an earlier rule always triggers first. When you point a strategy at specific coins, it confirms each one actually exists and warns if a SOL-denominated strategy targets a USDC-paired coin. Problems are shown inline, field by field, with a plain-language reason and exactly where to fix them — and the same checks now guard Backtest and Run, so what validates is what executes.</description>
+		</item>
+		<item>
+			<title>The $THREE economy, on one page</title>
+			<link>https://three.ws/three</link>
+			<guid isPermaLink="false">2026-06-15:The $THREE economy, on one page</guid>
+			<pubDate>Mon, 15 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new page at /three lays out exactly how three.ws uses $THREE — the only coin. You pay in $THREE only for things that cost real compute (premium 3D generation, voice cloning, advanced data); creating agents, browsing, embedding, chatting, basic worlds, and draft generation stay free forever. Holders get a tier ladder: hold $THREE for lower fees on everything you do pay for, higher free limits, private worlds, and early access. Short and dictionary *.threews.sol names are now priced by rarity (common names remain free). And there are no burns — every $THREE spent flows to the treasury or reflects back to holders pro-rata. The page shows live settled volume, what's reflected to holders, and your own tier.</description>
 		</item>
 		<item>
 			<title>The Forge always returns a model — the default never dead-ends</title>
