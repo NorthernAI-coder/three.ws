@@ -2,9 +2,10 @@
 //
 // A dark 3D venue with four pole stages arranged in a half-arc. Each pole has
 // a "Tip $0.001 to dance" button bound to /api/x402/dance-tip via the x402
-// drop-in modal (window.X402.pay). Once the buyer's USDC settles, the dancer
-// for that slot teleports onto their pole and performs the selected routine
-// for ~12s, then drifts back to backstage. No tip, no dance.
+// drop-in modal (window.X402.pay). Four distinct dancers stand at their poles
+// facing the crowd; once the buyer's USDC settles, that slot's dancer steps
+// onto her pole and performs the selected routine for ~12s, then returns to her
+// idle stance at the pole. No tip, no routine.
 
 import {
 	AdditiveBlending,
@@ -411,12 +412,16 @@ document.querySelector('#club-stage')?.setAttribute('data-cam-mode', clubCam.get
 // ── Poles + spotlights ───────────────────────────────────────────────────
 const POLE_COLORS = [0xff3bd6, 0x4ad6ff, 0xff8a3b, 0x9b5dff];
 
-// Dancer registry — display names, bios, accent palette.
+// Dancer registry — display names, bios, accent palette, and the GLB rig each
+// dancer wears. Four distinct humanoid avatars (all verified ≥8 canonical
+// bones, so the pre-baked clip library retargets onto every one — see
+// attachAvatar's runtime fallback for the failsafe). On top of the model we
+// still tint each with her pole's accent color so the four read as a set.
 const DANCER_META = [
-	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink' },
-	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan' },
-	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber' },
-	{ name: 'Luna', bio: 'Lunar glow. Gravity-defying flow.', palette: 'white' },
+	{ name: 'Aria', bio: 'Neon pink fire. Classical meets street.', palette: 'pink', avatar: '/avatars/default.glb' },
+	{ name: 'Nova', bio: 'Cyan ice. Fluid and hypnotic.', palette: 'cyan', avatar: '/avatars/michelle.glb' },
+	{ name: 'Blaze', bio: 'Amber heat. Power and precision.', palette: 'amber', avatar: '/avatars/selfie-girl.glb' },
+	{ name: 'Luna', bio: 'Lunar glow. Gravity-defying flow.', palette: 'white', avatar: '/avatars/realistic-female.glb' },
 ];
 
 class PoleStation {
@@ -442,19 +447,24 @@ class PoleStation {
 		scene.add(spot);
 		scene.add(spot.target);
 		this.spot = spot;
-		this.spotIdleIntensity = 0.6;
+		// Dancers now stand at their pole even when idle, so the idle spotlight
+		// is bright enough to present them ("hot and ready") rather than the
+		// dim wash that made sense when the pole was empty between tips.
+		this.spotIdleIntensity = 1.6;
 		this.spotActiveIntensity = 12.0;
 		spot.intensity = this.spotIdleIntensity;
 
 		// Floor accent point light — sits at the base of the pole.
-		const accent = new PointLight(POLE_COLORS[idx % POLE_COLORS.length], 0.4, 4.5, 1.6);
+		const accent = new PointLight(POLE_COLORS[idx % POLE_COLORS.length], 0.9, 4.5, 1.6);
 		accent.position.set(layout.x, 0.6, layout.z);
 		scene.add(accent);
 		this.accent = accent;
 
-		// Dancer rig — placed in backstage. We populate skinned mesh later.
+		// Dancer rig — stands at the pole, facing the crowd. We populate the
+		// skinned mesh later in attachAvatar(); position + yaw are set here so
+		// the rig is home the instant the avatar attaches.
 		this.rig = new Group();
-		this.rig.position.set(layout.backstageX, 0, layout.backstageZ);
+		this.rig.position.copy(this.homePos);
 		this.rig.rotation.y = layout.yaw;
 		scene.add(this.rig);
 
@@ -498,12 +508,18 @@ class PoleStation {
 			this.layout.x = stagePos.x;
 			this.layout.z = stagePos.z;
 			this.accent.position.set(stagePos.x, 0.6, stagePos.z);
+			// Idle home tracks the pole — restand the rig there (unless she's
+			// mid-performance, in which case tick() owns the position).
+			if (this.walkPhase === 'idle') {
+				this.rig.position.copy(this.homePos);
+				this._phaseTarget = this.homePos;
+			}
 		}
 		if (backstagePos) {
+			// Backstage anchor is retained for choreography that wants a deeper
+			// off-stage point, but dancers idle at the pole now, not backstage.
 			this.layout.backstageX = backstagePos.x;
 			this.layout.backstageZ = backstagePos.z;
-			this.rig.position.set(backstagePos.x, 0, backstagePos.z);
-			this._phaseTarget = this.rig.position.clone();
 		}
 		if (spotPos) {
 			this.spot.position.set(spotPos.x, spotPos.y, spotPos.z);
@@ -557,7 +573,14 @@ class PoleStation {
 		this.pole = pole;
 	}
 
-	attachAvatar(template, animationDefs) {
+	/**
+	 * Clone a template GLB into a tinted, floor-aligned avatar root ready to
+	 * drop into the rig. Pure — no scene-graph mutation — so attachAvatar can
+	 * build a candidate, test whether its rig animates, and discard it for the
+	 * fallback without leaving a half-attached mesh behind.
+	 * @param {import('three').Object3D} template
+	 */
+	_buildAvatarRoot(template) {
 		const root = cloneSkinnedScene(template);
 		root.traverse((n) => {
 			if (!n.isMesh) return;
@@ -574,16 +597,40 @@ class PoleStation {
 				}
 			}
 		});
-
-		// Re-zero the avatar so feet sit at rig y=0.
+		// Re-zero so feet sit at rig y=0 regardless of where the source GLB
+		// authored its origin (each avatar model differs).
 		const box = new Box3().setFromObject(root);
 		root.position.y -= box.min.y;
+		return root;
+	}
 
-		this.rig.add(root);
-		this.skinned = root;
-
+	/**
+	 * Attach this dancer's avatar. `template` is her chosen GLB; `fallback` is
+	 * the known-good default rig. Every shipped avatar is verified drivable, but
+	 * we still confirm the clip library can retarget onto the chosen rig at
+	 * runtime — if not, we silently swap to the fallback so a dancer is never
+	 * frozen mid-stage (Hard rule 9: no errors without solutions).
+	 * @param {import('three').Object3D} template
+	 * @param {Array} animationDefs
+	 * @param {import('three').Object3D} [fallback]
+	 */
+	attachAvatar(template, animationDefs, fallback = null) {
 		this.anim = new AnimationManager();
+
+		let root = this._buildAvatarRoot(template);
+		this.rig.add(root);
 		this.anim.attach(root);
+
+		if (!this.anim.supportsCanonicalClips() && fallback && fallback !== template) {
+			log.warn(`[club] dancer ${this.id} rig not drivable — falling back to default avatar`);
+			this.anim.detach();
+			this.rig.remove(root);
+			root = this._buildAvatarRoot(fallback);
+			this.rig.add(root);
+			this.anim.attach(root);
+		}
+
+		this.skinned = root;
 		this.anim.setAnimationDefs(animationDefs);
 		// Lazy-load — first clip request fetches its JSON on demand.
 		this.anim.play('idle');
@@ -591,6 +638,11 @@ class PoleStation {
 
 	get backstagePos() {
 		return new Vector3(this.layout.backstageX, 0, this.layout.backstageZ);
+	}
+	// Idle home: standing just in front of the pole, facing the crowd. She steps
+	// onto the pole (poleBasePos) when a tip lands, then returns here.
+	get homePos() {
+		return new Vector3(this.layout.x, 0, this.layout.z + 0.5);
 	}
 	get poleBasePos() {
 		return new Vector3(this.layout.x, 0, this.layout.z + 0.02);
@@ -655,16 +707,17 @@ class PoleStation {
 			sleep: (ms) => this.sleep(ms),
 		});
 
-		// Sequence finished (or was cancelled) — return the dancer to backstage.
-		// Cancellation is a fast-path: performing is already false, so _endPerformance
-		// won't toggle it back, but the walking + audio cleanup still runs.
+		// Sequence finished (or was cancelled) — step the dancer back off the
+		// pole to her idle home. Cancellation is a fast-path: performing is
+		// already false, so _endPerformance won't toggle it back, but the
+		// walking + audio cleanup still runs.
 		if (this.walkPhase === 'dancing') await this._endPerformance();
 	}
 
 	async _endPerformance() {
 		this.performing = false;
 		this.walkPhase = 'returning';
-		this._phaseTarget = this.backstagePos;
+		this._phaseTarget = this.homePos;
 		this._spotTarget = this.spotIdleIntensity;
 		this._accentTarget = 0.4;
 		// Release auto-cam back to free if we were the ones who took it.
@@ -686,10 +739,10 @@ class PoleStation {
 		await this.anim?.crossfadeTo(WALK_CLIP, PERFORMANCE_FADE);
 	}
 
-	async _arriveBackstage() {
+	async _arriveHome() {
 		this.walkPhase = 'idle';
 		this.activeTicket = null;
-		this._phaseTarget = this.backstagePos;
+		this._phaseTarget = this.homePos;
 		await this.anim?.crossfadeTo('idle', PERFORMANCE_FADE);
 	}
 
@@ -727,7 +780,7 @@ class PoleStation {
 			if (dist < 0.04) {
 				this.rig.position.copy(target);
 				if (this.walkPhase === 'to-pole') this._arriveAtPole();
-				else this._arriveBackstage();
+				else this._arriveHome();
 			} else {
 				dir.normalize();
 				const step = Math.min(dist, 1.4 * dt);
@@ -744,7 +797,7 @@ class PoleStation {
 			const targetYaw = this.layout.yaw;
 			this.rig.rotation.y += angleDelta(this.rig.rotation.y, targetYaw) * Math.min(1, dt * 3);
 		} else {
-			// idle backstage — face into the room.
+			// idle at the pole — face the crowd.
 			const targetYaw = this.layout.yaw;
 			this.rig.rotation.y += angleDelta(this.rig.rotation.y, targetYaw) * Math.min(1, dt * 1.5);
 		}
@@ -761,6 +814,7 @@ function angleDelta(from, to) {
 }
 
 const stations = POLES.map((layout, i) => new PoleStation(i, layout));
+if (typeof window !== 'undefined') window.__clubStations = stations;
 
 // ── Disco / strobe light cycling ─────────────────────────────────────────
 // A slowly rotating set of fill lights to keep the room feeling alive even
@@ -901,16 +955,19 @@ async function bootstrap() {
 	// fetch in the same window. Any rejection bubbles up to the .catch in
 	// the call site below, which paints an error status and stops; no
 	// primitive fallback ever gets attached.
-	const [venueGltf, hdrTexture, gltf, manifest, poleGltf, stageGltf] = await Promise.all([
+	// Each dancer wears her own GLB; AVATAR_URL is always loaded too as the
+	// runtime fallback rig. De-dupe so a shared model loads once.
+	const avatarUrls = [...new Set([AVATAR_URL, ...DANCER_META.map((d) => d.avatar).filter(Boolean)])];
+	const [venueGltf, hdrTexture, manifest, poleGltf, stageGltf, ...avatarGltfs] = await Promise.all([
 		loadWithProgress(loader, VENUE_GLB_URL, 'Loading club…'),
 		loadWithProgress(rgbe, VENUE_HDRI_URL, 'Loading lighting…'),
-		loader.loadAsync(AVATAR_URL),
 		fetch(MANIFEST_URL, { cache: 'force-cache' }).then((r) => {
 			if (!r.ok) throw new Error(`HTTP ${r.status} loading animation manifest`);
 			return r.json();
 		}),
 		loader.loadAsync(POLE_GLB_URL),
 		loader.loadAsync(STAGE_GLB_URL),
+		...avatarUrls.map((u) => loader.loadAsync(u)),
 	]);
 
 	// HDRI → pre-filtered cubemap for PBR reflections. Background stays
@@ -960,11 +1017,15 @@ async function bootstrap() {
 		};
 	}
 
-	const template = gltf.scene;
-	// Mark all materials as cloneable up front so per-dancer tinting works.
-	template.traverse((n) => {
-		if (n.isMesh) n.castShadow = true;
+	// Map each avatar URL → its loaded scene template. Mark meshes cast-shadow
+	// up front; per-dancer material cloning/tinting happens in attachAvatar.
+	const avatarTemplates = new Map();
+	avatarUrls.forEach((url, i) => {
+		const tpl = avatarGltfs[i].scene;
+		tpl.traverse((n) => { if (n.isMesh) n.castShadow = true; });
+		avatarTemplates.set(url, tpl);
 	});
+	const fallbackTemplate = avatarTemplates.get(AVATAR_URL);
 
 	const poleTemplate = poleGltf.scene;
 	const stageTemplate = stageGltf.scene;
@@ -973,7 +1034,9 @@ async function bootstrap() {
 
 	for (const station of stations) {
 		station.attachProps({ poleTemplate, stageTemplate });
-		station.attachAvatar(template, animationDefs);
+		const wanted = DANCER_META[station.idx]?.avatar || AVATAR_URL;
+		const template = avatarTemplates.get(wanted) || fallbackTemplate;
+		station.attachAvatar(template, animationDefs, fallbackTemplate);
 	}
 
 	// Ambient dust particles — skip on low-perf devices.

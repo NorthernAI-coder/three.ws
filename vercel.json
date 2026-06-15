@@ -499,6 +499,10 @@
 			"dest": "/three-token.html"
 		},
 		{
+			"src": "/three/?",
+			"dest": "/three.html"
+		},
+		{
 			"src": "/go/?",
 			"dest": "/go.html"
 		},
