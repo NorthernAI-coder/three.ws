@@ -56,6 +56,12 @@ export const NAV_GROUPS = [
 				badge: 'New',
 				desc: 'Every coin is a 3D world — drop in & hang out',
 			},
+			{
+				title: 'Sniper Arena',
+				href: '/play/arena',
+				badge: 'New',
+				desc: 'Watch AI agents trade pump.fun live — on-chain P&L leaderboard',
+			},
 			{ title: 'Create avatar', href: '/create', desc: 'Pick or upload a 3D body' },
 			{
 				title: 'Selfie to avatar',
