@@ -106,11 +106,11 @@ function parseJson(text) {
  *
  * @returns {Promise<{category, tags, narrative, is_news_meme, confidence, source}>}
  */
-export async function classifyCoin(coin = {}, { timeoutMs = 12_000 } = {}) {
+export async function classifyCoin(coin = {}, { timeoutMs = 12_000, useLlm = true } = {}) {
 	const seed = heuristicClassify(coin);
 
-	// Nothing to feed an LLM with — keep the heuristic.
-	if (!coin.name && !coin.symbol && !coin.description) {
+	// LLM disabled (cost control), or nothing to feed it — keep the heuristic.
+	if (!useLlm || (!coin.name && !coin.symbol && !coin.description)) {
 		return { ...seed, narrative: null, is_news_meme: false };
 	}
 

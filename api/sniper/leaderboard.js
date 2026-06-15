@@ -1,17 +1,23 @@
 /**
  * Agent Sniper — public leaderboard + recent trades.
  *
- *   GET /api/sniper/leaderboard?network=mainnet
+ *   GET /api/sniper/leaderboard?network=mainnet&window=30d&sort=score&verified=1
  *
- * Ranks agents by realized P&L from agent_sniper_positions and returns the most
- * recent closed trades + currently-open positions for the /play arena's initial
- * render. Public + IP rate-limited — the on-chain tx signatures are the proof,
- * so the whole point is that anyone can watch.
+ * Ranks agents by their composite TraderScore (or a chosen metric) over a time
+ * window, computed by the shared trader-stats truth layer so this board and the
+ * /trader/:id profile can never disagree. Also returns the most recent closed
+ * trades + currently-open positions for the /play arena's initial render. Public
+ * + IP rate-limited — the on-chain tx signatures are the proof, so the whole
+ * point is that anyone can watch.
+ *
+ * Backward-compatible: every field the arena already reads is still present; the
+ * board rows are now a SUPERSET (win_rate, score, verified, roi_pct, drawdown, …).
  */
 
 import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { getLeaderboard, WINDOWS, LEADERBOARD_SORTS } from '../_lib/trader-stats.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 
@@ -29,26 +35,16 @@ export default wrap(async (req, res) => {
 	const rl = await limits.mcpIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
-	const url = new URL(req.url, `http://${req.headers.host || 'x'}`);
-	const network = NETWORKS.has(url.searchParams.get('network')) ? url.searchParams.get('network') : 'mainnet';
+	const params = new URL(req.url, `http://${req.headers.host || 'x'}`).searchParams;
+	const network = NETWORKS.has(params.get('network')) ? params.get('network') : 'mainnet';
+	// Default 'all' preserves the arena's historical lifetime ranking; the flagship
+	// /leaderboard page requests an explicit window.
+	const window = WINDOWS.has(params.get('window')) ? params.get('window') : 'all';
+	const sort = LEADERBOARD_SORTS.has(params.get('sort')) ? params.get('sort') : 'score';
+	const verifiedOnly = params.get('verified') === '1' || params.get('verified') === 'true';
 
-	const [board, recent, open] = await Promise.all([
-		sql`
-			select p.agent_id, p.wallet,
-			       a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image,
-			       count(*) filter (where p.status = 'closed')                                   as closed,
-			       count(*) filter (where p.status in ('open','opening','closing'))              as open_positions,
-			       count(*) filter (where p.exit_reason = 'take_profit')                         as wins,
-			       coalesce(sum(p.realized_pnl_lamports),0)::text                                as realized_pnl_lamports,
-			       coalesce(avg(p.realized_pnl_pct) filter (where p.status = 'closed'),0)::float as avg_pnl_pct,
-			       max(p.realized_pnl_pct) filter (where p.status = 'closed')::float             as best_pnl_pct
-			from agent_sniper_positions p
-			join agent_identities a on a.id = p.agent_id
-			where p.network = ${network}
-			group by p.agent_id, p.wallet, a.name, a.avatar_url, a.profile_image_url
-			order by sum(p.realized_pnl_lamports) desc nulls last
-			limit 100
-		`,
+	const [boardResult, recent, open] = await Promise.all([
+		getLeaderboard({ network, window, sort, verifiedOnly, limit: 100 }),
 		sql`
 			select p.id, p.agent_id, a.name as agent_name, p.mint, p.symbol, p.name,
 			       p.entry_quote_lamports, p.exit_quote_lamports, p.realized_pnl_lamports,
@@ -70,21 +66,6 @@ export default wrap(async (req, res) => {
 			limit 50
 		`,
 	]);
-
-	const leaderboard = board.map((r, i) => ({
-		rank: i + 1,
-		agent_id: r.agent_id,
-		agent_name: r.agent_name,
-		image: r.agent_image || r.agent_avatar || null,
-		wallet: r.wallet,
-		closed: Number(r.closed),
-		open_positions: Number(r.open_positions),
-		wins: Number(r.wins),
-		realized_pnl_lamports: r.realized_pnl_lamports,
-		realized_pnl_sol: Number(BigInt(r.realized_pnl_lamports)) / 1e9,
-		avg_pnl_pct: r.avg_pnl_pct != null ? Number(r.avg_pnl_pct) : 0,
-		best_pnl_pct: r.best_pnl_pct != null ? Number(r.best_pnl_pct) : null,
-	}));
 
 	const trades = recent.map((t) => ({
 		id: t.id,
@@ -121,5 +102,14 @@ export default wrap(async (req, res) => {
 		};
 	});
 
-	return json(res, 200, { network, leaderboard, trades, positions, t: Date.now() });
+	return json(res, 200, {
+		network,
+		window,
+		sort,
+		sol_usd: boardResult.sol_usd,
+		leaderboard: boardResult.leaderboard,
+		trades,
+		positions,
+		t: Date.now(),
+	}, { 'cache-control': 'public, max-age=10, s-maxage=20' });
 });

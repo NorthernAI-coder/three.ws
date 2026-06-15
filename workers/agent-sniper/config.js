@@ -76,5 +76,17 @@ export function loadConfig() {
 		// observed (a per-strategy first_claim_max_age_seconds overrides it). Keeps
 		// a worker restart / backfill from sniping a stale claim.
 		claimMaxAgeSeconds: Math.max(30, num('SNIPER_CLAIM_MAX_AGE_S', 300)),
+		// ── coin intelligence engine ────────────────────────────────────────────
+		// Observe every new coin's first seconds of trading, classify it, persist
+		// signals, and drive intel_confirmed strategies. On by default — it's the
+		// platform's eyes. Set SNIPER_INTEL=0 to disable (e.g. a trade-only worker).
+		intel: bool('SNIPER_INTEL', true),
+		// Observation window per coin before signals are finalized (ms).
+		intelWindowMs: Math.max(15_000, num('SNIPER_INTEL_WINDOW_MS', 90_000)),
+		// Max coins observed simultaneously — a backstop on memory + WS subs.
+		intelMaxConcurrent: Math.max(50, num('SNIPER_INTEL_MAX_CONCURRENT', 400)),
+		// Refine classification with the LLM (free-first). Off by default: the
+		// deterministic heuristic is instant and free; LLM adds ~1 call per coin.
+		intelLlm: bool('SNIPER_INTEL_LLM', false),
 	};
 }

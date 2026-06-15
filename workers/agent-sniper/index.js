@@ -13,10 +13,12 @@ import { connectPumpFunFeed } from '../../api/_lib/pumpfun-ws-feed.js';
 import { loadConfig } from './config.js';
 import { log } from './log.js';
 import { refreshStrategies, cachedStrategies, logStrategyLoad } from './strategy-store.js';
-import { scoreMint } from './scorer.js';
+import { scoreMint, scoreIntel } from './scorer.js';
 import { executeBuy } from './executor.js';
 import { runPositionSweep } from './positions.js';
 import { startFirstClaimWatch } from './first-claim-watch.js';
+import { startIntelWatcher } from './intel/watcher.js';
+import { getLearnedWeights } from './intel/store.js';
 
 // ── global buy throttle (sliding 60s window) ─────────────────────────────────
 function makeThrottle(maxPerMin) {
@@ -89,6 +91,42 @@ async function main() {
 	let stopFeed = connectPumpFunFeed({ kind: 'mint', signal: abort.signal, onEvent });
 	log.info('feed connected', {});
 
+	// Coin Intelligence Engine: observe every new coin's first seconds, classify
+	// it, persist signals, and drive intel_confirmed strategies on a finished
+	// verdict. Separate WS (dynamic per-mint trade subscriptions) from the snipe
+	// feed above. Read-only on the chain — it never trades, only watches.
+	let stopIntel = () => {};
+	if (cfg.intel) {
+		const onIntel = (rec) => {
+			if (draining || cfg.globalKill) return;
+			const strategies = cachedStrategies();
+			for (const strat of strategies) {
+				if ((strat.trigger || 'new_mint') !== 'intel_confirmed') continue;
+				if (strat.network !== cfg.network) continue;
+				getLearnedWeights(cfg.network)
+					.then((weights) => {
+						const { pass, score, reasons } = scoreIntel(rec, strat, weights);
+						if (!pass) return;
+						log.info('intel candidate', { agent: strat.agent_id, mint: rec.mint, symbol: rec.symbol, score, reasons });
+						queue.push(() => executeBuy({
+							cfg, strat, throttle,
+							mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'intel_confirmed', trigger_ref: rec.mint },
+						}));
+					})
+					.catch((err) => log.error('intel score failed', { mint: rec.mint, err: err?.message }));
+			}
+		};
+		stopIntel = startIntelWatcher({
+			network: cfg.network,
+			windowMs: cfg.intelWindowMs,
+			maxConcurrent: cfg.intelMaxConcurrent,
+			useLlm: cfg.intelLlm,
+			signal: abort.signal,
+			onIntel,
+		});
+		log.info('intel watcher started', { windowMs: cfg.intelWindowMs, llm: cfg.intelLlm });
+	}
+
 	// First-claim trigger: polls the on-chain fee-claim stream and snipes a
 	// creator's coin on their first-ever reward claim. Shares the buy queue +
 	// global throttle with the new-mint path, and halts new buys on drain/kill.
@@ -135,6 +173,7 @@ async function main() {
 		clearInterval(watchdogTimer);
 		try { stopClaimWatch?.(); } catch {}
 		try { stopFeed?.(); } catch {}
+		try { stopIntel?.(); } catch {}
 		abort.abort();
 		// Give in-flight buys a moment to settle (Neon HTTP is stateless — nothing
 		// else to close).
