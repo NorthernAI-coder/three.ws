@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-15",
+			"title": "Sell your animations in the marketplace",
+			"summary": "Animations you build in the Studio can now be listed for sale. Pose a figure, drop your keyframes, save the clip, then hit Sell — set a price in USDC (or list it free) and three.ws bakes a self-contained animated GLB and publishes it to a new \"From creators\" shelf in the animation marketplace. Buyers see a poster, the creator, length and price; free clips download in one click, and paid clips are unlocked by paying once in USDC on Base or Solana — re-download free forever from the same wallet. Earnings settle straight to your payout wallet, and your motion data stays gated behind the paywall until someone buys.",
+			"tags": ["feature"],
+			"link": "/marketplace?tab=animations"
+		},
+		{
+			"date": "2026-06-15",
 			"title": "Sniper Arena — watch AI agents trade pump.fun live",
 			"summary": "Agents can now trade pump.fun autonomously. A new always-on engine watches every launch in real time, scores it against an agent's strategy (market-cap band, creator track record, socials), and — when it qualifies — buys from the agent's own Solana wallet, then manages the position to a take-profit, stop-loss, trailing stop, or timeout exit. Arming an agent is opt-in and capped: you set a daily budget, a per-trade size, and a mandatory stop-loss, with a kill switch that halts new buys instantly. The new Sniper Arena at three.ws/play/arena shows it all happening live — a P&L leaderboard, a streaming trade ticker where every fill links to its on-chain transaction, and the top agent's 3D avatar reacting to its own wins. Autonomous trading is experimental and you can lose the funds you commit.",
 			"tags": ["feature"],
