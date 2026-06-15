@@ -1,158 +1,141 @@
 // @ts-check
-// Curated prompt pool for the forge auto-seed cron. Every prompt is tuned for
-// the FLUX text→image → TRELLIS image→3D pipeline: a single clear subject with
-// a strong silhouette, no flat backgrounds, draft-quality friendly geometry.
+// Curated prompt pool for the forge auto-seed cron. Every prompt targets the
+// FLUX text→image → TRELLIS image→3D pipeline. Realistic human subjects with
+// strong silhouettes and clear costume detail produce the best meshes at draft
+// quality — avoid thin objects, transparent materials, and busy backgrounds.
 //
-// Two categories: 'avatar' (humanoid characters) and 'accessory' (items those
-// characters carry or wear). The cron alternates so the gallery builds a
-// coherent character ecosystem rather than a pile of identical knights.
+// Two categories: 'avatar' (realistic human characters) and 'accessory'
+// (real-world wearables and carried items). The cron alternates so the gallery
+// builds a coherent human character ecosystem.
 
 /** @typedef {{ prompt: string, category: 'avatar' | 'accessory', theme: string }} SeedPrompt */
 
 /** @type {SeedPrompt[]} */
 export const SEED_PROMPTS = [
-	// ── AVATARS ──────────────────────────────────────────────────────────────
+	// ── AVATARS — realistic humans ────────────────────────────────────────────
 
-	// Fantasy warriors
-	{ prompt: 'a bulky armored knight in ornate silver plate armor with a red-plumed helmet, standing pose, game character', category: 'avatar', theme: 'knight' },
-	{ prompt: 'a golden paladin in shining armor adorned with sun motifs and a long white cape, heroic pose', category: 'avatar', theme: 'paladin' },
-	{ prompt: 'a dark knight in jet-black spiked armor with glowing red eye slits in the visor', category: 'avatar', theme: 'dark-knight' },
-	{ prompt: 'a female valkyrie warrior in silver winged helmet and chainmail, holding a spear upright', category: 'avatar', theme: 'valkyrie' },
-	{ prompt: 'a rugged viking warrior with a braided beard, fur-trimmed armor and battle axe on shoulder', category: 'avatar', theme: 'viking' },
-	{ prompt: 'a roman centurion in red crested helmet and segmented lorica segmentata armor', category: 'avatar', theme: 'roman' },
-	{ prompt: 'a samurai warrior in full black lacquered o-yoroi armor with a red kabuto helmet', category: 'avatar', theme: 'samurai' },
-	{ prompt: 'a ninja in dark grey shinobi shozoku with twin katana strapped to the back', category: 'avatar', theme: 'ninja' },
-	{ prompt: 'a gladiator fighter wearing a manica arm guard, crested helmet and carrying a round shield', category: 'avatar', theme: 'gladiator' },
-	{ prompt: 'a crusader knight in white tabard with a red cross, full plate armor and kite shield', category: 'avatar', theme: 'crusader' },
+	// Streetwear & urban
+	{ prompt: 'a young black man in an oversized white hoodie and baggy jeans, fresh white sneakers, relaxed confident stance, studio lighting', category: 'avatar', theme: 'streetwear' },
+	{ prompt: 'a hispanic woman in a cropped leather jacket, high-waisted jeans and chunky boots, bold gold hoop earrings, neutral background', category: 'avatar', theme: 'streetwear' },
+	{ prompt: 'a south asian man in a fitted tracksuit and retro running shoes, gold chain, arms crossed, clean studio background', category: 'avatar', theme: 'streetwear' },
+	{ prompt: 'a white woman in an oversized graphic tee, biker shorts and platform sneakers, wearing a beanie, street style portrait', category: 'avatar', theme: 'streetwear' },
+	{ prompt: 'a black woman with natural hair in a brown shearling coat and cargo pants, sculptural jewelry, fashion portrait', category: 'avatar', theme: 'streetwear' },
+	{ prompt: 'an east asian man in a monochrome grey tech fleece, slim joggers and clean white sneakers, hands in pockets', category: 'avatar', theme: 'streetwear' },
+	{ prompt: 'a latina woman in a bright red puffer jacket, low-rise jeans and strappy heels, bold lip, confident pose', category: 'avatar', theme: 'streetwear' },
+	{ prompt: 'a middle eastern man in an olive bomber jacket, straight-leg cargos and leather boots, cropped beard, studio portrait', category: 'avatar', theme: 'streetwear' },
 
-	// Fantasy mages & casters
-	{ prompt: 'an elderly wizard in long purple robes with silver stars, a pointed hat and flowing white beard', category: 'avatar', theme: 'wizard' },
-	{ prompt: 'a young witch in a black wide-brimmed hat and dark layered robes, holding a broomstick', category: 'avatar', theme: 'witch' },
-	{ prompt: 'a hooded sorcerer in midnight blue robes with glowing arcane runes embroidered on the sleeves', category: 'avatar', theme: 'sorcerer' },
-	{ prompt: 'a fire mage with flame-orange robes and ember tattoos on their arms, hands glowing with fire', category: 'avatar', theme: 'fire-mage' },
-	{ prompt: 'an ice wizard in pale blue crystalline robes with frost patterns, white hair and icicle staff', category: 'avatar', theme: 'ice-mage' },
-	{ prompt: 'a nature druid wearing bark armor and a leafy antler crown, moss green cloak', category: 'avatar', theme: 'druid' },
-	{ prompt: 'a necromancer in torn black robes with bone accessories and hollow glowing purple eyes', category: 'avatar', theme: 'necromancer' },
-	{ prompt: 'a battle mage in reinforced azure robes over chainmail with geometric arcane symbols on pauldrons', category: 'avatar', theme: 'battle-mage' },
+	// Athleisure & sports
+	{ prompt: 'a muscular black man in a fitted sleeveless gym top and athletic shorts, sports watch, gym portrait lighting', category: 'avatar', theme: 'athletic' },
+	{ prompt: 'a fit asian woman in a sports bra and high-waisted leggings, hair in a high ponytail, clean studio background', category: 'avatar', theme: 'athletic' },
+	{ prompt: 'a white male runner in a technical running jacket and slim track pants, earbuds, athletic build, daylight portrait', category: 'avatar', theme: 'athletic' },
+	{ prompt: 'a black female basketball player in a jersey and shorts, knee sleeve, arms at sides, confident studio pose', category: 'avatar', theme: 'athletic' },
+	{ prompt: 'a hispanic male boxer in a satin robe over shorts, hands wrapped, short cropped hair, serious expression', category: 'avatar', theme: 'athletic' },
+	{ prompt: 'an asian female martial artist in a white gi with a black belt, hair back, grounded neutral stance', category: 'avatar', theme: 'athletic' },
+	{ prompt: 'a south asian male soccer player in a club jersey and shorts, cleats, standing confidently', category: 'avatar', theme: 'athletic' },
+	{ prompt: 'a fit white woman in a yoga set, sports bra and seamless leggings, minimal jewelry, soft studio light', category: 'avatar', theme: 'athletic' },
 
-	// Fantasy archers & rogues
-	{ prompt: 'a wood elf ranger in green leather armor with a quiver of arrows and recurve bow', category: 'avatar', theme: 'ranger' },
-	{ prompt: 'a halfling rogue in a brown leather vest with many pockets and daggers at the belt', category: 'avatar', theme: 'rogue' },
-	{ prompt: 'a shadow assassin in form-fitting black leather armor with a face mask and twin blades', category: 'avatar', theme: 'assassin' },
-	{ prompt: 'a swashbuckler pirate captain in a tricorn hat, long coat and rapier at their side', category: 'avatar', theme: 'pirate' },
-	{ prompt: 'a drow dark elf huntress in obsidian leather armor with white hair and a crossbow', category: 'avatar', theme: 'drow' },
+	// Business & professional
+	{ prompt: 'a black man in a perfectly fitted charcoal suit, white dress shirt, no tie, polished oxford shoes, executive portrait', category: 'avatar', theme: 'professional' },
+	{ prompt: 'an asian woman in a structured blazer and tailored trousers, silk blouse, minimal gold jewelry, office portrait', category: 'avatar', theme: 'professional' },
+	{ prompt: 'a white man in a navy business suit and pocket square, silver watch, clean shaven, confident posture', category: 'avatar', theme: 'professional' },
+	{ prompt: 'a latina woman in a cream power suit with wide lapels, statement earrings, natural makeup, professional portrait', category: 'avatar', theme: 'professional' },
+	{ prompt: 'a south asian man in a slim-fit grey suit and burgundy tie, briefcase in hand, sharp business portrait', category: 'avatar', theme: 'professional' },
+	{ prompt: 'a middle eastern woman in a white lab coat over business clothes, stethoscope around neck, professional medical portrait', category: 'avatar', theme: 'professional' },
 
-	// Fantasy creatures & non-humans
-	{ prompt: 'an orc berserker with green tusked skin, spiked iron shoulder guards and a massive club', category: 'avatar', theme: 'orc' },
-	{ prompt: 'a lizardfolk shaman with green-blue scales, tribal bone necklaces and a feathered staff', category: 'avatar', theme: 'lizardfolk' },
-	{ prompt: 'a gnome tinker in brass goggles, a tool-covered leather apron and wild spiky hair', category: 'avatar', theme: 'gnome' },
-	{ prompt: 'a high elf noble in silver ceremonial armor with elegant ear tips and golden crown', category: 'avatar', theme: 'elf-noble' },
-	{ prompt: 'a dwarf blacksmith with a thick braided red beard, leather apron and hammer in hand', category: 'avatar', theme: 'dwarf' },
-	{ prompt: 'a tiefling warlock with curved horns, deep purple skin and glowing golden eyes in dark robes', category: 'avatar', theme: 'tiefling' },
-	{ prompt: 'a minotaur warrior with bull horns, muscular dark-furred body, wearing a studded loincloth', category: 'avatar', theme: 'minotaur' },
-	{ prompt: 'a beastkin wolf warrior with grey fur, amber eyes and tattered clan armor', category: 'avatar', theme: 'wolfkin' },
-	{ prompt: 'a golem guardian made of mossy stone with glowing blue rune eyes and cracked boulder fists', category: 'avatar', theme: 'golem' },
+	// Fashion & editorial
+	{ prompt: 'a tall black woman in a sleek black turtleneck and wide-leg trousers, sculptural minimalist look, editorial fashion portrait', category: 'avatar', theme: 'fashion' },
+	{ prompt: 'a white man in a vintage denim jacket covered in pins, ripped jeans and chelsea boots, indie fashion portrait', category: 'avatar', theme: 'fashion' },
+	{ prompt: 'an east asian woman in a pastel micro-pleated skirt and matching top, platform mary janes, harajuku-inspired look', category: 'avatar', theme: 'fashion' },
+	{ prompt: 'a black man in an embroidered silk shirt and white linen trousers, loafers, summer fashion portrait', category: 'avatar', theme: 'fashion' },
+	{ prompt: 'a mixed-race woman in a bold geometric print co-ord set, square-toe mules, editorial stance', category: 'avatar', theme: 'fashion' },
+	{ prompt: 'a white woman in a long camel trench coat, fitted turtleneck and ankle boots, minimalist chic portrait', category: 'avatar', theme: 'fashion' },
+	{ prompt: 'a south asian man in a richly embroidered sherwani, dress shoes, wedding fashion portrait', category: 'avatar', theme: 'fashion' },
+	{ prompt: 'a black woman in a red bodycon dress and strappy heels, bold makeup, glamour portrait lighting', category: 'avatar', theme: 'fashion' },
 
-	// Sci-fi & futuristic
-	{ prompt: 'a space marine in heavy powered exosuit armor with a reflective gold visor and shoulder cannons', category: 'avatar', theme: 'space-marine' },
-	{ prompt: 'a sleek humanoid robot with a polished chrome body, glowing blue chest core and articulated hands', category: 'avatar', theme: 'android' },
-	{ prompt: 'a cyberpunk street fighter with neon blue tattoos, a bionic left arm and mirrored shades', category: 'avatar', theme: 'cyberpunk' },
-	{ prompt: 'an alien diplomat with elongated silver head, large dark eyes, translucent robes and three fingers', category: 'avatar', theme: 'alien' },
-	{ prompt: 'a futuristic bounty hunter in a weathered helmet and matte black armor with holsters', category: 'avatar', theme: 'bounty-hunter' },
-	{ prompt: 'a mech pilot in a form-fitting orange flight suit with a cracked visor and neural jack ports', category: 'avatar', theme: 'mech-pilot' },
-	{ prompt: 'a neon-lit android with a transparent skull revealing circuitry, feminine chrome frame', category: 'avatar', theme: 'neon-android' },
-	{ prompt: 'a bio-augmented soldier with one mechanical eye, plated arms and a combat vest covered in patches', category: 'avatar', theme: 'augmented' },
-	{ prompt: 'a quantum hacker in a sleek black bodysuit with holographic projectors on the wrists', category: 'avatar', theme: 'hacker' },
-	{ prompt: 'a star captain in a weathered deep-space suit with rank insignia and a plasma pistol at the hip', category: 'avatar', theme: 'star-captain' },
+	// Casual & everyday
+	{ prompt: 'a young white man in a washed blue denim jacket, plain white tee, slim jeans and canvas shoes, casual portrait', category: 'avatar', theme: 'casual' },
+	{ prompt: 'a black woman in a floral sundress and flat sandals, natural hair down, summer casual portrait', category: 'avatar', theme: 'casual' },
+	{ prompt: 'an asian man in a quarter-zip pullover, slim chinos and loafers, casual smart portrait', category: 'avatar', theme: 'casual' },
+	{ prompt: 'a hispanic woman in a cozy oversized knit sweater, straight jeans and ankle boots, autumn casual portrait', category: 'avatar', theme: 'casual' },
+	{ prompt: 'a middle eastern man in a crisp linen shirt and tailored shorts, leather sandals, relaxed summer portrait', category: 'avatar', theme: 'casual' },
+	{ prompt: 'a white woman in a classic striped breton top, straight jeans and white sneakers, clean minimalist portrait', category: 'avatar', theme: 'casual' },
+	{ prompt: 'a black man in a rust-colored corduroy jacket, khaki trousers and white shirt, warm casual portrait', category: 'avatar', theme: 'casual' },
+	{ prompt: 'a south asian woman in a salwar kameez with a dupatta, traditional everyday casual portrait', category: 'avatar', theme: 'casual' },
 
-	// Mythological & elemental
-	{ prompt: 'a kitsune spirit with white fox ears and a nine-tailed form, wearing traditional miko robes', category: 'avatar', theme: 'kitsune' },
-	{ prompt: 'an oni demon with red skin, two horns, tiger-skin loincloth and an iron kanabo club', category: 'avatar', theme: 'oni' },
-	{ prompt: 'a sea god with deep blue skin, coral crown, flowing water robes and a trident', category: 'avatar', theme: 'sea-god' },
-	{ prompt: 'a storm elemental with a swirling cloud-like body and lightning arcs for eyes', category: 'avatar', theme: 'storm-elemental' },
-	{ prompt: 'a lava golem with cracked obsidian skin, glowing orange cracks and ember eyes', category: 'avatar', theme: 'lava-golem' },
-	{ prompt: 'a forest spirit with bark-like skin, leaf-green hair and glowing sap veins running down the arms', category: 'avatar', theme: 'forest-spirit' },
-	{ prompt: 'an egyptian pharaoh god in golden headpiece and lapis-lazuli collar, crook and flail in hand', category: 'avatar', theme: 'pharaoh' },
-	{ prompt: 'a norse god with a long golden beard, fur mantle, an eye patch and a hammer at their side', category: 'avatar', theme: 'thor-archetype' },
+	// Subculture & creative
+	{ prompt: 'a white man with sleeve tattoos in a black band tee, straight-leg black jeans and combat boots, rock portrait', category: 'avatar', theme: 'subculture' },
+	{ prompt: 'a black woman in a pastel goth outfit, lavender hair, layered skirt and platform shoes, alt fashion portrait', category: 'avatar', theme: 'subculture' },
+	{ prompt: 'an east asian man with bleached hair in a y2k outfit, baggy low-rise jeans and a slim mesh top, fashion portrait', category: 'avatar', theme: 'subculture' },
+	{ prompt: 'a latina woman in a vintage 90s windbreaker, bike shorts and chunky sneakers, retro streetwear portrait', category: 'avatar', theme: 'subculture' },
+	{ prompt: 'a white skateboarder in a loose polo shirt, wide-leg cords and skate shoes, cap turned backwards, portrait', category: 'avatar', theme: 'subculture' },
+	{ prompt: 'a black man in a dashiki and linen trousers, wooden bead necklace, natural hair, cultural portrait', category: 'avatar', theme: 'subculture' },
+	{ prompt: 'an asian woman in a full harajuku coord with layered accessories, knee socks and platforms, portrait', category: 'avatar', theme: 'subculture' },
+	{ prompt: 'a south asian woman in a modern fusion sari-draped outfit, street fashion editorial portrait', category: 'avatar', theme: 'subculture' },
 
-	// Modern & urban
-	{ prompt: 'a streetwear skateboarder with a hooded jacket, sneakers and a skateboard tucked under the arm', category: 'avatar', theme: 'skater' },
-	{ prompt: 'a post-apocalyptic scavenger in a patchwork leather coat, gas mask around the neck, studded knee pads', category: 'avatar', theme: 'scavenger' },
-	{ prompt: 'a professional boxer in silk shorts with gloves raised in a fighting stance', category: 'avatar', theme: 'boxer' },
-	{ prompt: 'a parkour runner in a slim athletic jacket and cargo pants, poised mid-leap', category: 'avatar', theme: 'parkour' },
-	{ prompt: 'a graffiti artist in baggy overalls with paint-stained gloves and a spray can in hand', category: 'avatar', theme: 'graffiti' },
+	// ── ACCESSORIES — real-world wearables & carried items ───────────────────
 
-	// ── ACCESSORIES ──────────────────────────────────────────────────────────
+	// Footwear
+	{ prompt: 'a pair of classic white low-top leather sneakers with clean soles and minimal branding, product shot', category: 'accessory', theme: 'sneakers' },
+	{ prompt: 'a pair of retro chunky-sole basketball sneakers in black and gold, bold silhouette, product shot', category: 'accessory', theme: 'sneakers' },
+	{ prompt: 'a pair of worn brown leather chelsea boots with elastic side panels and a stacked heel', category: 'accessory', theme: 'boots' },
+	{ prompt: 'a pair of strappy black leather heeled sandals with an ankle buckle, elegant product shot', category: 'accessory', theme: 'heels' },
+	{ prompt: 'a pair of high-top canvas sneakers in off-white with black rubber toe cap', category: 'accessory', theme: 'sneakers' },
+	{ prompt: 'a pair of sleek black leather oxford dress shoes with a cap-toe detail and leather sole', category: 'accessory', theme: 'dress-shoes' },
+	{ prompt: 'a pair of white athletic running shoes with a mesh upper and foam midsole, sport product shot', category: 'accessory', theme: 'sneakers' },
+	{ prompt: 'a pair of tan suede lace-up desert boots with a crepe sole', category: 'accessory', theme: 'boots' },
 
-	// Swords & blades
-	{ prompt: 'an ornate medieval broadsword with a gold cross guard, leather-wrapped grip and ruby gems on the pommel, game asset', category: 'accessory', theme: 'knight' },
-	{ prompt: 'a curved scimitar with an engraved blade and a crescent-moon shaped hilt inlaid with turquoise', category: 'accessory', theme: 'ranger' },
-	{ prompt: 'a pair of matched twin katana with black lacquer scabbards, silk-wrapped handles and gold fittings', category: 'accessory', theme: 'ninja' },
-	{ prompt: 'a dark knight longsword with a jagged obsidian blade and a skull-shaped cross guard', category: 'accessory', theme: 'dark-knight' },
-	{ prompt: 'a silver elven blade with a leaf-shaped edge and a vine-carved hilt set with an emerald', category: 'accessory', theme: 'elf-noble' },
-	{ prompt: 'a paladin greatsword glowing with golden holy light, intricate cross motifs on the blade', category: 'accessory', theme: 'paladin' },
-	{ prompt: 'a rogue dagger with a wavy blade, slim profile, bone handle and a poison groove along the spine', category: 'accessory', theme: 'rogue' },
-	{ prompt: 'a pirate cutlass with a swept basket hilt, slightly curved blade and a worn leather grip', category: 'accessory', theme: 'pirate' },
+	// Bags & carriers
+	{ prompt: 'a structured black leather tote bag with gold hardware, top handles and a detachable strap', category: 'accessory', theme: 'bag' },
+	{ prompt: 'a slim brown leather messenger bag with a buckle flap, adjustable strap and multiple pockets', category: 'accessory', theme: 'bag' },
+	{ prompt: 'a canvas and leather trim backpack in tan with a laptop sleeve and brass buckles', category: 'accessory', theme: 'bag' },
+	{ prompt: 'a small quilted black leather crossbody bag with a gold chain strap, luxury style product shot', category: 'accessory', theme: 'bag' },
+	{ prompt: 'a sporty nylon drawstring gym bag in black with a side bottle pocket', category: 'accessory', theme: 'bag' },
+	{ prompt: 'a woven straw summer tote with leather handles and a striped lining, beach bag', category: 'accessory', theme: 'bag' },
 
-	// Axes, hammers & blunt weapons
-	{ prompt: 'a double-headed battle axe with a runic carved blade and oak handle wrapped in iron bands', category: 'accessory', theme: 'viking' },
-	{ prompt: 'a massive iron war hammer with a flat striking face etched with dwarf clan runes, short thick handle', category: 'accessory', theme: 'dwarf' },
-	{ prompt: 'a flanged war mace with a steel spiked head and a velvet-wrapped pommel grip', category: 'accessory', theme: 'crusader' },
-	{ prompt: 'a gladiator trident with three pronged tips and a shaft wrapped in leather cord', category: 'accessory', theme: 'gladiator' },
-	{ prompt: 'a minotaur great club made from a gnarled iron-bound oak log, brutal and heavy', category: 'accessory', theme: 'minotaur' },
+	// Outerwear
+	{ prompt: 'a classic tan trench coat laid flat, double-breasted with belt and epaulettes, clean product shot', category: 'accessory', theme: 'jacket' },
+	{ prompt: 'a worn brown leather biker jacket with silver zips and a pointed lapel collar', category: 'accessory', theme: 'jacket' },
+	{ prompt: 'a quilted black puffer jacket with a high collar and elastic cuffs, puffer product shot', category: 'accessory', theme: 'jacket' },
+	{ prompt: 'a relaxed oversized grey wool overcoat with wide lapels and deep pockets', category: 'accessory', theme: 'jacket' },
+	{ prompt: 'a varsity jacket in navy and white with leather sleeves and ribbed trim', category: 'accessory', theme: 'jacket' },
+	{ prompt: 'a lightweight olive field jacket with multiple flap pockets and a hood', category: 'accessory', theme: 'jacket' },
 
-	// Staves & wands
-	{ prompt: 'a wizard staff made from twisted oak topped with a large glowing purple crystal orb', category: 'accessory', theme: 'wizard' },
-	{ prompt: 'a fire mage staff with a burning ember crystal at the tip, the shaft scorched black', category: 'accessory', theme: 'fire-mage' },
-	{ prompt: 'an ice scepter with a frost-white crystal globe and silver filigree shaft with snowflake patterns', category: 'accessory', theme: 'ice-mage' },
-	{ prompt: 'a druid gnarled wooden staff with antler branch at the top threaded with green crystals and leaves', category: 'accessory', theme: 'druid' },
-	{ prompt: 'a necromancer bone staff topped with a cracked human skull and wrapped in tattered dark cloth', category: 'accessory', theme: 'necromancer' },
-	{ prompt: 'a glowing arcane wand made of pale birch with an amethyst tip and gold wire wrapping', category: 'accessory', theme: 'sorcerer' },
-	{ prompt: 'a kitsune ceremonial naginata with a curved blade, lacquered shaft and red tassel', category: 'accessory', theme: 'kitsune' },
+	// Headwear
+	{ prompt: 'a structured fitted black baseball cap with a curved brim and embroidered logo on front', category: 'accessory', theme: 'hat' },
+	{ prompt: 'a cream ribbed beanie with a fold-up cuff, soft knit texture, product shot', category: 'accessory', theme: 'hat' },
+	{ prompt: 'a wide-brim sun hat in natural straw with a black grosgrain band', category: 'accessory', theme: 'hat' },
+	{ prompt: 'a black wool beret, classic french style, worn at an angle, product shot', category: 'accessory', theme: 'hat' },
+	{ prompt: 'a snapback trucker hat in mesh with a flat brim and front foam patch', category: 'accessory', theme: 'hat' },
 
-	// Shields & armor pieces
-	{ prompt: 'a knight tower shield painted with a red dragon crest, bordered with polished steel trim', category: 'accessory', theme: 'knight' },
-	{ prompt: 'a round norse shield with iron boss center, painted in black and gold with runic trim', category: 'accessory', theme: 'viking' },
-	{ prompt: 'a roman scutum rectangular shield in red with golden eagle emblem, curved to the body', category: 'accessory', theme: 'roman' },
-	{ prompt: 'an ornate pauldron shoulder guard in gold with lion head motif and articulated scales', category: 'accessory', theme: 'paladin' },
-	{ prompt: 'a cyberpunk arm bracer with glowing data ports, carbon fibre panels and LED strip lighting', category: 'accessory', theme: 'cyberpunk' },
+	// Jewelry & watches
+	{ prompt: 'a chunky gold rope chain necklace with a box clasp, heavy links, luxury product shot', category: 'accessory', theme: 'jewelry' },
+	{ prompt: 'a silver stainless steel watch with a round dial, date window and mesh bracelet', category: 'accessory', theme: 'watch' },
+	{ prompt: 'a pair of large gold hoop earrings with a polished finish, classic style', category: 'accessory', theme: 'jewelry' },
+	{ prompt: 'a wide gold cuff bracelet with a hammered texture and polished edges', category: 'accessory', theme: 'jewelry' },
+	{ prompt: 'a black rubber sport watch with a chunky case, tachymeter bezel and digital display', category: 'accessory', theme: 'watch' },
+	{ prompt: 'a stack of thin gold rings in varying widths, laid flat, minimalist jewelry product shot', category: 'accessory', theme: 'jewelry' },
+	{ prompt: 'a pearl strand necklace with a gold clasp, classic length, clean product shot', category: 'accessory', theme: 'jewelry' },
+	{ prompt: 'a silver tennis bracelet with clear stones set in a row, elegant product shot', category: 'accessory', theme: 'jewelry' },
 
-	// Helmets & headgear
-	{ prompt: 'a great helm with a narrow eye slit and ventail, dented from battle, classic knight style', category: 'accessory', theme: 'knight' },
-	{ prompt: 'a horned viking helmet in iron with a nose guard and etched battle scenes', category: 'accessory', theme: 'viking' },
-	{ prompt: 'a roman legionary galea helmet with a transverse red horsehair crest', category: 'accessory', theme: 'roman' },
-	{ prompt: 'a samurai kabuto helmet in black lacquer with golden antler decorations and a fierce face guard', category: 'accessory', theme: 'samurai' },
-	{ prompt: 'a futuristic space marine helmet with a reflective gold visor and built-in antenna', category: 'accessory', theme: 'space-marine' },
-	{ prompt: 'a wizard pointed hat in midnight blue with silver star patterns and a drooping tip', category: 'accessory', theme: 'wizard' },
+	// Eyewear
+	{ prompt: 'a pair of classic tortoiseshell wayfarer sunglasses with dark lenses, product shot', category: 'accessory', theme: 'eyewear' },
+	{ prompt: 'a pair of slim gold wire-frame round glasses with clear lenses', category: 'accessory', theme: 'eyewear' },
+	{ prompt: 'a pair of oversized square black sunglasses with gradient lenses, fashion eyewear product shot', category: 'accessory', theme: 'eyewear' },
+	{ prompt: 'a pair of sporty wraparound sunglasses in black with mirrored lenses', category: 'accessory', theme: 'eyewear' },
 
-	// Ranged weapons
-	{ prompt: 'a longbow made of yew with a recurve tip, detailed wood grain and a leather grip wrap', category: 'accessory', theme: 'ranger' },
-	{ prompt: 'a quiver of arrows with fletched goose-feather shafts in a tooled leather quiver', category: 'accessory', theme: 'ranger' },
-	{ prompt: 'a compact crossbow with a steel prod, walnut stock and trigger mechanism', category: 'accessory', theme: 'drow' },
-	{ prompt: 'a futuristic plasma pistol with a glowing blue barrel and ergonomic grip, compact and sleek', category: 'accessory', theme: 'star-captain' },
-	{ prompt: 'a heavy sci-fi railgun with targeting scope, heat vents and energy cell slots along the barrel', category: 'accessory', theme: 'space-marine' },
+	// Everyday carry
+	{ prompt: 'a slim bifold wallet in black pebbled leather with card slots visible, product shot', category: 'accessory', theme: 'carry' },
+	{ prompt: 'a matte black phone case with a card slot on the back, minimal design', category: 'accessory', theme: 'carry' },
+	{ prompt: 'a stainless steel insulated water bottle in matte black with a loop cap', category: 'accessory', theme: 'carry' },
+	{ prompt: 'a pair of white wireless over-ear headphones with padded cushions and a folding frame', category: 'accessory', theme: 'carry' },
+	{ prompt: 'a clean white airpods case with glossy finish, small product shot', category: 'accessory', theme: 'carry' },
+	{ prompt: 'a vintage-style zippo lighter in brushed silver with a flip lid, product shot', category: 'accessory', theme: 'carry' },
 
-	// Bags, books & tools
-	{ prompt: 'a leather adventurer backpack with multiple buckled pouches, a bedroll tied below and rope clipped to the side', category: 'accessory', theme: 'ranger' },
-	{ prompt: 'a spellbook with a worn leather cover, brass corner clasps and glowing arcane runes on the pages', category: 'accessory', theme: 'wizard' },
-	{ prompt: 'a gnome tinker toolbox made of brass and wood, covered in small compartments, cogs and dials', category: 'accessory', theme: 'gnome' },
-	{ prompt: 'a pirate treasure chest in dark wood with iron banding and a heavy padlock', category: 'accessory', theme: 'pirate' },
-
-	// Amulets, orbs & magical items
-	{ prompt: 'a crystal ball on a silver tripod stand, swirling mist visible inside the glass sphere', category: 'accessory', theme: 'sorcerer' },
-	{ prompt: 'a golden amulet with a sapphire stone center and intricate knotwork border on a thick chain', category: 'accessory', theme: 'paladin' },
-	{ prompt: 'a necromancer phylactery, a small black iron box with a green glowing soul gem, chained shut', category: 'accessory', theme: 'necromancer' },
-	{ prompt: 'a fire elemental gem trapped in an ornate silver cage pendant, flickering flames visible inside', category: 'accessory', theme: 'fire-mage' },
-	{ prompt: 'a quantum hacker datapad with holographic display showing cascading code, slim alloy body', category: 'accessory', theme: 'hacker' },
-	{ prompt: 'a cyberpunk neural interface headset with wire leads, titanium frame and a blinking status LED', category: 'accessory', theme: 'cyberpunk' },
-
-	// Boots, cloaks & wearable items
-	{ prompt: 'a pair of heavy iron-toed knight sabatons with articulated plates down the top', category: 'accessory', theme: 'knight' },
-	{ prompt: 'a ranger green hooded cloak, weathered and hemmed with small leaves carved into the border', category: 'accessory', theme: 'ranger' },
-	{ prompt: 'a pair of knee-high pirate leather boots with wide turned-down cuffs and silver buckles', category: 'accessory', theme: 'pirate' },
-	{ prompt: 'an elven circlet crown of woven silver with a single moonstone gem at the center', category: 'accessory', theme: 'elf-noble' },
-	{ prompt: 'a ninja tabi boot in black, split-toe design with a gripping sole and ankle lace detail', category: 'accessory', theme: 'ninja' },
-	{ prompt: 'a scavenger gas mask with cracked lenses, rubber seal and a corrugated filter hose', category: 'accessory', theme: 'scavenger' },
+	// Scarves, belts & other
+	{ prompt: 'a cashmere scarf in camel plaid, loosely folded to show the fringe ends, product shot', category: 'accessory', theme: 'scarf' },
+	{ prompt: 'a wide leather belt in cognac brown with a silver square buckle', category: 'accessory', theme: 'belt' },
+	{ prompt: 'a silk pocket square in a deep burgundy paisley pattern, folded in a TV fold', category: 'accessory', theme: 'accessory' },
+	{ prompt: 'a pair of black leather gloves with a cashmere lining, classic style, product shot', category: 'accessory', theme: 'gloves' },
 ];
 
 // OG username pool — short common English words that look like someone grabbed
@@ -183,7 +166,7 @@ export const OG_USERNAMES = [
 	// sky & cosmos
 	'comet', 'nova', 'void', 'flare', 'pulse', 'orbit', 'zenith', 'apex',
 	'beam', 'arc', 'flux', 'ray', 'haze', 'veil', 'shade', 'glare',
-	// misc evocative words
-	'copse', 'brake', 'weald', 'wold', 'rill', 'beck', 'burn', 'loch',
-	'tarn', 'down', 'heath', 'wold', 'sward', 'brae', 'burn',
+	// misc
+	'ridge', 'rill', 'beck', 'loch', 'tarn', 'down', 'sward', 'brae',
+	'copse', 'weald', 'wold', 'brake',
 ];

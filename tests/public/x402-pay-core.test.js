@@ -135,6 +135,13 @@ describe('buildEip3009TypedData', () => {
 		// validBefore = now + maxTimeoutSeconds
 		expect(typedData.message.validBefore).toBe(1_000 + 600);
 		expect(authorization.nonce).toBe('0x' + 'ab'.repeat(32));
+		// The CDP facilitator /verify rejects numeric time bounds in the
+		// authorization payload — they MUST be decimal strings. (The signed
+		// typedData.message keeps them numeric; uint256 0 and "0" hash the same.)
+		expect(authorization.validAfter).toBe('0');
+		expect(authorization.validBefore).toBe(String(1_000 + 600));
+		expect(typeof authorization.validAfter).toBe('string');
+		expect(typeof authorization.validBefore).toBe('string');
 	});
 
 	it('generates a random 32-byte nonce when none is supplied', () => {
