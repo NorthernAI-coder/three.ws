@@ -217,7 +217,12 @@ function updateLabels() {
 		const agent = world.agents.get(id);
 		if (!agent) { L.el.style.display = 'none'; continue; }
 		const p = world.projectHead(agent, _proj);
-		if (!p) { L.el.style.opacity = '0'; L.el.style.pointerEvents = 'none'; continue; }
+		// Hide when behind the camera, off-screen, or riding up under the top bar
+		// (where it would cover — and steal clicks from — the chrome).
+		const w = labelLayer.clientWidth, h = labelLayer.clientHeight;
+		if (!p || p.y < 66 || p.y > h - 8 || p.x < -40 || p.x > w + 40) {
+			L.el.style.opacity = '0'; L.el.style.pointerEvents = 'none'; continue;
+		}
 		L.el.style.opacity = '1';
 		L.el.style.pointerEvents = 'auto';
 		L.el.style.transform = `translate(-50%, -100%) translate(${p.x.toFixed(1)}px, ${(p.y - 6).toFixed(1)}px)`;

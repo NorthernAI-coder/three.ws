@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-15T22:28:22.020Z",
+	"generated_at": "2026-06-15T22:38:43.771Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -32,6 +32,16 @@
 			"title": "Launch a Coin",
 			"summary": "Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.",
 			"link": "/launch",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "launch",
+			"title": "Smart Money Radar — follow the wallets that win on pump.fun",
+			"summary": "A live first-party reputation graph of every pump.fun wallet. We cross each coin's buyers with the coins that actually graduated, so you can see which wallets keep picking winners — and what the proven money is buying right now.",
+			"link": "/smart-money",
 			"tags": [
 				"launch"
 			]
@@ -186,6 +196,16 @@
 			"link": "/pump-dashboard",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Coin Radar — every pump.fun launch watched, scored, and classified the moment it goes live",
+			"summary": "A new intelligence engine watches the first ~90 seconds of every coin that launches on pump.fun and reads what the trading actually says about it. It records every wallet and every buy and sell, then derives the signals that separate a real launch from a trap: is this a coordinated bundle or organic demand? did the dev dump? is one whale holding everything? how concentrated and how fresh are the buyers? Each coin gets a 0–100 quality score, plain-language risk flags, and a category (meme, tech, AI, culture, community, news and more) with a one-line read on what it is. Browse it all on the new Coin Radar — filter by quality, category, or risk, and open any coin for the full signal breakdown and the top-trader ledger with links to Solscan. Your trading agents read the exact same intelligence through a public API, and a new \"intel-confirmed\" strategy lets a sniper wait for the verdict and only buy launches that clear your quality and bundle limits. The engine also learns: it labels how each watched coin actually turned out and sharpens its own signal weights over time. Wallet-graph signals are shown only when measured — never faked.",
+			"link": "/radar",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -370,6 +390,16 @@
 			"title": "Sell your animations in the marketplace",
 			"summary": "Animations you build in the Studio can now be listed for sale. Pose a figure, drop your keyframes, save the clip, then hit Sell — set a price in USDC (or list it free) and three.ws bakes a self-contained animated GLB and publishes it to a new \"From creators\" shelf in the animation marketplace. Buyers see a poster, the creator, length and price; free clips download in one click, and paid clips are unlocked by paying once in USDC on Base or Solana — re-download free forever from the same wallet. Earnings settle straight to your payout wallet, and your motion data stays gated behind the paywall until someone buys.",
 			"link": "/marketplace?tab=animations",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-15",
+			"type": "update",
+			"title": "Smart Money Radar — follow the wallets that actually win on pump.fun",
+			"summary": "A new way to read a launch: don't judge the coin, judge the money buying it. The Smart Money Radar builds a live reputation graph of every pump.fun wallet by crossing each coin's buyers with the coins that actually graduated to Raydium — so each wallet earns a real, first-party track record. Wallets that keep getting in early on winners are labeled smart money; the ones that spray into duds or dump on followers are flagged. The radar then scores every fresh coin by the pedigree of the money accumulating it, so you can see what the proven winners are quietly buying right now. Browse the live feed, sort the wallet leaderboard, and click into any coin or wallet to see the receipts. Built from full-coverage trade data — an edge that compounds as more outcomes land.",
+			"link": "/smart-money",
 			"tags": [
 				"feature"
 			]
