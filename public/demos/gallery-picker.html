@@ -253,7 +253,6 @@
 				firstPageDone: false,
 			};
 
-			const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 			const integer = new Intl.NumberFormat('en');
 
 			function esc(s) {
@@ -317,16 +316,12 @@
 					.map((t) => `<span class="card-tag">${esc(t)}</span>`)
 					.join('');
 
-				const views = Number(a.view_count) || 0;
-				const viewsLabel = views === 0 ? '0 views' : `${compact.format(views)} views`;
-
 				card.innerHTML = `
 					<div class="thumb">${thumb}</div>
 					<div class="card-body">
 						<h3 class="card-name">${esc(a.name || 'Untitled')}</h3>
 						${tagChips ? `<div class="card-tags">${tagChips}</div>` : ''}
 						<div class="card-meta">
-							<span>${viewsLabel}</span>
 							<span>${a.thumbnail_url ? '' : 'no thumb'}</span>
 						</div>
 					</div>
@@ -346,8 +341,7 @@
 
 				els.previewName.textContent = a.name || 'Untitled';
 				const tagBits = (a.tags || []).join(' · ') || 'three.ws public catalog';
-				const views = Number(a.view_count) || 0;
-				els.previewSub.textContent = `${tagBits} — ${compact.format(views)} view${views === 1 ? '' : 's'}`;
+				els.previewSub.textContent = tagBits;
 
 				// Render model-viewer fresh so each pick gets a clean load.
 				els.previewStage.innerHTML = '';
